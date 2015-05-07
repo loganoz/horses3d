@@ -1,13 +1,12 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      DG2DMainNS.f90
+!      DG3DMainNS.f90
 !      Created: 2007-10-22 11:36:38 -0400 
 !      By: David Kopriva
 
 !>     Compute the solution of a conservation law on a mapped domain using
-!!      a discontinuous Galerkin spectral element approxmation. This demo
-!!      computes the flow over a circular cylinder. 
+!!      a discontinuous Galerkin spectral element approxmation. 
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -21,7 +20,13 @@
          LOGICAL                    :: restart
          
       END MODULE ControlVariablesModule
-      
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!                                   MAIN
+!
+!////////////////////////////////////////////////////////////////////////
+!      
       PROGRAM DGSemMain
 !
 !     ------------
@@ -33,11 +38,11 @@
       USE TimeIntegratorClass
       USE PDEModule
       USE TransfiniteMapClass
-      USE TimerClass
       USE SharedBCModule
       USE BoundaryConditionFunctions
       USE PlotterClass
       USE ControlVariablesModule
+      USE FTTimerClass
       
       IMPLICIT NONE 
 !
@@ -56,13 +61,12 @@
 !     Timing
 !     ------
 !
-      TYPE( Timer ) :: stopWatch
+      TYPE( FTTimer ) :: stopWatch
 !
 !     ------------------
 !     External functions
 !     ------------------
 !
-            
       EXTERNAL                :: ExternalStateForBoundaryName, ExternalGradientForBoundaryName
       REAL(KIND=RP), EXTERNAL :: MaximumEigenvalue, EstimateMaximumEigenvalue
 !
@@ -84,7 +88,6 @@
          CALL SetInitialCondition( sem, UniformFlowState )
       END IF
       
-      CALL ConstructTimer( stopWatch )  
 !
 !     -------------------------------------------------------------
 !     Set up time integrator. With these arguments, the time
@@ -107,19 +110,18 @@
 !     Integrate in time
 !     -----------------
 !
-      CALL StartTimer( stopWatch )
+      CALL stopWatch % start()
          CALL Integrate( integrator, sem, cfl, thePlotter, &
                          ExternalStateForBoundaryName, ExternalGradientForBoundaryName )
-      CALL StopTimer( stopWatch )
+      CALL stopWatch % stop()
       PRINT *, "polynomial Order = ", N, CHAR(9), " # of steps = ", &
-               numberOfSteps, CHAR(9), "CPU Time (min.) = ", ElapsedTimeOnTimer( stopWatch, "minutes" )
+               numberOfSteps, CHAR(9), "CPU Time (min.) = ", stopWatch % elapsedTime(TC_MINUTES)
 !
 !     ---------
 !     Finish up
 !     ---------
 !
       CALL Destruct( integrator )
-      CALL DestructTimer( stopWatch )
 !
 !     --------------------------------
 !     Save results in the restart file
