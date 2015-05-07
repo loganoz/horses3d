@@ -70,6 +70,8 @@
       EXTERNAL                :: ExternalStateForBoundaryName, ExternalGradientForBoundaryName
       REAL(KIND=RP), EXTERNAL :: MaximumEigenvalue, EstimateMaximumEigenvalue
 !
+      CALL stopWatch % init()
+!
       CALL ReadInputFile(N, cfl, tol)
       CALL ConstructPhysicsStorage( mach, RE, 0.72_RP)
       riemannSolverChoice = ROE
@@ -115,7 +117,8 @@
                          ExternalStateForBoundaryName, ExternalGradientForBoundaryName )
       CALL stopWatch % stop()
       PRINT *, "polynomial Order = ", N, CHAR(9), " # of steps = ", &
-               numberOfSteps, CHAR(9), "CPU Time (min.) = ", stopWatch % elapsedTime(TC_MINUTES)
+               numberOfSteps, CHAR(9), "Wall Clock Time (min.) = ", stopWatch % elapsedTime(TC_MINUTES), &
+               "Total CPU Time(min.) = ", stopWatch % totalTime(TC_MINUTES)
 !
 !     ---------
 !     Finish up
@@ -264,14 +267,6 @@
          
          READ(5,'(A132)') inputLine
          RE = GetRealValue( inputLine )
-          
-!         READ(5,'(A132)') inputLine
-!         equationformName = GetStringValue( inputLine )
-!         IF ( INDEX(STRING = equationFormName, SUBSTRING = "kew") /= 0 )     THEN
-!            equationForm = SKEW_SYMMETRIC
-!         ELSE
-!            equationForm = DIVERGENCE 
-!         END IF 
 !
 !        ---------------------------------------------------------------------------
 !        We will store the type and values of the boundaries in dictionaries so that
