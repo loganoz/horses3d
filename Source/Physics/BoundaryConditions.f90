@@ -412,9 +412,8 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeBoundaryFlux( t, e, s, j, dgS, ExternalState )
+      SUBROUTINE ComputeBoundaryFlux( t, e, s, j, ExternalState )
       USE ElementClass
-      USE DGSolutionStorageClass
       IMPLICIT NONE
 !
 !     ---------
@@ -422,7 +421,6 @@
 !     ---------
 !
       TYPE(Element)           :: e
-      TYPE(DGSolutionStorage) :: dgS
       INTEGER                 :: s, j
       REAL(KIND=RP)           :: t
       EXTERNAL                :: ExternalState
@@ -434,19 +432,19 @@
       REAL(KIND=RP)                           :: bvExt(N_EQN), flux(N_EQN)
       CHARACTER(LEN=DICT_VALUE_STRING_LENGTH) :: boundaryType
             
-      bvExt  = dgS%Qb(:,j,s)
-      CALL ExternalState( e%geom%xb(1,j,s), e%geom%xb(2,j,s), t, &
-                          e%geom%normal(j,:,s), bvExt, e%boundaryName(s) )
+      bvExt  = e % Qb(:,j,s)
+      CALL ExternalState( e % geom % xb(1,j,s), e % geom % xb(2,j,s), t, &
+                          e % geom % normal(j,:,s), bvExt, e % boundaryName(s) )
       
-      CALL GetValue_ForKey_FromDict_(boundaryType, e%boundaryName(s), bcTypeDictionary)
+      CALL GetValue_ForKey_FromDict_(boundaryType, e % boundaryName(s), bcTypeDictionary)
       
       IF ( boundaryType == "OutflowSpecifyP" )     THEN
-         CALL PressureRiemannFlux(bvExt, e%geom%normal(j,:,s), flux )
+         CALL PressureRiemannFlux(bvExt, e % geom % normal(j,:,s), flux )
       ELSE
-         CALL RiemannSolver( dgS%Qb(:,j,s), bvExt, e%geom%normal(j,:,s), flux )
+         CALL RiemannSolver( e % Qb(:,j,s), bvExt, e % geom % normal(j,:,s), flux )
       END IF
 
-      dgS%FStarb(:,j,s) = flux*e%geom%scal(j,s)
+      e % FStarb(:,j,s) = flux*e % geom % scal(j,s)
 
       END SUBROUTINE ComputeBoundaryFlux
 !

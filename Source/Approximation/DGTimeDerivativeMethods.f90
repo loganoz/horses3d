@@ -14,12 +14,12 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE LocalTimeDerivative( t, spA, geom, dgS )
+      SUBROUTINE LocalTimeDerivative( t, spA, geom, e )
       
       USE Nodal2DStorageClass
-      USE DGSolutionStorageClass
       USE MappedGeometryClass
       USE PDEModule
+      USE ElementClass
       IMPLICIT NONE
 !
 !     -----------------
@@ -29,31 +29,31 @@
       REAL(KIND=RP)           :: t
       TYPE(Nodal2DStorage)    :: spA
       TYPE(MappedGeometry)    :: geom
-      TYPE(DGSolutionStorage) :: dgS
+      TYPE(Element)           :: e
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
       INTEGER                                         :: N, M
-      REAL(KIND=RP), DIMENSION(0:spA%N,0:spA%N,N_EQN) :: fFlux
-      REAL(KIND=RP), DIMENSION(0:spA%N,0:spA%N,N_EQN) :: gFlux
+      REAL(KIND=RP), DIMENSION(0:spA % N,0:spA % N,N_EQN) :: fFlux
+      REAL(KIND=RP), DIMENSION(0:spA % N,0:spA % N,N_EQN) :: gFlux
       
-      N = spA%N
-      M = spA%N
+      N = spA % N
+      M = spA % N
       
-      CALL ComputeContravariantFluxes( dgS%Q, geom, fFlux, gFlux, N )
+      CALL ComputeContravariantFluxes( e % Q, geom, fFlux, gFlux, N )
       IF ( flowIsNavierStokes )     THEN
-         CALL AddViscousContravariantFluxes( dgS, geom, fFlux, gFlux, N )
+         CALL AddViscousContravariantFluxes( e, geom, fFlux, gFlux, N )
       END IF
-      CALL ComputeDGDivergence( fFlux, gFlux, dgS%FStarb, geom%jacobian, &
-                              N, nEqn, spA%D, spA%b, dgS%Qdot) !QDot saves the divergence
+      CALL ComputeDGDivergence( fFlux, gFlux, e % FStarb, geom % jacobian, &
+                              N, nEqn, spA % D, spA % b, e % Qdot) !QDot saves the divergence
 !
 !     --------------------------------------------------------
 !     Finish up - move divergence to left side of the equation
 !     --------------------------------------------------------
 !
-      dgS%QDot = -dgS%QDot
+      e % QDot = -e % QDot
     
       END SUBROUTINE LocalTimeDerivative
 !
@@ -92,7 +92,7 @@
          DO i = 0, N 
             CALL xFlux( Q(i,j,:), ff )
             CALL yFlux( Q(i,j,:), gg )
-            fFlux(i,j,:) = geom%Y_eta(i,j)*ff - geom%X_eta(i,j)*gg
+            fFlux(i,j,:) = geom % Y_eta(i,j)*ff - geom % X_eta(i,j)*gg
          END DO
       END DO
 !
@@ -104,7 +104,7 @@
          DO i = 0, M 
             CALL xFlux( Q(i,j,:), ff )
             CALL yFlux( Q(i,j,:), gg )
-            gFlux(i,j,:) = -geom%Y_xi(i,j)*ff + geom%X_xi(i,j)*gg
+            gFlux(i,j,:) = -geom % Y_xi(i,j)*ff + geom % X_xi(i,j)*gg
          END DO
       END DO
     
@@ -112,11 +112,11 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE AddViscousContravariantFluxes( dgS, geom, fFlux, gFlux, N )
+      SUBROUTINE AddViscousContravariantFluxes( e, geom, fFlux, gFlux, N )
       
-      USE DGSolutionStorageClass
       USE MappedGeometryClass
       USE PDEModule
+      USE ElementClass
       IMPLICIT NONE
 !
 !     -----------------
@@ -124,7 +124,7 @@
 !     -----------------
 !
       INTEGER                                         :: N
-      TYPE(DGSolutionStorage)                         :: dgS
+      TYPE(Element)                                   :: e
       REAL(KIND=RP)       , DIMENSION(0:N,0:N, N_EQN) :: fFlux
       REAL(KIND=RP)       , DIMENSION(0:N,0:N, N_EQN) :: gFlux
       TYPE(MappedGeometry)                            :: geom
@@ -147,14 +147,14 @@
 !
       DO j = 0, M
          DO i = 0, N 
-            grad(1,:) = dgS%U_x(i,j,:)
-            grad(2,:) = dgS%U_y(i,j,:)
+            grad(1,:) = e % U_x(i,j,:)
+            grad(2,:) = e % U_y(i,j,:)
             
-            CALL xDiffusiveFlux( dgs%Q(i,j,:), grad, ff )
-            CALL yDiffusiveFlux( dgs%Q(i,j,:), grad, gg )
+            CALL xDiffusiveFlux( e % Q(i,j,:), grad, ff )
+            CALL yDiffusiveFlux( e % Q(i,j,:), grad, gg )
             
-            fFlux(i,j,:) =  fFlux(i,j,:) - ( geom%Y_eta(i,j)*ff - geom%X_eta(i,j)*gg )
-            gFlux(i,j,:) =  gFlux(i,j,:) - ( -geom%Y_xi(i,j)*ff + geom%X_xi(i,j) *gg )
+            fFlux(i,j,:) =  fFlux(i,j,:) - ( geom % Y_eta(i,j)*ff - geom % X_eta(i,j)*gg )
+            gFlux(i,j,:) =  gFlux(i,j,:) - ( -geom % Y_xi(i,j)*ff + geom % X_xi(i,j) *gg )
          END DO
       END DO
 !
@@ -167,28 +167,28 @@
        DO k = 1, 2
           indx = horizontalIndices(k)
           DO i = 0, N
-            grad(1,:) = dgS%U_xb(:,i,indx)
-            grad(2,:) = dgS%U_yb(:,i,indx)
+            grad(1,:) = e % U_xb(:,i,indx)
+            grad(2,:) = e % U_yb(:,i,indx)
             
-            CALL xDiffusiveFlux( dgS%Qb(:,i,indx), grad, ff )
-            CALL yDiffusiveFlux( dgS%Qb(:,i,indx), grad, gg )
+            CALL xDiffusiveFlux( e % Qb(:,i,indx), grad, ff )
+            CALL yDiffusiveFlux( e % Qb(:,i,indx), grad, gg )
             
-            dgS%FStarb(:,i,indx) = dgS%FStarb(:,i,indx) - &
-                                   (ff*geom%normal(i,1,indx) + gg*geom%normal(i,2,indx))*geom%scal(i,indx)
+            e % FStarb(:,i,indx) = e % FStarb(:,i,indx) - &
+                                   (ff*geom % normal(i,1,indx) + gg*geom % normal(i,2,indx))*geom % scal(i,indx)
           END DO
        END DO
        
        DO k = 1, 2
           indx = verticalIndices(k)
           DO j = 0, N
-            grad(1,:) = dgS%U_xb(:,j,indx)
-            grad(2,:) = dgS%U_yb(:,j,indx)
+            grad(1,:) = e % U_xb(:,j,indx)
+            grad(2,:) = e % U_yb(:,j,indx)
             
-            CALL xDiffusiveFlux( dgS%Qb(:,j,indx), grad, ff )
-            CALL yDiffusiveFlux( dgS%Qb(:,j,indx), grad, gg )
+            CALL xDiffusiveFlux( e % Qb(:,j,indx), grad, ff )
+            CALL yDiffusiveFlux( e % Qb(:,j,indx), grad, gg )
             
-            dgS%FStarb(:,j,indx) = dgS%FStarb(:,j,indx) - &
-                                   (ff*geom%normal(j,1,indx) + gg*geom%normal(j,2,indx))*geom%scal(j,indx)
+            e % FStarb(:,j,indx) = e % FStarb(:,j,indx) - &
+                                   (ff*geom % normal(j,1,indx) + gg*geom % normal(j,2,indx))*geom % scal(j,indx)
           END DO
        END DO
     
@@ -230,17 +230,17 @@
 !            
       MaximumEigenvalue = 0.0_RP
       
-      DO k = 1, SIZE(sem%mesh%elements)
-         DO j = 1, sem%spA%N
-            dEta = sem%spA%eta(j) - sem%spA%eta(j-1)
-            DO i = 1, sem%spA%N 
-               dXi = sem%spA%xi(i) - sem%spA%xi(i-1)
+      DO k = 1, SIZE(sem % mesh % elements)
+         DO j = 1, sem % spA % N
+            dEta = sem % spA % eta(j) - sem % spA % eta(j-1)
+            DO i = 1, sem % spA % N 
+               dXi = sem % spA % xi(i) - sem % spA % xi(i-1)
                
-               CALL ComputeEigenvalues( sem%dgS(k)%Q(i,j,:), eValues )
+               CALL ComputeEigenvalues( sem % mesh % elements(k) % Q(i,j,:), eValues )
                
-               dx = (dXi*sem%mesh%elements(k)%geom%X_xi(i,j))**2 + (dEta*sem%mesh%elements(k)%geom%X_eta(i,j))**2
+               dx = (dXi*sem % mesh % elements(k) % geom % X_xi(i,j))**2 + (dEta*sem % mesh % elements(k) % geom % X_eta(i,j))**2
                dx = SQRT(dx)
-               dy = (dXi*sem%mesh%elements(k)%geom%Y_xi(i,j))**2 + (dEta*sem%mesh%elements(k)%geom%Y_eta(i,j))**2
+               dy = (dXi*sem % mesh % elements(k) % geom % Y_xi(i,j))**2 + (dEta*sem % mesh % elements(k) % geom % Y_eta(i,j))**2
                dy = SQRT(dy)
                
                lambdaX = ABS(eValues(1)/dx)
@@ -291,14 +291,14 @@
          CALL ComputeTimeDerivative( sem, 0.0_RP, ExternalState, ExternalGradients )
          ev   = 0.0_RP
          norm = 0.0_RP
-         DO eID = 1, SIZE(sem%mesh%elements)
-            ev   = MAX(ev,MAXVAL(ABS(sem%dgS(eID)%QDot)))
-            norm = MAX(norm,MAXVAL(ABS(sem%dgS(eID)%Q)))
+         DO eID = 1, SIZE(sem % mesh % elements)
+            ev   = MAX(ev  ,MAXVAL(ABS(sem % mesh % elements(eID) % QDot)))
+            norm = MAX(norm,MAXVAL(ABS(sem % mesh % elements(eID) % Q)))
          END DO
 
          ev = ev/norm
-         DO eID = 1, SIZE(sem%mesh%elements)
-            sem%dgS(eID)%Q = sem%dgS(eID)%QDot/norm
+         DO eID = 1, SIZE(sem % mesh % elements)
+            sem % mesh % elements(eID) % Q = sem % mesh % elements(eID) % QDot/norm
          END DO 
          PRINT *, k, ev
       END DO

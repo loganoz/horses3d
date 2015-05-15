@@ -12,26 +12,25 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ProlongToFaces( spA, geom, dgS )
+      SUBROUTINE ProlongToFaces( e, spA )
 !
 !     -------------------------------------
 !     Prolong the solution Q onto the faces
 !     -------------------------------------
 !
          USE Nodal2DStorageClass
-         USE DGSolutionStorageClass
          USE MappedGeometryClass
+         USE ElementClass
          IMPLICIT NONE
          
          TYPE(Nodal2DStorage)    :: spA
-         TYPE(MappedGeometry)    :: geom
-         TYPE(DGSolutionStorage) :: dgS
+         TYPE(Element)           :: e
          
          INTEGER :: nEqn, N, M, i, j, k
          
-         nEqn = dgS%nEqn
-         N = spA%N
-         M = N
+         nEqn = SIZE(e%Q,3)
+         N    = spA%N
+         M    = N
 !
 !        --------------
 !        Left and right
@@ -39,8 +38,8 @@
 !
          DO j = 0, M 
             DO k = 1, nEqn 
-               CALL InterpolateToBoundary( dgS%Q(:,j,k), spA%v(:,LEFT) , N, dgS%Qb(k,j,ELEFT) )
-               CALL InterpolateToBoundary( dgS%Q(:,j,k), spA%v(:,RIGHT), N, dgS%Qb(k,j,ERIGHT))
+               CALL InterpolateToBoundary( e%Q(:,j,k), spA%v(:,LEFT) , N, e%Qb(k,j,ELEFT) )
+               CALL InterpolateToBoundary( e%Q(:,j,k), spA%v(:,RIGHT), N, e%Qb(k,j,ERIGHT))
             END DO
          END DO
 !
@@ -50,8 +49,8 @@
 !
          DO i = 0, N 
             DO k = 1, nEqn 
-               CALL InterpolateToBoundary( dgS%Q(i,:,k), spA%v(:,BOTTOM), M, dgS%Qb(k,i,EBOTTOM) )
-               CALL InterpolateToBoundary( dgS%Q(i,:,k), spA%v(:,TOP)   , M, dgS%Qb(k,i,ETOP) )
+               CALL InterpolateToBoundary( e%Q(i,:,k), spA%v(:,BOTTOM), M, e%Qb(k,i,EBOTTOM) )
+               CALL InterpolateToBoundary( e%Q(i,:,k), spA%v(:,TOP)   , M, e%Qb(k,i,ETOP) )
             END DO
          END DO
          
@@ -59,7 +58,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ProlongGradientToFaces( spA, geom, dgS )
+      SUBROUTINE ProlongGradientToFaces( e, spA, geom )
 !
 !     -----------------------------------------
 !     Prolong the graident gradU onto the faces
@@ -67,20 +66,20 @@
 !     -----------------------------------------
 !
          USE Nodal2DStorageClass
-         USE DGSolutionStorageClass
          USE MappedGeometryClass
+         USE ElementClass
          USE PhysicsStorage, ONLY: N_GRAD_EQN
          IMPLICIT NONE
          
          TYPE(Nodal2DStorage)    :: spA
          TYPE(MappedGeometry)    :: geom
-         TYPE(DGSolutionStorage) :: dgS
+         TYPE(Element)           :: e
          
          INTEGER :: nEqn, N, M, i, j, k
          
-         nEqn = dgS%nEqn
-         N = spA%N
-         M = N
+         nEqn = SIZE(e%Q,3)
+         N    = spA%N
+         M    = N
 !
 !        --------------
 !        Left and right
@@ -88,10 +87,10 @@
 !
          DO j = 0, M 
             DO k = 1, N_GRAD_EQN 
-               CALL InterpolateToBoundary( dgS%U_x(:,j,k), spA%v(:,LEFT) , N, dgS%U_xb(k,j,ELEFT) )
-               CALL InterpolateToBoundary( dgS%U_x(:,j,k), spA%v(:,RIGHT), N, dgS%U_xb(k,j,ERIGHT))
-               CALL InterpolateToBoundary( dgS%U_y(:,j,k), spA%v(:,LEFT) , N, dgS%U_yb(k,j,ELEFT) )
-               CALL InterpolateToBoundary( dgS%U_y(:,j,k), spA%v(:,RIGHT), N, dgS%U_yb(k,j,ERIGHT))
+               CALL InterpolateToBoundary( e%U_x(:,j,k), spA%v(:,LEFT) , N, e%U_xb(k,j,ELEFT) )
+               CALL InterpolateToBoundary( e%U_x(:,j,k), spA%v(:,RIGHT), N, e%U_xb(k,j,ERIGHT))
+               CALL InterpolateToBoundary( e%U_y(:,j,k), spA%v(:,LEFT) , N, e%U_yb(k,j,ELEFT) )
+               CALL InterpolateToBoundary( e%U_y(:,j,k), spA%v(:,RIGHT), N, e%U_yb(k,j,ERIGHT))
             END DO
          END DO
 !
@@ -101,10 +100,10 @@
 !
          DO i = 0, N 
             DO k = 1, N_GRAD_EQN
-               CALL InterpolateToBoundary( dgS%U_x(i,:,k), spA%v(:,BOTTOM), M, dgS%U_xb(k,i,EBOTTOM) )
-               CALL InterpolateToBoundary( dgS%U_x(i,:,k), spA%v(:,TOP)   , M, dgS%U_xb(k,i,ETOP) )
-               CALL InterpolateToBoundary( dgS%U_y(i,:,k), spA%v(:,BOTTOM), M, dgS%U_yb(k,i,EBOTTOM) )
-               CALL InterpolateToBoundary( dgS%U_y(i,:,k), spA%v(:,TOP)   , M, dgS%U_yb(k,i,ETOP) )
+               CALL InterpolateToBoundary( e%U_x(i,:,k), spA%v(:,BOTTOM), M, e%U_xb(k,i,EBOTTOM) )
+               CALL InterpolateToBoundary( e%U_x(i,:,k), spA%v(:,TOP)   , M, e%U_xb(k,i,ETOP) )
+               CALL InterpolateToBoundary( e%U_y(i,:,k), spA%v(:,BOTTOM), M, e%U_yb(k,i,EBOTTOM) )
+               CALL InterpolateToBoundary( e%U_y(i,:,k), spA%v(:,TOP)   , M, e%U_yb(k,i,ETOP) )
             END DO
          END DO
          

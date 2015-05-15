@@ -48,10 +48,10 @@
          IMPLICIT NONE 
          TYPE(Plotter) :: this
          INTEGER       :: fUnit
-         this%interpolate = .false.
-         this%fUnit       = fUnit
-         this%newN        = 0
-         this%newM        = 0
+         this % interpolate = .false.
+         this % fUnit       = fUnit
+         this % newN        = 0
+         this % newM        = 0
       END SUBROUTINE ConstructPlotter
 !
 !////////////////////////////////////////////////////////////////////////
@@ -61,10 +61,10 @@
          TYPE(Plotter) :: this
          INTEGER       :: fUnit
          INTEGER       :: newN, newM
-         this%interpolate = .true.
-         this%fUnit       = fUnit
-         this%newN        = newN
-         this%newM        = newM
+         this % interpolate = .true.
+         this % fUnit       = fUnit
+         this % newN        = newN
+         this % newM        = newM
       END SUBROUTINE ConstructInterpolatingPlotter
 !
 !////////////////////////////////////////////////////////////////////////
@@ -76,8 +76,8 @@
          TYPE(DGSem)             :: sem
          INTEGER                 :: N
          
-         IF(this%interpolate)     THEN
-            N     = SIZE(sem%dgS(1)%Q,1) - 1
+         IF(this % interpolate)     THEN
+            N     = SIZE(sem % mesh % elements(1) % Q,1) - 1
             CALL ExportToTecplotI( this, N, sem )
          ELSE
             CALL ExportToTecplotNoI( this, sem )
@@ -109,19 +109,19 @@
          ALLOCATE( outputVector(nPltVars) )
          fmtString = FormatString()
          
-         WRITE(this%fUnit,*) Title()
-         WRITE(this%fUnit,*) OutputVariableNames()
+         WRITE(this % fUnit,*) Title()
+         WRITE(this % fUnit,*) OutputVariableNames()
          
-         N       = SIZE(sem%dgS(1)%Q,1)
+         N       = SIZE(sem % mesh % elements(1) % Q,1)
          
-         DO k = 1, SIZE(sem%mesh%elements) 
-            WRITE(this%fUnit,*) "ZONE I=", N+1, ",J=",N+1,", F=POINT"
+         DO k = 1, SIZE(sem % mesh % elements) 
+            WRITE(this % fUnit,*) "ZONE I=", N+1, ",J=",N+1,", F=POINT"
             DO j= 0, N 
                DO i = 0, N
-                  CALL OutputVectorFromStateVector( outputVector, sem%dgS(k)%Q(i,j,:) )
+                  CALL OutputVectorFromStateVector( outputVector, sem % mesh % elements(k) % Q(i,j,:) )
                   
-                  WRITE(this%fUnit,fmtString) sem%mesh%elements(k)%geom%x(i,j), &
-                                              sem%mesh%elements(k)%geom%y(i,j), &
+                  WRITE(this % fUnit,fmtString) sem % mesh % elements(k) % geom % x(i,j), &
+                                              sem % mesh % elements(k) % geom % y(i,j), &
                                               (outputVector(l), l = 1, nPltVars)
                END DO
             END DO
@@ -148,7 +148,7 @@
       INTEGER        :: fUnit
       INTEGER        :: newN, newM, nPltVars
       INTEGER        :: i, j, k, l
-      REAL(KIND=RP), DIMENSION(0:this%newN, 0:this%newM ,2) :: fineMesh
+      REAL(KIND=RP), DIMENSION(0:this % newN, 0:this % newM ,2) :: fineMesh
       REAL(KIND=RP), DIMENSION(:,:,:), ALLOCATABLE          :: fineMeshSolution
       CHARACTER(LEN=32)                                     :: valuesFmt
 !
@@ -156,18 +156,18 @@
 !     Interpolation quantities
 !     ------------------------
 !
-      REAL(KIND=RP), DIMENSION(0:this%newN,0:N) :: interpMatX
-      REAL(KIND=RP), DIMENSION(0:this%newM,0:N) :: interpMatY
+      REAL(KIND=RP), DIMENSION(0:this % newN,0:N) :: interpMatX
+      REAL(KIND=RP), DIMENSION(0:this % newM,0:N) :: interpMatY
       REAL(KIND=RP), DIMENSION(0:N)             :: wx, wy
-      REAL(KIND=RP), DIMENSION(0:this%newN)     :: newNodesX
-      REAL(KIND=RP), DIMENSION(0:this%newM)     :: newNodesY
+      REAL(KIND=RP), DIMENSION(0:this % newN)     :: newNodesX
+      REAL(KIND=RP), DIMENSION(0:this % newM)     :: newNodesY
       REAL(KIND=RP)                             :: dx, dy
 !
-      newN     = this%newN
-      newM     = this%newM
-      fUnit    = this%fUnit
+      newN     = this % newN
+      newM     = this % newM
+      fUnit    = this % fUnit
       nPltVars = NumberOfOutputVariables()
-      ALLOCATE( fineMeshSolution(0:this%newN, 0:this%newM, nPltVars))
+      ALLOCATE( fineMeshSolution(0:this % newN, 0:this % newM, nPltVars))
 !
 !     --------------------
 !     Set up interpolation
@@ -177,15 +177,15 @@
       DO i = 0, newN 
          newNodesX(i) = -1.0_RP + i*dx
       END DO
-      CALL BarycentricWeights( N, sem%spA%xi, wx )
-      CALL PolynomialInterpolationMatrix( N, newN, sem%spA%xi, wx, newNodesX, interpMatX)
+      CALL BarycentricWeights( N, sem % spA % xi, wx )
+      CALL PolynomialInterpolationMatrix( N, newN, sem % spA % xi, wx, newNodesX, interpMatX)
 !
       dy = 2.0_RP/newM
       DO j = 0, newM 
          newNodesY(j) = -1.0_RP + j*dy
       END DO
-      CALL BarycentricWeights( N, sem%spA%xi, wy )
-      CALL PolynomialInterpolationMatrix( N, newM, sem%spA%xi, wy, newNodesY, interpMatY)
+      CALL BarycentricWeights( N, sem % spA % xi, wy )
+      CALL PolynomialInterpolationMatrix( N, newM, sem % spA % xi, wy, newNodesY, interpMatY)
 !
 !     ----------------------------------
 !     Interpolate and output the results
@@ -196,7 +196,7 @@
       
       valuesFMT = FormatString()
       
-      DO k = 1, SIZE(sem%mesh%elements) 
+      DO k = 1, SIZE(sem % mesh % elements) 
       
          WRITE(fUnit,*) "ZONE I=", newN+1, ",J=",newM+1,", F=POINT"
 !
@@ -263,8 +263,8 @@
 !     ------------------
 !
       DO j = 0, oldN
-         CALL InterpolateToNewPoints( oldN, N, interpMatX, this%mesh%elements(ID)%geom%x(:,j), xTmp(:,j) )
-         CALL InterpolateToNewPoints( oldN, N, interpMatX, this%mesh%elements(ID)%geom%y(:,j), yTmp(:,j) )
+         CALL InterpolateToNewPoints( oldN, N, interpMatX, this % mesh % elements(ID) % geom % x(:,j), xTmp(:,j) )
+         CALL InterpolateToNewPoints( oldN, N, interpMatX, this % mesh % elements(ID) % geom % y(:,j), yTmp(:,j) )
       END DO
       
       DO i = 0, N 
@@ -284,7 +284,7 @@
       ALLOCATE( valuesToInterpolate(0:oldN,0:oldN, nPlotValues))
       DO j = 0, oldN
          DO i = 0, oldN
-            CALL OutputVectorFromStateVector( valuesToInterpolate(i,j,:), this%dgS(id)%Q(i,j,:) )
+            CALL OutputVectorFromStateVector( valuesToInterpolate(i,j,:), this % mesh % elements(id) % Q(i,j,:) )
          END DO
       END DO
 !

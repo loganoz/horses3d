@@ -51,13 +51,13 @@
 !        Compute time step and set values for time accurate computation
 !        --------------------------------------------------------------
 !
-         this%tFinal         = finalTime
-         this%tStart         = startTime
-         this%numTimeSteps   = numberOfSteps
-         this%dt             = (this%tFinal - this%tStart)/numberOfSteps
-         this%plotInterval   = plotInterval
-         this%integratorType = TIME_ACCURATE
-         this%tolerance      = 1.d-11
+         this % tFinal         = finalTime
+         this % tStart         = startTime
+         this % numTimeSteps   = numberOfSteps
+         this % dt             = (this % tFinal - this % tStart)/numberOfSteps
+         this % plotInterval   = plotInterval
+         this % integratorType = TIME_ACCURATE
+         this % tolerance      = 1.d-11
       
       END FUNCTION NewAccurateTimeIntegrator
 !
@@ -72,11 +72,11 @@
 !        Compute time step and set values for a steady-state computation
 !        ---------------------------------------------------------------
 !
-         this%numTimeSteps   = numberOfSteps
-         this%dt             = dt
-         this%plotInterval   = plotInterval
-         this%integratorType = STEADY_STATE
-         this%tolerance      = 1.d-11
+         this % numTimeSteps   = numberOfSteps
+         this % dt             = dt
+         this % plotInterval   = plotInterval
+         this % integratorType = STEADY_STATE
+         this % tolerance      = 1.d-11
       
       END FUNCTION NewSteadyTimeIntegrator
 !
@@ -84,10 +84,10 @@
 !
       SUBROUTINE DestructTimeIntegrator( this ) 
          TYPE(TimeIntegrator) :: this
-         this%tFinal       = 0.0_RP
-         this%tStart       = 0.0_RP
-         this%numTimeSteps = 0
-         this%dt           = 0.0_RP
+         this % tFinal       = 0.0_RP
+         this % tStart       = 0.0_RP
+         this % numTimeSteps = 0
+         this % dt           = 0.0_RP
       END SUBROUTINE DestructTimeIntegrator
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
@@ -95,7 +95,7 @@
       SUBROUTINE SetIterationTolerance( this, tol ) 
          TYPE(TimeIntegrator) :: this
          REAL(KIND=RP)        :: tol
-         this%tolerance = tol
+         this % tolerance = tol
       END SUBROUTINE SetIterationTolerance
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
@@ -133,20 +133,20 @@
 !     -----------------
 !
       mNumber = 0
-      DO k = 0, this%numTimeSteps-1
-         IF ( this%integratorType == STEADY_STATE ) THEN
-            this%dt = MaxTimeStep( sem, cfl )
+      DO k = 0, this % numTimeSteps-1
+         IF ( this % integratorType == STEADY_STATE ) THEN
+            this % dt = MaxTimeStep( sem, cfl )
          END IF
 
-         t = this%tStart + k*this%dt
-         CALL TakeRK3Step( sem, t, this%dt, ExternalState, ExternalGradients, maxResidual )
-         IF( this%integratorType == STEADY_STATE .AND. maxResidual <= this%tolerance )     THEN
+         t = this % tStart + k*this % dt
+         CALL TakeRK3Step( sem, t, this % dt, ExternalState, ExternalGradients, maxResidual )
+         IF( this % integratorType == STEADY_STATE .AND. maxResidual <= this % tolerance )     THEN
             PRINT *, "Residual tolerance reached. Residual = ", maxResidual
             RETURN
          END IF
 
-         IF( MOD( k+1, this%plotInterval) == 0 )     THEN
-            IF ( this%integratorType == STEADY_STATE )     THEN
+         IF( MOD( k+1, this % plotInterval) == 0 )     THEN
+            IF ( this % integratorType == STEADY_STATE )     THEN
                PRINT *, k, CHAR(9), LOG10(maxResidual)
             ELSE
                mNumber = mNumber + 1
@@ -158,9 +158,9 @@
                   fName(8:8) = numChar(2:2)
                END IF
                PRINT *, fName
-               OPEN(UNIT=thePlotter%fUnit, FILE = fName)                           
+               OPEN(UNIT=thePlotter % fUnit, FILE = fName)                           
                   CALL ExportToTecplot( thePlotter, sem )               
-               CLOSE(thePlotter%fUnit)
+               CLOSE(thePlotter % fUnit)
             END IF
         END IF
       END DO
@@ -207,16 +207,15 @@
 !
          IF ( k == 1 )     THEN
             maxResidual = 0.0_RP
-            DO id = 1, SIZE( sem%mesh%elements )
-               localMaxResidual = MAXVAL(ABS(sem%dgS(id)%QDot))
+            DO id = 1, SIZE( sem % mesh % elements )
+               localMaxResidual = MAXVAL(ABS(sem % mesh % elements(id) % QDot))
                maxResidual = MAX(maxResidual,localMaxResidual)
             END DO
          END IF
 !$omp parallel do
-         DO id = 1, SIZE( sem%mesh%elements )
-            sem%dgS(id)%G = a(k)*sem%dgS(id)%G  +             sem%dgS(id)%QDot
-            sem%dgS(id)%Q =      sem%dgS(id)%Q  + c(k)*deltaT*sem%dgS(id)%G
-            !maxResidual = MAX( MAXVAL(ABS(sem%dgS(id)%QDot)), maxResidual)
+         DO id = 1, SIZE( sem % mesh % elements )
+            sem % mesh % elements(id) % G = a(k)*sem % mesh % elements(id) % G  +             sem % mesh % elements(id) % QDot
+            sem % mesh % elements(id) % Q =       sem % mesh % elements(id) % Q  + c(k)*deltaT*sem % mesh % elements(id) % G
          END DO
 !$omp end parallel do
       END DO

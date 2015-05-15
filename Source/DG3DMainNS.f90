@@ -70,7 +70,7 @@
       EXTERNAL                :: ExternalStateForBoundaryName, ExternalGradientForBoundaryName
       REAL(KIND=RP), EXTERNAL :: MaximumEigenvalue, EstimateMaximumEigenvalue
 !
-      CALL stopWatch % init()
+      CALL stopWatch  %  init()
 !
       CALL ReadInputFile(N, cfl, tol)
       CALL ConstructPhysicsStorage( mach, RE, 0.72_RP)
@@ -112,13 +112,13 @@
 !     Integrate in time
 !     -----------------
 !
-      CALL stopWatch % start()
+      CALL stopWatch  %  start()
          CALL Integrate( integrator, sem, cfl, thePlotter, &
                          ExternalStateForBoundaryName, ExternalGradientForBoundaryName )
-      CALL stopWatch % stop()
+      CALL stopWatch  %  stop()
       PRINT *, "polynomial Order = ", N, CHAR(9), " # of steps = ", &
-               numberOfSteps, CHAR(9), "Wall Clock Time (min.) = ", stopWatch % elapsedTime(TC_MINUTES), &
-               "Total CPU Time(min.) = ", stopWatch % totalTime(TC_MINUTES)
+               numberOfSteps, CHAR(9), "Wall Clock Time (min.) = ", stopWatch  %  elapsedTime(TC_MINUTES), &
+               "Total CPU Time(min.) = ", stopWatch  %  totalTime(TC_MINUTES)
 !
 !     ---------
 !     Finish up
@@ -164,14 +164,14 @@
                   
          INTEGER     :: i, j, eID, k
          
-         k = sem%spA%N/2
+         k = sem % spA % N/2
          
-         DO eID = 1, SIZE(sem%mesh%elements)
-            DO j = 0, sem%spA%N
-               DO i = 0, sem%spA%N 
-                  CALL solution( sem%mesh%elements(eID)%geom%x(i,j), &
-                                 sem%mesh%elements(eID)%geom%y(i,j), 0.0_RP, &
-                                 sem%dgS(eID)%Q(i,j,1:nEqn) )
+         DO eID = 1, SIZE(sem % mesh % elements)
+            DO j = 0, sem % spA % N
+               DO i = 0, sem % spA % N 
+                  CALL solution( sem % mesh % elements(eID) % geom % x(i,j), &
+                                 sem % mesh % elements(eID) % geom % y(i,j), 0.0_RP, &
+                                 sem % mesh % elements(eID) % Q(i,j,1:nEqn) )
                END DO
             END DO
          END DO 

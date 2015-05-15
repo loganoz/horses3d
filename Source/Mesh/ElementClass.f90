@@ -16,6 +16,8 @@
 !       One will associate boundary conditions to boundaries in the routine
 !       "ExternalState".
 !
+!       Modified 2D Code to move solution into element class. 5/14/15, 5:36 PM
+!
 !////////////////////////////////////////////////////////////////////////
 !
       Module ElementClass
@@ -29,11 +31,20 @@
       
       
       TYPE Element
-          INTEGER                         :: nodeIDs(4)
-          INTEGER                         :: N
-          TYPE(MappedGeometry)            :: geom
-          CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName(4)
-      END TYPE Element
+          INTEGER                                      :: nodeIDs(4)
+          INTEGER                                      :: N
+          TYPE(MappedGeometry)                         :: geom
+          REAL(KIND=RP), DIMENSION(:,:,:), ALLOCATABLE :: Q, QDot, G
+          REAL(KIND=RP), DIMENSION(:,:,:), ALLOCATABLE :: U_x, U_y
+!
+!         -------------------------------------------------------------
+!         Boundary values of: The solution, the inviscid Riemann flux, 
+!         the viscous riemann flux
+!         -------------------------------------------------------------
+!
+          REAL(KIND=RP), DIMENSION(:,:,:), ALLOCATABLE :: Qb, Ub, U_xb, U_yb, FStarb
+          CHARACTER(LEN=BC_STRING_LENGTH)              :: boundaryName(4)
+      END TYPE Element 
       
       INTEGER, PARAMETER :: edgeMap(2,4) = RESHAPE( (/1,2,2,3,4,3,1,4/), (/2,4/) )
       
@@ -46,22 +57,76 @@
          IMPLICIT NONE
          
          TYPE(Element)            :: this
-         INTEGER                  :: nodeIDs(4)
-!
-!        --------------------------------------------------------------------------
-!        Rem: To avoid interpolating the geometry later in the plotting stage, save
-!        the quadMap as part of the element class and use it in the plotter.
-!        --------------------------------------------------------------------------
-!
-         TYPE(TransfiniteQuadMap) :: quadMap
          TYPE(Nodal2DStorage)     :: ng
+         INTEGER                  :: nodeIDs(4)
+         TYPE(TransfiniteQuadMap) :: quadMap
+         INTEGER                  :: N
          
          this%nodeIDs      = nodeIDs
          this%N            = ng%N
+         N                 = ng%N 
          this%boundaryName = "---"
+!
+!        --------
+!        Geometry
+!        --------
+!
          CALL ConstructMappedGeometry( this%geom, ng, this%N, this%N, quadMap )
+!
+!        ----------------------------------------
+!        Solution Storage is allocated separately
+!        ----------------------------------------
+!
          
       END SUBROUTINE ConstructElement
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE allocateElementStorage(this, N, nEqn, nGradEqn, flowIsNavierStokes)  
+         IMPLICIT NONE
+         TYPE(Element) :: this
+         INTEGER       :: N, nEqn, nGradEqn
+         LOGICAL       :: flowIsNavierStokes
+!
+!        --------------------------------------
+!        Solution and time derivative variables
+!        --------------------------------------
+!
+         ALLOCATE( this%Q(0:N,0:N,nEqn), this%QDot(0:N,0:N,nEqn), this%G(0:N,0:N,nEqn) )
+         IF ( flowIsNavierStokes )     THEN
+            ALLOCATE( this%U_x(0:N,0:N,nGradEqn), this%U_y(0:N,0:N,nGradEqn) )
+         END IF
+!
+!        ---------------
+!        Boundary values
+!        ---------------
+!
+         ALLOCATE( this%Qb(nEqn,0:N,4) )
+         IF ( flowIsNavierStokes )     THEN
+            ALLOCATE( this%U_xb(nGradEqn,0:N,4), this%U_yb(nGradEqn,0:N,4) )
+            ALLOCATE( this%Ub(nGradEqn,0:N,4) )
+         END IF
+   
+         ALLOCATE( this%FStarb(nEqn,0:N,4) )
+!
+!        -----------------
+!        Initialize memory
+!        -----------------
+!
+         this%G           = 0.0_RP
+         this%Q           = 0.0_RP
+         this%QDot        = 0.0_RP
+         this%Qb          = 0.0_RP
+      
+         IF ( flowIsNavierStokes )     THEN
+            this%Ub          = 0.0_RP
+            this%U_x         = 0.0_RP
+            this%U_y         = 0.0_RP
+            this%U_xb        = 0.0_RP
+            this%U_yb        = 0.0_RP
+         END IF
+
+      END SUBROUTINE allocateElementStorage
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -77,7 +142,16 @@
       SUBROUTINE DestructElement( this )
          IMPLICIT NONE
          TYPE(Element) :: this
+         
          CALL DestructMappedGeometry( this%geom )
+         
+         DEALLOCATE( this%Q, this%QDot, this%G )
+         DEALLOCATE( this%Qb, this%FStarb )
+         
+         IF ( ALLOCATED(this%Ub) )     THEN
+            DEALLOCATE( this%Ub, this%U_x, this%U_y, this%U_xb, this%U_yb )
+         END IF
+
       END SUBROUTINE DestructElement
 !
 !////////////////////////////////////////////////////////////////////////
@@ -88,5 +162,38 @@
          INTEGER      :: id
          PRINT *, id, this%nodeIDs, this%boundaryName
       END SUBROUTINE PrintElement
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE SaveSolutionStorageToUnit( this, fUnit )
+         IMPLICIT NONE
+!
+!        -----------------------
+!        Save for a restart file
+!        -----------------------
+!
+         TYPE(Element) :: this
+         INTEGER       :: fUnit
+         
+         WRITE(funit) this%Q
+      
+      END SUBROUTINE SaveSolutionStorageToUnit
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE LoadSolutionFromUnit( this, fUnit )
+         IMPLICIT NONE
+!
+!        -----------------------
+!        Save for a restart file
+!        -----------------------
+!
+         TYPE(Element) :: this
+         INTEGER       :: fUnit
+         
+         READ(funit) this%Q
+      
+      END SUBROUTINE LoadSolutionFromUnit
       
       END Module ElementClass
+
