@@ -267,6 +267,9 @@
          
          READ(5,'(A132)') inputLine
          RE = GetRealValue( inputLine )
+         
+         READ(5,'(A132)') inputLine
+         AOA = GetRealValue( inputLine )         
 !
 !        ---------------------------------------------------------------------------
 !        We will store the type and values of the boundaries in dictionaries so that

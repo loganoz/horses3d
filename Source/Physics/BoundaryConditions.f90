@@ -62,6 +62,7 @@
          USE SMConstants
          USE PDEModule
          USE SharedBCModule
+         USE PhysicsStorage, ONLY : AOA
       
       CONTAINS 
 !
@@ -302,9 +303,10 @@
       REAL(KIND=RP) :: x, y, t
       REAL(KIND=RP) :: Q(N_EQN)
       
-      REAL(KIND=RP) :: theta = 0.0_RP, qq
+      REAL(KIND=RP) :: theta, qq
       REAL(KIND=RP) :: u, v, p
       
+      theta = AOA*(PI/180.0_RP)
       qq = 1.0_RP
       u  = qq*cos(theta)
       v  = qq*sin(theta)
