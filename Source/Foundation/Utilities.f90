@@ -51,3 +51,34 @@
       END IF
 
       END FUNCTION AlmostEqual
+
+!
+! /////////////////////////////////////////////////////////////////////
+!
+!     ----------------------------------------------------------------
+!>    This subroutine returns an unused
+!!    unit number. It is assumed that the unit number will be used
+!!    immediately after it is assigned. It is also assumed that the
+!!    compiler has access to units 1-99. The function returns "0"
+!!    if it cannot find an unused unit number.
+!     ----------------------------------------------------------------
+!
+      INTEGER FUNCTION UnusedUnit()
+!
+         IMPLICIT NONE
+         INTEGER :: j
+         LOGICAL :: unitIsOpened, unitDoesExist
+         
+         UnusedUnit = 0
+         DO j = 1, 99
+           INQUIRE( UNIT = j, OPENED = unitIsOpened, EXIST = unitDoesExist )
+           IF ( .NOT.unitIsOpened ) EXIT
+         END DO
+         
+         IF (  j <= 99 .AND. unitDoesExist )     THEN
+            UnusedUnit = j
+         ELSE
+            UnusedUnit = 0
+         END IF
+!
+      END FUNCTION UnusedUnit
