@@ -14,32 +14,35 @@
 Module MappedGeometryClass 
    USE SMConstants
    USE TransfiniteMapClass
-   USE Nodal2DStorageClass
+   USE NodalStorageClass
    IMPLICIT NONE
 !
 !     ---------
 !     Constants
 !     ---------
 !
-      INTEGER, PARAMETER :: LEFT = 1, RIGHT = 2, TOP = 2, BOTTOM = 1
-      INTEGER, PARAMETER :: ELEFT = 4, ERIGHT = 2, ETOP = 3, EBOTTOM = 1
+      INTEGER, PARAMETER :: LEFT   = 1, RIGHT  = 2, TOP  = 2, BOTTOM  = 1
+      INTEGER, PARAMETER :: FRONT  = 1, BACK   = 2
+      INTEGER, PARAMETER :: ELEFT  = 6, ERIGHT = 4, ETOP = 5, EBOTTOM = 3
+      INTEGER, PARAMETER :: EFRONT = 1, EBACK  = 2 
 !
 !     -----
 !     Class
 !     -----
 !
       TYPE MappedGeometry
-            INTEGER                                       :: N, M
-            REAL(KIND=RP), DIMENSION(:,:)   , ALLOCATABLE :: X_xi, X_eta, Y_xi, Y_eta
-            REAL(KIND=RP), DIMENSION(:,:)   , ALLOCATABLE :: x, y
-            REAL(KIND=RP), DIMENSION(:,:,:) , ALLOCATABLE :: xb
-            REAL(KIND=RP), DIMENSION(:,:)   , ALLOCATABLE :: jacobian, scal
-            REAL(KIND=RP), DIMENSION(:,:,:) , ALLOCATABLE :: normal
+            INTEGER                                         :: N
+            REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: jGradXi, jGradEta, jGradZeta
+            REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: x
+            REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: xb
+            REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: jacobian, scal
+            REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: normal
+            
+            CONTAINS
+            
+            PROCEDURE :: construct => ConstructMappedGeometry
+            PROCEDURE :: destruct  => DestructMappedGeometry
       END TYPE MappedGeometry
-   
-      INTERFACE Construct
-         MODULE PROCEDURE ConstructMappedGeometry
-      END INTERFACE Construct
 
 !
 !  ========
@@ -48,120 +51,271 @@ Module MappedGeometryClass
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE ConstructMappedGeometry( this, spA, N, M, mapper )
+   SUBROUTINE ConstructMappedGeometry( self, spA, mapper )
       IMPLICIT NONE
 !
 !      ---------
 !      Arguments
 !      ---------
 !
-      INTEGER, INTENT(IN)       :: N, M
-      TYPE(TransfiniteQuadMap)  :: mapper
-      TYPE(MappedGeometry)      :: this
-      TYPE(Nodal2DStorage)      :: spA
+      CLASS(MappedGeometry)     :: self
+      TYPE(TransfiniteHexMap)  :: mapper
+      TYPE(NodalStorage)       :: spA
 !
 !     ---------------
 !     Local Variables
 !     ---------------
 !
-      INTEGER       :: i, j
-      REAL(KIND=RP) :: x(2)
-      REAL(KIND=RP) :: metricMatrix(2,2), nrm, s, jac
+      INTEGER       :: N
+      INTEGER       :: i, j, k
+      REAL(KIND=RP) :: x(3), nrm
+      REAL(KIND=RP) :: grad_x(3,3), jGrad(3)
 !
 !     -----------
 !     Allocations
 !     -----------
 !
-      ALLOCATE( this%X_xi(0:N,0:N), this%X_eta(0:N,0:N), this%Y_xi(0:N,0:N), this%Y_eta(0:N,0:N))
-      ALLOCATE( this%x(0:N,0:N), this%y(0:N,0:N), this%jacobian(0:N,0:N) )
-      ALLOCATE( this%xb(2,0:MAX(N,M),4) )
-      ALLOCATE( this%normal(0:MAX(N,M),2,4), this%scal(0:MAX(N,M),4) )
+      N        = spA % N
+      self % N = N
       
-      this%N = N
-      this%M = M
+      ALLOCATE( self % JGradXi  (3,0:N,0:N,0:N) )
+      ALLOCATE( self % JGradEta (3,0:N,0:N,0:N) )
+      ALLOCATE( self % JGradZeta(3,0:N,0:N,0:N) )
+      ALLOCATE( self % jacobian(0:N,0:N,0:N) )
+      
+      ALLOCATE( self % x(3,0:N,0:N,0:N)    )
+      ALLOCATE( self % xb(3,0:N,0:N,6)     )
+      ALLOCATE( self % normal(3,0:N,0:N,6) )
+      ALLOCATE( self % scal(0:N,0:N,6)     )
+      
 !
-!     ----------------
-!     Set the geometry
-!     ----------------
+!     --------------------------
+!     Compute interior locations
+!     --------------------------
 !
-      DO j= 0,M       
-         DO i = 0,N 
-            CALL EvaluateTransfiniteMapAt( mapper, spA%xi(i), spA%eta(j), x )
-            this%x(i,j) = x(1)
-            this%y(i,j) = x(2)
-            CALL EvaluateMetricDerivatives( mapper, spA%xi(i), spA%eta(j), metricMatrix )
-            this%X_xi(i,j)  = metricMatrix(1,1)
-            this%X_eta(i,j) = metricMatrix(1,2)
-            this%Y_xi(i,j)  = metricMatrix(2,1)
-            this%Y_eta(i,j) = metricMatrix(2,2)
-            this%jacobian(i,j) = metricMatrix(1,1)*metricMatrix(2,2) - &
-                                 metricMatrix(1,2)*metricMatrix(2,1)
+      DO k = 0, N
+         DO j= 0, N       
+            DO i = 0,N 
+               self % x(:,i,j,k) = mapper %  transfiniteMapAt([spA % xi(i), spA % eta(j), spa % zeta(k)])
+            END DO
          END DO
-      END DO
-      DO i = 0, N 
-         CALL EvaluateTransfiniteMapAt( mapper, spA%xi(i), -1.0_RP, x )
-         this%xb(:,i,1) = x
-         CALL EvaluateTransfiniteMapAt( mapper, spA%xi(i),  1.0_RP, x )
-         this%xb(:,i,3) = x
-      END DO
-      DO j = 0, M 
-         CALL EvaluateTransfiniteMapAt( mapper, -1.0_RP, spA%eta(j), x )
-         this%xb(:,j,4) = x
-         CALL EvaluateTransfiniteMapAt( mapper,  1.0_RP, spA%eta(j), x )
-         this%xb(:,j,2) = x
-      END DO
+      END DO 
+!
+!     ----------------------
+!     Compute face locations
+!     ----------------------
+!
+      DO j = 0, N
+         DO i = 0, N
+            self % xb(:,i,j,ELEFT)   = mapper % transfiniteMapAt([-1.0_RP    , spA % eta(i), spa % zeta(j)])
+            self % xb(:,i,j,ERIGHT)  = mapper % transfiniteMapAt([ 1.0_RP    , spA % eta(i), spa % zeta(j)])
+            self % xb(:,i,j,EBOTTOM) = mapper % transfiniteMapAt([spA % xi(i), spA % eta(j),    -1.0_RP   ])
+            self % xb(:,i,j,ETOP)    = mapper % transfiniteMapAt([spA % xi(i), spA % eta(j),     1.0_RP   ])
+            self % xb(:,i,j,EBACK)   = mapper % transfiniteMapAt([spA % xi(i),  1.0_RP     , spa % zeta(j)  ])
+            self % xb(:,i,j,EFRONT)  = mapper % transfiniteMapAt([spA % xi(i), -1.0_RP     , spa % zeta(j)  ])
+         END DO
+      END DO 
+!
+!     ------------
+!     Metric terms
+!     ------------
+!
+      CALL computeMetricTerms(self, spA, mapper)
 !
 !     ----------------
 !     Boundary Normals - Must be evaluated at the boundaries!
 !     ----------------
 !
-      DO j = 0,M !\hat n^1
-      i = 0
-         CALL EvaluateMetricDerivatives( mapper, -1.0_RP, spA%eta(j), metricMatrix )
-         jac = metricMatrix(1,1)*metricMatrix(2,2) - metricMatrix(1,2)*metricMatrix(2,1)
-         nrm = SQRT( metricMatrix(2,2)**2 + metricMatrix(1,2)**2 )
-         s   = -SIGN( 1.0_RP, jac ) !LEFT
-         this%normal(j,1,4) =  s*metricMatrix(2,2)/nrm
-         this%normal(j,2,4) = -s*metricMatrix(1,2)/nrm
-         this%scal(j,4) = nrm
-      i = N
-         CALL EvaluateMetricDerivatives( mapper, 1.0_RP, spA%eta(j), metricMatrix )
-         jac = metricMatrix(1,1)*metricMatrix(2,2) - metricMatrix(1,2)*metricMatrix(2,1)
-         nrm = SQRT( metricMatrix(2,2)**2 + metricMatrix(1,2)**2 )
-         s   = SIGN( 1.0_RP, jac ) !RIGHT
-         this%normal(j,1,2) =  s*metricMatrix(2,2)/nrm
-         this%normal(j,2,2) = -s*metricMatrix(1,2)/nrm
-         this%scal(j,2) = nrm
-      END DO
+      DO j = 0, N
+         DO i = 0, N
+!
+!           ---------
+!           Left face
+!           ---------
+!
+            grad_x = mapper % metricDerivativesAt([-1.0_RP    , spA % eta(i), spa % zeta(j)])
+            CALL vCross(grad_x(:,2), grad_x(:,3), jGrad)
+            nrm = NORM2(jGrad)
+            self % normal(:,i,j,ELEFT) = -jGrad/nrm
+            self % scal(i,j,ELEFT)     = nrm
+!
+!           ----------
+!           Right face
+!           ----------
+!
+            grad_x = mapper % metricDerivativesAt([ 1.0_RP    , spA % eta(i), spa % zeta(j)])
+            CALL vCross(grad_x(:,2), grad_x(:,3), jGrad)
+            nrm = NORM2(jGrad)
+            self % normal(:,i,j,ERIGHT) = jGrad/nrm
+            self % scal(i,j,ERIGHT)     = nrm
+!
+!           -----------
+!           bottom face
+!           -----------
+!
+            grad_x = mapper % metricDerivativesAt([spA % xi(i), spA % eta(j),    -1.0_RP   ])
+            CALL vCross(grad_x(:,1), grad_x(:,2), jGrad)
+            nrm = NORM2(jGrad)
+            self % normal(:,i,j,EBOTTOM) = -jGrad/nrm
+            self % scal(i,j,EBOTTOM)     = nrm
+!
+!           --------
+!           top face
+!           --------
+!
+            grad_x = mapper % metricDerivativesAt([spA % xi(i), spA % eta(j),     1.0_RP   ])
+            CALL vCross(grad_x(:,1), grad_x(:,2), jGrad)
+            nrm = NORM2(jGrad)
+            self % normal(:,i,j,ETOP) = jGrad/nrm
+            self % scal(i,j,ETOP)     = nrm
+!
+!           ----------
+!           front face
+!           ----------
+!
+            grad_x = mapper % metricDerivativesAt([spA % xi(i), -1.0_RP     , spa % zeta(j)  ])
+            CALL vCross(grad_x(:,3), grad_x(:,1), jGrad)
+            nrm = NORM2(jGrad)
+            self % normal(:,i,j,EFRONT) = -jGrad/nrm
+            self % scal(i,j,EFRONT)     = nrm
+!
+!           ---------
+!           back face
+!           ---------
+!
+            grad_x = mapper % metricDerivativesAt([spA % xi(i),  1.0_RP     , spa % zeta(j)  ])
+            CALL vCross(grad_x(:,3), grad_x(:,1), jGrad)
+            nrm = NORM2(jGrad)
+            self % normal(:,i,j,EBACK) = jGrad/nrm
+            self % scal(i,j,ETOP)     = nrm
+           
+         END DO
+      END DO 
       
-      DO i = 0,N !\hat n^2
-      j = 0
-         CALL EvaluateMetricDerivatives( mapper, spA%xi(i), -1.0_RP, metricMatrix )
-         jac = metricMatrix(1,1)*metricMatrix(2,2) - metricMatrix(1,2)*metricMatrix(2,1)
-         nrm = SQRT( metricMatrix(2,1)**2 + metricMatrix(1,1)**2 )
-         s   = -SIGN( 1.0_RP, jac ) !DOWN
-         this%normal(i,1,1) = -s*metricMatrix(2,1)/nrm
-         this%normal(i,2,1) =  s*metricMatrix(1,1)/nrm
-         this%scal(i,1) = nrm
-      j = M
-         CALL EvaluateMetricDerivatives( mapper, spA%xi(i), 1.0_RP, metricMatrix )
-         jac = metricMatrix(1,1)*metricMatrix(2,2) - metricMatrix(1,2)*metricMatrix(2,1)
-         nrm = SQRT( metricMatrix(2,1)**2 + metricMatrix(1,1)**2 )
-         s   = SIGN( 1.0_RP, jac ) !UP
-         this%normal(i,1,3) = -s*metricMatrix(2,1)/nrm
-         this%normal(i,2,3) =  s*metricMatrix(1,1)/nrm
-         this%scal(i,3) = nrm
-      END DO
    END SUBROUTINE ConstructMappedGeometry
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE DestructMappedGeometry(this)
-      IMPLICIT NONE 
-      TYPE(MappedGeometry) :: this
-      DEALLOCATE( this%X_xi, this%X_eta, this%Y_xi, this%Y_eta, this%x, this%y, this%jacobian )
-      DEALLOCATE( this%xb )
-      DEALLOCATE( this%normal, this%scal )
-   END SUBROUTINE DestructMappedGeometry
-   
+      SUBROUTINE DestructMappedGeometry(self)
+         IMPLICIT NONE 
+         CLASS(MappedGeometry) :: self
+         DEALLOCATE( self % jGradXi, self % jGradEta, self % jGradZeta, self % x, self % jacobian )
+         DEALLOCATE( self % xb )
+         DEALLOCATE( self % normal, self % scal )
+      END SUBROUTINE DestructMappedGeometry
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE computeMetricTerms(self, spA, mapper)  
+!
+!     -----------------------------------------------
+!     Compute the metric terms in cross product form 
+!     -----------------------------------------------
+!
+         IMPLICIT NONE  
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(MappedGeometry)    :: self
+         TYPE(NodalStorage)      :: spA
+         TYPE(TransfiniteHexMap) :: mapper
+!
+!        ---------------
+!        Local Variables
+!        ---------------
+!
+         INTEGER       :: i,j,k, N
+         REAL(KIND=RP) :: grad_x(3,3)         
+         N = spA % N
+         
+         DO k = 0, N
+            DO j = 0,N
+               DO i = 0,N
+                  grad_x = mapper % metricDerivativesAt([spA % xi(i), spA % eta(j), spA % zeta(k)])
+                 
+                  CALL vCross( grad_x(:,2), grad_x(:,3), self % jGradXi  (:,i,j,k))
+                  CALL vCross( grad_x(:,3), grad_x(:,1), self % jGradEta (:,i,j,k))
+                  CALL vCross( grad_x(:,1), grad_x(:,2), self % jGradZeta(:,i,j,k))
+                  
+                  self % jacobian(i,j,k) = jacobian3D(a1 = grad_x(:,1),a2 = grad_x(:,2),a3 = grad_x(:,3))
+               END DO   
+            END DO   
+         END DO  
+
+      END SUBROUTINE computeMetricTerms
+!
+!///////////////////////////////////////////////////////////////////////
+!
+!-------------------------------------------------------------------------------
+!!     Returns the jacobian of the transformation computed from
+!!     the three co-variant coordinate vectors.
+!-------------------------------------------------------------------------------
+!
+      FUNCTION jacobian3D(a1,a2,a3)
+!
+      USE SMConstants
+      IMPLICIT NONE
+
+      REAL(KIND=RP)               :: jacobian3D
+      REAL(KIND=RP), DIMENSION(3) :: a1,a2,a3,v
+!
+      CALL vCross(a2,a3,v)
+      jacobian3D = vDot(a1,v)
+
+      END FUNCTION jacobian3D
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+!-------------------------------------------------------------------------------
+!!    Returns in result the cross product u x v
+!-------------------------------------------------------------------------------
+!
+      SUBROUTINE vCross(u,v,result)
+!
+      IMPLICIT NONE
+      
+      REAL(KIND=RP), DIMENSION(3) :: u,v,result
+
+      result(1) = u(2)*v(3) - v(2)*u(3)
+      result(2) = u(3)*v(1) - v(3)*u(1)
+      result(3) = u(1)*v(2) - v(1)*u(2)
+
+      END SUBROUTINE vCross
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+!-------------------------------------------------------------------------------
+!!    Returns the dot product u.v
+!-------------------------------------------------------------------------------
+!
+      FUNCTION vDot(u,v)
+!
+      IMPLICIT NONE
+      
+      REAL(KIND=RP)               :: vDot
+      REAL(KIND=RP), DIMENSION(3) :: u,v
+
+      vDot = u(1)*v(1) + u(2)*v(2) + u(3)*v(3)
+
+      END FUNCTION vDot
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+!-------------------------------------------------------------------------------
+!!    Returns the 2-norm of u
+!-------------------------------------------------------------------------------
+!
+      FUNCTION vNorm(u)
+!
+      IMPLICIT NONE
+      
+      REAL(KIND=RP)               :: vNorm
+      REAL(KIND=RP), DIMENSION(3) :: u
+
+      vNorm = SQRT(u(1)*u(1) + u(2)*u(2) + u(3)*u(3))
+
+      END FUNCTION vNorm
+
 END Module MappedGeometryClass
