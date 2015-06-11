@@ -1,4 +1,4 @@
-!      NSPDEModule.f95
+!      Physics.f90
 !      Created: 2011-07-20 09:17:26 -0400 
 !      By: David Kopriva
 !      From DSEM Code
@@ -8,11 +8,13 @@
 !!              Q(1) = rho
 !!              Q(2) = rhou
 !!              Q(3) = rhov
-!!              Q(4) = rhoe
+!!              Q(4) = rhow
+!!              Q(5) = rhoe
 !!     Whereas the gradients are:
 !!              grad(1) = grad(u)
 !!              grad(2) = grad(v)
-!!              grad(3) = grad(T)
+!!              grad(3) = grad(w)
+!!              grad(4) = grad(T)
 !
 !////////////////////////////////////////////////////////////////////////
 !    
@@ -35,7 +37,7 @@
 !!   The sizes of the NS system
 !    --------------------------
 !
-     INTEGER :: N_EQN = 4, N_GRAD_EQN = 3
+     INTEGER :: N_EQN = 5, N_GRAD_EQN = 4
 !
 !    ----------------------------------------
 !!   The free-stream or reference mach number
@@ -108,17 +110,19 @@
 !!    variables.
 !     --------------------------------------------------
 !
-      SUBROUTINE ConstructPhysicsStorage( machArg, REArg, PRArg )
+      SUBROUTINE ConstructPhysicsStorage( machArg, REArg, PRArg, flowIsNavierStokesArg )
 !
 !     ---------
 !     Arguments
 !     ---------
 !
       REAL(KIND=RP) :: machArg, REArg, PRArg
+      LOGICAL       :: flowIsNavierStokesArg
       
-      mach = machArg
-      RE = REArg
-      PR = PRArg
+      mach               = machArg
+      RE                 = REArg
+      PR                 = PRArg
+      flowIsNavierStokes = flowIsNavierStokesArg
 !
       TRef            = 520.0_RP
       TScale          = 198.6_RP
@@ -144,6 +148,7 @@
 !     -------------------------------------------------
 !!    Destructor: Does nothing for this storage
 !     -------------------------------------------------
+!
       SUBROUTINE DestructPhysicsStorage
       
       END SUBROUTINE DestructPhysicsStorage
@@ -151,11 +156,11 @@
 !    **********       
      END MODULE PhysicsStorage
 !    **********
-
+!@mark -
 !
-!  ****************
-   Module PDEModule 
-!  ****************
+!  **************
+   Module Physics 
+!  **************
 !
       USE SMConstants
       USE PhysicsStorage
@@ -168,7 +173,6 @@
       INTEGER, PARAMETER   :: WALL_BC = 1, RADIATION_BC = 2
       INTEGER, PARAMETER   :: ROE = 0, LXF = 1
       REAL(KIND=RP)        :: waveSpeed
-      INTEGER, PARAMETER   :: nEqn = 4
       INTEGER              :: boundaryCondition(4), bcType
       INTEGER              :: riemannSolverChoice = ROE
 !
@@ -185,12 +189,15 @@
 !        Arguments
 !        ---------
 !
-         REAL(KIND=RP), DIMENSION(nEqn)  :: Qleft, Qright, flux
-         REAL(KIND=RP), DIMENSION(2)     :: nHat
+         REAL(KIND=RP), DIMENSION(N_EQN)  :: Qleft, Qright, flux
+         REAL(KIND=RP), DIMENSION(3)      :: nHat
+         
          SELECT CASE ( riemannSolverChoice )
             CASE ( ROE )
                CALL RoeSolver( QLeft, QRight, nHat, flux )
             CASE (LXF)
+               PRINT *, "3D LXF to be implemented..."
+               STOP !DEBUG
                CALL LxFSolver( QLeft, QRight, nHat, flux )
             CASE DEFAULT
                PRINT *, "Undefined choice of Riemann Solver. Abort"
@@ -209,84 +216,99 @@
 !        Arguments
 !        ---------
 !
-         REAL(KIND=RP), DIMENSION(nEqn) :: Qleft, Qright, flux
-         REAL(KIND=RP), DIMENSION(2)     :: nHat
-         REAL(KIND=RP)                   :: ds = 1.0_RP
+         REAL(KIND=RP), DIMENSION(N_EQN) :: Qleft, Qright, flux
+         REAL(KIND=RP), DIMENSION(3)     :: nHat
 !
 !        ---------------
 !        Local Variables
 !        ---------------
 !
 !
-         REAL(KIND=RP) :: rho , rhou , rhov   , rhoe
-         REAL(KIND=RP) :: rhon, rhoun, rhovn , rhoen
-         REAL(KIND=RP) :: ul  , vl   , pleft , ql  , hl  , betal
-         REAL(KIND=RP) :: ur  , vr   , pright, qr  , hr  , betar
-         REAL(KIND=RP) :: rtd , utd  , vtd  , htd , atd2, atd, qtd
+         REAL(KIND=RP) :: rho , rhou , rhov , rhow  , rhoe
+         REAL(KIND=RP) :: rhon, rhoun, rhovn, rhown , rhoen
+         REAL(KIND=RP) :: ul  , vl   , wl   , pleft , ql  , hl  , betal
+         REAL(KIND=RP) :: ur  , vr   , wr   , pright, qr  , hr  , betar
+         REAL(KIND=RP) :: rtd , utd  , vtd  , wtd   , htd , atd2, atd, qtd
          REAL(KIND=RP) :: dw1 , sp1  , sp1m , hd1m  , eta1, udw1, rql
          REAL(KIND=RP) :: dw4 , sp4  , sp4p , hd4   , eta4, udw4, rqr
-         
+         REAL(KIND=RP)                   :: ds = 1.0_RP
+      
          rho  = Qleft(1)
          rhou = Qleft(2)
          rhov = Qleft(3)
-         rhoe = Qleft(4)
+         rhow = Qleft(4)
+         rhoe = Qleft(5)
    
          rhon  = Qright(1)
          rhoun = Qright(2)
          rhovn = Qright(3)
-         rhoen = Qright(4)
+         rhown = Qright(4)
+         rhoen = Qright(5)
    
          ul = rhou/rho 
          vl = rhov/rho 
-         pleft = (gamma-1.d0)*(rhoe - 0.5d0/rho*(rhou**2 + rhov**2)) 
+         wl = rhow/rho 
+         pleft = (gamma-1._RP)*(rhoe - 0.5_RP/rho*                        &
+        &                           (rhou**2 + rhov**2 + rhow**2 )) 
 !
          ur = rhoun/rhon 
          vr = rhovn/rhon 
-         pright = (gamma-1.d0)*(rhoen - 0.5d0/rhon*(rhoun**2 + rhovn**2)) 
+         wr = rhown/rhon 
+         pright = (gamma-1._RP)*(rhoen - 0.5_RP/rhon*                    &
+        &                           (rhoun**2 + rhovn**2+ rhown**2)) 
 !
-         ql = nHat(1)*ul + nHat(2)*vl 
-         qr = nHat(1)*ur + nHat(2)*vr 
-         hl = 0.5d0*(ul*ul + vl*vl) + gamma/(gamma-1.d0)*pleft/rho 
-         hr = 0.5d0*(ur*ur + vr*vr) + gamma/(gamma-1.d0)*pright/rhon 
+         ql = nHat(1)*ul + nHat(2)*vl + nHat(3)*wl
+         qr = nHat(1)*ur + nHat(2)*vr + nHat(3)*wr
+         hl = 0.5_RP*(ul*ul + vl*vl + wl*wl) +                               &
+        &                 gamma/(gamma-1._RP)*pleft/rho 
+         hr = 0.5_RP*(ur*ur + vr*vr + wr*wr) +                               &
+        &                  gamma/(gamma-1._RP)*pright/rhon 
 !
-!        square root averaging  
+!        ---------------------
+!        Square root averaging  
+!        ---------------------
 !
          rtd = sqrt(rho*rhon) 
          betal = rho/(rho + rtd) 
-         betar = 1.d0 - betal 
+         betar = 1._RP - betal 
          utd = betal*ul + betar*ur 
          vtd = betal*vl + betar*vr 
+         wtd = betal*wl + betar*wr 
          htd = betal*hl + betar*hr 
-         atd2 = (gamma-1.d0)*(htd - 0.5d0*(utd*utd + vtd*vtd)) 
+         atd2 = (gamma-1._RP)*(htd - 0.5_RP*(utd*utd + vtd*vtd + wtd*wtd)) 
          atd = sqrt(atd2) 
-         qtd = utd*nHat(1) + vtd*nHat(2) 
+         qtd = utd*nHat(1) + vtd*nHat(2)  + wtd*nHat(3)
 !
-         if(qtd.ge.0.0d0)     then 
-            dw1 = 0.5d0*((pright - pleft)/atd2 - (qr - ql)*rtd/atd) 
+         IF(qtd >= 0.0_RP)     THEN
+   
+            dw1 = 0.5_RP*((pright - pleft)/atd2 - (qr - ql)*rtd/atd) 
             sp1 = qtd - atd 
-            sp1m = min(sp1,0.0d0) 
-            hd1m = ((gamma+1.d0)/4.d0*atd/rtd)*dw1 
-            eta1 = max(-abs(sp1) - hd1m,0.0d0) 
-            udw1 = dw1*(sp1m - 0.5d0*eta1) 
+            sp1m = min(sp1,0.0_RP) 
+            hd1m = ((gamma+1._RP)/4._RP*atd/rtd)*dw1 
+            eta1 = max(-abs(sp1) - hd1m,0.0_RP) 
+            udw1 = dw1*(sp1m - 0.5_RP*eta1) 
             rql = rho*ql 
             flux(1) = ds*(rql + udw1) 
             flux(2) = ds*(rql*ul + pleft*nHat(1) + udw1*(utd - atd*nHat(1))) 
             flux(3) = ds*(rql*vl + pleft*nHat(2) + udw1*(vtd - atd*nHat(2))) 
-            flux(4) = ds*(rql*hl + udw1*(htd - qtd*atd)) 
-         else 
-            dw4 = 0.5d0*((pright - pleft)/atd2 + (qr - ql)*rtd/atd) 
+            flux(4) = ds*(rql*wl + pleft*nHat(3) + udw1*(wtd - atd*nHat(3))) 
+            flux(5) = ds*(rql*hl + udw1*(htd - qtd*atd)) 
+   
+         ELSE 
+   
+            dw4 = 0.5_RP*((pright - pleft)/atd2 + (qr - ql)*rtd/atd) 
             sp4 = qtd + atd 
-            sp4p = max(sp4,0.0d0) 
-            hd4 = ((gamma+1.d0)/4.d0*atd/rtd)*dw4 
-            eta4 = max(-abs(sp4) + hd4,0.0d0) 
-            udw4 = dw4*(sp4p + 0.5d0*eta4) 
+            sp4p = max(sp4,0.0_RP) 
+            hd4 = ((gamma+1._RP)/4._RP*atd/rtd)*dw4 
+            eta4 = max(-abs(sp4) + hd4,0.0_RP) 
+            udw4 = dw4*(sp4p + 0.5_RP*eta4) 
             rqr = rhon*qr 
             flux(1) = ds*(rqr - udw4) 
             flux(2) = ds*(rqr*ur + pright*nHat(1) - udw4*(utd + atd*nHat(1))) 
             flux(3) = ds*(rqr*vr + pright*nHat(2) - udw4*(vtd + atd*nHat(2))) 
-            flux(4) = ds*(rqr*hr - udw4*(htd + qtd*atd)) 
-         endif
-         RETURN 
+            flux(4) = ds*(rqr*wr + pright*nHat(3) - udw4*(wtd + atd*nHat(3))) 
+            flux(5) = ds*(rqr*hr - udw4*(htd + qtd*atd)) 
+         ENDIF
          
       END SUBROUTINE RoeSolver
 !
@@ -300,7 +322,7 @@
 !        ---------
 !
          REAL(KIND=RP), DIMENSION(N_EQN) :: Qleft, Qright, flux
-         REAL(KIND=RP), DIMENSION(2)     :: nHat
+         REAL(KIND=RP), DIMENSION(3)     :: nHat
          REAL(KIND=RP)                   :: ds = 1.0_RP
 !
 !        ---------------
@@ -363,29 +385,31 @@
 !        Arguments
 !        ---------
 !
-         REAL(KIND=RP), DIMENSION(nEqn) :: Q
-         REAL(KIND=RP), DIMENSION(nEqn) :: f
+         REAL(KIND=RP), DIMENSION(N_EQN) :: Q
+         REAL(KIND=RP), DIMENSION(N_EQN) :: f
 !
 !        ---------------
 !        Local Variables
 !        ---------------
 !
-         REAL(KIND=RP) :: u, v, rho, rhou, rhov, rhoe, p
-         !REAL(KIND=RP) :: gammaMinus1 = 0.4_RP
+         REAL(KIND=RP) :: u, v, w, rho, rhou, rhov, rhoe, rhow, p
 !      
          rho  = Q(1)
          rhou = Q(2)
          rhov = Q(3)
-         rhoe = Q(4)
+         rhow = Q(4)
+         rhoe = Q(5)
 !
          u = rhou/rho 
          v = rhov/rho
-         p = gammaMinus1*(rhoe - 0.5_RP*rho*(u**2 + v**2)) 
+         w = rhow/rho
+         p = gammaMinus1*(rhoe - 0.5_RP*rho*(u**2 + v**2 + w**2)) 
 !
          f(1) = rhou 
          f(2) = p + rhou*u 
          f(3) = rhou*v 
-         f(4) = u*(rhoe + p) 
+         f(4) = rhou*w 
+         f(5) = u*(rhoe + p) 
          
       END SUBROUTINE xFlux
 !
@@ -398,34 +422,74 @@
 !        Arguments
 !        ---------
 !
-         REAL(KIND=RP), DIMENSION(nEqn) :: Q
-         REAL(KIND=RP), DIMENSION(nEqn) :: g
+         REAL(KIND=RP), DIMENSION(N_EQN) :: Q
+         REAL(KIND=RP), DIMENSION(N_EQN) :: g
 !
 !        ---------------
 !        Local Variables
 !        ---------------
 !
-         REAL(KIND=RP) :: u, v, rho, rhou, rhov, rhoe, p
-         !REAL(KIND=RP) :: gammaMinus1 = 0.4_RP
+         REAL(KIND=RP) :: u, v, w, rho, rhou, rhov, rhoe, rhow, p
 !      
          rho  = Q(1)
          rhou = Q(2)
          rhov = Q(3)
-         rhoe = Q(4)
+         rhow = Q(4)
+         rhoe = Q(5)
 !
          u = rhou/rho 
          v = rhov/rho 
-         p = gammaMinus1*(rhoe - 0.5_RP*rho*(u**2 + v**2)) 
+         w = rhow/rho
+         p = gammaMinus1*(rhoe - 0.5_RP*rho*(u**2 + v**2 + w**2)) 
 !
          g(1) = rhov 
          g(2) = rhou*v 
          g(3) = p + rhov*v 
-         g(4) = v*(rhoe + p) 
+         g(4) = rhow*v 
+         g(5) = v*(rhoe + p) 
          
       END SUBROUTINE yFlux
 !
+!     ////////////////////////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE zFlux( Q, h )
+         IMPLICIT NONE
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         REAL(KIND=RP), DIMENSION(N_EQN) :: Q
+         REAL(KIND=RP), DIMENSION(N_EQN) :: h
+!
+!        ---------------
+!        Local Variables
+!        ---------------
+!
+         REAL(KIND=RP) :: u, v, w, rho, rhou, rhov, rhoe, rhow, p
+!      
+         rho  = Q(1)
+         rhou = Q(2)
+         rhov = Q(3)
+         rhow = Q(4)
+         rhoe = Q(5)
+!
+         u = rhou/rho 
+         v = rhov/rho 
+         w = rhow/rho
+         p = gammaMinus1*(rhoe - 0.5_RP*rho*(u**2 + v**2 + w**2)) 
+!
+         h(1) = rhow 
+         h(2) = rhou*w 
+         h(3) = rhov*w
+         h(4) = p + rhow*w 
+         h(5) = w*(rhoe + p) 
+         
+      END SUBROUTINE zFlux
+!
 ! /////////////////////////////////////////////////////////////////////
 !
+!@mark -
 !---------------------------------------------------------------------
 !! DiffusionRiemannSolution comutes the coupling on the solution for
 !! the calculation of the gradient terms.
@@ -439,7 +503,7 @@
 !        ---------
 !
          REAL(KIND=RP), DIMENSION(N_EQN) :: Qleft, Qright, Q
-         REAL(KIND=RP), DIMENSION(2)     :: nHat
+         REAL(KIND=RP), DIMENSION(3)     :: nHat
 !
 !        ---------------
 !        Local Variables
@@ -472,24 +536,24 @@
 !     ---------
 !
       REAL(KIND=RP), DIMENSION(N_EQN)   :: Q,flux
-      REAL(KIND=RP), DIMENSION(2,N_EQN) :: gradLeft, gradRight
-      REAL(KIND=RP), DIMENSION(2)       :: nHat
+      REAL(KIND=RP), DIMENSION(3,N_EQN) :: gradLeft, gradRight
+      REAL(KIND=RP), DIMENSION(3)       :: nHat
       REAL(KIND=RP)                     :: ds
 !
 !     ---------------
 !     Local Variables
 !     ---------------
 !
-      INTEGER                               :: j,k
-      REAL(KIND=RP), DIMENSION(2,N_EQN) :: grad
-      REAL(KIND=RP), DIMENSION(N_EQN)   :: fx, fy
+      INTEGER                           :: j,k
+      REAL(KIND=RP), DIMENSION(3,N_EQN) :: grad
+      REAL(KIND=RP), DIMENSION(N_EQN)   :: fx, fy, fz
 !
 !     -------------------------------------------------
 !     For now, this simply uses the Bassi/Rebay average
 !     -------------------------------------------------
 !
       DO j = 1, N_GRAD_EQN
-         DO k = 1,2
+         DO k = 1,3
             grad(k,j) = 0.5_RP*(gradLeft(k,j) + gradRight(k,j))
          END DO
       END DO
@@ -500,13 +564,14 @@
 !
       CALL xDiffusiveFlux( Q, grad, fx )
       CALL yDiffusiveFlux( Q, grad, fy )
+      CALL zDiffusiveFlux( Q, grad, fz )
 !
 !     ------------------------------
 !     Compute the contravariant flux
 !     ------------------------------
 !
       DO j = 1, N_EQN
-         flux(j) = ds*(nHat(1)*fx(j) + nHat(2)*fy(j))
+         flux(j) = ds*(nHat(1)*fx(j) + nHat(2)*fy(j) + nHat(3)*fz(j))
       END DO
       
       END SUBROUTINE DiffusionRiemannFlux
@@ -532,7 +597,7 @@
 !!    equations. For the Navier-Stokes equations these are
 !!    grad(u), grad(v), grad(w), grad(T).
 !
-      REAL(KIND=RP), DIMENSION(2,N_GRAD_EQN) :: grad
+      REAL(KIND=RP), DIMENSION(3,N_GRAD_EQN) :: grad
 !
 !!     f is the viscous flux in the physical x direction returned by
 !!     this routine.
@@ -543,24 +608,28 @@
 !     Local Variables
 !     ---------------
 !
-      REAL(KIND=RP)           :: tauXX, tauXY
-      REAL(KIND=RP)           :: T, muOfT, kappaOfT, divVelocity
-      REAL(KIND=RP)           :: u, v
+      REAL(KIND=RP) :: tauXX, tauXY, tauXZ
+      REAL(KIND=RP) :: T, muOfT, kappaOfT, divVelocity
+      REAL(KIND=RP) :: u, v, w
 !      
       T        = Temperature(Q)
       muOfT    = MolecularDiffusivity(T)
       kappaOfT = ThermalDiffusivity(T)
       u        = Q(2)/Q(1)
       v        = Q(3)/Q(1)
+      w        = Q(4)/Q(1)
       
-      divVelocity = grad(1,1) + grad(2,2)
+      divVelocity = grad(1,1) + grad(2,2) + grad(3,3)
       tauXX       = 2.0_RP*muOfT*(grad(1,1) - divVelocity/3._RP)
       tauXY       = muOfT*(grad(1,2) + grad(2,1))
+      tauXZ       = muOfT*(grad(1,3) + grad(3,1))
       
       f(1) = 0.0_RP
       f(2) = tauXX/RE
       f(3) = tauXY/RE
-      f(4) = (u*tauXX + v*tauXY + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*grad(1,3))/RE
+      f(4) = tauXZ/RE
+      f(5) = (u*tauXX + v*tauXY + w*tauXZ + &
+     &        gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*grad(1,4))/RE
 
       END SUBROUTINE xDiffusiveFlux
 !
@@ -585,7 +654,7 @@
 !!    equations. For the Navier-Stokes equations these are
 !!    grad(u), grad(v), grad(w), grad(T).
 !
-      REAL(KIND=RP), DIMENSION(2,N_GRAD_EQN) :: grad
+      REAL(KIND=RP), DIMENSION(3,N_GRAD_EQN) :: grad
 !
 !!     f is the viscous flux in the physical x direction returned by
 !!     this routine.
@@ -596,26 +665,87 @@
 !     Local Variables
 !     ---------------
 !
-      REAL(KIND=RP)           :: tauYX, tauYY
-      REAL(KIND=RP)           :: T, muOfT, kappaOfT, divVelocity
-      REAL(KIND=RP)           :: u, v
+      REAL(KIND=RP) :: tauYX, tauYY, tauYZ
+      REAL(KIND=RP) :: T, muOfT, kappaOfT, divVelocity
+      REAL(KIND=RP) :: u, v, w
 !      
       T        = Temperature(Q)
       muOfT    = MolecularDiffusivity(T)
       kappaOfT = ThermalDiffusivity(T)
       u        = Q(2)/Q(1)
       v        = Q(3)/Q(1)
+      w        = Q(4)/Q(1)
       
-      divVelocity = grad(1,1) + grad(2,2)
+      divVelocity = grad(1,1) + grad(2,2) + grad(3,3)
       tauYX       = muOfT*(grad(1,2) + grad(2,1))
       tauYY       = 2.0_RP*muOfT*(grad(2,2) - divVelocity/3._RP)
+      tauYZ       = muOfT*(grad(2,3) + grad(3,2))
       
       f(1) = 0.0_RP
       f(2) = tauYX/RE
       f(3) = tauYY/RE
-      f(4) = (u*tauYX + v*tauYY + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*grad(2,3))/RE
+      f(4) = tauYZ/RE
+      f(5) = (u*tauYX + v*tauYY + w*tauYZ + &
+     &        gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*grad(2,4))/RE
 
       END SUBROUTINE yDiffusiveFlux
+!
+! /////////////////////////////////////////////////////////////////////
+!
+!---------------------------------------------------------------------
+!! yDiffusiveFlux computes the y viscous flux component.
+!---------------------------------------------------------------------
+!
+      SUBROUTINE zDiffusiveFlux( Q, grad, f )
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+!!    Q contains the solution values
+!
+      REAL(KIND=RP), DIMENSION(N_EQN)      :: Q
+!
+!!    grad contains the (physical) gradients needed for the
+!!    equations. For the Navier-Stokes equations these are
+!!    grad(u), grad(v), grad(w), grad(T).
+!
+      REAL(KIND=RP), DIMENSION(3,N_GRAD_EQN) :: grad
+!
+!!     f is the viscous flux in the physical x direction returned by
+!!     this routine.
+! 
+      REAL(KIND=RP), DIMENSION(N_EQN)      :: f
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      REAL(KIND=RP)           :: tauZX, tauZY, tauZZ
+      REAL(KIND=RP)           :: T, muOfT, kappaOfT, divVelocity
+      REAL(KIND=RP)           :: u, v, w
+!      
+      T        = Temperature(Q)
+      muOfT    = MolecularDiffusivity(T)
+      kappaOfT = ThermalDiffusivity(T)
+      u        = Q(2)/Q(1)
+      v        = Q(3)/Q(1)
+      w        = Q(4)/Q(1)
+      
+      divVelocity = grad(1,1) + grad(2,2) + grad(3,3)
+      tauZX       = muOfT*(grad(1,3) + grad(3,1))
+      tauZY       = muOfT*(grad(2,3) + grad(3,2))
+      tauZZ       = 2.0_RP*muOfT*(grad(3,3) - divVelocity/3._RP)
+      
+      f(1) = 0.0_RP
+      f(2) = tauZX/RE
+      f(3) = tauZY/RE
+      f(4) = tauZZ/RE
+      f(5) = (u*tauZX + v*tauZY + w*tauZZ + &
+     &        gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*grad(3,4))/RE
+
+      END SUBROUTINE zDiffusiveFlux
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -640,12 +770,14 @@
 !      
       U(1) = Q(2)/Q(1)
       U(2) = Q(3)/Q(1)
-      U(3) = Temperature(Q)
+      U(3) = Q(4)/Q(1)
+      U(4) = Temperature(Q)
 
       END SUBROUTINE GradientValuesForQ
 !
 ! /////////////////////////////////////////////////////////////////////
 !
+!@mark -
 !---------------------------------------------------------------------
 !! Compute the pressure from the state variables
 !---------------------------------------------------------------------
@@ -664,7 +796,7 @@
 !
       REAL(KIND=RP) :: P
       
-      P = gammaMinus1*(Q(4) - 0.5_RP*(Q(2)**2 + Q(3)**2)/Q(1))
+      P = gammaMinus1*(Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1))
 
       END FUNCTION Pressure
 !
@@ -742,7 +874,7 @@
 
       END FUNCTION Temperature
       
-   END Module PDEModule
+   END Module Physics
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -755,29 +887,30 @@
       SUBROUTINE ComputeEigenvalues( Q, eigen )
       
       USE SMConstants
-      USE PDEModule
+      USE PhysicsStorage
       IMPLICIT NONE
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      REAL(KIND=Rp), DIMENSION(nEqn) :: Q
-      REAL(KIND=Rp), DIMENSION(2)    :: eigen
+      REAL(KIND=Rp), DIMENSION(N_EQN) :: Q
+      REAL(KIND=Rp), DIMENSION(3)     :: eigen
 !
 !     ---------------
 !     Local Variables
 !     ---------------
 !
-      REAL(KIND=Rp) :: u, v, p, a
-      !REAL(KIND=RP) :: gammaMinus1 = 0.4_RP, gamma = 1.4_RP
+      REAL(KIND=Rp) :: u, v, w, p, a
 !      
       u = ABS( Q(2)/Q(1) )
       v = ABS( Q(3)/Q(1) )
-      p = gammaMinus1*(Q(4) - 0.5_Rp*(Q(2)**2 + Q(3)**2 )/Q(1))
+      w = ABS( Q(4)/Q(1) )
+      p = gammaMinus1*(Q(4) - 0.5_Rp*(Q(2)**2 + Q(3)**2 + Q(4)**2 )/Q(1))
       a = SQRT(gamma*p/Q(1))
       
       eigen(1) = u + a
       eigen(2) = v + a
+      eigen(3) = w + a
       
       END SUBROUTINE ComputeEigenvalues

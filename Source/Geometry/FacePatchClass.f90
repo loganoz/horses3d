@@ -38,7 +38,7 @@
 !    Type definition
 !    ---------------
 !
-!!   Stores the data needed to specify a sursurface through a 2D
+!!   Stores the data needed to specify a surface through a 2D
 !!   interpolant. The surface is a function of (u,v) in [-1,1]x[-1,1].
 !    Arrays are dimensioned 1:nKnots.
 !
@@ -47,12 +47,20 @@
          REAL(KIND=RP), DIMENSION(:)    , ALLOCATABLE :: uKnots,vKnots
          REAL(KIND=RP), DIMENSION(:,:,:), ALLOCATABLE :: divTable
          INTEGER      , DIMENSION(2)                  :: noOfKnots
+!
+!        ========         
+         CONTAINS 
+!        ========         
+!
+         PROCEDURE :: construct => ConstructFacePatch
+         PROCEDURE :: destruct  => DestructFacePatch
+         PROCEDURE :: setFacePoints
      END TYPE FacePatch
      
      PUBLIC:: FacePatch
      PUBLIC:: ConstructFacePatch, DestructFacePatch
-     PUBLIC:: ComputeFacePoint, ComputeFaceDerivative
-     PUBLIC:: PrintFacePatch, FaceIs4CorneredQuad
+     PUBLIC:: ComputeFacePoint  , ComputeFaceDerivative
+     PUBLIC:: PrintFacePatch    , FaceIs4CorneredQuad
 !
 !    ========
      CONTAINS
@@ -65,21 +73,21 @@
 !!    an array of knots to define a sursurface.
 !     -----------------------------------------------------------------
 !
-      SUBROUTINE ConstructFacePatch( self, points, uKnots, vKnots )
+      SUBROUTINE ConstructFacePatch( self, uKnots, vKnots, points )
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      TYPE(FacePatch)                 :: self
-      REAL(KIND=RP), DIMENSION(:,:,:) :: points
-      REAL(KIND=RP), DIMENSION(:)     :: uKnots,vKnots
+      CLASS(FacePatch)                          :: self
+      REAL(KIND=RP), DIMENSION(:,:,:), OPTIONAL :: points
+      REAL(KIND=RP), DIMENSION(:)               :: uKnots,vKnots
 !
 !     ---------------
 !     Local Variables
 !     ---------------
 !
-      integer :: j,k,n
+
 !
 !     ---------------------------------------------------------
 !     The dimensions of the interpolant are given by the number 
@@ -98,27 +106,10 @@
 !     Save the points and knots
 !     -------------------------
 !
-      self % points  = points
       self % uKnots  = uKnots
       self % vKnots  = vKnots
-      
-      IF ( .NOT. FaceIs4CorneredQuad(self) )     THEN
-         ALLOCATE( self % divTable(self % noOfKnots(1), self % noOfKnots(2), 3) )
-!
-!        -------------------------------------
-!        Compute the divided difference tables
-!        -------------------------------------
-!
-         DO j = 1, self % noOfKnots(2)
-            DO k = 1,3
-               DO n = 1, self % noOfKnots(1)
-                   self % divTable(n,j,k) = points(k,n,j)
-               END DO
-               CALL divdif(self % noOfKnots(1), uKnots, self % divTable(:,j,k))
-            END DO
-         END DO
-      END IF 
-      
+
+      IF(PRESENT(points)) CALL self % setFacePoints( points )
 !
       END SUBROUTINE ConstructFacePatch
 !
@@ -134,7 +125,7 @@
 !     Arguments
 !     ---------
 !
-      TYPE(FacePatch) :: self
+      CLASS(FacePatch) :: self
       
       IF ( ALLOCATED( self % points ) )   DEALLOCATE( self % points )
       IF ( ALLOCATED( self % uKnots ) )   DEALLOCATE( self % uKnots )
@@ -143,6 +134,46 @@
       self % noOfKnots = 0
 !
       END SUBROUTINE DestructFacePatch
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE setFacePoints(self,points)  
+         IMPLICIT NONE
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         CLASS(FacePatch)                :: self
+         REAL(KIND=RP), DIMENSION(:,:,:) :: points
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         INTEGER :: n, k, j
+!
+         self % points  = points
+         
+         IF ( .NOT. FaceIs4CorneredQuad(self) )     THEN
+            IF(ALLOCATED(self % divTable)) DEALLOCATE( self % divTable)
+            ALLOCATE( self % divTable(self % noOfKnots(1), self % noOfKnots(2), 3) )
+!
+!           -------------------------------------
+!           Compute the divided difference tables
+!           -------------------------------------
+!
+            DO j = 1, self % noOfKnots(2)
+               DO k = 1,3
+                  DO n = 1, self % noOfKnots(1)
+                      self % divTable(n,j,k) = points(k,n,j)
+                  END DO
+                  CALL divdif(self % noOfKnots(1), self % uKnots, self % divTable(:,j,k))
+               END DO
+            END DO
+         END IF 
+         
+      END SUBROUTINE setFacePoints
 !
 !     //////////////////////////////////////////////////////////////////////////
 !

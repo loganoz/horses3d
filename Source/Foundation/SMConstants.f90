@@ -30,6 +30,7 @@
          INTEGER, PARAMETER               :: STD_OUT = 6
          INTEGER, PARAMETER               :: STD_IN  = 5
          INTEGER, PARAMETER               :: LINE_LENGTH = 132
+         INTEGER, PARAMETER               :: STRING_CONSTANT_LENGTH = 64
          
          COMPLEX(KIND=CP)                 :: ImgI = ( 0.0_RP, 1.0_RP) ! = SQRT(-1.0_RP)
          

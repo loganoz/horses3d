@@ -14,7 +14,7 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE LocalTimeDerivative( t, spA, geom, e )
+      SUBROUTINE LocalTimeDerivative( t, spA, e )
       
       USE Nodal2DStorageClass
       USE MappedGeometryClass
@@ -28,19 +28,21 @@
 !
       REAL(KIND=RP)           :: t
       TYPE(Nodal2DStorage)    :: spA
-      TYPE(MappedGeometry)    :: geom
       TYPE(Element)           :: e
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      INTEGER                                         :: N, M
+      INTEGER                                             :: N, M
       REAL(KIND=RP), DIMENSION(0:spA % N,0:spA % N,N_EQN) :: fFlux
       REAL(KIND=RP), DIMENSION(0:spA % N,0:spA % N,N_EQN) :: gFlux
+      TYPE(MappedGeometry)    :: geom
       
       N = spA % N
       M = spA % N
+      
+      geom = e % geom
       
       CALL ComputeContravariantFluxes( e % Q, geom, fFlux, gFlux, N )
       IF ( flowIsNavierStokes )     THEN

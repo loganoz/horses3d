@@ -16,10 +16,10 @@
       
       TYPE PlotterDataSource
          CONTAINS
-         PROCEDURE, NOPASS :: numberOfOutputVariables
-         PROCEDURE, NOPASS :: title
-         PROCEDURE, NOPASS :: outputVariableNames
-         PROCEDURE, NOPASS :: outputVectorFromStateVector
+         PROCEDURE :: numberOfOutputVariables
+         PROCEDURE :: title
+         PROCEDURE :: outputVariableNames
+         PROCEDURE :: outputVectorFromStateVector
       END TYPE PlotterDataSource
 !
 !     ========
@@ -38,7 +38,7 @@
 !
       CHARACTER(LEN=132) FUNCTION title() 
       IMPLICIT NONE 
-      title = ' TITLE = "Generic solution" '
+      title = ' TITLE = "Euler Flow" '
       END FUNCTION title
 !
 !////////////////////////////////////////////////////////////////////////
@@ -46,31 +46,26 @@
       CHARACTER(LEN=132) FUNCTION outputVariableNames() 
          IMPLICIT NONE
          
-         outputVariableNames = ' VARIABLES = "x","y","z","Q1","Q2","Q3"'
+         outputVariableNames = ' VARIABLES = "x","y","p","Mach","Entropy"'
       END FUNCTION outputVariableNames
 !
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE outputVectorFromStateVector( outputVector, stateVector)
          USE SMConstants
+         USE PDEModule, ONLY: Temperature, Pressure, gamma, gammaM2
          IMPLICIT NONE
          REAL(KIND=RP), DIMENSION(:) :: outputVector, stateVector
+         REAL(KIND=RP)               :: q2, a2
          
-         outputVector = stateVector(1:numberOfOutputVariables())
+         outputVector(1) = Pressure(stateVector)
+         
+         q2 = (stateVector(2)**2 + stateVector(3)**2)/stateVector(1)**2
+         a2 = gamma*outputVector(1)/stateVector(1)
+         
+         outputVector(2) = SQRT(q2/a2)
+         outputVector(3) = outputVector(1)/stateVector(1)**gamma - 1.0_RP/gammaM2
          
       END SUBROUTINE outputVectorFromStateVector
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-      FUNCTION outputStateFromStateVector( indx, stateVector ) RESULT(state)
-         USE SMConstants
-         IMPLICIT NONE
-         INTEGER                     :: indx
-         REAL(KIND=RP), DIMENSION(:) :: stateVector
-         REAL(KIND=RP)               :: state
-         
-         state = stateVector(indx)
-          
-      END FUNCTION outputStateFromStateVector
       
       END Module PlotterDataSourceClass

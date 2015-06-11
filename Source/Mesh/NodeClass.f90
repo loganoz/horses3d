@@ -8,11 +8,12 @@
 !      Implements Algorithms:
 !         Algorithm 123: Node (CornerNode)
 !         
+!      Modified for 3D DG 5/27/15, 12:18 PM
+!
 !////////////////////////////////////////////////////////////////////////
 !
       Module NodeClass 
       USE SMConstants
-      USE LinkedListClass
       USE MeshTypes
       IMPLICIT NONE 
 !
@@ -21,11 +22,7 @@
 !     ---------------
 !
       TYPE Node
-         INTEGER                         :: nodeType ! QMESH_INTERIOR or QMESH_BOUNDARY
-         INTEGER                         :: bcType   ! QMESH_NEUMANN  or QMESH_DIRICHLET
-         REAL(KIND=RP)                   :: x(2)
-         TYPE(LinkedList)                :: adjElements
-         CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName
+         REAL(KIND=RP)                   :: x(3)
       END TYPE Node
 !
 !     ========
@@ -38,12 +35,8 @@
       SUBROUTINE ConstructNode( this, x )
          IMPLICIT NONE 
          TYPE(Node)    :: this
-         REAL(KIND=RP) :: x(2)
-         this%x            = x
-         this%nodeType     = QMESH_INTERIOR
-         this%bcType       = QMESH_NONE ! QMESH_NEUMANN or QMESH_DIRICHLET
-         this%boundaryName = "none"
-         CALL ConstructList(this%adjElements)
+         REAL(KIND=RP) :: x(3)
+         this%x        = x
       END SUBROUTINE ConstructNode
 !
 !////////////////////////////////////////////////////////////////////////
@@ -52,8 +45,7 @@
          IMPLICIT NONE 
          TYPE(Node) :: this
          INTEGER    :: id
-         PRINT *, id, this%x, this%nodeType, this%BoundaryName
-         CALL PRINT( this%adjElements )
+         PRINT *, id, this%x
       END SUBROUTINE PrintNode
 !
 !////////////////////////////////////////////////////////////////////////
@@ -61,7 +53,6 @@
       SUBROUTINE DestructNode( this )
          IMPLICIT NONE 
          TYPE(Node) :: this
-         CALL Destruct( this%adjElements )
       END SUBROUTINE DestructNode
       
       END Module NodeClass

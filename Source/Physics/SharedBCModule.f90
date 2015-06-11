@@ -8,7 +8,26 @@
 !////////////////////////////////////////////////////////////////////////
 !
       Module SharedBCModule
-         USE DictionaryClass
+         USE FTValueDictionaryClass
          IMPLICIT NONE
-         TYPE(Dictionary) :: bcValueDictionary, bcTypeDictionary
+         TYPE(FTValueDictionary) :: bcValueDictionary, bcTypeDictionary
+         
+         CONTAINS
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+         SUBROUTINE constructSharedBCModule  
+            IMPLICIT NONE
+            CALL bcValueDictionary % initWithSize(8)
+            CALL bcTypeDictionary  % initWithSize(8)
+         END SUBROUTINE constructSharedBCModule
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+         SUBROUTINE destructSharedBCModule  
+            IMPLICIT NONE
+            CALL bcValueDictionary % release()
+            CALL bcTypeDictionary % release()
+         END SUBROUTINE destructSharedBCModule
+         
       END Module SharedBCModule

@@ -15,19 +15,16 @@
 !         Algorithm 137: ComputeRiemannFluxes (EdgeFluxes)
 !         Algorithm  35: InterpolateToFineMesh (2DCoarseToFineInterpolation)
 !
-!     Plus:
-!         ExportToTecplot : Output the results in one of tecplot's formats. Can
-!                           also be read by the free VisIt program from LLNL.
-!         ExportToTecplotI : Interpolate the solution to a fine mesh before 
-!                            exporting.
+!      Modified for 3D 6/11/15, 11:32 AM by DAK
 !
 !////////////////////////////////////////////////////////////////////////
 !
       Module DGSEMClass
-      USE Nodal2DStorageClass
-      USE QuadMeshClass
-      USE PDEModule
-      USE BoundaryConditionFunctions
+      
+      USE NodalStorageClass
+      USE HexMeshClass
+      USE PhysicsStorage
+      
       IMPLICIT NONE 
 !
 !-------------------------------------------------------------------
@@ -35,431 +32,89 @@
 !-------------------------------------------------------------------
 !
       TYPE DGSem
-         TYPE(Nodal2DStorage) :: spA
-         TYPE(QuadMesh)       :: mesh
+         TYPE(NodalStorage) :: spA
+         TYPE(HexMesh)      :: mesh
+!
+!        ========         
+         CONTAINS
+!        ========         
+!
+         PROCEDURE :: construct => ConstructDGSem
+         PROCEDURE :: destruct  => DestructDGSem     
+            
       END TYPE DGSem
-!
-!     --------
-!     Generics
-!     --------
-!
-      INTERFACE Construct
-         MODULE PROCEDURE ConstructDGSem
-      END INTERFACE Construct
-      
-      INTERFACE Destruct
-         MODULE PROCEDURE DestructDGSem
-      END INTERFACE Destruct
       
       CONTAINS 
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ConstructDGSem( this, N, meshFile )
+      SUBROUTINE ConstructDGSem( self, polynomialOrder, meshFileName, success )
 !
 !     --------------------------
 !     Constructor for the class.
 !     --------------------------
 !
       IMPLICIT NONE
-      TYPE(DGSem)      :: this
-      INTEGER          :: N
-      CHARACTER(LEN=*) :: meshFile
+      CLASS(DGSem)     :: self
+      INTEGER          :: polynomialOrder
+      CHARACTER(LEN=*) :: meshFileName
+      LOGICAL          :: success
       
       INTEGER :: k
-      CALL ConstructNodal2DStorage( this % spA, N )
-      CALL ConstructMesh_FromFile_( this % mesh, this % spA, meshFile, N )
+      
+      CALL ConstructNodalStorage( self % spA, polynomialOrder )
+      CALL self % mesh % constructFromFile( meshfileName, self % spA, success )
+      
+      IF(.NOT. success) RETURN 
 !
 !     ------------------------
 !     Allocate and zero memory
 !     ------------------------
 !
-      DO k = 1, SIZE(this % mesh % elements) 
-         CALL allocateElementStorage( this % mesh % elements(k), N, N_EQN, N_GRAD_EQN, flowIsNavierStokes )
+      DO k = 1, SIZE(self % mesh % elements) 
+         CALL allocateElementStorage( self % mesh % elements(k), polynomialOrder, &
+                                      N_EQN, N_GRAD_EQN, flowIsNavierStokes )
       END DO
       
       END SUBROUTINE ConstructDGSem
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE DestructDGSem( this )
+      SUBROUTINE DestructDGSem( self )
       IMPLICIT NONE 
-      TYPE(DGSem) :: this
-      INTEGER     :: k
+      CLASS(DGSem) :: self
       
-      CALL DestructMesh( this % mesh )
+      CALL DestructNodalStorage( self % spA )
+      CALL DestructMesh( self % mesh )
       
       END SUBROUTINE DestructDGSem
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE SaveSolutionForRestart( this, fUnit ) 
+      SUBROUTINE SaveSolutionForRestart( self, fUnit ) 
          IMPLICIT NONE
-         TYPE(DGSem)      :: this
+         CLASS(DGSem)      :: self
          INTEGER          :: fUnit
          INTEGER          :: k
 
-         DO k = 1, SIZE(this % mesh % elements) 
-            CALL SaveSolutionStorageToUnit( this % mesh % elements(k), fUnit )
+         DO k = 1, SIZE(self % mesh % elements) 
+            WRITE(fUnit) self % mesh % elements(k) % Q
          END DO
 
       END SUBROUTINE SaveSolutionForRestart
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE LoadSolutionForRestart( this, fUnit ) 
+      SUBROUTINE LoadSolutionForRestart( self, fUnit ) 
          IMPLICIT NONE
-         TYPE(DGSem)      :: this
+         CLASS(DGSem)      :: self
          INTEGER          :: fUnit
          INTEGER          :: k
 
-         DO k = 1, SIZE(this % mesh % elements) 
-            CALL LoadSolutionFromUnit( this % mesh % elements(k), fUnit )
+         DO k = 1, SIZE(self % mesh % elements) 
+            READ(fUnit) self % mesh % elements(k) % Q
          END DO
 
       END SUBROUTINE LoadSolutionForRestart
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ComputeTimeDerivative( this, t, ExternalState, ExternalGradients )
-         IMPLICIT NONE 
-         TYPE(DGSem)   :: this
-         REAL(KIND=RP) :: t
-         EXTERNAL      :: ExternalState, ExternalGradients
-         
-         INTEGER :: k, N
-!
-!        -----------------------------------------
-!        Prolongation of the solution to the faces
-!        -----------------------------------------
-!
-!$omp parallel
-!$omp do
-         DO k = 1, SIZE(this % mesh % elements) 
-            CALL ProlongToFaces( this % mesh % elements(k), this % spA )
-         END DO
-!$omp end do
-!
-!        -------------------------------------------------------
-!        Inviscid Riemann fluxes from the solutions on the faces
-!        -------------------------------------------------------
-!
-         N = this % spA % N
-!$omp do
-         DO k = 1, this % mesh % numberOfEdges
-            CALL ComputeRiemannFluxes( this % mesh % edges(k), this % mesh % elements, N, t, ExternalState )
-         END DO
-!$omp end do
-         
-         IF ( flowIsNavierStokes )     THEN
-!
-!           --------------------------------------
-!           Set up the face Values on each element
-!           --------------------------------------
-!
-!$omp do
-            DO k = 1, this % mesh % numberOfEdges 
-               CALL ComputeSolutionRiemannFluxes( this % mesh % edges(k), this % mesh % elements, N, t, ExternalState  )
-            END DO
-!$omp end do
-!
-!           -----------------------------------
-!           Compute the gradients over the mesh
-!           -----------------------------------
-!
-!$omp do
-            DO k = 1, SIZE(this % mesh % elements) 
-               CALL ComputeDGGradient(  this % mesh % elements(k) % Q,  this % mesh % elements(k) % Ub, &
-                                        this % mesh % elements(k) % geom, N, &
-                                        this % spA % D, this % spA % b,  this % mesh % elements(k) % U_x, &
-                                        this % mesh % elements(k) % U_y )
-            END DO
-!$omp end do
-!
-!           ----------------------------------
-!           Prolong the gradients to the faces
-!           ----------------------------------
-!
-!$omp do
-            DO k = 1, SIZE(this % mesh % elements) 
-               CALL ProlongGradientToFaces( this % mesh % elements(k), this % spA, this % mesh % elements(k) % geom )
-            END DO
-!$omp end do
-!
-!           -------------------------
-!           Compute gradient averages
-!           -------------------------
-!
-!$omp do
-            DO k = 1, this % mesh % numberOfEdges 
-               CALL ComputeGradientAverages( this % mesh % edges(k), &
-                                             this % mesh % elements, &
-                                             N, t, ExternalGradients  )
-            END DO         
-!$omp end do
-         END IF
-!
-!        ------------------------
-!        Compute time derivatives
-!        ------------------------
-!
-!$omp do
-         DO k = 1, SIZE(this % mesh % elements) 
-            CALL LocalTimeDerivative( t, this % spA, this % mesh % elements(k) % geom, this % mesh % elements(k), t )
-         END DO
-!$omp end do
-!$omp end parallel
-
-      END SUBROUTINE ComputeTimeDerivative
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ComputeRiemannFluxes( edg, elements, NN, t, ExternalState ) 
-         IMPLICIT NONE 
-         TYPE(Edge)              :: edg
-         TYPE(Element)           :: elements(:)
-         INTEGER                 :: NN
-         REAL(KIND=RP)           :: t
-         EXTERNAL                :: ExternalState
-         
-         INTEGER                        :: j, n, e1, s1, e2, s2
-         REAL(KIND=RP), DIMENSION(nEqn) :: flux     
-         
-         IF( edg % edgeType == QMESH_INTERIOR )     THEN
-!
-!           ---------------
-!           Interior fluxes
-!           ---------------
-!
-            n = edg % nStart - edg % nInc
-            DO j = 0, NN
-               e1  = edg % elementIDs(1)
-               s1  = ABS(edg % elementSide(1))
-               
-               e2  = edg % elementIDs(2)
-               s2  = ABS(edg % elementSide(2))
-               
-               CALL RiemannSolver( elements(e1) % Qb(:,j,s1), elements(e2) % Qb(:,n,s2), &
-                                   elements(e1) % geom % normal(j,:,s1), flux )
-               elements(e1) % FStarb(:,j,s1) =  flux*elements(e1) % geom % scal(j,s1)
-               elements(e2) % FStarb(:,n,s2) = -flux*elements(e2) % geom % scal(n,s2)
-               n = n + edg % nInc
-            END DO
-            
-         ELSE
-!
-!           ---------------
-!           Boundary fluxes
-!           ---------------
-!
-            DO j = 0, NN
-               e1 = edg % elementIDs(1)
-               s1  = ABS(edg % elementSide(1))
-               CALL ComputeBoundaryFlux( t, elements(e1), s1, j, ExternalState )
-            END DO
-         END IF 
-         
-      END SUBROUTINE ComputeRiemannFluxes
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ComputeSolutionRiemannFluxes( edg, elements, NN, t, ExternalState )
-!
-!     ------------------------------------------------------------
-!     Bassi-Rebay average of the solution values at the boundaries
-!     Store average of u,v,T in boundary solution vector, Qb.
-!     ------------------------------------------------------------
-!
-         IMPLICIT NONE
-         
-         TYPE(Edge)              :: edg
-         TYPE(Element)           :: elements(:)
-         INTEGER                 :: NN
-         REAL(KIND=RP)           :: t
-         EXTERNAL                :: ExternalState
-         
-         INTEGER                              :: j, n, e1, s1, e2, s2
-         REAL(KIND=RP), DIMENSION(N_EQN)      :: bvExt
-         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: UL, UR
-         REAL(KIND=RP)                        :: d(N_GRAD_EQN)
-         
-         IF( edg % edgeType == QMESH_INTERIOR )     THEN
-!
-!           --------------------------
-!           Interior solution averages
-!           --------------------------
-!
-            n = edg % nStart - edg % nInc
-            DO j = 0, NN
-               e1 = edg % elementIDs(1)
-               s1  = ABS(edg % elementSide(1))
-               
-               e2 = edg % elementIDs(2)
-               s2  = ABS(edg % elementSide(2))
-!
-!              --------------
-!              u,v,T averages
-!              --------------
-!
-               CALL GradientValuesForQ( elements(e1) % Qb(:,j,s1), UL )
-               CALL GradientValuesForQ( elements(e2) % Qb(:,n,s2), UR )
-               
-               d = 0.5*(UL + UR)
-               
-               elements(e1) % Ub(:,j,s1) = d
-               elements(e2) % Ub(:,n,s2) = d
-!
-!              -----------------
-!              Solution averages
-!              -----------------
-!
-               elements(e1) % Qb(:,j,s1) = 0.5_RP*( elements(e1) % Qb(:,j,s1) + elements(e2) % Qb(:,n,s2) )
-               elements(e2) % Qb(:,n,s2) = elements(e1) % Qb(:,j,s1)
-               
-               n = n + edg % nInc
-            END DO
-            
-         ELSE
-!
-!           -----------------
-!           Boundary averages
-!           -----------------
-!
-            DO j = 0, NN
-               e1 = edg % elementIDs(1)
-               s1  = ABS(edg % elementSide(1))
-               
-               bvExt  = elements(e1) % Qb(:,j,s1)
-               CALL ExternalState( elements(e1) % geom % xb(1,j,s1), elements(e1) % geom % xb(2,j,s1), t, &
-                                    elements(e1) % geom % normal(j,:,s1), bvExt , &
-                                    elements(e1) % boundaryName(s1) )
-!
-!              ---------------
-!              u,v, T averages
-!              ---------------
-!
-               CALL GradientValuesForQ( elements(e1) % Qb(:,j,s1), UL )
-               CALL GradientValuesForQ( bvExt, UR )
-               
-               d = 0.5*(UL + UR)
-               
-               elements(e1) % Ub(:,j,s1) = d
-!
-!              -----------------
-!              Solution averages
-!              -----------------
-!
-               elements(e1) % Qb(:,j,s1) = 0.5_RP*( elements(e1) % Qb(:,j,s1) + bvExt )
-               
-            END DO
-         END IF 
-         
-      END SUBROUTINE ComputeSolutionRiemannFluxes
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ComputeGradientAverages( edg, elements, NN, t, ExternalState )
-!
-!     --------------------------------------------------------------
-!     Bassi-Rebay average of the gradient values at the boundaries
-!     Store average of u,v,T in boundary solution vector, U_xb, U_yb.
-!     --------------------------------------------------------------
-!
-         IMPLICIT NONE
-         
-         TYPE(Edge)              :: edg
-         TYPE(Element)           :: elements(:)
-         INTEGER                 :: NN
-         REAL(KIND=RP)           :: t
-         EXTERNAL                :: ExternalState
-         
-         INTEGER                              :: j, n, e1, s1, e2, s2
-         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: UxExt, UyExt
-         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: UL, UR
-         REAL(KIND=RP)                        :: d(N_GRAD_EQN)
-         
-         IF( edg % edgeType == QMESH_INTERIOR )     THEN
-!
-!           --------------------------
-!           Interior gradient averages
-!           --------------------------
-!
-            n = edg % nStart - edg % nInc
-            DO j = 0, NN
-               e1 = edg % elementIDs(1)
-               s1  = ABS(edg % elementSide(1))
-               
-               e2 = edg % elementIDs(2)
-               s2  = ABS(edg % elementSide(2))
-!
-!              --------
-!              x values
-!              --------
-!
-               UL = elements(e1) % U_xb(:,j,s1)
-               UR = elements(e2) % U_xb(:,n,s2)
-               
-               d = 0.5*(UL + UR)
-               
-               elements(e1) % U_xb(:,j,s1) = d
-               elements(e2) % U_xb(:,n,s2) = d
-!
-!              --------
-!              y values
-!              --------
-!
-               UL = elements(e1) % U_yb(:,j,s1)
-               UR = elements(e2) % U_yb(:,n,s2)
-               
-               d = 0.5*(UL + UR)
-               
-               elements(e1) % U_yb(:,j,s1) = d
-               elements(e2) % U_yb(:,n,s2) = d
-               
-               n = n + edg % nInc
-            END DO
-            
-         ELSE
-!
-!           -----------------
-!           Boundary averages
-!           -----------------
-!
-            DO j = 0, NN
-               e1 = edg % elementIDs(1)
-               s1  = ABS(edg % elementSide(1))
-               
-               UxExt  = elements(e1) % U_xb(:,j,s1)
-               UyExt  = elements(e1) % U_yb(:,j,s1)
-               CALL ExternalState( elements(e1) % geom % xb(1,j,s1), elements(e1) % geom % xb(2,j,s1), t, &
-                                   elements(e1) % geom % normal(j,:,s1), UxExt, UyExt , &
-                                    elements(e1) % boundaryName(s1) )
-!
-!              --------
-!              x values
-!              --------
-!
-               UL = elements(e1) % U_xb(:,j,s1)
-               UR = UxExt
-               
-               d = 0.5*(UL + UR)
-               
-               elements(e1) % U_xb(:,j,s1) = d
-!
-!              --------
-!              y values
-!              --------
-!
-               UL = elements(e1) % U_yb(:,j,s1)
-               UR = UyExt
-               
-               d = 0.5*(UL + UR)
-               
-               elements(e1) % U_yb(:,j,s1) = d
-               
-            END DO
-         END IF 
-         
-      END SUBROUTINE ComputeGradientAverages
       
    END Module DGSEMClass

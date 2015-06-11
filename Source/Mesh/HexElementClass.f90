@@ -8,7 +8,7 @@
 !      Implements Algorithms:
 !         Algorithm: 124: ElementClass (QuadElementClass)
 !
-!       The Quad Element class, Alg. 124. See Sec. 8.2.1.2. This has
+!       The Quad Element class, Alg. 124. See Sec. 8.2.1.2. self has
 !       been modified to add the association of a boundary name to an element
 !       edge so that different boundary conditions can be applied to different
 !       elements. The names of the boundaries (not necessarily the names of the
@@ -27,171 +27,173 @@
       USE TransfiniteMapClass
       USE MappedGeometryClass
       USE MeshTypes
+      USE ElementConnectivityDefinitions
       IMPLICIT NONE
       
       
       TYPE Element
-          INTEGER                                      :: nodeIDs(4)
-          INTEGER                                      :: N
-          TYPE(MappedGeometry)                         :: geom
-          REAL(KIND=RP), DIMENSION(:,:,:), ALLOCATABLE :: Q, QDot, G
-          REAL(KIND=RP), DIMENSION(:,:,:), ALLOCATABLE :: U_x, U_y
+          INTEGER                                        :: nodeIDs(8)
+          INTEGER                                        :: N
+          TYPE(MappedGeometry)                           :: geom
+          REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Q, QDot, G
+          REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: U_x, U_y, U_z
 !
 !         -------------------------------------------------------------
 !         Boundary values of: The solution, the inviscid Riemann flux, 
 !         the viscous riemann flux
 !         -------------------------------------------------------------
 !
-          REAL(KIND=RP), DIMENSION(:,:,:), ALLOCATABLE :: Qb, Ub, U_xb, U_yb, FStarb
-          CHARACTER(LEN=BC_STRING_LENGTH)              :: boundaryName(4)
+          REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Qb, Ub, U_xb, U_yb, FStarb
+          CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryName(6)
       END TYPE Element 
-      
-      INTEGER, PARAMETER :: edgeMap(2,4) = RESHAPE( (/1,2,2,3,4,3,1,4/), (/2,4/) )
-      
+            
       CONTAINS 
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ConstructElement( this, ng, nodeIDs, quadMap )
-         USE Nodal2DStorageClass
+      SUBROUTINE ConstructElementGeometry( self, ng, nodeIDs, hexMap )
+         USE NodalStorageClass
          IMPLICIT NONE
          
-         TYPE(Element)            :: this
-         TYPE(Nodal2DStorage)     :: ng
-         INTEGER                  :: nodeIDs(4)
-         TYPE(TransfiniteQuadMap) :: quadMap
-         INTEGER                  :: N
+         TYPE(Element)           :: self
+         TYPE(NodalStorage)      :: ng
+         INTEGER                 :: nodeIDs(8)
+         TYPE(TransfiniteHexMap) :: hexMap
          
-         this%nodeIDs      = nodeIDs
-         this%N            = ng%N
-         N                 = ng%N 
-         this%boundaryName = "---"
+         self % nodeIDs      = nodeIDs
+         self % N            = ng % N
+         self % boundaryName = emptyBCName
 !
 !        --------
 !        Geometry
 !        --------
 !
-         CALL ConstructMappedGeometry( this%geom, ng, this%N, this%N, quadMap )
+         CALL ConstructMappedGeometry( self % geom, ng, hexMap )
 !
 !        ----------------------------------------
 !        Solution Storage is allocated separately
 !        ----------------------------------------
 !
-         
-      END SUBROUTINE ConstructElement
+      END SUBROUTINE ConstructElementGeometry
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE allocateElementStorage(this, N, nEqn, nGradEqn, flowIsNavierStokes)  
+      SUBROUTINE allocateElementStorage(self, N, nEqn, nGradEqn, flowIsNavierStokes)  
          IMPLICIT NONE
-         TYPE(Element) :: this
+         TYPE(Element) :: self
          INTEGER       :: N, nEqn, nGradEqn
          LOGICAL       :: flowIsNavierStokes
 !
-!        --------------------------------------
-!        Solution and time derivative variables
-!        --------------------------------------
+!        ----------------
+!        Volume variables
+!        ----------------
 !
-         ALLOCATE( this%Q(0:N,0:N,nEqn), this%QDot(0:N,0:N,nEqn), this%G(0:N,0:N,nEqn) )
+         ALLOCATE( self % Q   (0:N,0:N,0:N,nEqn) )
+         ALLOCATE( self % QDot(0:N,0:N,0:N,nEqn) )
+         ALLOCATE( self % G   (0:N,0:N,0:N,nEqn) )
+         
          IF ( flowIsNavierStokes )     THEN
-            ALLOCATE( this%U_x(0:N,0:N,nGradEqn), this%U_y(0:N,0:N,nGradEqn) )
+            ALLOCATE( self % U_x(0:N,0:N,0:N,nGradEqn) )
+            ALLOCATE( self % U_y(0:N,0:N,0:N,nGradEqn) )
          END IF
 !
 !        ---------------
 !        Boundary values
 !        ---------------
 !
-         ALLOCATE( this%Qb(nEqn,0:N,4) )
+         ALLOCATE( self % Qb(nEqn,0:N,0:N,6) )
+         ALLOCATE( self % FStarb(nEqn,0:N,0:N,6) )
+         
          IF ( flowIsNavierStokes )     THEN
-            ALLOCATE( this%U_xb(nGradEqn,0:N,4), this%U_yb(nGradEqn,0:N,4) )
-            ALLOCATE( this%Ub(nGradEqn,0:N,4) )
+            ALLOCATE( self % U_xb(nGradEqn,0:N,0:N,6) )
+            ALLOCATE( self % U_yb(nGradEqn,0:N,0:N,6) )
+            ALLOCATE( self % Ub(nGradEqn,0:N,0:N,6) )
          END IF
-   
-         ALLOCATE( this%FStarb(nEqn,0:N,4) )
 !
 !        -----------------
 !        Initialize memory
 !        -----------------
 !
-         this%G           = 0.0_RP
-         this%Q           = 0.0_RP
-         this%QDot        = 0.0_RP
-         this%Qb          = 0.0_RP
+         self % G           = 0.0_RP
+         self % Q           = 0.0_RP
+         self % QDot        = 0.0_RP
+         self % Qb          = 0.0_RP
+         self % FStarb      = 0.0_RP
       
          IF ( flowIsNavierStokes )     THEN
-            this%Ub          = 0.0_RP
-            this%U_x         = 0.0_RP
-            this%U_y         = 0.0_RP
-            this%U_xb        = 0.0_RP
-            this%U_yb        = 0.0_RP
+            self % Ub          = 0.0_RP
+            self % U_x         = 0.0_RP
+            self % U_y         = 0.0_RP
+            self % U_xb        = 0.0_RP
+            self % U_yb        = 0.0_RP
          END IF
 
       END SUBROUTINE allocateElementStorage
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE SetElementBoundaryNames( this, names ) 
+      SUBROUTINE SetElementBoundaryNames( self, names ) 
          IMPLICIT NONE
-         TYPE(Element)                   :: this
-         CHARACTER(LEN=BC_STRING_LENGTH) :: names(4)
-         this%boundaryName = names
+         TYPE(Element)                   :: self
+         CHARACTER(LEN=BC_STRING_LENGTH) :: names(6)
+         self % boundaryName = names
       END SUBROUTINE SetElementBoundaryNames
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE DestructElement( this )
+      SUBROUTINE DestructElement( self )
          IMPLICIT NONE
-         TYPE(Element) :: this
+         TYPE(Element) :: self
          
-         CALL DestructMappedGeometry( this%geom )
+         CALL DestructMappedGeometry( self % geom )
          
-         DEALLOCATE( this%Q, this%QDot, this%G )
-         DEALLOCATE( this%Qb, this%FStarb )
+         DEALLOCATE( self % Q, self % QDot, self % G )
+         DEALLOCATE( self % Qb, self % FStarb )
          
-         IF ( ALLOCATED(this%Ub) )     THEN
-            DEALLOCATE( this%Ub, this%U_x, this%U_y, this%U_xb, this%U_yb )
+         IF ( ALLOCATED(self % Ub) )     THEN
+            DEALLOCATE( self % Ub, self % U_x, self % U_y, self % U_xb, self % U_yb )
          END IF
 
       END SUBROUTINE DestructElement
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE PrintElement( this, id )
+      SUBROUTINE PrintElement( self, id )
          IMPLICIT NONE 
-         TYPE(Element) :: this
+         TYPE(Element) :: self
          INTEGER      :: id
-         PRINT *, id, this%nodeIDs, this%boundaryName
+         PRINT *, id, self % nodeIDs, self % boundaryName
       END SUBROUTINE PrintElement
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE SaveSolutionStorageToUnit( this, fUnit )
+      SUBROUTINE SaveSolutionStorageToUnit( self, fUnit )
          IMPLICIT NONE
 !
 !        -----------------------
 !        Save for a restart file
 !        -----------------------
 !
-         TYPE(Element) :: this
+         TYPE(Element) :: self
          INTEGER       :: fUnit
          
-         WRITE(funit) this%Q
+         WRITE(funit) self % Q
       
       END SUBROUTINE SaveSolutionStorageToUnit
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE LoadSolutionFromUnit( this, fUnit )
+      SUBROUTINE LoadSolutionFromUnit( self, fUnit )
          IMPLICIT NONE
 !
 !        -----------------------
 !        Save for a restart file
 !        -----------------------
 !
-         TYPE(Element) :: this
+         TYPE(Element) :: self
          INTEGER       :: fUnit
          
-         READ(funit) this%Q
+         READ(funit) self % Q
       
       END SUBROUTINE LoadSolutionFromUnit
       

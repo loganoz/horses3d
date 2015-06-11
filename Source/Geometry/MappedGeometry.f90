@@ -58,7 +58,7 @@ Module MappedGeometryClass
 !      Arguments
 !      ---------
 !
-      CLASS(MappedGeometry)     :: self
+      CLASS(MappedGeometry)    :: self
       TYPE(TransfiniteHexMap)  :: mapper
       TYPE(NodalStorage)       :: spA
 !
@@ -68,7 +68,7 @@ Module MappedGeometryClass
 !
       INTEGER       :: N
       INTEGER       :: i, j, k
-      REAL(KIND=RP) :: x(3), nrm
+      REAL(KIND=RP) :: nrm
       REAL(KIND=RP) :: grad_x(3,3), jGrad(3)
 !
 !     -----------
@@ -87,7 +87,6 @@ Module MappedGeometryClass
       ALLOCATE( self % xb(3,0:N,0:N,6)     )
       ALLOCATE( self % normal(3,0:N,0:N,6) )
       ALLOCATE( self % scal(0:N,0:N,6)     )
-      
 !
 !     --------------------------
 !     Compute interior locations
@@ -99,7 +98,7 @@ Module MappedGeometryClass
                self % x(:,i,j,k) = mapper %  transfiniteMapAt([spA % xi(i), spA % eta(j), spa % zeta(k)])
             END DO
          END DO
-      END DO 
+      END DO
 !
 !     ----------------------
 !     Compute face locations

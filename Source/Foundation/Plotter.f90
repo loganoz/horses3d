@@ -6,36 +6,62 @@
 !      By: David Kopriva  
 !
 !      The Plotter class separates the formatting of the data for
-!      the plotting program from the data itself. Two types of
+!      the plotting program from the data itself. It uses a delegate
+!      in the form of the dataSource pointer to actually determine 
+!      what is plotted beyond the mesh positions.
+!
+!      Two types of
 !      plotters are available: Interpolating or noninterpolating, 
 !      though for DGSEM approximation with Gauss points the only
 !      useful one is interpolating.
 !
 !      To construct a plotter:
-!         ConstructPlotter( plotter, fUnit )
-!         ConstructInterpolatingPlotter( plotter, fUnit, newN, newM )
+!         ConstructPlotter( plotter, fUnit, dataSource, newM )
 !
 !       Where,
-!         fUnit = file unit
-!         newN, newM = number of interpolation points
+!         fUnit      = file unit of plotFile
+!         dataSource = an instance of PlotterDatasource or a subclass thereof
+!         newN       = number of interpolation points in each direction (optional)
 !
 !      To use a plotter, call
-!         ExportTocTecplot( plotter, sem )
+!         ExportTocTecplot( plotter, elements )
 !
-!      where sem is the spectral element approximation of type DGSem.
+!      where elements is the array of elements from the mesh.
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      MODULE PlotterClass
-      USE DGSEMClass
-      USE PlotterDataSource
+      MODULE DGSEMPlotterClass
+      USE NodalStorageClass
+      USE ElementClass
+      USE PlotterDataSourceClass
       IMPLICIT NONE
       
-      TYPE Plotter
-         INTEGER :: fUnit
-         LOGICAL :: interpolate
-         INTEGER :: newN, newM
-      END TYPE Plotter
+      TYPE DGSEMPlotter
+         INTEGER                              :: fUnit
+         LOGICAL                              :: interpolate
+         INTEGER                              :: newN, oldN
+         CLASS(PlotterDatasource), POINTER    :: dataSource
+      
+         REAL(KIND=RP), ALLOCATABLE, PRIVATE  :: interpMatrix(:,:)
+         REAL(KIND=RP), ALLOCATABLE, PRIVATE  :: tmpOldVector(:)
+         REAL(KIND=RP), ALLOCATABLE, PRIVATE  :: tmpNewVector(:)
+         REAL(KIND=RP), ALLOCATABLE, PRIVATE  :: tmp3Darray(:,:,:)
+!
+!        ========         
+         CONTAINS
+!        ========
+!      
+         PROCEDURE :: Construct => ConstructPlotter
+         PROCEDURE :: Destruct => DestructPlotter
+         PROCEDURE :: ExportToTecplot
+      END TYPE DGSEMPlotter
+      
+      REAL(KIND=RP), ALLOCATABLE, PRIVATE   :: oldXYZ(:,:,:,:)
+      REAL(KIND=RP), ALLOCATABLE, PRIVATE   :: newXYZ(:,:,:,:)
+      REAL(KIND=RP), ALLOCATABLE, PRIVATE   :: new3DState(:,:,:,:)
+      
+      REAL(KIND=RP), ALLOCATABLE, PRIVATE   :: array3DNew(:,:,:)
+      REAL(KIND=RP), ALLOCATABLE, PRIVATE   :: array3DOld(:,:,:)
 !
 !     ========   
       CONTAINS
@@ -44,87 +70,146 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ConstructPlotter( this, fUnit )
+      SUBROUTINE ConstructPlotter( self, spA, fUnit, dataSource, newN )
          IMPLICIT NONE 
-         TYPE(Plotter) :: this
-         INTEGER       :: fUnit
-         this % interpolate = .false.
-         this % fUnit       = fUnit
-         this % newN        = 0
-         this % newM        = 0
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         CLASS(DGSEMPlotter)               :: self
+         CLASS(NodalStorage)               :: spA
+         CLASS(PlotterDataSource), POINTER :: dataSource
+         INTEGER                           :: fUnit
+         INTEGER, OPTIONAL                 :: newN
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         REAL(KIND=RP), DIMENSION(0:spA%N) :: w
+         REAL(KIND=RP), ALLOCATABLE        :: x(:)
+         REAL(KIND=RP)                     :: dx
+         INTEGER                           :: j
+         
+         self % interpolate = .false.
+         self % fUnit       = fUnit
+         self % newN        = 0
+         self % oldN        = spA % N
+         self % dataSource  => dataSource ! Weak ownership
+!
+!        -------------------------------------
+!        Construct interpolations, if necesary
+!        -------------------------------------
+!
+         IF ( PRESENT(newN) )     THEN
+            self % interpolate = .TRUE.
+            self % newN        = newN
+!
+!           -------------------------
+!           Allocate temporary arrays
+!           -------------------------
+!
+            ALLOCATE( self % tmp3Darray(0:newN,0:newN,0:newN) )
+            ALLOCATE( self % tmpNewVector(0:newN))
+            ALLOCATE( self % tmpOldVector(0:spA % N))
+            
+            ALLOCATE(oldXYZ(0:spA % N,0:spA % N,0:spA % N,3))
+            ALLOCATE(newXYZ(0:newN,0:newN,0:newN,3))
+            ALLOCATE(new3DState(0:newN,0:newN,0:newN,numberOfOutputVariables()))
+            ALLOCATE(array3DNew(0:newN,0:newN,0:newN))
+            ALLOCATE(array3dOld(0:spA % N,0:spA % N,0:spA % N))
+!
+!           -----------------------------
+!           Generate interpolation arrays
+!           -----------------------------
+!
+            ALLOCATE(x(0:newN))
+            dx = 2.0_RP/newN
+            DO j = 0, newN
+               x(j) = -1.0_RP + dx*j 
+            END DO  
+            
+            ALLOCATE(self % interpMatrix(0:newN, 0:spA % N))
+            
+            CALL BarycentricWeights( N = spA % N, x = spA % xi, w = w)
+            CALL PolynomialInterpolationMatrix(N        = spA % N,           &
+                                               M        = newN,              &
+                                               oldNodes = spA % xi,          &
+                                               weights  = w,                 &
+                                               newNodes = x,                 &
+                                               T        = self % interpMatrix)
+         END IF 
+         
       END SUBROUTINE ConstructPlotter
 !
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ConstructInterpolatingPlotter( this, fUnit, newN, newM )
-         IMPLICIT NONE 
-         TYPE(Plotter) :: this
-         INTEGER       :: fUnit
-         INTEGER       :: newN, newM
-         this % interpolate = .true.
-         this % fUnit       = fUnit
-         this % newN        = newN
-         this % newM        = newM
-      END SUBROUTINE ConstructInterpolatingPlotter
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE DestructPlotter(self)  
+         IMPLICIT NONE  
+         CLASS(DGSEMPlotter) :: self
+      END SUBROUTINE DestructPlotter
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ExportToTecplot(this, sem) 
+      SUBROUTINE ExportToTecplot(self, elements) 
       IMPLICIT NONE 
          
-         TYPE(Plotter)           :: this
-         TYPE(DGSem)             :: sem
-         INTEGER                 :: N
+         CLASS(DGSEMPlotter)           :: self
+         TYPE(Element)           :: elements(:)
          
-         IF(this % interpolate)     THEN
-            N     = SIZE(sem % mesh % elements(1) % Q,1) - 1
-            CALL ExportToTecplotI( this, N, sem )
+         IF(self % interpolate)     THEN
+            CALL ExportToTecplotI( self, elements )
          ELSE
-            CALL ExportToTecplotNoI( this, sem )
+            CALL ExportToTecplotNoI( self, elements )
          END IF 
          
       END SUBROUTINE ExportToTecplot
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ExportToTecplotNoI( this, sem ) 
+      SUBROUTINE ExportToTecplotNoI( self, elements ) 
          IMPLICIT NONE
 !
 !        ---------
 !        Arguments
 !        ---------
 !
-         TYPE(Plotter) :: this
-         TYPE(DGSem)   :: sem
+         CLASS(DGSEMPlotter) :: self
+         TYPE(Element)       :: elements(:)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         INTEGER                                  :: i, j, k, N, nPltVars, l
+         INTEGER                                  :: i, j, k, id, N, nPltVars, l
          CHARACTER(LEN=32)                        :: fmtString
          REAL(KIND=RP), DIMENSION(:), ALLOCATABLE :: outputVector
 !
-         nPltVars = NumberOfOutputVariables()
-         ALLOCATE( outputVector(nPltVars) )
+         nPltVars  = self % dataSource % NumberOfOutputVariables()
          fmtString = FormatString()
+
+         ALLOCATE( outputVector(nPltVars) )
          
-         WRITE(this % fUnit,*) Title()
-         WRITE(this % fUnit,*) OutputVariableNames()
+         WRITE(self % fUnit,*) self % dataSource % Title()
+         WRITE(self % fUnit,*) self % dataSource % OutputVariableNames()
          
-         N       = SIZE(sem % mesh % elements(1) % Q,1)
+         N       = UBOUND(elements(1) % Q,1)
          
-         DO k = 1, SIZE(sem % mesh % elements) 
-            WRITE(this % fUnit,*) "ZONE I=", N+1, ",J=",N+1,", F=POINT"
-            DO j= 0, N 
-               DO i = 0, N
-                  CALL OutputVectorFromStateVector( outputVector, sem % mesh % elements(k) % Q(i,j,:) )
-                  
-                  WRITE(this % fUnit,fmtString) sem % mesh % elements(k) % geom % x(i,j), &
-                                              sem % mesh % elements(k) % geom % y(i,j), &
-                                              (outputVector(l), l = 1, nPltVars)
+         DO id = 1, SIZE(elements) 
+            WRITE(self % fUnit,*) "ZONE I=", N+1, ",J=",N+1, ",K=",N+1,", F=POINT"
+            DO k = 0, N
+               DO j= 0, N 
+                  DO i = 0, N
+                     CALL self % dataSource % OutputVectorFromStateVector( outputVector, elements(id) % Q(i,j,k,:) )
+                     
+                     WRITE(self % fUnit,fmtString) elements(id) % geom % x(1,i,j,k), &
+                                                   elements(id) % geom % x(2,i,j,k), &
+                                                   elements(id) % geom % x(3,i,j,k), &
+                                                   (outputVector(l), l = 1, nPltVars)
+                  END DO
                END DO
-            END DO
+            END DO 
          END DO
          
          DEALLOCATE( outputVector )
@@ -133,91 +218,210 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ExportToTecplotI( this, N, sem ) 
-      IMPLICIT NONE
+      SUBROUTINE ExportToTecplotI( self, elements ) 
+         IMPLICIT NONE
       
          
-      TYPE(Plotter) :: this
-      TYPE(DGSem)   :: sem
-      INTEGER       :: N
+         CLASS(DGSEMPlotter) :: self
+         TYPE(Element)       :: elements(:)
 !
-!     ---------------
-!     Local variables
-!     ---------------
+!        ---------------
+!        Local variables
+!        ---------------
 !
-      INTEGER        :: fUnit
-      INTEGER        :: newN, newM, nPltVars
-      INTEGER        :: i, j, k, l
-      REAL(KIND=RP), DIMENSION(0:this % newN, 0:this % newM ,2) :: fineMesh
-      REAL(KIND=RP), DIMENSION(:,:,:), ALLOCATABLE          :: fineMeshSolution
-      CHARACTER(LEN=32)                                     :: valuesFmt
+         INTEGER                                  :: i, j, k, id, N, nPltVars, l
+         CHARACTER(LEN=32)                        :: fmtString
+         REAL(KIND=RP), DIMENSION(:), ALLOCATABLE :: outputVector
 !
-!     ------------------------
-!     Interpolation quantities
-!     ------------------------
+         N = self % newN
+         nPltVars  = self % dataSource % NumberOfOutputVariables()
+         ALLOCATE( outputVector(nPltVars) )
+         
+         fmtString = FormatString()
 !
-      REAL(KIND=RP), DIMENSION(0:this % newN,0:N) :: interpMatX
-      REAL(KIND=RP), DIMENSION(0:this % newM,0:N) :: interpMatY
-      REAL(KIND=RP), DIMENSION(0:N)             :: wx, wy
-      REAL(KIND=RP), DIMENSION(0:this % newN)     :: newNodesX
-      REAL(KIND=RP), DIMENSION(0:this % newM)     :: newNodesY
-      REAL(KIND=RP)                             :: dx, dy
+!        ------------------------
+!        Output plot file  header
+!        ------------------------
 !
-      newN     = this % newN
-      newM     = this % newM
-      fUnit    = this % fUnit
-      nPltVars = NumberOfOutputVariables()
-      ALLOCATE( fineMeshSolution(0:this % newN, 0:this % newM, nPltVars))
+         WRITE(self % fUnit,*) self % dataSource % Title()
+         WRITE(self % fUnit,*) self % dataSource % OutputVariableNames()
+         
+         DO id = 1, SIZE(elements)
+            WRITE(self % fUnit,*) "ZONE I=", N+1, ",J=",N+1, ",K=",N+1,", F=POINT"
 !
-!     --------------------
-!     Set up interpolation
-!     --------------------
+!           -------------------------
+!           Interpolate to new points
+!           -------------------------
 !
-      dx = 2.0_RP/newN
-      DO i = 0, newN 
-         newNodesX(i) = -1.0_RP + i*dx
-      END DO
-      CALL BarycentricWeights( N, sem % spA % xi, wx )
-      CALL PolynomialInterpolationMatrix( N, newN, sem % spA % xi, wx, newNodesX, interpMatX)
+            CALL interpolateElementToFineMesh(self      = self, &
+                                              e         = elements(id),&
+                                              newPoints = newXYZ, &
+                                              newState  = new3DState)
 !
-      dy = 2.0_RP/newM
-      DO j = 0, newM 
-         newNodesY(j) = -1.0_RP + j*dy
-      END DO
-      CALL BarycentricWeights( N, sem % spA % xi, wy )
-      CALL PolynomialInterpolationMatrix( N, newM, sem % spA % xi, wy, newNodesY, interpMatY)
+!           --------------------
+!           Write out new points
+!           --------------------
 !
-!     ----------------------------------
-!     Interpolate and output the results
-!     ----------------------------------
+            DO k = 0, N
+               DO j= 0, N 
+                  DO i = 0, N
+                     WRITE(self % fUnit,fmtString) newxyz(i,j,k,1), &
+                                                   newxyz(i,j,k,2), &
+                                                   newxyz(i,j,k,3), &
+                                                   (new3DState(i,j,k,l), l = 1, nPltVars)
+                  END DO
+               END DO
+            END DO 
+         END DO
 !
-      WRITE(fUnit,*) TRIM( Title() )
-      WRITE(fUnit,*) TRIM( OutputVariableNames() )
-      
-      valuesFMT = FormatString()
-      
-      DO k = 1, SIZE(sem % mesh % elements) 
-      
-         WRITE(fUnit,*) "ZONE I=", newN+1, ",J=",newM+1,", F=POINT"
+      END SUBROUTINE ExportToTecplotI
 !
-!        ----------------------------------------------------------------------------------------
-!        Rem: To avoid any jumps in the geometry at the element boundaries, don't interpolate
-!        the locations. Instead, save the quadMap as part of the element and evaluate it here for
-!        the NewX and newY points.
-!        ----------------------------------------------------------------------------------------
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE interpolateElementToFineMesh( self, e, newPoints, newState)  
+         IMPLICIT NONE
 !
-         CALL InterpolateToFineMesh( sem, k, fineMeshSolution, fineMesh, N, newN, interpMatX, newM, interpMatY )
-         DO j= 0, newM
-            DO i = 0, newN
-               WRITE(fUnit,valuesFmt) fineMesh(i,j,1), fineMesh(i,j,2), ( fineMeshSolution(i,j,l), l = 1, nPltVars )
-            END DO
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(DGSemPlotter) :: self 
+         TYPE( Element )    :: e
+         REAL(KIND=RP)      :: newPoints(0:,0:,0:,1:)
+         REAL(KIND=RP)      :: newState(0:,0:,0:,1:)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         INTEGER                     :: i, j, k, m
+         INTEGER                     :: oldN, newN
+!         
+         oldN = self % oldN
+         newN = self % newN
+!
+!        ------------------
+!        Mesh interpolation
+!        ------------------
+!
+         DO m = 1, 3
+            DO k = 0, oldN
+               DO j = 0, oldN    
+                  DO i = 0, oldN
+                     array3DOld(i,j,k) = e % geom % x(m,i,j,k) 
+                  END DO  
+               END DO   
+            END DO   
+            CALL coarseToFineInterpolation3D(self          = self,     &
+                                             old3DArrayArg = array3DOld, &
+                                             new3DArrayArg = array3DNew) 
+            newPoints(:,:,:,m) = array3DNew
+         END DO
+!
+!        -------------------
+!        State interpolation
+!        -------------------
+!
+         DO m = 1, numberOfOutputVariables()
+            DO k = 0, oldN
+               DO j = 0, oldN    
+                  DO i = 0, oldN
+                     array3DOld(i,j,k) = outputStateFromStateVector(indx = m,stateVector = e % Q(i,j,k,:)) 
+                  END DO  
+               END DO   
+            END DO   
+
+            CALL coarseToFineInterpolation3D(self          = self,     &
+                                             old3DArrayArg = array3DOld, &
+                                             new3DArrayArg = array3DNew) 
+            newState(:,:,:,m) = array3DNew
          END DO
          
-      END DO
+      END SUBROUTINE interpolateElementToFineMesh
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE coarseToFineInterpolation3D( self, old3DArrayArg, new3DArrayArg )  
+         IMPLICIT NONE
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(DGSEMPlotter)         :: self
+         REAL(KIND=RP), INTENT(IN)  :: old3DArrayArg(0:,0:,0:)
+         REAL(KIND=RP), INTENT(OUT) :: new3DArrayArg(0:,0:,0:)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         INTEGER :: i, j, k
+         INTEGER :: oldN, newN
+         
+         oldN = self % oldN
+         newN = self % newN
+!
+!        ------------------
+!        Interpolate in xi 
+!        ------------------
+!
+         DO k = 0, oldN
+            DO j = 0, oldN
+               self % tmpOldVector = old3DArrayArg(:,j,k)
+               CALL InterpolateToNewPoints( N       = oldN, &
+                                            M       = newN, &
+                                            T       = self % interpMatrix,&
+                                            f       = self % tmpOldVector,&
+                                            fInterp = self % tmpNewVector)
+                DO i = 0, newN
+                   self % tmp3Darray(i,j,k) = self % tmpNewVector(i) 
+                END DO  
+            END DO
+         END DO  
+!
+!        ------------------
+!        Interpolate in eta
+!        ------------------
+!
+         DO k = 0, oldN
+            DO i = 0, newN
+               DO j = 0, oldN
+                  self % tmpOldVector(j) = self % tmp3Darray(i,j,k) 
+               END DO
+               CALL InterpolateToNewPoints( N       = oldN, &
+                                            M       = newN, &
+                                            T       = self % interpMatrix,&
+                                            f       = self % tmpOldVector,&
+                                            fInterp = self % tmpNewVector)
+                DO j = 0, newN
+                   self % tmp3Darray(i,j,k) = self % tmpNewVector(j) 
+                END DO  
+            END DO   
+         END DO
+!
+!        -------------------
+!        Interpolate in zeta
+!        -------------------
+!
+         DO j = 0, newN
+            DO i = 0, newN
+               DO k = 0, oldN
+                  self % tmpOldVector(k) = self % tmp3Darray(i,j,k) 
+               END DO
+               CALL InterpolateToNewPoints( N       = oldN, &
+                                            M       = newN, &
+                                            T       = self % interpMatrix,&
+                                            f       = self % tmpOldVector,&
+                                            fInterp = self % tmpNewVector)
+                DO k = 0, newN
+                   new3DarrayArg(i,j,k) = self % tmpNewVector(k) 
+                END DO  
+            END DO   
+         END DO  
+         
+      END SUBROUTINE coarseToFineInterpolation3D
       
-      DEALLOCATE( fineMeshSolution )
-
-      END SUBROUTINE ExportToTecplotI
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -227,85 +431,8 @@
          CHARACTER(LEN=32) :: valuesStr
          
          nPltVars = NumberOfOutputVariables()
-         WRITE(valuesStr,*) nPltVars+2
+         WRITE(valuesStr,*) nPltVars+3
          valuesFMT = "(" // TRIM(valuesStr) // "E13.5)"
       END FUNCTION FormatString
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE InterpolateToFineMesh( this, ID, interpSoln, newMesh, oldN, N, interpMatX, M, InterpMatY )
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      INTEGER                              :: N, M, ID, oldN
-      TYPE(DGSem)                          :: this
-      REAL(KIND=RP), DIMENSION(0:,0:,1:)   :: interpSoln
-      REAL(KIND=RP), DIMENSION(0:N,0:M,2)  :: newMesh
-      REAL(KIND=RP), DIMENSION(0:N,0:oldN) :: interpMatX
-      REAL(KIND=RP), DIMENSION(0:M,0:oldN) :: interpMatY
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      REAL(KIND=RP), DIMENSION(0:N,0:oldN)         :: uTmp
-      REAL(KIND=RP), DIMENSION(0:N,0:oldN)         :: xTmp, yTmp
-      REAL(KIND=RP), DIMENSION(0:M)                :: vNew
-      REAL(KIND=RP), DIMENSION(0:oldN)             :: vOld
-      INTEGER                                      :: i, j, k, nPlotValues
-      REAL(KIND=RP), DIMENSION(:,:,:), ALLOCATABLE :: valuesToInterpolate
-!
-!     ------------------
-!     Mesh interpolation
-!     ------------------
-!
-      DO j = 0, oldN
-         CALL InterpolateToNewPoints( oldN, N, interpMatX, this % mesh % elements(ID) % geom % x(:,j), xTmp(:,j) )
-         CALL InterpolateToNewPoints( oldN, N, interpMatX, this % mesh % elements(ID) % geom % y(:,j), yTmp(:,j) )
-      END DO
       
-      DO i = 0, N 
-         vOld = yTmp(i,:)
-         CALL InterpolateToNewPoints( oldN, M, interpMatY, vOld , vNew )
-         newMesh(i,:,2) = vNew
-         vOld = xTmp(i,:)
-         CALL InterpolateToNewPoints( oldN, M, interpMatY, vOld , vNew )
-         newMesh(i,:,1) = vNew
-      END DO
-!
-!     ------------------------------------
-!     Compute variables to be interpolated
-!     ------------------------------------
-!
-      nPlotValues = NumberOfOutputVariables()
-      ALLOCATE( valuesToInterpolate(0:oldN,0:oldN, nPlotValues))
-      DO j = 0, oldN
-         DO i = 0, oldN
-            CALL OutputVectorFromStateVector( valuesToInterpolate(i,j,:), this % mesh % elements(id) % Q(i,j,:) )
-         END DO
-      END DO
-!
-!     ----------------------
-!     Solution interpolation
-!     ----------------------
-!
-      DO k = 1, nPlotValues
-         DO j = 0, oldN
-            CALL InterpolateToNewPoints( oldN, N, interpMatX, valuesToInterpolate(:,j,k), uTmp(:,j) )
-         END DO
-         
-         DO i = 0, N
-            vOld = uTmp(i,:)
-            CALL InterpolateToNewPoints( oldN, M, interpMatY, vOld , vNew )
-            interpSoln(i,:,k) = vNew
-         END DO
-      END DO
-      
-      DEALLOCATE(valuesToInterpolate)
-
-      END SUBROUTINE InterpolateToFineMesh
-      
-   END MODULE PlotterClass
+   END MODULE DGSEMPlotterClass

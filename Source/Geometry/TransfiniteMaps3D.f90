@@ -43,10 +43,10 @@
    MODULE TransfiniteMapClass
       USE SMConstants
       USE FacePatchClass
-      IMPLICIT NONE 
+      IMPLICIT NONE
       
       TYPE TransfiniteHexMap
-         REAL(KIND=RP)  , DIMENSION(:,:), ALLOCATABLE :: corners
+         REAL(KIND=RP)  , DIMENSION(3,8)              :: corners
          TYPE(FacePatch), DIMENSION(:)  , ALLOCATABLE :: faces
 !
 !        ========
@@ -55,10 +55,11 @@
 !         
          PROCEDURE :: constructWithCorners
          PROCEDURE :: constructWithFaces
-         PROCEDURE :: destructTransfiniteHexMap
+         PROCEDURE :: destruct => destructTransfiniteHexMap
          PROCEDURE :: transfiniteMapAt
          PROCEDURE :: metricDerivativesAt
          PROCEDURE :: isHex8
+         PROCEDURE :: setCorners
          
       END TYPE TransfiniteHexMap
 !
@@ -74,9 +75,7 @@
          CLASS(TransFiniteHexMap) :: self
          REAL(KIND=RP)           :: corners(3,8)
          
-         ALLOCATE( self % corners(3,8) )
-         
-         self % corners = corners
+         CALL self % setCorners(corners)
          
       END SUBROUTINE constructWithCorners
 !
@@ -90,7 +89,7 @@
 !        ---------
 !
          CLASS(TransFiniteHexMap) :: self
-         TYPE(FacePatch)         :: faces(6)
+         TYPE(FacePatch)          :: faces(6)
 !
 !        ---------------
 !        Local variables
@@ -109,8 +108,6 @@
 !        Compute and save the corners 
 !        -----------------------------
 !
-         ALLOCATE( self % corners(3,8) )
-         
          CALL ComputeFacePoint(faces(3),u = [-1.0_RP,-1.0_RP],p = corners(:,1))
          CALL ComputeFacePoint(faces(3),u = [ 1.0_RP,-1.0_RP],p = corners(:,2))
          CALL ComputeFacePoint(faces(3),u = [ 1.0_RP, 1.0_RP],p = corners(:,3))
@@ -121,9 +118,20 @@
          CALL ComputeFacePoint(faces(5),u = [ 1.0_RP, 1.0_RP],p = corners(:,7))
          CALL ComputeFacePoint(faces(5),u = [-1.0_RP, 1.0_RP],p = corners(:,8))
          
-         self % corners = corners
+         CALL self % setCorners(corners)
          
       END SUBROUTINE constructWithFaces
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE setCorners(self, corners)  
+         IMPLICIT NONE  
+         CLASS(TransFiniteHexMap) :: self
+         REAL(KIND=RP)            :: corners(3,8)
+         
+         self % corners = corners
+         
+      END SUBROUTINE setCorners
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -132,8 +140,8 @@
          CLASS(TransfiniteHexMap) :: self
          LOGICAL :: ans
          
-         ans = .FALSE.
-         IF(ALLOCATED(self % faces)) ans = .TRUE.
+         ans = .TRUE.
+         IF(ALLOCATED(self % faces)) ans = .FALSE.
          
       END FUNCTION isHex8
 !
@@ -145,6 +153,7 @@
           REAL(KIND=RP)            :: u(3), x(3)
           
           IF(ALLOCATED(self % faces))     THEN
+          
              CALL GeneralHexTransfiniteMap(u = u,x = x,                  &
                                            cornerPoints = self % corners,&
                                            faceData = self % faces)
@@ -174,7 +183,6 @@
       SUBROUTINE destructTransfiniteHexMap(self)
          IMPLICIT NONE  
           CLASS(TransFiniteHexMap) :: self
-          IF(ALLOCATED(self % corners)) DEALLOCATE(self % corners)
           IF(ALLOCATED(self % faces))   DEALLOCATE(self % faces)
      END SUBROUTINE destructTransfiniteHexMap
 !
@@ -323,7 +331,6 @@
       REAL(KIND=RP) , DIMENSION(3, 6) :: facePoint
       REAL(KIND=RP) , DIMENSION(3,12) :: edgePoint
       REAL(KIND=RP) , DIMENSION(3)    :: xi
-      
 !
 !     -------------
 !     Compute edges
@@ -360,7 +367,6 @@
       xi = 0.5_RP*(u+1.0_RP)
       CALL ComputeHexTransfiniteMap(xi, x, facePoint, edgePoint, cornerPoints)
 !
-      RETURN
       END SUBROUTINE GeneralHexTransfiniteMap
 !
 !///////////////////////////////////////////////////////////////////////////////
