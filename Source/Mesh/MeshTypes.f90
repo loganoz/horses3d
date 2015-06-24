@@ -15,6 +15,7 @@
 !     ---------
 !
       INTEGER, PARAMETER :: HMESH_NONE                          = 0
+      INTEGER, PARAMETER :: HMESH_UNDEFINED                     = -1
       INTEGER, PARAMETER :: HMESH_BOUNDARY = 0, HMESH_INTERIOR  = 1
       INTEGER, PARAMETER :: HMESH_NEUMANN  = 1, HMESH_DIRICHLET = 2
       

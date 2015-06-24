@@ -186,11 +186,10 @@ Module MappedGeometryClass
             CALL vCross(grad_x(:,3), grad_x(:,1), jGrad)
             nrm = NORM2(jGrad)
             self % normal(:,i,j,EBACK) = jGrad/nrm
-            self % scal(i,j,ETOP)     = nrm
+            self % scal(i,j,EBACK)     = nrm
            
          END DO
       END DO 
-      
    END SUBROUTINE ConstructMappedGeometry
 !
 !////////////////////////////////////////////////////////////////////////

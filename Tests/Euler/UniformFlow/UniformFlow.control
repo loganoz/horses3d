@@ -1,0 +1,22 @@
+Flow equations        = "Euler"
+mesh file name        = "MeshFiles/TwoClyindricalElements.mesh"
+plot file name        = "PlotFiles/TwoClyindricalElements.tec"
+restart file name     = "RestartFiles/TwoClyindricalElements.rst"
+restart               = .false.
+Polynomial order      = 6
+Number of iterations  = 0
+Output Interval       = 1000
+Convergence tolerance = 1.d-10
+cfl                   = 0.9
+mach number           = 0.5
+AOA theta             = 0.0
+AOA phi               = 0.0
+Reynolds number       = 0.0
+Number of boundaries  = 6
+InnerCylinder 0.0 Inflow
+Top 0.0 Inflow
+Bottom 0.0 Inflow
+Left 0.0 Inflow
+Right 0.0 Outflow
+Front 0.0 Outflow
+Back 0.0 Outflow

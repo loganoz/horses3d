@@ -61,7 +61,7 @@
 !     -----------------
 !
       CALL GaussLegendreNodesAndWeights( N, this % xi , this % w )
-      this % eta = this % xi
+      this % eta  = this % xi
       this % zeta = this % xi
 !
 !     -----------------

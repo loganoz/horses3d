@@ -91,6 +91,7 @@
          REAL(KIND=RP), ALLOCATABLE        :: x(:)
          REAL(KIND=RP)                     :: dx
          INTEGER                           :: j
+         INTEGER                           :: nMax
          
          self % interpolate = .false.
          self % fUnit       = fUnit
@@ -105,13 +106,14 @@
          IF ( PRESENT(newN) )     THEN
             self % interpolate = .TRUE.
             self % newN        = newN
+            nMax               = MAX(newN,self % oldN)
 !
 !           -------------------------
 !           Allocate temporary arrays
 !           -------------------------
 !
-            ALLOCATE( self % tmp3Darray(0:newN,0:newN,0:newN) )
-            ALLOCATE( self % tmpNewVector(0:newN))
+            ALLOCATE( self % tmp3Darray(0:nMax,0:nMax,0:nMax) )
+            ALLOCATE( self % tmpNewVector(0:nMax))
             ALLOCATE( self % tmpOldVector(0:spA % N))
             
             ALLOCATE(oldXYZ(0:spA % N,0:spA % N,0:spA % N,3))

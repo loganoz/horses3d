@@ -327,6 +327,10 @@
       DO k = 1, SIZE(self % elements) 
          CALL PrintElement( self % elements(k), k )
       END DO
+      PRINT *, "Faces..."
+      DO k = 1, SIZE(self % faces) 
+         CALL PrintFace( self % faces(k))
+      END DO
       
       END SUBROUTINE PrintMesh
 !

@@ -31,7 +31,6 @@
          INTEGER                         :: elementSide(2)
          INTEGER                         :: rotation
          CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName
-         
       END TYPE Face
 !
 !     ========
@@ -42,6 +41,7 @@
          IMPLICIT NONE 
          TYPE(Face) :: self
          INTEGER    :: nodeIDs(4), elementID, side
+         self % FaceType       = HMESH_UNDEFINED
          self % nodeIDS        = nodeIDs
          self % elementIDs     = HMESH_NONE
          self % elementSide    = HMESH_NONE

@@ -1,0 +1,20 @@
+Flow equations = "Euler"
+mesh file name = "/Users/kopriva/Documents/Research/FortranCode/NSLite3D/Tests/Gradients/GradientsMeshFileNames.txt"
+plot file name = "none"
+restart file name = "none"
+restart           = .false.
+Polynomial order  = 9
+Number of iterations  = 0
+Output Interval       = 1000
+Convergence tolerance = 1.d-10
+cfl                   = 0.9
+mach number           = 0.5
+Reynolds number       = 0.0
+Number of boundaries  = 6
+InnerCylinder 0.0 Inflow
+Top 0.0 Inflow
+Bottom 0.0 Inflow
+Left 0.0 Inflow
+Right 0.0 Outflow
+Front 0.0 Outflow
+Back 0.0 Outflow

@@ -3,18 +3,8 @@
 !      By: David Kopriva
 !      From DSEM Code
 !
-!!     The variable mappings for the Navier-Stokes Equations are
-!!
-!!              Q(1) = rho
-!!              Q(2) = rhou
-!!              Q(3) = rhov
-!!              Q(4) = rhow
-!!              Q(5) = rhoe
-!!     Whereas the gradients are:
-!!              grad(1) = grad(u)
-!!              grad(2) = grad(v)
-!!              grad(3) = grad(w)
-!!              grad(4) = grad(T)
+!    Special version for Test problem with F = Q, averaging for riemann
+!    solver.
 !
 !////////////////////////////////////////////////////////////////////////
 !    
@@ -55,7 +45,7 @@
 !!   The free-stream Angle of Attack
 !    ----------------------------------------
 !
-     REAL( KIND=RP ) :: AOATheta, AOAPhi
+     REAL( KIND=RP ) :: AOA
 !
 !    ----------------------------------------
 !!   The Prandtl number
@@ -191,190 +181,14 @@
 !
          REAL(KIND=RP), DIMENSION(N_EQN)  :: Qleft, Qright, flux
          REAL(KIND=RP), DIMENSION(3)      :: nHat
-         
-         SELECT CASE ( riemannSolverChoice )
-            CASE ( ROE )
-               CALL RoeSolver( QLeft, QRight, nHat, flux )
-            CASE (LXF)
-               PRINT *, "3D LXF to be implemented..."
-               STOP !DEBUG
-               CALL LxFSolver( QLeft, QRight, nHat, flux )
-            CASE DEFAULT
-               PRINT *, "Undefined choice of Riemann Solver. Abort"
-               STOP
-         END SELECT
-
+!
+!        ----------------------------------------------------------------
+!        F = Q\hat x + Q\hat y + Q \hat z$ so the normal flux is as below
+!        ----------------------------------------------------------------
+!
+         flux = 0.5_RP*(Qleft + Qright)*( nHat(1) + nHat(2) + nHat(3))
       
       END SUBROUTINE RiemannSolver
-!
-!     ////////////////////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE RoeSolver( QLeft, QRight, nHat, flux )
-         IMPLICIT NONE
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         REAL(KIND=RP), DIMENSION(N_EQN) :: Qleft, Qright, flux
-         REAL(KIND=RP), DIMENSION(3)     :: nHat
-!
-!        ---------------
-!        Local Variables
-!        ---------------
-!
-!
-         REAL(KIND=RP) :: rho , rhou , rhov , rhow  , rhoe
-         REAL(KIND=RP) :: rhon, rhoun, rhovn, rhown , rhoen
-         REAL(KIND=RP) :: ul  , vl   , wl   , pleft , ql  , hl  , betal
-         REAL(KIND=RP) :: ur  , vr   , wr   , pright, qr  , hr  , betar
-         REAL(KIND=RP) :: rtd , utd  , vtd  , wtd   , htd , atd2, atd, qtd
-         REAL(KIND=RP) :: dw1 , sp1  , sp1m , hd1m  , eta1, udw1, rql
-         REAL(KIND=RP) :: dw4 , sp4  , sp4p , hd4   , eta4, udw4, rqr
-         REAL(KIND=RP)                   :: ds = 1.0_RP
-      
-         rho  = Qleft(1)
-         rhou = Qleft(2)
-         rhov = Qleft(3)
-         rhow = Qleft(4)
-         rhoe = Qleft(5)
-   
-         rhon  = Qright(1)
-         rhoun = Qright(2)
-         rhovn = Qright(3)
-         rhown = Qright(4)
-         rhoen = Qright(5)
-   
-         ul = rhou/rho 
-         vl = rhov/rho 
-         wl = rhow/rho 
-         pleft = (gamma-1._RP)*(rhoe - 0.5_RP/rho*                        &
-        &                           (rhou**2 + rhov**2 + rhow**2 )) 
-!
-         ur = rhoun/rhon 
-         vr = rhovn/rhon 
-         wr = rhown/rhon 
-         pright = (gamma-1._RP)*(rhoen - 0.5_RP/rhon*                    &
-        &                           (rhoun**2 + rhovn**2+ rhown**2)) 
-!
-         ql = nHat(1)*ul + nHat(2)*vl + nHat(3)*wl
-         qr = nHat(1)*ur + nHat(2)*vr + nHat(3)*wr
-         hl = 0.5_RP*(ul*ul + vl*vl + wl*wl) +                               &
-        &                 gamma/(gamma-1._RP)*pleft/rho 
-         hr = 0.5_RP*(ur*ur + vr*vr + wr*wr) +                               &
-        &                  gamma/(gamma-1._RP)*pright/rhon 
-!
-!        ---------------------
-!        Square root averaging  
-!        ---------------------
-!
-         rtd = sqrt(rho*rhon) 
-         betal = rho/(rho + rtd) 
-         betar = 1._RP - betal 
-         utd = betal*ul + betar*ur 
-         vtd = betal*vl + betar*vr 
-         wtd = betal*wl + betar*wr 
-         htd = betal*hl + betar*hr 
-         atd2 = (gamma-1._RP)*(htd - 0.5_RP*(utd*utd + vtd*vtd + wtd*wtd)) 
-         atd = sqrt(atd2) 
-         qtd = utd*nHat(1) + vtd*nHat(2)  + wtd*nHat(3)
-!
-         IF(qtd >= 0.0_RP)     THEN
-   
-            dw1 = 0.5_RP*((pright - pleft)/atd2 - (qr - ql)*rtd/atd) 
-            sp1 = qtd - atd 
-            sp1m = min(sp1,0.0_RP) 
-            hd1m = ((gamma+1._RP)/4._RP*atd/rtd)*dw1 
-            eta1 = max(-abs(sp1) - hd1m,0.0_RP) 
-            udw1 = dw1*(sp1m - 0.5_RP*eta1) 
-            rql = rho*ql 
-            flux(1) = ds*(rql + udw1) 
-            flux(2) = ds*(rql*ul + pleft*nHat(1) + udw1*(utd - atd*nHat(1))) 
-            flux(3) = ds*(rql*vl + pleft*nHat(2) + udw1*(vtd - atd*nHat(2))) 
-            flux(4) = ds*(rql*wl + pleft*nHat(3) + udw1*(wtd - atd*nHat(3))) 
-            flux(5) = ds*(rql*hl + udw1*(htd - qtd*atd)) 
-   
-         ELSE 
-   
-            dw4 = 0.5_RP*((pright - pleft)/atd2 + (qr - ql)*rtd/atd) 
-            sp4 = qtd + atd 
-            sp4p = max(sp4,0.0_RP) 
-            hd4 = ((gamma+1._RP)/4._RP*atd/rtd)*dw4 
-            eta4 = max(-abs(sp4) + hd4,0.0_RP) 
-            udw4 = dw4*(sp4p + 0.5_RP*eta4) 
-            rqr = rhon*qr 
-            flux(1) = ds*(rqr - udw4) 
-            flux(2) = ds*(rqr*ur + pright*nHat(1) - udw4*(utd + atd*nHat(1))) 
-            flux(3) = ds*(rqr*vr + pright*nHat(2) - udw4*(vtd + atd*nHat(2))) 
-            flux(4) = ds*(rqr*wr + pright*nHat(3) - udw4*(wtd + atd*nHat(3))) 
-            flux(5) = ds*(rqr*hr - udw4*(htd + qtd*atd)) 
-         ENDIF
-         
-      END SUBROUTINE RoeSolver
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE LxFSolver( QLeft, QRight, nHat, flux ) 
-         IMPLICIT NONE 
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         REAL(KIND=RP), DIMENSION(N_EQN) :: Qleft, Qright, flux
-         REAL(KIND=RP), DIMENSION(3)     :: nHat
-         REAL(KIND=RP)                   :: ds = 1.0_RP
-!
-!        ---------------
-!        Local Variables
-!        ---------------
-!
-!
-      REAL(KIND=RP) :: rho , rhou , rhov  , rhoe
-      REAL(KIND=RP) :: rhon, rhoun, rhovn , rhoen
-      REAL(KIND=RP) :: ul  , vl   , pleft , ql, cl
-      REAL(KIND=RP) :: ur  , vr   , pright, qr, cr
-      REAL(KIND=RP) :: sM
-      REAL(KIND=RP), DIMENSION(N_EQN) :: FL, FR
-      
-      rho  = Qleft(1)
-      rhou = Qleft(2)
-      rhov = Qleft(3)
-      rhoe = Qleft(4)
-
-      rhon  = Qright(1)
-      rhoun = Qright(2)
-      rhovn = Qright(3)
-      rhoen = Qright(4)
-
-      ul = rhou/rho 
-      vl = rhov/rho 
-      pleft = (gamma-1.d0)*(rhoe - 0.5d0/rho*(rhou**2 + rhov**2)) 
-!
-      ur = rhoun/rhon 
-      vr = rhovn/rhon 
-      pright = (gamma-1.d0)*(rhoen - 0.5d0/rhon*(rhoun**2 + rhovn**2)) 
-!
-      ql = nHat(1)*ul + nHat(2)*vl 
-      qr = nHat(1)*ur + nHat(2)*vr 
-      cl = SQRT( gamma*pleft/rho )
-      cr = SQRT( gamma*pright/rhon )
-!
-      FL(1) = rho*ql
-      FL(2) = rhou*ql + pleft*nHat(1)
-      FL(3) = rhov*ql + pleft*nHat(2)
-      FL(4) = (rhoe + pleft)*ql
-!
-      FR(1) = rhon*qr
-      FR(2) = rhoun*qr + pright*nHat(1)
-      FR(3) = rhovn*qr + pright*nHat(2)
-      FR(4) = (rhoen + pright)*qr
-!
-      sM = MAX( ABS(ql) + cl, ABS(qr) + cr )
-!
-      flux = ds * 0.5_RP * ( FL + FR - sM*(Qright - Qleft) )      
-         
-      END SUBROUTINE LxFSolver
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -387,30 +201,9 @@
 !
          REAL(KIND=RP), DIMENSION(N_EQN) :: Q
          REAL(KIND=RP), DIMENSION(N_EQN) :: f
-!
-!        ---------------
-!        Local Variables
-!        ---------------
-!
-         REAL(KIND=RP) :: u, v, w, rho, rhou, rhov, rhoe, rhow, p
-!      
-         rho  = Q(1)
-         rhou = Q(2)
-         rhov = Q(3)
-         rhow = Q(4)
-         rhoe = Q(5)
-!
-         u = rhou/rho 
-         v = rhov/rho
-         w = rhow/rho
-         p = gammaMinus1*(rhoe - 0.5_RP*rho*(u**2 + v**2 + w**2)) 
-!
-         f(1) = rhou 
-         f(2) = p + rhou*u 
-         f(3) = rhou*v 
-         f(4) = rhou*w 
-         f(5) = u*(rhoe + p) 
-         
+
+         f = Q
+                  
       END SUBROUTINE xFlux
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
@@ -424,29 +217,9 @@
 !
          REAL(KIND=RP), DIMENSION(N_EQN) :: Q
          REAL(KIND=RP), DIMENSION(N_EQN) :: g
-!
-!        ---------------
-!        Local Variables
-!        ---------------
-!
-         REAL(KIND=RP) :: u, v, w, rho, rhou, rhov, rhoe, rhow, p
-!      
-         rho  = Q(1)
-         rhou = Q(2)
-         rhov = Q(3)
-         rhow = Q(4)
-         rhoe = Q(5)
-!
-         u = rhou/rho 
-         v = rhov/rho 
-         w = rhow/rho
-         p = gammaMinus1*(rhoe - 0.5_RP*rho*(u**2 + v**2 + w**2)) 
-!
-         g(1) = rhov 
-         g(2) = rhou*v 
-         g(3) = p + rhov*v 
-         g(4) = rhow*v 
-         g(5) = v*(rhoe + p) 
+
+         g = Q
+                  
          
       END SUBROUTINE yFlux
 !
@@ -461,29 +234,8 @@
 !
          REAL(KIND=RP), DIMENSION(N_EQN) :: Q
          REAL(KIND=RP), DIMENSION(N_EQN) :: h
-!
-!        ---------------
-!        Local Variables
-!        ---------------
-!
-         REAL(KIND=RP) :: u, v, w, rho, rhou, rhov, rhoe, rhow, p
-!      
-         rho  = Q(1)
-         rhou = Q(2)
-         rhov = Q(3)
-         rhow = Q(4)
-         rhoe = Q(5)
-!
-         u = rhou/rho 
-         v = rhov/rho 
-         w = rhow/rho
-         p = gammaMinus1*(rhoe - 0.5_RP*rho*(u**2 + v**2 + w**2)) 
-!
-         h(1) = rhow 
-         h(2) = rhou*w 
-         h(3) = rhov*w
-         h(4) = p + rhow*w 
-         h(5) = w*(rhoe + p) 
+
+         h = Q
          
       END SUBROUTINE zFlux
 !
@@ -884,7 +636,7 @@
 !! These are to be used to compute the local time step.
 !----------------------------------------------------------------------
 !
-      SUBROUTINE ComputeEigenvaluesForState( Q, eigen )
+      SUBROUTINE ComputeEigenvalues( Q, eigen )
       
       USE SMConstants
       USE PhysicsStorage
@@ -913,4 +665,4 @@
       eigen(2) = v + a
       eigen(3) = w + a
       
-      END SUBROUTINE ComputeEigenvaluesForState
+      END SUBROUTINE ComputeEigenvalues

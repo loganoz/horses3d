@@ -162,7 +162,8 @@
          IMPLICIT NONE 
          TYPE(Element) :: self
          INTEGER      :: id
-         PRINT *, id, self % nodeIDs, self % boundaryName
+         PRINT *, id, self % nodeIDs
+         PRINT *, "   ",self % boundaryName
       END SUBROUTINE PrintElement
 !
 !////////////////////////////////////////////////////////////////////////

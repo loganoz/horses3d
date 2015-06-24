@@ -16,6 +16,7 @@
             REAL(KIND=RP)              :: cfl
             REAL(KIND=RP)              :: tol
             REAL(KIND=RP)              :: mach, RE
+            REAL(KIND=RP)              :: AOATheta, AOAPhi
             INTEGER                    :: polynomialOrder
             INTEGER                    :: plotInterval
             INTEGER                    :: numberOfSteps
@@ -110,6 +111,12 @@
          
          READ(5,'(A132)') inputLine
          controlVariables % RE = GetRealValue( inputLine )
+         
+         READ(5,'(A132)') inputLine
+         controlVariables % AOATheta = GetRealValue( inputLine )
+         
+         READ(5,'(A132)') inputLine
+         controlVariables % AOAPhi   = GetRealValue( inputLine )
 !
 !        ---------------------------------------------------------------------------
 !        We will store the type and values of the boundaries in dictionaries so that

@@ -16,6 +16,7 @@
       USE ControlVariablesModule
       USE DGSEMPlotterClass
       USE DGSEMClass
+      USE BoundaryConditionFunctions
       
       IMPLICIT NONE
 !
@@ -28,11 +29,13 @@
       TYPE( FTTimer )                     :: stopWatch
       TYPE( DGSEMPlotter )                :: plotter
       CLASS( PlotterDataSource ), POINTER :: plDataSource
+      
       LOGICAL                             :: success
       INTEGER                             :: plotUnit, restartUnit
       INTEGER                             :: numberOfPlotPoints = 5
       INTEGER, EXTERNAL                   :: UnusedUnit
-      EXTERNAL                            :: initialFlowState
+      EXTERNAL                            :: externalStateForBoundaryName
+      EXTERNAL                            :: ExternalGradientForBoundaryName
 !
 !     ---------------
 !     Initializations
@@ -52,10 +55,12 @@
 !
       CALL stopWatch % start()
       
-      CALL ConstructDGSem(self            = sem, &
-                          polynomialOrder = controlVariables % polynomialOrder,&
-                          meshFileName    = controlVariables % inputFileName,&
-                          success         = success)
+      CALL ConstructDGSem(self              = sem, &
+                          polynomialOrder   = controlVariables % polynomialOrder,&
+                          meshFileName      = controlVariables % inputFileName,  &
+                          externalState     = externalStateForBoundaryName,      &
+                          externalGradients = ExternalGradientForBoundaryName,   &
+                          success           = success)
 !
 !     ----------------------
 !     Set the initial values
@@ -63,13 +68,14 @@
 !
       IF ( controlVariables % restart )     THEN
          restartUnit = UnusedUnit()
-         OPEN( UNIT = restartUnit, FILE = controlVariables % restartFileName, FORM = "UNFORMATTED" )
-            CALL LoadSolutionForRestart( sem, restartUnit )
+         OPEN( UNIT = restartUnit, &
+               FILE = controlVariables % restartFileName, &
+               FORM = "UNFORMATTED" )
+               CALL LoadSolutionForRestart( sem, restartUnit )
          CLOSE( restartUnit )
       ELSE
-         CALL SetInitialCondition( sem, initialFlowState )
+         CALL SetInitialCondition( sem, UniformFlowState )
       END IF
-
 !
 !     ----------------
 !     Plot the results
@@ -83,12 +89,21 @@
                                   spA        = sem % spA,         &
                                   dataSource = plDataSource,      &
                                   newN       = numberOfPlotPoints)
-                                  
          CALL plotter % ExportToTecplot( elements = sem % mesh % elements )
       CLOSE(plotUnit)
       
       CALL stopWatch % stop()
-      PRINT *, stopWatch % elapsedTime(units = TC_SECONDS), stopWatch % totalTime(units = TC_SECONDS)
+      PRINT *, stopWatch % elapsedTime(units = TC_SECONDS), &
+               stopWatch % totalTime(units = TC_SECONDS)
+!
+!     --------
+!     Clean up
+!     --------
+!
+      CALL plotter % Destruct()
+      DEALLOCATE(plDataSource)
+      CALL sem % destruct()
+      CALL destructSharedBCModule
       
       END PROGRAM NSLite3DMain
 !
