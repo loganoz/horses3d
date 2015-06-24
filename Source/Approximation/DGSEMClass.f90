@@ -377,6 +377,17 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+      REAL(KIND=RP) FUNCTION MaxTimeStep( self, cfl ) 
+         IMPLICIT NONE
+         TYPE(DGSem)    :: self
+         REAL(KIND=RP)  :: cfl
+         
+         MaxTimeStep  = cfl/MaximumEigenvalue( self )
+      
+      END FUNCTION MaxTimeStep
+!
+!////////////////////////////////////////////////////////////////////////
+!
    FUNCTION MaximumEigenvalue( self )
 !
 !  -------------------------------------------------------------------

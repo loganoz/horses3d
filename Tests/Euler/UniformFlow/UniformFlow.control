@@ -6,6 +6,7 @@ restart               = .false.
 Polynomial order      = 6
 Number of iterations  = 0
 Output Interval       = 1000
+Number of plot points = 6
 Convergence tolerance = 1.d-10
 cfl                   = 0.9
 mach number           = 0.5

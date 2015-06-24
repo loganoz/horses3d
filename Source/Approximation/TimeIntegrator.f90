@@ -21,12 +21,12 @@
 !
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
       
-      TYPE TimeIntegrator
+      TYPE RKTimeIntegrator
          INTEGER                     :: integratorType
          REAL(KIND=RP)               :: tFinal, tStart
          INTEGER                     :: numTimeSteps, plotInterval
          REAL(KIND=RP)               :: dt, tolerance, cfl
-         TYPE(DGSEMPlotter), POINTER :: plotter
+         TYPE(DGSEMPlotter), POINTER :: plotter  !Plotter is NOT owned by the time integrator
 !
 !        ========         
          CONTAINS
@@ -37,7 +37,8 @@
          PROCEDURE :: destruct => destructTimeIntegrator
          PROCEDURE :: setIterationTolerance
          PROCEDURE :: setPlotter
-      END TYPE TimeIntegrator
+         PROCEDURE :: integrate
+      END TYPE RKTimeIntegrator
 !
 !     ========      
       CONTAINS 
@@ -45,9 +46,9 @@
 !
       SUBROUTINE constructAsTimeAccurateIntegrator( self,  startTime, finalTime, numberOfSteps, plotInterval )
          IMPLICIT NONE
-         CLASS(TimeIntegrator) :: self
-         REAL(KIND=RP)         :: finalTime, startTime
-         INTEGER               :: numberOfSteps, plotInterval
+         CLASS(RKTimeIntegrator) :: self
+         REAL(KIND=RP)           :: finalTime, startTime
+         INTEGER                 :: numberOfSteps, plotInterval
 !
 !        --------------------------------------------------------------
 !        Compute time step and set values for time accurate computation
@@ -68,10 +69,10 @@
 !
       SUBROUTINE constructAsSteadyStateIntegrator( self, dt, cfl, numberOfSteps, plotInterval )
          IMPLICIT NONE
-         CLASS(TimeIntegrator) :: self
-         REAL(KIND=RP)         :: dt
-         REAL(KIND=RP)         :: cfl
-         INTEGER               :: numberOfSteps, plotInterval
+         CLASS(RKTimeIntegrator) :: self
+         REAL(KIND=RP)           :: dt
+         REAL(KIND=RP)           :: cfl
+         INTEGER                 :: numberOfSteps, plotInterval
 !
 !        ---------------------------------------------------------------
 !        Compute time step and set values for a steady-state computation
@@ -90,23 +91,18 @@
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE destructTimeIntegrator( self ) 
-         CLASS(TimeIntegrator) :: self
+         CLASS(RKTimeIntegrator) :: self
          self % tFinal       = 0.0_RP
          self % tStart       = 0.0_RP
          self % numTimeSteps = 0
          self % dt           = 0.0_RP
-         
-         IF(ASSOCIATED(self % plotter))     THEN
-            CALL self % plotter % Destruct()
-            DEALLOCATE(self % plotter)
-         END IF 
          
       END SUBROUTINE destructTimeIntegrator
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE setPlotter( self, plotter ) 
-         CLASS(TimeIntegrator)       :: self
+         CLASS(RKTimeIntegrator)     :: self
          TYPE(DGSEMPlotter), pointer :: plotter
          self % plotter => plotter
       END SUBROUTINE setPlotter
@@ -114,21 +110,10 @@
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE setIterationTolerance( self, tol ) 
-         CLASS(TimeIntegrator) :: self
-         REAL(KIND=RP)         :: tol
+         CLASS(RKTimeIntegrator) :: self
+         REAL(KIND=RP)           :: tol
          self % tolerance = tol
       END SUBROUTINE setIterationTolerance
-!
-!     ////////////////////////////////////////////////////////////////////////////////////////
-!
-      REAL(KIND=RP) FUNCTION MaxTimeStep( sem, cfl ) 
-         IMPLICIT NONE
-         TYPE(DGSem)    :: sem
-         REAL(KIND=RP)  :: cfl
-         
-         MaxTimeStep  = cfl/MaximumEigenvalue( sem )
-      
-      END FUNCTION MaxTimeStep
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -139,8 +124,8 @@
 !     Arguments
 !     ---------
 !
-      TYPE(TimeIntegrator)  :: self
-      TYPE(DGSem)           :: sem
+      CLASS(RKTimeIntegrator)  :: self
+      TYPE(DGSem)             :: sem
       
       REAL(KIND=RP)         :: t, maxResidual
       INTEGER               :: k, mNumber

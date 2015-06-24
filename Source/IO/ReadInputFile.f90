@@ -101,6 +101,9 @@
          controlVariables % plotInterval = GetIntValue( inputLine )
          
          READ(5,'(A132)') inputLine
+         controlVariables % numberOfPlotPoints = GetIntValue( inputLine )
+         
+         READ(5,'(A132)') inputLine
          controlVariables % tol = GetRealValue( inputLine )
          
          READ(5,'(A132)') inputLine

@@ -17,6 +17,7 @@
       USE DGSEMPlotterClass
       USE DGSEMClass
       USE BoundaryConditionFunctions
+      USE TimeIntegratorClass
       
       IMPLICIT NONE
 !
@@ -27,12 +28,14 @@
       TYPE( NSLiteControlVariables )      :: controlVariables
       TYPE( DGSem )                       :: sem
       TYPE( FTTimer )                     :: stopWatch
-      TYPE( DGSEMPlotter )                :: plotter
-      CLASS( PlotterDataSource ), POINTER :: plDataSource
+      TYPE( DGSEMPlotter )      , POINTER :: plotter      => NULL()
+      CLASS( PlotterDataSource ), POINTER :: plDataSource => NULL()
+      TYPE( RKTimeIntegrator )            :: timeIntegrator
+      
+      REAL(KIND=RP)                       :: dt
       
       LOGICAL                             :: success
       INTEGER                             :: plotUnit, restartUnit
-      INTEGER                             :: numberOfPlotPoints = 5
       INTEGER, EXTERNAL                   :: UnusedUnit
       EXTERNAL                            :: externalStateForBoundaryName
       EXTERNAL                            :: ExternalGradientForBoundaryName
@@ -52,9 +55,7 @@
 !     ----------------
 !     Set up the DGSEM
 !     ----------------
-!
-      CALL stopWatch % start()
-      
+!      
       CALL ConstructDGSem(self              = sem, &
                           polynomialOrder   = controlVariables % polynomialOrder,&
                           meshFileName      = controlVariables % inputFileName,  &
@@ -77,31 +78,65 @@
          CALL SetInitialCondition( sem, UniformFlowState )
       END IF
 !
+!     -----------------------------
+!     Construct the time integrator
+!     -----------------------------
+!
+      dt = MaxTimeStep( sem, controlVariables % cfl )
+      CALL timeIntegrator % constructAsSteadyStateIntegrator(dt            = dt, &
+                                                             cfl           = controlVariables % cfl, &
+                                                             numberOfSteps = controlVariables % numberOfSteps, &
+                                                             plotInterval  = controlVariables % plotInterval)
+      CALL timeIntegrator % setIterationTolerance(tol = controlVariables % tol)
+!
+!     --------------------
+!     Prepare for plotting
+!     --------------------
+!
+      IF ( controlVariables % plotFileName /= "none" )     THEN
+         plotUnit = UnusedUnit()
+         ALLOCATE(plotter)
+         ALLOCATE(plDataSource)
+         
+         CALL plotter % Construct(fUnit      = plotUnit,          &
+                                  spA        = sem % spA,         &
+                                  dataSource = plDataSource,      &
+                                  newN       = controlVariables % numberOfPlotPoints)
+         CALL timeIntegrator % setPlotter(plotter) !Plotter is owned by the time integrator
+      END IF 
+!
+!     -----------------
+!     Integrate in time
+!     -----------------
+!
+      CALL stopWatch % start()
+      CALL timeIntegrator % integrate(sem)
+      CALL stopWatch % stop()
+      
+      PRINT *, stopWatch % elapsedTime(units = TC_SECONDS), &
+               stopWatch % totalTime(units = TC_SECONDS)
+!
 !     ----------------
 !     Plot the results
 !     ----------------
 !
-      plotUnit = UnusedUnit()
-      ALLOCATE(plDataSource)
-      
-      OPEN(UNIT=plotUnit, FILE = controlVariables % plotFileName)
-         CALL plotter % Construct(fUnit      = plotUnit,          &
-                                  spA        = sem % spA,         &
-                                  dataSource = plDataSource,      &
-                                  newN       = numberOfPlotPoints)
-         CALL plotter % ExportToTecplot( elements = sem % mesh % elements )
-      CLOSE(plotUnit)
-      
-      CALL stopWatch % stop()
-      PRINT *, stopWatch % elapsedTime(units = TC_SECONDS), &
-               stopWatch % totalTime(units = TC_SECONDS)
+      IF ( ASSOCIATED(plotter) )     THEN
+         plotUnit = UnusedUnit()
+         OPEN(UNIT = plotUnit, FILE = controlVariables % plotFileName)
+            CALL plotter % ExportToTecplot( elements = sem % mesh % elements )
+         CLOSE(plotUnit)
+      END IF 
 !
 !     --------
 !     Clean up
 !     --------
 !
-      CALL plotter % Destruct()
-      DEALLOCATE(plDataSource)
+      IF(ASSOCIATED(plotter)) THEN
+         CALL plotter % Destruct()
+         DEALLOCATE(plotter)
+         DEALLOCATE(plDataSource)
+      END IF 
+      CALL timeIntegrator % destruct()
       CALL sem % destruct()
       CALL destructSharedBCModule
       
