@@ -182,16 +182,22 @@
 !        Prolongation of the solution to the faces
 !        -----------------------------------------
 !
+!$omp parallel
+!$omp do
          DO k = 1, SIZE(self % mesh % elements) 
             CALL ProlongToFaces( self % mesh % elements(k), self % spA )
          END DO
+!$omp end do
+!
 !        -------------------------------------------------------
 !        Inviscid Riemann fluxes from the solutions on the faces
 !        -------------------------------------------------------
 !
+!$omp do
          DO k = 1, self % mesh % numberOfFaces
             CALL ComputeRiemannFluxes( self, time )
          END DO
+!$omp end do
          
 !         IF ( flowIsNavierStokes )     THEN
 !!
@@ -233,9 +239,12 @@
 !        Compute time derivatives
 !        ------------------------
 !
+!$omp do
          DO k = 1, SIZE(self % mesh % elements) 
             CALL LocalTimeDerivative( self % mesh % elements(k), self % spA, time )
          END DO
+!$omp end do
+!$omp end parallel
 
       END SUBROUTINE ComputeTimeDerivative
 !
@@ -440,7 +449,7 @@
 !                 by the physics.
 !                 ------------------------------------------------------------
 !
-                  CALL ComputeEigenvaluesForState( self % mesh % elements(id) % Q, eValues )
+                  CALL ComputeEigenvaluesForState( self % mesh % elements(id) % Q(i,j,k,:), eValues )
 !
 !                 ----------------------------
 !                 Compute contravariant values

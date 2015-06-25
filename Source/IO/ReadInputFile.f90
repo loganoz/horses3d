@@ -132,6 +132,8 @@
          
          DO k = 1, numberOfBCs 
             READ(5,*) boundaryName, boundaryValue, boundaryType
+            CALL toLower(boundaryName)
+            CALL toLower(boundaryType)
             CALL bcTypeDictionary % addValueForKey(boundaryType, boundaryName)
             CALL bcValueDictionary % addValueForKey(boundaryValue, boundaryName)
          END DO

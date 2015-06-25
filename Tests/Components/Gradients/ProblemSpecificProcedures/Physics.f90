@@ -636,7 +636,7 @@
 !! These are to be used to compute the local time step.
 !----------------------------------------------------------------------
 !
-      SUBROUTINE ComputeEigenvalues( Q, eigen )
+      SUBROUTINE ComputeEigenvaluesForState( Q, eigen )
       
       USE SMConstants
       USE PhysicsStorage
@@ -665,4 +665,4 @@
       eigen(2) = v + a
       eigen(3) = w + a
       
-      END SUBROUTINE ComputeEigenvalues
+      END SUBROUTINE ComputeEigenvaluesForState

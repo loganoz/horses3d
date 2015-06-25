@@ -136,7 +136,12 @@
          IMPLICIT NONE
          TYPE(Element)                   :: self
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(6)
-         self % boundaryName = names
+         INTEGER                         :: j
+         
+         DO j = 1, 6
+            CALL toLower(names(j)) 
+            self % boundaryName(j) = names(j)
+         END DO  
       END SUBROUTINE SetElementBoundaryNames
 !
 !////////////////////////////////////////////////////////////////////////

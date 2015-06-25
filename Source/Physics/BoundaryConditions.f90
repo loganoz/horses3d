@@ -62,8 +62,20 @@
          USE SMConstants
          USE Physics
          USE SharedBCModule
+         USE MeshTypes
       
-      CONTAINS 
+         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(6) :: implementedBCNames = &
+               ["freeslipwall        ", &
+               "noslipadiabaticwall ",  &
+               "noslipisothermalwall",  &
+               "inflow              ",  &
+               "outflow             ",  &
+               "outflowspecifyp     "]
+!
+!     ========         
+      CONTAINS
+!     ========
+! 
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -100,7 +112,7 @@
          REAL(KIND=RP) :: x(3)
          REAL(KIND=RP) :: T
          
-         ! just a simple set the temperature value functionn
+         ! just a simple set the temperature value function
          T = 1.0_RP
       
       END FUNCTION WallTemperature
@@ -460,7 +472,7 @@
       boundaryType = bcTypeDictionary % stringValueForKey(key = elementOnLeft % boundaryName(faceID),&
                                                           requestedLength = BC_STRING_LENGTH)
       
-      IF ( boundaryType == "OutflowSpecifyP" )     THEN
+      IF ( boundaryType == "outflowSpecifyP" )     THEN
          DO j = 0, N
             DO i = 0, N
                bvExt = elementOnLeft % Qb(:,i,j,faceID)
@@ -562,13 +574,13 @@
       boundaryType = bcTypeDictionary % stringValueForKey(key             = boundaryName, &
                                                           requestedLength = BC_STRING_LENGTH)
       
-      IF ( boundarytype == "FreeSlipWall" )             THEN
+      IF ( boundarytype == "freeslipwall" )             THEN
          CALL FreeSlipWallState( x, t, nHat, Q )
-      ELSE IF ( boundaryType == "NoSlipAdiabaticWall" ) THEN 
+      ELSE IF ( boundaryType == "noslipadiabaticwall" ) THEN 
          CALL  NoSlipAdiabaticWallState( x, t, Q)
-      ELSE IF ( boundarytype == "NoSlipIsothermalWall") THEN 
+      ELSE IF ( boundarytype == "noslipisothermalwall") THEN 
          CALL NoSlipIsothermalWallState( x, t, Q )
-      ELSE IF ( boundaryType == "OutflowSpecifyP" )     THEN 
+      ELSE IF ( boundaryType == "outflowspecifyp" )     THEN 
          pExt =  ExternalPressureForBoundaryNamed(boundaryName)
          CALL ExternalPressureState ( x, t, nHat, Q, pExt )
       ELSE
@@ -607,11 +619,11 @@
       boundaryType = bcTypeDictionary % stringValueForKey(key             = boundaryName, &
                                                           requestedLength = BC_STRING_LENGTH)
       
-      IF ( boundarytype == "FreeSlipWall" )                   THEN
+      IF ( boundarytype == "freeslipwall" )                   THEN
          CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE IF ( boundaryType == "NoSlipAdiabaticWall" )       THEN 
+      ELSE IF ( boundaryType == "noslipadiabaticwall" )       THEN 
          CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z)
-      ELSE IF ( boundarytype == "NoSlipIsothermalWall")       THEN 
+      ELSE IF ( boundarytype == "noslipisothermalwall")       THEN 
          CALL NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z )
       ELSE
          CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )

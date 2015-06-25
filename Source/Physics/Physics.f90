@@ -888,6 +888,7 @@
       
       USE SMConstants
       USE PhysicsStorage
+      USE Physics, ONLY:Pressure
       IMPLICIT NONE
 !
 !     ---------
@@ -906,7 +907,7 @@
       u = ABS( Q(2)/Q(1) )
       v = ABS( Q(3)/Q(1) )
       w = ABS( Q(4)/Q(1) )
-      p = gammaMinus1*(Q(4) - 0.5_Rp*(Q(2)**2 + Q(3)**2 + Q(4)**2 )/Q(1))
+      p = Pressure(Q)
       a = SQRT(gamma*p/Q(1))
       
       eigen(1) = u + a

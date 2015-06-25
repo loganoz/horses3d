@@ -62,6 +62,9 @@
                           externalState     = externalStateForBoundaryName,      &
                           externalGradients = ExternalGradientForBoundaryName,   &
                           success           = success)
+      IF(.NOT. success)   ERROR STOP "Mesh reading error"
+      CALL checkIntegrity(sem % mesh, success)
+      IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
 !
 !     ----------------------
 !     Set the initial values
@@ -83,6 +86,7 @@
 !     -----------------------------
 !
       dt = MaxTimeStep( sem, controlVariables % cfl )
+
       CALL timeIntegrator % constructAsSteadyStateIntegrator(dt            = dt, &
                                                              cfl           = controlVariables % cfl, &
                                                              numberOfSteps = controlVariables % numberOfSteps, &
@@ -102,7 +106,7 @@
                                   spA        = sem % spA,         &
                                   dataSource = plDataSource,      &
                                   newN       = controlVariables % numberOfPlotPoints)
-         CALL timeIntegrator % setPlotter(plotter) !Plotter is owned by the time integrator
+         CALL timeIntegrator % setPlotter(plotter)
       END IF 
 !
 !     -----------------
@@ -113,8 +117,8 @@
       CALL timeIntegrator % integrate(sem)
       CALL stopWatch % stop()
       
-      PRINT *, stopWatch % elapsedTime(units = TC_SECONDS), &
-               stopWatch % totalTime(units = TC_SECONDS)
+      PRINT *, "Elapsed Time: ", stopWatch % elapsedTime(units = TC_SECONDS)
+      PRINT *, "Total Time:   ", stopWatch % totalTime(units = TC_SECONDS)
 !
 !     ----------------
 !     Plot the results
@@ -161,9 +165,93 @@
                   DO i = 0, sem % spA % N 
                      CALL initialStateSubroutine( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
                                                   sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )
+                                                  
                   END DO
                END DO
             END DO 
+            sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)!DEBUG
          END DO 
          
       END SUBROUTINE SetInitialCondition
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE checkIntegrity(mesh, success)
+!
+         USE HexMeshClass
+         USE SharedBCModule
+         USE BoundaryConditionFunctions, ONLY:implementedBCNames
+         IMPLICIT NONE
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(HexMesh) :: mesh
+         LOGICAL       :: success
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         INTEGER                              :: i, j
+         INTEGER                              :: faceID, eId
+         CHARACTER(LEN=BC_STRING_LENGTH)      :: bcName, namedBC
+         CHARACTER(LEN=BC_STRING_LENGTH)      :: bcType
+         CLASS(FTMutableObjectArray), POINTER :: bcObjects
+         CLASS(FTValue)             , POINTER :: v
+         CLASS(FTObject), POINTER             :: obj
+         
+         success = .TRUE.
+!
+!        ----------------------------------------------------------
+!        Check to make sure that the boundaries defined in the mesh
+!        have an associated name in the control file.
+!        ----------------------------------------------------------
+         
+         DO eID = 1, SIZE( mesh % elements )
+            DO faceID = 1, 6
+               namedBC = mesh % elements(eId) % boundaryName(faceID)
+               IF( namedBC == emptyBCName ) CYCLE
+               
+               bcName = bcTypeDictionary % stringValueForKey(key             = namedBC,         &
+                                                             requestedLength = BC_STRING_LENGTH)
+               IF ( LEN_TRIM(bcName) == 0 )     THEN
+                  PRINT *, "Control file does not define a boundary condition for boundary name = ", &
+                            mesh % elements(eId) % boundaryName(faceID)
+                  success = .FALSE.
+                  return 
+               END IF 
+            END DO   
+         END DO
+!
+!        --------------------------------------------------------------------------
+!        Check that the boundary conditions to be applied are implemented
+!        in the code. Keep those updated in the boundary condition functions module
+!        --------------------------------------------------------------------------
+!
+         bcObjects => bcTypeDictionary % allObjects()
+         DO j = 1, bcObjects % COUNT()
+            obj => bcObjects % objectAtIndex(j)
+            CALL castToValue(obj,v)
+            bcType = v % stringValue(requestedLength = BC_STRING_LENGTH)
+            DO i = 1, SIZE(implementedBCNames)
+               IF ( bcType == implementedBCNames(i) )     THEN
+                  success = .TRUE. 
+                  EXIT 
+               ELSE 
+                  success = .FALSE. 
+               END IF 
+            END DO
+            IF ( .NOT. success )     THEN
+               PRINT *, "Boundary condition ", TRIM(bcType)," not implemented in this code"
+               CALL bcObjects % release()
+               IF(bcObjects % isUnreferenced()) DEALLOCATE (bcObjects)
+               return
+            END IF  
+         END DO
+         
+         CALL bcObjects % release()
+         IF(bcObjects % isUnreferenced()) DEALLOCATE (bcObjects)
+         
+      END SUBROUTINE checkIntegrity

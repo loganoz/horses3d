@@ -51,7 +51,6 @@
       END IF
 
       END FUNCTION AlmostEqual
-
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -82,3 +81,22 @@
          END IF
 !
       END FUNCTION UnusedUnit
+!
+! /////////////////////////////////////////////////////////////////////
+!
+   subroutine toLower(str)
+!
+!  ----------------
+!  From ResettaCode
+!  ----------------
+!
+     character(*), intent(in out) :: str
+     integer :: i
+ 
+     do i = 1, len(str)
+       select case(str(i:i))
+         case("A":"Z")
+           str(i:i) = achar(iachar(str(i:i))+32)
+       end select
+     end do  
+   end subroutine toLower

@@ -1,23 +1,22 @@
 Flow equations        = "Euler"
-mesh file name        = "MeshFiles/TwoClyindricalElements.mesh"
-plot file name        = "PlotFiles/TwoClyindricalElements.tec"
-restart file name     = "RestartFiles/TwoClyindricalElements.rst"
+mesh file name        = "/Users/kopriva/Documents/Research/FortranCode/NSLite3D/Tests/TestMeshes/Star5Mesh.mesh"
+plot file name        = "PlotFiles/SingleCube.tec"
+restart file name     = "RestartFiles/SingleCube.rst"
 restart               = .false.
-Polynomial order      = 6
-Number of iterations  = 0
-Output Interval       = 1000
+Polynomial order      = 5
+Number of time steps  = 5000
+Output Interval       = 100
 Number of plot points = 6
-Convergence tolerance = 1.d-10
-cfl                   = 0.9
+Convergence tolerance = 1.d-15
+cfl                   = 0.2
 mach number           = 0.5
 AOA theta             = 0.0
 AOA phi               = 0.0
 Reynolds number       = 0.0
 Number of boundaries  = 6
-InnerCylinder 0.0 Inflow
-Top 0.0 Inflow
-Bottom 0.0 Inflow
-Left 0.0 Inflow
-Right 0.0 Outflow
-Front 0.0 Outflow
-Back 0.0 Outflow
+front 0.0 Inflow
+back 0.0 Inflow
+bottom 0.0 Inflow
+top 0.0 Inflow
+left 0.0 Outflow
+right 0.0 Outflow
