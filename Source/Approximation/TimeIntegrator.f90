@@ -150,7 +150,7 @@
          CALL TakeRK3Step( sem, t, self % dt, maxResidual )
          
          IF( self % integratorType == STEADY_STATE .AND. maxResidual <= self % tolerance )     THEN
-            PRINT *, "Residual tolerance reached. Residual = ", maxResidual
+            PRINT *, "Residual tolerance reached at iteration ",k+1," with Residual = ", maxResidual
             RETURN
          END IF
          
@@ -224,10 +224,12 @@
             END DO
          END IF
 
+!$omp parallel do
          DO id = 1, SIZE( sem % mesh % elements )
             sem % mesh % elements(id) % G = a(k)*sem % mesh % elements(id) % G  +             sem % mesh % elements(id) % QDot
             sem % mesh % elements(id) % Q =      sem % mesh % elements(id) % Q  + c(k)*deltaT*sem % mesh % elements(id) % G
          END DO
+!$omp end parallel do
 
       END DO
       
