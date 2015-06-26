@@ -23,9 +23,10 @@
       
       TYPE RKTimeIntegrator
          INTEGER                     :: integratorType
-         REAL(KIND=RP)               :: tFinal, tStart
+         REAL(KIND=RP)               :: tFinal, tStart, time
          INTEGER                     :: numTimeSteps, plotInterval
          REAL(KIND=RP)               :: dt, tolerance, cfl
+         REAL(KIND=RP)               :: maxResidual
          TYPE(DGSEMPlotter), POINTER :: plotter  !Plotter is NOT owned by the time integrator
 !
 !        ========         
@@ -62,6 +63,7 @@
          self % integratorType = TIME_ACCURATE
          self % tolerance      = 1.d-11
          self % plotter        => NULL()
+         self % maxResidual    = HUGE(1.0_RP)
       
       END SUBROUTINE constructAsTimeAccurateIntegrator
 !
@@ -85,6 +87,7 @@
          self % tolerance      = 1.d-11
          self % cfl            = cfl
          self % plotter        => NULL()
+         self % maxResidual    = HUGE(1.0_RP)
       
       END SUBROUTINE constructAsSteadyStateIntegrator
 !
@@ -150,14 +153,20 @@
          CALL TakeRK3Step( sem, t, self % dt, maxResidual )
          
          IF( self % integratorType == STEADY_STATE .AND. maxResidual <= self % tolerance )     THEN
+         
+            self % maxResidual = maxResidual
+            self % time        = t
             PRINT *, "Residual tolerance reached at iteration ",k+1," with Residual = ", maxResidual
             RETURN
+            
          END IF
          
          IF( MOD( k+1, self % plotInterval) == 0 )     THEN
-         
+            CALL UserDefinedPeriodicOperation(sem,t)
+            
             IF ( self % integratorType == STEADY_STATE )     THEN
                PRINT *, k, CHAR(9), LOG10(maxResidual)
+               
             ELSE IF (ASSOCIATED(self % plotter))     THEN 
                mNumber = mNumber + 1
                WRITE(numChar,'(i2)') mNumber
@@ -171,10 +180,12 @@
                OPEN(UNIT = self % plotter % fUnit, FILE = fName)
                   CALL self % plotter % ExportToTecplot( sem % mesh % elements )
                CLOSE(self % plotter % fUnit)
+               
             END IF
         END IF
         
       END DO
+      self % time = t
 
       END SUBROUTINE Integrate
 !
@@ -194,7 +205,6 @@
 !
       TYPE(DGSem)     :: sem
       REAL(KIND=RP)   :: t, deltaT, tk, maxResidual
-      EXTERNAL        :: ExternalState, ExternalGradients
 !
 !     ---------------
 !     Local variables

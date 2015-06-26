@@ -93,9 +93,8 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      FUNCTION ExternalPressureForBoundaryNamed(boundaryName) RESULT(p)
+      FUNCTION ExternalPressure() RESULT(p)
          IMPLICIT NONE
-         CHARACTER(LEN=32), INTENT(IN)    :: boundaryName
          REAL(KIND=RP)                    :: p
          
          ! Choose different temperatures according to boundary name, if desired...
@@ -103,7 +102,7 @@
          
          p    = 1.0_RP/(gammaM2)
       
-      END FUNCTION ExternalPressureForBoundaryNamed
+      END FUNCTION ExternalPressure
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -469,10 +468,9 @@
       CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
             
       N            = elementOnLeft % N
-      boundaryType = bcTypeDictionary % stringValueForKey(key = elementOnLeft % boundaryName(faceID),&
-                                                          requestedLength = BC_STRING_LENGTH)
+      boundaryType = elementOnLeft % boundaryType(faceID)
       
-      IF ( boundaryType == "outflowSpecifyP" )     THEN
+      IF ( boundaryType == "outflowspecifyp" )     THEN
          DO j = 0, N
             DO i = 0, N
                bvExt = elementOnLeft % Qb(:,i,j,faceID)
@@ -544,7 +542,7 @@
 !=====================================================================================================
 !
 !
-      SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryName )
+      SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryType )
 !
 !     ----------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -562,17 +560,13 @@
 !
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
       REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
-      CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
       REAL(KIND=RP)                   :: pExt
-      
-      boundaryType = bcTypeDictionary % stringValueForKey(key             = boundaryName, &
-                                                          requestedLength = BC_STRING_LENGTH)
       
       IF ( boundarytype == "freeslipwall" )             THEN
          CALL FreeSlipWallState( x, t, nHat, Q )
@@ -581,7 +575,7 @@
       ELSE IF ( boundarytype == "noslipisothermalwall") THEN 
          CALL NoSlipIsothermalWallState( x, t, Q )
       ELSE IF ( boundaryType == "outflowspecifyp" )     THEN 
-         pExt =  ExternalPressureForBoundaryNamed(boundaryName)
+         pExt =  ExternalPressure()
          CALL ExternalPressureState ( x, t, nHat, Q, pExt )
       ELSE
          CALL UniformFlowState( x, t, Q )
@@ -591,7 +585,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, U_x, U_y, U_z, boundaryName )
+      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, U_x, U_y, U_z, boundaryType )
 !
 !     ------------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -608,17 +602,12 @@
 !
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
       REAL(KIND=RP)   , INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
-      CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
-      
-      boundaryType = bcTypeDictionary % stringValueForKey(key             = boundaryName, &
-                                                          requestedLength = BC_STRING_LENGTH)
-      
       IF ( boundarytype == "freeslipwall" )                   THEN
          CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
       ELSE IF ( boundaryType == "noslipadiabaticwall" )       THEN 

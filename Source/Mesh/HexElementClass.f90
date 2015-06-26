@@ -45,6 +45,7 @@
 !
           REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Qb, Ub, U_xb, U_yb, FStarb
           CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryName(6)
+          CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryType(6)
       END TYPE Element 
             
       CONTAINS 
@@ -60,9 +61,10 @@
          INTEGER                 :: nodeIDs(8)
          TYPE(TransfiniteHexMap) :: hexMap
          
-         self % nodeIDs      = nodeIDs
-         self % N            = ng % N
-         self % boundaryName = emptyBCName
+         self % nodeIDs               = nodeIDs
+         self % N                     = ng % N
+         self % boundaryName          = emptyBCName
+         self % boundaryType          = emptyBCName
 !
 !        --------
 !        Geometry

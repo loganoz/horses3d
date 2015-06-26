@@ -44,13 +44,13 @@
 !     Initializations
 !     ---------------
 !
+      CALL UserDefinedSetup
       CALL constructSharedBCModule
       CALL ReadInputFile( controlVariables )
       CALL ConstructPhysicsStorage( controlVariables % mach,               &
                                     controlVariables % RE,                 &
                                     0.72_RP,                               &
                                     controlVariables % flowIsNavierStokes )
-      CALL stopWatch % init()
 !
 !     ----------------
 !     Set up the DGSEM
@@ -78,7 +78,7 @@
                CALL LoadSolutionForRestart( sem, restartUnit )
          CLOSE( restartUnit )
       ELSE
-         CALL SetInitialCondition( sem, UniformFlowState )
+         CALL UserDefinedInitialCondition(sem)
       END IF
 !
 !     -----------------------------
@@ -113,12 +113,15 @@
 !     Integrate in time
 !     -----------------
 !
+      CALL stopWatch % init()
       CALL stopWatch % start()
       CALL timeIntegrator % integrate(sem)
       CALL stopWatch % stop()
+      sem % maxResidual = timeIntegrator % maxResidual
+      CALL UserDefinedFinalize(sem, timeIntegrator % time)
       
       PRINT *, "Elapsed Time: ", stopWatch % elapsedTime(units = TC_SECONDS)
-      PRINT *, "Total Time:   ", stopWatch % totalTime(units = TC_SECONDS)
+      PRINT *, "Total Time:   ", stopWatch % totalTime  (units = TC_SECONDS)
 !
 !     ----------------
 !     Plot the results
@@ -143,6 +146,7 @@
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       CALL destructSharedBCModule
+      CALL UserDefinedTermination
       
       END PROGRAM NSLite3DMain
 !

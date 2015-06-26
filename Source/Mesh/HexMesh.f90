@@ -109,7 +109,8 @@
          OPEN( UNIT = fUnit, FILE = fileName, iostat = fileStat )
          IF ( fileStat /= 0 )     THEN
             PRINT *, "Error opening file: ", fileName
-            STOP
+            success = .FALSE.
+            RETURN 
          END IF
          
          READ(fUnit,*) numberOfNodes, numberOfElements, bFaceOrder

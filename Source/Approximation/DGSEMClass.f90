@@ -44,6 +44,7 @@
       END INTERFACE
 
       TYPE DGSem
+         REAL(KIND=RP)                                         :: maxResidual
          TYPE(NodalStorage)                                    :: spA
          TYPE(HexMesh)                                         :: mesh
          PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
@@ -156,6 +157,45 @@
          END DO
 
       END SUBROUTINE LoadSolutionForRestart
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE assignBoundaryConditions(self)
+!
+!        ------------------------------------------------------------
+!        Assign the boundary condition type to the boundaries through
+!        their boundary names
+!        ------------------------------------------------------------
+!
+         USE SharedBCModule
+         IMPLICIT NONE  
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         CLASS(DGSem)     :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         INTEGER                         :: eID, k
+         CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType, boundaryName
+         
+         DO eID = 1, SIZE( self % mesh % elements)
+            DO k = 1,6
+               boundaryName = self % mesh % elements(eID) % boundaryName(k)
+               IF ( boundaryName /= emptyBCName )     THEN
+                  boundaryType = bcTypeDictionary % stringValueForKey(key             = boundaryName, &
+                                                                      requestedLength = BC_STRING_LENGTH)
+                  IF( LEN_TRIM(boundaryType) > 0) self % mesh % elements(eID) % boundaryType(k) = boundaryType
+               END IF 
+                                                                   
+            END DO  
+         END DO
+         
+      END SUBROUTINE assignBoundaryConditions
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -270,7 +310,7 @@
          INTEGER       :: eIDLeft, eIDRight
          INTEGER       :: fIDLeft, fIDright
          INTEGER       :: N
-         
+        
          N = self % spA % N
          
          DO faceID = 1, SIZE( self % mesh % faces)
