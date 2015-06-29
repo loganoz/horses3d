@@ -1,7 +1,7 @@
 Flow equations        = "Euler"
-mesh file name        = "/Users/kopriva/Documents/Research/FortranCode/NSLite3D/Tests/TestMeshes/Star5Mesh.mesh"
-plot file name        = "PlotFiles/SingleCube.tec"
-restart file name     = "RestartFiles/SingleCube.rst"
+mesh file name        = "/Users/kopriva/Documents/Research/FortranCode/NSLite3D/Tests/TestMeshes/Box27.mesh"
+plot file name        = "PlotFiles/Box27.tec"
+restart file name     = "RestartFiles/Bos27.rst"
 restart               = .false.
 Polynomial order      = 5
 Number of time steps  = 5000

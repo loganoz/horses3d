@@ -17,6 +17,7 @@
       USE DGSEMClass
       USE Physics
       USE DGSEMPlotterClass
+      USE UserDefinedFunctions
       IMPLICIT NONE 
 !
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -26,7 +27,6 @@
          REAL(KIND=RP)               :: tFinal, tStart, time
          INTEGER                     :: numTimeSteps, plotInterval
          REAL(KIND=RP)               :: dt, tolerance, cfl
-         REAL(KIND=RP)               :: maxResidual
          TYPE(DGSEMPlotter), POINTER :: plotter  !Plotter is NOT owned by the time integrator
 !
 !        ========         
@@ -63,7 +63,6 @@
          self % integratorType = TIME_ACCURATE
          self % tolerance      = 1.d-11
          self % plotter        => NULL()
-         self % maxResidual    = HUGE(1.0_RP)
       
       END SUBROUTINE constructAsTimeAccurateIntegrator
 !
@@ -87,7 +86,6 @@
          self % tolerance      = 1.d-11
          self % cfl            = cfl
          self % plotter        => NULL()
-         self % maxResidual    = HUGE(1.0_RP)
       
       END SUBROUTINE constructAsSteadyStateIntegrator
 !
@@ -154,8 +152,9 @@
          
          IF( self % integratorType == STEADY_STATE .AND. maxResidual <= self % tolerance )     THEN
          
-            self % maxResidual = maxResidual
-            self % time        = t
+            sem % maxResidual       = maxResidual
+            self % time             = t
+            sem % numberOfTimeSteps = k + 1
             PRINT *, "Residual tolerance reached at iteration ",k+1," with Residual = ", maxResidual
             RETURN
             
@@ -185,7 +184,10 @@
         END IF
         
       END DO
-      self % time = t
+      
+      sem % maxResidual       = maxResidual
+      self % time             = t
+      sem % numberOfTimeSteps = k
 
       END SUBROUTINE Integrate
 !

@@ -18,6 +18,7 @@
       USE DGSEMClass
       USE BoundaryConditionFunctions
       USE TimeIntegratorClass
+      USE UserDefinedFunctions
       
       IMPLICIT NONE
 !
@@ -117,7 +118,7 @@
       CALL stopWatch % start()
       CALL timeIntegrator % integrate(sem)
       CALL stopWatch % stop()
-      sem % maxResidual = timeIntegrator % maxResidual
+
       CALL UserDefinedFinalize(sem, timeIntegrator % time)
       
       PRINT *, "Elapsed Time: ", stopWatch % elapsedTime(units = TC_SECONDS)
@@ -149,34 +150,6 @@
       CALL UserDefinedTermination
       
       END PROGRAM NSLite3DMain
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE SetInitialCondition( sem, initialStateSubroutine )
-         USE SMConstants
-         USE DGSEMClass
-         USE PhysicsStorage
-         IMPLICIT NONE
-         
-         TYPE(DGSem)      :: sem
-         EXTERNAL         :: initialStateSubroutine
-                  
-         INTEGER     :: i, j, k, eID
-         
-         DO eID = 1, SIZE(sem % mesh % elements)
-            DO k = 0, sem % spA % N
-               DO j = 0, sem % spA % N
-                  DO i = 0, sem % spA % N 
-                     CALL initialStateSubroutine( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
-                                                  sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )
-                                                  
-                  END DO
-               END DO
-            END DO 
-            sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)!DEBUG
-         END DO 
-         
-      END SUBROUTINE SetInitialCondition
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

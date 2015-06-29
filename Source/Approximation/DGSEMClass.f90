@@ -45,6 +45,7 @@
 
       TYPE DGSem
          REAL(KIND=RP)                                         :: maxResidual
+         INTEGER                                               :: numberOfTimeSteps
          TYPE(NodalStorage)                                    :: spA
          TYPE(HexMesh)                                         :: mesh
          PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()

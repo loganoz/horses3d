@@ -19,13 +19,13 @@
       SUBROUTINE readMeshFilewithName(meshfileName)
          USE FTAssertions
          USE HexMeshClass 
-         USE PlotterClass
+         USE DGSEMPlotterClass
          USE NodalStorageClass
          IMPLICIT NONE  
          
          TYPE(NodalStorage)                 :: spA
          TYPE(HexMesh)                      :: mesh
-         TYPE(Plotter)                      :: meshPlotter
+         TYPE(DGSEMPlotter)                      :: meshPlotter
          CLASS(PlotterDataSource), POINTER  :: dataSource
          INTEGER                            :: N = 6
          INTEGER                            :: id, l
@@ -39,7 +39,7 @@
          IF(.NOT. success) RETURN 
          
          DO id = 1, SIZE(mesh % elements)
-            CALL allocateElementStorage(this = mesh % elements(id),&
+            CALL allocateElementStorage(self = mesh % elements(id),&
                                         N = N, nEqn = 3,nGradEqn = 0,flowIsNavierStokes = .FALSE.) 
          END DO
          
@@ -52,7 +52,7 @@
          plotFileName = meshFileName(1:l) // "tec"
          ALLOCATE(dataSource)
          OPEN(UNIT = 11, FILE = plotFileName)
-         CALL meshPlotter % Construct(fUnit = 11,dataSource = dataSource)
+         CALL meshPlotter % Construct(spA = spA,fUnit = 11,dataSource = dataSource,newN = N)
          CALL meshPlotter % ExportToTecplot(elements = mesh % elements)
          CALL meshPlotter % Destruct()
          DEALLOCATE(dataSource)

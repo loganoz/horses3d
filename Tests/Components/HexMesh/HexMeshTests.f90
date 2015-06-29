@@ -11,7 +11,7 @@
          USE FTAssertions
          USE SMConstants
          USE HexMeshClass 
-         USE PlotterClass
+         USE DGSEMPlotterClass
          IMPLICIT NONE
          
          TYPE(HexMesh)           :: mesh
@@ -37,7 +37,7 @@
 !        Plotting
 !        --------
 !
-         TYPE(Plotter)                      :: thePlotter
+         TYPE(DGSEMPlotter)                 :: thePlotter
          CLASS(PlotterDataSource), POINTER  :: dataSource
          
          N           = 6
@@ -113,7 +113,7 @@
          IF(.NOT. success) return
          
          DO id = 1, SIZE(mesh % elements)
-            CALL allocateElementStorage(this = mesh % elements(id),&
+            CALL allocateElementStorage(self = mesh % elements(id),&
                                         N = N, nEqn = 3,nGradEqn = 0,flowIsNavierStokes = .FALSE.) 
          END DO  
 !
@@ -211,7 +211,7 @@
 !
          ALLOCATE(dataSource)
          OPEN(UNIT = 11, FILE = "TwoboxeslElements.tec")
-         CALL thePlotter % Construct(fUnit = 11,dataSource = dataSource)
+         CALL thePlotter % Construct(spA = SpA, fUnit = 11,dataSource = dataSource)
          CALL thePlotter % ExportToTecplot(elements = mesh % elements)
          CALL thePlotter % Destruct()
          DEALLOCATE(dataSource)
@@ -224,7 +224,7 @@
          USE FTAssertions
          USE SMConstants
          USE HexMeshClass 
-         USE PlotterClass
+         USE DGSEMPlotterClass
          IMPLICIT NONE
          
          EXTERNAL                :: cylindricalGeometry
@@ -241,7 +241,7 @@
 !        Plotting
 !        --------
 !
-         TYPE(Plotter)                      :: thePlotter
+         TYPE(DGSEMPlotter)                 :: thePlotter
          CLASS(PlotterDataSource), POINTER  :: dataSource
 !         
          N = 6
@@ -262,7 +262,7 @@
          IF(.NOT. success) RETURN 
          
          DO id = 1, SIZE(mesh % elements)
-            CALL allocateElementStorage(this = mesh % elements(id),&
+            CALL allocateElementStorage(self = mesh % elements(id),&
                                         N = N, nEqn = 3,nGradEqn = 0, flowIsNavierStokes = .FALSE.) 
          END DO  
          
@@ -303,7 +303,7 @@
 !
          ALLOCATE(dataSource)
          OPEN(UNIT = 11, FILE = "TwoClyindricalElements.tec")
-         CALL thePlotter % Construct(fUnit = 11,dataSource = dataSource)
+         CALL thePlotter % Construct(spa = spA, fUnit = 11,dataSource = dataSource)
          CALL thePlotter % ExportToTecplot(elements = mesh % elements)
          DEALLOCATE(dataSource)
          

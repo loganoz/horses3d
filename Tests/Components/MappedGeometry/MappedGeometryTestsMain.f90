@@ -14,7 +14,7 @@
          TYPE(TestSuiteManager) :: testSuite
          EXTERNAL               :: cubeTest
          EXTERNAL               :: cylinderTestGeometry
-        
+         
          CALL testSuite % init()
          
          CALL testSuite % addTestSubroutineWithName(cubeTest,testName = "Cube Geometry")
