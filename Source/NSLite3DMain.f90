@@ -45,7 +45,7 @@
 !     Initializations
 !     ---------------
 !
-      CALL UserDefinedSetup
+      CALL UserDefinedStartup
       CALL constructSharedBCModule
       CALL ReadInputFile( controlVariables )
       CALL ConstructPhysicsStorage( controlVariables % mach,               &
@@ -66,6 +66,7 @@
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
       CALL checkIntegrity(sem % mesh, success)
       IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
+      CALL UserDefinedFinalSetup(sem)
 !
 !     ----------------------
 !     Set the initial values
@@ -118,11 +119,16 @@
       CALL stopWatch % start()
       CALL timeIntegrator % integrate(sem)
       CALL stopWatch % stop()
-
-      CALL UserDefinedFinalize(sem, timeIntegrator % time)
       
+      PRINT *
       PRINT *, "Elapsed Time: ", stopWatch % elapsedTime(units = TC_SECONDS)
       PRINT *, "Total Time:   ", stopWatch % totalTime  (units = TC_SECONDS)
+!
+!     -----------------------------------------------------
+!     Let the user perform actions on the computed solution
+!     -----------------------------------------------------
+!
+      CALL UserDefinedFinalize(sem, timeIntegrator % time)
 !
 !     ----------------
 !     Plot the results
@@ -147,6 +153,7 @@
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       CALL destructSharedBCModule
+      
       CALL UserDefinedTermination
       
       END PROGRAM NSLite3DMain

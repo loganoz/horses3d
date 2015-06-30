@@ -13,7 +13,7 @@
 !
 !      The procedures, *even if empty* that must be defined are
 !
-!      UserDefinedSetUp
+!      UserDefinedStartup
 !      UserDefinedInitialCondition(sem)
 !      UserDefinedPeriodicOperation(sem)
 !      UserDefinedFinalize(sem)
@@ -24,14 +24,14 @@
       MODULE UserDefinedFunctions
       
       CONTAINS 
-         SUBROUTINE UserDefinedSetup  
+         SUBROUTINE UserDefinedStartup  
 !
 !        --------------------------------
 !        Called before any other routines
 !        --------------------------------
 !
             IMPLICIT NONE  
-         END SUBROUTINE UserDefinedSetup
+         END SUBROUTINE UserDefinedStartup
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
