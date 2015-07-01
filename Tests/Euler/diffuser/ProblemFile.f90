@@ -186,7 +186,7 @@
                                msg           = "Number of time steps to tolerance")
             CALL FTAssertEqual(expectedValue = residuals(N), &
                                actualValue   = sem % maxResidual, &
-                               tol           = 1.d-5, &
+                               tol           = 1.d-3, &
                                msg           = "Final maximum residual")
             
             ALLOCATE(QExpected(0:sem % spA % N,0:sem % spA % N,0:sem % spA % N,N_EQN))
@@ -275,6 +275,7 @@
 !     of the computation.
 !     -------------------------------------------
 !
+      success = .TRUE.
       tol   = 100.0_RP*EPSILON(1.0_RP)
       tggm1 = 2.0_RP*gamma/(gamma-1.0_RP)
       fr    = f*f/(x(1)*x(1) + x(2)*x(2))
