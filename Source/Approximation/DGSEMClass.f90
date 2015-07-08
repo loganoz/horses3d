@@ -95,7 +95,7 @@
          END SUBROUTINE externalGradients
       END INTERFACE
       
-      CALL ConstructNodalStorage( self % spA, polynomialOrder )
+      CALL self % spA % construct( polynomialOrder )
       CALL self % mesh % constructFromFile( meshfileName, self % spA, success )
       
       IF(.NOT. success) RETURN 
@@ -124,7 +124,7 @@
       IMPLICIT NONE 
       CLASS(DGSem) :: self
       
-      CALL DestructNodalStorage( self % spA )
+      CALL self % spA % destruct()
       CALL DestructMesh( self % mesh )
       self % externalState     => NULL()
       self % externalGradients => NULL()
