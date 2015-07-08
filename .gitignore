@@ -16,3 +16,10 @@ xcuserdata
 # svn & cvs
 .svn
 CVS
+
+#Tests noise
+Tests/*/*/Build/*
+Tests/*/*/PlotFiles/*
+nslite3d
+Tests/Euler/UniformFlow/nslite3d
+Tests/Euler/UniformFlow/nslite3d.fide
