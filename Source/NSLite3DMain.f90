@@ -45,6 +45,7 @@
 !     Initializations
 !     ---------------
 !
+      CALL stopWatch % init()
       CALL UserDefinedStartup
       CALL constructSharedBCModule
       CALL ReadInputFile( controlVariables )
@@ -57,12 +58,11 @@
 !     Set up the DGSEM
 !     ----------------
 !      
-      CALL ConstructDGSem(self              = sem, &
-                          polynomialOrder   = controlVariables % polynomialOrder,&
-                          meshFileName      = controlVariables % inputFileName,  &
-                          externalState     = externalStateForBoundaryName,      &
-                          externalGradients = ExternalGradientForBoundaryName,   &
-                          success           = success)
+      CALL sem % construct(polynomialOrder   = controlVariables % polynomialOrder,&
+                           meshFileName      = controlVariables % inputFileName,  &
+                           externalState     = externalStateForBoundaryName,      &
+                           externalGradients = ExternalGradientForBoundaryName,   &
+                           success           = success)
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
       CALL checkIntegrity(sem % mesh, success)
       IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
@@ -115,9 +115,8 @@
 !     Integrate in time
 !     -----------------
 !
-      CALL stopWatch % init()
       CALL stopWatch % start()
-      CALL timeIntegrator % integrate(sem)
+         CALL timeIntegrator % integrate(sem)
       CALL stopWatch % stop()
       
       PRINT *
@@ -129,6 +128,19 @@
 !     -----------------------------------------------------
 !
       CALL UserDefinedFinalize(sem, timeIntegrator % time)
+!
+!     ------------------------------------
+!     Save the results to the restart file
+!     ------------------------------------
+!
+      IF(controlVariables % restartFileName /= "none")     THEN 
+         restartUnit = UnusedUnit()
+         OPEN( UNIT = restartUnit, &
+               FILE = controlVariables % restartFileName, &
+               FORM = "UNFORMATTED" )
+               CALL SaveSolutionForRestart( sem, restartUnit )
+         CLOSE( restartUnit )
+      END IF
 !
 !     ----------------
 !     Plot the results
