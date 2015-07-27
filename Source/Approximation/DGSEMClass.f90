@@ -116,6 +116,8 @@
       self % externalState     => externalState
       self % externalGradients => externalGradients
       
+      call assignBoundaryConditions(self)
+      
       END SUBROUTINE ConstructDGSem
 !
 !////////////////////////////////////////////////////////////////////////
