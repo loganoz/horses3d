@@ -187,12 +187,12 @@
 !              --------------------------------------------------------------
 !
                DO k = 1, 6 
-!
-!                 ----------
-!                 Flat faces
-!                 ----------
-!
                  IF ( faceFlags(k) == 0 )     THEN
+!
+!                    ----------
+!                    Flat faces
+!                    ----------
+!
                      nodeMap           = localFaceNode(:,k)
                      valuesFlat(:,1,1) = self % nodes(nodeIDs(nodeMap(1))) % x
                      valuesFlat(:,2,1) = self % nodes(nodeIDs(nodeMap(2))) % x
