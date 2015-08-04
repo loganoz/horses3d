@@ -19,7 +19,8 @@ CVS
 
 #Tests noise
 Tests/*/*/Build/*
+Tests/*/*/RestartFiles/*
 Tests/*/*/PlotFiles/*
 nslite3d
-Tests/Euler/UniformFlow/nslite3d
-Tests/Euler/UniformFlow/nslite3d.fide
+Tests/*/*/nslite3d
+Tests/*/*/*.fide

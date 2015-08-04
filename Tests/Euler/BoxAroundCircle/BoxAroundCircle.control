@@ -1,0 +1,23 @@
+Flow equations        = "Euler"
+mesh file name        = "../../TestMeshes/BoxAroundCircle3D.mesh"
+plot file name        = "PlotFiles/BoxAroundCircle.tec"
+restart file name     = "RestartFiles/BoxAroundCircle.rst"
+restart               = .false.
+Polynomial order      = 3
+Number of time steps  = 500
+Output Interval       = 10
+Number of plot points = 6
+Convergence tolerance = 1.d-10
+cfl                   = 0.7
+mach number           = 0.3
+AOA theta             = 0.0
+AOA phi               = 0.0
+Reynolds number       = 0.0
+Number of boundaries  = 7
+InnerCylinder 0.0 freeslipwall
+Front 0.0 Inflow
+bottom 0.0 Inflow
+top 0.0 Inflow
+Back 0.0 Inflow
+Left 0.0 Inflow
+Right 0.0 Inflow
