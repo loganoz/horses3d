@@ -24,3 +24,5 @@ Tests/*/*/PlotFiles/*
 nslite3d
 Tests/*/*/nslite3d
 Tests/*/*/*.fide
+Tests/Euler/BoxAroundCircle/nslite3BoxAroundCircle
+Tests/Euler/UniformFlow/nslite3DUF
