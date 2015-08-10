@@ -121,11 +121,6 @@ Module MappedGeometryClass
 !
       IF (isHex8(mapper)) THEN 
          CALL computeMetricTermsCrossProductForm(self, spA, mapper)
-      ELSE 
-         !CALL computeMetricTermsCrossProductForm(self, spA, mapper)
-         !self % jacobian = 0.0_RP
-         CALL computeMetricTermsConservativeForm(self, spA, mapper)
-      ENDIF 
 !
 !     ----------------
 !     Boundary Normals - Must be evaluated at the boundaries!
@@ -152,7 +147,7 @@ Module MappedGeometryClass
             CALL vCross(grad_x(:,2), grad_x(:,3), jGrad)
             nrm = NORM2(jGrad)
             self % normal(:,i,j,ERIGHT) = jGrad/nrm
-            self % scal(i,j,ERIGHT)     = nrm
+            self % scal(i,j,ERIGHT)     = nrm          
 !
 !           -----------
 !           bottom face
@@ -196,6 +191,15 @@ Module MappedGeometryClass
            
          END DO
       END DO 
+      
+      ELSE  
+      !IF (.not.isHex8(mapper)) THEN 
+         
+         
+         CALL computeMetricTermsConservativeForm(self, spA, mapper)
+         
+      !Compute the normals   
+      ENDIF       
 
    END SUBROUTINE ConstructMappedGeometry
 !
@@ -233,6 +237,10 @@ Module MappedGeometryClass
 !
       REAL(KIND=RP) :: xiArray( spA % N + 1,3)
       REAL(KIND=RP) :: xi(3)
+      
+      real(KIND=RP) :: mappedxi(spA % N + 1,3), trash(spa % N + 1), LegendreLobattoxi (spa % N + 1)
+      real(KIND=RP) :: LLLGLG( spa % N + 1, 3), LGLLLG( spa % N + 1, 3), LGLGLL( spa % N + 1, 3)
+      
       REAL(KIND=RP) :: corners(3,8)
       
       REAL(KIND=RP) :: grad_x(3,3,spA % N + 1,spA % N + 1,spA % N + 1)
@@ -250,9 +258,12 @@ Module MappedGeometryClass
       REAL(KIND=RP) :: jGradEta (3,spA % N + 1,spA % N + 1,spA % N + 1)
       REAL(KIND=RP) :: jGradZeta(3,spA % N + 1,spA % N + 1,spA % N + 1)
       
+      REAL(KIND=RP) :: jGrad (3)
+      REAL(KIND=RP) :: nrm
+      
       REAL(KIND=RP) :: piN
       
-      INTEGER :: i,j,k,n,m,l
+      INTEGER :: i,j,k,n,m,l,iFace
       
       INTEGER :: polOrder(3)
       real(KIND=RP) :: jacInv( spA % N + 1, spA % N + 1, spA % N + 1 )
@@ -269,7 +280,20 @@ Module MappedGeometryClass
 
       polOrder(:) = spa % N + 1
       
-      spA % N = spA % N + 1 
+      spA % N = spA % N + 1     
+!
+!     ----------------------
+!     scale values for [0,1]
+!     ----------------------
+!
+      DO k = 1,3
+         DO j = 1, spa % N
+            !print*, "old xi", spA % xi(j-1)
+            !mappedxi(j,k)      = 0.5_RP*(spA % xi(j-1) + 1._RP)
+            mappedxi(j,k) = spA % xi(j-1)
+            !print*, "new  xi", mappedxi(j)
+         END DO
+      END DO      
 !
 !     --------------------------------------
 !     Compute the mesh on the Lobatto grid
@@ -279,9 +303,32 @@ Module MappedGeometryClass
       DO k = 1,3
          piN = PI/(spA % N-1)
          DO n = 1, spA % N
-            xiArray(n,k) = 0.5_RP*(1.0_RP - COS((n-1)*piN))
+            !xiArray(n,k) = 0.5_RP*(1.0_RP - COS((n-1)*piN))
+            xiArray(n,k) = - COS((n-1)*piN)
+            !call LegendreLobattoNodesAndWeights( spA % N - 1, xiArray(:,k), trash )
+            !print*, "xiArray(n,k)", xiArray(n,k) 
          END DO
+         call LegendreLobattoNodesAndWeights( spA % N - 1, LegendreLobattoxi, trash )
       END DO
+      
+      LLLGLG(:,1) = LegendreLobattoxi
+      LLLGLG(:,2) = mappedxi(:,1)
+      LLLGLG(:,3) = mappedxi(:,1)
+
+      LGLLLG(:,1) = mappedxi(:,1)
+      LGLLLG(:,2) = LegendreLobattoxi
+      LGLLLG(:,3) = mappedxi(:,1)
+
+      LGLGLL(:,1) = mappedxi(:,1)
+      LGLGLL(:,2) = mappedxi(:,1)
+      LGLGLL(:,3) = LegendreLobattoxi
+      
+      !do k = 1, 3
+      !do n = 1, spA % N 
+      !   xiArray(n,k)      = 0.5_RP*(xiArray(n,k) + 1._RP)
+      !enddo 
+      !enddo 
+      !print*, xiArray 
       DO j = 1,8
          DO i = 1,3
             corners(i,j) = mapper%corners(i,j)
@@ -403,7 +450,7 @@ Module MappedGeometryClass
             END SELECT
 
          END DO jLoop2
-      END DO iLoop2      
+      END DO iLoop2           
 !
 !     ------------------------------------
 !     Interpolate back onto the gauss grid
@@ -412,9 +459,9 @@ Module MappedGeometryClass
       ALLOCATE( xiInterpMat  (spA % N,spA % N) )
       ALLOCATE( etaInterpMat (spA % N,spA % N) )
       ALLOCATE( zetaInterpMat(spA % N,spA % N) )
-      CALL MakeInterpMatFromTo( xiInterpmat  , spA % N, xiArray(:,1), spA % N, spA%xi(:) )
-      CALL MakeInterpMatFromTo( etaInterpmat , spA % N, xiArray(:,2), spA % N, spA%xi(:) )
-      CALL MakeInterpMatFromTo( zetaInterpmat, spA % N, xiArray(:,3), spA % N, spA%xi(:) )
+      CALL MakeInterpMatFromTo( xiInterpmat  , spA % N, xiArray(:,1), spA % N, mappedxi(:,1) )
+      CALL MakeInterpMatFromTo( etaInterpmat , spA % N, xiArray(:,2), spA % N, mappedxi(:,2) )
+      CALL MakeInterpMatFromTo( zetaInterpmat, spA % N, xiArray(:,3), spA % N, mappedxi(:,3) )
       
       DO k = 1,3
          DO l = 1,spA % N
@@ -488,9 +535,18 @@ Module MappedGeometryClass
          do l = 1,spA % N
             do m = 1,spA % N
                do n = 1,spA % N
+                  print*, "self % jGradXi(k, n-1, m-1, l-1 )", self % jGradXi(k, n-1, m-1, l-1 )
                   self % jGradXi(k, n-1, m-1, l-1 ) = jGradXi(k,n,m,l)
+                  print*, "self % jGradXi(k, n-1, m-1, l-1 )", self % jGradXi(k, n-1, m-1, l-1 )
+                  print*, "_____________________________________________________________________"
+                  print*, "self % jGradEta(k, n-1, m-1, l-1 )", self % jGradEta(k, n-1, m-1, l-1 )                  
                   self % jGradEta(k, n-1, m-1, l-1 ) = jGradEta(k,n,m,l)
+                  print*, "self % jGradEta(k, n-1, m-1, l-1 )", self % jGradEta(k, n-1, m-1, l-1 )
+                  print*, "_____________________________________________________________________"                  
+                  print*, "self % jGradZeta(k, n-1, m-1, l-1 )", self % jGradZeta(k, n-1, m-1, l-1 )                  
                   self % jGradZeta(k, n-1, m-1, l-1 ) = jGradZeta(k,n,m,l)
+                  print*, "self % jGradZeta (k, n-1, m-1, l-1 )", self % jGradZeta(k, n-1, m-1, l-1 )
+                  print*, "_____________________________________________________________________"                  
                enddo 
             enddo
          enddo
@@ -499,10 +555,184 @@ Module MappedGeometryClass
       do l = 1,spA % N
          do m = 1,spA % N
             do n = 1,spA % N
+                print*, "Jacobian", n-1, m-1,l-1, self % jacobian(n-1,m-1,l-1)
                 self % jacobian(n-1,m-1,l-1)     = vArray(n,m,l)
+                print*, "Jacobian", n-1, m-1,l-1, self % jacobian(n-1,m-1,l-1)
             enddo 
          enddo
       enddo      
+
+!
+!     ----------------------------------------
+!     Interpolate to the LegrendreLobatto grid
+!     ----------------------------------------
+!
+      CALL MakeInterpMatFromTo( xiInterpmat  , spA % N, mappedxi(:,1), spA % N, LegendreLobattoxi(:) )
+      CALL MakeInterpMatFromTo( etaInterpmat , spA % N, mappedxi(:,2), spA % N, mappedxi(:,2) )
+      CALL MakeInterpMatFromTo( zetaInterpmat, spA % N, mappedxi(:,3), spA % N, mappedxi(:,3) )
+      
+      DO k = 1,3
+         DO l = 1,spA % N
+            DO m = 1,spA % N
+               DO n = 1,spA % N
+                  tArray(n,m,l) = jGradXi(k,n,m,l)
+               END DO
+            END DO
+         END DO
+         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, etaInterpMat, zetaInterpMat )
+         DO l = 1,spA % N
+            DO m = 1,spA % N
+               DO n = 1,spA % N
+                  jGradXi(k,n,m,l) = vArray(n,m,l)
+               END DO
+            END DO
+         END DO
+
+      CALL MakeInterpMatFromTo( xiInterpmat  , spA % N, mappedxi(:,1), spA % N, mappedxi(:,1) )
+      CALL MakeInterpMatFromTo( etaInterpmat , spA % N, mappedxi(:,2), spA % N, LegendreLobattoxi(:) )
+      CALL MakeInterpMatFromTo( zetaInterpmat, spA % N, mappedxi(:,3), spA % N, mappedxi(:,3) )
+
+         DO l = 1,spA % N
+            DO m = 1,spA % N
+               DO n = 1,spA % N
+                  tArray(n,m,l) = jGradEta(k,n,m,l)
+               END DO
+            END DO
+         END DO
+         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, etaInterpMat, zetaInterpMat )
+         DO l = 1,spA % N
+            DO m = 1,spA % N
+               DO n = 1,spA % N
+                  jGradEta(k,n,m,l) = vArray(n,m,l)
+               END DO
+            END DO
+         END DO
+
+      CALL MakeInterpMatFromTo( xiInterpmat  , spA % N, mappedxi(:,1), spA % N, mappedxi(:,1) )
+      CALL MakeInterpMatFromTo( etaInterpmat , spA % N, mappedxi(:,2), spA % N, mappedxi(:,2) )
+      CALL MakeInterpMatFromTo( zetaInterpmat, spA % N, mappedxi(:,3), spA % N, LegendreLobattoxi(:) )
+      
+         DO l = 1,spA % N
+            DO m = 1,spA % N
+               DO n = 1,spA % N
+                  tArray(n,m,l) = jGradZeta(k,n,m,l)
+               END DO
+            END DO
+         END DO
+         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, etaInterpMat, zetaInterpMat )
+         DO l = 1,spA % N
+            DO m = 1,spA % N
+               DO n = 1,spA % N
+                  jGradZeta(k,n,m,l) = vArray(n,m,l)
+               END DO
+            END DO
+         END DO
+      END DO
+!
+!     ----------------
+!     Boundary Normals - Must be evaluated at the boundaries!
+!     ----------------
+!
+      do i = 1, spa % N
+         do j = 1, spa % N
+!
+!           ---------
+!           Left face
+!           ---------
+!
+            jGrad = jGradXi(:,1,i,j)
+            nrm = NORM2(jGrad)
+            print*, "ELEFT", i, j
+            print*, self % normal(:,i-1,j-1,ELEFT)
+            self % normal(:,i-1,j-1,ELEFT) = -jGrad/nrm
+            print*, self % normal(:,i-1,j-1,ELEFT)
+            print*, "-----------------------------"
+            self % scal(i-1,j-1,ELEFT)     = nrm 
+!
+!           ----------
+!           Right face
+!           ----------
+!
+            jGrad = jGradXi(:,spa % N,i,j)
+            nrm = NORM2(jGrad)
+            print*, "ERIGHT", i, j
+            print*, self % normal(:,i-1,j-1,ERIGHT)            
+            self % normal(:,i-1,j-1,ERIGHT) = jGrad/nrm
+            print*, self % normal(:,i-1,j-1,ERIGHT)
+            print*, "-----------------------------"            
+            self % scal(i-1,j-1,ERIGHT)     = nrm 
+!
+!           -----------
+!           bottom face
+!           -----------
+!
+            jGrad = jGradZeta(:,i,j,1)
+            nrm = NORM2(jGrad)
+            print*, "EBOTTOM", i, j
+            print*, self % normal(:,i-1,j-1,EBOTTOM)              
+            self % normal(:,i-1,j-1,EBOTTOM) = -jGrad/nrm
+            print*, self % normal(:,i-1,j-1,EBOTTOM)
+            print*, "-----------------------------"   
+            self % scal(i-1,j-1,EBOTTOM)     = nrm 
+!
+!           --------
+!           top face
+!           --------
+!
+            jGrad = jGradZeta(:,i,j,spa % N)
+            nrm = NORM2(jGrad)
+            print*, "ETOP", i, j
+            print*, self % normal(:,i-1,j-1,ETOP)  
+            self % normal(:,i-1,j-1,ETOP) = jGrad/nrm
+            print*, self % normal(:,i-1,j-1,ETOP)
+            print*, "-----------------------------"   
+            self % scal(i-1,j-1,ETOP)     = nrm 
+!
+!           ----------
+!           front face
+!           ----------
+!
+            jGrad = jGradEta(:,i,1,j)
+            nrm = NORM2(jGrad)
+            print*, "EFRONT", i, j
+            print*, self % normal(:,i-1,j-1,EFRONT)  
+            self % normal(:,i-1,j-1,EFRONT) = -jGrad/nrm
+            print*, self % normal(:,i-1,j-1,EFRONT)
+            print*, "-----------------------------"   
+            self % scal(i-1,j-1,EFRONT)     = nrm 
+!
+!           ---------
+!           back face
+!           ---------
+!
+            jGrad = jGradEta(:,i,spa % N,j)
+            nrm = NORM2(jGrad)
+            print*, "EBACK", i, j
+            print*, self % normal(:,i-1,j-1,EBACK)  
+            self % normal(:,i-1,j-1,EBACK) = jGrad/nrm
+            print*, self % normal(:,i-1,j-1,EBACK)
+            print*, "-----------------------------"   
+            self % scal(i-1,j-1,EBACK)     = nrm 
+            
+!            do k = 1,3
+!               do iFace = 1,6
+!               
+!                  if (abs(self % normal(k,i-1,j-1,iFace)) < 1.d-14 ) then 
+!                     self % normal(k,i-1,j-1,iFace) = 0.0_RP
+!                  endif              
+!               
+!                  if (abs(self % scal(i-1,j-1,iFace)) < 1.d-14 ) then 
+!                     self % scal(i-1,j-1,iFace)  = 0.0_RP
+!                  endif 
+!                  
+!               enddo 
+!               
+!            enddo 
+            
+         enddo
+      enddo 
+
+
 
       spA % N = spA % N - 1
 
