@@ -250,6 +250,8 @@ Module MappedGeometryClass
       REAL(KIND=RP) :: etaDerMat (spA % N + 1, spA % N + 1)
       REAL(KIND=RP) :: zetaDerMat(spA % N + 1, spA % N + 1)
       
+      REAL(KIND=RP) :: IdentityMatrix(spA % N + 1, spA % N + 1)
+      
       REAL(KIND=RP) :: tArray( spA % N + 1, spA % N + 1, spA % N + 1 )
       REAL(KIND=RP) :: dArray( spA % N + 1, spA % N + 1, spA % N + 1 )
       REAL(KIND=RP) :: vArray( spA % N + 1, spA % N + 1, spA % N + 1 )
@@ -536,21 +538,31 @@ Module MappedGeometryClass
          do l = 1,spA % N
             do m = 1,spA % N
                do n = 1,spA % N
-                  print*, "self % jGradXi(k, n-1, m-1, l-1 )", self % jGradXi(k, n-1, m-1, l-1 )
+                  !print*, "self % jGradXi(k, n-1, m-1, l-1 )", self % jGradXi(k, n-1, m-1, l-1 )
+                  if (abs(self % jGradXi(k, n-1, m-1, l-1 ) - jGradXi(k,n,m,l))>1.d-10) then  
+                     print*, "error jGradXi", k, n, m, l, (abs(self % jGradXi(k, n-1, m-1, l-1 ) - jGradXi(k,n,m,l)))
+                     print*, "_____________________________________________________________________"
+                  endif 
                   self % jGradXi(k, n-1, m-1, l-1 ) = jGradXi(k,n,m,l)
                  ! jGradXi(k,n,m,l) = self % jGradXi(k, n-1, m-1, l-1 )
-                  print*, "self % jGradXi(k, n-1, m-1, l-1 )", self % jGradXi(k, n-1, m-1, l-1 )
-                  print*, "_____________________________________________________________________"
-                  print*, "self % jGradEta(k, n-1, m-1, l-1 )", self % jGradEta(k, n-1, m-1, l-1 )                  
+                  !print*, "self % jGradXi(k, n-1, m-1, l-1 )", self % jGradXi(k, n-1, m-1, l-1 )
+                  !print*, "self % jGradEta(k, n-1, m-1, l-1 )", self % jGradEta(k, n-1, m-1, l-1 )                  
+                  if (abs(self % jGradEta(k, n-1, m-1, l-1 ) - jGradEta(k,n,m,l))>1.d-10) then  
+                     print*, "error jGradEta", k, n, m, l, (abs(self % jGradEta(k, n-1, m-1, l-1 ) - jGradEta(k,n,m,l)))
+                     print*, "_____________________________________________________________________"
+                  endif 
                   self % jGradEta(k, n-1, m-1, l-1 ) = jGradEta(k,n,m,l)
                  ! jGradEta(k,n,m,l) = self % jGradEta(k, n-1, m-1, l-1 )
-                  print*, "self % jGradEta(k, n-1, m-1, l-1 )", self % jGradEta(k, n-1, m-1, l-1 )
-                  print*, "_____________________________________________________________________"                  
-                  print*, "self % jGradZeta(k, n-1, m-1, l-1 )", self % jGradZeta(k, n-1, m-1, l-1 )                  
+                  !print*, "self % jGradEta(k, n-1, m-1, l-1 )", self % jGradEta(k, n-1, m-1, l-1 )               
+                  !print*, "self % jGradZeta(k, n-1, m-1, l-1 )", self % jGradZeta(k, n-1, m-1, l-1 )                  
+                  if (abs(self % jGradZeta(k, n-1, m-1, l-1 ) - jGradZeta(k,n,m,l))>1.d-10) then  
+                     print*, "error jGradZeta", k, n, m, l, (abs(self % jGradZeta(k, n-1, m-1, l-1 ) - jGradZeta(k,n,m,l)))
+                     print*, "_____________________________________________________________________"
+                  endif 
+                  !print*, "error jGradZeta", k, n, m, l, (abs(self % jGradZeta(k, n-1, m-1, l-1 ) - jGradZeta(k,n,m,l)))
                   self % jGradZeta(k, n-1, m-1, l-1 ) = jGradZeta(k,n,m,l)
                   !jGradZeta(k,n,m,l) = self % jGradZeta(k, n-1, m-1, l-1 )
-                  print*, "self % jGradZeta (k, n-1, m-1, l-1 )", self % jGradZeta(k, n-1, m-1, l-1 )
-                  print*, "_____________________________________________________________________"                  
+                  !print*, "self % jGradZeta (k, n-1, m-1, l-1 )", self % jGradZeta(k, n-1, m-1, l-1 )                
                enddo 
             enddo
          enddo
@@ -559,9 +571,13 @@ Module MappedGeometryClass
       do l = 1,spA % N
          do m = 1,spA % N
             do n = 1,spA % N
-                print*, "Jacobian", n-1, m-1,l-1, self % jacobian(n-1,m-1,l-1)
+                  if (abs(self % jacobian(n-1,m-1,l-1) - vArray(n,m,l))>1.d-10) then  
+                     print*, "error Jacobian", k, n, m, l, abs(self % jacobian(n-1,m-1,l-1) - vArray(n,m,l))
+                     print*, "_____________________________________________________________________"
+                  endif 
+                !print*, "Jacobian", n-1, m-1,l-1, self % jacobian(n-1,m-1,l-1)
                 self % jacobian(n-1,m-1,l-1)     = vArray(n,m,l)
-                print*, "Jacobian", n-1, m-1,l-1, self % jacobian(n-1,m-1,l-1)
+               ! print*, "Jacobian", n-1, m-1,l-1, self % jacobian(n-1,m-1,l-1)
             enddo 
          enddo
       enddo      
@@ -570,87 +586,100 @@ Module MappedGeometryClass
 !     ----------------------------------------
 !     Interpolate to the LegrendreLobatto grid
 !     ----------------------------------------
-!
-!      CALL MakeInterpMatFromTo( xiInterpmat  , spA % N, mappedxi(:,1), spA % N, xiArray(:,1) )
-!      CALL MakeInterpMatFromTo( etaInterpmat , spA % N, mappedxi(:,2), spA % N, mappedxi(:,2) )
-!      CALL MakeInterpMatFromTo( zetaInterpmat, spA % N, mappedxi(:,3), spA % N, mappedxi(:,3) )
-!      
-!      DO k = 1,3
-!         DO l = 1,spA % N
-!            DO m = 1,spA % N
-!               DO n = 1,spA % N
-!                  tArray(n,m,l) = jGradXi(k,n,m,l)
-!               END DO
-!            END DO
-!         END DO
-!         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, etaInterpMat, zetaInterpMat )
-!         DO l = 1,spA % N
-!            DO m = 1,spA % N
-!               DO n = 1,spA % N
-!                  jGradXi(k,n,m,l) = vArray(n,m,l)
-!               END DO
-!            END DO
-!         END DO
-!
-!      CALL MakeInterpMatFromTo( xiInterpmat  , spA % N, mappedxi(:,1), spA % N, mappedxi(:,1) )
-!      CALL MakeInterpMatFromTo( etaInterpmat , spA % N, mappedxi(:,2), spA % N, xiArray(:,2)  ) 
-!      CALL MakeInterpMatFromTo( zetaInterpmat, spA % N, mappedxi(:,3), spA % N, mappedxi(:,3) )
-!
-!         DO l = 1,spA % N
-!            DO m = 1,spA % N
-!               DO n = 1,spA % N
-!                  tArray(n,m,l) = jGradEta(k,n,m,l)
-!               END DO
-!            END DO
-!         END DO
-!         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, etaInterpMat, zetaInterpMat )
-!         DO l = 1,spA % N
-!            DO m = 1,spA % N
-!               DO n = 1,spA % N
-!                  jGradEta(k,n,m,l) = vArray(n,m,l)
-!               END DO
-!            END DO
-!         END DO
-!
-!      CALL MakeInterpMatFromTo( xiInterpmat  , spA % N, mappedxi(:,1), spA % N, mappedxi(:,1) )
-!      CALL MakeInterpMatFromTo( etaInterpmat , spA % N, mappedxi(:,2), spA % N, mappedxi(:,2) )
-!      CALL MakeInterpMatFromTo( zetaInterpmat, spA % N, mappedxi(:,3), spA % N, xiArray(:,3) )
-!      
-!         DO l = 1,spA % N
-!            DO m = 1,spA % N
-!               DO n = 1,spA % N
-!                  tArray(n,m,l) = jGradZeta(k,n,m,l)
-!               END DO
-!            END DO
-!         END DO
-!         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, etaInterpMat, zetaInterpMat )
-!         DO l = 1,spA % N
-!            DO m = 1,spA % N
-!               DO n = 1,spA % N
-!                  jGradZeta(k,n,m,l) = vArray(n,m,l)
-!               END DO
-!            END DO
-!         END DO
-!      END DO
+
+      IdentityMatrix = 0.0_RP
+      do i = 1, spA % N 
+         IdentityMatrix(i,i) = 1.0_RP         
+      enddo 
+      do i = 2, spA % N -1
+         LegendreLobattoxi(i) = 0.0_RP
+      enddo 
+      print*, "xiArray(:,1)", LegendreLobattoxi
+      CALL MakeInterpMatFromTo( xiInterpmat  , spA % N, mappedxi(:,1), spA % N, LegendreLobattoxi )
+      CALL MakeInterpMatFromTo( etaInterpmat , spA % N, mappedxi(:,2), spA % N, LegendreLobattoxi )
+      CALL MakeInterpMatFromTo( zetaInterpmat, spA % N, mappedxi(:,3), spA % N, LegendreLobattoxi )
+      
+
+      DO k = 1,3
+         DO l = 1,spA % N
+            DO m = 1,spA % N
+               DO n = 1,spA % N
+                  tArray(n,m,l) = jGradXi(k,n,m,l)
+               END DO
+            END DO
+         END DO
+         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, IdentityMatrix, IdentityMatrix )
+         DO l = 1,spA % N
+            DO m = 1,spA % N
+               DO n = 1,spA % N
+                  jGradXi(k,n,m,l) = vArray(n,m,l)
+               END DO
+            END DO
+         END DO
+
+      !CALL MakeInterpMatFromTo( xiInterpmat  , spA % N, mappedxi(:,1), spA % N, mappedxi(:,1) )
+      !CALL MakeInterpMatFromTo( etaInterpmat , spA % N, mappedxi(:,2), spA % N, LegendreLobattoxi  ) 
+      !CALL MakeInterpMatFromTo( zetaInterpmat, spA % N, mappedxi(:,3), spA % N, mappedxi(:,3) )
+
+         DO l = 1,spA % N
+            DO m = 1,spA % N
+               DO n = 1,spA % N
+                  tArray(n,m,l) = jGradEta(k,n,m,l)
+               END DO
+            END DO
+         END DO
+         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, IdentityMatrix, etaInterpMat, IdentityMatrix )
+         DO l = 1,spA % N
+            DO m = 1,spA % N
+               DO n = 1,spA % N
+                  jGradEta(k,n,m,l) = vArray(n,m,l)
+               END DO
+            END DO
+         END DO
+
+      !CALL MakeInterpMatFromTo( xiInterpmat  , spA % N, mappedxi(:,1), spA % N, mappedxi(:,1) )
+      !CALL MakeInterpMatFromTo( etaInterpmat , spA % N, mappedxi(:,2), spA % N, mappedxi(:,2) )
+      !CALL MakeInterpMatFromTo( zetaInterpmat, spA % N, mappedxi(:,3), spA % N, LegendreLobattoxi )
+      
+         DO l = 1,spA % N
+            DO m = 1,spA % N
+               DO n = 1,spA % N
+                  tArray(n,m,l) = jGradZeta(k,n,m,l)
+               END DO
+            END DO
+         END DO
+         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, IdentityMatrix, IdentityMatrix, zetaInterpMat )
+         DO l = 1,spA % N
+            DO m = 1,spA % N
+               DO n = 1,spA % N
+                  jGradZeta(k,n,m,l) = vArray(n,m,l)
+               END DO
+            END DO
+         END DO
+      END DO
 !
 !     ----------------
 !     Boundary Normals - Must be evaluated at the boundaries!
 !     ----------------
 !
-      do i = 1, spa % N
-         do j = 1, spa % N
+      do j = 1, spa % N
+         do i = 1, spa % N
 !
 !           ---------
 !           Left face
 !           ---------
 !
-            jGrad(:) = jGradXi(:,1,i,j)
+            jGrad(:) = jGradXi (:,1,i,j)
             nrm = NORM2(jGrad)
-            print*, "ELEFT", i, j
-            print*, self % normal(:,i-1,j-1,ELEFT)
+           ! print*, "ELEFT", i, j
+           ! print*, self % normal(:,i-1,j-1,ELEFT)
+            if (maxval(abs(self % normal(:,i-1,j-1,ELEFT) - (-jGrad/nrm)))>1.d-10) then  
+               print*, "error Left normal", i, j, maxval(abs(self % normal(:,i-1,j-1,ELEFT) - (-jGrad/nrm)))
+               print*, "_____________________________________________________________________"
+            endif 
             self % normal(:,i-1,j-1,ELEFT) = -jGrad/nrm
-            print*, self % normal(:,i-1,j-1,ELEFT)
-            print*, "-----------------------------"
+           ! print*, self % normal(:,i-1,j-1,ELEFT)
+           ! print*, "-----------------------------"
             self % scal(i-1,j-1,ELEFT)     = nrm 
 !
 !           ----------
@@ -659,11 +688,15 @@ Module MappedGeometryClass
 !
             jGrad = jGradXi(:,spa % N,i,j)
             nrm = NORM2(jGrad)
-            print*, "ERIGHT", i, j
-            print*, self % normal(:,i-1,j-1,ERIGHT)            
-           ! self % normal(:,i-1,j-1,ERIGHT) = jGrad/nrm
-            print*, self % normal(:,i-1,j-1,ERIGHT)
-            print*, "-----------------------------"            
+           ! print*, "ERIGHT", i, j
+           ! print*, self % normal(:,i-1,j-1,ERIGHT)   
+            if (maxval(abs(self % normal(:,i-1,j-1,ERIGHT) - (jGrad/nrm)))>1.d-10) then  
+               print*, "error Right normal", i, j, maxval(abs(self % normal(:,i-1,j-1,ERIGHT) - (jGrad/nrm)))
+               print*, "_____________________________________________________________________"
+            endif          
+            self % normal(:,i-1,j-1,ERIGHT) = jGrad/nrm
+           ! print*, self % normal(:,i-1,j-1,ERIGHT)
+           ! print*, "-----------------------------"            
             self % scal(i-1,j-1,ERIGHT)     = nrm 
 !
 !           -----------
@@ -672,11 +705,15 @@ Module MappedGeometryClass
 !
             jGrad = jGradZeta(:,i,j,1)
             nrm = NORM2(jGrad)
-            print*, "EBOTTOM", i, j
-            print*, self % normal(:,i-1,j-1,EBOTTOM)              
-           ! self % normal(:,i-1,j-1,EBOTTOM) = -jGrad/nrm
-            print*, self % normal(:,i-1,j-1,EBOTTOM)
-            print*, "-----------------------------"   
+           ! print*, "EBOTTOM", i, j
+           ! print*, self % normal(:,i-1,j-1,EBOTTOM)              
+            if (maxval(abs(self % normal(:,i-1,j-1,EBOTTOM) - (-jGrad/nrm)))>1.d-10) then  
+               print*, "error Bottom normal", i, j, maxval(abs(self % normal(:,i-1,j-1,EBOTTOM) - (-jGrad/nrm)))
+               print*, "_____________________________________________________________________"
+            endif  
+            self % normal(:,i-1,j-1,EBOTTOM) = -jGrad/nrm
+           ! print*, self % normal(:,i-1,j-1,EBOTTOM)
+           ! print*, "-----------------------------"   
             self % scal(i-1,j-1,EBOTTOM)     = nrm 
 !
 !           --------
@@ -685,11 +722,15 @@ Module MappedGeometryClass
 !
             jGrad = jGradZeta(:,i,j,spa % N)
             nrm = NORM2(jGrad)
-            print*, "ETOP", i, j
-            print*, self % normal(:,i-1,j-1,ETOP)  
-           ! self % normal(:,i-1,j-1,ETOP) = jGrad/nrm
-            print*, self % normal(:,i-1,j-1,ETOP)
-            print*, "-----------------------------"   
+           ! print*, "ETOP", i, j
+           ! print*, self % normal(:,i-1,j-1,ETOP)  
+            if (maxval(abs(self % normal(:,i-1,j-1,ETOP) - (jGrad/nrm)))>1.d-10) then  
+               print*, "error Top normal", i, j, maxval(abs(self % normal(:,i-1,j-1,ETOP) - (jGrad/nrm)))
+               print*, "_____________________________________________________________________"
+            endif  
+            self % normal(:,i-1,j-1,ETOP) = jGrad/nrm
+           ! print*, self % normal(:,i-1,j-1,ETOP)
+           ! print*, "-----------------------------"   
             self % scal(i-1,j-1,ETOP)     = nrm 
 !
 !           ----------
@@ -698,11 +739,15 @@ Module MappedGeometryClass
 !
             jGrad = jGradEta(:,i,1,j)
             nrm = NORM2(jGrad)
-            print*, "EFRONT", i, j
-            print*, self % normal(:,i-1,j-1,EFRONT)  
-           ! self % normal(:,i-1,j-1,EFRONT) = -jGrad/nrm
-            print*, self % normal(:,i-1,j-1,EFRONT)
-            print*, "-----------------------------"   
+           ! print*, "EFRONT", i, j
+           ! print*, self % normal(:,i-1,j-1,EFRONT)  
+            if (maxval(abs(self % normal(:,i-1,j-1,EFRONT) - (-jGrad/nrm)))>1.d-10) then  
+               print*, "error Front normal", i, j, maxval(abs(self % normal(:,i-1,j-1,EFRONT) - (-jGrad/nrm)))
+               print*, "_____________________________________________________________________"
+            endif  
+            self % normal(:,i-1,j-1,EFRONT) = -jGrad/nrm
+           ! print*, self % normal(:,i-1,j-1,EFRONT)
+           ! print*, "-----------------------------"   
             self % scal(i-1,j-1,EFRONT)     = nrm 
 !
 !           ---------
@@ -711,11 +756,15 @@ Module MappedGeometryClass
 !
             jGrad = jGradEta(:,i,spa % N,j)
             nrm = NORM2(jGrad)
-            print*, "EBACK", i, j
-            print*, self % normal(:,i-1,j-1,EBACK)  
-           ! self % normal(:,i-1,j-1,EBACK) = jGrad/nrm
-            print*, self % normal(:,i-1,j-1,EBACK)
-            print*, "-----------------------------"   
+           ! print*, "EBACK", i, j
+           ! print*, self % normal(:,i-1,j-1,EBACK)  
+            if (maxval(abs(self % normal(:,i-1,j-1,EBACK) - (jGrad/nrm)))>1.d-10) then  
+               print*, "error Back normal", i, j, maxval(abs(self % normal(:,i-1,j-1,EBACK) - (jGrad/nrm)))
+               print*, "_____________________________________________________________________"
+            endif
+            self % normal(:,i-1,j-1,EBACK) = jGrad/nrm
+           ! print*, self % normal(:,i-1,j-1,EBACK)
+           ! print*, "-----------------------------"   
             self % scal(i-1,j-1,EBACK)     = nrm 
             
             
