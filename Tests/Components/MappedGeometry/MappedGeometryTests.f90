@@ -65,7 +65,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Computation of nodal locations")
 !
 !        -----------
@@ -83,7 +83,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Left face locations")
          e = 0.0_RP
          DO j = 0, N
@@ -96,7 +96,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Right face locations")
          e = 0.0_RP
          DO j = 0, N
@@ -109,7 +109,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Bottom face locations")
          e = 0.0_RP
          DO j = 0, N
@@ -122,7 +122,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Top face locations")
          e = 0.0_RP
          DO j = 0, N
@@ -135,7 +135,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Front face locations")
          e = 0.0_RP
          DO j = 0, N
@@ -148,7 +148,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Back face locations")
 !
 !        -----------------
@@ -166,7 +166,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Normal at left face")
          e = 0.0_RP
          xMap = [1.0_RP,0.0_RP,0.0_RP]
@@ -179,7 +179,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Normal at right face")
          e = 0.0_RP
          xMap = [0.0_RP,0.0_RP,-1.0_RP]
@@ -192,7 +192,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Normal at bottom face")
          e = 0.0_RP
          xMap = [0.0_RP,0.0_RP,1.0_RP]
@@ -205,7 +205,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Normal at top face")
          e = 0.0_RP
          xMap = [0.0_RP,-1.0_RP,0.0_RP]
@@ -218,7 +218,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Normal at front face")
          e = 0.0_RP
          xMap = [0.0_RP,1.0_RP,0.0_RP]
@@ -231,7 +231,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Normal at back face")
 !
 !        ----------------
@@ -249,7 +249,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Computation of Jacobian")
 !
 !        -----------------------
@@ -268,7 +268,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Computation of JGradXi")
 !
 !        ------------------------
@@ -287,7 +287,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Computation of JGradEta")
 !
 !        ------------------------
@@ -306,7 +306,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-12,              &
+                            tol           = 1.d-9,              &
                             msg           = "Computation of jGradZeta")
       END SUBROUTINE cubeTest
 !
@@ -505,7 +505,7 @@
                DO i = 0, N
                   x    = geom % jGradZeta(:,i,j,k)
                   CALL cylindricalMetricTerms([ spA % xi(i), spA % eta(j),  spA % zeta(k)],Jai)
-                  e    = MAX(e,MAXVAL(ABS(x - jAi(:,3))))
+                  e    = MAX(e,MAXVAL(ABS(x(:) - jAi(:,3))))
                END DO   
             END DO   
          END DO
