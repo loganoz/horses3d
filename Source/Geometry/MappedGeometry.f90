@@ -235,7 +235,7 @@ Module MappedGeometryClass
 !     Local Variables
 !     ---------------+1
 !
-      REAL(KIND=RP) :: xiArray( spA % N + 1,3)
+      REAL(KIND=RP) :: xiArray( spA % N + 1, 3)
       REAL(KIND=RP) :: xi(3)
       
       real(KIND=RP) :: mappedxi(spA % N + 1,3), trash(spa % N + 1), LegendreLobattoxi (spa % N + 1)
@@ -289,8 +289,7 @@ Module MappedGeometryClass
       polOrder2(:) = spa % N + 1
       
       spaN = spA % N + 1
-      spaN2 = spA % N + 1
-           
+      spaN2 = spA % N + 1           
 !
 !     ----------------------
 !     from [0,N] to [1,N+1]
@@ -302,7 +301,7 @@ Module MappedGeometryClass
             mappedxi(j,2) = spA % eta(j-1)
             mappedxi(j,3) = spA % zeta(j-1)
          END DO
-         !call GaussLegendreNodesAndWeights(spaN-1,LegendreLobattoxi,trash)
+         call GaussLegendreNodesAndWeights(spaN-1,LegendreLobattoxi,trash)
          !mappedxi(:,k) = LegendreLobattoxi(:)
       END DO      
 !
@@ -432,6 +431,8 @@ Module MappedGeometryClass
                      DO m = 1,spaN
                         DO n = 1,spaN
                            jGradZeta2(j,n,m,l) = jGradZeta2(j,n,m,l) - dArray2(n,m,l)
+                           !print*, "jGradZeta2(j,n,m,l)" ,jGradZeta2(j,n,m,l)
+                           !print*, "selfjGradZeta2(j,n,m,l)" ,self%jGradZeta(j,n-1,m-1,l-1)
                         END DO
                      END DO
                   END DO
@@ -439,6 +440,8 @@ Module MappedGeometryClass
 
          END DO jLoop2
       END DO iLoop2    
+      
+      
 !
 !     ------------------------------------
 !     Interpolate back onto the gauss grid
@@ -503,14 +506,26 @@ Module MappedGeometryClass
          do l = 1,spaN
             do m = 1,spaN 
                do n = 1,spaN
+                  !print*, "self % jGradXi(:, n-1, m-1, l-1 )", self % jGradXi(:, n-1, m-1, l-1 )
+                  !print*, "jGradXi(:, n-1, m-1, l-1 )", jGradXi(:, n, m, l )
       do k = 1,3
-                  !print*, "self % jGradXi(k, n-1, m-1, l-1 )", self % jGradXi(k, n-1, m-1, l-1 )
-                  !if (abs(self % jGradXi(k, n-1, m-1, l-1 ) - jGradXi(k,n,m,l))>1.d-10) then  
-                  !   print*, "error jGradXi", k, n, m, l, (abs(self % jGradXi(k, n-1, m-1, l-1 ) - jGradXi(k,n,m,l)))
+
+                  !if (abs(self % jGradXi(k, n-1, m-1, l-1 ) - jGradXi(k,n,m,l))>1.d-5) then  
+                     !print*, "error jGradXi", k, n, m, l, (abs(self % jGradXi(k, n-1, m-1, l-1 ) - jGradXi(k,n,m,l)))
+                  !print*, "self % jGradXi(:, n-1, m-1, l-1 )", self % jGradXi(:, n-1, m-1, l-1 )
+                  !print*, "jGradXi(:, n-1, m-1, l-1 )", jGradXi(:, n, m, l )
                   !   print*, "_____________________________________________________________________"
                   !endif 
-                  if (abs(jGradXi(k,n,m,l))<1.d-4) jGradXi(k,n,m,l) = 0.0_RP
+                  !if (abs(jGradXi(k,n,m,l))<1.d-4) jGradXi(k,n,m,l) = 0.0_RP
                   self % jGradXi(k, n-1, m-1, l-1 ) = jGradXi(k,n,m,l)
+
+                  !if (abs(self % jGradEta(k, n-1, m-1, l-1 ) - jGradEta(k,n,m,l))>1.d-4) then  
+                     !print*, "error jGradXi", k, n, m, l, (abs(self % jGradXi(k, n-1, m-1, l-1 ) - jGradXi(k,n,m,l)))
+                  !print*, "self % jGradEta(:, n-1, m-1, l-1 )", self % jGradEta(:, n-1, m-1, l-1 )
+                  !print*, "jGradEta(:, n-1, m-1, l-1 )", jGradEta(:, n, m, l )
+                  !   print*, "_____________________________________________________________________"
+                  !endif 
+ 
                  ! jGradXi(k,n,m,l) = self % jGradXi(k, n-1, m-1, l-1 )
                   !print*, "self % jGradXi(k, n-1, m-1, l-1 )", self % jGradXi(k, n-1, m-1, l-1 )
                   !print*, "self % jGradEta(k, n-1, m-1, l-1 )", self % jGradEta(k, n-1, m-1, l-1 )                  
@@ -518,8 +533,15 @@ Module MappedGeometryClass
                   !   print*, "error jGradEta", k, n, m, l, (abs(self % jGradEta(k, n-1, m-1, l-1 ) - jGradEta(k,n,m,l)))
                   !   print*, "_____________________________________________________________________"
                   !endif 
-                  if (abs(jGradEta(k,n,m,l))<1.d-4) jGradEta(k,n,m,l) = 0.0_RP
+                  !if (abs(jGradEta(k,n,m,l))<1.d-5) jGradEta(k,n,m,l) = 0.0_RP
                   self % jGradEta(k, n-1, m-1, l-1 ) = jGradEta(k,n,m,l)
+
+                  !if (abs(self % jGradZEta(k, n-1, m-1, l-1 ) - jGradZEta(k,n,m,l))>1.d-4) then  
+                     !print*, "error jGradXi", k, n, m, l, (abs(self % jGradXi(k, n-1, m-1, l-1 ) - jGradXi(k,n,m,l)))
+                  !print*, "self % jGradZEta(:, n-1, m-1, l-1 )", self % jGradZEta(:, n-1, m-1, l-1 )
+                  !print*, "jGradZEta(:, n-1, m-1, l-1 )", jGradZEta(:, n, m, l )
+                  !   print*, "_____________________________________________________________________"
+                  !endif 
                  ! jGradEta(k,n,m,l) = self % jGradEta(k, n-1, m-1, l-1 )
                   !print*, "self % jGradEta(k, n-1, m-1, l-1 )", self % jGradEta(k, n-1, m-1, l-1 )               
                   !print*, "self % jGradZeta(k, n-1, m-1, l-1 )", self % jGradZeta(k, n-1, m-1, l-1 )                  
@@ -527,12 +549,13 @@ Module MappedGeometryClass
                   !   print*, "error jGradZeta", k, n, m, l, (abs(self % jGradZeta(k, n-1, m-1, l-1 ) - jGradZeta(k,n,m,l)))
                   !   print*, "_____________________________________________________________________"
                   !endif 
-                  if (abs(jGradZeta(k,n,m,l))<1.d-4) jGradZeta(k,n,m,l) = 0.0_RP
+                  !if (abs(jGradZeta(k,n,m,l))<1.d-5) jGradZeta(k,n,m,l) = 0.0_RP
                   !print*, "error jGradZeta", k, n, m, l, (abs(self % jGradZeta(k, n-1, m-1, l-1 ) - jGradZeta(k,n,m,l)))
                   self % jGradZeta(k, n-1, m-1, l-1 ) = jGradZeta(k,n,m,l)
                   !jGradZeta(k,n,m,l) = self % jGradZeta(k, n-1, m-1, l-1 )
                   !print*, "self % jGradZeta (k, n-1, m-1, l-1 )", self % jGradZeta(k, n-1, m-1, l-1 )                
                enddo 
+                  !               print*, "self % jGradXi(:, n-1, m-1, l-1 )", self % jGradXi(:, n-1, m-1, l-1 )
             enddo
          enddo
       enddo 
@@ -646,9 +669,9 @@ Module MappedGeometryClass
             do m = 1,spaN 
                do n = 1,spaN
 
-                  if (abs(jGradXi(k,n,m,l))<1.d-12) jGradXi(k,n,m,l) = 0.0_RP
-                  if (abs(jGradEta(k,n,m,l))<1.d-12) jGradEta(k,n,m,l) = 0.0_RP
-                  if (abs(jGradZeta(k,n,m,l))<1.d-12) jGradZeta(k,n,m,l) = 0.0_RP
+                  !if (abs(jGradXi(k,n,m,l))<1.d-4) jGradXi(k,n,m,l) = 0.0_RP
+                  !if (abs(jGradEta(k,n,m,l))<1.d-4) jGradEta(k,n,m,l) = 0.0_RP
+                  !if (abs(jGradZeta(k,n,m,l))<1.d-4) jGradZeta(k,n,m,l) = 0.0_RP
 
                enddo 
             enddo
@@ -822,7 +845,7 @@ Module MappedGeometryClass
                   CALL vCross( grad_x(:,2), grad_x(:,3), self % jGradXi  (:,i,j,k))
                   CALL vCross( grad_x(:,3), grad_x(:,1), self % jGradEta (:,i,j,k))
                   CALL vCross( grad_x(:,1), grad_x(:,2), self % jGradZeta(:,i,j,k))
-                  
+
                   self % jacobian(i,j,k) = jacobian3D(a1 = grad_x(:,1),a2 = grad_x(:,2),a3 = grad_x(:,3))
                END DO   
             END DO   
