@@ -31,14 +31,14 @@
 !
       INTEGER FUNCTION numberOfOutputVariables()
          IMPLICIT NONE 
-         numberOfOutputVariables = 3
+         numberOfOutputVariables = 5
       END FUNCTION numberOfOutputVariables
 !
 !////////////////////////////////////////////////////////////////////////
 !
       CHARACTER(LEN=132) FUNCTION title() 
       IMPLICIT NONE 
-      title = ' TITLE = "Generic solution" '
+      title = ' TITLE = "Free-stream preservation Euler equations" '
       END FUNCTION title
 !
 !////////////////////////////////////////////////////////////////////////
@@ -46,7 +46,7 @@
       CHARACTER(LEN=132) FUNCTION outputVariableNames() 
          IMPLICIT NONE
          
-         outputVariableNames = ' VARIABLES = "x","y","z","Q1","Q2","Q3"'
+         outputVariableNames = ' VARIABLES = "x","y","z","rho","rhou","rhov","rhow","rhoe"'
       END FUNCTION outputVariableNames
 !
 !////////////////////////////////////////////////////////////////////////
@@ -55,6 +55,16 @@
          USE SMConstants
          IMPLICIT NONE
          REAL(KIND=RP), DIMENSION(:) :: outputVector, stateVector
+         
+         REAL(KIND=RP)               :: rho, u, v, w, e
+         
+         rho = stateVector(1)
+         
+         outputVector(1) = rho
+         outputVector(2) = stateVector(2) !/ rho
+         outputVector(3) = stateVector(3) !/ rho
+         outputVector(4) = stateVector(4) !/ rho
+         outputVector(5) = stateVector(5) !/ rho          
          
          outputVector = stateVector(1:numberOfOutputVariables())
          
