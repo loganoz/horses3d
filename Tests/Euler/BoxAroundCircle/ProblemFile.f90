@@ -96,7 +96,7 @@
 !              relax back to the mean flow
 !              -------------------------------------------------
 !
-!               sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)
+               sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)
                
             END DO 
             

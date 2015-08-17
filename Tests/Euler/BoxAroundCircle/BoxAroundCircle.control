@@ -1,7 +1,7 @@
 Flow equations        = "Euler"
-mesh file name        = "../../TestMeshes/BoxAroundCircle3D_extended.mesh"
-plot file name        = "PlotFiles/BoxAroundCircle.tec"
-restart file name     = "RestartFiles/BoxAroundCircle.rst"
+mesh file name        = "../../TestMeshes/BoxAroundCircle3D_p1.mesh"
+plot file name        = "PlotFiles/BoxAroundCircle_p1.tec"
+restart file name     = "RestartFiles/BoxAroundCircle_p1.rst"
 restart               = .false.
 Polynomial order      = 3
 Number of time steps  = 20000
@@ -14,10 +14,10 @@ AOA theta             = 0.0
 AOA phi               = 0.0
 Reynolds number       = 0.0
 Number of boundaries  = 7
-InnerCylinder 0.0 freeslipwall
+InnerCylinder 0.0 Inflow
 Front 0.0 Inflow
-bottom 0.0 freeslipwall
-top 0.0 freeslipwall
+bottom 0.0 Inflow
+top 0.0 Inflow
 Back 0.0 Inflow
-Left 0.0 freeslipwall
-Right 0.0 freeslipwall
+Left 0.0 Inflow
+Right 0.0 Inflow
