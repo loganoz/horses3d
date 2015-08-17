@@ -57,10 +57,11 @@
          REAL(KIND=TP), PRIVATE :: startTime  = 0.0_TP
          REAL(KIND=TP), PRIVATE :: finishTime = 0.0_TP
          INTEGER :: &
-           nb_ticks_initial = 0, nb_ticks_final   = 0, & ! final value of the clock tick counter
-           nb_ticks_max     = 0, & ! maximum value of the clock counter
-           nb_ticks_sec     = 0, & ! number of clock ticks per second
-           nb_ticks         = 0    ! number of clock ticks of the code
+           initialTicks = 0, &
+           finalTicks   = 0, & ! final value of the clock tick counter
+           countMax     = 0, & ! maximum value of the clock counter
+           countRate    = 0, & ! number of clock ticks per second
+           numTicks     = 0    ! number of clock ticks of the code
 !
 !        ========
          CONTAINS
@@ -85,8 +86,8 @@
          IMPLICIT NONE
          CLASS(FTTimer) :: self
          self % started = .FALSE.
-         CALL SYSTEM_CLOCK(COUNT_RATE=self%nb_ticks_sec, &
-                           COUNT_MAX=self%nb_ticks_max)
+         CALL SYSTEM_CLOCK(COUNT_RATE = self % countRate, &
+                           COUNT_MAX  = self % countMax)
          
       END SUBROUTINE initTimer
 !
@@ -97,7 +98,7 @@
          CLASS(FTTimer) :: self
          self % started = .TRUE.
          CALL CPU_TIME(self % startTime)         
-         CALL SYSTEM_CLOCK(COUNT=self%nb_ticks_initial)
+         CALL SYSTEM_CLOCK(COUNT = self % initialTicks)
       END SUBROUTINE startTimer
 !
 !////////////////////////////////////////////////////////////////////////  
@@ -107,7 +108,7 @@
          CLASS(FTTimer) :: self
          self % stopped = .TRUE.
          CALL CPU_TIME(self % finishTime)
-         CALL SYSTEM_CLOCK(COUNT=self%nb_ticks_final)
+         CALL SYSTEM_CLOCK(COUNT = self % finalTicks)
       END SUBROUTINE stopTimer
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -192,9 +193,9 @@
             CALL self % stop() 
          END IF 
 
-         self%nb_ticks = self%nb_ticks_final - self%nb_ticks_initial
-         IF (self%nb_ticks_final < self%nb_ticks_initial)  self%nb_ticks = self%nb_ticks + self%nb_ticks_max
-         elapsedTime   = REAL(self%nb_ticks, KIND=TP) / self%nb_ticks_sec
+         self % numTicks = self % finalTicks - self % initialTicks
+         IF (self % finalTicks < self % initialTicks)  self % numTicks = self % numTicks + self % countMax
+         elapsedTime   = REAL(self % numTicks, KIND=TP) / self % countRate
 !
 !        -------------------------------------
 !        Convert to requested units if present
