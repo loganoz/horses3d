@@ -408,6 +408,106 @@
       END DO 
       
       END SUBROUTINE InterpolateToNewPoints
+!                                                                       
+!///////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE Interp3DArray( inDim, inArray, outDim, outArray, interpXi, interpEta, interpZeta )
+      
+
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      INTEGER          , DIMENSION(3)                              :: inDim
+      INTEGER          , DIMENSION(3)                              :: outDim
+      REAL(KIND=RP), DIMENSION(0:inDim(1) , 0:inDim(2) , 0:inDim(3) ) :: inArray
+      REAL(KIND=RP), DIMENSION(0:outDim(1), 0:outDim(2), 0:outDim(3)) :: outArray
+      REAL(KIND=RP), DIMENSION(0:outDim(1), 0:inDim(1))            :: interpXi
+      REAL(KIND=RP), DIMENSION(0:outDim(2), 0:inDim(2))            :: interpEta
+      REAL(KIND=RP), DIMENSION(0:outDim(3), 0:inDim(3))            :: interpZeta
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      REAL(KIND=RP), DIMENSION(:)    , POINTER :: tempIn,tempOut
+      REAL(KIND=RP), DIMENSION(:,:,:), POINTER :: tempArray
+      
+      INTEGER          , DIMENSION(3)              :: maxDim
+      INTEGER                                      :: i,j,k
+!
+!     -------------------------------------------------
+!     Allocate temporary storage for the interpolations
+!     -------------------------------------------------
+!
+      ALLOCATE( tempIn ( 0:MAXVAL(inDim)  ) )
+      ALLOCATE( tempOut( 0:MAXVAL(outDim) ) )
+      maxDim = MAX(inDim,OutDim)
+      ALLOCATE( tempArray(0:maxDim(1), 0:maxDim(2), 0:maxDim(3)) )
+!
+!     -----------------
+!     Interpolate in Xi
+!     -----------------
+!
+      DO k = 0, inDim(3)
+         DO j = 0, inDim(2)
+            DO i = 0, inDim(1)
+               tempIn(i) = inArray(i,j,k)
+            END DO 
+            CALL InterpolateToNewPoints( inDim(1), outDim(1), interpXi, tempIn, tempOut )
+            DO i = 0, outDim(1)
+               tempArray(i,j,k) = tempOut(i)
+            END DO 
+         END DO
+      END DO 
+!
+!     ------------------
+!     Interpolate in Eta
+!     ------------------
+!
+      DO k = 0, inDim(3)
+         DO i = 0, outDim(1)
+            DO j = 0, inDim(2)
+               tempIn(j) = tempArray(i,j,k)
+            END DO 
+            CALL InterpolateToNewPoints( inDim(2), outDim(2), interpEta, tempIn, tempOut )
+            DO j = 0, outDim(2)
+               tempArray(i,j,k) = tempOut(j)
+            END DO 
+         END DO 
+      END DO 
+!
+!     -------------------
+!     Interpolate in Zeta
+!     -------------------
+!
+      DO j = 0, outDim(2)
+         DO i = 0, outDim(1)
+            DO k = 0, inDim(3)
+               tempIn(k) = tempArray(i,j,k)
+            END DO 
+            CALL InterpolateToNewPoints( inDim(3), outDim(3), interpZeta, tempIn, tempOut )
+            DO k = 0, outDim(3)
+               outArray(i,j,k) = tempOut(k)
+            END DO 
+         END DO 
+      END DO 
+!
+!     ---------------
+!     Clean up memory
+!     ---------------
+!
+      DEALLOCATE (tempIn)
+      DEALLOCATE (tempOut)
+      DEALLOCATE (tempArray)
+      
+      END SUBROUTINE Interp3DArray      
+!                                                                       
+!///////////////////////////////////////////////////////////////////////
+!
+
 !
 !    /////////////////////////////////////////////////////////////////
 !
