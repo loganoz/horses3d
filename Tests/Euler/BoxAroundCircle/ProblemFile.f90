@@ -96,7 +96,7 @@
 !              relax back to the mean flow
 !              -------------------------------------------------
 !
-               sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)
+!               sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)
                
             END DO 
             
@@ -217,7 +217,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, U_x, U_y, U_z, boundaryType )
+      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, GradU, boundaryType )
 !
 !     ------------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -233,22 +233,32 @@
 !     ---------
 !
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
+      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,N_GRAD_EQN)
       CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
+      REAL(KIND=RP) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
+
+      U_x(:) = GradU(1,:)
+      U_y(:) = GradU(2,:)
+      U_z(:) = GradU(3,:)
+
       IF ( boundarytype == "freeslipwall" )                   THEN
          CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
       ELSE IF ( boundaryType == "noslipadiabaticwall" )       THEN 
-         CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z)
+         CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z )
       ELSE IF ( boundarytype == "noslipisothermalwall")       THEN 
          CALL NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z )
       ELSE
          CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
       END IF
+
+      GradU(1,:) = U_x(:)
+      GradU(2,:) = U_y(:)
+      GradU(3,:) = U_z(:)
 
       END SUBROUTINE ExternalGradientForBoundaryName
 

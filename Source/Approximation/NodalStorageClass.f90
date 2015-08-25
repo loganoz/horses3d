@@ -53,6 +53,7 @@
       ALLOCATE( this % xi(0:N), this % eta(0:N), this % zeta(0:N) )
       ALLOCATE( this % w(0:N)     )
       ALLOCATE( this % D(0:N,0:N) )
+      ALLOCATE( this % standardDerivativeMatrix(0:N,0:N) )
       ALLOCATE( this % v(0:N,2) )
       ALLOCATE( this % b(0:N,2) )
 !

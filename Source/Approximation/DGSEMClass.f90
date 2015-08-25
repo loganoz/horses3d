@@ -24,6 +24,7 @@
       USE NodalStorageClass
       USE HexMeshClass
       USE PhysicsStorage
+      USE DGTimeDerivativeMethods
       
       IMPLICIT NONE
       
@@ -242,41 +243,50 @@
          END DO
 !$omp end do
          
-!         IF ( flowIsNavierStokes )     THEN
-!!
-!!           --------------------------------------
-!!           Set up the face Values on each element
-!!           --------------------------------------
-!!
-!            DO k = 1, self%mesh%numberOfEdges 
-!               CALL ComputeSolutionRiemannFluxes( self%mesh%edges(k), self%mesh%elements, self%dgS, N, t, ExternalState  )
-!            END DO
+         IF ( flowIsNavierStokes )     THEN
+!
+!           --------------------------------------
+!           Set up the face Values on each element
+!           --------------------------------------
+!
+            DO k = 1, self % mesh % numberOfFaces 
+               CALL ComputeSolutionRiemannFluxes( self, time, self % externalState )
+            END DO
 !!
 !!           -----------------------------------
 !!           Compute the gradients over the mesh
 !!           -----------------------------------
 !!
-!            DO k = 1, SIZE(self%mesh%elements) 
-!               CALL ComputeDGGradient( self%dgS(k)%Q, self%dgS(k)%Ub, self%mesh%elements(k)%geom, N, &
-!                                       self%spA%D, self%spA%b, self%dgS(k)%U_x, self%dgS(k)%U_y )
-!            END DO
+            DO k = 1, SIZE(self%mesh%elements) 
+               CALL ComputeDGGradient( self % mesh % elements(k), self % spA, time )
+               PRINT*, "element", k
+               PRINT*, self % mesh % elements(k) % U_x
+               PRINT*, "------------------------------"
+               PRINT*, self % mesh % elements(k) % U_y
+               PRINT*, "------------------------------"
+               PRINT*, self % mesh % elements(k) % U_z
+               PRINT*, "------------------------------"
+               self % mesh % elements(k) % U_x = 0.0_RP
+               self % mesh % elements(k) % U_y = 0.0_RP
+               self % mesh % elements(k) % U_z = 0.0_RP
+            END DO
 !!
 !!           ----------------------------------
 !!           Prolong the gradients to the faces
 !!           ----------------------------------
 !!
-!            DO k = 1, SIZE(self%mesh%elements) 
-!               CALL ProlongGradientToFaces( self%spA, self%mesh%elements(k)%geom, self%dgS(k) )
-!            END DO
+            DO k = 1, SIZE(self%mesh%elements) 
+               CALL ProlongGradientToFaces( self % mesh % elements(k), self % spA )
+            END DO
 !!
 !!           -------------------------
 !!           Compute gradient averages
 !!           -------------------------
 !!
-!            DO k = 1, self%mesh%numberOfEdges 
-!               CALL ComputeGradientAverages( self%mesh%edges(k), self%mesh%elements, self%dgS, N, t, ExternalGradients  )
-!            END DO         
-!         END IF
+            DO k = 1, self % mesh % numberOfFaces 
+               CALL ComputeGradientAverages( self, time, self % externalGradients  )
+            END DO         
+         END IF
 !
 !        ------------------------
 !        Compute time derivatives
@@ -347,6 +357,224 @@
          
          
       END SUBROUTINE computeRiemannFluxes
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE computeSolutionRiemannFluxes( self, time, externalStateProcedure )
+         USE Physics
+         USE BoundaryConditionFunctions
+         IMPLICIT NONE 
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(DGSem)   :: self
+         REAL(KIND=RP) :: time
+         
+         EXTERNAL      :: externalStateProcedure
+!
+!        ---------------
+!        Local Variables
+!        ---------------
+!
+         INTEGER       :: faceID
+         INTEGER       :: eIDLeft, eIDRight
+         INTEGER       :: fIDLeft, fIDright
+         INTEGER       :: N
+         
+         REAL(KIND=RP) :: bvExt(N_EQN), UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)     
+         
+         INTEGER       :: i, j
+        
+         N = self % spA % N
+         
+         DO faceID = 1, SIZE( self % mesh % faces)
+            eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
+            eIDRight = self % mesh % faces(faceID) % elementIDs(2)
+            fIDLeft  = self % mesh % faces(faceID) % elementSide(1)
+            
+            IF ( eIDRight == HMESH_NONE )     THEN
+!
+!              -------------
+!              Boundary face
+!              -------------
+!
+               !CALL computeBoundaryFlux(self % mesh % elements(eIDLeft), fIDLeft, time, self % externalState)
+               DO j = 0, N
+                  DO i = 0, N
+
+                     bvExt = self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft)
+                     
+                     CALL externalStateProcedure( self % mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
+                                                  time, &
+                                                  self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
+                                                  bvExt,&
+                                                  self % mesh % elements(eIDLeft) % boundaryType(fIDLeft) )
+!
+!              ---------------
+!              u,v, T averages
+!              ---------------
+!
+                     CALL GradientValuesForQ( self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft), UL )
+                     CALL GradientValuesForQ( bvExt, UR )
+
+                     d = 0.5_RP*(UL + UR)
+               
+                     self % mesh % elements(eIDLeft) % Ub (:,i,j,fIDLeft) = d
+!
+!              -----------------
+!              Solution averages
+!              -----------------
+!
+                     self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft)    = &
+                     & 0.5_RP*( self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft) + bvExt )
+                     !CALL RiemannSolver(QLeft  = elementOnLeft % Qb(:,i,j,faceID), &
+                     !                   QRight = bvExt, &
+                     !                   nHat   = elementOnLeft % geom % normal(:,i,j,faceID), &
+                     !                   flux   = flux)
+                     !elementOnLeft % FStarb(:,i,j,faceID) = flux*elementOnLeft % geom % scal(i,j,faceID)
+                  END DO   
+               END DO   
+            
+            ELSE 
+!
+!              -------------
+!              Interior face
+!              -------------
+!
+               fIDRight =  self % mesh % faces(faceID) % elementSide(2)
+               
+               CALL computeElementInterfaceAverage(eL = self % mesh % elements(eIDLeft) ,fIDLeft  = fIDLeft, &
+                                                eR = self % mesh % elements(eIDRight),fIDRight = fIDright,&
+                                                N  = N,                                                   &
+                                                rotation = self % mesh % faces(faceID) % rotation)
+            END IF 
+
+         END DO           
+         
+         
+      END SUBROUTINE computeSolutionRiemannFluxes      
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE ComputeGradientAverages( self, time, externalGradientsProcedure )
+         USE Physics
+         USE BoundaryConditionFunctions
+         IMPLICIT NONE 
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(DGSem)   :: self
+         REAL(KIND=RP) :: time
+         
+         EXTERNAL      :: externalGradientsProcedure
+!
+!        ---------------
+!        Local Variables
+!        ---------------
+!
+         INTEGER       :: faceID
+         INTEGER       :: eIDLeft, eIDRight
+         INTEGER       :: fIDLeft, fIDright
+         INTEGER       :: N
+         
+         REAL(KIND=RP) :: bvExt(N_EQN)
+         REAL(KIND=RP) :: UGradExt(3,N_GRAD_EQN)
+         REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)    
+         
+         INTEGER       :: i, j
+        
+         N = self % spA % N
+         
+         DO faceID = 1, SIZE( self % mesh % faces)
+
+            eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
+            eIDRight = self % mesh % faces(faceID) % elementIDs(2)
+            fIDLeft  = self % mesh % faces(faceID) % elementSide(1)
+
+            IF ( eIDRight == HMESH_NONE )     THEN
+!
+!              -------------
+!              Boundary face
+!              -------------
+!
+               !CALL computeBoundaryFlux(self % mesh % elements(eIDLeft), fIDLeft, time, self % externalState)
+               DO j = 0, N
+                  DO i = 0, N
+                  
+                     UGradExt(1,:) = self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft)
+                     UGradExt(2,:) = self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
+                     UGradExt(3,:) = self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
+
+                     !CALL self % externalState( self % mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
+                     !                             time, &
+                     !                             self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
+                     !                             bvExt,&
+                     !                             self % mesh % elements(eIDLeft) % boundaryType(fIDLeft) )
+
+                     CALL externalGradientsProcedure( self % mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
+                                                  time, &
+                                                  self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
+                                                  UGradExt,&
+                                                  self % mesh % elements(eIDLeft) % boundaryType(fIDLeft) )
+!
+!                 --------
+!                 x values
+!                 --------
+!
+                     UL = self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft)
+                     UR = UGradExt(1,:)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft) = d
+!
+!                 --------
+!                 y values
+!                 --------
+!
+                     UL = self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
+                     UR = UGradExt(2,:)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft) = d
+!
+!                 --------
+!                 z values
+!                 --------
+!
+                     UL = self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
+                     UR = UGradExt(3,:)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft) = d
+
+                  END DO   
+               END DO   
+            
+            ELSE 
+!
+!              -------------
+!              Interior face
+!              -------------
+!
+               fIDRight =  self % mesh % faces(faceID) % elementSide(2)
+               
+               CALL computeElementInterfaceGradientAverage(eL = self % mesh % elements(eIDLeft) ,fIDLeft  = fIDLeft, &
+                                                eR = self % mesh % elements(eIDRight),fIDRight = fIDright,&
+                                                N  = N,                                                   &
+                                                rotation = self % mesh % faces(faceID) % rotation)
+            END IF 
+
+         END DO           
+         
+         
+      END SUBROUTINE computeGradientAverages            
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -426,6 +654,329 @@
          END SELECT 
          
       END SUBROUTINE computeElementInterfaceFlux
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE computeElementInterfaceAverage( eL, fIDLeft, eR, fIDRight, N, rotation)
+         USE Physics  
+         IMPLICIT NONE  
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(Element) :: eL, eR
+         INTEGER       :: fIDLeft, fIdright
+         INTEGER       :: rotation
+         INTEGER       :: N
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
+         REAL(KIND=RP) :: d(N_GRAD_EQN)
+         INTEGER       :: i,j,ii,jj
+                  
+         SELECT CASE ( rotation )
+            CASE( 0 ) 
+               DO j = 0, N
+                  DO i = 0, N
+!
+!                 --------------
+!                 u,v,T averages
+!                 --------------
+!
+                     CALL GradientValuesForQ( Q  = eL % QB(:,i,j,fIDLeft), U = UL )
+                     CALL GradientValuesForQ( Q  = eR % QB(:,i,j,fIDright), U = UR )
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % Ub(:,i,j,fIDLeft)  = d
+                     eL % Ub(:,i,j,fIDright) = d
+                                        
+                     eL % QB(:,i,j,fIDLeft)  = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,i,j,fIDright) )
+                     eR % QB(:,i,j,fIDright) = eL % QB(:,i,j,fIDLeft)
+                  END DO   
+               END DO   
+            CASE( 1 )
+                DO j = 0, N
+                  jj = j
+                  DO i = 0, N
+                     ii = N - i
+!
+!                 --------------
+!                 u,v,T averages
+!                 --------------
+!
+                     CALL GradientValuesForQ( Q  = eL % QB(:,i,j,fIDLeft), U = UL )
+                     CALL GradientValuesForQ( Q  = eR % QB(:,ii,jj,fIDright), U = UR )
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % Ub(:,i,j,fIDLeft)  = d
+                     eL % Ub(:,ii,jj,fIDright) = d
+                                        
+                     eL % QB(:,i,j,fIDLeft)  = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,ii,jj,fIDright) )
+                     eR % QB(:,ii,jj,fIDright) = eL % QB(:,i,j,fIDLeft)                     
+                     
+                  END DO   
+               END DO   
+           CASE( 2 )
+               DO j = 0, N
+                  jj = N - j
+                  DO i = 0, N
+                     ii = N - i
+!
+!                 --------------
+!                 u,v,T averages
+!                 --------------
+!
+                     CALL GradientValuesForQ( Q  = eL % QB(:,i,j,fIDLeft), U = UL )
+                     CALL GradientValuesForQ( Q  = eR % QB(:,ii,jj,fIDright), U = UR )
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % Ub(:,i,j,fIDLeft)  = d
+                     eL % Ub(:,ii,jj,fIDright) = d
+                                        
+                     eL % QB(:,i,j,fIDLeft)  = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,ii,jj,fIDright) )
+                     eR % QB(:,ii,jj,fIDright) = eL % QB(:,i,j,fIDLeft)   
+                     
+                  END DO   
+               END DO   
+           CASE( 3 )
+                DO j = 0, N
+                  ii = j
+                  DO i = 0, N
+                     jj = N - i
+!
+!                 --------------
+!                 u,v,T averages
+!                 --------------
+!
+                     CALL GradientValuesForQ( Q  = eL % QB(:,i,j,fIDLeft), U = UL )
+                     CALL GradientValuesForQ( Q  = eR % QB(:,ii,jj,fIDright), U = UR )
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % Ub(:,i,j,fIDLeft)  = d
+                     eL % Ub(:,ii,jj,fIDright) = d
+                                        
+                     eL % QB(:,i,j,fIDLeft)  = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,ii,jj,fIDright) )
+                     eR % QB(:,ii,jj,fIDright) = eL % QB(:,i,j,fIDLeft)   
+                     
+                  END DO   
+               END DO   
+           CASE DEFAULT 
+           PRINT *, "Unknown rotation in element faces"
+         END SELECT 
+         
+      END SUBROUTINE computeElementInterfaceAverage   
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE computeElementInterfaceGradientAverage( eL, fIDLeft, eR, fIDRight, N, rotation)
+         USE Physics  
+         IMPLICIT NONE  
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(Element) :: eL, eR
+         INTEGER       :: fIDLeft, fIdright
+         INTEGER       :: rotation
+         INTEGER       :: N
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
+         REAL(KIND=RP) :: d(N_GRAD_EQN)
+         INTEGER       :: i,j,ii,jj
+                  
+         SELECT CASE ( rotation )
+            CASE( 0 ) 
+               DO j = 0, N
+                  DO i = 0, N
+!
+!                 --------
+!                 x values
+!                 --------
+!
+                     UL = eL % U_xb(:,i,j,fIDLeft)
+                     UR = eR % U_xb(:,i,j,fIDright)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % U_xb(:,i,j,fIDLeft) = d
+                     eL % U_xb(:,i,j,fIDright) = d
+!
+!                 --------
+!                 y values
+!                 --------
+!
+                     UL = eL % U_yb(:,i,j,fIDLeft)
+                     UR = eR % U_yb(:,i,j,fIDright)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % U_yb(:,i,j,fIDLeft) = d
+                     eL % U_yb(:,i,j,fIDright) = d
+!
+!                 --------
+!                 z values
+!                 --------
+!
+                     UL = eL % U_zb(:,i,j,fIDLeft)
+                     UR = eR % U_zb(:,i,j,fIDright)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % U_zb(:,i,j,fIDLeft) = d
+                     eL % U_zb(:,i,j,fIDright) = d
+
+                  END DO   
+               END DO   
+            CASE( 1 )
+                DO j = 0, N
+                  jj = j
+                  DO i = 0, N
+                     ii = N - i
+!
+!                 --------
+!                 x values
+!                 --------
+!
+                     UL = eL % U_xb(:,i,j,fIDLeft)
+                     UR = eR % U_xb(:,ii,jj,fIDright)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % U_xb(:,i,j,fIDLeft) = d
+                     eL % U_xb(:,ii,jj,fIDright) = d
+!
+!                 --------
+!                 y values
+!                 --------
+!
+                     UL = eL % U_yb(:,i,j,fIDLeft)
+                     UR = eR % U_yb(:,ii,jj,fIDright)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % U_yb(:,i,j,fIDLeft) = d
+                     eL % U_yb(:,ii,jj,fIDright) = d
+!
+!                 --------
+!                 z values
+!                 --------
+!
+                     UL = eL % U_zb(:,i,j,fIDLeft)
+                     UR = eR % U_zb(:,ii,jj,fIDright)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % U_zb(:,i,j,fIDLeft) = d
+                     eL % U_zb(:,ii,jj,fIDright) = d
+                     
+                  END DO   
+               END DO   
+           CASE( 2 )
+               DO j = 0, N
+                  jj = N - j
+                  DO i = 0, N
+                     ii = N - i
+!
+!                 --------
+!                 x values
+!                 --------
+!
+                     UL = eL % U_xb(:,i,j,fIDLeft)
+                     UR = eR % U_xb(:,ii,jj,fIDright)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % U_xb(:,i,j,fIDLeft) = d
+                     eL % U_xb(:,ii,jj,fIDright) = d
+!
+!                 --------
+!                 y values
+!                 --------
+!
+                     UL = eL % U_yb(:,i,j,fIDLeft)
+                     UR = eR % U_yb(:,ii,jj,fIDright)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % U_yb(:,i,j,fIDLeft) = d
+                     eL % U_yb(:,ii,jj,fIDright) = d
+!
+!                 --------
+!                 z values
+!                 --------
+!
+                     UL = eL % U_zb(:,i,j,fIDLeft)
+                     UR = eR % U_zb(:,ii,jj,fIDright)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % U_zb(:,i,j,fIDLeft) = d
+                     eL % U_zb(:,ii,jj,fIDright) = d
+                     
+                  END DO   
+               END DO   
+           CASE( 3 )
+                DO j = 0, N
+                  ii = j
+                  DO i = 0, N
+                     jj = N - i
+!
+!                 --------
+!                 x values
+!                 --------
+!
+                     UL = eL % U_xb(:,i,j,fIDLeft)
+                     UR = eR % U_xb(:,ii,jj,fIDright)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % U_xb(:,i,j,fIDLeft) = d
+                     eL % U_xb(:,ii,jj,fIDright) = d
+!
+!                 --------
+!                 y values
+!                 --------
+!
+                     UL = eL % U_yb(:,i,j,fIDLeft)
+                     UR = eR % U_yb(:,ii,jj,fIDright)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % U_yb(:,i,j,fIDLeft) = d
+                     eL % U_yb(:,ii,jj,fIDright) = d
+!
+!                 --------
+!                 z values
+!                 --------
+!
+                     UL = eL % U_zb(:,i,j,fIDLeft)
+                     UR = eR % U_zb(:,ii,jj,fIDright)
+
+                     d = 0.5_RP*(UL + UR)
+                     
+                     eL % U_zb(:,i,j,fIDLeft) = d
+                     eL % U_zb(:,ii,jj,fIDright) = d
+                     
+                  END DO   
+               END DO   
+           CASE DEFAULT 
+           PRINT *, "Unknown rotation in element faces"
+         END SELECT 
+         
+      END SUBROUTINE computeElementInterfaceGradientAverage            
 !
 !////////////////////////////////////////////////////////////////////////
 !

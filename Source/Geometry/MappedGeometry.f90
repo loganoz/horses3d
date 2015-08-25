@@ -191,14 +191,10 @@ Module MappedGeometryClass
            
          END DO
       END DO 
-      !print*, "???"
-      !ELSE  
+      
+      !ELSE 
       IF (.not.isHex8(mapper)) THEN 
-         
-         
          CALL computeMetricTermsConservativeForm(self, spA, mapper)
-         
-      !Compute the normals   
       ENDIF       
 
    END SUBROUTINE ConstructMappedGeometry
@@ -333,7 +329,7 @@ Module MappedGeometryClass
       iLoop: DO i = 1,3
          jLoop : DO j = 1,3
 
-            tArray(:,:,:) = xGauss(iCycle(j-1),:,:,:)*grad_x(iCycle(j+1),iCycle(i+1),:,:,:)
+            tArray = xGauss(iCycle(j-1),:,:,:)*grad_x(iCycle(j+1),iCycle(i+1),:,:,:)
 
             SELECT CASE (i)
                CASE (1)
@@ -342,21 +338,21 @@ Module MappedGeometryClass
                         CALL MatrixMultiplyDeriv(tArray(m,l,:), dArray(m,l,:), zetaDerMat, noGauss, transp = 1)
                      ENDDO 
                   ENDDO 
-                  jGradXi(j,:,:,:) = dArray(:,:,:)
+                  jGradXi(j,:,:,:) = dArray
                CASE (2)
                   DO l = 0, noGauss
                      DO m = 0, noGauss   
                         CALL MatrixMultiplyDeriv(tArray(:,m,l), dArray(:,m,l), xiDerMat, noGauss, transp = 1)
                      ENDDO 
                   ENDDO 
-                  jGradEta(j,:,:,:) = dArray(:,:,:)
+                  jGradEta(j,:,:,:) = dArray
                CASE (3)
                   DO l = 0, noGauss
                      DO m = 0, noGauss   
                         CALL MatrixMultiplyDeriv(tArray(m,:,l), dArray(m,:,l), etaDerMat, noGauss, transp = 1)
                      ENDDO 
                   ENDDO            
-                  jGradZeta(j,:,:,:) = dArray(:,:,:)
+                  jGradZeta(j,:,:,:) = dArray
             END SELECT
 
          END DO jLoop
@@ -369,7 +365,7 @@ Module MappedGeometryClass
       iLoop2: DO i = 1,3
          jLoop2 : DO j = 1,3
 
-            tArray(:,:,:) = xGauss(iCycle(j-1),:,:,:)*grad_x(iCycle(j+1),iCycle(i-1),:,:,:)
+            tArray = xGauss(iCycle(j-1),:,:,:)*grad_x(iCycle(j+1),iCycle(i-1),:,:,:)
 
             SELECT CASE (i)
                CASE (1)
@@ -378,27 +374,27 @@ Module MappedGeometryClass
                         CALL MatrixMultiplyDeriv(tArray(m,:,l), dArray(m,:,l), etaDerMat, noGauss, transp = 1)
                      ENDDO 
                   ENDDO 
-                  jGradXi(j,:,:,:) = jGradXi (j,:,:,:) - dArray(:,:,:)
+                  jGradXi(j,:,:,:) = jGradXi (j,:,:,:) - dArray
                CASE (2)
                   DO l = 0, noGauss
                      DO m = 0, noGauss   
                         CALL MatrixMultiplyDeriv(tArray(m,l,:), dArray(m,l,:), zetaDerMat, noGauss, transp = 1)
                      ENDDO 
                   ENDDO 
-                  jGradEta(j,:,:,:) = jGradEta(j,:,:,:) - dArray(:,:,:)
+                  jGradEta(j,:,:,:) = jGradEta(j,:,:,:) - dArray
                CASE (3)
                   DO l = 0, noGauss
                      DO m = 0, noGauss   
                         CALL MatrixMultiplyDeriv(tArray(:,m,l), dArray(:,m,l), xiDerMat, noGauss, transp = 1)
                      ENDDO 
                   ENDDO 
-                  jGradZeta(j,:,:,:) = jGradZeta(j,:,:,:) - dArray(:,:,:)
+                  jGradZeta(j,:,:,:) = jGradZeta(j,:,:,:) - dArray
             END SELECT
 
          END DO jLoop2
       END DO iLoop2    
       
-      
+
 !
 !     ------------------------------------
 !     Interpolate back onto the Gauss grid
@@ -434,7 +430,7 @@ Module MappedGeometryClass
       self % jGradXi   = jGradXi
       self % jGradEta  = jGradEta
       self % jGradZeta = jGradZeta              
- 
+
 !
 !     ----------------------------------
 !     Compute the jacobian at each point
@@ -544,9 +540,11 @@ Module MappedGeometryClass
 !           ----------
 !
             jGrad(:) = jGradEta(:,i,0,j)
+            !PRINT*, "jGrad",jGrad
             nrm = NORM2(jGrad)
             self % normal(:,i,j,EFRONT) = -jGrad/nrm
             self % scal(i,j,EFRONT)     = nrm 
+            !PRINT*, "normal",self % normal(:,i,j,EFRONT)
 !
 !           ---------
 !           back face

@@ -43,7 +43,7 @@
 !         the viscous riemann flux
 !         -------------------------------------------------------------
 !
-          REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Qb, Ub, U_xb, U_yb, FStarb
+          REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Qb, Ub, U_xb, U_yb, U_zb, FStarb
           CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryName(6)
           CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryType(6)
       END TYPE Element 
@@ -97,6 +97,7 @@
          IF ( flowIsNavierStokes )     THEN
             ALLOCATE( self % U_x(0:N,0:N,0:N,nGradEqn) )
             ALLOCATE( self % U_y(0:N,0:N,0:N,nGradEqn) )
+            ALLOCATE( self % U_z(0:N,0:N,0:N,nGradEqn) )
          END IF
 !
 !        ---------------
@@ -109,6 +110,7 @@
          IF ( flowIsNavierStokes )     THEN
             ALLOCATE( self % U_xb(nGradEqn,0:N,0:N,6) )
             ALLOCATE( self % U_yb(nGradEqn,0:N,0:N,6) )
+            ALLOCATE( self % U_zb(nGradEqn,0:N,0:N,6) )
             ALLOCATE( self % Ub(nGradEqn,0:N,0:N,6) )
          END IF
 !
@@ -126,8 +128,10 @@
             self % Ub          = 0.0_RP
             self % U_x         = 0.0_RP
             self % U_y         = 0.0_RP
+            self % U_z         = 0.0_RP
             self % U_xb        = 0.0_RP
             self % U_yb        = 0.0_RP
+            self % U_zb        = 0.0_RP
          END IF
 
       END SUBROUTINE allocateElementStorage
