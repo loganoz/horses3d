@@ -45,7 +45,7 @@
       CALL ComputeContravariantFlux( e, contravariantFlux )
       
       IF ( flowIsNavierStokes )     THEN
-!         CALL AddViscousContravariantFluxes(  dgsem % mesh % elements(eID), contravariantFlux )
+         CALL AddViscousContravariantFluxes(  e, contravariantFlux )
       END IF
       
       CALL ComputeDGDivergence( contravariantFlux, e, spA, e % Qdot ) !QDot saves the divergence
@@ -278,8 +278,6 @@
 !
       DO k = 0, N
          DO j = 0, N
-            PRINT*, "e % geom%normal(1,j,k,ELEFT) * e % geom%scal(j,k, ELEFT) * e % Ub(:,j,k,ELEFT)", e % geom%normal(1,j,k,ELEFT) * e % geom%scal(j,k, ELEFT) * e % Ub(:,j,k,ELEFT)
-            PRINT*, "e % geom%normal(1,j,k,ERIGHT) * e % geom%scal(j,k, ERIGHT) * e % Ub(:,j,k,ERIGHT)", e % geom%normal(1,j,k,ERIGHT) * e % geom%scal(j,k, ELEFT) * e % Ub(:,j,k,ERIGHT)
             CALL DGGradSpaceDerivative( f(:,j,k,:), &
                                     e % geom%normal(1,j,k,ELEFT) * e % geom%scal(j,k, ELEFT) * e % Ub(:,j,k,ELEFT), &
                                     e % geom%normal(1,j,k,ERIGHT) * e % geom%scal(j,k, ERIGHT) * e % Ub(:,j,k,ERIGHT), &
@@ -294,11 +292,6 @@
 !
       DO k = 0, N
          DO i = 0, N
-              PRINT*, "e % geom%normal(1,i,k,EFRONT) * e % geom%scal(i,k, EFRONT) * e % Ub(:,i,k,EFRONT)", e % geom%normal(1,i,k,EFRONT) * e % geom%scal(i,k, EFRONT) * e % Ub(:,i,k,EFRONT)
-              PRINT*, "e % geom%normal(1,i,k,EFRONT)", e % geom%normal(:,:,:,EFRONT),EFRONT
-              PRINT*, "e % geom%scal(i,k, EFRONT)",e % geom%scal(i,k, EFRONT)
-              PRINT*, "e % Ub(:,i,k,EFRONT)", e % Ub(:,i,k,EFRONT)
-              PRINT*, "e % geom%normal(1,i,k,EBACK) * e % geom%scal(i,k, EBACK) * e % Ub(:,i,k,EBACK)", e % geom%normal(1,i,k,EBACK) * e % geom%scal(i,k, EBACK) * e % Ub(:,i,k,EBACK)
             CALL DGGradSpaceDerivative( g(i,:,k,:), &
                                     e % geom%normal(1,i,k,EFRONT) * e % geom%scal(i,k, EFRONT) * e % Ub(:,i,k,EFRONT), &
                                     e % geom%normal(1,i,k,EBACK) * e % geom%scal(i,k, EBACK) * e % Ub(:,i,k,EBACK), &
@@ -313,8 +306,6 @@
 !
       DO j = 0, N
          DO i = 0, N
-              PRINT*, "e % geom%normal(1,i,j,EBOTTOM) * e % geom%scal(i,j, EBOTTOM) * e % Ub(:,i,j,EBOTTOM)", e % geom%normal(1,i,j,EBOTTOM) * e % geom%scal(i,j, EBOTTOM) * e % Ub(:,i,j,EBOTTOM)
-              PRINT*, "e % geom%normal(1,i,j,ETOP) * e % geom%scal(i,j, ETOP) * e % Ub(:,i,j,ETOP)", e % geom%normal(1,i,j,ETOP) * e % geom%scal(i,j, ETOP) * e % Ub(:,i,j,ETOP)
             CALL DGGradSpaceDerivative( h(i,j,:,:), &
                                     e % geom%normal(1,i,j,EBOTTOM) * e % geom%scal(i,j, EBOTTOM) * e % Ub(:,i,j,EBOTTOM), &
                                     e % geom%normal(1,i,j,ETOP) * e % geom%scal(i,j, ETOP) * e % Ub(:,i,j,ETOP), &
@@ -520,85 +511,141 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE AddViscousContravariantFluxes( e, geom, fFlux, gFlux, N )
+      SUBROUTINE AddViscousContravariantFluxes( e, contravariantFlux )
       USE PhysicsStorage
       USE MappedGeometryClass
       USE ElementClass
+      USE Physics
       IMPLICIT NONE
 !
 !     -----------------
 !     Input parameters:
 !     -----------------
 !
-      INTEGER                                         :: N
       TYPE(Element)                                   :: e
-      REAL(KIND=RP)       , DIMENSION(0:N,0:N, N_EQN) :: fFlux
-      REAL(KIND=RP)       , DIMENSION(0:N,0:N, N_EQN) :: gFlux
-      TYPE(MappedGeometry)                            :: geom
+      REAL(KIND=RP), DIMENSION( 0:e % N, &
+                                0:e % N, &
+                                0:e % N, &
+                                N_EQN, 3 )  :: contravariantFlux
 !
-!     ---------------
-!     Local variables
-!     ---------------
-!
-!      INTEGER                                :: i, j, M, k, indx
-!      REAL(KIND=RP), DIMENSION(N_EQN)        :: ff, gg
-!      REAL(KIND=RP), DIMENSION(2,N_GRAD_EQN) :: grad
-!      INTEGER      , DIMENSION(2)            :: horizontalIndices = (/EBOTTOM, ETOP /)
-!      INTEGER      , DIMENSION(2)            :: verticalIndices   = (/ELEFT, ERIGHT /)
-!      
-!      M = N
+!     -----------------
+!     Local variables:
+!     -----------------
+!                                
+      REAL(KIND=RP)   :: grad(3, N_GRAD_EQN)
+      REAL(KIND=RP)   :: ff(N_EQN), gg(N_EQN), hh(N_EQN)
+      INTEGER         :: l,m,n,nv,i,j,k
 !
 !     ----------------------
 !     Interior contributions
 !     ----------------------
 !
-!      DO j = 0, M
-!         DO i = 0, N 
-!            grad(1,:) = e % U_x(i,j,:)
-!            grad(2,:) = e % U_y(i,j,:)
-!            
-!            CALL xDiffusiveFlux( e % Q(i,j,:), grad, ff )
-!            CALL yDiffusiveFlux( e % Q(i,j,:), grad, gg )
-!            
-!            fFlux(i,j,:) =  fFlux(i,j,:) - ( geom % Y_eta(i,j)*ff - geom % X_eta(i,j)*gg )
-!            gFlux(i,j,:) =  gFlux(i,j,:) - ( -geom % Y_xi(i,j)*ff + geom % X_xi(i,j) *gg )
-!         END DO
-!      END DO
-!!
-!!     ----------------------------------------------------------------------
-!!     Boundary contributions
-!!     At this point the boundary values of Qb (Storing Ub) and U_xb and U_yb
-!!     have already been averaged.
-!!     ----------------------------------------------------------------------
-!!
-!       DO k = 1, 2
-!          indx = horizontalIndices(k)
-!          DO i = 0, N
-!            grad(1,:) = e % U_xb(:,i,indx)
-!            grad(2,:) = e % U_yb(:,i,indx)
-!            
-!            CALL xDiffusiveFlux( e % Qb(:,i,indx), grad, ff )
-!            CALL yDiffusiveFlux( e % Qb(:,i,indx), grad, gg )
-!            
-!            e % FStarb(:,i,indx) = e % FStarb(:,i,indx) - &
-!                                   (ff*geom % normal(i,1,indx) + gg*geom % normal(i,2,indx))*geom % scal(i,indx)
-!          END DO
-!       END DO
-!       
-!       DO k = 1, 2
-!          indx = verticalIndices(k)
-!          DO j = 0, N
-!            grad(1,:) = e % U_xb(:,j,indx)
-!            grad(2,:) = e % U_yb(:,j,indx)
-!            
-!            CALL xDiffusiveFlux( e % Qb(:,j,indx), grad, ff )
-!            CALL yDiffusiveFlux( e % Qb(:,j,indx), grad, gg )
-!            
-!            e % FStarb(:,j,indx) = e % FStarb(:,j,indx) - &
-!                                   (ff*geom % normal(j,1,indx) + gg*geom % normal(j,2,indx))*geom % scal(j,indx)
-!          END DO
-!       END DO
-    
+      DO l = 0, e % N
+         DO m = 0, e % N
+            DO n = 0, e % N
+
+               grad(1,:) = e % U_x(n,m,l,:)
+               grad(2,:) = e % U_y(n,m,l,:)
+               grad(3,:) = e % U_z(n,m,l,:)
+
+               CALL xDiffusiveFlux( e % Q(n,m,l,:), grad, ff )
+               CALL yDiffusiveFlux( e % Q(n,m,l,:), grad, gg )
+               CALL zDiffusiveFlux( e % Q(n,m,l,:), grad, hh )
+
+               DO nv = 1, N_EQN
+                  
+                  contravariantFlux(n,m,l,nv,1) =   contravariantFlux(n,m,l,nv,1) -          &
+                                                  ( e % geom % jGradXi(1,n,m,l)  *ff(nv) +   &
+                                                    e % geom % jGradXi(2,n,m,l)  *gg(nv) +   &
+                                                    e % geom % jGradXi(3,n,m,l)  *hh(nv) )
+                  contravariantFlux(n,m,l,nv,2) = contravariantFlux(n,m,l,nv,2)   -          & 
+                                                  ( e % geom % jGradEta(1,n,m,l) *ff(nv) +   &
+                                                    e % geom % jGradEta(2,n,m,l) *gg(nv) +   &
+                                                    e % geom % jGradEta(3,n,m,l) *hh(nv) )
+                  contravariantFlux(n,m,l,nv,3) = contravariantFlux(n,m,l,nv,3)   -          & 
+                                                  ( e % geom % jGradZeta(1,n,m,l)*ff(nv) +   &
+                                                    e % geom % jGradZeta(2,n,m,l)*gg(nv) +   &
+                                                    e % geom % jGradZeta(3,n,m,l)*hh(nv) )   
+!                  IF (ABS( ( e % geom % jGradXi(1,n,m,l)  *ff(nv) +   &
+!                                                    e % geom % jGradXi(2,n,m,l)  *gg(nv) +   &
+!                                                    e % geom % jGradXi(3,n,m,l)  *hh(nv) ) )  > 1.d-13 ) THEN
+                                                    
+!                  PRINT*, "n,m,l"
+!                  PRINT*, n,m,l
+!                  PRINT*, contravariantFlux(n,m,l,nv,:)
+!                  PRINT*, ( e % geom % jGradXi(1,n,m,l)  *ff(nv) +   &
+!                                                    e % geom % jGradXi(2,n,m,l)  *gg(nv) +   &
+!                                                    e % geom % jGradXi(3,n,m,l)  *hh(nv) ) 
+!                  PRINT*, "----------------------------"
+!                  
+!                  ENDIF 
+!                  
+!                  IF (ABS( ( e % geom % jGradEta(1,n,m,l) *ff(nv) +   &
+!                                                    e % geom % jGradEta(2,n,m,l) *gg(nv) +   &
+!                                                    e % geom % jGradEta(3,n,m,l) *hh(nv) ) )  > 1.d-13 ) THEN
+!                                                    
+!                  PRINT*, "n,m,l"
+!                  PRINT*, n,m,l
+!                  PRINT*, contravariantFlux(n,m,l,nv,:)
+!                  PRINT*,  ( e % geom % jGradEta(1,n,m,l) *ff(nv) +   &
+!                                                    e % geom % jGradEta(2,n,m,l) *gg(nv) +   &
+!                                                    e % geom % jGradEta(3,n,m,l) *hh(nv) )
+!                  PRINT*, "----------------------------"
+!                  
+!                  ENDIF 
+!                  
+!                  IF (ABS( ( e % geom % jGradZeta(1,n,m,l)*ff(nv) +   &
+!                                                    e % geom % jGradZeta(2,n,m,l)*gg(nv) +   &
+!                                                    e % geom % jGradZeta(3,n,m,l)*hh(nv) ) )  > 1.d-13 ) THEN
+!                                                    
+!                  PRINT*, "n,m,l"
+!                  PRINT*, n,m,l
+!                  PRINT*, contravariantFlux(n,m,l,nv,:)
+!                  PRINT*, ( e % geom % jGradZeta(1,n,m,l)*ff(nv) +   &
+!                                                    e % geom % jGradZeta(2,n,m,l)*gg(nv) +   &
+!                                                    e % geom % jGradZeta(3,n,m,l)*hh(nv) ) 
+!                  PRINT*, "----------------------------"
+!                  
+!                  ENDIF 
+                                                      
+               END DO
+               
+            END DO
+         END DO
+      END DO
+!
+!     ----------------------------------------------------------------------
+!     Boundary contributions
+!     At this point the boundary values of Qb (Storing Ub)? and U_xb and U_yb
+!     have already been averaged.
+!     ----------------------------------------------------------------------
+!      
+      DO k = 1, 6
+          DO j = 0, e % N
+             DO i = 0, e % N
+               grad(1,:) = e % U_xb(:,i,j,k)
+               grad(2,:) = e % U_yb(:,i,j,k)
+               grad(3,:) = e % U_zb(:,i,j,k)
+            
+               CALL xDiffusiveFlux( e % Qb(:,i,j,k), grad, ff )
+               CALL yDiffusiveFlux( e % Qb(:,i,j,k), grad, gg )
+               CALL yDiffusiveFlux( e % Qb(:,i,j,k), grad, hh )
+            
+               e % FStarb(:,i,j,k) = e % FStarb(:,i,j,k) - &
+                                   ( ff * e % geom % normal(1,i,j,k) + &
+                                   & gg * e % geom % normal(2,i,j,k) + &
+                                   & hh * e % geom % normal(3,i,j,k)) &
+                                   * e % geom % scal(i,j,k)
+!               IF (MAXVAL (ABS( ff * e % geom % normal(1,i,j,k) + &
+!                                   & gg * e % geom % normal(2,i,j,k) + &
+!                                   & hh * e % geom % normal(3,i,j,k)) &
+!                                   * e % geom % scal(i,j,k))>1.d-13) THEN 
+!                                   PRINT*, "error"
+!               ENDIF 
+             END DO 
+          END DO
+      ENDDO 
+          
       END SUBROUTINE AddViscousContravariantFluxes
 !
 !////////////////////////////////////////////////////////////////////////

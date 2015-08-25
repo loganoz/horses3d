@@ -249,44 +249,52 @@
 !           Set up the face Values on each element
 !           --------------------------------------
 !
+!$omp do
             DO k = 1, self % mesh % numberOfFaces 
                CALL ComputeSolutionRiemannFluxes( self, time, self % externalState )
             END DO
+            !$omp end do
 !!
 !!           -----------------------------------
 !!           Compute the gradients over the mesh
 !!           -----------------------------------
 !!
+!$omp do
             DO k = 1, SIZE(self%mesh%elements) 
                CALL ComputeDGGradient( self % mesh % elements(k), self % spA, time )
-               PRINT*, "element", k
-               PRINT*, self % mesh % elements(k) % U_x
-               PRINT*, "------------------------------"
-               PRINT*, self % mesh % elements(k) % U_y
-               PRINT*, "------------------------------"
-               PRINT*, self % mesh % elements(k) % U_z
-               PRINT*, "------------------------------"
-               self % mesh % elements(k) % U_x = 0.0_RP
-               self % mesh % elements(k) % U_y = 0.0_RP
-               self % mesh % elements(k) % U_z = 0.0_RP
+!               IF (MAXVAL(ABS(self % mesh % elements(k) % U_x))>1.d-13) THEN 
+!                  PRINT*, "self % mesh % elements(k) % U_x", k, self % mesh % elements(k) % U_x
+!               ENDIF 
+!               IF (MAXVAL(ABS(self % mesh % elements(k) % U_y))>1.d-13) THEN
+!                  PRINT*, "self % mesh % elements(k) % U_y", k, self % mesh % elements(k) % U_y
+!               ENDIF 
+!               IF (MAXVAL(ABS(self % mesh % elements(k) % U_z))>1.d-13) THEN
+!                  PRINT*, "self % mesh % elements(k) % U_z", k, self % mesh % elements(k) % U_z
+!               ENDIF 
             END DO
+            !$omp end do 
 !!
 !!           ----------------------------------
 !!           Prolong the gradients to the faces
 !!           ----------------------------------
 !!
+!$omp do
             DO k = 1, SIZE(self%mesh%elements) 
                CALL ProlongGradientToFaces( self % mesh % elements(k), self % spA )
             END DO
+            !$omp end do 
 !!
 !!           -------------------------
 !!           Compute gradient averages
 !!           -------------------------
 !!
+!$omp do
             DO k = 1, self % mesh % numberOfFaces 
                CALL ComputeGradientAverages( self, time, self % externalGradients  )
             END DO         
+         !$omp end do
          END IF
+
 !
 !        ------------------------
 !        Compute time derivatives
@@ -418,7 +426,7 @@
 !
                      CALL GradientValuesForQ( self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft), UL )
                      CALL GradientValuesForQ( bvExt, UR )
-
+                     
                      d = 0.5_RP*(UL + UR)
                
                      self % mesh % elements(eIDLeft) % Ub (:,i,j,fIDLeft) = d
@@ -449,6 +457,18 @@
                                                 eR = self % mesh % elements(eIDRight),fIDRight = fIDright,&
                                                 N  = N,                                                   &
                                                 rotation = self % mesh % faces(faceID) % rotation)
+               DO j = 0, N
+                  DO i = 0, N
+!               IF (MAXVAL(ABS(self % mesh % elements(eIDLeft) % Ub(:,i,j,fIDLeft) - (/1.d0,0.d0,0.d0,1.d0/)))>1.d-14) THEN                                 
+!                  PRINT*, "eL % Ub(:,i,j,fIDLeft)", eIDLeft, self % mesh % elements(eIDLeft) % Ub(:,i,j,fIDLeft)  
+!               !ELSE
+!                  !PRINT*, "ok",eIDLeft, self % mesh % elements(eIDLeft) % Ub(:,i,j,fIDLeft) 
+!                  !PRINT*,  "eR % Ub(:,i,j,fIDright)", self % mesh % elements(eIDRight) % Ub(:,i,j,fIDright)
+!               ENDIF  
+               ENDDO 
+               ENDDO  
+                  
+!               PRINT*, "eR % Ub(:,i,j,fIDright)", self % mesh % elements(eIDRight) % Ub(:,i,j,fIDright)                             
             END IF 
 
          END DO           
@@ -529,7 +549,9 @@
                      UR = UGradExt(1,:)
 
                      d = 0.5_RP*(UL + UR)
-                     
+!                     IF (MAXVAL(ABS(d>1.d-13))) THEN 
+!                        PRINT*, "d", d
+!                     ENDIF 
                      self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft) = d
 !
 !                 --------
@@ -540,7 +562,9 @@
                      UR = UGradExt(2,:)
 
                      d = 0.5_RP*(UL + UR)
-                     
+!                     IF (MAXVAL(ABS(d>1.d-13))) THEN 
+!                        PRINT*, "d", d
+!                     ENDIF                      
                      self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft) = d
 !
 !                 --------
@@ -551,7 +575,9 @@
                      UR = UGradExt(3,:)
 
                      d = 0.5_RP*(UL + UR)
-                     
+!                     IF (MAXVAL(ABS(d>1.d-13))) THEN 
+!                        PRINT*, "d", d
+!                     ENDIF                      
                      self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft) = d
 
                   END DO   
@@ -691,10 +717,10 @@
                      CALL GradientValuesForQ( Q  = eR % QB(:,i,j,fIDright), U = UR )
 
                      d = 0.5_RP*(UL + UR)
-                     
+                  
                      eL % Ub(:,i,j,fIDLeft)  = d
-                     eL % Ub(:,i,j,fIDright) = d
-                                        
+                     eR % Ub(:,i,j,fIDright) = d
+                     
                      eL % QB(:,i,j,fIDLeft)  = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,i,j,fIDright) )
                      eR % QB(:,i,j,fIDright) = eL % QB(:,i,j,fIDLeft)
                   END DO   
@@ -715,7 +741,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % Ub(:,i,j,fIDLeft)  = d
-                     eL % Ub(:,ii,jj,fIDright) = d
+                     eR  % Ub(:,ii,jj,fIDright) = d
                                         
                      eL % QB(:,i,j,fIDLeft)  = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,ii,jj,fIDright) )
                      eR % QB(:,ii,jj,fIDright) = eL % QB(:,i,j,fIDLeft)                     
@@ -738,7 +764,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % Ub(:,i,j,fIDLeft)  = d
-                     eL % Ub(:,ii,jj,fIDright) = d
+                     eR % Ub(:,ii,jj,fIDright) = d
                                         
                      eL % QB(:,i,j,fIDLeft)  = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,ii,jj,fIDright) )
                      eR % QB(:,ii,jj,fIDright) = eL % QB(:,i,j,fIDLeft)   
@@ -761,7 +787,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % Ub(:,i,j,fIDLeft)  = d
-                     eL % Ub(:,ii,jj,fIDright) = d
+                     eR % Ub(:,ii,jj,fIDright) = d
                                         
                      eL % QB(:,i,j,fIDLeft)  = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,ii,jj,fIDright) )
                      eR % QB(:,ii,jj,fIDright) = eL % QB(:,i,j,fIDLeft)   
@@ -812,7 +838,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % U_xb(:,i,j,fIDLeft) = d
-                     eL % U_xb(:,i,j,fIDright) = d
+                     eR % U_xb(:,i,j,fIDright) = d
 !
 !                 --------
 !                 y values
@@ -824,7 +850,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % U_yb(:,i,j,fIDLeft) = d
-                     eL % U_yb(:,i,j,fIDright) = d
+                     eR % U_yb(:,i,j,fIDright) = d
 !
 !                 --------
 !                 z values
@@ -836,7 +862,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % U_zb(:,i,j,fIDLeft) = d
-                     eL % U_zb(:,i,j,fIDright) = d
+                     eR % U_zb(:,i,j,fIDright) = d
 
                   END DO   
                END DO   
@@ -856,7 +882,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % U_xb(:,i,j,fIDLeft) = d
-                     eL % U_xb(:,ii,jj,fIDright) = d
+                     eR % U_xb(:,ii,jj,fIDright) = d
 !
 !                 --------
 !                 y values
@@ -868,7 +894,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % U_yb(:,i,j,fIDLeft) = d
-                     eL % U_yb(:,ii,jj,fIDright) = d
+                     eR % U_yb(:,ii,jj,fIDright) = d
 !
 !                 --------
 !                 z values
@@ -880,7 +906,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % U_zb(:,i,j,fIDLeft) = d
-                     eL % U_zb(:,ii,jj,fIDright) = d
+                     eR % U_zb(:,ii,jj,fIDright) = d
                      
                   END DO   
                END DO   
@@ -900,7 +926,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % U_xb(:,i,j,fIDLeft) = d
-                     eL % U_xb(:,ii,jj,fIDright) = d
+                     eR % U_xb(:,ii,jj,fIDright) = d
 !
 !                 --------
 !                 y values
@@ -912,7 +938,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % U_yb(:,i,j,fIDLeft) = d
-                     eL % U_yb(:,ii,jj,fIDright) = d
+                     eR  % U_yb(:,ii,jj,fIDright) = d
 !
 !                 --------
 !                 z values
@@ -924,7 +950,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % U_zb(:,i,j,fIDLeft) = d
-                     eL % U_zb(:,ii,jj,fIDright) = d
+                     eR  % U_zb(:,ii,jj,fIDright) = d
                      
                   END DO   
                END DO   
@@ -944,7 +970,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % U_xb(:,i,j,fIDLeft) = d
-                     eL % U_xb(:,ii,jj,fIDright) = d
+                     eR  % U_xb(:,ii,jj,fIDright) = d
 !
 !                 --------
 !                 y values
@@ -956,7 +982,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % U_yb(:,i,j,fIDLeft) = d
-                     eL % U_yb(:,ii,jj,fIDright) = d
+                     eR % U_yb(:,ii,jj,fIDright) = d
 !
 !                 --------
 !                 z values
@@ -968,7 +994,7 @@
                      d = 0.5_RP*(UL + UR)
                      
                      eL % U_zb(:,i,j,fIDLeft) = d
-                     eL % U_zb(:,ii,jj,fIDright) = d
+                     eR % U_zb(:,ii,jj,fIDright) = d
                      
                   END DO   
                END DO   

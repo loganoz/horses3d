@@ -119,7 +119,7 @@ Module MappedGeometryClass
 !     Metric terms
 !     ------------
 !
-      !IF (isHex8(mapper)) THEN 
+      IF (isHex8(mapper)) THEN 
          CALL computeMetricTermsCrossProductForm(self, spA, mapper)
 !
 !     ----------------
@@ -192,8 +192,8 @@ Module MappedGeometryClass
          END DO
       END DO 
       
-      !ELSE 
-      IF (.not.isHex8(mapper)) THEN 
+      ELSE 
+      !IF (.not.isHex8(mapper)) THEN 
          CALL computeMetricTermsConservativeForm(self, spA, mapper)
       ENDIF       
 
@@ -462,7 +462,7 @@ Module MappedGeometryClass
 !     ----------------------------------------
 
       IdentityMatrix = 0.0_RP
-      do i = 1, noGauss 
+      do i = 0, noGauss 
          IdentityMatrix(i,i) = 1.0_RP         
       enddo 
 

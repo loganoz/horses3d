@@ -221,6 +221,7 @@
 !
       
       DO k = 1,3
+
          tk = t + b(k)*deltaT
          CALL ComputeTimeDerivative( sem, tk )
 !
