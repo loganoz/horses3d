@@ -100,7 +100,128 @@
       CALL sem % destruct()
       testFileCount = testFileCount + 1
       
-      END SUBROUTINE TestDivergence
+      END SUBROUTINE TestDivergence      
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE TestGradients
+      USE FTAssertions
+      USE DGSEMClass
+      USE DGTimeDerivativeMethods
+      USE SetupModule
+      
+      IMPLICIT NONE
+!
+!     ------------
+!     Declarations
+!     ------------
+!
+      INTEGER            :: eID
+      INTEGER            :: nElement
+      REAL(KIND=RP)      :: maxE
+      LOGICAL            :: success
+      CHARACTER(LEN=132) :: msg
+      CHARACTER(LEN=132), EXTERNAL :: lastPathComponent
+!
+!     ------------------------------
+!     Read in the mesh for this test
+!     ------------------------------
+!
+      CALL setUpDGSEM(meshFileName = meshFileNames(testFileCount), &
+                      success = success)
+      msg = "Read in mesh " // lastPathComponent(meshFileNames(testFileCount))
+      CALL FTAssert(success,msg)
+      IF(.NOT.success) RETURN 
+!
+!     -----------------
+!     Perform the tests
+!     -----------------
+!
+      nElement =  SIZE(sem % mesh % elements)
+      DO eID = 1, nElement
+         CALL ProlongToFaces(sem % mesh % elements(eId), sem % spA)
+      END DO
+      
+      CALL computeRiemannFluxes(sem,0.0_RP)
+
+         IF ( flowIsNavierStokes )     THEN
+
+            CALL ComputeSolutionRiemannFluxes( sem, 0.0_RP, sem % externalState )
+
+            DO eID = 1, SIZE(sem%mesh%elements) 
+               CALL ComputeDGGradient( sem % mesh % elements(eID), sem % spA, 0.0_RP )
+            END DO
+            PRINT*, MAXVAL(ABS(sem%mesh%elements(1) % U_x))
+            PRINT*, MAXVAL(ABS(sem%mesh%elements(1) % U_y))
+            PRINT*, MAXVAL(ABS(sem%mesh%elements(1) % U_z))
+            DO eID = 1, SIZE(sem%mesh%elements) 
+               CALL ProlongGradientToFaces( sem % mesh % elements(eID), sem % spA )
+            END DO
+            PRINT*, MAXVAL(ABS(sem%mesh%elements(1) % U_xb))
+            PRINT*, MAXVAL(ABS(sem%mesh%elements(1) % U_yb))
+            PRINT*, MAXVAL(ABS(sem%mesh%elements(1) % U_zb))
+
+            CALL ComputeGradientAverages( sem, 0.0_RP, sem % externalGradients  )
+            PRINT*, MAXVAL(ABS(sem%mesh%elements(1) % U_xb))
+            PRINT*, MAXVAL(ABS(sem%mesh%elements(1) % U_yb))
+            PRINT*, MAXVAL(ABS(sem%mesh%elements(1) % U_zb))
+         END IF
+
+      
+      DO eID = 1, nElement
+         CALL LocalTimeDerivative(sem % mesh % elements(eId), sem % spA, 0.0_RP) ! computes -\nabla\cdot\tilde F
+      END DO
+!
+!     ------------------------------------------------
+!     Check the divergence of the different components
+!     ------------------------------------------------
+!
+      DO eID = 1, nElement
+          WRITE(msg,'(A,I3)') "Gradient of F = x on element ",eID
+          maxE = MAXVAL(ABS(sem % mesh % elements(eID) % QDot(:,:,:,1)+1.0_RP))
+          CALL FTAssertEqual(expectedValue = 0.0_RP, &
+                             actualValue = maxE,     &
+                             tol = 1.d-9,            &
+                             msg = msg)
+                             
+          WRITE(msg,'(A,I3)') "Gradient of F = y on element ",eID
+          maxE = MAXVAL(ABS(sem % mesh % elements(eID) % QDot(:,:,:,2)+1.0_RP))
+          CALL FTAssertEqual(expectedValue = 0.0_RP, &
+                             actualValue = maxE,     &
+                             tol = 1.d-9,            &
+                             msg = msg)
+                             
+          WRITE(msg,'(A,I3)') "Gradient of F = z on element ",eID
+          maxE = MAXVAL(ABS(sem % mesh % elements(eID) % QDot(:,:,:,3)+1.0_RP))
+          CALL FTAssertEqual(expectedValue = 0.0_RP, &
+                             actualValue = maxE,     &
+                             tol = 1.d-9,            &
+                             msg = msg)
+                             
+          WRITE(msg,'(A,I3)') "Gradient of F = const on element ",eID
+          maxE = MAXVAL(ABS(sem % mesh % elements(eID) % QDot(:,:,:,4)))
+          CALL FTAssertEqual(expectedValue = 0.0_RP, &
+                             actualValue = maxE,     &
+                             tol = 1.d-9,            &
+                             msg = msg)
+                             
+          WRITE(msg,'(A,I3)') "Gradient of F = x + y + z on element ",eID
+          maxE = MAXVAL(ABS(sem % mesh % elements(eID) % QDot(:,:,:,5)+3.0_RP))
+          CALL FTAssertEqual(expectedValue = 0.0_RP, &
+                             actualValue = maxE,     &
+                             tol = 1.d-9,            &
+                             msg = msg)
+          
+      END DO 
+!
+!     -------------------------------------------
+!     Destroy the mesh in preparation for another
+!     -------------------------------------------
+!
+      CALL sem % destruct()
+      testFileCount = testFileCount + 1
+      
+      END SUBROUTINE TestGradients
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

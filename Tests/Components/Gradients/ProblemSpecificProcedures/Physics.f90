@@ -360,28 +360,8 @@
 !     Local Variables
 !     ---------------
 !
-      REAL(KIND=RP) :: tauXX, tauXY, tauXZ
-      REAL(KIND=RP) :: T, muOfT, kappaOfT, divVelocity
-      REAL(KIND=RP) :: u, v, w
-!      
-      T        = Temperature(Q)
-      muOfT    = MolecularDiffusivity(T)
-      kappaOfT = ThermalDiffusivity(T)
-      u        = Q(2)/Q(1)
-      v        = Q(3)/Q(1)
-      w        = Q(4)/Q(1)
-      
-      divVelocity = grad(1,1) + grad(2,2) + grad(3,3)
-      tauXX       = 2.0_RP*muOfT*(grad(1,1) - divVelocity/3._RP)
-      tauXY       = muOfT*(grad(1,2) + grad(2,1))
-      tauXZ       = muOfT*(grad(1,3) + grad(3,1))
-      
-      f(1) = 0.0_RP
-      f(2) = tauXX/RE
-      f(3) = tauXY/RE
-      f(4) = tauXZ/RE
-      f(5) = (u*tauXX + v*tauXY + w*tauXZ + &
-     &        gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*grad(1,4))/RE
+      f = 0.0_RP
+      f = grad(1,:)
 
       END SUBROUTINE xDiffusiveFlux
 !
@@ -417,35 +397,15 @@
 !     Local Variables
 !     ---------------
 !
-      REAL(KIND=RP) :: tauYX, tauYY, tauYZ
-      REAL(KIND=RP) :: T, muOfT, kappaOfT, divVelocity
-      REAL(KIND=RP) :: u, v, w
-!      
-      T        = Temperature(Q)
-      muOfT    = MolecularDiffusivity(T)
-      kappaOfT = ThermalDiffusivity(T)
-      u        = Q(2)/Q(1)
-      v        = Q(3)/Q(1)
-      w        = Q(4)/Q(1)
-      
-      divVelocity = grad(1,1) + grad(2,2) + grad(3,3)
-      tauYX       = muOfT*(grad(1,2) + grad(2,1))
-      tauYY       = 2.0_RP*muOfT*(grad(2,2) - divVelocity/3._RP)
-      tauYZ       = muOfT*(grad(2,3) + grad(3,2))
-      
-      f(1) = 0.0_RP
-      f(2) = tauYX/RE
-      f(3) = tauYY/RE
-      f(4) = tauYZ/RE
-      f(5) = (u*tauYX + v*tauYY + w*tauYZ + &
-     &        gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*grad(2,4))/RE
+      f = 0.0_RP
+      f = grad(2,:)
 
       END SUBROUTINE yDiffusiveFlux
 !
 ! /////////////////////////////////////////////////////////////////////
 !
 !---------------------------------------------------------------------
-!! yDiffusiveFlux computes the y viscous flux component.
+!! zDiffusiveFlux computes the z viscous flux component.
 !---------------------------------------------------------------------
 !
       SUBROUTINE zDiffusiveFlux( Q, grad, f )
@@ -474,28 +434,8 @@
 !     Local Variables
 !     ---------------
 !
-      REAL(KIND=RP)           :: tauZX, tauZY, tauZZ
-      REAL(KIND=RP)           :: T, muOfT, kappaOfT, divVelocity
-      REAL(KIND=RP)           :: u, v, w
-!      
-      T        = Temperature(Q)
-      muOfT    = MolecularDiffusivity(T)
-      kappaOfT = ThermalDiffusivity(T)
-      u        = Q(2)/Q(1)
-      v        = Q(3)/Q(1)
-      w        = Q(4)/Q(1)
-      
-      divVelocity = grad(1,1) + grad(2,2) + grad(3,3)
-      tauZX       = muOfT*(grad(1,3) + grad(3,1))
-      tauZY       = muOfT*(grad(2,3) + grad(3,2))
-      tauZZ       = 2.0_RP*muOfT*(grad(3,3) - divVelocity/3._RP)
-      
-      f(1) = 0.0_RP
-      f(2) = tauZX/RE
-      f(3) = tauZY/RE
-      f(4) = tauZZ/RE
-      f(5) = (u*tauZX + v*tauZY + w*tauZZ + &
-     &        gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*grad(3,4))/RE
+      f = 0.0_RP
+      f = grad(3,:)
 
       END SUBROUTINE zDiffusiveFlux
 !
@@ -520,10 +460,10 @@
 !     Local Variables
 !     ---------------
 !      
-      U(1) = Q(2)/Q(1)
-      U(2) = Q(3)/Q(1)
-      U(3) = Q(4)/Q(1)
-      U(4) = Temperature(Q)
+      U(1) = Q(1)
+      U(2) = Q(2)
+      U(3) = Q(3)
+      U(4) = Q(4)
 
       END SUBROUTINE GradientValuesForQ
 !

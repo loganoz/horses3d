@@ -333,7 +333,7 @@
          DO j = 0, e % N
             DO i = 0, e % N
 
-               !CALL GradientValuesForQ( e % Q(i,j,k,:), U )
+               CALL GradientValuesForQ( e % Q(i,j,k,:), U )
 
                !CALL xflux( e % U(n,m,l,:), ff )
                !CALL yflux( e % U(n,m,l,:), gg )
@@ -420,7 +420,7 @@
          DO j = 0, e % N
             DO i = 0, e % N
 
-               !CALL GradientValuesForQ( e % Q(i,j,k,:), U )
+               CALL GradientValuesForQ( e % Q(i,j,k,:), U )
 
                !CALL xflux( e % U(n,m,l,:), ff )
                !CALL yflux( e % U(n,m,l,:), gg )
@@ -629,7 +629,7 @@
             
                CALL xDiffusiveFlux( e % Qb(:,i,j,k), grad, ff )
                CALL yDiffusiveFlux( e % Qb(:,i,j,k), grad, gg )
-               CALL yDiffusiveFlux( e % Qb(:,i,j,k), grad, hh )
+               CALL zDiffusiveFlux( e % Qb(:,i,j,k), grad, hh )
             
                e % FStarb(:,i,j,k) = e % FStarb(:,i,j,k) - &
                                    ( ff * e % geom % normal(1,i,j,k) + &

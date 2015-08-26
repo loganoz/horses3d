@@ -237,11 +237,11 @@
 !        Inviscid Riemann fluxes from the solutions on the faces
 !        -------------------------------------------------------
 !
-!$omp do
-         DO k = 1, self % mesh % numberOfFaces
+!!$omp do
+         !DO k = 1, self % mesh % numberOfFaces
             CALL ComputeRiemannFluxes( self, time )
-         END DO
-!$omp end do
+         !END DO
+!!$omp end do
          
          IF ( flowIsNavierStokes )     THEN
 !
@@ -249,11 +249,11 @@
 !           Set up the face Values on each element
 !           --------------------------------------
 !
-!$omp do
-            DO k = 1, self % mesh % numberOfFaces 
+!!$omp do
+            !DO k = 1, self % mesh % numberOfFaces 
                CALL ComputeSolutionRiemannFluxes( self, time, self % externalState )
-            END DO
-            !$omp end do
+            !END DO
+!            !$omp end do
 !!
 !!           -----------------------------------
 !!           Compute the gradients over the mesh
@@ -288,11 +288,11 @@
 !!           Compute gradient averages
 !!           -------------------------
 !!
-!$omp do
-            DO k = 1, self % mesh % numberOfFaces 
+!!$omp do
+            !DO k = 1, self % mesh % numberOfFaces 
                CALL ComputeGradientAverages( self, time, self % externalGradients  )
-            END DO         
-         !$omp end do
+            !END DO         
+         !!$omp end do
          END IF
 
 !
@@ -413,7 +413,7 @@
                   DO i = 0, N
 
                      bvExt = self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft)
-                     
+
                      CALL externalStateProcedure( self % mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
                                                   time, &
                                                   self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
@@ -528,7 +528,7 @@
                      UGradExt(1,:) = self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft)
                      UGradExt(2,:) = self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
                      UGradExt(3,:) = self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
-
+                     
                      !CALL self % externalState( self % mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
                      !                             time, &
                      !                             self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &

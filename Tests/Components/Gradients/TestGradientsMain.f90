@@ -16,6 +16,7 @@
       TYPE(TestSuiteManager) :: testSuite
       
       EXTERNAL                     :: TestDivergence
+      EXTERNAL                     :: TestGradients
       EXTERNAL                     :: TestInterpolationToFaces
       CHARACTER(LEN=132), EXTERNAL :: lastPathComponent
       CHARACTER(LEN=132)           :: msg
@@ -43,11 +44,21 @@
 !     Test the divergence on each of the meshes
 !     -----------------------------------------
 !
+      !DO j = 1, SIZE(meshFileNames)
+      !   msg = "Test divergence computation on mesh " // lastPathComponent(meshFileNames(j)) 
+      !   CALL testSuite % addTestSubroutineWithName(testSubroutine = TestDivergence, &
+      !                                              testName       = msg)
+      !END DO
+!
+!     -----------------------------------------
+!     Test the divergence on each of the meshes
+!     -----------------------------------------
+!
       DO j = 1, SIZE(meshFileNames)
-         msg = "Test divergence computation on mesh " // lastPathComponent(meshFileNames(j)) 
-         CALL testSuite % addTestSubroutineWithName(testSubroutine = TestDivergence, &
+         msg = "Test gradients computation on mesh " // lastPathComponent(meshFileNames(j)) 
+         CALL testSuite % addTestSubroutineWithName(testSubroutine = TestGradients, &
                                                     testName       = msg)
-      END DO
+      END DO      
       
       CALL testSuite % performTests()
       CALL testSuite % finalize()

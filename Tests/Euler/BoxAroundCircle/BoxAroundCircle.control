@@ -1,18 +1,18 @@
-Flow equations        = "Euler"
-mesh file name        = "../../TestMeshes/BoxAroundCircle3D_p1.mesh"
-plot file name        = "PlotFiles/BoxAroundCircle_p1.tec"
-restart file name     = "RestartFiles/BoxAroundCircle_p1.rst"
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/BoxAroundCircle3D_extended_pol3.mesh"
+plot file name        = "PlotFiles/BoxAroundCircle_p3.tec"
+restart file name     = "RestartFiles/BoxAroundCircle_p3.rst"
 restart               = .false.
 Polynomial order      = 3
-Number of time steps  = 20000
-Output Interval       = 10
+Number of time steps  = 100
+Output Interval       = 1
 Number of plot points = 10
-Convergence tolerance = 1.d-10
-cfl                   = 0.7
+Convergence tolerance = 1.d-15
+cfl                   = 0.01
 mach number           = 0.3
+Reynolds number       = 100.0
 AOA theta             = 0.0
 AOA phi               = 0.0
-Reynolds number       = 0.0
 Number of boundaries  = 7
 InnerCylinder 0.0 Inflow
 Front 0.0 Inflow
