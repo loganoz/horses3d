@@ -237,11 +237,9 @@
 !        Inviscid Riemann fluxes from the solutions on the faces
 !        -------------------------------------------------------
 !
-!!$omp do
-         !DO k = 1, self % mesh % numberOfFaces
-            CALL ComputeRiemannFluxes( self, time )
-         !END DO
-!!$omp end do
+!openmp inside
+         CALL ComputeRiemannFluxes( self, time )
+
          
          IF ( flowIsNavierStokes )     THEN
 !
@@ -249,50 +247,36 @@
 !           Set up the face Values on each element
 !           --------------------------------------
 !
-!!$omp do
-            !DO k = 1, self % mesh % numberOfFaces 
-               CALL ComputeSolutionRiemannFluxes( self, time, self % externalState )
-            !END DO
-!            !$omp end do
-!!
-!!           -----------------------------------
-!!           Compute the gradients over the mesh
-!!           -----------------------------------
-!!
+!openmp inside
+            CALL ComputeSolutionRiemannFluxes( self, time, self % externalState )
+!
+!           -----------------------------------
+!           Compute the gradients over the mesh
+!           -----------------------------------
+!
 !$omp do
             DO k = 1, SIZE(self%mesh%elements) 
                CALL ComputeDGGradient( self % mesh % elements(k), self % spA, time )
-!               IF (MAXVAL(ABS(self % mesh % elements(k) % U_x))>1.d-13) THEN 
-!                  PRINT*, "self % mesh % elements(k) % U_x", k, self % mesh % elements(k) % U_x
-!               ENDIF 
-!               IF (MAXVAL(ABS(self % mesh % elements(k) % U_y))>1.d-13) THEN
-!                  PRINT*, "self % mesh % elements(k) % U_y", k, self % mesh % elements(k) % U_y
-!               ENDIF 
-!               IF (MAXVAL(ABS(self % mesh % elements(k) % U_z))>1.d-13) THEN
-!                  PRINT*, "self % mesh % elements(k) % U_z", k, self % mesh % elements(k) % U_z
-!               ENDIF 
             END DO
-            !$omp end do 
-!!
-!!           ----------------------------------
-!!           Prolong the gradients to the faces
-!!           ----------------------------------
-!!
+!$omp end do 
+!
+!           ----------------------------------
+!           Prolong the gradients to the faces
+!           ----------------------------------
+!
 !$omp do
             DO k = 1, SIZE(self%mesh%elements) 
                CALL ProlongGradientToFaces( self % mesh % elements(k), self % spA )
             END DO
-            !$omp end do 
-!!
-!!           -------------------------
-!!           Compute gradient averages
-!!           -------------------------
-!!
-!!$omp do
-            !DO k = 1, self % mesh % numberOfFaces 
-               CALL ComputeGradientAverages( self, time, self % externalGradients  )
-            !END DO         
-         !!$omp end do
+!$omp end do 
+!
+!           -------------------------
+!           Compute gradient averages
+!           -------------------------
+!
+!openmp inside
+            CALL ComputeGradientAverages( self, time, self % externalGradients  )
+
          END IF
 
 !
@@ -333,7 +317,7 @@
          INTEGER       :: N
         
          N = self % spA % N
-         
+!$omp do         
          DO faceID = 1, SIZE( self % mesh % faces)
             eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
             eIDRight = self % mesh % faces(faceID) % elementIDs(2)
@@ -362,7 +346,7 @@
             END IF 
 
          END DO           
-         
+!$omp enddo          
          
       END SUBROUTINE computeRiemannFluxes
 !
@@ -396,7 +380,7 @@
          INTEGER       :: i, j
         
          N = self % spA % N
-         
+!$omp do         
          DO faceID = 1, SIZE( self % mesh % faces)
             eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
             eIDRight = self % mesh % faces(faceID) % elementIDs(2)
@@ -472,7 +456,7 @@
             END IF 
 
          END DO           
-         
+!$omp enddo         
          
       END SUBROUTINE computeSolutionRiemannFluxes      
 !
@@ -508,7 +492,7 @@
          INTEGER       :: i, j
         
          N = self % spA % N
-         
+!$omp do         
          DO faceID = 1, SIZE( self % mesh % faces)
 
             eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
@@ -598,7 +582,7 @@
             END IF 
 
          END DO           
-         
+!$omp enddo         
          
       END SUBROUTINE computeGradientAverages            
 !

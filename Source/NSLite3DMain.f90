@@ -52,6 +52,8 @@
       CALL ConstructPhysicsStorage( controlVariables % mach,               &
                                     controlVariables % RE,                 &
                                     0.72_RP,                               &
+                                    controlVariables % AOATheta,           &
+                                    controlVariables % AOAPhi,             &
                                     controlVariables % flowIsNavierStokes )
 !
 !     ----------------

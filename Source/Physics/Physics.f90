@@ -110,18 +110,21 @@
 !!    variables.
 !     --------------------------------------------------
 !
-      SUBROUTINE ConstructPhysicsStorage( machArg, REArg, PRArg, flowIsNavierStokesArg )
+      SUBROUTINE ConstructPhysicsStorage( machArg, REArg, PRArg, AOAThetaArg, AOAPhiArg, flowIsNavierStokesArg )
 !
 !     ---------
 !     Arguments
 !     ---------
 !
       REAL(KIND=RP) :: machArg, REArg, PRArg
+      REAL(KIND=RP) :: AOAPhiArg, AOAThetaArg
       LOGICAL       :: flowIsNavierStokesArg
       
       mach               = machArg
       RE                 = REArg
       PR                 = PRArg
+      AOAPhi             = AOAPhiArg
+      AOATheta           = AOAThetaArg
       flowIsNavierStokes = flowIsNavierStokesArg
 !
       TRef            = 520.0_RP
