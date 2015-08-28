@@ -1,0 +1,23 @@
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/FlatPlate3D.mesh"
+plot file name        = "PlotFiles/FlatPlate3D.tec"
+restart file name     = "RestartFiles/FlatPlate3D.rst"
+restart               = .false.
+Polynomial order      = 3
+Number of time steps  = 100
+Output Interval       = 10
+Number of plot points = 5
+Convergence tolerance = 1.d-10
+cfl                   = 0.3
+mach number           = 0.3
+Reynolds number       = 100.0
+AOA theta             = 0.0
+AOA phi               = 0.0
+Number of boundaries  = 7
+frontSurface 0.0 FreeSlipWall
+backSurface 0.0 FreeSlipWall
+Symmetry 0.0 FreeSlipWall
+Plate 0.0 NoSlipAdiabaticWall
+Exit 0.0 OutflowSpecifyP
+Top 0.0 Inflow
+Entrance 0.0 Inflow
