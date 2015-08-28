@@ -58,14 +58,14 @@ Assert.o : $(FTOLibPath)/FTTesting/Assert.f90 \
 Comparisons.o
 	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(FTOLibPath)/FTTesting/Assert.f90
 
-BoundaryConditions.o : ../../../Tests/Euler/BoxAroundCircle/BoundaryConditions.f90 \
+BoundaryConditions.o : ../../../Tests/NavierStokes/Cylinder/BoundaryConditions.f90 \
 Physics.o \
 MeshTypes.o \
 SMConstants.o \
 HexElementClass.o \
 SharedBCModule.o \
 Physics.o
-	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ ../../../Tests/Euler/BoxAroundCircle/BoundaryConditions.f90
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ ../../../Tests/NavierStokes/Cylinder/BoundaryConditions.f90
 
 Comparisons.o : $(FTOLibPath)/FTTesting/Comparisons.f90
 	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(FTOLibPath)/FTTesting/Comparisons.f90
@@ -221,11 +221,11 @@ HexElementClass.o \
 PlotterDataSource.o
 	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ ../../../Source/Foundation/Plotter.f90
 
-PlotterDataSource.o : ../../../Tests/Euler/BoxAroundCircle/PlotterDataSource.f90 \
+PlotterDataSource.o : ../../../Tests/NavierStokes/Cylinder/PlotterDataSource.f90 \
 SMConstants.o
-	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ ../../../Tests/Euler/BoxAroundCircle/PlotterDataSource.f90
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ ../../../Tests/NavierStokes/Cylinder/PlotterDataSource.f90
 
-ProblemFile.o : ../../../Tests/Euler/BoxAroundCircle/ProblemFile.f90 \
+ProblemFile.o : ../../../Tests/NavierStokes/Cylinder/ProblemFile.f90 \
 Physics.o \
 Physics.o \
 BoundaryConditions.o \
@@ -233,7 +233,7 @@ MeshTypes.o \
 Assert.o \
 SMConstants.o \
 DGSEMClass.o
-	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ ../../../Tests/Euler/BoxAroundCircle/ProblemFile.f90
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ ../../../Tests/NavierStokes/Cylinder/ProblemFile.f90
 
 ReadInputFile.o : ../../../Source/IO/ReadInputFile.f90 \
 SharedBCModule.o \
