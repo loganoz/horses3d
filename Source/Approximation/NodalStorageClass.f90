@@ -102,6 +102,7 @@
          DEALLOCATE( this % xi, this % eta, this % zeta )
          DEALLOCATE( this % w )
          DEALLOCATE( this % D, this % v, this % b )
+         deallocate( this % standardDerivativeMatrix)
       END SUBROUTINE DestructNodalStorage
       
       END Module NodalStorageClass

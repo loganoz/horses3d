@@ -149,7 +149,7 @@
          t = self % tStart + k*self % dt
          
          CALL TakeRK3Step( sem, t, self % dt, maxResidual )
-         
+
          IF( self % integratorType == STEADY_STATE .AND. maxResidual <= self % tolerance )     THEN
          
             sem % maxResidual       = maxResidual
@@ -161,7 +161,8 @@
          END IF
          
          IF( MOD( k+1, self % plotInterval) == 0 )     THEN
-            CALL UserDefinedPeriodicOperation(sem,t)
+
+          CALL UserDefinedPeriodicOperation(sem,t)
             
             IF ( self % integratorType == STEADY_STATE )     THEN
                PRINT *, k, CHAR(9), LOG10(maxResidual)
@@ -219,7 +220,10 @@
       INTEGER :: k, id
       REAL(KIND=RP) :: localMaxResidual
 !
-      
+      do id = 1, SIZE( sem % mesh % elements ) 
+         sem % mesh % elements(id) % G = 0.0_RP   
+      enddo 
+
       DO k = 1,3
 
          tk = t + b(k)*deltaT

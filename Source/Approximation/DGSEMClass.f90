@@ -392,7 +392,6 @@
 !              Boundary face
 !              -------------
 !
-               !CALL computeBoundaryFlux(self % mesh % elements(eIDLeft), fIDLeft, time, self % externalState)
                DO j = 0, N
                   DO i = 0, N
 
@@ -402,7 +401,7 @@
                                                   time, &
                                                   self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
                                                   bvExt,&
-                                                  self % mesh % elements(eIDLeft) % boundaryType(fIDLeft) )
+                                                  self % mesh % elements(eIDLeft) % boundaryType(fIDLeft) )                                                  
 !
 !              ---------------
 !              u,v, T averages
@@ -421,11 +420,7 @@
 !
                      self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft)    = &
                      & 0.5_RP*( self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft) + bvExt )
-                     !CALL RiemannSolver(QLeft  = elementOnLeft % Qb(:,i,j,faceID), &
-                     !                   QRight = bvExt, &
-                     !                   nHat   = elementOnLeft % geom % normal(:,i,j,faceID), &
-                     !                   flux   = flux)
-                     !elementOnLeft % FStarb(:,i,j,faceID) = flux*elementOnLeft % geom % scal(i,j,faceID)
+
                   END DO   
                END DO   
             
@@ -441,18 +436,6 @@
                                                 eR = self % mesh % elements(eIDRight),fIDRight = fIDright,&
                                                 N  = N,                                                   &
                                                 rotation = self % mesh % faces(faceID) % rotation)
-               DO j = 0, N
-                  DO i = 0, N
-!               IF (MAXVAL(ABS(self % mesh % elements(eIDLeft) % Ub(:,i,j,fIDLeft) - (/1.d0,0.d0,0.d0,1.d0/)))>1.d-14) THEN                                 
-!                  PRINT*, "eL % Ub(:,i,j,fIDLeft)", eIDLeft, self % mesh % elements(eIDLeft) % Ub(:,i,j,fIDLeft)  
-!               !ELSE
-!                  !PRINT*, "ok",eIDLeft, self % mesh % elements(eIDLeft) % Ub(:,i,j,fIDLeft) 
-!                  !PRINT*,  "eR % Ub(:,i,j,fIDright)", self % mesh % elements(eIDRight) % Ub(:,i,j,fIDright)
-!               ENDIF  
-               ENDDO 
-               ENDDO  
-                  
-!               PRINT*, "eR % Ub(:,i,j,fIDright)", self % mesh % elements(eIDRight) % Ub(:,i,j,fIDright)                             
             END IF 
 
          END DO           
@@ -484,8 +467,7 @@
          INTEGER       :: eIDLeft, eIDRight
          INTEGER       :: fIDLeft, fIDright
          INTEGER       :: N
-         
-         REAL(KIND=RP) :: bvExt(N_EQN)
+
          REAL(KIND=RP) :: UGradExt(3,N_GRAD_EQN)
          REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)    
          
@@ -505,7 +487,6 @@
 !              Boundary face
 !              -------------
 !
-               !CALL computeBoundaryFlux(self % mesh % elements(eIDLeft), fIDLeft, time, self % externalState)
                DO j = 0, N
                   DO i = 0, N
                   
@@ -513,12 +494,6 @@
                      UGradExt(2,:) = self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
                      UGradExt(3,:) = self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
                      
-                     !CALL self % externalState( self % mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
-                     !                             time, &
-                     !                             self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
-                     !                             bvExt,&
-                     !                             self % mesh % elements(eIDLeft) % boundaryType(fIDLeft) )
-
                      CALL externalGradientsProcedure( self % mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
                                                   time, &
                                                   self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
@@ -533,9 +508,7 @@
                      UR = UGradExt(1,:)
 
                      d = 0.5_RP*(UL + UR)
-!                     IF (MAXVAL(ABS(d>1.d-13))) THEN 
-!                        PRINT*, "d", d
-!                     ENDIF 
+
                      self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft) = d
 !
 !                 --------
@@ -546,9 +519,7 @@
                      UR = UGradExt(2,:)
 
                      d = 0.5_RP*(UL + UR)
-!                     IF (MAXVAL(ABS(d>1.d-13))) THEN 
-!                        PRINT*, "d", d
-!                     ENDIF                      
+
                      self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft) = d
 !
 !                 --------
@@ -559,9 +530,7 @@
                      UR = UGradExt(3,:)
 
                      d = 0.5_RP*(UL + UR)
-!                     IF (MAXVAL(ABS(d>1.d-13))) THEN 
-!                        PRINT*, "d", d
-!                     ENDIF                      
+
                      self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft) = d
 
                   END DO   
@@ -995,6 +964,7 @@
          TYPE(DGSem)    :: self
          REAL(KIND=RP)  :: cfl
          
+         
          MaxTimeStep  = cfl/MaximumEigenvalue( self )
       
       END FUNCTION MaxTimeStep
@@ -1038,15 +1008,26 @@
       MaximumEigenvalue = 0.0_RP
       
       N = self % spA % N
-      
-      dcsi = 1.0_RP / self % spA % xi(1)
-      deta = 1.0_RP / self % spA % eta(1)
-      dzet = 1.0_RP / self % spA % zeta(1)
+!
+!     -----------------------------------------------------------
+!     TODO:
+!     dcsi, deta and dzet have been modified so they work for N=2
+!     However, I'm not sure if this modification is OK.
+!     Besides, problems are expected for N=0.
+!     -----------------------------------------------------------
+!
+      IF ( N==0 ) THEN 
+         PRINT*, "Error in MaximumEigenvalue function (N<1)"    
+      ENDIF
+        
+      dcsi = 1.0_RP / abs( self % spA % xi(1) - self % spA % xi(0) )   
+      deta = 1.0_RP / abs( self % spA % eta(1) - self % spA % eta(0) )
+      dzet = 1.0_RP / abs( self % spA % zeta(1) - self % spA % zeta(0) )
 
       DO id = 1, SIZE(self % mesh % elements) 
-         DO k = 1, N
-            DO j = 1, N
-               DO i = 1, N
+         DO k = 0, N
+            DO j = 0, N
+               DO i = 0, N
 !
 !                 ------------------------------------------------------------
 !                 The maximum eigenvalues for a particular state is determined

@@ -119,82 +119,91 @@ Module MappedGeometryClass
 !     Metric terms
 !     ------------
 !
+!
+!     ------------------------------------------------------------
+!     If the faces are straight, the CrossProductForm is OK
+!     If there are curved faces, the Conservative form is required
+!     see Kopriva 2006
+!     ------------------------------------------------------------
+!
       IF (isHex8(mapper)) THEN 
+      
          CALL computeMetricTermsCrossProductForm(self, spA, mapper)
 !
 !     ----------------
 !     Boundary Normals - Must be evaluated at the boundaries!
 !     ----------------
 !
-      DO j = 0, N
-         DO i = 0, N
+         DO j = 0, N
+            DO i = 0, N
 !
 !           ---------
 !           Left face
 !           ---------
 !
-            grad_x = mapper % metricDerivativesAt([-1.0_RP    , spA % eta(i), spa % zeta(j)])
-            CALL vCross(grad_x(:,2), grad_x(:,3), jGrad)
-            nrm = NORM2(jGrad)
-            self % normal(:,i,j,ELEFT) = -jGrad/nrm
-            self % scal(i,j,ELEFT)     = nrm
+               grad_x = mapper % metricDerivativesAt([-1.0_RP    , spA % eta(i), spa % zeta(j)])
+               CALL vCross(grad_x(:,2), grad_x(:,3), jGrad)
+               nrm = NORM2(jGrad)
+               self % normal(:,i,j,ELEFT) = -jGrad/nrm
+               self % scal(i,j,ELEFT)     = nrm
 !
 !           ----------
 !           Right face
 !           ----------
 !
-            grad_x = mapper % metricDerivativesAt([ 1.0_RP    , spA % eta(i), spa % zeta(j)])
-            CALL vCross(grad_x(:,2), grad_x(:,3), jGrad)
-            nrm = NORM2(jGrad)
-            self % normal(:,i,j,ERIGHT) = jGrad/nrm
-            self % scal(i,j,ERIGHT)     = nrm          
+               grad_x = mapper % metricDerivativesAt([ 1.0_RP    , spA % eta(i), spa % zeta(j)])
+               CALL vCross(grad_x(:,2), grad_x(:,3), jGrad)
+               nrm = NORM2(jGrad)
+               self % normal(:,i,j,ERIGHT) = jGrad/nrm
+               self % scal(i,j,ERIGHT)     = nrm          
 !
 !           -----------
 !           bottom face
 !           -----------
 !
-            grad_x = mapper % metricDerivativesAt([spA % xi(i), spA % eta(j),    -1.0_RP   ])
-            CALL vCross(grad_x(:,1), grad_x(:,2), jGrad)
-            nrm = NORM2(jGrad)
-            self % normal(:,i,j,EBOTTOM) = -jGrad/nrm
-            self % scal(i,j,EBOTTOM)     = nrm
+               grad_x = mapper % metricDerivativesAt([spA % xi(i), spA % eta(j),    -1.0_RP   ])
+               CALL vCross(grad_x(:,1), grad_x(:,2), jGrad)
+               nrm = NORM2(jGrad)
+               self % normal(:,i,j,EBOTTOM) = -jGrad/nrm
+               self % scal(i,j,EBOTTOM)     = nrm
 !
 !           --------
 !           top face
 !           --------
 !
-            grad_x = mapper % metricDerivativesAt([spA % xi(i), spA % eta(j),     1.0_RP   ])
-            CALL vCross(grad_x(:,1), grad_x(:,2), jGrad)
-            nrm = NORM2(jGrad)
-            self % normal(:,i,j,ETOP) = jGrad/nrm
-            self % scal(i,j,ETOP)     = nrm
+               grad_x = mapper % metricDerivativesAt([spA % xi(i), spA % eta(j),     1.0_RP   ])
+               CALL vCross(grad_x(:,1), grad_x(:,2), jGrad)
+               nrm = NORM2(jGrad)
+               self % normal(:,i,j,ETOP) = jGrad/nrm
+               self % scal(i,j,ETOP)     = nrm
 !
 !           ----------
 !           front face
 !           ----------
 !
-            grad_x = mapper % metricDerivativesAt([spA % xi(i), -1.0_RP     , spa % zeta(j)  ])
-            CALL vCross(grad_x(:,3), grad_x(:,1), jGrad)
-            nrm = NORM2(jGrad)
-            self % normal(:,i,j,EFRONT) = -jGrad/nrm
-            self % scal(i,j,EFRONT)     = nrm
+               grad_x = mapper % metricDerivativesAt([spA % xi(i), -1.0_RP     , spa % zeta(j)  ])
+               CALL vCross(grad_x(:,3), grad_x(:,1), jGrad)
+               nrm = NORM2(jGrad)
+               self % normal(:,i,j,EFRONT) = -jGrad/nrm
+               self % scal(i,j,EFRONT)     = nrm
 !
 !           ---------
 !           back face
 !           ---------
 !
-            grad_x = mapper % metricDerivativesAt([spA % xi(i),  1.0_RP     , spa % zeta(j)  ])
-            CALL vCross(grad_x(:,3), grad_x(:,1), jGrad)
-            nrm = NORM2(jGrad)
-            self % normal(:,i,j,EBACK) = jGrad/nrm
-            self % scal(i,j,EBACK)     = nrm
-           
+               grad_x = mapper % metricDerivativesAt([spA % xi(i),  1.0_RP     , spa % zeta(j)  ])
+               CALL vCross(grad_x(:,3), grad_x(:,1), jGrad)
+               nrm = NORM2(jGrad)
+               self % normal(:,i,j,EBACK) = jGrad/nrm
+               self % scal(i,j,EBACK)     = nrm
+              
+            END DO
          END DO
-      END DO 
-      
-      ELSE 
-      !IF (.not.isHex8(mapper)) THEN 
+         
+      ELSE
+       
          CALL computeMetricTermsConservativeForm(self, spA, mapper)
+      
       ENDIF       
 
    END SUBROUTINE ConstructMappedGeometry
@@ -258,10 +267,9 @@ Module MappedGeometryClass
       
       REAL(KIND=RP) :: piN
       
-      INTEGER :: i, j, k, m, l, n, iFace, noGauss
+      INTEGER :: i, j, k, m, l, n, noGauss
       
       INTEGER :: polOrder(3)
-      real(KIND=RP) :: jacInv( 0:spA % N, 0:spA % N, 0:spA % N)
       
       REAL(KIND=RP), ALLOCATABLE :: xiInterpMat  (:,:)
       REAL(KIND=RP), ALLOCATABLE :: etaInterpMat (:,:)
@@ -540,11 +548,9 @@ Module MappedGeometryClass
 !           ----------
 !
             jGrad(:) = jGradEta(:,i,0,j)
-            !PRINT*, "jGrad",jGrad
             nrm = NORM2(jGrad)
             self % normal(:,i,j,EFRONT) = -jGrad/nrm
             self % scal(i,j,EFRONT)     = nrm 
-            !PRINT*, "normal",self % normal(:,i,j,EFRONT)
 !
 !           ---------
 !           back face

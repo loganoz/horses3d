@@ -43,12 +43,13 @@
                                 N_EQN, 3 )  :: contravariantFlux
       
       CALL ComputeContravariantFlux( e, contravariantFlux )
-      
+
       IF ( flowIsNavierStokes )     THEN
          CALL AddViscousContravariantFluxes(  e, contravariantFlux )
       END IF
       
       CALL ComputeDGDivergence( contravariantFlux, e, spA, e % Qdot ) !QDot saves the divergence
+
 !
 !     --------------------------------------------------------
 !     Finish up - move divergence to left side of the equation
@@ -233,7 +234,6 @@
       REAL(KIND=RP), DIMENSION(0:e % N, 0:e % N, 0:e % N, N_GRAD_EQN) :: g
       REAL(KIND=RP), DIMENSION(0:e % N, 0:e % N, 0:e % N, N_GRAD_EQN) :: h
       REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U
-      REAL(KIND=RP), DIMENSION(N_EQN) :: Q
       REAL(KIND=RP), DIMENSION(0:e % N, N_GRAD_EQN) :: fx
       
       INTEGER :: N, j, i, k, nv
@@ -244,28 +244,15 @@
       DO k = 0, e % N
          DO j = 0, e % N
             DO i = 0, e % N
-               Q = e % Q(i,j,k,:)
 
-               CALL GradientValuesForQ( Q = Q, U = U )
+               CALL GradientValuesForQ( Q = e % Q(i,j,k,:), U = U )
                
-               !CALL xflux( e % U(n,m,l,:), ff )
-               !CALL yflux( e % U(n,m,l,:), gg )
-               !CALL zflux( e % U(n,m,l,:), hh )
-
                DO nv = 1, N_GRAD_EQN
-               f(i,j,k,nv) = U(nv) * e % geom % jGradXi(1,i,j,k)
-               g(i,j,k,nv) = U(nv) * e % geom % jGradEta(1,i,j,k)
-               h(i,j,k,nv) = U(nv) * e % geom % jGradZeta(1,i,j,k) 
+         
+                  f(i,j,k,nv) = U(nv) * e % geom % jGradXi(1,i,j,k)
+                  g(i,j,k,nv) = U(nv) * e % geom % jGradEta(1,i,j,k)
+                  h(i,j,k,nv) = U(nv) * e % geom % jGradZeta(1,i,j,k) 
                
-!                  contravariantFlux(n,m,l,:,1) = e % geom % jGradXi(1,n,m,l)  *ff(:) +   &
-!                                                  e % geom % jGradXi(2,n,m,l)  *gg(:) +   &
-!                                                  e % geom % jGradXi(3,n,m,l)  *hh(:)
-!                  contravariantFlux(n,m,l,:,2) = e % geom % jGradEta(1,n,m,l) *ff(:) +   &
-!                                                  e % geom % jGradEta(2,n,m,l) *gg(:) +   &
-!                                                  e % geom % jGradEta(3,n,m,l) *hh(:)
-!                  contravariantFlux(n,m,l,:,3) = e % geom % jGradZeta(1,n,m,l)*ff(:) +   &
-!                                                  e % geom % jGradZeta(2,n,m,l)*gg(:) +   &
-!                                                  e % geom % jGradZeta(3,n,m,l)*hh(:)
                END DO
                
             END DO
@@ -335,24 +322,12 @@
 
                CALL GradientValuesForQ( e % Q(i,j,k,:), U )
 
-               !CALL xflux( e % U(n,m,l,:), ff )
-               !CALL yflux( e % U(n,m,l,:), gg )
-               !CALL zflux( e % U(n,m,l,:), hh )
-
                DO nv = 1, N_GRAD_EQN
-               f(i,j,k,nv) = U(nv) * e % geom % jGradXi(2,i,j,k)
-               g(i,j,k,nv) = U(nv) * e % geom % jGradEta(2,i,j,k)
-               h(i,j,k,nv) = U(nv) * e % geom % jGradZeta(2,i,j,k) 
-               
-!                  contravariantFlux(n,m,l,:,1) = e % geom % jGradXi(1,n,m,l)  *ff(:) +   &
-!                                                  e % geom % jGradXi(2,n,m,l)  *gg(:) +   &
-!                                                  e % geom % jGradXi(3,n,m,l)  *hh(:)
-!                  contravariantFlux(n,m,l,:,2) = e % geom % jGradEta(1,n,m,l) *ff(:) +   &
-!                                                  e % geom % jGradEta(2,n,m,l) *gg(:) +   &
-!                                                  e % geom % jGradEta(3,n,m,l) *hh(:)
-!                  contravariantFlux(n,m,l,:,3) = e % geom % jGradZeta(1,n,m,l)*ff(:) +   &
-!                                                  e % geom % jGradZeta(2,n,m,l)*gg(:) +   &
-!                                                  e % geom % jGradZeta(3,n,m,l)*hh(:)
+           
+                  f(i,j,k,nv) = U(nv) * e % geom % jGradXi(2,i,j,k)
+                  g(i,j,k,nv) = U(nv) * e % geom % jGradEta(2,i,j,k)
+                  h(i,j,k,nv) = U(nv) * e % geom % jGradZeta(2,i,j,k) 
+                  
                END DO
                
             END DO
@@ -422,24 +397,12 @@
 
                CALL GradientValuesForQ( e % Q(i,j,k,:), U )
 
-               !CALL xflux( e % U(n,m,l,:), ff )
-               !CALL yflux( e % U(n,m,l,:), gg )
-               !CALL zflux( e % U(n,m,l,:), hh )
-
                DO nv = 1, N_GRAD_EQN
-               f(i,j,k,nv) = U(nv) * e % geom % jGradXi(3,i,j,k)
-               g(i,j,k,nv) = U(nv) * e % geom % jGradEta(3,i,j,k)
-               h(i,j,k,nv) = U(nv) * e % geom % jGradZeta(3,i,j,k) 
+         
+                  f(i,j,k,nv) = U(nv) * e % geom % jGradXi(3,i,j,k)
+                  g(i,j,k,nv) = U(nv) * e % geom % jGradEta(3,i,j,k)
+                  h(i,j,k,nv) = U(nv) * e % geom % jGradZeta(3,i,j,k) 
                
-!                  contravariantFlux(n,m,l,:,1) = e % geom % jGradXi(1,n,m,l)  *ff(:) +   &
-!                                                  e % geom % jGradXi(2,n,m,l)  *gg(:) +   &
-!                                                  e % geom % jGradXi(3,n,m,l)  *hh(:)
-!                  contravariantFlux(n,m,l,:,2) = e % geom % jGradEta(1,n,m,l) *ff(:) +   &
-!                                                  e % geom % jGradEta(2,n,m,l) *gg(:) +   &
-!                                                  e % geom % jGradEta(3,n,m,l) *hh(:)
-!                  contravariantFlux(n,m,l,:,3) = e % geom % jGradZeta(1,n,m,l)*ff(:) +   &
-!                                                  e % geom % jGradZeta(2,n,m,l)*gg(:) +   &
-!                                                  e % geom % jGradZeta(3,n,m,l)*hh(:)
                END DO
                
             END DO
@@ -553,7 +516,7 @@
                CALL zDiffusiveFlux( e % Q(n,m,l,:), grad, hh )
 
                DO nv = 1, N_EQN
-                  
+
                   contravariantFlux(n,m,l,nv,1) =   contravariantFlux(n,m,l,nv,1) -          &
                                                   ( e % geom % jGradXi(1,n,m,l)  *ff(nv) +   &
                                                     e % geom % jGradXi(2,n,m,l)  *gg(nv) +   &
@@ -566,47 +529,6 @@
                                                   ( e % geom % jGradZeta(1,n,m,l)*ff(nv) +   &
                                                     e % geom % jGradZeta(2,n,m,l)*gg(nv) +   &
                                                     e % geom % jGradZeta(3,n,m,l)*hh(nv) )   
-!                  IF (ABS( ( e % geom % jGradXi(1,n,m,l)  *ff(nv) +   &
-!                                                    e % geom % jGradXi(2,n,m,l)  *gg(nv) +   &
-!                                                    e % geom % jGradXi(3,n,m,l)  *hh(nv) ) )  > 1.d-13 ) THEN
-                                                    
-!                  PRINT*, "n,m,l"
-!                  PRINT*, n,m,l
-!                  PRINT*, contravariantFlux(n,m,l,nv,:)
-!                  PRINT*, ( e % geom % jGradXi(1,n,m,l)  *ff(nv) +   &
-!                                                    e % geom % jGradXi(2,n,m,l)  *gg(nv) +   &
-!                                                    e % geom % jGradXi(3,n,m,l)  *hh(nv) ) 
-!                  PRINT*, "----------------------------"
-!                  
-!                  ENDIF 
-!                  
-!                  IF (ABS( ( e % geom % jGradEta(1,n,m,l) *ff(nv) +   &
-!                                                    e % geom % jGradEta(2,n,m,l) *gg(nv) +   &
-!                                                    e % geom % jGradEta(3,n,m,l) *hh(nv) ) )  > 1.d-13 ) THEN
-!                                                    
-!                  PRINT*, "n,m,l"
-!                  PRINT*, n,m,l
-!                  PRINT*, contravariantFlux(n,m,l,nv,:)
-!                  PRINT*,  ( e % geom % jGradEta(1,n,m,l) *ff(nv) +   &
-!                                                    e % geom % jGradEta(2,n,m,l) *gg(nv) +   &
-!                                                    e % geom % jGradEta(3,n,m,l) *hh(nv) )
-!                  PRINT*, "----------------------------"
-!                  
-!                  ENDIF 
-!                  
-!                  IF (ABS( ( e % geom % jGradZeta(1,n,m,l)*ff(nv) +   &
-!                                                    e % geom % jGradZeta(2,n,m,l)*gg(nv) +   &
-!                                                    e % geom % jGradZeta(3,n,m,l)*hh(nv) ) )  > 1.d-13 ) THEN
-!                                                    
-!                  PRINT*, "n,m,l"
-!                  PRINT*, n,m,l
-!                  PRINT*, contravariantFlux(n,m,l,nv,:)
-!                  PRINT*, ( e % geom % jGradZeta(1,n,m,l)*ff(nv) +   &
-!                                                    e % geom % jGradZeta(2,n,m,l)*gg(nv) +   &
-!                                                    e % geom % jGradZeta(3,n,m,l)*hh(nv) ) 
-!                  PRINT*, "----------------------------"
-!                  
-!                  ENDIF 
                                                       
                END DO
                
@@ -630,18 +552,13 @@
                CALL xDiffusiveFlux( e % Qb(:,i,j,k), grad, ff )
                CALL yDiffusiveFlux( e % Qb(:,i,j,k), grad, gg )
                CALL zDiffusiveFlux( e % Qb(:,i,j,k), grad, hh )
-            
+
                e % FStarb(:,i,j,k) = e % FStarb(:,i,j,k) - &
                                    ( ff * e % geom % normal(1,i,j,k) + &
                                    & gg * e % geom % normal(2,i,j,k) + &
                                    & hh * e % geom % normal(3,i,j,k)) &
                                    * e % geom % scal(i,j,k)
-!               IF (MAXVAL (ABS( ff * e % geom % normal(1,i,j,k) + &
-!                                   & gg * e % geom % normal(2,i,j,k) + &
-!                                   & hh * e % geom % normal(3,i,j,k)) &
-!                                   * e % geom % scal(i,j,k))>1.d-13) THEN 
-!                                   PRINT*, "error"
-!               ENDIF 
+
              END DO 
           END DO
       ENDDO 

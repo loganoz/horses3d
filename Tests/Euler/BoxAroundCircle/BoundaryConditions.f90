@@ -231,7 +231,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, u_z )
+      SUBROUTINE NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z )
          IMPLICIT NONE
 !
 !        ---------
@@ -246,7 +246,7 @@
 !        Local Variables
 !        ---------------
 !
-         INTEGER :: k = 3 ! = temperature
+         INTEGER :: k = 4 ! = temperature
 !
          REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
 !

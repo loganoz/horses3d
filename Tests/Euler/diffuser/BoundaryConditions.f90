@@ -246,7 +246,7 @@
 !        Local Variables
 !        ---------------
 !
-         INTEGER :: k = 3 ! = temperature
+         INTEGER :: k = 4 ! = temperature
 !
          REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
 !
