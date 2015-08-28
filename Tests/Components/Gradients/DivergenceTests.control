@@ -10,9 +10,9 @@ Number of plot points = 6
 Convergence tolerance = 1.d-10
 cfl                   = 0.9
 mach number           = 0.5
+Reynolds number       = 0.0
 AOA theta             = 0.0
 AOA phi               = 0.0
-Reynolds number       = 0.0
 Number of boundaries  = 6
 front 0.0 Inflow
 back 0.0 Inflow
