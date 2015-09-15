@@ -409,7 +409,7 @@
 !
                      CALL GradientValuesForQ( self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft), UL )
                      CALL GradientValuesForQ( bvExt, UR )
-                     
+
                      d = 0.5_RP*(UL + UR)
                
                      self % mesh % elements(eIDLeft) % Ub (:,i,j,fIDLeft) = d
@@ -418,8 +418,13 @@
 !              Solution averages
 !              -----------------
 !
-                     self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft)    = &
-                     & 0.5_RP*( self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft) + bvExt )
+                     CALL DiffusionRiemannSolution( self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
+                                                    self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft), &
+                                                    bvExt, &
+                                                    self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft) )
+                                                    
+                     !self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft)    = &
+                     !& 0.5_RP*( self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft) + bvExt )
 
                   END DO   
                END DO   

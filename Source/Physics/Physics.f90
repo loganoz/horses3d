@@ -174,10 +174,10 @@
 !     ---------
 !
       INTEGER, PARAMETER   :: WALL_BC = 1, RADIATION_BC = 2
-      INTEGER, PARAMETER   :: ROE = 0, LXF = 1
+      INTEGER, PARAMETER   :: ROE = 0, LXF = 1, RUSANOV = 2
       REAL(KIND=RP)        :: waveSpeed
       INTEGER              :: boundaryCondition(4), bcType
-      INTEGER              :: riemannSolverChoice = ROE
+      INTEGER              :: riemannSolverChoice = RUSANOV
 !
 !     ========
       CONTAINS 
@@ -202,6 +202,8 @@
                PRINT *, "3D LXF to be implemented..."
                STOP !DEBUG
                CALL LxFSolver( QLeft, QRight, nHat, flux )
+            CASE (RUSANOV)
+               CALL RusanovSolver( QLeft, QRight, nHat, flux )               
             CASE DEFAULT
                PRINT *, "Undefined choice of Riemann Solver. Abort"
                STOP
@@ -381,6 +383,104 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
+      SUBROUTINE RusanovSolver( QLeft, QRight, nHat, flux )
+      
+         IMPLICIT NONE
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         REAL(KIND=RP), DIMENSION(N_EQN) :: Qleft, Qright, flux
+         REAL(KIND=RP), DIMENSION(3)     :: nHat
+!
+!        ---------------
+!        Local Variables
+!        ---------------
+!
+!
+         REAL(KIND=RP) :: rho , rhou , rhov , rhow  , rhoe
+         REAL(KIND=RP) :: rhon, rhoun, rhovn, rhown , rhoen
+         REAL(KIND=RP) :: ul  , vl   , wl   , pleft , ql  , hl  , betal, al, al2
+         REAL(KIND=RP) :: ur  , vr   , wr   , pright, qr  , hr  , betar, ar, ar2
+         REAL(KIND=RP) :: rtd , utd  , vtd  , wtd   , htd , atd2, atd, qtd
+         REAL(KIND=RP) :: dw1 , sp1  , sp1m , hd1m  , eta1, udw1, rql
+         REAL(KIND=RP) :: dw4 , sp4  , sp4p , hd4   , eta4, udw4, rqr
+         REAL(KIND=RP)                   :: ds = 1.0_RP
+         
+         REAL(KIND=RP) :: smax, smaxL, smaxR
+         REAL(KIND=RP) :: Leigen(2), Reigen(2)
+         !REAL(KIND=RP) :: gamma = 1.4_RP
+      
+         rho  = Qleft(1)
+         rhou = Qleft(2)
+         rhov = Qleft(3)
+         rhow = Qleft(4)
+         rhoe = Qleft(5)
+   
+         rhon  = Qright(1)
+         rhoun = Qright(2)
+         rhovn = Qright(3)
+         rhown = Qright(4)
+         rhoen = Qright(5)
+   
+         ul = rhou/rho 
+         vl = rhov/rho 
+         wl = rhow/rho 
+         pleft = (gamma-1._RP)*(rhoe - 0.5_RP/rho*                        &
+        &                           (rhou**2 + rhov**2 + rhow**2 )) 
+!
+         ur = rhoun/rhon 
+         vr = rhovn/rhon 
+         wr = rhown/rhon 
+         pright = (gamma-1._RP)*(rhoen - 0.5_RP/rhon*                    &
+        &                           (rhoun**2 + rhovn**2+ rhown**2)) 
+!
+         ql = nHat(1)*ul + nHat(2)*vl + nHat(3)*wl
+         qr = nHat(1)*ur + nHat(2)*vr + nHat(3)*wr
+         hl = 0.5_RP*(ul*ul + vl*vl + wl*wl) +                               &
+        &                 gamma/(gamma-1._RP)*pleft/rho 
+         hr = 0.5_RP*(ur*ur + vr*vr + wr*wr) +                               &
+        &                  gamma/(gamma-1._RP)*pright/rhon 
+!
+!        ---------------------
+!        Square root averaging  
+!        ---------------------
+!
+         rtd = sqrt(rho*rhon) 
+         betal = rho/(rho + rtd) 
+         betar = 1._RP - betal 
+         utd = betal*ul + betar*ur 
+         vtd = betal*vl + betar*vr 
+         wtd = betal*wl + betar*wr 
+         htd = betal*hl + betar*hr 
+         atd2 = (gamma-1._RP)*(htd - 0.5_RP*(utd*utd + vtd*vtd + wtd*wtd)) 
+         atd = sqrt(atd2) 
+         qtd = utd*nHat(1) + vtd*nHat(2)  + wtd*nHat(3)
+         !Rusanov
+         ar2 = (gamma-1.d0)*(hr - 0.5d0*(ur*ur + vr*vr + wr*wr)) 
+         al2 = (gamma-1.d0)*(hl - 0.5d0*(ul*ul + vl*vl + wl*wl)) 
+         ar = SQRT(ar2)
+         al = SQRT(al2)
+!           
+         rql = rho*ql 
+         rqr = rhon*qr             
+         flux(1) = ds*(rql + rqr) 
+         flux(2) = ds*(rql*ul + pleft*nHat(1) + rqr*ur + pright*nHat(1)) 
+         flux(3) = ds*(rql*vl + pleft*nHat(2) + rqr*vr + pright*nHat(2))
+         flux(4) = ds*(rql*wl + pleft*nHat(3) + rqr*wr + pright*nHat(3)) 
+         flux(5) = ds*(rql*hl + rqr*hr) 
+
+         smax = MAX(ar+ABS(qr),al+ABS(ql))
+
+         flux = (flux - ds*smax*(Qright-Qleft))/2.d0
+
+         RETURN 
+         
+      END SUBROUTINE RusanovSolver           
+!
+!     ////////////////////////////////////////////////////////////////////////////////////////
+!
       SUBROUTINE xFlux( Q, f )
          IMPLICIT NONE
 !
@@ -494,7 +594,7 @@
 !
 !@mark -
 !---------------------------------------------------------------------
-!! DiffusionRiemannSolution comutes the coupling on the solution for
+!! DiffusionRiemannSolution computes the coupling on the solution for
 !! the calculation of the gradient terms.
 !---------------------------------------------------------------------
 !
@@ -527,7 +627,7 @@
 ! /////////////////////////////////////////////////////////////////////////////
 !
 !-----------------------------------------------------------------------------
-!! DiffusionRiemannSolution comutes the coupling on the gradients for
+!! DiffusionRiemannSolution computes the coupling on the gradients for
 !! the calculation of the contravariant diffusive flux.
 !-----------------------------------------------------------------------------
 !
