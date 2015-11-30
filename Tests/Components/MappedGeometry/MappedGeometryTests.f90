@@ -512,7 +512,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-9,              &
+                            tol           = 5.d-9,              &
                             msg           = "Computation of jGradZeta")
 !
 !        ------------------------
@@ -616,14 +616,14 @@
                CALL mapSubroutine([-1.0_RP, uKnots(i), vKnots(j)], points(:,i,j))
             END DO   
          END DO
-         CALL ConstructFacePatch( faceData(4), uKnots, vKnots, points )
+         CALL ConstructFacePatch( faceData(6), uKnots, vKnots, points )
 
          DO j = 1, nVKnots
             DO i = 1, nUKnots
                CALL mapSubroutine([1.0_RP, uKnots(i), vKnots(j)], points(:,i,j))
             END DO   
          END DO
-         CALL ConstructFacePatch( faceData(6), uKnots, vKnots, points )
+         CALL ConstructFacePatch( faceData(4), uKnots, vKnots, points )
 !
 !        ---------------------
 !        Construct the mapper 
