@@ -547,7 +547,7 @@
 !     Arguments
 !     ---------
 !
-      INTEGER                          :: nc
+      INTEGER                      :: nc
       REAL(KIND=RP), DIMENSION(nc) :: xVals, table
       REAL(KIND=RP)                :: x
       REAL(KIND=RP)                :: EvaluateNewtonPolynomialDeriv
@@ -561,10 +561,12 @@
       INTEGER                          :: i,j
       
       pp = table(2)
+      EvaluateNewtonPolynomialDeriv = pp
       IF( nc == 2 )     RETURN
       s(1) = x - xVals(1)
       s(2) = x - xVals(2)
       pp = pp + (s(1) + s(2))*table(3)
+      EvaluateNewtonPolynomialDeriv = pp
       IF( nc == 3 )     RETURN
       w = s(1)*s(2)
       
