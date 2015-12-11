@@ -701,8 +701,6 @@
          REAL(KIND=RP)                      :: du, dv, dw, u, v, w
          REAL(KIND=RP)                      :: x(3), p(3), e, grad_x(3,3), grad_x_Exact(3,3)
          INTEGER                            :: i, j, k, N, M, L
-         INTEGER                            :: iUnit
-         INTEGER                            :: iMax, jMax, kMax
          TYPE(TransfiniteHexMap)            :: mapper
 !
 !        ---------------
@@ -855,8 +853,6 @@
          REAL(KIND=RP)                      :: du, dv, dw, u, v, w
          REAL(KIND=RP)                      :: x(3), p(3), e, e_grad, grad_x(3,3), grad_x_Exact(3,3)
          INTEGER                            :: i, j, k, N, M, L
-         INTEGER                            :: iUnit
-         INTEGER                            :: iMax, jMax, kMax
          TYPE(TransfiniteHexMap)            :: mapper
          
          nUknots = 10
@@ -1038,7 +1034,7 @@
 !        Local variables
 !        ---------------
 !
-         INTEGER                 :: i, j, k, N, M, L
+         INTEGER                 :: i, j, k
          INTEGER                 :: iUnit
          INTEGER                 :: iMax, jMax, kMax
          REAL(KIND=RP)           :: u, v, w, du, dv, dw, x(3)

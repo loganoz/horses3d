@@ -129,6 +129,7 @@
 !           Local variables
 !           ---------------
 !
+            INTEGER                            :: numberOfFailures
             CHARACTER(LEN=29)                  :: testName           = "27 element uniform flow tests"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)

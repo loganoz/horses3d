@@ -14,6 +14,7 @@
       IMPLICIT NONE
       
       TYPE(TestSuiteManager) :: testSuite
+      INTEGER                :: numberOfFailures
       
       EXTERNAL                     :: TestDivergence
       EXTERNAL                     :: TestGradients
@@ -60,8 +61,11 @@
                                                     testName       = msg)
       END DO      
       
-      CALL testSuite % performTests()
+      CALL testSuite % performTests(numberOfFailures)
       CALL testSuite % finalize()
+         
+      IF(numberOfFailures > 0)   STOP 99
+         
       
       END PROGRAM TestDivergenceMain
 !
