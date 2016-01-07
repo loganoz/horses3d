@@ -11,7 +11,7 @@
          IMPLICIT NONE  
          EXTERNAL :: quadraticFaceSurface, quadraticFaceSurfaceGradient
 !
-         CALL surfaceTest(4, 4, quadraticFaceSurface, quadraticFaceSurfaceGradient, 1.d-13)
+         CALL surfaceTest(3, 3, quadraticFaceSurface, quadraticFaceSurfaceGradient, 1.d-13)
          
       END SUBROUTINE quadraticFaceTest
 !
@@ -24,6 +24,16 @@
          CALL surfaceTest(2, 2, flatFaceSurface, flatFaceSurfaceGradient, 1.d-13)
          
       END SUBROUTINE flatFaceTest
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE cubicFaceTest  
+         IMPLICIT NONE  
+         EXTERNAL :: cubicFaceSurface     , cubicFaceSurfaceGradient
+!
+         CALL surfaceTest(4, 4, cubicFaceSurface, cubicFaceSurfaceGradient, 1.d-13)
+         
+      END SUBROUTINE cubicFaceTest
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -213,6 +223,46 @@
          grad(3,2) = 2*y
 
       END SUBROUTINE quadraticFaceSurfaceGradient
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE cubicFaceSurface(x,y,p)
+         USE SMConstants
+         IMPLICIT NONE
+         REAL(KIND=RP) :: x, y
+         REAL(KIND=RP) :: p(3)
+         
+         p(1) = x
+         p(2) = y
+         p(3) = x**3 + y**3
+         
+      END SUBROUTINE cubicFaceSurface
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE cubicFaceSurfaceGradient(x,y,grad)
+         USE SMConstants
+         IMPLICIT NONE
+         REAL(KIND=RP) :: x, y
+         REAL(KIND=RP) :: grad(3,2)
+!
+!        -------------
+!        u derivatives
+!        -------------
+!
+         grad(1,1) = 1.0_RP
+         grad(2,1) = 0.0_RP
+         grad(3,1) = 3*x**2
+!
+!        ----------------------
+!        v derivatives         
+!        ----------------------
+!
+         grad(1,2) = 0.0_RP
+         grad(2,2) = 1.0_RP
+         grad(3,2) = 3*y**2
+
+      END SUBROUTINE cubicFaceSurfaceGradient
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

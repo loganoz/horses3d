@@ -58,7 +58,7 @@
                DO i = 0, N
                   xMap =  mapper % transfiniteMapAt([spA % xi(i), spA % eta(j), spA % zeta(k)])
                   x    = geom % x(:,i,j,k)
-                  e    = MAXVAL(ABS(x - xMap))
+                  e    = MAX(MAXVAL(ABS(x - xMap)),e)
                END DO   
             END DO   
          END DO
@@ -77,7 +77,7 @@
             DO i = 0, N
                xMap = mapper % transfiniteMapAt([-1.0_RP, spA % eta(i), spA % zeta(j)])
                x    = geom % xb(:,i,j,ELEFT)
-               e    = MAXVAL(ABS(x - xMap))
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
          END DO   
          
@@ -90,7 +90,7 @@
             DO i = 0, N
                xMap = mapper % transfiniteMapAt([1.0_RP, spA % eta(i), spA % zeta(j)])
                x    = geom % xb(:,i,j,ERIGHT)
-               e    = MAXVAL(ABS(x - xMap))
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
          END DO   
          
@@ -103,7 +103,7 @@
             DO i = 0, N
                xMap = mapper % transfiniteMapAt([spA % xi(i), spA % eta(j), -1.0_RP ])
                x    = geom % xb(:,i,j,EBOTTOM)
-               e    = MAXVAL(ABS(x - xMap))
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
          END DO   
          
@@ -116,7 +116,7 @@
             DO i = 0, N
                xMap = mapper % transfiniteMapAt([spA % xi(i), spA % eta(j), 1.0_RP ])
                x    = geom % xb(:,i,j,ETOP)
-               e    = MAXVAL(ABS(x - xMap))
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
          END DO   
          
@@ -142,7 +142,7 @@
             DO i = 0, N
                xMap = mapper % transfiniteMapAt([spA % xi(i),  1.0_RP, spA % zeta(j)])
                x    = geom % xb(:,i,j,EBACK)
-               e    = MAXVAL(ABS(x - xMap))
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
          END DO   
          
@@ -160,7 +160,7 @@
          DO j = 0, N
             DO i = 0, N
                x    = geom % normal(:,i,j,ELEFT)
-               e    = MAXVAL(ABS(x - xMap))
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
          END DO   
          
@@ -173,7 +173,7 @@
          DO j = 0, N
             DO i = 0, N
                x    = geom % normal(:,i,j,ERIGHT)
-               e    = MAXVAL(ABS(x - xMap))
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
          END DO   
          
@@ -186,7 +186,7 @@
          DO j = 0, N
             DO i = 0, N
                x    = geom % normal(:,i,j,EBOTTOM)
-               e    = MAXVAL(ABS(x - xMap))
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
          END DO   
          
@@ -199,7 +199,7 @@
          DO j = 0, N
             DO i = 0, N
                x    = geom % normal(:,i,j,ETOP)
-               e    = MAXVAL(ABS(x - xMap))
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
          END DO   
          
@@ -212,7 +212,7 @@
          DO j = 0, N
             DO i = 0, N
                x    = geom % normal(:,i,j,EFRONT)
-               e    = MAXVAL(ABS(x - xMap))
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
          END DO   
          
@@ -225,7 +225,7 @@
          DO j = 0, N
             DO i = 0, N
                x    = geom % normal(:,i,j,EBACK)
-               e    = MAXVAL(ABS(x - xMap))
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
          END DO   
          
@@ -261,7 +261,7 @@
             DO j = 0, N
                DO i = 0, N
                   x    = geom % jGradXi(:,i,j,k)
-                  e    = MAXVAL(ABS(x - [1.5_RP,0.0_RP,0.0_RP]))
+                  e    = MAX(MAXVAL(ABS(x - [1.5_RP,0.0_RP,0.0_RP])),e)
                END DO   
             END DO   
          END DO
@@ -280,7 +280,7 @@
             DO j = 0, N
                DO i = 0, N
                   x    = geom % jGradEta(:,i,j,k)
-                  e    = MAXVAL(ABS(x - [0.0_RP,0.75_RP,0.0_RP]))
+                  e    = MAX(MAXVAL(ABS(x - [0.0_RP,0.75_RP,0.0_RP])),e)
                END DO   
             END DO   
          END DO
@@ -299,7 +299,7 @@
             DO j = 0, N
                DO i = 0, N
                   x    = geom % jGradZeta(:,i,j,k)
-                  e    = MAXVAL(ABS(x - [0.0_RP,0.0_RP,0.5_RP]))
+                  e    = MAX(MAXVAL(ABS(x - [0.0_RP,0.0_RP,0.5_RP])),e)
                END DO   
             END DO   
          END DO
@@ -324,7 +324,7 @@
          TYPE(NodalStorage)      :: spA
          TYPE(MappedGeometry)    :: geom
          TYPE(TransfiniteHexMap) :: mapper
-         REAL(KIND=RP)           :: corners(3,8), Jai(3,3)
+         REAL(KIND=RP)           :: corners(3,8), Jai(3,3), xMap(3)
          REAL(KIND=RP)           :: e, x(3), eScal, p(3), jac, exactJac
          REAL(KIND=RP)           :: u, v, w
          INTEGER                 :: i, j, k, N
@@ -370,6 +370,172 @@
                             actualValue = e,        &
                             tol = 1.d-9,           &
                             msg = "Mapped Geometry nodal locations max Error")
+!
+!        -----------
+!        Face values
+!        -----------
+!
+         e = 0.0_RP
+         DO j = 0, N
+            DO i = 0, N
+               xMap = mapper % transfiniteMapAt([-1.0_RP, spA % eta(i), spA % zeta(j)])
+               x    = geom % xb(:,i,j,ELEFT)
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
+            END DO   
+         END DO   
+         
+         CALL FTAssertEqual(expectedValue = 0.0_RP,              &
+                            actualValue   = e,                   &
+                            tol           = 1.d-9,              &
+                            msg           = "Left face locations")
+         e = 0.0_RP
+         DO j = 0, N
+            DO i = 0, N
+               xMap = mapper % transfiniteMapAt([1.0_RP, spA % eta(i), spA % zeta(j)])
+               x    = geom % xb(:,i,j,ERIGHT)
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
+            END DO   
+         END DO   
+         
+         CALL FTAssertEqual(expectedValue = 0.0_RP,              &
+                            actualValue   = e,                   &
+                            tol           = 1.d-9,              &
+                            msg           = "Right face locations")
+         e = 0.0_RP
+         DO j = 0, N
+            DO i = 0, N
+               xMap = mapper % transfiniteMapAt([spA % xi(i), spA % eta(j), -1.0_RP ])
+               x    = geom % xb(:,i,j,EBOTTOM)
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
+            END DO   
+         END DO   
+         
+         CALL FTAssertEqual(expectedValue = 0.0_RP,              &
+                            actualValue   = e,                   &
+                            tol           = 1.d-9,              &
+                            msg           = "Bottom face locations")
+         e = 0.0_RP
+         DO j = 0, N
+            DO i = 0, N
+               xMap = mapper % transfiniteMapAt([spA % xi(i), spA % eta(j), 1.0_RP ])
+               x    = geom % xb(:,i,j,ETOP)
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
+            END DO   
+         END DO   
+         
+         CALL FTAssertEqual(expectedValue = 0.0_RP,              &
+                            actualValue   = e,                   &
+                            tol           = 1.d-9,              &
+                            msg           = "Top face locations")
+         e = 0.0_RP
+         DO j = 0, N
+            DO i = 0, N
+               xMap = mapper % transfiniteMapAt([spA % xi(i), -1.0_RP, spA % zeta(j)])
+               x    = geom % xb(:,i,j,EFRONT)
+               e    = MAXVAL(ABS(x - xMap))
+            END DO   
+         END DO   
+         
+         CALL FTAssertEqual(expectedValue = 0.0_RP,              &
+                            actualValue   = e,                   &
+                            tol           = 1.d-9,              &
+                            msg           = "Front face locations")
+         e = 0.0_RP
+         DO j = 0, N
+            DO i = 0, N
+               xMap = mapper % transfiniteMapAt([spA % xi(i),  1.0_RP, spA % zeta(j)])
+               x    = geom % xb(:,i,j,EBACK)
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
+            END DO   
+         END DO   
+         
+         CALL FTAssertEqual(expectedValue = 0.0_RP,              &
+                            actualValue   = e,                   &
+                            tol           = 1.d-9,              &
+                            msg           = "Back face locations")
+!
+!        --------------------------------
+!        Face values - should match faces
+!        --------------------------------
+!
+         e = 0.0_RP
+         DO j = 0, N
+            DO i = 0, N
+               CALL ComputeFacePoint(self = mapper % faces(6),u = [spA % eta(i), spA % zeta(j)],p = xMap)
+               x    = geom % xb(:,i,j,ELEFT)
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
+            END DO   
+         END DO   
+         
+         CALL FTAssertEqual(expectedValue = 0.0_RP,              &
+                            actualValue   = e,                   &
+                            tol           = 1.d-9,              &
+                            msg           = "Left face locations matching input face")
+         e = 0.0_RP
+         DO j = 0, N
+            DO i = 0, N
+               CALL ComputeFacePoint(self = mapper % faces(4),u = [spA % eta(i), spA % zeta(j)],p = xMap)
+               x    = geom % xb(:,i,j,ERIGHT)
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
+            END DO   
+         END DO   
+         
+         CALL FTAssertEqual(expectedValue = 0.0_RP,              &
+                            actualValue   = e,                   &
+                            tol           = 1.d-9,              &
+                            msg           = "Right face locations matching input face")
+         e = 0.0_RP
+         DO j = 0, N
+            DO i = 0, N
+               CALL ComputeFacePoint(self = mapper % faces(3),u = [spA % eta(i), spA % zeta(j)],p = xMap)
+               x    = geom % xb(:,i,j,EBOTTOM)
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
+            END DO   
+         END DO   
+         
+         CALL FTAssertEqual(expectedValue = 0.0_RP,              &
+                            actualValue   = e,                   &
+                            tol           = 1.d-9,              &
+                            msg           = "Bottom face locations matching input face")
+         e = 0.0_RP
+         DO j = 0, N
+            DO i = 0, N
+               CALL ComputeFacePoint(self = mapper % faces(5),u = [spA % eta(i), spA % zeta(j)],p = xMap)
+               x    = geom % xb(:,i,j,ETOP)
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
+            END DO   
+         END DO   
+         
+         CALL FTAssertEqual(expectedValue = 0.0_RP,              &
+                            actualValue   = e,                   &
+                            tol           = 1.d-9,              &
+                            msg           = "Top face locations matching input face")
+         e = 0.0_RP
+         DO j = 0, N
+            DO i = 0, N
+               CALL ComputeFacePoint(self = mapper % faces(1),u = [spA % eta(i), spA % zeta(j)],p = xMap)
+               x    = geom % xb(:,i,j,EFRONT)
+               e    = MAXVAL(ABS(x - xMap))
+            END DO   
+         END DO   
+         
+         CALL FTAssertEqual(expectedValue = 0.0_RP,              &
+                            actualValue   = e,                   &
+                            tol           = 1.d-9,              &
+                            msg           = "Front face locations matching input face")
+         e = 0.0_RP
+         DO j = 0, N
+            DO i = 0, N
+               CALL ComputeFacePoint(self = mapper % faces(2),u = [spA % eta(i), spA % zeta(j)],p = xMap)
+               x    = geom % xb(:,i,j,EBACK)
+               e    = MAX(MAXVAL(ABS(x - xMap)),e)
+            END DO   
+         END DO   
+         
+         CALL FTAssertEqual(expectedValue = 0.0_RP,              &
+                            actualValue   = e,                   &
+                            tol           = 1.d-9,              &
+                            msg           = "Back face locations matching input face")
 !
 !        -------
 !        Normals
@@ -512,7 +678,7 @@
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
                             actualValue   = e,                   &
-                            tol           = 1.d-9,              &
+                            tol           = 5.d-9,              &
                             msg           = "Computation of jGradZeta")
 !
 !        ------------------------
@@ -616,14 +782,14 @@
                CALL mapSubroutine([-1.0_RP, uKnots(i), vKnots(j)], points(:,i,j))
             END DO   
          END DO
-         CALL ConstructFacePatch( faceData(4), uKnots, vKnots, points )
+         CALL ConstructFacePatch( faceData(6), uKnots, vKnots, points )
 
          DO j = 1, nVKnots
             DO i = 1, nUKnots
                CALL mapSubroutine([1.0_RP, uKnots(i), vKnots(j)], points(:,i,j))
             END DO   
          END DO
-         CALL ConstructFacePatch( faceData(6), uKnots, vKnots, points )
+         CALL ConstructFacePatch( faceData(4), uKnots, vKnots, points )
 !
 !        ---------------------
 !        Construct the mapper 

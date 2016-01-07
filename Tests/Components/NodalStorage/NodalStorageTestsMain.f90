@@ -13,14 +13,17 @@
          IMPLICIT NONE  
          
          TYPE(TestSuiteManager) :: testSuite
-         EXTERNAL :: testNodalStorage
+         INTEGER                :: numberOfFailures
+         EXTERNAL               :: testNodalStorage
          
          CALL testSuite % init()
          
          CALL testSuite % addTestSubroutineWithName(testNodalStorage,"Nodal Storage Test")
          
-         CALL testSuite % performTests()
+         CALL testSuite % performTests(numberOfFailures)
          
          CALL testSuite % finalize()
+         
+         IF(numberOfFailures > 0)   STOP 99
 
       END PROGRAM NodalStorageTestsMain

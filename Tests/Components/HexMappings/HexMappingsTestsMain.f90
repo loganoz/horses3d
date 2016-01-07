@@ -11,6 +11,7 @@
          USE TestSuiteManagerClass
          IMPLICIT NONE
          TYPE(TestSuiteManager) :: testSuite
+         INTEGER                :: numberOFFailures
          EXTERNAL               :: testCube
          EXTERNAL               :: testGenHexAsCube
          EXTERNAL               :: testFlaredHex8
@@ -29,9 +30,11 @@
          CALL testSuite % addTestSubroutineWithName(testFlaredHex8AsGeneralWithMapper, "Flared hex as General Hex8 with mapper")
          CALL testSuite % addTestSubroutineWithName(testCylindricalMappingWithMapper,"Cylindrical Geometry with mapper")
         
-         CALL testSuite % performTests()
+         CALL testSuite % performTests(numberOfFailures)
          
          CALL testSuite % finalize()
+         
+         IF(numberOFFailures > 0) STOP 99
          
       
       END PROGRAM HexMappingsTests

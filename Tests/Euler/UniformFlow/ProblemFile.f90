@@ -129,6 +129,7 @@
 !           Local variables
 !           ---------------
 !
+            INTEGER                            :: numberOfFailures
             CHARACTER(LEN=29)                  :: testName           = "27 element uniform flow tests"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
@@ -141,8 +142,8 @@
 !           when the eigenvalue computation for the time step is fixed.
 !           -----------------------------------------------------------------------
 !
-            INTEGER                            :: expectedIterations = 3279
-            REAL(KIND=RP)                      :: expectedResidual   = 9.8143512045422938E-011
+            INTEGER                            :: expectedIterations = 3197
+            REAL(KIND=RP)                      :: expectedResidual   = 9.8941853350878228D-011
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
