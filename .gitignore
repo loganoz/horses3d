@@ -19,6 +19,8 @@ CVS
 
 #Tests noise
 Tests/*/*/Build/*
+Tests/*/*/Build_Debug/*
+Tests/*/*/Build_Release/*
 Tests/*/*/RestartFiles/*
 Tests/*/*/PlotFiles/*
 nslite3d
@@ -26,3 +28,4 @@ Tests/*/*/nslite3d
 Tests/*/*/*.fide
 Tests/Euler/BoxAroundCircle/nslite3BoxAroundCircle
 Tests/Euler/UniformFlow/nslite3DUF
+Tests/TestMeshes/CylinderNSpol3_v2.mesh
