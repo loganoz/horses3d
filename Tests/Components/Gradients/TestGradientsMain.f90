@@ -45,14 +45,14 @@
 !     Test the divergence on each of the meshes
 !     -----------------------------------------
 !
-!      DO j = 1, SIZE(meshFileNames)
-!         msg = "Test divergence computation on mesh " // lastPathComponent(meshFileNames(j)) 
-!         CALL testSuite % addTestSubroutineWithName(testSubroutine = TestDivergence, &
-!                                                    testName       = msg)
-!      END DO
+      DO j = 1, SIZE(meshFileNames)
+         msg = "Test divergence computation on mesh " // lastPathComponent(meshFileNames(j)) 
+         CALL testSuite % addTestSubroutineWithName(testSubroutine = TestDivergence, &
+                                                    testName       = msg)
+      END DO
 !
 !     -----------------------------------------
-!     Test the divergence on each of the meshes
+!     Test the gradients on each of the meshes
 !     -----------------------------------------
 !
       DO j = 1, SIZE(meshFileNames)

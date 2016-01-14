@@ -99,6 +99,7 @@
 !
       CALL sem % destruct()
       testFileCount = testFileCount + 1
+      IF(testFileCount == SIZE(meshFileNames)+1) testFileCount = 1
       
       END SUBROUTINE TestDivergence      
 !
@@ -198,12 +199,12 @@
                              tol = 1.d-9,            &
                              msg = msg)
                              
-!          WRITE(msg,'(A,I3)') "Gradient of F = x + y + z on element ",eID
-!          maxE = MAXVAL(ABS(sem % mesh % elements(eID) % QDot(:,:,:,5)+3.0_RP))
-!          CALL FTAssertEqual(expectedValue = 0.0_RP, &
-!                             actualValue = maxE,     &
-!                             tol = 1.d-9,            &
-!                             msg = msg)
+          WRITE(msg,'(A,I3)') "Gradient of F = x + y + z on element ",eID
+          maxE = MAXVAL(ABS(sem % mesh % elements(eID) % QDot(:,:,:,5)+3.0_RP))
+          CALL FTAssertEqual(expectedValue = 0.0_RP, &
+                             actualValue = maxE,     &
+                             tol = 1.d-9,            &
+                             msg = msg)
           
       END DO 
 !
@@ -213,6 +214,7 @@
 !
       CALL sem % destruct()
       testFileCount = testFileCount + 1
+      IF(testFileCount == SIZE(meshFileNames)+1) testFileCount = 1
       
       END SUBROUTINE TestGradients
 !

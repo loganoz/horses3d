@@ -70,6 +70,7 @@ Module MappedGeometryClass
       INTEGER       :: i, j, k
       REAL(KIND=RP) :: nrm
       REAL(KIND=RP) :: grad_x(3,3), jGrad(3)
+      LOGICAL       :: useCrossProductMetrics = .FALSE. ! A switch for debugging purposes
 !
 !     -----------
 !     Allocations
@@ -126,7 +127,7 @@ Module MappedGeometryClass
 !     see Kopriva 2006
 !     ------------------------------------------------------------
 !
-      IF (isHex8(mapper)) THEN 
+      IF (useCrossProductMetrics .OR. isHex8(mapper)) THEN 
       
          CALL computeMetricTermsCrossProductForm(self, spA, mapper)
 !
