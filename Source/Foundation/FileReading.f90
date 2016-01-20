@@ -5,29 +5,50 @@
 !      Created: 2010-08-27 12:14:31 -0400 
 !      By: David Kopriva  
 !
-!////////////////////////////////////////////////////////////////////////
+!///////////////////////////////////////////////////////////////////////
 !
 !     ----------------------------------------------------------------
-!!    "Read" the "value" of a real number declared
-!!     after an = sign in a inputLine
+!!    Extracts the string at the left of the ==, which corresponds to
+!!    the keyword for an input value.
 !     ----------------------------------------------------------------
 !
-      FUNCTION GetRealValue( inputLine )
+      CHARACTER( LEN=LINE_LENGTH ) FUNCTION GetKeyword( inputLine )
          USE SMConstants
-         IMPLICIT NONE 
+         IMPLICIT NONE
 !
-         CHARACTER(len = *) :: inputLine
-         REAL( KIND=RP )    :: value, GetRealValue
-         INTEGER            :: strLen, leq
+         CHARACTER ( LEN = * )          :: inputLine
+         CHARACTER ( LEN = LINE_LENGTH) :: adjustedLine
+         INTEGER                        :: cEnd
+!
+         adjustedLine = ADJUSTL(inputLine)
+         cEnd         = INDEX(adjustedLine, '=')
+         GetKeyword   = adjustedLine(1: cEnd-1 )
+!
+      END FUNCTION GetKeyword
+!
+!///////////////////////////////////////////////////////////////////////
+!
+!     ----------------------------------------------------------------
+!!    "Read" the "value" of an real number declared
+!!     after an = sign in an inputLine
+!     ----------------------------------------------------------------
+!
+      INTEGER FUNCTION GetRealValue( inputLine )
+         USE SMConstants
+         IMPLICIT NONE
+!
+         CHARACTER ( LEN = * ) :: inputLine
+         REAL(KIND=RP)         :: value
+         INTEGER               :: strLen, leq
 !
          leq    = INDEX( inputLine, '=' )
          strLen = LEN_TRIM( inputLine )
          READ( inputLine( leq+1:strLen ), * ) value
-         GetRealValue = value
+         GetRealValue = VALUE
 !
       END FUNCTION GetRealValue
 !
-!///////////////////////////////////////////////////////////////////////
+!////////////////////////////////////////////////////////////////////////
 !
 !     ----------------------------------------------------------------
 !!    "Read" the "value" of an real array declared
