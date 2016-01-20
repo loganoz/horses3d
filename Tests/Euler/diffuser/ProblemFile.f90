@@ -170,15 +170,16 @@
 !
 !           ------------------------------------------------
 !           Expected Solutions: Wall conditions on the sides
+!           Number of iterations are for CFL of 0.5
 !           ------------------------------------------------
 !
-            INTEGER                            :: iterations(3:7) = [1247, 1667, 2000, 2492, 2821]
-            REAL(KIND=RP), DIMENSION(3:7)      :: errors = [1.9489956851165280E-004, 1.6064265385917764E-005, &
-                                                            3.3874894337926342E-006, 7.3040929565726387E-007, &
-                                                            1.9893655034408653E-007]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [9.4460415123041439E-011, 9.4681267108267387E-011, &
-                                                               9.9043148411353360E-011, 9.8908261194816565E-011, &
-                                                               9.9399103446355971E-011]
+            INTEGER                            :: iterations(3:7) = [2898, 3551, 4525, 5541, 5997]
+            REAL(KIND=RP), DIMENSION(3:7)      :: errors = [1.1662237969747302E-003, 3.8707028986939562E-004, &
+                                                            1.0823245094648826E-004, 3.5514459858276837E-005, &
+                                                            1.1953826232868892E-005]
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [9.8746212521458761E-011, 9.9384375269172567E-011, &
+                                                               9.7931269448863673E-011, 9.8343800856355521E-011, &
+                                                               9.9302517374727120E-011]
 !
             N = sem % spA % N
             
@@ -219,8 +220,8 @@
                WRITE(6,*) testName, " ...Passed"
             ELSE
                WRITE(6,*) testName, " ...Failed"
-               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is fixed."
-               WRITE(6,*) "      When that is done, re-compute the expected values and modify this procedure"
+               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
+               WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
             END IF 
             WRITE(6,*)
             
