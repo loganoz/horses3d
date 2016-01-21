@@ -10,7 +10,7 @@
       Module mainKeywordsModule
          IMPLICIT NONE 
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER  :: machNumberKey           = "mach number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: machNumberKey           = "mach number"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: reynoldsNumberKey       = "reynolds number"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: aoaThetaKey             = "aoa theta"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: aoaPhiKey               = "aoa phi"
@@ -292,12 +292,14 @@
                   success = .FALSE. 
                END IF 
             END DO
+            
             IF ( .NOT. success )     THEN
                PRINT *, "Boundary condition ", TRIM(bcType)," not implemented in this code"
                CALL bcObjects % release()
                IF(bcObjects % isUnreferenced()) DEALLOCATE (bcObjects)
                return
             END IF  
+            
          END DO
          
          CALL bcObjects % release()

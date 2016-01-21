@@ -71,6 +71,13 @@
                "inflow              ",  &
                "outflow             ",  &
                "outflowspecifyp     "]
+               
+         INTEGER, PARAMETER :: FREE_SLIP_WALL_INDEX          = 1
+         INTEGER, PARAMETER :: NO_SLIP_ADIABATIC_WALL_INDEX  = 2
+         INTEGER, PARAMETER :: NO_SLIP_ISOTHERMAL_WALL_INDEX = 3
+         INTEGER, PARAMETER :: INFLOW_INDEX                  = 4
+         INTEGER, PARAMETER :: OUTFLOW_INDEX                 = 5
+         INTEGER, PARAMETER :: OUTFLOW_SPECIFY_P_INDEX       = 6
 !
 !     ========         
       CONTAINS
@@ -470,7 +477,7 @@
       N            = elementOnLeft % N
       boundaryType = elementOnLeft % boundaryType(faceID)
       
-      IF ( boundaryType == "outflowspecifyp" )     THEN
+      IF ( boundaryType == implementedBCNames(OUTFLOW_SPECIFY_P_INDEX) )     THEN
          DO j = 0, N
             DO i = 0, N
                bvExt = elementOnLeft % Qb(:,i,j,faceID)
