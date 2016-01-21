@@ -7,32 +7,11 @@
 !
 !////////////////////////////////////////////////////////////////////////
 ! 
-      Module ControlVariablesModule
-         USE SMConstants
-         IMPLICIT NONE
-         
-         TYPE NSLiteControlVariables
-            CHARACTER(LEN=LINE_LENGTH) :: inputFileName, plotFileName, restartFileName
-            REAL(KIND=RP)              :: cfl
-            REAL(KIND=RP)              :: tol
-            REAL(KIND=RP)              :: mach, RE
-            REAL(KIND=RP)              :: AOATheta, AOAPhi
-            INTEGER                    :: polynomialOrder
-            INTEGER                    :: plotInterval
-            INTEGER                    :: numberOfSteps
-            INTEGER                    :: numberOfPlotPoints
-            LOGICAL                    :: restart
-            LOGICAL                    :: flowIsNavierStokes
-         END TYPE NSLiteControlVariables
-         
-      END MODULE ControlVariablesModule
-!
-!////////////////////////////////////////////////////////////////////////
-! 
       SUBROUTINE ReadInputFile (controlVariables)
          USE SMConstants
-         USE ControlVariablesModule
+         USE FTValueDictionaryClass
          USE SharedBCModule
+         USE mainKeywordsModule
          
          IMPLICIT NONE
 !
@@ -40,18 +19,20 @@
 !        Arguments
 !        ---------
 !
-         TYPE(NSLiteControlVariables) :: controlVariables
+         TYPE(FTValueDictionary) :: controlVariables
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          CHARACTER(LEN=LINE_LENGTH) :: inputLine
+         CHARACTER(LEN=LINE_LENGTH) :: keyword, keywordValue
          CHARACTER(LEN=LINE_LENGTH) :: boundaryName
          CHARACTER(LEN=LINE_LENGTH) :: flowEquationsName
          CHARACTER(LEN=LINE_LENGTH) :: boundaryType
          CHARACTER(LEN=LINE_LENGTH) :: boundaryValue
          INTEGER                    :: numberOfBCs, k
+         INTEGER                    :: ist
 !
 !        ---------------------------------------
 !        External functions from FileReading.f90
@@ -59,67 +40,41 @@
 !
          REAL(KIND=RP)             , EXTERNAL    :: GetRealValue
          INTEGER                   , EXTERNAL    :: GetIntValue
-         CHARACTER(LEN=LINE_LENGTH), EXTERNAL    :: GetStringValue
+         CHARACTER(LEN=LINE_LENGTH), EXTERNAL    :: GetStringValue, GetKeyword, GetValueAsString
          LOGICAL                   , EXTERNAL    :: GetLogicalValue
 !
 !        -----------------------------------------------
 !        Read the input file.
 !
-!        Nothing fancy here. Pretty much a fixed format,
-!        except that for convenience, we use 
-!        dictionaries to store the input file parameters.
+!        we use dictionaries to store the input file 
+!        parameters.
 !        -----------------------------------------------
 !
-         READ(5,'(A132)') inputLine
-         flowEquationsName = GetStringValue( inputLine )
-         
-         IF ( flowEquationsName == 'Euler' .OR. flowEquationsName == 'euler' )     THEN
-            controlVariables % flowIsNavierStokes = .false.
+         DO
+            READ(5,'(A132)', IOSTAT = ist) inputLine
+            IF(ist /= 0 ) EXIT 
+            keyword      = ADJUSTL(GetKeyword(inputLine))
+            CALL toLower(keyword)
+            keywordValue = ADJUSTL(GetValueAsString(inputLine))
+            CALL controlVariables % addValueForKey(keywordValue,TRIM(keyword))
+            IF(keyword == numberOfBoundariesKey) EXIT  
+         END DO
+!
+!        ----------------------------------
+!        Set the flow equation type logical
+!        Note that the default is to Navier
+!        Stokes unless the "flow equations"
+!        is specifically set to  "euler"
+!        ----------------------------------
+!
+         keywordValue = controlVariables % stringValueForKey(key = "flow equations",       &
+                                                             requestedLength = LINE_LENGTH)
+         CALL toLower(keywordValue)
+         IF(keywordValue == "euler")     THEN
+            CALL controlVariables % addValueForKey(.FALSE.,flowIsNavierStokesKey)
          ELSE
-            controlVariables % flowIsNavierStokes = .true.
-         END IF
-   
-         READ(5,'(A132)') inputLine
-         controlVariables % inputFileName = GetStringValue( inputLine )
-         
-         READ(5,'(A132)') inputLine
-         controlVariables % plotFileName = GetStringValue( inputLine )
-         
-         READ(5,'(A132)') inputLine
-         controlVariables % restartFileName = GetStringValue( inputLine )
-   
-         READ(5,'(A132)') inputLine
-         controlVariables % restart = GetLogicalValue( inputLine )
-         
-         READ(5,'(A132)') inputLine
-         controlVariables % polynomialOrder = GetIntValue( inputLine )
-         
-         READ(5,'(A132)') inputLine
-         controlVariables % numberOfSteps = GetIntValue( inputLine )
-         
-         READ(5,'(A132)') inputLine
-         controlVariables % plotInterval = GetIntValue( inputLine )
-         
-         READ(5,'(A132)') inputLine
-         controlVariables % numberOfPlotPoints = GetIntValue( inputLine )
-         
-         READ(5,'(A132)') inputLine
-         controlVariables % tol = GetRealValue( inputLine )
-         
-         READ(5,'(A132)') inputLine
-         controlVariables % cfl = GetRealValue( inputLine )
-         
-         READ(5,'(A132)') inputLine
-         controlVariables % mach = GetRealValue( inputLine )
-         
-         READ(5,'(A132)') inputLine
-         controlVariables % RE = GetRealValue( inputLine )
-         
-         READ(5,'(A132)') inputLine
-         controlVariables % AOATheta = GetRealValue( inputLine )
-         
-         READ(5,'(A132)') inputLine
-         controlVariables % AOAPhi   = GetRealValue( inputLine )
+            CALL controlVariables % addValueForKey(.TRUE. ,flowIsNavierStokesKey)
+         END IF 
 !
 !        ---------------------------------------------------------------------------
 !        We will store the type and values of the boundaries in dictionaries so that
@@ -127,8 +82,7 @@
 !        particular value and type of boundary conditions.
 !        ---------------------------------------------------------------------------
 !
-         READ(5,'(A132)') inputLine
-         numberOfBCs = GetIntValue( inputLine )
+         numberOfBCs = controlVariables%integerValueForKey(numberOfBoundariesKey)
          
          DO k = 1, numberOfBCs 
             READ(5,*) boundaryName, boundaryValue, boundaryType
@@ -137,5 +91,6 @@
             CALL bcTypeDictionary % addValueForKey(boundaryType, boundaryName)
             CALL bcValueDictionary % addValueForKey(boundaryValue, boundaryName)
          END DO
+
          
       END SUBROUTINE ReadInputFile

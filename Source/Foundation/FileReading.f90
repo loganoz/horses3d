@@ -29,6 +29,33 @@
 !///////////////////////////////////////////////////////////////////////
 !
 !     ----------------------------------------------------------------
+!!    Extracts the string within the quotes in an input file
+!     ----------------------------------------------------------------
+!
+      CHARACTER( LEN=LINE_LENGTH ) FUNCTION GetValueAsString( inputLine )
+         USE SMConstants
+         IMPLICIT NONE
+!
+         CHARACTER ( LEN = * ) :: inputLine
+         INTEGER               :: strLen, leq
+         INTEGER               :: cStart, cEnd
+!
+         cStart = INDEX(inputLine,'"')
+         IF ( cStart /= 0 )     THEN
+             cEnd             = INDEX(inputLine, '"', .true. )
+             GetValueAsString = inputLine( cStart+1: cEnd-1 )
+         ELSE 
+            leq              = INDEX( inputLine, '=' )
+            strLen           = LEN_TRIM( inputLine )
+            GetValueAsString = inputLine( leq+1: strLen )
+         END IF 
+!
+!
+      END FUNCTION GetValueAsString
+!
+!///////////////////////////////////////////////////////////////////////
+!
+!     ----------------------------------------------------------------
 !!    "Read" the "value" of an real number declared
 !!     after an = sign in an inputLine
 !     ----------------------------------------------------------------

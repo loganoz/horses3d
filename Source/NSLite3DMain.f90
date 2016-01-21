@@ -7,18 +7,56 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+      Module mainKeywordsModule
+         IMPLICIT NONE 
+         INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER  :: machNumberKey           = "mach number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: reynoldsNumberKey       = "reynolds number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: aoaThetaKey             = "aoa theta"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: aoaPhiKey               = "aoa phi"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: flowIsNavierStokesKey   = "flowisnavierstokes"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: polynomialOrderKey      = "polynomial order"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: cflKey                  = "cfl"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: meshFileNameKey         = "mesh file name"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: restartKey              = "restart"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: restartFileNameKey      = "restart file name"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfTimeStepsKey    = "number of time steps"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: outputIntervalKey       = "output interval"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: convergenceToleranceKey = "convergence tolerance"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfPlotPointsKey   = "number of plot points"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfBoundariesKey   = "number of boundaries"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: plotFileNameKey         = "plot file name"
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(15) :: mainKeywords =  [machNumberKey,           &
+                                                                          reynoldsNumberKey,       &
+                                                                          aoaThetaKey,             &
+                                                                          aoaPhiKey,               &
+                                                                          flowIsNavierStokesKey,   &
+                                                                          polynomialOrderKey,      &
+                                                                          cflKey,                  &
+                                                                          meshFileNameKey,         &
+                                                                          restartKey,              &
+                                                                          restartFileNameKey,      &
+                                                                          numberOfTimeStepsKey,    &
+                                                                          outputIntervalKey,       &
+                                                                          convergenceToleranceKey, &
+                                                                          numberOfPlotPointsKey,   &
+                                                                          plotFileNameKey]
+      END MODULE mainKeywordsModule
+!
+!////////////////////////////////////////////////////////////////////////
+!
       PROGRAM NSLite3DMain
       
       USE SMConstants
       USE FTTimerClass
       USE PhysicsStorage
       USE SharedBCModule
-      USE ControlVariablesModule
       USE DGSEMPlotterClass
       USE DGSEMClass
       USE BoundaryConditionFunctions
       USE TimeIntegratorClass
       USE UserDefinedFunctions
+      USE mainKeywordsModule
       
       IMPLICIT NONE
 !
@@ -26,14 +64,14 @@
 !     Declarations
 !     ------------
 !
-      TYPE( NSLiteControlVariables )      :: controlVariables
+      TYPE( FTValueDictionary)            :: controlVariables
       TYPE( DGSem )                       :: sem
       TYPE( FTTimer )                     :: stopWatch
       TYPE( DGSEMPlotter )      , POINTER :: plotter      => NULL()
       CLASS( PlotterDataSource ), POINTER :: plDataSource => NULL()
       TYPE( RKTimeIntegrator )            :: timeIntegrator
       
-      REAL(KIND=RP)                       :: dt
+      REAL(KIND=RP)                       :: dt, cfl
       
       LOGICAL                             :: success
       INTEGER                             :: plotUnit, restartUnit
@@ -45,39 +83,47 @@
 !     Initializations
 !     ---------------
 !
+      CALL controlVariables % initWithSize(16)
       CALL stopWatch % init()
       CALL UserDefinedStartup
       CALL constructSharedBCModule
+      
       CALL ReadInputFile( controlVariables )
-      CALL ConstructPhysicsStorage( controlVariables % mach,               &
-                                    controlVariables % RE,                 &
-                                    0.72_RP,                               &
-                                    controlVariables % AOATheta,           &
-                                    controlVariables % AOAPhi,             &
-                                    controlVariables % flowIsNavierStokes )
+      CALL checkInputIntegrity(controlVariables, success)
+      IF(.NOT. success)   ERROR STOP "Control file reading error"
+      
 !
 !     ----------------
 !     Set up the DGSEM
 !     ----------------
 !      
-      CALL sem % construct(polynomialOrder   = controlVariables % polynomialOrder,&
-                           meshFileName      = controlVariables % inputFileName,  &
-                           externalState     = externalStateForBoundaryName,      &
-                           externalGradients = ExternalGradientForBoundaryName,   &
+      CALL ConstructPhysicsStorage( controlVariables % doublePrecisionValueForKey(machNumberKey),     &
+                                    controlVariables % doublePrecisionValueForKey(reynoldsNumberKey), &
+                                    0.72_RP,                                                          &
+                                    controlVariables % doublePrecisionValueForKey(aoaThetaKey),       &
+                                    controlVariables % doublePrecisionValueForKey(aoaPhiKey),         &
+                                    controlVariables % logicalValueForKey(flowIsNavierStokesKey) )
+                                    
+      CALL sem % construct(polynomialOrder   = controlVariables % integerValueForKey(polynomialOrderKey),&
+                           meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
+                                                                        requestedLength = LINE_LENGTH),  &
+                           externalState     = externalStateForBoundaryName,                             &
+                           externalGradients = ExternalGradientForBoundaryName,                          &
                            success           = success)
+                           
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
-      CALL checkIntegrity(sem % mesh, success)
+      CALL checkBCIntegrity(sem % mesh, success)
       IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
-      CALL UserDefinedFinalSetup(sem)
+      CALL UserDefinedFinalSetup(sem, controlVariables)
 !
 !     ----------------------
 !     Set the initial values
 !     ----------------------
 !
-      IF ( controlVariables % restart )     THEN
+      IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
          restartUnit = UnusedUnit()
          OPEN( UNIT = restartUnit, &
-               FILE = controlVariables % restartFileName, &
+               FILE = controlVariables % stringValueForKey(restartFileNameKey,requestedLength = LINE_LENGTH), &
                FORM = "UNFORMATTED" )
                CALL LoadSolutionForRestart( sem, restartUnit )
          CLOSE( restartUnit )
@@ -89,19 +135,23 @@
 !     Construct the time integrator
 !     -----------------------------
 !
-      dt = MaxTimeStep( sem, controlVariables % cfl )
+      cfl = controlVariables % doublePrecisionValueForKey("cfl")
+      dt = MaxTimeStep( sem, cfl )
 
-      CALL timeIntegrator % constructAsSteadyStateIntegrator(dt            = dt, &
-                                                             cfl           = controlVariables % cfl, &
-                                                             numberOfSteps = controlVariables % numberOfSteps, &
-                                                             plotInterval  = controlVariables % plotInterval)
-      CALL timeIntegrator % setIterationTolerance(tol = controlVariables % tol)
+      CALL timeIntegrator % constructAsSteadyStateIntegrator &
+                            (dt            = dt,  &
+                             cfl           = cfl, &
+                             numberOfSteps = controlVariables % integerValueForKey &
+                             (numberOfTimeStepsKey), &
+                             plotInterval  = controlVariables % integerValueForKey(outputIntervalKey))
+      CALL timeIntegrator % setIterationTolerance(controlVariables % doublePrecisionValueForKey(convergenceToleranceKey))
 !
 !     --------------------
 !     Prepare for plotting
 !     --------------------
 !
-      IF ( controlVariables % plotFileName /= "none" )     THEN
+      IF ( controlVariables % stringValueForKey(plotFileNameKey, &
+           requestedLength = LINE_LENGTH) /= "none" )     THEN
          plotUnit = UnusedUnit()
          ALLOCATE(plotter)
          ALLOCATE(plDataSource)
@@ -109,7 +159,7 @@
          CALL plotter % Construct(fUnit      = plotUnit,          &
                                   spA        = sem % spA,         &
                                   dataSource = plDataSource,      &
-                                  newN       = controlVariables % numberOfPlotPoints)
+                                  newN       = controlVariables % integerValueForKey(numberOfPlotPointsKey))
          CALL timeIntegrator % setPlotter(plotter)
       END IF 
 !
@@ -135,10 +185,10 @@
 !     Save the results to the restart file
 !     ------------------------------------
 !
-      IF(controlVariables % restartFileName /= "none")     THEN 
+      IF(controlVariables % stringValueForKey(restartFileNameKey,LINE_LENGTH) /= "none")     THEN 
          restartUnit = UnusedUnit()
          OPEN( UNIT = restartUnit, &
-               FILE = controlVariables % restartFileName, &
+               FILE = controlVariables % stringValueForKey(restartFileNameKey,LINE_LENGTH), &
                FORM = "UNFORMATTED" )
                CALL SaveSolutionForRestart( sem, restartUnit )
          CLOSE( restartUnit )
@@ -150,7 +200,8 @@
 !
       IF ( ASSOCIATED(plotter) )     THEN
          plotUnit = UnusedUnit()
-         OPEN(UNIT = plotUnit, FILE = controlVariables % plotFileName)
+         OPEN(UNIT = plotUnit, FILE = controlVariables % stringValueForKey(plotFileNameKey, &
+                                                                requestedLength = LINE_LENGTH))
             CALL plotter % ExportToTecplot( elements = sem % mesh % elements )
          CLOSE(plotUnit)
       END IF 
@@ -174,7 +225,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE checkIntegrity(mesh, success)
+      SUBROUTINE checkBCIntegrity(mesh, success)
 !
          USE HexMeshClass
          USE SharedBCModule
@@ -252,4 +303,37 @@
          CALL bcObjects % release()
          IF(bcObjects % isUnreferenced()) DEALLOCATE (bcObjects)
          
-      END SUBROUTINE checkIntegrity
+      END SUBROUTINE checkBCIntegrity
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE checkInputIntegrity( controlVariables, success )  
+         USE FTValueDictionaryClass
+         USE mainKeywordsModule
+         IMPLICIT NONE
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(FTValueDictionary) :: controlVariables
+         LOGICAL                 :: success
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         CLASS(FTObject), POINTER :: obj
+         INTEGER                  :: i
+         success = .TRUE.
+         
+         DO i = 1, SIZE(mainKeywords)
+            obj => controlVariables % objectForKey(mainKeywords(i))
+            IF ( .NOT. ASSOCIATED(obj) )     THEN
+               PRINT *, "Input file is missing entry for keyword: ",mainKeywords(i)
+               success = .FALSE. 
+            END IF  
+         END DO  
+         
+         
+      END SUBROUTINE checkInputIntegrity

@@ -49,7 +49,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalSetup(sem)
+         SUBROUTINE UserDefinedFinalSetup(sem, controlVariables)
 !
 !           ----------------------------------------------------------------------
 !           Called after the mesh is read in but before time integration
@@ -59,10 +59,21 @@
             USE DGSEMClass
             USE Physics
             USE UserDefinedDataStorage
+            USE FTValueDictionaryClass
             
             IMPLICIT NONE
-            CLASS(DGSem) :: sem
-            
+!
+!           ---------
+!           Arguments
+!           ---------
+!
+            CLASS(DGSem)            :: sem
+            TYPE(FTValueDictionary) :: controlVariables
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
             INTEGER       :: nodeID
             REAL(KIND=RP) :: x(3)
             REAL(KIND=RP) :: rad
