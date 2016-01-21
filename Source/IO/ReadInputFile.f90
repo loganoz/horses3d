@@ -52,12 +52,32 @@
 !
          DO
             READ(5,'(A132)', IOSTAT = ist) inputLine
-            IF(ist /= 0 ) EXIT 
+            IF(ist /= 0 .OR. inputLine(1:1) == '/') EXIT 
+            
             keyword      = ADJUSTL(GetKeyword(inputLine))
-            CALL toLower(keyword)
             keywordValue = ADJUSTL(GetValueAsString(inputLine))
+            CALL toLower(keyword)
             CALL controlVariables % addValueForKey(keywordValue,TRIM(keyword))
-            IF(keyword == numberOfBoundariesKey) EXIT  
+            
+            IF(keyword == numberOfBoundariesKey) THEN 
+!
+!              ---------------------------------------------------------------------------
+!              We will store the type and values of the boundaries in dictionaries so that
+!              we can associate a name of a boundary curve found in the mesh file with a
+!              particular value and type of boundary conditions.
+!              ---------------------------------------------------------------------------
+!
+               numberOfBCs = controlVariables%integerValueForKey(numberOfBoundariesKey)
+               
+               DO k = 1, numberOfBCs 
+                  READ(5,*) boundaryName, boundaryValue, boundaryType
+                  CALL toLower(boundaryName)
+                  CALL toLower(boundaryType)
+                  CALL bcTypeDictionary % addValueForKey(boundaryType, boundaryName)
+                  CALL bcValueDictionary % addValueForKey(boundaryValue, boundaryName)
+               END DO
+            END IF
+            
          END DO
 !
 !        ----------------------------------
@@ -75,22 +95,6 @@
          ELSE
             CALL controlVariables % addValueForKey(.TRUE. ,flowIsNavierStokesKey)
          END IF 
-!
-!        ---------------------------------------------------------------------------
-!        We will store the type and values of the boundaries in dictionaries so that
-!        we can associate a name of a boundary curve found in the mesh file with a
-!        particular value and type of boundary conditions.
-!        ---------------------------------------------------------------------------
-!
-         numberOfBCs = controlVariables%integerValueForKey(numberOfBoundariesKey)
-         
-         DO k = 1, numberOfBCs 
-            READ(5,*) boundaryName, boundaryValue, boundaryType
-            CALL toLower(boundaryName)
-            CALL toLower(boundaryType)
-            CALL bcTypeDictionary % addValueForKey(boundaryType, boundaryName)
-            CALL bcValueDictionary % addValueForKey(boundaryValue, boundaryName)
-         END DO
 
          
       END SUBROUTINE ReadInputFile
