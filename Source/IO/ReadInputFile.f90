@@ -28,7 +28,6 @@
          CHARACTER(LEN=LINE_LENGTH) :: inputLine
          CHARACTER(LEN=LINE_LENGTH) :: keyword, keywordValue
          CHARACTER(LEN=LINE_LENGTH) :: boundaryName
-         CHARACTER(LEN=LINE_LENGTH) :: flowEquationsName
          CHARACTER(LEN=LINE_LENGTH) :: boundaryType
          CHARACTER(LEN=LINE_LENGTH) :: boundaryValue
          INTEGER                    :: numberOfBCs, k

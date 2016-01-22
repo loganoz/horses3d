@@ -86,10 +86,10 @@
       CALL controlVariables % initWithSize(16)
       CALL stopWatch % init()
       CALL UserDefinedStartup
-      CALL constructSharedBCModule
+      CALL ConstructSharedBCModule
       
       CALL ReadInputFile( controlVariables )
-      CALL checkInputIntegrity(controlVariables, success)
+      CALL CheckInputIntegrity(controlVariables, success)
       IF(.NOT. success)   ERROR STOP "Control file reading error"
       
 !
@@ -225,7 +225,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE checkBCIntegrity(mesh, success)
+      SUBROUTINE CheckBCIntegrity(mesh, success)
 !
          USE HexMeshClass
          USE SharedBCModule
@@ -309,7 +309,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE checkInputIntegrity( controlVariables, success )  
+      SUBROUTINE CheckInputIntegrity( controlVariables, success )  
          USE FTValueDictionaryClass
          USE mainKeywordsModule
          IMPLICIT NONE
