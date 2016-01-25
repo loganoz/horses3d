@@ -64,13 +64,15 @@
          USE SharedBCModule
          USE MeshTypes
       
-         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(6) :: implementedBCNames = &
+         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(8) :: implementedBCNames = &
                ["freeslipwall        ", &
                "noslipadiabaticwall ",  &
                "noslipisothermalwall",  &
                "inflow              ",  &
                "outflow             ",  &
-               "outflowspecifyp     "]
+               "outflowspecifyp     ",  &
+               "periodic-           ",  &
+               "periodic+           "]
 !
 !     ========         
       CONTAINS
