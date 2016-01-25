@@ -114,7 +114,7 @@
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
       CALL checkBCIntegrity(sem % mesh, success)
       IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
-      CALL UserDefinedFinalSetup(sem, controlVariables)
+      CALL UserDefinedFinalSetup(sem)
 !
 !     ----------------------
 !     Set the initial values
