@@ -24,7 +24,7 @@
       TYPE HexMesh
          INTEGER                                  :: numberOfFaces
          TYPE(Node)   , DIMENSION(:), ALLOCATABLE :: nodes
-         TYPE(Face)   , DIMENSION(:), ALLOCATABLE :: faces, dummy_faces
+         TYPE(Face)   , DIMENSION(:), ALLOCATABLE :: faces
          TYPE(Element), DIMENSION(:), ALLOCATABLE :: elements
 !
 !        ========         
@@ -92,14 +92,6 @@
          REAL(KIND=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
          REAL(KIND=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
          REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
-!
-!        ---------------
-!        For Periodic BC
-!        ---------------
-!
-         REAL(KIND=RP) :: x1(3), x2(3)
-         LOGICAL       :: success_periodical(4), flag_periodical(4)
-         INTEGER       :: coord 
           
          numberOfBoundaryFaces = 0
          N                     = spa % N
@@ -265,111 +257,19 @@
          self % numberOfFaces = numberOfFaces
          ALLOCATE( self % faces(self % numberOfFaces) )
          CALL ConstructFaces( self, success )
+!
+!        ---------------------------
+!        Construct periodic faces
+!        ---------------------------
+!
+         CALL ConstructPeriodicFaces( self )
+!
+!        ---------------------------
+!        Delete periodic- faces
+!        ---------------------------
+!
+         CALL DeletePeriodicminusfaces( self )
 
-         DO i = 1, self%numberOfFaces
-            PRINT*, i, self % faces(i) % elementSide(1),  "facei"
-            PRINT*, self % faces(i) % boundaryName
-            PRINT*, TRIM(bcTypeDictionary % stringValueForKey(key             = self%faces(i)%boundaryName, &
-                                                         requestedLength = BC_STRING_LENGTH))
-            IF (TRIM(bcTypeDictionary % stringValueForKey(key             = self%faces(i)%boundaryName, &
-                                                         requestedLength = BC_STRING_LENGTH)) == "periodic+") THEN  
-               DO j = 1, self%numberOfFaces
-                  PRINT*, j, self % faces(j) % elementSide(1), "facej"     
-                  PRINT*, self % faces(j) % boundaryName    
-                  PRINT*, trim(bcTypeDictionary % stringValueForKey(key             = self%faces(j)%boundaryName, &
-                                                         requestedLength = BC_STRING_LENGTH))   
-                  IF ((trim(bcTypeDictionary % stringValueForKey(key             = self%faces(j)%boundaryName, &
-                                                         requestedLength = BC_STRING_LENGTH)) == "periodic-")) THEN  
-                     coord = 0
-                     success_periodical(:) = .FALSE.
-                     flag_periodical(:)    = .FALSE.
-                     DO k = 1, 4
-                        PRINT*, "k", k
-                        x1 = self%nodes(self%faces(i)%nodeIDs(k))%x
-                        DO l = 1, 4
-                           IF (.NOT.flag_periodical(l)) THEN 
-                              PRINT*, "l", l
-                              x2 = self%nodes(self%faces(j)%nodeIDs(l))%x   
-                              PRINT*, "x1", x1
-                              PRINT*, "x2", x2                    
-                              CALL CompareTwoNodes(x1, x2, success_periodical(k), coord)
-                              PRINT*, success_periodical(k), coord
-                              PRINT*, "----------------------------------------"
-                              IF (success_periodical(k)) THEN 
-                              !   PRINT*, k,l, coord
-                              !   PRINT*, x1
-                              !   PRINT*, x2
-                              !   PRINT*, success_periodical
-                              !   PRINT*, "-------------------------------"
-                                 flag_periodical(l) = .TRUE. 
-                                 EXIT
-                              ENDIF  
-                           ENDIF 
-                        !Estoy hay que hacer que se comparen todos los nodos dos a dos
-                        !En función de como coincidan, hay que organizar la rotacion de las caras
-                        ENDDO 
-                        IF (.NOT.success_periodical(k)) EXIT  
-                     ENDDO  
-                        PRINT*,         success_periodical                 
-                        IF ((success_periodical(1)).AND.(success_periodical(2))&
-                        .AND.(success_periodical(3)).AND.(success_periodical(4))) THEN
-                        PRINT*, "I'm IN",        success_periodical                 
-                        
-                           !DO l = 1,4
-                           !   self%nodes(self%faces(j)%nodeIDs(l))%x(coord) = self%nodes(self%faces(i)%nodeIDs(l))%x(coord)
-                           !ENDDO 
-!                           PRINT*, "x1 ", x1
-!                           PRINT*, "x2 ", x2
-!                           PRINT*, "coord", coord 
-!                           PRINT*, "i,j ", i,j
-!                           PRINT*, "____________________________________"
-
-                           self % faces(i) % boundaryName = ""
-                           self % faces(i) % elementIDs(2)  = self % faces(j) % elementIDs(1)
-                           self % faces(i) % elementSide(2) = self % faces(j) % elementSide(1) 
-                           self % faces(i) % FaceType       = HMESH_INTERIOR
-                           self % faces(i) % rotation       = 0!faceRotation(masterNodeIDs = self % faces(i) % nodeIDs, &
-                                                              !           slaveNodeIDs  = self % faces(i) % nodeIDs)      
-                                                                                     
-                        ENDIF    
-
-                  ENDIF 
-               ENDDO
-            ENDIF 
-         ENDDO     
-         j = 0
-         ALLOCATE( self % dummy_faces(self % numberOfFaces) )
-         DO i = 1, self%numberOfFaces 
-            IF (trim(bcTypeDictionary % stringValueForKey(key             = self%faces(i)%boundaryName, &
-                                                         requestedLength = BC_STRING_LENGTH)) /= "periodic-") THEN 
-               j = j+1
-               self%dummy_faces(j) = self%faces(i)
-            ENDIF 
-         ENDDO 
-         
-         DEALLOCATE(self%faces)
-         ALLOCATE(self%faces(j))
-         self%numberOfFaces = j
-         DO i = 1, self%numberOfFaces
-            self%faces(i) = self%dummy_faces(i)
-         ENDDO 
-         
-               !Una vez encontrada, encuentro las coordenadas de sus nodos
-               !Busco otra cara (nuevo bucle) que sea periodica Y cuyas coordenadas de nodos (salvo una) coincidan
-            
-               !Cuando encuentro una pareja, cambio la condición de contorno de ambas, las pongo como condicion de contorno anterior y le asigno los valores de la encontrada
-!            self % faces(self % numberOfFaces) % boundaryName = "---"
-!            self % faces(faceID) % elementIDs(2)  = eID
-!            self % faces(faceID) % elementSide(2) = faceNumber
-!            self % faces(faceID) % FaceType       = HMESH_INTERIOR
-!            self % faces(faceID) % rotation       = faceRotation(masterNodeIDs = self % faces(faceID) % nodeIDs, &
-!                                                                       slaveNodeIDs  = faceNodeIDs)
-            !Puedo hacer una comprobación de que no queda ninguna "Periodica +"
-         
-         !Ahora habría que volver a construir las caras, sabiendo cual es el número correcto de las mismas
-         !Estos es facil de saber a priori, descontando las periodic - de la cuenta incial
-         !Se van copiando todas de la estructura inicial a la nueva, dejando fuera a las que tengan como condicion de 
-         !contorno periodic -
             
          CLOSE( fUnit )
 !
@@ -383,76 +283,7 @@
          DEALLOCATE(genHexMap)
          
       END SUBROUTINE ConstructMesh_FromFile_
-      
-      SUBROUTINE CompareTwoNodes(x1, x2, success, coord) 
-      IMPLICIT NONE  
-! 
-!------------------------------------------------------------------- 
-! Comparison of two nodes. If two of the three coordinates are the 
-! same, there is success. If there is success, the coordinate which 
-! is not the same is saved. If the initial value of coord is not 0, 
-! only that coordinate is checked. 
-!------------------------------------------------------------------- 
-! 
-! 
-!-------------------- 
-! External variables 
-!-------------------- 
-!  
-      REAL(KIND=RP) :: x1(3)
-      REAL(KIND=RP) :: x2(3)
-      LOGICAL       :: success
-      INTEGER       :: coord 
-! 
-!-------------------- 
-! Local variables 
-!-------------------- 
-! 
-      INTEGER :: i
-      INTEGER :: counter    
-      
-      counter = 0
-      
-      IF (coord == 0) THEN
 
-         DO i = 1,3
-            IF (x1(i) == x2(i)) THEN 
-               counter = counter + 1
-            ELSE 
-               coord = i
-            ENDIF  
-         ENDDO 
-         
-         IF (counter.ge.2) THEN 
-            success = .TRUE.
-         ELSE 
-            success = .FALSE. 
-         ENDIF  
-         
-      ELSE 
-
-         DO i = 1,3
-            IF (i /= coord) THEN 
-               IF (x1(i) == x2(i)) THEN 
-                  counter = counter + 1
-               ENDIF 
-            ENDIF 
-         ENDDO 
-         
-         IF (counter.ge.2) THEN 
-            success = .TRUE.
-         ELSE           
-            success = .FALSE. 
-         ENDIF  
-   
-      ENDIF
-          
-             
-      END SUBROUTINE  
-! 
-!//////////////////////////////////////////////////////////////////////// 
-! 
-      !^ 
 !
 !     -----------
 !     Destructors
@@ -638,6 +469,212 @@
          faceRotation = j - 1
           
       END FUNCTION faceRotation
+! 
+!//////////////////////////////////////////////////////////////////////// 
+!
+      SUBROUTINE ConstructPeriodicFaces(self) 
+      IMPLICIT NONE  
+! 
+!------------------------------------------------------------------- 
+! This subroutine looks for periodic boundary conditions. If they 
+! are found, periodic+ face is set as an interior face. The slave 
+! face is the periodic- face and will be deleted in the following
+! step. 
+!------------------------------------------------------------------- 
+! 
+! 
+!-------------------- 
+! External variables 
+!-------------------- 
+!  
+      TYPE(HexMesh) :: self
+
+! 
+!-------------------- 
+! Local variables 
+!-------------------- 
+! 
+!
+      REAL(KIND=RP) :: x1(3), x2(3)
+      LOGICAL       :: master_matched(4), slave_matched(4)
+      INTEGER       :: coord
+      
+      INTEGER       :: i,j,k,l 
+      
+      !Loop to find faces with the label "periodic+"   
+      DO i = 1, self%numberOfFaces
+         IF (TRIM(bcTypeDictionary % stringValueForKey(key             = self%faces(i)%boundaryName, &
+                                                      requestedLength = BC_STRING_LENGTH)) == "periodic+") THEN
+            !Loop to find faces with the label "periodic-"                                            
+            DO j = 1, self%numberOfFaces
+               IF ((TRIM(bcTypeDictionary % stringValueForKey(key             = self%faces(j)%boundaryName, &
+                                                      requestedLength = BC_STRING_LENGTH)) == "periodic-")) THEN
+                  !The index i is a periodic+ face
+                  !The index j is a periodic- face
+                  !We are looking for couples of periodic+ and periodic- faces where 2 of the 3 coordinates
+                  !in all the corners are shared. The non-shared coordinate has to be always the same one.                                      
+                  coord = 0                         ! This is the non-shared coordinate
+                  master_matched(:)   = .FALSE.     ! True if the master corner finds a partner
+                  slave_matched(:)    = .FALSE.     ! True if the slave corner finds a partner
+                  
+                  DO k = 1, 4
+                     x1 = self%nodes(self%faces(i)%nodeIDs(k))%x                           !x1 is the master coordinate
+                     DO l = 1, 4
+                        IF (.NOT.slave_matched(l)) THEN 
+                           x2 = self%nodes(self%faces(j)%nodeIDs(l))%x                     !x2 is the slave coordinate
+                           CALL CompareTwoNodes(x1, x2, master_matched(k), coord)          !x1 and x2 are compared here
+                           IF (master_matched(k)) THEN 
+                              slave_matched(l) = .TRUE. 
+                              EXIT
+                           ENDIF  
+                        ENDIF 
+                     ENDDO 
+                     IF (.NOT.master_matched(k)) EXIT  
+                  ENDDO          
+                  
+                  IF ( (master_matched(1)) .AND. (master_matched(2)) .AND. (master_matched(3)) .AND. (master_matched(4)) ) THEN
+                  
+                     self % faces(i) % boundaryName   = ""
+                     self % faces(i) % elementIDs(2)  = self % faces(j) % elementIDs(1)
+                     self % faces(i) % elementSide(2) = self % faces(j) % elementSide(1) 
+                     self % faces(i) % FaceType       = HMESH_INTERIOR
+                     self % faces(i) % rotation       = 0!faceRotation(masterNodeIDs = self % faces(i) % nodeIDs, &
+                                                        !           slaveNodeIDs  = self % faces(i) % nodeIDs)      
+                                                                               
+                  ENDIF    
+
+               ENDIF 
+            ENDDO
+         ENDIF 
+      ENDDO
+      
+      PRINT*, "WARNING: FACE ROTATION IN PERIODIC BOUNDARY CONDITIONS NOT IMPLEMENTED YET"
+           
+      END SUBROUTINE ConstructPeriodicFaces
+! 
+!//////////////////////////////////////////////////////////////////////// 
+!     
+      SUBROUTINE CompareTwoNodes(x1, x2, success, coord) 
+      IMPLICIT NONE  
+! 
+!------------------------------------------------------------------- 
+! Comparison of two nodes. If two of the three coordinates are the 
+! same, there is success. If there is success, the coordinate which 
+! is not the same is saved. If the initial value of coord is not 0, 
+! only that coordinate is checked. 
+!------------------------------------------------------------------- 
+! 
+! 
+!-------------------- 
+! External variables 
+!-------------------- 
+!  
+      REAL(KIND=RP) :: x1(3)
+      REAL(KIND=RP) :: x2(3)
+      LOGICAL       :: success
+      INTEGER       :: coord 
+! 
+!-------------------- 
+! Local variables 
+!-------------------- 
+! 
+      INTEGER :: i
+      INTEGER :: counter    
+      
+      counter = 0
+      
+      IF (coord == 0) THEN
+
+         DO i = 1,3
+            IF (x1(i) == x2(i)) THEN 
+               counter = counter + 1
+            ELSE 
+               coord = i
+            ENDIF  
+         ENDDO 
+         
+         IF (counter.ge.2) THEN 
+            success = .TRUE.
+         ELSE 
+            success = .FALSE. 
+         ENDIF  
+         
+      ELSE 
+
+         DO i = 1,3
+            IF (i /= coord) THEN 
+               IF (x1(i) == x2(i)) THEN 
+                  counter = counter + 1
+               ENDIF 
+            ENDIF 
+         ENDDO 
+         
+         IF (counter.ge.2) THEN 
+            success = .TRUE.
+         ELSE           
+            success = .FALSE. 
+         ENDIF  
+   
+      ENDIF
+          
+             
+      END SUBROUTINE CompareTwoNodes
+! 
+!//////////////////////////////////////////////////////////////////////// 
+!
+      SUBROUTINE DeletePeriodicminusfaces(self) 
+      IMPLICIT NONE  
+! 
+!------------------------------------------------------------------- 
+! This subroutine looks for periodic boundary conditions. If they 
+! are found, periodic+ face is set as an interior face. The slave 
+! face is the periodic- face and will be deleted in the following
+! step. 
+!------------------------------------------------------------------- 
+! 
+! 
+!-------------------- 
+! External variables 
+!-------------------- 
+!  
+      TYPE(HexMesh) :: self
+
+! 
+!-------------------- 
+! Local variables 
+!-------------------- 
+! 
+!
+      TYPE(Face),ALLOCATABLE  :: dummy_faces(:)
+      INTEGER                 :: i
+      INTEGER                 :: iFace, numberOfFaces
+      
+         
+      iFace = 0
+      ALLOCATE( dummy_faces(self % numberOfFaces) )
+      DO i = 1, self%numberOfFaces 
+         IF (TRIM(bcTypeDictionary % stringValueForKey(key             = self%faces(i)%boundaryName, &
+                                                      requestedLength = BC_STRING_LENGTH)) /= "periodic-") THEN 
+            iFace = iFace + 1
+            dummy_faces(iFace) = self%faces(i)
+         ENDIF 
+      ENDDO
+       
+      numberOfFaces = iFace
+      
+      DEALLOCATE(self%faces)
+      ALLOCATE(self%faces(numberOfFaces))
+      
+      self%numberOfFaces = numberOfFaces
+      
+      DO i = 1, self%numberOfFaces
+         self%faces(i) = dummy_faces(i)
+      ENDDO 
+           
+      END SUBROUTINE DeletePeriodicminusfaces
+! 
+!//////////////////////////////////////////////////////////////////////// 
+! 
       
 !     ==========
       END MODULE HexMeshClass
