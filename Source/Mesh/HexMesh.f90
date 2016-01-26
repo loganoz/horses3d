@@ -548,7 +548,7 @@
          ENDIF 
       ENDDO
       
-      PRINT*, "WARNING: FACE ROTATION IN PERIODIC BOUNDARY CONDITIONS NOT IMPLEMENTED YET"
+      
            
       END SUBROUTINE ConstructPeriodicFaces
 ! 
@@ -573,6 +573,12 @@
       REAL(KIND=RP) :: x2(3)
       LOGICAL       :: success
       INTEGER       :: coord 
+!
+!     ---------
+!     Externals
+!     ---------
+!
+      LOGICAL, EXTERNAL :: AlmostEqual
 ! 
 !-------------------- 
 ! Local variables 
@@ -586,7 +592,7 @@
       IF (coord == 0) THEN
 
          DO i = 1,3
-            IF (x1(i) == x2(i)) THEN 
+            IF ( AlmostEqual( x1(i), x2(i) ) ) THEN 
                counter = counter + 1
             ELSE 
                coord = i
@@ -603,7 +609,7 @@
 
          DO i = 1,3
             IF (i /= coord) THEN 
-               IF (x1(i) == x2(i)) THEN 
+               IF ( AlmostEqual( x1(i), x2(i) ) ) THEN 
                   counter = counter + 1
                ENDIF 
             ENDIF 
@@ -661,7 +667,12 @@
       ENDDO
        
       numberOfFaces = iFace
-      
+
+      IF (numberOfFaces /= self%numberOfFaces) THEN     
+         PRINT*, "WARNING: FACE ROTATION IN PERIODIC BOUNDARY CONDITIONS NOT IMPLEMENTED YET"
+         PRINT*, "IF A PROBLEM IS SUSPECTED, CONTACT THE DEVELOPERS WITH YOUR MESH FILE"
+      ENDIF            
+
       DEALLOCATE(self%faces)
       ALLOCATE(self%faces(numberOfFaces))
       
@@ -670,6 +681,7 @@
       DO i = 1, self%numberOfFaces
          self%faces(i) = dummy_faces(i)
       ENDDO 
+      
            
       END SUBROUTINE DeletePeriodicminusfaces
 ! 
