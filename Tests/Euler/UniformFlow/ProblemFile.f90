@@ -136,7 +136,7 @@
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
-            INTEGER                            :: i, j, k
+            INTEGER                            :: i, j, k, N
             TYPE(FTAssertionsManager), POINTER :: sharedManager
 !
 !           -----------------------------------------------------------------------
@@ -144,16 +144,19 @@
 !           when the eigenvalue computation for the time step is fixed.
 !           -----------------------------------------------------------------------
 !
-            INTEGER                            :: expectedIterations = 3197
-            REAL(KIND=RP)                      :: expectedResidual   = 9.8941853350878228D-011
+            INTEGER                            :: expectedIterations(3:5) = [1551,2631,3545]
+            REAL(KIND=RP)                      :: expectedResidual(3:5)   = [9.4867545231987148D-011,&
+                                                                             9.5354584517371496D-011,&
+                                                                             9.5453815782930162D-011]
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            CALL FTAssertEqual(expectedValue = expectedIterations, &
+            N = sem % spA % N
+            CALL FTAssertEqual(expectedValue = expectedIterations(N), &
                                actualValue   =  sem % numberOfTimeSteps, &
                                msg           = "Number of time steps to tolerance")
-            CALL FTAssertEqual(expectedValue = expectedResidual, &
+            CALL FTAssertEqual(expectedValue = expectedResidual(N), &
                                actualValue   = sem % maxResidual, &
                                tol           = 1.d-3, &
                                msg           = "Final maximum residual")
