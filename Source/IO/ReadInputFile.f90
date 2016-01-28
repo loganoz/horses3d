@@ -79,21 +79,5 @@
             
          END DO
 !
-!        ----------------------------------
-!        Set the flow equation type logical
-!        Note that the default is to Navier
-!        Stokes unless the "flow equations"
-!        is specifically set to  "euler"
-!        ----------------------------------
-!
-         keywordValue = controlVariables % stringValueForKey(key = "flow equations",       &
-                                                             requestedLength = LINE_LENGTH)
-         CALL toLower(keywordValue)
-         IF(keywordValue == "euler")     THEN
-            CALL controlVariables % addValueForKey(.FALSE.,flowIsNavierStokesKey)
-         ELSE
-            CALL controlVariables % addValueForKey(.TRUE. ,flowIsNavierStokesKey)
-         END IF 
-
          
       END SUBROUTINE ReadInputFile

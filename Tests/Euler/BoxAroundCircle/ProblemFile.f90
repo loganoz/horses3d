@@ -49,7 +49,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalSetup(sem)
+         SUBROUTINE UserDefinedFinalSetup(sem, controlVariables)
 !
 !           ----------------------------------------------------------------------
 !           Called after the mesh is read in to allow mesh related initializations
@@ -58,7 +58,8 @@
 !
             USE DGSEMClass
             IMPLICIT NONE
-            CLASS(DGSem) :: sem
+            CLASS(DGSem)            :: sem
+            TYPE(FTValueDictionary) :: controlVariables
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 

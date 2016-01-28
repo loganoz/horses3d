@@ -10,11 +10,6 @@
       Module mainKeywordsModule
          IMPLICIT NONE 
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: machNumberKey           = "mach number"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: reynoldsNumberKey       = "reynolds number"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: aoaThetaKey             = "aoa theta"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: aoaPhiKey               = "aoa phi"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: flowIsNavierStokesKey   = "flowisnavierstokes"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: polynomialOrderKey      = "polynomial order"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: cflKey                  = "cfl"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: meshFileNameKey         = "mesh file name"
@@ -26,12 +21,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfPlotPointsKey   = "number of plot points"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfBoundariesKey   = "number of boundaries"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: plotFileNameKey         = "plot file name"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(15) :: mainKeywords =  [machNumberKey,           &
-                                                                          reynoldsNumberKey,       &
-                                                                          aoaThetaKey,             &
-                                                                          aoaPhiKey,               &
-                                                                          flowIsNavierStokesKey,   &
-                                                                          polynomialOrderKey,      &
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(10) :: mainKeywords =  [polynomialOrderKey,      &
                                                                           cflKey,                  &
                                                                           meshFileNameKey,         &
                                                                           restartKey,              &
@@ -97,13 +87,9 @@
 !     Set up the DGSEM
 !     ----------------
 !      
-      CALL ConstructPhysicsStorage( controlVariables % doublePrecisionValueForKey(machNumberKey),     &
-                                    controlVariables % doublePrecisionValueForKey(reynoldsNumberKey), &
-                                    0.72_RP,                                                          &
-                                    controlVariables % doublePrecisionValueForKey(aoaThetaKey),       &
-                                    controlVariables % doublePrecisionValueForKey(aoaPhiKey),         &
-                                    controlVariables % logicalValueForKey(flowIsNavierStokesKey) )
-                                    
+      CALL ConstructPhysicsStorage( controlVariables, success )
+      IF(.NOT. success)   ERROR STOP "Physics parameters input error"
+                                   
       CALL sem % construct(polynomialOrder   = controlVariables % integerValueForKey(polynomialOrderKey),&
                            meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
                                                                         requestedLength = LINE_LENGTH),  &

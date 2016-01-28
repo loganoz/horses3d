@@ -181,7 +181,8 @@
 !
 !           ------------------------------------------------
 !           Expected Solutions: Wall conditions on the sides
-!           Number of iterations are for CFL of 0.5
+!           Number of iterations are for CFL of 0.5 and for
+!           the rusanov solver
 !           ------------------------------------------------
 !
             INTEGER                            :: iterations(3:7) = [2898, 3551, 4525, 5541, 5997]

@@ -141,7 +141,8 @@
 !
 !           -----------------------------------------------------------------------
 !           Expected Values. Note they will change if the run parameters change and
-!           when the eigenvalue computation for the time step is fixed.
+!           when the eigenvalue computation for the time step is fixed. These 
+!           results are for the Mach 0.5 and rusanov solvers.
 !           -----------------------------------------------------------------------
 !
             INTEGER                            :: expectedIterations(3:5) = [1551,2631,3545]

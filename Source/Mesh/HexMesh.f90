@@ -268,7 +268,7 @@
 !        Delete periodic- faces
 !        ---------------------------
 !
-         CALL DeletePeriodicminusfaces( self )
+         CALL DeletePeriodicMinusFaces( self )
 
             
          CLOSE( fUnit )
@@ -500,19 +500,30 @@
       INTEGER       :: coord
       
       INTEGER       :: i,j,k,l 
-      
-      !Loop to find faces with the label "periodic+"   
+!
+!     ---------------------------------------------
+!     Loop to find faces with the label "periodic+"
+!     ---------------------------------------------
+!
       DO i = 1, self%numberOfFaces
          IF (TRIM(bcTypeDictionary % stringValueForKey(key             = self%faces(i)%boundaryName, &
                                                       requestedLength = BC_STRING_LENGTH)) == "periodic+") THEN
-            !Loop to find faces with the label "periodic-"                                            
+!
+!           ---------------------------------------------
+!           Loop to find faces with the label "periodic-"
+!           ----------------------------------------------
+!
             DO j = 1, self%numberOfFaces
                IF ((TRIM(bcTypeDictionary % stringValueForKey(key             = self%faces(j)%boundaryName, &
                                                       requestedLength = BC_STRING_LENGTH)) == "periodic-")) THEN
-                  !The index i is a periodic+ face
-                  !The index j is a periodic- face
-                  !We are looking for couples of periodic+ and periodic- faces where 2 of the 3 coordinates
-                  !in all the corners are shared. The non-shared coordinate has to be always the same one.                                      
+!
+!                 ----------------------------------------------------------------------------------------
+!                 The index i is a periodic+ face
+!                 The index j is a periodic- face
+!                 We are looking for couples of periodic+ and periodic- faces where 2 of the 3 coordinates
+!                 in all the corners are shared. The non-shared coordinate has to be always the same one.
+!                 ----------------------------------------------------------------------------------------
+!
                   coord = 0                         ! This is the non-shared coordinate
                   master_matched(:)   = .FALSE.     ! True if the master corner finds a partner
                   slave_matched(:)    = .FALSE.     ! True if the slave corner finds a partner
@@ -565,9 +576,9 @@
 !------------------------------------------------------------------- 
 ! 
 ! 
-!-------------------- 
-! External variables 
-!-------------------- 
+!     -------------------- 
+!     External variables 
+!     -------------------- 
 !  
       REAL(KIND=RP) :: x1(3)
       REAL(KIND=RP) :: x2(3)
@@ -580,9 +591,9 @@
 !
       LOGICAL, EXTERNAL :: AlmostEqual
 ! 
-!-------------------- 
-! Local variables 
-!-------------------- 
+!     -------------------- 
+!     Local variables 
+!     -------------------- 
 ! 
       INTEGER :: i
       INTEGER :: counter    
@@ -639,18 +650,16 @@
 !------------------------------------------------------------------- 
 ! 
 ! 
-!-------------------- 
-! External variables 
-!-------------------- 
+!     -------------------- 
+!     External variables 
+!     -------------------- 
 !  
       TYPE(HexMesh) :: self
-
 ! 
-!-------------------- 
-! Local variables 
-!-------------------- 
+!     -------------------- 
+!     Local variables 
+!     -------------------- 
 ! 
-!
       TYPE(Face),ALLOCATABLE  :: dummy_faces(:)
       INTEGER                 :: i
       INTEGER                 :: iFace, numberOfFaces

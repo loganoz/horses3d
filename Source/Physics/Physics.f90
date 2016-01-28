@@ -18,6 +18,20 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !    
+      Module PhysicsKeywordsModule
+         IMPLICIT NONE 
+         INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: machNumberKey           = "mach number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: reynoldsNumberKey       = "reynolds number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: aoaThetaKey             = "aoa theta"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: aoaPhiKey               = "aoa phi"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: flowEquationsKey        = "flow equations"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: riemannSolverNameKey    = "riemann solver"
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physicsKeywords = [machNumberKey, flowEquationsKey]
+      END MODULE PhysicsKeywordsModule
+!
+!////////////////////////////////////////////////////////////////////////
+!    
 !    ******
      MODULE PhysicsStorage
 !    ******
@@ -61,7 +75,7 @@
 !!   The Prandtl number
 !    ----------------------------------------
 !
-     REAL( KIND=RP ) :: PR 
+     REAL( KIND=RP ) :: PR = 0.72_RP
 !
 !    ----------------------------------------
 !!   The free-stream or reference temperature
@@ -99,6 +113,14 @@
      REAL( KIND=RP ) :: InvGammaPlus1Div2  , InvGammaMinus1   , InvGamma
      REAL( KIND=RP ) :: gammaDivGammaMinus1, gammaM2 !! = gamma*mach**2
 !
+!    ------------------------------------
+!    Riemann solver associated quantities
+!    ------------------------------------
+!
+     INTEGER, PARAMETER :: ROE = 0, LXF = 1, RUSANOV = 2
+     INTEGER            :: riemannSolverChoice = ROE
+
+!
 !    ========
      CONTAINS
 !    ========
@@ -110,22 +132,96 @@
 !!    variables.
 !     --------------------------------------------------
 !
-      SUBROUTINE ConstructPhysicsStorage( machArg, REArg, PRArg, AOAThetaArg, AOAPhiArg, flowIsNavierStokesArg )
+      SUBROUTINE ConstructPhysicsStorage( controlVariables, success )
+      USE FTValueDictionaryClass
+      USE PhysicsKeywordsModule
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      REAL(KIND=RP) :: machArg, REArg, PRArg
-      REAL(KIND=RP) :: AOAPhiArg, AOAThetaArg
-      LOGICAL       :: flowIsNavierStokesArg
-      
-      mach               = machArg
-      RE                 = REArg
-      PR                 = PRArg
-      AOAPhi             = AOAPhiArg
-      AOATheta           = AOAThetaArg
-      flowIsNavierStokes = flowIsNavierStokesArg
+      TYPE(FTValueDictionary) :: controlVariables
+      LOGICAL                 :: success
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      CHARACTER(LEN=KEYWORD_LENGTH) :: keyword
+!
+!     --------------------
+!     Collect input values
+!     --------------------
+!
+      success = .TRUE.
+      CALL CheckPhysicsInputIntegrity(controlVariables,success)
+      IF(.NOT. success) RETURN 
+!
+!     ----------------------------------
+!     Mach number is a required quantity
+!     ----------------------------------
+!
+      mach = controlVariables % doublePrecisionValueForKey(machNumberKey)
+!
+!     ----------------------------------------------------------------
+!     If the navier stokes key is present, then they reynolds number 
+!     must be set. Otherwise, it is an optional quantity and not used.
+!     ----------------------------------------------------------------
+!
+      keyword = controlVariables % stringValueForKey(flowEquationsKey,KEYWORD_LENGTH)
+      CALL toLower(keyword)
+      IF ( keyword == "euler" )     THEN
+         flowIsNavierStokes = .FALSE.
+         RE = 0.0_RP 
+      ELSE 
+         flowIsNavierStokes = .TRUE.
+         IF ( controlVariables % containsKey(reynoldsNumberKey) )     THEN
+            RE = controlVariables % doublePrecisionValueForKey(reynoldsNumberKey) 
+         ELSE 
+            PRINT *, "Input file is missing entry for keyword: ",reynoldsNumberKey
+            success = .FALSE.
+            RETURN 
+         END IF 
+      END IF 
+!
+!     --------------------------------------------------------------------
+!     The riemann solver is also optional. Set it to Roe if not requested.
+!     --------------------------------------------------------------------
+!
+      IF ( controlVariables % containsKey(riemannSolverNameKey) )     THEN
+         keyword = controlVariables % stringValueForKey(key             = riemannSolverNameKey,&
+                                                        requestedLength = KEYWORD_LENGTH)
+         CALL toLower(keyword)
+         SELECT CASE ( keyword )
+            CASE( "roe" ) 
+               riemannSolverChoice = ROE
+            CASE( "lax friedrichs")
+               riemannSolverChoice = LXF 
+            CASE( "rusanov")
+               riemannSolverChoice = RUSANOV
+            CASE DEFAULT 
+               PRINT *, "Unknown Riemann solver choice: ", TRIM(keyword), ". Defaulting to Roe"
+               riemannSolverChoice = ROE
+         END SELECT 
+      ELSE 
+         PRINT *, "Input file is missing keyword 'riemann solver'. Using Roe by default"
+         riemannSolverChoice = ROE 
+      END IF 
+!
+!     ------------------------------------------------------------------------------
+!     The angle of attack parameters are optional. If not present, set them to zero.
+!     ------------------------------------------------------------------------------
+!
+      IF ( controlVariables % containsKey(aoaPhiKey) )     THEN
+         AOAPhi = controlVariables % doublePrecisionValueForKey(aoaPhiKey) 
+      ELSE
+         AOAPhi = 0.0_RP
+      END IF 
+      IF ( controlVariables % containsKey(aoaThetaKey) )     THEN
+         AOATheta = controlVariables % doublePrecisionValueForKey(aoaThetaKey) 
+      ELSE
+         AOATheta = 0.0_RP
+      END IF 
 !
       TRef            = 520.0_RP
       TScale          = 198.6_RP
@@ -156,6 +252,38 @@
       
       END SUBROUTINE DestructPhysicsStorage
 !
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE CheckPhysicsInputIntegrity( controlVariables, success )  
+         USE FTValueDictionaryClass
+         USE PhysicsKeywordsModule
+         IMPLICIT NONE
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(FTValueDictionary) :: controlVariables
+         LOGICAL                 :: success
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         CLASS(FTObject), POINTER :: obj
+         INTEGER                  :: i
+         success = .TRUE.
+         
+         DO i = 1, SIZE(physicsKeywords)
+            obj => controlVariables % objectForKey(physicsKeywords(i))
+            IF ( .NOT. ASSOCIATED(obj) )     THEN
+               PRINT *, "Input file is missing entry for keyword: ",physicsKeywords(i)
+               success = .FALSE. 
+            END IF  
+         END DO  
+         
+      END SUBROUTINE CheckPhysicsInputIntegrity
+!
 !    **********       
      END MODULE PhysicsStorage
 !    **********
@@ -174,10 +302,8 @@
 !     ---------
 !
       INTEGER, PARAMETER   :: WALL_BC = 1, RADIATION_BC = 2
-      INTEGER, PARAMETER   :: ROE = 0, LXF = 1, RUSANOV = 2
       REAL(KIND=RP)        :: waveSpeed
       INTEGER              :: boundaryCondition(4), bcType
-      INTEGER              :: riemannSolverChoice = RUSANOV
 !
 !     ========
       CONTAINS 
@@ -978,6 +1104,7 @@
       END FUNCTION Temperature
       
    END Module Physics
+!@mark -
 !
 ! /////////////////////////////////////////////////////////////////////
 !
