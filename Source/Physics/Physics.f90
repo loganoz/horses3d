@@ -21,13 +21,19 @@
       Module PhysicsKeywordsModule
          IMPLICIT NONE 
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: machNumberKey           = "mach number"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: reynoldsNumberKey       = "reynolds number"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: aoaThetaKey             = "aoa theta"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: aoaPhiKey               = "aoa phi"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: flowEquationsKey        = "flow equations"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: riemannSolverNameKey    = "riemann solver"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physicsKeywords = [machNumberKey, flowEquationsKey]
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MACH_NUMBER_KEY           = "mach number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: REYNOLDS_NUMBER_KEY       = "reynolds number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY             = "aoa theta"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY               = "aoa phi"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY        = "flow equations"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY   = "riemann solver"
+         
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physicsKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
+         
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME           = "roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RUSANOV_SOLVER_NAME       = "rusanov"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME = "lax friedrichs"
+         
       END MODULE PhysicsKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
@@ -161,24 +167,24 @@
 !     Mach number is a required quantity
 !     ----------------------------------
 !
-      mach = controlVariables % doublePrecisionValueForKey(machNumberKey)
+      mach = controlVariables % doublePrecisionValueForKey(MACH_NUMBER_KEY)
 !
 !     ----------------------------------------------------------------
 !     If the navier stokes key is present, then they reynolds number 
 !     must be set. Otherwise, it is an optional quantity and not used.
 !     ----------------------------------------------------------------
 !
-      keyword = controlVariables % stringValueForKey(flowEquationsKey,KEYWORD_LENGTH)
+      keyword = controlVariables % stringValueForKey(FLOW_EQUATIONS_KEY,KEYWORD_LENGTH)
       CALL toLower(keyword)
       IF ( keyword == "euler" )     THEN
          flowIsNavierStokes = .FALSE.
          RE = 0.0_RP 
       ELSE 
          flowIsNavierStokes = .TRUE.
-         IF ( controlVariables % containsKey(reynoldsNumberKey) )     THEN
-            RE = controlVariables % doublePrecisionValueForKey(reynoldsNumberKey) 
+         IF ( controlVariables % containsKey(REYNOLDS_NUMBER_KEY) )     THEN
+            RE = controlVariables % doublePrecisionValueForKey(REYNOLDS_NUMBER_KEY) 
          ELSE 
-            PRINT *, "Input file is missing entry for keyword: ",reynoldsNumberKey
+            PRINT *, "Input file is missing entry for keyword: ",REYNOLDS_NUMBER_KEY
             success = .FALSE.
             RETURN 
          END IF 
@@ -188,16 +194,16 @@
 !     The riemann solver is also optional. Set it to Roe if not requested.
 !     --------------------------------------------------------------------
 !
-      IF ( controlVariables % containsKey(riemannSolverNameKey) )     THEN
-         keyword = controlVariables % stringValueForKey(key             = riemannSolverNameKey,&
+      IF ( controlVariables % containsKey(RIEMANN_SOLVER_NAME_KEY) )     THEN
+         keyword = controlVariables % stringValueForKey(key             = RIEMANN_SOLVER_NAME_KEY,&
                                                         requestedLength = KEYWORD_LENGTH)
          CALL toLower(keyword)
          SELECT CASE ( keyword )
-            CASE( "roe" ) 
+            CASE( ROE_SOLVER_NAME ) 
                riemannSolverChoice = ROE
-            CASE( "lax friedrichs")
+            CASE( LAXFRIEDRICHS_SOLVER_NAME )
                riemannSolverChoice = LXF 
-            CASE( "rusanov")
+            CASE( RUSANOV_SOLVER_NAME )
                riemannSolverChoice = RUSANOV
             CASE DEFAULT 
                PRINT *, "Unknown Riemann solver choice: ", TRIM(keyword), ". Defaulting to Roe"
@@ -212,13 +218,13 @@
 !     The angle of attack parameters are optional. If not present, set them to zero.
 !     ------------------------------------------------------------------------------
 !
-      IF ( controlVariables % containsKey(aoaPhiKey) )     THEN
-         AOAPhi = controlVariables % doublePrecisionValueForKey(aoaPhiKey) 
+      IF ( controlVariables % containsKey(AOA_PHI_KEY) )     THEN
+         AOAPhi = controlVariables % doublePrecisionValueForKey(AOA_PHI_KEY) 
       ELSE
          AOAPhi = 0.0_RP
       END IF 
-      IF ( controlVariables % containsKey(aoaThetaKey) )     THEN
-         AOATheta = controlVariables % doublePrecisionValueForKey(aoaThetaKey) 
+      IF ( controlVariables % containsKey(AOA_THETA_KEY) )     THEN
+         AOATheta = controlVariables % doublePrecisionValueForKey(AOA_THETA_KEY) 
       ELSE
          AOATheta = 0.0_RP
       END IF 
