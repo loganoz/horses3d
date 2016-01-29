@@ -229,9 +229,9 @@
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
-               WRITE(6,*) testName, " ...Passed"
+               WRITE(6,*) testName, " ... Passed"
             ELSE
-               WRITE(6,*) testName, " ...Failed"
+               WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
             END IF 
@@ -379,13 +379,13 @@
       REAL(KIND=RP)   :: pExt
       LOGICAL         :: success
       
-      IF ( boundarytype == "freeslipwall" )             THEN
+      IF ( boundarytype == implementedBCNames(FREE_SLIP_WALL_INDEX) )              THEN
          CALL FreeSlipWallState( x, t, nHat, Q )
-      ELSE IF ( boundaryType == "noslipadiabaticwall" ) THEN 
+      ELSE IF ( boundaryType == implementedBCNames(NO_SLIP_ADIABATIC_WALL_INDEX) ) THEN 
          CALL  NoSlipAdiabaticWallState( x, t, Q)
-      ELSE IF ( boundarytype == "noslipisothermalwall") THEN 
+      ELSE IF ( boundarytype == implementedBCNames(NO_SLIP_ISOTHERMAL_WALL_INDEX)) THEN 
          CALL NoSlipIsothermalWallState( x, t, Q )
-      ELSE IF ( boundaryType == "outflowspecifyp" )     THEN 
+      ELSE IF ( boundaryType == implementedBCNames(OUTFLOW_SPECIFY_P_INDEX) )      THEN 
          pExt =  ExternalPressure()
          CALL ExternalPressureState ( x, t, nHat, Q, pExt )
       ELSE
@@ -419,11 +419,11 @@
 !     Local variables
 !     ---------------
 !
-      IF ( boundarytype == "freeslipwall" )                   THEN
+      IF ( boundarytype == implementedBCNames(FREE_SLIP_WALL_INDEX) )                   THEN
          CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE IF ( boundaryType == "noslipadiabaticwall" )       THEN 
+      ELSE IF ( boundaryType == implementedBCNames(NO_SLIP_ADIABATIC_WALL_INDEX) )       THEN 
          CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z)
-      ELSE IF ( boundarytype == "noslipisothermalwall")       THEN 
+      ELSE IF ( boundarytype == implementedBCNames(NO_SLIP_ISOTHERMAL_WALL_INDEX))       THEN 
          CALL NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z )
       ELSE
          CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
