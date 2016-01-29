@@ -185,9 +185,9 @@
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
-               WRITE(6,*) testName, " ...Passed"
+               WRITE(6,*) testName, " ... Passed"
             ELSE
-               WRITE(6,*) testName, " ...Failed"
+               WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is fixed."
                WRITE(6,*) "      When that is done, re-compute the expected values and modify this procedure"
             END IF 
@@ -212,3 +212,85 @@
       
       END MODULE UserDefinedFunctions
       
+!
+!=====================================================================================================
+!=====================================================================================================
+!
+!
+      SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryType )
+!
+!     ----------------------------------------------
+!     Set the boundary conditions for the mesh by
+!     setting the external state for each boundary.
+!     ----------------------------------------------
+!
+      USE BoundaryConditionFunctions
+      USE MeshTypes
+      
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+      REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
+      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      REAL(KIND=RP)                   :: pExt
+      
+      IF ( boundarytype == "freeslipwall" )             THEN
+         CALL FreeSlipWallState( x, t, nHat, Q )
+      ELSE IF ( boundaryType == "noslipadiabaticwall" ) THEN 
+         CALL  NoSlipAdiabaticWallState( x, t, Q)
+      ELSE IF ( boundarytype == "noslipisothermalwall") THEN 
+         CALL NoSlipIsothermalWallState( x, t, Q )
+      ELSE IF ( boundaryType == "outflowspecifyp" )     THEN 
+         pExt =  ExternalPressure()
+         CALL ExternalPressureState ( x, t, nHat, Q, pExt )
+      ELSE
+         CALL UniformFlowState( x, t, Q )
+      END IF
+
+      END SUBROUTINE externalStateForBoundaryName
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, U_x, U_y, U_z, boundaryType )
+!
+!     ------------------------------------------------
+!     Set the boundary conditions for the mesh by
+!     setting the external gradients on each boundary.
+!     ------------------------------------------------
+!
+      USE BoundaryConditionFunctions
+      USE MeshTypes
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+      REAL(KIND=RP)   , INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
+      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      IF ( boundarytype == "freeslipwall" )                   THEN
+         CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
+      ELSE IF ( boundaryType == "noslipadiabaticwall" )       THEN 
+         CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z)
+      ELSE IF ( boundarytype == "noslipisothermalwall")       THEN 
+         CALL NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z )
+      ELSE
+         CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
+      END IF
+
+      END SUBROUTINE ExternalGradientForBoundaryName
