@@ -73,6 +73,15 @@
                "outflowspecifyp     ",  &
                "periodic-           ",  &
                "periodic+           "]
+               
+         INTEGER, PARAMETER :: FREE_SLIP_WALL_INDEX          = 1
+         INTEGER, PARAMETER :: NO_SLIP_ADIABATIC_WALL_INDEX  = 2
+         INTEGER, PARAMETER :: NO_SLIP_ISOTHERMAL_WALL_INDEX = 3
+         INTEGER, PARAMETER :: INFLOW_INDEX                  = 4
+         INTEGER, PARAMETER :: OUTFLOW_INDEX                 = 5
+         INTEGER, PARAMETER :: OUTFLOW_SPECIFY_P_INDEX       = 6
+         INTEGER, PARAMETER :: PERIODIC_PLUS_INDEX           = 7
+         INTEGER, PARAMETER :: PERIODIC_MINUS_INDEX          = 8
 !
 !     ========         
       CONTAINS
@@ -472,152 +481,24 @@
       N            = elementOnLeft % N
       boundaryType = elementOnLeft % boundaryType(faceID)
       
-      IF ( boundaryType == "outflowspecifyp" )     THEN
-         DO j = 0, N
-            DO i = 0, N
-               bvExt = elementOnLeft % Qb(:,i,j,faceID)
-               CALL PressureRiemannFlux(Q    = bvExt, &
-                                        nHat = elementOnLeft % geom % normal(:,i,j,faceID),&
-                                        flux = flux)
-               elementOnLeft % FStarb(:,i,j,faceID) = flux*elementOnLeft % geom % scal(i,j,faceID)
-            END DO   
+      DO j = 0, N
+         DO i = 0, N
+            bvExt = elementOnLeft % Qb(:,i,j,faceID)
+            CALL externalStateProcedure( elementOnLeft % geom % xb(:,i,j,faceID), &
+                                         time, &
+                                         elementOnLeft % geom % normal(:,i,j,faceID), &
+                                         bvExt,&
+                                         boundaryType )
+            CALL RiemannSolver(QLeft  = elementOnLeft % Qb(:,i,j,faceID), &
+                               QRight = bvExt, &
+                               nHat   = elementOnLeft % geom % normal(:,i,j,faceID), &
+                               flux   = flux)
+            elementOnLeft % FStarb(:,i,j,faceID) = flux*elementOnLeft % geom % scal(i,j,faceID)
          END DO   
-      ELSE 
-         DO j = 0, N
-            DO i = 0, N
-               bvExt = elementOnLeft % Qb(:,i,j,faceID)
-               CALL externalStateProcedure( elementOnLeft % geom % xb(:,i,j,faceID), &
-                                            time, &
-                                            elementOnLeft % geom % normal(:,i,j,faceID), &
-                                            bvExt,&
-                                            boundaryType )
-               CALL RiemannSolver(QLeft  = elementOnLeft % Qb(:,i,j,faceID), &
-                                  QRight = bvExt, &
-                                  nHat   = elementOnLeft % geom % normal(:,i,j,faceID), &
-                                  flux   = flux)
-               elementOnLeft % FStarb(:,i,j,faceID) = flux*elementOnLeft % geom % scal(i,j,faceID)
-            END DO   
-         END DO   
-      END IF 
-      
-      
-      
+      END DO   
 
       END SUBROUTINE computeBoundaryFlux
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE PressureRiemannFlux( Q, nHat, flux )
-!
-!     -------------------------------------------------------------------
-!     Compute the normal flux given the resolved *state* from the pressure 
-!     solver.
-!     -------------------------------------------------------------------
-!
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP) :: Q(N_EQN), nHat(3), flux(N_EQN)
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      REAL(KIND=RP) :: fx(N_EQN), fy(N_EQN), fz(N_EQN)
-      
-      CALL xFlux( Q, fx)
-      CALL yFlux( Q, fy)
-      CALL zFlux( Q, fz)
-      
-      flux = fx*nHat(1) + fy*nHat(2) + fz*nHat(3)
-
-      END SUBROUTINE PressureRiemannFlux
 
 !     ===========
       END MODULE BoundaryConditionFunctions
 !     ===========
-!
-!=====================================================================================================
-!=====================================================================================================
-!
-!
-      SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryType )
-!
-!     ----------------------------------------------
-!     Set the boundary conditions for the mesh by
-!     setting the external state for each boundary.
-!     ----------------------------------------------
-!
-      USE BoundaryConditionFunctions
-      USE MeshTypes
-      
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
-      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      REAL(KIND=RP)                   :: pExt
-      
-      IF ( boundarytype == "freeslipwall" )             THEN
-         CALL FreeSlipWallState( x, t, nHat, Q )
-      ELSE IF ( boundaryType == "noslipadiabaticwall" ) THEN 
-         CALL  NoSlipAdiabaticWallState( x, t, Q)
-      ELSE IF ( boundarytype == "noslipisothermalwall") THEN 
-         CALL NoSlipIsothermalWallState( x, t, Q )
-      ELSE IF ( boundaryType == "outflowspecifyp" )     THEN 
-         pExt =  ExternalPressure()
-         CALL ExternalPressureState ( x, t, nHat, Q, pExt )
-      ELSE
-         CALL UniformFlowState( x, t, Q )
-      END IF
-
-      END SUBROUTINE externalStateForBoundaryName
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, U_x, U_y, U_z, boundaryType )
-!
-!     ------------------------------------------------
-!     Set the boundary conditions for the mesh by
-!     setting the external gradients on each boundary.
-!     ------------------------------------------------
-!
-      USE BoundaryConditionFunctions
-      USE MeshTypes
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
-      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      IF ( boundarytype == "freeslipwall" )                   THEN
-         CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE IF ( boundaryType == "noslipadiabaticwall" )       THEN 
-         CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z)
-      ELSE IF ( boundarytype == "noslipisothermalwall")       THEN 
-         CALL NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE
-         CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
-      END IF
-
-      END SUBROUTINE ExternalGradientForBoundaryName
