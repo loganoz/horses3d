@@ -69,6 +69,7 @@
       INTEGER           :: fUnit
       INTEGER           :: numberOfMeshfiles
       INTEGER           :: j
+      REAL(KIND=RP)     :: machVal, reVal
 !
 !     ---------------
 !     Initializations
@@ -77,9 +78,12 @@
       CALL constructSharedBCModule
       CALL controlVariables % initWithSize(16)
       CALL ReadInputFile( controlVariables )
-      CALL ConstructPhysicsStorage( controlVariables % doublePrecisionValueForKey(machNumberKey),     &
-                                    controlVariables % doublePrecisionValueForKey(reynoldsNumberKey), &
-                                    0.72_RP,                                                          &
+      machVal = controlVariables % quadValueForKey(machNumberKey)
+      reVal   = controlVariables % quadValueForKey(reynoldsNumberKey)
+      
+      CALL ConstructPhysicsStorage( machVal,     &
+                                    reVal,       &
+                                    0.72_RP,     &
                                     controlVariables % logicalValueForKey(flowIsNavierStokesKey) )
 !
 !     --------------------------

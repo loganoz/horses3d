@@ -283,8 +283,7 @@ Module MappedGeometryClass
       INTEGER, DIMENSION(0:4) :: iCycle = (/3,1,2,3,1/)
 
       polOrder(:) = spa % N
-      
-      noGauss = spA % N          
+      noGauss     = spA % N          
 !
 !     -------------------------------
 !     Mappedxi is Legendre Gauss grid
@@ -303,8 +302,8 @@ Module MappedGeometryClass
 !     grid and compute the gradients on that mesh
 !     -------------------------------------------
 !
+      piN = PI/(noGauss)
       DO k = 1,3
-         piN = PI/(noGauss)
          DO n = 0, noGauss
              xiArray(n,k) = - COS((n)*piN)
          END DO
@@ -344,21 +343,21 @@ Module MappedGeometryClass
                CASE (1)
                   DO l = 0, noGauss
                      DO m = 0, noGauss   
-                        CALL MatrixMultiplyDeriv(tArray(m,l,:), dArray(m,l,:), zetaDerMat, noGauss, transp = 1)
+                        CALL MatrixMultiplyDeriv(tArray(m,l,:), dArray(m,l,:), zetaDerMat, noGauss, transp = MXV_DIRECT)
                      ENDDO 
                   ENDDO 
                   jGradXi(j,:,:,:) = dArray
                CASE (2)
                   DO l = 0, noGauss
                      DO m = 0, noGauss   
-                        CALL MatrixMultiplyDeriv(tArray(:,m,l), dArray(:,m,l), xiDerMat, noGauss, transp = 1)
+                        CALL MatrixMultiplyDeriv(tArray(:,m,l), dArray(:,m,l), xiDerMat, noGauss, transp = MXV_DIRECT)
                      ENDDO 
                   ENDDO 
                   jGradEta(j,:,:,:) = dArray
                CASE (3)
                   DO l = 0, noGauss
                      DO m = 0, noGauss   
-                        CALL MatrixMultiplyDeriv(tArray(m,:,l), dArray(m,:,l), etaDerMat, noGauss, transp = 1)
+                        CALL MatrixMultiplyDeriv(tArray(m,:,l), dArray(m,:,l), etaDerMat, noGauss, transp = MXV_DIRECT)
                      ENDDO 
                   ENDDO            
                   jGradZeta(j,:,:,:) = dArray
@@ -380,21 +379,21 @@ Module MappedGeometryClass
                CASE (1)
                   DO l = 0, noGauss
                      DO m = 0, noGauss   
-                        CALL MatrixMultiplyDeriv(tArray(m,:,l), dArray(m,:,l), etaDerMat, noGauss, transp = 1)
+                        CALL MatrixMultiplyDeriv(tArray(m,:,l), dArray(m,:,l), etaDerMat, noGauss, transp = MXV_DIRECT)
                      ENDDO 
                   ENDDO 
                   jGradXi(j,:,:,:) = jGradXi (j,:,:,:) - dArray
                CASE (2)
                   DO l = 0, noGauss
                      DO m = 0, noGauss   
-                        CALL MatrixMultiplyDeriv(tArray(m,l,:), dArray(m,l,:), zetaDerMat, noGauss, transp = 1)
+                        CALL MatrixMultiplyDeriv(tArray(m,l,:), dArray(m,l,:), zetaDerMat, noGauss, transp = MXV_DIRECT)
                      ENDDO 
                   ENDDO 
                   jGradEta(j,:,:,:) = jGradEta(j,:,:,:) - dArray
                CASE (3)
                   DO l = 0, noGauss
                      DO m = 0, noGauss   
-                        CALL MatrixMultiplyDeriv(tArray(:,m,l), dArray(:,m,l), xiDerMat, noGauss, transp = 1)
+                        CALL MatrixMultiplyDeriv(tArray(:,m,l), dArray(:,m,l), xiDerMat, noGauss, transp = MXV_DIRECT)
                      ENDDO 
                   ENDDO 
                   jGradZeta(j,:,:,:) = jGradZeta(j,:,:,:) - dArray
@@ -570,6 +569,62 @@ Module MappedGeometryClass
       DEALLOCATE(zetaInterpMat)
       
       END SUBROUTINE computeMetricTermsConservativeForm
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE computeMetricTermsConservativeDirectly(self, spA, mapper)  
+!
+!        -------------------------------------------------------------
+!        Compute the metric terms by explicitly writing out the terms:
+!
+!        Ja1 = [(I(Y_eta*Z))_zeta - (I(Y_zeta*Z))_eta] x^ +
+!              [(I(Z_eta*X))_zeta - (I(Z_zeta*X))_eta] y^ +
+!              [(I(X_eta*Y))_zeta - (I(X_zeta*Y))_eta] z^ 
+!
+!        Ja2 = [(I(Y_zeta*Z))_xi - (I(Y_xi*Z))_zeta] x^ +
+!              [(I(Z_zeta*X))_xi - (I(Z_xi*X))_zeta] y^ +
+!              [(I(X_zeta*Y))_xi - (I(X_xi*Y))_zeta] z^ 
+!
+!        Ja3 = [(I(Y_xi*Z))_eta - (I(Y_eta*Z))_xi] x^ +
+!              [(I(Z_xi*X))_eta - (I(Z_eta*X))_xi] y^ +
+!              [(I(X_xi*Y))_eta - (I(X_eta*Y))_xi] z^ 
+!
+!        -------------------------------------------------------------
+!
+         IMPLICIT NONE  
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(MappedGeometry)    :: self
+         TYPE(NodalStorage)      :: spA
+         TYPE(TransfiniteHexMap) :: mapper
+!
+!        ---------------
+!        Local Variables
+!        ---------------
+!
+         INTEGER       :: i,j,k, N
+         REAL(KIND=RP) :: grad_x(3,3)
+         N = spA % N
+!
+!        --------------------
+!        Compute the Jacobian
+!        --------------------
+!
+         DO k = 0, N
+            DO j = 0,N
+               DO i = 0,N
+                  grad_x                 = mapper % metricDerivativesAt([spA % xi(i), spA % eta(j), spA % zeta(k)])
+                  self % jacobian(i,j,k) = jacobian3D(a1 = grad_x(:,1),a2 = grad_x(:,2),a3 = grad_x(:,3))
+               END DO   
+            END DO   
+         END DO  
+
+         
+         
+      END SUBROUTINE computeMetricTermsConservativeDirectly
 !
 !///////////////////////////////////////////////////////////////////////
 !
