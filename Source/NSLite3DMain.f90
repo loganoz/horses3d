@@ -281,15 +281,13 @@
             
             IF ( .NOT. success )     THEN
                PRINT *, "Boundary condition ", TRIM(bcType)," not implemented in this code"
-               CALL bcObjects % release()
-               IF(bcObjects % isUnreferenced()) DEALLOCATE (bcObjects)
-               return
+               CALL release(bcObjects)
+               RETURN 
             END IF  
             
          END DO
          
-         CALL bcObjects % release()
-         IF(bcObjects % isUnreferenced()) DEALLOCATE (bcObjects)
+         CALL release(bcObjects)
          
       END SUBROUTINE checkBCIntegrity
 !

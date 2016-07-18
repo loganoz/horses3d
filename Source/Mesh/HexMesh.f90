@@ -370,7 +370,7 @@
          INTEGER                 :: faceID
          INTEGER                 :: nodeIDs(8), faceNodeIDs(4), j
          
-         TYPE(FTMultiIndexTable), POINTER  :: table
+         CLASS(FTMultiIndexTable), POINTER  :: table
          CLASS(FTObject), POINTER :: obj
          CLASS(FTValue) , POINTER :: v
          
@@ -412,8 +412,7 @@
                   
                   IF(self % numberOfFaces > SIZE(self % faces))     THEN
           
-                     CALL table % release()
-                     DEALLOCATE(table)
+                     CALL release(table)
                      PRINT *, "Too many faces for # of elements:", self % numberOfFaces, " vs ", SIZE(self % faces)
                      success = .FALSE.
                      RETURN  
@@ -434,14 +433,13 @@
                   CALL v % initWithValue(self % numberOfFaces)
                   obj => v
                   CALL table % addObjectForKeys(obj,faceNodeIDs)
-                  CALL v % release()
+                  CALL release(v)
                END IF 
             END DO 
               
          END DO  
          
-         CALL table % release()
-         DEALLOCATE(table)
+         CALL release(table)
          
       END SUBROUTINE ConstructFaces
 !

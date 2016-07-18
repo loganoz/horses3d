@@ -26,8 +26,8 @@
 ! 
          SUBROUTINE destructSharedBCModule  
             IMPLICIT NONE
-            CALL bcValueDictionary % release()
-            CALL bcTypeDictionary  % release()
+            CALL bcValueDictionary % destruct()
+            CALL bcTypeDictionary  % destruct()
          END SUBROUTINE destructSharedBCModule
          
       END Module SharedBCModule
