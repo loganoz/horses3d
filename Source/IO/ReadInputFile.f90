@@ -30,6 +30,7 @@
          CHARACTER(LEN=LINE_LENGTH) :: boundaryName
          CHARACTER(LEN=LINE_LENGTH) :: boundaryType
          CHARACTER(LEN=LINE_LENGTH) :: boundaryValue
+         CHARACTER(LEN=LINE_LENGTH) :: arg
          INTEGER                    :: numberOfBCs, k
          INTEGER                    :: ist
 !
@@ -49,8 +50,11 @@
 !        parameters.
 !        -----------------------------------------------
 !
+         CALL get_command_argument(1, arg)
+         OPEN(UNIT=10,FILE=trim(arg))
+
          DO
-            READ(5,'(A132)', IOSTAT = ist) inputLine
+            READ(10,'(A132)', IOSTAT = ist) inputLine
             IF(ist /= 0 .OR. inputLine(1:1) == '/') EXIT 
             
             keyword      = ADJUSTL(GetKeyword(inputLine))
@@ -69,7 +73,7 @@
                numberOfBCs = controlVariables%integerValueForKey(numberOfBoundariesKey)
                
                DO k = 1, numberOfBCs 
-                  READ(5,*) boundaryName, boundaryValue, boundaryType
+                  READ(10,*) boundaryName, boundaryValue, boundaryType
                   CALL toLower(boundaryName)
                   CALL toLower(boundaryType)
                   CALL bcTypeDictionary % addValueForKey(boundaryType, boundaryName)
@@ -78,6 +82,8 @@
             END IF
             
          END DO
-!
-         
+
+         CLOSE(UNIT=10)
+
       END SUBROUTINE ReadInputFile
+      
