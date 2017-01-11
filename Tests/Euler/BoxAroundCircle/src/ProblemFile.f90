@@ -64,7 +64,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(sem)
+         SUBROUTINE UserDefinedInitialCondition(sem , controlVariables)
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
@@ -76,8 +76,9 @@
             USE BoundaryConditionFunctions
             IMPLICIT NONE
             
-            TYPE(DGSem)      :: sem
-            EXTERNAL         :: initialStateSubroutine
+            TYPE(DGSem)              :: sem
+            class(FTValueDictionary) :: controlVariables
+            EXTERNAL                 :: initialStateSubroutine
                      
             INTEGER     :: i, j, k, eID
             

@@ -20,6 +20,12 @@
          state(4) = 1.0_RP
          state(5) = SUM(x)
          
+!         state(1) = x(1)
+!         state(2) = x(2)
+!         state(3) = x(3)
+!         state(4) = SQRT(x(1)**2 + x(2)**2 + x(3)**2)
+!         state(5) = SUM(x)
+
       END SUBROUTINE initialFlowState
 !
 !////////////////////////////////////////////////////////////////////////

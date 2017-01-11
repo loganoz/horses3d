@@ -19,25 +19,11 @@
 !      UserDefinedFinalize(sem)
 !      UserDefinedTermination
 !
-!      *** This problem file sets up a subsonic point source *** 
-!
-!//////////////////////////////////////////////////////////////////////// 
-!
-      MODULE UserDefinedDataStorage
-         USE SMConstants
-         IMPLICIT NONE 
-         REAL(KIND=RP) :: rad0, f, h 
-      END MODULE UserDefinedDataStorage
-!
 !//////////////////////////////////////////////////////////////////////// 
 ! 
       MODULE UserDefinedFunctions
-
-!
-!     ========      
-      CONTAINS
-!     ========
-!
+      
+      CONTAINS 
          SUBROUTINE UserDefinedStartup  
 !
 !        --------------------------------
@@ -52,51 +38,20 @@
          SUBROUTINE UserDefinedFinalSetup(sem, controlVariables)
 !
 !           ----------------------------------------------------------------------
-!           Called after the mesh is read in but before time integration
-!           to allow mesh related initializations or memory allocations
+!           Called after the mesh is read in to allow mesh related initializations
+!           or memory allocations.
 !           ----------------------------------------------------------------------
 !
             USE DGSEMClass
-            USE Physics
-            USE UserDefinedDataStorage
             USE FTValueDictionaryClass
-            
             IMPLICIT NONE
-!
-!           ---------
-!           Arguments
-!           ---------
-!
             CLASS(DGSem)            :: sem
             TYPE(FTValueDictionary) :: controlVariables
-!
-!           ---------------
-!           Local variables
-!           ---------------
-!
-            INTEGER       :: nodeID
-            REAL(KIND=RP) :: x(3)
-            REAL(KIND=RP) :: rad
-!
-!           --------------------------------
-!           Set up for the diffuser geometry
-!           --------------------------------
-!
-            rad0 = HUGE(1.0_RP)
-            DO nodeID = 1, SIZE(sem % mesh % nodes)
-               x   = sem % mesh % nodes(nodeID) % x
-               rad = SQRT(x(1)**2 + x(2)**2)
-               rad0  = MIN(rad0, rad)
-            END DO
-            
-            f = sqrtGamma*rad0*mach
-            h = GAMMA *(1.0_RP/gammaMinus1Div2 + mach**2)
-            
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(sem)
+         SUBROUTINE UserDefinedInitialCondition(sem , controlVariables)
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
@@ -105,10 +60,12 @@
             USE SMConstants
             USE DGSEMClass
             USE PhysicsStorage
+            USE BoundaryConditionFunctions
             IMPLICIT NONE
             
-            TYPE(DGSem) :: sem
-            LOGICAL     :: success
+            TYPE(DGSem)              :: sem
+            class(FTValueDictionary) :: controlVariables
+            EXTERNAL                 :: initialStateSubroutine
                      
             INTEGER     :: i, j, k, eID
             
@@ -116,12 +73,20 @@
                DO k = 0, sem % spA % N
                   DO j = 0, sem % spA % N
                      DO i = 0, sem % spA % N 
-                        CALL pointSourceFlowSolution( sem % mesh % elements(eID) % geom % x(:,i,j,k), &
-                                                      sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN), success )
-                        IF(.NOT. success) ERROR STOP "Unable to compute initial condition"       
+                        CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
+                                               sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )
+                                                     
                      END DO
                   END DO
                END DO 
+!
+!              -------------------------------------------------
+!              Perturb mean flow in the expectation that it will
+!              relax back to the mean flow
+!              -------------------------------------------------
+!
+               sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)
+               
             END DO 
             
          END SUBROUTINE UserDefinedInitialCondition
@@ -145,6 +110,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
          SUBROUTINE UserDefinedFinalize(sem, time)
+            USE BoundaryConditionFunctions
             USE FTAssertions
 !
 !           --------------------------------------------------------
@@ -166,42 +132,33 @@
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Diffuser flow tests"
+            INTEGER                            :: numberOfFailures
+            CHARACTER(LEN=29)                  :: testName           = "27 element uniform flow tests"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
             INTEGER                            :: i, j, k, N
             TYPE(FTAssertionsManager), POINTER :: sharedManager
-            LOGICAL                            :: success
 !
-!           -----------------------------------------------------------------------------------------
-!           Expected solutions. Inflow/Outflow on all boundaries 
-!           -----------------------------------------------------------------------------------------
+!           -----------------------------------------------------------------------
+!           Expected Values. Note they will change if the run parameters change and
+!           when the eigenvalue computation for the time step is fixed. These 
+!           results are for the Mach 0.5 and rusanov solvers.
+!           -----------------------------------------------------------------------
 !
-!
-!           ------------------------------------------------
-!           Expected Solutions: Wall conditions on the sides
-!           Number of iterations are for CFL of 0.5 and for
-!           the rusanov solver
-!           ------------------------------------------------
-!
-            INTEGER                            :: iterations(3:7) = [2898, 3551, 4525, 5541, 5997]
-            REAL(KIND=RP), DIMENSION(3:7)      :: errors = [1.1662237969747302E-003, 3.8707028986939562E-004, &
-                                                            1.0823245094648826E-004, 3.5514459858276837E-005, &
-                                                            1.1953826232868892E-005]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [9.8746212521458761E-011, 9.9384375269172567E-011, &
-                                                               9.7931269448863673E-011, 9.8343800856355521E-011, &
-                                                               9.9302517374727120E-011]
-!
-            N = sem % spA % N
+            INTEGER                            :: expectedIterations(3:5) = [1551,2631,3545]
+            REAL(KIND=RP)                      :: expectedResidual(3:5)   = [9.4867545231987148D-011,&
+                                                                             9.5354584517371496D-011,&
+                                                                             9.5453815782930162D-011]
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            CALL FTAssertEqual(expectedValue = iterations(N), &
+            N = sem % spA % N
+            CALL FTAssertEqual(expectedValue = expectedIterations(N), &
                                actualValue   =  sem % numberOfTimeSteps, &
                                msg           = "Number of time steps to tolerance")
-            CALL FTAssertEqual(expectedValue = residuals(N), &
+            CALL FTAssertEqual(expectedValue = expectedResidual(N), &
                                actualValue   = sem % maxResidual, &
                                tol           = 1.d-3, &
                                msg           = "Final maximum residual")
@@ -213,16 +170,16 @@
                DO k = 0, sem % spA % N
                   DO j = 0, sem % spA % N
                      DO i = 0, sem % spA % N 
-                        CALL pointSourceFlowSolution( sem % mesh % elements(eID) % geom % x(:,i,j,k), &
-                                                      QExpected(i,j,k,1:N_EQN), success )
+                        CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
+                                               QExpected(i,j,k,1:N_EQN) )
                      END DO
                   END DO
                END DO
                maxError = MAXVAL(ABS(QExpected - sem % mesh % elements(eID) % Q))
             END DO
-            CALL FTAssertEqual(expectedValue = ERRORs(N), &
+            CALL FTAssertEqual(expectedValue = 0.0_RP, &
                                actualValue   = maxError, &
-                               tol           = 1.d-5, &
+                               tol           = 1.d-10, &
                                msg           = "Maximum error")
             
             
@@ -232,8 +189,8 @@
                WRITE(6,*) testName, " ... Passed"
             ELSE
                WRITE(6,*) testName, " ... Failed"
-               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
-               WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
+               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is fixed."
+               WRITE(6,*) "      When that is done, re-compute the expected values and modify this procedure"
             END IF 
             WRITE(6,*)
             
@@ -255,97 +212,7 @@
       END SUBROUTINE UserDefinedTermination
       
       END MODULE UserDefinedFunctions
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-   SUBROUTINE pointSourceFlowSolution(x, Q, success)
-      USE UserDefinedDataStorage
-      USE SMConstants
-      USE Physics
-      IMPLICIT NONE  
-!
-!           ---------
-!           Arguments
-!           ---------
-!
-      REAL(KIND=RP) :: x(3)
-      REAL(KIND=RP) :: Q(*)
-      LOGICAL       :: success
-!
-!           ---------------
-!           Local variables
-!           ---------------
-!
-      REAL(KIND=RP)                         :: tggm1, fr, rho, ff, ffp, delt
-      REAL(KIND=RP)                         :: p, velocity, u, v, qq
       
-      REAL(KIND=RP)                         :: tol
-      CHARACTER(LEN=STRING_CONSTANT_LENGTH) :: msg
-      INTEGER                               :: k
-!
-!     -------------------------------------------
-!     Compute flow quantitites inside the element
-!     The code below gives the exact solution for
-!     a subsonic point source. This solution
-!     requires the inflow flux, which is computed
-!     in the UserDefinedFinalSetup routine at the
-!     beginning of the computation.
-!     -------------------------------------------
-!
-      success = .TRUE.
-      tol   = 100.0_RP*EPSILON(1.0_RP)
-      tggm1 = 2.0_RP*gamma/(gamma-1.0_RP)
-      fr    = f*f/(x(1)*x(1) + x(2)*x(2))
-!
-!     -------------------------------------
-!     Get an initial guess for the solution
-!     -------------------------------------
-!      
-      IF(mach < 1.0_RP)     THEN
-         rho = gammaMinus1/(4._RP*gamma)*(h + SQRT(h*h - 4._RP*fr))
-      ELSE
-         rho = 1.0_RP
-         DO k = 1,10
-            rho = SQRT(fr/(h - tggm1*rho**0.4_RP))
-         END DO
-      ENDIF
-!
-!     ---------------
-!     Newton's method
-!     ---------------
-!
-      DO k = 1,15
-      
-         ff   = tggm1*rho**gammaMinus1 + fr/rho**2 - h
-         ffp  = 2._RP*gamma*rho**(gamma-2._RP) - 2._RP*fr/rho
-         delt = -ff/ffp
-         
-         IF( abs(delt) <= tol)     EXIT
-         
-         rho = rho + delt
-      END DO
-
-      IF ( abs(delt) > tol )     THEN
-         PRINT *, "Newton iteration on initial condition not convergedat (x,y) = ", &
-                   x(1),x(2),x(3),". Delta = ",delt
-         success = .FALSE.
-         RETURN
-      END IF
-!
-!     ---------------
-!     Set up solution
-!     ---------------
-!
-      Q(1) = rho
-      u    = x(1)*f/rho/(x(1)*x(1) + x(2)*x(2)) 
-      v    = x(2)*f/rho/(x(1)*x(1) + x(2)*x(2))
-      Q(2) = rho*u
-      Q(3) = rho*v
-      Q(4) = 0.0_RP
-      p    = rho**gamma
-      Q(5) = p/gammaMinus1 + 0.5_RP*rho*(u**2 + v**2)
-      
-   END SUBROUTINE pointSourceFlowSolution
 !
 !=====================================================================================================
 !=====================================================================================================
@@ -359,7 +226,6 @@
 !     ----------------------------------------------
 !
       USE BoundaryConditionFunctions
-      USE UserDefinedDataStorage
       USE MeshTypes
       
       IMPLICIT NONE
@@ -376,20 +242,19 @@
 !     Local variables
 !     ---------------
 !
-      REAL(KIND=RP)   :: pExt
-      LOGICAL         :: success
+      REAL(KIND=RP)                   :: pExt
       
-      IF ( boundarytype == implementedBCNames(FREE_SLIP_WALL_INDEX) )              THEN
+      IF ( boundarytype == "freeslipwall" )             THEN
          CALL FreeSlipWallState( x, t, nHat, Q )
-      ELSE IF ( boundaryType == implementedBCNames(NO_SLIP_ADIABATIC_WALL_INDEX) ) THEN 
+      ELSE IF ( boundaryType == "noslipadiabaticwall" ) THEN 
          CALL  NoSlipAdiabaticWallState( x, t, Q)
-      ELSE IF ( boundarytype == implementedBCNames(NO_SLIP_ISOTHERMAL_WALL_INDEX)) THEN 
+      ELSE IF ( boundarytype == "noslipisothermalwall") THEN 
          CALL NoSlipIsothermalWallState( x, t, Q )
-      ELSE IF ( boundaryType == implementedBCNames(OUTFLOW_SPECIFY_P_INDEX) )      THEN 
+      ELSE IF ( boundaryType == "outflowspecifyp" )     THEN 
          pExt =  ExternalPressure()
          CALL ExternalPressureState ( x, t, nHat, Q, pExt )
       ELSE
-         CALL pointSourceFlowSolution( x, Q, success)
+         CALL UniformFlowState( x, t, Q )
       END IF
 
       END SUBROUTINE externalStateForBoundaryName
@@ -419,15 +284,14 @@
 !     Local variables
 !     ---------------
 !
-      IF ( boundarytype == implementedBCNames(FREE_SLIP_WALL_INDEX) )                   THEN
+      IF ( boundarytype == "freeslipwall" )                   THEN
          CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE IF ( boundaryType == implementedBCNames(NO_SLIP_ADIABATIC_WALL_INDEX) )       THEN 
+      ELSE IF ( boundaryType == "noslipadiabaticwall" )       THEN 
          CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z)
-      ELSE IF ( boundarytype == implementedBCNames(NO_SLIP_ISOTHERMAL_WALL_INDEX))       THEN 
+      ELSE IF ( boundarytype == "noslipisothermalwall")       THEN 
          CALL NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z )
       ELSE
          CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
       END IF
 
       END SUBROUTINE ExternalGradientForBoundaryName
-

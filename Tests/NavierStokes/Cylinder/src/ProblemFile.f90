@@ -19,7 +19,7 @@
 !      UserDefinedFinalize(sem)
 !      UserDefinedTermination
 !
-!      *** This problem file sets up a periodic flow with a density perturbation *** 
+!      *** This problem file sets up a subsonic point source *** 
 !
 !//////////////////////////////////////////////////////////////////////// 
 !
@@ -49,7 +49,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalSetup(sem)
+         SUBROUTINE UserDefinedFinalSetup(sem, controlVariables)
 !
 !           ----------------------------------------------------------------------
 !           Called after the mesh is read in to allow mesh related initializations
@@ -58,12 +58,13 @@
 !
             USE DGSEMClass
             IMPLICIT NONE
-            CLASS(DGSem) :: sem
+            CLASS(DGSem)             :: sem
+            class(FTValueDictionary) :: controlVariables
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(sem)
+         SUBROUTINE UserDefinedInitialCondition(sem, controlVariables)
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
@@ -75,24 +76,29 @@
             USE BoundaryConditionFunctions
             IMPLICIT NONE
             
-            TYPE(DGSem)      :: sem
-            EXTERNAL         :: initialStateSubroutine
-            
-            REAL(KIND=RP) :: x(3)        
-            INTEGER       :: i, j, k, eID
-            
+            TYPE(DGSem)              :: sem
+            class(FTValueDictionary) :: controlVariables
+            EXTERNAL                 :: initialStateSubroutine
+                     
+            INTEGER     :: i, j, k, eID
             
             DO eID = 1, SIZE(sem % mesh % elements)
-            
                DO k = 0, sem % spA % N
                   DO j = 0, sem % spA % N
                      DO i = 0, sem % spA % N 
-                        CALL UniformFlowStateWithPerturbation( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
+                        CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
                                                sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )
                                                      
                      END DO
                   END DO
                END DO 
+!
+!              -------------------------------------------------
+!              Perturb mean flow in the expectation that it will
+!              relax back to the mean flow
+!              -------------------------------------------------
+!
+!               sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)
                
             END DO 
             
@@ -138,7 +144,7 @@
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "PeriodicFlow test"
+            CHARACTER(LEN=29)                  :: testName           = "Box Around Cyrcle test"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
