@@ -96,7 +96,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(sem)
+         SUBROUTINE UserDefinedInitialCondition(sem, controlVariables)
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
@@ -107,8 +107,9 @@
             USE PhysicsStorage
             IMPLICIT NONE
             
-            TYPE(DGSem) :: sem
-            LOGICAL     :: success
+            TYPE(DGSem)              :: sem
+            class(FTValueDictionary) :: controlVariables
+            LOGICAL                  :: success
                      
             INTEGER     :: i, j, k, eID
             

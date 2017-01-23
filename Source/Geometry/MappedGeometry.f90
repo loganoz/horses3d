@@ -70,7 +70,7 @@ Module MappedGeometryClass
       INTEGER       :: i, j, k
       REAL(KIND=RP) :: nrm
       REAL(KIND=RP) :: grad_x(3,3), jGrad(3)
-      LOGICAL       :: useCrossProductMetrics = .FALSE. ! A switch for debugging purposes
+      LOGICAL       :: useCrossProductMetrics = .TRUE. ! A switch for debugging purposes
 !
 !     -----------
 !     Allocations

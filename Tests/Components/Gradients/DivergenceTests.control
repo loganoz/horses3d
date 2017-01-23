@@ -1,5 +1,5 @@
 Flow equations = "Euler"
-mesh file name = "/Users/kopriva/Documents/Research/FortranCode/NSLite3D/Tests/Components/Gradients/GradientsMeshFileNames.txt"
+mesh file name = "./GradientsMeshFileNames.txt"
 plot file name = "none"
 restart file name = "none"
 restart               = .false.

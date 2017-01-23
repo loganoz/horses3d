@@ -49,7 +49,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalSetup(sem)
+         SUBROUTINE UserDefinedFinalSetup(sem, controlVariables)
 !
 !           ----------------------------------------------------------------------
 !           Called after the mesh is read in to allow mesh related initializations
@@ -58,12 +58,13 @@
 !
             USE DGSEMClass
             IMPLICIT NONE
-            CLASS(DGSem) :: sem
+            CLASS(DGSem)             :: sem
+            class(FTValueDictionary) :: controlVariables
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(sem)
+         SUBROUTINE UserDefinedInitialCondition(sem, controlVariables)
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
@@ -75,8 +76,9 @@
             USE BoundaryConditionFunctions
             IMPLICIT NONE
             
-            TYPE(DGSem)      :: sem
-            EXTERNAL         :: initialStateSubroutine
+            TYPE(DGSem)              :: sem
+            class(FTValueDictionary) :: controlVariables
+            EXTERNAL                 :: initialStateSubroutine
                      
             INTEGER     :: i, j, k, eID
             

@@ -8,7 +8,7 @@ Number of time steps  = 5000
 Output Interval       = 100
 Number of plot points = 6
 Convergence tolerance = 1.d-10
-cfl                   = 0.2
+cfl                   = 0.4
 mach number           = 0.5
 Reynolds number       = 0.0
 AOA theta             = 0.0
@@ -20,3 +20,4 @@ bottom 0.0 Inflow
 top 0.0 Inflow
 left 0.0 Outflow
 right 0.0 Outflow
+riemann solver       = rusanov

@@ -1,0 +1,108 @@
+#------------------------------------------------
+# This makefile needs some inputs:
+#	-> FC: Fortran compiler
+#	-> FTObject_PATH: Path in which this makefile is contained
+# 	-> FFLAGS: Fortran compiler flags
+#	-> INCLUDE: Included directories for the ftn compiler
+#
+#------------------------------------------------
+
+FC ?= gfortran
+FTObject_PATH ?= ../ftobjectlibrary
+NSLITE3D_PATH?= .
+FFLAGS ?= -cpp -D_has_Quad
+INCLUDE ?= -I$(FTObject_PATH)/include
+ifeq ($(FC),gfortran)
+  MOD_FLAG ?= -J
+else
+  MOD_FLAG ?= -module 
+endif
+
+include $(FTObject_PATH)/Makefile.ftobjectlibrary
+
+OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter\
+		LegendreAlgorithms InterpolationAndDerivatives\
+		Physics BoundaryConditions SharedBCModule\
+		FacePatchClass MappedGeometry TransfiniteMaps3D\
+		FaceClass HexElementClass HexElementConnectivityDefinitions HexMesh MeshTypes NodeClass\
+		DGSEMClass DGSpaceAndTimeDerivativeMethods NodalStorageClass\
+		PlotterDataSource\
+		ReadInputFile Setup TimeIntegrator ProblemFile\
+		NSLite3DMain
+
+# --------------- Dependencies 
+NSLite3DMain: TimeIntegrator \
+ProblemFile \
+HexMesh \
+Plotter \
+FTTimerClass \
+SharedBCModule \
+BoundaryConditions \
+ReadInputFile \
+SMConstants \
+DGSEMClass
+
+FileReading: SMConstants
+Utilities: SMConstants 
+Plotter: NodalStorageClass HexElementClass PlotterDataSource 
+TimerClass: SMConstants
+LegendreAlgorithms: SMConstants 
+InterpolationAndDerivatives: SMConstants LegendreAlgorithms 
+BoundaryConditions: SMConstants Physics MeshTypes HexElementClass SharedBCModule 
+Physics: SMConstants FTValueDictionaryClass 
+SharedBCModule: FTValueDictionaryClass 
+FacePatchClass: SMConstants 
+MappedGeometry: SMConstants TransfiniteMaps3D NodalStorageClass 
+TransfiniteMaps3D: SMConstants FacePatchClass 
+FaceClass: SMConstants MeshTypes 
+HexElementClass: SMConstants MeshTypes TransfiniteMaps3D HexElementConnectivityDefinitions NodalStorageClass LegendreAlgorithms InterpolationAndDerivatives MappedGeometry 
+HexElementConnectivityDefinitions: SMConstants 
+HexMesh: FTValueClass FTMultiIndexTable TransfiniteMaps3D FaceClass MeshTypes SharedBCModule NodeClass HexElementClass 
+NodeClass: SMConstants MeshTypes 
+DGSEMClass: DGSpaceAndTimeDerivativeMethods Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants 
+DGSpaceAndTimeDerivativeMethods: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants 
+NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
+TimeIntegrator: Physics Plotter ProblemFile SMConstants DGSEMClass InterpolationAndDerivatives
+PlotterDataSource: SMConstants 
+ReadInputFile: SMConstants FTValueDictionaryClass SharedBCModule Physics Setup
+ProblemFile: SMConstants Physics BoundaryConditions MeshTypes Assert DGSEMClass 
+
+
+# ######################################### #
+# --------- DO NOT EDIT ------------------- #
+# ######################################### #
+
+
+INCLUDE+= -I$(NSLITE3D_PATH)/include
+OBJS_NSLITE3D_EXEC=$(foreach obj,$(OBJS_NSLITE3D),$(NSLITE3D_PATH)/build/$(obj).o)
+
+# ---------- General compilation rule -----------------------------
+FILE_NSLITE = $(or $(wildcard $(NSLITE3D_PATH)/Source/**/$@.f90) , $(wildcard $(NSLITE3D_PATH)/Source/$@.f90) )
+
+$(OBJS_NSLITE3D): %: $(or $(wildcard $(NSLITE3D_PATH)/Source/**/%.f90), $(wildcard $(NSLITE3D_PATH)/Source/%.f90) )
+	$(FC) $(FFLAGS) $(INCLUDE) $(MOD_FLAG)$(NSLITE3D_PATH)/include -c $(FILE_NSLITE) -o $(NSLITE3D_PATH)/build/$@.o
+
+
+
+nslite3dall: createNSFolders $(OBJS_FTObjLib) $(OBJS_NSLITE3D)
+
+# ------------------------------------------------------
+#
+#	Rules to compile objects and dependencies
+#
+# ------------------------------------------------------
+# ----------------------------------------------------------------------
+#
+#	Extra macros
+#
+# ----------------------------------------------------------------------
+
+nslite3dclean:
+	$(info Removing object *.o files from $(NSLITE3D_PATH)/build)
+	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
+	@rm -f $(NSLITE3D_PATH)/build/*.o* $(NSLITE3D_PATH)/include/*.mod*
+
+createNSFolders:
+	mkdir -p $(NSLITE3D_PATH)/build
+	mkdir -p $(NSLITE3D_PATH)/include
+	mkdir -p $(NSLITE3D_PATH)/bin
