@@ -14,7 +14,7 @@ mkdir -p ./Tests/NavierStokes/Cylinder/RestartFiles
 mkdir -p ./Tests/NavierStokes/Cylinder/PlotFiles
 mkdir -p ./Tests/NavierStokes/FlatPlate/RestartFiles
 mkdir -p ./Tests/NavierStokes/FlatPlate/PlotFiles
-echo 'NSLITE3D_PATH = '$PWD $'\nFTObject_PATH = '$PWD'/ftobjectlibrary' > ./Tests/make.inc
+echo 'NSLITE3D_PATH = '$PWD'\nFTObject_PATH = '$PWD'/ftobjectlibrary' > ./Tests/make.inc
 cp --verbose ./Tests/make.inc ./Tests/Components/FacePatches/make.inc
 cp --verbose ./Tests/make.inc ./Tests/Components/Gradients/make.inc
 cp --verbose ./Tests/make.inc ./Tests/Components/HexMappings/make.inc
