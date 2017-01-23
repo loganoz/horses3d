@@ -1,5 +1,7 @@
 mkdir -p include
 mkdir -p build
+mkdir -p ftobjectlibrary
+tar xf ftobjectlibrary.tar.gz -C ./ftobjectlibrary
 mkdir -p ./Tests/Euler/BoxAroundCircle/RestartFiles
 mkdir -p ./Tests/Euler/BoxAroundCircle/PlotFiles
 mkdir -p ./Tests/Euler/diffuser/RestartFiles
@@ -12,6 +14,7 @@ mkdir -p ./Tests/NavierStokes/Cylinder/RestartFiles
 mkdir -p ./Tests/NavierStokes/Cylinder/PlotFiles
 mkdir -p ./Tests/NavierStokes/FlatPlate/RestartFiles
 mkdir -p ./Tests/NavierStokes/FlatPlate/PlotFiles
+echo 'NSLITE3D_PATH = '$PWD $'\nFTObject_PATH = '$PWD'/ftobjectlibrary' > ./Tests/make.inc
 cp --verbose ./Tests/make.inc ./Tests/Components/FacePatches/make.inc
 cp --verbose ./Tests/make.inc ./Tests/Components/Gradients/make.inc
 cp --verbose ./Tests/make.inc ./Tests/Components/HexMappings/make.inc
