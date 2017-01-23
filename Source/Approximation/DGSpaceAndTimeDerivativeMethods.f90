@@ -233,7 +233,7 @@
       REAL(KIND=RP), DIMENSION(0:e % N, 0:e % N, 0:e % N, N_GRAD_EQN) :: f
       REAL(KIND=RP), DIMENSION(0:e % N, 0:e % N, 0:e % N, N_GRAD_EQN) :: g
       REAL(KIND=RP), DIMENSION(0:e % N, 0:e % N, 0:e % N, N_GRAD_EQN) :: h
-      REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U
+      REAL(KIND=RP), DIMENSION(0:e % N, 0:e % N, 0:e % N, N_GRAD_EQN) :: U
       REAL(KIND=RP), DIMENSION(0:e % N, N_GRAD_EQN) :: fx
       
       INTEGER :: N, j, i, k, nv
@@ -245,13 +245,13 @@
          DO j = 0, e % N
             DO i = 0, e % N
 
-               CALL GradientValuesForQ( Q = e % Q(i,j,k,:), U = U )
+               CALL GradientValuesForQ( Q = e % Q(i,j,k,:), U = U(i,j,k,:) )
                
                DO nv = 1, N_GRAD_EQN
          
-                  f(i,j,k,nv) = U(nv) * e % geom % jGradXi(1,i,j,k)
-                  g(i,j,k,nv) = U(nv) * e % geom % jGradEta(1,i,j,k)
-                  h(i,j,k,nv) = U(nv) * e % geom % jGradZeta(1,i,j,k) 
+                  f(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradXi(1,i,j,k)
+                  g(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradEta(1,i,j,k)
+                  h(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradZeta(1,i,j,k) 
                
                END DO
                
@@ -320,13 +320,13 @@
          DO j = 0, e % N
             DO i = 0, e % N
 
-               CALL GradientValuesForQ( e % Q(i,j,k,:), U )
+              !CALL GradientValuesForQ( e % Q(i,j,k,:), U )
 
                DO nv = 1, N_GRAD_EQN
            
-                  f(i,j,k,nv) = U(nv) * e % geom % jGradXi(2,i,j,k)
-                  g(i,j,k,nv) = U(nv) * e % geom % jGradEta(2,i,j,k)
-                  h(i,j,k,nv) = U(nv) * e % geom % jGradZeta(2,i,j,k) 
+                  f(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradXi(2,i,j,k)
+                  g(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradEta(2,i,j,k)
+                  h(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradZeta(2,i,j,k) 
                   
                END DO
                
@@ -395,13 +395,13 @@
          DO j = 0, e % N
             DO i = 0, e % N
 
-               CALL GradientValuesForQ( e % Q(i,j,k,:), U )
+               !CALL GradientValuesForQ( e % Q(i,j,k,:), U )
 
                DO nv = 1, N_GRAD_EQN
          
-                  f(i,j,k,nv) = U(nv) * e % geom % jGradXi(3,i,j,k)
-                  g(i,j,k,nv) = U(nv) * e % geom % jGradEta(3,i,j,k)
-                  h(i,j,k,nv) = U(nv) * e % geom % jGradZeta(3,i,j,k) 
+                  f(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradXi(3,i,j,k)
+                  g(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradEta(3,i,j,k)
+                  h(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradZeta(3,i,j,k) 
                
                END DO
                
