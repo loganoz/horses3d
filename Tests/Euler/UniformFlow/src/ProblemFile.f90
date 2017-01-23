@@ -146,10 +146,10 @@
 !           results are for the Mach 0.5 and rusanov solvers.
 !           -----------------------------------------------------------------------
 !
-            INTEGER                            :: expectedIterations(3:5) = [1551,2631,3545]
-            REAL(KIND=RP)                      :: expectedResidual(3:5)   = [9.4867545231987148D-011,&
-                                                                             9.5354584517371496D-011,&
-                                                                             9.5453815782930162D-011]
+            INTEGER                            :: expectedIterations(3:5) = [1822,3091,4165]
+            REAL(KIND=RP)                      :: expectedResidual(3:5)   = [9.6520725714586822D-011,&
+                                                                             9.6625555751434734D-011,&
+                                                                             9.6421385062404386D-011]
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

@@ -20,3 +20,4 @@ wall5 0.0 freeslipwall
 outflow4 0.0 Outflow
 inflow6 0.0 Inflow
 wall3 0.0 freeslipwall
+riemann solver        = rusanov
