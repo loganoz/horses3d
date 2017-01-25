@@ -15,17 +15,17 @@ mkdir -p ./Tests/NavierStokes/Cylinder/PlotFiles
 mkdir -p ./Tests/NavierStokes/FlatPlate/RestartFiles
 mkdir -p ./Tests/NavierStokes/FlatPlate/PlotFiles
 echo 'NSLITE3D_PATH = '$PWD'\nFTObject_PATH = '$PWD'/ftobjectlibrary' > ./Tests/make.inc
-cp --verbose ./Tests/make.inc ./Tests/Components/FacePatches/make.inc
-cp --verbose ./Tests/make.inc ./Tests/Components/Gradients/make.inc
-cp --verbose ./Tests/make.inc ./Tests/Components/HexMappings/make.inc
-cp --verbose ./Tests/make.inc ./Tests/Components/HexMesh/make.inc
-cp --verbose ./Tests/make.inc ./Tests/Components/MappedGeometry/make.inc
-cp --verbose ./Tests/make.inc ./Tests/Components/NodalStorage/make.inc
-cp --verbose ./Tests/make.inc ./Tests/Euler/BoxAroundCircle/make.inc
-cp --verbose ./Tests/make.inc ./Tests/Euler/diffuser/make.inc
-cp --verbose ./Tests/make.inc ./Tests/Euler/PeriodicFlow/make.inc
-cp --verbose ./Tests/make.inc ./Tests/Euler/UniformFlow/make.inc
-cp --verbose ./Tests/make.inc ./Tests/NavierStokes/Cylinder/make.inc
-cp --verbose ./Tests/make.inc ./Tests/NavierStokes/FlatPlate/make.inc
+cp -v ./Tests/make.inc ./Tests/Components/FacePatches/make.inc
+cp -v ./Tests/make.inc ./Tests/Components/Gradients/make.inc
+cp -v ./Tests/make.inc ./Tests/Components/HexMappings/make.inc
+cp -v ./Tests/make.inc ./Tests/Components/HexMesh/make.inc
+cp -v ./Tests/make.inc ./Tests/Components/MappedGeometry/make.inc
+cp -v ./Tests/make.inc ./Tests/Components/NodalStorage/make.inc
+cp -v ./Tests/make.inc ./Tests/Euler/BoxAroundCircle/make.inc
+cp -v ./Tests/make.inc ./Tests/Euler/diffuser/make.inc
+cp -v ./Tests/make.inc ./Tests/Euler/PeriodicFlow/make.inc
+cp -v ./Tests/make.inc ./Tests/Euler/UniformFlow/make.inc
+cp -v ./Tests/make.inc ./Tests/NavierStokes/Cylinder/make.inc
+cp -v ./Tests/make.inc ./Tests/NavierStokes/FlatPlate/make.inc
 
 
