@@ -23,7 +23,7 @@ ifeq '$(FC)''gfortran'
    ifeq '$(MODE)''DEBUG'
       $(info MODE = DEBUG)
       #FFLAGS = -ffree-line-length-0 -O0 -g -Wall -fcheck=all -fbacktrace -fbounds-check -finit-real=snan -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries -fbackslash#-fdefault-integer-8 
-      FFLAGS = -D_has_Quad -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable -fbacktrace -fbounds-check -finit-real=snan  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries
+      FFLAGS = -D_has_Quad -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable -fbacktrace -fbounds-check -finit-real=snan  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries -fbackslash
    else 
   	$(info MODE = RELEASE)
       FFLAGS = -D_has_Quad -cpp -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash -fopenmp#-fdefault-integer-8 #-fopt-info-all
@@ -70,8 +70,8 @@ $(OBJS_CASE): %: $(SRC_DIR)/%.f90
 
 
 clean:
-	@rm -f $(FTOBJLIB_PATH)/build/*
-	@rm -f $(FTOBJLIB_PATH)/include/*
+	@rm -f $(FTObject_PATH)/build/*
+	@rm -f $(FTObject_PATH)/include/*
 	@rm -f $(NSLITE3D_PATH)/build/*
 	@rm -f $(NSLITE3D_PATH)/include/*
 	@rm -f ./include/*.mod ./build/*.o

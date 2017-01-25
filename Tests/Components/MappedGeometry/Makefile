@@ -74,8 +74,8 @@ $(OBJS_CASE): %: $(SRC_DIR)/%.f90
 
 
 clean:
-	@rm -f $(FTOBJLIB_PATH)/build/*
-	@rm -f $(FTOBJLIB_PATH)/include/*
+	@rm -f $(FTObject_PATH)/build/*
+	@rm -f $(FTObject_PATH)/include/*
 	@rm -f $(NSLITE3D_PATH)/build/*
 	@rm -f $(NSLITE3D_PATH)/include/*
 	@rm -f ./include/*.mod ./build/*.o

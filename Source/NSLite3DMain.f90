@@ -22,6 +22,7 @@
       USE TimeIntegratorClass
       USE UserDefinedFunctions
       USE mainKeywordsModule
+      USE Headers
       
       IMPLICIT NONE
 !
@@ -48,6 +49,8 @@
 !     Initializations
 !     ---------------
 !
+      CALL Main_Header("NSLite3D discontinuous Galerkin spectral element solver.")
+
       CALL controlVariables % initWithSize(16)
       CALL stopWatch % init()
       CALL UserDefinedStartup

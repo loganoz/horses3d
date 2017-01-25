@@ -29,6 +29,18 @@
 !
      INTEGER :: N_EQN = 5, N_GRAD_EQN = 4
 !
+!    -----------------------------
+!    Number of physical dimensions
+!    -----------------------------
+!
+     INTEGER, PARAMETER       :: NDIM = 3
+!
+!    -------------------------------------------
+!!   The positions of the conservative variables
+!    -------------------------------------------
+!
+     INTEGER :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
+!
 !    ----------------------------------------
 !!   The free-stream or reference mach number
 !    ----------------------------------------

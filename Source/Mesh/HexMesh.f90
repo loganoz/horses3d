@@ -15,6 +15,7 @@
       USE FaceClass
       USE TransfiniteMapClass
       use SharedBCModule
+      use ElementConnectivityDefinitions
       IMPLICIT NONE
 !
 !     ---------------
@@ -33,6 +34,7 @@
 !
          PROCEDURE :: constructFromFile => ConstructMesh_FromFile_
          PROCEDURE :: destruct          => DestructMesh
+         PROCEDURE :: Describe          => DescribeMesh
          
       END TYPE HexMesh
 !
@@ -44,6 +46,7 @@
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE ConstructMesh_FromFile_( self, fileName, spA, success )
+         USE Physics
          IMPLICIT NONE
 !
 !        ---------------
@@ -70,12 +73,12 @@
          INTEGER                         :: bFaceOrder, numBFacePoints
          INTEGER                         :: i, j, k, l
          INTEGER                         :: fUnit, fileStat
-         INTEGER                         :: nodeIDs(8), nodeMap(4)
-         REAL(KIND=RP)                   :: x(3)
-         INTEGER                         :: faceFlags(6)
-         CHARACTER(LEN=BC_STRING_LENGTH) :: names(6)
+         INTEGER                         :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
+         REAL(KIND=RP)                   :: x(NDIM)
+         INTEGER                         :: faceFlags(FACES_PER_ELEMENT)
+         CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
          TYPE(FacePatch), DIMENSION(6)   :: facePatches
-         REAL(KIND=RP)                   :: corners(3,8)
+         REAL(KIND=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
          INTEGER, EXTERNAL               :: UnusedUnit
 !
 !        ------------------
@@ -176,7 +179,7 @@
 !           -----------------------------------------------------------------------------
 !
             IF(MAXVAL(faceFlags) == 0)     THEN
-               DO k = 1, 8
+               DO k = 1, NODES_PER_ELEMENT
                   corners(:,k) = self % nodes(nodeIDs(k)) % x
                END DO
                CALL hex8Map % setCorners(corners)
@@ -187,7 +190,7 @@
 !              Otherwise, we have to look at each of the faces of the element 
 !              --------------------------------------------------------------
 !
-               DO k = 1, 6 
+               DO k = 1, FACES_PER_ELEMENT 
                  IF ( faceFlags(k) == 0 )     THEN
 !
 !                    ----------
@@ -281,6 +284,8 @@
          DEALLOCATE(hex8Map)
          CALL genHexMap % destruct()
          DEALLOCATE(genHexMap)
+
+         CALL self % Describe( trim(fileName) )
          
       END SUBROUTINE ConstructMesh_FromFile_
 
@@ -471,6 +476,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 !
       SUBROUTINE ConstructPeriodicFaces(self) 
+      USE Physics
       IMPLICIT NONE  
 ! 
 !------------------------------------------------------------------- 
@@ -493,7 +499,7 @@
 !-------------------- 
 ! 
 !
-      REAL(KIND=RP) :: x1(3), x2(3)
+      REAL(KIND=RP) :: x1(NDIM), x2(NDIM)
       LOGICAL       :: master_matched(4), slave_matched(4)
       INTEGER       :: coord
       
@@ -694,7 +700,51 @@
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+      SUBROUTINE DescribeMesh( self , fileName )
+      USE Headers
+      IMPLICIT NONE
+!
+!--------------------------------------------------------------------
+!  This subroutine describes the loaded mesh
+!--------------------------------------------------------------------
+!
+!
+!     ------------------
+!     External variables
+!     ------------------
+!
+      CLASS(HexMesh)    :: self
+      CHARACTER(LEN=*)  :: fileName
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      INTEGER           :: fID
+      INTEGER           :: no_of_bdryfaces = 0
+
+      write(STD_OUT,'(/)')
+      call Section_Header("Reading mesh")
+      write(STD_OUT,'(/)')
       
+      call SubSection_Header('Mesh file "' // trim(fileName) // '".')
+
+      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of nodes: " , size ( self % nodes )
+      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of elements: " , size ( self % elements )
+      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of faces: " , size ( self % faces )
+   
+      do fID = 1 , size ( self % faces )
+         if ( self % faces(fID) % faceType .ne. HMESH_INTERIOR) then
+            no_of_bdryfaces = no_of_bdryfaces + 1
+         end if
+      end do
+
+      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bdryfaces
+
+      END SUBROUTINE DescribeMesh     
+! 
+!//////////////////////////////////////////////////////////////////////// 
+! 
 !     ==========
       END MODULE HexMeshClass
 !     ==========

@@ -59,6 +59,18 @@
 !
      INTEGER :: N_EQN = 5, N_GRAD_EQN = 4
 !
+!    -----------------------------
+!    Number of physical dimensions
+!    -----------------------------
+!
+     INTEGER, PARAMETER       :: NDIM = 3
+!
+!    -------------------------------------------
+!!   The positions of the conservative variables
+!    -------------------------------------------
+!
+     INTEGER :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
+!
 !    ----------------------------------------
 !!   The free-stream or reference mach number
 !    ----------------------------------------
@@ -90,6 +102,19 @@
 !
      REAL( KIND=RP ) :: TRef 
 !
+!    ----------------------------------------
+!!   The free-stream or reference pressure
+!!   with default in Pa.
+!    ----------------------------------------
+!
+     REAL( KIND=RP ) :: pRef 
+!
+!    ----------------------------------------
+!!   The length in the Reynolds number
+!    ----------------------------------------
+!
+     REAL( KIND=RP ) :: reynoldsLength 
+!
 !    --------------------------------------------
 !!   The temperature scale in the Sutherland law:
 !!   198.6 for temperatures in R, 110.3 for
@@ -109,6 +134,12 @@
 !    -------------
 !
      REAL( KIND=RP ) :: gamma
+!
+!    ----------------------
+!!   The gas state constant
+!    ----------------------
+!
+     REAL( KIND=RP ) :: Rgas
 !
 !    ----------------------------------
 !!   Other constants derived from gamma
@@ -230,10 +261,12 @@
       END IF 
 !
       TRef            = 520.0_RP
+      pRef            = 101325.0_RP
       TScale          = 198.6_RP
       TRatio          = TScale/TRef
       
       gamma                = 1.4_RP
+      Rgas                 = 287.15_RP * 5.0_RP / 9.0_RP
       gammaMinus1          = gamma - 1.0_RP
       sqrtGamma            = SQRT( gamma )
       gammaMinus1Div2      = gammaMinus1/2.0_RP
@@ -245,6 +278,10 @@
       InvGamma             = 1.0_RP / gamma
       gammaDivGammaMinus1  = gamma / gammaMinus1
       gammaM2              = gamma*mach**2
+
+      reynoldsLength       = 1.0_RP
+
+      CALL DescribePhysicsStorage()
 !
       END SUBROUTINE ConstructPhysicsStorage
 !
@@ -257,6 +294,55 @@
       SUBROUTINE DestructPhysicsStorage
       
       END SUBROUTINE DestructPhysicsStorage
+!
+!     //////////////////////////////////////////////////////
+!
+!     -----------------------------------------
+!!    Descriptor: Shows the gathered data
+!     -----------------------------------------
+!
+      SUBROUTINE DescribePhysicsStorage()
+         USE Headers
+         IMPLICIT NONE
+
+         write(STD_OUT,'(/,/)')
+         if (flowIsNavierStokes) then
+            call Section_Header("Loading Navier-Stokes physics")
+         else
+            call Section_Header("Loading Euler physics")
+         end if
+
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Fluid data")
+         write(STD_OUT,'(30X,A,A22,A10)') "->" , "Gas: " , "Air"
+         write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "State constant: " , Rgas, " I.S."
+         write(STD_OUT,'(30X,A,A22,F10.3)') "->" , "Specific heat ratio: " , gamma
+
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Reference quantities")
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference Temperature: " , TRef, " K."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference pressure: " , pRef, " Pa."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference density: " , pRef / (Rgas * TRef) , " kg/m^3."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference velocity: " , Mach * sqrt(gamma * Rgas * TRef) , " m/s."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reynolds length: " , reynoldsLength , " m."
+         
+         if ( flowIsNavierStokes ) then
+            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference viscosity: ", sqrt(gamma) * Mach * reynoldsLength * pRef / ( RE * sqrt(Rgas * TRef) ) , " Pa·s."
+            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference conductivity: ", gammaDivGammaMinus1 * Rgas * sqrt(gamma) * Mach * reynoldsLength * pRef / ( RE * sqrt(Rgas * TRef) ) / PR, " W/(m·K)."
+         end if
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference time: " , reynoldsLength / (Mach * sqrt(gamma * Rgas * TRef) ) , " s."
+
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Dimensionless quantities")
+         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Mach number: " , Mach
+         if ( flowIsNavierStokes ) then
+            write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Reynolds number: " , RE
+            write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Prandtl number: " , PR
+         end if
+ 
+
+
+      END SUBROUTINE DescribePhysicsStorage
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
