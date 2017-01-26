@@ -34,6 +34,7 @@
 !    -----------------------------
 !
      INTEGER, PARAMETER       :: NDIM = 3
+     INTEGER, PARAMETER       :: IX = 1 , IY = 2 , IZ = 3
 !
 !    -------------------------------------------
 !!   The positions of the conservative variables
