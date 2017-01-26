@@ -997,7 +997,7 @@
 !     Arguments
 !     ---------
 !
-      TYPE(DGSem)    :: self
+      TYPE(DGSem), TARGET    :: self
 !
 !     ---------------
 !     Local variables
@@ -1009,6 +1009,7 @@
       INTEGER               :: N
       REAL(KIND=RP)         :: MaximumEigenvalue
       EXTERNAL              :: ComputeEigenvaluesForState
+      REAL(KIND=RP)         :: Q(N_EQN)
 !            
       MaximumEigenvalue = 0.0_RP
       
@@ -1039,23 +1040,24 @@
 !                 by the physics.
 !                 ------------------------------------------------------------
 !
-                  CALL ComputeEigenvaluesForState( self % mesh % elements(id) % Q(i,j,k,:), eValues )
+                  Q(1:N_EQN) = self % mesh % elements(id) % Q(i,j,k,1:N_EQN)
+                  CALL ComputeEigenvaluesForState( Q , eValues )
 !
 !                 ----------------------------
 !                 Compute contravariant values
 !                 ----------------------------
 !              
-                  lamcsi =  ( self % mesh % elements(id) % geom % jGradXi(1,i,j,k)   * eValues(1) + &
-        &                     self % mesh % elements(id) % geom % jGradXi(2,i,j,k)   * eValues(2) + &
-        &                     self % mesh % elements(id) % geom % jGradXi(3,i,j,k)   * eValues(3) ) * dcsi
+                  lamcsi =  ( self % mesh % elements(id) % geom % jGradXi(IX,i,j,k)   * eValues(IX) + &
+        &                     self % mesh % elements(id) % geom % jGradXi(IY,i,j,k)   * eValues(IY) + &
+        &                     self % mesh % elements(id) % geom % jGradXi(IZ,i,j,k)   * eValues(IZ) ) * dcsi
         
-                  lameta =  ( self % mesh % elements(id) % geom % jGradEta(1,i,j,k)  * eValues(1) + &
-        &                     self % mesh % elements(id) % geom % jGradEta(2,i,j,k)  * eValues(2) + &
-        &                     self % mesh % elements(id) % geom % jGradEta(3,i,j,k)  * eValues(3) ) * deta
+                  lameta =  ( self % mesh % elements(id) % geom % jGradEta(IX,i,j,k)  * eValues(IX) + &
+        &                     self % mesh % elements(id) % geom % jGradEta(IY,i,j,k)  * eValues(IY) + &
+        &                     self % mesh % elements(id) % geom % jGradEta(IZ,i,j,k)  * eValues(IZ) ) * deta
         
-                  lamzet =  ( self % mesh % elements(id) % geom % jGradZeta(1,i,j,k) * eValues(1) + &
-        &                     self % mesh % elements(id) % geom % jGradZeta(2,i,j,k) * eValues(2) + &
-        &                     self % mesh % elements(id) % geom % jGradZeta(3,i,j,k) * eValues(3) ) * dzet
+                  lamzet =  ( self % mesh % elements(id) % geom % jGradZeta(IX,i,j,k) * eValues(IX) + &
+        &                     self % mesh % elements(id) % geom % jGradZeta(IY,i,j,k) * eValues(IY) + &
+        &                     self % mesh % elements(id) % geom % jGradZeta(IZ,i,j,k) * eValues(IZ) ) * dzet
         
                   jac               = self % mesh % elements(id) % geom % jacobian(i,j,k)
                   MaximumEigenvalue = MAX( MaximumEigenvalue, ABS(lamcsi/jac) + ABS(lameta/jac) + ABS(lamzet/jac) )
