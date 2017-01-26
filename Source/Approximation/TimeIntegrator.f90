@@ -128,7 +128,8 @@
       CLASS(RKTimeIntegrator)  :: self
       TYPE(DGSem)             :: sem
       
-      REAL(KIND=RP)         :: t, maxResidual
+      REAL(KIND=RP)         :: t
+      REAL(KIND=RP)         :: maxResidual(N_EQN)
       INTEGER               :: k, mNumber
       CHARACTER(LEN=13)     :: fName = "Movie_XX.tec"
       CHARACTER(LEN=2)      :: numChar
@@ -150,9 +151,9 @@
          
          CALL TakeRK3Step( sem, t, self % dt, maxResidual )
 
-         IF( self % integratorType == STEADY_STATE .AND. maxResidual <= self % tolerance )     THEN
+         IF( self % integratorType == STEADY_STATE .AND. maxval(maxResidual) <= self % tolerance )     THEN
          
-            sem % maxResidual       = maxResidual
+            sem % maxResidual       = maxval(maxResidual)
             self % time             = t
             sem % numberOfTimeSteps = k + 1
             PRINT *, "Residual tolerance reached at iteration ",k+1," with Residual = ", maxResidual
@@ -160,12 +161,12 @@
             
          END IF
          
-         IF( MOD( k+1, self % plotInterval) == 0 )     THEN
+         IF( (MOD( k+1, self % plotInterval) == 0) .or. (k .eq. 0) )     THEN
 
           CALL UserDefinedPeriodicOperation(sem,t)
             
             IF ( self % integratorType == STEADY_STATE )     THEN
-               PRINT *, k, CHAR(9), LOG10(maxResidual)
+               CALL PlotResiduals(k+1 , t+self % dt , maxResidual)
                
             ELSE IF (ASSOCIATED(self % plotter))     THEN 
                mNumber = mNumber + 1
@@ -186,7 +187,7 @@
         
       END DO
       
-      sem % maxResidual       = maxResidual
+      sem % maxResidual       = maxval(maxResidual)
       self % time             = t
       sem % numberOfTimeSteps = k
 
@@ -207,7 +208,7 @@
 !     -----------------
 !
       TYPE(DGSem)     :: sem
-      REAL(KIND=RP)   :: t, deltaT, tk, maxResidual
+      REAL(KIND=RP)   :: t, deltaT, tk, maxResidual(N_EQN)
 !
 !     ---------------
 !     Local variables
@@ -217,8 +218,8 @@
       REAL(KIND=RP), DIMENSION(3) :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP/)
       REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP/)
       
-      INTEGER :: k, id
-      REAL(KIND=RP) :: localMaxResidual
+      INTEGER :: k, id , eq
+      REAL(KIND=RP) :: localMaxResidual(N_EQN)
 !
       do id = 1, SIZE( sem % mesh % elements ) 
          sem % mesh % elements(id) % G = 0.0_RP   
@@ -236,8 +237,10 @@
          IF ( k == 1 )     THEN
             maxResidual = 0.0_RP
             DO id = 1, SIZE( sem % mesh % elements )
-               localMaxResidual = MAXVAL(ABS(sem % mesh % elements(id) % QDot))
-               maxResidual = MAX(maxResidual,localMaxResidual)
+               DO eq = 1 , N_EQN
+                  localMaxResidual(eq) = MAXVAL(ABS(sem % mesh % elements(id) % QDot(:,:,:,eq)))
+                  maxResidual(eq) = MAX(maxResidual(eq),localMaxResidual(eq))
+               END DO
             END DO
          END IF
 
@@ -251,5 +254,32 @@
       END DO
       
    END SUBROUTINE TakeRK3Step
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     Subroutine to print the residuals
+!
+!
+   subroutine PlotResiduals( iter , time , maxResiduals )
+      implicit none
+      integer, intent(in)       :: iter
+      real(kind=RP), intent(in) :: time
+      real(kind=RP), intent(in) :: maxResiduals(N_EQN)
+!     --------------------------------------------------------
+      integer, parameter        :: showLabels = 50
+      integer, save             :: shown = 0
+
+      if ( mod(shown , showLabels) .eq. 0 ) then ! Show labels
+         write(STD_OUT , '(/)')
+         write(STD_OUT , '(/)')
+         write(STD_OUT , '(A20,5X,A10,5X,A10,5X,A10,5X,A10,5X,A10,5X,A10)') "Iteration" , "time" , "continuity" , "x-momentum" , "y-momentum", "z-momentum" , "energy"
+         write(STD_OUT , '(A20,5X,A10,5X,A10,5X,A10,5X,A10,5X,A10,5X,A10)') "---------" , "--------" , "----------" , "----------" , "----------" , "----------", "--------"
+      end if
+      write(STD_OUT , '(I20,2X,A,2X,ES10.3,2X,A,2X,ES10.3,2X,A,2X,ES10.3,2X,A,2X,ES10.3,2X,A,2X,ES10.3,2X,A,2X,ES10.3)') iter ,"|", time ,"|", maxResiduals(IRHO) , "|" , maxResiduals(IRHOU) , &
+                                          "|", maxResiduals(IRHOV) , "|" , maxResiduals(IRHOW) , "|" , maxResiduals(IRHOE)
+
+    shown = shown + 1
+
+   end subroutine PlotResiduals
 
 END MODULE TimeIntegratorClass

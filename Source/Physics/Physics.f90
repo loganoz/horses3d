@@ -57,7 +57,7 @@
 !!   The sizes of the NS system
 !    --------------------------
 !
-     INTEGER :: N_EQN = 5, N_GRAD_EQN = 4
+     INTEGER, PARAMETER :: N_EQN = 5, N_GRAD_EQN = 4
 !
 !    -----------------------------
 !    Number of physical dimensions
