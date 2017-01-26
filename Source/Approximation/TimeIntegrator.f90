@@ -23,11 +23,12 @@
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
       
       TYPE RKTimeIntegrator
-         INTEGER                     :: integratorType
-         REAL(KIND=RP)               :: tFinal, tStart, time
-         INTEGER                     :: numTimeSteps, plotInterval
-         REAL(KIND=RP)               :: dt, tolerance, cfl
-         TYPE(DGSEMPlotter), POINTER :: plotter  !Plotter is NOT owned by the time integrator
+         INTEGER                                :: integratorType
+         REAL(KIND=RP)                          :: tFinal, tStart, time
+         INTEGER                                :: numTimeSteps, plotInterval
+         REAL(KIND=RP)                          :: dt, tolerance, cfl
+         TYPE(DGSEMPlotter),   POINTER          :: plotter  !Plotter is NOT owned by the time integrator
+         PROCEDURE(RKStepFcn), NOPASS , POINTER :: RKStep
 !
 !        ========         
          CONTAINS
@@ -40,6 +41,15 @@
          PROCEDURE :: setPlotter
          PROCEDURE :: integrate
       END TYPE RKTimeIntegrator
+
+      abstract interface
+         subroutine RKStepFcn( sem , t , deltaT , maxResidual )
+            use DGSEMClass
+            implicit none
+            type(DGSem)     :: sem
+            real(kind=RP)   :: t, deltaT,  maxResidual(N_EQN)
+         end subroutine RKStepFcn
+      end interface
 !
 !     ========      
       CONTAINS 
@@ -63,6 +73,7 @@
          self % integratorType = TIME_ACCURATE
          self % tolerance      = 1.d-11
          self % plotter        => NULL()
+         self % RKStep         => TakeRK3Step
       
       END SUBROUTINE constructAsTimeAccurateIntegrator
 !
@@ -86,6 +97,7 @@
          self % tolerance      = 1.d-11
          self % cfl            = cfl
          self % plotter        => NULL()
+         self % RKStep         => TakeRK3Step
       
       END SUBROUTINE constructAsSteadyStateIntegrator
 !
@@ -149,7 +161,7 @@
 
          t = self % tStart + k*self % dt
          
-         CALL TakeRK3Step( sem, t, self % dt, maxResidual )
+         CALL self % RKStep ( sem, t, self % dt, maxResidual )
 
          IF( self % integratorType == STEADY_STATE .AND. maxval(maxResidual) <= self % tolerance )     THEN
          
