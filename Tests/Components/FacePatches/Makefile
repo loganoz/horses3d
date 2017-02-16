@@ -25,10 +25,10 @@ ifeq '$(FC)''gfortran'
    ifeq '$(MODE)''DEBUG'
       $(info MODE = DEBUG)
       #FFLAGS = -ffree-line-length-0 -O0 -g -Wall -fcheck=all -fbacktrace -fbounds-check -finit-real=snan -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries -fbackslash#-fdefault-integer-8 
-      FFLAGS = -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable -fbacktrace -fbounds-check -finit-real=snan  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries
+      FFLAGS = -cpp -O0 -g -fcheck=all -Wno-unused-variable -fbacktrace -fbounds-check -finit-real=snan  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries
    else 
   	$(info MODE = RELEASE)
-      FFLAGS = -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash -fopenmp #-fdefault-integer-8 #-fopt-info-all
+      FFLAGS = -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash -fopenmp #-fdefault-integer-8 #-fopt-info-all
    endif
 endif
 

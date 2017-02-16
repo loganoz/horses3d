@@ -241,23 +241,16 @@
       
       N = e % N
 
-      DO k = 0, e % N
-         DO j = 0, e % N
-            DO i = 0, e % N
+      CALL GradientValuesForQ( Q = e % Q, U = U )
+      
+      DO nv = 1, N_GRAD_EQN
 
-               CALL GradientValuesForQ( Q = e % Q(i,j,k,:), U = U(i,j,k,:) )
-               
-               DO nv = 1, N_GRAD_EQN
-         
-                  f(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradXi(1,i,j,k)
-                  g(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradEta(1,i,j,k)
-                  h(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradZeta(1,i,j,k) 
-               
-               END DO
-               
-            END DO
-         END DO
+         f(0:N,0:N,0:N,nv) = U(0:N,0:N,0:N,nv) * e % geom % jGradXi(IX,0:N,0:N,0:N)
+         g(0:N,0:N,0:N,nv) = U(0:N,0:N,0:N,nv) * e % geom % jGradEta(IX,0:N,0:N,0:N)
+         h(0:N,0:N,0:N,nv) = U(0:N,0:N,0:N,nv) * e % geom % jGradZeta(IX,0:N,0:N,0:N) 
+
       END DO
+
 !
 !     ---------------------------
 !     Xi-derivative contributions
@@ -306,32 +299,16 @@
 !     ---------
 !
 
-      DO k = 0, N
-         DO j = 0, N 
-            DO i = 0, N 
-               DO nv = 1, N_GRAD_EQN
-                  e % U_x(i,j,k,nv) = e % U_x(i,j,k,nv) / e % geom % jacobian(i,j,k) 
-               END DO
-            END DO 
-         END DO
+      DO nv = 1, N_GRAD_EQN
+         e % U_x(0:N,0:N,0:N,nv) = e % U_x(0:N,0:N,0:N,nv) / e % geom % jacobian 
       END DO
       
-      DO k = 0, e % N
-         DO j = 0, e % N
-            DO i = 0, e % N
+      DO nv = 1, N_GRAD_EQN
 
-              !CALL GradientValuesForQ( e % Q(i,j,k,:), U )
+         f(0:N,0:N,0:N,nv) = U(0:N,0:N,0:N,nv) * e % geom % jGradXi(IY,0:N,0:N,0:N)
+         g(0:N,0:N,0:N,nv) = U(0:N,0:N,0:N,nv) * e % geom % jGradEta(IY,0:N,0:N,0:N)
+         h(0:N,0:N,0:N,nv) = U(0:N,0:N,0:N,nv) * e % geom % jGradZeta(IY,0:N,0:N,0:N) 
 
-               DO nv = 1, N_GRAD_EQN
-           
-                  f(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradXi(2,i,j,k)
-                  g(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradEta(2,i,j,k)
-                  h(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradZeta(2,i,j,k) 
-                  
-               END DO
-               
-            END DO
-         END DO
       END DO
 !
 !     ---------------------------
@@ -380,33 +357,16 @@
 !     Finish up
 !     ---------
 !
-
-      DO k = 0, N
-         DO j = 0, N 
-            DO i = 0, N 
-               DO nv = 1, N_GRAD_EQN
-                  e % U_y(i,j,k,nv) = e % U_y(i,j,k,nv) / e % geom % jacobian(i,j,k) 
-               END DO
-            END DO 
-         END DO
+      DO nv = 1, N_GRAD_EQN
+         e % U_y(0:N,0:N,0:N,nv) = e % U_y(0:N,0:N,0:N,nv) / e % geom % jacobian 
       END DO
+      
+      DO nv = 1, N_GRAD_EQN
 
-      DO k = 0, e % N
-         DO j = 0, e % N
-            DO i = 0, e % N
+         f(0:N,0:N,0:N,nv) = U(0:N,0:N,0:N,nv) * e % geom % jGradXi(IZ,0:N,0:N,0:N)
+         g(0:N,0:N,0:N,nv) = U(0:N,0:N,0:N,nv) * e % geom % jGradEta(IZ,0:N,0:N,0:N)
+         h(0:N,0:N,0:N,nv) = U(0:N,0:N,0:N,nv) * e % geom % jGradZeta(IZ,0:N,0:N,0:N) 
 
-               !CALL GradientValuesForQ( e % Q(i,j,k,:), U )
-
-               DO nv = 1, N_GRAD_EQN
-         
-                  f(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradXi(3,i,j,k)
-                  g(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradEta(3,i,j,k)
-                  h(i,j,k,nv) = U(i,j,k,nv) * e % geom % jGradZeta(3,i,j,k) 
-               
-               END DO
-               
-            END DO
-         END DO
       END DO
 !
 !     ---------------------------
@@ -455,19 +415,10 @@
 !     Finish up
 !     ---------
 !
-      DO k = 0, N
-         DO j = 0, N 
-            DO i = 0, N 
-               DO nv = 1, N_GRAD_EQN
-                  e % U_z(i,j,k,nv) = e % U_z(i,j,k,nv) / e % geom % jacobian(i,j,k) 
-               END DO
-            END DO 
-         END DO
+
+      DO nv = 1, N_GRAD_EQN
+         e % U_z(0:N,0:N,0:N,nv) = e % U_z(0:N,0:N,0:N,nv) / e % geom % jacobian 
       END DO
-      
-
-
-
     
       END SUBROUTINE ComputeDGGradient
       
@@ -600,43 +551,31 @@
          N = e % N
 !
 !        --------------
+!        Initialization
+!        --------------
+!
+         e % Qb = 0.0_RP
+!
+!        --------------
 !        Left and right
 !        --------------
 !
-         DO k = 0, N
-            DO j = 0, N 
-               DO nv = 1, N_EQN 
-                  CALL InterpolateToBoundary( e % Q(:,j,k,nv), spA % v(:,LEFT) , N, e % Qb(nv,j,k,ELEFT) )
-                  CALL InterpolateToBoundary( e % Q(:,j,k,nv), spA % v(:,RIGHT), N, e % Qb(nv,j,k,ERIGHT))
-               END DO
-            END DO
-         END DO 
+         CALL InterpolateToBoundary( e % Q, spA % v(:,LEFT) , N, IX, e % Qb(:,:,:,ELEFT) , N_EQN)
+         CALL InterpolateToBoundary( e % Q, spA % v(:,RIGHT), N, IX, e % Qb(:,:,:,ERIGHT), N_EQN)
 !
 !        --------------
 !        Front and back
 !        --------------
 !
-         DO k = 0, N
-            DO i = 0, N 
-               DO nv = 1, N_EQN 
-                  CALL InterpolateToBoundary( e % Q(i,:,k,nv), spA % v(:,FRONT), N, e % Qb(nv,i,k,EFRONT) )
-                  CALL InterpolateToBoundary( e % Q(i,:,k,nv), spA % v(:,BACK) , N, e % Qb(nv,i,k,EBACK) )
-               END DO
-            END DO
-         END DO 
+         CALL InterpolateToBoundary( e % Q, spA % v(:,FRONT), N, IY, e % Qb(:,:,:,EFRONT) , N_EQN)
+         CALL InterpolateToBoundary( e % Q, spA % v(:,BACK) , N, IY, e % Qb(:,:,:,EBACK) , N_EQN)
 !
 !        --------------
 !        Bottom and Top
 !        --------------
 !
-         DO j = 0, N
-            DO i = 0, N 
-               DO nv = 1, N_EQN 
-                  CALL InterpolateToBoundary( e % Q(i,j,:,nv), spA % v(:,BOTTOM), N, e % Qb(nv,i,j,EBOTTOM) )
-                  CALL InterpolateToBoundary( e % Q(i,j,:,nv), spA % v(:,TOP)   , N, e % Qb(nv,i,j,ETOP)    )
-               END DO
-            END DO
-         END DO 
+         CALL InterpolateToBoundary( e % Q, spA % v(:,BOTTOM), N, IZ, e % Qb(:,:,:,EBOTTOM) , N_EQN)
+         CALL InterpolateToBoundary( e % Q, spA % v(:,TOP)   , N, IZ, e % Qb(:,:,:,ETOP)    , N_EQN)
 
       END SUBROUTINE ProlongToFaces
 !
@@ -671,55 +610,46 @@
          N = e % N
 !
 !        --------------
-!        Left and right
+!        Initialization
+!        --------------
+!  
+         e % U_xb = 0.0_RP
+         e % U_yb = 0.0_RP
+         e % U_zb = 0.0_RP
+
+!
+!        --------------
+!        Left and Right
 !        --------------
 !
-         DO k = 0, N
-            DO j = 0, N 
-               DO nv = 1, N_GRAD_EQN 
-                  CALL InterpolateToBoundary( e % U_x(:,j,k,nv), spA % v(:,LEFT) , N, e % U_xb(nv,j,k,ELEFT) )
-                  CALL InterpolateToBoundary( e % U_x(:,j,k,nv), spA % v(:,RIGHT), N, e % U_xb(nv,j,k,ERIGHT))
-                  CALL InterpolateToBoundary( e % U_y(:,j,k,nv), spA % v(:,LEFT) , N, e % U_yb(nv,j,k,ELEFT) )
-                  CALL InterpolateToBoundary( e % U_y(:,j,k,nv), spA % v(:,RIGHT), N, e % U_yb(nv,j,k,ERIGHT))
-                  CALL InterpolateToBoundary( e % U_z(:,j,k,nv), spA % v(:,LEFT) , N, e % U_zb(nv,j,k,ELEFT) )
-                  CALL InterpolateToBoundary( e % U_z(:,j,k,nv), spA % v(:,RIGHT), N, e % U_zb(nv,j,k,ERIGHT))                  
-               END DO
-            END DO
-         END DO 
+         call InterpolateToBoundary( e % U_x , spA % v(:,LEFT ) , N , IX , e % U_xb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % U_x , spA % v(:,RIGHT) , N , IX , e % U_xb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % U_y , spA % v(:,LEFT ) , N , IX , e % U_yb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % U_y , spA % v(:,RIGHT) , N , IX , e % U_yb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % U_z , spA % v(:,LEFT ) , N , IX , e % U_zb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % U_z , spA % v(:,RIGHT) , N , IX , e % U_zb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
 !
 !        --------------
 !        Front and back
 !        --------------
 !
-         DO k = 0, N
-            DO i = 0, N 
-               DO nv = 1, N_GRAD_EQN 
-                  CALL InterpolateToBoundary( e % U_x(i,:,k,nv), spA % v(:,FRONT), N, e % U_xb(nv,i,k,EFRONT) )
-                  CALL InterpolateToBoundary( e % U_x(i,:,k,nv), spA % v(:,BACK) , N, e % U_xb(nv,i,k,EBACK) )
-                  CALL InterpolateToBoundary( e % U_y(i,:,k,nv), spA % v(:,FRONT), N, e % U_yb(nv,i,k,EFRONT) )
-                  CALL InterpolateToBoundary( e % U_y(i,:,k,nv), spA % v(:,BACK) , N, e % U_yb(nv,i,k,EBACK) )
-                  CALL InterpolateToBoundary( e % U_z(i,:,k,nv), spA % v(:,FRONT), N, e % U_zb(nv,i,k,EFRONT) )
-                  CALL InterpolateToBoundary( e % U_z(i,:,k,nv), spA % v(:,BACK) , N, e % U_zb(nv,i,k,EBACK) )                                    
-               END DO
-            END DO
-         END DO 
+         CALL InterpolateToBoundary( e % U_x , spA % v(:,FRONT) , N , IY , e % U_xb(:,:,:,EFRONT ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_x , spA % v(:,BACK)  , N , IY , e % U_xb(:,:,:,EBACK  ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_y , spA % v(:,FRONT) , N , IY , e % U_yb(:,:,:,EFRONT ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_y , spA % v(:,BACK)  , N , IY , e % U_yb(:,:,:,EBACK  ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_z , spA % v(:,FRONT) , N , IY , e % U_zb(:,:,:,EFRONT ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_z , spA % v(:,BACK)  , N , IY , e % U_zb(:,:,:,EBACK  ) , N_GRAD_EQN )
 !
 !        --------------
 !        Bottom and Top
 !        --------------
 !
-         DO j = 0, N
-            DO i = 0, N 
-               DO nv = 1, N_GRAD_EQN 
-                  CALL InterpolateToBoundary( e % U_x(i,j,:,nv), spA % v(:,BOTTOM), N, e % U_xb(nv,i,j,EBOTTOM) )
-                  CALL InterpolateToBoundary( e % U_x(i,j,:,nv), spA % v(:,TOP)   , N, e % U_xb(nv,i,j,ETOP)    )
-                  CALL InterpolateToBoundary( e % U_y(i,j,:,nv), spA % v(:,BOTTOM), N, e % U_yb(nv,i,j,EBOTTOM) )
-                  CALL InterpolateToBoundary( e % U_y(i,j,:,nv), spA % v(:,TOP)   , N, e % U_yb(nv,i,j,ETOP)    )
-                  CALL InterpolateToBoundary( e % U_z(i,j,:,nv), spA % v(:,BOTTOM), N, e % U_zb(nv,i,j,EBOTTOM) )
-                  CALL InterpolateToBoundary( e % U_z(i,j,:,nv), spA % v(:,TOP)   , N, e % U_zb(nv,i,j,ETOP)    )                  
-               END DO
-            END DO
-         END DO 
+         CALL InterpolateToBoundary( e % U_x, spA % v(:,BOTTOM), N, IZ , e % U_xb(:,:,:,EBOTTOM) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_x, spA % v(:,TOP)   , N, IZ , e % U_xb(:,:,:,ETOP)    , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_y, spA % v(:,BOTTOM), N, IZ , e % U_yb(:,:,:,EBOTTOM) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_y, spA % v(:,TOP)   , N, IZ , e % U_yb(:,:,:,ETOP)    , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_z, spA % v(:,BOTTOM), N, IZ , e % U_zb(:,:,:,EBOTTOM) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_z, spA % v(:,TOP)   , N, IZ , e % U_zb(:,:,:,ETOP)    , N_GRAD_EQN )                  
 
       END SUBROUTINE ProlongGradientToFaces      
 !
@@ -833,7 +763,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE InterpolateToBoundary( u, v, N, bValue )
+      SUBROUTINE InterpolateToBoundary( u, v, N, which_dim , bValue , NEQ)
 !
 !     -------------------------------------------------------------
 !     Interpolation to the boundary is a dot product for each row or
@@ -843,12 +773,60 @@
 !     -------------------------------------------------------------
 !
          USE SMConstants
+         USE Physics
          IMPLICIT NONE
          INTEGER                      , INTENT(IN)  :: N
-         REAL(KIND=RP), DIMENSION(0:N), INTENT(IN)  :: u, v
-         REAL(KIND=RP)                , INTENT(OUT) :: bValue
-!
-         bValue = DOT_PRODUCT( u, v )
+         real(kind=RP)                , intent(in)  :: u(0:,0:,0:,1:) , v(0:)
+         integer                      , intent(in)  :: which_dim
+         REAL(KIND=RP)                , INTENT(INOUT) :: bValue(1:,0:,0:)
+         integer                      , intent(in)  :: NEQ
+!        --------------------------------------------------------------------------------
+         integer                                    :: i , j , k , eq
+
+         select case (which_dim)
+            case (IX)
+
+               do eq = 1 , NEQ
+                  do j = 0 , N
+                     do i = 0 , N
+                        do k = 0 , N
+
+                           bValue(eq,i,j) = bValue(eq,i,j) + u(k,i,j,eq) * v(k)
+   
+                        end do
+                     end do
+                  end do
+               end do
+
+            case (IY)
+
+                do eq = 1 , NEQ
+                  do j = 0 , N
+                     do k = 0 , N
+                        do i = 0 , N
+
+                           bValue(eq,i,j) = bValue(eq,i,j) + u(i,k,j,eq) * v(k)
+   
+                        end do
+                     end do
+                  end do
+               end do
+
+            case (IZ)
+
+               do eq = 1 , NEQ
+                  do k = 0 , N
+                     do j = 0 , N
+                        do i = 0 , N
+
+                           bValue(eq,i,j) = bValue(eq,i,j) + u(i,j,k,eq) * v(k)
+   
+                        end do
+                     end do
+                  end do
+               end do
+
+         end select
          
       END SUBROUTINE InterpolateToBoundary
 

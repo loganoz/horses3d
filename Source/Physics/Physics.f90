@@ -72,6 +72,12 @@
 !
      INTEGER :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
 !
+!    ---------------------------------------
+!!   The positions of the gradient variables
+!    ---------------------------------------
+!
+     INTEGER :: IGU = 1 , IGV = 2 , IGW = 3 , IGT = 4
+!
 !    ----------------------------------------
 !!   The free-stream or reference mach number
 !    ----------------------------------------
@@ -328,10 +334,14 @@
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reynolds length: " , reynoldsLength , " m."
          
          if ( flowIsNavierStokes ) then
-            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference viscosity: ", sqrt(gamma) * Mach * reynoldsLength * pRef / ( RE * sqrt(Rgas * TRef) ) , " Pa·s."
-            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference conductivity: ", gammaDivGammaMinus1 * Rgas * sqrt(gamma) * Mach * reynoldsLength * pRef / ( RE * sqrt(Rgas * TRef) ) / PR, " W/(m·K)."
+            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference viscosity: ", &
+                     sqrt(gamma) * Mach * reynoldsLength * pRef / ( RE * sqrt(Rgas * TRef) ) , " Pa·s."
+            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference conductivity: ", &
+                     gammaDivGammaMinus1 * Rgas * sqrt(gamma) * Mach * reynoldsLength * pRef / ( RE * sqrt(Rgas * TRef) ) / PR, &
+                     " W/(m·K)."
          end if
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference time: " , reynoldsLength / (Mach * sqrt(gamma * Rgas * TRef) ) , " s."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference time: " , &
+                     reynoldsLength / (Mach * sqrt(gamma * Rgas * TRef) ) , " s."
 
          write(STD_OUT,'(/)')
          call SubSection_Header("Dimensionless quantities")
@@ -397,6 +407,12 @@
       INTEGER, PARAMETER   :: WALL_BC = 1, RADIATION_BC = 2
       REAL(KIND=RP)        :: waveSpeed
       INTEGER              :: boundaryCondition(4), bcType
+
+
+      interface GradientValuesForQ
+         module procedure GradientValuesForQ_0D , GradientValuesForQ_3D
+      end interface GradientValuesForQ
+      
 !
 !     ========
       CONTAINS 
@@ -1076,7 +1092,7 @@
 !! quantities of which the gradients will be taken.
 !---------------------------------------------------------------------
 !
-      SUBROUTINE GradientValuesForQ( Q, U )
+      SUBROUTINE GradientValuesForQ_0D( Q, U )
       IMPLICIT NONE
 !
 !     ---------
@@ -1095,7 +1111,34 @@
       U(3) = Q(4)/Q(1)
       U(4) = Temperature(Q)
 
-      END SUBROUTINE GradientValuesForQ
+      END SUBROUTINE GradientValuesForQ_0D
+
+      SUBROUTINE GradientValuesForQ_3D( Q, U )
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP), INTENT(IN)  :: Q(0:,0:,0:,:)
+      REAL(KIND=RP), INTENT(OUT) :: U(0:,0:,0:,:)
+      integer                    :: N 
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!     
+      N = size(Q , 1) - 1
+      
+      U(0:N,0:N,0:N,IGU) = Q(0:N,0:N,0:N,IRHOU) / Q(0:N,0:N,0:N,IRHO) 
+      U(0:N,0:N,0:N,IGV) = Q(0:N,0:N,0:N,IRHOV) / Q(0:N,0:N,0:N,IRHO) 
+      U(0:N,0:N,0:N,IGW) = Q(0:N,0:N,0:N,IRHOW) / Q(0:N,0:N,0:N,IRHO) 
+      U(0:N,0:N,0:N,IGT) = gammaM2 * gammaMinus1 * ( Q(0:N,0:N,0:N,IRHOE) / Q(0:N,0:N,0:N,IRHO) &
+                  - 0.5_RP * ( U(0:N,0:N,0:N,IGU) * U(0:N,0:N,0:N,IGU) &
+                             + U(0:N,0:N,0:N,IGV) * U(0:N,0:N,0:N,IGV) &
+                             + U(0:N,0:N,0:N,IGW) * U(0:N,0:N,0:N,IGW) ) )
+
+      END SUBROUTINE GradientValuesForQ_3D
 !
 ! /////////////////////////////////////////////////////////////////////
 !
