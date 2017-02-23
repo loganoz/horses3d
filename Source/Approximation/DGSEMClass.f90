@@ -121,6 +121,12 @@
       self % externalGradients => externalGradients
       
       call assignBoundaryConditions(self)
+!
+!     -------------------------
+!     Build the different zones
+!     -------------------------
+!
+      call self % mesh % ConstructZones()
       
       END SUBROUTINE ConstructDGSem
 !

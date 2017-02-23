@@ -16,8 +16,6 @@ OBJS_REMOVE = $(OBJS_CASE) NSLite3DMain ProblemFile TimeIntegrator
 
 # --------------- DO NOT EDIT ----------------------------------------------------
 
-# --------------- CHOOSE OS -----------------------
-
 include make.inc
 
 # -------------- CHOOSE COMPILER ------------------
@@ -42,6 +40,7 @@ else ifeq ($(COMPILER),ifort)
      $(info Compiling with intel fortran in RELEASE mode.)
      FFLAGS = -O3 -assume bscc
    endif
+
 endif
 FFLAGS += -cpp -D_has_Quad
 
@@ -77,8 +76,6 @@ createFolders:
 	mkdir -p $(BUILD_DIR)
 	mkdir -p $(INC_DIR)
 	mkdir -p $(BIN_DIR)
-
-
 
 # ---------- Default compilation rule -----------
 $(OBJS_CASE): %: $(SRC_DIR)/%.f90

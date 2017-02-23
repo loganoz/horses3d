@@ -16,6 +16,7 @@
       USE TransfiniteMapClass
       use SharedBCModule
       use ElementConnectivityDefinitions
+      use ZoneClass
       IMPLICIT NONE
 !
 !     ---------------
@@ -27,6 +28,7 @@
          TYPE(Node)   , DIMENSION(:), ALLOCATABLE :: nodes
          TYPE(Face)   , DIMENSION(:), ALLOCATABLE :: faces
          TYPE(Element), DIMENSION(:), ALLOCATABLE :: elements
+         CLASS(Zone_t),  DIMENSION(:), ALLOCATABLE :: zones
 !
 !        ========         
          CONTAINS
@@ -35,6 +37,7 @@
          PROCEDURE :: constructFromFile => ConstructMesh_FromFile_
          PROCEDURE :: destruct          => DestructMesh
          PROCEDURE :: Describe          => DescribeMesh
+         PROCEDURE :: ConstructZones    => HexMesh_ConstructZones
          
       END TYPE HexMesh
 !
@@ -756,7 +759,19 @@
       END SUBROUTINE DescribeMesh     
 ! 
 !//////////////////////////////////////////////////////////////////////// 
+!
+!        CONSTRUCT ZONES
+!        ---------------
 ! 
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      subroutine HexMesh_ConstructZones( self )
+      implicit none
+      class(HexMesh)          :: self
+
+      call ConstructZones ( self % faces , self % zones )
+
+      end subroutine HexMesh_ConstructZones
 !     ==========
       END MODULE HexMeshClass
 !     ==========
