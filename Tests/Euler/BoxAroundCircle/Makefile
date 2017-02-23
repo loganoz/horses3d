@@ -4,7 +4,7 @@ BUILD_DIR=./build
 BIN_DIR=./bin
 SRC_DIR=./src
 EXECUTABLE = NSLite3D
-MODE ?= DEBUG
+MODE ?= 
 
 
 OBJS_CASE_F90 = $(notdir $(wildcard $(SRC_DIR)/*.f90))
@@ -23,11 +23,13 @@ ifeq '$(FC)''gfortran'
    ifeq '$(MODE)''DEBUG'
       $(info MODE = DEBUG)
       #FFLAGS = -ffree-line-length-0 -O0 -g -Wall -fcheck=all -fbacktrace -fbounds-check -finit-real=snan -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries -fbackslash#-fdefault-integer-8 
-      FFLAGS = -D_has_Quad -cpp -O0 -g -fcheck=all -Wno-unused-variable -fbacktrace -fbounds-check -finit-real=snan  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries
+      FFLAGS = -D_has_Quad -cpp -O0 -g -fcheck=all -Wno-unused-variable -fbacktrace -fbounds-check -finit-real=snan  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries -Warn all
    else 
   	$(info MODE = RELEASE)
       FFLAGS = -D_has_Quad -cpp -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash -fopenmp#-fdefault-integer-8 #-fopt-info-all
    endif
+else
+   FFLAGS = -D_has_Quad -cpp -fast -qopenmp #-O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash   #-fdefault-integer-8 #-fopt-info-all
 endif
 
 # ------------- LIBRARIES ------------------------
