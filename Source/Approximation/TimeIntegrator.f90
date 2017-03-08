@@ -22,7 +22,7 @@
 !
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
       
-      TYPE RKTimeIntegrator
+      TYPE TimeIntegrator_t
          INTEGER                                :: integratorType
          REAL(KIND=RP)                          :: tFinal, tStart, time
          INTEGER                                :: numTimeSteps, plotInterval
@@ -34,13 +34,14 @@
          CONTAINS
 !        ========         
 !
+        PROCEDURE :: construct => constructTimeIntegrator
          PROCEDURE :: constructAsTimeAccurateIntegrator
          PROCEDURE :: constructAsSteadyStateIntegrator
          PROCEDURE :: destruct => destructTimeIntegrator
          PROCEDURE :: setIterationTolerance
          PROCEDURE :: setPlotter
          PROCEDURE :: integrate
-      END TYPE RKTimeIntegrator
+      END TYPE TimeIntegrator_t
 
       abstract interface
          subroutine RKStepFcn( sem , t , deltaT , maxResidual )
@@ -55,9 +56,45 @@
       CONTAINS 
 !     ========      
 !
+     !-------------------------------------------------------------------------------------------
+     SUBROUTINE constructTimeIntegrator(self,sem,controlVariables)
+     !-------------------------------------------------------------------------------------------
+       IMPLICIT NONE
+       !---------------------------------------------
+       CLASS(TimeIntegrator_t)     :: self
+       TYPE( DGSem )               :: sem
+       TYPE(FTValueDictionary)     :: controlVariables
+       !---------------------------------------------
+       REAL(KIND=RP)               :: dt, cfl
+       !---------------------------------------------
+        
+       cfl = controlVariables % doublePrecisionValueForKey("cfl")
+       dt = MaxTimeStep( sem, cfl )
+       SELECT CASE (controlVariables % StringValueForKey("time integration",LINE_LENGTH))  ! arueda: It is probably appropriate to introduce a "CheckInputIntegrity" for each of the following..
+         CASE ('time-accurate')                                                      
+           CALL self % constructAsTimeAccurateIntegrator &
+                                 (startTime     = 0._RP,  &
+                                  finalTime     = controlVariables % doublePrecisionValueForKey("final time"),  &
+                                  numberOfSteps = controlVariables % integerValueForKey ("number of time steps"),  &
+                                  plotInterval  = controlVariables % integerValueForKey("output interval") )
+         CASE DEFAULT ! Using 'steady-state' even if not specified                                                
+            CALL self % constructAsSteadyStateIntegrator &
+                                  (dt            = dt,  &
+                                   cfl           = cfl, &
+                                   numberOfSteps = controlVariables % integerValueForKey ("number of time steps"), &
+                                   plotInterval  = controlVariables % integerValueForKey("output interval"))
+       END SELECT
+      
+       CALL self % setIterationTolerance(controlVariables % doublePrecisionValueForKey("convergence tolerance"))
+     !-------------------------------------------------------------------------------------------
+     END SUBROUTINE constructTimeIntegrator
+     !-------------------------------------------------------------------------------------------
+!
+!     ////////////////////////////////////////////////////////////////////////////////////////
+!
       SUBROUTINE constructAsTimeAccurateIntegrator( self,  startTime, finalTime, numberOfSteps, plotInterval )
          IMPLICIT NONE
-         CLASS(RKTimeIntegrator) :: self
+         CLASS(TimeIntegrator_t) :: self
          REAL(KIND=RP)           :: finalTime, startTime
          INTEGER                 :: numberOfSteps, plotInterval
 !
@@ -67,6 +104,7 @@
 !
          self % tFinal         = finalTime
          self % tStart         = startTime
+         self % time           = startTime
          self % numTimeSteps   = numberOfSteps
          self % dt             = (self % tFinal - self % tStart)/numberOfSteps
          self % plotInterval   = plotInterval
@@ -81,7 +119,7 @@
 !
       SUBROUTINE constructAsSteadyStateIntegrator( self, dt, cfl, numberOfSteps, plotInterval )
          IMPLICIT NONE
-         CLASS(RKTimeIntegrator) :: self
+         CLASS(TimeIntegrator_t) :: self
          REAL(KIND=RP)           :: dt
          REAL(KIND=RP)           :: cfl
          INTEGER                 :: numberOfSteps, plotInterval
@@ -90,6 +128,7 @@
 !        Compute time step and set values for a steady-state computation
 !        ---------------------------------------------------------------
 !
+         self % time           = 0._RP
          self % numTimeSteps   = numberOfSteps
          self % dt             = dt
          self % plotInterval   = plotInterval
@@ -104,7 +143,7 @@
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE destructTimeIntegrator( self ) 
-         CLASS(RKTimeIntegrator) :: self
+         CLASS(TimeIntegrator_t) :: self
          self % tFinal       = 0.0_RP
          self % tStart       = 0.0_RP
          self % numTimeSteps = 0
@@ -115,7 +154,7 @@
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE setPlotter( self, plotter ) 
-         CLASS(RKTimeIntegrator)     :: self
+         CLASS(TimeIntegrator_t)     :: self
          TYPE(DGSEMPlotter), pointer :: plotter
          self % plotter => plotter
       END SUBROUTINE setPlotter
@@ -123,22 +162,29 @@
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE setIterationTolerance( self, tol ) 
-         CLASS(RKTimeIntegrator) :: self
+         CLASS(TimeIntegrator_t) :: self
          REAL(KIND=RP)           :: tol
          self % tolerance = tol
       END SUBROUTINE setIterationTolerance
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE Integrate( self, sem )
+      SUBROUTINE Integrate( self, sem, controlVariables)
       IMPLICIT NONE
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      CLASS(RKTimeIntegrator)  :: self
-      TYPE(DGSem)             :: sem
+      CLASS(TimeIntegrator_t)     :: self
+      TYPE(DGSem)                 :: sem
+      TYPE(FTValueDictionary)     :: controlVariables
+
+!
+!     ---------
+!     Internal variables
+!     ---------
+!
       
       REAL(KIND=RP)         :: t
       REAL(KIND=RP)         :: maxResidual(N_EQN)
@@ -152,25 +198,29 @@
 !     -----------------
 !
       mNumber = 0
+      t=self % time
       
       DO k = 0, self % numTimeSteps-1
-      
+        
          IF ( self % integratorType == STEADY_STATE ) THEN
             self % dt = MaxTimeStep( sem, self % cfl )
          END IF
-
-         t = self % tStart + k*self % dt
          
          CALL self % RKStep ( sem, t, self % dt, maxResidual )
-
-         IF( self % integratorType == STEADY_STATE .AND. maxval(maxResidual) <= self % tolerance )     THEN
          
-            sem % maxResidual       = maxval(maxResidual)
-            self % time             = t
-            sem % numberOfTimeSteps = k + 1
-            PRINT *, "Residual tolerance reached at iteration ",k+1," with Residual = ", maxResidual
-            RETURN
-            
+         t = self % time + self % dt                    !arueda: changed since time step does not have to be constant! (after time-step integration for future developments)
+         
+         IF (self % integratorType == STEADY_STATE) THEN
+            IF (maxval(maxResidual) <= self % tolerance )  THEN
+              sem % maxResidual       = maxval(maxResidual)
+              self % time             = t
+              sem % numberOfTimeSteps = k + 1
+              PRINT *, "Residual tolerance reached at iteration ",k+1," with Residual = ", maxResidual
+              RETURN
+            END IF
+         ELSEIF (self % integratorType == TIME_ACCURATE) THEN
+            self % time             = t     !arueda: It is important to update the time always (where does the program store the new results when time-accurate??)
+            IF (self % time > self % tFinal) EXIT
          END IF
          
          IF( (MOD( k+1, self % plotInterval) == 0) .or. (k .eq. 0) )     THEN
@@ -233,28 +283,15 @@
       INTEGER :: k, id , eq
       REAL(KIND=RP) :: localMaxResidual(N_EQN)
 !
+      
       do id = 1, SIZE( sem % mesh % elements ) 
          sem % mesh % elements(id) % G = 0.0_RP   
       enddo 
-
+      
       DO k = 1,3
-
          tk = t + b(k)*deltaT
+         
          CALL ComputeTimeDerivative( sem, tk )
-!
-!        ----------------
-!        Compute residual
-!        ----------------
-!
-         IF ( k == 1 )     THEN
-            maxResidual = 0.0_RP
-            DO id = 1, SIZE( sem % mesh % elements )
-               DO eq = 1 , N_EQN
-                  localMaxResidual(eq) = MAXVAL(ABS(sem % mesh % elements(id) % QDot(:,:,:,eq)))
-                  maxResidual(eq) = MAX(maxResidual(eq),localMaxResidual(eq))
-               END DO
-            END DO
-         END IF
 
 !$omp parallel do
          DO id = 1, SIZE( sem % mesh % elements )
@@ -263,6 +300,18 @@
          END DO
 !$omp end parallel do
 
+      END DO
+!
+!        ----------------
+!        Compute residual
+!        ----------------
+!
+      maxResidual = 0.0_RP
+      DO id = 1, SIZE( sem % mesh % elements )
+         DO eq = 1 , N_EQN
+            localMaxResidual(eq) = MAXVAL(ABS(sem % mesh % elements(id) % QDot(:,:,:,eq)))
+            maxResidual(eq) = MAX(maxResidual(eq),localMaxResidual(eq))
+         END DO
       END DO
       
    END SUBROUTINE TakeRK3Step
