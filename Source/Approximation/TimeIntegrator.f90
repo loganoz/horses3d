@@ -10,6 +10,8 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+!   TODO: !> Check time accurate integration!
+!
       MODULE TimeIntegratorClass
       
       USE SMConstants
@@ -70,14 +72,14 @@
         
        cfl = controlVariables % doublePrecisionValueForKey("cfl")
        dt = MaxTimeStep( sem, cfl )
-       SELECT CASE (controlVariables % StringValueForKey("time integration",LINE_LENGTH))  ! arueda: It is probably appropriate to introduce a "CheckInputIntegrity" for each of the following..
+       SELECT CASE (controlVariables % StringValueForKey("time integration",LINE_LENGTH))  ! arueda: It is probably appropriate to introduce a "CheckInputIntegrity" for each of the following...
          CASE ('time-accurate')                                                      
            CALL self % constructAsTimeAccurateIntegrator &
                                  (startTime     = 0._RP,  &
                                   finalTime     = controlVariables % doublePrecisionValueForKey("final time"),  &
                                   numberOfSteps = controlVariables % integerValueForKey ("number of time steps"),  &
                                   plotInterval  = controlVariables % integerValueForKey("output interval") )
-         CASE DEFAULT ! Using 'steady-state' even if not specified                                                
+           CASE DEFAULT ! Using 'steady-state' even if not specified in input file
             CALL self % constructAsSteadyStateIntegrator &
                                   (dt            = dt,  &
                                    cfl           = cfl, &
@@ -170,6 +172,8 @@
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE Integrate( self, sem, controlVariables)
+      
+      USE Implicit_JF , ONLY : TakeBDFStep
       IMPLICIT NONE
 !
 !     ---------
@@ -192,23 +196,31 @@
       CHARACTER(LEN=13)     :: fName = "Movie_XX.tec"
       CHARACTER(LEN=2)      :: numChar
       EXTERNAL              :: ExternalState, ExternalGradients
+      
+      ! For Implicit
+      LOGICAL               :: imp !implicit?
 !
 !     -----------------
 !     Integrate in time
 !     -----------------
 !
       mNumber = 0
-      t=self % time
+      t = self % time
+      imp= controlVariables % LogicalValueForKey("implicit time")
       
       DO k = 0, self % numTimeSteps-1
-        
+      
          IF ( self % integratorType == STEADY_STATE ) THEN
             self % dt = MaxTimeStep( sem, self % cfl )
          END IF
          
-         CALL self % RKStep ( sem, t, self % dt, maxResidual )
-         
-         t = self % time + self % dt                    !arueda: changed since time step does not have to be constant! (after time-step integration for future developments)
+         IF (imp) THEN
+           CALL TakeBDFStep (sem, t , self%dt , maxResidual)
+         ELSE
+           CALL self % RKStep ( sem, t, self % dt, maxResidual )
+         END IF
+!~         STOP
+         t = self % time + self % dt                    !arueda: changed since time step does not have to be constant!
          
          IF (self % integratorType == STEADY_STATE) THEN
             IF (maxval(maxResidual) <= self % tolerance )  THEN
@@ -283,14 +295,13 @@
       INTEGER :: k, id , eq
       REAL(KIND=RP) :: localMaxResidual(N_EQN)
 !
-      
       do id = 1, SIZE( sem % mesh % elements ) 
          sem % mesh % elements(id) % G = 0.0_RP   
       enddo 
-      
+
       DO k = 1,3
+
          tk = t + b(k)*deltaT
-         
          CALL ComputeTimeDerivative( sem, tk )
 
 !$omp parallel do

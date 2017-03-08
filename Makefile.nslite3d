@@ -28,7 +28,7 @@ OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter
 		DGSEMClass DGSpaceAndTimeDerivativeMethods NodalStorageClass\
 		PlotterDataSource Headers\
 		ReadInputFile Setup TimeIntegrator ProblemFile\
-		NSLite3DMain
+		NSLite3DMain Implicit_JF JFNKClass GMRESClass
 
 # --------------- Dependencies 
 NSLite3DMain: TimeIntegrator \
@@ -40,7 +40,10 @@ SharedBCModule \
 BoundaryConditions \
 ReadInputFile \
 SMConstants \
-DGSEMClass
+DGSEMClass \
+Implicit_JF \
+JFNKClass \
+GMRESClass
 
 FileReading: SMConstants
 Utilities: SMConstants 
@@ -63,10 +66,13 @@ NodeClass: SMConstants MeshTypes
 DGSEMClass: DGSpaceAndTimeDerivativeMethods Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants 
 DGSpaceAndTimeDerivativeMethods: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants 
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
-TimeIntegrator: Physics Plotter ProblemFile SMConstants DGSEMClass InterpolationAndDerivatives
+TimeIntegrator: Physics Plotter ProblemFile SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF
 PlotterDataSource: SMConstants 
 ReadInputFile: SMConstants FTValueDictionaryClass SharedBCModule Physics Setup
 ProblemFile: SMConstants Physics BoundaryConditions MeshTypes Assert DGSEMClass 
+Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
+JFNKClass: SMConstants GMRESClass
+GMRESClass: SMConstants
 
 
 # ######################################### #
