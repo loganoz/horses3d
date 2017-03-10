@@ -206,6 +206,7 @@
 !
       mNumber = 0
       t = self % time
+      
       imp= controlVariables % LogicalValueForKey("implicit time")
       
       DO k = 0, self % numTimeSteps-1
@@ -219,11 +220,12 @@
          ELSE
            CALL self % RKStep ( sem, t, self % dt, maxResidual )
          END IF
-!~         STOP
-         t = self % time + self % dt                    !arueda: changed since time step does not have to be constant!
+         
+         t = t + self % dt                    !arueda: changed since time step does not have to be constant!
          
          IF (self % integratorType == STEADY_STATE) THEN
             IF (maxval(maxResidual) <= self % tolerance )  THEN
+              CALL PlotResiduals(k+1 , t , maxResidual)
               sem % maxResidual       = maxval(maxResidual)
               self % time             = t
               sem % numberOfTimeSteps = k + 1
@@ -231,16 +233,15 @@
               RETURN
             END IF
          ELSEIF (self % integratorType == TIME_ACCURATE) THEN
-            self % time             = t     !arueda: It is important to update the time always (where does the program store the new results when time-accurate??)
+            self % time              = t     
             IF (self % time > self % tFinal) EXIT
          END IF
          
          IF( (MOD( k+1, self % plotInterval) == 0) .or. (k .eq. 0) )     THEN
-
           CALL UserDefinedPeriodicOperation(sem,t)
-            
+          
             IF ( self % integratorType == STEADY_STATE )     THEN
-               CALL PlotResiduals(k+1 , t+self % dt , maxResidual)
+               CALL PlotResiduals(k+1 , t , maxResidual)
                
             ELSE IF (ASSOCIATED(self % plotter))     THEN 
                mNumber = mNumber + 1
@@ -257,7 +258,7 @@
                CLOSE(self % plotter % fUnit)
                
             END IF
-        END IF
+         END IF
         
       END DO
       

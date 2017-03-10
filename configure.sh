@@ -25,6 +25,7 @@ cp -v ./Tests/make.inc ./Tests/Euler/BoxAroundCircle/make.inc
 cp -v ./Tests/make.inc ./Tests/Euler/diffuser/make.inc
 cp -v ./Tests/make.inc ./Tests/Euler/PeriodicFlow/make.inc
 cp -v ./Tests/make.inc ./Tests/Euler/UniformFlow/make.inc
+cp -v ./Tests/make.inc ./Tests/Euler/JFNK/make.inc
 cp -v ./Tests/make.inc ./Tests/NavierStokes/Cylinder/make.inc
 cp -v ./Tests/make.inc ./Tests/NavierStokes/FlatPlate/make.inc
 
