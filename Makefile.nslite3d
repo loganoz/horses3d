@@ -40,10 +40,7 @@ SharedBCModule \
 BoundaryConditions \
 ReadInputFile \
 SMConstants \
-DGSEMClass \
-Implicit_JF \
-JFNKClass \
-GMRESClass
+DGSEMClass
 
 FileReading: SMConstants
 Utilities: SMConstants 
