@@ -191,6 +191,7 @@
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is fixed."
                WRITE(6,*) "      When that is done, re-compute the expected values and modify this procedure"
+               STOP 99
             END IF 
             WRITE(6,*)
             

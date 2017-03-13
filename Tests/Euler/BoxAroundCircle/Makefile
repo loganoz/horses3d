@@ -4,7 +4,7 @@ BUILD_DIR=./build
 BIN_DIR=./bin
 SRC_DIR=./src
 EXECUTABLE = NSLite3D
-MODE ?= 
+MODE ?= DEBUG
 
 
 OBJS_CASE_F90 = $(notdir $(wildcard $(SRC_DIR)/*.f90))
