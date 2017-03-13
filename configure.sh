@@ -10,6 +10,8 @@ mkdir -p ./Tests/Euler/PeriodicFlow/RestartFiles
 mkdir -p ./Tests/Euler/PeriodicFlow/PlotFiles
 mkdir -p ./Tests/Euler/UniformFlow/RestartFiles
 mkdir -p ./Tests/Euler/UniformFlow/PlotFiles
+mkdir -p ./Tests/Euler/JFNK/RestartFiles
+mkdir -p ./Tests/Euler/JFNK/PlotFiles
 mkdir -p ./Tests/NavierStokes/Cylinder/RestartFiles
 mkdir -p ./Tests/NavierStokes/Cylinder/PlotFiles
 mkdir -p ./Tests/NavierStokes/FlatPlate/RestartFiles

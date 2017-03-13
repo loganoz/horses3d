@@ -62,7 +62,6 @@ createFolders:
 	mkdir -p $(BUILD_DIR)
 	mkdir -p $(INC_DIR)
 	mkdir -p $(BIN_DIR)
-	mkdir -p RestartFiles
 # ---------- Default compilation rule -----------
 $(OBJS_CASE): %: $(SRC_DIR)/%.f90
 	$(FC) $(FFLAGS) $(INCLUDE) -J$(INC_DIR) -c $< -o $(BUILD_DIR)/$@.o
