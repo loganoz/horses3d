@@ -19,25 +19,11 @@
 !      UserDefinedFinalize(sem)
 !      UserDefinedTermination
 !
-!      *** This problem file sets up a subsonic point source *** 
-!
-!//////////////////////////////////////////////////////////////////////// 
-!
-      MODULE UserDefinedDataStorage
-         USE SMConstants
-         IMPLICIT NONE 
-         REAL(KIND=RP) :: rad0, f, h 
-      END MODULE UserDefinedDataStorage
-!
 !//////////////////////////////////////////////////////////////////////// 
 ! 
       MODULE UserDefinedFunctions
-
-!
-!     ========      
-      CONTAINS
-!     ========
-!
+      
+      CONTAINS 
          SUBROUTINE UserDefinedStartup  
 !
 !        --------------------------------
@@ -57,14 +43,15 @@
 !           ----------------------------------------------------------------------
 !
             USE DGSEMClass
+            USE FTValueDictionaryClass
             IMPLICIT NONE
-            CLASS(DGSem)             :: sem
-            class(FTValueDictionary) :: controlVariables
+            CLASS(DGSem)            :: sem
+            TYPE(FTValueDictionary) :: controlVariables
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(sem, controlVariables)
+         SUBROUTINE UserDefinedInitialCondition(sem , controlVariables)
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
@@ -98,7 +85,7 @@
 !              relax back to the mean flow
 !              -------------------------------------------------
 !
-!               sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)
+               sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)
                
             END DO 
             
@@ -123,6 +110,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
          SUBROUTINE UserDefinedFinalize(sem, time)
+            USE BoundaryConditionFunctions
             USE FTAssertions
 !
 !           --------------------------------------------------------
@@ -144,80 +132,63 @@
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Box Around Cyrcle test"
+            INTEGER                            :: numberOfFailures
+            CHARACTER(LEN=29)                  :: testName           = "27 element uniform flow tests"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
             INTEGER                            :: i, j, k, N
             TYPE(FTAssertionsManager), POINTER :: sharedManager
-            LOGICAL                            :: success
 !
-!           -----------------------------------------------------------------------------------------
-!           Expected solutions. 
-!           InnerCylinder 0.0 NoSlipAdiabaticWall
-!           Front 0.0 Inflow
-!           bottom 0.0 FreeSlipWall
-!           top 0.0 FreeSlipWall
-!           Back 0.0 Inflow
-!           Left 0.0 Inflow
-!           Right 0.0 OutflowSpecifyP 
-!           -----------------------------------------------------------------------------------------
+!           -----------------------------------------------------------------------
+!           Expected Values. Note they will change if the run parameters change and
+!           when the eigenvalue computation for the time step is fixed. These 
+!           results are for the Mach 0.5 and rusanov solvers.
+!           -----------------------------------------------------------------------
 !
-!
-!           ------------------------------------------------
-!           Expected Solutions: Wall conditions on the sides
-!           Number of iterations are for CFL of 0.3, for
-!           the roe solver and mach = 0.3
-!           ------------------------------------------------
-!
-            INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [240.37010000259491, 0E-011, &
-                                                               0E-011, 0E-011, &
-                                                               0E-011]
-!
-            N = sem % spA % N
+            INTEGER                            :: expectedIterations      = 45
+            REAL(KIND=RP)                      :: expectedResidual        = 7.8939367484240685D-011
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            CALL FTAssertEqual(expectedValue = iterations(N), &
+            N = sem % spA % N
+            CALL FTAssertEqual(expectedValue = expectedIterations, &
                                actualValue   =  sem % numberOfTimeSteps, &
                                msg           = "Number of time steps to tolerance")
-            CALL FTAssertEqual(expectedValue = residuals(N), &
+            CALL FTAssertEqual(expectedValue = expectedResidual, &
                                actualValue   = sem % maxResidual, &
                                tol           = 1.d-3, &
                                msg           = "Final maximum residual")
             
-            !ALLOCATE(QExpected(0:sem % spA % N,0:sem % spA % N,0:sem % spA % N,N_EQN))
+            ALLOCATE(QExpected(0:sem % spA % N,0:sem % spA % N,0:sem % spA % N,N_EQN))
             
-            ! maxError = 0.0_RP
-            ! DO eID = 1, SIZE(sem % mesh % elements)
-            !    DO k = 0, sem % spA % N
-            !       DO j = 0, sem % spA % N
-            !          DO i = 0, sem % spA % N 
-            !             CALL pointSourceFlowSolution( sem % mesh % elements(eID) % geom % x(:,i,j,k), &
-            !                                           QExpected(i,j,k,1:N_EQN), success )
-            !          END DO
-            !       END DO
-            !    END DO
-            !    maxError = MAXVAL(ABS(QExpected - sem % mesh % elements(eID) % Q))
-            ! END DO
-            ! CALL FTAssertEqual(expectedValue = ERRORs(N), &
-            !                    actualValue   = maxError, &
-            !                    tol           = 1.d-5, &
-            !                    msg           = "Maximum error")
+            maxError = 0.0_RP
+            DO eID = 1, SIZE(sem % mesh % elements)
+               DO k = 0, sem % spA % N
+                  DO j = 0, sem % spA % N
+                     DO i = 0, sem % spA % N 
+                        CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
+                                               QExpected(i,j,k,1:N_EQN) )
+                     END DO
+                  END DO
+               END DO
+               maxError = MAXVAL(ABS(QExpected - sem % mesh % elements(eID) % Q))
+            END DO
+            CALL FTAssertEqual(expectedValue = 0.0_RP, &
+                               actualValue   = maxError, &
+                               tol           = 1.d-10, &
+                               msg           = "Maximum error")
             
             
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
             ELSE
                WRITE(6,*) testName, " ... Failed"
-               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
-               WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
-               STOP 99
+               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is fixed."
+               WRITE(6,*) "      When that is done, re-compute the expected values and modify this procedure"
             END IF 
             WRITE(6,*)
             
@@ -239,6 +210,7 @@
       END SUBROUTINE UserDefinedTermination
       
       END MODULE UserDefinedFunctions
+      
 !
 !=====================================================================================================
 !=====================================================================================================
@@ -252,7 +224,6 @@
 !     ----------------------------------------------
 !
       USE BoundaryConditionFunctions
-      USE UserDefinedDataStorage
       USE MeshTypes
       
       IMPLICIT NONE
@@ -269,9 +240,8 @@
 !     Local variables
 !     ---------------
 !
-      REAL(KIND=RP)   :: pExt
-      LOGICAL         :: success
-
+      REAL(KIND=RP)                   :: pExt
+      
       IF ( boundarytype == "freeslipwall" )             THEN
          CALL FreeSlipWallState( x, t, nHat, Q )
       ELSE IF ( boundaryType == "noslipadiabaticwall" ) THEN 
@@ -281,15 +251,15 @@
       ELSE IF ( boundaryType == "outflowspecifyp" )     THEN 
          pExt =  ExternalPressure()
          CALL ExternalPressureState ( x, t, nHat, Q, pExt )
-      ELSE 
-         CALL UniformFlowState( x, t, Q ) 
+      ELSE
+         CALL UniformFlowState( x, t, Q )
       END IF
 
       END SUBROUTINE externalStateForBoundaryName
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, GradU, boundaryType )
+      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, U_x, U_y, U_z, boundaryType )
 !
 !     ------------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -305,32 +275,21 @@
 !     ---------
 !
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,N_GRAD_EQN)
+      REAL(KIND=RP)   , INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
       CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      REAL(KIND=RP) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
-
-      U_x(:) = GradU(1,:)
-      U_y(:) = GradU(2,:)
-      U_z(:) = GradU(3,:)
-
       IF ( boundarytype == "freeslipwall" )                   THEN
          CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
       ELSE IF ( boundaryType == "noslipadiabaticwall" )       THEN 
-         CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z )
+         CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z)
       ELSE IF ( boundarytype == "noslipisothermalwall")       THEN 
          CALL NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z )
       ELSE
          CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
       END IF
 
-      GradU(1,:) = U_x(:)
-      GradU(2,:) = U_y(:)
-      GradU(3,:) = U_z(:)
-
       END SUBROUTINE ExternalGradientForBoundaryName
-

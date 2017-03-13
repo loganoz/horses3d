@@ -35,10 +35,9 @@
       TYPE( FTTimer )                     :: stopWatch
       TYPE( DGSEMPlotter )      , POINTER :: plotter      => NULL()
       CLASS( PlotterDataSource ), POINTER :: plDataSource => NULL()
-      TYPE( RKTimeIntegrator )            :: timeIntegrator
+      TYPE( TimeIntegrator_t )            :: timeIntegrator
       
       REAL(KIND=RP)                       :: dt, cfl
-      
       LOGICAL                             :: success
       INTEGER                             :: plotUnit, restartUnit
       INTEGER, EXTERNAL                   :: UnusedUnit
@@ -99,16 +98,7 @@
 !     Construct the time integrator
 !     -----------------------------
 !
-      cfl = controlVariables % doublePrecisionValueForKey("cfl")
-      dt = MaxTimeStep( sem, cfl )
-
-      CALL timeIntegrator % constructAsSteadyStateIntegrator &
-                            (dt            = dt,  &
-                             cfl           = cfl, &
-                             numberOfSteps = controlVariables % integerValueForKey &
-                             (numberOfTimeStepsKey), &
-                             plotInterval  = controlVariables % integerValueForKey(outputIntervalKey))
-      CALL timeIntegrator % setIterationTolerance(controlVariables % doublePrecisionValueForKey(convergenceToleranceKey))
+     CALL timeIntegrator % construct (sem,controlVariables)
 !
 !     --------------------
 !     Prepare for plotting
@@ -132,7 +122,7 @@
 !     -----------------
 !
       CALL stopWatch % start()
-         CALL timeIntegrator % integrate(sem)
+         CALL timeIntegrator % integrate(sem, controlVariables)
       CALL stopWatch % stop()
       
       PRINT *

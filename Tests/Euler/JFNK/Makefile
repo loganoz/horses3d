@@ -4,7 +4,7 @@ BUILD_DIR=./build
 BIN_DIR=./bin
 SRC_DIR=./src
 EXECUTABLE = NSLite3D
-MODE ?= 
+MODE = RELEASE
 
 
 OBJS_CASE_F90 = $(notdir $(wildcard $(SRC_DIR)/*.f90))
@@ -23,13 +23,11 @@ ifeq '$(FC)''gfortran'
    ifeq '$(MODE)''DEBUG'
       $(info MODE = DEBUG)
       #FFLAGS = -ffree-line-length-0 -O0 -g -Wall -fcheck=all -fbacktrace -fbounds-check -finit-real=snan -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries -fbackslash#-fdefault-integer-8 
-      FFLAGS = -D_has_Quad -cpp -O0 -g -fcheck=all -Wno-unused-variable -fbacktrace -fbounds-check -finit-real=snan  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries -Warn all
+      FFLAGS = -D_has_Quad -cpp -O0 -g -fcheck=all -Wno-unused-variable -fbacktrace -fbounds-check -finit-real=snan  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries
    else 
   	$(info MODE = RELEASE)
       FFLAGS = -D_has_Quad -cpp -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash -fopenmp#-fdefault-integer-8 #-fopt-info-all
    endif
-else
-   FFLAGS = -D_has_Quad -cpp -fast -qopenmp #-O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash   #-fdefault-integer-8 #-fopt-info-all
 endif
 
 # ------------- LIBRARIES ------------------------
@@ -59,7 +57,6 @@ all: createFolders create_$(EXECUTABLE)
 create_$(EXECUTABLE): $(OBJS) 
 	$(FC) $(FFLAGS) -o $(BIN_DIR)/$(EXECUTABLE) $(INCLUDE) \
 	$(OBJS_EXEC)\
-
 
 createFolders:
 	mkdir -p $(BUILD_DIR)

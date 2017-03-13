@@ -24,7 +24,7 @@
 !         newN       = number of interpolation points in each direction (optional)
 !
 !      To use a plotter, call
-!         ExportTocTecplot( plotter, elements )
+!         ExportToTecplot( plotter, elements )
 !
 !      where elements is the array of elements from the mesh.
 !
