@@ -36,7 +36,7 @@
          CONTAINS
 !        ========         
 !
-        PROCEDURE :: construct => constructTimeIntegrator
+         PROCEDURE :: construct => constructTimeIntegrator
          PROCEDURE :: constructAsTimeAccurateIntegrator
          PROCEDURE :: constructAsSteadyStateIntegrator
          PROCEDURE :: destruct => destructTimeIntegrator

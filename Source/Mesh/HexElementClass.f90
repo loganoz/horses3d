@@ -28,6 +28,7 @@
       USE MappedGeometryClass
       USE MeshTypes
       USE ElementConnectivityDefinitions
+      USE ConnectivityClass
       IMPLICIT NONE
       
       
@@ -46,6 +47,8 @@
           REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Qb, Ub, U_xb, U_yb, U_zb, FStarb
           CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryName(6)
           CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryType(6)
+          INTEGER                                        :: NumberOfConnections(6)
+          TYPE(Connectivity)                             :: Connection(6)
       END TYPE Element 
             
       CONTAINS 

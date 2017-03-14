@@ -45,6 +45,8 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+!!    Constructs mesh from mesh file
+!!    Only valid for conforming meshes
       SUBROUTINE ConstructMesh_FromFile_( self, fileName, spA, success )
          USE Physics
          IMPLICIT NONE
@@ -159,13 +161,13 @@
 !        -----------------------------------------
 !        Read elements: Elements have the format:
 !        node1ID node2ID node3ID node4ID ... node8ID
-!        b1 b2 b3 b4 ... b8
+!        b1 b2 b3 b4 b5 b6
 !           (=0 for straight side, 1 for curved)
 !        If curved boundaries, then for each:
 !           for j = 0 to bFaceOrder
 !              x_j  y_j z_j
 !           next j
-!        bname1 bname2 bname3 bname4 ... bname8
+!        bname1 bname2 bname3 bname4 bname5 bname6
 !        -----------------------------------------
 !
          DO l = 1, numberOfElements 
@@ -250,6 +252,34 @@
             DO k = 1, 6
                IF(TRIM(names(k)) /= emptyBCName) numberOfBoundaryFaces = numberOfBoundaryFaces + 1
             END DO  
+            
+!
+!           ------------------------------------
+!           Construct the element connectivities
+!           ------------------------------------
+!
+            DO k = 1, 6
+               IF (TRIM(names(k)) == "---") THEN
+                  self%elements(l)%NumberOfConnections(k) = 1
+                  CALL self%elements(l)%Connection(k)%construct (1)  ! Conforming elements!!
+               ELSE
+                  self%elements(l)%NumberOfConnections(k) = 0
+               ENDIF
+            ENDDO
+            
+            
+         END DO
+         
+!
+!        ------------------------------
+!        Set the element connectivities
+!        ------------------------------
+!
+         DO l=1, numberOfElements
+            DO k= 1, 6
+               IF (self%elements(l)%NumberOfConnections(k) /= 0) &
+                  CALL SetConformingConnectivities(self%elements(l)%Connection(k), self%elements, l, k)
+            ENDDO 
          END DO
 !
 !        ---------------------------
@@ -742,6 +772,54 @@
       write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bdryfaces
 
       END SUBROUTINE DescribeMesh     
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!!    This procedure sets the connectivities for a certain face of a  
+!!    single element in a conforming mesh
+!!    (Original 2D procedure by grubio... 3D adaptation by arueda)
+!!
+      SUBROUTINE SetConformingConnectivities(self,Elements, jElement, kFace)
+         IMPLICIT NONE
+!
+!        ------------------------------------------------------
+!        Search and set the conectivities between the elements
+!        in conforming meshes
+!        ------------------------------------------------------
+!
+         !-----------------------------------------------
+         TYPE(Connectivity)     :: self             !> Connection that will be set
+         TYPE(Element)         :: Elements(:)      !< All elements in mesh
+         INTEGER               :: jElement         !< element number
+         INTEGER               :: kFace            !< face number
+         !-----------------------------------------------
+         INTEGER, DIMENSION(8)  :: nodeIDs, loopNodeIDs     ! Nodes of element (checked element, looped element)
+         INTEGER, DIMENSION(4)  :: endNodes, loopEndNodes   ! Nodes of face    (checked element, looped element)
+         INTEGER                :: i, j, k, l, m, counter
+         INTEGER                :: sharedNodes              ! Number of nodes shared between the analyzed face and one of another element
+         !-----------------------------------------------
+         
+         nodeIDs = Elements(jElement)%nodeIDs
+         endNodes = nodeIDs(faceMapHex8(:,kFace))
+                            
+         DO j = 1, SIZE(Elements)
+            IF (j == jElement) CYCLE
+            
+            loopNodeIDs = Elements(j)%nodeIDs
+            DO k = 1, 6
+               loopEndNodes = loopNodeIDs(faceMapHex8(:,k))
+               sharedNodes  = 0
+               DO l = 1, 4
+                  DO m = 1, 4
+                     IF (endNodes(l) == loopEndNodes(m)) sharedNodes = sharedNodes + 1
+                  END DO
+               END DO 
+               
+               IF (sharedNodes == 4) self%ElementIDs(1) = j 
+            ENDDO
+         ENDDO
+         
+      END SUBROUTINE SetConformingConnectivities
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 

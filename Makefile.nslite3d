@@ -28,7 +28,7 @@ OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter
 		DGSEMClass DGSpaceAndTimeDerivativeMethods NodalStorageClass\
 		PlotterDataSource Headers\
 		ReadInputFile Setup TimeIntegrator ProblemFile\
-		NSLite3DMain Implicit_JF JFNKClass GMRESClass
+		NSLite3DMain Implicit_JF JFNKClass GMRESClass ConnectivityClass
 
 # --------------- Dependencies 
 NSLite3DMain: TimeIntegrator \
@@ -56,7 +56,7 @@ FacePatchClass: SMConstants
 MappedGeometry: SMConstants TransfiniteMaps3D NodalStorageClass 
 TransfiniteMaps3D: SMConstants FacePatchClass 
 FaceClass: SMConstants MeshTypes 
-HexElementClass: SMConstants MeshTypes TransfiniteMaps3D HexElementConnectivityDefinitions NodalStorageClass LegendreAlgorithms InterpolationAndDerivatives MappedGeometry 
+HexElementClass: SMConstants MeshTypes TransfiniteMaps3D HexElementConnectivityDefinitions NodalStorageClass LegendreAlgorithms InterpolationAndDerivatives MappedGeometry ConnectivityClass
 HexElementConnectivityDefinitions: SMConstants 
 HexMesh: Physics FTValueClass FTMultiIndexTable TransfiniteMaps3D FaceClass MeshTypes SharedBCModule NodeClass HexElementClass Headers HexElementConnectivityDefinitions
 NodeClass: SMConstants MeshTypes 
