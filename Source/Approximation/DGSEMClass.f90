@@ -127,6 +127,12 @@
 !     -------------------------
 !
       call self % mesh % ConstructZones()
+!
+!     -----------------------------------------
+!     Initialize Spatial discretization methods
+!     -----------------------------------------
+!
+      call Initialize_SpaceAndTimeMethods
       
       END SUBROUTINE ConstructDGSem
 !
@@ -242,6 +248,14 @@
          END DO
 !$omp end do
 !
+!        -----------------
+!        Compute gradients
+!        -----------------
+!
+!         if ( flowIsNavierStokes ) then
+!            CALL DGSpatial_ComputeGradients( self % mesh , self % spA , self % externalState )
+!         end if
+!
 !        -------------------------------------------------------
 !        Inviscid Riemann fluxes from the solutions on the faces
 !        -------------------------------------------------------
@@ -289,16 +303,14 @@
          END IF
 
 !
-!        ------------------------
-!        Compute time derivatives
-!        ------------------------
+!        -----------------------
+!        Compute time derivative
+!        -----------------------
 !
-!$omp do
-         DO k = 1, SIZE(self % mesh % elements) 
-            CALL LocalTimeDerivative( self % mesh % elements(k), self % spA, time )
-         END DO
-!$omp end do
 !$omp end parallel
+! TODO: openmp bug if used
+         call TimeDerivative_ComputeQDot( self % mesh , self % spA , time )
+!
 
       END SUBROUTINE ComputeTimeDerivative
 !
@@ -599,7 +611,7 @@
                                   nHat   = eL % geom % normal(:,i,j,fIDLeft), &
                                   flux   = flux)
                eL % FStarb(:,i ,j,fIDLeft)  =   flux*eL % geom % scal(i ,j,fIDLeft)
-               eR % FStarb(:,ii,jj,fIdright) = -flux*eR % geom % scal(ii,jj,fIdright)
+               eR % FStarb(:,ii,jj,fIDright) = -flux*eR % geom % scal(ii,jj,fIdright)
             END DO   
          END DO  
          
@@ -641,11 +653,11 @@
 
                d = 0.5_RP*(UL + UR)
                
-               eL % Ub(:,i,j,fIDLeft)  = d
-               eR  % Ub(:,ii,jj,fIDright) = d
+               eL % Ub ( : , i  , j  , fIDLeft  ) = d
+               eR % Ub ( : , ii , jj , fIDright ) = d
                                   
-               eL % QB(:,i,j,fIDLeft)  = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,ii,jj,fIDright) )
-               eR % QB(:,ii,jj,fIDright) = eL % QB(:,i,j,fIDLeft)                     
+               eL % QB(:,i,j,fIDLeft)    = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,ii,jj,fIDright) )
+               eR % QB(:,ii,jj,fIDright) = eL % QB(:,i,j,fIDLeft)
                
             END DO   
          END DO

@@ -20,11 +20,12 @@ endif
 
 include $(FTObject_PATH)/Makefile.ftobjectlibrary
 
-OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter\
+OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter MatrixOperations\
 		LegendreAlgorithms InterpolationAndDerivatives\
 		Physics BoundaryConditions SharedBCModule\
 		FacePatchClass MappedGeometry TransfiniteMaps3D\
 		FaceClass HexElementClass ZoneClass HexElementConnectivityDefinitions HexMesh MeshTypes NodeClass\
+		DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals\
 		DGSEMClass DGSpaceAndTimeDerivativeMethods NodalStorageClass\
 		PlotterDataSource Headers\
 		ReadInputFile Setup TimeIntegrator ProblemFile\
@@ -46,6 +47,7 @@ FileReading: SMConstants
 Utilities: SMConstants 
 Plotter: NodalStorageClass HexElementClass PlotterDataSource 
 TimerClass: SMConstants
+MatrixOperations: SMConstants
 LegendreAlgorithms: SMConstants 
 Headers: SMConstants
 InterpolationAndDerivatives: SMConstants LegendreAlgorithms 
@@ -62,7 +64,10 @@ HexMesh: Physics FTValueClass FTMultiIndexTable TransfiniteMaps3D FaceClass Mesh
 ZoneClass: SMConstants SharedBCModule 
 NodeClass: SMConstants MeshTypes 
 DGSEMClass: DGSpaceAndTimeDerivativeMethods Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants 
-DGSpaceAndTimeDerivativeMethods: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants 
+DGSpaceAndTimeDerivativeMethods: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
+DGInviscidDiscretization: SMConstants HexElementClass NodalStorageClass Physics
+DGViscousDiscretization: SMConstants HexElementClass NodalStorageClass Physics
+DGWeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
 TimeIntegrator: Physics Plotter ProblemFile SMConstants DGSEMClass InterpolationAndDerivatives
 PlotterDataSource: SMConstants 

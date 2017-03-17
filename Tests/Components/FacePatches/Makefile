@@ -40,6 +40,7 @@ else ifeq ($(COMPILER),ifort)
    else 
      $(info Compiling with intel fortran in RELEASE mode.)
      FFLAGS = -O3 -assume bscc
+   endif
 endif
 
 FFLAGS += -cpp -D_has_Quad

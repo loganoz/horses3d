@@ -70,7 +70,8 @@
 !!   The positions of the conservative variables
 !    -------------------------------------------
 !
-     INTEGER :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
+     INTEGER, PARAMETER       :: NCONS = 5
+     INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
 !
 !    ---------------------------------------
 !!   The positions of the gradient variables
@@ -163,7 +164,6 @@
 !
      INTEGER, PARAMETER :: ROE = 0, LXF = 1, RUSANOV = 2
      INTEGER            :: riemannSolverChoice = ROE
-
 !
 !    ========
      CONTAINS
@@ -409,10 +409,22 @@
       INTEGER              :: boundaryCondition(4), bcType
 
 
-      interface GradientValuesForQ
+!
+!    ---------------
+!    Interface block
+!    ---------------
+!
+     interface GradientValuesForQ
          module procedure GradientValuesForQ_0D , GradientValuesForQ_3D
-      end interface GradientValuesForQ
-      
+     end interface GradientValuesForQ
+
+     interface InviscidFlux
+         module procedure InviscidFlux0D , InviscidFlux1D , InviscidFlux2D , InviscidFlux3D
+     end interface InviscidFlux
+
+     interface ViscousFlux
+         module procedure ViscousFlux0D , ViscousFlux1D , ViscousFlux2D , ViscousFlux3D
+     end interface ViscousFlux
 !
 !     ========
       CONTAINS 
@@ -824,6 +836,159 @@
          h(5) = w*(rhoe + p) 
          
       END SUBROUTINE zFlux
+   
+      pure function InviscidFlux0D( Q ) result ( F )
+         implicit none
+         real(kind=RP), intent(in)           :: Q(1:NCONS)
+         real(kind=RP)           :: F(1:NCONS , 1:NDIM)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)           :: u , v , w , p
+
+         u = Q(IRHOU) / Q(IRHO)
+         v = Q(IRHOV) / Q(IRHO)
+         w = Q(IRHOW) / Q(IRHO)
+         p = gammaMinus1 * (Q(IRHOE) - 0.5_RP * ( Q(IRHOU) * u + Q(IRHOV) * v ) )
+!
+!        X-Flux
+!        ------         
+         F(IRHO , IX ) = Q(IRHOU)
+         F(IRHOU, IX ) = Q(IRHOU) * u + p
+         F(IRHOV, IX ) = Q(IRHOU) * v
+         F(IRHOW, IX ) = Q(IRHOU) * w
+         F(IRHOE, IX ) = ( Q(IRHOE) + p ) * u
+!
+!        Y-Flux
+!        ------
+         F(IRHO , IY ) = Q(IRHOV)
+         F(IRHOU ,IY ) = F(IRHOV,IX)
+         F(IRHOV ,IY ) = Q(IRHOV) * v + p
+         F(IRHOW ,IY ) = Q(IRHOV) * w
+         F(IRHOE ,IY ) = ( Q(IRHOE) + p ) * v
+!
+!        Z-Flux
+!        ------
+         F(IRHO ,IZ) = Q(IRHOW)
+         F(IRHOU,IZ) = F(IRHOW,IX)
+         F(IRHOV,IZ) = F(IRHOW,IY)
+         F(IRHOW,IZ) = Q(IRHOW) * w + P
+         F(IRHOE,IZ) = ( Q(IRHOE) + p ) * w
+
+      end function InviscidFlux0D
+
+      pure function InviscidFlux1D( N , Q ) result ( F )
+         implicit none
+         integer,       intent (in) :: N
+         real(kind=RP), intent (in) :: Q(0:N , 1:NCONS)
+         real(kind=RP)              :: F(0:N , 1:NCONS , 1:NDIM)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)           :: u(0:N) , v(0:N) , w(0:N) , p(0:N)
+
+         u = Q(:,IRHOU) / Q(:,IRHO)
+         v = Q(:,IRHOV) / Q(:,IRHO)
+         w = Q(:,IRHOW) / Q(:,IRHO)
+         p = gammaMinus1 * (Q(:,IRHOE) - 0.5_RP * ( Q(:,IRHOU) * u + Q(:,IRHOV) * v ) )
+         
+         F(:,IRHO , IX ) = Q(:,IRHOU)
+         F(:,IRHOU, IX ) = Q(:,IRHOU) * u + p
+         F(:,IRHOV, IX ) = Q(:,IRHOU) * v
+         F(:,IRHOW, IX ) = Q(:,IRHOU) * w
+         F(:,IRHOE, IX ) = ( Q(:,IRHOE) + p ) * u
+
+         F(:,IRHO , IY ) = Q(:,IRHOV)
+         F(:,IRHOU ,IY ) = F(:,IRHOV,IX)
+         F(:,IRHOV ,IY ) = Q(:,IRHOV) * v + p
+         F(:,IRHOW ,IY ) = Q(:,IRHOV) * w
+         F(:,IRHOE ,IY ) = ( Q(:,IRHOE) + p ) * v
+
+         F(:,IRHO ,IZ) = Q(:,IRHOW)
+         F(:,IRHOU,IZ) = F(:,IRHOW,IX)
+         F(:,IRHOV,IZ) = F(:,IRHOW,IY)
+         F(:,IRHOW,IZ) = Q(:,IRHOW) * w + P
+         F(:,IRHOE,IZ) = ( Q(:,IRHOE) + p ) * w
+
+      end function InviscidFlux1D
+
+      pure function InviscidFlux2D( N , Q ) result ( F )
+         implicit none
+         integer,       intent (in) :: N
+         real(kind=RP), intent (in) :: Q(0:N , 0:N , 1:NCONS)
+         real(kind=RP)              :: F(0:N , 0:N , 1:NCONS , 1:NDIM)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)           :: u(0:N,0:N) , v(0:N,0:N) , w(0:N,0:N) , p(0:N,0:N)
+
+         u = Q(:,:,IRHOU) / Q(:,:,IRHO)
+         v = Q(:,:,IRHOV) / Q(:,:,IRHO)
+         w = Q(:,:,IRHOW) / Q(:,:,IRHO)
+         p = gammaMinus1 * (Q(:,:,IRHOE) - 0.5_RP * ( Q(:,:,IRHOU) * u + Q(:,:,IRHOV) * v ) )
+         
+         F(:,:,IRHO , IX ) = Q(:,:,IRHOU)
+         F(:,:,IRHOU, IX ) = Q(:,:,IRHOU) * u + p
+         F(:,:,IRHOV, IX ) = Q(:,:,IRHOU) * v
+         F(:,:,IRHOW, IX ) = Q(:,:,IRHOU) * w
+         F(:,:,IRHOE, IX ) = ( Q(:,:,IRHOE) + p ) * u
+
+         F(:,:,IRHO , IY ) = Q(:,:,IRHOV)
+         F(:,:,IRHOU ,IY ) = F(:,:,IRHOV,IX)
+         F(:,:,IRHOV ,IY ) = Q(:,:,IRHOV) * v + p
+         F(:,:,IRHOW ,IY ) = Q(:,:,IRHOV) * w
+         F(:,:,IRHOE ,IY ) = ( Q(:,:,IRHOE) + p ) * v
+
+         F(:,:,IRHO ,IZ) = Q(:,:,IRHOW)
+         F(:,:,IRHOU,IZ) = F(:,:,IRHOW,IX)
+         F(:,:,IRHOV,IZ) = F(:,:,IRHOW,IY)
+         F(:,:,IRHOW,IZ) = Q(:,:,IRHOW) * w + P
+         F(:,:,IRHOE,IZ) = ( Q(:,:,IRHOE) + p ) * w
+
+      end function InviscidFlux2D
+
+      pure function InviscidFlux3D( N , Q ) result ( F )
+         implicit none
+         integer,       intent (in) :: N
+         real(kind=RP), intent (in) :: Q(0:N , 0:N , 0:N , 1:NCONS)
+         real(kind=RP)              :: F(0:N , 0:N , 0:N , 1:NCONS , 1:NDIM)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)           :: u(0:N,0:N,0:N) , v(0:N,0:N,0:N) , w(0:N,0:N,0:N) , p(0:N,0:N,0:N)
+
+         u = Q(:,:,:,IRHOU) / Q(:,:,:,IRHO)
+         v = Q(:,:,:,IRHOV) / Q(:,:,:,IRHO)
+         w = Q(:,:,:,IRHOW) / Q(:,:,:,IRHO)
+         p = gammaMinus1 * (Q(:,:,:,IRHOE) - 0.5_RP * ( Q(:,:,:,IRHOU) * u + Q(:,:,:,IRHOV) * v ) )
+         
+         F(:,:,:,IRHO , IX ) = Q(:,:,:,IRHOU)
+         F(:,:,:,IRHOU, IX ) = Q(:,:,:,IRHOU) * u + p
+         F(:,:,:,IRHOV, IX ) = Q(:,:,:,IRHOU) * v
+         F(:,:,:,IRHOW, IX ) = Q(:,:,:,IRHOU) * w
+         F(:,:,:,IRHOE, IX ) = ( Q(:,:,:,IRHOE) + p ) * u
+
+         F(:,:,:,IRHO , IY ) = Q(:,:,:,IRHOV)
+         F(:,:,:,IRHOU ,IY ) = F(:,:,:,IRHOV,IX)
+         F(:,:,:,IRHOV ,IY ) = Q(:,:,:,IRHOV) * v + p
+         F(:,:,:,IRHOW ,IY ) = Q(:,:,:,IRHOV) * w
+         F(:,:,:,IRHOE ,IY ) = ( Q(:,:,:,IRHOE) + p ) * v
+
+         F(:,:,:,IRHO ,IZ) = Q(:,:,:,IRHOW)
+         F(:,:,:,IRHOU,IZ) = F(:,:,:,IRHOW,IX)
+         F(:,:,:,IRHOV,IZ) = F(:,:,:,IRHOW,IY)
+         F(:,:,:,IRHOW,IZ) = Q(:,:,:,IRHOW) * w + P
+         F(:,:,:,IRHOE,IZ) = ( Q(:,:,:,IRHOE) + p ) * w
+
+      end function InviscidFlux3D
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -1084,6 +1249,223 @@
      &        gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*grad(3,4))/RE
 
       END SUBROUTINE zDiffusiveFlux
+
+      pure function ViscousFlux0D( Q , U_x , U_y , U_z ) result (F)
+         implicit none
+         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:NCONS          ) 
+         real(kind=RP)                    :: F    ( 1:NCONS , 1:NDIM )
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)                    :: T , muOfT , kappaOfT
+         real(kind=RP)                    :: divV
+         real(kind=RP)                    :: u , v , w
+
+         u = Q(IRHOU) / Q(IRHO)
+         v = Q(IRHOV) / Q(IRHO)
+         w = Q(IRHOW) / Q(IRHO)
+
+         T     = Temperature(Q)
+         muOfT = MolecularDiffusivity(T)
+         kappaOfT = ThermalDiffusivity(T)
+
+         divV = U_x(IGU) + U_y(IGV) + U_z(IGW)
+
+         F(IRHO,IX)  = 0.0_RP
+         F(IRHOU,IX) = muOfT * (2.0_RP * U_x(IGU) - 2.0_RP/3.0_RP * divV ) / RE
+         F(IRHOV,IX) = muOfT * ( U_x(IGV) + U_y(IGU) ) / RE
+         F(IRHOW,IX) = muOfT * ( U_x(IGW) + U_z(IGU) ) / RE
+         F(IRHOE,IX) = F(IRHOU,IX) * u + F(IRHOV,IX) * v + F(IRHOW,IX) * w + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_x(IGT) / RE
+
+         F(IRHO,IY) = 0.0_RP
+         F(IRHOU,IY) = F(IRHOV,IX)
+         F(IRHOV,IY) = muOfT * (2.0_RP * U_y(IGV) - 2.0_RP / 3.0_RP * divV ) / RE
+         F(IRHOW,IY) = muOfT * ( U_y(IGW) + U_z(IGV) ) / RE
+         F(IRHOE,IY) = F(IRHOU,IY) * u + F(IRHOV,IY) * v + F(IRHOW,IY) * w + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_y(IGT) / RE
+
+         F(IRHO,IZ) = 0.0_RP
+         F(IRHOU,IZ) = F(IRHOW,IX)
+         F(IRHOV,IZ) = F(IRHOW,IY)
+         F(IRHOW,IZ) = muOfT * ( 2.0_RP * U_z(IGW) - 2.0_RP / 3.0_RP * divV ) / RE
+         F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_z(IGT) / RE
+
+      end function ViscousFlux0D
+
+      pure function ViscousFlux1D( N , Q , U_x , U_y , U_z ) result (F)
+         implicit none
+         integer          , intent ( in ) :: N
+         real ( kind=RP ) , intent ( in ) :: Q    ( 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 0:N , 1:NCONS          ) 
+         real(kind=RP)                    :: F    ( 0:N , 1:NCONS , 1:NDIM )
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)                    :: T(0:N) , muOfT(0:N) , kappaOfT(0:N)
+         real(kind=RP)                    :: divV(0:N)
+         real(kind=RP)                    :: u(0:N) , v(0:N) , w(0:N)
+         integer                          :: i
+
+         u = Q(:,IRHOU) / Q(:,IRHO)
+         v = Q(:,IRHOV) / Q(:,IRHO)
+         w = Q(:,IRHOW) / Q(:,IRHO)
+
+
+         T = gammaM2 * (Q(:,IRHOE)  & 
+               - 0.5_RP * ( Q(:,IRHOU) * Q(:,IRHOU) + Q(:,IRHOV) * Q(:,IRHOV) ) ) / Q(:,IRHO)
+
+
+         do i = 0 , N
+            muOfT(i) = MolecularDiffusivity(T(i))
+            kappaOfT(i) = ThermalDiffusivity(T(i))
+         end do 
+
+         divV = U_x(:,IGU) + U_y(:,IGV) + U_z(:,IGW)
+
+         F(:,IRHO ,IX) = 0.0_RP
+         F(:,IRHOU,IX) = muOfT * (2.0_RP * U_x(:,IGU) - 2.0_RP/3.0_RP * divV ) / RE
+         F(:,IRHOV,IX) = muOfT * ( U_x(:,IGV) + U_y(:,IGU) ) / RE
+         F(:,IRHOW,IX) = muOfT * ( U_x(:,IGW) + U_z(:,IGU) ) / RE
+         F(:,IRHOE,IX) = F(:,IRHOU,IX) * u + F(:,IRHOV,IX) * v + F(:,IRHOW,IX) * w &
+               + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_x(:,IGT) / RE
+
+         F(:,IRHO ,IY) = 0.0_RP
+         F(:,IRHOU,IY) = F(:,IRHOV,IX)
+         F(:,IRHOV,IY) = muOfT * (2.0_RP * U_y(:,IGV) - 2.0_RP / 3.0_RP * divV ) / RE
+         F(:,IRHOW,IY) = muOfT * ( U_y(:,IGW) + U_z(:,IGV) ) / RE
+         F(:,IRHOE,IY) = F(:,IRHOU,IY) * u + F(:,IRHOV,IY) * v + F(:,IRHOW,IY) * w &
+               + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_y(:,IGT) / RE
+
+         F(:,IRHO,IZ ) = 0.0_RP
+         F(:,IRHOU,IZ) = F(:,IRHOW,IX)
+         F(:,IRHOV,IZ) = F(:,IRHOW,IY)
+         F(:,IRHOW,IZ) = muOfT * ( 2.0_RP * U_z(:,IGW) - 2.0_RP / 3.0_RP * divV ) / RE
+         F(:,IRHOE,IZ) = F(:,IRHOU,IZ) * u + F(:,IRHOV,IZ) * v + F(:,IRHOW,IZ) * w &
+               + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_z(:,IGT) / RE
+
+      end function ViscousFlux1D
+
+      pure function ViscousFlux2D( N , Q , U_x , U_y , U_z ) result (F)
+         implicit none
+         integer          , intent ( in ) :: N
+         real ( kind=RP ) , intent ( in ) :: Q    ( 0:N , 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 0:N , 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 0:N , 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 0:N , 0:N , 1:NCONS          ) 
+         real(kind=RP)                    :: F    ( 0:N , 0:N , 1:NCONS , 1:NDIM )
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)                    :: T(0:N,0:N) , muOfT(0:N,0:N) , kappaOfT(0:N,0:N)
+         real(kind=RP)                    :: divV(0:N,0:N)
+         real(kind=RP)                    :: u(0:N,0:N) , v(0:N,0:N) , w(0:N,0:N)
+         integer                          :: i , j 
+
+         u = Q(:,:,IRHOU) / Q(:,:,IRHO)
+         v = Q(:,:,IRHOV) / Q(:,:,IRHO)
+         w = Q(:,:,IRHOW) / Q(:,:,IRHO)
+
+
+         T = gammaM2 * (Q(:,:,IRHOE)  & 
+               - 0.5_RP * ( Q(:,:,IRHOU) * Q(:,:,IRHOU) + Q(:,:,IRHOV) * Q(:,:,IRHOV) ) ) / Q(:,:,IRHO)
+
+         do i = 0 , N ;    do j = 0 , N 
+            muOfT    ( i,j )  = MolecularDiffusivity ( T ( i,j )  ) 
+            kappaOfT ( i,j )  = ThermalDiffusivity   ( T ( i,j )  ) 
+         end do       ;    end do 
+
+         divV = U_x(:,:,IGU) + U_y(:,:,IGV) + U_z(:,:,IGW)
+
+         F(:,:,IRHO ,IX) = 0.0_RP
+         F(:,:,IRHOU,IX) = muOfT * (2.0_RP * U_x(:,:,IGU) - 2.0_RP/3.0_RP * divV ) / RE
+         F(:,:,IRHOV,IX) = muOfT * ( U_x(:,:,IGV) + U_y(:,:,IGU) ) / RE
+         F(:,:,IRHOW,IX) = muOfT * ( U_x(:,:,IGW) + U_z(:,:,IGU) ) / RE
+         F(:,:,IRHOE,IX) = F(:,:,IRHOU,IX) * u + F(:,:,IRHOV,IX) * v + F(:,:,IRHOW,IX) * w &
+               + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_x(:,:,IGT) / RE
+
+         F(:,:,IRHO ,IY) = 0.0_RP
+         F(:,:,IRHOU,IY) = F(:,:,IRHOV,IX)
+         F(:,:,IRHOV,IY) = muOfT * (2.0_RP * U_y(:,:,IGV) - 2.0_RP / 3.0_RP * divV ) / RE
+         F(:,:,IRHOW,IY) = muOfT * ( U_y(:,:,IGW) + U_z(:,:,IGV) ) / RE
+         F(:,:,IRHOE,IY) = F(:,:,IRHOU,IY) * u + F(:,:,IRHOV,IY) * v + F(:,:,IRHOW,IY) * w &
+               + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_y(:,:,IGT) / RE
+
+         F(:,:,IRHO,IZ ) = 0.0_RP
+         F(:,:,IRHOU,IZ) = F(:,:,IRHOW,IX)
+         F(:,:,IRHOV,IZ) = F(:,:,IRHOW,IY)
+         F(:,:,IRHOW,IZ) = muOfT * ( 2.0_RP * U_z(:,:,IGW) - 2.0_RP / 3.0_RP * divV ) / RE
+         F(:,:,IRHOE,IZ) = F(:,:,IRHOU,IZ) * u + F(:,:,IRHOV,IZ) * v + F(:,:,IRHOW,IZ) * w &
+               + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_z(:,:,IGT) / RE
+
+      end function ViscousFlux2D
+
+      pure function ViscousFlux3D( N , Q , U_x , U_y , U_z ) result (F)
+         implicit none
+         integer          , intent ( in ) :: N
+         real ( kind=RP ) , intent ( in ) :: Q    ( 0:N , 0:N , 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 0:N , 0:N , 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 0:N , 0:N , 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 0:N , 0:N , 0:N , 1:NCONS          ) 
+         real ( kind=RP )                 :: F    ( 0:N , 0:N , 0:N , 1:NCONS , 1:NDIM )
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: T(0:N,0:N,0:N) , muOfT(0:N,0:N,0:N) , kappaOfT(0:N,0:N,0:N)
+         real(kind=RP) :: divV(0:N,0:N,0:N)
+         real(kind=RP) :: u(0:N,0:N,0:N) , v(0:N,0:N,0:N) , w(0:N,0:N,0:N)
+         integer       :: i , j , k
+
+         u = Q(:,:,:,IRHOU) / Q(:,:,:,IRHO)
+         v = Q(:,:,:,IRHOV) / Q(:,:,:,IRHO)
+         w = Q(:,:,:,IRHOW) / Q(:,:,:,IRHO)
+
+
+         T = gammaM2 * (Q(:,:,:,IRHOE)  & 
+               - 0.5_RP * ( Q(:,:,:,IRHOU) * Q(:,:,:,IRHOU) + Q(:,:,:,IRHOV) * Q(:,:,:,IRHOV) ) ) / Q(:,:,:,IRHO)
+
+         do i = 0 , N ;    do j = 0 , N ;    do k = 0 , N
+            muOfT    ( i,j,k )  = MolecularDiffusivity ( T ( i,j,k )  ) 
+            kappaOfT ( i,j,k )  = ThermalDiffusivity   ( T ( i,j,k )  ) 
+         end do       ;    end do       ;    end do 
+
+         divV = U_x(:,:,:,IGU) + U_y(:,:,:,IGV) + U_z(:,:,:,IGW)
+
+         F(:,:,:,IRHO ,IX) = 0.0_RP
+         F(:,:,:,IRHOU,IX) = muOfT * (2.0_RP * U_x(:,:,:,IGU) - 2.0_RP/3.0_RP * divV ) / RE
+         F(:,:,:,IRHOV,IX) = muOfT * ( U_x(:,:,:,IGV) + U_y(:,:,:,IGU) ) / RE
+         F(:,:,:,IRHOW,IX) = muOfT * ( U_x(:,:,:,IGW) + U_z(:,:,:,IGU) ) / RE
+         F(:,:,:,IRHOE,IX) = F(:,:,:,IRHOU,IX) * u + F(:,:,:,IRHOV,IX) * v + F(:,:,:,IRHOW,IX) * w &
+               + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_x(:,:,:,IGT) / RE
+
+         F(:,:,:,IRHO ,IY) = 0.0_RP
+         F(:,:,:,IRHOU,IY) = F(:,:,:,IRHOV,IX)
+         F(:,:,:,IRHOV,IY) = muOfT * (2.0_RP * U_y(:,:,:,IGV) - 2.0_RP / 3.0_RP * divV ) / RE
+         F(:,:,:,IRHOW,IY) = muOfT * ( U_y(:,:,:,IGW) + U_z(:,:,:,IGV) ) / RE
+         F(:,:,:,IRHOE,IY) = F(:,:,:,IRHOU,IY) * u + F(:,:,:,IRHOV,IY) * v + F(:,:,:,IRHOW,IY) * w &
+               + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_y(:,:,:,IGT) / RE
+
+         F(:,:,:,IRHO,IZ ) = 0.0_RP
+         F(:,:,:,IRHOU,IZ) = F(:,:,:,IRHOW,IX)
+         F(:,:,:,IRHOV,IZ) = F(:,:,:,IRHOW,IY)
+         F(:,:,:,IRHOW,IZ) = muOfT * ( 2.0_RP * U_z(:,:,:,IGW) - 2.0_RP / 3.0_RP * divV ) / RE
+         F(:,:,:,IRHOE,IZ) = F(:,:,:,IRHOU,IZ) * u + F(:,:,:,IRHOV,IZ) * v + F(:,:,:,IRHOW,IZ) * w &
+               + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_z(:,:,:,IGT) / RE
+
+      end function ViscousFlux3D
+!
+!
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -1147,13 +1529,13 @@
 !! Compute the pressure from the state variables
 !---------------------------------------------------------------------
 !
-      FUNCTION Pressure(Q) RESULT(P)
+      PURE FUNCTION Pressure(Q) RESULT(P)
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      REAL(KIND=RP), DIMENSION(N_EQN) :: Q
+      REAL(KIND=RP), DIMENSION(N_EQN), INTENT(IN) :: Q
 !
 !     ---------------
 !     Local Variables
@@ -1171,13 +1553,13 @@
 !! Compute the molecular diffusivity by way of Sutherland's law
 !---------------------------------------------------------------------
 !
-      FUNCTION MolecularDiffusivity(T) RESULT(mu)
+      PURE FUNCTION MolecularDiffusivity(T) RESULT(mu)
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      REAL(KIND=RP) :: T !! The temperature
+      REAL(KIND=RP), INTENT(IN) :: T !! The temperature
 !
 !     ---------------
 !     Local Variables
@@ -1196,13 +1578,13 @@
 !! Compute the thermal diffusivity by way of Sutherland's law
 !---------------------------------------------------------------------
 !
-      FUNCTION ThermalDiffusivity(T) RESULT(kappa)
+      PURE FUNCTION ThermalDiffusivity(T) RESULT(kappa)
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      REAL(KIND=RP) :: T !! The temperature
+      REAL(KIND=RP), INTENT(IN) :: T !! The temperature
 !
 !     ---------------
 !     Local Variables
@@ -1221,13 +1603,13 @@
 !! Compute the temperature from the state variables
 !---------------------------------------------------------------------
 !
-      FUNCTION Temperature(Q) RESULT(T)
+      PURE FUNCTION Temperature(Q) RESULT(T)
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      REAL(KIND=RP), DIMENSION(N_EQN) :: Q
+      REAL(KIND=RP), DIMENSION(N_EQN), INTENT(IN) :: Q
 !
 !     ---------------
 !     Local Variables

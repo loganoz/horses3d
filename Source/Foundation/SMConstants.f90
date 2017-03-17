@@ -33,5 +33,8 @@
          INTEGER, PARAMETER               :: STRING_CONSTANT_LENGTH = 64
          
          COMPLEX(KIND=CP)                 :: ImgI = ( 0.0_RP, 1.0_RP) ! = SQRT(-1.0_RP)
+
+#define errorMessage(UNIT) write(UNIT,'(A,A,A,I0,A)')   "Error in file ", __FILE__ , ", in line " , __LINE__ ,"."
+#define stopMessage(UNIT)  write(UNIT,'(A,A,A,I0,A)') "Stopped in file ", __FILE__ , ", in line " , __LINE__ ,"."
          
       END MODULE SMConstants

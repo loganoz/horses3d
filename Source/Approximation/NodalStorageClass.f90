@@ -24,6 +24,7 @@
          INTEGER                                    :: N
          REAL(KIND=RP)                , ALLOCATABLE :: xi(:), eta(:), zeta(:), w(:)
          REAL(KIND=RP)                , ALLOCATABLE :: standardDerivativeMatrix(:,:), D(:,:)
+         REAL(KIND=RP)                , ALLOCATABLE :: hatD(:,:)
          REAL(KIND=RP), DIMENSION(:,:), ALLOCATABLE :: v   !Interpolation vector
          REAL(KIND=RP), DIMENSION(:,:), ALLOCATABLE :: b   !Boundary vector
          
@@ -51,8 +52,9 @@
             
       this % N = N
       ALLOCATE( this % xi(0:N), this % eta(0:N), this % zeta(0:N) )
-      ALLOCATE( this % w(0:N)     )
-      ALLOCATE( this % D(0:N,0:N) )
+      ALLOCATE( this % w    ( 0:N     )  ) 
+      ALLOCATE( this % D    ( 0:N,0:N )  ) 
+      ALLOCATE( this % hatD ( 0:N,0:N )  ) 
       ALLOCATE( this % standardDerivativeMatrix(0:N,0:N) )
       ALLOCATE( this % v(0:N,2) )
       ALLOCATE( this % b(0:N,2) )
@@ -76,6 +78,8 @@
             this % D(j,i) = -D(i,j)*this % w(j)/this % w(i)
          END DO
       END DO
+
+      this % hatD = - this % D
 !
 !     ---------------------
 !     Interpolation vectors

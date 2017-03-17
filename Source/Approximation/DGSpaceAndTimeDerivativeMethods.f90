@@ -12,6 +12,15 @@
 !
       MODULE DGTimeDerivativeMethods
       USE SMConstants
+      use DGInviscidDiscretization
+      use DGViscousDiscretization
+      use DGWeakIntegrals
+!
+!
+
+      class(InviscidMethod_t), allocatable         :: InviscidMethod
+      class(ViscousMethod_t), allocatable          :: ViscousMethod
+      type(WeakIntegrals_t)                        :: WeakIntegrals
 !
 !     ========      
       CONTAINS 
@@ -19,49 +28,184 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE LocalTimeDerivative( e, spA, t )
-      USE ElementClass
-      USE NodalStorageClass
-      USE PhysicsStorage
-      IMPLICIT NONE
+      subroutine Initialize_SpaceAndTimeMethods()
+         use PhysicsStorage
+         implicit none
+!
+!        TODO: this should be selected from the paramfile options
+         allocate( StandardDG_t  :: InviscidMethod )
+
+         if ( flowIsNavierStokes ) then
+            allocate( BassiRebay1_t :: ViscousMethod  ) 
+   
+         else
+            allocate( ViscousMethod_t  :: ViscousMethod )
+
+         end if
+
+      end subroutine Initialize_SpaceAndTimeMethods
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!      SUBROUTINE LocalTimeDerivative( e, spA, t )
+!      USE ElementClass
+!      USE NodalStorageClass
+!      USE PhysicsStorage
+!      IMPLICIT NONE
 !
 !     -----------------
 !     Input parameters:
 !     -----------------
 !
-      TYPE(Element)      :: e
-      TYPE(NodalStorage) :: spA
-      REAL(KIND=RP)      :: t
+!      TYPE(Element)      :: e
+!      TYPE(NodalStorage) :: spA
+!      REAL(KIND=RP)      :: t
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      REAL(KIND=RP), DIMENSION( 0:spA % N, &
-                                0:spA % N, &
-                                0:spA % N, &
-                                N_EQN, 3 )  :: contravariantFlux
+!      REAL(KIND=RP), DIMENSION( 0:spA % N, &
+!                                0:spA % N, &
+!                                0:spA % N, &
+!                                N_EQN, 3 )  :: contravariantFlux
       
-      CALL ComputeContravariantFlux( e, contravariantFlux )
+!      CALL ComputeContravariantFlux( e, contravariantFlux )
+!
+!      IF ( flowIsNavierStokes )     THEN
+!         CALL AddViscousContravariantFluxes(  e, contravariantFlux )
+!      END IF
+      
+!      CALL ComputeDGDivergence( contravariantFlux, e, spA, e % Qdot ) !QDot saves the divergence
 
-      IF ( flowIsNavierStokes )     THEN
-         CALL AddViscousContravariantFluxes(  e, contravariantFlux )
-      END IF
-      
-      CALL ComputeDGDivergence( contravariantFlux, e, spA, e % Qdot ) !QDot saves the divergence
+!       call TimeDerivative_VolumetricContribution( mesh , spA , t )
+!       call TimeDerivative_FacesContribution( mesh , spA , t )
 
 !
 !     --------------------------------------------------------
 !     Finish up - move divergence to left side of the equation
 !     --------------------------------------------------------
 !
-      e % QDot = -e % QDot
+!      e % QDot = -e % QDot
     
-      END SUBROUTINE LocalTimeDerivative
+!      END SUBROUTINE LocalTimeDerivative
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeContravariantFlux( e, contravariantFlux )
+      subroutine TimeDerivative_ComputeQDot( mesh , spA , t )
+         use HexMeshClass
+         use ElementClass
+         use NodalStorageClass
+         use PhysicsStorage
+         implicit none
+         type(HexMesh)              :: mesh
+         type(NodalStorage)         :: spA
+         real(kind=RP)              :: t
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: eID , iVar 
+
+         do eID = 1 , size(mesh % elements)
+!
+!           Perform volume integrals
+!           ------------------------            
+            call TimeDerivative_VolumetricContribution( mesh % elements(eID) , spA , t)
+!
+!           Perform surface integrals
+!           -------------------------
+            call TimeDerivative_FacesContribution( mesh % elements(eID) , spA , t)
+!
+!           Scale with the Jacobian
+!           -----------------------
+            do iVar = 1 , N_EQN
+               mesh % elements(eID) % QDot(:,:,:,iVar) = mesh % elements(eID) % QDot(:,:,:,iVar) &
+                                          / mesh % elements(eID) % geom % jacobian
+            end do
+
+         end do
+
+      end subroutine TimeDerivative_ComputeQDot
+
+      subroutine TimeDerivative_VolumetricContribution( e , spA , t )
+         use HexMeshClass
+         use ElementClass
+         use NodalStorageClass
+         use PhysicsStorage
+         implicit none
+         type(Element)      :: e
+         type(NodalStorage) :: spA
+         real(kind=RP)      :: t
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real ( kind=RP ) :: inviscidContravariantFlux ( 0:spA % N , 0:spA % N , 0:spA % N , 1 : N_EQN , 1:NDIM ) 
+         real ( kind=RP ) :: viscousContravariantFlux  ( 0:spA % N , 0:spA % N , 0:spA % N , 1 : N_EQN , 1:NDIM ) 
+         real ( kind=RP ) :: contravariantFlux         ( 0:spA % N , 0:spA % N , 0:spA % N , 1 : N_EQN , 1:NDIM ) 
+         integer          :: eID
+
+!
+!        Compute inviscid and viscous contravariant fluxes
+!        -------------------------------------------------
+         call InviscidMethod % ComputeInnerFluxes ( e , spA , inviscidContravariantFlux ) 
+         call ViscousMethod  % ComputeInnerFluxes ( e , spA , viscousContravariantFlux  ) 
+!
+!        Compute the total Navier-Stokes flux
+!        ------------------------------------
+         if ( flowIsNavierStokes ) then
+            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux
+         else
+            contravariantFlux = inviscidContravariantFlux
+         end if
+!
+!        Perform the Weak Volume Green integral
+!        --------------------------------------
+         e % QDot = WeakIntegrals % VolumeGreen ( e , spA , contravariantFlux ) 
+
+      end subroutine TimeDerivative_VolumetricContribution
+
+      subroutine TimeDerivative_FacesContribution( e , spA , t )
+         use HexMeshClass
+         use NodalStorageClass
+         use PhysicsStorage
+         implicit none
+         type(Element)           :: e
+         type(NodalStorage)      :: spA
+         real(kind=RP)           :: t
+!
+!        LEFT face
+!        ---------
+         e % QDot = e % QDot - WeakIntegrals % FaceIntegral( e , spA , ELEFT , e % Fstarb(:,:,:,ELEFT) ) 
+!
+!        RIGHT face
+!        ---------
+         e % QDot = e % QDot - WeakIntegrals % FaceIntegral( e , spA , ERIGHT , e % Fstarb(:,:,:,ERIGHT) )
+!
+!        BOTTOM face
+!        ---------
+         e % QDot = e % QDot - WeakIntegrals % FaceIntegral( e , spA , EBOTTOM , e % Fstarb(:,:,:,EBOTTOM) )
+!
+!        TOP face
+!        ---------
+         e % QDot = e % QDot - WeakIntegrals % FaceIntegral( e , spA , ETOP , e % Fstarb(:,:,:,ETOP) )
+!
+!        BACK face
+!        ---------
+         e % QDot = e % QDot - WeakIntegrals % FaceIntegral( e , spA , EBACK , e % Fstarb(:,:,:,EBACK) )
+!
+!        FRONT face
+!        ---------
+         e % QDot = e % QDot - WeakIntegrals % FaceIntegral( e , spA , EFRONT , e % Fstarb(:,:,:,EFRONT) )
+
+      end subroutine TimeDerivative_FacesContribution
+!
+!////////////////////////////////////////////////////////////////////////////////////////
+!
+!      SUBROUTINE ComputeContravariantFlux( e, contravariantFlux )
 !
 !     --------------------------------------
 !     As described, compute
@@ -71,50 +215,50 @@
 !     \]
 !     --------------------------------------
 !      
-      USE ElementClass
-      USE PhysicsStorage
-      USE Physics
-      IMPLICIT NONE
+!      USE ElementClass
+!      USE PhysicsStorage
+!      USE Physics
+!      IMPLICIT NONE
 !
 !     -----------------
 !     Input parameters:
 !     -----------------
 !
-      TYPE(Element)                          :: e
-      REAL(KIND=RP), dimension(0:,0:,0:,:,:) :: contravariantFlux 
+!      TYPE(Element)                          :: e
+!      REAL(KIND=RP), dimension(0:,0:,0:,:,:) :: contravariantFlux 
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      INTEGER                         :: n, m, l, nv
-      REAL(KIND=RP), DIMENSION(N_EQN) :: ff, gg, hh
+!      INTEGER                         :: n, m, l, nv
+!      REAL(KIND=RP), DIMENSION(N_EQN) :: ff, gg, hh
       
-      DO l = 0, e % N
-         DO m = 0, e % N
-            DO n = 0, e % N
-
-               CALL xflux( e % Q(n,m,l,:), ff )
-               CALL yflux( e % Q(n,m,l,:), gg )
-               CALL zflux( e % Q(n,m,l,:), hh )
-
-               DO nv = 1, N_EQN
-                  contravariantFlux(n,m,l,nv,1) = e % geom % jGradXi(1,n,m,l)  *ff(nv) +   &
-                                                  e % geom % jGradXi(2,n,m,l)  *gg(nv) +   &
-                                                  e % geom % jGradXi(3,n,m,l)  *hh(nv)
-                  contravariantFlux(n,m,l,nv,2) = e % geom % jGradEta(1,n,m,l) *ff(nv) +   &
-                                                  e % geom % jGradEta(2,n,m,l) *gg(nv) +   &
-                                                  e % geom % jGradEta(3,n,m,l) *hh(nv)
-                  contravariantFlux(n,m,l,nv,3) = e % geom % jGradZeta(1,n,m,l)*ff(nv) +   &
-                                                  e % geom % jGradZeta(2,n,m,l)*gg(nv) +   &
-                                                  e % geom % jGradZeta(3,n,m,l)*hh(nv)
-               END DO
-               
-            END DO
-         END DO
-      END DO
-    
-      END SUBROUTINE ComputeContravariantFlux
+!      DO l = 0, e % N
+!         DO m = 0, e % N
+!            DO n = 0, e % N
+!
+!               CALL xflux( e % Q(n,m,l,:), ff )
+!               CALL yflux( e % Q(n,m,l,:), gg )
+!               CALL zflux( e % Q(n,m,l,:), hh )
+!
+!               DO nv = 1, N_EQN
+!                  contravariantFlux(n,m,l,nv,1) = e % geom % jGradXi(1,n,m,l)  *ff(nv) +   &
+!                                                  e % geom % jGradXi(2,n,m,l)  *gg(nv) +   &
+!                                                  e % geom % jGradXi(3,n,m,l)  *hh(nv)
+!                  contravariantFlux(n,m,l,nv,2) = e % geom % jGradEta(1,n,m,l) *ff(nv) +   &
+!                                                  e % geom % jGradEta(2,n,m,l) *gg(nv) +   &
+!                                                  e % geom % jGradEta(3,n,m,l) *hh(nv)
+!                  contravariantFlux(n,m,l,nv,3) = e % geom % jGradZeta(1,n,m,l)*ff(nv) +   &
+!                                                  e % geom % jGradZeta(2,n,m,l)*gg(nv) +   &
+!                                                  e % geom % jGradZeta(3,n,m,l)*hh(nv)
+!               END DO
+!               
+!            END DO
+!         END DO
+!      END DO
+!    
+!      END SUBROUTINE ComputeContravariantFlux
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -190,14 +334,8 @@
 !     Finish up
 !     ---------
 !
-      DO k = 0, N
-         DO j = 0, N 
-            DO i = 0, N 
-               DO nv = 1, N_EQN
-                  divFlux(i,j,k,nv) = divFlux(i,j,k,nv)/e % geom % jacobian(i,j,k)
-               END DO
-            END DO 
-         END DO
+      DO nv = 1, N_EQN
+         divFlux(:,:,:,nv) = divFlux(:,:,:,nv)/e % geom % jacobian
       END DO
       
 
@@ -786,45 +924,21 @@
          select case (which_dim)
             case (IX)
 
-               do eq = 1 , NEQ
-                  do j = 0 , N
-                     do i = 0 , N
-                        do k = 0 , N
-
-                           bValue(eq,i,j) = bValue(eq,i,j) + u(k,i,j,eq) * v(k)
-   
-                        end do
-                     end do
-                  end do
-               end do
+               do eq=1,NEQ ; do j = 0,N ; do i = 0,N ; do k=0,N
+                  bValue(eq,i,j) = bValue(eq,i,j) + u(k,i,j,eq) * v(k)
+               end do ;      end do     ; end do     ; end do
 
             case (IY)
 
-                do eq = 1 , NEQ
-                  do j = 0 , N
-                     do k = 0 , N
-                        do i = 0 , N
-
-                           bValue(eq,i,j) = bValue(eq,i,j) + u(i,k,j,eq) * v(k)
-   
-                        end do
-                     end do
-                  end do
-               end do
+               do eq=1,NEQ ; do j = 0,N ; do k = 0,N ; do i=0,N
+                  bValue(eq,i,j) = bValue(eq,i,j) + u(i,k,j,eq) * v(k)
+               end do ;      end do     ; end do     ; end do
 
             case (IZ)
 
-               do eq = 1 , NEQ
-                  do k = 0 , N
-                     do j = 0 , N
-                        do i = 0 , N
-
-                           bValue(eq,i,j) = bValue(eq,i,j) + u(i,j,k,eq) * v(k)
-   
-                        end do
-                     end do
-                  end do
-               end do
+               do eq=1,NEQ ; do k = 0,N ; do j = 0,N ; do i=0,N
+                  bValue(eq,i,j) = bValue(eq,i,j) + u(i,j,k,eq) * v(k)
+               end do ;      end do     ; end do     ; end do
 
          end select
          
