@@ -173,7 +173,8 @@
 !
       SUBROUTINE Integrate( self, sem, controlVariables)
       
-      USE Implicit_JF , ONLY : TakeBDFStep
+      USE Implicit_JF , ONLY : TakeBDFStep_JF
+      USE Implicit_NJ , ONLY : TakeBDFStep_NJ
       IMPLICIT NONE
 !
 !     ---------
@@ -199,6 +200,7 @@
       
       ! For Implicit
       LOGICAL               :: imp !implicit?
+      INTEGER               :: JacFlag
 !
 !     -----------------
 !     Integrate in time
@@ -208,6 +210,7 @@
       t = self % time
       
       imp= controlVariables % LogicalValueForKey("implicit time")
+      IF (imp) JacFlag = controlVariables % IntegerValueForKey("jacobian flag")
       
       DO k = 0, self % numTimeSteps-1
       
@@ -216,9 +219,16 @@
          END IF
          
          IF (imp) THEN
-           CALL TakeBDFStep (sem, t , self%dt , maxResidual)
+            SELECT CASE (JacFlag)
+               CASE (1)
+                  CALL TakeBDFStep_JF (sem, t , self%dt , maxResidual)
+               CASE (2)
+                  CALL TakeBDFStep_NJ (sem, t , self%dt , maxResidual)
+               CASE (3)
+                  STOP 'Analytical Jacobian not implemented yet'
+            END SELECT
          ELSE
-           CALL self % RKStep ( sem, t, self % dt, maxResidual )
+            CALL self % RKStep ( sem, t, self % dt, maxResidual )
          END IF
          
          t = t + self % dt                    !arueda: changed since time step does not have to be constant!

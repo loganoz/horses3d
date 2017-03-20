@@ -43,7 +43,7 @@
             CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
          END SUBROUTINE externalGradientsSubroutine
       END INTERFACE
-
+      
       TYPE DGSem
          REAL(KIND=RP)                                         :: maxResidual
          INTEGER                                               :: numberOfTimeSteps
@@ -60,6 +60,11 @@
          PROCEDURE :: destruct  => DestructDGSem     
             
       END TYPE DGSem
+      
+      TYPE Neighbour             ! arueda: added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
+         INTEGER :: elmnt(7)     ! arueda: "7" hardcoded for 3D hexahedrals... This definition must change if the code will be generalized
+!~         INTEGER :: belmnt(6)    ! arueda: New name "belmnt" (boundary element) -old: "edge"... (same remark as above)  ! commented: Not used in the moment
+      END TYPE Neighbour
       
       CONTAINS 
 !

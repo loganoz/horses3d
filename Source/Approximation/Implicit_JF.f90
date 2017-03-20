@@ -2,10 +2,10 @@
 !////////////////////////////////////////////////////////////////////////
 !
 !      Implicit_JF.f90
-!      Created: 2017-03-08 00:00:00 -1234 
+!      Created: 2017-03-XX XX:XX:XX -XXXX 
 !      By:  Carlos Redondo (module for 2D) 
-!           Andrés Rueda   (3D implementation and changes) 
-!      Implicit module using BDF (order1)
+!           Andrés Rueda   (3D implementation and changes) -- to be listed here
+!      Implicit module using BDF1 and Jacobian Free Newton-Krylov
 !
 !////////////////////////////////////////////////////////////////////////
 MODULE Implicit_JF
@@ -23,10 +23,10 @@ MODULE Implicit_JF
    TYPE(DGSem), POINTER                               :: p_sem
    
    PRIVATE
-   PUBLIC      :: TakeBDFStep
+   PUBLIC      :: TakeBDFStep_JF
    
    CONTAINS
-      SUBROUTINE TakeBDFStep(sem, t , dt , maxResidual)
+      SUBROUTINE TakeBDFStep_JF(sem, t , dt , maxResidual)
          TYPE(DGSem),TARGET,  INTENT(INOUT)           :: sem
          REAL(KIND=RP),       INTENT(IN)              :: t
          REAL(KIND=RP),       INTENT(IN)              :: dt
@@ -81,7 +81,7 @@ MODULE Implicit_JF
            END DO
         END DO
          
-       END SUBROUTINE TakeBDFStep
+       END SUBROUTINE TakeBDFStep_JF
 !//////////////////////////////////////////////////////////////////////////////////////// 
       FUNCTION DGTimeDerivative(u,time) RESULT(F)
          REAL(KIND = RP), INTENT(IN)                  :: u(:)
@@ -99,7 +99,7 @@ MODULE Implicit_JF
          REAL(KIND = RP),     INTENT(IN)              :: Q(:)   
          
          INTEGER                                       :: Nx, Ny, Nz, l, i, j, k, counter, elm
-
+         
          counter = 1
          DO elm = 1, nelm
             Nx = sem%mesh%elements(elm)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
@@ -115,7 +115,8 @@ MODULE Implicit_JF
                   END DO
                END DO
             END DO
-         END DO  
+         END DO 
+         
       END SUBROUTINE SetSemQ
 !////////////////////////////////////////////////////////////////////////////////////////       
       SUBROUTINE GetSemQ(sem,Q) !arueda: check ordering of variables in solution vector
@@ -123,7 +124,7 @@ MODULE Implicit_JF
          REAL(KIND = RP),     INTENT(OUT)              :: Q(:)
          
          INTEGER                                       :: Nx, Ny, Nz, l, i, j, k, counter, elm
-
+         
          counter = 1
          DO elm = 1, nelm
             Nx = sem%mesh%elements(elm)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
@@ -140,6 +141,7 @@ MODULE Implicit_JF
                END DO
             END DO
          END DO
+         
       END SUBROUTINE GetSemQ
  !////////////////////////////////////////////////////////////////////////////////////////      
       SUBROUTINE GetSemQdot(sem,Qdot) !arueda: check ordering of variables in solution vector
@@ -147,7 +149,7 @@ MODULE Implicit_JF
          REAL(KIND = RP),     INTENT(OUT)              :: Qdot(:)
          
          INTEGER                                       :: Nx, Ny, Nz, l, i, j, k, counter, elm
-
+         
          counter = 1
          DO elm = 1, nelm
             Nx = sem%mesh%elements(elm)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
@@ -164,7 +166,7 @@ MODULE Implicit_JF
                END DO
             END DO
          END DO
-      
+         
       END SUBROUTINE GetSemQdot
 
 END MODULE Implicit_JF
