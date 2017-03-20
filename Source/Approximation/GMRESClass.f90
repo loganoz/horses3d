@@ -3,7 +3,7 @@ MODULE GMRESClass
    IMPLICIT NONE
    
    TYPE GmresSolver
-      INTEGER                                :: m = 30                 ! arueda: Number of GMRES iterations before restart (?) -- Default petsc value m=30 
+      INTEGER                                :: m = 60                 ! arueda: Number of GMRES iterations before restart (?) -- Default petsc value m=30 
       INTEGER                                :: psize
       INTEGER                                :: maxiter = 500
       INTEGER                                :: niter 
@@ -139,7 +139,7 @@ MODULE GMRESClass
          this%x0 = x0
       END SUBROUTINE
 !///////////////////////////////////////////////////////////////////////// 
-      SUBROUTINE innerGMRES(this)
+      RECURSIVE SUBROUTINE innerGMRES(this)   !arueda: This subroutine has been made recursive since GMRES can be preconditioned using another GMRES
          CLASS(GmresSolver), INTENT(INOUT)      :: this
          INTEGER                                :: i,j,k, l, ii,kk, m
          REAL(KIND = RP)                        :: tmp1, tmp2
@@ -203,6 +203,7 @@ MODULE GMRESClass
                EXIT
             END IF
          END DO ! End of Krylov loop
+         
          IF (m > 0) THEN
             this%y(m) = this%g(m) / this%H(m,m)
             DO ii = 1, m-1
@@ -216,6 +217,7 @@ MODULE GMRESClass
                END DO 
             END DO
          END IF ! m > 0
+         
          IF (this%FLEXIBLE) THEN
             this%x = this%x0 + MATMUL(this%Z(:,1:m),this%y(1:m))
          ELSE
@@ -223,7 +225,7 @@ MODULE GMRESClass
          ENDIF
        END SUBROUTINE innerGMRES
  !/////////////////////////////////////////////////////////////////////////      
-      SUBROUTINE SolveGMRES(this)
+      RECURSIVE SUBROUTINE SolveGMRES(this)    !arueda: This subroutine has been made recursive since GMRES can be preconditioned using another GMRES
          CLASS(GmresSolver), INTENT(INOUT)      :: this
          
          INTEGER                                :: i

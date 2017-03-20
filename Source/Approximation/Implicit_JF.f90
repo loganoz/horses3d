@@ -2,9 +2,9 @@
 !////////////////////////////////////////////////////////////////////////
 !
 !      Implicit_JF.f90
-!      Created: 2017-03-XX XX:XX:XX -XXXX 
+!      Created: 2017-03-08 00:00:00 -1234 
 !      By:  Carlos Redondo (module for 2D) 
-!           Andrés Rueda   (3D implementation and changes) -- to be listed here
+!           Andrés Rueda   (3D implementation and changes) 
 !      Implicit module using BDF (order1)
 !
 !////////////////////////////////////////////////////////////////////////

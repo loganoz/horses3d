@@ -147,7 +147,7 @@
 !           -----------------------------------------------------------------------
 !
             INTEGER                            :: expectedIterations      = 45
-            REAL(KIND=RP)                      :: expectedResidual        = 7.8939367484240685D-011
+            REAL(KIND=RP)                      :: expectedResidual        = 7.8469500886160862E-011
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
@@ -189,6 +189,7 @@
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is fixed."
                WRITE(6,*) "      When that is done, re-compute the expected values and modify this procedure"
+               STOP 99
             END IF 
             WRITE(6,*)
             

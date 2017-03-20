@@ -6,7 +6,7 @@
 !      By:  Carlos Redondo (module for 2D) 
 !           Andrés Rueda   (3D implementation and changes) -- to be listed here
 !      Jacobian-Free Newton Krylov method using GMRES
-!           Implemented using dual time-stepping (arueda: change to allow both dual and single time-stepping) arueda: change this to allow BDF of higher order 
+!           Implemented using BDF1 and variable time step   !arueda: change this to allow BDF of higher order 
 !
 !////////////////////////////////////////////////////////////////////////
 MODULE JFNKClass
@@ -27,8 +27,8 @@ MODULE JFNKClass
       REAL(KIND = RP)                                 :: norm_G                         ! Norm of F(Un) at the beginning of inner loop
       LOGICAL                                         :: F_SET = .FALSE.
       LOGICAL                                         :: CONVERGED = .FALSE.
-      INTEGER                                         :: MAX_NEWTON_ITER = 15           !arueda: allow parameters to be read from input file (and set default values if not in input)
-      LOGICAL                                         :: MAX_ITER_REACHED = .FALSE.
+      INTEGER                                         :: MAX_NEWTON_ITER = 50           !old: 15
+      LOGICAL                                         :: MAX_ITER_REACHED = .FALSE.     ! !arueda: allow parameters to be read from input file (and set default values if not in input)
       INTEGER                                         :: niter = 0
       INTEGER                                         :: n_linsolver_iter
       INTEGER                                         :: nsteps
@@ -74,7 +74,7 @@ MODULE JFNKClass
    REAL(KIND = RP)                                 :: inner_t
    REAL(KIND = RP)                                 :: inner_Dt
    REAL(KIND = RP)                                 :: Comp_Dt
-   REAL(KIND = RP)                                 :: time                          ! Time at the beginning of iteration procedure... arueda: added since it's an argument of DGTimeDerivative
+   REAL(KIND = RP)                                 :: time                          ! Time at the beginning of each inner time step
    INTEGER                                         :: n_preco_iter
    
    TYPE(GmresSolver)                               :: PCsolver
@@ -105,8 +105,8 @@ MODULE JFNKClass
                   CALL this%linsolver%SetPCMult(GMRES_Preco)
                   CALL PCsolver%Construct(dimprb,15)
                   CALL PCsolver%SetMatMult(JacFreeAx_PRECO)
-                  CALL PCsolver%SetMaxIter(15)
-                  CALL this%linsolver%SetMaxiter(30)
+                  CALL PCsolver%SetMaxIter(30)           !old: 15
+                  CALL this%linsolver%SetMaxiter(60)     !old: 30
                   this%PC_GMRES = .TRUE.
                CASE DEFAULT
                   WRITE(*,*) pc, ' preconditioner not found. No preconditioner will be used for GMRES'
@@ -142,8 +142,8 @@ MODULE JFNKClass
          this%nsteps = 0                  !Reset iteration and step counters
 
          inner_t = 0._RP                  ! Reset iteration time
-
-         Comp_Dt = this%last_Dt 
+         
+         Comp_Dt = this%Dt                ! arueda: Here, I don't use lastDt, because I want the code to run time-accurate cases
          
          DO ! While inner_t < Dt
             Ur = this%Un
@@ -159,9 +159,8 @@ MODULE JFNKClass
                CALL Newton_Output(this, 'FIRST')
             ENDIF
             
-            ! Newton solver will use value of Comp_Dt at this point to perform computations 
-            CALL NewtonSolver(this)    !arueda: bug! problem in Newton Solver (somewhere faces' rotations are being redifined-)
-            
+            ! Newton solver will use value of Comp_Dt at this point to perform computations
+            CALL NewtonSolver(this)
             IF((this%linsolver%CONVERGED) .AND. (this%CONVERGED)) THEN  
                this%nsteps = this%nsteps + 1
                inner_t = inner_t + Comp_Dt                                  ! Increases integration time
@@ -204,14 +203,16 @@ MODULE JFNKClass
               ENDIF
               
               ! Adjust Comp_Dt to prevent inner_t be greater than outer Dt 
-              IF ( (Comp_DT > (this%Dt - inner_t +  EPSILON(1._RP)))) THEN  ! Adjusts inner dt to achieve exact outer Dt in the last substep
+              IF ( (Comp_DT > (this%Dt - inner_t ))) THEN  ! Adjusts inner dt to achieve exact outer Dt in the last substep
                 !  WRITE(*,*) 'Esta debería ser la última sub-iteración....'
                   Comp_Dt = this%Dt - inner_t                                ! Do not update last_Dt value
                 !  WRITE(*,*) 'Comp_DT =', Comp_Dt 
               ENDIF
             
             ELSE ! Reduce Comp Dt if newton or linear solver did not converge
+               print*, 'arueda: comp_dt: ', Comp_Dt
                Comp_Dt = Comp_Dt /REAL(this%substep_red_ratio, KIND=RP) 
+               print*, 'arueda: comp_dt: ', Comp_Dt
                this%last_Dt = Comp_Dt
                this%nsteps = 0                                 
                WRITE(*,'(A)', ADVANCE='NO') 'Reducing Substep Delta T... Control_Dt = '
@@ -230,7 +231,7 @@ MODULE JFNKClass
          DO i = 1, this%MAX_NEWTON_ITER
             this%niter = i
             
-            CALL NewtonInnerIt(this) !arueda: bug! (somewhere faces' rotations are being redifined-)
+            CALL NewtonInnerIt(this)
             
             IF(.NOT. this%linsolver%CONVERGED) THEN                  
                RETURN
@@ -278,13 +279,13 @@ MODULE JFNKClass
          CALL ComputeRHS(this)                     
          CALL this%linsolver%SetRHS(RHS)
          CALL this%linsolver%SetTol(gmres_tol)
-         CALL this%linsolver%Solve !arueda: bug!! 
+         CALL this%linsolver%Solve
          this%n_linsolver_iter = this%n_linsolver_iter + this%linsolver%niter
          IF (this%linsolver%ERROR_CODE  .NE. 0) THEN
             print*, 'error in linear solver: ',  this%linsolver%ERROR_CODE
          ENDIF
          IF (.NOT. this%linsolver%CONVERGED) THEN
-            !PRINT*, '*** WARNING: linsolver max iter reached'
+            PRINT*, '*** WARNING: linsolver max iter reached'
             RETURN
          ENDIF
          
