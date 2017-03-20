@@ -15,17 +15,19 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: meshFileNameKey         = "mesh file name"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: restartKey              = "restart"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: restartFileNameKey      = "restart file name"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveFileNameKey         = "save file name"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfTimeStepsKey    = "number of time steps"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: outputIntervalKey       = "output interval"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: convergenceToleranceKey = "convergence tolerance"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfPlotPointsKey   = "number of plot points"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfBoundariesKey   = "number of boundaries"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: plotFileNameKey         = "plot file name"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(10) :: mainKeywords =  [polynomialOrderKey,      &
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(11) :: mainKeywords =  [polynomialOrderKey,      &
                                                                           cflKey,                  &
                                                                           meshFileNameKey,         &
                                                                           restartKey,              &
                                                                           restartFileNameKey,      &
+                                                                          saveFileNameKey,         &
                                                                           numberOfTimeStepsKey,    &
                                                                           outputIntervalKey,       &
                                                                           convergenceToleranceKey, &

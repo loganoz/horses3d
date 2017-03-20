@@ -57,7 +57,10 @@
 !        ========         
 !
          PROCEDURE :: construct => ConstructDGSem
-         PROCEDURE :: destruct  => DestructDGSem     
+         PROCEDURE :: destruct  => DestructDGSem   
+
+         PROCEDURE :: SaveSolutionForRestart
+         PROCEDURE :: LoadSolutionForRestart  
             
       END TYPE DGSem
       
