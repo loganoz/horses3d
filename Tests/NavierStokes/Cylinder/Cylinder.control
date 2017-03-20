@@ -2,6 +2,7 @@ Flow equations        = "NS"
 mesh file name        = "../../TestMeshes/CylinderNSpol3.mesh"
 plot file name        = "PlotFiles/Cylinder.tec"
 restart file name     = "RestartFiles/Cylinder.rst"
+save file name        = "RestartFiles/Cylinder_saved.rst"
 restart               = .false.
 Polynomial order      = 3
 Number of time steps  = 100

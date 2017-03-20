@@ -2,6 +2,7 @@ Flow equations        = "Euler"
 mesh file name        = "../../TestMeshes/Box27.mesh"
 plot file name        = "PlotFiles/PeriodicFlow.tec"
 restart file name     = "RestartFiles/PeriodicFlow.rst"
+save file name        = "RestartFiles/PeriodicFlow_saved.rst"
 restart               = .false.
 Polynomial order      = 3
 Number of time steps  = 1000
