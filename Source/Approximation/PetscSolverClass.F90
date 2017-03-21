@@ -1,10 +1,11 @@
 MODULE PetscSolverClass
 
    IMPLICIT NONE
-
+#ifdef HAS_PETSC
 #include <petsc.h>
-
+#endif
    TYPE PetscKspLinearSolver
+#ifdef HAS_PETSC
       Mat                                           :: A
       Vec                                           :: x
       Vec                                           :: b
@@ -22,6 +23,15 @@ MODULE PetscSolverClass
       PetscBool                                     :: init_context = PETSC_FALSE
       PetscBool                                     :: setpreco = PETSC_TRUE
       PetscBool                                     :: withMPI = PETSC_FALSE
+#else 
+      !Following variables were added only to be able to compile the code with and without petsc
+      INTEGER                                       :: dimprb
+      INTEGER                                       :: niter
+      REAL*8                                        :: xnorm
+      REAL*8                                        :: residual
+      REAL*8                                        :: Ashift = 0.0d0
+      LOGICAL                                       :: converged = .FALSE. 
+#endif
       CONTAINS
          PROCEDURE                                  :: construct => ConstructPetscContext
          PROCEDURE                                  :: SetAColumn
@@ -49,8 +59,10 @@ MODULE PetscSolverClass
    CONTAINS  
 !///////////////////////////////////////////////////////////////////////////////
    SUBROUTINE CheckPetscErr(ierr,msg)
-      PetscErrorCode, INTENT(IN)                   :: ierr
       CHARACTER(LEN=*), OPTIONAL                   :: msg
+#ifdef HAS_PETSC
+      PetscErrorCode, INTENT(IN)                   :: ierr
+      
       IF(ierr .EQ. 0) THEN
          RETURN
       ELSE
@@ -58,10 +70,15 @@ MODULE PetscSolverClass
          WRITE(*,*) msg,' **** Petsc call returned an error. Code: ' ,ierr
          STOP
       ENDIF
+#else
+      INTEGER                                      :: ierr
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE CheckPetscErr
 !///////////////////////////////////////////////////////////////////////////////     
    SUBROUTINE ConstructPetscContext(this, DimPrb)
       CLASS(PetscKspLinearSolver), INTENT(INOUT) :: this
+#ifdef HAS_PETSC
       PetscInt, INTENT(IN)                       :: DimPrb
       PetscErrorCode                             :: ierr
       
@@ -106,20 +123,27 @@ MODULE PetscSolverClass
 !~      CALL CheckPetscErr(ierr,'error in KSPSetTolerances')
       this%init_context = PETSC_TRUE
       this%dimprb = DimPrb
-      
+#else
+      INTEGER, INTENT(IN)                       :: DimPrb
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE
 !/////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE SetPetscPreco(this)
       CLASS(PetscKspLinearSolver), INTENT(INOUT)      :: this
+#ifdef HAS_PETSC
       PetscErrorCode                                  :: ierr
       
       CALL PCSetType(this%pc,PCILU,ierr)       ;CALL CheckPetscErr(ierr, 'error in PCSetType')
       this%setpreco = PETSC_FALSE
-
+#else
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE SetPetscPreco 
 !/////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE SolveLinPrb(this, tol, maxiter)
       CLASS(PetscKspLinearSolver), INTENT(INOUT)      :: this
+#ifdef HAS_PETSC
       PetscReal, OPTIONAL                             :: tol
       PetscInt,  OPTIONAL                             :: maxiter
       PetscErrorCode                                  :: ierr
@@ -155,11 +179,16 @@ MODULE PetscSolverClass
       ELSE
          this%converged = PETSC_FALSE
       END IF
-      
+#else
+      REAL*8                                :: tol
+      INTEGER                               :: maxiter
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE SolveLinPrb
 !/////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE PreallocateA(this, nnz)
       CLASS(PetscKspLinearSolver), INTENT(INOUT)       :: this
+#ifdef HAS_PETSC
       PetscInt                                         :: nnz
       PetscErrorCode                                   :: ierr      
       
@@ -171,11 +200,15 @@ MODULE PetscSolverClass
          CALL MatSeqAIJSetPreallocation(this%A, this%nz, PETSC_NULL_INTEGER,ierr)
          CALL CheckPetscErr(ierr, 'error in MatSeqAIJSetPreallocation')
       ENDIF
-         
+#else
+      INTEGER                                         :: nnz
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
    SUBROUTINE SetAColumn(this,nvalues, irow, icol, values )
       CLASS(PetscKspLinearSolver), INTENT(INOUT)         :: this
+#ifdef HAS_PETSC
       PetscInt, INTENT(IN)                               :: nvalues
       PetscInt, DIMENSION(:), INTENT(IN)                 :: irow
       PetscInt, INTENT(IN)                               :: icol
@@ -184,31 +217,45 @@ MODULE PetscSolverClass
    
       CALL MatSetValues(this%A,nvalues,irow,1,icol,values,INSERT_VALUES,ierr)
       CALL CheckPetscErr(ierr, 'error in MatSetValues')
-   
+#else
+      INTEGER, INTENT(IN)                               :: nvalues
+      INTEGER, DIMENSION(:), INTENT(IN)                 :: irow
+      INTEGER, INTENT(IN)                               :: icol
+      REAL*8 , DIMENSION(:), INTENT(IN)                 :: values
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE SetAColumn
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
    SUBROUTINE ShiftA(this, shift)
       CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+#ifdef HAS_PETSC
       PetscScalar                                        :: shift
       PetscErrorCode                                     :: ierr
       
       CALL MatShift(this%A,shift, ierr)                       ! A = A + shift * I
       this%AShift = this%AShift + shift                       ! Updates AShift value in linsolver structure
       CALL CheckPetscErr(ierr)
-
+#else
+      REAL*8                                      :: shift
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE ShiftA
 !/////////////////////////////////////////////////////////////////////////////////////////////////      
    SUBROUTINE ResetA(this)
       CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+#ifdef HAS_PETSC
       PetscErrorCode                                     :: ierr
 
       CALL MatZeroEntries(this%A, ierr)
       CALL CheckPetscErr(ierr,'error in MatZeroEntries')
-      
+#else
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
    SUBROUTINE SetOperatorDt(this, dt, coeff)
       CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+#ifdef HAS_PETSC
       PetscScalar,                     INTENT(IN)        :: dt
       PetscScalar,                     OPTIONAL          :: coeff
       PetscScalar                                        :: shift
@@ -221,11 +268,16 @@ MODULE PetscSolverClass
          CALL CheckPetscErr(ierr)
          this%Ashift = shift
       ENDIF
-
+#else
+      REAL*8,                     INTENT(IN)        :: dt
+      REAL*8,                     OPTIONAL          :: coeff
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE SetOperatorDt
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
    SUBROUTINE SetBValues(this, nvalues, irow, values)
       CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+#ifdef HAS_PETSC
       PetscInt,                        INTENT(IN)        :: nvalues
       PetscInt, DIMENSION(:),          INTENT(IN)        :: irow
       PetscScalar, DIMENSION(:),       INTENT(IN)        :: values
@@ -233,39 +285,57 @@ MODULE PetscSolverClass
        
       CALL VecSetValues(this%b,nvalues, irow,values,INSERT_VALUES, ierr)
       CALL CheckPetscErr(ierr, 'error in VecSetValues')
-    
+#else
+      INTEGER,                        INTENT(IN)        :: nvalues
+      INTEGER, DIMENSION(:),          INTENT(IN)        :: irow
+      REAL*8    , DIMENSION(:),       INTENT(IN)        :: values
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE SetBValues
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
    SUBROUTINE SetBValue(this, irow, value)
       CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+#ifdef HAS_PETSC
       PetscInt,                        INTENT(IN)        :: irow
       PetscScalar,                     INTENT(IN)        :: value
       PetscErrorCode                                     :: ierr
         
       CALL VecSetValue(this%b, irow,value,INSERT_VALUES, ierr)
       CALL CheckPetscErr(ierr, 'error in VecSetValues')
-    
+#else
+      INTEGER,           INTENT(IN)        :: irow
+      REAL*8    ,        INTENT(IN)        :: value
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE SetBValue
 !/////////////////////////////////////////////////////////////////////////////////////////////////     
    SUBROUTINE AssemblyA(this)
       CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+#ifdef HAS_PETSC
       PetscErrorCode                                     :: ierr
  
       CALL MatAssemblyBegin(this%A,MAT_FINAL_ASSEMBLY,ierr);  CALL CheckPetscErr(ierr," Assembly A in PETSc Begin")      
       CALL MatAssemblyEnd(this%A,MAT_FINAL_ASSEMBLY,ierr)  ;  CALL CheckPetscErr(ierr," Assembly A in PETSc End")                  
-  
+#else
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE
 !//////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE AssemblyB(this)
       CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+#ifdef HAS_PETSC
       PetscErrorCode                                     :: ierr
       
       CALL VecAssemblyBegin(this%b, ierr);  CALL CheckPetscErr(ierr," Assembly B in PETSc Begin")      
-      CALL VecAssemblyEnd(this%b, ierr)  ;  CALL CheckPetscErr(ierr," Assembly B in PETSc End")                  
+      CALL VecAssemblyEnd(this%b, ierr)  ;  CALL CheckPetscErr(ierr," Assembly B in PETSc End")  
+#else
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE
 !//////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE GetXValues(this, nvalues, irow, values)
       CLASS(PetscKspLinearSolver),     INTENT(INOUT)      :: this
+#ifdef HAS_PETSC
       PetscInt,                        INTENT(IN)         :: nvalues
       PetscInt, DIMENSION(:),          INTENT(IN)         :: irow
       PetscScalar, DIMENSION(:),       INTENT(OUT)        :: values
@@ -273,24 +343,34 @@ MODULE PetscSolverClass
       
       CALL VecGetValues(this%x,nvalues,irow,values, ierr)
       CALL CheckPetscErr(ierr, 'error in VecGetValues')
-      
+#else
+      INTEGER,                        INTENT(IN)        :: nvalues
+      INTEGER, DIMENSION(:),          INTENT(IN)        :: irow
+      REAL*8    , DIMENSION(:),       INTENT(IN)        :: values
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE GetXValues
 !//////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE GetXValue(this, irow, value)
       CLASS(PetscKspLinearSolver),     INTENT(INOUT)      :: this
+#ifdef HAS_PETSC
       PetscInt,                        INTENT(IN)         :: irow
       PetscScalar,                     INTENT(OUT)        :: value
       PetscErrorCode                                      :: ierr
       
       CALL VecGetValues(this%x,1 ,irow,value, ierr)
       CALL CheckPetscErr(ierr, 'error in VecGetValue')
-      
+#else
+      INTEGER,           INTENT(IN)        :: irow
+      REAL*8    ,        INTENT(IN)        :: value
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE GetXValue
 !//////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE SaveMat(this,filename)
       CLASS(PetscKspLinearSolver), INTENT(INOUT)         :: this
       CHARACTER(LEN=*), OPTIONAL                         :: filename
-      
+#ifdef HAS_PETSC
       PetscViewer                                        :: viewer
       PetscErrorCode                                     :: ierr
       
@@ -303,10 +383,14 @@ MODULE PetscSolverClass
       CALL PetscViewerSetFormat(viewer,PETSC_VIEWER_ASCII_MATLAB , ierr)      ; CALL CheckPetscErr(ierr)
       CALL MatView(this%A, viewer, ierr)                                      ; CALL CheckPetscErr(ierr)
       CALL PetscViewerDestroy(viewer, ierr)                                   ; CALL CheckPetscErr(ierr)
+#else
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE SaveMat
 !////////////////////////////////////////////////////////////////////////////////////////////////// 
    SUBROUTINE DestroyPetscObjects(this)
       CLASS(PetscKspLinearSolver), INTENT(INOUT)       :: this
+#ifdef HAS_PETSC
       PetscErrorCode                                   :: ierr1, ierr2, ierr3, ierr4, ierr5, ierr6
 
       CALL VecDestroy(this%x,ierr1)
@@ -321,6 +405,9 @@ MODULE PetscSolverClass
       CALL CheckPetscErr(ierr4,'error in KSPDestroy')
       CALL CheckPetscErr(ierr5,'error in PCDestroy')
       CALL CheckPetscErr(ierr6,'error in PetscFinalize')
+#else
+      STOP 'PETSc is not linked correctly'
+#endif
    END SUBROUTINE DestroyPetscObjects
 !////////////////////////////////////////////////////////////////////////////////////////////////// 
 END MODULE PetscSolverClass

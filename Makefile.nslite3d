@@ -11,7 +11,9 @@
 FC ?= gfortran
 FTObject_PATH ?= ./ftobjectlibrary
 NSLITE3D_PATH ?= .
-WITH_PETSC = no #if yes, fill following two variables
+#PETSc options:
+#  If you are installing with petsc, make WITH_PETSC=y and set PETSC_LIB and PETSC_INC
+WITH_PETSC =n
 PETSC_LIB := -L/home/andresrueda/Programs/petsc/linux-gnu-mpich/lib/ -lpetsc #libpetsc.so
 PETSC_INC := -I/home/andresrueda/Programs/petsc/include -I/home/andresrueda/Programs/petsc/linux-gnu-mpich/include
 
@@ -30,10 +32,10 @@ else
   MOD_FLAG ?= -module 
 endif
 
-ifeq ($(WITH_PETSC),yes)
+ifeq '$(WITH_PETSC)''y'
   MACROS+= -DHAS_PETSC
   LIBS += $(PETSC_LIB)
-  INCLUDE += $(PETSC_INC)
+  INCLUDE+= $(PETSC_INC)
 endif
 
 include $(FTObject_PATH)/Makefile.ftobjectlibrary
@@ -97,8 +99,7 @@ ColorsClass: DGSEMClass
 # ######################################### #
 # --------- DO NOT EDIT ------------------- #
 # ######################################### #
-INCLUDE+= -I$(NSLITE3D_PATH)/include $(PETSC_INC)
-LIBS= $(PETSC_LIB)
+INCLUDE+= -I$(NSLITE3D_PATH)/include
 
 OBJS_NSLITE3D_EXEC=$(foreach obj,$(OBJS_NSLITE3D),$(NSLITE3D_PATH)/build/$(obj).o)
 
