@@ -58,7 +58,7 @@ all: createFolders create_$(EXECUTABLE)
 # ---------- Executable macro -------------------
 create_$(EXECUTABLE): $(OBJS) 
 	$(FC) $(FFLAGS) -o $(BIN_DIR)/$(EXECUTABLE) $(INCLUDE) \
-	$(OBJS_EXEC)\
+	$(OBJS_EXEC) $(LIBS)\
 
 
 createFolders:

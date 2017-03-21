@@ -259,10 +259,10 @@ MODULE Implicit_NJ
                                                       linsolver%niter,(clf-cli)/real(clrate)   
          ENDIF
          
-!~         IF (ConvRate < minrate .OR. newtonit == MAX_NEWTON_ITER) THEN
-!~            converged = .FALSE.
-!~            RETURN
-!~         ENDIF
+        IF (ConvRate < minrate .OR. newtonit == MAX_NEWTON_ITER) THEN
+           converged = .FALSE.
+           RETURN
+        ENDIF
         
          IF (norm < MAX(rel_tol,NEWTON_TOLERANCE)) THEN
             converged = .TRUE.

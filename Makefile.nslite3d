@@ -7,21 +7,38 @@
 #
 #------------------------------------------------
 
+# ---------------- User definitions ------------------------
 FC ?= gfortran
 FTObject_PATH ?= ./ftobjectlibrary
 NSLITE3D_PATH ?= .
+WITH_PETSC = no #if yes, fill following two variables
+PETSC_LIB := -L/home/andresrueda/Programs/petsc/linux-gnu-mpich/lib/ -lpetsc #libpetsc.so
+PETSC_INC := -I/home/andresrueda/Programs/petsc/include -I/home/andresrueda/Programs/petsc/linux-gnu-mpich/include
+
+
+#-----------------------------------------------------------
 FFLAGS ?= -cpp -D_has_Quad
 INCLUDE ?= -I$(FTObject_PATH)/include
+LIBS = 
+MACROS = 
+
+
+
 ifeq ($(FC),gfortran)
   MOD_FLAG ?= -J
 else
   MOD_FLAG ?= -module 
 endif
 
+ifeq ($(WITH_PETSC),yes)
+  MACROS+= -DHAS_PETSC
+  LIBS += $(PETSC_LIB)
+  INCLUDE += $(PETSC_INC)
+endif
+
 include $(FTObject_PATH)/Makefile.ftobjectlibrary
 
-PETSC_LIB      := -L/home/andresrueda/Programs/petsc/linux-gnu-mpich/lib/ -lpetsc #libpetsc.so
-PETSC_INC      := -I/home/andresrueda/Programs/petsc/include -I/home/andresrueda/Programs/petsc/linux-gnu-mpich/include
+
 
 OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter\
 		LegendreAlgorithms InterpolationAndDerivatives\
@@ -31,7 +48,7 @@ OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter
 		DGSEMClass DGSpaceAndTimeDerivativeMethods NodalStorageClass\
 		PlotterDataSource Headers\
 		ReadInputFile Setup TimeIntegrator ProblemFile\
-		NSLite3DMain Implicit_JF JFNKClass GMRESClass ConnectivityClass
+		NSLite3DMain Implicit_JF JFNKClass GMRESClass ConnectivityClass Implicit_NJ Jacobian ColorsClass PetscSolverClass
 
 # --------------- Dependencies 
 NSLite3DMain: TimeIntegrator \
@@ -66,14 +83,16 @@ NodeClass: SMConstants MeshTypes
 DGSEMClass: DGSpaceAndTimeDerivativeMethods Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants 
 DGSpaceAndTimeDerivativeMethods: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants 
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
-TimeIntegrator: Physics Plotter ProblemFile SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF
+TimeIntegrator: Physics Plotter ProblemFile SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ
 PlotterDataSource: SMConstants 
 ReadInputFile: SMConstants FTValueDictionaryClass SharedBCModule Physics Setup
 ProblemFile: SMConstants Physics BoundaryConditions MeshTypes Assert DGSEMClass 
 Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
 JFNKClass: SMConstants GMRESClass
 GMRESClass: SMConstants
-
+Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass PetscSolverClass 
+Jacobian: SMConstants DGSEMClass Physics
+ColorsClass: DGSEMClass
 
 # ######################################### #
 # --------- DO NOT EDIT ------------------- #
@@ -84,10 +103,10 @@ LIBS= $(PETSC_LIB)
 OBJS_NSLITE3D_EXEC=$(foreach obj,$(OBJS_NSLITE3D),$(NSLITE3D_PATH)/build/$(obj).o)
 
 # ---------- General compilation rule -----------------------------
-FILE_NSLITE = $(or $(wildcard $(NSLITE3D_PATH)/Source/**/$@.f90) , $(wildcard $(NSLITE3D_PATH)/Source/$@.f90) )
+FILE_NSLITE = $(or $(wildcard $(NSLITE3D_PATH)/Source/**/$@.f90),$(wildcard $(NSLITE3D_PATH)/Source/$@.f90),$(wildcard $(NSLITE3D_PATH)/Source/**/$@.F90))
 
-$(OBJS_NSLITE3D): %: $(or $(wildcard $(NSLITE3D_PATH)/Source/**/%.f90), $(wildcard $(NSLITE3D_PATH)/Source/%.f90) )
-	$(FC) $(FFLAGS) $(INCLUDE) $(MOD_FLAG)$(NSLITE3D_PATH)/include -c $(FILE_NSLITE) -o $(NSLITE3D_PATH)/build/$@.o
+$(OBJS_NSLITE3D): %: $(or $(wildcard $(NSLITE3D_PATH)/Source/**/%.f90), $(wildcard $(NSLITE3D_PATH)/Source/%.f90) , $(wildcard $(NSLITE3D_PATH)/Source/**/%.F90) )
+	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)$(NSLITE3D_PATH)/include -c $(FILE_NSLITE) -o $(NSLITE3D_PATH)/build/$@.o
 
 
 
