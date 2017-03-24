@@ -201,7 +201,7 @@
          INTEGER                              :: faceID, eId
          CHARACTER(LEN=BC_STRING_LENGTH)      :: bcName, namedBC
          CHARACTER(LEN=BC_STRING_LENGTH)      :: bcType
-         CLASS(FTMutableObjectArray), POINTER :: bcObjects
+         TYPE(FTMutableObjectArray), POINTER :: bcObjects
          CLASS(FTValue)             , POINTER :: v
          CLASS(FTObject), POINTER             :: obj
          
