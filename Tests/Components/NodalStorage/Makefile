@@ -36,9 +36,9 @@ else ifeq ($(COMPILER),ifort)
    ifeq ($(MODE),DEBUG)
      $(info Compiling with intel fortran in DEBUG mode.)
      FFLAGS = -D_has_Quad -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all -check bounds -check uninit -ftrapuv -debug all -gen-interfaces -warn interfaces -ftrace=full -assume ieee_fpe_flags -ftz -fp-model precise -fp-speculation=off -assume bscc 
-   else ifeq ($(MODE),RELEASE)
+   else 
      $(info Compiling with intel fortran in RELEASE mode.)
-     FFLAGS = -cpp -O3 -assume bscc
+     FFLAGS = -cpp -O3 -assume bscc -D_has_Quad
    endif
 endif
 
