@@ -17,7 +17,8 @@ MODULE Implicit_NJ
    USE Jacobian,                    ONLY: Neighbour, Look_for_neighbour                    !arueda: not ready (Neighbor is actually defined in DGSEMClass.)
    USE ColorsClass,                 ONLY: Colors
    USE PetscSolverClass,            ONLY: PetscKspLinearSolver
-
+   USE CSR_Matrices
+   
    IMPLICIT NONE
    
    TYPE(Neighbour),ALLOCATABLE, SAVE                     :: nbr(:)
@@ -53,7 +54,7 @@ MODULE Implicit_NJ
       REAL(KIND=RP)                                         :: ConvRate, ctime
       CHARACTER(LEN=15)                                     :: filename
       REAL(KIND=RP)                                         :: coeff 
-      REAL(KIND=RP)                                         :: inner_dt, time2dt
+      REAL(KIND=RP)                                         :: inner_dt
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE              :: U_n                                   !Solution at the beginning of time step (even for inner time steps)
       LOGICAL                                               :: PRINT_NEWTON_INFO = .TRUE., PRINT_A = .FALSE., CONVERGED
       
@@ -104,8 +105,7 @@ MODULE Implicit_NJ
 
       CALL StoreSolution( sem, nelm, U_n )             !stores sem%dgS(elmnt)%Q in Vector u_N
       
-      time2dt = dt                                     ! time remaining to outer dt     
-                                       
+      
       DO                                                 
          CALL NewtonSolve(sem, time+inner_dt, inner_dt, ecolors, nbr, linsolver, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
                           PRINT_NEWTON_INFO, minrate,ConvRate, newtonit,CONVERGED)                              
@@ -185,8 +185,6 @@ MODULE Implicit_NJ
    END SUBROUTINE TakeBDFStep_NJ
    
 !/////////////////////////////////////////////////////////////////////////////////////////////////
-!                        ( sem, t, innerdt, linsolver, inner_dt, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
-!                           PRINT_NEWTON_INFO, minrate, ConvRate, newtonit, CONVERGED)
    SUBROUTINE NewtonSolve(sem, t, dt, ecolors, nbr, linsolver, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
                           INFO, minrate,ConvRate, niter,converged)   ! arueda: ", ExternalState, ExternalGradients" deleted since they are not used
 !     
@@ -218,6 +216,9 @@ MODULE Implicit_NJ
       INTEGER                                               :: newtonit
       REAL(KIND=RP)                                         :: norm, norm_old, rel_tol, norm1
       LOGICAL                                               :: STRICT_NEWTON = .TRUE.
+      
+      ! Temp
+      TYPE(csrMat)                                       :: Matcsr
         
       
       norm = 1.0_RP
@@ -233,7 +234,13 @@ MODULE Implicit_NJ
          CALL ComputeJacMatrix(sem, t, ecolors, nbr, linsolver, nelm, .FALSE., .FALSE.) !arueda: hereIam   ! J     !arueda: removed "ExternalState, ExternalGradients" (not listed arguments in routine definition)
 !~         CALL linsolver%SaveMat &
 !~                   ('/home/andresrueda/Dropbox/PhD/03_Initial_Codes/3D/Implicit/nslite3d/Tests/Euler/NumJac/MatMatlab.dat')
-         CALL linsolver%SetOperatorDt(dt)     
+         CALL linsolver%SetOperatorDt(dt)    
+         
+!~          CALL linsolver%GetCSRMatrix(Matcsr)
+!~          print*, 'after getting csr'
+!~          CALL Matcsr%Visualize('Mat.dat')
+!~          STOP
+         
          CALL SYSTEM_CLOCK(COUNT=cli, COUNT_RATE=clrate)         
          CALL ComputeRHS(sem, dt, u_N, nelm, linsolver )               ! Computes b (RHS) and stores it into PetscVec
          CALL linsolver%solve(norm*1e-3_RP, 500)                       ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
@@ -445,8 +452,7 @@ MODULE Implicit_NJ
       REAL(KIND=RP)                                      :: ctime, maxQ
       REAL(KIND=RP), SAVE                                :: jaceps=1e-8_RP, eps
       CHARACTER(LEN=15)                                  :: filename 
-      
-      
+            
       CALL SYSTEM_CLOCK(cli,clrate)
       
       !This suposes same polinomial order in all elements  TODO:Con la nueva estructura extender esto
@@ -476,7 +482,7 @@ MODULE Implicit_NJ
 !         read(*,*)
       ENDIF
     
-      nnz = ndofelm * 7                 !max nonzero values expected in a row in the jacobian matrix. arueda: "for 2D GL: 5*ndofelm, for 3D GL: 7*ndofelm, for LGL depends on row!!! (node on interface or interior node?)"
+      nnz = ndofelm * 7                 !max nonzero values expected in a row in the jacobian matrix. arueda: "for 2D GL: 5*ndofelm, for 3D GL: 7*ndofelm, for LGL depends on row!!! (a node on the interface has more cols than an interior node)"
 
       CALL linsolver%PreallocateA(nnz)
       CALL linsolver%ResetA                                                 
@@ -517,14 +523,13 @@ MODULE Implicit_NJ
                ENDDO
             END DO           
             DO i = 1,nelm                                      !Cleans dgs
-               sem%mesh%elements(i)%Q = dgs_clean(i)%Q         
-!~                sem%mesh%elements(i)%Qp = dgs_clean(i)%Qp    ! arueda: Deleted line - Qp variable not present               
+               sem%mesh%elements(i)%Q = dgs_clean(i)%Q           
             END DO                                                
          ENDDO
       ENDDO
             
       
-      CALL linsolver%AssemblyA                                 ! Petsc Matrix A need to be assembled before being used
+      CALL linsolver%AssemblyA                                 ! Petsc Matrix A needs to be assembled before being used
       linsolver%Ashift = 0.0_RP                                ! Shift must be set to zero when a new jac matrix is calculated
       
       CALL SYSTEM_CLOCK(clf)

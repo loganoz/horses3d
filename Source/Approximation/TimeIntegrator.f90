@@ -226,6 +226,10 @@
                   CALL TakeBDFStep_NJ (sem, t , self%dt , maxResidual)
                CASE (3)
                   STOP 'Analytical Jacobian not implemented yet'
+               CASE DEFAULT
+                  PRINT*, "Not valid 'Jacobian Flag'. Running with Jacobian-Free Newton-Krylov."
+                  JacFlag = 1
+                  CALL TakeBDFStep_JF (sem, t , self%dt , maxResidual)
             END SELECT
          ELSE
             CALL self % RKStep ( sem, t, self % dt, maxResidual )

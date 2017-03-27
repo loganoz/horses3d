@@ -1,5 +1,5 @@
 MODULE PetscSolverClass
-
+   USE CSR_Matrices
    IMPLICIT NONE
 #ifdef HAS_PETSC
 #include <petsc.h>
@@ -47,6 +47,7 @@ MODULE PetscSolverClass
          PROCEDURE                                  :: SaveMat
          PROCEDURE                                  :: solve   =>   SolveLinPrb
          PROCEDURE                                  :: clean   =>   DestroyPetscObjects
+         PROCEDURE                                  :: GetCSRMatrix
    END TYPE PetscKspLinearSolver
    
   
@@ -375,14 +376,14 @@ MODULE PetscSolverClass
       PetscErrorCode                                     :: ierr
       
       
-!~       CALL MatView(this%A,PETSC_VIEWER_DRAW_SELF)
-!~       read(*,*)
-      IF (.NOT. PRESENT(filename)) filename = &
-                            '/home/andresrueda/Dropbox/PhD/03_Initial_Codes/3D/Implicit/nslite3d/Tests/Euler/NumJac/MatMatlab.dat'
-      CALL PetscViewerASCIIOpen(PETSC_COMM_WORLD, filename , viewer, ierr)    ; CALL CheckPetscErr(ierr)
-      CALL PetscViewerSetFormat(viewer,PETSC_VIEWER_ASCII_MATLAB , ierr)      ; CALL CheckPetscErr(ierr)
-      CALL MatView(this%A, viewer, ierr)                                      ; CALL CheckPetscErr(ierr)
-      CALL PetscViewerDestroy(viewer, ierr)                                   ; CALL CheckPetscErr(ierr)
+      CALL MatView(this%A,PETSC_VIEWER_DRAW_SELF)
+      read(*,*)
+!~       IF (.NOT. PRESENT(filename)) filename = &
+!~                             '/home/andresrueda/Dropbox/PhD/03_Initial_Codes/3D/Implicit/nslite3d/Tests/Euler/NumJac/MatMatlab.dat'
+!~       CALL PetscViewerASCIIOpen(PETSC_COMM_WORLD, filename , viewer, ierr)    ; CALL CheckPetscErr(ierr)
+!~       CALL PetscViewerSetFormat(viewer,PETSC_VIEWER_ASCII_MATLAB , ierr)      ; CALL CheckPetscErr(ierr)
+!~       CALL MatView(this%A, viewer, ierr)                                      ; CALL CheckPetscErr(ierr)
+!~       CALL PetscViewerDestroy(viewer, ierr)                                   ; CALL CheckPetscErr(ierr)
 #else
       STOP 'PETSc is not linked correctly'
 #endif
@@ -409,5 +410,74 @@ MODULE PetscSolverClass
       STOP 'PETSc is not linked correctly'
 #endif
    END SUBROUTINE DestroyPetscObjects
+   
 !////////////////////////////////////////////////////////////////////////////////////////////////// 
+   
+   SUBROUTINE GetCSRMatrix(this,Acsr)
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      CLASS(PetscKspLinearSolver)      :: this        !<    
+      TYPE(csrMat)                     :: Acsr        !>    CSR matrix
+#ifdef HAS_PETSC
+!
+!     ------------------
+!     Internal variables
+!     ------------------
+!
+      INTEGER                                  :: i, ncols
+      INTEGER                                  :: nnz_row(this % dimprb)
+      INTEGER      , POINTER, DIMENSION(:)     :: ACols !ARows, 
+      REAL(KIND=RP), POINTER, DIMENSION(:)     :: AVals
+      PetscErrorCode                           :: ierr
+      !---------------------------------------------------------------------------------
+      
+      !We first get the number of nonzero entries in each row
+      DO i = 1, this % dimprb
+         CALL MatGetRow(this%A,i-1,ncols,PETSC_NULL_INTEGER,PETSC_NULL_SCALAR,ierr)
+         CALL CheckPetscErr(ierr,'error in Petsc MatGetRow')
+         
+         nnz_row(i) = ncols
+         
+         CALL MatRestoreRow(this%A,i-1,ncols,PETSC_NULL_INTEGER,PETSC_NULL_SCALAR,ierr)
+         CALL CheckPetscErr(ierr,'error in Petsc MatRestoreRow')
+      END DO
+      
+      print*, 'after fillinf nnz'
+      
+      CALL Acsr % construct(this % dimprb, this % dimprb, nnz_row)
+      print*, 'after constructing'
+!~       print*, nnz_row
+!~       print*, Acsr % Rows
+      
+      
+      DO i = 1, this % dimprb
+         
+         AVals => Acsr % Values  (Acsr % Rows (i) : Acsr % Rows (i+1) -1)
+         ACols => Acsr % Cols    (Acsr % Rows (i) : Acsr % Rows (i+1) -1)
+         
+         CALL MatGetRow(this%A,i-1,ncols,ACols,AVals,ierr)      ;  CALL CheckPetscErr(ierr,'error in Petsc MatGetRow')
+         
+         CALL MatRestoreRow(this%A,i-1,ncols,ACols,AVals,ierr)  ;  CALL CheckPetscErr(ierr,'error in Petsc MatRestoreRow')
+         
+         ACols = ACols + 1
+      END DO
+      print*, 'after writing csr'
+      
+      CALL Acsr % assigndiag
+   
+!~       CALL Acsr%CSR2Visualize('Mat.dat')
+      
+      print*, 'after diag'
+      
+      NULLIFY(AVals,ACols)
+      print*, 'after nullify'
+#else
+      STOP 'PETSc is not linked correctly'
+#endif
+   END SUBROUTINE GetCSRMatrix
+   
 END MODULE PetscSolverClass

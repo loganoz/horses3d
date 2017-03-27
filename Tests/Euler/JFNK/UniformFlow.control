@@ -24,6 +24,7 @@ right 0.0 Outflow
 !-----Information about time integration solver---------------
 time integration      = steady-state
 implicit time         = .true.
+jacobian flag         = 1
 !-------------------------------------------------------------
 riemann solver       = rusanov
 
