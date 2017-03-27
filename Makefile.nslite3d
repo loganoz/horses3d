@@ -13,7 +13,7 @@ FTObject_PATH ?= ./ftobjectlibrary
 NSLITE3D_PATH ?= .
 #PETSc options:
 #  If you are installing with petsc, make WITH_PETSC=y and set PETSC_LIB and PETSC_INC
-WITH_PETSC =y
+WITH_PETSC =n
 PETSC_LIB := -L/home/andresrueda/Programs/petsc/linux-gnu-mpich/lib/ -lpetsc #libpetsc.so
 PETSC_INC := -I/home/andresrueda/Programs/petsc/include -I/home/andresrueda/Programs/petsc/linux-gnu-mpich/include
 
