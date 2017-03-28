@@ -617,5 +617,37 @@ MODULE Implicit_NJ
       END DO
       
    END SUBROUTINE GetElemQdot
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE WriteEigenFiles(Mat,sem,FileName)
+      IMPLICIT NONE
+!
+!     -----------------------------------------------------------
+!     Writes files for performing eigenvalue analysis using TAUev
+!     -----------------------------------------------------------
+!
+      TYPE(csrMat)      :: Mat      !< Jacobian matrix
+      TYPE(DGSem)       :: sem      !< DG class with mesh inside
+      CHARACTER(len=*)  :: FileName !< ...
+!     -----------------------------------------------------------
+      INTEGER           :: fd
+!     -----------------------------------------------------------
+      
+      ! .frm file
+      OPEN(newunit=fd, file=TRIM(FileName)//'.frm', action='WRITE')
+         WRITE(fd,*)
+         WRITE(fd,*) SIZE(Mat % Values), SIZE(Mat % Rows)-1, 1, N_EQN, 1
+         WRITE(fd,*) sem % mesh % elements(1) % N, SIZE(sem % mesh % elements)
+      CLOSE (fd)
+      
+      ! .amg file
+      CALL Mat % Visualize(TRIM(FileName)//'.amg',FirstRow=.FALSE.)
+      
+      ! .coo file
+      CALL sem % mesh % WriteCoordFile(TRIM(FileName)//'.coo')
+      
+      
+   END SUBROUTINE WriteEigenFiles
 
 END MODULE Implicit_NJ

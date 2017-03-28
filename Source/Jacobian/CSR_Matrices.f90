@@ -161,7 +161,7 @@ MODULE CSR_Matrices
    !----------------------------------------------------------------------------------
    
    !----------------------------------------------------------------------------------
-   SUBROUTINE CSR2Visualize(this,FileName)
+   SUBROUTINE CSR2Visualize(this,FileName,FirstRow)
    !  Creates a file <<FileName>> with the entries of the csr matrix
    !  (foor visualizing using python spy)
    !----------------------------------------------------------------------------------
@@ -169,29 +169,32 @@ MODULE CSR_Matrices
       !------------------------------------------
       CLASS(csrMat)               :: this
       CHARACTER(len=*)            :: FileName
+      LOGICAL, OPTIONAL           :: FirstRow   !< Write First row?
       !------------------------------------------
-      INTEGER                     :: n, nnz, i
+      INTEGER                     :: n, nnz, i, fd
       !------------------------------------------
+      
+      IF (.NOT. PRESENT(FirstRow)) FirstRow = .TRUE.
       
       n = this % NumRows
       nnz = SIZE(this % Values)
       
-      OPEN(unit=30,file=FileName)
-         WRITE(30,'(I0,X,I0)') n, nnz
+      OPEN(newunit=fd,file=FileName)
+         IF (FirstRow) WRITE(30,'(I0,X,I0)') n, nnz
          
          DO i=1, n + 1
-            WRITE(30,'(I0)') this % Rows(i)
+            WRITE(fd,'(I0)') this % Rows(i)
          END DO
          
          DO i=1, nnz
-            WRITE(30,'(I0)') this % Cols(i)
+            WRITE(fd,'(I0)') this % Cols(i)
          END DO
          
          DO i=1, nnz
-            WRITE(30,'(F20.5)') this % Values(i)
+            WRITE(fd,'(F20.5)') this % Values(i)
          END DO
          
-      ClOSE(30)
+      ClOSE(fd)
       
   !----------------------------------------------------------------------------------
   END SUBROUTINE CSR2Visualize

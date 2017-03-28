@@ -35,6 +35,7 @@
          PROCEDURE :: constructFromFile => ConstructMesh_FromFile_
          PROCEDURE :: destruct          => DestructMesh
          PROCEDURE :: Describe          => DescribeMesh
+         PROCEDURE :: WriteCoordFile
          
       END TYPE HexMesh
 !
@@ -820,6 +821,51 @@
          ENDDO
          
       END SUBROUTINE SetConformingConnectivities
+! 
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE WriteCoordFile(self,FileName)
+         USE PhysicsStorage
+         IMPLICIT NONE
+!~ !~!
+!~ !~!        -----------------------------------------------------------------
+!~ !~!        This subroutine writes a *.coo file containing all the mesh nodes
+!~ !~!        that can be used for eigenvalue analysis using the TAUev code
+!~ !~!        -----------------------------------------------------------------
+!~ !~!
+         !--------------------------------------------------------
+         CLASS(HexMesh)       :: self        !<  this mesh
+         CHARACTER(len=*)     :: FileName    !<  ...
+         !--------------------------------------------------------
+         INTEGER              :: NumOfElem
+         INTEGER              :: i, j, k, el, Nx, Ny, Nz, ndof, cooh
+         !--------------------------------------------------------
+          
+         NumOfElem = SIZE(self % elements)
+         
+         ndof = N_EQN * (self % elements(1) % N+1)**3 *SIZE(self % elements)
+         
+         OPEN(newunit=cooh, file=FileName, action='WRITE')
+         
+         WRITE(cooh,*) ndof, ndim   ! defined in PhysicsStorage
+         DO el = 1, NumOfElem
+            Nx = self % elements(el) % N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
+            Ny = self % elements(el) % N
+            Nz = self % elements(el) % N
+            DO k = 0, Nz
+               DO j = 0, Ny
+                  DO i = 0, Nx
+                     WRITE(cooh,*) self % elements(el) % geom % x(1,i,j,k), &
+                                   self % elements(el) % geom % x(2,i,j,k), &
+                                   self % elements(el) % geom % x(3,i,j,k)
+                  END DO
+               END DO
+            END DO
+         END DO
+         
+         CLOSE(cooh)
+         
+      END SUBROUTINE WriteCoordFile
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
