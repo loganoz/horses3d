@@ -25,6 +25,7 @@ MODULE ColorsClass
       CONTAINS
          PROCEDURE                           :: construct   => constructcolors !construct(nbr)
          PROCEDURE                           :: info        => getcolorsinfo   ! prints coloring info  
+         PROCEDURE                           :: export2Tec  => ExportColors2Tec
    END TYPE Colors
    
    PRIVATE
@@ -134,6 +135,61 @@ MODULE ColorsClass
          WRITE(*,*) "New color indexes"
          WRITE(*,'(*(I5,1X))') (this%bounds(i), i= 1,this%ncolors + 1)
       END SUBROUTINE getcolorsinfo
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE ExportColors2Tec(this,sem,filename)
+      IMPLICIT NONE
+      !-------------------------------------------------------
+      CLASS(Colors)                       :: this
+      TYPE(DGSem)                         :: sem
+      character(len=*), intent(in)        :: filename
+      
+      !-------------------------------------------------------
+      INTEGER                             :: fd, Nelem, id, N, i, j, k
+      INTEGER, DIMENSION(:), ALLOCATABLE  :: colors
+      !-------------------------------------------------------
+      open(newunit = fd, file=trim(filename), action='WRITE')
+      
+      N = sem % mesh % elements(1) % N
+      Nelem = SIZE(sem % mesh % elements)
+      
+      
+      !! Create colors array
+      ALLOCATE(colors(Nelem))
+      
+      DO i=1, this % ncolors
+         DO j=this % bounds(i), this % bounds(i+1)-1
+            colors(this % elmnts(j)) = i
+         END DO
+      END DO
+      !!
+      print *, colors
+      
+      write(fd,*) 'TITLE = "Eigenvalue analysis NSLITE3D"'
+      write(fd,*) 'VARIABLES = "X","Y","Z","Color" '
+      
+      DO id = 1, Nelem
+         WRITE(fd,*) 'ZONE I=', N+1, ",J=",N+1, ",K=",N+1,", F=POINT"
+         
+         DO k = 0, N
+            DO j= 0, N 
+               DO i = 0, N
+                  write(fd,'(3E13.5,x,I0)') sem % mesh % elements(id) % geom % x(1,i,j,k), &
+                                            sem % mesh % elements(id) % geom % x(2,i,j,k), &
+                                            sem % mesh % elements(id) % geom % x(3,i,j,k), &
+                                            colors(id)
+               END DO
+            END DO
+         enddo
+      END DO
+      
+      close(fd)
+      
+   END SUBROUTINE ExportColors2Tec
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       
   
 END MODULE ColorsClass
