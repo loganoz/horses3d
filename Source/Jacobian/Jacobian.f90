@@ -3,7 +3,9 @@
 !
 !      Jacobian.f90
 !      Created: 2011-09-27 16:21:15 +0200 
-!      By: Gonzalo Rubio Calzado  
+!      By: Gonzalo Rubio Calzado
+!          Carlos Redondo
+!          Andrés Rueda  
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -20,7 +22,76 @@ IMPLICIT NONE
 ! Jacobian matrix using sparse notation
 !-------------------------------------------------------------------
 !
-CONTAINS 
+
+!========
+ CONTAINS
+!========
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE Look_for_neighbour(this, sem)  !arueda: ready for 3D
+      IMPLICIT NONE 
+!
+!     -----------------------------------------------------------------------------
+!     This subroutine finds the neighbours of all elements (conforming meshes only)
+!        current implementation only finds neighbour 3D elements, but not faces 
+!        (modify commented part to perform this)
+!     -----------------------------------------------------------------------------
+!
+!
+!     ----------------
+!     Input parameters
+!     ----------------
+!
+      TYPE(Neighbour)                   :: this(:)
+      TYPE(DGSem)                       :: sem
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      INTEGER                         :: i,j,iEl  ! k, iEdge, iSlave
+      
+      DO iEl = 1, SIZE(sem%mesh%elements)
+!~       k = 1      
+!         PRINT*, "Element = ", iEl
+         this(iEl)%elmnt(7) = iEl  ! The last one is itself
+         DO j = 1, 6
+            IF (sem%mesh%elements(iEl)%NumberOfConnections(j) == 0) THEN
+               this(iEl)%elmnt(j) = 0
+            ELSE
+               this(iEl)%elmnt(j) = sem%mesh%elements(iEl)%Connection(j)%ElementIDs(1)
+            ENDIF
+         ENDDO
+!~         DO iEdge = 1, SIZE(sem%mortar)
+!~            IF (sem%mesh%masters(iEdge)%elementID == iEl) THEN
+!~               this(iEl)%edge(k) = iEdge
+!~               k = k + 1
+!~!            PRINT*, "Element = ", iEl, "conection with edge", iEdge             
+!~            ELSE
+!~               DO iSlave = 1, SIZE(sem%mesh%masters(iEdge)%sElementIDs)
+!~                  IF (sem%mesh%masters(iEdge)%sElementIDs(iSlave) == iEl) THEN 
+!~!            PRINT*, "Element = ", iEl, "conection with edge", iEdge                   
+!~                     this(iEl)%edge(k) = iEdge
+!~                     k = k + 1
+!~                  ENDIF
+!~               ENDDO
+!~            ENDIF
+!~         ENDDO 
+         !print*, "iEl", iEl
+         !print*, "this(iEl)%elmnt", this(iEl)%elmnt
+         !print*, "this(iEl)%edge", this(iEl)%edge
+         !read(*,*)
+      ENDDO
+    
+    END SUBROUTINE 
+!
+!////////////////////////////////////////////////////////////////////////
+!
+
+
+
+
 !
 !////////////////////////////////////////////////////////////////////////
 !~ !
@@ -660,63 +731,7 @@ CONTAINS
 !~ !
 !~ !////////////////////////////////////////////////////////////////////////
 !
-    SUBROUTINE Look_for_neighbour(this, sem)  !arueda: ready for 3D
-      IMPLICIT NONE 
-!
-!     -----------------------------------------------------------------------------
-!     This subroutine finds the neighbours of all elements (conforming meshes only)
-!     -----------------------------------------------------------------------------
-!     arueda: current implementation only finds neighbour 3D elements, but not faces (modify commented part to perform this)
-!
-!
-!     ----------------
-!     Input parameters
-!     ----------------
-!
-      TYPE(Neighbour)                   :: this(:)
-      TYPE(DGSem)                       :: sem
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      INTEGER                         :: i,j,iEl  ! k, iEdge, iSlave
-      
-      DO iEl = 1, SIZE(sem%mesh%elements)
-!~       k = 1      
-!         PRINT*, "Element = ", iEl
-         this(iEl)%elmnt(7) = iEl  ! The last one is itself
-         DO j = 1, 6
-            IF (sem%mesh%elements(iEl)%NumberOfConnections(j) == 0) THEN           !arueda: external boundary element, right?
-               this(iEl)%elmnt(j) = 0
-            ELSE
-               this(iEl)%elmnt(j) = sem%mesh%elements(iEl)%Connection(j)%ElementIDs(1)
-            ENDIF
-         ENDDO
-!~         DO iEdge = 1, SIZE(sem%mortar)
-!~            IF (sem%mesh%masters(iEdge)%elementID == iEl) THEN                            !arueda: external boundary element, right?
-!~               this(iEl)%edge(k) = iEdge
-!~               k = k + 1
-!~!            PRINT*, "Element = ", iEl, "conection with edge", iEdge             
-!~            ELSE
-!~               DO iSlave = 1, SIZE(sem%mesh%masters(iEdge)%sElementIDs)
-!~                  IF (sem%mesh%masters(iEdge)%sElementIDs(iSlave) == iEl) THEN 
-!~!            PRINT*, "Element = ", iEl, "conection with edge", iEdge                   
-!~                     this(iEl)%edge(k) = iEdge
-!~                     k = k + 1
-!~                  ENDIF
-!~               ENDDO
-!~            ENDIF
-!~         ENDDO 
-         !print*, "iEl", iEl
-         !print*, "this(iEl)%elmnt", this(iEl)%elmnt
-         !print*, "this(iEl)%edge", this(iEl)%edge
-         !read(*,*)
-      ENDDO
-    
-    END SUBROUTINE 
-!
-!~ !////////////////////////////////////////////////////////////////////////
+   
 !~ !
 !~     SUBROUTINE JacobianCalculationNeighbour(sem, semOptJac, nbr, t, ExternalState, ExternalGradient, jacobianFileName) 
 !~       IMPLICIT NONE 
