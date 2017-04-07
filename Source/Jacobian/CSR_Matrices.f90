@@ -180,7 +180,7 @@ MODULE CSR_Matrices
       nnz = SIZE(this % Values)
       
       OPEN(newunit=fd,file=FileName)
-         IF (FirstRow) WRITE(30,'(I0,X,I0)') n, nnz
+         IF (FirstRow) WRITE(fd,'(I0,X,I0)') n, nnz
          
          DO i=1, n + 1
             WRITE(fd,'(I0)') this % Rows(i)
@@ -191,7 +191,7 @@ MODULE CSR_Matrices
          END DO
          
          DO i=1, nnz
-            WRITE(fd,'(F20.5)') this % Values(i)
+            WRITE(fd,*) this % Values(i)
          END DO
          
       ClOSE(fd)
