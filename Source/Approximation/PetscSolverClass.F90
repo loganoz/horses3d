@@ -6,18 +6,18 @@ MODULE PetscSolverClass
 #endif
    TYPE PetscKspLinearSolver
 #ifdef HAS_PETSC
-      Mat                                           :: A
-      Vec                                           :: x
-      Vec                                           :: b
-      KSP                                           :: ksp
+      Mat                                           :: A                                  ! Jacobian matrix
+      Vec                                           :: x                                  ! Solution vector
+      Vec                                           :: b                                  ! Right hand side
+      KSP                                           :: ksp                                ! 
       PC                                            :: pc
       PetscInt                                      :: dimprb
       PetscReal                                     :: tol = 1d-15
       PetscInt                                      :: maxiter = 50
       PetscInt                                      :: nz = 0
-      PetscScalar                                   :: Ashift = 0.0d0
       PetscReal                                     :: residual
       PetscReal                                     :: xnorm
+      PetscScalar                                   :: Ashift                              ! Stores the shift to the Jacobian due to time integration
       PetscInt                                      :: niter
       PetscBool                                     :: converged = PETSC_FALSE
       PetscBool                                     :: init_context = PETSC_FALSE
@@ -29,7 +29,6 @@ MODULE PetscSolverClass
       INTEGER                                       :: niter
       REAL*8                                        :: xnorm
       REAL*8                                        :: residual
-      REAL*8                                        :: Ashift = 0.0d0
       LOGICAL                                       :: converged = .FALSE. 
 #endif
       CONTAINS
@@ -41,6 +40,7 @@ MODULE PetscSolverClass
          PROCEDURE                                  :: GetXValue
          PROCEDURE                                  :: PreallocateA
          PROCEDURE                                  :: SetOperatorDt
+         PROCEDURE                                  :: ReSetOperatorDt
          PROCEDURE                                  :: AssemblyA
          PROCEDURE                                  :: AssemblyB
          PROCEDURE                                  :: ResetA
@@ -54,7 +54,7 @@ MODULE PetscSolverClass
    PRIVATE                                          
    PUBLIC                                           :: PetscKspLinearSolver
    PUBLIC                                           :: ConstructPetscContext, SolveLinPrb, PreallocateA, SetAColumn, SetBValue
-   PUBLIC                                           :: SetBValues, DestroyPetscObjects, ShiftA, AssemblyA, AssemblyB, GetXValues
+   PUBLIC                                           :: SetBValues, DestroyPetscObjects, AssemblyA, AssemblyB, GetXValues
    PUBLIC                                           :: GetXValue, ResetA, SaveMat, SetOperatorDt
    
    CONTAINS  
@@ -152,16 +152,21 @@ MODULE PetscSolverClass
       ! Set , if given, solver tolerance and max number of iterations
       IF (PRESENT(tol)) THEN
          this%tol = tol
-      ENDIF
-      IF (PRESENT(maxiter)) THEN
-         this%maxiter = maxiter
+      ELSE
+         this%tol = PETSC_DEFAULT_REAL
       ENDIF
       
-      CALL KSPSetTolerances(this%ksp,this%tol,this%tol,PETSC_DEFAULT_REAL,this%maxiter,ierr)
+      IF (PRESENT(maxiter)) THEN
+         this%maxiter = maxiter
+      ELSE
+         this%maxiter = PETSC_DEFAULT_INTEGER
+      ENDIF
+      
+      CALL KSPSetTolerances(this%ksp,PETSC_DEFAULT_REAL,this%tol,PETSC_DEFAULT_REAL,this%maxiter,ierr)
       CALL CheckPetscErr(ierr, 'error in KSPSetTolerances')
       
       IF (this%setpreco) THEN    ! if setpreco = true sets the default preconditioner PCJACOBI. If PC already set, setpreco = false
-         CALL PCSetType(this%pc,PCJACOBI,ierr)                 ; CALL CheckPetscErr(ierr, 'error in PCSetType')
+         CALL PCSetType(this%pc,PCILU,ierr)                 ; CALL CheckPetscErr(ierr, 'error in PCSetType')
          this%setpreco = PETSC_FALSE
          !Summary (arueda):
          !  - PCILU: Bad results
@@ -195,7 +200,7 @@ MODULE PetscSolverClass
       
       this%nz = nnz
       IF(this%withMPI) THEN
-         CALL MatMPIAIJSetPreallocation(this%A, this%nz/5, PETSC_NULL_INTEGER,4 * this%nz/5, PETSC_NULL_INTEGER,ierr)
+         CALL MatMPIAIJSetPreallocation(this%A, this%nz/25, PETSC_NULL_INTEGER,24 * this%nz/25, PETSC_NULL_INTEGER,ierr)
          CALL CheckPetscErr(ierr, 'error in MatMPIAIJSetPreallocation')
       ELSE
          CALL MatSeqAIJSetPreallocation(this%A, this%nz, PETSC_NULL_INTEGER,ierr)
@@ -226,21 +231,6 @@ MODULE PetscSolverClass
       STOP 'PETSc is not linked correctly'
 #endif
    END SUBROUTINE SetAColumn
-!/////////////////////////////////////////////////////////////////////////////////////////////////   
-   SUBROUTINE ShiftA(this, shift)
-      CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
-#ifdef HAS_PETSC
-      PetscScalar                                        :: shift
-      PetscErrorCode                                     :: ierr
-      
-      CALL MatShift(this%A,shift, ierr)                       ! A = A + shift * I
-      this%AShift = this%AShift + shift                       ! Updates AShift value in linsolver structure
-      CALL CheckPetscErr(ierr)
-#else
-      REAL*8                                      :: shift
-      STOP 'PETSc is not linked correctly'
-#endif
-   END SUBROUTINE ShiftA
 !/////////////////////////////////////////////////////////////////////////////////////////////////      
    SUBROUTINE ResetA(this)
       CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
@@ -263,11 +253,11 @@ MODULE PetscSolverClass
       PetscScalar                                        :: eps = 1e-10                                       
       PetscErrorCode                                     :: ierr
 
-      shift = -1/dt - this%AShift
+      shift = -1._RP/dt !
       IF (ABS(shift) .GT. eps) THEN
          CALL MatShift(this%A,shift, ierr)                  ! A = A + shift * I
          CALL CheckPetscErr(ierr)
-         this%Ashift = shift
+         this % Ashift = shift
       ENDIF
 #else
       REAL*8,                     INTENT(IN)        :: dt
@@ -275,7 +265,39 @@ MODULE PetscSolverClass
       STOP 'PETSc is not linked correctly'
 #endif
    END SUBROUTINE SetOperatorDt
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////// 
+!   
+   SUBROUTINE ReSetOperatorDt(this, dt, coeff)
+!
+!     --------------------------------------------------
+!     Removes previous shift in order to insert new one 
+!                 (important when Jacobian is reused)
+!     --------------------------------------------------
+!
+      CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+#ifdef HAS_PETSC
+      PetscScalar,                     INTENT(IN)        :: dt
+      PetscScalar,                     OPTIONAL          :: coeff
+      PetscScalar                                        :: shift
+      PetscScalar                                        :: eps = 1e-10                                       
+      PetscErrorCode                                     :: ierr
+
+      shift = -1._RP/dt !
+      IF (ABS(shift) .GT. eps) THEN
+         CALL MatShift(this%A,shift - this % Ashift, ierr)                  ! A = A + shift * I
+         CALL CheckPetscErr(ierr)
+         this % Ashift = shift
+      ENDIF
+#else
+      REAL*8,                     INTENT(IN)        :: dt
+      REAL*8,                     OPTIONAL          :: coeff
+      STOP 'PETSc is not linked correctly'
+#endif
+   END SUBROUTINE ReSetOperatorDt
+!
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
+!
    SUBROUTINE SetBValues(this, nvalues, irow, values)
       CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
