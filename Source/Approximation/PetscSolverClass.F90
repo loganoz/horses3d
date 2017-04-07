@@ -452,8 +452,8 @@ MODULE PetscSolverClass
 !
       INTEGER                                  :: i, ncols
       INTEGER                                  :: nnz_row(this % dimprb)
-      INTEGER      , POINTER, DIMENSION(:)     :: ACols !ARows, 
-      REAL(KIND=RP), POINTER, DIMENSION(:)     :: AVals
+      INTEGER      , ALLOCATABLE, DIMENSION(:) :: ACols 
+      REAL(KIND=RP), ALLOCATABLE, DIMENSION(:) :: AVals
       PetscErrorCode                           :: ierr
       !---------------------------------------------------------------------------------
       
@@ -468,35 +468,26 @@ MODULE PetscSolverClass
          CALL CheckPetscErr(ierr,'error in Petsc MatRestoreRow')
       END DO
       
-      print*, 'after fillinf nnz'
-      
       CALL Acsr % construct(this % dimprb, this % dimprb, nnz_row)
-      print*, 'after constructing'
-!~       print*, nnz_row
-!~       print*, Acsr % Rows
-      
       
       DO i = 1, this % dimprb
          
-         AVals => Acsr % Values  (Acsr % Rows (i) : Acsr % Rows (i+1) -1)
-         ACols => Acsr % Cols    (Acsr % Rows (i) : Acsr % Rows (i+1) -1)
+         ALLOCATE(AVals(nnz_row(i)))
+         ALLOCATE(ACols(nnz_row(i)))
          
          CALL MatGetRow(this%A,i-1,ncols,ACols,AVals,ierr)      ;  CALL CheckPetscErr(ierr,'error in Petsc MatGetRow')
          
+         Acsr % Values  (Acsr % Rows (i) : Acsr % Rows (i+1) -1) = AVals
+         Acsr % Cols    (Acsr % Rows (i) : Acsr % Rows (i+1) -1) = ACols + 1
+         
          CALL MatRestoreRow(this%A,i-1,ncols,ACols,AVals,ierr)  ;  CALL CheckPetscErr(ierr,'error in Petsc MatRestoreRow')
          
-         ACols = ACols + 1
+         DEALLOCATE(AVals)
+         DEALLOCATE(ACols)
       END DO
-      print*, 'after writing csr'
       
       CALL Acsr % assigndiag
-   
-!~       CALL Acsr%CSR2Visualize('Mat.dat')
       
-      print*, 'after diag'
-      
-      NULLIFY(AVals,ACols)
-      print*, 'after nullify'
 #else
       STOP 'PETSc is not linked correctly'
 #endif
