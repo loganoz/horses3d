@@ -233,7 +233,7 @@
                CASE (1)
                   CALL TakeBDFStep_JF (sem, t , self%dt , maxResidual)
                CASE (2)
-                  CALL TakeBDFStep_NJ (sem, t , self%dt , maxResidual)
+                  CALL TakeBDFStep_NJ (sem, t , self%dt , maxResidual, controlVariables)
                CASE (3)
                   STOP 'Analytical Jacobian not implemented yet'
                CASE DEFAULT

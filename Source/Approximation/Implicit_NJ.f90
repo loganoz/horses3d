@@ -2,7 +2,7 @@
 !////////////////////////////////////////////////////////////////////////
 !
 !      Implicit_NJ.f90
-!      Created: 2017-03-XX XX:XX:XX -XXXX 
+!      Created: 2017-04-09 16:30:00 +0100 
 !      By:  Carlos Redondo (module for 2D) 
 !           Andrés Rueda   (3D implementation and changes) 
 !      Implicit module using BDF1 and numerical Jacobian computed using colorings
@@ -14,32 +14,34 @@ MODULE Implicit_NJ
    USE DGSEMClass,                  ONLY: DGSem, ComputeTimeDerivative
    USE ElementClass,                ONLY: Element, allocateElementStorage    !arueda: No DGSolutionStorage implemented in nslite3d... Using whole element definitions
    USE PhysicsStorage,              ONLY: N_EQN, N_GRAD_EQN, flowIsNavierStokes
-   USE Jacobian,                    ONLY: Neighbour, Look_for_neighbour                    !arueda: not ready (Neighbor is actually defined in DGSEMClass.)
+   USE Jacobian,                    ONLY: Neighbour, Look_for_neighbour           
    USE ColorsClass,                 ONLY: Colors
    USE PetscSolverClass,            ONLY: PetscKspLinearSolver
    USE CSR_Matrices
+   USE FTValueDictionaryClass
    
    IMPLICIT NONE
    
    TYPE(Neighbour),ALLOCATABLE, SAVE                     :: nbr(:)
    TYPE(Colors), SAVE                                    :: ecolors
    
-   REAL(KIND = RP)                                       :: time         ! Time at the beginning of each inner time step
+   REAL(KIND = RP)                                       :: time         ! Time at the beginning of each inner(!) time step
 
    PRIVATE                          
    PUBLIC                           :: TakeBDFStep_NJ
 
    CONTAINS
    !/////////////////////////////////////////////////////////////////////////////////////////////////
-   SUBROUTINE TakeBDFStep_NJ (sem, t , dt , maxResidual)
+   SUBROUTINE TakeBDFStep_NJ (sem, t , dt , maxResidual, controlVariables)
 
       IMPLICIT NONE
-      TYPE(DGSem),                  INTENT(INOUT)           :: sem
-      REAL(KIND=RP),                INTENT(IN)              :: t
-      REAL(KIND=RP),                INTENT(IN)              :: dt
-      REAL(KIND=RP)                                         :: maxResidual(N_EQN)
-      
+      TYPE(DGSem),                  INTENT(INOUT)           :: sem                  !<>DGSem class with solution storage 
+      REAL(KIND=RP),                INTENT(IN)              :: t                    !< Time at the beginning of time step
+      REAL(KIND=RP),                INTENT(IN)              :: dt                   !< Initial (outer) time step (can internally, the subroutine can use a smaller one depending on convergence)
+      REAL(KIND=RP)                                         :: maxResidual(N_EQN)   !> Residuals obtained after time integration process
+      TYPE(FTValueDictionary),      INTENT(IN)              :: controlVariables     !< Input file variables
       !--------------------------------------------------------
+      !Variables used for residual computation
       REAL(KIND=RP)                                         :: localMaxResidual(N_EQN)
       INTEGER                                               :: id, eq
       !--------------------------------------------------------
@@ -50,24 +52,24 @@ MODULE Implicit_NJ
       INTEGER                                               :: k, nelm, DimPrb, newtonit
       INTEGER                                               :: ninner = 1
       INTEGER, DIMENSION(:), ALLOCATABLE                    :: Nx, Ny, Nz
-      LOGICAL                                               :: isfirst = .TRUE., computeA = .TRUE.   !arueda: variable INNERIT deleted (not used)
-      REAL(KIND=RP)                                         :: ConvRate, ctime
-      CHARACTER(LEN=15)                                     :: filename
-      REAL(KIND=RP)                                         :: coeff 
+      LOGICAL                                               :: isfirst = .TRUE., computeA = .TRUE.
+      REAL(KIND=RP)                                         :: ConvRate
       REAL(KIND=RP)                                         :: inner_dt
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE              :: U_n                                   !Solution at the beginning of time step (even for inner time steps)
-      LOGICAL                                               :: PRINT_NEWTON_INFO = .TRUE., PRINT_A = .FALSE., CONVERGED
-      
+      LOGICAL                                               :: PRINT_NEWTON_INFO = .TRUE., CONVERGED
+      LOGICAL                                               :: JacByConv                               ! 
+      ! Not used variables?
+      CHARACTER(LEN=15)                                     :: filename
+      REAL(KIND=RP)                                         :: ctime
       
       !NEWTON PARAMETERS, TODO: this should be defined in a better place
       REAL(KIND=RP)  :: minrate = 0.5_RP              ! If newton convergence rate lower this value,  newton loop stops and inner_dt is reduced  
       REAL(KIND=RP)  :: maxrate = 1.7_RP              ! If newton loop convergence rate passes this value, inner_dt is increased
-      REAL(KIND=RP)  :: NEWTON_TOLERANCE = 1e-6_RP   ! newton iter tolerance relative to the first iter norm 
+      REAL(KIND=RP)  :: NEWTON_TOLERANCE = 1e-6_RP    ! newton iter tolerance relative to the first iter norm 
       INTEGER        :: MAX_NEWTON_ITER = 30          ! If newton iter reachs this limit, this iteration is marked as  not converged 
       INTEGER        :: LIM_NEWTON_ITER = 12          ! If Newton converges but this limit is reached, jacobian matrix will be recomputed
-      LOGICAL        :: FORCE_CALCJAC = .TRUE.        ! If true, jacobian matrix is calculated every newton iteration and previous paremters are ignored
       
-      SAVE isfirst, computeA, ninner
+      SAVE isfirst, computeA, ninner, JacByConv
       SAVE u_N, DimPrb, nelm, linsolver
 
       IF (isfirst) THEN                         
@@ -92,74 +94,80 @@ MODULE Implicit_NJ
          CALL ecolors%construct(nbr,flowIsNavierStokes)       
          !CALL ecolors%info
          CALL linsolver%construct(DimPrb)             !Constructs Petsc linear solver 
+         JacByConv = controlVariables % LogicalValueForKey("jacobian by convergence")
       ENDIF
       
       inner_dt = dt            ! first inner_dt is the outer step dt     !arueda: out of isfirst for solving time-accurate problems
       time = t
-     
-!~       IF (computeA) THEN
-!~          CALL ComputeJacMatrix(sem, time+inner_dt, ecolors, nbr, linsolver, nelm, .TRUE., .FALSE.) !arueda: hereIam   ! J     !arueda: removed "ExternalState, ExternalGradients" (not listed arguments in routine definition)
-!~          CALL linsolver%SetOperatorDt(inner_dt)                                         ! A = J - I/dt
-!~!          computeA = .FALSE.     !arueda: this line is commented out so that the Jacobian is computed in every time step
-!~       ENDIF
-
+      
+      !**************************
+      ! If the Jacobian must only be computed sometimes
+       IF (JacByConv) THEN
+         IF (computeA) THEN
+            CALL ComputeNumJac(sem, time+inner_dt, ecolors, nbr, linsolver, nelm, .TRUE.,.FALSE.) 
+            CALL linsolver%SetOperatorDt(inner_dt)
+            computeA = .FALSE. 
+         ELSE
+            CALL linsolver%ReSetOperatorDt(inner_dt)
+         END IF
+       ENDIF
+      ! 
+      !**************************
+      
       CALL StoreSolution( sem, nelm, U_n )             !stores sem%dgS(elmnt)%Q in Vector u_N
       
       
       DO                                                 
          CALL NewtonSolve(sem, time+inner_dt, inner_dt, ecolors, nbr, linsolver, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
-                          PRINT_NEWTON_INFO, minrate,ConvRate, newtonit,CONVERGED)                              
-                          !old arguments ( sem, linsolver, inner_dt, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
-                                          !PRINT_NEWTON_INFO, minrate, ConvRate, newtonit, CONVERGED)                     !arueda: removed "ExternalState, ExternalGradients"!
+                          PRINT_NEWTON_INFO, minrate,JacByConv,ConvRate, newtonit,CONVERGED)
          
          IF (CONVERGED) THEN
-!~             IF (newtonit .GT. LIM_NEWTON_ITER) THEN   !Recomputes jacobian Matrix if convergence rate is poor          !arueda: outcommented cause it's only for steady-state... Add flag and proof if it's better this way
-!~                IF (PRINT_NEWTON_INFO) THEN
-!~                   WRITE(*,*) "Convergence rate is poor,  recomputing jacobian matrix..."
-!~                ENDIF
-!~                CALL ComputeJacMatrix(sem, t, ecolors, nbr, linsolver, nelm, .TRUE.,.FALSE.,ExternalState, ExternalGradients)
-!~                CALL linsolver%SetOperatorDt(inner_dt)                                         
-!~             ENDIF           
-            
-            !**************************************************
-            ! This is new
             time = time + inner_dt
             CALL StoreSolution( sem, nelm, U_n )
             
+            !*************************************************
+            !
+            IF (JacByConv .AND. newtonit .GT. LIM_NEWTON_ITER) THEN   !Recomputes jacobian Matrix if convergence rate is poor          !arueda: outcommented cause it's only for steady-state... Add flag and proof if it's better this way
+               IF (PRINT_NEWTON_INFO) THEN
+                  WRITE(*,*) "Convergence rate is poor,  recomputing jacobian matrix..."
+               ENDIF
+               CALL ComputeNumJac(sem, time+inner_dt, ecolors, nbr, linsolver, nelm, .TRUE., .FALSE.)
+               CALL linsolver%SetOperatorDt(inner_dt)                                         
+            ENDIF
+            !
+            !*************************************************
+            
+            
+            !*************************************************
+            !
             IF (ABS((time)-(t+dt)) < 10 * EPSILON(1._RP)) THEN       ! If outer t+dt is reached, the time integration is done
-               
                EXIT                                            
             ENDIF
             
             !Increase Comp_Dt if good convergence in previous step ¿¿IF (newtonit .LE. LIM_NEWTON_ITER) THEN??
             IF (ConvRate > maxrate) THEN
                inner_dt = inner_dt * 2.0_RP
-!~                CALL linsolver%SetOperatorDt(inner_dt)    ! Sets the operator with the new dt
+               IF (JacByConv)  CALL linsolver%ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
+               
                IF (PRINT_NEWTON_INFO) WRITE(*,*) "Increasing  dt  = ", inner_dt
             ENDIF
             
             ! Adjust inner_dt to prevent "inner_t" be greater than outer Dt 
             IF ( time+inner_dt > t + dt) THEN  ! Adjusts inner dt to achieve exact outer Dt in the last substep
                inner_dt = t + dt - time
-!~                CALL linsolver%SetOperatorDt(inner_dt)    ! Sets the operator with the new dt
+               IF (JacByConv)  CALL linsolver%ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
+               
+               IF (PRINT_NEWTON_INFO) WRITE(*,*) "Adjusting dt = ", inner_dt
             ENDIF
             
             !
             !*************************************************
             
-            
-!~             IF (time2dt - inner_dt < 0.99*inner_dt) THEN         !if time2dt is 0 (smaller than inner dt) bdftimestep is done
-!~                time = time + inner_dt
-!~                EXIT
-!~             ELSE
-!~                time2dt = time2dt - inner_dt
-!~                CALL StoreSolution( sem, nelm, U_n )      !stores sem%dgS(elmnt)%Q in Vector u_N
-!~                print*, newtonit, LIM_NEWTON_ITER
-!~             ENDIF
          ELSE  ! Reduce dt
             inner_dt = inner_dt / 2._RP
-!~             CALL linsolver%SetOperatorDt(inner_dt)    ! Sets the operator with the new dt
-            CALL RestoreSolution( sem, nelm, U_n )    ! restores Q to begin a new newton iteration       
+            IF (JacByConv)  CALL linsolver%ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
+            
+            CALL RestoreSolution( sem, nelm, U_n )       ! restores Q to begin a new newton iteration       
              IF (PRINT_NEWTON_INFO) WRITE(*,*) "Newton loop did not converge, trying a smaller dt = ", inner_dt
          END IF
       
@@ -168,7 +176,11 @@ MODULE Implicit_NJ
       IF (PRINT_NEWTON_INFO) WRITE(*,'(A10,f5.2)') "ConvRate: ", ConvRate
       WRITE(*,'(A11,1p,e8.2,A11,1p,e8.2)') "Outer DT = ", dt, "  Inner DT = ", inner_dt
       
-      !IF (ConvRate <1.3_RP) computeA = .TRUE.
+      !**************************
+      ! for computing sometimes
+      IF (JacByConv .AND. ConvRate <0.65_RP .AND. newtonit .LT. LIM_NEWTON_ITER) computeA = .TRUE.  !last condition cause' if that's true, the Jacobian was just computed
+      ! for computing sometimes
+      !**************************
 !
 !     ----------------
 !     Compute residual
@@ -183,10 +195,11 @@ MODULE Implicit_NJ
       END DO
       
    END SUBROUTINE TakeBDFStep_NJ
-   
+!
 !/////////////////////////////////////////////////////////////////////////////////////////////////
+!
    SUBROUTINE NewtonSolve(sem, t, dt, ecolors, nbr, linsolver, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
-                          INFO, minrate,ConvRate, niter,converged)   ! arueda: ", ExternalState, ExternalGradients" deleted since they are not used
+                          INFO, minrate,JacByConv,ConvRate, niter,CONVERGED)   ! arueda: ", ExternalState, ExternalGradients" deleted since they are not used
 !     
 !     ----------------------
 !     Input-Output arguments
@@ -194,19 +207,20 @@ MODULE Implicit_NJ
 !      
       TYPE(DGSem),                  INTENT(INOUT)           :: sem
       REAL(KIND=RP),                INTENT(IN)              :: t
-      REAL(KIND=RP),                INTENT(IN)              :: dt              !arueda: why inner_dt and dt??? (inner_dt is not used: deleted!!)
+      REAL(KIND=RP),                INTENT(IN)              :: dt              !< Inner dt
       TYPE(Colors),                 INTENT(IN)              :: ecolors
       TYPE(Neighbour),DIMENSION(:), INTENT(IN)              :: nbr
-      TYPE(PetscKspLinearSolver),   INTENT(INOUT)           :: linsolver   !Linear operator is calculate outside this subroutine
+      TYPE(PetscKspLinearSolver),   INTENT(INOUT)           :: linsolver       !Linear operator is calculate outside this subroutine
       INTEGER,                      INTENT(IN)              :: nelm
       REAL(KIND=RP), DIMENSION(0:), INTENT(IN)              :: u_N
       INTEGER,                      INTENT(IN)              :: MAX_NEWTON_ITER
       REAL(KIND=RP),                INTENT(IN)              :: NEWTON_TOLERANCE
       LOGICAL,                      INTENT(IN)              :: INFO
       REAL(KIND=RP),                INTENT(IN)              :: minrate
+      LOGICAL,                      INTENT(IN)              :: JacByConv         !< Must the Jacobian be computed for bad convergence? if .false., the Jacobian is computed at the beginning of every newton it
       REAL(KIND=RP),                INTENT(OUT)             :: ConvRate
       INTEGER,                      INTENT(OUT)             :: niter
-      LOGICAL,                      INTENT(OUT)             :: converged    
+      LOGICAL,                      INTENT(OUT)             :: CONVERGED    
 !     
 !     ------------------
 !     Internal variables
@@ -218,12 +232,11 @@ MODULE Implicit_NJ
       LOGICAL                                               :: STRICT_NEWTON = .TRUE.
       
       ! Temp
-      TYPE(csrMat)                                       :: Matcsr
+!~      TYPE(csrMat)                                       :: Matcsr
         
       
       norm = 1.0_RP
       norm_old = -1.0_RP  !Must be initialized to -1 to avoid bad things in the first newton iter
-      newtonit = 1
       ConvRate = 1.0_RP
    
       IF (INFO) THEN
@@ -231,19 +244,21 @@ MODULE Implicit_NJ
       END IF
       
       DO newtonit = 1, MAX_NEWTON_ITER                                 !NEWTON LOOP
-         CALL ComputeJacMatrix(sem, t, ecolors, nbr, linsolver, nelm, .FALSE., .FALSE.) !arueda: hereIam   ! J     !arueda: removed "ExternalState, ExternalGradients" (not listed arguments in routine definition)
-!~         CALL linsolver%SaveMat &
-!~                   ('/home/andresrueda/Dropbox/PhD/03_Initial_Codes/3D/Implicit/nslite3d/Tests/Euler/NumJac/MatMatlab.dat')
-         CALL linsolver%SetOperatorDt(dt)    
          
+         IF (.NOT. JacByConv) THEN !If Jacobian must be computed always
+            CALL ComputeNumJac(sem, t, ecolors, nbr, linsolver, nelm, .TRUE., .FALSE.) 
+            CALL linsolver%SetOperatorDt(dt)
+         ELSE
+            CALL ComputeTimeDerivative( sem, t )
+         END IF
 !~          CALL linsolver%GetCSRMatrix(Matcsr)
 !~          print*, 'after getting csr'
-!~          CALL Matcsr%Visualize('Mat.dat')
+!~          CALL WriteEigenFiles(Matcsr,sem,'SmallMat')
 !~          STOP
          
          CALL SYSTEM_CLOCK(COUNT=cli, COUNT_RATE=clrate)         
          CALL ComputeRHS(sem, dt, u_N, nelm, linsolver )               ! Computes b (RHS) and stores it into PetscVec
-         CALL linsolver%solve(norm*1e-3_RP, 500)                       ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
+         CALL linsolver%solve(norm*1.e-12_RP, 1000)                       ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          IF (.NOT. linsolver%converged) THEN                           ! If linsolver did not converge, return converged=false
             converged = .FALSE.
             RETURN
@@ -266,20 +281,15 @@ MODULE Implicit_NJ
                                                       linsolver%niter,(clf-cli)/real(clrate)   
          ENDIF
          
-        IF (ConvRate < minrate .OR. newtonit == MAX_NEWTON_ITER) THEN
-           converged = .FALSE.
-           RETURN
-        ENDIF
+         IF (ConvRate < minrate .OR. newtonit == MAX_NEWTON_ITER) THEN
+            converged = .FALSE.
+            RETURN
+         ENDIF
         
          IF (norm < MAX(rel_tol,NEWTON_TOLERANCE)) THEN
             converged = .TRUE.
             RETURN
          ENDIF
-         
-!~          IF (STRICT_NEWTON) THEN  ! If true, jacobian matrix is recomputed for each newton iteration
-!~             CALL ComputeJacMatrix(sem, t, ecolors, nbr, linsolver, nelm, .FALSE.,.FALSE.)  !arueda: second argument: t... not 0._RP!!
-!~             CALL linsolver%SetOperatorDt(dt)
-!~          ENDIF
          
       ENDDO
    
@@ -294,7 +304,7 @@ MODULE Implicit_NJ
 
       INTEGER                                      :: counter, i, j, k, l, elm, Nx, Ny, Nz
 
-      !sem%dgS(elmnt)%Q --> U_n vector
+      !U_n vector <-- sem%dgS(elmnt)%Q
       counter = 0
       DO elm = 1, nelm
          Nx = sem%mesh%elements(elm)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
@@ -321,7 +331,7 @@ MODULE Implicit_NJ
 
       INTEGER                                      :: counter, i, j, k, l, elm, Nx, Ny, Nz
 
-      !sem%dgS(elmnt)%Q --> U_n vector
+      !sem%dgS(elmnt)%Q <-- U_n vector
       counter = 0
       DO elm = 1, nelm
          Nx = sem%mesh%elements(elm)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
@@ -339,20 +349,9 @@ MODULE Implicit_NJ
          END DO
       END DO
    END SUBROUTINE RestoreSolution
-!/////////////////////////////////////////////////////////////////////////////////////////////////     
-   SUBROUTINE WriteJacInfo(NEq,NoE,DimPrb,t,filename)
-
-      INTEGER,          INTENT(IN)     :: NEq,NoE,DimPrb
-      REAL(KIND=RP),    INTENT(IN)     :: t
-      CHARACTER(LEN=*), OPTIONAL       :: filename
-      
-      IF (.NOT. PRESENT(filename)) filename = 'Jac.info'
-      OPEN(44, FILE=filename)
-      WRITE(44,*) " # eqs  # elements      # DOFs    Jac comp time (s)"
-      WRITE(44,"(I7,I12,I12,f6.0)") NEq,NoE,DimPrb,t
-      CLOSE(44) 
-   END SUBROUTINE WriteJacInfo  
+!  
 !/////////////////////////////////////////////////////////////////////////////////////////////////
+!
    SUBROUTINE ComputeRHS(sem, dt, U_n, nelm, linsolver )
 
       TYPE(DGSem),                INTENT(IN)       :: sem
@@ -411,15 +410,55 @@ MODULE Implicit_NJ
                      CALL linsolver%GetXValue(counter,value)
                      sem%mesh%elements(elm)%Q(i,j,k,l) = sem%mesh%elements(elm)%Q(i,j,k,l) + value
                      counter =  counter + 1
-                  END DO
-!~                CALL ConservativeToPrimitive2P(sem%dgS(elm)%Q(1:N_EQN,i,j), sem%dgS(elm)%Qp(1:N_PRIM,i,j))       ! arueda: outcommented for being of multiphase flow solver     
+                  END DO    
                END DO
             END DO
          END DO
       END DO
    END SUBROUTINE UpdateNewtonSol
+!
 !////////////////////////////////////////////////////////////////////////////////////////////
-   SUBROUTINE ComputeJacMatrix(sem, t, ecolors, nbr, linsolver, nelm, PINFO ,PRINT_JAC)
+!  
+   SUBROUTINE WriteEigenFiles(Mat,sem,FileName)
+      IMPLICIT NONE
+!
+!     -----------------------------------------------------------
+!     Writes files for performing eigenvalue analysis using TAUev
+!     -----------------------------------------------------------
+!
+      TYPE(csrMat)      :: Mat      !< Jacobian matrix
+      TYPE(DGSem)       :: sem      !< DGSem class containing mesh
+      CHARACTER(len=*)  :: FileName !< ...
+!     -----------------------------------------------------------
+      INTEGER           :: fd
+!     -----------------------------------------------------------
+      
+      ! .frm file
+      OPEN(newunit=fd, file=TRIM(FileName)//'.frm', action='WRITE')
+         WRITE(fd,*)
+         WRITE(fd,*) SIZE(Mat % Values), SIZE(Mat % Rows)-1, 1, N_EQN, 1
+         WRITE(fd,*) sem % mesh % elements(1) % N, SIZE(sem % mesh % elements)
+      CLOSE (fd)
+      
+      ! .amg file
+      CALL Mat % Visualize(TRIM(FileName)//'.amg',FirstRow=.FALSE.)
+      
+      ! .coo file
+      CALL sem % mesh % WriteCoordFile(TRIM(FileName)//'.coo')
+      
+      
+   END SUBROUTINE WriteEigenFiles
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!
+!     Routines for computing the numerical Jacobian
+!
+!
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE ComputeNumJac(sem, t, ecolors, nbr, linsolver, nelm, PINFO ,PRINT_JAC)
 !
 !     ---------------
 !     Input arguments
@@ -438,20 +477,25 @@ MODULE Implicit_NJ
 !     Internal variables
 !     ------------------
 !
-      REAL(KIND=RP)                                      :: coeffBDF, coeff
-      INTEGER                                            :: i, j, kk 
-      TYPE(Element), ALLOCATABLE, SAVE                   :: dgs_clean(:)                           !arueda: not only defining storage, but all element definitions
+      INTEGER                                            :: i, j                                   ! generic counters 
+      INTEGER                                            :: thiscolor, thiselmidx, thiselm         ! specific counters
+      INTEGER                                            :: thisdof, elmnbr, nbrnbr                ! specific counters
+      INTEGER, ALLOCATABLE, DIMENSION(:), SAVE           :: used                                   ! array containing index of elements whose contributions to Jacobian has already been considered
+      INTEGER                                            :: usedctr                                ! counter to fill positions of used
+      
+      TYPE(Element), ALLOCATABLE, SAVE                   :: dgs_clean(:)                           ! arueda: not only defining storage, but all element definitions (change it?)
       INTEGER                                            :: ielm, felm, ndofelm, nnz
-      INTEGER                                            :: Nx, Ny, Nz
-      INTEGER                                            :: thiscolor, thiselmidx, thiselm, thisdof, elmnbr
+      INTEGER                                            :: Nx, Ny, Nz                             ! Polynomial order
+      
       INTEGER                                            :: icol, cli, clf, clrate
       INTEGER, DIMENSION(4)                              :: ijkl                                   ! Indexes to locate certain degree of freedom i,j,k...l:equation number
       INTEGER, ALLOCATABLE, DIMENSION(:), SAVE           :: irow_0, irow
-!~      REAL(KIND=RP), POINTER, DIMENSION(:)               :: pbuffer                              ! Outcommented, new definition below
-      REAL(KIND=RP), ALLOCATABLE, DIMENSION(:)           :: pbuffer                                ! arueda: changed to allocatable variable because of i,j,k,l distribution in nslite3d
+!~      REAL(KIND=RP), POINTER, DIMENSION(:)               :: pbuffer                              ! Outcommented, new definition below (arueda: previous was more efficient.. change after defining storage)
+      REAL(KIND=RP), ALLOCATABLE, DIMENSION(:), SAVE     :: pbuffer                                ! arueda: changed to allocatable variable because of i,j,k,l distribution in nslite3d
       REAL(KIND=RP)                                      :: ctime, maxQ
       REAL(KIND=RP), SAVE                                :: jaceps=1e-8_RP, eps
       CHARACTER(LEN=15)                                  :: filename 
+      
             
       CALL SYSTEM_CLOCK(cli,clrate)
       
@@ -460,7 +504,11 @@ MODULE Implicit_NJ
       Ny = sem%mesh%elements(1)%N
       Nz = sem%mesh%elements(1)%N
       ndofelm = N_EQN * (Nx+1) * (Ny+1) * (Nz+1)
-      
+!
+!     ---------------------------------------------------------------
+!     Allocate arrays that will be used throughout all the simulation
+!     ---------------------------------------------------------------
+!
       IF (.NOT. ALLOCATED(pbuffer)) ALLOCATE(pbuffer(ndofelm))  ! arueda: this can be done here and once only because all elements have same order. TODO: generalize!
       
       IF (.NOT. ALLOCATED(irow)) THEN
@@ -470,48 +518,87 @@ MODULE Implicit_NJ
             irow_0(i) = i
          ENDDO
       ENDIF
+      
       IF (.NOT. ALLOCATED(dgs_clean)) THEN
          ALLOCATE(dgs_clean(nelm))
-         maxQ=0.0_RP
+         
+         
          DO i = 1, nelm
-            CALL allocateElementStorage( dgs_clean(i), Nx, N_EQN, N_GRAD_EQN, flowIsNavierStokes ) !arueda flowIsNavierStokes defined in Physics (Only using Nx since 3D code doesn't support something else)
-            maxQ=MAX(maxQ,MAXVAL(ABS(sem%mesh%elements(i)%Q(:,:,:,:))))
+            CALL allocateElementStorage( dgs_clean(i), Nx, N_EQN, N_GRAD_EQN, flowIsNavierStokes ) !(Only using Nx since 3D code doesn't support something else)
+!~             maxQ=MAX(maxQ,MAXVAL(ABS(sem%mesh%elements(i)%Q(:,:,:,:))))
          ENDDO
-         eps=1e-8_RP*maxQ
-!         write(*,*) maxQ
-!         read(*,*)
+         
       ENDIF
-    
-      nnz = ndofelm * 7                 !max nonzero values expected in a row in the jacobian matrix. arueda: "for 2D GL: 5*ndofelm, for 3D GL: 7*ndofelm, for LGL depends on row!!! (a node on the interface has more cols than an interior node)"
-
+      
+      IF (.NOT. ALLOCATED(used)) THEN
+         IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
+            ALLOCATE(used(26))   ! 25 neighbors (including itself) and a last entry that will be 0 always (boundary index)
+         ELSE
+            ALLOCATE(used(8))    ! 8 neighbors (including itself) and a last entry that will be 0 always (boundary index)
+         END IF
+      END IF
+!
+!     ---------------------------------------------
+!     Set value of eps
+!        See:
+!           > Knoll, Dana A., and David E. Keyes. "Jacobian-free Newton–Krylov methods: a survey of approaches and applications." Journal of Computational Physics 193.2 (2004): 357-397.
+!           > Mettot, Clément, Florent Renac, and Denis Sipp. "Computation of eigenvalue sensitivity to base flow modifications in a discrete framework: Application to open-loop control." Journal of Computational Physics 269 (2014): 234-258.
+!     --------------------------------------------
+!
+      maxQ=0.0_RP
+      DO i = 1, nelm
+         maxQ=MAX(maxQ,MAXVAL(ABS(sem%mesh%elements(i)%Q(:,:,:,:))))
+      ENDDO
+      eps=SQRT(EPSILON(eps))*(maxQ+1._RP)
+!
+!     -------------------------------------------------------------------------
+!     Set max number of nonzero values expected in a row of the Jacobian matrix 
+!           Assumes Legendre-Gauss quadrature and neglects zero values in each 
+!              block (taken into account later when assembling)
+!           For Legendre-Gauss-Lobatto much less entries are expected (a node on the
+!              interface has more cols than an interior node)
+!           IMPORTANT: These numbers assume conforming meshes!
+!     -------------------------------------------------------------------------
+!
+      IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
+         nnz = ndofelm * 25
+      ELSE
+         nnz = ndofelm * 7
+      END IF
+      
       CALL linsolver%PreallocateA(nnz)
-      CALL linsolver%ResetA                                                 
-
-      coeffBDF = 1.0_RP
-!      eps = 1e-8_RP
-
-!      CALL ComputeTimeDerivative( sem )
+      CALL linsolver%ResetA
       
       CALL ComputeTimeDerivative( sem, t )
-      
+!
+!     ------------------------------------------
+!     Compute numerical Jacobian using colorings
+!     ------------------------------------------
+!
       dgs_clean = sem%mesh%elements
       DO thiscolor = 1 , ecolors%ncolors
          ielm = ecolors%bounds(thiscolor)             
          felm = ecolors%bounds(thiscolor+1)
-         DO thisdof = 1, ndofelm                      ! computes one column for each dof within an elment
+         DO thisdof = 1, ndofelm                      ! computes one column for each dof within an elment (all elements must have the same number of DOFs - change?)
             ijkl = local2ijk(thisdof,N_EQN,Nx,Ny,Nz)
             DO thiselmidx = ielm, felm-1              !perturbs a dof in all elements within current color
                thiselm = ecolors%elmnts(thiselmidx)
                sem%mesh%elements(thiselm)%Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
                                                    sem%mesh%elements(thiselm)%Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
             ENDDO
-!            CALL ComputeTimeDerivative( sem )
+            
             CALL ComputeTimeDerivative( sem, t )            
+            
             DO thiselmidx = ielm, felm-1
                thiselm = ecolors%elmnts(thiselmidx)
-               DO i = 1,7 !hardcoded: 7 neighbours (only valid for hexahedrals in conforming meshes)
-                  elmnbr = nbr(thiselm)%elmnt(i)                 
-                  IF (elmnbr .NE. 0) THEN                                                       
+               ! Redifine used array and counter
+               used    = 0
+               usedctr = 1
+               
+               DO i = 1,SIZE(nbr(thiselm)%elmnt)
+                  elmnbr = nbr(thiselm)%elmnt(i) 
+                  
+                  IF (.NOT. ANY(used == elmnbr)) THEN  !(elmnbr .NE. 0)
                      sem%mesh%elements(elmnbr)%QDot = (sem%mesh%elements(elmnbr)%QDot - dgs_clean(elmnbr)%QDot) / eps                      
 !~                     pbuffer(1:ndofelm) => sem%mesh%elements(elmnbr)%QDot                     !maps Qdot array into a 1D pointer 
                      CALL GetElemQdot(sem%mesh%elements(elmnbr),pbuffer)
@@ -519,18 +606,44 @@ MODULE Implicit_NJ
                      WHERE (ABS(pbuffer(1:ndofelm)) .LT. jaceps) irow = -1          !MatSetvalues will ignore entries with irow=-1
                      icol = (thiselm - 1) * ndofelm  + thisdof - 1
                      CALL linsolver%SetAColumn(ndofelm, irow, icol, pbuffer )
+                     
+                     used(usedctr) = elmnbr
+                     usedctr = usedctr + 1
                   ENDIF
+                  
+                  ! If we are using BR1, we also have to get the contributions of the neighbors of neighbors
+                  IF(flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
+                     IF (elmnbr .NE. 0) THEN
+                        DO j=1, SIZE(nbr(elmnbr)%elmnt)
+                           nbrnbr = nbr(elmnbr)%elmnt(j)                          
+                           IF (.NOT. ANY(used == nbrnbr)) THEN  !(elmnbr .NE. 0)
+                                             
+                              sem%mesh%elements(nbrnbr)%QDot = (sem%mesh%elements(nbrnbr)%QDot - dgs_clean(nbrnbr)%QDot) / eps                      
+         !~                     pbuffer(1:ndofelm) => sem%mesh%elements(elmnbr)%QDot                     !maps Qdot array into a 1D pointer 
+                              CALL GetElemQdot(sem%mesh%elements(nbrnbr),pbuffer)
+                              irow = irow_0 + ndofelm * (nbrnbr - 1)                         !generates the row indices vector
+                              WHERE (ABS(pbuffer(1:ndofelm)) .LT. jaceps) irow = -1          !MatSetvalues will ignore entries with irow=-1
+                              icol = (thiselm - 1) * ndofelm  + thisdof - 1
+                              CALL linsolver%SetAColumn(ndofelm, irow, icol, pbuffer )
+                              
+                              used(usedctr) = nbrnbr
+                              usedctr = usedctr + 1                        
+                           ENDIF
+                        END DO
+                     END IF
+                  END IF
+                  
                ENDDO
             END DO           
-            DO i = 1,nelm                                      !Cleans dgs
-               sem%mesh%elements(i)%Q = dgs_clean(i)%Q           
+            DO thiselmidx = ielm, felm-1                              !Cleans modified Qs
+               thiselm = ecolors%elmnts(thiselmidx)
+               sem%mesh%elements(thiselm)%Q = dgs_clean(thiselm)%Q           
             END DO                                                
          ENDDO
       ENDDO
-            
+      sem%mesh%elements = dgs_clean ! Cleans sem % mesh % elements completely
       
       CALL linsolver%AssemblyA                                 ! Petsc Matrix A needs to be assembled before being used
-      linsolver%Ashift = 0.0_RP                                ! Shift must be set to zero when a new jac matrix is calculated
       
       CALL SYSTEM_CLOCK(clf)
       ctime = (clf - cli) / REAL(clrate)
@@ -544,13 +657,28 @@ MODULE Implicit_NJ
             CALL WriteJacInfo(N_EQN,nelm,linsolver%dimprb,ctime,'Jac.info') 
          ENDIF
       ENDIF            
-   END SUBROUTINE ComputeJacMatrix
+   END SUBROUTINE ComputeNumJac
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////////     
+!
+   SUBROUTINE WriteJacInfo(NEq,NoE,DimPrb,t,filename)
 
+      INTEGER,          INTENT(IN)     :: NEq,NoE,DimPrb
+      REAL(KIND=RP),    INTENT(IN)     :: t
+      CHARACTER(LEN=*), OPTIONAL       :: filename
+      
+      IF (.NOT. PRESENT(filename)) filename = 'Jac.info'
+      OPEN(44, FILE=filename)
+      WRITE(44,*) " # eqs  # elements      # DOFs    Jac comp time (s)"
+      WRITE(44,"(I7,I12,I12,f6.0)") NEq,NoE,DimPrb,t
+      CLOSE(44) 
+   END SUBROUTINE WriteJacInfo
+!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !  
 !  Returns the local index relative to an element from the local coordinates: i(lagrange node x), j(lagrange node y), 
 !  k(lagrange node z), l(equation number)
-!  M,N are the polinomial orders in x, y directions, N_EQN is the number of equations
+!  N are the polinomial orders in x, y and z directions, N_EQN is the number of equations
    
    FUNCTION ijk2local(i,j,k,l,N_EQN,Nx,Ny,Nz) RESULT(idx)
       IMPLICIT NONE
@@ -568,8 +696,9 @@ MODULE Implicit_NJ
    
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  Returns the coordinates relative to an elements i(lagrange node x), j(lagrange node y), k(variable) from the local index   
-!  M,N are the polinomial orders in x, y directions, N_EQN is the number of equations
+!  Returns the coordinates relative to an element: i(lagrange node x), j(lagrange node y), k(lagrange node z), l(equation number)
+!  from the local index  
+!  N are the polinomial orders in x, y and z directions, N_EQN is the number of equations
    
    FUNCTION local2ijk(idx,N_EQN,Nx,Ny,Nz) RESULT (indices)
    
@@ -587,7 +716,7 @@ MODULE Implicit_NJ
       indices(4) = MOD(tmp2, N_EQN) + 1
    END FUNCTION
    
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////   
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 !////////////////////////////////////////////////////////////////////////////////////////      
 !  Subroutine for extracting Qdot of a single element as a 1 dimensional array
@@ -620,34 +749,4 @@ MODULE Implicit_NJ
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE WriteEigenFiles(Mat,sem,FileName)
-      IMPLICIT NONE
-!
-!     -----------------------------------------------------------
-!     Writes files for performing eigenvalue analysis using TAUev
-!     -----------------------------------------------------------
-!
-      TYPE(csrMat)      :: Mat      !< Jacobian matrix
-      TYPE(DGSem)       :: sem      !< DG class with mesh inside
-      CHARACTER(len=*)  :: FileName !< ...
-!     -----------------------------------------------------------
-      INTEGER           :: fd
-!     -----------------------------------------------------------
-      
-      ! .frm file
-      OPEN(newunit=fd, file=TRIM(FileName)//'.frm', action='WRITE')
-         WRITE(fd,*)
-         WRITE(fd,*) SIZE(Mat % Values), SIZE(Mat % Rows)-1, 1, N_EQN, 1
-         WRITE(fd,*) sem % mesh % elements(1) % N, SIZE(sem % mesh % elements)
-      CLOSE (fd)
-      
-      ! .amg file
-      CALL Mat % Visualize(TRIM(FileName)//'.amg',FirstRow=.FALSE.)
-      
-      ! .coo file
-      CALL sem % mesh % WriteCoordFile(TRIM(FileName)//'.coo')
-      
-      
-   END SUBROUTINE WriteEigenFiles
-
 END MODULE Implicit_NJ
