@@ -389,7 +389,7 @@ MODULE PetscSolverClass
       CALL CheckPetscErr(ierr, 'error in VecGetValue')
 #else
       INTEGER,           INTENT(IN)        :: irow
-      REAL*8    ,        INTENT(IN)        :: x_i
+      REAL*8    ,        INTENT(OUT)       :: x_i
       STOP 'PETSc is not linked correctly'
 #endif
    END SUBROUTINE GetXValue
@@ -506,6 +506,7 @@ MODULE PetscSolverClass
       CHARACTER(len=*)                             :: TypeOfNorm
       REAL(KIND=RP)                                :: xnorm
       !--------------------------------------------------------------
+#ifdef HAS_PETSC
       PetscErrorCode                               :: ierr
       !--------------------------------------------------------------
       
@@ -515,7 +516,9 @@ MODULE PetscSolverClass
          CASE DEFAULT
             STOP 'PetscSolverClass error: Type of Norm not defined'
       END SELECT
-      
+#else
+      STOP 'PETSc is not linked correctly'
+#endif
    END FUNCTION Getxnorm
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////// 
@@ -526,11 +529,14 @@ MODULE PetscSolverClass
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP)                                :: rnorm
       !--------------------------------------------------------------
+#ifdef HAS_PETSC
       PetscErrorCode                               :: ierr
       !--------------------------------------------------------------
       
       ! I don't know which type of norm PETSc computes!
       CALL KSPGetResidualNorm(this%ksp, rnorm, ierr)   ; CALL CheckPetscErr(ierr,'error in KSPGetResidualNorm')
+#else
+      STOP 'PETSc is not linked correctly'
+#endif
    END FUNCTION Getrnorm
-   
 END MODULE PetscSolverClass
