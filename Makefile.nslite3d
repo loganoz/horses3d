@@ -50,7 +50,7 @@ OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter
 		DGSEMClass DGSpaceAndTimeDerivativeMethods NodalStorageClass\
 		PlotterDataSource Headers\
 		ReadInputFile Setup TimeIntegrator ProblemFile\
-		NSLite3DMain Implicit_JF JFNKClass GMRESClass ConnectivityClass Implicit_NJ Jacobian ColorsClass PetscSolverClass CSR_Matrices
+		NSLite3DMain Implicit_JF JFNKClass GMRESClass ConnectivityClass Implicit_NJ Jacobian ColorsClass PetscSolverClass CSR_Matrices GenericLinSolverClass
 
 # --------------- Dependencies 
 NSLite3DMain: TimeIntegrator \
@@ -95,8 +95,10 @@ GMRESClass: SMConstants
 Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass PetscSolverClass CSR_Matrices
 Jacobian: SMConstants DGSEMClass Physics
 ColorsClass: DGSEMClass
-PetscSolverClass: CSR_Matrices
+PetscSolverClass: CSR_Matrices GenericLinSolverClass SMConstants
 CSR_Matrices: SMConstants
+GenericLinSolverClass: SMConstants CSR_Matrices
+
 
 # ######################################### #
 # --------- DO NOT EDIT ------------------- #

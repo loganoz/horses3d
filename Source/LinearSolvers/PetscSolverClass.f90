@@ -1,38 +1,39 @@
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!      PetscSolverClass.f90
+!      Created: 2017-04-10 10:006:00 +0100 
+!      By: Carlos Redondo
+!          Andrés Rueda (small modifications)
+!
+!      Class for solving linear systems using the Krylov Subspace Methods of PETSc library
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE PetscSolverClass
+   USE GenericLinSolverClass
    USE CSR_Matrices
    IMPLICIT NONE
 #ifdef HAS_PETSC
 #include <petsc.h>
 #endif
-   TYPE PetscKspLinearSolver
+   TYPE, EXTENDS(GenericLinSolver_t) :: PetscKspLinearSolver_t
 #ifdef HAS_PETSC
       Mat                                           :: A                                  ! Jacobian matrix
       Vec                                           :: x                                  ! Solution vector
       Vec                                           :: b                                  ! Right hand side
       KSP                                           :: ksp                                ! 
       PC                                            :: pc
-      PetscInt                                      :: dimprb
       PetscReal                                     :: tol = 1d-15
       PetscInt                                      :: maxiter = 50
       PetscInt                                      :: nz = 0
-      PetscReal                                     :: residual
-      PetscReal                                     :: xnorm
       PetscScalar                                   :: Ashift                              ! Stores the shift to the Jacobian due to time integration
-      PetscInt                                      :: niter
-      PetscBool                                     :: converged = PETSC_FALSE
       PetscBool                                     :: init_context = PETSC_FALSE
       PetscBool                                     :: setpreco = PETSC_TRUE
       PetscBool                                     :: withMPI = PETSC_FALSE
-#else 
-      !Following variables were added only to be able to compile the code with and without petsc
-      INTEGER                                       :: dimprb
-      INTEGER                                       :: niter
-      REAL*8                                        :: xnorm
-      REAL*8                                        :: residual
-      LOGICAL                                       :: converged = .FALSE. 
 #endif
       CONTAINS
+         !Subroutines
          PROCEDURE                                  :: construct => ConstructPetscContext
+         PROCEDURE                                  :: ResetA
          PROCEDURE                                  :: SetAColumn
          PROCEDURE                                  :: SetBValues
          PROCEDURE                                  :: SetBValue
@@ -43,21 +44,28 @@ MODULE PetscSolverClass
          PROCEDURE                                  :: ReSetOperatorDt
          PROCEDURE                                  :: AssemblyA
          PROCEDURE                                  :: AssemblyB
-         PROCEDURE                                  :: ResetA
          PROCEDURE                                  :: SaveMat
          PROCEDURE                                  :: solve   =>   SolveLinPrb
-         PROCEDURE                                  :: clean   =>   DestroyPetscObjects
+         PROCEDURE                                  :: destroy =>   DestroyPetscObjects
          PROCEDURE                                  :: GetCSRMatrix
-   END TYPE PetscKspLinearSolver
+         !Functions
+         PROCEDURE                                  :: Getxnorm
+         PROCEDURE                                  :: Getrnorm
+   END TYPE PetscKspLinearSolver_t
    
   
    PRIVATE                                          
-   PUBLIC                                           :: PetscKspLinearSolver
-   PUBLIC                                           :: ConstructPetscContext, SolveLinPrb, PreallocateA, SetAColumn, SetBValue
-   PUBLIC                                           :: SetBValues, DestroyPetscObjects, AssemblyA, AssemblyB, GetXValues
-   PUBLIC                                           :: GetXValue, ResetA, SaveMat, SetOperatorDt
+   PUBLIC                                           :: PetscKspLinearSolver_t, PetscKspLinearSolver, GenericLinSolver_t
+!~   PUBLIC                                           :: ConstructPetscContext, SolveLinPrb, PreallocateA, SetAColumn, SetBValue
+!~   PUBLIC                                           :: SetBValues, DestroyPetscObjects, AssemblyA, AssemblyB, GetXValues
+!~   PUBLIC                                           :: GetXValue, ResetA, SaveMat, SetOperatorDt
    
-   CONTAINS  
+   TYPE(PetscKspLinearSolver_t), TARGET :: PetscKspLinearSolver
+
+!========
+ CONTAINS
+!========
+
 !///////////////////////////////////////////////////////////////////////////////
    SUBROUTINE CheckPetscErr(ierr,msg)
       CHARACTER(LEN=*), OPTIONAL                   :: msg
@@ -78,7 +86,7 @@ MODULE PetscSolverClass
    END SUBROUTINE CheckPetscErr
 !///////////////////////////////////////////////////////////////////////////////     
    SUBROUTINE ConstructPetscContext(this, DimPrb)
-      CLASS(PetscKspLinearSolver), INTENT(INOUT) :: this
+      CLASS(PetscKspLinearSolver_t), INTENT(INOUT) :: this
 #ifdef HAS_PETSC
       PetscInt, INTENT(IN)                       :: DimPrb
       PetscErrorCode                             :: ierr
@@ -131,7 +139,7 @@ MODULE PetscSolverClass
    END SUBROUTINE
 !/////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE SetPetscPreco(this)
-      CLASS(PetscKspLinearSolver), INTENT(INOUT)      :: this
+      CLASS(PetscKspLinearSolver_t), INTENT(INOUT)      :: this
 #ifdef HAS_PETSC
       PetscErrorCode                                  :: ierr
       
@@ -143,7 +151,7 @@ MODULE PetscSolverClass
    END SUBROUTINE SetPetscPreco 
 !/////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE SolveLinPrb(this, tol, maxiter)
-      CLASS(PetscKspLinearSolver), INTENT(INOUT)      :: this
+      CLASS(PetscKspLinearSolver_t), INTENT(INOUT)      :: this
 #ifdef HAS_PETSC
       PetscReal, OPTIONAL                             :: tol
       PetscInt,  OPTIONAL                             :: maxiter
@@ -178,22 +186,22 @@ MODULE PetscSolverClass
       CALL KSPSetOperators(this%ksp, this%A, this%A, ierr)     ; CALL CheckPetscErr(ierr, 'error in KSPSetOperators')
       CALL KSPSolve(this%ksp,this%b,this%x,ierr)               ; CALL CheckPetscErr(ierr, 'error in KSPSolve')
       CALL KSPGetIterationNumber(this%ksp,this%niter,ierr)     ; CALL CheckPetscErr(ierr,'error in KSPGetIterationNumber')
-      CALL KSPGetResidualNorm(this%ksp, this%residual, ierr)   ; CALL CheckPetscErr(ierr,'error in KSPGetResidualNorm')
-      CALL VecNorm(this%x,NORM_INFINITY,this%xnorm,ierr)       ; CALL CheckPetscErr(ierr,'error in VecNorm')
+!~       CALL KSPGetResidualNorm(this%ksp, this%residual, ierr)   ; CALL CheckPetscErr(ierr,'error in KSPGetResidualNorm')
+!~       CALL VecNorm(this%x,NORM_INFINITY,this%xnorm,ierr)       ; CALL CheckPetscErr(ierr,'error in VecNorm')
       IF (this%niter < maxiter) THEN
-         this%converged = PETSC_TRUE
+         this%converged = .TRUE.
       ELSE
-         this%converged = PETSC_FALSE
+         this%converged = .FALSE.
       END IF
 #else
-      REAL*8                                :: tol
-      INTEGER                               :: maxiter
+      REAL*8 , OPTIONAL                     :: tol
+      INTEGER, OPTIONAL                     :: maxiter
       STOP 'PETSc is not linked correctly'
 #endif
    END SUBROUTINE SolveLinPrb
 !/////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE PreallocateA(this, nnz)
-      CLASS(PetscKspLinearSolver), INTENT(INOUT)       :: this
+      CLASS(PetscKspLinearSolver_t), INTENT(INOUT)       :: this
 #ifdef HAS_PETSC
       PetscInt                                         :: nnz
       PetscErrorCode                                   :: ierr      
@@ -213,7 +221,7 @@ MODULE PetscSolverClass
    END SUBROUTINE
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
    SUBROUTINE SetAColumn(this,nvalues, irow, icol, values )
-      CLASS(PetscKspLinearSolver), INTENT(INOUT)         :: this
+      CLASS(PetscKspLinearSolver_t), INTENT(INOUT)         :: this
 #ifdef HAS_PETSC
       PetscInt, INTENT(IN)                               :: nvalues
       PetscInt, DIMENSION(:), INTENT(IN)                 :: irow
@@ -233,7 +241,7 @@ MODULE PetscSolverClass
    END SUBROUTINE SetAColumn
 !/////////////////////////////////////////////////////////////////////////////////////////////////      
    SUBROUTINE ResetA(this)
-      CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       PetscErrorCode                                     :: ierr
 
@@ -244,11 +252,10 @@ MODULE PetscSolverClass
 #endif
    END SUBROUTINE
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
-   SUBROUTINE SetOperatorDt(this, dt, coeff)
-      CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+   SUBROUTINE SetOperatorDt(this, dt)
+      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       PetscScalar,                     INTENT(IN)        :: dt
-      PetscScalar,                     OPTIONAL          :: coeff
       PetscScalar                                        :: shift
       PetscScalar                                        :: eps = 1e-10                                       
       PetscErrorCode                                     :: ierr
@@ -261,24 +268,22 @@ MODULE PetscSolverClass
       ENDIF
 #else
       REAL*8,                     INTENT(IN)        :: dt
-      REAL*8,                     OPTIONAL          :: coeff
       STOP 'PETSc is not linked correctly'
 #endif
    END SUBROUTINE SetOperatorDt
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////// 
 !   
-   SUBROUTINE ReSetOperatorDt(this, dt, coeff)
+   SUBROUTINE ReSetOperatorDt(this, dt)
 !
 !     --------------------------------------------------
 !     Removes previous shift in order to insert new one 
 !                 (important when Jacobian is reused)
 !     --------------------------------------------------
 !
-      CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       PetscScalar,                     INTENT(IN)        :: dt
-      PetscScalar,                     OPTIONAL          :: coeff
       PetscScalar                                        :: shift
       PetscScalar                                        :: eps = 1e-10                                       
       PetscErrorCode                                     :: ierr
@@ -291,7 +296,6 @@ MODULE PetscSolverClass
       ENDIF
 #else
       REAL*8,                     INTENT(IN)        :: dt
-      REAL*8,                     OPTIONAL          :: coeff
       STOP 'PETSc is not linked correctly'
 #endif
    END SUBROUTINE ReSetOperatorDt
@@ -299,7 +303,7 @@ MODULE PetscSolverClass
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
 !
    SUBROUTINE SetBValues(this, nvalues, irow, values)
-      CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       PetscInt,                        INTENT(IN)        :: nvalues
       PetscInt, DIMENSION(:),          INTENT(IN)        :: irow
@@ -317,7 +321,7 @@ MODULE PetscSolverClass
    END SUBROUTINE SetBValues
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
    SUBROUTINE SetBValue(this, irow, value)
-      CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       PetscInt,                        INTENT(IN)        :: irow
       PetscScalar,                     INTENT(IN)        :: value
@@ -333,7 +337,7 @@ MODULE PetscSolverClass
    END SUBROUTINE SetBValue
 !/////////////////////////////////////////////////////////////////////////////////////////////////     
    SUBROUTINE AssemblyA(this)
-      CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       PetscErrorCode                                     :: ierr
  
@@ -345,7 +349,7 @@ MODULE PetscSolverClass
    END SUBROUTINE
 !//////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE AssemblyB(this)
-      CLASS(PetscKspLinearSolver),     INTENT(INOUT)     :: this
+      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       PetscErrorCode                                     :: ierr
       
@@ -357,7 +361,7 @@ MODULE PetscSolverClass
    END SUBROUTINE
 !//////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE GetXValues(this, nvalues, irow, values)
-      CLASS(PetscKspLinearSolver),     INTENT(INOUT)      :: this
+      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)      :: this
 #ifdef HAS_PETSC
       PetscInt,                        INTENT(IN)         :: nvalues
       PetscInt, DIMENSION(:),          INTENT(IN)         :: irow
@@ -374,24 +378,24 @@ MODULE PetscSolverClass
 #endif
    END SUBROUTINE GetXValues
 !//////////////////////////////////////////////////////////////////////////////////////////////////
-   SUBROUTINE GetXValue(this, irow, value)
-      CLASS(PetscKspLinearSolver),     INTENT(INOUT)      :: this
+   SUBROUTINE GetXValue(this, irow, x_i)
+      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)      :: this
 #ifdef HAS_PETSC
       PetscInt,                        INTENT(IN)         :: irow
-      PetscScalar,                     INTENT(OUT)        :: value
+      PetscScalar,                     INTENT(OUT)        :: x_i
       PetscErrorCode                                      :: ierr
       
-      CALL VecGetValues(this%x,1 ,irow,value, ierr)
+      CALL VecGetValues(this%x,1 ,irow,x_i, ierr)
       CALL CheckPetscErr(ierr, 'error in VecGetValue')
 #else
       INTEGER,           INTENT(IN)        :: irow
-      REAL*8    ,        INTENT(IN)        :: value
+      REAL*8    ,        INTENT(IN)        :: x_i
       STOP 'PETSc is not linked correctly'
 #endif
    END SUBROUTINE GetXValue
 !//////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE SaveMat(this,filename)
-      CLASS(PetscKspLinearSolver), INTENT(INOUT)         :: this
+      CLASS(PetscKspLinearSolver_t), INTENT(INOUT)         :: this
       CHARACTER(LEN=*), OPTIONAL                         :: filename
 #ifdef HAS_PETSC
       PetscViewer                                        :: viewer
@@ -412,29 +416,29 @@ MODULE PetscSolverClass
    END SUBROUTINE SaveMat
 !////////////////////////////////////////////////////////////////////////////////////////////////// 
    SUBROUTINE DestroyPetscObjects(this)
-      CLASS(PetscKspLinearSolver), INTENT(INOUT)       :: this
+      CLASS(PetscKspLinearSolver_t), INTENT(INOUT)       :: this
 #ifdef HAS_PETSC
       PetscErrorCode                                   :: ierr1, ierr2, ierr3, ierr4, ierr5, ierr6
-
       CALL VecDestroy(this%x,ierr1)
       CALL VecDestroy(this%b,ierr2)
       CALL MatDestroy(this%A,ierr3)
+!~       CALL PCDestroy (this%pc, ierr5) !! Outcommented: PC destroyed in KSP environment (KSPDestroy)
       CALL KSPDestroy(this%ksp,ierr4)
-      CALL PCDestroy(this%pc, ierr5)
+      
       CALL PetscFinalize(ierr6)
       CALL CheckPetscErr(ierr1,'error in VecDestroy x')
       CALL CheckPetscErr(ierr2,'error in VecDestroy b')
       CALL CheckPetscErr(ierr3,'error in MatDestroy_A')
+!~       CALL CheckPetscErr(ierr5,'error in PCDestroy')
       CALL CheckPetscErr(ierr4,'error in KSPDestroy')
-      CALL CheckPetscErr(ierr5,'error in PCDestroy')
       CALL CheckPetscErr(ierr6,'error in PetscFinalize')
 #else
       STOP 'PETSc is not linked correctly'
 #endif
    END SUBROUTINE DestroyPetscObjects
-   
+!
 !////////////////////////////////////////////////////////////////////////////////////////////////// 
-   
+!
    SUBROUTINE GetCSRMatrix(this,Acsr)
       IMPLICIT NONE
 !
@@ -442,8 +446,8 @@ MODULE PetscSolverClass
 !     Arguments
 !     ---------
 !
-      CLASS(PetscKspLinearSolver)      :: this        !<    
-      TYPE(csrMat)                     :: Acsr        !>    CSR matrix
+      CLASS(PetscKspLinearSolver_t), INTENT(IN)  :: this        !<    
+      TYPE(csrMat)               , INTENT(OUT) :: Acsr        !>    CSR matrix
 #ifdef HAS_PETSC
 !
 !     ------------------
@@ -492,5 +496,41 @@ MODULE PetscSolverClass
       STOP 'PETSc is not linked correctly'
 #endif
    END SUBROUTINE GetCSRMatrix
+!
+!////////////////////////////////////////////////////////////////////////////////////////////////// 
+!
+   FUNCTION Getxnorm(this,TypeOfNorm) RESULT(xnorm)
+      IMPLICIT NONE
+      !--------------------------------------------------------------
+      CLASS(PetscKspLinearSolver_t), INTENT(INOUT) :: this
+      CHARACTER(len=*)                             :: TypeOfNorm
+      REAL(KIND=RP)                                :: xnorm
+      !--------------------------------------------------------------
+      PetscErrorCode                               :: ierr
+      !--------------------------------------------------------------
+      
+      SELECT CASE(TypeOfNorm)
+         CASE('infinity')
+            CALL VecNorm(this%x,NORM_INFINITY,xnorm,ierr)       ; CALL CheckPetscErr(ierr,'error in VecNorm')
+         CASE DEFAULT
+            STOP 'PetscSolverClass error: Type of Norm not defined'
+      END SELECT
+      
+   END FUNCTION Getxnorm
+!
+!////////////////////////////////////////////////////////////////////////////////////////////////// 
+!
+   FUNCTION Getrnorm(this) RESULT(rnorm)
+      IMPLICIT NONE
+      !--------------------------------------------------------------
+      CLASS(PetscKspLinearSolver_t), INTENT(INOUT) :: this
+      REAL(KIND=RP)                                :: rnorm
+      !--------------------------------------------------------------
+      PetscErrorCode                               :: ierr
+      !--------------------------------------------------------------
+      
+      ! I don't know which type of norm PETSc computes!
+      CALL KSPGetResidualNorm(this%ksp, rnorm, ierr)   ; CALL CheckPetscErr(ierr,'error in KSPGetResidualNorm')
+   END FUNCTION Getrnorm
    
 END MODULE PetscSolverClass

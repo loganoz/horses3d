@@ -16,7 +16,7 @@ MODULE Implicit_NJ
    USE PhysicsStorage,              ONLY: N_EQN, N_GRAD_EQN, flowIsNavierStokes
    USE Jacobian,                    ONLY: Neighbour, Look_for_neighbour           
    USE ColorsClass,                 ONLY: Colors
-   USE PetscSolverClass,            ONLY: PetscKspLinearSolver
+   USE PetscSolverClass
    USE CSR_Matrices
    USE FTValueDictionaryClass
    
@@ -47,7 +47,7 @@ MODULE Implicit_NJ
       !--------------------------------------------------------
       
         
-      TYPE(PetscKspLinearSolver)                            :: linsolver
+      CLASS(GenericLinSolver_t), POINTER                    :: linsolver           ! Linear solver (as an abstract type, it must be declared as CLASS)
       INTEGER                                               :: cli, clf, clrate
       INTEGER                                               :: k, nelm, DimPrb, newtonit
       INTEGER                                               :: ninner = 1
@@ -71,8 +71,13 @@ MODULE Implicit_NJ
       
       SAVE isfirst, computeA, ninner, JacByConv
       SAVE u_N, DimPrb, nelm, linsolver
+      
 
-      IF (isfirst) THEN                         
+      IF (isfirst) THEN           
+         
+         !Which linear solver?
+         linsolver => PetscKspLinearSolver
+         
          isfirst = .FALSE.
          nelm = SIZE(sem%mesh%elements)
          ALLOCATE(Nx(nelm))
@@ -93,7 +98,7 @@ MODULE Implicit_NJ
          ALLOCATE(U_n(0:Dimprb-1))
          CALL ecolors%construct(nbr,flowIsNavierStokes)       
          !CALL ecolors%info
-         CALL linsolver%construct(DimPrb)             !Constructs Petsc linear solver 
+         CALL linsolver%construct(DimPrb)             !Constructs linear solver 
          JacByConv = controlVariables % LogicalValueForKey("jacobian by convergence")
       ENDIF
       
@@ -210,7 +215,7 @@ MODULE Implicit_NJ
       REAL(KIND=RP),                INTENT(IN)              :: dt              !< Inner dt
       TYPE(Colors),                 INTENT(IN)              :: ecolors
       TYPE(Neighbour),DIMENSION(:), INTENT(IN)              :: nbr
-      TYPE(PetscKspLinearSolver),   INTENT(INOUT)           :: linsolver       !Linear operator is calculate outside this subroutine
+      CLASS(GenericLinSolver_t),     INTENT(INOUT)          :: linsolver       !Linear operator is calculate outside this subroutine
       INTEGER,                      INTENT(IN)              :: nelm
       REAL(KIND=RP), DIMENSION(0:), INTENT(IN)              :: u_N
       INTEGER,                      INTENT(IN)              :: MAX_NEWTON_ITER
@@ -257,15 +262,15 @@ MODULE Implicit_NJ
 !~          STOP
          
          CALL SYSTEM_CLOCK(COUNT=cli, COUNT_RATE=clrate)         
-         CALL ComputeRHS(sem, dt, u_N, nelm, linsolver )               ! Computes b (RHS) and stores it into PetscVec
-         CALL linsolver%solve(norm*1.e-12_RP, 1000)                       ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
+         CALL ComputeRHS(sem, dt, u_N, nelm, linsolver )               ! Computes b (RHS) and stores it into linsolver
+         CALL linsolver%solve(tol=norm*1.e-12_RP, maxiter=1000)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          IF (.NOT. linsolver%converged) THEN                           ! If linsolver did not converge, return converged=false
             converged = .FALSE.
             RETURN
          ENDIF
          CALL UpdateNewtonSol(sem, nelm, linsolver)                    ! Q_r+1 = Q_r + x
          CALL SYSTEM_CLOCK(COUNT=clf)
-         norm = linsolver%xnorm
+         norm = linsolver%Getxnorm('infinity')
 
          IF (norm_old .NE. -1.0_RP) THEN
             ConvRate = ConvRate + (LOG10(norm_old/norm)-ConvRate)/newtonit 
@@ -277,7 +282,7 @@ MODULE Implicit_NJ
             rel_tol = norm1 * NEWTON_TOLERANCE
          ENDIF
          IF (INFO) THEN
-            WRITE(*, "(I8,1p,E18.3,E18.3,E15.3,I10,f18.5)"),newtonit, norm, norm/norm1, linsolver%residual,&
+            WRITE(*, "(I8,1p,E18.3,E18.3,E15.3,I10,f18.5)"),newtonit, norm, norm/norm1, linsolver%Getrnorm(),&
                                                       linsolver%niter,(clf-cli)/real(clrate)   
          ENDIF
          
@@ -358,12 +363,12 @@ MODULE Implicit_NJ
       REAL(KIND=RP),              INTENT(IN)       :: dt
       REAL(KIND=RP),              INTENT(IN)       :: U_n(0:)
       INTEGER,                    INTENT(IN)       :: nelm
-      TYPE(PetscKspLinearSolver), INTENT (INOUT)   :: linsolver
+      CLASS(GenericLinSolver_t),  INTENT (INOUT)   :: linsolver
 
       INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, elmnt, counter   
       REAL(KIND=RP)                                :: value
 
-!     Right-Hand side BDF1 (stored into the PETSc vector b):
+!     Right-Hand side BDF1 (stored into the linsolver vector b):
 !     b = [(Q(n+1) - Q(n))/dt] - Qdot  == [(U_r - U_n ) / dt] - F(U_r)
 !     U_r is stored in sem%dgs%Q
 
@@ -393,7 +398,7 @@ MODULE Implicit_NJ
 
       TYPE(DGSem),                     INTENT(INOUT)    :: sem
       INTEGER,                         INTENT(IN)       :: nelm
-      TYPE(PetscKspLinearSolver),      INTENT(INOUT)    :: linsolver
+      CLASS(GenericLinSolver_t),       INTENT(INOUT)    :: linsolver
 
       REAL(KIND=RP)                                     :: value
       INTEGER                                           :: Nx, Ny, Nz, l, i, j, k, counter, elm
@@ -468,7 +473,7 @@ MODULE Implicit_NJ
       REAL(KIND=RP),              INTENT(IN)             :: t
       TYPE(Colors),               INTENT(IN)             :: ecolors
       TYPE(Neighbour),            INTENT(IN)             :: nbr(:)
-      TYPE(PetscKspLinearSolver), INTENT(INOUT)          :: linsolver
+      CLASS(GenericLinSolver_t),  INTENT(INOUT)          :: linsolver
       INTEGER,                    INTENT(IN)             :: nelm     
       LOGICAL,                    OPTIONAL               :: PINFO
       LOGICAL,                    OPTIONAL               :: PRINT_JAC
@@ -643,7 +648,7 @@ MODULE Implicit_NJ
       ENDDO
       sem%mesh%elements = dgs_clean ! Cleans sem % mesh % elements completely
       
-      CALL linsolver%AssemblyA                                 ! Petsc Matrix A needs to be assembled before being used
+      CALL linsolver%AssemblyA                                 ! Matrix A needs to be assembled before being used in PETSc (at least)
       
       CALL SYSTEM_CLOCK(clf)
       ctime = (clf - cli) / REAL(clrate)
@@ -653,7 +658,7 @@ MODULE Implicit_NJ
       IF (PRESENT(PRINT_JAC)) THEN
          IF(PRINT_JAC) THEN
             WRITE(filename,"(A2,f6.4,A4)") "A_",t,".dat"
-            CALL linsolver%SaveMat(filename)
+!~             CALL linsolver%SaveMat(filename)
             CALL WriteJacInfo(N_EQN,nelm,linsolver%dimprb,ctime,'Jac.info') 
          ENDIF
       ENDIF            
