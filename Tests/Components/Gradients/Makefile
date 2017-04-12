@@ -28,7 +28,7 @@ ifeq '$(FC)''gfortran'
       FFLAGS = -cpp -O0 -g -fcheck=all -Wno-unused-variable -fbacktrace -fbounds-check -finit-real=snan  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries -D_has_Quad
    else 
   	$(info MODE = RELEASE)
-      FFLAGS = -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash -fopenmp#-fdefault-integer-8 #-fopt-info-all
+      FFLAGS = -cpp -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash -fopenmp#-fdefault-integer-8 #-fopt-info-all
    endif
 endif
 

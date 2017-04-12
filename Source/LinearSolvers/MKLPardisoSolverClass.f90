@@ -2,8 +2,7 @@
 !
 !      PetscSolverClass.f90
 !      Created: 2017-04-10 10:006:00 +0100 
-!      By: Carlos Redondo
-!          Andrés Rueda (small modifications)
+!      By: Andrés Rueda
 !
 !      Class for solving linear systems using MKL version of Pardiso
 !
@@ -247,7 +246,7 @@ MODULE MKLPardisoSolverClass
                      perm    = this % perm          ,     &     ! ...
                      nrhs    = 1                    ,     &     ! Only one right hand side 
                      iparm   = this % Pardiso_iparm ,     &
-                     msglvl  = 0                    ,     &     ! 1: verbose... Too much printing
+                     msglvl  = 1                    ,     &     ! 1: verbose... Too much printing
                      b       = this % b             ,     &
                      x       = this % x             ,     &
                      ierror  = error              )
