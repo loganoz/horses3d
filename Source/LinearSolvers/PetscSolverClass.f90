@@ -11,6 +11,7 @@
 MODULE PetscSolverClass
    USE GenericLinSolverClass
    USE CSR_Matrices
+   USE SMConstants
    IMPLICIT NONE
 #ifdef HAS_PETSC
 #include <petsc.h>

@@ -1,4 +1,3 @@
-!
 !////////////////////////////////////////////////////////////////////////
 !
 !      CSR_Matrices.f90
@@ -15,9 +14,9 @@ MODULE CSR_Matrices
    !-----------------------------------------------------------------------------
    TYPE csrMat
       REAL(KIND=RP),  POINTER, CONTIGUOUS :: Values(:)=>NULL()  ! Values of nonzero entries of matrix
-      INTEGER,        POINTER, CONTIGUOUS :: Cols(:)=>NULL()    ! Column indices that correspond to each value
-      INTEGER,        POINTER, CONTIGUOUS :: Rows(:)=>NULL()    ! Row indices (index of first value of each row)
-      INTEGER,        POINTER, CONTIGUOUS :: Diag(:)=>NULL()    ! Array containing position of the diagonal entry (handy for some calculations)
+      INTEGER,        POINTER, CONTIGUOUS :: Cols(:)  =>NULL()  ! Column indices that correspond to each value
+      INTEGER,        POINTER, CONTIGUOUS :: Rows(:)  =>NULL()  ! Row indices (index of first value of each row)
+      INTEGER,        POINTER, CONTIGUOUS :: Diag(:)  =>NULL()  ! Array containing position of the diagonal entry (handy for some calculations)
       
       INTEGER                             :: NumRows            ! Number of rows of matrix
       INTEGER                             :: NumCols            ! Number of colunms of matrix
@@ -27,11 +26,17 @@ MODULE CSR_Matrices
       GENERIC, PUBLIC                     :: construct  => CSR_CreateMatnnz, CSR_CreateMatnnzs
       PROCEDURE                           :: assigndiag => CSR_AssignDiag
       PROCEDURE                           :: Visualize  => CSR2Visualize
+      PROCEDURE                           :: destroy
+      PROCEDURE                           :: SetMatShift
+      PROCEDURE                           :: SetColumn
+      PROCEDURE                           :: SetElem
       
       PROCEDURE, PRIVATE                  :: CSR_CreateMatnnz, CSR_CreateMatnnzs
    END TYPE
    !-----------------------------------------------------------------------------   
-
+   
+   PRIVATE
+   PUBLIC                                 :: csrMat, CSR_MatVecMul
 !
 !========
  CONTAINS
@@ -160,6 +165,97 @@ MODULE CSR_Matrices
    END SUBROUTINE CSR_AssignDiag
    !----------------------------------------------------------------------------------
    
+   !------------------------------------------------------------------------------
+   SUBROUTINE SetColumn(A, RowIndexes, ColNum, Values )
+   !    Adds values to (part of) a column of a csr matrix
+   !------------------------------------------------------------------------------
+      IMPLICIT NONE
+      !------------------------------------------------------------------------------ 
+      CLASS(csrMat)                 :: A                 !<> Global matrix
+      INTEGER       , INTENT(IN)    :: RowIndexes(1:)    !< Different positions of Column
+      INTEGER       , INTENT(IN)    :: ColNum            !< Number of Row/Column
+      REAL(KIND=RP) , INTENT(IN)    :: Values(:)         !< Values to be added to global matrivx¿x
+      !------------------------------------------------------------------------------ 
+      INTEGER :: NumRows, i,Row !,k,l,c,
+      !------------------------------------------------------------------------------
+      
+      NumRows = SIZE(RowIndexes)
+      
+      IF (NumRows .NE. SIZE(Values)) THEN
+         WRITE (*,*) 'CSR_AddToCol: Dimension error (Values-RowIndexes)'
+         STOP
+      END IF
+      
+      IF ( ColNum <= 0 ) THEN
+         WRITE (*,*) 'CSR_AddToCol: ColNum error'
+         STOP
+      END IF
+      
+      DO i=1,NumRows
+         Row = RowIndexes(i)
+         IF ( Row <=0 ) CYCLE
+         
+         CALL A % SetElem(Row,ColNum,Values(i))
+      END DO
+      
+   !------------------------------------------------------------------------------
+   END SUBROUTINE SetColumn
+   !------------------------------------------------------------------------------
+  
+   !------------------------------------------------------------------------------
+   SUBROUTINE SetElem( A,i,j,Aij)
+   !   Set given value to an element of a CSR matrix
+   !------------------------------------------------------------------------------
+      IMPLICIT NONE
+      !------------------------------------------------------------------------------ 
+      CLASS(csrMat), INTENT(INOUT)    :: A     !<>Matrix to be changed
+      INTEGER      , INTENT(IN)       :: i     !< row of the matrix element
+      INTEGER      , INTENT(IN)       :: j     !< column number of the matrix element
+      REAL(KIND=RP), INTENT(IN)       :: Aij   !< new value of the matrix element
+      !------------------------------------------------------------------------------ 
+      INTEGER                         :: k
+      !------------------------------------------------------------------------------
+   
+      IF(i .GT. A % NumRows .OR. j .GT. A % NumCols ) THEN
+         WRITE (*,*) 'CSR_SetElement: Dimension error'
+         STOP
+      END IF
+      
+      k = CSR_Search(A,i,j)
+      A % Values(k) = Aij
+   !------------------------------------------------------------------------------
+   END SUBROUTINE SetElem
+   !------------------------------------------------------------------------------
+   
+   !------------------------------------------------------------------------------
+   FUNCTION CSR_Search (A,i,j) RESULT(k)
+   !    Obtains the position k for the information of A(i,j) --> A % Values (k)
+   !       (supposing that A is ordered)
+   !------------------------------------------------------------------------------
+      IMPLICIT NONE
+      !------------------------------------------------------------------------------ 
+      TYPE(csrMat)  , INTENT(IN) :: A         !< Matrix to be searched
+      INTEGER       , INTENT(IN) :: i, j      !< Position to bi searched
+      INTEGER                    :: k         !> Position in A%Values of A(i,j)
+      !------------------------------------------------------------
+    
+      IF(i .GT. A % NumRows .OR. j .GT. A % NumCols ) THEN
+         WRITE (*,*) 'CSR_Search: Dimension error'
+         STOP
+      END IF
+
+      DO k = A % Rows(i), A % Rows(i+1)-1
+         IF(A % Cols(k) == j) EXIT
+      END DO
+
+      IF (k == A % Rows(i+1)) THEN
+         WRITE(*,*) 'CSR_Search: Error. Searched position not defined in matrix.'
+         STOP
+      END IF
+   !------------------------------------------------------------------------------
+   END FUNCTION CSR_Search
+   !------------------------------------------------------------------------------
+   
    !----------------------------------------------------------------------------------
    SUBROUTINE CSR2Visualize(this,FileName,FirstRow)
    !  Creates a file <<FileName>> with the entries of the csr matrix
@@ -196,8 +292,91 @@ MODULE CSR_Matrices
          
       ClOSE(fd)
       
-  !----------------------------------------------------------------------------------
-  END SUBROUTINE CSR2Visualize
-  !----------------------------------------------------------------------------------
+   !----------------------------------------------------------------------------------
+   END SUBROUTINE CSR2Visualize
+   !----------------------------------------------------------------------------------
   
+  !----------------------------------------------------------------------------------
+   SUBROUTINE destroy(this)
+   !----------------------------------------------------------------------------------
+      IMPLICIT NONE
+      !------------------------------------------
+      CLASS(csrMat), INTENT(INOUT) :: this
+      !------------------------------------------
+      
+      NULLIFY(this % Rows)
+      NULLIFY(this % Cols)
+      NULLIFY(this % Values)
+      NULLIFY(this % Diag)
+   !----------------------------------------------------------------------------------
+   END SUBROUTINE destroy
+   !----------------------------------------------------------------------------------
+   
+   !----------------------------------------------------------------------------------
+   SUBROUTINE SetMatShift(this,shift)
+   !----------------------------------------------------------------------------------
+      IMPLICIT NONE
+      !------------------------------------------
+      CLASS(csrMat), INTENT(INOUT) :: this
+      REAL(KIND=RP), INTENT(IN)    :: shift
+      !------------------------------------------
+      INTEGER                      :: i
+      !------------------------------------------
+      
+      DO i=1, this % NumRows
+         this % Values(this % Diag(i)) = this % Values(this % Diag(i)) + shift
+      END DO 
+      
+   !----------------------------------------------------------------------------------
+   END SUBROUTINE SetMatShift
+   !----------------------------------------------------------------------------------
+   
+   !------------------------------------------------------------------------------
+   FUNCTION CSR_MatVecMul( A,u) RESULT(v)
+   ! Matrix vector product (v = Au) for a CSR matrix .... v needs to be allocated beforehand
+   !   Assuming there's MKL
+   !------------------------------------------------------------------------------
+      REAL(KIND=RP), DIMENSION(:)  , INTENT(IN)  :: u  !< Vector to be multiplied
+      TYPE(csrMat)                 , INTENT(IN)  :: A  !< Structure holding matrix
+      REAL(KIND=RP), DIMENSION(A % NumRows)      :: v  !> Result vector 
+      !------------------------------------------------------------------------------
+      INTEGER       :: i,j
+      REAL(KIND=RP) :: rsum
+      !------------------------------------------------------------------------------
+#ifdef HAS_MKL
+      !The interface is not really necessary, but it's better to have it
+      INTERFACE
+         SUBROUTINE mkl_dcsrgemv(transa, m, a, ia, ja, x, y)
+            USE SMConstants
+            
+            CHARACTER      :: transa
+            INTEGER        :: m
+            REAL(KIND=RP)  :: a(*)
+            INTEGER        :: ia(*), ja(*)
+            REAL(KIND=RP)  :: x(*), y(*)
+         END SUBROUTINE mkl_dcsrgemv
+      END INTERFACE
+#endif
+      !------------------------------------------------------------------------------
+    
+      IF (A % NumCols .NE. SIZE(U) .OR. A % NumRows .NE. SIZE(v)) THEN
+         STOP 'CSR_MatVecMul: Error - u dimensions mismatch'
+      END IF
+    
+#ifdef HAS_MKL
+      CALL mkl_dcsrgemv('N', A % NumRows, A % Values, A % Rows, A % Cols, u, v)
+#else
+      !$omp parallel do private(j,rsum)
+      DO i=1,A % NumRows
+         rsum = 0.0d0
+         DO j=A % Rows(i),A % Rows(i+1)-1
+            rsum = rsum + u(A % Cols(j)) * A % Values(j)
+         END DO
+         v(i) = rsum
+      END DO
+      !$omp end parallel do
+#endif
+   !------------------------------------------------------------------------------
+   END FUNCTION
+   !------------------------------------------------------------------------------
 END MODULE

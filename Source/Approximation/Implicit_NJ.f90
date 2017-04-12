@@ -10,13 +10,16 @@
 !////////////////////////////////////////////////////////////////////////
 MODULE Implicit_NJ
 
-   USE SMConstants,                 ONLY: RP                  
+   USE SMConstants                  
    USE DGSEMClass,                  ONLY: DGSem, ComputeTimeDerivative
    USE ElementClass,                ONLY: Element, allocateElementStorage    !arueda: No DGSolutionStorage implemented in nslite3d... Using whole element definitions
    USE PhysicsStorage,              ONLY: N_EQN, N_GRAD_EQN, flowIsNavierStokes
    USE Jacobian,                    ONLY: Neighbour, Look_for_neighbour           
    USE ColorsClass,                 ONLY: Colors
-   USE PetscSolverClass
+   USE LinearSolverClass
+!~   USE PetscSolverClass
+!~   USE MKLPardisoSolverClass
+   
    USE CSR_Matrices
    USE FTValueDictionaryClass
    
@@ -45,7 +48,7 @@ MODULE Implicit_NJ
       REAL(KIND=RP)                                         :: localMaxResidual(N_EQN)
       INTEGER                                               :: id, eq
       !--------------------------------------------------------
-      
+      CHARACTER(len=LINE_LENGTH)                            :: LinearSolver
         
       CLASS(GenericLinSolver_t), POINTER                    :: linsolver           ! Linear solver (as an abstract type, it must be declared as CLASS)
       INTEGER                                               :: cli, clf, clrate
@@ -69,16 +72,27 @@ MODULE Implicit_NJ
       INTEGER        :: MAX_NEWTON_ITER = 30          ! If newton iter reachs this limit, this iteration is marked as  not converged 
       INTEGER        :: LIM_NEWTON_ITER = 12          ! If Newton converges but this limit is reached, jacobian matrix will be recomputed
       
+      
+      
       SAVE isfirst, computeA, ninner, JacByConv
       SAVE u_N, DimPrb, nelm, linsolver
       
 
       IF (isfirst) THEN           
+         isfirst = .FALSE.
          
          !Which linear solver?
-         linsolver => PetscKspLinearSolver
+         LinearSolver = controlVariables % StringValueForKey("linear solver",LINE_LENGTH)
+         SELECT CASE (LinearSolver)
+            CASE('petsc')
+               linsolver => PetscKspLinearSolver
+            CASE('pardiso')
+               linsolver => MKLPardisoSolver
+            CASE DEFAULT
+               print*, "Keyword 'linear solver' missing... Using PETSc as default"
+               linsolver => PetscKspLinearSolver
+         END SELECT
          
-         isfirst = .FALSE.
          nelm = SIZE(sem%mesh%elements)
          ALLOCATE(Nx(nelm))
          ALLOCATE(Ny(nelm))
@@ -204,7 +218,7 @@ MODULE Implicit_NJ
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE NewtonSolve(sem, t, dt, ecolors, nbr, linsolver, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
-                          INFO, minrate,JacByConv,ConvRate, niter,CONVERGED)   ! arueda: ", ExternalState, ExternalGradients" deleted since they are not used
+                          INFO, minrate,JacByConv,ConvRate, niter,CONVERGED)
 !     
 !     ----------------------
 !     Input-Output arguments
@@ -215,7 +229,7 @@ MODULE Implicit_NJ
       REAL(KIND=RP),                INTENT(IN)              :: dt              !< Inner dt
       TYPE(Colors),                 INTENT(IN)              :: ecolors
       TYPE(Neighbour),DIMENSION(:), INTENT(IN)              :: nbr
-      CLASS(GenericLinSolver_t),     INTENT(INOUT)          :: linsolver       !Linear operator is calculate outside this subroutine
+      CLASS(GenericLinSolver_t),    INTENT(INOUT)           :: linsolver       !Linear operator is calculate outside this subroutine
       INTEGER,                      INTENT(IN)              :: nelm
       REAL(KIND=RP), DIMENSION(0:), INTENT(IN)              :: u_N
       INTEGER,                      INTENT(IN)              :: MAX_NEWTON_ITER

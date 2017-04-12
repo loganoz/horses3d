@@ -4,17 +4,20 @@
 !      Created: 2017-04-10 10:006:00 +0100 
 !      By: Andrés Rueda
 !
-!      Class for defining type-bound procedures of linear solvers
+!      Class for defining common variables and type-bound procedures of linear solvers
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE GenericLinSolverClass
    USE SMConstants
    IMPLICIT NONE
    
+   PRIVATE
+   PUBLIC GenericLinSolver_t
+   
    TYPE, ABSTRACT :: GenericLinSolver_t
       LOGICAL                                     :: converged = .FALSE.   ! The solution converged?
       INTEGER                                     :: DimPrb                ! Dimension of the problem
-      INTEGER                                     :: niter                 ! Number of iterations to reach solution (for iterative solvers)
+      INTEGER                                     :: niter = 0             ! Number of iterations to reach solution (for iterative solvers)
    CONTAINS
       !Subroutines:
       PROCEDURE(IConstruct)      , pass, DEFERRED :: construct

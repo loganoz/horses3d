@@ -11,12 +11,18 @@
 FC ?= gfortran
 FTObject_PATH ?= ./ftobjectlibrary
 NSLITE3D_PATH ?= .
+
 #PETSc options:
 #  If you are installing with petsc, make WITH_PETSC=y and set PETSC_LIB and PETSC_INC
 WITH_PETSC =n
 PETSC_LIB := -L/home/andresrueda/Programs/petsc/linux-gnu-mpich/lib/ -lpetsc #libpetsc.so
 PETSC_INC := -I/home/andresrueda/Programs/petsc/include -I/home/andresrueda/Programs/petsc/linux-gnu-mpich/include
 
+#MKL options:
+#  If you are installing with MKL, make WITH_MKL=y... and, if using gortran, set LIB_BLAS and LIB_LAPACK 
+WITH_MKL =n
+LIB_LAPACK = /opt/intel/mkl/lib/intel64/libmkl_lapack95_lp64.a
+LIB_BLAS = /opt/intel/mkl/lib/intel64/libmkl_blas95_lp64.a  -L/opt/intel/mkl/lib/intel64 -Wl,--no-as-needed -lmkl_gf_lp64 -lmkl_intel_thread -lmkl_core  -lpthread -lm -ldl -L/opt/intel/lib/intel64_lin/ -liomp5
 
 #-----------------------------------------------------------
 FFLAGS ?= -cpp -D_has_Quad
@@ -24,20 +30,33 @@ INCLUDE ?= -I$(FTObject_PATH)/include
 LIBS = 
 MACROS = 
 
-
-
 ifeq ($(FC),gfortran)
   MOD_FLAG ?= -J
 else
   MOD_FLAG ?= -module 
 endif
 
+# -------------- HERE WE LINK THE LIBRARIES ------
+#PETSc
 ifeq '$(WITH_PETSC)''y'
   MACROS+= -DHAS_PETSC
   LIBS += $(PETSC_LIB)
   INCLUDE+= $(PETSC_INC)
 endif
 
+#MKL
+ifeq '$(WITH_MKL)''y'
+	ifeq '$(FC)''gfortran'
+		MACROS+= -DHAS_MKL
+  	LIBS += $(LIB_BLAS) $(LIB_LAPACK)
+  else #ifort
+  	MACROS+= -DHAS_MKL
+  	FCFLAGS+= -mkl
+  endif
+endif
+
+
+# ------------------------------------------------
 include $(FTObject_PATH)/Makefile.ftobjectlibrary
 
 
@@ -50,7 +69,7 @@ OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter
 		DGSEMClass DGSpaceAndTimeDerivativeMethods NodalStorageClass\
 		PlotterDataSource Headers\
 		ReadInputFile Setup TimeIntegrator ProblemFile\
-		NSLite3DMain Implicit_JF JFNKClass GMRESClass ConnectivityClass Implicit_NJ Jacobian ColorsClass PetscSolverClass CSR_Matrices GenericLinSolverClass
+		NSLite3DMain Implicit_JF JFNKClass GMRESClass ConnectivityClass Implicit_NJ Jacobian ColorsClass PetscSolverClass CSR_Matrices GenericLinSolverClass MKLPardisoSolverClass LinearSolverClass
 
 # --------------- Dependencies 
 NSLite3DMain: TimeIntegrator \
@@ -92,13 +111,14 @@ ProblemFile: SMConstants Physics BoundaryConditions MeshTypes Assert DGSEMClass
 Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
 JFNKClass: SMConstants GMRESClass
 GMRESClass: SMConstants
-Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass PetscSolverClass CSR_Matrices
+Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices
 Jacobian: SMConstants DGSEMClass Physics
 ColorsClass: DGSEMClass
 PetscSolverClass: CSR_Matrices GenericLinSolverClass SMConstants
 CSR_Matrices: SMConstants
 GenericLinSolverClass: SMConstants CSR_Matrices
-
+MKLPardisoSolverClass: SMConstants CSR_Matrices PetscSolverClass
+LinearSolverClass: MKLPardisoSolverClass PetscSolverClass
 
 # ######################################### #
 # --------- DO NOT EDIT ------------------- #
