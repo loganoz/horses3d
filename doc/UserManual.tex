@@ -1,0 +1,116 @@
+\documentclass[a4paper,10pt]{report}
+%\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{float} 
+\usepackage{multirow}
+\usepackage{vmargin}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{subfigure}
+\usepackage{afterpage}
+\usepackage[calcwidth]{titlesec}
+\usepackage{verbatim}
+\usepackage[hidelinks]{hyperref}
+\usepackage{multicol}
+\usepackage{pfnote}
+\usepackage{fnpos}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{algorithm,algpseudocode}
+\usepackage{epstopdf}
+\usepackage{tcolorbox}
+\setmarginsrb{2cm}{2cm}{2cm}{2cm}{0cm}{0cm}{0cm}{0.5cm}%{left}{top}{right}{bottom}{headhgt}{}
+%\numberwithin{equation}{section}
+%Bibliography style:
+\bibliographystyle{elsarticle-num}
+%\biboptions{sort&compress}
+%opening
+
+\definecolor{mygreen}{RGB}{28,172,0} % color values Red, Green, Blue
+\definecolor{mylilas}{RGB}{170,55,241}
+
+
+\title{\textbf{NSLITE3D \\ User Manual}}
+\author{Andrés Rueda \\ Many others (future?)}
+
+\begin{document}
+
+\lstset{backgroundcolor = \color{lightgray},
+    language=Matlab,%
+    %basicstyle=\color{red},
+    breaklines=true,%
+    morekeywords={matlab2tikz},
+    keywordstyle=\color{blue},%
+    morekeywords=[2]{1}, keywordstyle=[2]{\color{black}},
+    identifierstyle=\color{black},%
+    stringstyle=\color{mylilas},
+    commentstyle=\color{mygreen},%
+    showstringspaces=false,%without this there will be a symbol in the places where there is a space
+    numbers=left,%
+    numberstyle={\tiny \color{black}},% size of the numbers
+    numbersep=9pt, % this defines how far the numbers are from the text
+    emph=[1]{for,end,break},emphstyle=[1]\color{red}, %some words to emphasise
+    %emph=[2]{word1,word2}, emphstyle=[2]{style},    
+}
+
+\maketitle
+
+\tableofcontents
+
+\chapter{Implicit solvers}
+\section{Keywords}
+The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
+
+\begin{table}[htbp]
+\caption{Keywords for implicit solvers.}
+\begin{tabular}{|l|p{10cm}|l|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+implicit time & \textit{LOGICAL}: When .TRUE., NSLITE3D performs implicit time integration in every time step. & \multicolumn{1}{c|}{.FALSE.} \\ \hline
+jacobian flag           & \textit{INTEGER}: Specifies the type of Jacobian matrix to be computed. Options are:\
+				\begin{enumerate}
+					\item Jacobian free: Uses JFNK algorithm with GMRES linear solver.
+					\item Numerical Jacobian: Uses coloring algorithm for computing Jacobian.
+					\item Analytical Jacobian: Not yet implemented.
+					\end{enumerate}
+										& \multicolumn{1}{c|}{1} \\ \hline
+time integration        & \textit{CHARACTER}: Specifies if NSLITE3D must perform a 'steady-state' or a 'time-accurate' simulation. &  'steady-state'\\ \hline
+jacobian by convergence & \textit{LOGICAL}: When .TRUE., the Jacobian is only computed when the convergence falls beneath some threshold (see keyfords: blah and blah blah). This improves performance but can introduce big numerical errors for time-accurate simulations.  & .FALSE. \\ \hline
+linear solver           & \textit{CHARACTER}: Specifies the linear solver that has to be used. Options are:\ 
+				\begin{itemize}
+					\item 'petsc': PETSc library Krylov-Subspace methods.
+					\item 'pardiso': Intel MKL PARDISO.
+				\end{itemize}
+										& 'petsc'  \\ \hline
+  &  &  \\ \hline
+   &  &  \\ \hline
+    &  &  \\ \hline
+\end{tabular}
+\label{tab:implicitkey}
+\end{table}
+
+
+\chapter{Restarting a case}
+
+\begin{table}[htbp]
+\caption{Keywords for restarting a case.}
+\begin{tabular}{|l|p{10cm}|p{2cm}|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+restart file name   & \textit{CHARACTER}: Name of the restart file to be written and, if keyword \textit{restart} = .TRUE., also name of the restart file to be read for starting the simulation. & \textbf{Mandatory\ keyword} \\ \hline
+restart 			& \textit{LOGICAL}: If .TRUE., initial conditions of simulation will be read from restart file specified using the keyword \textit{restart file name}. & \textbf{Mandatory keyword} \\ \hline
+restart interval    & \textit{INTEGER}: Indicates how often restart files have to be written. & Huge number \\ \hline
+\end{tabular}
+\label{tab:restartkey}
+\end{table}
+
+
+
+
+
+\bibliography{../LaTeX/9_backmatter/library}
+
+\end{document}
+
