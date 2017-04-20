@@ -10,8 +10,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!   TODO: !> Check time accurate integration!
-!
       MODULE TimeIntegratorClass
       
       USE SMConstants
@@ -173,7 +171,6 @@
 !
       SUBROUTINE Integrate( self, sem, controlVariables)
       
-      USE Implicit_JF , ONLY : TakeBDFStep
       IMPLICIT NONE
 !
 !     ---------
@@ -197,9 +194,6 @@
       CHARACTER(LEN=2)      :: numChar
       EXTERNAL              :: ExternalState, ExternalGradients
       
-      ! For Implicit
-      LOGICAL               :: imp !implicit?
-      
       ! For saving restarts
       CHARACTER(len=LINE_LENGTH)    :: RestFileName
       INTEGER                       :: RestartInterval
@@ -209,7 +203,6 @@
 !     Read Control variables
 !     ----------------------
 !
-      imp              = controlVariables % LogicalValueForKey("implicit time")
       RestFileName     = controlVariables % StringValueForKey("restart file name",LINE_LENGTH)
       RestartInterval  = controlVariables % IntegerValueForKey("restart interval") !If not present, RestartInterval=HUGE
 !
@@ -226,11 +219,7 @@
             self % dt = MaxTimeStep( sem, self % cfl )
          END IF
          
-         IF (imp) THEN
-           CALL TakeBDFStep (sem, t , self%dt , maxResidual)
-         ELSE
-           CALL self % RKStep ( sem, t, self % dt, maxResidual )
-         END IF
+         CALL self % RKStep ( sem, t, self % dt, maxResidual )
          
          t = t + self % dt                    !arueda: changed since time step does not have to be constant!
          
