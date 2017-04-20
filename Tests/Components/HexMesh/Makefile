@@ -43,6 +43,7 @@ else ifeq ($(COMPILER),ifort)
      FFLAGS = -cpp -O3 -assume bscc -D_has_Quad
    endif
 endif
+FFLAGS += -D_has_Quad
 
 
 # ------------- LIBRARIES ------------------------

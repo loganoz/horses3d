@@ -199,6 +199,19 @@
       
       ! For Implicit
       LOGICAL               :: imp !implicit?
+      
+      ! For saving restarts
+      CHARACTER(len=LINE_LENGTH)    :: RestFileName
+      INTEGER                       :: RestartInterval
+      
+!
+!     ----------------------
+!     Read Control variables
+!     ----------------------
+!
+      imp              = controlVariables % LogicalValueForKey("implicit time")
+      RestFileName     = controlVariables % StringValueForKey("restart file name",LINE_LENGTH)
+      RestartInterval  = controlVariables % IntegerValueForKey("restart interval") !If not present, RestartInterval=HUGE
 !
 !     -----------------
 !     Integrate in time
@@ -206,8 +219,6 @@
 !
       mNumber = 0
       t = self % time
-      
-      imp= controlVariables % LogicalValueForKey("implicit time")
       
       DO k = 0, self % numTimeSteps-1
       
@@ -236,6 +247,8 @@
             self % time              = t     
             IF (self % time > self % tFinal) EXIT
          END IF
+         
+         IF (MOD( k+1, RestartInterval) == 0) CALL SaveRestart(sem,k+1,t,RestFileName)
          
          IF( (MOD( k+1, self % plotInterval) == 0) .or. (k .eq. 0) )     THEN
           CALL UserDefinedPeriodicOperation(sem,t)
@@ -359,5 +372,34 @@
     shown = shown + 1
 
    end subroutine PlotResiduals
-
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE SaveRestart(sem,k,t,RestFileName)
+      IMPLICIT NONE
+!
+!     ------------------------------------
+!     Save the results to the restart file
+!     ------------------------------------
+!
+!     ----------------------------------------------
+      TYPE(DGSem)                  :: sem            !< DGsem class
+      INTEGER                      :: k              !< Time step
+      REAL(KIND=RP)                :: t              !< Simu time
+      CHARACTER(len=*)             :: RestFileName   !< Name of restart file
+!     ----------------------------------------------
+      INTEGER                      :: fd             !  File unit for new restart file
+      CHARACTER(len=LINE_LENGTH)   :: FinalName      !  Final name for particular restart file
+!     ----------------------------------------------
+      
+      WRITE(FinalName,'(2A,I7.7,A,ES9.3,A)')  TRIM(RestFileName),'_step_',k,'_time_',t,'.rst'
+      
+      OPEN( newunit = fd             , &
+            FILE    = TRIM(FinalName), & 
+            ACTION  = 'WRITE'        , &
+            FORM = "UNFORMATTED")
+         CALL SaveSolutionForRestart( sem, fd )
+      CLOSE (fd)
+   
+   END SUBROUTINE SaveRestart
 END MODULE TimeIntegratorClass

@@ -283,8 +283,6 @@
       END DO
       grad_x = 0.5_RP*grad_x
 !
-      RETURN
-
       END SUBROUTINE GradHex8TransfiniteMap
 !
 !///////////////////////////////////////////////////////////////////////////////
@@ -452,7 +450,6 @@
                      + corners(j,7)*       xi(1)*        xi(2)*        xi(3)
       END DO
 !
-      RETURN
       END SUBROUTINE ComputeHexTransfiniteMap
 !
 !     ///////////////////////////////////////////////////////////////////////
@@ -743,7 +740,6 @@
                                    + corners(j,7)*        xi(1) *       xi(2)
       END DO
 !
-      RETURN
       END SUBROUTINE ComputeGradHexTransfiniteMap
 !
 !     ///////////////////////////////////////////////////////////////////////
@@ -886,7 +882,6 @@
 !
 
 !
-      RETURN
       END SUBROUTINE GeneralHexGradAndMap
       
       END MODULE TransfiniteMapClass
