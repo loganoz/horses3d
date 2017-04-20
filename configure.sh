@@ -31,4 +31,10 @@ cp -v ./Tests/make.inc ./Tests/Euler/JFNK/make.inc
 cp -v ./Tests/make.inc ./Tests/NavierStokes/Cylinder/make.inc
 cp -v ./Tests/make.inc ./Tests/NavierStokes/FlatPlate/make.inc
 
-
+cp -v ./Tests/Makefile.template ./Tests/Euler/BoxAroundCircle/Makefile
+cp -v ./Tests/Makefile.template ./Tests/Euler/diffuser/Makefile
+cp -v ./Tests/Makefile.template ./Tests/Euler/PeriodicFlow/Makefile
+cp -v ./Tests/Makefile.template ./Tests/Euler/UniformFlow/Makefile
+cp -v ./Tests/Makefile.template ./Tests/Euler/JFNK/Makefile
+cp -v ./Tests/Makefile.template ./Tests/NavierStokes/Cylinder/Makefile
+cp -v ./Tests/Makefile.template ./Tests/NavierStokes/FlatPlate/Makefile
