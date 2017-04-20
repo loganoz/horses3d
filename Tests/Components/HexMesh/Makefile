@@ -26,10 +26,10 @@ ifeq ($(COMPILER),gfortran)
    FC=gfortran
    ifeq ($(MODE),DEBUG)
       $(info Compiling with gfortran in DEBUG mode.)
-      FFLAGS = -D_has_Quad -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable -fbacktrace -fbounds-check -finit-real=snan  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries
+      FFLAGS = -ffree-line-length-0 -O0 -g -fcheck=all -Wno-unused-variable -fbacktrace -fbounds-check -finit-real=snan  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries
    else 
      $(info Compiling with gfortran in RELEASE mode.)
-     FFLAGS = -D_has_Quad -cpp -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash -fopenmp#-fdefault-integer-8 #-fopt-info-all
+     FFLAGS = -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash -fopenmp#-fdefault-integer-8 #-fopt-info-all
    endif
 
 else ifeq ($(COMPILER),ifort)
@@ -37,13 +37,13 @@ else ifeq ($(COMPILER),ifort)
    FC=ifort
    ifeq ($(MODE),DEBUG)
      $(info Compiling with intel fortran in DEBUG mode.)
-     FFLAGS = -D_has_Quad -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all -check bounds -check uninit -ftrapuv -debug all -gen-interfaces -warn interfaces -ftrace=full -assume ieee_fpe_flags -ftz -fp-model precise -fp-speculation=off -assume bscc 
+     FFLAGS = -O0 -g -warn all -fpscomp logicals -traceback -check all -check bounds -check uninit -ftrapuv -debug all -gen-interfaces -warn interfaces -ftrace=full -assume ieee_fpe_flags -ftz -fp-model precise -fp-speculation=off -assume bscc 
    else 
      $(info Compiling with intel fortran in RELEASE mode.)
-     FFLAGS = -cpp -O3 -assume bscc -D_has_Quad
+     FFLAGS = -O3 -assume bscc
    endif
 endif
-FFLAGS += -D_has_Quad
+FFLAGS += -cpp -D_has_Quad
 
 
 # ------------- LIBRARIES ------------------------
