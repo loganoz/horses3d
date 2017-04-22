@@ -39,7 +39,7 @@
       
       REAL(KIND=RP)                       :: dt, cfl
       LOGICAL                             :: success
-      INTEGER                             :: plotUnit, restartUnit
+      INTEGER                             :: plotUnit, restartUnit, saveUnit
       INTEGER, EXTERNAL                   :: UnusedUnit
       EXTERNAL                            :: externalStateForBoundaryName
       EXTERNAL                            :: ExternalGradientForBoundaryName
@@ -88,7 +88,7 @@
          OPEN( UNIT = restartUnit, &
                FILE = controlVariables % stringValueForKey(restartFileNameKey,requestedLength = LINE_LENGTH), &
                FORM = "UNFORMATTED" )
-               CALL LoadSolutionForRestart( sem, restartUnit )
+               CALL sem % LoadSolutionForRestart( restartUnit )
          CLOSE( restartUnit )
       ELSE
          CALL UserDefinedInitialCondition(sem , controlVariables)
@@ -139,13 +139,13 @@
 !     Save the results to the restart file
 !     ------------------------------------
 !
-      IF(controlVariables % stringValueForKey(restartFileNameKey,LINE_LENGTH) /= "none")     THEN 
-         restartUnit = UnusedUnit()
-         OPEN( UNIT = restartUnit, &
-               FILE = controlVariables % stringValueForKey(restartFileNameKey,LINE_LENGTH), &
+      IF(controlVariables % stringValueForKey(saveFileNameKey,LINE_LENGTH) /= "none")     THEN 
+         saveUnit = UnusedUnit()
+         OPEN( UNIT = saveUnit, &
+               FILE = controlVariables % stringValueForKey(saveFileNameKey,LINE_LENGTH), &
                FORM = "UNFORMATTED" )
-               CALL SaveSolutionForRestart( sem, restartUnit )
-         CLOSE( restartUnit )
+               CALL sem % SaveSolutionForRestart( saveUnit )
+         CLOSE( saveUnit )
       END IF
 !
 !     ----------------
@@ -201,7 +201,7 @@
          INTEGER                              :: faceID, eId
          CHARACTER(LEN=BC_STRING_LENGTH)      :: bcName, namedBC
          CHARACTER(LEN=BC_STRING_LENGTH)      :: bcType
-         CLASS(FTMutableObjectArray), POINTER :: bcObjects
+         TYPE(FTMutableObjectArray), POINTER :: bcObjects
          CLASS(FTValue)             , POINTER :: v
          CLASS(FTObject), POINTER             :: obj
          

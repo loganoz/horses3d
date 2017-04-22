@@ -1,3 +1,6 @@
+COMPILER ?= gfortran
+MODE ?= RELEASE
+
 FC=gfortran
 INC_DIR=./include
 BUILD_DIR=./build
@@ -14,23 +17,32 @@ OBJS_REMOVE = $(OBJS_CASE) NSLite3DMain ProblemFile TimeIntegrator
 
 
 # --------------- DO NOT EDIT ----------------------------------------------------
-
-# --------------- CHOOSE OS -----------------------
-
 include make.inc
 
 # -------------- CHOOSE COMPILER ------------------
-ifeq '$(FC)''gfortran'
+ifeq ($(COMPILER),gfortran)
    MOD_FLAG :=-J
-   ifeq '$(MODE)''DEBUG'
-      $(info MODE = DEBUG)
-      #FFLAGS = -ffree-line-length-0 -O0 -g -Wall -fcheck=all -fbacktrace -fbounds-check -finit-real=snan -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries -fbackslash#-fdefault-integer-8 
-      FFLAGS = -cpp -O0 -g -fcheck=all -Wno-unused-variable -fbacktrace -fbounds-check -finit-real=snan  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries
+   FC=gfortran
+   ifeq ($(MODE),DEBUG)
+      $(info Compiling with gfortran in DEBUG mode.)
+      FFLAGS = -ffree-line-length-0 -O0 -g -fcheck=all -Wno-unused-variable -fbacktrace -fbounds-check -finit-real=snan  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries
    else 
-  	$(info MODE = RELEASE)
-      FFLAGS = -cpp -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash -fopenmp #-fdefault-integer-8 #-fopt-info-all
+      $(info Compiling with gfortran in RELEASE mode.)
+      FFLAGS = -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash -fopenmp#-fdefault-integer-8 #-fopt-info-all
+   endif
+
+else ifeq ($(COMPILER),ifort)
+   MOD_FLAG := -module 
+   FC=ifort
+   ifeq ($(MODE),DEBUG)
+     $(info Compiling with intel fortran in DEBUG mode.)
+     FFLAGS = -O0 -g -warn all -fpscomp logicals -traceback -check all -check bounds -check uninit -ftrapuv -debug all -gen-interfaces -warn interfaces -ftrace=full -assume ieee_fpe_flags -ftz -fp-model precise -fp-speculation=off -assume bscc 
+   else 
+     $(info Compiling with intel fortran in RELEASE mode.)
+     FFLAGS = -O3 -assume bscc
    endif
 endif
+FFLAGS += -cpp -D_has_Quad
 
 # ------------- LIBRARIES ------------------------
 INCLUDE=-I$(INC_DIR)
@@ -67,7 +79,7 @@ createFolders:
 
 # ---------- Default compilation rule -----------
 $(OBJS_CASE): %: $(SRC_DIR)/%.f90
-	$(FC) $(FFLAGS) $(INCLUDE) -J$(INC_DIR) -c $< -o $(BUILD_DIR)/$@.o
+	$(FC) $(FFLAGS) $(INCLUDE) $(MOD_FLAG)$(INC_DIR) -c $< -o $(BUILD_DIR)/$@.o
 	
 
 

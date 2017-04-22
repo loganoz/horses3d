@@ -10,13 +10,11 @@ mkdir -p ./Tests/Euler/PeriodicFlow/RestartFiles
 mkdir -p ./Tests/Euler/PeriodicFlow/PlotFiles
 mkdir -p ./Tests/Euler/UniformFlow/RestartFiles
 mkdir -p ./Tests/Euler/UniformFlow/PlotFiles
-mkdir -p ./Tests/Euler/JFNK/RestartFiles
-mkdir -p ./Tests/Euler/JFNK/PlotFiles
 mkdir -p ./Tests/NavierStokes/Cylinder/RestartFiles
 mkdir -p ./Tests/NavierStokes/Cylinder/PlotFiles
 mkdir -p ./Tests/NavierStokes/FlatPlate/RestartFiles
 mkdir -p ./Tests/NavierStokes/FlatPlate/PlotFiles
-echo 'NSLITE3D_PATH = '$PWD'\nFTObject_PATH = '$PWD'/ftobjectlibrary' > ./Tests/make.inc
+printf 'NSLITE3D_PATH = '$PWD'\nFTObject_PATH = '$PWD'/ftobjectlibrary' > ./Tests/make.inc
 cp -v ./Tests/make.inc ./Tests/Components/FacePatches/make.inc
 cp -v ./Tests/make.inc ./Tests/Components/Gradients/make.inc
 cp -v ./Tests/make.inc ./Tests/Components/HexMappings/make.inc
@@ -27,8 +25,12 @@ cp -v ./Tests/make.inc ./Tests/Euler/BoxAroundCircle/make.inc
 cp -v ./Tests/make.inc ./Tests/Euler/diffuser/make.inc
 cp -v ./Tests/make.inc ./Tests/Euler/PeriodicFlow/make.inc
 cp -v ./Tests/make.inc ./Tests/Euler/UniformFlow/make.inc
-cp -v ./Tests/make.inc ./Tests/Euler/JFNK/make.inc
 cp -v ./Tests/make.inc ./Tests/NavierStokes/Cylinder/make.inc
 cp -v ./Tests/make.inc ./Tests/NavierStokes/FlatPlate/make.inc
 
-
+cp -v ./Tests/Makefile.template ./Tests/Euler/BoxAroundCircle/Makefile
+cp -v ./Tests/Makefile.template ./Tests/Euler/diffuser/Makefile
+cp -v ./Tests/Makefile.template ./Tests/Euler/PeriodicFlow/Makefile
+cp -v ./Tests/Makefile.template ./Tests/Euler/UniformFlow/Makefile
+cp -v ./Tests/Makefile.template ./Tests/NavierStokes/Cylinder/Makefile
+cp -v ./Tests/Makefile.template ./Tests/NavierStokes/FlatPlate/Makefile

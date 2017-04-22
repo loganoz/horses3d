@@ -10,8 +10,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!   TODO: !> Check time accurate integration!
-!
       MODULE TimeIntegratorClass
       
       USE SMConstants

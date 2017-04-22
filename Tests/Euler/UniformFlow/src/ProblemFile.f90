@@ -197,7 +197,7 @@
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
-            
+
          END SUBROUTINE UserDefinedFinalize
 !
 !//////////////////////////////////////////////////////////////////////// 
