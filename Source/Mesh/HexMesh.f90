@@ -16,6 +16,7 @@
       USE TransfiniteMapClass
       use SharedBCModule
       use ElementConnectivityDefinitions
+      
       IMPLICIT NONE
 !
 !     ---------------
@@ -166,7 +167,7 @@
 !           (=0 for straight side, 1 for curved)
 !        If curved boundaries, then for each:
 !           for j = 0 to bFaceOrder
-!              x_j  y_j z_j
+!              x_j  y_j  z_j
 !           next j
 !        bname1 bname2 bname3 bname4 bname5 bname6
 !        -----------------------------------------

@@ -96,7 +96,7 @@ SharedBCModule: FTValueDictionaryClass
 FacePatchClass: SMConstants 
 MappedGeometry: SMConstants TransfiniteMaps3D NodalStorageClass 
 TransfiniteMaps3D: SMConstants FacePatchClass 
-FaceClass: SMConstants MeshTypes 
+FaceClass: SMConstants MeshTypes InterpolationAndDerivatives LegendreAlgorithms
 HexElementClass: SMConstants MeshTypes TransfiniteMaps3D HexElementConnectivityDefinitions NodalStorageClass LegendreAlgorithms InterpolationAndDerivatives MappedGeometry ConnectivityClass
 HexElementConnectivityDefinitions: SMConstants 
 HexMesh: Physics FTValueClass FTMultiIndexTable TransfiniteMaps3D FaceClass MeshTypes SharedBCModule NodeClass HexElementClass Headers HexElementConnectivityDefinitions

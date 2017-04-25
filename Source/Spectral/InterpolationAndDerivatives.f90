@@ -256,9 +256,55 @@
 !
 !     ////////////////////////////////////////////////////////////////
 !
-!     ------------------------------------------------------------------
-!!    Compute the value of the interpolant using the barycentric formula
-!     ------------------------------------------------------------------
+!     --------------------------------------------------------------------------
+!!    Compute the value of the interpolant WITHOUT using the barycentric formula
+!     --------------------------------------------------------------------------
+!
+   FUNCTION LagrangeInterpolationNoBar( x, N, nodes, j) RESULT(l)
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP)                 :: l     !>  Lagrange interpolant
+      REAL(KIND=RP)                 :: x     !<  Point of evaluation of interpolant
+      INTEGER                       :: N     !<  Polynomial order  
+      REAL(KIND=RP), DIMENSION(0:N) :: nodes !<  Nodes of Lagrange interpolation
+      INTEGER                       :: j     !<  Index of polynomial to be found
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      INTEGER                       :: i
+      REAL(KIND=RP)                 :: numerator, denominator
+      LOGICAL, EXTERNAL             :: AlmostEqual
+      REAL(KIND=RP), DIMENSION(0:N) :: values
+      !-----------------------------------------------------------------------------
+      
+      values      = 0.0_RP
+      values(j)   = 1.0_RP
+      numerator   = 1.0_RP
+      denominator = 1.0_RP
+
+      DO i = 0, N
+         IF( AlmostEqual( x, nodes(i) ) )    THEN
+            l = values(i)
+            RETURN 
+         ELSE IF (j.ne.i) THEN
+         numerator   = numerator*(x - nodes(i))    
+         denominator = denominator*(nodes(j) - nodes(i))
+         END IF 
+      END DO
+      l = numerator/denominator
+
+   END FUNCTION LagrangeInterpolationNoBar      
+!
+!     ////////////////////////////////////////////////////////////////
+!
+!     -----------------------------------------------------------------------------
+!!    Compute the value of the interpolant derivative using the barycentric formula
+!     -----------------------------------------------------------------------------
 !
       REAL(KIND=RP) FUNCTION LagrangeInterpolantDerivative( x, N, nodes, values, weights)
 !

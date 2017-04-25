@@ -118,6 +118,16 @@
                                       N_EQN, N_GRAD_EQN, flowIsNavierStokes )
       END DO
 !
+!     ------------------------
+!     Construct the mortar
+!     ------------------------
+!
+      DO k=1, SIZE(self % mesh % faces)
+         IF (self % mesh % faces(k) % FaceType == HMESH_INTERIOR) THEN !The mortar is only needed for the interior edges
+            CALL ConstructMortarStorage( self % mesh % faces(k), N_EQN, self % mesh % elements )
+         END IF
+      END DO
+!
 !     -----------------------
 !     Set boundary conditions
 !     -----------------------
@@ -321,7 +331,7 @@
 !
          INTEGER       :: faceID
          INTEGER       :: eIDLeft, eIDRight
-         INTEGER       :: fIDLeft, fIDright
+         INTEGER       :: fIDLeft
          INTEGER       :: N
         
          N = self % spA % N
@@ -329,7 +339,6 @@
          DO faceID = 1, SIZE( self % mesh % faces)
             eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
             eIDRight = self % mesh % faces(faceID) % elementIDs(2)
-            fIDLeft  = self % mesh % faces(faceID) % elementSide(1)
             
             IF ( eIDRight == HMESH_NONE )     THEN
 !
@@ -337,6 +346,8 @@
 !              Boundary face
 !              -------------
 !
+               fIDLeft  = self % mesh % faces(faceID) % elementSide(1)
+               
                CALL computeBoundaryFlux(self % mesh % elements(eIDLeft), fIDLeft, time, self % externalState)
                
             ELSE 
@@ -345,12 +356,10 @@
 !              Interior face
 !              -------------
 !
-               fIDRight =  self % mesh % faces(faceID) % elementSide(2)
                
-               CALL computeElementInterfaceFlux(eL = self % mesh % elements(eIDLeft) ,fIDLeft  = fIDLeft, &
-                                                eR = self % mesh % elements(eIDRight),fIDRight = fIDright,&
-                                                N  = N,                                                   &
-                                                rotation = self % mesh % faces(faceID) % rotation)
+               CALL computeElementInterfaceFlux ( eL       = self % mesh % elements(eIDLeft)  , &
+                                                  eR       = self % mesh % elements(eIDRight) , &
+                                                  thisface = self % mesh % faces(faceID)      )
             END IF 
 
          END DO           
@@ -566,11 +575,11 @@
          END DO           
 !$omp enddo         
          
-      END SUBROUTINE computeGradientAverages            
+      END SUBROUTINE computeGradientAverages
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE computeElementInterfaceFlux( eL, fIDLeft, eR, fIDRight, N, rotation)
+      SUBROUTINE computeElementInterfaceFlux( eL, eR, thisface)
          USE Physics  
          IMPLICIT NONE  
 !
@@ -578,72 +587,77 @@
 !        Arguments
 !        ---------
 !
-         TYPE(Element) :: eL, eR
-         INTEGER       :: fIDLeft, fIdright
-         INTEGER       :: rotation
-         INTEGER       :: N
+         TYPE(Element) :: eL, eR        !<> Left and right elements on interface
+         TYPE(Face)    :: thisface      !<> Face inbetween
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         REAL(KIND=RP) :: flux(N_EQN)
+         INTEGER       :: fIDLeft, fIDRight
+         REAL(KIND=RP) :: norm(3)
          INTEGER       :: i,j,ii,jj
-                  
-         SELECT CASE ( rotation )
-            CASE( 0 ) 
-               DO j = 0, N
-                  DO i = 0, N
-                     CALL RiemannSolver(QLeft  = eL % QB(:,i,j,fIDLeft), &
-                                        QRight = eR % QB(:,i,j,fIDright),&
-                                        nHat   = eL % geom % normal(:,i,j,fIDLeft), &
-                                        flux   = flux)
-                     eL % FStarb(:,i,j,fIDLeft)  =  flux*eL % geom % scal(i,j,fIDLeft)
-                     eR % FStarb(:,i,j,fIdright) = -flux*eR % geom % scal(i,j,fIdright)
-                  END DO   
-               END DO   
-            CASE( 1 )
-                DO j = 0, N
-                  jj = j
-                  DO i = 0, N
-                     ii = N - i
-                     CALL RiemannSolver(QLeft  = eL % QB(:,i ,j,fIDLeft), &
-                                        QRight = eR % QB(:,ii,jj,fIDright),&
-                                        nHat   = eL % geom % normal(:,i,j,fIDLeft), &
-                                        flux   = flux)
-                     eL % FStarb(:,i ,j,fIDLeft)  =   flux*eL % geom % scal(i ,j,fIDLeft)
-                     eR % FStarb(:,ii,jj,fIdright) = -flux*eR % geom % scal(ii,jj,fIdright)
-                  END DO   
-               END DO   
-           CASE( 2 )
-               DO j = 0, N
-                  jj = N - j
-                  DO i = 0, N
-                     ii = N - i
-                     CALL RiemannSolver(QLeft  = eL % QB(:,i,j,fIDLeft), &
-                                        QRight = eR % QB(:,ii,jj,fIDright),&
-                                        nHat   = eL % geom % normal(:,i,j,fIDLeft), &
-                                        flux   = flux)
-                     eL % FStarb(:,i,j,fIDLeft)    =  flux*eL % geom % scal(i,j,fIDLeft)
-                     eR % FStarb(:,ii,jj,fIdright) = -flux*eR % geom % scal(ii,jj,fIdright)
-                  END DO   
-               END DO   
-           CASE( 3 )
-                DO j = 0, N
-                  ii = j
-                  DO i = 0, N
-                     jj = N - i
-                     CALL RiemannSolver(QLeft  = eL % QB(:,i,j,fIDLeft), &
-                                        QRight = eR % QB(:,ii,jj,fIDright),&
-                                        nHat   = eL % geom % normal(:,i,j,fIDLeft), &
-                                        flux   = flux)
-                     eL % FStarb(:,i,j,fIDLeft)  =   flux*eL % geom % scal(i,j,fIDLeft)
-                     eR % FStarb(:,ii,jj,fIdright) = -flux*eR % geom % scal(ii,jj,fIdright)
-                  END DO   
-               END DO   
-           CASE DEFAULT 
-           PRINT *, "Unknown rotation in element faces"
-         END SELECT 
+         INTEGER       :: Nx, Ny          ! Polynomial orders for surface integral
+         INTEGER       :: rotation
+         
+         fIDLeft  = thisface % elementSide(1)
+         fIDRight = thisface % elementSide(2)
+         Nx       = thisface % N                ! TODO: Change when anisotropic polynomials are implemented
+         Ny       = thisface % N                ! TODO: Change when anisotropic polynomials are implemented
+         rotation = thisface % rotation
+!
+!        -----------------
+!        Project to mortar
+!        -----------------
+!
+         CALL ProjectToMortar(thisface, eL % QB(:,:,:,fIDLeft), eR % QB(:,:,:,fIDright), N_EQN)
+!
+!        ----------------------
+!        Compute interface flux
+!        Using Riemann solver
+!        ----------------------
+!
+         norm = eL % geom % normal(:,1,1,fIDLeft)
+         DO j = 0, Ny
+            DO i = 0, Nx
+               CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                              ! This turns according to the rotation of the elements
+               CALL RiemannSolver(QLeft  = thisface % Phi % L(:,i,j)        , &
+                                  QRight = thisface % Phi % R(:,ii,jj)      , &
+                                  nHat   = norm                             , &        ! This works only for flat faces. TODO: Change nHat to be stored in face with the highest polynomial combination!!! 
+                                  flux   = thisface % Phi % C(:,i,j) ) 
+            END DO   
+         END DO 
+!
+!        ------------------------
+!        Project back to elements
+!        ------------------------
+!
+         CALL ProjectFluxToElement  ( thisface                   , &
+                                      eL % FStarb(:,:,:,fIDLeft) , &
+                                      eR % FStarb(:,:,:,fIdright), &
+                                      N_EQN )
+!
+!        ------------------------
+!        Apply metrics correction
+!        ------------------------
+!
+         ! Left element
+         Nx = eL % N      ! TODO: Change when anisotropic polynomials are implemented
+         Ny = eL % N      ! TODO: Change when anisotropic polynomials are implemented
+         DO j = 0, Ny
+            DO i = 0, Nx
+               eL % FStarb(:,i,j,fIDLeft) = eL % FStarb(:,i,j,fIDLeft) * eL % geom % scal(i,j,fIDLeft)
+            END DO   
+         END DO
+         
+         ! Right element
+         Nx = eR % N      ! TODO: Change when anisotropic polynomials are implemented
+         Ny = eR % N      ! TODO: Change when anisotropic polynomials are implemented
+         DO j = 0, Ny
+            DO i = 0, Nx
+               eR % FStarb(:,i,j,fIdright) = eR % FStarb(:,i,j,fIdright) * eR % geom % scal(i,j,fIdright)
+            END DO   
+         END DO
          
       END SUBROUTINE computeElementInterfaceFlux
 !
