@@ -101,7 +101,7 @@
 !////////////////////////////////////////////////////////////////////////
 !
 !  ROUTINE USED TO COMPUTE FACE ROTATION INDEXES
-!     TODO: Check if this is enough ore if one needs 8 indexes!!
+!     TODO: Check if this is enough or if one needs 8 indexes!!
 !////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)
@@ -136,7 +136,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE ConstructMortarStorage( this, Neqn, elems )
+   SUBROUTINE ConstructMortarStorage( this, Neqn, NGradeqn, elems )
       USE ElementClass
       IMPLICIT NONE
 !
@@ -146,6 +146,7 @@
 !      
       TYPE(Face)   , INTENT(INOUT) :: this       !<> Current face
       INTEGER      , INTENT(IN)    :: Neqn       !<  Number of equations
+      INTEGER      , INTENT(IN)    :: NGradeqn   !<  Number of gradient equations
       TYPE(Element), INTENT(IN)    :: elems(:)   !<  Elements in domain
 !
 !     --------------------
@@ -169,10 +170,10 @@
       this % NR = NR
       this % N  = NPhi
       
-      ALLOCATE( this%Phi%L    ( Neqn, 0:NPhi, 0:NPhi ) )
-      ALLOCATE( this%Phi%R    ( Neqn, 0:NPhi, 0:NPhi ) )   
-      ALLOCATE( this%Phi%C    ( Neqn, 0:NPhi, 0:NPhi ) )
-      ALLOCATE( this%Phi%Caux ( Neqn, 0:NPhi, 0:NPhi ) )
+      ALLOCATE( this%Phi%L    ( Neqn    , 0:NPhi, 0:NPhi ) )
+      ALLOCATE( this%Phi%R    ( Neqn    , 0:NPhi, 0:NPhi ) )   
+      ALLOCATE( this%Phi%C    ( Neqn    , 0:NPhi, 0:NPhi ) )
+      ALLOCATE( this%Phi%Caux ( NGradeqn, 0:NPhi, 0:NPhi ) )
 !
 !     -----------------
 !     Initialize memory
@@ -415,6 +416,95 @@
       END IF
       
    END SUBROUTINE ProjectFluxToElement
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE ProjectToElement(this,C,UL,UR,NEqn)
+      IMPLICIT NONE
+!
+!     ---------------------------------------------------------------------
+!     Performs the interpolation of the numerical flux from the Face to the
+!     elements' FStarb
+!     ---------------------------------------------------------------------
+!
+!     ------
+!     Input
+!     ------
+!      
+      TYPE(Face)   , INTENT(INOUT)     :: this         !<> Face 
+      REAL(KIND=RP), INTENT(OUT)       :: C (:,0:,0:)  !>  Variable to be projected
+      REAL(KIND=RP), INTENT(OUT)       :: UL(:,0:,0:)  !>  Boundary solution of left element
+      REAL(KIND=RP), INTENT(OUT)       :: UR(:,0:,0:)  !>  Boundary solution of right element
+      INTEGER      , INTENT(IN)        :: nEqn              !<  Number of equations 
+!
+!     -------------
+!     Local variables
+!     -------------
+!
+      INTEGER   :: iEQ                 ! Equation counter
+      INTEGER   :: NLx, NLy, NRx, NRy  ! Polynomial orders of adjacent elements
+      INTEGER   :: Nx, Ny              ! Polynomial orders of mortar
+      INTEGER   :: i,j,ii,jj           ! Counters
+      INTEGER   :: rotation            ! Face rotation
+!
+!     ----------------------------------
+!     Get polynomial orders and rotation
+!     ----------------------------------
+!
+      NLx  = this % NL        ! TODO: Change when anisotropic polynomials are implemented
+      NLy  = this % NL
+      NRx  = this % NR
+      NRy  = this % NR
+      Nx   = this % N
+      Ny   = this % N
+      
+      rotation = this % rotation
+!
+!     ---------------------------------------------------------
+!     Store flux in Phi%R taking into account rotation (I*C= UL)
+!     ---------------------------------------------------------
+!
+      DO j = 0, Ny
+         DO i = 0, Nx
+            CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                              ! This turns according to the rotation of the elements
+            this % Phi % R(:,ii,jj) = C(:,i,j)
+         END DO   
+      END DO 
+!
+!     -----------------------------------------------------------------
+!     Project flux back to element
+!        Check if the polynomial orders are the same in both directions 
+!        If so, we don't do the polynomial interpolation
+!        to increase speed.
+!     -----------------------------------------------------------------
+!
+      ! Left element
+      IF (NLx == Nx .AND. NLy == Ny) THEN
+         UL = C                                           ! Phi%C is used instead on Phi%L to avoid the copying operation
+      ELSE
+         DO iEQ = 1, nEqn
+            CALL Project1Eqn  ( Q1     = C (iEQ,:,:)     , &   ! Phi%C is used instead on Phi%L to avoid the copying operation
+                                Q2     = UL(iEQ,:,:)     , &
+                                Interp = this % Phi2L    , &
+                                N1x    = Nx   , N1y = Ny , &
+                                N2x    = NLx  , N2y = NLy    )
+         ENDDO 
+      END IF
+      
+      ! Right element
+      IF (NRx == Nx .AND. NRy == Ny) THEN
+         UR = this % Phi % R
+      ELSE
+         DO iEQ = 1, nEqn
+            CALL Project1Eqn  ( Q1     = this % Phi % R (iEQ,:,:) , &
+                                Q2     = UR                       , &
+                                Interp = this % Phi2R             , &
+                                N1x    = Nx   , N1y = Ny          , &
+                                N2x    = NRx  , N2y = NRy   )
+         ENDDO
+      END IF
+      
+   END SUBROUTINE ProjectToElement
 !
 !////////////////////////////////////////////////////////////////////////
 !

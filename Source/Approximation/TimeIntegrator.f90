@@ -338,9 +338,9 @@
 
       END DO
 !
-!        ----------------
-!        Compute residual
-!        ----------------
+!     ----------------
+!     Compute residual
+!     ----------------
 !
       maxResidual = 0.0_RP
       DO id = 1, SIZE( sem % mesh % elements )

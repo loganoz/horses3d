@@ -15,7 +15,8 @@
 !         Algorithm 137: ComputeRiemannFluxes (EdgeFluxes)
 !         Algorithm  35: InterpolateToFineMesh (2DCoarseToFineInterpolation)
 !
-!      Modified for 3D 6/11/15, 11:32 AM by DAK
+!      Modified for 3D       6/11/15, 11:32 AM by DAK
+!      Modified for mortars 25/04/17, 18:00    by arueda
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -124,7 +125,7 @@
 !
       DO k=1, SIZE(self % mesh % faces)
          IF (self % mesh % faces(k) % FaceType == HMESH_INTERIOR) THEN !The mortar is only needed for the interior edges
-            CALL ConstructMortarStorage( self % mesh % faces(k), N_EQN, self % mesh % elements )
+            CALL ConstructMortarStorage( self % mesh % faces(k), N_EQN, N_GRAD_EQN, self % mesh % elements )
          END IF
       END DO
 !
@@ -332,9 +333,7 @@
          INTEGER       :: faceID
          INTEGER       :: eIDLeft, eIDRight
          INTEGER       :: fIDLeft
-         INTEGER       :: N
-        
-         N = self % spA % N
+         
 !$omp do         
          DO faceID = 1, SIZE( self % mesh % faces)
             eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
@@ -389,7 +388,7 @@
 !
          INTEGER       :: faceID
          INTEGER       :: eIDLeft, eIDRight
-         INTEGER       :: fIDLeft, fIDright
+         INTEGER       :: fIDLeft
          INTEGER       :: N
          
          REAL(KIND=RP) :: bvExt(N_EQN), UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)     
@@ -401,9 +400,9 @@
          DO faceID = 1, SIZE( self % mesh % faces)
             eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
             eIDRight = self % mesh % faces(faceID) % elementIDs(2)
-            fIDLeft  = self % mesh % faces(faceID) % elementSide(1)
             
             IF ( eIDRight == HMESH_NONE )     THEN
+               fIDLeft  = self % mesh % faces(faceID) % elementSide(1)
 !
 !              -------------
 !              Boundary face
@@ -452,12 +451,10 @@
 !              Interior face
 !              -------------
 !
-               fIDRight =  self % mesh % faces(faceID) % elementSide(2)
+               CALL computeElementInterfaceAverage ( eL       = self % mesh % elements(eIDLeft)  , &
+                                                     eR       = self % mesh % elements(eIDRight) , &
+                                                     thisface = self % mesh % faces(faceID)      )
                
-               CALL computeElementInterfaceAverage(eL = self % mesh % elements(eIDLeft) ,fIDLeft  = fIDLeft, &
-                                                eR = self % mesh % elements(eIDRight),fIDRight = fIDright,&
-                                                N  = N,                                                   &
-                                                rotation = self % mesh % faces(faceID) % rotation)
             END IF 
 
          END DO           
@@ -487,7 +484,7 @@
 !
          INTEGER       :: faceID
          INTEGER       :: eIDLeft, eIDRight
-         INTEGER       :: fIDLeft, fIDright
+         INTEGER       :: fIDLeft
          INTEGER       :: N
 
          REAL(KIND=RP) :: UGradExt(3,N_GRAD_EQN)
@@ -564,12 +561,10 @@
 !              Interior face
 !              -------------
 !
-               fIDRight =  self % mesh % faces(faceID) % elementSide(2)
+               CALL computeElementInterfaceGradientAverage  ( eL       = self % mesh % elements(eIDLeft)  , &
+                                                              eR       = self % mesh % elements(eIDRight) , &
+                                                              thisface = self % mesh % faces(faceID)      )
                
-               CALL computeElementInterfaceGradientAverage(eL = self % mesh % elements(eIDLeft) ,fIDLeft  = fIDLeft, &
-                                                eR = self % mesh % elements(eIDRight),fIDRight = fIDright,&
-                                                N  = N,                                                   &
-                                                rotation = self % mesh % faces(faceID) % rotation)
             END IF 
 
          END DO           
@@ -597,7 +592,7 @@
          INTEGER       :: fIDLeft, fIDRight
          REAL(KIND=RP) :: norm(3)
          INTEGER       :: i,j,ii,jj
-         INTEGER       :: Nx, Ny          ! Polynomial orders for surface integral
+         INTEGER       :: Nx, Ny          ! Polynomial orders on the interface
          INTEGER       :: rotation
          
          fIDLeft  = thisface % elementSide(1)
@@ -646,7 +641,7 @@
          Ny = eL % N      ! TODO: Change when anisotropic polynomials are implemented
          DO j = 0, Ny
             DO i = 0, Nx
-               eL % FStarb(:,i,j,fIDLeft) = eL % FStarb(:,i,j,fIDLeft) * eL % geom % scal(i,j,fIDLeft)
+               eL % FStarb(:,i,j,fIDLeft)  = eL % FStarb(:,i,j,fIDLeft)  * eL % geom % scal(i,j,fIDLeft)
             END DO   
          END DO
          
@@ -663,7 +658,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE computeElementInterfaceAverage( eL, fIDLeft, eR, fIDRight, N, rotation)
+      SUBROUTINE computeElementInterfaceAverage( eL, eR, thisface)
          USE Physics  
          IMPLICIT NONE  
 !
@@ -671,10 +666,8 @@
 !        Arguments
 !        ---------
 !
-         TYPE(Element) :: eL, eR
-         INTEGER       :: fIDLeft, fIdright
-         INTEGER       :: rotation
-         INTEGER       :: N
+         TYPE(Element) :: eL, eR        !<> Left and right elements on interface
+         TYPE(Face)    :: thisface      !<> Face inbetween
 !
 !        ---------------
 !        Local variables
@@ -683,106 +676,60 @@
          REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
          REAL(KIND=RP) :: d(N_GRAD_EQN)
          INTEGER       :: i,j,ii,jj
-                  
-         SELECT CASE ( rotation )
-            CASE( 0 ) 
-               DO j = 0, N
-                  DO i = 0, N
-!
-!                 --------------
-!                 u,v,T averages
-!                 --------------
-!
-                     CALL GradientValuesForQ( Q  = eL % QB(:,i,j,fIDLeft), U = UL )
-                     CALL GradientValuesForQ( Q  = eR % QB(:,i,j,fIDright), U = UR )
-
-                     d = 0.5_RP*(UL + UR)
-                  
-                     eL % Ub(:,i,j,fIDLeft)  = d
-                     eR % Ub(:,i,j,fIDright) = d
-                     
-                     eL % QB(:,i,j,fIDLeft)  = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,i,j,fIDright) )
-                     eR % QB(:,i,j,fIDright) = eL % QB(:,i,j,fIDLeft)
-                  END DO   
-               END DO   
-            CASE( 1 )
-                DO j = 0, N
-                  jj = j
-                  DO i = 0, N
-                     ii = N - i
-!
-!                 --------------
-!                 u,v,T averages
-!                 --------------
-!
-                     CALL GradientValuesForQ( Q  = eL % QB(:,i,j,fIDLeft), U = UL )
-                     CALL GradientValuesForQ( Q  = eR % QB(:,ii,jj,fIDright), U = UR )
-
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % Ub(:,i,j,fIDLeft)  = d
-                     eR  % Ub(:,ii,jj,fIDright) = d
-                                        
-                     eL % QB(:,i,j,fIDLeft)  = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,ii,jj,fIDright) )
-                     eR % QB(:,ii,jj,fIDright) = eL % QB(:,i,j,fIDLeft)                     
-                     
-                  END DO   
-               END DO   
-           CASE( 2 )
-               DO j = 0, N
-                  jj = N - j
-                  DO i = 0, N
-                     ii = N - i
-!
-!                 --------------
-!                 u,v,T averages
-!                 --------------
-!
-                     CALL GradientValuesForQ( Q  = eL % QB(:,i,j,fIDLeft), U = UL )
-                     CALL GradientValuesForQ( Q  = eR % QB(:,ii,jj,fIDright), U = UR )
-
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % Ub(:,i,j,fIDLeft)  = d
-                     eR % Ub(:,ii,jj,fIDright) = d
-                                        
-                     eL % QB(:,i,j,fIDLeft)  = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,ii,jj,fIDright) )
-                     eR % QB(:,ii,jj,fIDright) = eL % QB(:,i,j,fIDLeft)   
-                     
-                  END DO   
-               END DO   
-           CASE( 3 )
-                DO j = 0, N
-                  ii = j
-                  DO i = 0, N
-                     jj = N - i
-!
-!                 --------------
-!                 u,v,T averages
-!                 --------------
-!
-                     CALL GradientValuesForQ( Q  = eL % QB(:,i,j,fIDLeft), U = UL )
-                     CALL GradientValuesForQ( Q  = eR % QB(:,ii,jj,fIDright), U = UR )
-
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % Ub(:,i,j,fIDLeft)  = d
-                     eR % Ub(:,ii,jj,fIDright) = d
-                                        
-                     eL % QB(:,i,j,fIDLeft)  = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,ii,jj,fIDright) )
-                     eR % QB(:,ii,jj,fIDright) = eL % QB(:,i,j,fIDLeft)   
-                     
-                  END DO   
-               END DO   
-           CASE DEFAULT 
-           PRINT *, "Unknown rotation in element faces"
-         END SELECT 
+         INTEGER       :: fIDLeft, fIdright
+         INTEGER       :: rotation
+         INTEGER       :: Nx, Ny
          
+         fIDLeft  = thisface % elementSide(1)
+         fIDRight = thisface % elementSide(2)
+         Nx       = thisface % N                ! TODO: Change when anisotropic polynomials are implemented
+         Ny       = thisface % N                ! TODO: Change when anisotropic polynomials are implemented
+         rotation = thisface % rotation
+!
+!        -----------------
+!        Project to mortar
+!        -----------------
+!
+         CALL ProjectToMortar(thisface, eL % QB(:,:,:,fIDLeft), eR % QB(:,:,:,fIDright), N_EQN)
+!
+!        ----------------------
+!        Compute interface flux
+!        Using BR1 (averages)
+!        ----------------------
+!
+         DO j = 0, Ny
+            DO i = 0, Nx
+               CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                              ! This turns according to the rotation of the elements
+!
+!                 ----------------
+!                 u,v,w,T averages
+!                 ----------------
+!
+               CALL GradientValuesForQ( Q  = thisface % Phi % L(:,i ,j ), U = UL )
+               CALL GradientValuesForQ( Q  = thisface % Phi % R(:,ii,jj), U = UR )
+               
+               thisface % Phi % Caux(:,i,j) = 0.5_RP*(UL + UR)
+!
+!              -----------------
+!              Solution averages
+!              -----------------
+!
+               thisface % Phi % C(:,i,j) = 0.5_RP*( thisface % Phi % R(:,ii,jj) + thisface % Phi % L(:,i,j) )
+            END DO   
+         END DO 
+!
+!        ------------------------
+!        Project back to elements
+!        ------------------------
+!
+         CALL ProjectToElement(thisface,thisface % Phi % Caux, eL % Ub(:,:,:,fIDLeft), eR % Ub(:,:,:,fIDright), N_GRAD_EQN)
+         CALL ProjectToElement(thisface,thisface % Phi % C   , eL % QB(:,:,:,fIDLeft), eR % QB(:,:,:,fIDright), N_EQN)
+      
       END SUBROUTINE computeElementInterfaceAverage   
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE computeElementInterfaceGradientAverage( eL, fIDLeft, eR, fIDRight, N, rotation)
+      SUBROUTINE computeElementInterfaceGradientAverage( eL, eR, thisface)
          USE Physics  
          IMPLICIT NONE  
 !
@@ -790,197 +737,81 @@
 !        Arguments
 !        ---------
 !
-         TYPE(Element) :: eL, eR
-         INTEGER       :: fIDLeft, fIdright
-         INTEGER       :: rotation
-         INTEGER       :: N
+         TYPE(Element) :: eL, eR        !<> Left and right elements on interface
+         TYPE(Face)    :: thisface      !<> Face inbetween
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         REAL(KIND=RP) :: d(N_GRAD_EQN)
          INTEGER       :: i,j,ii,jj
-                  
-         SELECT CASE ( rotation )
-            CASE( 0 ) 
-               DO j = 0, N
-                  DO i = 0, N
+         INTEGER       :: fIDLeft, fIdright
+         INTEGER       :: rotation
+         INTEGER       :: Nx, Ny
+         
+         fIDLeft  = thisface % elementSide(1)
+         fIDRight = thisface % elementSide(2)
+         Nx       = thisface % N                ! TODO: Change when anisotropic polynomials are implemented
+         Ny       = thisface % N                ! TODO: Change when anisotropic polynomials are implemented
+         rotation = thisface % rotation
+         
 !
-!                 --------
-!                 x values
-!                 --------
+!        ----------------------
+!        Compute interface flux
+!        Using BR1 (averages)
+!        ----------------------
 !
-                     UL = eL % U_xb(:,i,j,fIDLeft)
-                     UR = eR % U_xb(:,i,j,fIDright)
+!
+!              --------
+!              x values
+!              --------
+!
+         CALL ProjectToMortar(thisface, eL % U_xb(:,:,:,fIDLeft), eR % U_xb(:,:,:,fIDright), N_GRAD_EQN)
+         
+         DO j = 0, Ny
+            DO i = 0, Nx
+               CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                    ! This turns according to the rotation of the elements
+               
+               thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(:,i,j) + thisface % Phi % R(:,ii,jj) )
+               
+            END DO   
+         END DO 
+         
+         CALL ProjectToElement(thisface,thisface % Phi % Caux, eL % U_xb(:,:,:,fIDLeft), eR % U_xb(:,:,:,fIDright), N_GRAD_EQN)
+!
+!              --------
+!              y values
+!              --------
+!        
+         CALL ProjectToMortar(thisface, eL % U_yb(:,:,:,fIDLeft), eR % U_yb(:,:,:,fIDright), N_GRAD_EQN) 
+         
+         DO j = 0, Ny
+            DO i = 0, Nx
+               CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                    ! This turns according to the rotation of the elements
 
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % U_xb(:,i,j,fIDLeft) = d
-                     eR % U_xb(:,i,j,fIDright) = d
-!
-!                 --------
-!                 y values
-!                 --------
-!
-                     UL = eL % U_yb(:,i,j,fIDLeft)
-                     UR = eR % U_yb(:,i,j,fIDright)
+               thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(:,i,j) + thisface % Phi % R(:,ii,jj) )
 
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % U_yb(:,i,j,fIDLeft) = d
-                     eR % U_yb(:,i,j,fIDright) = d
+            END DO   
+         END DO 
+         
+         CALL ProjectToElement(thisface,thisface % Phi % Caux, eL % U_yb(:,:,:,fIDLeft), eR % U_yb(:,:,:,fIDright), N_GRAD_EQN)
 !
-!                 --------
-!                 z values
-!                 --------
-!
-                     UL = eL % U_zb(:,i,j,fIDLeft)
-                     UR = eR % U_zb(:,i,j,fIDright)
-
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % U_zb(:,i,j,fIDLeft) = d
-                     eR % U_zb(:,i,j,fIDright) = d
-
-                  END DO   
-               END DO   
-            CASE( 1 )
-                DO j = 0, N
-                  jj = j
-                  DO i = 0, N
-                     ii = N - i
-!
-!                 --------
-!                 x values
-!                 --------
-!
-                     UL = eL % U_xb(:,i,j,fIDLeft)
-                     UR = eR % U_xb(:,ii,jj,fIDright)
-
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % U_xb(:,i,j,fIDLeft) = d
-                     eR % U_xb(:,ii,jj,fIDright) = d
-!
-!                 --------
-!                 y values
-!                 --------
-!
-                     UL = eL % U_yb(:,i,j,fIDLeft)
-                     UR = eR % U_yb(:,ii,jj,fIDright)
-
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % U_yb(:,i,j,fIDLeft) = d
-                     eR % U_yb(:,ii,jj,fIDright) = d
-!
-!                 --------
-!                 z values
-!                 --------
-!
-                     UL = eL % U_zb(:,i,j,fIDLeft)
-                     UR = eR % U_zb(:,ii,jj,fIDright)
-
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % U_zb(:,i,j,fIDLeft) = d
-                     eR % U_zb(:,ii,jj,fIDright) = d
-                     
-                  END DO   
-               END DO   
-           CASE( 2 )
-               DO j = 0, N
-                  jj = N - j
-                  DO i = 0, N
-                     ii = N - i
-!
-!                 --------
-!                 x values
-!                 --------
-!
-                     UL = eL % U_xb(:,i,j,fIDLeft)
-                     UR = eR % U_xb(:,ii,jj,fIDright)
-
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % U_xb(:,i,j,fIDLeft) = d
-                     eR % U_xb(:,ii,jj,fIDright) = d
-!
-!                 --------
-!                 y values
-!                 --------
-!
-                     UL = eL % U_yb(:,i,j,fIDLeft)
-                     UR = eR % U_yb(:,ii,jj,fIDright)
-
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % U_yb(:,i,j,fIDLeft) = d
-                     eR  % U_yb(:,ii,jj,fIDright) = d
-!
-!                 --------
-!                 z values
-!                 --------
-!
-                     UL = eL % U_zb(:,i,j,fIDLeft)
-                     UR = eR % U_zb(:,ii,jj,fIDright)
-
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % U_zb(:,i,j,fIDLeft) = d
-                     eR  % U_zb(:,ii,jj,fIDright) = d
-                     
-                  END DO   
-               END DO   
-           CASE( 3 )
-                DO j = 0, N
-                  ii = j
-                  DO i = 0, N
-                     jj = N - i
-!
-!                 --------
-!                 x values
-!                 --------
-!
-                     UL = eL % U_xb(:,i,j,fIDLeft)
-                     UR = eR % U_xb(:,ii,jj,fIDright)
-
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % U_xb(:,i,j,fIDLeft) = d
-                     eR  % U_xb(:,ii,jj,fIDright) = d
-!
-!                 --------
-!                 y values
-!                 --------
-!
-                     UL = eL % U_yb(:,i,j,fIDLeft)
-                     UR = eR % U_yb(:,ii,jj,fIDright)
-
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % U_yb(:,i,j,fIDLeft) = d
-                     eR % U_yb(:,ii,jj,fIDright) = d
-!
-!                 --------
-!                 z values
-!                 --------
-!
-                     UL = eL % U_zb(:,i,j,fIDLeft)
-                     UR = eR % U_zb(:,ii,jj,fIDright)
-
-                     d = 0.5_RP*(UL + UR)
-                     
-                     eL % U_zb(:,i,j,fIDLeft) = d
-                     eR % U_zb(:,ii,jj,fIDright) = d
-                     
-                  END DO   
-               END DO   
-           CASE DEFAULT 
-           PRINT *, "Unknown rotation in element faces"
-         END SELECT 
+!              --------
+!              z values
+!              --------
+!         
+         CALL ProjectToMortar(thisface, eL % U_zb(:,:,:,fIDLeft), eR % U_zb(:,:,:,fIDright), N_GRAD_EQN) 
+         
+         DO j = 0, Ny
+            DO i = 0, Nx
+               CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                    ! This turns according to the rotation of the elements
+               
+               thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(:,i,j) + thisface % Phi % R(:,ii,jj) )
+               
+            END DO   
+         END DO   
+         
+         CALL ProjectToElement(thisface,thisface % Phi % Caux, eL % U_zb(:,:,:,fIDLeft), eR % U_zb(:,:,:,fIDright), N_GRAD_EQN)
          
       END SUBROUTINE computeElementInterfaceGradientAverage            
 !
