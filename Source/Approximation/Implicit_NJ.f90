@@ -85,12 +85,12 @@ MODULE Implicit_NJ
          LinearSolver = controlVariables % StringValueForKey("linear solver",LINE_LENGTH)
          SELECT CASE (LinearSolver)
             CASE('petsc')
-               linsolver => PetscKspLinearSolver
+               ALLOCATE (PetscKspLinearSolver_t :: linsolver)
             CASE('pardiso')
-               linsolver => MKLPardisoSolver
+               ALLOCATE (MKLPardisoSolver_t :: linsolver)
             CASE DEFAULT
                print*, "Keyword 'linear solver' missing... Using PETSc as default"
-               linsolver => PetscKspLinearSolver
+               ALLOCATE (PetscKspLinearSolver_t :: linsolver)
          END SELECT
          
          nelm = SIZE(sem%mesh%elements)

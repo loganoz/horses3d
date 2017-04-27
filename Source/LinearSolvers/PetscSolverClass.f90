@@ -56,12 +56,12 @@ MODULE PetscSolverClass
    
   
    PRIVATE                                          
-   PUBLIC                                           :: PetscKspLinearSolver_t, PetscKspLinearSolver, GenericLinSolver_t
+   PUBLIC                                           :: PetscKspLinearSolver_t, GenericLinSolver_t
 !~   PUBLIC                                           :: ConstructPetscContext, SolveLinPrb, PreallocateA, SetAColumn, SetBValue
 !~   PUBLIC                                           :: SetBValues, DestroyPetscObjects, AssemblyA, AssemblyB, GetXValues
 !~   PUBLIC                                           :: GetXValue, ResetA, SaveMat, SetOperatorDt
    
-   TYPE(PetscKspLinearSolver_t), TARGET :: PetscKspLinearSolver
+   
 
 !========
  CONTAINS

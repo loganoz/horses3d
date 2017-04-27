@@ -50,9 +50,8 @@ MODULE MKLPardisoSolverClass
    END TYPE MKLPardisoSolver_t
    
    PRIVATE
-   PUBLIC MKLPardisoSolver_t, MKLPardisoSolver, GenericLinSolver_t
+   PUBLIC MKLPardisoSolver_t, GenericLinSolver_t
    
-   TYPE(MKLPardisoSolver_t), TARGET :: MKLPardisoSolver
    
 !========
  CONTAINS

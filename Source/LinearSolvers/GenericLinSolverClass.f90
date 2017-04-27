@@ -14,215 +14,172 @@ MODULE GenericLinSolverClass
    PRIVATE
    PUBLIC GenericLinSolver_t
    
-   TYPE, ABSTRACT :: GenericLinSolver_t
+   TYPE :: GenericLinSolver_t
       LOGICAL                                     :: converged = .FALSE.   ! The solution converged?
       INTEGER                                     :: DimPrb                ! Dimension of the problem
       INTEGER                                     :: niter = 0             ! Number of iterations to reach solution (for iterative solvers)
    CONTAINS
       !Subroutines:
-      PROCEDURE(IConstruct)      , pass, DEFERRED :: construct
-      PROCEDURE(IPreallocateA)   , pass, DEFERRED :: PreallocateA
-      PROCEDURE(IResetA)         , pass, DEFERRED :: ResetA
-      PROCEDURE(ISetAColumn)     , pass, DEFERRED :: SetAColumn
-      PROCEDURE(IAssemblyA)      , pass, DEFERRED :: AssemblyA
-      PROCEDURE(ISetBValue)      , pass, DEFERRED :: SetBValue
-      PROCEDURE(Isolve)          , pass, DEFERRED :: solve
-      PROCEDURE(IGetCSRMatrix)   , pass, DEFERRED :: GetCSRMatrix
-      PROCEDURE(IGetXValue)      , pass, DEFERRED :: GetXValue
-      PROCEDURE(Idestruct)       , pass, DEFERRED :: destroy
-      PROCEDURE(ISetOperatorDt)  , pass, DEFERRED :: SetOperatorDt
-      PROCEDURE(IReSetOperatorDt), pass, DEFERRED :: ReSetOperatorDt
-      PROCEDURE(IAssemblyB)      , pass, DEFERRED :: AssemblyB
+      PROCEDURE :: construct
+      PROCEDURE :: PreallocateA
+      PROCEDURE :: ResetA
+      PROCEDURE :: SetAColumn
+      PROCEDURE :: AssemblyA
+      PROCEDURE :: SetBValue
+      PROCEDURE :: solve
+      PROCEDURE :: GetCSRMatrix
+      PROCEDURE :: GetXValue
+      PROCEDURE :: destroy
+      PROCEDURE :: SetOperatorDt
+      PROCEDURE :: ReSetOperatorDt
+      PROCEDURE :: AssemblyB
       !Functions:
-      PROCEDURE(IGetxnorm)       , pass, DEFERRED :: Getxnorm    !Get solution norm
-      PROCEDURE(IGetrnorm)       , pass, DEFERRED :: Getrnorm    !Get residual norm
+      PROCEDURE :: Getxnorm    !Get solution norm
+      PROCEDURE :: Getrnorm    !Get residual norm
    END TYPE
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for Construct procedure
-   abstract interface
-      SUBROUTINE IConstruct(this,DimPrb)         
-         import :: GenericLinSolver_t
-         class(GenericLinSolver_t), INTENT(INOUT) :: this
-         INTEGER                  , INTENT(IN)    :: DimPrb
-      end SUBROUTINE IConstruct
-   end interface
+
+CONTAINS
+
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
+   SUBROUTINE Construct(this,DimPrb)
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      INTEGER                  , INTENT(IN)    :: DimPrb
+   END SUBROUTINE Construct
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for PreallocateA procedure
-   abstract interface
-      SUBROUTINE IPreallocateA(this,nnz)         
-         import :: GenericLinSolver_t
-         class(GenericLinSolver_t), INTENT(INOUT) :: this
-         INTEGER                                  :: nnz
-      end SUBROUTINE IPreallocateA
-   end interface
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for ResetA procedure
-   abstract interface
-      SUBROUTINE IResetA(this)         
-         import :: GenericLinSolver_t
-         class(GenericLinSolver_t), INTENT(INOUT) :: this
-      end SUBROUTINE IResetA
-   end interface
+   
+   SUBROUTINE PreallocateA(this,nnz)
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      INTEGER                                  :: nnz
+   END SUBROUTINE PreallocateA
+   
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for SetAColumn procedure
-   abstract interface
-      SUBROUTINE ISetAColumn(this,nvalues,irow,icol,values)         
-         USE SMConstants
-         import :: GenericLinSolver_t
-         
-         class(GenericLinSolver_t), INTENT(INOUT)  :: this
-         INTEGER       , INTENT(IN)                :: nvalues
-         INTEGER       , INTENT(IN), DIMENSION(:)  :: irow
-         INTEGER       , INTENT(IN)                :: icol
-         REAL(KIND=RP) , INTENT(IN), DIMENSION(:)  :: values
-      end SUBROUTINE ISetAColumn
-   end interface
+   
+   SUBROUTINE ResetA(this)
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+   END SUBROUTINE ResetA
+   
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for AssemblyA procedure
-   abstract interface
-      SUBROUTINE IAssemblyA(this)         
-         import :: GenericLinSolver_t
-         class(GenericLinSolver_t), INTENT(INOUT) :: this
-      end SUBROUTINE IAssemblyA
-   end interface
+   
+   SUBROUTINE SetAColumn(this,nvalues,irow,icol,values)
+      CLASS(GenericLinSolver_t), INTENT(INOUT)  :: this
+      INTEGER       , INTENT(IN)                :: nvalues
+      INTEGER       , INTENT(IN), DIMENSION(:)  :: irow
+      INTEGER       , INTENT(IN)                :: icol
+      REAL(KIND=RP) , INTENT(IN), DIMENSION(:)  :: values
+   END SUBROUTINE SetAColumn
+
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for SetBValue procedure
-   abstract interface
-      SUBROUTINE ISetBValue(this, irow, value)
-         USE SMConstants
-         import :: GenericLinSolver_t
-         
-         class(GenericLinSolver_t), INTENT(INOUT) :: this
-         INTEGER                  , INTENT(IN)  :: irow
-         REAL(KIND=RP)            , INTENT(IN)  :: value
-      end SUBROUTINE ISetBValue
-   end interface
+   
+   SUBROUTINE AssemblyA(this)
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+   END SUBROUTINE AssemblyA
+
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for solve procedure
-   abstract interface
-      SUBROUTINE Isolve(this,tol,maxiter)         
-         USE SMConstants
-         import :: GenericLinSolver_t
-         
-         class(GenericLinSolver_t), INTENT(INOUT) :: this
-         REAL(KIND=RP), OPTIONAL                  :: tol
-         INTEGER      , OPTIONAL                  :: maxiter
-      end SUBROUTINE Isolve
-   end interface
+   
+   SUBROUTINE SetBValue(this, irow, value)
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      INTEGER                  , INTENT(IN)  :: irow
+      REAL(KIND=RP)            , INTENT(IN)  :: value
+   END SUBROUTINE SetBValue
+
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for GetCSRMatrix procedure
-   abstract interface
-      SUBROUTINE IGetCSRMatrix(this,Acsr)         
-         USE CSR_Matrices
-         import :: GenericLinSolver_t
-         
-         class(GenericLinSolver_t), INTENT(IN)  :: this
-         TYPE(csrMat)             , INTENT(OUT) :: Acsr 
-      end SUBROUTINE IGetCSRMatrix
-   end interface
+   
+   SUBROUTINE solve(this,tol,maxiter)     
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      REAL(KIND=RP), OPTIONAL                  :: tol
+      INTEGER      , OPTIONAL                  :: maxiter
+   END SUBROUTINE solve
+
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for GetXValue procedure
-   abstract interface
-      SUBROUTINE IGetXValue(this,irow,x_i)       
-         USE SMConstants
-         import :: GenericLinSolver_t
-         
-         class(GenericLinSolver_t), INTENT(INOUT) :: this
-         INTEGER                  , INTENT(IN)    :: irow
-         REAL(KIND=RP)            , INTENT(OUT)   :: x_i
-      end SUBROUTINE IGetXValue
-   end interface
+   
+   SUBROUTINE GetCSRMatrix(this,Acsr)         
+      USE CSR_Matrices
+      CLASS(GenericLinSolver_t), INTENT(IN)  :: this
+      TYPE(csrMat)             , INTENT(OUT) :: Acsr 
+   END SUBROUTINE GetCSRMatrix
+
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for destruct procedure
-   abstract interface
-      SUBROUTINE Idestruct(this)         
-         import :: GenericLinSolver_t
-         class(GenericLinSolver_t), INTENT(INOUT) :: this
-      end SUBROUTINE Idestruct
-   end interface
+   
+   SUBROUTINE GetXValue(this,irow,x_i)       
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      INTEGER                  , INTENT(IN)    :: irow
+      REAL(KIND=RP)            , INTENT(OUT)   :: x_i
+   END SUBROUTINE GetXValue
+
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for SetOperatorDt procedure
-   abstract interface
-      SUBROUTINE ISetOperatorDt(this, dt)
-         USE SMConstants
-         import :: GenericLinSolver_t
-         
-         class(GenericLinSolver_t), INTENT(INOUT) :: this
-         REAL(KIND=RP)            , INTENT(IN)    :: dt
-      end SUBROUTINE ISetOperatorDt
-   end interface
+   
+   SUBROUTINE destroy(this)         
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+   END SUBROUTINE destroy
+
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for ReSetOperatorDt procedure
-   abstract interface
-      SUBROUTINE IReSetOperatorDt(this, dt)
-         USE SMConstants
-         import :: GenericLinSolver_t
-         
-         class(GenericLinSolver_t), INTENT(INOUT) :: this
-         REAL(KIND=RP)            , INTENT(IN)    :: dt
-      end SUBROUTINE IReSetOperatorDt
-   end interface
+   
+   SUBROUTINE SetOperatorDt(this, dt)
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      REAL(KIND=RP)            , INTENT(IN)    :: dt
+   END SUBROUTINE SetOperatorDt
+
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for AssemblyB procedure
-   abstract interface
-      SUBROUTINE IAssemblyB(this)         
-         import :: GenericLinSolver_t
-         class(GenericLinSolver_t), INTENT(INOUT) :: this
-      end SUBROUTINE IAssemblyB
-   end interface
+   
+   SUBROUTINE ReSetOperatorDt(this, dt)
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      REAL(KIND=RP)            , INTENT(IN)    :: dt
+   END SUBROUTINE ReSetOperatorDt
+   
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for Getxnorm procedure
-   abstract interface
-      FUNCTION IGetxnorm(this,TypeOfNorm) RESULT(xnorm)
-         USE SMConstants
-         import :: GenericLinSolver_t
-         
-         class(GenericLinSolver_t), INTENT(INOUT) :: this
-         CHARACTER(len=*)                         :: TypeOfNorm
-         REAL(KIND=RP)                            :: xnorm
-      END FUNCTION IGetxnorm
-   end interface
+   
+   SUBROUTINE AssemblyB(this)         
+       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+   END SUBROUTINE AssemblyB
+   
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   
+   FUNCTION Getxnorm(this,TypeOfNorm) RESULT(xnorm)
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      CHARACTER(len=*)                         :: TypeOfNorm
+      REAL(KIND=RP)                            :: xnorm
+   END FUNCTION Getxnorm
+   
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   ! Interface for Getrnorm procedure
-   abstract interface
-      FUNCTION IGetrnorm(this) RESULT(rnorm)
-         USE SMConstants
-         import :: GenericLinSolver_t
-         
-         class(GenericLinSolver_t), INTENT(INOUT) :: this
-         REAL(KIND=RP)                            :: rnorm
-      END FUNCTION IGetrnorm
-   end interface
+   
+   FUNCTION Getrnorm(this) RESULT(rnorm)
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      REAL(KIND=RP)                            :: rnorm
+   END FUNCTION Getrnorm
+   
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
 END MODULE GenericLinSolverClass
