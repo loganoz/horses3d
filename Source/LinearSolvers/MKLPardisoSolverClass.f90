@@ -8,13 +8,14 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE MKLPardisoSolverClass
+   USE GenericLinSolverClass
    USE CSR_Matrices
    USE SMConstants
    USE PetscSolverClass   ! For allocating Jacobian matrix
    IMPLICIT NONE
    
    TYPE, EXTENDS(GenericLinSolver_t) :: MKLPardisoSolver_t
-      TYPE(csrMat)                               :: A                                  ! Jacobian matrix
+      TYPE(csrMat_t)                             :: A                                  ! Jacobian matrix
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: x                                  ! Solution vector
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: b                                  ! Right hand side
       REAL(KIND=RP)                              :: Ashift
@@ -43,7 +44,6 @@ MODULE MKLPardisoSolverClass
       PROCEDURE                                  :: destroy
       PROCEDURE                                  :: SetOperatorDt
       PROCEDURE                                  :: ReSetOperatorDt
-      PROCEDURE                                  :: AssemblyB
       !Functions:
       PROCEDURE                                  :: Getxnorm    !Get solution norm
       PROCEDURE                                  :: Getrnorm    !Get residual norm
@@ -272,7 +272,7 @@ MODULE MKLPardisoSolverClass
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(MKLPardisoSolver_t), INTENT(IN)  :: this
-      TYPE(csrMat)             , INTENT(OUT) :: Acsr 
+      TYPE(csrMat_t)             , INTENT(OUT) :: Acsr 
       !-----------------------------------------------------------
       
       Acsr = this % A
@@ -353,21 +353,6 @@ MODULE MKLPardisoSolverClass
       this % Ashift = shift
       
     END SUBROUTINE ReSetOperatorDt
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   SUBROUTINE AssemblyB(this)         
-      IMPLICIT NONE
-!
-!     -------------------------------------------------------------------------
-!     This subroutine does nothing bit is necessary for a generic linear solver
-!     Probably something will have to be added here for MPI parallelization 
-!     -------------------------------------------------------------------------
-!
-      !-----------------------------------------------------------
-      CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
-      !-----------------------------------------------------------
-   END SUBROUTINE AssemblyB
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

@@ -82,7 +82,7 @@ MODULE PetscSolverClass
       ENDIF
 #else
       INTEGER                                      :: ierr
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE CheckPetscErr
 !///////////////////////////////////////////////////////////////////////////////     
@@ -135,7 +135,7 @@ MODULE PetscSolverClass
       this%dimprb = DimPrb
 #else
       INTEGER, INTENT(IN)                       :: DimPrb
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE
 !/////////////////////////////////////////////////////////////////////////////////////////////////
@@ -147,7 +147,7 @@ MODULE PetscSolverClass
       CALL PCSetType(this%pc,PCILU,ierr)       ;CALL CheckPetscErr(ierr, 'error in PCSetType')
       this%setpreco = PETSC_FALSE
 #else
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE SetPetscPreco 
 !/////////////////////////////////////////////////////////////////////////////////////////////////
@@ -197,7 +197,7 @@ MODULE PetscSolverClass
 #else
       REAL*8 , OPTIONAL                     :: tol
       INTEGER, OPTIONAL                     :: maxiter
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE SolveLinPrb
 !/////////////////////////////////////////////////////////////////////////////////////////////////
@@ -217,7 +217,7 @@ MODULE PetscSolverClass
       ENDIF
 #else
       INTEGER                                         :: nnz
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
@@ -237,7 +237,7 @@ MODULE PetscSolverClass
       INTEGER, DIMENSION(:), INTENT(IN)                 :: irow
       INTEGER, INTENT(IN)                               :: icol
       REAL*8 , DIMENSION(:), INTENT(IN)                 :: values
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE SetAColumn
 !/////////////////////////////////////////////////////////////////////////////////////////////////      
@@ -249,7 +249,7 @@ MODULE PetscSolverClass
       CALL MatZeroEntries(this%A, ierr)
       CALL CheckPetscErr(ierr,'error in MatZeroEntries')
 #else
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
@@ -269,7 +269,7 @@ MODULE PetscSolverClass
       ENDIF
 #else
       REAL*8,                     INTENT(IN)        :: dt
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE SetOperatorDt
 !
@@ -297,7 +297,7 @@ MODULE PetscSolverClass
       ENDIF
 #else
       REAL*8,                     INTENT(IN)        :: dt
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE ReSetOperatorDt
 !
@@ -317,7 +317,7 @@ MODULE PetscSolverClass
       INTEGER,                        INTENT(IN)        :: nvalues
       INTEGER, DIMENSION(:),          INTENT(IN)        :: irow
       REAL*8    , DIMENSION(:),       INTENT(IN)        :: values
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE SetBValues
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
@@ -333,7 +333,7 @@ MODULE PetscSolverClass
 #else
       INTEGER,           INTENT(IN)        :: irow
       REAL*8    ,        INTENT(IN)        :: value
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE SetBValue
 !/////////////////////////////////////////////////////////////////////////////////////////////////     
@@ -345,7 +345,7 @@ MODULE PetscSolverClass
       CALL MatAssemblyBegin(this%A,MAT_FINAL_ASSEMBLY,ierr);  CALL CheckPetscErr(ierr," Assembly A in PETSc Begin")      
       CALL MatAssemblyEnd(this%A,MAT_FINAL_ASSEMBLY,ierr)  ;  CALL CheckPetscErr(ierr," Assembly A in PETSc End")                  
 #else
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE
 !//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -357,7 +357,7 @@ MODULE PetscSolverClass
       CALL VecAssemblyBegin(this%b, ierr);  CALL CheckPetscErr(ierr," Assembly B in PETSc Begin")      
       CALL VecAssemblyEnd(this%b, ierr)  ;  CALL CheckPetscErr(ierr," Assembly B in PETSc End")  
 #else
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE
 !//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -375,7 +375,7 @@ MODULE PetscSolverClass
       INTEGER,                        INTENT(IN)        :: nvalues
       INTEGER, DIMENSION(:),          INTENT(IN)        :: irow
       REAL*8    , DIMENSION(:),       INTENT(IN)        :: values
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE GetXValues
 !//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -391,7 +391,7 @@ MODULE PetscSolverClass
 #else
       INTEGER,           INTENT(IN)        :: irow
       REAL*8    ,        INTENT(OUT)       :: x_i
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE GetXValue
 !//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -412,7 +412,7 @@ MODULE PetscSolverClass
 !~       CALL MatView(this%A, viewer, ierr)                                      ; CALL CheckPetscErr(ierr)
 !~       CALL PetscViewerDestroy(viewer, ierr)                                   ; CALL CheckPetscErr(ierr)
 #else
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE SaveMat
 !////////////////////////////////////////////////////////////////////////////////////////////////// 
@@ -434,7 +434,7 @@ MODULE PetscSolverClass
       CALL CheckPetscErr(ierr4,'error in KSPDestroy')
       CALL CheckPetscErr(ierr6,'error in PetscFinalize')
 #else
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE DestroyPetscObjects
 !
@@ -448,7 +448,7 @@ MODULE PetscSolverClass
 !     ---------
 !
       CLASS(PetscKspLinearSolver_t), INTENT(IN)  :: this        !<    
-      TYPE(csrMat)               , INTENT(OUT) :: Acsr        !>    CSR matrix
+      TYPE(csrMat_t)               , INTENT(OUT) :: Acsr        !>    CSR matrix
 #ifdef HAS_PETSC
 !
 !     ------------------
@@ -494,7 +494,7 @@ MODULE PetscSolverClass
       CALL Acsr % assigndiag
       
 #else
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE GetCSRMatrix
 !
@@ -518,7 +518,7 @@ MODULE PetscSolverClass
             STOP 'PetscSolverClass error: Type of Norm not defined'
       END SELECT
 #else
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END FUNCTION Getxnorm
 !
@@ -537,7 +537,7 @@ MODULE PetscSolverClass
       ! I don't know which type of norm PETSc computes!
       CALL KSPGetResidualNorm(this%ksp, rnorm, ierr)   ; CALL CheckPetscErr(ierr,'error in KSPGetResidualNorm')
 #else
-      STOP 'PETSc is not linked correctly'
+      STOP ':: PETSc is not linked correctly'
 #endif
    END FUNCTION Getrnorm
 END MODULE PetscSolverClass

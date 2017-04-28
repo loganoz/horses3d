@@ -12,7 +12,7 @@ MODULE CSR_Matrices
    IMPLICIT NONE
    
    !-----------------------------------------------------------------------------
-   TYPE csrMat
+   TYPE csrMat_t
       REAL(KIND=RP),  POINTER, CONTIGUOUS :: Values(:)=>NULL()  ! Values of nonzero entries of matrix
       INTEGER,        POINTER, CONTIGUOUS :: Cols(:)  =>NULL()  ! Column indices that correspond to each value
       INTEGER,        POINTER, CONTIGUOUS :: Rows(:)  =>NULL()  ! Row indices (index of first value of each row)
@@ -36,7 +36,7 @@ MODULE CSR_Matrices
    !-----------------------------------------------------------------------------   
    
    PRIVATE
-   PUBLIC                                 :: csrMat, CSR_MatVecMul
+   PUBLIC                                 :: csrMat_t, CSR_MatVecMul
 !
 !========
  CONTAINS
@@ -47,7 +47,7 @@ MODULE CSR_Matrices
    !  Creates a matrix in the CSR format using the same number of nonzero entries
    !  for all rows (nnz)
    !------------------------------------------------------------------------------
-      CLASS(csrMat)       :: this             !<> Matrix to be Created
+      CLASS(csrMat_t)     :: this             !<> Matrix to be Created
       INTEGER, INTENT(IN) :: NumRows          !<  Num of rows in the matrix
       INTEGER, INTENT(IN) :: NumCols          !<  Num of cols in the matrix
       INTEGER, INTENT(IN) :: nnz              !<  Num of nonzero entries in every row (extend to non-constant value with an interface)
@@ -94,7 +94,7 @@ MODULE CSR_Matrices
    !  Creates a matrix in the CSR format using a different number of nonzero entries
    !  for each row (nnz_row)
    !------------------------------------------------------------------------------
-      CLASS(csrMat)       :: this             !<> Matrix to be Created
+      CLASS(csrMat_t)     :: this             !<> Matrix to be Created
       INTEGER, INTENT(IN) :: NumRows          !<  Num of rows in the matrix
       INTEGER, INTENT(IN) :: NumCols          !<  Num of cols in the matrix
       INTEGER, INTENT(IN) :: nnz_row(:)       !<  Num of nonzero entries in every row (extend to non-constant value with an interface)
@@ -142,7 +142,7 @@ MODULE CSR_Matrices
    !----------------------------------------------------------------------------------
       IMPLICIT NONE
       !-----------------------------------
-      CLASS(csrMat)        :: A           !<> Matrix
+      CLASS(csrMat_t)       :: A           !<> Matrix
       !-----------------------------------
       INTEGER               :: i, j       !   Counters
       INTEGER, POINTER      :: row_ptr(:) !   Row pointer
@@ -171,7 +171,7 @@ MODULE CSR_Matrices
    !------------------------------------------------------------------------------
       IMPLICIT NONE
       !------------------------------------------------------------------------------ 
-      CLASS(csrMat)                 :: A                 !<> Global matrix
+      CLASS(csrMat_t)               :: A                 !<> Global matrix
       INTEGER       , INTENT(IN)    :: RowIndexes(1:)    !< Different positions of Column
       INTEGER       , INTENT(IN)    :: ColNum            !< Number of Row/Column
       REAL(KIND=RP) , INTENT(IN)    :: Values(:)         !< Values to be added to global matrivx¿x
@@ -208,7 +208,7 @@ MODULE CSR_Matrices
    !------------------------------------------------------------------------------
       IMPLICIT NONE
       !------------------------------------------------------------------------------ 
-      CLASS(csrMat), INTENT(INOUT)    :: A     !<>Matrix to be changed
+      CLASS(csrMat_t), INTENT(INOUT)  :: A     !<>Matrix to be changed
       INTEGER      , INTENT(IN)       :: i     !< row of the matrix element
       INTEGER      , INTENT(IN)       :: j     !< column number of the matrix element
       REAL(KIND=RP), INTENT(IN)       :: Aij   !< new value of the matrix element
@@ -234,7 +234,7 @@ MODULE CSR_Matrices
    !------------------------------------------------------------------------------
       IMPLICIT NONE
       !------------------------------------------------------------------------------ 
-      TYPE(csrMat)  , INTENT(IN) :: A         !< Matrix to be searched
+      TYPE(csrMat_t), INTENT(IN) :: A         !< Matrix to be searched
       INTEGER       , INTENT(IN) :: i, j      !< Position to bi searched
       INTEGER                    :: k         !> Position in A%Values of A(i,j)
       !------------------------------------------------------------
@@ -263,7 +263,7 @@ MODULE CSR_Matrices
    !----------------------------------------------------------------------------------
       IMPLICIT NONE
       !------------------------------------------
-      CLASS(csrMat)               :: this
+      CLASS(csrMat_t)             :: this
       CHARACTER(len=*)            :: FileName
       LOGICAL, OPTIONAL           :: FirstRow   !< Write First row?
       !------------------------------------------
@@ -301,7 +301,7 @@ MODULE CSR_Matrices
    !----------------------------------------------------------------------------------
       IMPLICIT NONE
       !------------------------------------------
-      CLASS(csrMat), INTENT(INOUT) :: this
+      CLASS(csrMat_t), INTENT(INOUT) :: this
       !------------------------------------------
       
       NULLIFY(this % Rows)
@@ -317,10 +317,10 @@ MODULE CSR_Matrices
    !----------------------------------------------------------------------------------
       IMPLICIT NONE
       !------------------------------------------
-      CLASS(csrMat), INTENT(INOUT) :: this
-      REAL(KIND=RP), INTENT(IN)    :: shift
+      CLASS(csrMat_t), INTENT(INOUT) :: this
+      REAL(KIND=RP), INTENT(IN)      :: shift
       !------------------------------------------
-      INTEGER                      :: i
+      INTEGER                        :: i
       !------------------------------------------
       
       DO i=1, this % NumRows
@@ -337,7 +337,7 @@ MODULE CSR_Matrices
    !   Assuming there's MKL
    !------------------------------------------------------------------------------
       REAL(KIND=RP), DIMENSION(:)  , INTENT(IN)  :: u  !< Vector to be multiplied
-      TYPE(csrMat)                 , INTENT(IN)  :: A  !< Structure holding matrix
+      TYPE(csrMat_t)               , INTENT(IN)  :: A  !< Structure holding matrix
       REAL(KIND=RP), DIMENSION(A % NumRows)      :: v  !> Result vector 
       !------------------------------------------------------------------------------
       INTEGER       :: i,j

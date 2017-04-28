@@ -87,7 +87,7 @@ MODULE Implicit_NJ
             CASE('petsc')
                ALLOCATE (PetscKspLinearSolver_t :: linsolver)
             CASE('pardiso')
-               ALLOCATE (MKLPardisoSolver_t :: linsolver)
+               ALLOCATE (MKLPardisoSolver_t     :: linsolver)
             CASE DEFAULT
                print*, "Keyword 'linear solver' missing... Using PETSc as default"
                ALLOCATE (PetscKspLinearSolver_t :: linsolver)
@@ -133,7 +133,7 @@ MODULE Implicit_NJ
       ! 
       !**************************
       
-      CALL StoreSolution( sem, nelm, U_n )             !stores sem%dgS(elmnt)%Q in Vector u_N
+      CALL GetSemQ( sem, nelm, U_n )             !stores sem%dgS(elmnt)%Q in Vector U_n
       
       
       DO                                                 
@@ -142,11 +142,11 @@ MODULE Implicit_NJ
          
          IF (CONVERGED) THEN
             time = time + inner_dt
-            CALL StoreSolution( sem, nelm, U_n )
+            CALL GetSemQ( sem, nelm, U_n )
             
             !*************************************************
             !
-            IF (JacByConv .AND. newtonit .GT. LIM_NEWTON_ITER) THEN   !Recomputes jacobian Matrix if convergence rate is poor          !arueda: outcommented cause it's only for steady-state... Add flag and proof if it's better this way
+            IF (JacByConv .AND. newtonit .GT. LIM_NEWTON_ITER) THEN   !Recomputes jacobian Matrix if convergence rate is poor
                IF (PRINT_NEWTON_INFO) THEN
                   WRITE(*,*) "Convergence rate is poor,  recomputing jacobian matrix..."
                ENDIF
@@ -186,8 +186,8 @@ MODULE Implicit_NJ
             inner_dt = inner_dt / 2._RP
             IF (JacByConv)  CALL linsolver%ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
             
-            CALL RestoreSolution( sem, nelm, U_n )       ! restores Q to begin a new newton iteration       
-             IF (PRINT_NEWTON_INFO) WRITE(*,*) "Newton loop did not converge, trying a smaller dt = ", inner_dt
+            CALL SetSemQ( sem, nelm, U_n )       ! restores Q to begin a new newton iteration       
+            IF (PRINT_NEWTON_INFO) WRITE(*,*) "Newton loop did not converge, trying a smaller dt = ", inner_dt
          END IF
       
       END DO
@@ -250,10 +250,6 @@ MODULE Implicit_NJ
       REAL(KIND=RP)                                         :: norm, norm_old, rel_tol, norm1
       LOGICAL                                               :: STRICT_NEWTON = .TRUE.
       
-      ! Temp
-!~      TYPE(csrMat)                                       :: Matcsr
-        
-      
       norm = 1.0_RP
       norm_old = -1.0_RP  !Must be initialized to -1 to avoid bad things in the first newton iter
       ConvRate = 1.0_RP
@@ -270,10 +266,6 @@ MODULE Implicit_NJ
          ELSE
             CALL ComputeTimeDerivative( sem, t )
          END IF
-!~          CALL linsolver%GetCSRMatrix(Matcsr)
-!~          print*, 'after getting csr'
-!~          CALL WriteEigenFiles(Matcsr,sem,'SmallMat')
-!~          STOP
          
          CALL SYSTEM_CLOCK(COUNT=cli, COUNT_RATE=clrate)         
          CALL ComputeRHS(sem, dt, u_N, nelm, linsolver )               ! Computes b (RHS) and stores it into linsolver
@@ -315,7 +307,7 @@ MODULE Implicit_NJ
    END SUBROUTINE
 
 !/////////////////////////////////////////////////////////////////////////////////////////////////
-   SUBROUTINE StoreSolution( sem, nelm, u_store )
+   SUBROUTINE GetSemQ( sem, nelm, u_store )
 
       TYPE(DGSem),   INTENT(IN)                    :: sem
       INTEGER,       INTENT(IN)                    :: nelm
@@ -340,9 +332,9 @@ MODULE Implicit_NJ
             END DO
          END DO
       END DO
-   END SUBROUTINE StoreSolution
+   END SUBROUTINE GetSemQ
 !/////////////////////////////////////////////////////////////////////////////////////////////////
-   SUBROUTINE RestoreSolution( sem, nelm, u_store )
+   SUBROUTINE SetSemQ( sem, nelm, u_store )
 
       TYPE(DGSem),   INTENT(INOUT)                 :: sem
       INTEGER,       INTENT(IN)                    :: nelm
@@ -367,7 +359,7 @@ MODULE Implicit_NJ
             END DO
          END DO
       END DO
-   END SUBROUTINE RestoreSolution
+   END SUBROUTINE SetSemQ
 !  
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -445,7 +437,7 @@ MODULE Implicit_NJ
 !     Writes files for performing eigenvalue analysis using TAUev
 !     -----------------------------------------------------------
 !
-      TYPE(csrMat)      :: Mat      !< Jacobian matrix
+      TYPE(csrMat_t)    :: Mat      !< Jacobian matrix
       TYPE(DGSem)       :: sem      !< DGSem class containing mesh
       CHARACTER(len=*)  :: FileName !< ...
 !     -----------------------------------------------------------

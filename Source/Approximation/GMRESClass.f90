@@ -21,7 +21,7 @@ MODULE GMRESClass
       
       REAL(KIND = RP), ALLOCATABLE, PRIVATE  :: H(:,:)
       REAL(KIND = RP), ALLOCATABLE, PRIVATE  :: W(:)
-      REAL(KIND = RP), ALLOCATABLE, PRIVATE  :: V(:,:)                ! arueda: Orthogonal vectors of Krylov subspace (?) (Arnoldi)
+      REAL(KIND = RP), ALLOCATABLE, PRIVATE  :: V(:,:)                ! arueda: Orthogonal vectors of Krylov subspace (Arnoldi)
       REAL(KIND = RP), ALLOCATABLE, PRIVATE  :: Z(:,:)
       REAL(KIND = RP), ALLOCATABLE, PRIVATE  :: Y(:)
       REAL(KIND = RP), ALLOCATABLE, PRIVATE  :: cc(:)
