@@ -88,6 +88,8 @@ MODULE Implicit_NJ
                ALLOCATE (PetscKspLinearSolver_t :: linsolver)
             CASE('pardiso')
                ALLOCATE (MKLPardisoSolver_t     :: linsolver)
+            CASE('smooth')
+               ALLOCATE (IterativeSolver_t      :: linsolver)
             CASE DEFAULT
                print*, "Keyword 'linear solver' missing... Using PETSc as default"
                ALLOCATE (PetscKspLinearSolver_t :: linsolver)
@@ -112,7 +114,7 @@ MODULE Implicit_NJ
          ALLOCATE(U_n(0:Dimprb-1))
          CALL ecolors%construct(nbr,flowIsNavierStokes)       
          !CALL ecolors%info
-         CALL linsolver%construct(DimPrb)             !Constructs linear solver 
+         CALL linsolver%construct(DimPrb,sem)             !Constructs linear solver 
          JacByConv = controlVariables % LogicalValueForKey("jacobian by convergence")
       ENDIF
       
@@ -197,7 +199,10 @@ MODULE Implicit_NJ
       
       !**************************
       ! for computing sometimes
-      IF (JacByConv .AND. ConvRate <0.65_RP .AND. newtonit .LT. LIM_NEWTON_ITER) computeA = .TRUE.  !last condition cause' if that's true, the Jacobian was just computed
+      IF (JacByConv .AND. ConvRate <0.65_RP .AND. newtonit .LT. LIM_NEWTON_ITER) THEN
+         computeA = .TRUE.  !last condition cause' if that's true, the Jacobian was just computed
+         computeA = linsolver % ComputeANextStep()
+      END IF
       ! for computing sometimes
       !**************************
 !
@@ -268,8 +273,8 @@ MODULE Implicit_NJ
          END IF
          
          CALL SYSTEM_CLOCK(COUNT=cli, COUNT_RATE=clrate)         
-         CALL ComputeRHS(sem, dt, u_N, nelm, linsolver )               ! Computes b (RHS) and stores it into linsolver
-         CALL linsolver%solve(tol=norm*1.e-12_RP, maxiter=1000)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
+         CALL ComputeRHS(sem, dt, U_n, nelm, linsolver )               ! Computes b (RHS) and stores it into linsolver
+         CALL linsolver%solve(tol=norm*1.e-3_RP, maxiter=1000, time= t, dt=dt)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          IF (.NOT. linsolver%converged) THEN                           ! If linsolver did not converge, return converged=false
             converged = .FALSE.
             RETURN

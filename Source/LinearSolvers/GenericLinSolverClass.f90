@@ -9,10 +9,11 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE GenericLinSolverClass
    USE SMConstants
+   USE DGSEMClass
    IMPLICIT NONE
    
    PRIVATE
-   PUBLIC GenericLinSolver_t
+   PUBLIC GenericLinSolver_t, DGSem, ComputeTimeDerivative
    
    TYPE :: GenericLinSolver_t
       LOGICAL                                     :: converged = .FALSE.   ! The solution converged?
@@ -26,6 +27,7 @@ MODULE GenericLinSolverClass
       PROCEDURE :: SetAColumn
       PROCEDURE :: AssemblyA
       PROCEDURE :: SetBValue
+      PROCEDURE :: SetBValues
       PROCEDURE :: solve
       PROCEDURE :: GetCSRMatrix
       PROCEDURE :: GetXValue
@@ -36,15 +38,18 @@ MODULE GenericLinSolverClass
       !Functions:
       PROCEDURE :: Getxnorm    !Get solution norm
       PROCEDURE :: Getrnorm    !Get residual norm
+      PROCEDURE :: ComputeANextStep
    END TYPE
 
 CONTAINS
 
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   SUBROUTINE Construct(this,DimPrb)
+   SUBROUTINE Construct(this,DimPrb,sem)
+      IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       INTEGER                  , INTENT(IN)    :: DimPrb
+      TYPE(DGSem), TARGET      , OPTIONAL      :: sem
    END SUBROUTINE Construct
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -53,6 +58,7 @@ CONTAINS
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    SUBROUTINE PreallocateA(this,nnz)
+      IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       INTEGER                                  :: nnz
    END SUBROUTINE PreallocateA
@@ -62,6 +68,7 @@ CONTAINS
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    SUBROUTINE ResetA(this)
+      IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
    END SUBROUTINE ResetA
    
@@ -70,6 +77,7 @@ CONTAINS
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    SUBROUTINE SetAColumn(this,nvalues,irow,icol,values)
+      IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT)  :: this
       INTEGER       , INTENT(IN)                :: nvalues
       INTEGER       , INTENT(IN), DIMENSION(:)  :: irow
@@ -82,6 +90,7 @@ CONTAINS
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    SUBROUTINE AssemblyA(this)
+      IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
    END SUBROUTINE AssemblyA
 
@@ -90,6 +99,7 @@ CONTAINS
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    SUBROUTINE SetBValue(this, irow, value)
+      IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       INTEGER                  , INTENT(IN)  :: irow
       REAL(KIND=RP)            , INTENT(IN)  :: value
@@ -98,19 +108,33 @@ CONTAINS
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   SUBROUTINE SetBValues(this, nvalues, irow, values)
+      CLASS(GenericLinSolver_t)  , INTENT(INOUT)     :: this
+      INTEGER                    , INTENT(IN)        :: nvalues
+      INTEGER      , DIMENSION(:), INTENT(IN)        :: irow
+      REAL(KIND=RP), DIMENSION(:), INTENT(IN)        :: values
+   END SUBROUTINE SetBValues
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   SUBROUTINE solve(this,tol,maxiter)     
+   
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   
+   SUBROUTINE solve(this,tol,maxiter,time,dt)
+      IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP), OPTIONAL                  :: tol
       INTEGER      , OPTIONAL                  :: maxiter
+      REAL(KIND=RP), OPTIONAL                  :: time
+      REAL(KIND=RP), OPTIONAL                  :: dt
    END SUBROUTINE solve
 
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   SUBROUTINE GetCSRMatrix(this,Acsr)         
+   SUBROUTINE GetCSRMatrix(this,Acsr)
       USE CSR_Matrices
+      IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(IN)  :: this
       TYPE(csrMat_t)             , INTENT(OUT) :: Acsr 
    END SUBROUTINE GetCSRMatrix
@@ -119,7 +143,8 @@ CONTAINS
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   SUBROUTINE GetXValue(this,irow,x_i)       
+   SUBROUTINE GetXValue(this,irow,x_i)
+      IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       INTEGER                  , INTENT(IN)    :: irow
       REAL(KIND=RP)            , INTENT(OUT)   :: x_i
@@ -129,7 +154,8 @@ CONTAINS
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   SUBROUTINE destroy(this)         
+   SUBROUTINE destroy(this)
+      IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
    END SUBROUTINE destroy
 
@@ -138,6 +164,7 @@ CONTAINS
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    SUBROUTINE SetOperatorDt(this, dt)
+      IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP)            , INTENT(IN)    :: dt
    END SUBROUTINE SetOperatorDt
@@ -147,6 +174,7 @@ CONTAINS
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    SUBROUTINE ReSetOperatorDt(this, dt)
+      IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP)            , INTENT(IN)    :: dt
    END SUBROUTINE ReSetOperatorDt
@@ -155,8 +183,9 @@ CONTAINS
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   SUBROUTINE AssemblyB(this)         
-       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+   SUBROUTINE AssemblyB(this)
+      IMPLICIT NONE
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
    END SUBROUTINE AssemblyB
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -166,6 +195,7 @@ CONTAINS
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    FUNCTION Getxnorm(this,TypeOfNorm) RESULT(xnorm)
+      IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       CHARACTER(len=*)                         :: TypeOfNorm
       REAL(KIND=RP)                            :: xnorm
@@ -176,10 +206,20 @@ CONTAINS
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    FUNCTION Getrnorm(this) RESULT(rnorm)
+      IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP)                            :: rnorm
    END FUNCTION Getrnorm
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   
+   FUNCTION ComputeANextStep(this) RESULT(ComputeA)
+      IMPLICIT NONE
+      CLASS(GenericLinSolver_t), INTENT(IN) :: this
+      LOGICAL                               :: ComputeA
+   END FUNCTION ComputeANextStep
+   
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 END MODULE GenericLinSolverClass

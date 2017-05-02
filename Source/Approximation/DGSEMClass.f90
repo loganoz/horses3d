@@ -59,9 +59,13 @@
 !
          PROCEDURE :: construct => ConstructDGSem
          PROCEDURE :: destruct  => DestructDGSem   
-
+         
+         PROCEDURE :: GetQ
+         PROCEDURE :: SetQ
+         PROCEDURE :: GetQdot
+         
          PROCEDURE :: SaveSolutionForRestart
-         PROCEDURE :: LoadSolutionForRestart  
+         PROCEDURE :: LoadSolutionForRestart
             
       END TYPE DGSem
       
@@ -180,6 +184,87 @@
          END DO
 
       END SUBROUTINE LoadSolutionForRestart
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+   SUBROUTINE SetQ(sem,Q)
+      CLASS(DGSem)   ,     INTENT(INOUT)           :: sem 
+      REAL(KIND = RP),     INTENT(IN)              :: Q(:)   
+      
+      INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, counter, elm
+      
+      counter = 1
+      DO elm = 1, size(sem%mesh%elements)
+         Nx = sem%mesh%elements(elm)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
+         Ny = sem%mesh%elements(elm)%N
+         Nz = sem%mesh%elements(elm)%N
+         DO k = 0, Nz
+            DO j = 0, Ny
+               DO i = 0, Nx
+                  DO l = 1,N_EQN
+                     sem%mesh%elements(elm)%Q(i, j, k, l) = Q(counter) 
+                     counter =  counter + 1
+                  END DO
+               END DO
+            END DO
+         END DO
+      END DO 
+         
+   END SUBROUTINE SetQ
+!
+!////////////////////////////////////////////////////////////////////////////////////////       
+!
+   SUBROUTINE GetQ(sem,Q)
+      CLASS(DGSem),        INTENT(INOUT)            :: sem
+      REAL(KIND = RP),     INTENT(OUT)              :: Q(:)
+      
+      INTEGER                                       :: Nx, Ny, Nz, l, i, j, k, counter, elm
+      
+      counter = 1
+      DO elm = 1, size(sem%mesh%elements)
+         Nx = sem%mesh%elements(elm)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
+         Ny = sem%mesh%elements(elm)%N
+         Nz = sem%mesh%elements(elm)%N
+         DO k = 0, Nz
+            DO j = 0, Ny
+                DO i = 0, Nx
+                  DO l = 1,N_EQN
+                     Q(counter)  = sem%mesh%elements(elm)%Q(i, j, k, l)
+                     counter =  counter + 1
+                  END DO
+                END DO
+            END DO
+         END DO
+      END DO
+      
+   END SUBROUTINE GetQ
+!
+!////////////////////////////////////////////////////////////////////////////////////////      
+!
+   SUBROUTINE GetQdot(sem,Qdot)
+      CLASS(DGSem),        INTENT(INOUT)            :: sem
+      REAL(KIND = RP),     INTENT(OUT)              :: Qdot(:)
+      
+      INTEGER                                       :: Nx, Ny, Nz, l, i, j, k, counter, elm
+      
+      counter = 1
+      DO elm = 1, size(sem%mesh%elements)
+         Nx = sem%mesh%elements(elm)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
+         Ny = sem%mesh%elements(elm)%N
+         Nz = sem%mesh%elements(elm)%N
+         DO k = 0, Nz
+            DO j = 0, Ny
+               DO i = 0, Nx
+                  DO l = 1,N_EQN
+                     Qdot(counter)  = sem%mesh%elements(elm)%Qdot(i, j, k, l) 
+                     counter =  counter + 1
+                  END DO
+               END DO
+            END DO
+         END DO
+      END DO
+      
+   END SUBROUTINE GetQdot
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

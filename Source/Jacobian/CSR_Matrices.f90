@@ -30,6 +30,7 @@ MODULE CSR_Matrices
       PROCEDURE                           :: SetMatShift
       PROCEDURE                           :: SetColumn
       PROCEDURE                           :: SetElem
+      PROCEDURE                           :: GetDense => CSR2Dense
       
       PROCEDURE, PRIVATE                  :: CSR_CreateMatnnz, CSR_CreateMatnnzs
    END TYPE
@@ -379,4 +380,28 @@ MODULE CSR_Matrices
    !------------------------------------------------------------------------------
    END FUNCTION
    !------------------------------------------------------------------------------
+   
+   !----------------------------------------------------------------------------------
+   SUBROUTINE CSR2Dense(A,Mat) 
+   !     Transforms a matrix of type Matrix_t into a common real(dp) matrix
+   !----------------------------------------------------------------------------------
+      CLASS(csrMat_t)           , INTENT(IN)  :: A          !< CSR matric
+      REAL(KIND=RP), ALLOCATABLE, INTENT(OUT) :: Mat(:,:)   !> Dense matrix
+      !------------------------------------------------
+      INTEGER                                 :: i, k       !  Counters
+      !------------------------------------------------
+      
+      IF (ALLOCATED(Mat)) DEALLOCATE(Mat)
+      ALLOCATE(Mat(A%NumRows,A%NumCols))
+      
+      Mat = 0.d0
+      DO i=1, A % NumRows
+         DO k=A % Rows(i), A % Rows(i+1)-1
+            Mat(i,A%Cols(k)) = A % Values (k)
+         END DO
+      END DO
+   !----------------------------------------------------------------------------------
+   END SUBROUTINE CSR2Dense
+   !----------------------------------------------------------------------------------
+   
 END MODULE

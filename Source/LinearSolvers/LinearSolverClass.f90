@@ -10,5 +10,6 @@
 MODULE LinearSolverClass
    USE PetscSolverClass
    USE MKLPardisoSolverClass
+   USE IterativeSolverClass
    IMPLICIT NONE
 END MODULE LinearSolverClass

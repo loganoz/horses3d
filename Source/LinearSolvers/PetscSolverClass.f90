@@ -69,6 +69,7 @@ MODULE PetscSolverClass
 
 !///////////////////////////////////////////////////////////////////////////////
    SUBROUTINE CheckPetscErr(ierr,msg)
+      IMPLICIT NONE
       CHARACTER(LEN=*), OPTIONAL                   :: msg
 #ifdef HAS_PETSC
       PetscErrorCode, INTENT(IN)                   :: ierr
@@ -86,8 +87,10 @@ MODULE PetscSolverClass
 #endif
    END SUBROUTINE CheckPetscErr
 !///////////////////////////////////////////////////////////////////////////////     
-   SUBROUTINE ConstructPetscContext(this, DimPrb)
+   SUBROUTINE ConstructPetscContext(this, DimPrb,sem)
+      IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT) :: this
+      TYPE(DGSem), TARGET          , OPTIONAL      :: sem
 #ifdef HAS_PETSC
       PetscInt, INTENT(IN)                       :: DimPrb
       PetscErrorCode                             :: ierr
@@ -140,6 +143,7 @@ MODULE PetscSolverClass
    END SUBROUTINE
 !/////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE SetPetscPreco(this)
+      IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT)      :: this
 #ifdef HAS_PETSC
       PetscErrorCode                                  :: ierr
@@ -151,8 +155,11 @@ MODULE PetscSolverClass
 #endif
    END SUBROUTINE SetPetscPreco 
 !/////////////////////////////////////////////////////////////////////////////////////////////////
-   SUBROUTINE SolveLinPrb(this, tol, maxiter)
-      CLASS(PetscKspLinearSolver_t), INTENT(INOUT)      :: this
+   SUBROUTINE SolveLinPrb(this, tol, maxiter, time,dt)
+      IMPLICIT NONE
+      CLASS(PetscKspLinearSolver_t), INTENT(INOUT)    :: this
+      REAL(KIND=RP), OPTIONAL                         :: time
+      REAL(KIND=RP), OPTIONAL                         :: dt
 #ifdef HAS_PETSC
       PetscReal, OPTIONAL                             :: tol
       PetscInt,  OPTIONAL                             :: maxiter
@@ -202,6 +209,7 @@ MODULE PetscSolverClass
    END SUBROUTINE SolveLinPrb
 !/////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE PreallocateA(this, nnz)
+      IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT)       :: this
 #ifdef HAS_PETSC
       PetscInt                                         :: nnz
@@ -222,6 +230,7 @@ MODULE PetscSolverClass
    END SUBROUTINE
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
    SUBROUTINE SetAColumn(this,nvalues, irow, icol, values )
+      IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT)         :: this
 #ifdef HAS_PETSC
       PetscInt, INTENT(IN)                               :: nvalues
@@ -242,6 +251,7 @@ MODULE PetscSolverClass
    END SUBROUTINE SetAColumn
 !/////////////////////////////////////////////////////////////////////////////////////////////////      
    SUBROUTINE ResetA(this)
+      IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       PetscErrorCode                                     :: ierr
@@ -254,6 +264,7 @@ MODULE PetscSolverClass
    END SUBROUTINE
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
    SUBROUTINE SetOperatorDt(this, dt)
+      IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       PetscScalar,                     INTENT(IN)        :: dt
@@ -276,6 +287,7 @@ MODULE PetscSolverClass
 !///////////////////////////////////////////////////////////////////////////////////////////////// 
 !   
    SUBROUTINE ReSetOperatorDt(this, dt)
+      IMPLICIT NONE
 !
 !     --------------------------------------------------
 !     Removes previous shift in order to insert new one 
@@ -304,6 +316,7 @@ MODULE PetscSolverClass
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
 !
    SUBROUTINE SetBValues(this, nvalues, irow, values)
+      IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       PetscInt,                        INTENT(IN)        :: nvalues
@@ -322,6 +335,7 @@ MODULE PetscSolverClass
    END SUBROUTINE SetBValues
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
    SUBROUTINE SetBValue(this, irow, value)
+      IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       PetscInt,                        INTENT(IN)        :: irow
@@ -338,6 +352,7 @@ MODULE PetscSolverClass
    END SUBROUTINE SetBValue
 !/////////////////////////////////////////////////////////////////////////////////////////////////     
    SUBROUTINE AssemblyA(this)
+      IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       PetscErrorCode                                     :: ierr
@@ -350,6 +365,7 @@ MODULE PetscSolverClass
    END SUBROUTINE
 !//////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE AssemblyB(this)
+      IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       PetscErrorCode                                     :: ierr
@@ -362,6 +378,7 @@ MODULE PetscSolverClass
    END SUBROUTINE
 !//////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE GetXValues(this, nvalues, irow, values)
+      IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)      :: this
 #ifdef HAS_PETSC
       PetscInt,                        INTENT(IN)         :: nvalues
@@ -380,6 +397,7 @@ MODULE PetscSolverClass
    END SUBROUTINE GetXValues
 !//////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE GetXValue(this, irow, x_i)
+      IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)      :: this
 #ifdef HAS_PETSC
       PetscInt,                        INTENT(IN)         :: irow
@@ -396,6 +414,7 @@ MODULE PetscSolverClass
    END SUBROUTINE GetXValue
 !//////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE SaveMat(this,filename)
+      IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT)         :: this
       CHARACTER(LEN=*), OPTIONAL                         :: filename
 #ifdef HAS_PETSC
@@ -417,6 +436,7 @@ MODULE PetscSolverClass
    END SUBROUTINE SaveMat
 !////////////////////////////////////////////////////////////////////////////////////////////////// 
    SUBROUTINE DestroyPetscObjects(this)
+      IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT)       :: this
 #ifdef HAS_PETSC
       PetscErrorCode                                   :: ierr1, ierr2, ierr3, ierr4, ierr5, ierr6
