@@ -57,12 +57,13 @@ MODULE MKLPardisoSolverClass
  CONTAINS
 !========
    
-   SUBROUTINE ConstructMKLContext(this,DimPrb,sem)
+   SUBROUTINE ConstructMKLContext(this,DimPrb,controlVariables,sem)
       IMPLICIT NONE
       !-----------------------------------------------------------
-      CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
-      INTEGER                  , INTENT(IN)    :: DimPrb
-      TYPE(DGSem), TARGET      , OPTIONAL      :: sem
+      CLASS(MKLPardisoSolver_t), INTENT(INOUT), TARGET :: this
+      INTEGER                  , INTENT(IN)            :: DimPrb
+      TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
+      TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
       !-----------------------------------------------------------
       INTERFACE
          SUBROUTINE pardisoinit(pt, mtype, iparm)

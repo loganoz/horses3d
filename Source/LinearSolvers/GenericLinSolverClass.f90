@@ -10,10 +10,11 @@
 MODULE GenericLinSolverClass
    USE SMConstants
    USE DGSEMClass
+   USE FTValueDictionaryClass
    IMPLICIT NONE
    
    PRIVATE
-   PUBLIC GenericLinSolver_t, DGSem, ComputeTimeDerivative
+   PUBLIC GenericLinSolver_t, DGSem, ComputeTimeDerivative, FTValueDictionary
    
    TYPE :: GenericLinSolver_t
       LOGICAL                                     :: converged = .FALSE.   ! The solution converged?
@@ -45,11 +46,12 @@ CONTAINS
 
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   SUBROUTINE Construct(this,DimPrb,sem)
+   SUBROUTINE Construct(this,DimPrb,controlVariables,sem)
       IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
-      INTEGER                  , INTENT(IN)    :: DimPrb
-      TYPE(DGSem), TARGET      , OPTIONAL      :: sem
+      CLASS(GenericLinSolver_t), INTENT(INOUT), TARGET :: this
+      INTEGER                  , INTENT(IN)            :: DimPrb
+      TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
+      TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
    END SUBROUTINE Construct
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

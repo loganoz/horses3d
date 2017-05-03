@@ -87,13 +87,14 @@ MODULE PetscSolverClass
 #endif
    END SUBROUTINE CheckPetscErr
 !///////////////////////////////////////////////////////////////////////////////     
-   SUBROUTINE ConstructPetscContext(this, DimPrb,sem)
+   SUBROUTINE ConstructPetscContext(this, DimPrb,controlVariables,sem)
       IMPLICIT NONE
-      CLASS(PetscKspLinearSolver_t), INTENT(INOUT) :: this
-      TYPE(DGSem), TARGET          , OPTIONAL      :: sem
+      CLASS(PetscKspLinearSolver_t), INTENT(INOUT), TARGET :: this
+      TYPE(FTValueDictionary)      , INTENT(IN), OPTIONAL  :: controlVariables
+      TYPE(DGSem), TARGET                      , OPTIONAL  :: sem
 #ifdef HAS_PETSC
-      PetscInt, INTENT(IN)                       :: DimPrb
-      PetscErrorCode                             :: ierr
+      PetscInt, INTENT(IN)                                 :: DimPrb
+      PetscErrorCode                                       :: ierr
       
       !Initialisation of the PETSc variables
       CALL PetscInitialize(PETSC_NULL_CHARACTER,ierr)

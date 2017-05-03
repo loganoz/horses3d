@@ -60,28 +60,30 @@
 \tableofcontents
 
 \chapter{Implicit solvers}
-\section{Keywords}
+\section{General keywords}
 The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
 
 \begin{table}[htbp]
 \caption{Keywords for implicit solvers.}
-\begin{tabular}{|l|p{10cm}|l|}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
 \hline
 \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
-implicit time & \textit{LOGICAL}: When .TRUE., NSLITE3D performs implicit time integration in every time step. & \multicolumn{1}{c|}{.FALSE.} \\ \hline
+implicit time & \textit{LOGICAL}: When .TRUE., NSLITE3D performs implicit time integration in every time step. & .FALSE. \\ \hline
 jacobian flag           & \textit{INTEGER}: Specifies the type of Jacobian matrix to be computed. Options are:\
 				\begin{enumerate}
 					\item Jacobian free: Uses JFNK algorithm with GMRES linear solver.
 					\item Numerical Jacobian: Uses coloring algorithm for computing Jacobian.
 					\item Analytical Jacobian: Not yet implemented.
 					\end{enumerate}
-										& \multicolumn{1}{c|}{1} \\ \hline
+										& 1 \\ \hline
 time integration        & \textit{CHARACTER}: Specifies if NSLITE3D must perform a 'steady-state' or a 'time-accurate' simulation. &  'steady-state'\\ \hline
 jacobian by convergence & \textit{LOGICAL}: When .TRUE., the Jacobian is only computed when the convergence falls beneath some threshold (see keyfords: blah and blah blah). This improves performance but can introduce big numerical errors for time-accurate simulations.  & .FALSE. \\ \hline
 linear solver           & \textit{CHARACTER}: Specifies the linear solver that has to be used. Options are:\ 
 				\begin{itemize}
 					\item 'petsc': PETSc library Krylov-Subspace methods.
 					\item 'pardiso': Intel MKL PARDISO.
+					\item 'smooth': .
+					\item 'multigrid': .
 				\end{itemize}
 										& 'petsc'  \\ \hline
   &  &  \\ \hline
@@ -91,12 +93,27 @@ linear solver           & \textit{CHARACTER}: Specifies the linear solver that h
 \label{tab:implicitkey}
 \end{table}
 
+\section{Multigrid}
+\begin{table}[htbp]
+\caption{Keywords for the multigrid solver.}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+multigrid levels & \textit{INTEGER}: Number of multigrid levels for the computations. & \textbf{Mandatory keyword} \\ \hline
+
+delta n          & \textit{INTEGER}: Interval of reduction of polynomial order for creating coarser multigrid levels.& 1 \\ \hline
+   &  &  \\ \hline
+    &  &  \\ \hline
+\end{tabular}
+\label{tab:multigridKey}
+\end{table}
 
 \chapter{Restarting a case}
 
 \begin{table}[htbp]
 \caption{Keywords for restarting a case.}
-\begin{tabular}{|l|p{10cm}|p{2cm}|}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
 \hline
 \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
 restart file name   & \textit{CHARACTER}: Name of the restart file to be written and, if keyword \textit{restart} = .TRUE., also name of the restart file to be read for starting the simulation. & \textbf{Mandatory\ keyword} \\ \hline

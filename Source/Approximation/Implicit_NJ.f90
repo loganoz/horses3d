@@ -90,6 +90,8 @@ MODULE Implicit_NJ
                ALLOCATE (MKLPardisoSolver_t     :: linsolver)
             CASE('smooth')
                ALLOCATE (IterativeSolver_t      :: linsolver)
+            CASE('multigrid')
+               ALLOCATE (MultigridSolver_t      :: linsolver)
             CASE DEFAULT
                print*, "Keyword 'linear solver' missing... Using PETSc as default"
                ALLOCATE (PetscKspLinearSolver_t :: linsolver)
@@ -114,7 +116,7 @@ MODULE Implicit_NJ
          ALLOCATE(U_n(0:Dimprb-1))
          CALL ecolors%construct(nbr,flowIsNavierStokes)       
          !CALL ecolors%info
-         CALL linsolver%construct(DimPrb,sem)             !Constructs linear solver 
+         CALL linsolver%construct(DimPrb,controlVariables,sem)             !Constructs linear solver 
          JacByConv = controlVariables % LogicalValueForKey("jacobian by convergence")
       ENDIF
       
