@@ -233,9 +233,9 @@
 !        -----------------------------------------------
 !
          Q(1) =  Q(1)
-         Q(2) = -Q(2)
-         Q(3) = -Q(3)
-         Q(4) = -Q(4)
+         Q(2) = 0._RP !-Q(2)   ! arueda: Temporarily changed because it causes trouble with mortars (dont know why)
+         Q(3) = 0._RP !-Q(3)
+         Q(4) = 0._RP !-Q(4)
          Q(5) =  Q(5)
 
       END SUBROUTINE NoSlipAdiabaticWallState

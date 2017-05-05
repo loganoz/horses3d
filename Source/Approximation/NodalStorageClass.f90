@@ -24,8 +24,9 @@
          INTEGER                                    :: N
          REAL(KIND=RP)                , ALLOCATABLE :: xi(:), eta(:), zeta(:), w(:)
          REAL(KIND=RP)                , ALLOCATABLE :: standardDerivativeMatrix(:,:), D(:,:)
-         REAL(KIND=RP), DIMENSION(:,:), ALLOCATABLE :: v   !Interpolation vector
-         REAL(KIND=RP), DIMENSION(:,:), ALLOCATABLE :: b   !Boundary vector
+         REAL(KIND=RP), DIMENSION(:,:), ALLOCATABLE :: v                      ! Interpolation vector
+         REAL(KIND=RP), DIMENSION(:,:), ALLOCATABLE :: b                      ! Boundary vector
+         LOGICAL                                    :: Constructed = .FALSE.  ! Has this combination already been constructed?
          
          CONTAINS
          PROCEDURE :: construct => ConstructNodalStorage
@@ -91,6 +92,7 @@
       this % b(0:N,LEFT)  = this % b(0:N,LEFT)/this % w
       this % b(0:N,RIGHT) = this % b(0:N,RIGHT)/this % w
       
+      this % Constructed = .TRUE.
       
       END SUBROUTINE ConstructNodalStorage
 !
@@ -103,6 +105,7 @@
          DEALLOCATE( this % w )
          DEALLOCATE( this % D, this % v, this % b )
          deallocate( this % standardDerivativeMatrix)
+         this % Constructed = .FALSE.
       END SUBROUTINE DestructNodalStorage
       
       END Module NodalStorageClass

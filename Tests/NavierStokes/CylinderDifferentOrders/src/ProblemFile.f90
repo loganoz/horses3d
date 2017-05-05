@@ -170,20 +170,18 @@
 !           the roe solver and mach = 0.3
 !           ------------------------------------------------
 !
-            INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [279.22660120573744, 0E-011, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491
-                                                               0E-011, 0E-011, &
-                                                               0E-011]
+            INTEGER                            :: iterations = 100
+            REAL(KIND=RP)                      :: residuals = 211.09716818019135
 !
             N = sem % mesh % elements(1) % N ! This works here because all the elements have the same order
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            CALL FTAssertEqual(expectedValue = iterations(N), &
+            CALL FTAssertEqual(expectedValue = iterations, &
                                actualValue   =  sem % numberOfTimeSteps, &
                                msg           = "Number of time steps to tolerance")
-            CALL FTAssertEqual(expectedValue = residuals(N), &
+            CALL FTAssertEqual(expectedValue = residuals, &
                                actualValue   = sem % maxResidual, &
                                tol           = 1.d-3, &
                                msg           = "Final maximum residual")
@@ -217,7 +215,7 @@
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
-               STOP 99
+!~                STOP 99
             END IF 
             WRITE(6,*)
             

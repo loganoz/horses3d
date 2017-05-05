@@ -35,10 +35,17 @@
    MODULE PolynomialInterpAndDerivsModule
 !  ******
 !
-     USE SMConstants
-     IMPLICIT NONE
+      USE SMConstants
+      IMPLICIT NONE
+      
+      INTEGER, PARAMETER :: MXV_DIRECT = 1, MXV_TRANSPOSE = 2
+      
+      ! Interpolator type that is used in multigrid and in the plotter
+      TYPE Interpolator_t
+         LOGICAL                     :: Created = .FALSE.
+         REAL(KIND=RP), ALLOCATABLE  :: Mat(:,:)
+      END TYPE Interpolator_t
      
-     INTEGER, PARAMETER :: MXV_DIRECT = 1, MXV_TRANSPOSE = 2
 !
 !    ========
      CONTAINS
@@ -418,6 +425,66 @@
       END DO
 
       END SUBROUTINE PolynomialInterpolationMatrix
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE Create3DInterpolationMatrix(Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2)
+      IMPLICIT NONE
+!
+!     -----------------------------------------------------------
+!     Creates a 3D Lagrange interpolation matrix from a grid with 
+!     coordinates x1, y1, z1 (origin) to a grid with coordinates
+!     x2, y2, z2 (destination)
+!     -----------------------------------------------------------
+!
+      REAL(KIND=RP), ALLOCATABLE  :: Mat(:,:)     !>  Interpolation matrix
+      INTEGER                     :: N1x,N1y,N1z  !<  Origin order
+      INTEGER                     :: N2x,N2y,N2z  !<  Destination order
+      REAL(KIND=RP), DIMENSION(:) :: x1(0:N1x),y1(0:N1y),z1(0:N1z)     !<  Nodes in origin
+      REAL(KIND=RP), DIMENSION(:) :: x2(0:N2x),y2(0:N2y),z2(0:N2z)     !<  Nodes in destination
+      !----------------------------------------------------------
+      INTEGER :: i,j,k,l,m,n      ! Coordinate counters
+      INTEGER :: r,s              ! Matrix index counters
+      INTEGER :: NDOFEL1, NDOFEL2 ! Degrees of freedom in origin and destination
+      !----------------------------------------------------------
+      
+      NDOFEL2 = (N2x + 1) * (N2y + 1) * (N2z + 1)
+      NDOFEL1 = (N1x + 1) * (N1y + 1) * (N1z + 1)
+      ALLOCATE(Mat(NDOFEL2,NDOFEL1))
+      
+      DO k=0, N1z
+         DO j=0, N1y
+            DO i=0, N1x
+               r = i + j*(N1x + 1) + k*(N1x + 1)*(N1y + 1) + 1            ! Column index
+               DO n=0, N2z
+                  DO m=0, N2y
+                     DO l=0, N2x
+                        s = l + m*(N2x + 1) + n*(N2x + 1)*(N2y + 1) + 1   ! Row index
+                        
+                        Mat(s,r) =  LagrangeInterpolationNoBar(x2(l),N1x,x1,i) * &
+                                    LagrangeInterpolationNoBar(y2(m),N1y,y1,j) * &
+                                    LagrangeInterpolationNoBar(z2(n),N1z,z1,k)
+                     END DO
+                  END DO
+               END DO
+            END DO
+         END DO
+      END DO
+   END SUBROUTINE Create3DInterpolationMatrix
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE Interpolate3D(Q1, Q2, Interp, N1x, N1y, N1z, N2x, N2y, N2z)
+      IMPLICIT NONE
+      INTEGER        :: N1x, N1y, N1z
+      INTEGER        :: N2x, N2y, N2z                      !<  Polynomial orders
+      REAL(KIND=RP)  :: Q1((N1x+1)*(N1y+1)*(N1z+1))        !<  Solution to be interpolated (grid (1))
+      REAL(KIND=RP)  :: Q2((N2x+1)*(N2y+1)*(N2z+1))        !>  Interpolated solution       (grid (2))
+      REAL(KIND=RP)  :: Interp((N2x+1)*(N2y+1)*(N2z+1), & 
+                               (N1x+1)*(N1y+1)*(N1z+1))    !<  Interpolation matrix
+                               
+      Q2 = MATMUL(Interp,Q1)
+   END SUBROUTINE Interpolate3D
 !
 !////////////////////////////////////////////////////////////////////////
 !

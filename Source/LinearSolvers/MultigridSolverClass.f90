@@ -21,11 +21,6 @@ MODULE MultigridSolverClass
    PRIVATE
    PUBLIC MultigridSolver_t, GenericLinSolver_t
    
-   TYPE Interpolator_t
-      LOGICAL                     :: Created = .FALSE.
-      REAL(KIND=RP), ALLOCATABLE  :: Mat(:,:)
-   END TYPE Interpolator_t
-   
    TYPE, EXTENDS(GenericLinSolver_t) :: MultigridSolver_t
       TYPE(csrMat_t)                             :: A                                  ! Jacobian matrix
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: x                                  ! Solution vector
@@ -596,7 +591,6 @@ CONTAINS
       LOGICAL                       :: LGL = .FALSE.           ! Is the quadrature a Legendre-Gauss-Lobatto representation? (false is default)
       INTEGER                       :: i,j,k,l,m,n             ! Index counters
       INTEGER                       :: s,r                     ! Row/column counters for operators
-      INTEGER                       :: NDOFEL2, NDOFEL1        ! Number of degrees of freedom on both grids
       REAL(KIND=RP), ALLOCATABLE    :: x1 (:), y1 (:), z1 (:)  ! Position of quadrature points on mesh 1
       REAL(KIND=RP), ALLOCATABLE    :: w1x(:), w1y(:), w1z(:)  ! Weights for quadrature points on mesh 1
       REAL(KIND=RP), ALLOCATABLE    :: x2 (:), y2 (:), z2 (:)  ! Position of quadrature points on mesh 2
@@ -631,19 +625,11 @@ CONTAINS
 !     Allocate important variables
 !     ----------------------------
 !
-      !Matrix operator:
-      NDOFEL2 = (N2x + 1) * (N2y + 1) * (N2z + 1)
-      NDOFEL1 = (N1x + 1) * (N1y + 1) * (N1z + 1)
-      
-      ALLOCATE(rest % Mat (NDOFEL2,NDOFEL1))
-      ALLOCATE(prol % Mat (NDOFEL1,NDOFEL2))
-      
       !Nodes and weights
       ALLOCATE(x1 (0:N1x), y1 (0:N1y), z1 (0:N1z), &
                w1x(0:N1x), w1y(0:N1y), w1z(0:N1z), &
                x2 (0:N2x), y2 (0:N2y), z2 (0:N2z), &
                w2x(0:N2x), w2y(0:N2y), w2z(0:N2z))
-      
 !
 !     ------------------------------------------
 !     Obtain the quadrature nodes on (1) and (2)
@@ -669,47 +655,13 @@ CONTAINS
 !     Fill the restriction operator
 !     -----------------------------
 !
-      DO k=0, N1z
-         DO j=0, N1y
-            DO i=0, N1x
-               r = i + j*(N1x + 1) + k*(N1x + 1)*(N1y + 1) + 1            ! Column index
-               DO n=0, N2z
-                  DO m=0, N2y
-                     DO l=0, N2x
-                        s = l + m*(N2x + 1) + n*(N2x + 1)*(N2y + 1) + 1   ! Row index
-                        
-                        rest % Mat(s,r) = LagrangeInterpolationNoBar(x2(l),N1x,x1,i) * &
-                                          LagrangeInterpolationNoBar(y2(m),N1y,y1,j) * &
-                                          LagrangeInterpolationNoBar(z2(n),N1z,z1,k)
-                     END DO
-                  END DO
-               END DO
-            END DO
-         END DO
-      END DO
+      CALL Create3DInterpolationMatrix(rest % Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2)
 !
 !     ------------------------------
 !     Fill the prolongation operator
 !     ------------------------------
 !
-      DO k=0, N2z
-         DO j=0, N2y
-            DO i=0, N2x
-               r = i + j*(N2x + 1) + k*(N2x + 1)*(N2y + 1) + 1            ! Column index
-               DO n=0, N1z
-                  DO m=0, N1y
-                     DO l=0, N1x
-                        s = l + m*(N1x + 1) + n*(N1x + 1)*(N1y + 1) + 1   ! Row index
-                        
-                        prol % Mat(s,r) = LagrangeInterpolationNoBar(x1(l),N2x,x2,i) * &
-                                          LagrangeInterpolationNoBar(y1(m),N2y,y2,j) * &
-                                          LagrangeInterpolationNoBar(z1(n),N2z,z2,k)
-                     END DO
-                  END DO
-               END DO
-            END DO
-         END DO
-      END DO
+      CALL Create3DInterpolationMatrix(prol % Mat,N2x,N2y,N2z,N1x,N1y,N1z,x2,y2,z2,x1,y1,z1)
       
       ! All done
       rest % Created = .TRUE.

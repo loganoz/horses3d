@@ -23,6 +23,7 @@
       USE UserDefinedFunctions
       USE mainKeywordsModule
       USE Headers
+      USE pAdaptationClass
       
       IMPLICIT NONE
 !
@@ -43,6 +44,9 @@
       INTEGER, EXTERNAL                   :: UnusedUnit
       EXTERNAL                            :: externalStateForBoundaryName
       EXTERNAL                            :: ExternalGradientForBoundaryName
+      
+      ! For pAdaptation
+      INTEGER, ALLOCATABLE                :: polynomialOrders(:)
 !
 !     ---------------
 !     Initializations
@@ -66,13 +70,32 @@
 !      
       CALL ConstructPhysicsStorage( controlVariables, success )
       IF(.NOT. success)   ERROR STOP "Physics parameters input error"
-                                   
-      CALL sem % construct(polynomialOrder   = controlVariables % integerValueForKey(polynomialOrderKey),&
-                           meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
-                                                                        requestedLength = LINE_LENGTH),  &
-                           externalState     = externalStateForBoundaryName,                             &
-                           externalGradients = ExternalGradientForBoundaryName,                          &
-                           success           = success)
+      
+      ! Check if there's an input file with the polynomial orders
+      IF (controlVariables % containsKey("polynomial order file")) THEN
+         !Read file and construct DGSEM with it
+         CALL ReadOrderFile( controlVariables % stringValueForKey("polynomial order file", requestedLength = LINE_LENGTH), &
+                             polynomialOrders )
+         CALL sem % construct (  meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
+                                                                              requestedLength = LINE_LENGTH),  &
+                                 externalState     = externalStateForBoundaryName,                             &
+                                 externalGradients = ExternalGradientForBoundaryName,                          &
+                                 polynomialOrders  = polynomialOrders,                                         &
+                                 success           = success)
+      ELSE
+         IF (controlVariables % containsKey("polynomial order")) THEN
+            CALL sem % construct (  meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
+                                                                                 requestedLength = LINE_LENGTH),  &
+                                    externalState     = externalStateForBoundaryName,                             &
+                                    externalGradients = ExternalGradientForBoundaryName,                          &
+                                    polynomialOrder   = controlVariables % integerValueForKey("polynomial order"),&
+                                    success           = success)
+         ELSE
+            ERROR STOP "You must specify the polynomial order"
+         END IF
+      END IF
+      
+      
                            
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
       CALL checkBCIntegrity(sem % mesh, success)
@@ -98,7 +121,7 @@
 !     Construct the time integrator
 !     -----------------------------
 !
-     CALL timeIntegrator % construct (sem,controlVariables)
+      CALL timeIntegrator % construct (sem,controlVariables)
 !
 !     --------------------
 !     Prepare for plotting
@@ -110,10 +133,18 @@
          ALLOCATE(plotter)
          ALLOCATE(plDataSource)
          
-         CALL plotter % Construct(fUnit      = plotUnit,          &
-                                  spA        = sem % spA,         &
-                                  dataSource = plDataSource,      &
-                                  newN       = controlVariables % integerValueForKey(numberOfPlotPointsKey))
+         IF(controlVariables % containsKey("number of plot points")) THEN           ! Interpolate to plot
+!~             STOP 'Sorry, keyword "number of plot points" not implemented yet'
+            CALL plotter % Construct(fUnit      = plotUnit,          &
+                                dataSource = plDataSource,      &
+                                newN       = controlVariables % integerValueForKey("number of plot points"), &
+                                spA        = sem % spA)
+            
+         ELSE                                                                       ! Plot values on Gauss points
+            CALL plotter % Construct(fUnit      = plotUnit,          &
+                                     dataSource = plDataSource)!,      &
+   !~                                   newN       = controlVariables % integerValueForKey(numberOfPlotPointsKey))
+         END IF
          CALL timeIntegrator % setPlotter(plotter)
       END IF 
 !
@@ -156,7 +187,7 @@
          plotUnit = UnusedUnit()
          OPEN(UNIT = plotUnit, FILE = controlVariables % stringValueForKey(plotFileNameKey, &
                                                                 requestedLength = LINE_LENGTH))
-            CALL plotter % ExportToTecplot( elements = sem % mesh % elements )
+            CALL plotter % ExportToTecplot( elements = sem % mesh % elements , spA = sem % spA)
          CLOSE(plotUnit)
       END IF 
 !

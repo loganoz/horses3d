@@ -70,7 +70,8 @@ OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter
 		PlotterDataSource Headers\
 		ReadInputFile Setup TimeIntegrator ProblemFile\
 		NSLite3DMain Implicit_JF JFNKClass GMRESClass ConnectivityClass Implicit_NJ Jacobian\
-		ColorsClass PetscSolverClass CSR_Matrices GenericLinSolverClass MKLPardisoSolverClass LinearSolverClass IterativeSolverClass MultigridSolverClass
+		ColorsClass PetscSolverClass CSR_Matrices GenericLinSolverClass MKLPardisoSolverClass\
+		LinearSolverClass IterativeSolverClass MultigridSolverClass pAdaptationClass
 
 # --------------- Dependencies 
 NSLite3DMain: TimeIntegrator \
@@ -82,7 +83,8 @@ SharedBCModule \
 BoundaryConditions \
 ReadInputFile \
 SMConstants \
-DGSEMClass
+DGSEMClass\
+pAdaptationClass
 
 FileReading: SMConstants
 Utilities: SMConstants 

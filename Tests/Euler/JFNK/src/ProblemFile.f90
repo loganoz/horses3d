@@ -70,9 +70,9 @@
             INTEGER     :: i, j, k, eID
             
             DO eID = 1, SIZE(sem % mesh % elements)
-               DO k = 0, sem % spA % N
-                  DO j = 0, sem % spA % N
-                     DO i = 0, sem % spA % N 
+               DO k = 0, sem % mesh % elements(eID) % N
+                  DO j = 0, sem % mesh % elements(eID) % N
+                     DO i = 0, sem % mesh % elements(eID) % N
                         CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
                                                sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )
                                                      
@@ -147,12 +147,12 @@
 !           -----------------------------------------------------------------------
 !
             INTEGER                            :: expectedIterations      = 45
-            REAL(KIND=RP)                      :: expectedResidual        = 7.8469500886160862E-011
+            REAL(KIND=RP)                      :: expectedResidual        = 8.0503558326281992E-011
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            N = sem % spA % N
+            N = sem % mesh % elements(1) % N ! This works here because all the elements have the same order
             CALL FTAssertEqual(expectedValue = expectedIterations, &
                                actualValue   =  sem % numberOfTimeSteps, &
                                msg           = "Number of time steps to tolerance")
@@ -161,13 +161,13 @@
                                tol           = 1.d-3, &
                                msg           = "Final maximum residual")
             
-            ALLOCATE(QExpected(0:sem % spA % N,0:sem % spA % N,0:sem % spA % N,N_EQN))
+            ALLOCATE(QExpected(0:N,0:N,0:N,N_EQN))
             
             maxError = 0.0_RP
             DO eID = 1, SIZE(sem % mesh % elements)
-               DO k = 0, sem % spA % N
-                  DO j = 0, sem % spA % N
-                     DO i = 0, sem % spA % N 
+               DO k = 0, sem % mesh % elements(eID) % N
+                  DO j = 0, sem % mesh % elements(eID) % N
+                     DO i = 0, sem % mesh % elements(eID) % N
                         CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
                                                QExpected(i,j,k,1:N_EQN) )
                      END DO

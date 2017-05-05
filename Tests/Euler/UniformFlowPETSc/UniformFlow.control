@@ -27,6 +27,6 @@ riemann solver       = rusanov
 time integration        = steady-state
 implicit time           = .true.
 jacobian flag           = 2
-linear solver           = pardiso
+linear solver           = petsc
 jacobian by convergence = .true. 
 !-------------------------------------------------------------

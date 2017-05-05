@@ -83,9 +83,9 @@
             INTEGER     :: i, j, k, eID
             
             DO eID = 1, SIZE(sem % mesh % elements)
-               DO k = 0, sem % spA % N
-                  DO j = 0, sem % spA % N
-                     DO i = 0, sem % spA % N 
+               DO k = 0, sem % mesh % elements(eID) % N
+                  DO j = 0, sem % mesh % elements(eID) % N
+                     DO i = 0, sem % mesh % elements(eID) % N
                         CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
                                                sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )
                                                      

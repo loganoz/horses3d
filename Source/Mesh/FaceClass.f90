@@ -243,12 +243,12 @@
 !
       Mat = 0.0_RP
       
-      DO j = 0, N2y
-         DO i = 0, N2x
-            n = i + j * (N2x+1)       ! Row index
-            DO l = 0, N1y
-               DO k = 0, N1x
-                  m = k + l * (N1x+1) ! Column index
+      DO l = 0, N1y
+         DO k = 0, N1x
+            m = k + l * (N1x+1) ! Column index
+            DO j = 0, N2y
+               DO i = 0, N2x
+                  n = i + j * (N2x+1)       ! Row index
                   
                   Mat(n,m) = LagrangeInterpolationNoBar(x2(i),N1x,x1,k) * LagrangeInterpolationNoBar(y2(j),N1y,y1,l)
                END DO
@@ -497,7 +497,7 @@
       ELSE
          DO iEQ = 1, nEqn
             CALL Project1Eqn  ( Q1     = this % Phi % R (iEQ,:,:) , &
-                                Q2     = UR                       , &
+                                Q2     = UR(iEQ,:,:)              , &
                                 Interp = this % Phi2R             , &
                                 N1x    = Nx   , N1y = Ny          , &
                                 N2x    = NRx  , N2y = NRy   )

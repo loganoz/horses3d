@@ -48,7 +48,7 @@
       TYPE DGSem
          REAL(KIND=RP)                                         :: maxResidual
          INTEGER                                               :: numberOfTimeSteps
-         TYPE(NodalStorage)                                    :: spA
+         TYPE(NodalStorage), ALLOCATABLE                       :: spA(:)
          TYPE(HexMesh)                                         :: mesh
          PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
          PROCEDURE(externalGradientsSubroutine), NOPASS, POINTER :: externalGradients => NULL()
@@ -69,30 +69,35 @@
             
       END TYPE DGSem
       
-      TYPE Neighbour             ! arueda: added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
-         INTEGER :: elmnt(7)     ! arueda: "7" hardcoded for 3D hexahedrals... This definition must change if the code will be generalized
-!~         INTEGER :: belmnt(6)    ! arueda: New name "belmnt" (boundary element) -old: "edge"... (same remark as above)  ! commented: Not used in the moment
+      TYPE Neighbour             ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
+         INTEGER :: elmnt(7)     ! "7" hardcoded for 3D hexahedrals in conforming meshes... This definition must change if the code is expected to be more general
       END TYPE Neighbour
       
       CONTAINS 
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ConstructDGSem( self, polynomialOrder, meshFileName, &
-                                 externalState, externalGradients, success )
+      SUBROUTINE ConstructDGSem( self, meshFileName, &
+                                 externalState, externalGradients, polynomialOrder, polynomialOrders, success )
       IMPLICIT NONE
 !
 !     --------------------------
 !     Constructor for the class.
 !     --------------------------
 !
-      CLASS(DGSem)     :: self
-      INTEGER          :: polynomialOrder
-      CHARACTER(LEN=*) :: meshFileName
-      LOGICAL          :: success
-      EXTERNAL         :: externalState, externalGradients
-      
-      INTEGER :: k
+      !-----------------------------------------------------------------
+      CLASS(DGSem)                :: self                               !<> Class to be constructed
+      CHARACTER(LEN=*)            :: meshFileName                       !<  Name of mesh file
+      EXTERNAL                    :: externalState, externalGradients   !<  External procedures that define the BCs
+      INTEGER, OPTIONAL           :: polynomialOrder                    !<  Uniform polynomial order
+      INTEGER, OPTIONAL, TARGET   :: polynomialOrders(:)                !<  Non-uniform polynomial order
+      LOGICAL, OPTIONAL           :: success                            !>  Construction finalized correctly?
+      !-----------------------------------------------------------------
+      INTEGER                     :: k                                  ! Counter (also used as default reader)
+      INTEGER, POINTER            :: N(:)                               ! Order of every element in mesh (used as pointer to use less space)
+      INTEGER                     :: nelem                              ! Number of elements in mesh
+      INTEGER                     :: fUnit
+      !-----------------------------------------------------------------
       INTERFACE
          SUBROUTINE externalState(x,t,nHat,Q,boundaryName)
             USE SMConstants
@@ -108,10 +113,43 @@
             CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
          END SUBROUTINE externalGradients
       END INTERFACE
+      !-----------------------------------------------------------------
       
-      CALL self % spA % construct( polynomialOrder )
-      CALL self % mesh % constructFromFile( meshfileName, self % spA, success )
+!
+!     ---------------------------------------
+!     Get polynomial orders for every element
+!     ---------------------------------------
+!
+      IF (PRESENT(polynomialOrders)) THEN
+         N => polynomialOrders
+         nelem = SIZE(N)
+      ELSE
+         OPEN(newunit = fUnit, FILE = meshFileName )  
+            READ(fUnit,*) k, nelem, k                    ! Here k is used as default reader since this variables are not important now
+         CLOSE(fUnit)
+         
+         ALLOCATE (N(nelem))
+         N = polynomialOrder
+      END IF
       
+!
+!     -------------------------------------------------------------
+!     Construct the polynomial storage for the elements in the mesh
+!     -------------------------------------------------------------
+!
+      IF (ALLOCATED(self % spa)) DEALLOCATE(self % spa)
+      ALLOCATE(self % spa(0:MAXVAL(N)))
+      
+      DO k=1, nelem
+         IF (self % spA(N(k)) % Constructed) CYCLE
+         CALL self % spA(N(k)) % construct( N(k) )
+      END DO
+!
+!     ------------------
+!     Construct the mesh
+!     ------------------
+!
+      CALL self % mesh % constructFromFile( meshfileName, self % spA, N,  success )
       IF(.NOT. success) RETURN 
 !
 !     ------------------------
@@ -119,7 +157,7 @@
 !     ------------------------
 !
       DO k = 1, SIZE(self % mesh % elements) 
-         CALL allocateElementStorage( self % mesh % elements(k), polynomialOrder, &
+         CALL allocateElementStorage( self % mesh % elements(k), N(k), &
                                       N_EQN, N_GRAD_EQN, flowIsNavierStokes )
       END DO
 !
@@ -149,8 +187,13 @@
       SUBROUTINE DestructDGSem( self )
       IMPLICIT NONE 
       CLASS(DGSem) :: self
+      INTEGER      :: k      !Counter
       
-      CALL self % spA % destruct()
+      DO k=0, UBOUND(self % spA,1)
+         IF (.NOT. self % spA(k) % Constructed) CYCLE
+         CALL self % spA(k) % destruct()
+      END DO
+      
       CALL DestructMesh( self % mesh )
       self % externalState     => NULL()
       self % externalGradients => NULL()
@@ -324,8 +367,6 @@
 !
          INTEGER :: k, N
 !
-         N = self % spA % N
-!
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
 !        -----------------------------------------
@@ -333,7 +374,8 @@
 !$omp parallel
 !$omp do
          DO k = 1, SIZE(self % mesh % elements) 
-            CALL ProlongToFaces( self % mesh % elements(k), self % spA )
+            N = self % mesh % elements(k) % N
+            CALL ProlongToFaces( self % mesh % elements(k), self % spA(N) )
          END DO
 !$omp end do
 !
@@ -359,8 +401,9 @@
 !           -----------------------------------
 !
 !$omp do
-            DO k = 1, SIZE(self%mesh%elements) 
-               CALL ComputeDGGradient( self % mesh % elements(k), self % spA, time )
+            DO k = 1, SIZE(self%mesh%elements)
+               N = self % mesh % elements(k) % N
+               CALL ComputeDGGradient( self % mesh % elements(k), self % spA(N), time )
             END DO
 !$omp end do 
 !
@@ -370,7 +413,8 @@
 !
 !$omp do
             DO k = 1, SIZE(self%mesh%elements) 
-               CALL ProlongGradientToFaces( self % mesh % elements(k), self % spA )
+               N = self % mesh % elements(k) % N
+               CALL ProlongGradientToFaces( self % mesh % elements(k), self % spA(N) )
             END DO
 !$omp end do 
 !
@@ -390,7 +434,8 @@
 !
 !$omp do
          DO k = 1, SIZE(self % mesh % elements) 
-            CALL LocalTimeDerivative( self % mesh % elements(k), self % spA, time )
+            N = self % mesh % elements(k) % N
+            CALL LocalTimeDerivative( self % mesh % elements(k), self % spA(N), time )
          END DO
 !$omp end do
 !$omp end parallel
@@ -479,8 +524,7 @@
          REAL(KIND=RP) :: bvExt(N_EQN), UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)     
          
          INTEGER       :: i, j
-        
-         N = self % spA % N
+         
 !$omp do         
          DO faceID = 1, SIZE( self % mesh % faces)
             eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
@@ -493,6 +537,7 @@
 !              Boundary face
 !              -------------
 !
+               N = self % mesh % elements(eIDLeft) % N
                DO j = 0, N
                   DO i = 0, N
 
@@ -576,8 +621,7 @@
          REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)    
          
          INTEGER       :: i, j
-        
-         N = self % spA % N
+         
 !$omp do         
          DO faceID = 1, SIZE( self % mesh % faces)
 
@@ -591,6 +635,7 @@
 !              Boundary face
 !              -------------
 !
+               N = self % mesh % elements(eIDLeft) % N
                DO j = 0, N
                   DO i = 0, N
                   
@@ -951,7 +996,6 @@
 !            
       MaximumEigenvalue = 0.0_RP
       
-      N = self % spA % N
 !
 !     -----------------------------------------------------------
 !     TODO:
@@ -960,15 +1004,15 @@
 !     Besides, problems are expected for N=0.
 !     -----------------------------------------------------------
 !
-      IF ( N==0 ) THEN 
-         PRINT*, "Error in MaximumEigenvalue function (N<1)"    
-      ENDIF
-        
-      dcsi = 1.0_RP / abs( self % spA % xi(1) - self % spA % xi(0) )   
-      deta = 1.0_RP / abs( self % spA % eta(1) - self % spA % eta(0) )
-      dzet = 1.0_RP / abs( self % spA % zeta(1) - self % spA % zeta(0) )
-
       DO id = 1, SIZE(self % mesh % elements) 
+         N = self % mesh % elements(id) % N
+         IF ( N<1 ) THEN 
+            PRINT*, "Error in MaximumEigenvalue function (N<1)"    
+         ENDIF         
+         
+         dcsi = 1.0_RP / abs( self % spA(N) % xi(1) - self % spA(N) % xi(0) )   
+         deta = 1.0_RP / abs( self % spA(N) % eta(1) - self % spA(N) % eta(0) )
+         dzet = 1.0_RP / abs( self % spA(N) % zeta(1) - self % spA(N) % zeta(0) )
          DO k = 0, N
             DO j = 0, N
                DO i = 0, N

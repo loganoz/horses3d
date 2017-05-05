@@ -278,7 +278,7 @@
                END IF
                PRINT *, fName
                OPEN(UNIT = self % plotter % fUnit, FILE = fName)
-                  CALL self % plotter % ExportToTecplot( sem % mesh % elements )
+                  CALL self % plotter % ExportToTecplot( sem % mesh % elements, sem % spA )
                CLOSE(self % plotter % fUnit)
                
             END IF

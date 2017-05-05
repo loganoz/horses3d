@@ -23,18 +23,29 @@
          USE NodalStorageClass
          IMPLICIT NONE  
          
-         TYPE(NodalStorage)                 :: spA
+         TYPE(NodalStorage), ALLOCATABLE    :: spA(:)
          TYPE(HexMesh)                      :: mesh
          TYPE(DGSEMPlotter)                      :: meshPlotter
          CLASS(PlotterDataSource), POINTER  :: dataSource
          INTEGER                            :: N = 6
+         INTEGER, ALLOCATABLE               :: Nvector(:)
+         INTEGER                            :: nelem
+         INTEGER                            :: fUnit
          INTEGER                            :: id, l
          CHARACTER(LEN=*)                   :: meshFileName
          CHARACTER(LEN=128)                 :: plotFileName
          LOGICAL                            :: success
          
-         CALL ConstructNodalStorage(spA, N)
-         CALL mesh % constructFromFile(meshfileName,spA, success)
+         ALLOCATE(spA(0:N))
+         OPEN(newunit = fUnit, FILE = meshFileName )  
+            READ(fUnit,*) l, nelem, l                    ! Here l is used as default reader since this variables are not important now
+         CLOSE(fUnit)
+         
+         ALLOCATE (Nvector(nelem))
+         Nvector = N
+         
+         CALL ConstructNodalStorage(spA(N), N)
+         CALL mesh % constructFromFile(meshfileName,spA, Nvector, success)
          CALL FTAssert(test = success,msg = "Mesh file read properly")
          IF(.NOT. success) RETURN 
          
@@ -52,8 +63,13 @@
          plotFileName = meshFileName(1:l) // "tec"
          ALLOCATE(dataSource)
          OPEN(UNIT = 11, FILE = plotFileName)
-         CALL meshPlotter % Construct(spA = spA,fUnit = 11,dataSource = dataSource,newN = N)
-         CALL meshPlotter % ExportToTecplot(elements = mesh % elements)
+         CALL meshPlotter % Construct  (fUnit      = 11,          &
+                                        dataSource = dataSource,      &
+                                        newN       = N, &
+                                        spA        = spA)
+         
+         
+         CALL meshPlotter % ExportToTecplot(elements = mesh % elements, spA = spA)
          CALL meshPlotter % Destruct()
          DEALLOCATE(dataSource)
          
