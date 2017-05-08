@@ -76,7 +76,7 @@
          CLASS(PlotterDataSource), POINTER :: dataSource
          INTEGER                           :: fUnit
          INTEGER            , OPTIONAL     :: newN
-         CLASS(NodalStorage), OPTIONAL     :: spA(:)
+         CLASS(NodalStorage), OPTIONAL     :: spA(0:)
 !
 !        ---------------
 !        Local variables
@@ -142,7 +142,7 @@
          
          CLASS(DGSEMPlotter)           :: self
          TYPE(Element)                 :: elements(:)
-         CLASS(NodalStorage)           :: spA(:)
+         CLASS(NodalStorage)           :: spA(0:)
          
          IF(self % interpolate)     THEN
             CALL ExportToTecplotI( self, elements , spA)
@@ -209,7 +209,7 @@
          
          CLASS(DGSEMPlotter), TARGET :: self
          TYPE(Element)               :: elements(:)
-         CLASS(NodalStorage)         :: spA(:)
+         CLASS(NodalStorage)         :: spA(0:)
 !
 !        ---------------
 !        Local variables
