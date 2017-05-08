@@ -441,11 +441,13 @@
 !     Local variables
 !     -------------
 !
+      REAL(KIND=RP), ALLOCATABLE :: R (:,:,:)  !>  Variable projected on the right element
       INTEGER   :: iEQ                 ! Equation counter
       INTEGER   :: NLx, NLy, NRx, NRy  ! Polynomial orders of adjacent elements
       INTEGER   :: Nx, Ny              ! Polynomial orders of mortar
       INTEGER   :: i,j,ii,jj           ! Counters
       INTEGER   :: rotation            ! Face rotation
+      
 !
 !     ----------------------------------
 !     Get polynomial orders and rotation
@@ -459,6 +461,7 @@
       Ny   = this % N
       
       rotation = this % rotation
+      ALLOCATE(R(NEqn,0:Nx,0:Ny))
 !
 !     ---------------------------------------------------------
 !     Store flux in Phi%R taking into account rotation (I*C= UL)
@@ -467,7 +470,7 @@
       DO j = 0, Ny
          DO i = 0, Nx
             CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                              ! This turns according to the rotation of the elements
-            this % Phi % R(:,ii,jj) = C(:,i,j)
+            R(:,ii,jj) = C(:,i,j)
          END DO   
       END DO 
 !
@@ -480,10 +483,10 @@
 !
       ! Left element
       IF (NLx == Nx .AND. NLy == Ny) THEN
-         UL = C                                           ! Phi%C is used instead on Phi%L to avoid the copying operation
+         UL = C                                           ! C is used instead on L to avoid the copying operation
       ELSE
          DO iEQ = 1, nEqn
-            CALL Project1Eqn  ( Q1     = C (iEQ,:,:)     , &   ! Phi%C is used instead on Phi%L to avoid the copying operation
+            CALL Project1Eqn  ( Q1     = C (iEQ,:,:)     , &   ! C is used instead on L to avoid the copying operation
                                 Q2     = UL(iEQ,:,:)     , &
                                 Interp = this % Phi2L    , &
                                 N1x    = Nx   , N1y = Ny , &
@@ -493,16 +496,18 @@
       
       ! Right element
       IF (NRx == Nx .AND. NRy == Ny) THEN
-         UR = this % Phi % R
+         UR = R
       ELSE
          DO iEQ = 1, nEqn
-            CALL Project1Eqn  ( Q1     = this % Phi % R (iEQ,:,:) , &
+            CALL Project1Eqn  ( Q1     = R (iEQ,:,:)              , &
                                 Q2     = UR(iEQ,:,:)              , &
                                 Interp = this % Phi2R             , &
                                 N1x    = Nx   , N1y = Ny          , &
                                 N2x    = NRx  , N2y = NRy   )
          ENDDO
       END IF
+      
+      DEALLOCATE(R)
       
    END SUBROUTINE ProjectToElement
 !
