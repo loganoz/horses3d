@@ -302,7 +302,7 @@
 !
       ! Left element
       IF (NLx == Nx .AND. NLy == Ny) THEN
-         this % Phi % L = QL
+         this % Phi % L(1:nEqn,:,:) = QL(1:nEqn,:,:)
       ELSE
          DO iEQ = 1, nEqn
             CALL Project1Eqn  ( Q1     = QL (iEQ,:,:)             , &
@@ -315,7 +315,7 @@
       
       ! Right element
       IF (NRx == Nx .AND. NRy == Ny) THEN
-         this % Phi % R = QR
+         this % Phi % R(1:nEqn,:,:) = QR(1:nEqn,:,:)
       ELSE
          DO iEQ = 1, nEqn
             CALL Project1Eqn  ( Q1     = QR (iEQ,:,:)             , &
@@ -391,7 +391,7 @@
 !
       ! Left element
       IF (NLx == Nx .AND. NLy == Ny) THEN
-         FStarbL = this % Phi % C                                       ! Phi%C is used instead on Phi%L to avoid the copying operation
+         FStarbL(1:nEqn,:,:) = this % Phi % C(1:nEqn,:,:)               ! Phi%C is used instead on Phi%L to avoid the copying operation
       ELSE
          DO iEQ = 1, nEqn
             CALL Project1Eqn  ( Q1     = this % Phi % C (iEQ,:,:) , &   ! Phi%C is used instead on Phi%L to avoid the copying operation
@@ -404,7 +404,7 @@
       
       ! Right element
       IF (NRx == Nx .AND. NRy == Ny) THEN
-         FStarbR = this % Phi % R
+         FStarbR(1:nEqn,:,:) = this % Phi % R(1:nEqn,:,:)
       ELSE
          DO iEQ = 1, nEqn
             CALL Project1Eqn  ( Q1     = this % Phi % R (iEQ,:,:) , &
@@ -470,7 +470,7 @@
       DO j = 0, Ny
          DO i = 0, Nx
             CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                              ! This turns according to the rotation of the elements
-            R(:,ii,jj) = C(:,i,j)
+            R(1:NEqn,ii,jj) = C(1:NEqn,i,j)
          END DO   
       END DO 
 !
@@ -483,7 +483,7 @@
 !
       ! Left element
       IF (NLx == Nx .AND. NLy == Ny) THEN
-         UL = C                                           ! C is used instead on L to avoid the copying operation
+         UL(1:NEqn,:,:) = C(1:NEqn,:,:)                                           ! C is used instead on L to avoid the copying operation
       ELSE
          DO iEQ = 1, nEqn
             CALL Project1Eqn  ( Q1     = C (iEQ,:,:)     , &   ! C is used instead on L to avoid the copying operation
@@ -496,7 +496,7 @@
       
       ! Right element
       IF (NRx == Nx .AND. NRy == Ny) THEN
-         UR = R
+         UR(1:NEqn,:,:) = R(1:NEqn,:,:)
       ELSE
          DO iEQ = 1, nEqn
             CALL Project1Eqn  ( Q1     = R (iEQ,:,:)              , &

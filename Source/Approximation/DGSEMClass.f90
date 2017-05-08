@@ -468,7 +468,6 @@
          DO faceID = 1, SIZE( self % mesh % faces)
             eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
             eIDRight = self % mesh % faces(faceID) % elementIDs(2)
-            
             IF ( eIDRight == HMESH_NONE )     THEN
 !
 !              -------------
@@ -485,7 +484,6 @@
 !              Interior face
 !              -------------
 !
-               
                CALL computeElementInterfaceFlux ( eL       = self % mesh % elements(eIDLeft)  , &
                                                   eR       = self % mesh % elements(eIDRight) , &
                                                   thisface = self % mesh % faces(faceID)      )
@@ -902,7 +900,8 @@
             DO i = 0, Nx
                CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                    ! This turns according to the rotation of the elements
                
-               thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(:,i,j) + thisface % Phi % R(:,ii,jj) )
+               thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(1:N_GRAD_EQN,i ,j ) + &
+                                                       thisface % Phi % R(1:N_GRAD_EQN,ii,jj) )
                
             END DO   
          END DO 
@@ -919,7 +918,8 @@
             DO i = 0, Nx
                CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                    ! This turns according to the rotation of the elements
 
-               thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(:,i,j) + thisface % Phi % R(:,ii,jj) )
+               thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(1:N_GRAD_EQN,i , j) + &
+                                                       thisface % Phi % R(1:N_GRAD_EQN,ii,jj) )
 
             END DO   
          END DO 
@@ -936,7 +936,8 @@
             DO i = 0, Nx
                CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                    ! This turns according to the rotation of the elements
                
-               thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(:,i,j) + thisface % Phi % R(:,ii,jj) )
+               thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(1:N_GRAD_EQN, i, j) + &
+                                                       thisface % Phi % R(1:N_GRAD_EQN,ii,jj) )
                
             END DO   
          END DO   
