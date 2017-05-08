@@ -48,7 +48,7 @@
       TYPE DGSem
          REAL(KIND=RP)                                         :: maxResidual
          INTEGER                                               :: numberOfTimeSteps
-         TYPE(NodalStorage), ALLOCATABLE                       :: spA(:)
+         TYPE(NodalStorage), ALLOCATABLE                       :: spA(:,:,:)
          TYPE(HexMesh)                                         :: mesh
          PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
          PROCEDURE(externalGradientsSubroutine), NOPASS, POINTER :: externalGradients => NULL()
@@ -89,12 +89,12 @@
       CLASS(DGSem)                :: self                               !<> Class to be constructed
       CHARACTER(LEN=*)            :: meshFileName                       !<  Name of mesh file
       EXTERNAL                    :: externalState, externalGradients   !<  External procedures that define the BCs
-      INTEGER, OPTIONAL           :: polynomialOrder                    !<  Uniform polynomial order
-      INTEGER, OPTIONAL, TARGET   :: polynomialOrders(:)                !<  Non-uniform polynomial order
+      INTEGER, OPTIONAL           :: polynomialOrder(3)                 !<  Uniform polynomial order
+      INTEGER, OPTIONAL, TARGET   :: polynomialOrders(:,:)              !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL           :: success                            !>  Construction finalized correctly?
       !-----------------------------------------------------------------
       INTEGER                     :: k                                  ! Counter (also used as default reader)
-      INTEGER, POINTER            :: N(:)                               ! Order of every element in mesh (used as pointer to use less space)
+      INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
       INTEGER                     :: nelem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       !-----------------------------------------------------------------
@@ -121,15 +121,19 @@
 !     ---------------------------------------
 !
       IF (PRESENT(polynomialOrders)) THEN
-         N => polynomialOrders
-         nelem = SIZE(N)
+         Nx => polynomialOrders(:,1)
+         Ny => polynomialOrders(:,2)
+         Nz => polynomialOrders(:,3)
+         nelem = SIZE(Nx)
       ELSE
          OPEN(newunit = fUnit, FILE = meshFileName )  
             READ(fUnit,*) k, nelem, k                    ! Here k is used as default reader since this variables are not important now
          CLOSE(fUnit)
          
-         ALLOCATE (N(nelem))
-         N = polynomialOrder
+         ALLOCATE (Nx(nelem),Ny(nelem),Nz(nelem))
+         Nx = polynomialOrder(1)
+         Ny = polynomialOrder(2)
+         Nz = polynomialOrder(3)
       END IF
       
 !
@@ -138,18 +142,18 @@
 !     -------------------------------------------------------------
 !
       IF (ALLOCATED(self % spa)) DEALLOCATE(self % spa)
-      ALLOCATE(self % spa(0:MAXVAL(N)))
+      ALLOCATE(self % spa(0:MAXVAL(Nx),0:MAXVAL(Ny),0:MAXVAL(Nz)))
       
       DO k=1, nelem
-         IF (self % spA(N(k)) % Constructed) CYCLE
-         CALL self % spA(N(k)) % construct( N(k) )
+         IF (self % spA(Nx(k),Ny(k),Nz(k)) % Constructed) CYCLE
+         CALL self % spA(Nx(k),Ny(k),Nz(k)) % construct( Nx(k),Ny(k),Nz(k) )
       END DO
 !
 !     ------------------
 !     Construct the mesh
 !     ------------------
 !
-      CALL self % mesh % constructFromFile( meshfileName, self % spA, N,  success )
+      CALL self % mesh % constructFromFile( meshfileName, self % spA, Nx, Ny, Nz,  success )
       IF(.NOT. success) RETURN 
 !
 !     ------------------------

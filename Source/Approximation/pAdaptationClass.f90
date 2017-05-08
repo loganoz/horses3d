@@ -15,7 +15,7 @@ MODULE pAdaptationClass
 !     ----------------------------------------------------------------------
 !
       CHARACTER(len=*), INTENT(IN) :: filename !<  Name of file containing polynomial orders to initialize
-      INTEGER, ALLOCATABLE         :: N(:)     !>  Polynomial orders for each element
+      INTEGER, ALLOCATABLE         :: N(:,:)   !>  Polynomial orders for each element
       !------------------------------------------
       INTEGER                      :: fd       ! File unit
       INTEGER                      :: nelem    ! Number of elements
@@ -25,10 +25,10 @@ MODULE pAdaptationClass
       OPEN(newunit = fd, FILE = filename )   
          READ(fd,*) nelem
          
-         ALLOCATE(N(nelem))
+         ALLOCATE(N(nelem,3))
          
          DO i = 1, nelem
-            READ(fd,*) N(i)
+            READ(fd,*) N(i,1), N(i,2), N(i,3)
          ENDDO
       CLOSE(UNIT=fd)
       

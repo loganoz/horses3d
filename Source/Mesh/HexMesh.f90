@@ -50,7 +50,7 @@
 !
 !!    Constructs mesh from mesh file
 !!    Only valid for conforming meshes
-      SUBROUTINE ConstructMesh_FromFile_( self, fileName, spA, Nx, success )
+      SUBROUTINE ConstructMesh_FromFile_( self, fileName, spA, Nx, Ny, Nz, success )
          USE Physics
          IMPLICIT NONE
 !
@@ -59,9 +59,9 @@
 !        ---------------
 !
          CLASS(HexMesh)     :: self
-         TYPE(NodalStorage) :: spA(0:)
+         TYPE(NodalStorage) :: spA(0:,0:,0:)
          CHARACTER(LEN=*)   :: fileName
-         INTEGER            :: Nx(:)     !<  Polynomial order for all the elements
+         INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
          LOGICAL            :: success
 !
 !        ---------------
@@ -245,7 +245,7 @@
 !           Now construct the element
 !           -------------------------
 !
-            CALL ConstructElementGeometry( self % elements(l), spA(Nx(l)), nodeIDs, hexMap )
+            CALL ConstructElementGeometry( self % elements(l), spA(Nx(l),Ny(l),Nz(l)), nodeIDs, hexMap )
             
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(l), names )

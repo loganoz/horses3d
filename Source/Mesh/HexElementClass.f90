@@ -34,7 +34,7 @@
       
       TYPE Element
           INTEGER                                        :: nodeIDs(8)
-          INTEGER                                        :: N
+          INTEGER                                        :: Nx, Ny, Nz
           TYPE(MappedGeometry)                           :: geom
           REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Q, QDot, G
           REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: U_x, U_y, U_z
@@ -65,7 +65,9 @@
          TYPE(TransfiniteHexMap) :: hexMap
          
          self % nodeIDs               = nodeIDs
-         self % N                     = ng % N
+         self % Nx                    = ng % Nx
+         self % Ny                    = ng % Ny
+         self % Nz                    = ng % Nz
          self % boundaryName          = emptyBCName
          self % boundaryType          = emptyBCName
 !

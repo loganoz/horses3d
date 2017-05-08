@@ -5,6 +5,10 @@
 !      Created: 2008-06-19 15:58:02 -0400 
 !      By: David Kopriva  
 !
+!      Modification history:
+!        2008-06-19: Created by David Kopriva
+!        XXXX-XX-XX: Gonzalo Rubio implemented cross-product metrics
+!        2017-05-05: Andrés Rueda implemented polynomial anisotropy
 !      Contains:
 !         ALGORITHM 101: MappedGeometryClass
 !         ALGORITHM 102: ConstructMappedGeometry
@@ -31,12 +35,12 @@ Module MappedGeometryClass
 !     -----
 !
       TYPE MappedGeometry
-            INTEGER                                         :: N
-            REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: jGradXi, jGradEta, jGradZeta
-            REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: x
-            REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: xb
-            REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: jacobian, scal
-            REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: normal
+            INTEGER                                         :: Nx, Ny, Nz                    ! Polynomial order
+            REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: jGradXi, jGradEta, jGradZeta  ! 
+            REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: x, y, z                       ! Position of points in absolute coordinates
+            REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: xb                            ! 
+            REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: jacobian, scal                ! 
+            REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: normal                        ! Normal vectors on the nodes that are on the boundaries of the element (allocated with maximum order)
             
             CONTAINS
             
@@ -66,7 +70,7 @@ Module MappedGeometryClass
 !     Local Variables
 !     ---------------
 !
-      INTEGER       :: N
+      INTEGER       :: Nx, Ny, Nz
       INTEGER       :: i, j, k
       REAL(KIND=RP) :: nrm
       REAL(KIND=RP) :: grad_x(3,3), jGrad(3)
@@ -76,8 +80,12 @@ Module MappedGeometryClass
 !     Allocations
 !     -----------
 !
-      N        = spA % N
-      self % N = N
+      Nx        = spA % Nx
+      Ny        = spA % Ny
+      Nz        = spA % Nz
+      self % Nx = Nx
+      self % Ny = Ny
+      self % Nz = Nz
       
       ALLOCATE( self % JGradXi  (3,0:N,0:N,0:N) )
       ALLOCATE( self % JGradEta (3,0:N,0:N,0:N) )
