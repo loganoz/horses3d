@@ -405,8 +405,10 @@
                   self % faces(faceID) % elementIDs(2)  = eID
                   self % faces(faceID) % elementSide(2) = faceNumber
                   self % faces(faceID) % FaceType       = HMESH_INTERIOR
-                  self % faces(faceID) % rotation       = faceRotation(masterNodeIDs = self % faces(faceID) % nodeIDs, &
-                                                                       slaveNodeIDs  = faceNodeIDs)
+                  self % faces(faceID) % rotation       = faceRotation(masterNodeIDs = self % faces(faceID) % nodeIDs       , &
+                                                                       slaveNodeIDs  = faceNodeIDs                          , &
+                                                                       masterSide    = self % faces(faceID) % elementSide(1), &
+                                                                       slaveSide     = faceNumber)
                ELSE 
 !
 !                 ------------------
@@ -460,17 +462,27 @@
 !!
 !! As an example, faceRotation = 1 <=> rotating master by 90 deg. 
 !
-      INTEGER FUNCTION faceRotation( masterNodeIDs, slaveNodeIDs)
+      INTEGER FUNCTION faceRotation( masterNodeIDs, slaveNodeIDs, masterSide   , slaveSide)
          IMPLICIT NONE 
-         INTEGER, DIMENSION(4) :: masterNodeIDs, slaveNodeIDs
+         INTEGER               :: masterSide   , slaveSide    !< Sides connected in interface
+         INTEGER, DIMENSION(4) :: masterNodeIDs, slaveNodeIDs !< Node IDs
+         !-----------------------------------------------------
+         INTEGER, DIMENSION(3), PARAMETER :: CCW = (/1, 5, 4/) ! Faces that are numbered counter-clockwise
+         INTEGER, DIMENSION(3), PARAMETER :: CW  = (/2, 3, 6/) ! Faces that are numbered clockwise
          
          INTEGER :: j
+         !-----------------------------------------------------
          
          DO j = 1, 4
             IF(masterNodeIDs(1) == slaveNodeIDs(j)) EXIT 
          END DO  
-         faceRotation = j - 1
-          
+         
+         IF ((ANY(CCW == masterSide) .AND. ANY(CW  == slaveSide)) .OR. &
+             (ANY(CW  == masterSide) .AND. ANY(CCW == slaveSide))      ) THEN
+            faceRotation = j - 1
+         ELSE
+            faceRotation = j + 3
+         END IF
       END FUNCTION faceRotation
 ! 
 !//////////////////////////////////////////////////////////////////////// 

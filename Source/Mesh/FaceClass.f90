@@ -73,5 +73,52 @@
       END IF
       PRINT *, "-----------------------------------"
       END SUBROUTINE PrintFace
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!  ROUTINE USED TO COMPUTE FACE ROTATION INDEXES
+!     TODO: Check if this is enough or if one needs 8 indexes!!
+!////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE iijjIndexes(i,j,N,rotation,ii,jj)
+      IMPLICIT NONE
       
+      INTEGER :: i,j       !<  Input indexes
+      INTEGER :: N         !<  Polynomial order
+      INTEGER :: rotation  !<  Face rotation
+      INTEGER :: ii,jj     !>  Output indexes
+      
+      SELECT CASE (rotation)
+         CASE (0)
+            ii = i
+            jj = j
+         CASE (1)
+            ii = N - j
+            jj = i
+         CASE (2)
+            ii = N - i
+            jj = N - j
+         CASE (3)
+            ii = j
+            jj = N - i
+         CASE (4)
+            ii = j
+            jj = i
+         CASE (5)
+            ii = N - i
+            jj = j
+         CASE (6)
+            ii = N - j
+            jj = N - i
+         CASE (7)
+            ii = i
+            jj = N - j
+         CASE DEFAULT 
+            PRINT *, "ERROR: Unknown rotation in element faces"
+      END SELECT
+      
+   END SUBROUTINE iijjIndexes
+!
+!////////////////////////////////////////////////////////////////////////
+!
       END Module FaceClass
