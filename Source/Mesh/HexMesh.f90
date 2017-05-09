@@ -466,6 +466,7 @@
          
          INTEGER :: j
          
+         
          DO j = 1, 4
             IF(masterNodeIDs(1) == slaveNodeIDs(j)) EXIT 
          END DO  
