@@ -863,9 +863,9 @@
          
          WRITE(cooh,*) ndof, ndim   ! defined in PhysicsStorage
          DO el = 1, NumOfElem
-            Nx = self % elements(el) % N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
-            Ny = self % elements(el) % N
-            Nz = self % elements(el) % N
+            Nx = self % elements(el) % Nx
+            Ny = self % elements(el) % Ny
+            Nz = self % elements(el) % Nz
             DO k = 0, Nz
                DO j = 0, Ny
                   DO i = 0, Nx

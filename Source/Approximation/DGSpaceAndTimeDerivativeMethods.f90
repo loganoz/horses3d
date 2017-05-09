@@ -546,9 +546,11 @@
 !        Local variables
 !        ---------------
 !
-         INTEGER :: N, i, j, k, nv
+         INTEGER :: Nx, Ny, Nz, i, j, k, nv
          
-         N = e % N
+         Nx = e % Nx
+         Ny = e % Ny
+         Nz = e % Nz
 !
 !        --------------
 !        Initialization
@@ -560,22 +562,22 @@
 !        Left and right
 !        --------------
 !
-         CALL InterpolateToBoundary( e % Q, spA % v(:,LEFT) , N, IX, e % Qb(:,:,:,ELEFT) , N_EQN)
-         CALL InterpolateToBoundary( e % Q, spA % v(:,RIGHT), N, IX, e % Qb(:,:,:,ERIGHT), N_EQN)
+         CALL InterpolateToBoundary( e % Q, spA % vx(:,LEFT) , Nx, Ny, Nz, IX, e % Qb(:,:,:,ELEFT) , N_EQN)
+         CALL InterpolateToBoundary( e % Q, spA % vx(:,RIGHT), Nx, Ny, Nz, IX, e % Qb(:,:,:,ERIGHT), N_EQN)
 !
 !        --------------
 !        Front and back
 !        --------------
 !
-         CALL InterpolateToBoundary( e % Q, spA % v(:,FRONT), N, IY, e % Qb(:,:,:,EFRONT) , N_EQN)
-         CALL InterpolateToBoundary( e % Q, spA % v(:,BACK) , N, IY, e % Qb(:,:,:,EBACK) , N_EQN)
+         CALL InterpolateToBoundary( e % Q, spA % vy(:,FRONT), Nx, Ny, Nz, IY, e % Qb(:,:,:,EFRONT) , N_EQN)
+         CALL InterpolateToBoundary( e % Q, spA % vy(:,BACK) , Nx, Ny, Nz, IY, e % Qb(:,:,:,EBACK) , N_EQN)
 !
 !        --------------
 !        Bottom and Top
 !        --------------
 !
-         CALL InterpolateToBoundary( e % Q, spA % v(:,BOTTOM), N, IZ, e % Qb(:,:,:,EBOTTOM) , N_EQN)
-         CALL InterpolateToBoundary( e % Q, spA % v(:,TOP)   , N, IZ, e % Qb(:,:,:,ETOP)    , N_EQN)
+         CALL InterpolateToBoundary( e % Q, spA % vz(:,BOTTOM), Nx, Ny, Nz, IZ, e % Qb(:,:,:,EBOTTOM) , N_EQN)
+         CALL InterpolateToBoundary( e % Q, spA % vz(:,TOP)   , Nx, Ny, Nz, IZ, e % Qb(:,:,:,ETOP)    , N_EQN)
 
       END SUBROUTINE ProlongToFaces
 !
@@ -763,7 +765,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE InterpolateToBoundary( u, v, N, which_dim , bValue , NEQ)
+      SUBROUTINE InterpolateToBoundary( u, v, Nx, Ny, Nz, which_dim , bValue , NEQ)
 !
 !     -------------------------------------------------------------
 !     Interpolation to the boundary is a dot product for each row or
@@ -775,7 +777,7 @@
          USE SMConstants
          USE Physics
          IMPLICIT NONE
-         INTEGER                      , INTENT(IN)  :: N
+         INTEGER                      , INTENT(IN)  :: Nx, Ny, Nz
          real(kind=RP)                , intent(in)  :: u(0:,0:,0:,1:) , v(0:)
          integer                      , intent(in)  :: which_dim
          REAL(KIND=RP)                , INTENT(INOUT) :: bValue(1:,0:,0:)
@@ -787,9 +789,9 @@
             case (IX)
 
                do eq = 1 , NEQ
-                  do j = 0 , N
-                     do i = 0 , N
-                        do k = 0 , N
+                  do j = 0 , Nz
+                     do i = 0 , Ny
+                        do k = 0 , Nx
 
                            bValue(eq,i,j) = bValue(eq,i,j) + u(k,i,j,eq) * v(k)
    
@@ -801,9 +803,9 @@
             case (IY)
 
                 do eq = 1 , NEQ
-                  do j = 0 , N
-                     do k = 0 , N
-                        do i = 0 , N
+                  do j = 0 , Nz
+                     do k = 0 , Ny
+                        do i = 0 , Nx
 
                            bValue(eq,i,j) = bValue(eq,i,j) + u(i,k,j,eq) * v(k)
    
@@ -815,9 +817,9 @@
             case (IZ)
 
                do eq = 1 , NEQ
-                  do k = 0 , N
-                     do j = 0 , N
-                        do i = 0 , N
+                  do k = 0 , Nz
+                     do j = 0 , Ny
+                        do i = 0 , Nx
 
                            bValue(eq,i,j) = bValue(eq,i,j) + u(i,j,k,eq) * v(k)
    

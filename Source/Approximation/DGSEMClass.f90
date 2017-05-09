@@ -161,7 +161,7 @@
 !     ------------------------
 !
       DO k = 1, SIZE(self % mesh % elements) 
-         CALL allocateElementStorage( self % mesh % elements(k), N(k), &
+         CALL allocateElementStorage( self % mesh % elements(k), Nx(k),Ny(k),Nz(k), &
                                       N_EQN, N_GRAD_EQN, flowIsNavierStokes )
       END DO
 !

@@ -85,38 +85,40 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE allocateElementStorage(self, N, nEqn, nGradEqn, flowIsNavierStokes)  
+      SUBROUTINE allocateElementStorage(self, Nx, Ny, Nz, nEqn, nGradEqn, flowIsNavierStokes)  
          IMPLICIT NONE
          TYPE(Element) :: self
-         INTEGER       :: N, nEqn, nGradEqn
+         INTEGER       :: Nx, Ny, Nz, nEqn, nGradEqn
          LOGICAL       :: flowIsNavierStokes
 !
 !        ----------------
 !        Volume variables
 !        ----------------
 !
-         ALLOCATE( self % Q   (0:N,0:N,0:N,nEqn) )
-         ALLOCATE( self % QDot(0:N,0:N,0:N,nEqn) )
-         ALLOCATE( self % G   (0:N,0:N,0:N,nEqn) )
+         ALLOCATE( self % Q   (0:Nx,0:Ny,0:Nz,nEqn) )
+         ALLOCATE( self % QDot(0:Nx,0:Ny,0:Nz,nEqn) )
+         ALLOCATE( self % G   (0:Nx,0:Ny,0:Nz,nEqn) )
          
          IF ( flowIsNavierStokes )     THEN
-            ALLOCATE( self % U_x(0:N,0:N,0:N,nGradEqn) )
-            ALLOCATE( self % U_y(0:N,0:N,0:N,nGradEqn) )
-            ALLOCATE( self % U_z(0:N,0:N,0:N,nGradEqn) )
+            ALLOCATE( self % U_x(0:Nx,0:Ny,0:Nz,nGradEqn) )
+            ALLOCATE( self % U_y(0:Nx,0:Ny,0:Nz,nGradEqn) )
+            ALLOCATE( self % U_z(0:Nx,0:Ny,0:Nz,nGradEqn) )
          END IF
 !
 !        ---------------
 !        Boundary values
 !        ---------------
 !
-         ALLOCATE( self % Qb(nEqn,0:N,0:N,6) )
-         ALLOCATE( self % FStarb(nEqn,0:N,0:N,6) )
+         ! Temporarily allocating with maximum (TODO: this is not very efficient and has to be changed) DGBoundaryStorage TYPE!!
+         Nmax = MAX(Nx,Ny,Nz)
+         ALLOCATE( self % Qb    (nEqn,0:Nmax,0:Nmax,6) )
+         ALLOCATE( self % FStarb(nEqn,0:Nmax,0:Nmax,6) )
          
          IF ( flowIsNavierStokes )     THEN
-            ALLOCATE( self % U_xb(nGradEqn,0:N,0:N,6) )
-            ALLOCATE( self % U_yb(nGradEqn,0:N,0:N,6) )
-            ALLOCATE( self % U_zb(nGradEqn,0:N,0:N,6) )
-            ALLOCATE( self % Ub(nGradEqn,0:N,0:N,6) )
+            ALLOCATE( self % U_xb(nGradEqn,0:Nmax,0:Nmax,6) )
+            ALLOCATE( self % U_yb(nGradEqn,0:Nmax,0:Nmax,6) )
+            ALLOCATE( self % U_zb(nGradEqn,0:Nmax,0:Nmax,6) )
+            ALLOCATE( self % Ub  (nGradEqn,0:Nmax,0:Nmax,6) )
          END IF
 !
 !        -----------------

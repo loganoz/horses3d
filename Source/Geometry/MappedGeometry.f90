@@ -70,11 +70,12 @@ Module MappedGeometryClass
 !     Local Variables
 !     ---------------
 !
-      INTEGER       :: Nx, Ny, Nz
+      INTEGER       :: Nx, Ny, Nz, Nmax
       INTEGER       :: i, j, k
       REAL(KIND=RP) :: nrm
       REAL(KIND=RP) :: grad_x(3,3), jGrad(3)
       LOGICAL       :: useCrossProductMetrics = .TRUE. ! A switch for debugging purposes
+                                                       ! So far, anisotropic representation is only implemented for cross product metrics
 !
 !     -----------
 !     Allocations
@@ -83,27 +84,28 @@ Module MappedGeometryClass
       Nx        = spA % Nx
       Ny        = spA % Ny
       Nz        = spA % Nz
+      Nmax      = MAX(Nx,Ny,Nz)
       self % Nx = Nx
       self % Ny = Ny
       self % Nz = Nz
       
-      ALLOCATE( self % JGradXi  (3,0:N,0:N,0:N) )
-      ALLOCATE( self % JGradEta (3,0:N,0:N,0:N) )
-      ALLOCATE( self % JGradZeta(3,0:N,0:N,0:N) )
-      ALLOCATE( self % jacobian(0:N,0:N,0:N) )
+      ALLOCATE( self % JGradXi  (3,0:Nx,0:Ny,0:Nz) )
+      ALLOCATE( self % JGradEta (3,0:Nx,0:Ny,0:Nz) )
+      ALLOCATE( self % JGradZeta(3,0:Nx,0:Ny,0:Nz) )
+      ALLOCATE( self % jacobian   (0:Nx,0:Ny,0:Nz) )
+      ALLOCATE( self % x        (3,0:Nx,0:Ny,0:Nz)    )
       
-      ALLOCATE( self % x(3,0:N,0:N,0:N)    )
-      ALLOCATE( self % xb(3,0:N,0:N,6)     )
-      ALLOCATE( self % normal(3,0:N,0:N,6) )
-      ALLOCATE( self % scal(0:N,0:N,6)     )
+      ALLOCATE( self % xb    (3,0:Nmax,0:Nmax,6)     )
+      ALLOCATE( self % normal(3,0:Nmax,0:Nmax,6) )
+      ALLOCATE( self % scal    (0:Nmax,0:Nmax,6)     )
 !
 !     --------------------------
 !     Compute interior locations
 !     --------------------------
 !
-      DO k = 0, N
-         DO j= 0, N       
-            DO i = 0,N 
+      DO k = 0, Nz
+         DO j= 0, Ny       
+            DO i = 0,Nx 
                self % x(:,i,j,k) = mapper %  transfiniteMapAt([spA % xi(i), spA % eta(j), spa % zeta(k)])
             END DO
          END DO
@@ -113,12 +115,25 @@ Module MappedGeometryClass
 !     Compute face locations
 !     ----------------------
 !
-      DO j = 0, N
-         DO i = 0, N
+      ! y-z planes
+      DO j = 0, Nz
+         DO i = 0, Ny
             self % xb(:,i,j,ELEFT)   = mapper % transfiniteMapAt([-1.0_RP    , spA % eta(i), spa % zeta(j)])
             self % xb(:,i,j,ERIGHT)  = mapper % transfiniteMapAt([ 1.0_RP    , spA % eta(i), spa % zeta(j)])
+         END DO
+      END DO 
+      
+      ! x-y planes
+      DO j = 0, Ny
+         DO i = 0, Nx
             self % xb(:,i,j,EBOTTOM) = mapper % transfiniteMapAt([spA % xi(i), spA % eta(j),    -1.0_RP   ])
             self % xb(:,i,j,ETOP)    = mapper % transfiniteMapAt([spA % xi(i), spA % eta(j),     1.0_RP   ])
+         END DO
+      END DO 
+      
+      ! x-z planes
+      DO j = 0, Nz
+         DO i = 0, Nx
             self % xb(:,i,j,EBACK)   = mapper % transfiniteMapAt([spA % xi(i),  1.0_RP     , spa % zeta(j)  ])
             self % xb(:,i,j,EFRONT)  = mapper % transfiniteMapAt([spA % xi(i), -1.0_RP     , spa % zeta(j)  ])
          END DO
@@ -143,8 +158,9 @@ Module MappedGeometryClass
 !     Boundary Normals - Must be evaluated at the boundaries!
 !     ----------------
 !
-         DO j = 0, N
-            DO i = 0, N
+         ! y-z planes
+         DO j = 0, Nz
+            DO i = 0, Ny
 !
 !           ---------
 !           Left face
@@ -164,7 +180,13 @@ Module MappedGeometryClass
                CALL vCross(grad_x(:,2), grad_x(:,3), jGrad)
                nrm = NORM2(jGrad)
                self % normal(:,i,j,ERIGHT) = jGrad/nrm
-               self % scal(i,j,ERIGHT)     = nrm          
+               self % scal(i,j,ERIGHT)     = nrm     
+            END DO
+         END DO
+         
+         ! x-y planes
+         DO j = 0, Ny
+            DO i = 0, Nx
 !
 !           -----------
 !           bottom face
@@ -185,6 +207,12 @@ Module MappedGeometryClass
                nrm = NORM2(jGrad)
                self % normal(:,i,j,ETOP) = jGrad/nrm
                self % scal(i,j,ETOP)     = nrm
+            END DO
+         END DO
+         
+         ! x-z planes
+         DO j = 0, Nz
+            DO i = 0, Nx
 !
 !           ----------
 !           front face
@@ -656,13 +684,16 @@ Module MappedGeometryClass
 !        Local Variables
 !        ---------------
 !
-         INTEGER       :: i,j,k, N
+         INTEGER       :: i,j,k
+         INTEGER       :: Nx, Ny, Nz
          REAL(KIND=RP) :: grad_x(3,3)         
-         N = spA % N
+         Nx = spA % Nx
+         Ny = spA % Ny
+         Nz = spA % Nz
          
-         DO k = 0, N
-            DO j = 0,N
-               DO i = 0,N
+         DO k = 0, Nz
+            DO j = 0,Ny
+               DO i = 0,Nx
                   grad_x = mapper % metricDerivativesAt([spA % xi(i), spA % eta(j), spA % zeta(k)])
                  
                   CALL vCross( grad_x(:,2), grad_x(:,3), self % jGradXi  (:,i,j,k))

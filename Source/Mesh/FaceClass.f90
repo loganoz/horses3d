@@ -153,7 +153,10 @@
       IMPLICIT NONE
 !
 !     -------------------------------------------------------------------
-!     Constructor of Mortar Storage
+!     Constructor of Mortar Storage:
+!        Since the polynomial order is different in every local direction,
+!        We will assume that the orientation of the "x" and "y" axes on 
+!        the mortar are the same as on the left element's face
 !     -------------------------------------------------------------------
 !      
       TYPE(Face)   , INTENT(INOUT) :: this       !<> Current face
