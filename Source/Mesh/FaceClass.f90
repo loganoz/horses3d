@@ -92,15 +92,27 @@
          CASE (0)
             ii = i
             jj = j
-         CASE (1) ! is this o.k?
-            ii = N - i
-            jj = j
+         CASE (1)
+            ii = N - j
+            jj = i
          CASE (2)
             ii = N - i
             jj = N - j
          CASE (3)
             ii = j
             jj = N - i
+         CASE (4)
+            ii = j
+            jj = i
+         CASE (5)
+            ii = N - i
+            jj = j
+         CASE (6)
+            ii = N - j
+            jj = N - i
+         CASE (7)
+            ii = i
+            jj = N - j
          CASE DEFAULT 
             PRINT *, "ERROR: Unknown rotation in element faces"
       END SELECT
