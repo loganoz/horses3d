@@ -670,7 +670,7 @@ CONTAINS
    END SUBROUTINE CreateInterpolationOperators
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
+! TODO: Remove this from here... The implementation is in Interpolation module
    SUBROUTINE Interpolate1Eqn(Q1, Q2, Interp, N1x, N1y, N1z, N2x, N2y, N2z)
       IMPLICIT NONE
       INTEGER        :: N1x, N1y, N1z

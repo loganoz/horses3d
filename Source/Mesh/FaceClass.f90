@@ -108,7 +108,7 @@
       IMPLICIT NONE
       
       INTEGER :: i,j       !<  Input indexes
-      INTEGER :: Nx,Ny     !<  Polynomial orders
+      INTEGER :: Nx, Ny    !<  Polynomial orders
       INTEGER :: rotation  !<  Face rotation
       INTEGER :: ii,jj     !>  Output indexes
       
@@ -116,15 +116,27 @@
          CASE (0)
             ii = i
             jj = j
-         CASE (1) ! is this o.k?
-            ii = Nx - i
-            jj = j
+         CASE (1)
+            ii = Ny - j
+            jj = i
          CASE (2)
             ii = Nx - i
             jj = Ny - j
          CASE (3)
             ii = j
             jj = Nx - i
+         CASE (4)
+            ii = j
+            jj = i
+         CASE (5)
+            ii = Nx - i
+            jj = j
+         CASE (6)
+            ii = Ny - j
+            jj = Nx - i
+         CASE (7)
+            ii = i
+            jj = Ny - j
          CASE DEFAULT 
             PRINT *, "ERROR: Unknown rotation in element faces"
       END SELECT
