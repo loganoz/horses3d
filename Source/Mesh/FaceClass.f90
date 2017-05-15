@@ -204,8 +204,8 @@
 !
       CALL ConstructMortarInterp(this % L2Phi, NL, NL, NPhi, NPhi)
       CALL ConstructMortarInterp(this % R2Phi, NR, NR, NPhi, NPhi)
-      CALL ConstructMortarInterp(this % Phi2L, NPhi, NPhi, NL, NL)
-      CALL ConstructMortarInterp(this % Phi2R, NPhi, NPhi, NR, NR)
+      CALL ConstructMortar2ElInterp(this % Phi2L, NPhi, NPhi, NL, NL)
+      CALL ConstructMortar2ElInterp(this % Phi2R, NPhi, NPhi, NR, NR)
       
    END SUBROUTINE ConstructMortarStorage
 !
@@ -271,6 +271,85 @@
    END SUBROUTINE ConstructMortarInterp
 !
 !////////////////////////////////////////////////////////////////////////
+!   
+   SUBROUTINE ConstructMortar2ElInterp( Mat, N1x, N1y, N2x, N2y )
+      IMPLICIT NONE
+!
+!     -------------------------------------------------------------------
+!     Constructor of Mortar Interpolation matrices using 0-indexing
+!        Obtains a matrix that interpolates from (1) to (2)
+!     -------------------------------------------------------------------
+!     
+      REAL(KIND=RP), ALLOCATABLE  :: Mat(:,:)  !> Interpolation matrix to be constructed
+      INTEGER                     :: N1x, N1y  !< Polynomial orders on (1)
+      INTEGER                     :: N2x, N2y  !< Polynomial orders on (2)
+!
+!     --------------------
+!     Internal variables  
+!     --------------------
+!
+      REAL(KIND=RP) :: x1(0:N1x), y1(0:N1y), w1x(0:N1x), w1y(0:N1y)   ! Nodes and weights
+      REAL(KIND=RP) :: x2(0:N2x), y2(0:N2y), w2x(0:N2x), w2y(0:N2y)   ! Nodes and weights
+      REAL(KIND=RP) :: MASSterm                                       ! Mass matrix term (this matrix is diagonal, so we only store one entry at a time)
+      
+      
+      INTEGER       :: i, j, r, s, m, n
+!
+!     -----------
+!     Allocations
+!     -----------
+!
+      ALLOCATE(Mat(0:(N2x+1)*(N2y+1)-1,0:(N1x+1)*(N1y+1)-1))
+!
+!     ----------------------------------------------------
+!     Obtain the quadrature nodes for both faces
+!        Currently done only with Legendre-Gauss
+!        TODO: Implement with Legendre-Gauss-Lobatto
+!     ----------------------------------------------------
+!
+      CALL GaussLegendreNodesAndWeights(N1x, x1, w1x)
+      CALL GaussLegendreNodesAndWeights(N1y, y1, w1y)
+      CALL GaussLegendreNodesAndWeights(N2x, x2, w2x)
+      CALL GaussLegendreNodesAndWeights(N2y, y2, w2y)
+!
+!     ----------------------------------------------------
+!     Creation of the interpolation matrix
+!     ----------------------------------------------------
+!
+      Mat = 0.0_RP
+      
+      ! Create S matrix and store it directly in "Mat"
+      DO s = 0, N1y
+         DO r = 0, N1x
+            m = r + s * (N1x+1) ! Column index
+            DO j = 0, N2y
+               DO i = 0, N2x
+                  n = i + j * (N2x+1)       ! Row index
+                  
+                  Mat(n,m) = LagrangeInterpolationNoBar(x1(r),N2x,x2,i) * LagrangeInterpolationNoBar(y1(s),N2y,y2,j) * &
+                                                                                                              w1x(r) * w1y(s)
+               END DO
+            END DO
+         END DO
+      END DO
+      
+      ! Create Mass matrix and finish computing interpolation operator
+      DO j = 0, N2y
+         DO i = 0, N2x
+            n = i + j * (N2x+1)       ! Row index
+            
+            MASSterm = w2x(i) * w2y(j)
+            
+            ! Matrix Multiplication I = M⁻¹S (taking advantage of the diagonal matrix)
+            Mat(n,:) = Mat(n,:) / MASSterm
+         END DO
+      END DO
+      
+      
+      
+   END SUBROUTINE ConstructMortar2ElInterp
+!
+!////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE ProjectToMortar(this, QL, QR, nEqn) 
       IMPLICIT NONE 
@@ -286,8 +365,8 @@
 !     ------
 !
       TYPE(Face)   , INTENT(INOUT)     :: this         !<> Face containing interface information
-      REAL(KIND=RP), INTENT(IN)        :: QL(:,0:,0:)  !<  Boundary solution of left element
-      REAL(KIND=RP), INTENT(IN)        :: QR(:,0:,0:)  !<  Boundary solution of right element
+      REAL(KIND=RP), INTENT(IN)        :: QL(nEqn,0:this % NL,0:this % NL)  !<  Boundary solution of left element
+      REAL(KIND=RP), INTENT(IN)        :: QR(nEqn,0:this % NR,0:this % NR)  !<  Boundary solution of right element
       INTEGER      , INTENT(IN)        :: nEqn         !<  Number of equations  
 !        
 !     ---------------
@@ -355,8 +434,8 @@
 !     ------
 !      
       TYPE(Face)   , INTENT(INOUT)     :: this              !<> Face containing the computed flux
-      REAL(KIND=RP), INTENT(OUT)       :: FStarbL(:,0:,0:)  !>  Boundary solution of left element
-      REAL(KIND=RP), INTENT(OUT)       :: FStarbR(:,0:,0:)  !>  Boundary solution of right element
+      REAL(KIND=RP), INTENT(OUT)       :: FStarbL(NEqn,0:this % NL,0:this % NL)  !>  Boundary solution of left element
+      REAL(KIND=RP), INTENT(OUT)       :: FStarbR(NEqn,0:this % NR,0:this % NR)  !>  Boundary solution of right element
       INTEGER      , INTENT(IN)        :: nEqn              !<  Number of equations 
 !
 !     -------------
@@ -444,9 +523,9 @@
 !     ------
 !      
       TYPE(Face)   , INTENT(INOUT)     :: this         !<> Face 
-      REAL(KIND=RP), INTENT(OUT)       :: C (:,0:,0:)  !>  Variable to be projected
-      REAL(KIND=RP), INTENT(OUT)       :: UL(:,0:,0:)  !>  Boundary solution of left element
-      REAL(KIND=RP), INTENT(OUT)       :: UR(:,0:,0:)  !>  Boundary solution of right element
+      REAL(KIND=RP), INTENT(OUT)       :: C (NEqn,0:this % N ,0:this % N)  !>  Variable to be projected
+      REAL(KIND=RP), INTENT(OUT)       :: UL(NEqn,0:this % NL,0:this % NL)  !>  Boundary solution of left element
+      REAL(KIND=RP), INTENT(OUT)       :: UR(NEqn,0:this % NR,0:this % NR)  !>  Boundary solution of right element
       INTEGER      , INTENT(IN)        :: nEqn              !<  Number of equations 
 !
 !     -------------

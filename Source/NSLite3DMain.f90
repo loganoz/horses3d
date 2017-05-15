@@ -134,7 +134,6 @@
          ALLOCATE(plDataSource)
          
          IF(controlVariables % containsKey("number of plot points")) THEN           ! Interpolate to plot
-!~             STOP 'Sorry, keyword "number of plot points" not implemented yet'
             CALL plotter % Construct(fUnit      = plotUnit,          &
                                 dataSource = plDataSource,      &
                                 newN       = controlVariables % integerValueForKey("number of plot points"), &
@@ -142,8 +141,7 @@
             
          ELSE                                                                       ! Plot values on Gauss points
             CALL plotter % Construct(fUnit      = plotUnit,          &
-                                     dataSource = plDataSource)!,      &
-   !~                                   newN       = controlVariables % integerValueForKey(numberOfPlotPointsKey))
+                                     dataSource = plDataSource)
          END IF
          CALL timeIntegrator % setPlotter(plotter)
       END IF 

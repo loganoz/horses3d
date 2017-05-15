@@ -369,16 +369,16 @@
       if ( mod(shown , showLabels) .eq. 0 ) then ! Show labels
          write(STD_OUT , '(/)')
          write(STD_OUT , '(/)')
-         write(STD_OUT , '(A20,5X,A10,5X,A10,5X,A10,5X,A10,5X,A10,5X,A10)') &
+         write(STD_OUT , '(A17,3X,A10,3X,A10,3X,A10,3X,A10,3X,A10,3X,A10)') &
                "Iteration" , "time" , "continuity" , "x-momentum" , "y-momentum", &
                "z-momentum" , "energy"
-         write(STD_OUT , '(A20,5X,A10,5X,A10,5X,A10,5X,A10,5X,A10,5X,A10)') &
+         write(STD_OUT , '(A17,3X,A10,3X,A10,3X,A10,3X,A10,3X,A10,3X,A10)') &
                "---------" , "--------" , "----------" , "----------" , "----------" , &
                "----------", "--------"
       end if
       write(STD_OUT , 110) iter ,"|", time ,"|", maxResiduals(IRHO) , "|" , maxResiduals(IRHOU) , &
                                           "|", maxResiduals(IRHOV) , "|" , maxResiduals(IRHOW) , "|" , maxResiduals(IRHOE)
-      110 format (I20,2X,A,2X,ES10.3,2X,A,2X,ES10.3,2X,A,2X,ES10.3,2X,A,2X,ES10.3,2X,A,2X,ES10.3,2X,A,2X,ES10.3)
+      110 format (I17,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3)
 
     shown = shown + 1
 
