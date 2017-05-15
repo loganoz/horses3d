@@ -24,9 +24,10 @@
       
       TYPE TimeIntegrator_t
          INTEGER                                :: integratorType
-         REAL(KIND=RP)                          :: tFinal, tStart, time
+         REAL(KIND=RP)                          :: tFinal, time
          INTEGER                                :: numTimeSteps, plotInterval
          REAL(KIND=RP)                          :: dt, tolerance, cfl
+         LOGICAL                                :: Compute_dt                    ! Is st computed from an inputted CFL number?
          TYPE(DGSEMPlotter),   POINTER          :: plotter  !Plotter is NOT owned by the time integrator
          PROCEDURE(RKStepFcn), NOPASS , POINTER :: RKStep
 !
@@ -35,10 +36,7 @@
 !        ========         
 !
          PROCEDURE :: construct => constructTimeIntegrator
-         PROCEDURE :: constructAsTimeAccurateIntegrator
-         PROCEDURE :: constructAsSteadyStateIntegrator
          PROCEDURE :: destruct => destructTimeIntegrator
-         PROCEDURE :: setIterationTolerance
          PROCEDURE :: setPlotter
          PROCEDURE :: integrate
       END TYPE TimeIntegrator_t
@@ -56,96 +54,69 @@
       CONTAINS 
 !     ========      
 !
-     !-------------------------------------------------------------------------------------------
-     SUBROUTINE constructTimeIntegrator(self,sem,controlVariables)
-     !-------------------------------------------------------------------------------------------
-       IMPLICIT NONE
-       !---------------------------------------------
-       CLASS(TimeIntegrator_t)     :: self
-       TYPE( DGSem )               :: sem
-       TYPE(FTValueDictionary)     :: controlVariables
-       !---------------------------------------------
-       REAL(KIND=RP)               :: dt, cfl
-       !---------------------------------------------
-        
-       cfl = controlVariables % doublePrecisionValueForKey("cfl")
-       dt = MaxTimeStep( sem, cfl )
-       SELECT CASE (controlVariables % StringValueForKey("time integration",LINE_LENGTH))  ! arueda: It is probably appropriate to introduce a "CheckInputIntegrity" for each of the following...
-         CASE ('time-accurate')                                                      
-           CALL self % constructAsTimeAccurateIntegrator &
-                                 (startTime     = 0._RP,  &
-                                  finalTime     = controlVariables % doublePrecisionValueForKey("final time"),  &
-                                  numberOfSteps = controlVariables % integerValueForKey ("number of time steps"),  &
-                                  plotInterval  = controlVariables % integerValueForKey("output interval") )
-           CASE DEFAULT ! Using 'steady-state' even if not specified in input file
-            CALL self % constructAsSteadyStateIntegrator &
-                                  (dt            = dt,  &
-                                   cfl           = cfl, &
-                                   numberOfSteps = controlVariables % integerValueForKey ("number of time steps"), &
-                                   plotInterval  = controlVariables % integerValueForKey("output interval"))
-       END SELECT
-      
-       CALL self % setIterationTolerance(controlVariables % doublePrecisionValueForKey("convergence tolerance"))
-     !-------------------------------------------------------------------------------------------
-     END SUBROUTINE constructTimeIntegrator
-     !-------------------------------------------------------------------------------------------
-!
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE constructAsTimeAccurateIntegrator( self,  startTime, finalTime, numberOfSteps, plotInterval )
+      SUBROUTINE constructTimeIntegrator(self,sem,controlVariables)
+      
          IMPLICIT NONE
-         CLASS(TimeIntegrator_t) :: self
-         REAL(KIND=RP)           :: finalTime, startTime
-         INTEGER                 :: numberOfSteps, plotInterval
+         !---------------------------------------------
+         CLASS(TimeIntegrator_t)     :: self
+         TYPE( DGSem )               :: sem
+         TYPE(FTValueDictionary)     :: controlVariables
+         !---------------------------------------------
+         REAL(KIND=RP)               :: dt, cfl
+         !---------------------------------------------
 !
-!        --------------------------------------------------------------
-!        Compute time step and set values for time accurate computation
-!        --------------------------------------------------------------
+!        ----------------------------------------------------------------------------------
+!        Set time-stepping variables
+!           If keyword "cfl" is present, the time step size is computed in every time step.
+!           If it is not, the keyword "dt" must be specified explicitly.
+!        ----------------------------------------------------------------------------------
 !
-         self % tFinal         = finalTime
-         self % tStart         = startTime
-         self % time           = startTime
-         self % numTimeSteps   = numberOfSteps
-         self % dt             = (self % tFinal - self % tStart)/numberOfSteps
-         self % plotInterval   = plotInterval
-         self % integratorType = TIME_ACCURATE
-         self % tolerance      = 1.d-11
+         IF (controlVariables % containsKey("cfl")) THEN
+            self % Compute_dt = .TRUE.
+            self % cfl        = controlVariables % doublePrecisionValueForKey("cfl")
+         ELSEIF (controlVariables % containsKey("dt")) THEN
+            self % Compute_dt = .FALSE.
+            self % dt         = controlVariables % doublePrecisionValueForKey("dt")
+         ELSE
+            ERROR STOP '"cfl" or "dt" keyword must be specified for the time integrator'
+         END IF
+!
+!        ----------------------
+!        Common initializations
+!        ----------------------
+!
+         self % time           =  0._RP                                                                  ! TODO: Modify this for restarted cases?
+         self % numTimeSteps   =  controlVariables % integerValueForKey ("number of time steps")
+         self % plotInterval   =  controlVariables % integerValueForKey("output interval")
+         self % tolerance      =  controlVariables % doublePrecisionValueForKey("convergence tolerance")
          self % plotter        => NULL()
          self % RKStep         => TakeRK3Step
-      
-      END SUBROUTINE constructAsTimeAccurateIntegrator
 !
-!     ////////////////////////////////////////////////////////////////////////////////////////
+!        ------------------------------------
+!        Integrator-dependent initializarions
+!        ------------------------------------
 !
-      SUBROUTINE constructAsSteadyStateIntegrator( self, dt, cfl, numberOfSteps, plotInterval )
-         IMPLICIT NONE
-         CLASS(TimeIntegrator_t) :: self
-         REAL(KIND=RP)           :: dt
-         REAL(KIND=RP)           :: cfl
-         INTEGER                 :: numberOfSteps, plotInterval
-!
-!        ---------------------------------------------------------------
-!        Compute time step and set values for a steady-state computation
-!        ---------------------------------------------------------------
-!
-         self % time           = 0._RP
-         self % numTimeSteps   = numberOfSteps
-         self % dt             = dt
-         self % plotInterval   = plotInterval
-         self % integratorType = STEADY_STATE
-         self % tolerance      = 1.d-11
-         self % cfl            = cfl
-         self % plotter        => NULL()
-         self % RKStep         => TakeRK3Step
-      
-      END SUBROUTINE constructAsSteadyStateIntegrator
+         SELECT CASE (controlVariables % StringValueForKey("time integration",LINE_LENGTH))
+            CASE ('time-accurate')
+               IF (controlVariables % containsKey("final time")) THEN
+                  self % tFinal         = controlVariables % doublePrecisionValueForKey("final time")
+               ELSE
+                  ERROR STOP '"final time" keyword must be specified for time-accurate integrators'
+               ENDIF
+               self % integratorType = TIME_ACCURATE
+            CASE DEFAULT ! Using 'steady-state' even if not specified in input file
+               self % integratorType = STEADY_STATE
+         END SELECT
+         
+      END SUBROUTINE constructTimeIntegrator
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE destructTimeIntegrator( self ) 
          CLASS(TimeIntegrator_t) :: self
          self % tFinal       = 0.0_RP
-         self % tStart       = 0.0_RP
          self % numTimeSteps = 0
          self % dt           = 0.0_RP
          
@@ -158,14 +129,6 @@
          TYPE(DGSEMPlotter), pointer :: plotter
          self % plotter => plotter
       END SUBROUTINE setPlotter
-!
-!     ////////////////////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE setIterationTolerance( self, tol ) 
-         CLASS(TimeIntegrator_t) :: self
-         REAL(KIND=RP)           :: tol
-         self % tolerance = tol
-      END SUBROUTINE setIterationTolerance
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -222,9 +185,7 @@
       
       DO k = 0, self % numTimeSteps-1
       
-         IF ( self % integratorType == STEADY_STATE ) THEN
-            self % dt = MaxTimeStep( sem, self % cfl )
-         END IF
+         IF ( self % Compute_dt ) self % dt = MaxTimeStep( sem, self % cfl )
          
          IF (imp) THEN
             SELECT CASE (JacFlag)

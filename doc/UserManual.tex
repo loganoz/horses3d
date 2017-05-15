@@ -75,11 +75,15 @@ polynomial order file  & \textit{CHARACTER}: Path to a file containing the polyn
 
 restart 			& \textit{LOGICAL}: If .TRUE., initial conditions of simulation will be read from restart file specified using the keyword \textit{restart file name}. \textbf{THIS SHOULD NOT BE MANDATORY... DEFAULT FALSE WOULD BE EASIER}. & \textbf{Mandatory keyword} \\ \hline
 
-cfl & \textit{REAL}:  & \textbf{Mandatory\ keyword} \\ \hline
+cfl & \textit{REAL}: Approximate CFL number that the program will use to compute the time step size. If this keyword is specified, the keyword \textit{dt} will be neglected. & --** \\ \hline
+
+dt  & \textit{REAL}: Constant time step size.  & --** \\ \hline
+
+final time  & \textit{REAL}: This keyword is mandatory for time-accurate solvers & -- \\ \hline
 
 mesh file name & \textit{INTEGER}:  & \textbf{Mandatory\ keyword} \\ \hline
 
-number of time steps & \textit{INTEGER}:  & \textbf{Mandatory\ keyword} \\ \hline
+number of time steps & \textit{INTEGER}: \textit{Maximum} number of time steps that the program will compute.  & \textbf{Mandatory\ keyword} \\ \hline
 
 output interval   & \textit{INTEGER}: In steady-state, this keyword indicates the interval of time steps to display the residuals on screen. In time-accurate simulations, this keyword indicates how often a 3D output file must be stored.  & \textbf{Mandatory\ keyword} \\ \hline
 
@@ -87,7 +91,9 @@ convergence tolerance & \textit{real}: \textbf{WHY MANDATORY?.. ONLY USED FOR ST
 
 number of plot points & \textit{INTEGER}: Number of equidistant plot points inside each element for plotting. If this variable is not specified, the program will plot only the values at the Gauss points.  & -- \\ \hline
 
-\multicolumn{3}{l}{* At least one of these two keywords must be specified}
+\multicolumn{3}{l}{*  At least one of these two keywords must be specified} \\
+
+\multicolumn{3}{l}{** At least one of these two keywords must be specified}
 
 \end{tabular}
 \label{tab:runningkey}
