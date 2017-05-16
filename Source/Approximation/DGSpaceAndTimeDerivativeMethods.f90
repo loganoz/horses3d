@@ -47,51 +47,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      SUBROUTINE LocalTimeDerivative( e, spA, t )
-!      USE ElementClass
-!      USE NodalStorageClass
-!      USE PhysicsStorage
-!      IMPLICIT NONE
-!
-!     -----------------
-!     Input parameters:
-!     -----------------
-!
-!      TYPE(Element)      :: e
-!      TYPE(NodalStorage) :: spA
-!      REAL(KIND=RP)      :: t
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-!      REAL(KIND=RP), DIMENSION( 0:spA % N, &
-!                                0:spA % N, &
-!                                0:spA % N, &
-!                                N_EQN, 3 )  :: contravariantFlux
-      
-!      CALL ComputeContravariantFlux( e, contravariantFlux )
-!
-!      IF ( flowIsNavierStokes )     THEN
-!         CALL AddViscousContravariantFluxes(  e, contravariantFlux )
-!      END IF
-      
-!      CALL ComputeDGDivergence( contravariantFlux, e, spA, e % Qdot ) !QDot saves the divergence
-
-!       call TimeDerivative_VolumetricContribution( mesh , spA , t )
-!       call TimeDerivative_FacesContribution( mesh , spA , t )
-
-!
-!     --------------------------------------------------------
-!     Finish up - move divergence to left side of the equation
-!     --------------------------------------------------------
-!
-!      e % QDot = -e % QDot
-    
-!      END SUBROUTINE LocalTimeDerivative
-!
-!////////////////////////////////////////////////////////////////////////////////////////
-!
       subroutine TimeDerivative_ComputeQDot( mesh , spA , t )
          use HexMeshClass
          use ElementClass
@@ -203,65 +158,21 @@
 
       end subroutine TimeDerivative_FacesContribution
 !
-!////////////////////////////////////////////////////////////////////////////////////////
-!
-!      SUBROUTINE ComputeContravariantFlux( e, contravariantFlux )
-!
-!     --------------------------------------
-!     As described, compute
-      
-!     \[
-!        \tilde f^i = J\vec a^i \cdot \vec F
-!     \]
-!     --------------------------------------
-!      
-!      USE ElementClass
-!      USE PhysicsStorage
-!      USE Physics
-!      IMPLICIT NONE
-!
-!     -----------------
-!     Input parameters:
-!     -----------------
-!
-!      TYPE(Element)                          :: e
-!      REAL(KIND=RP), dimension(0:,0:,0:,:,:) :: contravariantFlux 
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-!      INTEGER                         :: n, m, l, nv
-!      REAL(KIND=RP), DIMENSION(N_EQN) :: ff, gg, hh
-      
-!      DO l = 0, e % N
-!         DO m = 0, e % N
-!            DO n = 0, e % N
-!
-!               CALL xflux( e % Q(n,m,l,:), ff )
-!               CALL yflux( e % Q(n,m,l,:), gg )
-!               CALL zflux( e % Q(n,m,l,:), hh )
-!
-!               DO nv = 1, N_EQN
-!                  contravariantFlux(n,m,l,nv,1) = e % geom % jGradXi(1,n,m,l)  *ff(nv) +   &
-!                                                  e % geom % jGradXi(2,n,m,l)  *gg(nv) +   &
-!                                                  e % geom % jGradXi(3,n,m,l)  *hh(nv)
-!                  contravariantFlux(n,m,l,nv,2) = e % geom % jGradEta(1,n,m,l) *ff(nv) +   &
-!                                                  e % geom % jGradEta(2,n,m,l) *gg(nv) +   &
-!                                                  e % geom % jGradEta(3,n,m,l) *hh(nv)
-!                  contravariantFlux(n,m,l,nv,3) = e % geom % jGradZeta(1,n,m,l)*ff(nv) +   &
-!                                                  e % geom % jGradZeta(2,n,m,l)*gg(nv) +   &
-!                                                  e % geom % jGradZeta(3,n,m,l)*hh(nv)
-!               END DO
-!               
-!            END DO
-!         END DO
-!      END DO
-!    
-!      END SUBROUTINE ComputeContravariantFlux
-!
 !////////////////////////////////////////////////////////////////////////
 !
+      subroutine DGSpatial_ComputeGradient( mesh , spA , externalStateProcedure )
+         use HexMeshClass
+         use NodalStorageClass
+         use PhysicsStorage
+         implicit none
+         type(HexMesh)                  :: mesh
+         type(NodalStorage), intent(in) :: spA
+         EXTERNAL                       :: externalStateProcedure
+
+         call ViscousMethod % ComputeGradient( mesh , spA , externalStateProcedure)
+
+      end subroutine DGSpatial_ComputeGradient
+
       SUBROUTINE ComputeDGDivergence( contravariantFlux, e, spA, divFlux )
       USE ElementClass
       USE NodalStorageClass

@@ -252,9 +252,9 @@
 !        Compute gradients
 !        -----------------
 !
-!         if ( flowIsNavierStokes ) then
-!            CALL DGSpatial_ComputeGradients( self % mesh , self % spA , self % externalState )
-!         end if
+         if ( flowIsNavierStokes ) then
+            CALL DGSpatial_ComputeGradient( self % mesh , self % spA , self % externalState )
+         end if
 !
 !        -------------------------------------------------------
 !        Inviscid Riemann fluxes from the solutions on the faces
