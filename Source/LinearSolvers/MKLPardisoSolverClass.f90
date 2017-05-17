@@ -117,7 +117,7 @@ MODULE MKLPardisoSolverClass
       LOGICAL, SAVE                            :: isfirst = .TRUE.
       !-----------------------------------------------------------
       
-      
+      this % AIsPetsc = .TRUE.
       IF (this % AIsPetsc) THEN
          CALL this % PetscSolver % PreallocateA(nnz)
       ELSE
@@ -179,7 +179,7 @@ MODULE MKLPardisoSolverClass
          CALL this % PetscSolver % AssemblyA
          CALL this % PetscSolver % GetCSRMatrix(this % A)
 !~         CALL this % PetscSolver % destroy
-!~         this % AIsPetsc = .FALSE.
+         this % AIsPetsc = .FALSE.
       ELSE
          print*, 'A is assembled'
       END IF

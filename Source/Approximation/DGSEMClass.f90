@@ -48,6 +48,7 @@
       TYPE DGSem
          REAL(KIND=RP)                                           :: maxResidual
          INTEGER                                                 :: numberOfTimeSteps
+         INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
          TYPE(NodalStorage), ALLOCATABLE                         :: spA(:,:,:)
          TYPE(HexMesh)                                           :: mesh
          PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
@@ -144,7 +145,9 @@
       IF (ALLOCATED(self % spa)) DEALLOCATE(self % spa)
       ALLOCATE(self % spa(0:MAXVAL(Nx),0:MAXVAL(Ny),0:MAXVAL(Nz)))
       
+      self % NDOF = 0
       DO k=1, nelem
+         self % NDOF = self % NDOF + N_EQN * (Nx(k) + 1) * (Ny(k) + 1) * (Nz(k) + 1)
          IF (self % spA(Nx(k),Ny(k),Nz(k)) % Constructed) CYCLE
          CALL self % spA(Nx(k),Ny(k),Nz(k)) % construct( Nx(k),Ny(k),Nz(k) )
       END DO
@@ -237,23 +240,27 @@
       END SUBROUTINE LoadSolutionForRestart
 !
 !//////////////////////////////////////////////////////////////////////// 
-! 
-   SUBROUTINE SetQ(sem,Q)
-      CLASS(DGSem)   ,     INTENT(INOUT)           :: sem 
+!
+!  Routine to set the solution in each element with a global solution vector
+!
+   SUBROUTINE SetQ(self,Q)
+      CLASS(DGSem)   ,     INTENT(INOUT)           :: self 
       REAL(KIND = RP),     INTENT(IN)              :: Q(:)   
       
       INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, counter, elm
       
+      IF (SIZE(Q) /= self % NDOF) ERROR STOP 'Size mismatch in DGSEM:SetQ'
+      
       counter = 1
-      DO elm = 1, size(sem%mesh%elements)
-         Nx = sem%mesh%elements(elm)%Nxyz(1)
-         Ny = sem%mesh%elements(elm)%Nxyz(2)
-         Nz = sem%mesh%elements(elm)%Nxyz(3)
+      DO elm = 1, size(self%mesh%elements)
+         Nx = self%mesh%elements(elm)%Nxyz(1)
+         Ny = self%mesh%elements(elm)%Nxyz(2)
+         Nz = self%mesh%elements(elm)%Nxyz(3)
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
                   DO l = 1,N_EQN
-                     sem%mesh%elements(elm)%Q(i, j, k, l) = Q(counter) 
+                     self%mesh%elements(elm)%Q(i, j, k, l) = Q(counter) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                END DO
@@ -265,22 +272,25 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////       
 !
-   SUBROUTINE GetQ(sem,Q)
-      CLASS(DGSem),        INTENT(INOUT)            :: sem
+!  Routine to get the solution in each element as a global solution vector
+!
+   SUBROUTINE GetQ(self,Q)
+      CLASS(DGSem),        INTENT(INOUT)            :: self
       REAL(KIND = RP),     INTENT(OUT)              :: Q(:)
       
       INTEGER                                       :: Nx, Ny, Nz, l, i, j, k, counter, elm
       
+      IF (SIZE(Q) /= self % NDOF) ERROR STOP 'Size mismatch in DGSEM:GetQ'
       counter = 1
-      DO elm = 1, size(sem%mesh%elements)
-         Nx = sem%mesh%elements(elm)%Nxyz(1)
-         Ny = sem%mesh%elements(elm)%Nxyz(2)
-         Nz = sem%mesh%elements(elm)%Nxyz(3)
+      DO elm = 1, size(self%mesh%elements)
+         Nx = self%mesh%elements(elm)%Nxyz(1)
+         Ny = self%mesh%elements(elm)%Nxyz(2)
+         Nz = self%mesh%elements(elm)%Nxyz(3)
          DO k = 0, Nz
             DO j = 0, Ny
                 DO i = 0, Nx
                   DO l = 1,N_EQN
-                     Q(counter)  = sem%mesh%elements(elm)%Q(i, j, k, l)
+                     Q(counter)  = self%mesh%elements(elm)%Q(i, j, k, l) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                 END DO
@@ -292,22 +302,25 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////      
 !
-   SUBROUTINE GetQdot(sem,Qdot)
-      CLASS(DGSem),        INTENT(INOUT)            :: sem
+!  Routine to get the solution's time derivative in each element as a global solution vector
+!
+   SUBROUTINE GetQdot(self,Qdot)
+      CLASS(DGSem),        INTENT(INOUT)            :: self
       REAL(KIND = RP),     INTENT(OUT)              :: Qdot(:)
       
       INTEGER                                       :: Nx, Ny, Nz, l, i, j, k, counter, elm
       
+      IF (SIZE(Qdot) /= self % NDOF) ERROR STOP 'Size mismatch in DGSEM:GetQdot'
       counter = 1
-      DO elm = 1, size(sem%mesh%elements)
-         Nx = sem%mesh%elements(elm)%Nxyz(1)
-         Ny = sem%mesh%elements(elm)%Nxyz(2)
-         Nz = sem%mesh%elements(elm)%Nxyz(3)
+      DO elm = 1, size(self%mesh%elements)
+         Nx = self%mesh%elements(elm)%Nxyz(1)
+         Ny = self%mesh%elements(elm)%Nxyz(2)
+         Nz = self%mesh%elements(elm)%Nxyz(3)
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
                   DO l = 1,N_EQN
-                     Qdot(counter)  = sem%mesh%elements(elm)%Qdot(i, j, k, l) 
+                     Qdot(counter)  = self%mesh%elements(elm)%Qdot(i, j, k, l) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                END DO

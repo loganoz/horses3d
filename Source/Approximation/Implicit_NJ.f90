@@ -17,8 +17,6 @@ MODULE Implicit_NJ
    USE Jacobian,                    ONLY: Neighbour, Look_for_neighbour           
    USE ColorsClass,                 ONLY: Colors
    USE LinearSolverClass
-!~   USE PetscSolverClass
-!~   USE MKLPardisoSolverClass
    
    USE CSR_Matrices
    USE FTValueDictionaryClass
@@ -54,7 +52,6 @@ MODULE Implicit_NJ
       INTEGER                                               :: cli, clf, clrate
       INTEGER                                               :: k, nelm, DimPrb, newtonit
       INTEGER                                               :: ninner = 1
-      INTEGER, DIMENSION(:), ALLOCATABLE                    :: Nx, Ny, Nz
       LOGICAL                                               :: isfirst = .TRUE., computeA = .TRUE.
       REAL(KIND=RP)                                         :: ConvRate
       REAL(KIND=RP)                                         :: inner_dt
@@ -98,19 +95,9 @@ MODULE Implicit_NJ
          END SELECT
          
          nelm = SIZE(sem%mesh%elements)
-         ALLOCATE(Nx(nelm))
-         ALLOCATE(Ny(nelm))
-         ALLOCATE(Nz(nelm))
-         DO k = 1, nelm
-            Nx(k) = sem%mesh%elements(k)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
-            Ny(k) = sem%mesh%elements(k)%N
-            Nz(k) = sem%mesh%elements(k)%N 
-         END DO
-         DimPrb = 0
-         DO k = 1, nelm
-            DimPrb = DimPrb + N_EQN*(Nx(k)+1)*(Ny(k)+1)*(Nz(k)+1)
-         END DO
-
+         
+         DimPrb = sem % NDOF
+         
          ALLOCATE(nbr(nelm))
          CALL Look_for_neighbour(nbr, sem)    
          ALLOCATE(U_n(0:Dimprb-1))
@@ -137,8 +124,7 @@ MODULE Implicit_NJ
       ! 
       !**************************
       
-      CALL GetSemQ( sem, nelm, U_n )             !stores sem%dgS(elmnt)%Q in Vector U_n
-      
+      CALL sem % GetQ(U_n)      !stores sem%mesh%elements(:)%Q in Vector U_n
       
       DO                                                 
          CALL NewtonSolve(sem, time+inner_dt, inner_dt, ecolors, nbr, linsolver, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
@@ -146,7 +132,7 @@ MODULE Implicit_NJ
          
          IF (CONVERGED) THEN
             time = time + inner_dt
-            CALL GetSemQ( sem, nelm, U_n )
+            CALL sem % GetQ(U_n) 
             
             !*************************************************
             !
@@ -190,7 +176,7 @@ MODULE Implicit_NJ
             inner_dt = inner_dt / 2._RP
             IF (JacByConv)  CALL linsolver%ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
             
-            CALL SetSemQ( sem, nelm, U_n )       ! restores Q to begin a new newton iteration       
+            CALL sem % SetQ(U_n)          ! restores Q in sem to begin a new newton iteration       
             IF (PRINT_NEWTON_INFO) WRITE(*,*) "Newton loop did not converge, trying a smaller dt = ", inner_dt
          END IF
       
@@ -312,61 +298,6 @@ MODULE Implicit_NJ
       ENDDO
    
    END SUBROUTINE
-
-!/////////////////////////////////////////////////////////////////////////////////////////////////
-   SUBROUTINE GetSemQ( sem, nelm, u_store )
-
-      TYPE(DGSem),   INTENT(IN)                    :: sem
-      INTEGER,       INTENT(IN)                    :: nelm
-      REAL(KIND=RP), INTENT(INOUT)                 :: u_store(0:)
-
-      INTEGER                                      :: counter, i, j, k, l, elm, Nx, Ny, Nz
-
-      !U_n vector <-- sem%dgS(elmnt)%Q
-      counter = 0
-      DO elm = 1, nelm
-         Nx = sem%mesh%elements(elm)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
-         Ny = sem%mesh%elements(elm)%N
-         Nz = sem%mesh%elements(elm)%N
-         DO k = 0, Nz
-            DO j = 0, Ny
-               DO i = 0, Nx
-                  DO l = 1, N_EQN
-                     u_store(counter) = sem%mesh%elements(elm)%Q(i,j,k,l)
-                     counter =  counter + 1
-                  END DO 
-               END DO
-            END DO
-         END DO
-      END DO
-   END SUBROUTINE GetSemQ
-!/////////////////////////////////////////////////////////////////////////////////////////////////
-   SUBROUTINE SetSemQ( sem, nelm, u_store )
-
-      TYPE(DGSem),   INTENT(INOUT)                 :: sem
-      INTEGER,       INTENT(IN)                    :: nelm
-      REAL(KIND=RP), INTENT(IN)                    :: u_store(0:)
-
-      INTEGER                                      :: counter, i, j, k, l, elm, Nx, Ny, Nz
-
-      !sem%dgS(elmnt)%Q <-- U_n vector
-      counter = 0
-      DO elm = 1, nelm
-         Nx = sem%mesh%elements(elm)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
-         Ny = sem%mesh%elements(elm)%N
-         Nz = sem%mesh%elements(elm)%N
-         DO k = 0, Nz
-            DO j = 0, Ny
-               DO i = 0, Nx
-                  DO l = 1, N_EQN
-                     sem%mesh%elements(elm)%Q(i,j,k,l) = u_store(counter)
-                     counter =  counter + 1
-                  END DO 
-               END DO
-            END DO
-         END DO
-      END DO
-   END SUBROUTINE SetSemQ
 !  
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -389,9 +320,9 @@ MODULE Implicit_NJ
       
       counter = 0
       DO elmnt = 1, nelm
-         Nx = sem%mesh%elements(elmnt)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
-         Ny = sem%mesh%elements(elmnt)%N
-         Nz = sem%mesh%elements(elmnt)%N
+         Nx = sem%mesh%elements(elmnt)%Nxyz(1)
+         Ny = sem%mesh%elements(elmnt)%Nxyz(2)
+         Nz = sem%mesh%elements(elmnt)%Nxyz(3)
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
@@ -418,13 +349,13 @@ MODULE Implicit_NJ
 
       counter = 0
       DO elm = 1, nelm
-         Nx = sem%mesh%elements(elm)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
-         Ny = sem%mesh%elements(elm)%N
-         Nz = sem%mesh%elements(elm)%N
+         Nx = sem%mesh%elements(elm)%Nxyz(1)
+         Ny = sem%mesh%elements(elm)%Nxyz(2)
+         Nz = sem%mesh%elements(elm)%Nxyz(3)
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
-                  DO l = 1,N_EQN
+                  DO l = 1, N_EQN
                      CALL linsolver%GetXValue(counter,value)
                      sem%mesh%elements(elm)%Q(i,j,k,l) = sem%mesh%elements(elm)%Q(i,j,k,l) + value
                      counter =  counter + 1
@@ -442,6 +373,7 @@ MODULE Implicit_NJ
 !
 !     -----------------------------------------------------------
 !     Writes files for performing eigenvalue analysis using TAUev
+!        This only works for isotropic order meshes.........................TODO: Change that
 !     -----------------------------------------------------------
 !
       TYPE(csrMat_t)    :: Mat      !< Jacobian matrix
@@ -455,7 +387,7 @@ MODULE Implicit_NJ
       OPEN(newunit=fd, file=TRIM(FileName)//'.frm', action='WRITE')
          WRITE(fd,*)
          WRITE(fd,*) SIZE(Mat % Values), SIZE(Mat % Rows)-1, 1, N_EQN, 1
-         WRITE(fd,*) sem % mesh % elements(1) % N, SIZE(sem % mesh % elements)
+         WRITE(fd,*) sem % mesh % elements(1) % Nxyz(1), SIZE(sem % mesh % elements)
       CLOSE (fd)
       
       ! .amg file
@@ -500,90 +432,135 @@ MODULE Implicit_NJ
       INTEGER                                            :: thisdof, elmnbr, nbrnbr                ! specific counters
       INTEGER, ALLOCATABLE, DIMENSION(:), SAVE           :: used                                   ! array containing index of elements whose contributions to Jacobian has already been considered
       INTEGER                                            :: usedctr                                ! counter to fill positions of used
+      INTEGER                                            :: ielm, felm, nnz, ndof                      
       
-      TYPE(Element), ALLOCATABLE, SAVE                   :: dgs_clean(:)                           ! arueda: not only defining storage, but all element definitions (change it?)
-      INTEGER                                            :: ielm, felm, ndofelm, nnz
-      INTEGER                                            :: Nx, Ny, Nz                             ! Polynomial order
+      INTEGER                           , SAVE           :: maxndofel
+      INTEGER, ALLOCATABLE, DIMENSION(:), SAVE           :: ndofelm, firstIdx                      ! Number of degrees of freedom and relative position in Jacobian for each element 
+      INTEGER, ALLOCATABLE, DIMENSION(:), SAVE           :: Nx, Ny, Nz                             ! Polynomial orders
+      TYPE(Element), ALLOCATABLE        , SAVE           :: dgs_clean(:)                           ! Clean elements array used for computations
+      INTEGER, ALLOCATABLE, DIMENSION(:), SAVE           :: ndofcol                                ! Maximum number of degrees of freedom in each color        
+      
       
       INTEGER                                            :: icol, cli, clf, clrate
       INTEGER, DIMENSION(4)                              :: ijkl                                   ! Indexes to locate certain degree of freedom i,j,k...l:equation number
       INTEGER, ALLOCATABLE, DIMENSION(:), SAVE           :: irow_0, irow
 !~      REAL(KIND=RP), POINTER, DIMENSION(:)               :: pbuffer                              ! Outcommented, new definition below (arueda: previous was more efficient.. change after defining storage)
       REAL(KIND=RP), ALLOCATABLE, DIMENSION(:), SAVE     :: pbuffer                                ! arueda: changed to allocatable variable because of i,j,k,l distribution in nslite3d
-      REAL(KIND=RP)                                      :: ctime, maxQ
+      REAL(KIND=RP)                                      :: ctime
+      REAL(KIND=RP), ALLOCATABLE, DIMENSION(:)           :: Q                                      ! Solution as vector             
       REAL(KIND=RP), SAVE                                :: jaceps=1e-8_RP, eps
       CHARACTER(LEN=15)                                  :: filename 
       
+      LOGICAL, SAVE                                      :: isfirst = .TRUE.
             
       CALL SYSTEM_CLOCK(cli,clrate)
       
-      !This suposes same polinomial order in all elements  TODO:Con la nueva estructura extender esto
-      Nx = sem%mesh%elements(1)%N 
-      Ny = sem%mesh%elements(1)%N
-      Nz = sem%mesh%elements(1)%N
-      ndofelm = N_EQN * (Nx+1) * (Ny+1) * (Nz+1)
 !
-!     ---------------------------------------------------------------
-!     Allocate arrays that will be used throughout all the simulation
-!     ---------------------------------------------------------------
+!     --------------------------------------------------------------------
+!     Initialize variables that will be used throughout all the simulation
+!     --------------------------------------------------------------------
 !
-      IF (.NOT. ALLOCATED(pbuffer)) ALLOCATE(pbuffer(ndofelm))  ! arueda: this can be done here and once only because all elements have same order. TODO: generalize!
-      
-      IF (.NOT. ALLOCATED(irow)) THEN
-         ALLOCATE(irow  (0:ndofelm-1))
-         ALLOCATE(irow_0(0:ndofelm-1))
-         DO i = 0, ndofelm-1
-            irow_0(i) = i
-         ENDDO
-      ENDIF
-      
-      IF (.NOT. ALLOCATED(dgs_clean)) THEN
+      IF (isfirst) THEN
+         ALLOCATE(ndofelm(nelm), firstIdx(nelm))
+         ALLOCATE(Nx(nelm), Ny(nelm), Nz(nelm))
          ALLOCATE(dgs_clean(nelm))
+         firstIdx = 0
+         DO i=1, nelm
+            Nx(i) = sem%mesh%elements(i)%Nxyz(1)
+            Ny(i) = sem%mesh%elements(i)%Nxyz(2)
+            Nz(i) = sem%mesh%elements(i)%Nxyz(3)
+!
+!           --------------------------------------
+!           Get block sizes and position in matrix
+!           --------------------------------------
+! 
+            ndofelm(i)  = N_EQN * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)              ! TODO: if there's p-adaptation, this value has to be recomputed
+            IF (i>1) firstIdx(i) = firstIdx(i-1) + ndofelm(i-1)
+!
+!           -------------------------------------------------------
+!           Allocate the element storage of the clean element array
+!           -------------------------------------------------------
+!
+            CALL allocateElementStorage( dgs_clean(i), Nx(i), Ny(i), Nz(i), N_EQN, N_GRAD_EQN, flowIsNavierStokes )
+         END DO
+         maxndofel = MAXVAL(ndofelm)                                             ! TODO: if there's p-adaptation, this value has to be recomputed
          
+         ALLOCATE(pbuffer(maxndofel))  ! This works if there's no p-Adaptation (change to include it)
+!
+!        -------------------
+!        Row position arrays
+!        -------------------
+!
+         ALLOCATE(irow  (maxndofel))
+         ALLOCATE(irow_0(maxndofel))
          
-         DO i = 1, nelm
-            CALL allocateElementStorage( dgs_clean(i), Nx, N_EQN, N_GRAD_EQN, flowIsNavierStokes ) !(Only using Nx since 3D code doesn't support something else)
-!~             maxQ=MAX(maxQ,MAXVAL(ABS(sem%mesh%elements(i)%Q(:,:,:,:))))
-         ENDDO
+         irow_0(1:maxndofel) = (/ (i, i=0,maxndofel-1) /)
          
-      ENDIF
-      
-      IF (.NOT. ALLOCATED(used)) THEN
+!
+!        ---------------------------------------------------------------
+!        Allocate the used array that will contain the information about
+!        which neighbor elements were already used in the numerical
+!        computation of the Jacobian matrix entries
+!        ---------------------------------------------------------------
+!
          IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
             ALLOCATE(used(26))   ! 25 neighbors (including itself) and a last entry that will be 0 always (boundary index)
          ELSE
-            ALLOCATE(used(8))    ! 8 neighbors (including itself) and a last entry that will be 0 always (boundary index)
+            ALLOCATE(used(8))    ! 7 neighbors (including itself) and a last entry that will be 0 always (boundary index)
          END IF
+         
+!
+!        -------------------------------------------------------------------------
+!        Set max number of nonzero values expected in a row of the Jacobian matrix    TODO: if there's p-adaptation, this has to be recomputed
+!              Assumes Legendre-Gauss quadrature and neglects zero values in each 
+!                 block (taken into account later when assembling)
+!              For Legendre-Gauss-Lobatto much less entries are expected (a node on the
+!                 interface has more cols than an interior node)
+!              IMPORTANT: These numbers assume conforming meshes!
+!        -------------------------------------------------------------------------
+!
+         IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
+            nnz = maxndofel * 25
+         ELSE
+            nnz = maxndofel * 7
+         END IF
+!
+!        --------------------------------------------------------------
+!        Compute the maximum number of degrees of freedom in each color               TODO: if there's p-adaptation, this has to be recomputed
+!        --------------------------------------------------------------
+!
+         ALLOCATE(ndofcol(ecolors % ncolors))
+         ndofcol = 0
+         DO thiscolor = 1 , ecolors%ncolors
+            ielm = ecolors%bounds(thiscolor)             
+            felm = ecolors%bounds(thiscolor+1)
+            DO thiselmidx = ielm, felm-1              !perturbs a dof in all elements within current color
+               thiselm = ecolors%elmnts(thiselmidx)
+               ndofcol(thiscolor) = MAX(ndofcol(thiscolor),ndofelm(thiselm))
+            END DO
+         END DO
+         
+         ! All initializarions done!
+         isfirst = .FALSE.
       END IF
+      
+
 !
 !     ---------------------------------------------
-!     Set value of eps
+!     Set value of eps (currently using Mettot et al. approach with L2 norm because it gives the best approximation)
 !        See:
 !           > Knoll, Dana A., and David E. Keyes. "Jacobian-free Newton–Krylov methods: a survey of approaches and applications." Journal of Computational Physics 193.2 (2004): 357-397.
 !           > Mettot, Clément, Florent Renac, and Denis Sipp. "Computation of eigenvalue sensitivity to base flow modifications in a discrete framework: Application to open-loop control." Journal of Computational Physics 269 (2014): 234-258.
 !     --------------------------------------------
 !
-      maxQ=0.0_RP
-      DO i = 1, nelm
-         maxQ=MAX(maxQ,MAXVAL(ABS(sem%mesh%elements(i)%Q(:,:,:,:))))
-      ENDDO
-      eps=SQRT(EPSILON(eps))*(maxQ+1._RP)
+      IF (.NOT. ALLOCATED(Q)) ALLOCATE(Q(sem % NDOF))
+      CALL sem % GetQ(Q)
+      eps = SQRT(EPSILON(eps))*(NORM2(Q)+1._RP)
 !
-!     -------------------------------------------------------------------------
-!     Set max number of nonzero values expected in a row of the Jacobian matrix 
-!           Assumes Legendre-Gauss quadrature and neglects zero values in each 
-!              block (taken into account later when assembling)
-!           For Legendre-Gauss-Lobatto much less entries are expected (a node on the
-!              interface has more cols than an interior node)
-!           IMPORTANT: These numbers assume conforming meshes!
-!     -------------------------------------------------------------------------
+!     ---------------------------
+!     Preallocate Jacobian matrix
+!     ---------------------------
 !
-      IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
-         nnz = ndofelm * 25
-      ELSE
-         nnz = ndofelm * 7
-      END IF
-      
       CALL linsolver%PreallocateA(nnz)
       CALL linsolver%ResetA
       
@@ -597,10 +574,14 @@ MODULE Implicit_NJ
       DO thiscolor = 1 , ecolors%ncolors
          ielm = ecolors%bounds(thiscolor)             
          felm = ecolors%bounds(thiscolor+1)
-         DO thisdof = 1, ndofelm                      ! computes one column for each dof within an elment (all elements must have the same number of DOFs - change?)
-            ijkl = local2ijk(thisdof,N_EQN,Nx,Ny,Nz)
-            DO thiselmidx = ielm, felm-1              !perturbs a dof in all elements within current color
+         DO thisdof = 1, ndofcol(thiscolor)           ! Computes one column for each dof within an elment (iterates to the maximum DOF of all elements in thiscolor) 
+            
+            DO thiselmidx = ielm, felm-1              ! Perturbs a dof in all elements within current color
                thiselm = ecolors%elmnts(thiselmidx)
+               IF (ndofelm(thiselm)<thisdof) CYCLE       ! Do nothing if the DOF exceeds the NDOF of thiselm
+               
+               ijkl = local2ijk(thisdof,N_EQN,Nx(thiselm),Ny(thiselm),Nz(thiselm))
+               
                sem%mesh%elements(thiselm)%Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
                                                    sem%mesh%elements(thiselm)%Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
             ENDDO
@@ -609,21 +590,24 @@ MODULE Implicit_NJ
             
             DO thiselmidx = ielm, felm-1
                thiselm = ecolors%elmnts(thiselmidx)
+               IF (ndofelm(thiselm)<thisdof) CYCLE
                ! Redifine used array and counter
                used    = 0
                usedctr = 1
                
                DO i = 1,SIZE(nbr(thiselm)%elmnt)
                   elmnbr = nbr(thiselm)%elmnt(i) 
-                  
+               
                   IF (.NOT. ANY(used == elmnbr)) THEN  !(elmnbr .NE. 0)
+                     ndof   = ndofelm(elmnbr)
+                     
                      sem%mesh%elements(elmnbr)%QDot = (sem%mesh%elements(elmnbr)%QDot - dgs_clean(elmnbr)%QDot) / eps                      
 !~                     pbuffer(1:ndofelm) => sem%mesh%elements(elmnbr)%QDot                     !maps Qdot array into a 1D pointer 
-                     CALL GetElemQdot(sem%mesh%elements(elmnbr),pbuffer)
-                     irow = irow_0 + ndofelm * (elmnbr - 1)                         !generates the row indices vector
-                     WHERE (ABS(pbuffer(1:ndofelm)) .LT. jaceps) irow = -1          !MatSetvalues will ignore entries with irow=-1
-                     icol = (thiselm - 1) * ndofelm  + thisdof - 1
-                     CALL linsolver%SetAColumn(ndofelm, irow, icol, pbuffer )
+                     CALL GetElemQdot(sem%mesh%elements(elmnbr),pbuffer(1:ndof))
+                     irow = irow_0 + firstIdx(elmnbr)        !irow_0 + ndofelm * (elmnbr - 1)                         !generates the row indices vector
+                     WHERE (ABS(pbuffer(1:maxndofel)) .LT. jaceps) irow = -1          !MatSetvalues will ignore entries with irow=-1
+                     icol = firstIdx(thiselm) + thisdof - 1  !(thiselm - 1) * ndofelm  + thisdof - 1
+                     CALL linsolver%SetAColumn(ndof, irow(1:ndof), icol, pbuffer(1:ndof) )
                      
                      used(usedctr) = elmnbr
                      usedctr = usedctr + 1
@@ -634,15 +618,17 @@ MODULE Implicit_NJ
                      IF (elmnbr .NE. 0) THEN
                         DO j=1, SIZE(nbr(elmnbr)%elmnt)
                            nbrnbr = nbr(elmnbr)%elmnt(j)                          
-                           IF (.NOT. ANY(used == nbrnbr)) THEN  !(elmnbr .NE. 0)
+                           
+                           IF (.NOT. ANY(used == nbrnbr)) THEN
+                              ndof   = ndofelm(nbrnbr)
                                              
                               sem%mesh%elements(nbrnbr)%QDot = (sem%mesh%elements(nbrnbr)%QDot - dgs_clean(nbrnbr)%QDot) / eps                      
          !~                     pbuffer(1:ndofelm) => sem%mesh%elements(elmnbr)%QDot                     !maps Qdot array into a 1D pointer 
-                              CALL GetElemQdot(sem%mesh%elements(nbrnbr),pbuffer)
-                              irow = irow_0 + ndofelm * (nbrnbr - 1)                         !generates the row indices vector
-                              WHERE (ABS(pbuffer(1:ndofelm)) .LT. jaceps) irow = -1          !MatSetvalues will ignore entries with irow=-1
-                              icol = (thiselm - 1) * ndofelm  + thisdof - 1
-                              CALL linsolver%SetAColumn(ndofelm, irow, icol, pbuffer )
+                              CALL GetElemQdot(sem%mesh%elements(nbrnbr),pbuffer(1:ndof))
+                              irow = irow_0 + firstIdx(nbrnbr)       !irow_0 + ndofelm * (nbrnbr - 1)                         !generates the row indices vector
+                              WHERE (ABS(pbuffer(1:maxndofel)) .LT. jaceps) irow = -1          !MatSetvalues will ignore entries with irow=-1
+                              icol = firstIdx(thiselm) + thisdof - 1 !(thiselm - 1) * ndofelm  + thisdof - 1
+                              CALL linsolver%SetAColumn(ndof, irow(1:ndof), icol, pbuffer(1:ndof) )
                               
                               used(usedctr) = nbrnbr
                               usedctr = usedctr + 1                        
@@ -739,7 +725,7 @@ MODULE Implicit_NJ
 !////////////////////////////////////////////////////////////////////////////////////////      
 !  Subroutine for extracting Qdot of a single element as a 1 dimensional array
 !  arueda: Originally, this process was done by a pbuffer 1D pointer (better performance)... However, copying procedure had to be introduced since 
-!  NSLITE3D organizes the element information in a different manner than BNLITE2D...
+!  NSLITE3D organizes the element information in a different manner than NSLITE2D...
 !   
    SUBROUTINE GetElemQdot(CurrEl,Qdot) !arueda: check ordering of variables in solution vector
       TYPE(Element)                                 :: CurrEl
@@ -749,9 +735,10 @@ MODULE Implicit_NJ
       
       counter = 1
       
-      Nx = CurrEl%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
-      Ny = CurrEl%N
-      Nz = CurrEl%N
+      Nx = CurrEl%Nxyz(1)
+      Ny = CurrEl%Nxyz(2)
+      Nz = CurrEl%Nxyz(3)
+      
       DO k = 0, Nz
          DO j = 0, Ny
             DO i = 0, Nx

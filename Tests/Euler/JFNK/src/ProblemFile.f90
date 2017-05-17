@@ -70,9 +70,9 @@
             INTEGER     :: i, j, k, eID
             
             DO eID = 1, SIZE(sem % mesh % elements)
-               DO k = 0, sem % mesh % elements(eID) % N
-                  DO j = 0, sem % mesh % elements(eID) % N
-                     DO i = 0, sem % mesh % elements(eID) % N
+               DO k = 0, sem % mesh % elements(eID) % Nxyz(3)
+                  DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
+                     DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
                         CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
                                                sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )
                                                      
@@ -152,7 +152,7 @@
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            N = sem % mesh % elements(1) % N ! This works here because all the elements have the same order
+            N = sem % mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order
             CALL FTAssertEqual(expectedValue = expectedIterations, &
                                actualValue   =  sem % numberOfTimeSteps, &
                                msg           = "Number of time steps to tolerance")
@@ -165,9 +165,9 @@
             
             maxError = 0.0_RP
             DO eID = 1, SIZE(sem % mesh % elements)
-               DO k = 0, sem % mesh % elements(eID) % N
-                  DO j = 0, sem % mesh % elements(eID) % N
-                     DO i = 0, sem % mesh % elements(eID) % N
+               DO k = 0, sem % mesh % elements(eID) % Nxyz(3)
+                  DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
+                     DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
                         CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
                                                QExpected(i,j,k,1:N_EQN) )
                      END DO

@@ -146,14 +146,12 @@ MODULE ColorsClass
       character(len=*), intent(in)        :: filename
       
       !-------------------------------------------------------
-      INTEGER                             :: fd, Nelem, id, N, i, j, k
+      INTEGER                             :: fd, Nelem, id, N(3), i, j, k
       INTEGER, DIMENSION(:), ALLOCATABLE  :: colors
       !-------------------------------------------------------
       open(newunit = fd, file=trim(filename), action='WRITE')
       
-      N = sem % mesh % elements(1) % N
       Nelem = SIZE(sem % mesh % elements)
-      
       
       !! Create colors array
       ALLOCATE(colors(Nelem))
@@ -163,18 +161,17 @@ MODULE ColorsClass
             colors(this % elmnts(j)) = i
          END DO
       END DO
-      !!
-      print *, colors
       
-      write(fd,*) 'TITLE = "Eigenvalue analysis NSLITE3D"'
+      write(fd,*) 'TITLE = "Colors of mesh NSLITE3D"'
       write(fd,*) 'VARIABLES = "X","Y","Z","Color" '
       
       DO id = 1, Nelem
-         WRITE(fd,*) 'ZONE I=', N+1, ",J=",N+1, ",K=",N+1,", F=POINT"
+         N = sem % mesh % elements(id) % Nxyz
+         WRITE(fd,*) 'ZONE I=', N(1)+1, ",J=",N(2)+1, ",K=",N(3)+1,", F=POINT"
          
-         DO k = 0, N
-            DO j= 0, N 
-               DO i = 0, N
+         DO k = 0, N(3)
+            DO j= 0, N(2)
+               DO i = 0, N(1)
                   write(fd,'(3E13.5,x,I0)') sem % mesh % elements(id) % geom % x(1,i,j,k), &
                                             sem % mesh % elements(id) % geom % x(2,i,j,k), &
                                             sem % mesh % elements(id) % geom % x(3,i,j,k), &
