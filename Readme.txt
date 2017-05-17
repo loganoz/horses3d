@@ -14,3 +14,5 @@ Changes to master during week 06.03.2017 - 12.03.2017:
 		5. Expected solutions of test cases changed due to arueda(1) and arueda(2)
 
 ----------------------------------------------------------------------------
+This modification is added to force an automatic bulding of buildbot and 
+test some modifications that have been introduced
