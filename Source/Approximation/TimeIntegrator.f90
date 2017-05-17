@@ -134,8 +134,8 @@
 !
       SUBROUTINE Integrate( self, sem, controlVariables)
       
-      USE Implicit_JF , ONLY : TakeBDFStep_JF
-      USE Implicit_NJ , ONLY : TakeBDFStep_NJ
+!~       USE Implicit_JF , ONLY : TakeBDFStep_JF
+!~       USE Implicit_NJ , ONLY : TakeBDFStep_NJ
       IMPLICIT NONE
 !
 !     ---------
@@ -190,15 +190,18 @@
          IF (imp) THEN
             SELECT CASE (JacFlag)
                CASE (1)
-                  CALL TakeBDFStep_JF (sem, t , self%dt , maxResidual)
+                  ERROR STOP 'Code is not adapted for JFNK yet'
+!~                   CALL TakeBDFStep_JF (sem, t , self%dt , maxResidual)
                CASE (2)
-                  CALL TakeBDFStep_NJ (sem, t , self%dt , maxResidual, controlVariables)
+                  ERROR STOP 'Code is not adapted for implicit NumJac yet'
+!~                   CALL TakeBDFStep_NJ (sem, t , self%dt , maxResidual, controlVariables)
                CASE (3)
                   STOP 'Analytical Jacobian not implemented yet'
                CASE DEFAULT
                   PRINT*, "Not valid 'Jacobian Flag'. Running with Jacobian-Free Newton-Krylov."
                   JacFlag = 1
-                  CALL TakeBDFStep_JF (sem, t , self%dt , maxResidual)
+                  ERROR STOP 'Code is not adapted for JFNK yet'
+!~                   CALL TakeBDFStep_JF (sem, t , self%dt , maxResidual)
             END SELECT
          ELSE
             CALL self % RKStep ( sem, t, self % dt, maxResidual )

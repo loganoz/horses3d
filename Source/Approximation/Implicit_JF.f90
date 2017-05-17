@@ -48,9 +48,9 @@ MODULE Implicit_JF
          ALLOCATE(Ny(nelm))
          ALLOCATE(Nz(nelm))
          DO k = 1, nelm
-            Nx(k) = sem%mesh%elements(k)%N       ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
-            Ny(k) = sem%mesh%elements(k)%N
-            Nz(k) = sem%mesh%elements(k)%N
+            Nx(k) = sem%mesh%elements(k)%Nxyz(1)
+            Ny(k) = sem%mesh%elements(k)%Nxyz(2)
+            Nz(k) = sem%mesh%elements(k)%Nxyz(3)
          END DO
          DimPrb = 0
          DO k = 1, nelm

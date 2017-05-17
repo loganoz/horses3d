@@ -24,14 +24,14 @@
             REAL(KIND=RP) :: t
             
             INTEGER       :: i, j
-            INTEGER       :: N
+            INTEGER       :: N(2)
             REAL(KIND=RP) :: nHat(3)
             EXTERNAL      :: externalState
             
-            N = e % N
+            N = e % Nxyz(axisMap(:,faceID))
             
-            DO j = 0, N
-               DO i = 0, N
+            DO j = 0, N(2)
+               DO i = 0, N(1)
                   nHat = e % geom % normal(:,i,j,faceID)
                   e % FStarb(:,i,j,faceID) = e % Qb(:,i,j,faceID) * e % geom % scal(i,j,faceID) * (Nhat(1) + nHat(2) + nHat(3))
                END DO   

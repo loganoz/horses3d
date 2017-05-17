@@ -856,16 +856,27 @@
          !--------------------------------------------------------
           
          NumOfElem = SIZE(self % elements)
-         
-         ndof = N_EQN * (self % elements(1) % N+1)**3 *SIZE(self % elements)
+!
+!        ------------------------------------------------------------------------
+!        Determine the number of degrees of freedom
+!           TODO: Move this to another place if needed in other parts of the code
+!        ------------------------------------------------------------------------
+!
+         ndof = 0
+         DO el = 1, NumOfElem
+            Nx = self % elements(el) % Nxyz(1)
+            Ny = self % elements(el) % Nxyz(2)
+            Nz = self % elements(el) % Nxyz(3)
+            ndof = ndof + (Nx + 1)*(Ny + 1)*(Nz + 1)*N_EQN
+         END DO
          
          OPEN(newunit=cooh, file=FileName, action='WRITE')
          
          WRITE(cooh,*) ndof, ndim   ! defined in PhysicsStorage
          DO el = 1, NumOfElem
-            Nx = self % elements(el) % Nx
-            Ny = self % elements(el) % Ny
-            Nz = self % elements(el) % Nz
+            Nx = self % elements(el) % Nxyz(1)
+            Ny = self % elements(el) % Nxyz(2)
+            Nz = self % elements(el) % Nxyz(3)
             DO k = 0, Nz
                DO j = 0, Ny
                   DO i = 0, Nx

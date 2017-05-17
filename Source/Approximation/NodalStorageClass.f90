@@ -153,8 +153,10 @@
          IMPLICIT NONE
          CLASS(NodalStorage) :: this
          DEALLOCATE( this % xi, this % eta, this % zeta )
-         DEALLOCATE( this % w )
-         DEALLOCATE( this % D, this % v, this % b )
+         DEALLOCATE( this % wx, this % wy, this % wz )
+         DEALLOCATE( this % Dx, this % Dy, this % Dz )
+         DEALLOCATE( this % vx, this % vy, this % vz ) 
+         DEALLOCATE( this % bx, this % by, this % bz )
          deallocate( this % standardDerivativeMatrix)
          this % Constructed = .FALSE.
       END SUBROUTINE DestructNodalStorage

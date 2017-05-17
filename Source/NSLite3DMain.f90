@@ -88,13 +88,13 @@
             polynomialOrder = controlVariables % integerValueForKey("polynomial order")
          ELSE
             IF (controlVariables % containsKey("polynomial order i") .AND. &
-                controlVariables % containsKey("polynomial order j") .AND.
+                controlVariables % containsKey("polynomial order j") .AND. &
                 controlVariables % containsKey("polynomial order k") ) THEN
                polynomialOrder(1) = controlVariables % integerValueForKey("polynomial order i")
                polynomialOrder(2) = controlVariables % integerValueForKey("polynomial order j")
                polynomialOrder(3) = controlVariables % integerValueForKey("polynomial order k")
             ELSE
-               ERROR STOP "You must specify the polynomial order"
+               ERROR STOP "The polynomial order(s) must be specified"
             END IF
          END IF
          CALL sem % construct (  meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &

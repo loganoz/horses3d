@@ -34,7 +34,7 @@
       
       TYPE Element
           INTEGER                                        :: nodeIDs(8)
-          INTEGER                                        :: Nx, Ny, Nz
+          INTEGER, DIMENSION(3)                          :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
           TYPE(MappedGeometry)                           :: geom
           REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Q, QDot, G
           REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: U_x, U_y, U_z
@@ -50,6 +50,22 @@
           INTEGER                                        :: NumberOfConnections(6)
           TYPE(Connectivity)                             :: Connection(6)
       END TYPE Element 
+      
+!
+!     -------------------------------------------------------------------------
+!!    axisMap gives the element local coordinate number for the two directions
+!!    on each face. The coordinate numbers are given by (xi,eta,zeta) = (1,2,3).
+!!    For instance, the two coordinate directions on Face 1 are (xi,zeta).
+!     -------------------------------------------------------------------------
+!
+      INTEGER, DIMENSION(2,6) :: axisMap =                        &
+                                 RESHAPE( (/1, 3,                 & ! Face 1 (x,z)
+                                            1, 3,                 & ! Face 2 (x,z)
+                                            1, 2,                 & ! Face 3 (x,y)
+                                            2, 3,                 & ! Face 4 (y,z)
+                                            1, 2,                 & ! Face 5 (x,y)
+                                            2, 3/)                & ! Face 6 (y,z)
+                                 ,(/2,6/))
             
       CONTAINS 
 !
@@ -65,9 +81,9 @@
          TYPE(TransfiniteHexMap) :: hexMap
          
          self % nodeIDs               = nodeIDs
-         self % Nx                    = ng % Nx
-         self % Ny                    = ng % Ny
-         self % Nz                    = ng % Nz
+         self % Nxyz(1)               = ng % Nx
+         self % Nxyz(2)               = ng % Ny
+         self % Nxyz(3)               = ng % Nz
          self % boundaryName          = emptyBCName
          self % boundaryType          = emptyBCName
 !
@@ -88,7 +104,7 @@
       SUBROUTINE allocateElementStorage(self, Nx, Ny, Nz, nEqn, nGradEqn, flowIsNavierStokes)  
          IMPLICIT NONE
          TYPE(Element) :: self
-         INTEGER       :: Nx, Ny, Nz, nEqn, nGradEqn
+         INTEGER       :: Nx, Ny, Nz, Nmax, nEqn, nGradEqn
          LOGICAL       :: flowIsNavierStokes
 !
 !        ----------------

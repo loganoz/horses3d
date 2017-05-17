@@ -25,7 +25,7 @@
       LOGICAL            :: success
       CHARACTER(LEN=132) :: msg
       CHARACTER(LEN=132), EXTERNAL :: lastPathComponent
-      INTEGER            :: N
+      INTEGER            :: N(3)
 !
 !     ------------------------------
 !     Read in the mesh for this test
@@ -43,15 +43,15 @@
 !
       nElement =  SIZE(sem % mesh % elements)
       DO eID = 1, nElement
-         N = sem % mesh % elements(eID) % N
-         CALL ProlongToFaces(sem % mesh % elements(eId), sem % spA(N))
+         N = sem % mesh % elements(eID) % Nxyz
+         CALL ProlongToFaces(sem % mesh % elements(eId), sem % spA(N(1),N(2),N(3)))
       END DO
       
       CALL computeRiemannFluxes(sem,0.0_RP)
       
       DO eID = 1, nElement
-         N = sem % mesh % elements(eID) % N
-         CALL LocalTimeDerivative(sem % mesh % elements(eId), sem % spA(N), 0.0_RP) ! computes -\nabla\cdot\tilde F
+         N = sem % mesh % elements(eID) % Nxyz
+         CALL LocalTimeDerivative(sem % mesh % elements(eId), sem % spA(N(1),N(2),N(3)), 0.0_RP) ! computes -\nabla\cdot\tilde F
       END DO
 !
 !     ------------------------------------------------
@@ -126,7 +126,7 @@
       LOGICAL            :: success
       CHARACTER(LEN=132) :: msg
       CHARACTER(LEN=132), EXTERNAL :: lastPathComponent
-      INTEGER            :: N
+      INTEGER            :: N(3)
 !
 !     ------------------------------
 !     Read in the mesh for this test
@@ -144,8 +144,8 @@
 !
       nElement =  SIZE(sem % mesh % elements)
       DO eID = 1, nElement
-         N = sem % mesh % elements(eID) % N
-         CALL ProlongToFaces(sem % mesh % elements(eId), sem % spA(N))
+         N = sem % mesh % elements(eID) % Nxyz
+         CALL ProlongToFaces(sem % mesh % elements(eId), sem % spA(N(1),N(2),N(3)))
       END DO
       
       CALL computeRiemannFluxes(sem,0.0_RP)
@@ -156,12 +156,12 @@
 
 
             DO eID = 1, SIZE(sem%mesh%elements) 
-               N = sem % mesh % elements(eID) % N
-               CALL ComputeDGGradient( sem % mesh % elements(eID), sem % spA(N), 0.0_RP )
+               N = sem % mesh % elements(eID) % Nxyz
+               CALL ComputeDGGradient( sem % mesh % elements(eID), sem % spA(N(1),N(2),N(3)), 0.0_RP )
             END DO
             DO eID = 1, SIZE(sem%mesh%elements) 
-               N = sem % mesh % elements(eID) % N
-               CALL ProlongGradientToFaces( sem % mesh % elements(eID), sem % spA(N) )
+               N = sem % mesh % elements(eID) % Nxyz
+               CALL ProlongGradientToFaces( sem % mesh % elements(eID), sem % spA(N(1),N(2),N(3)) )
             END DO
 
             CALL ComputeGradientAverages( sem, 0.0_RP, sem % externalGradients  )
@@ -170,8 +170,8 @@
 
       
       DO eID = 1, nElement
-         N = sem % mesh % elements(eID) % N
-         CALL LocalTimeDerivative(sem % mesh % elements(eId), sem % spA(N), 0.0_RP) ! computes -\nabla\cdot\tilde F
+         N = sem % mesh % elements(eID) % Nxyz
+         CALL LocalTimeDerivative(sem % mesh % elements(eId), sem % spA(N(1),N(2),N(3)), 0.0_RP) ! computes -\nabla\cdot\tilde F
       END DO
 !
 !     ------------------------------------------------
@@ -281,13 +281,13 @@
          EXTERNAL         :: initialStateSubroutine
                   
          INTEGER     :: i, j, k, eID
-         INTEGER     :: N
+         INTEGER     :: N(3)
          
          DO eID = 1, SIZE(sem % mesh % elements)
-            N = sem % mesh % elements(eID) % N
-            DO k = 0, N
-               DO j = 0, N
-                  DO i = 0, N 
+            N = sem % mesh % elements(eID) % Nxyz
+            DO k = 0, N(3)
+               DO j = 0, N(2)
+                  DO i = 0, N(1) 
                      CALL initialStateSubroutine( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
                                                   sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )
                   END DO
@@ -319,7 +319,7 @@
          INTEGER           :: eID
          INTEGER           :: i, j
          INTEGER           :: fce
-         INTEGER           :: N
+         INTEGER           :: N(3)
          REAL(KIND=RP)     :: x(3), Qexpected(N_EQN), Qactual(N_EQN), emax
          CHARACTER(LEN=72) :: msg
 !
@@ -330,12 +330,12 @@
 !
          
          DO eID = 1, SIZE(sem % mesh % elements)
-            N = sem % mesh % elements(eID) % N
-            CALL ProlongToFaces(sem % mesh % elements(eId), sem % spA(N))
+            N = sem % mesh % elements(eID) % Nxyz
+            CALL ProlongToFaces(sem % mesh % elements(eId), sem % spA(N(1),N(2),N(3)))
             DO fce = 1, 6
                emax = 0.0_RP
-               DO j = 0, N
-                  DO i = 0, N
+               DO j = 0, N(axisMap(2,fce))
+                  DO i = 0, N(axisMap(1,fce))
 !
 !                    --------------
 !                    Expected value

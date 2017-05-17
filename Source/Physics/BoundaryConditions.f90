@@ -233,9 +233,9 @@
 !        -----------------------------------------------
 !
          Q(1) =  Q(1)
-         Q(2) = 0._RP !-Q(2)   ! arueda: Temporarily changed because it causes trouble with mortars (dont know why)
-         Q(3) = 0._RP !-Q(3)
-         Q(4) = 0._RP !-Q(4)
+         Q(2) = -Q(2)
+         Q(3) = -Q(3)
+         Q(4) = -Q(4)
          Q(5) =  Q(5)
 
       END SUBROUTINE NoSlipAdiabaticWallState
@@ -358,6 +358,27 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+      SUBROUTINE ZeroFlowState( x, t, Q )
+      USE SMConstants
+      USE PhysicsStorage
+      IMPLICIT NONE
+      
+      REAL(KIND=RP) :: x(3), t
+      REAL(KIND=RP) :: Q(N_EQN)
+      
+      REAL(KIND=RP) :: p
+      
+      Q(1) = 1.0_RP
+      p    = 1.0_RP/(gammaM2)
+      Q(2) = 0._RP
+      Q(3) = 0._RP
+      Q(4) = 0._RP
+      Q(5) = p/(gamma - 1._RP)
+      
+      END SUBROUTINE ZeroFlowState
+!
+!////////////////////////////////////////////////////////////////////////
+!
       SUBROUTINE UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z  )
 !
 !     ----------------------------
@@ -474,15 +495,16 @@
 !     ---------------
 !
       INTEGER                         :: i, j
-      INTEGER                         :: N
+      INTEGER, DIMENSION(2)           :: N
       REAL(KIND=RP)                   :: bvExt(N_EQN), flux(N_EQN)
       CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
             
-      N            = elementOnLeft % N
+      
+      N            = elementOnLeft % Nxyz (axisMap(:,faceID))
       boundaryType = elementOnLeft % boundaryType(faceID)
       
-      DO j = 0, N
-         DO i = 0, N
+      DO j = 0, N(2)
+         DO i = 0, N(1)
             bvExt = elementOnLeft % Qb(:,i,j,faceID)
             CALL externalStateProcedure( elementOnLeft % geom % xb(:,i,j,faceID), &
                                          time, &
