@@ -69,9 +69,12 @@ OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter
 		DGSEMClass DGSpaceAndTimeDerivativeMethods NodalStorageClass\
 		PlotterDataSource Headers\
 		ReadInputFile Setup TimeIntegrator ProblemFile\
-		NSLite3DMain Implicit_JF JFNKClass GMRESClass ConnectivityClass Implicit_NJ Jacobian\
-		ColorsClass PetscSolverClass CSR_Matrices GenericLinSolverClass MKLPardisoSolverClass\
-		LinearSolverClass IterativeSolverClass MultigridSolverClass pAdaptationClass
+		NSLite3DMain ConnectivityClass Jacobian\
+		CSR_Matrices pAdaptationClass
+		
+#		Implicit_JF JFNKClass GMRESClass Implicit_NJ ColorsClass \   # Implicit solvers:
+#		PetscSolverClass GenericLinSolverClass MKLPardisoSolverClass\
+#		LinearSolverClass IterativeSolverClass MultigridSolverClass
 
 # --------------- Dependencies 
 NSLite3DMain: TimeIntegrator \
@@ -107,26 +110,28 @@ NodeClass: SMConstants MeshTypes
 DGSEMClass: DGSpaceAndTimeDerivativeMethods Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants 
 DGSpaceAndTimeDerivativeMethods: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants 
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
-TimeIntegrator: Physics Plotter ProblemFile SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ
+TimeIntegrator: Physics Plotter ProblemFile SMConstants DGSEMClass InterpolationAndDerivatives
+		 #Implicit_JF Implicit_NJ
 PlotterDataSource: SMConstants 
 ReadInputFile: SMConstants FTValueDictionaryClass SharedBCModule Physics Setup
 ProblemFile: SMConstants Physics BoundaryConditions MeshTypes Assert DGSEMClass 
-Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
-JFNKClass: SMConstants GMRESClass
-GMRESClass: SMConstants
-Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices
 Jacobian: SMConstants DGSEMClass Physics
-ColorsClass: DGSEMClass
+#ColorsClass: DGSEMClass
 CSR_Matrices: SMConstants
+#Implicit solvers
+#Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
+#JFNKClass: SMConstants GMRESClass
+#GMRESClass: SMConstants
+#Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices
 #Linear solvers
-LinearSolverClass: MKLPardisoSolverClass PetscSolverClass IterativeSolverClass MultigridSolverClass
+#LinearSolverClass: MKLPardisoSolverClass PetscSolverClass IterativeSolverClass MultigridSolverClass
 
-MKLPardisoSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass
-PetscSolverClass: CSR_Matrices GenericLinSolverClass SMConstants
-IterativeSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass
-MultigridSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass InterpolationAndDerivatives LegendreAlgorithms
+#MKLPardisoSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass
+#PetscSolverClass: CSR_Matrices GenericLinSolverClass SMConstants
+#IterativeSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass
+#MultigridSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass InterpolationAndDerivatives LegendreAlgorithms
 
-GenericLinSolverClass: SMConstants CSR_Matrices DGSEMClass FTValueDictionaryClass
+#GenericLinSolverClass: SMConstants CSR_Matrices DGSEMClass FTValueDictionaryClass
 
 # ######################################### #
 # --------- DO NOT EDIT ------------------- #

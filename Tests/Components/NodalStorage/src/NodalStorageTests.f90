@@ -22,7 +22,7 @@
 !        -----
 !
          N = 8
-         CALL spA % construct(N)
+         CALL spA % construct(N,N,N)
          ALLOCATE(f(0:N))
          ALLOCATE(d(0:N))
          ALLOCATE(dExact(0:N))
@@ -38,7 +38,7 @@
 !
          s = 0.0_RP
          DO j = 0, N
-            s = s + f(j)*spA % w(j) 
+            s = s + f(j)*spA % wx(j) 
          END DO
          
          CALL FTAssertEqual(expectedValue = 2.0_RP/3.0_RP,&

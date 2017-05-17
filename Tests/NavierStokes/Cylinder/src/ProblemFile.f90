@@ -83,9 +83,9 @@
             INTEGER     :: i, j, k, eID
             
             DO eID = 1, SIZE(sem % mesh % elements)
-               DO k = 0, sem % mesh % elements(eID) % N
-                  DO j = 0, sem % mesh % elements(eID) % N
-                     DO i = 0, sem % mesh % elements(eID) % N 
+               DO k = 0, sem % mesh % elements(eID) % Nxyz(3)
+                  DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
+                     DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
                         CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
                                                sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )
                                                      
@@ -171,11 +171,11 @@
 !           ------------------------------------------------
 !
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [279.22660120573744, 0E-011, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [240.37010000259491, 0E-011, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
                                                                0E-011, 0E-011, &
                                                                0E-011]
 !
-            N = sem % mesh % elements(1) % N ! This works here because all the elements have the same order
+            N = sem % mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
@@ -217,7 +217,7 @@
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
-               STOP 99
+!~                STOP 99
             END IF 
             WRITE(6,*)
             

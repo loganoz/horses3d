@@ -50,7 +50,7 @@
 !
 !!    Constructs mesh from mesh file
 !!    Only valid for conforming meshes
-      SUBROUTINE ConstructMesh_FromFile_( self, fileName, spA, Nx, success )
+      SUBROUTINE ConstructMesh_FromFile_( self, fileName, spA, Nx, Ny, Nz, success )
          USE Physics
          IMPLICIT NONE
 !
@@ -59,9 +59,9 @@
 !        ---------------
 !
          CLASS(HexMesh)     :: self
-         TYPE(NodalStorage) :: spA(0:)
+         TYPE(NodalStorage) :: spA(0:,0:,0:)
          CHARACTER(LEN=*)   :: fileName
-         INTEGER            :: Nx(:)     !<  Polynomial order for all the elements
+         INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
          LOGICAL            :: success
 !
 !        ---------------
@@ -245,7 +245,7 @@
 !           Now construct the element
 !           -------------------------
 !
-            CALL ConstructElementGeometry( self % elements(l), spA(Nx(l)), nodeIDs, hexMap )
+            CALL ConstructElementGeometry( self % elements(l), spA(Nx(l),Ny(l),Nz(l)), nodeIDs, hexMap )
             
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(l), names )
@@ -856,16 +856,27 @@
          !--------------------------------------------------------
           
          NumOfElem = SIZE(self % elements)
-         
-         ndof = N_EQN * (self % elements(1) % N+1)**3 *SIZE(self % elements)
+!
+!        ------------------------------------------------------------------------
+!        Determine the number of degrees of freedom
+!           TODO: Move this to another place if needed in other parts of the code
+!        ------------------------------------------------------------------------
+!
+         ndof = 0
+         DO el = 1, NumOfElem
+            Nx = self % elements(el) % Nxyz(1)
+            Ny = self % elements(el) % Nxyz(2)
+            Nz = self % elements(el) % Nxyz(3)
+            ndof = ndof + (Nx + 1)*(Ny + 1)*(Nz + 1)*N_EQN
+         END DO
          
          OPEN(newunit=cooh, file=FileName, action='WRITE')
          
          WRITE(cooh,*) ndof, ndim   ! defined in PhysicsStorage
          DO el = 1, NumOfElem
-            Nx = self % elements(el) % N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
-            Ny = self % elements(el) % N
-            Nz = self % elements(el) % N
+            Nx = self % elements(el) % Nxyz(1)
+            Ny = self % elements(el) % Nxyz(2)
+            Nz = self % elements(el) % Nxyz(3)
             DO k = 0, Nz
                DO j = 0, Ny
                   DO i = 0, Nx

@@ -46,10 +46,10 @@
       END INTERFACE
       
       TYPE DGSem
-         REAL(KIND=RP)                                         :: maxResidual
-         INTEGER                                               :: numberOfTimeSteps
-         TYPE(NodalStorage), ALLOCATABLE                       :: spA(:)
-         TYPE(HexMesh)                                         :: mesh
+         REAL(KIND=RP)                                           :: maxResidual
+         INTEGER                                                 :: numberOfTimeSteps
+         TYPE(NodalStorage), ALLOCATABLE                         :: spA(:,:,:)
+         TYPE(HexMesh)                                           :: mesh
          PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
          PROCEDURE(externalGradientsSubroutine), NOPASS, POINTER :: externalGradients => NULL()
 !
@@ -89,12 +89,12 @@
       CLASS(DGSem)                :: self                               !<> Class to be constructed
       CHARACTER(LEN=*)            :: meshFileName                       !<  Name of mesh file
       EXTERNAL                    :: externalState, externalGradients   !<  External procedures that define the BCs
-      INTEGER, OPTIONAL           :: polynomialOrder                    !<  Uniform polynomial order
-      INTEGER, OPTIONAL, TARGET   :: polynomialOrders(:)                !<  Non-uniform polynomial order
+      INTEGER, OPTIONAL           :: polynomialOrder(3)                 !<  Uniform polynomial order
+      INTEGER, OPTIONAL, TARGET   :: polynomialOrders(:,:)              !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL           :: success                            !>  Construction finalized correctly?
       !-----------------------------------------------------------------
       INTEGER                     :: k                                  ! Counter (also used as default reader)
-      INTEGER, POINTER            :: N(:)                               ! Order of every element in mesh (used as pointer to use less space)
+      INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
       INTEGER                     :: nelem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       !-----------------------------------------------------------------
@@ -121,15 +121,19 @@
 !     ---------------------------------------
 !
       IF (PRESENT(polynomialOrders)) THEN
-         N => polynomialOrders
-         nelem = SIZE(N)
+         Nx => polynomialOrders(:,1)
+         Ny => polynomialOrders(:,2)
+         Nz => polynomialOrders(:,3)
+         nelem = SIZE(Nx)
       ELSE
          OPEN(newunit = fUnit, FILE = meshFileName )  
             READ(fUnit,*) k, nelem, k                    ! Here k is used as default reader since this variables are not important now
          CLOSE(fUnit)
          
-         ALLOCATE (N(nelem))
-         N = polynomialOrder
+         ALLOCATE (Nx(nelem),Ny(nelem),Nz(nelem))
+         Nx = polynomialOrder(1)
+         Ny = polynomialOrder(2)
+         Nz = polynomialOrder(3)
       END IF
       
 !
@@ -138,18 +142,18 @@
 !     -------------------------------------------------------------
 !
       IF (ALLOCATED(self % spa)) DEALLOCATE(self % spa)
-      ALLOCATE(self % spa(0:MAXVAL(N)))
+      ALLOCATE(self % spa(0:MAXVAL(Nx),0:MAXVAL(Ny),0:MAXVAL(Nz)))
       
       DO k=1, nelem
-         IF (self % spA(N(k)) % Constructed) CYCLE
-         CALL self % spA(N(k)) % construct( N(k) )
+         IF (self % spA(Nx(k),Ny(k),Nz(k)) % Constructed) CYCLE
+         CALL self % spA(Nx(k),Ny(k),Nz(k)) % construct( Nx(k),Ny(k),Nz(k) )
       END DO
 !
 !     ------------------
 !     Construct the mesh
 !     ------------------
 !
-      CALL self % mesh % constructFromFile( meshfileName, self % spA, N,  success )
+      CALL self % mesh % constructFromFile( meshfileName, self % spA, Nx, Ny, Nz,  success )
       IF(.NOT. success) RETURN 
 !
 !     ------------------------
@@ -157,7 +161,7 @@
 !     ------------------------
 !
       DO k = 1, SIZE(self % mesh % elements) 
-         CALL allocateElementStorage( self % mesh % elements(k), N(k), &
+         CALL allocateElementStorage( self % mesh % elements(k), Nx(k),Ny(k),Nz(k), &
                                       N_EQN, N_GRAD_EQN, flowIsNavierStokes )
       END DO
 !
@@ -187,11 +191,15 @@
       SUBROUTINE DestructDGSem( self )
       IMPLICIT NONE 
       CLASS(DGSem) :: self
-      INTEGER      :: k      !Counter
+      INTEGER      :: i,j,k      !Counter
       
-      DO k=0, UBOUND(self % spA,1)
-         IF (.NOT. self % spA(k) % Constructed) CYCLE
-         CALL self % spA(k) % destruct()
+      DO k=0, UBOUND(self % spA,3)
+         DO j=0, UBOUND(self % spA,2)
+            DO i=0, UBOUND(self % spA,1)
+               IF (.NOT. self % spA(i,j,k) % Constructed) CYCLE
+               CALL self % spA(i,j,k) % destruct()
+            END DO
+         END DO
       END DO
       
       CALL DestructMesh( self % mesh )
@@ -238,9 +246,9 @@
       
       counter = 1
       DO elm = 1, size(sem%mesh%elements)
-         Nx = sem%mesh%elements(elm)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
-         Ny = sem%mesh%elements(elm)%N
-         Nz = sem%mesh%elements(elm)%N
+         Nx = sem%mesh%elements(elm)%Nxyz(1)
+         Ny = sem%mesh%elements(elm)%Nxyz(2)
+         Nz = sem%mesh%elements(elm)%Nxyz(3)
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
@@ -265,9 +273,9 @@
       
       counter = 1
       DO elm = 1, size(sem%mesh%elements)
-         Nx = sem%mesh%elements(elm)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
-         Ny = sem%mesh%elements(elm)%N
-         Nz = sem%mesh%elements(elm)%N
+         Nx = sem%mesh%elements(elm)%Nxyz(1)
+         Ny = sem%mesh%elements(elm)%Nxyz(2)
+         Nz = sem%mesh%elements(elm)%Nxyz(3)
          DO k = 0, Nz
             DO j = 0, Ny
                 DO i = 0, Nx
@@ -292,9 +300,9 @@
       
       counter = 1
       DO elm = 1, size(sem%mesh%elements)
-         Nx = sem%mesh%elements(elm)%N ! arueda: the routines were originally developed for a code that allows different polynomial orders in different directions. Notation conserved just for the sake of generality (future improvement -?)
-         Ny = sem%mesh%elements(elm)%N
-         Nz = sem%mesh%elements(elm)%N
+         Nx = sem%mesh%elements(elm)%Nxyz(1)
+         Ny = sem%mesh%elements(elm)%Nxyz(2)
+         Nz = sem%mesh%elements(elm)%Nxyz(3)
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
@@ -365,7 +373,7 @@
 !        Local variables
 !        ---------------
 !
-         INTEGER :: k, N
+         INTEGER :: k, Nx, Ny, Nz
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -373,9 +381,11 @@
 !
 !$omp parallel
 !$omp do
-         DO k = 1, SIZE(self % mesh % elements) 
-            N = self % mesh % elements(k) % N
-            CALL ProlongToFaces( self % mesh % elements(k), self % spA(N) )
+         DO k = 1, SIZE(self % mesh % elements)
+            Nx = self%mesh%elements(k)%Nxyz(1)
+            Ny = self%mesh%elements(k)%Nxyz(2)
+            Nz = self%mesh%elements(k)%Nxyz(3)
+            CALL ProlongToFaces( self % mesh % elements(k), self % spA(Nx,Ny,Nz) )
          END DO
 !$omp end do
 !
@@ -402,8 +412,10 @@
 !
 !$omp do
             DO k = 1, SIZE(self%mesh%elements)
-               N = self % mesh % elements(k) % N
-               CALL ComputeDGGradient( self % mesh % elements(k), self % spA(N), time )
+               Nx = self%mesh%elements(k)%Nxyz(1)
+               Ny = self%mesh%elements(k)%Nxyz(2)
+               Nz = self%mesh%elements(k)%Nxyz(3)
+               CALL ComputeDGGradient( self % mesh % elements(k), self % spA(Nx,Ny,Nz), time )
             END DO
 !$omp end do 
 !
@@ -413,8 +425,10 @@
 !
 !$omp do
             DO k = 1, SIZE(self%mesh%elements) 
-               N = self % mesh % elements(k) % N
-               CALL ProlongGradientToFaces( self % mesh % elements(k), self % spA(N) )
+               Nx = self%mesh%elements(k)%Nxyz(1)
+               Ny = self%mesh%elements(k)%Nxyz(2)
+               Nz = self%mesh%elements(k)%Nxyz(3)
+               CALL ProlongGradientToFaces( self % mesh % elements(k), self % spA(Nx,Ny,Nz) )
             END DO
 !$omp end do 
 !
@@ -434,8 +448,10 @@
 !
 !$omp do
          DO k = 1, SIZE(self % mesh % elements) 
-            N = self % mesh % elements(k) % N
-            CALL LocalTimeDerivative( self % mesh % elements(k), self % spA(N), time )
+            Nx = self%mesh%elements(k)%Nxyz(1)
+            Ny = self%mesh%elements(k)%Nxyz(2)
+            Nz = self%mesh%elements(k)%Nxyz(3)
+            CALL LocalTimeDerivative( self % mesh % elements(k), self % spA(Nx,Ny,Nz), time )
          END DO
 !$omp end do
 !$omp end parallel
@@ -474,6 +490,7 @@
 !              Boundary face
 !              -------------
 !
+!~                print*, 'BOUNDARY FACE'
                fIDLeft  = self % mesh % faces(faceID) % elementSide(1)
                
                CALL computeBoundaryFlux(self % mesh % elements(eIDLeft), fIDLeft, time, self % externalState)
@@ -484,6 +501,9 @@
 !              Interior face
 !              -------------
 !
+!~                print*, 'INTERIOR FACE'
+!~                print*, '----------'
+!~                print*, 'eL=', eIDLeft, 'eR', eIDRight
                CALL computeElementInterfaceFlux ( eL       = self % mesh % elements(eIDLeft)  , &
                                                   eR       = self % mesh % elements(eIDRight) , &
                                                   thisface = self % mesh % faces(faceID)      )
@@ -517,7 +537,7 @@
          INTEGER       :: faceID
          INTEGER       :: eIDLeft, eIDRight
          INTEGER       :: fIDLeft
-         INTEGER       :: N
+         INTEGER       :: N(2)
          
          REAL(KIND=RP) :: bvExt(N_EQN), UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)     
          
@@ -535,9 +555,9 @@
 !              Boundary face
 !              -------------
 !
-               N = self % mesh % elements(eIDLeft) % N
-               DO j = 0, N
-                  DO i = 0, N
+               N = self % mesh % elements(eIDLeft) % Nxyz (axisMap(:,fIDLeft))
+               DO j = 0, N(2)
+                  DO i = 0, N(1)
 
                      bvExt = self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft)
 
@@ -613,7 +633,7 @@
          INTEGER       :: faceID
          INTEGER       :: eIDLeft, eIDRight
          INTEGER       :: fIDLeft
-         INTEGER       :: N
+         INTEGER       :: N(2)
 
          REAL(KIND=RP) :: UGradExt(3,N_GRAD_EQN)
          REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)    
@@ -633,19 +653,19 @@
 !              Boundary face
 !              -------------
 !
-               N = self % mesh % elements(eIDLeft) % N
-               DO j = 0, N
-                  DO i = 0, N
+               N = self % mesh % elements(eIDLeft) % Nxyz (axisMap(:,fIDLeft))
+               DO j = 0, N(2)
+                  DO i = 0, N(1)
                   
                      UGradExt(1,:) = self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft)
                      UGradExt(2,:) = self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
                      UGradExt(3,:) = self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
                      
-                     CALL externalGradientsProcedure( self % mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
-                                                  time, &
-                                                  self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
-                                                  UGradExt,&
-                                                  self % mesh % elements(eIDLeft) % boundaryType(fIDLeft) )
+                     CALL externalGradientsProcedure  (self % mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
+                                                       time, &
+                                                       self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
+                                                       UGradExt,&
+                                                       self % mesh % elements(eIDLeft) % boundaryType(fIDLeft) )
 !
 !                 --------
 !                 x values
@@ -720,20 +740,32 @@
          INTEGER       :: fIDLeft, fIDRight
          REAL(KIND=RP) :: norm(3)
          INTEGER       :: i,j,ii,jj
-         INTEGER       :: Nx, Ny          ! Polynomial orders on the interface
+         INTEGER       :: Nxy(2)       ! Polynomial orders on the interface
+         INTEGER       :: NL(2), NR(2)
          INTEGER       :: rotation
          
          fIDLeft  = thisface % elementSide(1)
          fIDRight = thisface % elementSide(2)
-         Nx       = thisface % N                ! TODO: Change when anisotropic polynomials are implemented
-         Ny       = thisface % N                ! TODO: Change when anisotropic polynomials are implemented
+         Nxy      = thisface % NPhi
+         NL       = thisface % NL
+         NR       = thisface % NR
          rotation = thisface % rotation
+!~          print*, 'rot', rotation
+!~          print*, thisface % NPhi
+!~          print*, thisface % NL
+!~          print*, thisface % NR
+!~          print*, 'size eL%Qb', SIZE(eL % QB,1), SIZE(eL % QB,2), SIZE(eL % QB,3)
+!~          print*, 'size eR%Qb', SIZE(eR % QB,1), SIZE(eR % QB,2), SIZE(eR % QB,3)
+!~          print*, 'eL%Qb'
+!~          print*, eL % QB(:,:,:,fIDLeft)
+!~          print*, 'eR%Qb'
+!~          print*, eR % QB(:,:,:,fIDLeft)
 !
 !        -----------------
 !        Project to mortar
 !        -----------------
 !
-         CALL ProjectToMortar(thisface, eL % QB(:,:,:,fIDLeft), eR % QB(:,:,:,fIDright), N_EQN)
+         CALL ProjectToMortar(thisface, eL % QB(:,0:NL(1),0:NL(2),fIDLeft), eR % QB(:,0:NR(1),0:NR(2),fIDright), N_EQN)
 !
 !        ----------------------
 !        Compute interface flux
@@ -741,9 +773,9 @@
 !        ----------------------
 !
          norm = eL % geom % normal(:,1,1,fIDLeft)
-         DO j = 0, Ny
-            DO i = 0, Nx
-               CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                              ! This turns according to the rotation of the elements
+         DO j = 0, Nxy(2)
+            DO i = 0, Nxy(1)
+               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                      ! This turns according to the rotation of the elements
                CALL RiemannSolver(QLeft  = thisface % Phi % L(:,i,j)        , &
                                   QRight = thisface % Phi % R(:,ii,jj)      , &
                                   nHat   = norm                             , &        ! This works only for flat faces. TODO: Change nHat to be stored in face with the highest polynomial combination!!! 
@@ -755,9 +787,9 @@
 !        Project back to elements
 !        ------------------------
 !
-         CALL ProjectFluxToElement  ( thisface                   , &
-                                      eL % FStarb(:,:,:,fIDLeft) , &
-                                      eR % FStarb(:,:,:,fIdright), &
+         CALL ProjectFluxToElement  ( thisface                               , &
+                                      eL % FStarb(:,0:NL(1),0:NL(2),fIDLeft) , &
+                                      eR % FStarb(:,0:NR(1),0:NR(2),fIdright), &
                                       N_EQN )
 !
 !        ------------------------
@@ -765,19 +797,17 @@
 !        ------------------------
 !
          ! Left element
-         Nx = eL % N      ! TODO: Change when anisotropic polynomials are implemented
-         Ny = eL % N      ! TODO: Change when anisotropic polynomials are implemented
-         DO j = 0, Ny
-            DO i = 0, Nx
+         Nxy = thisface % NL
+         DO j = 0, Nxy(2)
+            DO i = 0, Nxy(1)
                eL % FStarb(:,i,j,fIDLeft)  = eL % FStarb(:,i,j,fIDLeft)  * eL % geom % scal(i,j,fIDLeft)
             END DO   
          END DO
          
          ! Right element
-         Nx = eR % N      ! TODO: Change when anisotropic polynomials are implemented
-         Ny = eR % N      ! TODO: Change when anisotropic polynomials are implemented
-         DO j = 0, Ny
-            DO i = 0, Nx
+         Nxy = thisface % NR
+         DO j = 0, Nxy(2)
+            DO i = 0, Nxy(1)
                eR % FStarb(:,i,j,fIdright) = eR % FStarb(:,i,j,fIdright) * eR % geom % scal(i,j,fIdright)
             END DO   
          END DO
@@ -806,28 +836,30 @@
          INTEGER       :: i,j,ii,jj
          INTEGER       :: fIDLeft, fIdright
          INTEGER       :: rotation
-         INTEGER       :: Nx, Ny
+         INTEGER       :: Nxy(2)
+         INTEGER       :: NL(2), NR(2)
          
          fIDLeft  = thisface % elementSide(1)
          fIDRight = thisface % elementSide(2)
-         Nx       = thisface % N                ! TODO: Change when anisotropic polynomials are implemented
-         Ny       = thisface % N                ! TODO: Change when anisotropic polynomials are implemented
+         Nxy      = thisface % NPhi
+         NL       = thisface % NL
+         NR       = thisface % NR
          rotation = thisface % rotation
 !
 !        -----------------
 !        Project to mortar
 !        -----------------
 !
-         CALL ProjectToMortar(thisface, eL % QB(:,:,:,fIDLeft), eR % QB(:,:,:,fIDright), N_EQN)
+         CALL ProjectToMortar(thisface, eL % QB(:,0:NL(1),0:NL(2),fIDLeft), eR % QB(:,0:NR(1),0:NR(2),fIDright), N_EQN)
 !
 !        ----------------------
 !        Compute interface flux
 !        Using BR1 (averages)
 !        ----------------------
 !
-         DO j = 0, Ny
-            DO i = 0, Nx
-               CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                              ! This turns according to the rotation of the elements
+         DO j = 0, Nxy(2)
+            DO i = 0, Nxy(1)
+               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                              ! This turns according to the rotation of the elements
 !
 !                 ----------------
 !                 u,v,w,T averages
@@ -850,8 +882,16 @@
 !        Project back to elements
 !        ------------------------
 !
-         CALL ProjectToElement(thisface,thisface % Phi % Caux, eL % Ub(:,:,:,fIDLeft), eR % Ub(:,:,:,fIDright), N_GRAD_EQN)
-         CALL ProjectToElement(thisface,thisface % Phi % C   , eL % QB(:,:,:,fIDLeft), eR % QB(:,:,:,fIDright), N_EQN)
+         CALL ProjectToElement(thisface                           , &
+                               thisface % Phi % Caux              , &
+                               eL % Ub(:,0:NL(1),0:NL(2),fIDLeft) , &
+                               eR % Ub(:,0:NR(1),0:NR(2),fIDright), &
+                               N_GRAD_EQN)
+         CALL ProjectToElement(thisface                           , &
+                               thisface % Phi % C                 , &
+                               eL % QB(:,0:NL(1),0:NL(2),fIDLeft) , &
+                               eR % QB(:,0:NR(1),0:NR(2),fIDright), &
+                               N_EQN)
       
       END SUBROUTINE computeElementInterfaceAverage   
 !
@@ -875,12 +915,14 @@
          INTEGER       :: i,j,ii,jj
          INTEGER       :: fIDLeft, fIdright
          INTEGER       :: rotation
-         INTEGER       :: Nx, Ny
+         INTEGER       :: Nxy(2)
+         INTEGER       :: NL(2), NR(2)
          
          fIDLeft  = thisface % elementSide(1)
          fIDRight = thisface % elementSide(2)
-         Nx       = thisface % N                ! TODO: Change when anisotropic polynomials are implemented
-         Ny       = thisface % N                ! TODO: Change when anisotropic polynomials are implemented
+         Nxy      = thisface % NPhi
+         NL       = thisface % NL
+         NR       = thisface % NR
          rotation = thisface % rotation
          
 !
@@ -894,11 +936,11 @@
 !              x values
 !              --------
 !
-         CALL ProjectToMortar(thisface, eL % U_xb(:,:,:,fIDLeft), eR % U_xb(:,:,:,fIDright), N_GRAD_EQN)
+         CALL ProjectToMortar(thisface, eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN)
          
-         DO j = 0, Ny
-            DO i = 0, Nx
-               CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                    ! This turns according to the rotation of the elements
+         DO j = 0, Nxy(2)
+            DO i = 0, Nxy(1)
+               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                    ! This turns according to the rotation of the elements
                
                thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(1:N_GRAD_EQN,i ,j ) + &
                                                        thisface % Phi % R(1:N_GRAD_EQN,ii,jj) )
@@ -906,17 +948,21 @@
             END DO   
          END DO 
          
-         CALL ProjectToElement(thisface,thisface % Phi % Caux, eL % U_xb(:,:,:,fIDLeft), eR % U_xb(:,:,:,fIDright), N_GRAD_EQN)
+         CALL ProjectToElement(thisface                             , &
+                               thisface % Phi % Caux                , &
+                               eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft) , &
+                               eR % U_xb(:,0:NR(1),0:NR(2),fIDright), &
+                               N_GRAD_EQN)
 !
 !              --------
 !              y values
 !              --------
 !        
-         CALL ProjectToMortar(thisface, eL % U_yb(:,:,:,fIDLeft), eR % U_yb(:,:,:,fIDright), N_GRAD_EQN) 
+         CALL ProjectToMortar(thisface, eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_yb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN) 
          
-         DO j = 0, Ny
-            DO i = 0, Nx
-               CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                    ! This turns according to the rotation of the elements
+         DO j = 0, Nxy(2)
+            DO i = 0, Nxy(1)
+               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                    ! This turns according to the rotation of the elements
 
                thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(1:N_GRAD_EQN,i , j) + &
                                                        thisface % Phi % R(1:N_GRAD_EQN,ii,jj) )
@@ -924,17 +970,21 @@
             END DO   
          END DO 
          
-         CALL ProjectToElement(thisface,thisface % Phi % Caux, eL % U_yb(:,:,:,fIDLeft), eR % U_yb(:,:,:,fIDright), N_GRAD_EQN)
+         CALL ProjectToElement(thisface                             , &
+                               thisface % Phi % Caux                , &
+                               eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft) , &
+                               eR % U_yb(:,0:NR(1),0:NR(2),fIDright), &
+                               N_GRAD_EQN)
 !
 !              --------
 !              z values
 !              --------
 !         
-         CALL ProjectToMortar(thisface, eL % U_zb(:,:,:,fIDLeft), eR % U_zb(:,:,:,fIDright), N_GRAD_EQN) 
+         CALL ProjectToMortar(thisface, eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_zb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN) 
          
-         DO j = 0, Ny
-            DO i = 0, Nx
-               CALL iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)                    ! This turns according to the rotation of the elements
+         DO j = 0, Nxy(2)
+            DO i = 0, Nxy(1)
+               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                    ! This turns according to the rotation of the elements
                
                thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(1:N_GRAD_EQN, i, j) + &
                                                        thisface % Phi % R(1:N_GRAD_EQN,ii,jj) )
@@ -942,7 +992,11 @@
             END DO   
          END DO   
          
-         CALL ProjectToElement(thisface,thisface % Phi % Caux, eL % U_zb(:,:,:,fIDLeft), eR % U_zb(:,:,:,fIDright), N_GRAD_EQN)
+         CALL ProjectToElement(thisface                             , &
+                               thisface % Phi % Caux                , &
+                               eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft) , &
+                               eR % U_zb(:,0:NR(1),0:NR(2),fIDright), &
+                               N_GRAD_EQN)
          
       END SUBROUTINE computeElementInterfaceGradientAverage            
 !
@@ -987,13 +1041,14 @@
 !     Local variables
 !     ---------------
 !
-      REAL(KIND=RP)         :: eValues(3)
-      REAL(KIND=RP)         :: dcsi, deta, dzet, jac, lamcsi, lamzet, lameta
-      INTEGER               :: i, j, k, id
-      INTEGER               :: N
-      REAL(KIND=RP)         :: MaximumEigenvalue
-      EXTERNAL              :: ComputeEigenvaluesForState
-      REAL(KIND=RP)         :: Q(N_EQN)
+      REAL(KIND=RP)               :: eValues(3)
+      REAL(KIND=RP)               :: dcsi, deta, dzet, jac, lamcsi, lamzet, lameta
+      INTEGER                     :: i, j, k, id
+      INTEGER                     :: N(3)
+      REAL(KIND=RP)               :: MaximumEigenvalue
+      EXTERNAL                    :: ComputeEigenvaluesForState
+      REAL(KIND=RP)               :: Q(N_EQN)
+      TYPE(NodalStorage), POINTER :: spA_p
 !            
       MaximumEigenvalue = 0.0_RP
       
@@ -1006,17 +1061,18 @@
 !     -----------------------------------------------------------
 !
       DO id = 1, SIZE(self % mesh % elements) 
-         N = self % mesh % elements(id) % N
-         IF ( N<1 ) THEN 
+         N = self % mesh % elements(id) % Nxyz
+         spA_p => self % spA(N(1),N(2),N(3))
+         IF ( ANY(N<1) ) THEN 
             PRINT*, "Error in MaximumEigenvalue function (N<1)"    
          ENDIF         
          
-         dcsi = 1.0_RP / abs( self % spA(N) % xi(1) - self % spA(N) % xi(0) )   
-         deta = 1.0_RP / abs( self % spA(N) % eta(1) - self % spA(N) % eta(0) )
-         dzet = 1.0_RP / abs( self % spA(N) % zeta(1) - self % spA(N) % zeta(0) )
-         DO k = 0, N
-            DO j = 0, N
-               DO i = 0, N
+         dcsi = 1.0_RP / abs( spA_p % xi(1)   - spA_p % xi  (0) )   
+         deta = 1.0_RP / abs( spA_p % eta(1)  - spA_p % eta (0) )
+         dzet = 1.0_RP / abs( spA_p % zeta(1) - spA_p % zeta(0) )
+         DO k = 0, N(3)
+            DO j = 0, N(2)
+               DO i = 0, N(1)
 !
 !                 ------------------------------------------------------------
 !                 The maximum eigenvalues for a particular state is determined

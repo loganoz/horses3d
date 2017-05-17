@@ -25,7 +25,7 @@
          INTEGER                 :: i,j,k, N
          
          N = 5
-         CALL spA % construct(N)
+         CALL spA % construct(N,N,N)
 !
 !        --------------------------------------------
 !        Set up a cube with edges with length [1,2,3]
@@ -332,7 +332,7 @@
          EXTERNAL                :: cylindricalGeometry
          
          N = 10
-         CALL spA % construct(N)
+         CALL spA % construct(N,N,N)
 !
 !        --------------------
 !        Construct the mapper
@@ -938,9 +938,9 @@
 !        Set up header
 !        -------------
 !
-         iMax = geom % N
-         jMax = geom % N
-         kMax = geom % N
+         iMax = geom % Nx
+         jMax = geom % Ny
+         kMax = geom % Nz
          
          WRITE(iUnit,*) 'VARIABLES = "X", "Y", "Z"'
          WRITE(iUnit,*) 'ZONE F=POINT, I=',iMax+1,', J=',jMax+1,', k=',kMax+1

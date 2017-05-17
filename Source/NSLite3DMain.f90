@@ -46,7 +46,8 @@
       EXTERNAL                            :: ExternalGradientForBoundaryName
       
       ! For pAdaptation
-      INTEGER, ALLOCATABLE                :: polynomialOrders(:)
+      INTEGER, ALLOCATABLE                :: polynomialOrders(:,:)
+      INTEGER                             :: polynomialOrder(3)
 !
 !     ---------------
 !     Initializations
@@ -84,15 +85,24 @@
                                  success           = success)
       ELSE
          IF (controlVariables % containsKey("polynomial order")) THEN
-            CALL sem % construct (  meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
+            polynomialOrder = controlVariables % integerValueForKey("polynomial order")
+         ELSE
+            IF (controlVariables % containsKey("polynomial order i") .AND. &
+                controlVariables % containsKey("polynomial order j") .AND. &
+                controlVariables % containsKey("polynomial order k") ) THEN
+               polynomialOrder(1) = controlVariables % integerValueForKey("polynomial order i")
+               polynomialOrder(2) = controlVariables % integerValueForKey("polynomial order j")
+               polynomialOrder(3) = controlVariables % integerValueForKey("polynomial order k")
+            ELSE
+               ERROR STOP "The polynomial order(s) must be specified"
+            END IF
+         END IF
+         CALL sem % construct (  meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
                                                                                  requestedLength = LINE_LENGTH),  &
                                     externalState     = externalStateForBoundaryName,                             &
                                     externalGradients = ExternalGradientForBoundaryName,                          &
-                                    polynomialOrder   = controlVariables % integerValueForKey("polynomial order"),&
+                                    polynomialOrder   = polynomialOrder                                          ,&
                                     success           = success)
-         ELSE
-            ERROR STOP "You must specify the polynomial order"
-         END IF
       END IF
       
       

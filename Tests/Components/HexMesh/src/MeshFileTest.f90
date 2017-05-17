@@ -23,11 +23,11 @@
          USE NodalStorageClass
          IMPLICIT NONE  
          
-         TYPE(NodalStorage), ALLOCATABLE    :: spA(:)
+         TYPE(NodalStorage), ALLOCATABLE    :: spA(:,:,:)
          TYPE(HexMesh)                      :: mesh
-         TYPE(DGSEMPlotter)                      :: meshPlotter
+         TYPE(DGSEMPlotter)                 :: meshPlotter
          CLASS(PlotterDataSource), POINTER  :: dataSource
-         INTEGER                            :: N = 6
+         INTEGER                            :: N(3)
          INTEGER, ALLOCATABLE               :: Nvector(:)
          INTEGER                            :: nelem
          INTEGER                            :: fUnit
@@ -36,22 +36,24 @@
          CHARACTER(LEN=128)                 :: plotFileName
          LOGICAL                            :: success
          
-         ALLOCATE(spA(0:N))
+         N = 6
+         
+         ALLOCATE(spA(0:N(1),0:N(2),0:N(3)))
          OPEN(newunit = fUnit, FILE = meshFileName )  
             READ(fUnit,*) l, nelem, l                    ! Here l is used as default reader since this variables are not important now
          CLOSE(fUnit)
          
          ALLOCATE (Nvector(nelem))
-         Nvector = N
+         Nvector = N(1)             ! No anisotropy
          
-         CALL ConstructNodalStorage(spA(N), N)
-         CALL mesh % constructFromFile(meshfileName,spA, Nvector, success)
+         CALL ConstructNodalStorage(spA(N(1),N(2),N(3)), N(1),N(2),N(3))
+         CALL mesh % constructFromFile(meshfileName,spA, Nvector,Nvector,Nvector, success)
          CALL FTAssert(test = success,msg = "Mesh file read properly")
          IF(.NOT. success) RETURN 
          
          DO id = 1, SIZE(mesh % elements)
             CALL allocateElementStorage(self = mesh % elements(id),&
-                                        N = N, nEqn = 3,nGradEqn = 0,flowIsNavierStokes = .FALSE.) 
+                                        Nx = N(1), Ny = N(2), Nz = N(3), nEqn = 3,nGradEqn = 0,flowIsNavierStokes = .FALSE.) 
          END DO
          
 !
@@ -65,7 +67,7 @@
          OPEN(UNIT = 11, FILE = plotFileName)
          CALL meshPlotter % Construct  (fUnit      = 11,          &
                                         dataSource = dataSource,      &
-                                        newN       = N, &
+                                        newN       = N(1), &
                                         spA        = spA)
          
          

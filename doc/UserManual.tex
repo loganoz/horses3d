@@ -71,6 +71,8 @@ job name   & \textit{CHARACTER}: Name of the job/case to be run. This name will 
 
 polynomial order   & \textit{INTEGER}: Polynomial order to be assigned uniformly to all the elements of the mesh. If the keyword \textit{polynomial order file} is specified, the value of this keyword is overridden. & --* \\ \hline
 
+polynomial order \textit{i/j/k}  & \textit{INTEGER}: Polynomial order in the i, j, or k component for all the elements in the domain. If used, the three directions must be declared explicitly, unless you are using a polynomial order file. If the keyword \textit{polynomial order file} is specified, the value of this keyword is overridden. & --** \\ \hline
+
 polynomial order file  & \textit{CHARACTER}: Path to a file containing the polynomial order of each element in the domain. & --* \\ \hline
 
 restart 			& \textit{LOGICAL}: If .TRUE., initial conditions of simulation will be read from restart file specified using the keyword \textit{restart file name}. \textbf{THIS SHOULD NOT BE MANDATORY... DEFAULT FALSE WOULD BE EASIER}. & \textbf{Mandatory keyword} \\ \hline
