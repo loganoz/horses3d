@@ -26,6 +26,7 @@
       USE HexMeshClass
       USE PhysicsStorage
       USE DGTimeDerivativeMethods
+      USE ManufacturedSolutions
       
       IMPLICIT NONE
       
@@ -53,6 +54,7 @@
          TYPE(HexMesh)                                           :: mesh
          PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
          PROCEDURE(externalGradientsSubroutine), NOPASS, POINTER :: externalGradients => NULL()
+         LOGICAL                                                 :: ManufacturedSol              ! Use manifactured solutions? 
 !
 !        ========         
          CONTAINS
@@ -94,7 +96,7 @@
       INTEGER, OPTIONAL, TARGET   :: polynomialOrders(:,:)              !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL           :: success                            !>  Construction finalized correctly?
       !-----------------------------------------------------------------
-      INTEGER                     :: k                                  ! Counter (also used as default reader)
+      INTEGER                     :: i,j,k,el                           ! Counters
       INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
       INTEGER                     :: nelem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
@@ -167,6 +169,30 @@
          CALL allocateElementStorage( self % mesh % elements(k), Nx(k),Ny(k),Nz(k), &
                                       N_EQN, N_GRAD_EQN, flowIsNavierStokes )
       END DO
+!
+!     ----------------------------------------------------
+!     Get manufactured solution source term (if requested)
+!     ----------------------------------------------------
+!
+      IF (self % ManufacturedSol) THEN
+         DO el = 1, SIZE(self % mesh % elements) 
+            DO k=0, Nz(el)
+               DO j=0, Ny(el)
+                  DO i=0, Nx(el)
+                     IF (flowIsNavierStokes) THEN
+                        CALL ManufacturedSolutionSourceNS(self % mesh % elements(el) % geom % x(:,i,j,k), &
+                                                          0._RP, &
+                                                          self % mesh % elements(el) % S (i,j,k,:)  )
+                     ELSE
+                        CALL ManufacturedSolutionSourceEuler(self % mesh % elements(el) % geom % x(:,i,j,k), &
+                                                             0._RP, &
+                                                             self % mesh % elements(el) % S (i,j,k,:)  )
+                     END IF
+                  END DO
+               END DO
+            END DO
+         END DO
+      END IF
 !
 !     ------------------------
 !     Construct the mortar

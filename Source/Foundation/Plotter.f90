@@ -56,7 +56,6 @@
       REAL(KIND=RP), ALLOCATABLE, PRIVATE   :: newXYZ(:,:,:,:)         ! Coordinates to plot
       REAL(KIND=RP), ALLOCATABLE, PRIVATE   :: new3DState(:,:,:,:)     ! Value to ploit
       REAL(KIND=RP), ALLOCATABLE, PRIVATE   :: x(:)                    ! Points in local element of plotted mesh
-      REAL(KIND=RP), ALLOCATABLE, PRIVATE   :: array3DOld(:,:,:)       ! Temporary variable for storing the solution inside an element
 !
 !     ========   
       CONTAINS
@@ -196,7 +195,8 @@
             DO k = 0, Nxyz(3)
                DO j = 0, Nxyz(2)
                   DO i = 0, Nxyz(1)
-                     CALL self % dataSource % OutputVectorFromStateVector( outputVector, elements(id) % Q(i,j,k,:) )
+                     CALL self % dataSource % OutputVectorFromStateVector( outputVector, elements(id) % Q(i,j,k,:), &
+                                                                                         elements(id) % geom % x(:,i,j,k))
                      
                      WRITE(self % fUnit,fmtString) elements(id) % geom % x(1,i,j,k), &
                                                    elements(id) % geom % x(2,i,j,k), &
@@ -230,6 +230,7 @@
          INTEGER                                  :: i, j, k, id, nPltVars, l, m
          CHARACTER(LEN=32)                        :: fmtString
          REAL(KIND=RP), POINTER                   :: Interp(:,:)
+         REAL(KIND=RP), ALLOCATABLE               :: array3DOld(:,:,:,:)       ! Temporary variable for storing the solution inside an element
 !
          N = self % newN
          nPltVars  = self % dataSource % NumberOfOutputVariables()
@@ -269,16 +270,18 @@
                                   Nx, Ny, Nz, N, N, N)
             END DO
             ! State:
-            ALLOCATE(array3dOld(0:Nx,0:Ny,0:Nz))
+            ALLOCATE(array3dOld(numberOfOutputVariables(),0:Nx,0:Ny,0:Nz))
+            DO k = 0, Nz
+               DO j = 0, Ny
+                  DO i = 0, Nx
+                     CALL self % dataSource % outputVectorFromStateVector(array3DOld(:,i,j,k), elements(id) % Q(i,j,k,:), &
+                                                                                               elements(id) % geom % x(:,i,j,k)) 
+                  END DO  
+               END DO   
+            END DO
+            
             DO m = 1, numberOfOutputVariables()
-               DO k = 0, Nz
-                  DO j = 0, Ny
-                     DO i = 0, Nx
-                        array3DOld(i,j,k) = outputStateFromStateVector(indx = m,stateVector = elements(id) % Q(i,j,k,:)) 
-                     END DO  
-                  END DO   
-               END DO
-               CALL Interpolate3D(array3DOld(:,:,:),new3DState(m,:,:,:), Interp, &
+               CALL Interpolate3D(array3DOld(m,:,:,:),new3DState(m,:,:,:), Interp, &
                                   Nx, Ny, Nz, N, N, N)
             END DO
             DEALLOCATE(array3dOld)

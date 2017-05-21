@@ -72,6 +72,12 @@
       CALL ConstructPhysicsStorage( controlVariables, success )
       IF(.NOT. success)   ERROR STOP "Physics parameters input error"
       
+      ! Initialize manufactured solutions if necessary
+      sem % ManufacturedSol = controlVariables % containsKey("manufactured solution")
+      IF (sem % ManufacturedSol) THEN
+         CALL InitializeManufacturedSol(controlVariables % StringValueForKey("manufactured solution",LINE_LENGTH))
+      END IF
+      
       ! Check if there's an input file with the polynomial orders
       IF (controlVariables % containsKey("polynomial order file")) THEN
          !Read file and construct DGSEM with it

@@ -36,7 +36,7 @@
           INTEGER                                        :: nodeIDs(8)
           INTEGER, DIMENSION(3)                          :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
           TYPE(MappedGeometry)                           :: geom
-          REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Q, QDot, G
+          REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Q, QDot, G, S     ! Nodal storage: Conservative variables, their time derivatives, auxiliar variables and source term, respectively.
           REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: U_x, U_y, U_z
 !
 !         -------------------------------------------------------------
@@ -114,6 +114,7 @@
          ALLOCATE( self % Q   (0:Nx,0:Ny,0:Nz,nEqn) )
          ALLOCATE( self % QDot(0:Nx,0:Ny,0:Nz,nEqn) )
          ALLOCATE( self % G   (0:Nx,0:Ny,0:Nz,nEqn) )
+         ALLOCATE( self % S   (0:Nx,0:Ny,0:Nz,nEqn) )
          
          IF ( flowIsNavierStokes )     THEN
             ALLOCATE( self % U_x(0:Nx,0:Ny,0:Nz,nGradEqn) )
@@ -142,6 +143,7 @@
 !        -----------------
 !
          self % G           = 0.0_RP
+         self % S           = 0.0_RP
          self % Q           = 0.0_RP
          self % QDot        = 0.0_RP
          self % Qb          = 0.0_RP

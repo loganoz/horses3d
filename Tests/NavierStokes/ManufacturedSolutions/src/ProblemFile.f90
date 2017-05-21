@@ -31,8 +31,11 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      MODULE UserDefinedFunctions
-
+MODULE UserDefinedFunctions
+   USE SMConstants
+   IMPLICIT NONE
+   
+   CHARACTER(LEN=LINE_LENGTH) :: ManSolType
 !
 !     ========      
       CONTAINS
@@ -76,19 +79,41 @@
             USE BoundaryConditionFunctions
             IMPLICIT NONE
             
-            TYPE(DGSem)              :: sem
-            class(FTValueDictionary) :: controlVariables
-            EXTERNAL                 :: initialStateSubroutine
-                     
-            INTEGER     :: i, j, k, eID
+            TYPE(DGSem)                :: sem
+            class(FTValueDictionary)   :: controlVariables
+            !----------------------------------------------
+            ABSTRACT INTERFACE
+               SUBROUTINE GaussianPerturbSub(x,Q)
+                  USE PhysicsStorage
+                  USE SMConstants
+                  REAL(KIND=RP) :: x(3)
+                  REAL(KIND=RP) :: Q(N_EQN)
+               END SUBROUTINE GaussianPerturbSub
+            END INTERFACE
+            PROCEDURE(GaussianPerturbSub), POINTER :: GaussianPerturb
+            INTEGER                    :: i, j, k, eID
+            
+            
+            ManSolType = controlVariables % StringValueForKey("manufactured solution",LINE_LENGTH)
+            SELECT CASE (ManSolType)
+               CASE('3D')
+                  GaussianPerturb => GaussianPerturbUnitCube
+               CASE('2D')
+                  GaussianPerturb => GaussianPerturbUnitSquare
+               CASE DEFAULT
+                  print*, 'ERROR: Not recognized manufactured solution type "', TRIM(ManSolType), '"'
+                  STOP
+            END SELECT
             
             DO eID = 1, SIZE(sem % mesh % elements)
                DO k = 0, sem % mesh % elements(eID) % Nxyz(3)
                   DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
                      DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
-                        CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
-                                               sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )
-                                                     
+                        CALL ManufacturedSolutionState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
+                                               sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )    !ZeroFlowState !ManufacturedSolutionState !UniformFlowState
+                        
+                        CALL GaussianPerturb (sem % mesh % elements(eID) % geom % x(:,i,j,k),  &
+                                              sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN)) 
                      END DO
                   END DO
                END DO 
@@ -98,7 +123,7 @@
 !              relax back to the mean flow
 !              -------------------------------------------------
 !
-!               sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)
+!~                sem % mesh % elements(eID) % Q(3,3,1,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,1,1)
                
             END DO 
             
@@ -123,6 +148,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
          SUBROUTINE UserDefinedFinalize(sem, time)
+            USE Physics
             USE FTAssertions
 !
 !           --------------------------------------------------------
@@ -148,42 +174,57 @@
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
-            INTEGER                            :: i, j, k, N
+            INTEGER                            :: i, j, k
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
 !
 !           -----------------------------------------------------------------------------------------
 !           Expected solutions. 
-!           InnerCylinder 0.0 NoSlipAdiabaticWall
-!           Front 0.0 Inflow
-!           bottom 0.0 FreeSlipWall
-!           top 0.0 FreeSlipWall
-!           Back 0.0 Inflow
-!           Left 0.0 Inflow
-!           Right 0.0 OutflowSpecifyP 
+!           front 0.0 manufacturedsol
+!           back 0.0 manufacturedsol
+!           bottom 0.0 manufacturedsol   / freeslipWall
+!           top 0.0 manufacturedsol      / freeslipWall
+!           left 0.0 manufacturedsol
+!           right 0.0 manufacturedsol
 !           -----------------------------------------------------------------------------------------
 !
 !
 !           ------------------------------------------------
-!           Expected Solutions: Wall conditions on the sides
-!           Number of iterations are for CFL of 0.3, for
-!           the roe solver and mach = 0.3
+!           Expected Solutions:
+!           Number of iterations are for CFL of 0.4 (0.3 for NS 3D), for
+!           the rusanov solver and mach = 1.5, N = 6 in the needed directions (3D/2D)
 !           ------------------------------------------------
 !
-            INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [240.37010000259491, 0E-011, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
-                                                               0E-011, 0E-011, &
-                                                               0E-011]
+            INTEGER        :: iterations
+            REAL(KIND=RP)  :: residuals
 !
-            N = sem % mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
+            IF (flowIsNavierStokes) THEN
+               SELECT CASE (ManSolType)
+                  CASE('3D')
+                     iterations = 5387
+                     residuals  = 9.9708685752375459E-011
+                  CASE('2D')
+                     iterations = 7328
+                     residuals  = 9.9887209614735184E-011
+               END SELECT
+            ELSE
+               SELECT CASE (ManSolType)
+                  CASE('3D')
+                     iterations = 3660
+                     residuals  = 9.9688257648722356E-011
+                  CASE('2D')
+                     iterations = 12824
+                     residuals  = 9.9886321436315484E-011
+               END SELECT
+            END IF
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            CALL FTAssertEqual(expectedValue = iterations(N), &
+            CALL FTAssertEqual(expectedValue = iterations, &
                                actualValue   =  sem % numberOfTimeSteps, &
                                msg           = "Number of time steps to tolerance")
-            CALL FTAssertEqual(expectedValue = residuals(N), &
+            CALL FTAssertEqual(expectedValue = residuals, &
                                actualValue   = sem % maxResidual, &
                                tol           = 1.d-3, &
                                msg           = "Final maximum residual")
@@ -217,7 +258,7 @@
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
-                STOP 99
+!~                 STOP 99
             END IF 
             WRITE(6,*)
             
@@ -238,9 +279,5 @@
          IMPLICIT NONE  
       END SUBROUTINE UserDefinedTermination
       
-      END MODULE UserDefinedFunctions
-!
-!=====================================================================================================
-!=====================================================================================================
-!
-!
+END MODULE UserDefinedFunctions
+
