@@ -424,7 +424,7 @@
       REAL(KIND=RP) :: x(3)
       REAL(KIND=RP) :: Q(N_EQN)
       
-      REAL(KIND=RP) :: GaussFac
+      REAL(KIND=RP) :: GaussFac, RandNum
       INTEGER       :: i
       
       IF(ANY(x>1._RP) .OR. ANY(x<0._RP)) THEN
@@ -434,7 +434,8 @@
       GaussFac = exp((-(x(1)-0.5_RP)**2-(x(2)-0.5_RP)**2-(x(3)-0.5_RP)**2)*20)
       
       DO i=1, N_EQN
-         Q(i) = Q(i) + Q(i) * GaussFac * (RAND()-0.5_RP) * 0.5_RP
+         CALL RANDOM_NUMBER(RandNum)
+         Q(i) = Q(i) + Q(i) * GaussFac * (RandNum-0.5_RP) * 0.5_RP
       END DO
       
    END SUBROUTINE GaussianPerturbUnitCube
@@ -450,7 +451,7 @@
       REAL(KIND=RP) :: x(3)
       REAL(KIND=RP) :: Q(N_EQN)
       
-      REAL(KIND=RP) :: GaussFac
+      REAL(KIND=RP) :: GaussFac, RandNum
       INTEGER       :: i
       
       IF(ANY(x(1:2)>1._RP) .OR. ANY(x(1:2)<0._RP)) THEN
@@ -460,7 +461,8 @@
       GaussFac = exp((-(x(1)-0.5_RP)**2-(x(2)-0.5_RP)**2)*20)
       
       DO i=1, N_EQN
-         Q(i) = Q(i) + Q(i) * GaussFac * (RAND()-0.5_RP) * 0.5_RP
+         CALL RANDOM_NUMBER(RandNum)
+         Q(i) = Q(i) + Q(i) * GaussFac * (RandNum-0.5_RP) * 0.5_RP
       END DO
       
    END SUBROUTINE GaussianPerturbUnitSquare
@@ -592,8 +594,6 @@
 !     ----------------------------------------------
 !
       USE BoundaryConditionFunctions
-      USE UserDefinedDataStorage
-      USE MeshTypes
       
       IMPLICIT NONE
 !
@@ -642,7 +642,6 @@
 !     ------------------------------------------------
 !
       USE BoundaryConditionFunctions
-      USE MeshTypes
       IMPLICIT NONE
 !
 !     ---------

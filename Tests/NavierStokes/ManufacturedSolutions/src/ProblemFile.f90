@@ -170,7 +170,7 @@ MODULE UserDefinedFunctions
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Box Around Cyrcle test"
+            CHARACTER(LEN=29)                  :: testName           = "Manufactured Solutions"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
@@ -198,62 +198,10 @@ MODULE UserDefinedFunctions
             INTEGER        :: iterations
             REAL(KIND=RP)  :: residuals
 !
-            IF (flowIsNavierStokes) THEN
-               SELECT CASE (ManSolType)
-                  CASE('3D')
-                     iterations = 5387
-                     residuals  = 9.9708685752375459E-011
-                  CASE('2D')
-                     iterations = 7328
-                     residuals  = 9.9887209614735184E-011
-               END SELECT
-            ELSE
-               SELECT CASE (ManSolType)
-                  CASE('3D')
-                     iterations = 3660
-                     residuals  = 9.9688257648722356E-011
-                  CASE('2D')
-                     iterations = 12824
-                     residuals  = 9.9886321436315484E-011
-               END SELECT
-            END IF
             
-            CALL initializeSharedAssertionsManager
-            sharedManager => sharedAssertionsManager()
-            
-            CALL FTAssertEqual(expectedValue = iterations, &
-                               actualValue   =  sem % numberOfTimeSteps, &
-                               msg           = "Number of time steps to tolerance")
-            CALL FTAssertEqual(expectedValue = residuals, &
-                               actualValue   = sem % maxResidual, &
-                               tol           = 1.d-3, &
-                               msg           = "Final maximum residual")
-            
-            !ALLOCATE(QExpected(0:sem % spA % N,0:sem % spA % N,0:sem % spA % N,N_EQN))
-            
-            ! maxError = 0.0_RP
-            ! DO eID = 1, SIZE(sem % mesh % elements)
-            !    DO k = 0, sem % spA % N
-            !       DO j = 0, sem % spA % N
-            !          DO i = 0, sem % spA % N 
-            !             CALL pointSourceFlowSolution( sem % mesh % elements(eID) % geom % x(:,i,j,k), &
-            !                                           QExpected(i,j,k,1:N_EQN), success )
-            !          END DO
-            !       END DO
-            !    END DO
-            !    maxError = MAXVAL(ABS(QExpected - sem % mesh % elements(eID) % Q))
-            ! END DO
-            ! CALL FTAssertEqual(expectedValue = ERRORs(N), &
-            !                    actualValue   = maxError, &
-            !                    tol           = 1.d-5, &
-            !                    msg           = "Maximum error")
-            
-            
-            CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
-   
-            IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
+            IF ( sem % maxResidual < 1.D-10 )     THEN
                WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
+               WRITE(6,*) "This test case has no expected solution, only checks that the residual converges to the expected value."
             ELSE
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."

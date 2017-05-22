@@ -95,9 +95,9 @@ number of plot points & \textit{INTEGER}: Number of equidistant plot points insi
 
 manufactured solution & \textit{CHARACTER}: Must have the value '2D' or '3D'. When this keyword is used, the program will add source terms for the conservative variables taken into account an exact analytic solution for each primitive variable j ($\rho$, $u$, $v$, $w$, $p$) of the form:\
  
-$j = jC(1) + jC(2) \sin(\pi jC(5) x) + jC(3) \sin(\pi jC(6) y) + jC(4) \sin(pi jC(7) z) $\
+$j = j_C(1) + j_C(2) \sin(\pi j_C(5) x) + j_C(3) \sin(\pi j_C(6) y) + j_C(4) \sin(\pi j_C(7) z) $\
 
-Where $jC(i)$ are constants defined in the file \textit{ManufacturedSolutions.f90}. Proper initial and boundary conditions must be imposed (see the test case). The mesh must be a unit cube.
+Where $j_C(i)$ are constants defined in the file \textit{ManufacturedSolutions.f90}. Proper initial and boundary conditions must be imposed (see the test case). The mesh must be a unit cube.
   & -- \\ \hline
 
 \multicolumn{3}{l}{*  At least one of these two keywords must be specified} \\
