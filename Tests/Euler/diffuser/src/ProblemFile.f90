@@ -353,3 +353,82 @@
 !=====================================================================================================
 !
 !
+   SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryType )
+!
+!     ----------------------------------------------
+!     Set the boundary conditions for the mesh by
+!     setting the external state for each boundary.
+!     ----------------------------------------------
+!
+      USE BoundaryConditionFunctions
+      USE UserDefinedDataStorage
+      USE MeshTypes
+      
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+      REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
+      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      REAL(KIND=RP)   :: pExt
+      LOGICAL         :: success
+      
+      IF ( boundarytype == implementedBCNames(FREE_SLIP_WALL_INDEX) )              THEN
+         CALL FreeSlipWallState( x, t, nHat, Q )
+      ELSE IF ( boundaryType == implementedBCNames(NO_SLIP_ADIABATIC_WALL_INDEX) ) THEN 
+         CALL  NoSlipAdiabaticWallState( x, t, Q)
+      ELSE IF ( boundarytype == implementedBCNames(NO_SLIP_ISOTHERMAL_WALL_INDEX)) THEN 
+         CALL NoSlipIsothermalWallState( x, t, Q )
+      ELSE IF ( boundaryType == implementedBCNames(OUTFLOW_SPECIFY_P_INDEX) )      THEN 
+         pExt =  ExternalPressure()
+         CALL ExternalPressureState ( x, t, nHat, Q, pExt )
+      ELSE
+         CALL pointSourceFlowSolution( x, Q, success)
+      END IF
+
+      END SUBROUTINE externalStateForBoundaryName
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, U_x, U_y, U_z, boundaryType )
+!
+!     ------------------------------------------------
+!     Set the boundary conditions for the mesh by
+!     setting the external gradients on each boundary.
+!     ------------------------------------------------
+!
+      USE BoundaryConditionFunctions
+      USE MeshTypes
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+      REAL(KIND=RP)   , INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
+      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      IF ( boundarytype == implementedBCNames(FREE_SLIP_WALL_INDEX) )                   THEN
+         CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
+      ELSE IF ( boundaryType == implementedBCNames(NO_SLIP_ADIABATIC_WALL_INDEX) )       THEN 
+         CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z)
+      ELSE IF ( boundarytype == implementedBCNames(NO_SLIP_ISOTHERMAL_WALL_INDEX))       THEN 
+         CALL NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z )
+      ELSE
+         CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
+      END IF
+
+      END SUBROUTINE ExternalGradientForBoundaryName

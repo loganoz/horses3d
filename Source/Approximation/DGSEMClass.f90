@@ -531,7 +531,6 @@
 !              Boundary face
 !              -------------
 !
-!~                print*, 'BOUNDARY FACE'
                fIDLeft  = self % mesh % faces(faceID) % elementSide(1)
                
                CALL computeBoundaryFlux(self % mesh % elements(eIDLeft), fIDLeft, time, self % externalState)
@@ -542,9 +541,6 @@
 !              Interior face
 !              -------------
 !
-!~                print*, 'INTERIOR FACE'
-!~                print*, '----------'
-!~                print*, 'eL=', eIDLeft, 'eR', eIDRight
                CALL computeElementInterfaceFlux ( eL       = self % mesh % elements(eIDLeft)  , &
                                                   eR       = self % mesh % elements(eIDRight) , &
                                                   thisface = self % mesh % faces(faceID)      )
