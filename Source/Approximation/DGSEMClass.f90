@@ -253,7 +253,7 @@
 !        -----------------
 !
          if ( flowIsNavierStokes ) then
-            CALL DGSpatial_ComputeGradient( self % mesh , self % spA , self % externalState )
+            CALL DGSpatial_ComputeGradient( self % mesh , self % spA , time , self % externalState )
          end if
 !
 !        -------------------------------------------------------

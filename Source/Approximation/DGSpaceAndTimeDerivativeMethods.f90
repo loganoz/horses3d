@@ -20,7 +20,6 @@
 
       class(InviscidMethod_t), allocatable         :: InviscidMethod
       class(ViscousMethod_t), allocatable          :: ViscousMethod
-      type(WeakIntegrals_t)                        :: WeakIntegrals
 !
 !     ========      
       CONTAINS 
@@ -119,7 +118,7 @@
 !
 !        Perform the Weak Volume Green integral
 !        --------------------------------------
-         e % QDot = WeakIntegrals % VolumeGreen ( e , spA , contravariantFlux ) 
+         e % QDot = ScalarWeakIntegrals % StdVolumeGreen ( N_EQN , e , spA , contravariantFlux ) 
 
       end subroutine TimeDerivative_VolumetricContribution
 
@@ -134,42 +133,48 @@
 !
 !        LEFT face
 !        ---------
-         e % QDot = e % QDot - WeakIntegrals % FaceIntegral( e , spA , ELEFT , e % Fstarb(:,:,:,ELEFT) ) 
+         e % QDot = e % QDot - ScalarWeakIntegrals % StdFace( e , spA , ELEFT , e % Fstarb(:,:,:,ELEFT) ) 
 !
 !        RIGHT face
 !        ---------
-         e % QDot = e % QDot - WeakIntegrals % FaceIntegral( e , spA , ERIGHT , e % Fstarb(:,:,:,ERIGHT) )
+         e % QDot = e % QDot - ScalarWeakIntegrals % StdFace( e , spA , ERIGHT , e % Fstarb(:,:,:,ERIGHT) )
 !
 !        BOTTOM face
 !        ---------
-         e % QDot = e % QDot - WeakIntegrals % FaceIntegral( e , spA , EBOTTOM , e % Fstarb(:,:,:,EBOTTOM) )
+         e % QDot = e % QDot - ScalarWeakIntegrals % StdFace( e , spA , EBOTTOM , e % Fstarb(:,:,:,EBOTTOM) )
 !
 !        TOP face
 !        ---------
-         e % QDot = e % QDot - WeakIntegrals % FaceIntegral( e , spA , ETOP , e % Fstarb(:,:,:,ETOP) )
+         e % QDot = e % QDot - ScalarWeakIntegrals % StdFace( e , spA , ETOP , e % Fstarb(:,:,:,ETOP) )
 !
 !        BACK face
 !        ---------
-         e % QDot = e % QDot - WeakIntegrals % FaceIntegral( e , spA , EBACK , e % Fstarb(:,:,:,EBACK) )
+         e % QDot = e % QDot - ScalarWeakIntegrals % StdFace( e , spA , EBACK , e % Fstarb(:,:,:,EBACK) )
 !
 !        FRONT face
 !        ---------
-         e % QDot = e % QDot - WeakIntegrals % FaceIntegral( e , spA , EFRONT , e % Fstarb(:,:,:,EFRONT) )
+         e % QDot = e % QDot - ScalarWeakIntegrals % StdFace( e , spA , EFRONT , e % Fstarb(:,:,:,EFRONT) )
 
       end subroutine TimeDerivative_FacesContribution
 !
-!////////////////////////////////////////////////////////////////////////
+!////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine DGSpatial_ComputeGradient( mesh , spA , externalStateProcedure )
+!              GRADIENT PROCEDURES
+!              -------------------
+!
+!////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine DGSpatial_ComputeGradient( mesh , spA , time , externalStateProcedure )
          use HexMeshClass
          use NodalStorageClass
          use PhysicsStorage
          implicit none
          type(HexMesh)                  :: mesh
          type(NodalStorage), intent(in) :: spA
+         real(kind=RP),      intent(in) :: time
          EXTERNAL                       :: externalStateProcedure
 
-         call ViscousMethod % ComputeGradient( mesh , spA , externalStateProcedure)
+         call ViscousMethod % ComputeGradient( mesh , spA , time , externalStateProcedure)
 
       end subroutine DGSpatial_ComputeGradient
 

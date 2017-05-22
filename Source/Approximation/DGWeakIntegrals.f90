@@ -10,13 +10,23 @@ module DGWeakIntegrals
    private
 
    
-   type  WeakIntegrals_t
+   type  ScalarWeakIntegrals_t
       contains
-         procedure, nopass    :: VolumeGreen  => DGWeakIntegrals_VolumeGreen
-         procedure, nopass    :: FaceIntegral => DGWeakIntegrals_FaceIntegral
-   end type WeakIntegrals_t
+         procedure, nopass    :: StdVolumeGreen  => ScalarWeakIntegrals_StdVolumeGreen
+         procedure, nopass    :: StdFace => ScalarWeakIntegrals_StdFace
+   end type ScalarWeakIntegrals_t
 
-   public WeakIntegrals_t
+   type  VectorWeakIntegrals_t
+      contains
+         procedure, nopass    :: StdVolumeGreen  => VectorWeakIntegrals_StdVolumeGreen
+!         procedure, nopass    :: StdFace => VectorWeakIntegrals_StdFace
+   end type VectorWeakIntegrals_t
+
+   public ScalarWeakIntegrals_t , VectorWeakIntegrals_t
+   public ScalarWeakIntegrals   , VectorWeakIntegrals
+   
+   type(ScalarWeakIntegrals_t)      :: ScalarWeakIntegrals
+   type(VectorWeakIntegrals_t)      :: VectorWeakIntegrals
 !
 !  ========
    contains
@@ -25,13 +35,18 @@ module DGWeakIntegrals
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !
-      function DGWeakIntegrals_VolumeGreen( e , spA , F ) result ( volInt )
+!>       Weak integrals with scalar test function
+!        ----------------------------------------
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!
+      function ScalarWeakIntegrals_StdVolumeGreen( NEQ , e , spA , F ) result ( volInt )
          use MatrixOperations
          implicit none
+         integer, intent(in)     :: NEQ
          class(Element)          :: e
          class(NodalStorage)     :: spA
-         real(kind=RP)           :: F      (0:spA % N , 0:spA % N , 0:spA % N , 1:N_EQN , 1:NDIM )
-         real(kind=RP)           :: volInt (0:spA % N , 0:spA % N , 0:spA % N , 1:N_EQN          )
+         real(kind=RP)           :: F      (0:spA % N , 0:spA % N , 0:spA % N , 1:NEQ , 1:NDIM )
+         real(kind=RP)           :: volInt (0:spA % N , 0:spA % N , 0:spA % N , 1:NEQ          )
 !
 !        ---------------
 !        Local variables
@@ -41,13 +56,13 @@ module DGWeakIntegrals
 
          N = spA % N
 
-         volInt =  MatrixMultiplyInIndex_F(F(:,:,:,:,IX) , spA % hatD , N+1 , N+1 , N+1 , N_EQN , IX) &
-                 + MatrixMultiplyInIndex_F(F(:,:,:,:,IY) , spA % hatD , N+1 , N+1 , N+1 , N_EQN , IY) &
-                 + MatrixMultiplyInIndex_F(F(:,:,:,:,IZ) , spA % hatD , N+1 , N+1 , N+1 , N_EQN , IZ)
+         volInt =  MatrixMultiplyInIndex_F(F(:,:,:,:,IX) , spA % hatD , N+1 , N+1 , N+1 , NEQ , IX) &
+                 + MatrixMultiplyInIndex_F(F(:,:,:,:,IY) , spA % hatD , N+1 , N+1 , N+1 , NEQ , IY) &
+                 + MatrixMultiplyInIndex_F(F(:,:,:,:,IZ) , spA % hatD , N+1 , N+1 , N+1 , NEQ , IZ)
 
-      end function DGWeakIntegrals_VolumeGreen
+      end function ScalarWeakIntegrals_StdVolumeGreen
 
-      function DGWeakIntegrals_FaceIntegral( e , spA , loc , F ) result ( faceInt )
+      function ScalarWeakIntegrals_StdFace( e , spA , loc , F ) result ( faceInt )
          use MatrixOperations
          implicit none
          class(Element)          :: e
@@ -115,6 +130,59 @@ module DGWeakIntegrals
 
          end select
 
-      end function DGWeakIntegrals_FaceIntegral
+      end function ScalarWeakIntegrals_StdFace
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!>       Weak integrals with vector test function
+!        ----------------------------------------
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine VectorWeakIntegrals_StdVolumeGreen( NEQ , e , spA , U , volInt_x , volInt_y , volInt_z )
+         use ElementClass
+         use NodalStorageClass
+         use Physics
+         use PhysicsStorage
+         implicit none
+         integer, intent(in)        :: NEQ
+         class(Element)             :: e
+         class(NodalStorage)        :: spA
+         real(kind=RP), intent(in)  :: U        ( 0 : spA % N , 0 : spA % N , 0 : spA % N , NEQ ) 
+         real(kind=RP), intent(out) :: volInt_x ( 0 : spA % N , 0 : spA % N , 0 : spA % N , NEQ ) 
+         real(kind=RP), intent(out) :: volInt_y ( 0 : spA % N , 0 : spA % N , 0 : spA % N , NEQ ) 
+         real(kind=RP), intent(out) :: volInt_z ( 0 : spA % N , 0 : spA % N , 0 : spA % N , NEQ ) 
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer              :: eq , dimID
+         real(kind=RP)        :: contravariantU(0:spA % N,0:spA % N,0:spA % N , NEQ , NDIM )
+
+         do eq = 1 , NEQ
+            contravariantU ( :,:,:,eq,IX ) = U ( :,:,:,eq ) * e % geom % jGradXi   ( IX,:,:,: ) 
+            contravariantU ( :,:,:,eq,IY ) = U ( :,:,:,eq ) * e % geom % jGradEta  ( IX,:,:,: ) 
+            contravariantU ( :,:,:,eq,IZ ) = U ( :,:,:,eq ) * e % geom % jGradZeta ( IX,:,:,: ) 
+         end do
+
+         volInt_x = ScalarWeakIntegrals_StdVolumeGreen( NEQ , e , spA , contravariantU )
+
+         do eq = 1 , NEQ
+            contravariantU ( :,:,:,eq,IX ) = U ( :,:,:,eq ) * e % geom % jGradXi   ( IY,:,:,: ) 
+            contravariantU ( :,:,:,eq,IY ) = U ( :,:,:,eq ) * e % geom % jGradEta  ( IY,:,:,: ) 
+            contravariantU ( :,:,:,eq,IZ ) = U ( :,:,:,eq ) * e % geom % jGradZeta ( IY,:,:,: ) 
+         end do
+
+         volInt_y = ScalarWeakIntegrals_StdVolumeGreen( NEQ , e , spA , contravariantU )
+
+         do eq = 1 , NEQ
+            contravariantU ( :,:,:,eq,IX ) = U ( :,:,:,eq ) * e % geom % jGradXi   ( IZ,:,:,: ) 
+            contravariantU ( :,:,:,eq,IY ) = U ( :,:,:,eq ) * e % geom % jGradEta  ( IZ,:,:,: ) 
+            contravariantU ( :,:,:,eq,IZ ) = U ( :,:,:,eq ) * e % geom % jGradZeta ( IZ,:,:,: ) 
+         end do
+
+         volInt_z = ScalarWeakIntegrals_StdVolumeGreen( NEQ , e , spA , contravariantU )
+   
+      end subroutine VectorWeakIntegrals_StdVolumeGreen
 
 end module DGWeakIntegrals
