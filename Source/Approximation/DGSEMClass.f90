@@ -81,7 +81,7 @@
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE ConstructDGSem( self, meshFileName, &
-                                 externalState, externalGradients, polynomialOrder, polynomialOrders, success )
+                                 externalState, externalGradients, polynomialOrder, Nx_, Ny_, Nz_, success )
       IMPLICIT NONE
 !
 !     --------------------------
@@ -93,7 +93,7 @@
       CHARACTER(LEN=*)            :: meshFileName                       !<  Name of mesh file
       EXTERNAL                    :: externalState, externalGradients   !<  External procedures that define the BCs
       INTEGER, OPTIONAL           :: polynomialOrder(3)                 !<  Uniform polynomial order
-      INTEGER, OPTIONAL, TARGET   :: polynomialOrders(:,:)              !<  Non-uniform polynomial order
+      INTEGER, OPTIONAL, TARGET   :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL           :: success                            !>  Construction finalized correctly?
       !-----------------------------------------------------------------
       INTEGER                     :: i,j,k,el                           ! Counters
@@ -123,12 +123,12 @@
 !     Get polynomial orders for every element
 !     ---------------------------------------
 !
-      IF (PRESENT(polynomialOrders)) THEN
-         Nx => polynomialOrders(:,1)
-         Ny => polynomialOrders(:,2)
-         Nz => polynomialOrders(:,3)
+      IF (PRESENT(Nx_) .AND. PRESENT(Ny_) .AND. PRESENT(Nz_)) THEN
+         Nx => Nx_
+         Ny => Ny_
+         Nz => Nz_
          nelem = SIZE(Nx)
-      ELSE
+      ELSEIF (PRESENT(polynomialOrder)) THEN
          OPEN(newunit = fUnit, FILE = meshFileName )  
             READ(fUnit,*) k, nelem, k                    ! Here k is used as default reader since this variables are not important now
          CLOSE(fUnit)
@@ -137,6 +137,8 @@
          Nx = polynomialOrder(1)
          Ny = polynomialOrder(2)
          Nz = polynomialOrder(3)
+      ELSE
+         ERROR STOP 'ConstructDGSEM: Polynomial order not specified'
       END IF
       
 !

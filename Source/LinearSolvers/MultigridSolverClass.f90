@@ -1,16 +1,17 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!      IterativeClass.f90
+!      MultigridSolverClass.f90
 !      Created: 2017-04-XX 10:006:00 +0100 
 !      By: Andrés Rueda
 !
-!      Class for solving a system with simple smoothers and matrix free operations
+!      Class for solving a linear system obtained from a DGSEM discretization using p-Multigrid
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE MultigridSolverClass
    USE GenericLinSolverClass
    USE CSR_Matrices
    USE SMConstants
+   USE PhysicsStorage
    USE PetscSolverClass   ! For allocating Jacobian matrix
    
    ! To be moved to other module?
@@ -40,6 +41,7 @@ MODULE MultigridSolverClass
       ! Variables that are specially needed for Multigrid
       TYPE(MultigridSolver_t), POINTER           :: Child                 ! Next (coarser) multigrid solver
       INTEGER                                    :: MGlevel               ! Current Multigrid level
+!~       INTEGER                    , ALLOCATABLE   :: OrderList(:,:,:)      ! List containing the polynomial orders of all elements in current solver (not needed now.. Maybe when using p-adaptation)
       TYPE(Interpolator_t)       , ALLOCATABLE   :: Restriction(:,:,:)    ! Restriction operators (element level)
       TYPE(Interpolator_t)       , ALLOCATABLE   :: Prolongation(:,:,:)   ! Prolongation operators (element level)
       
@@ -79,6 +81,7 @@ MODULE MultigridSolverClass
    ! Multigrid
    INTEGER        :: MGlevels  ! Total number of multigrid levels
    INTEGER        :: deltaN    ! 
+   INTEGER        :: nelem     ! Number of elements (this is a p-multigrid implementation)
    
 CONTAINS
 !
@@ -92,8 +95,9 @@ CONTAINS
       TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
       !-----------------------------------------------------------
-      INTEGER                           :: lvl              ! Multigrid level
-      TYPE(MultigridSolver_t) , POINTER :: Solver_p         ! Pointer to the current solver (being constructed)
+      INTEGER                            :: lvl              ! Multigrid level
+      INTEGER                            :: k
+      INTEGER, DIMENSION(:), ALLOCATABLE :: Nx, Ny, Nz       ! Dimensions of fine mesh
       !-----------------------------------------------------------
       !Module variables: MGlevels, deltaN
       
@@ -117,33 +121,109 @@ CONTAINS
          deltaN = 1
       END IF
 !
+!
+      this % p_sem => sem
+      this % DimPrb = DimPrb
+      
+      nelem = SIZE(sem % mesh % elements)
+      ALLOCATE(Nx(nelem),Ny(nelem),Nz(nelem))
+      DO k=1, nelem
+         Nx(k) = sem % mesh % elements(k) % Nxyz(1)
+         Ny(k) = sem % mesh % elements(k) % Nxyz(2)
+         Nz(k) = sem % mesh % elements(k) % Nxyz(3)
+      END DO
+!
 !     --------------------------
 !     Create linked solvers list
 !     --------------------------
 !
-      Solver_p => this
-      
-      DO lvl = MGlevels, 1, -1
-         
-         IF (lvl /= 1) THEN
-            ALLOCATE (Solver_p % Child)
-            Solver_p => Solver_p % Child
-         END IF
-      END DO
-      
-      this % DimPrb = DimPrb
-      
-      ALLOCATE(this % x   (DimPrb))
-      ALLOCATE(this % b   (DimPrb))
-      ALLOCATE(this % F_Ur(DimPrb))
-      ALLOCATE(this % Ur  (DimPrb))
+      CALL RecursiveConstructor(this, Nx, Ny, Nz, MGlevels, controlVariables)
       
       IF(this % AIsPetsc) CALL this % PetscSolver % construct (DimPrb)
       
-      this % p_sem => sem
+      DEALLOCATE (Nx,Ny,Nz)
       
    END SUBROUTINE construct
-   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   RECURSIVE SUBROUTINE RecursiveConstructor(Solver, N1x, N1y, N1z, lvl, controlVariables)
+      IMPLICIT NONE
+      TYPE(MultigridSolver_t)   :: Solver
+      INTEGER, DIMENSION(:)     :: N1x,N1y,N1z      !<  Order of approximation for every element in current solver
+      INTEGER                   :: lvl              !<  Current multigrid level
+      TYPE(FTValueDictionary)   :: controlVariables !< Control variables (for the construction of coarse sems
+      !----------------------------------------------
+      INTEGER                   :: DimPrb                 !   Dimension of problem for child solver
+      INTEGER, DIMENSION(nelem) :: N2x,N2y,N2z            !   Order of approximation for every element in child solver
+      INTEGER                   :: N1xMAX,N1yMAX,N1zMAX   !   Maximum polynomial orders for current (fine) grid
+      INTEGER                   :: N2xMAX,N2yMAX,N2zMAX   !   Maximum polynomial orders for child (coarse) grid
+      INTEGER                   :: k                      !   Counter
+      LOGICAL                   :: success                ! Did the creation of sem succeed?
+      TYPE(MultigridSolver_t) , POINTER :: Child_p          ! Pointer to Child
+      !----------------------------------------------
+      !
+      
+      
+      Solver % MGlevel = lvl
+      
+      IF (lvl > 1) THEN
+         ALLOCATE  (Solver % Child)
+         Child_p => Solver % Child
+!
+!        -----------------------------------------------
+!        Allocate restriction and prolongation operators
+!        -----------------------------------------------
+!         
+         N1xMAX = MAXVAL(N1x)
+         N1yMAX = MAXVAL(N1y)
+         N1zMAX = MAXVAL(N1z)
+         
+         N2xMAX = N1xMAX - deltaN
+         N2yMAX = N1yMAX - deltaN
+         N2zMAX = N1zMAX - deltaN
+         IF (N2xMAX < 0) N2xMAX = 0             ! TODO: Complete for Lobatto quadrature (max order = 1)
+         IF (N2yMAX < 0) N2yMAX = 0
+         IF (N2zMAX < 0) N2zMAX = 0
+         
+         ALLOCATE (Solver  % Restriction (0:N1xMAX,0:N1yMAX,0:N1zMAX))
+         ALLOCATE (Child_p % Prolongation(0:N2xMAX,0:N2yMAX,0:N2zMAX))
+         
+!
+!        ---------------------------------------------
+!        Create restriction and prolongation operators
+!        ---------------------------------------------
+!
+         DimPrb = 0
+         DO k=1, nelem
+            CALL CreateInterpolationOperators(Solver % Restriction, Child_p % Prolongation, &
+                                              N1x(k),N1y(k),N1z(k),                         &
+                                              N2x(k),N2y(k),N2z(k), DeltaN)    ! TODO: Add lobatto flag if required
+            
+            DimPrb = DimPrb + N_EQN * (N2x(k) + 1) * (N2y(k) + 1) * (N2z(k) + 1)
+         END DO
+         Solver % Child % DimPrb = DimPrb
+         
+         ! Create DGSEM class for child
+         ALLOCATE (Child_p % p_sem)
+         CALL Child_p % p_sem % construct (meshFileName      = controlVariables % stringValueForKey("mesh file name",    &
+                                                                                      requestedLength = LINE_LENGTH),    &
+                                           externalState     = Solver % p_sem % externalState,                           &
+                                           externalGradients = Solver % p_sem % externalGradients,                       &
+                                           Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,                                        &
+                                           success = success )
+         IF (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
+         
+         
+         CALL RecursiveConstructor(Solver % Child, N2x, N2y, N2z, lvl - 1, controlVariables)
+      END IF
+      
+      ALLOCATE(Solver % x   (Solver % DimPrb))
+      ALLOCATE(Solver % b   (Solver % DimPrb))
+      ALLOCATE(Solver % F_Ur(Solver % DimPrb))
+      ALLOCATE(Solver % Ur  (Solver % DimPrb))
+      
+   END SUBROUTINE RecursiveConstructor
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -569,7 +649,7 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE CreateInterpolationOperators(Restriction,Prolongation,N1x,N1y,N1z,DeltaN,Lobatto)
+   SUBROUTINE CreateInterpolationOperators(Restriction,Prolongation,N1x,N1y,N1z,N2x,N2y,N2z,DeltaN,Lobatto)
       IMPLICIT NONE
 !
 !     ------------------------------------------------------------------------
@@ -582,12 +662,12 @@ CONTAINS
       TYPE(Interpolator_t), TARGET  :: Restriction (0:,0:,0:)  !>  Restriction operator
       TYPE(Interpolator_t), TARGET  :: Prolongation(0:,0:,0:)  !>  Prolongation operator
       INTEGER                       :: N1x, N1y, N1z           !<  Fine grid order(anisotropic) of the element
+      INTEGER                       :: N2x, N2y, N2z           !>  Coarse grid order(anisotropic) of the element
       INTEGER                       :: DeltaN                  !<  Interval of reduction of polynomial order for coarser level
       LOGICAL, OPTIONAL             :: Lobatto                 !<  Is the quadrature a Legendre-Gauss-Lobatto representation?
       !-----------------------------------------------------
       TYPE(Interpolator_t), POINTER :: rest                    ! Pointer to constructed restriction interpolator
       TYPE(Interpolator_t), POINTER :: prol                    ! Pointer to constructed prolongation interpolator
-      INTEGER                       :: N2x, N2y, N2z           ! Coarse grid order(anisotropic) of the element
       LOGICAL                       :: LGL = .FALSE.           ! Is the quadrature a Legendre-Gauss-Lobatto representation? (false is default)
       INTEGER                       :: i,j,k,l,m,n             ! Index counters
       INTEGER                       :: s,r                     ! Row/column counters for operators
@@ -617,6 +697,9 @@ CONTAINS
          IF (N2y < 0) N2y = 0
          IF (N2z < 0) N2z = 0
       END IF
+      
+      ! Return if the operators were already created
+      IF (Restriction(N1x,N1y,N1z) % Created) RETURN
       
       rest => Restriction (N1x,N1y,N1z)
       prol => Prolongation(N2x,N2y,N2z)

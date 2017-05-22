@@ -7,15 +7,15 @@ MODULE pAdaptationClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE ReadOrderFile(filename, N)
+   SUBROUTINE ReadOrderFile(filename, Nx, Ny, Nz)
       IMPLICIT NONE
 !
 !     ----------------------------------------------------------------------
 !     Subroutine that reads input file containing polynomial orders for mesh
 !     ----------------------------------------------------------------------
 !
-      CHARACTER(len=*), INTENT(IN) :: filename !<  Name of file containing polynomial orders to initialize
-      INTEGER, ALLOCATABLE         :: N(:,:)   !>  Polynomial orders for each element
+      CHARACTER(len=*), INTENT(IN) :: filename          !<  Name of file containing polynomial orders to initialize
+      INTEGER, ALLOCATABLE         :: Nx(:),Ny(:),Nz(:) !>  Polynomial orders for each element
       !------------------------------------------
       INTEGER                      :: fd       ! File unit
       INTEGER                      :: nelem    ! Number of elements
@@ -25,10 +25,10 @@ MODULE pAdaptationClass
       OPEN(newunit = fd, FILE = filename )   
          READ(fd,*) nelem
          
-         ALLOCATE(N(nelem,3))
+         ALLOCATE(Nx(nelem),Ny(nelem),Nz(nelem))
          
          DO i = 1, nelem
-            READ(fd,*) N(i,1), N(i,2), N(i,3)
+            READ(fd,*) Nx(i), Ny(i), Nz(i)
          ENDDO
       CLOSE(UNIT=fd)
       

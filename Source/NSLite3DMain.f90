@@ -46,7 +46,7 @@
       EXTERNAL                            :: ExternalGradientForBoundaryName
       
       ! For pAdaptation
-      INTEGER, ALLOCATABLE                :: polynomialOrders(:,:)
+      INTEGER, ALLOCATABLE                :: Nx(:), Ny(:), Nz(:)
       INTEGER                             :: polynomialOrder(3)
 !
 !     ---------------
@@ -82,12 +82,12 @@
       IF (controlVariables % containsKey("polynomial order file")) THEN
          !Read file and construct DGSEM with it
          CALL ReadOrderFile( controlVariables % stringValueForKey("polynomial order file", requestedLength = LINE_LENGTH), &
-                             polynomialOrders )
+                             Nx, Ny, Nz )
          CALL sem % construct (  meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
                                                                               requestedLength = LINE_LENGTH),  &
                                  externalState     = externalStateForBoundaryName,                             &
                                  externalGradients = ExternalGradientForBoundaryName,                          &
-                                 polynomialOrders  = polynomialOrders,                                         &
+                                 Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
                                  success           = success)
       ELSE
          IF (controlVariables % containsKey("polynomial order")) THEN
