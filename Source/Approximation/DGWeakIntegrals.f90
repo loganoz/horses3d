@@ -19,7 +19,7 @@ module DGWeakIntegrals
    type  VectorWeakIntegrals_t
       contains
          procedure, nopass    :: StdVolumeGreen  => VectorWeakIntegrals_StdVolumeGreen
-!         procedure, nopass    :: StdFace => VectorWeakIntegrals_StdFace
+         procedure, nopass    :: StdFace => VectorWeakIntegrals_StdFace
    end type VectorWeakIntegrals_t
 
    public ScalarWeakIntegrals_t , VectorWeakIntegrals_t
@@ -42,11 +42,11 @@ module DGWeakIntegrals
       function ScalarWeakIntegrals_StdVolumeGreen( NEQ , e , spA , F ) result ( volInt )
          use MatrixOperations
          implicit none
-         integer, intent(in)     :: NEQ
-         class(Element)          :: e
-         class(NodalStorage)     :: spA
-         real(kind=RP)           :: F      (0:spA % N , 0:spA % N , 0:spA % N , 1:NEQ , 1:NDIM )
-         real(kind=RP)           :: volInt (0:spA % N , 0:spA % N , 0:spA % N , 1:NEQ          )
+         integer, intent(in)              :: NEQ
+         class(Element),      intent(in)  :: e
+         class(NodalStorage), intent(in)  :: spA
+         real(kind=RP),       intent(in)  :: F      (0:spA % N , 0:spA % N , 0:spA % N , 1:NEQ , 1:NDIM )
+         real(kind=RP)                    :: volInt (0:spA % N , 0:spA % N , 0:spA % N , 1:NEQ          )
 !
 !        ---------------
 !        Local variables
@@ -62,14 +62,14 @@ module DGWeakIntegrals
 
       end function ScalarWeakIntegrals_StdVolumeGreen
 
-      function ScalarWeakIntegrals_StdFace( e , spA , loc , F ) result ( faceInt )
+      pure function ScalarWeakIntegrals_StdFace( e , spA , loc , F ) result ( faceInt )
          use MatrixOperations
          implicit none
-         class(Element)          :: e
-         class(NodalStorage)     :: spA 
-         integer                 :: loc
-         real(kind=RP)           :: F( 1:N_EQN , 0:spA % N , 0:spA % N )
-         real(kind=RP)           :: faceInt(0:spA % N,0:spA % N,0:spA % N,1:N_EQN)
+         class(Element),      intent(in)     :: e
+         class(NodalStorage), intent(in)     :: spA 
+         integer,             intent(in)     :: loc
+         real(kind=RP),       intent(in)     :: F( 1:N_EQN , 0:spA % N , 0:spA % N )
+         real(kind=RP)                       :: faceInt(0:spA % N,0:spA % N,0:spA % N,1:N_EQN)
 !
 !        ---------------
 !        Local variables
@@ -144,13 +144,13 @@ module DGWeakIntegrals
          use Physics
          use PhysicsStorage
          implicit none
-         integer, intent(in)        :: NEQ
-         class(Element)             :: e
-         class(NodalStorage)        :: spA
-         real(kind=RP), intent(in)  :: U        ( 0 : spA % N , 0 : spA % N , 0 : spA % N , NEQ ) 
-         real(kind=RP), intent(out) :: volInt_x ( 0 : spA % N , 0 : spA % N , 0 : spA % N , NEQ ) 
-         real(kind=RP), intent(out) :: volInt_y ( 0 : spA % N , 0 : spA % N , 0 : spA % N , NEQ ) 
-         real(kind=RP), intent(out) :: volInt_z ( 0 : spA % N , 0 : spA % N , 0 : spA % N , NEQ ) 
+         integer,             intent(in)  :: NEQ
+         class(Element),      intent(in)  :: e
+         class(NodalStorage), intent(in)  :: spA
+         real(kind=RP),       intent(in)  :: U        ( 0 : spA % N , 0 : spA % N , 0 : spA % N , NEQ )
+         real(kind=RP),       intent(out) :: volInt_x ( 0 : spA % N , 0 : spA % N , 0 : spA % N , NEQ )
+         real(kind=RP),       intent(out) :: volInt_y ( 0 : spA % N , 0 : spA % N , 0 : spA % N , NEQ )
+         real(kind=RP),       intent(out) :: volInt_z ( 0 : spA % N , 0 : spA % N , 0 : spA % N , NEQ )
 !
 !        ---------------
 !        Local variables
@@ -184,5 +184,122 @@ module DGWeakIntegrals
          volInt_z = ScalarWeakIntegrals_StdVolumeGreen( NEQ , e , spA , contravariantU )
    
       end subroutine VectorWeakIntegrals_StdVolumeGreen
+
+      subroutine VectorWeakIntegrals_StdFace( NEQ , e , spA , loc , U , faceInt_x , faceInt_y , faceInt_z )
+         use ElementClass
+         use NodalStorageClass
+         use Physics
+         use PhysicsStorage
+         implicit none
+         integer,             intent(in)  :: NEQ
+         class(Element),      intent(in)  :: e
+         class(NodalStorage), intent(in)  :: spA
+         integer,             intent(in)  :: loc
+         real(kind=RP),       intent(in)  :: U( NEQ , 0:spA % N , 0:spA % N , 6 )
+         real(kind=RP),       intent(out) :: faceInt_x(0:spA % N , 0:spA % N , 0:spA % N , NEQ )
+         real(kind=RP),       intent(out) :: faceInt_y(0:spA % N , 0:spA % N , 0:spA % N , NEQ )
+         real(kind=RP),       intent(out) :: faceInt_z(0:spA % N , 0:spA % N , 0:spA % N , NEQ )
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer        :: iVar , iXi , iEta , iZeta
+
+         select case ( loc ) 
+!
+!     ----------------
+! >   Xi-contributions
+!     ----------------
+!
+            case (ELEFT)
+         
+               do iVar = 1 , NEQ ; do iZeta = 0 , spA % N ; do iEta = 0 , spA % N ; do iXi = 0 , spa % N
+                  faceInt_x(iXi,iEta,iZeta,iVar) =   U(iVar , iEta , iZeta , ELEFT) * spA % b(iXi , LEFT) &
+                                                   * e % geom % normal(IX,iEta,iZeta,ELEFT) * e % geom % scal(iEta,iZeta,ELEFT)
+
+                  faceInt_y(iXi,iEta,iZeta,iVar) =   U(iVar , iEta , iZeta , ELEFT) * spA % b(iXi , LEFT) &
+                                                   * e % geom % normal(IY,iEta,iZeta,ELEFT) * e % geom % scal(iEta,iZeta,ELEFT)
+
+                  faceInt_z(iXi,iEta,iZeta,iVar) =   U(iVar , iEta , iZeta , ELEFT) * spA % b(iXi , LEFT) &
+                                                   * e % geom % normal(IZ,iEta,iZeta,ELEFT) * e % geom % scal(iEta,iZeta,ELEFT)
+               end do              ; end do                 ; end do                ; end do
+            
+            case (ERIGHT)
+
+               do iVar = 1 , NEQ ; do iZeta = 0 , spA % N ; do iEta = 0 , spA % N ; do iXi = 0 , spa % N
+                  faceInt_x(iXi,iEta,iZeta,iVar) =   U(iVar , iEta , iZeta , ERIGHT) * spA % b(iXi , RIGHT) &
+                                                   * e % geom % normal(IX,iEta,iZeta,ERIGHT) * e % geom % scal(iEta,iZeta,ERIGHT)
+
+                  faceInt_y(iXi,iEta,iZeta,iVar) =   U(iVar , iEta , iZeta , ERIGHT) * spA % b(iXi , RIGHT) &
+                                                   * e % geom % normal(IY,iEta,iZeta,ERIGHT) * e % geom % scal(iEta,iZeta,ERIGHT)
+
+                  faceInt_z(iXi,iEta,iZeta,iVar) =   U(iVar , iEta , iZeta , ERIGHT) * spA % b(iXi , RIGHT) &
+                                                   * e % geom % normal(IZ,iEta,iZeta,ERIGHT) * e % geom % scal(iEta,iZeta,ERIGHT)
+               end do              ; end do                 ; end do                ; end do
+!
+!     -----------------
+! >   Eta-contributions
+!     -----------------
+!
+            case (EFRONT)
+
+               do iVar = 1 , NEQ ; do iZeta = 0 , spA % N ; do iEta = 0 , spA % N ; do iXi = 0 , spa % N
+                  faceInt_x(iXi,iEta,iZeta,iVar) =   U(iVar , iXi , iZeta , EFRONT) * spA % b(iEta , LEFT) &
+                                                   * e % geom % normal(IX,iXi,iZeta,EFRONT) * e % geom % scal(iXi,iZeta,EFRONT)
+
+                  faceInt_y(iXi,iEta,iZeta,iVar) =   U(iVar , iXi , iZeta , EFRONT) * spA % b(iEta , LEFT) &
+                                                   * e % geom % normal(IY,iXi,iZeta,EFRONT) * e % geom % scal(iXi,iZeta,EFRONT)
+
+                  faceInt_z(iXi,iEta,iZeta,iVar) =   U(iVar , iXi , iZeta , EFRONT) * spA % b(iEta , LEFT) &
+                                                   * e % geom % normal(IZ,iXi,iZeta,EFRONT) * e % geom % scal(iXi,iZeta,EFRONT)
+               end do              ; end do                 ; end do                ; end do
+
+            case (EBACK)
+
+               do iVar = 1 , NEQ ; do iZeta = 0 , spA % N ; do iEta = 0 , spA % N ; do iXi = 0 , spa % N
+                  faceInt_x(iXi,iEta,iZeta,iVar) =   U(iVar , iXi , iZeta , EBACK) * spA % b(iEta , RIGHT) &
+                                                   * e % geom % normal(IX,iXi,iZeta,EBACK) * e % geom % scal(iXi,iZeta,EBACK)
+
+                  faceInt_y(iXi,iEta,iZeta,iVar) =   U(iVar , iXi , iZeta , EBACK) * spA % b(iEta , RIGHT) &
+                                                   * e % geom % normal(IY,iXi,iZeta,EBACK) * e % geom % scal(iXi,iZeta,EBACK)
+
+                  faceInt_z(iXi,iEta,iZeta,iVar) =   U(iVar , iXi , iZeta , EBACK) * spA % b(iEta , RIGHT) &
+                                                   * e % geom % normal(IZ,iXi,iZeta,EBACK) * e % geom % scal(iXi,iZeta,EBACK)
+               end do              ; end do                 ; end do                ; end do
+!
+!     ------------------
+!  >  Zeta-contributions
+!     ------------------
+!
+            case (EBOTTOM)
+
+               do iVar = 1 , NEQ ; do iZeta = 0 , spA % N ; do iEta = 0 , spA % N ; do iXi = 0 , spa % N
+                  faceInt_x(iXi,iEta,iZeta,iVar) =   U(iVar , iXi , iEta , EBOTTOM) * spA % b(iZeta , LEFT) &
+                                                   * e % geom % normal(IX,iXi,iEta,EBOTTOM) * e % geom % scal(iXi,iEta,EBOTTOM)
+
+                  faceInt_y(iXi,iEta,iZeta,iVar) =   U(iVar , iXi , iEta , EBOTTOM) * spA % b(iZeta , LEFT) &
+                                                   * e % geom % normal(IY,iXi,iEta,EBOTTOM) * e % geom % scal(iXi,iEta,EBOTTOM)
+
+                  faceInt_z(iXi,iEta,iZeta,iVar) =   U(iVar , iXi , iEta , EBOTTOM) * spA % b(iZeta , LEFT) &
+                                                   * e % geom % normal(IZ,iXi,iEta,EBOTTOM) * e % geom % scal(iXi,iEta,EBOTTOM)
+               end do              ; end do                 ; end do                ; end do
+
+            case (ETOP)
+
+               do iVar = 1 , NEQ ; do iZeta = 0 , spA % N ; do iEta = 0 , spA % N ; do iXi = 0 , spa % N
+                  faceInt_x(iXi,iEta,iZeta,iVar) =   U(iVar , iXi , iEta , ETOP) * spA % b(iZeta , RIGHT) &
+                                                   * e % geom % normal(IX,iXi,iEta,ETOP) * e % geom % scal(iXi,iEta,ETOP)
+
+                  faceInt_y(iXi,iEta,iZeta,iVar) =   U(iVar , iXi , iEta , ETOP) * spA % b(iZeta , RIGHT) &
+                                                   * e % geom % normal(IY,iXi,iEta,ETOP) * e % geom % scal(iXi,iEta,ETOP)
+
+                  faceInt_z(iXi,iEta,iZeta,iVar) =   U(iVar , iXi , iEta , ETOP) * spA % b(iZeta , RIGHT) &
+                                                   * e % geom % normal(IZ,iXi,iEta,ETOP) * e % geom % scal(iXi,iEta,ETOP)
+               end do              ; end do                 ; end do                ; end do
+
+         end select
+
+      end subroutine VectorWeakIntegrals_StdFace
 
 end module DGWeakIntegrals

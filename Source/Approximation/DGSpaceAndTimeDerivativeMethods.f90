@@ -164,7 +164,7 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine DGSpatial_ComputeGradient( mesh , spA , time , externalStateProcedure )
+      subroutine DGSpatial_ComputeGradient( mesh , spA , time , externalStateProcedure , externalGradientsProcedure )
          use HexMeshClass
          use NodalStorageClass
          use PhysicsStorage
@@ -173,8 +173,9 @@
          type(NodalStorage), intent(in) :: spA
          real(kind=RP),      intent(in) :: time
          EXTERNAL                       :: externalStateProcedure
+         EXTERNAL                       :: externalGradientsProcedure
 
-         call ViscousMethod % ComputeGradient( mesh , spA , time , externalStateProcedure)
+         call ViscousMethod % ComputeGradient( mesh , spA , time , externalStateProcedure , externalGradientsProcedure )
 
       end subroutine DGSpatial_ComputeGradient
 
@@ -635,80 +636,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ProlongGradientToFaces( e, spA )
-!
-!     -----------------------------------------------------------
-!     For Gauss point approximations, we interpolate to each face
-!     of the element and store the result in the face solution 
-!     array, Qb
-!     -----------------------------------------------------------
-!
-         USE PhysicsStorage
-         USE NodalStorageClass
-         USE ElementClass
-         IMPLICIT NONE
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         TYPE(NodalStorage) :: spA
-         TYPE(Element)      :: e
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         INTEGER :: N, i, j, k, nv
-         
-         N = e % N
-!
-!        --------------
-!        Initialization
-!        --------------
-!  
-         e % U_xb = 0.0_RP
-         e % U_yb = 0.0_RP
-         e % U_zb = 0.0_RP
 
-!
-!        --------------
-!        Left and Right
-!        --------------
-!
-         call InterpolateToBoundary( e % U_x , spA % v(:,LEFT ) , N , IX , e % U_xb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % U_x , spA % v(:,RIGHT) , N , IX , e % U_xb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % U_y , spA % v(:,LEFT ) , N , IX , e % U_yb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % U_y , spA % v(:,RIGHT) , N , IX , e % U_yb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % U_z , spA % v(:,LEFT ) , N , IX , e % U_zb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % U_z , spA % v(:,RIGHT) , N , IX , e % U_zb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
-!
-!        --------------
-!        Front and back
-!        --------------
-!
-         CALL InterpolateToBoundary( e % U_x , spA % v(:,FRONT) , N , IY , e % U_xb(:,:,:,EFRONT ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_x , spA % v(:,BACK)  , N , IY , e % U_xb(:,:,:,EBACK  ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_y , spA % v(:,FRONT) , N , IY , e % U_yb(:,:,:,EFRONT ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_y , spA % v(:,BACK)  , N , IY , e % U_yb(:,:,:,EBACK  ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_z , spA % v(:,FRONT) , N , IY , e % U_zb(:,:,:,EFRONT ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_z , spA % v(:,BACK)  , N , IY , e % U_zb(:,:,:,EBACK  ) , N_GRAD_EQN )
-!
-!        --------------
-!        Bottom and Top
-!        --------------
-!
-         CALL InterpolateToBoundary( e % U_x, spA % v(:,BOTTOM), N, IZ , e % U_xb(:,:,:,EBOTTOM) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_x, spA % v(:,TOP)   , N, IZ , e % U_xb(:,:,:,ETOP)    , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_y, spA % v(:,BOTTOM), N, IZ , e % U_yb(:,:,:,EBOTTOM) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_y, spA % v(:,TOP)   , N, IZ , e % U_yb(:,:,:,ETOP)    , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_z, spA % v(:,BOTTOM), N, IZ , e % U_zb(:,:,:,EBOTTOM) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_z, spA % v(:,TOP)   , N, IZ , e % U_zb(:,:,:,ETOP)    , N_GRAD_EQN )                  
-
-      END SUBROUTINE ProlongGradientToFaces      
-!
-!////////////////////////////////////////////////////////////////////////
-!
    SUBROUTINE DGSpaceDerivative( u, uL, uR,  N, D, b, deriv ) 
 !
 !  ----------------------------------------------------------

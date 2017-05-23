@@ -43,17 +43,18 @@ module DGViscousDiscretization
 !           --------------------
 !///////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BaseClass_ComputeGradient( self , mesh , spA , time , externalStateProcedure )
+      subroutine BaseClass_ComputeGradient( self , mesh , spA , time , externalStateProcedure , externalGradientsProcedure )
          use HexMeshClass
          use NodalStorageClass
          use PhysicsStorage
          use Physics
          implicit none
-         class(ViscousMethod_t),    intent(in)     :: self
-         class(HexMesh)                            :: mesh
-         class(NodalStorage),       intent(in)     :: spA
-         real(kind=RP),             intent(in)     :: time
-         external                                  :: externalStateProcedure
+         class(ViscousMethod_t),    intent(in) :: self
+         class(HexMesh)                        :: mesh
+         class(NodalStorage),       intent(in) :: spA
+         real(kind=RP),             intent(in) :: time
+         external                              :: externalStateProcedure
+         external                              :: externalGradientsProcedure
 !
 !        ---------------------------
 !        The base class does nothing
@@ -83,7 +84,7 @@ module DGViscousDiscretization
 !           ------------------------
 !///////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_ComputeGradient( self , mesh , spA , time , externalStateProcedure )
+      subroutine BR1_ComputeGradient( self , mesh , spA , time , externalStateProcedure , externalGradientsProcedure)
          use HexMeshClass
          use NodalStorageClass
          use PhysicsStorage
@@ -94,6 +95,7 @@ module DGViscousDiscretization
          class(NodalStorage),  intent(in) :: spA
          real(kind=RP),        intent(in) :: time
          external                         :: externalStateProcedure
+         external                         :: externalGradientsProcedure
 !
 !        ---------------
 !        Local variables
@@ -101,16 +103,40 @@ module DGViscousDiscretization
 !
          integer                :: eID , fID , dimID , eqID
 !
+!        Compute the averaged states
+!        ---------------------------
+         call BR1_ComputeSolutionRiemannSolver( self , mesh , spA , time, externalStateProcedure )
+!
 !        Perform volume loops
 !        --------------------
          do eID = 1 , size(mesh % elements)
+!
+!           Add the volumetric integrals
+!           ----------------------------
             call BR1_GradientVolumeLoop( self , mesh % elements(eID) , spA ) 
+!
+!           Add the surface integrals
+!           -------------------------
+            call BR1_GradientFaceLoop( self , mesh % elements(eID) , spA )
+!
+!           Perform the scaling
+!           -------------------               
+            do eqID = 1 , N_GRAD_EQN
+               mesh % elements(eID) % U_x(:,:,:,eqID) = &
+                           mesh % elements(eID) % U_x(:,:,:,eqID) / mesh % elements(eID) % geom % jacobian
+               mesh % elements(eID) % U_y(:,:,:,eqID) = &
+                           mesh % elements(eID) % U_y(:,:,:,eqID) / mesh % elements(eID) % geom % jacobian
+               mesh % elements(eID) % U_z(:,:,:,eqID) = &
+                           mesh % elements(eID) % U_z(:,:,:,eqID) / mesh % elements(eID) % geom % jacobian
+            end do
+
+            CALL ProlongGradientToFaces( mesh % elements(eID), spA )
+
          end do
 !
-!        Perform face loops
-!        ------------------
-         call BR1_GradientFaceLoop( self , mesh , spA , time, externalStateProcedure )
-
+!        Compute the gradients interface averages
+!        ----------------------------------------
+         call ComputeGradientAverages( mesh , spA , time , externalGradientsProcedure )
 
       end subroutine BR1_ComputeGradient
 
@@ -141,7 +167,70 @@ module DGViscousDiscretization
 
       end subroutine BR1_GradientVolumeLoop
 
-      subroutine BR1_GradientFaceLoop( self , mesh , spA , time, externalStateProcedure )
+      subroutine BR1_GradientFaceLoop( self, e , spA )
+         use ElementClass
+         use NodalStorageClass
+         use PhysicsStorage
+         use Physics
+         use DGWeakIntegrals
+         implicit none
+         class(BassiRebay1_t),   intent(in)  :: self
+         class(Element)                      :: e
+         class(NodalStorage),    intent(in)  :: spA
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)        :: faceInt_x(0:spA % N , 0:spA % N , 0:spA % N , N_GRAD_EQN )
+         real(kind=RP)        :: faceInt_y(0:spA % N , 0:spA % N , 0:spA % N , N_GRAD_EQN )
+         real(kind=RP)        :: faceInt_z(0:spA % N , 0:spA % N , 0:spA % N , N_GRAD_EQN )
+!
+!        LEFT face
+!        ---------
+         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , ELEFT , e % Ub , faceInt_x , faceInt_y , faceInt_z )
+         e % U_x = e % U_x + faceInt_x
+         e % U_y = e % U_y + faceInt_y
+         e % U_z = e % U_z + faceInt_z
+!
+!        RIGHT face
+!        ----------
+         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , ERIGHT , e % Ub , faceInt_x , faceInt_y , faceInt_z )
+         e % U_x = e % U_x + faceInt_x
+         e % U_y = e % U_y + faceInt_y
+         e % U_z = e % U_z + faceInt_z
+!
+!        TOP face
+!        --------
+         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , ETOP , e % Ub , faceInt_x , faceInt_y , faceInt_z )
+         e % U_x = e % U_x + faceInt_x
+         e % U_y = e % U_y + faceInt_y
+         e % U_z = e % U_z + faceInt_z
+!
+!        BOTTOM face
+!        -----------
+         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , EBOTTOM , e % Ub , faceInt_x , faceInt_y , faceInt_z )
+         e % U_x = e % U_x + faceInt_x
+         e % U_y = e % U_y + faceInt_y
+         e % U_z = e % U_z + faceInt_z
+!
+!        BACK face
+!        ---------
+         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , EBACK , e % Ub , faceInt_x , faceInt_y , faceInt_z )
+         e % U_x = e % U_x + faceInt_x
+         e % U_y = e % U_y + faceInt_y
+         e % U_z = e % U_z + faceInt_z
+!
+!        FRONT face
+!        ----------
+         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , EFRONT , e % Ub , faceInt_x , faceInt_y , faceInt_z )
+         e % U_x = e % U_x + faceInt_x
+         e % U_y = e % U_y + faceInt_y
+         e % U_z = e % U_z + faceInt_z
+
+      end subroutine BR1_GradientFaceLoop
+
+      subroutine BR1_ComputeSolutionRiemannSolver( self , mesh , spA , time, externalStateProcedure )
          use HexMeshClass
          use NodalStorageClass
          USE Physics
@@ -242,7 +331,7 @@ module DGViscousDiscretization
          END DO           
 !TODO ($omp enddo)       
          
-      end subroutine BR1_GradientFaceLoop
+      end subroutine BR1_ComputeSolutionRiemannSolver
 
       SUBROUTINE BR1_ComputeElementInterfaceAverage( eL, fIDLeft, eR, fIDRight, N, rotation)
          USE Physics  
@@ -291,6 +380,74 @@ module DGViscousDiscretization
          
       END SUBROUTINE BR1_ComputeElementInterfaceAverage   
 
+      SUBROUTINE BR1_computeElementInterfaceGradientAverage( eL, fIDLeft, eR, fIDRight, N, rotation)
+         USE Physics  
+         use ElementClass
+         IMPLICIT NONE  
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(Element) :: eL, eR
+         INTEGER       :: fIDLeft, fIdright
+         INTEGER       :: rotation
+         INTEGER       :: N
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
+         REAL(KIND=RP) :: d(N_GRAD_EQN)
+         INTEGER       :: i,j,ii,jj
+         
+         
+         DO j = 0, N
+            DO i = 0, N
+               CALL iijjIndexes(i,j,N,rotation,ii,jj)                    ! This turns according to the rotation of the elements
+!
+!                 --------
+!                 x values
+!                 --------
+!
+               UL = eL % U_xb(:,i,j,fIDLeft)
+               UR = eR % U_xb(:,ii,jj,fIDright)
+
+               d = 0.5_RP*(UL + UR)
+               
+               eL % U_xb(:,i,j,fIDLeft) = d
+               eR % U_xb(:,ii,jj,fIDright) = d
+!
+!                 --------
+!                 y values
+!                 --------
+!
+               UL = eL % U_yb(:,i,j,fIDLeft)
+               UR = eR % U_yb(:,ii,jj,fIDright)
+
+               d = 0.5_RP*(UL + UR)
+               
+               eL % U_yb(:,i,j,fIDLeft) = d
+               eR % U_yb(:,ii,jj,fIDright) = d
+!
+!                 --------
+!                 z values
+!                 --------
+!
+               UL = eL % U_zb(:,i,j,fIDLeft)
+               UR = eR % U_zb(:,ii,jj,fIDright)
+
+               d = 0.5_RP*(UL + UR)
+               
+               eL % U_zb(:,i,j,fIDLeft) = d
+               eR % U_zb(:,ii,jj,fIDright) = d
+               
+            END DO   
+         END DO
+         
+      END SUBROUTINE BR1_computeElementInterfaceGradientAverage      
+
       subroutine BR1_ComputeInnerFluxes( self , e , spA , contravariantFlux )
          use ElementClass
          use NodalStorageClass
@@ -338,5 +495,188 @@ module DGViscousDiscretization
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+      SUBROUTINE ComputeGradientAverages( mesh , spA , time, externalGradientsProcedure )
+         USE Physics
+         USE BoundaryConditionFunctions
+         use HexMeshClass
+         IMPLICIT NONE 
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         class(HexMesh)                  :: mesh
+         class(NodalStorage), intent(in) :: spA
+         REAL(KIND=RP)                   :: time
+         
+         EXTERNAL      :: externalGradientsProcedure
+!
+!        ---------------
+!        Local Variables
+!        ---------------
+!
+         INTEGER       :: faceID
+         INTEGER       :: eIDLeft, eIDRight
+         INTEGER       :: fIDLeft, fIDright
+         INTEGER       :: N
+
+         REAL(KIND=RP) :: UGradExt(3,N_GRAD_EQN)
+         REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)    
+         
+         INTEGER       :: i, j
+        
+         N =  spA % N
+!$omp do         
+         DO faceID = 1, SIZE(  mesh % faces)
+
+            eIDLeft  =  mesh % faces(faceID) % elementIDs(1) 
+            eIDRight =  mesh % faces(faceID) % elementIDs(2)
+            fIDLeft  =  mesh % faces(faceID) % elementSide(1)
+
+            IF ( eIDRight == HMESH_NONE )     THEN
+!
+!              -------------
+!              Boundary face
+!              -------------
+!
+               DO j = 0, N
+                  DO i = 0, N
+                  
+                     UGradExt(1,:) =  mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft)
+                     UGradExt(2,:) =  mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
+                     UGradExt(3,:) =  mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
+                     
+                     CALL externalGradientsProcedure(  mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
+                                                  time, &
+                                                   mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
+                                                  UGradExt,&
+                                                   mesh % elements(eIDLeft) % boundaryType(fIDLeft) )
+!
+!                 --------
+!                 x values
+!                 --------
+!
+                     UL =  mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft)
+                     UR = UGradExt(1,:)
+
+                     d = 0.5_RP*(UL + UR)
+
+                      mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft) = d
+!
+!                 --------
+!                 y values
+!                 --------
+!
+                     UL =  mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
+                     UR = UGradExt(2,:)
+
+                     d = 0.5_RP*(UL + UR)
+
+                      mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft) = d
+!
+!                 --------
+!                 z values
+!                 --------
+!
+                     UL =  mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
+                     UR = UGradExt(3,:)
+
+                     d = 0.5_RP*(UL + UR)
+
+                      mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft) = d
+
+                  END DO   
+               END DO   
+            
+            ELSE 
+!
+!              -------------
+!              Interior face
+!              -------------
+!
+               fIDRight =   mesh % faces(faceID) % elementSide(2)
+               
+               CALL BR1_computeElementInterfaceGradientAverage(eL =  mesh % elements(eIDLeft) ,fIDLeft  = fIDLeft, &
+                                                eR =  mesh % elements(eIDRight),fIDRight = fIDright,&
+                                                N  = N,                                                   &
+                                                rotation =  mesh % faces(faceID) % rotation)
+            END IF 
+
+         END DO           
+!$omp enddo         
+         
+      END SUBROUTINE computeGradientAverages            
+
+      SUBROUTINE ProlongGradientToFaces( e, spA )
+!
+!     -----------------------------------------------------------
+!     For Gauss point approximations, we interpolate to each face
+!     of the element and store the result in the face solution 
+!     array, Qb
+!     -----------------------------------------------------------
+!
+         USE PhysicsStorage
+         USE NodalStorageClass
+         USE ElementClass
+         IMPLICIT NONE
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(NodalStorage) :: spA
+         TYPE(Element)      :: e
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         INTEGER :: N, i, j, k, nv
+         
+         N = e % N
+!
+!        --------------
+!        Initialization
+!        --------------
+!  
+         e % U_xb = 0.0_RP
+         e % U_yb = 0.0_RP
+         e % U_zb = 0.0_RP
+
+!
+!        --------------
+!        Left and Right
+!        --------------
+!
+         call InterpolateToBoundary( e % U_x , spA % v(:,LEFT ) , N , IX , e % U_xb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % U_x , spA % v(:,RIGHT) , N , IX , e % U_xb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % U_y , spA % v(:,LEFT ) , N , IX , e % U_yb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % U_y , spA % v(:,RIGHT) , N , IX , e % U_yb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % U_z , spA % v(:,LEFT ) , N , IX , e % U_zb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % U_z , spA % v(:,RIGHT) , N , IX , e % U_zb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
+!
+!        --------------
+!        Front and back
+!        --------------
+!
+         CALL InterpolateToBoundary( e % U_x , spA % v(:,FRONT) , N , IY , e % U_xb(:,:,:,EFRONT ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_x , spA % v(:,BACK)  , N , IY , e % U_xb(:,:,:,EBACK  ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_y , spA % v(:,FRONT) , N , IY , e % U_yb(:,:,:,EFRONT ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_y , spA % v(:,BACK)  , N , IY , e % U_yb(:,:,:,EBACK  ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_z , spA % v(:,FRONT) , N , IY , e % U_zb(:,:,:,EFRONT ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_z , spA % v(:,BACK)  , N , IY , e % U_zb(:,:,:,EBACK  ) , N_GRAD_EQN )
+!
+!        --------------
+!        Bottom and Top
+!        --------------
+!
+         CALL InterpolateToBoundary( e % U_x, spA % v(:,BOTTOM), N, IZ , e % U_xb(:,:,:,EBOTTOM) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_x, spA % v(:,TOP)   , N, IZ , e % U_xb(:,:,:,ETOP)    , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_y, spA % v(:,BOTTOM), N, IZ , e % U_yb(:,:,:,EBOTTOM) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_y, spA % v(:,TOP)   , N, IZ , e % U_yb(:,:,:,ETOP)    , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_z, spA % v(:,BOTTOM), N, IZ , e % U_zb(:,:,:,EBOTTOM) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % U_z, spA % v(:,TOP)   , N, IZ , e % U_zb(:,:,:,ETOP)    , N_GRAD_EQN )                  
+
+      END SUBROUTINE ProlongGradientToFaces   
 
 end module DGViscousDiscretization

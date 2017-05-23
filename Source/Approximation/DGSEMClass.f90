@@ -253,7 +253,7 @@
 !        -----------------
 !
          if ( flowIsNavierStokes ) then
-            CALL DGSpatial_ComputeGradient( self % mesh , self % spA , time , self % externalState )
+            CALL DGSpatial_ComputeGradient( self % mesh , self % spA , time , self % externalState , self % externalGradients )
          end if
 !
 !        -------------------------------------------------------
@@ -262,46 +262,6 @@
 !
 !openmp inside
          CALL ComputeRiemannFluxes( self, time )
-
-         
-         IF ( flowIsNavierStokes )     THEN
-!
-!           --------------------------------------
-!           Set up the face Values on each element
-!           --------------------------------------
-!
-!openmp inside
-            CALL ComputeSolutionRiemannFluxes( self, time, self % externalState )
-!
-!           -----------------------------------
-!           Compute the gradients over the mesh
-!           -----------------------------------
-!
-!$omp do
-            DO k = 1, SIZE(self%mesh%elements) 
-               CALL ComputeDGGradient( self % mesh % elements(k), self % spA, time )
-            END DO
-!$omp end do 
-!
-!           ----------------------------------
-!           Prolong the gradients to the faces
-!           ----------------------------------
-!
-!$omp do
-            DO k = 1, SIZE(self%mesh%elements) 
-               CALL ProlongGradientToFaces( self % mesh % elements(k), self % spA )
-            END DO
-!$omp end do 
-!
-!           -------------------------
-!           Compute gradient averages
-!           -------------------------
-!
-!openmp inside
-            CALL ComputeGradientAverages( self, time, self % externalGradients  )
-
-         END IF
-
 !
 !        -----------------------
 !        Compute time derivative
