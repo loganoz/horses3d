@@ -3,7 +3,7 @@ module DGViscousDiscretization
 !
 !
    private
-   public   ViscousMethod_t , BassiRebay1_t
+   public   ViscousMethod_t , BassiRebay1_t , ViscousMethod
 !
 !
 !  *****************************
@@ -12,15 +12,16 @@ module DGViscousDiscretization
 !
    type ViscousMethod_t
       contains
-         procedure      :: ComputeGradient      => BaseClass_ComputeGradient
-         procedure      :: ComputeInnerFluxes    => BaseClass_ComputeInnerFluxes
+         procedure      :: ComputeGradient    => BaseClass_ComputeGradient
+         procedure      :: ComputeInnerFluxes => BaseClass_ComputeInnerFluxes
+         procedure      :: RiemannSolver      => BaseClass_RiemannSolver
    end type ViscousMethod_t
 
    type, extends(ViscousMethod_t)   :: BassiRebay1_t
       contains
-         procedure      :: ComputeGradient      => BR1_ComputeGradient
-         procedure      :: ComputeInnerFluxes    => BR1_ComputeInnerFluxes
-
+         procedure      :: ComputeGradient    => BR1_ComputeGradient
+         procedure      :: ComputeInnerFluxes => BR1_ComputeInnerFluxes
+         procedure      :: RiemannSolver      => BR1_RiemannSolver
    end type BassiRebay1_t
 
    type, extends(ViscousMethod_t)   :: InteriorPenalty_t
@@ -30,6 +31,7 @@ module DGViscousDiscretization
    end type InteriorPenalty_t
 !
 !
+   class(ViscousMethod_t), allocatable          :: ViscousMethod
 
 !
 !  ========
@@ -77,6 +79,31 @@ module DGViscousDiscretization
 !        ---------------------------
 !
       end subroutine BaseClass_ComputeInnerFluxes
+
+      subroutine BaseClass_RiemannSolver ( self , QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , nHat , flux )
+         use SMConstants
+         use PhysicsStorage
+         implicit none
+         CLASS(ViscousMethod_t)          :: self
+         REAL(KIND=RP), DIMENSION(N_EQN) :: QLeft 
+         REAL(KIND=RP), DIMENSION(N_EQN) :: QRight 
+         REAL(KIND=RP), DIMENSION(N_EQN) :: U_xLeft 
+         REAL(KIND=RP), DIMENSION(N_EQN) :: U_yLeft 
+         REAL(KIND=RP), DIMENSION(N_EQN) :: U_zLeft 
+         REAL(KIND=RP), DIMENSION(N_EQN) :: U_xRight 
+         REAL(KIND=RP), DIMENSION(N_EQN) :: U_yRight 
+         REAL(KIND=RP), DIMENSION(N_EQN) :: U_zRight 
+         REAL(KIND=RP), DIMENSION(NDIM)  :: nHat
+         REAL(KIND=RP), DIMENSION(N_EQN) :: flux
+!
+!        ---------------------------
+!        The base class does nothing
+!        ---------------------------
+!
+         flux = 0.0_RP
+
+      end subroutine BaseClass_RiemannSolver
+
 !
 !///////////////////////////////////////////////////////////////////////////////////
 !
@@ -89,6 +116,7 @@ module DGViscousDiscretization
          use NodalStorageClass
          use PhysicsStorage
          use Physics
+         use ProlongToFacesProcedures
          implicit none
          class(BassiRebay1_t), intent(in) :: self
          class(HexMesh)                   :: mesh
@@ -136,7 +164,7 @@ module DGViscousDiscretization
 !
 !        Compute the gradients interface averages
 !        ----------------------------------------
-         call ComputeGradientAverages( mesh , spA , time , externalGradientsProcedure )
+!         call ComputeGradientAverages( mesh , spA , time , externalGradientsProcedure )
 
       end subroutine BR1_ComputeGradient
 
@@ -336,6 +364,7 @@ module DGViscousDiscretization
       SUBROUTINE BR1_ComputeElementInterfaceAverage( eL, fIDLeft, eR, fIDRight, N, rotation)
          USE Physics  
          use ElementClass
+         use FaceClass
          IMPLICIT NONE  
 !
 !        ---------
@@ -383,6 +412,7 @@ module DGViscousDiscretization
       SUBROUTINE BR1_computeElementInterfaceGradientAverage( eL, fIDLeft, eR, fIDRight, N, rotation)
          USE Physics  
          use ElementClass
+         use FaceClass
          IMPLICIT NONE  
 !
 !        ---------
@@ -487,6 +517,48 @@ module DGViscousDiscretization
          end do
 
       end subroutine BR1_ComputeInnerFluxes
+
+      subroutine BR1_RiemannSolver ( self , QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , nHat , flux )
+         use SMConstants
+         use PhysicsStorage
+         use Physics
+         implicit none
+         CLASS(BassiRebay1_t)            :: self
+         REAL(KIND=RP), DIMENSION(N_EQN) :: QLeft 
+         REAL(KIND=RP), DIMENSION(N_EQN) :: QRight 
+         REAL(KIND=RP), DIMENSION(N_EQN) :: U_xLeft 
+         REAL(KIND=RP), DIMENSION(N_EQN) :: U_yLeft 
+         REAL(KIND=RP), DIMENSION(N_EQN) :: U_zLeft 
+         REAL(KIND=RP), DIMENSION(N_EQN) :: U_xRight 
+         REAL(KIND=RP), DIMENSION(N_EQN) :: U_yRight 
+         REAL(KIND=RP), DIMENSION(N_EQN) :: U_zRight 
+         REAL(KIND=RP), DIMENSION(NDIM)  :: nHat
+         REAL(KIND=RP), DIMENSION(N_EQN) :: flux
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: Q(NCONS) , U_x(NCONS) , U_y(NCONS) , U_z(NCONS)
+         real(kind=RP)     :: flux_vec(NCONS,NDIM)
+
+!
+!>       Old implementation: 1st average, then compute
+!        ------------------
+         Q = 0.5_RP * ( QLeft + QRight)
+         U_x = 0.5_RP * ( U_xLeft + U_xRight) 
+         U_y = 0.5_RP * ( U_yLeft + U_yRight) 
+         U_z = 0.5_RP * ( U_zLeft + U_zRight) 
+
+         flux_vec = ViscousFlux(Q,U_x,U_y,U_z)
+
+         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
+
+      end subroutine BR1_RiemannSolver
+         
+!
+!        ---------------
+ 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -607,76 +679,6 @@ module DGViscousDiscretization
          
       END SUBROUTINE computeGradientAverages            
 
-      SUBROUTINE ProlongGradientToFaces( e, spA )
-!
-!     -----------------------------------------------------------
-!     For Gauss point approximations, we interpolate to each face
-!     of the element and store the result in the face solution 
-!     array, Qb
-!     -----------------------------------------------------------
-!
-         USE PhysicsStorage
-         USE NodalStorageClass
-         USE ElementClass
-         IMPLICIT NONE
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         TYPE(NodalStorage) :: spA
-         TYPE(Element)      :: e
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         INTEGER :: N, i, j, k, nv
-         
-         N = e % N
-!
-!        --------------
-!        Initialization
-!        --------------
-!  
-         e % U_xb = 0.0_RP
-         e % U_yb = 0.0_RP
-         e % U_zb = 0.0_RP
 
-!
-!        --------------
-!        Left and Right
-!        --------------
-!
-         call InterpolateToBoundary( e % U_x , spA % v(:,LEFT ) , N , IX , e % U_xb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % U_x , spA % v(:,RIGHT) , N , IX , e % U_xb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % U_y , spA % v(:,LEFT ) , N , IX , e % U_yb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % U_y , spA % v(:,RIGHT) , N , IX , e % U_yb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % U_z , spA % v(:,LEFT ) , N , IX , e % U_zb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % U_z , spA % v(:,RIGHT) , N , IX , e % U_zb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
-!
-!        --------------
-!        Front and back
-!        --------------
-!
-         CALL InterpolateToBoundary( e % U_x , spA % v(:,FRONT) , N , IY , e % U_xb(:,:,:,EFRONT ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_x , spA % v(:,BACK)  , N , IY , e % U_xb(:,:,:,EBACK  ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_y , spA % v(:,FRONT) , N , IY , e % U_yb(:,:,:,EFRONT ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_y , spA % v(:,BACK)  , N , IY , e % U_yb(:,:,:,EBACK  ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_z , spA % v(:,FRONT) , N , IY , e % U_zb(:,:,:,EFRONT ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_z , spA % v(:,BACK)  , N , IY , e % U_zb(:,:,:,EBACK  ) , N_GRAD_EQN )
-!
-!        --------------
-!        Bottom and Top
-!        --------------
-!
-         CALL InterpolateToBoundary( e % U_x, spA % v(:,BOTTOM), N, IZ , e % U_xb(:,:,:,EBOTTOM) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_x, spA % v(:,TOP)   , N, IZ , e % U_xb(:,:,:,ETOP)    , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_y, spA % v(:,BOTTOM), N, IZ , e % U_yb(:,:,:,EBOTTOM) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_y, spA % v(:,TOP)   , N, IZ , e % U_yb(:,:,:,ETOP)    , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_z, spA % v(:,BOTTOM), N, IZ , e % U_zb(:,:,:,EBOTTOM) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % U_z, spA % v(:,TOP)   , N, IZ , e % U_zb(:,:,:,ETOP)    , N_GRAD_EQN )                  
-
-      END SUBROUTINE ProlongGradientToFaces   
 
 end module DGViscousDiscretization

@@ -2,8 +2,8 @@ module DGInviscidDiscretization
    use SMConstants
    implicit none
 
-!   private
-!   public   InviscidMethod_t , StandardDG_t 
+   private
+   public   InviscidMethod_t , StandardDG_t , InviscidMethod
 
 
    type InviscidMethod_t
@@ -15,6 +15,8 @@ module DGInviscidDiscretization
       contains
          procedure   :: ComputeInnerFluxes   => StandardDG_ComputeInnerFluxes
    end type StandardDG_t
+
+   class(InviscidMethod_t), allocatable         :: InviscidMethod
 !
 !  ========
    contains

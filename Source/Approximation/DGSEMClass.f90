@@ -220,6 +220,7 @@
 !
       SUBROUTINE ComputeTimeDerivative( self, time )
          USE DGTimeDerivativeMethods
+         USE ProlongToFacesProcedures
          IMPLICIT NONE 
 !
 !        ---------
@@ -310,7 +311,7 @@
 !              Boundary face
 !              -------------
 !
-               CALL computeBoundaryFlux(self % mesh % elements(eIDLeft), fIDLeft, time, self % externalState)
+               CALL computeBoundaryFlux(self % mesh % elements(eIDLeft), fIDLeft, time, self % externalState , self % externalGradients)
                
             ELSE 
 !
@@ -560,7 +561,8 @@
 !        Local variables
 !        ---------------
 !
-         REAL(KIND=RP) :: flux(N_EQN)
+         REAL(KIND=RP) :: inv_flux(N_EQN)
+         REAL(KIND=RP) :: visc_flux(N_EQN)
          INTEGER       :: i,j,ii,jj
                   
          DO j = 0, N
@@ -569,13 +571,98 @@
                CALL RiemannSolver(QLeft  = eL % QB(:,i ,j ,fIDLeft ), &
                                   QRight = eR % QB(:,ii,jj,fIDright), &
                                   nHat   = eL % geom % normal(:,i,j,fIDLeft), &
-                                  flux   = flux)
-               eL % FStarb(:,i ,j,fIDLeft)  =   flux*eL % geom % scal(i ,j,fIDLeft)
-               eR % FStarb(:,ii,jj,fIDright) = -flux*eR % geom % scal(ii,jj,fIdright)
+                                  flux   = inv_flux)
+               CALL ViscousMethod % RiemannSolver( QLeft = eL % QB(:,i,j,fIDLeft) , &
+                                                  QRight = eR % QB(:,ii,jj,fIDright) , &
+                                                  U_xLeft = eL % U_xb(:,i,j,fIDLeft) , &
+                                                  U_yLeft = eL % U_yb(:,i,j,fIDLeft) , &
+                                                  U_zLeft = eL % U_zb(:,i,j,fIDLeft) , &
+                                                  U_xRight = eL % U_xb(:,i,j,fIDRight) , &
+                                                  U_yRight = eL % U_yb(:,i,j,fIDRight) , &
+                                                  U_zRight = eL % U_zb(:,i,j,fIDRight) , &
+                                                    nHat = eL % geom % normal(:,i,j,fIDLeft) , &
+                                                   flux  = visc_flux )
+               eL % FStarb(:,i ,j,fIDLeft)  =   (inv_flux - visc_flux ) * eL % geom % scal(i ,j,fIDLeft)
+               eR % FStarb(:,ii,jj,fIDright) = -(inv_flux - visc_flux ) * eR % geom % scal(ii,jj,fIdright)
             END DO   
          END DO  
          
       END SUBROUTINE computeElementInterfaceFlux
+
+      SUBROUTINE computeBoundaryFlux(elementOnLeft, faceID, time, externalStateProcedure , externalGradientsProcedure )
+      USE ElementClass
+      USE DGViscousDiscretization
+      USE Physics
+      USE BoundaryConditionFunctions
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      TYPE(Element)           :: elementOnLeft
+      INTEGER                 :: faceID
+      REAL(KIND=RP)           :: time
+      EXTERNAL                :: externalStateProcedure
+      EXTERNAL                :: externalGradientsProcedure
+      
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      INTEGER                         :: i, j
+      INTEGER                         :: N
+      REAL(KIND=RP)                   :: bvExt(N_EQN), inv_flux(N_EQN)
+      REAL(KIND=RP)                   :: UGradExt(NDIM , N_GRAD_EQN) , visc_flux(N_EQN)
+      CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
+            
+      N            = elementOnLeft % N
+      boundaryType = elementOnLeft % boundaryType(faceID)
+      
+      DO j = 0, N
+         DO i = 0, N
+!
+!           Inviscid part
+!           -------------
+            bvExt = elementOnLeft % Qb(:,i,j,faceID)
+            CALL externalStateProcedure( elementOnLeft % geom % xb(:,i,j,faceID), &
+                                         time, &
+                                         elementOnLeft % geom % normal(:,i,j,faceID), &
+                                         bvExt,&
+                                         boundaryType )
+            CALL RiemannSolver(QLeft  = elementOnLeft % Qb(:,i,j,faceID), &
+                               QRight = bvExt, &
+                               nHat   = elementOnLeft % geom % normal(:,i,j,faceID), &
+                               flux   = inv_flux)
+!
+!           ViscousPart
+!           -----------
+            if ( flowIsNavierStokes ) then
+            CALL externalGradientsProcedure(  elementOnLeft % geom % xb(:,i,j,faceID), &
+                                              time, &
+                                              elementOnLeft % geom % normal(:,i,j,faceID), &
+                                              UGradExt,&
+                                              boundaryType )
+            CALL ViscousMethod % RiemannSolver( QLeft = elementOnLeft % Qb(:,i,j,faceID) , &
+                                                QRight = bvExt , &
+                                                U_xLeft = elementOnLeft % U_xb(:,i,j,faceID) , &
+                                                U_yLeft = elementOnLeft % U_yb(:,i,j,faceID) , &
+                                                U_zLeft = elementOnLeft % U_zb(:,i,j,faceID) , &
+                                                U_xRight = UGradExt(IX,:) , &
+                                                U_yRight = UGradExt(IY,:) , &
+                                                U_zRight = UGradExt(IZ,:) , &
+                                                   nHat = elementOnLeft % geom % normal(:,i,j,faceID) , &
+                                                flux = visc_flux )
+            else
+               visc_flux = 0.0_RP
+            end if
+
+            elementOnLeft % FStarb(:,i,j,faceID) = (inv_flux - visc_flux)*elementOnLeft % geom % scal(i,j,faceID)
+         END DO   
+      END DO   
+
+      END SUBROUTINE computeBoundaryFlux
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

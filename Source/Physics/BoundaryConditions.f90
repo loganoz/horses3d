@@ -456,48 +456,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE computeBoundaryFlux(elementOnLeft, faceID, time, externalStateProcedure)
-      USE ElementClass
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      TYPE(Element)           :: elementOnLeft
-      INTEGER                 :: faceID
-      REAL(KIND=RP)           :: time
-      EXTERNAL                :: externalStateProcedure
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      INTEGER                         :: i, j
-      INTEGER                         :: N
-      REAL(KIND=RP)                   :: bvExt(N_EQN), flux(N_EQN)
-      CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
-            
-      N            = elementOnLeft % N
-      boundaryType = elementOnLeft % boundaryType(faceID)
-      
-      DO j = 0, N
-         DO i = 0, N
-            bvExt = elementOnLeft % Qb(:,i,j,faceID)
-            CALL externalStateProcedure( elementOnLeft % geom % xb(:,i,j,faceID), &
-                                         time, &
-                                         elementOnLeft % geom % normal(:,i,j,faceID), &
-                                         bvExt,&
-                                         boundaryType )
-            CALL RiemannSolver(QLeft  = elementOnLeft % Qb(:,i,j,faceID), &
-                               QRight = bvExt, &
-                               nHat   = elementOnLeft % geom % normal(:,i,j,faceID), &
-                               flux   = flux)
-            elementOnLeft % FStarb(:,i,j,faceID) = flux*elementOnLeft % geom % scal(i,j,faceID)
-         END DO   
-      END DO   
 
-      END SUBROUTINE computeBoundaryFlux
 
 !     ===========
       END MODULE BoundaryConditionFunctions

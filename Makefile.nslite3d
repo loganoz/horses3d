@@ -25,7 +25,7 @@ OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter
 		Physics BoundaryConditions SharedBCModule\
 		FacePatchClass MappedGeometry TransfiniteMaps3D\
 		FaceClass HexElementClass ZoneClass HexElementConnectivityDefinitions HexMesh MeshTypes NodeClass\
-		DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals\
+		DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals ProlongToFaces\
 		DGSEMClass DGSpaceAndTimeDerivativeMethods NodalStorageClass\
 		PlotterDataSource Headers\
 		ReadInputFile Setup TimeIntegrator ProblemFile\
@@ -63,10 +63,10 @@ HexElementConnectivityDefinitions: SMConstants
 HexMesh: Physics FTValueClass FTMultiIndexTable TransfiniteMaps3D FaceClass MeshTypes SharedBCModule NodeClass HexElementClass Headers HexElementConnectivityDefinitions ZoneClass
 ZoneClass: SMConstants SharedBCModule 
 NodeClass: SMConstants MeshTypes 
-DGSEMClass: DGSpaceAndTimeDerivativeMethods Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants 
+DGSEMClass: DGSpaceAndTimeDerivativeMethods Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants ProlongToFaces
 DGSpaceAndTimeDerivativeMethods: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
 DGInviscidDiscretization: SMConstants HexElementClass NodalStorageClass Physics
-DGViscousDiscretization: SMConstants HexElementClass NodalStorageClass Physics DGWeakIntegrals
+DGViscousDiscretization: SMConstants HexElementClass NodalStorageClass Physics DGWeakIntegrals ProlongToFaces HexMesh
 DGWeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
 TimeIntegrator: Physics Plotter ProblemFile SMConstants DGSEMClass InterpolationAndDerivatives
