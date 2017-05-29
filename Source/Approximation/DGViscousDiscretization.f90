@@ -84,17 +84,17 @@ module DGViscousDiscretization
          use SMConstants
          use PhysicsStorage
          implicit none
-         CLASS(ViscousMethod_t)          :: self
-         REAL(KIND=RP), DIMENSION(N_EQN) :: QLeft 
-         REAL(KIND=RP), DIMENSION(N_EQN) :: QRight 
-         REAL(KIND=RP), DIMENSION(N_EQN) :: U_xLeft 
-         REAL(KIND=RP), DIMENSION(N_EQN) :: U_yLeft 
-         REAL(KIND=RP), DIMENSION(N_EQN) :: U_zLeft 
-         REAL(KIND=RP), DIMENSION(N_EQN) :: U_xRight 
-         REAL(KIND=RP), DIMENSION(N_EQN) :: U_yRight 
-         REAL(KIND=RP), DIMENSION(N_EQN) :: U_zRight 
-         REAL(KIND=RP), DIMENSION(NDIM)  :: nHat
-         REAL(KIND=RP), DIMENSION(N_EQN) :: flux
+         CLASS(ViscousMethod_t)               :: self
+         REAL(KIND=RP), DIMENSION(N_EQN)      :: QLeft
+         REAL(KIND=RP), DIMENSION(N_EQN)      :: QRight
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_xLeft
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_yLeft
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_zLeft
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_xRight
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_yRight
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_zRight
+         REAL(KIND=RP), DIMENSION(NDIM)       :: nHat
+         REAL(KIND=RP), DIMENSION(N_EQN)      :: flux
 !
 !        ---------------------------
 !        The base class does nothing
@@ -161,10 +161,6 @@ module DGViscousDiscretization
             CALL ProlongGradientToFaces( mesh % elements(eID), spA )
 
          end do
-!
-!        Compute the gradients interface averages
-!        ----------------------------------------
-!         call ComputeGradientAverages( mesh , spA , time , externalGradientsProcedure )
 
       end subroutine BR1_ComputeGradient
 
@@ -191,7 +187,11 @@ module DGViscousDiscretization
 !
 !        Perform the weak integral
 !        -------------------------
-         call VectorWeakIntegrals % StdVolumeGreen ( N_GRAD_EQN , e , spA , -U , e % U_x , e % U_y , e % U_z )
+         call VectorWeakIntegrals % StdVolumeGreen ( N_GRAD_EQN , e , spA , U , e % U_x , e % U_y , e % U_z )
+
+         e % U_x = -e % U_x
+         e % U_y = -e % U_y
+         e % U_z = -e % U_z
 
       end subroutine BR1_GradientVolumeLoop
 
@@ -350,9 +350,9 @@ module DGViscousDiscretization
                fIDRight =   mesh % faces(faceID) % elementSide(2)
                
                CALL BR1_ComputeElementInterfaceAverage(eL =  mesh % elements(eIDLeft) ,fIDLeft  = fIDLeft, &
-                                                   eR =  mesh % elements(eIDRight),fIDRight = fIDright,&
-                                                   N  = N,                                             &
-                                             rotation =  mesh % faces(faceID) % rotation)
+                                                       eR =  mesh % elements(eIDRight),fIDRight = fIDright,&
+                                                       N  = N,                                             &
+                                                 rotation =  mesh % faces(faceID) % rotation)
 
             END IF 
 
@@ -399,84 +399,11 @@ module DGViscousDiscretization
                
                eL % Ub ( : , i  , j  , fIDLeft  ) = d
                eR % Ub ( : , ii , jj , fIDright ) = d
-                                  
-! TODO: Okay, so I have just removed the solution average
-!               eL % QB(:,i,j,fIDLeft)    = 0.5_RP * ( eL % QB(:,i,j,fIDLeft) + eR % QB(:,ii,jj,fIDright) )
-!               eR % QB(:,ii,jj,fIDright) = eL % QB(:,i,j,fIDLeft)
                
             END DO   
          END DO
          
       END SUBROUTINE BR1_ComputeElementInterfaceAverage   
-
-      SUBROUTINE BR1_computeElementInterfaceGradientAverage( eL, fIDLeft, eR, fIDRight, N, rotation)
-         USE Physics  
-         use ElementClass
-         use FaceClass
-         IMPLICIT NONE  
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         TYPE(Element) :: eL, eR
-         INTEGER       :: fIDLeft, fIdright
-         INTEGER       :: rotation
-         INTEGER       :: N
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         REAL(KIND=RP) :: d(N_GRAD_EQN)
-         INTEGER       :: i,j,ii,jj
-         
-         
-         DO j = 0, N
-            DO i = 0, N
-               CALL iijjIndexes(i,j,N,rotation,ii,jj)                    ! This turns according to the rotation of the elements
-!
-!                 --------
-!                 x values
-!                 --------
-!
-               UL = eL % U_xb(:,i,j,fIDLeft)
-               UR = eR % U_xb(:,ii,jj,fIDright)
-
-               d = 0.5_RP*(UL + UR)
-               
-               eL % U_xb(:,i,j,fIDLeft) = d
-               eR % U_xb(:,ii,jj,fIDright) = d
-!
-!                 --------
-!                 y values
-!                 --------
-!
-               UL = eL % U_yb(:,i,j,fIDLeft)
-               UR = eR % U_yb(:,ii,jj,fIDright)
-
-               d = 0.5_RP*(UL + UR)
-               
-               eL % U_yb(:,i,j,fIDLeft) = d
-               eR % U_yb(:,ii,jj,fIDright) = d
-!
-!                 --------
-!                 z values
-!                 --------
-!
-               UL = eL % U_zb(:,i,j,fIDLeft)
-               UR = eR % U_zb(:,ii,jj,fIDright)
-
-               d = 0.5_RP*(UL + UR)
-               
-               eL % U_zb(:,i,j,fIDLeft) = d
-               eR % U_zb(:,ii,jj,fIDright) = d
-               
-            END DO   
-         END DO
-         
-      END SUBROUTINE BR1_computeElementInterfaceGradientAverage      
 
       subroutine BR1_ComputeInnerFluxes( self , e , spA , contravariantFlux )
          use ElementClass
@@ -523,23 +450,23 @@ module DGViscousDiscretization
          use PhysicsStorage
          use Physics
          implicit none
-         CLASS(BassiRebay1_t)            :: self
-         REAL(KIND=RP), DIMENSION(N_EQN) :: QLeft 
-         REAL(KIND=RP), DIMENSION(N_EQN) :: QRight 
-         REAL(KIND=RP), DIMENSION(N_EQN) :: U_xLeft 
-         REAL(KIND=RP), DIMENSION(N_EQN) :: U_yLeft 
-         REAL(KIND=RP), DIMENSION(N_EQN) :: U_zLeft 
-         REAL(KIND=RP), DIMENSION(N_EQN) :: U_xRight 
-         REAL(KIND=RP), DIMENSION(N_EQN) :: U_yRight 
-         REAL(KIND=RP), DIMENSION(N_EQN) :: U_zRight 
-         REAL(KIND=RP), DIMENSION(NDIM)  :: nHat
-         REAL(KIND=RP), DIMENSION(N_EQN) :: flux
+         CLASS(BassiRebay1_t)                 :: self
+         REAL(KIND=RP), DIMENSION(N_EQN)      :: QLeft
+         REAL(KIND=RP), DIMENSION(N_EQN)      :: QRight
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_xLeft
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_yLeft
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_zLeft
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_xRight
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_yRight
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_zRight
+         REAL(KIND=RP), DIMENSION(NDIM)       :: nHat
+         REAL(KIND=RP), DIMENSION(N_EQN)      :: flux
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: Q(NCONS) , U_x(NCONS) , U_y(NCONS) , U_z(NCONS)
+         real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
          real(kind=RP)     :: flux_vec(NCONS,NDIM)
 
 !
@@ -555,130 +482,5 @@ module DGViscousDiscretization
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 
       end subroutine BR1_RiemannSolver
-         
-!
-!        ---------------
- 
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!           AUXILIAR PROCEDURES
-!           -------------------
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ComputeGradientAverages( mesh , spA , time, externalGradientsProcedure )
-         USE Physics
-         USE BoundaryConditionFunctions
-         use HexMeshClass
-         IMPLICIT NONE 
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         class(HexMesh)                  :: mesh
-         class(NodalStorage), intent(in) :: spA
-         REAL(KIND=RP)                   :: time
-         
-         EXTERNAL      :: externalGradientsProcedure
-!
-!        ---------------
-!        Local Variables
-!        ---------------
-!
-         INTEGER       :: faceID
-         INTEGER       :: eIDLeft, eIDRight
-         INTEGER       :: fIDLeft, fIDright
-         INTEGER       :: N
-
-         REAL(KIND=RP) :: UGradExt(3,N_GRAD_EQN)
-         REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)    
-         
-         INTEGER       :: i, j
-        
-         N =  spA % N
-!$omp do         
-         DO faceID = 1, SIZE(  mesh % faces)
-
-            eIDLeft  =  mesh % faces(faceID) % elementIDs(1) 
-            eIDRight =  mesh % faces(faceID) % elementIDs(2)
-            fIDLeft  =  mesh % faces(faceID) % elementSide(1)
-
-            IF ( eIDRight == HMESH_NONE )     THEN
-!
-!              -------------
-!              Boundary face
-!              -------------
-!
-               DO j = 0, N
-                  DO i = 0, N
-                  
-                     UGradExt(1,:) =  mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft)
-                     UGradExt(2,:) =  mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
-                     UGradExt(3,:) =  mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
-                     
-                     CALL externalGradientsProcedure(  mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
-                                                  time, &
-                                                   mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
-                                                  UGradExt,&
-                                                   mesh % elements(eIDLeft) % boundaryType(fIDLeft) )
-!
-!                 --------
-!                 x values
-!                 --------
-!
-                     UL =  mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft)
-                     UR = UGradExt(1,:)
-
-                     d = 0.5_RP*(UL + UR)
-
-                      mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft) = d
-!
-!                 --------
-!                 y values
-!                 --------
-!
-                     UL =  mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
-                     UR = UGradExt(2,:)
-
-                     d = 0.5_RP*(UL + UR)
-
-                      mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft) = d
-!
-!                 --------
-!                 z values
-!                 --------
-!
-                     UL =  mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
-                     UR = UGradExt(3,:)
-
-                     d = 0.5_RP*(UL + UR)
-
-                      mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft) = d
-
-                  END DO   
-               END DO   
-            
-            ELSE 
-!
-!              -------------
-!              Interior face
-!              -------------
-!
-               fIDRight =   mesh % faces(faceID) % elementSide(2)
-               
-               CALL BR1_computeElementInterfaceGradientAverage(eL =  mesh % elements(eIDLeft) ,fIDLeft  = fIDLeft, &
-                                                eR =  mesh % elements(eIDRight),fIDRight = fIDright,&
-                                                N  = N,                                                   &
-                                                rotation =  mesh % faces(faceID) % rotation)
-            END IF 
-
-         END DO           
-!$omp enddo         
-         
-      END SUBROUTINE computeGradientAverages            
-
-
 
 end module DGViscousDiscretization

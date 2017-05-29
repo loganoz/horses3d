@@ -242,12 +242,12 @@
 !        Prolongation of the solution to the faces
 !        -----------------------------------------
 !
-!$omp parallel
-!$omp do
+!$!omp parallel
+!$!omp do
          DO k = 1, SIZE(self % mesh % elements) 
             CALL ProlongToFaces( self % mesh % elements(k), self % spA )
          END DO
-!$omp end do
+!$!omp end do
 !
 !        -----------------
 !        Compute gradients
@@ -256,6 +256,12 @@
          if ( flowIsNavierStokes ) then
             CALL DGSpatial_ComputeGradient( self % mesh , self % spA , time , self % externalState , self % externalGradients )
          end if
+open(40 , file = "Gradients.txt" , action = "write" , status = "unknown" ) 
+do k = 1 , size(self % mesh % elements)
+write(40 , *) maxval(abs(self % mesh % elements(k) % U_x)) , maxval(abs(self % mesh % elements(k) % U_y)) , maxval(abs(self % mesh % elements(k) % U_z))
+end do
+close(40)
+stop
 !
 !        -------------------------------------------------------
 !        Inviscid Riemann fluxes from the solutions on the faces
@@ -268,7 +274,7 @@
 !        Compute time derivative
 !        -----------------------
 !
-!$omp end parallel
+!$!omp end parallel
 ! TODO: openmp bug if used
          call TimeDerivative_ComputeQDot( self % mesh , self % spA , time )
 !
@@ -400,11 +406,11 @@
 !              Solution averages
 !              -----------------
 !
-                     CALL DiffusionRiemannSolution( self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
-                                                    self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft), &
-                                                    bvExt, &
-                                                    self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft) )
-                                                    
+!                     CALL DiffusionRiemannSolution( self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
+!                                                    self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft), &
+!                                                    bvExt, &
+!                                                    self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft) )
+!                                                    
                      !self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft)    = &
                      !& 0.5_RP*( self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft) + bvExt )
 
@@ -639,6 +645,10 @@
 !           ViscousPart
 !           -----------
             if ( flowIsNavierStokes ) then
+
+            UGradExt(1,:) = elementOnLeft % U_xb(:,i,j,faceID)
+            UGradExt(2,:) = elementOnLeft % U_yb(:,i,j,faceID)
+            UGradExt(3,:) = elementOnLeft % U_zb(:,i,j,faceID)
             CALL externalGradientsProcedure(  elementOnLeft % geom % xb(:,i,j,faceID), &
                                               time, &
                                               elementOnLeft % geom % normal(:,i,j,faceID), &

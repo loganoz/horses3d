@@ -1253,9 +1253,9 @@
       pure function ViscousFlux0D( Q , U_x , U_y , U_z ) result (F)
          implicit none
          real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN     ) 
          real(kind=RP)                    :: F    ( 1:NCONS , 1:NDIM )
 !
 !        ---------------
@@ -1300,9 +1300,9 @@
          implicit none
          integer          , intent ( in ) :: N
          real ( kind=RP ) , intent ( in ) :: Q    ( 0:N , 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_x  ( 0:N , 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_y  ( 0:N , 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_z  ( 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 0:N , 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 0:N , 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 0:N , 1:N_GRAD_EQN     ) 
          real(kind=RP)                    :: F    ( 0:N , 1:NCONS , 1:NDIM )
 !
 !        ---------------
@@ -1357,9 +1357,9 @@
          implicit none
          integer          , intent ( in ) :: N
          real ( kind=RP ) , intent ( in ) :: Q    ( 0:N , 0:N , 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_x  ( 0:N , 0:N , 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_y  ( 0:N , 0:N , 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_z  ( 0:N , 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 0:N , 0:N , 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 0:N , 0:N , 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 0:N , 0:N , 1:N_GRAD_EQN     ) 
          real(kind=RP)                    :: F    ( 0:N , 0:N , 1:NCONS , 1:NDIM )
 !
 !        ---------------
@@ -1413,9 +1413,9 @@
          implicit none
          integer          , intent ( in ) :: N
          real ( kind=RP ) , intent ( in ) :: Q    ( 0:N , 0:N , 0:N , 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_x  ( 0:N , 0:N , 0:N , 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_y  ( 0:N , 0:N , 0:N , 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_z  ( 0:N , 0:N , 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 0:N , 0:N , 0:N , 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 0:N , 0:N , 0:N , 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 0:N , 0:N , 0:N , 1:N_GRAD_EQN     ) 
          real ( kind=RP )                 :: F    ( 0:N , 0:N , 0:N , 1:NCONS , 1:NDIM )
 !
 !        ---------------
