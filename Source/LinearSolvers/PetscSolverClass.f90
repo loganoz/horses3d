@@ -352,9 +352,11 @@ MODULE PetscSolverClass
 #endif
    END SUBROUTINE SetBValue
 !/////////////////////////////////////////////////////////////////////////////////////////////////     
-   SUBROUTINE AssemblyA(this)
+   SUBROUTINE AssemblyA(this,BlockIdx,BlockSize)
       IMPLICIT NONE
-      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
+      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)   :: this
+      INTEGER, TARGET, OPTIONAL    ,     INTENT(IN)      :: BlockIdx(:)
+      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockSize(:)
 #ifdef HAS_PETSC
       PetscErrorCode                                     :: ierr
  
@@ -367,7 +369,7 @@ MODULE PetscSolverClass
 !//////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE AssemblyB(this)
       IMPLICIT NONE
-      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
+      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)   :: this
 #ifdef HAS_PETSC
       PetscErrorCode                                     :: ierr
       

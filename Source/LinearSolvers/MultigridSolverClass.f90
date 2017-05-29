@@ -6,6 +6,8 @@
 !
 !      Class for solving a linear system obtained from a DGSEM discretization using p-Multigrid
 !
+!        çThis class is not finished yet!!!!
+!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE MultigridSolverClass
    USE GenericLinSolverClass
@@ -14,7 +16,6 @@ MODULE MultigridSolverClass
    USE PhysicsStorage
    USE PetscSolverClass   ! For allocating Jacobian matrix
    
-   ! To be moved to other module?
    USE PolynomialInterpAndDerivsModule
    USE GaussQuadrature
    IMPLICIT NONE
@@ -39,7 +40,8 @@ MODULE MultigridSolverClass
       TYPE(DGSem)            , POINTER           :: p_sem                              ! Pointer to DGSem class variable of current system
       
       ! Variables that are specially needed for Multigrid
-      TYPE(MultigridSolver_t), POINTER           :: Child                 ! Next (coarser) multigrid solver
+      TYPE(MultigridSolver_t), POINTER           :: Child                 ! Next coarser multigrid solver
+      TYPE(MultigridSolver_t), POINTER           :: Parent                ! Next finer multigrid solver
       INTEGER                                    :: MGlevel               ! Current Multigrid level
 !~       INTEGER                    , ALLOCATABLE   :: OrderList(:,:,:)      ! List containing the polynomial orders of all elements in current solver (not needed now.. Maybe when using p-adaptation)
       TYPE(Interpolator_t)       , ALLOCATABLE   :: Restriction(:,:,:)    ! Restriction operators (element level)
@@ -149,10 +151,10 @@ CONTAINS
 !
    RECURSIVE SUBROUTINE RecursiveConstructor(Solver, N1x, N1y, N1z, lvl, controlVariables)
       IMPLICIT NONE
-      TYPE(MultigridSolver_t)   :: Solver
-      INTEGER, DIMENSION(:)     :: N1x,N1y,N1z      !<  Order of approximation for every element in current solver
-      INTEGER                   :: lvl              !<  Current multigrid level
-      TYPE(FTValueDictionary)   :: controlVariables !< Control variables (for the construction of coarse sems
+      TYPE(MultigridSolver_t), TARGET  :: Solver
+      INTEGER, DIMENSION(:)            :: N1x,N1y,N1z      !<  Order of approximation for every element in current solver
+      INTEGER                          :: lvl              !<  Current multigrid level
+      TYPE(FTValueDictionary)          :: controlVariables !< Control variables (for the construction of coarse sems
       !----------------------------------------------
       INTEGER                   :: DimPrb                 !   Dimension of problem for child solver
       INTEGER, DIMENSION(nelem) :: N2x,N2y,N2z            !   Order of approximation for every element in child solver
@@ -170,6 +172,7 @@ CONTAINS
       IF (lvl > 1) THEN
          ALLOCATE  (Solver % Child)
          Child_p => Solver % Child
+         Solver % Child % Parent => Solver
 !
 !        -----------------------------------------------
 !        Allocate restriction and prolongation operators
@@ -245,7 +248,7 @@ CONTAINS
       LOGICAL, SAVE                            :: isfirst = .TRUE.
       !-----------------------------------------------------------
       
-      
+      this % AIsPetsc = .TRUE.
       IF (this % AIsPetsc) THEN
          CALL this % PetscSolver % PreallocateA(nnz)
       ELSE
@@ -297,16 +300,18 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE AssemblyA(this)         
+   SUBROUTINE AssemblyA(this,BlockIdx,BlockSize)         
       IMPLICIT NONE
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      CLASS(MultigridSolver_t) , INTENT(INOUT) :: this
+      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockIdx(:)
+      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockSize(:)
       !-----------------------------------------------------------
       
       IF (this % AIsPetsc) THEN
          CALL this % PetscSolver % AssemblyA
          CALL this % PetscSolver % GetCSRMatrix(this % A)
-         CALL this % PetscSolver % destroy
+!~          CALL this % PetscSolver % destroy
          this % AIsPetsc = .FALSE.
       ELSE
          print*, 'A is assembled'
@@ -378,6 +383,8 @@ CONTAINS
       DO i=1, this % DimPrb
          this % x(i) = this % b(i) / this % A % Values(this%A%Diag(i))
       END DO
+      
+      STOP 'incomplete solver'
       
       CALL this % WeightedJacobiSmoother( this%A%Values(this%A%Diag), maxiter, tol, this % niter)
       
@@ -622,7 +629,7 @@ CONTAINS
          
          IF (PRESENT(tol)) THEN
             rnorm = NORM2(r)       ! Saves relative tolerance (one iteration behind)
-!~            print*, i, rnorm
+            print*, i, rnorm
             read(*,*)
             IF (rnorm < endtol) THEN
                this % rnorm = rnorm
@@ -753,20 +760,45 @@ CONTAINS
    END SUBROUTINE CreateInterpolationOperators
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-! TODO: Remove this from here... The implementation is in Interpolation module
-   SUBROUTINE Interpolate1Eqn(Q1, Q2, Interp, N1x, N1y, N1z, N2x, N2y, N2z)
+!
+!!
+!!    This function interpolates a vector U1 of the solution to the lower level (can be used for restriction or prolongation)
+!!
+!!    CALL: U2 = this % InterpolateSol(Prolongation(Nx(iEL),Ny(iEL),Nz(iEL)),U1)
+!!          
+   FUNCTION InterpolateSol(this,Interp,U1) RESULT(U2)
       IMPLICIT NONE
-      INTEGER        :: N1x, N1y, N1z
-      INTEGER        :: N2x, N2y, N2z                      !<  Polynomial orders
-      REAL(KIND=RP)  :: Q1((N1x+1)*(N1y+1)*(N1z+1))        !<  Solution to be interpolated (grid (1))
-      REAL(KIND=RP)  :: Q2((N2x+1)*(N2y+1)*(N2z+1))        !>  Interpolated solution       (grid (2))
-      REAL(KIND=RP)  :: Interp((N2x+1)*(N2y+1)*(N2z+1), & 
-                               (N1x+1)*(N1y+1)*(N1z+1))    !<  Interpolation matrix
-                               
-      Q2 = MATMUL(Interp,Q1)
-   END SUBROUTINE Interpolate1Eqn
+      !--------------------------------------------------------------
+      CLASS(MultigridSolver_t), TARGET, INTENT(INOUT) :: this  !<  Iterative solver class
+      REAL(KIND=RP)                                   :: Interp(:,:)
+      REAL(KIND=RP)           , TARGET, INTENT(IN)    :: U1(:) ! Vector to be projected
+      REAL(KIND=RP)           , TARGET                :: U2(SIZE(Interp,1)) ! Projected vector
+      !--------------------------------------------------------------
+      REAL(KIND=RP), POINTER :: U1_p(:)               ! U1 pointer
+      REAL(KIND=RP), POINTER :: U2_p(:)               ! U2 pointer
+      INTEGER      , POINTER :: N1x(:),N1y(:),N1z(:)  ! Pointers to element orders of (1)
+      INTEGER      , POINTER :: N2x(:),N2y(:),N2z(:)  ! Pointers to element orders of (2)
+      INTEGER                :: iEQ       ! Equation counter
+      INTEGER                :: Idx1      ! First index of the solution of this element ( - 1)
+      !--------------------------------------------------------------
+      
+      Idx1 = 0
+      
+      DO iEQ = 1, N_EQN
+!~             U1_p => U1(Idx1+iEq::N_EQN)
+!~             U2_p => U2()
+         
+         U2_p = MATMUL(Interp,U1_p)
+         
+      END DO
 !
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!     ------------
+!     Clean memory
+!     ------------
 !
+      NULLIFY(U1_p,U2_p,N1x,N1y,N1z,N2x,N2y,N2z)
+      
+   END FUNCTION InterpolateSol
    
+   !SUBROUTINE InterpolateJac
 END MODULE MultigridSolverClass

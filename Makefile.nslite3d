@@ -47,7 +47,7 @@ endif
 #MKL
 ifeq '$(WITH_MKL)''y'
 	ifeq '$(FC)''gfortran'
-		MACROS+= -DHAS_MKL
+		MACROS+= -DHAS_MKL -DHAS_LAPACK
   	LIBS += $(LIB_BLAS) $(LIB_LAPACK)
   else #ifort
   	MACROS+= -DHAS_MKL
@@ -71,7 +71,7 @@ OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter
 		ReadInputFile Setup TimeIntegrator ProblemFile\
 		NSLite3DMain ConnectivityClass Jacobian\
 		CSR_Matrices pAdaptationClass\
-		ManufacturedSolutions\
+		ManufacturedSolutions DenseMatUtilities\
 		Implicit_JF JFNKClass GMRESClass\
 		Implicit_NJ ColorsClass\
 		PetscSolverClass GenericLinSolverClass MKLPardisoSolverClass\
@@ -119,6 +119,7 @@ Jacobian: SMConstants DGSEMClass Physics
 ColorsClass: DGSEMClass
 CSR_Matrices: SMConstants
 ManufacturedSolutions: Physics SMConstants
+DenseMatUtilities: SMConstants
 #Implicit solvers
 Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
 JFNKClass: SMConstants GMRESClass
@@ -129,7 +130,7 @@ LinearSolverClass: MKLPardisoSolverClass PetscSolverClass IterativeSolverClass M
 
 MKLPardisoSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass
 PetscSolverClass: CSR_Matrices GenericLinSolverClass SMConstants
-IterativeSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass
+IterativeSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass DenseMatUtilities
 MultigridSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass InterpolationAndDerivatives LegendreAlgorithms Physics
 
 GenericLinSolverClass: SMConstants CSR_Matrices DGSEMClass FTValueDictionaryClass

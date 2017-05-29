@@ -135,7 +135,7 @@
       SUBROUTINE Integrate( self, sem, controlVariables)
       
       USE Implicit_JF , ONLY : TakeBDFStep_JF
-       USE Implicit_NJ , ONLY : TakeBDFStep_NJ
+      USE Implicit_NJ , ONLY : TakeBDFStep_NJ
       IMPLICIT NONE
 !
 !     ---------
@@ -182,7 +182,12 @@
 !      
       mNumber = 0
       t = self % time
-      
+!
+!     ----------------
+!     Compute residual
+!     ----------------
+!
+      sem % MaxResidual = 1.e-3_RP !initializing to this value for implicit solvers (Newton tolerance is computed according to this)
       DO k = 0, self % numTimeSteps-1
       
          IF ( self % Compute_dt ) self % dt = MaxTimeStep( sem, self % cfl )
@@ -204,8 +209,8 @@
             CALL self % RKStep ( sem, t, self % dt, maxResidual )
          END IF
          
-         t = t + self % dt                    !arueda: changed since time step does not have to be constant!
-         
+         t = t + self % dt
+         sem % maxResidual       = maxval(maxResidual)
          IF (self % integratorType == STEADY_STATE) THEN
             IF (maxval(maxResidual) <= self % tolerance )  THEN
               CALL PlotResiduals(k+1 , t , maxResidual)

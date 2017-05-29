@@ -56,8 +56,9 @@ MODULE Implicit_NJ
       REAL(KIND=RP)                                         :: ConvRate
       REAL(KIND=RP)                                         :: inner_dt
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE              :: U_n                                   !Solution at the beginning of time step (even for inner time steps)
-      LOGICAL                                               :: PRINT_NEWTON_INFO = .TRUE., CONVERGED
+      LOGICAL                                               :: PRINT_NEWTON_INFO, CONVERGED
       LOGICAL                                               :: JacByConv                               ! 
+      LOGICAL                                               :: TimeAccurate = .FALSE., UserNewtonTol = .FALSE.
       ! Not used variables?
       CHARACTER(LEN=15)                                     :: filename
       REAL(KIND=RP)                                         :: ctime
@@ -65,16 +66,15 @@ MODULE Implicit_NJ
       !NEWTON PARAMETERS, TODO: this should be defined in a better place
       REAL(KIND=RP)  :: minrate = 0.5_RP              ! If newton convergence rate lower this value,  newton loop stops and inner_dt is reduced  
       REAL(KIND=RP)  :: maxrate = 1.7_RP              ! If newton loop convergence rate passes this value, inner_dt is increased
-      REAL(KIND=RP)  :: NEWTON_TOLERANCE = 1e-6_RP    ! newton iter tolerance relative to the first iter norm 
+      REAL(KIND=RP)  :: NEWTON_TOLERANCE =1.e-6_RP    ! newton iter tolerance relative to the first iter norm !=1.e-6_RP
       INTEGER        :: MAX_NEWTON_ITER = 30          ! If newton iter reachs this limit, this iteration is marked as  not converged 
       INTEGER        :: LIM_NEWTON_ITER = 12          ! If Newton converges but this limit is reached, jacobian matrix will be recomputed
       
       
       
-      SAVE isfirst, computeA, ninner, JacByConv
-      SAVE u_N, DimPrb, nelm, linsolver
+      SAVE isfirst, computeA, ninner, JacByConv, PRINT_NEWTON_INFO
+      SAVE u_N, DimPrb, nelm, linsolver, TimeAccurate, UserNewtonTol
       
-
       IF (isfirst) THEN           
          isfirst = .FALSE.
          
@@ -94,6 +94,8 @@ MODULE Implicit_NJ
                ALLOCATE (PetscKspLinearSolver_t :: linsolver)
          END SELECT
          
+         PRINT_NEWTON_INFO = controlVariables % logicalValueForKey("print newton info")
+         
          nelm = SIZE(sem%mesh%elements)
          
          DimPrb = sem % NDOF
@@ -105,7 +107,18 @@ MODULE Implicit_NJ
          !CALL ecolors%info
          CALL linsolver%construct(DimPrb,controlVariables,sem)             !Constructs linear solver 
          JacByConv = controlVariables % LogicalValueForKey("jacobian by convergence")
+         
+         IF (controlVariables % StringValueForKey("time integration",LINE_LENGTH) == 'time-accurate') TimeAccurate = .TRUE.
+         
+         IF (controlVariables % containsKey("newton tolerance")) THEN
+            UserNewtonTol = .TRUE.
+            NEWTON_TOLERANCE = controlVariables % doublePrecisionValueForKey("newton tolerance")
+         END IF
       ENDIF
+      
+      IF (.NOT. TimeAccurate .AND. .NOT. UserNewtonTol) THEN
+         NEWTON_TOLERANCE = sem % MaxResidual* 1e-3_RP
+      END IF
       
       inner_dt = dt            ! first inner_dt is the outer step dt     !arueda: out of isfirst for solving time-accurate problems
       time = t
@@ -183,13 +196,13 @@ MODULE Implicit_NJ
       END DO
  
       IF (PRINT_NEWTON_INFO) WRITE(*,'(A10,f5.2)') "ConvRate: ", ConvRate
-      WRITE(*,'(A11,1p,e8.2,A11,1p,e8.2)') "Outer DT = ", dt, "  Inner DT = ", inner_dt
+      !WRITE(*,'(A11,1p,e8.2,A11,1p,e8.2)') "Outer DT = ", dt, "  Inner DT = ", inner_dt
       
       !**************************
       ! for computing sometimes
       IF (JacByConv .AND. ConvRate <0.65_RP .AND. newtonit .LT. LIM_NEWTON_ITER) THEN
-         computeA = .TRUE.  !last condition cause' if that's true, the Jacobian was just computed
-         computeA = linsolver % ComputeANextStep()
+         computeA = .TRUE.
+         !computeA = linsolver % ComputeANextStep()
       END IF
       ! for computing sometimes
       !**************************
@@ -205,6 +218,8 @@ MODULE Implicit_NJ
             maxResidual(eq) = MAX(maxResidual(eq),localMaxResidual(eq))
          END DO
       END DO
+      
+!~       IF (MAXVAL(maxResidual) > sem % maxResidual) computeA = .TRUE.
       
    END SUBROUTINE TakeBDFStep_NJ
 !
@@ -238,18 +253,26 @@ MODULE Implicit_NJ
 !     Internal variables
 !     ------------------
 ! 
-      INTEGER                                               :: cli, clf, clrate           
+      INTEGER(8)                                               :: cli, clf, clrate           
       INTEGER                                               :: newtonit
       REAL(KIND=RP)                                         :: norm, norm_old, rel_tol, norm1
-      LOGICAL                                               :: STRICT_NEWTON = .TRUE.
+!~       LOGICAL, SAVE :: isfirst = .TRUE.
+!~       SAVE norm1
       
-      norm = 1.0_RP
+!~       IF (isfirst) THEN
+         norm = 1.0_RP
+!~          isfirst = .FALSE.
+!~       ELSE
+!~          norm = norm1
+!~       END IF
       norm_old = -1.0_RP  !Must be initialized to -1 to avoid bad things in the first newton iter
       ConvRate = 1.0_RP
    
       IF (INFO) THEN
          PRINT*, "Newton it     Newton abs_err   Newton rel_err   LinSolverErr   # ksp iter   Iter wall time (s)"
       END IF
+      
+      CALL SYSTEM_CLOCK(COUNT_RATE=clrate)
       
       DO newtonit = 1, MAX_NEWTON_ITER                                 !NEWTON LOOP
          
@@ -260,16 +283,17 @@ MODULE Implicit_NJ
             CALL ComputeTimeDerivative( sem, t )
          END IF
          
-         CALL SYSTEM_CLOCK(COUNT=cli, COUNT_RATE=clrate)         
          CALL ComputeRHS(sem, dt, U_n, nelm, linsolver )               ! Computes b (RHS) and stores it into linsolver
-         CALL linsolver%solve(tol=norm*1.e-3_RP, maxiter=1000, time= t, dt=dt)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
+         CALL SYSTEM_CLOCK(COUNT=cli)
+         CALL linsolver%solve(tol=norm*1.e-3_RP, maxiter=500, time= t, dt=dt)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
+         CALL SYSTEM_CLOCK(COUNT=clf)
          IF (.NOT. linsolver%converged) THEN                           ! If linsolver did not converge, return converged=false
             converged = .FALSE.
             RETURN
          ENDIF
          CALL UpdateNewtonSol(sem, nelm, linsolver)                    ! Q_r+1 = Q_r + x
-         CALL SYSTEM_CLOCK(COUNT=clf)
-         norm = linsolver%Getxnorm('infinity')
+         
+         norm = linsolver%Getxnorm('l2')
 
          IF (norm_old .NE. -1.0_RP) THEN
             ConvRate = ConvRate + (LOG10(norm_old/norm)-ConvRate)/newtonit 
@@ -281,11 +305,12 @@ MODULE Implicit_NJ
             rel_tol = norm1 * NEWTON_TOLERANCE
          ENDIF
          IF (INFO) THEN
-            WRITE(*, "(I8,1p,E18.3,E18.3,E15.3,I10,f18.5)"),newtonit, norm, norm/norm1, linsolver%Getrnorm(),&
-                                                      linsolver%niter,(clf-cli)/real(clrate)   
+            WRITE(*, "(I8,1p,E18.3,E18.3,E15.3,I10,F18.5)"),newtonit, norm, norm/norm1, linsolver%Getrnorm(),&
+                                                      linsolver%niter,0.1_RP*(clf-cli)/real(clrate,RP)  !!!! I have NO IDEA why I have to multiply by 0.1!!!
          ENDIF
          
-         IF (ConvRate < minrate .OR. newtonit == MAX_NEWTON_ITER) THEN
+         IF (ConvRate < minrate .OR. newtonit == MAX_NEWTON_ITER .OR. ISNAN(norm)) THEN
+            IF (INFO) print*, 'ConvRate: ', ConvRate
             converged = .FALSE.
             RETURN
          ENDIF
@@ -335,7 +360,7 @@ MODULE Implicit_NJ
             END DO
          END DO
       END DO
-      CALL linsolver%AssemblyB     ! b must be assembled before using them
+      CALL linsolver%AssemblyB     ! b must be assembled before using
    END SUBROUTINE ComputeRHS
 !//////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE UpdateNewtonSol(sem, nelm, linsolver)
@@ -432,8 +457,8 @@ MODULE Implicit_NJ
       INTEGER                                            :: thisdof, elmnbr, nbrnbr                ! specific counters
       INTEGER, ALLOCATABLE, DIMENSION(:), SAVE           :: used                                   ! array containing index of elements whose contributions to Jacobian has already been considered
       INTEGER                                            :: usedctr                                ! counter to fill positions of used
-      INTEGER                                            :: ielm, felm, nnz, ndof                      
-      
+      INTEGER                                            :: ielm, felm, ndof                      
+      INTEGER, SAVE                                      :: nnz
       INTEGER                           , SAVE           :: maxndofel
       INTEGER, ALLOCATABLE, DIMENSION(:), SAVE           :: ndofelm, firstIdx                      ! Number of degrees of freedom and relative position in Jacobian for each element 
       INTEGER, ALLOCATABLE, DIMENSION(:), SAVE           :: Nx, Ny, Nz                             ! Polynomial orders
@@ -454,14 +479,13 @@ MODULE Implicit_NJ
       LOGICAL, SAVE                                      :: isfirst = .TRUE.
             
       CALL SYSTEM_CLOCK(cli,clrate)
-      
 !
 !     --------------------------------------------------------------------
 !     Initialize variables that will be used throughout all the simulation
 !     --------------------------------------------------------------------
 !
       IF (isfirst) THEN
-         ALLOCATE(ndofelm(nelm), firstIdx(nelm))
+         ALLOCATE(ndofelm(nelm), firstIdx(nelm+1))
          ALLOCATE(Nx(nelm), Ny(nelm), Nz(nelm))
          ALLOCATE(dgs_clean(nelm))
          firstIdx = 0
@@ -483,6 +507,8 @@ MODULE Implicit_NJ
 !
             CALL allocateElementStorage( dgs_clean(i), Nx(i), Ny(i), Nz(i), N_EQN, N_GRAD_EQN, flowIsNavierStokes )
          END DO
+         firstIdx(nelm+1) = firstIdx(nelm) + ndofelm(nelm)
+         
          maxndofel = MAXVAL(ndofelm)                                             ! TODO: if there's p-adaptation, this value has to be recomputed
          
          ALLOCATE(pbuffer(maxndofel))  ! This works if there's no p-Adaptation (change to include it)
@@ -647,7 +673,7 @@ MODULE Implicit_NJ
       ENDDO
       sem%mesh%elements = dgs_clean ! Cleans sem % mesh % elements completely
       
-      CALL linsolver%AssemblyA                                 ! Matrix A needs to be assembled before being used in PETSc (at least)
+      CALL linsolver%AssemblyA(firstIdx,ndofelm)                             ! Matrix A needs to be assembled before being used in PETSc (at least)
       
       CALL SYSTEM_CLOCK(clf)
       ctime = (clf - cli) / REAL(clrate)

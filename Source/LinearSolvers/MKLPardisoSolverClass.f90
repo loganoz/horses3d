@@ -169,10 +169,12 @@ MODULE MKLPardisoSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE AssemblyA(this)         
+   SUBROUTINE AssemblyA(this,BlockIdx,BlockSize)         
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
+      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockIdx(:)
+      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockSize(:)
       !-----------------------------------------------------------
       
       IF (this % AIsPetsc) THEN

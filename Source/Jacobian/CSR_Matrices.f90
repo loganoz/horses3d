@@ -13,14 +13,17 @@ MODULE CSR_Matrices
    
    !-----------------------------------------------------------------------------
    TYPE csrMat_t
-      REAL(KIND=RP),  POINTER, CONTIGUOUS :: Values(:)=>NULL()  ! Values of nonzero entries of matrix
-      INTEGER,        POINTER, CONTIGUOUS :: Cols(:)  =>NULL()  ! Column indices that correspond to each value
-      INTEGER,        POINTER, CONTIGUOUS :: Rows(:)  =>NULL()  ! Row indices (index of first value of each row)
-      INTEGER,        POINTER, CONTIGUOUS :: Diag(:)  =>NULL()  ! Array containing position of the diagonal entry (handy for some calculations)
+      REAL(KIND=RP),  POINTER, CONTIGUOUS :: Values(:)   =>NULL()  ! Values of nonzero entries of matrix
+      INTEGER,        POINTER, CONTIGUOUS :: Cols(:)     =>NULL()  ! Column indices that correspond to each value
+      INTEGER,        POINTER, CONTIGUOUS :: Rows(:)     =>NULL()  ! Row indices (index of first value of each row)
+      INTEGER,        POINTER, CONTIGUOUS :: Diag(:)     =>NULL()  ! Array containing position of the diagonal entry (handy for some calculations)
       
-      INTEGER                             :: NumRows            ! Number of rows of matrix
-      INTEGER                             :: NumCols            ! Number of colunms of matrix
+      INTEGER                             :: NumRows               ! Number of rows of matrix
+      INTEGER                             :: NumCols               ! Number of colunms of matrix
       
+      ! Variables for matrices with blocks
+      INTEGER,        POINTER, CONTIGUOUS :: BlockIdx(:) =>NULL()  ! Index of first element of block (this is used by the routine CSR_GetBlock).. Note that in the DGSEM, the Jacobian matrices have a block diagonal with the Jacobian information of each element      
+      INTEGER,        POINTER, CONTIGUOUS :: BlockSize(:)=>NULL()  ! Size of each block
    CONTAINS
    
       GENERIC, PUBLIC                     :: construct  => CSR_CreateMatnnz, CSR_CreateMatnnzs
@@ -31,6 +34,7 @@ MODULE CSR_Matrices
       PROCEDURE                           :: SetColumn
       PROCEDURE                           :: SetElem
       PROCEDURE                           :: GetDense => CSR2Dense
+      PROCEDURE                           :: GetBlock => CSR_GetBlock
       
       PROCEDURE, PRIVATE                  :: CSR_CreateMatnnz, CSR_CreateMatnnzs
    END TYPE
@@ -231,6 +235,7 @@ MODULE CSR_Matrices
    !------------------------------------------------------------------------------
    FUNCTION CSR_Search (A,i,j) RESULT(k)
    !    Obtains the position k for the information of A(i,j) --> A % Values (k)
+   !    If the position is not contained in the sparse matrix A, k = 0 is returned
    !       (supposing that A is ordered)
    !------------------------------------------------------------------------------
       IMPLICIT NONE
@@ -250,8 +255,7 @@ MODULE CSR_Matrices
       END DO
 
       IF (k == A % Rows(i+1)) THEN
-         WRITE(*,*) 'CSR_Search: Error. Searched position not defined in matrix.'
-         STOP
+         k = 0
       END IF
    !------------------------------------------------------------------------------
    END FUNCTION CSR_Search
@@ -404,5 +408,60 @@ MODULE CSR_Matrices
    !----------------------------------------------------------------------------------
    END SUBROUTINE CSR2Dense
    !----------------------------------------------------------------------------------
+   
+   !------------------------------------------------------------------------------
+   FUNCTION CSR_GetBlock( A,Num,N) RESULT(Mat)
+   !   Get a block of the diagonal of matrix A and store it as a dense matrix
+   !  IMPORTANT: The CSR
+   !------------------------------------------------------------------------------
+      IMPLICIT NONE
+      !------------------------------------------------------------------------------ 
+      CLASS(csrMat_t)           :: A          !< Matrix to be read
+      INTEGER, INTENT(IN)       :: Num        !< Number of diagonal element
+      INTEGER, INTENT(IN)       :: N          !< Size of block
+      REAL(KIND=RP)             :: Mat(N,N)   !> Value of the matrix element
+      !------------------------------------------------------------------------------ 
+      INTEGER                   :: RC0      ! Index of first row/column of block in global sparse matrix
+      INTEGER                   :: RCf      ! Index of last row/column of block in global sparse matrix
+      INTEGER                   :: i, j     ! Row/Column index of output matrix
+      INTEGER                   :: ii, jj   ! Row/Column index in global sparse matrix
+      INTEGER                   :: k, l     ! Variables containing positions in sparse matrix arrays
+      !------------------------------------------------------------------------------
+      
+      RC0 = A % BlockIdx(Num) + 1  ! Using "+ 1" since the index is zero based because of Implicit_NJ (TODO: change?)
+      RCf  = RC0 + N - 1
+      
+      i=0
+      
+      Mat = 0._RP
+      
+      ! Loop over the rows where the desired block is contained
+      DO ii = RC0, RCf
+         i = i+1
+         
+         ! Search first nonzero of this row in block
+         k = 0
+         DO jj = RC0, RCf
+            k = CSR_Search(A,ii,jj)
+            IF (k /= 0) EXIT
+         END DO
+         IF (k == 0) CYCLE
+         
+         ! Loop over the nonzeros following the first of the row to get all the columns
+         DO l = k, A % Rows(ii+1) - 1
+            IF (A % Cols(l) > RCf) EXIT
+            
+            j = A % Cols(l) - RC0 + 1
+            Mat(i,j) = A % Values(l)
+         END DO
+      END DO
+       
+   !------------------------------------------------------------------------------
+   END FUNCTION CSR_GetBlock
+   !------------------------------------------------------------------------------
+   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    
 END MODULE

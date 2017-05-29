@@ -160,7 +160,7 @@ MODULE GMRESClass
             ELSE
                CALL this%MatMult(this%V(:,j),this%W)
             ENDIF
-!~            STOP !arueda: temporal stop point
+            
             DO i = 1,j
                this%H(i,j) = DOT_PRODUCT(this%W,this%V(:,i))
                this%W = this%W - this%H(i,j) * this%V(:,i)

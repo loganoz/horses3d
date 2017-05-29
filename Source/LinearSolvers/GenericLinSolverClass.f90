@@ -91,9 +91,11 @@ CONTAINS
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   SUBROUTINE AssemblyA(this)
+   SUBROUTINE AssemblyA(this,BlockIdx,BlockSize)
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockIdx(:)
+      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockSize(:)
    END SUBROUTINE AssemblyA
 
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
