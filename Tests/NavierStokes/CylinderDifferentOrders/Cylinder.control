@@ -26,8 +26,8 @@ Right 0.0 OutflowSpecifyP
 riemann solver        = roe
 !-------------------------------------------------------------
 !-----Information about time integration solver---------------
-time integration        = steady-state
-implicit time           = .FALSE.
+simulation type         = steady-state
+time integration        = explicit
 jacobian flag           = 2
 linear solver           = Petsc
 jacobian by convergence = .false. 

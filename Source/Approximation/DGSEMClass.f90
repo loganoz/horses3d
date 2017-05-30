@@ -143,6 +143,9 @@
       END IF
       
       ! Now store everything in sem
+      IF (ALLOCATED(self % Nx)) DEALLOCATE (self % Nx)
+      IF (ALLOCATED(self % Ny)) DEALLOCATE (self % Ny)
+      IF (ALLOCATED(self % Nz)) DEALLOCATE (self % Nz)
       ALLOCATE (self % Nx(nelem),self % Ny(nelem),self % Nz(nelem))
       self % Nx = Nx
       self % Ny = Ny
@@ -220,6 +223,8 @@
       self % externalGradients => externalGradients
       
       call assignBoundaryConditions(self)
+      
+      NULLIFY(Nx,Ny,Nz)
       
       END SUBROUTINE ConstructDGSem
 !

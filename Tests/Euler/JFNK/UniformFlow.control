@@ -23,8 +23,8 @@ left 0.0 Outflow
 right 0.0 Outflow
 !-------------------------------------------------------------
 !-----Information about time integration solver---------------
-time integration      = steady-state
-implicit time         = .true.
+simulation type       = steady-state
+time integration      = implicit
 jacobian flag         = 1
 !-------------------------------------------------------------
 riemann solver       = rusanov

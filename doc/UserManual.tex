@@ -141,6 +141,8 @@ The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
 \hline
 \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
 
+\textbf{time integration} & \textit{CHARACTER}: This is the main keyword for activating the implicit solvers. The value of it should be set to 'implicit'. & 'explicit' \\ \hline
+
 jacobian flag           & \textit{INTEGER}: Specifies the type of Jacobian matrix to be computed. Options are:\
 				\begin{enumerate}
 					\item Jacobian free: Uses JFNK algorithm with GMRES linear solver.
