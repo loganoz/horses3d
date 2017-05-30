@@ -169,9 +169,9 @@ CONTAINS
          N2xMAX = N1xMAX - deltaN
          N2yMAX = N1yMAX - deltaN
          N2zMAX = N1zMAX - deltaN
-         IF (N2xMAX < 0) N2xMAX = 0             ! TODO: Complete for Lobatto quadrature (max order = 1)
-         IF (N2yMAX < 0) N2yMAX = 0
-         IF (N2zMAX < 0) N2zMAX = 0
+         IF (N2xMAX < 1) N2xMAX = 1             ! TODO: Complete for Lobatto quadrature (max order = 1)
+         IF (N2yMAX < 1) N2yMAX = 1             ! It is currently like it should be for LGL... Max eigenvalue routine!!!!
+         IF (N2zMAX < 1) N2zMAX = 1
          
          ALLOCATE (Solver  % Restriction (0:N1xMAX,0:N1yMAX,0:N1zMAX))
          ALLOCATE (Child_p % Prolongation(0:N2xMAX,0:N2yMAX,0:N2zMAX))
@@ -267,8 +267,8 @@ CONTAINS
 !     -----------------------
 !
       dt = MaxTimeStep(this % p_sem, cfl )
-      CALL TakeRK3Step(this % p_sem, t, dt, maxResidual )
-      IF (MGOutput) CALL PlotResiduals( lvl , maxResidual )
+      CALL TakeRK3Step(this % p_sem, t, dt )
+      IF (MGOutput) CALL PlotResiduals( lvl , this % p_sem )
       
       IF (lvl > 1) THEN
          Child_p => this % Child
@@ -321,7 +321,7 @@ CONTAINS
 !        Perform V-Cycle here
 !        --------------------
 !
-         CALL FASVCycle(this % Child,t, lvl-deltaN)
+         CALL FASVCycle(this % Child,t, lvl-1)
 !
 !        -------------------------------------------
 !        Interpolate coarse-grid error to this level
@@ -362,8 +362,8 @@ CONTAINS
 !     ------------------------
 !
       dt = MaxTimeStep(this % p_sem, cfl )
-      CALL TakeRK3Step(this % p_sem, t, dt, maxResidual )
-      IF (MGOutput) CALL PlotResiduals( lvl , maxResidual )
+      CALL TakeRK3Step(this % p_sem, t, dt)
+      IF (MGOutput) CALL PlotResiduals( lvl , this % p_sem )
 !
 !     -------------------------
 !     Compute coarse-grid error
@@ -454,9 +454,9 @@ CONTAINS
          IF (N2y < 1) N2y = 1
          IF (N2z < 1) N2z = 1
       ELSE
-         IF (N2x < 0) N2x = 0
-         IF (N2y < 0) N2y = 0
-         IF (N2z < 0) N2z = 0
+         IF (N2x < 1) N2x = 1       !! The threshold should actually be zero... Using 1 because max eigenvalue subroutine doesn't support 0
+         IF (N2y < 1) N2y = 1
+         IF (N2z < 1) N2z = 1
       END IF
       
       ! Return if the operators were already created
@@ -520,13 +520,16 @@ CONTAINS
 !  ------
 !  Internal subroutine to print the residuals
 !  ----------------
-   subroutine PlotResiduals( iter , maxResiduals )
+   subroutine PlotResiduals( iter , sem )
       implicit none
       integer, intent(in)       :: iter
-      real(kind=RP), intent(in) :: maxResiduals(N_EQN)
-!     --------------------------------------------------------
+      TYPE(DGSem)               :: sem
+      !--------------------------------------------------------
+      real(kind=RP)             :: maxResiduals(N_EQN)
+      !--------------------------------------------------------
       
       IF( (MOD( ThisTimeStep+1, plotInterval) == 0) .or. (ThisTimeStep .eq. 0) ) THEN
+         maxResiduals = ComputeMaxResidual(sem)
          write(STD_OUT , 110) achar(27)//'[34mFAS level', iter ,"|            |", maxResiduals(IRHO) , "|" , maxResiduals(IRHOU) , &
                                  "|", maxResiduals(IRHOV) , "|" , maxResiduals(IRHOW) , "|" , maxResiduals(IRHOE),achar(27)//'[00m'
       END IF

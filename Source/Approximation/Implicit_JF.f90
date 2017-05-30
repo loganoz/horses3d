@@ -29,16 +29,13 @@ MODULE Implicit_JF
  CONTAINS
 !========
    
-   SUBROUTINE TakeBDFStep_JF(sem, t , dt , maxResidual)
+   SUBROUTINE TakeBDFStep_JF(sem, t , dt )
       TYPE(DGSem),TARGET,  INTENT(INOUT)           :: sem
       REAL(KIND=RP),       INTENT(IN)              :: t
       REAL(KIND=RP),       INTENT(IN)              :: dt
       !--------------------------------------------------------
       LOGICAL                                      :: isfirst = .TRUE.
       INTEGER                                      :: k
-      
-      REAL(KIND=RP) :: localMaxResidual(N_EQN), maxResidual(N_EQN)
-      INTEGER       :: id, eq
       !--------------------------------------------------------
       
       IF (isfirst) THEN                                      
@@ -61,19 +58,6 @@ MODULE Implicit_JF
       CALL integrator%Integrate                              ! Performs the time step implicit integrator
       CALL integrator%GetUnp1(U_n)                           ! Gets U_n+1 and stores it in U n
       CALL p_sem % SetQ(U_n)                                 ! Stores U_n (with the updated U_n+1) into sem%Q  ! TODO: is this always necessary?
-         
-!
-!     ----------------
-!     Compute residual
-!     ----------------
-!
-      maxResidual = 0.0_RP
-      DO id = 1, SIZE( p_sem % mesh % elements )
-         DO eq = 1 , N_EQN
-            localMaxResidual(eq) = MAXVAL(ABS(sem % mesh % elements(id) % QDot(:,:,:,eq)))
-            maxResidual(eq) = MAX(maxResidual(eq),localMaxResidual(eq))
-         END DO
-      END DO
          
    END SUBROUTINE TakeBDFStep_JF
 !

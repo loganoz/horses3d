@@ -33,18 +33,13 @@ MODULE Implicit_NJ
 
    CONTAINS
    !/////////////////////////////////////////////////////////////////////////////////////////////////
-   SUBROUTINE TakeBDFStep_NJ (sem, t , dt , maxResidual, controlVariables)
+   SUBROUTINE TakeBDFStep_NJ (sem, t , dt , controlVariables)
 
       IMPLICIT NONE
       TYPE(DGSem),                  INTENT(INOUT)           :: sem                  !<>DGSem class with solution storage 
       REAL(KIND=RP),                INTENT(IN)              :: t                    !< Time at the beginning of time step
       REAL(KIND=RP),                INTENT(IN)              :: dt                   !< Initial (outer) time step (can internally, the subroutine can use a smaller one depending on convergence)
-      REAL(KIND=RP)                                         :: maxResidual(N_EQN)   !> Residuals obtained after time integration process
       TYPE(FTValueDictionary),      INTENT(IN)              :: controlVariables     !< Input file variables
-      !--------------------------------------------------------
-      !Variables used for residual computation
-      REAL(KIND=RP)                                         :: localMaxResidual(N_EQN)
-      INTEGER                                               :: id, eq
       !--------------------------------------------------------
       CHARACTER(len=LINE_LENGTH)                            :: LinearSolver
         
@@ -206,18 +201,6 @@ MODULE Implicit_NJ
       END IF
       ! for computing sometimes
       !**************************
-!
-!     ----------------
-!     Compute residual
-!     ----------------
-!
-      maxResidual = 0.0_RP
-      DO id = 1, SIZE( sem % mesh % elements )
-         DO eq = 1 , N_EQN
-            localMaxResidual(eq) = MAXVAL(ABS(sem % mesh % elements(id) % QDot(:,:,:,eq)))
-            maxResidual(eq) = MAX(maxResidual(eq),localMaxResidual(eq))
-         END DO
-      END DO
       
 !~       IF (MAXVAL(maxResidual) > sem % maxResidual) computeA = .TRUE.
       

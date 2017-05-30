@@ -43,11 +43,11 @@
       END TYPE TimeIntegrator_t
 
       abstract interface
-         subroutine RKStepFcn( sem , t , deltaT , maxResidual )
+         subroutine RKStepFcn( sem , t , deltaT )
             use DGSEMClass
             implicit none
             type(DGSem)     :: sem
-            real(kind=RP)   :: t, deltaT,  maxResidual(N_EQN)
+            real(kind=RP)   :: t, deltaT
          end subroutine RKStepFcn
       end interface
 !
@@ -208,23 +208,24 @@
             CASE ('implicit')
                SELECT CASE (JacFlag)
                   CASE (1)
-                     CALL TakeBDFStep_JF (sem, t , self%dt , maxResidual)
+                     CALL TakeBDFStep_JF (sem, t , self%dt )
                   CASE (2)
-                     CALL TakeBDFStep_NJ (sem, t , self%dt , maxResidual, controlVariables)
+                     CALL TakeBDFStep_NJ (sem, t , self%dt , controlVariables)
                   CASE (3)
                      STOP 'Analytical Jacobian not implemented yet'
                   CASE DEFAULT
                      PRINT*, "Not valid 'Jacobian Flag'. Running with Jacobian-Free Newton-Krylov."
                      JacFlag = 1
-                     CALL TakeBDFStep_JF (sem, t , self%dt , maxResidual)
+                     CALL TakeBDFStep_JF (sem, t , self%dt )
                END SELECT
             CASE ('explicit')
-               CALL self % RKStep ( sem, t, self % dt, maxResidual )
+               CALL self % RKStep ( sem, t, self % dt )
             CASE ('FAS')
                CALL FASSolver % solve(k,t,maxResidual)
          END SELECT
          
          t = t + self % dt
+         maxResidual = ComputeMaxResidual(sem)
          sem % maxResidual       = maxval(maxResidual)
          IF (self % integratorType == STEADY_STATE) THEN
             IF (maxval(maxResidual) <= self % tolerance )  THEN

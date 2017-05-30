@@ -20,10 +20,10 @@ MODULE ExplicitMethods
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  -----------------------------------------------------------------
-!  Routine for taking a RK3 step. TODO: remove maxResidual from here
-!  -----------------------------------------------------------------
-   SUBROUTINE TakeRK3Step( sem, t, deltaT, maxResidual )
+!  ------------------------------
+!  Routine for taking a RK3 step.
+!  ------------------------------
+   SUBROUTINE TakeRK3Step( sem, t, deltaT )
 !
 !     ----------------------------------
 !     Williamson's 3rd order Runge-Kutta
@@ -36,7 +36,7 @@ MODULE ExplicitMethods
 !     -----------------
 !
       TYPE(DGSem)     :: sem
-      REAL(KIND=RP)   :: t, deltaT, tk, maxResidual(N_EQN)
+      REAL(KIND=RP)   :: t, deltaT, tk
 !
 !     ---------------
 !     Local variables
@@ -65,18 +65,6 @@ MODULE ExplicitMethods
          END DO
 !$omp end parallel do
          
-      END DO
-!
-!     ----------------
-!     Compute residual
-!     ----------------
-!
-      maxResidual = 0.0_RP
-      DO id = 1, SIZE( sem % mesh % elements )
-         DO eq = 1 , N_EQN
-            localMaxResidual(eq) = MAXVAL(ABS(sem % mesh % elements(id) % QDot(:,:,:,eq)))
-            maxResidual(eq) = MAX(maxResidual(eq),localMaxResidual(eq))
-         END DO
       END DO
       
    END SUBROUTINE TakeRK3Step
