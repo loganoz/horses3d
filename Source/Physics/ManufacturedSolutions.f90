@@ -5,7 +5,7 @@
 !      Created: 2017-05-18 17:00:00 +0100 
 !      By: Andrés Rueda
 !
-!      Manufactured solutions definitions for 2D and 3D cases
+!      Manufactured solutions definitions for 2D and 3D cases (Euler and Navier-Stokes)
 !
 !
 !////////////////////////////////////////////////////////////////////////////////////////

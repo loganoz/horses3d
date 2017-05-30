@@ -75,7 +75,7 @@ OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter
 		Implicit_JF JFNKClass GMRESClass\
 		Implicit_NJ ColorsClass\
 		PetscSolverClass GenericLinSolverClass MKLPardisoSolverClass\
-		LinearSolverClass IterativeSolverClass MultigridSolverClass
+		LinearSolverClass IterativeSolverClass MultigridSolverClass ExplicitMethods FASMultigridClass
 
 # --------------- Dependencies 
 NSLite3DMain: TimeIntegrator \
@@ -111,7 +111,8 @@ NodeClass: SMConstants MeshTypes
 DGSEMClass: DGSpaceAndTimeDerivativeMethods Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants ManufacturedSolutions
 DGSpaceAndTimeDerivativeMethods: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants 
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
-TimeIntegrator: Physics Plotter ProblemFile SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ
+TimeIntegrator: Physics Plotter ProblemFile SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass
+ExplicitMethods: SMConstants DGSEMClass
 PlotterDataSource: SMConstants 
 ReadInputFile: SMConstants FTValueDictionaryClass SharedBCModule Physics Setup
 ProblemFile: SMConstants Physics BoundaryConditions MeshTypes Assert DGSEMClass 
@@ -120,6 +121,7 @@ ColorsClass: DGSEMClass
 CSR_Matrices: SMConstants
 ManufacturedSolutions: Physics SMConstants
 DenseMatUtilities: SMConstants
+FASMultigridClass: SMConstants ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics
 #Implicit solvers
 Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
 JFNKClass: SMConstants GMRESClass

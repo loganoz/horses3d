@@ -74,6 +74,7 @@
       
       ! Initialize manufactured solutions if necessary
       sem % ManufacturedSol = controlVariables % containsKey("manufactured solution")
+      
       IF (sem % ManufacturedSol) THEN
          CALL InitializeManufacturedSol(controlVariables % StringValueForKey("manufactured solution",LINE_LENGTH))
       END IF
@@ -103,12 +104,13 @@
                ERROR STOP "The polynomial order(s) must be specified"
             END IF
          END IF
+         
          CALL sem % construct (  meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
-                                                                                 requestedLength = LINE_LENGTH),  &
-                                    externalState     = externalStateForBoundaryName,                             &
-                                    externalGradients = ExternalGradientForBoundaryName,                          &
-                                    polynomialOrder   = polynomialOrder                                          ,&
-                                    success           = success)
+                                                                              requestedLength = LINE_LENGTH),  &
+                                 externalState     = externalStateForBoundaryName,                             &
+                                 externalGradients = ExternalGradientForBoundaryName,                          &
+                                 polynomialOrder   = polynomialOrder                                          ,&
+                                 success           = success)
       END IF
       
       

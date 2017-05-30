@@ -69,6 +69,10 @@ List of all the mandatory keywords for running a simulation and some basic optio
 
 job name   & \textit{CHARACTER}: Name of the job/case to be run. This name will be used for naming all the output files. \textbf{NOT YET IMPLEMENTED}. & \textbf{Mandatory\ keyword} \\ \hline
 
+simulation type        & \textit{CHARACTER}: Specifies if NSLITE3D must perform a 'steady-state' or a 'time-accurate' simulation. &  'steady-state'\\ \hline
+
+time integration & \textit{CHARACTER}: Can be 'implicit', 'explicit', or 'FAS'. The latter uses the Full Algebraic Storage (FAS) multigrid scheme, which can have implicit or explicit smoothers. & 'explicit' \\ \hline
+
 polynomial order   & \textit{INTEGER}: Polynomial order to be assigned uniformly to all the elements of the mesh. If the keyword \textit{polynomial order file} is specified, the value of this keyword is overridden. & --* \\ \hline
 
 polynomial order \textit{i/j/k}  & \textit{INTEGER}: Polynomial order in the i, j, or k component for all the elements in the domain. If used, the three directions must be declared explicitly, unless you are using a polynomial order file. If the keyword \textit{polynomial order file} is specified, the value of this keyword is overridden. & --** \\ \hline
@@ -137,8 +141,6 @@ The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
 \hline
 \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
 
-implicit time & \textit{LOGICAL}: When .TRUE., NSLITE3D performs implicit time integration in every time step. & .FALSE. \\ \hline
-
 jacobian flag           & \textit{INTEGER}: Specifies the type of Jacobian matrix to be computed. Options are:\
 				\begin{enumerate}
 					\item Jacobian free: Uses JFNK algorithm with GMRES linear solver.
@@ -146,8 +148,6 @@ jacobian flag           & \textit{INTEGER}: Specifies the type of Jacobian matri
 					\item Analytical Jacobian: Not yet implemented.
 					\end{enumerate}
 										& 1 \\ \hline
-
-time integration        & \textit{CHARACTER}: Specifies if NSLITE3D must perform a 'steady-state' or a 'time-accurate' simulation. &  'steady-state'\\ \hline
 
 jacobian by convergence & \textit{LOGICAL}: When .TRUE., the Jacobian is only computed when the convergence falls beneath some threshold (see keyfords: blah and blah blah). This improves performance but can introduce big numerical errors for time-accurate simulations.  & .FALSE. \\ \hline
 
@@ -177,7 +177,9 @@ print newton info       & \textit{LOGICAL}: If .TRUE., the information of the Ne
 multigrid levels & \textit{INTEGER}: Number of multigrid levels for the computations. & \textbf{Mandatory keyword} \\ \hline
 
 delta n          & \textit{INTEGER}: Interval of reduction of polynomial order for creating coarser multigrid levels.& 1 \\ \hline
-   &  &  \\ \hline
+
+multigrid output & \textit{LOGICAL}: If .TRUE., the residuals at the different multigrid levels will be displayed. & .FALSE. \\ \hline
+   
     &  &  \\ \hline
 \end{tabular}
 \label{tab:multigridKey}

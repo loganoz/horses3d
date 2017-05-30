@@ -51,10 +51,11 @@
          INTEGER                                                 :: numberOfTimeSteps
          INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
          TYPE(NodalStorage), ALLOCATABLE                         :: spA(:,:,:)
+         INTEGER           , ALLOCATABLE                         :: Nx(:), Ny(:), Nz(:)
          TYPE(HexMesh)                                           :: mesh
          PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
          PROCEDURE(externalGradientsSubroutine), NOPASS, POINTER :: externalGradients => NULL()
-         LOGICAL                                                 :: ManufacturedSol              ! Use manifactured solutions? 
+         LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
 !
 !        ========         
          CONTAINS
@@ -141,6 +142,11 @@
          ERROR STOP 'ConstructDGSEM: Polynomial order not specified'
       END IF
       
+      ! Now store everything in sem
+      ALLOCATE (self % Nx(nelem),self % Ny(nelem),self % Nz(nelem))
+      self % Nx = Nx
+      self % Ny = Ny
+      self % Nz = Nz
 !
 !     -------------------------------------------------------------
 !     Construct the polynomial storage for the elements in the mesh
@@ -272,6 +278,7 @@
 !  Routine to set the solution in each element with a global solution vector
 !
    SUBROUTINE SetQ(self,Q)
+      IMPLICIT NONE
       CLASS(DGSem)   ,     INTENT(INOUT)           :: self 
       REAL(KIND = RP),     INTENT(IN)              :: Q(:)   
       
@@ -303,6 +310,7 @@
 !  Routine to get the solution in each element as a global solution vector
 !
    SUBROUTINE GetQ(self,Q)
+      IMPLICIT NONE
       CLASS(DGSem),        INTENT(INOUT)            :: self
       REAL(KIND = RP),     INTENT(OUT)              :: Q(:)
       
@@ -333,6 +341,7 @@
 !  Routine to get the solution's time derivative in each element as a global solution vector
 !
    SUBROUTINE GetQdot(self,Qdot)
+      IMPLICIT NONE
       CLASS(DGSem),        INTENT(INOUT)            :: self
       REAL(KIND = RP),     INTENT(OUT)              :: Qdot(:)
       
@@ -357,6 +366,30 @@
       END DO
       
    END SUBROUTINE GetQdot
+!
+!////////////////////////////////////////////////////////////////////////////////////////      
+!
+!  -----------------------------------
+!  Compute maximum residual L_inf norm
+!  -----------------------------------
+   FUNCTION ComputeMaxResidual(self) RESULT(maxResidual)
+      IMPLICIT NONE
+      !----------------------------------------------
+      CLASS(DGSem)  :: self
+      REAL(KIND=RP) :: maxResidual(N_EQN)
+      !----------------------------------------------
+      INTEGER       :: id , eq
+      REAL(KIND=RP) :: localMaxResidual(N_EQN)
+      !----------------------------------------------
+      
+      maxResidual = 0.0_RP
+      DO id = 1, SIZE( self % mesh % elements )
+         DO eq = 1 , N_EQN
+            localMaxResidual(eq) = MAXVAL(ABS(self % mesh % elements(id) % QDot(:,:,:,eq)))
+            maxResidual(eq) = MAX(maxResidual(eq),localMaxResidual(eq))
+         END DO
+      END DO
+   END FUNCTION ComputeMaxResidual
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
