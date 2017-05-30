@@ -256,12 +256,6 @@
          if ( flowIsNavierStokes ) then
             CALL DGSpatial_ComputeGradient( self % mesh , self % spA , time , self % externalState , self % externalGradients )
          end if
-open(40 , file = "Gradients.txt" , action = "write" , status = "unknown" ) 
-do k = 1 , size(self % mesh % elements)
-write(40 , *) maxval(abs(self % mesh % elements(k) % U_x)) , maxval(abs(self % mesh % elements(k) % U_y)) , maxval(abs(self % mesh % elements(k) % U_z))
-end do
-close(40)
-stop
 !
 !        -------------------------------------------------------
 !        Inviscid Riemann fluxes from the solutions on the faces
@@ -274,9 +268,8 @@ stop
 !        Compute time derivative
 !        -----------------------
 !
-!$!omp end parallel
-! TODO: openmp bug if used
          call TimeDerivative_ComputeQDot( self % mesh , self % spA , time )
+!$!omp end parallel
 !
 
       END SUBROUTINE ComputeTimeDerivative
@@ -305,7 +298,7 @@ stop
          INTEGER       :: N
         
          N = self % spA % N
-!$omp do         
+!$!omp do         
          DO faceID = 1, SIZE( self % mesh % faces)
             eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
             eIDRight = self % mesh % faces(faceID) % elementIDs(2)
@@ -334,222 +327,12 @@ stop
             END IF 
 
          END DO           
-!$omp enddo          
+!$!omp enddo          
          
       END SUBROUTINE computeRiemannFluxes
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE computeSolutionRiemannFluxes( self, time, externalStateProcedure )
-         USE Physics
-         USE BoundaryConditionFunctions
-         IMPLICIT NONE 
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         TYPE(DGSem)   :: self
-         REAL(KIND=RP) :: time
-         
-         EXTERNAL      :: externalStateProcedure
-!
-!        ---------------
-!        Local Variables
-!        ---------------
-!
-         INTEGER       :: faceID
-         INTEGER       :: eIDLeft, eIDRight
-         INTEGER       :: fIDLeft, fIDright
-         INTEGER       :: N
-         
-         REAL(KIND=RP) :: bvExt(N_EQN), UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)     
-         
-         INTEGER       :: i, j
-        
-         N = self % spA % N
-!$omp do         
-         DO faceID = 1, SIZE( self % mesh % faces)
-            eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
-            eIDRight = self % mesh % faces(faceID) % elementIDs(2)
-            fIDLeft  = self % mesh % faces(faceID) % elementSide(1)
-            
-            IF ( eIDRight == HMESH_NONE )     THEN
-!
-!              -------------
-!              Boundary face
-!              -------------
-!
-               DO j = 0, N
-                  DO i = 0, N
-
-                     bvExt = self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft)
-
-                     CALL externalStateProcedure( self % mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
-                                                  time, &
-                                                  self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
-                                                  bvExt,&
-                                                  self % mesh % elements(eIDLeft) % boundaryType(fIDLeft) )                                                  
-!
-!              ---------------
-!              u,v, T averages
-!              ---------------
-!
-                     CALL GradientValuesForQ( self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft), UL )
-                     CALL GradientValuesForQ( bvExt, UR )
-
-                     d = 0.5_RP*(UL + UR)
-               
-                     self % mesh % elements(eIDLeft) % Ub (:,i,j,fIDLeft) = d
-!
-!              -----------------
-!              Solution averages
-!              -----------------
-!
-!                     CALL DiffusionRiemannSolution( self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
-!                                                    self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft), &
-!                                                    bvExt, &
-!                                                    self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft) )
-!                                                    
-                     !self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft)    = &
-                     !& 0.5_RP*( self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft) + bvExt )
-
-                  END DO   
-               END DO   
-            
-            ELSE 
-!
-!              -------------
-!              Interior face
-!              -------------
-!
-               fIDRight =  self % mesh % faces(faceID) % elementSide(2)
-               
-               CALL computeElementInterfaceAverage(eL = self % mesh % elements(eIDLeft) ,fIDLeft  = fIDLeft, &
-                                                eR = self % mesh % elements(eIDRight),fIDRight = fIDright,&
-                                                N  = N,                                                   &
-                                                rotation = self % mesh % faces(faceID) % rotation)
-            END IF 
-
-         END DO           
-!$omp enddo         
-         
-      END SUBROUTINE computeSolutionRiemannFluxes      
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ComputeGradientAverages( self, time, externalGradientsProcedure )
-         USE Physics
-         USE BoundaryConditionFunctions
-         IMPLICIT NONE 
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         TYPE(DGSem)   :: self
-         REAL(KIND=RP) :: time
-         
-         EXTERNAL      :: externalGradientsProcedure
-!
-!        ---------------
-!        Local Variables
-!        ---------------
-!
-         INTEGER       :: faceID
-         INTEGER       :: eIDLeft, eIDRight
-         INTEGER       :: fIDLeft, fIDright
-         INTEGER       :: N
-
-         REAL(KIND=RP) :: UGradExt(3,N_GRAD_EQN)
-         REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)    
-         
-         INTEGER       :: i, j
-        
-         N = self % spA % N
-!$omp do         
-         DO faceID = 1, SIZE( self % mesh % faces)
-
-            eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
-            eIDRight = self % mesh % faces(faceID) % elementIDs(2)
-            fIDLeft  = self % mesh % faces(faceID) % elementSide(1)
-
-            IF ( eIDRight == HMESH_NONE )     THEN
-!
-!              -------------
-!              Boundary face
-!              -------------
-!
-               DO j = 0, N
-                  DO i = 0, N
-                  
-                     UGradExt(1,:) = self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft)
-                     UGradExt(2,:) = self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
-                     UGradExt(3,:) = self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
-                     
-                     CALL externalGradientsProcedure( self % mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
-                                                  time, &
-                                                  self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
-                                                  UGradExt,&
-                                                  self % mesh % elements(eIDLeft) % boundaryType(fIDLeft) )
-!
-!                 --------
-!                 x values
-!                 --------
-!
-                     UL = self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft)
-                     UR = UGradExt(1,:)
-
-                     d = 0.5_RP*(UL + UR)
-
-                     self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft) = d
-!
-!                 --------
-!                 y values
-!                 --------
-!
-                     UL = self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
-                     UR = UGradExt(2,:)
-
-                     d = 0.5_RP*(UL + UR)
-
-                     self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft) = d
-!
-!                 --------
-!                 z values
-!                 --------
-!
-                     UL = self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
-                     UR = UGradExt(3,:)
-
-                     d = 0.5_RP*(UL + UR)
-
-                     self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft) = d
-
-                  END DO   
-               END DO   
-            
-            ELSE 
-!
-!              -------------
-!              Interior face
-!              -------------
-!
-               fIDRight =  self % mesh % faces(faceID) % elementSide(2)
-               
-               CALL computeElementInterfaceGradientAverage(eL = self % mesh % elements(eIDLeft) ,fIDLeft  = fIDLeft, &
-                                                eR = self % mesh % elements(eIDRight),fIDRight = fIDright,&
-                                                N  = N,                                                   &
-                                                rotation = self % mesh % faces(faceID) % rotation)
-            END IF 
-
-         END DO           
-!$omp enddo         
-         
-      END SUBROUTINE computeGradientAverages            
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
       SUBROUTINE computeElementInterfaceFlux( eL, fIDLeft, eR, fIDRight, N, rotation)
          USE Physics  
          IMPLICIT NONE  

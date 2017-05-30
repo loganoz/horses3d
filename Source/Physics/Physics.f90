@@ -77,7 +77,7 @@
 !!   The positions of the gradient variables
 !    ---------------------------------------
 !
-     INTEGER :: IGU = 1 , IGV = 2 , IGW = 3 , IGT = 4
+     INTEGER, PARAMETER  :: IGU = 1 , IGV = 2 , IGW = 3 , IGT = 4
 !
 !    ----------------------------------------
 !!   The free-stream or reference mach number
@@ -851,7 +851,7 @@
          u = Q(IRHOU) / Q(IRHO)
          v = Q(IRHOV) / Q(IRHO)
          w = Q(IRHOW) / Q(IRHO)
-         p = gammaMinus1 * (Q(IRHOE) - 0.5_RP * ( Q(IRHOU) * u + Q(IRHOV) * v ) )
+         p = gammaMinus1 * (Q(IRHOE) - 0.5_RP * ( Q(IRHOU) * u + Q(IRHOV) * v + Q(IRHOW) * w ) )
 !
 !        X-Flux
 !        ------         
@@ -894,7 +894,7 @@
          u = Q(:,IRHOU) / Q(:,IRHO)
          v = Q(:,IRHOV) / Q(:,IRHO)
          w = Q(:,IRHOW) / Q(:,IRHO)
-         p = gammaMinus1 * (Q(:,IRHOE) - 0.5_RP * ( Q(:,IRHOU) * u + Q(:,IRHOV) * v ) )
+         p = gammaMinus1 * (Q(:,IRHOE) - 0.5_RP * ( Q(:,IRHOU) * u + Q(:,IRHOV) * v + Q(:,IRHOW) * w ) )
          
          F(:,IRHO , IX ) = Q(:,IRHOU)
          F(:,IRHOU, IX ) = Q(:,IRHOU) * u + p
@@ -931,7 +931,7 @@
          u = Q(:,:,IRHOU) / Q(:,:,IRHO)
          v = Q(:,:,IRHOV) / Q(:,:,IRHO)
          w = Q(:,:,IRHOW) / Q(:,:,IRHO)
-         p = gammaMinus1 * (Q(:,:,IRHOE) - 0.5_RP * ( Q(:,:,IRHOU) * u + Q(:,:,IRHOV) * v ) )
+         p = gammaMinus1 * (Q(:,:,IRHOE) - 0.5_RP * ( Q(:,:,IRHOU) * u + Q(:,:,IRHOV) * v + Q(:,:,IRHOW) * w ) )
          
          F(:,:,IRHO , IX ) = Q(:,:,IRHOU)
          F(:,:,IRHOU, IX ) = Q(:,:,IRHOU) * u + p
@@ -968,7 +968,7 @@
          u = Q(:,:,:,IRHOU) / Q(:,:,:,IRHO)
          v = Q(:,:,:,IRHOV) / Q(:,:,:,IRHO)
          w = Q(:,:,:,IRHOW) / Q(:,:,:,IRHO)
-         p = gammaMinus1 * (Q(:,:,:,IRHOE) - 0.5_RP * ( Q(:,:,:,IRHOU) * u + Q(:,:,:,IRHOV) * v ) )
+         p = gammaMinus1 * (Q(:,:,:,IRHOE) - 0.5_RP * ( Q(:,:,:,IRHOU) * u + Q(:,:,:,IRHOV) * v + Q(:,:,:,IRHOW) * w ) )
          
          F(:,:,:,IRHO , IX ) = Q(:,:,:,IRHOU)
          F(:,:,:,IRHOU, IX ) = Q(:,:,:,IRHOU) * u + p
@@ -1320,7 +1320,7 @@
 
 
          T = gammaM2 * (Q(:,IRHOE)  & 
-               - 0.5_RP * ( Q(:,IRHOU) * Q(:,IRHOU) + Q(:,IRHOV) * Q(:,IRHOV) ) ) / Q(:,IRHO)
+               - 0.5_RP * ( Q(:,IRHOU) * u + Q(:,IRHOV) * v + Q(:,IRHOW) * w ) ) / Q(:,IRHO)
 
 
          do i = 0 , N
@@ -1377,7 +1377,7 @@
 
 
          T = gammaM2 * (Q(:,:,IRHOE)  & 
-               - 0.5_RP * ( Q(:,:,IRHOU) * Q(:,:,IRHOU) + Q(:,:,IRHOV) * Q(:,:,IRHOV) ) ) / Q(:,:,IRHO)
+               - 0.5_RP * ( Q(:,:,IRHOU) * u + Q(:,:,IRHOV) * v + Q(:,:,IRHOW) * w ) ) / Q(:,:,IRHO)
 
          do i = 0 , N ;    do j = 0 , N 
             muOfT    ( i,j )  = MolecularDiffusivity ( T ( i,j )  ) 
@@ -1433,7 +1433,7 @@
 
 
          T = gammaM2 * (Q(:,:,:,IRHOE)  & 
-               - 0.5_RP * ( Q(:,:,:,IRHOU) * Q(:,:,:,IRHOU) + Q(:,:,:,IRHOV) * Q(:,:,:,IRHOV) ) ) / Q(:,:,:,IRHO)
+               - 0.5_RP * ( Q(:,:,:,IRHOU) * u + Q(:,:,:,IRHOV) * v + Q(:,:,:,IRHOW) * w)) / Q(:,:,:,IRHO)
 
          do i = 0 , N ;    do j = 0 , N ;    do k = 0 , N
             muOfT    ( i,j,k )  = MolecularDiffusivity ( T ( i,j,k )  ) 

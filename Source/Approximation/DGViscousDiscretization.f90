@@ -472,7 +472,7 @@ module DGViscousDiscretization
 !
 !>       Old implementation: 1st average, then compute
 !        ------------------
-         Q = 0.5_RP * ( QLeft + QRight)
+         Q   = 0.5_RP * ( QLeft + QRight)
          U_x = 0.5_RP * ( U_xLeft + U_xRight) 
          U_y = 0.5_RP * ( U_yLeft + U_yRight) 
          U_z = 0.5_RP * ( U_zLeft + U_zRight) 
