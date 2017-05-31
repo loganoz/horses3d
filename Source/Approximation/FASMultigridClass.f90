@@ -262,6 +262,20 @@ CONTAINS
 !$omp end parallel do
       END IF
 !
+!     ------------------------------------------
+!     If on on finest level, correct source term
+!     ------------------------------------------
+!      
+      IF (lvl < MGlevels) THEN
+         CALL ComputeTimeDerivative(this % p_sem,t)
+!$omp parallel do
+         DO iEl = 1, nelem
+            this % p_sem % mesh % elements(iEl) % S = 2._RP * this % p_sem % mesh % elements(iEl) % S - &
+                                                              this % p_sem % mesh % elements(iEl) % Qdot
+         END DO
+!$omp end parallel do
+      END IF
+!
 !     -----------------------
 !     Pre-smoothing procedure
 !     -----------------------

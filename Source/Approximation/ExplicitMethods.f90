@@ -46,8 +46,7 @@ MODULE ExplicitMethods
       REAL(KIND=RP), DIMENSION(3) :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  /)
       REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
       
-      INTEGER :: k, id , eq
-      REAL(KIND=RP) :: localMaxResidual(N_EQN)
+      INTEGER :: k, id
       
       do id = 1, SIZE( sem % mesh % elements ) 
          sem % mesh % elements(id) % G = 0.0_RP   
