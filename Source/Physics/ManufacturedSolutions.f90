@@ -556,343 +556,344 @@ MODULE ManufacturedSolutions
 !     -------------------------------
 !
       Q(3) = Q(3) + pi*Cos(pi*y*pC(6))*pC(3)*pC(6) +     &
-          pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
-           (uC(1) + Sin(pi*x*uC(5))*uC(2) + Sin(pi*y*uC(6))*uC(3) + Sin(pi*z*uC(7))*uC(4))*    &
-           (vC(1) + Sin(pi*x*vC(5))*vC(2) + Sin(pi*y*vC(6))*vC(3) + Sin(pi*z*vC(7))*vC(4))     &
-           + pi*Cos(pi*x*uC(5))*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-             rC(4)*Sin(pi*z*rC(7)))*uC(2)*uC(5)*    &
-           (vC(1) + Sin(pi*x*vC(5))*vC(2) + Sin(pi*y*vC(6))*vC(3) + Sin(pi*z*vC(7))*vC(4))     &
-           + pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
-           (vC(1) + Sin(pi*x*vC(5))*vC(2) + Sin(pi*y*vC(6))*vC(3) +     &
-              Sin(pi*z*vC(7))*vC(4))**2 +     &
-          pi*Cos(pi*x*vC(5))*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-             rC(4)*Sin(pi*z*rC(7)))*(uC(1) + Sin(pi*x*uC(5))*uC(2) +     &
-             Sin(pi*y*uC(6))*uC(3) + Sin(pi*z*uC(7))*uC(4))*vC(2)*vC(5) +     &
-          2*pi*Cos(pi*y*vC(6))*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-             rC(4)*Sin(pi*z*rC(7)))*vC(3)*    &
-           (vC(1) + Sin(pi*x*vC(5))*vC(2) + Sin(pi*y*vC(6))*vC(3) + Sin(pi*z*vC(7))*vC(4))*    &
-           vC(6) + pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
-           (vC(1) + Sin(pi*x*vC(5))*vC(2) + Sin(pi*y*vC(6))*vC(3) + Sin(pi*z*vC(7))*vC(4))*    &
-           (wC(1) + Sin(pi*x*wC(5))*wC(2) + Sin(pi*y*wC(6))*wC(3) + Sin(pi*z*wC(7))*wC(4))     &
-           + pi*Cos(pi*y*vC(6))*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-             rC(4)*Sin(pi*z*rC(7)))*vC(3)*vC(6)*    &
-           (wC(1) + Sin(pi*x*wC(5))*wC(2) + Sin(pi*y*wC(6))*wC(3) + Sin(pi*z*wC(7))*wC(4))     &
-           + pi*Cos(pi*y*wC(6))*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-             rC(4)*Sin(pi*z*rC(7)))*(vC(1) + Sin(pi*x*vC(5))*vC(2) +     &
-             Sin(pi*y*vC(6))*vC(3) + Sin(pi*z*vC(7))*vC(4))*wC(3)*wC(6) -     &
-          (-((gammaM2*pi**2*(1 + tRatio)*    &
-                  (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                    pC(4)*Sin(pi*z*pC(7)))*    &
-                  Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                        pC(4)*Sin(pi*z*pC(7))))/    &
-                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                      rC(4)*Sin(pi*z*rC(7))))*Sin(pi*x*vC(5))*vC(2)*vC(5)**2)/    &
-                ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7)))*    &
-                  (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                       rC(4)*Sin(pi*z*rC(7)))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                  pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
-                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+       pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
+        (uC(1) + Sin(pi*x*uC(5))*uC(2) + Sin(pi*y*uC(6))*uC(3) + Sin(pi*z*uC(7))*uC(4))*    &
+        (vC(1) + Sin(pi*x*vC(5))*vC(2) + Sin(pi*y*vC(6))*vC(3) + Sin(pi*z*vC(7))*vC(4))     &
+        + pi*Cos(pi*x*uC(5))*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+          rC(4)*Sin(pi*z*rC(7)))*uC(2)*uC(5)*    &
+        (vC(1) + Sin(pi*x*vC(5))*vC(2) + Sin(pi*y*vC(6))*vC(3) + Sin(pi*z*vC(7))*vC(4))     &
+        + pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
+        (vC(1) + Sin(pi*x*vC(5))*vC(2) + Sin(pi*y*vC(6))*vC(3) +     &
+           Sin(pi*z*vC(7))*vC(4))**2 +     &
+       pi*Cos(pi*x*vC(5))*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+          rC(4)*Sin(pi*z*rC(7)))*(uC(1) + Sin(pi*x*uC(5))*uC(2) +     &
+          Sin(pi*y*uC(6))*uC(3) + Sin(pi*z*uC(7))*uC(4))*vC(2)*vC(5) +     &
+       2*pi*Cos(pi*y*vC(6))*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+          rC(4)*Sin(pi*z*rC(7)))*vC(3)*    &
+        (vC(1) + Sin(pi*x*vC(5))*vC(2) + Sin(pi*y*vC(6))*vC(3) + Sin(pi*z*vC(7))*vC(4))*    &
+        vC(6) + pi*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
+        (vC(1) + Sin(pi*x*vC(5))*vC(2) + Sin(pi*y*vC(6))*vC(3) + Sin(pi*z*vC(7))*vC(4))*    &
+        (wC(1) + Sin(pi*x*wC(5))*wC(2) + Sin(pi*y*wC(6))*wC(3) + Sin(pi*z*wC(7))*wC(4))     &
+        + pi*Cos(pi*z*vC(7))*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+          rC(4)*Sin(pi*z*rC(7)))*vC(4)*vC(7)*    &
+        (wC(1) + Sin(pi*x*wC(5))*wC(2) + Sin(pi*y*wC(6))*wC(3) + Sin(pi*z*wC(7))*wC(4))     &
+        + pi*Cos(pi*z*wC(7))*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+          rC(4)*Sin(pi*z*rC(7)))*(vC(1) + Sin(pi*x*vC(5))*vC(2) +     &
+          Sin(pi*y*vC(6))*vC(3) + Sin(pi*z*vC(7))*vC(4))*wC(4)*wC(7) -     &
+       (-((gammaM2*pi**2*(1 + tRatio)*    &
+               (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                 pC(4)*Sin(pi*z*pC(7)))*    &
+               Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                     pC(4)*Sin(pi*z*pC(7))))/    &
+                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                   rC(4)*Sin(pi*z*rC(7))))*Sin(pi*x*vC(5))*vC(2)*vC(5)**2)/    &
+             ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7)))*    &
+               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                      pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                    rC(4)*Sin(pi*z*rC(7)))))) -     &
+          (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
+             Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*    &
+             (-((gammaM2*pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
+                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*    &
-                (-((gammaM2*pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
-                       (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                         pC(4)*Sin(pi*z*pC(7))))/    &
-                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                        rC(4)*Sin(pi*z*rC(7)))**2) +     &
-                  (gammaM2*pi*Cos(pi*x*pC(5))*pC(2)*pC(5))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))*    &
-                (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
-              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                  rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                      rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
-                (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                  pC(4)*Sin(pi*z*pC(7)))*    &
-                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*    &
-                (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
-              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                   rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
-                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*    &
-                (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
-              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                  rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                  pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
-                (-((gammaM2*pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
-                       (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                         pC(4)*Sin(pi*z*pC(7))))/    &
-                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                        rC(4)*Sin(pi*z*rC(7)))**2) +     &
-                  (gammaM2*pi*Cos(pi*x*pC(5))*pC(2)*pC(5))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))*    &
-                (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
-              (2.*Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*    &
+                     rC(4)*Sin(pi*z*rC(7)))**2) +     &
+               (gammaM2*pi*Cos(pi*x*pC(5))*pC(2)*pC(5))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                  rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))) -     &
-             (2*gammaM2*pi*(1 + tRatio)*Cos(pi*y*vC(6))*    &
-                (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                  pC(4)*Sin(pi*z*pC(7)))*    &
-                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*    &
-                (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
-                       (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                         pC(4)*Sin(pi*z*pC(7))))/    &
-                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                        rC(4)*Sin(pi*z*rC(7)))**2) +     &
-                  (gammaM2*pi*Cos(pi*y*pC(6))*pC(3)*pC(6))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
-              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                  rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                      rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*y*rC(6))*Cos(pi*y*vC(6))*rC(3)*rC(6)*    &
-                (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                  pC(4)*Sin(pi*z*pC(7)))*    &
-                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
-              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                   rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))) +     &
-             (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*y*pC(6))*Cos(pi*y*vC(6))*pC(3)*pC(6)*    &
-                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
-              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                  rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*y*vC(6))*    &
-                (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                  pC(4)*Sin(pi*z*pC(7)))*    &
-                (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
-                       (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                         pC(4)*Sin(pi*z*pC(7))))/    &
-                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                        rC(4)*Sin(pi*z*rC(7)))**2) +     &
-                  (gammaM2*pi*Cos(pi*y*pC(6))*pC(3)*pC(6))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
-              (Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*    &
+                  rC(4)*Sin(pi*z*rC(7))))*    &
+             (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
+           ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+               rC(4)*Sin(pi*z*rC(7)))*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                   rC(4)*Sin(pi*z*rC(7))))**2) -     &
+          (gammaM2*pi*(1 + tRatio)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
+             (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+               pC(4)*Sin(pi*z*pC(7)))*    &
+             Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*    &
+             (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
+           ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                rC(4)*Sin(pi*z*rC(7)))**2*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                  rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))) -     &
-             (4*gammaM2*pi**2*(1 + tRatio)*    &
-                (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                  pC(4)*Sin(pi*z*pC(7)))*    &
-                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*Sin(pi*y*vC(6))*vC(3)*vC(6)**2)/    &
-              (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                  rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*pi**2*(1 + tRatio)*    &
-                (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                  pC(4)*Sin(pi*z*pC(7)))*    &
-                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*Sin(pi*z*vC(7))*vC(4)*vC(7)**2)/    &
-              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                  rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                  pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
-                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*    &
-                (-((gammaM2*pi*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
-                       (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                         pC(4)*Sin(pi*z*pC(7))))/    &
-                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                        rC(4)*Sin(pi*z*rC(7)))**2) +     &
-                  (gammaM2*pi*Cos(pi*z*pC(7))*pC(4)*pC(7))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))*    &
-                (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
-              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                  rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                      rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
-                (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                  pC(4)*Sin(pi*z*pC(7)))*    &
-                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*    &
-                (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
-              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                   rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
-                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*    &
-                (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
-              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                  rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                  pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
-                (-((gammaM2*pi*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
-                       (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                         pC(4)*Sin(pi*z*pC(7))))/    &
-                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                        rC(4)*Sin(pi*z*rC(7)))**2) +     &
-                  (gammaM2*pi*Cos(pi*z*pC(7))*pC(4)*pC(7))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))*    &
-                (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
-              (2.*Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*    &
+                  rC(4)*Sin(pi*z*rC(7))))) +     &
+          (gammaM2*pi*(1 + tRatio)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
+             Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*    &
+             (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
+           ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+               rC(4)*Sin(pi*z*rC(7)))*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                  rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))) +     &
-             (2*gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                  pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
-                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))) +     &
+          (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
+             (-((gammaM2*pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
+                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*    &
-                (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
-                       (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                         pC(4)*Sin(pi*z*pC(7))))/    &
-                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                        rC(4)*Sin(pi*z*rC(7)))**2) +     &
-                  (gammaM2*pi*Cos(pi*y*pC(6))*pC(3)*pC(6))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))*    &
-                (pi*Cos(pi*x*uC(5))*uC(2)*uC(5) + pi*Cos(pi*y*vC(6))*vC(3)*vC(6) +     &
-                  pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
-              (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                  rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                      rC(4)*Sin(pi*z*rC(7))))**2) +     &
-             (2*gammaM2*pi*(1 + tRatio)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
-                (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                  pC(4)*Sin(pi*z*pC(7)))*    &
-                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*    &
-                (pi*Cos(pi*x*uC(5))*uC(2)*uC(5) + pi*Cos(pi*y*vC(6))*vC(3)*vC(6) +     &
-                  pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
-              (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                   rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))) -     &
-             (2*gammaM2*pi*(1 + tRatio)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
-                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*    &
-                (pi*Cos(pi*x*uC(5))*uC(2)*uC(5) + pi*Cos(pi*y*vC(6))*vC(3)*vC(6) +     &
-                  pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
-              (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                  rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                  pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
-                (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
-                       (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                         pC(4)*Sin(pi*z*pC(7))))/    &
-                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                        rC(4)*Sin(pi*z*rC(7)))**2) +     &
-                  (gammaM2*pi*Cos(pi*y*pC(6))*pC(3)*pC(6))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))*    &
-                (pi*Cos(pi*x*uC(5))*uC(2)*uC(5) + pi*Cos(pi*y*vC(6))*vC(3)*vC(6) +     &
-                  pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
-              (3.*Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
-                      pC(4)*Sin(pi*z*pC(7))))/    &
-                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                    rC(4)*Sin(pi*z*rC(7))))*    &
+                     rC(4)*Sin(pi*z*rC(7)))**2) +     &
+               (gammaM2*pi*Cos(pi*x*pC(5))*pC(2)*pC(5))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                  rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
-                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
-                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
-                     rC(4)*Sin(pi*z*rC(7))))))/Re
+                  rC(4)*Sin(pi*z*rC(7))))*    &
+             (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
+           (2.*Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*    &
+             (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+               rC(4)*Sin(pi*z*rC(7)))*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))) -     &
+          (2*gammaM2*pi*(1 + tRatio)*Cos(pi*y*vC(6))*    &
+             (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+               pC(4)*Sin(pi*z*pC(7)))*    &
+             Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*    &
+             (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
+                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                      pC(4)*Sin(pi*z*pC(7))))/    &
+                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                     rC(4)*Sin(pi*z*rC(7)))**2) +     &
+               (gammaM2*pi*Cos(pi*y*pC(6))*pC(3)*pC(6))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
+           ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+               rC(4)*Sin(pi*z*rC(7)))*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                   rC(4)*Sin(pi*z*rC(7))))**2) -     &
+          (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*y*rC(6))*Cos(pi*y*vC(6))*rC(3)*rC(6)*    &
+             (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+               pC(4)*Sin(pi*z*pC(7)))*    &
+             Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
+           ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                rC(4)*Sin(pi*z*rC(7)))**2*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))) +     &
+          (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*y*pC(6))*Cos(pi*y*vC(6))*pC(3)*pC(6)*    &
+             Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
+           ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+               rC(4)*Sin(pi*z*rC(7)))*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))) +     &
+          (gammaM2*pi*(1 + tRatio)*Cos(pi*y*vC(6))*    &
+             (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+               pC(4)*Sin(pi*z*pC(7)))*    &
+             (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
+                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                      pC(4)*Sin(pi*z*pC(7))))/    &
+                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                     rC(4)*Sin(pi*z*rC(7)))**2) +     &
+               (gammaM2*pi*Cos(pi*y*pC(6))*pC(3)*pC(6))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
+           (Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*    &
+             (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+               rC(4)*Sin(pi*z*rC(7)))*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))) -     &
+          (4*gammaM2*pi**2*(1 + tRatio)*    &
+             (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+               pC(4)*Sin(pi*z*pC(7)))*    &
+             Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*Sin(pi*y*vC(6))*vC(3)*vC(6)**2)/    &
+           (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+               rC(4)*Sin(pi*z*rC(7)))*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))) -     &
+          (gammaM2*pi**2*(1 + tRatio)*    &
+             (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+               pC(4)*Sin(pi*z*pC(7)))*    &
+             Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*Sin(pi*z*vC(7))*vC(4)*vC(7)**2)/    &
+           ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+               rC(4)*Sin(pi*z*rC(7)))*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))) -     &
+          (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
+             Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*    &
+             (-((gammaM2*pi*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
+                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                      pC(4)*Sin(pi*z*pC(7))))/    &
+                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                     rC(4)*Sin(pi*z*rC(7)))**2) +     &
+               (gammaM2*pi*Cos(pi*z*pC(7))*pC(4)*pC(7))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))*    &
+             (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
+           ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+               rC(4)*Sin(pi*z*rC(7)))*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                   rC(4)*Sin(pi*z*rC(7))))**2) -     &
+          (gammaM2*pi*(1 + tRatio)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
+             (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+               pC(4)*Sin(pi*z*pC(7)))*    &
+             Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*    &
+             (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
+           ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                rC(4)*Sin(pi*z*rC(7)))**2*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))) +     &
+          (gammaM2*pi*(1 + tRatio)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
+             Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*    &
+             (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
+           ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+               rC(4)*Sin(pi*z*rC(7)))*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))) +     &
+          (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
+             (-((gammaM2*pi*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
+                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                      pC(4)*Sin(pi*z*pC(7))))/    &
+                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                     rC(4)*Sin(pi*z*rC(7)))**2) +     &
+               (gammaM2*pi*Cos(pi*z*pC(7))*pC(4)*pC(7))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))*    &
+             (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
+           (2.*Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*    &
+             (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+               rC(4)*Sin(pi*z*rC(7)))*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))) +     &
+          (2*gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
+             Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*    &
+             (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
+                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                      pC(4)*Sin(pi*z*pC(7))))/    &
+                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                     rC(4)*Sin(pi*z*rC(7)))**2) +     &
+               (gammaM2*pi*Cos(pi*y*pC(6))*pC(3)*pC(6))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))*    &
+             (pi*Cos(pi*x*uC(5))*uC(2)*uC(5) + pi*Cos(pi*y*vC(6))*vC(3)*vC(6) +     &
+               pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
+           (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+               rC(4)*Sin(pi*z*rC(7)))*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                   rC(4)*Sin(pi*z*rC(7))))**2) +     &
+          (2*gammaM2*pi*(1 + tRatio)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
+             (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+               pC(4)*Sin(pi*z*pC(7)))*    &
+             Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*    &
+             (pi*Cos(pi*x*uC(5))*uC(2)*uC(5) + pi*Cos(pi*y*vC(6))*vC(3)*vC(6) +     &
+               pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
+           (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                rC(4)*Sin(pi*z*rC(7)))**2*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))) -     &
+          (2*gammaM2*pi*(1 + tRatio)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
+             Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*    &
+             (pi*Cos(pi*x*uC(5))*uC(2)*uC(5) + pi*Cos(pi*y*vC(6))*vC(3)*vC(6) +     &
+               pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
+           (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+               rC(4)*Sin(pi*z*rC(7)))*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))) -     &
+          (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
+             (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
+                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                      pC(4)*Sin(pi*z*pC(7))))/    &
+                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                     rC(4)*Sin(pi*z*rC(7)))**2) +     &
+               (gammaM2*pi*Cos(pi*y*pC(6))*pC(3)*pC(6))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))*    &
+             (pi*Cos(pi*x*uC(5))*uC(2)*uC(5) + pi*Cos(pi*y*vC(6))*vC(3)*vC(6) +     &
+               pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
+           (3.*Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
+                   pC(4)*Sin(pi*z*pC(7))))/    &
+               (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                 rC(4)*Sin(pi*z*rC(7))))*    &
+             (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+               rC(4)*Sin(pi*z*rC(7)))*    &
+             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
+                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
+                  rC(4)*Sin(pi*z*rC(7))))))/Re    
+
                 
 !
 !     -------------------------------
