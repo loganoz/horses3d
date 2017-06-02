@@ -78,6 +78,8 @@ module DGViscousDiscretization
 !        The base class does nothing
 !        ---------------------------
 !
+         contravariantFlux = 0.0_RP
+
       end subroutine BaseClass_ComputeInnerFluxes
 
       subroutine BaseClass_RiemannSolver ( self , QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , nHat , flux )

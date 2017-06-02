@@ -99,6 +99,7 @@
 !     -----------------------------
 !
      CALL timeIntegrator % construct (sem,controlVariables)
+
 !
 !     --------------------
 !     Prepare for plotting

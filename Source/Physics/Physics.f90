@@ -1319,7 +1319,7 @@
          w = Q(:,IRHOW) / Q(:,IRHO)
 
 
-         T = gammaM2 * (Q(:,IRHOE)  & 
+         T = gammaM2 * gammaMinus1 * (Q(:,IRHOE)  & 
                - 0.5_RP * ( Q(:,IRHOU) * u + Q(:,IRHOV) * v + Q(:,IRHOW) * w ) ) / Q(:,IRHO)
 
 
@@ -1432,7 +1432,7 @@
          w = Q(:,:,:,IRHOW) / Q(:,:,:,IRHO)
 
 
-         T = gammaM2 * (Q(:,:,:,IRHOE)  & 
+         T = gammaM2 * gammaMinus1 * (Q(:,:,:,IRHOE)  & 
                - 0.5_RP * ( Q(:,:,:,IRHOU) * u + Q(:,:,:,IRHOV) * v + Q(:,:,:,IRHOW) * w)) / Q(:,:,:,IRHO)
 
          do i = 0 , N ;    do j = 0 , N ;    do k = 0 , N

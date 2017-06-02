@@ -271,7 +271,6 @@
          call TimeDerivative_ComputeQDot( self % mesh , self % spA , time )
 !$!omp end parallel
 !
-
       END SUBROUTINE ComputeTimeDerivative
 !
 !////////////////////////////////////////////////////////////////////////
@@ -366,9 +365,9 @@
                                                   U_xLeft = eL % U_xb(:,i,j,fIDLeft) , &
                                                   U_yLeft = eL % U_yb(:,i,j,fIDLeft) , &
                                                   U_zLeft = eL % U_zb(:,i,j,fIDLeft) , &
-                                                  U_xRight = eL % U_xb(:,i,j,fIDRight) , &
-                                                  U_yRight = eL % U_yb(:,i,j,fIDRight) , &
-                                                  U_zRight = eL % U_zb(:,i,j,fIDRight) , &
+                                                  U_xRight = eR % U_xb(:,ii,jj,fIDRight) , &
+                                                  U_yRight = eR % U_yb(:,ii,jj,fIDRight) , &
+                                                  U_zRight = eR % U_zb(:,ii,jj,fIDRight) , &
                                                     nHat = eL % geom % normal(:,i,j,fIDLeft) , &
                                                    flux  = visc_flux )
                eL % FStarb(:,i ,j,fIDLeft)  =   (inv_flux - visc_flux ) * eL % geom % scal(i ,j,fIDLeft)
@@ -429,14 +428,16 @@
 !           -----------
             if ( flowIsNavierStokes ) then
 
-            UGradExt(1,:) = elementOnLeft % U_xb(:,i,j,faceID)
-            UGradExt(2,:) = elementOnLeft % U_yb(:,i,j,faceID)
-            UGradExt(3,:) = elementOnLeft % U_zb(:,i,j,faceID)
+            UGradExt(IX,:) = elementOnLeft % U_xb(:,i,j,faceID)
+            UGradExt(IY,:) = elementOnLeft % U_yb(:,i,j,faceID)
+            UGradExt(IZ,:) = elementOnLeft % U_zb(:,i,j,faceID)
+
             CALL externalGradientsProcedure(  elementOnLeft % geom % xb(:,i,j,faceID), &
                                               time, &
                                               elementOnLeft % geom % normal(:,i,j,faceID), &
                                               UGradExt,&
                                               boundaryType )
+
             CALL ViscousMethod % RiemannSolver( QLeft = elementOnLeft % Qb(:,i,j,faceID) , &
                                                 QRight = bvExt , &
                                                 U_xLeft = elementOnLeft % U_xb(:,i,j,faceID) , &
