@@ -766,8 +766,10 @@
 !     ---------------
 !
       INTEGER           :: fID
-      INTEGER           :: no_of_bdryfaces = 0
-
+      INTEGER           :: no_of_bdryfaces
+      
+      no_of_bdryfaces = 0
+      
       write(STD_OUT,'(/)')
       call Section_Header("Reading mesh")
       write(STD_OUT,'(/)')

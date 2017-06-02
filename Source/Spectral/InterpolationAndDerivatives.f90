@@ -474,6 +474,74 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+   SUBROUTINE Create3DRestrictionMatrix(Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2,w1x,w1y,w1z,w2x,w2y,w2z)
+      IMPLICIT NONE
+!
+!     -----------------------------------------------------------
+!     Creates an L2-3D Lagrange interpolation matrix from a grid  
+!     with coordinates x1, y1, z1 (origin) to a grid with coordinates
+!     x2, y2, z2 (destination)
+!     -----------------------------------------------------------
+!
+      REAL(KIND=RP), ALLOCATABLE  :: Mat(:,:)     !>  Interpolation matrix
+      INTEGER                     :: N1x,N1y,N1z  !<  Origin order
+      INTEGER                     :: N2x,N2y,N2z  !<  Destination order
+      REAL(KIND=RP), DIMENSION(:) :: x1 (0:N1x),y1 (0:N1y),z1 (0:N1z)     !<  Nodes in origin
+      REAL(KIND=RP), DIMENSION(:) :: x2 (0:N2x),y2 (0:N2y),z2 (0:N2z)     !<  Nodes in destination
+      REAL(KIND=RP), DIMENSION(:) :: w1x(0:N1x),w1y(0:N1y),w1z(0:N1z)     !<  Weights in origin
+      REAL(KIND=RP), DIMENSION(:) :: w2x(0:N2x),w2y(0:N2y),w2z(0:N2z)     !<  Weights in destination
+      !----------------------------------------------------------
+      INTEGER       :: i,j,k,l,m,n      ! Coordinate counters
+      INTEGER       :: r,s              ! Matrix index counters
+      INTEGER       :: NDOFEL1, NDOFEL2 ! Degrees of freedom in origin and destination
+      REAL(KIND=RP) :: MASSterm         ! 
+      !----------------------------------------------------------
+      
+      NDOFEL2 = (N2x + 1) * (N2y + 1) * (N2z + 1)
+      NDOFEL1 = (N1x + 1) * (N1y + 1) * (N1z + 1)
+      ALLOCATE(Mat(NDOFEL2,NDOFEL1))
+      
+      Mat = 0.0_RP
+      
+      ! Create S matrix and store it directly in "Mat"
+      DO k=0, N1z
+         DO j=0, N1y
+            DO i=0, N1x
+               r = i + j*(N1x + 1) + k*(N1x + 1)*(N1y + 1) + 1            ! Column index
+               DO n=0, N2z
+                  DO m=0, N2y
+                     DO l=0, N2x
+                        s = l + m*(N2x + 1) + n*(N2x + 1)*(N2y + 1) + 1   ! Row index
+                        
+                        Mat(s,r) = LagrangeInterpolationNoBar(x1(i),N2x,x2,l) * &
+                                   LagrangeInterpolationNoBar(y1(j),N2y,y2,m) * &
+                                   LagrangeInterpolationNoBar(z1(k),N2z,z2,n) * &
+                                   w1x(i) * w1y(j) * w1z(k)
+                     END DO
+                  END DO
+               END DO
+            END DO
+         END DO
+      END DO
+      
+      ! Create Mass matrix and finish computing interpolation operator
+      DO n=0, N2z
+         DO m=0, N2y
+            DO l=0, N2x
+               s = l + m*(N2x + 1) + n*(N2x + 1)*(N2y + 1) + 1   ! Row index
+      
+               MASSterm = w2x(l) * w2y(m) * w2z(n)
+               
+               ! Matrix Multiplication I = M⁻¹S (taking advantage of the diagonal matrix)
+               Mat(s,:) = Mat(s,:) / MASSterm
+            END DO
+         END DO
+      END DO
+      
+   END SUBROUTINE Create3DRestrictionMatrix
+!
+!////////////////////////////////////////////////////////////////////////
+!
    SUBROUTINE Interpolate3D(Q1, Q2, Interp, N1x, N1y, N1z, N2x, N2y, N2z)
       IMPLICIT NONE
       INTEGER        :: N1x, N1y, N1z

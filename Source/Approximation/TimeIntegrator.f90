@@ -221,7 +221,7 @@
             CASE ('explicit')
                CALL self % RKStep ( sem, t, self % dt )
             CASE ('FAS')
-               CALL FASSolver % solve(k,t,maxResidual)
+               CALL FASSolver % solve(k,t)
          END SELECT
          
          t = t + self % dt

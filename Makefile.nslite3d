@@ -121,7 +121,7 @@ ColorsClass: DGSEMClass
 CSR_Matrices: SMConstants
 ManufacturedSolutions: Physics SMConstants
 DenseMatUtilities: SMConstants
-FASMultigridClass: SMConstants ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics
+FASMultigridClass: SMConstants ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics BoundaryConditions
 #Implicit solvers
 Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
 JFNKClass: SMConstants GMRESClass

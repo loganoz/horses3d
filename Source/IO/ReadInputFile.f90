@@ -55,8 +55,8 @@
 
          DO
             READ(10,'(A132)', IOSTAT = ist) inputLine
-            IF(ist /= 0 .OR. inputLine(1:1) == '/') EXIT 
-            IF ( inputLine(1:1) == "!" ) CYCLE ! Skip comments
+            IF(ist /= 0 ) EXIT !.OR. inputLine(1:1) == '/'
+            IF ( inputLine(1:1) == "!" .OR. inputLine(1:1) == '/') CYCLE ! Skip comments
             
             keyword      = ADJUSTL(GetKeyword(inputLine))
             keywordValue = ADJUSTL(GetValueAsString(inputLine))

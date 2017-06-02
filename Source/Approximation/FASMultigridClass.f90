@@ -12,8 +12,7 @@ MODULE FASMultigridClass
    USE SMConstants
    USE ExplicitMethods
    USE DGSEMClass
-   USE PhysicsStorage
-   
+   USE Physics
    
    USE PolynomialInterpAndDerivsModule
    USE GaussQuadrature
@@ -23,13 +22,15 @@ MODULE FASMultigridClass
    PUBLIC FASMultigrid_t
    
    TYPE :: MGStorage_t
-      REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Q   ! Solution of the conservative level (before the smoothing)
-      REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: E   ! Error (for correction)
+      REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Q     ! Solution of the conservative level (before the smoothing)
+      REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: E     ! Error (for correction)
+      REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: S     ! Source term interpolated from next finer grid
+      REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Scase ! Source term from the specific case that is running (this is actually not necessary for the MG scheme, but it's needed to estimate the truncation error) .. Currently, it only considers the source term from manufactured solutions (state of the code when this module was written)
    END TYPE MGStorage_t
    
    TYPE :: FASMultigrid_t
       TYPE(DGSem)            , POINTER           :: p_sem                              ! Pointer to DGSem class variable of current system
-      
+      TYPE(DGSem)                                :: tempsem   ! sem used to compute the truncation error using the finest grid solution
       ! Variables that are specially needed for Multigrid
       TYPE(FASMultigrid_t)   , POINTER           :: Child                 ! Next coarser multigrid solver
       TYPE(FASMultigrid_t)   , POINTER           :: Parent                ! Next finer multigrid solver
@@ -62,7 +63,34 @@ MODULE FASMultigridClass
    INTEGER        :: plotInterval   ! Read to display output
    LOGICAL        :: MGOutput       ! Display output?
    
-CONTAINS
+   ! 
+   LOGICAL        :: ManSol         ! Does this case have manufactured solutions?
+   
+   ! Variables related with snapshot files
+   LOGICAL        :: WritePFiles = .FALSE.                   ! Write snapshot files?
+   !! Manufactured solutions 11 elements
+!~    INTEGER        :: PFileint = 20                          ! Iteration interval for writing snapshot files
+!~    INTEGER        :: NPElems = 11                           ! Number of elements to track
+!~    INTEGER        :: PElems(11) = &                         ! Elements to track
+!~                      (/1,7,13,125,95,65,88,63,38,83,33/)
+!~    INTEGER        :: PFileUnit(11)                     ! Units for writing files
+
+!~    !! Manufactured solutions 3 elements
+!~    INTEGER        :: PFileint = 60                          ! Iteration interval for writing snapshot files
+!~    INTEGER        :: NPElems = 3                           ! Number of elements to track
+!~    INTEGER        :: PElems(3) = &                         ! Elements to track
+!~                      (/1,125,63/)
+!~    INTEGER        :: PFileUnit(3)                     ! Units for writing files
+   
+   !! Flat plate
+   INTEGER        :: PFileint = 50                        ! Iteration interval for writing snapshot files
+   INTEGER        :: NPElems = 3                           ! Number of elements to track
+   INTEGER        :: PElems(3) = &                         ! Elements to track
+                     (/5,10,23/)
+   INTEGER        :: PFileUnit(3) 
+!========
+ CONTAINS
+!========
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -101,8 +129,15 @@ CONTAINS
          ERROR STOP '"cfl" keyword must be specified for the FAS integrator'
       END IF
       
+!
+!     -----------------------
+!     Update module variables
+!     -----------------------
+!
       MGOutput       = controlVariables % logicalValueForKey("multigrid output")
-      plotInterval   =  controlVariables % integerValueForKey("output interval")
+      plotInterval   = controlVariables % integerValueForKey("output interval")
+      ManSol         = sem % ManufacturedSol
+      
       this % p_sem => sem
       
       nelem = SIZE(sem % mesh % elements)
@@ -118,6 +153,7 @@ CONTAINS
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    RECURSIVE SUBROUTINE RecursiveConstructor(Solver, N1x, N1y, N1z, lvl, controlVariables)
+      USE BoundaryConditionFunctions
       IMPLICIT NONE
       TYPE(FASMultigrid_t), TARGET  :: Solver
       INTEGER, DIMENSION(:)            :: N1x,N1y,N1z      !<  Order of approximation for every element in current solver
@@ -127,13 +163,13 @@ CONTAINS
       INTEGER, DIMENSION(nelem) :: N2x,N2y,N2z            !   Order of approximation for every element in child solver
       INTEGER                   :: N1xMAX,N1yMAX,N1zMAX   !   Maximum polynomial orders for current (fine) grid
       INTEGER                   :: N2xMAX,N2yMAX,N2zMAX   !   Maximum polynomial orders for child (coarse) grid
-      INTEGER                   :: k                      !   Counter
+      INTEGER                   :: i,j,k, iEl             !   Counter
       LOGICAL                   :: success                ! Did the creation of sem succeed?
       TYPE(FASMultigrid_t) , POINTER :: Child_p           ! Pointer to Child
       INTEGER                   :: Q1,Q2,Q3,Q4            ! Sizes of vector Q (conserved solution) used for allocation. In this version the argument MOLD of ALLOCATE is not used since several versions of gfortran don't support it yet...
       !----------------------------------------------
       !
-      
+      INTEGER :: Nxyz(3), fd, l
       
       Solver % MGlevel = lvl
 !
@@ -144,15 +180,79 @@ CONTAINS
       ALLOCATE (Solver % MGStorage(nelem))
 !$omp parallel do private(Q1,Q2,Q3,Q4)
       DO k = 1, nelem
-         Q1 = SIZE(Solver % p_sem % mesh % elements(k) % Q,1)
-         Q2 = SIZE(Solver % p_sem % mesh % elements(k) % Q,2)
-         Q3 = SIZE(Solver % p_sem % mesh % elements(k) % Q,3)
+         Q1 = SIZE(Solver % p_sem % mesh % elements(k) % Q,1) - 1 
+         Q2 = SIZE(Solver % p_sem % mesh % elements(k) % Q,2) - 1
+         Q3 = SIZE(Solver % p_sem % mesh % elements(k) % Q,3) - 1
          Q4 = SIZE(Solver % p_sem % mesh % elements(k) % Q,4)
-         ALLOCATE(Solver % MGStorage(k) % Q(Q1,Q2,Q3,Q4))
-         ALLOCATE(Solver % MGStorage(k) % E(Q1,Q2,Q3,Q4))
+         ALLOCATE(Solver % MGStorage(k) % Q    (0:Q1,0:Q2,0:Q3,Q4))
+         ALLOCATE(Solver % MGStorage(k) % E    (0:Q1,0:Q2,0:Q3,Q4))
+         ALLOCATE(Solver % MGStorage(k) % S    (0:Q1,0:Q2,0:Q3,Q4))
+         ALLOCATE(Solver % MGStorage(k) % Scase(0:Q1,0:Q2,0:Q3,Q4))
+         
+         Solver % MGStorage(k) % Scase = 0._RP
       END DO   
 !$omp end parallel do
-
+!
+!     --------------------------------------------------------------
+!     Fill MGStorage(iEl) % Scase if required (manufactured solutions)
+!        (only for lower meshes)
+!     --------------------------------------------------------------
+!
+      IF (ManSol) THEN
+         DO iEl = 1, nelem
+            
+            DO k=0, Solver % p_sem % Nz(iEl)
+               DO j=0, Solver % p_sem % Ny(iEl)
+                  DO i=0, Solver % p_sem % Nx(iEl)
+                     IF (flowIsNavierStokes) THEN
+                        CALL ManufacturedSolutionSourceNS(Solver % p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
+                                                          0._RP, &
+                                                          Solver % MGStorage(iEl) % Scase (i,j,k,:)  )
+                     ELSE
+                        CALL ManufacturedSolutionSourceEuler(Solver % p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
+                                                             0._RP, &
+                                                             Solver % MGStorage(iEl) % Scase (i,j,k,:)  )
+                     END IF
+                  END DO
+               END DO
+            END DO
+!~             IF(iEl==5) THEN
+!~                print*, Solver % p_sem % Nx(iEl)
+!~                print*, Solver % p_sem % Ny(iEl)
+!~                print*, Solver % p_sem % Nz(iEl)
+!~                print*,  Solver % MGStorage(iEl) % Scase
+!~                read(*,*)
+!~             ENDIF
+         END DO
+      END IF
+      
+!~       !/////////////////////////////////////////////////////////////////
+!~       ! Temp block for plotting source term
+!~       IF(lvl==2) THEN
+!~       OPEN(newunit = fd, FILE = 'SourceInLowest.tec')
+      
+!~       WRITE(fd,'(A)') ' TITLE = "Free-stream preservation Euler equations" '
+!~       WRITE(fd,'(A)') ' VARIABLES = "x","y","z","S_rho","S_rhou","S_rhov","S_rhow","S_rhoe"'
+!~       DO iEl = 1, nelem
+!~          Nxyz = Solver % p_sem % mesh % elements(iEl) % Nxyz
+!~          WRITE(fd,*) "ZONE I=", Nxyz(1)+1, ",J=",Nxyz(2)+1, ",K=",Nxyz(3)+1,", F=POINT"
+!~          DO k = 0, Nxyz(3)
+!~             DO j = 0, Nxyz(2)
+!~                DO i = 0, Nxyz(1)
+                  
+!~                   WRITE(fd,'(8E13.5)') Solver % p_sem % mesh % elements(iEl) % geom % x(1,i,j,k), &
+!~                                        Solver % p_sem % mesh % elements(iEl) % geom % x(2,i,j,k), &
+!~                                        Solver % p_sem % mesh % elements(iEl) % geom % x(3,i,j,k), &
+!~                                        (Solver % MGStorage(iEl) % Scase (i,j,k,l), l = 1, 5)
+!~                END DO
+!~             END DO
+!~          END DO 
+!~       END DO
+!~       STOP
+!~       END IF
+!~       !////////////////////////////////////////////////////////////////
+      
+      
       IF (lvl > 1) THEN
          ALLOCATE  (Solver % Child)
          Child_p => Solver % Child
@@ -190,7 +290,7 @@ CONTAINS
          
          ! Create DGSEM class for child
          ALLOCATE (Child_p % p_sem)
-         Child_p % p_sem % ManufacturedSol = Solver % p_sem % ManufacturedSol
+         !Child_p % p_sem % ManufacturedSol = Solver % p_sem % ManufacturedSol
          
          CALL Child_p % p_sem % construct (meshFileName      = controlVariables % stringValueForKey("mesh file name",    &
                                                                                       requestedLength = LINE_LENGTH),    &
@@ -200,6 +300,7 @@ CONTAINS
                                            success = success )
          IF (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
          
+         Child_p % tempsem = Child_p % p_sem
          
          CALL RecursiveConstructor(Solver % Child, N2x, N2y, N2z, lvl - 1, controlVariables)
       END IF
@@ -212,23 +313,123 @@ CONTAINS
 !  ---------------------------------------------
 !  Driver of the FAS multigrid solving procedure
 !  ---------------------------------------------
-   SUBROUTINE solve(this,timestep,t,maxResidual)
+   SUBROUTINE solve(this,timestep,t)
       IMPLICIT NONE
       CLASS(FASMultigrid_t), INTENT(INOUT) :: this
       INTEGER                              :: timestep
       REAL(KIND=RP)                        :: t
-      REAL(KIND=RP)                        :: maxResidual(N_EQN)
       !-------------------------------------------------
       INTEGER                                 :: niter
       INTEGER                                 :: i
+      CHARACTER(LEN=LINE_LENGTH)              :: FileName
       !-------------------------------------------------
       
       ThisTimeStep = timestep
+!
+!     --
+!     Open pfiles for writing... And interpolate finest solution
+!     --
+!
+      IF (WritePFiles) THEN
+         IF (MOD(timestep+1,PFileint) == 0 .OR. timestep == 0) THEN
+            
+            DO i = 1, NPElems
+               WRITE(FileName,'(A,I3.3,A,I4.4,A)') 'PFiles/Elem_', i ,'_' , timestep + 1,'.dat'
+               OPEN( newunit = PFileUnit(i), FILE    = TRIM(FileName), ACTION  = 'WRITE')     
+               
+               WRITE(PFileUnit(i),*) timestep + 1                                                     ! Iteration
+               WRITE(PFileUnit(i),*) this % p_sem % maxResidual                                       ! Gloval residual
+               WRITE(PFileUnit(i),*) PElems(i)                                                        ! Element number
+               WRITE(PFileUnit(i),*) MAXVAL(ABS(this % p_sem % mesh % elements(PElems(i)) % QDot))    ! Local residual
+               
+            END DO
+            
+            CALL InterpolateFinest(this,MGlevels)
+         END IF
+      END IF
+!
+!     -- 
+!     Perform v-cycle
+!     --
+!
       
       CALL FASVCycle(this,t,MGlevels)
+!
+!     --
+!     close opened files
+!     --
+!
+      IF (WritePFiles) THEN
+         IF (MOD(timestep+1,PFileint) == 0 .OR. timestep == 0) THEN
+            DO i = 1, NPElems
+               CLOSE( PFileUnit(i))   
+            END DO
+         END IF
+      END IF
       
-      maxResidual = ComputeMaxResidual(this % p_sem)
    END SUBROUTINE solve
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   RECURSIVE SUBROUTINE InterpolateFinest(this,lvl)
+      IMPLICIT NONE
+      !---------------------------------------------
+      CLASS(FASMultigrid_t), INTENT(INOUT) :: this
+      INTEGER                              :: lvl
+      !---------------------------------------------
+      TYPE(FASMultigrid_t), POINTER :: Child_p        !Pointer to child
+      INTEGER :: iEl, iEQ, N1x,N1y,N1z, N2x,N2y,N2z
+      !---------------------------------------------
+      INTEGER :: i,j,k
+      
+      IF (lvl == MGlevels) this % tempsem = this % p_sem
+      
+      IF (lvl>1) THEN
+!
+!        -----------------
+!        Restrict solution
+!        -----------------
+!
+         Child_p => this % Child
+!$omp parallel do private(iEQ,N1x,N1y,N1z,N2x,N2y,N2z)
+         DO iEl = 1, nelem
+            DO iEQ = 1, N_EQN
+               N1x = this    % p_sem % Nx(iEl)
+               N1y = this    % p_sem % Ny(iEl)
+               N1z = this    % p_sem % Nz(iEl)
+               N2x = Child_p % p_sem % Nx(iEl)
+               N2y = Child_p % p_sem % Ny(iEl)
+               N2z = Child_p % p_sem % Nz(iEl)
+               CALL Interpolate3D(Q1 = this    % tempsem % mesh % elements(iEl) % Q(:,:,:,iEQ), &
+                                  Q2 = Child_p % tempsem % mesh % elements(iEl) % Q(:,:,:,iEQ), &
+                                  Interp = this % Restriction(N1x,N1y,N1z) % Mat            , &
+                                  N1x = N1x,    N1y = N1y,    N1z = N1z                     , &
+                                  N2x = N2x,    N2y = N2y,    N2z = N2z)
+               
+            END DO
+            
+!~             DO k=0, Child_p % p_sem % Nz(iEl)
+!~                DO j=0, Child_p % p_sem % Ny(iEl)
+!~                   DO i=0, Child_p % p_sem % Nx(iEl)
+!~                      CALL ManufacturedSolutionState(  Child_p % tempsem % mesh % elements(iEl) % geom % x(:,i,j,k), &
+!~                                                       0._RP, &
+!~                                                       Child_p % tempsem % mesh % elements(iEl) % Q(i,j,k,:))
+!~                   END DO
+!~                END DO
+!~             END DO
+!~             IF (iEl == 1) THEN
+!~                print*, '------------------------------------------------------------'
+!~                print*, N1x, N1y, N1z, N2x, N2y, N2z
+!~                print*, Child_p % tempsem % mesh % elements(iEl) % Q(:,:,:,1)
+!~                read(*,*)
+!~             END IF
+         END DO
+!$omp end parallel do
+      
+         CALL InterpolateFinest(this % Child,lvl-1)
+      END IF
+      
+   END SUBROUTINE InterpolateFinest
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -249,29 +450,55 @@ CONTAINS
       REAL(KIND=RP)                 :: dt             !Time variables
       REAL(KIND=RP)                 :: maxResidual(N_EQN)   ! TODO: remove this from here... not needed
       !----------------------------------------------------------------------------
+      ! Variables for writing PFiles
+      INTEGER       :: ElemNmbr
+      REAL(KIND=RP) :: TauNext, TauFinest
+      !----------------------------------------------------------------------------
 !
 !     ------------------------------------
 !     Copy fine grid solution to MGStorage
+!        ... and clear source term
 !     ------------------------------------
 !
       IF (lvl < MGlevels) THEN
 !$omp parallel do private(iEQ)
          DO iEl = 1, nelem
             this % MGStorage(iEl) % Q = this % p_sem % mesh % elements(iEl) % Q
+            this % p_sem % mesh % elements(iEl) % S = 0._RP
+            this % tempsem % mesh % elements(iEl) % S = 0._RP
          END DO
 !$omp end parallel do
       END IF
 !
-!     ------------------------------------------
-!     If on on finest level, correct source term
-!     ------------------------------------------
+!     -------------------------------------------
+!     If not on finest level, correct source term
+!     -------------------------------------------
 !      
       IF (lvl < MGlevels) THEN
          CALL ComputeTimeDerivative(this % p_sem,t)
+         
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         ! Block that writes PFiles
+         IF (WritePFiles) THEN
+            IF (MOD(ThisTimeStep+1,PFileint) == 0 .OR. ThisTimeStep == 0) THEN
+               
+               CALL ComputeTimeDerivative(this % tempsem,t)
+               
+               DO iEl = 1, NPElems
+                  ElemNmbr = PElems(iEl)
+                  N1x = this % p_sem % Nx(ElemNmbr)
+                  TauNext =   MAXVAL(ABS(this % p_sem   % mesh % elements(ElemNmbr) % Qdot + this % MGStorage(ElemNmbr) % Scase))
+                  TauFinest = MAXVAL(ABS(this % tempsem % mesh % elements(ElemNmbr) % Qdot + this % MGStorage(ElemNmbr) % Scase))
+                  WRITE(PFileUnit(iEl),*) lvl, N1x, TauFinest, TauNext
+               END DO
+            END IF
+         END IF
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         
 !$omp parallel do
          DO iEl = 1, nelem
-            this % p_sem % mesh % elements(iEl) % S = 2._RP * this % p_sem % mesh % elements(iEl) % S - &
-                                                              this % p_sem % mesh % elements(iEl) % Qdot
+            this % p_sem % mesh % elements(iEl) % S = this % MGStorage(iEl) % S - &
+                                                      this % p_sem % mesh % elements(iEl) % Qdot
          END DO
 !$omp end parallel do
       END IF
@@ -323,7 +550,7 @@ CONTAINS
                N2y = Child_p % p_sem % Ny(iEl)
                N2z = Child_p % p_sem % Nz(iEl)
                CALL Interpolate3D(Q1 = this    % p_sem % mesh % elements(iEl) % Qdot(:,:,:,iEQ), &
-                                  Q2 = Child_p % p_sem % mesh % elements(iEl) % S   (:,:,:,iEQ), &
+                                  Q2 = Child_p % MGStorage(iEl) % S   (:,:,:,iEQ), &
                                   Interp = this % Restriction(N1x,N1y,N1z) % Mat    , &
                                   N1x = N1x,    N1y = N1y,    N1z = N1z             , &
                                   N2x = N2x,    N2y = N2y,    N2z = N2z)
@@ -513,7 +740,8 @@ CONTAINS
 !     Fill the restriction operator
 !     -----------------------------
 !
-      CALL Create3DInterpolationMatrix(rest % Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2)
+!~       CALL Create3DInterpolationMatrix(rest % Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2)
+      CALL Create3DRestrictionMatrix(rest % Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2,w1x,w1y,w1z,w2x,w2y,w2z)
 !
 !     ------------------------------
 !     Fill the prolongation operator

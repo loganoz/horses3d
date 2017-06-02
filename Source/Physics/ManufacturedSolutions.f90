@@ -62,6 +62,11 @@ MODULE ManufacturedSolutions
             vC = (/1._RP,-0.09375_RP , 0.05000_RP , 0.03750_RP, 0.5_RP      , 2._RP/3._RP, 1.25_RP/)
             wC = (/1._RP, 0.01875_RP ,-0.03125_RP , 0.04375_RP, 1.0_RP/3._RP, 1._RP/5._RP, 1.00_RP/)
             pC = (/1._RP, 0.2_RP     , 0.50000_RP ,-0.35000_RP, 2.0_RP      , 1.00_RP    , 1._RP/3._RP/)
+!~            rC = (/1._RP,-0.15_RP   ,-0.15000_RP ,-0.15000_RP, 5.0_RP      , 5.0_RP     , 5.00_RP/)
+!~            uC = (/0._RP, 0.5_RP    , 0.5_RP     , 0.5_RP    , 1.0_RP      , 1.00_RP    , 1.00_RP/)
+!~            vC = (/1._RP,-0.09375_RP , 0.05000_RP , 0.03750_RP, 0.5_RP      , 2._RP/3._RP, 1.25_RP/)
+!~            wC = (/1._RP, 0.01875_RP ,-0.03125_RP , 0.04375_RP, 1.0_RP/3._RP, 1._RP/5._RP, 1.00_RP/)
+!~            pC = (/1._RP, 0.2_RP     , 0.50000_RP ,-0.35000_RP, 2.0_RP      , 1.00_RP    , 1._RP/3._RP/)
       END SELECT
       
    END SUBROUTINE InitializeManufacturedSol
