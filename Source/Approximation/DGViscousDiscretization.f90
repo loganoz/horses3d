@@ -139,6 +139,8 @@ module DGViscousDiscretization
 !
 !        Perform volume loops
 !        --------------------
+!$omp barrier
+!$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
 !
 !           Add the volumetric integrals
@@ -163,6 +165,7 @@ module DGViscousDiscretization
             CALL ProlongGradientToFaces( mesh % elements(eID), spA )
 
          end do
+!$omp end do
 
       end subroutine BR1_ComputeGradient
 
@@ -291,7 +294,8 @@ module DGViscousDiscretization
          INTEGER       :: i, j
         
          N = spA % N
-!TODO: omp loop ($omp do)        
+!$omp barrier
+!$omp do schedule(runtime)
          DO faceID = 1, SIZE(  mesh % faces)
             eIDLeft  =  mesh % faces(faceID) % elementIDs(1) 
             eIDRight =  mesh % faces(faceID) % elementIDs(2)
@@ -359,7 +363,7 @@ module DGViscousDiscretization
             END IF 
 
          END DO           
-!TODO ($omp enddo)       
+!$omp end do
          
       end subroutine BR1_ComputeSolutionRiemannSolver
 

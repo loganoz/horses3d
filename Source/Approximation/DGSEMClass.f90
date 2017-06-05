@@ -139,8 +139,6 @@
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE DestructDGSem( self )
-      USE DGInviscidDiscretization
-      USE DGViscousDiscretization
       IMPLICIT NONE 
       CLASS(DGSem) :: self
       
@@ -246,12 +244,12 @@
 !        Prolongation of the solution to the faces
 !        -----------------------------------------
 !
-!$!omp parallel
-!$!omp do
+!$omp parallel
+!$omp do schedule(runtime)
          DO k = 1, SIZE(self % mesh % elements) 
             CALL ProlongToFaces( self % mesh % elements(k), self % spA )
          END DO
-!$!omp end do
+!$omp end do
 !
 !        -----------------
 !        Compute gradients
@@ -265,7 +263,6 @@
 !        Inviscid Riemann fluxes from the solutions on the faces
 !        -------------------------------------------------------
 !
-!openmp inside
          CALL ComputeRiemannFluxes( self, time )
 !
 !        -----------------------
@@ -273,7 +270,7 @@
 !        -----------------------
 !
          call TimeDerivative_ComputeQDot( self % mesh , self % spA , time )
-!$!omp end parallel
+!$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative
 !
@@ -301,7 +298,8 @@
          INTEGER       :: N
         
          N = self % spA % N
-!$!omp do         
+!$omp barrier
+!$omp do schedule(runtime)
          DO faceID = 1, SIZE( self % mesh % faces)
             eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
             eIDRight = self % mesh % faces(faceID) % elementIDs(2)
@@ -330,7 +328,7 @@
             END IF 
 
          END DO           
-!$!omp enddo          
+!$omp end do
          
       END SUBROUTINE computeRiemannFluxes
 !

@@ -56,7 +56,9 @@
 !        ---------------
 !
          integer     :: eID , iVar 
-
+!
+!$omp barrier
+!$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
 !
 !           Perform volume integrals
@@ -75,6 +77,7 @@
             end do
 
          end do
+!$omp end do
 
       end subroutine TimeDerivative_ComputeQDot
 
