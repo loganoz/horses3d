@@ -3,8 +3,38 @@
 !      By: David Kopriva
 !      From DSEM Code
 !
-!    Special version for Test problem with F = Q, averaging for riemann
-!    solver.
+!!     The variable mappings for the Navier-Stokes Equations are
+!!
+!!              Q(1) = rho
+!!              Q(2) = rhou
+!!              Q(3) = rhov
+!!              Q(4) = rhow
+!!              Q(5) = rhoe
+!!     Whereas the gradients are:
+!!              grad(1) = grad(u)
+!!              grad(2) = grad(v)
+!!              grad(3) = grad(w)
+!!              grad(4) = grad(T)
+!
+!////////////////////////////////////////////////////////////////////////
+!    
+      Module PhysicsKeywordsModule
+         IMPLICIT NONE 
+         INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MACH_NUMBER_KEY           = "mach number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: REYNOLDS_NUMBER_KEY       = "reynolds number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY             = "aoa theta"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY               = "aoa phi"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY        = "flow equations"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY   = "riemann solver"
+         
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physicsKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
+         
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME           = "roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RUSANOV_SOLVER_NAME       = "rusanov"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME = "lax friedrichs"
+         
+      END MODULE PhysicsKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
 !    
@@ -27,7 +57,7 @@
 !!   The sizes of the NS system
 !    --------------------------
 !
-     INTEGER :: N_EQN = 5, N_GRAD_EQN = 4
+     INTEGER, PARAMETER :: N_EQN = 5, N_GRAD_EQN = 4
 !
 !    -----------------------------
 !    Number of physical dimensions
@@ -40,7 +70,14 @@
 !!   The positions of the conservative variables
 !    -------------------------------------------
 !
-     INTEGER :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
+     INTEGER, PARAMETER       :: NCONS = 5
+     INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
+!
+!    ---------------------------------------
+!!   The positions of the gradient variables
+!    ---------------------------------------
+!
+     INTEGER, PARAMETER  :: IGU = 1 , IGV = 2 , IGW = 3 , IGT = 4
 !
 !    ----------------------------------------
 !!   The free-stream or reference mach number
@@ -58,13 +95,13 @@
 !!   The free-stream Angle of Attack
 !    ----------------------------------------
 !
-     REAL( KIND=RP ) :: AOA
+     REAL( KIND=RP ) :: AOATheta, AOAPhi
 !
 !    ----------------------------------------
 !!   The Prandtl number
 !    ----------------------------------------
 !
-     REAL( KIND=RP ) :: PR 
+     REAL( KIND=RP ) :: PR = 0.72_RP
 !
 !    ----------------------------------------
 !!   The free-stream or reference temperature
@@ -72,6 +109,19 @@
 !    ----------------------------------------
 !
      REAL( KIND=RP ) :: TRef 
+!
+!    ----------------------------------------
+!!   The free-stream or reference pressure
+!!   with default in Pa.
+!    ----------------------------------------
+!
+     REAL( KIND=RP ) :: pRef 
+!
+!    ----------------------------------------
+!!   The length in the Reynolds number
+!    ----------------------------------------
+!
+     REAL( KIND=RP ) :: reynoldsLength 
 !
 !    --------------------------------------------
 !!   The temperature scale in the Sutherland law:
@@ -93,6 +143,12 @@
 !
      REAL( KIND=RP ) :: gamma
 !
+!    ----------------------
+!!   The gas state constant
+!    ----------------------
+!
+     REAL( KIND=RP ) :: Rgas
+!
 !    ----------------------------------
 !!   Other constants derived from gamma
 !    ----------------------------------
@@ -101,6 +157,13 @@
      REAL( KIND=RP ) :: gammaPlus1Div2     , gammaMinus1Div2sg, gammaMinus1Div2g
      REAL( KIND=RP ) :: InvGammaPlus1Div2  , InvGammaMinus1   , InvGamma
      REAL( KIND=RP ) :: gammaDivGammaMinus1, gammaM2 !! = gamma*mach**2
+!
+!    ------------------------------------
+!    Riemann solver associated quantities
+!    ------------------------------------
+!
+     INTEGER, PARAMETER :: ROE = 0, LXF = 1, RUSANOV = 2
+     INTEGER            :: riemannSolverChoice = ROE
 !
 !    ========
      CONTAINS
@@ -156,6 +219,91 @@
       
       END SUBROUTINE DestructPhysicsStorage
 !
+!     //////////////////////////////////////////////////////
+!
+!     -----------------------------------------
+!!    Descriptor: Shows the gathered data
+!     -----------------------------------------
+!
+      SUBROUTINE DescribePhysicsStorage()
+         USE Headers
+         IMPLICIT NONE
+
+         write(STD_OUT,'(/,/)')
+         if (flowIsNavierStokes) then
+            call Section_Header("Loading Navier-Stokes physics")
+         else
+            call Section_Header("Loading Euler physics")
+         end if
+
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Fluid data")
+         write(STD_OUT,'(30X,A,A22,A10)') "->" , "Gas: " , "Air"
+         write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "State constant: " , Rgas, " I.S."
+         write(STD_OUT,'(30X,A,A22,F10.3)') "->" , "Specific heat ratio: " , gamma
+
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Reference quantities")
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference Temperature: " , TRef, " K."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference pressure: " , pRef, " Pa."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference density: " , pRef / (Rgas * TRef) , " kg/m^3."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference velocity: " , Mach * sqrt(gamma * Rgas * TRef) , " m/s."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reynolds length: " , reynoldsLength , " m."
+         
+         if ( flowIsNavierStokes ) then
+            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference viscosity: ", &
+                     sqrt(gamma) * Mach * reynoldsLength * pRef / ( RE * sqrt(Rgas * TRef) ) , " Pa·s."
+            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference conductivity: ", &
+                     gammaDivGammaMinus1 * Rgas * sqrt(gamma) * Mach * reynoldsLength * pRef / ( RE * sqrt(Rgas * TRef) ) / PR, &
+                     " W/(m·K)."
+         end if
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference time: " , &
+                     reynoldsLength / (Mach * sqrt(gamma * Rgas * TRef) ) , " s."
+
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Dimensionless quantities")
+         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Mach number: " , Mach
+         if ( flowIsNavierStokes ) then
+            write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Reynolds number: " , RE
+            write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Prandtl number: " , PR
+         end if
+ 
+
+
+      END SUBROUTINE DescribePhysicsStorage
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE CheckPhysicsInputIntegrity( controlVariables, success )  
+         USE FTValueDictionaryClass
+         USE PhysicsKeywordsModule
+         IMPLICIT NONE
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(FTValueDictionary) :: controlVariables
+         LOGICAL                 :: success
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         CLASS(FTObject), POINTER :: obj
+         INTEGER                  :: i
+         success = .TRUE.
+         
+         DO i = 1, SIZE(physicsKeywords)
+            obj => controlVariables % objectForKey(physicsKeywords(i))
+            IF ( .NOT. ASSOCIATED(obj) )     THEN
+               PRINT *, "Input file is missing entry for keyword: ",physicsKeywords(i)
+               success = .FALSE. 
+            END IF  
+         END DO  
+         
+      END SUBROUTINE CheckPhysicsInputIntegrity
+!
 !    **********       
      END MODULE PhysicsStorage
 !    **********
@@ -174,10 +322,26 @@
 !     ---------
 !
       INTEGER, PARAMETER   :: WALL_BC = 1, RADIATION_BC = 2
-      INTEGER, PARAMETER   :: ROE = 0, LXF = 1
       REAL(KIND=RP)        :: waveSpeed
       INTEGER              :: boundaryCondition(4), bcType
-      INTEGER              :: riemannSolverChoice = ROE
+
+
+!
+!    ---------------
+!    Interface block
+!    ---------------
+!
+     interface GradientValuesForQ
+         module procedure GradientValuesForQ_0D , GradientValuesForQ_3D
+     end interface GradientValuesForQ
+
+     interface InviscidFlux
+         module procedure InviscidFlux0D , InviscidFlux1D , InviscidFlux2D , InviscidFlux3D
+     end interface InviscidFlux
+
+     interface ViscousFlux
+         module procedure ViscousFlux0D , ViscousFlux1D , ViscousFlux2D , ViscousFlux3D
+     end interface ViscousFlux
 !
 !     ========
       CONTAINS 
@@ -194,263 +358,196 @@
 !
          REAL(KIND=RP), DIMENSION(N_EQN)  :: Qleft, Qright, flux
          REAL(KIND=RP), DIMENSION(3)      :: nHat
-!
-!        ----------------------------------------------------------------
-!        F = Q\hat x + Q\hat y + Q \hat z$ so the normal flux is as below
-!        ----------------------------------------------------------------
-!
-         flux = 0.5_RP*(Qleft + Qright)*( nHat(1) + nHat(2) + nHat(3))
+         
+         flux = 0.5_RP*(Qleft + Qright)*( nHat(1) + nHat(2) + nHat(3) )
       
       END SUBROUTINE RiemannSolver
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE xFlux( Q, f )
-         IMPLICIT NONE
+      pure function InviscidFlux0D( Q ) result ( F )
+         implicit none
+         real(kind=RP), intent(in)           :: Q(1:NCONS)
+         real(kind=RP)           :: F(1:NCONS , 1:NDIM)
 !
-!        ---------
-!        Arguments
-!        ---------
+!        ---------------
+!        Local variables
+!        ---------------
 !
-         REAL(KIND=RP), DIMENSION(N_EQN) :: Q
-         REAL(KIND=RP), DIMENSION(N_EQN) :: f
+         real(kind=RP)           :: u , v , w , p
 
-         f = Q
-                  
-      END SUBROUTINE xFlux
-!
-!     ////////////////////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE yFlux( Q, g )
-         IMPLICIT NONE
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         REAL(KIND=RP), DIMENSION(N_EQN) :: Q
-         REAL(KIND=RP), DIMENSION(N_EQN) :: g
+         F(:,IX) = Q
+         F(:,IY) = Q
+         F(:,IZ) = Q
 
-         g = Q
-                  
-         
-      END SUBROUTINE yFlux
-!
-!     ////////////////////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE zFlux( Q, h )
-         IMPLICIT NONE
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         REAL(KIND=RP), DIMENSION(N_EQN) :: Q
-         REAL(KIND=RP), DIMENSION(N_EQN) :: h
+      end function InviscidFlux0D
 
-         h = Q
-         
-      END SUBROUTINE zFlux
+      pure function InviscidFlux1D( N , Q ) result ( F )
+         implicit none
+         integer,       intent (in) :: N
+         real(kind=RP), intent (in) :: Q(0:N , 1:NCONS)
+         real(kind=RP)              :: F(0:N , 1:NCONS , 1:NDIM)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)           :: u(0:N) , v(0:N) , w(0:N) , p(0:N)
+
+         F(:,:,IX) = Q
+         F(:,:,IY) = Q
+         F(:,:,IZ) = Q 
+
+      end function InviscidFlux1D
+
+      pure function InviscidFlux2D( N , Q ) result ( F )
+         implicit none
+         integer,       intent (in) :: N
+         real(kind=RP), intent (in) :: Q(0:N , 0:N , 1:NCONS)
+         real(kind=RP)              :: F(0:N , 0:N , 1:NCONS , 1:NDIM)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)           :: u(0:N,0:N) , v(0:N,0:N) , w(0:N,0:N) , p(0:N,0:N)
+
+         F(:,:,:,IX) = Q 
+         F(:,:,:,IY) = Q 
+         F(:,:,:,IZ) = Q 
+
+      end function InviscidFlux2D
+
+      pure function InviscidFlux3D( N , Q ) result ( F )
+         implicit none
+         integer,       intent (in) :: N
+         real(kind=RP), intent (in) :: Q(0:N , 0:N , 0:N , 1:NCONS)
+         real(kind=RP)              :: F(0:N , 0:N , 0:N , 1:NCONS , 1:NDIM)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)           :: u(0:N,0:N,0:N) , v(0:N,0:N,0:N) , w(0:N,0:N,0:N) , p(0:N,0:N,0:N)
+
+         F(:,:,:,:,IX) = Q
+         F(:,:,:,:,IY) = Q
+         F(:,:,:,:,IZ) = Q
+
+      end function InviscidFlux3D
 !
 ! /////////////////////////////////////////////////////////////////////
 !
 !@mark -
 !---------------------------------------------------------------------
-!! DiffusionRiemannSolution comutes the coupling on the solution for
+!! DiffusionRiemannSolution computes the coupling on the solution for
 !! the calculation of the gradient terms.
 !---------------------------------------------------------------------
 !
-      SUBROUTINE DiffusionRiemannSolution( nHat, QLeft, QRight, Q )
-         IMPLICIT NONE
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         REAL(KIND=RP), DIMENSION(N_EQN) :: Qleft, Qright, Q
-         REAL(KIND=RP), DIMENSION(3)     :: nHat
+      pure function ViscousFlux0D( Q , U_x , U_y , U_z ) result (F)
+         implicit none
+         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN     ) 
+         real(kind=RP)                    :: F    ( 1:NCONS , 1:NDIM )
 !
 !        ---------------
-!        Local Variables
+!        Local variables
 !        ---------------
 !
-         INTEGER :: j
-!
-!        -----------------------------------------------
-!        For now, this is simply the Bassi/Rebay average
-!        -----------------------------------------------
-!
-         DO j = 1, N_EQN
-            Q(j) = 0.5_RP*(Qleft(j) + Qright(j))
-         END DO
+         real(kind=RP)                    :: T , muOfT , kappaOfT
+         real(kind=RP)                    :: divV
+         real(kind=RP)                    :: u , v , w
 
-      END SUBROUTINE DiffusionRiemannSolution
+         F = 0.0_RP
+         F(1:N_GRAD_EQN,IX) = U_x
+         F(1:N_GRAD_EQN,IY) = U_y
+         F(1:N_GRAD_EQN,IZ) = U_z
+
+      end function ViscousFlux0D
+
+      pure function ViscousFlux1D( N , Q , U_x , U_y , U_z ) result (F)
+         implicit none
+         integer          , intent ( in ) :: N
+         real ( kind=RP ) , intent ( in ) :: Q    ( 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 0:N , 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 0:N , 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 0:N , 1:N_GRAD_EQN     ) 
+         real(kind=RP)                    :: F    ( 0:N , 1:NCONS , 1:NDIM )
 !
-! /////////////////////////////////////////////////////////////////////////////
+!        ---------------
+!        Local variables
+!        ---------------
 !
-!-----------------------------------------------------------------------------
-!! DiffusionRiemannSolution comutes the coupling on the gradients for
-!! the calculation of the contravariant diffusive flux.
-!-----------------------------------------------------------------------------
+         real(kind=RP)                    :: T(0:N) , muOfT(0:N) , kappaOfT(0:N)
+         real(kind=RP)                    :: divV(0:N)
+         real(kind=RP)                    :: u(0:N) , v(0:N) , w(0:N)
+         integer                          :: i
+
+
+         F = 0.0_RP
+         F(:,1:N_GRAD_EQN,IX) = U_x
+         F(:,1:N_GRAD_EQN,IY) = U_y
+         F(:,1:N_GRAD_EQN,IZ) = U_z
+
+      end function ViscousFlux1D
+
+      pure function ViscousFlux2D( N , Q , U_x , U_y , U_z ) result (F)
+         implicit none
+         integer          , intent ( in ) :: N
+         real ( kind=RP ) , intent ( in ) :: Q    ( 0:N , 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 0:N , 0:N , 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 0:N , 0:N , 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 0:N , 0:N , 1:N_GRAD_EQN     ) 
+         real(kind=RP)                    :: F    ( 0:N , 0:N , 1:NCONS , 1:NDIM )
 !
-      SUBROUTINE DiffusionRiemannFlux(nHat, ds, Q, gradLeft, gradRight, flux)
-      IMPLICIT NONE
+!        ---------------
+!        Local variables
+!        ---------------
 !
-!     ---------
-!     Arguments
-!     ---------
+         real(kind=RP)                    :: T(0:N,0:N) , muOfT(0:N,0:N) , kappaOfT(0:N,0:N)
+         real(kind=RP)                    :: divV(0:N,0:N)
+         real(kind=RP)                    :: u(0:N,0:N) , v(0:N,0:N) , w(0:N,0:N)
+         integer                          :: i , j 
+
+
+         F = 0.0_RP
+         F(:,:,1:N_GRAD_EQN,IX) = U_x
+         F(:,:,1:N_GRAD_EQN,IY) = U_y
+         F(:,:,1:N_GRAD_EQN,IZ) = U_z
+
+
+      end function ViscousFlux2D
+
+      pure function ViscousFlux3D( N , Q , U_x , U_y , U_z ) result (F)
+         implicit none
+         integer          , intent ( in ) :: N
+         real ( kind=RP ) , intent ( in ) :: Q    ( 0:N , 0:N , 0:N , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 0:N , 0:N , 0:N , 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 0:N , 0:N , 0:N , 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 0:N , 0:N , 0:N , 1:N_GRAD_EQN     ) 
+         real ( kind=RP )                 :: F    ( 0:N , 0:N , 0:N , 1:NCONS , 1:NDIM )
 !
-      REAL(KIND=RP), DIMENSION(N_EQN)   :: Q,flux
-      REAL(KIND=RP), DIMENSION(3,N_EQN) :: gradLeft, gradRight
-      REAL(KIND=RP), DIMENSION(3)       :: nHat
-      REAL(KIND=RP)                     :: ds
+!        ---------------
+!        Local variables
+!        ---------------
 !
-!     ---------------
-!     Local Variables
-!     ---------------
+         real(kind=RP) :: T(0:N,0:N,0:N) , muOfT(0:N,0:N,0:N) , kappaOfT(0:N,0:N,0:N)
+         real(kind=RP) :: divV(0:N,0:N,0:N)
+         real(kind=RP) :: u(0:N,0:N,0:N) , v(0:N,0:N,0:N) , w(0:N,0:N,0:N)
+         integer       :: i , j , k
+
+
+         F = 0.0_RP
+         F(:,:,:,1:N_GRAD_EQN,IX) = U_x
+         F(:,:,:,1:N_GRAD_EQN,IY) = U_y
+         F(:,:,:,1:N_GRAD_EQN,IZ) = U_z
+
+
+      end function ViscousFlux3D
 !
-      INTEGER                           :: j,k
-      REAL(KIND=RP), DIMENSION(3,N_EQN) :: grad
-      REAL(KIND=RP), DIMENSION(N_EQN)   :: fx, fy, fz
 !
-!     -------------------------------------------------
-!     For now, this simply uses the Bassi/Rebay average
-!     -------------------------------------------------
-!
-      DO j = 1, N_GRAD_EQN
-         DO k = 1,3
-            grad(k,j) = 0.5_RP*(gradLeft(k,j) + gradRight(k,j))
-         END DO
-      END DO
-!
-!     ----------------------------
-!     Compute the component fluxes
-!     ----------------------------
-!
-      CALL xDiffusiveFlux( Q, grad, fx )
-      CALL yDiffusiveFlux( Q, grad, fy )
-      CALL zDiffusiveFlux( Q, grad, fz )
-!
-!     ------------------------------
-!     Compute the contravariant flux
-!     ------------------------------
-!
-      DO j = 1, N_EQN
-         flux(j) = ds*(nHat(1)*fx(j) + nHat(2)*fy(j) + nHat(3)*fz(j))
-      END DO
-      
-      END SUBROUTINE DiffusionRiemannFlux
-!
-! /////////////////////////////////////////////////////////////////////
-!
-!---------------------------------------------------------------------
-!! xDiffusiveFlux computes the x viscous flux component.
-!---------------------------------------------------------------------
-!
-      SUBROUTINE xDiffusiveFlux( Q, grad, f )
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-!!    Q contains the solution values
-!
-      REAL(KIND=RP), DIMENSION(N_EQN)      :: Q
-!
-!!    grad contains the (physical) gradients needed for the
-!!    equations. For the Navier-Stokes equations these are
-!!    grad(u), grad(v), grad(w), grad(T).
-!
-      REAL(KIND=RP), DIMENSION(3,N_GRAD_EQN) :: grad
-!
-!!     f is the viscous flux in the physical x direction returned by
-!!     this routine.
-! 
-      REAL(KIND=RP), DIMENSION(N_EQN)      :: f
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      f = 0.0_RP
-      f = grad(1,:)
-      !f = Q
-      END SUBROUTINE xDiffusiveFlux
-!
-! /////////////////////////////////////////////////////////////////////
-!
-!---------------------------------------------------------------------
-!! yDiffusiveFlux computes the y viscous flux component.
-!---------------------------------------------------------------------
-!
-      SUBROUTINE yDiffusiveFlux( Q, grad, f )
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-!!    Q contains the solution values
-!
-      REAL(KIND=RP), DIMENSION(N_EQN)      :: Q
-!
-!!    grad contains the (physical) gradients needed for the
-!!    equations. For the Navier-Stokes equations these are
-!!    grad(u), grad(v), grad(w), grad(T).
-!
-      REAL(KIND=RP), DIMENSION(3,N_GRAD_EQN) :: grad
-!
-!!     f is the viscous flux in the physical x direction returned by
-!!     this routine.
-! 
-      REAL(KIND=RP), DIMENSION(N_EQN)      :: f
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      f = 0.0_RP
-      f = grad(2,:)
-      !f = Q
-      END SUBROUTINE yDiffusiveFlux
-!
-! /////////////////////////////////////////////////////////////////////
-!
-!---------------------------------------------------------------------
-!! zDiffusiveFlux computes the z viscous flux component.
-!---------------------------------------------------------------------
-!
-      SUBROUTINE zDiffusiveFlux( Q, grad, f )
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-!!    Q contains the solution values
-!
-      REAL(KIND=RP), DIMENSION(N_EQN)      :: Q
-!
-!!    grad contains the (physical) gradients needed for the
-!!    equations. For the Navier-Stokes equations these are
-!!    grad(u), grad(v), grad(w), grad(T).
-!
-      REAL(KIND=RP), DIMENSION(3,N_GRAD_EQN) :: grad
-!
-!!     f is the viscous flux in the physical x direction returned by
-!!     this routine.
-! 
-      REAL(KIND=RP), DIMENSION(N_EQN)      :: f
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      f = 0.0_RP
-      f = grad(3,:)
-      !f = Q
-      END SUBROUTINE zDiffusiveFlux
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -459,7 +556,7 @@
 !! quantities of which the gradients will be taken.
 !---------------------------------------------------------------------
 !
-      SUBROUTINE GradientValuesForQ( Q, U )
+      SUBROUTINE GradientValuesForQ_0D( Q, U )
       IMPLICIT NONE
 !
 !     ---------
@@ -472,13 +569,35 @@
 !     ---------------
 !     Local Variables
 !     ---------------
-!      
+!     
       U(1) = Q(1)
       U(2) = Q(2)
       U(3) = Q(3)
       U(4) = Q(4)
 
-      END SUBROUTINE GradientValuesForQ
+      END SUBROUTINE GradientValuesForQ_0D
+
+      SUBROUTINE GradientValuesForQ_3D( Q, U )
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP), INTENT(IN)  :: Q(0:,0:,0:,:)
+      REAL(KIND=RP), INTENT(OUT) :: U(0:,0:,0:,:)
+      integer                    :: N 
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!     
+      U(:,:,:,1) = Q(:,:,:,1)
+      U(:,:,:,2) = Q(:,:,:,2)
+      U(:,:,:,3) = Q(:,:,:,3)
+      U(:,:,:,4) = Q(:,:,:,4)
+
+      END SUBROUTINE GradientValuesForQ_3D
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -487,13 +606,13 @@
 !! Compute the pressure from the state variables
 !---------------------------------------------------------------------
 !
-      FUNCTION Pressure(Q) RESULT(P)
+      PURE FUNCTION Pressure(Q) RESULT(P)
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      REAL(KIND=RP), DIMENSION(N_EQN) :: Q
+      REAL(KIND=RP), DIMENSION(N_EQN), INTENT(IN) :: Q
 !
 !     ---------------
 !     Local Variables
@@ -511,13 +630,13 @@
 !! Compute the molecular diffusivity by way of Sutherland's law
 !---------------------------------------------------------------------
 !
-      FUNCTION MolecularDiffusivity(T) RESULT(mu)
+      PURE FUNCTION MolecularDiffusivity(T) RESULT(mu)
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      REAL(KIND=RP) :: T !! The temperature
+      REAL(KIND=RP), INTENT(IN) :: T !! The temperature
 !
 !     ---------------
 !     Local Variables
@@ -536,13 +655,13 @@
 !! Compute the thermal diffusivity by way of Sutherland's law
 !---------------------------------------------------------------------
 !
-      FUNCTION ThermalDiffusivity(T) RESULT(kappa)
+      PURE FUNCTION ThermalDiffusivity(T) RESULT(kappa)
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      REAL(KIND=RP) :: T !! The temperature
+      REAL(KIND=RP), INTENT(IN) :: T !! The temperature
 !
 !     ---------------
 !     Local Variables
@@ -561,13 +680,13 @@
 !! Compute the temperature from the state variables
 !---------------------------------------------------------------------
 !
-      FUNCTION Temperature(Q) RESULT(T)
+      PURE FUNCTION Temperature(Q) RESULT(T)
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      REAL(KIND=RP), DIMENSION(N_EQN) :: Q
+      REAL(KIND=RP), DIMENSION(N_EQN), INTENT(IN) :: Q
 !
 !     ---------------
 !     Local Variables
@@ -580,6 +699,7 @@
       END FUNCTION Temperature
       
    END Module Physics
+!@mark -
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -593,6 +713,7 @@
       
       USE SMConstants
       USE PhysicsStorage
+      USE Physics, ONLY:Pressure
       IMPLICIT NONE
 !
 !     ---------
@@ -611,7 +732,7 @@
       u = ABS( Q(2)/Q(1) )
       v = ABS( Q(3)/Q(1) )
       w = ABS( Q(4)/Q(1) )
-      p = gammaMinus1*(Q(4) - 0.5_Rp*(Q(2)**2 + Q(3)**2 + Q(4)**2 )/Q(1))
+      p = Pressure(Q)
       a = SQRT(gamma*p/Q(1))
       
       eigen(1) = u + a

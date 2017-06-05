@@ -139,6 +139,8 @@
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE DestructDGSem( self )
+      USE DGInviscidDiscretization
+      USE DGViscousDiscretization
       IMPLICIT NONE 
       CLASS(DGSem) :: self
       
@@ -146,6 +148,8 @@
       CALL DestructMesh( self % mesh )
       self % externalState     => NULL()
       self % externalGradients => NULL()
+      IF ( ALLOCATED(InviscidMethod) ) DEALLOCATE( InviscidMethod )
+      IF ( ALLOCATED(ViscousMethod ) ) DEALLOCATE( ViscousMethod ) 
       
       END SUBROUTINE DestructDGSem
 !

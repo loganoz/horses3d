@@ -11,7 +11,9 @@
       USE FTAssertions
       USE DGSEMClass
       USE DGTimeDerivativeMethods
+      USE ProlongToFacesProcedures
       USE SetupModule
+      USE DGViscousDiscretization
       
       IMPLICIT NONE
 !
@@ -40,6 +42,12 @@
 !     Perform the tests
 !     -----------------
 !
+!
+!     ----------------------------------------------------
+!     In this point, do not use any viscous discretization
+!     ----------------------------------------------------
+!
+      deallocate( ViscousMethod )
       nElement =  SIZE(sem % mesh % elements)
       DO eID = 1, nElement
          CALL ProlongToFaces(sem % mesh % elements(eId), sem % spA)
@@ -47,9 +55,7 @@
       
       CALL computeRiemannFluxes(sem,0.0_RP)
       
-      DO eID = 1, nElement
-         CALL LocalTimeDerivative(sem % mesh % elements(eId), sem % spA, 0.0_RP) ! computes -\nabla\cdot\tilde F
-      END DO
+      call TimeDerivative_ComputeQDot( sem % mesh , sem % spA , 0.0_RP )
 !
 !     ------------------------------------------------
 !     Check the divergence of the different components
@@ -109,6 +115,7 @@
       USE FTAssertions
       USE DGSEMClass
       USE DGTimeDerivativeMethods
+      USE ProlongToFacesProcedures
       USE SetupModule
       
       IMPLICIT NONE
@@ -133,7 +140,7 @@
       msg = "Read in mesh " // lastPathComponent(meshFileNames(testFileCount))
       CALL FTAssert(success,msg)
       IF(.NOT.success) RETURN 
-!
+
 !     -----------------
 !     Perform the tests
 !     -----------------
@@ -143,28 +150,14 @@
          CALL ProlongToFaces(sem % mesh % elements(eId), sem % spA)
       END DO
       
+
+      IF ( flowIsNavierStokes )     THEN
+         CALL DGSpatial_ComputeGradient( sem % mesh , sem % spA , 0.0_RP , sem % externalState , sem % externalGradients ) 
+      END IF
+
       CALL computeRiemannFluxes(sem,0.0_RP)
-
-         IF ( flowIsNavierStokes )     THEN
-
-            CALL ComputeSolutionRiemannFluxes( sem, 0.0_RP, sem % externalState )
-
-
-            DO eID = 1, SIZE(sem%mesh%elements) 
-               CALL ComputeDGGradient( sem % mesh % elements(eID), sem % spA, 0.0_RP )
-            END DO
-            DO eID = 1, SIZE(sem%mesh%elements) 
-               CALL ProlongGradientToFaces( sem % mesh % elements(eID), sem % spA )
-            END DO
-
-            CALL ComputeGradientAverages( sem, 0.0_RP, sem % externalGradients  )
-            
-         END IF
-
       
-      DO eID = 1, nElement
-         CALL LocalTimeDerivative(sem % mesh % elements(eId), sem % spA, 0.0_RP) ! computes -\nabla\cdot\tilde F
-      END DO
+      call TimeDerivative_ComputeQDot( sem % mesh , sem % spA , 0.0_RP )
 !
 !     ------------------------------------------------
 !     Check the divergence of the different components
@@ -222,6 +215,7 @@
 ! 
       SUBROUTINE TestInterpolationToFaces
       USE setupModule
+      USE ProlongToFacesProcedures
       USE FTAssertions
       USE DGSEMClass
       
@@ -293,6 +287,7 @@
          USE FTAssertions
          USE DGSEMClass
          USE PhysicsStorage
+         USE ProlongToFacesProcedures
          USE DGTimeDerivativeMethods
          IMPLICIT NONE
 !

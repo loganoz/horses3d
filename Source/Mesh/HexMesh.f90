@@ -330,6 +330,13 @@
             CALL DestructFace( self % faces(j) )
          END DO
          DEALLOCATE( self % faces )
+!
+!        -----
+!        Zones
+!        -----
+!
+         DEALLOCATE( self % zones )
+
          
       END SUBROUTINE DestructMesh
 !

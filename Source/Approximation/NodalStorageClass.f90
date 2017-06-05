@@ -105,7 +105,7 @@
          CLASS(NodalStorage) :: this
          DEALLOCATE( this % xi, this % eta, this % zeta )
          DEALLOCATE( this % w )
-         DEALLOCATE( this % D, this % v, this % b )
+         DEALLOCATE( this % D, this % v, this % b , this % hatD )
          deallocate( this % standardDerivativeMatrix)
       END SUBROUTINE DestructNodalStorage
       

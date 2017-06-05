@@ -35,6 +35,11 @@
             REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
             REAL(KIND=RP)   , INTENT(INOUT) :: Q(:)
             CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+!
+!           ----------
+!           Do nothing
+!           ----------
+!
          END SUBROUTINE externalBoundaryState
 !
 !////////////////////////////////////////////////////////////////////////
@@ -44,4 +49,9 @@
             REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
             REAL(KIND=RP)   , INTENT(INOUT) :: gradU(:,:)
             CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+!
+!           ----------
+!           Do nothing
+!           ----------
+!
          END SUBROUTINE externalGradientState
