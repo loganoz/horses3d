@@ -459,7 +459,7 @@
 !        -----------------------------------------
 !
 !$omp parallel
-!$omp do
+!$omp do private(Nx,Ny,Nz)
          DO k = 1, SIZE(self % mesh % elements)
             Nx = self%mesh%elements(k)%Nxyz(1)
             Ny = self%mesh%elements(k)%Nxyz(2)
@@ -489,7 +489,7 @@
 !           Compute the gradients over the mesh
 !           -----------------------------------
 !
-!$omp do
+!$omp do private(Nx,Ny,Nz)
             DO k = 1, SIZE(self%mesh%elements)
                Nx = self%mesh%elements(k)%Nxyz(1)
                Ny = self%mesh%elements(k)%Nxyz(2)
@@ -502,7 +502,7 @@
 !           Prolong the gradients to the faces
 !           ----------------------------------
 !
-!$omp do
+!$omp do private(Nx,Ny,Nz)
             DO k = 1, SIZE(self%mesh%elements) 
                Nx = self%mesh%elements(k)%Nxyz(1)
                Ny = self%mesh%elements(k)%Nxyz(2)
@@ -525,7 +525,7 @@
 !        Compute time derivatives
 !        ------------------------
 !
-!$omp do
+!$omp do private(Nx,Ny,Nz)
          DO k = 1, SIZE(self % mesh % elements) 
             Nx = self%mesh%elements(k)%Nxyz(1)
             Ny = self%mesh%elements(k)%Nxyz(2)
@@ -559,7 +559,7 @@
          INTEGER       :: eIDLeft, eIDRight
          INTEGER       :: fIDLeft
          
-!$omp do         
+!$omp do private(eIDLeft,eIDRight,fIDLeft)
          DO faceID = 1, SIZE( self % mesh % faces)
             eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
             eIDRight = self % mesh % faces(faceID) % elementIDs(2)
@@ -618,7 +618,7 @@
          
          INTEGER       :: i, j
          
-!$omp do         
+!$omp do private(eIDLeft,eIDRight,fIDLeft,N,i,j,bvExt,d) 
          DO faceID = 1, SIZE( self % mesh % faces)
             eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
             eIDRight = self % mesh % faces(faceID) % elementIDs(2)
@@ -715,7 +715,7 @@
          
          INTEGER       :: i, j
          
-!$omp do         
+!$omp do private(eIDLeft,eIDRight,fIDLeft,N,i,j,UGradExt,UL,UR,d) 
          DO faceID = 1, SIZE( self % mesh % faces)
 
             eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
