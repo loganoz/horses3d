@@ -14,24 +14,28 @@
          USE DGSEMPlotterClass
          IMPLICIT NONE
          
-         TYPE(HexMesh)           :: mesh
-         TYPE(NodalStorage)      :: spA
-         TYPE(TransfiniteHexMap) :: hexTransform
-         TYPE(Face)              :: testFace
-         REAL(KIND=RP)           :: nodes(3,12)
-         REAL(KIND=RP)           :: corners(3,8)
-         REAL(KIND=RP)           :: erMax
-         REAL(KIND=RP)           :: x(3), p(3)
-         REAL(KIND=RP)           :: u(3)
-         INTEGER                 :: nodeIDs(8,2)
-         INTEGER                 :: nonne(6)
-         INTEGER                 :: i,j,k, N, l, id
+         TYPE(HexMesh)                   :: mesh
+         TYPE(NodalStorage),ALLOCATABLE  :: spA(:,:,:)
+         TYPE(TransfiniteHexMap)         :: hexTransform
+         TYPE(Face)                      :: testFace
+         REAL(KIND=RP)                   :: nodes(3,12)
+         REAL(KIND=RP)                   :: corners(3,8)
+         REAL(KIND=RP)                   :: erMax
+         REAL(KIND=RP)                   :: x(3), p(3)
+         REAL(KIND=RP)                   :: u(3)
+         INTEGER                         :: nodeIDs(8,2)
+         INTEGER                         :: nonne(6)
+         INTEGER                         :: i,j,k, N(3), l, id
          INTEGER                 :: nElements, nNodes, nFaces, iFaceID
          INTEGER                 :: numberOfBoundaryFaces, NumberofInteriorFaces
          CHARACTER(LEN=1)        :: space = " "
          CHARACTER(LEN=16)       :: meshfileName = "TwoElements.mesh"
          CHARACTER(LEN=128)      :: msg = "Node id xxx"
          LOGICAL                 :: success
+         
+         INTEGER, ALLOCATABLE               :: Nvector(:)
+         INTEGER                            :: nelem
+         INTEGER                            :: fUnit
 !
 !        --------
 !        Plotting
@@ -69,7 +73,7 @@
 !        Write out the mesh header
 !        -------------------------
 !
-         WRITE(11,*) 12, 2, N
+         WRITE(11,*) 12, 2, N(1)
 !
 !        -------------------
 !        Write out the nodes
@@ -106,15 +110,23 @@
 !        Generate the mesh
 !        -----------------
 !
-         CALL ConstructNodalStorage(spA, N)
-         CALL mesh % constructFromFile(meshfileName,spA, success )
+         ALLOCATE(spA(0:N(1),0:N(2),0:N(3)))
+         OPEN(newunit = fUnit, FILE = meshFileName )  
+            READ(fUnit,*) l, nelem, l                    ! Here l is used as default reader since this variables are not important now
+         CLOSE(fUnit)
+         
+         ALLOCATE (Nvector(nelem))
+         Nvector = N(1)
+         
+         CALL ConstructNodalStorage(spA(N(1),N(2),N(3)), N(1),N(2),N(3))
+         CALL mesh % constructFromFile(meshfileName,spA,Nvector,Nvector,Nvector, success)
          
          CALL FTAssert(test = success,msg = "Mesh file properly constructed")
          IF(.NOT. success) return
          
          DO id = 1, SIZE(mesh % elements)
             CALL allocateElementStorage(self = mesh % elements(id),&
-                                        N = N, nEqn = 3,nGradEqn = 0,flowIsNavierStokes = .FALSE.) 
+                                        Nx = N(1),Ny = N(2),Nz = N(3), nEqn = 3,nGradEqn = 0,flowIsNavierStokes = .FALSE.) 
          END DO  
 !
 !        ---------------------------
@@ -126,8 +138,10 @@
          nElements = SIZE( mesh % elements)
          CALL FTAssertEqual(expectedValue = 2 ,actualValue = nElements, msg = "Number of elements in mesh")
          
-         CALL FTAssertEqual(expectedValue = spA % N ,actualValue = mesh % elements(1) % N, msg = "Polynomial order of element 1")
-         CALL FTAssertEqual(expectedValue = spA % N ,actualValue = mesh % elements(2) % N, msg = "Polynomial order of element 2")
+         CALL FTAssertEqual(expectedValue = spA(N(1),N(2),N(3)) % Nx, &
+                                                  actualValue = mesh % elements(1) % Nxyz(1), msg = "Polynomial order of element 1")
+         CALL FTAssertEqual(expectedValue = spA(N(1),N(2),N(3)) % Nx, &
+                                                  actualValue = mesh % elements(2) % Nxyz(1), msg = "Polynomial order of element 2")
          
          DO k = 1, 2
             DO i = 1, 8
@@ -145,18 +159,18 @@
 !
          erMax = 0.0_RP
          DO id = 1, 2
-            
+            N = mesh % elements(id) % Nxyz
             DO l = 1, 8
                corners(:,l) = nodes(:,nodeIDs(l,id))
             END DO   
             CALL hexTransform % constructWithCorners(corners)
             
-            DO k = 0, spA % N
-               u(3) = spA % zeta(k)
-               DO j = 0, spA % N
-                  u(2) = spA % eta(j)
-                  DO i = 0, spA % N
-                     u(1) = spA % xi(i)
+            DO k = 0, mesh % elements(id) % Nxyz(3)
+               u(3) = spA(N(1),N(2),N(3)) % zeta(k)
+               DO j = 0, mesh % elements(id) % Nxyz(2)
+                  u(2) = spA(N(1),N(2),N(3)) % eta(j)
+                  DO i = 0, mesh % elements(id) % Nxyz(1)
+                     u(1) = spA(N(1),N(2),N(3)) % xi(i)
                      p = hexTransform % transfiniteMapAt(u)
                      x = mesh % elements(id) % geom % x(:,i,j,k)
                      erMax = MAX(erMax,MAXVAL(ABS(x-p)))
@@ -211,8 +225,11 @@
 !
          ALLOCATE(dataSource)
          OPEN(UNIT = 11, FILE = "TwoboxeslElements.tec")
-         CALL thePlotter % Construct(spA = SpA, fUnit = 11,dataSource = dataSource)
-         CALL thePlotter % ExportToTecplot(elements = mesh % elements)
+         
+         CALL thePlotter % Construct(fUnit      = 11,          &
+                                     dataSource = dataSource)
+         
+         CALL thePlotter % ExportToTecplot(elements = mesh % elements, spA = spA)
          CALL thePlotter % Destruct()
          DEALLOCATE(dataSource)
          
@@ -229,13 +246,17 @@
          
          EXTERNAL                :: cylindricalGeometry
          TYPE(HexMesh)           :: mesh
-         TYPE(NodalStorage)      :: spA
+         TYPE(NodalStorage), ALLOCATABLE      :: spA(:,:,:)
          TYPE(Face)              :: testFace
-         INTEGER                 :: j, N, id
+         INTEGER                 :: j, N(3), id
          INTEGER                 :: iFaceID
          INTEGER                 :: numberOfBoundaryFaces, NumberofInteriorFaces
          CHARACTER(LEN=27)       :: meshfileName = "TwoClyindricalElements.mesh"
          LOGICAL                 :: success
+         
+         INTEGER, ALLOCATABLE               :: Nvector(:)
+         INTEGER                            :: nelem
+         INTEGER                            :: fUnit, l
 !
 !        --------
 !        Plotting
@@ -256,18 +277,27 @@
 !        Generate the mesh from the file
 !        -------------------------------
 !
-         CALL ConstructNodalStorage( spA, N )
-         CALL mesh % constructFromFile( meshfileName, spA, success )
+         ALLOCATE(spA(0:N(1),0:N(2),0:N(3)))
+         OPEN(newunit = fUnit, FILE = meshFileName )  
+            READ(fUnit,*) l, nelem, l                    ! Here l is used as default reader since this variables are not important now
+         CLOSE(fUnit)
+         
+         ALLOCATE (Nvector(nelem))
+         Nvector = N(1)
+         
+         CALL ConstructNodalStorage(spA(N(1),N(2),N(3)), N(1),N(2),N(3))
+         CALL mesh % constructFromFile(meshfileName,spA,Nvector,Nvector,Nvector, success)
+         
          CALL FTAssert(test = success,msg = "Mesh file read properly")
          IF(.NOT. success) RETURN 
          
          DO id = 1, SIZE(mesh % elements)
             CALL allocateElementStorage(self = mesh % elements(id),&
-                                        N = N, nEqn = 3,nGradEqn = 0, flowIsNavierStokes = .FALSE.) 
+                                        Nx = N(1), Ny = N(2), Nz = N(3), nEqn = 3,nGradEqn = 0, flowIsNavierStokes = .FALSE.) 
          END DO  
          
-         CALL FTAssertEqual(expectedValue = 2  ,actualValue = SIZE(mesh % elements),msg = "Number of elements in mesh.")
-         CALL FTAssertEqual(expectedValue = N+1,actualValue = SIZE(mesh % elements(1) % Q,1) ,msg = "Number of solution points")
+         CALL FTAssertEqual(expectedValue = 2     ,actualValue = SIZE(mesh % elements),msg = "Number of elements in mesh.")
+         CALL FTAssertEqual(expectedValue = N(1)+1,actualValue = SIZE(mesh % elements(1) % Q,1) ,msg = "Number of solution points")
 !
 !        -----------
 !        Check faces
@@ -303,8 +333,12 @@
 !
          ALLOCATE(dataSource)
          OPEN(UNIT = 11, FILE = "TwoClyindricalElements.tec")
-         CALL thePlotter % Construct(spa = spA, fUnit = 11,dataSource = dataSource)
-         CALL thePlotter % ExportToTecplot(elements = mesh % elements)
+         
+         CALL thePlotter % Construct(fUnit      = 11,          &
+                                     dataSource = dataSource)
+         
+         CALL thePlotter % ExportToTecplot(elements = mesh % elements, spA = spA)
+         
          DEALLOCATE(dataSource)
          
       END SUBROUTINE testTwoElementCylindersMesh
@@ -320,7 +354,7 @@
          EXTERNAL                :: cylindricalGeometry
          REAL(KIND=RP)           :: nodes(3,12)
          INTEGER                 :: nodeIDs(8,2), curvedFaces(6)
-         INTEGER                 :: i,j,k, N
+         INTEGER                 :: i,j,k, N(3)
          CHARACTER(LEN=1)        :: space = " "
 !
 !        -----
@@ -335,8 +369,8 @@
          TYPE(FacePatch) , DIMENSION(6)     :: faceData
 !         
          N       = 6
-         nUknots = N + 1
-         nVKnots = N + 1
+         nUknots = N(1) + 1
+         nVKnots = N(2) + 1
          ALLOCATE(uKnots(nUKnots))
          ALLOCATE(vKnots(nVKnots))
          ALLOCATE(points(3,nUKnots,nVKnots))
@@ -421,7 +455,7 @@
 !        Write out the mesh
 !        ------------------
 !
-         WRITE(11,*) 12, 2, N
+         WRITE(11,*) 12, 2, N(1)
 !
 !        -------------------
 !        Write out the nodes

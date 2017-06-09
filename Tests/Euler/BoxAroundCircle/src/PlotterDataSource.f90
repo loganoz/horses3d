@@ -51,11 +51,11 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE outputVectorFromStateVector( outputVector, stateVector)
+      SUBROUTINE outputVectorFromStateVector( outputVector, stateVector, x)
          USE SMConstants
          IMPLICIT NONE
          REAL(KIND=RP), DIMENSION(:) :: outputVector, stateVector
-         
+         REAL(KIND=RP) :: x(3)
          REAL(KIND=RP)               :: rho, u, v, w, e
          
          rho = stateVector(1)

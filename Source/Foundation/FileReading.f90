@@ -8,7 +8,7 @@
 !///////////////////////////////////////////////////////////////////////
 !
 !     ----------------------------------------------------------------
-!!    Extracts the string at the left of the ==, which corresponds to
+!!    Extracts the string at the left of the =, which corresponds to
 !!    the keyword for an input value.
 !     ----------------------------------------------------------------
 !

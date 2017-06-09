@@ -114,9 +114,9 @@
             INTEGER     :: i, j, k, eID
             
             DO eID = 1, SIZE(sem % mesh % elements)
-               DO k = 0, sem % spA % N
-                  DO j = 0, sem % spA % N
-                     DO i = 0, sem % spA % N 
+               DO k = 0, sem % mesh % elements(eID) % Nxyz(3)
+                  DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
+                     DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
                         CALL pointSourceFlowSolution( sem % mesh % elements(eID) % geom % x(:,i,j,k), &
                                                       sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN), success )
                         IF(.NOT. success) ERROR STOP "Unable to compute initial condition"       
@@ -194,7 +194,7 @@
                                                                9.8550101132040978E-011, 9.8967441182940477E-011, &
                                                                9.9582661331228551E-011]
 !
-            N = sem % spA % N
+            N = sem % mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
@@ -207,13 +207,13 @@
                                tol           = 1.d-3, &
                                msg           = "Final maximum residual")
             
-            ALLOCATE(QExpected(0:sem % spA % N,0:sem % spA % N,0:sem % spA % N,N_EQN))
+            ALLOCATE(QExpected(0:N,0:N,0:N,N_EQN))
             
             maxError = 0.0_RP
             DO eID = 1, SIZE(sem % mesh % elements)
-               DO k = 0, sem % spA % N
-                  DO j = 0, sem % spA % N
-                     DO i = 0, sem % spA % N 
+               DO k = 0, sem % mesh % elements(eID) % Nxyz(3)
+                  DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
+                     DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
                         CALL pointSourceFlowSolution( sem % mesh % elements(eID) % geom % x(:,i,j,k), &
                                                       QExpected(i,j,k,1:N_EQN), success )
                      END DO
@@ -353,7 +353,7 @@
 !=====================================================================================================
 !
 !
-      SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryType )
+   SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryType )
 !
 !     ----------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -432,4 +432,3 @@
       END IF
 
       END SUBROUTINE ExternalGradientForBoundaryName
-

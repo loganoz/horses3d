@@ -37,7 +37,7 @@ module DGInviscidDiscretization
          class(InviscidMethod_t) :: self
          type(Element)           :: e
          type(NodalStorage)      :: spA
-         real(kind=RP)           :: contravariantFlux(0:spA % N , 0:spA % N , 0:spA % N , 1:N_EQN , 1:NDIM)
+         real(kind=RP)           :: contravariantFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN , 1:NDIM)
 !
 !        ---------------------------
 !        The base class does nothing
@@ -59,17 +59,17 @@ module DGInviscidDiscretization
          implicit none
          class(StandardDG_t) :: self
          type(Element)       :: e
-         type(NodalStorage)  :: spA
-         real(kind=RP)       :: contravariantFlux(0:spA % N , 0:spA % N , 0:spA % N , 1:N_EQN, 1:NDIM)
+         type(NodalStorage) :: spA
+         real(kind=RP)      :: contravariantFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN , 1:NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)       :: cartesianFlux(0:spA % N , 0:spA % N , 0:spA % N , 1:N_EQN,1:NDIM)
+         real(kind=RP)      :: cartesianFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN , 1:NDIM)
          integer             :: nv
 
-         cartesianFlux = InviscidFlux( spA % N , e % Q )
+         cartesianFlux = InviscidFlux( spA % Nx , spA % Ny , spA % Nz , e % Q )
 
          do nv = 1 , N_EQN
          

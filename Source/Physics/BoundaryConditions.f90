@@ -63,8 +63,9 @@
          USE Physics
          USE SharedBCModule
          USE MeshTypes
+         USE ManufacturedSolutions
       
-         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(8) :: implementedBCNames = &
+         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(10) :: implementedBCNames = &
                ["freeslipwall        ", &
                "noslipadiabaticwall ",  &
                "noslipisothermalwall",  &
@@ -72,7 +73,9 @@
                "outflow             ",  &
                "outflowspecifyp     ",  &
                "periodic-           ",  &
-               "periodic+           "]
+               "periodic+           ",  &
+               "manufacturedsol     ",  &
+               "msoutflowspecifyp   "]
                
          INTEGER, PARAMETER :: FREE_SLIP_WALL_INDEX          = 1
          INTEGER, PARAMETER :: NO_SLIP_ADIABATIC_WALL_INDEX  = 2
@@ -391,6 +394,81 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+      SUBROUTINE ZeroFlowState( x, t, Q )
+      USE SMConstants
+      USE PhysicsStorage
+      IMPLICIT NONE
+      
+      REAL(KIND=RP) :: x(3), t
+      REAL(KIND=RP) :: Q(N_EQN)
+      
+      REAL(KIND=RP) :: p
+      
+      Q(1) = 1.0_RP
+      p    = 1.0_RP/(gammaM2)
+      Q(2) = 0._RP
+      Q(3) = 0._RP
+      Q(4) = 0._RP
+      Q(5) = p/(gamma - 1._RP)
+      
+      END SUBROUTINE ZeroFlowState
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!! Perdurbs a state vector for a particular point located in the unit cube
+!! using the random number generator and a gaussian function
+! 
+   SUBROUTINE GaussianPerturbUnitCube(x, Q)
+      IMPLICIT NONE
+      
+      REAL(KIND=RP) :: x(3)
+      REAL(KIND=RP) :: Q(N_EQN)
+      
+      REAL(KIND=RP) :: GaussFac, RandNum
+      INTEGER       :: i
+      
+      IF(ANY(x>1._RP) .OR. ANY(x<0._RP)) THEN
+         print*, 'WARNING: Points in geometry outside of unit cube.'
+      END IF
+      
+      GaussFac = exp((-(x(1)-0.5_RP)**2-(x(2)-0.5_RP)**2-(x(3)-0.5_RP)**2)*20)
+      
+      DO i=1, N_EQN
+         CALL RANDOM_NUMBER(RandNum)
+         Q(i) = Q(i) + Q(i) * GaussFac * (RandNum-0.5_RP) * 0.5_RP
+      END DO
+      
+   END SUBROUTINE GaussianPerturbUnitCube
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!! Perdurbs a state vector for a particular point located in the unit cube
+!! using the random number generator and a gaussian function
+! 
+   SUBROUTINE GaussianPerturbUnitSquare(x, Q)
+      IMPLICIT NONE
+      
+      REAL(KIND=RP) :: x(3)
+      REAL(KIND=RP) :: Q(N_EQN)
+      
+      REAL(KIND=RP) :: GaussFac, RandNum
+      INTEGER       :: i
+      
+      IF(ANY(x(1:2)>1._RP) .OR. ANY(x(1:2)<0._RP)) THEN
+         print*, 'WARNING: Points in geometry outside of unit square.'
+      END IF
+      
+      GaussFac = exp((-(x(1)-0.5_RP)**2-(x(2)-0.5_RP)**2)*20)
+      
+      DO i=1, N_EQN
+         CALL RANDOM_NUMBER(RandNum)
+         Q(i) = Q(i) + Q(i) * GaussFac * (RandNum-0.5_RP) * 0.5_RP
+      END DO
+      
+   END SUBROUTINE GaussianPerturbUnitSquare
+!
+!////////////////////////////////////////////////////////////////////////
+!
       SUBROUTINE ExternalPressureState( x, t, nHat, Q, pExt )
 !
 !     -------------------------------------------------------
@@ -456,8 +534,106 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-
-
 !     ===========
       END MODULE BoundaryConditionFunctions
 !     ===========
+!
+!=====================================================================================================
+!=====================================================================================================
+!
+!
+      SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryType )
+!
+!     ----------------------------------------------
+!     Set the boundary conditions for the mesh by
+!     setting the external state for each boundary.
+!     ----------------------------------------------
+!
+      USE BoundaryConditionFunctions
+      
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+      REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
+      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      REAL(KIND=RP)   :: pExt
+      LOGICAL         :: success
+
+      IF ( boundarytype == "freeslipwall" )             THEN
+         CALL FreeSlipWallState( x, t, nHat, Q )
+      ELSE IF ( boundaryType == "noslipadiabaticwall" ) THEN 
+         CALL  NoSlipAdiabaticWallState( x, t, Q)
+      ELSE IF ( boundarytype == "noslipisothermalwall") THEN 
+         CALL NoSlipIsothermalWallState( x, t, Q )
+      ELSE IF ( boundaryType == "outflowspecifyp" )     THEN 
+         pExt =  ExternalPressure()
+         CALL ExternalPressureState ( x, t, nHat, Q, pExt )
+      ELSE IF ( boundaryType == "manufacturedsol" )     THEN 
+         CALL ManufacturedSolutionState( x, t, Q )
+      ELSE IF ( boundaryType == "MSOutflowSpecifyP" )     THEN 
+         pExt =  ManufacturedSolP(x)
+         CALL ExternalPressureState ( x, t, nHat, Q, pExt )
+      ELSE 
+         CALL UniformFlowState( x, t, Q ) 
+      END IF
+
+      END SUBROUTINE externalStateForBoundaryName
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, GradU, boundaryType )
+!
+!     ------------------------------------------------
+!     Set the boundary conditions for the mesh by
+!     setting the external gradients on each boundary.
+!     ------------------------------------------------
+!
+      USE BoundaryConditionFunctions
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,N_GRAD_EQN)
+      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      REAL(KIND=RP) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
+
+      U_x(:) = GradU(1,:)
+      U_y(:) = GradU(2,:)
+      U_z(:) = GradU(3,:)
+
+      IF ( boundarytype == "freeslipwall" )                   THEN
+         CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
+      ELSE IF ( boundaryType == "noslipadiabaticwall" )       THEN 
+         CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z )
+      ELSE IF ( boundarytype == "noslipisothermalwall")       THEN 
+         CALL NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z )
+      ELSE IF ( boundaryType == "manufacturedsol" )     THEN 
+         CALL ManufacturedSolutionDeriv( x, t, nHat, U_x, U_y, U_z )
+      ELSE IF ( boundaryType == "MSOutflowSpecifyP" )     THEN 
+         CALL ManufacturedSolutionDeriv( x, t, nHat, U_x, U_y, U_z )
+      ELSE
+         CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
+      END IF
+
+      GradU(1,:) = U_x(:)
+      GradU(2,:) = U_y(:)
+      GradU(3,:) = U_z(:)
+
+      END SUBROUTINE ExternalGradientForBoundaryName

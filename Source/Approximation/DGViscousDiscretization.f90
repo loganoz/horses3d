@@ -72,7 +72,7 @@ module DGViscousDiscretization
          class(ViscousMethod_t) ,  intent (in)   :: self
          type(Element)                           :: e
          type(NodalStorage)      ,  intent (in)  :: spA
-         real(kind=RP)           ,  intent (out) :: contravariantFlux(0:spA % N , 0:spA % N , 0:spA % N , 1:N_EQN, 1:NDIM)
+         real(kind=RP)           ,  intent (out) :: contravariantFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN, 1:NDIM)
 !
 !        ---------------------------
 !        The base class does nothing
@@ -122,10 +122,11 @@ module DGViscousDiscretization
          implicit none
          class(BassiRebay1_t), intent(in) :: self
          class(HexMesh)                   :: mesh
-         class(NodalStorage),  intent(in) :: spA
+         class(NodalStorage),  intent(in) :: spA(:,:,:)
          real(kind=RP),        intent(in) :: time
          external                         :: externalStateProcedure
          external                         :: externalGradientsProcedure
+         INTEGER                          :: Nx, Ny, Nz
 !
 !        ---------------
 !        Local variables
@@ -142,14 +143,17 @@ module DGViscousDiscretization
 !$omp barrier
 !$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
+            Nx = mesh % elements(iID) % Nxyz(1)
+            Ny = mesh % elements(iID) % Nxyz(2)
+            Nz = mesh % elements(iID) % Nxyz(3)
 !
 !           Add the volumetric integrals
 !           ----------------------------
-            call BR1_GradientVolumeLoop( self , mesh % elements(eID) , spA ) 
+            call BR1_GradientVolumeLoop( self , mesh % elements(eID) , spA(Nx,Ny,Nz) ) 
 !
 !           Add the surface integrals
 !           -------------------------
-            call BR1_GradientFaceLoop( self , mesh % elements(eID) , spA )
+            call BR1_GradientFaceLoop( self , mesh % elements(eID) , spA(Nx,Ny,Nz) )
 !
 !           Perform the scaling
 !           -------------------               
@@ -162,7 +166,7 @@ module DGViscousDiscretization
                            mesh % elements(eID) % U_z(:,:,:,eqID) / mesh % elements(eID) % geom % jacobian
             end do
 
-            CALL ProlongGradientToFaces( mesh % elements(eID), spA )
+            CALL ProlongGradientToFaces( mesh % elements(eID), spA(Nx,Ny,Nz) )
 
          end do
 !$omp end do
@@ -184,7 +188,7 @@ module DGViscousDiscretization
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)          :: U(0:spA%N , 0:spA%N , 0:spA%N,1:N_GRAD_EQN)
+         real(kind=RP)          :: U(0:spA%Nx , 0:spA%Ny , 0:spA%Nz,1:N_GRAD_EQN)
 !
 !        Compute gradient variables
 !        --------------------------
@@ -215,9 +219,9 @@ module DGViscousDiscretization
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)        :: faceInt_x(0:spA % N , 0:spA % N , 0:spA % N , N_GRAD_EQN )
-         real(kind=RP)        :: faceInt_y(0:spA % N , 0:spA % N , 0:spA % N , N_GRAD_EQN )
-         real(kind=RP)        :: faceInt_z(0:spA % N , 0:spA % N , 0:spA % N , N_GRAD_EQN )
+         real(kind=RP)        :: faceInt_x(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , N_GRAD_EQN )
+         real(kind=RP)        :: faceInt_y(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , N_GRAD_EQN )
+         real(kind=RP)        :: faceInt_z(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , N_GRAD_EQN )
 !
 !        LEFT face
 !        ---------
@@ -287,7 +291,7 @@ module DGViscousDiscretization
          INTEGER       :: faceID
          INTEGER       :: eIDLeft, eIDRight
          INTEGER       :: fIDLeft, fIDright
-         INTEGER       :: N
+         INTEGER       :: N(2)
          
          REAL(KIND=RP) :: bvExt(N_EQN), UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)     
          
@@ -295,20 +299,21 @@ module DGViscousDiscretization
         
          N = spA % N
 !$omp barrier
-!$omp do schedule(runtime)
+!$omp do private(eIDLeft,eIDRight,fIDLEft,N,i,j,bvExt,d) schedule(runtime)
          DO faceID = 1, SIZE(  mesh % faces)
             eIDLeft  =  mesh % faces(faceID) % elementIDs(1) 
             eIDRight =  mesh % faces(faceID) % elementIDs(2)
-            fIDLeft  =  mesh % faces(faceID) % elementSide(1)
             
             IF ( eIDRight == HMESH_NONE )     THEN
+               fIDLeft  =  mesh % faces(faceID) % elementSide(1)
 !
 !              -------------
 !              Boundary face
 !              -------------
 !
-               DO j = 0, N
-                  DO i = 0, N
+               N = mesh % elements(eIDLeft) % Nxyz(axisMap(:,fIDLeft) )
+               DO j = 0, N(2)
+                  DO i = 0, N(1)
 
                      bvExt =  mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft)
 
@@ -328,21 +333,6 @@ module DGViscousDiscretization
                      d = 0.5_RP*(UL + UR)
                
                       mesh % elements(eIDLeft) % Ub (:,i,j,fIDLeft) = d
-!
-!              -----------------
-!              Solution averages
-!              -----------------
-!                             Qb + bvExt
-!TODO: this makes that Qb <= ------------       (Remove?)
-!                                2
-!
-!                     CALL DiffusionRiemannSolution( self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
-!                                                    self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft), &
-!                                                    bvExt, &
-!                                                    self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft) )
-                                                    
-                     !self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft)    = &
-                     !& 0.5_RP*( self % mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft) + bvExt )
 
                   END DO   
                END DO   
@@ -353,12 +343,9 @@ module DGViscousDiscretization
 !              Interior face
 !              -------------
 !
-               fIDRight =   mesh % faces(faceID) % elementSide(2)
-               
-               CALL BR1_ComputeElementInterfaceAverage(eL =  mesh % elements(eIDLeft) ,fIDLeft  = fIDLeft, &
-                                                       eR =  mesh % elements(eIDRight),fIDRight = fIDright,&
-                                                       N  = N,                                             &
-                                                 rotation =  mesh % faces(faceID) % rotation)
+               CALL BR1_ComputeElementInterfaceAverage(eL =  mesh % elements(eIDLeft) ,&
+                                                       eR =  mesh % elements(eIDRight),&
+                                                       thisface = self % mesh % faces(faceID))
 
             END IF 
 
@@ -367,7 +354,7 @@ module DGViscousDiscretization
          
       end subroutine BR1_ComputeSolutionRiemannSolver
 
-      SUBROUTINE BR1_ComputeElementInterfaceAverage( eL, fIDLeft, eR, fIDRight, N, rotation)
+      SUBROUTINE BR1_ComputeElementInterfaceAverage( eL, eR , thisFace )
          USE Physics  
          use ElementClass
          use FaceClass
@@ -378,9 +365,7 @@ module DGViscousDiscretization
 !        ---------
 !
          TYPE(Element) :: eL, eR
-         INTEGER       :: fIDLeft, fIdright
-         INTEGER       :: rotation
-         INTEGER       :: N
+         TYPE(Face)    :: thisFace
 !
 !        ---------------
 !        Local variables
@@ -389,23 +374,65 @@ module DGViscousDiscretization
          REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
          REAL(KIND=RP) :: d(N_GRAD_EQN)
          INTEGER       :: i,j,ii,jj
+         INTEGER       :: fIDLeft, fIdright
+         INTEGER       :: rotation
+         INTEGER       :: Nxy(2) , NL(2) , NR(2)
+               
+         fIDLeft  = thisface % elementSide(1)
+         fIDRight = thisface % elementSide(2)
+         Nxy      = thisface % NPhi
+         NL       = thisface % NL
+         NR       = thisface % NR
+         rotation = thisface % rotation
+!
+!        -----------------
+!        Project to mortar
+!        -----------------
+!
+         CALL ProjectToMortar(thisface, eL % QB(:,0:NL(1),0:NL(2),fIDLeft), eR % QB(:,0:NR(1),0:NR(2),fIDright), N_EQN)
+!
+!        ----------------------
+!        Compute interface flux
+!        Using Riemann solver
+!        ----------------------
+!
+         norm = eL % geom % normal(:,1,1,fIDLeft)
+         DO j = 0, Nxy(2)
+            DO i = 0, Nxy(1)
+               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                      ! This turns according to the rotation of the elements
+               CALL RiemannSolver(QLeft  = thisface % Phi % L(:,i,j)        , &
+                                  QRight = thisface % Phi % R(:,ii,jj)      , &
+                                  nHat   = norm                             , &        ! This works only for flat faces. TODO: Change nHat to be stored in face with the highest polynomial combination!!! 
+                                  flux   = thisface % Phi % C(:,i,j) ) 
+            END DO   
+         END DO 
+!
+!        ------------------------
+!        Project back to elements
+!        ------------------------
+!
+         CALL ProjectFluxToElement  ( thisface                               , &
+                                      eL % FStarb(:,0:NL(1),0:NL(2),fIDLeft) , &
+                                      eR % FStarb(:,0:NR(1),0:NR(2),fIdright), &
+                                      N_EQN )
+!
+!        ------------------------
+!        Apply metrics correction
+!        ------------------------
+!
+         ! Left element
+         Nxy = thisface % NL
+         DO j = 0, Nxy(2)
+            DO i = 0, Nxy(1)
+               eL % FStarb(:,i,j,fIDLeft)  = eL % FStarb(:,i,j,fIDLeft)  * eL % geom % scal(i,j,fIDLeft)
+            END DO   
+         END DO
          
-         DO j = 0, N
-            DO i = 0, N
-               CALL iijjIndexes(i,j,N,rotation,ii,jj)
-!
-!                 --------------
-!                 u,v,T averages
-!                 --------------
-!
-               CALL GradientValuesForQ( Q  = eL % QB(:,i,j,fIDLeft), U = UL )
-               CALL GradientValuesForQ( Q  = eR % QB(:,ii,jj,fIDright), U = UR )
-
-               d = 0.5_RP*(UL + UR)
-               
-               eL % Ub ( : , i  , j  , fIDLeft  ) = d
-               eR % Ub ( : , ii , jj , fIDright ) = d
-               
+         ! Right element
+         Nxy = thisface % NR
+         DO j = 0, Nxy(2)
+            DO i = 0, Nxy(1)
+               eR % FStarb(:,i,j,fIdright) = eR % FStarb(:,i,j,fIdright) * eR % geom % scal(i,j,fIdright)
             END DO   
          END DO
          
@@ -420,16 +447,16 @@ module DGViscousDiscretization
          class(BassiRebay1_t) ,     intent (in) :: self
          type(Element)                          :: e
          type(NodalStorage)      , intent (in)  :: spA
-         real(kind=RP)           , intent (out) :: contravariantFlux(0:spA % N , 0:spA % N , 0:spA % N , 1:N_EQN , 1:NDIM)
+         real(kind=RP)           , intent (out) :: contravariantFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN , 1:NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)       :: cartesianFlux(0:spA % N , 0:spA % N , 0:spA % N , 1:N_EQN , 1:NDIM)
+         real(kind=RP)       :: cartesianFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN , 1:NDIM)
          integer             :: nv
 
-         cartesianFlux = ViscousFlux( spA % N , e % Q , e % U_x , e % U_y , e % U_z )
+         cartesianFlux = ViscousFlux( spA % Nx , spA % Ny , spA % Nz  , e % Q , e % U_x , e % U_y , e % U_z )
 
          do nv = 1 , N_EQN
          

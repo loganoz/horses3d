@@ -23,6 +23,12 @@
          INTEGER      , PARAMETER         :: SP = SELECTED_REAL_KIND( SINGLE_DIGITS ) ! Single Real Kind
          INTEGER      , PARAMETER         :: CP = SELECTED_REAL_KIND( DIGITS )        ! Complex Kind
          REAL(KIND=RP), PARAMETER         :: PI = 3.141592653589793238462643_RP
+
+#if defined(ARCH_32_BITS)
+         INTEGER      , PARAMETER         :: AddrInt = SELECTED_INT_KIND(9)
+#else
+         INTEGER      , PARAMETER         :: AddrInt = SELECTED_INT_KIND(18)
+#endif
          
          INTEGER, PARAMETER               :: FORWARD  = +1
          INTEGER, PARAMETER               :: BACKWARD = -1

@@ -25,6 +25,7 @@
 !
       TYPE HexMesh
          INTEGER                                  :: numberOfFaces
+         INTEGER      , DIMENSION(:), ALLOCATABLE :: Ns              !Polynomial orders of all elements
          TYPE(Node)   , DIMENSION(:), ALLOCATABLE :: nodes
          TYPE(Face)   , DIMENSION(:), ALLOCATABLE :: faces
          TYPE(Element), DIMENSION(:), ALLOCATABLE :: elements
@@ -38,7 +39,7 @@
          PROCEDURE :: destruct          => DestructMesh
          PROCEDURE :: Describe          => DescribeMesh
          PROCEDURE :: ConstructZones    => HexMesh_ConstructZones
-         
+         PROCEDURE :: WriteCoordFile
       END TYPE HexMesh
 !
 !     ========
@@ -48,7 +49,9 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ConstructMesh_FromFile_( self, fileName, spA, success )
+!!    Constructs mesh from mesh file
+!!    Only valid for conforming meshes
+      SUBROUTINE ConstructMesh_FromFile_( self, fileName, spA, Nx, Ny, Nz, success )
          USE Physics
          IMPLICIT NONE
 !
@@ -57,8 +60,9 @@
 !        ---------------
 !
          CLASS(HexMesh)     :: self
-         TYPE(NodalStorage) :: spA
+         TYPE(NodalStorage) :: spA(0:,0:,0:)
          CHARACTER(LEN=*)   :: fileName
+         INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
          LOGICAL            :: success
 !
 !        ---------------
@@ -67,7 +71,6 @@
 !
          TYPE(TransfiniteHexMap), POINTER :: hexMap, hex8Map, genHexMap
          
-         INTEGER                         :: N
          INTEGER                         :: numberOfElements
          INTEGER                         :: numberOfNodes
          INTEGER                         :: numberOfBoundaryFaces
@@ -100,7 +103,6 @@
          REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
           
          numberOfBoundaryFaces = 0
-         N                     = spa % N
          corners               = 0.0_RP
          success               = .TRUE.
          
@@ -162,13 +164,13 @@
 !        -----------------------------------------
 !        Read elements: Elements have the format:
 !        node1ID node2ID node3ID node4ID ... node8ID
-!        b1 b2 b3 b4 ... b8
+!        b1 b2 b3 b4 b5 b6
 !           (=0 for straight side, 1 for curved)
 !        If curved boundaries, then for each:
 !           for j = 0 to bFaceOrder
-!              x_j  y_j z_j
+!              x_j  y_j  z_j
 !           next j
-!        bname1 bname2 bname3 bname4 ... bname8
+!        bname1 bname2 bname3 bname4 bname5 bname6
 !        -----------------------------------------
 !
          DO l = 1, numberOfElements 
@@ -244,8 +246,7 @@
 !           Now construct the element
 !           -------------------------
 !
-            
-            CALL ConstructElementGeometry( self % elements(l), spA, nodeIDs, hexMap )
+            CALL ConstructElementGeometry( self % elements(l), spA(Nx(l),Ny(l),Nz(l)), nodeIDs, hexMap )
             
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(l), names )
@@ -253,6 +254,34 @@
             DO k = 1, 6
                IF(TRIM(names(k)) /= emptyBCName) numberOfBoundaryFaces = numberOfBoundaryFaces + 1
             END DO  
+            
+!
+!           ------------------------------------
+!           Construct the element connectivities
+!           ------------------------------------
+!
+            DO k = 1, 6
+               IF (TRIM(names(k)) == "---") THEN
+                  self%elements(l)%NumberOfConnections(k) = 1
+                  CALL self%elements(l)%Connection(k)%construct (1)  ! Conforming elements!!
+               ELSE
+                  self%elements(l)%NumberOfConnections(k) = 0
+               ENDIF
+            ENDDO
+            
+            
+         END DO
+         
+!
+!        ------------------------------
+!        Set the element connectivities
+!        ------------------------------
+!
+         DO l=1, numberOfElements
+            DO k= 1, 6
+               IF (self%elements(l)%NumberOfConnections(k) /= 0) &
+                  CALL SetConformingConnectivities(self%elements(l)%Connection(k), self%elements, l, k)
+            ENDDO 
          END DO
 !
 !        ---------------------------
@@ -289,6 +318,8 @@
          DEALLOCATE(genHexMap)
 
          CALL self % Describe( trim(fileName) )
+         
+         self % Ns = Nx
          
       END SUBROUTINE ConstructMesh_FromFile_
 
@@ -472,7 +503,7 @@
 !!
 !! As an example, faceRotation = 1 <=> rotating master by 90 deg. 
 !
-      INTEGER FUNCTION faceRotation( masterNodeIDs, slaveNodeIDs, masterSide   , slaveSide)
+      INTEGER FUNCTION faceRotation( masterNodeIDs, slaveNodeIDs,masterSide   , slaveSide)
          IMPLICIT NONE 
          INTEGER               :: masterSide   , slaveSide    !< Sides connected in interface
          INTEGER, DIMENSION(4) :: masterNodeIDs, slaveNodeIDs !< Node IDs
@@ -743,8 +774,10 @@
 !     ---------------
 !
       INTEGER           :: fID
-      INTEGER           :: no_of_bdryfaces = 0
-
+      INTEGER           :: no_of_bdryfaces
+      
+      no_of_bdryfaces = 0
+      
       write(STD_OUT,'(/)')
       call Section_Header("Reading mesh")
       write(STD_OUT,'(/)')
@@ -764,6 +797,110 @@
       write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bdryfaces
 
       END SUBROUTINE DescribeMesh     
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!!    This procedure sets the connectivities for a certain face of a  
+!!    single element in a conforming mesh
+!!    (Original 2D procedure by grubio... 3D adaptation by arueda)
+!!
+      SUBROUTINE SetConformingConnectivities(self,Elements, jElement, kFace)
+         IMPLICIT NONE
+!
+!        ------------------------------------------------------
+!        Search and set the conectivities between the elements
+!        in conforming meshes
+!        ------------------------------------------------------
+!
+         !-----------------------------------------------
+         TYPE(Connectivity)     :: self             !> Connection that will be set
+         TYPE(Element)         :: Elements(:)      !< All elements in mesh
+         INTEGER               :: jElement         !< element number
+         INTEGER               :: kFace            !< face number
+         !-----------------------------------------------
+         INTEGER, DIMENSION(8)  :: nodeIDs, loopNodeIDs     ! Nodes of element (checked element, looped element)
+         INTEGER, DIMENSION(4)  :: endNodes, loopEndNodes   ! Nodes of face    (checked element, looped element)
+         INTEGER                :: i, j, k, l, m, counter
+         INTEGER                :: sharedNodes              ! Number of nodes shared between the analyzed face and one of another element
+         !-----------------------------------------------
+         
+         nodeIDs = Elements(jElement)%nodeIDs
+         endNodes = nodeIDs(faceMapHex8(:,kFace))
+                            
+         DO j = 1, SIZE(Elements)
+            IF (j == jElement) CYCLE
+            
+            loopNodeIDs = Elements(j)%nodeIDs
+            DO k = 1, 6
+               loopEndNodes = loopNodeIDs(faceMapHex8(:,k))
+               sharedNodes  = 0
+               DO l = 1, 4
+                  DO m = 1, 4
+                     IF (endNodes(l) == loopEndNodes(m)) sharedNodes = sharedNodes + 1
+                  END DO
+               END DO 
+               
+               IF (sharedNodes == 4) self%ElementIDs(1) = j 
+            ENDDO
+         ENDDO
+         
+      END SUBROUTINE SetConformingConnectivities
+! 
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE WriteCoordFile(self,FileName)
+         USE PhysicsStorage
+         IMPLICIT NONE
+!~ !~!
+!~ !~!        -----------------------------------------------------------------
+!~ !~!        This subroutine writes a *.coo file containing all the mesh nodes
+!~ !~!        that can be used for eigenvalue analysis using the TAUev code
+!~ !~!        -----------------------------------------------------------------
+!~ !~!
+         !--------------------------------------------------------
+         CLASS(HexMesh)       :: self        !<  this mesh
+         CHARACTER(len=*)     :: FileName    !<  ...
+         !--------------------------------------------------------
+         INTEGER              :: NumOfElem
+         INTEGER              :: i, j, k, el, Nx, Ny, Nz, ndof, cooh
+         !--------------------------------------------------------
+          
+         NumOfElem = SIZE(self % elements)
+!
+!        ------------------------------------------------------------------------
+!        Determine the number of degrees of freedom
+!           TODO: Move this to another place if needed in other parts of the code
+!        ------------------------------------------------------------------------
+!
+         ndof = 0
+         DO el = 1, NumOfElem
+            Nx = self % elements(el) % Nxyz(1)
+            Ny = self % elements(el) % Nxyz(2)
+            Nz = self % elements(el) % Nxyz(3)
+            ndof = ndof + (Nx + 1)*(Ny + 1)*(Nz + 1)*N_EQN
+         END DO
+         
+         OPEN(newunit=cooh, file=FileName, action='WRITE')
+         
+         WRITE(cooh,*) ndof, ndim   ! defined in PhysicsStorage
+         DO el = 1, NumOfElem
+            Nx = self % elements(el) % Nxyz(1)
+            Ny = self % elements(el) % Nxyz(2)
+            Nz = self % elements(el) % Nxyz(3)
+            DO k = 0, Nz
+               DO j = 0, Ny
+                  DO i = 0, Nx
+                     WRITE(cooh,*) self % elements(el) % geom % x(1,i,j,k), &
+                                   self % elements(el) % geom % x(2,i,j,k), &
+                                   self % elements(el) % geom % x(3,i,j,k)
+                  END DO
+               END DO
+            END DO
+         END DO
+         
+         CLOSE(cooh)
+         
+      END SUBROUTINE WriteCoordFile
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 !

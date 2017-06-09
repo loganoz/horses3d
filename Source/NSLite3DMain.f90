@@ -23,6 +23,7 @@
       USE UserDefinedFunctions
       USE mainKeywordsModule
       USE Headers
+      USE pAdaptationClass
       
       IMPLICIT NONE
 !
@@ -37,12 +38,15 @@
       CLASS( PlotterDataSource ), POINTER :: plDataSource => NULL()
       TYPE( TimeIntegrator_t )            :: timeIntegrator
       
-      REAL(KIND=RP)                       :: dt, cfl
       LOGICAL                             :: success
       INTEGER                             :: plotUnit, restartUnit, saveUnit
       INTEGER, EXTERNAL                   :: UnusedUnit
       EXTERNAL                            :: externalStateForBoundaryName
       EXTERNAL                            :: ExternalGradientForBoundaryName
+      
+      ! For pAdaptation
+      INTEGER, ALLOCATABLE                :: Nx(:), Ny(:), Nz(:)
+      INTEGER                             :: polynomialOrder(3)
 !
 !     ---------------
 !     Initializations
@@ -66,13 +70,49 @@
 !      
       CALL ConstructPhysicsStorage( controlVariables, success )
       IF(.NOT. success)   ERROR STOP "Physics parameters input error"
-                                   
-      CALL sem % construct(polynomialOrder   = controlVariables % integerValueForKey(polynomialOrderKey),&
-                           meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
-                                                                        requestedLength = LINE_LENGTH),  &
-                           externalState     = externalStateForBoundaryName,                             &
-                           externalGradients = ExternalGradientForBoundaryName,                          &
-                           success           = success)
+      
+      ! Initialize manufactured solutions if necessary
+      sem % ManufacturedSol = controlVariables % containsKey("manufactured solution")
+      
+      IF (sem % ManufacturedSol) THEN
+         CALL InitializeManufacturedSol(controlVariables % StringValueForKey("manufactured solution",LINE_LENGTH))
+      END IF
+      
+      ! Check if there's an input file with the polynomial orders
+      IF (controlVariables % containsKey("polynomial order file")) THEN
+         !Read file and construct DGSEM with it
+         CALL ReadOrderFile( controlVariables % stringValueForKey("polynomial order file", requestedLength = LINE_LENGTH), &
+                             Nx, Ny, Nz )
+         CALL sem % construct (  meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
+                                                                              requestedLength = LINE_LENGTH),  &
+                                 externalState     = externalStateForBoundaryName,                             &
+                                 externalGradients = ExternalGradientForBoundaryName,                          &
+                                 Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
+                                 success           = success)
+      ELSE
+         IF (controlVariables % containsKey("polynomial order")) THEN
+            polynomialOrder = controlVariables % integerValueForKey("polynomial order")
+         ELSE
+            IF (controlVariables % containsKey("polynomial order i") .AND. &
+                controlVariables % containsKey("polynomial order j") .AND. &
+                controlVariables % containsKey("polynomial order k") ) THEN
+               polynomialOrder(1) = controlVariables % integerValueForKey("polynomial order i")
+               polynomialOrder(2) = controlVariables % integerValueForKey("polynomial order j")
+               polynomialOrder(3) = controlVariables % integerValueForKey("polynomial order k")
+            ELSE
+               ERROR STOP "The polynomial order(s) must be specified"
+            END IF
+         END IF
+         
+         CALL sem % construct (  meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
+                                                                              requestedLength = LINE_LENGTH),  &
+                                 externalState     = externalStateForBoundaryName,                             &
+                                 externalGradients = ExternalGradientForBoundaryName,                          &
+                                 polynomialOrder   = polynomialOrder                                          ,&
+                                 success           = success)
+      END IF
+      
+      
                            
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
       CALL checkBCIntegrity(sem % mesh, success)
@@ -98,8 +138,7 @@
 !     Construct the time integrator
 !     -----------------------------
 !
-     CALL timeIntegrator % construct (sem,controlVariables)
-
+      CALL timeIntegrator % construct (controlVariables)
 !
 !     --------------------
 !     Prepare for plotting
@@ -111,10 +150,16 @@
          ALLOCATE(plotter)
          ALLOCATE(plDataSource)
          
-         CALL plotter % Construct(fUnit      = plotUnit,          &
-                                  spA        = sem % spA,         &
-                                  dataSource = plDataSource,      &
-                                  newN       = controlVariables % integerValueForKey(numberOfPlotPointsKey))
+         IF(controlVariables % containsKey("number of plot points")) THEN           ! Interpolate to plot
+            CALL plotter % Construct(fUnit      = plotUnit,          &
+                                dataSource = plDataSource,      &
+                                newN       = controlVariables % integerValueForKey("number of plot points"), &
+                                spA        = sem % spA)
+            
+         ELSE                                                                       ! Plot values on Gauss points
+            CALL plotter % Construct(fUnit      = plotUnit,          &
+                                     dataSource = plDataSource)
+         END IF
          CALL timeIntegrator % setPlotter(plotter)
       END IF 
 !
@@ -157,7 +202,7 @@
          plotUnit = UnusedUnit()
          OPEN(UNIT = plotUnit, FILE = controlVariables % stringValueForKey(plotFileNameKey, &
                                                                 requestedLength = LINE_LENGTH))
-            CALL plotter % ExportToTecplot( elements = sem % mesh % elements )
+            CALL plotter % ExportToTecplot( elements = sem % mesh % elements , spA = sem % spA)
          CLOSE(plotUnit)
       END IF 
 !

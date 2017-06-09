@@ -28,14 +28,15 @@
       USE MappedGeometryClass
       USE MeshTypes
       USE ElementConnectivityDefinitions
+      USE ConnectivityClass
       IMPLICIT NONE
       
       
       TYPE Element
           INTEGER                                        :: nodeIDs(8)
-          INTEGER                                        :: N
+          INTEGER, DIMENSION(3)                          :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
           TYPE(MappedGeometry)                           :: geom
-          REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Q, QDot, G
+          REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Q, QDot, G, S     ! Nodal storage: Conservative variables, their time derivatives, auxiliar variables and source term, respectively.
           REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: U_x, U_y, U_z
 !
 !         -------------------------------------------------------------
@@ -46,7 +47,25 @@
           REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Qb, Ub, U_xb, U_yb, U_zb, FStarb
           CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryName(6)
           CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryType(6)
+          INTEGER                                        :: NumberOfConnections(6)
+          TYPE(Connectivity)                             :: Connection(6)
       END TYPE Element 
+      
+!
+!     -------------------------------------------------------------------------
+!!    axisMap gives the element local coordinate number for the two directions
+!!    on each face. The coordinate numbers are given by (xi,eta,zeta) = (1,2,3).
+!!    For instance, the two coordinate directions on Face 1 are (xi,zeta).
+!     -------------------------------------------------------------------------
+!
+      INTEGER, DIMENSION(2,6) :: axisMap =                        &
+                                 RESHAPE( (/1, 3,                 & ! Face 1 (x,z)
+                                            1, 3,                 & ! Face 2 (x,z)
+                                            1, 2,                 & ! Face 3 (x,y)
+                                            2, 3,                 & ! Face 4 (y,z)
+                                            1, 2,                 & ! Face 5 (x,y)
+                                            2, 3/)                & ! Face 6 (y,z)
+                                 ,(/2,6/))
             
       CONTAINS 
 !
@@ -62,7 +81,9 @@
          TYPE(TransfiniteHexMap) :: hexMap
          
          self % nodeIDs               = nodeIDs
-         self % N                     = ng % N
+         self % Nxyz(1)               = ng % Nx
+         self % Nxyz(2)               = ng % Ny
+         self % Nxyz(3)               = ng % Nz
          self % boundaryName          = emptyBCName
          self % boundaryType          = emptyBCName
 !
@@ -80,38 +101,41 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE allocateElementStorage(self, N, nEqn, nGradEqn, flowIsNavierStokes)  
+      SUBROUTINE allocateElementStorage(self, Nx, Ny, Nz, nEqn, nGradEqn, flowIsNavierStokes)  
          IMPLICIT NONE
          TYPE(Element) :: self
-         INTEGER       :: N, nEqn, nGradEqn
+         INTEGER       :: Nx, Ny, Nz, Nmax, nEqn, nGradEqn
          LOGICAL       :: flowIsNavierStokes
 !
 !        ----------------
 !        Volume variables
 !        ----------------
 !
-         ALLOCATE( self % Q   (0:N,0:N,0:N,nEqn) )
-         ALLOCATE( self % QDot(0:N,0:N,0:N,nEqn) )
-         ALLOCATE( self % G   (0:N,0:N,0:N,nEqn) )
+         ALLOCATE( self % Q   (0:Nx,0:Ny,0:Nz,nEqn) )
+         ALLOCATE( self % QDot(0:Nx,0:Ny,0:Nz,nEqn) )
+         ALLOCATE( self % G   (0:Nx,0:Ny,0:Nz,nEqn) )
+         ALLOCATE( self % S   (0:Nx,0:Ny,0:Nz,nEqn) )
          
          IF ( flowIsNavierStokes )     THEN
-            ALLOCATE( self % U_x(0:N,0:N,0:N,nGradEqn) )
-            ALLOCATE( self % U_y(0:N,0:N,0:N,nGradEqn) )
-            ALLOCATE( self % U_z(0:N,0:N,0:N,nGradEqn) )
+            ALLOCATE( self % U_x(0:Nx,0:Ny,0:Nz,nGradEqn) )
+            ALLOCATE( self % U_y(0:Nx,0:Ny,0:Nz,nGradEqn) )
+            ALLOCATE( self % U_z(0:Nx,0:Ny,0:Nz,nGradEqn) )
          END IF
 !
 !        ---------------
 !        Boundary values
 !        ---------------
 !
-         ALLOCATE( self % Qb(nEqn,0:N,0:N,6) )
-         ALLOCATE( self % FStarb(nEqn,0:N,0:N,6) )
+         ! Temporarily allocating with maximum (TODO: this is not very efficient and has to be changed) DGBoundaryStorage TYPE!!
+         Nmax = MAX(Nx,Ny,Nz)
+         ALLOCATE( self % Qb    (nEqn,0:Nmax,0:Nmax,6) )
+         ALLOCATE( self % FStarb(nEqn,0:Nmax,0:Nmax,6) )
          
          IF ( flowIsNavierStokes )     THEN
-            ALLOCATE( self % U_xb(nGradEqn,0:N,0:N,6) )
-            ALLOCATE( self % U_yb(nGradEqn,0:N,0:N,6) )
-            ALLOCATE( self % U_zb(nGradEqn,0:N,0:N,6) )
-            ALLOCATE( self % Ub(nGradEqn,0:N,0:N,6) )
+            ALLOCATE( self % U_xb(nGradEqn,0:Nmax,0:Nmax,6) )
+            ALLOCATE( self % U_yb(nGradEqn,0:Nmax,0:Nmax,6) )
+            ALLOCATE( self % U_zb(nGradEqn,0:Nmax,0:Nmax,6) )
+            ALLOCATE( self % Ub  (nGradEqn,0:Nmax,0:Nmax,6) )
          END IF
 !
 !        -----------------
@@ -119,6 +143,7 @@
 !        -----------------
 !
          self % G           = 0.0_RP
+         self % S           = 0.0_RP
          self % Q           = 0.0_RP
          self % QDot        = 0.0_RP
          self % Qb          = 0.0_RP

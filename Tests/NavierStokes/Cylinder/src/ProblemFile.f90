@@ -83,9 +83,9 @@
             INTEGER     :: i, j, k, eID
             
             DO eID = 1, SIZE(sem % mesh % elements)
-               DO k = 0, sem % spA % N
-                  DO j = 0, sem % spA % N
-                     DO i = 0, sem % spA % N 
+               DO k = 0, sem % mesh % elements(eID) % Nxyz(3)
+                  DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
+                     DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
                         CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
                                                sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )
                                                      
@@ -171,11 +171,11 @@
 !           ------------------------------------------------
 !
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [240.37010000259491, 0E-011, &
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [240.37010000259491, 0E-011, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
                                                                0E-011, 0E-011, &
                                                                0E-011]
 !
-            N = sem % spA % N
+            N = sem % mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
@@ -217,7 +217,7 @@
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
-               STOP 99
+                STOP 99
             END IF 
             WRITE(6,*)
             
@@ -244,93 +244,3 @@
 !=====================================================================================================
 !
 !
-      SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryType )
-!
-!     ----------------------------------------------
-!     Set the boundary conditions for the mesh by
-!     setting the external state for each boundary.
-!     ----------------------------------------------
-!
-      USE BoundaryConditionFunctions
-      USE UserDefinedDataStorage
-      USE MeshTypes
-      
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
-      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      REAL(KIND=RP)   :: pExt
-      LOGICAL         :: success
-
-      IF ( boundarytype == "freeslipwall" )             THEN
-         CALL FreeSlipWallState( x, t, nHat, Q )
-      ELSE IF ( boundaryType == "noslipadiabaticwall" ) THEN 
-         CALL  NoSlipAdiabaticWallState( x, t, Q)
-      ELSE IF ( boundarytype == "noslipisothermalwall") THEN 
-         CALL NoSlipIsothermalWallState( x, t, Q )
-      ELSE IF ( boundaryType == "outflowspecifyp" )     THEN 
-         pExt =  ExternalPressure()
-         CALL ExternalPressureState ( x, t, nHat, Q, pExt )
-      ELSE 
-         CALL UniformFlowState( x, t, Q ) 
-      END IF
-
-      END SUBROUTINE externalStateForBoundaryName
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, GradU, boundaryType )
-!
-!     ------------------------------------------------
-!     Set the boundary conditions for the mesh by
-!     setting the external gradients on each boundary.
-!     ------------------------------------------------
-!
-      USE BoundaryConditionFunctions
-      USE MeshTypes
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,N_GRAD_EQN)
-      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      REAL(KIND=RP) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
-
-      U_x(:) = GradU(1,:)
-      U_y(:) = GradU(2,:)
-      U_z(:) = GradU(3,:)
-
-      IF ( boundarytype == "freeslipwall" )                   THEN
-         CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE IF ( boundaryType == "noslipadiabaticwall" )       THEN 
-         CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE IF ( boundarytype == "noslipisothermalwall")       THEN 
-         CALL NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE
-         CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
-      END IF
-
-      GradU(1,:) = U_x(:)
-      GradU(2,:) = U_y(:)
-      GradU(3,:) = U_z(:)
-
-      END SUBROUTINE ExternalGradientForBoundaryName
-

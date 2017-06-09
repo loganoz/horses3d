@@ -113,6 +113,7 @@
 !
          CHARACTER(LEN=132)  :: meshFileName
          LOGICAL             :: success
+         INTEGER             :: N(3)
          
          EXTERNAL            :: initialFlowState
          EXTERNAL            :: externalBoundaryState, externalGradientState
@@ -121,11 +122,12 @@
 !        Set up the DGSEM
 !        ----------------
 !
-         CALL ConstructDGSem(self              = sem, &
-                             polynomialOrder   = controlVariables % integerValueForKey(polynomialOrderKey),&
-                             meshFileName      = meshFileName,  &
-                             externalState     = externalBoundaryState,  &
-                             externalGradients = externalGradientState,  &
+         N = controlVariables % integerValueForKey(polynomialOrderKey)
+         CALL ConstructDGSem(self              = sem                  , &
+                             polynomialOrder   = N                    , &
+                             meshFileName      = meshFileName         , &
+                             externalState     = externalBoundaryState, &
+                             externalGradients = externalGradientState, &
                              success           = success)
          IF(.NOT. success)     RETURN 
 !

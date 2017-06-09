@@ -35,10 +35,17 @@
    MODULE PolynomialInterpAndDerivsModule
 !  ******
 !
-     USE SMConstants
-     IMPLICIT NONE
+      USE SMConstants
+      IMPLICIT NONE
+      
+      INTEGER, PARAMETER :: MXV_DIRECT = 1, MXV_TRANSPOSE = 2
+      
+      ! Interpolator type that is used in multigrid and in the plotter
+      TYPE Interpolator_t
+         LOGICAL                     :: Created = .FALSE.
+         REAL(KIND=RP), ALLOCATABLE  :: Mat(:,:)
+      END TYPE Interpolator_t
      
-     INTEGER, PARAMETER :: MXV_DIRECT = 1, MXV_TRANSPOSE = 2
 !
 !    ========
      CONTAINS
@@ -256,9 +263,55 @@
 !
 !     ////////////////////////////////////////////////////////////////
 !
-!     ------------------------------------------------------------------
-!!    Compute the value of the interpolant using the barycentric formula
-!     ------------------------------------------------------------------
+!     --------------------------------------------------------------------------
+!!    Compute the value of the interpolant WITHOUT using the barycentric formula
+!     --------------------------------------------------------------------------
+!
+   FUNCTION LagrangeInterpolationNoBar( x, N, nodes, j) RESULT(l)
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP)                 :: l     !>  Lagrange interpolant
+      REAL(KIND=RP)                 :: x     !<  Point of evaluation of interpolant
+      INTEGER                       :: N     !<  Polynomial order  
+      REAL(KIND=RP), DIMENSION(0:N) :: nodes !<  Nodes of Lagrange interpolation
+      INTEGER                       :: j     !<  Index of polynomial to be found
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      INTEGER                       :: i
+      REAL(KIND=RP)                 :: numerator, denominator
+      LOGICAL, EXTERNAL             :: AlmostEqual
+      REAL(KIND=RP), DIMENSION(0:N) :: values
+      !-----------------------------------------------------------------------------
+      
+      values      = 0.0_RP
+      values(j)   = 1.0_RP
+      numerator   = 1.0_RP
+      denominator = 1.0_RP
+
+      DO i = 0, N
+         IF( AlmostEqual( x, nodes(i) ) )    THEN
+            l = values(i)
+            RETURN 
+         ELSE IF (j.ne.i) THEN
+         numerator   = numerator*(x - nodes(i))    
+         denominator = denominator*(nodes(j) - nodes(i))
+         END IF 
+      END DO
+      l = numerator/denominator
+
+   END FUNCTION LagrangeInterpolationNoBar      
+!
+!     ////////////////////////////////////////////////////////////////
+!
+!     -----------------------------------------------------------------------------
+!!    Compute the value of the interpolant derivative using the barycentric formula
+!     -----------------------------------------------------------------------------
 !
       REAL(KIND=RP) FUNCTION LagrangeInterpolantDerivative( x, N, nodes, values, weights)
 !
@@ -370,8 +423,203 @@
             END DO
          END IF
       END DO
-
       END SUBROUTINE PolynomialInterpolationMatrix
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE Create1DInterpolationMatrix(Mat,N1,N2,x1,x2)
+      IMPLICIT NONE
+!
+!     -----------------------------------------------------------
+!     Creates a 3D Lagrange interpolation matrix from a grid with 
+!     coordinates x1, y1, z1 (origin) to a grid with coordinates
+!     x2, y2, z2 (destination)
+!     -----------------------------------------------------------
+!
+      REAL(KIND=RP), ALLOCATABLE  :: Mat(:,:)     !>  Interpolation matrix
+      INTEGER                     :: N1  !<  Origin order
+      INTEGER                     :: N2  !<  Destination order
+      REAL(KIND=RP), DIMENSION(:) :: x1(0:N1)     !<  Nodes in origin
+      REAL(KIND=RP), DIMENSION(:) :: x2(0:N2)     !<  Nodes in destination
+      !----------------------------------------------------------
+      INTEGER :: i,j              ! Coordinate counters
+      !----------------------------------------------------------
+      
+      ALLOCATE(Mat(N2 + 1,N1 + 1))
+      
+      DO j=0, N1                                  ! Column index   
+         DO i=0, N2                               ! Row index
+            Mat(i+1,j+1) =  LagrangeInterpolationNoBar(x2(i),N1,x1,j)
+         END DO
+      END DO
+      
+   END SUBROUTINE Create1DInterpolationMatrix
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE Create1DRestrictionMatrix(Mat,N1,N2,x1,x2,w1,w2)
+      IMPLICIT NONE
+!
+!     -----------------------------------------------------------
+!     Creates a 3D Lagrange interpolation matrix from a grid with 
+!     coordinates x1, y1, z1 (origin) to a grid with coordinates
+!     x2, y2, z2 (destination)
+!     -----------------------------------------------------------
+!
+      REAL(KIND=RP), ALLOCATABLE  :: Mat(:,:)     !>  Interpolation matrix
+      INTEGER                     :: N1  !<  Origin order
+      INTEGER                     :: N2  !<  Destination order
+      REAL(KIND=RP), DIMENSION(:) :: x1(0:N1)     !<  Nodes in origin
+      REAL(KIND=RP), DIMENSION(:) :: x2(0:N2)     !<  Nodes in destination
+      REAL(KIND=RP), DIMENSION(:) :: w1(0:N1)     !<  Nodes in origin
+      REAL(KIND=RP), DIMENSION(:) :: w2(0:N2)     !<  Nodes in destination
+      !----------------------------------------------------------
+      INTEGER :: i,j                    ! Coordinate counters
+      !----------------------------------------------------------
+      
+      ALLOCATE(Mat(N2 + 1,N1 + 1))
+      
+      DO j=0, N1                                  ! Column index   
+         DO i=0, N2                               ! Row index
+            Mat(i+1,j+1) =  LagrangeInterpolationNoBar(x1(j),N2,x2,i) * w1(j)
+         END DO
+      END DO
+      
+      ! Create Mass matrix and finish computing interpolation operator
+      DO i=0, N2                                  ! Row index
+         ! Matrix Multiplication I = M⁻¹S (taking advantage of the diagonal matrix)
+         Mat(i+1,:) = Mat(i+1,:) / w2(i)
+      END DO
+      
+   END SUBROUTINE Create1DRestrictionMatrix
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE Create3DInterpolationMatrix(Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2)
+      IMPLICIT NONE
+!
+!     -----------------------------------------------------------
+!     Creates a 3D Lagrange interpolation matrix from a grid with 
+!     coordinates x1, y1, z1 (origin) to a grid with coordinates
+!     x2, y2, z2 (destination)
+!     -----------------------------------------------------------
+!
+      REAL(KIND=RP), ALLOCATABLE  :: Mat(:,:)     !>  Interpolation matrix
+      INTEGER                     :: N1x,N1y,N1z  !<  Origin order
+      INTEGER                     :: N2x,N2y,N2z  !<  Destination order
+      REAL(KIND=RP), DIMENSION(:) :: x1(0:N1x),y1(0:N1y),z1(0:N1z)     !<  Nodes in origin
+      REAL(KIND=RP), DIMENSION(:) :: x2(0:N2x),y2(0:N2y),z2(0:N2z)     !<  Nodes in destination
+      !----------------------------------------------------------
+      INTEGER :: i,j,k,l,m,n      ! Coordinate counters
+      INTEGER :: r,s              ! Matrix index counters
+      INTEGER :: NDOFEL1, NDOFEL2 ! Degrees of freedom in origin and destination
+      !----------------------------------------------------------
+      
+      NDOFEL2 = (N2x + 1) * (N2y + 1) * (N2z + 1)
+      NDOFEL1 = (N1x + 1) * (N1y + 1) * (N1z + 1)
+      ALLOCATE(Mat(NDOFEL2,NDOFEL1))
+      
+      DO k=0, N1z
+         DO j=0, N1y
+            DO i=0, N1x
+               r = i + j*(N1x + 1) + k*(N1x + 1)*(N1y + 1) + 1            ! Column index
+               DO n=0, N2z
+                  DO m=0, N2y
+                     DO l=0, N2x
+                        s = l + m*(N2x + 1) + n*(N2x + 1)*(N2y + 1) + 1   ! Row index
+                        
+                        Mat(s,r) =  LagrangeInterpolationNoBar(x2(l),N1x,x1,i) * &
+                                    LagrangeInterpolationNoBar(y2(m),N1y,y1,j) * &
+                                    LagrangeInterpolationNoBar(z2(n),N1z,z1,k)
+                     END DO
+                  END DO
+               END DO
+            END DO
+         END DO
+      END DO
+   END SUBROUTINE Create3DInterpolationMatrix
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE Create3DRestrictionMatrix(Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2,w1x,w1y,w1z,w2x,w2y,w2z)
+      IMPLICIT NONE
+!
+!     -----------------------------------------------------------
+!     Creates an L2-3D Lagrange interpolation matrix from a grid  
+!     with coordinates x1, y1, z1 (origin) to a grid with coordinates
+!     x2, y2, z2 (destination)
+!     -----------------------------------------------------------
+!
+      REAL(KIND=RP), ALLOCATABLE  :: Mat(:,:)     !>  Interpolation matrix
+      INTEGER                     :: N1x,N1y,N1z  !<  Origin order
+      INTEGER                     :: N2x,N2y,N2z  !<  Destination order
+      REAL(KIND=RP), DIMENSION(:) :: x1 (0:N1x),y1 (0:N1y),z1 (0:N1z)     !<  Nodes in origin
+      REAL(KIND=RP), DIMENSION(:) :: x2 (0:N2x),y2 (0:N2y),z2 (0:N2z)     !<  Nodes in destination
+      REAL(KIND=RP), DIMENSION(:) :: w1x(0:N1x),w1y(0:N1y),w1z(0:N1z)     !<  Weights in origin
+      REAL(KIND=RP), DIMENSION(:) :: w2x(0:N2x),w2y(0:N2y),w2z(0:N2z)     !<  Weights in destination
+      !----------------------------------------------------------
+      INTEGER       :: i,j,k,l,m,n      ! Coordinate counters
+      INTEGER       :: r,s              ! Matrix index counters
+      INTEGER       :: NDOFEL1, NDOFEL2 ! Degrees of freedom in origin and destination
+      REAL(KIND=RP) :: MASSterm         ! 
+      !----------------------------------------------------------
+      
+      NDOFEL2 = (N2x + 1) * (N2y + 1) * (N2z + 1)
+      NDOFEL1 = (N1x + 1) * (N1y + 1) * (N1z + 1)
+      ALLOCATE(Mat(NDOFEL2,NDOFEL1))
+      
+      Mat = 0.0_RP
+      
+      ! Create S matrix and store it directly in "Mat"
+      DO k=0, N1z
+         DO j=0, N1y
+            DO i=0, N1x
+               r = i + j*(N1x + 1) + k*(N1x + 1)*(N1y + 1) + 1            ! Column index
+               DO n=0, N2z
+                  DO m=0, N2y
+                     DO l=0, N2x
+                        s = l + m*(N2x + 1) + n*(N2x + 1)*(N2y + 1) + 1   ! Row index
+                        
+                        Mat(s,r) = LagrangeInterpolationNoBar(x1(i),N2x,x2,l) * &
+                                   LagrangeInterpolationNoBar(y1(j),N2y,y2,m) * &
+                                   LagrangeInterpolationNoBar(z1(k),N2z,z2,n) * &
+                                   w1x(i) * w1y(j) * w1z(k)
+                     END DO
+                  END DO
+               END DO
+            END DO
+         END DO
+      END DO
+      
+      ! Create Mass matrix and finish computing interpolation operator
+      DO n=0, N2z
+         DO m=0, N2y
+            DO l=0, N2x
+               s = l + m*(N2x + 1) + n*(N2x + 1)*(N2y + 1) + 1   ! Row index
+      
+               MASSterm = w2x(l) * w2y(m) * w2z(n)
+               
+               ! Matrix Multiplication I = M⁻¹S (taking advantage of the diagonal matrix)
+               Mat(s,:) = Mat(s,:) / MASSterm
+            END DO
+         END DO
+      END DO
+      
+   END SUBROUTINE Create3DRestrictionMatrix
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE Interpolate3D(Q1, Q2, Interp, N1x, N1y, N1z, N2x, N2y, N2z)
+      IMPLICIT NONE
+      INTEGER        :: N1x, N1y, N1z
+      INTEGER        :: N2x, N2y, N2z                      !<  Polynomial orders
+      REAL(KIND=RP)  :: Q1((N1x+1)*(N1y+1)*(N1z+1))        !<  Solution to be interpolated (grid (1))
+      REAL(KIND=RP)  :: Q2((N2x+1)*(N2y+1)*(N2z+1))        !>  Interpolated solution       (grid (2))
+      REAL(KIND=RP)  :: Interp((N2x+1)*(N2y+1)*(N2z+1), & 
+                               (N1x+1)*(N1y+1)*(N1z+1))    !<  Interpolation matrix
+                               
+      Q2 = MATMUL(Interp,Q1)
+   END SUBROUTINE Interpolate3D
 !
 !////////////////////////////////////////////////////////////////////////
 !

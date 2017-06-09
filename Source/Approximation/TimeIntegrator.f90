@@ -18,15 +18,17 @@
       USE Physics
       USE DGSEMPlotterClass
       USE UserDefinedFunctions
+      USE ExplicitMethods
       IMPLICIT NONE 
 !
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
       
       TYPE TimeIntegrator_t
          INTEGER                                :: integratorType
-         REAL(KIND=RP)                          :: tFinal, tStart, time
+         REAL(KIND=RP)                          :: tFinal, time
          INTEGER                                :: numTimeSteps, plotInterval
          REAL(KIND=RP)                          :: dt, tolerance, cfl
+         LOGICAL                                :: Compute_dt                    ! Is st computed from an inputted CFL number?
          TYPE(DGSEMPlotter),   POINTER          :: plotter  !Plotter is NOT owned by the time integrator
          PROCEDURE(RKStepFcn), NOPASS , POINTER :: RKStep
 !
@@ -34,21 +36,18 @@
          CONTAINS
 !        ========         
 !
-        PROCEDURE :: construct => constructTimeIntegrator
-         PROCEDURE :: constructAsTimeAccurateIntegrator
-         PROCEDURE :: constructAsSteadyStateIntegrator
+         PROCEDURE :: construct => constructTimeIntegrator
          PROCEDURE :: destruct => destructTimeIntegrator
-         PROCEDURE :: setIterationTolerance
          PROCEDURE :: setPlotter
          PROCEDURE :: integrate
       END TYPE TimeIntegrator_t
 
       abstract interface
-         subroutine RKStepFcn( sem , t , deltaT , maxResidual )
+         subroutine RKStepFcn( sem , t , deltaT )
             use DGSEMClass
             implicit none
             type(DGSem)     :: sem
-            real(kind=RP)   :: t, deltaT,  maxResidual(N_EQN)
+            real(kind=RP)   :: t, deltaT
          end subroutine RKStepFcn
       end interface
 !
@@ -56,96 +55,66 @@
       CONTAINS 
 !     ========      
 !
-     !-------------------------------------------------------------------------------------------
-     SUBROUTINE constructTimeIntegrator(self,sem,controlVariables)
-     !-------------------------------------------------------------------------------------------
-       IMPLICIT NONE
-       !---------------------------------------------
-       CLASS(TimeIntegrator_t)     :: self
-       TYPE( DGSem )               :: sem
-       TYPE(FTValueDictionary)     :: controlVariables
-       !---------------------------------------------
-       REAL(KIND=RP)               :: dt, cfl
-       !---------------------------------------------
-        
-       cfl = controlVariables % doublePrecisionValueForKey("cfl")
-       dt = MaxTimeStep( sem, cfl )
-       SELECT CASE (controlVariables % StringValueForKey("time integration",LINE_LENGTH))  ! arueda: It is probably appropriate to introduce a "CheckInputIntegrity" for each of the following...
-         CASE ('time-accurate')                                                      
-           CALL self % constructAsTimeAccurateIntegrator &
-                                 (startTime     = 0._RP,  &
-                                  finalTime     = controlVariables % doublePrecisionValueForKey("final time"),  &
-                                  numberOfSteps = controlVariables % integerValueForKey ("number of time steps"),  &
-                                  plotInterval  = controlVariables % integerValueForKey("output interval") )
-           CASE DEFAULT ! Using 'steady-state' even if not specified in input file
-            CALL self % constructAsSteadyStateIntegrator &
-                                  (dt            = dt,  &
-                                   cfl           = cfl, &
-                                   numberOfSteps = controlVariables % integerValueForKey ("number of time steps"), &
-                                   plotInterval  = controlVariables % integerValueForKey("output interval"))
-       END SELECT
-      
-       CALL self % setIterationTolerance(controlVariables % doublePrecisionValueForKey("convergence tolerance"))
-     !-------------------------------------------------------------------------------------------
-     END SUBROUTINE constructTimeIntegrator
-     !-------------------------------------------------------------------------------------------
-!
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE constructAsTimeAccurateIntegrator( self,  startTime, finalTime, numberOfSteps, plotInterval )
+      SUBROUTINE constructTimeIntegrator(self,controlVariables)
+      
          IMPLICIT NONE
-         CLASS(TimeIntegrator_t) :: self
-         REAL(KIND=RP)           :: finalTime, startTime
-         INTEGER                 :: numberOfSteps, plotInterval
+         !---------------------------------------------
+         CLASS(TimeIntegrator_t)     :: self
+         TYPE(FTValueDictionary)     :: controlVariables
+         !---------------------------------------------
 !
-!        --------------------------------------------------------------
-!        Compute time step and set values for time accurate computation
-!        --------------------------------------------------------------
+!        ----------------------------------------------------------------------------------
+!        Set time-stepping variables
+!           If keyword "cfl" is present, the time step size is computed in every time step.
+!           If it is not, the keyword "dt" must be specified explicitly.
+!        ----------------------------------------------------------------------------------
 !
-         self % tFinal         = finalTime
-         self % tStart         = startTime
-         self % time           = startTime
-         self % numTimeSteps   = numberOfSteps
-         self % dt             = (self % tFinal - self % tStart)/numberOfSteps
-         self % plotInterval   = plotInterval
-         self % integratorType = TIME_ACCURATE
-         self % tolerance      = 1.d-11
+         IF (controlVariables % containsKey("cfl")) THEN
+            self % Compute_dt = .TRUE.
+            self % cfl        = controlVariables % doublePrecisionValueForKey("cfl")
+         ELSEIF (controlVariables % containsKey("dt")) THEN
+            self % Compute_dt = .FALSE.
+            self % dt         = controlVariables % doublePrecisionValueForKey("dt")
+         ELSE
+            ERROR STOP '"cfl" or "dt" keyword must be specified for the time integrator'
+         END IF
+!
+!        ----------------------
+!        Common initializations
+!        ----------------------
+!
+         self % time           =  0._RP                                                                  ! TODO: Modify this for restarted cases?
+         self % numTimeSteps   =  controlVariables % integerValueForKey ("number of time steps")
+         self % plotInterval   =  controlVariables % integerValueForKey("output interval")
+         self % tolerance      =  controlVariables % doublePrecisionValueForKey("convergence tolerance")
          self % plotter        => NULL()
          self % RKStep         => TakeRK3Step
-      
-      END SUBROUTINE constructAsTimeAccurateIntegrator
 !
-!     ////////////////////////////////////////////////////////////////////////////////////////
+!        ------------------------------------
+!        Integrator-dependent initializarions
+!        ------------------------------------
 !
-      SUBROUTINE constructAsSteadyStateIntegrator( self, dt, cfl, numberOfSteps, plotInterval )
-         IMPLICIT NONE
-         CLASS(TimeIntegrator_t) :: self
-         REAL(KIND=RP)           :: dt
-         REAL(KIND=RP)           :: cfl
-         INTEGER                 :: numberOfSteps, plotInterval
-!
-!        ---------------------------------------------------------------
-!        Compute time step and set values for a steady-state computation
-!        ---------------------------------------------------------------
-!
-         self % time           = 0._RP
-         self % numTimeSteps   = numberOfSteps
-         self % dt             = dt
-         self % plotInterval   = plotInterval
-         self % integratorType = STEADY_STATE
-         self % tolerance      = 1.d-11
-         self % cfl            = cfl
-         self % plotter        => NULL()
-         self % RKStep         => TakeRK3Step
-      
-      END SUBROUTINE constructAsSteadyStateIntegrator
+         SELECT CASE (controlVariables % StringValueForKey("simulation type",LINE_LENGTH))
+            CASE ('time-accurate')
+               IF (controlVariables % containsKey("final time")) THEN
+                  self % tFinal         = controlVariables % doublePrecisionValueForKey("final time")
+               ELSE
+                  ERROR STOP '"final time" keyword must be specified for time-accurate integrators'
+               ENDIF
+               self % integratorType = TIME_ACCURATE
+            CASE DEFAULT ! Using 'steady-state' even if not specified in input file
+               self % integratorType = STEADY_STATE
+         END SELECT
+         
+      END SUBROUTINE constructTimeIntegrator
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE destructTimeIntegrator( self ) 
          CLASS(TimeIntegrator_t) :: self
          self % tFinal       = 0.0_RP
-         self % tStart       = 0.0_RP
          self % numTimeSteps = 0
          self % dt           = 0.0_RP
          
@@ -161,25 +130,20 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE setIterationTolerance( self, tol ) 
-         CLASS(TimeIntegrator_t) :: self
-         REAL(KIND=RP)           :: tol
-         self % tolerance = tol
-      END SUBROUTINE setIterationTolerance
-!
-!     ////////////////////////////////////////////////////////////////////////////////////////
-!
       SUBROUTINE Integrate( self, sem, controlVariables)
       
+      USE Implicit_JF , ONLY : TakeBDFStep_JF
+      USE Implicit_NJ , ONLY : TakeBDFStep_NJ
+      USE FASMultigridClass
       IMPLICIT NONE
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      CLASS(TimeIntegrator_t)     :: self
-      TYPE(DGSem)                 :: sem
-      TYPE(FTValueDictionary)     :: controlVariables
+      CLASS(TimeIntegrator_t)       :: self
+      TYPE(DGSem)                   :: sem
+      TYPE(FTValueDictionary)       :: controlVariables
 
 !
 !     ---------
@@ -187,42 +151,79 @@
 !     ---------
 !
       
-      REAL(KIND=RP)         :: t
-      REAL(KIND=RP)         :: maxResidual(N_EQN)
-      INTEGER               :: k, mNumber
-      CHARACTER(LEN=13)     :: fName = "Movie_XX.tec"
-      CHARACTER(LEN=2)      :: numChar
-      EXTERNAL              :: ExternalState, ExternalGradients
+      REAL(KIND=RP)                 :: t
+      REAL(KIND=RP)                 :: maxResidual(N_EQN)
+      INTEGER                       :: k, mNumber
+      CHARACTER(LEN=13)             :: fName = "Movie_XX.tec"
+      CHARACTER(LEN=2)              :: numChar
+      EXTERNAL                      :: ExternalState, ExternalGradients
       
       ! For saving restarts
       CHARACTER(len=LINE_LENGTH)    :: RestFileName
       INTEGER                       :: RestartInterval
       
+      ! For Implicit
+      CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
+      INTEGER                       :: JacFlag
+      
+      TYPE(FASMultigrid_t)          :: FASSolver
 !
 !     ----------------------
 !     Read Control variables
 !     ----------------------
 !
+      IF (controlVariables % containsKey("time integration")) THEN
+         TimeIntegration  = controlVariables % StringValueForKey("time integration",LINE_LENGTH)
+      ELSE ! Default value
+         TimeIntegration = 'explicit'
+      END IF
       RestFileName     = controlVariables % StringValueForKey("restart file name",LINE_LENGTH)
       RestartInterval  = controlVariables % IntegerValueForKey("restart interval") !If not present, RestartInterval=HUGE
+      
+      ! Specific keywords
+      IF (TimeIntegration == 'implicit') JacFlag = controlVariables % IntegerValueForKey("jacobian flag")
+!
+!     ---------------
+!     Initializations
+!     ---------------
+!
+      IF (TimeIntegration == 'FAS') CALL FASSolver % construct(controlVariables,sem)
 !
 !     -----------------
 !     Integrate in time
 !     -----------------
-!
+!      
       mNumber = 0
       t = self % time
+      sem % MaxResidual = 1.e-3_RP !initializing to this value for implicit solvers (Newton tolerance is computed according to this)
       
       DO k = 0, self % numTimeSteps-1
       
-         IF ( self % integratorType == STEADY_STATE ) THEN
-            self % dt = MaxTimeStep( sem, self % cfl )
-         END IF
+         IF ( self % Compute_dt ) self % dt = MaxTimeStep( sem, self % cfl )
          
-         CALL self % RKStep ( sem, t, self % dt, maxResidual )
+         SELECT CASE (TimeIntegration)
+            CASE ('implicit')
+               SELECT CASE (JacFlag)
+                  CASE (1)
+                     CALL TakeBDFStep_JF (sem, t , self%dt )
+                  CASE (2)
+                     CALL TakeBDFStep_NJ (sem, t , self%dt , controlVariables)
+                  CASE (3)
+                     STOP 'Analytical Jacobian not implemented yet'
+                  CASE DEFAULT
+                     PRINT*, "Not valid 'Jacobian Flag'. Running with Jacobian-Free Newton-Krylov."
+                     JacFlag = 1
+                     CALL TakeBDFStep_JF (sem, t , self%dt )
+               END SELECT
+            CASE ('explicit')
+               CALL self % RKStep ( sem, t, self % dt )
+            CASE ('FAS')
+               CALL FASSolver % solve(k,t)
+         END SELECT
          
-         t = t + self % dt                    !arueda: changed since time step does not have to be constant!
-         
+         t = t + self % dt
+         maxResidual = ComputeMaxResidual(sem)
+         sem % maxResidual       = maxval(maxResidual)
          IF (self % integratorType == STEADY_STATE) THEN
             IF (maxval(maxResidual) <= self % tolerance )  THEN
               CALL PlotResiduals(k+1 , t , maxResidual)
@@ -256,7 +257,7 @@
                END IF
                PRINT *, fName
                OPEN(UNIT = self % plotter % fUnit, FILE = fName)
-                  CALL self % plotter % ExportToTecplot( sem % mesh % elements )
+                  CALL self % plotter % ExportToTecplot( sem % mesh % elements, sem % spA )
                CLOSE(self % plotter % fUnit)
                
             END IF
@@ -268,67 +269,7 @@
       self % time             = t
       sem % numberOfTimeSteps = k
 
-      END SUBROUTINE Integrate
-!
-!     ////////////////////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE TakeRK3Step( sem, t, deltaT, maxResidual )
-!
-!     ----------------------------------
-!     Williamson's 3rd order Runge-Kutta
-!     ----------------------------------
-!
-      IMPLICIT NONE
-!
-!     -----------------
-!     Input parameters:
-!     -----------------
-!
-      TYPE(DGSem)     :: sem
-      REAL(KIND=RP)   :: t, deltaT, tk, maxResidual(N_EQN)
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      REAL(KIND=RP), DIMENSION(3) :: a = (/0.0_RP       , -5.0_RP /9.0_RP , -153.0_RP/128.0_RP/)
-      REAL(KIND=RP), DIMENSION(3) :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP/)
-      REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP/)
-      
-      INTEGER :: k, id , eq
-      REAL(KIND=RP) :: localMaxResidual(N_EQN)
-!
-      do id = 1, SIZE( sem % mesh % elements ) 
-         sem % mesh % elements(id) % G = 0.0_RP   
-      enddo 
-
-      DO k = 1,3
-
-         tk = t + b(k)*deltaT
-         CALL ComputeTimeDerivative( sem, tk )
-
-!$omp parallel do
-         DO id = 1, SIZE( sem % mesh % elements )
-            sem % mesh % elements(id) % G = a(k)*sem % mesh % elements(id) % G  +             sem % mesh % elements(id) % QDot
-            sem % mesh % elements(id) % Q =      sem % mesh % elements(id) % Q  + c(k)*deltaT*sem % mesh % elements(id) % G
-         END DO
-!$omp end parallel do
-
-      END DO
-!
-!        ----------------
-!        Compute residual
-!        ----------------
-!
-      maxResidual = 0.0_RP
-      DO id = 1, SIZE( sem % mesh % elements )
-         DO eq = 1 , N_EQN
-            localMaxResidual(eq) = MAXVAL(ABS(sem % mesh % elements(id) % QDot(:,:,:,eq)))
-            maxResidual(eq) = MAX(maxResidual(eq),localMaxResidual(eq))
-         END DO
-      END DO
-      
-   END SUBROUTINE TakeRK3Step
+      END SUBROUTINE Integrate    
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -347,16 +288,16 @@
       if ( mod(shown , showLabels) .eq. 0 ) then ! Show labels
          write(STD_OUT , '(/)')
          write(STD_OUT , '(/)')
-         write(STD_OUT , '(A20,5X,A10,5X,A10,5X,A10,5X,A10,5X,A10,5X,A10)') &
+         write(STD_OUT , '(A17,3X,A10,3X,A10,3X,A10,3X,A10,3X,A10,3X,A10)') &
                "Iteration" , "time" , "continuity" , "x-momentum" , "y-momentum", &
                "z-momentum" , "energy"
-         write(STD_OUT , '(A20,5X,A10,5X,A10,5X,A10,5X,A10,5X,A10,5X,A10)') &
+         write(STD_OUT , '(A17,3X,A10,3X,A10,3X,A10,3X,A10,3X,A10,3X,A10)') &
                "---------" , "--------" , "----------" , "----------" , "----------" , &
                "----------", "--------"
       end if
       write(STD_OUT , 110) iter ,"|", time ,"|", maxResiduals(IRHO) , "|" , maxResiduals(IRHOU) , &
                                           "|", maxResiduals(IRHOV) , "|" , maxResiduals(IRHOW) , "|" , maxResiduals(IRHOE)
-      110 format (I20,2X,A,2X,ES10.3,2X,A,2X,ES10.3,2X,A,2X,ES10.3,2X,A,2X,ES10.3,2X,A,2X,ES10.3,2X,A,2X,ES10.3)
+      110 format (I17,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3)
 
     shown = shown + 1
 
@@ -381,7 +322,7 @@
       CHARACTER(len=LINE_LENGTH)   :: FinalName      !  Final name for particular restart file
 !     ----------------------------------------------
       
-      WRITE(FinalName,'(2A,I7.7,A,ES9.3,A)')  TRIM(RestFileName),'_step_',k,'_time_',t,'.rst'
+      WRITE(FinalName,'(2A,I5.5,A,ES9.3,A)')  TRIM(RestFileName),'_step_',k,'_time_',t,'.rst'
       
       OPEN( newunit = fd             , &
             FILE    = TRIM(FinalName), & 

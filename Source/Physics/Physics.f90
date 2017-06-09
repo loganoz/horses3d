@@ -496,7 +496,7 @@
          rhovn = Qright(3)
          rhown = Qright(4)
          rhoen = Qright(5)
-   
+         
          ul = rhou/rho 
          vl = rhov/rho 
          wl = rhow/rho 
@@ -1504,21 +1504,23 @@
 !
       REAL(KIND=RP), INTENT(IN)  :: Q(0:,0:,0:,:)
       REAL(KIND=RP), INTENT(OUT) :: U(0:,0:,0:,:)
-      integer                    :: N 
+      integer                    :: Nx, Ny, Nz
 !
 !     ---------------
 !     Local Variables
 !     ---------------
 !     
-      N = size(Q , 1) - 1
+      Nx = size(Q , 1) - 1
+      Ny = size(Q , 2) - 1
+      Nz = size(Q , 3) - 1
       
-      U(0:N,0:N,0:N,IGU) = Q(0:N,0:N,0:N,IRHOU) / Q(0:N,0:N,0:N,IRHO) 
-      U(0:N,0:N,0:N,IGV) = Q(0:N,0:N,0:N,IRHOV) / Q(0:N,0:N,0:N,IRHO) 
-      U(0:N,0:N,0:N,IGW) = Q(0:N,0:N,0:N,IRHOW) / Q(0:N,0:N,0:N,IRHO) 
-      U(0:N,0:N,0:N,IGT) = gammaM2 * gammaMinus1 * ( Q(0:N,0:N,0:N,IRHOE) / Q(0:N,0:N,0:N,IRHO) &
-                  - 0.5_RP * ( U(0:N,0:N,0:N,IGU) * U(0:N,0:N,0:N,IGU) &
-                             + U(0:N,0:N,0:N,IGV) * U(0:N,0:N,0:N,IGV) &
-                             + U(0:N,0:N,0:N,IGW) * U(0:N,0:N,0:N,IGW) ) )
+      U(0:Nx,0:Ny,0:Nz,IGU) = Q(0:Nx,0:Ny,0:Nz,IRHOU) / Q(0:Nx,0:Ny,0:Nz,IRHO) 
+      U(0:Nx,0:Ny,0:Nz,IGV) = Q(0:Nx,0:Ny,0:Nz,IRHOV) / Q(0:Nx,0:Ny,0:Nz,IRHO) 
+      U(0:Nx,0:Ny,0:Nz,IGW) = Q(0:Nx,0:Ny,0:Nz,IRHOW) / Q(0:Nx,0:Ny,0:Nz,IRHO) 
+      U(0:Nx,0:Ny,0:Nz,IGT) = gammaM2 * gammaMinus1 * ( Q(0:Nx,0:Ny,0:Nz,IRHOE) / Q(0:Nx,0:Ny,0:Nz,IRHO) &
+                  - 0.5_RP * ( U(0:Nx,0:Ny,0:Nz,IGU) * U(0:Nx,0:Ny,0:Nz,IGU) &
+                             + U(0:Nx,0:Ny,0:Nz,IGV) * U(0:Nx,0:Ny,0:Nz,IGV) &
+                             + U(0:Nx,0:Ny,0:Nz,IGW) * U(0:Nx,0:Ny,0:Nz,IGW) ) )
 
       END SUBROUTINE GradientValuesForQ_3D
 !
