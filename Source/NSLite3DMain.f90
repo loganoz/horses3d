@@ -38,7 +38,6 @@
       CLASS( PlotterDataSource ), POINTER :: plDataSource => NULL()
       TYPE( TimeIntegrator_t )            :: timeIntegrator
       
-      REAL(KIND=RP)                       :: dt, cfl
       LOGICAL                             :: success
       INTEGER                             :: plotUnit, restartUnit, saveUnit
       INTEGER, EXTERNAL                   :: UnusedUnit
@@ -139,7 +138,7 @@
 !     Construct the time integrator
 !     -----------------------------
 !
-      CALL timeIntegrator % construct (sem,controlVariables)
+      CALL timeIntegrator % construct (controlVariables)
 !
 !     --------------------
 !     Prepare for plotting

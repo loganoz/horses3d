@@ -57,15 +57,12 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE constructTimeIntegrator(self,sem,controlVariables)
+      SUBROUTINE constructTimeIntegrator(self,controlVariables)
       
          IMPLICIT NONE
          !---------------------------------------------
          CLASS(TimeIntegrator_t)     :: self
-         TYPE( DGSem )               :: sem
          TYPE(FTValueDictionary)     :: controlVariables
-         !---------------------------------------------
-         REAL(KIND=RP)               :: dt, cfl
          !---------------------------------------------
 !
 !        ----------------------------------------------------------------------------------

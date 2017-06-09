@@ -423,8 +423,75 @@
             END DO
          END IF
       END DO
-
       END SUBROUTINE PolynomialInterpolationMatrix
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE Create1DInterpolationMatrix(Mat,N1,N2,x1,x2)
+      IMPLICIT NONE
+!
+!     -----------------------------------------------------------
+!     Creates a 3D Lagrange interpolation matrix from a grid with 
+!     coordinates x1, y1, z1 (origin) to a grid with coordinates
+!     x2, y2, z2 (destination)
+!     -----------------------------------------------------------
+!
+      REAL(KIND=RP), ALLOCATABLE  :: Mat(:,:)     !>  Interpolation matrix
+      INTEGER                     :: N1  !<  Origin order
+      INTEGER                     :: N2  !<  Destination order
+      REAL(KIND=RP), DIMENSION(:) :: x1(0:N1)     !<  Nodes in origin
+      REAL(KIND=RP), DIMENSION(:) :: x2(0:N2)     !<  Nodes in destination
+      !----------------------------------------------------------
+      INTEGER :: i,j              ! Coordinate counters
+      !----------------------------------------------------------
+      
+      ALLOCATE(Mat(N2 + 1,N1 + 1))
+      
+      DO j=0, N1                                  ! Column index   
+         DO i=0, N2                               ! Row index
+            Mat(i+1,j+1) =  LagrangeInterpolationNoBar(x2(i),N1,x1,j)
+         END DO
+      END DO
+      
+   END SUBROUTINE Create1DInterpolationMatrix
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE Create1DRestrictionMatrix(Mat,N1,N2,x1,x2,w1,w2)
+      IMPLICIT NONE
+!
+!     -----------------------------------------------------------
+!     Creates a 3D Lagrange interpolation matrix from a grid with 
+!     coordinates x1, y1, z1 (origin) to a grid with coordinates
+!     x2, y2, z2 (destination)
+!     -----------------------------------------------------------
+!
+      REAL(KIND=RP), ALLOCATABLE  :: Mat(:,:)     !>  Interpolation matrix
+      INTEGER                     :: N1  !<  Origin order
+      INTEGER                     :: N2  !<  Destination order
+      REAL(KIND=RP), DIMENSION(:) :: x1(0:N1)     !<  Nodes in origin
+      REAL(KIND=RP), DIMENSION(:) :: x2(0:N2)     !<  Nodes in destination
+      REAL(KIND=RP), DIMENSION(:) :: w1(0:N1)     !<  Nodes in origin
+      REAL(KIND=RP), DIMENSION(:) :: w2(0:N2)     !<  Nodes in destination
+      !----------------------------------------------------------
+      INTEGER :: i,j                    ! Coordinate counters
+      !----------------------------------------------------------
+      
+      ALLOCATE(Mat(N2 + 1,N1 + 1))
+      
+      DO j=0, N1                                  ! Column index   
+         DO i=0, N2                               ! Row index
+            Mat(i+1,j+1) =  LagrangeInterpolationNoBar(x1(j),N2,x2,i) * w1(j)
+         END DO
+      END DO
+      
+      ! Create Mass matrix and finish computing interpolation operator
+      DO i=0, N2                                  ! Row index
+         ! Matrix Multiplication I = M⁻¹S (taking advantage of the diagonal matrix)
+         Mat(i+1,:) = Mat(i+1,:) / w2(i)
+      END DO
+      
+   END SUBROUTINE Create1DRestrictionMatrix
 !
 !////////////////////////////////////////////////////////////////////////
 !
