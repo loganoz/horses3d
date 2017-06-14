@@ -52,7 +52,7 @@
 !     Initializations
 !     ---------------
 !
-      CALL Main_Header("NSLite3D discontinuous Galerkin spectral element solver.")
+      CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Solver")
 
       CALL controlVariables % initWithSize(16)
       CALL stopWatch % init()
