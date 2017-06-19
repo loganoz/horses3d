@@ -703,7 +703,7 @@
          use PhysicsStorage
          implicit none
          type(HexMesh)                  :: mesh
-         type(NodalStorage), intent(in) :: spA
+         type(NodalStorage), intent(in) :: spA(0:,0:,0:)
          real(kind=RP),      intent(in) :: time
          EXTERNAL                       :: externalStateProcedure
          EXTERNAL                       :: externalGradientsProcedure

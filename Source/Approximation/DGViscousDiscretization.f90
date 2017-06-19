@@ -122,7 +122,7 @@ module DGViscousDiscretization
          implicit none
          class(BassiRebay1_t), intent(in) :: self
          class(HexMesh)                   :: mesh
-         class(NodalStorage),  intent(in) :: spA(:,:,:)
+         class(NodalStorage),  intent(in) :: spA(0:,0:,0:)
          real(kind=RP),        intent(in) :: time
          external                         :: externalStateProcedure
          external                         :: externalGradientsProcedure
@@ -172,7 +172,9 @@ module DGViscousDiscretization
 !$omp end do
 
       end subroutine BR1_ComputeGradient
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       subroutine BR1_GradientVolumeLoop( self , e , spA )
          use ElementClass
          use NodalStorageClass
@@ -203,7 +205,9 @@ module DGViscousDiscretization
          e % U_z = -e % U_z
 
       end subroutine BR1_GradientVolumeLoop
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       subroutine BR1_GradientFaceLoop( self, e , spA )
          use ElementClass
          use NodalStorageClass
@@ -266,7 +270,9 @@ module DGViscousDiscretization
          e % U_z = e % U_z + faceInt_z
 
       end subroutine BR1_GradientFaceLoop
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       subroutine BR1_ComputeSolutionRiemannSolver( self , mesh , spA , time, externalStateProcedure )
          use HexMeshClass
          use NodalStorageClass
@@ -296,8 +302,7 @@ module DGViscousDiscretization
          REAL(KIND=RP) :: bvExt(N_EQN), UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)     
          
          INTEGER       :: i, j
-        
-         N = spA % N
+         
 !$omp barrier
 !$omp do private(eIDLeft,eIDRight,fIDLEft,N,i,j,bvExt,d) schedule(runtime)
          DO faceID = 1, SIZE(  mesh % faces)
@@ -317,22 +322,22 @@ module DGViscousDiscretization
 
                      bvExt =  mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft)
 
-                     CALL externalStateProcedure(  mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
-                                                  time, &
-                                                   mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
-                                                  bvExt,&
-                                                   mesh % elements(eIDLeft) % boundaryType(fIDLeft) )                                                  
+                     CALL externalStateProcedure( mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft)    , &
+                                                  time                                                   , &
+                                                  mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
+                                                  bvExt                                                  , &
+                                                  mesh % elements(eIDLeft) % boundaryType(fIDLeft) )                                                  
 !
-!              ---------------
-!              u,v, T averages
-!              ---------------
+!                    ---------------
+!                    u, v, w, T averages
+!                    ---------------
 !
                      CALL GradientValuesForQ(  mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft), UL )
                      CALL GradientValuesForQ( bvExt, UR )
 
                      d = 0.5_RP*(UL + UR)
                
-                      mesh % elements(eIDLeft) % Ub (:,i,j,fIDLeft) = d
+                     mesh % elements(eIDLeft) % Ub (:,i,j,fIDLeft) = d
 
                   END DO   
                END DO   
@@ -353,7 +358,9 @@ module DGViscousDiscretization
 !$omp end do
          
       end subroutine BR1_ComputeSolutionRiemannSolver
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       SUBROUTINE BR1_ComputeElementInterfaceAverage( eL, eR , thisFace )
          USE Physics  
          use ElementClass
@@ -372,12 +379,12 @@ module DGViscousDiscretization
 !        ---------------
 !
          REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         REAL(KIND=RP) :: d(N_GRAD_EQN)
          INTEGER       :: i,j,ii,jj
          INTEGER       :: fIDLeft, fIdright
          INTEGER       :: rotation
-         INTEGER       :: Nxy(2) , NL(2) , NR(2)
-               
+         INTEGER       :: Nxy(2)
+         INTEGER       :: NL(2), NR(2)
+         
          fIDLeft  = thisface % elementSide(1)
          fIDRight = thisface % elementSide(2)
          Nxy      = thisface % NPhi
@@ -393,17 +400,22 @@ module DGViscousDiscretization
 !
 !        ----------------------
 !        Compute interface flux
-!        Using Riemann solver
+!        Using BR1 (averages)
 !        ----------------------
 !
-         norm = eL % geom % normal(:,1,1,fIDLeft)
          DO j = 0, Nxy(2)
             DO i = 0, Nxy(1)
-               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                      ! This turns according to the rotation of the elements
-               CALL RiemannSolver(QLeft  = thisface % Phi % L(:,i,j)        , &
-                                  QRight = thisface % Phi % R(:,ii,jj)      , &
-                                  nHat   = norm                             , &        ! This works only for flat faces. TODO: Change nHat to be stored in face with the highest polynomial combination!!! 
-                                  flux   = thisface % Phi % C(:,i,j) ) 
+               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                              ! This turns according to the rotation of the elements
+!
+!              ----------------
+!              u,v,w,T averages
+!              ----------------
+!
+               CALL GradientValuesForQ( Q  = thisface % Phi % L(:,i ,j ), U = UL )
+               CALL GradientValuesForQ( Q  = thisface % Phi % R(:,ii,jj), U = UR )
+               
+               thisface % Phi % Caux(:,i,j) = 0.5_RP*(UL + UR)
+               
             END DO   
          END DO 
 !
@@ -411,33 +423,16 @@ module DGViscousDiscretization
 !        Project back to elements
 !        ------------------------
 !
-         CALL ProjectFluxToElement  ( thisface                               , &
-                                      eL % FStarb(:,0:NL(1),0:NL(2),fIDLeft) , &
-                                      eR % FStarb(:,0:NR(1),0:NR(2),fIdright), &
-                                      N_EQN )
-!
-!        ------------------------
-!        Apply metrics correction
-!        ------------------------
-!
-         ! Left element
-         Nxy = thisface % NL
-         DO j = 0, Nxy(2)
-            DO i = 0, Nxy(1)
-               eL % FStarb(:,i,j,fIDLeft)  = eL % FStarb(:,i,j,fIDLeft)  * eL % geom % scal(i,j,fIDLeft)
-            END DO   
-         END DO
-         
-         ! Right element
-         Nxy = thisface % NR
-         DO j = 0, Nxy(2)
-            DO i = 0, Nxy(1)
-               eR % FStarb(:,i,j,fIdright) = eR % FStarb(:,i,j,fIdright) * eR % geom % scal(i,j,fIdright)
-            END DO   
-         END DO
+         CALL ProjectToElement(thisface                           , &
+                               thisface % Phi % Caux              , &
+                               eL % Ub(:,0:NL(1),0:NL(2),fIDLeft) , &
+                               eR % Ub(:,0:NR(1),0:NR(2),fIDright), &
+                               N_GRAD_EQN)
          
       END SUBROUTINE BR1_ComputeElementInterfaceAverage   
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       subroutine BR1_ComputeInnerFluxes( self , e , spA , contravariantFlux )
          use ElementClass
          use NodalStorageClass

@@ -440,7 +440,9 @@ module MatrixOperations
          val = Mat_x_Mat_F( Mat_X_Mat_F( A , B , rowAB , colAB , trA = tA , trB = tB ) , C , rowAB , colABC , trB = tC )
 
       end subroutine TripleMatrixProduct
-
+!
+!/////////////////////////////////////////////////////////////////
+!
       function MatrixMultiplyInIndex_F( A , B , d1C , d2C , d3C , d4C , index) result( C )
          use, intrinsic    :: iso_c_binding
 !

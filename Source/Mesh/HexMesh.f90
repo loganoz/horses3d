@@ -851,12 +851,12 @@
       SUBROUTINE WriteCoordFile(self,FileName)
          USE PhysicsStorage
          IMPLICIT NONE
-!~ !~!
-!~ !~!        -----------------------------------------------------------------
-!~ !~!        This subroutine writes a *.coo file containing all the mesh nodes
-!~ !~!        that can be used for eigenvalue analysis using the TAUev code
-!~ !~!        -----------------------------------------------------------------
-!~ !~!
+!
+!        -----------------------------------------------------------------
+!        This subroutine writes a *.coo file containing all the mesh nodes
+!        that can be used for eigenvalue analysis using the TAUev code
+!        -----------------------------------------------------------------
+!
          !--------------------------------------------------------
          CLASS(HexMesh)       :: self        !<  this mesh
          CHARACTER(len=*)     :: FileName    !<  ...
