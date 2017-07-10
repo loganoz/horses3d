@@ -1409,14 +1409,16 @@
 
       end function ViscousFlux2D
 
-      pure function ViscousFlux3D( N , Q , U_x , U_y , U_z ) result (F)
+      pure function ViscousFlux3D( Nx, Ny, Nz , Q , U_x , U_y , U_z ) result (F)
          implicit none
-         integer          , intent ( in ) :: N
-         real ( kind=RP ) , intent ( in ) :: Q    ( 0:N , 0:N , 0:N , 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_x  ( 0:N , 0:N , 0:N , 1:N_GRAD_EQN     ) 
-         real ( kind=RP ) , intent ( in ) :: U_y  ( 0:N , 0:N , 0:N , 1:N_GRAD_EQN     ) 
-         real ( kind=RP ) , intent ( in ) :: U_z  ( 0:N , 0:N , 0:N , 1:N_GRAD_EQN     ) 
-         real ( kind=RP )                 :: F    ( 0:N , 0:N , 0:N , 1:NCONS , 1:NDIM )
+         integer          , intent ( in ) :: Nx
+         integer          , intent ( in ) :: Ny
+         integer          , intent ( in ) :: Nz
+         real ( kind=RP ) , intent ( in ) :: Q    ( 0:Nx , 0:Ny , 0:Nz , 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 0:Nx , 0:Ny , 0:Nz , 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 0:Nx , 0:Ny , 0:Nz , 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 0:Nx , 0:Ny , 0:Nz , 1:N_GRAD_EQN     ) 
+         real ( kind=RP )                 :: F    ( 0:Nx , 0:Ny , 0:Nz , 1:NCONS , 1:NDIM )
 !
 !        ---------------
 !        Local variables
@@ -1435,7 +1437,7 @@
          T = gammaM2 * gammaMinus1 * (Q(:,:,:,IRHOE)  & 
                - 0.5_RP * ( Q(:,:,:,IRHOU) * u + Q(:,:,:,IRHOV) * v + Q(:,:,:,IRHOW) * w)) / Q(:,:,:,IRHO)
 
-         do i = 0 , N ;    do j = 0 , N ;    do k = 0 , N
+         do i = 0 , Nx ;    do j = 0 , Ny ;    do k = 0 , Nz
             muOfT    ( i,j,k )  = MolecularDiffusivity ( T ( i,j,k )  ) 
             kappaOfT ( i,j,k )  = ThermalDiffusivity   ( T ( i,j,k )  ) 
          end do       ;    end do       ;    end do 

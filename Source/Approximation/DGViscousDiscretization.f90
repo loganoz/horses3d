@@ -473,41 +473,24 @@ module DGViscousDiscretization
 
       end subroutine BR1_ComputeInnerFluxes
 
-      subroutine BR1_RiemannSolver ( self , QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , nHat , flux )
+      function BR1_RiemannSolver ( self , NEQ , QLeft , QRight ) result ( QStar )
          use SMConstants
          use PhysicsStorage
          use Physics
          implicit none
-         CLASS(BassiRebay1_t)                 :: self
-         REAL(KIND=RP), DIMENSION(N_EQN)      :: QLeft
-         REAL(KIND=RP), DIMENSION(N_EQN)      :: QRight
-         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_xLeft
-         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_yLeft
-         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_zLeft
-         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_xRight
-         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_yRight
-         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_zRight
-         REAL(KIND=RP), DIMENSION(NDIM)       :: nHat
-         REAL(KIND=RP), DIMENSION(N_EQN)      :: flux
+         CLASS(BassiRebay1_t)          :: self
+         REAL(KIND=RP), DIMENSION(NEQ) :: QLeft
+         REAL(KIND=RP), DIMENSION(NEQ) :: QRight
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
-         real(kind=RP)     :: flux_vec(NCONS,NDIM)
-
+         real(kind=RP)     :: Q(NEQ) 
 !
 !>       Old implementation: 1st average, then compute
 !        ------------------
-         Q   = 0.5_RP * ( QLeft + QRight)
-         U_x = 0.5_RP * ( U_xLeft + U_xRight) 
-         U_y = 0.5_RP * ( U_yLeft + U_yRight) 
-         U_z = 0.5_RP * ( U_zLeft + U_zRight) 
-
-         flux_vec = ViscousFlux(Q,U_x,U_y,U_z)
-
-         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
+         QStar   = 0.5_RP * ( QLeft + QRight)
 
       end subroutine BR1_RiemannSolver
 
