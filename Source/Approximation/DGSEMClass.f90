@@ -541,7 +541,8 @@
 !              -------------
 !
                fIDLeft  = self % mesh % faces(faceID) % elementSide(1)
-               CALL computeBoundaryFlux(self % mesh % elements(eIDLeft), fIDLeft, time, self % externalState , self % externalGradients)
+               CALL computeBoundaryFlux(self % mesh % elements(eIDLeft), fIDLeft, time, &
+                                        self % externalState , self % externalGradients)
                
             ELSE 
 !
@@ -680,7 +681,6 @@
          TYPE(Element), INTENT(INOUT) :: eL, eR       !<> elements
          TYPE(Face)   , INTENT(INOUT) :: thisface     !<> Mortar
          !-----------------------------------------
-         INTEGER       :: i,j,ii,jj
          REAL(KIND=RP) :: inv_flux(N_EQN)
          REAL(KIND=RP) :: visc_flux(N_EQN)
          INTEGER       :: fIDLeft, fIDRight
@@ -689,7 +689,20 @@
          INTEGER       :: Nxy(2)       ! Polynomial orders on the interface
          INTEGER       :: NL(2), NR(2)
          INTEGER       :: rotation
-         !-----------------------------------------
+!
+!        ------------------------------------------------------------------------
+!        The following are auxiliar variables required until mortars modification 
+!        ------------------------------------------------------------------------
+!
+         real(kind=RP) :: QL      (1:N_EQN,0:thisface % NL(1),0:thisface % NL(2),thisface % elementSide(1))
+         real(kind=RP) :: QR      (1:N_EQN,0:thisface % NR(1),0:thisface % NR(2),thisface % elementSide(1))
+         real(kind=RP) :: U_xLeft (1:N_EQN,0:thisface % NL(1),0:thisface % NL(2),thisface % elementSide(1))
+         real(kind=RP) :: U_xRight(1:N_EQN,0:thisface % NR(1),0:thisface % NR(2),thisface % elementSide(1))
+         real(kind=RP) :: U_yLeft (1:N_EQN,0:thisface % NL(1),0:thisface % NL(2),thisface % elementSide(1))
+         real(kind=RP) :: U_yRight(1:N_EQN,0:thisface % NR(1),0:thisface % NR(2),thisface % elementSide(1))
+         real(kind=RP) :: U_zLeft (1:N_EQN,0:thisface % NL(1),0:thisface % NL(2),thisface % elementSide(1))
+         real(kind=RP) :: U_zRight(1:N_EQN,0:thisface % NR(1),0:thisface % NR(2),thisface % elementSide(1))
+         
          
          fIDLeft  = thisface % elementSide(1)
          fIDRight = thisface % elementSide(2)
@@ -698,20 +711,29 @@
          NR       = thisface % NR
          rotation = thisface % rotation         
 !
+!        ---------------------
+!        Projection to mortars
+!        ---------------------
+!
+         call ProjectToMortar(thisface, eL % Qb(:,0:NL(1),0:NL(2),fIDLeft), eR % Qb(:,0:NR(1),0:NR(2),fIDright), N_EQN)
+         QL = thisface % Phi % L
+         QR = thisface % Phi % R
+
+         call ProjectToMortar(thisface, eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NL(1),0:NL(2),fIDRight), N_EQN)
+         
+!
 !        -----
 !        Invscid fluxes
 !        ----
 !
-
-         CALL ProjectToMortar(thisface, eL % Qb(:,0:NL(1),0:NL(2),fIDLeft), eR % Qb(:,0:NR(1),0:NR(2),fIDright), N_EQN)
-
+         norm = eL % geom % normal(:,1,1,fIDLeft)
          DO j = 0, Nxy(2)
             DO i = 0, Nxy(1)
                CALL iijjIndexes(i,j,N,rotation,ii,jj)                              ! This turns according to the rotation of the elements
-               CALL RiemannSolver(QLeft  = eL % QB(:,i ,j ,fIDLeft ), &
-                                  QRight = eR % QB(:,ii,jj,fIDright), &
-                                  nHat   = eL % geom % normal(:,i,j,fIDLeft), &
-                                  flux   = inv_flux)
+               CALL RiemannSolver(QLeft  = thisface % Phi % L(:,i,j), &
+                                  QRight = thisface % Phi % R(:,i,j), &
+                                  nHat   = eL % geom % normal(:,i,j,fIDLeft), &    ! This works only for flat faces
+                                  flux   = thisface % Phi % C(:,i,j))
             END DO   
          END DO  
 !
@@ -897,13 +919,13 @@
 !        ---------------
 !
          INTEGER       :: i,j,ii,jj
-<<<<<<< HEAD
-         
-         
-         DO j = 0, N
-            DO i = 0, N
-               CALL iijjIndexes(i,j,N,rotation,ii,jj)                    ! This turns according to the rotation of the elements
-=======
+!TODO<<<<<<< HEAD
+!         
+!         
+!         DO j = 0, N
+!            DO i = 0, N
+!               CALL iijjIndexes(i,j,N,rotation,ii,jj)                    ! This turns according to the rotation of the elements
+!=======
          INTEGER       :: fIDLeft, fIdright
          INTEGER       :: rotation
          INTEGER       :: Nxy(2)

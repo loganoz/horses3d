@@ -44,7 +44,7 @@ module DGInviscidDiscretization
 !        ---------------------------
 !
       end subroutine BaseClass_ComputeInnerFluxes
-
+!
 !///////////////////////////////////////////////////////////////////////////////////
 !
 !           StandardDG Procedures

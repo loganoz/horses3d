@@ -40,6 +40,10 @@
          
          COMPLEX(KIND=CP)                 :: ImgI = ( 0.0_RP, 1.0_RP) ! = SQRT(-1.0_RP)
 
+         INTEGER, PARAMETER :: LEFT   = 1, RIGHT  = 2, TOP  = 2, BOTTOM  = 1
+         INTEGER, PARAMETER :: FRONT  = 1, BACK   = 2
+
+
 #define errorMessage(UNIT) write(UNIT,'(A,A,A,I0,A)')   "Error in file ", __FILE__ , ", in line " , __LINE__ ,"."
 #define stopMessage(UNIT)  write(UNIT,'(A,A,A,I0,A)') "Stopped in file ", __FILE__ , ", in line " , __LINE__ ,"."
          

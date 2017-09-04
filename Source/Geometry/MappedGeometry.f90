@@ -25,8 +25,6 @@ Module MappedGeometryClass
 !     Constants
 !     ---------
 !
-      INTEGER, PARAMETER :: LEFT   = 1, RIGHT  = 2, TOP  = 2, BOTTOM  = 1
-      INTEGER, PARAMETER :: FRONT  = 1, BACK   = 2
       INTEGER, PARAMETER :: ELEFT  = 6, ERIGHT = 4, ETOP = 5, EBOTTOM = 3
       INTEGER, PARAMETER :: EFRONT = 1, EBACK  = 2 
 !

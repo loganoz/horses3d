@@ -163,7 +163,7 @@
          DEALLOCATE( this % Dx, this % Dy , this % Dz  )
          DEALLOCATE( this % vx, this % vy , this % vz  )        
          DEALLOCATE( this % bx, this % by , this % bz  )
-         DEALLOCATE( thsi % hatDx , this % hatDy , this % hatDz )
+         DEALLOCATE( this % hatDx , this % hatDy , this % hatDz )
          deallocate( this % standardDerivativeMatrix)
          this % Constructed = .FALSE.
       END SUBROUTINE DestructNodalStorage

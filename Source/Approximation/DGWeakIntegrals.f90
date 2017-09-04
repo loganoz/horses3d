@@ -72,15 +72,14 @@ module DGWeakIntegrals
          class(Element),      intent(in)     :: e
          class(NodalStorage), intent(in)     :: spA 
          integer,             intent(in)     :: loc
-         real(kind=RP),       intent(in)     :: F( 1:N_EQN , 0:spA % N , 0:spA % N )
-         real(kind=RP)                       :: faceInt(0:spA % N,0:spA % N,0:spA % N,1:N_EQN)
+         real(kind=RP),       intent(in)     :: F(1:,0:,0:)
+         real(kind=RP)                       :: faceInt(0:spA % Nx,0:spA % Ny,0:spA % Nz,1:N_EQN)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer            :: iXi , iEta , iZeta , iVar
-         INTEGER, PARAMETER :: LEFT = 1, RIGHT = 2
 
          select case (loc)
 !
@@ -90,14 +89,14 @@ module DGWeakIntegrals
 !
             case (ELEFT)
          
-               do iVar = 1 , N_EQN ; do iZeta = 0 , spA % N ; do iEta = 0 , spA % N ; do iXi = 0 , spa % N
-                  faceInt(iXi,iEta,iZeta,iVar) = F(iVar , iEta , iZeta) * spA % b(iXi , LEFT)
+               do iVar = 1 , N_EQN ; do iZeta = 0 , spA % Nz ; do iEta = 0 , spA % Ny ; do iXi = 0 , spa % Nx
+                  faceInt(iXi,iEta,iZeta,iVar) = F(iVar , iEta , iZeta) * spA % bx(iXi , LEFT)
                end do              ; end do                 ; end do                ; end do
             
             case (ERIGHT)
 
-               do iVar = 1 , N_EQN ; do iZeta = 0 , spA % N ; do iEta = 0 , spA % N ; do iXi = 0 , spa % N
-                  faceInt(iXi,iEta,iZeta,iVar) = F(iVar , iEta , iZeta) * spA % b(iXi , RIGHT)
+               do iVar = 1 , N_EQN ; do iZeta = 0 , spA % Nz ; do iEta = 0 , spA % Ny ; do iXi = 0 , spa % Nx
+                  faceInt(iXi,iEta,iZeta,iVar) = F(iVar , iEta , iZeta) * spA % bx(iXi , RIGHT)
                end do              ; end do                 ; end do                ; end do
 !
 !     -----------------
@@ -106,14 +105,14 @@ module DGWeakIntegrals
 !
             case (EFRONT)
 
-               do iVar = 1 , N_EQN ; do iZeta = 0 , spA % N ; do iEta = 0 , spA % N ; do iXi = 0 , spa % N
-                  faceInt(iXi,iEta,iZeta,iVar) = F(iVar , iXi , iZeta) * spA % b(iEta , LEFT)
+               do iVar = 1 , N_EQN ; do iZeta = 0 , spA % Nz ; do iEta = 0 , spA % Ny ; do iXi = 0 , spa % Nx
+                  faceInt(iXi,iEta,iZeta,iVar) = F(iVar , iXi , iZeta) * spA % by(iEta , LEFT)
                end do              ; end do                 ; end do                ; end do
 
             case (EBACK)
 
-               do iVar = 1 , N_EQN ; do iZeta = 0 , spA % N ; do iEta = 0 , spA % N ; do iXi = 0 , spa % N
-                  faceInt(iXi,iEta,iZeta,iVar) = F(iVar , iXi , iZeta) * spA % b(iEta , RIGHT)
+               do iVar = 1 , N_EQN ; do iZeta = 0 , spA % Nz ; do iEta = 0 , spA % Ny ; do iXi = 0 , spa % Nx
+                  faceInt(iXi,iEta,iZeta,iVar) = F(iVar , iXi , iZeta) * spA % by(iEta , RIGHT)
                end do              ; end do                 ; end do                ; end do
 !
 !     ------------------
@@ -122,14 +121,14 @@ module DGWeakIntegrals
 !
             case (EBOTTOM)
 
-               do iVar = 1 , N_EQN ; do iZeta = 0 , spA % N ; do iEta = 0 , spA % N ; do iXi = 0 , spa % N
-                  faceInt(iXi,iEta,iZeta,iVar) = F(iVar , iXi , iEta) * spA % b(iZeta , LEFT)
+               do iVar = 1 , N_EQN ; do iZeta = 0 , spA % Nx ; do iEta = 0 , spA % Ny ; do iXi = 0 , spa % Nx
+                  faceInt(iXi,iEta,iZeta,iVar) = F(iVar , iXi , iEta) * spA % bz(iZeta , LEFT)
                end do              ; end do                 ; end do                ; end do
 
             case (ETOP)
 
-               do iVar = 1 , N_EQN ; do iZeta = 0 , spA % N ; do iEta = 0 , spA % N ; do iXi = 0 , spa % N
-                  faceInt(iXi,iEta,iZeta,iVar) = F(iVar , iXi , iEta) * spA % b(iZeta , RIGHT)
+               do iVar = 1 , N_EQN ; do iZeta = 0 , spA % Nz ; do iEta = 0 , spA % Ny ; do iXi = 0 , spa % Nx
+                  faceInt(iXi,iEta,iZeta,iVar) = F(iVar , iXi , iEta) * spA % bz(iZeta , RIGHT)
                end do              ; end do                 ; end do                ; end do
 
          end select
@@ -213,7 +212,7 @@ module DGWeakIntegrals
          class(Element),      intent(in)  :: e
          class(NodalStorage), intent(in)  :: spA
          integer,             intent(in)  :: loc
-         real(kind=RP),       intent(in)  :: U( NEQ , 0: , 0: , 6 )                                   !<  
+         real(kind=RP),       intent(in)  :: U( 1: , 0: , 0: , 1: )                                   !<  
          real(kind=RP),       intent(out) :: faceInt_x(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , NEQ )   !>
          real(kind=RP),       intent(out) :: faceInt_y(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , NEQ )   !>
          real(kind=RP),       intent(out) :: faceInt_z(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , NEQ )   !>

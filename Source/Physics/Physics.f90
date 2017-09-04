@@ -953,17 +953,17 @@
 
       end function InviscidFlux2D
 
-      pure function InviscidFlux3D( N , Q ) result ( F )
+      pure function InviscidFlux3D( Nx, Ny, Nz, Q ) result ( F )
          implicit none
-         integer,       intent (in) :: N
-         real(kind=RP), intent (in) :: Q(0:N , 0:N , 0:N , 1:NCONS)
-         real(kind=RP)              :: F(0:N , 0:N , 0:N , 1:NCONS , 1:NDIM)
+         integer,       intent (in) :: Nx, Ny, Nz
+         real(kind=RP), intent (in) :: Q(0:Nx,0:Ny,0:Nz , 1:NCONS)
+         real(kind=RP)              :: F(0:Nx,0:Ny,0:Nz , 1:NCONS , 1:NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)           :: u(0:N,0:N,0:N) , v(0:N,0:N,0:N) , w(0:N,0:N,0:N) , p(0:N,0:N,0:N)
+         real(kind=RP)           :: u(0:Nx,0:Ny,0:Nz) , v(0:Nx,0:Ny,0:Nz) , w(0:Nx,0:Ny,0:Nz) , p(0:Nx,0:Ny,0:Nz)
 
          u = Q(:,:,:,IRHOU) / Q(:,:,:,IRHO)
          v = Q(:,:,:,IRHOV) / Q(:,:,:,IRHO)
@@ -1424,9 +1424,9 @@
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: T(0:N,0:N,0:N) , muOfT(0:N,0:N,0:N) , kappaOfT(0:N,0:N,0:N)
-         real(kind=RP) :: divV(0:N,0:N,0:N)
-         real(kind=RP) :: u(0:N,0:N,0:N) , v(0:N,0:N,0:N) , w(0:N,0:N,0:N)
+         real(kind=RP) :: T(0:Nx,0:Ny,0:Nz) , muOfT(0:Nx,0:Ny,0:Nz) , kappaOfT(0:Nx,0:Ny,0:Nz)
+         real(kind=RP) :: divV(0:Nx,0:Ny,0:Nz)
+         real(kind=RP) :: u(0:Nx,0:Ny,0:Nz) , v(0:Nx,0:Ny,0:Nz) , w(0:Nx,0:Ny,0:Nz)
          integer       :: i , j , k
 
          u = Q(:,:,:,IRHOU) / Q(:,:,:,IRHO)

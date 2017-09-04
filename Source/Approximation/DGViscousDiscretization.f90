@@ -45,18 +45,19 @@ module DGViscousDiscretization
 !           --------------------
 !///////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BaseClass_ComputeGradient( self , mesh , spA , time , externalStateProcedure , externalGradientsProcedure )
+      subroutine BaseClass_ComputeGradient( self , mesh , spA , time , externalStateProcedure , externalGradientsProcedure)
          use HexMeshClass
          use NodalStorageClass
          use PhysicsStorage
          use Physics
+         use ProlongToFacesProcedures
          implicit none
-         class(ViscousMethod_t),    intent(in) :: self
-         class(HexMesh)                        :: mesh
-         class(NodalStorage),       intent(in) :: spA
-         real(kind=RP),             intent(in) :: time
-         external                              :: externalStateProcedure
-         external                              :: externalGradientsProcedure
+         class(ViscousMethod_t), intent(in) :: self
+         class(HexMesh)                   :: mesh
+         class(NodalStorage),  intent(in) :: spA(0:,0:,0:)
+         real(kind=RP),        intent(in) :: time
+         external                         :: externalStateProcedure
+         external                         :: externalGradientsProcedure
 !
 !        ---------------------------
 !        The base class does nothing
@@ -73,6 +74,7 @@ module DGViscousDiscretization
          type(Element)                           :: e
          type(NodalStorage)      ,  intent (in)  :: spA
          real(kind=RP)           ,  intent (out) :: contravariantFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN, 1:NDIM)
+
 !
 !        ---------------------------
 !        The base class does nothing
@@ -82,7 +84,8 @@ module DGViscousDiscretization
 
       end subroutine BaseClass_ComputeInnerFluxes
 
-      subroutine BaseClass_RiemannSolver ( self , QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , nHat , flux )
+      subroutine BaseClass_RiemannSolver ( self , QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+                                           nHat , flux )
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -136,16 +139,16 @@ module DGViscousDiscretization
 !
 !        Compute the averaged states
 !        ---------------------------
-         call BR1_ComputeSolutionRiemannSolver( self , mesh , spA , time, externalStateProcedure )
+         call BR1_ComputeSolutionRiemannSolver( self , mesh , time, externalStateProcedure )
 !
 !        Perform volume loops
 !        --------------------
 !$omp barrier
 !$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
-            Nx = mesh % elements(iID) % Nxyz(1)
-            Ny = mesh % elements(iID) % Nxyz(2)
-            Nz = mesh % elements(iID) % Nxyz(3)
+            Nx = mesh % elements(eID) % Nxyz(1)
+            Ny = mesh % elements(eID) % Nxyz(2)
+            Nz = mesh % elements(eID) % Nxyz(3)
 !
 !           Add the volumetric integrals
 !           ----------------------------
@@ -273,7 +276,7 @@ module DGViscousDiscretization
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_ComputeSolutionRiemannSolver( self , mesh , spA , time, externalStateProcedure )
+      subroutine BR1_ComputeSolutionRiemannSolver( self , mesh , time, externalStateProcedure )
          use HexMeshClass
          use NodalStorageClass
          USE Physics
@@ -284,11 +287,10 @@ module DGViscousDiscretization
 !        Arguments
 !        ---------
 !
-         type(BassiRebay1_t) :: self
-         type(HexMesh)       :: mesh
-         type(NodalStorage)  :: spA
-         REAL(KIND=RP)       :: time
-         EXTERNAL            :: externalStateProcedure
+         type(BassiRebay1_t)            :: self
+         type(HexMesh)                  :: mesh
+         REAL(KIND=RP)                  :: time
+         EXTERNAL                       :: externalStateProcedure
 !
 !        ---------------
 !        Local Variables
@@ -350,7 +352,7 @@ module DGViscousDiscretization
 !
                CALL BR1_ComputeElementInterfaceAverage(eL =  mesh % elements(eIDLeft) ,&
                                                        eR =  mesh % elements(eIDRight),&
-                                                       thisface = self % mesh % faces(faceID))
+                                                       thisface = mesh % faces(faceID))
 
             END IF 
 
@@ -473,24 +475,42 @@ module DGViscousDiscretization
 
       end subroutine BR1_ComputeInnerFluxes
 
-      function BR1_RiemannSolver ( self , NEQ , QLeft , QRight ) result ( QStar )
+      subroutine BR1_RiemannSolver ( self , QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+                                            nHat , flux )
          use SMConstants
          use PhysicsStorage
          use Physics
          implicit none
-         CLASS(BassiRebay1_t)          :: self
-         REAL(KIND=RP), DIMENSION(NEQ) :: QLeft
-         REAL(KIND=RP), DIMENSION(NEQ) :: QRight
+         CLASS(BassiRebay1_t)                 :: self
+         REAL(KIND=RP), DIMENSION(N_EQN)      :: QLeft
+         REAL(KIND=RP), DIMENSION(N_EQN)      :: QRight
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_xLeft
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_yLeft
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_zLeft
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_xRight
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_yRight
+         REAL(KIND=RP), DIMENSION(N_GRAD_EQN) :: U_zRight
+         REAL(KIND=RP), DIMENSION(NDIM)       :: nHat
+         REAL(KIND=RP), DIMENSION(N_EQN)      :: flux
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: Q(NEQ) 
+         real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
+         real(kind=RP)     :: flux_vec(NCONS,NDIM)
+
 !
 !>       Old implementation: 1st average, then compute
 !        ------------------
-         QStar   = 0.5_RP * ( QLeft + QRight)
+         Q   = 0.5_RP * ( QLeft + QRight)
+         U_x = 0.5_RP * ( U_xLeft + U_xRight)
+         U_y = 0.5_RP * ( U_yLeft + U_yRight)
+         U_z = 0.5_RP * ( U_zLeft + U_zRight)
+
+         flux_vec = ViscousFlux(Q,U_x,U_y,U_z)
+
+         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 
       end subroutine BR1_RiemannSolver
 
