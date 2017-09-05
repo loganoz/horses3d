@@ -564,7 +564,7 @@
 !     ------
 !      
       TYPE(Face)   , INTENT(INOUT)     :: this                             !<> Face 
-      REAL(KIND=RP), INTENT(OUT)       :: C  (NEqn,0:this % NPhi(1), &
+      REAL(KIND=RP), INTENT(IN)        :: C  (NEqn,0:this % NPhi(1), &
                                                    0:this % NPhi(2))       !>  Variable to be projected
       REAL(KIND=RP), INTENT(OUT)       :: UL (NEqn,0:this % NL(1)  , &
                                                    0:this % NL(2))         !>  Boundary solution of left element

@@ -502,7 +502,6 @@
 !        -----------------------
 !
          call TimeDerivative_ComputeQDot( self % mesh , self % spA , time )
-!$omp end do
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative
@@ -681,10 +680,8 @@
          TYPE(Element), INTENT(INOUT) :: eL, eR       !<> elements
          TYPE(Face)   , INTENT(INOUT) :: thisface     !<> Mortar
          !-----------------------------------------
-         REAL(KIND=RP) :: inv_flux(N_EQN)
-         REAL(KIND=RP) :: visc_flux(N_EQN)
          INTEGER       :: fIDLeft, fIDRight
-         REAL(KIND=RP) :: norm(3)
+         REAL(KIND=RP) :: norm(3), scal
          INTEGER       :: i,j,ii,jj
          INTEGER       :: Nxy(2)       ! Polynomial orders on the interface
          INTEGER       :: NL(2), NR(2)
@@ -694,15 +691,16 @@
 !        The following are auxiliar variables required until mortars modification 
 !        ------------------------------------------------------------------------
 !
-         real(kind=RP) :: QL      (1:N_EQN,0:thisface % NL(1),0:thisface % NL(2),thisface % elementSide(1))
-         real(kind=RP) :: QR      (1:N_EQN,0:thisface % NR(1),0:thisface % NR(2),thisface % elementSide(1))
-         real(kind=RP) :: U_xLeft (1:N_EQN,0:thisface % NL(1),0:thisface % NL(2),thisface % elementSide(1))
-         real(kind=RP) :: U_xRight(1:N_EQN,0:thisface % NR(1),0:thisface % NR(2),thisface % elementSide(1))
-         real(kind=RP) :: U_yLeft (1:N_EQN,0:thisface % NL(1),0:thisface % NL(2),thisface % elementSide(1))
-         real(kind=RP) :: U_yRight(1:N_EQN,0:thisface % NR(1),0:thisface % NR(2),thisface % elementSide(1))
-         real(kind=RP) :: U_zLeft (1:N_EQN,0:thisface % NL(1),0:thisface % NL(2),thisface % elementSide(1))
-         real(kind=RP) :: U_zRight(1:N_EQN,0:thisface % NR(1),0:thisface % NR(2),thisface % elementSide(1))
-         
+         real(kind=RP) :: QL      (1:N_EQN,0:thisface % NPhi(1),0:thisface % NPhi(2))
+         real(kind=RP) :: QR      (1:N_EQN,0:thisface % NPhiR(1),0:thisface % NPhiR(2))
+         real(kind=RP) :: U_xLeft (1:N_EQN,0:thisface % NPhi(1),0:thisface % NPhi(2))
+         real(kind=RP) :: U_xRight(1:N_EQN,0:thisface % NPhiR(1),0:thisface % NPhiR(2))
+         real(kind=RP) :: U_yLeft (1:N_EQN,0:thisface % NPhi(1),0:thisface % NPhi(2))
+         real(kind=RP) :: U_yRight(1:N_EQN,0:thisface % NPhiR(1),0:thisface % NPhiR(2))
+         real(kind=RP) :: U_zLeft (1:N_EQN,0:thisface % NPhi(1),0:thisface % NPhi(2))
+         real(kind=RP) :: U_zRight(1:N_EQN,0:thisface % NPhiR(1),0:thisface % NPhiR(2))
+         real(kind=RP) :: inv_flux(1:N_EQN,0:thisface % NPhi(1),0:thisface % NPhi(2))
+         real(kind=RP) :: visc_flux(1:N_EQN,0:thisface % NPhi(1),0:thisface % NPhi(2))
          
          fIDLeft  = thisface % elementSide(1)
          fIDRight = thisface % elementSide(2)
@@ -719,101 +717,58 @@
          QL = thisface % Phi % L
          QR = thisface % Phi % R
 
-         call ProjectToMortar(thisface, eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NL(1),0:NL(2),fIDRight), N_EQN)
-         
+         call ProjectToMortar(thisface, eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_EQN)
+         U_xLeft = thisface % Phi % L
+         U_xRight = thisface % Phi % R
+
+         call ProjectToMortar(thisface, eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_yb(:,0:NR(1),0:NR(2),fIDRight), N_EQN)
+         U_yLeft = thisface % Phi % L
+         U_yRight = thisface % Phi % R
+
+         call ProjectToMortar(thisface, eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_EQN)
+         U_zLeft = thisface % Phi % L
+         U_zRight = thisface % Phi % R
 !
-!        -----
+!        --------------
 !        Invscid fluxes
-!        ----
+!        --------------
 !
          norm = eL % geom % normal(:,1,1,fIDLeft)
+         scal = eL % geom % scal(1,1,fIDLeft)
          DO j = 0, Nxy(2)
             DO i = 0, Nxy(1)
-               CALL iijjIndexes(i,j,N,rotation,ii,jj)                              ! This turns according to the rotation of the elements
-               CALL RiemannSolver(QLeft  = thisface % Phi % L(:,i,j), &
-                                  QRight = thisface % Phi % R(:,i,j), &
-                                  nHat   = eL % geom % normal(:,i,j,fIDLeft), &    ! This works only for flat faces
-                                  flux   = thisface % Phi % C(:,i,j))
+               CALL RiemannSolver(QLeft  = QL(:,i,j), &
+                                  QRight = QR(:,i,j), &
+                                  nHat   = norm, &    ! This works only for flat faces
+                                  flux   = inv_flux(:,i,j) )
+
+               CALL ViscousMethod % RiemannSolver( QLeft = QL(:,i,j), &
+                                                  QRight = QR(:,i,j) , &
+                                                  U_xLeft = U_xLeft(:,i,j) , &
+                                                  U_yLeft = U_yLeft(:,i,j) , &
+                                                  U_zLeft = U_zLeft(:,i,j) , &
+                                                  U_xRight = U_xRight(:,i,j) , &
+                                                  U_yRight = U_yRight(:,i,j) , &
+                                                  U_zRight = U_zRight(:,i,j) , &
+                                                   nHat = norm , &
+                                                   flux  = visc_flux(:,i,j) )
+
             END DO   
          END DO  
-!
-!        ----------------------
-!        Compute interface flux
-!        Using BR1 (averages)
-!        ----------------------
-!
-!
-!
-!              --------
-!              x values
-!              --------
-         CALL ProjectToMortar(thisface, eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN)
-         
-         DO j = 0, Nxy(2)
-            DO i = 0, Nxy(1)
-               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                    ! This turns according to the rotation of the elements
-               
-               QStar =  ViscousMethod % RiemannSolver( QLeft  = thisface % Phi % L(1:N_GRAD_EQN,i ,j ) , &
-                                                       QRight = thisface % Phi % R(1:N_GRAD_EQN,ii,jj)  )
-            END DO   
-         END DO 
-         
-         CALL ProjectToElement(thisface                             , &
-                               thisface % Phi % Caux                , &
-                               eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft) , &
-                               eR % U_xb(:,0:NR(1),0:NR(2),fIDright), &
-                               N_GRAD_EQN)
-!
-!              --------
-!              y values
-!              --------
-!        
-         CALL ProjectToMortar(thisface, eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_yb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN) 
-         
-         DO j = 0, Nxy(2)
-            DO i = 0, Nxy(1)
-               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                    ! This turns according to the rotation of the elements
-               
-               QStar =  ViscousMethod % RiemannSolver( QLeft  = thisface % Phi % L(1:N_GRAD_EQN,i ,j ) , &
-                                                       QRight = thisface % Phi % R(1:N_GRAD_EQN,ii,jj)  )
 
-            END DO   
-         END DO 
-         
-         CALL ProjectToElement(thisface                             , &
-                               thisface % Phi % Caux                , &
-                               eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft) , &
-                               eR % U_yb(:,0:NR(1),0:NR(2),fIDright), &
-                               N_GRAD_EQN)
+         thisface % Phi % C = (inv_flux - visc_flux) * scal
 !
-!              --------
-!              z values
-!              --------
-!         
-         CALL ProjectToMortar(thisface, eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_zb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN) 
-         
-         DO j = 0, Nxy(2)
-            DO i = 0, Nxy(1)
-               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                    ! This turns according to the rotation of the elements
-               
-               QStar =  ViscousMethod % RiemannSolver( QLeft  = thisface % Phi % L(1:N_GRAD_EQN,i ,j ) , &
-                                                       QRight = thisface % Phi % R(1:N_GRAD_EQN,ii,jj)  )
-               
-            END DO   
-         END DO   
-         
-         CALL ProjectToElement(thisface                             , &
-                               thisface % Phi % Caux                , &
-                               eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft) , &
-                               eR % U_zb(:,0:NR(1),0:NR(2),fIDright), &
-                               N_GRAD_EQN)
+!        ---------------------------
+!        Return the flux to elements
+!        ---------------------------
+!
+         call ProjectToElement( thisface , thisface % Phi % C , &
+                                eL % FStarb(:,0:NL(1),0:NL(2),fIDLeft), & 
+                                eR % FStarb(:,0:NR(1),0:NR(2),fIDRight), & 
+                                N_EQN ) 
 
 
-         eL % FStarb(:,i ,j,fIDLeft)  =   (inv_flux - visc_flux ) * eL % geom % scal(i ,j,fIDLeft)
-               eR % FStarb(:,ii,jj,fIDright) = -(inv_flux - visc_flux ) * eR % geom % scal(ii,jj,fIdright)
-
-
-
+         eR % FStarB = -1.0_RP * eR % FStarB
          
       END SUBROUTINE computeElementInterfaceFlux
 

@@ -100,7 +100,7 @@
          use PhysicsStorage
          implicit none
          type(HexMesh)              :: mesh
-         type(NodalStorage)         :: spA
+         type(NodalStorage)         :: spA(0:,0:,0:)
          real(kind=RP)              :: t
 !
 !        ---------------
@@ -108,18 +108,22 @@
 !        ---------------
 !
          integer     :: eID , iVar 
+         integer     :: Nx, Ny, Nz
 !
 !$omp barrier
 !$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
+            Nx = mesh % elements(eID) % Nxyz(1)
+            Ny = mesh % elements(eID) % Nxyz(2)
+            Nz = mesh % elements(eID) % Nxyz(3)
 !
 !           Perform volume integrals
 !           ------------------------            
-            call TimeDerivative_VolumetricContribution( mesh % elements(eID) , spA , t)
+            call TimeDerivative_VolumetricContribution( mesh % elements(eID) , spA(Nx,Ny,Nz) , t)
 !
 !           Perform surface integrals
 !           -------------------------
-            call TimeDerivative_FacesContribution( mesh % elements(eID) , spA , t)
+            call TimeDerivative_FacesContribution( mesh % elements(eID) , spA(Nx,Ny,Nz) , t)
 !
 !           Scale with the Jacobian
 !           -----------------------
