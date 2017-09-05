@@ -717,39 +717,51 @@
          QL = thisface % Phi % L
          QR = thisface % Phi % R
 
-         call ProjectToMortar(thisface, eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_EQN)
-         U_xLeft = thisface % Phi % L
-         U_xRight = thisface % Phi % R
+         if ( flowIsNavierStokes ) then
+            call ProjectToMortar(thisface, eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_EQN)
+            U_xLeft = thisface % Phi % L
+            U_xRight = thisface % Phi % R
 
-         call ProjectToMortar(thisface, eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_yb(:,0:NR(1),0:NR(2),fIDRight), N_EQN)
-         U_yLeft = thisface % Phi % L
-         U_yRight = thisface % Phi % R
+            call ProjectToMortar(thisface, eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_yb(:,0:NR(1),0:NR(2),fIDRight), N_EQN)
+            U_yLeft = thisface % Phi % L
+            U_yRight = thisface % Phi % R
 
-         call ProjectToMortar(thisface, eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_EQN)
-         U_zLeft = thisface % Phi % L
-         U_zRight = thisface % Phi % R
+            call ProjectToMortar(thisface, eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_EQN)
+            U_zLeft = thisface % Phi % L
+            U_zRight = thisface % Phi % R
+
+         else
+            U_xLeft = 0.0_RP
+            U_yLeft = 0.0_RP
+            U_zLeft = 0.0_RP
+            U_xRight = 0.0_RP
+            U_yRight = 0.0_RP
+            U_zRight = 0.0_RP
+
+         end if
 !
 !        --------------
-!        Invscid fluxes
+!        Invscid fluxes: Rotation is not accounted in the Mortar projection
 !        --------------
 !
          norm = eL % geom % normal(:,1,1,fIDLeft)
          scal = eL % geom % scal(1,1,fIDLeft)
          DO j = 0, Nxy(2)
             DO i = 0, Nxy(1)
+               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)
                CALL RiemannSolver(QLeft  = QL(:,i,j), &
-                                  QRight = QR(:,i,j), &
+                                  QRight = QR(:,ii,jj), &
                                   nHat   = norm, &    ! This works only for flat faces
                                   flux   = inv_flux(:,i,j) )
 
                CALL ViscousMethod % RiemannSolver( QLeft = QL(:,i,j), &
-                                                  QRight = QR(:,i,j) , &
+                                                  QRight = QR(:,ii,jj) , &
                                                   U_xLeft = U_xLeft(:,i,j) , &
                                                   U_yLeft = U_yLeft(:,i,j) , &
                                                   U_zLeft = U_zLeft(:,i,j) , &
-                                                  U_xRight = U_xRight(:,i,j) , &
-                                                  U_yRight = U_yRight(:,i,j) , &
-                                                  U_zRight = U_zRight(:,i,j) , &
+                                                  U_xRight = U_xRight(:,ii,jj) , &
+                                                  U_yRight = U_yRight(:,ii,jj) , &
+                                                  U_zRight = U_zRight(:,ii,jj) , &
                                                    nHat = norm , &
                                                    flux  = visc_flux(:,i,j) )
 
@@ -759,17 +771,15 @@
          thisface % Phi % C = (inv_flux - visc_flux) * scal
 !
 !        ---------------------------
-!        Return the flux to elements
+!        Return the flux to elements: The sign in eR % FstarB has already been accouted.
 !        ---------------------------
 !
-         call ProjectToElement( thisface , thisface % Phi % C , &
+         call ProjectFluxToElement( thisface , &
                                 eL % FStarb(:,0:NL(1),0:NL(2),fIDLeft), & 
                                 eR % FStarb(:,0:NR(1),0:NR(2),fIDRight), & 
                                 N_EQN ) 
 
 
-         eR % FStarB = -1.0_RP * eR % FStarB
-         
       END SUBROUTINE computeElementInterfaceFlux
 
       SUBROUTINE computeBoundaryFlux(elementOnLeft, faceID, time, externalStateProcedure , externalGradientsProcedure )
