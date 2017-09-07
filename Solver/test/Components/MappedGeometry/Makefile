@@ -65,6 +65,7 @@ OBJS = $(OBJS_FTOBJLIB) $(OBJS_NSLITE3D_Updated) $(OBJS_CASE)
 OBJS_EXEC = $(OBJS_FTOBJLIB_EXEC) $(OBJS_NSLITE3D_EXEC_Updated) $(OBJS_CASE_EXEC)
 	
 
+.DEFAULT_GOAL := all
 all: createFolders create_$(EXECUTABLE)
 	
 # ---------- Executable macro -------------------
