@@ -149,9 +149,9 @@ INCLUDE+= -I$(NSLITE3D_PATH)/include
 OBJS_NSLITE3D_EXEC=$(foreach obj,$(OBJS_NSLITE3D),$(NSLITE3D_PATH)/build/$(obj).o)
 
 # ---------- General compilation rule -----------------------------
-FILE_NSLITE = $(or $(wildcard $(NSLITE3D_PATH)/Source/**/$@.f90),$(wildcard $(NSLITE3D_PATH)/Source/$@.f90),$(wildcard $(NSLITE3D_PATH)/Source/**/$@.F90))
+FILE_NSLITE = $(or $(wildcard $(NSLITE3D_PATH)/src/**/$@.f90),$(wildcard $(NSLITE3D_PATH)/src/$@.f90),$(wildcard $(NSLITE3D_PATH)/src/**/$@.F90))
 
-$(OBJS_NSLITE3D): %: $(or $(wildcard $(NSLITE3D_PATH)/Source/**/%.f90), $(wildcard $(NSLITE3D_PATH)/Source/%.f90) , $(wildcard $(NSLITE3D_PATH)/Source/**/%.F90) )
+$(OBJS_NSLITE3D): %: $(or $(wildcard $(NSLITE3D_PATH)/src/**/%.f90), $(wildcard $(NSLITE3D_PATH)/src/%.f90) , $(wildcard $(NSLITE3D_PATH)/src/**/%.F90) )
 	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)$(NSLITE3D_PATH)/include -c $(FILE_NSLITE) -o $(NSLITE3D_PATH)/build/$@.o
 
 
