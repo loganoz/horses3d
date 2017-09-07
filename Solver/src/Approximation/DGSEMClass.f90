@@ -726,7 +726,7 @@
             U_yLeft = thisface % Phi % L
             U_yRight = thisface % Phi % R
 
-            call ProjectToMortar(thisface, eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_EQN)
+            call ProjectToMortar(thisface, eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_zb(:,0:NR(1),0:NR(2),fIDRight), N_EQN)
             U_zLeft = thisface % Phi % L
             U_zRight = thisface % Phi % R
 
@@ -745,7 +745,6 @@
 !        --------------
 !
          norm = eL % geom % normal(:,1,1,fIDLeft)
-         scal = eL % geom % scal(1,1,fIDLeft)
          DO j = 0, Nxy(2)
             DO i = 0, Nxy(1)
                CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)
@@ -764,11 +763,10 @@
                                                   U_zRight = U_zRight(:,ii,jj) , &
                                                    nHat = norm , &
                                                    flux  = visc_flux(:,i,j) )
-
             END DO   
          END DO  
 
-         thisface % Phi % C = (inv_flux - visc_flux) * scal
+         thisface % Phi % C = (inv_flux - visc_flux) 
 !
 !        ---------------------------
 !        Return the flux to elements: The sign in eR % FstarB has already been accouted.
@@ -778,6 +776,19 @@
                                 eL % FStarb(:,0:NL(1),0:NL(2),fIDLeft), & 
                                 eR % FStarb(:,0:NR(1),0:NR(2),fIDRight), & 
                                 N_EQN ) 
+!
+!        ------------------------
+!        Multiply by the Jacobian: TODO this has to be performed before projection
+!        ------------------------
+!
+         do j = 0 , NL(2)  ;  do i = 0 , NL(1)
+            eL % FstarB(:,i,j,fIDLeft) = eL % FstarB(:,i,j,fIDLeft) * eL % geom % scal(i,j,fIDLeft)
+         end do            ;  end do
+
+         do j = 0 , NR(2)  ;  do i = 0 , NR(1)
+            eR % FstarB(:,i,j,fIDRight) = eR % FstarB(:,i,j,fIDRight) * eR % geom % scal(i,j,fIDRight)
+         end do            ;  end do
+
 
 
       END SUBROUTINE computeElementInterfaceFlux
