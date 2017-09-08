@@ -121,7 +121,7 @@ module DGWeakIntegrals
 !
             case (EBOTTOM)
 
-               do iVar = 1 , N_EQN ; do iZeta = 0 , spA % Nx ; do iEta = 0 , spA % Ny ; do iXi = 0 , spa % Nx
+               do iVar = 1 , N_EQN ; do iZeta = 0 , spA % Nz ; do iEta = 0 , spA % Ny ; do iXi = 0 , spa % Nx
                   faceInt(iXi,iEta,iZeta,iVar) = F(iVar , iXi , iEta) * spA % bz(iZeta , LEFT)
                end do              ; end do                 ; end do                ; end do
 

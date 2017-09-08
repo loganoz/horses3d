@@ -186,19 +186,19 @@ module SpatialDiscretization
          type(NodalStorage), intent(in) :: spA(0:,0:,0:)
          real(kind=RP),      intent(in) :: time
          interface
-            subroutine externalStateSubroutine(x,t,nHat,Q,boundaryName)
+            subroutine externalStateProcedure(x,t,nHat,Q,boundaryName)
                use SMConstants
                real(kind=RP)   , intent(in)    :: x(3), t, nHat(3)
                real(kind=RP)   , intent(inout) :: Q(:)
                character(len=*), intent(in)    :: boundaryName
-            end subroutine externalStateSubroutine
+            end subroutine externalStateProcedure
             
-            subroutine externalGradientsSubroutine(x,t,nHat,gradU,boundaryName)
+            subroutine externalGradientsProcedure(x,t,nHat,gradU,boundaryName)
                use SMConstants
                real(kind=RP)   , intent(in)    :: x(3), t, nHat(3)
                real(kind=RP)   , intent(inout) :: gradU(:,:)
                character(len=*), intent(in)    :: boundaryName
-            end subroutine externalGradientsSubroutine
+            end subroutine externalGradientsProcedure
          end interface
 
          call ViscousMethod % ComputeGradient( mesh , spA , time , externalStateProcedure , externalGradientsProcedure )

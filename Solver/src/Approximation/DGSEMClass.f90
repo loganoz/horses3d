@@ -718,15 +718,15 @@
          QR = thisface % Phi % R
 
          if ( flowIsNavierStokes ) then
-            call ProjectToMortar(thisface, eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_EQN)
+            call ProjectToMortar(thisface, eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_xLeft = thisface % Phi % L
             U_xRight = thisface % Phi % R
 
-            call ProjectToMortar(thisface, eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_yb(:,0:NR(1),0:NR(2),fIDRight), N_EQN)
+            call ProjectToMortar(thisface, eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_yb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_yLeft = thisface % Phi % L
             U_yRight = thisface % Phi % R
 
-            call ProjectToMortar(thisface, eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_zb(:,0:NR(1),0:NR(2),fIDRight), N_EQN)
+            call ProjectToMortar(thisface, eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_zb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_zLeft = thisface % Phi % L
             U_zRight = thisface % Phi % R
 
