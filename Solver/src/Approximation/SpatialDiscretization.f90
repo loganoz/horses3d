@@ -10,8 +10,8 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      MODULE DGTimeDerivativeMethods
-      USE SMConstants
+module SpatialDiscretization
+      use SMConstants
       use DGInviscidDiscretization
       use DGViscousDiscretization
       use DGWeakIntegrals
@@ -26,7 +26,7 @@
          use PhysicsStorage
          implicit none
 !
-!        TODO: this should be selected from the paramfile options
+!        TOdo: this should be selected from the paramfile options
          allocate( StandardDG_t  :: InviscidMethod )
          
          if ( flowIsNavierStokes ) then
@@ -38,58 +38,6 @@
          end if
          
       end subroutine Initialize_SpaceAndTimeMethods
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ComputeContravariantFlux( e, contravariantFlux )
-!
-!     --------------------------------------
-!     As described, compute
-      
-!     \[
-!        \tilde f^i = J\vec a^i \cdot \vec F
-!     \]
-!     --------------------------------------
-!      
-      USE ElementClass
-      USE PhysicsStorage
-      USE Physics
-      IMPLICIT NONE
-!
-!     -----------------
-!     Input parameters:
-!     -----------------
-!
-      TYPE(Element)                          :: e
-      REAL(KIND=RP), dimension(0:,0:,0:,:,:) :: contravariantFlux 
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      INTEGER                         :: n, m, l, nv
-      REAL(KIND=RP), DIMENSION(N_EQN) :: ff, gg, hh
-      
-      DO l = 0, e % Nxyz(3)
-         DO m = 0, e % Nxyz(2)
-            DO n = 0, e % Nxyz(1)
-               DO nv = 1, N_EQN
-                  contravariantFlux(n,m,l,nv,1) = e % geom % jGradXi(1,n,m,l)  *ff(nv) +   &
-                                                  e % geom % jGradXi(2,n,m,l)  *gg(nv) +   &
-                                                  e % geom % jGradXi(3,n,m,l)  *hh(nv)
-                  contravariantFlux(n,m,l,nv,2) = e % geom % jGradEta(1,n,m,l) *ff(nv) +   &
-                                                  e % geom % jGradEta(2,n,m,l) *gg(nv) +   &
-                                                  e % geom % jGradEta(3,n,m,l) *hh(nv)
-                  contravariantFlux(n,m,l,nv,3) = e % geom % jGradZeta(1,n,m,l)*ff(nv) +   &
-                                                  e % geom % jGradZeta(2,n,m,l)*gg(nv) +   &
-                                                  e % geom % jGradZeta(3,n,m,l)*hh(nv)
-               END DO
-               
-            END DO
-         END DO
-      END DO
-    
-      END SUBROUTINE ComputeContravariantFlux
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -139,7 +87,7 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !     --------------------------
-!     TODO: Add description here
+!     TOdo: Add description here
 !     --------------------------
 !
       subroutine TimeDerivative_VolumetricContribution( e , spA , t )
@@ -157,10 +105,10 @@
 !        Local variables
 !        ---------------
 !
-         real ( kind=RP ) :: inviscidContravariantFlux ( 0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1 : N_EQN , 1:NDIM ) 
-         real ( kind=RP ) :: viscousContravariantFlux  ( 0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1 : N_EQN , 1:NDIM ) 
-         real ( kind=RP ) :: contravariantFlux         ( 0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1 : N_EQN , 1:NDIM ) 
-         integer          :: eID
+         real(kind=RP) :: inviscidContravariantFlux ( 0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1 : N_EQN , 1:NDIM ) 
+         real(kind=RP) :: viscousContravariantFlux  ( 0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1 : N_EQN , 1:NDIM ) 
+         real(kind=RP) :: contravariantFlux         ( 0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1 : N_EQN , 1:NDIM ) 
+         integer       :: eID
 
 !
 !        Compute inviscid and viscous contravariant fluxes
@@ -185,7 +133,7 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !     --------------------------
-!     TODO: Add description here
+!     TOdo: Add description here
 !     --------------------------
       subroutine TimeDerivative_FacesContribution( e , spA , t )
          use HexMeshClass
@@ -237,8 +185,21 @@
          type(HexMesh)                  :: mesh
          type(NodalStorage), intent(in) :: spA(0:,0:,0:)
          real(kind=RP),      intent(in) :: time
-         EXTERNAL                       :: externalStateProcedure
-         EXTERNAL                       :: externalGradientsProcedure
+         interface
+            subroutine externalStateSubroutine(x,t,nHat,Q,boundaryName)
+               use SMConstants
+               real(kind=RP)   , intent(in)    :: x(3), t, nHat(3)
+               real(kind=RP)   , intent(inout) :: Q(:)
+               character(len=*), intent(in)    :: boundaryName
+            end subroutine externalStateSubroutine
+            
+            subroutine externalGradientsSubroutine(x,t,nHat,gradU,boundaryName)
+               use SMConstants
+               real(kind=RP)   , intent(in)    :: x(3), t, nHat(3)
+               real(kind=RP)   , intent(inout) :: gradU(:,:)
+               character(len=*), intent(in)    :: boundaryName
+            end subroutine externalGradientsSubroutine
+         end interface
 
          call ViscousMethod % ComputeGradient( mesh , spA , time , externalStateProcedure , externalGradientsProcedure )
 
@@ -246,16 +207,16 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-   !! Old routine... TODO: See what happens with this code
-!~   SUBROUTINE DGGradSpaceDerivative( u, uL, uR,  N, D, b, deriv ) 
+   !! Old routine... TOdo: See what happens with this code
+!~   subroutine DGGradSpaceDerivative( u, uL, uR,  N, D, b, deriv ) 
 !~!
 !~!  ----------------------------------------------------------
 !~!  The one dimensional space derivative for the DG method for
 !~!  a vector state. This is Algorithm 92 in the book.
 !~!  ----------------------------------------------------------
 !~!
-!~      USE PhysicsStorage
-!~      USE PolynomialInterpAndDerivsModule
+!~      use PhysicsStorage
+!~      use PolynomialInterpAndDerivsModule
 !~      IMPLICIT NONE
 !~!
 !~!     ---------
@@ -285,20 +246,73 @@
 !~!     Internal points contribution
 !~!     ----------------------------
 !~!
-!~      DO k = 1, N_GRAD_EQN
+!~      do k = 1, N_GRAD_EQN
 !~         CALL PolyDirectMatrixMultiplyDeriv( u(:,k), deriv(:,k), D, N )
-!~      END DO
+!~      end do
 !~!
 !~!     ----------------------------
 !~!     Boundary points contribution
 !~!     ----------------------------
 !~!
-!~      DO j = 0,N  
+!~      do j = 0,N  
 !~         deriv(j,:) = deriv(j,:) + uR*b(j,RIGHT) + uL*b(j,LEFT)
-!~      END DO
+!~      end do
      
-!~   END SUBROUTINE DGGradSpaceDerivative   
+!~   end subroutine DGGradSpaceDerivative   
+!
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!!
+!      subroutine ComputeContravariantFlux( e, contravariantFlux )
+!!
+!!     --------------------------------------
+!!     As described, compute
+!      
+!!     \[
+!!        \tilde f^i = J\vec a^i \cdot \vec F
+!!     \]
+!!     --------------------------------------
+!!      
+!      use ElementClass
+!      use PhysicsStorage
+!      use Physics
+!      IMPLICIT NONE
+!!
+!!     -----------------
+!!     Input parameters:
+!!     -----------------
+!!
+!      TYPE(Element)                          :: e
+!      REAL(KIND=RP), dimension(0:,0:,0:,:,:) :: contravariantFlux 
+!!
+!!     ---------------
+!!     Local variables
+!!     ---------------
+!!
+!      INTEGER                         :: n, m, l, nv
+!      REAL(KIND=RP), DIMENSION(N_EQN) :: ff, gg, hh
+!      
+!      do l = 0, e % Nxyz(3)
+!         do m = 0, e % Nxyz(2)
+!            do n = 0, e % Nxyz(1)
+!               do nv = 1, N_EQN
+!                  contravariantFlux(n,m,l,nv,1) = e % geom % jGradXi(1,n,m,l)  *ff(nv) +   &
+!                                                  e % geom % jGradXi(2,n,m,l)  *gg(nv) +   &
+!                                                  e % geom % jGradXi(3,n,m,l)  *hh(nv)
+!                  contravariantFlux(n,m,l,nv,2) = e % geom % jGradEta(1,n,m,l) *ff(nv) +   &
+!                                                  e % geom % jGradEta(2,n,m,l) *gg(nv) +   &
+!                                                  e % geom % jGradEta(3,n,m,l) *hh(nv)
+!                  contravariantFlux(n,m,l,nv,3) = e % geom % jGradZeta(1,n,m,l)*ff(nv) +   &
+!                                                  e % geom % jGradZeta(2,n,m,l)*gg(nv) +   &
+!                                                  e % geom % jGradZeta(3,n,m,l)*hh(nv)
+!               end do
+!               
+!            end do
+!         end do
+!      end do
+!    
+!      end subroutine ComputeContravariantFlux
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   END MODULE DGTimeDerivativeMethods
+end module SpatialDiscretization

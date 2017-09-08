@@ -65,7 +65,7 @@ OBJS_NSLITE3D= SMConstants FTTimerClass FileReading Utilities TimerClass Plotter
 		FacePatchClass MappedGeometry TransfiniteMaps3D\
 		FaceClass HexElementClass ZoneClass HexElementConnectivityDefinitions HexMesh MeshTypes NodeClass\
 		DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals ProlongToFaces\
-		DGSEMClass DGSpaceAndTimeDerivativeMethods NodalStorageClass\
+		DGSEMClass SpatialDiscretization NodalStorageClass\
 		PlotterDataSource Headers\
 		ReadInputFile Setup TimeIntegrator ProblemFile\
 		NSLite3DMain ConnectivityClass Jacobian\
@@ -112,8 +112,8 @@ NodeClass: SMConstants MeshTypes
 DGInviscidDiscretization: SMConstants HexElementClass NodalStorageClass Physics
 DGViscousDiscretization: SMConstants HexElementClass NodalStorageClass Physics DGWeakIntegrals ProlongToFaces HexMesh BoundaryConditions
 DGWeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics
-DGSpaceAndTimeDerivativeMethods: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
-DGSEMClass: DGSpaceAndTimeDerivativeMethods Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants ProlongToFaces
+SpatialDiscretization: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
+DGSEMClass: SpatialDiscretization Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants ProlongToFaces
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
 TimeIntegrator: Physics Plotter ProblemFile SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass
 ExplicitMethods: SMConstants DGSEMClass

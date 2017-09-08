@@ -25,7 +25,7 @@
       USE NodalStorageClass
       USE HexMeshClass
       USE PhysicsStorage
-      USE DGTimeDerivativeMethods
+      USE SpatialDiscretization
       USE ManufacturedSolutions
       
       IMPLICIT NONE
@@ -452,7 +452,7 @@
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE ComputeTimeDerivative( self, time )
-         USE DGTimeDerivativeMethods
+         USE SpatialDiscretization
          USE ProlongToFacesProcedures
          IMPLICIT NONE 
 !
