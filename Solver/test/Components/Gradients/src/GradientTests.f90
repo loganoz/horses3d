@@ -10,7 +10,7 @@
       SUBROUTINE TestDivergence
       USE FTAssertions
       USE DGSEMClass
-      USE DGTimeDerivativeMethods
+      USE SpatialDiscretization
       USE ProlongToFacesProcedures
       USE SetupModule
       USE DGViscousDiscretization
@@ -116,7 +116,7 @@
       SUBROUTINE TestGradients
       USE FTAssertions
       USE DGSEMClass
-      USE DGTimeDerivativeMethods
+      USE SpatialDiscretization
       USE ProlongToFacesProcedures
       USE SetupModule
       
@@ -293,7 +293,7 @@
          USE DGSEMClass
          USE PhysicsStorage
          USE ProlongToFacesProcedures
-         USE DGTimeDerivativeMethods
+         USE SpatialDiscretization
          IMPLICIT NONE
 !
 !        ---------
