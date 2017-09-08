@@ -1,0 +1,200 @@
+\documentclass[a4paper,10pt]{report}
+%\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{float} 
+\usepackage{multirow}
+\usepackage{vmargin}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{subfigure}
+\usepackage{afterpage}
+\usepackage[calcwidth]{titlesec}
+\usepackage{verbatim}
+\usepackage[hidelinks]{hyperref}
+\usepackage{multicol}
+\usepackage{pfnote}
+\usepackage{fnpos}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{algorithm,algpseudocode}
+\usepackage{epstopdf}
+\usepackage{tcolorbox}
+\setmarginsrb{2cm}{2cm}{2cm}{2cm}{0cm}{0cm}{0cm}{0.5cm}%{left}{top}{right}{bottom}{headhgt}{}
+%\numberwithin{equation}{section}
+%Bibliography style:
+\bibliographystyle{elsarticle-num}
+%\biboptions{sort&compress}
+%opening
+
+\definecolor{mygreen}{RGB}{28,172,0} % color values Red, Green, Blue
+\definecolor{mylilas}{RGB}{170,55,241}
+
+
+\title{\textbf{NSLITE3D \\ User Manual}}
+\author{Andrés Rueda \\ Many others (future?)}
+
+\begin{document}
+
+\lstset{backgroundcolor = \color{lightgray},
+    language=Matlab,%
+    %basicstyle=\color{red},
+    breaklines=true,%
+    morekeywords={matlab2tikz},
+    keywordstyle=\color{blue},%
+    morekeywords=[2]{1}, keywordstyle=[2]{\color{black}},
+    identifierstyle=\color{black},%
+    stringstyle=\color{mylilas},
+    commentstyle=\color{mygreen},%
+    showstringspaces=false,%without this there will be a symbol in the places where there is a space
+    numbers=left,%
+    numberstyle={\tiny \color{black}},% size of the numbers
+    numbersep=9pt, % this defines how far the numbers are from the text
+    emph=[1]{for,end,break},emphstyle=[1]\color{red}, %some words to emphasise
+    %emph=[2]{word1,word2}, emphstyle=[2]{style},    
+}
+
+\maketitle
+
+\tableofcontents
+
+\chapter{Running a simulation}
+List of all the mandatory keywords for running a simulation and some basic optional keywords. The specific keywords are listed in the other chapters.
+\begin{table}[htbp]
+\caption{General keywords for running a case.}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+job name   & \textit{CHARACTER}: Name of the job/case to be run. This name will be used for naming all the output files. \textbf{NOT YET IMPLEMENTED}. & \textbf{Mandatory\ keyword} \\ \hline
+
+simulation type        & \textit{CHARACTER}: Specifies if NSLITE3D must perform a 'steady-state' or a 'time-accurate' simulation. &  'steady-state'\\ \hline
+
+time integration & \textit{CHARACTER}: Can be 'implicit', 'explicit', or 'FAS'. The latter uses the Full Algebraic Storage (FAS) multigrid scheme, which can have implicit or explicit smoothers. & 'explicit' \\ \hline
+
+polynomial order   & \textit{INTEGER}: Polynomial order to be assigned uniformly to all the elements of the mesh. If the keyword \textit{polynomial order file} is specified, the value of this keyword is overridden. & --* \\ \hline
+
+polynomial order \textit{i/j/k}  & \textit{INTEGER}: Polynomial order in the i, j, or k component for all the elements in the domain. If used, the three directions must be declared explicitly, unless you are using a polynomial order file. If the keyword \textit{polynomial order file} is specified, the value of this keyword is overridden. & --** \\ \hline
+
+polynomial order file  & \textit{CHARACTER}: Path to a file containing the polynomial order of each element in the domain. & --* \\ \hline
+
+restart 			& \textit{LOGICAL}: If .TRUE., initial conditions of simulation will be read from restart file specified using the keyword \textit{restart file name}. \textbf{THIS SHOULD NOT BE MANDATORY... DEFAULT FALSE WOULD BE EASIER}. & \textbf{Mandatory keyword} \\ \hline
+
+cfl & \textit{REAL}: Approximate CFL number that the program will use to compute the time step size. If this keyword is specified, the keyword \textit{dt} will be neglected. & --** \\ \hline
+
+dt  & \textit{REAL}: Constant time step size.  & --** \\ \hline
+
+final time  & \textit{REAL}: This keyword is mandatory for time-accurate solvers & -- \\ \hline
+
+mesh file name & \textit{INTEGER}:  & \textbf{Mandatory\ keyword} \\ \hline
+
+number of time steps & \textit{INTEGER}: \textit{Maximum} number of time steps that the program will compute.  & \textbf{Mandatory\ keyword} \\ \hline
+
+output interval   & \textit{INTEGER}: In steady-state, this keyword indicates the interval of time steps to display the residuals on screen. In time-accurate simulations, this keyword indicates how often a 3D output file must be stored.  & \textbf{Mandatory\ keyword} \\ \hline
+
+convergence tolerance & \textit{real}: \textbf{WHY MANDATORY?.. ONLY USED FOR STEADY-STATE}  & \textbf{Mandatory\ keyword} \\ \hline
+
+number of plot points & \textit{INTEGER}: Number of equidistant plot points inside each element for plotting. If this variable is not specified, the program will plot only the values at the Gauss points.  & -- \\ \hline
+
+manufactured solution & \textit{CHARACTER}: Must have the value '2D' or '3D'. When this keyword is used, the program will add source terms for the conservative variables taken into account an exact analytic solution for each primitive variable j ($\rho$, $u$, $v$, $w$, $p$) of the form:\
+ 
+$j = j_C(1) + j_C(2) \sin(\pi j_C(5) x) + j_C(3) \sin(\pi j_C(6) y) + j_C(4) \sin(\pi j_C(7) z) $\
+
+Where $j_C(i)$ are constants defined in the file \textit{ManufacturedSolutions.f90}. Proper initial and boundary conditions must be imposed (see the test case). The mesh must be a unit cube.
+  & -- \\ \hline
+
+\multicolumn{3}{l}{*  At least one of these two keywords must be specified} \\
+
+\multicolumn{3}{l}{** At least one of these two keywords must be specified}
+
+\end{tabular}
+\label{tab:runningkey}
+\end{table}
+
+
+\chapter{Restarting a case}
+
+\begin{table}[htbp]
+\caption{Keywords for restarting a case.}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+restart 			& \textit{LOGICAL}: If .TRUE., initial conditions of simulation will be read from restart file specified using the keyword \textit{restart file name}. & \textbf{Mandatory keyword} \\ \hline
+
+restart file name   & \textit{CHARACTER}: Name of the restart file to be written and, if keyword \textit{restart} = .TRUE., also name of the restart file to be read for starting the simulation. & \textbf{Mandatory\ keyword} \\ \hline
+
+restart interval    & \textit{INTEGER}: Indicates how often restart files have to be written. & Huge number \\ \hline
+\end{tabular}
+\label{tab:restartkey}
+\end{table}
+
+
+\chapter{Implicit solvers}
+\section{General keywords}
+The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
+
+\begin{table}[htbp]
+\caption{Keywords for implicit solvers.}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+\textbf{time integration} & \textit{CHARACTER}: This is the main keyword for activating the implicit solvers. The value of it should be set to 'implicit'. & 'explicit' \\ \hline
+
+jacobian flag           & \textit{INTEGER}: Specifies the type of Jacobian matrix to be computed. Options are:\
+				\begin{enumerate}
+					\item Jacobian free: Uses JFNK algorithm with GMRES linear solver.
+					\item Numerical Jacobian: Uses coloring algorithm for computing Jacobian.
+					\item Analytical Jacobian: Not yet implemented.
+					\end{enumerate}
+										& 1 \\ \hline
+
+jacobian by convergence & \textit{LOGICAL}: When .TRUE., the Jacobian is only computed when the convergence falls beneath some threshold (see keyfords: blah and blah blah). This improves performance but can introduce big numerical errors for time-accurate simulations.  & .FALSE. \\ \hline
+
+linear solver           & \textit{CHARACTER}: Specifies the linear solver that has to be used. Options are:\ 
+				\begin{itemize}
+					\item 'petsc': PETSc library Krylov-Subspace methods.
+					\item 'pardiso': Intel MKL PARDISO.
+					\item 'smooth': .
+					\item 'multigrid': .
+				\end{itemize}
+										& 'petsc'  \\ \hline
+print newton info       & \textit{LOGICAL}: If .TRUE., the information of the Newton iterations will be displayed. &  '.FALSE.'\\ \hline
+  &  &  \\ \hline
+   &  &  \\ \hline
+    &  &  \\ \hline
+\end{tabular}
+\label{tab:implicitkey}
+\end{table}
+
+\section{Multigrid}
+\begin{table}[htbp]
+\caption{Keywords for the multigrid solver.}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+multigrid levels & \textit{INTEGER}: Number of multigrid levels for the computations. & \textbf{Mandatory keyword} \\ \hline
+
+delta n          & \textit{INTEGER}: Interval of reduction of polynomial order for creating coarser multigrid levels.& 1 \\ \hline
+
+multigrid output & \textit{LOGICAL}: If .TRUE., the residuals at the different multigrid levels will be displayed. & .FALSE. \\ \hline
+   
+    &  &  \\ \hline
+\end{tabular}
+\label{tab:multigridKey}
+\end{table}
+
+\chapter{Input files}
+\begin{itemize}
+\item Control file
+\item Mesh file
+\item Polynomial order file
+\end{itemize}
+
+\bibliography{../LaTeX/9_backmatter/library}
+
+\end{document}
+

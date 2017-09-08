@@ -1,0 +1,34 @@
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/CylinderNSpol3_1elem_y.mesh"
+plot file name        = "PlotFiles/Cylinder.tec"
+restart file name     = "RestartFiles/CylinderN2N3N4N5.rst"
+save file name        = "RestartFiles/Cylinder_saved.rst"
+restart               = .false.
+restart interval      = 50
+polynomial order file = "MeshFiles/OrdersN2N3N4N5_anisotropy.csv"
+Number of time steps  = 100
+Output Interval       = 10
+!Number of plot points = 5
+Convergence tolerance = 1.d-10
+cfl                   = 0.2
+mach number           = 0.3
+Reynolds number       = 45.0
+AOA theta             = 0.0
+AOA phi               = 90.0
+Number of boundaries  = 7
+InnerCylinder 0.0 NoSlipAdiabaticWall
+Front 0.0 Inflow
+bottom 0.0 FreeSlipWall
+top 0.0 FreeSlipWall
+Back 0.0 Inflow
+Left 0.0 Inflow
+Right 0.0 OutflowSpecifyP
+riemann solver        = roe
+!-------------------------------------------------------------
+!-----Information about time integration solver---------------
+simulation type         = steady-state
+time integration        = explicit
+jacobian flag           = 2
+linear solver           = Petsc
+jacobian by convergence = .false. 
+!-------------------------------------------------------------

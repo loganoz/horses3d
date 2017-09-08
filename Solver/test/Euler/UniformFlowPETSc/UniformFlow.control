@@ -1,0 +1,37 @@
+Flow equations        = "Euler"
+mesh file name        = "../../TestMeshes/Box27.mesh"
+plot file name        = "PlotFiles/Box27.tec"
+restart file name     = "RestartFiles/Box27.rst"
+save file name        = "RestartFiles/Box27_saved.rst"
+restart               = .false.
+!Polynomial order      = 2
+Polynomial order i    = 4
+Polynomial order j    = 2
+Polynomial order k    = 3
+!polynomial order file = MeshFiles/PolOrder.csv
+Number of time steps  = 5000
+Output Interval       = 5
+!Number of plot points = 6
+Convergence tolerance = 1.d-10
+cfl                   = 300
+mach number           = 0.5
+Reynolds number       = 0.0
+AOA theta             = 0.0
+AOA phi               = 0.0
+Number of boundaries  = 6
+front 0.0 Inflow
+back 0.0 Inflow
+bottom 0.0 Inflow
+top 0.0 Inflow
+left 0.0 Outflow
+right 0.0 Outflow
+riemann solver       = rusanov
+!-------------------------------------------------------------
+!-----Information about time integration solver---------------
+simulation type         = steady-state
+time integration        = implicit
+jacobian flag           = 2
+linear solver           = pardiso
+!petsc
+jacobian by convergence = .true. 
+!-------------------------------------------------------------
