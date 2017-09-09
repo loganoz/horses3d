@@ -51,11 +51,10 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE outputVectorFromStateVector( outputVector, stateVector,x)
+      SUBROUTINE outputVectorFromStateVector( outputVector, stateVector)
          USE SMConstants
          IMPLICIT NONE
          REAL(KIND=RP), DIMENSION(:) :: outputVector, stateVector
-         REAL(KIND=RP) :: x(3)
          
          outputVector = stateVector(1:numberOfOutputVariables())
          
