@@ -1,3 +1,5 @@
+#!/bin/bash
+
 mkdir -p include
 mkdir -p build
 mkdir -p ftobjectlibrary

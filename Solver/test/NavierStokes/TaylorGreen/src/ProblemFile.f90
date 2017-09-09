@@ -88,6 +88,7 @@
             INTEGER       :: i, j, k, eID
             REAL(KIND=RP) :: rho , u , v , w , p
             REAL(KIND=RP) :: L, u_0, rho_0, p_0
+            integer       :: Nx, Ny, Nz
             
             L     = 1.0_RP
             u_0   = 1.0_RP
@@ -95,10 +96,13 @@
             p_0   = 100.0_RP
 
             DO eID = 1, SIZE(sem % mesh % elements)
-            
-               DO k = 0, sem % spA % N
-                  DO j = 0, sem % spA % N
-                     DO i = 0, sem % spA % N 
+               Nx = sem % mesh % elements(eID) % Nxyz(1)
+               Ny = sem % mesh % elements(eID) % Nxyz(2)
+               Nz = sem % mesh % elements(eID) % Nxyz(3)
+
+               DO k = 0, Nz
+                  DO j = 0, Ny
+                     DO i = 0, Nx 
 
                          x = sem % mesh % elements(eID) % geom % x(:,i,j,k)
                        
@@ -128,6 +132,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+!
          SUBROUTINE UserDefinedPeriodicOperation(sem, time)
 !
 !           ----------------------------------------------------------
@@ -175,22 +180,29 @@
             
             REAL(kind=RP)       :: rho, u , v , w
             INTEGER             :: eID , i , j , k
+            integer             :: Nx, Ny, Nz
 
 !           Initialization
             val = 0.0_RP
 
             DO eID = 1 , SIZE(sem % mesh % elements)
-                DO i = 0 , sem % spA % N
-                    DO j = 0 , sem % spA % N
-                        DO k = 0 , sem % spA % N
+               Nx = sem % mesh % elements(eID) % Nxyz(1)
+               Ny = sem % mesh % elements(eID) % Nxyz(2)
+               Nz = sem % mesh % elements(eID) % Nxyz(3)
+
+                DO k = 0 , Nz
+                    DO j = 0 , Ny
+                        DO i = 0 , Nx
 
                             rho = sem % mesh % elements(eID) % Q(i,j,k,1)
                             u = sem % mesh % elements(eID) % Q(i,j,k,2) / rho
                             v = sem % mesh % elements(eID) % Q(i,j,k,3) / rho
                             w = sem % mesh % elements(eID) % Q(i,j,k,4) / rho
 
-                            ASSOCIATE(wj => sem % spA % w)
-                              val = val + 0.5_RP*rho*(u*u+v*v+w*w)*wj(i)*wj(j)*wj(k)*      &
+                            ASSOCIATE(wx => sem % spA(Nx,Ny,Nz) % wx , &
+                                      wy => sem % spA(Nx,Ny,Nz) % wy , &
+                                      wz => sem % spA(Nx,Ny,Nz) % wz   )
+                              val = val + 0.5_RP*rho*(u*u+v*v+w*w)*wx(i)*wy(j)*wz(k)*      &
                                     sem % mesh % elements (eID) % geom % jacobian (i,j,k)
                             END ASSOCIATE
                              
@@ -256,95 +268,95 @@
 !
 !=====================================================================================================
 !=====================================================================================================
+!!
+!!
+!      SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryType )
+!!
+!!     ----------------------------------------------
+!!     Set the boundary conditions for the mesh by
+!!     setting the external state for each boundary.
+!!     ----------------------------------------------
+!!
+!      USE BoundaryConditionFunctions
+!      USE UserDefinedDataStorage
+!      USE MeshTypes
+!      
+!      IMPLICIT NONE
+!!
+!!     ---------
+!!     Arguments
+!!     ---------
+!!
+!      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+!      REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
+!      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+!!
+!!     ---------------
+!!     Local variables
+!!     ---------------
+!!
+!      REAL(KIND=RP)   :: pExt
+!      LOGICAL         :: success
 !
+!      IF ( boundarytype == "freeslipwall" )             THEN
+!         CALL FreeSlipWallState( x, t, nHat, Q )
+!      ELSE IF ( boundaryType == "noslipadiabaticwall" ) THEN 
+!         CALL  NoSlipAdiabaticWallState( x, t, Q)
+!      ELSE IF ( boundarytype == "noslipisothermalwall") THEN 
+!         CALL NoSlipIsothermalWallState( x, t, Q )
+!      ELSE IF ( boundaryType == "outflowspecifyp" )     THEN 
+!         pExt =  ExternalPressure()
+!         CALL ExternalPressureState ( x, t, nHat, Q, pExt )
+!      ELSE 
+!         CALL UniformFlowState( x, t, Q ) 
+!      END IF
 !
-      SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryType )
-!
-!     ----------------------------------------------
-!     Set the boundary conditions for the mesh by
-!     setting the external state for each boundary.
-!     ----------------------------------------------
-!
-      USE BoundaryConditionFunctions
-      USE UserDefinedDataStorage
-      USE MeshTypes
-      
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
-      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      REAL(KIND=RP)   :: pExt
-      LOGICAL         :: success
-
-      IF ( boundarytype == "freeslipwall" )             THEN
-         CALL FreeSlipWallState( x, t, nHat, Q )
-      ELSE IF ( boundaryType == "noslipadiabaticwall" ) THEN 
-         CALL  NoSlipAdiabaticWallState( x, t, Q)
-      ELSE IF ( boundarytype == "noslipisothermalwall") THEN 
-         CALL NoSlipIsothermalWallState( x, t, Q )
-      ELSE IF ( boundaryType == "outflowspecifyp" )     THEN 
-         pExt =  ExternalPressure()
-         CALL ExternalPressureState ( x, t, nHat, Q, pExt )
-      ELSE 
-         CALL UniformFlowState( x, t, Q ) 
-      END IF
-
-      END SUBROUTINE externalStateForBoundaryName
-!
+!      END SUBROUTINE externalStateForBoundaryName
+!!
 !////////////////////////////////////////////////////////////////////////
+!!
+!      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, GradU, boundaryType )
+!!
+!!     ------------------------------------------------
+!!     Set the boundary conditions for the mesh by
+!!     setting the external gradients on each boundary.
+!!     ------------------------------------------------
+!!
+!      USE BoundaryConditionFunctions
+!      USE MeshTypes
+!      IMPLICIT NONE
+!!
+!!     ---------
+!!     Arguments
+!!     ---------
+!!
+!      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+!      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,N_GRAD_EQN)
+!      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+!!
+!!     ---------------
+!!     Local variables
+!!     ---------------
+!!
+!      REAL(KIND=RP) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
 !
-      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, GradU, boundaryType )
+!      U_x(:) = GradU(1,:)
+!      U_y(:) = GradU(2,:)
+!      U_z(:) = GradU(3,:)
 !
-!     ------------------------------------------------
-!     Set the boundary conditions for the mesh by
-!     setting the external gradients on each boundary.
-!     ------------------------------------------------
+!      IF ( boundarytype == "freeslipwall" )                   THEN
+!         CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
+!      ELSE IF ( boundaryType == "noslipadiabaticwall" )       THEN 
+!         CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z )
+!      ELSE IF ( boundarytype == "noslipisothermalwall")       THEN 
+!         CALL NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z )
+!      ELSE
+!         CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
+!      END IF
 !
-      USE BoundaryConditionFunctions
-      USE MeshTypes
-      IMPLICIT NONE
+!      GradU(1,:) = U_x(:)
+!      GradU(2,:) = U_y(:)
+!      GradU(3,:) = U_z(:)
 !
-!     ---------
-!     Arguments
-!     ---------
+!      END SUBROUTINE ExternalGradientForBoundaryName
 !
-      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,N_GRAD_EQN)
-      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      REAL(KIND=RP) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
-
-      U_x(:) = GradU(1,:)
-      U_y(:) = GradU(2,:)
-      U_z(:) = GradU(3,:)
-
-      IF ( boundarytype == "freeslipwall" )                   THEN
-         CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE IF ( boundaryType == "noslipadiabaticwall" )       THEN 
-         CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE IF ( boundarytype == "noslipisothermalwall")       THEN 
-         CALL NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE
-         CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
-      END IF
-
-      GradU(1,:) = U_x(:)
-      GradU(2,:) = U_y(:)
-      GradU(3,:) = U_z(:)
-
-      END SUBROUTINE ExternalGradientForBoundaryName
-

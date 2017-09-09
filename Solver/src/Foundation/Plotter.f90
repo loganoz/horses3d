@@ -195,8 +195,7 @@
             DO k = 0, Nxyz(3)
                DO j = 0, Nxyz(2)
                   DO i = 0, Nxyz(1)
-                     CALL self % dataSource % OutputVectorFromStateVector( outputVector, elements(id) % Q(i,j,k,:), &
-                                                                                         elements(id) % geom % x(:,i,j,k))
+                     CALL self % dataSource % OutputVectorFromStateVector( outputVector, elements(id) % Q(i,j,k,:) )
                      
                      WRITE(self % fUnit,fmtString) elements(id) % geom % x(1,i,j,k), &
                                                    elements(id) % geom % x(2,i,j,k), &
@@ -274,8 +273,7 @@
             DO k = 0, Nz
                DO j = 0, Ny
                   DO i = 0, Nx
-                     CALL self % dataSource % outputVectorFromStateVector(array3DOld(:,i,j,k), elements(id) % Q(i,j,k,:), &
-                                                                                               elements(id) % geom % x(:,i,j,k)) 
+                     CALL self % dataSource % outputVectorFromStateVector(array3DOld(:,i,j,k), elements(id) % Q(i,j,k,:))
                   END DO  
                END DO   
             END DO
