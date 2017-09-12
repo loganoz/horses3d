@@ -24,14 +24,14 @@
       MODULE UserDefinedFunctions
       
       CONTAINS 
-         SUBROUTINE UserDefinedSetup  
+         SUBROUTINE UserDefinedStartup
 !
 !        --------------------------------
 !        Called before any other routines
 !        --------------------------------
 !
             IMPLICIT NONE  
-         END SUBROUTINE UserDefinedSetup
+         END SUBROUTINE UserDefinedStartup
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

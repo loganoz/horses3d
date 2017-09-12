@@ -15,6 +15,7 @@ COMM?=PARALLEL
 MAKE=make
 AR=ar
 RANLIB=ranlib
+PROG=./bin/HORSES3D
 
 ########################################
 # 2.- User defined paths
@@ -44,7 +45,7 @@ ARFLAGS=crv
 
 
 # ------------------------------------------------
-OBJS_NSLITE3D=  SMConstants \
+OBJS_HORSES=  SMConstants \
 		FTTimerClass \
 		FileReading \
 		Utilities \
@@ -100,7 +101,7 @@ OBJS_NSLITE3D=  SMConstants \
 		FASMultigridClass \
 		HORSES3DMain 
 
-OBJS_NSLITE3D_EXEC=$(foreach obj,$(OBJS_NSLITE3D),$(NSLITE3D_PATH)/build/$(obj).o)
+OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),$(HOME_DIR)/build/$(obj).o)
 
 
 ##########################################
@@ -182,6 +183,7 @@ endif
 ##  	Select HORSES libraries 	##
 ##########################################
 HORSES_LIBS=ftobject
+HORSESLIB=-lftobject
 LIBFLAGS=  FC='$(FC)' \
 	   FFLAGS='$(FFLAGS)' \
            LIBS_HOME='$(LIBS_HOME)'
@@ -196,9 +198,18 @@ LIBFLAGS=  FC='$(FC)' \
 
 .DEFAULT_GOAL= all
 
-all: header mkdirs horseslibs $(OBJS_NSLITE3D)
+all: header mkdirs horseslibs $(PROG)
 
-solver: $(OBJS_NSLITE3D)
+
+$(PROG): $(OBJS_HORSES)
+	@echo
+	@echo
+	@echo "---------------------------------"
+	@echo "| Linking " $@ "|"
+	@echo "---------------------------------"
+	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_EXEC) -L$(HOME_DIR)/lib $(HORSESLIB)
+
+	
 
 horseslibs:
 	@for subdir in $(HORSES_LIBS); do \
@@ -208,7 +219,9 @@ horseslibs:
 ##########################################
 ##	Source file compilation		##
 ##########################################
-$(OBJS_NSLITE3D): %: $(or $(wildcard $(HOME_DIR)/src/**/%.f90), $(wildcard $(HOME_DIR)/src/%.f90) , $(wildcard $(HOME_DIR)/src/**/%.F90) )
+$(OBJS_HORSES): %: $(or $(wildcard $(HOME_DIR)/src/**/%.f90), $(wildcard $(HOME_DIR)/src/%.f90) , $(wildcard $(HOME_DIR)/src/**/%.F90) )
+	@echo
+	@echo $@.f90
 	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)$(HOME_DIR)/include -c $(FILE_NSLITE) -o $(HOME_DIR)/build/$@.o
 
 FILE_NSLITE = $(or $(wildcard $(HOME_DIR)/src/**/$@.f90),$(wildcard $(HOME_DIR)/src/$@.f90),$(wildcard $(HOME_DIR)/src/**/$@.F90))
@@ -217,10 +230,16 @@ FILE_NSLITE = $(or $(wildcard $(HOME_DIR)/src/**/$@.f90),$(wildcard $(HOME_DIR)/
 ##########################################
 ##	Extra auxiliar rules 		##
 ##########################################
-clean: FORCE
+clean: FORCE horseslibclean
 	$(info Removing object *.o files from $(NSLITE3D_PATH)/build)
 	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
 	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod*
+
+horseslibclean: FORCE
+	@for subdir in $(HORSES_LIBS); do \
+	 echo "clean $$subdir"; \
+	 (cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) clean ) || exit 1; \
+	 done
 
 mkdirs: FORCE
 	@mkdir -p $(HOME_DIR)/build
