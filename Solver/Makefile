@@ -1,0 +1,240 @@
+#####################################################################
+## HORSES - a High-Order Spectral Element Solver
+##
+##	Main code Makefile
+##
+##
+#####################################################################
+
+########################################
+# 1.- User defined parameters
+########################################
+COMPILER?=gfortran
+MODE?=RELEASE
+COMM?=PARALLEL
+MAKE=make
+AR=ar
+RANLIB=ranlib
+
+########################################
+# 2.- User defined paths
+########################################
+HOME_DIR=$(PWD)
+LIBS_HOME=$(HOME_DIR)
+INCLUDE=-I$(HOME_DIR)/include
+LIBS = 
+MACROS = 
+-include make.inc
+
+########################################
+# 3.- User defined compilation flags 
+########################################
+GNU_RELEASE_FLAGS= -cpp -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 \
+		   -fbackslash
+GNU_DEBUG_FLAGS=  -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable \
+		  -fbacktrace -fbounds -check -finit-real=snan -Wall \
+		  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
+		  -fbackslash -fcheck=pointer
+INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc
+INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all \
+		   -check bounds -check uninit -ftrapuv -debug all -warn interfaces \
+		   -ftrace=full -assume ieee_fpe_flags -ftz -fp-model precise \
+		   -fp-speculation=off -assume bscc
+ARFLAGS=crv
+
+
+# ------------------------------------------------
+OBJS_NSLITE3D=  SMConstants \
+		FTTimerClass \
+		FileReading \
+		Utilities \
+		TimerClass \
+		Plotter \
+		MatrixOperations \
+		LegendreAlgorithms \
+		InterpolationAndDerivatives \
+		Physics \
+		BoundaryConditions \
+		SharedBCModule \
+		FacePatchClass \
+		MappedGeometry \
+		TransfiniteMaps3D \
+		FaceClass \
+		HexElementClass \
+		ZoneClass \
+		HexElementConnectivityDefinitions \
+		HexMesh \
+		MeshTypes \
+		NodeClass \
+		DGInviscidDiscretization \
+		DGViscousDiscretization \
+		DGWeakIntegrals \
+		ProlongToFaces \
+		DGSEMClass \
+		SpatialDiscretization \
+		NodalStorageClass \
+		PlotterDataSource \
+		Headers \
+		ReadInputFile \
+		Setup \
+		TimeIntegrator \
+		ProblemFile \
+		ConnectivityClass \
+		Jacobian \
+		CSR_Matrices \
+		pAdaptationClass \
+		ManufacturedSolutions \
+		DenseMatUtilities \
+		Implicit_JF \
+		JFNKClass \
+		GMRESClass \
+		Implicit_NJ \
+		ColorsClass \
+		PetscSolverClass \
+		GenericLinSolverClass \
+		MKLPardisoSolverClass \
+		LinearSolverClass \
+		IterativeSolverClass \
+		MultigridSolverClass \
+		ExplicitMethods \
+		FASMultigridClass \
+		HORSES3DMain 
+
+OBJS_NSLITE3D_EXEC=$(foreach obj,$(OBJS_NSLITE3D),$(NSLITE3D_PATH)/build/$(obj).o)
+
+
+##########################################
+##	Include dependencies 		##
+##########################################
+-include make.dep
+
+
+##########################################
+## Select compiler 
+##########################################
+ifeq ($(COMPILER),gfortran)
+  FC:=gfortran
+  MOD_FLAG:=-J
+else ifeq ($(COMPILER),gnu)
+  FC:=gfortran
+  MOD_FLAG:=-J
+else ifeq ($(COMPILER),GNU)
+  FC:=gfortran
+  MOD_FLAG:=-J
+endif
+
+ifeq ($(COMPILER),ifort)
+  FC:=ifort
+  MOD_FLAG:=-module 
+else ifeq ($(COMPILER),intel)
+  FC:=ifort
+  MOD_FLAG:=-module 
+else ifeq ($(COMPILER),INTEL)
+  FC:=ifort
+  MOD_FLAG:=-module 
+endif
+
+##########################################
+## Select mode
+##########################################
+ifeq ($(MODE),RELEASE)
+     ifeq ($(FC),gfortran)
+         FFLAGS=$(GNU_RELEASE_FLAGS)
+     else ifeq ($(FC),ifort)
+         FFLAGS=$(INTEL_RELEASE_FLAGS)
+     endif
+else ifeq ($(MODE),DEBUG)
+     ifeq ($(FC),gfortran)
+         FFLAGS=$(GNU_DEBUG_FLAGS)
+     else ifeq ($(FC),ifort)
+         FFLAGS=$(INTEL_DEBUG_FLAGS)
+     endif
+endif
+
+ifeq ($(COMM),PARALLEL)
+    FFLAGS+=-openmp
+endif
+
+
+##########################
+## 	Link PETSc 	##
+##########################
+ifeq '$(WITH_PETSC)''y'
+  MACROS+= -DHAS_PETSC
+  LIBS += $(PETSC_LIB)
+  INCLUDE+= $(PETSC_INC)
+endif
+
+##########################
+## 	Link MKL 	##
+##########################
+ifeq '$(WITH_MKL)''y'
+	ifeq '$(FC)''gfortran'
+		MACROS+= -DHAS_MKL -DHAS_LAPACK
+  	LIBS += $(LIB_BLAS) $(LIB_LAPACK)
+  else #ifort
+  	MACROS+= -DHAS_MKL
+  	FCFLAGS+= -mkl
+  endif
+endif
+
+##########################################
+##  	Select HORSES libraries 	##
+##########################################
+HORSES_LIBS=ftobject
+LIBFLAGS=  FC='$(FC)' \
+	   FFLAGS='$(FFLAGS)' \
+           LIBS_HOME='$(LIBS_HOME)'
+	   AR='$(AR)' \
+	   ARFLAGS='$(ARFLAGS)'
+	   RANLIB='$(RANLIB)'
+
+
+##########################################################
+##		COMPILATION RULES 			##
+##########################################################
+
+.DEFAULT_GOAL= all
+
+all: header mkdirs horseslibs $(OBJS_NSLITE3D)
+
+solver: $(OBJS_NSLITE3D)
+
+horseslibs:
+	@for subdir in $(HORSES_LIBS); do \
+	    (cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install) || exit 1; \
+	done
+
+##########################################
+##	Source file compilation		##
+##########################################
+$(OBJS_NSLITE3D): %: $(or $(wildcard $(HOME_DIR)/src/**/%.f90), $(wildcard $(HOME_DIR)/src/%.f90) , $(wildcard $(HOME_DIR)/src/**/%.F90) )
+	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)$(HOME_DIR)/include -c $(FILE_NSLITE) -o $(HOME_DIR)/build/$@.o
+
+FILE_NSLITE = $(or $(wildcard $(HOME_DIR)/src/**/$@.f90),$(wildcard $(HOME_DIR)/src/$@.f90),$(wildcard $(HOME_DIR)/src/**/$@.F90))
+
+
+##########################################
+##	Extra auxiliar rules 		##
+##########################################
+clean: FORCE
+	$(info Removing object *.o files from $(NSLITE3D_PATH)/build)
+	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
+	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod*
+
+mkdirs: FORCE
+	@mkdir -p $(HOME_DIR)/build
+	@mkdir -p $(HOME_DIR)/include
+	@mkdir -p $(HOME_DIR)/bin
+	@mkdir -p $(HOME_DIR)/lib
+
+header: FORCE
+	@echo
+	@echo "================================"
+	@echo ">>   Building HORSES3D   "
+	@echo "================================"
+	@echo
+	@echo
+
+## Dummy target to make sure a rule is executed
+FORCE:
