@@ -33,7 +33,7 @@ MACROS =
 GNU_RELEASE_FLAGS= -cpp -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 \
 		   -fbackslash
 GNU_DEBUG_FLAGS=  -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable \
-		  -fbacktrace -fbounds -check -finit-real=snan -Wall \
+		  -fbacktrace -fbounds-check -finit-real=snan -Wall \
 		  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
 		  -fbackslash -fcheck=pointer
 INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc
@@ -102,6 +102,7 @@ OBJS_HORSES=  SMConstants \
 		HORSES3DMain 
 
 OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),$(HOME_DIR)/build/$(obj).o)
+LIBS_HORSES_EXEC=$(foreach obj,$(HORSES_LIBS),$(HOME_DIR)/lib/lib$(obj).a)
 
 
 ##########################################
@@ -183,13 +184,14 @@ endif
 ##  	Select HORSES libraries 	##
 ##########################################
 HORSES_LIBS=ftobject
-HORSESLIB=-lftobject
+HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS),./lib/lib$(obj).a)
 LIBFLAGS=  FC='$(FC)' \
 	   FFLAGS='$(FFLAGS)' \
-           LIBS_HOME='$(LIBS_HOME)'
+           LIBS_HOME='$(LIBS_HOME)' \
 	   AR='$(AR)' \
-	   ARFLAGS='$(ARFLAGS)'
-	   RANLIB='$(RANLIB)'
+	   ARFLAGS='$(ARFLAGS)' \
+	   RANLIB='$(RANLIB)' \
+	   MOD_FLAG='$(MOD_FLAG)'
 
 
 ##########################################################
@@ -207,9 +209,18 @@ $(PROG): $(OBJS_HORSES)
 	@echo "---------------------------------"
 	@echo "| Linking " $@ "|"
 	@echo "---------------------------------"
-	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_EXEC) -L$(HOME_DIR)/lib $(HORSESLIB)
+	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_EXEC) $(HORSES_LIBS_EXEC)
 
-	
+./lib/libhorses3d.a: header mkdirs horseslibs $(OBJS_HORSES)
+	@echo
+	@echo
+	@echo "---------------------------------"
+	@echo "| Linking library" $@ "|"
+	@echo "---------------------------------"
+	@$(RM) $@
+	$(AR) $(ARFLAGS) $@ $(OBJS_HORSES_EXEC)
+	@$(RANLIB) $@
+
 
 horseslibs:
 	@for subdir in $(HORSES_LIBS); do \
@@ -233,7 +244,7 @@ FILE_NSLITE = $(or $(wildcard $(HOME_DIR)/src/**/$@.f90),$(wildcard $(HOME_DIR)/
 clean: FORCE horseslibclean
 	$(info Removing object *.o files from $(NSLITE3D_PATH)/build)
 	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
-	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod*
+	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod* $(HOME_DIR)/lib/*.a
 
 horseslibclean: FORCE
 	@for subdir in $(HORSES_LIBS); do \

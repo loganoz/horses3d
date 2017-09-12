@@ -43,7 +43,7 @@ LIB = ftobject
 ./build/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG)./include
+	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
 lib$(LIB).a: header mkdirs $(LIBOBJS)
 	@echo
