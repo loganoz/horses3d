@@ -23,7 +23,7 @@ PROG=./bin/HORSES3D
 ########################################
 HOME_DIR=$(PWD)
 LIBS_HOME=$(HOME_DIR)
-INCLUDE=-I$(HOME_DIR)/include -I$(HOME_DIR)/src/Generic
+INCLUDE=-I$(HOME_DIR)/include -I$(HOME_DIR)/src/Foundation
 LIBS = 
 MACROS = 
 -include make.inc

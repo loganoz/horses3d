@@ -114,7 +114,7 @@
          ! Choose different temperatures according to boundary name, if desired...
          ! For now, just use the UninformFlow value.
          
-         p    = 1.0_RP/(gammaM2)
+         p    = 1.0_RP/(dimensionless % gammaM2)
       
       END FUNCTION ExternalPressure
 !
@@ -306,12 +306,17 @@
 !     called WallTemperature
 !     -----------------------------------------------
 !
+      associate ( gammaMinus1 => thermodynamics % gammaMinus1, &
+                  gammaM2 => dimensionless % gammaM2 )
+
          wallTemp = wallTemperature(x) !Swap this out later with BC version
          Q(1) =  Q(1)
          Q(2) = -Q(2)
          Q(3) = -Q(3)
          Q(4) = -Q(4)
          Q(5) =  Q(1)*wallTemp/gammaMinus1/gammaM2
+
+      end associate
 
       END SUBROUTINE NoSlipIsothermalWallState
 !
@@ -342,8 +347,10 @@
       REAL(KIND=RP) :: theta, phi, qq
       REAL(KIND=RP) :: u, v, w, p
       
-      theta = AOATheta*(PI/180.0_RP)
-      phi   = AOAPhi*(PI/180.0_RP)
+      associate ( gammaM2 => dimensionless % gammaM2, &
+                  gamma => thermodynamics % gamma )
+      theta = refValues % AOATheta*(PI/180.0_RP)
+      phi   = refValues % AOAPhi*(PI/180.0_RP)
       
       qq = 1.0_RP
       u  = qq*cos(theta)*COS(phi)
@@ -356,6 +363,8 @@
       Q(3) = Q(1)*v
       Q(4) = Q(1)*w
       Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
+   
+      end associate
       
       END SUBROUTINE UniformFlowState
 !
@@ -404,12 +413,16 @@
       
       REAL(KIND=RP) :: p
       
+      associate ( gammaM2 => dimensionless % gammaM2, &
+                  gamma => thermodynamics % gamma )
       Q(1) = 1.0_RP
       p    = 1.0_RP/(gammaM2)
       Q(2) = 0._RP
       Q(3) = 0._RP
       Q(4) = 0._RP
       Q(5) = p/(gamma - 1._RP)
+
+      end associate
       
       END SUBROUTINE ZeroFlowState
 !
@@ -492,6 +505,9 @@
       REAL(KIND=RP) :: qDotN, qTanx, qTany, qTanz, p, a, a2
       REAL(KIND=RP) :: rPlus, entropyConstant, u, v, w, rho, normalMachNo
 !      
+      associate ( gammaMinus1 => thermodynamics % gammaMinus1, &
+                  gamma => thermodynamics % gamma )
+      
       qDotN = (nHat(1)*Q(2) + nHat(2)*Q(3) + nHat(3)*Q(4))/Q(1)
       qTanx = Q(2)/Q(1) - qDotN*nHat(1)
       qTany = Q(3)/Q(1) - qDotN*nHat(2)
@@ -529,6 +545,8 @@
          Q(5) = pExt/gammaMinus1 + 0.5_RP*rho*(u*u + v*v + w*w)
         
       END IF
+
+      end associate
 
       END SUBROUTINE ExternalPressureState
 !

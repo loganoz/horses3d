@@ -18,6 +18,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !    
+#include "Includes.h"
       Module PhysicsKeywordsModule
          IMPLICIT NONE 
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
@@ -149,9 +150,9 @@
 !     ---------------
 !
       CHARACTER(LEN=KEYWORD_LENGTH) :: keyword
-      type(Thermodynamics_t)        :: thermodynamics_
-      type(RefValues_t)             :: refValues_
-      type(Dimensionless_t)         :: dimensionless_
+      type(Thermodynamics_t), pointer  :: thermodynamics_
+      type(RefValues_t)                :: refValues_
+      type(Dimensionless_t)            :: dimensionless_
 !
 !     --------------------
 !     Collect input values
@@ -161,32 +162,71 @@
       CALL CheckPhysicsInputIntegrity(controlVariables,success)
       IF(.NOT. success) RETURN 
 !
-!     ----------------------------------
-!     Mach number is a required quantity
-!     ----------------------------------
 !
-      mach = controlVariables % doublePrecisionValueForKey(MACH_NUMBER_KEY)
+!     ---------------------
+!     Set the gas to be air
+!     ---------------------
 !
-!     ----------------------------------------------------------------
-!     If the navier stokes key is present, then they reynolds number 
-!     must be set. Otherwise, it is an optional quantity and not used.
-!     ----------------------------------------------------------------
+      thermodynamics_ => thermodynamicsAir
 !
+!     ------------------------
+!     Dimensionless quantities
+!     ------------------------
+!
+      dimensionless_ % cp = thermodynamics_ % gamma * thermodynamics_ % InvGammaMinus1
+      dimensionless_ % cv = thermodynamics_ % InvGammaMinus1
+      dimensionless_ % Mach = controlVariables % doublePrecisionValueForKey(MACH_NUMBER_KEY)
+      dimensionless_ % Pr   = 0.72_RP
+      dimensionless_ % Fr   = 0.0_RP
+
       keyword = controlVariables % stringValueForKey(FLOW_EQUATIONS_KEY,KEYWORD_LENGTH)
       CALL toLower(keyword)
       IF ( keyword == "euler" )     THEN
          flowIsNavierStokes = .FALSE.
-         RE = 0.0_RP 
+         dimensionless_ % Re = 0.0_RP     ! Just to avoid non-initialized variables
+         dimensionless_ % mu = 0.0_RP
+         dimensionless_ % kappa = 0.0_RP
       ELSE 
          flowIsNavierStokes = .TRUE.
          IF ( controlVariables % containsKey(REYNOLDS_NUMBER_KEY) )     THEN
-            RE = controlVariables % doublePrecisionValueForKey(REYNOLDS_NUMBER_KEY) 
+            dimensionless_ % Re = controlVariables % doublePrecisionValueForKey(REYNOLDS_NUMBER_KEY) 
          ELSE 
             PRINT *, "Input file is missing entry for keyword: ",REYNOLDS_NUMBER_KEY
             success = .FALSE.
             RETURN 
          END IF 
+
+         dimensionless_ % mu   = 1.0_RP / dimensionless_ % Re
+         dimensionless_ % kappa = 1.0_RP / ( thermodynamics_ % gammaMinus1 * &
+                                              POW2( dimensionless_ % Mach) * &
+                                      dimensionless_ % Re * dimensionless_ % Pr )
       END IF 
+
+      dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
+      dimensionless_ % invFroudeSquare = 0.0_RP
+!
+!     --------------------
+!     Set reference values: TODO read from parameter file
+!     --------------------
+!
+      refValues_ % L = 1.0_RP       ! m
+      refValues_ % T = 520.0_RP     ! Rankine
+      refValues_ % rho = 101325.0_RP / (thermodynamics_ % R * refValues_ % T)
+      refValues_ % V =   dimensionless_ % Mach &
+                       * sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
+      refValues_ % p = refValues_ % rho * POW2( refValues_ % V )
+      if ( flowIsNavierStokes ) then
+         refValues_ % mu = refValues_ % rho * refValues_ % V * refValues_ % L / dimensionless_ % Re
+         refValues_ % kappa = refValues_ % mu * thermodynamics_ % cp / dimensionless_ % Pr
+
+      else
+         refValues_ % mu = 0.0_RP
+         refValues_ % kappa = 0.0_RP
+      
+      end if
+
+      refValues_ % time = refValues_ % L / refValues_ % V
+
 !
 !     --------------------------------------------------------------------
 !     The riemann solver is also optional. Set it to Roe if not requested.
@@ -217,72 +257,27 @@
 !     ------------------------------------------------------------------------------
 !
       IF ( controlVariables % containsKey(AOA_PHI_KEY) )     THEN
-         AOAPhi = controlVariables % doublePrecisionValueForKey(AOA_PHI_KEY) 
+         refValues_ % AOAPhi = controlVariables % doublePrecisionValueForKey(AOA_PHI_KEY) 
       ELSE
-         AOAPhi = 0.0_RP
+         refValues_ % AOAPhi = 0.0_RP
       END IF 
       IF ( controlVariables % containsKey(AOA_THETA_KEY) )     THEN
-         AOATheta = controlVariables % doublePrecisionValueForKey(AOA_THETA_KEY) 
+         refValues_ % AOATheta = controlVariables % doublePrecisionValueForKey(AOA_THETA_KEY) 
       ELSE
-         AOATheta = 0.0_RP
+         refValues_ % AOATheta = 0.0_RP
       END IF 
-!
-!
-!     ---------------------
-!     Set the gas to be air
-!     ---------------------
-!
-      thermodynamics_ => thermodynamicsAir
-!
-!     ------------------------
-!     Dimensionless quantities
-!     ------------------------
-!
-      dimensionless_ % cp = thermodynamics_ % gamma * thermodynamics_ % InvGammaMinus1
-      dimensionless_ % cv = thermodynamics_ % InvGammaMinus1
-
-      keyword = controlVariables % stringValueForKey(FLOW_EQUATIONS_KEY,KEYWORD_LENGTH)
-      CALL toLower(keyword)
-      IF ( keyword == "euler" )     THEN
-         flowIsNavierStokes = .FALSE.
-         dimensionless_ % Re = 0.0_RP 
-      ELSE 
-         flowIsNavierStokes = .TRUE.
-         IF ( controlVariables % containsKey(REYNOLDS_NUMBER_KEY) )     THEN
-            dimensionless_ % Re = controlVariables % doublePrecisionValueForKey(REYNOLDS_NUMBER_KEY) 
-         ELSE 
-            PRINT *, "Input file is missing entry for keyword: ",REYNOLDS_NUMBER_KEY
-            success = .FALSE.
-            RETURN 
-         END IF 
-      END IF 
-
-      dimensionless_ % Pr   = 0.72_RP
-      dimensionless_ % Fr   = 0.0_RP
-      dimensionless_ % mu   = 1.0_RP / dimensionless_ % Re
-      dimensionless_ % kappa = 
-      dimensionless_ % Mach = controlVariables % doublePrecisionValueForKey(MACH_NUMBER_KEY)
-      dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
-      dimensionless_ % invFroudeSquare = 0.0_RP
-!
-!     --------------------
-!     Set reference values: TODO read from parameter file
-!     --------------------
-!
-      refValues_ % L = 1.0_RP       ! m
-      refValues_ % T = 520.0_RP     ! Rankine
-      refValues_ % p = 101325.0_RP  ! Pa
 !
 !     --------------------------
 !     Sutherland's law constants
 !     --------------------------
 !
       TScale          = 198.6_RP
-      TRatio          = TScale/TRef
+      TRatio          = TScale/ refValues_ % T
 
+      call setThermodynamics( thermodynamics_ )
+      call setDimensionless( dimensionless_ )
+      call setRefValues( refValues_ )
 
-      
-      gammaM2              = gamma*mach**2
 
       CALL DescribePhysicsStorage()
 !
@@ -307,6 +302,9 @@
       SUBROUTINE DescribePhysicsStorage()
          USE Headers
          IMPLICIT NONE
+         real(kind=RP)  :: pRef
+
+         pRef = thermodynamics % R * refValues % rho * refValues % T
 
          write(STD_OUT,'(/,/)')
          if (flowIsNavierStokes) then
@@ -318,36 +316,31 @@
          write(STD_OUT,'(/)')
          call SubSection_Header("Fluid data")
          write(STD_OUT,'(30X,A,A22,A10)') "->" , "Gas: " , "Air"
-         write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "State constant: " , Rgas, " I.S."
-         write(STD_OUT,'(30X,A,A22,F10.3)') "->" , "Specific heat ratio: " , gamma
+         write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "State constant: " , thermodynamics % R, " I.S."
+         write(STD_OUT,'(30X,A,A22,F10.3)') "->" , "Specific heat ratio: " , thermodynamics % gamma
 
          write(STD_OUT,'(/)')
          call SubSection_Header("Reference quantities")
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference Temperature: " , TRef, " K."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference Temperature: " , refValues % T, " K."
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference pressure: " , pRef, " Pa."
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference density: " , pRef / (Rgas * TRef) , " kg/m^3."
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference velocity: " , Mach * sqrt(gamma * Rgas * TRef) , " m/s."
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reynolds length: " , reynoldsLength , " m."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference density: " , refValues % rho , " kg/m^3."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference velocity: " , refValues % V , " m/s."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reynolds length: " , refValues % L , " m."
          
          if ( flowIsNavierStokes ) then
-            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference viscosity: ", &
-                     sqrt(gamma) * Mach * reynoldsLength * pRef / ( RE * sqrt(Rgas * TRef) ) , " Pa·s."
-            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference conductivity: ", &
-                     gammaDivGammaMinus1 * Rgas * sqrt(gamma) * Mach * reynoldsLength * pRef / ( RE * sqrt(Rgas * TRef) ) / PR, &
-                     " W/(m·K)."
+            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference viscosity: ",refValues % mu , " Pa·s."
+            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference conductivity: ", refValues % kappa, " W/(m·K)."
          end if
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference time: " , &
-                     reynoldsLength / (Mach * sqrt(gamma * Rgas * TRef) ) , " s."
+
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference time: ", refValues % time, " s."
 
          write(STD_OUT,'(/)')
          call SubSection_Header("Dimensionless quantities")
-         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Mach number: " , Mach
+         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Mach number: " , dimensionless % Mach
          if ( flowIsNavierStokes ) then
-            write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Reynolds number: " , RE
-            write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Prandtl number: " , PR
+            write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Reynolds number: " , dimensionless % Re
+            write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Prandtl number: " , dimensionless % Pr
          end if
- 
-
 
       END SUBROUTINE DescribePhysicsStorage
 !
@@ -442,7 +435,7 @@
             CASE ( ROE )
                CALL RoeSolver( QLeft, QRight, nHat, flux )
             CASE (LXF)
-               PRINT *, "3D LXF to be implemented..."
+               PRINT *, "3D LXF to be implemented."
                STOP !DEBUG
                CALL LxFSolver( QLeft, QRight, nHat, flux )
             CASE (RUSANOV)
@@ -481,6 +474,8 @@
          REAL(KIND=RP) :: dw4 , sp4  , sp4p , hd4   , eta4, udw4, rqr
          REAL(KIND=RP)                   :: ds = 1.0_RP
       
+         associate ( gamma => thermodynamics % gamma )
+            
          rho  = Qleft(1)
          rhou = Qleft(2)
          rhov = Qleft(3)
@@ -557,6 +552,8 @@
             flux(4) = ds*(rqr*wr + pright*nHat(3) - udw4*(wtd + atd*nHat(3))) 
             flux(5) = ds*(rqr*hr - udw4*(htd + qtd*atd)) 
          ENDIF
+
+         end associate
          
       END SUBROUTINE RoeSolver
 !
@@ -585,6 +582,8 @@
       REAL(KIND=RP) :: sM
       REAL(KIND=RP), DIMENSION(N_EQN) :: FL, FR
       
+      associate ( gamma => thermodynamics % gamma ) 
+
       rho  = Qleft(1)
       rhou = Qleft(2)
       rhov = Qleft(3)
@@ -621,6 +620,8 @@
       sM = MAX( ABS(ql) + cl, ABS(qr) + cr )
 !
       flux = ds * 0.5_RP * ( FL + FR - sM*(Qright - Qleft) )      
+
+      end associate
          
       END SUBROUTINE LxFSolver
 !
@@ -655,6 +656,8 @@
          REAL(KIND=RP) :: Leigen(2), Reigen(2)
          !REAL(KIND=RP) :: gamma = 1.4_RP
       
+         associate ( gamma => thermodynamics % gamma ) 
+
          rho  = Qleft(1)
          rhou = Qleft(2)
          rhov = Qleft(3)
@@ -719,6 +722,8 @@
          flux = (flux - ds*smax*(Qright-Qleft))/2.d0
 
          RETURN 
+
+         end associate
          
       END SUBROUTINE RusanovSolver           
 !
@@ -740,6 +745,8 @@
 !
          REAL(KIND=RP) :: u, v, w, rho, rhou, rhov, rhoe, rhow, p
 !      
+         associate ( gammaMinus1 => thermodynamics % gammaMinus1 ) 
+
          rho  = Q(1)
          rhou = Q(2)
          rhov = Q(3)
@@ -756,6 +763,8 @@
          f(3) = rhou*v 
          f(4) = rhou*w 
          f(5) = u*(rhoe + p) 
+
+         end associate
          
       END SUBROUTINE xFlux
 !
@@ -777,6 +786,8 @@
 !
          REAL(KIND=RP) :: u, v, w, rho, rhou, rhov, rhoe, rhow, p
 !      
+         associate ( gammaMinus1 => thermodynamics % gammaMinus1 ) 
+
          rho  = Q(1)
          rhou = Q(2)
          rhov = Q(3)
@@ -793,6 +804,8 @@
          g(3) = p + rhov*v 
          g(4) = rhow*v 
          g(5) = v*(rhoe + p) 
+
+         end associate
          
       END SUBROUTINE yFlux
 !
@@ -814,6 +827,8 @@
 !
          REAL(KIND=RP) :: u, v, w, rho, rhou, rhov, rhoe, rhow, p
 !      
+         associate ( gammaMinus1 => thermodynamics % gammaMinus1 ) 
+  
          rho  = Q(1)
          rhou = Q(2)
          rhov = Q(3)
@@ -830,6 +845,8 @@
          h(3) = rhov*w
          h(4) = p + rhow*w 
          h(5) = w*(rhoe + p) 
+
+         end associate
          
       END SUBROUTINE zFlux
    
@@ -843,6 +860,8 @@
 !        ---------------
 !
          real(kind=RP)           :: u , v , w , p
+
+         associate ( gammaMinus1 => thermodynamics % gammaMinus1 ) 
 
          u = Q(IRHOU) / Q(IRHO)
          v = Q(IRHOV) / Q(IRHO)
@@ -872,6 +891,8 @@
          F(IRHOV,IZ) = F(IRHOW,IY)
          F(IRHOW,IZ) = Q(IRHOW) * w + P
          F(IRHOE,IZ) = ( Q(IRHOE) + p ) * w
+      
+         end associate
 
       end function InviscidFlux0D
 
@@ -886,6 +907,8 @@
 !        ---------------
 !
          real(kind=RP)           :: u(0:N) , v(0:N) , w(0:N) , p(0:N)
+
+         associate ( gammaMinus1 => thermodynamics % gammaMinus1 ) 
 
          u = Q(:,IRHOU) / Q(:,IRHO)
          v = Q(:,IRHOV) / Q(:,IRHO)
@@ -909,6 +932,8 @@
          F(:,IRHOV,IZ) = F(:,IRHOW,IY)
          F(:,IRHOW,IZ) = Q(:,IRHOW) * w + P
          F(:,IRHOE,IZ) = ( Q(:,IRHOE) + p ) * w
+   
+         end associate
 
       end function InviscidFlux1D
 
@@ -923,6 +948,8 @@
 !        ---------------
 !
          real(kind=RP)           :: u(0:N,0:N) , v(0:N,0:N) , w(0:N,0:N) , p(0:N,0:N)
+
+         associate ( gammaMinus1 => thermodynamics % gammaMinus1 ) 
 
          u = Q(:,:,IRHOU) / Q(:,:,IRHO)
          v = Q(:,:,IRHOV) / Q(:,:,IRHO)
@@ -947,6 +974,8 @@
          F(:,:,IRHOW,IZ) = Q(:,:,IRHOW) * w + P
          F(:,:,IRHOE,IZ) = ( Q(:,:,IRHOE) + p ) * w
 
+         end associate
+
       end function InviscidFlux2D
 
       pure function InviscidFlux3D( Nx, Ny, Nz, Q ) result ( F )
@@ -960,6 +989,8 @@
 !        ---------------
 !
          real(kind=RP)           :: u(0:Nx,0:Ny,0:Nz) , v(0:Nx,0:Ny,0:Nz) , w(0:Nx,0:Ny,0:Nz) , p(0:Nx,0:Ny,0:Nz)
+
+         associate ( gammaMinus1 => thermodynamics % gammaMinus1 ) 
 
          u = Q(:,:,:,IRHOU) / Q(:,:,:,IRHO)
          v = Q(:,:,:,IRHOV) / Q(:,:,:,IRHO)
@@ -983,6 +1014,8 @@
          F(:,:,:,IRHOV,IZ) = F(:,:,:,IRHOW,IY)
          F(:,:,:,IRHOW,IZ) = Q(:,:,:,IRHOW) * w + P
          F(:,:,:,IRHOE,IZ) = ( Q(:,:,:,IRHOE) + p ) * w
+
+         end associate
 
       end function InviscidFlux3D
 !
@@ -1111,6 +1144,11 @@
       REAL(KIND=RP) :: T, muOfT, kappaOfT, divVelocity
       REAL(KIND=RP) :: u, v, w
 !      
+      associate ( Re => dimensionless % Re , &
+                  Pr => dimensionless % Pr , &
+                  gammaM2 => dimensionless % gammaM2, &
+                  gammaDivGammaMinus1 => thermodynamics % gammaDivGammaMinus1 ) 
+
       T        = Temperature(Q)
       muOfT    = MolecularDiffusivity(T)
       kappaOfT = ThermalDiffusivity(T)
@@ -1129,6 +1167,8 @@
       f(4) = tauXZ/RE
       f(5) = (u*tauXX + v*tauXY + w*tauXZ + &
      &        gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*grad(1,4))/RE
+
+      end associate
 
       END SUBROUTINE xDiffusiveFlux
 !
@@ -1168,6 +1208,12 @@
       REAL(KIND=RP) :: T, muOfT, kappaOfT, divVelocity
       REAL(KIND=RP) :: u, v, w
 !      
+
+      associate ( Re => dimensionless % Re , &
+                  Pr => dimensionless % Pr , &
+                  gammaM2 => dimensionless % gammaM2, &
+                  gammaDivGammaMinus1 => thermodynamics % gammaDivGammaMinus1 ) 
+
       T        = Temperature(Q)
       muOfT    = MolecularDiffusivity(T)
       kappaOfT = ThermalDiffusivity(T)
@@ -1186,6 +1232,8 @@
       f(4) = tauYZ/RE
       f(5) = (u*tauYX + v*tauYY + w*tauYZ + &
      &        gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*grad(2,4))/RE
+
+      end associate
 
       END SUBROUTINE yDiffusiveFlux
 !
@@ -1225,6 +1273,12 @@
       REAL(KIND=RP)           :: T, muOfT, kappaOfT, divVelocity
       REAL(KIND=RP)           :: u, v, w
 !      
+
+      associate ( Re => dimensionless % Re , &
+                  Pr => dimensionless % Pr , &
+                  gammaM2 => dimensionless % gammaM2, &
+                  gammaDivGammaMinus1 => thermodynamics % gammaDivGammaMinus1 ) 
+
       T        = Temperature(Q)
       muOfT    = MolecularDiffusivity(T)
       kappaOfT = ThermalDiffusivity(T)
@@ -1244,6 +1298,8 @@
       f(5) = (u*tauZX + v*tauZY + w*tauZZ + &
      &        gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*grad(3,4))/RE
 
+      end associate
+
       END SUBROUTINE zDiffusiveFlux
 
       pure function ViscousFlux0D( Q , U_x , U_y , U_z ) result (F)
@@ -1261,6 +1317,11 @@
          real(kind=RP)                    :: T , muOfT , kappaOfT
          real(kind=RP)                    :: divV
          real(kind=RP)                    :: u , v , w
+
+         associate ( Re => dimensionless % Re , &
+                     Pr => dimensionless % Pr , &
+                     gammaM2 => dimensionless % gammaM2, &
+                     gammaDivGammaMinus1 => thermodynamics % gammaDivGammaMinus1 ) 
 
          u = Q(IRHOU) / Q(IRHO)
          v = Q(IRHOV) / Q(IRHO)
@@ -1290,6 +1351,8 @@
          F(IRHOW,IZ) = muOfT * ( 2.0_RP * U_z(IGW) - 2.0_RP / 3.0_RP * divV ) / RE
          F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_z(IGT) / RE
 
+         end associate
+
       end function ViscousFlux0D
 
       pure function ViscousFlux1D( N , Q , U_x , U_y , U_z ) result (F)
@@ -1309,6 +1372,12 @@
          real(kind=RP)                    :: divV(0:N)
          real(kind=RP)                    :: u(0:N) , v(0:N) , w(0:N)
          integer                          :: i
+
+         associate ( Re => dimensionless % Re , &
+                     Pr => dimensionless % Pr , &
+                     gammaM2 => dimensionless % gammaM2, &
+                     gammaMinus1 => thermodynamics % gammaMinus1, &
+                     gammaDivGammaMinus1 => thermodynamics % gammaDivGammaMinus1 ) 
 
          u = Q(:,IRHOU) / Q(:,IRHO)
          v = Q(:,IRHOV) / Q(:,IRHO)
@@ -1347,6 +1416,8 @@
          F(:,IRHOE,IZ) = F(:,IRHOU,IZ) * u + F(:,IRHOV,IZ) * v + F(:,IRHOW,IZ) * w &
                + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_z(:,IGT) / RE
 
+         end associate
+
       end function ViscousFlux1D
 
       pure function ViscousFlux2D( N , Q , U_x , U_y , U_z ) result (F)
@@ -1366,6 +1437,11 @@
          real(kind=RP)                    :: divV(0:N,0:N)
          real(kind=RP)                    :: u(0:N,0:N) , v(0:N,0:N) , w(0:N,0:N)
          integer                          :: i , j 
+
+         associate ( Re => dimensionless % Re , &
+                     Pr => dimensionless % Pr , &
+                     gammaM2 => dimensionless % gammaM2, &
+                     gammaDivGammaMinus1 => thermodynamics % gammaDivGammaMinus1 ) 
 
          u = Q(:,:,IRHOU) / Q(:,:,IRHO)
          v = Q(:,:,IRHOV) / Q(:,:,IRHO)
@@ -1403,6 +1479,8 @@
          F(:,:,IRHOE,IZ) = F(:,:,IRHOU,IZ) * u + F(:,:,IRHOV,IZ) * v + F(:,:,IRHOW,IZ) * w &
                + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_z(:,:,IGT) / RE
 
+         end associate
+
       end function ViscousFlux2D
 
       pure function ViscousFlux3D( Nx, Ny, Nz , Q , U_x , U_y , U_z ) result (F)
@@ -1424,6 +1502,12 @@
          real(kind=RP) :: divV(0:Nx,0:Ny,0:Nz)
          real(kind=RP) :: u(0:Nx,0:Ny,0:Nz) , v(0:Nx,0:Ny,0:Nz) , w(0:Nx,0:Ny,0:Nz)
          integer       :: i , j , k
+
+         associate ( Re => dimensionless % Re , &
+                     Pr => dimensionless % Pr , &
+                     gammaM2 => dimensionless % gammaM2, &
+                     gammaMinus1 => thermodynamics % gammaMinus1, &
+                     gammaDivGammaMinus1 => thermodynamics % gammaDivGammaMinus1 ) 
 
          u = Q(:,:,:,IRHOU) / Q(:,:,:,IRHO)
          v = Q(:,:,:,IRHOV) / Q(:,:,:,IRHO)
@@ -1460,6 +1544,8 @@
          F(:,:,:,IRHOW,IZ) = muOfT * ( 2.0_RP * U_z(:,:,:,IGW) - 2.0_RP / 3.0_RP * divV ) / RE
          F(:,:,:,IRHOE,IZ) = F(:,:,:,IRHOU,IZ) * u + F(:,:,:,IRHOV,IZ) * v + F(:,:,:,IRHOW,IZ) * w &
                + gammaDivGammaMinus1*kappaOfT/(PR*gammaM2)*U_z(:,:,:,IGT) / RE
+
+         end associate
 
       end function ViscousFlux3D
 !
@@ -1508,6 +1594,8 @@
 !     Local Variables
 !     ---------------
 !     
+      associate ( gammaM2 => dimensionless % gammaM2, &
+                  gammaMinus1 => thermodynamics % gammaMinus1 ) 
       Nx = size(Q , 1) - 1
       Ny = size(Q , 2) - 1
       Nz = size(Q , 3) - 1
@@ -1519,6 +1607,8 @@
                   - 0.5_RP * ( U(0:Nx,0:Ny,0:Nz,IGU) * U(0:Nx,0:Ny,0:Nz,IGU) &
                              + U(0:Nx,0:Ny,0:Nz,IGV) * U(0:Nx,0:Ny,0:Nz,IGV) &
                              + U(0:Nx,0:Ny,0:Nz,IGW) * U(0:Nx,0:Ny,0:Nz,IGW) ) )
+
+      end associate
 
       END SUBROUTINE GradientValuesForQ_3D
 !
@@ -1543,7 +1633,7 @@
 !
       REAL(KIND=RP) :: P
       
-      P = gammaMinus1*(Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1))
+      P = thermodynamics % gammaMinus1*(Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1))
 
       END FUNCTION Pressure
 !
@@ -1617,7 +1707,7 @@
 !
       REAL(KIND=RP) :: T
 !
-      T = gammaM2*Pressure(Q)/Q(1)
+      T = dimensionless % gammaM2*Pressure(Q)/Q(1)
 
       END FUNCTION Temperature
       
@@ -1652,6 +1742,8 @@
 !
       REAL(KIND=Rp) :: u, v, w, p, a
 !      
+      associate ( gamma => thermodynamics % gamma ) 
+
       u = ABS( Q(2)/Q(1) )
       v = ABS( Q(3)/Q(1) )
       w = ABS( Q(4)/Q(1) )
@@ -1661,5 +1753,7 @@
       eigen(1) = u + a
       eigen(2) = v + a
       eigen(3) = w + a
+
+      end associate
       
       END SUBROUTINE ComputeEigenvaluesForState

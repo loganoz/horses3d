@@ -58,42 +58,64 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(x, sem, controlVariables)
+         SUBROUTINE UserDefinedInitialCondition(sem, thermodynamics_, &
+                                                      dimensionless_, &
+                                                          refValues_ )
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
+!              - By default it sets an uniform initial
+!                 condition.
 !           ------------------------------------------------
 !
             USE SMConstants
-            USE FTValueDictionaryClass
             use DGSEMClass
-            use BoundaryConditionFunctions
-            IMPLICIT NONE
-            real(kind=RP)  :: x(3)
-            class(DGSEM)      :: sem
-            class(FTValueDictionary)   :: controlVariables
-            integer     :: eID, i, j, k
-                     
-            DO eID = 1, sem % mesh % no_of_elements
-               DO k = 0, sem % mesh % elements(eID) % Nxyz(3)
-                  DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
-                     DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
-                        CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
-                                               sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )
-                                                     
-                     END DO
-                  END DO
-               END DO 
+            use PhysicsStorage
+            implicit none
+            class(DGSEM)                        :: sem
+            type(Thermodynamics_t), intent(in)  :: thermodynamics_
+            type(Dimensionless_t),  intent(in)  :: dimensionless_
+            type(RefValues_t),      intent(in)  :: refValues_
 !
-!              -------------------------------------------------
-!              Perturb mean flow in the expectation that it will
-!              relax back to the mean flow
-!              -------------------------------------------------
+!           ---------------
+!           Local variables
+!           ---------------
 !
-!               sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)
-               
-            END DO 
+            integer        :: eID, i, j, k
+            real(kind=RP)  :: qq, u, v, w, p
+            real(kind=RP)  :: Q(N_EQN), phi, theta
+
+            associate ( gammaM2 => dimensionless_ % gammaM2, &
+                        gamma => thermodynamics_ % gamma )
+            theta = refValues_ % AOATheta*(PI/180.0_RP)
+            phi   = refValues_ % AOAPhi*(PI/180.0_RP)
+
+            do eID = 1, sem % mesh % no_of_elements
+               associate( Nx => sem % mesh % elements(eID) % Nxyz(1), &
+                          Ny => sem % mesh % elements(eID) % Nxyz(2), &
+                          Nz => sem % mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx
+                  qq = 1.0_RP
+                  u  = qq*cos(theta)*COS(phi)
+                  v  = qq*sin(theta)*COS(phi)
+                  w  = qq*SIN(phi)
             
+                  Q(1) = 1.0_RP
+                  p    = 1.0_RP/(gammaM2)
+                  Q(2) = Q(1)*u
+                  Q(3) = Q(1)*v
+                  Q(4) = Q(1)*w
+                  Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
+
+                  sem % mesh % elements(eID) % Q(i,j,k,:) = Q
+
+               end do;        end do;        end do
+
+               end associate
+            end do
+               
+            end associate
+
          END SUBROUTINE UserDefinedInitialCondition
 !
 !//////////////////////////////////////////////////////////////////////// 

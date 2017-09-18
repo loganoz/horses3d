@@ -1104,31 +1104,23 @@
       class(DGSEM)   :: self
       class(FTValueDictionary), intent(in)   :: controlVariables
 interface
-         SUBROUTINE UserDefinedInitialCondition(x, sem, controlVariables)
+         SUBROUTINE UserDefinedInitialCondition(sem, thermodynamics_, &
+                                                        dimensionless_,&
+                                                        refValues_)
             USE SMConstants
-            use FTValueDictionaryClass
-         USE BoundaryConditionFunctions
+            use PhysicsStorage
             import DGSEM
             implicit none
-            real(kind=RP), intent(in)     :: x(3)
             class(DGSEM)                  :: sem
-            class(FTValueDictionary)      :: controlVariables
+            type(Thermodynamics_t), intent(in)  :: thermodynamics_
+            type(Dimensionless_t),  intent(in)  :: dimensionless_
+            type(RefValues_t),      intent(in)  :: refValues_
          END SUBROUTINE UserDefinedInitialCondition
 end interface
-      integer     :: i, j, k, eID
 
-!      do eID = 1, sem % mesh % no_of_elements
-!         do k = 0, sem % mesh % elements(eID) % Nxyz(3) 
-!            do j = 0, sem % mesh % elements(eID) % Nxyz(2)
-!               do i = 0, sem % mesh % elements(eID) % Nxyz(1)
-!                  call UserDefinedInitialCondition(mesh % elements(eID) % geom % x(:,i,j,k), eID, i, j, k)
-!               end do
-!            end do
-!         end do
-!      end do
-!
-
-      call UserDefinedInitialCondition( [0.0_RP,1.0_RP,2.0_RP], self, controlVariables)
+      call UserDefinedInitialCondition(self, thermodynamics, &
+                                              dimensionless, &
+                                                  refValues )
 
    end subroutine DGSEM_SetInitialCondition
       

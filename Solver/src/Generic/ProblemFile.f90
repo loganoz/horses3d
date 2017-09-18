@@ -47,22 +47,61 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(x, sem, controlVariables )
+         SUBROUTINE UserDefinedInitialCondition(sem, thermodynamics_, &
+                                                      dimensionless_, &
+                                                          refValues_  )
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
+!              - By default it sets an uniform initial
+!                 condition.
 !           ------------------------------------------------
 !
             USE SMConstants
+            use PhysicsStorage
             use DGSEMClass
-            use FTValueDictionaryClass
-            use BoundaryConditionFunctions
             implicit none
-            real(kind=RP), intent(in)     :: x(3)
-            class(DGSEM)                  :: sem
-            class(FTValueDictionary)      :: controlVariables
-print*, "Cosa: " , x
-print*, "Cosa2: ", sem % mesh % no_of_elements
+            class(DGSEM)                        :: sem
+            type(Thermodynamics_t), intent(in)  :: thermodynamics_
+            type(Dimensionless_t),  intent(in)  :: dimensionless_
+            type(RefValues_t),      intent(in)  :: refValues_
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            integer        :: eID, i, j, k
+            real(kind=RP)  :: qq, u, v, w, p
+            real(kind=RP)  :: Q(N_EQN), phi, theta
+
+            associate ( gammaM2 => dimensionless_ % gammaM2, &
+                        gamma => thermodynamics_ % gamma )
+            theta = refValues_ % AOATheta*(PI/180.0_RP)
+            phi   = refValues_ % AOAPhi*(PI/180.0_RP)
+      
+            do eID = 1, sem % mesh % no_of_elements
+               associate( Nx => sem % mesh % elements(eID) % Nxyz(1), &
+                          Ny => sem % mesh % elements(eID) % Nxyz(2), &
+                          Nz => sem % mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  qq = 1.0_RP
+                  u  = qq*cos(theta)*COS(phi)
+                  v  = qq*sin(theta)*COS(phi)
+                  w  = qq*SIN(phi)
+      
+                  Q(1) = 1.0_RP
+                  p    = 1.0_RP/(gammaM2)
+                  Q(2) = Q(1)*u
+                  Q(3) = Q(1)*v
+                  Q(4) = Q(1)*w
+                  Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
+
+                  sem % mesh % elements(eID) % Q(i,j,k,:) = Q 
+               end do;        end do;        end do
+               end associate
+            end do
+
+            end associate
             
          END SUBROUTINE UserDefinedInitialCondition
 
