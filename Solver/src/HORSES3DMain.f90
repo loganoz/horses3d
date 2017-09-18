@@ -29,11 +29,16 @@ interface
          SUBROUTINE UserDefinedStartup
             IMPLICIT NONE  
          END SUBROUTINE UserDefinedStartup
-         SUBROUTINE UserDefinedFinalSetup(sem , controlVariables)
+         SUBROUTINE UserDefinedFinalSetup(sem , thermodynamics_, &
+                                                 dimensionless_, &
+                                                     refValues_ )
             USE DGSEMClass
+            use PhysicsStorage
             IMPLICIT NONE
             CLASS(DGSem)             :: sem
-            class(FTValueDictionary) :: controlVariables
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
          END SUBROUTINE UserDefinedFinalSetup
          SUBROUTINE UserDefinedFinalize(sem, time)
             USE DGSEMClass
@@ -132,7 +137,7 @@ end interface
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
       CALL checkBCIntegrity(sem % mesh, success)
       IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
-      CALL UserDefinedFinalSetup(sem, controlVariables)
+      CALL UserDefinedFinalSetup(sem, thermodynamics, dimensionless, refValues)
 !
 !     ----------------------
 !     Set the initial values

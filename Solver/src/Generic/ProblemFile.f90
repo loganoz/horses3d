@@ -32,7 +32,9 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalSetup(sem , controlVariables)
+         SUBROUTINE UserDefinedFinalSetup(sem , thermodynamics_, &
+                                                 dimensionless_, &
+                                                     refValues_ )
 !
 !           ----------------------------------------------------------------------
 !           Called after the mesh is read in to allow mesh related initializations
@@ -40,9 +42,12 @@
 !           ----------------------------------------------------------------------
 !
             USE DGSEMClass
+            use PhysicsStorage
             IMPLICIT NONE
             CLASS(DGSem)             :: sem
-            class(FTValueDictionary) :: controlVariables
+            type(Thermodynamics_t), intent(in)  :: thermodynamics_
+            type(Dimensionless_t),  intent(in)  :: dimensionless_
+            type(RefValues_t),      intent(in)  :: refValues_
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 

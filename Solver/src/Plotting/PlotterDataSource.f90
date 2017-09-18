@@ -31,7 +31,7 @@
 !
       INTEGER FUNCTION numberOfOutputVariables()
          IMPLICIT NONE 
-         numberOfOutputVariables = 3
+         numberOfOutputVariables = 5
       END FUNCTION numberOfOutputVariables
 !
 !////////////////////////////////////////////////////////////////////////
@@ -46,7 +46,7 @@
       CHARACTER(LEN=132) FUNCTION outputVariableNames() 
          IMPLICIT NONE
          
-         outputVariableNames = ' VARIABLES = "x","y","z","Q1","Q2","Q3"'
+         outputVariableNames = ' VARIABLES = "x","y","z","rho","rhou","rhov","rhow","rhoe"'
       END FUNCTION outputVariableNames
 !
 !////////////////////////////////////////////////////////////////////////

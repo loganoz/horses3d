@@ -31,12 +31,6 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      MODULE UserDefinedFunctions
-
-!
-!     ========      
-      CONTAINS
-!     ========
 !
          SUBROUTINE UserDefinedStartup  
 !
@@ -49,7 +43,9 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalSetup(sem, controlVariables)
+         SUBROUTINE UserDefinedFinalSetup(sem, thermodynamics_, &
+                                                dimensionless_, &
+                                                    refValues_ )
 !
 !           ----------------------------------------------------------------------
 !           Called after the mesh is read in but before time integration
@@ -59,8 +55,6 @@
             USE DGSEMClass
             USE Physics
             USE UserDefinedDataStorage
-            USE FTValueDictionaryClass
-            
             IMPLICIT NONE
 !
 !           ---------
@@ -68,7 +62,9 @@
 !           ---------
 !
             CLASS(DGSem)            :: sem
-            TYPE(FTValueDictionary) :: controlVariables
+            type(Thermodynamics_t), intent(in)  :: thermodynamics_
+            type(Dimensionless_t),  intent(in)  :: dimensionless_
+            type(RefValues_t),      intent(in)  :: refValues_
 !
 !           ---------------
 !           Local variables
@@ -82,6 +78,12 @@
 !           Set up for the diffuser geometry
 !           --------------------------------
 !
+   
+            associate ( gammaMinus1Div2 => thermodynamics_ % gammaMinus1Div2, &
+                        sqrtGamma => thermodynamics_ % sqrtGamma, &
+                        gamma => thermodynamics_ % gamma, &
+                        Mach => dimensionless_ % Mach )
+
             rad0 = HUGE(1.0_RP)
             DO nodeID = 1, SIZE(sem % mesh % nodes)
                x   = sem % mesh % nodes(nodeID) % x
@@ -91,34 +93,60 @@
             
             f = sqrtGamma*rad0*mach
             h = GAMMA *(1.0_RP/gammaMinus1Div2 + mach**2)
+
+            end associate
             
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(sem, controlVariables)
+         SUBROUTINE UserDefinedInitialCondition(sem, thermodynamics_, &
+                                                      dimensionless_, &
+                                                          refValues_ )
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
 !           ------------------------------------------------
 !
             USE SMConstants
-            USE DGSEMClass
-            USE PhysicsStorage
-            IMPLICIT NONE
-            
-            TYPE(DGSem)              :: sem
-            class(FTValueDictionary) :: controlVariables
+            use DGSEMClass
+            use PhysicsStorage
+            implicit none
+            class(DGSEM)                        :: sem
+            type(Thermodynamics_t), intent(in)  :: thermodynamics_
+            type(Dimensionless_t),  intent(in)  :: dimensionless_
+            type(RefValues_t),      intent(in)  :: refValues_
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
             LOGICAL                  :: success
-                     
             INTEGER     :: i, j, k, eID
+            interface
+               SUBROUTINE pointSourceFlowSolution(x, Q, success, thermodynamics_, &
+                                                                 dimensionless_, &
+                                                                     refValues_  )
+                  USE UserDefinedDataStorage
+                  USE SMConstants
+                  USE Physics
+                  IMPLICIT NONE  
+                  REAL(KIND=RP) :: x(3)
+                  REAL(KIND=RP) :: Q(*)
+                  LOGICAL       :: success
+                  type(Thermodynamics_t), intent(in)  :: thermodynamics_
+                  type(Dimensionless_t),  intent(in)  :: dimensionless_
+                  type(RefValues_t),      intent(in)  :: refValues_
+               end subroutine pointSourceFlowSolution
+            end interface
             
             DO eID = 1, SIZE(sem % mesh % elements)
                DO k = 0, sem % mesh % elements(eID) % Nxyz(3)
                   DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
                      DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
                         CALL pointSourceFlowSolution( sem % mesh % elements(eID) % geom % x(:,i,j,k), &
-                                                      sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN), success )
+                                                      sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN), success, &
+                                                      thermodynamics_, dimensionless_, refValues_)
                         IF(.NOT. success) ERROR STOP "Unable to compute initial condition"       
                      END DO
                   END DO
@@ -145,7 +173,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalize(sem, time)
+         SUBROUTINE UserDefinedFinalize(sem, time, thermodynamics_, dimensionless_, refValues_)
             USE FTAssertions
 !
 !           --------------------------------------------------------
@@ -162,6 +190,9 @@
 !
             CLASS(DGSem)  :: sem
             REAL(KIND=RP) :: time
+            type(Thermodynamics_t), intent(in)  :: thermodynamics_
+            type(Dimensionless_t),  intent(in)  :: dimensionless_
+            type(RefValues_t),      intent(in)  :: refValues_
 !
 !           ---------------
 !           Local variables
@@ -174,6 +205,23 @@
             INTEGER                            :: i, j, k, N
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
+            interface
+               SUBROUTINE pointSourceFlowSolution(x, Q, success, thermodynamics_, &
+                                                                 dimensionless_, &
+                                                                     refValues_  )
+                  USE UserDefinedDataStorage
+                  USE SMConstants
+                  USE Physics
+                  IMPLICIT NONE  
+                  REAL(KIND=RP) :: x(3)
+                  REAL(KIND=RP) :: Q(*)
+                  LOGICAL       :: success
+                  type(Thermodynamics_t), intent(in)  :: thermodynamics_
+                  type(Dimensionless_t),  intent(in)  :: dimensionless_
+                  type(RefValues_t),      intent(in)  :: refValues_
+               end subroutine pointSourceFlowSolution
+            end interface
+
 !
 !           -----------------------------------------------------------------------------------------
 !           Expected solutions. Inflow/Outflow on all boundaries 
@@ -215,7 +263,8 @@
                   DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
                      DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
                         CALL pointSourceFlowSolution( sem % mesh % elements(eID) % geom % x(:,i,j,k), &
-                                                      QExpected(i,j,k,1:N_EQN), success )
+                                                      QExpected(i,j,k,1:N_EQN), success, &
+                                                      thermodynamics_, dimensionless_, refValues_ )
                      END DO
                   END DO
                END DO
@@ -255,12 +304,12 @@
 !
          IMPLICIT NONE  
       END SUBROUTINE UserDefinedTermination
-      
-      END MODULE UserDefinedFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-   SUBROUTINE pointSourceFlowSolution(x, Q, success)
+   SUBROUTINE pointSourceFlowSolution(x, Q, success, thermodynamics_, &
+                                                     dimensionless_, &
+                                                         refValues_  )
       USE UserDefinedDataStorage
       USE SMConstants
       USE Physics
@@ -273,6 +322,9 @@
       REAL(KIND=RP) :: x(3)
       REAL(KIND=RP) :: Q(*)
       LOGICAL       :: success
+      type(Thermodynamics_t), intent(in)  :: thermodynamics_
+      type(Dimensionless_t),  intent(in)  :: dimensionless_
+      type(RefValues_t),      intent(in)  :: refValues_
 !
 !           ---------------
 !           Local variables
@@ -294,6 +346,10 @@
 !     beginning of the computation.
 !     -------------------------------------------
 !
+      associate( gammaMinus1 => thermodynamics_ % gammaMinus1, &
+                 gamma => thermodynamics_ % gamma, &
+                 Mach => dimensionless_ % Mach ) 
+
       success = .TRUE.
       tol   = 100.0_RP*EPSILON(1.0_RP)
       tggm1 = 2.0_RP*gamma/(gamma-1.0_RP)
@@ -346,6 +402,8 @@
       Q(4) = 0.0_RP
       p    = rho**gamma
       Q(5) = p/gammaMinus1 + 0.5_RP*rho*(u**2 + v**2)
+
+      end associate
       
    END SUBROUTINE pointSourceFlowSolution
 !
@@ -353,82 +411,3 @@
 !=====================================================================================================
 !
 !
-   SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryType )
-!
-!     ----------------------------------------------
-!     Set the boundary conditions for the mesh by
-!     setting the external state for each boundary.
-!     ----------------------------------------------
-!
-      USE BoundaryConditionFunctions
-      USE UserDefinedDataStorage
-      USE MeshTypes
-      
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
-      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      REAL(KIND=RP)   :: pExt
-      LOGICAL         :: success
-      
-      IF ( boundarytype == implementedBCNames(FREE_SLIP_WALL_INDEX) )              THEN
-         CALL FreeSlipWallState( x, t, nHat, Q )
-      ELSE IF ( boundaryType == implementedBCNames(NO_SLIP_ADIABATIC_WALL_INDEX) ) THEN 
-         CALL  NoSlipAdiabaticWallState( x, t, Q)
-      ELSE IF ( boundarytype == implementedBCNames(NO_SLIP_ISOTHERMAL_WALL_INDEX)) THEN 
-         CALL NoSlipIsothermalWallState( x, t, Q )
-      ELSE IF ( boundaryType == implementedBCNames(OUTFLOW_SPECIFY_P_INDEX) )      THEN 
-         pExt =  ExternalPressure()
-         CALL ExternalPressureState ( x, t, nHat, Q, pExt )
-      ELSE
-         CALL pointSourceFlowSolution( x, Q, success)
-      END IF
-
-      END SUBROUTINE externalStateForBoundaryName
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, U_x, U_y, U_z, boundaryType )
-!
-!     ------------------------------------------------
-!     Set the boundary conditions for the mesh by
-!     setting the external gradients on each boundary.
-!     ------------------------------------------------
-!
-      USE BoundaryConditionFunctions
-      USE MeshTypes
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
-      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      IF ( boundarytype == implementedBCNames(FREE_SLIP_WALL_INDEX) )                   THEN
-         CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE IF ( boundaryType == implementedBCNames(NO_SLIP_ADIABATIC_WALL_INDEX) )       THEN 
-         CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z)
-      ELSE IF ( boundarytype == implementedBCNames(NO_SLIP_ISOTHERMAL_WALL_INDEX))       THEN 
-         CALL NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE
-         CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
-      END IF
-
-      END SUBROUTINE ExternalGradientForBoundaryName
