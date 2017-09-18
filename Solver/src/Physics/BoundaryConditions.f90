@@ -582,6 +582,8 @@
       ELSE IF ( boundaryType == "MSOutflowSpecifyP" )     THEN 
          pExt =  ManufacturedSolP(x)
          CALL ExternalPressureState ( x, t, nHat, Q, pExt )
+      ELSE IF ( boundaryType == "User-defined" ) THEN
+         call UserDefinedState(x, t, nHat, Q)
       ELSE 
          CALL UniformFlowState( x, t, Q ) 
       END IF
@@ -628,6 +630,8 @@
          CALL ManufacturedSolutionDeriv( x, t, nHat, U_x, U_y, U_z )
       ELSE IF ( boundaryType == "MSOutflowSpecifyP" )     THEN 
          CALL ManufacturedSolutionDeriv( x, t, nHat, U_x, U_y, U_z )
+      ELSE IF ( boundaryType == "User-defined" ) THEN
+         CALL UserDefinedNeumann(x, t, nHat, U_x, U_y, U_z)
       ELSE
          CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
       END IF

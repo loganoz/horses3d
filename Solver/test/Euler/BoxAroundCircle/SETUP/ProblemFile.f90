@@ -31,12 +31,6 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      MODULE UserDefinedFunctions
-
-!
-!     ========      
-      CONTAINS
-!     ========
 !
          SUBROUTINE UserDefinedStartup  
 !
@@ -64,25 +58,23 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(sem , controlVariables)
+         SUBROUTINE UserDefinedInitialCondition(x, sem, controlVariables)
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
 !           ------------------------------------------------
 !
             USE SMConstants
-            USE DGSEMClass
-            USE PhysicsStorage
-            USE BoundaryConditionFunctions
+            USE FTValueDictionaryClass
+            use DGSEMClass
+            use BoundaryConditionFunctions
             IMPLICIT NONE
-            
-            TYPE(DGSem)              :: sem
-            class(FTValueDictionary) :: controlVariables
-            EXTERNAL                 :: initialStateSubroutine
+            real(kind=RP)  :: x(3)
+            class(DGSEM)      :: sem
+            class(FTValueDictionary)   :: controlVariables
+            integer     :: eID, i, j, k
                      
-            INTEGER     :: i, j, k, eID
-            
-            DO eID = 1, SIZE(sem % mesh % elements)
+            DO eID = 1, sem % mesh % no_of_elements
                DO k = 0, sem % mesh % elements(eID) % Nxyz(3)
                   DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
                      DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
@@ -167,8 +159,6 @@
 !
          IMPLICIT NONE  
       END SUBROUTINE UserDefinedTermination
-      
-      END MODULE UserDefinedFunctions
 !
 !=====================================================================================================
 !=====================================================================================================

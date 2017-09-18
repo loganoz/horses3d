@@ -1,6 +1,5 @@
 # --------------- Dependencies 
 NSLite3DMain: TimeIntegrator \
-ProblemFile \
 HexMesh \
 Plotter \
 FTTimerClass \
@@ -32,15 +31,14 @@ ZoneClass: SMConstants SharedBCModule
 NodeClass: SMConstants MeshTypes 
 DGInviscidDiscretization: SMConstants HexElementClass NodalStorageClass Physics
 DGViscousDiscretization: SMConstants HexElementClass NodalStorageClass Physics DGWeakIntegrals ProlongToFaces HexMesh BoundaryConditions
-DGWeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics
+DGWeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics MatrixOperations
 SpatialDiscretization: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
 DGSEMClass: SpatialDiscretization Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants ProlongToFaces
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
-TimeIntegrator: Physics Plotter ProblemFile SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass
+TimeIntegrator: Physics Plotter SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass
 ExplicitMethods: SMConstants DGSEMClass
 PlotterDataSource: SMConstants 
 ReadInputFile: SMConstants SharedBCModule Physics Setup
-ProblemFile: SMConstants Physics BoundaryConditions MeshTypes DGSEMClass 
 Jacobian: SMConstants DGSEMClass Physics
 ColorsClass: DGSEMClass
 CSR_Matrices: SMConstants

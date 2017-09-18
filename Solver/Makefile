@@ -9,6 +9,7 @@
 ########################################
 # 1.- User defined parameters
 ########################################
+PLATFORM?=LINUX
 COMPILER?=gfortran
 MODE?=RELEASE
 COMM?=PARALLEL
@@ -22,7 +23,7 @@ PROG=./bin/HORSES3D
 ########################################
 HOME_DIR=$(PWD)
 LIBS_HOME=$(HOME_DIR)
-INCLUDE=-I$(HOME_DIR)/include
+INCLUDE=-I$(HOME_DIR)/include -I$(HOME_DIR)/src/Generic
 LIBS = 
 MACROS = 
 -include make.inc
@@ -32,7 +33,7 @@ MACROS =
 ########################################
 GNU_RELEASE_FLAGS= -cpp -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 \
 		   -fbackslash
-GNU_DEBUG_FLAGS=  -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable \
+GNU_DEBUG_FLAGS=  -fPIC -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable \
 		  -fbacktrace -fbounds-check -finit-real=snan -Wall \
 		  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
 		  -fbackslash -fcheck=pointer
@@ -54,6 +55,7 @@ OBJS_HORSES=  SMConstants \
 		MatrixOperations \
 		LegendreAlgorithms \
 		InterpolationAndDerivatives \
+		FluidData \
 		Physics \
 		BoundaryConditions \
 		SharedBCModule \
@@ -79,7 +81,6 @@ OBJS_HORSES=  SMConstants \
 		ReadInputFile \
 		Setup \
 		TimeIntegrator \
-		ProblemFile \
 		ConnectivityClass \
 		Jacobian \
 		CSR_Matrices \
@@ -110,6 +111,16 @@ LIBS_HORSES_EXEC=$(foreach obj,$(HORSES_LIBS),$(HOME_DIR)/lib/lib$(obj).a)
 ##########################################
 -include make.dep
 
+##########################################
+## Select platform
+##########################################
+ifeq ($(PLATFORM),MACOSX)
+   DYNLIB_FLAG=-fPIC -shared -install_name @rpath/libproblemfile.dylib -o ./lib/libproblemfile.dylib
+   PROBLEM_LIB=./lib/libproblemfile.dylib -Wl,-rpath,./SETUP -Wl,-rpath,$(HOME_DIR)/lib
+else ifeq ($(PLATFORM),LINUX)
+   DYNLIB_FLAG=-fPIC -shared -o ./lib/libproblemfile.so
+   PROBLEM_LIB=-L./lib -lproblemfile -Wl,-rpath=./SETUP -Wl,-rpath=$(HOME_DIR)/lib
+endif
 
 ##########################################
 ## Select compiler 
@@ -154,7 +165,7 @@ else ifeq ($(MODE),DEBUG)
 endif
 
 ifeq ($(COMM),PARALLEL)
-    FFLAGS+=-openmp
+    FFLAGS+=-fopenmp
 endif
 
 
@@ -203,24 +214,18 @@ LIBFLAGS=  FC='$(FC)' \
 all: header mkdirs horseslibs $(PROG)
 
 
-$(PROG): $(OBJS_HORSES)
+$(PROG): $(OBJS_HORSES) ProblemFile
 	@echo
 	@echo
 	@echo "---------------------------------"
 	@echo "| Linking " $@ "|"
 	@echo "---------------------------------"
-	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_EXEC) $(HORSES_LIBS_EXEC)
+	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_EXEC) $(HORSES_LIBS_EXEC) $(PROBLEM_LIB)
 
-./lib/libhorses3d.a: header mkdirs horseslibs $(OBJS_HORSES)
-	@echo
-	@echo
-	@echo "---------------------------------"
-	@echo "| Linking library" $@ "|"
-	@echo "---------------------------------"
-	@$(RM) $@
-	$(AR) $(ARFLAGS) $@ $(OBJS_HORSES_EXEC)
-	@$(RANLIB) $@
-
+ProblemFile: src/Generic/ProblemFile.f90
+	$(FC) -fPIC -shared $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)$(HOME_DIR)/include -c ./src/Generic/ProblemFile.f90 -o $(HOME_DIR)/build/$@.o
+	$(FC) $(DYNLIB_FLAG) $(FFLAGS) $(MACROS) $(INCLUDE) ./build/ProblemFile.o
+	
 
 horseslibs:
 	@for subdir in $(HORSES_LIBS); do \
@@ -245,6 +250,7 @@ clean: FORCE horseslibclean
 	$(info Removing object *.o files from $(NSLITE3D_PATH)/build)
 	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
 	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod* $(HOME_DIR)/lib/*.a
+	@rm -f $(HOME_DIR)/build/libproblemfile.so
 
 horseslibclean: FORCE
 	@for subdir in $(HORSES_LIBS); do \

@@ -21,9 +21,6 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      MODULE UserDefinedFunctions
-      
-      CONTAINS 
          SUBROUTINE UserDefinedStartup
 !
 !        --------------------------------
@@ -50,19 +47,57 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(sem , controlVariables)
+         SUBROUTINE UserDefinedInitialCondition(x, sem, controlVariables )
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
 !           ------------------------------------------------
 !
             USE SMConstants
-            USE DGSEMClass
+            use DGSEMClass
+            use FTValueDictionaryClass
+            use BoundaryConditionFunctions
             implicit none
-            class(DGSem)             :: sem
-            class(FTValueDictionary) :: controlVariables
+            real(kind=RP), intent(in)     :: x(3)
+            class(DGSEM)                  :: sem
+            class(FTValueDictionary)      :: controlVariables
+print*, "Cosa: " , x
+print*, "Cosa2: ", sem % mesh % no_of_elements
             
          END SUBROUTINE UserDefinedInitialCondition
+
+         subroutine UserDefinedState(x, t, nHat, Q)
+!
+!           -------------------------------------------------
+!           Used to define an user defined boundary condition
+!           -------------------------------------------------
+!
+            use SMConstants
+            use PhysicsStorage
+            implicit none
+            real(kind=RP), intent(in)     :: x(NDIM)
+            real(kind=RP), intent(in)     :: t
+            real(kind=RP), intent(in)     :: nHat(NDIM)
+            real(kind=RP), intent(inout)  :: Q(N_EQN)
+         end subroutine UserDefinedState
+
+         subroutine UserDefinedNeumann(x, t, nHat, U_x, U_y, U_z)
+!
+!           --------------------------------------------------------
+!           Used to define a Neumann user defined boundary condition
+!           --------------------------------------------------------
+!
+            use SMConstants
+            use PhysicsStorage
+            implicit none
+            real(kind=RP), intent(in)     :: x(NDIM)
+            real(kind=RP), intent(in)     :: t
+            real(kind=RP), intent(in)     :: nHat(NDIM)
+            real(kind=RP), intent(inout)  :: U_x(N_GRAD_EQN)
+            real(kind=RP), intent(inout)  :: U_y(N_GRAD_EQN)
+            real(kind=RP), intent(inout)  :: U_z(N_GRAD_EQN)
+         end subroutine UserDefinedNeumann
+
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -112,6 +147,4 @@
 !
          IMPLICIT NONE  
       END SUBROUTINE UserDefinedTermination
-      
-      END MODULE UserDefinedFunctions
       

@@ -20,17 +20,32 @@
       USE DGSEMClass
       USE BoundaryConditionFunctions
       USE TimeIntegratorClass
-      USE UserDefinedFunctions
       USE mainKeywordsModule
       USE Headers
       USE pAdaptationClass
       
       IMPLICIT NONE
-!
-!     ------------
-!     Declarations
-!     ------------
-!
+interface
+         SUBROUTINE UserDefinedStartup
+            IMPLICIT NONE  
+         END SUBROUTINE UserDefinedStartup
+         SUBROUTINE UserDefinedFinalSetup(sem , controlVariables)
+            USE DGSEMClass
+            IMPLICIT NONE
+            CLASS(DGSem)             :: sem
+            class(FTValueDictionary) :: controlVariables
+         END SUBROUTINE UserDefinedFinalSetup
+         SUBROUTINE UserDefinedFinalize(sem, time)
+            USE DGSEMClass
+            IMPLICIT NONE
+            CLASS(DGSem)  :: sem
+            REAL(KIND=RP) :: time
+         END SUBROUTINE UserDefinedFinalize
+      SUBROUTINE UserDefinedTermination
+         IMPLICIT NONE  
+      END SUBROUTINE UserDefinedTermination
+end interface
+
       TYPE( FTValueDictionary)            :: controlVariables
       TYPE( DGSem )                       :: sem
       TYPE( FTTimer )                     :: stopWatch
@@ -131,7 +146,7 @@
                CALL sem % LoadSolutionForRestart( restartUnit )
          CLOSE( restartUnit )
       ELSE
-         CALL UserDefinedInitialCondition(sem , controlVariables)
+         call sem % SetInitialCondition( controlVariables ) 
       END IF
 !
 !     -----------------------------

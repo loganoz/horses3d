@@ -70,6 +70,8 @@
          
          PROCEDURE :: SaveSolutionForRestart
          PROCEDURE :: LoadSolutionForRestart
+   
+         procedure :: SetInitialCondition => DGSEM_SetInitialCondition
             
       END TYPE DGSem
       
@@ -1095,5 +1097,39 @@
       END DO 
       
    END FUNCTION MaximumEigenvalue
+
+   subroutine DGSEM_SetInitialCondition( self, controlVariables ) 
+      use FTValueDictionaryClass
+      implicit none
+      class(DGSEM)   :: self
+      class(FTValueDictionary), intent(in)   :: controlVariables
+interface
+         SUBROUTINE UserDefinedInitialCondition(x, sem, controlVariables)
+            USE SMConstants
+            use FTValueDictionaryClass
+         USE BoundaryConditionFunctions
+            import DGSEM
+            implicit none
+            real(kind=RP), intent(in)     :: x(3)
+            class(DGSEM)                  :: sem
+            class(FTValueDictionary)      :: controlVariables
+         END SUBROUTINE UserDefinedInitialCondition
+end interface
+      integer     :: i, j, k, eID
+
+!      do eID = 1, sem % mesh % no_of_elements
+!         do k = 0, sem % mesh % elements(eID) % Nxyz(3) 
+!            do j = 0, sem % mesh % elements(eID) % Nxyz(2)
+!               do i = 0, sem % mesh % elements(eID) % Nxyz(1)
+!                  call UserDefinedInitialCondition(mesh % elements(eID) % geom % x(:,i,j,k), eID, i, j, k)
+!               end do
+!            end do
+!         end do
+!      end do
+!
+
+      call UserDefinedInitialCondition( [0.0_RP,1.0_RP,2.0_RP], self, controlVariables)
+
+   end subroutine DGSEM_SetInitialCondition
       
    END Module DGSEMClass

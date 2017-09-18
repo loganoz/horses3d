@@ -43,8 +43,10 @@
 !    ******
 !
      USE SMConstants
+     use FluidData
      
      IMPLICIT NONE
+
      SAVE
 !
 !    ----------------------------
@@ -79,50 +81,6 @@
 !
      INTEGER, PARAMETER  :: IGU = 1 , IGV = 2 , IGW = 3 , IGT = 4
 !
-!    ----------------------------------------
-!!   The free-stream or reference mach number
-!    ----------------------------------------
-!
-     REAL( KIND=RP ) :: mach 
-!
-!    ----------------------------------------
-!!   The Reynolds number
-!    ----------------------------------------
-!
-     REAL( KIND=RP ) :: RE 
-!
-!    ----------------------------------------
-!!   The free-stream Angle of Attack
-!    ----------------------------------------
-!
-     REAL( KIND=RP ) :: AOATheta, AOAPhi
-!
-!    ----------------------------------------
-!!   The Prandtl number
-!    ----------------------------------------
-!
-     REAL( KIND=RP ) :: PR = 0.72_RP
-!
-!    ----------------------------------------
-!!   The free-stream or reference temperature
-!!   with default in R.
-!    ----------------------------------------
-!
-     REAL( KIND=RP ) :: TRef 
-!
-!    ----------------------------------------
-!!   The free-stream or reference pressure
-!!   with default in Pa.
-!    ----------------------------------------
-!
-     REAL( KIND=RP ) :: pRef 
-!
-!    ----------------------------------------
-!!   The length in the Reynolds number
-!    ----------------------------------------
-!
-     REAL( KIND=RP ) :: reynoldsLength 
-!
 !    --------------------------------------------
 !!   The temperature scale in the Sutherland law:
 !!   198.6 for temperatures in R, 110.3 for
@@ -136,27 +94,7 @@
 !    ------------------------------------------------
 !
      REAL( KIND=RP ) :: TRatio 
-!
-!    -------------
-!!   The gas gamma
-!    -------------
-!
-     REAL( KIND=RP ) :: gamma
-!
-!    ----------------------
-!!   The gas state constant
-!    ----------------------
-!
-     REAL( KIND=RP ) :: Rgas
-!
 !    ----------------------------------
-!!   Other constants derived from gamma
-!    ----------------------------------
-!
-     REAL( KIND=RP ) :: sqrtGamma          , gammaMinus1      , gammaMinus1Div2
-     REAL( KIND=RP ) :: gammaPlus1Div2     , gammaMinus1Div2sg, gammaMinus1Div2g
-     REAL( KIND=RP ) :: InvGammaPlus1Div2  , InvGammaMinus1   , InvGamma
-     REAL( KIND=RP ) :: gammaDivGammaMinus1, gammaM2 !! = gamma*mach**2
 !
 !    ------------------------------------
 !    Riemann solver associated quantities
@@ -164,6 +102,25 @@
 !
      INTEGER, PARAMETER :: ROE = 0, LXF = 1, RUSANOV = 2
      INTEGER            :: riemannSolverChoice = ROE
+
+     type(Thermodynamics_t), target, private :: ThermodynamicsAir = Thermodynamics_t( &
+                                                              "Air", & ! Name
+                                    287.15_RP * 5.0_RP / 9.0_RP, & ! R
+                                                         1.4_RP, & ! gamma
+                                                   sqrt(1.4_RP), & ! sqrtGamma
+                                                1.4_RP - 1.0_RP, & ! gammaMinus1         
+                                     (1.4_RP - 1.0_RP) / 2.0_RP, & ! gammaMinus1Div2
+                                     (1.4_RP + 1.0_RP) / 2.0_RP, & ! gammaPlus1Div2
+                    (1.4_RP - 1.0_RP) / (2.0_RP * sqrt(1.4_RP)), & ! gammaMinus1Div2sg 
+                          (1.4_RP - 1.0_RP) / (2.0_RP * 1.4_RP), & ! gammaMinus1Div2g 
+                                     2.0_RP / (1.4_RP + 1.0_RP), & ! InvGammaPlus1Div2 
+                                     1.0_RP / (1.4_RP - 1.0_RP), & ! InvGammaMinus1
+                                                1.0_RP / 1.4_RP, & ! InvGamma
+                                   1.4_RP / ( 1.4_RP - 1.0_RP ), & ! gammaDivGammaMinus1
+     287.15_RP * 5.0_RP / 9.0_RP * 1.4_RP / ( 1.4_RP - 1.0_RP ), & ! cp
+              287.15_RP * 5.0_RP / 9.0_RP / ( 1.4_RP - 1.0_RP ), & ! cp
+                                                         0.0_RP  & ! Bulk viscosity ratio
+)
 !
 !    ========
      CONTAINS
@@ -192,6 +149,9 @@
 !     ---------------
 !
       CHARACTER(LEN=KEYWORD_LENGTH) :: keyword
+      type(Thermodynamics_t)        :: thermodynamics_
+      type(RefValues_t)             :: refValues_
+      type(Dimensionless_t)         :: dimensionless_
 !
 !     --------------------
 !     Collect input values
@@ -267,26 +227,62 @@
          AOATheta = 0.0_RP
       END IF 
 !
-      TRef            = 520.0_RP
-      pRef            = 101325.0_RP
+!
+!     ---------------------
+!     Set the gas to be air
+!     ---------------------
+!
+      thermodynamics_ => thermodynamicsAir
+!
+!     ------------------------
+!     Dimensionless quantities
+!     ------------------------
+!
+      dimensionless_ % cp = thermodynamics_ % gamma * thermodynamics_ % InvGammaMinus1
+      dimensionless_ % cv = thermodynamics_ % InvGammaMinus1
+
+      keyword = controlVariables % stringValueForKey(FLOW_EQUATIONS_KEY,KEYWORD_LENGTH)
+      CALL toLower(keyword)
+      IF ( keyword == "euler" )     THEN
+         flowIsNavierStokes = .FALSE.
+         dimensionless_ % Re = 0.0_RP 
+      ELSE 
+         flowIsNavierStokes = .TRUE.
+         IF ( controlVariables % containsKey(REYNOLDS_NUMBER_KEY) )     THEN
+            dimensionless_ % Re = controlVariables % doublePrecisionValueForKey(REYNOLDS_NUMBER_KEY) 
+         ELSE 
+            PRINT *, "Input file is missing entry for keyword: ",REYNOLDS_NUMBER_KEY
+            success = .FALSE.
+            RETURN 
+         END IF 
+      END IF 
+
+      dimensionless_ % Pr   = 0.72_RP
+      dimensionless_ % Fr   = 0.0_RP
+      dimensionless_ % mu   = 1.0_RP / dimensionless_ % Re
+      dimensionless_ % kappa = 
+      dimensionless_ % Mach = controlVariables % doublePrecisionValueForKey(MACH_NUMBER_KEY)
+      dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
+      dimensionless_ % invFroudeSquare = 0.0_RP
+!
+!     --------------------
+!     Set reference values: TODO read from parameter file
+!     --------------------
+!
+      refValues_ % L = 1.0_RP       ! m
+      refValues_ % T = 520.0_RP     ! Rankine
+      refValues_ % p = 101325.0_RP  ! Pa
+!
+!     --------------------------
+!     Sutherland's law constants
+!     --------------------------
+!
       TScale          = 198.6_RP
       TRatio          = TScale/TRef
-      
-      gamma                = 1.4_RP
-      Rgas                 = 287.15_RP * 5.0_RP / 9.0_RP
-      gammaMinus1          = gamma - 1.0_RP
-      sqrtGamma            = SQRT( gamma )
-      gammaMinus1Div2      = gammaMinus1/2.0_RP
-      gammaPlus1Div2       = ( gamma + 1.0_RP )/2.0_RP
-      gammaMinus1Div2sg    = gammaMinus1Div2 / sqrtGamma
-      gammaMinus1Div2g     = gammaMinus1Div2 / gamma
-      InvGammaPlus1Div2    = 1.0_RP / gammaPlus1Div2
-      InvGammaMinus1       = 1.0_RP / gammaMinus1
-      InvGamma             = 1.0_RP / gamma
-      gammaDivGammaMinus1  = gamma / gammaMinus1
-      gammaM2              = gamma*mach**2
 
-      reynoldsLength       = 1.0_RP
+
+      
+      gammaM2              = gamma*mach**2
 
       CALL DescribePhysicsStorage()
 !
