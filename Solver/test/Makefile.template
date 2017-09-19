@@ -1,95 +1,140 @@
-COMPILER ?= gfortran
-MODE     ?= RELEASE
+#####################################################################
+## HORSES - a High-Order Spectral Element Solver
+##
+##      Test case makefile. This Makefile compiles a shared library,
+##   libproblemfile.so with user specific procedures, such as initial
+##   and boundary conditions or solution checks.
+##
+##	Usage:
+##		-> cd $(CASE_DIR)/SETUP
+##		-> make COMPILER=gfortran/ifort MODE=RELEASE/DEBUG COMM=SERIAL/PARALLEL
+##		-> cd $(CASE_DIR)
+##		-> ldd ./HORSES3D (to check whether the solver points
+##				to the default library (found in
+##				$HOME_DIR) or to the local library,
+##				./SETUP/libproblemfile.so)
+##
+#####################################################################
+HOME_DIR=/home/juan/OwnCloud/Research/DGSEM/Codes/FORTRAN/HORSES3D/Solver
+########################################
+# 1.- User defined parameters
+########################################
+PLATFORM?=LINUX
+COMPILER?=gfortran
+MODE?=RELEASE
+COMM?=PARALLEL
+MAKE=make
 
-INC_DIR=./include
-BUILD_DIR=./build
-BIN_DIR=./bin
-SRC_DIR=./src
-EXECUTABLE = NSLite3D
+########################################
+# 2.- User defined paths
+########################################
+INCLUDE=-I$(HOME_DIR)/include
+LIBS =
+MACROS =
+-include make.inc
 
+########################################
+# 3.- User defined compilation flags 
+########################################
+FFLAGS=-fPIC
+GNU_RELEASE_FLAGS= -cpp -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 \
+                   -fbackslash
+GNU_DEBUG_FLAGS=  -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable \
+                  -fbacktrace -fbounds-check -finit-real=snan -Wall \
+                  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
+                  -fbackslash -fcheck=pointer
+INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc
+INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all \
+                   -check bounds -check uninit -ftrapuv -debug all -warn interfaces \
+                   -ftrace=full -assume ieee_fpe_flags -ftz -fp-model precise \
+                   -fp-speculation=off -assume bscc
+ARFLAGS=crv
 
-OBJS_CASE_F90 = $(notdir $(wildcard $(SRC_DIR)/*.f90))
-OBJS_CASE= $(patsubst %.f90,%,$(OBJS_CASE_F90))
-
-OBJS_REMOVE = $(OBJS_CASE) 
-
-
-# --------------- DO NOT EDIT ----------------------------------------------------
-
-include make.inc
-
-# -------------- CHOOSE COMPILER ------------------
-ifeq ($(COMPILER),gfortran)
-   MOD_FLAG :=-J
-   FC=gfortran
-   ifeq ($(MODE),DEBUG)
-      $(info Compiling with gfortran in DEBUG mode.)
-      FFLAGS = -D_has_Quad -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable -fbacktrace -fbounds-check -finit-real=snan  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries
-   else 
-     $(info Compiling with gfortran in RELEASE mode.)
-     FFLAGS = -D_has_Quad -cpp -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash -fopenmp#-fdefault-integer-8 #-fopt-info-all
-   endif
-
-else ifeq ($(COMPILER),ifort)
-   MOD_FLAG := -module 
-   FC=ifort
-   ifeq ($(MODE),DEBUG)
-     $(info Compiling with intel fortran in DEBUG mode.)
-     FFLAGS = -D_has_Quad -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all -check bounds -check uninit -ftrapuv -debug all -gen-interfaces -warn interfaces -ftrace=full -assume ieee_fpe_flags -ftz -fp-model precise -fp-speculation=off -assume bscc 
-   else 
-     $(info Compiling with intel fortran in RELEASE mode.)
-     FFLAGS = -cpp -O3 -assume bscc -D_has_Quad -qopenmp
-   endif
+##########################################
+## Select platform
+##########################################
+ifeq ($(PLATFORM),LINUX)
+     TARGET=./libproblemfile.so
+     DYNLIB_FLAG=-fPIC -shared -o $(TARGET)
+else ifeq ($(PLATFORM),MACOSX)
+     TARGET=./libproblemfile.dylib
+     DYNLIB_FLAG=-fPIC -shared -install_name @rpath/libproblemfile.dylib -o $(TARGET)
 endif
 
-# ------------- LIBRARIES ------------------------
-INCLUDE=-I$(INC_DIR)
+##########################################
+## Select compiler 
+##########################################
+ifeq ($(COMPILER),gfortran)
+  FC:=gfortran
+  MOD_FLAG:=-J
+  WHOLE_FILE:=--whole-file
+else ifeq ($(COMPILER),gnu)
+  FC:=gfortran
+  MOD_FLAG:=-J
+  WHOLE_FILE:=--whole-file
+else ifeq ($(COMPILER),GNU)
+  FC:=gfortran
+  MOD_FLAG:=-J
+  WHOLE_FILE:=--whole-file
+endif
+
+ifeq ($(COMPILER),ifort)
+  FC:=ifort
+  MOD_FLAG:=-module
+  WHOLE_FILE:=
+else ifeq ($(COMPILER),intel)
+  FC:=ifort
+  MOD_FLAG:=-module
+  WHOLE_FILE:=
+else ifeq ($(COMPILER),INTEL)
+  FC:=ifort
+  MOD_FLAG:=-module
+  WHOLE_FILE:=
+endif
+
+##########################################
+## Select mode
+##########################################
+ifeq ($(MODE),RELEASE)
+     ifeq ($(FC),gfortran)
+         FFLAGS+=$(GNU_RELEASE_FLAGS)
+     else ifeq ($(FC),ifort)
+         FFLAGS+=$(INTEL_RELEASE_FLAGS)
+     endif
+else ifeq ($(MODE),DEBUG)
+     ifeq ($(FC),gfortran)
+         FFLAGS+=$(GNU_DEBUG_FLAGS)
+     else ifeq ($(FC),ifort)
+         FFLAGS+=$(INTEL_DEBUG_FLAGS)
+     endif
+endif
+
+ifeq ($(COMM),PARALLEL)
+    FFLAGS+=-fopenmp
+endif
 
 
-# ------------- INVOKE NSLITE3D Objects --------------
-include $(NSLITE3D_PATH)/Makefile.nslite3d
+##############################################################
+##	Get objects 
+##############################################################
 
-OBJS_CASE_EXEC = $(foreach obj,$(OBJS_CASE),./build/$(obj).o) 
 
-
-# ---------- Remove the replaced files ---------------------
-
-OBJS_NSLITE3D_Updated = $(filter-out $(OBJS_REMOVE),$(OBJS_NSLITE3D))
-OBJS_NSLITE3D_EXEC_Updated = $(foreach obj,$(OBJS_NSLITE3D_Updated),$(NSLITE3D_PATH)/build/$(obj).o)
-
-# -----------------------------------------------------------
-
-OBJS = $(OBJS_FTOBJLIB) $(OBJS_NSLITE3D_Updated) $(OBJS_CASE)
-OBJS_EXEC = $(OBJS_FTOBJLIB_EXEC) $(OBJS_NSLITE3D_EXEC_Updated) $(OBJS_CASE_EXEC)
-	
 .DEFAULT_GOAL := all
 
-all: createFolders create_$(EXECUTABLE)
+all: $(TARGET)
+
+$(TARGET): ./ProblemFile.o
+	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG) $(FFLAGS) $(INCLUDE) ./ProblemFile.o -L$(HOME_DIR)/lib -lftobject
 	
 # ---------- Executable macro -------------------
-create_$(EXECUTABLE): $(OBJS) 
-	$(FC) $(FFLAGS) -o $(BIN_DIR)/$(EXECUTABLE) $(INCLUDE) \
-	$(OBJS_EXEC) $(LIBS)\
+./ProblemFile.o: ./ProblemFile.f90
+	$(FC) -fPIC -shared $(FFLAGS) $(INCLUDE) -c ./ProblemFile.f90 -o $@
 
-createFolders:
-	mkdir -p $(BUILD_DIR)
-	mkdir -p $(INC_DIR)
-	mkdir -p $(BIN_DIR)
-
-# ---------- Default compilation rule -----------
-$(OBJS_CASE): %: $(SRC_DIR)/%.f90
-	$(FC) $(FFLAGS) $(INCLUDE) $(MOD_FLAG)$(INC_DIR) -c $< -o $(BUILD_DIR)/$@.o
+clean: FORCE
+	rm -f ./ProblemFile.o ./*.mod
+	rm -f ./*__genmod.f90
 	
+allclean: FORCE clean
+	rm -f ./libproblemfile.so
 
-
-clean:
-	@rm -f $(FTObject_PATH)/build/*
-	@rm -f $(FTObject_PATH)/include/*
-	@rm -f $(NSLITE3D_PATH)/build/*
-	@rm -f $(NSLITE3D_PATH)/include/*
-	@rm -f ./include/*.mod ./build/*.o
-	@rm -f -r $(BIN_DIR)/*.dSYM
-	
-allclean: clean
-	@rm -f $(BIN_DIR)/$(EXECUTABLE)
-
+FORCE:

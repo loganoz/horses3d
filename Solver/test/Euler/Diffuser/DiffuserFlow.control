@@ -1,8 +1,8 @@
 Flow equations        = "Euler"
 mesh file name        = "../../TestMeshes/DiffuserMesh.mesh"
-plot file name        = "PlotFiles/diffuser.tec"
-restart file name     = "RestartFiles/diffuser.rst"
-save file name        = "RestartFiles/diffuser_saved.rst"
+plot file name        = "RESULTS/diffuser.tec"
+restart file name     = "RESULTS/diffuser.rst"
+save file name        = "RESULTS/diffuser_saved.rst"
 restart               = .false.
 Polynomial order      = 5
 Number of time steps  = 10000
@@ -18,7 +18,7 @@ Number of boundaries  = 6
 wall1 0.0 freeslipwall
 wall2 0.0 freeslipwall
 wall5 0.0 freeslipwall
-outflow4 0.0 Outflow
-inflow6 0.0 Inflow
+outflow4 0.0 User-defined
+inflow6 0.0 User-defined
 wall3 0.0 freeslipwall
 riemann solver        = rusanov

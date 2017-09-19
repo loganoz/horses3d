@@ -65,7 +65,7 @@
          USE MeshTypes
          USE ManufacturedSolutions
       
-         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(10) :: implementedBCNames = &
+         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(11) :: implementedBCNames = &
                ["freeslipwall        ", &
                "noslipadiabaticwall ",  &
                "noslipisothermalwall",  &
@@ -74,6 +74,7 @@
                "outflowspecifyp     ",  &
                "periodic-           ",  &
                "periodic+           ",  &
+               "user-defined        ",  &
                "manufacturedsol     ",  &
                "msoutflowspecifyp   "]
                
@@ -85,6 +86,7 @@
          INTEGER, PARAMETER :: OUTFLOW_SPECIFY_P_INDEX       = 6
          INTEGER, PARAMETER :: PERIODIC_PLUS_INDEX           = 7
          INTEGER, PARAMETER :: PERIODIC_MINUS_INDEX          = 8
+         INTEGER, PARAMETER :: USER_DEFINED_INDEX            = 9
 !
 !     ========         
       CONTAINS
@@ -549,6 +551,31 @@
       end associate
 
       END SUBROUTINE ExternalPressureState
+
+      subroutine UserDefinedState(x, t, nHat, Q)
+         implicit none
+         real(kind=RP)  :: x(NDIM)
+         real(kind=RP)  :: t
+         real(kind=RP)  :: nHat(NDIM)
+         real(kind=RP)  :: Q(N_EQN)
+         interface
+            subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
+               use SMConstants
+               use PhysicsStorage
+               implicit none
+               real(kind=RP)  :: x(NDIM)
+               real(kind=RP)  :: t
+               real(kind=RP)  :: nHat(NDIM)
+               real(kind=RP)  :: Q(N_EQN)
+               type(Thermodynamics_t), intent(in)  :: thermodynamics_
+               type(Dimensionless_t),  intent(in)  :: dimensionless_
+               type(RefValues_t),      intent(in)  :: refValues_
+            end subroutine UserDefinedState1
+         end interface
+
+         call UserDefinedState1(x, t, nHat, Q, thermodynamics, dimensionless, refValues)
+
+      end subroutine UserDefinedState
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -600,7 +627,7 @@
       ELSE IF ( boundaryType == "MSOutflowSpecifyP" )     THEN 
          pExt =  ManufacturedSolP(x)
          CALL ExternalPressureState ( x, t, nHat, Q, pExt )
-      ELSE IF ( boundaryType == "User-defined" ) THEN
+      ELSE IF ( boundaryType == "user-defined" ) THEN
          call UserDefinedState(x, t, nHat, Q)
       ELSE 
          CALL UniformFlowState( x, t, Q ) 

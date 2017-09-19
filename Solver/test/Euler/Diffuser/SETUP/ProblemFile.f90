@@ -132,7 +132,7 @@
                   USE Physics
                   IMPLICIT NONE  
                   REAL(KIND=RP) :: x(3)
-                  REAL(KIND=RP) :: Q(*)
+                  REAL(KIND=RP) :: Q(N_EQN)
                   LOGICAL       :: success
                   type(Thermodynamics_t), intent(in)  :: thermodynamics_
                   type(Dimensionless_t),  intent(in)  :: dimensionless_
@@ -154,6 +154,52 @@
             END DO 
             
          END SUBROUTINE UserDefinedInitialCondition
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+         subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
+!
+!           -------------------------------------------------
+!           Used to define an user defined boundary condition
+!           -------------------------------------------------
+!
+            use SMConstants
+            use PhysicsStorage
+            implicit none
+            real(kind=RP), intent(in)     :: x(NDIM)
+            real(kind=RP), intent(in)     :: t
+            real(kind=RP), intent(in)     :: nHat(NDIM)
+            real(kind=RP), intent(inout)  :: Q(N_EQN)
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
+            interface
+               SUBROUTINE pointSourceFlowSolution(x, Q, success, thermodynamics_, &
+                                                                 dimensionless_, &
+                                                                     refValues_  )
+                  USE UserDefinedDataStorage
+                  USE SMConstants
+                  USE Physics
+                  IMPLICIT NONE  
+                  REAL(KIND=RP) :: x(3)
+                  REAL(KIND=RP) :: Q(N_EQN)
+                  LOGICAL       :: success
+                  type(Thermodynamics_t), intent(in)  :: thermodynamics_
+                  type(Dimensionless_t),  intent(in)  :: dimensionless_
+                  type(RefValues_t),      intent(in)  :: refValues_
+               end subroutine pointSourceFlowSolution
+            end interface
+!
+!           ---------------
+!           Local variables            
+!           ---------------
+!
+            logical  :: success
+
+            call pointSourceFlowSolution(x, Q, success, thermodynamics_, dimensionless_, refValues_)
+
+         end subroutine UserDefinedState1
+
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -214,7 +260,7 @@
                   USE Physics
                   IMPLICIT NONE  
                   REAL(KIND=RP) :: x(3)
-                  REAL(KIND=RP) :: Q(*)
+                  REAL(KIND=RP) :: Q(N_EQN)
                   LOGICAL       :: success
                   type(Thermodynamics_t), intent(in)  :: thermodynamics_
                   type(Dimensionless_t),  intent(in)  :: dimensionless_
@@ -320,7 +366,7 @@
 !           ---------
 !
       REAL(KIND=RP) :: x(3)
-      REAL(KIND=RP) :: Q(*)
+      REAL(KIND=RP) :: Q(N_EQN)
       LOGICAL       :: success
       type(Thermodynamics_t), intent(in)  :: thermodynamics_
       type(Dimensionless_t),  intent(in)  :: dimensionless_

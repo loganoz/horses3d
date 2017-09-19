@@ -40,11 +40,17 @@ interface
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
          END SUBROUTINE UserDefinedFinalSetup
-         SUBROUTINE UserDefinedFinalize(sem, time)
+         SUBROUTINE UserDefinedFinalize(sem, time, thermodynamics_, &
+                                                    dimensionless_, &
+                                                        refValues_   )
             USE DGSEMClass
+            use PhysicsStorage
             IMPLICIT NONE
             CLASS(DGSem)  :: sem
             REAL(KIND=RP) :: time
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
          END SUBROUTINE UserDefinedFinalize
       SUBROUTINE UserDefinedTermination
          IMPLICIT NONE  
@@ -199,7 +205,7 @@ end interface
 !     Let the user perform actions on the computed solution
 !     -----------------------------------------------------
 !
-      CALL UserDefinedFinalize(sem, timeIntegrator % time)
+      CALL UserDefinedFinalize(sem, timeIntegrator % time, thermodynamics, dimensionless, refValues)
 !
 !     ------------------------------------
 !     Save the results to the restart file

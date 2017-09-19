@@ -110,7 +110,7 @@
             
          END SUBROUTINE UserDefinedInitialCondition
 
-         subroutine UserDefinedState(x, t, nHat, Q)
+         subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
 !
 !           -------------------------------------------------
 !           Used to define an user defined boundary condition
@@ -123,7 +123,10 @@
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
             real(kind=RP), intent(inout)  :: Q(N_EQN)
-         end subroutine UserDefinedState
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
+         end subroutine UserDefinedState1
 
          subroutine UserDefinedNeumann(x, t, nHat, U_x, U_y, U_z)
 !
@@ -161,7 +164,9 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalize(sem, time)
+         SUBROUTINE UserDefinedFinalize(sem, time, thermodynamics_, &
+                                                    dimensionless_, &
+                                                        refValues_   )
 !
 !           --------------------------------------------------------
 !           Called after the solution computed to allow, for example
@@ -169,15 +174,14 @@
 !           --------------------------------------------------------
 !
             USE DGSEMClass
+            use PhysicsStorage
             IMPLICIT NONE
-!
-!           ---------
-!           Arguments
-!           ---------
-!
             CLASS(DGSem)  :: sem
             REAL(KIND=RP) :: time
-            
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
+
          END SUBROUTINE UserDefinedFinalize
 !
 !//////////////////////////////////////////////////////////////////////// 
