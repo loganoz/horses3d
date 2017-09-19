@@ -15,7 +15,7 @@
 ##				./SETUP/libproblemfile.so)
 ##
 #####################################################################
-HOME_DIR=/home/juan/OwnCloud/Research/DGSEM/Codes/FORTRAN/HORSES3D/Solver
+HOME_DIR=@HORSES_HOME_DIR
 ########################################
 # 1.- User defined parameters
 ########################################

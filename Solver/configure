@@ -11,13 +11,15 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./NavierStokes/TaylorGreen \
 	    ./NavierStokes/ManufacturedSolutions"
 
-printf 'NSLITE3D_PATH = '$PWD'\nFTObject_PATH = '$PWD'/ftobjectlibrary' > ./test/make.inc
+cp -vf ../utils/ProblemFile/Makefile ./test/Makefile.template
+sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Makefile.template
 
 for subdir in $TEST_CASES; do
 	mkdir -p ./test/$subdir/SETUP
 	mkdir -p ./test/$subdir/RESULTS
 	cp -v ./test/make.inc ./test/$subdir/make.inc
-	cp -v ./test/Makefile.template ./test/$subdir/SETUP/Makefile
+	cp -v ./test/.Makefile.template ./test/$subdir/SETUP/Makefile
+	ln -fsv $PWD/bin/HORSES3D ./test/$subdir
 done
 
 

@@ -252,6 +252,9 @@ clean: FORCE horseslibclean
 	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod* $(HOME_DIR)/lib/*.a
 	@rm -f $(HOME_DIR)/build/libproblemfile.so
 
+allclean: FORCE clean
+	@rm -f $(HOME_DIR)/$(PROG)
+
 horseslibclean: FORCE
 	@for subdir in $(HORSES_LIBS); do \
 	 echo "clean $$subdir"; \
