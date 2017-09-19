@@ -1,8 +1,8 @@
 Flow equations        = "NS"
 mesh file name        = "../../TestMeshes/FlatPlate3D.mesh"
-plot file name        = "PlotFiles/FlatPlate3D.tec"
-restart file name     = "RestartFiles/FlatPlate3D.rst"
-save file name        = "RestartFiles/FlatPlate3D_saved.rst"
+plot file name        = "RESULTS/FlatPlate3D.tec"
+restart file name     = "RESULTS/FlatPlate3D.rst"
+save file name        = "RESULTS/FlatPlate3D_saved.rst"
 restart               = .false.
 Polynomial order      = 3
 Number of time steps  = 100
