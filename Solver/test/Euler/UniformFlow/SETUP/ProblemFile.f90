@@ -13,7 +13,7 @@
 !
 !      The procedures, *even if empty* that must be defined are
 !
-!      UserDefinedStartup
+!      UserDefinedSetUp
 !      UserDefinedInitialCondition(sem)
 !      UserDefinedPeriodicOperation(sem)
 !      UserDefinedFinalize(sem)
@@ -21,10 +21,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      MODULE UserDefinedFunctions
-      
-      CONTAINS 
-         SUBROUTINE UserDefinedStartup  
+         SUBROUTINE UserDefinedStartup
 !
 !        --------------------------------
 !        Called before any other routines
@@ -35,7 +32,9 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalSetup(sem, controlVariables)
+         SUBROUTINE UserDefinedFinalSetup(sem , thermodynamics_, &
+                                                 dimensionless_, &
+                                                     refValues_ )
 !
 !           ----------------------------------------------------------------------
 !           Called after the mesh is read in to allow mesh related initializations
@@ -43,42 +42,68 @@
 !           ----------------------------------------------------------------------
 !
             USE DGSEMClass
-            USE FTValueDictionaryClass
+            use PhysicsStorage
             IMPLICIT NONE
-            CLASS(DGSem)            :: sem
-            TYPE(FTValueDictionary) :: controlVariables
+            CLASS(DGSem)             :: sem
+            type(Thermodynamics_t), intent(in)  :: thermodynamics_
+            type(Dimensionless_t),  intent(in)  :: dimensionless_
+            type(RefValues_t),      intent(in)  :: refValues_
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(sem , controlVariables)
+         SUBROUTINE UserDefinedInitialCondition(sem, thermodynamics_, &
+                                                      dimensionless_, &
+                                                          refValues_  )
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
+!              - By default it sets an uniform initial
+!                 condition.
 !           ------------------------------------------------
 !
             USE SMConstants
-            USE DGSEMClass
-            USE PhysicsStorage
-            USE BoundaryConditionFunctions
-            IMPLICIT NONE
-            
-            TYPE(DGSem)              :: sem
-            class(FTValueDictionary) :: controlVariables
-            EXTERNAL                 :: initialStateSubroutine
-                     
-            INTEGER     :: i, j, k, eID
-            
-            DO eID = 1, SIZE(sem % mesh % elements)
-               DO k = 0, sem % mesh % elements(eID) % Nxyz(3)
-                  DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
-                     DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
-                        CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
-                                               sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )
-                                                     
-                     END DO
-                  END DO
-               END DO 
+            use PhysicsStorage
+            use DGSEMClass
+            implicit none
+            class(DGSEM)                        :: sem
+            type(Thermodynamics_t), intent(in)  :: thermodynamics_
+            type(Dimensionless_t),  intent(in)  :: dimensionless_
+            type(RefValues_t),      intent(in)  :: refValues_
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            integer        :: eID, i, j, k
+            real(kind=RP)  :: qq, u, v, w, p
+            real(kind=RP)  :: Q(N_EQN), phi, theta
+
+            associate ( gammaM2 => dimensionless_ % gammaM2, &
+                        gamma => thermodynamics_ % gamma )
+            theta = refValues_ % AOATheta*(PI/180.0_RP)
+            phi   = refValues_ % AOAPhi*(PI/180.0_RP)
+      
+            do eID = 1, sem % mesh % no_of_elements
+               associate( Nx => sem % mesh % elements(eID) % Nxyz(1), &
+                          Ny => sem % mesh % elements(eID) % Nxyz(2), &
+                          Nz => sem % mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  qq = 1.0_RP
+                  u  = qq*cos(theta)*COS(phi)
+                  v  = qq*sin(theta)*COS(phi)
+                  w  = qq*SIN(phi)
+      
+                  Q(1) = 1.0_RP
+                  p    = 1.0_RP/(gammaM2)
+                  Q(2) = Q(1)*u
+                  Q(3) = Q(1)*v
+                  Q(4) = Q(1)*w
+                  Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
+
+                  sem % mesh % elements(eID) % Q(i,j,k,:) = Q 
+               end do;        end do;        end do
+               end associate
 !
 !              -------------------------------------------------
 !              Perturb mean flow in the expectation that it will
@@ -86,10 +111,48 @@
 !              -------------------------------------------------
 !
                sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)
-               
-            END DO 
+
+            end do
+
+            end associate
             
          END SUBROUTINE UserDefinedInitialCondition
+
+         subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
+!
+!           -------------------------------------------------
+!           Used to define an user defined boundary condition
+!           -------------------------------------------------
+!
+            use SMConstants
+            use PhysicsStorage
+            implicit none
+            real(kind=RP), intent(in)     :: x(NDIM)
+            real(kind=RP), intent(in)     :: t
+            real(kind=RP), intent(in)     :: nHat(NDIM)
+            real(kind=RP), intent(inout)  :: Q(N_EQN)
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
+         end subroutine UserDefinedState1
+
+         subroutine UserDefinedNeumann(x, t, nHat, U_x, U_y, U_z)
+!
+!           --------------------------------------------------------
+!           Used to define a Neumann user defined boundary condition
+!           --------------------------------------------------------
+!
+            use SMConstants
+            use PhysicsStorage
+            implicit none
+            real(kind=RP), intent(in)     :: x(NDIM)
+            real(kind=RP), intent(in)     :: t
+            real(kind=RP), intent(in)     :: nHat(NDIM)
+            real(kind=RP), intent(inout)  :: U_x(N_GRAD_EQN)
+            real(kind=RP), intent(inout)  :: U_y(N_GRAD_EQN)
+            real(kind=RP), intent(inout)  :: U_z(N_GRAD_EQN)
+         end subroutine UserDefinedNeumann
+
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -109,9 +172,9 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalize(sem, time)
-            USE BoundaryConditionFunctions
-            USE FTAssertions
+         SUBROUTINE UserDefinedFinalize(sem, time, thermodynamics_, &
+                                                    dimensionless_, &
+                                                        refValues_   )
 !
 !           --------------------------------------------------------
 !           Called after the solution computed to allow, for example
@@ -119,14 +182,14 @@
 !           --------------------------------------------------------
 !
             USE DGSEMClass
+            USE FTAssertions
+            use PhysicsStorage
             IMPLICIT NONE
-!
-!           ---------
-!           Arguments
-!           ---------
-!
             CLASS(DGSem)  :: sem
             REAL(KIND=RP) :: time
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
 !
 !           ---------------
 !           Local variables
@@ -138,6 +201,7 @@
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
             INTEGER                            :: i, j, k, N
+            real(kind=RP)                      :: qq, u, v, w, p, Q(N_EQN), theta, phi
             TYPE(FTAssertionsManager), POINTER :: sharedManager
 !
 !           -----------------------------------------------------------------------
@@ -166,17 +230,35 @@
             ALLOCATE(QExpected(0:N,0:N,0:N,N_EQN))
             
             maxError = 0.0_RP
-            DO eID = 1, SIZE(sem % mesh % elements)
-               DO k = 0, sem % mesh % elements(eID) % Nxyz(3)
-                  DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
-                     DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
-                        CALL UniformFlowState( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
-                                               QExpected(i,j,k,1:N_EQN) )
-                     END DO
-                  END DO
-               END DO
+            associate ( gammaM2 => dimensionless_ % gammaM2, &
+                        gamma => thermodynamics_ % gamma )
+            theta = refValues_ % AOATheta*(PI/180.0_RP)
+            phi   = refValues_ % AOAPhi*(PI/180.0_RP)
+      
+            do eID = 1, sem % mesh % no_of_elements
+               associate( Nx => sem % mesh % elements(eID) % Nxyz(1), &
+                          Ny => sem % mesh % elements(eID) % Nxyz(2), &
+                          Nz => sem % mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  qq = 1.0_RP
+                  u  = qq*cos(theta)*COS(phi)
+                  v  = qq*sin(theta)*COS(phi)
+                  w  = qq*SIN(phi)
+      
+                  Q(1) = 1.0_RP
+                  p    = 1.0_RP/(gammaM2)
+                  Q(2) = Q(1)*u
+                  Q(3) = Q(1)*v
+                  Q(4) = Q(1)*w
+                  Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
+
+                  QExpected(i,j,k,:) = Q 
+               end do;        end do;        end do
+               end associate
                maxError = MAXVAL(ABS(QExpected - sem % mesh % elements(eID) % Q))
-            END DO
+            end do
+            end associate
+
             CALL FTAssertEqual(expectedValue = 0.0_RP, &
                                actualValue   = maxError, &
                                tol           = 1.d-10, &
@@ -212,10 +294,3 @@
          IMPLICIT NONE  
       END SUBROUTINE UserDefinedTermination
       
-      END MODULE UserDefinedFunctions
-      
-!
-!=====================================================================================================
-!=====================================================================================================
-!
-!
