@@ -7,6 +7,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./Euler/UniformFlowPETSc \
 	    ./Euler/JFNK \
             ./NavierStokes/Cylinder \
+            ./NavierStokes/CylinderDifferentOrders \
 	    ./NavierStokes/FlatPlate \
 	    ./NavierStokes/TaylorGreen \
 	    ./NavierStokes/ManufacturedSolutions"
