@@ -12,6 +12,14 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./NavierStokes/TaylorGreen \
 	    ./NavierStokes/ManufacturedSolutions"
 
+COMPONENTS_TEST_CASES="FacePatches \
+	 	       Gradients \
+ 		       HexMesh \
+		       HexMappings \
+		       MappedGeometry \
+		       NodalStorage"
+		       
+
 cp -vf ../utils/ProblemFile/Makefile ./test/Makefile.template
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Makefile.template
 
@@ -25,3 +33,8 @@ for subdir in $TEST_CASES; do
 done
 
 
+for subdir in $COMPONENTS_TEST_CASES; do
+	cp -v ./test/Components/Makefile.components ./test/Components/$subdir/Makefile
+	sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/$subdir/Makefile
+	sed -i -e "s#@PROG_NAME#$subdir#g" ./test/Components/$subdir/Makefile
+done

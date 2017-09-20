@@ -21,12 +21,12 @@ PROG=./bin/HORSES3D
 ########################################
 # 2.- User defined paths
 ########################################
-HOME_DIR=$(PWD)
+HOME_DIR?=$(PWD)
 LIBS_HOME=$(HOME_DIR)
 INCLUDE=-I$(HOME_DIR)/include -I$(HOME_DIR)/src/Foundation
 LIBS = 
 MACROS = 
--include make.inc
+-include $(HOME_DIR)/make.inc
 
 ########################################
 # 3.- User defined compilation flags 
@@ -103,13 +103,12 @@ OBJS_HORSES=  SMConstants \
 		HORSES3DMain 
 
 OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),$(HOME_DIR)/build/$(obj).o)
-LIBS_HORSES_EXEC=$(foreach obj,$(HORSES_LIBS),$(HOME_DIR)/lib/lib$(obj).a)
 
 
 ##########################################
 ##	Include dependencies 		##
 ##########################################
--include make.dep
+-include $(HOME_DIR)/make.deps
 
 ##########################################
 ## Select platform
@@ -195,7 +194,7 @@ endif
 ##  	Select HORSES libraries 	##
 ##########################################
 HORSES_LIBS=ftobject
-HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS),./lib/lib$(obj).a)
+HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS),$(HOME_DIR)/lib/lib$(obj).a)
 LIBFLAGS=  FC='$(FC)' \
 	   FFLAGS='$(FFLAGS)' \
            LIBS_HOME='$(LIBS_HOME)' \
@@ -209,7 +208,7 @@ LIBFLAGS=  FC='$(FC)' \
 ##		COMPILATION RULES 			##
 ##########################################################
 
-.DEFAULT_GOAL= all
+.DEFAULT_GOAL := all
 
 all: header mkdirs horseslibs $(PROG)
 
