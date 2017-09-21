@@ -1,0 +1,46 @@
+#!/bin/bash
+######################################################################
+##	This script configures the test cases:
+##		-> Copies Makefiles with the solver absolute path
+##		-> Generates the required folders.
+##		-> Generates links to the solver.
+######################################################################
+
+TEST_CASES="./Euler/BoxAroundCircle \
+	    ./Euler/Diffuser \
+	    ./Euler/PeriodicFlow \
+	    ./Euler/UniformFlow \
+	    ./Euler/UniformFlowPETSc \
+	    ./Euler/JFNK \
+            ./NavierStokes/Cylinder \
+            ./NavierStokes/CylinderDifferentOrders \
+	    ./NavierStokes/FlatPlate \
+	    ./NavierStokes/TaylorGreen \
+	    ./NavierStokes/ManufacturedSolutions"
+
+COMPONENTS_TEST_CASES="FacePatches \
+	 	       Gradients \
+ 		       HexMesh \
+		       HexMappings \
+		       MappedGeometry \
+		       NodalStorage"
+		       
+
+cp -vf ../utils/ProblemFile/Makefile ./test/Makefile.template
+sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Makefile.template
+
+for subdir in $TEST_CASES; do
+	mkdir -p ./test/$subdir/SETUP
+	mkdir -p ./test/$subdir/RESULTS
+	cp -v ./test/make.inc ./test/$subdir/SETUP/make.inc
+	cp -v ./test/Makefile.template ./test/$subdir/SETUP/Makefile
+	cp -v ./src/Generic/ProblemFile.f90 ./test/$subdir/SETUP/ProblemFileTemplate.f90
+	ln -fsv $PWD/bin/HORSES3D ./test/$subdir
+done
+
+
+for subdir in $COMPONENTS_TEST_CASES; do
+	cp -v ./test/Components/Makefile.components ./test/Components/$subdir/Makefile
+	sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/$subdir/Makefile
+	sed -i -e "s#@PROG_NAME#$subdir#g" ./test/Components/$subdir/Makefile
+done

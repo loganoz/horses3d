@@ -173,6 +173,7 @@
 !           error tests to be performed
 !           --------------------------------------------------------
 !
+            use FTAssertions
             USE DGSEMClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -181,6 +182,20 @@
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            CHARACTER(LEN=29)                  :: testName           = "Box Around Cyrcle test"
+            REAL(KIND=RP)                      :: maxError
+            REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
+            INTEGER                            :: eID
+            INTEGER                            :: i, j, k, N
+            TYPE(FTAssertionsManager), POINTER :: sharedManager
+            LOGICAL                            :: success
+
+            write(6,*) "This test case has no expected solution yet"
 
          END SUBROUTINE UserDefinedFinalize
 !

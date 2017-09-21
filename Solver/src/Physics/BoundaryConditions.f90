@@ -65,7 +65,7 @@
          USE MeshTypes
          USE ManufacturedSolutions
       
-         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(10) :: implementedBCNames = &
+         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(11) :: implementedBCNames = &
                ["freeslipwall        ", &
                "noslipadiabaticwall ",  &
                "noslipisothermalwall",  &
@@ -74,6 +74,7 @@
                "outflowspecifyp     ",  &
                "periodic-           ",  &
                "periodic+           ",  &
+               "user-defined        ",  &
                "manufacturedsol     ",  &
                "msoutflowspecifyp   "]
                
@@ -85,6 +86,7 @@
          INTEGER, PARAMETER :: OUTFLOW_SPECIFY_P_INDEX       = 6
          INTEGER, PARAMETER :: PERIODIC_PLUS_INDEX           = 7
          INTEGER, PARAMETER :: PERIODIC_MINUS_INDEX          = 8
+         INTEGER, PARAMETER :: USER_DEFINED_INDEX            = 9
 !
 !     ========         
       CONTAINS
@@ -114,7 +116,7 @@
          ! Choose different temperatures according to boundary name, if desired...
          ! For now, just use the UninformFlow value.
          
-         p    = 1.0_RP/(gammaM2)
+         p    = 1.0_RP/(dimensionless % gammaM2)
       
       END FUNCTION ExternalPressure
 !
@@ -306,12 +308,17 @@
 !     called WallTemperature
 !     -----------------------------------------------
 !
+      associate ( gammaMinus1 => thermodynamics % gammaMinus1, &
+                  gammaM2 => dimensionless % gammaM2 )
+
          wallTemp = wallTemperature(x) !Swap this out later with BC version
          Q(1) =  Q(1)
          Q(2) = -Q(2)
          Q(3) = -Q(3)
          Q(4) = -Q(4)
          Q(5) =  Q(1)*wallTemp/gammaMinus1/gammaM2
+
+      end associate
 
       END SUBROUTINE NoSlipIsothermalWallState
 !
@@ -342,8 +349,10 @@
       REAL(KIND=RP) :: theta, phi, qq
       REAL(KIND=RP) :: u, v, w, p
       
-      theta = AOATheta*(PI/180.0_RP)
-      phi   = AOAPhi*(PI/180.0_RP)
+      associate ( gammaM2 => dimensionless % gammaM2, &
+                  gamma => thermodynamics % gamma )
+      theta = refValues % AOATheta*(PI/180.0_RP)
+      phi   = refValues % AOAPhi*(PI/180.0_RP)
       
       qq = 1.0_RP
       u  = qq*cos(theta)*COS(phi)
@@ -356,6 +365,8 @@
       Q(3) = Q(1)*v
       Q(4) = Q(1)*w
       Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
+   
+      end associate
       
       END SUBROUTINE UniformFlowState
 !
@@ -404,12 +415,16 @@
       
       REAL(KIND=RP) :: p
       
+      associate ( gammaM2 => dimensionless % gammaM2, &
+                  gamma => thermodynamics % gamma )
       Q(1) = 1.0_RP
       p    = 1.0_RP/(gammaM2)
       Q(2) = 0._RP
       Q(3) = 0._RP
       Q(4) = 0._RP
       Q(5) = p/(gamma - 1._RP)
+
+      end associate
       
       END SUBROUTINE ZeroFlowState
 !
@@ -492,6 +507,9 @@
       REAL(KIND=RP) :: qDotN, qTanx, qTany, qTanz, p, a, a2
       REAL(KIND=RP) :: rPlus, entropyConstant, u, v, w, rho, normalMachNo
 !      
+      associate ( gammaMinus1 => thermodynamics % gammaMinus1, &
+                  gamma => thermodynamics % gamma )
+      
       qDotN = (nHat(1)*Q(2) + nHat(2)*Q(3) + nHat(3)*Q(4))/Q(1)
       qTanx = Q(2)/Q(1) - qDotN*nHat(1)
       qTany = Q(3)/Q(1) - qDotN*nHat(2)
@@ -530,7 +548,34 @@
         
       END IF
 
+      end associate
+
       END SUBROUTINE ExternalPressureState
+
+      subroutine UserDefinedState(x, t, nHat, Q)
+         implicit none
+         real(kind=RP)  :: x(NDIM)
+         real(kind=RP)  :: t
+         real(kind=RP)  :: nHat(NDIM)
+         real(kind=RP)  :: Q(N_EQN)
+         interface
+            subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
+               use SMConstants
+               use PhysicsStorage
+               implicit none
+               real(kind=RP)  :: x(NDIM)
+               real(kind=RP)  :: t
+               real(kind=RP)  :: nHat(NDIM)
+               real(kind=RP)  :: Q(N_EQN)
+               type(Thermodynamics_t), intent(in)  :: thermodynamics_
+               type(Dimensionless_t),  intent(in)  :: dimensionless_
+               type(RefValues_t),      intent(in)  :: refValues_
+            end subroutine UserDefinedState1
+         end interface
+
+         call UserDefinedState1(x, t, nHat, Q, thermodynamics, dimensionless, refValues)
+
+      end subroutine UserDefinedState
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -582,6 +627,8 @@
       ELSE IF ( boundaryType == "MSOutflowSpecifyP" )     THEN 
          pExt =  ManufacturedSolP(x)
          CALL ExternalPressureState ( x, t, nHat, Q, pExt )
+      ELSE IF ( boundaryType == "user-defined" ) THEN
+         call UserDefinedState(x, t, nHat, Q)
       ELSE 
          CALL UniformFlowState( x, t, Q ) 
       END IF
@@ -628,6 +675,8 @@
          CALL ManufacturedSolutionDeriv( x, t, nHat, U_x, U_y, U_z )
       ELSE IF ( boundaryType == "MSOutflowSpecifyP" )     THEN 
          CALL ManufacturedSolutionDeriv( x, t, nHat, U_x, U_y, U_z )
+      ELSE IF ( boundaryType == "User-defined" ) THEN
+         CALL UserDefinedNeumann(x, t, nHat, U_x, U_y, U_z)
       ELSE
          CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
       END IF

@@ -1,0 +1,4 @@
+From 30f1c61e961d4fe1976970333b9203e7a7f135af Mon Sep 17 00:00:00 2001
+From: David Kopriva <kopriva@math.fsu.edu>
+Date: Thu, 23 Mar 2017 13:48:38 -0400
+Subject: [PATCH] Get rid of generic releases in FTExceptionClass.

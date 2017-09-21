@@ -18,6 +18,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !    
+#include "Includes.h"
       Module PhysicsKeywordsModule
          IMPLICIT NONE 
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
@@ -43,6 +44,7 @@
 !    ******
 !
      USE SMConstants
+     use FluidData
      
      IMPLICIT NONE
      SAVE
@@ -79,50 +81,6 @@
 !
      INTEGER, PARAMETER  :: IGU = 1 , IGV = 2 , IGW = 3 , IGT = 4
 !
-!    ----------------------------------------
-!!   The free-stream or reference mach number
-!    ----------------------------------------
-!
-     REAL( KIND=RP ) :: mach 
-!
-!    ----------------------------------------
-!!   The Reynolds number
-!    ----------------------------------------
-!
-     REAL( KIND=RP ) :: RE 
-!
-!    ----------------------------------------
-!!   The free-stream Angle of Attack
-!    ----------------------------------------
-!
-     REAL( KIND=RP ) :: AOATheta, AOAPhi
-!
-!    ----------------------------------------
-!!   The Prandtl number
-!    ----------------------------------------
-!
-     REAL( KIND=RP ) :: PR = 0.72_RP
-!
-!    ----------------------------------------
-!!   The free-stream or reference temperature
-!!   with default in R.
-!    ----------------------------------------
-!
-     REAL( KIND=RP ) :: TRef 
-!
-!    ----------------------------------------
-!!   The free-stream or reference pressure
-!!   with default in Pa.
-!    ----------------------------------------
-!
-     REAL( KIND=RP ) :: pRef 
-!
-!    ----------------------------------------
-!!   The length in the Reynolds number
-!    ----------------------------------------
-!
-     REAL( KIND=RP ) :: reynoldsLength 
-!
 !    --------------------------------------------
 !!   The temperature scale in the Sutherland law:
 !!   198.6 for temperatures in R, 110.3 for
@@ -136,27 +94,7 @@
 !    ------------------------------------------------
 !
      REAL( KIND=RP ) :: TRatio 
-!
-!    -------------
-!!   The gas gamma
-!    -------------
-!
-     REAL( KIND=RP ) :: gamma
-!
-!    ----------------------
-!!   The gas state constant
-!    ----------------------
-!
-     REAL( KIND=RP ) :: Rgas
-!
 !    ----------------------------------
-!!   Other constants derived from gamma
-!    ----------------------------------
-!
-     REAL( KIND=RP ) :: sqrtGamma          , gammaMinus1      , gammaMinus1Div2
-     REAL( KIND=RP ) :: gammaPlus1Div2     , gammaMinus1Div2sg, gammaMinus1Div2g
-     REAL( KIND=RP ) :: InvGammaPlus1Div2  , InvGammaMinus1   , InvGamma
-     REAL( KIND=RP ) :: gammaDivGammaMinus1, gammaM2 !! = gamma*mach**2
 !
 !    ------------------------------------
 !    Riemann solver associated quantities
@@ -164,6 +102,25 @@
 !
      INTEGER, PARAMETER :: ROE = 0, LXF = 1, RUSANOV = 2
      INTEGER            :: riemannSolverChoice = ROE
+
+     type(Thermodynamics_t), target, private :: ThermodynamicsAir = Thermodynamics_t( &
+                                                              "Air", & ! Name
+                                    287.15_RP * 5.0_RP / 9.0_RP, & ! R
+                                                         1.4_RP, & ! gamma
+                                                   sqrt(1.4_RP), & ! sqrtGamma
+                                                1.4_RP - 1.0_RP, & ! gammaMinus1         
+                                     (1.4_RP - 1.0_RP) / 2.0_RP, & ! gammaMinus1Div2
+                                     (1.4_RP + 1.0_RP) / 2.0_RP, & ! gammaPlus1Div2
+                    (1.4_RP - 1.0_RP) / (2.0_RP * sqrt(1.4_RP)), & ! gammaMinus1Div2sg 
+                          (1.4_RP - 1.0_RP) / (2.0_RP * 1.4_RP), & ! gammaMinus1Div2g 
+                                     2.0_RP / (1.4_RP + 1.0_RP), & ! InvGammaPlus1Div2 
+                                     1.0_RP / (1.4_RP - 1.0_RP), & ! InvGammaMinus1
+                                                1.0_RP / 1.4_RP, & ! InvGamma
+                                   1.4_RP / ( 1.4_RP - 1.0_RP ), & ! gammaDivGammaMinus1
+     287.15_RP * 5.0_RP / 9.0_RP * 1.4_RP / ( 1.4_RP - 1.0_RP ), & ! cp
+              287.15_RP * 5.0_RP / 9.0_RP / ( 1.4_RP - 1.0_RP ), & ! cp
+                                                         0.0_RP  & ! Bulk viscosity ratio
+)
 !
 !    ========
      CONTAINS
@@ -184,28 +141,74 @@
 !
       REAL(KIND=RP) :: machArg, REArg, PRArg
       LOGICAL       :: flowIsNavierStokesArg
-      
-      mach               = machArg
-      RE                 = REArg
-      PR                 = PRArg
-      flowIsNavierStokes = flowIsNavierStokesArg
 !
-      TRef            = 520.0_RP
-      TScale          = 198.6_RP
-      TRatio          = TScale/TRef
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      type(Thermodynamics_t), pointer  :: thermodynamics_
+      type(RefValues_t)                :: refValues_
+      type(Dimensionless_t)            :: dimensionless_
+!
+!     ---------------------
+!     Set the gas to be air
+!     ---------------------
+!
+      thermodynamics_ => thermodynamicsAir
+!
+!     ------------------------
+!     Dimensionless quantities
+!     ------------------------
+!
+      dimensionless_ % cp = thermodynamics_ % gamma * thermodynamics_ % InvGammaMinus1
+      dimensionless_ % cv = thermodynamics_ % InvGammaMinus1
+      dimensionless_ % Mach = machArg
+      dimensionless_ % Pr   = PRArg
+      dimensionless_ % Re  = ReArg
+      flowIsNavierStokes = flowIsNavierStokesArg
+
+      if ( flowIsNavierStokes ) then
+         dimensionless_ % mu   = 1.0_RP / dimensionless_ % Re
+         dimensionless_ % kappa = 1.0_RP / ( thermodynamics_ % gammaMinus1 * &
+                                              POW2( dimensionless_ % Mach) * &
+                                      dimensionless_ % Re * dimensionless_ % Pr )
+      else
+         dimensionless_ % mu = 0.0_RP
+         dimensionless_ % kappa = 0.0_RP
+      end if
+      dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
+      dimensionless_ % invFroudeSquare = 0.0_RP
+!
+!     ----------------
+!     Reference values
+!     ----------------
+!
+      refValues_ % L  = 1.0_RP 
+      refValues_ % T  = 520.0_RP
+      refValues_ % rho = 101325.0_RP / (thermodynamics_ % R * refValues_ % T)
+      refValues_ % V =   dimensionless_ % Mach &
+                       * sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
+      refValues_ % p = refValues_ % rho * POW2( refValues_ % V )
+
+      if ( flowIsNavierStokes ) then
+         refValues_ % mu = refValues_ % rho * refValues_ % V * refValues_ % L / dimensionless_ % Re
+         refValues_ % kappa = refValues_ % mu * thermodynamics_ % cp / dimensionless_ % Pr
+
+      else
+         refValues_ % mu = 0.0_RP
+         refValues_ % kappa = 0.0_RP
       
-      gamma                = 1.4_RP
-      gammaMinus1          = gamma - 1.0_RP
-      sqrtGamma            = SQRT( gamma )
-      gammaMinus1Div2      = gammaMinus1/2.0_RP
-      gammaPlus1Div2       = ( gamma + 1.0_RP )/2.0_RP
-      gammaMinus1Div2sg    = gammaMinus1Div2 / sqrtGamma
-      gammaMinus1Div2g     = gammaMinus1Div2 / gamma
-      InvGammaPlus1Div2    = 1.0_RP / gammaPlus1Div2
-      InvGammaMinus1       = 1.0_RP / gammaMinus1
-      InvGamma             = 1.0_RP / gamma
-      gammaDivGammaMinus1  = gamma / gammaMinus1
-      gammaM2              = gamma*mach**2
+      end if
+
+      refValues_ % time = refValues_ % L / refValues_ % V
+
+      TScale          = 198.6_RP
+      TRatio          = TScale/ refValues_ % T
+
+      call setThermodynamics(thermodynamics_)
+      call setDimensionless(dimensionless_)
+      call setRefValues(refValues_)
+      
 !
       END SUBROUTINE ConstructPhysicsStorage
 !
@@ -228,6 +231,9 @@
       SUBROUTINE DescribePhysicsStorage()
          USE Headers
          IMPLICIT NONE
+         real(kind=RP)  :: pRef
+
+         pRef = thermodynamics % R * refValues % rho * refValues % T
 
          write(STD_OUT,'(/,/)')
          if (flowIsNavierStokes) then
@@ -239,36 +245,31 @@
          write(STD_OUT,'(/)')
          call SubSection_Header("Fluid data")
          write(STD_OUT,'(30X,A,A22,A10)') "->" , "Gas: " , "Air"
-         write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "State constant: " , Rgas, " I.S."
-         write(STD_OUT,'(30X,A,A22,F10.3)') "->" , "Specific heat ratio: " , gamma
+         write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "State constant: " , thermodynamics % R, " I.S."
+         write(STD_OUT,'(30X,A,A22,F10.3)') "->" , "Specific heat ratio: " , thermodynamics % gamma
 
          write(STD_OUT,'(/)')
          call SubSection_Header("Reference quantities")
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference Temperature: " , TRef, " K."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference Temperature: " , refValues % T, " K."
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference pressure: " , pRef, " Pa."
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference density: " , pRef / (Rgas * TRef) , " kg/m^3."
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference velocity: " , Mach * sqrt(gamma * Rgas * TRef) , " m/s."
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reynolds length: " , reynoldsLength , " m."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference density: " , refValues % rho , " kg/m^3."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference velocity: " , refValues % V , " m/s."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reynolds length: " , refValues % L , " m."
          
          if ( flowIsNavierStokes ) then
-            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference viscosity: ", &
-                     sqrt(gamma) * Mach * reynoldsLength * pRef / ( RE * sqrt(Rgas * TRef) ) , " Pa·s."
-            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference conductivity: ", &
-                     gammaDivGammaMinus1 * Rgas * sqrt(gamma) * Mach * reynoldsLength * pRef / ( RE * sqrt(Rgas * TRef) ) / PR, &
-                     " W/(m·K)."
+            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference viscosity: ",refValues % mu , " Pa·s."
+            write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference conductivity: ", refValues % kappa, " W/(m·K)."
          end if
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference time: " , &
-                     reynoldsLength / (Mach * sqrt(gamma * Rgas * TRef) ) , " s."
+
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference time: ", refValues % time, " s."
 
          write(STD_OUT,'(/)')
          call SubSection_Header("Dimensionless quantities")
-         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Mach number: " , Mach
+         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Mach number: " , dimensionless % Mach
          if ( flowIsNavierStokes ) then
-            write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Reynolds number: " , RE
-            write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Prandtl number: " , PR
+            write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Reynolds number: " , dimensionless % Re
+            write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Prandtl number: " , dimensionless % Pr
          end if
- 
-
 
       END SUBROUTINE DescribePhysicsStorage
 !
@@ -603,7 +604,7 @@
 !
       REAL(KIND=RP) :: P
       
-      P = gammaMinus1*(Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1))
+      P = thermodynamics % gammaMinus1*(Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1))
 
       END FUNCTION Pressure
 !
@@ -677,7 +678,7 @@
 !
       REAL(KIND=RP) :: T
 !
-      T = gammaM2*Pressure(Q)/Q(1)
+      T = dimensionless % gammaM2*Pressure(Q)/Q(1)
 
       END FUNCTION Temperature
       
@@ -716,7 +717,7 @@
       v = ABS( Q(3)/Q(1) )
       w = ABS( Q(4)/Q(1) )
       p = Pressure(Q)
-      a = SQRT(gamma*p/Q(1))
+      a = SQRT(thermodynamics % gamma*p/Q(1))
       
       eigen(1) = u + a
       eigen(2) = v + a

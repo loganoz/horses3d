@@ -89,6 +89,9 @@
                           Ny => sem % mesh % elements(eID) % Nxyz(2), &
                           Nz => sem % mesh % elements(eID) % Nxyz(3) )
                do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+!                  CALL UniformFlowStateWithPerturbation( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
+!                                               sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN) )
+
                   qq = 1.0_RP
                   u  = qq*cos(theta)*COS(phi)
                   v  = qq*sin(theta)*COS(phi)

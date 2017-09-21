@@ -17,7 +17,6 @@
       USE DGSEMClass
       USE Physics
       USE DGSEMPlotterClass
-      USE UserDefinedFunctions
       USE ExplicitMethods
       IMPLICIT NONE 
 !
@@ -150,6 +149,14 @@
 !     Internal variables
 !     ---------
 !
+interface
+         SUBROUTINE UserDefinedPeriodicOperation(sem, time)
+            USE DGSEMClass
+            IMPLICIT NONE
+            CLASS(DGSem)  :: sem
+            REAL(KIND=RP) :: time
+         END SUBROUTINE UserDefinedPeriodicOperation
+end interface
       
       REAL(KIND=RP)                 :: t
       REAL(KIND=RP)                 :: maxResidual(N_EQN)

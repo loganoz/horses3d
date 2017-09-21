@@ -173,6 +173,7 @@
 !           error tests to be performed
 !           --------------------------------------------------------
 !
+            use FTAssertions
             USE DGSEMClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -181,6 +182,67 @@
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            CHARACTER(LEN=29)                  :: testName           = "Different orders cylinder"
+            REAL(KIND=RP)                      :: maxError
+            REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
+            INTEGER                            :: eID
+            INTEGER                            :: i, j, k, N
+            TYPE(FTAssertionsManager), POINTER :: sharedManager
+            LOGICAL                            :: success
+!
+!           -----------------------------------------------------------------------------------------
+!           Expected solutions. 
+!           InnerCylinder 0.0 NoSlipAdiabaticWall
+!           Front 0.0 Inflow
+!           bottom 0.0 FreeSlipWall
+!           top 0.0 FreeSlipWall
+!           Back 0.0 Inflow
+!           Left 0.0 Inflow
+!           Right 0.0 OutflowSpecifyP 
+!           -----------------------------------------------------------------------------------------
+!
+!
+!           ------------------------------------------------
+!           Expected Solutions: Wall conditions on the sides
+!           Number of iterations are for CFL of 0.2, for
+!           the roe solver and mach = 0.3
+!           ------------------------------------------------
+!
+            INTEGER                            :: iterations = 100
+            REAL(KIND=RP)                      :: residuals = 264.64042924505213
+!            
+            CALL initializeSharedAssertionsManager
+            sharedManager => sharedAssertionsManager()
+            
+            CALL FTAssertEqual(expectedValue = iterations, &
+                               actualValue   =  sem % numberOfTimeSteps, &
+                               msg           = "Number of time steps to tolerance")
+            CALL FTAssertEqual(expectedValue = residuals, &
+                               actualValue   = sem % maxResidual, &
+                               tol           = 1.d-3, &
+                               msg           = "Final maximum residual")
+            
+            CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
+   
+            IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
+               WRITE(6,*) testName, " ... Passed"
+               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
+            ELSE
+               WRITE(6,*) testName, " ... Failed"
+               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
+               WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
+                STOP 99
+            END IF 
+            WRITE(6,*)
+            
+            CALL finalizeSharedAssertionsManager
+            CALL detachSharedAssertionsManager
+            
 
          END SUBROUTINE UserDefinedFinalize
 !

@@ -70,6 +70,8 @@
          
          PROCEDURE :: SaveSolutionForRestart
          PROCEDURE :: LoadSolutionForRestart
+   
+         procedure :: SetInitialCondition => DGSEM_SetInitialCondition
             
       END TYPE DGSem
       
@@ -1095,5 +1097,31 @@
       END DO 
       
    END FUNCTION MaximumEigenvalue
+
+   subroutine DGSEM_SetInitialCondition( self, controlVariables ) 
+      use FTValueDictionaryClass
+      implicit none
+      class(DGSEM)   :: self
+      class(FTValueDictionary), intent(in)   :: controlVariables
+interface
+         SUBROUTINE UserDefinedInitialCondition(sem, thermodynamics_, &
+                                                        dimensionless_,&
+                                                        refValues_)
+            USE SMConstants
+            use PhysicsStorage
+            import DGSEM
+            implicit none
+            class(DGSEM)                  :: sem
+            type(Thermodynamics_t), intent(in)  :: thermodynamics_
+            type(Dimensionless_t),  intent(in)  :: dimensionless_
+            type(RefValues_t),      intent(in)  :: refValues_
+         END SUBROUTINE UserDefinedInitialCondition
+end interface
+
+      call UserDefinedInitialCondition(self, thermodynamics, &
+                                              dimensionless, &
+                                                  refValues )
+
+   end subroutine DGSEM_SetInitialCondition
       
    END Module DGSEMClass

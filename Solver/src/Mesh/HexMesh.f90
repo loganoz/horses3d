@@ -25,6 +25,7 @@
 !
       TYPE HexMesh
          INTEGER                                  :: numberOfFaces
+         INTEGER                                  :: no_of_elements
          INTEGER      , DIMENSION(:), ALLOCATABLE :: Ns              !Polynomial orders of all elements
          TYPE(Node)   , DIMENSION(:), ALLOCATABLE :: nodes
          TYPE(Face)   , DIMENSION(:), ALLOCATABLE :: faces
@@ -123,6 +124,8 @@
          END IF
          
          READ(fUnit,*) numberOfNodes, numberOfElements, bFaceOrder
+
+         self % no_of_elements = numberOfElements
 !
 !        ---------------
 !        Allocate memory

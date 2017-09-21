@@ -104,6 +104,14 @@
                   sem % mesh % elements(eID) % Q(i,j,k,:) = Q 
                end do;        end do;        end do
                end associate
+!
+!              -------------------------------------------------
+!              Perturb mean flow in the expectation that it will
+!              relax back to the mean flow
+!              -------------------------------------------------
+!
+               sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)
+
             end do
 
             end associate

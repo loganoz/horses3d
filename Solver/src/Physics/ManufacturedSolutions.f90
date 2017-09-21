@@ -96,6 +96,8 @@ MODULE ManufacturedSolutions
       
       REAL(KIND=RP) :: rho, u, v, w, p
       
+      associate ( gamma => thermodynamics % gamma ) 
+
       rho  = rC(1) + rC(2)*Sin(pi*rC(5)*x(1)) + rC(3)*Sin(pi*rC(6)*x(2)) + rC(4)*Sin(pi*rC(7)*x(3)) 
       u    = uC(1) + uC(2)*Sin(pi*uC(5)*x(1)) + uC(3)*Sin(pi*uC(6)*x(2)) + uC(4)*Sin(pi*uC(7)*x(3)) 
       v    = vC(1) + vC(2)*Sin(pi*vC(5)*x(1)) + vC(3)*Sin(pi*vC(6)*x(2)) + vC(4)*Sin(pi*vC(7)*x(3)) 
@@ -107,6 +109,8 @@ MODULE ManufacturedSolutions
       Q(3) = rho*v
       Q(4) = rho*w
       Q(5) = p/(gamma - 1.0_RP) + 0.5_RP*rho*(u**2 + v**2 + w**2)
+
+      end associate
       
    END SUBROUTINE ManufacturedSolutionState 
 !
@@ -128,6 +132,8 @@ MODULE ManufacturedSolutions
       
       REAL(KIND=RP) :: x, y, z
       
+      associate ( gammaM2 => dimensionless % gammaM2 ) 
+
       x = xx(1)
       y = xx(2)
       z = xx(3)
@@ -169,6 +175,8 @@ MODULE ManufacturedSolutions
                rC(4)*Sin(pi*z*rC(7)))**2) +     &
                (gammaM2*pi*Cos(pi*z*pC(7))*pC(4)*pC(7))/    &
                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) + rC(4)*Sin(pi*z*rC(7)))
+
+      end associate
       
    END SUBROUTINE ManufacturedSolutionDeriv
 !
@@ -189,6 +197,12 @@ MODULE ManufacturedSolutions
       
       REAL(KIND=RP) :: x, y, z
       
+      associate ( gamma => thermodynamics % gamma, &
+                  Mach => dimensionless % Mach, &
+                  Re => dimensionless % Re, &
+                  Pr => dimensionless % Pr, &
+                  gammaM2 => dimensionless % gammaM2 )
+
       x = xx(1)
       y = xx(2)
       z = xx(3)
@@ -2938,6 +2952,8 @@ MODULE ManufacturedSolutions
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7)))))))/Re
+   
+      end associate
       
    END SUBROUTINE ManufacturedSolutionSourceNS
 !
@@ -2958,6 +2974,7 @@ MODULE ManufacturedSolutions
       
       REAL(KIND=RP) :: x, y, z
       
+      associate ( gamma => thermodynamics % gamma )
       x = xx(1)
       y = xx(2)
       z = xx(3)
@@ -3228,6 +3245,8 @@ MODULE ManufacturedSolutions
                 2*pi*Cos(pi*z*wC(7))*wC(4)*    &
                  (wC(1) + Sin(pi*x*wC(5))*wC(2) + Sin(pi*y*wC(6))*wC(3) +     &
                    Sin(pi*z*wC(7))*wC(4))*wC(7))/2.) 
+
+         end associate
    
    END SUBROUTINE ManufacturedSolutionSourceEuler
 

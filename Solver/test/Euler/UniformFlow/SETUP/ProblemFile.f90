@@ -104,6 +104,14 @@
                   sem % mesh % elements(eID) % Q(i,j,k,:) = Q 
                end do;        end do;        end do
                end associate
+!
+!              -------------------------------------------------
+!              Perturb mean flow in the expectation that it will
+!              relax back to the mean flow
+!              -------------------------------------------------
+!
+               sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)
+
             end do
 
             end associate
@@ -174,6 +182,7 @@
 !           --------------------------------------------------------
 !
             USE DGSEMClass
+            USE FTAssertions
             use PhysicsStorage
             IMPLICIT NONE
             CLASS(DGSem)  :: sem
@@ -181,6 +190,95 @@
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            INTEGER                            :: numberOfFailures
+            CHARACTER(LEN=29)                  :: testName           = "27 element uniform flow tests"
+            REAL(KIND=RP)                      :: maxError
+            REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
+            INTEGER                            :: eID
+            INTEGER                            :: i, j, k, N
+            real(kind=RP)                      :: qq, u, v, w, p, Q(N_EQN), theta, phi
+            TYPE(FTAssertionsManager), POINTER :: sharedManager
+!
+!           -----------------------------------------------------------------------
+!           Expected Values. Note they will change if the run parameters change and
+!           when the eigenvalue computation for the time step is fixed. These 
+!           results are for the Mach 0.5 and rusanov solvers.
+!           -----------------------------------------------------------------------
+!
+            INTEGER                            :: expectedIterations(3:5) = [1821,3090,4164]
+            REAL(KIND=RP)                      :: expectedResidual(3:5)   = [9.7985624521602423E-011,&
+                                                                             9.7825050715404729E-011,&
+                                                                             9.7454147241309180E-011]
+            
+            CALL initializeSharedAssertionsManager
+            sharedManager => sharedAssertionsManager()
+            
+            N = sem % mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order
+            CALL FTAssertEqual(expectedValue= expectedIterations(N), &
+                               actualValue   =  sem % numberOfTimeSteps, &
+                               msg           = "Number of time steps to tolerance")
+            CALL FTAssertEqual(expectedValue = expectedResidual(N), &
+                               actualValue   = sem % maxResidual, &
+                               tol           = 1.d-3, &
+                               msg           = "Final maximum residual")
+            
+            ALLOCATE(QExpected(0:N,0:N,0:N,N_EQN))
+            
+            maxError = 0.0_RP
+            associate ( gammaM2 => dimensionless_ % gammaM2, &
+                        gamma => thermodynamics_ % gamma )
+            theta = refValues_ % AOATheta*(PI/180.0_RP)
+            phi   = refValues_ % AOAPhi*(PI/180.0_RP)
+      
+            do eID = 1, sem % mesh % no_of_elements
+               associate( Nx => sem % mesh % elements(eID) % Nxyz(1), &
+                          Ny => sem % mesh % elements(eID) % Nxyz(2), &
+                          Nz => sem % mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  qq = 1.0_RP
+                  u  = qq*cos(theta)*COS(phi)
+                  v  = qq*sin(theta)*COS(phi)
+                  w  = qq*SIN(phi)
+      
+                  Q(1) = 1.0_RP
+                  p    = 1.0_RP/(gammaM2)
+                  Q(2) = Q(1)*u
+                  Q(3) = Q(1)*v
+                  Q(4) = Q(1)*w
+                  Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
+
+                  QExpected(i,j,k,:) = Q 
+               end do;        end do;        end do
+               end associate
+               maxError = MAXVAL(ABS(QExpected - sem % mesh % elements(eID) % Q))
+            end do
+            end associate
+
+            CALL FTAssertEqual(expectedValue = 0.0_RP, &
+                               actualValue   = maxError, &
+                               tol           = 1.d-10, &
+                               msg           = "Maximum error")
+            
+            
+            CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
+   
+            IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
+               WRITE(6,*) testName, " ... Passed"
+            ELSE
+               WRITE(6,*) testName, " ... Failed"
+               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is fixed."
+               WRITE(6,*) "      When that is done, re-compute the expected values and modify this procedure"
+               STOP 99
+            END IF 
+            WRITE(6,*)
+            
+            CALL finalizeSharedAssertionsManager
+            CALL detachSharedAssertionsManager
 
          END SUBROUTINE UserDefinedFinalize
 !
