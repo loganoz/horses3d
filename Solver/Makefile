@@ -32,16 +32,16 @@ MACROS =
 # 3.- User defined compilation flags 
 ########################################
 GNU_RELEASE_FLAGS= -cpp -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 \
-		   -fbackslash
+		   -fbackslash -D_has_Quad
 GNU_DEBUG_FLAGS=  -fPIC -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable \
 		  -fbacktrace -fbounds-check -finit-real=snan -Wall \
 		  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
-		  -fbackslash -fcheck=pointer
-INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc
+		  -fbackslash -fcheck=pointer -D_has_Quad
+INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc -D_has_Quad
 INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all \
 		   -check bounds -check uninit -ftrapuv -debug all -warn interfaces \
 		   -ftrace=full -assume ieee_fpe_flags -ftz -fp-model precise \
-		   -fp-speculation=off -assume bscc
+		   -fp-speculation=off -assume bscc -D_has_Quad
 ARFLAGS=crv
 
 
@@ -163,8 +163,10 @@ else ifeq ($(MODE),DEBUG)
      endif
 endif
 
-ifeq ($(COMM),PARALLEL)
-    FFLAGS+=-fopenmp
+ifeq ($(MODE),RELEASE)
+   ifeq ($(COMM),PARALLEL)
+      FFLAGS+=-fopenmp
+   endif
 endif
 
 

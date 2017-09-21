@@ -1,4 +1,10 @@
 #!/bin/bash
+######################################################################
+##	This script configures the test cases:
+##		-> Copies Makefiles with the solver absolute path
+##		-> Generates the required folders.
+##		-> Generates links to the solver.
+######################################################################
 
 TEST_CASES="./Euler/BoxAroundCircle \
 	    ./Euler/Diffuser \

@@ -109,8 +109,10 @@ else ifeq ($(MODE),DEBUG)
      endif
 endif
 
-ifeq ($(COMM),PARALLEL)
-    FFLAGS+=-fopenmp
+ifeq ($(MODE),RELEASE)
+   ifeq ($(COMM),PARALLEL)
+      FFLAGS+=-fopenmp
+   endif
 endif
 
 
