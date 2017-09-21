@@ -14,7 +14,7 @@ PROG_TEST:=@PROG_NAME
 include $(HOME_DIR)/Makefile
 
 # Include the local include path
-INCLUDE+=-I./include
+INCLUDE:=-I./include $(INCLUDE)
 
 #######################################
 ## Get the additional source files
