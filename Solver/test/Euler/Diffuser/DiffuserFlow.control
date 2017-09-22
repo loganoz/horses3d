@@ -21,4 +21,9 @@ wall5 0.0 freeslipwall
 outflow4 0.0 User-defined
 inflow6 0.0 User-defined
 wall3 0.0 freeslipwall
+boundaries to analyze = 4
+wall1
+wall5
+outflow4
+inflow6
 riemann solver        = rusanov

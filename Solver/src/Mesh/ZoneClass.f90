@@ -8,7 +8,11 @@ module ZoneClass
    public Zone_t , ConstructZones, zoneNameDictionary, constructZoneModule
 
    integer, parameter      :: STR_LEN_ZONE = 128
-
+   
+   TYPE FTLinkedListPtr
+      CLASS(FTLinkedList), POINTER :: list
+   END TYPE FTLinkedListPtr
+   
    type Zone_t
       integer                     :: marker
       character(len=STR_LEN_ZONE) :: Name
@@ -45,7 +49,7 @@ module ZoneClass
 !        --------------------------------------------------------
          integer                              :: zoneID
          integer                              :: no_of_markers
-         character(len=32), allocatable       :: zoneNames(:)
+         character(len=STR_LEN_ZONE), allocatable       :: zoneNames(:)
 !        --------------------------------------------------------
          
          no_of_markers = zoneNameDictionary % COUNT()
@@ -60,11 +64,24 @@ module ZoneClass
 
          do zoneID = 1 , no_of_markers
             call zones(zoneID) % Initialize ( zoneID , zoneNames(zoneID) )
-            print*, "Zone ",zoneID , " created for boundary " , trim(zones(zoneID) % Name)
+         end do
+         
+         !! Assign faces to each zone
+         call Zone_AssignFaces(faces,zones,no_of_markers,zoneNames)
+         
+         ! DEBUG
+         do zoneID = 1, no_of_markers
+            print*, "Zone ",zoneID, " created for boundary ",trim(zones(zoneID) % Name) &
+                     ,'. no_of_faces:', zones(zoneID) % no_of_faces
          end do
          
       end subroutine ConstructZones
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ------------------------------------------
+!
+!     ------------------------------------------
       subroutine Zone_Initialize ( self , marker , zoneName) 
          implicit none
          class(Zone_t)           :: self
@@ -76,5 +93,91 @@ module ZoneClass
          self % no_of_faces = 0
 
       end subroutine Zone_Initialize
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -------------------------------------------------------
+!     Subroutine for assigning faces to each zone, so that 
+!     the drag and lift computations can be performed quickly 
+!     -------------------------------------------------------
+      subroutine Zone_AssignFaces(faces,zones,no_of_markers,zoneNames)
+         implicit none
+!        ------------------------------------------------
+         integer                          :: no_of_markers
+         type(Face)                      :: faces(:)
+         type(Zone_t)                    :: zones(no_of_markers)
+         character(len=STR_LEN_ZONE)      :: zoneNames(no_of_markers)
+!        ------------------------------------------------
+         integer                              :: fID, zoneID
+         type(FTLinkedListPtr)  ,allocatable          :: zoneList(:)
+         CLASS(FTValue)             , POINTER :: v
+         CLASS(FTObject)            , POINTER :: objectPtr
+         CLASS(FTMutableObjectArray), POINTER :: array
+!        ------------------------------------------------
+!
+!        --------
+!        Initialize linked lists
+!        --------
+!
+         allocate(zoneList(no_of_markers))
+         
+         do zoneID = 1, no_of_markers
+            allocate (zoneList(zoneID) % list)
+            call zoneList(zoneID) % list % init()
+         end do
+!
+!        --------
+!        We first iterate over all faces and add the face ID to the corresponding linked list
+!        --------
+!
+         do fID = 1, size(faces)
+            if (faces(fID) % FaceType == HMESH_INTERIOR) cycle
+            
+            do zoneID = 1, no_of_markers
+               if (trim(zoneNames(zoneID)) == trim(faces(fID) % boundaryName)) exit
+            end do
+            if (zoneID > no_of_markers) cycle
+            
+            allocate (v)
+            call v % initWithValue(fID)
+            objectPtr => v
+            call zoneList(zoneID) % list % add (objectPtr)
+            CALL release(v)
+            
+         end do
+!
+!        --------
+!        Now we create the arrays with the information in the linked lists
+!        --------
+!
+         do zoneID = 1 , no_of_markers
+            array => zoneList(zoneID) % list % allObjects()
+            
+            zones(zoneID) % no_of_faces = array % COUNT()
+            allocate (zones(zoneID) % faces (zones(zoneID) % no_of_faces))
+            
+            do fID = 1, zones(zoneID) % no_of_faces
+               
+               v => valueFromObject(array % objectAtIndex(fID))
+               zones(zoneID) % faces(fID) = v % integerValue()
+               
+            end do
+            
+         end do
+         
+!
+!        --------
+!        Clean up
+!        --------
+!
+         call release(array)
+         nullify(objectPtr)
+         nullify(v)
+         
+         do zoneID = 1, no_of_markers
+            call release (zoneList(zoneID) % list)
+         end do
+         
+      end subroutine Zone_AssignFaces
 
 end module ZoneClass

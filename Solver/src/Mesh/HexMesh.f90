@@ -369,7 +369,7 @@
 !        Zones
 !        -----
 !
-         DEALLOCATE( self % zones )
+         if (allocated(self % zones)) DEALLOCATE( self % zones )
 
          
       END SUBROUTINE DestructMesh

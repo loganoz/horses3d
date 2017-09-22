@@ -23,3 +23,5 @@ back 0.0 periodic-
 left 0.0 periodic+
 right 0.0 periodic-
 /
+boundaries to analyze = 1
+right
