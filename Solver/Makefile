@@ -22,8 +22,8 @@ PROG=./bin/HORSES3D
 # 2.- User defined paths
 ########################################
 HOME_DIR?=$(PWD)
-LIBS_HOME=$(HOME_DIR)
-INCLUDE=-I$(HOME_DIR)/include -I$(HOME_DIR)/src/Foundation
+INSTALL_DIR=$(HOME_DIR)
+INCLUDE=-I$(HOME_DIR)/include
 LIBS = 
 MACROS = 
 -include $(HOME_DIR)/make.inc
@@ -46,11 +46,7 @@ ARFLAGS=crv
 
 
 # ------------------------------------------------
-OBJS_HORSES=  SMConstants \
-		FTTimerClass \
-		FileReading \
-		Utilities \
-		TimerClass \
+OBJS_HORSES=  	FileReading \
 		Plotter \
 		MatrixOperations \
 		LegendreAlgorithms \
@@ -86,7 +82,6 @@ OBJS_HORSES=  SMConstants \
 		CSR_Matrices \
 		pAdaptationClass \
 		ManufacturedSolutions \
-		DenseMatUtilities \
 		Implicit_JF \
 		JFNKClass \
 		GMRESClass \
@@ -195,11 +190,11 @@ endif
 ##########################################
 ##  	Select HORSES libraries 	##
 ##########################################
-HORSES_LIBS=ftobject
+HORSES_LIBS=ftobject foundation
 HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS),$(HOME_DIR)/lib/lib$(obj).a)
 LIBFLAGS=  FC='$(FC)' \
 	   FFLAGS='$(FFLAGS)' \
-           LIBS_HOME='$(LIBS_HOME)' \
+           INSTALL_DIR='$(INSTALL_DIR)' \
 	   AR='$(AR)' \
 	   ARFLAGS='$(ARFLAGS)' \
 	   RANLIB='$(RANLIB)' \
@@ -252,6 +247,12 @@ clean: FORCE horseslibclean
 	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
 	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod* $(HOME_DIR)/lib/*.a
 	@rm -f $(HOME_DIR)/build/libproblemfile.so
+
+test: all
+	(cd $(HOME_DIR)/test/Euler/Diffuser/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) all \
+	&& cd ../ && ./HORSES3D DiffuserFlow.control ) || exit 1; 
+	(cd $(HOME_DIR)/test/NavierStokes/Cylinder/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) all \
+	&& cd ../ && ./HORSES3D Cylinder.control ) || exit 1; 
 
 allclean: FORCE clean
 	@rm -f $(HOME_DIR)/$(PROG)
