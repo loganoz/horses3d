@@ -1,5 +1,5 @@
 #################################################
-#	Foundation Makefile 		#
+#	IO Makefile 		#
 #################################################
 INSTALL_DIR?=./
 FFLAGS?=-cpp
@@ -11,16 +11,12 @@ MOD_FLAG?=-J
 
 
 
-LIBOBJS = 	./build/SMConstants.o \
-		./build/Utilities.o \
-		./build/FTTimerClass.o \
-		./build/DenseMatUtilities.o \
-		./build/MatrixOperations.o \
-		./build/SharedBCModule.o \
-		./build/Setup.o
+LIBOBJS = 	./build/Headers.o \
+		./build/FileReading.o \
+		./build/ReadInputFile.o
 
 
-LIB = foundation
+LIB = io
 
 ############################################
 #	MAIN COMPILATION RULES 		   #
@@ -43,14 +39,14 @@ lib$(LIB).a: header mkdirs $(LIBOBJS)
 
 install: lib$(LIB).a
 	cp -p lib$(LIB).a $(INSTALL_DIR)/lib/
-	cp -p ./include/*.mod ./Includes.h $(INSTALL_DIR)/include/
+	cp -p ./include/*.mod $(INSTALL_DIR)/include/
 	@echo
 	@echo
 
 header: FORCE
 	@echo
 	@echo "================================"
-	@echo ">>   Building Foundation        "
+	@echo ">>   Building IO        "
 	@echo "================================"
 	@echo
 	@echo

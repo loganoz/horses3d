@@ -62,9 +62,8 @@
          USE SMConstants
          USE Physics
          USE SharedBCModule
-         USE MeshTypes
          USE ManufacturedSolutions
-      
+
          CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(11) :: implementedBCNames = &
                ["freeslipwall        ", &
                "noslipadiabaticwall ",  &

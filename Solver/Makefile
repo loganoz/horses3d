@@ -46,15 +46,7 @@ ARFLAGS=crv
 
 
 # ------------------------------------------------
-OBJS_HORSES=  	FileReading \
-		Plotter \
-		MatrixOperations \
-		LegendreAlgorithms \
-		InterpolationAndDerivatives \
-		FluidData \
-		Physics \
-		BoundaryConditions \
-		SharedBCModule \
+OBJS_HORSES=  	Plotter \
 		FacePatchClass \
 		MappedGeometry \
 		TransfiniteMaps3D \
@@ -71,17 +63,12 @@ OBJS_HORSES=  	FileReading \
 		ProlongToFaces \
 		DGSEMClass \
 		SpatialDiscretization \
-		NodalStorageClass \
 		PlotterDataSource \
-		Headers \
-		ReadInputFile \
-		Setup \
 		TimeIntegrator \
 		ConnectivityClass \
 		Jacobian \
 		CSR_Matrices \
 		pAdaptationClass \
-		ManufacturedSolutions \
 		Implicit_JF \
 		JFNKClass \
 		GMRESClass \
@@ -190,10 +177,11 @@ endif
 ##########################################
 ##  	Select HORSES libraries 	##
 ##########################################
-HORSES_LIBS=ftobject foundation
+HORSES_LIBS=ftobject foundation spectral io physics
 HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS),$(HOME_DIR)/lib/lib$(obj).a)
 LIBFLAGS=  FC='$(FC)' \
 	   FFLAGS='$(FFLAGS)' \
+	   INCLUDE='$(INCLUDE)' \
            INSTALL_DIR='$(INSTALL_DIR)' \
 	   AR='$(AR)' \
 	   ARFLAGS='$(ARFLAGS)' \

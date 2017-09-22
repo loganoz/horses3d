@@ -2,50 +2,37 @@
 NSLite3DMain: TimeIntegrator \
 HexMesh \
 Plotter \
-SharedBCModule \
-BoundaryConditions \
+ \
 ReadInputFile \
 DGSEMClass\
 pAdaptationClass
 
-Plotter: NodalStorageClass HexElementClass PlotterDataSource 
-InterpolationAndDerivatives:  LegendreAlgorithms 
-BoundaryConditions:  Physics MeshTypes HexElementClass SharedBCModule ManufacturedSolutions
-Physics:  Headers
-MappedGeometry:  TransfiniteMaps3D NodalStorageClass 
+Plotter:  HexElementClass PlotterDataSource 
+MappedGeometry:  TransfiniteMaps3D  
 TransfiniteMaps3D:  FacePatchClass 
-FaceClass:  MeshTypes InterpolationAndDerivatives LegendreAlgorithms
-HexElementClass:  MeshTypes TransfiniteMaps3D HexElementConnectivityDefinitions NodalStorageClass LegendreAlgorithms InterpolationAndDerivatives MappedGeometry ConnectivityClass
+FaceClass:  MeshTypes  
+HexElementClass:  MeshTypes TransfiniteMaps3D HexElementConnectivityDefinitions    MappedGeometry ConnectivityClass
 HexElementConnectivityDefinitions:  
-HexMesh: Physics TransfiniteMaps3D FaceClass MeshTypes SharedBCModule NodeClass HexElementClass Headers HexElementConnectivityDefinitions ZoneClass
-ZoneClass:  SharedBCModule 
+HexMesh:  TransfiniteMaps3D FaceClass MeshTypes NodeClass HexElementClass  HexElementConnectivityDefinitions ZoneClass
 NodeClass:  MeshTypes 
-DGInviscidDiscretization:  HexElementClass NodalStorageClass Physics
-DGViscousDiscretization:  HexElementClass NodalStorageClass Physics DGWeakIntegrals ProlongToFaces HexMesh BoundaryConditions
-DGWeakIntegrals:  HexElementClass NodalStorageClass Physics MatrixOperations
-SpatialDiscretization: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives  DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
-DGSEMClass: SpatialDiscretization Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh  ProlongToFaces
-NodalStorageClass:  LegendreAlgorithms InterpolationAndDerivatives 
-TimeIntegrator: Physics Plotter  DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass
+DGInviscidDiscretization:  HexElementClass  
+DGViscousDiscretization:  HexElementClass   DGWeakIntegrals ProlongToFaces HexMesh 
+DGWeakIntegrals:  HexElementClass   
+SpatialDiscretization: HexElementClass   MappedGeometry   DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
+DGSEMClass: SpatialDiscretization   HexMesh  ProlongToFaces
+TimeIntegrator:  Plotter  DGSEMClass  Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass
 ExplicitMethods:  DGSEMClass
-PlotterDataSource:  
-ReadInputFile:  SharedBCModule Physics Setup
-Jacobian:  DGSEMClass Physics
+Jacobian:  DGSEMClass 
 ColorsClass: DGSEMClass
-CSR_Matrices: 
-ManufacturedSolutions: Physics 
-FASMultigridClass:  ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics BoundaryConditions
+FASMultigridClass:  ExplicitMethods DGSEMClass    
 #Implicit solvers
-Implicit_JF:  DGSEMClass Physics JFNKClass
+Implicit_JF:  DGSEMClass  JFNKClass
 JFNKClass:  GMRESClass
-GMRESClass: 
-Implicit_NJ:  DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices
+Implicit_NJ:  DGSEMClass HexElementClass  Jacobian ColorsClass LinearSolverClass CSR_Matrices
 #Linear solvers
 LinearSolverClass: MKLPardisoSolverClass PetscSolverClass IterativeSolverClass MultigridSolverClass
-
 MKLPardisoSolverClass:  CSR_Matrices PetscSolverClass GenericLinSolverClass
 PetscSolverClass: CSR_Matrices GenericLinSolverClass 
 IterativeSolverClass:  CSR_Matrices PetscSolverClass GenericLinSolverClass
-MultigridSolverClass:  CSR_Matrices PetscSolverClass GenericLinSolverClass InterpolationAndDerivatives LegendreAlgorithms Physics
-
+MultigridSolverClass:  CSR_Matrices PetscSolverClass GenericLinSolverClass   
 GenericLinSolverClass:  CSR_Matrices DGSEMClass
