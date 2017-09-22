@@ -16,6 +16,7 @@
       USE FTTimerClass
       USE PhysicsStorage
       USE SharedBCModule
+      USE zoneClass
       USE DGSEMPlotterClass
       USE DGSEMClass
       USE BoundaryConditionFunctions
@@ -84,6 +85,7 @@ end interface
       CALL stopWatch % init()
       CALL UserDefinedStartup
       CALL ConstructSharedBCModule
+      CALL ConstructZoneModule
       
       CALL ReadInputFile( controlVariables )
       CALL CheckInputIntegrity(controlVariables, success)

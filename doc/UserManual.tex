@@ -104,6 +104,19 @@ $j = j_C(1) + j_C(2) \sin(\pi j_C(5) x) + j_C(3) \sin(\pi j_C(6) y) + j_C(4) \si
 Where $j_C(i)$ are constants defined in the file \textit{ManufacturedSolutions.f90}. Proper initial and boundary conditions must be imposed (see the test case). The mesh must be a unit cube.
   & -- \\ \hline
 
+Number of boundaries & \textit{INTEGER}: Specifies the number of boundaries of the geometry. This keyword must be followed by an equal number of lines in the control file that define the boundary conditions as follows: \ 
+
+\begin{center}
+\textit{boundaryName1 boundaryValue1 boundaryType1} \ 
+
+\textit{boundaryName2 boundaryValue2 boundaryType2} \
+
+\textit{...} 
+\end{center}
+& \textbf{Mandatory keyword} \\ \hline
+
+boundaries to analyze & \textit{INTEGER}: Specifies the number of boundaries where lift and drag must be computed. This keyword must be followed by an equal number of lines in the control file that state the boundaries to analyze. & -- \\ \hline
+
 \multicolumn{3}{l}{*  At least one of these two keywords must be specified} \\
 
 \multicolumn{3}{l}{** At least one of these two keywords must be specified}

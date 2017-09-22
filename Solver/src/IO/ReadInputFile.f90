@@ -12,6 +12,7 @@
          USE FTValueDictionaryClass
          USE SharedBCModule
          USE mainKeywordsModule
+         USE ZoneClass
          
          IMPLICIT NONE
 !
@@ -79,6 +80,26 @@
                   CALL toLower(boundaryType)
                   CALL bcTypeDictionary % addValueForKey(boundaryType, boundaryName)
                   CALL bcValueDictionary % addValueForKey(boundaryValue, boundaryName)
+               END DO
+            END IF
+            
+            IF(keyword == "boundaries to analyze") THEN 
+!
+!              ---------------------------------------------------------------------------
+!              We will store the name of the zones (boundaries where we want to compute lift and
+!              drag) in a dictionary. Currently, this quantities are computed taking into 
+!              account the angle of attack. However, this dictionary can be easily modified in 
+!              order to compute forces in a different direction (added as value).
+!              ---------------------------------------------------------------------------
+!
+               numberOfBCs = controlVariables%integerValueForKey("boundaries to analyze")
+               
+               DO k = 1, numberOfBCs 
+                  READ(10,*) boundaryName
+                  
+                  CALL toLower(boundaryName)
+                  CALL zoneNameDictionary % addValueForKey(boundaryName, boundaryName)
+                  
                END DO
             END IF
             

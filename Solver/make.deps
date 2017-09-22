@@ -1,5 +1,5 @@
 # --------------- Dependencies 
-NSLite3DMain: TimeIntegrator \
+HORSES3DMain: TimeIntegrator \
 HexMesh \
 Plotter \
 FTTimerClass \
@@ -8,7 +8,8 @@ BoundaryConditions \
 ReadInputFile \
 SMConstants \
 DGSEMClass\
-pAdaptationClass
+pAdaptationClass\
+ZoneClass
 
 FileReading: SMConstants
 Utilities: SMConstants 
@@ -38,7 +39,7 @@ NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives
 TimeIntegrator: Physics Plotter SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass
 ExplicitMethods: SMConstants DGSEMClass
 PlotterDataSource: SMConstants 
-ReadInputFile: SMConstants SharedBCModule Physics Setup
+ReadInputFile: SMConstants SharedBCModule Physics Setup ZoneClass
 Jacobian: SMConstants DGSEMClass Physics
 ColorsClass: DGSEMClass
 CSR_Matrices: SMConstants
