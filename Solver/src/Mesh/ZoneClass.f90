@@ -2,6 +2,7 @@ module ZoneClass
    use SMConstants
    use FaceClass
    use SharedBCModule
+   use FTLinkedListClass
    
    
    private
@@ -10,7 +11,7 @@ module ZoneClass
    integer, parameter      :: STR_LEN_ZONE = 128
    
    TYPE FTLinkedListPtr
-      CLASS(FTLinkedList), POINTER :: list
+      type(FTLinkedList), POINTER :: list
    END TYPE FTLinkedListPtr
    
    type Zone_t
@@ -71,7 +72,7 @@ module ZoneClass
          
          ! DEBUG
          do zoneID = 1, no_of_markers
-            print*, "Zone ",zoneID, " created for boundary ",trim(zones(zoneID) % Name) &
+            WRITE(STD_OUT,'(A,I3,A,A16,A,I6)') "Zone ",zoneID, " created for boundary ",trim(zones(zoneID) % Name) &
                      ,'. no_of_faces:', zones(zoneID) % no_of_faces
          end do
          
@@ -104,15 +105,15 @@ module ZoneClass
          implicit none
 !        ------------------------------------------------
          integer                          :: no_of_markers
-         type(Face)                      :: faces(:)
-         type(Zone_t)                    :: zones(no_of_markers)
+         type(Face)                       :: faces(:)
+         type(Zone_t)                     :: zones(no_of_markers)
          character(len=STR_LEN_ZONE)      :: zoneNames(no_of_markers)
 !        ------------------------------------------------
          integer                              :: fID, zoneID
-         type(FTLinkedListPtr)  ,allocatable          :: zoneList(:)
+         type(FTLinkedListPtr)   ,allocatable :: zoneList(:)
          CLASS(FTValue)             , POINTER :: v
          CLASS(FTObject)            , POINTER :: objectPtr
-         CLASS(FTMutableObjectArray), POINTER :: array
+         type(FTMutableObjectArray) , POINTER :: array
 !        ------------------------------------------------
 !
 !        --------
