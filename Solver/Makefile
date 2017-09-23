@@ -167,7 +167,8 @@ endif
 ##  	Select HORSES libraries 	##
 ##########################################
 HORSES_LIBS=ftobject foundation spectral io physics mesh
-HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS),$(HOME_DIR)/lib/lib$(obj).a)
+HORSES_LIBS_REORD=mesh physics io spectral foundation ftobject
+HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS_REORD),$(HOME_DIR)/lib/lib$(obj).a)
 LIBFLAGS=  FC='$(FC)' \
 	   FFLAGS='$(FFLAGS)' \
 	   INCLUDE='$(INCLUDE)' \
