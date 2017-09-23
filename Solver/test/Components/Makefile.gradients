@@ -1,0 +1,283 @@
+#####################################################################
+## HORSES - a High-Order Spectral Element Solver
+##
+##	Main code Makefile
+##
+##
+#####################################################################
+
+########################################
+# 1.- User defined parameters
+########################################
+PLATFORM?=LINUX
+COMPILER?=gfortran
+MODE?=RELEASE
+COMM?=PARALLEL
+MAKE=make
+AR=ar
+RANLIB=ranlib
+PROG=./bin/Gradients
+
+########################################
+# 2.- User defined paths
+########################################
+HOME_DIR?=@HORSES_HOME_DIR
+INSTALL_DIR=$(PWD)
+LIBS_HOME=$(HOME_DIR)
+INCLUDE=-I./include -I$(HOME_DIR)/include
+LIBS = 
+MACROS = 
+-include $(HOME_DIR)/make.inc
+
+########################################
+# 3.- User defined compilation flags 
+########################################
+GNU_RELEASE_FLAGS= -cpp -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 \
+		   -fbackslash -D_has_Quad
+GNU_DEBUG_FLAGS=  -fPIC -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable \
+		  -fbacktrace -fbounds-check -finit-real=snan -Wall \
+		  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
+		  -fbackslash -fcheck=pointer -D_has_Quad
+INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc -D_has_Quad
+INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all \
+		   -check bounds -check uninit -ftrapuv -debug all -warn interfaces \
+		   -ftrace=full -assume ieee_fpe_flags -ftz -fp-model precise \
+		   -fp-speculation=off -assume bscc -D_has_Quad
+ARFLAGS=crv
+
+
+# ------------------------------------------------
+OBJS_CASE= Setup Physics GradientTests InitialFlowState TestGradientsMain
+	   
+OBJS_HORSES=  SMConstants \
+		FTTimerClass \
+		FileReading \
+		Utilities \
+		Plotter \
+		MatrixOperations \
+		LegendreAlgorithms \
+		InterpolationAndDerivatives \
+		FluidData \
+		BoundaryConditions \
+		SharedBCModule \
+		FacePatchClass \
+		MappedGeometry \
+		TransfiniteMaps3D \
+		FaceClass \
+		HexElementClass \
+		ZoneClass \
+		HexElementConnectivityDefinitions \
+		HexMesh \
+		MeshTypes \
+		NodeClass \
+		DGInviscidDiscretization \
+		DGViscousDiscretization \
+		DGWeakIntegrals \
+		ProlongToFaces \
+		DGSEMClass \
+		SpatialDiscretization \
+		NodalStorageClass \
+		PlotterDataSource \
+		Headers \
+		ReadInputFile \
+		TimeIntegrator \
+		ConnectivityClass \
+		Jacobian \
+		CSR_Matrices \
+		pAdaptationClass \
+		ManufacturedSolutions \
+		DenseMatUtilities \
+		Implicit_JF \
+		JFNKClass \
+		GMRESClass \
+		Implicit_NJ \
+		ColorsClass \
+		PetscSolverClass \
+		GenericLinSolverClass \
+		MKLPardisoSolverClass \
+		LinearSolverClass \
+		IterativeSolverClass \
+		MultigridSolverClass \
+		ExplicitMethods \
+		FASMultigridClass \
+		ProblemFile 
+
+OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
+OBJS_CASE_EXEC=$(foreach obj,$(OBJS_CASE),./build/$(obj).o)
+
+
+##########################################
+##	Include dependencies 		##
+##########################################
+-include ./make.deps
+
+##########################################
+## Select platform
+##########################################
+ifeq ($(PLATFORM),MACOSX)
+   DYNLIB_FLAG=-fPIC -shared -install_name @rpath/libproblemfile.dylib -o ./lib/libproblemfile.dylib
+   PROBLEM_LIB=./lib/libproblemfile.dylib -Wl,-rpath,./SETUP -Wl,-rpath,$(HOME_DIR)/lib
+else ifeq ($(PLATFORM),LINUX)
+   DYNLIB_FLAG=-fPIC -shared -o ./lib/libproblemfile.so
+   PROBLEM_LIB=-L./lib -lproblemfile -Wl,-rpath=./SETUP -Wl,-rpath=$(HOME_DIR)/lib
+endif
+
+##########################################
+## Select compiler 
+##########################################
+ifeq ($(COMPILER),gfortran)
+  FC:=gfortran
+  MOD_FLAG:=-J
+else ifeq ($(COMPILER),gnu)
+  FC:=gfortran
+  MOD_FLAG:=-J
+else ifeq ($(COMPILER),GNU)
+  FC:=gfortran
+  MOD_FLAG:=-J
+endif
+
+ifeq ($(COMPILER),ifort)
+  FC:=ifort
+  MOD_FLAG:=-module 
+else ifeq ($(COMPILER),intel)
+  FC:=ifort
+  MOD_FLAG:=-module 
+else ifeq ($(COMPILER),INTEL)
+  FC:=ifort
+  MOD_FLAG:=-module 
+endif
+
+##########################################
+## Select mode
+##########################################
+ifeq ($(MODE),RELEASE)
+     ifeq ($(FC),gfortran)
+         FFLAGS=$(GNU_RELEASE_FLAGS)
+     else ifeq ($(FC),ifort)
+         FFLAGS=$(INTEL_RELEASE_FLAGS)
+     endif
+else ifeq ($(MODE),DEBUG)
+     ifeq ($(FC),gfortran)
+         FFLAGS=$(GNU_DEBUG_FLAGS)
+     else ifeq ($(FC),ifort)
+         FFLAGS=$(INTEL_DEBUG_FLAGS)
+     endif
+endif
+
+ifeq ($(MODE),RELEASE)
+   ifeq ($(COMM),PARALLEL)
+      FFLAGS+=-fopenmp
+   endif
+endif
+
+
+##########################
+## 	Link PETSc 	##
+##########################
+ifeq '$(WITH_PETSC)''y'
+  MACROS+= -DHAS_PETSC
+  LIBS += $(PETSC_LIB)
+  INCLUDE+= $(PETSC_INC)
+endif
+
+##########################
+## 	Link MKL 	##
+##########################
+ifeq '$(WITH_MKL)''y'
+	ifeq '$(FC)''gfortran'
+		MACROS+= -DHAS_MKL -DHAS_LAPACK
+  	LIBS += $(LIB_BLAS) $(LIB_LAPACK)
+  else #ifort
+  	MACROS+= -DHAS_MKL
+  	FCFLAGS+= -mkl
+  endif
+endif
+
+##########################################
+##  	Select HORSES libraries 	##
+##########################################
+HORSES_LIBS=ftobject
+HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS),./lib/lib$(obj).a)
+LIBFLAGS=  FC='$(FC)' \
+	   FFLAGS='$(FFLAGS)' \
+           INSTALL_DIR='$(INSTALL_DIR)' \
+	   AR='$(AR)' \
+	   ARFLAGS='$(ARFLAGS)' \
+	   RANLIB='$(RANLIB)' \
+	   MOD_FLAG='$(MOD_FLAG)'
+
+
+##########################################################
+##		COMPILATION RULES 			##
+##########################################################
+
+.DEFAULT_GOAL := all
+
+all: header mkdirs mkdirsComponents horseslibs $(PROG)
+
+
+$(PROG): $(OBJS_CASE) $(OBJS_HORSES) ProblemFile
+	@echo
+	@echo
+	@echo "---------------------------------"
+	@echo "| Linking " $@ "|"
+	@echo "---------------------------------"
+	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_EXEC) $(OBJS_CASE_EXEC) $(HORSES_LIBS_EXEC)
+
+horseslibs:
+	@for subdir in $(HORSES_LIBS); do \
+	    (cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install) || exit 1; \
+	done
+
+##########################################
+##	Source file compilation		##
+##########################################
+$(OBJS_HORSES): %: $(or $(wildcard $(HOME_DIR)/src/**/%.f90), $(wildcard $(HOME_DIR)/src/%.f90) , $(wildcard $(HOME_DIR)/src/**/%.F90) )
+	@echo
+	@echo $@.f90
+	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)./include -c $(FILE_HORSES) -o ./build/$@.o
+
+FILE_HORSES = $(or $(wildcard $(HOME_DIR)/src/**/$@.f90),$(wildcard $(HOME_DIR)/src/$@.f90),$(wildcard $(HOME_DIR)/src/***/**/$@.f90))
+
+
+$(OBJS_CASE): %: ./src/%.f90
+	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)./include -c $< -o ./build/$@.o
+
+
+##########################################
+##	Extra auxiliar rules 		##
+##########################################
+clean: FORCE horseslibclean
+	$(info Removing object *.o files from $(NSLITE3D_PATH)/build)
+	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
+	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod* $(HOME_DIR)/lib/*.a
+	@rm -f $(HOME_DIR)/build/libproblemfile.so
+
+allclean: FORCE clean
+	@rm -f $(HOME_DIR)/$(PROG)
+
+horseslibclean: FORCE
+	@for subdir in $(HORSES_LIBS); do \
+	 echo "clean $$subdir"; \
+	 (cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) clean ) || exit 1; \
+	 done
+
+mkdirs: FORCE
+	@mkdir -p $(HOME_DIR)/build
+	@mkdir -p $(HOME_DIR)/include
+	@mkdir -p $(HOME_DIR)/bin
+	@mkdir -p $(HOME_DIR)/lib
+
+mkdirsComponents: FORCE
+	@mkdir -p ./build ./include ./lib ./bin
+
+header: FORCE
+	@echo
+	@echo "================================"
+	@echo ">>   Building HORSES3D   "
+	@echo "================================"
+	@echo
+	@echo
+
+## Dummy target to make sure a rule is executed
+FORCE:
