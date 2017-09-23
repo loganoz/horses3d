@@ -24,7 +24,7 @@ PROG=./bin/Gradients
 HOME_DIR?=@HORSES_HOME_DIR
 INSTALL_DIR=$(PWD)
 LIBS_HOME=$(HOME_DIR)
-INCLUDE=-I./include -I$(HOME_DIR)/include
+INCLUDE=-I./include -I$(HOME_DIR)/include -I$(HOME_DIR)/src/libs/foundation
 LIBS = 
 MACROS = 
 -include $(HOME_DIR)/make.inc

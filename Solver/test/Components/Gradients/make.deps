@@ -19,7 +19,7 @@ LegendreAlgorithms: SMConstants
 Headers: SMConstants
 InterpolationAndDerivatives: SMConstants LegendreAlgorithms 
 BoundaryConditions: SMConstants Physics MeshTypes HexElementClass SharedBCModule ManufacturedSolutions
-Physics: SMConstants Headers
+Physics: SMConstants Headers FluidData
 FacePatchClass: SMConstants 
 MappedGeometry: SMConstants TransfiniteMaps3D NodalStorageClass 
 TransfiniteMaps3D: SMConstants FacePatchClass 
@@ -34,6 +34,7 @@ DGViscousDiscretization: SMConstants HexElementClass NodalStorageClass Physics D
 DGWeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics MatrixOperations
 SpatialDiscretization: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
 DGSEMClass: SpatialDiscretization Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants ProlongToFaces
+Setup: DGSEMClass
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
 TimeIntegrator: Physics Plotter SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass
 ExplicitMethods: SMConstants DGSEMClass
