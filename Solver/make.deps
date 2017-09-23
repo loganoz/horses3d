@@ -1,34 +1,23 @@
 # --------------- Dependencies 
 NSLite3DMain: TimeIntegrator \
-HexMesh \
 Plotter \
- \
 ReadInputFile \
 DGSEMClass\
 pAdaptationClass
 
-Plotter:  HexElementClass PlotterDataSource 
-MappedGeometry:  TransfiniteMaps3D  
-TransfiniteMaps3D:  FacePatchClass 
-FaceClass:  MeshTypes  
-HexElementClass:  MeshTypes TransfiniteMaps3D HexElementConnectivityDefinitions    MappedGeometry ConnectivityClass
-HexElementConnectivityDefinitions:  
-HexMesh:  TransfiniteMaps3D FaceClass MeshTypes NodeClass HexElementClass  HexElementConnectivityDefinitions ZoneClass
-NodeClass:  MeshTypes 
-DGInviscidDiscretization:  HexElementClass  
-DGViscousDiscretization:  HexElementClass   DGWeakIntegrals ProlongToFaces HexMesh 
-DGWeakIntegrals:  HexElementClass   
-SpatialDiscretization: HexElementClass   MappedGeometry   DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
-DGSEMClass: SpatialDiscretization   HexMesh  ProlongToFaces
+Plotter: PlotterDataSource 
+DGViscousDiscretization: DGWeakIntegrals ProlongToFaces
+SpatialDiscretization: DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
+DGSEMClass: SpatialDiscretization ProlongToFaces
 TimeIntegrator:  Plotter  DGSEMClass  Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass
 ExplicitMethods:  DGSEMClass
 Jacobian:  DGSEMClass 
 ColorsClass: DGSEMClass
 FASMultigridClass:  ExplicitMethods DGSEMClass    
 #Implicit solvers
-Implicit_JF:  DGSEMClass  JFNKClass
+Implicit_JF:  DGSEMClass JFNKClass
 JFNKClass:  GMRESClass
-Implicit_NJ:  DGSEMClass HexElementClass  Jacobian ColorsClass LinearSolverClass CSR_Matrices
+Implicit_NJ:  DGSEMClass Jacobian ColorsClass LinearSolverClass CSR_Matrices
 #Linear solvers
 LinearSolverClass: MKLPardisoSolverClass PetscSolverClass IterativeSolverClass MultigridSolverClass
 MKLPardisoSolverClass:  CSR_Matrices PetscSolverClass GenericLinSolverClass
