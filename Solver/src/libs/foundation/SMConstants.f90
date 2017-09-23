@@ -43,5 +43,7 @@
          INTEGER, PARAMETER :: LEFT   = 1, RIGHT  = 2, TOP  = 2, BOTTOM  = 1
          INTEGER, PARAMETER :: FRONT  = 1, BACK   = 2
 
+         INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
+
          
       END MODULE SMConstants

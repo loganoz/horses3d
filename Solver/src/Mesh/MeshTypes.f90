@@ -21,6 +21,5 @@
       
       CHARACTER(LEN=3)   :: emptyBCName = "---"
 
-      INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
 
       END Module MeshTypes

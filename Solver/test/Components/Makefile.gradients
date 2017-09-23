@@ -16,14 +16,15 @@ COMM?=PARALLEL
 MAKE=make
 AR=ar
 RANLIB=ranlib
-PROG=./bin/HORSES3D
+PROG=./bin/Gradients
 
 ########################################
 # 2.- User defined paths
 ########################################
-HOME_DIR?=$(PWD)
-INSTALL_DIR=$(HOME_DIR)
-INCLUDE=-I$(HOME_DIR)/include
+HOME_DIR?=@HORSES_HOME_DIR
+INSTALL_DIR=$(PWD)
+LIBS_HOME=$(HOME_DIR)
+INCLUDE=-I./include -I$(HOME_DIR)/include -I$(HOME_DIR)/src/libs/foundation
 LIBS = 
 MACROS = 
 -include $(HOME_DIR)/make.inc
@@ -46,7 +47,19 @@ ARFLAGS=crv
 
 
 # ------------------------------------------------
-OBJS_HORSES=  	Plotter \
+OBJS_CASE= Setup Physics GradientTests InitialFlowState TestGradientsMain
+	   
+OBJS_HORSES=  SMConstants \
+		FTTimerClass \
+		FileReading \
+		Utilities \
+		Plotter \
+		MatrixOperations \
+		LegendreAlgorithms \
+		InterpolationAndDerivatives \
+		FluidData \
+		BoundaryConditions \
+		SharedBCModule \
 		FacePatchClass \
 		MappedGeometry \
 		TransfiniteMaps3D \
@@ -63,12 +76,17 @@ OBJS_HORSES=  	Plotter \
 		ProlongToFaces \
 		DGSEMClass \
 		SpatialDiscretization \
+		NodalStorageClass \
 		PlotterDataSource \
+		Headers \
+		ReadInputFile \
 		TimeIntegrator \
 		ConnectivityClass \
 		Jacobian \
 		CSR_Matrices \
 		pAdaptationClass \
+		ManufacturedSolutions \
+		DenseMatUtilities \
 		Implicit_JF \
 		JFNKClass \
 		GMRESClass \
@@ -82,15 +100,16 @@ OBJS_HORSES=  	Plotter \
 		MultigridSolverClass \
 		ExplicitMethods \
 		FASMultigridClass \
-		HORSES3DMain 
+		ProblemFile 
 
-OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),$(HOME_DIR)/build/$(obj).o)
+OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
+OBJS_CASE_EXEC=$(foreach obj,$(OBJS_CASE),./build/$(obj).o)
 
 
 ##########################################
 ##	Include dependencies 		##
 ##########################################
--include $(HOME_DIR)/make.deps
+-include ./make.deps
 
 ##########################################
 ## Select platform
@@ -177,11 +196,10 @@ endif
 ##########################################
 ##  	Select HORSES libraries 	##
 ##########################################
-HORSES_LIBS=ftobject foundation spectral io physics
-HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS),$(HOME_DIR)/lib/lib$(obj).a)
+HORSES_LIBS=ftobject
+HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS),./lib/lib$(obj).a)
 LIBFLAGS=  FC='$(FC)' \
 	   FFLAGS='$(FFLAGS)' \
-	   INCLUDE='$(INCLUDE)' \
            INSTALL_DIR='$(INSTALL_DIR)' \
 	   AR='$(AR)' \
 	   ARFLAGS='$(ARFLAGS)' \
@@ -195,21 +213,16 @@ LIBFLAGS=  FC='$(FC)' \
 
 .DEFAULT_GOAL := all
 
-all: header mkdirs horseslibs $(PROG)
+all: header mkdirs mkdirsComponents horseslibs $(PROG)
 
 
-$(PROG): $(OBJS_HORSES) ProblemFile
+$(PROG): $(OBJS_CASE) $(OBJS_HORSES) ProblemFile
 	@echo
 	@echo
 	@echo "---------------------------------"
 	@echo "| Linking " $@ "|"
 	@echo "---------------------------------"
-	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_EXEC) $(HORSES_LIBS_EXEC) $(PROBLEM_LIB)
-
-ProblemFile: src/Generic/ProblemFile.f90
-	$(FC) -fPIC -shared $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)$(HOME_DIR)/include -c ./src/Generic/ProblemFile.f90 -o $(HOME_DIR)/build/$@.o
-	$(FC) $(DYNLIB_FLAG) $(FFLAGS) $(MACROS) $(INCLUDE) ./build/ProblemFile.o
-	
+	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_EXEC) $(OBJS_CASE_EXEC) $(HORSES_LIBS_EXEC)
 
 horseslibs:
 	@for subdir in $(HORSES_LIBS); do \
@@ -222,9 +235,13 @@ horseslibs:
 $(OBJS_HORSES): %: $(or $(wildcard $(HOME_DIR)/src/**/%.f90), $(wildcard $(HOME_DIR)/src/%.f90) , $(wildcard $(HOME_DIR)/src/**/%.F90) )
 	@echo
 	@echo $@.f90
-	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)$(HOME_DIR)/include -c $(FILE_NSLITE) -o $(HOME_DIR)/build/$@.o
+	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)./include -c $(FILE_HORSES) -o ./build/$@.o
 
-FILE_NSLITE = $(or $(wildcard $(HOME_DIR)/src/**/$@.f90),$(wildcard $(HOME_DIR)/src/$@.f90),$(wildcard $(HOME_DIR)/src/**/$@.F90))
+FILE_HORSES = $(or $(wildcard $(HOME_DIR)/src/**/$@.f90),$(wildcard $(HOME_DIR)/src/$@.f90),$(wildcard $(HOME_DIR)/src/***/**/$@.f90))
+
+
+$(OBJS_CASE): %: ./src/%.f90
+	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)./include -c $< -o ./build/$@.o
 
 
 ##########################################
@@ -235,12 +252,6 @@ clean: FORCE horseslibclean
 	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
 	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod* $(HOME_DIR)/lib/*.a
 	@rm -f $(HOME_DIR)/build/libproblemfile.so
-
-test: all
-	(cd $(HOME_DIR)/test/Euler/Diffuser/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) all \
-	&& cd ../ && ./HORSES3D DiffuserFlow.control ) || exit 1; 
-	(cd $(HOME_DIR)/test/NavierStokes/Cylinder/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) all \
-	&& cd ../ && ./HORSES3D Cylinder.control ) || exit 1; 
 
 allclean: FORCE clean
 	@rm -f $(HOME_DIR)/$(PROG)
@@ -256,6 +267,9 @@ mkdirs: FORCE
 	@mkdir -p $(HOME_DIR)/include
 	@mkdir -p $(HOME_DIR)/bin
 	@mkdir -p $(HOME_DIR)/lib
+
+mkdirsComponents: FORCE
+	@mkdir -p ./build ./include ./lib ./bin
 
 header: FORCE
 	@echo
