@@ -21,8 +21,4 @@ bottom 0.0 Inflow
 top 0.0 Inflow
 left 0.0 Outflow
 right 0.0 Outflow
-boundaries to analyze = 3
-top
-left
-right
 riemann solver       = rusanov

@@ -14,18 +14,14 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  -----------------------------------
-!  Computes lift and drag for one zone
-!  -----------------------------------
-   subroutine calc_LiftDrag(sem,PrintToFile,PrintToScreen)
+!  ------------------------------------
+!  Computes lift and drag for all zones
+!  ------------------------------------
+   subroutine calc_LiftDrag(sem)
       implicit none
       !------------------------------------------------
       type(DGSem)  , intent(inout)  :: sem
-      logical, optional, intent(in) :: PrintToFile
-      logical, optional, intent(in) :: PrintToScreen
-      !------------------------------------------------
-      logical       :: PrintFile
-      logical       :: PrintScreen              
+      !------------------------------------------------ 
       integer       :: iZone                    ! Zone counter
       real(kind=RP) :: Fx, Fy, Fz               ! Nondimensional forces in cartesian directions
       real(kind=RP) :: Fx_abs, Fy_abs, Fz_abs   ! Absolute forces in cartesian directions
@@ -33,14 +29,6 @@ contains
       real(kind=RP) :: Fd_abs, Fl_abs           ! Absolute forces in cartesian directions
       real(kind=RP) :: Cd, Cl                   ! Drag and lift coefficients
       !------------------------------------------------
-      
-      if (present(PrintToScreen)) then
-         PrintScreen = PrintToScreen
-      else
-         PrintScreen = .true.
-      endif
-      
-      
       
       WRITE(STD_OUT,'(A45)') "*********************************************"
       WRITE(STD_OUT,'(A1,43X,A1)') "*","*"
