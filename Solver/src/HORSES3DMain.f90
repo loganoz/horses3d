@@ -24,6 +24,7 @@
       USE mainKeywordsModule
       USE Headers
       USE pAdaptationClass
+      USE LiftAndDrag
       
       IMPLICIT NONE
 interface
@@ -198,6 +199,11 @@ end interface
       CALL stopWatch % start()
          CALL timeIntegrator % integrate(sem, controlVariables)
       CALL stopWatch % stop()
+      
+      if (controlVariables % containsKey("boundaries to analyze")) then
+         call calc_LiftDrag(sem)
+      end if
+      
       
       PRINT *
       PRINT *, "Elapsed Time: ", stopWatch % elapsedTime(units = TC_SECONDS)

@@ -44,6 +44,7 @@ module ZoneClass
 !     according to values in the input file 
 !     ------------------------------------------
       subroutine ConstructZones( faces , zones )
+         use Headers
          implicit none
          class(Face), target                  :: faces(:)
          class(Zone_t), allocatable           :: zones(:)
@@ -71,9 +72,13 @@ module ZoneClass
          call Zone_AssignFaces(faces,zones,no_of_markers,zoneNames)
          
          ! DEBUG
+         write(STD_OUT,'(/)')
+         call Section_Header("Creating zones")
+         write(STD_OUT,'(/)')
+         
          do zoneID = 1, no_of_markers
-            WRITE(STD_OUT,'(A,I3,A,A16,A,I6)') "Zone ",zoneID, " created for boundary ",trim(zones(zoneID) % Name) &
-                     ,'. no_of_faces:', zones(zoneID) % no_of_faces
+            WRITE(STD_OUT,'(30X,A,A7,I6,A15,A)') "->", "  Zone ",zoneID, " for boundary: ",trim(zones(zoneID) % Name)
+            write(STD_OUT,'(32X,A28,I6)') 'Number of faces: ', zones(zoneID) % no_of_faces
          end do
          
       end subroutine ConstructZones

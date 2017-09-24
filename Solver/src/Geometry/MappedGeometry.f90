@@ -237,7 +237,7 @@ Module MappedGeometryClass
          
       ELSE
        
-         ERROR STOP 'Not ye implemented for computeMetricTermsConservativeForm'
+         ERROR STOP 'Not yet implemented for computeMetricTermsConservativeForm'
 !~          CALL computeMetricTermsConservativeForm(self, spA, mapper)
       
       ENDIF       

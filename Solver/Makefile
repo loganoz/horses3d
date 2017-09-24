@@ -100,6 +100,7 @@ OBJS_HORSES=  SMConstants \
 		MultigridSolverClass \
 		ExplicitMethods \
 		FASMultigridClass \
+		LiftAndDrag \
 		HORSES3DMain 
 
 OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),$(HOME_DIR)/build/$(obj).o)

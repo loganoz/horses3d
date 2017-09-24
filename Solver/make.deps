@@ -9,8 +9,10 @@ ReadInputFile \
 SMConstants \
 DGSEMClass\
 pAdaptationClass\
-ZoneClass
+ZoneClass\
+LiftAndDrag
 
+LiftAndDrag: SMConstants ZoneClass HexElementClass FaceClass Physics DGSEMClass ProlongToFaces
 FileReading: SMConstants
 Utilities: SMConstants 
 Plotter: NodalStorageClass HexElementClass PlotterDataSource 
@@ -28,7 +30,7 @@ FaceClass: SMConstants MeshTypes InterpolationAndDerivatives LegendreAlgorithms
 HexElementClass: SMConstants MeshTypes TransfiniteMaps3D HexElementConnectivityDefinitions NodalStorageClass LegendreAlgorithms InterpolationAndDerivatives MappedGeometry ConnectivityClass
 HexElementConnectivityDefinitions: SMConstants 
 HexMesh: Physics TransfiniteMaps3D FaceClass MeshTypes SharedBCModule NodeClass HexElementClass Headers HexElementConnectivityDefinitions ZoneClass
-ZoneClass: SMConstants SharedBCModule 
+ZoneClass: SMConstants SharedBCModule Headers
 NodeClass: SMConstants MeshTypes 
 DGInviscidDiscretization: SMConstants HexElementClass NodalStorageClass Physics
 DGViscousDiscretization: SMConstants HexElementClass NodalStorageClass Physics DGWeakIntegrals ProlongToFaces HexMesh BoundaryConditions

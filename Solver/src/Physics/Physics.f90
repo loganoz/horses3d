@@ -119,7 +119,7 @@
                                                 1.0_RP / 1.4_RP, & ! InvGamma
                                    1.4_RP / ( 1.4_RP - 1.0_RP ), & ! gammaDivGammaMinus1
      287.15_RP * 5.0_RP / 9.0_RP * 1.4_RP / ( 1.4_RP - 1.0_RP ), & ! cp
-              287.15_RP * 5.0_RP / 9.0_RP / ( 1.4_RP - 1.0_RP ), & ! cp
+              287.15_RP * 5.0_RP / 9.0_RP / ( 1.4_RP - 1.0_RP ), & ! cv
                                                          0.0_RP  & ! Bulk viscosity ratio
 )
 !
