@@ -1,5 +1,5 @@
 #################################################
-#	Foundation Makefile 		#
+#	Plot Makefile 		#
 #################################################
 INSTALL_DIR?=./
 FFLAGS?=-cpp
@@ -11,13 +11,11 @@ MOD_FLAG?=-J
 
 
 
-LIBOBJS = 	./build/FluidData.o \
-		./build/Physics.o \
-		./build/ManufacturedSolutions.o \
-		./build/BoundaryConditions.o 
+LIBOBJS = 	./build/PlotterDataSource.o \
+		./build/Plotter.o \
 
 
-LIB = physics
+LIB = plot
 
 ############################################
 #	MAIN COMPILATION RULES 		   #
@@ -47,7 +45,7 @@ install: lib$(LIB).a
 header: FORCE
 	@echo
 	@echo "================================"
-	@echo ">>   Building physics        "
+	@echo ">>   Building Plot        "
 	@echo "================================"
 	@echo
 	@echo

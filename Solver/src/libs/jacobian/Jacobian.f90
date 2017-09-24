@@ -12,7 +12,7 @@
 Module Jacobian 
 
 USE SMConstants
-USE DGSEMClass
+USE HexMeshClass
 USE PhysicsStorage 
 IMPLICIT NONE 
 
@@ -29,7 +29,7 @@ IMPLICIT NONE
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Look_for_neighbour(this, sem)  !arueda: ready for 3D
+   SUBROUTINE Look_for_neighbour(this, mesh)  !arueda: ready for 3D
       IMPLICIT NONE 
 !
 !     -----------------------------------------------------------------------------
@@ -44,7 +44,7 @@ IMPLICIT NONE
 !     ----------------
 !
       TYPE(Neighbour)                   :: this(:)
-      TYPE(DGSem)                       :: sem
+      TYPE(HexMesh)                     :: mesh
 !
 !     ---------------
 !     Local Variables
@@ -52,19 +52,19 @@ IMPLICIT NONE
 !
       INTEGER                         :: i,j,iEl  ! k, iEdge, iSlave
       
-      DO iEl = 1, SIZE(sem%mesh%elements)
+      DO iEl = 1, SIZE(mesh%elements)
 !~       k = 1      
 !         PRINT*, "Element = ", iEl
          this(iEl)%elmnt(7) = iEl  ! The last one is itself
          DO j = 1, 6
-            IF (sem%mesh%elements(iEl)%NumberOfConnections(j) == 0) THEN
+            IF (mesh%elements(iEl)%NumberOfConnections(j) == 0) THEN
                this(iEl)%elmnt(j) = 0
             ELSE
-               this(iEl)%elmnt(j) = sem%mesh%elements(iEl)%Connection(j)%ElementIDs(1)
+               this(iEl)%elmnt(j) = mesh%elements(iEl)%Connection(j)%ElementIDs(1)
             ENDIF
          ENDDO
 !~         DO iEdge = 1, SIZE(sem%mortar)
-!~            IF (sem%mesh%masters(iEdge)%elementID == iEl) THEN
+!~            IF (mesh%masters(iEdge)%elementID == iEl) THEN
 !~               this(iEl)%edge(k) = iEdge
 !~               k = k + 1
 !~!            PRINT*, "Element = ", iEl, "conection with edge", iEdge             

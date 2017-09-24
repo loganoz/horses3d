@@ -1,27 +1,19 @@
 # --------------- Dependencies 
-NSLite3DMain: TimeIntegrator \
-Plotter \
-ReadInputFile \
-DGSEMClass\
-pAdaptationClass
-
-Plotter: PlotterDataSource 
+NSLite3DMain: TimeIntegrator ReadInputFile DGSEMClass pAdaptationClass
 DGViscousDiscretization: DGWeakIntegrals ProlongToFaces
 SpatialDiscretization: DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
 DGSEMClass: SpatialDiscretization ProlongToFaces
-TimeIntegrator:  Plotter  DGSEMClass  Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass
-ExplicitMethods:  DGSEMClass
-Jacobian:  DGSEMClass 
-ColorsClass: DGSEMClass
-FASMultigridClass:  ExplicitMethods DGSEMClass    
+TimeIntegrator: DGSEMClass  Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass
+ExplicitMethods: DGSEMClass
+FASMultigridClass: ExplicitMethods DGSEMClass    
 #Implicit solvers
-Implicit_JF:  DGSEMClass JFNKClass
-JFNKClass:  GMRESClass
-Implicit_NJ:  DGSEMClass Jacobian ColorsClass LinearSolverClass CSR_Matrices
+Implicit_JF: DGSEMClass JFNKClass
+JFNKClass: GMRESClass
+Implicit_NJ: DGSEMClass LinearSolverClass 
 #Linear solvers
 LinearSolverClass: MKLPardisoSolverClass PetscSolverClass IterativeSolverClass MultigridSolverClass
-MKLPardisoSolverClass:  CSR_Matrices PetscSolverClass GenericLinSolverClass
-PetscSolverClass: CSR_Matrices GenericLinSolverClass 
-IterativeSolverClass:  CSR_Matrices PetscSolverClass GenericLinSolverClass
-MultigridSolverClass:  CSR_Matrices PetscSolverClass GenericLinSolverClass   
-GenericLinSolverClass:  CSR_Matrices DGSEMClass
+MKLPardisoSolverClass: PetscSolverClass GenericLinSolverClass
+PetscSolverClass:  GenericLinSolverClass 
+IterativeSolverClass: PetscSolverClass GenericLinSolverClass
+MultigridSolverClass: PetscSolverClass GenericLinSolverClass   
+GenericLinSolverClass: DGSEMClass

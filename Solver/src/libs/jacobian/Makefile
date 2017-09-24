@@ -1,5 +1,5 @@
 #################################################
-#	Foundation Makefile 		#
+#	Jacobian Makefile 		#
 #################################################
 INSTALL_DIR?=./
 FFLAGS?=-cpp
@@ -11,13 +11,12 @@ MOD_FLAG?=-J
 
 
 
-LIBOBJS = 	./build/FluidData.o \
-		./build/Physics.o \
-		./build/ManufacturedSolutions.o \
-		./build/BoundaryConditions.o 
+LIBOBJS = 	./build/CSR_Matrices.o \
+		./build/ColorsClass.o \
+		./build/Jacobian.o
 
 
-LIB = physics
+LIB = jacobian
 
 ############################################
 #	MAIN COMPILATION RULES 		   #
@@ -47,7 +46,7 @@ install: lib$(LIB).a
 header: FORCE
 	@echo
 	@echo "================================"
-	@echo ">>   Building physics        "
+	@echo ">>   Building Jacobian        "
 	@echo "================================"
 	@echo
 	@echo

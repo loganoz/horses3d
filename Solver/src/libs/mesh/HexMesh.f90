@@ -42,6 +42,11 @@
          PROCEDURE :: ConstructZones    => HexMesh_ConstructZones
          PROCEDURE :: WriteCoordFile
       END TYPE HexMesh
+
+      TYPE Neighbour             ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
+         INTEGER :: elmnt(7)     ! "7" hardcoded for 3D hexahedrals in conforming meshes... This definition must change if the code is expected to be more general
+      END TYPE Neighbour
+
 !
 !     ========
       CONTAINS

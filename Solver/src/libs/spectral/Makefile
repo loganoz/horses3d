@@ -1,5 +1,5 @@
 #################################################
-#	Foundation Makefile 		#
+#	Spectral Makefile 		#
 #################################################
 INSTALL_DIR?=./
 FFLAGS?=-cpp
@@ -26,7 +26,7 @@ LIB = spectral
 ./build/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) -fPIC $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
 lib$(LIB).a: header mkdirs $(LIBOBJS)
 	@echo

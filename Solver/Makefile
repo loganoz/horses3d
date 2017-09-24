@@ -46,23 +46,18 @@ ARFLAGS=crv
 
 
 # ------------------------------------------------
-OBJS_HORSES=  	Plotter \
-		DGInviscidDiscretization \
+OBJS_HORSES=	DGInviscidDiscretization \
 		DGViscousDiscretization \
 		DGWeakIntegrals \
 		ProlongToFaces \
 		DGSEMClass \
 		SpatialDiscretization \
-		PlotterDataSource \
 		TimeIntegrator \
-		Jacobian \
-		CSR_Matrices \
 		pAdaptationClass \
 		Implicit_JF \
 		JFNKClass \
 		GMRESClass \
 		Implicit_NJ \
-		ColorsClass \
 		PetscSolverClass \
 		GenericLinSolverClass \
 		MKLPardisoSolverClass \
@@ -166,8 +161,8 @@ endif
 ##########################################
 ##  	Select HORSES libraries 	##
 ##########################################
-HORSES_LIBS=ftobject foundation spectral io physics mesh
-HORSES_LIBS_REORD=mesh physics io spectral foundation ftobject
+HORSES_LIBS=ftobject foundation spectral io physics mesh plot jacobian
+HORSES_LIBS_REORD=jacobian plot mesh physics io spectral foundation ftobject
 HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS_REORD),$(HOME_DIR)/lib/lib$(obj).a)
 LIBFLAGS=  FC='$(FC)' \
 	   FFLAGS='$(FFLAGS)' \
@@ -188,7 +183,7 @@ LIBFLAGS=  FC='$(FC)' \
 all: header mkdirs horseslibs $(PROG)
 
 
-$(PROG): $(OBJS_HORSES) ProblemFile
+$(PROG): $(OBJS_HORSES) $(HOME_DIR)/build/ProblemFile.o
 	@echo
 	@echo
 	@echo "---------------------------------"
@@ -196,8 +191,8 @@ $(PROG): $(OBJS_HORSES) ProblemFile
 	@echo "---------------------------------"
 	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_EXEC) $(HORSES_LIBS_EXEC) $(PROBLEM_LIB)
 
-ProblemFile: src/Generic/ProblemFile.f90
-	$(FC) -fPIC -shared $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)$(HOME_DIR)/include -c ./src/Generic/ProblemFile.f90 -o $(HOME_DIR)/build/$@.o
+$(HOME_DIR)/build/ProblemFile.o: src/libs/problemfile/ProblemFile.f90
+	$(FC) -fPIC -shared $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)$(HOME_DIR)/include -c $< -o $@
 	$(FC) $(DYNLIB_FLAG) $(FFLAGS) $(MACROS) $(INCLUDE) ./build/ProblemFile.o
 	
 
