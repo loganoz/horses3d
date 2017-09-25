@@ -201,7 +201,7 @@ end interface
       CALL stopWatch % stop()
       
       if (controlVariables % containsKey("boundaries to analyze")) then
-         call calc_LiftDrag(sem)
+         call calc_LiftDrag(sem % mesh, sem % spA)
       end if
       
       
