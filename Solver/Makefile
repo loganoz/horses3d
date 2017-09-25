@@ -49,7 +49,6 @@ ARFLAGS=crv
 OBJS_HORSES=	DGInviscidDiscretization \
 		DGViscousDiscretization \
 		DGWeakIntegrals \
-		ProlongToFaces \
 		DGSEMClass \
 		SpatialDiscretization \
 		TimeIntegrator \
@@ -66,7 +65,6 @@ OBJS_HORSES=	DGInviscidDiscretization \
 		MultigridSolverClass \
 		ExplicitMethods \
 		FASMultigridClass \
-		LiftAndDrag \
 		HORSES3DMain 
 
 OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),$(HOME_DIR)/build/$(obj).o)
@@ -162,8 +160,8 @@ endif
 ##########################################
 ##  	Select HORSES libraries 	##
 ##########################################
-HORSES_LIBS=ftobject foundation spectral io physics mesh plot jacobian
-HORSES_LIBS_REORD=jacobian plot mesh physics io spectral foundation ftobject
+HORSES_LIBS=ftobject foundation spectral io physics mesh plot jacobian monitors
+HORSES_LIBS_REORD=monitors jacobian plot mesh physics io spectral foundation ftobject
 HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS_REORD),$(HOME_DIR)/lib/lib$(obj).a)
 LIBFLAGS=  FC='$(FC)' \
 	   FFLAGS='$(FFLAGS)' \

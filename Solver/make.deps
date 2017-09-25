@@ -1,8 +1,7 @@
-NSLite3DMain: TimeIntegrator ReadInputFile DGSEMClass pAdaptationClass LiftAndDrag
-LiftAndDrag: DGSEMClass ProlongToFaces
-DGViscousDiscretization: DGWeakIntegrals ProlongToFaces
+NSLite3DMain: TimeIntegrator ReadInputFile DGSEMClass pAdaptationClass
+DGViscousDiscretization: DGWeakIntegrals 
 SpatialDiscretization: DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
-DGSEMClass: SpatialDiscretization ProlongToFaces
+DGSEMClass: SpatialDiscretization 
 TimeIntegrator: DGSEMClass  Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass
 ExplicitMethods: DGSEMClass
 FASMultigridClass: ExplicitMethods DGSEMClass    

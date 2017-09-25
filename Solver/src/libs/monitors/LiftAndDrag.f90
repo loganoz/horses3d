@@ -4,7 +4,8 @@ module LiftAndDrag
    use ElementClass
    use FaceClass
    use Physics
-   use DGSEMClass
+   use HexMeshClass
+   use NodalStorageClass
    use ProlongToFacesProcedures
    implicit none
    
@@ -17,10 +18,11 @@ contains
 !  ------------------------------------
 !  Computes lift and drag for all zones
 !  ------------------------------------
-   subroutine calc_LiftDrag(sem)
+   subroutine calc_LiftDrag(mesh,spA)
       implicit none
       !------------------------------------------------
-      type(DGSem)  , intent(inout)  :: sem
+      type(HexMesh)  , intent(inout)   :: mesh
+      type(NodalStorage), intent(in)   :: spA(0:,0:,0:)
       !------------------------------------------------ 
       integer       :: iZone                    ! Zone counter
       real(kind=RP) :: Fx, Fy, Fz               ! Nondimensional forces in cartesian directions
@@ -34,9 +36,10 @@ contains
       WRITE(STD_OUT,'(A1,43X,A1)') "*","*"
       WRITE(STD_OUT,'(A1,15X,A13,15X,A1)') "*","Zone Analysis","*"
       WRITE(STD_OUT,'(A1,43X,A1)') "*","*"
-      do iZone = 1, size(sem % mesh % zones)
+
+      do iZone = 1, size(mesh % zones)
          
-         call calc_LiftDrag_zone(sem,sem % mesh % zones(iZone),Fx, Fy, Fz)
+         call calc_LiftDrag_zone(mesh, spA, mesh % zones(iZone),Fx, Fy, Fz)
 !
 !        ---------------------------------------------------------
 !        Get the actual forces from the nondimensional computation 
@@ -76,7 +79,7 @@ contains
          
          
          WRITE(STD_OUT,'(A45)') "*********************************************"
-         WRITE(STD_OUT,'(A8,I3,A12,A20,A2)') "* ZONE: ", iZone, ". Boundary: ", trim(sem % mesh % zones(iZone) % Name) , " *"
+         WRITE(STD_OUT,'(A8,I3,A12,A20,A2)') "* ZONE: ", iZone, ". Boundary: ", trim(mesh % zones(iZone) % Name) , " *"
          WRITE(STD_OUT,'(A7,ES12.5,A2,22X,A2)') "* Fx = ", Fx_abs," N"," *"
          WRITE(STD_OUT,'(A7,ES12.5,A2,22X,A2)') "* Fy = ", Fy_abs," N"," *"
          WRITE(STD_OUT,'(A7,ES12.5,A2,22X,A2)') "* Fz = ", Fz_abs," N"," *"
@@ -93,12 +96,13 @@ contains
 !  -----------------------------------
 !  Computes lift and drag for one zone
 !  -----------------------------------
-   subroutine calc_LiftDrag_zone(sem,zone,Fx, Fy, Fz)
+   subroutine calc_LiftDrag_zone(mesh,spA,zone,Fx, Fy, Fz)
       implicit none
       !------------------------------------------------
-      type(DGSem)  , intent(inout) :: sem
-      type(Zone_t) , intent(in)    :: zone
-      real(kind=RP), intent(out)   :: Fx, Fy, Fz
+      type(HexMesh), intent(inout)      :: mesh
+      type(NodalStorage), intent(in)    :: spA(0:,0:,0:)
+      type(Zone_t) , intent(in)         :: zone
+      real(kind=RP), intent(out)        :: Fx, Fy, Fz
       !------------------------------------------------
       integer       :: iface       ! Face counter
       integer       :: fID, eID    ! Face and element indexes
@@ -112,11 +116,11 @@ contains
 !$omp parallel do reduction(+:Fx,Fy,Fz) private(fID,eID,FxFace,FyFace,FzFace) schedule(guided)
       do iface = 1, zone % no_of_faces
          fID = zone % faces(iface)
-         eID = sem % mesh % faces(fID) % elementIDs(1)
+         eID = mesh % faces(fID) % elementIDs(1)
          
-         call calc_LiftDrag_face (sem % mesh % elements(eID), &
-                                  sem % spA, &
-                                  sem % mesh % faces(fID) % elementSide(1),&
+         call calc_LiftDrag_face (mesh % elements(eID), &
+                                  spA, &
+                                  mesh % faces(fID) % elementSide(1),&
                                   FxFace,FyFace,FzFace)
          Fx = Fx + FxFace
          Fy = Fy + FyFace

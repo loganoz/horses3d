@@ -1,5 +1,5 @@
 #################################################
-#	Mesh Makefile 		#
+#	Monitors Makefile 		#
 #################################################
 INSTALL_DIR?=./
 FFLAGS?=-cpp
@@ -11,21 +11,10 @@ MOD_FLAG?=-J
 
 
 
-LIBOBJS = 	./build/ConnectivityClass.o \
-		./build/FacePatchClass.o \
-		./build/TransfiniteMaps3D.o \
-		./build/MappedGeometry.o \
-		./build/MeshTypes.o \
-		./build/NodeClass.o \
-		./build/HexElementConnectivityDefinitions.o \
-		./build/HexElementClass.o \
-		./build/FaceClass.o \
-		./build/ZoneClass.o \
-		./build/HexMesh.o \
-		./build/ProlongToFaces.o
+LIBOBJS = 	./build/LiftAndDrag.o
 
 
-LIB = mesh
+LIB = monitors
 
 ############################################
 #	MAIN COMPILATION RULES 		   #
@@ -55,7 +44,7 @@ install: lib$(LIB).a
 header: FORCE
 	@echo
 	@echo "================================"
-	@echo ">>   Building Mesh        "
+	@echo ">>   Building Monitors        "
 	@echo "================================"
 	@echo
 	@echo
