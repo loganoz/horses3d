@@ -1,0 +1,62 @@
+# --------------- Dependencies 
+NSLite3DMain: TimeIntegrator \
+HexMesh \
+Plotter \
+FTTimerClass \
+SharedBCModule \
+BoundaryConditions \
+ReadInputFile \
+SMConstants \
+DGSEMClass\
+pAdaptationClass
+
+FileReading: SMConstants
+Utilities: SMConstants 
+Plotter: NodalStorageClass HexElementClass PlotterDataSource 
+TimerClass: SMConstants
+MatrixOperations: SMConstants
+LegendreAlgorithms: SMConstants 
+Headers: SMConstants
+InterpolationAndDerivatives: SMConstants LegendreAlgorithms 
+BoundaryConditions: SMConstants Physics MeshTypes HexElementClass SharedBCModule ManufacturedSolutions
+Physics: SMConstants Headers FluidData
+FacePatchClass: SMConstants 
+MappedGeometry: SMConstants TransfiniteMaps3D NodalStorageClass 
+TransfiniteMaps3D: SMConstants FacePatchClass 
+FaceClass: SMConstants MeshTypes InterpolationAndDerivatives LegendreAlgorithms
+HexElementClass: SMConstants MeshTypes TransfiniteMaps3D HexElementConnectivityDefinitions NodalStorageClass LegendreAlgorithms InterpolationAndDerivatives MappedGeometry ConnectivityClass
+HexElementConnectivityDefinitions: SMConstants 
+HexMesh: Physics TransfiniteMaps3D FaceClass MeshTypes SharedBCModule NodeClass HexElementClass Headers HexElementConnectivityDefinitions ZoneClass
+ZoneClass: SMConstants SharedBCModule 
+NodeClass: SMConstants MeshTypes 
+DGInviscidDiscretization: SMConstants HexElementClass NodalStorageClass Physics
+DGViscousDiscretization: SMConstants HexElementClass NodalStorageClass Physics DGWeakIntegrals ProlongToFaces HexMesh BoundaryConditions
+DGWeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics MatrixOperations
+SpatialDiscretization: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
+DGSEMClass: SpatialDiscretization Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants ProlongToFaces
+Setup: DGSEMClass
+NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
+TimeIntegrator: Physics Plotter SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass
+ExplicitMethods: SMConstants DGSEMClass
+PlotterDataSource: SMConstants 
+ReadInputFile: SMConstants SharedBCModule Physics Setup
+Jacobian: SMConstants DGSEMClass Physics
+ColorsClass: DGSEMClass
+CSR_Matrices: SMConstants
+ManufacturedSolutions: Physics SMConstants
+DenseMatUtilities: SMConstants
+FASMultigridClass: SMConstants ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics BoundaryConditions
+#Implicit solvers
+Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
+JFNKClass: SMConstants GMRESClass
+GMRESClass: SMConstants
+Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices
+#Linear solvers
+LinearSolverClass: MKLPardisoSolverClass PetscSolverClass IterativeSolverClass MultigridSolverClass
+
+MKLPardisoSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass
+PetscSolverClass: CSR_Matrices GenericLinSolverClass SMConstants
+IterativeSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass DenseMatUtilities
+MultigridSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass InterpolationAndDerivatives LegendreAlgorithms Physics
+
+GenericLinSolverClass: SMConstants CSR_Matrices DGSEMClass

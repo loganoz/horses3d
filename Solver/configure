@@ -19,7 +19,6 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./NavierStokes/ManufacturedSolutions"
 
 COMPONENTS_TEST_CASES="FacePatches \
-	 	       Gradients \
  		       HexMesh \
 		       HexMappings \
 		       MappedGeometry \
@@ -34,7 +33,7 @@ for subdir in $TEST_CASES; do
 	mkdir -p ./test/$subdir/RESULTS
 	cp -v ./test/make.inc ./test/$subdir/SETUP/make.inc
 	cp -v ./test/Makefile.template ./test/$subdir/SETUP/Makefile
-	cp -v ./src/Generic/ProblemFile.f90 ./test/$subdir/SETUP/ProblemFileTemplate.f90
+	cp -v ./src/libs/problemfile/ProblemFile.f90 ./test/$subdir/SETUP/ProblemFileTemplate.f90
 	ln -fsv $PWD/bin/HORSES3D ./test/$subdir
 done
 
@@ -44,3 +43,6 @@ for subdir in $COMPONENTS_TEST_CASES; do
 	sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/$subdir/Makefile
 	sed -i -e "s#@PROG_NAME#$subdir#g" ./test/Components/$subdir/Makefile
 done
+
+cp -v ./test/Components/Makefile.gradients ./test/Components/Gradients/Makefile
+sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/Gradients/Makefile

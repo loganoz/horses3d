@@ -13,7 +13,7 @@
 !////////////////////////////////////////////////////////////////////////
 MODULE ColorsClass
    
-   USE DGSEMClass
+   USE HexMeshClass
 
    IMPLICIT NONE
 
@@ -138,11 +138,11 @@ MODULE ColorsClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE ExportColors2Tec(this,sem,filename)
+   SUBROUTINE ExportColors2Tec(this,mesh,filename)
       IMPLICIT NONE
       !-------------------------------------------------------
       CLASS(Colors)                       :: this
-      TYPE(DGSem)                         :: sem
+      TYPE(HexMesh)                       :: mesh
       character(len=*), intent(in)        :: filename
       
       !-------------------------------------------------------
@@ -151,7 +151,7 @@ MODULE ColorsClass
       !-------------------------------------------------------
       open(newunit = fd, file=trim(filename), action='WRITE')
       
-      Nelem = SIZE(sem % mesh % elements)
+      Nelem = SIZE(mesh % elements)
       
       !! Create colors array
       ALLOCATE(colors(Nelem))
@@ -166,15 +166,15 @@ MODULE ColorsClass
       write(fd,*) 'VARIABLES = "X","Y","Z","Color" '
       
       DO id = 1, Nelem
-         N = sem % mesh % elements(id) % Nxyz
+         N = mesh % elements(id) % Nxyz
          WRITE(fd,*) 'ZONE I=', N(1)+1, ",J=",N(2)+1, ",K=",N(3)+1,", F=POINT"
          
          DO k = 0, N(3)
             DO j= 0, N(2)
                DO i = 0, N(1)
-                  write(fd,'(3E13.5,x,I0)') sem % mesh % elements(id) % geom % x(1,i,j,k), &
-                                            sem % mesh % elements(id) % geom % x(2,i,j,k), &
-                                            sem % mesh % elements(id) % geom % x(3,i,j,k), &
+                  write(fd,'(3E13.5,x,I0)') mesh % elements(id) % geom % x(1,i,j,k), &
+                                            mesh % elements(id) % geom % x(2,i,j,k), &
+                                            mesh % elements(id) % geom % x(3,i,j,k), &
                                             colors(id)
                END DO
             END DO

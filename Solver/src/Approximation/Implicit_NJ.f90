@@ -96,7 +96,7 @@ MODULE Implicit_NJ
          DimPrb = sem % NDOF
          
          ALLOCATE(nbr(nelm))
-         CALL Look_for_neighbour(nbr, sem)    
+         CALL Look_for_neighbour(nbr, sem % mesh)    
          ALLOCATE(U_n(0:Dimprb-1))
          CALL ecolors%construct(nbr,flowIsNavierStokes)       
          !CALL ecolors%info
@@ -288,7 +288,7 @@ MODULE Implicit_NJ
             rel_tol = norm1 * NEWTON_TOLERANCE
          ENDIF
          IF (INFO) THEN
-            WRITE(*, "(I8,1p,E18.3,E18.3,E15.3,I10,F18.5)"),newtonit, norm, norm/norm1, linsolver%Getrnorm(),&
+            WRITE(*, "(I8,1p,E18.3,E18.3,E15.3,I10,F18.5)")newtonit, norm, norm/norm1, linsolver%Getrnorm(),&
                                                       linsolver%niter,0.1_RP*(clf-cli)/real(clrate,RP)  !!!! I have NO IDEA why I have to multiply by 0.1!!!
          ENDIF
          

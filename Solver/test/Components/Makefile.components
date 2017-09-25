@@ -52,7 +52,7 @@ FILE_HORSES_CASE=$(or $(wildcard $(HOME_DIR)/src/**/$@.f90),$(wildcard $(HOME_DI
 $(OBJS_CASE): %: ./src/%.f90
 	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)./include -c $< -o ./build/$@.o
 
-ProblemFile1: %: $(HOME_DIR)/src/Generic/ProblemFile.f90
+ProblemFile1: %: $(HOME_DIR)/src/libs/problemfile/ProblemFile.f90
 	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)./include -c $< -o ./build/ProblemFile.o
 
 ####################################################

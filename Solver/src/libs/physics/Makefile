@@ -1,5 +1,5 @@
 #################################################
-#	FTObjectLibrary Makefile 		#
+#	Foundation Makefile 		#
 #################################################
 INSTALL_DIR?=./
 FFLAGS?=-cpp
@@ -11,29 +11,13 @@ MOD_FLAG?=-J
 
 
 
-LIBOBJS = 	./build/FTOLConstants.o \
-	 	./build/FTObjectClass.o \
-		./build/FTDataClass.o \
-		./build/FTObjectArrayClass.o \
-		./build/FTLinkedListClass.o \
-	 	./build/FTMultiIndexTable.o \
-		./build/FTDictionaryClass.o \
-		./build/FTValueClass.o \
-		./build/FTValueDictionaryClass.o \
-	 	./build/FTStackClass.o \
-		./build/Hash.o \
-		./build/FTSparseMatrixClass.o \
-		./build/FTExceptionClass.o \
-	 	./build/Assert.o \
-		./build/Comparisons.o \
-		./build/TestSuiteManagerClass.o \
-	 	./build/FTObjectLibrary.o
+LIBOBJS = 	./build/FluidData.o \
+		./build/Physics.o \
+		./build/ManufacturedSolutions.o \
+		./build/BoundaryConditions.o 
 
 
-LIB = ftobject
-
-
--include ./make.dep
+LIB = physics
 
 ############################################
 #	MAIN COMPILATION RULES 		   #
@@ -43,7 +27,7 @@ LIB = ftobject
 ./build/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) -fPIC $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
 lib$(LIB).a: header mkdirs $(LIBOBJS)
 	@echo
@@ -63,7 +47,7 @@ install: lib$(LIB).a
 header: FORCE
 	@echo
 	@echo "================================"
-	@echo ">>   Building FTObjectLibrary   "
+	@echo ">>   Building physics        "
 	@echo "================================"
 	@echo
 	@echo
