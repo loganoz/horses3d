@@ -6,7 +6,6 @@ DGSEMClass: SpatialDiscretization ProlongToFaces
 TimeIntegrator: DGSEMClass  Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass
 ExplicitMethods: DGSEMClass
 FASMultigridClass: ExplicitMethods DGSEMClass    
->>>>>>> 5e04962ffc52d6af39f55bc33202b62cfe2b794a
 #Implicit solvers
 Implicit_JF: DGSEMClass JFNKClass
 JFNKClass: GMRESClass

@@ -6,7 +6,7 @@ module ZoneClass
    
    
    private
-   public Zone_t , ConstructZones, zoneNameDictionary, constructZoneModule
+   public Zone_t , ConstructZones, constructZoneModule
 
    integer, parameter      :: STR_LEN_ZONE = 128
    
@@ -22,8 +22,6 @@ module ZoneClass
       contains
          procedure   :: Initialize => Zone_Initialize
    end type Zone_t
-   
-   TYPE(FTValueDictionary) :: zoneNameDictionary
    
    contains
 !

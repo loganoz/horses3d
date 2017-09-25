@@ -11,6 +11,7 @@
          USE FTValueDictionaryClass
          IMPLICIT NONE
          TYPE(FTValueDictionary) :: bcValueDictionary, bcTypeDictionary
+         type(FTValueDictionary) :: zoneNameDictionary
          
          CONTAINS
 !
