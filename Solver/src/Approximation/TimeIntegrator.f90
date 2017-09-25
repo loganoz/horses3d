@@ -13,6 +13,7 @@
       MODULE TimeIntegratorClass
       
       USE SMConstants
+      use FTValueDictionaryClass
       USE PolynomialInterpAndDerivsModule
       USE DGSEMClass
       USE Physics

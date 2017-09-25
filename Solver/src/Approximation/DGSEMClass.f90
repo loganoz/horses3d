@@ -80,8 +80,10 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ConstructDGSem( self, meshFileName, &
+      SUBROUTINE ConstructDGSem( self, controlVariables, &
                                  externalState, externalGradients, polynomialOrder, Nx_, Ny_, Nz_, success )
+      use FTValueDictionaryClass
+      use mainKeywordsModule
       IMPLICIT NONE
 !
 !     --------------------------
@@ -90,7 +92,7 @@
 !
       !-----------------------------------------------------------------
       CLASS(DGSem)                :: self                               !<> Class to be constructed
-      CHARACTER(LEN=*)            :: meshFileName                       !<  Name of mesh file
+      class(FTValueDictionary)    :: controlVariables                   !<  Name of mesh file
       EXTERNAL                    :: externalState, externalGradients   !<  External procedures that define the BCs
       INTEGER, OPTIONAL           :: polynomialOrder(3)                 !<  Uniform polynomial order
       INTEGER, OPTIONAL, TARGET   :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
@@ -100,6 +102,7 @@
       INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
       INTEGER                     :: nelem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
+      character(len=LINE_LENGTH)  :: meshFileName
       !-----------------------------------------------------------------
       INTERFACE
          SUBROUTINE externalState(x,t,nHat,Q,boundaryName)
@@ -118,6 +121,7 @@
       END INTERFACE
       !-----------------------------------------------------------------
       
+      meshFileName = controlVariables % stringValueForKey(meshFileNameKey, requestedLength = LINE_LENGTH) 
 !
 !     ---------------------------------------
 !     Get polynomial orders for every element

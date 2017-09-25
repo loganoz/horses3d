@@ -2,6 +2,7 @@
 #	Monitors Makefile 		#
 #################################################
 INSTALL_DIR?=./
+INCLUDE?=-I../../../include
 FFLAGS?=-cpp
 AR?=ar
 ARFLAGS?=cr

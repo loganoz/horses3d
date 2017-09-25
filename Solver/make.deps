@@ -1,3 +1,8 @@
+###########################################################################
+##
+##	HORSES3D Solver source files dependencies
+##
+###########################################################################
 NSLite3DMain: TimeIntegrator ReadInputFile DGSEMClass pAdaptationClass
 DGViscousDiscretization: DGWeakIntegrals 
 SpatialDiscretization: DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals

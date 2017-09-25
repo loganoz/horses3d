@@ -2,6 +2,7 @@ module ZoneClass
    use SMConstants
    use FaceClass
    use SharedBCModule
+   use FTValueDictionaryClass
    use FTLinkedListClass
    
    

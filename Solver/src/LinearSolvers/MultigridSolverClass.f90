@@ -209,11 +209,10 @@ CONTAINS
          
          ! Create DGSEM class for child
          ALLOCATE (Child_p % p_sem)
-         CALL Child_p % p_sem % construct (meshFileName      = controlVariables % stringValueForKey("mesh file name",    &
-                                                                                      requestedLength = LINE_LENGTH),    &
-                                           externalState     = Solver % p_sem % externalState,                           &
-                                           externalGradients = Solver % p_sem % externalGradients,                       &
-                                           Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,                                        &
+         CALL Child_p % p_sem % construct (controlVariables = controlVariables,                          &
+                                           externalState     = Solver % p_sem % externalState,           &
+                                           externalGradients = Solver % p_sem % externalGradients,       &
+                                           Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,                        &
                                            success = success )
          IF (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
          

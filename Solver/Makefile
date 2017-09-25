@@ -39,7 +39,7 @@ GNU_DEBUG_FLAGS=  -fPIC -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused
 		  -fbackslash -fcheck=pointer -D_has_Quad
 INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc -D_has_Quad
 INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all \
-		   -check bounds -check uninit -ftrapuv -debug all -warn interfaces \
+		   -check bounds -check uninit -ftrapuv -debug all \
 		   -ftrace=full -assume ieee_fpe_flags -ftz -fp-model precise \
 		   -fp-speculation=off -assume bscc -D_has_Quad
 ARFLAGS=crv

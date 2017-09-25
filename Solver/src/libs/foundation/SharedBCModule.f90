@@ -10,6 +10,11 @@
       Module SharedBCModule
          USE FTValueDictionaryClass
          IMPLICIT NONE
+
+         private
+         public bcValueDictionary, bcTypeDictionary, zoneNameDictionary
+         public constructSharedBCModule, destructSharedBCModule
+
          TYPE(FTValueDictionary) :: bcValueDictionary, bcTypeDictionary
          type(FTValueDictionary) :: zoneNameDictionary
          
