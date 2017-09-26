@@ -271,14 +271,14 @@
             DO k = 1, 6
                IF (TRIM(names(k)) == "---") THEN
                   self%elements(l)%NumberOfConnections(k) = 1
-                  CALL self%elements(l)%Connection(k)%construct (1)  ! Conforming elements!!
+                  CALL self%elements(l)%Connection(k)%construct (1)  ! Just conforming elements
                ELSE
                   self%elements(l)%NumberOfConnections(k) = 0
                ENDIF
             ENDDO
             
             
-         END DO
+         END DO      ! l = 1, numberOfElement
          
 !
 !        ------------------------------

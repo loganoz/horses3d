@@ -15,6 +15,7 @@ MOD_FLAG?=-J
 LIBOBJS = 	./build/LiftAndDrag.o \
 		./build/MonitorDefinitions.o \
 		./build/ResidualsMonitor.o \
+		./build/SurfaceMonitor.o \
 		./build/Monitors.o
 
 

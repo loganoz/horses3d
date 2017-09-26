@@ -22,6 +22,13 @@ top 0.0 FreeSlipWall
 Back 0.0 Inflow
 Left 0.0 Inflow
 Right 0.0 OutflowSpecifyP
-boundaries to analyze = 1
-InnerCylinder
 riemann solver        = roe
+
+
+#define surface monitor 1
+   Name = lift
+   Marker = 1
+   Variable = lift
+   Reference surface = 1.0	
+
+#end

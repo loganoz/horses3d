@@ -47,37 +47,43 @@ module ZoneClass
          implicit none
          class(Face), target                  :: faces(:)
          class(Zone_t), allocatable           :: zones(:)
-!        --------------------------------------------------------
-         integer                              :: zoneID
-         integer                              :: no_of_markers
-         character(len=STR_LEN_ZONE), allocatable       :: zoneNames(:)
-!        --------------------------------------------------------
-         
-         no_of_markers = zoneNameDictionary % COUNT()
-         if (no_of_markers == 0) return               ! Only create zones if specified by the user
-         
-         allocate(zoneNames(no_of_markers))
-         zoneNames = zoneNameDictionary % allKeys()
-         
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                                  :: zoneID
+         integer                                  :: no_of_markers
+         character(len=STR_LEN_ZONE), allocatable :: zoneNames(:)
+!
+!        Get the number of markers from the Boundary Conditions dictionary
+!        -----------------------------------------------------------------         
+         no_of_markers = bcTypeDictionary % COUNT() 
+         if ( no_of_markers .le. 0 ) return
+!
+!        Gather the zone names
+!        ---------------------
+         allocate ( zoneNames( 1:no_of_markers ) ) 
+         zoneNames = bcTypeDictionary % allKeys()
+!
+!        Construct zones
+!        ---------------
          allocate ( zones ( no_of_markers ) )
-         
-         !! Initialize zones
-
          do zoneID = 1 , no_of_markers
             call zones(zoneID) % Initialize ( zoneID , zoneNames(zoneID) )
          end do
-         
-         !! Assign faces to each zone
+!
+!        Assign the faces
+!        ----------------         
          call Zone_AssignFaces(faces,zones,no_of_markers,zoneNames)
          
-         ! DEBUG
          write(STD_OUT,'(/)')
          call Section_Header("Creating zones")
          write(STD_OUT,'(/)')
          
          do zoneID = 1, no_of_markers
-            WRITE(STD_OUT,'(30X,A,A7,I6,A15,A)') "->", "  Zone ",zoneID, " for boundary: ",trim(zones(zoneID) % Name)
-            write(STD_OUT,'(32X,A28,I6)') 'Number of faces: ', zones(zoneID) % no_of_faces
+            WRITE(STD_OUT,'(30X,A,A7,I0,A15,A)') "->", "  Zone ",zoneID, " for boundary: ",trim(zones(zoneID) % Name)
+            write(STD_OUT,'(32X,A28,I0)') 'Number of faces: ', zones(zoneID) % no_of_faces
          end do
          
       end subroutine ConstructZones

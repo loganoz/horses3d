@@ -31,6 +31,7 @@ module MonitorsClass
    use HexMeshClass
    use MonitorDefinitions
    use ResidualsMonitorClass
+   use SurfaceMonitorClass
    implicit none
 !
 #include "Includes.h"
@@ -61,30 +62,6 @@ module MonitorsClass
 !         procedure   :: WriteToFile    => Probe_WriteToFile
 !   end type Probe_t
 !
-!  ********************************
-!  Surface monitor class definition
-!  ********************************
-!
-!   type SurfaceMonitor_t
-!      logical                         :: active
-!      logical                         :: isDimensionless
-!      integer                         :: ID
-!      integer, allocatable            :: direction
-!      integer                         :: marker
-!      real(kind=RP), allocatable      :: referenceSurface
-!      real(kind=RP)                   :: values(BUFFER_SIZE)
-!      real(kind=RP)                   :: dynamicPressure
-!      character(len=STR_LEN_MONITORS) :: monitorName
-!      character(len=STR_LEN_MONITORS) :: fileName
-!      character(len=STR_LEN_MONITORS) :: variable
-!      contains
-!         procedure   :: Initialization => SurfaceMonitor_Initialization
-!         procedure   :: Update         => SurfaceMonitor_Update
-!         procedure   :: WriteLabel     => SurfaceMonitor_WriteLabel
-!         procedure   :: WriteValues    => SurfaceMonitor_WriteValue
-!         procedure   :: WriteToFile    => SurfaceMonitor_WriteToFile
-!   end type SurfaceMonitor_t
-!
 !  *******************************
 !  Volume monitor class definition
 !  *******************************
@@ -112,16 +89,12 @@ module MonitorsClass
 !  *****************************
 !  
    type Monitor_t
-!      integer                                  :: no_of_probes
-!      integer                                  :: no_of_surfaceMonitors
-!      integer                                  :: no_of_volumeMonitors
-      integer                                  :: bufferLine
-      integer                                  :: iter( BUFFER_SIZE )
-      real(kind=RP)                            :: t   ( BUFFER_SIZE )
-      type  ( Residuals_t      )               :: residuals
-!      class ( Probe_t          ) , allocatable :: probes          ( : )
-!      class ( SurfaceMonitor_t ) , allocatable :: surfaceMonitors ( : )
-!      class ( VolumeMonitor_t  ) , allocatable :: volumeMonitors  ( : )
+      integer                              :: no_of_surfaceMonitors
+      integer                              :: bufferLine
+      integer                              :: iter( BUFFER_SIZE )
+      real(kind=RP)                        :: t  (BUFFER_SIZE )
+      type(Residuals_t)                    :: residuals
+      class(SurfaceMonitor_t), allocatable :: surfaceMonitors(: )
       contains
          procedure   :: WriteLabel      => Monitor_WriteLabel
          procedure   :: WriteUnderlines => Monitor_WriteUnderlines
@@ -165,25 +138,16 @@ module MonitorsClass
 !
 !        Search in case file for probes, surface monitors, and volume monitors
 !        ---------------------------------------------------------------------
-!         Monitors % no_of_probes          = 0
-!         Monitors % no_of_surfaceMonitors = 0
-!         Monitors % no_of_volumeMonitors  = 0
+         Monitors % no_of_surfaceMonitors = 1
 !
 !        Initialize
 !        ----------
          call Monitors % residuals % Initialization( solution_file )
 
-!         do i = 1 , Monitors % no_of_probes
-!            call Monitors % probes(i) % Initialization(mesh , i)
-!         end do
-!
-!         do i = 1 , Monitors % no_of_surfaceMonitors
-!            call Monitors % surfaceMonitors(i) % Initialization ( mesh , i )
-!         end do
-!
-!         do i = 1 , Monitors % no_of_volumeMonitors
-!            call Monitors % volumeMonitors(i) % Initialization( mesh , i )
-!         end do
+         allocate ( Monitors % surfaceMonitors ( Monitors % no_of_surfaceMonitors )  )
+         do i = 1 , Monitors % no_of_surfaceMonitors
+            call Monitors % surfaceMonitors(i) % Initialization ( mesh , i, solution_file )
+         end do
 
          Monitors % bufferLine = 0
 
@@ -208,22 +172,12 @@ module MonitorsClass
 !        Write residuals labels
 !        ----------------------
          call self % residuals % WriteLabel
-!!
-!!        Write probe labels
-!!        ------------------
-!         do i = 1 , self % no_of_probes
-!            call self % probes(i) % WriteLabel
-!         end do
-!!
-!!        Write surface monitors labels
-!!        -----------------------------
-!         do i = 1 , self % no_of_surfaceMonitors
-!            call self % surfaceMonitors(i) % WriteLabel
-!         end do
 !
-!         do i = 1 , self % no_of_volumeMonitors
-!            call self % volumeMonitors(i) % WriteLabel
-!         end do
+!        Write surface monitors labels
+!        -----------------------------
+         do i = 1 , self % no_of_surfaceMonitors
+            call self % surfaceMonitors(i) % WriteLabel
+         end do
          
          write(STD_OUT , *) 
 
@@ -257,6 +211,12 @@ module MonitorsClass
          do i = 1 , NCONS
             write(STD_OUT , '(3X,A10)' , advance = "no" ) trim(dashes)
          end do
+!
+!        Print dashes for surface monitors
+!        ---------------------------------
+         do i = 1 , self % no_of_surfaceMonitors
+            write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % surfaceMonitors(i) % monitorName ) + 2 ) )
+         end do
 !!
 !!        Print dashes for probes
 !!        -----------------------
@@ -264,12 +224,6 @@ module MonitorsClass
 !            if ( self % probes(i) % active ) then
 !               write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % probes(i) % monitorName ) + 2 ) )
 !            end if
-!         end do
-!!
-!!        Print dashes for surface monitors
-!!        ---------------------------------
-!         do i = 1 , self % no_of_surfaceMonitors
-!            write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % surfaceMonitors(i) % monitorName ) + 2 ) )
 !         end do
 !!
 !!        Print dashes for volume monitors
@@ -301,6 +255,12 @@ module MonitorsClass
 !        Print residuals
 !        ---------------
          call self % residuals % WriteValues( self % bufferLine )
+!
+!        Print surface monitors
+!        ----------------------
+         do i = 1 , self % no_of_surfaceMonitors
+            call self % surfaceMonitors(i) % WriteValues ( self % bufferLine )
+         end do
 !!
 !!        Print probes
 !!        ------------
@@ -308,18 +268,11 @@ module MonitorsClass
 !            call self % probes(i) % WriteValues ( self % bufferLine )
 !         end do
 !!
-!!        Print surface monitors
-!!        ----------------------
-!         do i = 1 , self % no_of_surfaceMonitors
-!            call self % surfaceMonitors(i) % WriteValues ( self % bufferLine )
-!         end do
-!!
 !!        Print volume monitors
 !!        ---------------------
 !         do i = 1 , self % no_of_volumeMonitors
 !            call self % volumeMonitors(i) % WriteValues ( self % bufferLine )
 !         end do
-
 
          write(STD_OUT , *) 
 
@@ -358,17 +311,18 @@ module MonitorsClass
 !        Compute current residuals
 !        -------------------------
          call self % residuals % Update( mesh, maxResiduals, self % bufferLine )
+!
+!        Update surface monitors
+!        -----------------------
+         do i = 1 , self % no_of_surfaceMonitors
+            call self % surfaceMonitors(i) % Update( mesh , self % bufferLine )
+         end do
+
 !!
 !!        Update probes
 !!        -------------
 !         do i = 1 , self % no_of_probes
 !            call self % probes(i) % Update( mesh , self % bufferLine )
-!         end do
-!!
-!!        Update surface monitors
-!!        -----------------------
-!         do i = 1 , self % no_of_surfaceMonitors
-!            call self % surfaceMonitors(i) % Update( mesh , self % bufferLine )
 !         end do
 !!
 !!        Update volume monitors
@@ -408,12 +362,12 @@ module MonitorsClass
 !           -------------------------------------------------------------------------------
             call self % residuals % WriteToFile ( self % iter , self % t , self % bufferLine )
 
+            do i = 1 , self % no_of_surfaceMonitors
+               call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+            end do
+
 !            do i = 1 , self % no_of_probes
 !               call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-!            end do
-!
-!            do i = 1 , self % no_of_surfaceMonitors
-!               call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
 !            end do
 !
 !            do i = 1 , self % no_of_volumeMonitors
@@ -432,12 +386,12 @@ module MonitorsClass
 
                call self % residuals % WriteToFile ( self % iter , self % t , BUFFER_SIZE )
 
+               do i = 1 , self % no_of_surfaceMonitors
+                  call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+               end do
+
 !               do i = 1 , self % no_of_probes
 !                  call self % probes(i) % WriteToFile ( self % iter , self % t , BUFFER_SIZE ) 
-!               end do
-!
-!               do i = 1 , self % no_of_surfaceMonitors
-!                  call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
 !               end do
 !
 !               do i = 1 , self % no_of_volumeMonitors
@@ -726,300 +680,7 @@ module MonitorsClass
 !!         end if
 !      
 !      end subroutine Probe_WriteToFile
-!!
-!!/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!!
-!!           SURFACE MONITOR PROCEDURES
-!!           --------------------------
-!!/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!!
-!      subroutine SurfaceMonitor_Initialization( self , mesh , ID )
-!!
-!!        *****************************************************************************
-!!              This subroutine initializes the surface monitor. The following
-!!           data is obtained from the case file:
-!!              -> Name: The monitor name (10 characters maximum)
-!!              -> Marker: The surface marker in which the monitor will be computed.
-!!              -> Variable: The variable to be monitorized.
-!!              -> Reference surface (optional): Reference surface for lift/drag coefficients
-!!              -> Direction (optional): Direction in which the forces are computed
-!!        *****************************************************************************
-!!  
-!         use ParamfileIO
-!         use Setup_Class
-!         use MatrixOperations
-!         implicit none
-!         class(SurfaceMonitor_t) :: self
-!         class(HexMesh)       :: mesh
-!         integer                 :: ID
-!!        ----------------------------------------------
-!         character(len=STR_LEN_MONITORS)  :: in_label
-!         character(len=STR_LEN_MONITORS)  :: fileName
-!         integer, allocatable             :: marker
-!         integer                          :: pos
-!         integer                          :: fID
-!!!
-!!!        Get monitor ID
-!!!        --------------
-!!         self % ID = ID
-!!!
-!!!        Search for the parameters in the case file
-!!!        ------------------------------------------
-!!         write(in_label , '(A,I0)') "#define surface monitor " , self % ID
-!!         
-!!         call readValueInRegion ( trim ( Setup % case_file )  , "Name"              , self % monitorName      , in_label , "# end" ) 
-!!         call readValueInRegion ( trim ( Setup % case_file )  , "Marker"            , marker                  , in_label , "# end" ) 
-!!         call readValueInRegion ( trim ( Setup % case_file )  , "Variable"          , self % variable         , in_label , "# end" ) 
-!!         call readValueInRegion ( trim ( Setup % case_file )  , "Reference surface" , self % referenceSurface , in_label , "# end" ) 
-!!         call readValueInRegion ( trim ( Setup % case_file )  , "Direction"         , self % direction        , in_label , "# end" ) 
-!!!
-!!!        Enable the monitor
-!!!        ------------------
-!!         self % active = .true.
-!!!
-!!!        Get the surface marker
-!!!        ----------------------
-!!         if ( allocated ( marker ) ) then
-!!            self % marker = marker
-!!         else
-!!            print*, "Marker not specified for surface monitor " , self % ID, "."
-!!            stop "Stopped"
-!!
-!!         end if
-!!!
-!!!        Select the variable from the available list, and compute auxiliary variables if needed
-!!!        --------------------------------------------------------------------------------------
-!!!
-!!!        ****************************************
-!!         select case ( trim ( self % variable ) )
-!!!        ****************************************
-!!!
-!!!
-!!!           ---------------------------------------------------
-!!            case ("mass-flow")
-!!               self % isDimensionless = .false.
-!!!
-!!!           ---------------------------------------------------
-!!            case ("flow")
-!!               self % isDimensionless = .false.
-!!!
-!!!           ---------------------------------------------------
-!!            case ("pressure-force")
-!!               self % isDimensionless = .false.
-!!               if ( .not. allocated ( self % direction ) ) then
-!!                  print*, "Direction not specified for pressure-force in surface monitor " , self % ID , "."
-!!                  stop "Stopped"
-!!               end if
-!!!            
-!!!           ---------------------------------------------------
-!!            case ("viscous-force")
-!!               self % isDimensionless = .false.
-!!               if ( .not. allocated ( self % direction ) ) then
-!!                  print*, "Direction not specified for viscous-force in surface monitor " , self % ID , "."
-!!                  stop "Stopped"
-!!               end if
-!!!
-!!!           ---------------------------------------------------
-!!            case ("force")
-!!               self % isDimensionless = .false.
-!!               if ( .not. allocated ( self % direction ) ) then
-!!                  print*, "Direction not specified for force in surface monitor " , self % ID , "."
-!!                  stop "Stopped"
-!!               end if
-!!!
-!!!           ---------------------------------------------------
-!!            case ("lift")
-!!               self % isDimensionless = .true.
-!!
-!!               if ( .not. allocated ( self % referenceSurface ) ) then
-!!                  print*, "Reference surface not specified for lift surface monitor " , self % ID , "."
-!!                  stop "Stopped"
-!!               end if
-!!
-!!               self % dynamicPressure = 0.5_RP * refValues % rho * refValues % V * refValues % V * self % referenceSurface
-!!!
-!!!           ---------------------------------------------------
-!!            case ("drag")
-!!               self % isDimensionless = .true.
-!!
-!!               if ( .not. allocated ( self % referenceSurface ) ) then
-!!                  print*, "Reference surface not specified for drag surface monitor " , self % ID , "."
-!!                  stop "Stopped"
-!!               end if
-!!
-!!               self % dynamicPressure = 0.5_RP * refValues % rho * refValues % V * refValues % V * self % referenceSurface
-!!!
-!!!           ---------------------------------------------------
-!!            case ("pressure-average")
-!!               self % isDimensionless = .false.
-!!!
-!!!           ---------------------------------------------------
-!!            case default
-!!
-!!               if ( len_trim (self % variable) .eq. 0 ) then
-!!                  print*, "Variable was not specified for surface monitor " , self % ID , "."
-!!               else
-!!                  print*, 'Variable "',trim(self % variable),'" surface monitor ', self % ID, ' not implemented yet.'
-!!                  print*, "Options available are:"
-!!                  print*, "   * mass-flow"
-!!                  print*, "   * flow"
-!!                  print*, "   * pressure-force"
-!!                  print*, "   * viscous-force"
-!!                  print*, "   * force"
-!!                  print*, "   * lift"
-!!                  print*, "   * drag"
-!!                  print*, "   * pressure-average"
-!!                  stop "Stopped."
-!!
-!!               end if
-!!!
-!!!        **********
-!!         end select
-!!!        **********
-!!!
-!!!        Prepare the file in which the monitor is exported
-!!!        -------------------------------------------------
-!!         write( self % fileName , '(A,A,A,A)') trim(Setup % solution_file) , "." , trim(self % monitorName) , ".surface"  
-!!!
-!!!        Create file
-!!!        -----------
-!!         open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" ) 
-!!!
-!!!        Write the file headers
-!!!        ----------------------
-!!         write( fID , '(A20,A  )') "Monitor name:      ", trim(self % monitorName)
-!!         write( fID , '(A20,I0 )') "Surface marker:    ", self % marker
-!!         write( fID , '(A20,A  )') "Selected variable: " , trim(self % variable)
-!!
-!!         if ( self % isDimensionless ) then
-!!            write(fID , '(A20,ES24.10)') "Dynamic pressure: " , self % dynamicPressure
-!!         end if
-!!
-!!         write( fID , * )
-!!         write( fID , '(A10,2X,A24,2X,A24)' ) "Iteration" , "Time" , trim(self % variable)
-!!
-!!         close ( fID ) 
 !
-!      end subroutine SurfaceMonitor_Initialization
-!
-!      subroutine SurfaceMonitor_Update ( self , mesh , bufferPosition )
-!!
-!!        *******************************************************************
-!!           This subroutine updates the monitor value computing it from
-!!           the mesh. It is stored in the "bufferPosition" position of the 
-!!           buffer.
-!!        *******************************************************************
-!!
-!         use MatrixOperations
-!         implicit none
-!         class   (  SurfaceMonitor_t ) :: self
-!         class   (  HexMesh       ) :: mesh
-!         integer                       :: bufferPosition
-!!        ------------------------------------------------------
-!         real(kind=RP)           :: vector(NDIM)
-!      
-!         associate ( N => mesh % elements( self % ID ) % spA % N )
-!!!
-!!!        Select variable from the available list
-!!!        ---------------------------------------
-!!         select case ( trim( self % variable ) )
-!!
-!!            case ("mass-flow")
-!!               self % values(bufferPosition) = mesh % VectorVectorSurfaceIntegral("mass-flow" , self % marker ) * RefValues % L * refValues % a * refValues % rho
-!!
-!!            case ("flow")
-!!               self % values(bufferPosition) = mesh % VectorVectorSurfaceIntegral("flow" , self % marker ) * RefValues % L * refValues % a
-!!            
-!!            case ("pressure-force")
-!!               vector(IX:IY) =  mesh % ScalarVectorSurfaceIntegral("pressure" , self % marker) * refValues % p * refValues % L
-!!               self % values(bufferPosition) = vector(self % direction)
-!!   
-!!            case ("viscous-force") 
-!!               vector(IX:IY) = -mesh % TensorVectorSurfaceIntegral("viscous" , self % marker) * refValues % p * refValues % L * dimensionless % sqrtGammaMach
-!!               self % values(bufferPosition) = vector(self % direction)
-!!      
-!!            case ("force") 
-!!               vector(IX:IY) = mesh % ScalarVectorSurfaceIntegral("pressure" , self % marker) * refValues % p * refValues % L
-!!               vector(IX:IY) = vector(IX:IY) - mesh % TensorVectorSurfaceIntegral("viscous" , self % marker) * refValues % p * refValues % L * dimensionless % sqrtGammaMach
-!!               self % values(bufferPosition) = vector(self % direction)
-!!
-!!            case ("lift")
-!!               vector(IX:IY) = mesh % ScalarVectorSurfaceIntegral("pressure" , self % marker) * refValues % p * refValues % L
-!!               vector(IX:IY) = vector(IX:IY) - mesh % TensorVectorSurfaceIntegral("viscous" , self % marker) * refValues % p * refValues % L * dimensionless % sqrtGammaMach
-!!               self % values(bufferPosition) = vector(IY) / self % dynamicPressure
-!!
-!!            case ("drag")
-!!               vector(IX:IY) = mesh % ScalarVectorSurfaceIntegral("pressure" , self % marker) * refValues % p * refValues % L
-!!               vector(IX:IY) = vector(IX:IY) - mesh % TensorVectorSurfaceIntegral("viscous" , self % marker) * refValues % p * refValues % L * dimensionless % sqrtGammaMach
-!!               self % values(bufferPosition) = vector(IX) / self % dynamicPressure
-!!
-!!            case ("pressure-average")
-!!               self % values(bufferPosition) = mesh % ScalarScalarSurfaceIntegral("pressure",self % marker) / mesh % ScalarScalarSurfaceIntegral("Surface",self % marker) * refValues % p
-!!
-!!         end select                        
-!!
-!!         end associate
-!
-!      end subroutine SurfaceMonitor_Update
-!
-!      subroutine SurfaceMonitor_WriteLabel ( self )
-!!
-!!        *************************************************************
-!!              This subroutine writes the label for the surface
-!!           monitor, when invoked from the time integrator Display
-!!           procedure.
-!!        *************************************************************
-!!
-!         implicit none
-!         class(SurfaceMonitor_t)             :: self
-!!
-!!         write(STD_OUT , '(3X,A10)' , advance = "no") trim(self % monitorName(1 : MONITOR_LENGTH))
-!
-!      end subroutine SurfaceMonitor_WriteLabel
-!   
-!      subroutine SurfaceMonitor_WriteValue ( self , bufferLine ) 
-!!
-!!        *************************************************************
-!!              This subroutine writes the monitor value for the time
-!!           integrator Display procedure.
-!!        *************************************************************
-!!
-!         implicit none
-!         class(SurfaceMonitor_t) :: self
-!         integer                 :: bufferLine
-!!
-!!         write(STD_OUT , '(1X,A,1X,ES10.3)' , advance = "no") "|" , self % values ( bufferLine ) 
-!
-!      end subroutine SurfaceMonitor_WriteValue 
-!
-!      subroutine SurfaceMonitor_WriteToFile ( self , iter , t , no_of_lines)
-!!
-!!        *************************************************************
-!!              This subroutine writes the buffer to the file.
-!!        *************************************************************
-!!
-!         implicit none  
-!         class(SurfaceMonitor_t) :: self
-!         integer                 :: iter(:)
-!         real(kind=RP)           :: t(:)
-!         integer                 :: no_of_lines
-!!        -------------------------------------------
-!         integer                    :: i
-!         integer                    :: fID
-!
-!!         open( newunit = fID , file = trim ( self % fileName ) , action = "write" , access = "append" , status = "old" )
-!!         
-!!         do i = 1 , no_of_lines
-!!            write( fID , '(I10,2X,ES24.16,2X,ES24.16)' ) iter(i) , t(i) , self % values(i)
-!!
-!!         end do
-!!        
-!!         close ( fID )
-!!
-!!         self % values(1) = self % values(no_of_lines)
-!!      
-!      end subroutine SurfaceMonitor_WriteToFile
-!!
 !!/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !!
 !!           VOLUME MONITOR PROCEDURES
