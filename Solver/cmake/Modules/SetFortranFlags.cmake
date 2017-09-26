@@ -64,6 +64,7 @@ IF(APPLE)
 ELSE()
     SET(GNUNATIVE "-march=native")
 ENDIF()
+
 # Optimize for the host's architecture
 SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}"
                  Fortran "-xHost"        # Intel
@@ -79,10 +80,15 @@ SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}"
                                   #" "         # Portland Group?
                 )
 
-# Change the interpretation of backslashes in string literals from a single backslash character to “C-style” escape characters
-SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG}"
+# Change the interpretation of backslashes in string literals from a single backslash character to “C-style” escape characters ## DEBUG flag??
+SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}"
                  Fortran "-fbackslash"  # GNU
                          "-assume bscc" # Intel
+                )
+
+## fPIC    # This is needed in order to compile the ProblemFile.so as dynamic library (change??)
+SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}"
+                 Fortran REQUIRED "-fPIC"       # Intel/GNU
                 )
 
 ###################
@@ -158,20 +164,20 @@ SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG}"
 #    -fopenmp
 
 # Unroll loops # arueda: useful?
-#SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}"
-#                 Fortran "-funroll-loops" # GNU
-#                         "-unroll"        # Intel
-#                         "/unroll"        # Intel Windows
-#                         "-Munroll"       # Portland Group
-#                )
+SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}"
+                 Fortran "-funroll-loops" # GNU
+                         "-unroll"        # Intel
+                         "/unroll"        # Intel Windows
+                         "-Munroll"       # Portland Group
+                )
 
 # Inline functions
-#SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}"
-#                 Fortran "-inline"            # Intel
-#                         "/Qinline"           # Intel Windows
-#                         "-finline-functions" # GNU
-#                         "-Minline"           # Portland Group
-#                )
+SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}"
+                 Fortran "-inline"            # Intel
+                         "/Qinline"           # Intel Windows
+                         "-finline-functions" # GNU
+                         "-Minline"           # Portland Group
+                )
 
 # Interprocedural (link-time) optimizations  #arueda: outcommented because was generating problems
 #SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}"
@@ -191,8 +197,8 @@ SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}"
 
 # Vectorize code
 SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}"
-                 Fortran "-vec-report0"                                   # Intel
-                         "/Qvec-report0"                                  # Intel Windows
+                 Fortran "-qopt-report0"                                   # Intel
+                         "/qopt-report0"                                  # Intel Windows
                          "-Mvect"                                         # Portland Group
                          "-ftree-vectorize  -ftree-vectorizer-verbose=0"  # GNU ... Already included in -O3
                 )

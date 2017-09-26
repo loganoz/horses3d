@@ -22,6 +22,9 @@ ADD_EXECUTABLE(${NSEXE} ${horses_src})
 TARGET_LINK_LIBRARIES(${NSEXE} ${FTLIB} ${FOUNDLIB} ${FTLIB} ${IOLIB} ${JACLIB} 
                       ${MESHLIB} ${MONLIB} ${PHYSLIB} ${PLOTLIB} ${SPECLIB} ${PROBLIB} ${DGSEMLIB})
 
+CONFIGURE_FILE(horsesf90.in.cmake horsesf90)
+  						 
+INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/horsesf90 DESTINATION ${BINDIR})
 # Uncomment if you need to link to BLAS and LAPACK - arueda: not yet
 #TARGET_LINK_LIBRARIES(${FOOEXE} ${BLAS_LIBRARIES}
 #                                ${LAPACK_LIBRARIES}

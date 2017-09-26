@@ -26,6 +26,8 @@ SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 # This INCLUDE statement executes code that sets the compile flags for DEBUG and
 # RELEASE. To modify the flags, edit the file SetFortranFlags.cmake.
 INCLUDE(${CMAKE_MODULE_PATH}/SetFortranFlags.cmake)
+
+SET(HORSES_F90FLAGS "${CMAKE_Fortran_FLAGS_${CMAKE_BUILD_TYPE}}")
  
 # Locate and set parallelization libraries.  There are some CMake peculiarities
 # taken care of here, such as the fact that the FindOpenMP routine doesn't know
@@ -53,6 +55,7 @@ ADD_DEFINITIONS(-D_has_Quad)
 
 # Define the executable(s) name(s)... arueda: distribute with SpecMesh3D?
 SET(NSEXE HORSES3D)
+SET(HORSESF90 horsesf90)
 
 # Define the library names
 SET(FOUNDLIB foundation)
@@ -64,7 +67,7 @@ SET(MONLIB monitors)
 SET(PHYSLIB physics)
 SET(PLOTLIB plot)
 SET(SPECLIB spectral)
-SET(PROBLIB problemfile)
+SET(PROBLIB ProblemFile)
 SET(DGSEMLIB dgsem)
 
 # Define some directories

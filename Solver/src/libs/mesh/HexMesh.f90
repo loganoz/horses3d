@@ -30,7 +30,7 @@
          TYPE(Node)   , DIMENSION(:), ALLOCATABLE :: nodes
          TYPE(Face)   , DIMENSION(:), ALLOCATABLE :: faces
          TYPE(Element), DIMENSION(:), ALLOCATABLE :: elements
-         CLASS(Zone_t),  DIMENSION(:), ALLOCATABLE :: zones
+         CLASS(Zone_t), DIMENSION(:), ALLOCATABLE :: zones
 !
 !        ========         
          CONTAINS
