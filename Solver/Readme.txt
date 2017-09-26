@@ -1,18 +1,26 @@
-1.- Execute sh configure.sh
-2.- Compile Tests cases with "make" in each folder 
-3.- The binary of each test case is stored in bin folder
+################################################################################
+#                                                                              #
+#                                                                              #
+#            HORSES3D High-Order (DG) Spectral Element Solver                  #
+#                                                                              #
+#                                                                              #
+################################################################################
+
+
 
 ----------------------------------------------------------------------------
-Changes to master during week 06.03.2017 - 12.03.2017:
-	grubio:
-		1. STOP 99 in test cases
-	arueda:
-		1. Time computed as t+dt and not as t_0+k*dt (allows non constant dt)
-		2. RK3 residual now computed after time step incrementation
-		3. New constructor for TimeIntegrator_t class
-		4. Implicit Jacobian-Free Newton-Krylov solver added with new test case under Tests/Euler/JFNK
-		5. Expected solutions of test cases changed due to arueda(1) and arueda(2)
+1.- Create a build directory
+		$ mkdir build
+2.- Set up cmake from build directory
+		$ cd build
+		$ cmake .. <<options>>
+		
+		(you can also do this graphically using ccmake ore cmake-gui>>
+3.- Install
+		$ make install
+4.- The program is ready to be used. If you want to test the code, configure
+		the test cases and follow the instructions in each test directory.
+		$ ./configure
+3.- Be sure to add Source/lib to LD_LIBRARY_PATH, so HORSES 3D can be used
 
 ----------------------------------------------------------------------------
-This modification is added to force an automatic bulding of buildbot and 
-test some modifications that have been introduced
