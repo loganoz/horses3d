@@ -47,7 +47,7 @@ ARFLAGS=crv
 
 
 # ------------------------------------------------
-OBJS_CASE= Setup Physics GradientTests InitialFlowState TestGradientsMain
+OBJS_CASE= Setup Physics GradientSetup GradientTests InitialFlowState TestGradientsMain
 	   
 OBJS_HORSES=  SMConstants \
 		FTTimerClass \
@@ -70,6 +70,10 @@ OBJS_HORSES=  SMConstants \
 		HexMesh \
 		MeshTypes \
 		NodeClass \
+		LiftAndDrag \
+		MonitorDefinitions \
+		ResidualsMonitor \
+		Monitors \
 		DGInviscidDiscretization \
 		DGViscousDiscretization \
 		DGWeakIntegrals \

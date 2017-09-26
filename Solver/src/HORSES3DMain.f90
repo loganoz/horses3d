@@ -196,7 +196,7 @@ end interface
 !     -----------------
 !
       CALL stopWatch % start()
-         CALL timeIntegrator % integrate(sem, controlVariables)
+         CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors)
       CALL stopWatch % stop()
       
       if (controlVariables % containsKey("boundaries to analyze")) then

@@ -27,6 +27,7 @@
       USE PhysicsStorage
       USE SpatialDiscretization
       USE ManufacturedSolutions
+      use MonitorsClass
       
       IMPLICIT NONE
       
@@ -56,6 +57,7 @@
          PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
          PROCEDURE(externalGradientsSubroutine), NOPASS, POINTER :: externalGradients => NULL()
          LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
+         type(Monitor_t)                                        :: monitors
 !
 !        ========         
          CONTAINS
@@ -80,7 +82,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ConstructDGSem( self, controlVariables, &
+      SUBROUTINE ConstructDGSem( self, meshFileName_, controlVariables, &
                                  externalState, externalGradients, polynomialOrder, Nx_, Ny_, Nz_, success )
       use FTValueDictionaryClass
       use mainKeywordsModule
@@ -91,12 +93,13 @@
 !     --------------------------
 !
       !-----------------------------------------------------------------
-      CLASS(DGSem)                :: self                               !<> Class to be constructed
-      class(FTValueDictionary)    :: controlVariables                   !<  Name of mesh file
-      EXTERNAL                    :: externalState, externalGradients   !<  External procedures that define the BCs
-      INTEGER, OPTIONAL           :: polynomialOrder(3)                 !<  Uniform polynomial order
-      INTEGER, OPTIONAL, TARGET   :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
-      LOGICAL, OPTIONAL           :: success                            !>  Construction finalized correctly?
+      CLASS(DGSem)                       :: self                               !<> Class to be constructed
+      character(len=*),         optional :: meshFileName_
+      class(FTValueDictionary), optional :: controlVariables                   !<  Name of mesh file
+      EXTERNAL                           :: externalState, externalGradients   !<  External procedures that define the BCs
+      INTEGER, OPTIONAL                  :: polynomialOrder(3)                 !<  Uniform polynomial order
+      INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
+      LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
       !-----------------------------------------------------------------
       INTEGER                     :: i,j,k,el                           ! Counters
       INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
@@ -121,7 +124,19 @@
       END INTERFACE
       !-----------------------------------------------------------------
       
-      meshFileName = controlVariables % stringValueForKey(meshFileNameKey, requestedLength = LINE_LENGTH) 
+      if ( present( meshFileName_ ) ) then
+!
+!        Mesh file set up by input argument
+!        ----------------------------------
+         meshFileName = trim(meshFileName_)
+
+      elseif ( present ( controlVariables ) ) then
+!
+!        Mesh file set up by controlVariables
+!        ------------------------------------
+         meshFileName = controlVariables % stringValueForKey(meshFileNameKey, requestedLength = LINE_LENGTH) 
+
+      end if
 !
 !     ---------------------------------------
 !     Get polynomial orders for every element
@@ -232,6 +247,14 @@
 !     -------------------------
 !
       call self % mesh % ConstructZones()
+!
+!     ------------------
+!     Build the monitors
+!     ------------------
+!
+      if ( present(controlVariables) ) then
+         self % monitors = ConstructMonitors(self % mesh, controlVariables)
+      end if
 !
 !     -----------------------------------------
 !     Initialize Spatial discretization methods
@@ -388,7 +411,7 @@
       END DO
       
    END SUBROUTINE GetQdot
-!
+ !
 !////////////////////////////////////////////////////////////////////////////////////////      
 !
 !  -----------------------------------
@@ -412,6 +435,7 @@
          END DO
       END DO
    END FUNCTION ComputeMaxResidual
+!
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

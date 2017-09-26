@@ -1,4 +1,8 @@
 module ResidualsMonitorClass
+   use SMConstants
+   use PhysicsStorage
+   use HexMeshClass
+   use MonitorDefinitions
 
    private
    public   Residuals_t
@@ -29,14 +33,15 @@ module ResidualsMonitorClass
 !           ------------------
 !//////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Residuals_Initialization( self ) 
+      subroutine Residuals_Initialization( self, solution_file ) 
 !
 !        *******************************************************************
 !              This subroutine initializes the residuals structure
 !        *******************************************************************
 !
          implicit none
-         class(Residuals_t)      :: self
+         class(Residuals_t) :: self
+         character(len=*)   :: solution_file
 !
 !        ---------------
 !        Local variables
@@ -52,7 +57,7 @@ module ResidualsMonitorClass
 !
 !        Get monitor file name
 !        ---------------------
-         write( self % fileName , '(A,A,A,A)') trim(Setup % solution_file) , ".residuals"  
+         write( self % fileName , '(A,A)') trim(solution_file) , ".residuals"  
 !
 !        Create file to write the residuals
 !        ----------------------------------
@@ -67,7 +72,7 @@ module ResidualsMonitorClass
               
       end subroutine Residuals_Initialization
 
-      subroutine Residuals_Update ( self , max_residuals , bufferPosition )
+      subroutine Residuals_Update ( self, mesh, maxResiduals, bufferPosition)
 !
 !        *********************************************************
 !              This subroutine updates the residuals values from
@@ -75,13 +80,14 @@ module ResidualsMonitorClass
 !        *********************************************************
 !
          implicit none
-         class(Residuals_t)        :: self
-         real(kind=RP), intent(in) :: max_residuals(NCONS)
-         integer                   :: bufferPosition
+         class(Residuals_t)         :: self
+         class(HexMesh), intent(in) :: mesh
+         real(kind=RP)              :: maxResiduals(NCONS)
+         integer                    :: bufferPosition
 !
 !        Update buffer values
 !        --------------------      
-         self % values( 1:NCONS , bufferPosition ) = max_residuals
+         self % values( 1:NCONS , bufferPosition ) = maxResiduals
 
       end subroutine Residuals_Update
 
@@ -145,7 +151,7 @@ module ResidualsMonitorClass
 !        Write values
 !        ------------         
          do i = 1 , no_of_lines
-            write( fID , '(I10,2X,ES24.16,4(2X,ES24.16))' ) iter(i) , t(i) , self % values(1:NCONS,i)
+            write( fID , '(I10,2X,ES24.16,5(2X,ES24.16))' ) iter(i) , t(i) , self % values(1:NCONS,i)
          end do
 !
 !        Close file
@@ -157,6 +163,5 @@ module ResidualsMonitorClass
          end if
       
       end subroutine Residuals_WriteToFile
-
 
 end module ResidualsMonitorClass
