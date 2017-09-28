@@ -278,7 +278,7 @@ module MonitorsClass
 
       end subroutine Monitor_WriteValues
 
-      subroutine Monitor_UpdateValues ( self , mesh , t , iter, maxResiduals )
+      subroutine Monitor_UpdateValues ( self, mesh, spA, t , iter, maxResiduals )
 !
 !        ***************************************************************
 !              This subroutine updates the values for the residuals,
@@ -289,6 +289,7 @@ module MonitorsClass
          implicit none
          class(Monitor_t) :: self
          class(HexMesh)   :: mesh
+         class(NodalStorage)  :: spA(0:,0:,0:)
          real(kind=RP)    :: t
          integer          :: iter
          real(kind=RP)    :: maxResiduals(NCONS)
@@ -315,7 +316,7 @@ module MonitorsClass
 !        Update surface monitors
 !        -----------------------
          do i = 1 , self % no_of_surfaceMonitors
-            call self % surfaceMonitors(i) % Update( mesh , self % bufferLine )
+            call self % surfaceMonitors(i) % Update( mesh , spA, self % bufferLine )
          end do
 
 !!

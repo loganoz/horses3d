@@ -27,8 +27,7 @@ riemann solver        = roe
 
 #define surface monitor 1
    Name = lift
-   Marker = 1
+   Marker = innercylinder
    Variable = lift
    Reference surface = 1.0	
-
 #end

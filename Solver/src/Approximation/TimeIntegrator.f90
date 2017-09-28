@@ -246,7 +246,7 @@ end interface
 !        ---------------------------------------
          if ( self % integratorType .eq. TIME_ACCURATE ) then
             if ( self % time .ge. self % tFinal) then
-               call monitors % UpdateValues( sem % mesh, t, k+1, maxResidual )
+               call monitors % UpdateValues( sem % mesh, sem % spA, t, k+1, maxResidual )
                call self % Display( sem % mesh, monitors)
                exit
             end if
@@ -254,7 +254,7 @@ end interface
 !
 !        Update monitors
 !        ---------------
-         call Monitors % UpdateValues( sem % mesh, t, k+1, maxResidual )
+         call Monitors % UpdateValues( sem % mesh, sem % spA, t, k+1, maxResidual )
 
          IF (self % integratorType == STEADY_STATE) THEN
             IF (maxval(maxResidual) <= self % tolerance )  THEN

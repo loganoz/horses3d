@@ -68,8 +68,10 @@ module SurfaceMonitorClass
          character(len=STR_LEN_MONITORS)  :: fileName
          character(len=STR_LEN_MONITORS)  :: paramFile
          integer, allocatable             :: marker
+         character(len=STR_LEN_MONITORS)  :: markerName
          integer                          :: pos
          integer                          :: fID
+         integer                          :: zoneID
 !
 !        Get monitor ID
 !        --------------
@@ -81,7 +83,7 @@ module SurfaceMonitorClass
          
          call get_command_argument(1, paramFile)
          call readValueInRegion ( trim ( paramFile )  , "Name"              , self % monitorName      , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "Marker"            , marker                  , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "Marker"            , markerName              , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "Variable"          , self % variable         , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "Reference surface" , self % referenceSurface , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "Direction"         , self % direction        , in_label , "# end" ) 
@@ -92,12 +94,18 @@ module SurfaceMonitorClass
 !
 !        Get the surface marker
 !        ----------------------
-         if ( allocated ( marker ) ) then
-            self % marker = marker
-         else
-            print*, "Marker not specified for surface monitor " , self % ID, "."
-            stop "Stopped"
+         self % marker = -1
+         do zoneID = 1, size(mesh % zones)
+            if ( trim(mesh % zones(zoneID) % name) .eq. trim(markerName) ) then
+               self % marker = zoneID
+               exit
+            end if
+         end do
 
+         if ( self % marker .eq. -1 ) then
+            self % active = .false.
+            write(*,'(A,I0)') "Warning: Marker not specified for surface monitor ", self % ID
+            write(*,'(A,I0,A)') "     Surface monitor ", self % ID, " disabled."
          end if
 !
 !        Select the variable from the available list, and compute auxiliary variables if needed
@@ -215,7 +223,7 @@ module SurfaceMonitorClass
 
       end subroutine SurfaceMonitor_Initialization
 
-      subroutine SurfaceMonitor_Update ( self , mesh , bufferPosition )
+      subroutine SurfaceMonitor_Update ( self, mesh, spA, bufferPosition )
 !
 !        *******************************************************************
 !           This subroutine updates the monitor value computing it from
@@ -223,54 +231,14 @@ module SurfaceMonitorClass
 !           buffer.
 !        *******************************************************************
 !
-         use MatrixOperations
+         use SurfaceIntegrals
          implicit none
          class   (  SurfaceMonitor_t ) :: self
+         class(NodalStorage), intent(in)     :: spA(0:,0:,0:)
          class   (  HexMesh       ) :: mesh
          integer                       :: bufferPosition
-!        ------------------------------------------------------
-         real(kind=RP)           :: vector(NDIM)
       
-!
-!        Select variable from the available list
-!        ---------------------------------------
-!         select case ( trim( self % variable ) )
-!
-!            case ("mass-flow")
-!               self % values(bufferPosition) = mesh % VectorVectorSurfaceIntegral("mass-flow" , self % marker ) * RefValues % L * refValues % a * refValues % rho
-!
-!            case ("flow")
-!               self % values(bufferPosition) = mesh % VectorVectorSurfaceIntegral("flow" , self % marker ) * RefValues % L * refValues % a
-!            
-!            case ("pressure-force")
-!               vector(IX:IY) =  mesh % ScalarVectorSurfaceIntegral("pressure" , self % marker) * refValues % p * refValues % L
-!               self % values(bufferPosition) = vector(self % direction)
-!   
-!            case ("viscous-force") 
-!               vector(IX:IY) = -mesh % TensorVectorSurfaceIntegral("viscous" , self % marker) * refValues % p * refValues % L * dimensionless % sqrtGammaMach
-!               self % values(bufferPosition) = vector(self % direction)
-!      
-!            case ("force") 
-!               vector(IX:IY) = mesh % ScalarVectorSurfaceIntegral("pressure" , self % marker) * refValues % p * refValues % L
-!               vector(IX:IY) = vector(IX:IY) - mesh % TensorVectorSurfaceIntegral("viscous" , self % marker) * refValues % p * refValues % L * dimensionless % sqrtGammaMach
-!               self % values(bufferPosition) = vector(self % direction)
-!
-!            case ("lift")
-!               vector(IX:IY) = mesh % ScalarVectorSurfaceIntegral("pressure" , self % marker) * refValues % p * refValues % L
-!               vector(IX:IY) = vector(IX:IY) - mesh % TensorVectorSurfaceIntegral("viscous" , self % marker) * refValues % p * refValues % L * dimensionless % sqrtGammaMach
-!               self % values(bufferPosition) = vector(IY) / self % dynamicPressure
-!
-!            case ("drag")
-!               vector(IX:IY) = mesh % ScalarVectorSurfaceIntegral("pressure" , self % marker) * refValues % p * refValues % L
-!               vector(IX:IY) = vector(IX:IY) - mesh % TensorVectorSurfaceIntegral("viscous" , self % marker) * refValues % p * refValues % L * dimensionless % sqrtGammaMach
-!               self % values(bufferPosition) = vector(IX) / self % dynamicPressure
-!
-!            case ("pressure-average")
-!               self % values(bufferPosition) = mesh % ScalarScalarSurfaceIntegral("pressure",self % marker) / mesh % ScalarScalarSurfaceIntegral("Surface",self % marker) * refValues % p
-!
-!         end select                        
-!
-self % values(bufferPosition) = bufferPosition
+         self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, spA, self % marker, SURFACE)
 
       end subroutine SurfaceMonitor_Update
 
