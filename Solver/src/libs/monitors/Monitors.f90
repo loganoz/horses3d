@@ -138,7 +138,7 @@ module MonitorsClass
 !
 !        Search in case file for probes, surface monitors, and volume monitors
 !        ---------------------------------------------------------------------
-         Monitors % no_of_surfaceMonitors = 1
+         call getNoOfMonitors( Monitors % no_of_surfaceMonitors )
 !
 !        Initialize
 !        ----------
@@ -870,6 +870,86 @@ module MonitorsClass
 !!         self % values(1) = self % values(no_of_lines)
 !      
 !      end subroutine VolumeMonitor_WriteToFile
+!
+!//////////////////////////////////////////////////////////////////////////////
+!
+!        Auxiliars
+!
+!//////////////////////////////////////////////////////////////////////////////
+!
+   subroutine getNoOfMonitors(no_of_surfaceMonitors)
+      use ParamfileRegions
+      implicit none
+      integer, intent(out)    :: no_of_surfaceMonitors
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      character(len=LINE_LENGTH) :: case_name, line
+      integer                    :: fID
+      integer                    :: io
+!
+!     Initialize
+!     ----------
+      no_of_surfaceMonitors = 0
+!
+!     Get case file name
+!     ------------------
+      call get_command_argument(1, case_name)
+
+!
+!     Open case file
+!     --------------
+      open ( newunit = fID , file = case_name , status = "old" , action = "read" )
+
+!
+!     Read the whole file to find monitors
+!     ------------------------------------
+readloop:do 
+         read ( fID , '(A)' , iostat = io ) line
+
+         if ( io .lt. 0 ) then
+!
+!           End of file
+!           -----------
+            line = ""
+            exit readloop
+
+         elseif ( io .gt. 0 ) then
+!
+!           Error
+!           -----
+            errorMessage(STD_OUT)
+            stop "Stopped."
+
+         else
+!
+!           Succeeded
+!           ---------
+            line = getSquashedLine( line )
+
+            if ( index ( line , '#defineprobe' ) .gt. 0 ) then
+!               Monitors % no_of_probes = Monitors % no_of_probes + 1
+
+            elseif ( index ( line , '#definesurfacemonitor' ) .gt. 0 ) then
+               no_of_surfaceMonitors = no_of_surfaceMonitors + 1 
+
+            elseif ( index ( line , '#definevolumemonitor' ) .gt. 0 ) then
+!               Monitors % no_of_volumeMonitors = Monitors % no_of_volumeMonitors + 1
+
+            end if
+            
+         end if
+
+      end do readloop
+!
+!     Close case file
+!     ---------------
+      close(fID)                             
+
+
+end subroutine getNoOfMonitors
 
 end module MonitorsClass
 !

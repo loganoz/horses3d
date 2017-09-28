@@ -127,16 +127,12 @@ module SurfaceMonitorClass
          select case ( trim ( self % variable ) )
 !        ****************************************
 !
-!
-!           ---------------------------------------------------
             case ("mass-flow")
                self % isDimensionless = .false.
-!
-!           ---------------------------------------------------
+
             case ("flow")
                self % isDimensionless = .false.
-!
-!           ---------------------------------------------------
+
             case ("pressure-force")
                self % isDimensionless = .false.
                if ( len_trim(directionName) .eq. 0 ) then
@@ -153,24 +149,43 @@ module SurfaceMonitorClass
 
                   end if
                end if
-!            
-!           ---------------------------------------------------
+
             case ("viscous-force")
                self % isDimensionless = .false.
-!               if ( .not. allocated ( self % direction ) ) then
-!                  print*, "Direction not specified for viscous-force in surface monitor " , self % ID , "."
-!                  stop "Stopped"
-!               end if
-!
-!           ---------------------------------------------------
+               if ( len_trim(directionName) .eq. 0 ) then
+                  print*, "Direction not specified for pressure-force in surface monitor " , self % ID , "."
+                  stop "Stopped"
+
+               else
+                  directionValue = getArrayFromString(directionName)
+                  if ( size(directionValue) .ne. 3 ) then
+                     print*, "Incorrect direction for monitor ", self % ID, "."
+   
+                  else
+                     self % direction = directionValue   
+
+                  end if
+               end if
+
             case ("force")
                self % isDimensionless = .false.
-!               if ( .not. allocated ( self % direction ) ) then
-!                  print*, "Direction not specified for force in surface monitor " , self % ID , "."
-!                  stop "Stopped"
-!               end if
-!
-!           ---------------------------------------------------
+
+               if ( len_trim(directionName) .eq. 0 ) then
+                  print*, "Direction not specified for pressure-force in surface monitor " , self % ID , "."
+                  stop "Stopped"
+
+               else
+                  directionValue = getArrayFromString(directionName)
+                  if ( size(directionValue) .ne. 3 ) then
+                     print*, "Incorrect direction for monitor ", self % ID, "."
+   
+                  else
+                     self % direction = directionValue   
+
+                  end if
+               end if
+
+
             case ("lift")
                self % isDimensionless = .true.
 
@@ -179,9 +194,8 @@ module SurfaceMonitorClass
                   stop "Stopped"
                end if
 
-               self % dynamicPressure = 0.5_RP * refValues % rho * refValues % V * refValues % V * self % referenceSurface
-!
-!           ---------------------------------------------------
+               self % dynamicPressure = 0.5_RP * refValues % rho * POW2(refValues % V)* self % referenceSurface
+
             case ("drag")
                self % isDimensionless = .true.
 
@@ -191,12 +205,10 @@ module SurfaceMonitorClass
                end if
 
                self % dynamicPressure = 0.5_RP * refValues % rho * refValues % V * refValues % V * self % referenceSurface
-!
-!           ---------------------------------------------------
+
             case ("pressure-average")
                self % isDimensionless = .false.
-!
-!           ---------------------------------------------------
+
             case default
 
                if ( len_trim (self % variable) .eq. 0 ) then
@@ -260,6 +272,7 @@ module SurfaceMonitorClass
          class   (  HexMesh       )      :: mesh
          integer                         :: bufferPosition
          real(kind=RP)                   :: F(NDIM)
+         real(kind=RP)                   :: direction(NDIM)
 
          select case ( trim ( self % variable ) )
 
@@ -275,14 +288,28 @@ module SurfaceMonitorClass
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("viscous-force")
+            F = VectorSurfaceIntegral(mesh, spA, self % marker, VISCOUS_FORCE)
+            F = refValues % rho * POW2(refValues % V) * POW2(refValues % L) * F
+            self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("force")
+            F = VectorSurfaceIntegral(mesh, spA, self % marker, TOTAL_FORCE)
+            F = refValues % rho * POW2(refValues % V) * POW2(refValues % L) * F
+            self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("lift")
+            F = VectorSurfaceIntegral(mesh, spA, self % marker, TOTAL_FORCE)
+            F = 2.0_RP * POW2(refValues % L) * F / self % referenceSurface
+            self % values(bufferPosition) = F(IY)
 
          case ("drag")
 
+            F = VectorSurfaceIntegral(mesh, spA, self % marker, TOTAL_FORCE)
+            F = 2.0_RP * POW2(refValues % L) * F / self % referenceSurface
+            self % values(bufferPosition) = F(IX)
+
          case ("pressure-average")
+            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, spA, self % marker, PRESSURE_FORCE) / ScalarSurfaceIntegral(mesh, spA, self % marker, SURFACE)
   
          end select
          

@@ -26,9 +26,16 @@ riemann solver        = roe
 
 
 #define surface monitor 1
-   Name = cyl1
+   Name = cyl-drag
    Marker = innercylinder
-   Variable = pressure-force
+   Variable = drag
    Direction = [1.0,0.0,0.0]
-!   Reference surface = 1.0	
+   Reference surface = 1.0	
+#end
+
+#define surface monitor 2
+   Name = cyl-lift
+   Marker = innercylinder
+   Variable = lift
+   Reference surface = 1.0
 #end

@@ -58,6 +58,7 @@ module SurfaceIntegrals
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
+!$omp parallel do reduction(+:val) private(fID,eID) schedule(guided)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces         
 !
 !           Face global ID
@@ -76,6 +77,7 @@ module SurfaceIntegrals
                                                            integralType    )
 
          end do
+!$omp end parallel do
 
       end function ScalarSurfaceIntegral
 
@@ -98,6 +100,7 @@ module SurfaceIntegrals
          real(kind=RP), pointer  :: ds(:,:)
          real(kind=RP), pointer  :: Qb(:)
          real(kind=RP), pointer  :: n(:,:,:)
+         real(kind=RP)           :: p
 
          Nel = e % Nxyz
          Nf  = e % Nxyz(axisMap(:,elSide))
@@ -188,6 +191,26 @@ module SurfaceIntegrals
                                           * wx(i) * wy(j) * ds(i,j) 
             end do          ;    end do
 
+         case ( PRESSURE_FORCE )
+!
+!           ***********************************
+!           Computes the pressure integral
+!              val = \int pdS         
+!           ***********************************
+!
+            do j = 0, Nf(2) ;    do i = 0, Nf(1)
+!
+!              Get the state vector
+!              --------------------
+               Qb => e % Qb(:,i,j,elSide)
+!
+!              Compute the integral
+!              --------------------
+               p = Pressure(Qb)
+               val = val + p * wx(i) * wy(j) * ds(i,j) 
+            end do          ;    end do
+
+
          case ( USER_DEFINED )   ! TODO
          end select
 
@@ -230,6 +253,7 @@ module SurfaceIntegrals
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
+!$omp parallel do reduction(+:val) private(fID,eID) schedule(guided)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces         
 !
 !           Face global ID
@@ -248,6 +272,7 @@ module SurfaceIntegrals
                                                            integralType    )
 
          end do
+!$omp end parallel do
 
       end function VectorSurfaceIntegral
 
