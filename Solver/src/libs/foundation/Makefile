@@ -17,7 +17,8 @@ LIBOBJS = 	./build/SMConstants.o \
 		./build/DenseMatUtilities.o \
 		./build/MatrixOperations.o \
 		./build/SharedBCModule.o \
-		./build/Setup.o
+		./build/Setup.o \
+		./build/RealDataLinkedList.o 
 
 
 LIB = foundation

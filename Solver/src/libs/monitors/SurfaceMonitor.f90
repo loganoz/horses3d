@@ -3,6 +3,7 @@ module SurfaceMonitorClass
    use HexMeshClass
    use MonitorDefinitions
    use PhysicsStorage
+#include "Includes.h"
    
    private
    public   SurfaceMonitor_t
@@ -17,7 +18,7 @@ module SurfaceMonitorClass
       logical                         :: active
       logical                         :: isDimensionless
       integer                         :: ID
-      integer, allocatable            :: direction
+      real(kind=RP)                   :: direction(NDIM)
       integer                         :: marker
       real(kind=RP), allocatable      :: referenceSurface
       real(kind=RP)                   :: values(BUFFER_SIZE)
@@ -67,11 +68,22 @@ module SurfaceMonitorClass
          character(len=STR_LEN_MONITORS)  :: in_label
          character(len=STR_LEN_MONITORS)  :: fileName
          character(len=STR_LEN_MONITORS)  :: paramFile
+         character(len=STR_LEN_MONITORS)  :: directionName
          integer, allocatable             :: marker
          character(len=STR_LEN_MONITORS)  :: markerName
          integer                          :: pos
          integer                          :: fID
          integer                          :: zoneID
+         real(kind=RP), allocatable       :: directionValue(:)
+         interface
+            function getArrayFromString( line ) result ( array )
+               use SMConstants
+               implicit none
+               character(len=*),    intent(in)  :: line
+               real(kind=RP), allocatable       :: array(:)
+            end function getArrayFromString
+         end interface
+
 !
 !        Get monitor ID
 !        --------------
@@ -86,7 +98,7 @@ module SurfaceMonitorClass
          call readValueInRegion ( trim ( paramFile )  , "Marker"            , markerName              , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "Variable"          , self % variable         , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "Reference surface" , self % referenceSurface , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "Direction"         , self % direction        , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "Direction"         , directionName        , in_label , "# end" ) 
 
 !        Enable the monitor
 !        ------------------
@@ -127,26 +139,36 @@ module SurfaceMonitorClass
 !           ---------------------------------------------------
             case ("pressure-force")
                self % isDimensionless = .false.
-               if ( .not. allocated ( self % direction ) ) then
+               if ( len_trim(directionName) .eq. 0 ) then
                   print*, "Direction not specified for pressure-force in surface monitor " , self % ID , "."
                   stop "Stopped"
+
+               else
+                  directionValue = getArrayFromString(directionName)
+                  if ( size(directionValue) .ne. 3 ) then
+                     print*, "Incorrect direction for monitor ", self % ID, "."
+   
+                  else
+                     self % direction = directionValue   
+
+                  end if
                end if
 !            
 !           ---------------------------------------------------
             case ("viscous-force")
                self % isDimensionless = .false.
-               if ( .not. allocated ( self % direction ) ) then
-                  print*, "Direction not specified for viscous-force in surface monitor " , self % ID , "."
-                  stop "Stopped"
-               end if
+!               if ( .not. allocated ( self % direction ) ) then
+!                  print*, "Direction not specified for viscous-force in surface monitor " , self % ID , "."
+!                  stop "Stopped"
+!               end if
 !
 !           ---------------------------------------------------
             case ("force")
                self % isDimensionless = .false.
-               if ( .not. allocated ( self % direction ) ) then
-                  print*, "Direction not specified for force in surface monitor " , self % ID , "."
-                  stop "Stopped"
-               end if
+!               if ( .not. allocated ( self % direction ) ) then
+!                  print*, "Direction not specified for force in surface monitor " , self % ID , "."
+!                  stop "Stopped"
+!               end if
 !
 !           ---------------------------------------------------
             case ("lift")
@@ -233,12 +255,37 @@ module SurfaceMonitorClass
 !
          use SurfaceIntegrals
          implicit none
-         class   (  SurfaceMonitor_t ) :: self
-         class(NodalStorage), intent(in)     :: spA(0:,0:,0:)
-         class   (  HexMesh       ) :: mesh
-         integer                       :: bufferPosition
-      
-         self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, spA, self % marker, SURFACE)
+         class   (  SurfaceMonitor_t )   :: self
+         class(NodalStorage), intent(in) :: spA(0:,0:,0:)
+         class   (  HexMesh       )      :: mesh
+         integer                         :: bufferPosition
+         real(kind=RP)                   :: F(NDIM)
+
+         select case ( trim ( self % variable ) )
+
+         case ("mass-flow")
+            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, spA, self % marker, MASS_FLOW)
+
+         case ("flow")
+            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, spA, self % marker, FLOW)
+
+         case ("pressure-force")
+            F = VectorSurfaceIntegral(mesh, spA, self % marker, PRESSURE_FORCE)
+            F = refValues % rho * POW2(refValues % V) * POW2(refValues % L) * F
+            self % values(bufferPosition) = dot_product(F, self % direction)
+
+         case ("viscous-force")
+
+         case ("force")
+
+         case ("lift")
+
+         case ("drag")
+
+         case ("pressure-average")
+  
+         end select
+         
 
       end subroutine SurfaceMonitor_Update
 

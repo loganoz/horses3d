@@ -178,3 +178,74 @@
          GetLogicalValue = value
 !
       END FUNCTION GetLogicalValue
+
+      function getArrayFromString( line ) result ( array )
+!
+!           ****************************************************
+!                    Gets an array from a string of the 
+!              form: 
+!                       line = "[a,b,c,...]"
+!           ****************************************************
+!
+         use SMConstants
+         use RealDataLinkedList
+         implicit none
+         character(len=*),    intent(in)  :: line
+         real(kind=RP), allocatable       :: array(:)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: pos1 , pos2 , pos
+         character(len=LINE_LENGTH)   :: auxline
+         type(RealDataLinkedList_t)    :: Data
+         real(kind=RP)                 :: value
+         integer  :: io
+        
+         pos1 = index(line,"[")
+         pos2 = index(line,"]") 
+
+         if ( (pos1 .eq. 0) .or. (pos2 .eq. 0) ) then
+!
+!           There are no brackets in the string
+!           -----------------------------------
+            return
+         end if
+         
+         auxline = line(pos1+1:pos2-1)
+!
+!        Get the elements
+!        ----------------
+         do
+            pos = index(auxline , "," ) 
+
+            if ( pos .gt. 0 ) then
+
+               read(auxline(1:pos-1),*,iostat=io) value 
+               if ( io .lt. 0 ) then
+                  return
+               end if
+
+               call Data % Append(value)
+   
+               auxline = auxline(pos+1:)
+
+            else
+               read(auxline ,*,iostat=io) value 
+               if ( io .lt. 0 ) then
+                  return
+               end if
+
+               call Data % append(value)
+
+               exit
+
+            end if
+
+         end do
+
+         call Data % load(array)
+
+      end function getArrayFromString
+
