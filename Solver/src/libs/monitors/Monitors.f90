@@ -32,6 +32,7 @@ module MonitorsClass
    use MonitorDefinitions
    use ResidualsMonitorClass
    use SurfaceMonitorClass
+   use VolumeMonitorClass
    implicit none
 !
 #include "Includes.h"
@@ -62,39 +63,19 @@ module MonitorsClass
 !         procedure   :: WriteToFile    => Probe_WriteToFile
 !   end type Probe_t
 !
-!  *******************************
-!  Volume monitor class definition
-!  *******************************
-!
-!   type VolumeMonitor_t
-!      logical                         :: active
-!      integer                         :: volumeType
-!      integer                         :: ID
-!      real(kind=RP)                   :: values(BUFFER_SIZE)
-!      character(len=STR_LEN_MONITORS) :: monitorName
-!      character(len=STR_LEN_MONITORS) :: fileName
-!      character(len=STR_LEN_MONITORS) :: variable
-!      real(kind=RP)                   :: referenceValue
-!      contains
-!         procedure   :: Initialization => VolumeMonitor_Initialization
-!         procedure   :: Update         => VolumeMonitor_Update
-!         procedure   :: WriteLabel     => VolumeMonitor_WriteLabel
-!         procedure   :: WriteValues    => VolumeMonitor_WriteValue
-!         procedure   :: WriteToFile    => VolumeMonitor_WriteToFile
-!   end type VolumeMonitor_t
-!
-!
 !  *****************************
 !  Main monitor class definition
 !  *****************************
 !  
    type Monitor_t
       integer                              :: no_of_surfaceMonitors
+      integer                              :: no_of_volumeMonitors
       integer                              :: bufferLine
       integer                              :: iter( BUFFER_SIZE )
       real(kind=RP)                        :: t  (BUFFER_SIZE )
       type(Residuals_t)                    :: residuals
-      class(SurfaceMonitor_t), allocatable :: surfaceMonitors(: )
+      class(SurfaceMonitor_t), allocatable :: surfaceMonitors(:)
+      class(VolumeMonitor_t),  allocatable :: volumeMonitors(:)
       contains
          procedure   :: WriteLabel      => Monitor_WriteLabel
          procedure   :: WriteUnderlines => Monitor_WriteUnderlines
@@ -138,7 +119,7 @@ module MonitorsClass
 !
 !        Search in case file for probes, surface monitors, and volume monitors
 !        ---------------------------------------------------------------------
-         call getNoOfMonitors( Monitors % no_of_surfaceMonitors )
+         call getNoOfMonitors( Monitors % no_of_surfaceMonitors, Monitors % no_of_volumeMonitors )
 !
 !        Initialize
 !        ----------
@@ -148,6 +129,12 @@ module MonitorsClass
          do i = 1 , Monitors % no_of_surfaceMonitors
             call Monitors % surfaceMonitors(i) % Initialization ( mesh , i, solution_file )
          end do
+
+         allocate ( Monitors % volumeMonitors ( Monitors % no_of_volumeMonitors )  )
+         do i = 1 , Monitors % no_of_volumeMonitors
+            call Monitors % volumeMonitors(i) % Initialization ( mesh , i, solution_file )
+         end do
+
 
          Monitors % bufferLine = 0
 
@@ -178,7 +165,13 @@ module MonitorsClass
          do i = 1 , self % no_of_surfaceMonitors
             call self % surfaceMonitors(i) % WriteLabel
          end do
-         
+!
+!        Write volume monitors labels
+!        -----------------------------
+         do i = 1 , self % no_of_volumeMonitors
+            call self % volumeMonitors(i) % WriteLabel
+         end do
+
          write(STD_OUT , *) 
 
       end subroutine Monitor_WriteLabel
@@ -225,12 +218,12 @@ module MonitorsClass
 !               write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % probes(i) % monitorName ) + 2 ) )
 !            end if
 !         end do
-!!
-!!        Print dashes for volume monitors
-!!        --------------------------------
-!         do i = 1 , self % no_of_volumeMonitors
-!            write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % volumeMonitors(i) % monitorName ) + 2 ) )
-!         end do
+!
+!        Print dashes for volume monitors
+!        --------------------------------
+         do i = 1 , self % no_of_volumeMonitors
+            write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % volumeMonitors(i) % monitorName ) + 2 ) )
+         end do
 
          write(STD_OUT , *) 
 
@@ -267,12 +260,12 @@ module MonitorsClass
 !         do i = 1 , self % no_of_probes
 !            call self % probes(i) % WriteValues ( self % bufferLine )
 !         end do
-!!
-!!        Print volume monitors
-!!        ---------------------
-!         do i = 1 , self % no_of_volumeMonitors
-!            call self % volumeMonitors(i) % WriteValues ( self % bufferLine )
-!         end do
+!
+!        Print volume monitors
+!        ---------------------
+         do i = 1 , self % no_of_volumeMonitors
+            call self % volumeMonitors(i) % WriteValues ( self % bufferLine )
+         end do
 
          write(STD_OUT , *) 
 
@@ -325,12 +318,12 @@ module MonitorsClass
 !         do i = 1 , self % no_of_probes
 !            call self % probes(i) % Update( mesh , self % bufferLine )
 !         end do
-!!
-!!        Update volume monitors
-!!        ----------------------
-!         do i = 1 , self % no_of_volumeMonitors
-!            call self % volumeMonitors(i) % Update( mesh , self % bufferLine )
-!         end do
+!
+!        Update volume monitors
+!        ----------------------
+         do i = 1 , self % no_of_volumeMonitors
+            call self % volumeMonitors(i) % Update( mesh , self % bufferLine )
+         end do
 
       end subroutine Monitor_UpdateValues
 
@@ -370,10 +363,10 @@ module MonitorsClass
 !            do i = 1 , self % no_of_probes
 !               call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
 !            end do
-!
-!            do i = 1 , self % no_of_volumeMonitors
-!               call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-!            end do
+
+            do i = 1 , self % no_of_volumeMonitors
+               call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+            end do
 !
 !           Reset buffer
 !           ------------
@@ -395,9 +388,9 @@ module MonitorsClass
 !                  call self % probes(i) % WriteToFile ( self % iter , self % t , BUFFER_SIZE ) 
 !               end do
 !
-!               do i = 1 , self % no_of_volumeMonitors
-!                  call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-!               end do
+               do i = 1 , self % no_of_volumeMonitors
+                  call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+               end do
 
                self % bufferLine = 0
    
@@ -681,206 +674,17 @@ module MonitorsClass
 !!         end if
 !      
 !      end subroutine Probe_WriteToFile
-!
-!!/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!!
-!!           VOLUME MONITOR PROCEDURES
-!!           -------------------------
-!!/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!!
-!      subroutine VolumeMonitor_Initialization( self , mesh , ID )
-!!
-!!        *****************************************************************************
-!!              This subroutine initializes the volume monitor. The following
-!!           data is obtained from the case file:
-!!              -> Name: The monitor name (10 characters maximum)
-!!              -> Variable: The variable to be monitorized.
-!!        *****************************************************************************
-!!  
-!         use ParamfileIO
-!         use Setup_Class
-!         use MatrixOperations
-!         implicit none
-!         class(VolumeMonitor_t) :: self
-!         class(HexMesh)      :: mesh
-!         integer                :: ID
-!!        ----------------------------------------------
-!         character(len=STR_LEN_MONITORS)  :: in_label
-!         character(len=STR_LEN_MONITORS)  :: fileName
-!         integer                          :: fID
-!         integer                          :: pos
-!!!
-!!!        Get monitor ID
-!!!        --------------
-!!         self % ID = ID
-!!!
-!!!        Search for the parameters in the case file
-!!!        ------------------------------------------
-!!         write(in_label , '(A,I0)') "#define volume monitor " , self % ID
-!!         
-!!         call readValueInRegion ( trim ( Setup % case_file )  , "Name"              , self % monitorName      , in_label , "# end" ) 
-!!         call readValueInRegion ( trim ( Setup % case_file )  , "Variable"          , self % variable         , in_label , "# end" ) 
-!!!
-!!!        Enable the monitor
-!!!        ------------------
-!!         self % active = .true.
-!!!
-!!!        Select the variable from the available list, and compute auxiliary variables if needed
-!!!        --------------------------------------------------------------------------------------
-!!!
-!!!        ****************************************
-!!         select case ( trim ( self % variable ) )
-!!!        ****************************************
-!!!
-!!!
-!!!           ---------------------------------------------------
-!!            case ("dSnorm")
-!!               self % referenceValue = 1.0_RP
-!!               self % volumeType = VOLUME_INTEGRAL
-!!!
-!!!           ---------------------------------------------------
-!!            case ("MaxJumps") 
-!!               self % volumeType = VOLUME_UNDEFINED
-!!
-!!            case default
-!!
-!!               if ( len_trim (self % variable) .eq. 0 ) then
-!!                  print*, "Variable was not specified for surface monitor " , self % ID , "."
-!!               else
-!!                  print*, 'Variable "',trim(self % variable),'" surface monitor ', self % ID, ' not implemented yet.'
-!!                  print*, "Options available are:"
-!!                  print*, "   * dSnorm"
-!!                  stop "Stopped."
-!!
-!!               end if
-!!!
-!!!        **********
-!!         end select
-!!
-!!!
-!!!        Prepare the file in which the monitor is exported
-!!!        -------------------------------------------------
-!!         write( self % fileName , '(A,A,A,A)') trim(Setup % solution_file) , "." , trim(self % monitorName) , ".volume"  
-!!!
-!!!        Create file
-!!!        -----------
-!!         open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" ) 
-!!!
-!!!        Write the file headers
-!!!        ----------------------
-!!         write( fID , '(A20,A  )') "Monitor name:      ", trim(self % monitorName)
-!!         write( fID , '(A20,A  )') "Selected variable: " , trim(self % variable)
-!!
-!!         write( fID , * )
-!!         write( fID , '(A10,2X,A24,2X,A24)' ) "Iteration" , "Time" , trim(self % variable)
-!!
-!!         close ( fID ) 
-!!
-!      end subroutine VolumeMonitor_Initialization
-!
-!      subroutine VolumeMonitor_Update ( self , mesh , bufferPosition )
-!!
-!!        *******************************************************************
-!!           This subroutine updates the monitor value computing it from
-!!           the mesh. It is stored in the "bufferPosition" position of the 
-!!           buffer.
-!!        *******************************************************************
-!!
-!         use MatrixOperations
-!         implicit none
-!         class   (  VolumeMonitor_t )  :: self
-!         class   (  HexMesh       ) :: mesh
-!         integer                       :: bufferPosition
-!!!
-!!!        Compute the volume integral
-!!!        ---------------------------
-!!         if ( self % volumeType .eq. VOLUME_INTEGRAL ) then
-!!            self % values(bufferPosition) = mesh % VolumeIntegral(trim(self % variable)) / mesh % Volume
-!!   
-!!         else
-!!
-!!            select case ( trim(self % variable) ) 
-!!   
-!!               case ( "MaxJumps" ) 
-!!
-!!                  self % values(bufferPosition) = mesh % ComputeMaxJumps()
-!!
-!!            end select
-!!   
-!!         end if
-!!
-!!
-!!
-!      end subroutine VolumeMonitor_Update
-!
-!      subroutine VolumeMonitor_WriteLabel ( self )
-!!
-!!        *************************************************************
-!!              This subroutine writes the label for the volume
-!!           monitor, when invoked from the time integrator Display
-!!           procedure.
-!!        *************************************************************
-!!
-!         implicit none
-!         class(VolumeMonitor_t)             :: self
-!!
-!!         write(STD_OUT , '(3X,A10)' , advance = "no") trim(self % monitorName(1 : MONITOR_LENGTH))
-!!
-!      end subroutine VolumeMonitor_WriteLabel
-!   
-!      subroutine VolumeMonitor_WriteValue ( self , bufferLine ) 
-!!
-!!        *************************************************************
-!!              This subroutine writes the monitor value for the time
-!!           integrator Display procedure.
-!!        *************************************************************
-!!
-!         implicit none
-!         class(VolumeMonitor_t) :: self
-!         integer                 :: bufferLine
-!!
-!!         write(STD_OUT , '(1X,A,1X,ES10.3)' , advance = "no") "|" , self % values ( bufferLine ) 
-!!
-!      end subroutine VolumeMonitor_WriteValue 
-!
-!      subroutine VolumeMonitor_WriteToFile ( self , iter , t , no_of_lines)
-!!
-!!        *************************************************************
-!!              This subroutine writes the buffer to the file.
-!!        *************************************************************
-!!
-!         implicit none  
-!         class(VolumeMonitor_t) :: self
-!         integer                 :: iter(:)
-!         real(kind=RP)           :: t(:)
-!         integer                 :: no_of_lines
-!!        -------------------------------------------
-!         integer                    :: i
-!         integer                    :: fID
-!
-!!         open( newunit = fID , file = trim ( self % fileName ) , action = "write" , access = "append" , status = "old" )
-!!         
-!!         do i = 1 , no_of_lines
-!!            write( fID , '(I10,2X,ES24.16,2X,ES24.16)' ) iter(i) , t(i) , self % values(i)
-!!
-!!         end do
-!!        
-!!         close ( fID )
-!!
-!!         self % values(1) = self % values(no_of_lines)
-!      
-!      end subroutine VolumeMonitor_WriteToFile
-!
 !//////////////////////////////////////////////////////////////////////////////
 !
 !        Auxiliars
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
-   subroutine getNoOfMonitors(no_of_surfaceMonitors)
+   subroutine getNoOfMonitors(no_of_surfaceMonitors, no_of_volumeMonitors)
       use ParamfileRegions
       implicit none
       integer, intent(out)    :: no_of_surfaceMonitors
+      integer, intent(out)    :: no_of_volumeMonitors
 !
 !     ---------------
 !     Local variables
@@ -936,7 +740,7 @@ readloop:do
                no_of_surfaceMonitors = no_of_surfaceMonitors + 1 
 
             elseif ( index ( line , '#definevolumemonitor' ) .gt. 0 ) then
-!               Monitors % no_of_volumeMonitors = Monitors % no_of_volumeMonitors + 1
+               no_of_volumeMonitors = no_of_volumeMonitors + 1 
 
             end if
             
