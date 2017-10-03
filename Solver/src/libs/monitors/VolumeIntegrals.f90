@@ -82,6 +82,7 @@ module VolumeIntegrals
          integer     :: Nel(3)    ! Element polynomial order
          integer     :: i, j, k
          real(kind=RP)           :: KinEn(e % Nxyz(1), e % Nxyz(2), e % Nxyz(3))
+         real(kind=RP)           :: uvw(e % Nxyz(1), e % Nxyz(2), e % Nxyz(3))
          real(kind=RP), pointer  :: Qb(:)
 
          Nel = e % Nxyz
@@ -121,12 +122,47 @@ module VolumeIntegrals
             KinEn =         POW2(e % Q(:,:,:,IRHOU)) 
             KinEn = KinEn + POW2( e % Q(:,:,:,IRHOV) )
             KinEn = KinEn + POW2( e % Q(:,:,:,IRHOW) )
-            KinEn = KinEn / e % Q(:,:,:,IRHO)
+            KinEn = 0.5_RP * KinEn / e % Q(:,:,:,IRHO)
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
             end do            ; end do           ; end do
 
+         case ( KINETIC_ENERGY_RATE )
+!
+!           ***********************************
+!              Computes the kinetic energy
+!              time derivative:
+!              K_t = (d/dt)\int \rho V^2 dV
+!           ***********************************
+!
+            uvw = e % Q(:,:,:,IRHOU) / e % Q(:,:,:,IRHO)
+            KinEn = uvw * e % QDot(:,:,:,IRHOU) - 0.5_RP * POW2(uvw) * e % QDot(:,:,:,IRHO)
+
+            uvw = e % Q(:,:,:,IRHOV) / e % Q(:,:,:,IRHO)
+            KinEn = KinEn + uvw * e % QDot(:,:,:,IRHOV) - 0.5_RP * POW2(uvw) * e % QDot(:,:,:,IRHO)
+
+            uvw = e % Q(:,:,:,IRHOW) / e % Q(:,:,:,IRHO)
+            KinEn = KinEn + uvw * e % QDot(:,:,:,IRHOW) - 0.5_RP * POW2(uvw) * e % QDot(:,:,:,IRHO)
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
+            end do            ; end do           ; end do
+
+
+         case ( ENSTROPHY )
+!
+!           ***************************
+!           Computes the flow enstrophy
+!           ***************************
+!
+            KinEn =   POW2( e % U_y(:,:,:,IRHOW) - e % U_z(:,:,:,IRHOV) ) &
+                    + POW2( e % U_z(:,:,:,IRHOU) - e % U_x(:,:,:,IRHOW) ) &
+                    + POW2( e % U_x(:,:,:,IRHOV) - e % U_y(:,:,:,IRHOU) )
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
+            end do            ; end do           ; end do
 
          end select
 

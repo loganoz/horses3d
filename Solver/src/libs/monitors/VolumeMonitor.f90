@@ -1,4 +1,4 @@
-module VolumeMonitor
+module VolumeMonitorClass
    use SMConstants
    use HexMeshClass
    use MonitorDefinitions
@@ -129,7 +129,7 @@ module VolumeMonitor
 
       end subroutine VolumeMonitor_Initialization
 
-      subroutine VolumeMonitor_Update ( self , mesh , bufferPosition )
+      subroutine VolumeMonitor_Update ( self , mesh , spA, bufferPosition )
 !
 !        *******************************************************************
 !           This subroutine updates the monitor value computing it from
@@ -141,6 +141,7 @@ module VolumeMonitor
          implicit none
          class   (  VolumeMonitor_t )  :: self
          class   (  HexMesh       ) :: mesh
+         class(NodalStorage)        :: spA(0:,0:,0:)
          integer                       :: bufferPosition
 !
 !        Compute the volume integral
@@ -150,11 +151,13 @@ module VolumeMonitor
             self % values(bufferPosition) = ScalarVolumeIntegral(mesh, spA, KINETIC_ENERGY)
 
          case ("kinetic energy rate")
+            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, spA, KINETIC_ENERGY_RATE)
    
          case ("enstrophy")
+            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, spA, ENSTROPHY)
 
          end select
-         self % values(bufferPosition) = 1.0_RP
+
 
       end subroutine VolumeMonitor_Update
 
@@ -219,4 +222,4 @@ module VolumeMonitor
          self % values(1) = self % values(no_of_lines)
       
       end subroutine VolumeMonitor_WriteToFile
-end module VolumeMonitor
+end module VolumeMonitorClass

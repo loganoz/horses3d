@@ -184,76 +184,8 @@
             INTEGER, SAVE       :: restartfile = 0
             INTEGER             :: restartUnit
             CHARACTER(LEN=100)  :: fileName
-            interface
-               function computeKineticEnergy(sem) result(val)
-                  use DGSEMClass
-                  implicit none
-                  class(DGSem)        :: sem
-                  real(kind=RP)       :: val
-               end function computeKineticEnergy
-            end interface
-
-
-            fUnit = 101
-
-            IF (.NOT. created) THEN
-                OPEN(fUnit, file = "./RESULTS/kinetic_energy.dat", action = "WRITE" , status = "UNKNOWN" )
-                created = .TRUE.
-            ELSE
-                OPEN(fUnit, file = "./RESULTS/kinetic_energy.dat", action = "WRITE" , status = "OLD" , access = "APPEND")
-            END IF
-!           -------------------------------
-!           Compute the flow kinetic energy
-!           -------------------------------
-            k_energy = computeKineticEnergy(sem)
-            WRITE(fUnit , '(E24.16,E24.16)') time , k_energy
-
-            CLOSE(fUnit)
             
          END SUBROUTINE UserDefinedPeriodicOperation
-
-         FUNCTION computeKineticEnergy(sem) result(val)
-            USE DGSEMClass
-            IMPLICIT NONE
-            CLASS(DGSem)        :: sem
-            REAL(kind=RP)       :: val
-            
-            REAL(kind=RP)       :: rho, u , v , w
-            INTEGER             :: eID , i , j , k
-            integer             :: Nx, Ny, Nz
-
-!           Initialization
-            val = 0.0_RP
-
-            DO eID = 1 , SIZE(sem % mesh % elements)
-               Nx = sem % mesh % elements(eID) % Nxyz(1)
-               Ny = sem % mesh % elements(eID) % Nxyz(2)
-               Nz = sem % mesh % elements(eID) % Nxyz(3)
-
-                DO k = 0 , Nz
-                    DO j = 0 , Ny
-                        DO i = 0 , Nx
-
-                            rho = sem % mesh % elements(eID) % Q(i,j,k,1)
-                            u = sem % mesh % elements(eID) % Q(i,j,k,2) / rho
-                            v = sem % mesh % elements(eID) % Q(i,j,k,3) / rho
-                            w = sem % mesh % elements(eID) % Q(i,j,k,4) / rho
-
-                            ASSOCIATE(wx => sem % spA(Nx,Ny,Nz) % wx , &
-                                      wy => sem % spA(Nx,Ny,Nz) % wy , &
-                                      wz => sem % spA(Nx,Ny,Nz) % wz   )
-                              val = val + 0.5_RP*rho*(u*u+v*v+w*w)*wx(i)*wy(j)*wz(k)*      &
-                                    sem % mesh % elements (eID) % geom % jacobian (i,j,k)
-                            END ASSOCIATE
-                             
-                        END DO
-                    END DO
-                END DO
-            END DO
-
-            val = val / (2*acos(-1.d0))**3
-
-         END FUNCTION computeKineticEnergy 
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

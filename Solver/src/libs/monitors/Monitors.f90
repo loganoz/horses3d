@@ -322,7 +322,7 @@ module MonitorsClass
 !        Update volume monitors
 !        ----------------------
          do i = 1 , self % no_of_volumeMonitors
-            call self % volumeMonitors(i) % Update( mesh , self % bufferLine )
+            call self % volumeMonitors(i) % Update( mesh , spA, self % bufferLine )
          end do
 
       end subroutine Monitor_UpdateValues
