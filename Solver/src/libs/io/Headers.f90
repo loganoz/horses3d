@@ -54,6 +54,7 @@ MODULE Headers
                 WRITE(*,'(A)') ast2
                 WRITE(*,'(A)') ast2
                 WRITE(*,'(A)') ast1
+                WRITE(*,'(A)') "Compiled ", __DATE__, __TIME__
 
         END SUBROUTINE Main_header
      

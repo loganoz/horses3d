@@ -242,12 +242,6 @@
       
       call assignBoundaryConditions(self)
 !
-!     -------------------------
-!     Build the different zones
-!     -------------------------
-!
-      call self % mesh % ConstructZones()
-!
 !     ------------------
 !     Build the monitors
 !     ------------------

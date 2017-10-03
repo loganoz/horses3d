@@ -21,7 +21,7 @@ PROG=./bin/HORSES3D
 ########################################
 # 2.- User defined paths
 ########################################
-HOME_DIR?=$(PWD)
+HOME_DIR?=@HORSES_HOME_DIR
 INSTALL_DIR=$(HOME_DIR)
 INCLUDE=-I$(HOME_DIR)/include
 LIBS = 
@@ -180,6 +180,10 @@ LIBFLAGS=  FC='$(FC)' \
 .DEFAULT_GOAL := all
 
 all: header mkdirs horseslibs $(PROG)
+
+install: FORCE
+	cp -f $(HOME_DIR)/$(PROG) /usr/local/bin
+	cp -f $(HOME_DIR)/lib/libproblemfile.so /usr/local/lib
 
 
 $(PROG): $(OBJS_HORSES) $(HOME_DIR)/build/ProblemFile.o
