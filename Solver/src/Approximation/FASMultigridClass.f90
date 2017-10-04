@@ -9,6 +9,7 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE FASMultigridClass
+   use FTValueDictionaryClass
    USE SMConstants
    USE ExplicitMethods
    USE DGSEMClass
@@ -292,8 +293,7 @@ MODULE FASMultigridClass
          ALLOCATE (Child_p % p_sem)
          !Child_p % p_sem % ManufacturedSol = Solver % p_sem % ManufacturedSol
          
-         CALL Child_p % p_sem % construct (meshFileName      = controlVariables % stringValueForKey("mesh file name",    &
-                                                                                      requestedLength = LINE_LENGTH),    &
+         CALL Child_p % p_sem % construct (controlVariables = controlVariables,                                          &
                                            externalState     = Solver % p_sem % externalState,                           &
                                            externalGradients = Solver % p_sem % externalGradients,                       &
                                            Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,                                        &

@@ -47,14 +47,16 @@ ARFLAGS=crv
 
 
 # ------------------------------------------------
-OBJS_CASE= Setup Physics GradientTests InitialFlowState TestGradientsMain
+OBJS_CASE= Setup Physics GradientSetup GradientTests InitialFlowState TestGradientsMain
 	   
 OBJS_HORSES=  SMConstants \
 		FTTimerClass \
 		FileReading \
 		Utilities \
 		Plotter \
+		RealDataLinkedList \
 		MatrixOperations \
+		ParamfileRegions \
 		LegendreAlgorithms \
 		InterpolationAndDerivatives \
 		FluidData \
@@ -70,6 +72,14 @@ OBJS_HORSES=  SMConstants \
 		HexMesh \
 		MeshTypes \
 		NodeClass \
+		LiftAndDrag \
+		MonitorDefinitions \
+		ResidualsMonitor \
+		SurfaceIntegrals \
+		VolumeIntegrals \
+		SurfaceMonitor \
+		VolumeMonitor \
+		Monitors \
 		DGInviscidDiscretization \
 		DGViscousDiscretization \
 		DGWeakIntegrals \
@@ -251,6 +261,7 @@ clean: FORCE horseslibclean
 	$(info Removing object *.o files from $(NSLITE3D_PATH)/build)
 	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
 	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod* $(HOME_DIR)/lib/*.a
+	@rm -f ./build/*.o ./lib/*.a ./include/*.mod
 	@rm -f $(HOME_DIR)/build/libproblemfile.so
 
 allclean: FORCE clean

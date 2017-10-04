@@ -13,6 +13,7 @@
       MODULE TimeIntegratorClass
       
       USE SMConstants
+      use FTValueDictionaryClass
       USE PolynomialInterpAndDerivsModule
       USE DGSEMClass
       USE Physics
@@ -39,6 +40,7 @@
          PROCEDURE :: destruct => destructTimeIntegrator
          PROCEDURE :: setPlotter
          PROCEDURE :: integrate
+         procedure :: Display => TimeIntegrator_Display
       END TYPE TimeIntegrator_t
 
       abstract interface
@@ -129,7 +131,7 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE Integrate( self, sem, controlVariables)
+      SUBROUTINE Integrate( self, sem, controlVariables, monitors)
       
       USE Implicit_JF , ONLY : TakeBDFStep_JF
       USE Implicit_NJ , ONLY : TakeBDFStep_NJ
@@ -143,6 +145,7 @@
       CLASS(TimeIntegrator_t)       :: self
       TYPE(DGSem)                   :: sem
       TYPE(FTValueDictionary)       :: controlVariables
+      class(Monitor_t)              :: monitors
 
 !
 !     ---------
@@ -207,7 +210,9 @@ end interface
       DO k = 0, self % numTimeSteps-1
       
          IF ( self % Compute_dt ) self % dt = MaxTimeStep( sem, self % cfl )
-         
+!
+!        Perform time step
+!        -----------------         
          SELECT CASE (TimeIntegration)
             CASE ('implicit')
                SELECT CASE (JacFlag)
@@ -227,13 +232,33 @@ end interface
             CASE ('FAS')
                CALL FASSolver % solve(k,t)
          END SELECT
-         
+!
+!        Compute the new time
+!        --------------------         
          t = t + self % dt
-         maxResidual = ComputeMaxResidual(sem)
-         sem % maxResidual       = maxval(maxResidual)
+!
+!        Get maximum residuals
+!        ---------------------
+         maxResidual       = ComputeMaxResidual(sem)
+         sem % maxResidual = maxval(maxResidual)
+!
+!        Exit if the time exceeds the final time (only in TIME_ACCURATE mode)
+!        ---------------------------------------
+         if ( self % integratorType .eq. TIME_ACCURATE ) then
+            if ( self % time .ge. self % tFinal) then
+               call monitors % UpdateValues( sem % mesh, sem % spA, t, k+1, maxResidual )
+               call self % Display( sem % mesh, monitors)
+               exit
+            end if
+         end if
+!
+!        Update monitors
+!        ---------------
+         call Monitors % UpdateValues( sem % mesh, sem % spA, t, k+1, maxResidual )
+
          IF (self % integratorType == STEADY_STATE) THEN
             IF (maxval(maxResidual) <= self % tolerance )  THEN
-              CALL PlotResiduals(k+1 , t , maxResidual)
+              call self % Display(sem % mesh, monitors)
               sem % maxResidual       = maxval(maxResidual)
               self % time             = t
               sem % numberOfTimeSteps = k + 1
@@ -251,7 +276,7 @@ end interface
           CALL UserDefinedPeriodicOperation(sem,t)
           
             IF ( self % integratorType == STEADY_STATE )     THEN
-               CALL PlotResiduals(k+1 , t , maxResidual)
+               call self % Display(sem % mesh, monitors)
                
             ELSE IF (ASSOCIATED(self % plotter))     THEN 
                mNumber = mNumber + 1
@@ -269,8 +294,16 @@ end interface
                
             END IF
          END IF
+!
+!        Flush monitors
+!        --------------
+         call monitors % WriteToFile()
         
       END DO
+
+      if ( k .ne. 0 ) then
+         call Monitors % writeToFile( force = .true. )
+      end if
       
       sem % maxResidual       = maxval(maxResidual)
       self % time             = t
@@ -283,32 +316,32 @@ end interface
 !     Subroutine to print the residuals
 !
 !
-   subroutine PlotResiduals( iter , time , maxResiduals )
+   subroutine TimeIntegrator_Display(self, mesh, monitors)
       implicit none
-      integer, intent(in)       :: iter
-      real(kind=RP), intent(in) :: time
-      real(kind=RP), intent(in) :: maxResiduals(N_EQN)
-!     --------------------------------------------------------
-      integer, parameter        :: showLabels = 50
-      integer, save             :: shown = 0
+      class(TimeIntegrator_t),   intent(in)     :: self
+      class(HexMesh),            intent(in)     :: mesh
+      class(Monitor_t),          intent(inout)  :: monitors
+!
+!     ---------------
+!     Local variables      
+!     ---------------
+!
+      integer, parameter      :: showLabels = 50
+      integer, save           :: shown = 0
 
-      if ( mod(shown , showLabels) .eq. 0 ) then ! Show labels
-         write(STD_OUT , '(/)')
-         write(STD_OUT , '(/)')
-         write(STD_OUT , '(A17,3X,A10,3X,A10,3X,A10,3X,A10,3X,A10,3X,A10)') &
-               "Iteration" , "time" , "continuity" , "x-momentum" , "y-momentum", &
-               "z-momentum" , "energy"
-         write(STD_OUT , '(A17,3X,A10,3X,A10,3X,A10,3X,A10,3X,A10,3X,A10)') &
-               "---------" , "--------" , "----------" , "----------" , "----------" , &
-               "----------", "--------"
+      if ( mod(shown, showLabels) .eq. 0 ) then
+         write(STD_OUT,'(/)')
+         write(STD_OUT,'(/)')
+         
+         call monitors % WriteLabel
+         call monitors % WriteUnderlines
+
       end if
-      write(STD_OUT , 110) iter ,"|", time ,"|", maxResiduals(IRHO) , "|" , maxResiduals(IRHOU) , &
-                                          "|", maxResiduals(IRHOV) , "|" , maxResiduals(IRHOW) , "|" , maxResiduals(IRHOE)
-      110 format (I17,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3)
+      shown = shown + 1 
 
-    shown = shown + 1
+      call monitors % WriteValues
 
-   end subroutine PlotResiduals
+   end subroutine TimeIntegrator_Display
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !

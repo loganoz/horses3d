@@ -13,6 +13,7 @@
       PROGRAM HORSES3DMain
       
       USE SMConstants
+      use FTValueDictionaryClass
       USE FTTimerClass
       USE PhysicsStorage
       USE SharedBCModule
@@ -112,8 +113,7 @@ end interface
          !Read file and construct DGSEM with it
          CALL ReadOrderFile( controlVariables % stringValueForKey("polynomial order file", requestedLength = LINE_LENGTH), &
                              Nx, Ny, Nz )
-         CALL sem % construct (  meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
-                                                                              requestedLength = LINE_LENGTH),  &
+         CALL sem % construct (  controlVariables  = controlVariables,                                         &
                                  externalState     = externalStateForBoundaryName,                             &
                                  externalGradients = ExternalGradientForBoundaryName,                          &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
@@ -133,8 +133,7 @@ end interface
             END IF
          END IF
          
-         CALL sem % construct (  meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
-                                                                              requestedLength = LINE_LENGTH),  &
+         CALL sem % construct (  controlVariables  = controlVariables,                                         &
                                  externalState     = externalStateForBoundaryName,                             &
                                  externalGradients = ExternalGradientForBoundaryName,                          &
                                  polynomialOrder   = polynomialOrder                                          ,&
@@ -197,7 +196,7 @@ end interface
 !     -----------------
 !
       CALL stopWatch % start()
-         CALL timeIntegrator % integrate(sem, controlVariables)
+         CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors)
       CALL stopWatch % stop()
       
       if (controlVariables % containsKey("boundaries to analyze")) then
@@ -249,6 +248,7 @@ end interface
          DEALLOCATE(plotter)
          DEALLOCATE(plDataSource)
       END IF 
+
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       CALL destructSharedBCModule
@@ -262,6 +262,7 @@ end interface
       SUBROUTINE CheckBCIntegrity(mesh, success)
 !
          USE HexMeshClass
+         use FTValueDictionaryClass
          USE SharedBCModule
          USE BoundaryConditionFunctions, ONLY:implementedBCNames
          IMPLICIT NONE

@@ -40,6 +40,7 @@
          PROCEDURE :: destruct          => DestructMesh
          PROCEDURE :: Describe          => DescribeMesh
          PROCEDURE :: ConstructZones    => HexMesh_ConstructZones
+         PROCEDURE :: SetConnectivities => HexMesh_SetConnectivities
          PROCEDURE :: WriteCoordFile
       END TYPE HexMesh
 
@@ -269,28 +270,17 @@
 !           ------------------------------------
 !
             DO k = 1, 6
-               IF (TRIM(names(k)) == "---") THEN
+               IF (TRIM(names(k)) == emptyBCName ) THEN
                   self%elements(l)%NumberOfConnections(k) = 1
-                  CALL self%elements(l)%Connection(k)%construct (1)  ! Conforming elements!!
+                  CALL self%elements(l)%Connection(k)%construct (1)  ! Just conforming elements
                ELSE
                   self%elements(l)%NumberOfConnections(k) = 0
                ENDIF
             ENDDO
             
             
-         END DO
-         
-!
-!        ------------------------------
-!        Set the element connectivities
-!        ------------------------------
-!
-         DO l=1, numberOfElements
-            DO k= 1, 6
-               IF (self%elements(l)%NumberOfConnections(k) /= 0) &
-                  CALL SetConformingConnectivities(self%elements(l)%Connection(k), self%elements, l, k)
-            ENDDO 
-         END DO
+         END DO      ! l = 1, numberOfElement
+        
 !
 !        ---------------------------
 !        Construct the element faces
@@ -300,6 +290,18 @@
          self % numberOfFaces = numberOfFaces
          ALLOCATE( self % faces(self % numberOfFaces) )
          CALL ConstructFaces( self, success )
+!
+!        ------------------------------
+!        Set the element connectivities
+!        ------------------------------
+!
+         call self % SetConnectivities
+!
+!        -------------------------
+!        Build the different zones
+!        -------------------------
+!
+         call self % ConstructZones()
 !
 !        ---------------------------
 !        Construct periodic faces
@@ -565,66 +567,79 @@
       INTEGER       :: coord
       
       INTEGER       :: i,j,k,l 
+      integer       :: zIDplus, zIDMinus, iFace, jFace
 !
 !     ---------------------------------------------
 !     Loop to find faces with the label "periodic+"
 !     ---------------------------------------------
 !
-      DO i = 1, self%numberOfFaces
-         IF (TRIM(bcTypeDictionary % stringValueForKey(key             = self%faces(i)%boundaryName, &
-                                                      requestedLength = BC_STRING_LENGTH)) == "periodic+") THEN
+!     ------------------------------
+!     Loop zones with BC "periodic+"
+!     ------------------------------
 !
-!           ---------------------------------------------
-!           Loop to find faces with the label "periodic-"
-!           ----------------------------------------------
+      if ( bcTypeDictionary % COUNT() .eq. 0 ) return
+      do zIDPlus = 1, size(self % zones)
 !
-            DO j = 1, self%numberOfFaces
-               IF ((TRIM(bcTypeDictionary % stringValueForKey(key             = self%faces(j)%boundaryName, &
-                                                      requestedLength = BC_STRING_LENGTH)) == "periodic-")) THEN
+!        Cycle if the zone is not periodic+
+!        ----------------------------------
+         if ( trim(bcTypeDictionary % stringValueForKey(key = self % zones(zIDPlus) % Name, &
+                                                      requestedLength = BC_STRING_LENGTH)) .ne. "periodic+") cycle
 !
-!                 ----------------------------------------------------------------------------------------
-!                 The index i is a periodic+ face
-!                 The index j is a periodic- face
-!                 We are looking for couples of periodic+ and periodic- faces where 2 of the 3 coordinates
-!                 in all the corners are shared. The non-shared coordinate has to be always the same one.
-!                 ----------------------------------------------------------------------------------------
+!        ------------------------------
+!        Loop zones with BC "periodic-"
+!        ------------------------------
 !
-                  coord = 0                         ! This is the non-shared coordinate
-                  master_matched(:)   = .FALSE.     ! True if the master corner finds a partner
-                  slave_matched(:)    = .FALSE.     ! True if the slave corner finds a partner
-                  
-                  DO k = 1, 4
-                     x1 = self%nodes(self%faces(i)%nodeIDs(k))%x                           !x1 is the master coordinate
-                     DO l = 1, 4
-                        IF (.NOT.slave_matched(l)) THEN 
-                           x2 = self%nodes(self%faces(j)%nodeIDs(l))%x                     !x2 is the slave coordinate
-                           CALL CompareTwoNodes(x1, x2, master_matched(k), coord)          !x1 and x2 are compared here
-                           IF (master_matched(k)) THEN 
-                              slave_matched(l) = .TRUE. 
-                              EXIT
-                           ENDIF  
-                        ENDIF 
-                     ENDDO 
-                     IF (.NOT.master_matched(k)) EXIT  
-                  ENDDO          
-                  
-                  IF ( (master_matched(1)) .AND. (master_matched(2)) .AND. (master_matched(3)) .AND. (master_matched(4)) ) THEN
-                  
-                     self % faces(i) % boundaryName   = ""
-                     self % faces(i) % elementIDs(2)  = self % faces(j) % elementIDs(1)
-                     self % faces(i) % elementSide(2) = self % faces(j) % elementSide(1) 
-                     self % faces(i) % FaceType       = HMESH_INTERIOR
-                     self % faces(i) % rotation       = 0!faceRotation(masterNodeIDs = self % faces(i) % nodeIDs, &
-                                                        !           slaveNodeIDs  = self % faces(i) % nodeIDs)      
-                                                                               
-                  ENDIF    
-
-               ENDIF 
-            ENDDO
-         ENDIF 
-      ENDDO
-      
-      
+         do zIDMinus = 1, size(self % zones)
+!
+!           Cycle if the zone is not periodic-
+!           ----------------------------------
+            if ( trim(bcTypeDictionary % stringValueForKey(key = self % zones(zIDMinus) % Name, &
+                                                      requestedLength = BC_STRING_LENGTH)) .ne. "periodic-") cycle
+!
+!           Loop all faces in both zones
+!           ----------------------------
+            do iFace = 1, self % zones(zIDPlus) % no_of_faces;    do jFace = 1, self % zones(zIDMinus) % no_of_faces
+               i = self % zones(zIDPlus) % faces(iFace)
+               j = self % zones(zIDMinus) % faces(jFace)
+!
+!              ----------------------------------------------------------------------------------------
+!              The index i is a periodic+ face
+!              The index j is a periodic- face
+!              We are looking for couples of periodic+ and periodic- faces where 2 of the 3 coordinates
+!              in all the corners are shared. The non-shared coordinate has to be always the same one.
+!              ----------------------------------------------------------------------------------------
+!
+               coord = 0                         ! This is the non-shared coordinate
+               master_matched(:)   = .FALSE.     ! True if the master corner finds a partner
+               slave_matched(:)    = .FALSE.     ! True if the slave corner finds a partner
+               
+               DO k = 1, 4
+                  x1 = self%nodes(self%faces(i)%nodeIDs(k))%x                           !x1 is the master coordinate
+                  DO l = 1, 4
+                     IF (.NOT.slave_matched(l)) THEN 
+                        x2 = self%nodes(self%faces(j)%nodeIDs(l))%x                     !x2 is the slave coordinate
+                        CALL CompareTwoNodes(x1, x2, master_matched(k), coord)          !x1 and x2 are compared here
+                        IF (master_matched(k)) THEN 
+                           slave_matched(l) = .TRUE. 
+                           EXIT
+                        ENDIF  
+                     ENDIF 
+                  ENDDO 
+                  IF (.NOT.master_matched(k)) EXIT  
+               ENDDO          
+               
+               IF ( (master_matched(1)) .AND. (master_matched(2)) .AND. (master_matched(3)) .AND. (master_matched(4)) ) THEN
+                  self % faces(i) % boundaryName   = ""
+                  self % faces(i) % elementIDs(2)  = self % faces(j) % elementIDs(1)
+                  self % faces(i) % elementSide(2) = self % faces(j) % elementSide(1) 
+                  self % faces(i) % FaceType       = HMESH_INTERIOR
+                  self % faces(i) % rotation       = 0!faceRotation(masterNodeIDs = self % faces(i) % nodeIDs, &
+                                                     !           slaveNodeIDs  = self % faces(i) % nodeIDs)      
+                                                                            
+               ENDIF    
+            end do;  end do
+         end do
+      end do
            
       END SUBROUTINE ConstructPeriodicFaces
 ! 
@@ -807,54 +822,6 @@
       END SUBROUTINE DescribeMesh     
 !
 !////////////////////////////////////////////////////////////////////////
-!
-!!    This procedure sets the connectivities for a certain face of a  
-!!    single element in a conforming mesh
-!!    (Original 2D procedure by grubio... 3D adaptation by arueda)
-!!
-      SUBROUTINE SetConformingConnectivities(self,Elements, jElement, kFace)
-         IMPLICIT NONE
-!
-!        ------------------------------------------------------
-!        Search and set the conectivities between the elements
-!        in conforming meshes
-!        ------------------------------------------------------
-!
-         !-----------------------------------------------
-         TYPE(Connectivity)     :: self             !> Connection that will be set
-         TYPE(Element)         :: Elements(:)      !< All elements in mesh
-         INTEGER               :: jElement         !< element number
-         INTEGER               :: kFace            !< face number
-         !-----------------------------------------------
-         INTEGER, DIMENSION(8)  :: nodeIDs, loopNodeIDs     ! Nodes of element (checked element, looped element)
-         INTEGER, DIMENSION(4)  :: endNodes, loopEndNodes   ! Nodes of face    (checked element, looped element)
-         INTEGER                :: i, j, k, l, m, counter
-         INTEGER                :: sharedNodes              ! Number of nodes shared between the analyzed face and one of another element
-         !-----------------------------------------------
-         
-         nodeIDs = Elements(jElement)%nodeIDs
-         endNodes = nodeIDs(faceMapHex8(:,kFace))
-                            
-         DO j = 1, SIZE(Elements)
-            IF (j == jElement) CYCLE
-            
-            loopNodeIDs = Elements(j)%nodeIDs
-            DO k = 1, 6
-               loopEndNodes = loopNodeIDs(faceMapHex8(:,k))
-               sharedNodes  = 0
-               DO l = 1, 4
-                  DO m = 1, 4
-                     IF (endNodes(l) == loopEndNodes(m)) sharedNodes = sharedNodes + 1
-                  END DO
-               END DO 
-               
-               IF (sharedNodes == 4) self%ElementIDs(1) = j 
-            ENDDO
-         ENDDO
-         
-      END SUBROUTINE SetConformingConnectivities
-! 
-!//////////////////////////////////////////////////////////////////////// 
 ! 
       SUBROUTINE WriteCoordFile(self,FileName)
          USE PhysicsStorage
@@ -909,6 +876,96 @@
          CLOSE(cooh)
          
       END SUBROUTINE WriteCoordFile
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!        Set element connectivities
+!        --------------------------
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      subroutine HexMesh_SetConnectivities(self)
+         implicit none
+         class(HexMesh)       :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: fID, eL, eR, fL, fR
+         
+
+         do fID = 1, size(self % faces)
+!
+!           Gather involved elements
+!           ------------------------
+            eL = self % faces(fID) % elementIDs(1)
+            eR = self % faces(fID) % elementIDs(2)
+!
+!           Cycle if the right element is zero (boundary face)
+!           --------------------------------------------------
+            if ( eR .eq. 0 ) cycle
+!
+!           Get element sides
+!           -----------------
+            fL = self % faces(fID) % elementSide(1)
+            fR = self % faces(fID) % elementSide(2)
+!
+!           Fill the information with the connectivities
+!           --------------------------------------------
+            self % elements(eL) % Connection( fL ) % ElementIDs(1) = eR
+            self % elements(eR) % Connection( fR ) % ElementIDs(1) = eL
+
+         end do
+
+      end subroutine HexMesh_SetConnectivities
+!!
+!!!    This procedure sets the connectivities for a certain face of a  
+!!!    single element in a conforming mesh
+!!!    (Original 2D procedure by grubio... 3D adaptation by arueda)
+!!!
+!      SUBROUTINE SetConformingConnectivities(self,Elements, jElement, kFace)
+!         IMPLICIT NONE
+!!
+!!        ------------------------------------------------------
+!!        Search and set the conectivities between the elements
+!!        in conforming meshes
+!!        ------------------------------------------------------
+!!
+!         !-----------------------------------------------
+!         TYPE(Connectivity)     :: self             !> Connection that will be set
+!         TYPE(Element)         :: Elements(:)      !< All elements in mesh
+!         INTEGER               :: jElement         !< element number
+!         INTEGER               :: kFace            !< face number
+!         !-----------------------------------------------
+!         INTEGER, DIMENSION(8)  :: nodeIDs, loopNodeIDs     ! Nodes of element (checked element, looped element)
+!         INTEGER, DIMENSION(4)  :: endNodes, loopEndNodes   ! Nodes of face    (checked element, looped element)
+!         INTEGER                :: i, j, k, l, m, counter
+!         INTEGER                :: sharedNodes              ! Number of nodes shared between the analyzed face and one of another
+!element
+!         !-----------------------------------------------
+!         
+!         nodeIDs = Elements(jElement)%nodeIDs
+!         endNodes = nodeIDs(faceMapHex8(:,kFace))
+!                            
+!         DO j = 1, SIZE(Elements)
+!            IF (j == jElement) CYCLE
+!            
+!            loopNodeIDs = Elements(j)%nodeIDs
+!            DO k = 1, 6
+!               loopEndNodes = loopNodeIDs(faceMapHex8(:,k))
+!               sharedNodes  = 0
+!               DO l = 1, 4
+!                  DO m = 1, 4
+!                     IF (endNodes(l) == loopEndNodes(m)) sharedNodes = sharedNodes + 1
+!                  END DO
+!               END DO 
+!               
+!               IF (sharedNodes == 4) self%ElementIDs(1) = j 
+!            ENDDO
+!         ENDDO
+!         
+!      END SUBROUTINE SetConformingConnectivities
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 !

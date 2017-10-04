@@ -21,7 +21,7 @@ PROG=./bin/HORSES3D
 ########################################
 # 2.- User defined paths
 ########################################
-HOME_DIR?=$(PWD)
+HOME_DIR?=@HORSES_HOME_DIR
 INSTALL_DIR=$(HOME_DIR)
 INCLUDE=-I$(HOME_DIR)/include
 LIBS = 
@@ -39,7 +39,7 @@ GNU_DEBUG_FLAGS=  -fPIC -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused
 		  -fbackslash -fcheck=pointer -D_has_Quad
 INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc -D_has_Quad
 INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all \
-		   -check bounds -check uninit -ftrapuv -debug all -warn interfaces \
+		   -check bounds -check uninit -ftrapuv -debug all \
 		   -ftrace=full -assume ieee_fpe_flags -ftz -fp-model precise \
 		   -fp-speculation=off -assume bscc -D_has_Quad
 ARFLAGS=crv
@@ -180,6 +180,10 @@ LIBFLAGS=  FC='$(FC)' \
 .DEFAULT_GOAL := all
 
 all: header mkdirs horseslibs $(PROG)
+
+install: FORCE
+	cp -f $(HOME_DIR)/$(PROG) /usr/local/bin
+	cp -f $(HOME_DIR)/lib/libproblemfile.so /usr/local/lib
 
 
 $(PROG): $(OBJS_HORSES) $(HOME_DIR)/build/ProblemFile.o

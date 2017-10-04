@@ -2,6 +2,7 @@
 #	Monitors Makefile 		#
 #################################################
 INSTALL_DIR?=./
+INCLUDE?=-I../../../include
 FFLAGS?=-cpp
 AR?=ar
 ARFLAGS?=cr
@@ -11,7 +12,14 @@ MOD_FLAG?=-J
 
 
 
-LIBOBJS = 	./build/LiftAndDrag.o
+LIBOBJS = 	./build/LiftAndDrag.o \
+		./build/MonitorDefinitions.o \
+		./build/SurfaceIntegrals.o \
+		./build/VolumeIntegrals.o \
+		./build/ResidualsMonitor.o \
+		./build/SurfaceMonitor.o \
+		./build/VolumeMonitor.o \
+		./build/Monitors.o
 
 
 LIB = monitors

@@ -33,7 +33,7 @@ LIBOBJS = 	./build/FTOLConstants.o \
 LIB = ftobject
 
 
--include ./make.dep
+-include ./make.deps
 
 ############################################
 #	MAIN COMPILATION RULES 		   #

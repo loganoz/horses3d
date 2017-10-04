@@ -23,3 +23,18 @@ back 0.0 periodic-
 left 0.0 periodic+
 right 0.0 periodic-
 /
+
+#define volume monitor 1
+   Name = KinEn
+   Variable = Kinetic energy
+#end
+
+#define volume monitor 2
+   Name = KinEnRate
+   Variable = Kinetic energy rate
+#end
+
+#define volume monitor 3
+   Name = Enstrphy
+   Variable = Enstrophy
+#end

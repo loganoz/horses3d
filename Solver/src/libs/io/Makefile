@@ -13,7 +13,8 @@ MOD_FLAG?=-J
 
 LIBOBJS = 	./build/Headers.o \
 		./build/FileReading.o \
-		./build/ReadInputFile.o
+		./build/ReadInputFile.o \
+		./build/ParamfileRegions.o
 
 
 LIB = io

@@ -28,10 +28,12 @@ COMPONENTS_TEST_CASES="FacePatches \
 cp -vf ../utils/ProblemFile/Makefile ./test/Makefile.template
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Makefile.template
 
+cp -vf ./Makefile.in ./Makefile
+sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./Makefile
+
 for subdir in $TEST_CASES; do
 	mkdir -p ./test/$subdir/SETUP
 	mkdir -p ./test/$subdir/RESULTS
-	cp -v ./test/make.inc ./test/$subdir/SETUP/make.inc
 	cp -v ./test/Makefile.template ./test/$subdir/SETUP/Makefile
 	cp -v ./src/libs/problemfile/ProblemFile.f90 ./test/$subdir/SETUP/ProblemFileTemplate.f90
 	ln -fsv $PWD/bin/HORSES3D ./test/$subdir
