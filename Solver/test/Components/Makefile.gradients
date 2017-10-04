@@ -54,7 +54,9 @@ OBJS_HORSES=  SMConstants \
 		FileReading \
 		Utilities \
 		Plotter \
+		RealDataLinkedList \
 		MatrixOperations \
+		ParamfileRegions \
 		LegendreAlgorithms \
 		InterpolationAndDerivatives \
 		FluidData \
@@ -73,6 +75,10 @@ OBJS_HORSES=  SMConstants \
 		LiftAndDrag \
 		MonitorDefinitions \
 		ResidualsMonitor \
+		SurfaceIntegrals \
+		VolumeIntegrals \
+		SurfaceMonitor \
+		VolumeMonitor \
 		Monitors \
 		DGInviscidDiscretization \
 		DGViscousDiscretization \
@@ -255,6 +261,7 @@ clean: FORCE horseslibclean
 	$(info Removing object *.o files from $(NSLITE3D_PATH)/build)
 	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
 	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod* $(HOME_DIR)/lib/*.a
+	@rm -f ./build/*.o ./lib/*.a ./include/*.mod
 	@rm -f $(HOME_DIR)/build/libproblemfile.so
 
 allclean: FORCE clean

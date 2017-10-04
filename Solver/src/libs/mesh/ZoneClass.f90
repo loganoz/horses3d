@@ -107,11 +107,12 @@ module ZoneClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!     -------------------------------------------------------
-!     Subroutine for assigning faces to each zone, so that 
-!     the drag and lift computations can be performed quickly 
-!     -------------------------------------------------------
+!     ----------------------
+!     Gather each zone faces
+!     ----------------------
+!
       subroutine Zone_AssignFaces(faces,zones,no_of_markers,zoneNames)
+         use RealDataLinkedList
          implicit none
 !        ------------------------------------------------
          integer                          :: no_of_markers
@@ -120,74 +121,38 @@ module ZoneClass
          character(len=STR_LEN_ZONE)      :: zoneNames(no_of_markers)
 !        ------------------------------------------------
          integer                              :: fID, zoneID
-         type(FTLinkedListPtr)   ,allocatable :: zoneList(:)
-         CLASS(FTValue)             , POINTER :: v
-         CLASS(FTObject)            , POINTER :: objectPtr
-         type(FTMutableObjectArray) , POINTER :: array
-!        ------------------------------------------------
+         real(kind=RP), allocatable           :: realArray(:)
+         type(RealDataLinkedList_t)   ,allocatable :: zoneList(:)
 !
-!        --------
 !        Initialize linked lists
-!        --------
-!
+!        -----------------------
          allocate(zoneList(no_of_markers))
-         
-         do zoneID = 1, no_of_markers
-            allocate (zoneList(zoneID) % list)
-            call zoneList(zoneID) % list % init()
-         end do
 !
-!        --------
-!        We first iterate over all faces and add the face ID to the corresponding linked list
-!        --------
-!
+!        Iterate over all faces and add the face ID to the zone linked list it belongs
+!        -----------------------------------------------------------------------------
          do fID = 1, size(faces)
             if (faces(fID) % FaceType == HMESH_INTERIOR) cycle
             
             do zoneID = 1, no_of_markers
                if (trim(zoneNames(zoneID)) == trim(faces(fID) % boundaryName)) exit
             end do
+
             if (zoneID > no_of_markers) cycle
             
-            allocate (v)
-            call v % initWithValue(fID)
-            objectPtr => v
-            call zoneList(zoneID) % list % add (objectPtr)
-            CALL release(v)
-            
+            call zoneList(zoneID) % Append( 1.0_RP * fID + 0.1_RP )
          end do
 !
-!        --------
-!        Now we create the arrays with the information in the linked lists
-!        --------
-!
+!        Dump the linked list contents onto fixed-size arrays 
+!        ----------------------------------------------------
          do zoneID = 1 , no_of_markers
-            array => zoneList(zoneID) % list % allObjects()
-            
-            zones(zoneID) % no_of_faces = array % COUNT()
-            allocate (zones(zoneID) % faces (zones(zoneID) % no_of_faces))
-            
-            do fID = 1, zones(zoneID) % no_of_faces
-               
-               v => valueFromObject(array % objectAtIndex(fID))
-               zones(zoneID) % faces(fID) = v % integerValue()
-               
-            end do
-            
+            call zoneList(zoneID) % Load(realArray)
+            allocate(zones(zoneID) % faces( size(realArray) ))
+            zones(zoneID) % faces = floor(realArray)
+            zones(zoneID) % no_of_faces = size(realArray)
+            deallocate(realArray)
          end do
-         
 !
-!        --------
-!        Clean up
-!        --------
-!
-         call release(array)
-         nullify(objectPtr)
-         nullify(v)
-         
-         do zoneID = 1, no_of_markers
-            call release (zoneList(zoneID) % list)
-         end do
+!        TODO: Destruct linked list
          
       end subroutine Zone_AssignFaces
 
