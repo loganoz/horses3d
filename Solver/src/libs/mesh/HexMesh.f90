@@ -577,6 +577,7 @@
 !     Loop zones with BC "periodic+"
 !     ------------------------------
 !
+      if ( bcTypeDictionary % COUNT() .eq. 0 ) return
       do zIDPlus = 1, size(self % zones)
 !
 !        Cycle if the zone is not periodic+
