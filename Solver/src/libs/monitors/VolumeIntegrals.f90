@@ -81,8 +81,8 @@ module VolumeIntegrals
 !
          integer     :: Nel(3)    ! Element polynomial order
          integer     :: i, j, k
-         real(kind=RP)           :: KinEn(e % Nxyz(1), e % Nxyz(2), e % Nxyz(3))
-         real(kind=RP)           :: uvw(e % Nxyz(1), e % Nxyz(2), e % Nxyz(3))
+         real(kind=RP)           :: KinEn(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)           :: uvw(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP), pointer  :: Qb(:)
 
          Nel = e % Nxyz
@@ -107,7 +107,7 @@ module VolumeIntegrals
 !           **********************************
 !
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               val = val + wx(i) * wy(j) * wz(j) * e % geom % jacobian(i,j,k)
+               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k)
             end do            ; end do           ; end do
 
          case ( KINETIC_ENERGY )

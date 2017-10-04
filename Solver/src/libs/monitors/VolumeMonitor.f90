@@ -147,13 +147,13 @@ module VolumeMonitorClass
 !        Compute the volume integral
 !        ---------------------------
          select case ( trim(self % variable) )
-         case ("kinetic energy")
-            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, spA, KINETIC_ENERGY)
+         case ("Kinetic energy")
+            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, spA, KINETIC_ENERGY) / ScalarVolumeIntegral(mesh, spA, VOLUME)
 
-         case ("kinetic energy rate")
-            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, spA, KINETIC_ENERGY_RATE)
+         case ("Kinetic energy rate")
+            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, spA, KINETIC_ENERGY_RATE) / ScalarVolumeIntegral(mesh, spA, VOLUME)
    
-         case ("enstrophy")
+         case ("Enstrophy")
             self % values(bufferPosition) = ScalarVolumeIntegral(mesh, spA, ENSTROPHY)
 
          end select
