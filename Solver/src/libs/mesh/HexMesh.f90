@@ -289,7 +289,6 @@
          numberOfFaces        = (6*numberOfElements + numberOfBoundaryFaces)/2
          self % numberOfFaces = numberOfFaces
          ALLOCATE( self % faces(self % numberOfFaces) )
-print*, "Constructing faces"
          CALL ConstructFaces( self, success )
 !
 !        ------------------------------
@@ -302,21 +301,18 @@ print*, "Constructing faces"
 !        Build the different zones
 !        -------------------------
 !
-print*, "Constructing zones"
          call self % ConstructZones()
 !
 !        ---------------------------
 !        Construct periodic faces
 !        ---------------------------
 !
-print*, "Constructing p+ faces"
          CALL ConstructPeriodicFaces( self )
 !
 !        ---------------------------
 !        Delete periodic- faces
 !        ---------------------------
 !
-print*, "Deleting p- faces"
          CALL DeletePeriodicMinusFaces( self )
 
             
@@ -571,66 +567,78 @@ print*, "Deleting p- faces"
       INTEGER       :: coord
       
       INTEGER       :: i,j,k,l 
+      integer       :: zIDplus, zIDMinus, iFace, jFace
 !
 !     ---------------------------------------------
 !     Loop to find faces with the label "periodic+"
 !     ---------------------------------------------
 !
-      DO i = 1, self%numberOfFaces
-         IF (TRIM(bcTypeDictionary % stringValueForKey(key             = self%faces(i)%boundaryName, &
-                                                      requestedLength = BC_STRING_LENGTH)) == "periodic+") THEN
+!     ------------------------------
+!     Loop zones with BC "periodic+"
+!     ------------------------------
 !
-!           ---------------------------------------------
-!           Loop to find faces with the label "periodic-"
-!           ----------------------------------------------
+      do zIDPlus = 1, size(self % zones)
 !
-            DO j = 1, self%numberOfFaces
-               IF ((TRIM(bcTypeDictionary % stringValueForKey(key             = self%faces(j)%boundaryName, &
-                                                      requestedLength = BC_STRING_LENGTH)) == "periodic-")) THEN
+!        Cycle if the zone is not periodic+
+!        ----------------------------------
+         if ( trim(bcTypeDictionary % stringValueForKey(key = self % zones(zIDPlus) % Name, &
+                                                      requestedLength = BC_STRING_LENGTH)) .ne. "periodic+") cycle
 !
-!                 ----------------------------------------------------------------------------------------
-!                 The index i is a periodic+ face
-!                 The index j is a periodic- face
-!                 We are looking for couples of periodic+ and periodic- faces where 2 of the 3 coordinates
-!                 in all the corners are shared. The non-shared coordinate has to be always the same one.
-!                 ----------------------------------------------------------------------------------------
+!        ------------------------------
+!        Loop zones with BC "periodic-"
+!        ------------------------------
 !
-                  coord = 0                         ! This is the non-shared coordinate
-                  master_matched(:)   = .FALSE.     ! True if the master corner finds a partner
-                  slave_matched(:)    = .FALSE.     ! True if the slave corner finds a partner
-                  
-                  DO k = 1, 4
-                     x1 = self%nodes(self%faces(i)%nodeIDs(k))%x                           !x1 is the master coordinate
-                     DO l = 1, 4
-                        IF (.NOT.slave_matched(l)) THEN 
-                           x2 = self%nodes(self%faces(j)%nodeIDs(l))%x                     !x2 is the slave coordinate
-                           CALL CompareTwoNodes(x1, x2, master_matched(k), coord)          !x1 and x2 are compared here
-                           IF (master_matched(k)) THEN 
-                              slave_matched(l) = .TRUE. 
-                              EXIT
-                           ENDIF  
-                        ENDIF 
-                     ENDDO 
-                     IF (.NOT.master_matched(k)) EXIT  
-                  ENDDO          
-                  
-                  IF ( (master_matched(1)) .AND. (master_matched(2)) .AND. (master_matched(3)) .AND. (master_matched(4)) ) THEN
-                  
-                     self % faces(i) % boundaryName   = ""
-                     self % faces(i) % elementIDs(2)  = self % faces(j) % elementIDs(1)
-                     self % faces(i) % elementSide(2) = self % faces(j) % elementSide(1) 
-                     self % faces(i) % FaceType       = HMESH_INTERIOR
-                     self % faces(i) % rotation       = 0!faceRotation(masterNodeIDs = self % faces(i) % nodeIDs, &
-                                                        !           slaveNodeIDs  = self % faces(i) % nodeIDs)      
-                                                                               
-                  ENDIF    
-
-               ENDIF 
-            ENDDO
-         ENDIF 
-      ENDDO
-      
-      
+         do zIDMinus = 1, size(self % zones)
+!
+!           Cycle if the zone is not periodic-
+!           ----------------------------------
+            if ( trim(bcTypeDictionary % stringValueForKey(key = self % zones(zIDMinus) % Name, &
+                                                      requestedLength = BC_STRING_LENGTH)) .ne. "periodic-") cycle
+!
+!           Loop all faces in both zones
+!           ----------------------------
+            do iFace = 1, self % zones(zIDPlus) % no_of_faces;    do jFace = 1, self % zones(zIDMinus) % no_of_faces
+               i = self % zones(zIDPlus) % faces(iFace)
+               j = self % zones(zIDMinus) % faces(jFace)
+!
+!              ----------------------------------------------------------------------------------------
+!              The index i is a periodic+ face
+!              The index j is a periodic- face
+!              We are looking for couples of periodic+ and periodic- faces where 2 of the 3 coordinates
+!              in all the corners are shared. The non-shared coordinate has to be always the same one.
+!              ----------------------------------------------------------------------------------------
+!
+               coord = 0                         ! This is the non-shared coordinate
+               master_matched(:)   = .FALSE.     ! True if the master corner finds a partner
+               slave_matched(:)    = .FALSE.     ! True if the slave corner finds a partner
+               
+               DO k = 1, 4
+                  x1 = self%nodes(self%faces(i)%nodeIDs(k))%x                           !x1 is the master coordinate
+                  DO l = 1, 4
+                     IF (.NOT.slave_matched(l)) THEN 
+                        x2 = self%nodes(self%faces(j)%nodeIDs(l))%x                     !x2 is the slave coordinate
+                        CALL CompareTwoNodes(x1, x2, master_matched(k), coord)          !x1 and x2 are compared here
+                        IF (master_matched(k)) THEN 
+                           slave_matched(l) = .TRUE. 
+                           EXIT
+                        ENDIF  
+                     ENDIF 
+                  ENDDO 
+                  IF (.NOT.master_matched(k)) EXIT  
+               ENDDO          
+               
+               IF ( (master_matched(1)) .AND. (master_matched(2)) .AND. (master_matched(3)) .AND. (master_matched(4)) ) THEN
+                  self % faces(i) % boundaryName   = ""
+                  self % faces(i) % elementIDs(2)  = self % faces(j) % elementIDs(1)
+                  self % faces(i) % elementSide(2) = self % faces(j) % elementSide(1) 
+                  self % faces(i) % FaceType       = HMESH_INTERIOR
+                  self % faces(i) % rotation       = 0!faceRotation(masterNodeIDs = self % faces(i) % nodeIDs, &
+                                                     !           slaveNodeIDs  = self % faces(i) % nodeIDs)      
+                                                                            
+               ENDIF    
+            end do;  end do
+         end do
+      end do
            
       END SUBROUTINE ConstructPeriodicFaces
 ! 
