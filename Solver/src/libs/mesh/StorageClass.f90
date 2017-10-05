@@ -17,6 +17,16 @@ module StorageClass
 
    private
    public   Storage_t
+
+   type Statistics_t
+      integer           :: no_of_samples
+      integer           :: no_of_variables
+      real(kind=RP), dimension(:,:,:,:),  allocatable    :: data
+      contains
+         procedure   :: Construct => Statistics_Construct
+         procedure   :: Destruct  => Statistics_Destruct
+   end type Statistics_t
+
    type Storage_t
       integer                                            :: N(3)
       integer                                            :: nEqn, nGradEqn
@@ -36,15 +46,27 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:), allocatable    :: Qb, Ub
       real(kind=RP), dimension(:,:,:,:), allocatable    :: U_xb, U_yb, U_zb
       real(kind=RP), dimension(:,:,:,:), allocatable    :: FStarb
+!
+!     Statistics
+!     ----------
+      type(Statistics_t)                               :: stats
       contains
          procedure   :: Construct => Storage_Construct
          procedure   :: Destruct  => Storage_Destruct
       
    end type Storage_t
-
-
+!
+!  ========
    contains
-
+!  ========
+!
+!///////////////////////////////////////////////////////////////////////////////////////////
+!
+!           Storage procedures
+!           ------------------
+!
+!///////////////////////////////////////////////////////////////////////////////////////////
+!
       subroutine Storage_Construct(self, Nx, Ny, Nz, nEqn, nGradEqn, flowIsNavierStokes)
          implicit none
          class(Storage_t)     :: self
@@ -128,20 +150,51 @@ module StorageClass
          self % nEqn = 0
          self % nGradEqn = 0
          
-         checkdealloc(self % Q)
-         checkdealloc(self % QDot)
-         checkdealloc(self % G)
-         checkdealloc(self % S)
-         checkdealloc(self % U_x)
-         checkdealloc(self % U_y)
-         checkdealloc(self % U_z)
-         checkdealloc(self % Qb)
-         checkdealloc(self % Ub)
-         checkdealloc(self % U_xb)
-         checkdealloc(self % U_yb)
-         checkdealloc(self % U_zb)
-         checkdealloc(self % FStarb)
+         safedeallocate(self % Q)
+         safedeallocate(self % QDot)
+         safedeallocate(self % G)
+         safedeallocate(self % S)
+         safedeallocate(self % U_x)
+         safedeallocate(self % U_y)
+         safedeallocate(self % U_z)
+         safedeallocate(self % Qb)
+         safedeallocate(self % Ub)
+         safedeallocate(self % U_xb)
+         safedeallocate(self % U_yb)
+         safedeallocate(self % U_zb)
+         safedeallocate(self % FStarb)
 
       end subroutine Storage_Destruct
+!
+!/////////////////////////////////////////////////////////////////////////////////////
+!
+!           Statistics procedures
+!           ---------------------
+!
+!/////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine Statistics_Construct(self, no_of_variables, storage)
+         implicit none
+         class(Statistics_t)           :: self
+         integer,          intent(in)  :: no_of_variables
+         class(Storage_t), intent(in)  :: storage
+
+         self % no_of_variables = no_of_variables
+         self % no_of_samples = 0
+   
+         allocate( self % data(0:storage % N(1), 0:storage % N(2), 0:storage % N(3), no_of_variables) ) 
+
+      end subroutine Statistics_Construct
+   
+      subroutine Statistics_Destruct(self)
+         implicit none
+         class(Statistics_t)     :: self
+
+         self % no_of_variables = 0
+         self % no_of_samples = 0
+      
+         safedeallocate( self % data )
+
+      end subroutine Statistics_Destruct
 
 end module StorageClass
