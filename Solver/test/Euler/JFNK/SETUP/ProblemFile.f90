@@ -101,7 +101,7 @@
                   Q(4) = Q(1)*w
                   Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
 
-                  sem % mesh % elements(eID) % Q(i,j,k,:) = Q 
+                  sem % mesh % elements(eID) % storage % Q(i,j,k,:) = Q 
                end do;        end do;        end do
                end associate
 !
@@ -110,7 +110,7 @@
 !              relax back to the mean flow
 !              -------------------------------------------------
 !
-               sem % mesh % elements(eID) % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % Q(3,3,3,1)
+               sem % mesh % elements(eID) % storage % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % storage % Q(3,3,3,1)
 
             end do
 

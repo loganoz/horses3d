@@ -29,6 +29,7 @@
       USE MeshTypes
       USE ElementConnectivityDefinitions
       USE ConnectivityClass
+      use StorageClass
       IMPLICIT NONE
       
       
@@ -36,19 +37,11 @@
           INTEGER                                        :: nodeIDs(8)
           INTEGER, DIMENSION(3)                          :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
           TYPE(MappedGeometry)                           :: geom
-          REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Q, QDot, G, S     ! Nodal storage: Conservative variables, their time derivatives, auxiliar variables and source term, respectively.
-          REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: U_x, U_y, U_z
-!
-!         -------------------------------------------------------------
-!         Boundary values of: The solution, the inviscid Riemann flux, 
-!         the viscous riemann flux
-!         -------------------------------------------------------------
-!
-          REAL(KIND=RP), DIMENSION(:,:,:,:), ALLOCATABLE :: Qb, Ub, U_xb, U_yb, U_zb, FStarb
           CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryName(6)
           CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryType(6)
           INTEGER                                        :: NumberOfConnections(6)
           TYPE(Connectivity)                             :: Connection(6)
+          type(Storage_t)                                :: storage
       END TYPE Element 
       
 !
@@ -103,61 +96,11 @@
 ! 
       SUBROUTINE allocateElementStorage(self, Nx, Ny, Nz, nEqn, nGradEqn, flowIsNavierStokes)  
          IMPLICIT NONE
-         TYPE(Element) :: self
-         INTEGER       :: Nx, Ny, Nz, Nmax, nEqn, nGradEqn
-         LOGICAL       :: flowIsNavierStokes
-!
-!        ----------------
-!        Volume variables
-!        ----------------
-!
-         ALLOCATE( self % Q   (0:Nx,0:Ny,0:Nz,nEqn) )
-         ALLOCATE( self % QDot(0:Nx,0:Ny,0:Nz,nEqn) )
-         ALLOCATE( self % G   (0:Nx,0:Ny,0:Nz,nEqn) )
-         ALLOCATE( self % S   (0:Nx,0:Ny,0:Nz,nEqn) )
-         
-         IF ( flowIsNavierStokes )     THEN
-            ALLOCATE( self % U_x(0:Nx,0:Ny,0:Nz,nGradEqn) )
-            ALLOCATE( self % U_y(0:Nx,0:Ny,0:Nz,nGradEqn) )
-            ALLOCATE( self % U_z(0:Nx,0:Ny,0:Nz,nGradEqn) )
-         END IF
-!
-!        ---------------
-!        Boundary values
-!        ---------------
-!
-         ! Temporarily allocating with maximum (TODO: this is not very efficient and has to be changed) DGBoundaryStorage TYPE!!
-         Nmax = MAX(Nx,Ny,Nz)
-         ALLOCATE( self % Qb    (nEqn,0:Nmax,0:Nmax,6) )
-         ALLOCATE( self % FStarb(nEqn,0:Nmax,0:Nmax,6) )
-         
-         IF ( flowIsNavierStokes )     THEN
-            ALLOCATE( self % U_xb(nGradEqn,0:Nmax,0:Nmax,6) )
-            ALLOCATE( self % U_yb(nGradEqn,0:Nmax,0:Nmax,6) )
-            ALLOCATE( self % U_zb(nGradEqn,0:Nmax,0:Nmax,6) )
-            ALLOCATE( self % Ub  (nGradEqn,0:Nmax,0:Nmax,6) )
-         END IF
-!
-!        -----------------
-!        Initialize memory
-!        -----------------
-!
-         self % G           = 0.0_RP
-         self % S           = 0.0_RP
-         self % Q           = 0.0_RP
-         self % QDot        = 0.0_RP
-         self % Qb          = 0.0_RP
-         self % FStarb      = 0.0_RP
-      
-         IF ( flowIsNavierStokes )     THEN
-            self % Ub          = 0.0_RP
-            self % U_x         = 0.0_RP
-            self % U_y         = 0.0_RP
-            self % U_z         = 0.0_RP
-            self % U_xb        = 0.0_RP
-            self % U_yb        = 0.0_RP
-            self % U_zb        = 0.0_RP
-         END IF
+         TYPE(Element)        :: self
+         INTEGER, intent(in)  :: Nx, Ny, Nz, nEqn, nGradEqn
+         LOGICAL, intent(in)  :: flowIsNavierStokes
+
+         call self % Storage % Construct(Nx, Ny, Nz, nEqn, nGradEqn, flowIsNavierStokes)
 
       END SUBROUTINE allocateElementStorage
 !
@@ -182,13 +125,7 @@
          TYPE(Element) :: self
          
          CALL DestructMappedGeometry( self % geom )
-         
-         DEALLOCATE( self % Q, self % QDot, self % G )
-         DEALLOCATE( self % Qb, self % FStarb )
-         
-         IF ( ALLOCATED(self % Ub) )     THEN
-            DEALLOCATE( self % Ub, self % U_x, self % U_y, self % U_xb, self % U_yb )
-         END IF
+         call self % Storage % Destruct         
 
       END SUBROUTINE DestructElement
 !
@@ -214,7 +151,7 @@
          TYPE(Element) :: self
          INTEGER       :: fUnit
          
-         WRITE(funit) self % Q
+         WRITE(funit) self % storage % Q
       
       END SUBROUTINE SaveSolutionStorageToUnit
 !
@@ -230,7 +167,7 @@
          TYPE(Element) :: self
          INTEGER       :: fUnit
          
-         READ(funit) self % Q
+         READ(funit) self % storage % Q
       
       END SUBROUTINE LoadSolutionFromUnit
       

@@ -211,11 +211,11 @@
                      IF (flowIsNavierStokes) THEN
                         CALL ManufacturedSolutionSourceNS(self % mesh % elements(el) % geom % x(:,i,j,k), &
                                                           0._RP, &
-                                                          self % mesh % elements(el) % S (i,j,k,:)  )
+                                                          self % mesh % elements(el) % storage % S (i,j,k,:)  )
                      ELSE
                         CALL ManufacturedSolutionSourceEuler(self % mesh % elements(el) % geom % x(:,i,j,k), &
                                                              0._RP, &
-                                                             self % mesh % elements(el) % S (i,j,k,:)  )
+                                                             self % mesh % elements(el) % storage % S (i,j,k,:)  )
                      END IF
                   END DO
                END DO
@@ -293,7 +293,7 @@
          INTEGER          :: k
 
          DO k = 1, SIZE(self % mesh % elements) 
-            WRITE(fUnit) self % mesh % elements(k) % Q
+            WRITE(fUnit) self % mesh % elements(k) % storage % Q
          END DO
 
       END SUBROUTINE SaveSolutionForRestart
@@ -307,7 +307,7 @@
          INTEGER          :: k
 
          DO k = 1, SIZE(self % mesh % elements) 
-            READ(fUnit) self % mesh % elements(k) % Q
+            READ(fUnit) self % mesh % elements(k) % storage % Q
          END DO
 
       END SUBROUTINE LoadSolutionForRestart
@@ -334,7 +334,7 @@
             DO j = 0, Ny
                DO i = 0, Nx
                   DO l = 1,N_EQN
-                     self%mesh%elements(elm)%Q(i, j, k, l) = Q(counter) ! This creates a temporary array: storage must be modified to avoid that
+                     self%mesh%elements(elm)%storage%Q(i, j, k, l) = Q(counter) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                END DO
@@ -365,7 +365,7 @@
             DO j = 0, Ny
                 DO i = 0, Nx
                   DO l = 1,N_EQN
-                     Q(counter)  = self%mesh%elements(elm)%Q(i, j, k, l) ! This creates a temporary array: storage must be modified to avoid that
+                     Q(counter)  = self%mesh%elements(elm)%storage%Q(i, j, k, l) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                 END DO
@@ -396,7 +396,7 @@
             DO j = 0, Ny
                DO i = 0, Nx
                   DO l = 1,N_EQN
-                     Qdot(counter)  = self%mesh%elements(elm)%Qdot(i, j, k, l) ! This creates a temporary array: storage must be modified to avoid that
+                     Qdot(counter)  = self%mesh%elements(elm)%storage%Qdot(i, j, k, l) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                END DO
@@ -424,7 +424,7 @@
       maxResidual = 0.0_RP
       DO id = 1, SIZE( self % mesh % elements )
          DO eq = 1 , N_EQN
-            localMaxResidual(eq) = MAXVAL(ABS(self % mesh % elements(id) % QDot(:,:,:,eq)))
+            localMaxResidual(eq) = MAXVAL(ABS(self % mesh % elements(id) % storage % QDot(:,:,:,eq)))
             maxResidual(eq) = MAX(maxResidual(eq),localMaxResidual(eq))
          END DO
       END DO
@@ -627,9 +627,9 @@
                DO j = 0, N(2)
                   DO i = 0, N(1)
                   
-                     UGradExt(1,:) = self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft)
-                     UGradExt(2,:) = self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
-                     UGradExt(3,:) = self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
+                     UGradExt(1,:) = self % mesh % elements(eIDLeft) % storage % U_xb(:,i,j,fIDLeft)
+                     UGradExt(2,:) = self % mesh % elements(eIDLeft) % storage % U_yb(:,i,j,fIDLeft)
+                     UGradExt(3,:) = self % mesh % elements(eIDLeft) % storage % U_zb(:,i,j,fIDLeft)
                      
                      CALL externalGradientsProcedure  (self % mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
                                                        time, &
@@ -641,34 +641,34 @@
 !                 x values
 !                 --------
 !
-                     UL = self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft)
+                     UL = self % mesh % elements(eIDLeft) % storage % U_xb(:,i,j,fIDLeft)
                      UR = UGradExt(1,:)
 
                      d = 0.5_RP*(UL + UR)
 
-                     self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft) = d
+                     self % mesh % elements(eIDLeft) % storage % U_xb(:,i,j,fIDLeft) = d
 !
 !                 --------
 !                 y values
 !                 --------
 !
-                     UL = self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
+                     UL = self % mesh % elements(eIDLeft) % storage % U_yb(:,i,j,fIDLeft)
                      UR = UGradExt(2,:)
 
                      d = 0.5_RP*(UL + UR)
 
-                     self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft) = d
+                     self % mesh % elements(eIDLeft) % storage % U_yb(:,i,j,fIDLeft) = d
 !
 !                 --------
 !                 z values
 !                 --------
 !
-                     UL = self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
+                     UL = self % mesh % elements(eIDLeft) % storage % U_zb(:,i,j,fIDLeft)
                      UR = UGradExt(3,:)
 
                      d = 0.5_RP*(UL + UR)
 
-                     self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft) = d
+                     self % mesh % elements(eIDLeft) % storage % U_zb(:,i,j,fIDLeft) = d
 
                   END DO   
                END DO   
@@ -734,20 +734,20 @@
 !        Projection to mortars
 !        ---------------------
 !
-         call ProjectToMortar(thisface, eL % Qb(:,0:NL(1),0:NL(2),fIDLeft), eR % Qb(:,0:NR(1),0:NR(2),fIDright), N_EQN)
+         call ProjectToMortar(thisface, eL % storage % Qb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % Qb(:,0:NR(1),0:NR(2),fIDright), N_EQN)
          QL = thisface % Phi % L
          QR = thisface % Phi % R
 
          if ( flowIsNavierStokes ) then
-            call ProjectToMortar(thisface, eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
+            call ProjectToMortar(thisface, eL % storage % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_xLeft = thisface % Phi % L
             U_xRight = thisface % Phi % R
 
-            call ProjectToMortar(thisface, eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_yb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
+            call ProjectToMortar(thisface, eL % storage % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_yb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_yLeft = thisface % Phi % L
             U_yRight = thisface % Phi % R
 
-            call ProjectToMortar(thisface, eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_zb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
+            call ProjectToMortar(thisface, eL % storage % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_zb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_zLeft = thisface % Phi % L
             U_zRight = thisface % Phi % R
 
@@ -790,12 +790,12 @@
          thisface % Phi % C = (inv_flux - visc_flux) 
 !
 !        ---------------------------
-!        Return the flux to elements: The sign in eR % FstarB has already been accouted.
+!        Return the flux to elements: The sign in eR % storage % FstarB has already been accouted.
 !        ---------------------------
 !
          call ProjectFluxToElement( thisface , &
-                                eL % FStarb(:,0:NL(1),0:NL(2),fIDLeft), & 
-                                eR % FStarb(:,0:NR(1),0:NR(2),fIDRight), & 
+                                eL % storage % FStarb(:,0:NL(1),0:NL(2),fIDLeft), & 
+                                eR % storage % FStarb(:,0:NR(1),0:NR(2),fIDRight), & 
                                 N_EQN ) 
 !
 !        ------------------------
@@ -803,11 +803,11 @@
 !        ------------------------
 !
          do j = 0 , NL(2)  ;  do i = 0 , NL(1)
-            eL % FstarB(:,i,j,fIDLeft) = eL % FstarB(:,i,j,fIDLeft) * eL % geom % scal(i,j,fIDLeft)
+            eL % storage % FstarB(:,i,j,fIDLeft) = eL % storage % FstarB(:,i,j,fIDLeft) * eL % geom % scal(i,j,fIDLeft)
          end do            ;  end do
 
          do j = 0 , NR(2)  ;  do i = 0 , NR(1)
-            eR % FstarB(:,i,j,fIDRight) = eR % FstarB(:,i,j,fIDRight) * eR % geom % scal(i,j,fIDRight)
+            eR % storage % FstarB(:,i,j,fIDRight) = eR % storage % FstarB(:,i,j,fIDRight) * eR % geom % scal(i,j,fIDRight)
          end do            ;  end do
 
 
@@ -850,13 +850,13 @@
 !
 !           Inviscid part
 !           -------------
-            bvExt = elementOnLeft % Qb(:,i,j,faceID)
+            bvExt = elementOnLeft % storage % Qb(:,i,j,faceID)
             CALL externalStateProcedure( elementOnLeft % geom % xb(:,i,j,faceID), &
                                          time, &
                                          elementOnLeft % geom % normal(:,i,j,faceID), &
                                          bvExt,&
                                          boundaryType )
-            CALL RiemannSolver(QLeft  = elementOnLeft % Qb(:,i,j,faceID), &
+            CALL RiemannSolver(QLeft  = elementOnLeft % storage % Qb(:,i,j,faceID), &
                                QRight = bvExt, &
                                nHat   = elementOnLeft % geom % normal(:,i,j,faceID), &
                                flux   = inv_flux)
@@ -865,9 +865,9 @@
 !           -----------
             if ( flowIsNavierStokes ) then
 
-            UGradExt(IX,:) = elementOnLeft % U_xb(:,i,j,faceID)
-            UGradExt(IY,:) = elementOnLeft % U_yb(:,i,j,faceID)
-            UGradExt(IZ,:) = elementOnLeft % U_zb(:,i,j,faceID)
+            UGradExt(IX,:) = elementOnLeft % storage % U_xb(:,i,j,faceID)
+            UGradExt(IY,:) = elementOnLeft % storage % U_yb(:,i,j,faceID)
+            UGradExt(IZ,:) = elementOnLeft % storage % U_zb(:,i,j,faceID)
 
             CALL externalGradientsProcedure(  elementOnLeft % geom % xb(:,i,j,faceID), &
                                               time, &
@@ -875,11 +875,11 @@
                                               UGradExt,&
                                               boundaryType )
 
-            CALL ViscousMethod % RiemannSolver( QLeft = elementOnLeft % Qb(:,i,j,faceID) , &
+            CALL ViscousMethod % RiemannSolver( QLeft = elementOnLeft % storage % Qb(:,i,j,faceID) , &
                                                 QRight = bvExt , &
-                                                U_xLeft = elementOnLeft % U_xb(:,i,j,faceID) , &
-                                                U_yLeft = elementOnLeft % U_yb(:,i,j,faceID) , &
-                                                U_zLeft = elementOnLeft % U_zb(:,i,j,faceID) , &
+                                                U_xLeft = elementOnLeft % storage % U_xb(:,i,j,faceID) , &
+                                                U_yLeft = elementOnLeft % storage % U_yb(:,i,j,faceID) , &
+                                                U_zLeft = elementOnLeft % storage % U_zb(:,i,j,faceID) , &
                                                 U_xRight = UGradExt(IX,:) , &
                                                 U_yRight = UGradExt(IY,:) , &
                                                 U_zRight = UGradExt(IZ,:) , &
@@ -889,7 +889,7 @@
                visc_flux = 0.0_RP
             end if
 
-            elementOnLeft % FStarb(:,i,j,faceID) = (inv_flux - visc_flux)*elementOnLeft % geom % scal(i,j,faceID)
+            elementOnLeft % storage % FStarb(:,i,j,faceID) = (inv_flux - visc_flux)*elementOnLeft % geom % scal(i,j,faceID)
          END DO   
       END DO   
 
@@ -945,7 +945,7 @@
 !              --------
 !              x values
 !              --------
-         CALL ProjectToMortar(thisface, eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN)
+         CALL ProjectToMortar(thisface, eL % storage % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_xb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN)
          
          DO j = 0, Nxy(2)
             DO i = 0, Nxy(1)
@@ -959,15 +959,15 @@
          
          CALL ProjectToElement(thisface                             , &
                                thisface % Phi % Caux                , &
-                               eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft) , &
-                               eR % U_xb(:,0:NR(1),0:NR(2),fIDright), &
+                               eL % storage % U_xb(:,0:NL(1),0:NL(2),fIDLeft) , &
+                               eR % storage % U_xb(:,0:NR(1),0:NR(2),fIDright), &
                                N_GRAD_EQN)
 !
 !              --------
 !              y values
 !              --------
 !        
-         CALL ProjectToMortar(thisface, eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_yb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN) 
+         CALL ProjectToMortar(thisface, eL % storage % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_yb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN) 
          
          DO j = 0, Nxy(2)
             DO i = 0, Nxy(1)
@@ -981,15 +981,15 @@
          
          CALL ProjectToElement(thisface                             , &
                                thisface % Phi % Caux                , &
-                               eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft) , &
-                               eR % U_yb(:,0:NR(1),0:NR(2),fIDright), &
+                               eL % storage % U_yb(:,0:NL(1),0:NL(2),fIDLeft) , &
+                               eR % storage % U_yb(:,0:NR(1),0:NR(2),fIDright), &
                                N_GRAD_EQN)
 !
 !              --------
 !              z values
 !              --------
 !         
-         CALL ProjectToMortar(thisface, eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_zb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN) 
+         CALL ProjectToMortar(thisface, eL % storage % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_zb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN) 
          
          DO j = 0, Nxy(2)
             DO i = 0, Nxy(1)
@@ -1003,8 +1003,8 @@
          
          CALL ProjectToElement(thisface                             , &
                                thisface % Phi % Caux                , &
-                               eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft) , &
-                               eR % U_zb(:,0:NR(1),0:NR(2),fIDright), &
+                               eL % storage % U_zb(:,0:NL(1),0:NL(2),fIDLeft) , &
+                               eR % storage % U_zb(:,0:NR(1),0:NR(2),fIDright), &
                                N_GRAD_EQN)
 
          
@@ -1089,7 +1089,7 @@
 !                 by the physics.
 !                 ------------------------------------------------------------
 !
-                  Q(1:N_EQN) = self % mesh % elements(id) % Q(i,j,k,1:N_EQN)
+                  Q(1:N_EQN) = self % mesh % elements(id) % storage % Q(i,j,k,1:N_EQN)
                   CALL ComputeEigenvaluesForState( Q , eValues )
 !
 !                 ----------------------------

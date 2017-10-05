@@ -108,11 +108,11 @@
                                cos(2.0_RP*x(2)/L)*cos(2.0_RP*x(3)/L)                    &
                                )
 
-                         sem % mesh % elements(eID) % Q(i,j,k,1) = rho
-                         sem % mesh % elements(eID) % Q(i,j,k,2) = rho*u
-                         sem % mesh % elements(eID) % Q(i,j,k,3) = rho*v
-                         sem % mesh % elements(eID) % Q(i,j,k,4) = rho*w
-                         sem % mesh % elements(eID) % Q(i,j,k,5) = p / (gamma - 1.0_RP) + 0.5_RP * rho * (u*u + v*v + w*w)
+                         sem % mesh % elements(eID) % storage % Q(i,j,k,1) = rho
+                         sem % mesh % elements(eID) % storage % Q(i,j,k,2) = rho*u
+                         sem % mesh % elements(eID) % storage % Q(i,j,k,3) = rho*v
+                         sem % mesh % elements(eID) % storage % Q(i,j,k,4) = rho*w
+                         sem % mesh % elements(eID) % storage % Q(i,j,k,5) = p / (gamma - 1.0_RP) + 0.5_RP * rho * (u*u + v*v + w*w)
 
                      END DO
                   END DO

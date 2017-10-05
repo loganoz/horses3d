@@ -69,7 +69,7 @@ module DGInviscidDiscretization
          real(kind=RP)      :: cartesianFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN , 1:NDIM)
          integer             :: nv
 
-         cartesianFlux = InviscidFlux( spA % Nx , spA % Ny , spA % Nz , e % Q )
+         cartesianFlux = InviscidFlux( spA % Nx , spA % Ny , spA % Nz , e % storage % Q )
 
          do nv = 1 , N_EQN
          

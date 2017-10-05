@@ -159,7 +159,7 @@ module SurfaceIntegrals
 !
 !              Get the state vector
 !              --------------------
-               Qb => e % Qb(:,i,j,elSide)
+               Qb => e % storage % Qb(:,i,j,elSide)
 !
 !              Compute the integral
 !              --------------------
@@ -181,7 +181,7 @@ module SurfaceIntegrals
 !
 !              Get the state vector
 !              --------------------
-               Qb => e % Qb(:,i,j,elSide)
+               Qb => e % storage % Qb(:,i,j,elSide)
 !
 !              Compute the integral
 !              --------------------
@@ -202,7 +202,7 @@ module SurfaceIntegrals
 !
 !              Get the state vector
 !              --------------------
-               Qb => e % Qb(:,i,j,elSide)
+               Qb => e % storage % Qb(:,i,j,elSide)
 !
 !              Compute the integral
 !              --------------------
@@ -355,10 +355,10 @@ module SurfaceIntegrals
 !
 !              Get the state vector
 !              --------------------
-               Qb => e % Qb(:,i,j,elSide)
-               U_xb => e % U_xb(:,i,j,elSide)
-               U_yb => e % U_yb(:,i,j,elSide)
-               U_zb => e % U_zb(:,i,j,elSide)
+               Qb => e % storage % Qb(:,i,j,elSide)
+               U_xb => e % storage % U_xb(:,i,j,elSide)
+               U_yb => e % storage % U_yb(:,i,j,elSide)
+               U_zb => e % storage % U_zb(:,i,j,elSide)
                
 !
 !              Compute the integral
@@ -381,7 +381,7 @@ module SurfaceIntegrals
 !
 !              Get the state vector
 !              --------------------
-               Qb => e % Qb(:,i,j,elSide)
+               Qb => e % storage % Qb(:,i,j,elSide)
 !
 !              Compute the integral
 !              --------------------
@@ -402,10 +402,10 @@ module SurfaceIntegrals
 !
 !              Get the state vector
 !              --------------------
-               Qb => e % Qb(:,i,j,elSide)
-               U_xb => e % U_xb(:,i,j,elSide)
-               U_yb => e % U_yb(:,i,j,elSide)
-               U_zb => e % U_zb(:,i,j,elSide)
+               Qb => e % storage % Qb(:,i,j,elSide)
+               U_xb => e % storage % U_xb(:,i,j,elSide)
+               U_yb => e % storage % U_yb(:,i,j,elSide)
+               U_zb => e % storage % U_zb(:,i,j,elSide)
                
 !
 !              Compute the integral

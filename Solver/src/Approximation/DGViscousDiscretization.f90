@@ -161,12 +161,12 @@ module DGViscousDiscretization
 !           Perform the scaling
 !           -------------------               
             do eqID = 1 , N_GRAD_EQN
-               mesh % elements(eID) % U_x(:,:,:,eqID) = &
-                           mesh % elements(eID) % U_x(:,:,:,eqID) / mesh % elements(eID) % geom % jacobian
-               mesh % elements(eID) % U_y(:,:,:,eqID) = &
-                           mesh % elements(eID) % U_y(:,:,:,eqID) / mesh % elements(eID) % geom % jacobian
-               mesh % elements(eID) % U_z(:,:,:,eqID) = &
-                           mesh % elements(eID) % U_z(:,:,:,eqID) / mesh % elements(eID) % geom % jacobian
+               mesh % elements(eID) % storage % U_x(:,:,:,eqID) = &
+                           mesh % elements(eID) % storage % U_x(:,:,:,eqID) / mesh % elements(eID) % geom % jacobian
+               mesh % elements(eID) % storage % U_y(:,:,:,eqID) = &
+                           mesh % elements(eID) % storage % U_y(:,:,:,eqID) / mesh % elements(eID) % geom % jacobian
+               mesh % elements(eID) % storage % U_z(:,:,:,eqID) = &
+                           mesh % elements(eID) % storage % U_z(:,:,:,eqID) / mesh % elements(eID) % geom % jacobian
             end do
 
             call ProlongGradientToFaces( mesh % elements(eID), spA(Nx,Ny,Nz) )
@@ -197,15 +197,15 @@ module DGViscousDiscretization
 !
 !        Compute gradient variables
 !        --------------------------
-         call GradientValuesForQ( Q = e % Q, U = U )
+         call GradientValuesForQ( Q = e % storage % Q, U = U )
 !
 !        Perform the weak integral
 !        -------------------------
-         call VectorWeakIntegrals % StdVolumeGreen ( N_GRAD_EQN , e , spA , U , e % U_x , e % U_y , e % U_z )
+         call VectorWeakIntegrals % StdVolumeGreen ( N_GRAD_EQN , e , spA , U , e % storage % U_x , e % storage % U_y , e % storage % U_z )
 
-         e % U_x = -e % U_x
-         e % U_y = -e % U_y
-         e % U_z = -e % U_z
+         e % storage % U_x = -e % storage % U_x
+         e % storage % U_y = -e % storage % U_y
+         e % storage % U_z = -e % storage % U_z
 
       end subroutine BR1_GradientVolumeLoop
 !
@@ -232,45 +232,45 @@ module DGViscousDiscretization
 !
 !        LEFT face
 !        ---------
-         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , ELEFT , e % Ub , faceInt_x , faceInt_y , faceInt_z )
-         e % U_x = e % U_x + faceInt_x
-         e % U_y = e % U_y + faceInt_y
-         e % U_z = e % U_z + faceInt_z
+         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , ELEFT , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
+         e % storage % U_x = e % storage % U_x + faceInt_x
+         e % storage % U_y = e % storage % U_y + faceInt_y
+         e % storage % U_z = e % storage % U_z + faceInt_z
 !
 !        RIGHT face
 !        ----------
-         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , ERIGHT , e % Ub , faceInt_x , faceInt_y , faceInt_z )
-         e % U_x = e % U_x + faceInt_x
-         e % U_y = e % U_y + faceInt_y
-         e % U_z = e % U_z + faceInt_z
+         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , ERIGHT , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
+         e % storage % U_x = e % storage % U_x + faceInt_x
+         e % storage % U_y = e % storage % U_y + faceInt_y
+         e % storage % U_z = e % storage % U_z + faceInt_z
 !
 !        TOP face
 !        --------
-         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , ETOP , e % Ub , faceInt_x , faceInt_y , faceInt_z )
-         e % U_x = e % U_x + faceInt_x
-         e % U_y = e % U_y + faceInt_y
-         e % U_z = e % U_z + faceInt_z
+         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , ETOP , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
+         e % storage % U_x = e % storage % U_x + faceInt_x
+         e % storage % U_y = e % storage % U_y + faceInt_y
+         e % storage % U_z = e % storage % U_z + faceInt_z
 !
 !        BOTTOM face
 !        -----------
-         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , EBOTTOM , e % Ub , faceInt_x , faceInt_y , faceInt_z )
-         e % U_x = e % U_x + faceInt_x
-         e % U_y = e % U_y + faceInt_y
-         e % U_z = e % U_z + faceInt_z
+         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , EBOTTOM , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
+         e % storage % U_x = e % storage % U_x + faceInt_x
+         e % storage % U_y = e % storage % U_y + faceInt_y
+         e % storage % U_z = e % storage % U_z + faceInt_z
 !
 !        BACK face
 !        ---------
-         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , EBACK , e % Ub , faceInt_x , faceInt_y , faceInt_z )
-         e % U_x = e % U_x + faceInt_x
-         e % U_y = e % U_y + faceInt_y
-         e % U_z = e % U_z + faceInt_z
+         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , EBACK , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
+         e % storage % U_x = e % storage % U_x + faceInt_x
+         e % storage % U_y = e % storage % U_y + faceInt_y
+         e % storage % U_z = e % storage % U_z + faceInt_z
 !
 !        FRONT face
 !        ----------
-         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , EFRONT , e % Ub , faceInt_x , faceInt_y , faceInt_z )
-         e % U_x = e % U_x + faceInt_x
-         e % U_y = e % U_y + faceInt_y
-         e % U_z = e % U_z + faceInt_z
+         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , EFRONT , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
+         e % storage % U_x = e % storage % U_x + faceInt_x
+         e % storage % U_y = e % storage % U_y + faceInt_y
+         e % storage % U_z = e % storage % U_z + faceInt_z
 
       end subroutine BR1_GradientFaceLoop
 !
@@ -322,7 +322,7 @@ module DGViscousDiscretization
                do j = 0, N(2)
                   do i = 0, N(1)
 
-                     bvExt =  mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft)
+                     bvExt =  mesh % elements(eIDLeft) % storage % Qb(:,i,j,fIDLeft)
 
                      call externalStateProcedure( mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft)    , &
                                                   time                                                   , &
@@ -334,12 +334,12 @@ module DGViscousDiscretization
 !                    u, v, w, T averages
 !                    ---------------
 !
-                     call GradientValuesForQ(  mesh % elements(eIDLeft) % Qb(:,i,j,fIDLeft), UL )
+                     call GradientValuesForQ(  mesh % elements(eIDLeft) % storage % Qb(:,i,j,fIDLeft), UL )
                      call GradientValuesForQ( bvExt, UR )
 
                      d = 0.5_RP*(UL + UR)
                
-                     mesh % elements(eIDLeft) % Ub (:,i,j,fIDLeft) = d
+                     mesh % elements(eIDLeft) % storage % Ub (:,i,j,fIDLeft) = d
 
                   end do   
                end do   
@@ -398,7 +398,7 @@ module DGViscousDiscretization
 !        Project to mortar
 !        -----------------
 !
-         call ProjectToMortar(thisface, eL % QB(:,0:NL(1),0:NL(2),fIDLeft), eR % QB(:,0:NR(1),0:NR(2),fIDright), N_EQN)
+         call ProjectToMortar(thisface, eL % storage % QB(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % QB(:,0:NR(1),0:NR(2),fIDright), N_EQN)
 !
 !        ----------------------
 !        Compute interface flux
@@ -427,8 +427,8 @@ module DGViscousDiscretization
 !
          call ProjectToElement(thisface                           , &
                                thisface % Phi % Caux              , &
-                               eL % Ub(:,0:NL(1),0:NL(2),fIDLeft) , &
-                               eR % Ub(:,0:NR(1),0:NR(2),fIDright), &
+                               eL % storage % Ub(:,0:NL(1),0:NL(2),fIDLeft) , &
+                               eR % storage % Ub(:,0:NR(1),0:NR(2),fIDright), &
                                N_GRAD_EQN)
          
       end subroutine BR1_ComputeElementInterfaceAverage   
@@ -453,7 +453,7 @@ module DGViscousDiscretization
          real(kind=RP)       :: cartesianFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN , 1:NDIM)
          integer             :: nv
 
-         cartesianFlux = ViscousFlux( spA % Nx , spA % Ny , spA % Nz  , e % Q , e % U_x , e % U_y , e % U_z )
+         cartesianFlux = ViscousFlux( spA % Nx , spA % Ny , spA % Nz  , e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z )
 
          do nv = 1 , N_EQN
          

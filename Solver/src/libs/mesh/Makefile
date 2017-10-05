@@ -12,6 +12,7 @@ MOD_FLAG?=-J
 
 
 LIBOBJS = 	./build/ConnectivityClass.o \
+		./build/StorageClass.o \
 		./build/FacePatchClass.o \
 		./build/TransfiniteMaps3D.o \
 		./build/MappedGeometry.o \

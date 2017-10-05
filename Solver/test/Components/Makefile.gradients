@@ -50,6 +50,7 @@ ARFLAGS=crv
 OBJS_CASE= Setup Physics GradientSetup GradientTests InitialFlowState TestGradientsMain
 	   
 OBJS_HORSES=  SMConstants \
+		StorageClass \
 		FTTimerClass \
 		FileReading \
 		Utilities \

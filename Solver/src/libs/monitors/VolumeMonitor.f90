@@ -219,7 +219,7 @@ module VolumeMonitorClass
         
          close ( fID )
 
-         self % values(1) = self % values(no_of_lines)
+         if ( no_of_lines .ne. 0 ) self % values(1) = self % values(no_of_lines)
       
       end subroutine VolumeMonitor_WriteToFile
 end module VolumeMonitorClass

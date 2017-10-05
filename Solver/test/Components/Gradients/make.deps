@@ -52,7 +52,7 @@ FASMultigridClass: SMConstants ExplicitMethods DGSEMClass InterpolationAndDeriva
 Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
 JFNKClass: SMConstants GMRESClass
 GMRESClass: SMConstants
-Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices
+Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices StorageClass
 #Linear solvers
 LinearSolverClass: MKLPardisoSolverClass PetscSolverClass IterativeSolverClass MultigridSolverClass
 

@@ -145,7 +145,7 @@
                   DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
                      DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
                         CALL pointSourceFlowSolution( sem % mesh % elements(eID) % geom % x(:,i,j,k), &
-                                                      sem % mesh % elements(eID) % Q(i,j,k,1:N_EQN), success, &
+                                                      sem % mesh % elements(eID) % storage % Q(i,j,k,1:N_EQN), success, &
                                                       thermodynamics_, dimensionless_, refValues_)
                         IF(.NOT. success) ERROR STOP "Unable to compute initial condition"       
                      END DO
@@ -314,7 +314,7 @@
                      END DO
                   END DO
                END DO
-               maxError = MAXVAL(ABS(QExpected - sem % mesh % elements(eID) % Q))
+               maxError = MAXVAL(ABS(QExpected - sem % mesh % elements(eID) % storage % Q))
             END DO
             CALL FTAssertEqual(expectedValue = ERRORs(N), &
                                actualValue   = maxError, &
