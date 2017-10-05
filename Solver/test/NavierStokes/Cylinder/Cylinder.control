@@ -39,3 +39,30 @@ riemann solver        = roe
    Variable = lift
    Reference surface = 1.0
 #end
+
+#define statistics
+   Sampling interval = 10
+   Starting iteration = 0
+   Starting time = 0.0
+   @start*
+   @stop*
+#end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -19,8 +19,6 @@ module StorageClass
    public   Storage_t
 
    type Statistics_t
-      integer           :: no_of_samples
-      integer           :: no_of_variables
       real(kind=RP), dimension(:,:,:,:),  allocatable    :: data
       contains
          procedure   :: Construct => Statistics_Construct
@@ -164,6 +162,8 @@ module StorageClass
          safedeallocate(self % U_zb)
          safedeallocate(self % FStarb)
 
+         call self % stats % Destruct()
+
       end subroutine Storage_Destruct
 !
 !/////////////////////////////////////////////////////////////////////////////////////
@@ -178,11 +178,11 @@ module StorageClass
          class(Statistics_t)           :: self
          integer,          intent(in)  :: no_of_variables
          class(Storage_t), intent(in)  :: storage
-
-         self % no_of_variables = no_of_variables
-         self % no_of_samples = 0
-   
+!
+!        Allocate and initialize
+!        -----------------------
          allocate( self % data(0:storage % N(1), 0:storage % N(2), 0:storage % N(3), no_of_variables) ) 
+         self % data = 0.0_RP
 
       end subroutine Statistics_Construct
    
@@ -190,9 +190,6 @@ module StorageClass
          implicit none
          class(Statistics_t)     :: self
 
-         self % no_of_variables = 0
-         self % no_of_samples = 0
-      
          safedeallocate( self % data )
 
       end subroutine Statistics_Destruct
