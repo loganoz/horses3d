@@ -41,6 +41,7 @@
          PROCEDURE :: Describe          => DescribeMesh
          PROCEDURE :: ConstructZones    => HexMesh_ConstructZones
          PROCEDURE :: SetConnectivities => HexMesh_SetConnectivities
+         PROCEDURE :: Export            => HexMesh_Export
          PROCEDURE :: WriteCoordFile
       END TYPE HexMesh
 
@@ -330,6 +331,8 @@
          CALL self % Describe( trim(fileName) )
          
          self % Ns = Nx
+
+         call self % Export( trim(fileName) )
          
       END SUBROUTINE ConstructMesh_FromFile_
 
@@ -919,53 +922,53 @@
          end do
 
       end subroutine HexMesh_SetConnectivities
-!!
-!!!    This procedure sets the connectivities for a certain face of a  
-!!!    single element in a conforming mesh
-!!!    (Original 2D procedure by grubio... 3D adaptation by arueda)
-!!!
-!      SUBROUTINE SetConformingConnectivities(self,Elements, jElement, kFace)
-!         IMPLICIT NONE
-!!
-!!        ------------------------------------------------------
-!!        Search and set the conectivities between the elements
-!!        in conforming meshes
-!!        ------------------------------------------------------
-!!
-!         !-----------------------------------------------
-!         TYPE(Connectivity)     :: self             !> Connection that will be set
-!         TYPE(Element)         :: Elements(:)      !< All elements in mesh
-!         INTEGER               :: jElement         !< element number
-!         INTEGER               :: kFace            !< face number
-!         !-----------------------------------------------
-!         INTEGER, DIMENSION(8)  :: nodeIDs, loopNodeIDs     ! Nodes of element (checked element, looped element)
-!         INTEGER, DIMENSION(4)  :: endNodes, loopEndNodes   ! Nodes of face    (checked element, looped element)
-!         INTEGER                :: i, j, k, l, m, counter
-!         INTEGER                :: sharedNodes              ! Number of nodes shared between the analyzed face and one of another
-!element
-!         !-----------------------------------------------
-!         
-!         nodeIDs = Elements(jElement)%nodeIDs
-!         endNodes = nodeIDs(faceMapHex8(:,kFace))
-!                            
-!         DO j = 1, SIZE(Elements)
-!            IF (j == jElement) CYCLE
-!            
-!            loopNodeIDs = Elements(j)%nodeIDs
-!            DO k = 1, 6
-!               loopEndNodes = loopNodeIDs(faceMapHex8(:,k))
-!               sharedNodes  = 0
-!               DO l = 1, 4
-!                  DO m = 1, 4
-!                     IF (endNodes(l) == loopEndNodes(m)) sharedNodes = sharedNodes + 1
-!                  END DO
-!               END DO 
-!               
-!               IF (sharedNodes == 4) self%ElementIDs(1) = j 
-!            ENDDO
-!         ENDDO
-!         
-!      END SUBROUTINE SetConformingConnectivities
+
+      subroutine HexMesh_Export(self, fileName)
+         use SolutionFile
+         implicit none
+         class(HexMesh),   intent(in)     :: self
+         character(len=*), intent(in)     :: fileName
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer        :: fID, eID
+         character(len=LINE_LENGTH)    :: meshName
+         interface
+            character(len=LINE_LENGTH) function RemovePath( inputLine )
+               use SMConstants
+               implicit none
+               character(len=*)     :: inputLine
+            end function RemovePath
+      
+            character(len=LINE_LENGTH) function getFileName( inputLine )
+               use SMConstants
+               implicit none
+               character(len=*)     :: inputLine
+            end function getFileName
+         end interface
+
+            
+!
+!        Create file: it will be contained in ./MESH
+!        -------------------------------------------
+         meshName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".hmesh"
+         fID = CreateNewSolutionFile( trim(meshName), MESH_FILE, self % no_of_elements )
+!
+!        Introduce all element nodal coordinates
+!        ---------------------------------------
+         do eID = 1, self % no_of_elements
+            call writeArray(fID, self % elements(eID) % geom % x)
+         end do
+!
+!        Close the file
+!        --------------
+         call CloseSolutionFile(fID)
+   
+   
+         
+      end subroutine HexMesh_Export
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 !

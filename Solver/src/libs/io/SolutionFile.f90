@@ -29,14 +29,14 @@
 !/////////////////////////////////////////////////////////////////////////////////////
 !
 #include "Includes.h"
-module SolutionFiles
+module SolutionFile
    use SMConstants
    
    private
    public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE
    public      :: SOLFILE_STR_LEN
 
-   public      :: CreateNewSolutionFile, writeArray
+   public      :: CreateNewSolutionFile, writeArray, CloseSolutionFile
 !
 !  Possible solution file types
 !  ----------------------------
@@ -197,6 +197,4 @@ module SolutionFiles
 
       end subroutine Write5DArray
 
-
-
-end module SolutionFiles
+end module SolutionFile
