@@ -80,6 +80,7 @@ OBJS_HORSES=  SMConstants \
 		VolumeIntegrals \
 		SurfaceMonitor \
 		VolumeMonitor \
+		StatisticsMonitor \
 		Monitors \
 		DGInviscidDiscretization \
 		DGViscousDiscretization \

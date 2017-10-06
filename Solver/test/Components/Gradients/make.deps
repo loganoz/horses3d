@@ -29,7 +29,7 @@ HexElementConnectivityDefinitions: SMConstants
 HexMesh: Physics TransfiniteMaps3D FaceClass MeshTypes SharedBCModule NodeClass HexElementClass Headers HexElementConnectivityDefinitions ZoneClass
 ZoneClass: SMConstants SharedBCModule RealDataLinkedList
 NodeClass: SMConstants MeshTypes 
-Monitors: MonitorDefinitions ParamfileRegions ResidualsMonitor Setup SurfaceIntegrals VolumeIntegrals SurfaceMonitor VolumeMonitor
+Monitors: MonitorDefinitions ParamfileRegions ResidualsMonitor Setup SurfaceIntegrals VolumeIntegrals SurfaceMonitor VolumeMonitor StatisticsMonitor
 ResidualsMonitor: MonitorDefinitions
 DGInviscidDiscretization: SMConstants HexElementClass NodalStorageClass Physics
 DGViscousDiscretization: SMConstants HexElementClass NodalStorageClass Physics DGWeakIntegrals ProlongToFaces HexMesh BoundaryConditions
