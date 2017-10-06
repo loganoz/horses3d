@@ -156,9 +156,9 @@ module VolumeIntegrals
 !           Computes the flow enstrophy
 !           ***************************
 !
-            KinEn =   POW2( e % storage % U_y(:,:,:,IRHOW) - e % storage % U_z(:,:,:,IRHOV) ) &
-                    + POW2( e % storage % U_z(:,:,:,IRHOU) - e % storage % U_x(:,:,:,IRHOW) ) &
-                    + POW2( e % storage % U_x(:,:,:,IRHOV) - e % storage % U_y(:,:,:,IRHOU) )
+            KinEn =   POW2( e % storage % U_y(:,:,:,IGW) - e % storage % U_z(:,:,:,IGV) ) &
+                    + POW2( e % storage % U_z(:,:,:,IGU) - e % storage % U_x(:,:,:,IGW) ) &
+                    + POW2( e % storage % U_x(:,:,:,IGV) - e % storage % U_y(:,:,:,IGU) )
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)

@@ -697,6 +697,7 @@ module MonitorsClass
 !     Initialize
 !     ----------
       no_of_surfaceMonitors = 0
+      no_of_volumeMonitors = 0
 !
 !     Get case file name
 !     ------------------

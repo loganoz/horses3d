@@ -154,7 +154,7 @@ module VolumeMonitorClass
             self % values(bufferPosition) = ScalarVolumeIntegral(mesh, spA, KINETIC_ENERGY_RATE) / ScalarVolumeIntegral(mesh, spA, VOLUME)
    
          case ("Enstrophy")
-            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, spA, ENSTROPHY)
+            self % values(bufferPosition) = 0.5_RP * ScalarVolumeIntegral(mesh, spA, ENSTROPHY) / ScalarVolumeIntegral(mesh, spA, VOLUME)
 
          end select
 
