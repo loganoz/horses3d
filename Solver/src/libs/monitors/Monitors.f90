@@ -31,6 +31,7 @@ module MonitorsClass
    use HexMeshClass
    use MonitorDefinitions
    use ResidualsMonitorClass
+   use StatisticsMonitor
    use SurfaceMonitorClass
    use VolumeMonitorClass
    implicit none
@@ -73,6 +74,7 @@ module MonitorsClass
       integer                              :: bufferLine
       integer                              :: iter( BUFFER_SIZE )
       real(kind=RP)                        :: t  (BUFFER_SIZE )
+      type(StatisticsMonitor_t)            :: stats
       type(Residuals_t)                    :: residuals
       class(SurfaceMonitor_t), allocatable :: surfaceMonitors(:)
       class(VolumeMonitor_t),  allocatable :: volumeMonitors(:)
@@ -123,6 +125,7 @@ module MonitorsClass
 !
 !        Initialize
 !        ----------
+         call Monitors % stats     % Construct(mesh)
          call Monitors % residuals % Initialization( solution_file )
 
          allocate ( Monitors % surfaceMonitors ( Monitors % no_of_surfaceMonitors )  )
@@ -171,6 +174,8 @@ module MonitorsClass
          do i = 1 , self % no_of_volumeMonitors
             call self % volumeMonitors(i) % WriteLabel
          end do
+
+         call self % stats % WriteLabel
 
          write(STD_OUT , *) 
 
@@ -225,6 +230,8 @@ module MonitorsClass
             write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % volumeMonitors(i) % monitorName ) + 2 ) )
          end do
 
+         if ( self % stats % state .ne. 0 ) write(STD_OUT,'(3X,A10)',advance="no") trim(dashes)
+
          write(STD_OUT , *) 
 
       end subroutine Monitor_WriteUnderlines
@@ -266,6 +273,8 @@ module MonitorsClass
          do i = 1 , self % no_of_volumeMonitors
             call self % volumeMonitors(i) % WriteValues ( self % bufferLine )
          end do
+
+         call self % stats % WriteValue
 
          write(STD_OUT , *) 
 
@@ -324,6 +333,10 @@ module MonitorsClass
          do i = 1 , self % no_of_volumeMonitors
             call self % volumeMonitors(i) % Update( mesh , spA, self % bufferLine )
          end do
+!
+!        Update statistics
+!        -----------------
+         call self % stats % Update(mesh, iter, t)
 
       end subroutine Monitor_UpdateValues
 

@@ -155,7 +155,7 @@ module StatisticsMonitor
             
 !        Update the values if the state is "active"
 !        ------------------------------------------
-         call self % UpdateValues(mesh)
+         if(self % state .eq. ACTIVE_STATE) call self % UpdateValues(mesh)
 
       end subroutine StatisticsMonitor_Update
 
@@ -170,6 +170,7 @@ module StatisticsMonitor
 !        ---------------
 !
          integer  :: eID
+print*, "*** Updating statistics values.....................", self % no_of_samples
 
          do eID = 1, size(mesh % elements)
             associate(e    => mesh % elements(eID), &
@@ -186,12 +187,12 @@ module StatisticsMonitor
             data(:,:,:,UW) = data(:,:,:,UW) + e % storage % Q(:,:,:,IRHOU) * e % storage % Q(:,:,:,IRHOW) / POW2(e % storage % Q(:,:,:,IRHO))
             data(:,:,:,VW) = data(:,:,:,VW) + e % storage % Q(:,:,:,IRHOV) * e % storage % Q(:,:,:,IRHOW) / POW2(e % storage % Q(:,:,:,IRHO))
 
-            self % no_of_samples = self % no_of_samples + 1 
-
-            data = data / self % no_of_samples
+            data = data / (self % no_of_samples + 1)
 
             end associate
          end do
+
+         self % no_of_samples = self % no_of_samples + 1
          
       end subroutine StatisticsMonitor_UpdateValues
 
@@ -222,6 +223,12 @@ module StatisticsMonitor
 
          no_of_lines = 0
 
+         hasStart = .false.
+         hasPause = .false.
+         hasStop  = .false.
+         hasReset = .false.
+         hasDump  = .false.
+
          do
             read(fID,'(A)',iostat=io) line
             if ( io .ne. 0 ) exit
@@ -245,12 +252,6 @@ module StatisticsMonitor
 !
 !           It is inside, check whether the marks are present
 !           -------------------------------------------------
-            hasStart = .false.
-            hasPause = .false.
-            hasStop  = .false.
-            hasReset = .false.
-            hasDump  = .false.
-
             select case ( trim(adjustl(line)) )
             
             case(START_COMMAND)
@@ -271,6 +272,7 @@ module StatisticsMonitor
             end select
 
          end do
+print*, hasStart, hasStop
 !
 !        Update the status of the statistics monitor
 !        -------------------------------------------
@@ -286,6 +288,10 @@ module StatisticsMonitor
 
             if ( hasPause ) then
                self % state = STOP_STATE
+            end if
+
+            if ( hasStart ) then
+               self % state = ACTIVE_STATE
             end if
 
          elseif ( self % state .eq. STOP_STATE ) then
@@ -323,10 +329,13 @@ module StatisticsMonitor
       
             if ( index(getSquashedLine(line), '#definestatistics') .ne. 0 ) then
                findIfStatsAreActive = .true.
+               close(fID)
                return
             end if
             
          end do
+
+         close(fID)
          
       end function findIfStatsAreActive
 
@@ -374,8 +383,10 @@ module StatisticsMonitor
          open(newunit = fID, file = trim(paramFile), action = "write", status = "old" )
 
          do i = 1, no_of_lines
-            write(fID,'(A)') lines(i)
+            write(fID,'(A)') trim(lines(i))
          end do
+
+         close(fID)
 
       end subroutine rewriteControlFile
 
@@ -414,7 +425,7 @@ module StatisticsMonitor
 
          end select
    
-         write(STD_OUT , '(1X,A,1X,ES10.3)' , advance = "no") "|" , trim(state)
+         write(STD_OUT , '(1X,A,1X,A10)' , advance = "no") "|" , trim(state)
 
       end subroutine StatisticsMonitor_WriteValue 
 
