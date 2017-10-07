@@ -32,6 +32,7 @@ cp -vf ./Makefile.in ./Makefile
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./Makefile
 
 for subdir in $TEST_CASES; do
+	mkdir -p ./test/$subdir/MESH
 	mkdir -p ./test/$subdir/SETUP
 	mkdir -p ./test/$subdir/RESULTS
 	cp -v ./test/Makefile.template ./test/$subdir/SETUP/Makefile
@@ -42,6 +43,7 @@ done
 
 for subdir in $COMPONENTS_TEST_CASES; do
 	cp -v ./test/Components/Makefile.components ./test/Components/$subdir/Makefile
+	mkdir -p ./test/Components/$subdir/MESH
 	sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/$subdir/Makefile
 	sed -i -e "s#@PROG_NAME#$subdir#g" ./test/Components/$subdir/Makefile
 done

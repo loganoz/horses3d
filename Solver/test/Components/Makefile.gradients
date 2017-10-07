@@ -52,6 +52,7 @@ OBJS_CASE= Setup Physics GradientSetup GradientTests InitialFlowState TestGradie
 OBJS_HORSES=  SMConstants \
 		StorageClass \
 		FTTimerClass \
+		SolutionFile \
 		FileReading \
 		Utilities \
 		Plotter \

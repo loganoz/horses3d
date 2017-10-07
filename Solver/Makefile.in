@@ -16,7 +16,6 @@ COMM?=PARALLEL
 MAKE=make
 AR=ar
 RANLIB=ranlib
-PROG_HORSES3D=
 
 ########################################
 # 2.- User defined paths
@@ -160,7 +159,7 @@ HORSESFLAGS= FC='$(FC)' \
 all: header mkdirs horseslibs problemfilelib HORSES3D
 
 install: FORCE
-	cp -f $(HOME_DIR)/$(PROG) /usr/local/bin
+	cp -f $(HOME_DIR)/bin/HORSES3D /usr/local/bin
 	cp -f $(HOME_DIR)/lib/libproblemfile.so /usr/local/lib
 
 
@@ -191,7 +190,7 @@ test: all
 	&& cd ../ && ./HORSES3D Cylinder.control ) || exit 1; 
 
 allclean: FORCE clean
-	@rm -f $(HOME_DIR)/$(PROG)
+	@rm -f $(HOME_DIR)/bin/*
 
 horseslibclean: FORCE
 	@for subdir in $(HORSES_LIBS); do \
