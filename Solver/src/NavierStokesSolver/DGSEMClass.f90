@@ -301,14 +301,14 @@ Module DGSEMClass
          real(kind=RP), intent(out)             :: initial_time 
          character(len=LINE_LENGTH)             :: fileName
          interface
-            SUBROUTINE UserDefinedInitialCondition(sem, thermodynamics_, &
+            SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
                                                            dimensionless_,&
                                                            refValues_)
                USE SMConstants
                use PhysicsStorage
-               import DGSEM
+               use HexMeshClass
                implicit none
-               class(DGSEM)                  :: sem
+               class(HexMesh)                  :: mesh
                type(Thermodynamics_t), intent(in)  :: thermodynamics_
                type(Dimensionless_t),  intent(in)  :: dimensionless_
                type(RefValues_t),      intent(in)  :: refValues_
@@ -320,7 +320,7 @@ Module DGSEMClass
             CALL self % LoadSolutionForRestart(fileName, initial_iteration, initial_time)
          ELSE
    
-            call UserDefinedInitialCondition(self, thermodynamics, &
+            call UserDefinedInitialCondition(self % mesh, thermodynamics, &
                                                     dimensionless, &
                                                         refValues )
             initial_time = 0.0_RP

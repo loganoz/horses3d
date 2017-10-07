@@ -14,9 +14,9 @@
 !      The procedures, *even if empty* that must be defined are
 !
 !      UserDefinedStartup
-!      UserDefinedInitialCondition(sem)
-!      UserDefinedPeriodicOperation(sem)
-!      UserDefinedFinalize(sem)
+!      UserDefinedInitialCondition(mesh)
+!      UserDefinedPeriodicOperation(mesh)
+!      UserDefinedFinalize(mesh)
 !      UserDefinedTermination
 !
 !      *** This problem file sets up a subsonic point source *** 
@@ -43,7 +43,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalSetup(sem, thermodynamics_, &
+         SUBROUTINE UserDefinedFinalSetup(mesh, thermodynamics_, &
                                                 dimensionless_, &
                                                     refValues_ )
 !
@@ -52,7 +52,7 @@
 !           to allow mesh related initializations or memory allocations
 !           ----------------------------------------------------------------------
 !
-            USE DGSEMClass
+            USE HexMeshClass
             USE Physics
             USE UserDefinedDataStorage
             IMPLICIT NONE
@@ -61,7 +61,7 @@
 !           Arguments
 !           ---------
 !
-            CLASS(DGSem)            :: sem
+            CLASS(HexMesh)            :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -85,8 +85,8 @@
                         Mach => dimensionless_ % Mach )
 
             rad0 = HUGE(1.0_RP)
-            DO nodeID = 1, SIZE(sem % mesh % nodes)
-               x   = sem % mesh % nodes(nodeID) % x
+            DO nodeID = 1, SIZE(mesh % nodes)
+               x   = mesh % nodes(nodeID) % x
                rad = SQRT(x(1)**2 + x(2)**2)
                rad0  = MIN(rad0, rad)
             END DO
@@ -100,7 +100,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(sem, thermodynamics_, &
+         SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
                                                       dimensionless_, &
                                                           refValues_ )
 !
@@ -109,10 +109,10 @@
 !           ------------------------------------------------
 !
             USE SMConstants
-            use DGSEMClass
+            use HexMeshClass
             use PhysicsStorage
             implicit none
-            class(DGSEM)                        :: sem
+            class(HexMesh)                        :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -140,12 +140,12 @@
                end subroutine pointSourceFlowSolution
             end interface
             
-            DO eID = 1, SIZE(sem % mesh % elements)
-               DO k = 0, sem % mesh % elements(eID) % Nxyz(3)
-                  DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
-                     DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
-                        CALL pointSourceFlowSolution( sem % mesh % elements(eID) % geom % x(:,i,j,k), &
-                                                      sem % mesh % elements(eID) % storage % Q(i,j,k,1:N_EQN), success, &
+            DO eID = 1, SIZE(mesh % elements)
+               DO k = 0, mesh % elements(eID) % Nxyz(3)
+                  DO j = 0, mesh % elements(eID) % Nxyz(2)
+                     DO i = 0, mesh % elements(eID) % Nxyz(1)
+                        CALL pointSourceFlowSolution( mesh % elements(eID) % geom % x(:,i,j,k), &
+                                                      mesh % elements(eID) % storage % Q(i,j,k,1:N_EQN), success, &
                                                       thermodynamics_, dimensionless_, refValues_)
                         IF(.NOT. success) ERROR STOP "Unable to compute initial condition"       
                      END DO
@@ -203,23 +203,23 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(sem, time)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
 !           to be performed
 !           ----------------------------------------------------------
 !
-            USE DGSEMClass
+            USE HexMeshClass
             IMPLICIT NONE
-            CLASS(DGSem)  :: sem
+            CLASS(HexMesh)  :: mesh
             REAL(KIND=RP) :: time
             
          END SUBROUTINE UserDefinedPeriodicOperation
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalize(sem, time, thermodynamics_, dimensionless_, refValues_)
+         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, dimensionless_, refValues_)
             USE FTAssertions
 !
 !           --------------------------------------------------------
@@ -227,18 +227,21 @@
 !           error tests to be performed
 !           --------------------------------------------------------
 !
-            USE DGSEMClass
+            USE HexMeshClass
+            use Physics
             IMPLICIT NONE
 !
 !           ---------
 !           Arguments
 !           ---------
 !
-            CLASS(DGSem)  :: sem
-            REAL(KIND=RP) :: time
-            type(Thermodynamics_t), intent(in)  :: thermodynamics_
-            type(Dimensionless_t),  intent(in)  :: dimensionless_
-            type(RefValues_t),      intent(in)  :: refValues_
+            CLASS(HexMesh)                     :: mesh
+            REAL(KIND=RP)                      :: time
+            integer                            :: iter
+            real(kind=RP)                      :: maxResidual
+            type(Thermodynamics_t), intent(in) :: thermodynamics_
+            type(Dimensionless_t),  intent(in) :: dimensionless_
+            type(RefValues_t),      intent(in) :: refValues_
 !
 !           ---------------
 !           Local variables
@@ -288,33 +291,33 @@
                                                                9.8550101132040978E-011, 9.8967441182940477E-011, &
                                                                9.9582661331228551E-011]
 !
-            N = sem % mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order
+            N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
             CALL FTAssertEqual(expectedValue = iterations(N), &
-                               actualValue   =  sem % numberOfTimeSteps, &
+                               actualValue   =  iter, &
                                msg           = "Number of time steps to tolerance")
             CALL FTAssertEqual(expectedValue = residuals(N), &
-                               actualValue   = sem % maxResidual, &
+                               actualValue   = maxResidual, &
                                tol           = 1.d-3, &
                                msg           = "Final maximum residual")
             
             ALLOCATE(QExpected(0:N,0:N,0:N,N_EQN))
             
             maxError = 0.0_RP
-            DO eID = 1, SIZE(sem % mesh % elements)
-               DO k = 0, sem % mesh % elements(eID) % Nxyz(3)
-                  DO j = 0, sem % mesh % elements(eID) % Nxyz(2)
-                     DO i = 0, sem % mesh % elements(eID) % Nxyz(1)
-                        CALL pointSourceFlowSolution( sem % mesh % elements(eID) % geom % x(:,i,j,k), &
+            DO eID = 1, SIZE(mesh % elements)
+               DO k = 0, mesh % elements(eID) % Nxyz(3)
+                  DO j = 0, mesh % elements(eID) % Nxyz(2)
+                     DO i = 0, mesh % elements(eID) % Nxyz(1)
+                        CALL pointSourceFlowSolution( mesh % elements(eID) % geom % x(:,i,j,k), &
                                                       QExpected(i,j,k,1:N_EQN), success, &
                                                       thermodynamics_, dimensionless_, refValues_ )
                      END DO
                   END DO
                END DO
-               maxError = MAXVAL(ABS(QExpected - sem % mesh % elements(eID) % storage % Q))
+               maxError = MAXVAL(ABS(QExpected - mesh % elements(eID) % storage % Q))
             END DO
             CALL FTAssertEqual(expectedValue = ERRORs(N), &
                                actualValue   = maxError, &

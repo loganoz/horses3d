@@ -153,10 +153,10 @@
 !     ---------
 !
 interface
-         SUBROUTINE UserDefinedPeriodicOperation(sem, time)
-            USE DGSEMClass
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time)
+            use HexMeshClass
             IMPLICIT NONE
-            CLASS(DGSem)  :: sem
+            CLASS(HexMesh)  :: mesh
             REAL(KIND=RP) :: time
          END SUBROUTINE UserDefinedPeriodicOperation
 end interface
@@ -273,7 +273,7 @@ end interface
          IF (MOD( k+1, RestartInterval) == 0) CALL SaveRestart(sem,k+1,t,RestFileName)
          
          IF( (MOD( k+1, self % plotInterval) == 0) .or. (k .eq. 0) )     THEN
-          CALL UserDefinedPeriodicOperation(sem,t)
+          CALL UserDefinedPeriodicOperation(sem % mesh,t)
           
             IF ( self % integratorType == STEADY_STATE )     THEN
                call self % Display(sem % mesh, monitors)

@@ -31,28 +31,30 @@ interface
          SUBROUTINE UserDefinedStartup
             IMPLICIT NONE  
          END SUBROUTINE UserDefinedStartup
-         SUBROUTINE UserDefinedFinalSetup(sem , thermodynamics_, &
+         SUBROUTINE UserDefinedFinalSetup(mesh , thermodynamics_, &
                                                  dimensionless_, &
                                                      refValues_ )
-            USE DGSEMClass
             use PhysicsStorage
+            use HexMeshClass
             IMPLICIT NONE
-            CLASS(DGSem)             :: sem
+            CLASS(HexMesh)             :: mesh
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
          END SUBROUTINE UserDefinedFinalSetup
-         SUBROUTINE UserDefinedFinalize(sem, time, thermodynamics_, &
+         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
                                                     dimensionless_, &
                                                         refValues_   )
-            USE DGSEMClass
             use PhysicsStorage
+            use HexMeshClass
             IMPLICIT NONE
-            CLASS(DGSem)  :: sem
-            REAL(KIND=RP) :: time
-            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-            type(Dimensionless_t),     intent(in)  :: dimensionless_
-            type(RefValues_t),         intent(in)  :: refValues_
+            CLASS(HexMesh)                        :: mesh
+            REAL(KIND=RP)                         :: time
+            integer                               :: iter
+            real(kind=RP)                         :: maxResidual
+            type(Thermodynamics_t),    intent(in) :: thermodynamics_
+            type(Dimensionless_t),     intent(in) :: dimensionless_
+            type(RefValues_t),         intent(in) :: refValues_
          END SUBROUTINE UserDefinedFinalize
       SUBROUTINE UserDefinedTermination
          IMPLICIT NONE  
@@ -146,7 +148,7 @@ end interface
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
       CALL checkBCIntegrity(sem % mesh, success)
       IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
-      CALL UserDefinedFinalSetup(sem, thermodynamics, dimensionless, refValues)
+      CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues)
 !
 !     -------------------------
 !     Set the initial condition
@@ -199,7 +201,7 @@ end interface
 !     Let the user perform actions on the computed solution
 !     -----------------------------------------------------
 !
-      CALL UserDefinedFinalize(sem, timeIntegrator % time, thermodynamics, dimensionless, refValues)
+      CALL UserDefinedFinalize(sem % mesh, timeIntegrator % time, sem % numberOfTimeSteps, sem % maxResidual, thermodynamics, dimensionless, refValues)
 !
 !     ------------------------------------
 !     Save the results to the restart file
