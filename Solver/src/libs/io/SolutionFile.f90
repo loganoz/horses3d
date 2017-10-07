@@ -34,6 +34,7 @@ module SolutionFile
    
    private
    public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE
+   public      :: BEGINNING_DATA
    public      :: SOLFILE_STR_LEN
 
    public      :: CreateNewSolutionFile, writeArray, CloseSolutionFile

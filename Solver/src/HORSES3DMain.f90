@@ -67,8 +67,10 @@ end interface
       TYPE( TimeIntegrator_t )            :: timeIntegrator
       
       LOGICAL                             :: success
-      INTEGER                             :: plotUnit, restartUnit, saveUnit
+      integer                             :: initial_iteration
+      INTEGER                             :: plotUnit, saveUnit
       INTEGER, EXTERNAL                   :: UnusedUnit
+      real(kind=RP)                       :: initial_time
       EXTERNAL                            :: externalStateForBoundaryName
       EXTERNAL                            :: ExternalGradientForBoundaryName
       
@@ -146,20 +148,11 @@ end interface
       IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
       CALL UserDefinedFinalSetup(sem, thermodynamics, dimensionless, refValues)
 !
-!     ----------------------
-!     Set the initial values
-!     ----------------------
+!     -------------------------
+!     Set the initial condition
+!     -------------------------
 !
-      IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
-         restartUnit = UnusedUnit()
-         OPEN( UNIT = restartUnit, &
-               FILE = controlVariables % stringValueForKey(restartFileNameKey,requestedLength = LINE_LENGTH), &
-               FORM = "UNFORMATTED" )
-               CALL sem % LoadSolutionForRestart( restartUnit )
-         CLOSE( restartUnit )
-      ELSE
-         call sem % SetInitialCondition( controlVariables ) 
-      END IF
+      call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)
 !
 !     -----------------------------
 !     Construct the time integrator
