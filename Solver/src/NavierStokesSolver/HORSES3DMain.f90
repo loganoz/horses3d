@@ -1,7 +1,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      NSLite3D.f90
+!      HORSES3DMain.f90
 !      Created: May 21, 2015 at 12:56 PM 
 !      By: David Kopriva  
 !
@@ -75,6 +75,7 @@ end interface
       real(kind=RP)                       :: initial_time
       EXTERNAL                            :: externalStateForBoundaryName
       EXTERNAL                            :: ExternalGradientForBoundaryName
+      character(len=LINE_LENGTH)          :: solutionFileName
       
       ! For pAdaptation
       INTEGER, ALLOCATABLE                :: Nx(:), Ny(:), Nz(:)
@@ -160,30 +161,30 @@ end interface
 !     Construct the time integrator
 !     -----------------------------
 !
-      CALL timeIntegrator % construct (controlVariables)
+      CALL timeIntegrator % construct (controlVariables, initial_iteration, initial_time)
 !
 !     --------------------
 !     Prepare for plotting
 !     --------------------
 !
-      IF ( controlVariables % stringValueForKey(plotFileNameKey, &
-           requestedLength = LINE_LENGTH) /= "none" )     THEN
-         plotUnit = UnusedUnit()
-         ALLOCATE(plotter)
-         ALLOCATE(plDataSource)
-         
-         IF(controlVariables % containsKey("number of plot points")) THEN           ! Interpolate to plot
-            CALL plotter % Construct(fUnit      = plotUnit,          &
-                                dataSource = plDataSource,      &
-                                newN       = controlVariables % integerValueForKey("number of plot points"), &
-                                spA        = sem % spA)
-            
-         ELSE                                                                       ! Plot values on Gauss points
-            CALL plotter % Construct(fUnit      = plotUnit,          &
-                                     dataSource = plDataSource)
-         END IF
-         CALL timeIntegrator % setPlotter(plotter)
-      END IF 
+!      IF ( controlVariables % stringValueForKey(plotFileNameKey, &
+!           requestedLength = LINE_LENGTH) /= "none" )     THEN
+!         plotUnit = UnusedUnit()
+!         ALLOCATE(plotter)
+!         ALLOCATE(plDataSource)
+!         
+!         IF(controlVariables % containsKey("number of plot points")) THEN           ! Interpolate to plot
+!            CALL plotter % Construct(fUnit      = plotUnit,          &
+!                                dataSource = plDataSource,      &
+!                                newN       = controlVariables % integerValueForKey("number of plot points"), &
+!                                spA        = sem % spA)
+!            
+!         ELSE                                                                       ! Plot values on Gauss points
+!            CALL plotter % Construct(fUnit      = plotUnit,          &
+!                                     dataSource = plDataSource)
+!         END IF
+!         CALL timeIntegrator % setPlotter(plotter)
+!      END IF 
 !
 !     -----------------
 !     Integrate in time
@@ -207,37 +208,33 @@ end interface
 !     Save the results to the restart file
 !     ------------------------------------
 !
-      IF(controlVariables % stringValueForKey(saveFileNameKey,LINE_LENGTH) /= "none")     THEN 
-         saveUnit = UnusedUnit()
-         OPEN( UNIT = saveUnit, &
-               FILE = controlVariables % stringValueForKey(saveFileNameKey,LINE_LENGTH), &
-               FORM = "UNFORMATTED" )
-               CALL sem % SaveSolutionForRestart( saveUnit )
-         CLOSE( saveUnit )
+      IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN 
+         solutionFileName = controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH)
+         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, .false.)
       END IF
+!!
+!!     ----------------
+!!     Plot the results
+!!     ----------------
+!!
+!      IF ( ASSOCIATED(plotter) )     THEN
+!         plotUnit = UnusedUnit()
+!         OPEN(UNIT = plotUnit, FILE = controlVariables % stringValueForKey(plotFileNameKey, &
+!                                                                requestedLength = LINE_LENGTH))
+!            CALL plotter % ExportToTecplot( elements = sem % mesh % elements , spA = sem % spA)
+!         CLOSE(plotUnit)
+!      END IF 
+!!
+!!     --------
+!!     Clean up
+!!     --------
+!!
+!      IF(ASSOCIATED(plotter)) THEN
+!         CALL plotter % Destruct()
+!         DEALLOCATE(plotter)
+!         DEALLOCATE(plDataSource)
+!      END IF 
 !
-!     ----------------
-!     Plot the results
-!     ----------------
-!
-      IF ( ASSOCIATED(plotter) )     THEN
-         plotUnit = UnusedUnit()
-         OPEN(UNIT = plotUnit, FILE = controlVariables % stringValueForKey(plotFileNameKey, &
-                                                                requestedLength = LINE_LENGTH))
-            CALL plotter % ExportToTecplot( elements = sem % mesh % elements , spA = sem % spA)
-         CLOSE(plotUnit)
-      END IF 
-!
-!     --------
-!     Clean up
-!     --------
-!
-      IF(ASSOCIATED(plotter)) THEN
-         CALL plotter % Destruct()
-         DEALLOCATE(plotter)
-         DEALLOCATE(plDataSource)
-      END IF 
-
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       CALL destructSharedBCModule

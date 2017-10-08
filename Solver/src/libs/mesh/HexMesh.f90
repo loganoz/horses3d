@@ -8,7 +8,8 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      MODULE HexMeshClass
+#include "Includes.h"
+MODULE HexMeshClass
       USE MeshTypes
       USE NodeClass
       USE ElementClass
@@ -17,36 +18,35 @@
       use SharedBCModule
       use ElementConnectivityDefinitions
       use ZoneClass
+      use PhysicsStorage
       IMPLICIT NONE
 !
 !     ---------------
 !     Mesh definition
 !     ---------------
 !
-      TYPE HexMesh
-         INTEGER                                  :: numberOfFaces
-         INTEGER                                  :: no_of_elements
-         INTEGER      , DIMENSION(:), ALLOCATABLE :: Ns              !Polynomial orders of all elements
-         TYPE(Node)   , DIMENSION(:), ALLOCATABLE :: nodes
-         TYPE(Face)   , DIMENSION(:), ALLOCATABLE :: faces
-         TYPE(Element), DIMENSION(:), ALLOCATABLE :: elements
-         CLASS(Zone_t),  DIMENSION(:), ALLOCATABLE :: zones
-!
-!        ========         
-         CONTAINS
-!        ========         
-!
-         PROCEDURE :: constructFromFile => ConstructMesh_FromFile_
-         PROCEDURE :: destruct          => DestructMesh
-         PROCEDURE :: Describe          => DescribeMesh
-         PROCEDURE :: ConstructZones    => HexMesh_ConstructZones
-         PROCEDURE :: SetConnectivities => HexMesh_SetConnectivities
-         PROCEDURE :: Export            => HexMesh_Export
-         PROCEDURE :: WriteCoordFile
-      END TYPE HexMesh
+      type HexMesh
+         integer                                   :: numberOfFaces
+         integer                                   :: no_of_elements
+         integer      , dimension(:), allocatable  :: Ns              !Polynomial orders of all elements
+         type(Node)   , dimension(:), allocatable  :: nodes
+         type(Face)   , dimension(:), allocatable  :: faces
+         type(Element), dimension(:), allocatable  :: elements
+         class(Zone_t), dimension(:), allocatable  :: zones
+         contains
+            procedure :: constructFromFile => ConstructMesh_FromFile_
+            procedure :: destruct          => DestructMesh
+            procedure :: Describe          => DescribeMesh
+            procedure :: ConstructZones    => HexMesh_ConstructZones
+            procedure :: SetConnectivities => HexMesh_SetConnectivities
+            procedure :: Export            => HexMesh_Export
+            procedure :: SaveSolution      => HexMesh_SaveSolution
+            procedure :: LoadSolution      => HexMesh_LoadSolution
+            procedure :: WriteCoordFile
+      end type HexMesh
 
-      TYPE Neighbour             ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
-         INTEGER :: elmnt(7)     ! "7" hardcoded for 3D hexahedrals in conforming meshes... This definition must change if the code is expected to be more general
+      TYPE Neighbour         ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
+         INTEGER :: elmnt(7) ! "7" hardcoded for 3D hexahedrals in conforming meshes... This definition must change if the code is expected to be more general
       END TYPE Neighbour
 
 !
@@ -965,10 +965,159 @@
 !        Close the file
 !        --------------
          call CloseSolutionFile(fID)
-   
-   
          
       end subroutine HexMesh_Export
+
+      subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients)
+         use SolutionFile
+         implicit none
+         class(HexMesh),      intent(in)        :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+         logical,             intent(in)        :: saveGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: fid, eID
+!
+!        Create new file
+!        ---------------
+         if ( saveGradients ) then
+            fid = CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, self % no_of_elements, iter, time)
+         else
+            fid = CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % no_of_elements, iter, time)
+         end if
+!
+!        Write arrays
+!        ------------
+         do eID = 1, self % no_of_elements
+            associate( e => self % elements(eID) )
+            call writeArray(fid, e % storage % Q)
+            if ( saveGradients ) then
+               call writeArray(fid, e % storage % U_x)
+               call writeArray(fid, e % storage % U_y)
+               call writeArray(fid, e % storage % U_z)
+            end if
+            end associate
+         end do
+
+      end subroutine HexMesh_SaveSolution
+
+      subroutine HexMesh_LoadSolution( self, fileName, initial_iteration, initial_time ) 
+         use SolutionFile
+         IMPLICIT NONE
+         CLASS(HexMesh)             :: self
+         character(len=*)           :: fileName
+         integer,       intent(out) :: initial_iteration
+         real(kind=RP), intent(out) :: initial_time
+         
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         INTEGER          :: fID, eID, fileType, no_of_elements, flag
+         integer          :: Nxp1, Nyp1, Nzp1, no_of_eqs
+         character(len=SOLFILE_STR_LEN)      :: rstName
+!
+!        Open the file
+!        -------------
+         open(newunit = fID, file=trim(fileName), status="old", action="read", form="unformatted")
+!
+!        Get the file title
+!        ------------------
+         read(fID) rstName
+!
+!        Get the file type
+!        -----------------
+         read(fID) fileType
+
+         select case (fileType)
+         case(MESH_FILE)
+            print*, "The selected restart file is a mesh file"
+            errorMessage(STD_OUT)
+            stop
+
+         case(SOLUTION_FILE)
+         case(SOLUTION_AND_GRADIENTS_FILE)
+         case(STATS_FILE)
+            print*, "The selected restart file is a statistics file"
+            errorMessage(STD_OUT)
+            stop
+         case default
+            print*, "Unknown restart file format"
+            errorMessage(STD_OUT)
+            stop
+         end select
+!
+!        Read the number of elements
+!        ---------------------------
+         read(fID) no_of_elements
+
+         if ( no_of_elements .ne. size(self % elements) ) then
+            write(STD_OUT,'(A,A)') "The number of elements stored in the restart file ", &
+                                   "do not match that of the mesh file"
+            errorMessage(STD_OUT)
+            stop
+         end if
+!
+!        Read the initial iteration and time
+!        -----------------------------------
+         read(fID) initial_iteration
+         read(fID) initial_time          
+!
+!        Read the terminator indicator
+!        -----------------------------
+         read(fID) flag
+
+         if ( flag .ne. BEGINNING_DATA ) then
+            print*, "Beginning data flag was not found in the file."
+            errorMessage(STD_OUT)
+            stop
+         end if
+!
+!        Read elements data
+!        ------------------
+         do eID = 1, size(self % elements)
+            associate( e => self % elements(eID) )
+            read(fID) Nxp1, Nyp1, Nzp1, no_of_eqs
+            if (      ((Nxp1-1) .ne. e % Nxyz(1)) &
+                 .or. ((Nyp1-1) .ne. e % Nxyz(2)) &
+                 .or. ((Nzp1-1) .ne. e % Nxyz(3)) &
+                 .or. (no_of_eqs .ne. NCONS )       ) then
+               write(STD_OUT,'(A,I0,A)') "Error reading restart file: wrong dimension for element "&
+                                           ,eID,"."
+
+               write(STD_OUT,'(A,I0,A,I0,A,I0,A)') "Element dimensions: ", e % Nxyz(1), &
+                                                                     " ,", e % Nxyz(2), &
+                                                                     " ,", e % Nxyz(3), &
+                                                                     "."
+                                                                     
+               write(STD_OUT,'(A,I0,A,I0,A,I0,A)') "Restart dimensions: ", Nxp1-1, &
+                                                                     " ,", Nyp1-1, &
+                                                                     " ,", Nzp1-1, &
+                                                                     "."
+
+               errorMessage(STD_OUT)
+               stop
+            end if
+
+            read(fID) e % storage % Q 
+!
+!           Skip the gradients record if proceeds
+!           -------------------------------------   
+            if ( fileType .eq. SOLUTION_AND_GRADIENTS_FILE ) then
+               read(fID)
+               read(fID)
+               read(fID)
+            end if
+            end associate
+         end do
+
+      END SUBROUTINE HexMesh_LoadSolution
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 !
@@ -984,8 +1133,8 @@
       call ConstructZones ( self % faces , self % zones )
 
       end subroutine HexMesh_ConstructZones
-!     ==========
-      END MODULE HexMeshClass
-!     ==========
 !
+!///////////////////////////////////////////////////////////////////////
+!
+END MODULE HexMeshClass
       

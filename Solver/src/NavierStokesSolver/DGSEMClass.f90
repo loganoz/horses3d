@@ -65,7 +65,6 @@ Module DGSEMClass
          procedure :: SetQ
          procedure :: GetQdot
          procedure :: SaveSolutionForRestart
-         procedure :: LoadSolutionForRestart
          procedure :: SetInitialCondition => DGSEM_SetInitialCondition
    END TYPE DGSem
    
@@ -299,7 +298,7 @@ Module DGSEMClass
          integer                                :: restartUnit
          integer,       intent(out)             :: initial_iteration
          real(kind=RP), intent(out)             :: initial_time 
-         character(len=LINE_LENGTH)             :: fileName
+         character(len=LINE_LENGTH)             :: fileName, solutionName
          interface
             SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
                                                            dimensionless_,&
@@ -313,11 +312,16 @@ Module DGSEMClass
                type(Dimensionless_t),  intent(in)  :: dimensionless_
                type(RefValues_t),      intent(in)  :: refValues_
             END SUBROUTINE UserDefinedInitialCondition
+            character(len=LINE_LENGTH) function getFileName( inputLine )
+               use SMConstants
+               implicit none
+               character(len=*)     :: inputLine
+            end function getFileName
          end interface
 
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
             fileName = controlVariables % stringValueForKey(restartFileNameKey,requestedLength = LINE_LENGTH)
-            CALL self % LoadSolutionForRestart(fileName, initial_iteration, initial_time)
+            CALL self % mesh % LoadSolution(fileName, initial_iteration, initial_time)
          ELSE
    
             call UserDefinedInitialCondition(self % mesh, thermodynamics, &
@@ -326,120 +330,15 @@ Module DGSEMClass
             initial_time = 0.0_RP
             initial_iteration = 0
          END IF
+!
+!        Save the initial condition
+!        --------------------------
+         solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
+         solutionName = trim(getFileName(solutionName))
+         write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
+         call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, .false. )
    
       end subroutine DGSEM_SetInitialCondition
-      
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE LoadSolutionForRestart( self, fileName, initial_iteration, initial_time ) 
-         use SolutionFile
-         IMPLICIT NONE
-         CLASS(DGSem)               :: self
-         character(len=*)           :: fileName
-         integer,       intent(out) :: initial_iteration
-         real(kind=RP), intent(out) :: initial_time
-         
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         INTEGER          :: fID, eID, fileType, no_of_elements, flag
-         integer          :: Nxp1, Nyp1, Nzp1, no_of_eqs
-         character(len=SOLFILE_STR_LEN)      :: rstName
-!
-!        Open the file
-!        -------------
-         open(newunit = fID, file=trim(fileName), status="old", action="read", form="unformatted")
-!
-!        Get the file title
-!        ------------------
-         read(fID) rstName
-!
-!        Get the file type
-!        -----------------
-         read(fID) fileType
-
-         select case (fileType)
-         case(MESH_FILE)
-            print*, "The selected restart file is a mesh file"
-            errorMessage(STD_OUT)
-            stop
-
-         case(SOLUTION_FILE)
-         case(SOLUTION_AND_GRADIENTS_FILE)
-         case(STATS_FILE)
-            print*, "The selected restart file is a statistics file"
-            errorMessage(STD_OUT)
-            stop
-         case default
-            print*, "Unknown restart file format"
-            errorMessage(STD_OUT)
-            stop
-         end select
-!
-!        Read the number of elements
-!        ---------------------------
-         read(fID) no_of_elements
-
-         if ( no_of_elements .ne. size(self % mesh % elements) ) then
-            write(STD_OUT,'(A,A)') "The number of elements stored in the restart file ", &
-                                   "do not match that of the mesh file"
-            errorMessage(STD_OUT)
-            stop
-         end if
-!
-!        Read the initial iteration and time
-!        -----------------------------------
-         read(fID) initial_iteration
-         read(fID) initial_time          
-!
-!        Read the terminator indicator
-!        -----------------------------
-         read(fID) flag
-
-         if ( flag .ne. BEGINNING_DATA ) then
-            print*, "Beginning data flag was not found in the file."
-            errorMessage(STD_OUT)
-            stop
-         end if
-!
-!        Read elements data
-!        ------------------
-         do eID = 1, size(self % mesh % elements)
-            associate( e => self % mesh % elements(eID) )
-            read(fID) Nxp1, Nyp1, Nzp1, no_of_eqs
-            if (      ((Nxp1-1) .ne. e % Nxyz(1)) &
-                 .or. ((Nyp1-1) .ne. e % Nxyz(2)) &
-                 .or. ((Nzp1-1) .ne. e % Nxyz(3)) &
-                 .or. (no_of_eqs .ne. NCONS )       ) then
-               write(STD_OUT,'(A,I0,A)') "Error reading restart file: wrong dimension for element "&
-                                           ,eID,"."
-
-               write(STD_OUT,'(A,I0,A,I0,A,I0,A)') "Element dimensions: ", e % Nxyz(1), &
-                                                                     " ,", e % Nxyz(2), &
-                                                                     " ,", e % Nxyz(3), &
-                                                                     "."
-                                                                     
-               write(STD_OUT,'(A,I0,A,I0,A,I0,A)') "Restart dimensions: ", Nxp1-1, &
-                                                                     " ,", Nyp1-1, &
-                                                                     " ,", Nzp1-1, &
-                                                                     "."
-
-               errorMessage(STD_OUT)
-               stop
-            end if
-
-            read(fID) e % storage % Q 
-!
-!           Skip the gradients record if proceeds
-!           -------------------------------------   
-            if ( fileType .eq. SOLUTION_AND_GRADIENTS_FILE ) read(fID)
-            end associate
-         end do
-
-      END SUBROUTINE LoadSolutionForRestart
 !
 !//////////////////////////////////////////////////////////////////////// 
 !

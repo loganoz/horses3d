@@ -5,8 +5,9 @@ clc
 close all
 format long
 
-%[fileName,pathName] = uigetfile();
-file = '/Users/juanmanzanero/OwnCloud/Research/DGSEM/Codes/FORTRAN/HORSES3D/Solver/test/NavierStokes/Cylinder/MESH/CylinderNSpol3.hmesh';
+[fileName,pathName] = uigetfile();
+file = [pathName,fileName];
+%file = '/Users/juanmanzanero/OwnCloud/Research/DGSEM/Codes/FORTRAN/HORSES3D/Solver/test/NavierStokes/Cylinder/MESH/CylinderNSpol3.hmesh';
 
 %
 %   Open file

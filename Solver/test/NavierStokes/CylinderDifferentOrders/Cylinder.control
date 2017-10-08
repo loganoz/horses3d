@@ -1,8 +1,7 @@
 Flow equations        = "NS"
 mesh file name        = "../../TestMeshes/CylinderNSpol3_1elem_y.mesh"
-plot file name        = "RESULTS/Cylinder.tec"
 restart file name     = "RESULTS/CylinderN2N3N4N5.rst"
-save file name        = "RESULTS/Cylinder_saved.rst"
+solution file name    = "RESULTS/Cylinder_saved.rst"
 restart               = .false.
 restart interval      = 50
 polynomial order file = "MESH/OrdersN2N3N4N5_anisotropy.csv"

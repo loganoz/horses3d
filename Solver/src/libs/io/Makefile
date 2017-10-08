@@ -12,6 +12,7 @@ MOD_FLAG?=-J
 
 
 LIBOBJS = 	./build/Headers.o \
+		./build/autosave.o \
 		./build/SolutionFile.o \
 		./build/FileReading.o \
 		./build/ReadInputFile.o \

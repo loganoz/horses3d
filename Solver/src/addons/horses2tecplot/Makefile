@@ -69,7 +69,7 @@ install: $(PROG)
 ##########################################
 clean: FORCE
 	rm -f ./include/*.mod ./lib/*.a ./build/*.o
-	rm -r $(PROG)
+	rm -f $(PROG)
 
 mkdirs: FORCE
 	@mkdir -p ./build

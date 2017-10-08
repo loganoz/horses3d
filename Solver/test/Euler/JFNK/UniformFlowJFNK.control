@@ -1,8 +1,7 @@
 Flow equations        = "Euler"
 mesh file name        = "../../TestMeshes/Box27.mesh"
-plot file name        = "RESULTS/Box27.tec"
 restart file name     = "RESULTS/Box27.rst"
-save file name        = "RESULTS/Box27_saved.rst"
+solution file name    = "RESULTS/Box27_saved.rst"
 restart               = .false.
 Polynomial order      = 5
 Number of time steps  = 5000

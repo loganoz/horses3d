@@ -108,16 +108,20 @@ module MonitorsClass
          integer                         :: i
          character(len=STR_LEN_MONITORS) :: line
          character(len=STR_LEN_MONITORS) :: solution_file                                            
+         interface
+            character(len=LINE_LENGTH) function getFileName(inputLine)
+               use SMConstants
+               character(len=*), intent(in)     :: inputLine
+            end function getFileName
+         end interface
 !
 !        Get the solution file name
 !        --------------------------
-         solution_file = controlVariables % stringValueForKey( plotFileNameKey, requestedLength = STR_LEN_MONITORS )
+         solution_file = controlVariables % stringValueForKey( solutionFileNameKey, requestedLength = STR_LEN_MONITORS )
 !
-!        Remove the *.tec termination
-!        ----------------------------
-         if ( index(solution_file,'.tec') .ne. 0 ) then
-            solution_file = solution_file(1 : len_trim(solution_file)-4)
-         end if
+!        Remove the *.hsol termination
+!        -----------------------------
+         solution_file = trim(getFileName(solution_file))
 !
 !        Search in case file for probes, surface monitors, and volume monitors
 !        ---------------------------------------------------------------------

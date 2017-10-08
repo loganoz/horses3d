@@ -1,8 +1,7 @@
 Flow equations        = "Euler"
 mesh file name        = "../../TestMeshes/DiffuserMesh.mesh"
-plot file name        = "RESULTS/diffuser.tec"
 restart file name     = "RESULTS/diffuser.rst"
-save file name        = "RESULTS/diffuser_saved.rst"
+solution file name    = "RESULTS/diffuser_saved.rst"
 restart               = .false.
 Polynomial order      = 5
 Number of time steps  = 10000

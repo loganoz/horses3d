@@ -17,19 +17,19 @@
       USE PolynomialInterpAndDerivsModule
       USE DGSEMClass
       USE Physics
-      USE DGSEMPlotterClass
       USE ExplicitMethods
+      use AutosaveClass
       IMPLICIT NONE 
-!
-      INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
       
+      INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
+
       TYPE TimeIntegrator_t
          INTEGER                                :: integratorType
          REAL(KIND=RP)                          :: tFinal, time
-         INTEGER                                :: numTimeSteps, plotInterval
+         INTEGER                                :: initial_iter, numTimeSteps, outputInterval
          REAL(KIND=RP)                          :: dt, tolerance, cfl
          LOGICAL                                :: Compute_dt                    ! Is st computed from an inputted CFL number?
-         TYPE(DGSEMPlotter),   POINTER          :: plotter  !Plotter is NOT owned by the time integrator
+         type(Autosave_t)                       :: autosave
          PROCEDURE(RKStepFcn), NOPASS , POINTER :: RKStep
 !
 !        ========         
@@ -38,7 +38,6 @@
 !
          PROCEDURE :: construct => constructTimeIntegrator
          PROCEDURE :: destruct => destructTimeIntegrator
-         PROCEDURE :: setPlotter
          PROCEDURE :: integrate
          procedure :: Display => TimeIntegrator_Display
       END TYPE TimeIntegrator_t
@@ -58,13 +57,13 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE constructTimeIntegrator(self,controlVariables)
+      SUBROUTINE constructTimeIntegrator(self,controlVariables, initial_iter, initial_time)
       
          IMPLICIT NONE
-         !---------------------------------------------
          CLASS(TimeIntegrator_t)     :: self
          TYPE(FTValueDictionary)     :: controlVariables
-         !---------------------------------------------
+         integer                     :: initial_iter
+         real(kind=RP)               :: initial_time
 !
 !        ----------------------------------------------------------------------------------
 !        Set time-stepping variables
@@ -86,11 +85,11 @@
 !        Common initializations
 !        ----------------------
 !
-         self % time           =  0._RP                                                                  ! TODO: Modify this for restarted cases?
+         self % time           =  initial_time 
+         self % initial_iter   =  initial_iter
          self % numTimeSteps   =  controlVariables % integerValueForKey ("number of time steps")
-         self % plotInterval   =  controlVariables % integerValueForKey("output interval")
+         self % outputInterval =  controlVariables % integerValueForKey("output interval")
          self % tolerance      =  controlVariables % doublePrecisionValueForKey("convergence tolerance")
-         self % plotter        => NULL()
          self % RKStep         => TakeRK3Step
 !
 !        ------------------------------------
@@ -108,6 +107,12 @@
             CASE DEFAULT ! Using 'steady-state' even if not specified in input file
                self % integratorType = STEADY_STATE
          END SELECT
+!
+!        ----------------
+!        Set the autosave
+!        ----------------
+!
+         call self % autosave % Configure(controlVariables)
          
       END SUBROUTINE constructTimeIntegrator
 !
@@ -120,14 +125,6 @@
          self % dt           = 0.0_RP
          
       END SUBROUTINE destructTimeIntegrator
-!
-!     ////////////////////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE setPlotter( self, plotter ) 
-         CLASS(TimeIntegrator_t)     :: self
-         TYPE(DGSEMPlotter), pointer :: plotter
-         self % plotter => plotter
-      END SUBROUTINE setPlotter
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -159,23 +156,24 @@ interface
             CLASS(HexMesh)  :: mesh
             REAL(KIND=RP) :: time
          END SUBROUTINE UserDefinedPeriodicOperation
+         character(len=LINE_LENGTH) function getFileName(inputLine)
+            use SMConstants
+            implicit none
+            character(len=*)     :: inputLine
+         end function getFileName
 end interface
       
       REAL(KIND=RP)                 :: t
       REAL(KIND=RP)                 :: maxResidual(N_EQN)
+      REAL(KIND=RP)                 :: dt
       INTEGER                       :: k, mNumber
       CHARACTER(LEN=13)             :: fName = "Movie_XX.tec"
       CHARACTER(LEN=2)              :: numChar
       EXTERNAL                      :: ExternalState, ExternalGradients
-      
-      ! For saving restarts
-      CHARACTER(len=LINE_LENGTH)    :: RestFileName
-      INTEGER                       :: RestartInterval
-      
+      CHARACTER(len=LINE_LENGTH)    :: SolutionFileName
       ! For Implicit
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
       INTEGER                       :: JacFlag
-      
       TYPE(FASMultigrid_t)          :: FASSolver
 !
 !     ----------------------
@@ -187,8 +185,7 @@ end interface
       ELSE ! Default value
          TimeIntegration = 'explicit'
       END IF
-      RestFileName     = controlVariables % StringValueForKey("restart file name",LINE_LENGTH)
-      RestartInterval  = controlVariables % IntegerValueForKey("restart interval") !If not present, RestartInterval=HUGE
+      SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       
       ! Specific keywords
       IF (TimeIntegration == 'implicit') JacFlag = controlVariables % IntegerValueForKey("jacobian flag")
@@ -207,9 +204,15 @@ end interface
       t = self % time
       sem % MaxResidual = 1.e-3_RP !initializing to this value for implicit solvers (Newton tolerance is computed according to this)
       
-      DO k = 0, self % numTimeSteps-1
-      
+      DO k = self % initial_iter, self % initial_iter + self % numTimeSteps-1
+!
+!        CFL-bounded time step
+!        ---------------------      
          IF ( self % Compute_dt ) self % dt = MaxTimeStep( sem, self % cfl )
+!
+!        Autosave bounded time step
+!        --------------------------
+         dt = self % autosave % CorrectDt(t,self % dt)
 !
 !        Perform time step
 !        -----------------         
@@ -217,90 +220,78 @@ end interface
             CASE ('implicit')
                SELECT CASE (JacFlag)
                   CASE (1)
-                     CALL TakeBDFStep_JF (sem, t , self%dt )
+                     CALL TakeBDFStep_JF (sem, t , dt )
                   CASE (2)
-                     CALL TakeBDFStep_NJ (sem, t , self%dt , controlVariables)
+                     CALL TakeBDFStep_NJ (sem, t , dt , controlVariables)
                   CASE (3)
                      STOP 'Analytical Jacobian not implemented yet'
                   CASE DEFAULT
                      PRINT*, "Not valid 'Jacobian Flag'. Running with Jacobian-Free Newton-Krylov."
                      JacFlag = 1
-                     CALL TakeBDFStep_JF (sem, t , self%dt )
+                     CALL TakeBDFStep_JF (sem, t , dt )
                END SELECT
             CASE ('explicit')
-               CALL self % RKStep ( sem, t, self % dt )
+               CALL self % RKStep ( sem, t, dt )
             CASE ('FAS')
                CALL FASSolver % solve(k,t)
          END SELECT
 !
 !        Compute the new time
 !        --------------------         
-         t = t + self % dt
+         t = t + dt
 !
 !        Get maximum residuals
 !        ---------------------
          maxResidual       = ComputeMaxResidual(sem)
          sem % maxResidual = maxval(maxResidual)
 !
-!        Exit if the time exceeds the final time (only in TIME_ACCURATE mode)
-!        ---------------------------------------
-         if ( self % integratorType .eq. TIME_ACCURATE ) then
-            if ( self % time .ge. self % tFinal) then
-               call monitors % UpdateValues( sem % mesh, sem % spA, t, k+1, maxResidual )
-               call self % Display( sem % mesh, monitors)
-               exit
-            end if
-         end if
-!
 !        Update monitors
 !        ---------------
          call Monitors % UpdateValues( sem % mesh, sem % spA, t, k+1, maxResidual )
-
+!
+!        Exit if the target is reached
+!        -----------------------------
          IF (self % integratorType == STEADY_STATE) THEN
             IF (maxval(maxResidual) <= self % tolerance )  THEN
               call self % Display(sem % mesh, monitors)
-              sem % maxResidual       = maxval(maxResidual)
-              self % time             = t
-              sem % numberOfTimeSteps = k + 1
+              sem  % maxResidual       = maxval(maxResidual)
+              self % time              = t
+              sem  % numberOfTimeSteps = k + 1
               PRINT *, "Residual tolerance reached at iteration ",k+1," with Residual = ", maxResidual
               RETURN
             END IF
          ELSEIF (self % integratorType == TIME_ACCURATE) THEN
-            self % time              = t     
-            IF (self % time > self % tFinal) EXIT
-         END IF
-         
-         IF (MOD( k+1, RestartInterval) == 0) CALL SaveRestart(sem,k+1,t,RestFileName)
-         
-         IF( (MOD( k+1, self % plotInterval) == 0) .or. (k .eq. 0) )     THEN
-          CALL UserDefinedPeriodicOperation(sem % mesh,t)
-          
-            IF ( self % integratorType == STEADY_STATE )     THEN
-               call self % Display(sem % mesh, monitors)
-               
-            ELSE IF (ASSOCIATED(self % plotter))     THEN 
-               mNumber = mNumber + 1
-               WRITE(numChar,'(i2)') mNumber
-               IF ( mNumber >= 10 )     THEN
-                  fName(7:8) = numChar
-               ELSE
-                  fName(7:7) = "0"
-                  fName(8:8) = numChar(2:2)
-               END IF
-               PRINT *, fName
-               OPEN(UNIT = self % plotter % fUnit, FILE = fName)
-                  CALL self % plotter % ExportToTecplot( sem % mesh % elements, sem % spA )
-               CLOSE(self % plotter % fUnit)
-               
-            END IF
+            IF (self % time > self % tFinal) then
+               self % time = t     
+               sem % numberOfTimeSteps = k+1
+               call self % Display( sem % mesh, monitors)
+               exit
+            end if
          END IF
 !
+!        User defined periodic operation
+!        -------------------------------
+         CALL UserDefinedPeriodicOperation(sem % mesh,t)
+!
+!        Print monitors
+!        --------------
+         IF( (MOD( k+1, self % outputInterval) == 0) .or. (k .eq. 0) ) call self % Display(sem % mesh, monitors)
+!
+!        Autosave
+!        --------         
+         if ( self % autosave % Autosave(k+1) ) then
+            call SaveRestart(sem,k+1,t,SolutionFileName)
+   
+         end if
+
 !        Flush monitors
 !        --------------
          call monitors % WriteToFile()
-        
-      END DO
 
+      END DO
+!
+!     Flush the remaining information in the monitors
+!     -----------------------------------------------
       if ( k .ne. 0 ) then
          call Monitors % writeToFile( force = .true. )
       end if
@@ -362,14 +353,12 @@ end interface
       CHARACTER(len=LINE_LENGTH)   :: FinalName      !  Final name for particular restart file
 !     ----------------------------------------------
       
-      WRITE(FinalName,'(2A,I5.5,A,ES9.3,A)')  TRIM(RestFileName),'_step_',k,'_time_',t,'.rst'
-      
-      OPEN( newunit = fd             , &
-            FILE    = TRIM(FinalName), & 
-            ACTION  = 'WRITE'        , &
-            FORM = "UNFORMATTED")
-         CALL SaveSolutionForRestart( sem, fd )
-      CLOSE (fd)
+      WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
+      write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
+      call sem % mesh % SaveSolution(k,t,trim(finalName),.false.)
    
    END SUBROUTINE SaveRestart
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!         
 END MODULE TimeIntegratorClass

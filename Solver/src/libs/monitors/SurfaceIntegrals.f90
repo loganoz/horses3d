@@ -240,6 +240,8 @@ module SurfaceIntegrals
          integer,             intent(in)  :: zoneID
          integer,             intent(in)  :: integralType
          real(kind=RP)                    :: val(NDIM)
+         real(kind=RP)                    :: localVal(NDIM)
+         real(kind=RP)                    :: valx, valy, valz
 !
 !        ---------------
 !        Local variables
@@ -250,10 +252,13 @@ module SurfaceIntegrals
 !        Initialization
 !        --------------            
          val = 0.0_RP
+         valx = 0.0_RP
+         valy = 0.0_RP
+         valz = 0.0_RP
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
-!$omp parallel do reduction(+:val) private(fID,eID) schedule(guided)
+!$omp parallel do reduction(+:valx,valy,valz) private(fID,eID,localVal) schedule(guided)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces         
 !
 !           Face global ID
@@ -266,13 +271,18 @@ module SurfaceIntegrals
 !
 !           Compute the integral
 !           --------------------
-            val = val + VectorSurfaceIntegral_Face(mesh % elements(eID), &
+            localVal = VectorSurfaceIntegral_Face(mesh % elements(eID), &
                                                                     spA, &
                                      mesh % faces(fID) % elementSide(1), &
                                                            integralType    )
+            valx = valx + localVal(1)
+            valy = valy + localVal(2)
+            valz = valz + localVal(3)
 
          end do
 !$omp end parallel do
+
+         val = (/valx, valy, valz/)
 
       end function VectorSurfaceIntegral
 

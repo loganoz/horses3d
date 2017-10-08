@@ -191,7 +191,7 @@ addons:
 ##########################################
 ##	Extra auxiliar rules 		##
 ##########################################
-clean: FORCE horseslibclean problemfileclean horsesclean
+clean: FORCE horseslibclean problemfileclean horsesclean addonsclean
 	$(info Removing object *.o files from $(NSLITE3D_PATH)/build)
 	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
 	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod $(HOME_DIR)/include/*.h $(HOME_DIR)/lib/*.a
@@ -217,6 +217,11 @@ problemfileclean: FORCE
 
 horsesclean: FORCE
 	(cd $(HOME_DIR)/src/NavierStokesSolver && $(MAKE) $(HORSESFLAGS) clean) || exit 1;
+
+addonsclean: FORCE
+	@for subdir in $(ADDONS); do \
+		(cd $(HOME_DIR)/src/addons/$$subdir && $(MAKE) $(ADDONSFLAGS) clean) || exit 1; \
+	done
 
 mkdirs: FORCE
 	@mkdir -p $(HOME_DIR)/build

@@ -1,9 +1,5 @@
 Flow equations        = "NS"
 mesh file name        = "../../TestMeshes/CylinderNSpol3.mesh"
-plot file name        = "RESULTS/Cylinder.tec"
-restart file name     = "RESULTS/Cylinder.rst"
-save file name        = "RESULTS/Cylinder_saved.rst"
-restart               = .false.
 Polynomial order      = 3
 Number of time steps  = 100
 Output Interval       = 10
@@ -14,6 +10,9 @@ mach number           = 0.3
 Reynolds number       = 200.0
 AOA theta             = 0.0
 AOA phi               = 90.0
+solution file name    = "RESULTS/Cylinder_saved.rst"
+restart               = .false.
+restart file name     = "RESULTS/Cylinder.rst"
 Number of boundaries  = 7
 InnerCylinder 0.0 NoSlipAdiabaticWall
 Front 0.0 Inflow
