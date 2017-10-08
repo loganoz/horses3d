@@ -58,10 +58,6 @@ module meshStorage
 !           ---------
             read(fid) e % x
 
-            do k = 0, e % N(3) ; do j = 0, e % N(2);  do i = 0, e % N(1)
-               print*, e % x(:,i,j,k)
-            end do; end do; end do
-
             end associate
          end do
 !

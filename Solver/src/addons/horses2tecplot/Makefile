@@ -22,30 +22,14 @@ COMM?=PARALLEL
 MAKE=make
 AR=ar
 RANLIB=ranlib
-PROG=./bin/HORSES3D
+PROG=./bin/horses2plt
 
-OBJS_HORSES=	DGInviscidDiscretization \
-		DGViscousDiscretization \
-		DGWeakIntegrals \
-		DGSEMClass \
-		SpatialDiscretization \
-		TimeIntegrator \
-		pAdaptationClass \
-		Implicit_JF \
-		JFNKClass \
-		GMRESClass \
-		Implicit_NJ \
-		PetscSolverClass \
-		GenericLinSolverClass \
-		MKLPardisoSolverClass \
-		LinearSolverClass \
-		IterativeSolverClass \
-		MultigridSolverClass \
-		ExplicitMethods \
-		FASMultigridClass \
-		HORSES3DMain 
+OBJS=	getTask\
+	meshStorage\
+	Mesh2Plt\
+	main \
 
-OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
+OBJS_BUILD=$(foreach obj,$(OBJS),./build/$(obj).o)
 
 
 ##########################################
@@ -65,13 +49,13 @@ OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 	@echo $<
 	$(FC) $(FFLAGS) $(INCLUDE) $(MACROS) -c $< -o $@ $(MOD_FLAG) ./include
 
-$(PROG): header mkdirs $(OBJS_HORSES_BUILD)
+$(PROG): header mkdirs $(OBJS_BUILD)
 	@echo
 	@echo
 	@echo "---------------------------------"
 	@echo "| Linking " $@ "|"
 	@echo "---------------------------------"
-	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_BUILD) $(HORSES_LIBS_EXEC)
+	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_BUILD) $(HORSES_LIBS_EXEC)
 
 
 install: $(PROG)
@@ -85,7 +69,7 @@ install: $(PROG)
 ##########################################
 clean: FORCE
 	rm -f ./include/*.mod ./lib/*.a ./build/*.o
-	rm -f $(PROG)
+	rm -r $(PROG)
 
 mkdirs: FORCE
 	@mkdir -p ./build
@@ -96,7 +80,7 @@ mkdirs: FORCE
 header: FORCE
 	@echo
 	@echo "================================"
-	@echo ">>   Building HORSES3D Solver  "
+	@echo ">>   Building horses2plt Solver  "
 	@echo "================================"
 	@echo
 	@echo
