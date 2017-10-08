@@ -37,7 +37,9 @@ module SolutionFile
    public      :: BEGINNING_DATA
    public      :: SOLFILE_STR_LEN
 
-   public      :: CreateNewSolutionFile, writeArray, CloseSolutionFile
+   public      :: CreateNewSolutionFile, writeArray, CloseSolutionFile, getSolutionFileType
+   public      :: putSolutionFileInReadDataMode, getSolutionFileNoOfElements
+   public      :: getSolutionFileArrayDimensions
 !
 !  Possible solution file types
 !  ----------------------------
@@ -131,7 +133,126 @@ module SolutionFile
          close(fID)
 
       end subroutine CloseSolutionFile
+   
+      integer function getSolutionFileType(fileName)
+         implicit none
+         character(len=*), intent(in)  :: fileName
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: fid
+         character(len=SOLFILE_STR_LEN)   :: fileNameInFile
+!
+!        Open file
+!        ---------
+         open(newunit=fid, file=trim(fileName), status="old", action="read", form="unformatted")
+!
+!        Get the file name
+!        -----------------
+         read(fid) fileNameInFile
+!
+!        Get the file type
+!        -----------------
+         read(fid) getSolutionFileType
+!
+!        Close file
+!        ----------
+         close(fid)
 
+      end function getSolutionFileType
+
+      integer function getSolutionFileNoOfElements(fileName)
+         implicit none
+         character(len=*), intent(in)  :: fileName
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: fid, no_of_elements, initial_iter, fileType, flag
+         real(kind=RP)  :: initial_time
+         character(len=SOLFILE_STR_LEN)   :: fileNameInFile
+!
+!        Open file
+!        ---------
+         open(newunit=fid, file=trim(fileName), status="old", action="read", form="unformatted")
+!
+!        Get the file name
+!        -----------------
+         read(fid) fileNameInFile
+!
+!        Get the file type
+!        -----------------
+         read(fid) fileType
+!
+!        Get the number of elements
+!        --------------------------
+         read(fid) getSolutionFileNoOfElements
+!
+!        Close file
+!        ----------
+         close(fid)
+
+      end function getSolutionFileNoOfElements
+
+      integer function putSolutionFileInReadDataMode(fileName)
+         implicit none
+         character(len=*), intent(in)  :: fileName
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: fid, no_of_elements, initial_iter, fileType, flag
+         real(kind=RP)  :: initial_time
+         character(len=SOLFILE_STR_LEN)   :: fileNameInFile
+!
+!        Open file
+!        ---------
+         open(newunit=fid, file=trim(fileName), status="old", action="read", form="unformatted")
+!
+!        Get the file name
+!        -----------------
+         read(fid) fileNameInFile
+!
+!        Get the file type
+!        -----------------
+         read(fid) fileType
+!
+!        Get the number of elements
+!        --------------------------
+         read(fid) no_of_elements
+!
+!        Get the initial time and iteration
+!        ----------------------------------
+         if ( fileType .ne. MESH_FILE ) then
+            read(fid) initial_iter
+            read(fid) initial_time        
+         end if
+!
+!        Get the beginning data mark
+!        ---------------------------
+         read(fid) flag
+
+         if ( flag .ne. BEGINNING_DATA ) then
+            write(STD_OUT,'(A,A,A)') 'Error reading file "',trim(fileName),'". The beginning data mark was not found.'
+            close(fid)
+            putSolutionFileInReadDataMode = 0
+         else
+            putSolutionFileInReadDataMode = fid
+         end if
+
+      end function putSolutionFileInReadDataMode
+!
+!/////////////////////////////////////////////////////////////////////
+!
+!     Write array procedures
+!     ----------------------
+!
+!/////////////////////////////////////////////////////////////////////
+!
       subroutine Write0DArray(fID, array)
          implicit none
          integer, intent(in)           :: fID
@@ -197,5 +318,35 @@ module SolutionFile
          write(fID) array
 
       end subroutine Write5DArray
+!
+!//////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     Read array procedures
+!     ---------------------
+!
+!//////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine getSolutionFileArrayDimensions(fid,N)
+         implicit none
+         integer, intent(in)     :: fid
+         integer, intent(out)    :: N(:)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: arrayDimension
+
+         read(fid) arrayDimension
+
+         if ( size(N) .ne. arrayDimension) then
+            print*, "Array found in file dimensions does not match that of the introduced variable."
+            errorMessage(STD_OUT)
+            stop
+         end if
+
+         read(fid) N
+
+      end subroutine getSolutionFileArrayDimensions
 
 end module SolutionFile
