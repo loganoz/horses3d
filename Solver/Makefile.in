@@ -132,6 +132,7 @@ endif
 HORSES_LIBS=ftobject foundation spectral io physics mesh plot jacobian monitors
 HORSES_LIBS_REORD=monitors jacobian plot mesh physics io spectral foundation ftobject
 HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS_REORD),$(HOME_DIR)/lib/lib$(obj).a)
+ADDONS=horses2tecplot
 LIBFLAGS=  FC='$(FC)' \
 	   FFLAGS='$(FFLAGS)' \
 	   INCLUDE='$(INCLUDE)' \
@@ -149,6 +150,14 @@ HORSESFLAGS= FC='$(FC)' \
 	     HORSES_LIBS_EXEC='$(HORSES_LIBS_EXEC) $(PROBLEM_LIB)' \
 	     MACROS='$(MACROS)'
 
+ADDONSFLAGS= FC='$(FC)' \
+ 	     FFLAGS='$(FFLAGS)'\
+             INCLUDE='$(INCLUDE)' \
+             INSTALL_DIR='$(INSTALL_DIR)' \
+	     MOD_FLAG='$(MOD_FLAG)'\
+	     HORSES_LIBS_EXEC='$(HORSES_LIBS_EXEC)' \
+	     MACROS='$(MACROS)'
+
 
 ##########################################################
 ##		COMPILATION RULES 			##
@@ -156,7 +165,7 @@ HORSESFLAGS= FC='$(FC)' \
 
 .DEFAULT_GOAL := all
 
-all: header mkdirs horseslibs problemfilelib HORSES3D
+all: header mkdirs horseslibs problemfilelib HORSES3D addons
 
 install: FORCE
 	cp -f $(HOME_DIR)/bin/HORSES3D /usr/local/bin
@@ -174,13 +183,18 @@ horseslibs:
 	    (cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install) || exit 1; \
 	done
 
+addons:
+	@for subdir in $(ADDONS); do \
+	    (cd $(HOME_DIR)/src/addons/$$subdir && $(MAKE) $(ADDONSFLAGS) install) || exit 1; \
+	done
+
 ##########################################
 ##	Extra auxiliar rules 		##
 ##########################################
 clean: FORCE horseslibclean problemfileclean horsesclean
 	$(info Removing object *.o files from $(NSLITE3D_PATH)/build)
 	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
-	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod* $(HOME_DIR)/lib/*.a
+	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod $(HOME_DIR)/include/*.h $(HOME_DIR)/lib/*.a
 	@rm -f $(HOME_DIR)/lib/libproblemfile.so
 
 test: all

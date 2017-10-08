@@ -32,7 +32,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalSetup(sem , thermodynamics_, &
+         SUBROUTINE UserDefinedFinalSetup(mesh , thermodynamics_, &
                                                  dimensionless_, &
                                                      refValues_ )
 !
@@ -41,10 +41,10 @@
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
-            USE DGSEMClass
+            use HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
-            CLASS(DGSem)             :: sem
+            CLASS(HexMesh)             :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -52,7 +52,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(sem, thermodynamics_, &
+         SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
                                                       dimensionless_, &
                                                           refValues_  )
 !
@@ -64,9 +64,9 @@
 !
             USE SMConstants
             use PhysicsStorage
-            use DGSEMClass
+            use HexMeshClass
             implicit none
-            class(DGSEM)                        :: sem
+            class(HexMesh)                      :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -84,10 +84,10 @@
             theta = refValues_ % AOATheta*(PI/180.0_RP)
             phi   = refValues_ % AOAPhi*(PI/180.0_RP)
       
-            do eID = 1, sem % mesh % no_of_elements
-               associate( Nx => sem % mesh % elements(eID) % Nxyz(1), &
-                          Ny => sem % mesh % elements(eID) % Nxyz(2), &
-                          Nz => sem % mesh % elements(eID) % Nxyz(3) )
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          Ny => mesh % elements(eID) % Nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
                do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
                   qq = 1.0_RP
                   u  = qq*cos(theta)*COS(phi)
@@ -101,7 +101,7 @@
                   Q(4) = Q(1)*w
                   Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
 
-                  sem % mesh % elements(eID) % storage % Q(i,j,k,:) = Q 
+                  mesh % elements(eID) % storage % Q(i,j,k,:) = Q 
                end do;        end do;        end do
                end associate
 !
@@ -110,7 +110,7 @@
 !              relax back to the mean flow
 !              -------------------------------------------------
 !
-               sem % mesh % elements(eID) % storage % Q(3,3,3,1) = 1.05_RP*sem % mesh % elements(eID) % storage % Q(3,3,3,1)
+               mesh % elements(eID) % storage % Q(3,3,3,1) = 1.05_RP*mesh % elements(eID) % storage % Q(3,3,3,1)
 
             end do
 
@@ -156,7 +156,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(sem, time)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -165,14 +165,14 @@
 !
             USE DGSEMClass
             IMPLICIT NONE
-            CLASS(DGSem)  :: sem
-            REAL(KIND=RP) :: time
+            CLASS(HexMesh)  :: mesh
+            REAL(KIND=RP)   :: time
             
          END SUBROUTINE UserDefinedPeriodicOperation
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalize(sem, time, thermodynamics_, &
+         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
                                                     dimensionless_, &
                                                         refValues_   )
 !
@@ -184,11 +184,13 @@
             USE DGSEMClass
             use PhysicsStorage
             IMPLICIT NONE
-            CLASS(DGSem)  :: sem
-            REAL(KIND=RP) :: time
-            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-            type(Dimensionless_t),     intent(in)  :: dimensionless_
-            type(RefValues_t),         intent(in)  :: refValues_
+            class(HexMesh)                        :: mesh
+            REAL(KIND=RP)                         :: time
+            integer, intent(in)                   :: iter
+            real(kind=RP), intent(in)             :: maxResidual
+            type(Thermodynamics_t),    intent(in) :: thermodynamics_
+            type(Dimensionless_t),     intent(in) :: dimensionless_
+            type(RefValues_t),         intent(in) :: refValues_
 
          END SUBROUTINE UserDefinedFinalize
 !
