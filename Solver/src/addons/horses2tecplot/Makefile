@@ -26,7 +26,9 @@ PROG=./bin/horses2plt
 
 OBJS=	getTask\
 	meshStorage\
+	solutionStorage\
 	Mesh2Plt\
+	Solution2Plt\
 	main \
 
 OBJS_BUILD=$(foreach obj,$(OBJS),./build/$(obj).o)
