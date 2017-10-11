@@ -18,13 +18,17 @@ ADD_EXECUTABLE(${NSEXE} ${horses_src})
 TARGET_LINK_LIBRARIES(${NSEXE} ${FTLIB} ${FOUNDLIB} ${FTLIB} ${IOLIB} ${JACLIB} 
                       ${MESHLIB} ${MONLIB} ${PHYSLIB} ${PLOTLIB} ${SPECLIB} ${PROBLIB} ${DGSEMLIB})
                       
-# Link MKL libraries if specified by the user
-IF(WITH_MKL)
-	TARGET_LINK_LIBRARIES(${NSEXE} ${MKL_LAPACK_LIBRARIES} ${MKL_BLAS_LIBRARIES} ${MKL_SCALAPACK_LIBRARIES})
-ENDIF()
+
+###################################
+# Create horsesf90 compiling script
+###################################
 
 CONFIGURE_FILE(horsesf90.in.cmake horsesf90)
-  						 
+
+#########
+# Install
+#########
+
 INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/horsesf90 DESTINATION ${BINDIR})
 
 # Uncomment if you have parallization
