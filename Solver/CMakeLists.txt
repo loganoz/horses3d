@@ -1,4 +1,8 @@
-# CMake project file for nslite3d
+#
+# CMake configuration script for HORSES3D
+#
+#  By: Andrés Rueda
+#
 
 ##################################################
 # Define the project and the depencies that it has
@@ -10,13 +14,19 @@ PROJECT(horses3d Fortran)
 # Version of horses3d
 SET(VERSION 0.1)
 
+# Default values for additional features
+SET(WITH_MKL FALSE CACHE BOOL "Use Intel Math Kernel library")
+SET(WITH_LAPACK FALSE CACHE BOOL "Use LAPACK")
+SET(WITH_PETSc FALSE CACHE BOOL "Use PETSc")
+
+
 # Add our local modlues to the module path
 SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 # Uncomment if it is required that Fortran 90 is supported
-#IF(NOT CMAKE_Fortran_COMPILER_SUPPORTS_F90)
-#    MESSAGE(FATAL_ERROR "Fortran compiler does not support F90")
-#ENDIF(NOT CMAKE_Fortran_COMPILER_SUPPORTS_F90)
+IF(NOT CMAKE_Fortran_COMPILER_SUPPORTS_F90)
+    MESSAGE(FATAL_ERROR "Fortran compiler does not support F90")
+ENDIF(NOT CMAKE_Fortran_COMPILER_SUPPORTS_F90)
 
 # Set some options the user may choose
 # Uncomment the below if you want the user to choose a parallelization library
@@ -33,10 +43,41 @@ SET(HORSES_F90FLAGS "${CMAKE_Fortran_FLAGS_${CMAKE_BUILD_TYPE}}")
 # taken care of here, such as the fact that the FindOpenMP routine doesn't know
 # about Fortran.
 #INCLUDE(${CMAKE_MODULE_PATH}/SetParallelizationLibrary.cmake)
+
 # Setup the LAPACK libraries.  This also takes care of peculiarities, such as
 # the fact the searching for MKL requires a C compiler, and that the results
 # are not stored in the cache. 
 #INCLUDE(${CMAKE_MODULE_PATH}/SetUpLAPACK.cmake)
+
+############################################################
+# Locate additional libraries if specified by the user
+############################################################
+
+IF(WITH_MKL)
+  # Find MKL
+  FIND_PACKAGE(MKL REQUIRED)
+  SET(HAS_MKL TRUE)
+  ADD_DEFINITIONS(-DHAS_MKL)
+#  MARK_AS_ADVANCED(HAVE_MKL)
+  # Set BLAS and LAPACK to point to MKL
+  SET(BLAS_LIBRARIES ${MKL_BLAS_LIBRARIES} CACHE FILEPATH "")
+  SET(LAPACK_LIBRARIES ${MKL_LAPACK_LIBRARIES} CACHE FILEPATH "")
+  IF(MPI_FOUND)
+    SET(SCALAPACK_LIBRARIES ${MKL_SCALAPACK_LIBRARIES})
+    # Versions >11.1 of MKL include Cluster PARDISO direct solver
+    IF(WITH_OpenMP AND MKL_CPARDISO_FOUND)
+      SET(HAVE_CPARDISO TRUE)
+      MARK_AS_ADVANCED(HAVE_CPARDISO)
+    ENDIF()
+  ENDIF()
+  INCLUDE_DIRECTORIES(${MKL_INCLUDE_DIR})
+  SET(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${MKL_Fortran_FLAGS}")
+  
+  SET(CMAKE_REQUIRED_LIBRARIES 
+      ${CMAKE_REQUIRED_LIBRARIES} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+ENDIF()
+
+
 
 # There is an error in CMAKE with this flag for pgf90.  Unset it
 GET_FILENAME_COMPONENT(FCNAME ${CMAKE_Fortran_COMPILER} NAME)
@@ -76,10 +117,6 @@ SET(LIBDIR ${CMAKE_SOURCE_DIR}/lib)
 SET(BINDIR ${CMAKE_SOURCE_DIR}/bin)
 SET(INCDIR ${CMAKE_SOURCE_DIR}/include)
 
-#---------------
-#To be deprecated:
-#SET(SRCFOO ${SRC}/foo)
-#SET(SRCBAR ${SRC}/bar)
 #---------------
 
 # Have the .mod files placed in the include folder

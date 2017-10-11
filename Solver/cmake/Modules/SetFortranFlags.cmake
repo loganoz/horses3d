@@ -75,8 +75,9 @@ SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}"
 
 ## C-preprocessor flag
 SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}"
-                 Fortran REQUIRED "-cpp"       # Intel/GNU
-                                  "/cpp"       # Intel Windows
+                 Fortran REQUIRED "-cpp"              # Intel/GNU
+                                  "/cpp"              # Intel Windows
+                                  "-qsuffix=cpp=f90"  # IBM...
                                   #" "         # Portland Group?
                 )
 
@@ -84,6 +85,7 @@ SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}"
 SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}"
                  Fortran "-fbackslash"  # GNU
                          "-assume bscc" # Intel
+                         "-qescape"     # IBM...
                 )
 
 ## fPIC    # This is needed in order to compile the ProblemFile.so as dynamic library (change??)
@@ -210,4 +212,7 @@ IF(CMAKE_BUILD_TYPE STREQUAL "RELEASE")
     IF (NOT OpenMP_Fortran_FLAGS)
         MESSAGE (FATAL_ERROR "Fortran compiler does not support OpenMP")
     ENDIF (NOT OpenMP_Fortran_FLAGS)
+    
+    # For IBM -qsmp=omp
+    
 ENDIF(CMAKE_BUILD_TYPE STREQUAL "RELEASE")

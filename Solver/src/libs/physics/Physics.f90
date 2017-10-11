@@ -207,6 +207,7 @@
 !
 !     --------------------
 !     Set reference values: TODO read from parameter file
+!                           Ok, but be sure to change the mesh reading accordingly (x = x / refValues % L)
 !     --------------------
 !
       refValues_ % L = 1.0_RP       ! m
