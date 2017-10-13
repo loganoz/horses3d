@@ -237,7 +237,7 @@ MODULE HexMeshClass
                         END DO  
                      END DO
                         
-                     IF(facePatches(k) % noOfKnots(1) == 2)     THEN
+                     IF(facePatches(k) % noOfKnots(1) == 2)     THEN             ! TODO This could be problematic with anisotropy
                         CALL facePatches(k) % destruct()
                         CALL facePatches(k) % construct(uNodes, vNodes, values)
                      ELSE

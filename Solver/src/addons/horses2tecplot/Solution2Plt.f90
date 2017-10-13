@@ -6,6 +6,8 @@ module Solution2PltModule
    private
    public   Solution2Plt
 
+   integer, parameter   :: NMAX = 40
+
    contains
    
       subroutine Solution2Plt(meshName, solutionName, performInterpolation, Npoints)
@@ -32,6 +34,7 @@ module Solution2PltModule
       subroutine Solution2Plt_GaussPoints(meshName, solutionName)
          use MeshStorage
          use SolutionStorage
+         use NodalStorageClass
          implicit none  
          character(len=*), intent(in)     :: meshName
          character(len=*), intent(in)     :: solutionName
@@ -47,20 +50,25 @@ module Solution2PltModule
 !        Local variables
 !        ---------------
 !
-         type(MeshCoordinates_t)    :: mesh
-         type(SolutionStorage_t)    :: solution
-         character(len=LINE_LENGTH) :: meshPltName
-         character(len=LINE_LENGTH) :: solutionFile
-         character(len=1024)        :: title
-         integer                    :: no_of_elements, eID
-         integer                    :: fid
-         integer                    :: Nmesh(4), Nsol(4)
+         type(MeshCoordinates_t)         :: mesh
+         type(SolutionStorage_t)         :: solution
+         character(len=LINE_LENGTH)      :: meshPltName
+         character(len=LINE_LENGTH)      :: solutionFile
+         character(len=1024)             :: title
+         integer                         :: no_of_elements, eID
+         integer                         :: fid
+         integer                         :: Nmesh(4), Nsol(4)
+         type(NodalStorage), allocatable :: spA(:,:,:)
 
 !
 !        Read the mesh and solution data
 !        -------------------------------
          call mesh % Read(meshName)
          call solution % Read(SolutionName)
+!
+!        Create the nodal approximation structure
+!        ----------------------------------------
+         allocate( spA(0:NMAX,0:NMAX,0:NMAX) )
 !
 !        Check that the number of elements in both mesh and solutions are the same
 !        -------------------------------------------------------------------------
@@ -93,7 +101,22 @@ module Solution2PltModule
 !        -----------------------
          do eID = 1, no_of_elements
             associate ( eM => mesh % elements(eID), eS => solution % elements(eID) )
-            call WriteElementSolutionGaussPoints(fid,eM % N,eM % x, eS % N, eS % Q)            
+!
+!           Construct spectral basis
+!           ------------------------
+            if ( spA(eM % N(1),eM % N(2), eM % N(3)) % Constructed ) then
+               call spA(eM % N(1), eM % N(2), eM % N(3) ) % Construct( eM % N(1), eM % N(2), eM % N(3) )
+            end if
+
+            if ( spA(eS % N(1),eS % N(2), eS % N(3)) % Constructed ) then
+               call spA(eS % N(1), eS % N(2), eS % N(3) ) % Construct( eS % N(1), eS % N(2), eS % N(3) )
+            end if
+!
+!           Write the tecplot file
+!           ----------------------
+            call WriteElementSolutionGaussPoints(fid,eM % N,eM % x, eS % N, eS % Q, &
+                                                spA(eM % N(1),eM % N(2),eM % N(3)), & 
+                                                spA(eS % N(1),eS % N(2),eS % N(3))  )
             end associate
          end do
 !
@@ -110,27 +133,42 @@ module Solution2PltModule
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine WriteElementSolutionGaussPoints(fid, Nmesh, x, Nsol, Q)
+      subroutine WriteElementSolutionGaussPoints(fid, Nmesh, x, Nsol, Q, spAM, spAS)
+         use NodalStorageClass
+         use MeshInterpolation
          implicit none
-         integer,       intent(in) :: fid
-         integer,       intent(in) :: Nmesh(3)
-         real(kind=RP), intent(in) :: x(1:3,0:Nmesh(1),0:Nmesh(2),0:Nmesh(3))
-         integer,       intent(in) :: Nsol(3)
-         real(kind=RP), intent(in) :: Q(0:Nsol(1),0:Nsol(2),0:Nsol(3),1:5)
+         integer,            intent(in) :: fid
+         integer,            intent(in) :: Nmesh(3)
+         real(kind=RP),      intent(in) :: x(1:3,0:Nmesh(1),0:Nmesh(2),0:Nmesh(3))
+         integer,            intent(in) :: Nsol(3)
+         real(kind=RP),      intent(in) :: Q(0:Nsol(1),0:Nsol(2),0:Nsol(3),1:5)
+         type(NodalStorage), intent(in) :: spAM
+         type(NodalStorage), intent(in) :: spAS
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer              :: i,j,k,var
+         real(kind=RP)        :: xSol(1:3,0:Nsol(1),0:Nsol(2),0:NSol(3))
 !
-!        Write variables: TODO consider p-Adaption
+!        Project the mesh onto the solution polynomial order
+!        ---------------------------------------------------
+         if ( all( Nmesh .eq. Nsol ) ) then
+            xSol = x
+
+         else
+            call prolongMeshToSolutionOrder(Nmesh,x,Nsol,xSol, spAM, spAS)
+
+         end if
+!
+!        Write variables
 !        ---------------        
          write(fid,'(A,I0,A,I0,A,I0,A)') "ZONE I=",Nmesh(1)+1,", J=",Nmesh(2)+1, &
                                             ", K=",Nmesh(3)+1,", F=POINT"
 
          do k = 0, Nmesh(3)   ; do j = 0, Nmesh(2)    ; do i = 0, Nmesh(1)
-            write(fid,'(ES24.16,1X,ES24.16,1X,ES24.16)',advance="no") x(1,i,j,k), x(2,i,j,k), x(3,i,j,k)
+            write(fid,'(ES24.16,1X,ES24.16,1X,ES24.16)',advance="no") xSol(1,i,j,k), xSol(2,i,j,k), xSol(3,i,j,k)
             do var = 1, 5
                write(fid,'(1X,ES24.16)', advance="no") Q(i,j,k,var)
             end do

@@ -101,6 +101,7 @@ Module MappedGeometryClass
 !     Compute interior locations
 !     --------------------------
 !
+!     TODO: this could be inconsistent if curveOrder > N. Otherwise I think is ok.
       DO k = 0, Nz
          DO j= 0, Ny       
             DO i = 0,Nx 
