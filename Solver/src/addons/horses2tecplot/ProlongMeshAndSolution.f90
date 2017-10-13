@@ -1,7 +1,7 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    MeshInterpolation.f90
+!   @File:    ProlongMeshAndSolution.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Fri Oct 13 11:46:47 2017
 !   @Last revision date:
@@ -10,27 +10,30 @@
 !
 !//////////////////////////////////////////////////////
 !
-module MeshInterpolation
+module ProlongMeshAndSolution
    use SMConstants
    use NodalStorageClass
 
    private
-   public   ProlongMeshToSolutionOrder
+   public   ProlongMeshToGaussPoints, ProlongSolutionToGaussPoints
+
 
 
    contains
-      subroutine ProlongMeshToSolutionOrder(Nmesh,xM,Nsol,xS,spAM,spAS)
+      subroutine ProlongMeshToGaussPoints(Nmesh,xM,Nout,xOut,spAM,spAout)
 !
 !        *************************************************************************
 !
-!              The code arrives to this subroutine if any Nmesh != Nsol. This
+!              The code arrives to this subroutine if any Nmesh != Nout. This
 !           needs the mesh coordinates to be extrapolated to the solution order.
-!           This is not an issue for straight sided element.
+!           This is not a major issue for straight sided element.
 !
 !           For curved elements, one might extend the order just evaluating the
 !           mapping at the new set of Gauss points, but to reduce the order, 
 !           it is required that the mapping is evaluated at a new set of 
-!           Chebyshev-Lobatto points, and then evaluated again to Gauss points
+!           Chebyshev-Lobatto points, and then evaluated again to Gauss points.
+!           Just for safety, all elements are traduced to Chebyshev points first,
+!           and then to Gauss points. This could be avoided in the future.
 !
 !        *************************************************************************
 !
@@ -39,10 +42,10 @@ module MeshInterpolation
          implicit none
          integer,            intent(in)  :: Nmesh(3)
          real(kind=RP),      intent(in)  :: xM(1:3,0:Nmesh(1),0:Nmesh(2),0:Nmesh(3))
-         integer,            intent(in)  :: Nsol(3)
-         real(kind=RP),      intent(out) :: xS(1:3,0:Nsol(1),0:Nsol(2),0:Nsol(3))
+         integer,            intent(in)  :: Nout(3)
+         real(kind=RP),      intent(out) :: xOut(1:3,0:Nout(1),0:Nout(2),0:Nout(3))
          type(NodalStorage), intent(in)  :: spAM
-         type(NodalStorage), intent(in)  :: spAS
+         type(NodalStorage), intent(in)  :: spAout
 !
 !        ---------------
 !        Local variables
@@ -59,15 +62,15 @@ module MeshInterpolation
 !                              /////////////////////////////////////////
 !                              // Chebyshev-Lobatto face interpolants //
 !                              /////////////////////////////////////////
-         real(kind=RP)      :: xiCL   (0:Nsol(1)) 
-         real(kind=RP)      :: etaCL  (0:Nsol(2)) 
-         real(kind=RP)      :: zetaCL (0:Nsol(3)) 
-         real(kind=RP)      :: face1CL(1:3, 0:Nsol(1), 0:Nsol(3))
-         real(kind=RP)      :: face2CL(1:3, 0:Nsol(1), 0:Nsol(3))
-         real(kind=RP)      :: face3CL(1:3, 0:Nsol(1), 0:Nsol(2))
-         real(kind=RP)      :: face4CL(1:3, 0:Nsol(2), 0:Nsol(3))
-         real(kind=RP)      :: face5CL(1:3, 0:Nsol(1), 0:Nsol(2))
-         real(kind=RP)      :: face6CL(1:3, 0:Nsol(2), 0:Nsol(3))
+         real(kind=RP)      :: xiCL   (0:Nout(1)) 
+         real(kind=RP)      :: etaCL  (0:Nout(2)) 
+         real(kind=RP)      :: zetaCL (0:Nout(3)) 
+         real(kind=RP)      :: face1CL(1:3, 0:Nout(1), 0:Nout(3))
+         real(kind=RP)      :: face2CL(1:3, 0:Nout(1), 0:Nout(3))
+         real(kind=RP)      :: face3CL(1:3, 0:Nout(1), 0:Nout(2))
+         real(kind=RP)      :: face4CL(1:3, 0:Nout(2), 0:Nout(3))
+         real(kind=RP)      :: face5CL(1:3, 0:Nout(1), 0:Nout(2))
+         real(kind=RP)      :: face6CL(1:3, 0:Nout(2), 0:Nout(3))
 !                              /////////////////////////////
 !                              // Define the new element //
 !                              /////////////////////////////
@@ -96,16 +99,16 @@ module MeshInterpolation
 !
 !        Construct the interpolants based on Chebyshev-Lobatto points
 !        ------------------------------------------------------------
-         xiCL   = RESHAPE( (/ ( -cos((i)*PI/(Nsol(1))),i=0, Nsol(1)) /), (/ Nsol(1) + 1 /) )
-         etaCL  = RESHAPE( (/ ( -cos((i)*PI/(Nsol(2))),i=0, Nsol(2)) /), (/ Nsol(2) + 1 /) )
-         zetaCL = RESHAPE( (/ ( -cos((i)*PI/(Nsol(3))),i=0, Nsol(3)) /), (/ Nsol(3) + 1 /) )
+         xiCL   = RESHAPE( (/ ( -cos((i)*PI/(Nout(1))),i=0, Nout(1)) /), (/ Nout(1) + 1 /) )
+         etaCL  = RESHAPE( (/ ( -cos((i)*PI/(Nout(2))),i=0, Nout(2)) /), (/ Nout(2) + 1 /) )
+         zetaCL = RESHAPE( (/ ( -cos((i)*PI/(Nout(3))),i=0, Nout(3)) /), (/ Nout(3) + 1 /) )
 
-         call ProjectFaceToNewPoints(facePatches(1), Nsol(1), xiCL , Nsol(3), zetaCL, face1CL)
-         call ProjectFaceToNewPoints(facePatches(2), Nsol(1), xiCL , Nsol(3), zetaCL, face2CL)
-         call ProjectFaceToNewPoints(facePatches(3), Nsol(1), xiCL , Nsol(2), etaCL , face3CL)
-         call ProjectFaceToNewPoints(facePatches(4), Nsol(2), etaCL, Nsol(3), zetaCL, face4CL)
-         call ProjectFaceToNewPoints(facePatches(5), Nsol(1), xiCL , Nsol(2), etaCL , face5CL)
-         call ProjectFaceToNewPoints(facePatches(6), Nsol(2), etaCL, Nsol(3), zetaCL, face6CL)
+         call ProjectFaceToNewPoints(facePatches(1), Nout(1), xiCL , Nout(3), zetaCL, face1CL)
+         call ProjectFaceToNewPoints(facePatches(2), Nout(1), xiCL , Nout(3), zetaCL, face2CL)
+         call ProjectFaceToNewPoints(facePatches(3), Nout(1), xiCL , Nout(2), etaCL , face3CL)
+         call ProjectFaceToNewPoints(facePatches(4), Nout(2), etaCL, Nout(3), zetaCL, face4CL)
+         call ProjectFaceToNewPoints(facePatches(5), Nout(1), xiCL , Nout(2), etaCL , face5CL)
+         call ProjectFaceToNewPoints(facePatches(6), Nout(2), etaCL, Nout(3), zetaCL, face6CL)
 !
 !        Destruct face patches
 !        ---------------------
@@ -131,14 +134,61 @@ module MeshInterpolation
 !
 !        Construct the mapping interpolant
 !        ---------------------------------
-         do k = 0, Nsol(3)    ; do j = 0, Nsol(2)  ; do i = 0, Nsol(1)
-            localCoords = (/ spAS % xi(i), spAS % eta(j), spAS % zeta(k) /)
-            xS(:,i,j,k) = hexMap % transfiniteMapAt(localCoords) 
+         do k = 0, Nout(3)    ; do j = 0, Nout(2)  ; do i = 0, Nout(1)
+            localCoords = (/ spAout % xi(i), spAout % eta(j), spAout % zeta(k) /)
+            xOut(:,i,j,k) = hexMap % transfiniteMapAt(localCoords) 
          end do               ; end do             ; end do
+!
+!        Destruct face patches
+!        ---------------------
+         call facePatches(1) % Destruct()
+         call facePatches(2) % Destruct()
+         call facePatches(3) % Destruct()
+         call facePatches(4) % Destruct()
+         call facePatches(5) % Destruct()
+         call facePatches(6) % Destruct()
+         call hexMap         % Destruct()
+
+      end subroutine ProlongMeshToGaussPoints
+
+      subroutine ProlongSolutionToGaussPoints(Nsol,Q,Nout,Qout,Tx,Ty,Tz)
+         implicit none
+         integer,            intent(in)  :: Nsol(3)
+         real(kind=RP),      intent(in)  :: Q(0:Nsol(1),0:Nsol(2),0:Nsol(3),1:5)
+         integer,            intent(in)  :: Nout(3)
+         real(kind=RP),      intent(out) :: Qout(0:Nout(1),0:Nout(2),0:Nout(3),1:5)
+         real(kind=RP),      intent(in)  :: Tx(0:Nout(1),0:Nsol(1))
+         real(kind=RP),      intent(in)  :: Ty(0:Nout(2),0:Nsol(2))
+         real(kind=RP),      intent(in)  :: Tz(0:Nout(3),0:Nsol(3))
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: i, j, k, l, m, n, iVar
+
+         Qout = 0.0_RP
+
+!$omp parallel do
+         do iVar = 1, 5
+            do n = 0, Nsol(3) ; do m = 0, Nsol(2) ; do l = 0, Nsol(1)
+               do k = 0, Nout(3) ; do j = 0, Nout(2) ; do i = 0, Nout(1)
+                  Qout(i,j,k,iVar) = Qout(i,j,k,iVar) + Q(l,m,n,iVar) * Tx(i,l) * Ty(j,m) * Tz(k,n)
+               end do            ; end do            ; end do
+            end do            ; end do            ; end do
+         end do
+!$omp end parallel do
          
 
-      end subroutine ProlongMeshToSolutionOrder
-
+      end subroutine ProlongSolutionToGaussPoints
+!
+!/////////////////////////////////////////////////////////////////////////////////////////
+!
+!        Auxiliar subroutines
+!        --------------------
+!
+!/////////////////////////////////////////////////////////////////////////////////////////
+!
       subroutine InterpolateFaces(N,spA,x,face1,face2,face3,face4,face5,face6)
 !
 !        ****************************************************************
@@ -221,4 +271,4 @@ module MeshInterpolation
 
       end subroutine ProjectFaceToNewPoints
 
-end module MeshInterpolation
+end module ProlongMeshAndSolution

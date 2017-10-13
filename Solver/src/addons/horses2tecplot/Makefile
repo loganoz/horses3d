@@ -27,7 +27,7 @@ PROG=./bin/horses2plt
 OBJS=	getTask\
 	meshStorage\
 	solutionStorage\
-	MeshInterpolation\
+	ProlongMeshAndSolution\
 	Mesh2Plt\
 	Solution2Plt\
 	main \
