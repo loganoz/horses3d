@@ -104,11 +104,11 @@ module Solution2PltModule
 !
 !           Construct spectral basis
 !           ------------------------
-            if ( spA(eM % N(1),eM % N(2), eM % N(3)) % Constructed ) then
+            if ( .not. spA(eM % N(1),eM % N(2), eM % N(3)) % Constructed ) then
                call spA(eM % N(1), eM % N(2), eM % N(3) ) % Construct( eM % N(1), eM % N(2), eM % N(3) )
             end if
 
-            if ( spA(eS % N(1),eS % N(2), eS % N(3)) % Constructed ) then
+            if ( .not. spA(eS % N(1),eS % N(2), eS % N(3)) % Constructed ) then
                call spA(eS % N(1), eS % N(2), eS % N(3) ) % Construct( eS % N(1), eS % N(2), eS % N(3) )
             end if
 !
@@ -164,10 +164,10 @@ module Solution2PltModule
 !
 !        Write variables
 !        ---------------        
-         write(fid,'(A,I0,A,I0,A,I0,A)') "ZONE I=",Nmesh(1)+1,", J=",Nmesh(2)+1, &
-                                            ", K=",Nmesh(3)+1,", F=POINT"
+         write(fid,'(A,I0,A,I0,A,I0,A)') "ZONE I=",Nsol(1)+1,", J=",Nsol(2)+1, &
+                                            ", K=",Nsol(3)+1,", F=POINT"
 
-         do k = 0, Nmesh(3)   ; do j = 0, Nmesh(2)    ; do i = 0, Nmesh(1)
+         do k = 0, Nsol(3)   ; do j = 0, Nsol(2)    ; do i = 0, Nsol(1)
             write(fid,'(ES24.16,1X,ES24.16,1X,ES24.16)',advance="no") xSol(1,i,j,k), xSol(2,i,j,k), xSol(3,i,j,k)
             do var = 1, 5
                write(fid,'(1X,ES24.16)', advance="no") Q(i,j,k,var)

@@ -59,6 +59,11 @@ interface
       SUBROUTINE UserDefinedTermination
          IMPLICIT NONE  
       END SUBROUTINE UserDefinedTermination
+      character(len=LINE_LENGTH) function getFileName(inputLine)
+         use SMConstants
+         implicit none
+         character(len=*), intent(in)     :: inputLine
+      end function getFileName
 end interface
 
       TYPE( FTValueDictionary)            :: controlVariables
@@ -204,12 +209,12 @@ end interface
 !
       CALL UserDefinedFinalize(sem % mesh, timeIntegrator % time, sem % numberOfTimeSteps, sem % maxResidual, thermodynamics, dimensionless, refValues)
 !
-!     ------------------------------------
-!     Save the results to the restart file
-!     ------------------------------------
+!     -------------------------------------
+!     Save the results to the solution file
+!     -------------------------------------
 !
       IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN 
-         solutionFileName = controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH)
+         solutionFileName = trim(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH))) // ".hsol"
          CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, .false.)
       END IF
 !!
