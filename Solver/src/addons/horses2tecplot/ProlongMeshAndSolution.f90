@@ -20,7 +20,7 @@ module ProlongMeshAndSolution
 
 
    contains
-      subroutine ProlongMeshToGaussPoints(Nmesh,xM,Nout,xOut,spAM,spAout)
+      subroutine ProlongMeshToGaussPoints(e,spAM,spAout)
 !
 !        *************************************************************************
 !
@@ -39,11 +39,9 @@ module ProlongMeshAndSolution
 !
          use TransfiniteMapClass
          use MappedGeometryClass
+         use Storage
          implicit none
-         integer,            intent(in)  :: Nmesh(3)
-         real(kind=RP),      intent(in)  :: xM(1:3,0:Nmesh(1),0:Nmesh(2),0:Nmesh(3))
-         integer,            intent(in)  :: Nout(3)
-         real(kind=RP),      intent(out) :: xOut(1:3,0:Nout(1),0:Nout(2),0:Nout(3))
+         type(Element_t)                 :: e
          type(NodalStorage), intent(in)  :: spAM
          type(NodalStorage), intent(in)  :: spAout
 !
@@ -53,24 +51,24 @@ module ProlongMeshAndSolution
 !                              ////////////////////////////////////////
 !                              // Mesh mapping prolongation to faces //
 !                              ////////////////////////////////////////
-         real(kind=RP)      :: face1Original(1:3, 0:Nmesh(1), 0:Nmesh(3))
-         real(kind=RP)      :: face2Original(1:3, 0:Nmesh(1), 0:Nmesh(3))
-         real(kind=RP)      :: face3Original(1:3, 0:Nmesh(1), 0:Nmesh(2))
-         real(kind=RP)      :: face4Original(1:3, 0:Nmesh(2), 0:Nmesh(3))
-         real(kind=RP)      :: face5Original(1:3, 0:Nmesh(1), 0:Nmesh(2))
-         real(kind=RP)      :: face6Original(1:3, 0:Nmesh(2), 0:Nmesh(3)) 
+         real(kind=RP)      :: face1Original(1:3, 0:e % Nmesh(1), 0:e % Nmesh(3))
+         real(kind=RP)      :: face2Original(1:3, 0:e % Nmesh(1), 0:e % Nmesh(3))
+         real(kind=RP)      :: face3Original(1:3, 0:e % Nmesh(1), 0:e % Nmesh(2))
+         real(kind=RP)      :: face4Original(1:3, 0:e % Nmesh(2), 0:e % Nmesh(3))
+         real(kind=RP)      :: face5Original(1:3, 0:e % Nmesh(1), 0:e % Nmesh(2))
+         real(kind=RP)      :: face6Original(1:3, 0:e % Nmesh(2), 0:e % Nmesh(3)) 
 !                              /////////////////////////////////////////
 !                              // Chebyshev-Lobatto face interpolants //
 !                              /////////////////////////////////////////
-         real(kind=RP)      :: xiCL   (0:Nout(1)) 
-         real(kind=RP)      :: etaCL  (0:Nout(2)) 
-         real(kind=RP)      :: zetaCL (0:Nout(3)) 
-         real(kind=RP)      :: face1CL(1:3, 0:Nout(1), 0:Nout(3))
-         real(kind=RP)      :: face2CL(1:3, 0:Nout(1), 0:Nout(3))
-         real(kind=RP)      :: face3CL(1:3, 0:Nout(1), 0:Nout(2))
-         real(kind=RP)      :: face4CL(1:3, 0:Nout(2), 0:Nout(3))
-         real(kind=RP)      :: face5CL(1:3, 0:Nout(1), 0:Nout(2))
-         real(kind=RP)      :: face6CL(1:3, 0:Nout(2), 0:Nout(3))
+         real(kind=RP)      :: xiCL   (0:e % Nout(1)) 
+         real(kind=RP)      :: etaCL  (0:e % Nout(2)) 
+         real(kind=RP)      :: zetaCL (0:e % Nout(3)) 
+         real(kind=RP)      :: face1CL(1:3, 0:e % Nout(1), 0:e % Nout(3))
+         real(kind=RP)      :: face2CL(1:3, 0:e % Nout(1), 0:e % Nout(3))
+         real(kind=RP)      :: face3CL(1:3, 0:e % Nout(1), 0:e % Nout(2))
+         real(kind=RP)      :: face4CL(1:3, 0:e % Nout(2), 0:e % Nout(3))
+         real(kind=RP)      :: face5CL(1:3, 0:e % Nout(1), 0:e % Nout(2))
+         real(kind=RP)      :: face6CL(1:3, 0:e % Nout(2), 0:e % Nout(3))
 !                              /////////////////////////////
 !                              // Define the new element //
 !                              /////////////////////////////
@@ -81,12 +79,12 @@ module ProlongMeshAndSolution
 !
 !        Get the faces coordinates from the mapping
 !        ------------------------------------------
-         call InterpolateFaces(Nmesh,spAM,xM,face1Original,&
-                                             face2Original,&   
-                                             face3Original,&   
-                                             face4Original,&   
-                                             face5Original,&   
-                                             face6Original  )
+         call InterpolateFaces(e % Nmesh,spAM,e % x,face1Original,&
+                                                    face2Original,&   
+                                                    face3Original,&   
+                                                    face4Original,&   
+                                                    face5Original,&   
+                                                    face6Original  )
 !
 !        Construct face patches
 !        ----------------------
@@ -99,16 +97,16 @@ module ProlongMeshAndSolution
 !
 !        Construct the interpolants based on Chebyshev-Lobatto points
 !        ------------------------------------------------------------
-         xiCL   = RESHAPE( (/ ( -cos((i)*PI/(Nout(1))),i=0, Nout(1)) /), (/ Nout(1) + 1 /) )
-         etaCL  = RESHAPE( (/ ( -cos((i)*PI/(Nout(2))),i=0, Nout(2)) /), (/ Nout(2) + 1 /) )
-         zetaCL = RESHAPE( (/ ( -cos((i)*PI/(Nout(3))),i=0, Nout(3)) /), (/ Nout(3) + 1 /) )
+         xiCL   = RESHAPE( (/ ( -cos((i)*PI/(e % Nout(1))),i=0, e % Nout(1)) /), (/ e % Nout(1) + 1 /) )
+         etaCL  = RESHAPE( (/ ( -cos((i)*PI/(e % Nout(2))),i=0, e % Nout(2)) /), (/ e % Nout(2) + 1 /) )
+         zetaCL = RESHAPE( (/ ( -cos((i)*PI/(e % Nout(3))),i=0, e % Nout(3)) /), (/ e % Nout(3) + 1 /) )
 
-         call ProjectFaceToNewPoints(facePatches(1), Nout(1), xiCL , Nout(3), zetaCL, face1CL)
-         call ProjectFaceToNewPoints(facePatches(2), Nout(1), xiCL , Nout(3), zetaCL, face2CL)
-         call ProjectFaceToNewPoints(facePatches(3), Nout(1), xiCL , Nout(2), etaCL , face3CL)
-         call ProjectFaceToNewPoints(facePatches(4), Nout(2), etaCL, Nout(3), zetaCL, face4CL)
-         call ProjectFaceToNewPoints(facePatches(5), Nout(1), xiCL , Nout(2), etaCL , face5CL)
-         call ProjectFaceToNewPoints(facePatches(6), Nout(2), etaCL, Nout(3), zetaCL, face6CL)
+         call ProjectFaceToNewPoints(facePatches(1), e % Nout(1), xiCL , e % Nout(3), zetaCL, face1CL)
+         call ProjectFaceToNewPoints(facePatches(2), e % Nout(1), xiCL , e % Nout(3), zetaCL, face2CL)
+         call ProjectFaceToNewPoints(facePatches(3), e % Nout(1), xiCL , e % Nout(2), etaCL , face3CL)
+         call ProjectFaceToNewPoints(facePatches(4), e % Nout(2), etaCL, e % Nout(3), zetaCL, face4CL)
+         call ProjectFaceToNewPoints(facePatches(5), e % Nout(1), xiCL , e % Nout(2), etaCL , face5CL)
+         call ProjectFaceToNewPoints(facePatches(6), e % Nout(2), etaCL, e % Nout(3), zetaCL, face6CL)
 !
 !        Destruct face patches
 !        ---------------------
@@ -134,9 +132,9 @@ module ProlongMeshAndSolution
 !
 !        Construct the mapping interpolant
 !        ---------------------------------
-         do k = 0, Nout(3)    ; do j = 0, Nout(2)  ; do i = 0, Nout(1)
+         do k = 0, e % Nout(3)    ; do j = 0, e % Nout(2)  ; do i = 0, e % Nout(1)
             localCoords = (/ spAout % xi(i), spAout % eta(j), spAout % zeta(k) /)
-            xOut(:,i,j,k) = hexMap % transfiniteMapAt(localCoords) 
+            e % xOut(:,i,j,k) = hexMap % transfiniteMapAt(localCoords) 
          end do               ; end do             ; end do
 !
 !        Destruct face patches
@@ -169,7 +167,6 @@ module ProlongMeshAndSolution
 
          Qout = 0.0_RP
 
-!$omp parallel do
          do iVar = 1, 5
             do n = 0, Nsol(3) ; do m = 0, Nsol(2) ; do l = 0, Nsol(1)
                do k = 0, Nout(3) ; do j = 0, Nout(2) ; do i = 0, Nout(1)
@@ -177,7 +174,6 @@ module ProlongMeshAndSolution
                end do            ; end do            ; end do
             end do            ; end do            ; end do
          end do
-!$omp end parallel do
          
 
       end subroutine ProlongSolutionToGaussPoints

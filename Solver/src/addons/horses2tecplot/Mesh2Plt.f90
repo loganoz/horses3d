@@ -1,6 +1,6 @@
 module Mesh2PltModule
    use SMConstants
-   use MeshStorage
+   use Storage
    implicit none
 
    private
@@ -23,12 +23,12 @@ module Mesh2PltModule
 !        ---------------
 !
          integer                    :: eID, i, j, k, fid
-         type(MeshCoordinates_t)    :: mesh
+         type(Mesh_t)               :: mesh
          character(len=LINE_LENGTH) :: meshPltName
 !
 !        Read the mesh from the *.hmesh file
 !        -----------------------------------
-         call mesh % Read(meshFile)
+         call mesh % ReadMesh(meshFile)
 !
 !        Create the tecplot mesh file name
 !        ---------------------------------
@@ -47,10 +47,10 @@ module Mesh2PltModule
 !        -----------------------------
          do eID = 1, mesh % no_of_elements
             associate( e => mesh % elements(eID) )
-            write(fid,'(A,I0,A,I0,A,I0,A)') "ZONE I=",e % N(1)+1,", J=",e % N(2)+1, &
-                                               ", K=",e % N(3)+1,", F=POINT"
-            do k = 0, e % N(3)   ; do j = 0, e % N(2) ;  do i = 0, e % N(1)
-               write(fid,'(ES24.16,1X,ES24.16,1X,ES24.16)') e % x(:,i,j,k)
+            write(fid,'(A,I0,A,I0,A,I0,A)') "ZONE I=",e % Nmesh(1)+1,", J=",e % Nmesh(2)+1, &
+                                               ", K=",e % Nmesh(3)+1,", F=POINT"
+            do k = 0, e % Nmesh(3)   ; do j = 0, e % Nmesh(2) ;  do i = 0, e % Nmesh(1)
+               write(fid,'(3E13.5)') e % x(:,i,j,k)
             end do               ; end do             ;  end do
             end associate
          end do

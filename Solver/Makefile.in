@@ -198,9 +198,9 @@ clean: FORCE horseslibclean problemfileclean horsesclean addonsclean
 	@rm -f $(HOME_DIR)/lib/libproblemfile.so
 
 test: all
-	(cd $(HOME_DIR)/test/Euler/Diffuser/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) all \
+	(cd $(HOME_DIR)/test/Euler/Diffuser/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) allclean all \
 	&& cd ../ && ./HORSES3D DiffuserFlow.control ) || exit 1; 
-	(cd $(HOME_DIR)/test/NavierStokes/Cylinder/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) all \
+	(cd $(HOME_DIR)/test/NavierStokes/Cylinder/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) allclean all \
 	&& cd ../ && ./HORSES3D Cylinder.control ) || exit 1; 
 
 allclean: FORCE clean

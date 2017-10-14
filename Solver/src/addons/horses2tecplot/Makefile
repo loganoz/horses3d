@@ -25,8 +25,7 @@ RANLIB=ranlib
 PROG=./bin/horses2plt
 
 OBJS=	getTask\
-	meshStorage\
-	solutionStorage\
+	Storage\
 	ProlongMeshAndSolution\
 	Mesh2Plt\
 	Solution2Plt\
@@ -50,7 +49,7 @@ OBJS_BUILD=$(foreach obj,$(OBJS),./build/$(obj).o)
 ./build/%.o: ./%.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) $(INCLUDE) $(MACROS) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(MACROS) -c $< -o $@ $(MOD_FLAG) ./include
 
 $(PROG): header mkdirs $(OBJS_BUILD)
 	@echo

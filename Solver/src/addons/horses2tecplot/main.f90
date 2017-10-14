@@ -10,13 +10,14 @@ program horses2plt
    integer                                 :: no_of_solutions
    character(len=LINE_LENGTH), allocatable :: solutionNames(:)
    integer, allocatable                    :: solutionTypes(:)
-   logical                                 :: performInterpolation
-   integer                                 :: Npoints
+   logical                                 :: fixedOrder
+   integer                                 :: Nout(3)
+   integer                                 :: basis
    integer                                 :: iSol
 !
 !  Get the job type
 !  ----------------
-   jobType = getTaskType(meshName, no_of_solutions, solutionNames, solutionTypes, performInterpolation, Npoints)
+   jobType = getTaskType(meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis)
 !
 !  Perform the conversion to tecplot
 !  ---------------------------------
@@ -29,7 +30,7 @@ program horses2plt
 
          select case (solutionTypes(iSol))
          case ( SOLUTION_FILE )
-            call Solution2Plt(meshName, solutionNames(iSol),performInterpolation, Npoints)                  
+            call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)        
          case ( SOLUTION_AND_GRADIENTS_FILE )
 
          case ( STATS_FILE )
