@@ -6,12 +6,6 @@ module Solution2PltModule
    private
    public   Solution2Plt
 
-   type  InterpolationMatrices_t
-      logical                          :: Constructed = .false.
-      real(kind=RP),    allocatable    :: T(:,:)
-   end type InterpolationMatrices_t
-
-   integer, parameter   :: NMAX = 40
 
    contains
       subroutine Solution2Plt(meshName, solutionName, fixedOrder, basis, Nout)
@@ -53,6 +47,7 @@ module Solution2PltModule
       subroutine Solution2Plt_GaussPoints(meshName, solutionName)
          use Storage
          use NodalStorageClass
+         use SharedSpectralBasis
          implicit none  
          character(len=*), intent(in)     :: meshName
          character(len=*), intent(in)     :: solutionName
@@ -75,18 +70,12 @@ module Solution2PltModule
          integer                         :: no_of_elements, eID
          integer                         :: fid
          integer                         :: Nmesh(4), Nsol(4)
-         type(NodalStorage), allocatable :: spA(:,:,:)
-
 !
 !        Read the mesh and solution data
 !        -------------------------------
          call mesh % ReadMesh(meshName)
          call mesh % ReadSolution(SolutionName)
          no_of_elements = mesh % no_of_elements
-!
-!        Create the nodal approximation structure
-!        ----------------------------------------
-         allocate( spA(0:NMAX,0:NMAX,0:NMAX) )
 !
 !        Transform zones to the output variables
 !        ---------------------------------------
@@ -173,7 +162,7 @@ module Solution2PltModule
       subroutine Solution2Plt_GaussPoints_FixedOrder(meshName, solutionName, Nout)
          use Storage
          use NodalStorageClass
-         use PolynomialInterpAndDerivsModule
+         use SharedSpectralBasis
          implicit none  
          character(len=*), intent(in)     :: meshName
          character(len=*), intent(in)     :: solutionName
@@ -196,13 +185,6 @@ module Solution2PltModule
          character(len=1024)                        :: title
          integer                                    :: no_of_elements, eID
          integer                                    :: fid
-         type(NodalStorage), allocatable            :: spA(:,:,:)
-         type(InterpolationMatrices_t), allocatable :: Tset(:,:)
-!
-!        Allocate nodal storage and interpolation matrices
-!        -------------------------------------------------
-         allocate( spA(0:NMAX, 0:NMAX, 0:NMAX) )
-         allocate( Tset(0:NMAX, 0:NMAX) )
 !
 !        Read the mesh and solution data
 !        -------------------------------
@@ -325,7 +307,7 @@ module Solution2PltModule
       subroutine Solution2Plt_Homogeneous(meshName, solutionName, Nout)
          use Storage
          use NodalStorageClass
-         use PolynomialInterpAndDerivsModule
+         use SharedSpectralBasis
          implicit none  
          character(len=*), intent(in)     :: meshName
          character(len=*), intent(in)     :: solutionName
@@ -348,16 +330,8 @@ module Solution2PltModule
          character(len=1024)                        :: title
          integer                                    :: no_of_elements, eID
          integer                                    :: fid
-         type(NodalStorage), allocatable            :: spA(:,:,:)
-         type(NodalStorage)                         :: spAout
-         type(InterpolationMatrices_t), allocatable :: Tset(:,:)
          real(kind=RP)                              :: xi(0:Nout(1)), eta(0:Nout(2)), zeta(0:Nout(3))
          integer                                    :: i
-!
-!        Allocate nodal storage and interpolation matrices
-!        -------------------------------------------------
-         allocate( spA(0:NMAX, 0:NMAX, 0:NMAX) )
-         allocate( Tset(0:NMAX, 0:NMAX) )
 !
 !        Read the mesh and solution data
 !        -------------------------------
@@ -522,41 +496,5 @@ module Solution2PltModule
          end do               ; end do                ; end do
 
       end subroutine WriteElementToTecplot
-!
-!/////////////////////////////////////////////////////////////////////////////////////////////
-!
-!     Handling spectral approximations and transformation matrices
-!     ------------------------------------------------------------
-!
-!/////////////////////////////////////////////////////////////////////////////////////////////
-!
-      subroutine addNewSpectralBasis( spA, N)
-         use NodalStorageClass
-         implicit none
-         class(NodalStorage)     :: spA(0:,0:,0:)
-         integer                 :: N(3)
-
-         if ( .not. spA(N(1),N(2), N(3)) % Constructed ) then
-            call spA(N(1), N(2), N(3) ) % Construct( N(1), N(2), N(3) )
-         end if
-
-      end subroutine addNewSpectralBasis
-
-      subroutine addNewInterpolationMatrix( Tset, Nold, spAold, Nnew, xiNew)
-         use NodalStorageClass
-         implicit none
-         class(InterpolationMatrices_t)     :: Tset(0:,0:)
-         integer, intent(in)              :: Nold, Nnew
-         class(NodalStorage), intent(in)  :: spAold
-         real(kind=RP),       intent(in)  :: xiNew(0:Nnew)
-
-         if ( .not. Tset(Nnew,Nold) % Constructed ) then
-            allocate ( Tset(Nnew,Nold) % T(0:Nnew,0:Nold) )
-            call PolynomialInterpolationMatrix( Nold, Nnew, spAold % xi, spAold % wbx, xiNew, &
-                                                Tset(Nnew,Nold) % T)
-            Tset(Nnew,Nold) % Constructed = .true.
-         end if
-
-      end subroutine addNewInterpolationMatrix
       
 end module Solution2PltModule

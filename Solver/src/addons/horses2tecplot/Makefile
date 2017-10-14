@@ -25,6 +25,8 @@ RANLIB=ranlib
 PROG=./bin/horses2plt
 
 OBJS=	getTask\
+	OutputVariables\
+	sharedSpectralBasis\
 	Storage\
 	ProlongMeshAndSolution\
 	Mesh2Plt\

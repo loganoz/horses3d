@@ -15,7 +15,6 @@
 !     * The flag --output-basis selects the output basis:
 !           --output-basis=Gauss: Gauss-Legendre points.
 !           --output-basis=Homogeneous: Equally spaced points.
-!           --output-basis=Chebyshev: Chebyshev-Lobatto points
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -35,7 +34,6 @@ module getTask
    
    integer, parameter   :: EXPORT_GAUSS = 0
    integer, parameter   :: EXPORT_HOMOGENEOUS = 1
-   integer, parameter   :: EXPORT_CHEBYSHEV = 2
 
    character(len=*), parameter   :: OUTPUT_ORDER_FLAG="--output-order="
    character(len=*), parameter   :: OUTPUT_BASIS_FLAG="--output-basis="
@@ -91,7 +89,7 @@ module getTask
             end if 
          end do
 !
-!        Exit if the mesh file is not present
+!        Exit if the mesh file is not present: always required.
 !        ------------------------------------
          if ( .not. meshFilePresent ) then
             write(STD_OUT,'(A)') "Mesh file was not specified"
@@ -101,6 +99,9 @@ module getTask
 !
 !        Check if the solution file is present
 !        -------------------------------------
+!
+!        Loop to get number of files
+!        ---------------------------
          no_of_solutions = 0
          do i = 1, no_of_arguments
             call get_command_argument(i, auxiliarName)
@@ -112,7 +113,9 @@ module getTask
                no_of_solutions = no_of_solutions + 1 
             end if
          end do
-
+!
+!        Loop to get solution file names
+!        -------------------------------
          if ( no_of_solutions .ne. 0 ) then
             allocate( solutionNames(no_of_solutions) )
             allocate( solutionTypes(no_of_solutions) )
@@ -133,7 +136,7 @@ module getTask
 
          end if
 !
-!        Select the job type
+!        Select the job type: Mesh if no solutions files are present, solution otherwise.
 !        -------------------             
          if ( no_of_solutions .ne. 0 ) then
             getTaskType = SOLUTION_2_PLT
@@ -143,7 +146,7 @@ module getTask
 
          end if
 !
-!        Check if fixed polynomials are used
+!        Check if fixed polynomials are used: the flag is --output-order=N (or Nx,Ny,Nz)
 !        -----------------------------------
          fixedOrder = .false.
          Nout = 0
@@ -159,20 +162,20 @@ module getTask
 
                if ( index(trim(auxiliarName(pos+1:len_trim(auxiliarName))),",") .eq. 0 ) then
 !
-!                 Constant polynomial order
+!                 Constant polynomial order: --output-order=N
 !                 -------------------------
                   read(auxiliarName(pos+len_trim(OUTPUT_ORDER_FLAG):len_trim(auxiliarName)),*) Nout(1)
                   Nout(2:3) = Nout(1)
                else
 !
-!                 Anisotropic polynomial order
+!                 Anisotropic polynomial order: --output-order=Nx,Ny,Nz
 !                 ----------------------------
-                  pos2 = index(trim(auxiliarName),",")
+                  pos2 = index(trim(auxiliarName),",")                  ! Read Nx
                   read(auxiliarName(len_trim(OUTPUT_ORDER_FLAG)+1:pos2),*) Nout(1)
 
                   pos = index(trim(auxiliarName),",",BACK=.true.)
-
-                  read(auxiliarName(pos2+1:pos),*) Nout(2)
+!                                                  Read Ny
+                  read(auxiliarName(pos2+1:pos),*) Nout(2)         ! Read Nz  
                   read(auxiliarName(pos+1:len_trim(auxiliarName)),*) Nout(3)
                   
                   
@@ -193,7 +196,14 @@ module getTask
                exit
             end if
          end do
-
+!
+!        *******************************************************
+!        If the basis is not present, the choice depends
+!        on whether a new polynomial order is given.
+!           * default polynomial: default basis is Gauss.
+!           * given polynoamial: default basis is Homogeneous.
+!        *******************************************************
+!
          if ( basisPresent ) then
       
             select case (trim(basisName))
@@ -215,9 +225,15 @@ module getTask
          else
 
             if ( fixedOrder ) then
+!
+!              Given polynomial: homogeneous
+!              -----------------------------
                basis = EXPORT_HOMOGENEOUS
 
             else
+!
+!              Default polynomial: Gauss
+!              -------------------------
                basis = EXPORT_GAUSS
 
             end if

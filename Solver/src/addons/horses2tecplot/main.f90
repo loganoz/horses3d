@@ -4,6 +4,7 @@ program horses2plt
    use Mesh2PltModule
    use Solution2PltModule
    use SolutionFile
+   use SharedSpectralBasis
    implicit none
    integer                                 :: jobType
    character(len=LINE_LENGTH)              :: meshName
@@ -18,6 +19,10 @@ program horses2plt
 !  Get the job type
 !  ----------------
    jobType = getTaskType(meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis)
+!
+!  Construct Spectral basis
+!  ------------------------
+   call ConstructSpectralBasis
 !
 !  Perform the conversion to tecplot
 !  ---------------------------------
