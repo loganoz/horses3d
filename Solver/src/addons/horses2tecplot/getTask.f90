@@ -20,6 +20,7 @@
 !
 module getTask
    use SMConstants
+   use OutputVariables
    implicit none
    
    private
@@ -37,6 +38,7 @@ module getTask
 
    character(len=*), parameter   :: OUTPUT_ORDER_FLAG="--output-order="
    character(len=*), parameter   :: OUTPUT_BASIS_FLAG="--output-basis="
+   character(len=*), parameter   :: OUTPUT_VARIABLES_FLAG="--output-variables="
 
    contains
 
@@ -178,7 +180,6 @@ module getTask
                   read(auxiliarName(pos2+1:pos),*) Nout(2)         ! Read Nz  
                   read(auxiliarName(pos+1:len_trim(auxiliarName)),*) Nout(3)
                   
-                  
                end if
             end if
          end do
@@ -239,6 +240,12 @@ module getTask
             end if
 
          end if
+!
+!        ******************************************
+!        Get output variables
+!        ******************************************
+!
+         call getOutputVariables(OUTPUT_VARIABLES_FLAG)
 
       end function getTaskType
 end module getTask

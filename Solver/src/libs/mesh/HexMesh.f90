@@ -935,6 +935,7 @@ MODULE HexMeshClass
 !
          integer        :: fID, eID
          character(len=LINE_LENGTH)    :: meshName
+         real(kind=RP), parameter      :: refs(NO_OF_SAVED_REFS) = 0.0_RP
          interface
             character(len=LINE_LENGTH) function RemovePath( inputLine )
                use SMConstants
@@ -954,7 +955,7 @@ MODULE HexMeshClass
 !        Create file: it will be contained in ./MESH
 !        -------------------------------------------
          meshName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".hmesh"
-         fID = CreateNewSolutionFile( trim(meshName), MESH_FILE, self % no_of_elements )
+         fID = CreateNewSolutionFile( trim(meshName), MESH_FILE, self % no_of_elements, 0, 0.0_RP, refs)
 !
 !        Introduce all element nodal coordinates
 !        ---------------------------------------
@@ -982,13 +983,23 @@ MODULE HexMeshClass
 !        ---------------
 !
          integer  :: fid, eID
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+!
+!        Gather reference quantities
+!        ---------------------------
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
 !
 !        Create new file
 !        ---------------
          if ( saveGradients ) then
-            fid = CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, self % no_of_elements, iter, time)
+            fid = CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, self % no_of_elements, iter, time, refs)
          else
-            fid = CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % no_of_elements, iter, time)
+            fid = CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % no_of_elements, iter, time, refs)
          end if
 !
 !        Write arrays

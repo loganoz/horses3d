@@ -6,6 +6,7 @@ module Solution2PltModule
    private
    public   Solution2Plt
 
+#define PRECISION_FORMAT "(E13.5)"
 
    contains
       subroutine Solution2Plt(meshName, solutionName, fixedOrder, basis, Nout)
@@ -48,6 +49,7 @@ module Solution2PltModule
          use Storage
          use NodalStorageClass
          use SharedSpectralBasis
+         use OutputVariables
          implicit none  
          character(len=*), intent(in)     :: meshName
          character(len=*), intent(in)     :: solutionName
@@ -110,7 +112,7 @@ module Solution2PltModule
 !
 !        Add the variables
 !        -----------------
-         write(fid,'(A)') 'VARIABLES = "x","y","z","rho","rhou","rhov","rhow","rhoe"'
+         write(fid,'(A,A)') 'VARIABLES = "x","y","z"', trim(getOutputVariablesLabel())
 !
 !        Write each element zone
 !        -----------------------
@@ -119,7 +121,7 @@ module Solution2PltModule
 !
 !           Write the tecplot file
 !           ----------------------
-            call WriteElementToTecplot(fid,e) 
+            call WriteElementToTecplot(fid, e, mesh % refs) 
             end associate
          end do
 !
@@ -163,6 +165,7 @@ module Solution2PltModule
          use Storage
          use NodalStorageClass
          use SharedSpectralBasis
+         use OutputVariables
          implicit none  
          character(len=*), intent(in)     :: meshName
          character(len=*), intent(in)     :: solutionName
@@ -241,14 +244,14 @@ module Solution2PltModule
 !
 !        Add the variables
 !        -----------------
-         write(fid,'(A)') 'VARIABLES = "x","y","z","rho","rhou","rhov","rhow","rhoe"'
+         write(fid,'(A,A)') 'VARIABLES = "x","y","z"', trim(getOutputVariablesLabel())
 !
 !        Write elements
 !        --------------
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
 
-            call WriteElementToTecplot(fid, e)
+            call WriteElementToTecplot(fid, e, mesh % refs)
             end associate
          end do
 
@@ -308,6 +311,7 @@ module Solution2PltModule
          use Storage
          use NodalStorageClass
          use SharedSpectralBasis
+         use OutputVariables
          implicit none  
          character(len=*), intent(in)     :: meshName
          character(len=*), intent(in)     :: solutionName
@@ -396,14 +400,14 @@ module Solution2PltModule
 !
 !        Add the variables
 !        -----------------
-         write(fid,'(A)') 'VARIABLES = "x","y","z","rho","rhou","rhov","rhow","rhoe"'
+         write(fid,'(A,A)') 'VARIABLES = "x","y","z"', trim(getOutputVariablesLabel())
 !
 !        Write elements
 !        --------------
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
 
-            call WriteElementToTecplot(fid, e)
+            call WriteElementToTecplot(fid, e, mesh % refs)
             end associate
          end do
 
@@ -466,35 +470,55 @@ module Solution2PltModule
 !
 !/////////////////////////////////////////////////////////////////////////////
 !
-      subroutine WriteElementToTecplot(fid,e)
+      subroutine WriteElementToTecplot(fid,e,refs)
          use Storage
          use NodalStorageClass
          use prolongMeshAndSolution
+         use OutputVariables
+         use SolutionFile
          implicit none
          integer,            intent(in) :: fid
          type(Element_t),    intent(in) :: e 
+         real(kind=RP),      intent(in) :: refs(NO_OF_SAVED_REFS)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer              :: i,j,k,var
-         real(kind=RP)        :: Qreordered(1:5, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3))
+         integer                    :: i,j,k,var
+         real(kind=RP)              :: outputVars(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3),1:no_of_outputVariables)
+         real(kind=RP)              :: outputVarsReord(1:no_of_outputVariables,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3))
+         character(len=LINE_LENGTH) :: formatout
+!
+!        Get output variables
+!        --------------------
+         call ComputeOutputVariables(e % Nout, e % Qout, outputVars, refs)
 
-         do var = 1, 5;        do k = 0, e % Nout(3);  do j = 0, e % Nout(2); do i = 0, e % Nout(1)
-            Qreordered(var,i,j,k) = e % Qout(i,j,k,var)
-         end do               ;  end do               ; end do               ; end do
-
+         do i = 1 , no_of_outputVariables
+            outputVarsReord(i,:,:,:) = outputVars(:,:,:,i)
+         end do
 !
 !        Write variables
 !        ---------------        
          write(fid,'(A,I0,A,I0,A,I0,A)') "ZONE I=",e % Nout(1)+1,", J=",e % Nout(2)+1, &
                                             ", K=",e % Nout(3)+1,", F=POINT"
 
+         formatout = getFormat()
+
          do k = 0, e % Nout(3)   ; do j = 0, e % Nout(2)    ; do i = 0, e % Nout(1)
-            write(fid,'(8(E13.5))') e % xOut(:,i,j,k), Qreordered(:,i,j,k)
+            write(fid,trim(formatout)) e % xOut(:,i,j,k), outputVarsReord(:,i,j,k)
          end do               ; end do                ; end do
 
       end subroutine WriteElementToTecplot
+
+      character(len=LINE_LENGTH) function getFormat()
+         use OutputVariables
+         implicit none
+
+         getFormat = ""
+
+         write(getFormat,'(A,I0,A,A)') "(",3+no_of_outputVariables,PRECISION_FORMAT,")"
+
+      end function getFormat
       
 end module Solution2PltModule

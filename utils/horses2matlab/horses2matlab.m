@@ -7,7 +7,7 @@ format long
 
 [fileName,pathName] = uigetfile();
 file = [pathName,fileName];
-%file = '/Users/juanmanzanero/OwnCloud/Research/DGSEM/Codes/FORTRAN/HORSES3D/Solver/test/NavierStokes/Cylinder/MESH/CylinderNSpol3.hmesh';
+
 
 %
 %   Open file
@@ -36,17 +36,21 @@ file = [pathName,fileName];
     file.no_of_elements = fread(fid, hr/4, 'int32');
     hr = fread(fid, 1, 'int32');
 %
-%   If is a solution file, read iteration and time
-%   ----------------------------------------------
-    if ( file.type ~= 1 )
-        hr=fread(fid,1,'int32');
-        file.iter = fread(fid, hr/4, 'int32');
-        hr=fread(fid,1,'int32');
+%   Read iteration and time
+%   -----------------------
+    hr=fread(fid,1,'int32');
+    file.iter = fread(fid, hr/4, 'int32');
+    hr=fread(fid,1,'int32');
         
-        hr=fread(fid,1,'int32');
-        file.time = fread(fid, hr/8, 'float64');
-        hr=fread(fid,1,'int32');
-    end
+    hr=fread(fid,1,'int32');
+    file.time = fread(fid, hr/8, 'float64');
+    hr=fread(fid,1,'int32');
+%
+%   Read reference values
+%   ---------------------
+    hr=fread(fid,1,'int32');
+    file.refs = fread(fid, hr/8, 'float64');
+    hr=fread(fid,1,'int32');
 %
 %   Read the beginning data code
 %   ----------------------------

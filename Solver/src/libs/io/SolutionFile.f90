@@ -36,10 +36,11 @@ module SolutionFile
    public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE
    public      :: BEGINNING_DATA
    public      :: SOLFILE_STR_LEN
+   public      :: NO_OF_SAVED_REFS, GAMMA_REF, RGAS_REF, V_REF, RHO_REF, T_REF, MACH_REF
 
    public      :: CreateNewSolutionFile, writeArray, CloseSolutionFile, getSolutionFileType
    public      :: putSolutionFileInReadDataMode, getSolutionFileNoOfElements
-   public      :: getSolutionFileArrayDimensions
+   public      :: getSolutionFileArrayDimensions, getSolutionFileReferenceValues
 !
 !  Possible solution file types
 !  ----------------------------
@@ -52,19 +53,28 @@ module SolutionFile
    integer, parameter      :: END_OF_FILE    = 99
    integer, parameter      :: BEGINNING_DATA = 88
 
+   integer, parameter      :: NO_OF_SAVED_REFS = 6
+   integer, parameter      :: GAMMA_REF = 1
+   integer, parameter      :: RGAS_REF  = 2
+   integer, parameter      :: V_REF     = 3
+   integer, parameter      :: RHO_REF   = 4
+   integer, parameter      :: T_REF     = 5
+   integer, parameter      :: MACH_REF  = 6
+
    interface writeArray
       module procedure  :: write0DArray, write1DArray, write2DArray, write3DArray
       module procedure  :: write4DArray, write5DArray
    end interface writeArray
     
    contains
-      integer function CreateNewSolutionFile(name, type_, no_of_elements, iter, time)
+      integer function CreateNewSolutionFile(name, type_, no_of_elements, iter, time, refs)
          implicit none
          character(len=*), intent(in)              :: name
          integer,          intent(in)              :: type_
          integer,          intent(in)              :: no_of_elements
-         integer,          intent(in), optional    :: iter
-         real(kind=RP),    intent(in), optional    :: time
+         integer,          intent(in)              :: iter
+         real(kind=RP),    intent(in)              :: time
+         real(kind=RP),    intent(in)              :: refs(NO_OF_SAVED_REFS)
 !
 !        ---------------
 !        Local variables
@@ -103,17 +113,14 @@ module SolutionFile
 !        ----------------------------
          write(fID) no_of_elements
 !
-!        If the file is solution file, save the current time and iteration
-!        -----------------------------------------------------------------
-         if ( type_ .ne. MESH_FILE ) then
-            if ( (.not. present(time)) .or. (.not. present(iter)) ) then
-               print*, "Missing time and/or iteration values"
-               errorMessage(STD_OUT)
-               stop
-            end if
-            write(fID) iter
-            write(fID) time
-         end if
+!        Save the current time and iteration
+!        -----------------------------------
+         write(fID) iter
+         write(fID) time
+!
+!        Save refernence and gas data
+!        ----------------------------
+         write(fID) refs
 !
 !        Introduce the terminator indicator
 !        ----------------------------------
@@ -197,6 +204,50 @@ module SolutionFile
 
       end function getSolutionFileNoOfElements
 
+      function getSolutionFileReferenceValues(fileName)
+         implicit none
+         character(len=*), intent(in)               :: fileName
+         real(kind=RP), dimension(NO_OF_SAVED_REFS) :: getSolutionFileReferenceValues
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: fid, no_of_elements, initial_iter, fileType, flag
+         real(kind=RP)  :: initial_time
+         character(len=SOLFILE_STR_LEN)   :: fileNameInFile
+!
+!        Open file
+!        ---------
+         open(newunit=fid, file=trim(fileName), status="old", action="read", form="unformatted")
+!
+!        Get the file name
+!        -----------------
+         read(fid) fileNameInFile
+!
+!        Get the file type
+!        -----------------
+         read(fid) fileType
+!
+!        Get the number of elements
+!        --------------------------
+         read(fid) 
+!
+!        Skip the time and iteration
+!        ---------------------------
+         read(fid)
+         read(fid)
+!
+!        Get dimensionless and reference values
+!        --------------------------------------
+         read(fid) getSolutionFileReferenceValues
+!
+!        Close file
+!        ----------
+         close(fid)
+
+      end function getSolutionFileReferenceValues
+
       integer function putSolutionFileInReadDataMode(fileName)
          implicit none
          character(len=*), intent(in)  :: fileName
@@ -227,10 +278,12 @@ module SolutionFile
 !
 !        Get the initial time and iteration
 !        ----------------------------------
-         if ( fileType .ne. MESH_FILE ) then
-            read(fid) initial_iter
-            read(fid) initial_time        
-         end if
+         read(fid) initial_iter
+         read(fid) initial_time        
+!
+!        Get the reference values
+!        ------------------------
+         read(fid)
 !
 !        Get the beginning data mark
 !        ---------------------------

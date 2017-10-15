@@ -2,6 +2,7 @@
 module Storage
    use SMConstants
    use PhysicsStorage
+   use SolutionFile
    implicit none
    
    private
@@ -25,6 +26,7 @@ module Storage
       type(Element_t),   allocatable    :: elements(:)
       character(len=LINE_LENGTH) :: meshName
       character(len=LINE_LENGTH) :: solutionName
+      real(kind=RP)              :: refs(NO_OF_SAVED_REFS)
       contains
          procedure   :: ReadMesh     => Mesh_ReadMesh
          procedure   :: ReadSolution => Mesh_ReadSolution
@@ -32,7 +34,6 @@ module Storage
 
    contains
       subroutine Mesh_ReadMesh(self,meshName)
-         use SolutionFile
          implicit none
          class(Mesh_t)         :: self
          character(len=*), intent(in)     :: meshName
@@ -82,7 +83,6 @@ module Storage
       end subroutine Mesh_ReadMesh
 
       subroutine Mesh_ReadSolution(self,solutionName)
-         use SolutionFile
          implicit none
          class(Mesh_t)         :: self
          character(len=*), intent(in)     :: solutionName
@@ -91,10 +91,11 @@ module Storage
 !        Local variables
 !        ---------------
 !
-         integer                          :: no_of_elements
-         integer                          :: arrayDimensions(4)
-         integer                          :: fid, eID
-         integer  :: i,j,k
+         integer       :: no_of_elements
+         integer       :: arrayDimensions(4)
+         integer       :: fid, eID
+         integer       :: i,j,k
+         real(kind=RP) :: refs(NO_OF_SAVED_REFS)
 
          self % solutionName = trim(solutionName)
 !
@@ -107,6 +108,10 @@ module Storage
             errorMessage(STD_OUT)
             stop 
          end if
+!
+!        Read reference values
+!        ---------------------
+         self % refs = getSolutionFileReferenceValues(trim(solutionName))
 !
 !        Read coordinates
 !        ----------------
