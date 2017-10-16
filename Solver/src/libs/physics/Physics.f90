@@ -436,8 +436,6 @@
             CASE ( ROE )
                CALL RoeSolver( QLeft, QRight, nHat, flux )
             CASE (LXF)
-               PRINT *, "3D LXF to be implemented."
-               STOP !DEBUG
                CALL LxFSolver( QLeft, QRight, nHat, flux )
             CASE (RUSANOV)
                CALL RusanovSolver( QLeft, QRight, nHat, flux )               
@@ -576,54 +574,60 @@
 !        ---------------
 !
 !
-      REAL(KIND=RP) :: rho , rhou , rhov  , rhoe
-      REAL(KIND=RP) :: rhon, rhoun, rhovn , rhoen
-      REAL(KIND=RP) :: ul  , vl   , pleft , ql, cl
-      REAL(KIND=RP) :: ur  , vr   , pright, qr, cr
-      REAL(KIND=RP) :: sM
-      REAL(KIND=RP), DIMENSION(N_EQN) :: FL, FR
-      
-      associate ( gamma => thermodynamics % gamma ) 
-
-      rho  = Qleft(1)
-      rhou = Qleft(2)
-      rhov = Qleft(3)
-      rhoe = Qleft(4)
-
-      rhon  = Qright(1)
-      rhoun = Qright(2)
-      rhovn = Qright(3)
-      rhoen = Qright(4)
-
-      ul = rhou/rho 
-      vl = rhov/rho 
-      pleft = (gamma-1.d0)*(rhoe - 0.5d0/rho*(rhou**2 + rhov**2)) 
-!
-      ur = rhoun/rhon 
-      vr = rhovn/rhon 
-      pright = (gamma-1.d0)*(rhoen - 0.5d0/rhon*(rhoun**2 + rhovn**2)) 
-!
-      ql = nHat(1)*ul + nHat(2)*vl 
-      qr = nHat(1)*ur + nHat(2)*vr 
-      cl = SQRT( gamma*pleft/rho )
-      cr = SQRT( gamma*pright/rhon )
-!
-      FL(1) = rho*ql
-      FL(2) = rhou*ql + pleft*nHat(1)
-      FL(3) = rhov*ql + pleft*nHat(2)
-      FL(4) = (rhoe + pleft)*ql
-!
-      FR(1) = rhon*qr
-      FR(2) = rhoun*qr + pright*nHat(1)
-      FR(3) = rhovn*qr + pright*nHat(2)
-      FR(4) = (rhoen + pright)*qr
-!
-      sM = MAX( ABS(ql) + cl, ABS(qr) + cr )
-!
-      flux = ds * 0.5_RP * ( FL + FR - sM*(Qright - Qleft) )      
-
-      end associate
+         REAL(KIND=RP) :: rho , rhou , rhov  , rhow  , rhoe
+         REAL(KIND=RP) :: rhon, rhoun, rhovn , rhown , rhoen
+         REAL(KIND=RP) :: ul  , vl   , wl    , pleft , ql, cl
+         REAL(KIND=RP) :: ur  , vr   , wr    , pright, qr, cr
+         REAL(KIND=RP) :: sM
+         REAL(KIND=RP), DIMENSION(N_EQN) :: FL, FR
          
+         associate ( gamma => thermodynamics % gamma )
+         
+         rho  = Qleft(1)
+         rhou = Qleft(2)
+         rhov = Qleft(3)
+         rhow = Qleft(4)
+         rhoe = Qleft(5)
+         
+         rhon  = Qright(1)
+         rhoun = Qright(2)
+         rhovn = Qright(3)
+         rhown = Qright(4)
+         rhoen = Qright(5)
+         
+         ul = rhou/rho 
+         vl = rhov/rho 
+         wl = rhow/rho 
+         pleft = (gamma-1.d0)*(rhoe - 0.5d0/rho*(rhou**2 + rhov**2 + rhow**2)) 
+         
+         ur = rhoun/rhon 
+         vr = rhovn/rhon 
+         wr = rhown/rhon 
+         pright = (gamma-1.d0)*(rhoen - 0.5d0/rhon*(rhoun**2 + rhovn**2 + rhown**2)) 
+         
+         ql = nHat(1)*ul + nHat(2)*vl + nHat(3)*wl 
+         qr = nHat(1)*ur + nHat(2)*vr + nHat(3)*wr 
+         cl = SQRT( gamma*pleft/rho )
+         cr = SQRT( gamma*pright/rhon )
+         
+         FL(1) = rho*ql
+         FL(2) = rhou*ql + pleft*nHat(1)
+         FL(3) = rhov*ql + pleft*nHat(2)
+         FL(4) = rhow*ql + pleft*nHat(3)
+         FL(5) = (rhoe + pleft)*ql
+         
+         FR(1) = rhon*qr
+         FR(2) = rhoun*qr + pright*nHat(1)
+         FR(3) = rhovn*qr + pright*nHat(2)
+         FR(4) = rhown*qr + pright*nHat(3)
+         FR(5) = (rhoen + pright)*qr
+         
+         sM = MAX( ABS(ql) + cl, ABS(qr) + cr )
+         
+         flux = ds * 0.5_RP * ( FL + FR - sM*(Qright - Qleft) )      
+         
+         end associate
+      
       END SUBROUTINE LxFSolver
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
