@@ -11,6 +11,7 @@ Reynolds number       = 200.0
 AOA theta             = 0.0
 AOA phi               = 90.0
 solution file name    = "RESULTS/Cylinder_saved.rst"
+save gradients with solution = .true.
 restart               = .false.
 restart file name     = "RESULTS/Cylinder.rst"
 Number of boundaries  = 7

@@ -69,11 +69,9 @@ end interface
       TYPE( FTValueDictionary)            :: controlVariables
       TYPE( DGSem )                       :: sem
       TYPE( FTTimer )                     :: stopWatch
-      TYPE( DGSEMPlotter )      , POINTER :: plotter      => NULL()
-      CLASS( PlotterDataSource ), POINTER :: plDataSource => NULL()
       TYPE( TimeIntegrator_t )            :: timeIntegrator
       
-      LOGICAL                             :: success
+      LOGICAL                             :: success, saveGradients
       integer                             :: initial_iteration
       INTEGER                             :: plotUnit, saveUnit
       INTEGER, EXTERNAL                   :: UnusedUnit
@@ -168,29 +166,6 @@ end interface
 !
       CALL timeIntegrator % construct (controlVariables, initial_iteration, initial_time)
 !
-!     --------------------
-!     Prepare for plotting
-!     --------------------
-!
-!      IF ( controlVariables % stringValueForKey(plotFileNameKey, &
-!           requestedLength = LINE_LENGTH) /= "none" )     THEN
-!         plotUnit = UnusedUnit()
-!         ALLOCATE(plotter)
-!         ALLOCATE(plDataSource)
-!         
-!         IF(controlVariables % containsKey("number of plot points")) THEN           ! Interpolate to plot
-!            CALL plotter % Construct(fUnit      = plotUnit,          &
-!                                dataSource = plDataSource,      &
-!                                newN       = controlVariables % integerValueForKey("number of plot points"), &
-!                                spA        = sem % spA)
-!            
-!         ELSE                                                                       ! Plot values on Gauss points
-!            CALL plotter % Construct(fUnit      = plotUnit,          &
-!                                     dataSource = plDataSource)
-!         END IF
-!         CALL timeIntegrator % setPlotter(plotter)
-!      END IF 
-!
 !     -----------------
 !     Integrate in time
 !     -----------------
@@ -215,31 +190,10 @@ end interface
 !
       IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN 
          solutionFileName = trim(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH))) // ".hsol"
-         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, .false.)
+         saveGradients    = controlVariables % logicalValueForKey("save gradients with solution")
+         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients)
       END IF
-!!
-!!     ----------------
-!!     Plot the results
-!!     ----------------
-!!
-!      IF ( ASSOCIATED(plotter) )     THEN
-!         plotUnit = UnusedUnit()
-!         OPEN(UNIT = plotUnit, FILE = controlVariables % stringValueForKey(plotFileNameKey, &
-!                                                                requestedLength = LINE_LENGTH))
-!            CALL plotter % ExportToTecplot( elements = sem % mesh % elements , spA = sem % spA)
-!         CLOSE(plotUnit)
-!      END IF 
-!!
-!!     --------
-!!     Clean up
-!!     --------
-!!
-!      IF(ASSOCIATED(plotter)) THEN
-!         CALL plotter % Destruct()
-!         DEALLOCATE(plotter)
-!         DEALLOCATE(plDataSource)
-!      END IF 
-!
+
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       CALL destructSharedBCModule
@@ -360,6 +314,13 @@ end interface
                success = .FALSE. 
             END IF  
          END DO  
+!
+!        Control variables with default value
+!        ------------------------------------
+         obj => controlVariables % objectForKey("save gradients with solution")
+         if ( .not. associated(obj) ) then
+            call controlVariables % addValueForKey("save gradients with solution",".false.")
+         end if
          
          
       END SUBROUTINE checkInputIntegrity

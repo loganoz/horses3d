@@ -1008,9 +1008,9 @@ MODULE HexMeshClass
             associate( e => self % elements(eID) )
             call writeArray(fid, e % storage % Q)
             if ( saveGradients ) then
-               call writeArray(fid, e % storage % U_x)
-               call writeArray(fid, e % storage % U_y)
-               call writeArray(fid, e % storage % U_z)
+               write(fid) e % storage % U_x
+               write(fid) e % storage % U_y
+               write(fid) e % storage % U_z
             end if
             end associate
          end do

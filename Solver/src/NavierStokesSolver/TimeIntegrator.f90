@@ -175,6 +175,7 @@ end interface
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
       INTEGER                       :: JacFlag
       TYPE(FASMultigrid_t)          :: FASSolver
+      logical                       :: saveGradients
 !
 !     ----------------------
 !     Read Control variables
@@ -195,6 +196,12 @@ end interface
 !     ---------------
 !
       IF (TimeIntegration == 'FAS') CALL FASSolver % construct(controlVariables,sem)
+!
+!     ------------------
+!     Configure restarts
+!     ------------------
+!
+      saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
 !
 !     -----------------
 !     Integrate in time
@@ -280,7 +287,7 @@ end interface
 !        Autosave
 !        --------         
          if ( self % autosave % Autosave(k+1) ) then
-            call SaveRestart(sem,k+1,t,SolutionFileName)
+            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients)
    
          end if
 
@@ -336,7 +343,7 @@ end interface
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SaveRestart(sem,k,t,RestFileName)
+   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients)
       IMPLICIT NONE
 !
 !     ------------------------------------
@@ -348,6 +355,7 @@ end interface
       INTEGER                      :: k              !< Time step
       REAL(KIND=RP)                :: t              !< Simu time
       CHARACTER(len=*)             :: RestFileName   !< Name of restart file
+      logical,          intent(in) :: saveGradients
 !     ----------------------------------------------
       INTEGER                      :: fd             !  File unit for new restart file
       CHARACTER(len=LINE_LENGTH)   :: FinalName      !  Final name for particular restart file
@@ -355,7 +363,7 @@ end interface
       
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
-      call sem % mesh % SaveSolution(k,t,trim(finalName),.false.)
+      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients)
    
    END SUBROUTINE SaveRestart
 !

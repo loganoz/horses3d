@@ -24,10 +24,10 @@ AR=ar
 RANLIB=ranlib
 PROG=./bin/horses2plt
 
-OBJS=	OutputVariables\
+OBJS=	Storage\
+	OutputVariables\
 	getTask\
 	sharedSpectralBasis\
-	Storage\
 	ProlongMeshAndSolution\
 	Mesh2Plt\
 	Solution2Plt\

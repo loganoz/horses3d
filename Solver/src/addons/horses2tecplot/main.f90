@@ -37,6 +37,7 @@ program horses2plt
          case ( SOLUTION_FILE )
             call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)        
          case ( SOLUTION_AND_GRADIENTS_FILE )
+            call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)        
 
          case ( STATS_FILE )
 

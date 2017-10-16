@@ -149,12 +149,13 @@ module ProlongMeshAndSolution
 
       end subroutine ProlongMeshToGaussPoints
 
-      subroutine ProlongSolutionToGaussPoints(Nsol,Q,Nout,Qout,Tx,Ty,Tz)
+      subroutine ProlongSolutionToGaussPoints(NEQ,Nsol,Q,Nout,Qout,Tx,Ty,Tz)
          implicit none
+         integer,            intent(in)  :: NEQ
          integer,            intent(in)  :: Nsol(3)
-         real(kind=RP),      intent(in)  :: Q(0:Nsol(1),0:Nsol(2),0:Nsol(3),1:5)
+         real(kind=RP),      intent(in)  :: Q(0:Nsol(1),0:Nsol(2),0:Nsol(3),1:NEQ)
          integer,            intent(in)  :: Nout(3)
-         real(kind=RP),      intent(out) :: Qout(0:Nout(1),0:Nout(2),0:Nout(3),1:5)
+         real(kind=RP),      intent(out) :: Qout(0:Nout(1),0:Nout(2),0:Nout(3),1:NEQ)
          real(kind=RP),      intent(in)  :: Tx(0:Nout(1),0:Nsol(1))
          real(kind=RP),      intent(in)  :: Ty(0:Nout(2),0:Nsol(2))
          real(kind=RP),      intent(in)  :: Tz(0:Nout(3),0:Nsol(3))
@@ -167,7 +168,7 @@ module ProlongMeshAndSolution
 
          Qout = 0.0_RP
 
-         do iVar = 1, 5
+         do iVar = 1, NEQ
             do n = 0, Nsol(3) ; do m = 0, Nsol(2) ; do l = 0, Nsol(1)
                do k = 0, Nout(3) ; do j = 0, Nout(2) ; do i = 0, Nout(1)
                   Qout(i,j,k,iVar) = Qout(i,j,k,iVar) + Q(l,m,n,iVar) * Tx(i,l) * Ty(j,m) * Tz(k,n)

@@ -298,7 +298,13 @@ Module DGSEMClass
          integer                                :: restartUnit
          integer,       intent(out)             :: initial_iteration
          real(kind=RP), intent(out)             :: initial_time 
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
          character(len=LINE_LENGTH)             :: fileName, solutionName
+         logical                                :: saveGradients
          interface
             SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
                                                            dimensionless_,&
@@ -333,10 +339,11 @@ Module DGSEMClass
 !
 !        Save the initial condition
 !        --------------------------
+         saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
          solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
          solutionName = trim(getFileName(solutionName))
          write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
-         call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, .false. )
+         call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
    
       end subroutine DGSEM_SetInitialCondition
 !
