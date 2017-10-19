@@ -3,6 +3,7 @@ program horses2plt
    use getTask
    use Mesh2PltModule
    use Solution2PltModule
+   use Stats2PltModule
    use SolutionFile
    use SharedSpectralBasis
    implicit none
@@ -36,10 +37,12 @@ program horses2plt
          select case (solutionTypes(iSol))
          case ( SOLUTION_FILE )
             call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)        
+
          case ( SOLUTION_AND_GRADIENTS_FILE )
             call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)        
 
          case ( STATS_FILE )
+            call Stats2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)
 
          end select
       end do

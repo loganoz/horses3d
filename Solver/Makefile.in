@@ -169,6 +169,7 @@ all: header mkdirs horseslibs problemfilelib HORSES3D addons
 
 install: FORCE
 	cp -f $(HOME_DIR)/bin/HORSES3D /usr/local/bin
+	cp -f $(HOME_DIR)/bin/horses2plt /usr/local/bin
 	cp -f $(HOME_DIR)/lib/libproblemfile.so /usr/local/lib
 
 

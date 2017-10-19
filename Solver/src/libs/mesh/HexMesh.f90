@@ -41,6 +41,8 @@ MODULE HexMeshClass
             procedure :: SetConnectivities => HexMesh_SetConnectivities
             procedure :: Export            => HexMesh_Export
             procedure :: SaveSolution      => HexMesh_SaveSolution
+            procedure :: SaveStatistics    => HexMesh_SaveStatistics
+            procedure :: ResetStatistics   => HexMesh_ResetStatistics
             procedure :: LoadSolution      => HexMesh_LoadSolution
             procedure :: WriteCoordFile
       end type HexMesh
@@ -1016,6 +1018,60 @@ MODULE HexMeshClass
          end do
 
       end subroutine HexMesh_SaveSolution
+
+      subroutine HexMesh_SaveStatistics(self, iter, time, name)
+         use SolutionFile
+         implicit none
+         class(HexMesh),      intent(in)        :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: fid, eID
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+!
+!        Gather reference quantities
+!        ---------------------------
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
+!
+!        Create new file
+!        ---------------
+         fid = CreateNewSolutionFile(trim(name),STATS_FILE, self % no_of_elements, iter, time, refs)
+!
+!        Write arrays
+!        ------------
+         do eID = 1, self % no_of_elements
+            associate( e => self % elements(eID) )
+            call writeArray(fid, e % storage % stats % data)
+            end associate
+         end do
+
+      end subroutine HexMesh_SaveStatistics
+
+      subroutine HexMesh_ResetStatistics(self)
+         implicit none
+         class(HexMesh)       :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: eID
+
+         do eID = 1, self % no_of_elements
+            self % elements(eID) % storage % stats % data = 0.0_RP
+         end do
+
+      end subroutine HexMesh_ResetStatistics
 
       subroutine HexMesh_LoadSolution( self, fileName, initial_iteration, initial_time ) 
          use SolutionFile

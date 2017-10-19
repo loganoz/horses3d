@@ -1,15 +1,28 @@
-module Solution2PltModule
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:    Stats2Plt.f90
+!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
+!   @Created: Thu Oct 19 18:27:04 2017
+!   @Last revision date:
+!   @Last revision author:
+!   @Last revision commit:
+!
+!//////////////////////////////////////////////////////
+!
+#include "Includes.h"
+module Stats2PltModule
    use SMConstants
    use SolutionFile
    implicit none
 
    private
-   public   Solution2Plt
+   public   Stats2Plt
 
 #define PRECISION_FORMAT "(E13.5)"
 
    contains
-      subroutine Solution2Plt(meshName, solutionName, fixedOrder, basis, Nout)
+      subroutine Stats2Plt(meshName, solutionName, fixedOrder, basis, Nout)
          use getTask
          implicit none  
          character(len=*), intent(in)     :: meshName
@@ -23,20 +36,20 @@ module Solution2PltModule
          case(EXPORT_GAUSS)
 
             if ( fixedOrder ) then
-               call Solution2Plt_GaussPoints_FixedOrder(meshName, solutionName, Nout)
+               call Stats2Plt_GaussPoints_FixedOrder(meshName, solutionName, Nout)
    
             else
-               call Solution2Plt_GaussPoints(meshName, solutionName)
+               call Stats2Plt_GaussPoints(meshName, solutionName)
 
             end if
 
          case(EXPORT_HOMOGENEOUS)
             
-            call Solution2Plt_Homogeneous(meshName, solutionName, Nout)
+            call Stats2Plt_Homogeneous(meshName, solutionName, Nout)
 
          end select
 
-      end subroutine Solution2Plt
+      end subroutine Stats2Plt
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -45,7 +58,7 @@ module Solution2PltModule
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Solution2Plt_GaussPoints(meshName, solutionName)
+      subroutine Stats2Plt_GaussPoints(meshName, solutionName)
          use Storage
          use NodalStorageClass
          use SharedSpectralBasis
@@ -92,7 +105,7 @@ module Solution2PltModule
 !
 !           Project mesh and solution
 !           -------------------------
-            call ProjectStorageGaussPoints(e, spA(e % Nmesh(1), e % Nmesh(2), e % Nmesh(3)), spA(e % Nsol(1), e % Nsol(2), e % Nsol(3)), mesh % hasGradients)
+            call ProjectStorageGaussPoints(e, spA(e % Nmesh(1), e % Nmesh(2), e % Nmesh(3)), spA(e % Nsol(1), e % Nsol(2), e % Nsol(3)))
 
             end associate
          end do
@@ -112,7 +125,7 @@ module Solution2PltModule
 !
 !        Add the variables
 !        -----------------
-         write(fid,'(A,A)') 'VARIABLES = "x","y","z"', trim(getOutputVariablesLabel())
+         write(fid,'(A,A)') 'VARIABLES = "x","y","z","Umean","Vmean","Wmean","Sxx","Syy","Szz","Sxy","Sxz","Syz"'
 !
 !        Write each element zone
 !        -----------------------
@@ -121,7 +134,7 @@ module Solution2PltModule
 !
 !           Write the tecplot file
 !           ----------------------
-            call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients) 
+            call WriteElementToTecplot(fid, e, mesh % refs) 
             end associate
          end do
 !
@@ -129,9 +142,9 @@ module Solution2PltModule
 !        --------------
          close(fid)
       
-      end subroutine Solution2Plt_GaussPoints
+      end subroutine Stats2Plt_GaussPoints
 
-      subroutine ProjectStorageGaussPoints(e, spAM, spAS, hasGradients)
+      subroutine ProjectStorageGaussPoints(e, spAM, spAS)
          use Storage
          use NodalStorageClass
          use ProlongMeshAndSolution
@@ -139,7 +152,6 @@ module Solution2PltModule
          type(Element_t)     :: e
          type(NodalStorage),  intent(in)  :: spAM
          type(NodalStorage),  intent(in)  :: spAS
-         logical,             intent(in)  :: hasGradients
          
          e % Nout = e % Nsol
          if ( all(e % Nmesh .eq. e % Nout) ) then
@@ -151,13 +163,7 @@ module Solution2PltModule
 
          end if
 
-         e % Qout(0:,0:,0:,1:) => e % Q
-         if ( hasGradients ) then
-            e % U_xout(0:,0:,0:,1:) => e % U_x
-            e % U_yout(0:,0:,0:,1:) => e % U_y
-            e % U_zout(0:,0:,0:,1:) => e % U_z
-         end if
-         
+         e % statsout(0:,0:,0:,1:) => e % stats
 
       end subroutine ProjectStorageGaussPoints
 !
@@ -168,7 +174,7 @@ module Solution2PltModule
 !
 !//////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Solution2Plt_GaussPoints_FixedOrder(meshName, solutionName, Nout)
+      subroutine Stats2Plt_GaussPoints_FixedOrder(meshName, solutionName, Nout)
          use Storage
          use NodalStorageClass
          use SharedSpectralBasis
@@ -231,8 +237,7 @@ module Solution2PltModule
                                                             spA(e % Nout(1), e % Nout(2), e % Nout(3)), &
                                                                     Tset(e % Nout(1), e % Nsol(1)) % T, &
                                                                     Tset(e % Nout(2), e % Nsol(2)) % T, &
-                                                                    Tset(e % Nout(3), e % Nsol(3)) % T, &
-                                                                                   mesh % hasGradients    )
+                                                                    Tset(e % Nout(3), e % Nsol(3)) % T    )
 
             end associate
          end do
@@ -252,14 +257,14 @@ module Solution2PltModule
 !
 !        Add the variables
 !        -----------------
-         write(fid,'(A,A)') 'VARIABLES = "x","y","z"', trim(getOutputVariablesLabel())
+         write(fid,'(A,A)') 'VARIABLES = "x","y","z","Umean","Vmean","Wmean","Sxx","Syy","Szz","Sxy","Sxz","Syz"'
 !
 !        Write elements
 !        --------------
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
 
-            call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients)
+            call WriteElementToTecplot(fid, e, mesh % refs)
             end associate
          end do
 
@@ -268,9 +273,9 @@ module Solution2PltModule
 !        --------------
          close(fid)
 
-      end subroutine Solution2Plt_GaussPoints_FixedOrder
+      end subroutine Stats2Plt_GaussPoints_FixedOrder
 
-      subroutine ProjectStorageGaussPoints_FixedOrder(e, spAM, spAS, spAout, Tx, Ty, Tz, hasGradients)
+      subroutine ProjectStorageGaussPoints_FixedOrder(e, spAM, spAS, spAout, Tx, Ty, Tz)
          use Storage
          use NodalStorageClass
          use ProlongMeshAndSolution
@@ -282,7 +287,6 @@ module Solution2PltModule
          real(kind=RP),       intent(in)  :: Tx(0:e % Nout(1), 0:e % Nsol(1))
          real(kind=RP),       intent(in)  :: Ty(0:e % Nout(2), 0:e % Nsol(2))
          real(kind=RP),       intent(in)  :: Tz(0:e % Nout(3), 0:e % Nsol(3))
-         logical,             intent(in)  :: hasGradients
 !
 !        Project mesh
 !        ------------         
@@ -298,20 +302,11 @@ module Solution2PltModule
 !        Project the solution
 !        --------------------
          if ( all( e % Nsol .eq. e % Nout ) ) then
-            e % Qout(0:,0:,0:,1:) => e % Q
+            e % statsout(0:,0:,0:,1:) => e % stats
    
          else
             allocate( e % Qout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:5) )
-            call prolongSolutionToGaussPoints(5, e % Nsol, e % Q, e % Nout, e % Qout, Tx, Ty, Tz)
-   
-            if ( hasGradients ) then
-               allocate( e % U_xout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:4) )
-               allocate( e % U_yout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:4) )
-               allocate( e % U_zout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:4) )
-               call prolongSolutionToGaussPoints(4, e % Nsol, e % U_x, e % Nout, e % U_xout, Tx, Ty, Tz)
-               call prolongSolutionToGaussPoints(4, e % Nsol, e % U_y, e % Nout, e % U_yout, Tx, Ty, Tz)
-               call prolongSolutionToGaussPoints(4, e % Nsol, e % U_z, e % Nout, e % U_zout, Tx, Ty, Tz)
-            end if
+            call prolongSolutionToGaussPoints(9, e % Nsol, e % stats, e % Nout, e % statsout, Tx, Ty, Tz)
 
          end if
 
@@ -324,7 +319,7 @@ module Solution2PltModule
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Solution2Plt_Homogeneous(meshName, solutionName, Nout)
+      subroutine Stats2Plt_Homogeneous(meshName, solutionName, Nout)
          use Storage
          use NodalStorageClass
          use SharedSpectralBasis
@@ -396,8 +391,7 @@ module Solution2PltModule
                                                     Tset(e % Nout(3), e % Nmesh(3)) % T, &
                                                      Tset(e % Nout(1), e % Nsol(1)) % T, &
                                                      Tset(e % Nout(2), e % Nsol(2)) % T, &
-                                                     Tset(e % Nout(3), e % Nsol(3)) % T, &
-                                                                    mesh % hasGradients   )
+                                                     Tset(e % Nout(3), e % Nsol(3)) % T    )
 
 
             end associate
@@ -418,14 +412,14 @@ module Solution2PltModule
 !
 !        Add the variables
 !        -----------------
-         write(fid,'(A,A)') 'VARIABLES = "x","y","z"', trim(getOutputVariablesLabel())
+         write(fid,'(A,A)') 'VARIABLES = "x","y","z","Umean","Vmean","Wmean","Sxx","Syy","Szz","Sxy","Sxz","Syz"'
 !
 !        Write elements
 !        --------------
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
 
-            call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients)
+            call WriteElementToTecplot(fid, e, mesh % refs)
             end associate
          end do
 
@@ -434,9 +428,9 @@ module Solution2PltModule
 !        --------------
          close(fid)
 
-      end subroutine Solution2Plt_Homogeneous
+      end subroutine Stats2Plt_Homogeneous
 
-      subroutine ProjectStorageHomogeneousPoints(e, TxMesh, TyMesh, TzMesh, TxSol, TySol, TzSol, hasGradients)
+      subroutine ProjectStorageHomogeneousPoints(e, TxMesh, TyMesh, TzMesh, TxSol, TySol, TzSol)
          use Storage
          use NodalStorageClass
          implicit none
@@ -447,7 +441,6 @@ module Solution2PltModule
          real(kind=RP),       intent(in)  :: TxSol(0:e % Nout(1), 0:e % Nsol(1))
          real(kind=RP),       intent(in)  :: TySol(0:e % Nout(2), 0:e % Nsol(2))
          real(kind=RP),       intent(in)  :: TzSol(0:e % Nout(3), 0:e % Nsol(3))
-         logical,             intent(in)  :: hasGradients
 !
 !        ---------------
 !        Local variables
@@ -469,52 +462,16 @@ module Solution2PltModule
 !
 !        Project the solution
 !        --------------------
-         allocate( e % Qout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:5) )
-         e % Qout = 0.0_RP
+         allocate( e % Qout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:9) )
+         e % statsout = 0.0_RP
 
-         do iVar = 1, 5
+         do iVar = 1, 9
             do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
                do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
-                  e % Qout(i,j,k,iVar) = e % Qout(i,j,k,iVar) + e % Q(l,m,n,iVar) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+                  e % statsout(i,j,k,iVar) = e % statsout(i,j,k,iVar) + e % stats(l,m,n,iVar) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
                end do            ; end do            ; end do
             end do            ; end do            ; end do
          end do
-
-         if ( hasGradients ) then
-            allocate( e % U_xout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:4) )
-            e % U_xout = 0.0_RP
-   
-            do iVar = 1, 4
-               do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
-                  do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
-                     e % U_xout(i,j,k,iVar) = e % U_xout(i,j,k,iVar) + e % U_x(l,m,n,iVar) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
-                  end do            ; end do            ; end do
-               end do            ; end do            ; end do
-            end do
-
-          allocate( e % U_yout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:4) )
-            e % U_yout = 0.0_RP
-   
-            do iVar = 1, 4
-               do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
-                  do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
-                     e % U_yout(i,j,k,iVar) = e % U_yout(i,j,k,iVar) + e % U_y(l,m,n,iVar) * TySol(i,l) * TySol(j,m) * TzSol(k,n)
-                  end do            ; end do            ; end do
-               end do            ; end do            ; end do
-            end do
-
-          allocate( e % U_zout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:4) )
-            e % U_zout = 0.0_RP
-   
-            do iVar = 1, 4
-               do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
-                  do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
-                     e % U_zout(i,j,k,iVar) = e % U_zout(i,j,k,iVar) + e % U_z(l,m,n,iVar) * TzSol(i,l) * TySol(j,m) * TzSol(k,n)
-                  end do            ; end do            ; end do
-               end do            ; end do            ; end do
-            end do
-
-         end if
 
       end subroutine ProjectStorageHomogeneousPoints
 !
@@ -525,33 +482,39 @@ module Solution2PltModule
 !
 !/////////////////////////////////////////////////////////////////////////////
 !
-      subroutine WriteElementToTecplot(fid,e,refs, hasGradients)
+      subroutine WriteElementToTecplot(fid,e,refs)
          use Storage
          use NodalStorageClass
          use prolongMeshAndSolution
-         use OutputVariables
          use SolutionFile
+         use StatisticsMonitor
          implicit none
          integer,            intent(in) :: fid
          type(Element_t),    intent(in) :: e 
          real(kind=RP),      intent(in) :: refs(NO_OF_SAVED_REFS)
-         logical,            intent(in) :: hasGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer                    :: i,j,k,var
-         real(kind=RP)              :: outputVars(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3),1:no_of_outputVariables)
-         real(kind=RP)              :: outputVarsReord(1:no_of_outputVariables,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3))
+         real(kind=RP)              :: outputVars(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3),1:9)
+         real(kind=RP)              :: outputVarsReord(1:9, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3))
          character(len=LINE_LENGTH) :: formatout
 !
 !        Get output variables
 !        --------------------
-         call ComputeOutputVariables(e % Nout, e, outputVars, refs, hasGradients)
+         outputVars(:,:,:,1) = e % statsout(:,:,:,U)
+         outputVars(:,:,:,2) = e % statsout(:,:,:,V)
+         outputVars(:,:,:,3) = e % statsout(:,:,:,W)
+         outputVars(:,:,:,4) = e % statsout(:,:,:,UU) - POW2(e % statsout(:,:,:,U))
+         outputVars(:,:,:,5) = e % statsout(:,:,:,VV) - POW2(e % statsout(:,:,:,V))
+         outputVars(:,:,:,6) = e % statsout(:,:,:,WW) - POW2(e % statsout(:,:,:,W))
+         outputVars(:,:,:,7) = e % statsout(:,:,:,UV) - e % statsout(:,:,:,U) * e % statsout(:,:,:,V)
+         outputVars(:,:,:,8) = e % statsout(:,:,:,UW) - e % statsout(:,:,:,U) * e % statsout(:,:,:,W)
+         outputVars(:,:,:,9) = e % statsout(:,:,:,VW) - e % statsout(:,:,:,V) * e % statsout(:,:,:,W)
 
-
-         do i = 1 , no_of_outputVariables
+         do i = 1 , 9
             outputVarsReord(i,:,:,:) = outputVars(:,:,:,i)
          end do
 !
@@ -574,8 +537,8 @@ module Solution2PltModule
 
          getFormat = ""
 
-         write(getFormat,'(A,I0,A,A)') "(",3+no_of_outputVariables,PRECISION_FORMAT,")"
+         write(getFormat,'(A,I0,A,A)') "(",12,PRECISION_FORMAT,")"
 
       end function getFormat
       
-end module Solution2PltModule
+end module Stats2PltModule

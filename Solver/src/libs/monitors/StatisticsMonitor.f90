@@ -5,7 +5,7 @@ module StatisticsMonitor
    use StorageClass
 
    private
-   public     StatisticsMonitor_t
+   public     StatisticsMonitor_t, U, V, W, UU, VV, WW, UV, UW, VW
 !
 !  Commands for the parameter file
 !  -------------------------------
@@ -25,15 +25,15 @@ module StatisticsMonitor
 !  Statistics monitor content
 !  --------------------------
 #define NO_OF_VARIABLES 9
-#define U  1
-#define V  2
-#define W  3
-#define UU 4
-#define VV 5
-#define WW 6
-#define UV 7
-#define UW 8
-#define VW 9
+   integer, parameter ::  U  = 1
+   integer, parameter ::  V  = 2
+   integer, parameter ::  W  = 3
+   integer, parameter ::  UU = 4
+   integer, parameter ::  VV = 5
+   integer, parameter ::  WW = 6
+   integer, parameter ::  UV = 7
+   integer, parameter ::  UW = 8
+   integer, parameter ::  VW = 9
     
    type StatisticsMonitor_t
       integer        :: state
@@ -48,6 +48,7 @@ module StatisticsMonitor
          procedure   :: GetState     => StatisticsMonitor_GetState
          procedure   :: WriteLabel   => StatisticsMonitor_WriteLabel
          procedure   :: WriteValue   => StatisticsMonitor_WriteValue
+         procedure   :: WriteFile    => StatisticsMonitor_WriteFile
    end type StatisticsMonitor_t
 !
 !  ========
@@ -118,18 +119,34 @@ module StatisticsMonitor
 
       end subroutine StatisticsMonitor_Construct
 
-      subroutine StatisticsMonitor_Update(self, mesh, iter, t)
+      subroutine StatisticsMonitor_WriteFile(self, mesh, iter, t, solution_file)
          implicit none
          class(StatisticsMonitor_t) :: self
          class(HexMesh)             :: mesh
          integer, intent(in)        :: iter
          real(kind=RP), intent(in)  :: t
+         character(len=*), intent(in)  :: solution_file
+         character(len=LINE_LENGTH)    :: fileName
+
+         write(fileName,'(A,A)') trim(solution_file),'.stats.hsol'
+         if ( self % state .ne. OFF) call mesh % SaveStatistics(iter, t, trim(fileName))
+
+      end subroutine StatisticsMonitor_WriteFile
+
+      subroutine StatisticsMonitor_Update(self, mesh, iter, t, solution_file)
+         implicit none
+         class(StatisticsMonitor_t) :: self
+         class(HexMesh)             :: mesh
+         integer, intent(in)        :: iter
+         real(kind=RP), intent(in)  :: t
+         character(len=*), intent(in)  :: solution_file
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          logical     :: reset, dump
+         character(len=LINE_LENGTH)    :: fileName
    
          if ( self % state .eq. OFF ) return
 !
@@ -139,11 +156,18 @@ module StatisticsMonitor
 !
 !        Dump the contents if requested
 !        ------------------------------
-!        TODO
+         if ( dump ) then
+            write(fileName,'(A,A,I10.10,A)') trim(solution_file),'.stats.',iter,'.hsol'
+            call mesh % SaveStatistics(iter, t, trim(fileName))
+            write(STD_OUT,'(A,A,A)') '   *** Saving statistics file as "',trim(fileName),'".'
+         end if
 !
 !        Reset the statistics if requested
 !        ---------------------------------
-!        TODO
+         if ( reset ) then
+            call mesh % ResetStatistics
+            self % no_of_samples = 0
+         end if
 !
 !        Update the state if it is waiting
 !        ---------------------------------
@@ -170,7 +194,6 @@ module StatisticsMonitor
 !        ---------------
 !
          integer  :: eID
-print*, "*** Updating statistics values.....................", self % no_of_samples
 
          do eID = 1, size(mesh % elements)
             associate(e    => mesh % elements(eID), &
@@ -272,7 +295,6 @@ print*, "*** Updating statistics values.....................", self % no_of_samp
             end select
 
          end do
-print*, hasStart, hasStop
 !
 !        Update the status of the statistics monitor
 !        -------------------------------------------

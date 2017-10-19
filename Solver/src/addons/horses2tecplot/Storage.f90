@@ -18,6 +18,7 @@ module Storage
       real(kind=RP), pointer     :: U_x(:,:,:,:)
       real(kind=RP), pointer     :: U_y(:,:,:,:)
       real(kind=RP), pointer     :: U_z(:,:,:,:)
+      real(kind=RP), pointer     :: stats(:,:,:,:)
 !                                /* Output quantities */
       integer                    :: Nout(NDIM)
       real(kind=RP), pointer     :: xOut(:,:,:,:)
@@ -25,6 +26,7 @@ module Storage
       real(kind=RP), pointer     :: U_xout(:,:,:,:)
       real(kind=RP), pointer     :: U_yout(:,:,:,:)
       real(kind=RP), pointer     :: U_zout(:,:,:,:)
+      real(kind=RP), pointer     :: statsout(:,:,:,:)
    end type Element_t
 
    type Mesh_t
@@ -34,6 +36,7 @@ module Storage
       character(len=LINE_LENGTH) :: solutionName
       real(kind=RP)              :: refs(NO_OF_SAVED_REFS)
       logical                    :: hasGradients
+      logical                    :: isStatistics
       contains
          procedure   :: ReadMesh     => Mesh_ReadMesh
          procedure   :: ReadSolution => Mesh_ReadSolution
@@ -112,9 +115,15 @@ module Storage
 
          case (SOLUTION_FILE)
             self % hasGradients = .false.
+            self % isStatistics = .false.
 
          case (SOLUTION_AND_GRADIENTS_FILE)
             self % hasGradients = .true.
+            self % isStatistics = .false.
+
+         case (STATS_FILE)
+            self % hasGradients = .false.
+            self % isStatistics = .true.
 
          case default
             print*, "File expected to be a solution file"
@@ -140,37 +149,56 @@ module Storage
 !        ----------------
          fid = putSolutionFileInReadDataMode(solutionName)
       
-         do eID = 1, self % no_of_elements
-            associate ( e => self % elements(eID) ) 
-            call getSolutionFileArrayDimensions(fid,arrayDimensions)
-!
-!           Allocate memory for the coordinates
-!           -----------------------------------            
-            e % Nsol(1:3) = arrayDimensions(1:3) - 1 
-            allocate( e % Q(0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3),1:5) )
-!
-!           Read data
-!           ---------
-            read(fid) e % Q
+         if ( .not. self % isStatistics ) then
+            do eID = 1, self % no_of_elements
+               associate ( e => self % elements(eID) ) 
+               call getSolutionFileArrayDimensions(fid,arrayDimensions)
+!   
+!              Allocate memory for the coordinates
+!              -----------------------------------            
+               e % Nsol(1:3) = arrayDimensions(1:3) - 1 
+               allocate( e % Q(0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3),1:5) )
+!   
+!              Read data
+!              ---------
+               read(fid) e % Q
+   
+               if ( self % hasGradients ) then
+!   
+!                 Allocate memory for the gradients
+!                 ---------------------------------
+                  allocate( e % U_x(0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3),1:4) )
+                  allocate( e % U_y(0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3),1:4) )
+                  allocate( e % U_z(0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3),1:4) )
+!   
+!                 Read data
+!                 ---------
+                  read(fid) e % U_x
+                  read(fid) e % U_y
+                  read(fid) e % U_z
+   
+               end if
+   
+               end associate
+            end do
 
-            if ( self % hasGradients ) then
+         else
+
+            do eID = 1, self % no_of_elements
+               associate ( e => self % elements(eID) )
+               call getSolutionFileArrayDimensions(fid,arrayDimensions)
 !
-!              Allocate memory for the gradients
-!              ---------------------------------
-               allocate( e % U_x(0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3),1:4) )
-               allocate( e % U_y(0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3),1:4) )
-               allocate( e % U_z(0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3),1:4) )
+!              Allocate memory for the statistics
+!              ----------------------------------
+               e % Nsol(1:3) = arrayDimensions(1:3) - 1
+               allocate( e % stats(0:e % Nsol(1), 0:e % Nsol(2), 0:e % Nsol(3), 1:9) )
 !
 !              Read data
 !              ---------
-               read(fid) e % U_x
-               read(fid) e % U_y
-               read(fid) e % U_z
-
-            end if
-
-            end associate
-         end do
+               read(fid) e % stats
+               end associate
+            end do
+         end if
 !
 !        Close file
 !        ----------

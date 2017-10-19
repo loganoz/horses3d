@@ -4,9 +4,9 @@
 !   @File:    OutputVariables.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Oct 14 20:44:38 2017
-!   @Last revision date: Wed Oct 18 19:19:22 2017
+!   @Last revision date: Thu Oct 19 18:26:58 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: a7a0f9c0fded0c85612fee0da486df71ee4ca5ff
+!   @Last revision commit: dbce8ad5b2d0d04c57b8747deacc998131c2f97c
 !
 !//////////////////////////////////////////////////////
 !
@@ -391,11 +391,11 @@ module OutputVariables
                                        POW2( 0.5_RP * (U_x(i,j,k,3) + U_z(i,j,k,1)) ) +          &
                                        POW2( 0.5_RP * (U_y(i,j,k,3) + U_z(i,j,k,2)) ) )
 
-                     Asym = + 2.0_RP *( POW2( 0.5_RP * (U_x(i,j,k,2) - U_y(i,j,k,1)) ) +        &
+                     Asym =   2.0_RP *( POW2( 0.5_RP * (U_x(i,j,k,2) - U_y(i,j,k,1)) ) +        &
                                         POW2( 0.5_RP * (U_x(i,j,k,3) - U_z(i,j,k,1)) ) +        &
                                         POW2( 0.5_RP * (U_y(i,j,k,3) - U_z(i,j,k,2)) ) )
 
-                     output(:,:,:,var) = 0.5_RP*( Asym - Sym )
+                     output(i,j,k,var) = 0.5_RP*( Asym - Sym )
                   end do            ; end do            ; end do
                
                end select

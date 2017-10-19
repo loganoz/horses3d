@@ -293,14 +293,14 @@ end interface
 
 !        Flush monitors
 !        --------------
-         call monitors % WriteToFile()
+         call monitors % WriteToFile(sem % mesh)
 
       END DO
 !
 !     Flush the remaining information in the monitors
 !     -----------------------------------------------
       if ( k .ne. 0 ) then
-         call Monitors % writeToFile( force = .true. )
+         call Monitors % writeToFile(sem % mesh, force = .true. )
       end if
       
       sem % maxResidual       = maxval(maxResidual)

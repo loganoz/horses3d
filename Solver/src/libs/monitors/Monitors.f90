@@ -69,6 +69,7 @@ module MonitorsClass
 !  *****************************
 !  
    type Monitor_t
+      character(len=LINE_LENGTH)           :: solution_file
       integer                              :: no_of_surfaceMonitors
       integer                              :: no_of_volumeMonitors
       integer                              :: bufferLine
@@ -122,6 +123,7 @@ module MonitorsClass
 !        Remove the *.hsol termination
 !        -----------------------------
          solution_file = trim(getFileName(solution_file))
+         Monitors % solution_file = trim(solution_file)
 !
 !        Search in case file for probes, surface monitors, and volume monitors
 !        ---------------------------------------------------------------------
@@ -340,11 +342,11 @@ module MonitorsClass
 !
 !        Update statistics
 !        -----------------
-         call self % stats % Update(mesh, iter, t)
+         call self % stats % Update(mesh, iter, t, trim(self % solution_file) )
 
       end subroutine Monitor_UpdateValues
 
-      subroutine Monitor_WriteToFile ( self , force) 
+      subroutine Monitor_WriteToFile ( self , mesh, force) 
 !
 !        ******************************************************************
 !              This routine has a double behaviour:
@@ -354,6 +356,7 @@ module MonitorsClass
 !
          implicit none
          class(Monitor_t)        :: self
+         class(HexMesh)          :: mesh
          logical, optional       :: force
 !        ------------------------------------------------
          integer                 :: i 
@@ -385,9 +388,14 @@ module MonitorsClass
                call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
 !
+!           Write statistics
+!           ----------------
+            call self % stats % WriteFile(mesh, self % iter(self % bufferLine), self % t(self % bufferLine), self % solution_file)
+!
 !           Reset buffer
 !           ------------
             self % bufferLine = 0
+
 
          else
 !

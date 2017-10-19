@@ -31,6 +31,7 @@ OBJS=	Storage\
 	ProlongMeshAndSolution\
 	Mesh2Plt\
 	Solution2Plt\
+	Stats2Plt\
 	main \
 
 OBJS_BUILD=$(foreach obj,$(OBJS),./build/$(obj).o)
