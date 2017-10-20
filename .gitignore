@@ -1,3 +1,9 @@
+# object, module, and library files
+*.o
+*.a
+*.so
+*.mod
+
 # osx noise
 .DS_Store
 profile

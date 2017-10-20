@@ -14,9 +14,9 @@
 !      The procedures, *even if empty* that must be defined are
 !
 !      UserDefinedSetUp
-!      UserDefinedInitialCondition(sem)
-!      UserDefinedPeriodicOperation(sem)
-!      UserDefinedFinalize(sem)
+!      UserDefinedInitialCondition(mesh)
+!      UserDefinedPeriodicOperation(mesh)
+!      UserDefinedFinalize(mesh)
 !      UserDefinedTermination
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -32,7 +32,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalSetup(sem , thermodynamics_, &
+         SUBROUTINE UserDefinedFinalSetup(mesh , thermodynamics_, &
                                                  dimensionless_, &
                                                      refValues_ )
 !
@@ -41,10 +41,10 @@
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
-            USE DGSEMClass
+            USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
-            CLASS(DGSem)             :: sem
+            CLASS(HexMesh)             :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -52,7 +52,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(sem, thermodynamics_, &
+         SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
                                                       dimensionless_, &
                                                           refValues_  )
 !
@@ -64,9 +64,9 @@
 !
             USE SMConstants
             use PhysicsStorage
-            use DGSEMClass
+            use HexMeshClass
             implicit none
-            class(DGSEM)                        :: sem
+            class(HexMesh)                        :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -87,16 +87,16 @@
             p_0   = 100.0_RP
 
             associate( gamma => thermodynamics_ % gamma ) 
-            DO eID = 1, SIZE(sem % mesh % elements)
-               Nx = sem % mesh % elements(eID) % Nxyz(1)
-               Ny = sem % mesh % elements(eID) % Nxyz(2)
-               Nz = sem % mesh % elements(eID) % Nxyz(3)
+            DO eID = 1, SIZE(mesh % elements)
+               Nx = mesh % elements(eID) % Nxyz(1)
+               Ny = mesh % elements(eID) % Nxyz(2)
+               Nz = mesh % elements(eID) % Nxyz(3)
 
                DO k = 0, Nz
                   DO j = 0, Ny
                      DO i = 0, Nx 
 
-                         x = sem % mesh % elements(eID) % geom % x(:,i,j,k)
+                         x = mesh % elements(eID) % geom % x(:,i,j,k)
                        
                          rho = rho_0
                          u   =  u_0 * sin(x(1)/L) * cos(x(2)/L) * cos(x(3)/L) 
@@ -108,11 +108,11 @@
                                cos(2.0_RP*x(2)/L)*cos(2.0_RP*x(3)/L)                    &
                                )
 
-                         sem % mesh % elements(eID) % Q(i,j,k,1) = rho
-                         sem % mesh % elements(eID) % Q(i,j,k,2) = rho*u
-                         sem % mesh % elements(eID) % Q(i,j,k,3) = rho*v
-                         sem % mesh % elements(eID) % Q(i,j,k,4) = rho*w
-                         sem % mesh % elements(eID) % Q(i,j,k,5) = p / (gamma - 1.0_RP) + 0.5_RP * rho * (u*u + v*v + w*w)
+                         mesh % elements(eID) % storage % Q(i,j,k,1) = rho
+                         mesh % elements(eID) % storage % Q(i,j,k,2) = rho*u
+                         mesh % elements(eID) % storage % Q(i,j,k,3) = rho*v
+                         mesh % elements(eID) % storage % Q(i,j,k,4) = rho*w
+                         mesh % elements(eID) % storage % Q(i,j,k,5) = p / (gamma - 1.0_RP) + 0.5_RP * rho * (u*u + v*v + w*w)
 
                      END DO
                   END DO
@@ -162,16 +162,16 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(sem, time)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
 !           to be performed
 !           ----------------------------------------------------------
 !
-            USE DGSEMClass
+            USE HexMeshClass
             IMPLICIT NONE
-            CLASS(DGSem)  :: sem
+            CLASS(HexMesh)  :: mesh
             REAL(KIND=RP) :: time
 !
 !           ---------------
@@ -189,7 +189,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalize(sem, time, thermodynamics_, &
+         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
                                                     dimensionless_, &
                                                         refValues_   )
 !
@@ -199,14 +199,16 @@
 !           --------------------------------------------------------
 !
             use FTAssertions
-            USE DGSEMClass
+            USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
-            CLASS(DGSem)  :: sem
-            REAL(KIND=RP) :: time
-            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-            type(Dimensionless_t),     intent(in)  :: dimensionless_
-            type(RefValues_t),         intent(in)  :: refValues_
+            CLASS(HexMesh)                        :: mesh
+            REAL(KIND=RP)                         :: time
+            integer                               :: iter
+            real(kind=RP)                         :: maxResidual
+            type(Thermodynamics_t),    intent(in) :: thermodynamics_
+            type(Dimensionless_t),     intent(in) :: dimensionless_
+            type(RefValues_t),         intent(in) :: refValues_
 !
 !           ---------------
 !           Local variables

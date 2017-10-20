@@ -1,5 +1,5 @@
 #################################################
-#	Mesh Makefile 		#
+#	Foundation Makefile 		#
 #################################################
 INSTALL_DIR?=./
 FFLAGS?=-cpp
@@ -7,65 +7,58 @@ AR?=ar
 ARFLAGS?=cr
 RANLIB?=ranlib
 MOD_FLAG?=-J
+PLATFORM?=LINUX
 
 
+LIB = problemfile
+
+ifeq ($(PLATFORM),LINUX)
+   LIBNAME=$(LIB).so
+else ifeq ($(PLATFORM),MACOSX)
+   LIBNAME=$(LIB).dylib
+endif
 
 
-LIBOBJS = 	./build/ConnectivityClass.o \
-		./build/StorageClass.o \
-		./build/FacePatchClass.o \
-		./build/TransfiniteMaps3D.o \
-		./build/MappedGeometry.o \
-		./build/MeshTypes.o \
-		./build/NodeClass.o \
-		./build/HexElementConnectivityDefinitions.o \
-		./build/HexElementClass.o \
-		./build/FaceClass.o \
-		./build/ZoneClass.o \
-		./build/HexMesh.o \
-		./build/ProlongToFaces.o
-
-
-LIB = mesh
 
 ############################################
 #	MAIN COMPILATION RULES 		   #
 ############################################
-.DEFAULT_GOAL := lib$(LIB).a
+.DEFAULT_GOAL := $(LIBNAME)
 
 ./build/%.o: %.f90
 	@echo
 	@echo $<
 	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
-lib$(LIB).a: header mkdirs $(LIBOBJS)
+./build/ProblemFile.o: ./ProblemFile.f90
+	$(FC) -fPIC -shared $(FFLAGS) $(INCLUDE) $(MOD_FLAG)./include -c $< -o $@
+
+lib$(LIBNAME): header mkdirs ./build/ProblemFile.o
 	@echo
 	@echo "---------------------------------"
 	@echo "| Linking library" $@ "|"
 	@echo "---------------------------------"
-	@$(RM) $@
-	$(AR) $(ARFLAGS) $@ $(LIBOBJS)
-	@$(RANLIB) $@
+	$(FC) $(DYNLIB_FLAG) $(FFLAGS) $(MACROS) $(INCLUDE) ./build/ProblemFile.o
 
-install: lib$(LIB).a
-	cp -p lib$(LIB).a $(INSTALL_DIR)/lib/
-	cp -p ./include/*.mod $(INSTALL_DIR)/include/
+install: lib$(LIBNAME)
+	cp -p lib$(LIBNAME) $(INSTALL_DIR)/lib/
 	@echo
 	@echo
 
 header: FORCE
 	@echo
 	@echo "================================"
-	@echo ">>   Building Mesh        "
+	@echo ">>   Building Problem File      "
 	@echo "================================"
 	@echo
 	@echo
+
 mkdirs: FORCE
 	@mkdir -p ./include
 	@mkdir -p ./build
 
 clean: FORCE
-	$(RM) lib$(LIB).a 
+	$(RM) $(LIBNAME)
 	$(RM) ./build/*.o ./include/*.mod
 
 #############################################

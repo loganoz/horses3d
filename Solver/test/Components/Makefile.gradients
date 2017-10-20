@@ -50,7 +50,9 @@ ARFLAGS=crv
 OBJS_CASE= Setup Physics GradientSetup GradientTests InitialFlowState TestGradientsMain
 	   
 OBJS_HORSES=  SMConstants \
+		StorageClass \
 		FTTimerClass \
+		SolutionFile \
 		FileReading \
 		Utilities \
 		Plotter \
@@ -72,6 +74,7 @@ OBJS_HORSES=  SMConstants \
 		HexMesh \
 		MeshTypes \
 		NodeClass \
+		autosave \
 		LiftAndDrag \
 		MonitorDefinitions \
 		ResidualsMonitor \
@@ -79,6 +82,7 @@ OBJS_HORSES=  SMConstants \
 		VolumeIntegrals \
 		SurfaceMonitor \
 		VolumeMonitor \
+		StatisticsMonitor \
 		Monitors \
 		DGInviscidDiscretization \
 		DGViscousDiscretization \

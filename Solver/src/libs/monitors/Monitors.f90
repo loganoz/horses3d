@@ -31,6 +31,7 @@ module MonitorsClass
    use HexMeshClass
    use MonitorDefinitions
    use ResidualsMonitorClass
+   use StatisticsMonitor
    use SurfaceMonitorClass
    use VolumeMonitorClass
    implicit none
@@ -68,11 +69,13 @@ module MonitorsClass
 !  *****************************
 !  
    type Monitor_t
+      character(len=LINE_LENGTH)           :: solution_file
       integer                              :: no_of_surfaceMonitors
       integer                              :: no_of_volumeMonitors
       integer                              :: bufferLine
       integer                              :: iter( BUFFER_SIZE )
       real(kind=RP)                        :: t  (BUFFER_SIZE )
+      type(StatisticsMonitor_t)            :: stats
       type(Residuals_t)                    :: residuals
       class(SurfaceMonitor_t), allocatable :: surfaceMonitors(:)
       class(VolumeMonitor_t),  allocatable :: volumeMonitors(:)
@@ -106,16 +109,21 @@ module MonitorsClass
          integer                         :: i
          character(len=STR_LEN_MONITORS) :: line
          character(len=STR_LEN_MONITORS) :: solution_file                                            
+         interface
+            character(len=LINE_LENGTH) function getFileName(inputLine)
+               use SMConstants
+               character(len=*), intent(in)     :: inputLine
+            end function getFileName
+         end interface
 !
 !        Get the solution file name
 !        --------------------------
-         solution_file = controlVariables % stringValueForKey( plotFileNameKey, requestedLength = STR_LEN_MONITORS )
+         solution_file = controlVariables % stringValueForKey( solutionFileNameKey, requestedLength = STR_LEN_MONITORS )
 !
-!        Remove the *.tec termination
-!        ----------------------------
-         if ( index(solution_file,'.tec') .ne. 0 ) then
-            solution_file = solution_file(1 : len_trim(solution_file)-4)
-         end if
+!        Remove the *.hsol termination
+!        -----------------------------
+         solution_file = trim(getFileName(solution_file))
+         Monitors % solution_file = trim(solution_file)
 !
 !        Search in case file for probes, surface monitors, and volume monitors
 !        ---------------------------------------------------------------------
@@ -123,6 +131,7 @@ module MonitorsClass
 !
 !        Initialize
 !        ----------
+         call Monitors % stats     % Construct(mesh)
          call Monitors % residuals % Initialization( solution_file )
 
          allocate ( Monitors % surfaceMonitors ( Monitors % no_of_surfaceMonitors )  )
@@ -171,6 +180,8 @@ module MonitorsClass
          do i = 1 , self % no_of_volumeMonitors
             call self % volumeMonitors(i) % WriteLabel
          end do
+
+         call self % stats % WriteLabel
 
          write(STD_OUT , *) 
 
@@ -225,6 +236,8 @@ module MonitorsClass
             write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % volumeMonitors(i) % monitorName ) + 2 ) )
          end do
 
+         if ( self % stats % state .ne. 0 ) write(STD_OUT,'(3X,A10)',advance="no") trim(dashes)
+
          write(STD_OUT , *) 
 
       end subroutine Monitor_WriteUnderlines
@@ -266,6 +279,8 @@ module MonitorsClass
          do i = 1 , self % no_of_volumeMonitors
             call self % volumeMonitors(i) % WriteValues ( self % bufferLine )
          end do
+
+         call self % stats % WriteValue
 
          write(STD_OUT , *) 
 
@@ -324,10 +339,14 @@ module MonitorsClass
          do i = 1 , self % no_of_volumeMonitors
             call self % volumeMonitors(i) % Update( mesh , spA, self % bufferLine )
          end do
+!
+!        Update statistics
+!        -----------------
+         call self % stats % Update(mesh, iter, t, trim(self % solution_file) )
 
       end subroutine Monitor_UpdateValues
 
-      subroutine Monitor_WriteToFile ( self , force) 
+      subroutine Monitor_WriteToFile ( self , mesh, force) 
 !
 !        ******************************************************************
 !              This routine has a double behaviour:
@@ -337,6 +356,7 @@ module MonitorsClass
 !
          implicit none
          class(Monitor_t)        :: self
+         class(HexMesh)          :: mesh
          logical, optional       :: force
 !        ------------------------------------------------
          integer                 :: i 
@@ -368,9 +388,19 @@ module MonitorsClass
                call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
 !
+!           Write statistics
+!           ----------------
+            if ( self % bufferLine .eq. 0 ) then
+               i = 1
+            else
+               i = self % bufferLine
+            end if
+            call self % stats % WriteFile(mesh, self % iter(i), self % t(i), self % solution_file)
+!
 !           Reset buffer
 !           ------------
             self % bufferLine = 0
+
 
          else
 !
@@ -697,6 +727,7 @@ module MonitorsClass
 !     Initialize
 !     ----------
       no_of_surfaceMonitors = 0
+      no_of_volumeMonitors = 0
 !
 !     Get case file name
 !     ------------------

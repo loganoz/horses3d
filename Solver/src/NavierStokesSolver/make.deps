@@ -1,0 +1,52 @@
+###########################################################################
+##
+##	HORSES3D Solver source files dependencies
+##
+###########################################################################
+./build/HORSES3DMain.o: ./build/TimeIntegrator.o \
+                        ./build/DGSEMClass.o \
+                        ./build/pAdaptationClass.o
+
+./build/DGViscousDiscretization.o: ./build/DGWeakIntegrals.o 
+
+./build/SpatialDiscretization.o: ./build/DGInviscidDiscretization.o \
+				 ./build/DGViscousDiscretization.o \
+				 ./build/DGWeakIntegrals.o
+
+./build/DGSEMClass.o: ./build/SpatialDiscretization.o 
+
+./build/TimeIntegrator.o: ./build/DGSEMClass.o ./build/Implicit_JF.o \
+	./build/Implicit_NJ.o \
+	./build/ExplicitMethods.o \
+	./build/FASMultigridClass.o
+
+./build/ExplicitMethods.o: ./build/DGSEMClass.o
+
+./build/FASMultigridClass.o: ./build/ExplicitMethods.o \
+			     ./build/DGSEMClass.o   
+#Implicit solvers
+./build/Implicit_JF.o: ./build/DGSEMClass.o \
+		       ./build/JFNKClass.o
+
+./build/JFNKClass.o: ./build/GMRESClass.o
+
+./build/Implicit_NJ.o: ./build/DGSEMClass.o \
+		       ./build/LinearSolverClass.o 
+#Linear solvers
+./build/LinearSolverClass.o: ./build/MKLPardisoSolverClass.o \
+			     ./build/PetscSolverClass.o \
+			     ./build/IterativeSolverClass.o \
+			     ./build/MultigridSolverClass.o
+
+./build/MKLPardisoSolverClass.o: ./build/PetscSolverClass.o \
+				 ./build/GenericLinSolverClass.o
+
+./build/PetscSolverClass.o:  ./build/GenericLinSolverClass.o 
+
+./build/IterativeSolverClass.o: ./build/PetscSolverClass.o \
+				./build/GenericLinSolverClass.o
+
+./build/MultigridSolverClass.o: ./build/PetscSolverClass.o \
+				./build/GenericLinSolverClass.o 
+
+./build/GenericLinSolverClass.o: ./build/DGSEMClass.o

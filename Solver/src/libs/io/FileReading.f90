@@ -179,6 +179,56 @@
 !
       END FUNCTION GetLogicalValue
 
+      character(len=LINE_LENGTH) function RemovePath( inputLine )
+         use SMConstants
+         implicit none
+         character(len=*)     :: inputLine
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: pos
+!
+!        Get the last forward slash ocurrence
+!        ------------------------------------
+         pos = index(inputLine,'/',BACK=.true.)
+
+         if ( pos .eq. 0 ) then
+            RemovePath = inputLine
+
+         else
+            RemovePath = inputLine(pos+1:)
+
+         end if
+         
+      end function RemovePath
+
+      character(len=LINE_LENGTH) function getFileName( inputLine )
+         use SMConstants
+         implicit none
+         character(len=*)     :: inputLine
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: pos
+!
+!        Get the last point ocurrence
+!        ----------------------------
+         pos = index(inputLine,'.',BACK=.true.)
+
+         if ( pos .eq. 0 ) then  
+            getFileName = inputLine
+
+         else
+            getFileName = inputLine(1:pos-1)
+
+         end if
+
+      end function getFileName
+
       function getArrayFromString( line ) result ( array )
 !
 !           ****************************************************

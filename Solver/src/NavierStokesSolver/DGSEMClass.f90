@@ -1,4 +1,4 @@
-
+! 
 !////////////////////////////////////////////////////////////////////////
 !
 !      DGSEMClass.f95
@@ -20,65 +20,56 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      Module DGSEMClass
-      
-      USE NodalStorageClass
-      USE HexMeshClass
-      USE PhysicsStorage
-      USE SpatialDiscretization
-      USE ManufacturedSolutions
-      use MonitorsClass
-      
-      IMPLICIT NONE
-      
-      ABSTRACT INTERFACE
-         SUBROUTINE externalStateSubroutine(x,t,nHat,Q,boundaryName)
-            USE SMConstants
-            REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-            REAL(KIND=RP)   , INTENT(INOUT) :: Q(:)
-            CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
-         END SUBROUTINE externalStateSubroutine
-         
-         SUBROUTINE externalGradientsSubroutine(x,t,nHat,gradU,boundaryName)
-            USE SMConstants
-            REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-            REAL(KIND=RP)   , INTENT(INOUT) :: gradU(:,:)
-            CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
-         END SUBROUTINE externalGradientsSubroutine
-      END INTERFACE
-      
-      TYPE DGSem
-         REAL(KIND=RP)                                           :: maxResidual
-         INTEGER                                                 :: numberOfTimeSteps
-         INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
-         TYPE(NodalStorage), ALLOCATABLE                         :: spA(:,:,:)
-         INTEGER           , ALLOCATABLE                         :: Nx(:), Ny(:), Nz(:)
-         TYPE(HexMesh)                                           :: mesh
-         PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
-         PROCEDURE(externalGradientsSubroutine), NOPASS, POINTER :: externalGradients => NULL()
-         LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
-         type(Monitor_t)                                        :: monitors
-!
-!        ========         
-         CONTAINS
-!        ========         
-!
-         PROCEDURE :: construct => ConstructDGSem
-         PROCEDURE :: destruct  => DestructDGSem   
-         
-         PROCEDURE :: GetQ
-         PROCEDURE :: SetQ
-         PROCEDURE :: GetQdot
-         
-         PROCEDURE :: SaveSolutionForRestart
-         PROCEDURE :: LoadSolutionForRestart
+#include "Includes.h"
+Module DGSEMClass
+   USE NodalStorageClass
+   USE HexMeshClass
+   USE PhysicsStorage
+   USE SpatialDiscretization
+   USE ManufacturedSolutions
+   use MonitorsClass
    
+   IMPLICIT NONE
+   
+   ABSTRACT INTERFACE
+      SUBROUTINE externalStateSubroutine(x,t,nHat,Q,boundaryName)
+         USE SMConstants
+         REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+         REAL(KIND=RP)   , INTENT(INOUT) :: Q(:)
+         CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+      END SUBROUTINE externalStateSubroutine
+      
+      SUBROUTINE externalGradientsSubroutine(x,t,nHat,gradU,boundaryName)
+         USE SMConstants
+         REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+         REAL(KIND=RP)   , INTENT(INOUT) :: gradU(:,:)
+         CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+      END SUBROUTINE externalGradientsSubroutine
+   END INTERFACE
+   
+   TYPE DGSem
+      REAL(KIND=RP)                                           :: maxResidual
+      INTEGER                                                 :: numberOfTimeSteps
+      INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
+      TYPE(NodalStorage), ALLOCATABLE                         :: spA(:,:,:)
+      INTEGER           , ALLOCATABLE                         :: Nx(:), Ny(:), Nz(:)
+      TYPE(HexMesh)                                           :: mesh
+      PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
+      PROCEDURE(externalGradientsSubroutine), NOPASS, POINTER :: externalGradients => NULL()
+      LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
+      type(Monitor_t)                                        :: monitors
+      contains
+         procedure :: construct => ConstructDGSem
+         procedure :: destruct  => DestructDGSem   
+         procedure :: GetQ
+         procedure :: SetQ
+         procedure :: GetQdot
+         procedure :: SaveSolutionForRestart
          procedure :: SetInitialCondition => DGSEM_SetInitialCondition
-            
-      END TYPE DGSem
+   END TYPE DGSem
+   
       
-      
-      CONTAINS 
+   CONTAINS 
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -211,11 +202,11 @@
                      IF (flowIsNavierStokes) THEN
                         CALL ManufacturedSolutionSourceNS(self % mesh % elements(el) % geom % x(:,i,j,k), &
                                                           0._RP, &
-                                                          self % mesh % elements(el) % S (i,j,k,:)  )
+                                                          self % mesh % elements(el) % storage % S (i,j,k,:)  )
                      ELSE
                         CALL ManufacturedSolutionSourceEuler(self % mesh % elements(el) % geom % x(:,i,j,k), &
                                                              0._RP, &
-                                                             self % mesh % elements(el) % S (i,j,k,:)  )
+                                                             self % mesh % elements(el) % storage % S (i,j,k,:)  )
                      END IF
                   END DO
                END DO
@@ -293,24 +284,68 @@
          INTEGER          :: k
 
          DO k = 1, SIZE(self % mesh % elements) 
-            WRITE(fUnit) self % mesh % elements(k) % Q
+            WRITE(fUnit) self % mesh % elements(k) % storage % Q
          END DO
 
       END SUBROUTINE SaveSolutionForRestart
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE LoadSolutionForRestart( self, fUnit ) 
-         IMPLICIT NONE
-         CLASS(DGSem)     :: self
-         INTEGER          :: fUnit
-         INTEGER          :: k
 
-         DO k = 1, SIZE(self % mesh % elements) 
-            READ(fUnit) self % mesh % elements(k) % Q
-         END DO
+      subroutine DGSEM_SetInitialCondition( self, controlVariables, initial_iteration, initial_time ) 
+         use FTValueDictionaryClass
+         USE mainKeywordsModule
+         implicit none
+         class(DGSEM)   :: self
+         class(FTValueDictionary), intent(in)   :: controlVariables
+         integer                                :: restartUnit
+         integer,       intent(out)             :: initial_iteration
+         real(kind=RP), intent(out)             :: initial_time 
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         character(len=LINE_LENGTH)             :: fileName, solutionName
+         logical                                :: saveGradients
+         interface
+            SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
+                                                           dimensionless_,&
+                                                           refValues_)
+               USE SMConstants
+               use PhysicsStorage
+               use HexMeshClass
+               implicit none
+               class(HexMesh)                  :: mesh
+               type(Thermodynamics_t), intent(in)  :: thermodynamics_
+               type(Dimensionless_t),  intent(in)  :: dimensionless_
+               type(RefValues_t),      intent(in)  :: refValues_
+            END SUBROUTINE UserDefinedInitialCondition
+            character(len=LINE_LENGTH) function getFileName( inputLine )
+               use SMConstants
+               implicit none
+               character(len=*)     :: inputLine
+            end function getFileName
+         end interface
 
-      END SUBROUTINE LoadSolutionForRestart
+         IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
+            fileName = controlVariables % stringValueForKey(restartFileNameKey,requestedLength = LINE_LENGTH)
+            CALL self % mesh % LoadSolution(fileName, initial_iteration, initial_time)
+         ELSE
+   
+            call UserDefinedInitialCondition(self % mesh, thermodynamics, &
+                                                    dimensionless, &
+                                                        refValues )
+            initial_time = 0.0_RP
+            initial_iteration = 0
+         END IF
+!
+!        Save the initial condition
+!        --------------------------
+         saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
+         solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
+         solutionName = trim(getFileName(solutionName))
+         write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
+         call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
+   
+      end subroutine DGSEM_SetInitialCondition
 !
 !//////////////////////////////////////////////////////////////////////// 
 !
@@ -334,7 +369,7 @@
             DO j = 0, Ny
                DO i = 0, Nx
                   DO l = 1,N_EQN
-                     self%mesh%elements(elm)%Q(i, j, k, l) = Q(counter) ! This creates a temporary array: storage must be modified to avoid that
+                     self%mesh%elements(elm)%storage%Q(i, j, k, l) = Q(counter) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                END DO
@@ -365,7 +400,7 @@
             DO j = 0, Ny
                 DO i = 0, Nx
                   DO l = 1,N_EQN
-                     Q(counter)  = self%mesh%elements(elm)%Q(i, j, k, l) ! This creates a temporary array: storage must be modified to avoid that
+                     Q(counter)  = self%mesh%elements(elm)%storage%Q(i, j, k, l) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                 END DO
@@ -396,7 +431,7 @@
             DO j = 0, Ny
                DO i = 0, Nx
                   DO l = 1,N_EQN
-                     Qdot(counter)  = self%mesh%elements(elm)%Qdot(i, j, k, l) ! This creates a temporary array: storage must be modified to avoid that
+                     Qdot(counter)  = self%mesh%elements(elm)%storage%Qdot(i, j, k, l) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                END DO
@@ -424,7 +459,7 @@
       maxResidual = 0.0_RP
       DO id = 1, SIZE( self % mesh % elements )
          DO eq = 1 , N_EQN
-            localMaxResidual(eq) = MAXVAL(ABS(self % mesh % elements(id) % QDot(:,:,:,eq)))
+            localMaxResidual(eq) = MAXVAL(ABS(self % mesh % elements(id) % storage % QDot(:,:,:,eq)))
             maxResidual(eq) = MAX(maxResidual(eq),localMaxResidual(eq))
          END DO
       END DO
@@ -580,121 +615,8 @@
          
       END SUBROUTINE computeRiemannFluxes
 !
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ComputeGradientAverages( self, time, externalGradientsProcedure )
-         USE Physics
-         USE BoundaryConditionFunctions
-         IMPLICIT NONE 
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         TYPE(DGSem)   :: self
-         REAL(KIND=RP) :: time
-         
-         EXTERNAL      :: externalGradientsProcedure
-!
-!        ---------------
-!        Local Variables
-!        ---------------
-!
-         INTEGER       :: faceID
-         INTEGER       :: eIDLeft, eIDRight
-         INTEGER       :: fIDLeft
-         INTEGER       :: N(2)
-
-         REAL(KIND=RP) :: UGradExt(3,N_GRAD_EQN)
-         REAL(KIND=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)    
-         
-         INTEGER       :: i, j
-         
-!$omp do private(eIDLeft,eIDRight,fIDLeft,N,i,j,UGradExt,UL,UR,d) 
-         DO faceID = 1, SIZE( self % mesh % faces)
-
-            eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
-            eIDRight = self % mesh % faces(faceID) % elementIDs(2)
-            fIDLeft  = self % mesh % faces(faceID) % elementSide(1)
-
-            IF ( eIDRight == HMESH_NONE )     THEN
-!
-!              -------------
-!              Boundary face
-!              -------------
-!
-               N = self % mesh % elements(eIDLeft) % Nxyz (axisMap(:,fIDLeft))
-               DO j = 0, N(2)
-                  DO i = 0, N(1)
-                  
-                     UGradExt(1,:) = self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft)
-                     UGradExt(2,:) = self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
-                     UGradExt(3,:) = self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
-                     
-                     CALL externalGradientsProcedure  (self % mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft), &
-                                                       time, &
-                                                       self % mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
-                                                       UGradExt,&
-                                                       self % mesh % elements(eIDLeft) % boundaryType(fIDLeft) )
-!
-!                 --------
-!                 x values
-!                 --------
-!
-                     UL = self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft)
-                     UR = UGradExt(1,:)
-
-                     d = 0.5_RP*(UL + UR)
-
-                     self % mesh % elements(eIDLeft) % U_xb(:,i,j,fIDLeft) = d
-!
-!                 --------
-!                 y values
-!                 --------
-!
-                     UL = self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft)
-                     UR = UGradExt(2,:)
-
-                     d = 0.5_RP*(UL + UR)
-
-                     self % mesh % elements(eIDLeft) % U_yb(:,i,j,fIDLeft) = d
-!
-!                 --------
-!                 z values
-!                 --------
-!
-                     UL = self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft)
-                     UR = UGradExt(3,:)
-
-                     d = 0.5_RP*(UL + UR)
-
-                     self % mesh % elements(eIDLeft) % U_zb(:,i,j,fIDLeft) = d
-
-                  END DO   
-               END DO   
-            
-            ELSE 
-!
-!              -------------
-!              Interior face
-!              -------------
-!
-               CALL computeElementInterfaceGradientAverage  ( eL       = self % mesh % elements(eIDLeft)  , &
-                                                              eR       = self % mesh % elements(eIDRight) , &
-                                                              thisface = self % mesh % faces(faceID)      )
-               
-            END IF 
-
-         END DO           
-!$omp enddo         
-         
-      END SUBROUTINE computeGradientAverages
-!
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-!
-!////////////////////////////////////////////////////////////////////////
-!
       SUBROUTINE computeElementInterfaceFlux( eL, eR, thisface)
          IMPLICIT NONE
          !-----------------------------------------
@@ -734,20 +656,20 @@
 !        Projection to mortars
 !        ---------------------
 !
-         call ProjectToMortar(thisface, eL % Qb(:,0:NL(1),0:NL(2),fIDLeft), eR % Qb(:,0:NR(1),0:NR(2),fIDright), N_EQN)
+         call ProjectToMortar(thisface, eL % storage % Qb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % Qb(:,0:NR(1),0:NR(2),fIDright), N_EQN)
          QL = thisface % Phi % L
          QR = thisface % Phi % R
 
          if ( flowIsNavierStokes ) then
-            call ProjectToMortar(thisface, eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
+            call ProjectToMortar(thisface, eL % storage % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_xLeft = thisface % Phi % L
             U_xRight = thisface % Phi % R
 
-            call ProjectToMortar(thisface, eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_yb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
+            call ProjectToMortar(thisface, eL % storage % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_yb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_yLeft = thisface % Phi % L
             U_yRight = thisface % Phi % R
 
-            call ProjectToMortar(thisface, eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_zb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
+            call ProjectToMortar(thisface, eL % storage % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_zb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_zLeft = thisface % Phi % L
             U_zRight = thisface % Phi % R
 
@@ -790,12 +712,12 @@
          thisface % Phi % C = (inv_flux - visc_flux) 
 !
 !        ---------------------------
-!        Return the flux to elements: The sign in eR % FstarB has already been accouted.
+!        Return the flux to elements: The sign in eR % storage % FstarB has already been accouted.
 !        ---------------------------
 !
          call ProjectFluxToElement( thisface , &
-                                eL % FStarb(:,0:NL(1),0:NL(2),fIDLeft), & 
-                                eR % FStarb(:,0:NR(1),0:NR(2),fIDRight), & 
+                                eL % storage % FStarb(:,0:NL(1),0:NL(2),fIDLeft), & 
+                                eR % storage % FStarb(:,0:NR(1),0:NR(2),fIDRight), & 
                                 N_EQN ) 
 !
 !        ------------------------
@@ -803,11 +725,11 @@
 !        ------------------------
 !
          do j = 0 , NL(2)  ;  do i = 0 , NL(1)
-            eL % FstarB(:,i,j,fIDLeft) = eL % FstarB(:,i,j,fIDLeft) * eL % geom % scal(i,j,fIDLeft)
+            eL % storage % FstarB(:,i,j,fIDLeft) = eL % storage % FstarB(:,i,j,fIDLeft) * eL % geom % scal(i,j,fIDLeft)
          end do            ;  end do
 
          do j = 0 , NR(2)  ;  do i = 0 , NR(1)
-            eR % FstarB(:,i,j,fIDRight) = eR % FstarB(:,i,j,fIDRight) * eR % geom % scal(i,j,fIDRight)
+            eR % storage % FstarB(:,i,j,fIDRight) = eR % storage % FstarB(:,i,j,fIDRight) * eR % geom % scal(i,j,fIDRight)
          end do            ;  end do
 
 
@@ -850,13 +772,13 @@
 !
 !           Inviscid part
 !           -------------
-            bvExt = elementOnLeft % Qb(:,i,j,faceID)
+            bvExt = elementOnLeft % storage % Qb(:,i,j,faceID)
             CALL externalStateProcedure( elementOnLeft % geom % xb(:,i,j,faceID), &
                                          time, &
                                          elementOnLeft % geom % normal(:,i,j,faceID), &
                                          bvExt,&
                                          boundaryType )
-            CALL RiemannSolver(QLeft  = elementOnLeft % Qb(:,i,j,faceID), &
+            CALL RiemannSolver(QLeft  = elementOnLeft % storage % Qb(:,i,j,faceID), &
                                QRight = bvExt, &
                                nHat   = elementOnLeft % geom % normal(:,i,j,faceID), &
                                flux   = inv_flux)
@@ -865,9 +787,9 @@
 !           -----------
             if ( flowIsNavierStokes ) then
 
-            UGradExt(IX,:) = elementOnLeft % U_xb(:,i,j,faceID)
-            UGradExt(IY,:) = elementOnLeft % U_yb(:,i,j,faceID)
-            UGradExt(IZ,:) = elementOnLeft % U_zb(:,i,j,faceID)
+            UGradExt(IX,:) = elementOnLeft % storage % U_xb(:,i,j,faceID)
+            UGradExt(IY,:) = elementOnLeft % storage % U_yb(:,i,j,faceID)
+            UGradExt(IZ,:) = elementOnLeft % storage % U_zb(:,i,j,faceID)
 
             CALL externalGradientsProcedure(  elementOnLeft % geom % xb(:,i,j,faceID), &
                                               time, &
@@ -875,11 +797,11 @@
                                               UGradExt,&
                                               boundaryType )
 
-            CALL ViscousMethod % RiemannSolver( QLeft = elementOnLeft % Qb(:,i,j,faceID) , &
+            CALL ViscousMethod % RiemannSolver( QLeft = elementOnLeft % storage % Qb(:,i,j,faceID) , &
                                                 QRight = bvExt , &
-                                                U_xLeft = elementOnLeft % U_xb(:,i,j,faceID) , &
-                                                U_yLeft = elementOnLeft % U_yb(:,i,j,faceID) , &
-                                                U_zLeft = elementOnLeft % U_zb(:,i,j,faceID) , &
+                                                U_xLeft = elementOnLeft % storage % U_xb(:,i,j,faceID) , &
+                                                U_yLeft = elementOnLeft % storage % U_yb(:,i,j,faceID) , &
+                                                U_zLeft = elementOnLeft % storage % U_zb(:,i,j,faceID) , &
                                                 U_xRight = UGradExt(IX,:) , &
                                                 U_yRight = UGradExt(IY,:) , &
                                                 U_zRight = UGradExt(IZ,:) , &
@@ -889,7 +811,7 @@
                visc_flux = 0.0_RP
             end if
 
-            elementOnLeft % FStarb(:,i,j,faceID) = (inv_flux - visc_flux)*elementOnLeft % geom % scal(i,j,faceID)
+            elementOnLeft % storage % FStarb(:,i,j,faceID) = (inv_flux - visc_flux)*elementOnLeft % geom % scal(i,j,faceID)
          END DO   
       END DO   
 
@@ -897,121 +819,6 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-      SUBROUTINE computeElementInterfaceGradientAverage( eL, eR, thisface)
-         USE Physics  
-         IMPLICIT NONE  
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         TYPE(Element) :: eL, eR        !<> Left and right elements on interface
-         TYPE(Face)    :: thisface      !<> Face inbetween
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         INTEGER       :: i,j,ii,jj
-!TODO<<<<<<< HEAD
-!         
-!         
-!         DO j = 0, N
-!            DO i = 0, N
-!               CALL iijjIndexes(i,j,N,rotation,ii,jj)                    ! This turns according to the rotation of the elements
-!=======
-         INTEGER       :: fIDLeft, fIdright
-         INTEGER       :: rotation
-         INTEGER       :: Nxy(2)
-         INTEGER       :: NL(2), NR(2)
-         
-         fIDLeft  = thisface % elementSide(1)
-         fIDRight = thisface % elementSide(2)
-         Nxy      = thisface % NPhi
-         NL       = thisface % NL
-         NR       = thisface % NR
-         rotation = thisface % rotation
-         
-!
-!        ----------------------
-!        Compute interface flux
-!        Using BR1 (averages)
-!        ----------------------
-!
-!
-!              --------
-!              x values
-!              --------
-         CALL ProjectToMortar(thisface, eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_xb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN)
-         
-         DO j = 0, Nxy(2)
-            DO i = 0, Nxy(1)
-               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                    ! This turns according to the rotation of the elements
-               
-               thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(1:N_GRAD_EQN,i ,j ) + &
-                                                       thisface % Phi % R(1:N_GRAD_EQN,ii,jj) )
-               
-            END DO   
-         END DO 
-         
-         CALL ProjectToElement(thisface                             , &
-                               thisface % Phi % Caux                , &
-                               eL % U_xb(:,0:NL(1),0:NL(2),fIDLeft) , &
-                               eR % U_xb(:,0:NR(1),0:NR(2),fIDright), &
-                               N_GRAD_EQN)
-!
-!              --------
-!              y values
-!              --------
-!        
-         CALL ProjectToMortar(thisface, eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_yb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN) 
-         
-         DO j = 0, Nxy(2)
-            DO i = 0, Nxy(1)
-               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                    ! This turns according to the rotation of the elements
-
-               thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(1:N_GRAD_EQN,i , j) + &
-                                                       thisface % Phi % R(1:N_GRAD_EQN,ii,jj) )
-
-            END DO   
-         END DO 
-         
-         CALL ProjectToElement(thisface                             , &
-                               thisface % Phi % Caux                , &
-                               eL % U_yb(:,0:NL(1),0:NL(2),fIDLeft) , &
-                               eR % U_yb(:,0:NR(1),0:NR(2),fIDright), &
-                               N_GRAD_EQN)
-!
-!              --------
-!              z values
-!              --------
-!         
-         CALL ProjectToMortar(thisface, eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % U_zb(:,0:NR(1),0:NR(2),fIDright), N_GRAD_EQN) 
-         
-         DO j = 0, Nxy(2)
-            DO i = 0, Nxy(1)
-               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                    ! This turns according to the rotation of the elements
-               
-               thisface % Phi % Caux(:,i,j) = 0.5_RP* (thisface % Phi % L(1:N_GRAD_EQN, i, j) + &
-                                                       thisface % Phi % R(1:N_GRAD_EQN,ii,jj) )
-               
-            END DO   
-         END DO   
-         
-         CALL ProjectToElement(thisface                             , &
-                               thisface % Phi % Caux                , &
-                               eL % U_zb(:,0:NL(1),0:NL(2),fIDLeft) , &
-                               eR % U_zb(:,0:NR(1),0:NR(2),fIDright), &
-                               N_GRAD_EQN)
-
-         
-      END SUBROUTINE computeElementInterfaceGradientAverage            
-!
-!////////////////////////////////////////////////////////////////////////
-!
       REAL(KIND=RP) FUNCTION MaxTimeStep( self, cfl ) 
          IMPLICIT NONE
          TYPE(DGSem)    :: self
@@ -1089,7 +896,7 @@
 !                 by the physics.
 !                 ------------------------------------------------------------
 !
-                  Q(1:N_EQN) = self % mesh % elements(id) % Q(i,j,k,1:N_EQN)
+                  Q(1:N_EQN) = self % mesh % elements(id) % storage % Q(i,j,k,1:N_EQN)
                   CALL ComputeEigenvaluesForState( Q , eValues )
 !
 !                 ----------------------------
@@ -1117,30 +924,5 @@
       
    END FUNCTION MaximumEigenvalue
 
-   subroutine DGSEM_SetInitialCondition( self, controlVariables ) 
-      use FTValueDictionaryClass
-      implicit none
-      class(DGSEM)   :: self
-      class(FTValueDictionary), intent(in)   :: controlVariables
-interface
-         SUBROUTINE UserDefinedInitialCondition(sem, thermodynamics_, &
-                                                        dimensionless_,&
-                                                        refValues_)
-            USE SMConstants
-            use PhysicsStorage
-            import DGSEM
-            implicit none
-            class(DGSEM)                  :: sem
-            type(Thermodynamics_t), intent(in)  :: thermodynamics_
-            type(Dimensionless_t),  intent(in)  :: dimensionless_
-            type(RefValues_t),      intent(in)  :: refValues_
-         END SUBROUTINE UserDefinedInitialCondition
-end interface
 
-      call UserDefinedInitialCondition(self, thermodynamics, &
-                                              dimensionless, &
-                                                  refValues )
-
-   end subroutine DGSEM_SetInitialCondition
-      
    END Module DGSEMClass

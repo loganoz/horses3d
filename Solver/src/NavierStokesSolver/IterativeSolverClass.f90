@@ -115,7 +115,7 @@ CONTAINS
       SELECT CASE (this % Smoother)
          CASE('BlockJacobi')
             nelem = SIZE(sem % mesh % elements)
-            N_EQN = SIZE(sem % mesh % elements(1) % Q,4)
+            N_EQN = SIZE(sem % mesh % elements(1) % storage % Q,4)
             ALLOCATE (this % BlockPreco(nelem))
             DO k = 1, nelem
                Nx = sem % mesh % elements(k) % Nxyz(1)

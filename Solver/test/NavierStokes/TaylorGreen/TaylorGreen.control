@@ -1,8 +1,7 @@
 Flow equations        = "NS"
 mesh file name        = "../../TestMeshes/TaylorGreen32.mesh"
-plot file name        = "RESULTS/TaylorGreen.tec"
 restart file name     = "RESULTS/TGV.rst"
-save file name        = "RESULTS/TGV.rst"
+solution file name    = "RESULTS/TGV.rst"
 restart               = .false.
 Polynomial order      = 3
 Number of time steps  = 10

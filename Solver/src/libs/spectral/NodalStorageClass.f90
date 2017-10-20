@@ -24,6 +24,7 @@
          INTEGER                                    :: Nx,Ny,Nz                        ! Polynomial orders in every direction
          REAL(KIND=RP)                , ALLOCATABLE :: xi(:), eta(:), zeta(:)          ! Node position in every direction
          REAL(KIND=RP)                , ALLOCATABLE :: wx(:), wy(:), wz(:)             ! Weights in every direction
+         REAL(KIND=RP)                , ALLOCATABLE :: wbx(:), wby(:), wbz(:)          ! Barycentric weights in every direction
          REAL(KIND=RP)                , ALLOCATABLE :: standardDerivativeMatrix(:,:)   ! Standard derivative matrix for the x direction (to deprecate?... This is only used in one of the Components' test cases)
          REAL(KIND=RP), DIMENSION(:,:), ALLOCATABLE :: vx, vy, vz                      ! Interpolation vector
          REAL(KIND=RP)                , ALLOCATABLE :: Dx(:,:), Dy(:,:), Dz(:,:)       ! DG derivative matrices in every direction
@@ -60,6 +61,7 @@
       
       ALLOCATE( this % xi(0:Nx), this % eta(0:Ny), this % zeta(0:Nz) )
       ALLOCATE( this % wx(0:Nx), this % wy (0:Ny), this % wz  (0:Nz) )
+      ALLOCATE( this % wbx(0:Nx), this % wby (0:Ny), this % wbz  (0:Nz) )
       ALLOCATE( this % Dx(0:Nx,0:Nx), this % Dy(0:Ny,0:Ny), this % Dz(0:Nz,0:Nz) )
       ALLOCATE( this % standardDerivativeMatrix(0:Nx,0:Nx) )
       ALLOCATE( this % vx(0:Nx,2), this % vy(0:Ny,2), this % vz(0:Nz,2) )
@@ -117,6 +119,7 @@
       CALL InterpolatingPolynomialVector(  1.0_RP, Nx, this % xi, wbx, this % bx(:,RIGHT) )
       CALL InterpolatingPolynomialVector( -1.0_RP, Nx, this % xi, wbx, this % bx(:,LEFT)  )
       
+      this % wbx = wbx
       this % vx = this % bx
       
       this % bx(0:Nx,LEFT)  = this % bx(0:Nx,LEFT) /this % wx
@@ -128,6 +131,7 @@
       CALL InterpolatingPolynomialVector(  1.0_RP, Ny, this % eta, wby, this % by(:,RIGHT) )
       CALL InterpolatingPolynomialVector( -1.0_RP, Ny, this % eta, wby, this % by(:,LEFT)  )
       
+      this % wby = wby
       this % vy = this % by
       
       this % by(0:Ny,LEFT)  = this % by(0:Ny,LEFT) /this % wy
@@ -139,6 +143,7 @@
       CALL InterpolatingPolynomialVector(  1.0_RP, Nz, this % zeta, wbz, this % bz(:,RIGHT) )
       CALL InterpolatingPolynomialVector( -1.0_RP, Nz, this % zeta, wbz, this % bz(:,LEFT)  )
       
+      this % wbz = wbz
       this % vz = this % bz
       
       this % bz(0:Nz,LEFT)  = this % bz(0:Nz,LEFT) /this % wz

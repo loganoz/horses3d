@@ -25,7 +25,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: convergenceToleranceKey = "convergence tolerance"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfPlotPointsKey   = "number of plot points"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfBoundariesKey   = "number of boundaries"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: plotFileNameKey         = "plot file name"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: solutionFileNameKey     = "solution file name"
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(15) :: mainKeywords =  [machNumberKey,           &
                                                                           reynoldsNumberKey,       &
                                                                           aoaThetaKey,             &
@@ -40,6 +40,6 @@
                                                                           outputIntervalKey,       &
                                                                           convergenceToleranceKey, &
                                                                           numberOfPlotPointsKey,   &
-                                                                          plotFileNameKey]
+                                                                          solutionFileNameKey]
       END MODULE mainKeywordsModule
 
