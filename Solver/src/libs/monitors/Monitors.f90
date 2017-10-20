@@ -390,7 +390,12 @@ module MonitorsClass
 !
 !           Write statistics
 !           ----------------
-            call self % stats % WriteFile(mesh, self % iter(self % bufferLine), self % t(self % bufferLine), self % solution_file)
+            if ( self % bufferLine .eq. 0 ) then
+               i = 1
+            else
+               i = self % bufferLine
+            end if
+            call self % stats % WriteFile(mesh, self % iter(i), self % t(i), self % solution_file)
 !
 !           Reset buffer
 !           ------------
