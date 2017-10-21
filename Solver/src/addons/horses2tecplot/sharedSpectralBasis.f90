@@ -13,6 +13,7 @@
 module SharedSpectralBasis
    use SMConstants
    use NodalStorageClass
+   use PolynomialInterpAndDerivsModule
 
    private
    public   spA, Tset
@@ -57,7 +58,7 @@ module SharedSpectralBasis
          integer                 :: N(3)
 
          if ( .not. spA(N(1),N(2), N(3)) % Constructed ) then
-            call spA(N(1), N(2), N(3) ) % Construct( N(1), N(2), N(3) )
+            call spA(N(1), N(2), N(3) ) % Construct( GAUSS, N(1), N(2), N(3) )
          end if
 
       end subroutine addNewSpectralBasis

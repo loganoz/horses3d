@@ -94,6 +94,7 @@ Module DGSEMClass
       !-----------------------------------------------------------------
       INTEGER                     :: i,j,k,el                           ! Counters
       INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
+      integer                     :: nodes
       INTEGER                     :: nelem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       character(len=LINE_LENGTH)  :: meshFileName
@@ -128,6 +129,25 @@ Module DGSEMClass
          meshFileName = controlVariables % stringValueForKey(meshFileNameKey, requestedLength = LINE_LENGTH) 
 
       end if
+!
+!     ------------------------------
+!     Discretization nodes selection
+!     ------------------------------
+!
+      select case ( trim(controlVariables % stringValueForKey(trim(discretizationNodesKey), requestedLength = LINE_LENGTH)) )
+      case("Gauss")
+         nodes = GAUSS
+      case("Gauss-Lobatto")
+         nodes = GAUSSLOBATTO
+      case default
+         print*, "Unknown discretization nodes."
+         print*, "Options available are:"
+         print*, "   * Gauss"
+         print*, "   * Gauss-Lobatto"
+         errorMessage(STD_OUT)
+         stop
+      end select
+         
 !
 !     ---------------------------------------
 !     Get polynomial orders for every element
@@ -171,7 +191,7 @@ Module DGSEMClass
       DO k=1, nelem
          self % NDOF = self % NDOF + N_EQN * (Nx(k) + 1) * (Ny(k) + 1) * (Nz(k) + 1)
          IF (self % spA(Nx(k),Ny(k),Nz(k)) % Constructed) CYCLE
-         CALL self % spA(Nx(k),Ny(k),Nz(k)) % construct( Nx(k),Ny(k),Nz(k) )
+         CALL self % spA(Nx(k),Ny(k),Nz(k)) % construct( nodes, Nx(k), Ny(k), Nz(k) )
       END DO
 !
 !     ------------------

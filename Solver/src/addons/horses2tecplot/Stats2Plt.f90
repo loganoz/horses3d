@@ -70,7 +70,7 @@ module Stats2PltModule
             character(len=LINE_LENGTH) function getFileName(inputLine)
                use SMConstants
                implicit none
-               character(len=*), intent(in)     :: inputLine
+               character(len=*)    :: inputLine
             end function getFileName
          end interface
 !
@@ -187,7 +187,7 @@ module Stats2PltModule
             character(len=LINE_LENGTH) function getFileName(inputLine)
                use SMConstants
                implicit none
-               character(len=*), intent(in)     :: inputLine
+               character(len=*)    :: inputLine
             end function getFileName
          end interface
 !
@@ -209,7 +209,7 @@ module Stats2PltModule
 !
 !        Allocate the output spectral basis
 !        ----------------------------------
-         call spA(Nout(1), Nout(2), Nout(3)) % Construct(Nout(1), Nout(2), Nout(3))
+         call spA(Nout(1), Nout(2), Nout(3)) % Construct(GAUSS, Nout(1), Nout(2), Nout(3))
 !
 !        Write each element zone
 !        -----------------------
@@ -332,7 +332,7 @@ module Stats2PltModule
             character(len=LINE_LENGTH) function getFileName(inputLine)
                use SMConstants
                implicit none
-               character(len=*), intent(in)     :: inputLine
+               character(len=*)  :: inputLine
             end function getFileName
          end interface
 !

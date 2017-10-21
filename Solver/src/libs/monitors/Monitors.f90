@@ -112,7 +112,7 @@ module MonitorsClass
          interface
             character(len=LINE_LENGTH) function getFileName(inputLine)
                use SMConstants
-               character(len=*), intent(in)     :: inputLine
+               character(len=*)   :: inputLine
             end function getFileName
          end interface
 !
