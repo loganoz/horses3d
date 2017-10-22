@@ -10,6 +10,7 @@
       Module mainKeywordsModule
          IMPLICIT NONE 
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: discretizationNodesKey  = "discretization nodes"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: machNumberKey           = "mach number"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: reynoldsNumberKey       = "reynolds number"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: aoaThetaKey             = "aoa theta"
@@ -26,7 +27,8 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfPlotPointsKey   = "number of plot points"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfBoundariesKey   = "number of boundaries"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: solutionFileNameKey     = "solution file name"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(15) :: mainKeywords =  [machNumberKey,           &
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(16) :: mainKeywords =  [machNumberKey,           &
+                                                                          discretizationNodesKey,  &
                                                                           reynoldsNumberKey,       &
                                                                           aoaThetaKey,             &
                                                                           aoaPhiKey,               &

@@ -25,7 +25,7 @@
          INTEGER                 :: i,j,k, N
          
          N = 5
-         CALL spA % construct(N,N,N)
+         CALL spA % construct(GAUSS,N,N,N)
 !
 !        --------------------------------------------
 !        Set up a cube with edges with length [1,2,3]
@@ -332,7 +332,7 @@
          EXTERNAL                :: cylindricalGeometry
          
          N = 10
-         CALL spA % construct(N,N,N)
+         CALL spA % construct(GAUSS,N,N,N)
 !
 !        --------------------
 !        Construct the mapper

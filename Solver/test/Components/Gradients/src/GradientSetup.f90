@@ -81,6 +81,7 @@
          N = controlVariables % integerValueForKey(polynomialOrderKey)
          CALL ConstructDGSem(self              = sem                  , &
                              polynomialOrder   = N                    , &
+                             controlVariables  = controlVariables     , &
                              meshFileName_     = meshFileName         , &
                              externalState     = externalBoundaryState, &
                              externalGradients = externalGradientState, &

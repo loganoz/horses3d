@@ -86,7 +86,7 @@ Module DGSEMClass
       !-----------------------------------------------------------------
       CLASS(DGSem)                       :: self                               !<> Class to be constructed
       character(len=*),         optional :: meshFileName_
-      class(FTValueDictionary), optional :: controlVariables                   !<  Name of mesh file
+      class(FTValueDictionary)           :: controlVariables                   !<  Name of mesh file
       EXTERNAL                           :: externalState, externalGradients   !<  External procedures that define the BCs
       INTEGER, OPTIONAL                  :: polynomialOrder(3)                 !<  Uniform polynomial order
       INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
@@ -122,7 +122,7 @@ Module DGSEMClass
 !        ----------------------------------
          meshFileName = trim(meshFileName_)
 
-      elseif ( present ( controlVariables ) ) then
+      else
 !
 !        Mesh file set up by controlVariables
 !        ------------------------------------
@@ -257,9 +257,7 @@ Module DGSEMClass
 !     Build the monitors
 !     ------------------
 !
-      if ( present(controlVariables) ) then
-         self % monitors = ConstructMonitors(self % mesh, controlVariables)
-      end if
+      self % monitors = ConstructMonitors(self % mesh, controlVariables)
 !
 !     -----------------------------------------
 !     Initialize Spatial discretization methods

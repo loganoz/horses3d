@@ -1,4 +1,5 @@
 Flow equations = "Euler"
+discretization nodes = "Gauss"
 mesh file name = "./GradientsMeshFileNames.txt"
 plot file name = "none"
 restart file name = "none"
