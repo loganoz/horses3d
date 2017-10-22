@@ -163,7 +163,7 @@ module Stats2PltModule
 
          end if
 
-         e % statsout(0:,0:,0:,1:) => e % stats
+         e % statsout(1:,0:,0:,0:) => e % stats
 
       end subroutine ProjectStorageGaussPoints
 !
@@ -302,10 +302,10 @@ module Stats2PltModule
 !        Project the solution
 !        --------------------
          if ( all( e % Nsol .eq. e % Nout ) ) then
-            e % statsout(0:,0:,0:,1:) => e % stats
+            e % statsout(1:,0:,0:,0:) => e % stats
    
          else
-            allocate( e % Qout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:5) )
+            allocate( e % statsout(1:9,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
             call prolongSolutionToGaussPoints(9, e % Nsol, e % stats, e % Nout, e % statsout, Tx, Ty, Tz)
 
          end if
@@ -462,16 +462,14 @@ module Stats2PltModule
 !
 !        Project the solution
 !        --------------------
-         allocate( e % Qout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:9) )
+         allocate( e % statsout(1:9,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
          e % statsout = 0.0_RP
 
-         do iVar = 1, 9
-            do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
-               do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
-                  e % statsout(i,j,k,iVar) = e % statsout(i,j,k,iVar) + e % stats(l,m,n,iVar) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
-               end do            ; end do            ; end do
+         do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+            do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+               e % statsout(:,i,j,k) = e % statsout(:,i,j,k) + e % stats(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
             end do            ; end do            ; end do
-         end do
+         end do            ; end do            ; end do
 
       end subroutine ProjectStorageHomogeneousPoints
 !
@@ -498,25 +496,22 @@ module Stats2PltModule
 !        ---------------
 !
          integer                    :: i,j,k,var
-         real(kind=RP)              :: outputVars(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3),1:9)
-         real(kind=RP)              :: outputVarsReord(1:9, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3))
+         real(kind=RP)              :: outputVars(1:9,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3))
          character(len=LINE_LENGTH) :: formatout
 !
 !        Get output variables
 !        --------------------
-         outputVars(:,:,:,1) = e % statsout(:,:,:,U)
-         outputVars(:,:,:,2) = e % statsout(:,:,:,V)
-         outputVars(:,:,:,3) = e % statsout(:,:,:,W)
-         outputVars(:,:,:,4) = e % statsout(:,:,:,UU) - POW2(e % statsout(:,:,:,U))
-         outputVars(:,:,:,5) = e % statsout(:,:,:,VV) - POW2(e % statsout(:,:,:,V))
-         outputVars(:,:,:,6) = e % statsout(:,:,:,WW) - POW2(e % statsout(:,:,:,W))
-         outputVars(:,:,:,7) = e % statsout(:,:,:,UV) - e % statsout(:,:,:,U) * e % statsout(:,:,:,V)
-         outputVars(:,:,:,8) = e % statsout(:,:,:,UW) - e % statsout(:,:,:,U) * e % statsout(:,:,:,W)
-         outputVars(:,:,:,9) = e % statsout(:,:,:,VW) - e % statsout(:,:,:,V) * e % statsout(:,:,:,W)
-
-         do i = 1 , 9
-            outputVarsReord(i,:,:,:) = outputVars(:,:,:,i)
-         end do
+         do k = 0, e % Nout(3)   ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+            outputVars(1,i,j,k) = e % statsout(U,i,j,k)
+            outputVars(2,i,j,k) = e % statsout(V,i,j,k)
+            outputVars(3,i,j,k) = e % statsout(W,i,j,k)
+            outputVars(4,i,j,k) = e % statsout(UU,i,j,k) - POW2(e % statsout(U,i,j,k))
+            outputVars(5,i,j,k) = e % statsout(VV,i,j,k) - POW2(e % statsout(V,i,j,k))
+            outputVars(6,i,j,k) = e % statsout(WW,i,j,k) - POW2(e % statsout(W,i,j,k))
+            outputVars(7,i,j,k) = e % statsout(UV,i,j,k) - e % statsout(U,i,j,k) * e % statsout(V,i,j,k)
+            outputVars(8,i,j,k) = e % statsout(UW,i,j,k) - e % statsout(U,i,j,k) * e % statsout(W,i,j,k)
+            outputVars(9,i,j,k) = e % statsout(VW,i,j,k) - e % statsout(V,i,j,k) * e % statsout(W,i,j,k)
+         end do                  ; end do                ; end do
 !
 !        Write variables
 !        ---------------        
@@ -526,7 +521,7 @@ module Stats2PltModule
          formatout = getFormat()
 
          do k = 0, e % Nout(3)   ; do j = 0, e % Nout(2)    ; do i = 0, e % Nout(1)
-            write(fid,trim(formatout)) e % xOut(:,i,j,k), outputVarsReord(:,i,j,k)
+            write(fid,trim(formatout)) e % xOut(:,i,j,k), outputVars(:,i,j,k)
          end do               ; end do                ; end do
 
       end subroutine WriteElementToTecplot

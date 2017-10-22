@@ -245,7 +245,7 @@ module OutputVariables
          implicit none
          integer, intent(in)          :: N(3)
          class(Element_t), intent(in) :: e
-         real(kind=RP), intent(out)   :: output(0:N(1),0:N(2),0:N(3),1:no_of_outputVariables)
+         real(kind=RP), intent(out)   :: output(1:no_of_outputVariables,0:N(1),0:N(2),0:N(3))
          real(kind=RP), intent(in)    :: refs(NO_OF_SAVED_REFS)
          logical,       intent(in)    :: hasGradients
 !
@@ -266,64 +266,92 @@ module OutputVariables
                select case (outputVariableNames(var))
    
                case(RHO_V)
-                  output(:,:,:,var) = Q(:,:,:,IRHO)
-                  if ( outScale ) output(:,:,:,var) = refs(RHO_REF) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IRHO,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * output(var,:,:,:)
    
                case(U_V)
-                  output(:,:,:,var) = Q(:,:,:,IRHOU) / Q(:,:,:,IRHO)
-                  if ( outScale ) output(:,:,:,var) = refs(V_REF) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IRHOU,i,j,k) / Q(IRHO,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
    
                case(V_V)
-                  output(:,:,:,var) = Q(:,:,:,IRHOV) / Q(:,:,:,IRHO)
-                  if ( outScale ) output(:,:,:,var) = refs(V_REF) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IRHOV,i,j,k) / Q(IRHO,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
    
                case(W_V)
-                  output(:,:,:,var) = Q(:,:,:,IRHOW) / Q(:,:,:,IRHO)
-                  if ( outScale ) output(:,:,:,var) = refs(V_REF) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IRHOW,i,j,k) / Q(IRHO,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
    
                case(P_V)
-                  output(:,:,:,var) = (refs(GAMMA_REF) - 1.0_RP)*(Q(:,:,:,IRHOE) - 0.5_RP*&
-                                    ( POW2(Q(:,:,:,IRHOU)) + POW2(Q(:,:,:,IRHOV)) + POW2(Q(:,:,:,IRHOW))) /Q(:,:,:,IRHO)) 
-                  if ( outScale ) output(:,:,:,var) = refs(RHO_REF) * POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = (refs(GAMMA_REF) - 1.0_RP)*(Q(IRHOE,i,j,k) - 0.5_RP*&
+                                       ( POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))) /Q(IRHO,i,j,k)) 
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
    
                case(T_V)
-                  output(:,:,:,var) = (refs(GAMMA_REF) - 1.0_RP) * refs(GAMMA_REF) * POW2(refs(MACH_REF)) * (Q(:,:,:,IRHOE) - 0.5_RP*&
-                                    ( POW2(Q(:,:,:,IRHOU)) + POW2(Q(:,:,:,IRHOV)) + POW2(Q(:,:,:,IRHOW))) /POW2(Q(:,:,:,IRHO))) 
-                  if ( outScale ) output(:,:,:,var) = refs(T_REF) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = (refs(GAMMA_REF) - 1.0_RP) * refs(GAMMA_REF) * POW2(refs(MACH_REF)) * (Q(IRHOE,i,j,k) - 0.5_RP*&
+                                       ( POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))) /POW2(Q(IRHO,i,j,k))) 
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(T_REF) * output(var,:,:,:)
    
                case(MACH_V)
-                  output(:,:,:,var) = POW2(Q(:,:,:,IRHOU)) + POW2(Q(:,:,:,IRHOV)) + POW2(Q(:,:,:,IRHOW))/POW2(Q(:,:,:,IRHO))     ! Vabs**2
-                  output(:,:,:,var) = sqrt( output(:,:,:,var) / ( refs(GAMMA_REF)*(refs(GAMMA_REF)-1.0_RP)*(Q(:,:,:,IRHOE)/Q(:,:,:,IRHO)-0.5_RP * output(:,:,:,var)) ) )
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))/POW2(Q(IRHO,i,j,k))     ! Vabs**2
+                     output(var,i,j,k) = sqrt( output(var,i,j,k) / ( refs(GAMMA_REF)*(refs(GAMMA_REF)-1.0_RP)*(Q(IRHOE,i,j,k)/Q(IRHO,i,j,k)-0.5_RP * output(var,i,j,k)) ) )
+                  end do         ; end do         ; end do
    
                case(S_V)
-                  output(:,:,:,var) = refs(GAMMA_REF) * (refs(GAMMA_REF) - 1.0_RP)*(Q(:,:,:,IRHOE) - 0.5_RP * &
-                                    ( POW2(Q(:,:,:,IRHOU)) + POW2(Q(:,:,:,IRHOV)) + POW2(Q(:,:,:,IRHOW))) /Q(:,:,:,IRHO)) / (Q(:,:,:,IRHO)**refs(GAMMA_REF))
-                  if ( outScale ) output(:,:,:,var) = refs(RHO_REF)*POW2(refs(V_REF))/refs(RHO_REF)**refs(GAMMA_REF) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = refs(GAMMA_REF) * (refs(GAMMA_REF) - 1.0_RP)*(Q(IRHOE,i,j,k) - 0.5_RP * &
+                                       ( POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))) /Q(IRHO,i,j,k)) / (Q(IRHO,i,j,k)**refs(GAMMA_REF))
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF)*POW2(refs(V_REF))/refs(RHO_REF)**refs(GAMMA_REF) * output(var,:,:,:)
       
                case(Vabs_V)
-                  output(:,:,:,var) = sqrt(POW2(Q(:,:,:,IRHOU)) + POW2(Q(:,:,:,IRHOV)) + POW2(Q(:,:,:,IRHOW)))/Q(:,:,:,IRHO)
-                  if ( outScale ) output(:,:,:,var) = refs(V_REF) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = sqrt(POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k)))/Q(IRHO,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
    
                case(Ht_V)
-                  output(:,:,:,var) = refs(GAMMA_REF)*Q(:,:,:,IRHOE) - 0.5_RP*(refs(GAMMA_REF)-1.0_RP)*&
-                                    ( POW2(Q(:,:,:,IRHOU)) + POW2(Q(:,:,:,IRHOV)) + POW2(Q(:,:,:,IRHOW))) /Q(:,:,:,IRHO) 
-                  if ( outScale ) output(:,:,:,var) = refs(RHO_REF) * POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = refs(GAMMA_REF)*Q(IRHOE,i,j,k) - 0.5_RP*(refs(GAMMA_REF)-1.0_RP)*&
+                                       ( POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))) /Q(IRHO,i,j,k) 
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
    
                case(RHOU_V)
-                  output(:,:,:,var) = Q(:,:,:,IRHOU) 
-                  if ( outScale ) output(:,:,:,var) = refs(RHO_REF) * refs(V_REF) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IRHOU,i,j,k) 
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * refs(V_REF) * output(var,:,:,:)
    
                case(RHOV_V)
-                  output(:,:,:,var) = Q(:,:,:,IRHOV) 
-                  if ( outScale ) output(:,:,:,var) = refs(RHO_REF) * refs(V_REF) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IRHOV,i,j,k) 
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * refs(V_REF) * output(var,:,:,:)
          
                case(RHOW_V)
-                  output(:,:,:,var) = Q(:,:,:,IRHOW) 
-                  if ( outScale ) output(:,:,:,var) = refs(RHO_REF) * refs(V_REF) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IRHOW,i,j,k) 
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * refs(V_REF) * output(var,:,:,:)
    
                case(RHOE_V)
-                  output(:,:,:,var) = Q(:,:,:,IRHOE) 
-                  if ( outScale ) output(:,:,:,var) = refs(RHO_REF) * POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(IRHOE,i,j,k) 
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
 !
 !
 !              ******************
@@ -331,78 +359,104 @@ module OutputVariables
 !              ******************
 !
                case(UX_V)
-                  output(:,:,:,var) = U_x(:,:,:,1)
-                  if ( outScale ) output(:,:,:,var) = POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = U_x(1,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
                
                case(VX_V)
-                  output(:,:,:,var) = U_x(:,:,:,2)
-                  if ( outScale ) output(:,:,:,var) = POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = U_x(2,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
                
                case(WX_V)
-                  output(:,:,:,var) = U_x(:,:,:,3)
-                  if ( outScale ) output(:,:,:,var) = POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = U_x(3,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
                
                case(UY_V)
-                  output(:,:,:,var) = U_y(:,:,:,1)
-                  if ( outScale ) output(:,:,:,var) = POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = U_y(1,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
                
                case(VY_V)
-                  output(:,:,:,var) = U_y(:,:,:,2)
-                  if ( outScale ) output(:,:,:,var) = POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = U_y(2,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
                
                case(WY_V)
-                  output(:,:,:,var) = U_y(:,:,:,3)
-                  if ( outScale ) output(:,:,:,var) = POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = U_y(3,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
                
                case(UZ_V)
-                  output(:,:,:,var) = U_z(:,:,:,1)
-                  if ( outScale ) output(:,:,:,var) = POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = U_z(1,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
                
                case(VZ_V)
-                  output(:,:,:,var) = U_z(:,:,:,2)
-                  if ( outScale ) output(:,:,:,var) = POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = U_z(2,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
                
                case(WZ_V)
-                  output(:,:,:,var) = U_z(:,:,:,3)
-                  if ( outScale ) output(:,:,:,var) = POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = U_z(3,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
 
                case(OMEGAX_V)
-                  output(:,:,:,var) = ( U_y(:,:,:,3) - U_z(:,:,:,2) )
-                  if ( outScale ) output(:,:,:,var) = POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = ( U_y(3,i,j,k) - U_z(2,i,j,k) )
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
 
                case(OMEGAY_V)
-                  output(:,:,:,var) = ( U_z(:,:,:,1) - U_x(:,:,:,3) )
-                  if ( outScale ) output(:,:,:,var) = POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = ( U_z(1,i,j,k) - U_x(3,i,j,k) )
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
 
                case(OMEGAZ_V)
-                  output(:,:,:,var) = ( U_x(:,:,:,2) - U_y(:,:,:,1) )
-                  if ( outScale ) output(:,:,:,var) = POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = ( U_x(2,i,j,k) - U_y(1,i,j,k) )
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
 
                case(OMEGAABS_V)
-                  output(:,:,:,var) = sqrt(  POW2( U_y(:,:,:,3) - U_z(:,:,:,2) ) &
-                                           + POW2( U_z(:,:,:,1) - U_x(:,:,:,3) ) &
-                                           + POW2( U_x(:,:,:,2) - U_y(:,:,:,1) ) )
-                  if ( outScale ) output(:,:,:,var) = POW2(refs(V_REF)) * output(:,:,:,var)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = sqrt(  POW2( U_y(3,i,j,k) - U_z(2,i,j,k) ) &
+                                              + POW2( U_z(1,i,j,k) - U_x(3,i,j,k) ) &
+                                              + POW2( U_x(2,i,j,k) - U_y(1,i,j,k) ) )
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
 
                case(QCRIT_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     Sym =   POW2( U_x(i,j,k,1) ) + POW2( U_y(i,j,k,2) ) + POW2( U_z(i,j,k,3) )  &
-                           + 2.0_RP *( POW2( 0.5_RP * (U_x(i,j,k,2) + U_y(i,j,k,1)) ) +          &
-                                       POW2( 0.5_RP * (U_x(i,j,k,3) + U_z(i,j,k,1)) ) +          &
-                                       POW2( 0.5_RP * (U_y(i,j,k,3) + U_z(i,j,k,2)) ) )
+                     Sym =   POW2( U_x(1,i,j,k) ) + POW2( U_y(2,i,j,k) ) + POW2( U_z(3,i,j,k) )  &
+                           + 2.0_RP *( POW2( 0.5_RP * (U_x(2,i,j,k) + U_y(1,i,j,k)) ) +          &
+                                       POW2( 0.5_RP * (U_x(3,i,j,k) + U_z(1,i,j,k)) ) +          &
+                                       POW2( 0.5_RP * (U_y(3,i,j,k) + U_z(2,i,j,k)) ) )
 
-                     Asym =   2.0_RP *( POW2( 0.5_RP * (U_x(i,j,k,2) - U_y(i,j,k,1)) ) +        &
-                                        POW2( 0.5_RP * (U_x(i,j,k,3) - U_z(i,j,k,1)) ) +        &
-                                        POW2( 0.5_RP * (U_y(i,j,k,3) - U_z(i,j,k,2)) ) )
+                     Asym =   2.0_RP *( POW2( 0.5_RP * (U_x(2,i,j,k) - U_y(1,i,j,k)) ) +        &
+                                        POW2( 0.5_RP * (U_x(3,i,j,k) - U_z(1,i,j,k)) ) +        &
+                                        POW2( 0.5_RP * (U_y(3,i,j,k) - U_z(2,i,j,k)) ) )
 
-                     output(i,j,k,var) = 0.5_RP*( Asym - Sym )
+                     output(var,i,j,k) = 0.5_RP*( Asym - Sym )
                   end do            ; end do            ; end do
                
                end select
                end associate
    
             else
-               output(:,:,:,var) = 0.0_RP
+               output(var,:,:,:) = 0.0_RP
 
             end if
          end do
