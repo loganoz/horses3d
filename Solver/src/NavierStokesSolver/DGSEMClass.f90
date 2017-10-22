@@ -86,7 +86,7 @@ Module DGSEMClass
       !-----------------------------------------------------------------
       CLASS(DGSem)                       :: self                               !<> Class to be constructed
       character(len=*),         optional :: meshFileName_
-      class(FTValueDictionary), optional :: controlVariables                   !<  Name of mesh file
+      class(FTValueDictionary)           :: controlVariables                   !<  Name of mesh file
       EXTERNAL                           :: externalState, externalGradients   !<  External procedures that define the BCs
       INTEGER, OPTIONAL                  :: polynomialOrder(3)                 !<  Uniform polynomial order
       INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
@@ -94,6 +94,7 @@ Module DGSEMClass
       !-----------------------------------------------------------------
       INTEGER                     :: i,j,k,el                           ! Counters
       INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
+      integer                     :: nodes
       INTEGER                     :: nelem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       character(len=LINE_LENGTH)  :: meshFileName
@@ -121,13 +122,32 @@ Module DGSEMClass
 !        ----------------------------------
          meshFileName = trim(meshFileName_)
 
-      elseif ( present ( controlVariables ) ) then
+      else
 !
 !        Mesh file set up by controlVariables
 !        ------------------------------------
          meshFileName = controlVariables % stringValueForKey(meshFileNameKey, requestedLength = LINE_LENGTH) 
 
       end if
+!
+!     ------------------------------
+!     Discretization nodes selection
+!     ------------------------------
+!
+      select case ( trim(controlVariables % stringValueForKey(trim(discretizationNodesKey), requestedLength = LINE_LENGTH)) )
+      case("Gauss")
+         nodes = GAUSS
+      case("Gauss-Lobatto")
+         nodes = GAUSSLOBATTO
+      case default
+         print*, "Unknown discretization nodes."
+         print*, "Options available are:"
+         print*, "   * Gauss"
+         print*, "   * Gauss-Lobatto"
+         errorMessage(STD_OUT)
+         stop
+      end select
+         
 !
 !     ---------------------------------------
 !     Get polynomial orders for every element
@@ -171,7 +191,7 @@ Module DGSEMClass
       DO k=1, nelem
          self % NDOF = self % NDOF + N_EQN * (Nx(k) + 1) * (Ny(k) + 1) * (Nz(k) + 1)
          IF (self % spA(Nx(k),Ny(k),Nz(k)) % Constructed) CYCLE
-         CALL self % spA(Nx(k),Ny(k),Nz(k)) % construct( Nx(k),Ny(k),Nz(k) )
+         CALL self % spA(Nx(k),Ny(k),Nz(k)) % construct( nodes, Nx(k), Ny(k), Nz(k) )
       END DO
 !
 !     ------------------
@@ -202,11 +222,11 @@ Module DGSEMClass
                      IF (flowIsNavierStokes) THEN
                         CALL ManufacturedSolutionSourceNS(self % mesh % elements(el) % geom % x(:,i,j,k), &
                                                           0._RP, &
-                                                          self % mesh % elements(el) % storage % S (i,j,k,:)  )
+                                                          self % mesh % elements(el) % storage % S (:,i,j,k)  )
                      ELSE
                         CALL ManufacturedSolutionSourceEuler(self % mesh % elements(el) % geom % x(:,i,j,k), &
                                                              0._RP, &
-                                                             self % mesh % elements(el) % storage % S (i,j,k,:)  )
+                                                             self % mesh % elements(el) % storage % S (:,i,j,k)  )
                      END IF
                   END DO
                END DO
@@ -237,9 +257,7 @@ Module DGSEMClass
 !     Build the monitors
 !     ------------------
 !
-      if ( present(controlVariables) ) then
-         self % monitors = ConstructMonitors(self % mesh, controlVariables)
-      end if
+      self % monitors = ConstructMonitors(self % mesh, controlVariables)
 !
 !     -----------------------------------------
 !     Initialize Spatial discretization methods
@@ -369,7 +387,7 @@ Module DGSEMClass
             DO j = 0, Ny
                DO i = 0, Nx
                   DO l = 1,N_EQN
-                     self%mesh%elements(elm)%storage%Q(i, j, k, l) = Q(counter) ! This creates a temporary array: storage must be modified to avoid that
+                     self%mesh%elements(elm)%storage%Q(l,i,j,k) = Q(counter) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                END DO
@@ -400,7 +418,7 @@ Module DGSEMClass
             DO j = 0, Ny
                 DO i = 0, Nx
                   DO l = 1,N_EQN
-                     Q(counter)  = self%mesh%elements(elm)%storage%Q(i, j, k, l) ! This creates a temporary array: storage must be modified to avoid that
+                     Q(counter)  = self%mesh%elements(elm)%storage%Q(l,i, j, k) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                 END DO
@@ -431,7 +449,7 @@ Module DGSEMClass
             DO j = 0, Ny
                DO i = 0, Nx
                   DO l = 1,N_EQN
-                     Qdot(counter)  = self%mesh%elements(elm)%storage%Qdot(i, j, k, l) ! This creates a temporary array: storage must be modified to avoid that
+                     Qdot(counter)  = self%mesh%elements(elm)%storage%Qdot(l,i, j, k) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                END DO
@@ -459,7 +477,7 @@ Module DGSEMClass
       maxResidual = 0.0_RP
       DO id = 1, SIZE( self % mesh % elements )
          DO eq = 1 , N_EQN
-            localMaxResidual(eq) = MAXVAL(ABS(self % mesh % elements(id) % storage % QDot(:,:,:,eq)))
+            localMaxResidual(eq) = MAXVAL(ABS(self % mesh % elements(id) % storage % QDot(eq,:,:,:)))
             maxResidual(eq) = MAX(maxResidual(eq),localMaxResidual(eq))
          END DO
       END DO
@@ -896,7 +914,7 @@ Module DGSEMClass
 !                 by the physics.
 !                 ------------------------------------------------------------
 !
-                  Q(1:N_EQN) = self % mesh % elements(id) % storage % Q(i,j,k,1:N_EQN)
+                  Q(1:N_EQN) = self % mesh % elements(id) % storage % Q(1:N_EQN,i,j,k)
                   CALL ComputeEigenvaluesForState( Q , eValues )
 !
 !                 ----------------------------

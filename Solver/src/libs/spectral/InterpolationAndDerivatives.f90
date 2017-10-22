@@ -760,8 +760,8 @@
 !    /////////////////////////////////////////////////////////////////
 !
 !     ----------------------------------------------------------------
-!!    Compute the (transpose) of the derivative matrix.
-!!    D(j,i) = \prime \ell_j(x_i)
+!!    Compute the derivative matrix.
+!!    D(i,j) = \prime \ell_j(x_i)
 !     ----------------------------------------------------------------
 !
       SUBROUTINE PolynomialDerivativeMatrix( N, nodes, D )
@@ -787,8 +787,8 @@
          D(i,i) = 0.0_RP
          DO j = 0, N
             IF( j /= i )     THEN
-               D(j,i) = baryWeights(j)/( baryWeights(i)*(nodes(i) - nodes(j)) )
-               D(i,i) = D(i,i) - D(j,i)
+               D(i,j) = baryWeights(j)/( baryWeights(i)*(nodes(i) - nodes(j)) )
+               D(i,i) = D(i,i) - D(i,j)
             END IF
          END DO
       END DO
@@ -840,7 +840,7 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE PolyDirectMatrixMultiplyDeriv( f, fDeriv, D, N )
+      SUBROUTINE PolyDirectMatrixMultiplyDeriv( f, fDeriv, DT, N )
 !
 !     Compute the derivative approximation by simple matrix multiplication
 !     This routine assumes that the matrix has been trasposed for faster
@@ -852,7 +852,7 @@
 !
       INTEGER                          , INTENT(IN)  :: N
       REAL(KIND=RP), DIMENSION(0:N)    , INTENT(IN)  :: f
-      REAL(KIND=RP), DIMENSION(0:N,0:N), INTENT(IN)  :: D
+      REAL(KIND=RP), DIMENSION(0:N,0:N), INTENT(IN)  :: DT
 
       REAL(KIND=RP), DIMENSION(0:N)    , INTENT(OUT) :: fDeriv
 !
@@ -866,7 +866,7 @@
       DO i = 0, N
          t = 0.0_RP
          DO j = 0, N
-            t = t + D(j,i)*f(j)
+            t = t + DT(j,i)*f(j)
          END DO
          fDeriv(i) = t
       END DO

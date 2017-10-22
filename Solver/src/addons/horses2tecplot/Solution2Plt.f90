@@ -57,7 +57,7 @@ module Solution2PltModule
             character(len=LINE_LENGTH) function getFileName(inputLine)
                use SMConstants
                implicit none
-               character(len=*), intent(in)     :: inputLine
+               character(len=*)    :: inputLine
             end function getFileName
          end interface
 !
@@ -151,11 +151,11 @@ module Solution2PltModule
 
          end if
 
-         e % Qout(0:,0:,0:,1:) => e % Q
+         e % Qout(1:,0:,0:,0:) => e % Q
          if ( hasGradients ) then
-            e % U_xout(0:,0:,0:,1:) => e % U_x
-            e % U_yout(0:,0:,0:,1:) => e % U_y
-            e % U_zout(0:,0:,0:,1:) => e % U_z
+            e % U_xout(1:,0:,0:,0:) => e % U_x
+            e % U_yout(1:,0:,0:,0:) => e % U_y
+            e % U_zout(1:,0:,0:,0:) => e % U_z
          end if
          
 
@@ -181,7 +181,7 @@ module Solution2PltModule
             character(len=LINE_LENGTH) function getFileName(inputLine)
                use SMConstants
                implicit none
-               character(len=*), intent(in)     :: inputLine
+               character(len=*)    :: inputLine
             end function getFileName
          end interface
 !
@@ -203,7 +203,7 @@ module Solution2PltModule
 !
 !        Allocate the output spectral basis
 !        ----------------------------------
-         call spA(Nout(1), Nout(2), Nout(3)) % Construct(Nout(1), Nout(2), Nout(3))
+         call spA(Nout(1), Nout(2), Nout(3)) % Construct(GAUSS, Nout(1), Nout(2), Nout(3))
 !
 !        Write each element zone
 !        -----------------------
@@ -298,16 +298,16 @@ module Solution2PltModule
 !        Project the solution
 !        --------------------
          if ( all( e % Nsol .eq. e % Nout ) ) then
-            e % Qout(0:,0:,0:,1:) => e % Q
+            e % Qout(1:,0:,0:,0:) => e % Q
    
          else
-            allocate( e % Qout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:5) )
+            allocate( e % Qout(1:5,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
             call prolongSolutionToGaussPoints(5, e % Nsol, e % Q, e % Nout, e % Qout, Tx, Ty, Tz)
    
             if ( hasGradients ) then
-               allocate( e % U_xout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:4) )
-               allocate( e % U_yout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:4) )
-               allocate( e % U_zout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:4) )
+               allocate( e % U_xout(1:4,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+               allocate( e % U_yout(1:4,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+               allocate( e % U_zout(1:4,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
                call prolongSolutionToGaussPoints(4, e % Nsol, e % U_x, e % Nout, e % U_xout, Tx, Ty, Tz)
                call prolongSolutionToGaussPoints(4, e % Nsol, e % U_y, e % Nout, e % U_yout, Tx, Ty, Tz)
                call prolongSolutionToGaussPoints(4, e % Nsol, e % U_z, e % Nout, e % U_zout, Tx, Ty, Tz)
@@ -337,7 +337,7 @@ module Solution2PltModule
             character(len=LINE_LENGTH) function getFileName(inputLine)
                use SMConstants
                implicit none
-               character(len=*), intent(in)     :: inputLine
+               character(len=*)    :: inputLine
             end function getFileName
          end interface
 !
@@ -453,7 +453,7 @@ module Solution2PltModule
 !        Local variables
 !        ---------------
 !
-         integer     :: i, j, k, iVar, l, m, n
+         integer     :: i, j, k, l, m, n
 !
 !        Project mesh
 !        ------------         
@@ -469,50 +469,42 @@ module Solution2PltModule
 !
 !        Project the solution
 !        --------------------
-         allocate( e % Qout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:5) )
+         allocate( e % Qout(1:5,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
          e % Qout = 0.0_RP
 
-         do iVar = 1, 5
-            do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
-               do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
-                  e % Qout(i,j,k,iVar) = e % Qout(i,j,k,iVar) + e % Q(l,m,n,iVar) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
-               end do            ; end do            ; end do
+         do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+            do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+               e % Qout(:,i,j,k) = e % Qout(:,i,j,k) + e % Q(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
             end do            ; end do            ; end do
-         end do
+         end do            ; end do            ; end do
 
          if ( hasGradients ) then
-            allocate( e % U_xout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:4) )
+            allocate( e % U_xout(1:4,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)))
             e % U_xout = 0.0_RP
    
-            do iVar = 1, 4
-               do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
-                  do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
-                     e % U_xout(i,j,k,iVar) = e % U_xout(i,j,k,iVar) + e % U_x(l,m,n,iVar) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
-                  end do            ; end do            ; end do
+            do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+               do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+                  e % U_xout(:,i,j,k) = e % U_xout(:,i,j,k) + e % U_x(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
                end do            ; end do            ; end do
-            end do
+            end do            ; end do            ; end do
 
-          allocate( e % U_yout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:4) )
+          allocate( e % U_yout(1:4, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
             e % U_yout = 0.0_RP
    
-            do iVar = 1, 4
-               do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
-                  do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
-                     e % U_yout(i,j,k,iVar) = e % U_yout(i,j,k,iVar) + e % U_y(l,m,n,iVar) * TySol(i,l) * TySol(j,m) * TzSol(k,n)
-                  end do            ; end do            ; end do
+            do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+               do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+                  e % U_yout(:,i,j,k) = e % U_yout(:,i,j,k) + e % U_y(:,l,m,n) * TySol(i,l) * TySol(j,m) * TzSol(k,n)
                end do            ; end do            ; end do
-            end do
+            end do            ; end do            ; end do
 
-          allocate( e % U_zout(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3), 1:4) )
+          allocate( e % U_zout(1:4, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
             e % U_zout = 0.0_RP
    
-            do iVar = 1, 4
-               do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
-                  do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
-                     e % U_zout(i,j,k,iVar) = e % U_zout(i,j,k,iVar) + e % U_z(l,m,n,iVar) * TzSol(i,l) * TySol(j,m) * TzSol(k,n)
-                  end do            ; end do            ; end do
+            do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+               do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+                  e % U_zout(:,i,j,k) = e % U_zout(:,i,j,k) + e % U_z(:,l,m,n) * TzSol(i,l) * TySol(j,m) * TzSol(k,n)
                end do            ; end do            ; end do
-            end do
+            end do            ; end do            ; end do
 
          end if
 
@@ -542,18 +534,12 @@ module Solution2PltModule
 !        ---------------
 !
          integer                    :: i,j,k,var
-         real(kind=RP)              :: outputVars(0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3),1:no_of_outputVariables)
-         real(kind=RP)              :: outputVarsReord(1:no_of_outputVariables,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3))
+         real(kind=RP)              :: outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3))
          character(len=LINE_LENGTH) :: formatout
 !
 !        Get output variables
 !        --------------------
          call ComputeOutputVariables(e % Nout, e, outputVars, refs, hasGradients)
-
-
-         do i = 1 , no_of_outputVariables
-            outputVarsReord(i,:,:,:) = outputVars(:,:,:,i)
-         end do
 !
 !        Write variables
 !        ---------------        
@@ -563,7 +549,7 @@ module Solution2PltModule
          formatout = getFormat()
 
          do k = 0, e % Nout(3)   ; do j = 0, e % Nout(2)    ; do i = 0, e % Nout(1)
-            write(fid,trim(formatout)) e % xOut(:,i,j,k), outputVarsReord(:,i,j,k)
+            write(fid,trim(formatout)) e % xOut(:,i,j,k), outputVars(:,i,j,k)
          end do               ; end do                ; end do
 
       end subroutine WriteElementToTecplot

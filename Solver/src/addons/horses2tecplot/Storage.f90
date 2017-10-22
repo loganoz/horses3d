@@ -156,8 +156,8 @@ module Storage
 !   
 !              Allocate memory for the coordinates
 !              -----------------------------------            
-               e % Nsol(1:3) = arrayDimensions(1:3) - 1 
-               allocate( e % Q(0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3),1:5) )
+               e % Nsol(1:3) = arrayDimensions(2:4) - 1
+               allocate( e % Q(1:5,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
 !   
 !              Read data
 !              ---------
@@ -167,9 +167,9 @@ module Storage
 !   
 !                 Allocate memory for the gradients
 !                 ---------------------------------
-                  allocate( e % U_x(0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3),1:4) )
-                  allocate( e % U_y(0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3),1:4) )
-                  allocate( e % U_z(0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3),1:4) )
+                  allocate( e % U_x(1:4,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                  allocate( e % U_y(1:4,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                  allocate( e % U_z(1:4,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
 !   
 !                 Read data
 !                 ---------
@@ -190,8 +190,8 @@ module Storage
 !
 !              Allocate memory for the statistics
 !              ----------------------------------
-               e % Nsol(1:3) = arrayDimensions(1:3) - 1
-               allocate( e % stats(0:e % Nsol(1), 0:e % Nsol(2), 0:e % Nsol(3), 1:9) )
+               e % Nsol(1:3) = arrayDimensions(2:4) - 1
+               allocate( e % stats(1:9,0:e % Nsol(1), 0:e % Nsol(2), 0:e % Nsol(3)) )
 !
 !              Read data
 !              ---------

@@ -145,7 +145,7 @@
                   DO j = 0, mesh % elements(eID) % Nxyz(2)
                      DO i = 0, mesh % elements(eID) % Nxyz(1)
                         CALL pointSourceFlowSolution( mesh % elements(eID) % geom % x(:,i,j,k), &
-                                                      mesh % elements(eID) % storage % Q(i,j,k,1:N_EQN), success, &
+                                                      mesh % elements(eID) % storage % Q(:,i,j,k), success, &
                                                       thermodynamics_, dimensionless_, refValues_)
                         IF(.NOT. success) ERROR STOP "Unable to compute initial condition"       
                      END DO
@@ -304,7 +304,7 @@
                                tol           = 1.d-3, &
                                msg           = "Final maximum residual")
             
-            ALLOCATE(QExpected(0:N,0:N,0:N,N_EQN))
+            ALLOCATE(QExpected(N_EQN,0:N,0:N,0:N))
             
             maxError = 0.0_RP
             DO eID = 1, SIZE(mesh % elements)
@@ -312,7 +312,7 @@
                   DO j = 0, mesh % elements(eID) % Nxyz(2)
                      DO i = 0, mesh % elements(eID) % Nxyz(1)
                         CALL pointSourceFlowSolution( mesh % elements(eID) % geom % x(:,i,j,k), &
-                                                      QExpected(i,j,k,1:N_EQN), success, &
+                                                      QExpected(1:NCONS,i,j,k), success, &
                                                       thermodynamics_, dimensionless_, refValues_ )
                      END DO
                   END DO
