@@ -6,4 +6,7 @@
 file(GLOB_RECURSE io_src "*.f90")
 
 ADD_LIBRARY(${IOLIB} STATIC ${io_src})
+
+target_include_directories(${IOLIB} PUBLIC ${INCDIR})
+
 INSTALL(TARGETS ${IOLIB} ARCHIVE DESTINATION ${LIBDIR})

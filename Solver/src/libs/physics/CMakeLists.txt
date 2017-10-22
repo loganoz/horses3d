@@ -6,4 +6,7 @@
 SET(phys_src BoundaryConditions.f90 FluidData.f90 ManufacturedSolutions.f90 Physics.f90)
 
 ADD_LIBRARY(${PHYSLIB} STATIC ${phys_src})
+
+target_include_directories(${PHYSLIB} PUBLIC ${INCDIR})
+
 INSTALL(TARGETS ${PHYSLIB} ARCHIVE DESTINATION ${LIBDIR})

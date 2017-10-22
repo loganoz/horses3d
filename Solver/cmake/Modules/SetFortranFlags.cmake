@@ -93,6 +93,11 @@ SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}"
                  Fortran REQUIRED "-fPIC"       # Intel/GNU
                 )
 
+## Free line length to avoid "line truncated" error
+SET_COMPILE_FLAG(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}"
+                 Fortran "-ffree-line-length-0"       # GNU
+                )
+
 ###################
 ### DEBUG FLAGS ###
 ###################
