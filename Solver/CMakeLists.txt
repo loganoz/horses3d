@@ -113,7 +113,7 @@ ADD_DEFINITIONS(-D_has_Quad)
 # Define the actual files and folders that make up the build
 ############################################################
 
-# Define the executable(s) name(s)... arueda: distribute with SpecMesh3D?
+# Define the executable(s) name(s)
 SET(NSEXE HORSES3D)
 SET(HORSESF90 horsesf90)
 
@@ -128,7 +128,6 @@ SET(PHYSLIB physics)
 SET(PLOTLIB plot)
 SET(SPECLIB spectral)
 SET(PROBLIB ProblemFile)
-SET(DGSEMLIB dgsem)
 
 # Define some directories
 SET(SRCDIR ${CMAKE_SOURCE_DIR}/src)
@@ -152,10 +151,10 @@ ADD_SUBDIRECTORY(${SRCDIR}/libs/physics)
 ADD_SUBDIRECTORY(${SRCDIR}/libs/plot)
 ADD_SUBDIRECTORY(${SRCDIR}/libs/spectral)
 ADD_SUBDIRECTORY(${SRCDIR}/libs/problemfile)
-ADD_SUBDIRECTORY(${SRCDIR}/libs/dgsem)
 
-# The source for the NSLITE3D binary
-ADD_SUBDIRECTORY(${SRCDIR})
+# The source for the main program and add-ons
+ADD_SUBDIRECTORY(${SRCDIR}/NavierStokesSolver)
+ADD_SUBDIRECTORY(${SRCDIR}/addons)
 
 # Add a distclean target to the Makefile
 ADD_CUSTOM_TARGET(distclean 

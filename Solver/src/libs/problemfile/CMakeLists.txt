@@ -1,15 +1,14 @@
-# ftobjectlibrary
 
-## Add the source files (one can explicitly or implicitly select the source files)
-#implicitly (easy way -done here):
+###########################################
+# Compiling script for Problemfile library
+###########################################
+
 file(GLOB_RECURSE dyn_src "*.f90")
-#explicitly (hard but recommended way -edit this):
-#SET(ft_src LegendreAlgorithms.f90 Physics.f90 TimeIntegration.f90
-#  DGSEM_class.f90 MainProgram.f90 PolynomialModule.f90 Types.f90
-#  Input.f90 Parameters.f90 TheRest.f90 Utilities.f90)
 
 ADD_LIBRARY(${PROBLIB} SHARED ${dyn_src})
-TARGET_LINK_LIBRARIES(${PROBLIB} ${DGSEMLIB})
+
+TARGET_LINK_LIBRARIES(${PROBLIB} ${FTLIB} ${FOUNDLIB} ${MESHLIB})
+
 SET_TARGET_PROPERTIES(${PROBLIB} PROPERTIES PREFIX "")
 SET_TARGET_PROPERTIES(${PROBLIB} PROPERTIES LINKER_LANGUAGE Fortran)
 
