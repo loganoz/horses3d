@@ -101,7 +101,7 @@
                   Q(4) = Q(1)*w
                   Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
 
-                  mesh % elements(eID) % storage % Q(i,j,k,:) = Q 
+                  mesh % elements(eID) % storage % Q(:,i,j,k) = Q 
                end do;        end do;        end do
                end associate
 !
@@ -110,7 +110,7 @@
 !              relax back to the mean flow
 !              -------------------------------------------------
 !
-               mesh % elements(eID) % storage % Q(3,3,3,1) = 1.05_RP*mesh % elements(eID) % storage % Q(3,3,3,1)
+               mesh % elements(eID) % storage % Q(1,3,3,3) = 1.05_RP*mesh % elements(eID) % storage % Q(1,3,3,3)
 
             end do
 
@@ -229,7 +229,7 @@
                                tol           = 1.d-3, &
                                msg           = "Final maximum residual")
             
-            ALLOCATE(QExpected(0:N,0:N,0:N,N_EQN))
+            ALLOCATE(QExpected(N_EQN,0:N,0:N,0:N))
             
             maxError = 0.0_RP
             associate ( gammaM2 => dimensionless_ % gammaM2, &
@@ -254,7 +254,7 @@
                   Q(4) = Q(1)*w
                   Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
 
-                  QExpected(i,j,k,:) = Q 
+                  QExpected(:,i,j,k) = Q 
                end do;        end do;        end do
                end associate
                maxError = MAXVAL(ABS(QExpected - mesh % elements(eID) % storage % Q))

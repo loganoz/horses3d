@@ -90,15 +90,15 @@ module StorageClass
 !        Volume variables
 !        ----------------
 !
-         ALLOCATE( self % Q   (0:Nx,0:Ny,0:Nz,nEqn) )
-         ALLOCATE( self % QDot(0:Nx,0:Ny,0:Nz,nEqn) )
-         ALLOCATE( self % G   (0:Nx,0:Ny,0:Nz,nEqn) )
-         ALLOCATE( self % S   (0:Nx,0:Ny,0:Nz,nEqn) )
+         ALLOCATE( self % Q   (nEqn,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % QDot(nEqn,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % G   (nEqn,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % S   (nEqn,0:Nx,0:Ny,0:Nz) )
          
          IF ( flowIsNavierStokes )     THEN
-            ALLOCATE( self % U_x(0:Nx,0:Ny,0:Nz,nGradEqn) )
-            ALLOCATE( self % U_y(0:Nx,0:Ny,0:Nz,nGradEqn) )
-            ALLOCATE( self % U_z(0:Nx,0:Ny,0:Nz,nGradEqn) )
+            ALLOCATE( self % U_x(nGradEqn,0:Nx,0:Ny,0:Nz) )
+            ALLOCATE( self % U_y(nGradEqn,0:Nx,0:Ny,0:Nz) )
+            ALLOCATE( self % U_z(nGradEqn,0:Nx,0:Ny,0:Nz) )
          END IF
 !
 !        ---------------
@@ -181,7 +181,7 @@ module StorageClass
 !
 !        Allocate and initialize
 !        -----------------------
-         allocate( self % data(0:storage % N(1), 0:storage % N(2), 0:storage % N(3), no_of_variables) ) 
+         allocate( self % data(no_of_variables, 0:storage % N(1), 0:storage % N(2), 0:storage % N(3) ) ) 
          self % data = 0.0_RP
 
       end subroutine Statistics_Construct

@@ -18,7 +18,6 @@
       USE PhysicsStorage
       USE SharedBCModule
       USE zoneClass
-      USE DGSEMPlotterClass
       USE DGSEMClass
       USE BoundaryConditionFunctions
       USE TimeIntegratorClass

@@ -10,10 +10,10 @@ mach number           = 0.3
 Reynolds number       = 200.0
 AOA theta             = 0.0
 AOA phi               = 90.0
-solution file name    = "RESULTS/Cylinder_saved.rst"
+solution file name    = "RESULTS/Cylinder.hsol"
 save gradients with solution = .true.
 restart               = .false.
-restart file name     = "RESULTS/Cylinder.rst"
+restart file name     = "RESULTS/Cylinder.hsol"
 Number of boundaries  = 7
 InnerCylinder 0.0 NoSlipAdiabaticWall
 Front 0.0 Inflow

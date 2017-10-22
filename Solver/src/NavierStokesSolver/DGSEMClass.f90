@@ -222,11 +222,11 @@ Module DGSEMClass
                      IF (flowIsNavierStokes) THEN
                         CALL ManufacturedSolutionSourceNS(self % mesh % elements(el) % geom % x(:,i,j,k), &
                                                           0._RP, &
-                                                          self % mesh % elements(el) % storage % S (i,j,k,:)  )
+                                                          self % mesh % elements(el) % storage % S (:,i,j,k)  )
                      ELSE
                         CALL ManufacturedSolutionSourceEuler(self % mesh % elements(el) % geom % x(:,i,j,k), &
                                                              0._RP, &
-                                                             self % mesh % elements(el) % storage % S (i,j,k,:)  )
+                                                             self % mesh % elements(el) % storage % S (:,i,j,k)  )
                      END IF
                   END DO
                END DO
@@ -389,7 +389,7 @@ Module DGSEMClass
             DO j = 0, Ny
                DO i = 0, Nx
                   DO l = 1,N_EQN
-                     self%mesh%elements(elm)%storage%Q(i, j, k, l) = Q(counter) ! This creates a temporary array: storage must be modified to avoid that
+                     self%mesh%elements(elm)%storage%Q(l,i,j,k) = Q(counter) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                END DO
@@ -420,7 +420,7 @@ Module DGSEMClass
             DO j = 0, Ny
                 DO i = 0, Nx
                   DO l = 1,N_EQN
-                     Q(counter)  = self%mesh%elements(elm)%storage%Q(i, j, k, l) ! This creates a temporary array: storage must be modified to avoid that
+                     Q(counter)  = self%mesh%elements(elm)%storage%Q(l,i, j, k) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                 END DO
@@ -451,7 +451,7 @@ Module DGSEMClass
             DO j = 0, Ny
                DO i = 0, Nx
                   DO l = 1,N_EQN
-                     Qdot(counter)  = self%mesh%elements(elm)%storage%Qdot(i, j, k, l) ! This creates a temporary array: storage must be modified to avoid that
+                     Qdot(counter)  = self%mesh%elements(elm)%storage%Qdot(l,i, j, k) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
                END DO
@@ -479,7 +479,7 @@ Module DGSEMClass
       maxResidual = 0.0_RP
       DO id = 1, SIZE( self % mesh % elements )
          DO eq = 1 , N_EQN
-            localMaxResidual(eq) = MAXVAL(ABS(self % mesh % elements(id) % storage % QDot(:,:,:,eq)))
+            localMaxResidual(eq) = MAXVAL(ABS(self % mesh % elements(id) % storage % QDot(eq,:,:,:)))
             maxResidual(eq) = MAX(maxResidual(eq),localMaxResidual(eq))
          END DO
       END DO
@@ -916,7 +916,7 @@ Module DGSEMClass
 !                 by the physics.
 !                 ------------------------------------------------------------
 !
-                  Q(1:N_EQN) = self % mesh % elements(id) % storage % Q(i,j,k,1:N_EQN)
+                  Q(1:N_EQN) = self % mesh % elements(id) % storage % Q(1:N_EQN,i,j,k)
                   CALL ComputeEigenvaluesForState( Q , eValues )
 !
 !                 ----------------------------

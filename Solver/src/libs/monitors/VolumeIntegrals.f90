@@ -119,10 +119,10 @@ module VolumeIntegrals
 !           ***********************************
 !
             
-            KinEn =         POW2(e % storage % Q(:,:,:,IRHOU)) 
-            KinEn = KinEn + POW2( e % storage % Q(:,:,:,IRHOV) )
-            KinEn = KinEn + POW2( e % storage % Q(:,:,:,IRHOW) )
-            KinEn = 0.5_RP * KinEn / e % storage % Q(:,:,:,IRHO)
+            KinEn =         POW2(e % storage % Q(IRHOU,:,:,:)) 
+            KinEn = KinEn + POW2( e % storage % Q(IRHOV,:,:,:) )
+            KinEn = KinEn + POW2( e % storage % Q(IRHOW,:,:,:) )
+            KinEn = 0.5_RP * KinEn / e % storage % Q(IRHO,:,:,:)
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
@@ -136,14 +136,14 @@ module VolumeIntegrals
 !              K_t = (d/dt)\int \rho V^2 dV
 !           ***********************************
 !
-            uvw = e % storage % Q(:,:,:,IRHOU) / e % storage % Q(:,:,:,IRHO)
-            KinEn = uvw * e % storage % QDot(:,:,:,IRHOU) - 0.5_RP * POW2(uvw) * e % storage % QDot(:,:,:,IRHO)
+            uvw = e % storage % Q(IRHOU,:,:,:) / e % storage % Q(IRHO,:,:,:)
+            KinEn = uvw * e % storage % QDot(IRHOU,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
 
-            uvw = e % storage % Q(:,:,:,IRHOV) / e % storage % Q(:,:,:,IRHO)
-            KinEn = KinEn + uvw * e % storage % QDot(:,:,:,IRHOV) - 0.5_RP * POW2(uvw) * e % storage % QDot(:,:,:,IRHO)
+            uvw = e % storage % Q(IRHOV,:,:,:) / e % storage % Q(IRHO,:,:,:)
+            KinEn = KinEn + uvw * e % storage % QDot(IRHOV,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
 
-            uvw = e % storage % Q(:,:,:,IRHOW) / e % storage % Q(:,:,:,IRHO)
-            KinEn = KinEn + uvw * e % storage % QDot(:,:,:,IRHOW) - 0.5_RP * POW2(uvw) * e % storage % QDot(:,:,:,IRHO)
+            uvw = e % storage % Q(IRHOW,:,:,:) / e % storage % Q(IRHO,:,:,:)
+            KinEn = KinEn + uvw * e % storage % QDot(IRHOW,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
@@ -156,9 +156,9 @@ module VolumeIntegrals
 !           Computes the flow enstrophy
 !           ***************************
 !
-            KinEn =   POW2( e % storage % U_y(:,:,:,IGW) - e % storage % U_z(:,:,:,IGV) ) &
-                    + POW2( e % storage % U_z(:,:,:,IGU) - e % storage % U_x(:,:,:,IGW) ) &
-                    + POW2( e % storage % U_x(:,:,:,IGV) - e % storage % U_y(:,:,:,IGU) )
+            KinEn =   POW2( e % storage % U_y(IGW,:,:,:) - e % storage % U_z(IGV,:,:,:) ) &
+                    + POW2( e % storage % U_z(IGU,:,:,:) - e % storage % U_x(IGW,:,:,:) ) &
+                    + POW2( e % storage % U_x(IGV,:,:,:) - e % storage % U_y(IGU,:,:,:) )
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
