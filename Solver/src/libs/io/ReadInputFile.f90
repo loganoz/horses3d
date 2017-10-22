@@ -31,8 +31,10 @@
          CHARACTER(LEN=LINE_LENGTH) :: boundaryType
          CHARACTER(LEN=LINE_LENGTH) :: boundaryValue
          CHARACTER(LEN=LINE_LENGTH) :: arg
+         character(len=LINE_LENGTH) :: boundaryNameControlVariable
          INTEGER                    :: numberOfBCs, k
          INTEGER                    :: ist
+         logical                                 :: isInsideHagstagZone
 !
 !        ---------------------------------------
 !        External functions from FileReading.f90
@@ -42,6 +44,7 @@
          INTEGER                   , EXTERNAL    :: GetIntValue
          CHARACTER(LEN=LINE_LENGTH), EXTERNAL    :: GetStringValue, GetKeyword, GetValueAsString
          LOGICAL                   , EXTERNAL    :: GetLogicalValue
+         
 !
 !        -----------------------------------------------
 !        Read the input file.
@@ -53,10 +56,22 @@
          CALL get_command_argument(1, arg)
          OPEN(UNIT=10,FILE=trim(arg))
 
+         isInsideHagstagZone = .false.
+
          DO
             READ(10,'(A132)', IOSTAT = ist) inputLine
             IF(ist /= 0 ) EXIT !.OR. inputLine(1:1) == '/'
             IF ( inputLine(1:1) == "!" .OR. inputLine(1:1) == '/') CYCLE ! Skip comments
+
+            if ( index(inputLine,'#define') .ne. 0 ) then
+               isInsideHagstagZone = .true.
+
+            elseif ( (index(inputLine,'#end') .ne. 0) .and. (isInsideHagstagZone) ) then
+               isInsideHagstagZone = .false.
+
+            end if
+
+            if ( isInsideHagstagZone ) cycle
             
             keyword      = ADJUSTL(GetKeyword(inputLine))
             keywordValue = ADJUSTL(GetValueAsString(inputLine))
@@ -79,6 +94,8 @@
                   CALL toLower(boundaryType)
                   CALL bcTypeDictionary % addValueForKey(boundaryType, boundaryName)
                   CALL bcValueDictionary % addValueForKey(boundaryValue, boundaryName)
+                  write(boundaryNameControlVariable,'(A,I0)') "BoundaryName",k
+                  call controlVariables % addValueForKey(boundaryName,trim(boundaryNameControlVariable))
                END DO
             END IF
             

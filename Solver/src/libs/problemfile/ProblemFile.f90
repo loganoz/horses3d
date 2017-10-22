@@ -101,7 +101,7 @@
                   Q(4) = Q(1)*w
                   Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
 
-                  mesh % elements(eID) % Q(i,j,k,:) = Q 
+                  mesh % elements(eID) % storage % Q(i,j,k,:) = Q 
                end do;        end do;        end do
                end associate
             end do
@@ -164,7 +164,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalize(mesh, time, thermodynamics_, &
+         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
                                                     dimensionless_, &
                                                         refValues_   )
 !
@@ -176,11 +176,13 @@
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
-            CLASS(HexMesh) :: mesh
-            REAL(KIND=RP)  :: time
-            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-            type(Dimensionless_t),     intent(in)  :: dimensionless_
-            type(RefValues_t),         intent(in)  :: refValues_
+            CLASS(HexMesh)                        :: mesh
+            REAL(KIND=RP)                         :: time
+            integer                               :: iter
+            real(kind=RP)                         :: maxResidual
+            type(Thermodynamics_t),    intent(in) :: thermodynamics_
+            type(Dimensionless_t),     intent(in) :: dimensionless_
+            type(RefValues_t),         intent(in) :: refValues_
 
          END SUBROUTINE UserDefinedFinalize
 !

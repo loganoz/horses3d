@@ -1715,6 +1715,42 @@
       T = dimensionless % gammaM2*Pressure(Q)/Q(1)
 
       END FUNCTION Temperature
+
+      function getStressTensor(Q,U_x,U_y,U_z) result(tau)
+         implicit none
+         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN     ) 
+         real(kind=RP)                    :: tau  ( 1:NDIM, 1:NDIM   )
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: T , muOfT
+         real(kind=RP) :: divV
+
+         associate ( mu0 => dimensionless % mu )
+
+         T     = Temperature(Q)
+         muOfT = MolecularDiffusivity(T)
+
+         divV = U_x(IGU) + U_y(IGV) + U_z(IGW)
+
+         tau(IX,IX) = mu0 * muOfT * (2.0_RP * U_x(IGU) - 2.0_RP/3.0_RP * divV )
+         tau(IY,IX) = mu0 * muOfT * ( U_x(IGV) + U_y(IGU) ) 
+         tau(IZ,IX) = mu0 * muOfT * ( U_x(IGW) + U_z(IGU) ) 
+         tau(IX,IY) = tau(IY,IX)
+         tau(IY,IY) = mu0 * muOfT * (2.0_RP * U_y(IGV) - 2.0_RP/3.0_RP * divV )
+         tau(IZ,IY) = mu0 * muOfT * ( U_y(IGW) + U_z(IGV) ) 
+         tau(IX,IZ) = tau(IZ,IX)
+         tau(IY,IZ) = tau(IZ,IY)
+         tau(IZ,IZ) = mu0 * muOfT * (2.0_RP * U_z(IGW) - 2.0_RP/3.0_RP * divV )
+
+         end associate
+
+      end function getStressTensor
       
    END Module Physics
 !@mark -

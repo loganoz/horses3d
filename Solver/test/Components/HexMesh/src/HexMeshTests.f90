@@ -297,7 +297,7 @@
          END DO  
          
          CALL FTAssertEqual(expectedValue = 2     ,actualValue = SIZE(mesh % elements),msg = "Number of elements in mesh.")
-         CALL FTAssertEqual(expectedValue = N(1)+1,actualValue = SIZE(mesh % elements(1) % Q,1) ,msg = "Number of solution points")
+         CALL FTAssertEqual(expectedValue = N(1)+1,actualValue = SIZE(mesh % elements(1) % storage % Q,1) ,msg = "Number of solution points")
 !
 !        -----------
 !        Check faces

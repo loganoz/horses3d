@@ -1,29 +1,27 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!      MultigridSolverClass.f90
+!      IterativeClass.f90
 !      Created: 2017-04-XX 10:006:00 +0100 
 !      By: Andrés Rueda
 !
-!      Class for solving a linear system obtained from a DGSEM discretization using p-Multigrid
-!
-!        çThis class is not finished yet!!!!
+!      Class for solving a system with simple smoothers and matrix free operations
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-MODULE MultigridSolverClass
+MODULE IterativeSolverClass
    USE GenericLinSolverClass
    USE CSR_Matrices
    USE SMConstants
-   USE PhysicsStorage
    USE PetscSolverClass   ! For allocating Jacobian matrix
-   
-   USE PolynomialInterpAndDerivsModule
-   USE GaussQuadrature
    IMPLICIT NONE
    
    PRIVATE
-   PUBLIC MultigridSolver_t, GenericLinSolver_t
+   PUBLIC IterativeSolver_t, GenericLinSolver_t
    
-   TYPE, EXTENDS(GenericLinSolver_t) :: MultigridSolver_t
+   TYPE :: BlockPreco_t
+      REAL(KIND=RP), DIMENSION(:,:), ALLOCATABLE :: Pinv     ! Inverse of elemental preconditioner matrix
+   END TYPE BlockPreco_t
+   
+   TYPE, EXTENDS(GenericLinSolver_t) :: IterativeSolver_t
       TYPE(csrMat_t)                             :: A                                  ! Jacobian matrix
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: x                                  ! Solution vector
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: b                                  ! Right hand side
@@ -37,16 +35,9 @@ MODULE MultigridSolverClass
       TYPE(PetscKspLinearSolver_t)               :: PetscSolver                        ! PETSc solver (created only for allocating the matrix -to be deprecated?)
       LOGICAL                                    :: AIsPetsc = .TRUE.
       
-      TYPE(DGSem)            , POINTER           :: p_sem                              ! Pointer to DGSem class variable of current system
-      
-      ! Variables that are specially needed for Multigrid
-      TYPE(MultigridSolver_t), POINTER           :: Child                 ! Next coarser multigrid solver
-      TYPE(MultigridSolver_t), POINTER           :: Parent                ! Next finer multigrid solver
-      INTEGER                                    :: MGlevel               ! Current Multigrid level
-!~       INTEGER                    , ALLOCATABLE   :: OrderList(:,:,:)      ! List containing the polynomial orders of all elements in current solver (not needed now.. Maybe when using p-adaptation)
-      TYPE(Interpolator_t)       , ALLOCATABLE   :: Restriction(:,:,:)    ! Restriction operators (element level)
-      TYPE(Interpolator_t)       , ALLOCATABLE   :: Prolongation(:,:,:)   ! Prolongation operators (element level)
-      
+      TYPE(DGSem), POINTER                       :: p_sem                              ! Pointer to DGSem class variable of current system
+      CHARACTER(LEN=LINE_LENGTH)                 :: Smoother
+      TYPE(BlockPreco_t), ALLOCATABLE            :: BlockPreco(:)
    CONTAINS
       !Subroutines:
       PROCEDURE                                  :: construct
@@ -69,7 +60,10 @@ MODULE MultigridSolverClass
       !! Internal procedures
       PROCEDURE                                  :: AxMult                  ! arueda: This is needed here for lower multigrid levels
       PROCEDURE                                  :: WeightedJacobiSmoother
-   END TYPE MultigridSolver_t
+      PROCEDURE                                  :: ComputeBlockPreco
+      
+      PROCEDURE                                  :: p_F
+   END TYPE IterativeSolver_t
    
 !
 !  ----------------
@@ -80,11 +74,6 @@ MODULE MultigridSolverClass
    REAL(KIND=RP)  :: dtsolve   ! dt   
    REAL(KIND=RP)  :: eps       ! Size of perturbation for matrix-free vector product
    
-   ! Multigrid
-   INTEGER        :: MGlevels  ! Total number of multigrid levels
-   INTEGER        :: deltaN    ! 
-   INTEGER        :: nelem     ! Number of elements (this is a p-multigrid implementation)
-   
 CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -92,141 +81,52 @@ CONTAINS
    SUBROUTINE construct(this,DimPrb,controlVariables,sem)
       IMPLICIT NONE
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t) , INTENT(INOUT), TARGET :: this
+      CLASS(IterativeSolver_t) , INTENT(INOUT), TARGET :: this
       INTEGER                  , INTENT(IN)            :: DimPrb
       TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
       !-----------------------------------------------------------
-      INTEGER                            :: lvl              ! Multigrid level
-      INTEGER                            :: k
-      INTEGER, DIMENSION(:), ALLOCATABLE :: Nx, Ny, Nz       ! Dimensions of fine mesh
+      INTEGER :: nelem      ! Number of elements
+      INTEGER :: Nx,Ny,Nz   ! Polynomial orders for element
+      INTEGER :: ndofelm    ! Number of degrees of freedom of element
+      INTEGER :: k          ! Counter  
+      INTEGER :: N_EQN                                       
       !-----------------------------------------------------------
-      !Module variables: MGlevels, deltaN
       
-      IF (.NOT. PRESENT(sem)) stop 'Fatal error: MultigridSolver needs sem.'
-      IF (.NOT. PRESENT(controlVariables)) stop 'Fatal error: MultigridSolver needs controlVariables.'
+      IF (.NOT. PRESENT(sem)) stop 'Fatal error: IterativeSolver needs sem.'
       
-!
-!     ----------------------------------
-!     Read important variables from file
-!     ----------------------------------
-!
-      IF (.NOT. controlVariables % containsKey("multigrid levels")) THEN
-         print*, 'Fatal error: "multigrid levels" keyword is needed by the multigrid solver'
-         STOP
-      END IF
-      MGlevels  = controlVariables % IntegerValueForKey("multigrid levels")
       
-      IF (controlVariables % containsKey("delta n")) THEN
-         deltaN = controlVariables % IntegerValueForKey("delta n")
-      ELSE
-         deltaN = 1
-      END IF
-!
-!
-      this % p_sem => sem
       this % DimPrb = DimPrb
+      this % Smoother = controlVariables % StringValueForKey("smoother",LINE_LENGTH)
       
-      nelem = SIZE(sem % mesh % elements)
-      ALLOCATE(Nx(nelem),Ny(nelem),Nz(nelem))
-      DO k=1, nelem
-         Nx(k) = sem % mesh % elements(k) % Nxyz(1)
-         Ny(k) = sem % mesh % elements(k) % Nxyz(2)
-         Nz(k) = sem % mesh % elements(k) % Nxyz(3)
-      END DO
-!
-!     --------------------------
-!     Create linked solvers list
-!     --------------------------
-!
-      CALL RecursiveConstructor(this, Nx, Ny, Nz, MGlevels, controlVariables)
+      ALLOCATE(this % x   (DimPrb))
+      ALLOCATE(this % b   (DimPrb))
+      ALLOCATE(this % F_Ur(DimPrb))
+      ALLOCATE(this % Ur  (DimPrb))
       
       IF(this % AIsPetsc) CALL this % PetscSolver % construct (DimPrb)
       
-      DEALLOCATE (Nx,Ny,Nz)
-      
+      this % p_sem => sem
+!
+!     ------------------------------------------------
+!     Allocate important variables for preconditioners
+!     ------------------------------------------------
+!
+      SELECT CASE (this % Smoother)
+         CASE('BlockJacobi')
+            nelem = SIZE(sem % mesh % elements)
+            N_EQN = SIZE(sem % mesh % elements(1) % storage % Q,4)
+            ALLOCATE (this % BlockPreco(nelem))
+            DO k = 1, nelem
+               Nx = sem % mesh % elements(k) % Nxyz(1)
+               Ny = sem % mesh % elements(k) % Nxyz(2)
+               Nz = sem % mesh % elements(k) % Nxyz(3)
+               ndofelm = N_EQN*(Nx+1)*(Ny+1)*(Nz+1)
+               ALLOCATE (this % BlockPreco(k) % Pinv(ndofelm,ndofelm))
+            END DO
+      END SELECT
    END SUBROUTINE construct
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   RECURSIVE SUBROUTINE RecursiveConstructor(Solver, N1x, N1y, N1z, lvl, controlVariables)
-      IMPLICIT NONE
-      TYPE(MultigridSolver_t), TARGET  :: Solver
-      INTEGER, DIMENSION(:)            :: N1x,N1y,N1z      !<  Order of approximation for every element in current solver
-      INTEGER                          :: lvl              !<  Current multigrid level
-      TYPE(FTValueDictionary)          :: controlVariables !< Control variables (for the construction of coarse sems
-      !----------------------------------------------
-      INTEGER                   :: DimPrb                 !   Dimension of problem for child solver
-      INTEGER, DIMENSION(nelem) :: N2x,N2y,N2z            !   Order of approximation for every element in child solver
-      INTEGER                   :: N1xMAX,N1yMAX,N1zMAX   !   Maximum polynomial orders for current (fine) grid
-      INTEGER                   :: N2xMAX,N2yMAX,N2zMAX   !   Maximum polynomial orders for child (coarse) grid
-      INTEGER                   :: k                      !   Counter
-      LOGICAL                   :: success                ! Did the creation of sem succeed?
-      TYPE(MultigridSolver_t) , POINTER :: Child_p          ! Pointer to Child
-      !----------------------------------------------
-      !
-      
-      
-      Solver % MGlevel = lvl
-      
-      IF (lvl > 1) THEN
-         ALLOCATE  (Solver % Child)
-         Child_p => Solver % Child
-         Solver % Child % Parent => Solver
-!
-!        -----------------------------------------------
-!        Allocate restriction and prolongation operators
-!        -----------------------------------------------
-!         
-         N1xMAX = MAXVAL(N1x)
-         N1yMAX = MAXVAL(N1y)
-         N1zMAX = MAXVAL(N1z)
-         
-         N2xMAX = N1xMAX - deltaN
-         N2yMAX = N1yMAX - deltaN
-         N2zMAX = N1zMAX - deltaN
-         IF (N2xMAX < 0) N2xMAX = 0             ! TODO: Complete for Lobatto quadrature (max order = 1)
-         IF (N2yMAX < 0) N2yMAX = 0
-         IF (N2zMAX < 0) N2zMAX = 0
-         
-         ALLOCATE (Solver  % Restriction (0:N1xMAX,0:N1yMAX,0:N1zMAX))
-         ALLOCATE (Child_p % Prolongation(0:N2xMAX,0:N2yMAX,0:N2zMAX))
-         
-!
-!        ---------------------------------------------
-!        Create restriction and prolongation operators
-!        ---------------------------------------------
-!
-         DimPrb = 0
-         DO k=1, nelem
-            CALL CreateInterpolationOperators(Solver % Restriction, Child_p % Prolongation, &
-                                              N1x(k),N1y(k),N1z(k),                         &
-                                              N2x(k),N2y(k),N2z(k), DeltaN)    ! TODO: Add lobatto flag if required
-            
-            DimPrb = DimPrb + N_EQN * (N2x(k) + 1) * (N2y(k) + 1) * (N2z(k) + 1)
-         END DO
-         Solver % Child % DimPrb = DimPrb
-         
-         ! Create DGSEM class for child
-         ALLOCATE (Child_p % p_sem)
-         CALL Child_p % p_sem % construct (meshFileName      = controlVariables % stringValueForKey("mesh file name",    &
-                                                                                      requestedLength = LINE_LENGTH),    &
-                                           externalState     = Solver % p_sem % externalState,                           &
-                                           externalGradients = Solver % p_sem % externalGradients,                       &
-                                           Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,                                        &
-                                           success = success )
-         IF (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
-         
-         
-         CALL RecursiveConstructor(Solver % Child, N2x, N2y, N2z, lvl - 1, controlVariables)
-      END IF
-      
-      ALLOCATE(Solver % x   (Solver % DimPrb))
-      ALLOCATE(Solver % b   (Solver % DimPrb))
-      ALLOCATE(Solver % F_Ur(Solver % DimPrb))
-      ALLOCATE(Solver % Ur  (Solver % DimPrb))
-      
-   END SUBROUTINE RecursiveConstructor
+   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -242,13 +142,13 @@ CONTAINS
 !  --------------------------------------------
 !
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT)  :: this
+      CLASS(IterativeSolver_t), INTENT(INOUT)  :: this
       INTEGER                                  :: nnz
       !-----------------------------------------------------------
       LOGICAL, SAVE                            :: isfirst = .TRUE.
       !-----------------------------------------------------------
       
-      this % AIsPetsc = .TRUE.
+      this % AIsPetsc = .TRUE.      ! This is always the case when creating a new Jacobian
       IF (this % AIsPetsc) THEN
          CALL this % PetscSolver % PreallocateA(nnz)
       ELSE
@@ -267,7 +167,7 @@ CONTAINS
    SUBROUTINE ResetA(this)         
       IMPLICIT NONE
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       !-----------------------------------------------------------
       
       IF (this % AIsPetsc) THEN
@@ -283,7 +183,7 @@ CONTAINS
    SUBROUTINE SetAColumn(this,nvalues,irow,icol,values)         
       IMPLICIT NONE
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT)  :: this
+      CLASS(IterativeSolver_t), INTENT(INOUT)  :: this
       INTEGER       , INTENT(IN)                :: nvalues
       INTEGER       , INTENT(IN), DIMENSION(:)  :: irow
       INTEGER       , INTENT(IN)                :: icol
@@ -303,7 +203,7 @@ CONTAINS
    SUBROUTINE AssemblyA(this,BlockIdx,BlockSize)         
       IMPLICIT NONE
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t) , INTENT(INOUT) :: this
+      CLASS(IterativeSolver_t) , INTENT(INOUT) :: this
       INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockIdx(:)
       INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockSize(:)
       !-----------------------------------------------------------
@@ -311,12 +211,20 @@ CONTAINS
       IF (this % AIsPetsc) THEN
          CALL this % PetscSolver % AssemblyA
          CALL this % PetscSolver % GetCSRMatrix(this % A)
-!~          CALL this % PetscSolver % destroy
+!~         CALL this % PetscSolver % destroy
          this % AIsPetsc = .FALSE.
       ELSE
          print*, 'A is assembled'
       END IF
       
+      IF (this % Smoother == 'BlockJacobi') THEN
+         IF (.NOT. PRESENT(BlockIdx) .OR. .NOT. PRESENT(BlockSize)) THEN
+            STOP 'Iterative Class :AssemblyA :: Block Jacobi smoother needs block information'
+         ELSE
+            this % A % BlockIdx  => BlockIdx
+            this % A % BlockSize => BlockSize
+         END IF
+      END IF
    end SUBROUTINE AssemblyA
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -324,7 +232,7 @@ CONTAINS
    SUBROUTINE SetBValue(this, irow, value)
       IMPLICIT NONE
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       INTEGER                  , INTENT(IN)    :: irow
       REAL(KIND=RP)            , INTENT(IN)    :: value
       !-----------------------------------------------------------
@@ -338,7 +246,7 @@ CONTAINS
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    SUBROUTINE SetBValues(this, nvalues, irow, values)
       IMPLICIT NONE
-      CLASS(MultigridSolver_t)   , INTENT(INOUT)     :: this
+      CLASS(IterativeSolver_t)   , INTENT(INOUT)     :: this
       INTEGER                     , INTENT(IN)        :: nvalues
       INTEGER      , DIMENSION(1:), INTENT(IN)        :: irow
       REAL(KIND=RP), DIMENSION(1:), INTENT(IN)        :: values
@@ -357,13 +265,12 @@ CONTAINS
 !
    SUBROUTINE solve(this,tol,maxiter,time,dt)
       IMPLICIT NONE
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
       REAL(KIND=RP), OPTIONAL                 :: time
       REAL(KIND=RP), OPTIONAL                 :: dt
       !-------------------------------------------------
-      INTEGER                                 :: niter
       INTEGER                                 :: i
 !~      LOGICAL, SAVE :: isfirst = .TRUE.
       !-------------------------------------------------
@@ -384,9 +291,12 @@ CONTAINS
          this % x(i) = this % b(i) / this % A % Values(this%A%Diag(i))
       END DO
       
-      STOP 'incomplete solver'
-      
-      CALL this % WeightedJacobiSmoother( this%A%Values(this%A%Diag), maxiter, tol, this % niter)
+      SELECT CASE (this % Smoother)
+         CASE('WeightedJacobi')
+            CALL this % WeightedJacobiSmoother( this%A%Values(this%A%Diag), maxiter, tol, this % niter)
+         CASE('BlockJacobi')
+            CALL BlockJacobiSmoother(this, maxiter, tol, this % niter)
+      END SELECT
       
       CALL this % p_sem % SetQ   (this % Ur)
       
@@ -403,7 +313,7 @@ CONTAINS
    SUBROUTINE GetCSRMatrix(this,Acsr)         
       IMPLICIT NONE
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(IN)  :: this
+      CLASS(IterativeSolver_t), INTENT(IN)  :: this
       TYPE(csrMat_t)          , INTENT(OUT) :: Acsr 
       !-----------------------------------------------------------
       
@@ -415,7 +325,7 @@ CONTAINS
    SUBROUTINE GetXValue(this,irow,x_i)       
       IMPLICIT NONE
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       INTEGER                  , INTENT(IN)    :: irow
       REAL(KIND=RP)            , INTENT(OUT)   :: x_i
       !-----------------------------------------------------------
@@ -429,7 +339,7 @@ CONTAINS
    SUBROUTINE destroy(this)       
       IMPLICIT NONE
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       !-----------------------------------------------------------
       
       CALL this % A % destroy()
@@ -453,7 +363,7 @@ CONTAINS
    SUBROUTINE SetOperatorDt(this,dt)       
       IMPLICIT NONE
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP)           , INTENT(IN)    :: dt
       !-----------------------------------------------------------
       
@@ -464,6 +374,8 @@ CONTAINS
          CALL this % A % SetMatShift(this % Ashift)
       END IF
       
+      IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
+      
     END SUBROUTINE SetOperatorDt
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -471,7 +383,7 @@ CONTAINS
    SUBROUTINE ReSetOperatorDt(this,dt)       
       IMPLICIT NONE
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP)           , INTENT(IN)    :: dt
       !-----------------------------------------------------------
       REAL(KIND=RP)                            :: shift
@@ -486,6 +398,8 @@ CONTAINS
       END IF
       this % Ashift = shift
       
+      IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
+      
     END SUBROUTINE ReSetOperatorDt
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -493,7 +407,7 @@ CONTAINS
    FUNCTION Getxnorm(this,TypeOfNorm) RESULT(xnorm)
       IMPLICIT NONE
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       CHARACTER(len=*)                         :: TypeOfNorm
       REAL(KIND=RP)                            :: xnorm
       !-----------------------------------------------------------
@@ -518,7 +432,7 @@ CONTAINS
 !     ----------------------------------------
 !
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP)                            :: rnorm
       !-----------------------------------------------------------
       REAL(KIND=RP)                            :: residual(this % DimPrb)
@@ -533,7 +447,7 @@ CONTAINS
 !
    FUNCTION ComputeANextStep(this) RESULT(ComputeA)
       IMPLICIT NONE
-      CLASS(MultigridSolver_t), INTENT(IN) :: this
+      CLASS(IterativeSolver_t), INTENT(IN) :: this
       LOGICAL                              :: ComputeA
       
       ComputeA = .FALSE.
@@ -550,29 +464,64 @@ CONTAINS
 
    FUNCTION AxMult(this,x) RESULT(Ax)
       IMPLICIT NONE
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP)                           :: x (:)
       REAL(KIND=RP)                           :: Ax(size(x))
+      
       !--------------------------------------------------
 !~      REAL(KIND=RP)                           :: eps
       REAL(KIND=RP)                           :: F (size(x))
+      
+!~       REAL(KIND=RP)                           :: xxx (size(x)) !x vector... But normalized!!
 !~      REAL(KIND=RP)                           :: buffer (size(x))
       !--------------------------------------------------
       
 !~      eps = 1e-8_RP * (1._RP + NORM2(x))                           ! ~2e-5 2e-4
 !~      eps = 1e-8_RP * (1._RP + NORM2(this % Ur))                   ! better: ~6e-7
-      eps = SQRT(EPSILON(eps)) * (1._RP + NORM2(this % Ur))        !slightly better: ~4e-7 
+!~       eps = SQRT(EPSILON(eps)) * (1._RP + NORM2(this % Ur))        !slightly better: ~4e-7 
+!~       eps = SQRT(EPSILON(eps)) * (NORM2(this % Ur))
 !~      eps = SQRT(EPSILON(eps)) * (1._RP + MAXVAL(ABS(this % Ur)))  !slightly worse: ~1e-5 9e-6
 !~      eps = SQRT(EPSILON(eps))                                     !worse:        : ~1e-4
       
+!~       eps = SQRT(EPSILON(eps)) * NORM2(this % Ur) / NORM2(x) ! hillewaert2013 ! Best performance... but eps too big for small x?
+      
+!~      eps = SQRT(EPSILON(eps)) * NORM2(this % Ur) / NORM2(x)**2 ! This doesn't work at all
+!~      eps = SQRT(EPSILON(eps)) * SIGN(MAX(DOT_PRODUCT(this % Ur,x),MAXVAL(ABS(x))),DOT_PRODUCT(this % Ur,x)) / (NORM2(x)) ! Saad with typical value u~1
+!~      eps = SQRT(EPSILON(eps)) * SIGN(NORM2(this % Ur),DOT_PRODUCT(this % Ur,x)) / NORM2(x) ! hillewaert2003 using different sign (same behavior)
+!~       eps = SQRT(EPSILON(eps)) * (1._RP + NORM2(this % Ur)) / NORM2(x) !Combining hillawaert with Sipp
+!~       eps = SQRT(EPSILON(eps)) * 1._RP + NORM2(this % Ur) / (NORM2(x))
+!~       eps = SQRT(EPSILON(eps) * (1._RP + NORM2(this % Ur))) / (NORM2(x)) ! NISTOL Package
+      
+      eps = SQRT(EPSILON(eps) * (1._RP + NORM2(this % Ur))) * DOT_PRODUCT(this % Ur,x) / (NORM2(x)) ! NISTOL Package modified    !! This works down to 10⁻¹⁰, but slowly (linear residual does not always go as low as desired).. At the end short tie-steps are needed
+      
+!~       eps = SQRT(EPSILON(eps)) * (NORM2(this % Ur)*DOT_PRODUCT(this % Ur,x)) / NORM2(x) ! My recipe.. goes lower but slower
+      
 !~      CALL this % p_sem % GetQ(buffer)
-      CALL this % p_sem % SetQ(this % Ur + x*eps)
+
+!~       xxx = x / NORM2(x)
+
+!~       CALL this % p_sem % SetQ(this % Ur + x*eps)
+!~       CALL ComputeTimeDerivative(this % p_sem,timesolve)
+!~       CALL this % p_sem % GetQdot(F)
+!~      CALL this % p_sem % SetQ(buffer)
+!~       Ax = ( F - this % F_Ur) / eps - x / (dtsolve)                          !First order   ! arueda: this is defined only for BDF1
+      Ax = ( this % p_F(this % Ur + x * eps) - this % F_Ur) / eps - x / dtsolve
+!~       Ax = ( this % p_F(this % Ur + x * eps) - this % p_F(this % Ur - x * eps))  /(2._RP * eps)  - x / dtsolve   !Second order
+      
+      ! *NORM2(x)
+   END FUNCTION AxMult
+   
+   FUNCTION p_F(this,u) RESULT(F)
+      IMPLICIT NONE
+      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
+      REAL(KIND = RP), INTENT(IN)             :: u(:)
+      REAL(KIND = RP)                         :: F(size(u))
+      
+      CALL this % p_sem % SetQ(u)
       CALL ComputeTimeDerivative(this % p_sem,timesolve)
       CALL this % p_sem % GetQdot(F)
-!~      CALL this % p_sem % SetQ(buffer)
-      Ax = ( F - this % F_Ur) / eps - x / (dtsolve)                          !First order   ! arueda: this is defined only for BDF1
       
-   END FUNCTION AxMult
+   END FUNCTION p_F
    
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////!
@@ -586,7 +535,7 @@ CONTAINS
    SUBROUTINE WeightedJacobiSmoother( this, Diag, SmoothIters, tol, niter)
       IMPLICIT NONE
       !--------------------------------------------
-      CLASS(MultigridSolver_t), TARGET, INTENT(INOUT) :: this            !<  Iterative solver class
+      CLASS(IterativeSolver_t), TARGET, INTENT(INOUT) :: this            !<  Iterative solver class
       INTEGER                                         :: SmoothIters     !<  Number of smoothing operations
       REAL(KIND=RP)                                   :: Diag(:)         !   Matrix diagonal
       REAL(KIND=RP), OPTIONAL                         :: tol             !   Relative AND absolute tolerance of the method
@@ -617,8 +566,8 @@ CONTAINS
 !~      print*, '    iter      residual'
       
       DO i=1,SmoothIters
-!~         r = this % AxMult(x)        ! Matrix free mult
-         r = CSR_MatVecMul(this%A,x) ! CSR matrix product
+        r = this % AxMult(x)        ! Matrix free mult
+!~          r = CSR_MatVecMul(this%A,x) ! CSR matrix product
          
 !$omp parallel do
          DO j=1,n
@@ -629,8 +578,8 @@ CONTAINS
          
          IF (PRESENT(tol)) THEN
             rnorm = NORM2(r)       ! Saves relative tolerance (one iteration behind)
-            print*, i, rnorm
-            read(*,*)
+!~             print*, i, rnorm
+!~             read(*,*)
             IF (rnorm < endtol) THEN
                this % rnorm = rnorm
                EXIT
@@ -646,159 +595,99 @@ CONTAINS
       niter=i
       
    END SUBROUTINE WeightedJacobiSmoother
-   
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!  Routines for interpolation procedures (will probably be moved to another module)
-!  
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE CreateInterpolationOperators(Restriction,Prolongation,N1x,N1y,N1z,N2x,N2y,N2z,DeltaN,Lobatto)
+   SUBROUTINE BlockJacobiSmoother(this, SmoothIters, tol, niter)
       IMPLICIT NONE
-!
-!     ------------------------------------------------------------------------
-!     Creates the restriction and prolongation operators for a certain element
-!     for multigrid. Takes into account order anisotropy, but the coarse grid 
-!     is constructed by reducing the polynomial order uniformly.
-!     ------------------------------------------------------------------------
-!
-      !-----------------------------------------------------
-      TYPE(Interpolator_t), TARGET  :: Restriction (0:,0:,0:)  !>  Restriction operator
-      TYPE(Interpolator_t), TARGET  :: Prolongation(0:,0:,0:)  !>  Prolongation operator
-      INTEGER                       :: N1x, N1y, N1z           !<  Fine grid order(anisotropic) of the element
-      INTEGER                       :: N2x, N2y, N2z           !>  Coarse grid order(anisotropic) of the element
-      INTEGER                       :: DeltaN                  !<  Interval of reduction of polynomial order for coarser level
-      LOGICAL, OPTIONAL             :: Lobatto                 !<  Is the quadrature a Legendre-Gauss-Lobatto representation?
-      !-----------------------------------------------------
-      TYPE(Interpolator_t), POINTER :: rest                    ! Pointer to constructed restriction interpolator
-      TYPE(Interpolator_t), POINTER :: prol                    ! Pointer to constructed prolongation interpolator
-      LOGICAL                       :: LGL = .FALSE.           ! Is the quadrature a Legendre-Gauss-Lobatto representation? (false is default)
-      INTEGER                       :: i,j,k,l,m,n             ! Index counters
-      INTEGER                       :: s,r                     ! Row/column counters for operators
-      REAL(KIND=RP), ALLOCATABLE    :: x1 (:), y1 (:), z1 (:)  ! Position of quadrature points on mesh 1
-      REAL(KIND=RP), ALLOCATABLE    :: w1x(:), w1y(:), w1z(:)  ! Weights for quadrature points on mesh 1
-      REAL(KIND=RP), ALLOCATABLE    :: x2 (:), y2 (:), z2 (:)  ! Position of quadrature points on mesh 2
-      REAL(KIND=RP), ALLOCATABLE    :: w2x(:), w2y(:), w2z(:)  ! Weights for quadrature points on mesh 2
-      !-----------------------------------------------------
+      !--------------------------------------------
+      CLASS(IterativeSolver_t), TARGET, INTENT(INOUT) :: this            !<  Iterative solver class
+      INTEGER                                         :: SmoothIters     !<  Number of smoothing operations
+      REAL(KIND=RP), OPTIONAL                         :: tol             !   Relative AND absolute tolerance of the method
+      INTEGER                         , INTENT(OUT)   :: niter           !>  Number of iterations needed
+      !--------------------------------------------
+       INTEGER                                 :: n                ! System size
+      REAL(KIND=RP)                           :: r(this % DimPrb) ! Residual
+      REAL(KIND=RP), POINTER                  :: x(:)             ! Solution
+      REAL(KIND=RP), POINTER                  :: b(:)             ! Right-hand-side
+      INTEGER                                 :: i,j              ! Counters
+      INTEGER                                 :: idx1, idx2       ! Indexes of block
       
-      IF (PRESENT(Lobatto) .AND. Lobatto) LGL = .TRUE.
-!
-!     --------------------------------------
-!     Compute order of coarse representation
-!     --------------------------------------
-!
-      N2x = N1x - DeltaN
-      N2y = N1y - DeltaN
-      N2z = N1z - DeltaN
+      REAL(KIND=RP)                           :: bnorm, rnorm, oldrnorm, ConvRate     ! Norm of b and r vectors
+      REAL(KIND=RP)                           :: endtol           ! Final tolerance that will be used to evaluate convergence 
+!~       REAL(KIND=RP) :: res(size(x,1),1), LinChange
+      !--------------------------------------------
       
-      ! The order must be greater or equal to 0 (Legendre-Gauss quadrature) or 1 (Legendre-Gauss-Lobatto)
-      IF (LGL) THEN
-         IF (N2x < 1) N2x = 1
-         IF (N2y < 1) N2y = 1
-         IF (N2z < 1) N2z = 1
-      ELSE
-         IF (N2x < 0) N2x = 0
-         IF (N2y < 0) N2y = 0
-         IF (N2z < 0) N2z = 0
+      n =  this % DimPrb
+      x => this % x
+      b => this % b
+      
+      IF(PRESENT(tol)) THEN
+         bnorm = NORM2(b)
+         endtol = MAX(bnorm*tol,tol)  ! rtol and atol are taken as the same value
       END IF
       
-      ! Return if the operators were already created
-      IF (Restriction(N1x,N1y,N1z) % Created) RETURN
+!~      print*, 'bnorm = ', bnorm
+!~      print*, '    iter      residual'
       
-      rest => Restriction (N1x,N1y,N1z)
-      prol => Prolongation(N2x,N2y,N2z)
-!
-!     ----------------------------
-!     Allocate important variables
-!     ----------------------------
-!
-      !Nodes and weights
-      ALLOCATE(x1 (0:N1x), y1 (0:N1y), z1 (0:N1z), &
-               w1x(0:N1x), w1y(0:N1y), w1z(0:N1z), &
-               x2 (0:N2x), y2 (0:N2y), z2 (0:N2z), &
-               w2x(0:N2x), w2y(0:N2y), w2z(0:N2z))
-!
-!     ------------------------------------------
-!     Obtain the quadrature nodes on (1) and (2)
-!     ------------------------------------------
-!
-      IF (LGL) THEN
-         CALL LegendreLobattoNodesAndWeights(N1x, x1, w1x)
-         CALL LegendreLobattoNodesAndWeights(N1y, y1, w1y)
-         CALL LegendreLobattoNodesAndWeights(N1z, z1, w1z)
-         CALL LegendreLobattoNodesAndWeights(N2x, x2, w2x)
-         CALL LegendreLobattoNodesAndWeights(N2y, y2, w2y)
-         CALL LegendreLobattoNodesAndWeights(N2z, z2, w2z)
-      ELSE
-         CALL GaussLegendreNodesAndWeights(N1x, x1, w1x)
-         CALL GaussLegendreNodesAndWeights(N1y, y1, w1y)
-         CALL GaussLegendreNodesAndWeights(N1z, z1, w1z)
-         CALL GaussLegendreNodesAndWeights(N2x, x2, w2x)
-         CALL GaussLegendreNodesAndWeights(N2y, y2, w2y)
-         CALL GaussLegendreNodesAndWeights(N2z, z2, w2z)
-      END IF
-!
-!     -----------------------------
-!     Fill the restriction operator
-!     -----------------------------
-!
-      CALL Create3DInterpolationMatrix(rest % Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2)
-!
-!     ------------------------------
-!     Fill the prolongation operator
-!     ------------------------------
-!
-      CALL Create3DInterpolationMatrix(prol % Mat,N2x,N2y,N2z,N1x,N1y,N1z,x2,y2,z2,x1,y1,z1)
-      
-      ! All done
-      rest % Created = .TRUE.
-      prol % Created = .TRUE.
-      
-   END SUBROUTINE CreateInterpolationOperators
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!!
-!!    This function interpolates a vector U1 of the solution to the lower level (can be used for restriction or prolongation)
-!!
-!!    CALL: U2 = this % InterpolateSol(Prolongation(Nx(iEL),Ny(iEL),Nz(iEL)),U1)
-!!          
-   FUNCTION InterpolateSol(this,Interp,U1) RESULT(U2)
-      IMPLICIT NONE
-      !--------------------------------------------------------------
-      CLASS(MultigridSolver_t), TARGET, INTENT(INOUT) :: this  !<  Iterative solver class
-      REAL(KIND=RP)                                   :: Interp(:,:)
-      REAL(KIND=RP)           , TARGET, INTENT(IN)    :: U1(:) ! Vector to be projected
-      REAL(KIND=RP)           , TARGET                :: U2(SIZE(Interp,1)) ! Projected vector
-      !--------------------------------------------------------------
-      REAL(KIND=RP), POINTER :: U1_p(:)               ! U1 pointer
-      REAL(KIND=RP), POINTER :: U2_p(:)               ! U2 pointer
-      INTEGER      , POINTER :: N1x(:),N1y(:),N1z(:)  ! Pointers to element orders of (1)
-      INTEGER      , POINTER :: N2x(:),N2y(:),N2z(:)  ! Pointers to element orders of (2)
-      INTEGER                :: iEQ       ! Equation counter
-      INTEGER                :: Idx1      ! First index of the solution of this element ( - 1)
-      !--------------------------------------------------------------
-      
-      Idx1 = 0
-      
-      DO iEQ = 1, N_EQN
-!~             U1_p => U1(Idx1+iEq::N_EQN)
-!~             U2_p => U2()
+      oldrnorm = -1._RP
+      ConvRate = 1._RP
+      DO i=1,SmoothIters
+         r = this % AxMult(x)        ! Matrix free mult
+!~          r = CSR_MatVecMul(this%A,x) ! CSR matrix product
          
-         U2_p = MATMUL(Interp,U1_p)
+!$omp parallel do private(idx1,idx2)
+         DO j=1,SIZE(this % A % BlockSize)
+            idx1 = this % A % BlockIdx(j) + 1   ! zero-based indexing
+            idx2 = this % A % BlockIdx(j+1)
+            
+            r(idx1:idx2) = b(idx1:idx2) - r(idx1:idx2)
+            x(idx1:idx2) = x(idx1:idx2) + MATMUL(this%BlockPreco(j)%Pinv,r(idx1:idx2))
+         END DO
+!$omp end parallel do
          
+         IF (PRESENT(tol)) THEN
+            rnorm = NORM2(r)       ! Saves relative tolerance (one iteration behind)
+!~             print*, '\x1b[1;34m', i, rnorm, rnorm/oldrnorm ,'\x1b[0m'
+!~             read(*,*)
+            IF (oldrnorm .NE. -1.0_RP) THEN
+               ConvRate = ConvRate + (LOG10(oldrnorm/rnorm)-ConvRate)/i 
+            ENDIF
+            IF (rnorm < endtol .OR. ABS(rnorm/oldrnorm-1._RP) < 0.01_RP) THEN
+               this % rnorm = rnorm
+               oldrnorm     = rnorm
+               EXIT
+            END IF
+            oldrnorm     = rnorm
+         END IF
+        
+!~         IF (i==1) call xyplot(Sol(:,1))
+!~         print*, x
+!~         read(*,*)
       END DO
-!
-!     ------------
-!     Clean memory
-!     ------------
-!
-      NULLIFY(U1_p,U2_p,N1x,N1y,N1z,N2x,N2y,N2z)
+      print*, '\x1b[1;34mSmoother ConvRate:', ConvRate ,'\x1b[0m'
+      this % rnorm = NORM2(r)
+      niter=i
       
-   END FUNCTION InterpolateSol
-   
-   !SUBROUTINE InterpolateJac
-END MODULE MultigridSolverClass
+   END SUBROUTINE BlockJacobiSmoother
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE ComputeBlockPreco(this)
+      USE DenseMatUtilities
+      IMPLICIT NONE
+      !-------------------------------------------------------------
+      CLASS(IterativeSolver_t), TARGET, INTENT(INOUT) :: this            !<  Iterative solver class
+      !-------------------------------------------------------------
+      INTEGER :: nelem
+      INTEGER :: k, N      ! Counter / size of block
+      !-------------------------------------------------------------
+      
+      nelem = SIZE (this % A % BlockSize)
+      DO k=1, nelem
+         N = this % A % BlockSize(k)
+         this % BlockPreco(k) % Pinv = inverse(this % A % GetBlock(k,N))
+      END DO
+      
+   END SUBROUTINE ComputeBlockPreco
+END MODULE IterativeSolverClass

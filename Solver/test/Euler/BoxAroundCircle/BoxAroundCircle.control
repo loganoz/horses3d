@@ -1,8 +1,7 @@
 Flow equations        = "Euler"
 mesh file name        = "../../TestMeshes/BoxAroundCircle3D_extended_pol3.mesh"
-plot file name        = "RESULTS/BoxAroundCircle.tec"
 restart file name     = "RESULTS/BoxAroundCircle.rst"
-save file name        = "RESULTS/BoxAroundCircle_saved.rst"
+solution file name    = "RESULTS/BoxAroundCircle_saved.rst"
 restart               = .false.
 Polynomial order      = 3
 Number of time steps  = 1000

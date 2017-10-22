@@ -77,7 +77,7 @@ module SpatialDiscretization
 !           Scale with the Jacobian
 !           -----------------------
             do iVar = 1 , N_EQN
-               mesh % elements(eID) % QDot(:,:,:,iVar) = mesh % elements(eID) % QDot(:,:,:,iVar) &
+               mesh % elements(eID) % storage % QDot(:,:,:,iVar) = mesh % elements(eID) % storage % QDot(:,:,:,iVar) &
                                           / mesh % elements(eID) % geom % jacobian
             end do
          end do
@@ -126,7 +126,7 @@ module SpatialDiscretization
 !
 !        Perform the Weak Volume Green integral
 !        --------------------------------------
-         e % QDot = ScalarWeakIntegrals % StdVolumeGreen ( N_EQN , e , spA , contravariantFlux ) 
+         e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( N_EQN , e , spA , contravariantFlux ) 
 
       end subroutine TimeDerivative_VolumetricContribution
 !
@@ -146,27 +146,27 @@ module SpatialDiscretization
 !
 !        LEFT face
 !        ---------
-         e % QDot = e % QDot - ScalarWeakIntegrals % StdFace( e , spA , ELEFT , e % Fstarb(:,:,:,ELEFT) ) 
+         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e , spA , ELEFT , e % storage % Fstarb(:,:,:,ELEFT) ) 
 !
 !        RIGHT face
 !        ---------
-         e % QDot = e % QDot - ScalarWeakIntegrals % StdFace( e , spA , ERIGHT , e % Fstarb(:,:,:,ERIGHT) )
+         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e , spA , ERIGHT , e % storage % Fstarb(:,:,:,ERIGHT) )
 !
 !        BOTTOM face
 !        ---------
-         e % QDot = e % QDot - ScalarWeakIntegrals % StdFace( e , spA , EBOTTOM , e % Fstarb(:,:,:,EBOTTOM) )
+         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e , spA , EBOTTOM , e % storage % Fstarb(:,:,:,EBOTTOM) )
 !
 !        TOP face
 !        ---------
-         e % QDot = e % QDot - ScalarWeakIntegrals % StdFace( e , spA , ETOP , e % Fstarb(:,:,:,ETOP) )
+         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e , spA , ETOP , e % storage % Fstarb(:,:,:,ETOP) )
 !
 !        BACK face
 !        ---------
-         e % QDot = e % QDot - ScalarWeakIntegrals % StdFace( e , spA , EBACK , e % Fstarb(:,:,:,EBACK) )
+         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e , spA , EBACK , e % storage % Fstarb(:,:,:,EBACK) )
 !
 !        FRONT face
 !        ---------
-         e % QDot = e % QDot - ScalarWeakIntegrals % StdFace( e , spA , EFRONT , e % Fstarb(:,:,:,EFRONT) )
+         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e , spA , EFRONT , e % storage % Fstarb(:,:,:,EFRONT) )
 
       end subroutine TimeDerivative_FacesContribution
 !

@@ -49,7 +49,7 @@ MODULE ExplicitMethods
       INTEGER :: k, id
       
       do id = 1, SIZE( sem % mesh % elements ) 
-         sem % mesh % elements(id) % G = 0.0_RP   
+         sem % mesh % elements(id) % storage % G = 0.0_RP   
       enddo 
       
       DO k = 1,3
@@ -59,8 +59,8 @@ MODULE ExplicitMethods
          
 !$omp parallel do
          DO id = 1, SIZE( sem % mesh % elements )
-            sem % mesh % elements(id) % G = a(k)*sem % mesh % elements(id) % G  +             sem % mesh % elements(id) % QDot
-            sem % mesh % elements(id) % Q =      sem % mesh % elements(id) % Q  + c(k)*deltaT*sem % mesh % elements(id) % G
+            sem % mesh % elements(id) % storage % G = a(k)*sem % mesh % elements(id) % storage % G  +             sem % mesh % elements(id) % storage % QDot
+            sem % mesh % elements(id) % storage % Q =      sem % mesh % elements(id) % storage % Q  + c(k)*deltaT*sem % mesh % elements(id) % storage % G
          END DO
 !$omp end parallel do
          

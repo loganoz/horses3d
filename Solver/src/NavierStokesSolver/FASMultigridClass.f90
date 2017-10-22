@@ -9,6 +9,7 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE FASMultigridClass
+   use FTValueDictionaryClass
    USE SMConstants
    USE ExplicitMethods
    USE DGSEMClass
@@ -180,10 +181,10 @@ MODULE FASMultigridClass
       ALLOCATE (Solver % MGStorage(nelem))
 !$omp parallel do private(Q1,Q2,Q3,Q4)
       DO k = 1, nelem
-         Q1 = SIZE(Solver % p_sem % mesh % elements(k) % Q,1) - 1 
-         Q2 = SIZE(Solver % p_sem % mesh % elements(k) % Q,2) - 1
-         Q3 = SIZE(Solver % p_sem % mesh % elements(k) % Q,3) - 1
-         Q4 = SIZE(Solver % p_sem % mesh % elements(k) % Q,4)
+         Q1 = SIZE(Solver % p_sem % mesh % elements(k) % storage % Q,1) - 1 
+         Q2 = SIZE(Solver % p_sem % mesh % elements(k) % storage % Q,2) - 1
+         Q3 = SIZE(Solver % p_sem % mesh % elements(k) % storage % Q,3) - 1
+         Q4 = SIZE(Solver % p_sem % mesh % elements(k) % storage % Q,4)
          ALLOCATE(Solver % MGStorage(k) % Q    (0:Q1,0:Q2,0:Q3,Q4))
          ALLOCATE(Solver % MGStorage(k) % E    (0:Q1,0:Q2,0:Q3,Q4))
          ALLOCATE(Solver % MGStorage(k) % S    (0:Q1,0:Q2,0:Q3,Q4))
@@ -292,8 +293,7 @@ MODULE FASMultigridClass
          ALLOCATE (Child_p % p_sem)
          !Child_p % p_sem % ManufacturedSol = Solver % p_sem % ManufacturedSol
          
-         CALL Child_p % p_sem % construct (meshFileName      = controlVariables % stringValueForKey("mesh file name",    &
-                                                                                      requestedLength = LINE_LENGTH),    &
+         CALL Child_p % p_sem % construct (controlVariables = controlVariables,                                          &
                                            externalState     = Solver % p_sem % externalState,                           &
                                            externalGradients = Solver % p_sem % externalGradients,                       &
                                            Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,                                        &
@@ -340,7 +340,7 @@ MODULE FASMultigridClass
                WRITE(PFileUnit(i),*) timestep + 1                                                     ! Iteration
                WRITE(PFileUnit(i),*) this % p_sem % maxResidual                                       ! Gloval residual
                WRITE(PFileUnit(i),*) PElems(i)                                                        ! Element number
-               WRITE(PFileUnit(i),*) MAXVAL(ABS(this % p_sem % mesh % elements(PElems(i)) % QDot))    ! Local residual
+               WRITE(PFileUnit(i),*) MAXVAL(ABS(this % p_sem % mesh % elements(PElems(i)) % storage % QDot))    ! Local residual
                
             END DO
             
@@ -400,8 +400,8 @@ MODULE FASMultigridClass
                N2x = Child_p % p_sem % Nx(iEl)
                N2y = Child_p % p_sem % Ny(iEl)
                N2z = Child_p % p_sem % Nz(iEl)
-               CALL Interpolate3D(Q1 = this    % tempsem % mesh % elements(iEl) % Q(:,:,:,iEQ), &
-                                  Q2 = Child_p % tempsem % mesh % elements(iEl) % Q(:,:,:,iEQ), &
+               CALL Interpolate3D(Q1 = this    % tempsem % mesh % elements(iEl) % storage % Q(:,:,:,iEQ), &
+                                  Q2 = Child_p % tempsem % mesh % elements(iEl) % storage % Q(:,:,:,iEQ), &
                                   Interp = this % Restriction(N1x,N1y,N1z) % Mat            , &
                                   N1x = N1x,    N1y = N1y,    N1z = N1z                     , &
                                   N2x = N2x,    N2y = N2y,    N2z = N2z)
@@ -463,9 +463,9 @@ MODULE FASMultigridClass
       IF (lvl < MGlevels) THEN
 !$omp parallel do private(iEQ)
          DO iEl = 1, nelem
-            this % MGStorage(iEl) % Q = this % p_sem % mesh % elements(iEl) % Q
-            this % p_sem % mesh % elements(iEl) % S = 0._RP
-            this % tempsem % mesh % elements(iEl) % S = 0._RP
+            this % MGStorage(iEl) % Q = this % p_sem % mesh % elements(iEl) % storage % Q
+            this % p_sem % mesh % elements(iEl) % storage % S = 0._RP
+            this % tempsem % mesh % elements(iEl) % storage % S = 0._RP
          END DO
 !$omp end parallel do
       END IF
@@ -487,8 +487,8 @@ MODULE FASMultigridClass
                DO iEl = 1, NPElems
                   ElemNmbr = PElems(iEl)
                   N1x = this % p_sem % Nx(ElemNmbr)
-                  TauNext =   MAXVAL(ABS(this % p_sem   % mesh % elements(ElemNmbr) % Qdot + this % MGStorage(ElemNmbr) % Scase))
-                  TauFinest = MAXVAL(ABS(this % tempsem % mesh % elements(ElemNmbr) % Qdot + this % MGStorage(ElemNmbr) % Scase))
+                  TauNext =   MAXVAL(ABS(this % p_sem   % mesh % elements(ElemNmbr) % storage % Qdot + this % MGStorage(ElemNmbr) % Scase))
+                  TauFinest = MAXVAL(ABS(this % tempsem % mesh % elements(ElemNmbr) % storage % Qdot + this % MGStorage(ElemNmbr) % Scase))
                   WRITE(PFileUnit(iEl),*) lvl, N1x, TauFinest, TauNext
                END DO
             END IF
@@ -497,8 +497,8 @@ MODULE FASMultigridClass
          
 !$omp parallel do
          DO iEl = 1, nelem
-            this % p_sem % mesh % elements(iEl) % S = this % MGStorage(iEl) % S - &
-                                                      this % p_sem % mesh % elements(iEl) % Qdot
+            this % p_sem % mesh % elements(iEl) % storage % S = this % MGStorage(iEl) % S - &
+                                                      this % p_sem % mesh % elements(iEl) % storage % Qdot
          END DO
 !$omp end parallel do
       END IF
@@ -527,8 +527,8 @@ MODULE FASMultigridClass
                N2x = Child_p % p_sem % Nx(iEl)
                N2y = Child_p % p_sem % Ny(iEl)
                N2z = Child_p % p_sem % Nz(iEl)
-               CALL Interpolate3D(Q1 = this    % p_sem % mesh % elements(iEl) % Q(:,:,:,iEQ), &
-                                  Q2 = Child_p % p_sem % mesh % elements(iEl) % Q(:,:,:,iEQ), &
+               CALL Interpolate3D(Q1 = this    % p_sem % mesh % elements(iEl) % storage % Q(:,:,:,iEQ), &
+                                  Q2 = Child_p % p_sem % mesh % elements(iEl) % storage % Q(:,:,:,iEQ), &
                                   Interp = this % Restriction(N1x,N1y,N1z) % Mat            , &
                                   N1x = N1x,    N1y = N1y,    N1z = N1z                     , &
                                   N2x = N2x,    N2y = N2y,    N2z = N2z)
@@ -549,7 +549,7 @@ MODULE FASMultigridClass
                N2x = Child_p % p_sem % Nx(iEl)
                N2y = Child_p % p_sem % Ny(iEl)
                N2z = Child_p % p_sem % Nz(iEl)
-               CALL Interpolate3D(Q1 = this    % p_sem % mesh % elements(iEl) % Qdot(:,:,:,iEQ), &
+               CALL Interpolate3D(Q1 = this    % p_sem % mesh % elements(iEl) % storage % Qdot(:,:,:,iEQ), &
                                   Q2 = Child_p % MGStorage(iEl) % S   (:,:,:,iEQ), &
                                   Interp = this % Restriction(N1x,N1y,N1z) % Mat    , &
                                   N1x = N1x,    N1y = N1y,    N1z = N1z             , &
@@ -592,7 +592,7 @@ MODULE FASMultigridClass
 !
 !$omp parallel do
          DO iEl = 1, nelem
-            this % p_sem % mesh % elements(iEl) % Q = this % p_sem % mesh % elements(iEl) % Q + this % MGStorage(iEl) % E
+            this % p_sem % mesh % elements(iEl) % storage % Q = this % p_sem % mesh % elements(iEl) % storage % Q + this % MGStorage(iEl) % E
          END DO
 !$omp end parallel do
       
@@ -613,7 +613,7 @@ MODULE FASMultigridClass
       IF (lvl < MGlevels) THEN
 !$omp parallel do private(iEQ)
          DO iEl = 1, nelem
-            this % MGStorage(iEl) % E = this % p_sem % mesh % elements(iEl) % Q - this % MGStorage(iEl) % Q
+            this % MGStorage(iEl) % E = this % p_sem % mesh % elements(iEl) % storage % Q - this % MGStorage(iEl) % Q
          END DO
 !$omp end parallel do
       END IF

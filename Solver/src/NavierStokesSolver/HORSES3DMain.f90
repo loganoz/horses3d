@@ -1,7 +1,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      NSLite3D.f90
+!      HORSES3DMain.f90
 !      Created: May 21, 2015 at 12:56 PM 
 !      By: David Kopriva  
 !
@@ -13,6 +13,7 @@
       PROGRAM HORSES3DMain
       
       USE SMConstants
+      use FTValueDictionaryClass
       USE FTTimerClass
       USE PhysicsStorage
       USE SharedBCModule
@@ -24,53 +25,60 @@
       USE mainKeywordsModule
       USE Headers
       USE pAdaptationClass
-      USE LiftAndDrag
       
       IMPLICIT NONE
 interface
          SUBROUTINE UserDefinedStartup
             IMPLICIT NONE  
          END SUBROUTINE UserDefinedStartup
-         SUBROUTINE UserDefinedFinalSetup(sem , thermodynamics_, &
+         SUBROUTINE UserDefinedFinalSetup(mesh , thermodynamics_, &
                                                  dimensionless_, &
                                                      refValues_ )
-            USE DGSEMClass
             use PhysicsStorage
+            use HexMeshClass
             IMPLICIT NONE
-            CLASS(DGSem)             :: sem
+            CLASS(HexMesh)             :: mesh
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
          END SUBROUTINE UserDefinedFinalSetup
-         SUBROUTINE UserDefinedFinalize(sem, time, thermodynamics_, &
+         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
                                                     dimensionless_, &
                                                         refValues_   )
-            USE DGSEMClass
             use PhysicsStorage
+            use HexMeshClass
             IMPLICIT NONE
-            CLASS(DGSem)  :: sem
-            REAL(KIND=RP) :: time
-            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-            type(Dimensionless_t),     intent(in)  :: dimensionless_
-            type(RefValues_t),         intent(in)  :: refValues_
+            CLASS(HexMesh)                        :: mesh
+            REAL(KIND=RP)                         :: time
+            integer                               :: iter
+            real(kind=RP)                         :: maxResidual
+            type(Thermodynamics_t),    intent(in) :: thermodynamics_
+            type(Dimensionless_t),     intent(in) :: dimensionless_
+            type(RefValues_t),         intent(in) :: refValues_
          END SUBROUTINE UserDefinedFinalize
       SUBROUTINE UserDefinedTermination
          IMPLICIT NONE  
       END SUBROUTINE UserDefinedTermination
+      character(len=LINE_LENGTH) function getFileName(inputLine)
+         use SMConstants
+         implicit none
+         character(len=*), intent(in)     :: inputLine
+      end function getFileName
 end interface
 
       TYPE( FTValueDictionary)            :: controlVariables
       TYPE( DGSem )                       :: sem
       TYPE( FTTimer )                     :: stopWatch
-      TYPE( DGSEMPlotter )      , POINTER :: plotter      => NULL()
-      CLASS( PlotterDataSource ), POINTER :: plDataSource => NULL()
       TYPE( TimeIntegrator_t )            :: timeIntegrator
       
-      LOGICAL                             :: success
-      INTEGER                             :: plotUnit, restartUnit, saveUnit
+      LOGICAL                             :: success, saveGradients
+      integer                             :: initial_iteration
+      INTEGER                             :: plotUnit, saveUnit
       INTEGER, EXTERNAL                   :: UnusedUnit
+      real(kind=RP)                       :: initial_time
       EXTERNAL                            :: externalStateForBoundaryName
       EXTERNAL                            :: ExternalGradientForBoundaryName
+      character(len=LINE_LENGTH)          :: solutionFileName
       
       ! For pAdaptation
       INTEGER, ALLOCATABLE                :: Nx(:), Ny(:), Nz(:)
@@ -112,8 +120,7 @@ end interface
          !Read file and construct DGSEM with it
          CALL ReadOrderFile( controlVariables % stringValueForKey("polynomial order file", requestedLength = LINE_LENGTH), &
                              Nx, Ny, Nz )
-         CALL sem % construct (  meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
-                                                                              requestedLength = LINE_LENGTH),  &
+         CALL sem % construct (  controlVariables  = controlVariables,                                         &
                                  externalState     = externalStateForBoundaryName,                             &
                                  externalGradients = ExternalGradientForBoundaryName,                          &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
@@ -133,8 +140,7 @@ end interface
             END IF
          END IF
          
-         CALL sem % construct (  meshFileName      = controlVariables % stringValueForKey(meshFileNameKey,     &
-                                                                              requestedLength = LINE_LENGTH),  &
+         CALL sem % construct (  controlVariables  = controlVariables,                                         &
                                  externalState     = externalStateForBoundaryName,                             &
                                  externalGradients = ExternalGradientForBoundaryName,                          &
                                  polynomialOrder   = polynomialOrder                                          ,&
@@ -146,64 +152,27 @@ end interface
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
       CALL checkBCIntegrity(sem % mesh, success)
       IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
-      CALL UserDefinedFinalSetup(sem, thermodynamics, dimensionless, refValues)
+      CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues)
 !
-!     ----------------------
-!     Set the initial values
-!     ----------------------
+!     -------------------------
+!     Set the initial condition
+!     -------------------------
 !
-      IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
-         restartUnit = UnusedUnit()
-         OPEN( UNIT = restartUnit, &
-               FILE = controlVariables % stringValueForKey(restartFileNameKey,requestedLength = LINE_LENGTH), &
-               FORM = "UNFORMATTED" )
-               CALL sem % LoadSolutionForRestart( restartUnit )
-         CLOSE( restartUnit )
-      ELSE
-         call sem % SetInitialCondition( controlVariables ) 
-      END IF
+      call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)
 !
 !     -----------------------------
 !     Construct the time integrator
 !     -----------------------------
 !
-      CALL timeIntegrator % construct (controlVariables)
-!
-!     --------------------
-!     Prepare for plotting
-!     --------------------
-!
-      IF ( controlVariables % stringValueForKey(plotFileNameKey, &
-           requestedLength = LINE_LENGTH) /= "none" )     THEN
-         plotUnit = UnusedUnit()
-         ALLOCATE(plotter)
-         ALLOCATE(plDataSource)
-         
-         IF(controlVariables % containsKey("number of plot points")) THEN           ! Interpolate to plot
-            CALL plotter % Construct(fUnit      = plotUnit,          &
-                                dataSource = plDataSource,      &
-                                newN       = controlVariables % integerValueForKey("number of plot points"), &
-                                spA        = sem % spA)
-            
-         ELSE                                                                       ! Plot values on Gauss points
-            CALL plotter % Construct(fUnit      = plotUnit,          &
-                                     dataSource = plDataSource)
-         END IF
-         CALL timeIntegrator % setPlotter(plotter)
-      END IF 
+      CALL timeIntegrator % construct (controlVariables, initial_iteration, initial_time)
 !
 !     -----------------
 !     Integrate in time
 !     -----------------
 !
       CALL stopWatch % start()
-         CALL timeIntegrator % integrate(sem, controlVariables)
+         CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors)
       CALL stopWatch % stop()
-      
-      if (controlVariables % containsKey("boundaries to analyze")) then
-         call calc_LiftDrag(sem % mesh, sem % spA)
-      end if
-      
       
       PRINT *
       PRINT *, "Elapsed Time: ", stopWatch % elapsedTime(units = TC_SECONDS)
@@ -213,42 +182,18 @@ end interface
 !     Let the user perform actions on the computed solution
 !     -----------------------------------------------------
 !
-      CALL UserDefinedFinalize(sem, timeIntegrator % time, thermodynamics, dimensionless, refValues)
+      CALL UserDefinedFinalize(sem % mesh, timeIntegrator % time, sem % numberOfTimeSteps, sem % maxResidual, thermodynamics, dimensionless, refValues)
 !
-!     ------------------------------------
-!     Save the results to the restart file
-!     ------------------------------------
+!     -------------------------------------
+!     Save the results to the solution file
+!     -------------------------------------
 !
-      IF(controlVariables % stringValueForKey(saveFileNameKey,LINE_LENGTH) /= "none")     THEN 
-         saveUnit = UnusedUnit()
-         OPEN( UNIT = saveUnit, &
-               FILE = controlVariables % stringValueForKey(saveFileNameKey,LINE_LENGTH), &
-               FORM = "UNFORMATTED" )
-               CALL sem % SaveSolutionForRestart( saveUnit )
-         CLOSE( saveUnit )
+      IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN 
+         solutionFileName = trim(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH))) // ".hsol"
+         saveGradients    = controlVariables % logicalValueForKey("save gradients with solution")
+         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients)
       END IF
-!
-!     ----------------
-!     Plot the results
-!     ----------------
-!
-      IF ( ASSOCIATED(plotter) )     THEN
-         plotUnit = UnusedUnit()
-         OPEN(UNIT = plotUnit, FILE = controlVariables % stringValueForKey(plotFileNameKey, &
-                                                                requestedLength = LINE_LENGTH))
-            CALL plotter % ExportToTecplot( elements = sem % mesh % elements , spA = sem % spA)
-         CLOSE(plotUnit)
-      END IF 
-!
-!     --------
-!     Clean up
-!     --------
-!
-      IF(ASSOCIATED(plotter)) THEN
-         CALL plotter % Destruct()
-         DEALLOCATE(plotter)
-         DEALLOCATE(plDataSource)
-      END IF 
+
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       CALL destructSharedBCModule
@@ -262,6 +207,7 @@ end interface
       SUBROUTINE CheckBCIntegrity(mesh, success)
 !
          USE HexMeshClass
+         use FTValueDictionaryClass
          USE SharedBCModule
          USE BoundaryConditionFunctions, ONLY:implementedBCNames
          IMPLICIT NONE
@@ -368,6 +314,13 @@ end interface
                success = .FALSE. 
             END IF  
          END DO  
+!
+!        Control variables with default value
+!        ------------------------------------
+         obj => controlVariables % objectForKey("save gradients with solution")
+         if ( .not. associated(obj) ) then
+            call controlVariables % addValueForKey("save gradients with solution",".false.")
+         end if
          
          
       END SUBROUTINE checkInputIntegrity

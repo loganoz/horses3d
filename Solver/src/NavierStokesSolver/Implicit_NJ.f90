@@ -132,7 +132,7 @@ MODULE Implicit_NJ
       ! 
       !**************************
       
-      CALL sem % GetQ(U_n)      !stores sem%mesh%elements(:)%Q in Vector U_n
+      CALL sem % GetQ(U_n)      !stores sem%mesh%elements(:)% storage % Q in Vector U_n
       
       DO                                                 
          CALL NewtonSolve(sem, time+inner_dt, inner_dt, ecolors, nbr, linsolver, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
@@ -322,7 +322,7 @@ MODULE Implicit_NJ
 
 !     Right-Hand side BDF1 (stored into the linsolver vector b):
 !     b = [(Q(n+1) - Q(n))/dt] - Qdot  == [(U_r - U_n ) / dt] - F(U_r)
-!     U_r is stored in sem%dgs%Q
+!     U_r is stored in sem%dgs% storage % Q
 
 !      CALL ComputeTimeDerivative( sem ) ! computes Qdot
       
@@ -335,7 +335,7 @@ MODULE Implicit_NJ
             DO j = 0, Ny
                DO i = 0, Nx
                   DO l = 1,N_EQN
-                     value = (sem%mesh%elements(elmnt)%Q(i,j,k,l) - U_n(counter))/dt - sem%mesh%elements(elmnt)%QDot(i,j,k,l)
+                     value = (sem%mesh%elements(elmnt)% storage % Q(i,j,k,l) - U_n(counter))/dt - sem%mesh%elements(elmnt)% storage % QDot(i,j,k,l)
                      CALL linsolver%SetBValue(counter, value)
                      counter =  counter + 1
                   END DO
@@ -365,7 +365,7 @@ MODULE Implicit_NJ
                DO i = 0, Nx
                   DO l = 1, N_EQN
                      CALL linsolver%GetXValue(counter,value)
-                     sem%mesh%elements(elm)%Q(i,j,k,l) = sem%mesh%elements(elm)%Q(i,j,k,l) + value
+                     sem%mesh%elements(elm)% storage % Q(i,j,k,l) = sem%mesh%elements(elm)% storage % Q(i,j,k,l) + value
                      counter =  counter + 1
                   END DO    
                END DO
@@ -591,8 +591,8 @@ MODULE Implicit_NJ
                
                ijkl = local2ijk(thisdof,N_EQN,Nx(thiselm),Ny(thiselm),Nz(thiselm))
                
-               sem%mesh%elements(thiselm)%Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
-                                                   sem%mesh%elements(thiselm)%Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
+               sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
+                                                   sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
             ENDDO
             
             CALL ComputeTimeDerivative( sem, t )            
@@ -610,8 +610,8 @@ MODULE Implicit_NJ
                   IF (.NOT. ANY(used == elmnbr)) THEN  !(elmnbr .NE. 0)
                      ndof   = ndofelm(elmnbr)
                      
-                     sem%mesh%elements(elmnbr)%QDot = (sem%mesh%elements(elmnbr)%QDot - dgs_clean(elmnbr)%QDot) / eps                      
-!~                     pbuffer(1:ndofelm) => sem%mesh%elements(elmnbr)%QDot                     !maps Qdot array into a 1D pointer 
+                     sem%mesh%elements(elmnbr)% storage % QDot = (sem%mesh%elements(elmnbr)% storage % QDot - dgs_clean(elmnbr)% storage % QDot) / eps                      
+!~                     pbuffer(1:ndofelm) => sem%mesh%elements(elmnbr)% storage % QDot                     !maps Qdot array into a 1D pointer 
                      CALL GetElemQdot(sem%mesh%elements(elmnbr),pbuffer(1:ndof))
                      irow = irow_0 + firstIdx(elmnbr)        !irow_0 + ndofelm * (elmnbr - 1)                         !generates the row indices vector
                      WHERE (ABS(pbuffer(1:maxndofel)) .LT. jaceps) irow = -1          !MatSetvalues will ignore entries with irow=-1
@@ -631,8 +631,8 @@ MODULE Implicit_NJ
                            IF (.NOT. ANY(used == nbrnbr)) THEN
                               ndof   = ndofelm(nbrnbr)
                                              
-                              sem%mesh%elements(nbrnbr)%QDot = (sem%mesh%elements(nbrnbr)%QDot - dgs_clean(nbrnbr)%QDot) / eps                      
-         !~                     pbuffer(1:ndofelm) => sem%mesh%elements(elmnbr)%QDot                     !maps Qdot array into a 1D pointer 
+                              sem%mesh%elements(nbrnbr)% storage % QDot = (sem%mesh%elements(nbrnbr)% storage % QDot - dgs_clean(nbrnbr)% storage % QDot) / eps                      
+         !~                     pbuffer(1:ndofelm) => sem%mesh%elements(elmnbr)% storage % QDot                     !maps Qdot array into a 1D pointer 
                               CALL GetElemQdot(sem%mesh%elements(nbrnbr),pbuffer(1:ndof))
                               irow = irow_0 + firstIdx(nbrnbr)       !irow_0 + ndofelm * (nbrnbr - 1)                         !generates the row indices vector
                               WHERE (ABS(pbuffer(1:maxndofel)) .LT. jaceps) irow = -1          !MatSetvalues will ignore entries with irow=-1
@@ -650,7 +650,7 @@ MODULE Implicit_NJ
             END DO           
             DO thiselmidx = ielm, felm-1                              !Cleans modified Qs
                thiselm = ecolors%elmnts(thiselmidx)
-               sem%mesh%elements(thiselm)%Q = dgs_clean(thiselm)%Q           
+               sem%mesh%elements(thiselm)% storage % Q = dgs_clean(thiselm)% storage % Q           
             END DO                                                
          ENDDO
       ENDDO
@@ -752,7 +752,7 @@ MODULE Implicit_NJ
          DO j = 0, Ny
             DO i = 0, Nx
                DO l = 1,N_EQN
-                  Qdot(counter)  = CurrEl%Qdot(i, j, k, l) 
+                  Qdot(counter)  = CurrEl% storage % Qdot(i, j, k, l) 
                   counter =  counter + 1
                END DO
             END DO
