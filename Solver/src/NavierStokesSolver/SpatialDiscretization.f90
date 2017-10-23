@@ -10,6 +10,7 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
+#include "Includes.h"
 module SpatialDiscretization
       use SMConstants
       use DGInviscidDiscretization
@@ -22,12 +23,47 @@ module SpatialDiscretization
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Initialize_SpaceAndTimeMethods()
+      subroutine Initialize_SpaceAndTimeMethods(controlVariables)
          use PhysicsStorage
+         use FTValueDictionaryClass
+         use mainKeywordsModule
+         use Headers
          implicit none
-!
-!        TOdo: this should be selected from the paramfile options
-         allocate( StandardDG_t  :: InviscidMethod )
+         class(FTValueDictionary),  intent(in)  :: controlVariables
+         character(len=LINE_LENGTH)       :: inviscidDiscretization
+         interface
+            subroutine toLower(str)
+               character(*), intent(in out) :: str
+            end subroutine toLower
+         end interface
+
+         write(STD_OUT,'(/)')
+         call Section_Header("Spatial discretization scheme")
+         write(STD_OUT,'(/)')
+
+         inviscidDiscretization = controlVariables % stringValueForKey(inviscidDiscretizationKey,requestedLength = LINE_LENGTH)
+
+         call toLower(inviscidDiscretization)
+      
+         select case ( trim(inviscidDiscretization) )
+
+         case ( "standard" )
+            allocate( StandardDG_t  :: InviscidMethod )
+
+         case ( "split-form")
+            allocate(SplitDG_t   :: InviscidMethod)
+
+         case default
+            write(STD_OUT,'(A,A,A)') 'Requested inviscid discretization "',trim(inviscidDiscretization),'" is not implemented.'
+            write(STD_OUT,'(A)') "Implemented discretizations are:"
+            write(STD_OUT,'(A)') "  * Standard"
+            write(STD_OUT,'(A)') "  * Split-Form"
+            errorMessage(STD_OUT)
+            stop 
+
+         end select
+            
+         call InviscidMethod % Initialize(controlVariables)
          
          if ( flowIsNavierStokes ) then
             allocate( BassiRebay1_t :: ViscousMethod  ) 
@@ -58,7 +94,6 @@ module SpatialDiscretization
          integer     :: eID , i, j, k
          integer     :: Nx, Ny, Nz
 !
-!$omp barrier
 !$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
             Nx = mesh % elements(eID) % Nxyz(1)
@@ -106,27 +141,45 @@ module SpatialDiscretization
 !        ---------------
 !
          real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM ) 
+         real(kind=RP) :: fSharp(1:NCONS, 0:spA % Nx, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+         real(kind=RP) :: gSharp(1:NCONS, 0:spA % Ny, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+         real(kind=RP) :: hSharp(1:NCONS, 0:spA % Nz, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
          real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM ) 
          real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM ) 
          integer       :: eID
-
 !
 !        Compute inviscid and viscous contravariant fluxes
 !        -------------------------------------------------
          call InviscidMethod % ComputeInnerFluxes ( e , spA , inviscidContravariantFlux ) 
          call ViscousMethod  % ComputeInnerFluxes ( e , spA , viscousContravariantFlux  ) 
+
+         select type ( InviscidMethod )
+         type is (StandardDG_t)
 !
-!        Compute the total Navier-Stokes flux
-!        ------------------------------------
-         if ( flowIsNavierStokes ) then
-            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux
-         else
-            contravariantFlux = inviscidContravariantFlux
-         end if
+!           Compute the total Navier-Stokes flux
+!           ------------------------------------
+            if ( flowIsNavierStokes ) then
+               contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux
+            else
+               contravariantFlux = inviscidContravariantFlux
+            end if
 !
-!        Perform the Weak Volume Green integral
-!        --------------------------------------
-         e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e , spA , contravariantFlux ) 
+!           Perform the Weak Volume Green integral
+!           --------------------------------------
+            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e , spA , contravariantFlux ) 
+
+         type is (SplitDG_t)
+!
+!           Compute sharp fluxes for skew-symmetric approximations
+!           ------------------------------------------------------
+            call InviscidMethod % ComputeSplitFormFluxes(e, spA, inviscidContravariantFlux, fSharp, gSharp, hSharp)
+!
+!           Peform the Weak volume green integral
+!           -------------------------------------
+            if ( .not. flowIsNavierStokes ) viscousContravariantFlux = 0.0_RP
+            e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, spA, fSharp, gSharp, hSharp, viscousContravariantFlux)
+
+         end select
 
       end subroutine TimeDerivative_VolumetricContribution
 !

@@ -147,7 +147,6 @@ Module DGSEMClass
          errorMessage(STD_OUT)
          stop
       end select
-         
 !
 !     ---------------------------------------
 !     Get polynomial orders for every element
@@ -263,7 +262,7 @@ Module DGSEMClass
 !     Initialize Spatial discretization methods
 !     -----------------------------------------
 !
-      call Initialize_SpaceAndTimeMethods
+      call Initialize_SpaceAndTimeMethods(controlVariables)
       
       NULLIFY(Nx,Ny,Nz)
       
@@ -602,7 +601,6 @@ Module DGSEMClass
          INTEGER       :: eIDLeft, eIDRight
          INTEGER       :: fIDLeft
 
-!$omp barrier
 !$omp do private(eIDLeft,eIDRight,fIDLeft) schedule(runtime)
          DO faceID = 1, SIZE( self % mesh % faces)
             eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 

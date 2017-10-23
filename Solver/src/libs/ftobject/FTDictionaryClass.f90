@@ -234,6 +234,7 @@
             PROCEDURE :: allObjects
             PROCEDURE :: destruct => destructFTDictionary
             PROCEDURE :: addObjectForKey
+            procedure :: removeObjectForKey
             PROCEDURE :: description => FTDictionaryDescription
             PROCEDURE :: printDescription => printFTDictionaryDescription
             PROCEDURE :: objectForKey
@@ -387,6 +388,50 @@
             self % numberOfEntries = self % numberOfEntries + 1
             
          END SUBROUTINE addObjectForKey
+
+         SUBROUTINE removeObjectForKey(self,key)
+            IMPLICIT NONE  
+            CLASS(FTDictionary)                 :: self
+            CHARACTER(LEN=*)                    :: key
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            CLASS(FTObject)       , POINTER     :: obj => NULL()
+            INTEGER                             :: h
+            CLASS(FTLinkedListRecord)     , POINTER :: listRecordPtr => NULL()
+            CHARACTER(LEN=FTDICT_KWD_STRING_LENGTH) :: keyString
+            
+            INTEGER, EXTERNAL                   :: b3hs_hash_key_jenkins
+            
+            h = b3hs_hash_key_jenkins(key,SIZE(self % entries))
+
+            obj => NULL()
+            
+            listRecordPtr => self % entries(h) % head
+            DO WHILE(ASSOCIATED(listRecordPtr))
+!
+!              --------------------------------------------
+!              The self % entries(h)'s recordObject is a FTKeyObjectPair
+!              --------------------------------------------
+!
+               SELECT TYPE (pair => listRecordPtr % recordObject)
+                  TYPE is (FTKeyObjectPair)
+                     keyString = pair % key()
+                     IF ( TRIM(keyString) == TRIM(key) )     THEN
+                        obj => pair
+                        EXIT 
+                     END IF 
+                  CLASS DEFAULT
+               END SELECT
+               listRecordPtr  => listRecordPtr % next
+            END DO    
+
+            CALL self % entries(h) % remove(obj)
+            self % numberOfEntries = self % numberOfEntries - 1
+            
+         END SUBROUTINE removeObjectForKey
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

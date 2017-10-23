@@ -143,7 +143,6 @@ module DGViscousDiscretization
 !
 !        Perform volume loops
 !        --------------------
-!$omp barrier
 !$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
             Nx = mesh % elements(eID) % Nxyz(1)

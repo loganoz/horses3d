@@ -287,8 +287,10 @@ end interface
 !//////////////////////////////////////////////////////////////////////// 
 ! 
       SUBROUTINE CheckInputIntegrity( controlVariables, success )  
+         use SMConstants
          USE FTValueDictionaryClass
          USE mainKeywordsModule
+         use FTValueClass
          IMPLICIT NONE
 !
 !        ---------
@@ -304,6 +306,13 @@ end interface
 !
          CLASS(FTObject), POINTER :: obj
          INTEGER                  :: i
+         character(len=LINE_LENGTH)    :: inviscidDiscretization, discretizationNodes
+         interface
+            subroutine toLower(str) 
+               character(*), intent(in out) :: str
+            end subroutine toLower
+         end interface
+         
          success = .TRUE.
 !
 !        Control variables with default value
@@ -316,6 +325,31 @@ end interface
          obj => controlVariables % objectForKey(discretizationNodesKey)
          if ( .not. associated(obj) ) then
             call controlVariables % addValueForKey("Gauss",discretizationNodesKey)
+         end if
+
+         obj => controlVariables % objectForKey(inviscidDiscretizationKey)
+         if ( .not. associated(obj) ) then
+            call controlVariables % addValueForKey("Standard",inviscidDiscretizationKey)
+         end if
+
+         obj => controlVariables % objectForKey(splitFormKey)
+         if ( .not. associated(obj) ) then
+            call controlVariables % addValueForKey("Ducros",splitFormKey)
+         end if
+!
+!        Check for inconsistencies in the input variables
+!        ------------------------------------------------
+         inviscidDiscretization = trim(controlVariables % stringValueForKey(inviscidDiscretizationKey, LINE_LENGTH))
+         discretizationNodes = trim(controlVariables % stringValueForKey(discretizationNodesKey, LINE_LENGTH))
+
+         call toLower(inviscidDiscretization)
+         call toLower(discretizationNodes)
+
+         if ( (trim(inviscidDiscretization) .eq. "split-form") .and. (trim(discretizationNodes) .eq. "gauss") ) then
+            write(STD_OUT,'(A)') "*** WARNING:    Only Gauss-Lobatto nodes are available for Split-Form discretizations"
+            write(STD_OUT,'(A)') "*** WARNING:    Automatically switched to Gauss-Lobatto points"
+            call controlVariables % removeObjectForKey(discretizationNodesKey)
+            call controlVariables % addValueForKey("Gauss-Lobatto",discretizationNodesKey)
          end if
 !
 !        Check the controlVariables created
