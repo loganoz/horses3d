@@ -299,6 +299,12 @@ module Solution2PltModule
 !        --------------------
          if ( all( e % Nsol .eq. e % Nout ) ) then
             e % Qout(1:,0:,0:,0:) => e % Q
+
+            if ( hasGradients ) then
+               e % U_xout(1:,0:,0:,0:) => e % U_x
+               e % U_yout(1:,0:,0:,0:) => e % U_y
+               e % U_zout(1:,0:,0:,0:) => e % U_z
+            end if
    
          else
             allocate( e % Qout(1:5,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
@@ -493,7 +499,7 @@ module Solution2PltModule
    
             do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
                do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
-                  e % U_yout(:,i,j,k) = e % U_yout(:,i,j,k) + e % U_y(:,l,m,n) * TySol(i,l) * TySol(j,m) * TzSol(k,n)
+                  e % U_yout(:,i,j,k) = e % U_yout(:,i,j,k) + e % U_y(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
                end do            ; end do            ; end do
             end do            ; end do            ; end do
 
@@ -502,7 +508,7 @@ module Solution2PltModule
    
             do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
                do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
-                  e % U_zout(:,i,j,k) = e % U_zout(:,i,j,k) + e % U_z(:,l,m,n) * TzSol(i,l) * TySol(j,m) * TzSol(k,n)
+                  e % U_zout(:,i,j,k) = e % U_zout(:,i,j,k) + e % U_z(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
                end do            ; end do            ; end do
             end do            ; end do            ; end do
 
