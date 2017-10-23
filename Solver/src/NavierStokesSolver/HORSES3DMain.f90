@@ -89,7 +89,7 @@ end interface
 !
       CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Solver")
 
-      CALL controlVariables % initWithSize(32)
+      CALL controlVariables % initWithSize(16)
       CALL stopWatch % init()
       CALL UserDefinedStartup
       CALL ConstructSharedBCModule

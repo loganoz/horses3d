@@ -357,7 +357,7 @@ Module DGSEMClass
 !
 !        Save the initial condition
 !        --------------------------
-         saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
+         saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
          solutionName = trim(getFileName(solutionName))
          write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
