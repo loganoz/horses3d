@@ -10,6 +10,8 @@
       SUBROUTINE testNodalStorage  
          USE FTAssertions
          USE NodalStorageClass
+         use SMConstants
+         use PolynomialInterpAndDerivsModule
          IMPLICIT NONE 
          INTEGER                    :: N
          TYPE(NodalStorage)         :: spA
@@ -22,7 +24,7 @@
 !        -----
 !
          N = 8
-         CALL spA % construct(N,N,N)
+         CALL spA % construct(GAUSS,N,N,N)
          ALLOCATE(f(0:N))
          ALLOCATE(d(0:N))
          ALLOCATE(dExact(0:N))
@@ -50,7 +52,7 @@
 !        Differentiation test
 !        --------------------
 !
-         CALL MatrixMultiplyDeriv( f, d, spa % standardDerivativeMatrix, N, transp = MXV_DIRECT)
+         CALL MatrixMultiplyDeriv( f, d, spa % DTx, N, transp = MXV_DIRECT)
          e = MAXVAL(ABS(d-dExact))
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &

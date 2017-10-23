@@ -118,7 +118,7 @@
          ALLOCATE (Nvector(nelem))
          Nvector = N(1)
          
-         CALL ConstructNodalStorage(spA(N(1),N(2),N(3)), N(1),N(2),N(3))
+         CALL spA(N(1),N(2),N(3)) % Construct(GAUSS,N(1),N(2),N(3))
          CALL mesh % constructFromFile(meshfileName,spA,Nvector,Nvector,Nvector, success)
          
          CALL FTAssert(test = success,msg = "Mesh file properly constructed")
@@ -285,7 +285,7 @@
          ALLOCATE (Nvector(nelem))
          Nvector = N(1)
          
-         CALL ConstructNodalStorage(spA(N(1),N(2),N(3)), N(1),N(2),N(3))
+         CALL spA(N(1),N(2),N(3)) % Construct(GAUSS,N(1),N(2),N(3))
          CALL mesh % constructFromFile(meshfileName,spA,Nvector,Nvector,Nvector, success)
          
          CALL FTAssert(test = success,msg = "Mesh file read properly")
@@ -297,7 +297,7 @@
          END DO  
          
          CALL FTAssertEqual(expectedValue = 2     ,actualValue = SIZE(mesh % elements),msg = "Number of elements in mesh.")
-         CALL FTAssertEqual(expectedValue = N(1)+1,actualValue = SIZE(mesh % elements(1) % storage % Q,1) ,msg = "Number of solution points")
+         CALL FTAssertEqual(expectedValue = N(1)+1,actualValue = SIZE(mesh % elements(1) % storage % Q,2) ,msg = "Number of solution points")
 !
 !        -----------
 !        Check faces

@@ -156,55 +156,35 @@ module ProlongToFacesProcedures
          USE Physics
          IMPLICIT NONE
          INTEGER                      , INTENT(IN)    :: Nx, Ny, Nz
-         real(kind=RP)                , intent(in)    :: u(0:Nx,0:Ny,0:Nz,1:NEQ) , v(0:)
+         real(kind=RP)                , intent(in)    :: u(1:NEQ,0:Nx,0:Ny,0:Nz) , v(0:)
          integer                      , intent(in)    :: which_dim
          REAL(KIND=RP)                , INTENT(INOUT) :: bValue(1:,0:,0:)
          integer                      , intent(in)    :: NEQ
-!        --------------------------------------------------------------------------------
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
          integer                                    :: i , j , k , eq
 
          select case (which_dim)
-            case (IX)
+         case (IX)
 
-               do eq = 1 , NEQ
-                  do j = 0 , Nz
-                     do i = 0 , Ny
-                        do k = 0 , Nx
+            do j = 0 , Nz ; do i = 0 , Ny ; do k = 0 , Nx
+               bValue(:,i,j) = bValue(:,i,j) + u(:,k,i,j) * v(k)
+            end do        ; end do        ; end do
 
-                           bValue(eq,i,j) = bValue(eq,i,j) + u(k,i,j,eq) * v(k)
-   
-                        end do
-                     end do
-                  end do
-               end do
+         case (IY)
 
-            case (IY)
+            do j = 0 , Nz ; do k = 0 , Ny ; do i = 0 , Nx
+               bValue(:,i,j) = bValue(:,i,j) + u(:,i,k,j) * v(k)
+            end do        ; end do        ; end do
 
-                do eq = 1 , NEQ
-                  do j = 0 , Nz
-                     do k = 0 , Ny
-                        do i = 0 , Nx
+         case (IZ)
 
-                           bValue(eq,i,j) = bValue(eq,i,j) + u(i,k,j,eq) * v(k)
-   
-                        end do
-                     end do
-                  end do
-               end do
-
-            case (IZ)
-
-               do eq = 1 , NEQ
-                  do k = 0 , Nz
-                     do j = 0 , Ny
-                        do i = 0 , Nx
-
-                           bValue(eq,i,j) = bValue(eq,i,j) + u(i,j,k,eq) * v(k)
-   
-                        end do
-                     end do
-                  end do
-               end do
+            do k = 0 , Nz ; do j = 0 , Ny ; do i = 0 , Nx
+               bValue(:,i,j) = bValue(:,i,j) + u(:,i,j,k) * v(k)
+            end do        ; end do        ; end do
 
          end select
          

@@ -37,7 +37,7 @@ module DGInviscidDiscretization
          class(InviscidMethod_t) :: self
          type(Element)           :: e
          type(NodalStorage)      :: spA
-         real(kind=RP)           :: contravariantFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN , 1:NDIM)
+         real(kind=RP)           :: contravariantFlux(1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM)
 !
 !        ---------------------------
 !        The base class does nothing
@@ -60,34 +60,34 @@ module DGInviscidDiscretization
          class(StandardDG_t) :: self
          type(Element)       :: e
          type(NodalStorage) :: spA
-         real(kind=RP)      :: contravariantFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN , 1:NDIM)
+         real(kind=RP)      :: contravariantFlux(1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)      :: cartesianFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN , 1:NDIM)
-         integer             :: nv
+         integer            :: i, j, k
+         real(kind=RP)      :: cartesianFlux(1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM)
 
          cartesianFlux = InviscidFlux( spA % Nx , spA % Ny , spA % Nz , e % storage % Q )
 
-         do nv = 1 , N_EQN
+         do k = 0, spA % Nz   ; do j = 0, spA % Ny    ; do i = 0, spA % Nx
          
-            contravariantFlux(:,:,:,nv,IX) =    cartesianFlux(:,:,:,nv,IX) * e % geom % jGradXi(IX,:,:,:)  &
-                                             +  cartesianFlux(:,:,:,nv,IY) * e % geom % jGradXi(IY,:,:,:)  &
-                                             +  cartesianFlux(:,:,:,nv,IZ) * e % geom % jGradXi(IZ,:,:,:)
+            contravariantFlux(:,i,j,k,IX) =    cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
+                                             + cartesianFlux(:,i,j,k,IY) * e % geom % jGradXi(IY,i,j,k)  &
+                                             + cartesianFlux(:,i,j,k,IZ) * e % geom % jGradXi(IZ,i,j,k)
 
 
-            contravariantFlux(:,:,:,nv,IY) =    cartesianFlux(:,:,:,nv,IX) * e % geom % jGradEta(IX,:,:,:)  &
-                                             +  cartesianFlux(:,:,:,nv,IY) * e % geom % jGradEta(IY,:,:,:)  &
-                                             +  cartesianFlux(:,:,:,nv,IZ) * e % geom % jGradEta(IZ,:,:,:)
+            contravariantFlux(:,i,j,k,IY) =   cartesianFlux(:,i,j,k,IX) * e % geom % jGradEta(IX,i,j,k)  &
+                                             + cartesianFlux(:,i,j,k,IY) * e % geom % jGradEta(IY,i,j,k)  &
+                                             + cartesianFlux(:,i,j,k,IZ) * e % geom % jGradEta(IZ,i,j,k)
 
 
-            contravariantFlux(:,:,:,nv,IZ) =    cartesianFlux(:,:,:,nv,IX) * e % geom % jGradZeta(IX,:,:,:)  &
-                                             +  cartesianFlux(:,:,:,nv,IY) * e % geom % jGradZeta(IY,:,:,:)  &
-                                             +  cartesianFlux(:,:,:,nv,IZ) * e % geom % jGradZeta(IZ,:,:,:)
+            contravariantFlux(:,i,j,k,IZ) =   cartesianFlux(:,i,j,k,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+                                             + cartesianFlux(:,i,j,k,IY) * e % geom % jGradZeta(IY,i,j,k)  &
+                                             + cartesianFlux(:,i,j,k,IZ) * e % geom % jGradZeta(IZ,i,j,k)
 
-         end do
+         end do               ; end do                ; end do
 
       end subroutine StandardDG_ComputeInnerFluxes
 

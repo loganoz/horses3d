@@ -18,7 +18,6 @@
       USE PhysicsStorage
       USE SharedBCModule
       USE zoneClass
-      USE DGSEMPlotterClass
       USE DGSEMClass
       USE BoundaryConditionFunctions
       USE TimeIntegratorClass
@@ -62,7 +61,7 @@ interface
       character(len=LINE_LENGTH) function getFileName(inputLine)
          use SMConstants
          implicit none
-         character(len=*), intent(in)     :: inputLine
+         character(len=*)    :: inputLine
       end function getFileName
 end interface
 
@@ -190,7 +189,7 @@ end interface
 !
       IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN 
          solutionFileName = trim(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH))) // ".hsol"
-         saveGradients    = controlVariables % logicalValueForKey("save gradients with solution")
+         saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients)
       END IF
 
@@ -306,7 +305,21 @@ end interface
          CLASS(FTObject), POINTER :: obj
          INTEGER                  :: i
          success = .TRUE.
-         
+!
+!        Control variables with default value
+!        ------------------------------------
+         obj => controlVariables % objectForKey(saveGradientsToSolutionKey)
+         if ( .not. associated(obj) ) then
+            call controlVariables % addValueForKey(".false.",saveGradientsToSolutionKey)
+         end if
+
+         obj => controlVariables % objectForKey(discretizationNodesKey)
+         if ( .not. associated(obj) ) then
+            call controlVariables % addValueForKey("Gauss",discretizationNodesKey)
+         end if
+!
+!        Check the controlVariables created
+!        ----------------------------------        
          DO i = 1, SIZE(mainKeywords)
             obj => controlVariables % objectForKey(mainKeywords(i))
             IF ( .NOT. ASSOCIATED(obj) )     THEN
@@ -314,13 +327,5 @@ end interface
                success = .FALSE. 
             END IF  
          END DO  
-!
-!        Control variables with default value
-!        ------------------------------------
-         obj => controlVariables % objectForKey("save gradients with solution")
-         if ( .not. associated(obj) ) then
-            call controlVariables % addValueForKey("save gradients with solution",".false.")
-         end if
-         
          
       END SUBROUTINE checkInputIntegrity

@@ -73,8 +73,7 @@ module DGViscousDiscretization
          class(ViscousMethod_t) ,  intent (in)   :: self
          type(Element)                           :: e
          type(NodalStorage)      ,  intent (in)  :: spA
-         real(kind=RP)           ,  intent (out) :: contravariantFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN, 1:NDIM)
-
+         real(kind=RP)           ,  intent (out) :: contravariantFlux(1:N_EQN, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM)
 !
 !        ---------------------------
 !        The base class does nothing
@@ -135,6 +134,7 @@ module DGViscousDiscretization
 !        Local variables
 !        ---------------
 !
+         integer                :: i, j, k
          integer                :: eID , fID , dimID , eqID
 !
 !        Compute the averaged states
@@ -160,14 +160,14 @@ module DGViscousDiscretization
 !
 !           Perform the scaling
 !           -------------------               
-            do eqID = 1 , N_GRAD_EQN
-               mesh % elements(eID) % storage % U_x(:,:,:,eqID) = &
-                           mesh % elements(eID) % storage % U_x(:,:,:,eqID) / mesh % elements(eID) % geom % jacobian
-               mesh % elements(eID) % storage % U_y(:,:,:,eqID) = &
-                           mesh % elements(eID) % storage % U_y(:,:,:,eqID) / mesh % elements(eID) % geom % jacobian
-               mesh % elements(eID) % storage % U_z(:,:,:,eqID) = &
-                           mesh % elements(eID) % storage % U_z(:,:,:,eqID) / mesh % elements(eID) % geom % jacobian
-            end do
+            do k = 0, Nz   ; do j = 0, Ny    ; do i = 0, Nx
+               mesh % elements(eID) % storage % U_x(:,i,j,k) = &
+                           mesh % elements(eID) % storage % U_x(:,i,j,k) / mesh % elements(eID) % geom % jacobian(i,j,k)
+               mesh % elements(eID) % storage % U_y(:,i,j,k) = &
+                           mesh % elements(eID) % storage % U_y(:,i,j,k) / mesh % elements(eID) % geom % jacobian(i,j,k)
+               mesh % elements(eID) % storage % U_z(:,i,j,k) = &
+                           mesh % elements(eID) % storage % U_z(:,i,j,k) / mesh % elements(eID) % geom % jacobian(i,j,k)
+            end do         ; end do          ; end do
 
             call ProlongGradientToFaces( mesh % elements(eID), spA(Nx,Ny,Nz) )
 
@@ -197,11 +197,11 @@ module DGViscousDiscretization
 !
 !        Compute gradient variables
 !        --------------------------
-         call GradientValuesForQ( Q = e % storage % Q, U = U )
+         call GradientValuesForQ(spA % Nx, spA % Ny, spA % Nz, Q = e % storage % Q, U = U )
 !
 !        Perform the weak integral
 !        -------------------------
-         call VectorWeakIntegrals % StdVolumeGreen ( N_GRAD_EQN , e , spA , U , e % storage % U_x , e % storage % U_y , e % storage % U_z )
+         call VectorWeakIntegrals % StdVolumeGreen (e , spA , U , e % storage % U_x , e % storage % U_y , e % storage % U_z )
 
          e % storage % U_x = -e % storage % U_x
          e % storage % U_y = -e % storage % U_y
@@ -226,48 +226,11 @@ module DGViscousDiscretization
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)        :: faceInt_x(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , N_GRAD_EQN )
-         real(kind=RP)        :: faceInt_y(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , N_GRAD_EQN )
-         real(kind=RP)        :: faceInt_z(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , N_GRAD_EQN )
-!
-!        LEFT face
-!        ---------
-         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , ELEFT , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
-         e % storage % U_x = e % storage % U_x + faceInt_x
-         e % storage % U_y = e % storage % U_y + faceInt_y
-         e % storage % U_z = e % storage % U_z + faceInt_z
-!
-!        RIGHT face
-!        ----------
-         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , ERIGHT , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
-         e % storage % U_x = e % storage % U_x + faceInt_x
-         e % storage % U_y = e % storage % U_y + faceInt_y
-         e % storage % U_z = e % storage % U_z + faceInt_z
-!
-!        TOP face
-!        --------
-         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , ETOP , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
-         e % storage % U_x = e % storage % U_x + faceInt_x
-         e % storage % U_y = e % storage % U_y + faceInt_y
-         e % storage % U_z = e % storage % U_z + faceInt_z
-!
-!        BOTTOM face
-!        -----------
-         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , EBOTTOM , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
-         e % storage % U_x = e % storage % U_x + faceInt_x
-         e % storage % U_y = e % storage % U_y + faceInt_y
-         e % storage % U_z = e % storage % U_z + faceInt_z
-!
-!        BACK face
-!        ---------
-         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , EBACK , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
-         e % storage % U_x = e % storage % U_x + faceInt_x
-         e % storage % U_y = e % storage % U_y + faceInt_y
-         e % storage % U_z = e % storage % U_z + faceInt_z
-!
-!        FRONT face
-!        ----------
-         call VectorWeakIntegrals % StdFace( N_GRAD_EQN , e , spA , EFRONT , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
+         real(kind=RP)        :: faceInt_x(N_GRAD_EQN, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz )
+         real(kind=RP)        :: faceInt_y(N_GRAD_EQN, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz )
+         real(kind=RP)        :: faceInt_z(N_GRAD_EQN, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz )
+
+         call VectorWeakIntegrals % StdFace(e , spA , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
          e % storage % U_x = e % storage % U_x + faceInt_x
          e % storage % U_y = e % storage % U_y + faceInt_y
          e % storage % U_z = e % storage % U_z + faceInt_z
@@ -444,34 +407,33 @@ module DGViscousDiscretization
          class(BassiRebay1_t) ,     intent (in) :: self
          type(Element)                          :: e
          type(NodalStorage)      , intent (in)  :: spA
-         real(kind=RP)           , intent (out) :: contravariantFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN , 1:NDIM)
+         real(kind=RP)           , intent (out) :: contravariantFlux(1:NCONS, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz, 1:NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)       :: cartesianFlux(0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1:N_EQN , 1:NDIM)
-         integer             :: nv
+         real(kind=RP)       :: cartesianFlux(1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM)
+         integer             :: i, j, k
 
          cartesianFlux = ViscousFlux( spA % Nx , spA % Ny , spA % Nz  , e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z )
 
-         do nv = 1 , N_EQN
-         
-            contravariantFlux(:,:,:,nv,IX) =    cartesianFlux(:,:,:,nv,IX) * e % geom % jGradXi(IX,:,:,:)  &
-                                             +  cartesianFlux(:,:,:,nv,IY) * e % geom % jGradXi(IY,:,:,:)  &
-                                             +  cartesianFlux(:,:,:,nv,IZ) * e % geom % jGradXi(IZ,:,:,:)
+         do k = 0, spA % Nz   ; do j = 0, spA % Ny ; do i = 0, spA % Nx
+            contravariantFlux(:,i,j,k,IX) =    cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
+                                             +  cartesianFlux(:,i,j,k,IY) * e % geom % jGradXi(IY,i,j,k)  &
+                                             +  cartesianFlux(:,i,j,k,IZ) * e % geom % jGradXi(IZ,i,j,k)
 
 
-            contravariantFlux(:,:,:,nv,IY) =    cartesianFlux(:,:,:,nv,IX) * e % geom % jGradEta(IX,:,:,:)  &
-                                             +  cartesianFlux(:,:,:,nv,IY) * e % geom % jGradEta(IY,:,:,:)  &
-                                             +  cartesianFlux(:,:,:,nv,IZ) * e % geom % jGradEta(IZ,:,:,:)
+            contravariantFlux(:,i,j,k,IY) =    cartesianFlux(:,i,j,k,IX) * e % geom % jGradEta(IX,i,j,k)  &
+                                             +  cartesianFlux(:,i,j,k,IY) * e % geom % jGradEta(IY,i,j,k)  &
+                                             +  cartesianFlux(:,i,j,k,IZ) * e % geom % jGradEta(IZ,i,j,k)
 
 
-            contravariantFlux(:,:,:,nv,IZ) =    cartesianFlux(:,:,:,nv,IX) * e % geom % jGradZeta(IX,:,:,:)  &
-                                             +  cartesianFlux(:,:,:,nv,IY) * e % geom % jGradZeta(IY,:,:,:)  &
-                                             +  cartesianFlux(:,:,:,nv,IZ) * e % geom % jGradZeta(IZ,:,:,:)
+            contravariantFlux(:,i,j,k,IZ) =    cartesianFlux(:,i,j,k,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+                                             +  cartesianFlux(:,i,j,k,IY) * e % geom % jGradZeta(IY,i,j,k)  &
+                                             +  cartesianFlux(:,i,j,k,IZ) * e % geom % jGradZeta(IZ,i,j,k)
 
-         end do
+         end do               ; end do            ; end do
 
       end subroutine BR1_ComputeInnerFluxes
 

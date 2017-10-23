@@ -55,7 +55,7 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , iVar 
+         integer     :: eID , i, j, k
          integer     :: Nx, Ny, Nz
 !
 !$omp barrier
@@ -76,10 +76,10 @@ module SpatialDiscretization
 !
 !           Scale with the Jacobian
 !           -----------------------
-            do iVar = 1 , N_EQN
-               mesh % elements(eID) % storage % QDot(:,:,:,iVar) = mesh % elements(eID) % storage % QDot(:,:,:,iVar) &
-                                          / mesh % elements(eID) % geom % jacobian
-            end do
+            do k = 0, Nz   ; do j = 0, Ny    ; do i = 0, Nx
+               mesh % elements(eID) % storage % QDot(:,i,j,k) = mesh % elements(eID) % storage % QDot(:,i,j,k) &
+                                          / mesh % elements(eID) % geom % jacobian(i,j,k)
+            end do         ; end do          ; end do
          end do
 !$omp end do
       end subroutine TimeDerivative_ComputeQDot
@@ -105,9 +105,9 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: inviscidContravariantFlux ( 0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1 : N_EQN , 1:NDIM ) 
-         real(kind=RP) :: viscousContravariantFlux  ( 0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1 : N_EQN , 1:NDIM ) 
-         real(kind=RP) :: contravariantFlux         ( 0:spA % Nx , 0:spA % Ny , 0:spA % Nz , 1 : N_EQN , 1:NDIM ) 
+         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM ) 
+         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM ) 
+         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM ) 
          integer       :: eID
 
 !
@@ -126,7 +126,7 @@ module SpatialDiscretization
 !
 !        Perform the Weak Volume Green integral
 !        --------------------------------------
-         e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( N_EQN , e , spA , contravariantFlux ) 
+         e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e , spA , contravariantFlux ) 
 
       end subroutine TimeDerivative_VolumetricContribution
 !
@@ -143,30 +143,8 @@ module SpatialDiscretization
          type(Element)           :: e
          type(NodalStorage)      :: spA
          real(kind=RP)           :: t
-!
-!        LEFT face
-!        ---------
-         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e , spA , ELEFT , e % storage % Fstarb(:,:,:,ELEFT) ) 
-!
-!        RIGHT face
-!        ---------
-         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e , spA , ERIGHT , e % storage % Fstarb(:,:,:,ERIGHT) )
-!
-!        BOTTOM face
-!        ---------
-         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e , spA , EBOTTOM , e % storage % Fstarb(:,:,:,EBOTTOM) )
-!
-!        TOP face
-!        ---------
-         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e , spA , ETOP , e % storage % Fstarb(:,:,:,ETOP) )
-!
-!        BACK face
-!        ---------
-         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e , spA , EBACK , e % storage % Fstarb(:,:,:,EBACK) )
-!
-!        FRONT face
-!        ---------
-         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e , spA , EFRONT , e % storage % Fstarb(:,:,:,EFRONT) )
+
+         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e, spA, e % storage % Fstarb(:,:,:,:) ) 
 
       end subroutine TimeDerivative_FacesContribution
 !
@@ -206,113 +184,5 @@ module SpatialDiscretization
       end subroutine DGSpatial_ComputeGradient
 !
 !////////////////////////////////////////////////////////////////////////////////////////
-!
-   !! Old routine... TOdo: See what happens with this code
-!~   subroutine DGGradSpaceDerivative( u, uL, uR,  N, D, b, deriv ) 
-!~!
-!~!  ----------------------------------------------------------
-!~!  The one dimensional space derivative for the DG method for
-!~!  a vector state. This is Algorithm 92 in the book.
-!~!  ----------------------------------------------------------
-!~!
-!~      use PhysicsStorage
-!~      use PolynomialInterpAndDerivsModule
-!~      IMPLICIT NONE
-!~!
-!~!     ---------
-!~!     Arguments
-!~!     ---------
-!~!
-!~      INTEGER                                   :: N
-!~      REAL(KIND=RP), DIMENSION(0:N, N_GRAD_EQN) :: u
-!~      REAL(KIND=RP), DIMENSION(N_GRAD_EQN)      :: uL, uR
-!~      REAL(KIND=RP), DIMENSION(0:N, 0:N)        :: D
-!~      REAL(KIND=RP), DIMENSION(0:N, 2)          :: b
-!~!
-!~!     -----------------
-!~!     Output variables:
-!~!     -----------------
-!~!
-!~      REAL(KIND=RP), DIMENSION(0:N,N_GRAD_EQN), INTENT(OUT) :: deriv
-!~!
-!~!     ---------------
-!~!     Local variables
-!~!     ---------------
-!~!
-!~      INTEGER            :: j, k
-!~      INTEGER, PARAMETER :: LEFT = 1, RIGHT = 2
-!~!
-!~!     ----------------------------
-!~!     Internal points contribution
-!~!     ----------------------------
-!~!
-!~      do k = 1, N_GRAD_EQN
-!~         CALL PolyDirectMatrixMultiplyDeriv( u(:,k), deriv(:,k), D, N )
-!~      end do
-!~!
-!~!     ----------------------------
-!~!     Boundary points contribution
-!~!     ----------------------------
-!~!
-!~      do j = 0,N  
-!~         deriv(j,:) = deriv(j,:) + uR*b(j,RIGHT) + uL*b(j,LEFT)
-!~      end do
-     
-!~   end subroutine DGGradSpaceDerivative   
-!
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!!
-!      subroutine ComputeContravariantFlux( e, contravariantFlux )
-!!
-!!     --------------------------------------
-!!     As described, compute
-!      
-!!     \[
-!!        \tilde f^i = J\vec a^i \cdot \vec F
-!!     \]
-!!     --------------------------------------
-!!      
-!      use ElementClass
-!      use PhysicsStorage
-!      use Physics
-!      IMPLICIT NONE
-!!
-!!     -----------------
-!!     Input parameters:
-!!     -----------------
-!!
-!      TYPE(Element)                          :: e
-!      REAL(KIND=RP), dimension(0:,0:,0:,:,:) :: contravariantFlux 
-!!
-!!     ---------------
-!!     Local variables
-!!     ---------------
-!!
-!      INTEGER                         :: n, m, l, nv
-!      REAL(KIND=RP), DIMENSION(N_EQN) :: ff, gg, hh
-!      
-!      do l = 0, e % Nxyz(3)
-!         do m = 0, e % Nxyz(2)
-!            do n = 0, e % Nxyz(1)
-!               do nv = 1, N_EQN
-!                  contravariantFlux(n,m,l,nv,1) = e % geom % jGradXi(1,n,m,l)  *ff(nv) +   &
-!                                                  e % geom % jGradXi(2,n,m,l)  *gg(nv) +   &
-!                                                  e % geom % jGradXi(3,n,m,l)  *hh(nv)
-!                  contravariantFlux(n,m,l,nv,2) = e % geom % jGradEta(1,n,m,l) *ff(nv) +   &
-!                                                  e % geom % jGradEta(2,n,m,l) *gg(nv) +   &
-!                                                  e % geom % jGradEta(3,n,m,l) *hh(nv)
-!                  contravariantFlux(n,m,l,nv,3) = e % geom % jGradZeta(1,n,m,l)*ff(nv) +   &
-!                                                  e % geom % jGradZeta(2,n,m,l)*gg(nv) +   &
-!                                                  e % geom % jGradZeta(3,n,m,l)*hh(nv)
-!               end do
-!               
-!            end do
-!         end do
-!      end do
-!    
-!      end subroutine ComputeContravariantFlux
-!
-!////////////////////////////////////////////////////////////////////////
 !
 end module SpatialDiscretization

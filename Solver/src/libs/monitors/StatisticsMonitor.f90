@@ -194,21 +194,25 @@ module StatisticsMonitor
 !        ---------------
 !
          integer  :: eID
+         integer  :: i, j, k
 
          do eID = 1, size(mesh % elements)
             associate(e    => mesh % elements(eID), &
                       data => mesh % elements(eID) % storage % stats % data)
 
             data           = data * self % no_of_samples
-            data(:,:,:,U)  = data(:,:,:,U)  + e % storage % Q(:,:,:,IRHOU) / e % storage % Q(:,:,:,IRHO)
-            data(:,:,:,V)  = data(:,:,:,V)  + e % storage % Q(:,:,:,IRHOV) / e % storage % Q(:,:,:,IRHO)
-            data(:,:,:,W)  = data(:,:,:,W)  + e % storage % Q(:,:,:,IRHOW) / e % storage % Q(:,:,:,IRHO)
-            data(:,:,:,UU) = data(:,:,:,UU) + POW2( e % storage % Q(:,:,:,IRHOU) / e % storage % Q(:,:,:,IRHO))
-            data(:,:,:,VV) = data(:,:,:,VV) + POW2( e % storage % Q(:,:,:,IRHOV) / e % storage % Q(:,:,:,IRHO))
-            data(:,:,:,WW) = data(:,:,:,WW) + POW2( e % storage % Q(:,:,:,IRHOW) / e % storage % Q(:,:,:,IRHO))
-            data(:,:,:,UV) = data(:,:,:,UV) + e % storage % Q(:,:,:,IRHOU) * e % storage % Q(:,:,:,IRHOV) / POW2(e % storage % Q(:,:,:,IRHO))
-            data(:,:,:,UW) = data(:,:,:,UW) + e % storage % Q(:,:,:,IRHOU) * e % storage % Q(:,:,:,IRHOW) / POW2(e % storage % Q(:,:,:,IRHO))
-            data(:,:,:,VW) = data(:,:,:,VW) + e % storage % Q(:,:,:,IRHOV) * e % storage % Q(:,:,:,IRHOW) / POW2(e % storage % Q(:,:,:,IRHO))
+
+            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
+               data(U,i,j,k)  = data(U,i,j,k)  + e % storage % Q(IRHOU,i,j,k) / e % storage % Q(IRHO,i,j,k)
+               data(V,i,j,k)  = data(V,i,j,k)  + e % storage % Q(IRHOV,i,j,k) / e % storage % Q(IRHO,i,j,k)
+               data(W,i,j,k)  = data(W,i,j,k)  + e % storage % Q(IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k)
+               data(UU,i,j,k) = data(UU,i,j,k) + POW2( e % storage % Q(IRHOU,i,j,k) / e % storage % Q(IRHO,i,j,k))
+               data(VV,i,j,k) = data(VV,i,j,k) + POW2( e % storage % Q(IRHOV,i,j,k) / e % storage % Q(IRHO,i,j,k))
+               data(WW,i,j,k) = data(WW,i,j,k) + POW2( e % storage % Q(IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k))
+               data(UV,i,j,k) = data(UV,i,j,k) + e % storage % Q(IRHOU,i,j,k) * e % storage % Q(IRHOV,i,j,k) / POW2(e % storage % Q(IRHO,i,j,k))
+               data(UW,i,j,k) = data(UW,i,j,k) + e % storage % Q(IRHOU,i,j,k) * e % storage % Q(IRHOW,i,j,k) / POW2(e % storage % Q(IRHO,i,j,k))
+               data(VW,i,j,k) = data(VW,i,j,k) + e % storage % Q(IRHOV,i,j,k) * e % storage % Q(IRHOW,i,j,k) / POW2(e % storage % Q(IRHO,i,j,k))
+            end do                  ; end do                   ; end do
 
             data = data / (self % no_of_samples + 1)
 
