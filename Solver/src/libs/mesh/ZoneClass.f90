@@ -1,3 +1,4 @@
+#include "Includes.h"
 module ZoneClass
    use SMConstants
    use FaceClass
@@ -7,7 +8,7 @@ module ZoneClass
    
    
    private
-   public Zone_t , ConstructZones, constructZoneModule
+   public Zone_t , ConstructZones, ReassignZones, constructZoneModule
 
    integer, parameter      :: STR_LEN_ZONE = 128
    
@@ -77,16 +78,42 @@ module ZoneClass
 !        ----------------         
          call Zone_AssignFaces(faces,zones,no_of_markers,zoneNames)
          
-         write(STD_OUT,'(/)')
-         call Section_Header("Creating zones")
-         write(STD_OUT,'(/)')
-         
-         do zoneID = 1, no_of_markers
-            WRITE(STD_OUT,'(30X,A,A7,I0,A15,A)') "->", "  Zone ",zoneID, " for boundary: ",trim(zones(zoneID) % Name)
-            write(STD_OUT,'(32X,A28,I0)') 'Number of faces: ', zones(zoneID) % no_of_faces
-         end do
-         
       end subroutine ConstructZones
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ------------------------------------------------------------------------------------------
+!     Subroutine for reassigning the zone faces (needed when periodic boundaries are prescribed)
+!     ------------------------------------------------------------------------------------------
+      subroutine ReassignZones( faces , zones )
+         use Headers
+         implicit none
+         class(Face), target                  :: faces(:)
+         class(Zone_t)                        :: zones(:)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                                  :: zoneID
+         integer                                  :: no_of_markers
+         character(len=STR_LEN_ZONE), allocatable :: zoneNames(:)
+!
+!        Get the number of markers from the Boundary Conditions dictionary
+!        -----------------------------------------------------------------         
+         no_of_markers = bcTypeDictionary % COUNT() 
+         if ( no_of_markers .le. 0 ) return
+!
+!        Gather the zone names
+!        ---------------------
+         allocate ( zoneNames( 1:no_of_markers ) ) 
+         zoneNames = bcTypeDictionary % allKeys()
+!
+!        Assign the faces
+!        ----------------         
+         call Zone_AssignFaces(faces,zones,no_of_markers,zoneNames)
+         
+      end subroutine ReassignZones
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -146,6 +173,7 @@ module ZoneClass
 !        ----------------------------------------------------
          do zoneID = 1 , no_of_markers
             call zoneList(zoneID) % Load(realArray)
+            safedeallocate(zones(zoneID) % faces)
             allocate(zones(zoneID) % faces( size(realArray) ))
             zones(zoneID) % faces = floor(realArray)
             zones(zoneID) % no_of_faces = size(realArray)
