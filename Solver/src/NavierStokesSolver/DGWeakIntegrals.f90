@@ -13,6 +13,7 @@ module DGWeakIntegrals
    type  ScalarWeakIntegrals_t
       contains
          procedure, nopass    :: StdVolumeGreen  => ScalarWeakIntegrals_StdVolumeGreen
+         procedure, nopass    :: SplitVolumeDivergence => ScalarWeakIntegrals_SplitVolumeDivergence
          procedure, nopass    :: StdFace => ScalarWeakIntegrals_StdFace
    end type ScalarWeakIntegrals_t
 
@@ -68,6 +69,43 @@ module DGWeakIntegrals
          end do             ; end do             ; end do               ; end do
 
       end function ScalarWeakIntegrals_StdVolumeGreen
+
+      function ScalarWeakIntegrals_SplitVolumeDivergence( e, spA, fSharp, gSharp, hSharp, Fv ) result ( volInt )
+         use MatrixOperations
+         implicit none
+         class(Element),      intent(in)  :: e
+         class(NodalStorage), intent(in)  :: spA
+         real(kind=RP),       intent(in)  :: fSharp(1:NCONS, 0:spA % Nx, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+         real(kind=RP),       intent(in)  :: gSharp(1:NCONS, 0:spA % Ny, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+         real(kind=RP),       intent(in)  :: hSharp(1:NCONS, 0:spA % Nz, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+         real(kind=RP),       intent(in)  :: Fv(1:NCONS, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz, 1:NDIM )
+         real(kind=RP)                    :: volInt(1:NCONS, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: i, j, k, l
+
+         volInt = 0.0_RP
+
+         do k = 0, spA % Nz ; do j = 0, spA % Ny   ; do l = 0, spA % Nx ; do i = 0, spA % Nx
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spA % sharpDx(i,l) * fSharp(:,l,i,j,k) &
+                                              + spA % hatDx(i,l) * Fv(:,l,j,k,IX)
+         end do             ; end do               ; end do             ; end do
+
+         do k = 0, spA % Nz ; do l = 0, spA % Ny ; do j = 0, spA % Ny   ; do i = 0, spA % Nx
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spA % sharpDy(j,l) * gSharp(:,l,i,j,k) &
+                                              + spA % hatDy(j,l) * Fv(:,i,l,k,IY)
+         end do             ; end do               ; end do             ; end do
+
+         do l = 0, spA % Nz ; do k = 0, spA % Nz ; do j = 0, spA % Ny   ; do i = 0, spA % Nx
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spA % sharpDz(k,l) * hSharp(:,l,i,j,k) &
+                                              + spA % hatDz(k,l) * Fv(:,i,j,l,IZ)
+         end do             ; end do             ; end do               ; end do
+
+      end function ScalarWeakIntegrals_SplitVolumeDivergence
+
 !
 !///////////////////////////////////////////////////////////////
 !

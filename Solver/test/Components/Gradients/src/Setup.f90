@@ -12,6 +12,8 @@
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: discretizationNodesKey  = "discretization nodes"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveGradientsToSolutionKey  = "save gradients with solution"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: inviscidDiscretizationKey  = "inviscid discretization"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: splitFormKey               = "split form"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: machNumberKey           = "mach number"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: reynoldsNumberKey       = "reynolds number"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: aoaThetaKey             = "aoa theta"
@@ -28,8 +30,10 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfPlotPointsKey   = "number of plot points"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfBoundariesKey   = "number of boundaries"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: solutionFileNameKey     = "solution file name"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(17) :: mainKeywords =  [machNumberKey,           &
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(19) :: mainKeywords =  [machNumberKey,           &
                                                                           discretizationNodesKey,  &
+                                                                          inviscidDiscretizationKey, &
+                                                                          splitFormKey, &
                                                                           saveGradientsToSolutionKey, &
                                                                           reynoldsNumberKey,       &
                                                                           aoaThetaKey,             &

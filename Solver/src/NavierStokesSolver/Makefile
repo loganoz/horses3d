@@ -63,7 +63,7 @@ OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 ./build/%.o: ./%.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) $(INCLUDE) $(MACROS) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(MACROS) -c $< -o $@ $(MOD_FLAG) ./include
 
 $(PROG): header mkdirs $(OBJS_HORSES_BUILD)
 	@echo
