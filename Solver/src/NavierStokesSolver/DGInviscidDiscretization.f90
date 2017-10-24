@@ -70,43 +70,47 @@ module DGInviscidDiscretization
             end subroutine toLower
          end interface
 
-         splitForm = controlVariables % stringValueForKey(splitFormKey, requestedLength = LINE_LENGTH)
 
-         call toLower(splitForm)
-
-         select case ( trim(splitForm) )
-         case ( "standard" )
-            self % ComputeVolumetricSharpFlux => StandardDG_VolumetricSharpFlux
-            splitType = STANDARD_SPLIT
-
-         case ( "morinishi" )
-            self % ComputeVolumetricSharpFlux => Morinishi_VolumetricSharpFlux
-            splitType = MORINISHI_SPLIT
-
-         case ( "ducros" )
-            self % ComputeVolumetricSharpFlux => Ducros_VolumetricSharpFlux
-            splitType = DUCROS_SPLIT
-
-         case ( "kennedy-gruber" )
-            self % ComputeVolumetricSharpFlux => KennedyGruber_VolumetricSharpFlux
-            splitType = KENNEDYGRUBER_SPLIT
-
-         case ( "pirozzoli" )
-            self % ComputeVolumetricSharpFlux => Pirozzoli_VolumetricSharpFlux
-            splitType = PIROZZOLI_SPLIT
-
-         case default
-
-            write(STD_OUT,'(A,A,A)') 'Requested split form "',trim(splitForm),'" is not implemented.'
-            write(STD_OUT,'(A)') "Implemented split forms are:"
-            write(STD_OUT,'(A)') "  * Standard"
-            write(STD_OUT,'(A)') "  * Morinishi"
-            write(STD_OUT,'(A)') "  * Ducros"
-            write(STD_OUT,'(A)') "  * Kennedy-Gruber"
-            write(STD_OUT,'(A)') "  * Pirozzoli"
-            errorMessage(STD_OUT)
-            stop 
-
+         select type ( self ) 
+         type is (SplitDG_t)
+            splitForm = controlVariables % stringValueForKey(splitFormKey, requestedLength = LINE_LENGTH)
+   
+            call toLower(splitForm)
+   
+            select case ( trim(splitForm) )
+            case ( "standard" )
+               self % ComputeVolumetricSharpFlux => StandardDG_VolumetricSharpFlux
+               splitType = STANDARD_SPLIT
+   
+            case ( "morinishi" )
+               self % ComputeVolumetricSharpFlux => Morinishi_VolumetricSharpFlux
+               splitType = MORINISHI_SPLIT
+   
+            case ( "ducros" )
+               self % ComputeVolumetricSharpFlux => Ducros_VolumetricSharpFlux
+               splitType = DUCROS_SPLIT
+   
+            case ( "kennedy-gruber" )
+               self % ComputeVolumetricSharpFlux => KennedyGruber_VolumetricSharpFlux
+               splitType = KENNEDYGRUBER_SPLIT
+   
+            case ( "pirozzoli" )
+               self % ComputeVolumetricSharpFlux => Pirozzoli_VolumetricSharpFlux
+               splitType = PIROZZOLI_SPLIT
+   
+            case default
+   
+               write(STD_OUT,'(A,A,A)') 'Requested split form "',trim(splitForm),'" is not implemented.'
+               write(STD_OUT,'(A)') "Implemented split forms are:"
+               write(STD_OUT,'(A)') "  * Standard"
+               write(STD_OUT,'(A)') "  * Morinishi"
+               write(STD_OUT,'(A)') "  * Ducros"
+               write(STD_OUT,'(A)') "  * Kennedy-Gruber"
+               write(STD_OUT,'(A)') "  * Pirozzoli"
+               errorMessage(STD_OUT)
+               stop 
+   
+            end select
          end select
 !
 !        Describe

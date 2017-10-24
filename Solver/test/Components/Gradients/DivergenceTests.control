@@ -1,5 +1,6 @@
 Flow equations = "Euler"
 discretization nodes = "Gauss"
+inviscid discretization = Standard
 mesh file name = "./GradientsMeshFileNames.txt"
 save gradients with solution = .false.
 plot file name = "none"
