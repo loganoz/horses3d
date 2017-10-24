@@ -317,7 +317,6 @@ MODULE HexMeshClass
 !        ---------------------------
 !
          CALL DeletePeriodicMinusFaces( self )
-
             
          CLOSE( fUnit )
 !
@@ -776,7 +775,11 @@ MODULE HexMeshClass
          self%faces(i) = dummy_faces(i)
       ENDDO 
       
-           
+!      Reassign zones
+!      -----------------
+      CALL ReassignZones(self % faces, self % zones)
+      
+      
       END SUBROUTINE DeletePeriodicminusfaces
 ! 
 !//////////////////////////////////////////////////////////////////////// 
@@ -801,7 +804,7 @@ MODULE HexMeshClass
 !     Local variables
 !     ---------------
 !
-      INTEGER           :: fID
+      INTEGER           :: fID, zoneID
       INTEGER           :: no_of_bdryfaces
       
       no_of_bdryfaces = 0
@@ -823,7 +826,19 @@ MODULE HexMeshClass
       end do
 
       write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bdryfaces
-
+      
+!     Describe the zones
+!     ------------------
+      
+      write(STD_OUT,'(/)')
+      call Section_Header("Creating zones")
+      write(STD_OUT,'(/)')
+      
+      do zoneID = 1, size(self % zones)
+         WRITE(STD_OUT,'(30X,A,A7,I0,A15,A)') "->", "  Zone ",zoneID, " for boundary: ",trim(self % zones(zoneID) % Name)
+         write(STD_OUT,'(32X,A28,I0)') 'Number of faces: ', self % zones(zoneID) % no_of_faces
+      end do
+      
       END SUBROUTINE DescribeMesh     
 !
 !////////////////////////////////////////////////////////////////////////
