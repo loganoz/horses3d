@@ -41,7 +41,6 @@ module DGWeakIntegrals
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !
       function ScalarWeakIntegrals_StdVolumeGreen( e, spA, F ) result ( volInt )
-         use MatrixOperations
          implicit none
          class(Element),      intent(in)  :: e
          class(NodalStorage), intent(in)  :: spA
@@ -71,7 +70,6 @@ module DGWeakIntegrals
       end function ScalarWeakIntegrals_StdVolumeGreen
 
       function ScalarWeakIntegrals_SplitVolumeDivergence( e, spA, fSharp, gSharp, hSharp, Fv ) result ( volInt )
-         use MatrixOperations
          implicit none
          class(Element),      intent(in)  :: e
          class(NodalStorage), intent(in)  :: spA
@@ -110,7 +108,6 @@ module DGWeakIntegrals
 !///////////////////////////////////////////////////////////////
 !
       pure function ScalarWeakIntegrals_StdFace( e, spA, F ) result ( faceInt )
-         use MatrixOperations
          implicit none
          class(Element),      intent(in)     :: e
          class(NodalStorage), intent(in)     :: spA 

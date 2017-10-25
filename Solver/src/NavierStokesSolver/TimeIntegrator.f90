@@ -133,6 +133,7 @@
       USE Implicit_JF , ONLY : TakeBDFStep_JF
       USE Implicit_NJ , ONLY : TakeBDFStep_NJ
       USE FASMultigridClass
+      use StopwatchClass
       IMPLICIT NONE
 !
 !     ---------
@@ -203,6 +204,13 @@ end interface
 !
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
 !
+!     -------------------
+!     Measure solver time
+!     -------------------
+!
+      call Stopwatch % CreateNewEvent("Solver")
+      call Stopwatch % Start("Solver")
+!
 !     -----------------
 !     Integrate in time
 !     -----------------
@@ -264,7 +272,9 @@ end interface
               sem  % maxResidual       = maxval(maxResidual)
               self % time              = t
               sem  % numberOfTimeSteps = k + 1
-              PRINT *, "Residual tolerance reached at iteration ",k+1," with Residual = ", maxResidual
+
+              write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",k+1," with Residual = ", maxval(maxResidual)
+              call Stopwatch % Pause("Solver")
               RETURN
             END IF
          ELSEIF (self % integratorType == TIME_ACCURATE) THEN
@@ -272,6 +282,7 @@ end interface
                self % time = t     
                sem % numberOfTimeSteps = k+1
                call self % Display( sem % mesh, monitors)
+               call Stopwatch % Pause("Solver")
                exit
             end if
          END IF
@@ -306,6 +317,8 @@ end interface
       sem % maxResidual       = maxval(maxResidual)
       self % time             = t
       sem % numberOfTimeSteps = k
+
+      call Stopwatch % Pause("Solver")
 
       END SUBROUTINE Integrate    
 !

@@ -77,13 +77,13 @@ Module DGSEMClass
                                  externalState, externalGradients, polynomialOrder, Nx_, Ny_, Nz_, success )
       use FTValueDictionaryClass
       use mainKeywordsModule
+      use StopwatchClass
       IMPLICIT NONE
 !
 !     --------------------------
 !     Constructor for the class.
 !     --------------------------
 !
-      !-----------------------------------------------------------------
       CLASS(DGSem)                       :: self                               !<> Class to be constructed
       character(len=*),         optional :: meshFileName_
       class(FTValueDictionary)           :: controlVariables                   !<  Name of mesh file
@@ -91,14 +91,17 @@ Module DGSEMClass
       INTEGER, OPTIONAL                  :: polynomialOrder(3)                 !<  Uniform polynomial order
       INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
-      !-----------------------------------------------------------------
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
       INTEGER                     :: i,j,k,el                           ! Counters
       INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
       integer                     :: nodes
       INTEGER                     :: nelem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       character(len=LINE_LENGTH)  :: meshFileName
-      !-----------------------------------------------------------------
       INTERFACE
          SUBROUTINE externalState(x,t,nHat,Q,boundaryName)
             USE SMConstants
@@ -114,8 +117,12 @@ Module DGSEMClass
             CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
          END SUBROUTINE externalGradients
       END INTERFACE
-      !-----------------------------------------------------------------
-      
+!
+!     Measure preprocessing time
+!     --------------------------      
+      call Stopwatch % CreateNewEvent("Preprocessing")
+      call Stopwatch % Start("Preprocessing")
+
       if ( present( meshFileName_ ) ) then
 !
 !        Mesh file set up by input argument
@@ -265,6 +272,11 @@ Module DGSEMClass
       call Initialize_SpaceAndTimeMethods(controlVariables)
       
       NULLIFY(Nx,Ny,Nz)
+!
+!     Stop measuring preprocessing time
+!     ----------------------------------
+      call Stopwatch % Pause("Preprocessing")
+   
       
       END SUBROUTINE ConstructDGSem
 !

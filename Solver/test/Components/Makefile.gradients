@@ -51,13 +51,13 @@ OBJS_CASE= Setup Physics GradientSetup GradientTests InitialFlowState TestGradie
 	   
 OBJS_HORSES=  SMConstants \
 		StorageClass \
+		Stopwatch \
 		FTTimerClass \
 		SolutionFile \
 		FileReading \
 		Utilities \
 		Plotter \
 		RealDataLinkedList \
-		MatrixOperations \
 		ParamfileRegions \
 		LegendreAlgorithms \
 		InterpolationAndDerivatives \

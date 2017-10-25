@@ -4,9 +4,9 @@
 !   @File:    OutputVariables.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Oct 14 20:44:38 2017
-!   @Last revision date: Thu Oct 19 18:26:58 2017
+!   @Last revision date: Wed Oct 25 13:36:14 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: dbce8ad5b2d0d04c57b8747deacc998131c2f97c
+!   @Last revision commit: 3e90a7cd78f5f13897f2c40945fbe278342a5ffb
 !
 !//////////////////////////////////////////////////////
 !
@@ -35,7 +35,7 @@ module OutputVariables
    public   no_of_outputVariables
    public   getOutputVariables, ComputeOutputVariables, getOutputVariablesLabel
 
-   integer, parameter   :: STR_VAR_LEN = 8
+   integer, parameter   :: STR_VAR_LEN = 16
    integer, parameter   :: NO_OF_VARIABLES = 32
    integer, parameter   :: NO_OF_INVISCID_VARIABLES = 16
 !
