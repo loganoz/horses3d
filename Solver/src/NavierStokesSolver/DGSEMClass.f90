@@ -204,7 +204,7 @@ Module DGSEMClass
 !     Construct the mesh
 !     ------------------
 !
-      CALL self % mesh % constructFromFile( meshfileName, self % spA, Nx, Ny, Nz,  success )
+      CALL self % mesh % constructFromFile( meshfileName, nodes, self % spA, Nx, Ny, Nz,  success )
       IF(.NOT. success) RETURN 
 !
 !     ------------------------

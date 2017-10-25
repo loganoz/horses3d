@@ -27,6 +27,7 @@ MODULE HexMeshClass
 !
       type HexMesh
          integer                                   :: numberOfFaces
+         integer                                   :: nodeType
          integer                                   :: no_of_elements
          integer      , dimension(:), allocatable  :: Ns              !Polynomial orders of all elements
          type(Node)   , dimension(:), allocatable  :: nodes
@@ -61,7 +62,7 @@ MODULE HexMeshClass
 !
 !!    Constructs mesh from mesh file
 !!    Only valid for conforming meshes
-      SUBROUTINE ConstructMesh_FromFile_( self, fileName, spA, Nx, Ny, Nz, success )
+      SUBROUTINE ConstructMesh_FromFile_( self, fileName, nodes, spA, Nx, Ny, Nz, success )
          USE Physics
          IMPLICIT NONE
 !
@@ -70,6 +71,7 @@ MODULE HexMeshClass
 !        ---------------
 !
          CLASS(HexMesh)     :: self
+         integer            :: nodes
          TYPE(NodalStorage) :: spA(0:,0:,0:)
          CHARACTER(LEN=*)   :: fileName
          INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
@@ -134,6 +136,7 @@ MODULE HexMeshClass
          
          READ(fUnit,*) numberOfNodes, numberOfElements, bFaceOrder
 
+         self % nodeType = nodes
          self % no_of_elements = numberOfElements
 !
 !        ---------------
@@ -972,7 +975,7 @@ MODULE HexMeshClass
 !        Create file: it will be contained in ./MESH
 !        -------------------------------------------
          meshName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".hmesh"
-         fID = CreateNewSolutionFile( trim(meshName), MESH_FILE, self % no_of_elements, 0, 0.0_RP, refs)
+         fID = CreateNewSolutionFile( trim(meshName), MESH_FILE, self % nodeType, self % no_of_elements, 0, 0.0_RP, refs)
 !
 !        Introduce all element nodal coordinates
 !        ---------------------------------------
@@ -1014,9 +1017,9 @@ MODULE HexMeshClass
 !        Create new file
 !        ---------------
          if ( saveGradients ) then
-            fid = CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, self % no_of_elements, iter, time, refs)
+            fid = CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
          else
-            fid = CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % no_of_elements, iter, time, refs)
+            fid = CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
          end if
 !
 !        Write arrays
@@ -1031,6 +1034,8 @@ MODULE HexMeshClass
             end if
             end associate
          end do
+
+         call CloseSolutionFile(fid)
 
       end subroutine HexMesh_SaveSolution
 
@@ -1060,7 +1065,7 @@ MODULE HexMeshClass
 !
 !        Create new file
 !        ---------------
-         fid = CreateNewSolutionFile(trim(name),STATS_FILE, self % no_of_elements, iter, time, refs)
+         fid = CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
 !
 !        Write arrays
 !        ------------

@@ -4,9 +4,9 @@
 !   @File:    sharedSpectralBasis.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Oct 15 13:07:03 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed Oct 25 18:53:00 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 5edaf46ab67ee96cdf80ff143c0ab65970c05b73
 !
 !//////////////////////////////////////////////////////
 !
@@ -51,14 +51,15 @@ module SharedSpectralBasis
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine addNewSpectralBasis( spA, N)
+      subroutine addNewSpectralBasis( spA, N, nodeType)
          use NodalStorageClass
          implicit none
          class(NodalStorage)     :: spA(0:,0:,0:)
          integer                 :: N(3)
+         integer, intent(in)     :: nodeType
 
          if ( .not. spA(N(1),N(2), N(3)) % Constructed ) then
-            call spA(N(1), N(2), N(3) ) % Construct( GAUSS, N(1), N(2), N(3) )
+            call spA(N(1), N(2), N(3) ) % Construct( nodeType, N(1), N(2), N(3) )
          end if
 
       end subroutine addNewSpectralBasis
