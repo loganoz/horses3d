@@ -11,10 +11,9 @@ DGSEMClass\
 pAdaptationClass
 
 FileReading: SMConstants
-Utilities: SMConstants 
+Utilities: SMConstants Stopwatch
 Plotter: NodalStorageClass HexElementClass PlotterDataSource 
 TimerClass: SMConstants
-MatrixOperations: SMConstants
 LegendreAlgorithms: SMConstants 
 Headers: SMConstants
 InterpolationAndDerivatives: SMConstants LegendreAlgorithms 
@@ -33,7 +32,7 @@ Monitors: MonitorDefinitions ParamfileRegions ResidualsMonitor Setup SurfaceInte
 ResidualsMonitor: MonitorDefinitions
 DGInviscidDiscretization: SMConstants HexElementClass NodalStorageClass Physics
 DGViscousDiscretization: SMConstants HexElementClass NodalStorageClass Physics DGWeakIntegrals ProlongToFaces HexMesh BoundaryConditions
-DGWeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics MatrixOperations
+DGWeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics
 SpatialDiscretization: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
 DGSEMClass: SpatialDiscretization Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants ProlongToFaces Monitors
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
