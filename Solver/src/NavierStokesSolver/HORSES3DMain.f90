@@ -14,7 +14,6 @@
       
       USE SMConstants
       use FTValueDictionaryClass
-      USE FTTimerClass
       USE PhysicsStorage
       USE SharedBCModule
       USE zoneClass
@@ -67,7 +66,6 @@ end interface
 
       TYPE( FTValueDictionary)            :: controlVariables
       TYPE( DGSem )                       :: sem
-      TYPE( FTTimer )                     :: stopWatch
       TYPE( TimeIntegrator_t )            :: timeIntegrator
       
       LOGICAL                             :: success, saveGradients
@@ -87,10 +85,9 @@ end interface
 !     Initializations
 !     ---------------
 !
-      CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Solver")
+      CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Solver",__DATE__,__TIME__)
 
       CALL controlVariables % initWithSize(16)
-      CALL stopWatch % init()
       CALL UserDefinedStartup
       CALL ConstructSharedBCModule
       CALL ConstructZoneModule
@@ -169,13 +166,13 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      CALL stopWatch % start()
-         CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors)
-      CALL stopWatch % stop()
-      
-      PRINT *
-      PRINT *, "Elapsed Time: ", stopWatch % elapsedTime(units = TC_SECONDS)
-      PRINT *, "Total Time:   ", stopWatch % totalTime  (units = TC_SECONDS)
+      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors)
+!
+!     --------------------------
+!     Show simulation statistics
+!     --------------------------
+!
+      call DisplaySimulationStatistics(sem % numberOftimeSteps, sem % mesh)
 !
 !     -----------------------------------------------------
 !     Let the user perform actions on the computed solution
@@ -192,6 +189,7 @@ end interface
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients)
       END IF
+
 
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
@@ -363,3 +361,66 @@ end interface
          END DO  
          
       END SUBROUTINE checkInputIntegrity
+
+      subroutine DisplaySimulationStatistics(iter,mesh)
+         use SMConstants
+         use HexMeshClass
+         use StopwatchClass
+         use Headers
+         implicit none
+         integer,    intent(in)      :: iter
+         type(HexMesh),   intent(in) :: mesh
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                    :: eID
+         integer                    :: NDOF
+         real(kind=RP)              :: Naverage
+         real(kind=RP)              :: t_elaps, t_cpu
+
+         write(STD_OUT,'(/)')
+         call Section_Header("Simulation statistics")
+         write(STD_OUT,'(/)')
+!
+!        Get mesh-related quantities
+!        ---------------------------
+         NDOF = 0
+         Naverage = 0
+   
+         do eID = 1, mesh % no_of_elements
+            associate ( e => mesh % elements(eID) )
+            NDOF = NDOF + (e % Nxyz(1) + 1)*(e % Nxyz(2) + 1)*(e % Nxyz(3) + 1)      
+            Naverage = Naverage + e % Nxyz(1) + e % Nxyz(2) + e % Nxyz(3)
+            end associate
+         end do
+
+         Naverage = Naverage / (3.0_RP * mesh % no_of_elements)
+!
+!        Show preprocessing time
+!        -----------------------
+         t_elaps = Stopwatch % Elapsedtime("Preprocessing")
+         t_cpu   = Stopwatch % CPUTime("Preprocessing")
+
+         call Subsection_Header("Preprocessing")
+
+         write(STD_OUT,'(30X,A,I0,A,F5.2,A,I0,A)')      "->   ", mesh % no_of_elements, &
+                                                      " elements with polynomial order ",Naverage," (NDOF = ",NDOF,")."
+         write(STD_OUT,'(30X,A,A30,ES10.3,A,ES10.3,A)') "->", "Preprocessing time: ",t_elaps," seconds (total CPU time: ",t_cpu,")."
+
+!
+!        Show simulation time
+!        --------------------
+         write(STD_OUT,'(/)')
+         call Subsection_Header("Solver")
+         if ( iter .le. 0 ) return
+
+         t_elaps = Stopwatch % ElapsedTime("Solver")
+         t_cpu   = Stopwatch % CPUTime("Solver")
+
+         write(STD_OUT,'(30X,A,A30,ES10.3,A)') "->", "Simulation elapsed time: ",t_elaps," seconds."
+         write(STD_OUT,'(30X,A,A30,ES10.3,A,ES10.3,A)') "->", "Simulation CPU time: ",t_cpu," seconds (ratio is ",t_cpu/t_elaps ,")."
+         write(STD_OUT,'(30X,A,A30,ES10.3,A)') "->", "Solver efficiency: " , t_elaps/(NDOF * iter)*1.0e6_RP, " seconds/(1 Million DOF·iter)."
+
+      end subroutine DisplaySimulationStatistics

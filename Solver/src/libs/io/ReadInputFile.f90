@@ -53,6 +53,15 @@
 !        parameters.
 !        -----------------------------------------------
 !
+
+         if ( command_argument_count() .eq. 0 ) then
+            write(STD_OUT,'(/,/,A)') "*** ERROR: Missing input file"
+            write(STD_OUT,'(A)') "*** ERROR: Syntax is: "
+            write(STD_OUT,'(A)') "*** ERROR:             >> HORSES3D ControlFile.control"
+            write(STD_OUT,'(A,/,/)') "*** ERROR: Stopping."
+            stop
+         end if
+
          CALL get_command_argument(1, arg)
          OPEN(UNIT=10,FILE=trim(arg))
 

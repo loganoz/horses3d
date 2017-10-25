@@ -27,9 +27,11 @@ MODULE Headers
         CONTAINS
 !       ========
 !       
-        SUBROUTINE Main_header(title)
+        SUBROUTINE Main_header(title,date,time)
                 IMPLICIT NONE
                 CHARACTER(LEN = *)      :: title
+                CHARACTER(LEN = *)      :: date
+                CHARACTER(LEN = *)      :: time
                 INTEGER, PARAMETER   :: siz = 100
                 CHARACTER(LEN = siz)    :: ast1,ast2,astTitle
                 INTEGER                 :: i
@@ -54,7 +56,7 @@ MODULE Headers
                 WRITE(*,'(A)') ast2
                 WRITE(*,'(A)') ast2
                 WRITE(*,'(A)') ast1
-                WRITE(*,'(A)') "Compiled ", __DATE__, __TIME__
+                WRITE(*,'(A,A,A,A)') "Compiled ",trim(date), ", ",trim(time)
 
         END SUBROUTINE Main_header
      

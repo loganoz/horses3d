@@ -3,6 +3,14 @@
 *.a
 *.so
 *.mod
+*.dylib
+tecplot.phy
+bin/HORSES3D
+make.inc
+*.hmesh
+*.hsol
+RESULTS
+SETUP
 
 # osx noise
 .DS_Store

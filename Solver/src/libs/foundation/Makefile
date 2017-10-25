@@ -12,10 +12,10 @@ MOD_FLAG?=-J
 
 
 LIBOBJS = 	./build/SMConstants.o \
+		./build/Stopwatch.o \
 		./build/Utilities.o \
 		./build/FTTimerClass.o \
 		./build/DenseMatUtilities.o \
-		./build/MatrixOperations.o \
 		./build/SharedBCModule.o \
 		./build/Setup.o \
 		./build/RealDataLinkedList.o 
