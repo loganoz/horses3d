@@ -197,7 +197,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, monitors)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -205,9 +205,11 @@
 !           ----------------------------------------------------------
 !
             USE HexMeshClass
+            use MonitorsClass
             IMPLICIT NONE
             CLASS(HexMesh)  :: mesh
             REAL(KIND=RP) :: time
+            type(Monitor_t),  intent(in)  :: monitors
 !
 !           ---------------
 !           Local variables
@@ -226,7 +228,8 @@
 ! 
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
                                                     dimensionless_, &
-                                                        refValues_   )
+                                                        refValues_, &
+                                                          monitors   )
 !
 !           --------------------------------------------------------
 !           Called after the solution computed to allow, for example
@@ -235,6 +238,7 @@
 !
             use FTAssertions
             USE HexMeshClass
+            use MonitorsClass
             use PhysicsStorage
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
@@ -244,6 +248,7 @@
             type(Thermodynamics_t),    intent(in) :: thermodynamics_
             type(Dimensionless_t),     intent(in) :: dimensionless_
             type(RefValues_t),         intent(in) :: refValues_
+            type(Monitor_t),           intent(in) :: monitors
 !
 !           ---------------
 !           Local variables

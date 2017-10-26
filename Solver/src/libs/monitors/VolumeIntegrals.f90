@@ -6,13 +6,14 @@ module VolumeIntegrals
 #include "Includes.h"
    
    private
-   public   VOLUME, KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY
+   public   VOLUME, KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY, VELOCITY
    public   ScalarVolumeIntegral, VectorVolumeIntegral
 
-   integer, parameter      :: VOLUME = 1
-   integer, parameter      :: KINETIC_ENERGY = 2
+   integer, parameter      :: VOLUME              = 1
+   integer, parameter      :: KINETIC_ENERGY      = 2
    integer, parameter      :: KINETIC_ENERGY_RATE = 3
-   integer, parameter      :: ENSTROPHY = 4
+   integer, parameter      :: ENSTROPHY           = 4
+   integer, parameter      :: VELOCITY            = 5
 !
 !  ========
    contains
@@ -164,6 +165,15 @@ module VolumeIntegrals
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
             end do            ; end do           ; end do
 
+         case ( VELOCITY )
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               val = val +   wx(i) * wy(j) * wz(k) * sqrt(   POW2(e % storage % Q(IRHOU,i,j,k)) &
+                                                           + POW2(e % storage % Q(IRHOV,i,j,k)) & 
+                                                           + POW2(e % storage % Q(IRHOW,i,j,k))  ) &
+                                        / e % storage % Q(IRHO,i,j,k) * e % geom % jacobian(i,j,k)
+            end do            ; end do           ; end do
+            
          end select
 
          end associate

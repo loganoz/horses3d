@@ -191,7 +191,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, monitor)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -199,9 +199,11 @@
 !           ----------------------------------------------------------
 !
             USE DGSEMClass
+            use MonitorsClass
             IMPLICIT NONE
             CLASS(HexMesh)  :: mesh
             REAL(KIND=RP)   :: time
+            type(Monitor_t),  intent(in)  :: monitors
             
          END SUBROUTINE UserDefinedPeriodicOperation
 !
@@ -209,7 +211,8 @@
 ! 
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
                                                     dimensionless_, &
-                                                        refValues_   )
+                                                        refValues_, &
+                                                            monitor  )
 !
 !           --------------------------------------------------------
 !           Called after the solution computed to allow, for example
@@ -218,6 +221,7 @@
 !
             USE DGSEMClass
             use PhysicsStorage
+            use MonitorsClass
             IMPLICIT NONE
             class(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -226,6 +230,7 @@
             type(Thermodynamics_t),    intent(in) :: thermodynamics_
             type(Dimensionless_t),     intent(in) :: dimensionless_
             type(RefValues_t),         intent(in) :: refValues_
+            type(Monitor_t),           intent(in) :: monitors
 
          END SUBROUTINE UserDefinedFinalize
 !

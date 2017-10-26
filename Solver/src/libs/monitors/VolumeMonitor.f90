@@ -93,6 +93,8 @@ module VolumeMonitorClass
 
          case ("Enstrophy")
 
+         case ("Mean velocity")
+
          case default
 
             if ( len_trim (self % variable) .eq. 0 ) then
@@ -103,6 +105,7 @@ module VolumeMonitorClass
                print*, "   * Kinetic energy"
                print*, "   * Kinetic energy rate"
                print*, "   * Enstrophy"
+               print*, "   * Mean velocity"
                stop "Stopped."
 
             end if
@@ -139,10 +142,10 @@ module VolumeMonitorClass
 !
          use VolumeIntegrals
          implicit none
-         class   (  VolumeMonitor_t )  :: self
-         class   (  HexMesh       ) :: mesh
-         class(NodalStorage)        :: spA(0:,0:,0:)
-         integer                       :: bufferPosition
+         class   (  VolumeMonitor_t ) :: self
+         class   (  HexMesh       )   :: mesh
+         class(NodalStorage)          :: spA(0:,0:,0:)
+         integer                      :: bufferPosition
 !
 !        Compute the volume integral
 !        ---------------------------
@@ -155,6 +158,10 @@ module VolumeMonitorClass
    
          case ("Enstrophy")
             self % values(bufferPosition) = 0.5_RP * ScalarVolumeIntegral(mesh, spA, ENSTROPHY) / ScalarVolumeIntegral(mesh, spA, VOLUME)
+
+         case ("Mean velocity")
+            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, spA, VELOCITY) / ScalarVolumeIntegral(mesh, spA, VOLUME)
+
 
          end select
 
