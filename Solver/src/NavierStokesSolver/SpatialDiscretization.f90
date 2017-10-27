@@ -48,10 +48,10 @@ module SpatialDiscretization
          select case ( trim(inviscidDiscretization) )
 
          case ( "standard" )
-            allocate( StandardDG_t  :: InviscidMethod )
+            if (.not. allocated(InviscidMethod)) allocate( StandardDG_t  :: InviscidMethod )
 
          case ( "split-form")
-            allocate(SplitDG_t   :: InviscidMethod)
+            if (.not. allocated(InviscidMethod)) allocate(SplitDG_t   :: InviscidMethod)
 
          case default
             write(STD_OUT,'(A,A,A)') 'Requested inviscid discretization "',trim(inviscidDiscretization),'" is not implemented.'
@@ -66,10 +66,10 @@ module SpatialDiscretization
          call InviscidMethod % Initialize(controlVariables)
          
          if ( flowIsNavierStokes ) then
-            allocate( BassiRebay1_t :: ViscousMethod  ) 
+            if (.not. allocated(ViscousMethod)) allocate( BassiRebay1_t :: ViscousMethod  ) 
    
          else
-            allocate( ViscousMethod_t  :: ViscousMethod )
+            if (.not. allocated(ViscousMethod)) allocate( ViscousMethod_t  :: ViscousMethod )
             
          end if
          
