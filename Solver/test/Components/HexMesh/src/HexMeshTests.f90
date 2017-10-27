@@ -12,6 +12,7 @@
          USE SMConstants
          USE HexMeshClass 
          USE DGSEMPlotterClass
+         USE SharedBCModule
          IMPLICIT NONE
          
          TYPE(HexMesh)                   :: mesh
@@ -33,6 +34,7 @@
          CHARACTER(LEN=128)      :: msg = "Node id xxx"
          LOGICAL                 :: success
          
+         CHARACTER(len=8)                   :: boundaryNames(6)
          INTEGER, ALLOCATABLE               :: Nvector(:)
          INTEGER                            :: nelem
          INTEGER                            :: fUnit
@@ -110,6 +112,13 @@
 !        Generate the mesh
 !        -----------------
 !
+         ! First, we have to generate the bcTypeDictionary as it would be read from the control file
+         call constructSharedBCModule()
+         boundaryNames = ['front   ','back    ','bottom  ','top     ','left    ','right   ']
+         do id = 1, 6
+            CALL bcTypeDictionary % addValueForKey('freeslipboundary', boundaryNames(id))
+         end do
+         
          ALLOCATE(spA(0:N(1),0:N(2),0:N(3)))
          OPEN(newunit = fUnit, FILE = meshFileName )  
             READ(fUnit,*) l, nelem, l                    ! Here l is used as default reader since this variables are not important now
