@@ -1106,7 +1106,7 @@ MODULE HexMeshClass
 !        Local variables
 !        ---------------
 !
-         INTEGER          :: fID, eID, fileType, no_of_elements, flag
+         INTEGER          :: fID, eID, fileType, no_of_elements, flag, nodetype
          integer          :: Nxp1, Nyp1, Nzp1, no_of_eqs
          character(len=SOLFILE_STR_LEN)      :: rstName
 !
@@ -1140,6 +1140,15 @@ MODULE HexMeshClass
             stop
          end select
 !
+!        Get the node type
+!        -----------------
+         read(fID) nodeType
+
+         if ( nodeType .ne. self % nodeType ) then
+            print*, "Solution file uses a different discretization nodes that the mesh."
+            errorMessage(STD_OUT)
+         end if
+!
 !        Read the number of elements
 !        ---------------------------
          read(fID) no_of_elements
@@ -1156,6 +1165,10 @@ MODULE HexMeshClass
          read(fID) initial_iteration
          read(fID) initial_time          
 !
+!        Read the reference values
+!        -------------------------
+         read(fID) 
+!
 !        Read the terminator indicator
 !        -----------------------------
          read(fID) flag
@@ -1170,7 +1183,8 @@ MODULE HexMeshClass
 !        ------------------
          do eID = 1, size(self % elements)
             associate( e => self % elements(eID) )
-            read(fID) Nxp1, Nyp1, Nzp1, no_of_eqs
+            read(fID)
+            read(fID) no_of_eqs, Nxp1, Nyp1, Nzp1
             if (      ((Nxp1-1) .ne. e % Nxyz(1)) &
                  .or. ((Nyp1-1) .ne. e % Nxyz(2)) &
                  .or. ((Nzp1-1) .ne. e % Nxyz(3)) &
@@ -1203,6 +1217,10 @@ MODULE HexMeshClass
             end if
             end associate
          end do
+!
+!        Close the file
+!        --------------
+         close(fID)
 
       END SUBROUTINE HexMesh_LoadSolution
 ! 

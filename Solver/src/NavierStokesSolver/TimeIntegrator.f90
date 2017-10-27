@@ -112,7 +112,7 @@
 !        Set the autosave
 !        ----------------
 !
-         call self % autosave % Configure(controlVariables)
+         call self % autosave % Configure(controlVariables, initial_time)
          
       END SUBROUTINE constructTimeIntegrator
 !

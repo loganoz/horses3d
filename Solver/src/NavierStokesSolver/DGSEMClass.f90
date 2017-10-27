@@ -364,15 +364,16 @@ Module DGSEMClass
                                                         refValues )
             initial_time = 0.0_RP
             initial_iteration = 0
-         END IF
 !
-!        Save the initial condition
-!        --------------------------
-         saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
-         solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
-         solutionName = trim(getFileName(solutionName))
-         write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
-         call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
+!           Save the initial condition (for initialized cases)
+!           --------------------------
+            saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
+            solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
+            solutionName = trim(getFileName(solutionName))
+            write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
+            call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
+
+         END IF
    
       end subroutine DGSEM_SetInitialCondition
 !
