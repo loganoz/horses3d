@@ -27,6 +27,7 @@ MODULE HexMeshClass
 !
       type HexMesh
          integer                                   :: numberOfFaces
+         integer                                   :: nodeType
          integer                                   :: no_of_elements
          integer      , dimension(:), allocatable  :: Ns              !Polynomial orders of all elements
          type(Node)   , dimension(:), allocatable  :: nodes
@@ -61,7 +62,7 @@ MODULE HexMeshClass
 !
 !!    Constructs mesh from mesh file
 !!    Only valid for conforming meshes
-      SUBROUTINE ConstructMesh_FromFile_( self, fileName, spA, Nx, Ny, Nz, success )
+      SUBROUTINE ConstructMesh_FromFile_( self, fileName, nodes, spA, Nx, Ny, Nz, success )
          USE Physics
          IMPLICIT NONE
 !
@@ -70,6 +71,7 @@ MODULE HexMeshClass
 !        ---------------
 !
          CLASS(HexMesh)     :: self
+         integer            :: nodes
          TYPE(NodalStorage) :: spA(0:,0:,0:)
          CHARACTER(LEN=*)   :: fileName
          INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
@@ -134,6 +136,7 @@ MODULE HexMeshClass
          
          READ(fUnit,*) numberOfNodes, numberOfElements, bFaceOrder
 
+         self % nodeType = nodes
          self % no_of_elements = numberOfElements
 !
 !        ---------------
@@ -972,7 +975,7 @@ MODULE HexMeshClass
 !        Create file: it will be contained in ./MESH
 !        -------------------------------------------
          meshName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".hmesh"
-         fID = CreateNewSolutionFile( trim(meshName), MESH_FILE, self % no_of_elements, 0, 0.0_RP, refs)
+         fID = CreateNewSolutionFile( trim(meshName), MESH_FILE, self % nodeType, self % no_of_elements, 0, 0.0_RP, refs)
 !
 !        Introduce all element nodal coordinates
 !        ---------------------------------------
@@ -1014,9 +1017,9 @@ MODULE HexMeshClass
 !        Create new file
 !        ---------------
          if ( saveGradients ) then
-            fid = CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, self % no_of_elements, iter, time, refs)
+            fid = CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
          else
-            fid = CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % no_of_elements, iter, time, refs)
+            fid = CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
          end if
 !
 !        Write arrays
@@ -1031,6 +1034,8 @@ MODULE HexMeshClass
             end if
             end associate
          end do
+
+         call CloseSolutionFile(fid)
 
       end subroutine HexMesh_SaveSolution
 
@@ -1060,7 +1065,7 @@ MODULE HexMeshClass
 !
 !        Create new file
 !        ---------------
-         fid = CreateNewSolutionFile(trim(name),STATS_FILE, self % no_of_elements, iter, time, refs)
+         fid = CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
 !
 !        Write arrays
 !        ------------
@@ -1101,7 +1106,7 @@ MODULE HexMeshClass
 !        Local variables
 !        ---------------
 !
-         INTEGER          :: fID, eID, fileType, no_of_elements, flag
+         INTEGER          :: fID, eID, fileType, no_of_elements, flag, nodetype
          integer          :: Nxp1, Nyp1, Nzp1, no_of_eqs
          character(len=SOLFILE_STR_LEN)      :: rstName
 !
@@ -1135,6 +1140,15 @@ MODULE HexMeshClass
             stop
          end select
 !
+!        Get the node type
+!        -----------------
+         read(fID) nodeType
+
+         if ( nodeType .ne. self % nodeType ) then
+            print*, "Solution file uses a different discretization nodes that the mesh."
+            errorMessage(STD_OUT)
+         end if
+!
 !        Read the number of elements
 !        ---------------------------
          read(fID) no_of_elements
@@ -1151,6 +1165,10 @@ MODULE HexMeshClass
          read(fID) initial_iteration
          read(fID) initial_time          
 !
+!        Read the reference values
+!        -------------------------
+         read(fID) 
+!
 !        Read the terminator indicator
 !        -----------------------------
          read(fID) flag
@@ -1165,7 +1183,8 @@ MODULE HexMeshClass
 !        ------------------
          do eID = 1, size(self % elements)
             associate( e => self % elements(eID) )
-            read(fID) Nxp1, Nyp1, Nzp1, no_of_eqs
+            read(fID)
+            read(fID) no_of_eqs, Nxp1, Nyp1, Nzp1
             if (      ((Nxp1-1) .ne. e % Nxyz(1)) &
                  .or. ((Nyp1-1) .ne. e % Nxyz(2)) &
                  .or. ((Nzp1-1) .ne. e % Nxyz(3)) &
@@ -1198,6 +1217,10 @@ MODULE HexMeshClass
             end if
             end associate
          end do
+!
+!        Close the file
+!        --------------
+         close(fID)
 
       END SUBROUTINE HexMesh_LoadSolution
 ! 

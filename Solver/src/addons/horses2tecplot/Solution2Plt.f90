@@ -87,8 +87,8 @@ module Solution2PltModule
 !
 !           Construct spectral basis
 !           ------------------------
-            call addNewSpectralBasis(spA, e % Nmesh)
-            call addNewSpectralBasis(spA, e % Nsol)
+            call addNewSpectralBasis(spA, e % Nmesh, mesh % nodeType)
+            call addNewSpectralBasis(spA, e % Nsol, mesh % nodeType)
 !
 !           Project mesh and solution
 !           -------------------------
@@ -213,8 +213,8 @@ module Solution2PltModule
 !
 !           Construct spectral basis
 !           ------------------------
-            call addNewSpectralBasis(spA, e % Nmesh)
-            call addNewSpectralBasis(spA, e % Nsol)
+            call addNewSpectralBasis(spA, e % Nmesh, mesh % nodeType)
+            call addNewSpectralBasis(spA, e % Nsol, mesh % nodeType)
 !
 !           Construct interpolation matrices
 !           --------------------------------
@@ -379,8 +379,8 @@ module Solution2PltModule
 !
 !           Construct spectral basis for both mesh and solution
 !           ---------------------------------------------------
-            call addNewSpectralBasis(spA, e % Nmesh)
-            call addNewSpectralBasis(spA, e % Nsol)
+            call addNewSpectralBasis(spA, e % Nmesh, mesh % nodeType)
+            call addNewSpectralBasis(spA, e % Nsol, mesh % nodeType)
 !
 !           Construct interpolation matrices for the mesh
 !           ---------------------------------------------

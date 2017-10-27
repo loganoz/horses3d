@@ -32,10 +32,11 @@ module AutosaveClass
 !
 !////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Autosave_Configure(self, controlVariables)
+   subroutine Autosave_Configure(self, controlVariables, t0)
       implicit none
       class(Autosave_t)          :: self
       class(FTValueDictionary)   :: controlVariables
+      real(kind=RP), intent(in)  :: t0
 !
 !     ---------------
 !     Local variables
@@ -140,7 +141,7 @@ module AutosaveClass
 !
 !     Reset the last autosave time
 !     ----------------------------
-      self % lastAutosaveTime = 0.0_RP
+      self % lastAutosaveTime = t0
       self % performAutosave = .false.
          
    end subroutine Autosave_Configure

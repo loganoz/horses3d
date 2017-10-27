@@ -112,7 +112,7 @@
 !        Set the autosave
 !        ----------------
 !
-         call self % autosave % Configure(controlVariables)
+         call self % autosave % Configure(controlVariables, initial_time)
          
       END SUBROUTINE constructTimeIntegrator
 !
@@ -151,11 +151,13 @@
 !     ---------
 !
 interface
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, monitors)
             use HexMeshClass
+            use MonitorsClass
             IMPLICIT NONE
             CLASS(HexMesh)  :: mesh
             REAL(KIND=RP) :: time
+            type(Monitor_t), intent(in)  :: monitors
          END SUBROUTINE UserDefinedPeriodicOperation
          character(len=LINE_LENGTH) function getFileName(inputLine)
             use SMConstants
@@ -289,7 +291,7 @@ end interface
 !
 !        User defined periodic operation
 !        -------------------------------
-         CALL UserDefinedPeriodicOperation(sem % mesh,t)
+         CALL UserDefinedPeriodicOperation(sem % mesh, t, monitors)
 !
 !        Print monitors
 !        --------------

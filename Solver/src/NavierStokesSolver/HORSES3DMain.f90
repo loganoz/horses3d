@@ -42,9 +42,11 @@ interface
          END SUBROUTINE UserDefinedFinalSetup
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
                                                     dimensionless_, &
-                                                        refValues_   )
+                                                        refValues_, &
+                                                          monitors   )
             use PhysicsStorage
             use HexMeshClass
+            use MonitorsClass
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -53,6 +55,7 @@ interface
             type(Thermodynamics_t),    intent(in) :: thermodynamics_
             type(Dimensionless_t),     intent(in) :: dimensionless_
             type(RefValues_t),         intent(in) :: refValues_
+            type(Monitor_t),          intent(in) :: monitors
          END SUBROUTINE UserDefinedFinalize
       SUBROUTINE UserDefinedTermination
          IMPLICIT NONE  
@@ -178,7 +181,8 @@ end interface
 !     Let the user perform actions on the computed solution
 !     -----------------------------------------------------
 !
-      CALL UserDefinedFinalize(sem % mesh, timeIntegrator % time, sem % numberOfTimeSteps, sem % maxResidual, thermodynamics, dimensionless, refValues)
+      CALL UserDefinedFinalize(sem % mesh, timeIntegrator % time, sem % numberOfTimeSteps, &
+                              sem % maxResidual, thermodynamics, dimensionless, refValues, sem % monitors)
 !
 !     -------------------------------------
 !     Save the results to the solution file
