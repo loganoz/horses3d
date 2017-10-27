@@ -93,6 +93,19 @@ module SpatialDiscretization
 !
          integer     :: eID , i, j, k
          integer     :: Nx, Ny, Nz
+         interface
+            subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
+               USE HexMeshClass
+               use PhysicsStorage
+               IMPLICIT NONE
+               CLASS(HexMesh)                        :: mesh
+               REAL(KIND=RP)                         :: time
+               type(Thermodynamics_t),    intent(in) :: thermodynamics_
+               type(Dimensionless_t),     intent(in) :: dimensionless_
+               type(RefValues_t),         intent(in) :: refValues_
+            end subroutine UserDefinedSourceTerm
+         end interface
+
 !
 !$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
@@ -117,6 +130,11 @@ module SpatialDiscretization
             end do         ; end do          ; end do
          end do
 !$omp end do
+!
+!        Add a source term
+!        -----------------
+         call UserDefinedSourceTerm(mesh, t, thermodynamics, dimensionless, refValues)
+
       end subroutine TimeDerivative_ComputeQDot
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

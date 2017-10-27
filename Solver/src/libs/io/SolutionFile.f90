@@ -12,10 +12,11 @@
 !
 !        1- character variable (128) containing the name of the file
 !        2- integer variable containing the file type
-!        3- integer variable containing the number of elements
-!        4- (solution files only) the iteration
-!        5- (solution files only) the time
-!        6- a integer termination indicator (BEGINNING_DATA)
+!        3- integer containing the node type (GAUSS/GAUSS-LOBATTO)
+!        4- integer variable containing the number of elements
+!        5- the iteration
+!        6- the time
+!        7- a integer termination indicator (BEGINNING_DATA)
 !
 !  Next, the data is stored. This is always stored in the way:
 !
@@ -41,6 +42,7 @@ module SolutionFile
    public      :: CreateNewSolutionFile, writeArray, CloseSolutionFile, getSolutionFileType
    public      :: putSolutionFileInReadDataMode, getSolutionFileNoOfElements
    public      :: getSolutionFileArrayDimensions, getSolutionFileReferenceValues
+   public      :: getSolutionFileNodeType
 !
 !  Possible solution file types
 !  ----------------------------
@@ -67,10 +69,11 @@ module SolutionFile
    end interface writeArray
     
    contains
-      integer function CreateNewSolutionFile(name, type_, no_of_elements, iter, time, refs)
+      integer function CreateNewSolutionFile(name, type_, nodes, no_of_elements, iter, time, refs)
          implicit none
          character(len=*), intent(in)              :: name
          integer,          intent(in)              :: type_
+         integer,          intent(in)              :: nodes
          integer,          intent(in)              :: no_of_elements
          integer,          intent(in)              :: iter
          real(kind=RP),    intent(in)              :: time
@@ -108,6 +111,10 @@ module SolutionFile
 !        Write the type
 !        --------------
          write(fID) type_         
+!
+!        Write the nodes type
+!        --------------------
+         write(fID) nodes
 !
 !        Write the number of elements
 !        ----------------------------
@@ -188,11 +195,15 @@ module SolutionFile
 !
 !        Get the file name
 !        -----------------
-         read(fid) fileNameInFile
+         read(fid)
 !
 !        Get the file type
 !        -----------------
-         read(fid) fileType
+         read(fid)
+!
+!        Get the node type
+!        -----------------
+         read(fid)
 !
 !        Get the number of elements
 !        --------------------------
@@ -203,6 +214,41 @@ module SolutionFile
          close(fid)
 
       end function getSolutionFileNoOfElements
+
+      integer function getSolutionFileNodeType(fileName)
+         implicit none
+         character(len=*), intent(in)  :: fileName
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: fid, no_of_elements, initial_iter, fileType, flag
+         real(kind=RP)  :: initial_time
+         character(len=SOLFILE_STR_LEN)   :: fileNameInFile
+!
+!        Open file
+!        ---------
+         open(newunit=fid, file=trim(fileName), status="old", action="read", form="unformatted")
+!
+!        Get the file name
+!        -----------------
+         read(fid) 
+!
+!        Get the file type
+!        -----------------
+         read(fid) 
+!
+!        Get the node type
+!        -----------------
+         read(fid) getSolutionFileNodeType
+!
+!        Close file
+!        ----------
+         close(fid)
+
+      end function getSolutionFileNodeType
+
 
       function getSolutionFileReferenceValues(fileName)
          implicit none
@@ -228,6 +274,10 @@ module SolutionFile
 !        Get the file type
 !        -----------------
          read(fid) fileType
+!
+!        Get the node type
+!        -----------------
+         read(fid)
 !
 !        Get the number of elements
 !        --------------------------
@@ -271,6 +321,10 @@ module SolutionFile
 !        Get the file type
 !        -----------------
          read(fid) fileType
+!
+!        Get the node type
+!        -----------------
+         read(fid)
 !
 !        Get the number of elements
 !        --------------------------

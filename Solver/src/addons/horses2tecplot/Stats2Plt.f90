@@ -4,9 +4,9 @@
 !   @File:    Stats2Plt.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct 19 18:27:04 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed Oct 25 18:52:57 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 5edaf46ab67ee96cdf80ff143c0ab65970c05b73
 !
 !//////////////////////////////////////////////////////
 !
@@ -100,8 +100,8 @@ module Stats2PltModule
 !
 !           Construct spectral basis
 !           ------------------------
-            call addNewSpectralBasis(spA, e % Nmesh)
-            call addNewSpectralBasis(spA, e % Nsol)
+            call addNewSpectralBasis(spA, e % Nmesh, mesh % nodeType)
+            call addNewSpectralBasis(spA, e % Nsol, mesh % nodeType)
 !
 !           Project mesh and solution
 !           -------------------------
@@ -219,8 +219,8 @@ module Stats2PltModule
 !
 !           Construct spectral basis
 !           ------------------------
-            call addNewSpectralBasis(spA, e % Nmesh)
-            call addNewSpectralBasis(spA, e % Nsol)
+            call addNewSpectralBasis(spA, e % Nmesh, mesh % nodeType)
+            call addNewSpectralBasis(spA, e % Nsol, mesh % nodeType)
 !
 !           Construct interpolation matrices
 !           --------------------------------
@@ -368,8 +368,8 @@ module Stats2PltModule
 !
 !           Construct spectral basis for both mesh and solution
 !           ---------------------------------------------------
-            call addNewSpectralBasis(spA, e % Nmesh)
-            call addNewSpectralBasis(spA, e % Nsol)
+            call addNewSpectralBasis(spA, e % Nmesh, mesh % nodeType)
+            call addNewSpectralBasis(spA, e % Nsol, mesh % nodeType)
 !
 !           Construct interpolation matrices for the mesh
 !           ---------------------------------------------

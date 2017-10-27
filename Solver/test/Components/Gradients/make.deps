@@ -11,14 +11,14 @@ DGSEMClass\
 pAdaptationClass
 
 FileReading: SMConstants
-Utilities: SMConstants Stopwatch
+Utilities: SMConstants
 Plotter: NodalStorageClass HexElementClass PlotterDataSource 
 TimerClass: SMConstants
 LegendreAlgorithms: SMConstants 
 Headers: SMConstants
 InterpolationAndDerivatives: SMConstants LegendreAlgorithms 
 BoundaryConditions: SMConstants Physics MeshTypes HexElementClass SharedBCModule ManufacturedSolutions
-Physics: SMConstants Headers FluidData
+Physics: SMConstants Headers FluidData Stopwatch
 FacePatchClass: SMConstants 
 MappedGeometry: SMConstants TransfiniteMaps3D NodalStorageClass 
 TransfiniteMaps3D: SMConstants FacePatchClass 

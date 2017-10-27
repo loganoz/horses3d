@@ -31,6 +31,7 @@ module Storage
 
    type Mesh_t
       integer  :: no_of_elements
+      integer  :: nodeType
       type(Element_t),   allocatable    :: elements(:)
       character(len=LINE_LENGTH) :: meshName
       character(len=LINE_LENGTH) :: solutionName
@@ -57,6 +58,10 @@ module Storage
          integer  :: i,j,k
 
          self % meshName = trim(meshName)
+!
+!        Get mesh node type
+!        ------------------
+         self % nodeType = getSolutionFileNodeType(meshName)
 !
 !        Get number of elements
 !        ----------------------
@@ -130,6 +135,14 @@ module Storage
             errorMessage(STD_OUT)
             stop
          end select
+!
+!        Get node type
+!        -------------
+         if ( getSolutionFileNodeType(solutionName) .ne. self % nodeType ) then
+            print*, "Solution and Mesh node type differs"
+            errorMessage(STD_OUT)
+            stop
+         end if
 !
 !        Get number of elements
 !        ----------------------
