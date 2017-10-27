@@ -4,9 +4,9 @@
 !   @File:    Stats2Plt.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct 19 18:27:04 2017
-!   @Last revision date: Wed Oct 25 18:52:57 2017
+!   @Last revision date: Fri Oct 27 18:33:52 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 5edaf46ab67ee96cdf80ff143c0ab65970c05b73
+!   @Last revision commit: 7b65ab7eaea2e626401e530fda3bfb97c6c064b7
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,6 +14,7 @@
 module Stats2PltModule
    use SMConstants
    use SolutionFile
+   use Headers
    implicit none
 
    private
@@ -31,20 +32,30 @@ module Stats2PltModule
          logical,          intent(in)     :: fixedOrder
          integer,          intent(in)     :: Nout(3)
    
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Job description")
+
          select case ( basis )
 
          case(EXPORT_GAUSS)
 
             if ( fixedOrder ) then
+               write(STD_OUT,'(30X,A3,A)') "->", " Export to Gauss points with fixed order"
+               write(STD_OUT,'(30X,A,A30,I0,A,I0,A,I0,A)') "->" , "Output order: [",&
+                                                Nout(1),",",Nout(2),",",Nout(3),"]."
                call Stats2Plt_GaussPoints_FixedOrder(meshName, solutionName, Nout)
    
             else
+               write(STD_OUT,'(30X,A3,A)') "->", " Export to Gauss points"
                call Stats2Plt_GaussPoints(meshName, solutionName)
 
             end if
 
          case(EXPORT_HOMOGENEOUS)
             
+            write(STD_OUT,'(30X,A3,A)') "->", " Export to homogeneous points"
+            write(STD_OUT,'(30X,A,A30,I0,A,I0,A,I0,A)') "->" , "Output order: [",&
+                                        Nout(1),",",Nout(2),",",Nout(3),"]."
             call Stats2Plt_Homogeneous(meshName, solutionName, Nout)
 
          end select

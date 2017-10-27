@@ -4,9 +4,9 @@
 !   @File:    OutputVariables.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Oct 14 20:44:38 2017
-!   @Last revision date: Wed Oct 25 13:36:14 2017
+!   @Last revision date: Fri Oct 27 18:22:27 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 3e90a7cd78f5f13897f2c40945fbe278342a5ffb
+!   @Last revision commit: 44bfd062343e60e3001d20111ce1a76e97e9df5b
 !
 !//////////////////////////////////////////////////////
 !
@@ -30,6 +30,7 @@ module OutputVariables
 !
    use SMConstants
    use PhysicsStorage
+   use Headers
 
    private
    public   no_of_outputVariables
@@ -236,6 +237,25 @@ module OutputVariables
       
             pos = pos + outputVariablesForVariable(preliminarVariables(i))
          end do
+!
+!        *****************************
+!        Describe the output variables
+!        *****************************
+!
+         write(STD_OUT,'(/)')
+         call Section_Header("Output variables")
+         write(STD_OUT,'(/)')
+         call Subsection_Header("Selected output variables")
+         do i = 1, no_of_outputVariables
+            write(STD_OUT,'(30X,A,A)') "* ",trim(variableNames(outputVariableNames(i)))
+         end do
+
+         if ( outScale ) then
+            write(STD_OUT,'(30X,A,A)') "-> Variables are exported with dimensions."
+         else
+            write(STD_OUT,'(30X,A,A)') "-> Dimensionless mode."
+         end if
+         
 
       end subroutine getOutputVariables
 
