@@ -195,7 +195,7 @@
             IMPLICIT NONE
             CLASS(HexMesh)  :: mesh
             REAL(KIND=RP) :: time
-            type(Monitor_t),  intent(in)  :: monitor
+            type(Monitor_t),  intent(in)  :: monitors
             
          END SUBROUTINE UserDefinedPeriodicOperation
 !

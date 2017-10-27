@@ -119,7 +119,7 @@
          Nvector = N(1)
          
          CALL spA(N(1),N(2),N(3)) % Construct(GAUSS,N(1),N(2),N(3))
-         CALL mesh % constructFromFile(meshfileName,spA,Nvector,Nvector,Nvector, success)
+         CALL mesh % constructFromFile(meshfileName,GAUSS,spA,Nvector,Nvector,Nvector, success)
          
          CALL FTAssert(test = success,msg = "Mesh file properly constructed")
          IF(.NOT. success) return
@@ -286,7 +286,7 @@
          Nvector = N(1)
          
          CALL spA(N(1),N(2),N(3)) % Construct(GAUSS,N(1),N(2),N(3))
-         CALL mesh % constructFromFile(meshfileName,spA,Nvector,Nvector,Nvector, success)
+         CALL mesh % constructFromFile(meshfileName,GAUSS,spA,Nvector,Nvector,Nvector, success)
          
          CALL FTAssert(test = success,msg = "Mesh file read properly")
          IF(.NOT. success) RETURN 
