@@ -107,7 +107,7 @@ module SpatialDiscretization
          end interface
 
 !
-!$omp do schedule(runtime)
+!$omp do schedule(runtime) private(Nx,Ny,Nz,i,j,k)
          do eID = 1 , size(mesh % elements)
             Nx = mesh % elements(eID) % Nxyz(1)
             Ny = mesh % elements(eID) % Nxyz(2)
