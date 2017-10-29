@@ -11,27 +11,38 @@ module Solution2PltModule
    contains
       subroutine Solution2Plt(meshName, solutionName, fixedOrder, basis, Nout)
          use getTask
+         use Headers
          implicit none  
          character(len=*), intent(in)     :: meshName
          character(len=*), intent(in)     :: solutionName
          integer,          intent(in)     :: basis
          logical,          intent(in)     :: fixedOrder
          integer,          intent(in)     :: Nout(3)
-   
+
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Job description")
+
          select case ( basis )
 
          case(EXPORT_GAUSS)
 
             if ( fixedOrder ) then
+               write(STD_OUT,'(30X,A3,A)') "->", " Export to Gauss points with fixed order"
+               write(STD_OUT,'(30X,A,A30,I0,A,I0,A,I0,A)') "->" , "Output order: [",&
+                                                Nout(1),",",Nout(2),",",Nout(3),"]."
                call Solution2Plt_GaussPoints_FixedOrder(meshName, solutionName, Nout)
    
             else
+               write(STD_OUT,'(30X,A3,A)') "->", " Export to Gauss points"
                call Solution2Plt_GaussPoints(meshName, solutionName)
 
             end if
 
          case(EXPORT_HOMOGENEOUS)
             
+            write(STD_OUT,'(30X,A3,A)') "->", " Export to homogeneous points"
+            write(STD_OUT,'(30X,A,A30,I0,A,I0,A,I0,A)') "->" , "Output order: [",&
+                                        Nout(1),",",Nout(2),",",Nout(3),"]."
             call Solution2Plt_Homogeneous(meshName, solutionName, Nout)
 
          end select
@@ -569,5 +580,6 @@ module Solution2PltModule
          write(getFormat,'(A,I0,A,A)') "(",3+no_of_outputVariables,PRECISION_FORMAT,")"
 
       end function getFormat
+
       
 end module Solution2PltModule

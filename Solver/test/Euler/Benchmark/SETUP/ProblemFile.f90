@@ -1,4 +1,16 @@
 !
+!//////////////////////////////////////////////////////
+!
+!   @File:    ProblemFile.f90
+!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
+!   @Created: Sat Oct 28 12:16:18 2017
+!   @Last revision date: Sun Oct 29 17:43:40 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 923d934f3c0893856fbedc5cb9f9abe65851c070
+!
+!//////////////////////////////////////////////////////
+!
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      ProblemFile.f90
@@ -21,6 +33,21 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+#include "Includes.h"
+module UserDefinedDataStorage
+   use SMConstants
+   
+   private
+   public   c1, c2, c3, c4, c5
+
+   real(kind=RP)  :: c1
+   real(kind=RP)  :: c2 
+   real(kind=RP)  :: c3
+   real(kind=RP)  :: c4
+   real(kind=RP)  :: c5
+
+end module UserDefinedDataStorage
+
          SUBROUTINE UserDefinedStartup
 !
 !        --------------------------------
@@ -43,11 +70,20 @@
 !
             USE HexMeshClass
             use PhysicsStorage
+            use UserDefinedDataStorage
             IMPLICIT NONE
-            CLASS(HexMesh)             :: mesh
+            CLASS(HexMesh)                      :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
+
+
+            c1 =  0.1_RP * PI
+            c2 = -0.2_RP * PI + 0.05_RP * PI * (1.0_RP + 5.0_RP * thermodynamics_ % gamma)
+            c3 = 0.01_RP * PI * ( thermodynamics_ % gamma - 1.0_RP ) 
+            c4 = 0.05_RP * ( -16.0_RP * PI + PI * (9.0_RP + 15.0_RP * thermodynamics_ % gamma ))
+            c5 = 0.01_RP * ( 3.0_RP * PI * thermodynamics_ % gamma - 2.0_RP * PI )
+
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -66,7 +102,7 @@
             use PhysicsStorage
             use HexMeshClass
             implicit none
-            class(HexMesh)                        :: mesh
+            class(HexMesh)                      :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -76,30 +112,24 @@
 !           ---------------
 !
             integer        :: eID, i, j, k
-            real(kind=RP)  :: qq, u, v, w, p
+            real(kind=RP)  :: qq, u, v, w, p, x(NDIM)
             real(kind=RP)  :: Q(N_EQN), phi, theta
 
             associate ( gammaM2 => dimensionless_ % gammaM2, &
                         gamma => thermodynamics_ % gamma )
-            theta = refValues_ % AOATheta*(PI/180.0_RP)
-            phi   = refValues_ % AOAPhi*(PI/180.0_RP)
       
             do eID = 1, mesh % no_of_elements
                associate( Nx => mesh % elements(eID) % Nxyz(1), &
                           Ny => mesh % elements(eID) % Nxyz(2), &
                           Nz => mesh % elements(eID) % Nxyz(3) )
                do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
-                  qq = 1.0_RP
-                  u  = qq*cos(theta)*COS(phi)
-                  v  = qq*sin(theta)*COS(phi)
-                  w  = qq*SIN(phi)
-      
-                  Q(1) = 1.0_RP
-                  p    = 1.0_RP/(gammaM2)
-                  Q(2) = Q(1)*u
-                  Q(3) = Q(1)*v
-                  Q(4) = Q(1)*w
-                  Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
+                  x = mesh % elements(eID) % geom % x(:,i,j,k)
+
+                  Q(1) = ( 2.0_RP + 0.1_RP * sin(PI*(x(1) + x(2) - 1.0_RP + x(3))))
+                  Q(2) = Q(1)
+                  Q(3) = Q(1)
+                  Q(4) = Q(1)
+                  Q(5) = POW2(Q(1))
 
                   mesh % elements(eID) % storage % Q(:,i,j,k) = Q 
                end do;        end do;        end do
@@ -148,6 +178,24 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, Monitors)
+!
+!           ----------------------------------------------------------
+!           Called at the output interval to allow periodic operations
+!           to be performed
+!           ----------------------------------------------------------
+!
+            USE HexMeshClass
+            use MonitorsClass
+            IMPLICIT NONE
+            CLASS(HexMesh)               :: mesh
+            REAL(KIND=RP)                :: time
+            type(Monitor_t), intent(in) :: monitors
+            
+         END SUBROUTINE UserDefinedPeriodicOperation
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
          subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
@@ -156,6 +204,7 @@
 !
             USE HexMeshClass
             use PhysicsStorage
+            use UserDefinedDataStorage
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -168,52 +217,47 @@
 !           ---------------
 !
             integer  :: i, j, k, eID
+            real(kind=RP)  :: S(NCONS), x(NDIM)
+            real(kind=RP)  :: cos1, sin2
 !
 !           Usage example (by default no source terms are added)
 !           ----------------------------------------------------
-!           do eID = 1, mesh % no_of_elements
-!              associate ( e => mesh % elements(eID) )
-!              do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-!                 e % QDot(:,i,j,k) = e % QDot(:,i,j,k) + Source(:)
-!              end do                  ; end do                ; end do
-!           end do
+!$omp do schedule(runtime) private(i,j,k,x,cos1,sin2,S)
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  x = e % geom % x(:,i,j,k)
+                  cos1 = cos(PI * (x(1) + x(2) - 1.0_RP + x(3) - 2.0_RP*time))
+                  sin2 = sin(2.0_RP * PI *(x(1) + x(2) - 1.0_RP + x(3) - 2.0_RP*time))
+
+                  S(IRHO)  = c1 * cos1
+                  S(IRHOU) = c2 * cos1 + c3 * sin2
+                  S(IRHOV) = c2 * cos1 + c3 * sin2
+                  S(IRHOW) = c2 * cos1 + c3 * sin2
+                  S(IRHOE) = c4 * cos1 + c5 * sin2
+
+                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + S
+               end do                  ; end do                ; end do
+               end associate
+            end do
+!$omp end do
    
          end subroutine UserDefinedSourceTerm
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, monitors)
-!
-!           ----------------------------------------------------------
-!           Called at the output interval to allow periodic operations
-!           to be performed
-!           ----------------------------------------------------------
-!
-            USE HexMeshClass
-            use MonitorsClass
-            IMPLICIT NONE
-            CLASS(HexMesh)  :: mesh
-            REAL(KIND=RP) :: time
-            type(Monitor_t),  intent(in)  :: monitors
-            
-         END SUBROUTINE UserDefinedPeriodicOperation
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
                                                     dimensionless_, &
-                                                        refValues_, &
+                                                        refValues_, &  
                                                           monitors, &
-                                                         elapsedTime, &
-                                                             CPUTime   )
+                                                       elapsedTime, &
+                                                           CPUTime   )
 !
 !           --------------------------------------------------------
 !           Called after the solution computed to allow, for example
 !           error tests to be performed
 !           --------------------------------------------------------
 !
-            use FTAssertions
             USE HexMeshClass
             use PhysicsStorage
             use MonitorsClass
@@ -226,92 +270,42 @@
             type(Dimensionless_t),     intent(in) :: dimensionless_
             type(RefValues_t),         intent(in) :: refValues_
             type(Monitor_t),           intent(in) :: monitors
-            real(kind=RP),          intent(in) :: elapsedTime
-            real(kind=RP),          intent(in) :: CPUTime
+            real(kind=RP),             intent(in) :: elapsedTime
+            real(kind=RP),             intent(in) :: CPUTime
 !
 !           ---------------
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Re 200 Cylinder"
-            REAL(KIND=RP)                      :: maxError
-            REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
-            INTEGER                            :: eID
-            INTEGER                            :: i, j, k, N
-            TYPE(FTAssertionsManager), POINTER :: sharedManager
-            LOGICAL                            :: success
+            integer     :: eID, i, j, k, fid
+            real(kind=RP)  :: x(NDIM)
+            real(kind=RP)  :: L2error, L2local
+            real(kind=RP)  :: Qexpected(NCONS)
+
+            L2error = 0.0_RP
+
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) ) 
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
+                  x = e % geom % x(:,i,j,k)
+
+                  Qexpected(1) = ( 2.0_RP + 0.1_RP * sin(PI*(x(1) + x(2) - 1.0_RP + x(3)- 2.0_RP * time)))
+                  Qexpected(2) = Qexpected(1)
+                  Qexpected(3) = Qexpected(1)
+                  Qexpected(4) = Qexpected(1)
+                  Qexpected(5) = POW2(Qexpected(1))
+
+                  L2local = norm2( e % storage % Q(:,i,j,k) - Qexpected )
+                  L2error = max(L2local,L2error)
+               end do                  ; end do                   ; end do
+               end associate
+            end do
 !
-!           -----------------------------------------------------------------------------------------
-!           Expected solutions. 
-!           InnerCylinder 0.0 NoSlipAdiabaticWall
-!           Front 0.0 Inflow
-!           bottom 0.0 FreeSlipWall
-!           top 0.0 FreeSlipWall
-!           Back 0.0 Inflow
-!           Left 0.0 Inflow
-!           Right 0.0 OutflowSpecifyP 
-!           -----------------------------------------------------------------------------------------
-!
-!
-!           ------------------------------------------------
-!           Expected Solutions: Wall conditions on the sides
-!           Number of iterations are for CFL of 0.3, for
-!           the roe solver and mach = 0.3
-!           ------------------------------------------------
-!
-            INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [240.37010000259491, 0E-011, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
-                                                               0E-011, 0E-011, &
-                                                               0E-011]
-!
-            N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
-            
-            CALL initializeSharedAssertionsManager
-            sharedManager => sharedAssertionsManager()
-            
-            CALL FTAssertEqual(expectedValue = iterations(N), &
-                               actualValue   = iter, &
-                               msg           = "Number of time steps to tolerance")
-            CALL FTAssertEqual(expectedValue = residuals(N), &
-                               actualValue   = maxResidual, &
-                               tol           = 1.d-3, &
-                               msg           = "Final maximum residual")
-            
-            !ALLOCATE(QExpected(0:mesh % spA % N,0:mesh % spA % N,0:mesh % spA % N,N_EQN))
-            
-            ! maxError = 0.0_RP
-            ! DO eID = 1, SIZE(mesh % elements)
-            !    DO k = 0, mesh % spA % N
-            !       DO j = 0, mesh % spA % N
-            !          DO i = 0, mesh % spA % N 
-            !             CALL pointSourceFlowSolution( mesh % elements(eID) % geom % x(:,i,j,k), &
-            !                                           QExpected(i,j,k,1:N_EQN), success )
-            !          END DO
-            !       END DO
-            !    END DO
-            !    maxError = MAXVAL(ABS(QExpected - mesh % elements(eID) % storage % Q))
-            ! END DO
-            ! CALL FTAssertEqual(expectedValue = ERRORs(N), &
-            !                    actualValue   = maxError, &
-            !                    tol           = 1.d-5, &
-            !                    msg           = "Maximum error")
-            
-            
-            CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
-   
-            IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
-               WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
-            ELSE
-               WRITE(6,*) testName, " ... Failed"
-               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
-               WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
-                STOP 99
-            END IF 
-            WRITE(6,*)
-            
-            CALL finalizeSharedAssertionsManager
-            CALL detachSharedAssertionsManager
+!           Write the results in a file
+!           ---------------------------
+            open(newunit=fid,file="./RESULTS/BenchResults.out",status="old",access="append",action="write")
+            write(fid,*) mesh % no_of_elements, mesh % elements(1) % Nxyz(1), L2error, elapsedTime, CPUTime
+            close(fid)
 
          END SUBROUTINE UserDefinedFinalize
 !

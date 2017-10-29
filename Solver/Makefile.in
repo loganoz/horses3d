@@ -184,6 +184,15 @@ horseslibs:
 	    (cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install) || exit 1; \
 	done
 
+bench: all
+	(export PYTHONPATH=$(HOME_DIR)/../utils/PythonUtilities \
+	&& export PYTHONISDEFINED=YES \
+	&& echo $(PYTHONPATH) \
+	&& cd $(HOME_DIR)/test/Euler/Benchmark/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) allclean all \
+	&& cd ../ && ./Benchmark ) || exit 1;
+
+
+
 addons:
 	@for subdir in $(ADDONS); do \
 	    (cd $(HOME_DIR)/src/addons/$$subdir && $(MAKE) $(ADDONSFLAGS) install) || exit 1; \

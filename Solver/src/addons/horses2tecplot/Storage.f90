@@ -45,6 +45,7 @@ module Storage
 
    contains
       subroutine Mesh_ReadMesh(self,meshName)
+         use Headers
          implicit none
          class(Mesh_t)         :: self
          character(len=*), intent(in)     :: meshName
@@ -56,6 +57,7 @@ module Storage
          integer                          :: arrayDimensions(4)
          integer                          :: fid, eID
          integer  :: i,j,k
+         character(len=1024)              :: msg
 
          self % meshName = trim(meshName)
 !
@@ -94,10 +96,25 @@ module Storage
 !        Close file
 !        ----------
          close(fid)
+!
+!        Describe the mesh
+!        -----------------
+         write(msg,'(A,A,A)') 'Mesh file "',trim(meshName),'":'
+         write(STD_OUT,'(/)')
+         call SubSection_Header(trim(msg))
+
+         write(STD_OUT,'(30X,A,A30,I0)') "->", "Number of elements: ", self % no_of_elements
+         select case ( self % nodeType )
+         case(1)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Discretization nodes: ","Gauss"
+         case(2)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Discretization nodes: ","Gauss-Lobatto"
+         end select
 
       end subroutine Mesh_ReadMesh
 
       subroutine Mesh_ReadSolution(self,solutionName)
+         use Headers
          implicit none
          class(Mesh_t)         :: self
          character(len=*), intent(in)     :: solutionName
@@ -110,7 +127,9 @@ module Storage
          integer       :: arrayDimensions(4)
          integer       :: fid, eID
          integer       :: i,j,k
-         real(kind=RP) :: refs(NO_OF_SAVED_REFS)
+         integer       :: iter
+         real(kind=RP) :: time
+         character(len=1024)  :: msg
 
          self % solutionName = trim(solutionName)
 !
@@ -148,11 +167,15 @@ module Storage
 !        ----------------------
          no_of_elements = getSolutionFileNoOfElements(solutionName)
          if ( self % no_of_elements .ne. no_of_elements ) then
-            write(STD_OUT,'(A,I0,A,I0,A)') "The number of elements in the mesh (",self % no_of_elements,&
+            write(STD_OUT,'(30X,A,I0,A,I0,A)') "The number of elements in the mesh (",self % no_of_elements,&
                                            ") differs to that of the solution (",no_of_elements,")."
             errorMessage(STD_OUT)
             stop 
          end if
+!
+!        Get time and iteration
+!        ----------------------
+         call getSolutionFileTimeAndIteration(trim(solutionName),iter,time)
 !
 !        Read reference values
 !        ---------------------
@@ -216,6 +239,30 @@ module Storage
 !        Close file
 !        ----------
          close(fid)
+!
+!        Describe the solution
+!        ---------------------
+         write(msg,'(A,A,A)') 'Solution file "',trim(solutionName),'":'
+         write(STD_OUT,'(/)')
+         call SubSection_Header(trim(msg))
+
+         if ( self % isStatistics ) then
+            write(STD_OUT,'(30X,A,A30)') "->","File is statistics file."
+         
+         else
+            if ( self % hasGradients ) then
+               write(STD_OUT,'(30X,A,A40,A)') "->","Solution file contains gradients: ", "yes"
+            else
+               write(STD_OUT,'(30X,A,A40,A)') "->","Solution file contains gradients: ", "no"
+            end if
+         end if
+
+         write(STD_OUT,'(30X,A,A30,I0)') "->","Iteration: ", iter
+         write(STD_OUT,'(30X,A,A30,ES10.3)') "->","Time: ", time
+         write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference velocity: ", self % refs(V_REF)
+         write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference density: ", self % refs(RHO_REF)
+         write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference Temperature: ", self % refs(T_REF)
+         write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference Mach number: ", self % refs(MACH_REF)
 
       end subroutine Mesh_ReadSolution
 

@@ -1,0 +1,11 @@
+#!/bin/sh
+############################################
+##	This script should be launched
+##  before using Python scripts to configure
+##  PYTHON environment variables
+##  Execute it using source ./configure
+############################################
+
+UTILITIES_PATH=$PWD'/'$(dirname $BASH_SOURCE)
+export PYTHONPATH=$UTILITIES_PATH:$PYTHONPATH
+
