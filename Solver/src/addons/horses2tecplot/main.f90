@@ -6,6 +6,7 @@ program horses2plt
    use Stats2PltModule
    use SolutionFile
    use SharedSpectralBasis
+   use Headers
    implicit none
    integer                                 :: jobType
    character(len=LINE_LENGTH)              :: meshName
@@ -16,6 +17,8 @@ program horses2plt
    integer                                 :: Nout(3)
    integer                                 :: basis
    integer                                 :: iSol
+
+   call Main_Header("HORSES to TecPlot conversion utility",__DATE__,__TIME__)
 !
 !  Get the job type
 !  ----------------
@@ -29,6 +32,8 @@ program horses2plt
 !  ---------------------------------
    select case (jobType)
    case (MESH_2_PLT)
+      write(STD_OUT,'(/,/)')
+      call Section_Header("Mesh conversion")
       call Mesh2Plt(meshName)
 
    case (SOLUTION_2_PLT)
@@ -36,12 +41,18 @@ program horses2plt
 
          select case (solutionTypes(iSol))
          case ( SOLUTION_FILE )
+            write(STD_OUT,'(/,/)')
+            call Section_Header("Solution conversion")
             call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)        
 
          case ( SOLUTION_AND_GRADIENTS_FILE )
+            write(STD_OUT,'(/,/)')
+            call Section_Header("Solution with gradients conversion")
             call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)        
 
          case ( STATS_FILE )
+            write(STD_OUT,'(/,/)')
+            call Section_Header("Statistics file conversion")
             call Stats2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)
 
          end select

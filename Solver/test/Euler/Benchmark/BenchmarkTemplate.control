@@ -1,0 +1,24 @@
+Flow equations        = "Euler"
+mesh file name        = @MESH_FILE
+restart file name     = "RESULTS/Bench.hsol"
+solution file name    = "RESULTS/Bench.hsol"
+restart               = .false.
+Polynomial order      = @POLYNOMIAL_ORDER
+Number of time steps  = 10000000
+Output Interval       = 100
+Convergence tolerance = 1.d-10
+cfl                   = 0.4
+simulation type       = time-accurate
+final time            = 1.0d0
+mach number           = 0.08
+riemann solver        = "Roe"
+AOA theta             = 0.0
+AOA phi               = 0.0
+Number of boundaries  = 6
+front 0.0 periodic+
+bottom 0.0 periodic+
+top 0.0 periodic-
+back 0.0 periodic-
+left 0.0 periodic+
+right 0.0 periodic-
+/

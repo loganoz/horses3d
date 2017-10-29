@@ -231,6 +231,14 @@ end interface
 !        --------------------------
          dt = self % autosave % CorrectDt(t,self % dt)
 !
+!        Autosave bounded by time-accurate simulations
+!        ---------------------------------------------
+         if ( self % integratorType .eq. TIME_ACCURATE ) then
+            if ( ( t + dt) .gt. self % tFinal ) then
+               dt = self % tFinal - t
+            end if
+         end if
+!
 !        Perform time step
 !        -----------------         
          SELECT CASE (TimeIntegration)
@@ -280,7 +288,7 @@ end interface
               RETURN
             END IF
          ELSEIF (self % integratorType == TIME_ACCURATE) THEN
-            IF (self % time > self % tFinal) then
+            IF ( t .ge. self % tFinal) then
                self % time = t     
                sem % numberOfTimeSteps = k+1
                call self % Display( sem % mesh, monitors)
@@ -295,7 +303,7 @@ end interface
 !
 !        Print monitors
 !        --------------
-         IF( (MOD( k+1, self % outputInterval) == 0) .or. (k .eq. 0) ) call self % Display(sem % mesh, monitors)
+         IF( (MOD( k+1, self % outputInterval) == 0) .or. (k .eq. self % initial_iter) ) call self % Display(sem % mesh, monitors)
 !
 !        Autosave
 !        --------         
