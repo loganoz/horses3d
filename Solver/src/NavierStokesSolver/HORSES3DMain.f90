@@ -23,6 +23,7 @@
       USE mainKeywordsModule
       USE Headers
       USE pAdaptationClass
+      use StopwatchClass
       
       IMPLICIT NONE
 interface
@@ -43,7 +44,9 @@ interface
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
                                                     dimensionless_, &
                                                         refValues_, &
-                                                          monitors   )
+                                                          monitors, &
+                                                       elapsedTime, &
+                                                           CPUTime   )
             use PhysicsStorage
             use HexMeshClass
             use MonitorsClass
@@ -56,6 +59,8 @@ interface
             type(Dimensionless_t),     intent(in) :: dimensionless_
             type(RefValues_t),         intent(in) :: refValues_
             type(Monitor_t),          intent(in) :: monitors
+            real(kind=RP),             intent(in) :: elapsedTime
+            real(kind=RP),             intent(in) :: CPUTime
          END SUBROUTINE UserDefinedFinalize
       SUBROUTINE UserDefinedTermination
          IMPLICIT NONE  
@@ -182,7 +187,9 @@ end interface
 !     -----------------------------------------------------
 !
       CALL UserDefinedFinalize(sem % mesh, timeIntegrator % time, sem % numberOfTimeSteps, &
-                              sem % maxResidual, thermodynamics, dimensionless, refValues, sem % monitors)
+                              sem % maxResidual, thermodynamics, dimensionless, refValues, &
+                              sem % monitors, Stopwatch % ElapsedTime("Solver"), &
+                              Stopwatch % CPUTime("Solver"))
 !
 !     -------------------------------------
 !     Save the results to the solution file

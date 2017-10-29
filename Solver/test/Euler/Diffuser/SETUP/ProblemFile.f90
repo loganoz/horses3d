@@ -256,7 +256,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, dimensionless_, refValues_, monitor)
+         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, dimensionless_, refValues_, monitor, elapsedTime, CPUTime)
             USE FTAssertions
             use MonitorsClass
 !
@@ -281,6 +281,8 @@
             type(Dimensionless_t),  intent(in) :: dimensionless_
             type(RefValues_t),      intent(in) :: refValues_
             type(Monitor_t),        intent(in) :: monitor
+            real(kind=RP),          intent(in) :: elapsedTime
+            real(kind=RP),          intent(in) :: CPUTime
 !
 !           ---------------
 !           Local variables

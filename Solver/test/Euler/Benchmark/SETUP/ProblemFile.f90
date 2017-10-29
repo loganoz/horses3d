@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Oct 28 12:16:18 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Sun Oct 29 17:43:40 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 923d934f3c0893856fbedc5cb9f9abe65851c070
 !
 !//////////////////////////////////////////////////////
 !
@@ -78,12 +78,11 @@ end module UserDefinedDataStorage
             type(RefValues_t),      intent(in)  :: refValues_
 
 
-            c1 = 0.1_RP * PI
+            c1 =  0.1_RP * PI
             c2 = -0.2_RP * PI + 0.05_RP * PI * (1.0_RP + 5.0_RP * thermodynamics_ % gamma)
             c3 = 0.01_RP * PI * ( thermodynamics_ % gamma - 1.0_RP ) 
             c4 = 0.05_RP * ( -16.0_RP * PI + PI * (9.0_RP + 15.0_RP * thermodynamics_ % gamma ))
             c5 = 0.01_RP * ( 3.0_RP * PI * thermodynamics_ % gamma - 2.0_RP * PI )
-
 
          END SUBROUTINE UserDefinedFinalSetup
 !
@@ -118,8 +117,6 @@ end module UserDefinedDataStorage
 
             associate ( gammaM2 => dimensionless_ % gammaM2, &
                         gamma => thermodynamics_ % gamma )
-            theta = refValues_ % AOATheta*(PI/180.0_RP)
-            phi   = refValues_ % AOAPhi*(PI/180.0_RP)
       
             do eID = 1, mesh % no_of_elements
                associate( Nx => mesh % elements(eID) % Nxyz(1), &
@@ -221,23 +218,23 @@ end module UserDefinedDataStorage
 !
             integer  :: i, j, k, eID
             real(kind=RP)  :: S(NCONS), x(NDIM)
-            real(kind=RP)  :: cos1, cos2
+            real(kind=RP)  :: cos1, sin2
 !
 !           Usage example (by default no source terms are added)
 !           ----------------------------------------------------
-!$omp do schedule(runtime) private(i,j,k,x,cos1,cos2,S)
+!$omp do schedule(runtime) private(i,j,k,x,cos1,sin2,S)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   x = e % geom % x(:,i,j,k)
-                  cos1 = cos(PI*(x(1) + x(2) - 1.0_RP + x(3) - 2.0_RP*time))
-                  cos2 = cos(2.0_RP* PI *(x(1) + x(2) - 1.0_RP + x(3) - 2.0_RP*time))
+                  cos1 = cos(PI * (x(1) + x(2) - 1.0_RP + x(3) - 2.0_RP*time))
+                  sin2 = sin(2.0_RP * PI *(x(1) + x(2) - 1.0_RP + x(3) - 2.0_RP*time))
 
-                  S(IRHO) = c1 * cos1
-                  S(IRHOU) = c2 * cos1 + c3 * cos2
-                  S(IRHOV) = c2 * cos1 + c3 * cos2
-                  S(IRHOW) = c2 * cos1 + c3 * cos2
-                  S(IRHOE) = c4 * cos1 + c5 * cos2
+                  S(IRHO)  = c1 * cos1
+                  S(IRHOU) = c2 * cos1 + c3 * sin2
+                  S(IRHOV) = c2 * cos1 + c3 * sin2
+                  S(IRHOW) = c2 * cos1 + c3 * sin2
+                  S(IRHOE) = c4 * cos1 + c5 * sin2
 
                   e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + S
                end do                  ; end do                ; end do
@@ -252,7 +249,9 @@ end module UserDefinedDataStorage
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
                                                     dimensionless_, &
                                                         refValues_, &  
-                                                          monitors   )
+                                                          monitors, &
+                                                       elapsedTime, &
+                                                           CPUTime   )
 !
 !           --------------------------------------------------------
 !           Called after the solution computed to allow, for example
@@ -270,7 +269,43 @@ end module UserDefinedDataStorage
             type(Thermodynamics_t),    intent(in) :: thermodynamics_
             type(Dimensionless_t),     intent(in) :: dimensionless_
             type(RefValues_t),         intent(in) :: refValues_
-            type(Monitor_t),          intent(in) :: monitors
+            type(Monitor_t),           intent(in) :: monitors
+            real(kind=RP),             intent(in) :: elapsedTime
+            real(kind=RP),             intent(in) :: CPUTime
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            integer     :: eID, i, j, k, fid
+            real(kind=RP)  :: x(NDIM)
+            real(kind=RP)  :: L2error, L2local
+            real(kind=RP)  :: Qexpected(NCONS)
+
+            L2error = 0.0_RP
+
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) ) 
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
+                  x = e % geom % x(:,i,j,k)
+
+                  Qexpected(1) = ( 2.0_RP + 0.1_RP * sin(PI*(x(1) + x(2) - 1.0_RP + x(3)- 2.0_RP * time)))
+                  Qexpected(2) = Qexpected(1)
+                  Qexpected(3) = Qexpected(1)
+                  Qexpected(4) = Qexpected(1)
+                  Qexpected(5) = POW2(Qexpected(1))
+
+                  L2local = norm2( e % storage % Q(:,i,j,k) - Qexpected )
+                  L2error = max(L2local,L2error)
+               end do                  ; end do                   ; end do
+               end associate
+            end do
+!
+!           Write the results in a file
+!           ---------------------------
+            open(newunit=fid,file="./RESULTS/BenchResults.out",status="old",access="append",action="write")
+            write(fid,*) mesh % no_of_elements, mesh % elements(1) % Nxyz(1), L2error, elapsedTime, CPUTime
+            close(fid)
 
          END SUBROUTINE UserDefinedFinalize
 !

@@ -203,7 +203,9 @@
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
                                                     dimensionless_, &
                                                         refValues_, &  
-                                                          monitors   )
+                                                          monitors, &
+                                                       elapsedTime, &
+                                                           CPUTime   )
 !
 !           --------------------------------------------------------
 !           Called after the solution computed to allow, for example
@@ -222,6 +224,8 @@
             type(Dimensionless_t),     intent(in) :: dimensionless_
             type(RefValues_t),         intent(in) :: refValues_
             type(Monitor_t),          intent(in) :: monitors
+            real(kind=RP),             intent(in)  :: elapsedTime
+            real(kind=RP),             intent(in)  :: CPUTime
 
          END SUBROUTINE UserDefinedFinalize
 !
