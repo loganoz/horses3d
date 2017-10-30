@@ -28,10 +28,12 @@
 !
 module MonitorsClass
    use SMConstants
+   use NodalStorageClass
    use HexMeshClass
    use MonitorDefinitions
    use ResidualsMonitorClass
    use StatisticsMonitor
+   use ProbeClass
    use SurfaceMonitorClass
    use VolumeMonitorClass
    implicit none
@@ -41,35 +43,13 @@ module MonitorsClass
    private
    public      Monitor_t , ConstructMonitors
 !
-!  *********************************************************************
-!
-!  *********************************************************************
-!
-!   type Probe_t
-!      logical                         :: active
-!      integer                         :: ID
-!      integer                         :: eID
-!      real(kind=RP)                   :: x(NDIM)
-!      real(kind=RP)                   :: xi, eta
-!      real(kind=RP)                   :: values(BUFFER_SIZE)
-!      real(kind=RP), allocatable      :: l_xi(:) , l_eta(:)
-!      character(len=STR_LEN_MONITORS) :: fileName
-!      character(len=STR_LEN_MONITORS) :: monitorName
-!      character(len=STR_LEN_MONITORS) :: variable
-!      contains
-!         procedure   :: Initialization => Probe_Initialization
-!         procedure   :: Update         => Probe_Update
-!         procedure   :: WriteLabel     => Probe_WriteLabel
-!         procedure   :: WriteValues    => Probe_WriteValue
-!         procedure   :: WriteToFile    => Probe_WriteToFile
-!   end type Probe_t
-!
 !  *****************************
 !  Main monitor class definition
 !  *****************************
 !  
    type Monitor_t
       character(len=LINE_LENGTH)           :: solution_file
+      integer                              :: no_of_probes
       integer                              :: no_of_surfaceMonitors
       integer                              :: no_of_volumeMonitors
       integer                              :: bufferLine
@@ -77,6 +57,7 @@ module MonitorsClass
       real(kind=RP)                        :: t  (BUFFER_SIZE )
       type(StatisticsMonitor_t)            :: stats
       type(Residuals_t)                    :: residuals
+      class(Probe_t),          allocatable :: probes(:)
       class(SurfaceMonitor_t), allocatable :: surfaceMonitors(:)
       class(VolumeMonitor_t),  allocatable :: volumeMonitors(:)
       contains
@@ -93,11 +74,12 @@ module MonitorsClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-      function ConstructMonitors( mesh, controlVariables ) result(Monitors)
+      function ConstructMonitors( mesh, spA, controlVariables ) result(Monitors)
          use FTValueDictionaryClass
          use mainKeywordsModule
          implicit none
          class(HexMesh), intent(in)           :: mesh
+         class(NodalStorage), intent(in)      :: spA(0:,0:,0:)
          class(FTValueDictionary), intent(in) :: controlVariables
          type(Monitor_t)                      :: Monitors
 !
@@ -127,12 +109,17 @@ module MonitorsClass
 !
 !        Search in case file for probes, surface monitors, and volume monitors
 !        ---------------------------------------------------------------------
-         call getNoOfMonitors( Monitors % no_of_surfaceMonitors, Monitors % no_of_volumeMonitors )
+         call getNoOfMonitors( Monitors % no_of_probes, Monitors % no_of_surfaceMonitors, Monitors % no_of_volumeMonitors )
 !
 !        Initialize
 !        ----------
          call Monitors % stats     % Construct(mesh)
          call Monitors % residuals % Initialization( solution_file )
+
+         allocate ( Monitors % probes ( Monitors % no_of_probes )  )
+         do i = 1 , Monitors % no_of_probes
+            call Monitors % probes(i) % Initialization ( mesh , spA, i, solution_file )
+         end do
 
          allocate ( Monitors % surfaceMonitors ( Monitors % no_of_surfaceMonitors )  )
          do i = 1 , Monitors % no_of_surfaceMonitors
@@ -168,6 +155,12 @@ module MonitorsClass
 !        Write residuals labels
 !        ----------------------
          call self % residuals % WriteLabel
+!
+!        Write probes labels
+!        -------------------
+         do i = 1 , self % no_of_probes
+            call self % probes(i) % WriteLabel
+         end do
 !
 !        Write surface monitors labels
 !        -----------------------------
@@ -216,19 +209,19 @@ module MonitorsClass
             write(STD_OUT , '(3X,A10)' , advance = "no" ) trim(dashes)
          end do
 !
+!        Print dashes for probes
+!        -----------------------
+         do i = 1 , self % no_of_probes
+            if ( self % probes(i) % active ) then
+               write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % probes(i) % monitorName ) + 2 ) )
+            end if
+         end do
+!
 !        Print dashes for surface monitors
 !        ---------------------------------
          do i = 1 , self % no_of_surfaceMonitors
             write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % surfaceMonitors(i) % monitorName ) + 2 ) )
          end do
-!!
-!!        Print dashes for probes
-!!        -----------------------
-!         do i = 1 , self % no_of_probes
-!            if ( self % probes(i) % active ) then
-!               write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % probes(i) % monitorName ) + 2 ) )
-!            end if
-!         end do
 !
 !        Print dashes for volume monitors
 !        --------------------------------
@@ -262,17 +255,17 @@ module MonitorsClass
 !        ---------------
          call self % residuals % WriteValues( self % bufferLine )
 !
+!        Print probes
+!        ------------
+         do i = 1 , self % no_of_probes
+            call self % probes(i) % WriteValues ( self % bufferLine )
+         end do
+!
 !        Print surface monitors
 !        ----------------------
          do i = 1 , self % no_of_surfaceMonitors
             call self % surfaceMonitors(i) % WriteValues ( self % bufferLine )
          end do
-!!
-!!        Print probes
-!!        ------------
-!         do i = 1 , self % no_of_probes
-!            call self % probes(i) % WriteValues ( self % bufferLine )
-!         end do
 !
 !        Print volume monitors
 !        ---------------------
@@ -316,23 +309,22 @@ module MonitorsClass
 !        -----------------------
          self % t    ( self % bufferLine )  = t
          self % iter ( self % bufferLine )  = iter
-!!
+!
 !        Compute current residuals
 !        -------------------------
          call self % residuals % Update( mesh, maxResiduals, self % bufferLine )
+!
+!        Update probes
+!        -------------
+         do i = 1 , self % no_of_probes
+            call self % probes(i) % Update( mesh , self % bufferLine )
+         end do
 !
 !        Update surface monitors
 !        -----------------------
          do i = 1 , self % no_of_surfaceMonitors
             call self % surfaceMonitors(i) % Update( mesh , spA, self % bufferLine )
          end do
-
-!!
-!!        Update probes
-!!        -------------
-!         do i = 1 , self % no_of_probes
-!            call self % probes(i) % Update( mesh , self % bufferLine )
-!         end do
 !
 !        Update volume monitors
 !        ----------------------
@@ -376,13 +368,13 @@ module MonitorsClass
 !           -------------------------------------------------------------------------------
             call self % residuals % WriteToFile ( self % iter , self % t , self % bufferLine )
 
+            do i = 1 , self % no_of_probes
+               call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+            end do
+
             do i = 1 , self % no_of_surfaceMonitors
                call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
-
-!            do i = 1 , self % no_of_probes
-!               call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-!            end do
 
             do i = 1 , self % no_of_volumeMonitors
                call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
@@ -410,14 +402,14 @@ module MonitorsClass
 
                call self % residuals % WriteToFile ( self % iter , self % t , BUFFER_SIZE )
 
+               do i = 1 , self % no_of_probes
+                  call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine ) 
+               end do
+
                do i = 1 , self % no_of_surfaceMonitors
                   call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
                end do
 
-!               do i = 1 , self % no_of_probes
-!                  call self % probes(i) % WriteToFile ( self % iter , self % t , BUFFER_SIZE ) 
-!               end do
-!
                do i = 1 , self % no_of_volumeMonitors
                   call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
                end do
@@ -710,9 +702,10 @@ module MonitorsClass
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
-   subroutine getNoOfMonitors(no_of_surfaceMonitors, no_of_volumeMonitors)
+   subroutine getNoOfMonitors(no_of_probes, no_of_surfaceMonitors, no_of_volumeMonitors)
       use ParamfileRegions
       implicit none
+      integer, intent(out)    :: no_of_probes
       integer, intent(out)    :: no_of_surfaceMonitors
       integer, intent(out)    :: no_of_volumeMonitors
 !
@@ -726,6 +719,7 @@ module MonitorsClass
 !
 !     Initialize
 !     ----------
+      no_of_probes = 0
       no_of_surfaceMonitors = 0
       no_of_volumeMonitors = 0
 !
@@ -765,7 +759,7 @@ readloop:do
             line = getSquashedLine( line )
 
             if ( index ( line , '#defineprobe' ) .gt. 0 ) then
-!               Monitors % no_of_probes = Monitors % no_of_probes + 1
+               no_of_probes = no_of_probes + 1
 
             elseif ( index ( line , '#definesurfacemonitor' ) .gt. 0 ) then
                no_of_surfaceMonitors = no_of_surfaceMonitors + 1 

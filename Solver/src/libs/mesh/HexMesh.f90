@@ -45,6 +45,7 @@ MODULE HexMeshClass
             procedure :: SaveStatistics    => HexMesh_SaveStatistics
             procedure :: ResetStatistics   => HexMesh_ResetStatistics
             procedure :: LoadSolution      => HexMesh_LoadSolution
+            procedure :: FindPointWithCoords => HexMesh_FindPointWithCoords
             procedure :: WriteCoordFile
       end type HexMesh
 
@@ -267,7 +268,12 @@ MODULE HexMeshClass
             CALL SetElementBoundaryNames( self % elements(l), names )
             
             DO k = 1, 6
-               IF(TRIM(names(k)) /= emptyBCName) numberOfBoundaryFaces = numberOfBoundaryFaces + 1
+               IF(TRIM(names(k)) /= emptyBCName) then
+                  numberOfBoundaryFaces = numberOfBoundaryFaces + 1
+                  if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                     call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
+                  end if
+               end if
             END DO  
             
 !
@@ -1223,7 +1229,58 @@ MODULE HexMeshClass
          close(fID)
 
       END SUBROUTINE HexMesh_LoadSolution
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!        AUXILIAR SUBROUTINES
+!        --------------------
 ! 
+!////////////////////////////////////////////////////////////////////////
+!
+      logical function HexMesh_FindPointWithCoords(self, spA, x, eID, xi, optionalElements)
+         implicit none
+         class(HexMesh), intent(in)         :: self
+         class(NodalStorage),    intent(in) :: spA(0:,0:,0:)
+         real(kind=RP),    intent(in)       :: x(NDIM)
+         integer,          intent(out)      :: eID
+         real(kind=RP),    intent(out)      :: xi(NDIM)
+         integer, optional,intent(in)       :: optionalElements(:)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: op_eID
+         logical     :: success
+
+         HexMesh_FindPointWithCoords = .false.
+
+         if ( present(optionalElements) ) then
+            do op_eID = 1, size(optionalElements)
+               if ( optionalElements(op_eID) .eq. -1 ) cycle
+               associate(e => self % elements(optionalElements(op_eID)))
+               success = e % FindPointWithCoords(spA(e % Nxyz(1), e % Nxyz(2), e % Nxyz(3)), x, xi) 
+               if ( success ) then
+                  eID = optionalElements(op_eID)
+                  HexMesh_FindPointWithCoords = .true.
+                  return 
+               end if
+               end associate
+            end do
+         end if      
+         
+         do eID = 1, self % no_of_elements
+            associate(e => self % elements(eID))
+            success = e % FindPointWithCoords(spA(e % Nxyz(1), e % Nxyz(2), e % Nxyz(3)), x, xi)
+            if ( success ) then
+               HexMesh_FindPointWithCoords = .true.
+               return
+            end if
+            end associate
+         end do
+
+      end function HexMesh_FindPointWithCoords
+!
 !//////////////////////////////////////////////////////////////////////// 
 !
 !        CONSTRUCT ZONES

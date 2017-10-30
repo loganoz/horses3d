@@ -38,7 +38,7 @@
          INTEGER, PARAMETER               :: LINE_LENGTH = 132
          INTEGER, PARAMETER               :: STRING_CONSTANT_LENGTH = 64
          
-         COMPLEX(KIND=CP)                 :: ImgI = ( 0.0_RP, 1.0_RP) ! = SQRT(-1.0_RP)
+         COMPLEX(KIND=CP), parameter      :: ImgI = ( 0.0_RP, 1.0_RP) ! = SQRT(-1.0_RP)
 
          INTEGER, PARAMETER :: LEFT   = 1, RIGHT  = 2, TOP  = 2, BOTTOM  = 1
          INTEGER, PARAMETER :: FRONT  = 1, BACK   = 2

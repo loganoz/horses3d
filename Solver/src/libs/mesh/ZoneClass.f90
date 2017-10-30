@@ -59,13 +59,13 @@ module ZoneClass
 !
 !        Get the number of markers from the Boundary Conditions dictionary
 !        -----------------------------------------------------------------         
-         no_of_markers = bcTypeDictionary % COUNT() 
+         no_of_markers = zoneNameDictionary % COUNT() 
          if ( no_of_markers .le. 0 ) return
 !
 !        Gather the zone names
 !        ---------------------
          allocate ( zoneNames( 1:no_of_markers ) ) 
-         zoneNames = bcTypeDictionary % allKeys()
+         zoneNames = zoneNameDictionary % allKeys()
 !
 !        Construct zones
 !        ---------------

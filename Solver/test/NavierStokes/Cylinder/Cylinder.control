@@ -40,6 +40,12 @@ riemann solver        = roe
    Reference surface = 1.0
 #end
 
+#define probe 1
+   Name = wake_u
+   Position = [0.0,2.0,4.0]
+   Variable = u
+#end
+
 !#define statistics
 !   Sampling interval = 10
 !   Starting iteration = 15

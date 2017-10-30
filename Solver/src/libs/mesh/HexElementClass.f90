@@ -30,6 +30,7 @@
       USE ElementConnectivityDefinitions
       USE ConnectivityClass
       use StorageClass
+      use PhysicsStorage
       IMPLICIT NONE
       
       
@@ -42,6 +43,9 @@
           INTEGER                                        :: NumberOfConnections(6)
           TYPE(Connectivity)                             :: Connection(6)
           type(Storage_t)                                :: storage
+          contains
+            procedure   :: FindPointWithCoords => HexElement_FindPointWithCoords
+            procedure   :: EvaluateSolutionAtPoint => HexElement_EvaluateSolutionAtPoint
       END TYPE Element 
       
 !
@@ -170,6 +174,154 @@
          READ(funit) self % storage % Q
       
       END SUBROUTINE LoadSolutionFromUnit
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      logical function HexElement_FindPointWithCoords(self, spA, x, xi)
+!
+!        *************************+********************************
+!          
+!           This function finds whether a point is inside or not 
+!           of the element. This is done solving
+!           the mapping non-linear system
+!
+!        *************************+********************************
+!          
+!
+         implicit none
+         class(Element),      intent(in)  :: self
+         class(NodalStorage), intent(in)  :: spA
+         real(kind=RP),       intent(in)  :: x(NDIM)
+         real(kind=RP),       intent(out) :: xi(NDIM)
+!
+!        ----------------------------------
+!        Newton iterative solver parameters
+!        ----------------------------------
+!
+         integer,       parameter   :: N_MAX_ITER = 50
+         real(kind=RP), parameter   :: TOL = 1.0e-12_RP
+         integer,       parameter   :: STEP = 1.0_RP
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                       :: i, j, k, iter
+         real(kind=RP), parameter      :: INSIDE_TOL = 1.0e-08_RP
+         real(kind=RP)                 :: lxi   (0:self % Nxyz(1)) 
+         real(kind=RP)                 :: leta  (0:self % Nxyz(2)) 
+         real(kind=RP)                 :: lzeta (0:self % Nxyz(3)) 
+         real(kind=RP)                 :: dlxi   (0:self % Nxyz(1)) 
+         real(kind=RP)                 :: dleta  (0:self % Nxyz(2)) 
+         real(kind=RP)                 :: dlzeta (0:self % Nxyz(3)) 
+         real(kind=RP)                 :: F(NDIM)
+         real(kind=RP)                 :: Jac(NDIM,NDIM)
+         real(kind=RP)                 :: dx(NDIM)
+         interface
+            function SolveThreeEquationLinearSystem(A,b)
+               use SMConstants
+               implicit none
+               real(kind=RP), intent(in)  :: A(3,3)
+               real(kind=RP), intent(in)  :: b(3)
+               real(kind=RP)     :: SolveThreeEquationLinearSystem(3)
+            end function SolveThreeEquationLinearSystem
+         end interface
+!
+!        Initial seed
+!        ------------      
+         xi = 0.0_RP    
+
+         do iter = 1 , N_MAX_ITER
+!
+!           Get Lagrange polynomials and derivatives
+!           ----------------------------------------
+            lxi     = spA % lxi   (xi(1))
+            leta    = spA % leta  (xi(2))
+            lzeta   = spA % lzeta (xi(3))
+  
+            F = 0.0_RP
+            do k = 0, spA % Nz   ; do j = 0, spA % Ny ; do i = 0, spA % Nx
+               F = F + self % geom % x(:,i,j,k) * lxi(i) * leta(j) * lzeta(k)
+            end do               ; end do             ; end do
+   
+            F = F - x
+!
+!           Stopping criteria: there are several
+!           ------------------------------------
+            if ( maxval(abs(F)) .lt. TOL ) exit
+            if ( abs(xi(1)) .ge. 1.25_RP ) exit
+            if ( abs(xi(2)) .ge. 1.25_RP ) exit
+            if ( abs(xi(3)) .ge. 1.25_RP ) exit
+!
+!           Perform a step
+!           --------------
+            dlxi    = spA % dlxi  (xi(1))
+            dleta   = spA % dleta (xi(2))
+            dlzeta  = spA % dlzeta(xi(3))
+
+            Jac = 0.0_RP
+            do k = 0, spA % Nz   ; do j = 0, spA % Ny ; do i = 0, spA % Nx
+               Jac(:,1) = Jac(:,1) + self % geom % x(:,i,j,k) * dlxi(i) * leta(j) * lzeta(k) 
+               Jac(:,2) = Jac(:,2) + self % geom % x(:,i,j,k) * lxi(i) * dleta(j) * lzeta(k) 
+               Jac(:,3) = Jac(:,3) + self % geom % x(:,i,j,k) * lxi(i) * leta(j) * dlzeta(k) 
+            end do               ; end do             ; end do
+
+            dx = solveThreeEquationLinearSystem( Jac , -F )
+            xi = xi + STEP * dx
+   
+         end do
+
+         if ( (abs(xi(1)) .lt. 1.0_RP + INSIDE_TOL) .and. &
+              (abs(xi(2)) .lt. 1.0_RP + INSIDE_TOL) .and. &
+              (abs(xi(3)) .lt. 1.0_RP + INSIDE_TOL)          ) then
+!
+!           Solution is valid
+!           -----------------
+            HexElement_FindPointWithCoords = .true.
+   
+         else
+!
+!           Solution is not valid
+!           ---------------------
+            HexElement_FindPointWithCoords = .false.
+         
+         end if
+
+      end function HexElement_FindPointWithCoords
+
+      function HexElement_EvaluateSolutionAtPoint(self, spA, xi)
+         implicit none
+         class(Element),   intent(in)    :: self
+         class(NodalStorage), intent(in) :: spA
+         real(kind=RP),    intent(in)    :: xi(NDIM)
+         real(kind=RP)                   :: HexElement_EvaluateSolutionAtPoint(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer        :: i, j, k
+         real(kind=RP)  :: lxi(0:spA % Nx)
+         real(kind=RP)  :: leta(0:spA % Ny)
+         real(kind=RP)  :: lzeta(0:spA % Nz)
+         real(kind=RP)  :: Q(NCONS)
+!
+!        Compute Lagrange basis
+!        ----------------------
+         lxi   = spA % lxi(xi(1))
+         leta  = spA % leta(xi(2))
+         lzeta = spA % lzeta(xi(3))
+!
+!        Compute the tensor product
+!        --------------------------
+         Q = 0.0_RP
+      
+         do k = 0, spA % Nz   ; do j = 0, spA % Ny ; do i = 0, spA % Nx
+            Q = Q + self % storage % Q(:,i,j,k) * lxi(i) * leta(j) * lzeta(k)
+         end do               ; end do             ; end do   
+
+         HexElement_EvaluateSolutionAtPoint = Q
+
+      end function HexElement_EvaluateSolutionAtPoint
       
       END Module ElementClass
-
