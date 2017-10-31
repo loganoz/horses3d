@@ -261,7 +261,7 @@ MODULE HexMeshClass
 !           Now construct the element
 !           -------------------------
 !
-            CALL ConstructElementGeometry( self % elements(l), spA(Nx(l),Ny(l),Nz(l)), nodeIDs, hexMap )
+            CALL ConstructElementGeometry( self % elements(l), spA(Nx(l),Ny(l),Nz(l)), nodeIDs, hexMap , l)
             
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(l), names )

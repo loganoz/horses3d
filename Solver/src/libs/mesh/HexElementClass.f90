@@ -34,6 +34,7 @@
       
       
       TYPE Element
+          integer                                        :: eID               ! ID of this element
           INTEGER                                        :: nodeIDs(8)
           INTEGER, DIMENSION(3)                          :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
           TYPE(MappedGeometry)                           :: geom
@@ -64,7 +65,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ConstructElementGeometry( self, ng, nodeIDs, hexMap )
+      SUBROUTINE ConstructElementGeometry( self, ng, nodeIDs, hexMap , eID)
          USE NodalStorageClass
          IMPLICIT NONE
          
@@ -72,7 +73,9 @@
          TYPE(NodalStorage)      :: ng
          INTEGER                 :: nodeIDs(8)
          TYPE(TransfiniteHexMap) :: hexMap
+         integer                 :: eID
          
+         self % eID                   = eID
          self % nodeIDs               = nodeIDs
          self % Nxyz(1)               = ng % Nx
          self % Nxyz(2)               = ng % Ny
