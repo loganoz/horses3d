@@ -75,6 +75,7 @@ Module DGSEMClass
 !
       SUBROUTINE ConstructDGSem( self, meshFileName_, controlVariables, &
                                  externalState, externalGradients, polynomialOrder, Nx_, Ny_, Nz_, success )
+      use ReadMeshFile
       use FTValueDictionaryClass
       use mainKeywordsModule
       use StopwatchClass
@@ -165,9 +166,7 @@ Module DGSEMClass
          Nz => Nz_
          nelem = SIZE(Nx)
       ELSEIF (PRESENT(polynomialOrder)) THEN
-         OPEN(newunit = fUnit, FILE = meshFileName )  
-            READ(fUnit,*) k, nelem, k                    ! Here k is used as default reader since this variables are not important now
-         CLOSE(fUnit)
+         nelem = NumOfElemsFromMeshFile( meshfileName )
          
          ALLOCATE (Nx(nelem),Ny(nelem),Nz(nelem))
          Nx = polynomialOrder(1)
@@ -204,7 +203,8 @@ Module DGSEMClass
 !     Construct the mesh
 !     ------------------
 !
-      CALL self % mesh % constructFromFile( meshfileName, nodes, self % spA, Nx, Ny, Nz,  success )
+      CALL constructMeshFromFile( self % mesh, meshfileName, nodes, self % spA, Nx, Ny, Nz,  success )
+      
       IF(.NOT. success) RETURN 
 !
 !     ------------------------
