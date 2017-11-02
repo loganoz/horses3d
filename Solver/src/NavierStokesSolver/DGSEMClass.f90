@@ -103,6 +103,7 @@ Module DGSEMClass
       INTEGER                     :: nelem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       character(len=LINE_LENGTH)  :: meshFileName
+      logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
       INTERFACE
          SUBROUTINE externalState(x,t,nHat,Q,boundaryName)
             USE SMConstants
@@ -203,7 +204,12 @@ Module DGSEMClass
 !     Construct the mesh
 !     ------------------
 !
-      CALL constructMeshFromFile( self % mesh, meshfileName, nodes, self % spA, Nx, Ny, Nz,  success )
+      if (controlVariables % containsKey("mesh inner curves")) then
+         MeshInnerCurves = controlVariables % logicalValueForKey("mesh inner curves")
+      else
+         MeshInnerCurves = .true.
+      end if
+      CALL constructMeshFromFile( self % mesh, meshfileName, nodes, self % spA, Nx, Ny, Nz, MeshInnerCurves , success )
       
       IF(.NOT. success) RETURN 
 !

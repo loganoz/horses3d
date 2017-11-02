@@ -76,7 +76,7 @@ contains
 !     * Variables as called in HOPR
 !     * Auxiliar variables
 !  -----------------------------------------------------------------------------------------------------------------------
-   subroutine ConstructMesh_FromHDF5File_( self, fileName, nodes, spA, Nx, Ny, Nz, success )
+   subroutine ConstructMesh_FromHDF5File_( self, fileName, nodes, spA, Nx, Ny, Nz, MeshInnerCurves, success )
       implicit none
       !---------------------------------------------------------------
       class(HexMesh)     :: self
@@ -84,6 +84,7 @@ contains
       integer            :: nodes
       TYPE(NodalStorage) :: spA(0:,0:,0:)  
       INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+      logical            :: MeshInnerCurves
       LOGICAL            :: success
       !---------------------------------------------------------------
 #ifdef HAS_HDF5
@@ -126,6 +127,7 @@ contains
       integer, allocatable       :: HNodeSideMap(:,:,:)  ! Map from the face-node-index of an element to the global node index of HOPR (for surface curvature)
       integer, allocatable       :: HOPRNodeMap(:)       ! Map from the global node index of HORSES3D to the global node index of HOPR
       real(kind=RP), allocatable :: TempNodes(:,:)       ! Nodes read from file to be exported to self % nodes
+      logical                    :: CurveCondition
       !---------------------------------------------------------------
       
 !
@@ -207,12 +209,9 @@ contains
       numberOfBoundaryFaces = 0
       corners               = 0.0_RP
       
-      if (bFaceOrder == 1) then ! Flat faces
-         ALLOCATE(hex8Map)
-         CALL hex8Map % constructWithCorners(corners)
-      else                      ! Curved faces
-         ALLOCATE(genHexMap)
-      end if
+      ALLOCATE(hex8Map)
+      CALL hex8Map % constructWithCorners(corners)
+      ALLOCATE(genHexMap)
       
       HSideMap = HOPR2HORSESSideMap()
       HCornerMap = HOPR2HORSESCornerMap(bFaceOrder)
@@ -221,7 +220,6 @@ contains
       ALLOCATE( self % elements(numberOfelements) )
       
       call InitNodeMap (TempNodes , HOPRNodeMap, nUniqueNodes)
-      
       
 !      
 !     Now we construct the elements
@@ -238,8 +236,22 @@ contains
             call AddToNodeMap (TempNodes , HOPRNodeMap, corners(:,k), GlobalNodeIDs(HOPRNodeID), nodeIDs(k))
          END DO
          
+         do k = 1, FACES_PER_ELEMENT
+            j = SideInfo(5,ElemInfo(3,l) + HSideMap(k))
+            if (j == 0) then
+               names(k) = emptyBCName
+            else
+               names(k) = trim(BCNames(j))
+            end if
+         end do
          
-         if (bFaceOrder == 1) then
+         if (MeshInnerCurves) then
+            CurveCondition = (bFaceOrder == 1)
+         else
+            CurveCondition = all(names == emptyBCName)
+         end if
+         
+         if (CurveCondition) then
 !
 !           If bFaceOrder == 1, then self is a straight-sided
 !           hex. In that case, set the corners of the hex8Map and use that in determining
@@ -278,14 +290,6 @@ contains
 !
          CALL ConstructElementGeometry( self % elements(l), spA(Nx(l),Ny(l),Nz(l)), nodeIDs, hexMap , l)
          
-         do k = 1, FACES_PER_ELEMENT
-            j = SideInfo(5,ElemInfo(3,l) + HSideMap(k))
-            if (j == 0) then
-               names(k) = emptyBCName
-            else
-               names(k) = trim(BCNames(j))
-            end if
-         end do
          
          CALL SetElementBoundaryNames( self % elements(l), names )
             
@@ -348,13 +352,10 @@ contains
 !        Finish up
 !        ---------
 !
-      if (bFaceOrder == 1) then ! Flat faces
-         CALL hex8Map % destruct()
-         DEALLOCATE(hex8Map)
-      else
-         CALL genHexMap % destruct()
-         DEALLOCATE(genHexMap)
-      end if
+      CALL hex8Map % destruct()
+      DEALLOCATE(hex8Map)
+      CALL genHexMap % destruct()
+      DEALLOCATE(genHexMap)
       
       CALL self % Describe( trim(fileName) )
       

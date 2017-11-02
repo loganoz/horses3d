@@ -4,7 +4,7 @@ module ReadMeshFile
    use HexMeshClass
    implicit none
 contains
-   subroutine constructMeshFromFile( self, fileName, nodes, spA, Nx, Ny, Nz, success )
+   subroutine constructMeshFromFile( self, fileName, nodes, spA, Nx, Ny, Nz, MeshInnerCurves , success )
       implicit none
       !---------------------------------------------------------------
       class(HexMesh)     :: self
@@ -12,6 +12,7 @@ contains
       integer            :: nodes
       TYPE(NodalStorage) :: spA(0:,0:,0:)  
       INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+      logical            :: MeshInnerCurves         !<  Describe inner curved surfaces? (only for hdf5)
       LOGICAL            :: success
       !---------------------------------------------------------------
       character(len=LINE_LENGTH) :: ext
@@ -27,7 +28,7 @@ contains
       ext = getFileExtension(trim(filename))
       
       if (trim(ext)=='h5') then
-         call ConstructMesh_FromHDF5File_( self, fileName, nodes, spA, Nx, Ny, Nz, success )
+         call ConstructMesh_FromHDF5File_( self, fileName, nodes, spA, Nx, Ny, Nz, MeshInnerCurves , success )
       elseif (trim(ext)=='mesh') then
          call ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, spA, Nx, Ny, Nz, success )
       else
