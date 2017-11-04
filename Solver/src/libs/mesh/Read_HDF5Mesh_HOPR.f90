@@ -95,13 +95,17 @@ contains
       integer  :: numBFacePoints    ! Number of points for describing a curved mesh
       integer  :: numberOfBoundaryFaces
       INTEGER  :: numberOfFaces
-      INTEGER                          :: nodeIDs(NODES_PER_ELEMENT)
+      INTEGER                          :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
       CHARACTER(LEN=BC_STRING_LENGTH)  :: names(FACES_PER_ELEMENT)
       TYPE(TransfiniteHexMap), POINTER :: hexMap, hex8Map, genHexMap
       TYPE(FacePatch), DIMENSION(6)    :: facePatches
       REAL(KIND=RP)                    :: corners(NDIM,NODES_PER_ELEMENT) ! Corners of element
       real(kind=RP), dimension(:)    , allocatable :: uNodes, vNodes
       real(kind=RP), dimension(:,:,:), allocatable :: values
+      
+      REAL(KIND=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
+      REAL(KIND=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
+      REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
       
       ! Variables as called in HOPR: For a description, see HOPR documentation
       integer                          :: nUniqueNodes
@@ -128,6 +132,10 @@ contains
       integer, allocatable       :: HOPRNodeMap(:)       ! Map from the global node index of HORSES3D to the global node index of HOPR
       real(kind=RP), allocatable :: TempNodes(:,:)       ! Nodes read from file to be exported to self % nodes
       logical                    :: CurveCondition
+      
+      real(kind=RP), allocatable, dimension(:)     :: xiCL,etaCL,zetaCL
+      real(kind=RP), allocatable, dimension(:,:,:) :: face1CL,face2CL,face3CL,face4CL,face5CL,face6CL
+      TYPE(FacePatch), DIMENSION(6)    :: facePatchesHOPR
       !---------------------------------------------------------------
       
 !
@@ -184,9 +192,10 @@ contains
       
 !      
 !     Set up for face patches
-!     Face patches are defined at EQUIDISTANT points in HOPR!!! (not Chebyshev-Lobatto as in .mesh format)
+!     Face patches are defined at equidistant points in HOPR (not Chebyshev-Lobatto as in .mesh format)
 !     ---------------------------------------
-
+      print*, 'Face order=',bFaceOrder
+      
       numBFacePoints = bFaceOrder + 1
       allocate(uNodes(numBFacePoints))
       allocate(vNodes(numBFacePoints))
@@ -197,9 +206,8 @@ contains
          vNodes(i) = uNodes(i)
       end do      
       
-      ! In HOPR, all faces have the same order...
-      DO k = 1, 6 ! Most patches will be flat, so set up for self
-         CALL facePatches(k) % construct(uNodes, vNodes) 
+      DO k = 1, 6 ! All the patches read from the hdf5 file will have order bFaceOrder
+         CALL facePatchesHOPR(k) % construct(uNodes, vNodes) 
       END DO  
       
 !      
@@ -253,11 +261,11 @@ contains
          
          if (CurveCondition) then
 !
-!           If bFaceOrder == 1, then self is a straight-sided
-!           hex. In that case, set the corners of the hex8Map and use that in determining
-!           the element geometry.
+!           HOPR does not specify the order of curvature of individual faces. Therefore, we 
+!           will suppose that self is a straight-sided hex when bFaceOrder == 1, and
+!           for inner elements when MeshInnerCurves == .false. (control file variable 'mesh inner curves'). 
+!           In these cases, set the corners of the hex8Map and use that in determining the element geometry.
 !           -----------------------------------------------------------------------------
-            
             CALL hex8Map % setCorners(corners)
             hexMap => hex8Map
             
@@ -267,21 +275,113 @@ contains
 !           --------------------------------------------------------------
             
             DO k = 1, FACES_PER_ELEMENT 
-            
-               DO j = 1, numBFacePoints
-                  DO i = 1, numBFacePoints
-                     values(:,i,j) = NodeCoords(:,ElemInfo(ELEM_FirstNodeInd,l) + HNodeSideMap(i,j,k))
-                  END DO  
-               END DO
-               
-               CALL facePatches(k) % setFacePoints(points = values)
+               IF ( names(k) == emptyBCName .and. (.not. MeshInnerCurves) )     THEN   ! This doesn't work when the boundary surface of the element is not only curved in the normal direction, but also in some tangent direction. 
+!
+!                 ----------
+!                 Flat faces
+!                 ----------
+!
+                  nodeMap           = localFaceNode(:,k)
+                  valuesFlat(:,1,1) = corners(:,nodeMap(1))
+                  valuesFlat(:,2,1) = corners(:,nodeMap(2))
+                  valuesFlat(:,2,2) = corners(:,nodeMap(3))
+                  valuesFlat(:,1,2) = corners(:,nodeMap(4))
+                  
+                  
+                  IF(facePatchesHOPR(k) % noOfKnots(1) /= 2)     THEN
+                     CALL facePatchesHOPR(k) % destruct()
+                     CALL facePatchesHOPR(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+                  ELSE
+                     CALL facePatchesHOPR(k) % setFacePoints(points = valuesFlat)
+                  END IF 
+                  
+               ELSE
+!
+!                 -------------
+!                 Curved faces 
+!                 -------------
+!
+                  DO j = 1, numBFacePoints
+                     DO i = 1, numBFacePoints
+                        HOPRNodeID = ElemInfo(ELEM_FirstNodeInd,l) + HNodeSideMap(i,j,k)
+                        values(:,i,j) = NodeCoords(:,HOPRNodeID)
+                     END DO  
+                  END DO
+                  
+                  IF(facePatchesHOPR(k) % noOfKnots(1) == 2)     THEN             ! TODO This could be problematic with anisotropy
+                     CALL facePatchesHOPR(k) % destruct()
+                     CALL facePatchesHOPR(k) % construct(uNodes, vNodes, values)
+                  ELSE
+                    CALL facePatchesHOPR(k) % setFacePoints(points = values)
+                  END IF 
+                  
+               END IF
                
             END DO
+
+!
+!           Impose subparametric, or at most isoparametric, representation of boundaries
+!           To do so, we interpolate the boundary points to (Nx+1, Ny+1, Nz+1) 
+!           Chebyshev-Lobatto nodes and reconstruct the patches there. 
+!              TODO: This can cause problems with p-adaptation for inner curved boundaries
+!           ----------------------------------------------------------------------------
+            
+            ! Allocation
+            
+            allocate(xiCL(Nx(l)+1),etaCL(Ny(l)+1),zetaCL(Nz(l)+1))
+            allocate(face1CL(1:3,Nx(l)+1,Nz(l)+1))
+            allocate(face2CL(1:3,Nx(l)+1,Nz(l)+1))
+            allocate(face3CL(1:3,Nx(l)+1,Ny(l)+1))
+            allocate(face4CL(1:3,Ny(l)+1,Nz(l)+1))
+            allocate(face5CL(1:3,Nx(l)+1,Ny(l)+1))
+            allocate(face6CL(1:3,Ny(l)+1,Nz(l)+1))
+            
+            ! Construct the interpolants based on Chebyshev-Lobatto points
+            
+            xiCL   = (/ ( -cos((i-1)*PI/Nx(l)),i=1, Nx(l)+1) /)
+            etaCL  = (/ ( -cos((i-1)*PI/Ny(l)),i=1, Ny(l)+1) /)
+            zetaCL = (/ ( -cos((i-1)*PI/Nz(l)),i=1, Nz(l)+1) /)
+            
+            ! Project the faces to new boundary representations
+            
+            call ProjectFaceToNewPoints(facePatchesHOPR(1), Nx(l), xiCL , Nz(l), zetaCL, face1CL)
+            call ProjectFaceToNewPoints(facePatchesHOPR(2), Nx(l), xiCL , Nz(l), zetaCL, face2CL)
+            call ProjectFaceToNewPoints(facePatchesHOPR(3), Nx(l), xiCL , Ny(l), etaCL , face3CL)
+            call ProjectFaceToNewPoints(facePatchesHOPR(4), Ny(l), etaCL, Nz(l), zetaCL, face4CL)
+            call ProjectFaceToNewPoints(facePatchesHOPR(5), Nx(l), xiCL , Ny(l), etaCL , face5CL)
+            call ProjectFaceToNewPoints(facePatchesHOPR(6), Ny(l), etaCL, Nz(l), zetaCL, face6CL)
+            
+            ! Construct the new Chebyshev-Lobatto face patches
+            
+            call facePatches(1) % Construct( xiCL , zetaCL, face1CL )
+            call facePatches(2) % Construct( xiCL , zetaCL, face2CL )
+            call facePatches(3) % Construct( xiCL , etaCL , face3CL )
+            call facePatches(4) % Construct( etaCL, zetaCL, face4CL )
+            call facePatches(5) % Construct( xiCL , etaCL , face5CL )
+            call facePatches(6) % Construct( etaCL, zetaCL, face6CL )
+            
+            deallocate(xiCL,etaCL,zetaCL)
+            deallocate(face1CL,face2CL,face3CL,face4CL,face5CL,face6CL)
+            
+!
+!           Construct the transfinite map with the boundary representations
+!           ---------------------------------------------------------------
             
             CALL genHexMap % destruct()
             CALL genHexMap % constructWithFaces(facePatches)
             
             hexMap => genHexMap
+   
+            ! Destruct face patches
+            
+            call facePatches(1) % Destruct()
+            call facePatches(2) % Destruct()
+            call facePatches(3) % Destruct()
+            call facePatches(4) % Destruct()
+            call facePatches(5) % Destruct()
+            call facePatches(6) % Destruct()
+            
+            
          end if
          
 !
@@ -323,34 +423,35 @@ contains
       
       ALLOCATE( self % faces(self % numberOfFaces) )
       CALL ConstructFaces( self, success )
-!
-!        ------------------------------
-!        Set the element connectivities
-!        ------------------------------
-!
-         call self % SetConnectivities
-!
-!        -------------------------
-!        Build the different zones
-!        -------------------------
-!
-         call self % ConstructZones()
-!
-!        ---------------------------
-!        Construct periodic faces
-!        ---------------------------
-!
-         CALL ConstructPeriodicFaces( self )
-!
-!        ---------------------------
-!        Delete periodic- faces
-!        ---------------------------
-!
-         CALL DeletePeriodicMinusFaces( self )
       
 !
-!        Finish up
-!        ---------
+!     ------------------------------
+!     Set the element connectivities
+!     ------------------------------
+!
+      call self % SetConnectivities
+!
+!     -------------------------
+!     Build the different zones
+!     -------------------------
+!
+      call self % ConstructZones()
+!
+!     ---------------------------
+!     Construct periodic faces
+!     ---------------------------
+!
+      CALL ConstructPeriodicFaces( self )
+!
+!     ---------------------------
+!     Delete periodic- faces
+!     ---------------------------
+!
+      CALL DeletePeriodicMinusFaces( self )
+      
+!
+!     Finish up
+!     ---------
 !
       CALL hex8Map % destruct()
       DEALLOCATE(hex8Map)
@@ -608,36 +709,36 @@ contains
 !  Mapping between the side index used by HORSES 3D and the ones used by HOPR 
 !  The mapping is the same as the one for the CNGS standard.
 !  -----------------------------------------------------------------------------------------------------------------------
-   pure function HOPR2HORSESSideMap() result(SideMap)
+   pure function HOPR2HORSESSideMap() result(HSideMap)
       implicit none
-      integer :: SideMap(6)
+      integer :: HSideMap(6)
       
-      SideMap(1) = 2
-      SideMap(2) = 4
-      SideMap(3) = 1
-      SideMap(4) = 3
-      SideMap(5) = 6
-      SideMap(6) = 5
+      HSideMap(1) = 2
+      HSideMap(2) = 4
+      HSideMap(3) = 1
+      HSideMap(4) = 3
+      HSideMap(5) = 6
+      HSideMap(6) = 5
    end function HOPR2HORSESSideMap
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -----------------------------------------------------------------------------------------------------------------------
 !  Mapping between the high-order nodes used by HOPR and the nodes on the surfaces needed in HORSES3D
-!  The mapping is DIFFERENT than the one for the CNGS standard.
+!  The mapping is DIFFERENT than the one in the CNGS standard.
 !  SideMap returns the local HOPR index of an i,j position on the face of the element
 !  -----------------------------------------------------------------------------------------------------------------------
-   subroutine HOPR2HORSESNodeSideMap(N,SideMap)
+   subroutine HOPR2HORSESNodeSideMap(N,HSideMap)
       implicit none
       !------------------------------------
       integer, intent(in)                 :: N
-      integer, allocatable, intent(inout) :: SideMap(:,:,:)
+      integer, allocatable, intent(inout) :: HSideMap(:,:,:)
       !------------------------------------
       integer :: i,j,k ! Coordinate counters
       integer :: FirstIdx
       !------------------------------------
       
-      allocate (SideMap(N+1,N+1,6))
+      allocate (HSideMap(N+1,N+1,6))
 
       ! This is the same code as in src/libs/mesh/HexelementConnectivityDefinitions.f90
       ! But rotated in the same way as the cube in the HOPR documentation... for reference!!
@@ -672,7 +773,7 @@ contains
       
       do j = 1, N + 1
          FirstIdx = (j-1)*(N+1)*(N+1) + 1 
-         SideMap(:,j,1) = (/ (k, k=FirstIdx,FirstIdx+N) /)
+         HSideMap(:,j,1) = (/ (k, k=FirstIdx,FirstIdx+N) /)   !j
       end do
       
       ! Face 2
@@ -680,7 +781,7 @@ contains
       
       do j = 1, N + 1
          FirstIdx = (N*(N+1)+1) + (j-1)*(N+1)*(N+1)
-         SideMap(:,j,2) = (/ (k, k=FirstIdx,FirstIdx+N) /)
+         HSideMap(:,j,2) = (/ (k, k=FirstIdx,FirstIdx+N) /)   !j
       end do
       
       ! Face 3 (the easy one!)
@@ -689,17 +790,27 @@ contains
       do j = 1, N + 1
          do i = 1, N + 1
             k = k+1
-            SideMap(i,j,3) = k
+            HSideMap(i,j,3) = k
          end do
       end do
+      
+!~       do j = 1, N + 1
+!~          FirstIdx = (N+1)*(j-1) + 1
+!~          HSideMap(:,N+2-j,3) = (/ (k, k=FirstIdx,FirstIdx+N) /)
+!~       end do
       
       ! Face 4
       !-------
       
       do j = 1, N + 1
          FirstIdx = (N+1) + (j-1)*(N+1)*(N+1)
-         SideMap(:,j,4) = (/ (k, k=FirstIdx,FirstIdx+(N+1)*N,N+1) /)
+         HSideMap(:,j,4) = (/ (k, k=FirstIdx,FirstIdx+(N+1)*N,N+1) /)
       end do
+      
+!~       do j = 1, N + 1
+!~          FirstIdx = (N+1) + (j-1)*(N+1)*(N+1)
+!~          HSideMap(:,N+2-j,4) = (/ (k, k=FirstIdx+(N+1)*N,FirstIdx,-(N+1)) /)
+!~       end do
       
       ! Face 5 (the other easy one!)
       !-----------------------------
@@ -707,18 +818,26 @@ contains
       do j = 1, N + 1
          do i = 1, N + 1
             k = k+1
-            SideMap(i,j,5) = k
+            HSideMap(i,j,5) = k
          end do
       end do
+!~       do j = 1, N + 1
+!~          FirstIdx = N*(N+1)**2 + (N+1)*(j-1) + 1
+!~          HSideMap(:,N+2-j,5) = (/ (k, k=FirstIdx,FirstIdx+N) /)
+!~       end do
       
       ! Face 6
       !-------
       
       do j = 1, N + 1
          FirstIdx = (j-1)*(N+1)**2 + 1
-         SideMap(:,j,6) = (/ (k, k=FirstIdx,FirstIdx+(N+1)*N,N+1) /)
+         HSideMap(:,j,6) = (/ (k, k=FirstIdx,FirstIdx+(N+1)*N,N+1) /)
       end do
       
+!~       do j = 1, N + 1
+!~          FirstIdx = (j-1)*(N+1)**2 + 1
+!~          HSideMap(:,N+2-j,6) = (/ (k, k=FirstIdx+(N+1)*N,FirstIdx,-(N+1)) /)
+!~       end do
    end subroutine HOPR2HORSESNodeSideMap
 
 !
@@ -733,8 +852,8 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ----------------------------------------------------------------
-!  Initialize: allocating to the nUniqueNodes.. These are much more 
-!  than the actual nodes, but just in case..
+!  Initialize: allocating to the nUniqueNodes.. 
+!     In general, nCornerNodes <= nUniqueNodes
 !  ----------------------------------------------------------------
    subroutine InitNodeMap (TempNodes , HOPRNodeMap, nUniqueNodes)
       implicit none
@@ -790,7 +909,7 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ----------------------------------------------------------------
-!  Add a new entry to the node map
+!  Construct nodes of mesh and deallocate temporal arrays
 !  ----------------------------------------------------------------
    subroutine FinishNodeMap (TempNodes , HOPRNodeMap, nodes)
       implicit none

@@ -241,28 +241,4 @@ module ProlongMeshAndSolution
 
       end subroutine InterpolateFaces
 
-      subroutine ProjectFaceToNewPoints(patch,Nx,xi,Ny,eta,facecoords)
-         use MappedGeometryClass
-         implicit none
-         type(FacePatch),  intent(in)     :: patch
-         integer,          intent(in)     :: Nx
-         real(kind=RP),    intent(in)     :: xi(0:Nx)
-         integer,          intent(in)     :: Ny
-         real(kind=RP),    intent(in)     :: eta(0:Ny)
-         real(kind=RP),    intent(out)    :: faceCoords(1:3,0:Nx,0:Ny)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer     :: i, j
-         real(kind=RP)  :: localCoords(2)
-               
-         do j = 0, Ny ; do i = 0, Nx
-            localCoords = (/ xi(i), eta(j) /)
-            call ComputeFacePoint(patch, localCoords, faceCoords(:,i,j) )
-         end do       ; end do
-
-      end subroutine ProjectFaceToNewPoints
-
 end module ProlongMeshAndSolution
