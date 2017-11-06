@@ -31,14 +31,14 @@ endif
 	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
 ./build/ProblemFile.o: ./ProblemFile.f90
-	$(FC) -fPIC -shared $(FFLAGS) $(INCLUDE) $(MOD_FLAG)./include -c $< -o $@
+	$(FC) -fPIC -shared $(FFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(MOD_FLAG)./include -c $< -o $@
 
 lib$(LIBNAME): header mkdirs ./build/ProblemFile.o
 	@echo
 	@echo "---------------------------------"
 	@echo "| Linking library" $@ "|"
 	@echo "---------------------------------"
-	$(FC) $(DYNLIB_FLAG) $(FFLAGS) $(MACROS) $(INCLUDE) ./build/ProblemFile.o
+	$(FC) $(DYNLIB_FLAG) $(FFLAGS) $(MACROS) $(INCLUDE) ./build/ProblemFile.o $(LIBS)
 
 install: lib$(LIBNAME)
 	cp -p lib$(LIBNAME) $(INSTALL_DIR)/lib/
