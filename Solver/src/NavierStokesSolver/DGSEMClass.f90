@@ -728,7 +728,7 @@ Module DGSEMClass
                CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)
                CALL RiemannSolver(QLeft  = QL(:,i,j), &
                                   QRight = QR(:,ii,jj), &
-                                  nHat   = norm, &    ! This works only for flat faces
+                                  nHat   = eL % geom % normal(:,i,j,fIDLeft), &    ! This works only for flat faces
                                   flux   = inv_flux(:,i,j) )
 
                CALL ViscousMethod % RiemannSolver( QLeft = QL(:,i,j), &
@@ -739,7 +739,7 @@ Module DGSEMClass
                                                   U_xRight = U_xRight(:,ii,jj) , &
                                                   U_yRight = U_yRight(:,ii,jj) , &
                                                   U_zRight = U_zRight(:,ii,jj) , &
-                                                   nHat = norm , &
+                                                   nHat = eL % geom % normal(:,i,j,fIDLeft) , &
                                                    flux  = visc_flux(:,i,j) )
             END DO   
          END DO  
