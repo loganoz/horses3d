@@ -72,8 +72,10 @@ Module MappedGeometryClass
       INTEGER       :: i, j, k
       REAL(KIND=RP) :: nrm
       REAL(KIND=RP) :: grad_x(3,3), jGrad(3)
-      LOGICAL       :: useCrossProductMetrics = .TRUE. ! A switch for debugging purposes
+      LOGICAL       :: useCrossProductMetrics = .false. ! A switch for debugging purposes
                                                        ! So far, anisotropic representation is only implemented for cross product metrics
+      integer :: fd !! DELETE
+      character(len=5) :: term
 !
 !     -----------
 !     Allocations
@@ -237,12 +239,11 @@ Module MappedGeometryClass
          END DO
          
       ELSE
-       
-         ERROR STOP 'Not yet implemented for computeMetricTermsConservativeForm'
-!~          CALL computeMetricTermsConservativeForm(self, spA, mapper)
+         
+         CALL computeMetricTermsConservativeForm(self, spA, mapper)
       
-      ENDIF       
-
+      ENDIF
+      
    END SUBROUTINE ConstructMappedGeometry
 !
 !////////////////////////////////////////////////////////////////////////
@@ -258,354 +259,376 @@ Module MappedGeometryClass
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-!~       SUBROUTINE computeMetricTermsConservativeForm(self, spA, mapper)  
-!~ !
-!~ !     -----------------------------------------------
-!~ !     Compute the metric terms in conservative form 
-!~ !     -----------------------------------------------
-!~ !
-!~       IMPLICIT NONE  
-!~ !
-!~ !        ---------
-!~ !        Arguments
-!~ !        ---------
-!~ !
-!~          TYPE(MappedGeometry)    :: self
-!~          TYPE(NodalStorage)      :: spA
-!~          TYPE(TransfiniteHexMap) :: mapper      
-!~ !
-!~ !     ---------------
-!~ !     Local Variables
-!~ !     ---------------
-!~ !
-!~       REAL(KIND=RP) :: xiArray(0:spA % N, 3), w(0:spA % N, 3)
-!~       REAL(KIND=RP) :: xi(3)
+      SUBROUTINE computeMetricTermsConservativeForm(self, spA, mapper)  
+         use PolynomialInterpAndDerivsModule
+!
+!     -----------------------------------------------
+!     Compute the metric terms in conservative form 
+!     -----------------------------------------------
+!
+      IMPLICIT NONE  
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(MappedGeometry)    :: self
+         TYPE(NodalStorage)      :: spA
+         TYPE(TransfiniteHexMap) :: mapper      
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      REAL(KIND=RP) :: xiCL(0:spA % Nx), etaCL(0:spA % Ny),zetaCL(0:spA % Nz)
+      REAL(KIND=RP) :: wXi (0:spA % Nx), wEta (0:spA % Ny),wZeta (0:spA % Nz)
+      REAL(KIND=RP) :: xi(3)
       
-!~       real(KIND=RP) :: mappedxi(0:spA % N, 3)
+      REAL(KIND=RP) :: grad_x(3, 3, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+      REAL(KIND=RP) :: xGauss(3, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
       
-!~       REAL(KIND=RP) :: grad_x(3, 3, 0:spA % N, 0:spA % N, 0:spA % N)
-!~       REAL(KIND=RP) :: xGauss(3, 0:spA % N, 0:spA % N, 0:spA % N)
+      REAL(KIND=RP) :: xiDermat  (0:spA % Nx, 0:spA % Nx)
+      REAL(KIND=RP) :: etaDerMat (0:spA % Ny, 0:spA % Ny)
+      REAL(KIND=RP) :: zetaDerMat(0:spA % Nz, 0:spA % Nz)
       
-!~       REAL(KIND=RP) :: xiDermat  (0:spA % N, 0:spA % N)
-!~       REAL(KIND=RP) :: etaDerMat (0:spA % N, 0:spA % N)
-!~       REAL(KIND=RP) :: zetaDerMat(0:spA % N, 0:spA % N)
+      REAL(KIND=RP) :: IdentityMatrix(0:max(spA%Nx,spA%Ny,spA%Nz), 0:max(spA%Nx,spA%Ny,spA%Nz)) 
       
-!~       REAL(KIND=RP) :: IdentityMatrix(0:spA % N, 0:spA % N)
+      REAL(KIND=RP) :: tArray(0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+      REAL(KIND=RP) :: dArray(0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+      REAL(KIND=RP) :: vArray(0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
       
-!~       REAL(KIND=RP) :: tArray(0:spA % N, 0:spA % N, 0:spA % N)
-!~       REAL(KIND=RP) :: dArray(0:spA % N, 0:spA % N, 0:spA % N)
-!~       REAL(KIND=RP) :: vArray(0:spA % N, 0:spA % N, 0:spA % N)
+      REAL(KIND=RP) :: jGradXi  (3, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+      REAL(KIND=RP) :: jGradEta (3, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+      REAL(KIND=RP) :: jGradZeta(3, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
       
-!~       REAL(KIND=RP) :: jGradXi  (3, 0:spA % N, 0:spA % N, 0:spA % N)
-!~       REAL(KIND=RP) :: jGradEta (3, 0:spA % N, 0:spA % N, 0:spA % N)
-!~       REAL(KIND=RP) :: jGradZeta(3, 0:spA % N, 0:spA % N, 0:spA % N)
+!~      REAL(KIND=RP) :: jacXi  (0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+!~      REAL(KIND=RP) :: jacEta (0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+!~      REAL(KIND=RP) :: jacZeta(0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
       
-!~       REAL(KIND=RP) :: jGrad (3)
-!~       REAL(KIND=RP) :: nrm
+      REAL(KIND=RP) :: jGrad (3)
+      REAL(KIND=RP) :: nrm
       
-!~       REAL(KIND=RP) :: piN
+      INTEGER :: i, j, k, m, l, n
       
-!~       INTEGER :: i, j, k, m, l, n, noGauss
+      INTEGER :: polOrder(3)
       
-!~       INTEGER :: polOrder(3)
+      REAL(KIND=RP), ALLOCATABLE :: xiInterpMat  (:,:)
+      REAL(KIND=RP), ALLOCATABLE :: etaInterpMat (:,:)
+      REAL(KIND=RP), ALLOCATABLE :: zetaInterpMat(:,:)      
+!
+!     ---------------------------
+!     A convenience mapping array
+!     ---------------------------
+!
+      INTEGER, DIMENSION(0:4) :: iCycle = (/3,1,2,3,1/)
       
-!~       REAL(KIND=RP), ALLOCATABLE :: xiInterpMat  (:,:)
-!~       REAL(KIND=RP), ALLOCATABLE :: etaInterpMat (:,:)
-!~       REAL(KIND=RP), ALLOCATABLE :: zetaInterpMat(:,:)      
-!~ !
-!~ !     ---------------------------
-!~ !     A convenience mapping array
-!~ !     ---------------------------
-!~ !
-!~       INTEGER, DIMENSION(0:4) :: iCycle = (/3,1,2,3,1/)
-
-!~       polOrder(:) = spa % N
-!~       noGauss     = spA % N          
-!~ !
-!~ !     -------------------------------
-!~ !     Mappedxi is Legendre Gauss grid
-!~ !     -------------------------------
-!~ !
-!~       DO k = 1,3
-!~          DO j = 0, noGauss
-!~             mappedxi(j,1) = spA % xi(j)
-!~             mappedxi(j,2) = spA % eta(j)
-!~             mappedxi(j,3) = spA % zeta(j)
-!~          END DO
-!~       END DO      
-!~ !
-!~ !     -------------------------------------------
-!~ !     Compute the mesh on the Chebyshev Lobatto 
-!~ !     grid and compute the gradients on that mesh
-!~ !     -------------------------------------------
-!~ !
-!~       piN = PI/(noGauss)
-!~       DO k = 1,3
-!~          DO n = 0, noGauss
-!~              xiArray(n,k) = - COS((n)*piN)
-!~          END DO
-!~       END DO
-       
-!~       DO l = 0,noGauss
-!~          xi(3) = xiArray(l,3)
-!~          DO m = 0,noGauss
-!~             xi(2) = xiArray(m,2)
-!~             DO n = 0,noGauss
-!~                xi(1) = xiArray(n,1)
-!~                CALL GeneralHexGradAndMap( xi, xGauss(:,n,m,l), grad_x(:,:,n,m,l), mapper%corners, mapper % faces )
-!~             END DO
-!~          END DO
-!~       END DO
-
-!~       CALL PolynomialDerivativeMatrix( noGauss, xiArray(:,1), xiDerMat )
-!~       CALL PolynomialDerivativeMatrix( noGauss, xiArray(:,2), etaDerMat )
-!~       CALL PolynomialDerivativeMatrix( noGauss, xiArray(:,3), zetaDerMat )
-!~ !
-!~ !     -----------------------------------------------------
-!~ !     Now compute metric terms at each grid point
-!~ !     This computes the jGradXi terms in conservative form.
-!~ !     See the notes for the derivations.
-!~ !     -----------------------------------------------------
-!~ !
-!~ !     ----------
-!~ !     First term
-!~ !     ----------
-!~ !
-!~       iLoop: DO i = 1,3
-!~          jLoop : DO j = 1,3
-
-!~             tArray = xGauss(iCycle(j-1),:,:,:)*grad_x(iCycle(j+1),iCycle(i+1),:,:,:)
-
-!~             SELECT CASE (i)
-!~                CASE (1)
-!~                   DO l = 0, noGauss
-!~                      DO m = 0, noGauss   
-!~                         CALL MatrixMultiplyDeriv(tArray(m,l,:), dArray(m,l,:), zetaDerMat, noGauss, transp = MXV_DIRECT)
-!~                      ENDDO 
-!~                   ENDDO 
-!~                   jGradXi(j,:,:,:) = dArray
-!~                CASE (2)
-!~                   DO l = 0, noGauss
-!~                      DO m = 0, noGauss   
-!~                         CALL MatrixMultiplyDeriv(tArray(:,m,l), dArray(:,m,l), xiDerMat, noGauss, transp = MXV_DIRECT)
-!~                      ENDDO 
-!~                   ENDDO 
-!~                   jGradEta(j,:,:,:) = dArray
-!~                CASE (3)
-!~                   DO l = 0, noGauss
-!~                      DO m = 0, noGauss   
-!~                         CALL MatrixMultiplyDeriv(tArray(m,:,l), dArray(m,:,l), etaDerMat, noGauss, transp = MXV_DIRECT)
-!~                      ENDDO 
-!~                   ENDDO            
-!~                   jGradZeta(j,:,:,:) = dArray
-!~             END SELECT
-
-!~          END DO jLoop
-!~       END DO iLoop
-!~ !
-!~ !     -----------
-!~ !     Second term
-!~ !     -----------
-!~ !
-!~       iLoop2: DO i = 1,3
-!~          jLoop2 : DO j = 1,3
-
-!~             tArray = xGauss(iCycle(j-1),:,:,:)*grad_x(iCycle(j+1),iCycle(i-1),:,:,:)
-
-!~             SELECT CASE (i)
-!~                CASE (1)
-!~                   DO l = 0, noGauss
-!~                      DO m = 0, noGauss   
-!~                         CALL MatrixMultiplyDeriv(tArray(m,:,l), dArray(m,:,l), etaDerMat, noGauss, transp = MXV_DIRECT)
-!~                      ENDDO 
-!~                   ENDDO 
-!~                   jGradXi(j,:,:,:) = jGradXi (j,:,:,:) - dArray
-!~                CASE (2)
-!~                   DO l = 0, noGauss
-!~                      DO m = 0, noGauss   
-!~                         CALL MatrixMultiplyDeriv(tArray(m,l,:), dArray(m,l,:), zetaDerMat, noGauss, transp = MXV_DIRECT)
-!~                      ENDDO 
-!~                   ENDDO 
-!~                   jGradEta(j,:,:,:) = jGradEta(j,:,:,:) - dArray
-!~                CASE (3)
-!~                   DO l = 0, noGauss
-!~                      DO m = 0, noGauss   
-!~                         CALL MatrixMultiplyDeriv(tArray(:,m,l), dArray(:,m,l), xiDerMat, noGauss, transp = MXV_DIRECT)
-!~                      ENDDO 
-!~                   ENDDO 
-!~                   jGradZeta(j,:,:,:) = jGradZeta(j,:,:,:) - dArray
-!~             END SELECT
-
-!~          END DO jLoop2
-!~       END DO iLoop2    
+      polOrder(:) = [spa % Nx, spa % Ny, spa % Nz]     
+!
+!     -------------------------------------------
+!     Compute the mesh on the Chebyshev Lobatto 
+!     grid and compute the gradients on that mesh
+!     -------------------------------------------
+!
       
-
-!~ !
-!~ !     ------------------------------------
-!~ !     Interpolate back onto the Gauss grid
-!~ !     ------------------------------------
-!~ !
-!~       ALLOCATE( xiInterpMat  (0:noGauss,0:noGauss) )
-!~       ALLOCATE( etaInterpMat (0:noGauss,0:noGauss) )
-!~       ALLOCATE( zetaInterpMat(0:noGauss,0:noGauss) )
+      xiCL   = (/ ( -cos(n*PI/polOrder(1)),n=0, polOrder(1)) /)
+      etaCL  = (/ ( -cos(n*PI/polOrder(2)),n=0, polOrder(2)) /)
+      zetaCL = (/ ( -cos(n*PI/polOrder(3)),n=0, polOrder(3)) /)
       
-!~       CALL BarycentricWeights( noGauss, xiArray(:,1), w(:,1))
-!~       CALL PolynomialInterpolationMatrix( noGauss, noGauss, xiArray(:,1), w(:,1), mappedxi(:,1), xiInterpmat)
-!~       CALL BarycentricWeights( noGauss, xiArray(:,2), w(:,2))
-!~       CALL PolynomialInterpolationMatrix( noGauss, noGauss, xiArray(:,2), w(:,2), mappedxi(:,2), etaInterpmat)
-!~       CALL BarycentricWeights( noGauss, xiArray(:,3), w(:,3))
-!~       CALL PolynomialInterpolationMatrix( noGauss, noGauss, xiArray(:,3), w(:,3), mappedxi(:,3), zetaInterpmat)      
+      DO l = 0,polOrder(3)
+         xi(3) = zetaCL(l)
+         DO m = 0,polOrder(2)
+            xi(2) = etaCL(m)
+            DO n = 0,polOrder(1)
+               xi(1) = xiCL(n)
+               CALL GeneralHexGradAndMap( xi, xGauss(:,n,m,l), grad_x(:,:,n,m,l), mapper%corners, mapper % faces )
+            END DO
+         END DO
+      END DO
       
-!~       DO k = 1,3      
-         
-!~          tArray(:,:,:) = jGradXi(k,:,:,:)
-!~          CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, etaInterpMat, zetaInterpMat )
-!~          jGradXi(k,:,:,:) = vArray(:,:,:)
-         
-!~          tArray(:,:,:) = jGradEta(k,:,:,:)
-!~          CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, etaInterpMat, zetaInterpMat )
-!~          jGradEta(k,:,:,:) = vArray(:,:,:)
-         
-!~          tArray(:,:,:) = jGradZeta(k,:,:,:)
-!~          CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, etaInterpMat, zetaInterpMat )
-!~          jGradZeta(k,:,:,:) = vArray(:,:,:)
-
-!~       END DO
-
-!~       self % jGradXi   = jGradXi
-!~       self % jGradEta  = jGradEta
-!~       self % jGradZeta = jGradZeta              
-
-!~ !
-!~ !     ----------------------------------
-!~ !     Compute the jacobian at each point
-!~ !     ----------------------------------
-!~ !
-!~       DO l = 0,noGauss
-!~          DO m = 0,noGauss
-!~             DO n = 0,noGauss
-!~                tArray(n,m,l) = jacobian3D( grad_x(:,1,n,m,l), grad_x(:,2,n,m,l), grad_x(:,3,n,m,l) )
-!~             END DO
-!~          END DO
-!~       END DO
-!~       CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, etaInterpMat, zetaInterpMat )
-
-!~       self % jacobian = vArray
-
-!~ !
-!~ !     ----------------------------
-!~ !     Boundary Normals Computation
-!~ !     ----------------------------
-!~ !
-!~ !
-!~ !     ----------------------------------------
-!~ !     Interpolate to the faces. This is done 
-!~ !     by performing a 3D interpolation with 
-!~ !     Lobatto nodes in the direction of 
-!~ !     interpolation and Gauss nodes in the
-!~ !     other two. 
-!~ !     ----------------------------------------
-
-!~       IdentityMatrix = 0.0_RP
-!~       do i = 0, noGauss 
-!~          IdentityMatrix(i,i) = 1.0_RP         
-!~       enddo 
-
-!~       CALL BarycentricWeights( noGauss, mappedxi(:,1), w(:,1))
-!~       CALL PolynomialInterpolationMatrix( noGauss, noGauss, mappedxi(:,1), w(:,1), xiArray(:,1), xiInterpmat)
-!~       CALL BarycentricWeights( noGauss, mappedxi(:,2), w(:,2))
-!~       CALL PolynomialInterpolationMatrix( noGauss, noGauss, mappedxi(:,2), w(:,2), xiArray(:,2), etaInterpmat)
-!~       CALL BarycentricWeights( noGauss, mappedxi(:,3), w(:,3))
-!~       CALL PolynomialInterpolationMatrix( noGauss, noGauss, mappedxi(:,3), w(:,3), xiArray(:,3), zetaInterpmat)   
-      
-
-!~       DO k = 1,3
-!~          tArray(:,:,:) = jGradXi(k,:,:,:)
-!~          CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, IdentityMatrix, IdentityMatrix )
-!~          jGradXi(k,:,:,:) = vArray(:,:,:)
-
-
-!~          tArray(:,:,:) = jGradEta(k,:,:,:)
-!~          CALL Interp3DArray( polOrder, tArray, polOrder, vArray, IdentityMatrix, etaInterpMat, IdentityMatrix )
-!~          jGradEta(k,:,:,:) = vArray(:,:,:)
-
-!~          tArray(:,:,:) = jGradZeta(k,:,:,:)
-!~          CALL Interp3DArray( polOrder, tArray, polOrder, vArray, IdentityMatrix, IdentityMatrix, zetaInterpMat )
-!~          jGradZeta(k,:,:,:) = vArray(:,:,:)
-!~       END DO
-  
-!~ !
-!~ !     ---------------------------
-!~ !     Evaluation of the normals
-!~ !     To Do: divide by the sign 
-!~ !     of the Jacobian (see notes)
-!~ !     ---------------------------
-!~ !
-!~       DO j = 0, noGauss
-!~          DO i = 0, noGauss
-!~ !
-!~ !           ---------
-!~ !           Left face
-!~ !           ---------
-!~ !
-!~             jGrad(:) = jGradXi (:,0,i,j)
-!~             nrm = NORM2(jGrad)
-!~             self % normal(:,i,j,ELEFT) = -jGrad/nrm
-!~             self % scal(i,j,ELEFT)     = nrm 
-!~ !
-!~ !           ----------
-!~ !           Right face
-!~ !           ----------
-!~ !
-!~             jGrad(:) = jGradXi(:,noGauss,i,j)
-!~             nrm = NORM2(jGrad)
-!~             self % normal(:,i,j,ERIGHT) = jGrad/nrm
-!~             self % scal(i,j,ERIGHT)     = nrm 
-!~ !
-!~ !           -----------
-!~ !           bottom face
-!~ !           -----------
-!~ !
-!~             jGrad(:) = jGradZeta(:,i,j,0)
-!~             nrm = NORM2(jGrad)
-!~             self % normal(:,i,j,EBOTTOM) = -jGrad/nrm
-!~             self % scal(i,j,EBOTTOM)     = nrm 
-!~ !
-!~ !           --------
-!~ !           top face
-!~ !           --------
-!~ !
-!~             jGrad(:) = jGradZeta(:,i,j,noGauss)
-!~             nrm = NORM2(jGrad)
-!~             self % normal(:,i,j,ETOP) = jGrad/nrm
-!~             self % scal(i,j,ETOP)     = nrm 
-!~ !
-!~ !           ----------
-!~ !           front face
-!~ !           ----------
-!~ !
-!~             jGrad(:) = jGradEta(:,i,0,j)
-!~             nrm = NORM2(jGrad)
-!~             self % normal(:,i,j,EFRONT) = -jGrad/nrm
-!~             self % scal(i,j,EFRONT)     = nrm 
-!~ !
-!~ !           ---------
-!~ !           back face
-!~ !           ---------
-!~ !
-!~             jGrad(:) = jGradEta(:,i,noGauss,j)
-!~             nrm = NORM2(jGrad)
-!~             self % normal(:,i,j,EBACK) = jGrad/nrm
-!~             self % scal(i,j,EBACK)     = nrm 
+      CALL PolynomialDerivativeMatrix( polOrder(1), xiCL  , xiDerMat )
+      CALL PolynomialDerivativeMatrix( polOrder(2), etaCL , etaDerMat )
+      CALL PolynomialDerivativeMatrix( polOrder(3), zetaCL, zetaDerMat )
+      xiDerMat = TRANSPOSE(xiDerMat)     ! PolynomialDerivativeMatrix actually gives the transpose of the derivative matrix..
+      etaDerMat = TRANSPOSE(etaDerMat)
+      zetaDerMat = TRANSPOSE(zetaDerMat)
+!
+!     -----------------------------------------------------
+!     Now compute metric terms at each grid point
+!     This computes the jGradXi terms in conservative form.
+!     See the notes for the derivations.
+!     -----------------------------------------------------
+!
+!     ----------
+!     First term
+!     ----------
+!
+      iLoop: DO i = 1,3
+         jLoop : DO j = 1,3
             
-!~          ENDDO
-!~       ENDDO 
+            tArray = xGauss(iCycle(j-1),:,:,:)*grad_x(iCycle(j+1),iCycle(i+1),:,:,:)
+            
+            SELECT CASE (i)
+               CASE (1)
+                  DO l = 0, polOrder(2)
+                     DO m = 0, polOrder(1)   
+                        CALL MatrixMultiplyDeriv(tArray(m,l,:), dArray(m,l,:), zetaDerMat, polOrder(3), transp = MXV_DIRECT)
+                     ENDDO 
+                  ENDDO 
+                  jGradXi(j,:,:,:) = dArray
+               CASE (2)
+                  DO l = 0, polOrder(3)
+                     DO m = 0, polOrder(2)   
+                        CALL MatrixMultiplyDeriv(tArray(:,m,l), dArray(:,m,l), xiDerMat  , polOrder(1), transp = MXV_DIRECT)
+                     ENDDO 
+                  ENDDO 
+                  jGradEta(j,:,:,:) = dArray
+               CASE (3)
+                  DO l = 0, polOrder(3)
+                     DO m = 0, polOrder(1)   
+                        CALL MatrixMultiplyDeriv(tArray(m,:,l), dArray(m,:,l), etaDerMat , polOrder(2), transp = MXV_DIRECT)
+                     ENDDO 
+                  ENDDO            
+                  jGradZeta(j,:,:,:) = dArray
+            END SELECT
+         
+         END DO jLoop
+      END DO iLoop
+!
+!     -----------
+!     Second term
+!     -----------
+!
+      iLoop2: DO i = 1,3
+         jLoop2 : DO j = 1,3
+            
+            tArray = xGauss(iCycle(j-1),:,:,:)*grad_x(iCycle(j+1),iCycle(i-1),:,:,:)
+            
+            SELECT CASE (i)
+               CASE (1)
+                  DO l = 0, polOrder(3)
+                     DO m = 0, polOrder(1)   
+                        CALL MatrixMultiplyDeriv(tArray(m,:,l), dArray(m,:,l), etaDerMat , polOrder(2), transp = MXV_DIRECT)
+                     ENDDO 
+                  ENDDO 
+                  jGradXi(j,:,:,:) = jGradXi (j,:,:,:) - dArray
+               CASE (2)
+                  DO l = 0, polOrder(2)
+                     DO m = 0, polOrder(1)   
+                        CALL MatrixMultiplyDeriv(tArray(m,l,:), dArray(m,l,:), zetaDerMat, polOrder(3), transp = MXV_DIRECT)
+                     ENDDO 
+                  ENDDO 
+                  jGradEta(j,:,:,:) = jGradEta(j,:,:,:) - dArray
+               CASE (3)
+                  DO l = 0, polOrder(3)
+                     DO m = 0, polOrder(2)   
+                        CALL MatrixMultiplyDeriv(tArray(:,m,l), dArray(:,m,l), xiDerMat  , polOrder(1), transp = MXV_DIRECT)
+                     ENDDO 
+                  ENDDO 
+                  jGradZeta(j,:,:,:) = jGradZeta(j,:,:,:) - dArray
+            END SELECT
+         
+         END DO jLoop2
+      END DO iLoop2    
       
-!~       DEALLOCATE(xiInterpMat)
-!~       DEALLOCATE(etaInterpMat)
-!~       DEALLOCATE(zetaInterpMat)
       
-!~       END SUBROUTINE computeMetricTermsConservativeForm
+!
+!     ------------------------------------
+!     Interpolate back onto the Gauss grid
+!     ------------------------------------
+!
+      ALLOCATE( xiInterpMat  (0:polOrder(1),0:polOrder(1)) )
+      ALLOCATE( etaInterpMat (0:polOrder(2),0:polOrder(2)) )
+      ALLOCATE( zetaInterpMat(0:polOrder(3),0:polOrder(3)) )
+     
+      CALL BarycentricWeights( polOrder(1), xiCL  , wXi  )
+      CALL PolynomialInterpolationMatrix( polOrder(1), polOrder(1), xiCL  , wXi  , spA % xi  , xiInterpmat)
+      CALL BarycentricWeights( polOrder(2), etaCL , wEta )
+      CALL PolynomialInterpolationMatrix( polOrder(2), polOrder(2), etaCL , wEta , spA % eta , etaInterpmat)
+      CALL BarycentricWeights( polOrder(3), zetaCL, wZeta)
+      CALL PolynomialInterpolationMatrix( polOrder(3), polOrder(3), zetaCL, wZeta, spA % zeta, zetaInterpmat)      
+      
+      DO k = 1,3      
+         
+         tArray(:,:,:) = jGradXi(k,:,:,:)
+         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, etaInterpMat, zetaInterpMat )
+         jGradXi(k,:,:,:) = vArray(:,:,:)
+         
+         tArray(:,:,:) = jGradEta(k,:,:,:)
+         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, etaInterpMat, zetaInterpMat )
+         jGradEta(k,:,:,:) = vArray(:,:,:)
+         
+         tArray(:,:,:) = jGradZeta(k,:,:,:)
+         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, etaInterpMat, zetaInterpMat )
+         jGradZeta(k,:,:,:) = vArray(:,:,:)
+         
+      END DO
+      
+      self % jGradXi   = jGradXi
+      self % jGradEta  = jGradEta
+      self % jGradZeta = jGradZeta              
+      
+!
+!     ----------------------------------
+!     Compute the jacobian at each point
+!     ----------------------------------
+!
+      DO l = 0,polOrder(3)
+         DO m = 0,polOrder(2)
+            DO n = 0,polOrder(1)
+               tArray(n,m,l) = jacobian3D( grad_x(:,1,n,m,l), grad_x(:,2,n,m,l), grad_x(:,3,n,m,l) )
+            END DO
+         END DO
+      END DO
+      CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, etaInterpMat, zetaInterpMat )
+      self % jacobian = vArray
+      
+!
+!     ----------------------------
+!     Boundary Normals Computation
+!          TODO: To be moved to the faces! (different routine)
+!     ----------------------------
+!
+!
+!     ----------------------------------------
+!     Interpolate to the faces. This is done 
+!     by performing a 3D interpolation with 
+!     Lobatto nodes in the direction of 
+!     interpolation and Gauss nodes in the
+!     other two. 
+!     ----------------------------------------
+      
+      IdentityMatrix = 0.0_RP
+      do i = 0, max(spA%Nx,spA%Ny,spA%Nz)
+         IdentityMatrix(i,i) = 1.0_RP         
+      enddo 
+      
+      CALL BarycentricWeights( polOrder(1), spA % xi  , wXi  )
+      CALL PolynomialInterpolationMatrix( polOrder(1), polOrder(1), spA % xi  , wXi  , xiCL  , xiInterpmat  )
+      CALL BarycentricWeights( polOrder(2), spA % eta , wEta )
+      CALL PolynomialInterpolationMatrix( polOrder(2), polOrder(2), spA % eta , wEta , etaCL , etaInterpmat )
+      CALL BarycentricWeights( polOrder(3), spA % zeta, wZeta)
+      CALL PolynomialInterpolationMatrix( polOrder(3), polOrder(3), spA % zeta, wZeta, zetaCL, zetaInterpmat)   
+      
+      
+      DO k = 1,3
+         tArray(:,:,:) = jGradXi(k,:,:,:)      ! TODO, change by self % jGradXi
+         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat   , IdentityMatrix(0:polOrder(2),0:polOrder(2)), &
+                                                                                 IdentityMatrix(0:polOrder(3),0:polOrder(3)) )
+         jGradXi(k,:,:,:) = vArray(:,:,:)
+         
+         
+         tArray(:,:,:) = jGradEta(k,:,:,:)
+         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, IdentityMatrix(0:polOrder(1),0:polOrder(1)), etaInterpMat  , &
+                                                                 IdentityMatrix(0:polOrder(3),0:polOrder(3)) )
+         jGradEta(k,:,:,:) = vArray(:,:,:)
+         
+         tArray(:,:,:) = jGradZeta(k,:,:,:)
+         CALL Interp3DArray( polOrder, tArray, polOrder, vArray, IdentityMatrix(0:polOrder(1),0:polOrder(1)), &
+                                                                 IdentityMatrix(0:polOrder(2),0:polOrder(2)), zetaInterpMat  )
+         jGradZeta(k,:,:,:) = vArray(:,:,:)
+         
+      END DO
+      
+!
+!     ---------------------------
+!     Evaluation of the normals
+!     To Do: divide by the sign 
+!     of the Jacobian (see notes)
+!        -> Sign of the Jacobian contribution outcommented. Is it really possible for the Jacobian to be negative??
+!     ---------------------------
+      
+!~      tArray(:,:,:) = self % jacobian(:,:,:)
+!~      CALL Interp3DArray( polOrder, tArray, polOrder, vArray, xiInterpmat, IdentityMatrix, IdentityMatrix )
+!~      jacXi(:,:,:) = vArray(:,:,:)
+      
+!~      tArray(:,:,:) = self % jacobian(:,:,:)
+!~      CALL Interp3DArray( polOrder, tArray, polOrder, vArray, IdentityMatrix, etaInterpMat, IdentityMatrix )
+!~      jacEta(:,:,:) = vArray(:,:,:)
+      
+!~      tArray(:,:,:) = self % jacobian(:,:,:)
+!~      CALL Interp3DArray( polOrder, tArray, polOrder, vArray, IdentityMatrix, IdentityMatrix, zetaInterpMat )
+!~      jacZeta(:,:,:) = vArray(:,:,:)
+
+      ! y-z planes
+      do j = 0, polOrder(3)
+         do i = 0, polOrder(2)
+!
+!           ---------
+!           Left face
+!           ---------
+!
+            jGrad(:) = jGradXi (:,0,i,j)
+            nrm = NORM2(jGrad)
+            self % normal(:,i,j,ELEFT) = -jGrad/nrm !* sign(1._RP, jacXi(0,i,j))
+            self % scal(i,j,ELEFT)     = nrm 
+!
+!           ----------
+!           Right face
+!           ----------
+!
+            jGrad(:) = jGradXi(:,polOrder(1),i,j)
+            nrm = NORM2(jGrad)
+            self % normal(:,i,j,ERIGHT) = jGrad/nrm !* sign(1._RP, jacXi(polOrder(1),i,j))
+            self % scal(i,j,ERIGHT)     = nrm 
+         end do
+      end do
+      
+      ! x-y planes
+      do j = 0, polOrder(2)
+         do i = 0, polOrder(1)
+!
+!
+!           -----------
+!           bottom face
+!           -----------
+!
+            jGrad(:) = jGradZeta(:,i,j,0)
+            nrm = NORM2(jGrad)
+            self % normal(:,i,j,EBOTTOM) = -jGrad/nrm !* sign(1._RP, jacZeta(i,j,0))
+            self % scal(i,j,EBOTTOM)     = nrm 
+!
+!           --------
+!           top face
+!           --------
+!
+            jGrad(:) = jGradZeta(:,i,j,polOrder(3))
+            nrm = NORM2(jGrad)
+            self % normal(:,i,j,ETOP) = jGrad/nrm !* sign(1._RP, jacZeta(i,j,polOrder(1)))
+            self % scal(i,j,ETOP)     = nrm 
+         end do
+      end do
+            
+      ! x-z planes
+      do j = 0, polOrder(3)
+         do i = 0, polOrder(1)
+!
+!
+!           ----------
+!           front face
+!           ----------
+!
+            jGrad(:) = jGradEta(:,i,0,j)
+            nrm = NORM2(jGrad)
+            self % normal(:,i,j,EFRONT) = -jGrad/nrm !* sign(1._RP, jacEta(i,0,j))
+            self % scal(i,j,EFRONT)     = nrm 
+!
+!           ---------
+!           back face
+!           ---------
+!
+            jGrad(:) = jGradEta(:,i,polOrder(2),j)
+            nrm = NORM2(jGrad)
+            self % normal(:,i,j,EBACK) = jGrad/nrm !* sign(1._RP, jacEta(i,polOrder(1),j))
+            self % scal(i,j,EBACK)     = nrm 
+           
+         end do
+      end do
+     
+      DEALLOCATE(xiInterpMat)
+      DEALLOCATE(etaInterpMat)
+      DEALLOCATE(zetaInterpMat)
+     
+      END SUBROUTINE computeMetricTermsConservativeForm
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
