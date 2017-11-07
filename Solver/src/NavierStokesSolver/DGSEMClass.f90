@@ -51,7 +51,7 @@ Module DGSEMClass
       REAL(KIND=RP)                                           :: maxResidual
       INTEGER                                                 :: numberOfTimeSteps
       INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
-      TYPE(NodalStorage), ALLOCATABLE                         :: spA(:,:,:)
+      TYPE(NodalStorage)    , ALLOCATABLE                     :: spA(:,:,:)
       INTEGER           , ALLOCATABLE                         :: Nx(:), Ny(:), Nz(:)
       TYPE(HexMesh)                                           :: mesh
       PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
@@ -249,7 +249,7 @@ Module DGSEMClass
 !     ------------------------
 !     Construct the mortar
 !     ------------------------
-!
+!      
       DO k=1, SIZE(self % mesh % faces)
          IF (self % mesh % faces(k) % FaceType == HMESH_INTERIOR) THEN !The mortar is only needed for the interior edges
             CALL ConstructMortarStorage( self % mesh % faces(k), N_EQN, N_GRAD_EQN, self % mesh % elements )
@@ -691,20 +691,24 @@ Module DGSEMClass
 !        Projection to mortars
 !        ---------------------
 !
-         call ProjectToMortar(thisface, eL % storage % Qb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % Qb(:,0:NR(1),0:NR(2),fIDright), N_EQN)
+         call ProjectToMortar(thisface, eL % storage % Qb(:,0:NL(1),0:NL(2),fIDLeft), &
+                                        eR % storage % Qb(:,0:NR(1),0:NR(2),fIDright), N_EQN)
          QL = thisface % Phi % L
          QR = thisface % Phi % R
 
          if ( flowIsNavierStokes ) then
-            call ProjectToMortar(thisface, eL % storage % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
+            call ProjectToMortar(thisface, eL % storage % U_xb(:,0:NL(1),0:NL(2),fIDLeft), &
+                                           eR % storage % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_xLeft = thisface % Phi % L
             U_xRight = thisface % Phi % R
 
-            call ProjectToMortar(thisface, eL % storage % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_yb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
+            call ProjectToMortar(thisface, eL % storage % U_yb(:,0:NL(1),0:NL(2),fIDLeft), &
+                                           eR % storage % U_yb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_yLeft = thisface % Phi % L
             U_yRight = thisface % Phi % R
 
-            call ProjectToMortar(thisface, eL % storage % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_zb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
+            call ProjectToMortar(thisface, eL % storage % U_zb(:,0:NL(1),0:NL(2),fIDLeft), &
+                                           eR % storage % U_zb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_zLeft = thisface % Phi % L
             U_zRight = thisface % Phi % R
 

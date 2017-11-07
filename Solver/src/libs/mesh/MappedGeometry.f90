@@ -45,7 +45,12 @@ Module MappedGeometryClass
             PROCEDURE :: construct => ConstructMappedGeometry
             PROCEDURE :: destruct  => DestructMappedGeometry
       END TYPE MappedGeometry
-
+      
+      type MappedGeometryFace
+         real(kind=RP), dimension(:,:)  , allocatable :: scal   ! |ja^i|: Normalization term of the normal vectors on a face
+         real(kind=RP), dimension(:,:,:), allocatable :: normal ! normal vector on a face
+      end type MappedGeometryFace
+      
 !
 !  ========
    CONTAINS 
@@ -74,8 +79,6 @@ Module MappedGeometryClass
       REAL(KIND=RP) :: grad_x(3,3), jGrad(3)
       LOGICAL       :: useCrossProductMetrics = .false. ! A switch for debugging purposes
                                                        ! So far, anisotropic representation is only implemented for cross product metrics
-      integer :: fd !! DELETE
-      character(len=5) :: term
 !
 !     -----------
 !     Allocations
@@ -258,7 +261,34 @@ Module MappedGeometryClass
       END SUBROUTINE DestructMappedGeometry
 !
 !//////////////////////////////////////////////////////////////////////// 
-! 
+!
+      subroutine ConstructMappedGeometryFace(self,N,faceMap)
+         implicit none
+         !-------------------------------------------------------------------
+         class(MappedGeometryFace), intent(inout) :: self
+         integer                  , intent(in)    :: N(2)
+         type(FacePatch)          , intent(in)    :: faceMap
+         !-------------------------------------------------------------------
+         
+         
+         !-------------------------------------------------------------------
+         
+         allocate (self % scal    (N(1),N(2)))
+         allocate (self % normal(3,N(1),N(2)))
+            
+!~          do j = 0, N(2)
+!~             do i = 0, N(1)
+!~                jGrad(:) = jGradXi (:,0,i,j)
+!~                nrm = NORM2(jGrad)
+!~                self % normal(:,i,j) = -jGrad/nrm !* sign(1._RP, jacXi(0,i,j))
+!~                self % scal    (i,j) = nrm 
+!~             end do
+!~          end do
+         
+      end subroutine ConstructMappedGeometryFace
+!
+!//////////////////////////////////////////////////////////////////////// 
+!  
       SUBROUTINE computeMetricTermsConservativeForm(self, spA, mapper)  
          use PolynomialInterpAndDerivsModule
 !
