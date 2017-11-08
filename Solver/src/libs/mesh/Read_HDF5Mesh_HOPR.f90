@@ -794,11 +794,6 @@ contains
          end do
       end do
       
-!~       do j = 1, N + 1
-!~          FirstIdx = (N+1)*(j-1) + 1
-!~          HSideMap(:,N+2-j,3) = (/ (k, k=FirstIdx,FirstIdx+N) /)
-!~       end do
-      
       ! Face 4
       !-------
       
@@ -806,11 +801,6 @@ contains
          FirstIdx = (N+1) + (j-1)*(N+1)*(N+1)
          HSideMap(:,j,4) = (/ (k, k=FirstIdx,FirstIdx+(N+1)*N,N+1) /)
       end do
-      
-!~       do j = 1, N + 1
-!~          FirstIdx = (N+1) + (j-1)*(N+1)*(N+1)
-!~          HSideMap(:,N+2-j,4) = (/ (k, k=FirstIdx+(N+1)*N,FirstIdx,-(N+1)) /)
-!~       end do
       
       ! Face 5 (the other easy one!)
       !-----------------------------
@@ -821,10 +811,6 @@ contains
             HSideMap(i,j,5) = k
          end do
       end do
-!~       do j = 1, N + 1
-!~          FirstIdx = N*(N+1)**2 + (N+1)*(j-1) + 1
-!~          HSideMap(:,N+2-j,5) = (/ (k, k=FirstIdx,FirstIdx+N) /)
-!~       end do
       
       ! Face 6
       !-------
@@ -834,10 +820,6 @@ contains
          HSideMap(:,j,6) = (/ (k, k=FirstIdx,FirstIdx+(N+1)*N,N+1) /)
       end do
       
-!~       do j = 1, N + 1
-!~          FirstIdx = (j-1)*(N+1)**2 + 1
-!~          HSideMap(:,N+2-j,6) = (/ (k, k=FirstIdx+(N+1)*N,FirstIdx,-(N+1)) /)
-!~       end do
    end subroutine HOPR2HORSESNodeSideMap
 
 !
