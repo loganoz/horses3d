@@ -51,9 +51,8 @@ contains
       class(GenericLinSolver_t), intent(inout) :: linsolver
       !--------------------------------------------
       integer :: eID
-      integer :: N(3)   ! Polynomial orders in element
-      integer :: nnz
       
+      integer :: nnz
       integer :: nelem
       !--------------------------------------------
       
@@ -88,10 +87,9 @@ contains
 !     Add volumetric contribution
 !     ---------------------------
 
-!$omp do schedule(runtime) private(N)
+!$omp do schedule(runtime)
       do eID = 1, nelem
-         N = sem % mesh % elements(eID) % Nxyz
-         call Local_VolumetricMatrix(sem % mesh % elements(eID),sem % spA(N(1),N(2),N(3)),linsolver)
+         call Local_VolumetricMatrix(sem % mesh % elements(eID),linsolver)
       end do
 !$omp end do
 
@@ -121,11 +119,10 @@ contains
 !  -> Takes the linear contribution in ElementDivMatrix and multiplies it by the Jacobian
 !     of the flux terms
 !  -------------------------------------------------------------------------------------
-   subroutine Local_VolumetricMatrix(e,spA,linsolver)
+   subroutine Local_VolumetricMatrix(e,linsolver)
       implicit none
       !--------------------------------------------
       type(Element)            , intent(in)    :: e
-      type(NodalStorage)       , intent(in)    :: spA
       class(GenericLinSolver_t), intent(inout) :: linsolver
       !--------------------------------------------
       real(kind=RP), allocatable, target :: LocalMatrix(:,:)
@@ -155,7 +152,7 @@ contains
                        dGdQ(NDOFEL,NDOFEL), &
                        dHdQ(NDOFEL,NDOFEL))
       
-      ElDivMatrix = CreateDivergenceMatrices(e,spA)
+      ElDivMatrix = CreateDivergenceMatrices(e)
       
       call CreateElementFluxJacobians(e,dFdQ,dGdQ,dHdQ)
       
@@ -220,26 +217,22 @@ contains
 !  ------------------------------------------------------------------------------
 !  Subroutine for computing and storing a divergence matrix for the element level
 !  ------------------------------------------------------------------------------
-   function CreateDivergenceMatrices(e,spA) result(ElementDivMatrix)
+   function CreateDivergenceMatrices(e) result(ElementDivMatrix)
       implicit none
       !-------------------------------------------
       type(Element)           , intent(in)  :: e
-      type(NodalStorage)      , intent(in)  :: spA
       type(ElementDivMatrix_t)              :: ElementDivMatrix
       !-------------------------------------------
-      integer :: N(3)
       integer :: DIMi
       !-------------------------------------------
-      
-      N = e % Nxyz
       
 !
 !     Create a derivative matix for each direction
 !     --------------------------------------------
 
-      call CreateMatrix_StdVolumeGreen(ElementDivMatrix % Dx, e, spA, 1)
-      call CreateMatrix_StdVolumeGreen(ElementDivMatrix % Dy, e, spA, 2)
-      call CreateMatrix_StdVolumeGreen(ElementDivMatrix % Dz, e, spA, 3)
+      call CreateMatrix_StdVolumeGreen(ElementDivMatrix % Dx, e, 1)
+      call CreateMatrix_StdVolumeGreen(ElementDivMatrix % Dy, e, 2)
+      call CreateMatrix_StdVolumeGreen(ElementDivMatrix % Dz, e, 3)
       
 !
 !     All done
@@ -260,12 +253,11 @@ contains
 !  -> Currently, the subroutine takes advantage of the tensor product expansion and loads
 !     directional matrices by blocks.
 !  -------------------------------------------------------------------------------------
-   subroutine CreateMatrix_StdVolumeGreen(LocalMatrix,e,spA,DIMi)
+   subroutine CreateMatrix_StdVolumeGreen(LocalMatrix,e,DIMi)
       implicit none
       !-------------------------------------------
       real(kind=RP), allocatable, target, intent(inout) :: LocalMatrix(:,:)
       type(Element)                     , intent(in)    :: e
-      type(NodalStorage)                , intent(in)    :: spA
       integer                           , intent(in)    :: DIMi
       !-------------------------------------------
       real(kind=RP), pointer  :: Mat_p(:,:) ! Pointer to blocks of the elemental matrix
@@ -315,7 +307,7 @@ contains
          Mat_p =>  LocalMatrix(Idx0:(Idx0-1) + Size_Xi:dIdx_Xi, &
                                Idx0:(Idx0-1) + Size_Xi:dIdx_Xi)
          
-         Mat_p = Mat_p + MultiplyRowsByVec (spA % hatDx, e % geom % jGradXi(DIMi,:,j,k)) 
+         Mat_p = Mat_p + MultiplyRowsByVec (e % spAxi % hatD, e % geom % jGradXi(DIMi,:,j,k)) 
          
       end do ; end do ; end do
       
@@ -330,7 +322,7 @@ contains
          Mat_p =>  LocalMatrix(Idx0:(Idx0-1) + Size_Eta:dIdx_Eta, &
                                Idx0:(Idx0-1) + Size_Eta:dIdx_Eta)
          
-         Mat_p = Mat_p + MultiplyRowsByVec (spA % hatDy, e % geom % jGradEta(DIMi,i,:,k)) 
+         Mat_p = Mat_p + MultiplyRowsByVec (e % spAeta % hatD, e % geom % jGradEta(DIMi,i,:,k)) 
          
       end do ; end do ; end do
       
@@ -345,7 +337,7 @@ contains
          Mat_p =>  LocalMatrix(Idx0:(Idx0-1) + Size_Zeta:dIdx_Zeta, &
                                Idx0:(Idx0-1) + Size_Zeta:dIdx_Zeta)
          
-         Mat_p = Mat_p + MultiplyRowsByVec (spA % hatDz, e % geom % jGradZeta(DIMi,i,j,:)) 
+         Mat_p = Mat_p + MultiplyRowsByVec (e % spAzeta % hatD, e % geom % jGradZeta(DIMi,i,j,:)) 
          
       end do ; end do ; end do
       

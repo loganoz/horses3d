@@ -82,7 +82,7 @@ contains
       class(HexMesh)     :: self
       CHARACTER(LEN=*)   :: fileName
       integer            :: nodes
-      TYPE(NodalStorage) :: spA(0:,0:,0:)  
+      TYPE(NodalStorage) :: spA(0:)  
       INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
       logical            :: MeshInnerCurves
       LOGICAL            :: success
@@ -388,7 +388,7 @@ contains
 !        Now construct the element
 !        -------------------------
 !
-         CALL ConstructElementGeometry( self % elements(l), spA(Nx(l),Ny(l),Nz(l)), nodeIDs, hexMap , l)
+         CALL ConstructElementGeometry( self % elements(l), spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs, hexMap , l)
          
          
          CALL SetElementBoundaryNames( self % elements(l), names )

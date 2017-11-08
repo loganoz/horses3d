@@ -58,16 +58,18 @@ Module MappedGeometryClass
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE ConstructMappedGeometry( self, spA, mapper )
+   SUBROUTINE ConstructMappedGeometry( self, spAxi, spAeta, spAzeta, mapper )
       IMPLICIT NONE
 !
 !      ---------
 !      Arguments
 !      ---------
 !
-      CLASS(MappedGeometry)    :: self
-      TYPE(TransfiniteHexMap)  :: mapper
-      TYPE(NodalStorage)       :: spA
+      CLASS(MappedGeometry)  , intent(inout) :: self
+      TYPE(TransfiniteHexMap), intent(in)    :: mapper
+      TYPE(NodalStorage)     , intent(in)    :: spAxi
+      TYPE(NodalStorage)     , intent(in)    :: spAeta
+      TYPE(NodalStorage)     , intent(in)    :: spAzeta
 !
 !     ---------------
 !     Local Variables
@@ -84,9 +86,9 @@ Module MappedGeometryClass
 !     Allocations
 !     -----------
 !
-      Nx        = spA % Nx
-      Ny        = spA % Ny
-      Nz        = spA % Nz
+      Nx        = spAxi   % N
+      Ny        = spAeta  % N
+      Nz        = spAzeta % N
       Nmax      = MAX(Nx,Ny,Nz)
       self % Nx = Nx
       self % Ny = Ny
@@ -110,7 +112,7 @@ Module MappedGeometryClass
       DO k = 0, Nz
          DO j= 0, Ny       
             DO i = 0,Nx 
-               self % x(:,i,j,k) = mapper %  transfiniteMapAt([spA % xi(i), spA % eta(j), spa % zeta(k)])
+               self % x(:,i,j,k) = mapper %  transfiniteMapAt([spAxi % x(i), spAeta % x(j), spAzeta % x(k)])
             END DO
          END DO
       END DO
@@ -122,24 +124,24 @@ Module MappedGeometryClass
       ! y-z planes
       DO j = 0, Nz
          DO i = 0, Ny
-            self % xb(:,i,j,ELEFT)   = mapper % transfiniteMapAt([-1.0_RP    , spA % eta(i), spa % zeta(j)])
-            self % xb(:,i,j,ERIGHT)  = mapper % transfiniteMapAt([ 1.0_RP    , spA % eta(i), spa % zeta(j)])
+            self % xb(:,i,j,ELEFT)   = mapper % transfiniteMapAt([-1.0_RP    , spAeta % x(i), spAzeta % x(j)])
+            self % xb(:,i,j,ERIGHT)  = mapper % transfiniteMapAt([ 1.0_RP    , spAeta % x(i), spAzeta % x(j)])
          END DO
       END DO 
       
       ! x-y planes
       DO j = 0, Ny
          DO i = 0, Nx
-            self % xb(:,i,j,EBOTTOM) = mapper % transfiniteMapAt([spA % xi(i), spA % eta(j),    -1.0_RP   ])
-            self % xb(:,i,j,ETOP)    = mapper % transfiniteMapAt([spA % xi(i), spA % eta(j),     1.0_RP   ])
+            self % xb(:,i,j,EBOTTOM) = mapper % transfiniteMapAt([spAxi % x(i), spAeta % x(j),    -1.0_RP   ])
+            self % xb(:,i,j,ETOP)    = mapper % transfiniteMapAt([spAxi % x(i), spAeta % x(j),     1.0_RP   ])
          END DO
       END DO 
       
       ! x-z planes
       DO j = 0, Nz
          DO i = 0, Nx
-            self % xb(:,i,j,EBACK)   = mapper % transfiniteMapAt([spA % xi(i),  1.0_RP     , spa % zeta(j)  ])
-            self % xb(:,i,j,EFRONT)  = mapper % transfiniteMapAt([spA % xi(i), -1.0_RP     , spa % zeta(j)  ])
+            self % xb(:,i,j,EBACK)   = mapper % transfiniteMapAt([spAxi % x(i),  1.0_RP     , spAzeta % x(j)  ])
+            self % xb(:,i,j,EFRONT)  = mapper % transfiniteMapAt([spAxi % x(i), -1.0_RP     , spAzeta % x(j)  ])
          END DO
       END DO 
 !
@@ -156,7 +158,7 @@ Module MappedGeometryClass
 !
       IF (useCrossProductMetrics .OR. isHex8(mapper)) THEN 
       
-         CALL computeMetricTermsCrossProductForm(self, spA, mapper)
+         CALL computeMetricTermsCrossProductForm(self, spAxi, spAeta, spAzeta, mapper)
 !
 !     ----------------
 !     Boundary Normals - Must be evaluated at the boundaries!
@@ -170,7 +172,7 @@ Module MappedGeometryClass
 !           Left face
 !           ---------
 !
-               grad_x = mapper % metricDerivativesAt([-1.0_RP    , spA % eta(i), spa % zeta(j)])
+               grad_x = mapper % metricDerivativesAt([-1.0_RP    , spAeta % x(i), spAzeta % x(j)])
                CALL vCross(grad_x(:,2), grad_x(:,3), jGrad)
                nrm = NORM2(jGrad)
                self % normal(:,i,j,ELEFT) = -jGrad/nrm
@@ -180,7 +182,7 @@ Module MappedGeometryClass
 !           Right face
 !           ----------
 !
-               grad_x = mapper % metricDerivativesAt([ 1.0_RP    , spA % eta(i), spa % zeta(j)])
+               grad_x = mapper % metricDerivativesAt([ 1.0_RP    , spAeta % x(i), spAzeta % x(j)])
                CALL vCross(grad_x(:,2), grad_x(:,3), jGrad)
                nrm = NORM2(jGrad)
                self % normal(:,i,j,ERIGHT) = jGrad/nrm
@@ -196,7 +198,7 @@ Module MappedGeometryClass
 !           bottom face
 !           -----------
 !
-               grad_x = mapper % metricDerivativesAt([spA % xi(i), spA % eta(j),    -1.0_RP   ])
+               grad_x = mapper % metricDerivativesAt([spAxi % x(i), spAeta % x(j),    -1.0_RP   ])
                CALL vCross(grad_x(:,1), grad_x(:,2), jGrad)
                nrm = NORM2(jGrad)
                self % normal(:,i,j,EBOTTOM) = -jGrad/nrm
@@ -206,7 +208,7 @@ Module MappedGeometryClass
 !           top face
 !           --------
 !
-               grad_x = mapper % metricDerivativesAt([spA % xi(i), spA % eta(j),     1.0_RP   ])
+               grad_x = mapper % metricDerivativesAt([spAxi % x(i), spAeta % x(j),     1.0_RP   ])
                CALL vCross(grad_x(:,1), grad_x(:,2), jGrad)
                nrm = NORM2(jGrad)
                self % normal(:,i,j,ETOP) = jGrad/nrm
@@ -222,7 +224,7 @@ Module MappedGeometryClass
 !           front face
 !           ----------
 !
-               grad_x = mapper % metricDerivativesAt([spA % xi(i), -1.0_RP     , spa % zeta(j)  ])
+               grad_x = mapper % metricDerivativesAt([spAxi % x(i), -1.0_RP     , spAzeta % x(j)  ])
                CALL vCross(grad_x(:,3), grad_x(:,1), jGrad)
                nrm = NORM2(jGrad)
                self % normal(:,i,j,EFRONT) = -jGrad/nrm
@@ -232,7 +234,7 @@ Module MappedGeometryClass
 !           back face
 !           ---------
 !
-               grad_x = mapper % metricDerivativesAt([spA % xi(i),  1.0_RP     , spa % zeta(j)  ])
+               grad_x = mapper % metricDerivativesAt([spAxi % x(i),  1.0_RP     , spAzeta % x(j)  ])
                CALL vCross(grad_x(:,3), grad_x(:,1), jGrad)
                nrm = NORM2(jGrad)
                self % normal(:,i,j,EBACK) = jGrad/nrm
@@ -243,7 +245,7 @@ Module MappedGeometryClass
          
       ELSE
          
-         CALL computeMetricTermsConservativeForm(self, spA, mapper)
+         CALL computeMetricTermsConservativeForm(self, spAxi, spAeta, spAzeta, mapper)
       
       ENDIF
       
@@ -289,7 +291,7 @@ Module MappedGeometryClass
 !
 !//////////////////////////////////////////////////////////////////////// 
 !  
-      SUBROUTINE computeMetricTermsConservativeForm(self, spA, mapper)  
+      SUBROUTINE computeMetricTermsConservativeForm(self, spAxi, spAeta, spAzeta, mapper)  
          use PolynomialInterpAndDerivsModule
 !
 !     -----------------------------------------------
@@ -302,38 +304,40 @@ Module MappedGeometryClass
 !        Arguments
 !        ---------
 !
-         TYPE(MappedGeometry)    :: self
-         TYPE(NodalStorage)      :: spA
+         TYPE(MappedGeometry)   , intent(inout) :: self
+         TYPE(NodalStorage)     , intent(in)    :: spAxi
+         TYPE(NodalStorage)     , intent(in)    :: spAeta
+         TYPE(NodalStorage)     , intent(in)    :: spAzeta
          TYPE(TransfiniteHexMap) :: mapper      
 !
 !     ---------------
 !     Local Variables
 !     ---------------
 !
-      REAL(KIND=RP) :: xiCL(0:spA % Nx), etaCL(0:spA % Ny),zetaCL(0:spA % Nz)
-      REAL(KIND=RP) :: wXi (0:spA % Nx), wEta (0:spA % Ny),wZeta (0:spA % Nz)
+      REAL(KIND=RP) :: xiCL(0:spAxi % N), etaCL(0:spAeta % N),zetaCL(0:spAzeta % N)
+      REAL(KIND=RP) :: wXi (0:spAxi % N), wEta (0:spAeta % N),wZeta (0:spAzeta % N)
       REAL(KIND=RP) :: xi(3)
       
-      REAL(KIND=RP) :: grad_x(3, 3, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
-      REAL(KIND=RP) :: xGauss(3, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+      REAL(KIND=RP) :: grad_x(3, 3, 0:spAxi % N, 0:spAeta % N, 0:spAzeta % N)
+      REAL(KIND=RP) :: xGauss(3, 0:spAxi % N, 0:spAeta % N, 0:spAzeta % N)
       
-      REAL(KIND=RP) :: xiDermat  (0:spA % Nx, 0:spA % Nx)
-      REAL(KIND=RP) :: etaDerMat (0:spA % Ny, 0:spA % Ny)
-      REAL(KIND=RP) :: zetaDerMat(0:spA % Nz, 0:spA % Nz)
+      REAL(KIND=RP) :: xiDermat  (0:spAxi % N, 0:spAxi % N)
+      REAL(KIND=RP) :: etaDerMat (0:spAeta % N, 0:spAeta % N)
+      REAL(KIND=RP) :: zetaDerMat(0:spAzeta % N, 0:spAzeta % N)
       
-      REAL(KIND=RP) :: IdentityMatrix(0:max(spA%Nx,spA%Ny,spA%Nz), 0:max(spA%Nx,spA%Ny,spA%Nz)) 
+      REAL(KIND=RP) :: IdentityMatrix(0:max(spAxi % N,spAeta % N,spAzeta % N), 0:max(spAxi % N,spAeta % N,spAzeta % N)) 
       
-      REAL(KIND=RP) :: tArray(0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
-      REAL(KIND=RP) :: dArray(0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
-      REAL(KIND=RP) :: vArray(0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+      REAL(KIND=RP) :: tArray(0:spAxi % N, 0:spAeta % N, 0:spAzeta % N)
+      REAL(KIND=RP) :: dArray(0:spAxi % N, 0:spAeta % N, 0:spAzeta % N)
+      REAL(KIND=RP) :: vArray(0:spAxi % N, 0:spAeta % N, 0:spAzeta % N)
       
-      REAL(KIND=RP) :: jGradXi  (3, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
-      REAL(KIND=RP) :: jGradEta (3, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
-      REAL(KIND=RP) :: jGradZeta(3, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+      REAL(KIND=RP) :: jGradXi  (3, 0:spAxi % N, 0:spAeta % N, 0:spAzeta % N)
+      REAL(KIND=RP) :: jGradEta (3, 0:spAxi % N, 0:spAeta % N, 0:spAzeta % N)
+      REAL(KIND=RP) :: jGradZeta(3, 0:spAxi % N, 0:spAeta % N, 0:spAzeta % N)
       
-!~      REAL(KIND=RP) :: jacXi  (0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
-!~      REAL(KIND=RP) :: jacEta (0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
-!~      REAL(KIND=RP) :: jacZeta(0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
+!~      REAL(KIND=RP) :: jacXi  (0:spAxi % N, 0:spAeta % N, 0:spAzeta % N)
+!~      REAL(KIND=RP) :: jacEta (0:spAxi % N, 0:spAeta % N, 0:spAzeta % N)
+!~      REAL(KIND=RP) :: jacZeta(0:spAxi % N, 0:spAeta % N, 0:spAzeta % N)
       
       REAL(KIND=RP) :: jGrad (3)
       REAL(KIND=RP) :: nrm
@@ -352,7 +356,7 @@ Module MappedGeometryClass
 !
       INTEGER, DIMENSION(0:4) :: iCycle = (/3,1,2,3,1/)
       
-      polOrder(:) = [spa % Nx, spa % Ny, spa % Nz]     
+      polOrder(:) = [spAxi % N, spAeta % N, spAzeta % N]     
 !
 !     -------------------------------------------
 !     Compute the mesh on the Chebyshev Lobatto 
@@ -471,11 +475,11 @@ Module MappedGeometryClass
       ALLOCATE( zetaInterpMat(0:polOrder(3),0:polOrder(3)) )
      
       CALL BarycentricWeights( polOrder(1), xiCL  , wXi  )
-      CALL PolynomialInterpolationMatrix( polOrder(1), polOrder(1), xiCL  , wXi  , spA % xi  , xiInterpmat)
+      CALL PolynomialInterpolationMatrix( polOrder(1), polOrder(1), xiCL  , wXi  , spAxi % x  , xiInterpmat)
       CALL BarycentricWeights( polOrder(2), etaCL , wEta )
-      CALL PolynomialInterpolationMatrix( polOrder(2), polOrder(2), etaCL , wEta , spA % eta , etaInterpmat)
+      CALL PolynomialInterpolationMatrix( polOrder(2), polOrder(2), etaCL , wEta , spAeta % x , etaInterpmat)
       CALL BarycentricWeights( polOrder(3), zetaCL, wZeta)
-      CALL PolynomialInterpolationMatrix( polOrder(3), polOrder(3), zetaCL, wZeta, spA % zeta, zetaInterpmat)      
+      CALL PolynomialInterpolationMatrix( polOrder(3), polOrder(3), zetaCL, wZeta, spAzeta % x, zetaInterpmat)      
       
       DO k = 1,3      
          
@@ -528,16 +532,16 @@ Module MappedGeometryClass
 !     ----------------------------------------
       
       IdentityMatrix = 0.0_RP
-      do i = 0, max(spA%Nx,spA%Ny,spA%Nz)
+      do i = 0, max(spAxi % N,spAeta % N,spAzeta % N)
          IdentityMatrix(i,i) = 1.0_RP         
       enddo 
       
-      CALL BarycentricWeights( polOrder(1), spA % xi  , wXi  )
-      CALL PolynomialInterpolationMatrix( polOrder(1), polOrder(1), spA % xi  , wXi  , xiCL  , xiInterpmat  )
-      CALL BarycentricWeights( polOrder(2), spA % eta , wEta )
-      CALL PolynomialInterpolationMatrix( polOrder(2), polOrder(2), spA % eta , wEta , etaCL , etaInterpmat )
-      CALL BarycentricWeights( polOrder(3), spA % zeta, wZeta)
-      CALL PolynomialInterpolationMatrix( polOrder(3), polOrder(3), spA % zeta, wZeta, zetaCL, zetaInterpmat)   
+      CALL BarycentricWeights( polOrder(1), spAxi % x  , wXi  )
+      CALL PolynomialInterpolationMatrix( polOrder(1), polOrder(1), spAxi % x  , wXi  , xiCL  , xiInterpmat  )
+      CALL BarycentricWeights( polOrder(2), spAeta % x , wEta )
+      CALL PolynomialInterpolationMatrix( polOrder(2), polOrder(2), spAeta % x , wEta , etaCL , etaInterpmat )
+      CALL BarycentricWeights( polOrder(3), spAzeta % x, wZeta)
+      CALL PolynomialInterpolationMatrix( polOrder(3), polOrder(3), spAzeta % x, wZeta, zetaCL, zetaInterpmat)   
       
       
       DO k = 1,3
@@ -662,7 +666,7 @@ Module MappedGeometryClass
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-!~       SUBROUTINE computeMetricTermsConservativeDirectly(self, spA, mapper)  
+!~       SUBROUTINE computeMetricTermsConservativeDirectly(self, spAxi, spAeta, spAzeta, mapper)  
 !~ !
 !~ !        -------------------------------------------------------------
 !~ !        Compute the metric terms by explicitly writing out the terms:
@@ -688,7 +692,9 @@ Module MappedGeometryClass
 !~ !        ---------
 !~ !
 !~          TYPE(MappedGeometry)    :: self
-!~          TYPE(NodalStorage)      :: spA
+!~          TYPE(NodalStorage)     , intent(in)    :: spAxi
+!~          TYPE(NodalStorage)     , intent(in)    :: spAeta
+!~          TYPE(NodalStorage)     , intent(in)    :: spAzeta
 !~          TYPE(TransfiniteHexMap) :: mapper
 !~ !
 !~ !        ---------------
@@ -706,7 +712,7 @@ Module MappedGeometryClass
 !~          DO k = 0, N
 !~             DO j = 0,N
 !~                DO i = 0,N
-!~                   grad_x                 = mapper % metricDerivativesAt([spA % xi(i), spA % eta(j), spA % zeta(k)])
+!~                   grad_x                 = mapper % metricDerivativesAt([spAxi % x(i), spAeta % x(j), spAzeta % x(k)])
 !~                   self % jacobian(i,j,k) = jacobian3D(a1 = grad_x(:,1),a2 = grad_x(:,2),a3 = grad_x(:,3))
 !~                END DO   
 !~             END DO   
@@ -718,7 +724,7 @@ Module MappedGeometryClass
 !
 !///////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE computeMetricTermsCrossProductForm(self, spA, mapper)       
+      SUBROUTINE computeMetricTermsCrossProductForm(self, spAxi, spAeta, spAzeta, mapper)       
 !
 !     -----------------------------------------------
 !     Compute the metric terms in cross product form 
@@ -730,9 +736,11 @@ Module MappedGeometryClass
 !        Arguments
 !        ---------
 !
-         TYPE(MappedGeometry)    :: self
-         TYPE(NodalStorage)      :: spA
-         TYPE(TransfiniteHexMap) :: mapper
+         TYPE(MappedGeometry)   , intent(inout) :: self
+         TYPE(NodalStorage)     , intent(in)    :: spAxi
+         TYPE(NodalStorage)     , intent(in)    :: spAeta
+         TYPE(NodalStorage)     , intent(in)    :: spAzeta
+         TYPE(TransfiniteHexMap), intent(in)    :: mapper
 !
 !        ---------------
 !        Local Variables
@@ -741,14 +749,14 @@ Module MappedGeometryClass
          INTEGER       :: i,j,k
          INTEGER       :: Nx, Ny, Nz
          REAL(KIND=RP) :: grad_x(3,3)         
-         Nx = spA % Nx
-         Ny = spA % Ny
-         Nz = spA % Nz
+         Nx = spAxi % N
+         Ny = spAeta % N
+         Nz = spAzeta % N
          
          DO k = 0, Nz
             DO j = 0,Ny
                DO i = 0,Nx
-                  grad_x = mapper % metricDerivativesAt([spA % xi(i), spA % eta(j), spA % zeta(k)])
+                  grad_x = mapper % metricDerivativesAt([spAxi % x(i), spAeta % x(j), spAzeta % x(k)])
                  
                   CALL vCross( grad_x(:,2), grad_x(:,3), self % jGradXi  (:,i,j,k))
                   CALL vCross( grad_x(:,3), grad_x(:,1), self % jGradEta (:,i,j,k))

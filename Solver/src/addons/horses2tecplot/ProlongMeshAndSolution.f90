@@ -20,7 +20,7 @@ module ProlongMeshAndSolution
 
 
    contains
-      subroutine ProlongMeshToGaussPoints(e,spAM,spAout)
+      subroutine ProlongMeshToGaussPoints(e,spA,N1,N2)
 !
 !        *************************************************************************
 !
@@ -41,13 +41,24 @@ module ProlongMeshAndSolution
          use MappedGeometryClass
          use Storage
          implicit none
-         type(Element_t)                 :: e
-         type(NodalStorage), intent(in)  :: spAM
-         type(NodalStorage), intent(in)  :: spAout
+         type(Element_t)                         :: e
+         type(NodalStorage), target, intent(in)  :: spA(0:)
+         integer                   , intent(in)  :: N1(3)
+         integer                   , intent(in)  :: N2(3)
+         
 !
 !        ---------------
 !        Local variables
 !        ---------------
+!                              //////////////////
+!                              // spA pointers //
+!                              //////////////////
+         type(NodalStorage), pointer  :: spAMxi
+         type(NodalStorage), pointer  :: spAMeta
+         type(NodalStorage), pointer  :: spAMzeta
+         type(NodalStorage), pointer  :: spAOxi
+         type(NodalStorage), pointer  :: spAOeta
+         type(NodalStorage), pointer  :: spAOzeta
 !                              ////////////////////////////////////////
 !                              // Mesh mapping prolongation to faces //
 !                              ////////////////////////////////////////
@@ -76,24 +87,36 @@ module ProlongMeshAndSolution
          type(TransfiniteHexMap) :: hexMap
          integer                 :: i, j, k
          real(kind=RP)           :: localCoords(3)
+         
+         
+!        Define some pointers
+!        --------------------
+
+         spAMxi   => spA(N1(1))
+         spAMeta  => spA(N1(2))
+         spAMzeta => spA(N1(3))
+         spAOxi   => spA(N2(1))
+         spAOeta  => spA(N2(2))
+         spAOzeta => spA(N2(3))
+         
 !
 !        Get the faces coordinates from the mapping
 !        ------------------------------------------
-         call InterpolateFaces(e % Nmesh,spAM,e % x,face1Original,&
-                                                    face2Original,&   
-                                                    face3Original,&   
-                                                    face4Original,&   
-                                                    face5Original,&   
-                                                    face6Original  )
+         call InterpolateFaces(e % Nmesh,spAMxi,spAMeta,spAMzeta,e % x,face1Original,&
+                                                                       face2Original,&   
+                                                                       face3Original,&   
+                                                                       face4Original,&   
+                                                                       face5Original,&   
+                                                                       face6Original  )
 !
 !        Construct face patches
 !        ----------------------
-         call facePatches(1) % Construct( spAM % xi , spAM % zeta, face1Original )
-         call facePatches(2) % Construct( spAM % xi , spAM % zeta, face2Original )
-         call facePatches(3) % Construct( spAM % xi , spAM % eta , face3Original )
-         call facePatches(4) % Construct( spAM % eta, spAM % zeta, face4Original )
-         call facePatches(5) % Construct( spAM % xi , spAM % eta , face5Original )
-         call facePatches(6) % Construct( spAM % eta, spAM % zeta, face6Original )
+         call facePatches(1) % Construct( spAMxi  % x , spAMzeta % x, face1Original )
+         call facePatches(2) % Construct( spAMxi  % x , spAMzeta % x, face2Original )
+         call facePatches(3) % Construct( spAMxi  % x , spAMeta  % x , face3Original )
+         call facePatches(4) % Construct( spAMeta % x , spAMzeta % x, face4Original )
+         call facePatches(5) % Construct( spAMxi  % x , spAMeta  % x , face5Original )
+         call facePatches(6) % Construct( spAMeta % x , spAMzeta % x, face6Original )
 !
 !        Construct the interpolants based on Chebyshev-Lobatto points
 !        ------------------------------------------------------------
@@ -133,7 +156,7 @@ module ProlongMeshAndSolution
 !        Construct the mapping interpolant
 !        ---------------------------------
          do k = 0, e % Nout(3)    ; do j = 0, e % Nout(2)  ; do i = 0, e % Nout(1)
-            localCoords = (/ spAout % xi(i), spAout % eta(j), spAout % zeta(k) /)
+            localCoords = (/ spAOxi % x(i), spAOeta % x(j), spAOzeta % x(k) /)
             e % xOut(:,i,j,k) = hexMap % transfiniteMapAt(localCoords) 
          end do               ; end do             ; end do
 !
@@ -183,7 +206,7 @@ module ProlongMeshAndSolution
 !
 !/////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine InterpolateFaces(N,spA,x,face1,face2,face3,face4,face5,face6)
+      subroutine InterpolateFaces(N,spAxi,spAeta,spAzeta,x,face1,face2,face3,face4,face5,face6)
 !
 !        ****************************************************************
 !
@@ -194,7 +217,9 @@ module ProlongMeshAndSolution
 !        
          implicit none
          integer,            intent(in)  :: N(3)
-         type(NodalStorage), intent(in)  :: spA
+         type(NodalStorage), intent(in)  :: spAxi
+         type(NodalStorage), intent(in)  :: spAeta
+         type(NodalStorage), intent(in)  :: spAzeta
          real(kind=RP),      intent(in)  :: x(1:3,0:N(1),0:N(2),0:N(3))
          real(kind=RP),      intent(out) :: face1(1:3,0:N(1),0:N(3))
          real(kind=RP),      intent(out) :: face2(1:3,0:N(1),0:N(3))
@@ -215,8 +240,8 @@ module ProlongMeshAndSolution
          face2 = 0.0_RP
 
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            face1(:,i,k) = face1(:,i,k) + x(:,i,j,k) * spA % vy(j,1)
-            face2(:,i,k) = face2(:,i,k) + x(:,i,j,k) * spA % vy(j,2)
+            face1(:,i,k) = face1(:,i,k) + x(:,i,j,k) * spAeta % v(j,1)
+            face2(:,i,k) = face2(:,i,k) + x(:,i,j,k) * spAeta % v(j,2)
          end do             ; end do             ; end do
 !
 !        faces (3,5) - zeta direction
@@ -225,8 +250,8 @@ module ProlongMeshAndSolution
          face5 = 0.0_RP
 
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            face3(:,i,j) = face3(:,i,j) + x(:,i,j,k) * spA % vz(k,1)
-            face5(:,i,j) = face5(:,i,j) + x(:,i,j,k) * spA % vz(k,2)
+            face3(:,i,j) = face3(:,i,j) + x(:,i,j,k) * spAzeta % v(k,1)
+            face5(:,i,j) = face5(:,i,j) + x(:,i,j,k) * spAzeta % v(k,2)
          end do             ; end do             ; end do
 !
 !        faces (4,6) - xi direction
@@ -235,8 +260,8 @@ module ProlongMeshAndSolution
          face6 = 0.0_RP
 
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            face4(:,j,k) = face4(:,j,k) + x(:,i,j,k) * spA % vx(i,1)
-            face6(:,j,k) = face6(:,j,k) + x(:,i,j,k) * spA % vx(i,2)
+            face4(:,j,k) = face4(:,j,k) + x(:,i,j,k) * spAxi % v(i,1)
+            face6(:,j,k) = face6(:,j,k) + x(:,i,j,k) * spAxi % v(i,2)
          end do             ; end do             ; end do
 
       end subroutine InterpolateFaces

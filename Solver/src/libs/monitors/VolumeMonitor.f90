@@ -132,7 +132,7 @@ module VolumeMonitorClass
 
       end subroutine VolumeMonitor_Initialization
 
-      subroutine VolumeMonitor_Update ( self , mesh , spA, bufferPosition )
+      subroutine VolumeMonitor_Update ( self , mesh , bufferPosition )
 !
 !        *******************************************************************
 !           This subroutine updates the monitor value computing it from
@@ -144,23 +144,22 @@ module VolumeMonitorClass
          implicit none
          class   (  VolumeMonitor_t ) :: self
          class   (  HexMesh       )   :: mesh
-         class(NodalStorage)          :: spA(0:,0:,0:)
          integer                      :: bufferPosition
 !
 !        Compute the volume integral
 !        ---------------------------
          select case ( trim(self % variable) )
          case ("Kinetic energy")
-            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, spA, KINETIC_ENERGY) / ScalarVolumeIntegral(mesh, spA, VOLUME)
+            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)
 
          case ("Kinetic energy rate")
-            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, spA, KINETIC_ENERGY_RATE) / ScalarVolumeIntegral(mesh, spA, VOLUME)
+            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY_RATE) / ScalarVolumeIntegral(mesh, VOLUME)
    
          case ("Enstrophy")
-            self % values(bufferPosition) = 0.5_RP * ScalarVolumeIntegral(mesh, spA, ENSTROPHY) / ScalarVolumeIntegral(mesh, spA, VOLUME)
+            self % values(bufferPosition) = 0.5_RP * ScalarVolumeIntegral(mesh, ENSTROPHY) / ScalarVolumeIntegral(mesh, VOLUME)
 
          case ("Mean velocity")
-            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, spA, VELOCITY) / ScalarVolumeIntegral(mesh, spA, VOLUME)
+            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, VELOCITY) / ScalarVolumeIntegral(mesh, VOLUME)
 
 
          end select

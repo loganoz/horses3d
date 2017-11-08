@@ -5,7 +5,7 @@ module ProlongToFacesProcedures
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ProlongToFaces( e, spA )
+      SUBROUTINE ProlongToFaces( e )
 !
 !     -----------------------------------------------------------
 !     For Gauss point approximations, we interpolate to each face
@@ -14,7 +14,6 @@ module ProlongToFacesProcedures
 !     -----------------------------------------------------------
 !
          USE PhysicsStorage
-         USE NodalStorageClass
          USE ElementClass
          IMPLICIT NONE
 !
@@ -22,7 +21,6 @@ module ProlongToFacesProcedures
 !        Arguments
 !        ---------
 !
-         TYPE(NodalStorage) :: spA
          TYPE(Element)      :: e
 !
 !        ---------------
@@ -45,28 +43,28 @@ module ProlongToFacesProcedures
 !        Left and right
 !        --------------
 !
-         CALL InterpolateToBoundary( e % storage % Q, spA % vx(:,LEFT) , Nx, Ny, Nz, IX, e % storage % Qb(:,:,:,ELEFT) , N_EQN)
-         CALL InterpolateToBoundary( e % storage % Q, spA % vx(:,RIGHT), Nx, Ny, Nz, IX, e % storage % Qb(:,:,:,ERIGHT), N_EQN)
+         CALL InterpolateToBoundary(e % storage % Q, e % spAxi % v(:,LEFT) , Nx,Ny,Nz, IX, e % storage % Qb(:,:,:,ELEFT) , N_EQN)
+         CALL InterpolateToBoundary(e % storage % Q, e % spAxi % v(:,RIGHT), Nx,Ny,Nz, IX, e % storage % Qb(:,:,:,ERIGHT), N_EQN)
 !
 !        --------------
 !        Front and back
 !        --------------
 !
-         CALL InterpolateToBoundary( e % storage % Q, spA % vy(:,FRONT), Nx, Ny, Nz, IY, e % storage % Qb(:,:,:,EFRONT) , N_EQN)
-         CALL InterpolateToBoundary( e % storage % Q, spA % vy(:,BACK) , Nx, Ny, Nz, IY, e % storage % Qb(:,:,:,EBACK)  , N_EQN)
+         CALL InterpolateToBoundary(e % storage % Q, e % spAeta % v(:,FRONT), Nx,Ny,Nz, IY, e % storage % Qb(:,:,:,EFRONT), N_EQN)
+         CALL InterpolateToBoundary(e % storage % Q, e % spAeta % v(:,BACK) , Nx,Ny,Nz, IY, e % storage % Qb(:,:,:,EBACK) , N_EQN)
 !
 !        --------------
 !        Bottom and Top
 !        --------------
 !
-         CALL InterpolateToBoundary( e % storage % Q, spA % vz(:,BOTTOM), Nx, Ny, Nz, IZ, e % storage % Qb(:,:,:,EBOTTOM) , N_EQN)
-         CALL InterpolateToBoundary( e % storage % Q, spA % vz(:,TOP)   , Nx, Ny, Nz, IZ, e % storage % Qb(:,:,:,ETOP)    , N_EQN)
+        CALL InterpolateToBoundary(e % storage % Q, e % spAzeta % v(:,BOTTOM), Nx,Ny,Nz, IZ, e % storage % Qb(:,:,:,EBOTTOM), N_EQN)
+        CALL InterpolateToBoundary(e % storage % Q, e % spAzeta % v(:,TOP)   , Nx,Ny,Nz, IZ, e % storage % Qb(:,:,:,ETOP)   , N_EQN)
 
       END SUBROUTINE ProlongToFaces
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ProlongGradientToFaces( e, spA )
+      SUBROUTINE ProlongGradientToFaces( e )
 !
 !     -----------------------------------------------------------
 !     For Gauss point approximations, we interpolate to each face
@@ -75,7 +73,6 @@ module ProlongToFacesProcedures
 !     -----------------------------------------------------------
 !
          USE PhysicsStorage
-         USE NodalStorageClass
          USE ElementClass
          IMPLICIT NONE
 !
@@ -83,7 +80,6 @@ module ProlongToFacesProcedures
 !        Arguments
 !        ---------
 !
-         TYPE(NodalStorage) :: spA
          TYPE(Element)      :: e
 !
 !        ---------------
@@ -110,34 +106,34 @@ module ProlongToFacesProcedures
 !        Left and Right
 !        --------------
 !
-         call InterpolateToBoundary( e % storage % U_x , spA % vx(:,LEFT ) , Nx, Ny, Nz , IX , e % storage % U_xb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % storage % U_x , spA % vx(:,RIGHT) , Nx, Ny, Nz , IX , e % storage % U_xb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % storage % U_y , spA % vx(:,LEFT ) , Nx, Ny, Nz , IX , e % storage % U_yb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % storage % U_y , spA % vx(:,RIGHT) , Nx, Ny, Nz , IX , e % storage % U_yb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % storage % U_z , spA % vx(:,LEFT ) , Nx, Ny, Nz , IX , e % storage % U_zb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
-         call InterpolateToBoundary( e % storage % U_z , spA % vx(:,RIGHT) , Nx, Ny, Nz , IX , e % storage % U_zb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % storage % U_x , e % spAxi % v(:,LEFT ) , Nx, Ny, Nz , IX , e % storage % U_xb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % storage % U_x , e % spAxi % v(:,RIGHT) , Nx, Ny, Nz , IX , e % storage % U_xb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % storage % U_y , e % spAxi % v(:,LEFT ) , Nx, Ny, Nz , IX , e % storage % U_yb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % storage % U_y , e % spAxi % v(:,RIGHT) , Nx, Ny, Nz , IX , e % storage % U_yb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % storage % U_z , e % spAxi % v(:,LEFT ) , Nx, Ny, Nz , IX , e % storage % U_zb(:,:,:,ELEFT  ) , N_GRAD_EQN) 
+         call InterpolateToBoundary( e % storage % U_z , e % spAxi % v(:,RIGHT) , Nx, Ny, Nz , IX , e % storage % U_zb(:,:,:,ERIGHT ) , N_GRAD_EQN) 
 !
 !        --------------
 !        Front and back
 !        --------------
 !
-         CALL InterpolateToBoundary( e % storage % U_x , spA % vy(:,FRONT) , Nx, Ny, Nz , IY , e % storage % U_xb(:,:,:,EFRONT ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % storage % U_x , spA % vy(:,BACK)  , Nx, Ny, Nz , IY , e % storage % U_xb(:,:,:,EBACK  ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % storage % U_y , spA % vy(:,FRONT) , Nx, Ny, Nz , IY , e % storage % U_yb(:,:,:,EFRONT ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % storage % U_y , spA % vy(:,BACK)  , Nx, Ny, Nz , IY , e % storage % U_yb(:,:,:,EBACK  ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % storage % U_z , spA % vy(:,FRONT) , Nx, Ny, Nz , IY , e % storage % U_zb(:,:,:,EFRONT ) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % storage % U_z , spA % vy(:,BACK)  , Nx, Ny, Nz , IY , e % storage % U_zb(:,:,:,EBACK  ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % storage % U_x , e % spAeta % v(:,FRONT) , Nx, Ny, Nz , IY , e % storage % U_xb(:,:,:,EFRONT ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % storage % U_x , e % spAeta % v(:,BACK)  , Nx, Ny, Nz , IY , e % storage % U_xb(:,:,:,EBACK  ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % storage % U_y , e % spAeta % v(:,FRONT) , Nx, Ny, Nz , IY , e % storage % U_yb(:,:,:,EFRONT ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % storage % U_y , e % spAeta % v(:,BACK)  , Nx, Ny, Nz , IY , e % storage % U_yb(:,:,:,EBACK  ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % storage % U_z , e % spAeta % v(:,FRONT) , Nx, Ny, Nz , IY , e % storage % U_zb(:,:,:,EFRONT ) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % storage % U_z , e % spAeta % v(:,BACK)  , Nx, Ny, Nz , IY , e % storage % U_zb(:,:,:,EBACK  ) , N_GRAD_EQN )
 !
 !        --------------
 !        Bottom and Top
 !        --------------
 !
-         CALL InterpolateToBoundary( e % storage % U_x, spA % vz(:,BOTTOM), Nx, Ny, Nz , IZ , e % storage % U_xb(:,:,:,EBOTTOM) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % storage % U_x, spA % vz(:,TOP)   , Nx, Ny, Nz , IZ , e % storage % U_xb(:,:,:,ETOP)    , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % storage % U_y, spA % vz(:,BOTTOM), Nx, Ny, Nz , IZ , e % storage % U_yb(:,:,:,EBOTTOM) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % storage % U_y, spA % vz(:,TOP)   , Nx, Ny, Nz , IZ , e % storage % U_yb(:,:,:,ETOP)    , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % storage % U_z, spA % vz(:,BOTTOM), Nx, Ny, Nz , IZ , e % storage % U_zb(:,:,:,EBOTTOM) , N_GRAD_EQN )
-         CALL InterpolateToBoundary( e % storage % U_z, spA % vz(:,TOP)   , Nx, Ny, Nz , IZ , e % storage % U_zb(:,:,:,ETOP)    , N_GRAD_EQN )                  
+         CALL InterpolateToBoundary( e % storage % U_x, e % spAzeta % v(:,BOTTOM), Nx, Ny, Nz , IZ , e % storage % U_xb(:,:,:,EBOTTOM) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % storage % U_x, e % spAzeta % v(:,TOP)   , Nx, Ny, Nz , IZ , e % storage % U_xb(:,:,:,ETOP)    , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % storage % U_y, e % spAzeta % v(:,BOTTOM), Nx, Ny, Nz , IZ , e % storage % U_yb(:,:,:,EBOTTOM) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % storage % U_y, e % spAzeta % v(:,TOP)   , Nx, Ny, Nz , IZ , e % storage % U_yb(:,:,:,ETOP)    , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % storage % U_z, e % spAzeta % v(:,BOTTOM), Nx, Ny, Nz , IZ , e % storage % U_zb(:,:,:,EBOTTOM) , N_GRAD_EQN )
+         CALL InterpolateToBoundary( e % storage % U_z, e % spAzeta % v(:,TOP)   , Nx, Ny, Nz , IZ , e % storage % U_zb(:,:,:,ETOP)    , N_GRAD_EQN )                  
 
       END SUBROUTINE ProlongGradientToFaces 
 !

@@ -1,7 +1,6 @@
 module SurfaceIntegrals
    use SMConstants
    use Physics
-   use NodalStorageClass
    use HexMeshClass
    use ProlongToFacesProcedures
    
@@ -27,7 +26,7 @@ module SurfaceIntegrals
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      function ScalarSurfaceIntegral(mesh, spA, zoneID, integralType) result(val)
+      function ScalarSurfaceIntegral(mesh, zoneID, integralType) result(val)
 !
 !        -----------------------------------------------------------
 !           This function computes scalar integrals, that is, those
@@ -41,7 +40,6 @@ module SurfaceIntegrals
 !
          implicit none
          class(HexMesh),      intent(in)  :: mesh
-         class(NodalStorage), intent(in)  :: spA(0:,0:,0:)
          integer,             intent(in)  :: zoneID
          integer,             intent(in)  :: integralType
          real(kind=RP)                    :: val
@@ -72,7 +70,6 @@ module SurfaceIntegrals
 !           Compute the integral
 !           --------------------
             val = val + ScalarSurfaceIntegral_Face(mesh % elements(eID), &
-                                                                    spA, &
                                      mesh % faces(fID) % elementSide(1), &
                                                            integralType    )
 
@@ -81,10 +78,9 @@ module SurfaceIntegrals
 
       end function ScalarSurfaceIntegral
 
-      function ScalarSurfaceIntegral_Face(e, spA, elSide, integralType) result(val)
+      function ScalarSurfaceIntegral_Face(e, elSide, integralType) result(val)
          implicit none
          class(Element),      target, intent(in)     :: e
-         class(NodalStorage), target, intent(in)     :: spA(0:,0:,0:)
          integer,                     intent(in)     :: elSide
          integer,                     intent(in)     :: integralType
          real(kind=RP)                               :: val
@@ -109,14 +105,14 @@ module SurfaceIntegrals
 !        ---------------
          select case ( elSide )
             case(1,2)
-               wx => spA(Nel(1),Nel(2),Nel(3)) % wx
-               wy => spA(Nel(1),Nel(2),Nel(3)) % wz
+               wx => e % spAxi % w
+               wy => e % spAzeta % w
             case(3,5)
-               wx => spA(Nel(1),Nel(2),Nel(3)) % wx
-               wy => spA(Nel(1),Nel(2),Nel(3)) % wy
+               wx => e % spAxi % w
+               wy => e % spAeta % w
             case(4,6)
-               wx => spA(Nel(1),Nel(2),Nel(3)) % wy
-               wy => spA(Nel(1),Nel(2),Nel(3)) % wz
+               wx => e % spAeta % w
+               wy => e % spAzeta % w
          end select
 !
 !        Get the surface Jacobian and normal vector
@@ -126,8 +122,8 @@ module SurfaceIntegrals
 !
 !        Prolong variables to faces
 !        --------------------------            
-         call ProlongToFaces(e, spA(Nel(1),Nel(2),Nel(3)) )
-         if (flowIsNavierStokes) call ProlongGradientToFaces(e, spA(Nel(1),Nel(2),Nel(3)))
+         call ProlongToFaces( e )
+         if (flowIsNavierStokes) call ProlongGradientToFaces(e)
 !
 !        Initialization
 !        --------------
@@ -222,7 +218,7 @@ module SurfaceIntegrals
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      function VectorSurfaceIntegral(mesh, spA, zoneID, integralType) result(val)
+      function VectorSurfaceIntegral(mesh, zoneID, integralType) result(val)
 !
 !        -----------------------------------------------------------
 !           This function computes scalar integrals, that is, those
@@ -236,7 +232,6 @@ module SurfaceIntegrals
 !
          implicit none
          class(HexMesh),      intent(in)  :: mesh
-         class(NodalStorage), intent(in)  :: spA(0:,0:,0:)
          integer,             intent(in)  :: zoneID
          integer,             intent(in)  :: integralType
          real(kind=RP)                    :: val(NDIM)
@@ -272,7 +267,6 @@ module SurfaceIntegrals
 !           Compute the integral
 !           --------------------
             localVal = VectorSurfaceIntegral_Face(mesh % elements(eID), &
-                                                                    spA, &
                                      mesh % faces(fID) % elementSide(1), &
                                                            integralType    )
             valx = valx + localVal(1)
@@ -286,10 +280,9 @@ module SurfaceIntegrals
 
       end function VectorSurfaceIntegral
 
-      function VectorSurfaceIntegral_Face(e, spA, elSide, integralType) result(val)
+      function VectorSurfaceIntegral_Face(e, elSide, integralType) result(val)
          implicit none
          class(Element),      target, intent(in)     :: e
-         class(NodalStorage), target, intent(in)     :: spA(0:,0:,0:)
          integer,                     intent(in)     :: elSide
          integer,                     intent(in)     :: integralType
          real(kind=RP)                               :: val(NDIM)
@@ -315,14 +308,14 @@ module SurfaceIntegrals
 !        ---------------
          select case ( elSide )
             case(1,2)
-               wx => spA(Nel(1),Nel(2),Nel(3)) % wx
-               wy => spA(Nel(1),Nel(2),Nel(3)) % wz
+               wx => e % spAxi % w
+               wy => e % spAzeta % w
             case(3,5)
-               wx => spA(Nel(1),Nel(2),Nel(3)) % wx
-               wy => spA(Nel(1),Nel(2),Nel(3)) % wy
+               wx => e % spAxi % w
+               wy => e % spAeta % w
             case(4,6)
-               wx => spA(Nel(1),Nel(2),Nel(3)) % wy
-               wy => spA(Nel(1),Nel(2),Nel(3)) % wz
+               wx => e % spAeta % w
+               wy => e % spAzeta % w
          end select
 !
 !        Get the surface Jacobian and normal vector
@@ -332,8 +325,8 @@ module SurfaceIntegrals
 !
 !        Prolong variables to faces
 !        --------------------------            
-         call ProlongToFaces(e, spA(Nel(1),Nel(2),Nel(3)) )
-         if (flowIsNavierStokes) call ProlongGradientToFaces(e, spA(Nel(1),Nel(2),Nel(3)))
+         call ProlongToFaces( e )
+         if (flowIsNavierStokes) call ProlongGradientToFaces(e)
 !
 !        Initialization
 !        --------------

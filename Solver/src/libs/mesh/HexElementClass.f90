@@ -30,6 +30,7 @@
       USE ElementConnectivityDefinitions
       USE ConnectivityClass
       use StorageClass
+      USE NodalStorageClass
       IMPLICIT NONE
       
       
@@ -43,6 +44,9 @@
           INTEGER                                        :: NumberOfConnections(6)
           TYPE(Connectivity)                             :: Connection(6)
           type(Storage_t)                                :: storage
+          type(NodalStorage), pointer                    :: spAxi
+          type(NodalStorage), pointer                    :: spAeta
+          type(NodalStorage), pointer                    :: spAzeta
       END TYPE Element 
       
 !
@@ -65,29 +69,33 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ConstructElementGeometry( self, ng, nodeIDs, hexMap , eID)
-         USE NodalStorageClass
+      SUBROUTINE ConstructElementGeometry( self, spAxi, spAeta, spAzeta, nodeIDs, hexMap , eID)
          IMPLICIT NONE
          
          TYPE(Element)           :: self
-         TYPE(NodalStorage)      :: ng
+         TYPE(NodalStorage), target :: spAxi
+         TYPE(NodalStorage), target :: spAeta
+         TYPE(NodalStorage), target :: spAzeta
          INTEGER                 :: nodeIDs(8)
          TYPE(TransfiniteHexMap) :: hexMap
          integer                 :: eID
          
          self % eID                   = eID
          self % nodeIDs               = nodeIDs
-         self % Nxyz(1)               = ng % Nx
-         self % Nxyz(2)               = ng % Ny
-         self % Nxyz(3)               = ng % Nz
+         self % Nxyz(1)               = spAxi   % N
+         self % Nxyz(2)               = spAeta  % N
+         self % Nxyz(3)               = spAzeta % N
          self % boundaryName          = emptyBCName
          self % boundaryType          = emptyBCName
+         self % spAxi   => spAxi
+         self % spAeta  => spAeta
+         self % spAzeta => spAzeta
 !
 !        --------
 !        Geometry
 !        --------
 !
-         CALL ConstructMappedGeometry( self % geom, ng, hexMap )
+         CALL ConstructMappedGeometry( self % geom, spAxi, spAeta, spAzeta, hexMap )
 !
 !        ----------------------------------------
 !        Solution Storage is allocated separately

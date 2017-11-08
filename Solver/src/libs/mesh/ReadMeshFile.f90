@@ -10,7 +10,7 @@ contains
       class(HexMesh)     :: self
       CHARACTER(LEN=*)   :: fileName
       integer            :: nodes
-      TYPE(NodalStorage) :: spA(0:,0:,0:)  
+      TYPE(NodalStorage) :: spA(0:)  
       INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
       logical            :: MeshInnerCurves         !<  Describe inner curved surfaces? (only for hdf5)
       LOGICAL            :: success

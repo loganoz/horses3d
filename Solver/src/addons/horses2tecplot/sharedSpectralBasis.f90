@@ -28,7 +28,7 @@ module SharedSpectralBasis
       real(kind=RP),    allocatable    :: T(:,:)
    end type InterpolationMatrices_t
 
-   type(NodalStorage),            allocatable  :: spA(:,:,:)
+   type(NodalStorage),            allocatable  :: spA(:)
    type(InterpolationMatrices_t), allocatable  :: Tset(:,:)
 
 
@@ -39,7 +39,7 @@ module SharedSpectralBasis
 !
 !        Allocate nodal storage and interpolation matrices
 !        -------------------------------------------------
-         allocate( spA(0:NMAX, 0:NMAX, 0:NMAX) )
+         allocate( spA(0:NMAX) )
          allocate( Tset(0:NMAX, 0:NMAX) )
 
       end subroutine ConstructSpectralBasis
@@ -54,13 +54,14 @@ module SharedSpectralBasis
       subroutine addNewSpectralBasis( spA, N, nodeType)
          use NodalStorageClass
          implicit none
-         class(NodalStorage)     :: spA(0:,0:,0:)
+         class(NodalStorage)     :: spA(0:)
          integer                 :: N(3)
          integer, intent(in)     :: nodeType
-
-         if ( .not. spA(N(1),N(2), N(3)) % Constructed ) then
-            call spA(N(1), N(2), N(3) ) % Construct( nodeType, N(1), N(2), N(3) )
-         end if
+         
+         call spA(N(1)) % Construct( nodeType, N(1) )
+         call spA(N(2)) % Construct( nodeType, N(2) )
+         call spA(N(3)) % Construct( nodeType, N(3) )
+         
 
       end subroutine addNewSpectralBasis
 
@@ -74,7 +75,7 @@ module SharedSpectralBasis
 
          if ( .not. Tset(Nnew,Nold) % Constructed ) then
             allocate ( Tset(Nnew,Nold) % T(0:Nnew,0:Nold) )
-            call PolynomialInterpolationMatrix( Nold, Nnew, spAold % xi, spAold % wbx, xiNew, &
+            call PolynomialInterpolationMatrix( Nold, Nnew, spAold % x, spAold % wb, xiNew, &
                                                 Tset(Nnew,Nold) % T)
             Tset(Nnew,Nold) % Constructed = .true.
          end if

@@ -51,7 +51,7 @@ Module DGSEMClass
       REAL(KIND=RP)                                           :: maxResidual
       INTEGER                                                 :: numberOfTimeSteps
       INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
-      TYPE(NodalStorage)    , ALLOCATABLE                     :: spA(:,:,:)
+      TYPE(NodalStorage)                        , allocatable :: spA(:)
       INTEGER           , ALLOCATABLE                         :: Nx(:), Ny(:), Nz(:)
       TYPE(HexMesh)                                           :: mesh
       PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
@@ -190,14 +190,17 @@ Module DGSEMClass
 !     Construct the polynomial storage for the elements in the mesh
 !     -------------------------------------------------------------
 !
-      IF (ALLOCATED(self % spa)) DEALLOCATE(self % spa)
-      ALLOCATE(self % spa(0:MAXVAL(Nx),0:MAXVAL(Ny),0:MAXVAL(Nz)))
+      IF (ALLOCATED(self % spA)) DEALLOCATE(self % spa)
+      k = max( MAXVAL(Nx), MAXVAL(Ny), MAXVAL(Nz) )
+      ALLOCATE(self % spA(0:k) )
       
       self % NDOF = 0
       DO k=1, nelem
          self % NDOF = self % NDOF + N_EQN * (Nx(k) + 1) * (Ny(k) + 1) * (Nz(k) + 1)
-         IF (self % spA(Nx(k),Ny(k),Nz(k)) % Constructed) CYCLE
-         CALL self % spA(Nx(k),Ny(k),Nz(k)) % construct( nodes, Nx(k), Ny(k), Nz(k) )
+         
+         call self % spA(Nx(k)) % construct( nodes, Nx(k) )
+         call self % spA(Ny(k)) % construct( nodes, Ny(k) )
+         call self % spA(Nz(k)) % construct( nodes, Nz(k) )
       END DO
 !
 !     ------------------
@@ -291,15 +294,11 @@ Module DGSEMClass
       SUBROUTINE DestructDGSem( self )
       IMPLICIT NONE 
       CLASS(DGSem) :: self
-      INTEGER      :: i,j,k      !Counter
+      INTEGER      :: k      !Counter
       
-      DO k=0, UBOUND(self % spA,3)
-         DO j=0, UBOUND(self % spA,2)
-            DO i=0, UBOUND(self % spA,1)
-               IF (.NOT. self % spA(i,j,k) % Constructed) CYCLE
-               CALL self % spA(i,j,k) % destruct()
-            END DO
-         END DO
+      DO k=0, UBOUND(self % spA,1)
+         IF (.NOT. self % spA(k) % Constructed) CYCLE
+         CALL self % spA(k) % destruct()
       END DO
       
       CALL DestructMesh( self % mesh )
@@ -559,19 +558,16 @@ Module DGSEMClass
 !        Local variables
 !        ---------------
 !
-         INTEGER :: k, Nx, Ny, Nz
+         INTEGER :: k
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
 !        -----------------------------------------
 !
 !$omp parallel
-!$omp do private(Nx,Ny,Nz) schedule(runtime)
-         DO k = 1, SIZE(self % mesh % elements) 
-            Nx = self%mesh%elements(k)%Nxyz(1)
-            Ny = self%mesh%elements(k)%Nxyz(2)
-            Nz = self%mesh%elements(k)%Nxyz(3)
-            CALL ProlongToFaces( self % mesh % elements(k), self % spA(Nx,Ny,Nz) )
+!$omp do schedule(runtime)
+         DO k = 1, SIZE(self % mesh % elements)
+            CALL ProlongToFaces( self % mesh % elements(k))
          END DO
 !$omp end do
 !
@@ -580,7 +576,7 @@ Module DGSEMClass
 !        -----------------
 !
          if ( flowIsNavierStokes ) then
-            CALL DGSpatial_ComputeGradient( self % mesh , self % spA , time , self % externalState , self % externalGradients )
+            CALL DGSpatial_ComputeGradient( self % mesh , time , self % externalState , self % externalGradients )
          end if
 !
 !        -------------------------------------------------------
@@ -593,7 +589,7 @@ Module DGSEMClass
 !        Compute time derivative
 !        -----------------------
 !
-         call TimeDerivative_ComputeQDot( self % mesh , self % spA , time )
+         call TimeDerivative_ComputeQDot( self % mesh , time )
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative
@@ -904,7 +900,7 @@ Module DGSEMClass
       REAL(KIND=RP)               :: MaximumEigenvalue
       EXTERNAL                    :: ComputeEigenvaluesForState
       REAL(KIND=RP)               :: Q(N_EQN)
-      TYPE(NodalStorage), POINTER :: spA_p
+      TYPE(NodalStorage), POINTER :: spAxi_p, spAeta_p, spAzeta_p
 !            
       MaximumEigenvalue = 0.0_RP
       
@@ -918,14 +914,16 @@ Module DGSEMClass
 !
       DO id = 1, SIZE(self % mesh % elements) 
          N = self % mesh % elements(id) % Nxyz
-         spA_p => self % spA(N(1),N(2),N(3))
+         spAxi_p => self % spA(N(1))
+         spAeta_p => self % spA(N(2))
+         spAzeta_p => self % spA(N(3))
          IF ( ANY(N<1) ) THEN 
             PRINT*, "Error in MaximumEigenvalue function (N<1)"    
          ENDIF         
          
-         dcsi = 1.0_RP / abs( spA_p % xi(1)   - spA_p % xi  (0) )   
-         deta = 1.0_RP / abs( spA_p % eta(1)  - spA_p % eta (0) )
-         dzet = 1.0_RP / abs( spA_p % zeta(1) - spA_p % zeta(0) )
+         dcsi = 1.0_RP / abs( spAxi_p   % x(1) - spAxi_p   % x (0) )   
+         deta = 1.0_RP / abs( spAeta_p  % x(1) - spAeta_p  % x (0) )
+         dzet = 1.0_RP / abs( spAzeta_p % x(1) - spAzeta_p % x (0) )
          DO k = 0, N(3)
             DO j = 0, N(2)
                DO i = 0, N(1)

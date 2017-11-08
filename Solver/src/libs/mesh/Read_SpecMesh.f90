@@ -35,7 +35,7 @@ MODULE Read_SpecMesh
 !
          CLASS(HexMesh)     :: self
          integer            :: nodes
-         TYPE(NodalStorage) :: spA(0:,0:,0:)
+         TYPE(NodalStorage) :: spA(0:)
          CHARACTER(LEN=*)   :: fileName
          INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
          LOGICAL            :: success
@@ -76,6 +76,9 @@ MODULE Read_SpecMesh
          REAL(KIND=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
          REAL(KIND=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
          REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
+         
+         real(kind=RP), allocatable, dimension(:)     :: xiCL,etaCL,zetaCL
+         real(kind=RP), allocatable, dimension(:,:,:) :: face1CL,face2CL,face3CL,face4CL,face5CL,face6CL
           
          numberOfBoundaryFaces = 0
          corners               = 0.0_RP
@@ -214,6 +217,64 @@ MODULE Read_SpecMesh
                      
                   END IF
                END DO
+               
+!
+!              Impose subparametric, or at most isoparametric, representation of boundaries
+!              To do so, we interpolate the boundary points to (Nx+1, Ny+1, Nz+1) 
+!              Chebyshev-Lobatto nodes and reconstruct the patches there. 
+!              TODO: This can cause problems with p-adaptation for inner curved boundaries
+!              ----------------------------------------------------------------------------
+            
+               ! Allocation
+               
+               allocate(xiCL(Nx(l)+1),etaCL(Ny(l)+1),zetaCL(Nz(l)+1))
+               allocate(face1CL(1:3,Nx(l)+1,Nz(l)+1))
+               allocate(face2CL(1:3,Nx(l)+1,Nz(l)+1))
+               allocate(face3CL(1:3,Nx(l)+1,Ny(l)+1))
+               allocate(face4CL(1:3,Ny(l)+1,Nz(l)+1))
+               allocate(face5CL(1:3,Nx(l)+1,Ny(l)+1))
+               allocate(face6CL(1:3,Ny(l)+1,Nz(l)+1))
+            
+               ! Construct the interpolants based on Chebyshev-Lobatto points
+               
+               xiCL   = (/ ( -cos((i-1)*PI/Nx(l)),i=1, Nx(l)+1) /)
+               etaCL  = (/ ( -cos((i-1)*PI/Ny(l)),i=1, Ny(l)+1) /)
+               zetaCL = (/ ( -cos((i-1)*PI/Nz(l)),i=1, Nz(l)+1) /)
+               
+               ! Project the faces to new boundary representations
+               
+               call ProjectFaceToNewPoints(facePatches(1), Nx(l), xiCL , Nz(l), zetaCL, face1CL)
+               call ProjectFaceToNewPoints(facePatches(2), Nx(l), xiCL , Nz(l), zetaCL, face2CL)
+               call ProjectFaceToNewPoints(facePatches(3), Nx(l), xiCL , Ny(l), etaCL , face3CL)
+               call ProjectFaceToNewPoints(facePatches(4), Ny(l), etaCL, Nz(l), zetaCL, face4CL)
+               call ProjectFaceToNewPoints(facePatches(5), Nx(l), xiCL , Ny(l), etaCL , face5CL)
+               call ProjectFaceToNewPoints(facePatches(6), Ny(l), etaCL, Nz(l), zetaCL, face6CL)
+               
+               ! Destruct face patches
+               
+               call facePatches(1) % Destruct()
+               call facePatches(2) % Destruct()
+               call facePatches(3) % Destruct()
+               call facePatches(4) % Destruct()
+               call facePatches(5) % Destruct()
+               call facePatches(6) % Destruct()
+               
+               ! Construct the new Chebyshev-Lobatto face patches
+               
+               call facePatches(1) % Construct( xiCL , zetaCL, face1CL )
+               call facePatches(2) % Construct( xiCL , zetaCL, face2CL )
+               call facePatches(3) % Construct( xiCL , etaCL , face3CL )
+               call facePatches(4) % Construct( etaCL, zetaCL, face4CL )
+               call facePatches(5) % Construct( xiCL , etaCL , face5CL )
+               call facePatches(6) % Construct( etaCL, zetaCL, face6CL )
+               
+               deallocate(xiCL,etaCL,zetaCL)
+               deallocate(face1CL,face2CL,face3CL,face4CL,face5CL,face6CL)
+         
+!
+!              Construct the transfinite map with the boundary representations
+!              ---------------------------------------------------------------
+               
                CALL genHexMap % destruct()
                CALL genHexMap % constructWithFaces(facePatches)
                
@@ -224,7 +285,7 @@ MODULE Read_SpecMesh
 !           Now construct the element
 !           -------------------------
 !
-            CALL ConstructElementGeometry( self % elements(l), spA(Nx(l),Ny(l),Nz(l)), nodeIDs, hexMap , l)
+            CALL ConstructElementGeometry( self % elements(l), spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs, hexMap , l)
             
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(l), names )

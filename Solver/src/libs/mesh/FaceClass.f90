@@ -154,7 +154,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE ConstructMortarStorage( this, Neqn, NGradeqn, elems )
+   SUBROUTINE ConstructMortarStorage( this, Neqn, NGradeqn, elems)
       USE ElementClass
       IMPLICIT NONE
 !
@@ -165,10 +165,10 @@
 !        the mortar are the same as on the left element's face
 !     -------------------------------------------------------------------
 !      
-      TYPE(Face)   , INTENT(INOUT)      :: this       !<> Current face
-      INTEGER      , INTENT(IN)         :: Neqn       !<  Number of equations
-      INTEGER      , INTENT(IN)         :: NGradeqn   !<  Number of gradient equations
-      TYPE(Element), INTENT(IN), TARGET :: elems(:)   !<  Elements in domain
+      TYPE(Face)            , INTENT(INOUT) :: this          !<> Current face
+      INTEGER               , INTENT(IN)    :: Neqn          !<  Number of equations
+      INTEGER               , INTENT(IN)    :: NGradeqn      !<  Number of gradient equations
+      TYPE(Element), TARGET , INTENT(IN)    :: elems(:)      !<  Elements in domain
 !
 !     --------------------
 !     Internal variables  

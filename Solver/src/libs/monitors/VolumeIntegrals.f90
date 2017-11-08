@@ -1,7 +1,6 @@
 module VolumeIntegrals
    use SMConstants
    use Physics
-   use NodalStorageClass
    use HexMeshClass
 #include "Includes.h"
    
@@ -25,7 +24,7 @@ module VolumeIntegrals
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      function ScalarVolumeIntegral(mesh, spA, integralType) result(val)
+      function ScalarVolumeIntegral(mesh, integralType) result(val)
 !
 !        -----------------------------------------------------------
 !           This function computes scalar integrals, that is, those
@@ -39,7 +38,6 @@ module VolumeIntegrals
 !
          implicit none
          class(HexMesh),      intent(in)  :: mesh
-         class(NodalStorage), intent(in)  :: spA(0:,0:,0:)
          integer,             intent(in)  :: integralType
          real(kind=RP)                    :: val
 !
@@ -61,7 +59,6 @@ module VolumeIntegrals
 !           Compute the integral
 !           --------------------
             val = val + ScalarVolumeIntegral_Local(mesh % elements(eID), &
-                                                                    spA, &
                                                            integralType    )
 
          end do
@@ -69,10 +66,9 @@ module VolumeIntegrals
 
       end function ScalarVolumeIntegral
 
-      function ScalarVolumeIntegral_Local(e, spA, integralType) result(val)
+      function ScalarVolumeIntegral_Local(e, integralType) result(val)
          implicit none
          class(Element),      target, intent(in)     :: e
-         class(NodalStorage), target, intent(in)     :: spA(0:,0:,0:)
          integer,                     intent(in)     :: integralType
          real(kind=RP)                               :: val
 !
@@ -88,9 +84,9 @@ module VolumeIntegrals
 
          Nel = e % Nxyz
 
-         associate ( wx => spA(Nel(1),Nel(2),Nel(3)) % wx, &
-                     wy => spA(Nel(1),Nel(2),Nel(3)) % wy, &
-                     wz => spA(Nel(1),Nel(2),Nel(3)) % wz    )
+         associate ( wx => e % spAxi % w, &
+                     wy => e % spAeta % w, &
+                     wz => e % spAzeta % w    )
 !
 !        Initialization
 !        --------------
