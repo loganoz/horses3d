@@ -301,7 +301,7 @@ Module DGSEMClass
          CALL self % spA(k) % destruct()
       END DO
       
-      CALL DestructMesh( self % mesh )
+      CALL self % mesh % destruct
       self % externalState     => NULL()
       self % externalGradients => NULL()
       IF ( ALLOCATED(InviscidMethod) ) DEALLOCATE( InviscidMethod )

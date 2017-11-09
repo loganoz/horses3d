@@ -132,7 +132,6 @@
       LOGICAL            :: success
       CHARACTER(LEN=132) :: msg
       CHARACTER(LEN=132), EXTERNAL :: lastPathComponent
-      INTEGER            :: N(3)
 !
 !     ------------------------------
 !     Read in the mesh for this test
@@ -150,7 +149,6 @@
 !
       nElement =  SIZE(sem % mesh % elements)
       DO eID = 1, nElement
-         N = sem % mesh % elements(eID) % Nxyz
          CALL ProlongToFaces(sem % mesh % elements(eId))
       END DO
       

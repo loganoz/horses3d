@@ -64,5 +64,4 @@ MKLPardisoSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolve
 PetscSolverClass: CSR_Matrices GenericLinSolverClass SMConstants
 IterativeSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass DenseMatUtilities
 MultigridSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass InterpolationAndDerivatives LegendreAlgorithms Physics
-
 GenericLinSolverClass: SMConstants CSR_Matrices DGSEMClass

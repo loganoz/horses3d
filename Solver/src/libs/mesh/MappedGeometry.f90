@@ -84,7 +84,6 @@ Module MappedGeometryClass
       REAL(KIND=RP) :: nrm
       REAL(KIND=RP) :: grad_x(3,3), jGrad(3)
       LOGICAL       :: useCrossProductMetrics = .false. ! A switch for debugging purposes
-                                                       ! So far, anisotropic representation is only implemented for cross product metrics
 !
 !     -----------
 !     Allocations
