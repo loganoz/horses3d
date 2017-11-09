@@ -45,16 +45,14 @@ module DGViscousDiscretization
 !           --------------------
 !///////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BaseClass_ComputeGradient( self , mesh , spA , time , externalStateProcedure , externalGradientsProcedure)
+      subroutine BaseClass_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
          use HexMeshClass
-         use NodalStorageClass
          use PhysicsStorage
          use Physics
          use ProlongToFacesProcedures
          implicit none
          class(ViscousMethod_t), intent(in) :: self
          class(HexMesh)                   :: mesh
-         class(NodalStorage),  intent(in) :: spA(0:,0:,0:)
          real(kind=RP),        intent(in) :: time
          external                         :: externalStateProcedure
          external                         :: externalGradientsProcedure
@@ -65,15 +63,13 @@ module DGViscousDiscretization
 !
       end subroutine BaseClass_ComputeGradient
 
-      subroutine BaseClass_ComputeInnerFluxes( self , e , spA , contravariantFlux )
+      subroutine BaseClass_ComputeInnerFluxes( self , e , contravariantFlux )
          use ElementClass
-         use NodalStorageClass
          use PhysicsStorage
          implicit none
          class(ViscousMethod_t) ,  intent (in)   :: self
          type(Element)                           :: e
-         type(NodalStorage)      ,  intent (in)  :: spA
-         real(kind=RP)           ,  intent (out) :: contravariantFlux(1:N_EQN, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM)
+         real(kind=RP)           ,  intent (out) :: contravariantFlux(1:N_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------------------
 !        The base class does nothing
@@ -115,16 +111,14 @@ module DGViscousDiscretization
 !           ------------------------
 !///////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_ComputeGradient( self , mesh , spA , time , externalStateProcedure , externalGradientsProcedure)
+      subroutine BR1_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
          use HexMeshClass
-         use NodalStorageClass
          use PhysicsStorage
          use Physics
          use ProlongToFacesProcedures
          implicit none
          class(BassiRebay1_t), intent(in) :: self
          class(HexMesh)                   :: mesh
-         class(NodalStorage),  intent(in) :: spA(0:,0:,0:)
          real(kind=RP),        intent(in) :: time
          external                         :: externalStateProcedure
          external                         :: externalGradientsProcedure
@@ -151,11 +145,11 @@ module DGViscousDiscretization
 !
 !           Add the volumetric integrals
 !           ----------------------------
-            call BR1_GradientVolumeLoop( self , mesh % elements(eID) , spA(Nx,Ny,Nz) ) 
+            call BR1_GradientVolumeLoop( self , mesh % elements(eID) ) 
 !
 !           Add the surface integrals
 !           -------------------------
-            call BR1_GradientFaceLoop( self , mesh % elements(eID) , spA(Nx,Ny,Nz) )
+            call BR1_GradientFaceLoop( self , mesh % elements(eID) )
 !
 !           Perform the scaling
 !           -------------------               
@@ -168,7 +162,7 @@ module DGViscousDiscretization
                            mesh % elements(eID) % storage % U_z(:,i,j,k) / mesh % elements(eID) % geom % jacobian(i,j,k)
             end do         ; end do          ; end do
 
-            call ProlongGradientToFaces( mesh % elements(eID), spA(Nx,Ny,Nz) )
+            call ProlongGradientToFaces( mesh % elements(eID) )
 
          end do
 !$omp end do
@@ -177,30 +171,28 @@ module DGViscousDiscretization
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_GradientVolumeLoop( self , e , spA )
+      subroutine BR1_GradientVolumeLoop( self , e )
          use ElementClass
-         use NodalStorageClass
          use PhysicsStorage
          use Physics
          use DGWeakIntegrals
          implicit none
          class(BassiRebay1_t),   intent(in)     :: self
          class(Element)                         :: e
-         class(NodalStorage),    intent(in)     :: spA
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)          :: U(0:spA%Nx , 0:spA%Ny , 0:spA%Nz,1:N_GRAD_EQN)
+         real(kind=RP)          :: U(0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3),1:N_GRAD_EQN)
 !
 !        Compute gradient variables
 !        --------------------------
-         call GradientValuesForQ(spA % Nx, spA % Ny, spA % Nz, Q = e % storage % Q, U = U )
+         call GradientValuesForQ(e%Nxyz(1), e%Nxyz(2), e%Nxyz(3), Q = e % storage % Q, U = U )
 !
 !        Perform the weak integral
 !        -------------------------
-         call VectorWeakIntegrals % StdVolumeGreen (e , spA , U , e % storage % U_x , e % storage % U_y , e % storage % U_z )
+         call VectorWeakIntegrals % StdVolumeGreen (e , U , e % storage % U_x , e % storage % U_y , e % storage % U_z )
 
          e % storage % U_x = -e % storage % U_x
          e % storage % U_y = -e % storage % U_y
@@ -210,26 +202,24 @@ module DGViscousDiscretization
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_GradientFaceLoop( self, e , spA )
+      subroutine BR1_GradientFaceLoop( self, e )
          use ElementClass
-         use NodalStorageClass
          use PhysicsStorage
          use Physics
          use DGWeakIntegrals
          implicit none
          class(BassiRebay1_t),   intent(in)  :: self
          class(Element)                      :: e
-         class(NodalStorage),    intent(in)  :: spA
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)        :: faceInt_x(N_GRAD_EQN, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz )
-         real(kind=RP)        :: faceInt_y(N_GRAD_EQN, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz )
-         real(kind=RP)        :: faceInt_z(N_GRAD_EQN, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz )
+         real(kind=RP)        :: faceInt_x(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_y(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_z(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
 
-         call VectorWeakIntegrals % StdFace(e , spA , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
+         call VectorWeakIntegrals % StdFace(e , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
          e % storage % U_x = e % storage % U_x + faceInt_x
          e % storage % U_y = e % storage % U_y + faceInt_y
          e % storage % U_z = e % storage % U_z + faceInt_z
@@ -240,7 +230,6 @@ module DGViscousDiscretization
 !
       subroutine BR1_ComputeSolutionRiemannSolver( self , mesh , time, externalStateProcedure )
          use HexMeshClass
-         use NodalStorageClass
          use Physics
          use BoundaryConditionFunctions
          implicit none 
@@ -397,27 +386,25 @@ module DGViscousDiscretization
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_ComputeInnerFluxes( self , e , spA , contravariantFlux )
+      subroutine BR1_ComputeInnerFluxes( self , e , contravariantFlux )
          use ElementClass
-         use NodalStorageClass
          use PhysicsStorage
          use Physics
          implicit none
          class(BassiRebay1_t) ,     intent (in) :: self
          type(Element)                          :: e
-         type(NodalStorage)      , intent (in)  :: spA
-         real(kind=RP)           , intent (out) :: contravariantFlux(1:NCONS, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz, 1:NDIM)
+         real(kind=RP)           , intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)       :: cartesianFlux(1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM)
+         real(kind=RP)       :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
          integer             :: i, j, k
 
-         cartesianFlux = ViscousFlux( spA % Nx , spA % Ny , spA % Nz  , e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z )
+         cartesianFlux = ViscousFlux( e%Nxyz(1) , e%Nxyz(2) , e%Nxyz(3)  , e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z )
 
-         do k = 0, spA % Nz   ; do j = 0, spA % Ny ; do i = 0, spA % Nx
+         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =    cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
                                              +  cartesianFlux(:,i,j,k,IY) * e % geom % jGradXi(IY,i,j,k)  &
                                              +  cartesianFlux(:,i,j,k,IZ) * e % geom % jGradXi(IZ,i,j,k)

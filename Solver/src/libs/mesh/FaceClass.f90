@@ -24,6 +24,7 @@
       USE MeshTypes
       USE PolynomialInterpAndDerivsModule
       USE GaussQuadrature
+      use MappedGeometryClass
       IMPLICIT NONE 
 !
 !     ----------------------------
@@ -49,6 +50,7 @@
          INTEGER                         :: elementSide(2)
          INTEGER                         :: rotation
          CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName
+         type(MappedGeometryFace)        :: geom
          
          ! "Mortar" related variables
          TYPE(MortarFunction)            :: Phi                      ! Variable containing the solution information on the face
@@ -154,7 +156,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE ConstructMortarStorage( this, Neqn, NGradeqn, elems )
+   SUBROUTINE ConstructMortarStorage( this, Neqn, NGradeqn, elems, spA)
       USE ElementClass
       IMPLICIT NONE
 !
@@ -165,10 +167,11 @@
 !        the mortar are the same as on the left element's face
 !     -------------------------------------------------------------------
 !      
-      TYPE(Face)   , INTENT(INOUT)      :: this       !<> Current face
-      INTEGER      , INTENT(IN)         :: Neqn       !<  Number of equations
-      INTEGER      , INTENT(IN)         :: NGradeqn   !<  Number of gradient equations
-      TYPE(Element), INTENT(IN), TARGET :: elems(:)   !<  Elements in domain
+      TYPE(Face)            , INTENT(INOUT) :: this          !<> Current face
+      INTEGER               , INTENT(IN)    :: Neqn          !<  Number of equations
+      INTEGER               , INTENT(IN)    :: NGradeqn      !<  Number of gradient equations
+      TYPE(Element), TARGET , INTENT(IN)    :: elems(:)      !<  Elements in domain
+      type(NodalStorage)    , intent(in)    :: spA(0:)        !<  Nodal storage
 !
 !     --------------------
 !     Internal variables  
@@ -219,6 +222,12 @@
       this % NR    = NR
       this % NPhi  = NPhi
       this % NPhiR = NPhiR
+!
+!     ------------------------------
+!     Construct face mapped geometry
+!     ------------------------------
+!
+      call this % geom % construct(Nphi,eL % geom, this % elementSide(1), spA(NPhi), eL % hexMap)
 !
 !     -----------------------------
 !     Allocate Mortar Storage
@@ -687,6 +696,8 @@
       DEALLOCATE(this%R2Phi)
       DEALLOCATE(this%Phi2R)
       DEALLOCATE(this%Phi2L)
+      
+      call this % geom % destruct()
     
    END SUBROUTINE DestructMortarStorage
 !

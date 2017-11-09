@@ -62,7 +62,8 @@ module StatisticsMonitor
          implicit none
          class(StatisticsMonitor_t)    :: self
          class(HexMesh)                :: mesh
-         integer, allocatable          :: Nsample, i0, t0
+         integer, allocatable          :: Nsample, i0
+         real(kind=RP), allocatable    :: t0
          integer                       :: eID
          character(len=LINE_LENGTH)    :: paramFile
 !

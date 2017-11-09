@@ -26,7 +26,7 @@ LIB = jacobian
 ./build/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
 lib$(LIB).a: header mkdirs $(LIBOBJS)
 	@echo

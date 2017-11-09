@@ -52,12 +52,12 @@
       nElement =  SIZE(sem % mesh % elements)
       DO eID = 1, nElement
          N = sem % mesh % elements(eID) % Nxyz
-         CALL ProlongToFaces(sem % mesh % elements(eId), sem % spA(N(1),N(2),N(3)))
+         CALL ProlongToFaces(sem % mesh % elements(eId))
       END DO
       
       CALL computeRiemannFluxes(sem,0.0_RP)
       
-      call TimeDerivative_ComputeQDot( sem % mesh , sem % spA , 0.0_RP )
+      call TimeDerivative_ComputeQDot( sem % mesh , 0.0_RP )
 !
 !     ------------------------------------------------
 !     Check the divergence of the different components
@@ -132,7 +132,6 @@
       LOGICAL            :: success
       CHARACTER(LEN=132) :: msg
       CHARACTER(LEN=132), EXTERNAL :: lastPathComponent
-      INTEGER            :: N(3)
 !
 !     ------------------------------
 !     Read in the mesh for this test
@@ -150,17 +149,16 @@
 !
       nElement =  SIZE(sem % mesh % elements)
       DO eID = 1, nElement
-         N = sem % mesh % elements(eID) % Nxyz
-         CALL ProlongToFaces(sem % mesh % elements(eId), sem % spA(N(1),N(2),N(3)))
+         CALL ProlongToFaces(sem % mesh % elements(eId))
       END DO
       
       IF ( flowIsNavierStokes )     THEN
-         CALL DGSpatial_ComputeGradient( sem % mesh , sem % spA , 0.0_RP , sem % externalState , sem % externalGradients ) 
+         CALL DGSpatial_ComputeGradient( sem % mesh, 0.0_RP , sem % externalState , sem % externalGradients ) 
       END IF
 
       CALL computeRiemannFluxes(sem,0.0_RP)
       
-      call TimeDerivative_ComputeQDot( sem % mesh , sem % spA , 0.0_RP )
+      call TimeDerivative_ComputeQDot( sem % mesh , 0.0_RP )
 !
 !     ------------------------------------------------
 !     Check the divergence of the different components
@@ -321,7 +319,7 @@
          
          DO eID = 1, SIZE(sem % mesh % elements)
             N = sem % mesh % elements(eID) % Nxyz
-            CALL ProlongToFaces(sem % mesh % elements(eId), sem % spA(N(1),N(2),N(3)))
+            CALL ProlongToFaces(sem % mesh % elements(eId))
             DO fce = 1, 6
                emax = 0.0_RP
                DO j = 0, N(axisMap(2,fce))

@@ -87,7 +87,9 @@ dt  & \textit{REAL}: Constant time step size.  & --** \\ \hline
 
 final time  & \textit{REAL}: This keyword is mandatory for time-accurate solvers & -- \\ \hline
 
-mesh file name & \textit{INTEGER}:  & \textbf{Mandatory\ keyword} \\ \hline
+mesh file name & \textit{CHARACTER}: Name of the mesh file. The currently supported formats are \textit{.mesh} (SpecMesh file format) and \textit{.h5} (HOPR hdf5 file format). & \textbf{Mandatory\ keyword} \\ \hline
+
+mesh inner curves & \textit{LOGICAL}: Specifies if the mesh reader must suppose that the inner surfaces (faces connecting the elements of the mesh) are curved. This input variable only affects the hdf5 mesh reader. & .TRUE. \\ \hline
 
 number of time steps & \textit{INTEGER}: \textit{Maximum} number of time steps that the program will compute.  & \textbf{Mandatory\ keyword} \\ \hline
 

@@ -25,7 +25,8 @@
          INTEGER                 :: i,j,k, N
          
          N = 5
-         CALL spA % construct(GAUSS,N,N,N)
+         CALL spA   % construct(GAUSS,N)
+         
 !
 !        --------------------------------------------
 !        Set up a cube with edges with length [1,2,3]
@@ -46,7 +47,7 @@
 !        Generate the geometry
 !        ---------------------
 !
-         CALL geom % construct(spA, mapper)
+         CALL geom % construct(spA, spA, spA, mapper)
 !
 !        -----------------
 !        Test the geometry
@@ -56,7 +57,7 @@
          DO k = 0, N
             DO j = 0, N
                DO i = 0, N
-                  xMap =  mapper % transfiniteMapAt([spA % xi(i), spA % eta(j), spA % zeta(k)])
+                  xMap =  mapper % transfiniteMapAt([spA % x(i), spA % x(j), spA % x(k)])
                   x    = geom % x(:,i,j,k)
                   e    = MAX(MAXVAL(ABS(x - xMap)),e)
                END DO   
@@ -75,7 +76,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               xMap = mapper % transfiniteMapAt([-1.0_RP, spA % eta(i), spA % zeta(j)])
+               xMap = mapper % transfiniteMapAt([-1.0_RP, spA % x(i), spA % x(j)])
                x    = geom % xb(:,i,j,ELEFT)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -88,7 +89,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               xMap = mapper % transfiniteMapAt([1.0_RP, spA % eta(i), spA % zeta(j)])
+               xMap = mapper % transfiniteMapAt([1.0_RP, spA % x(i), spA % x(j)])
                x    = geom % xb(:,i,j,ERIGHT)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -101,7 +102,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               xMap = mapper % transfiniteMapAt([spA % xi(i), spA % eta(j), -1.0_RP ])
+               xMap = mapper % transfiniteMapAt([spA % x(i), spA % x(j), -1.0_RP ])
                x    = geom % xb(:,i,j,EBOTTOM)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -114,7 +115,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               xMap = mapper % transfiniteMapAt([spA % xi(i), spA % eta(j), 1.0_RP ])
+               xMap = mapper % transfiniteMapAt([spA % x(i), spA % x(j), 1.0_RP ])
                x    = geom % xb(:,i,j,ETOP)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -127,7 +128,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               xMap = mapper % transfiniteMapAt([spA % xi(i), -1.0_RP, spA % zeta(j)])
+               xMap = mapper % transfiniteMapAt([spA % x(i), -1.0_RP, spA % x(j)])
                x    = geom % xb(:,i,j,EFRONT)
                e    = MAXVAL(ABS(x - xMap))
             END DO   
@@ -140,7 +141,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               xMap = mapper % transfiniteMapAt([spA % xi(i),  1.0_RP, spA % zeta(j)])
+               xMap = mapper % transfiniteMapAt([spA % x(i),  1.0_RP, spA % x(j)])
                x    = geom % xb(:,i,j,EBACK)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -332,7 +333,7 @@
          EXTERNAL                :: cylindricalGeometry
          
          N = 10
-         CALL spA % construct(GAUSS,N,N,N)
+         CALL spA % construct(GAUSS,N)
 !
 !        --------------------
 !        Construct the mapper
@@ -344,7 +345,7 @@
 !        Generate the geometry
 !        ---------------------
 !
-         CALL geom % construct(spA, mapper)
+         CALL geom % construct(spA, spA, spA, mapper)
 !
 !        ------------
 !        Mapping test
@@ -352,11 +353,11 @@
 !
          e = 0.0_RP
          DO k = 0, N
-            w = spA % zeta(k)
+            w = spA % x(k)
             DO j = 0, N
-               v = spA % eta(j)
+               v = spA % x(j)
                DO i = 0, N
-                  u = spA % xi(i)
+                  u = spA % x(i)
                   
                   CALL cylindricalGeometry([u,v,w],p)
                   
@@ -378,7 +379,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               xMap = mapper % transfiniteMapAt([-1.0_RP, spA % eta(i), spA % zeta(j)])
+               xMap = mapper % transfiniteMapAt([-1.0_RP, spA % x(i), spA % x(j)])
                x    = geom % xb(:,i,j,ELEFT)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -391,7 +392,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               xMap = mapper % transfiniteMapAt([1.0_RP, spA % eta(i), spA % zeta(j)])
+               xMap = mapper % transfiniteMapAt([1.0_RP, spA % x(i), spA % x(j)])
                x    = geom % xb(:,i,j,ERIGHT)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -404,7 +405,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               xMap = mapper % transfiniteMapAt([spA % xi(i), spA % eta(j), -1.0_RP ])
+               xMap = mapper % transfiniteMapAt([spA % x(i), spA % x(j), -1.0_RP ])
                x    = geom % xb(:,i,j,EBOTTOM)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -417,7 +418,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               xMap = mapper % transfiniteMapAt([spA % xi(i), spA % eta(j), 1.0_RP ])
+               xMap = mapper % transfiniteMapAt([spA % x(i), spA % x(j), 1.0_RP ])
                x    = geom % xb(:,i,j,ETOP)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -430,7 +431,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               xMap = mapper % transfiniteMapAt([spA % xi(i), -1.0_RP, spA % zeta(j)])
+               xMap = mapper % transfiniteMapAt([spA % x(i), -1.0_RP, spA % x(j)])
                x    = geom % xb(:,i,j,EFRONT)
                e    = MAXVAL(ABS(x - xMap))
             END DO   
@@ -443,7 +444,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               xMap = mapper % transfiniteMapAt([spA % xi(i),  1.0_RP, spA % zeta(j)])
+               xMap = mapper % transfiniteMapAt([spA % x(i),  1.0_RP, spA % x(j)])
                x    = geom % xb(:,i,j,EBACK)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -461,7 +462,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               CALL ComputeFacePoint(self = mapper % faces(6),u = [spA % eta(i), spA % zeta(j)],p = xMap)
+               CALL ComputeFacePoint(self = mapper % faces(6),u = [spA % x(i), spA % x(j)],p = xMap)
                x    = geom % xb(:,i,j,ELEFT)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -474,7 +475,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               CALL ComputeFacePoint(self = mapper % faces(4),u = [spA % eta(i), spA % zeta(j)],p = xMap)
+               CALL ComputeFacePoint(self = mapper % faces(4),u = [spA % x(i), spA % x(j)],p = xMap)
                x    = geom % xb(:,i,j,ERIGHT)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -487,7 +488,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               CALL ComputeFacePoint(self = mapper % faces(3),u = [spA % eta(i), spA % zeta(j)],p = xMap)
+               CALL ComputeFacePoint(self = mapper % faces(3),u = [spA % x(i), spA % x(j)],p = xMap)
                x    = geom % xb(:,i,j,EBOTTOM)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -500,7 +501,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               CALL ComputeFacePoint(self = mapper % faces(5),u = [spA % eta(i), spA % zeta(j)],p = xMap)
+               CALL ComputeFacePoint(self = mapper % faces(5),u = [spA % x(i), spA % x(j)],p = xMap)
                x    = geom % xb(:,i,j,ETOP)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -513,7 +514,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               CALL ComputeFacePoint(self = mapper % faces(1),u = [spA % eta(i), spA % zeta(j)],p = xMap)
+               CALL ComputeFacePoint(self = mapper % faces(1),u = [spA % x(i), spA % x(j)],p = xMap)
                x    = geom % xb(:,i,j,EFRONT)
                e    = MAXVAL(ABS(x - xMap))
             END DO   
@@ -526,7 +527,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               CALL ComputeFacePoint(self = mapper % faces(2),u = [spA % eta(i), spA % zeta(j)],p = xMap)
+               CALL ComputeFacePoint(self = mapper % faces(2),u = [spA % x(i), spA % x(j)],p = xMap)
                x    = geom % xb(:,i,j,EBACK)
                e    = MAX(MAXVAL(ABS(x - xMap)),e)
             END DO   
@@ -544,7 +545,7 @@
          e     = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               CALL cylindricalFaceNormals([ spA % xi(i), -1.0_RP,  spA % zeta(j)], p, 1)
+               CALL cylindricalFaceNormals([ spA % x(i), -1.0_RP,  spA % x(j)], p, 1)
                x    = geom % normal(:,i,j,EFRONT)
                e    = MAX(e,MAXVAL(ABS(x - p)))
             END DO   
@@ -557,7 +558,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               CALL cylindricalFaceNormals([ spA % xi(i), 1.0_RP,  spA % zeta(j)], p, 2)
+               CALL cylindricalFaceNormals([ spA % x(i), 1.0_RP,  spA % x(j)], p, 2)
                x    = geom % normal(:,i,j,EBACK)
                e    = MAX(e,MAXVAL(ABS(x - p)))
             END DO   
@@ -570,7 +571,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               CALL cylindricalFaceNormals([ spA % xi(i), spA % zeta(j), -1.0_RP], p, 3)
+               CALL cylindricalFaceNormals([ spA % x(i), spA % x(j), -1.0_RP], p, 3)
                x    = geom % normal(:,i,j,EBOTTOM)
                e    = MAX(e,MAXVAL(ABS(x - p)))
             END DO   
@@ -583,7 +584,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               CALL cylindricalFaceNormals([ spA % xi(i), spA % zeta(j), 1.0_RP], p, 5)
+               CALL cylindricalFaceNormals([ spA % x(i), spA % x(j), 1.0_RP], p, 5)
                x    = geom % normal(:,i,j,ETOP)
                e    = MAX(e,MAXVAL(ABS(x - p)))
             END DO   
@@ -596,7 +597,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-               CALL cylindricalFaceNormals([ -1.0_RP, spA % xi(i), spA % zeta(j)], p, 6)
+               CALL cylindricalFaceNormals([ -1.0_RP, spA % x(i), spA % x(j)], p, 6)
                x    = geom % normal(:,i,j,ELEFT)
                e    = MAX(e,MAXVAL(ABS(x - p)))
             END DO   
@@ -609,7 +610,7 @@
          e = 0.0_RP
          DO j = 0, N
             DO i = 0, N
-                CALL cylindricalFaceNormals([ 1.0_RP, spA % xi(i), spA % zeta(j)], p, 4)
+                CALL cylindricalFaceNormals([ 1.0_RP, spA % x(i), spA % x(j)], p, 4)
               x    = geom % normal(:,i,j,ERIGHT)
                e    = MAX(e,MAXVAL(ABS(x - p)))
             END DO   
@@ -630,7 +631,7 @@
             DO j = 0, N
                DO i = 0, N
                   x    = geom % jGradXi(:,i,j,k)
-                  CALL cylindricalMetricTerms([ spA % xi(i), spA % eta(j),  spA % zeta(k)],Jai)
+                  CALL cylindricalMetricTerms([ spA % x(i), spA % x(j),  spA % x(k)],Jai)
                   e    = MAX(e,MAXVAL(ABS(x - jAi(:,1))))
                END DO   
             END DO   
@@ -650,7 +651,7 @@
             DO j = 0, N
                DO i = 0, N
                   x    = geom % jGradEta(:,i,j,k)
-                  CALL cylindricalMetricTerms([ spA % xi(i), spA % eta(j),  spA % zeta(k)],Jai)
+                  CALL cylindricalMetricTerms([ spA % x(i), spA % x(j),  spA % x(k)],Jai)
                   e    = MAX(e,MAXVAL(ABS(x - jAi(:,2))))
                END DO   
             END DO   
@@ -670,7 +671,7 @@
             DO j = 0, N
                DO i = 0, N
                   x    = geom % jGradZeta(:,i,j,k)
-                  CALL cylindricalMetricTerms([ spA % xi(i), spA % eta(j),  spA % zeta(k)],Jai)
+                  CALL cylindricalMetricTerms([ spA % x(i), spA % x(j),  spA % x(k)],Jai)
                   e    = MAX(e,MAXVAL(ABS(x(:) - jAi(:,3))))
                END DO   
             END DO   
@@ -690,7 +691,7 @@
             DO j = 0, N
                DO i = 0, N
                   jac      = geom % jacobian(i,j,k)
-                  exactJac = cylindricalJacobian([ spA % xi(i), spA % eta(j),  spA % zeta(k)])
+                  exactJac = cylindricalJacobian([ spA % x(i), spA % x(j),  spA % x(k)])
                   e    = MAX(e,ABS(jac - exactJac))
                END DO   
             END DO   

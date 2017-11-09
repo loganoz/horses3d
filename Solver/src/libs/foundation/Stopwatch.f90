@@ -4,9 +4,9 @@
 !   @File:    Stopwatch.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Oct 25 13:36:18 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Sun Oct 29 17:43:38 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 923d934f3c0893856fbedc5cb9f9abe65851c070
 !
 !//////////////////////////////////////////////////////
 !
@@ -386,6 +386,8 @@ module StopwatchClass
       class(Event_t)    :: self
       real(kind=RP)     :: tEnd 
       real(kind=RP)     :: tCPUEnd
+
+      if ( .not. self % running ) return
 
       tEnd = GetCurrentSeconds()
       call CPU_TIME(tCPUEnd)

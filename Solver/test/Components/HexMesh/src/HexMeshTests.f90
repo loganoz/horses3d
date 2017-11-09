@@ -13,10 +13,11 @@
          USE HexMeshClass 
          USE DGSEMPlotterClass
          USE SharedBCModule
+         use ReadMeshFile
          IMPLICIT NONE
          
          TYPE(HexMesh)                   :: mesh
-         TYPE(NodalStorage),ALLOCATABLE  :: spA(:,:,:)
+         TYPE(NodalStorage),ALLOCATABLE  :: spA(:)
          TYPE(TransfiniteHexMap)         :: hexTransform
          TYPE(Face)                      :: testFace
          REAL(KIND=RP)                   :: nodes(3,12)
@@ -38,13 +39,6 @@
          INTEGER, ALLOCATABLE               :: Nvector(:)
          INTEGER                            :: nelem
          INTEGER                            :: fUnit
-!
-!        --------
-!        Plotting
-!        --------
-!
-         TYPE(DGSEMPlotter)                 :: thePlotter
-         CLASS(PlotterDataSource), POINTER  :: dataSource
          
          N           = 6
 !
@@ -119,7 +113,7 @@
             CALL bcTypeDictionary % addValueForKey('freeslipboundary', boundaryNames(id))
          end do
          
-         ALLOCATE(spA(0:N(1),0:N(2),0:N(3)))
+         ALLOCATE( spA( 0:max(N(1),N(2),N(3)) ) )
          OPEN(newunit = fUnit, FILE = meshFileName )  
             READ(fUnit,*) l, nelem, l                    ! Here l is used as default reader since this variables are not important now
          CLOSE(fUnit)
@@ -127,8 +121,10 @@
          ALLOCATE (Nvector(nelem))
          Nvector = N(1)
          
-         CALL spA(N(1),N(2),N(3)) % Construct(GAUSS,N(1),N(2),N(3))
-         CALL mesh % constructFromFile(meshfileName,GAUSS,spA,Nvector,Nvector,Nvector, success)
+         call spA(N(1)) % Construct(GAUSS, N(1))
+         call spA(N(2)) % Construct(GAUSS, N(2))
+         call spA(N(3)) % Construct(GAUSS, N(3))
+         CALL constructMeshFromFile(mesh, meshfileName,GAUSS,spA,Nvector,Nvector,Nvector, .TRUE.,  success)
          
          CALL FTAssert(test = success,msg = "Mesh file properly constructed")
          IF(.NOT. success) return
@@ -147,9 +143,9 @@
          nElements = SIZE( mesh % elements)
          CALL FTAssertEqual(expectedValue = 2 ,actualValue = nElements, msg = "Number of elements in mesh")
          
-         CALL FTAssertEqual(expectedValue = spA(N(1),N(2),N(3)) % Nx, &
+         CALL FTAssertEqual(expectedValue = spA(N(1)) % N, &
                                                   actualValue = mesh % elements(1) % Nxyz(1), msg = "Polynomial order of element 1")
-         CALL FTAssertEqual(expectedValue = spA(N(1),N(2),N(3)) % Nx, &
+         CALL FTAssertEqual(expectedValue = spA(N(1)) % N, &
                                                   actualValue = mesh % elements(2) % Nxyz(1), msg = "Polynomial order of element 2")
          
          DO k = 1, 2
@@ -175,11 +171,11 @@
             CALL hexTransform % constructWithCorners(corners)
             
             DO k = 0, mesh % elements(id) % Nxyz(3)
-               u(3) = spA(N(1),N(2),N(3)) % zeta(k)
+               u(3) = spA(N(3)) % x(k)
                DO j = 0, mesh % elements(id) % Nxyz(2)
-                  u(2) = spA(N(1),N(2),N(3)) % eta(j)
+                  u(2) = spA(N(2)) % x(j)
                   DO i = 0, mesh % elements(id) % Nxyz(1)
-                     u(1) = spA(N(1),N(2),N(3)) % xi(i)
+                     u(1) = spA(N(1)) % x(i)
                      p = hexTransform % transfiniteMapAt(u)
                      x = mesh % elements(id) % geom % x(:,i,j,k)
                      erMax = MAX(erMax,MAXVAL(ABS(x-p)))
@@ -227,20 +223,6 @@
 !
          OPEN(UNIT=11, FILE = meshfileName)
          CLOSE(11, STATUS = "DELETE")
-!
-!        ----------------------------------
-!        Generate a plot file for this mesh
-!        ----------------------------------
-!
-         ALLOCATE(dataSource)
-         OPEN(UNIT = 11, FILE = "TwoboxeslElements.tec")
-         
-         CALL thePlotter % Construct(fUnit      = 11,          &
-                                     dataSource = dataSource)
-         
-         CALL thePlotter % ExportToTecplot(elements = mesh % elements, spA = spA)
-         CALL thePlotter % Destruct()
-         DEALLOCATE(dataSource)
          
       END SUBROUTINE testTwoBoxesMeshConstruction
 !
@@ -251,11 +233,12 @@
          USE SMConstants
          USE HexMeshClass 
          USE DGSEMPlotterClass
+         use ReadMeshFile
          IMPLICIT NONE
          
          EXTERNAL                :: cylindricalGeometry
          TYPE(HexMesh)           :: mesh
-         TYPE(NodalStorage), ALLOCATABLE      :: spA(:,:,:)
+         TYPE(NodalStorage), ALLOCATABLE      :: spA(:)
          TYPE(Face)              :: testFace
          INTEGER                 :: j, N(3), id
          INTEGER                 :: iFaceID
@@ -266,13 +249,6 @@
          INTEGER, ALLOCATABLE               :: Nvector(:)
          INTEGER                            :: nelem
          INTEGER                            :: fUnit, l
-!
-!        --------
-!        Plotting
-!        --------
-!
-         TYPE(DGSEMPlotter)                 :: thePlotter
-         CLASS(PlotterDataSource), POINTER  :: dataSource
 !         
          N = 6
 !
@@ -286,7 +262,7 @@
 !        Generate the mesh from the file
 !        -------------------------------
 !
-         ALLOCATE(spA(0:N(1),0:N(2),0:N(3)))
+         ALLOCATE( spA( 0:max(N(1),N(2),N(3)) ) )
          OPEN(newunit = fUnit, FILE = meshFileName )  
             READ(fUnit,*) l, nelem, l                    ! Here l is used as default reader since this variables are not important now
          CLOSE(fUnit)
@@ -294,8 +270,10 @@
          ALLOCATE (Nvector(nelem))
          Nvector = N(1)
          
-         CALL spA(N(1),N(2),N(3)) % Construct(GAUSS,N(1),N(2),N(3))
-         CALL mesh % constructFromFile(meshfileName,GAUSS,spA,Nvector,Nvector,Nvector, success)
+         call spA(N(1)) % Construct(GAUSS, N(1))
+         call spA(N(2)) % Construct(GAUSS, N(2))
+         call spA(N(3)) % Construct(GAUSS, N(3))
+         CALL constructMeshFromFile(mesh,meshfileName,GAUSS,spA,Nvector,Nvector,Nvector, .TRUE., success)
          
          CALL FTAssert(test = success,msg = "Mesh file read properly")
          IF(.NOT. success) RETURN 
@@ -335,20 +313,6 @@
          CALL FTAssertEqual(expectedValue = 2, actualValue = testFace % elementIDs(2),msg  = "Face element slave")
          CALL FTAssertEqual(expectedValue = 5, actualValue = testFace % elementSide(1),msg = "Face element master side")
          CALL FTAssertEqual(expectedValue = 3, actualValue = testFace % elementSide(2),msg = "Face element slave side")
-!
-!        ----------------------------------
-!        Generate a plot file for this mesh
-!        ----------------------------------
-!
-         ALLOCATE(dataSource)
-         OPEN(UNIT = 11, FILE = "TwoClyindricalElements.tec")
-         
-         CALL thePlotter % Construct(fUnit      = 11,          &
-                                     dataSource = dataSource)
-         
-         CALL thePlotter % ExportToTecplot(elements = mesh % elements, spA = spA)
-         
-         DEALLOCATE(dataSource)
          
       END SUBROUTINE testTwoElementCylindersMesh
 !

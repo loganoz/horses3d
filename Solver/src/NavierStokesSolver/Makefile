@@ -43,6 +43,7 @@ OBJS_HORSES=	DGInviscidDiscretization \
 		MultigridSolverClass \
 		ExplicitMethods \
 		FASMultigridClass \
+		AnalyticalJacobian \
 		HORSES3DMain 
 
 OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
@@ -71,7 +72,7 @@ $(PROG): header mkdirs $(OBJS_HORSES_BUILD)
 	@echo "---------------------------------"
 	@echo "| Linking " $@ "|"
 	@echo "---------------------------------"
-	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_BUILD) $(HORSES_LIBS_EXEC)
+	$(FC) $(FFLAGS) $(INCLUDE) -o $(PROG) $(OBJS_HORSES_BUILD) $(HORSES_LIBS_EXEC) $(LIBS)
 
 
 install: $(PROG)

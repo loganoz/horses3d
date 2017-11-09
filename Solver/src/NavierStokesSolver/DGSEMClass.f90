@@ -51,7 +51,7 @@ Module DGSEMClass
       REAL(KIND=RP)                                           :: maxResidual
       INTEGER                                                 :: numberOfTimeSteps
       INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
-      TYPE(NodalStorage), ALLOCATABLE                         :: spA(:,:,:)
+      TYPE(NodalStorage)                        , allocatable :: spA(:)
       INTEGER           , ALLOCATABLE                         :: Nx(:), Ny(:), Nz(:)
       TYPE(HexMesh)                                           :: mesh
       PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
@@ -75,6 +75,7 @@ Module DGSEMClass
 !
       SUBROUTINE ConstructDGSem( self, meshFileName_, controlVariables, &
                                  externalState, externalGradients, polynomialOrder, Nx_, Ny_, Nz_, success )
+      use ReadMeshFile
       use FTValueDictionaryClass
       use mainKeywordsModule
       use StopwatchClass
@@ -102,6 +103,7 @@ Module DGSEMClass
       INTEGER                     :: nelem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       character(len=LINE_LENGTH)  :: meshFileName
+      logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
       INTERFACE
          SUBROUTINE externalState(x,t,nHat,Q,boundaryName)
             USE SMConstants
@@ -165,9 +167,7 @@ Module DGSEMClass
          Nz => Nz_
          nelem = SIZE(Nx)
       ELSEIF (PRESENT(polynomialOrder)) THEN
-         OPEN(newunit = fUnit, FILE = meshFileName )  
-            READ(fUnit,*) k, nelem, k                    ! Here k is used as default reader since this variables are not important now
-         CLOSE(fUnit)
+         nelem = NumOfElemsFromMeshFile( meshfileName )
          
          ALLOCATE (Nx(nelem),Ny(nelem),Nz(nelem))
          Nx = polynomialOrder(1)
@@ -190,21 +190,30 @@ Module DGSEMClass
 !     Construct the polynomial storage for the elements in the mesh
 !     -------------------------------------------------------------
 !
-      IF (ALLOCATED(self % spa)) DEALLOCATE(self % spa)
-      ALLOCATE(self % spa(0:MAXVAL(Nx),0:MAXVAL(Ny),0:MAXVAL(Nz)))
+      IF (ALLOCATED(self % spA)) DEALLOCATE(self % spa)
+      k = max( MAXVAL(Nx), MAXVAL(Ny), MAXVAL(Nz) )
+      ALLOCATE(self % spA(0:k) )
       
       self % NDOF = 0
       DO k=1, nelem
          self % NDOF = self % NDOF + N_EQN * (Nx(k) + 1) * (Ny(k) + 1) * (Nz(k) + 1)
-         IF (self % spA(Nx(k),Ny(k),Nz(k)) % Constructed) CYCLE
-         CALL self % spA(Nx(k),Ny(k),Nz(k)) % construct( nodes, Nx(k), Ny(k), Nz(k) )
+         
+         call self % spA(Nx(k)) % construct( nodes, Nx(k) )
+         call self % spA(Ny(k)) % construct( nodes, Ny(k) )
+         call self % spA(Nz(k)) % construct( nodes, Nz(k) )
       END DO
 !
 !     ------------------
 !     Construct the mesh
 !     ------------------
 !
-      CALL self % mesh % constructFromFile( meshfileName, nodes, self % spA, Nx, Ny, Nz,  success )
+      if (controlVariables % containsKey("mesh inner curves")) then
+         MeshInnerCurves = controlVariables % logicalValueForKey("mesh inner curves")
+      else
+         MeshInnerCurves = .true.
+      end if
+      CALL constructMeshFromFile( self % mesh, meshfileName, nodes, self % spA, Nx, Ny, Nz, MeshInnerCurves , success )
+      
       IF(.NOT. success) RETURN 
 !
 !     ------------------------
@@ -243,10 +252,10 @@ Module DGSEMClass
 !     ------------------------
 !     Construct the mortar
 !     ------------------------
-!
+!      
       DO k=1, SIZE(self % mesh % faces)
          IF (self % mesh % faces(k) % FaceType == HMESH_INTERIOR) THEN !The mortar is only needed for the interior edges
-            CALL ConstructMortarStorage( self % mesh % faces(k), N_EQN, N_GRAD_EQN, self % mesh % elements )
+            CALL ConstructMortarStorage( self % mesh % faces(k), N_EQN, N_GRAD_EQN, self % mesh % elements, self % spA )
          END IF
       END DO
 !
@@ -285,18 +294,14 @@ Module DGSEMClass
       SUBROUTINE DestructDGSem( self )
       IMPLICIT NONE 
       CLASS(DGSem) :: self
-      INTEGER      :: i,j,k      !Counter
+      INTEGER      :: k      !Counter
       
-      DO k=0, UBOUND(self % spA,3)
-         DO j=0, UBOUND(self % spA,2)
-            DO i=0, UBOUND(self % spA,1)
-               IF (.NOT. self % spA(i,j,k) % Constructed) CYCLE
-               CALL self % spA(i,j,k) % destruct()
-            END DO
-         END DO
+      DO k=0, UBOUND(self % spA,1)
+         IF (.NOT. self % spA(k) % Constructed) CYCLE
+         CALL self % spA(k) % destruct()
       END DO
       
-      CALL DestructMesh( self % mesh )
+      CALL self % mesh % destruct
       self % externalState     => NULL()
       self % externalGradients => NULL()
       IF ( ALLOCATED(InviscidMethod) ) DEALLOCATE( InviscidMethod )
@@ -553,19 +558,16 @@ Module DGSEMClass
 !        Local variables
 !        ---------------
 !
-         INTEGER :: k, Nx, Ny, Nz
+         INTEGER :: k
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
 !        -----------------------------------------
 !
 !$omp parallel
-!$omp do private(Nx,Ny,Nz) schedule(runtime)
-         DO k = 1, SIZE(self % mesh % elements) 
-            Nx = self%mesh%elements(k)%Nxyz(1)
-            Ny = self%mesh%elements(k)%Nxyz(2)
-            Nz = self%mesh%elements(k)%Nxyz(3)
-            CALL ProlongToFaces( self % mesh % elements(k), self % spA(Nx,Ny,Nz) )
+!$omp do schedule(runtime)
+         DO k = 1, SIZE(self % mesh % elements)
+            CALL ProlongToFaces( self % mesh % elements(k))
          END DO
 !$omp end do
 !
@@ -574,7 +576,7 @@ Module DGSEMClass
 !        -----------------
 !
          if ( flowIsNavierStokes ) then
-            CALL DGSpatial_ComputeGradient( self % mesh , self % spA , time , self % externalState , self % externalGradients )
+            CALL DGSpatial_ComputeGradient( self % mesh , time , self % externalState , self % externalGradients )
          end if
 !
 !        -------------------------------------------------------
@@ -587,7 +589,7 @@ Module DGSEMClass
 !        Compute time derivative
 !        -----------------------
 !
-         call TimeDerivative_ComputeQDot( self % mesh , self % spA , time )
+         call TimeDerivative_ComputeQDot( self % mesh , time )
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative
@@ -653,7 +655,6 @@ Module DGSEMClass
          TYPE(Face)   , INTENT(INOUT) :: thisface     !<> Mortar
          !-----------------------------------------
          INTEGER       :: fIDLeft, fIDRight
-         REAL(KIND=RP) :: norm(3), scal
          INTEGER       :: i,j,ii,jj
          INTEGER       :: Nxy(2)       ! Polynomial orders on the interface
          INTEGER       :: NL(2), NR(2)
@@ -685,20 +686,24 @@ Module DGSEMClass
 !        Projection to mortars
 !        ---------------------
 !
-         call ProjectToMortar(thisface, eL % storage % Qb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % Qb(:,0:NR(1),0:NR(2),fIDright), N_EQN)
+         call ProjectToMortar(thisface, eL % storage % Qb(:,0:NL(1),0:NL(2),fIDLeft), &
+                                        eR % storage % Qb(:,0:NR(1),0:NR(2),fIDright), N_EQN)
          QL = thisface % Phi % L
          QR = thisface % Phi % R
 
          if ( flowIsNavierStokes ) then
-            call ProjectToMortar(thisface, eL % storage % U_xb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
+            call ProjectToMortar(thisface, eL % storage % U_xb(:,0:NL(1),0:NL(2),fIDLeft), &
+                                           eR % storage % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_xLeft = thisface % Phi % L
             U_xRight = thisface % Phi % R
 
-            call ProjectToMortar(thisface, eL % storage % U_yb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_yb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
+            call ProjectToMortar(thisface, eL % storage % U_yb(:,0:NL(1),0:NL(2),fIDLeft), &
+                                           eR % storage % U_yb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_yLeft = thisface % Phi % L
             U_yRight = thisface % Phi % R
 
-            call ProjectToMortar(thisface, eL % storage % U_zb(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % U_zb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
+            call ProjectToMortar(thisface, eL % storage % U_zb(:,0:NL(1),0:NL(2),fIDLeft), &
+                                           eR % storage % U_zb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
             U_zLeft = thisface % Phi % L
             U_zRight = thisface % Phi % R
 
@@ -716,13 +721,12 @@ Module DGSEMClass
 !        Invscid fluxes: Rotation is not accounted in the Mortar projection
 !        --------------
 !
-         norm = eL % geom % normal(:,1,1,fIDLeft)
          DO j = 0, Nxy(2)
             DO i = 0, Nxy(1)
                CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)
                CALL RiemannSolver(QLeft  = QL(:,i,j), &
                                   QRight = QR(:,ii,jj), &
-                                  nHat   = norm, &    ! This works only for flat faces
+                                  nHat   = thisface % geom % normal(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
 
                CALL ViscousMethod % RiemannSolver( QLeft = QL(:,i,j), &
@@ -733,12 +737,18 @@ Module DGSEMClass
                                                   U_xRight = U_xRight(:,ii,jj) , &
                                                   U_yRight = U_yRight(:,ii,jj) , &
                                                   U_zRight = U_zRight(:,ii,jj) , &
-                                                   nHat = norm , &
-                                                   flux  = visc_flux(:,i,j) )
+                                                  nHat = thisface % geom % normal(:,i,j) , &
+                                                  flux  = visc_flux(:,i,j) )
+               
+!
+!              Multiply by the Jacobian
+!              ------------------------
+               
+               thisface % Phi % C(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * thisface % geom % scal(i,j)
+               
             END DO   
          END DO  
-
-         thisface % Phi % C = (inv_flux - visc_flux) 
+         
 !
 !        ---------------------------
 !        Return the flux to elements: The sign in eR % storage % FstarB has already been accouted.
@@ -748,21 +758,7 @@ Module DGSEMClass
                                 eL % storage % FStarb(:,0:NL(1),0:NL(2),fIDLeft), & 
                                 eR % storage % FStarb(:,0:NR(1),0:NR(2),fIDRight), & 
                                 N_EQN ) 
-!
-!        ------------------------
-!        Multiply by the Jacobian: TODO this has to be performed before projection
-!        ------------------------
-!
-         do j = 0 , NL(2)  ;  do i = 0 , NL(1)
-            eL % storage % FstarB(:,i,j,fIDLeft) = eL % storage % FstarB(:,i,j,fIDLeft) * eL % geom % scal(i,j,fIDLeft)
-         end do            ;  end do
-
-         do j = 0 , NR(2)  ;  do i = 0 , NR(1)
-            eR % storage % FstarB(:,i,j,fIDRight) = eR % storage % FstarB(:,i,j,fIDRight) * eR % geom % scal(i,j,fIDRight)
-         end do            ;  end do
-
-
-
+         
       END SUBROUTINE computeElementInterfaceFlux
 
       SUBROUTINE computeBoundaryFlux(elementOnLeft, faceID, time, externalStateProcedure , externalGradientsProcedure )
@@ -894,7 +890,7 @@ Module DGSEMClass
       REAL(KIND=RP)               :: MaximumEigenvalue
       EXTERNAL                    :: ComputeEigenvaluesForState
       REAL(KIND=RP)               :: Q(N_EQN)
-      TYPE(NodalStorage), POINTER :: spA_p
+      TYPE(NodalStorage), POINTER :: spAxi_p, spAeta_p, spAzeta_p
 !            
       MaximumEigenvalue = 0.0_RP
       
@@ -908,14 +904,16 @@ Module DGSEMClass
 !
       DO id = 1, SIZE(self % mesh % elements) 
          N = self % mesh % elements(id) % Nxyz
-         spA_p => self % spA(N(1),N(2),N(3))
+         spAxi_p => self % spA(N(1))
+         spAeta_p => self % spA(N(2))
+         spAzeta_p => self % spA(N(3))
          IF ( ANY(N<1) ) THEN 
             PRINT*, "Error in MaximumEigenvalue function (N<1)"    
          ENDIF         
          
-         dcsi = 1.0_RP / abs( spA_p % xi(1)   - spA_p % xi  (0) )   
-         deta = 1.0_RP / abs( spA_p % eta(1)  - spA_p % eta (0) )
-         dzet = 1.0_RP / abs( spA_p % zeta(1) - spA_p % zeta(0) )
+         dcsi = 1.0_RP / abs( spAxi_p   % x(1) - spAxi_p   % x (0) )   
+         deta = 1.0_RP / abs( spAeta_p  % x(1) - spAeta_p  % x (0) )
+         dzet = 1.0_RP / abs( spAzeta_p % x(1) - spAzeta_p % x (0) )
          DO k = 0, N(3)
             DO j = 0, N(2)
                DO i = 0, N(1)

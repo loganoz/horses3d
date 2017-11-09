@@ -11,6 +11,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./Euler/PeriodicFlow \
 	    ./Euler/UniformFlow \
 	    ./Euler/UniformFlowPETSc \
+	    ./Euler/Benchmark \
 	    ./Euler/JFNK \
             ./NavierStokes/Cylinder \
             ./NavierStokes/CylinderDifferentOrders \

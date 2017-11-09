@@ -52,7 +52,7 @@ OBJS_BUILD=$(foreach obj,$(OBJS),./build/$(obj).o)
 ./build/%.o: ./%.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(MACROS) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) $(MACROS) $(EXTLIB_INC) -I./include $(INCLUDE) $(MACROS) -c $< -o $@ $(MOD_FLAG) ./include
 
 $(PROG): header mkdirs $(OBJS_BUILD)
 	@echo
@@ -60,7 +60,7 @@ $(PROG): header mkdirs $(OBJS_BUILD)
 	@echo "---------------------------------"
 	@echo "| Linking " $@ "|"
 	@echo "---------------------------------"
-	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_BUILD) $(HORSES_LIBS_EXEC)
+	$(FC) $(FFLAGS) $(EXTLIB_INC) -o $(PROG) $(OBJS_BUILD) $(HORSES_LIBS_EXEC) $(LIBS)
 
 
 install: $(PROG)

@@ -9,12 +9,12 @@
 !
 !////////////////////////////////////////////////////////////////////////
 MODULE Implicit_NJ
-
+   use AnalyticalJacobian
    USE SMConstants                  
    USE DGSEMClass,                  ONLY: DGSem, ComputeTimeDerivative
    USE ElementClass,                ONLY: Element, allocateElementStorage    !arueda: No DGSolutionStorage implemented in nslite3d... Using whole element definitions
    USE PhysicsStorage,              ONLY: N_EQN, N_GRAD_EQN, flowIsNavierStokes
-   USE Jacobian,                    ONLY: Neighbour, Look_for_neighbour           
+   USE Jacobian
    USE ColorsClass,                 ONLY: Colors
    USE LinearSolverClass
    
@@ -230,7 +230,8 @@ MODULE Implicit_NJ
       LOGICAL,                      INTENT(IN)              :: JacByConv         !< Must the Jacobian be computed for bad convergence? if .false., the Jacobian is computed at the beginning of every newton it
       REAL(KIND=RP),                INTENT(OUT)             :: ConvRate
       INTEGER,                      INTENT(OUT)             :: niter
-      LOGICAL,                      INTENT(OUT)             :: CONVERGED    
+      LOGICAL,                      INTENT(OUT)             :: CONVERGED   
+!~       TYPE(csrMat_t) :: Acsr        !   CSR matrix 
 !     
 !     ------------------
 !     Internal variables
@@ -261,6 +262,11 @@ MODULE Implicit_NJ
          
          IF (.NOT. JacByConv) THEN !If Jacobian must be computed always
             CALL ComputeNumJac(sem, t, ecolors, nbr, linsolver, nelm, .TRUE., .FALSE.) 
+!~             call AnalyticalJacobian_Compute(sem,linsolver)
+!~             call linsolver % GetCSRMatrix(Acsr)    ! For testing. TODO: change
+!~             call Acsr % Visualize('AnJacDifOrd.dat')
+!~             stop
+            
             CALL linsolver%SetOperatorDt(dt)
          ELSE
             CALL ComputeTimeDerivative( sem, t )
@@ -276,7 +282,7 @@ MODULE Implicit_NJ
          ENDIF
          CALL UpdateNewtonSol(sem, nelm, linsolver)                    ! Q_r+1 = Q_r + x
          
-         norm = linsolver%Getxnorm('l2')
+         norm = linsolver%Getxnorm('infinity')
 
          IF (norm_old .NE. -1.0_RP) THEN
             ConvRate = ConvRate + (LOG10(norm_old/norm)-ConvRate)/newtonit 
@@ -335,7 +341,8 @@ MODULE Implicit_NJ
             DO j = 0, Ny
                DO i = 0, Nx
                   DO l = 1,N_EQN
-                     value = (sem%mesh%elements(elmnt)% storage % Q(i,j,k,l) - U_n(counter))/dt - sem%mesh%elements(elmnt)% storage % QDot(i,j,k,l)
+                     value = (sem%mesh%elements(elmnt)% storage % Q(l,i,j,k) - U_n(counter))/dt - &
+                              sem%mesh%elements(elmnt)% storage % QDot(l,i,j,k)
                      CALL linsolver%SetBValue(counter, value)
                      counter =  counter + 1
                   END DO
@@ -365,7 +372,7 @@ MODULE Implicit_NJ
                DO i = 0, Nx
                   DO l = 1, N_EQN
                      CALL linsolver%GetXValue(counter,value)
-                     sem%mesh%elements(elm)% storage % Q(i,j,k,l) = sem%mesh%elements(elm)% storage % Q(i,j,k,l) + value
+                     sem%mesh%elements(elm)% storage % Q(l,i,j,k) = sem%mesh%elements(elm)% storage % Q(l,i,j,k) + value
                      counter =  counter + 1
                   END DO    
                END DO
@@ -686,48 +693,7 @@ MODULE Implicit_NJ
       WRITE(44,"(I7,I12,I12,f6.0)") NEq,NoE,DimPrb,t
       CLOSE(44) 
    END SUBROUTINE WriteJacInfo
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!  
-!  Returns the local index relative to an element from the local coordinates: i(lagrange node x), j(lagrange node y), 
-!  k(lagrange node z), l(equation number)
-!  N are the polinomial orders in x, y and z directions, N_EQN is the number of equations
-   
-   FUNCTION ijk2local(i,j,k,l,N_EQN,Nx,Ny,Nz) RESULT(idx)
-      IMPLICIT NONE
-      
-      INTEGER, INTENT(IN)   :: i, j, k, l, Nx, Ny, Nz, N_EQN
-      INTEGER               :: idx
-      
-      IF (l < 1 .OR. l > N_EQN)  STOP 'error in ijk2local, l has wrong value'
-      IF (i < 0 .OR. i > Nx)     STOP 'error in ijk2local, i has wrong value'
-      IF (j < 0 .OR. j > Ny)     STOP 'error in ijk2local, j has wrong value'
-      IF (k < 0 .OR. k > Nz)     STOP 'error in ijk2local, k has wrong value'
-      
-      idx = k*(Nx+1)*(Ny+1)*N_EQN + j*(Nx+1)*N_EQN + i*N_EQN + l
-   END FUNCTION
-   
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!  Returns the coordinates relative to an element: i(lagrange node x), j(lagrange node y), k(lagrange node z), l(equation number)
-!  from the local index  
-!  N are the polinomial orders in x, y and z directions, N_EQN is the number of equations
-   
-   FUNCTION local2ijk(idx,N_EQN,Nx,Ny,Nz) RESULT (indices)
-   
-      INTEGER, INTENT(IN)   :: idx, Nx, Ny, Nz, N_EQN
-      INTEGER               :: indices(4)
-      INTEGER               :: tmp1, tmp2
-      
-      IF (idx < 1 .OR. idx > (Nx+1)*(Ny+1)*(Nz+1)*N_EQN) STOP 'error in local2ijk, idx has wrong value'
-      
-      indices(3) = (idx-1) / ((Nx+1)*(Ny+1) * N_EQN)
-      tmp1       = MOD((idx-1),((Nx+1)*(Ny+1) * N_EQN) )
-      indices(2) = tmp1 / ((Nx+1)*N_EQN)
-      tmp2       = MOD(tmp1,((Nx+1)*N_EQN))
-      indices(1) = tmp2 / (N_EQN)
-      indices(4) = MOD(tmp2, N_EQN) + 1
-   END FUNCTION
+
    
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -752,7 +718,7 @@ MODULE Implicit_NJ
          DO j = 0, Ny
             DO i = 0, Nx
                DO l = 1,N_EQN
-                  Qdot(counter)  = CurrEl% storage % Qdot(i, j, k, l) 
+                  Qdot(counter)  = CurrEl% storage % Qdot(l, i, j, k) 
                   counter =  counter + 1
                END DO
             END DO

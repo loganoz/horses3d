@@ -60,6 +60,7 @@
      PUBLIC:: FacePatch
      PUBLIC:: ConstructFacePatch, DestructFacePatch
      PUBLIC:: ComputeFacePoint  , ComputeFaceDerivative
+     PUBLIC:: ProjectFaceToNewPoints
      PUBLIC:: PrintFacePatch    , FaceIs4CorneredQuad
 !
 !    ========
@@ -280,6 +281,38 @@
       
       RETURN
       END SUBROUTINE ComputePoly2D
+!
+!     ///////////////////////////////////////////////////////////////////////
+!
+!     --------------------------------------------------------------------------
+!
+!!     ProjectFaceToNewPoints
+!!
+!     --------------------------------------------------------------------------
+!
+      subroutine ProjectFaceToNewPoints(patch,Nx,xi,Ny,eta,facecoords)
+         
+         implicit none
+         type(FacePatch),  intent(in)     :: patch
+         integer,          intent(in)     :: Nx
+         real(kind=RP),    intent(in)     :: xi(Nx+1)
+         integer,          intent(in)     :: Ny
+         real(kind=RP),    intent(in)     :: eta(Ny+1)
+         real(kind=RP),    intent(out)    :: faceCoords(1:3,Nx+1,Ny+1)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: i, j
+         real(kind=RP)  :: localCoords(2)
+               
+         do j = 1, Ny+1 ; do i = 1, Nx+1
+            localCoords = (/ xi(i), eta(j) /)
+            call ComputeFacePoint(patch, localCoords, faceCoords(:,i,j) )
+         end do       ; end do
+
+      end subroutine ProjectFaceToNewPoints
 !
 !     ///////////////////////////////////////////////////////////////////////
 !

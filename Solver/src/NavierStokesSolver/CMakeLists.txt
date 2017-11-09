@@ -15,8 +15,8 @@ ADD_EXECUTABLE(${NSEXE} ${ConsSolver_src})
 # Add the needed libraries and special compiler flags
 #####################################################
 
-# This links NSLITE3D to the ftobjectlibrary
-TARGET_LINK_LIBRARIES(${NSEXE} ${FTLIB} ${FOUNDLIB} ${FTLIB} ${IOLIB} ${JACLIB} 
+# This links HORSES3D to the libraries
+TARGET_LINK_LIBRARIES(${NSEXE} ${FOUNDLIB} ${FTLIB} ${IOLIB} ${JACLIB} 
                       ${MESHLIB} ${MONLIB} ${PHYSLIB} ${PLOTLIB} ${SPECLIB} ${PROBLIB})
 
 # Link MKL libraries if specified by the user
@@ -26,6 +26,11 @@ ENDIF()
 
 IF(HAS_PETSC)
 	TARGET_LINK_LIBRARIES(${NSEXE} ${PETSC_LIBRARIES})
+ENDIF()
+
+IF(HAS_HDF5)
+	TARGET_LINK_LIBRARIES(${NSEXE} ${HDF5_Fortran_LIBRARIES} ${ZLIB_LIBRARY_RELEASE})
+	target_include_directories(${NSEXE} PUBLIC ${HDF5_C_INCLUDE_DIR})
 ENDIF()
 
 #####################

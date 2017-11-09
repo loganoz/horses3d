@@ -42,7 +42,7 @@ module SolutionFile
    public      :: CreateNewSolutionFile, writeArray, CloseSolutionFile, getSolutionFileType
    public      :: putSolutionFileInReadDataMode, getSolutionFileNoOfElements
    public      :: getSolutionFileArrayDimensions, getSolutionFileReferenceValues
-   public      :: getSolutionFileNodeType
+   public      :: getSolutionFileNodeType, getSolutionFileTimeAndIteration
 !
 !  Possible solution file types
 !  ----------------------------
@@ -249,6 +249,53 @@ module SolutionFile
 
       end function getSolutionFileNodeType
 
+      subroutine getSolutionFileTimeAndIteration(fileName, iter, time)
+         implicit none
+         character(len=*), intent(in)  :: fileName
+         integer,          intent(out) :: iter
+         real(kind=RP),    intent(out) :: time
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: fid, no_of_elements, initial_iter, fileType, flag
+         real(kind=RP)  :: initial_time
+         character(len=SOLFILE_STR_LEN)   :: fileNameInFile
+!
+!        Open file
+!        ---------
+         open(newunit=fid, file=trim(fileName), status="old", action="read", form="unformatted")
+!
+!        Get the file name
+!        -----------------
+         read(fid) 
+!
+!        Get the file type
+!        -----------------
+         read(fid) 
+!
+!        Get the node type
+!        -----------------
+         read(fid)
+!
+!        Get no_of_elements
+!        ------------------
+         read(fid)
+!  
+!        Get iteration
+!        -------------
+         read(fid) iter
+!
+!        Get time
+!        --------
+         read(fid) time
+!
+!        Close file
+!        ----------
+         close(fid)
+
+      end subroutine getSolutionFileTimeAndIteration
 
       function getSolutionFileReferenceValues(fileName)
          implicit none

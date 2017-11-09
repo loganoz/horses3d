@@ -228,6 +228,31 @@
          end if
 
       end function getFileName
+      
+      character(len=LINE_LENGTH) function getFileExtension( inputLine )
+         use SMConstants
+         implicit none
+         character(len=*)     :: inputLine
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: pos
+!
+!        Get the last point ocurrence
+!        ----------------------------
+         pos = index(inputLine,'.',BACK=.true.)
+
+         if ( pos .eq. 0 ) then  
+            getFileExtension = inputLine
+
+         else
+            getFileExtension = inputLine(pos+1:)
+
+         end if
+
+      end function getFileExtension
 
       function getArrayFromString( line ) result ( array )
 !
