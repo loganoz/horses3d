@@ -208,7 +208,7 @@ MODULE Read_SpecMesh
                         END DO  
                      END DO
                         
-                     IF(facePatches(k) % noOfKnots(1) == 2)     THEN             ! TODO This could be problematic with anisotropy
+                     IF(facePatches(k) % noOfKnots(1) /= numBFacePoints)     THEN      ! TODO This could be problematic with anisotropy
                         CALL facePatches(k) % destruct()
                         CALL facePatches(k) % construct(uNodes, vNodes, values)
                      ELSE

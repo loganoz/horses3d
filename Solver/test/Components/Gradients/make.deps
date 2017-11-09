@@ -22,7 +22,7 @@ Physics: SMConstants Headers FluidData Stopwatch
 FacePatchClass: SMConstants 
 MappedGeometry: SMConstants TransfiniteMaps3D NodalStorageClass 
 TransfiniteMaps3D: SMConstants FacePatchClass 
-FaceClass: SMConstants MeshTypes InterpolationAndDerivatives LegendreAlgorithms
+FaceClass: SMConstants MeshTypes InterpolationAndDerivatives LegendreAlgorithms MappedGeometry HexElementClass
 HexElementClass: SMConstants MeshTypes TransfiniteMaps3D HexElementConnectivityDefinitions NodalStorageClass LegendreAlgorithms InterpolationAndDerivatives MappedGeometry ConnectivityClass StorageClass
 HexElementConnectivityDefinitions: SMConstants 
 HexMesh: Physics TransfiniteMaps3D FaceClass MeshTypes SharedBCModule NodeClass HexElementClass Headers HexElementConnectivityDefinitions ZoneClass SolutionFile
@@ -34,7 +34,10 @@ DGInviscidDiscretization: SMConstants HexElementClass NodalStorageClass Physics
 DGViscousDiscretization: SMConstants HexElementClass NodalStorageClass Physics DGWeakIntegrals ProlongToFaces HexMesh BoundaryConditions
 DGWeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics
 SpatialDiscretization: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
-DGSEMClass: SpatialDiscretization Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants ProlongToFaces Monitors
+DGSEMClass: ReadMeshFile SpatialDiscretization Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants ProlongToFaces Monitors
+ReadMeshFile: Read_HDF5Mesh_HOPR Read_SpecMesh HexMesh
+Read_HDF5Mesh_HOPR: HexMesh SMConstants TransfiniteMaps3D FacePatchClass
+Read_SpecMesh: HexMesh SMConstants TransfiniteMaps3D FacePatchClass
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
 TimeIntegrator: Physics Plotter SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass Monitors
 ExplicitMethods: SMConstants DGSEMClass
@@ -51,7 +54,9 @@ FASMultigridClass: SMConstants ExplicitMethods DGSEMClass InterpolationAndDeriva
 Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
 JFNKClass: SMConstants GMRESClass
 GMRESClass: SMConstants
-Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices StorageClass
+Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices StorageClass AnalyticalJacobian
+AnalyticalJacobian: HexElementClass SMConstants HexMesh NodalStorageClass Physics Jacobian LinearSolverClass DGSEMClass
+
 #Linear solvers
 LinearSolverClass: MKLPardisoSolverClass PetscSolverClass IterativeSolverClass MultigridSolverClass
 
