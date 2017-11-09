@@ -49,6 +49,10 @@ Module MappedGeometryClass
       type MappedGeometryFace
          real(kind=RP), dimension(:,:)  , allocatable :: scal   ! |ja^i|: Normalization term of the normal vectors on a face
          real(kind=RP), dimension(:,:,:), allocatable :: normal ! normal vector on a face
+         
+         contains
+            procedure :: construct => ConstructMappedGeometryFace
+            procedure :: destruct  => DestructMappedGeometryFace
       end type MappedGeometryFace
       
 !
@@ -264,30 +268,164 @@ Module MappedGeometryClass
 !
 !//////////////////////////////////////////////////////////////////////// 
 !
-      subroutine ConstructMappedGeometryFace(self,N,faceMap)
+!  -----------------------------------------------------------------------------------
+!  Computation of the metric terms on a face
+!  -> Currently done only with the conservative (curl) form. This is the general case. 
+!  -----------------------------------------------------------------------------------
+   subroutine ConstructMappedGeometryFace(self,N,eLgeom,eLSide, spA, hexMap)
+      use PolynomialInterpAndDerivsModule
+      implicit none
+      !-------------------------------------------------------------------
+      class(MappedGeometryFace), intent(inout) :: self      !<> 
+      integer                  , intent(in)    :: N(2)      !<  Polynomial orders on face (xi,eta)
+      type(MappedGeometry)     , intent(in)    :: eLgeom    !<  Mapped geometry of the element on the left
+      integer                  , intent(in)    :: eLSide    !<  Side number of this face relative to element on the left
+      type(NodalStorage)       , intent(in)    :: spA(2)    !<  Nodal storage on the face 1:xi, 2:eta
+      TYPE(TransfiniteHexMap)  , intent(in)    :: hexMap
+      !-------------------------------------------------------------------
+      ! Variables for the computation of the metric terms. TODO: They will have to be allocated with the order of the map!
+      real(kind=RP) :: xb     (3,0:N(1),0:N(2))          ! Face node coordinates... Not sotring them (yet?)
+      real(kind=RP) :: xiDerMat (0:N(1),0:N(1))          ! Derivative matrix in direcion xi (of the face)
+      real(kind=RP) :: etaDerMat(0:N(2),0:N(2))          ! Derivative matrix in direcion eta (of the face)
+      real(kind=RP) :: grad_x   (0:N(1),0:N(2),3,2)      ! Gradient matrices
+      real(kind=RP) :: jGrad  (3,0:N(1),0:N(2))          ! Variable containing the metric term ja^i on the surface, where i is the direction normal to the surface
+      real(kind=RP) :: tArray   (0:N(1),0:N(2))          ! Temporal array
+      real(kind=RP) :: dArray   (0:N(1),0:N(2))          ! Temporal array
+      ! Additional local variables
+      real(kind=RP) :: nrm          ! Norm of the contravariant vector (times J)
+      integer       :: i, j   ! Coordinate counters
+      integer       :: DIMi   ! Dimension counter
+      integer, dimension(0:4) :: iCycle = (/3,1,2,3,1/)
+      !-------------------------------------------------------------------
+      
+!!//////////////////////////////////////////////////
+!!    TODO: To be completely general, generate metric terms on a Chebyshev-Lobatto grid on the face WITH THE ORDER OF hexMap
+!!          jGrad, tArray, dArray, xiDerMat, etaDerMat, xb and grad_x must be allocated with the sice of the hexMap and then 
+!!          jGrad must be interpolated to the Gauss points on face 
+!!//////////////////////////////////////////////////
+
+!
+!     Allocate quantities
+!     -------------------
+
+      allocate ( self % scal    (0:N (1),0:N (2)) )
+      allocate ( self % normal(3,0:N (1),0:N (2)) )
+      
+!
+!     Compute coordinates of nodes on face
+!     ------------------------------------
+      
+      select case(eLSide)
+         
+         case(ELEFT)
+            do j = 0, N(2) ; do i = 0, N(1)
+               xb(:,i,j) = hexMap % transfiniteMapAt([-1.0_RP      , spA(1) % x(i), spA(2) % x(j) ])
+            end do ; end do
+         
+         case(ERIGHT)
+            do j = 0, N(2) ; do i = 0, N(1)
+               xb(:,i,j) = hexMap % transfiniteMapAt([ 1.0_RP      , spA(1) % x(i), spA(2) % x(j) ])
+            end do ; end do
+         
+         case(EBOTTOM)
+            do j = 0, N(2) ; do i = 0, N(1)
+               xb(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i), spA(2) % x(j),    -1.0_RP    ])
+            end do ; end do
+            
+         case(ETOP)
+            do j = 0, N(2) ; do i = 0, N(1)
+               xb(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i), spA(2) % x(j),     1.0_RP    ])
+            end do ; end do
+            
+         case(EFRONT)
+            do j = 0, N(2) ; do i = 0, N(1)
+               xb(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i), -1.0_RP      , spA(2) % x(j) ])
+            end do ; end do
+            
+         case(EBACK)
+            do j = 0, N(2) ; do i = 0, N(1)
+               xb(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i),  1.0_RP      , spA(2) % x(j) ])
+            end do ; end do
+            
+      end select
+      
+      CALL PolynomialDerivativeMatrix( N(1), spA(1) % x , xiDerMat  )
+      CALL PolynomialDerivativeMatrix( N(2), spA(2) % x , etaDerMat )
+      ! Note that the matrices don't have to be transposed for MMMultiply2DX 
+      
+!
+!     Calculate face Derivatives
+!     --------------------------
+!
+      do DIMi = 1,3
+         call MMMultiply2D1(xiDerMat ,N,xb(DIMi,0:,0:),grad_x(0:,0:,DIMi,1))
+         call MMMultiply2D2(etaDerMat,N,xb(DIMi,0:,0:),grad_x(0:,0:,DIMi,2))
+      end do
+      
+!
+!     Compute the metric terms
+!     ------------------------
+!
+!     First term:
+      
+      DO DIMi = 1, 3
+         DO j = 0, N(2)
+            DO i = 0, N(1)
+               tArray(i,j) = xb(iCycle(DIMi-1),i,j) * grad_x(i,j,iCycle(DIMi+1),1)
+            END DO
+         END DO
+         CALL MMMultiply2D2( etaDerMat, N, tArray, dArray )
+         jGrad(DIMi,0:,0:) = dArray
+      END DO
+!
+!     Second term:
+      
+      DO DIMi = 1,3
+         DO j = 0, N(2)
+            DO i = 0, N(1)
+               tArray(i,j) = xb(iCycle(DIMi-1),i,j)*grad_x(i,j,iCycle(DIMi+1),2)
+            END DO
+         END DO
+         CALL MMMultiply2D1( xiDerMat , N, tArray, dArray )
+         jGrad(DIMi,0:,0:) = jGrad(DIMi,0:,0:) - dArray
+      END DO
+
+!!//////////////////////////////////////////////////
+!!    TODO: Interpolate back to Gauss points on face
+!!//////////////////////////////////////////////////
+
+!
+!     Get the normal vector and the scaling term
+!     ------------------------------------------
+      
+      do j = 0, N(2)
+         do i = 0, N(1)
+            nrm = NORM2( jGrad(:,i,j) )
+            self % normal(:,i,j) = jGrad(:,i,j)/nrm
+            self % scal    (i,j) = nrm 
+         end do
+      end do
+      
+!
+!     Flip normal direction according to side position AND order of operations (first and second term)
+!     ------------------------------------------------------------------------------------------------
+      
+      if (eLSide == ELEFT .or. eLSide == EBOTTOM .or. eLSide == EBACK) self % normal = -self % normal
+      
+   end subroutine ConstructMappedGeometryFace
+!
+!//////////////////////////////////////////////////////////////////////// 
+!
+      subroutine DestructMappedGeometryFace(self)
          implicit none
          !-------------------------------------------------------------------
          class(MappedGeometryFace), intent(inout) :: self
-         integer                  , intent(in)    :: N(2)
-         type(FacePatch)          , intent(in)    :: faceMap
          !-------------------------------------------------------------------
          
+         deallocate (self % scal  )
+         deallocate (self % normal)
          
-         !-------------------------------------------------------------------
-         
-         allocate (self % scal    (N(1),N(2)))
-         allocate (self % normal(3,N(1),N(2)))
-            
-!~          do j = 0, N(2)
-!~             do i = 0, N(1)
-!~                jGrad(:) = jGradXi (:,0,i,j)
-!~                nrm = NORM2(jGrad)
-!~                self % normal(:,i,j) = -jGrad/nrm !* sign(1._RP, jacXi(0,i,j))
-!~                self % scal    (i,j) = nrm 
-!~             end do
-!~          end do
-         
-      end subroutine ConstructMappedGeometryFace
+      end subroutine DestructMappedGeometryFace
 !
 !//////////////////////////////////////////////////////////////////////// 
 !  
@@ -382,7 +520,7 @@ Module MappedGeometryClass
       CALL PolynomialDerivativeMatrix( polOrder(1), xiCL  , xiDerMat )
       CALL PolynomialDerivativeMatrix( polOrder(2), etaCL , etaDerMat )
       CALL PolynomialDerivativeMatrix( polOrder(3), zetaCL, zetaDerMat )
-      xiDerMat = TRANSPOSE(xiDerMat)     ! PolynomialDerivativeMatrix actually gives the transpose of the derivative matrix..
+      xiDerMat = TRANSPOSE(xiDerMat)     ! The matrices have to be transposed for MatrixMultiplyDeriv
       etaDerMat = TRANSPOSE(etaDerMat)
       zetaDerMat = TRANSPOSE(zetaDerMat)
 !

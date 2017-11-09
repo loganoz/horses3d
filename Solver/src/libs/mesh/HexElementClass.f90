@@ -47,6 +47,7 @@
           type(NodalStorage), pointer                    :: spAxi
           type(NodalStorage), pointer                    :: spAeta
           type(NodalStorage), pointer                    :: spAzeta
+          type(TransfiniteHexMap)                        :: hexMap            ! High-order mapper
       END TYPE Element 
       
 !
@@ -90,6 +91,7 @@
          self % spAxi   => spAxi
          self % spAeta  => spAeta
          self % spAzeta => spAzeta
+         self % hexMap = hexMap
 !
 !        --------
 !        Geometry
@@ -136,7 +138,11 @@
          TYPE(Element) :: self
          
          CALL DestructMappedGeometry( self % geom )
-         call self % Storage % Destruct         
+         call self % Storage % Destruct   
+         
+         nullify( self % spAxi   )
+         nullify( self % spAeta  )
+         nullify( self % spAzeta )     
 
       END SUBROUTINE DestructElement
 !

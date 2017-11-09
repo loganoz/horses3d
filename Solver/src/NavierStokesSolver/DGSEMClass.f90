@@ -255,7 +255,7 @@ Module DGSEMClass
 !      
       DO k=1, SIZE(self % mesh % faces)
          IF (self % mesh % faces(k) % FaceType == HMESH_INTERIOR) THEN !The mortar is only needed for the interior edges
-            CALL ConstructMortarStorage( self % mesh % faces(k), N_EQN, N_GRAD_EQN, self % mesh % elements )
+            CALL ConstructMortarStorage( self % mesh % faces(k), N_EQN, N_GRAD_EQN, self % mesh % elements, self % spA )
          END IF
       END DO
 !
@@ -655,7 +655,6 @@ Module DGSEMClass
          TYPE(Face)   , INTENT(INOUT) :: thisface     !<> Mortar
          !-----------------------------------------
          INTEGER       :: fIDLeft, fIDRight
-         REAL(KIND=RP) :: norm(3), scal
          INTEGER       :: i,j,ii,jj
          INTEGER       :: Nxy(2)       ! Polynomial orders on the interface
          INTEGER       :: NL(2), NR(2)
@@ -722,13 +721,12 @@ Module DGSEMClass
 !        Invscid fluxes: Rotation is not accounted in the Mortar projection
 !        --------------
 !
-         norm = eL % geom % normal(:,1,1,fIDLeft)
          DO j = 0, Nxy(2)
             DO i = 0, Nxy(1)
                CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)
                CALL RiemannSolver(QLeft  = QL(:,i,j), &
                                   QRight = QR(:,ii,jj), &
-                                  nHat   = eL % geom % normal(:,i,j,fIDLeft), &    ! This works only for flat faces
+                                  nHat   = thisface % geom % normal(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
 
                CALL ViscousMethod % RiemannSolver( QLeft = QL(:,i,j), &
@@ -739,12 +737,18 @@ Module DGSEMClass
                                                   U_xRight = U_xRight(:,ii,jj) , &
                                                   U_yRight = U_yRight(:,ii,jj) , &
                                                   U_zRight = U_zRight(:,ii,jj) , &
-                                                   nHat = eL % geom % normal(:,i,j,fIDLeft) , &
-                                                   flux  = visc_flux(:,i,j) )
+                                                  nHat = thisface % geom % normal(:,i,j) , &
+                                                  flux  = visc_flux(:,i,j) )
+               
+!
+!              Multiply by the Jacobian
+!              ------------------------
+               
+               thisface % Phi % C(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * thisface % geom % scal(i,j)
+               
             END DO   
          END DO  
-
-         thisface % Phi % C = (inv_flux - visc_flux) 
+         
 !
 !        ---------------------------
 !        Return the flux to elements: The sign in eR % storage % FstarB has already been accouted.
@@ -754,21 +758,7 @@ Module DGSEMClass
                                 eL % storage % FStarb(:,0:NL(1),0:NL(2),fIDLeft), & 
                                 eR % storage % FStarb(:,0:NR(1),0:NR(2),fIDRight), & 
                                 N_EQN ) 
-!
-!        ------------------------
-!        Multiply by the Jacobian: TODO this has to be performed before projection
-!        ------------------------
-!
-         do j = 0 , NL(2)  ;  do i = 0 , NL(1)
-            eL % storage % FstarB(:,i,j,fIDLeft) = eL % storage % FstarB(:,i,j,fIDLeft) * eL % geom % scal(i,j,fIDLeft)
-         end do            ;  end do
-
-         do j = 0 , NR(2)  ;  do i = 0 , NR(1)
-            eR % storage % FstarB(:,i,j,fIDRight) = eR % storage % FstarB(:,i,j,fIDRight) * eR % geom % scal(i,j,fIDRight)
-         end do            ;  end do
-
-
-
+         
       END SUBROUTINE computeElementInterfaceFlux
 
       SUBROUTINE computeBoundaryFlux(elementOnLeft, faceID, time, externalStateProcedure , externalGradientsProcedure )

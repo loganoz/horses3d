@@ -324,6 +324,7 @@ contains
 !           To do so, we interpolate the boundary points to (Nx+1, Ny+1, Nz+1) 
 !           Chebyshev-Lobatto nodes and reconstruct the patches there. 
 !              TODO: This can cause problems with p-adaptation for inner curved boundaries
+!              TODO: This is not necessary when the metric terms are obtained in the macimum order of the mapping and then interpolated to the Gauss points (using curl metrics)
 !           ----------------------------------------------------------------------------
             
             ! Allocation
@@ -448,7 +449,6 @@ contains
 !     ---------------------------
 !
       CALL DeletePeriodicMinusFaces( self )
-      
 !
 !     Finish up
 !     ---------

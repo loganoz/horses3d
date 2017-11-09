@@ -838,6 +838,82 @@
 
       END SUBROUTINE mthPolynomialDerivativeMatrix
 !
+! /////////////////////////////////////////////////////////////////////
+!
+!---------------------------------------------------------------------
+!!    Compute a square matrix times a vector where the vector is
+!!    stored as the first dimension of a two-dimensional array.
+!---------------------------------------------------------------------
+!
+      SUBROUTINE MMMultiply2D1(A,n,x,y)
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      INTEGER      , DIMENSION(2)            , INTENT(IN)  :: n
+      REAL(KIND=RP), DIMENSION(0:n(1),0:n(1)), INTENT(IN)  :: A
+      REAL(KIND=RP), DIMENSION(0:n(1),0:n(2)), INTENT(IN)  :: x
+      
+      REAL(KIND=RP), DIMENSION(0:n(1),0:n(2)), INTENT(OUT) :: y
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      INTEGER           :: i,j,s
+!
+      y = 0.0_RP
+      
+      DO j = 0, n(2)
+         DO s = 0, n(1)
+            DO i = 0, n(1)
+               y(i,j) = y(i,j) + A(i,s)*x(s,j)
+            END DO
+         END DO
+      END DO
+      
+      END SUBROUTINE MMMultiply2D1
+!
+! /////////////////////////////////////////////////////////////////////
+!
+!---------------------------------------------------------------------
+!!    Compute a square matrix times a vector where the vector is
+!!    stored as the second dimension of a two-dimensional array.
+!---------------------------------------------------------------------
+!
+      SUBROUTINE MMMultiply2D2(A,n,x,y)
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      INTEGER      , DIMENSION(2)            , INTENT(IN)  :: n
+      REAL(KIND=RP), DIMENSION(0:n(2),0:n(2)), INTENT(IN)  :: A
+      REAL(KIND=RP), DIMENSION(0:n(1),0:n(2)), INTENT(IN)  :: x
+      
+      REAL(KIND=RP), DIMENSION(0:n(1),0:n(2)), INTENT(OUT) :: y
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      INTEGER           :: i,j,s
+!
+      y = 0.0_RP
+      
+      DO s = 0, n(2)
+         DO j = 0, n(2)
+            DO i = 0, n(1)
+               y(i,j) = y(i,j) + A(j,s)*x(i,s)
+            END DO
+         END DO
+      END DO
+      
+      END SUBROUTINE MMMultiply2D2
+!
 !////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE PolyDirectMatrixMultiplyDeriv( f, fDeriv, DT, N )
