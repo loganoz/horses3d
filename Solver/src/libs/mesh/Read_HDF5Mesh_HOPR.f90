@@ -314,7 +314,7 @@ contains
                   ELSE
                     CALL facePatchesHOPR(k) % setFacePoints(points = values)
                   END IF 
-                  
+
                END IF
                
             END DO
@@ -395,7 +395,12 @@ contains
          CALL SetElementBoundaryNames( self % elements(l), names )
             
          DO k = 1, 6
-            IF(TRIM(names(k)) /= emptyBCName) numberOfBoundaryFaces = numberOfBoundaryFaces + 1
+            IF(TRIM(names(k)) /= emptyBCName) then
+               numberOfBoundaryFaces = numberOfBoundaryFaces + 1
+               if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                  call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
+               end if
+            end if
          END DO  
          
 !        Construct the element connectivities

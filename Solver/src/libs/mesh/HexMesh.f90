@@ -236,27 +236,32 @@ MODULE HexMeshClass
 !!
 !! As an example, faceRotation = 1 <=> rotating master by 90 deg. 
 !
-      INTEGER FUNCTION faceRotation( masterNodeIDs, slaveNodeIDs,masterSide   , slaveSide)
+      INTEGER pure FUNCTION faceRotation(masterNodeIDs, slaveNodeIDs, masterSide, slaveSide)
          IMPLICIT NONE 
-         INTEGER               :: masterSide   , slaveSide    !< Sides connected in interface
-         INTEGER, DIMENSION(4) :: masterNodeIDs, slaveNodeIDs !< Node IDs
-         !-----------------------------------------------------
-         INTEGER, DIMENSION(3), PARAMETER :: CCW = (/1, 5, 4/) ! Faces that are numbered counter-clockwise
-         INTEGER, DIMENSION(3), PARAMETER :: CW  = (/2, 3, 6/) ! Faces that are numbered clockwise
-         
+         INTEGER, intent(in)               :: masterSide   , slaveSide    !< Sides connected in interface
+         INTEGER, DIMENSION(4), intent(in) :: masterNodeIDs, slaveNodeIDs !< Node IDs
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer, dimension(4), parameter :: NEXTNODE = (/2,3,4,1/)
          INTEGER :: j
-         !-----------------------------------------------------
-         
+!
+!        Rotate until both first nodes match (each j corresponds to a 90deg rotation)
+!        -----------------------------------         
          DO j = 1, 4
             IF(masterNodeIDs(1) == slaveNodeIDs(j)) EXIT 
          END DO  
-         
-         IF ((ANY(CCW == masterSide) .AND. ANY(CW  == slaveSide)) .OR. &
-             (ANY(CW  == masterSide) .AND. ANY(CCW == slaveSide))      ) THEN
-            faceRotation = j - 1
-         ELSE
+!
+!        Check whether the orientation is same or opposite
+!        -------------------------------------------------
+         if ( masterNodeIDS(2) == slaveNodeIDs(NEXTNODE(j)) ) then
+            faceRotation = j - 1 
+         else
             faceRotation = j + 3
-         END IF
+         end if
+         
       END FUNCTION faceRotation
 ! 
 !//////////////////////////////////////////////////////////////////////// 
