@@ -23,8 +23,10 @@ LIBOBJS = 	./build/ConnectivityClass.o \
 		./build/FaceClass.o \
 		./build/ZoneClass.o \
 		./build/HexMesh.o \
-		./build/ProlongToFaces.o
-
+		./build/ProlongToFaces.o \
+		./build/Read_HDF5Mesh_HOPR.o \
+		./build/Read_SpecMesh.o \
+		./build/ReadMeshFile.o
 
 LIB = mesh
 
@@ -36,7 +38,7 @@ LIB = mesh
 ./build/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
 lib$(LIB).a: header mkdirs $(LIBOBJS)
 	@echo

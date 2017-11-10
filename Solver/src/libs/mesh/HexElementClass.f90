@@ -30,10 +30,12 @@
       USE ElementConnectivityDefinitions
       USE ConnectivityClass
       use StorageClass
+      USE NodalStorageClass
       IMPLICIT NONE
       
       
       TYPE Element
+          integer                                        :: eID               ! ID of this element
           INTEGER                                        :: nodeIDs(8)
           INTEGER, DIMENSION(3)                          :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
           TYPE(MappedGeometry)                           :: geom
@@ -42,6 +44,10 @@
           INTEGER                                        :: NumberOfConnections(6)
           TYPE(Connectivity)                             :: Connection(6)
           type(Storage_t)                                :: storage
+          type(NodalStorage), pointer                    :: spAxi
+          type(NodalStorage), pointer                    :: spAeta
+          type(NodalStorage), pointer                    :: spAzeta
+          type(TransfiniteHexMap)                        :: hexMap            ! High-order mapper
       END TYPE Element 
       
 !
@@ -64,27 +70,34 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ConstructElementGeometry( self, ng, nodeIDs, hexMap )
-         USE NodalStorageClass
+      SUBROUTINE ConstructElementGeometry( self, spAxi, spAeta, spAzeta, nodeIDs, hexMap , eID)
          IMPLICIT NONE
          
          TYPE(Element)           :: self
-         TYPE(NodalStorage)      :: ng
+         TYPE(NodalStorage), target :: spAxi
+         TYPE(NodalStorage), target :: spAeta
+         TYPE(NodalStorage), target :: spAzeta
          INTEGER                 :: nodeIDs(8)
          TYPE(TransfiniteHexMap) :: hexMap
+         integer                 :: eID
          
+         self % eID                   = eID
          self % nodeIDs               = nodeIDs
-         self % Nxyz(1)               = ng % Nx
-         self % Nxyz(2)               = ng % Ny
-         self % Nxyz(3)               = ng % Nz
+         self % Nxyz(1)               = spAxi   % N
+         self % Nxyz(2)               = spAeta  % N
+         self % Nxyz(3)               = spAzeta % N
          self % boundaryName          = emptyBCName
          self % boundaryType          = emptyBCName
+         self % spAxi   => spAxi
+         self % spAeta  => spAeta
+         self % spAzeta => spAzeta
+         self % hexMap = hexMap
 !
 !        --------
 !        Geometry
 !        --------
 !
-         CALL ConstructMappedGeometry( self % geom, ng, hexMap )
+         CALL ConstructMappedGeometry( self % geom, spAxi, spAeta, spAzeta, hexMap )
 !
 !        ----------------------------------------
 !        Solution Storage is allocated separately
@@ -125,7 +138,11 @@
          TYPE(Element) :: self
          
          CALL DestructMappedGeometry( self % geom )
-         call self % Storage % Destruct         
+         call self % Storage % Destruct   
+         
+         nullify( self % spAxi   )
+         nullify( self % spAeta  )
+         nullify( self % spAzeta )     
 
       END SUBROUTINE DestructElement
 !

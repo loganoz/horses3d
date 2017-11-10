@@ -659,7 +659,6 @@
          
          REAL(KIND=RP) :: smax, smaxL, smaxR
          REAL(KIND=RP) :: Leigen(2), Reigen(2)
-         !REAL(KIND=RP) :: gamma = 1.4_RP
       
          associate ( gamma => thermodynamics % gamma ) 
 
@@ -1047,6 +1046,144 @@
          end associate
 
       end function InviscidFlux3D
+
+!
+!     -------------------------------------------------------------------------------
+!     Subroutine for computing the Jacobian of the inviscid flux when it has the form 
+!
+!        F = f*iHat + g*jHat + h*kHat
+!
+!     First index indicates the flux term and second index indicates the conserved 
+!     variable term. 
+!     ***** This routine is necessary for computing the analytical Jacobian. *****
+!     -------------------------------------------------------------------------------
+      pure subroutine InviscidJacobian(q,dfdq,dgdq,dhdq)
+         implicit none
+         !-------------------------------------------------
+         real(kind=RP), intent (in)  :: q(NCONS)
+         real(kind=RP), intent (out) :: dfdq(NCONS,NCONS)
+         real(kind=RP), intent (out) :: dgdq(NCONS,NCONS)
+         real(kind=RP), intent (out) :: dhdq(NCONS,NCONS)
+         !-------------------------------------------------
+         real(kind=RP)  :: u,v,w ! Velocity components
+         real(kind=RP)  :: V2    ! Total velocity squared
+         real(kind=RP)  :: p     ! Pressure
+         real(kind=RP)  :: H     ! Total enthalpy
+         !-------------------------------------------------
+         
+         associate( gammaMinus1 => thermodynamics % gammaMinus1, & 
+                    gamma => thermodynamics % gamma )
+         
+         u  = q(IRHOU) / q(IRHO)
+         v  = q(IRHOV) / q(IRHO)
+         w  = q(IRHOW) / q(IRHO)
+         V2 = u*u + v*v + w*w
+         p  = Pressure(q)
+         H  = (q(IRHOE) + p) / q(IRHO)
+!
+!        Flux in the x direction (f)
+!        ---------------------------
+
+         dfdq(1,1) = 0._RP
+         dfdq(1,2) = 1._RP
+         dfdq(1,3) = 0._RP
+         dfdq(1,4) = 0._RP
+         dfdq(1,5) = 0._RP
+         
+         dfdq(2,1) = -u*u + 0.5_RP*gammaMinus1*V2
+         dfdq(2,2) = (3._RP - gamma) * u
+         dfdq(2,3) = -gammaMinus1 * v
+         dfdq(2,4) = -gammaMinus1 * w
+         dfdq(2,5) = gammaMinus1
+         
+         dfdq(3,1) = -u*v
+         dfdq(3,2) = v
+         dfdq(3,3) = u
+         dfdq(3,4) = 0._RP
+         dfdq(3,5) = 0._RP
+         
+         dfdq(4,1) = -u*w
+         dfdq(4,2) = w
+         dfdq(4,3) = 0._RP
+         dfdq(4,4) = u
+         dfdq(4,5) = 0._RP
+         
+         dfdq(5,1) = u * (0.5_RP*gammaMinus1*V2 - H)
+         dfdq(5,2) = H - gammaMinus1 * u*u
+         dfdq(5,3) = -gammaMinus1 * u*v
+         dfdq(5,4) = -gammaMinus1 * u*w
+         dfdq(5,5) = gamma * u
+         
+!
+!        Flux in the y direction (g)
+!        ---------------------------
+         
+         dgdq(1,1) = 0._RP
+         dgdq(1,2) = 0._RP
+         dgdq(1,3) = 1._RP
+         dgdq(1,4) = 0._RP
+         dgdq(1,5) = 0._RP
+         
+         dgdq(2,1) = -u*v
+         dgdq(2,2) = v
+         dgdq(2,3) = u
+         dgdq(2,4) = 0._RP
+         dgdq(2,5) = 0._RP
+         
+         dgdq(3,1) = -v*v + 0.5_RP*gammaMinus1*V2
+         dgdq(3,2) = -gammaMinus1 * u
+         dgdq(3,3) = (3._RP - gamma) * v
+         dgdq(3,4) = -gammaMinus1 * w
+         dgdq(3,5) = gammaMinus1
+         
+         dgdq(4,1) = -v*w
+         dgdq(4,2) = 0._RP
+         dgdq(4,3) = w
+         dgdq(4,4) = v
+         dgdq(4,5) = 0._RP
+         
+         dgdq(5,1) = v * (0.5_RP*gammaMinus1*V2 - H)
+         dgdq(5,2) = -gammaMinus1 * u*v
+         dgdq(5,3) = H - gammaMinus1 * v*v
+         dgdq(5,4) = -gammaMinus1 * v*w
+         dgdq(5,5) = gamma * v
+!
+!        Flux in the z direction (h)
+!        ---------------------------
+         
+         dhdq(1,1) = 0._RP
+         dhdq(1,2) = 0._RP
+         dhdq(1,3) = 0._RP
+         dhdq(1,4) = 1._RP
+         dhdq(1,5) = 0._RP
+         
+         dhdq(2,1) = -u*w
+         dhdq(2,2) = w
+         dhdq(2,3) = 0._RP
+         dhdq(2,4) = u
+         dhdq(2,5) = 0._RP
+         
+         dhdq(3,1) = -v*w
+         dhdq(3,2) = 0._RP
+         dhdq(3,3) = w
+         dhdq(3,4) = v
+         dhdq(3,5) = 0._RP
+         
+         dhdq(4,1) = -w*w + 0.5_RP*gammaMinus1*V2
+         dhdq(4,2) = -gammaMinus1 * u
+         dhdq(4,3) = -gammaMinus1 * v
+         dhdq(4,4) = (3._RP - gamma) * w
+         dhdq(4,5) = gammaMinus1
+         
+         dhdq(5,1) = w * (0.5_RP*gammaMinus1*V2 - H)
+         dhdq(5,2) = -gammaMinus1 * u*w
+         dhdq(5,3) = -gammaMinus1 * v*w
+         dhdq(5,4) = H - gammaMinus1 * w*w
+         dhdq(5,5) = gamma * w
+         
+         end associate
+         
+      end subroutine InviscidJacobian
 !
 ! /////////////////////////////////////////////////////////////////////
 !

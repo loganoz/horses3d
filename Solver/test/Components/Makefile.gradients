@@ -114,7 +114,11 @@ OBJS_HORSES=  SMConstants \
 		MultigridSolverClass \
 		ExplicitMethods \
 		FASMultigridClass \
-		ProblemFile 
+		ProblemFile \
+		ReadMeshFile \
+		Read_HDF5Mesh_HOPR \
+		Read_SpecMesh \
+		AnalyticalJacobian
 
 OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 OBJS_CASE_EXEC=$(foreach obj,$(OBJS_CASE),./build/$(obj).o)

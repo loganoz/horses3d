@@ -31,7 +31,7 @@
 ./build/JFNKClass.o: ./build/GMRESClass.o
 
 ./build/Implicit_NJ.o: ./build/DGSEMClass.o \
-		       ./build/LinearSolverClass.o 
+		       ./build/LinearSolverClass.o ./build/AnalyticalJacobian.o
 #Linear solvers
 ./build/LinearSolverClass.o: ./build/MKLPardisoSolverClass.o \
 			     ./build/PetscSolverClass.o \

@@ -48,10 +48,10 @@ module SpatialDiscretization
          select case ( trim(inviscidDiscretization) )
 
          case ( "standard" )
-            allocate( StandardDG_t  :: InviscidMethod )
+            if (.not. allocated(InviscidMethod)) allocate( StandardDG_t  :: InviscidMethod )
 
          case ( "split-form")
-            allocate(SplitDG_t   :: InviscidMethod)
+            if (.not. allocated(InviscidMethod)) allocate(SplitDG_t   :: InviscidMethod)
 
          case default
             write(STD_OUT,'(A,A,A)') 'Requested inviscid discretization "',trim(inviscidDiscretization),'" is not implemented.'
@@ -66,10 +66,10 @@ module SpatialDiscretization
          call InviscidMethod % Initialize(controlVariables)
          
          if ( flowIsNavierStokes ) then
-            allocate( BassiRebay1_t :: ViscousMethod  ) 
+            if (.not. allocated(ViscousMethod)) allocate( BassiRebay1_t :: ViscousMethod  ) 
    
          else
-            allocate( ViscousMethod_t  :: ViscousMethod )
+            if (.not. allocated(ViscousMethod)) allocate( ViscousMethod_t  :: ViscousMethod )
             
          end if
          
@@ -77,14 +77,12 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine TimeDerivative_ComputeQDot( mesh , spA , t )
+      subroutine TimeDerivative_ComputeQDot( mesh , t )
          use HexMeshClass
          use ElementClass
-         use NodalStorageClass
          use PhysicsStorage
          implicit none
          type(HexMesh)              :: mesh
-         type(NodalStorage)         :: spA(0:,0:,0:)
          real(kind=RP)              :: t
 !
 !        ---------------
@@ -115,11 +113,11 @@ module SpatialDiscretization
 !
 !           Perform volume integrals
 !           ------------------------            
-            call TimeDerivative_VolumetricContribution( mesh % elements(eID) , spA(Nx,Ny,Nz) , t)
+            call TimeDerivative_VolumetricContribution( mesh % elements(eID) , t)
 !
 !           Perform surface integrals
 !           -------------------------
-            call TimeDerivative_FacesContribution( mesh % elements(eID) , spA(Nx,Ny,Nz) , t)
+            call TimeDerivative_FacesContribution( mesh % elements(eID) , t)
 
 !
 !           Scale with the Jacobian
@@ -143,14 +141,12 @@ module SpatialDiscretization
 !     TOdo: Add description here
 !     --------------------------
 !
-      subroutine TimeDerivative_VolumetricContribution( e , spA , t )
+      subroutine TimeDerivative_VolumetricContribution( e , t )
          use HexMeshClass
          use ElementClass
-         use NodalStorageClass
          use PhysicsStorage
          implicit none
          type(Element)      :: e
-         type(NodalStorage) :: spA
          real(kind=RP)      :: t
 
 !
@@ -158,18 +154,18 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM ) 
-         real(kind=RP) :: fSharp(1:NCONS, 0:spA % Nx, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
-         real(kind=RP) :: gSharp(1:NCONS, 0:spA % Ny, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
-         real(kind=RP) :: hSharp(1:NCONS, 0:spA % Nz, 0:spA % Nx, 0:spA % Ny, 0:spA % Nz)
-         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM ) 
-         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM ) 
+         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
          integer       :: eID
 !
 !        Compute inviscid and viscous contravariant fluxes
 !        -------------------------------------------------
-         call InviscidMethod % ComputeInnerFluxes ( e , spA , inviscidContravariantFlux ) 
-         call ViscousMethod  % ComputeInnerFluxes ( e , spA , viscousContravariantFlux  ) 
+         call InviscidMethod % ComputeInnerFluxes ( e , inviscidContravariantFlux ) 
+         call ViscousMethod  % ComputeInnerFluxes ( e , viscousContravariantFlux  ) 
 
          select type ( InviscidMethod )
          type is (StandardDG_t)
@@ -184,18 +180,18 @@ module SpatialDiscretization
 !
 !           Perform the Weak Volume Green integral
 !           --------------------------------------
-            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e , spA , contravariantFlux ) 
+            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e , contravariantFlux ) 
 
          type is (SplitDG_t)
 !
 !           Compute sharp fluxes for skew-symmetric approximations
 !           ------------------------------------------------------
-            call InviscidMethod % ComputeSplitFormFluxes(e, spA, inviscidContravariantFlux, fSharp, gSharp, hSharp)
+            call InviscidMethod % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
 !
 !           Peform the Weak volume green integral
 !           -------------------------------------
             if ( .not. flowIsNavierStokes ) viscousContravariantFlux = 0.0_RP
-            e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, spA, fSharp, gSharp, hSharp, viscousContravariantFlux)
+            e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
 
          end select
 
@@ -206,16 +202,14 @@ module SpatialDiscretization
 !     --------------------------
 !     TOdo: Add description here
 !     --------------------------
-      subroutine TimeDerivative_FacesContribution( e , spA , t )
+      subroutine TimeDerivative_FacesContribution( e , t )
          use HexMeshClass
-         use NodalStorageClass
          use PhysicsStorage
          implicit none
          type(Element)           :: e
-         type(NodalStorage)      :: spA
          real(kind=RP)           :: t
 
-         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e, spA, e % storage % Fstarb(:,:,:,:) ) 
+         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e, e % storage % Fstarb(:,:,:,:) ) 
 
       end subroutine TimeDerivative_FacesContribution
 !
@@ -226,13 +220,11 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine DGSpatial_ComputeGradient( mesh , spA , time , externalStateProcedure , externalGradientsProcedure )
+      subroutine DGSpatial_ComputeGradient( mesh , time , externalStateProcedure , externalGradientsProcedure )
          use HexMeshClass
-         use NodalStorageClass
          use PhysicsStorage
          implicit none
          type(HexMesh)                  :: mesh
-         type(NodalStorage), intent(in) :: spA(0:,0:,0:)
          real(kind=RP),      intent(in) :: time
          interface
             subroutine externalStateProcedure(x,t,nHat,Q,boundaryName)
@@ -250,7 +242,7 @@ module SpatialDiscretization
             end subroutine externalGradientsProcedure
          end interface
 
-         call ViscousMethod % ComputeGradient( mesh , spA , time , externalStateProcedure , externalGradientsProcedure )
+         call ViscousMethod % ComputeGradient( mesh , time , externalStateProcedure , externalGradientsProcedure )
 
       end subroutine DGSpatial_ComputeGradient
 !

@@ -25,6 +25,7 @@ INSTALL_DIR=$(HOME_DIR)
 INCLUDE=-I$(HOME_DIR)/include
 LIBS = 
 MACROS = 
+EXTLIB_INC =
 -include $(HOME_DIR)/make.inc
 
 ########################################
@@ -110,7 +111,7 @@ endif
 ifeq '$(WITH_PETSC)''y'
   MACROS+= -DHAS_PETSC
   LIBS += $(PETSC_LIB)
-  INCLUDE+= $(PETSC_INC)
+  EXTLIB_INC+= $(PETSC_INC)
 endif
 
 ##########################
@@ -126,6 +127,16 @@ ifeq '$(WITH_MKL)''y'
   endif
 endif
 
+##########################
+## 	Link HDF5 	##
+##########################
+ifeq '$(WITH_HDF5)''y'
+		MACROS+= -DHAS_HDF5
+  	LIBS += $(HDF5_LIB) $(ZLIB_LIB)
+  	EXTLIB_INC += $(HDF5_INC) $(ZLIB_INC)
+  	FC = $(HDF5_EXE)
+endif
+
 ##########################################
 ##  	Select HORSES libraries 	##
 ##########################################
@@ -133,6 +144,9 @@ HORSES_LIBS=ftobject foundation spectral io physics mesh plot jacobian monitors
 HORSES_LIBS_REORD=monitors jacobian plot mesh physics io spectral foundation ftobject
 HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS_REORD),$(HOME_DIR)/lib/lib$(obj).a)
 ADDONS=horses2tecplot
+INCLUDE += $(EXTLIB_INC)
+HORSESFLAGS += $(MACROS)
+ADDONSFLAGS += $(MACROS)
 LIBFLAGS=  FC='$(FC)' \
 	   FFLAGS='$(FFLAGS)' \
 	   INCLUDE='$(INCLUDE)' \
@@ -140,7 +154,11 @@ LIBFLAGS=  FC='$(FC)' \
 	   AR='$(AR)' \
 	   ARFLAGS='$(ARFLAGS)' \
 	   RANLIB='$(RANLIB)' \
-	   MOD_FLAG='$(MOD_FLAG)'
+	   MOD_FLAG='$(MOD_FLAG)' \
+	   EXTLIB_INC='$(EXTLIB_INC)' \
+	   MACROS='$(MACROS)' \
+	   LIBS='$(LIBS)'
+	   
 
 HORSESFLAGS= FC='$(FC)' \
  	     FFLAGS='$(FFLAGS)'\
@@ -148,7 +166,9 @@ HORSESFLAGS= FC='$(FC)' \
              INSTALL_DIR='$(INSTALL_DIR)' \
 	     MOD_FLAG='$(MOD_FLAG)'\
 	     HORSES_LIBS_EXEC='$(HORSES_LIBS_EXEC) $(PROBLEM_LIB)' \
-	     MACROS='$(MACROS)'
+	     EXTLIB_INC='$(EXTLIB_INC)' \
+	     MACROS='$(MACROS)' \
+	   	 LIBS='$(LIBS)'
 
 ADDONSFLAGS= FC='$(FC)' \
  	     FFLAGS='$(FFLAGS)'\
@@ -156,7 +176,9 @@ ADDONSFLAGS= FC='$(FC)' \
              INSTALL_DIR='$(INSTALL_DIR)' \
 	     MOD_FLAG='$(MOD_FLAG)'\
 	     HORSES_LIBS_EXEC='$(HORSES_LIBS_EXEC)' \
-	     MACROS='$(MACROS)'
+	     EXTLIB_INC='$(EXTLIB_INC)' \
+	     MACROS='$(MACROS)' \
+	     LIBS='$(LIBS)'
 
 
 ##########################################################

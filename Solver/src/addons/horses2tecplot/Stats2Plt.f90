@@ -116,7 +116,7 @@ module Stats2PltModule
 !
 !           Project mesh and solution
 !           -------------------------
-            call ProjectStorageGaussPoints(e, spA(e % Nmesh(1), e % Nmesh(2), e % Nmesh(3)), spA(e % Nsol(1), e % Nsol(2), e % Nsol(3)))
+            call ProjectStorageGaussPoints(e, spA, e % Nmesh, e % Nsol)
 
             end associate
          end do
@@ -155,14 +155,15 @@ module Stats2PltModule
       
       end subroutine Stats2Plt_GaussPoints
 
-      subroutine ProjectStorageGaussPoints(e, spAM, spAS)
+      subroutine ProjectStorageGaussPoints(e, spA, N1, N2)
          use Storage
          use NodalStorageClass
          use ProlongMeshAndSolution
          implicit none
          type(Element_t)     :: e
-         type(NodalStorage),  intent(in)  :: spAM
-         type(NodalStorage),  intent(in)  :: spAS
+         type(NodalStorage), intent(in) :: spA(0:)
+         integer           , intent(in) :: N1(3)
+         integer           , intent(in) :: N2(3)
          
          e % Nout = e % Nsol
          if ( all(e % Nmesh .eq. e % Nout) ) then
@@ -170,7 +171,7 @@ module Stats2PltModule
 
          else
             allocate( e % xOut(1:3,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-            call prolongMeshToGaussPoints(e, spAM, spAS)
+            call prolongMeshToGaussPoints(e, spA, N1, N2)
 
          end if
 
@@ -220,7 +221,9 @@ module Stats2PltModule
 !
 !        Allocate the output spectral basis
 !        ----------------------------------
-         call spA(Nout(1), Nout(2), Nout(3)) % Construct(GAUSS, Nout(1), Nout(2), Nout(3))
+         call spA(Nout(1)) % Construct(GAUSS, Nout(1))
+         call spA(Nout(2)) % Construct(GAUSS, Nout(2))
+         call spA(Nout(3)) % Construct(GAUSS, Nout(3))
 !
 !        Write each element zone
 !        -----------------------
@@ -231,21 +234,21 @@ module Stats2PltModule
 !           Construct spectral basis
 !           ------------------------
             call addNewSpectralBasis(spA, e % Nmesh, mesh % nodeType)
-            call addNewSpectralBasis(spA, e % Nsol, mesh % nodeType)
+            call addNewSpectralBasis(spA, e % Nsol , mesh % nodeType)
 !
 !           Construct interpolation matrices
 !           --------------------------------
-            associate( spAout => spA(Nout(1), Nout(2), Nout(3)) )
-            call addNewInterpolationMatrix(Tset, e % Nsol(1), spA(e % Nsol(1), e % Nsol(2), e % Nsol(3)), e % Nout(1), spAout % xi)
-            call addNewInterpolationMatrix(Tset, e % Nsol(2), spA(e % Nsol(1), e % Nsol(2), e % Nsol(3)), e % Nout(2), spAout % eta)
-            call addNewInterpolationMatrix(Tset, e % Nsol(3), spA(e % Nsol(1), e % Nsol(2), e % Nsol(3)), e % Nout(3), spAout % zeta)
+            associate( spAoutXi   => spA(Nout(1)), &
+                       spAoutEta  => spA(Nout(2)), &
+                       spAoutZeta => spA(Nout(3)) )
+            call addNewInterpolationMatrix(Tset, e % Nsol(1), spA(e % Nsol(1)), e % Nout(1), spAoutXi   % x)
+            call addNewInterpolationMatrix(Tset, e % Nsol(2), spA(e % Nsol(2)), e % Nout(2), spAoutEta  % x)
+            call addNewInterpolationMatrix(Tset, e % Nsol(3), spA(e % Nsol(3)), e % Nout(3), spAoutZeta % x)
             end associate
 !
 !           Perform interpolation
 !           ---------------------
-            call ProjectStorageGaussPoints_FixedOrder(e, spA(e % Nmesh(1), e % Nmesh(2), e % Nmesh(3)), &
-                                                            spA(e % Nsol(1), e % Nsol(2), e % Nsol(3)), &
-                                                            spA(e % Nout(1), e % Nout(2), e % Nout(3)), &
+            call ProjectStorageGaussPoints_FixedOrder(e, spA, e % Nmesh, e % Nsol, e % Nout, &
                                                                     Tset(e % Nout(1), e % Nsol(1)) % T, &
                                                                     Tset(e % Nout(2), e % Nsol(2)) % T, &
                                                                     Tset(e % Nout(3), e % Nsol(3)) % T    )
@@ -286,15 +289,16 @@ module Stats2PltModule
 
       end subroutine Stats2Plt_GaussPoints_FixedOrder
 
-      subroutine ProjectStorageGaussPoints_FixedOrder(e, spAM, spAS, spAout, Tx, Ty, Tz)
+      subroutine ProjectStorageGaussPoints_FixedOrder(e, spA, NM, NS, Nout, Tx, Ty, Tz)
          use Storage
          use NodalStorageClass
          use ProlongMeshAndSolution
          implicit none
          type(Element_t)     :: e
-         type(NodalStorage),  intent(in)  :: spAM
-         type(NodalStorage),  intent(in)  :: spAS
-         type(NodalStorage),  intent(in)  :: spAout
+         type(NodalStorage),  intent(in)  :: spA(0:)
+         integer           ,  intent(in)  :: NM(3)
+         integer           ,  intent(in)  :: NS(3)
+         integer           ,  intent(in)  :: Nout(3)
          real(kind=RP),       intent(in)  :: Tx(0:e % Nout(1), 0:e % Nsol(1))
          real(kind=RP),       intent(in)  :: Ty(0:e % Nout(2), 0:e % Nsol(2))
          real(kind=RP),       intent(in)  :: Tz(0:e % Nout(3), 0:e % Nsol(3))
@@ -306,7 +310,7 @@ module Stats2PltModule
 
          else
             allocate( e % xOut(1:3,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-            call prolongMeshToGaussPoints(e, spAM, spAout)
+            call prolongMeshToGaussPoints(e, spA, NM, Nout)
 
          end if
 !
@@ -380,20 +384,20 @@ module Stats2PltModule
 !           Construct spectral basis for both mesh and solution
 !           ---------------------------------------------------
             call addNewSpectralBasis(spA, e % Nmesh, mesh % nodeType)
-            call addNewSpectralBasis(spA, e % Nsol, mesh % nodeType)
+            call addNewSpectralBasis(spA, e % Nsol , mesh % nodeType)
 !
 !           Construct interpolation matrices for the mesh
 !           ---------------------------------------------
-            call addNewInterpolationMatrix(Tset, e % Nmesh(1), spA(e % Nmesh(1), e % Nmesh(2), e % Nmesh(3)), e % Nout(1), xi)
-            call addNewInterpolationMatrix(Tset, e % Nmesh(2), spA(e % Nmesh(1), e % Nmesh(2), e % Nmesh(3)), e % Nout(2), eta)
-            call addNewInterpolationMatrix(Tset, e % Nmesh(3), spA(e % Nmesh(1), e % Nmesh(2), e % Nmesh(3)), e % Nout(3), zeta)
+            call addNewInterpolationMatrix(Tset, e % Nmesh(1), spA(e % Nmesh(1)), e % Nout(1), xi)
+            call addNewInterpolationMatrix(Tset, e % Nmesh(2), spA(e % Nmesh(2)), e % Nout(2), eta)   ! TODO: check why it was Nmesh(1)
+            call addNewInterpolationMatrix(Tset, e % Nmesh(3), spA(e % Nmesh(3)), e % Nout(3), zeta)  ! TODO: check why it was Nmesh(1)
 
 !
 !           Construct interpolation matrices for the solution
 !           -------------------------------------------------
-            call addNewInterpolationMatrix(Tset, e % Nsol(1), spA(e % Nsol(1), e % Nsol(2), e % Nsol(3)), e % Nout(1), xi)
-            call addNewInterpolationMatrix(Tset, e % Nsol(2), spA(e % Nsol(1), e % Nsol(2), e % Nsol(3)), e % Nout(2), eta)
-            call addNewInterpolationMatrix(Tset, e % Nsol(3), spA(e % Nsol(1), e % Nsol(2), e % Nsol(3)), e % Nout(3), zeta)
+            call addNewInterpolationMatrix(Tset, e % Nsol(1), spA(e % Nsol(1)), e % Nout(1), xi)
+            call addNewInterpolationMatrix(Tset, e % Nsol(2), spA(e % Nsol(2)), e % Nout(2), eta)     ! TODO: check why it was Nsol(1)
+            call addNewInterpolationMatrix(Tset, e % Nsol(3), spA(e % Nsol(3)), e % Nout(3), zeta)    ! TODO: check why it was Nsol(1)
 !
 !           Perform interpolation
 !           ---------------------

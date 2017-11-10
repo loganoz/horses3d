@@ -8,15 +8,15 @@
 !        As is, it is only valid for steady-state cases
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-MODULE FASMultigridClass
+module FASMultigridClass
    use FTValueDictionaryClass
-   USE SMConstants
-   USE ExplicitMethods
-   USE DGSEMClass
-   USE Physics
+   use SMConstants
+   use ExplicitMethods
+   use DGSEMClass
+   use Physics
    
-   USE PolynomialInterpAndDerivsModule
-   USE GaussQuadrature
+   use PolynomialInterpAndDerivsModule
+   use GaussQuadrature
    IMPLICIT NONE
    
    PRIVATE
@@ -55,6 +55,7 @@ MODULE FASMultigridClass
 !  ----------------
 !
    REAL(KIND=RP)  :: cfl
+   CHARACTER(len=LINE_LENGTH) :: SmootherName
    
    ! Multigrid
    INTEGER        :: MGlevels       ! Total number of multigrid levels
@@ -63,32 +64,15 @@ MODULE FASMultigridClass
    INTEGER        :: ThisTimeStep   ! Current time step
    INTEGER        :: plotInterval   ! Read to display output
    LOGICAL        :: MGOutput       ! Display output?
-   
+   LOGICAL        :: FMG = .FALSE.  ! Use Full Multigrid algorithm?
+   INTEGER        :: SweepNumPre    ! Number of sweeps pre-smoothing
+   INTEGER        :: SweepNumPost   ! Number of sweeps post-smoothing
+   INTEGER        :: SweepNumC      ! Number of sweeps on coarsest level
+   LOGICAL        :: PostFCycle,PostSmooth ! Post smoothing options
+   REAL(KIND=RP)  :: SmoothFine     ! Fraction that must be smoothed in fine before going to coarser level
    ! 
    LOGICAL        :: ManSol         ! Does this case have manufactured solutions?
    
-   ! Variables related with snapshot files
-   LOGICAL        :: WritePFiles = .FALSE.                   ! Write snapshot files?
-   !! Manufactured solutions 11 elements
-!~    INTEGER        :: PFileint = 20                          ! Iteration interval for writing snapshot files
-!~    INTEGER        :: NPElems = 11                           ! Number of elements to track
-!~    INTEGER        :: PElems(11) = &                         ! Elements to track
-!~                      (/1,7,13,125,95,65,88,63,38,83,33/)
-!~    INTEGER        :: PFileUnit(11)                     ! Units for writing files
-
-!~    !! Manufactured solutions 3 elements
-!~    INTEGER        :: PFileint = 60                          ! Iteration interval for writing snapshot files
-!~    INTEGER        :: NPElems = 3                           ! Number of elements to track
-!~    INTEGER        :: PElems(3) = &                         ! Elements to track
-!~                      (/1,125,63/)
-!~    INTEGER        :: PFileUnit(3)                     ! Units for writing files
-   
-   !! Flat plate
-   INTEGER        :: PFileint = 50                        ! Iteration interval for writing snapshot files
-   INTEGER        :: NPElems = 3                           ! Number of elements to track
-   INTEGER        :: PElems(3) = &                         ! Elements to track
-                     (/5,10,23/)
-   INTEGER        :: PFileUnit(3) 
 !========
  CONTAINS
 !========
@@ -101,6 +85,7 @@ MODULE FASMultigridClass
       CLASS(FASMultigrid_t) , INTENT(INOUT), TARGET :: this
       TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
+      CHARACTER(len=LINE_LENGTH)                       :: PostSmoothOptions
       !-----------------------------------------------------------
       !Module variables: MGlevels, deltaN
       
@@ -116,6 +101,7 @@ MODULE FASMultigridClass
          print*, 'Fatal error: "multigrid levels" keyword is needed by the FASMultigrid solver'
          STOP
       END IF
+      
       MGlevels  = controlVariables % IntegerValueForKey("multigrid levels")
       
       IF (controlVariables % containsKey("delta n")) THEN
@@ -124,10 +110,43 @@ MODULE FASMultigridClass
          deltaN = 1
       END IF
       
+      IF (controlVariables % containsKey("mg sweeps pre" ) .AND. &
+          controlVariables % containsKey("mg sweeps post") ) THEN
+         SweepNumPre  = controlVariables % IntegerValueForKey("mg sweeps pre")
+         SweepNumPost = controlVariables % IntegerValueForKey("mg sweeps post")
+      ELSEIF (controlVariables % containsKey("mg sweeps")) THEN
+         SweepNumPre  = controlVariables % IntegerValueForKey("mg sweeps")
+         SweepNumPost = controlVariables % IntegerValueForKey("mg sweeps")
+      ELSE
+         SweepNumPre  = 1
+         SweepNumPost = 1
+      END IF
+      
+      IF (controlVariables % containsKey("mg sweeps coarsest")) THEN
+         SweepNumC = controlVariables % IntegerValueForKey("mg sweeps coarsest")
+      ELSE
+         SweepNumC = (SweepNumPre + SweepNumPost) / 2
+      END IF
+      
       IF (controlVariables % containsKey("cfl")) THEN
          cfl = controlVariables % doublePrecisionValueForKey("cfl")
       ELSE
          ERROR STOP '"cfl" keyword must be specified for the FAS integrator'
+      END IF
+      
+      SmootherName  = controlVariables % StringValueForKey("mg smoother",LINE_LENGTH)
+      
+      PostSmoothOptions = controlVariables % StringValueForKey("postsmooth option",LINE_LENGTH)
+      if (trim(PostSmoothOptions) == 'f-cycle') then
+         PostFCycle = .true.
+      elseif (trim(PostSmoothOptions) == 'smooth') then
+         PostSmooth = .true.
+      end if
+      
+      IF (controlVariables % containsKey("smooth fine")) THEN
+         SmoothFine = controlVariables % doublePrecisionValueForKey("smooth fine")
+      ELSE
+         SmoothFine = -1._RP
       END IF
       
 !
@@ -138,6 +157,10 @@ MODULE FASMultigridClass
       MGOutput       = controlVariables % logicalValueForKey("multigrid output")
       plotInterval   = controlVariables % integerValueForKey("output interval")
       ManSol         = sem % ManufacturedSol
+      MGlevels       = MIN (MGlevels,MAX(MAXVAL(sem%Nx),MAXVAL(sem%Ny),MAXVAL(sem%Nz)))
+      
+      write(STD_OUT,*) 'Constructuing FAS Multigrid'
+      write(STD_OUT,*) 'Number of levels:', MGlevels
       
       this % p_sem => sem
       
@@ -154,7 +177,7 @@ MODULE FASMultigridClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    RECURSIVE SUBROUTINE RecursiveConstructor(Solver, N1x, N1y, N1z, lvl, controlVariables)
-      USE BoundaryConditionFunctions
+      use BoundaryConditionFunctions
       IMPLICIT NONE
       TYPE(FASMultigrid_t), TARGET  :: Solver
       INTEGER, DIMENSION(:)            :: N1x,N1y,N1z      !<  Order of approximation for every element in current solver
@@ -163,7 +186,6 @@ MODULE FASMultigridClass
       !----------------------------------------------
       INTEGER, DIMENSION(nelem) :: N2x,N2y,N2z            !   Order of approximation for every element in child solver
       INTEGER                   :: N1xMAX,N1yMAX,N1zMAX   !   Maximum polynomial orders for current (fine) grid
-      INTEGER                   :: N2xMAX,N2yMAX,N2zMAX   !   Maximum polynomial orders for child (coarse) grid
       INTEGER                   :: i,j,k, iEl             !   Counter
       LOGICAL                   :: success                ! Did the creation of sem succeed?
       TYPE(FASMultigrid_t) , POINTER :: Child_p           ! Pointer to Child
@@ -217,42 +239,8 @@ MODULE FASMultigridClass
                   END DO
                END DO
             END DO
-!~             IF(iEl==5) THEN
-!~                print*, Solver % p_sem % Nx(iEl)
-!~                print*, Solver % p_sem % Ny(iEl)
-!~                print*, Solver % p_sem % Nz(iEl)
-!~                print*,  Solver % MGStorage(iEl) % Scase
-!~                read(*,*)
-!~             ENDIF
          END DO
       END IF
-      
-!~       !/////////////////////////////////////////////////////////////////
-!~       ! Temp block for plotting source term
-!~       IF(lvl==2) THEN
-!~       OPEN(newunit = fd, FILE = 'SourceInLowest.tec')
-      
-!~       WRITE(fd,'(A)') ' TITLE = "Free-stream preservation Euler equations" '
-!~       WRITE(fd,'(A)') ' VARIABLES = "x","y","z","S_rho","S_rhou","S_rhov","S_rhow","S_rhoe"'
-!~       DO iEl = 1, nelem
-!~          Nxyz = Solver % p_sem % mesh % elements(iEl) % Nxyz
-!~          WRITE(fd,*) "ZONE I=", Nxyz(1)+1, ",J=",Nxyz(2)+1, ",K=",Nxyz(3)+1,", F=POINT"
-!~          DO k = 0, Nxyz(3)
-!~             DO j = 0, Nxyz(2)
-!~                DO i = 0, Nxyz(1)
-                  
-!~                   WRITE(fd,'(8E13.5)') Solver % p_sem % mesh % elements(iEl) % geom % x(1,i,j,k), &
-!~                                        Solver % p_sem % mesh % elements(iEl) % geom % x(2,i,j,k), &
-!~                                        Solver % p_sem % mesh % elements(iEl) % geom % x(3,i,j,k), &
-!~                                        (Solver % MGStorage(iEl) % Scase (i,j,k,l), l = 1, 5)
-!~                END DO
-!~             END DO
-!~          END DO 
-!~       END DO
-!~       STOP
-!~       END IF
-!~       !////////////////////////////////////////////////////////////////
-      
       
       IF (lvl > 1) THEN
          ALLOCATE  (Solver % Child)
@@ -267,15 +255,8 @@ MODULE FASMultigridClass
          N1yMAX = MAXVAL(N1y)
          N1zMAX = MAXVAL(N1z)
          
-         N2xMAX = N1xMAX - deltaN
-         N2yMAX = N1yMAX - deltaN
-         N2zMAX = N1zMAX - deltaN
-         IF (N2xMAX < 1) N2xMAX = 1             ! TODO: Complete for Lobatto quadrature (max order = 1)
-         IF (N2yMAX < 1) N2yMAX = 1             ! It is currently like it should be for LGL... Max eigenvalue routine!!!!
-         IF (N2zMAX < 1) N2zMAX = 1
-         
          ALLOCATE (Solver  % Restriction (0:N1xMAX,0:N1yMAX,0:N1zMAX))
-         ALLOCATE (Child_p % Prolongation(0:N2xMAX,0:N2yMAX,0:N2zMAX))
+         ALLOCATE (Child_p % Prolongation(0:N1xMAX,0:N1yMAX,0:N1zMAX))
          
 !
 !        ---------------------------------------------
@@ -291,7 +272,6 @@ MODULE FASMultigridClass
          
          ! Create DGSEM class for child
          ALLOCATE (Child_p % p_sem)
-         !Child_p % p_sem % ManufacturedSol = Solver % p_sem % ManufacturedSol
          
          CALL Child_p % p_sem % construct (controlVariables = controlVariables,                                          &
                                            externalState     = Solver % p_sem % externalState,                           &
@@ -313,11 +293,13 @@ MODULE FASMultigridClass
 !  ---------------------------------------------
 !  Driver of the FAS multigrid solving procedure
 !  ---------------------------------------------
-   SUBROUTINE solve(this,timestep,t)
+   SUBROUTINE solve(this,timestep,t,FullMG,tol)
       IMPLICIT NONE
       CLASS(FASMultigrid_t), INTENT(INOUT) :: this
       INTEGER                              :: timestep
       REAL(KIND=RP)                        :: t
+      LOGICAL           , OPTIONAL         :: FullMG
+      REAL(KIND=RP)     , OPTIONAL         :: tol        !<  Tolerance for full multigrid
       !-------------------------------------------------
       INTEGER                                 :: niter
       INTEGER                                 :: i
@@ -325,46 +307,22 @@ MODULE FASMultigridClass
       !-------------------------------------------------
       
       ThisTimeStep = timestep
-!
-!     --
-!     Open pfiles for writing... And interpolate finest solution
-!     --
-!
-      IF (WritePFiles) THEN
-         IF (MOD(timestep+1,PFileint) == 0 .OR. timestep == 0) THEN
-            
-            DO i = 1, NPElems
-               WRITE(FileName,'(A,I3.3,A,I4.4,A)') 'PFiles/Elem_', i ,'_' , timestep + 1,'.dat'
-               OPEN( newunit = PFileUnit(i), FILE    = TRIM(FileName), ACTION  = 'WRITE')     
-               
-               WRITE(PFileUnit(i),*) timestep + 1                                                     ! Iteration
-               WRITE(PFileUnit(i),*) this % p_sem % maxResidual                                       ! Gloval residual
-               WRITE(PFileUnit(i),*) PElems(i)                                                        ! Element number
-               WRITE(PFileUnit(i),*) MAXVAL(ABS(this % p_sem % mesh % elements(PElems(i)) % storage % QDot))    ! Local residual
-               
-            END DO
-            
-            CALL InterpolateFinest(this,MGlevels)
-         END IF
+      
+      IF (PRESENT(FullMG) .AND. FullMG) THEN
+         IF (.NOT. PRESENT(tol)) ERROR STOP 'FASFMG needs tolerance'
+         FMG = .TRUE.
+      ELSE
+         FMG = .FALSE.
       END IF
 !
-!     -- 
-!     Perform v-cycle
-!     --
+!     -----------------------
+!     Perform multigrid cycle
+!     -----------------------
 !
-      
-      CALL FASVCycle(this,t,MGlevels)
-!
-!     --
-!     close opened files
-!     --
-!
-      IF (WritePFiles) THEN
-         IF (MOD(timestep+1,PFileint) == 0 .OR. timestep == 0) THEN
-            DO i = 1, NPElems
-               CLOSE( PFileUnit(i))   
-            END DO
-         END IF
+      IF (FMG) THEN
+         CALL FASFMGCycle(this,t,tol,MGlevels)
+      ELSE
+         CALL FASVCycle(this,t,MGlevels,MGlevels)
       END IF
       
    END SUBROUTINE solve
@@ -429,90 +387,282 @@ MODULE FASMultigridClass
          CALL InterpolateFinest(this % Child,lvl-1)
       END IF
       
-   END SUBROUTINE InterpolateFinest
+   END SUBROUTINE InterpolateFinest   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -----------------------------------------
 !  Recursive subroutine to perform a v-cycle
 !  -----------------------------------------
-   RECURSIVE SUBROUTINE FASVCycle(this,t,lvl)
+   RECURSIVE SUBROUTINE FASVCycle(this,t,lvl,MGlevels)
       IMPLICIT NONE
       !----------------------------------------------------------------------------
-      CLASS(FASMultigrid_t), INTENT(INOUT) :: this    !<  Current level solver
-      REAL(KIND=RP)                        :: t       !<  Simulation time
-      INTEGER                              :: lvl     !<  Current multigrid level
+      CLASS(FASMultigrid_t), INTENT(INOUT) :: this     !<  Current level solver
+      REAL(KIND=RP)        , intent(in)    :: t        !<  Simulation time
+      INTEGER              , intent(in)    :: lvl      !<  Current multigrid level
+      INTEGER              , intent(in)    :: MGlevels !<  Number of finest multigrid level
       !----------------------------------------------------------------------------
-      INTEGER                       :: iEl,iEQ        !Element/equation counter
-      TYPE(FASMultigrid_t), POINTER :: Child_p        !Pointer to child
-      INTEGER                       :: N1x, N1y, N1z  !Polynomial orders
-      INTEGER                       :: N2x, N2y, N2z  !Polynomial orders
-      REAL(KIND=RP)                 :: dt             !Time variables
-      REAL(KIND=RP)                 :: maxResidual(N_EQN)   ! TODO: remove this from here... not needed
+      INTEGER                       :: iEl,iEQ              !Element/equation counter
+      TYPE(FASMultigrid_t), POINTER :: Child_p              !Pointer to child
+      INTEGER                       :: N1x, N1y, N1z        !Polynomial orders
+      INTEGER                       :: N2x, N2y, N2z        !Polynomial orders
+      REAL(KIND=RP)                 :: dt                   !Time variables
+      REAL(KIND=RP)                 :: maxResidual(N_EQN)
+      INTEGER                       :: NumOfSweeps
+      real(kind=RP)                 :: PrevRes
+      integer                       :: sweepcount
       !----------------------------------------------------------------------------
-      ! Variables for writing PFiles
-      INTEGER       :: ElemNmbr
-      REAL(KIND=RP) :: TauNext, TauFinest
-      !----------------------------------------------------------------------------
-!
-!     ------------------------------------
-!     Copy fine grid solution to MGStorage
-!        ... and clear source term
-!     ------------------------------------
-!
-      IF (lvl < MGlevels) THEN
-!$omp parallel do private(iEQ)
-         DO iEl = 1, nelem
-            this % MGStorage(iEl) % Q = this % p_sem % mesh % elements(iEl) % storage % Q
-            this % p_sem % mesh % elements(iEl) % storage % S = 0._RP
-            this % tempsem % mesh % elements(iEl) % storage % S = 0._RP
-         END DO
-!$omp end parallel do
-      END IF
-!
-!     -------------------------------------------
-!     If not on finest level, correct source term
-!     -------------------------------------------
-!      
-      IF (lvl < MGlevels) THEN
-         CALL ComputeTimeDerivative(this % p_sem,t)
-         
-         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-         ! Block that writes PFiles
-         IF (WritePFiles) THEN
-            IF (MOD(ThisTimeStep+1,PFileint) == 0 .OR. ThisTimeStep == 0) THEN
-               
-               CALL ComputeTimeDerivative(this % tempsem,t)
-               
-               DO iEl = 1, NPElems
-                  ElemNmbr = PElems(iEl)
-                  N1x = this % p_sem % Nx(ElemNmbr)
-                  TauNext =   MAXVAL(ABS(this % p_sem   % mesh % elements(ElemNmbr) % storage % Qdot + this % MGStorage(ElemNmbr) % Scase))
-                  TauFinest = MAXVAL(ABS(this % tempsem % mesh % elements(ElemNmbr) % storage % Qdot + this % MGStorage(ElemNmbr) % Scase))
-                  WRITE(PFileUnit(iEl),*) lvl, N1x, TauFinest, TauNext
-               END DO
-            END IF
-         END IF
-         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-         
-!$omp parallel do
-         DO iEl = 1, nelem
-            this % p_sem % mesh % elements(iEl) % storage % S = this % MGStorage(iEl) % S - &
-                                                      this % p_sem % mesh % elements(iEl) % storage % Qdot
-         END DO
-!$omp end parallel do
-      END IF
+      
 !
 !     -----------------------
 !     Pre-smoothing procedure
 !     -----------------------
 !
-      dt = MaxTimeStep(this % p_sem, cfl )
-      CALL TakeRK3Step(this % p_sem, t, dt )
-      IF (MGOutput) CALL PlotResiduals( lvl , this % p_sem )
+      IF (lvl == 1) THEN
+         NumOfSweeps = SweepNumC
+      ELSE
+         NumOfSweeps = SweepNumPre
+      END IF
+      
+      sweepcount = 0
+      DO
+         DO iEl = 1, NumOfSweeps
+            dt = MaxTimeStep(this % p_sem, cfl )
+            CALL SmoothIt   (this % p_sem, t, dt )
+         END DO
+         sweepcount = sweepcount + 1
+         
+         IF (MGOutput) CALL PlotResiduals( lvl , NumOfSweeps*sweepcount,this % p_sem )
+         
+         IF (SmoothFine > 0._RP .AND. lvl > 1) THEN ! .AND. .not. FMG
+            IF (FMG .and. MAXVAL(ComputeMaxResidual(this % p_sem)) < 0.1_RP) EXIT
+            CALL MGRestrictToChild(this,lvl-1,t)
+            CALL ComputeTimeDerivative(this % Child % p_sem,t)
+            
+            IF (MAXVAL(ComputeMaxResidual(this % p_sem)) < SmoothFine * MAXVAL(ComputeMaxResidual(this % Child % p_sem))) EXIT
+         ELSE
+            EXIT
+         END IF
+      END DO
+      
+      PrevRes = MAXVAL(ComputeMaxResidual(this % p_sem))
+      
       
       IF (lvl > 1) THEN
+         IF (SmoothFine < 0._RP) CALL MGRestrictToChild(this,lvl-1,t)
+!
+!        --------------------
+!        Perform V-Cycle here
+!        --------------------
+!
+         CALL FASVCycle(this % Child,t, lvl-1,MGlevels)
+         
          Child_p => this % Child
+!
+!        -------------------------------------------
+!        Interpolate coarse-grid error to this level
+!        -------------------------------------------
+!
+!$omp parallel do private(iEQ,N1x,N1y,N1z,N2x,N2y,N2z)
+         DO iEl = 1, nelem
+            DO iEQ = 1, N_EQN
+               N1x = Child_p % p_sem % Nx(iEl)
+               N1y = Child_p % p_sem % Ny(iEl)
+               N1z = Child_p % p_sem % Nz(iEl)
+               N2x = this    % p_sem % Nx(iEl)
+               N2y = this    % p_sem % Ny(iEl)
+               N2z = this    % p_sem % Nz(iEl)
+               CALL Interpolate3D(Q1 = Child_p % MGStorage(iEl) % E(:,:,:,iEQ)      , &
+                                  Q2 = this    % MGStorage(iEl) % E(:,:,:,iEQ)      , &
+                                  Interp = Child_p % Prolongation(N2x,N2y,N2z) % Mat, &
+                                  N1x = N1x,    N1y = N1y,    N1z = N1z             , &
+                                  N2x = N2x,    N2y = N2y,    N2z = N2z)
+            END DO
+         END DO
+!$omp end parallel do
+!
+!        -----------------------------------------------
+!        Correct solution with coarse-grid approximation
+!        -----------------------------------------------
+!
+!$omp parallel do
+         DO iEl = 1, nelem
+            this % p_sem % mesh % elements(iEl) % storage % Q = &
+                              this % p_sem % mesh % elements(iEl) % storage % Q + this % MGStorage(iEl) % E
+         END DO
+!$omp end parallel do
+      
+      END IF
+!
+!     ------------------------
+!     Post-smoothing procedure
+!     ------------------------
+!
+      IF (lvl == 1) THEN
+         NumOfSweeps = SweepNumC
+      ELSE
+         NumOfSweeps = SweepNumPost
+      END IF
+      sweepcount = 0
+      DO
+         DO iEl = 1, NumOfSweeps
+            dt = MaxTimeStep(this % p_sem, cfl )
+            CALL SmoothIt   (this % p_sem, t, dt)
+         END DO
+         
+         sweepcount = sweepcount + 1
+         IF (MGOutput) CALL PlotResiduals( lvl, NumOfSweeps*sweepcount , this % p_sem )
+         
+         IF (lvl > 1 .and. PostFCycle) THEN
+            IF (MAXVAL(ComputeMaxResidual(this % p_sem)) > PrevRes) THEN
+               CALL MGRestrictToChild(this,lvl-1,t)
+               CALL FASVCycle(this,t,lvl-1,lvl)
+            ELSE
+               EXIT
+            END IF
+         ELSEIF (PostSmooth .or. PostFCycle) THEN
+            IF (MAXVAL(ComputeMaxResidual(this % p_sem)) < PrevRes) exit
+         ELSE
+            EXIT
+         END IF
+         
+      END DO
+      
+!
+!     -------------------------
+!     Compute coarse-grid error
+!     -------------------------
+!
+      IF (lvl < MGlevels) THEN
+!$omp parallel do private(iEQ)
+         DO iEl = 1, nelem
+            this % MGStorage(iEl) % E = this % p_sem % mesh % elements(iEl) % storage % Q - this % MGStorage(iEl) % Q
+         END DO
+!$omp end parallel do
+      END IF
+      
+   END SUBROUTINE FASVCycle
+
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------------------------
+!  Recursive subroutine to perform a full multigrid cycle
+!  ------------------------------------------------------
+   RECURSIVE SUBROUTINE FASFMGCycle(this,t,tol,lvl)
+      IMPLICIT NONE
+      !----------------------------------------------------------------------------
+      CLASS(FASMultigrid_t), INTENT(INOUT) :: this    !<> Current level solver
+      REAL(KIND=RP)        , intent(in)    :: t       !<  Simulation time
+      REAL(KIND=RP)        , intent(in)    :: tol     !<  Convergence tolerance
+      INTEGER              , intent(in)    :: lvl     !<  Current multigrid level
+      !----------------------------------------------------------------------------
+      INTEGER        :: iEl, iEQ             ! Element and equation counters
+      INTEGER        :: N1x, N1y, N1z        ! Origin polynomial orders
+      INTEGER        :: N2x, N2y, N2z        ! Destination polynomial orders
+      REAL(KIND=RP)  :: dt                   ! Time variables
+      REAL(KIND=RP)  :: maxResidual(N_EQN)   ! Maximum residual in each equation
+      INTEGER        :: counter              ! Iteration counter
+      !----------------------------------------------------------------------------
+!
+!     ------------------------------------------
+!     At the beginning, go to the coarsest level
+!        (the initial condition must be passed)
+!     ------------------------------------------
+!
+      IF (lvl > 1) THEN
+!$omp parallel do private(iEQ,N1x,N1y,N1z,N2x,N2y,N2z)
+         DO iEl = 1, nelem
+            DO iEQ = 1, N_EQN
+               N1x = this         % p_sem % Nx(iEl)
+               N1y = this         % p_sem % Ny(iEl)
+               N1z = this         % p_sem % Nz(iEl)
+               N2x = this % Child % p_sem % Nx(iEl)
+               N2y = this % Child % p_sem % Ny(iEl)
+               N2z = this % Child % p_sem % Nz(iEl)
+               CALL Interpolate3D(Q1 = this         % p_sem % mesh % elements(iEl) % storage % Q(:,:,:,iEQ), &
+                                  Q2 = this % Child % p_sem % mesh % elements(iEl) % storage % Q(:,:,:,iEQ), &
+                                  Interp = this % Restriction(N1x,N1y,N1z) % Mat            , &
+                                  N1x = N1x,    N1y = N1y,    N1z = N1z                     , &
+                                  N2x = N2x,    N2y = N2y,    N2z = N2z)
+            END DO
+         END DO
+!$omp end parallel do
+
+         CALL FASFMGCycle(this % Child,t,tol,lvl-1)
+      END IF
+!
+!     ----------------------
+!     Perform a V-Cycle here
+!     ----------------------
+!
+      counter = 0
+      IF (lvl > 1 ) THEN
+         DO
+            counter = counter + 1
+            CALL FASVCycle(this,t,lvl,lvl)
+            maxResidual = ComputeMaxResidual(this % p_sem)
+            IF (maxval(maxResidual) <= tol) EXIT
+         END DO
+      ELSE
+         DO
+            counter = counter + 1
+            dt = MaxTimeStep(this % p_sem, cfl )
+            CALL SmoothIt   (this % p_sem, t, dt )
+            maxResidual = ComputeMaxResidual(this % p_sem)
+            
+            IF (MOD(counter,100)==0) CALL PlotResiduals( lvl ,counter, this % p_sem)
+            IF (maxval(maxResidual) <= tol) EXIT
+         END DO
+      END IF
+      CALL PlotResiduals( lvl ,counter, this % p_sem ,.TRUE.)
+!
+!     --------------------------------------------------
+!     If not on finest, Interpolate to next (finer) grid
+!     --------------------------------------------------
+! 
+      IF (lvl < MGlevels) THEN
+!$omp parallel do private(iEQ,N1x,N1y,N1z,N2x,N2y,N2z)
+         DO iEl = 1, nelem
+            DO iEQ = 1, N_EQN
+               N1x = this % p_sem % Nx(iEl)
+               N1y = this % p_sem % Ny(iEl)
+               N1z = this % p_sem % Nz(iEl)
+               N2x = this % Parent % p_sem % Nx(iEl)
+               N2y = this % Parent % p_sem % Ny(iEl)
+               N2z = this % Parent % p_sem % Nz(iEl)
+               CALL Interpolate3D(Q1 = this          % p_sem % mesh % elements(iEl) % storage % Q(:,:,:,iEQ)      , &
+                                  Q2 = this % Parent % p_sem % mesh % elements(iEl) % storage % Q(:,:,:,iEQ)      , &
+                                  Interp = this % Prolongation(N2x,N2y,N2z) % Mat, &
+                                  N1x = N1x,    N1y = N1y,    N1z = N1z             , &
+                                  N2x = N2x,    N2y = N2y,    N2z = N2z)
+            END DO
+         END DO
+!$omp end parallel do
+      END IF
+   END SUBROUTINE FASFMGCycle
+
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------------
+!  Subroutine that calls rhe smoother
+!  ------------------------------------------
+   SUBROUTINE MGRestrictToChild(this,lvl,t)
+      IMPLICIT NONE
+      !-------------------------------------------------------------
+      CLASS(FASMultigrid_t), INTENT(INOUT) :: this     !<  Current level solver
+      INTEGER              , INTENT(IN)    :: lvl
+      REAL(KIND=RP)        , INTENT(IN)    :: t
+      !-------------------------------------------------------------
+      CLASS(FASMultigrid_t), POINTER       :: Child_p  ! The child
+      INTEGER  :: iEl
+      INTEGER  :: iEQ
+      INTEGER  :: N1x,N1y,N1z
+      INTEGER  :: N2x,N2y,N2z
+      !-------------------------------------------------------------
+      
+      Child_p => this % Child
 !
 !        -----------------
 !        Restrict solution
@@ -558,85 +708,117 @@ MODULE FASMultigridClass
          END DO
 !$omp end parallel do
 !
-!        --------------------
-!        Perform V-Cycle here
-!        --------------------
+!     **********************************************************************
+!     **********************************************************************
+!              Now arrange all the storage in the child solver
+!     **********************************************************************
+!     **********************************************************************
 !
-         CALL FASVCycle(this % Child,t, lvl-1)
+
+!     ------------------------------------
+!     Copy solution from fine grid to MGStorage
+!        ... and clear source term
+!     ------------------------------------
 !
-!        -------------------------------------------
-!        Interpolate coarse-grid error to this level
-!        -------------------------------------------
-!
-!$omp parallel do private(iEQ,N1x,N1y,N1z,N2x,N2y,N2z)
-         DO iEl = 1, nelem
-            DO iEQ = 1, N_EQN
-               N1x = Child_p % p_sem % Nx(iEl)
-               N1y = Child_p % p_sem % Ny(iEl)
-               N1z = Child_p % p_sem % Nz(iEl)
-               N2x = this    % p_sem % Nx(iEl)
-               N2y = this    % p_sem % Ny(iEl)
-               N2z = this    % p_sem % Nz(iEl)
-               CALL Interpolate3D(Q1 = Child_p % MGStorage(iEl) % E(:,:,:,iEQ)      , &
-                                  Q2 = this    % MGStorage(iEl) % E(:,:,:,iEQ)      , &
-                                  Interp = Child_p % Prolongation(N1x,N1y,N1z) % Mat, &
-                                  N1x = N1x,    N1y = N1y,    N1z = N1z             , &
-                                  N2x = N2x,    N2y = N2y,    N2z = N2z)
-            END DO
-         END DO
-!$omp end parallel do
-!
-!        -----------------------------------------------
-!        Correct solution with coarse-grid approximation
-!        -----------------------------------------------
-!
-!$omp parallel do
-         DO iEl = 1, nelem
-            this % p_sem % mesh % elements(iEl) % storage % Q = this % p_sem % mesh % elements(iEl) % storage % Q + this % MGStorage(iEl) % E
-         END DO
-!$omp end parallel do
-      
-      END IF
-!
-!     ------------------------
-!     Post-smoothing procedure
-!     ------------------------
-!
-      dt = MaxTimeStep(this % p_sem, cfl )
-      CALL TakeRK3Step(this % p_sem, t, dt)
-      IF (MGOutput) CALL PlotResiduals( lvl , this % p_sem )
-!
-!     -------------------------
-!     Compute coarse-grid error
-!     -------------------------
-!
-      IF (lvl < MGlevels) THEN
 !$omp parallel do private(iEQ)
-         DO iEl = 1, nelem
-            this % MGStorage(iEl) % E = this % p_sem % mesh % elements(iEl) % storage % Q - this % MGStorage(iEl) % Q
-         END DO
+      DO iEl = 1, nelem
+         Child_p % MGStorage(iEl) % Q = Child_p % p_sem % mesh % elements(iEl) % storage % Q
+         Child_p % p_sem % mesh % elements(iEl) % storage % S = 0._RP
+         Child_p % tempsem % mesh % elements(iEl) % storage %S = 0._RP
+      END DO
 !$omp end parallel do
-      END IF
+!
+!     -------------------------------------------
+!     If not on finest level, correct source term
+!     -------------------------------------------
+!      
+      CALL ComputeTimeDerivative(Child_p % p_sem,t) 
       
-   END SUBROUTINE FASVCycle
+!$omp parallel do
+      DO iEl = 1, nelem
+         Child_p % p_sem % mesh % elements(iEl) % storage % S = Child_p % MGStorage(iEl) % S - &
+                                                                Child_p % p_sem % mesh % elements(iEl) % storage % Qdot
+      END DO
+!$omp end parallel do
+      
+      
+   END SUBROUTINE MGRestrictToChild
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  --
-!  TODO: finish this
-!  --
+!  ------------------------------------------
+!  Subroutine that calls the smoother
+!  ------------------------------------------
+   SUBROUTINE SmoothIt(sem, t, dt)
+      IMPLICIT NONE
+      !---------------------------------------
+      TYPE(DGSem)   :: sem
+      REAL(KIND=RP) :: t, dt
+      !---------------------------------------
+      
+      SELECT CASE (TRIM(SmootherName))
+         CASE('RK3')
+            CALL TakeRK3Step(sem, t, dt)
+         CASE('SIRK')
+!~            CALL TakeSIRK(sem, t, dt)
+         CASE DEFAULT
+            ERROR STOP 'Smoother not recognized'
+      END SELECT
+      
+   END SUBROUTINE SmoothIt
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------------
+!  Subroutine that destructs a FAS integrator
+!  ------------------------------------------
    SUBROUTINE destruct(this)       
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(FASMultigrid_t), INTENT(INOUT) :: this
       !-----------------------------------------------------------
       
+      CALL RecursiveDestructor(this,MGlevels)
+      
    END SUBROUTINE destruct
-    
-    
+   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+   RECURSIVE SUBROUTINE RecursiveDestructor(Solver,lvl)
+      IMPLICIT NONE
+      !-----------------------------------------------------------
+      CLASS(FASMultigrid_t), INTENT(INOUT) :: Solver
+      INTEGER                              :: lvl
+      !-----------------------------------------------------------
+      
+      ! First go to finest level
+      IF (lvl > 1) CALL RecursiveDestructor(Solver % Child,lvl-1)
+      
+      !Destruct Multigrid storage
+      DEALLOCATE (Solver % MGStorage) ! allocatable components are automatically deallocated
+      
+      
+      IF (lvl < MGlevels) THEN
+         CALL Solver % tempsem % destruct()
+         
+         CALL Solver % p_sem % destruct()
+         DEALLOCATE (Solver % p_sem)
+         
+         DEALLOCATE (Solver % Prolongation)
+         
+         NULLIFY    (Solver % Parent)
+      ELSE
+         NULLIFY    (Solver % p_sem)
+      END IF
+      
+      IF (lvl > 1) THEN
+         
+         DEALLOCATE (Solver % Restriction)
+         DEALLOCATE (Solver % Child)
+      END IF
+      
+   END SUBROUTINE RecursiveDestructor
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -651,22 +833,20 @@ MODULE FASMultigridClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  ------------------------------------------------------------------------
+!  Creates the restriction and prolongation operators for a certain element
+!  for multigrid. Takes into account order anisotropy, but the coarse grid 
+!  is constructed by reducing the polynomial order uniformly.
+!  ------------------------------------------------------------------------
    SUBROUTINE CreateInterpolationOperators(Restriction,Prolongation,N1x,N1y,N1z,N2x,N2y,N2z,DeltaN,Lobatto)
       IMPLICIT NONE
-!
-!     ------------------------------------------------------------------------
-!     Creates the restriction and prolongation operators for a certain element
-!     for multigrid. Takes into account order anisotropy, but the coarse grid 
-!     is constructed by reducing the polynomial order uniformly.
-!     ------------------------------------------------------------------------
-!
       !-----------------------------------------------------
-      TYPE(Interpolator_t), TARGET  :: Restriction (0:,0:,0:)  !>  Restriction operator
-      TYPE(Interpolator_t), TARGET  :: Prolongation(0:,0:,0:)  !>  Prolongation operator
-      INTEGER                       :: N1x, N1y, N1z           !<  Fine grid order(anisotropic) of the element
-      INTEGER                       :: N2x, N2y, N2z           !>  Coarse grid order(anisotropic) of the element
-      INTEGER                       :: DeltaN                  !<  Interval of reduction of polynomial order for coarser level
-      LOGICAL, OPTIONAL             :: Lobatto                 !<  Is the quadrature a Legendre-Gauss-Lobatto representation?
+      TYPE(Interpolator_t), TARGET, intent(inout)  :: Restriction (0:,0:,0:)  !>  Restriction operator
+      TYPE(Interpolator_t), TARGET, intent(inout)  :: Prolongation(0:,0:,0:)  !>  Prolongation operator
+      INTEGER                     , intent(in)     :: N1x, N1y, N1z           !<  Fine grid order(anisotropic) of the element
+      INTEGER                     , intent(out)    :: N2x, N2y, N2z           !>  Coarse grid order(anisotropic) of the element
+      INTEGER                     , intent(in)     :: DeltaN                  !<  Interval of reduction of polynomial order for coarser level
+      LOGICAL, OPTIONAL           , intent(in)     :: Lobatto                 !<  Is the quadrature a Legendre-Gauss-Lobatto representation?
       !-----------------------------------------------------
       TYPE(Interpolator_t), POINTER :: rest                    ! Pointer to constructed restriction interpolator
       TYPE(Interpolator_t), POINTER :: prol                    ! Pointer to constructed prolongation interpolator
@@ -704,7 +884,7 @@ MODULE FASMultigridClass
       IF (Restriction(N1x,N1y,N1z) % Created) RETURN
       
       rest => Restriction (N1x,N1y,N1z)
-      prol => Prolongation(N2x,N2y,N2z)
+      prol => Prolongation(N1x,N1y,N1z)
 !
 !     ----------------------------
 !     Allocate important variables
@@ -740,7 +920,6 @@ MODULE FASMultigridClass
 !     Fill the restriction operator
 !     -----------------------------
 !
-!~       CALL Create3DInterpolationMatrix(rest % Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2)
       CALL Create3DRestrictionMatrix(rest % Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2,w1x,w1y,w1z,w2x,w2y,w2z)
 !
 !     ------------------------------
@@ -759,24 +938,36 @@ MODULE FASMultigridClass
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  ------
+!  ------------------------------------------
 !  Internal subroutine to print the residuals
-!  ----------------
-   subroutine PlotResiduals( iter , sem )
+!  ------------------------------------------
+   subroutine PlotResiduals( iter, sweeps , sem, white )
       implicit none
-      integer, intent(in)       :: iter
-      TYPE(DGSem)               :: sem
+      !--------------------------------------------------------
+      integer    , intent(in)           :: iter
+      TYPE(DGSem), intent(in)           :: sem
+      integer    , intent(in)           :: sweeps
+      LOGICAL    , intent(in), OPTIONAL :: white
       !--------------------------------------------------------
       real(kind=RP)             :: maxResiduals(N_EQN)
+      CHARACTER(len=5)          :: color1
+      CHARACTER(len=5)          :: color2
       !--------------------------------------------------------
+      
+      IF (PRESENT(white) .AND. white) THEN
+         color1 = achar(27)//'[00m'
+      else
+         color1 = achar(27)//'[34m'
+      END IF
+      color2 = achar(27)//'[00m'
       
       IF( (MOD( ThisTimeStep+1, plotInterval) == 0) .or. (ThisTimeStep .eq. 0) ) THEN
          maxResiduals = ComputeMaxResidual(sem)
-         write(STD_OUT , 110) achar(27)//'[34mFAS level', iter ,"|            |", maxResiduals(IRHO) , "|" , maxResiduals(IRHOU) , &
-                                 "|", maxResiduals(IRHOV) , "|" , maxResiduals(IRHOW) , "|" , maxResiduals(IRHOE),achar(27)//'[00m'
+         write(STD_OUT , 110) color1,'FAS lvl/sweeps', iter ,"|",sweeps,"|", maxResiduals(IRHO) , "|" , maxResiduals(IRHOU) , &
+                                 "|", maxResiduals(IRHOV) , "|" , maxResiduals(IRHOW) , "|" , maxResiduals(IRHOE),color2
       END IF
       
-      110 format (A,I8,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,A)
+      110 format (A,A,I3,X,A,X,I10,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,A)
       
    end subroutine PlotResiduals
 !

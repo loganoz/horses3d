@@ -152,26 +152,24 @@ module DGInviscidDiscretization
 !           --------------------
 !///////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BaseClass_ComputeInnerFluxes( self , e  , spA , contravariantFlux )
+      subroutine BaseClass_ComputeInnerFluxes( self , e , contravariantFlux )
          use ElementClass
-         use NodalStorageClass
          use Physics
          implicit none
          class(InviscidMethod_t), intent(in)  :: self
          type(Element),           intent(in)  :: e
-         type(NodalStorage),      intent(in)  :: spA
-         real(kind=RP),           intent(out) :: contravariantFlux(1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM)
+         real(kind=RP),           intent(out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer            :: i, j, k
-         real(kind=RP)      :: cartesianFlux(1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM)
+         real(kind=RP)      :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
 
-         cartesianFlux = InviscidFlux( spA % Nx , spA % Ny , spA % Nz , e % storage % Q )
+         cartesianFlux = InviscidFlux( e%Nxyz(1) , e%Nxyz(2) , e%Nxyz(3) , e % storage % Q )
 
-         do k = 0, spA % Nz   ; do j = 0, spA % Ny    ; do i = 0, spA % Nx
+         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
          
             contravariantFlux(:,i,j,k,IX) =    cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
                                              + cartesianFlux(:,i,j,k,IY) * e % geom % jGradXi(IY,i,j,k)  &
@@ -191,18 +189,16 @@ module DGInviscidDiscretization
 
       end subroutine BaseClass_ComputeInnerFluxes
 
-      subroutine BaseClass_ComputeSplitFormFluxes(self, e, spA, contravariantFlux, fSharp, gSharp, hSharp)
+      subroutine BaseClass_ComputeSplitFormFluxes(self, e, contravariantFlux, fSharp, gSharp, hSharp)
          use ElementClass
-         use NodalStorageClass
          use PhysicsStorage
          implicit none
          class(InviscidMethod_t), intent(in)  :: self
          type(Element),           intent(in)  :: e
-         type(NodalStorage),      intent(in)  :: spA
-         real(kind=RP),           intent(in)  :: contravariantFlux(1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM)
-         real(kind=RP),           intent(out) :: fSharp(1:NCONS, 0:spA % Nx, 0:spA % Nx, 0:spA % Ny, 0: spA % Nz )
-         real(kind=RP),           intent(out) :: gSharp(1:NCONS, 0:spA % Ny, 0:spA % Nx, 0:spA % Ny, 0: spA % Nz )
-         real(kind=RP),           intent(out) :: hSharp(1:NCONS, 0:spA % Nz, 0:spA % Nx, 0:spA % Ny, 0: spA % Nz )
+         real(kind=RP),           intent(in)  :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP),           intent(out) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),           intent(out) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),           intent(out) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
 
       end subroutine BaseClass_ComputeSplitFormFluxes
 !
@@ -219,18 +215,16 @@ module DGInviscidDiscretization
 !           ------------------
 !///////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine SplitDG_ComputeSplitFormFluxes(self, e, spA, contravariantFlux, fSharp, gSharp, hSharp)
+      subroutine SplitDG_ComputeSplitFormFluxes(self, e, contravariantFlux, fSharp, gSharp, hSharp)
          use ElementClass
-         use NodalStorageClass
          use PhysicsStorage
          implicit none
          class(SplitDG_t), intent(in)  :: self
          type(Element),           intent(in)  :: e
-         type(NodalStorage),      intent(in)  :: spA
-         real(kind=RP),           intent(in)  :: contravariantFlux(1:NCONS, 0:spA % Nx , 0:spA % Ny , 0:spA % Nz, 1:NDIM)
-         real(kind=RP),           intent(out) :: fSharp(1:NCONS, 0:spA % Nx, 0:spA % Nx, 0:spA % Ny, 0: spA % Nz )
-         real(kind=RP),           intent(out) :: gSharp(1:NCONS, 0:spA % Ny, 0:spA % Nx, 0:spA % Ny, 0: spA % Nz )
-         real(kind=RP),           intent(out) :: hSharp(1:NCONS, 0:spA % Nz, 0:spA % Nx, 0:spA % Ny, 0: spA % Nz )
+         real(kind=RP),           intent(in)  :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP),           intent(out) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),           intent(out) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),           intent(out) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
 !
 !        ---------------
 !        Local variables
@@ -242,7 +236,7 @@ module DGInviscidDiscretization
 !
 !        First, diagonal results are introduced directly (consistency property)
 !        ----------------------------------------------------------------------
-         do k = 0, spA % Nz   ; do j = 0, spA % Ny ; do i = 0, spA % Nx
+         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             fSharp(:,i,i,j,k) = contravariantFlux(:,i,j,k,IX)
             gSharp(:,j,i,j,k) = contravariantFlux(:,i,j,k,IY)
             hSharp(:,k,i,j,k) = contravariantFlux(:,i,j,k,IZ)
@@ -250,22 +244,22 @@ module DGInviscidDiscretization
 !
 !        Then, terms out of the diagonal are computed
 !        --------------------------------------------
-         do k = 0, spA % Nz   ; do j = 0, spA % Ny ; do i = 0, spA % Nx
-            do l = i+1, spA % Nx
+         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+            do l = i+1, e%Nxyz(1)
                fSharp(:,l,i,j,k) = self % ComputeVolumetricSharpFlux(Q(:,i,j,k), Q(:,l,j,k), e % geom % jGradXi(:,i,j,k), e % geom % jGradXi(:,l,j,k))
                fSharp(:,i,l,j,k) = fSharp(:,l,i,j,k)
             end do            
          end do               ; end do             ; end do
 
-         do k = 0, spA % Nz   ; do j = 0, spA % Ny ; do i = 0, spA % Nx
-            do l = j+1, spA % Ny
+         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+            do l = j+1, e%Nxyz(2)
                gSharp(:,l,i,j,k) = self % ComputeVolumetricSharpFlux(Q(:,i,j,k), Q(:,i,l,k), e % geom % jGradEta(:,i,j,k), e % geom % jGradEta(:,i,l,k))
                gSharp(:,j,i,l,k) = gSharp(:,l,i,j,k)
             end do            
          end do               ; end do             ; end do
 
-         do k = 0, spA % Nz   ; do j = 0, spA % Ny ; do i = 0, spA % Nx
-            do l = k+1, spA % Nz
+         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+            do l = k+1, e%Nxyz(3)
                hSharp(:,l,i,j,k) = self % ComputeVolumetricSharpFlux(Q(:,i,j,k), Q(:,i,j,l), e % geom % jGradZeta(:,i,j,k), e % geom % jGradZeta(:,i,j,l))
                hSharp(:,k,i,j,l) = hSharp(:,l,i,j,k)
             end do            

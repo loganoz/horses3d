@@ -272,7 +272,7 @@ end interface
 !
 !        Update monitors
 !        ---------------
-         call Monitors % UpdateValues( sem % mesh, sem % spA, t, k+1, maxResidual )
+         call Monitors % UpdateValues( sem % mesh, t, k+1, maxResidual )
 !
 !        Exit if the target is reached
 !        -----------------------------

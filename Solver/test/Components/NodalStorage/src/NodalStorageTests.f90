@@ -24,14 +24,14 @@
 !        -----
 !
          N = 8
-         CALL spA % construct(GAUSS,N,N,N)
+         CALL spA % construct(GAUSS,N)
          ALLOCATE(f(0:N))
          ALLOCATE(d(0:N))
          ALLOCATE(dExact(0:N))
          
          DO j = 0, N
-            f(j)      = sPa % xi(j)**2 
-            dExact(j) = 2.0_RP*spA % xi(j)
+            f(j)      = sPa % x(j)**2 
+            dExact(j) = 2.0_RP*spA % x(j)
          END DO
 !
 !        ----------------
@@ -40,7 +40,7 @@
 !
          s = 0.0_RP
          DO j = 0, N
-            s = s + f(j)*spA % wx(j) 
+            s = s + f(j)*spA % w(j) 
          END DO
          
          CALL FTAssertEqual(expectedValue = 2.0_RP/3.0_RP,&
@@ -52,7 +52,7 @@
 !        Differentiation test
 !        --------------------
 !
-         CALL MatrixMultiplyDeriv( f, d, spa % DTx, N, transp = MXV_DIRECT)
+         CALL MatrixMultiplyDeriv( f, d, spa % DT, N, transp = MXV_DIRECT)
          e = MAXVAL(ABS(d-dExact))
          
          CALL FTAssertEqual(expectedValue = 0.0_RP,              &
