@@ -5,6 +5,7 @@ module ZoneClass
    use SharedBCModule
    use FTValueDictionaryClass
    use FTLinkedListClass
+   use MeshTypes
    
    
    private

@@ -104,10 +104,15 @@ module DGWeakIntegrals
 !
 !///////////////////////////////////////////////////////////////
 !
-      pure function ScalarWeakIntegrals_StdFace( e, F ) result ( faceInt )
+      pure function ScalarWeakIntegrals_StdFace(e, F_FR, F_BK, F_BOT, F_R, F_T, F_L) result(faceInt)
          implicit none
          class(Element),      intent(in)     :: e
-         real(kind=RP),       intent(in)     :: F(1:,0:,0:,1:)
+         real(kind=RP),       intent(in)     :: F_FR(1:NCONS,0:e % Nxyz(1),0:e % Nxyz(3))
+         real(kind=RP),       intent(in)     :: F_BK(1:NCONS,0:e % Nxyz(1),0:e % Nxyz(3))
+         real(kind=RP),       intent(in)     :: F_BOT(1:NCONS,0:e % Nxyz(1),0:e % Nxyz(2))
+         real(kind=RP),       intent(in)     :: F_R(1:NCONS,0:e % Nxyz(2),0:e % Nxyz(3))
+         real(kind=RP),       intent(in)     :: F_T(1:NCONS,0:e % Nxyz(1),0:e % Nxyz(2))
+         real(kind=RP),       intent(in)     :: F_L(1:NCONS,0:e % Nxyz(2),0:e % Nxyz(3))
          real(kind=RP)                       :: faceInt(1:NCONS, 0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))
 !
 !        ---------------
@@ -121,11 +126,11 @@ module DGWeakIntegrals
 !        ----------------
 !
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt(:,iXi,iEta,iZeta) = F(:, iEta, iZeta,ELEFT) * e % spAxi % b(iXi, LEFT)
+            faceInt(:,iXi,iEta,iZeta) = F_L(:, iEta, iZeta) * e % spAxi % b(iXi, LEFT)
          end do                 ; end do                ; end do
       
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F(:, iEta, iZeta, ERIGHT) * e % spAxi % b(iXi, RIGHT)
+            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_R(:, iEta, iZeta) * e % spAxi % b(iXi, RIGHT)
          end do                 ; end do                ; end do
 !
 !        -----------------
@@ -133,11 +138,11 @@ module DGWeakIntegrals
 !        -----------------
 !
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F(:, iXi, iZeta,EFRONT) * e % spAeta % b(iEta, LEFT)
+            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_FR(:, iXi, iZeta) * e % spAeta % b(iEta, LEFT)
          end do                 ; end do                ; end do
 
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F(:, iXi, iZeta, EBACK) * e % spAeta % b(iEta, RIGHT)
+            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_BK(:, iXi, iZeta) * e % spAeta % b(iEta, RIGHT)
          end do                 ; end do                ; end do
 !
 !        ------------------
@@ -145,11 +150,11 @@ module DGWeakIntegrals
 !        ------------------
 !
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F(:, iXi, iEta, EBOTTOM) * e % spAzeta % b(iZeta, LEFT)
+            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_BOT(:, iXi, iEta) * e % spAzeta % b(iZeta, LEFT)
          end do                 ; end do                ; end do
 
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F(:, iXi, iEta, ETOP) * e % spAzeta % b(iZeta, RIGHT)
+            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_T(:, iXi, iEta) * e % spAzeta % b(iZeta, RIGHT)
          end do                 ; end do                ; end do
 
       end function ScalarWeakIntegrals_StdFace
@@ -204,16 +209,22 @@ module DGWeakIntegrals
 !
 !/////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine VectorWeakIntegrals_StdFace( e, U, faceInt_x, faceInt_y, faceInt_z )
+      subroutine VectorWeakIntegrals_StdFace( e, HF, HBK, HBO, HR, HT, HL , &
+                                             faceInt_x, faceInt_y, faceInt_z )
          use ElementClass
          use Physics
          use PhysicsStorage
          implicit none
-         class(Element),      intent(in)  :: e
-         real(kind=RP),       intent(in)  :: U( 1:, 0:, 0:, 1: )                                   
-         real(kind=RP),       intent(out) :: faceInt_x(N_GRAD_EQN, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3) )  
-         real(kind=RP),       intent(out) :: faceInt_y(N_GRAD_EQN, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3) )  
-         real(kind=RP),       intent(out) :: faceInt_z(N_GRAD_EQN, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3) )
+         class(Element), intent(in)  :: e
+         real(kind=RP),  intent(in)  :: HF  (N_GRAD_EQN,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(3))
+         real(kind=RP),  intent(in)  :: HBK (N_GRAD_EQN,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(3))
+         real(kind=RP),  intent(in)  :: HBO (N_GRAD_EQN,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(2))
+         real(kind=RP),  intent(in)  :: HR  (N_GRAD_EQN,NDIM, 0:e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP),  intent(in)  :: HT  (N_GRAD_EQN,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(2))
+         real(kind=RP),  intent(in)  :: HL  (N_GRAD_EQN,NDIM, 0:e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP),  intent(out) :: faceInt_x(N_GRAD_EQN, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3)) 
+         real(kind=RP),  intent(out) :: faceInt_y(N_GRAD_EQN, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3)) 
+         real(kind=RP),  intent(out) :: faceInt_z(N_GRAD_EQN, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
 !
 !        ---------------
 !        Local variables
@@ -221,57 +232,36 @@ module DGWeakIntegrals
 !
          integer        :: iVar, iXi, iEta, iZeta
 !
-!     ----------------
-! >   Xi-contributions
-!     ----------------
+!        ----------------
+!>       Xi-contributions
+!        ----------------
 !
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt_x(:,iXi,iEta,iZeta) =   U(:, iEta, iZeta, ELEFT) * e % spAxi % b(iXi, LEFT) &
-                                             * e % geom % normal(IX,iEta,iZeta,ELEFT) * e % geom % scal(iEta,iZeta,ELEFT)
-
-            faceInt_y(:,iXi,iEta,iZeta) =   U(:, iEta, iZeta, ELEFT) * e % spAxi % b(iXi, LEFT) &
-                                             * e % geom % normal(IY,iEta,iZeta,ELEFT) * e % geom % scal(iEta,iZeta,ELEFT)
-
-            faceInt_z(:,iXi,iEta,iZeta) =   U(:, iEta, iZeta, ELEFT) * e % spAxi % b(iXi, LEFT) &
-                                             * e % geom % normal(IZ,iEta,iZeta,ELEFT) * e % geom % scal(iEta,iZeta,ELEFT)
-         end do                 ; end do                ; end do
-      
-
-         do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + U(:, iEta, iZeta, ERIGHT) * e % spAxi % b(iXi, RIGHT) &
-                                             * e % geom % normal(IX,iEta,iZeta,ERIGHT) * e % geom % scal(iEta,iZeta,ERIGHT)
-
-            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + U(:, iEta, iZeta, ERIGHT) * e % spAxi % b(iXi, RIGHT) &
-                                             * e % geom % normal(IY,iEta,iZeta,ERIGHT) * e % geom % scal(iEta,iZeta,ERIGHT)
-
-            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + U(:, iEta, iZeta, ERIGHT) * e % spAxi % b(iXi, RIGHT) &
-                                             * e % geom % normal(IZ,iEta,iZeta,ERIGHT) * e % geom % scal(iEta,iZeta,ERIGHT)
-         end do                 ; end do                ; end do
-!
-!     -----------------
-! >   Eta-contributions
-!     -----------------
-!
-         do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + U(:, iXi, iZeta, EFRONT) * e % spAeta % b(iEta, LEFT) &
-                                             * e % geom % normal(IX,iXi,iZeta,EFRONT) * e % geom % scal(iXi,iZeta,EFRONT)
-
-            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + U(:, iXi, iZeta, EFRONT) * e % spAeta % b(iEta, LEFT) &
-                                             * e % geom % normal(IY,iXi,iZeta,EFRONT) * e % geom % scal(iXi,iZeta,EFRONT)
-
-            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + U(:, iXi, iZeta, EFRONT) * e % spAeta % b(iEta, LEFT) &
-                                             * e % geom % normal(IZ,iXi,iZeta,EFRONT) * e % geom % scal(iXi,iZeta,EFRONT)
+            faceInt_x(:,iXi,iEta,iZeta) =   HL(:, IX, iEta, iZeta) * e % spAxi % b(iXi, LEFT)
+            faceInt_y(:,iXi,iEta,iZeta) =   HL(:, IY, iEta, iZeta) * e % spAxi % b(iXi, LEFT)
+            faceInt_z(:,iXi,iEta,iZeta) =   HL(:, IZ, iEta, iZeta) * e % spAxi % b(iXi, LEFT) 
          end do                 ; end do                ; end do
 
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + U(:, iXi, iZeta, EBACK) * e % spAeta % b(iEta, RIGHT) &
-                                             * e % geom % normal(IX,iXi,iZeta,EBACK) * e % geom % scal(iXi,iZeta,EBACK)
+            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HR(:,IX, iEta, iZeta) * e % spAxi % b(iXi, RIGHT)
+            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HR(:,IY, iEta, iZeta) * e % spAxi % b(iXi, RIGHT) 
+            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HR(:,IZ, iEta, iZeta) * e % spAxi % b(iXi, RIGHT) 
+         end do                 ; end do                ; end do
+!
+!        -----------------
+!>       Eta-contributions
+!        -----------------
+!
+         do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
+            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HF(:,IX, iXi, iZeta) * e % spAeta % b(iEta, LEFT) 
+            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HF(:,IY, iXi, iZeta) * e % spAeta % b(iEta, LEFT) 
+            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HF(:,IZ, iXi, iZeta) * e % spAeta % b(iEta, LEFT) 
+         end do                 ; end do                ; end do
 
-            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + U(:, iXi, iZeta, EBACK) * e % spAeta % b(iEta, RIGHT) &
-                                             * e % geom % normal(IY,iXi,iZeta,EBACK) * e % geom % scal(iXi,iZeta,EBACK)
-
-            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + U(:, iXi, iZeta, EBACK) * e % spAeta % b(iEta, RIGHT) &
-                                             * e % geom % normal(IZ,iXi,iZeta,EBACK) * e % geom % scal(iXi,iZeta,EBACK)
+         do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
+            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HBK(:,IX, iXi, iZeta) * e % spAeta % b(iEta, RIGHT) 
+            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HBK(:,IY, iXi, iZeta) * e % spAeta % b(iEta, RIGHT) 
+            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HBK(:,IZ, iXi, iZeta) * e % spAeta % b(iEta, RIGHT) 
          end do                 ; end do                ; end do
 !
 !     ------------------
@@ -279,25 +269,15 @@ module DGWeakIntegrals
 !     ------------------
 !
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + U(:, iXi, iEta, EBOTTOM) * e % spAzeta % b(iZeta, LEFT) &
-                                             * e % geom % normal(IX,iXi,iEta,EBOTTOM) * e % geom % scal(iXi,iEta,EBOTTOM)
-
-            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + U(:, iXi, iEta, EBOTTOM) * e % spAzeta % b(iZeta, LEFT) &
-                                             * e % geom % normal(IY,iXi,iEta,EBOTTOM) * e % geom % scal(iXi,iEta,EBOTTOM)
-
-            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + U(:, iXi, iEta, EBOTTOM) * e % spAzeta % b(iZeta, LEFT) &
-                                             * e % geom % normal(IZ,iXi,iEta,EBOTTOM) * e % geom % scal(iXi,iEta,EBOTTOM)
+            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HBO(:, IX, iXi, iEta) * e % spAzeta % b(iZeta, LEFT) 
+            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HBO(:, IY, iXi, iEta) * e % spAzeta % b(iZeta, LEFT) 
+            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HBO(:, IZ, iXi, iEta) * e % spAzeta % b(iZeta, LEFT) 
          end do                 ; end do                ; end do
 
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + U(:, iXi, iEta, ETOP) * e % spAzeta % b(iZeta, RIGHT) &
-                                             * e % geom % normal(IX,iXi,iEta,ETOP) * e % geom % scal(iXi,iEta,ETOP)
-
-            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + U(:, iXi, iEta, ETOP) * e % spAzeta % b(iZeta, RIGHT) &
-                                             * e % geom % normal(IY,iXi,iEta,ETOP) * e % geom % scal(iXi,iEta,ETOP)
-
-            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + U(:, iXi, iEta, ETOP) * e % spAzeta % b(iZeta, RIGHT) &
-                                             * e % geom % normal(IZ,iXi,iEta,ETOP) * e % geom % scal(iXi,iEta,ETOP)
+            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HT(:, IX, iXi, iEta) * e % spAzeta % b(iZeta, RIGHT) 
+            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HT(:, IY, iXi, iEta) * e % spAzeta % b(iZeta, RIGHT) 
+            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HT(:, IZ, iXi, iEta) * e % spAzeta % b(iZeta, RIGHT) 
          end do                 ; end do                ; end do
 
       end subroutine VectorWeakIntegrals_StdFace

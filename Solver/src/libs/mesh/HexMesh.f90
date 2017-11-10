@@ -39,6 +39,8 @@ MODULE HexMeshClass
             procedure :: Describe          => DescribeMesh
             procedure :: ConstructZones    => HexMesh_ConstructZones
             procedure :: SetConnectivities => HexMesh_SetConnectivities
+            procedure :: ProlongSolutionToFaces => HexMesh_ProlongSolutionToFaces
+            procedure :: ProlongGradientsToFaces => HexMesh_ProlongGradientsToFaces
             procedure :: Export            => HexMesh_Export
             procedure :: SaveSolution      => HexMesh_SaveSolution
             procedure :: SaveStatistics    => HexMesh_SaveStatistics
@@ -91,7 +93,7 @@ MODULE HexMeshClass
 !        -----
 !
          DO j = 1, SIZE(self % faces) 
-            CALL DestructFace( self % faces(j) )
+            call self % faces(j) % Destruct
          END DO
          DEALLOCATE( self % faces )
 !
@@ -125,7 +127,7 @@ MODULE HexMeshClass
       END DO
       PRINT *, "Faces..."
       DO k = 1, SIZE(self % faces) 
-         CALL PrintFace( self % faces(k))
+         CALL  self % faces(k) % Print
       END DO
       
       END SUBROUTINE PrintMesh
@@ -199,10 +201,11 @@ MODULE HexMeshClass
                      RETURN  
                   END IF 
                   
-                  CALL ConstructFace( self % faces(self % numberOfFaces),   &
-                                       nodeIDs = faceNodeIDs, &
-                                       elementID = eID,       &
-                                       side = faceNumber)
+                  CALL self % faces(self % numberOfFaces) % Construct(ID  = self % numberOfFaces, &
+                                                                      nodeIDs = faceNodeIDs, &
+                                                                      elementID = eID,       &
+                                                                      side = faceNumber)
+
                   self % faces(self % numberOfFaces) % boundaryName = &
                            self % elements(eID) % boundaryName(faceNumber)
 !
@@ -223,6 +226,36 @@ MODULE HexMeshClass
          CALL release(table)
          
       END SUBROUTINE ConstructFaces
+
+      subroutine GetElementsFaceIDs(self)
+         implicit none
+         type(HexMesh), intent(inout)  :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: fID, eL, eR
+
+         do fID = 1, size(self % faces)
+            select case (self % faces(fID) % faceType)
+            case (HMESH_INTERIOR)
+               eL = self % faces(fID) % elementIDs(1)
+               eR = self % faces(fID) % elementIDs(2)
+
+               self % elements(eL) % faceIDs(self % faces(fID) % elementSide(1)) = fID
+               self % elements(eR) % faceIDs(self % faces(fID) % elementSide(2)) = fID
+               self % elements(eL) % faceSide(self % faces(fID) % elementSide(1)) = 1
+               self % elements(eR) % faceSide(self % faces(fID) % elementSide(2)) = 2
+            case default
+               eL = self % faces(fID) % elementIDs(1)
+               self % elements(eL) % faceIDs(self % faces(fID) % elementSide(1)) = fID
+               self % elements(eL) % faceSide(self % faces(fID) % elementSide(1)) = 1
+
+            end select
+         end do
+
+      end subroutine GetElementsFaceIDs
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -359,10 +392,13 @@ MODULE HexMeshClass
                IF ( (master_matched(1)) .AND. (master_matched(2)) .AND. (master_matched(3)) .AND. (master_matched(4)) ) THEN
                   self % faces(i) % boundaryName   = ""
                   self % faces(i) % elementIDs(2)  = self % faces(j) % elementIDs(1)
-                  self % faces(i) % elementSide(2) = self % faces(j) % elementSide(1) 
+                  self % faces(i) % elementSide(2) = self % faces(j) % elementSide(1)
                   self % faces(i) % FaceType       = HMESH_INTERIOR
-                  self % faces(i) % rotation       = 0!faceRotation(masterNodeIDs = self % faces(i) % nodeIDs, &
-                                                     !           slaveNodeIDs  = self % faces(i) % nodeIDs)      
+                  self % faces(i) % rotation       = 0 !faceRotation(masterNodeIDs = self % faces(i) % nodeIDs       , &
+                                                       !                slaveNodeIDs  = self % faces(j) % nodeIDs       , &
+                                                       !                masterSide    = self % faces(i) % elementSide(1), &
+                                                       !                slaveSide     = self % faces(j) % elementSide(2))
+
                                                                             
                ENDIF    
             end do;  end do
@@ -499,12 +535,68 @@ MODULE HexMeshClass
          self%faces(i) = dummy_faces(i)
       ENDDO 
       
-!      Reassign zones
-!      -----------------
+!     Reassign zones
+!     -----------------
       CALL ReassignZones(self % faces, self % zones)
       
       
       END SUBROUTINE DeletePeriodicminusfaces
+! 
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      subroutine HexMesh_ProlongSolutionToFaces(self, spA)
+         implicit none
+         class(HexMesh),   intent(inout)  :: self
+         class(NodalStorage), intent(in)  :: spA(0:)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: fIDs(6)
+         integer  :: eID
+
+!$omp do schedule(runtime)
+         do eID = 1, size(self % elements)
+            fIDs = self % elements(eID) % faceIDs
+            call self % elements(eID) % ProlongSolutionToFaces(self % faces(fIDs(1)),&
+                                                               self % faces(fIDs(2)),&
+                                                               self % faces(fIDs(3)),&
+                                                               self % faces(fIDs(4)),&
+                                                               self % faces(fIDs(5)),&
+                                                               self % faces(fIDs(6)) )
+         end do
+!$omp end do
+
+      end subroutine HexMesh_ProlongSolutionToFaces
+! 
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      subroutine HexMesh_ProlongGradientsToFaces(self, spA)
+         implicit none
+         class(HexMesh),   intent(inout)  :: self
+         class(NodalStorage), intent(in)  :: spA(0:)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: fIDs(6)
+         integer  :: eID
+
+!$omp do schedule(runtime)
+         do eID = 1, size(self % elements)
+            fIDs = self % elements(eID) % faceIDs
+            call self % elements(eID) % ProlongGradientsToFaces(self % faces(fIDs(1)),&
+                                                                self % faces(fIDs(2)),&
+                                                                self % faces(fIDs(3)),&
+                                                                self % faces(fIDs(4)),&
+                                                                self % faces(fIDs(5)),&
+                                                                self % faces(fIDs(6)) )
+         end do
+!$omp end do
+
+      end subroutine HexMesh_ProlongGradientsToFaces
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -1011,6 +1103,91 @@ MODULE HexMeshClass
       call ConstructZones ( self % faces , self % zones )
 
       end subroutine HexMesh_ConstructZones
+!
+!///////////////////////////////////////////////////////////////////////
+!
+      subroutine HexMesh_CheckGeometryConsistency(self)
+      implicit none
+      class(HexMesh)    :: self
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer     :: fID, eL, eR, facePosL, facePosR
+      integer     :: i, j, ii, jj
+      real(kind=RP)  :: localerror, error
+
+      error = 0.0_RP
+
+      do fID = 1, size(self % faces)
+         associate(f => self % faces(fID)) 
+         select case(f % faceType)
+         case (HMESH_INTERIOR)
+            eL = f % elementIDs(1)        ; eR = f % elementIDs(2)
+            facePosL = f % elementSide(1) ; facePosR = f % elementSide(2)
+
+            do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+               call iijjIndexes(i, j, f % Nf(1), f % Nf(2), f % rotation, ii, jj)
+               localerror = norm2(self % elements(eL) % geom % xb(:,i,j,facePosL) - self % elements(eR) % geom % xb(:,ii,jj,facePosR))
+               
+               error = max(localerror,error)
+            end do               ; end do
+         case default
+         end select
+         end associate
+      end do
+
+print*, "Coordinates error: ", error
+
+   error = 0.0_RP
+      do fID = 1, size(self % faces)
+         associate(f => self % faces(fID)) 
+         select case(f % faceType)
+         case (HMESH_INTERIOR)
+            eL = f % elementIDs(1)        ; eR = f % elementIDs(2)
+            facePosL = f % elementSide(1) ; facePosR = f % elementSide(2)
+
+            do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+               call iijjIndexes(i, j, f % Nf(1), f % Nf(2), f % rotation, ii, jj)
+               localerror = norm2(self % elements(eL) % geom % normal(:,i,j,facePosL) + self % elements(eR) % geom % normal(:,ii,jj,facePosR))
+               error = max(localerror,error)
+               localerror = norm2(self % elements(eL) % geom % normal(:,i,j,facePosL) - f % geom % normal(:,i,j))
+               
+               error = max(localerror,error)
+            end do               ; end do
+         case default
+         end select
+         end associate
+      end do
+
+print*, "Normal error: ", error
+
+   error = 0.0_RP
+      do fID = 1, size(self % faces)
+         associate(f => self % faces(fID)) 
+         select case(f % faceType)
+         case (HMESH_INTERIOR)
+            eL = f % elementIDs(1)        ; eR = f % elementIDs(2)
+            facePosL = f % elementSide(1) ; facePosR = f % elementSide(2)
+
+            do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+               call iijjIndexes(i, j, f % Nf(1), f % Nf(2), f % rotation, ii, jj)
+               localerror = abs(self % elements(eL) % geom % scal(i,j,facePosL) - self % elements(eR) % geom % scal(ii,jj,facePosR))
+               error = max(localerror,error)
+               localerror = abs(self % elements(eL) % geom % scal(i,j,facePosL) - f % geom % scal(i,j))
+               
+               error = max(localerror,error)
+            end do               ; end do
+         case default
+         end select
+         end associate
+      end do
+
+print*, "Jacobian error: ", error
+
+
+      end subroutine HexMesh_CheckGeometryConsistency
 !
 !///////////////////////////////////////////////////////////////////////
 !

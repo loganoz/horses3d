@@ -349,6 +349,12 @@ MODULE Read_SpecMesh
 !        ---------------------------
 !
          CALL DeletePeriodicMinusFaces( self )
+!
+!        ---------------------------
+!        Assign faces ID to elements
+!        ---------------------------
+!
+         CALL getElementsFaceIDs(self)
             
          CLOSE( fUnit )
 !

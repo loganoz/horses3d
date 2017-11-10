@@ -2,7 +2,7 @@ module SurfaceIntegrals
    use SMConstants
    use Physics
    use HexMeshClass
-   use ProlongToFacesProcedures
+   !use ProlongToFacesProcedures
    
    private
    public   SURFACE, TOTAL_FORCE, PRESSURE_FORCE, VISCOUS_FORCE, MASS_FLOW, FLOW
@@ -26,7 +26,7 @@ module SurfaceIntegrals
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      function ScalarSurfaceIntegral(mesh, zoneID, integralType) result(val)
+      function ScalarSurfaceIntegral(mesh, spA, zoneID, integralType) result(val)
 !
 !        -----------------------------------------------------------
 !           This function computes scalar integrals, that is, those
@@ -39,16 +39,17 @@ module SurfaceIntegrals
 !        -----------------------------------------------------------
 !
          implicit none
-         class(HexMesh),      intent(in)  :: mesh
-         integer,             intent(in)  :: zoneID
-         integer,             intent(in)  :: integralType
-         real(kind=RP)                    :: val
+         class(HexMesh),      intent(inout) :: mesh
+         class(NodalStorage), intent(in)    :: spA(0:)
+         integer,             intent(in)    :: zoneID
+         integer,             intent(in)    :: integralType
+         real(kind=RP)                      :: val
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: zonefID, fID, eID 
+         integer  :: zonefID, fID, eID, fIDs(6) 
 !
 !        Initialization
 !        --------------            
@@ -56,32 +57,46 @@ module SurfaceIntegrals
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
-!$omp parallel do reduction(+:val) private(fID,eID) schedule(guided)
+!$omp parallel do reduction(+:val) private(fIDs,fID,eID) schedule(guided)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces         
 !
 !           Face global ID
 !           --------------
             fID = mesh % zones(zoneID) % faces(zonefID)
 !
-!           Associated element (only boundary faces are expected)
-!           -----------------------------------------------------
+!           Update solution values
+!           ----------------------
             eID = mesh % faces(fID) % elementIDs(1)
+            associate(e => mesh % elements(eID), f => mesh % faces(fID))
+            fIDs = e % faceIDs
+            call e % ProlongSolutionToFaces(mesh % faces(fIDs(1)),&
+                                            mesh % faces(fIDs(2)),&
+                                            mesh % faces(fIDs(3)),&
+                                            mesh % faces(fIDs(4)),&
+                                            mesh % faces(fIDs(5)),&
+                                            mesh % faces(fIDs(6)) )
+            if ( flowIsNavierStokes ) then
+               call e % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+                                                mesh % faces(fIDs(2)),&
+                                                mesh % faces(fIDs(3)),&
+                                                mesh % faces(fIDs(4)),&
+                                                mesh % faces(fIDs(5)),&
+                                                mesh % faces(fIDs(6)) )
+            end if
 !
 !           Compute the integral
 !           --------------------
-            val = val + ScalarSurfaceIntegral_Face(mesh % elements(eID), &
-                                     mesh % faces(fID) % elementSide(1), &
-                                                           integralType    )
+            val = val + ScalarSurfaceIntegral_Face(f, integralType)
+            end associate
 
          end do
 !$omp end parallel do
 
       end function ScalarSurfaceIntegral
 
-      function ScalarSurfaceIntegral_Face(e, elSide, integralType) result(val)
+      function ScalarSurfaceIntegral_Face(f, integralType) result(val)
          implicit none
-         class(Element),      target, intent(in)     :: e
-         integer,                     intent(in)     :: elSide
+         class(Face),                 intent(in)     :: f
          integer,                     intent(in)     :: integralType
          real(kind=RP)                               :: val
 !
@@ -89,41 +104,8 @@ module SurfaceIntegrals
 !        Local variables
 !        ---------------
 !
-         integer     :: Nf(2)     ! Face polynomial order
-         integer     :: Nel(3)    ! Element polynomial order
          integer     :: i, j      ! Face indices
-         real(kind=RP), pointer  :: wx(:), wy(:)   ! Face quadrature weights
-         real(kind=RP), pointer  :: ds(:,:)
-         real(kind=RP), pointer  :: Qb(:)
-         real(kind=RP), pointer  :: n(:,:,:)
          real(kind=RP)           :: p
-
-         Nel = e % Nxyz
-         Nf  = e % Nxyz(axisMap(:,elSide))
-!
-!        Get the weights
-!        ---------------
-         select case ( elSide )
-            case(1,2)
-               wx => e % spAxi % w
-               wy => e % spAzeta % w
-            case(3,5)
-               wx => e % spAxi % w
-               wy => e % spAeta % w
-            case(4,6)
-               wx => e % spAeta % w
-               wy => e % spAzeta % w
-         end select
-!
-!        Get the surface Jacobian and normal vector
-!        ------------------------------------------
-         ds(0:,0:)   => e % geom % scal(:,:,elSide)
-         n(1:,0:,0:) => e % geom % normal(:,:,:,elSide)
-!
-!        Prolong variables to faces
-!        --------------------------            
-         call ProlongToFaces( e )
-         if (flowIsNavierStokes) call ProlongGradientToFaces(e)
 !
 !        Initialization
 !        --------------
@@ -131,8 +113,8 @@ module SurfaceIntegrals
 !
 !        Perform the numerical integration
 !        ---------------------------------
+         associate( Q => f % storage(1) % Q )
          select case ( integralType )
-   
          case ( SURFACE )
 !
 !           **********************************
@@ -140,8 +122,8 @@ module SurfaceIntegrals
 !              val = \int dS
 !           **********************************
 !
-            do j = 0, Nf(2) ;    do i = 0, Nf(1)
-               val = val + wx(i) * wy(j) * ds(i,j)
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+               val = val + f % spAxi % w(i) * f % spAeta % w(j) * f % geom % scal(i,j)
             end do          ;    end do
 
          case ( MASS_FLOW )
@@ -151,18 +133,14 @@ module SurfaceIntegrals
 !              I = \int rho \vec{v}·\vec{n}dS         
 !           ***********************************
 !
-            do j = 0, Nf(2) ;    do i = 0, Nf(1)
-!
-!              Get the state vector
-!              --------------------
-               Qb => e % storage % Qb(:,i,j,elSide)
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
 !              --------------------
-               val = val +  (   Qb(IRHOU) * n(1,i,j)  &
-                          + Qb(IRHOV) * n(2,i,j)  &
-                          + Qb(IRHOW) * n(3,i,j) ) &
-                       * wx(i) * wy(j) * ds(i,j)
+               val = val +  (Q(IRHOU,i,j) * f % geom % normal(1,i,j)  &
+                          + Q(IRHOV,i,j) * f % geom % normal(2,i,j)  &
+                          + Q(IRHOW,i,j) * f % geom % normal(3,i,j) ) &
+                       * f % spAxi % w(i) * f % spAeta % w(j) * f % geom % scal(i,j)
 
             end do          ;    end do
 
@@ -173,18 +151,14 @@ module SurfaceIntegrals
 !              val = \int \vec{v}·\vec{n}dS         
 !           ***********************************
 !
-            do j = 0, Nf(2) ;    do i = 0, Nf(1)
-!
-!              Get the state vector
-!              --------------------
-               Qb => e % storage % Qb(:,i,j,elSide)
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
 !              --------------------
-               val = val + (1.0_RP / Qb(IRHO))*(   Qb(IRHOU) * n(1,i,j)  &
-                                             + Qb(IRHOV) * n(2,i,j)  &
-                                             + Qb(IRHOW) * n(3,i,j) ) &
-                                          * wx(i) * wy(j) * ds(i,j) 
+               val = val + (1.0_RP / Q(IRHO,i,j))*(Q(IRHOU,i,j) * f % geom % normal(1,i,j)  &
+                                             + Q(IRHOV,i,j) * f % geom % normal(2,i,j)  &
+                                             + Q(IRHOW,i,j) * f % geom % normal(3,i,j) ) &
+                                          * f % spAxi % w(i) * f % spAeta % w(j) * f % geom % scal(i,j) 
             end do          ;    end do
 
          case ( PRESSURE_FORCE )
@@ -194,21 +168,18 @@ module SurfaceIntegrals
 !              val = \int pdS         
 !           ***********************************
 !
-            do j = 0, Nf(2) ;    do i = 0, Nf(1)
-!
-!              Get the state vector
-!              --------------------
-               Qb => e % storage % Qb(:,i,j,elSide)
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
 !              --------------------
-               p = Pressure(Qb)
-               val = val + p * wx(i) * wy(j) * ds(i,j) 
+               p = Pressure(Q(:,i,j))
+               val = val + p * f % spAxi % w(i) * f % spAeta % w(j) * f % geom % scal(i,j) 
             end do          ;    end do
 
 
          case ( USER_DEFINED )   ! TODO
          end select
+         end associate
 
       end function ScalarSurfaceIntegral_Face
 !
@@ -218,7 +189,7 @@ module SurfaceIntegrals
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      function VectorSurfaceIntegral(mesh, zoneID, integralType) result(val)
+      function VectorSurfaceIntegral(mesh, spA, zoneID, integralType) result(val)
 !
 !        -----------------------------------------------------------
 !           This function computes scalar integrals, that is, those
@@ -231,18 +202,19 @@ module SurfaceIntegrals
 !        -----------------------------------------------------------
 !
          implicit none
-         class(HexMesh),      intent(in)  :: mesh
-         integer,             intent(in)  :: zoneID
-         integer,             intent(in)  :: integralType
-         real(kind=RP)                    :: val(NDIM)
-         real(kind=RP)                    :: localVal(NDIM)
-         real(kind=RP)                    :: valx, valy, valz
+         class(HexMesh),      intent(inout) :: mesh
+         class(NodalStorage), intent(in)    :: spA(0:)
+         integer,             intent(in)    :: zoneID
+         integer,             intent(in)    :: integralType
+         real(kind=RP)                      :: val(NDIM)
+         real(kind=RP)                      :: localVal(NDIM)
+         real(kind=RP)                      :: valx, valy, valz
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: zonefID, fID, eID 
+         integer  :: zonefID, fID, eID, fIDs(6) 
 !
 !        Initialization
 !        --------------            
@@ -253,25 +225,40 @@ module SurfaceIntegrals
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
-!$omp parallel do reduction(+:valx,valy,valz) private(fID,eID,localVal) schedule(guided)
+!$omp parallel do reduction(+:valx,valy,valz) private(fIDs,fID,eID,localVal) schedule(guided)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces         
 !
 !           Face global ID
 !           --------------
             fID = mesh % zones(zoneID) % faces(zonefID)
 !
-!           Associated element (only boundary faces are expected)
-!           -----------------------------------------------------
+!           Update solution values
+!           ----------------------
             eID = mesh % faces(fID) % elementIDs(1)
+            associate(e => mesh % elements(eID), f => mesh % faces(fID))
+            fIDs = e % faceIDs
+            call e % ProlongSolutionToFaces(mesh % faces(fIDs(1)),&
+                                            mesh % faces(fIDs(2)),&
+                                            mesh % faces(fIDs(3)),&
+                                            mesh % faces(fIDs(4)),&
+                                            mesh % faces(fIDs(5)),&
+                                            mesh % faces(fIDs(6)) )
+            if ( flowIsNavierStokes ) then
+               call e % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+                                                mesh % faces(fIDs(2)),&
+                                                mesh % faces(fIDs(3)),&
+                                                mesh % faces(fIDs(4)),&
+                                                mesh % faces(fIDs(5)),&
+                                                mesh % faces(fIDs(6)) )
+            end if
 !
 !           Compute the integral
 !           --------------------
-            localVal = VectorSurfaceIntegral_Face(mesh % elements(eID), &
-                                     mesh % faces(fID) % elementSide(1), &
-                                                           integralType    )
+            localVal = VectorSurfaceIntegral_Face(mesh % faces(fID), integralType)
             valx = valx + localVal(1)
             valy = valy + localVal(2)
             valz = valz + localVal(3)
+            end associate
 
          end do
 !$omp end parallel do
@@ -280,10 +267,9 @@ module SurfaceIntegrals
 
       end function VectorSurfaceIntegral
 
-      function VectorSurfaceIntegral_Face(e, elSide, integralType) result(val)
+      function VectorSurfaceIntegral_Face(f, integralType) result(val)
          implicit none
-         class(Element),      target, intent(in)     :: e
-         integer,                     intent(in)     :: elSide
+         class(Face),                 intent(in)     :: f
          integer,                     intent(in)     :: integralType
          real(kind=RP)                               :: val(NDIM)
 !
@@ -291,42 +277,8 @@ module SurfaceIntegrals
 !        Local variables
 !        ---------------
 !
-         integer     :: Nf(2)     ! Face polynomial order
-         integer     :: Nel(3)    ! Element polynomial order
          integer     :: i, j      ! Face indices
-         real(kind=RP), pointer  :: wx(:), wy(:)   ! Face quadrature weights
-         real(kind=RP), pointer  :: ds(:,:)
-         real(kind=RP), pointer  :: Qb(:)
-         real(kind=RP), pointer  :: U_xb(:), U_yb(:), U_zb(:)
-         real(kind=RP), pointer  :: n(:,:,:)
          real(kind=RP)           :: p, tau(NDIM,NDIM)
-
-         Nel = e % Nxyz
-         Nf  = e % Nxyz(axisMap(:,elSide))
-!
-!        Get the weights
-!        ---------------
-         select case ( elSide )
-            case(1,2)
-               wx => e % spAxi % w
-               wy => e % spAzeta % w
-            case(3,5)
-               wx => e % spAxi % w
-               wy => e % spAeta % w
-            case(4,6)
-               wx => e % spAeta % w
-               wy => e % spAzeta % w
-         end select
-!
-!        Get the surface Jacobian and normal vector
-!        ------------------------------------------
-         ds(0:,0:) => e % geom % scal(:,:,elSide)
-         n(1:,0:,0:)  => e % geom % normal(:,:,:,elSide)
-!
-!        Prolong variables to faces
-!        --------------------------            
-         call ProlongToFaces( e )
-         if (flowIsNavierStokes) call ProlongGradientToFaces(e)
 !
 !        Initialization
 !        --------------
@@ -334,8 +286,11 @@ module SurfaceIntegrals
 !
 !        Perform the numerical integration
 !        ---------------------------------
+         associate( Q => f % storage(1) % Q, &
+                  U_x => f % storage(1) % U_x, &
+                  U_y => f % storage(1) % U_y, &
+                  U_z => f % storage(1) % U_z   ) 
          select case ( integralType )
-   
          case ( SURFACE )
 !
 !           **********************************
@@ -343,8 +298,9 @@ module SurfaceIntegrals
 !              val = \int \vec{n} dS
 !           **********************************
 !
-            do j = 0, Nf(2) ;    do i = 0, Nf(1)
-               val = val + wx(i) * wy(j) * ds(i,j) * n(:,i,j)
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+               val = val + f % spAxi % w(i) * f % spAeta % w(j) * f % geom % scal(i,j) &
+                         * f % geom % normal(:,i,j)
             end do          ;    end do
 
          case ( TOTAL_FORCE )
@@ -354,22 +310,15 @@ module SurfaceIntegrals
 !              F = \int p \vec{n}ds - \int tau'·\vec{n}ds 
 !           ************************************************
 !
-            do j = 0, Nf(2) ;    do i = 0, Nf(1)
-!
-!              Get the state vector
-!              --------------------
-               Qb => e % storage % Qb(:,i,j,elSide)
-               U_xb => e % storage % U_xb(:,i,j,elSide)
-               U_yb => e % storage % U_yb(:,i,j,elSide)
-               U_zb => e % storage % U_zb(:,i,j,elSide)
-               
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
 !              --------------------
-               p = Pressure(Qb)
-               tau = getStressTensor(Qb,U_xb,U_yb,U_zb)
+               p = Pressure(Q(:,i,j))
+               tau = getStressTensor(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j))
 
-               val = val + ( p * n(:,i,j) - matmul(tau,n(:,i,j)) ) * ds(i,j) * wx(i) * wx(j)
+               val = val + ( p * f % geom % normal(:,i,j) - matmul(tau,f % geom % normal(:,i,j)) ) &
+                           * f % geom % scal(i,j) * f % spAxi % w(i) * f % spAeta % w(j)
 
             end do          ;    end do
 
@@ -380,17 +329,14 @@ module SurfaceIntegrals
 !              F = \int p \vec{n}ds 
 !           ****************************************************
 !
-            do j = 0, Nf(2) ;    do i = 0, Nf(1)
-!
-!              Get the state vector
-!              --------------------
-               Qb => e % storage % Qb(:,i,j,elSide)
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
 !              --------------------
-               p = Pressure(Qb)
+               p = Pressure(Q(:,i,j))
 
-               val = val + ( p * n(:,i,j) ) * ds(i,j) * wx(i) * wx(j)
+               val = val + ( p * f % geom % normal(:,i,j) ) * f % geom % scal(i,j) &
+                         * f % spAxi % w(i) * f % spAeta % w(j)
 
             end do          ;    end do
 
@@ -401,26 +347,20 @@ module SurfaceIntegrals
 !              F = \int p \vec{n}ds - \int tau'·\vec{n}ds 
 !           ************************************************
 !
-            do j = 0, Nf(2) ;    do i = 0, Nf(1)
-!
-!              Get the state vector
-!              --------------------
-               Qb => e % storage % Qb(:,i,j,elSide)
-               U_xb => e % storage % U_xb(:,i,j,elSide)
-               U_yb => e % storage % U_yb(:,i,j,elSide)
-               U_zb => e % storage % U_zb(:,i,j,elSide)
-               
+            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 !
 !              Compute the integral
 !              --------------------
-               tau = getStressTensor(Qb,U_xb,U_yb,U_zb)
-               val = val - matmul(tau,n(:,i,j))  * ds(i,j) * wx(i) * wx(j)
+               tau = getStressTensor(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j))
+               val = val - matmul(tau,f % geom % normal(:,i,j)) * f % geom % scal(i,j) &
+                           * f % spAxi % w(i) * f % spAeta % w(j)
 
             end do          ;    end do
 
          case ( USER_DEFINED )   ! TODO
 
          end select
+         end associate
 
       end function VectorSurfaceIntegral_Face
 
