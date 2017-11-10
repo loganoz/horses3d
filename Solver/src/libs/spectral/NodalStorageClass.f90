@@ -43,6 +43,9 @@ MODULE NodalStorageClass
       contains
          procedure :: construct => ConstructNodalStorage
          procedure :: destruct  => DestructNodalStorage
+         procedure :: lj       => NodalStorage_getlj
+         procedure :: dlj      => NodalStorage_getdlj
+
    END TYPE NodalStorage
 !      
 !     ========
@@ -160,8 +163,36 @@ MODULE NodalStorageClass
       DEALLOCATE( this % b )
       safedeallocate( this % sharpD )    !  This matrices are just generated for Gauss-Lobatto discretizations.
 
-   END SUBROUTINE DestructNodalStorage
+      END SUBROUTINE DestructNodalStorage
 !
 !////////////////////////////////////////////////////////////////////////
 !
+      function NodalStorage_getlj(self, xi)
+         implicit none
+         class(NodalStorage), intent(in)  :: self
+         real(kind=RP),       intent(in)  :: xi
+         real(kind=RP)                    :: NodalStorage_getlj(0:self % N)
+
+         call InterpolatingPolynomialVector(xi , self % N , self % x , self % wb , NodalStorage_getlj)
+
+      end function NodalStorage_getlj
+
+      function NodalStorage_getdlj(self, xi)
+         implicit none
+         class(NodalStorage), intent(in)  :: self
+         real(kind=RP),       intent(in)  :: xi
+         real(kind=RP)                    :: NodalStorage_getdlj(0:self % N)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: i
+
+         do i = 0 , self % N
+            NodalStorage_getdlj(i) = EvaluateLagrangePolyDerivative( i, xi, self % N , self % x)
+         end do
+
+      end function NodalStorage_getdlj
+
 END Module NodalStorageClass

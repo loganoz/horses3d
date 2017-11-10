@@ -26,6 +26,7 @@
             IMPLICIT NONE
             CALL bcValueDictionary % initWithSize(8)
             CALL bcTypeDictionary  % initWithSize(8)
+            CALL zoneNameDictionary % initWithSize(8)
          END SUBROUTINE constructSharedBCModule
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -34,6 +35,7 @@
             IMPLICIT NONE
             CALL bcValueDictionary % destruct()
             CALL bcTypeDictionary  % destruct()
+            call zoneNameDictionary % destruct()
          END SUBROUTINE destructSharedBCModule
          
       END Module SharedBCModule
