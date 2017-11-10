@@ -949,10 +949,9 @@ MODULE HexMeshClass
 ! 
 !////////////////////////////////////////////////////////////////////////
 !
-      logical function HexMesh_FindPointWithCoords(self, spA, x, eID, xi, optionalElements)
+      logical function HexMesh_FindPointWithCoords(self, x, eID, xi, optionalElements)
          implicit none
          class(HexMesh), intent(in)         :: self
-         class(NodalStorage),    intent(in) :: spA(0:,0:,0:)
          real(kind=RP),    intent(in)       :: x(NDIM)
          integer,          intent(out)      :: eID
          real(kind=RP),    intent(out)      :: xi(NDIM)
@@ -971,7 +970,7 @@ MODULE HexMeshClass
             do op_eID = 1, size(optionalElements)
                if ( optionalElements(op_eID) .eq. -1 ) cycle
                associate(e => self % elements(optionalElements(op_eID)))
-               success = e % FindPointWithCoords(spA(e % Nxyz(1), e % Nxyz(2), e % Nxyz(3)), x, xi) 
+               success = e % FindPointWithCoords(x, xi) 
                if ( success ) then
                   eID = optionalElements(op_eID)
                   HexMesh_FindPointWithCoords = .true.
@@ -983,7 +982,7 @@ MODULE HexMeshClass
          
          do eID = 1, self % no_of_elements
             associate(e => self % elements(eID))
-            success = e % FindPointWithCoords(spA(e % Nxyz(1), e % Nxyz(2), e % Nxyz(3)), x, xi)
+            success = e % FindPointWithCoords(x, xi)
             if ( success ) then
                HexMesh_FindPointWithCoords = .true.
                return

@@ -74,12 +74,11 @@ module MonitorsClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-      function ConstructMonitors( mesh, spA, controlVariables ) result(Monitors)
+      function ConstructMonitors( mesh, controlVariables ) result(Monitors)
          use FTValueDictionaryClass
          use mainKeywordsModule
          implicit none
          class(HexMesh), intent(in)           :: mesh
-         class(NodalStorage), intent(in)      :: spA(0:,0:,0:)
          class(FTValueDictionary), intent(in) :: controlVariables
          type(Monitor_t)                      :: Monitors
 !
@@ -118,7 +117,7 @@ module MonitorsClass
 
          allocate ( Monitors % probes ( Monitors % no_of_probes )  )
          do i = 1 , Monitors % no_of_probes
-            call Monitors % probes(i) % Initialization ( mesh , spA, i, solution_file )
+            call Monitors % probes(i) % Initialization ( mesh , i, solution_file )
          end do
 
          allocate ( Monitors % surfaceMonitors ( Monitors % no_of_surfaceMonitors )  )

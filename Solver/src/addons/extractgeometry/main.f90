@@ -22,7 +22,7 @@ program ExtractGeometry
    implicit none
    character(len=LINE_LENGTH)      :: meshFile
    character(len=LINE_LENGTH)      :: solutionFile
-   type(NodalStorage), allocatable :: spA(:,:,:)
+   type(NodalStorage), allocatable :: spA(:)
    type(HexMesh)                   :: mesh
    type(FTValueDictionary)         :: controlVariables
    class(Geometry_t), pointer      :: geometry

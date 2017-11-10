@@ -43,12 +43,8 @@ MODULE NodalStorageClass
       contains
          procedure :: construct => ConstructNodalStorage
          procedure :: destruct  => DestructNodalStorage
-         procedure :: lxi       => NodalStorage_getlxi
-         procedure :: leta      => NodalStorage_getleta
-         procedure :: lzeta     => NodalStorage_getlzeta
-         procedure :: dlxi      => NodalStorage_getdlxi
-         procedure :: dleta     => NodalStorage_getdleta
-         procedure :: dlzeta    => NodalStorage_getdlzeta
+         procedure :: lj       => NodalStorage_getlj
+         procedure :: dlj      => NodalStorage_getdlj
 
    END TYPE NodalStorage
 !      
@@ -171,41 +167,21 @@ MODULE NodalStorageClass
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      function NodalStorage_getlxi(self, xi)
+      function NodalStorage_getlj(self, xi)
          implicit none
          class(NodalStorage), intent(in)  :: self
          real(kind=RP),       intent(in)  :: xi
-         real(kind=RP)                    :: NodalStorage_getlxi(0:self % Nx)
+         real(kind=RP)                    :: NodalStorage_getlj(0:self % N)
 
-         call InterpolatingPolynomialVector(xi , self % Nx , self % xi , self % wbx , NodalStorage_getlxi)
+         call InterpolatingPolynomialVector(xi , self % N , self % x , self % wb , NodalStorage_getlj)
 
-      end function NodalStorage_getlxi
+      end function NodalStorage_getlj
 
-      function NodalStorage_getleta(self, eta)
-         implicit none
-         class(NodalStorage), intent(in)  :: self
-         real(kind=RP),       intent(in)  :: eta
-         real(kind=RP)                    :: NodalStorage_getleta(0:self % Ny)
-
-         call InterpolatingPolynomialVector(eta , self % Ny , self % eta , self % wby , NodalStorage_getleta)
-
-      end function NodalStorage_getleta
-
-      function NodalStorage_getlzeta(self, zeta)
-         implicit none
-         class(NodalStorage), intent(in)  :: self
-         real(kind=RP),       intent(in)  :: zeta
-         real(kind=RP)                    :: NodalStorage_getlzeta(0:self % Nz)
-
-         call InterpolatingPolynomialVector(zeta , self % Nz , self % zeta , self % wbz , NodalStorage_getlzeta)
-
-      end function NodalStorage_getlzeta
-
-      function NodalStorage_getdlxi(self, xi)
+      function NodalStorage_getdlj(self, xi)
          implicit none
          class(NodalStorage), intent(in)  :: self
          real(kind=RP),       intent(in)  :: xi
-         real(kind=RP)                    :: NodalStorage_getdlxi(0:self % Nx)
+         real(kind=RP)                    :: NodalStorage_getdlj(0:self % N)
 !
 !        ---------------
 !        Local variables
@@ -213,46 +189,10 @@ MODULE NodalStorageClass
 !
          integer  :: i
 
-         do i = 0 , self % Nx
-            NodalStorage_getdlxi(i) = EvaluateLagrangePolyDerivative( i, xi, self % Nx , self % xi)
+         do i = 0 , self % N
+            NodalStorage_getdlj(i) = EvaluateLagrangePolyDerivative( i, xi, self % N , self % x)
          end do
 
-      end function NodalStorage_getdlxi
-
-      function NodalStorage_getdleta(self, eta)
-         implicit none
-         class(NodalStorage), intent(in)  :: self
-         real(kind=RP),       intent(in)  :: eta
-         real(kind=RP)                    :: NodalStorage_getdleta(0:self % Ny)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer  :: i
-
-         do i = 0 , self % Ny
-            NodalStorage_getdleta(i) = EvaluateLagrangePolyDerivative( i, eta, self % Ny , self % eta)
-         end do
-
-      end function NodalStorage_getdleta
-
-      function NodalStorage_getdlzeta(self, zeta)
-         implicit none
-         class(NodalStorage), intent(in)  :: self
-         real(kind=RP),       intent(in)  :: zeta
-         real(kind=RP)                    :: NodalStorage_getdlzeta(0:self % Nz)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer  :: i
-
-         do i = 0 , self % Nz
-            NodalStorage_getdlzeta(i) = EvaluateLagrangePolyDerivative( i, zeta, self % Nz , self % zeta)
-         end do
-
-      end function NodalStorage_getdlzeta
+      end function NodalStorage_getdlj
 
 END Module NodalStorageClass

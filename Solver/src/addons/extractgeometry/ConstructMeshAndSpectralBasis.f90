@@ -23,11 +23,12 @@ module ConstructMeshAndSpectralBasis_MOD
 
    contains
       subroutine ConstructMeshAndSpectralBasis(meshFile, solutionFile, mesh, spA)
+         use ReadMeshFile
          implicit none
          character(len=*),                intent(in)  :: meshFile
          character(len=*),                intent(in)  :: solutionFile
          type(HexMesh),                   intent(out) :: mesh  
-         type(NodalStorage), allocatable, intent(out) :: spA(:,:,:) 
+         type(NodalStorage), allocatable, intent(out) :: spA(:) 
          integer                       :: no_of_elements
          integer                       :: nodeType, fileType, fid, dims(4)
          integer                       :: eID, iter
@@ -65,11 +66,19 @@ module ConstructMeshAndSpectralBasis_MOD
 !        Allocate nodal storage      
 !        ----------------------
 !      
-         allocate( spA(0:maxval(Nx), 0:maxval(Ny), 0:maxval(Nz)))
+         allocate( spA(0:max(maxval(Nx), maxval(Ny), maxval(Nz))))
       
          do eID = 1, no_of_elements
-            if( .not. spA(Nx(eID),Ny(eID),Nz(eID)) % Constructed) then
-               call spA(Nx(eID),Ny(eID),Nz(eID)) % Construct(nodeType, Nx(eID), Ny(eID), Nz(eID))
+            if( .not. spA(Nx(eID)) % Constructed) then   
+               call spA(Nx(eID)) % Construct(nodeType, Nx(eID))
+            end if
+
+            if( .not. spA(Ny(eID)) % Constructed) then   
+               call spA(Ny(eID)) % Construct(nodeType, Ny(eID))
+            end if
+
+            if( .not. spA(Nz(eID)) % Constructed) then   
+               call spA(Nz(eID)) % Construct(nodeType, Nz(eID))
             end if
          end do
 !
@@ -83,7 +92,7 @@ module ConstructMeshAndSpectralBasis_MOD
 !        Construct mesh
 !        --------------
 !      
-         call mesh % ConstructFromFile( trim(meshFile), nodeType, spA, Nx, Ny, Nz, success)
+         CALL constructMeshFromFile(mesh, trim(meshfile), nodeType, spA, Nx, Ny, Nz, .true. , success )
 !
 !     ------------------------
 !     Allocate and zero memory

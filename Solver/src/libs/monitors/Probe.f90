@@ -33,11 +33,10 @@ module ProbeClass
 
    contains
 
-      subroutine Probe_Initialization(self, mesh, spA, ID, solution_file)
+      subroutine Probe_Initialization(self, mesh, ID, solution_file)
          use ParamfileRegions
          implicit none
          class(Probe_t)          :: self
-         class(NodalStorage)     :: spA(0:,0:,0:)
          class(HexMesh)          :: mesh
          integer                 :: ID
          character(len=*)        :: solution_file
@@ -108,7 +107,7 @@ module ProbeClass
 !
 !        Find the requested point in the mesh
 !        ------------------------------------
-         self % active = mesh % FindPointWithCoords(spA, x, self % eID, self % xi)
+         self % active = mesh % FindPointWithCoords(x, self % eID, self % xi)
 
          if ( .not. self % active ) then
             write(STD_OUT,'(A,I0,A)') "Probe ", ID, " was not successfully initialized."
@@ -122,9 +121,9 @@ module ProbeClass
          allocate( self % lxi(0 : e % Nxyz(1)) )
          allocate( self % leta(0 : e % Nxyz(2)) )
          allocate( self % lzeta(0 : e % Nxyz(3)) )
-         self % lxi = spA(e % Nxyz(1),e % Nxyz(2),e % Nxyz(3)) % lxi(self % xi(1))
-         self % leta = spA(e % Nxyz(1),e % Nxyz(2),e % Nxyz(3)) % leta(self % xi(2))
-         self % lzeta = spA(e % Nxyz(1),e % Nxyz(2),e % Nxyz(3)) % lzeta(self % xi(3))
+         self % lxi = e % spAxi % lj(self % xi(1))
+         self % leta = e % spAeta % lj(self % xi(2))
+         self % lzeta = e % spAzeta % lj(self % xi(3))
 !
 !        Recover the coordinates from direct projection. These will be the real coordinates
 !        ----------------------------------------------

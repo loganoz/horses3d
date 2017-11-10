@@ -194,7 +194,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      logical function HexElement_FindPointWithCoords(self, spA, x, xi)
+      logical function HexElement_FindPointWithCoords(self, x, xi)
 !
 !        *************************+********************************
 !          
@@ -207,7 +207,6 @@
 !
          implicit none
          class(Element),      intent(in)  :: self
-         class(NodalStorage), intent(in)  :: spA
          real(kind=RP),       intent(in)  :: x(NDIM)
          real(kind=RP),       intent(out) :: xi(NDIM)
 !
@@ -252,12 +251,12 @@
 !
 !           Get Lagrange polynomials and derivatives
 !           ----------------------------------------
-            lxi     = spA % lxi   (xi(1))
-            leta    = spA % leta  (xi(2))
-            lzeta   = spA % lzeta (xi(3))
+            lxi     = self %spAxi % lj   (xi(1))
+            leta    = self %spAeta % lj  (xi(2))
+            lzeta   = self %spAzeta % lj (xi(3))
   
             F = 0.0_RP
-            do k = 0, spA % Nz   ; do j = 0, spA % Ny ; do i = 0, spA % Nx
+            do k = 0, self %spAzeta % N   ; do j = 0, self %spAeta % N ; do i = 0, self %spAxi % N
                F = F + self % geom % x(:,i,j,k) * lxi(i) * leta(j) * lzeta(k)
             end do               ; end do             ; end do
    
@@ -272,12 +271,12 @@
 !
 !           Perform a step
 !           --------------
-            dlxi    = spA % dlxi  (xi(1))
-            dleta   = spA % dleta (xi(2))
-            dlzeta  = spA % dlzeta(xi(3))
+            dlxi    = self %spAxi % dlj  (xi(1))
+            dleta   = self %spAeta % dlj (xi(2))
+            dlzeta  = self %spAzeta % dlj(xi(3))
 
             Jac = 0.0_RP
-            do k = 0, spA % Nz   ; do j = 0, spA % Ny ; do i = 0, spA % Nx
+            do k = 0, self %spAzeta % N   ; do j = 0, self %spAeta % N ; do i = 0, self %spAxi % N
                Jac(:,1) = Jac(:,1) + self % geom % x(:,i,j,k) * dlxi(i) * leta(j) * lzeta(k) 
                Jac(:,2) = Jac(:,2) + self % geom % x(:,i,j,k) * lxi(i) * dleta(j) * lzeta(k) 
                Jac(:,3) = Jac(:,3) + self % geom % x(:,i,j,k) * lxi(i) * leta(j) * dlzeta(k) 
@@ -306,10 +305,9 @@
 
       end function HexElement_FindPointWithCoords
 
-      function HexElement_EvaluateSolutionAtPoint(self, spA, xi)
+      function HexElement_EvaluateSolutionAtPoint(self, xi)
          implicit none
          class(Element),   intent(in)    :: self
-         class(NodalStorage), intent(in) :: spA
          real(kind=RP),    intent(in)    :: xi(NDIM)
          real(kind=RP)                   :: HexElement_EvaluateSolutionAtPoint(NCONS)
 !
@@ -318,22 +316,22 @@
 !        ---------------
 !
          integer        :: i, j, k
-         real(kind=RP)  :: lxi(0:spA % Nx)
-         real(kind=RP)  :: leta(0:spA % Ny)
-         real(kind=RP)  :: lzeta(0:spA % Nz)
+         real(kind=RP)  :: lxi(0:self % Nxyz(1))
+         real(kind=RP)  :: leta(0:self % Nxyz(2))
+         real(kind=RP)  :: lzeta(0:self % Nxyz(3))
          real(kind=RP)  :: Q(NCONS)
 !
 !        Compute Lagrange basis
 !        ----------------------
-         lxi   = spA % lxi(xi(1))
-         leta  = spA % leta(xi(2))
-         lzeta = spA % lzeta(xi(3))
+         lxi   = self %spAxi % lj(xi(1))
+         leta  = self %spAeta % lj(xi(2))
+         lzeta = self %spAzeta % lj(xi(3))
 !
 !        Compute the tensor product
 !        --------------------------
          Q = 0.0_RP
       
-         do k = 0, spA % Nz   ; do j = 0, spA % Ny ; do i = 0, spA % Nx
+         do k = 0, self % spAzeta % N   ; do j = 0, self % spAeta % N ; do i = 0, self % spAxi % N
             Q = Q + self % storage % Q(:,i,j,k) * lxi(i) * leta(j) * lzeta(k)
          end do               ; end do             ; end do   
 

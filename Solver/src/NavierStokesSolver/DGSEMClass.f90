@@ -272,7 +272,7 @@ Module DGSEMClass
 !     Build the monitors
 !     ------------------
 !
-      self % monitors = ConstructMonitors(self % mesh, self % spA, controlVariables)
+      self % monitors = ConstructMonitors(self % mesh, controlVariables)
 !
 !     -----------------------------------------
 !     Initialize Spatial discretization methods
