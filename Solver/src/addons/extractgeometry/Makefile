@@ -80,7 +80,7 @@ mkdirs: FORCE
 header: FORCE
 	@echo
 	@echo "================================"
-	@echo ">>   Building turbulentspectra  "
+	@echo ">>   Building horses.geometry  "
 	@echo "================================"
 	@echo
 	@echo
