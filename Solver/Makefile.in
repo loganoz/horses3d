@@ -143,10 +143,11 @@ endif
 HORSES_LIBS=ftobject foundation spectral io physics mesh plot jacobian monitors
 HORSES_LIBS_REORD=monitors jacobian plot mesh physics io spectral foundation ftobject
 HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS_REORD),$(HOME_DIR)/lib/lib$(obj).a)
-ADDONS=horses2tecplot
+ADDONS=horses2tecplot extractgeometry
 INCLUDE += $(EXTLIB_INC)
 HORSESFLAGS += $(MACROS)
 ADDONSFLAGS += $(MACROS)
+
 LIBFLAGS=  FC='$(FC)' \
 	   FFLAGS='$(FFLAGS)' \
 	   INCLUDE='$(INCLUDE)' \
@@ -192,6 +193,7 @@ all: header mkdirs horseslibs problemfilelib HORSES3D addons
 install: FORCE
 	cp -f $(HOME_DIR)/bin/HORSES3D /usr/local/bin
 	cp -f $(HOME_DIR)/bin/horses2plt /usr/local/bin
+	cp -f $(HOME_DIR)/bin/horses.geometry /usr/local/bin
 	cp -f $(HOME_DIR)/lib/libproblemfile.so /usr/local/lib
 
 

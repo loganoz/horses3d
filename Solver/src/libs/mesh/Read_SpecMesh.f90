@@ -1,63 +1,4 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      HexMesh.f95
-!      Created: 2007-03-22 17:05:00 -0400 
-!      By: David Kopriva  
-!
-!
-!////////////////////////////////////////////////////////////////////////
-!
-#include "Includes.h"
-MODULE Read_SpecMesh
-      use HexMeshClass
-      use SMConstants
-      USE TransfiniteMapClass
-      use FacePatchClass
-      IMPLICIT NONE
-!
-!     ========
-      CONTAINS
-!     ========
-!
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!!    Constructs mesh from mesh file
-!!    Only valid for conforming meshes
-      SUBROUTINE ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, spA, Nx, Ny, Nz, success )
-         USE Physics
-         IMPLICIT NONE
-!
-!        ---------------
-!        Input variables
-!        ---------------
-!
-         CLASS(HexMesh)     :: self
-         integer            :: nodes
-         TYPE(NodalStorage) :: spA(0:)
-         CHARACTER(LEN=*)   :: fileName
-         INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
-         LOGICAL            :: success
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         TYPE(TransfiniteHexMap), POINTER :: hexMap, hex8Map, genHexMap
-         
-         INTEGER                         :: numberOfElements
-         INTEGER                         :: numberOfNodes
-         INTEGER                         :: numberOfBoundaryFaces
-         INTEGER                         :: numberOfFaces
-         
-         INTEGER                         :: bFaceOrder, numBFacePoints
-         INTEGER                         :: i, j, k, l
-         INTEGER                         :: fUnit, fileStat
-         INTEGER                         :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
-         REAL(KIND=RP)                   :: x(NDIM)
-         INTEGER                         :: faceFlags(FACES_PER_ELEMENT)
-         CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
+RACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
          TYPE(FacePatch), DIMENSION(6)   :: facePatches
          REAL(KIND=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
          INTEGER, EXTERNAL               :: UnusedUnit
@@ -291,7 +232,12 @@ MODULE Read_SpecMesh
             CALL SetElementBoundaryNames( self % elements(l), names )
             
             DO k = 1, 6
-               IF(TRIM(names(k)) /= emptyBCName) numberOfBoundaryFaces = numberOfBoundaryFaces + 1
+               IF(TRIM(names(k)) /= emptyBCName) then
+                  numberOfBoundaryFaces = numberOfBoundaryFaces + 1
+                  if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                     call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
+                  end if
+               end if
             END DO  
             
 !

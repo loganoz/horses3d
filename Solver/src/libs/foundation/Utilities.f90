@@ -84,6 +84,59 @@
 !
 ! /////////////////////////////////////////////////////////////////////
 !
+      function SolveThreeEquationLinearSystem(A,b)
+         use SMConstants
+         implicit none
+         real(kind=RP), intent(in)  :: A(3,3)
+         real(kind=RP), intent(in)  :: b(3)
+         real(kind=RP)     :: SolveThreeEquationLinearSystem(3)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)  :: detA
+         real(kind=RP)  :: r1, r2, r3
+
+         detA =   A(1,1) * A(2,2) * A(3,3) &
+                + A(2,1) * A(3,2) * A(1,3) &
+                + A(1,2) * A(2,3) * A(3,1) &
+                - A(2,2) * A(1,3) * A(3,1) &
+                - A(1,1) * A(2,3) * A(3,2) &
+                - A(3,3) * A(1,2) * A(2,1)
+
+         r1   =   b(1) * A(2,2) * A(3,3) &
+                + b(2) * A(3,2) * A(1,3) &
+                + A(1,2) * A(2,3) * b(3) &
+                - A(2,2) * A(1,3) * b(3) &
+                - b(1) * A(2,3) * A(3,2) &
+                - A(3,3) * A(1,2) * b(2)
+
+         r2   =   A(1,1) * b(2) * A(3,3) &
+                + A(2,1) * b(3) * A(1,3) &
+                + b(1) * A(2,3) * A(3,1) &
+                - b(2) * A(1,3) * A(3,1) &
+                - A(1,1) * A(2,3) * b(3) &
+                - A(3,3) * b(1) * A(2,1)
+
+         r3   =   A(1,1) * A(2,2) * b(3) &
+                + A(2,1) * A(3,2) * b(1) &
+                + A(1,2) * b(2) * A(3,1) &
+                - A(2,2) * b(1) * A(3,1) &
+                - A(1,1) * b(2) * A(3,2) &
+                - b(3) * A(1,2) * A(2,1)
+
+         detA = 1.0_RP / detA
+
+         SolveThreeEquationLinearSystem(1) = r1 * detA
+         SolveThreeEquationLinearSystem(2) = r2 * detA
+         SolveThreeEquationLinearSystem(3) = r3 * detA
+
+
+      end function SolveThreeEquationLinearSystem
+!
+! /////////////////////////////////////////////////////////////////////
+!
    subroutine toLower(str)
 !
 !  ----------------
