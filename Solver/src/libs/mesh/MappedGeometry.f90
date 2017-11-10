@@ -55,6 +55,8 @@ Module MappedGeometryClass
             procedure :: destruct  => DestructMappedGeometryFace
       end type MappedGeometryFace
       
+      LOGICAL       :: useCrossProductMetrics = .FALSE. ! A switch for debugging purposes. Cross product metrics are fine (and more precise) for 2D geometries... But not for 3D.
+                                                        ! Before changing, read: Kopriva, David A. "Metric identities and the discontinuous spectral element method on curvilinear meshes." Journal of Scientific Computing 26.3 (2006): 301-327.
 !
 !  ========
    CONTAINS 
@@ -83,7 +85,6 @@ Module MappedGeometryClass
       INTEGER       :: i, j, k
       REAL(KIND=RP) :: nrm
       REAL(KIND=RP) :: grad_x(3,3), jGrad(3)
-      LOGICAL       :: useCrossProductMetrics = .false. ! A switch for debugging purposes
 !
 !     -----------
 !     Allocations
@@ -269,7 +270,6 @@ Module MappedGeometryClass
 !
 !  -----------------------------------------------------------------------------------
 !  Computation of the metric terms on a face
-!  -> Currently done only with the conservative (curl) form. This is the general case. 
 !  -----------------------------------------------------------------------------------
    subroutine ConstructMappedGeometryFace(self,N,eLgeom,eLSide, spA, hexMap)
       use PolynomialInterpAndDerivsModule
@@ -361,56 +361,76 @@ Module MappedGeometryClass
          call MMMultiply2D2(etaDerMat,N,xb(DIMi,0:,0:),grad_x(0:,0:,DIMi,2))
       end do
       
-!
-!     Compute the metric terms
-!     ------------------------
-!
-!     First term:
-      
-      DO DIMi = 1, 3
-         DO j = 0, N(2)
-            DO i = 0, N(1)
-               tArray(i,j) = xb(iCycle(DIMi-1),i,j) * grad_x(i,j,iCycle(DIMi+1),1)
-            END DO
-         END DO
-         CALL MMMultiply2D2( etaDerMat, N, tArray, dArray )
-         jGrad(DIMi,0:,0:) = dArray
-      END DO
-!
-!     Second term:
-      
-      DO DIMi = 1,3
-         DO j = 0, N(2)
-            DO i = 0, N(1)
-               tArray(i,j) = xb(iCycle(DIMi-1),i,j)*grad_x(i,j,iCycle(DIMi+1),2)
-            END DO
-         END DO
-         CALL MMMultiply2D1( xiDerMat , N, tArray, dArray )
-         jGrad(DIMi,0:,0:) = jGrad(DIMi,0:,0:) - dArray
-      END DO
-
-!!//////////////////////////////////////////////////
-!!    TODO: Interpolate back to Gauss points on face
-!!//////////////////////////////////////////////////
-
-!
-!     Get the normal vector and the scaling term
-!     ------------------------------------------
-      
-      do j = 0, N(2)
-         do i = 0, N(1)
-            nrm = NORM2( jGrad(:,i,j) )
-            self % normal(:,i,j) = jGrad(:,i,j)/nrm
-            self % scal    (i,j) = nrm 
+      IF (useCrossProductMetrics .OR. isHex8(hexMap)) THEN 
+         
+         do j = 0, N(2)
+            do i = 0, N(1)
+               CALL vCross(grad_x(i,j,:,1), grad_x(i,j,:,2), jGrad(:,i,j))
+               nrm = NORM2(jGrad(:,i,j))
+               self % normal(:,i,j) = jGrad(:,i,j)/nrm
+               self % scal(i,j)     = nrm
+            end do
          end do
-      end do
-      
+         
 !
-!     Flip normal direction according to side position AND order of operations (first and second term)
-!     ------------------------------------------------------------------------------------------------
-      
-      if (eLSide == ELEFT .or. eLSide == EBOTTOM .or. eLSide == EBACK) self % normal = -self % normal
-      
+!        Flip normal direction according to side position AND cross product anticommutativity
+!        ------------------------------------------------------------------------------------
+         
+         if (eLSide == ELEFT .or. eLSide == EBOTTOM .or. eLSide == EBACK) self % normal = -self % normal
+         
+      else
+!
+!        Compute the metric terms
+!        ------------------------
+!
+!        First term:
+         
+         DO DIMi = 1, 3
+            DO j = 0, N(2)
+               DO i = 0, N(1)
+                  tArray(i,j) = xb(iCycle(DIMi-1),i,j) * grad_x(i,j,iCycle(DIMi+1),1)
+               END DO
+            END DO
+            CALL MMMultiply2D2( etaDerMat, N, tArray, dArray )
+            jGrad(DIMi,0:,0:) = dArray
+         END DO
+!
+!        Second term:
+         
+         DO DIMi = 1,3
+            DO j = 0, N(2)
+               DO i = 0, N(1)
+                  tArray(i,j) = xb(iCycle(DIMi-1),i,j)*grad_x(i,j,iCycle(DIMi+1),2)
+               END DO
+            END DO
+            CALL MMMultiply2D1( xiDerMat , N, tArray, dArray )
+            jGrad(DIMi,0:,0:) = jGrad(DIMi,0:,0:) - dArray
+         END DO
+
+   !!//////////////////////////////////////////////////
+   !!    TODO: Interpolate back to Gauss points on face
+   !!//////////////////////////////////////////////////
+
+   !
+   !     Get the normal vector and the scaling term
+   !     ------------------------------------------
+         
+         do j = 0, N(2)
+            do i = 0, N(1)
+               nrm = NORM2( jGrad(:,i,j) )
+               self % normal(:,i,j) = jGrad(:,i,j)/nrm
+               self % scal    (i,j) = nrm 
+            end do
+         end do
+         
+!
+!        Flip normal direction according to side position AND order of operations (first and second term)
+!        ------------------------------------------------------------------------------------------------
+         
+         if (eLSide == ELEFT .or. eLSide == EBOTTOM .or. eLSide == EBACK) self % normal = -self % normal
+         
+         
+      end if
    end subroutine ConstructMappedGeometryFace
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -904,7 +924,7 @@ Module MappedGeometryClass
             END DO   
          END DO  
 
-      END SUBROUTINE computeMetricTermsCrossProductForm      
+      END SUBROUTINE computeMetricTermsCrossProductForm
 !
 !///////////////////////////////////////////////////////////////////////
 !

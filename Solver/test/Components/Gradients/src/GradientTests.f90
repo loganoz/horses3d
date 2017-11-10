@@ -68,35 +68,35 @@
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(1,:,:,:)+1.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-9_RP,            &
+                             tol = 1.e-6_RP,            &
                              msg = msg)
                              
           WRITE(msg,'(A,I3)') "Gradient of F = y on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(2,:,:,:)+1.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-9_RP,            &
+                             tol = 1.e-6_RP,            &
                              msg = msg)
                              
           WRITE(msg,'(A,I3)') "Gradient of F = z on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(3,:,:,:)+1.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-9_RP,            &
+                             tol = 1.e-6_RP,            &
                              msg = msg)
                              
           WRITE(msg,'(A,I3)') "Gradient of F = const on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(4,:,:,:)))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-9_RP,            &
+                             tol = 1.e-6_RP,            &
                              msg = msg)
                              
           WRITE(msg,'(A,I3)') "Gradient of F = x + y + z on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(5,:,:,:)+3.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-9_RP,            &
+                             tol = 1.e-6_RP,            &
                              msg = msg)
           
       END DO 
@@ -169,35 +169,35 @@
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(1,:,:,:)+1.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-9_RP,         &
+                             tol = 1.e-6_RP,         &
                              msg = msg)
                              
           WRITE(msg,'(A,I3)') "Gradient of F = y on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(2,:,:,:)+1.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-9_RP,         &
+                             tol = 1.e-6_RP,         &
                              msg = msg)
                              
           WRITE(msg,'(A,I3)') "Gradient of F = z on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(3,:,:,:)+1.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-9_RP,         &
+                             tol = 1.e-6_RP,         &
                              msg = msg)
                              
           WRITE(msg,'(A,I3)') "Gradient of F = const on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(4,:,:,:)))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-9_RP,         &
+                             tol = 1.e-6_RP,         &
                              msg = msg)
                              
           WRITE(msg,'(A,I3)') "Gradient of F = x + y + z on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(5,:,:,:)+3.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-9_RP,         &
+                             tol = 1.e-6_RP,         &
                              msg = msg)
           
       END DO 
