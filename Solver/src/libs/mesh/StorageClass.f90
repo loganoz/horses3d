@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Fri Nov 17 17:06:56 2017
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 1d9aabda0f9afc37effa581bd01b46dcacacd9ae
 !
 !//////////////////////////////////////////////////////
 !
@@ -16,7 +16,7 @@ module StorageClass
    implicit none
 
    private
-   public   Storage_t
+   public   Storage_t, FaceStorage_t
 
    type Statistics_t
       real(kind=RP), dimension(:,:,:,:),  allocatable    :: data
@@ -26,11 +26,6 @@ module StorageClass
    end type Statistics_t
 
    type Storage_t
-      integer                                            :: N(3)
-      integer                                            :: nEqn, nGradEqn
-!
-!     Element storage
-!     ---------------
       real(kind=RP), dimension(:,:,:,:),  allocatable    :: Q
       real(kind=RP), dimension(:,:,:,:),  allocatable    :: QDot
       real(kind=RP), dimension(:,:,:,:),  allocatable    :: G
@@ -38,21 +33,22 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),  allocatable    :: U_x
       real(kind=RP), dimension(:,:,:,:),  allocatable    :: U_y
       real(kind=RP), dimension(:,:,:,:),  allocatable    :: U_z
-!
-!     Face storage
-!     ------------
-      real(kind=RP), dimension(:,:,:,:), allocatable    :: Qb, Ub
-      real(kind=RP), dimension(:,:,:,:), allocatable    :: U_xb, U_yb, U_zb
-      real(kind=RP), dimension(:,:,:,:), allocatable    :: FStarb
-!
-!     Statistics
-!     ----------
       type(Statistics_t)                               :: stats
       contains
          procedure   :: Construct => Storage_Construct
          procedure   :: Destruct  => Storage_Destruct
       
    end type Storage_t
+
+   type FaceStorage_t
+      real(kind=RP), dimension(:,:,:), allocatable  :: Q
+      real(kind=RP), dimension(:,:,:), allocatable  :: U_x, U_y, U_z
+      real(kind=RP), dimension(:,:,:), allocatable  :: FStar
+      real(kind=RP), dimension(:,:,:,:), allocatable  :: unStar
+      contains
+         procedure   :: Construct => FaceStorage_Construct
+         procedure   :: Destruct => FaceStorage_Destruct
+   end type FaceStorage_t
 !
 !  ========
    contains
@@ -82,10 +78,6 @@ module StorageClass
 !        Get dimensions         
 !        --------------
 !
-         self % N = (/Nx, Ny, Nz/)
-         self % nEqn = nEqn
-         self % nGradEqn = nGradEqn
-!
 !        ----------------
 !        Volume variables
 !        ----------------
@@ -100,23 +92,7 @@ module StorageClass
             ALLOCATE( self % U_y(nGradEqn,0:Nx,0:Ny,0:Nz) )
             ALLOCATE( self % U_z(nGradEqn,0:Nx,0:Ny,0:Nz) )
          END IF
-!
-!        ---------------
-!        Boundary values
-!        ---------------
-!
-         ! Temporarily allocating with maximum (TODO: this is not very efficient and has to be changed) DGBoundaryStorage TYPE!!
-         Nmax = MAX(Nx,Ny,Nz)
-         ALLOCATE( self % Qb    (nEqn,0:Nmax,0:Nmax,6) )
-         ALLOCATE( self % FStarb(nEqn,0:Nmax,0:Nmax,6) )
-         
-         IF ( flowIsNavierStokes )     THEN
-            ALLOCATE( self % U_xb(nGradEqn,0:Nmax,0:Nmax,6) )
-            ALLOCATE( self % U_yb(nGradEqn,0:Nmax,0:Nmax,6) )
-            ALLOCATE( self % U_zb(nGradEqn,0:Nmax,0:Nmax,6) )
-            ALLOCATE( self % Ub  (nGradEqn,0:Nmax,0:Nmax,6) )
-         END IF
-!
+!         
 !        -----------------
 !        Initialize memory
 !        -----------------
@@ -125,17 +101,11 @@ module StorageClass
          self % S           = 0.0_RP
          self % Q           = 0.0_RP
          self % QDot        = 0.0_RP
-         self % Qb          = 0.0_RP
-         self % FStarb      = 0.0_RP
       
          IF ( flowIsNavierStokes )     THEN
-            self % Ub          = 0.0_RP
             self % U_x         = 0.0_RP
             self % U_y         = 0.0_RP
             self % U_z         = 0.0_RP
-            self % U_xb        = 0.0_RP
-            self % U_yb        = 0.0_RP
-            self % U_zb        = 0.0_RP
          END IF
 
       end subroutine Storage_Construct
@@ -144,10 +114,6 @@ module StorageClass
          implicit none
          class(Storage_t)     :: self
    
-         self % N = 0
-         self % nEqn = 0
-         self % nGradEqn = 0
-         
          safedeallocate(self % Q)
          safedeallocate(self % QDot)
          safedeallocate(self % G)
@@ -155,16 +121,73 @@ module StorageClass
          safedeallocate(self % U_x)
          safedeallocate(self % U_y)
          safedeallocate(self % U_z)
-         safedeallocate(self % Qb)
-         safedeallocate(self % Ub)
-         safedeallocate(self % U_xb)
-         safedeallocate(self % U_yb)
-         safedeallocate(self % U_zb)
-         safedeallocate(self % FStarb)
 
          call self % stats % Destruct()
 
       end subroutine Storage_Destruct
+!
+!////////////////////////////////////////////////////////////////////////////////////////////
+!
+!        Face storage procedures
+!        -----------------------
+!
+!////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine FaceStorage_Construct(self, NDIM, Nf, Nel, nEqn, nGradEqn, flowIsNavierStokes)
+         implicit none
+         class(FaceStorage_t)     :: self
+         integer, intent(in)  :: NDIM
+         integer, intent(in)  :: Nf(2)              ! Face polynomial order
+         integer, intent(in)  :: Nel(2)             ! Element face polynomial order
+         integer, intent(in)  :: nEqn, nGradEqn     ! Equations
+         logical              :: flowIsNavierStokes 
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+!        ----------------
+!        Volume variables
+!        ----------------
+!
+         ALLOCATE( self % Q   (nEqn,0:Nf(1),0:Nf(2)) )
+         allocate( self % fStar(nEqn, 0:Nel(1), 0:Nel(2)) )
+         
+         IF ( flowIsNavierStokes )     THEN
+            ALLOCATE( self % U_x(nGradEqn,0:Nf(1),0:Nf(2)) )
+            ALLOCATE( self % U_y(nGradEqn,0:Nf(1),0:Nf(2)) )
+            ALLOCATE( self % U_z(nGradEqn,0:Nf(1),0:Nf(2)) )
+            ALLOCATE( self % unStar(nGradEqn,NDIM,0:Nel(1),0:Nel(2)) )
+         END IF
+!
+!        -----------------
+!        Initialize memory
+!        -----------------
+!
+         self % Q           = 0.0_RP
+         self % fStar       = 0.0_RP
+      
+         IF ( flowIsNavierStokes )     THEN
+            self % U_x         = 0.0_RP
+            self % U_y         = 0.0_RP
+            self % U_z         = 0.0_RP
+            self % unStar      = 0.0_RP
+         END IF
+
+      end subroutine FaceStorage_Construct
+
+      subroutine FaceStorage_Destruct(self)
+         implicit none
+         class(FaceStorage_t)     :: self
+   
+         safedeallocate(self % Q)
+         safedeallocate(self % fStar)
+         safedeallocate(self % U_x)
+         safedeallocate(self % U_y)
+         safedeallocate(self % unStar)
+         safedeallocate(self % U_z)
+
+      end subroutine FaceStorage_Destruct
 !
 !/////////////////////////////////////////////////////////////////////////////////////
 !
@@ -173,15 +196,15 @@ module StorageClass
 !
 !/////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Statistics_Construct(self, no_of_variables, storage)
+      subroutine Statistics_Construct(self, no_of_variables, N)
          implicit none
          class(Statistics_t)           :: self
          integer,          intent(in)  :: no_of_variables
-         class(Storage_t), intent(in)  :: storage
+         integer,          intent(in)  :: N(3)
 !
 !        Allocate and initialize
 !        -----------------------
-         allocate( self % data(no_of_variables, 0:storage % N(1), 0:storage % N(2), 0:storage % N(3) ) ) 
+         allocate( self % data(no_of_variables, 0:N(1), 0:N(2), 0:N(3) ) ) 
          self % data = 0.0_RP
 
       end subroutine Statistics_Construct

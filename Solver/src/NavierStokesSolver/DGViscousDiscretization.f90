@@ -45,14 +45,14 @@ module DGViscousDiscretization
 !           --------------------
 !///////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BaseClass_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
+      subroutine BaseClass_ComputeGradient( self , mesh , spA, time , externalStateProcedure , externalGradientsProcedure)
          use HexMeshClass
          use PhysicsStorage
          use Physics
-         use ProlongToFacesProcedures
          implicit none
          class(ViscousMethod_t), intent(in) :: self
          class(HexMesh)                   :: mesh
+         class(NodalStorage)              :: spA(0:)
          real(kind=RP),        intent(in) :: time
          external                         :: externalStateProcedure
          external                         :: externalGradientsProcedure
@@ -111,14 +111,14 @@ module DGViscousDiscretization
 !           ------------------------
 !///////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
+      subroutine BR1_ComputeGradient( self , mesh , spA, time , externalStateProcedure , externalGradientsProcedure)
          use HexMeshClass
          use PhysicsStorage
          use Physics
-         use ProlongToFacesProcedures
          implicit none
          class(BassiRebay1_t), intent(in) :: self
          class(HexMesh)                   :: mesh
+         class(NodalStorage)              :: spA(0:)
          real(kind=RP),        intent(in) :: time
          external                         :: externalStateProcedure
          external                         :: externalGradientsProcedure
@@ -129,7 +129,7 @@ module DGViscousDiscretization
 !        ---------------
 !
          integer                :: i, j, k
-         integer                :: eID , fID , dimID , eqID
+         integer                :: eID , fID , dimID , eqID, fIDs(6)
 !
 !        Compute the averaged states
 !        ---------------------------
@@ -149,7 +149,7 @@ module DGViscousDiscretization
 !
 !           Add the surface integrals
 !           -------------------------
-            call BR1_GradientFaceLoop( self , mesh % elements(eID) )
+            call BR1_GradientFaceLoop( self , mesh % elements(eID), mesh)
 !
 !           Perform the scaling
 !           -------------------               
@@ -161,8 +161,17 @@ module DGViscousDiscretization
                mesh % elements(eID) % storage % U_z(:,i,j,k) = &
                            mesh % elements(eID) % storage % U_z(:,i,j,k) / mesh % elements(eID) % geom % jacobian(i,j,k)
             end do         ; end do          ; end do
+!
+!           Prolong gradients
+!           -----------------
+            fIDs = mesh % elements(eID) % faceIDs
+            call mesh % elements(eID) % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+                                                                mesh % faces(fIDs(2)),&
+                                                                mesh % faces(fIDs(3)),&
+                                                                mesh % faces(fIDs(4)),&
+                                                                mesh % faces(fIDs(5)),&
+                                                                mesh % faces(fIDs(6)) )
 
-            call ProlongGradientToFaces( mesh % elements(eID) )
 
          end do
 !$omp end do
@@ -202,14 +211,16 @@ module DGViscousDiscretization
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_GradientFaceLoop( self, e )
+      subroutine BR1_GradientFaceLoop( self, e, mesh )
          use ElementClass
+         use HexMeshClass
          use PhysicsStorage
          use Physics
          use DGWeakIntegrals
          implicit none
          class(BassiRebay1_t),   intent(in)  :: self
          class(Element)                      :: e
+         class(HexMesh)                      :: mesh
 !
 !        ---------------
 !        Local variables
@@ -219,7 +230,15 @@ module DGViscousDiscretization
          real(kind=RP)        :: faceInt_y(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
          real(kind=RP)        :: faceInt_z(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
 
-         call VectorWeakIntegrals % StdFace(e , e % storage % Ub , faceInt_x , faceInt_y , faceInt_z )
+         call VectorWeakIntegrals % StdFace(e, &
+               mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
+               mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % unStar, &
+               mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % unStar, &
+               mesh % faces(e % faceIDs(ERIGHT))  % storage(e % faceSide(ERIGHT))  % unStar, &
+               mesh % faces(e % faceIDs(ETOP))    % storage(e % faceSide(ETOP))    % unStar, &
+               mesh % faces(e % faceIDs(ELEFT))   % storage(e % faceSide(ELEFT))   % unStar, &
+               faceInt_x, faceInt_y, faceInt_z )
+
          e % storage % U_x = e % storage % U_x + faceInt_x
          e % storage % U_y = e % storage % U_y + faceInt_y
          e % storage % U_z = e % storage % U_z + faceInt_z
@@ -253,47 +272,18 @@ module DGViscousDiscretization
          integer       :: N(2)
          
          real(kind=RP) :: bvExt(N_EQN), UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)     
-         
          integer       :: i, j
-         
-!$omp barrier
-!$omp do private(eIDLeft,eIDRight,fIDLEft,N,i,j,bvExt,d) schedule(runtime)
-         do faceID = 1, SIZE(  mesh % faces)
-            eIDLeft  =  mesh % faces(faceID) % elementIDs(1) 
-            eIDRight =  mesh % faces(faceID) % elementIDs(2)
-            
-            IF ( eIDRight == HMESH_NONE )     THEN
-               fIDLeft  =  mesh % faces(faceID) % elementSide(1)
+
+!$omp do schedule(runtime)
+         do faceID = 1, SIZE(mesh % faces)
+            associate(f => mesh % faces(faceID))
+            IF ( f % faceType == HMESH_UNDEFINED )     THEN
 !
 !              -------------
 !              Boundary face
 !              -------------
 !
-               N = mesh % elements(eIDLeft) % Nxyz(axisMap(:,fIDLeft) )
-               do j = 0, N(2)
-                  do i = 0, N(1)
-
-                     bvExt =  mesh % elements(eIDLeft) % storage % Qb(:,i,j,fIDLeft)
-
-                     call externalStateProcedure( mesh % elements(eIDLeft) % geom % xb(:,i,j,fIDLeft)    , &
-                                                  time                                                   , &
-                                                  mesh % elements(eIDLeft) % geom % normal(:,i,j,fIDLeft), &
-                                                  bvExt                                                  , &
-                                                  mesh % elements(eIDLeft) % boundaryType(fIDLeft) )                                                  
-!
-!                    ---------------
-!                    u, v, w, T averages
-!                    ---------------
-!
-                     call GradientValuesForQ(  mesh % elements(eIDLeft) % storage % Qb(:,i,j,fIDLeft), UL )
-                     call GradientValuesForQ( bvExt, UR )
-
-                     d = 0.5_RP*(UL + UR)
-               
-                     mesh % elements(eIDLeft) % storage % Ub (:,i,j,fIDLeft) = d
-
-                  end do   
-               end do   
+               call BR1_ComputeBoundaryFlux(f, time, externalStateProcedure)
             
             ELSE 
 !
@@ -301,12 +291,10 @@ module DGViscousDiscretization
 !              Interior face
 !              -------------
 !
-               call BR1_ComputeElementInterfaceAverage(eL =  mesh % elements(eIDLeft) ,&
-                                                       eR =  mesh % elements(eIDRight),&
-                                                       thisface = mesh % faces(faceID))
+               call BR1_ComputeElementInterfaceAverage(f)
 
             end IF 
-
+            end associate
          end do           
 !$omp end do
          
@@ -314,7 +302,7 @@ module DGViscousDiscretization
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_ComputeElementInterfaceAverage( eL, eR , thisFace )
+      subroutine BR1_ComputeElementInterfaceAverage(f)
          use Physics  
          use ElementClass
          use FaceClass
@@ -324,65 +312,69 @@ module DGViscousDiscretization
 !        Arguments
 !        ---------
 !
-         type(Element) :: eL, eR
-         type(Face)    :: thisFace
+         type(Face)    :: f
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          real(kind=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         integer       :: i,j,ii,jj
-         integer       :: fIDLeft, fIdright
-         integer       :: rotation
-         integer       :: Nxy(2)
-         integer       :: NL(2), NR(2)
+         real(kind=RP) :: Uhat(N_GRAD_EQN)
+         real(kind=RP) :: Hflux(N_GRAD_EQN,NDIM,0:f % Nf(1), 0:f % Nf(2))
+
+         integer       :: i,j
          
-         fIDLeft  = thisface % elementSide(1)
-         fIDRight = thisface % elementSide(2)
-         Nxy      = thisface % NPhi
-         NL       = thisface % NL
-         NR       = thisface % NR
-         rotation = thisface % rotation
-!
-!        -----------------
-!        Project to mortar
-!        -----------------
-!
-         call ProjectToMortar(thisface, eL % storage % QB(:,0:NL(1),0:NL(2),fIDLeft), eR % storage % QB(:,0:NR(1),0:NR(2),fIDright), N_EQN)
-!
-!        ----------------------
-!        Compute interface flux
-!        Using BR1 (averages)
-!        ----------------------
-!
-         do j = 0, Nxy(2)
-            do i = 0, Nxy(1)
-               call iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)                              ! This turns according to the rotation of the elements
-!
-!              ----------------
-!              u,v,w,T averages
-!              ----------------
-!
-               call GradientValuesForQ( Q  = thisface % Phi % L(:,i ,j ), U = UL )
-               call GradientValuesForQ( Q  = thisface % Phi % R(:,ii,jj), U = UR )
-               
-               thisface % Phi % Caux(:,i,j) = 0.5_RP*(UL + UR)
-               
-            end do   
-         end do 
-!
-!        ------------------------
-!        Project back to elements
-!        ------------------------
-!
-         call ProjectToElement(thisface                           , &
-                               thisface % Phi % Caux              , &
-                               eL % storage % Ub(:,0:NL(1),0:NL(2),fIDLeft) , &
-                               eR % storage % Ub(:,0:NR(1),0:NR(2),fIDright), &
-                               N_GRAD_EQN)
+         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+            call GradientValuesForQ(Q = f % storage(1) % Q(:,i,j), U = UL)
+            call GradientValuesForQ(Q = f % storage(2) % Q(:,i,j), U = UR)
+   
+            Uhat = 0.5_RP * (UL + UR) * f % geom % scal(i,j)
+            Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
+            Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
+            Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
+         end do               ; end do
+
+         call f % ProjectGradientFluxToElements(HFlux,(/1,2/))
          
       end subroutine BR1_ComputeElementInterfaceAverage   
+
+      subroutine BR1_ComputeBoundaryFlux(f, time, externalState)
+         use Physics
+         use FaceClass
+         implicit none
+         type(Face)    :: f
+         real(kind=RP) :: time
+         external      :: externalState
+         integer       :: i, j
+         real(kind=RP) :: Uhat(N_GRAD_EQN), UL(N_GRAD_EQN), UR(N_GRAD_EQN)
+         real(kind=RP) :: bvExt(N_EQN)
+
+         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+
+            bvExt =  f % storage(1) % Q(:,i,j)
+   
+            call externalState( f % geom % x(:,i,j), &
+                                time               , &
+                                f % geom % normal(:,i,j)      , &
+                                bvExt              , &
+                                f % boundaryType )  
+!   
+!           -------------------
+!           u, v, w, T averages
+!           -------------------
+!   
+            call GradientValuesForQ( f % storage(1) % Q(:,i,j), UL )
+            call GradientValuesForQ( bvExt, UR )
+   
+            Uhat = 0.5_RP * (UL + UR) * f % geom % scal(i,j)
+            
+            f % storage(1) % unStar(:,1,i,j) = Uhat * f % geom % normal(1,i,j)
+            f % storage(1) % unStar(:,2,i,j) = Uhat * f % geom % normal(2,i,j)
+            f % storage(1) % unStar(:,3,i,j) = Uhat * f % geom % normal(3,i,j)
+
+         end do ; end do   
+         
+      end subroutine BR1_ComputeBoundaryFlux
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -405,17 +397,17 @@ module DGViscousDiscretization
          cartesianFlux = ViscousFlux( e%Nxyz(1) , e%Nxyz(2) , e%Nxyz(3)  , e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
-            contravariantFlux(:,i,j,k,IX) =    cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
+            contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
                                              +  cartesianFlux(:,i,j,k,IY) * e % geom % jGradXi(IY,i,j,k)  &
                                              +  cartesianFlux(:,i,j,k,IZ) * e % geom % jGradXi(IZ,i,j,k)
 
 
-            contravariantFlux(:,i,j,k,IY) =    cartesianFlux(:,i,j,k,IX) * e % geom % jGradEta(IX,i,j,k)  &
+            contravariantFlux(:,i,j,k,IY) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradEta(IX,i,j,k)  &
                                              +  cartesianFlux(:,i,j,k,IY) * e % geom % jGradEta(IY,i,j,k)  &
                                              +  cartesianFlux(:,i,j,k,IZ) * e % geom % jGradEta(IZ,i,j,k)
 
 
-            contravariantFlux(:,i,j,k,IZ) =    cartesianFlux(:,i,j,k,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+            contravariantFlux(:,i,j,k,IZ) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradZeta(IX,i,j,k)  &
                                              +  cartesianFlux(:,i,j,k,IY) * e % geom % jGradZeta(IY,i,j,k)  &
                                              +  cartesianFlux(:,i,j,k,IZ) * e % geom % jGradZeta(IZ,i,j,k)
 
@@ -461,5 +453,4 @@ module DGViscousDiscretization
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 
       end subroutine BR1_RiemannSolver
-
 end module DGViscousDiscretization

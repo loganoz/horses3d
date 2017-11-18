@@ -104,8 +104,7 @@ module SpatialDiscretization
             end subroutine UserDefinedSourceTerm
          end interface
 
-!
-!$omp do schedule(runtime) private(Nx,Ny,Nz,i,j,k)
+!$omp do schedule(runtime) 
          do eID = 1 , size(mesh % elements)
             Nx = mesh % elements(eID) % Nxyz(1)
             Ny = mesh % elements(eID) % Nxyz(2)
@@ -117,7 +116,7 @@ module SpatialDiscretization
 !
 !           Perform surface integrals
 !           -------------------------
-            call TimeDerivative_FacesContribution( mesh % elements(eID) , t)
+            call TimeDerivative_FacesContribution( mesh % elements(eID) , t, mesh)
 
 !
 !           Scale with the Jacobian
@@ -202,14 +201,21 @@ module SpatialDiscretization
 !     --------------------------
 !     TOdo: Add description here
 !     --------------------------
-      subroutine TimeDerivative_FacesContribution( e , t )
+      subroutine TimeDerivative_FacesContribution( e , t , mesh)
          use HexMeshClass
          use PhysicsStorage
          implicit none
          type(Element)           :: e
          real(kind=RP)           :: t
+         type(HexMesh)           :: mesh
 
-         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e, e % storage % Fstarb(:,:,:,:) ) 
+         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e, &
+                      mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % fStar, &
+                      mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % fStar, &
+                      mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % fStar, &
+                      mesh % faces(e % faceIDs(ERIGHT))  % storage(e % faceSide(ERIGHT))  % fStar, &
+                      mesh % faces(e % faceIDs(ETOP))    % storage(e % faceSide(ETOP))    % fStar, &
+                      mesh % faces(e % faceIDs(ELEFT))   % storage(e % faceSide(ELEFT))   % fStar )
 
       end subroutine TimeDerivative_FacesContribution
 !
@@ -220,11 +226,12 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine DGSpatial_ComputeGradient( mesh , time , externalStateProcedure , externalGradientsProcedure )
+      subroutine DGSpatial_ComputeGradient( mesh , spA, time , externalStateProcedure , externalGradientsProcedure )
          use HexMeshClass
          use PhysicsStorage
          implicit none
          type(HexMesh)                  :: mesh
+         type(NodalStorage)             :: spA(0:)
          real(kind=RP),      intent(in) :: time
          interface
             subroutine externalStateProcedure(x,t,nHat,Q,boundaryName)
@@ -242,7 +249,7 @@ module SpatialDiscretization
             end subroutine externalGradientsProcedure
          end interface
 
-         call ViscousMethod % ComputeGradient( mesh , time , externalStateProcedure , externalGradientsProcedure )
+         call ViscousMethod % ComputeGradient( mesh , spA, time , externalStateProcedure , externalGradientsProcedure )
 
       end subroutine DGSpatial_ComputeGradient
 !

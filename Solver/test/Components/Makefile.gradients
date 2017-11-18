@@ -75,7 +75,6 @@ OBJS_HORSES=  SMConstants \
 		MeshTypes \
 		NodeClass \
 		autosave \
-		LiftAndDrag \
 		MonitorDefinitions \
 		ResidualsMonitor \
 		SurfaceIntegrals \
@@ -88,7 +87,6 @@ OBJS_HORSES=  SMConstants \
 		DGInviscidDiscretization \
 		DGViscousDiscretization \
 		DGWeakIntegrals \
-		ProlongToFaces \
 		DGSEMClass \
 		SpatialDiscretization \
 		NodalStorageClass \

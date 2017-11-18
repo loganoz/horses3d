@@ -213,7 +213,7 @@ bench: all
 	&& export PYTHONISDEFINED=YES \
 	&& echo $(PYTHONPATH) \
 	&& cd $(HOME_DIR)/test/Euler/Benchmark/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) allclean all \
-	&& cd ../ && ./Benchmark ) || exit 1;
+	&& cd ../ && chmod ugo+rwx ./Benchmark && ./Benchmark ) || exit 1;
 
 
 

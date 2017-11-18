@@ -11,7 +11,6 @@
       USE FTAssertions
       USE DGSEMClass
       USE SpatialDiscretization
-      USE ProlongToFacesProcedures
       USE SetupModule
       USE DGViscousDiscretization
       
@@ -49,11 +48,9 @@
 !     ----------------------------------------------------
 !
       deallocate( ViscousMethod )
-      nElement =  SIZE(sem % mesh % elements)
-      DO eID = 1, nElement
-         N = sem % mesh % elements(eID) % Nxyz
-         CALL ProlongToFaces(sem % mesh % elements(eId))
-      END DO
+!$omp parallel shared(sem)
+      call sem % mesh % ProlongSolutionToFaces(sem % spA)
+!$omp end parallel
       
       CALL computeRiemannFluxes(sem,0.0_RP)
       
@@ -117,7 +114,6 @@
       USE FTAssertions
       USE DGSEMClass
       USE SpatialDiscretization
-      USE ProlongToFacesProcedures
       USE SetupModule
       
       IMPLICIT NONE
@@ -148,12 +144,12 @@
 !     -----------------
 !
       nElement =  SIZE(sem % mesh % elements)
-      DO eID = 1, nElement
-         CALL ProlongToFaces(sem % mesh % elements(eId))
-      END DO
+!$omp parallel shared(sem)
+      call sem % mesh % ProlongSolutionToFaces(sem % spA)
+!$omp end parallel
       
       IF ( flowIsNavierStokes )     THEN
-         CALL DGSpatial_ComputeGradient( sem % mesh, 0.0_RP , sem % externalState , sem % externalGradients ) 
+         CALL DGSpatial_ComputeGradient( sem % mesh, sem % spA, 0.0_RP , sem % externalState , sem % externalGradients ) 
       END IF
 
       CALL computeRiemannFluxes(sem,0.0_RP)
@@ -216,7 +212,6 @@
 ! 
       SUBROUTINE TestInterpolationToFaces
       USE setupModule
-      USE ProlongToFacesProcedures
       USE FTAssertions
       USE DGSEMClass
       
@@ -290,7 +285,6 @@
          USE FTAssertions
          USE DGSEMClass
          USE PhysicsStorage
-         USE ProlongToFacesProcedures
          USE SpatialDiscretization
          IMPLICIT NONE
 !
@@ -316,10 +310,12 @@
 !        boundary points. For this test the interpolations should be exact.
 !        ---------------------------------------------------------------------
 !
-         
+!$omp parallel shared(sem)
+         call sem % mesh % ProlongSolutionToFaces(sem % spA)
+!$omp end parallel
+
          DO eID = 1, SIZE(sem % mesh % elements)
             N = sem % mesh % elements(eID) % Nxyz
-            CALL ProlongToFaces(sem % mesh % elements(eId))
             DO fce = 1, 6
                emax = 0.0_RP
                DO j = 0, N(axisMap(2,fce))
@@ -329,14 +325,15 @@
 !                    Expected value
 !                    --------------
 !
-                     x = sem % mesh % elements(eID) % geom % xb(:,i,j,fce)
+                     x = sem % mesh % faces(sem % mesh % elements(eID) % faceIDs(fce)) % geom % x(:,i,j)
                      CALL initialFlowState(x, 0.0_RP, Qexpected)
 !
 !                    ------------
 !                    Actual value
 !                    ------------
 !
-                     Qactual = sem % mesh % elements(eId) % storage % Qb(:,i,j,fce)
+                     Qactual = sem % mesh % faces(sem % mesh % elements(eID) % faceIDs(fce)) % &
+                                    storage(sem % mesh % elements(eID) % faceSide(fce)) % Q(:,i,j)
                      emax = MAX(MAXVAL(ABS(Qactual-Qexpected)),emax)
                         
                   END DO

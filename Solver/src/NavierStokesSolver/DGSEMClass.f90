@@ -1,4 +1,4 @@
-! 
+!! 
 !////////////////////////////////////////////////////////////////////////
 !
 !      DGSEMClass.f95
@@ -99,7 +99,7 @@ Module DGSEMClass
 !
       INTEGER                     :: i,j,k,el                           ! Counters
       INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
-      integer                     :: nodes
+      integer                     :: nodes, NelL(2), NelR(2)
       INTEGER                     :: nelem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       character(len=LINE_LENGTH)  :: meshFileName
@@ -250,14 +250,31 @@ Module DGSEMClass
       END IF
 !
 !     ------------------------
-!     Construct the mortar
+!     Link faces with elements
 !     ------------------------
 !      
       DO k=1, SIZE(self % mesh % faces)
-         IF (self % mesh % faces(k) % FaceType == HMESH_INTERIOR) THEN !The mortar is only needed for the interior edges
-            CALL ConstructMortarStorage( self % mesh % faces(k), N_EQN, N_GRAD_EQN, self % mesh % elements, self % spA )
-         END IF
-      END DO
+         associate(f => self % mesh % faces(k))
+         associate(eL => self % mesh % elements(f % elementIDs(1)))
+
+         NelL(1) = eL % Nxyz(axisMap(1, f % elementSide(1)))
+         NelL(2) = eL % Nxyz(axisMap(2, f % elementSide(1)))
+
+         if ( f % faceType .eq. HMESH_INTERIOR ) then
+            NelR(1) = self % mesh % elements(f % elementIDs(2)) % Nxyz(axisMap(1, &
+                                       f % elementSide(2)))
+            NelR(2) = self % mesh % elements(f % elementIDs(2)) % Nxyz(axisMap(2, &
+                                       f % elementSide(2)))
+   
+         else
+            NelR = NelL
+
+         end if
+         call f % LinkWithElements(N_EQN, N_GRAD_EQN, NelL, NelR, eL % geom, f % elementSide(1),&
+                                             eL % hexMap, nodes, self % spA)
+         end associate
+         end associate
+      end do
 !
 !     -----------------------
 !     Set boundary conditions
@@ -285,9 +302,11 @@ Module DGSEMClass
 !     Stop measuring preprocessing time
 !     ----------------------------------
       call Stopwatch % Pause("Preprocessing")
-   
+
+!      call HexMesh_CheckGeometryConsistency(self % mesh)
       
       END SUBROUTINE ConstructDGSem
+
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -489,15 +508,37 @@ Module DGSEMClass
       !----------------------------------------------
       INTEGER       :: id , eq
       REAL(KIND=RP) :: localMaxResidual(N_EQN)
+      real(kind=RP) :: localRho, localRhou, localRhov, localRhow, localRhoe
+      real(kind=RP) :: Rho, Rhou, Rhov, Rhow, Rhoe
       !----------------------------------------------
       
       maxResidual = 0.0_RP
+      Rho = 0.0_RP
+      Rhou = 0.0_RP
+      Rhov = 0.0_RP
+      Rhow = 0.0_RP
+      Rhoe = 0.0_RP
+
+!$omp parallel shared(maxResidual, Rho, Rhou, Rhov, Rhow, Rhoe, self) default(private)
+!$omp do reduction(max:Rho,Rhou,Rhov,Rhow,Rhoe)
       DO id = 1, SIZE( self % mesh % elements )
-         DO eq = 1 , N_EQN
-            localMaxResidual(eq) = MAXVAL(ABS(self % mesh % elements(id) % storage % QDot(eq,:,:,:)))
-            maxResidual(eq) = MAX(maxResidual(eq),localMaxResidual(eq))
-         END DO
+         localRho = maxval(abs(self % mesh % elements(id) % storage % QDot(IRHO,:,:,:)))
+         localRhou = maxval(abs(self % mesh % elements(id) % storage % QDot(IRHOU,:,:,:)))
+         localRhov = maxval(abs(self % mesh % elements(id) % storage % QDot(IRHOV,:,:,:)))
+         localRhow = maxval(abs(self % mesh % elements(id) % storage % QDot(IRHOW,:,:,:)))
+         localRhoe = maxval(abs(self % mesh % elements(id) % storage % QDot(IRHOE,:,:,:)))
+      
+         Rho = max(Rho,localRho)
+         Rhou = max(Rhou,localRhou)
+         Rhov = max(Rhov,localRhov)
+         Rhow = max(Rhow,localRhow)
+         Rhoe = max(Rhoe,localRhoe)
       END DO
+!$omp end do
+!$omp end parallel
+
+      maxResidual = (/Rho, Rhou, Rhov, Rhow, Rhoe/)
+
    END FUNCTION ComputeMaxResidual
 !
 !
@@ -532,7 +573,10 @@ Module DGSEMClass
                IF ( boundaryName /= emptyBCName )     THEN
                   boundaryType = bcTypeDictionary % stringValueForKey(key             = boundaryName, &
                                                                       requestedLength = BC_STRING_LENGTH)
-                  IF( LEN_TRIM(boundaryType) > 0) self % mesh % elements(eID) % boundaryType(k) = boundaryType
+                  IF( LEN_TRIM(boundaryType) > 0) then
+                     self % mesh % elements(eID) % boundaryType(k) = boundaryType ! TODO bType and bName in elements are needed?
+                     self % mesh % faces(self % mesh % elements(eID) % faceIDs(k)) % boundaryType = boundaryType
+                  end if
                END IF 
                                                                    
             END DO  
@@ -544,7 +588,6 @@ Module DGSEMClass
 !
       SUBROUTINE ComputeTimeDerivative( self, time )
          USE SpatialDiscretization
-         USE ProlongToFacesProcedures
          IMPLICIT NONE 
 !
 !        ---------
@@ -564,19 +607,15 @@ Module DGSEMClass
 !        Prolongation of the solution to the faces
 !        -----------------------------------------
 !
-!$omp parallel
-!$omp do schedule(runtime)
-         DO k = 1, SIZE(self % mesh % elements)
-            CALL ProlongToFaces( self % mesh % elements(k))
-         END DO
-!$omp end do
+!$omp parallel shared(self, time)
+         call self % mesh % ProlongSolutionToFaces(self % spA)
 !
 !        -----------------
 !        Compute gradients
 !        -----------------
 !
          if ( flowIsNavierStokes ) then
-            CALL DGSpatial_ComputeGradient( self % mesh , time , self % externalState , self % externalGradients )
+            CALL DGSpatial_ComputeGradient( self % mesh , self % spA, time , self % externalState , self % externalGradients )
          end if
 !
 !        -------------------------------------------------------
@@ -616,30 +655,31 @@ Module DGSEMClass
          INTEGER       :: eIDLeft, eIDRight
          INTEGER       :: fIDLeft
 
-!$omp do private(eIDLeft,eIDRight,fIDLeft) schedule(runtime)
+!$omp do schedule(runtime)
          DO faceID = 1, SIZE( self % mesh % faces)
-            eIDLeft  = self % mesh % faces(faceID) % elementIDs(1) 
-            eIDRight = self % mesh % faces(faceID) % elementIDs(2)
-            IF ( eIDRight == HMESH_NONE )     THEN
+
+            associate( f => self % mesh % faces(faceID))
+
+            IF ( f % faceType .eq. HMESH_UNDEFINED )     THEN
 !
 !              -------------
 !              Boundary face
 !              -------------
 !
-               fIDLeft  = self % mesh % faces(faceID) % elementSide(1)
-               CALL computeBoundaryFlux(self % mesh % elements(eIDLeft), fIDLeft, time, &
+               CALL computeBoundaryFlux(f, time, &
                                         self % externalState , self % externalGradients)
                
-            ELSE 
+            ELSE IF ( f % faceType .eq. HMESH_INTERIOR ) then
 !
 !              -------------
 !              Interior face
 !              -------------
 !
-               CALL computeElementInterfaceFlux ( eL       = self % mesh % elements(eIDLeft)  , &
-                                                  eR       = self % mesh % elements(eIDRight) , &
-                                                  thisface = self % mesh % faces(faceID)      )
+               CALL computeElementInterfaceFlux ( f )
+
             END IF 
+
+            end associate
 
          END DO           
 !$omp end do
@@ -648,121 +688,62 @@ Module DGSEMClass
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE computeElementInterfaceFlux( eL, eR, thisface)
+      SUBROUTINE computeElementInterfaceFlux(f)
+         use FaceClass
          IMPLICIT NONE
-         !-----------------------------------------
-         TYPE(Element), INTENT(INOUT) :: eL, eR       !<> elements
-         TYPE(Face)   , INTENT(INOUT) :: thisface     !<> Mortar
-         !-----------------------------------------
-         INTEGER       :: fIDLeft, fIDRight
-         INTEGER       :: i,j,ii,jj
-         INTEGER       :: Nxy(2)       ! Polynomial orders on the interface
-         INTEGER       :: NL(2), NR(2)
-         INTEGER       :: rotation
+         TYPE(Face)   , INTENT(inout) :: f   
 !
 !        ------------------------------------------------------------------------
 !        The following are auxiliar variables required until mortars modification 
 !        ------------------------------------------------------------------------
 !
-         real(kind=RP) :: QL      (1:N_EQN,0:thisface % NPhi(1),0:thisface % NPhi(2))
-         real(kind=RP) :: QR      (1:N_EQN,0:thisface % NPhiR(1),0:thisface % NPhiR(2))
-         real(kind=RP) :: U_xLeft (1:N_EQN,0:thisface % NPhi(1),0:thisface % NPhi(2))
-         real(kind=RP) :: U_xRight(1:N_EQN,0:thisface % NPhiR(1),0:thisface % NPhiR(2))
-         real(kind=RP) :: U_yLeft (1:N_EQN,0:thisface % NPhi(1),0:thisface % NPhi(2))
-         real(kind=RP) :: U_yRight(1:N_EQN,0:thisface % NPhiR(1),0:thisface % NPhiR(2))
-         real(kind=RP) :: U_zLeft (1:N_EQN,0:thisface % NPhi(1),0:thisface % NPhi(2))
-         real(kind=RP) :: U_zRight(1:N_EQN,0:thisface % NPhiR(1),0:thisface % NPhiR(2))
-         real(kind=RP) :: inv_flux(1:N_EQN,0:thisface % NPhi(1),0:thisface % NPhi(2))
-         real(kind=RP) :: visc_flux(1:N_EQN,0:thisface % NPhi(1),0:thisface % NPhi(2))
-         
-         fIDLeft  = thisface % elementSide(1)
-         fIDRight = thisface % elementSide(2)
-         Nxy      = thisface % NPhi
-         NL       = thisface % NL
-         NR       = thisface % NR
-         rotation = thisface % rotation         
-!
-!        ---------------------
-!        Projection to mortars
-!        ---------------------
-!
-         call ProjectToMortar(thisface, eL % storage % Qb(:,0:NL(1),0:NL(2),fIDLeft), &
-                                        eR % storage % Qb(:,0:NR(1),0:NR(2),fIDright), N_EQN)
-         QL = thisface % Phi % L
-         QR = thisface % Phi % R
-
-         if ( flowIsNavierStokes ) then
-            call ProjectToMortar(thisface, eL % storage % U_xb(:,0:NL(1),0:NL(2),fIDLeft), &
-                                           eR % storage % U_xb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
-            U_xLeft = thisface % Phi % L
-            U_xRight = thisface % Phi % R
-
-            call ProjectToMortar(thisface, eL % storage % U_yb(:,0:NL(1),0:NL(2),fIDLeft), &
-                                           eR % storage % U_yb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
-            U_yLeft = thisface % Phi % L
-            U_yRight = thisface % Phi % R
-
-            call ProjectToMortar(thisface, eL % storage % U_zb(:,0:NL(1),0:NL(2),fIDLeft), &
-                                           eR % storage % U_zb(:,0:NR(1),0:NR(2),fIDRight), N_GRAD_EQN)
-            U_zLeft = thisface % Phi % L
-            U_zRight = thisface % Phi % R
-
-         else
-            U_xLeft = 0.0_RP
-            U_yLeft = 0.0_RP
-            U_zLeft = 0.0_RP
-            U_xRight = 0.0_RP
-            U_yRight = 0.0_RP
-            U_zRight = 0.0_RP
-
-         end if
+         integer       :: i, j
+         real(kind=RP) :: inv_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+!         
 !
 !        --------------
 !        Invscid fluxes: Rotation is not accounted in the Mortar projection
 !        --------------
 !
-         DO j = 0, Nxy(2)
-            DO i = 0, Nxy(1)
-               CALL iijjIndexes(i,j,Nxy(1),Nxy(2),rotation,ii,jj)
-               CALL RiemannSolver(QLeft  = QL(:,i,j), &
-                                  QRight = QR(:,ii,jj), &
-                                  nHat   = thisface % geom % normal(:,i,j), &
+         DO j = 0, f % Nf(2)
+            DO i = 0, f % Nf(1)
+               CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
+                                  QRight = f % storage(2) % Q(:,i,j), &
+                                  nHat   = f % geom % normal(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
 
-               CALL ViscousMethod % RiemannSolver( QLeft = QL(:,i,j), &
-                                                  QRight = QR(:,ii,jj) , &
-                                                  U_xLeft = U_xLeft(:,i,j) , &
-                                                  U_yLeft = U_yLeft(:,i,j) , &
-                                                  U_zLeft = U_zLeft(:,i,j) , &
-                                                  U_xRight = U_xRight(:,ii,jj) , &
-                                                  U_yRight = U_yRight(:,ii,jj) , &
-                                                  U_zRight = U_zRight(:,ii,jj) , &
-                                                  nHat = thisface % geom % normal(:,i,j) , &
+               CALL ViscousMethod % RiemannSolver(QLeft = f % storage(1) % Q(:,i,j), &
+                                                  QRight = f % storage(2) % Q(:,i,j), &
+                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
+                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
+                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  nHat = f % geom % normal(:,i,j) , &
                                                   flux  = visc_flux(:,i,j) )
                
 !
 !              Multiply by the Jacobian
 !              ------------------------
-               
-               thisface % Phi % C(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * thisface % geom % scal(i,j)
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % scal(i,j)
                
             END DO   
          END DO  
-         
 !
 !        ---------------------------
 !        Return the flux to elements: The sign in eR % storage % FstarB has already been accouted.
 !        ---------------------------
 !
-         call ProjectFluxToElement( thisface , &
-                                eL % storage % FStarb(:,0:NL(1),0:NL(2),fIDLeft), & 
-                                eR % storage % FStarb(:,0:NR(1),0:NR(2),fIDRight), & 
-                                N_EQN ) 
-         
+         call f % ProjectFluxToElements(flux, (/1,2/))
+
       END SUBROUTINE computeElementInterfaceFlux
 
-      SUBROUTINE computeBoundaryFlux(elementOnLeft, faceID, time, externalStateProcedure , externalGradientsProcedure )
+      SUBROUTINE computeBoundaryFlux(f, time, externalStateProcedure , externalGradientsProcedure)
       USE ElementClass
+      use FaceClass
       USE DGViscousDiscretization
       USE Physics
       USE BoundaryConditionFunctions
@@ -772,12 +753,10 @@ Module DGSEMClass
 !     Arguments
 !     ---------
 !
-      TYPE(Element)           :: elementOnLeft
-      INTEGER                 :: faceID
-      REAL(KIND=RP)           :: time
-      EXTERNAL                :: externalStateProcedure
-      EXTERNAL                :: externalGradientsProcedure
-      
+      type(Face),    intent(inout) :: f
+      REAL(KIND=RP)                :: time
+      EXTERNAL                     :: externalStateProcedure
+      EXTERNAL                     :: externalGradientsProcedure
 !
 !     ---------------
 !     Local variables
@@ -785,60 +764,63 @@ Module DGSEMClass
 !
       INTEGER                         :: i, j
       INTEGER, DIMENSION(2)           :: N
-      REAL(KIND=RP)                   :: bvExt(N_EQN), inv_flux(N_EQN)
+      REAL(KIND=RP)                   :: inv_flux(N_EQN)
       REAL(KIND=RP)                   :: UGradExt(NDIM , N_GRAD_EQN) , visc_flux(N_EQN)
+      real(kind=RP)                   :: fStar(N_EQN, 0:f % Nf(1), 0: f % Nf(2))
       CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
             
-      N            = elementOnLeft % Nxyz (axisMap(:,faceID))
-      boundaryType = elementOnLeft % boundaryType(faceID)
+      boundaryType = f % boundaryType
       
-      DO j = 0, N(2)
-         DO i = 0, N(1)
+      DO j = 0, f % Nf(2)
+         DO i = 0, f % Nf(1)
 !
 !           Inviscid part
 !           -------------
-            bvExt = elementOnLeft % storage % Qb(:,i,j,faceID)
-            CALL externalStateProcedure( elementOnLeft % geom % xb(:,i,j,faceID), &
+            f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
+            CALL externalStateProcedure( f % geom % x(:,i,j), &
                                          time, &
-                                         elementOnLeft % geom % normal(:,i,j,faceID), &
-                                         bvExt,&
+                                         f % geom % normal(:,i,j), &
+                                         f % storage(2) % Q(:,i,j),&
                                          boundaryType )
-            CALL RiemannSolver(QLeft  = elementOnLeft % storage % Qb(:,i,j,faceID), &
-                               QRight = bvExt, &
-                               nHat   = elementOnLeft % geom % normal(:,i,j,faceID), &
+            CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
+                               QRight = f % storage(2) % Q(:,i,j), &   
+                               nHat   = f % geom % normal(:,i,j), &
                                flux   = inv_flux)
 !
 !           ViscousPart
 !           -----------
             if ( flowIsNavierStokes ) then
 
-            UGradExt(IX,:) = elementOnLeft % storage % U_xb(:,i,j,faceID)
-            UGradExt(IY,:) = elementOnLeft % storage % U_yb(:,i,j,faceID)
-            UGradExt(IZ,:) = elementOnLeft % storage % U_zb(:,i,j,faceID)
+            
+            UGradExt(IX,:) = f % storage(1) % U_x(:,i,j)
+            UGradExt(IY,:) = f % storage(1) % U_y(:,i,j)
+            UGradExt(IZ,:) = f % storage(1) % U_z(:,i,j)
 
-            CALL externalGradientsProcedure(  elementOnLeft % geom % xb(:,i,j,faceID), &
+            CALL externalGradientsProcedure(  f % geom % x(:,i,j), &
                                               time, &
-                                              elementOnLeft % geom % normal(:,i,j,faceID), &
+                                              f % geom % normal(:,i,j), &
                                               UGradExt,&
                                               boundaryType )
 
-            CALL ViscousMethod % RiemannSolver( QLeft = elementOnLeft % storage % Qb(:,i,j,faceID) , &
-                                                QRight = bvExt , &
-                                                U_xLeft = elementOnLeft % storage % U_xb(:,i,j,faceID) , &
-                                                U_yLeft = elementOnLeft % storage % U_yb(:,i,j,faceID) , &
-                                                U_zLeft = elementOnLeft % storage % U_zb(:,i,j,faceID) , &
+            CALL ViscousMethod % RiemannSolver( QLeft = f % storage(1) % Q(:,i,j), &
+                                                QRight = f % storage(2) % Q(:,i,j), &
+                                                U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                U_zLeft = f % storage(1) % U_z(:,i,j), &
                                                 U_xRight = UGradExt(IX,:) , &
                                                 U_yRight = UGradExt(IY,:) , &
                                                 U_zRight = UGradExt(IZ,:) , &
-                                                   nHat = elementOnLeft % geom % normal(:,i,j,faceID) , &
+                                                nHat = f % geom % normal(:,i,j), &
                                                 flux = visc_flux )
             else
                visc_flux = 0.0_RP
             end if
 
-            elementOnLeft % storage % FStarb(:,i,j,faceID) = (inv_flux - visc_flux)*elementOnLeft % geom % scal(i,j,faceID)
+            fStar(:,i,j) = (inv_flux - visc_flux) * f % geom % scal(i,j)
          END DO   
       END DO   
+
+      call f % ProjectFluxToElements(fStar, (/1,-1/))
 
       END SUBROUTINE computeBoundaryFlux
 !
@@ -892,7 +874,6 @@ Module DGSEMClass
       REAL(KIND=RP)               :: Q(N_EQN)
       TYPE(NodalStorage), POINTER :: spAxi_p, spAeta_p, spAzeta_p
 !            
-      MaximumEigenvalue = 0.0_RP
       
 !
 !     -----------------------------------------------------------
@@ -902,6 +883,9 @@ Module DGSEMClass
 !     Besides, problems are expected for N=0.
 !     -----------------------------------------------------------
 !
+      MaximumEigenvalue = 0.0_RP
+!$omp parallel shared(self,MaximumEigenvalue) default(private) 
+!$omp do reduction(max:MaximumEigenvalue)
       DO id = 1, SIZE(self % mesh % elements) 
          N = self % mesh % elements(id) % Nxyz
          spAxi_p => self % spA(N(1))
@@ -948,6 +932,8 @@ Module DGSEMClass
             END DO
          END DO
       END DO 
+!$omp end do
+!$omp end parallel
       
    END FUNCTION MaximumEigenvalue
 

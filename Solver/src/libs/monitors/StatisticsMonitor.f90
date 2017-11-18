@@ -114,7 +114,7 @@ module StatisticsMonitor
 !        ------------------
          do eID = 1, mesh % no_of_elements
             associate(e => mesh % elements(eID))
-            call e % storage % stats % Construct(NO_OF_VARIABLES, e % storage)
+            call e % storage % stats % Construct(NO_OF_VARIABLES, e % Nxyz)
             end associate
          end do
 

@@ -19,11 +19,10 @@ LIBOBJS = 	./build/ConnectivityClass.o \
 		./build/MeshTypes.o \
 		./build/NodeClass.o \
 		./build/HexElementConnectivityDefinitions.o \
-		./build/HexElementClass.o \
 		./build/FaceClass.o \
+		./build/HexElementClass.o \
 		./build/ZoneClass.o \
 		./build/HexMesh.o \
-		./build/ProlongToFaces.o \
 		./build/Read_HDF5Mesh_HOPR.o \
 		./build/Read_SpecMesh.o \
 		./build/ReadMeshFile.o

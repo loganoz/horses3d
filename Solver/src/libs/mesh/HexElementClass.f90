@@ -38,6 +38,8 @@
       TYPE Element
           integer                                        :: eID               ! ID of this element
           INTEGER                                        :: nodeIDs(8)
+          integer                                        :: faceIDs(6)
+          integer                                        :: faceSide(6)
           INTEGER, DIMENSION(3)                          :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
           TYPE(MappedGeometry)                           :: geom
           CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryName(6)
@@ -52,6 +54,8 @@
           contains
             procedure   :: FindPointWithCoords => HexElement_FindPointWithCoords
             procedure   :: EvaluateSolutionAtPoint => HexElement_EvaluateSolutionAtPoint
+            procedure   :: ProlongSolutionToFaces => HexElement_ProlongSolutionToFaces
+            procedure   :: ProlongGradientsToFaces => HexElement_ProlongGradientsToFaces
       END TYPE Element 
       
 !
@@ -194,15 +198,126 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+      subroutine HexElement_ProlongSolutionToFaces(self, fFR, fBK, fBOT, fR, fT, fL)
+         use FaceClass
+         implicit none
+         class(Element),   intent(in)  :: self
+         class(Face),      intent(inout) :: fFR, fBK, fBOT, fR, fT, fL
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: i, j, k, l, N(3)
+         real(kind=RP), dimension(1:NCONS, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: QFR, QBK
+         real(kind=RP), dimension(1:NCONS, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: QBOT, QT
+         real(kind=RP), dimension(1:NCONS, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: QL, QR
+
+         N = self % Nxyz
+!
+!        *************************
+!        Prolong solution to faces
+!        *************************
+!
+         QL   = 0.0_RP     ; QR   = 0.0_RP
+         QFR  = 0.0_RP     ; QBK  = 0.0_RP
+         QBOT = 0.0_RP     ; QT   = 0.0_RP
+         
+         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            QL  (:,j,k)= QL  (:,j,k)+ self % storage % Q(:,i,j,k)* self % spAxi % v  (i,LEFT  )
+            QR  (:,j,k)= QR  (:,j,k)+ self % storage % Q(:,i,j,k)* self % spAxi % v  (i,RIGHT )
+            QFR (:,i,k)= QFR (:,i,k)+ self % storage % Q(:,i,j,k)* self % spAeta % v (j,FRONT )
+            QBK (:,i,k)= QBK (:,i,k)+ self % storage % Q(:,i,j,k)* self % spAeta % v (j,BACK  )
+            QBOT(:,i,j)= QBOT(:,i,j)+ self % storage % Q(:,i,j,k)* self % spAzeta % v(k,BOTTOM)
+            QT  (:,i,j)= QT  (:,i,j)+ self % storage % Q(:,i,j,k)* self % spAzeta % v(k,TOP   )
+         end do                   ; end do                   ; end do
+
+         
+         call fL   % AdaptSolutionToFace(N(2), N(3), QL   , self % faceSide(ELEFT  ))
+         call fR   % AdaptSolutionToFace(N(2), N(3), QR   , self % faceSide(ERIGHT ))
+         call fFR  % AdaptSolutionToFace(N(1), N(3), QFR  , self % faceSide(EFRONT ))
+         call fBK  % AdaptSolutionToFace(N(1), N(3), QBK  , self % faceSide(EBACK  ))
+         call fBOT % AdaptSolutionToFace(N(1), N(2), QBOT , self % faceSide(EBOTTOM))
+         call fT   % AdaptSolutionToFace(N(1), N(2), QT   , self % faceSide(ETOP   ))
+
+      end subroutine HexElement_ProlongSolutionToFaces
+
+      subroutine HexElement_ProlongGradientsToFaces(self, fFR, fBK, fBOT, fR, fT, fL)
+         use FaceClass
+         implicit none
+         class(Element),   intent(in)  :: self
+         class(Face),      intent(inout) :: fFR, fBK, fBOT, fR, fT, fL
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: i, j, k, l, N(3)
+         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: UxFR, UyFR, UzFR
+         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: UxBK, UyBK, UzBK
+         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: UxBT, UyBT, UzBT
+         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: UxT, UyT, UzT
+         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: UxL, UyL, UzL
+         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: UxR, UyR, UzR
+
+         N = self % Nxyz
+!
+!        *************************
+!        Prolong solution to faces
+!        *************************
+!
+         UxL  = 0.0_RP ; UyL  = 0.0_RP ; UzL  = 0.0_RP
+         UxR  = 0.0_RP ; UyR  = 0.0_RP ; UzR  = 0.0_RP
+         UxFR = 0.0_RP ; UyFR = 0.0_RP ; UzFR = 0.0_RP
+         UxBK = 0.0_RP ; UyBK = 0.0_RP ; UzBK = 0.0_RP
+         UxBT = 0.0_RP ; UyBT = 0.0_RP ; UzBT = 0.0_RP
+         UxT  = 0.0_RP ; UyT  = 0.0_RP ; UzT  = 0.0_RP
+         
+         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            UxL (:,j,k) = UxL (:,j,k) + self % storage % U_x(:,i,j,k)* self % spAxi   % v (i,LEFT  )
+            UxR (:,j,k) = UxR (:,j,k) + self % storage % U_x(:,i,j,k)* self % spAxi   % v (i,RIGHT )
+            UxFR(:,i,k) = UxFR(:,i,k) + self % storage % U_x(:,i,j,k)* self % spAeta  % v (j,FRONT )
+            UxBK(:,i,k) = UxBK(:,i,k) + self % storage % U_x(:,i,j,k)* self % spAeta  % v (j,BACK  )
+            UxBT(:,i,j) = UxBT(:,i,j) + self % storage % U_x(:,i,j,k)* self % spAzeta % v (k,BOTTOM)
+            UxT (:,i,j) = UxT (:,i,j) + self % storage % U_x(:,i,j,k)* self % spAzeta % v (k,TOP   )
+
+            UyL (:,j,k) = UyL (:,j,k) + self % storage % U_y(:,i,j,k)* self % spAxi   % v (i,LEFT  )
+            UyR (:,j,k) = UyR (:,j,k) + self % storage % U_y(:,i,j,k)* self % spAxi   % v (i,RIGHT )
+            UyFR(:,i,k) = UyFR(:,i,k) + self % storage % U_y(:,i,j,k)* self % spAeta  % v (j,FRONT )
+            UyBK(:,i,k) = UyBK(:,i,k) + self % storage % U_y(:,i,j,k)* self % spAeta  % v (j,BACK  )
+            UyBT(:,i,j) = UyBT(:,i,j) + self % storage % U_y(:,i,j,k)* self % spAzeta % v (k,BOTTOM)
+            UyT (:,i,j) = UyT (:,i,j) + self % storage % U_y(:,i,j,k)* self % spAzeta % v (k,TOP   )
+
+            UzL (:,j,k) = UzL (:,j,k) + self % storage % U_z(:,i,j,k)* self % spAxi   % v (i,LEFT  )
+            UzR (:,j,k) = UzR (:,j,k) + self % storage % U_z(:,i,j,k)* self % spAxi   % v (i,RIGHT )
+            UzFR(:,i,k) = UzFR(:,i,k) + self % storage % U_z(:,i,j,k)* self % spAeta  % v (j,FRONT )
+            UzBK(:,i,k) = UzBK(:,i,k) + self % storage % U_z(:,i,j,k)* self % spAeta  % v (j,BACK  )
+            UzBT(:,i,j) = UzBT(:,i,j) + self % storage % U_z(:,i,j,k)* self % spAzeta % v (k,BOTTOM)
+            UzT (:,i,j) = UzT (:,i,j) + self % storage % U_z(:,i,j,k)* self % spAzeta % v (k,TOP   )
+
+         end do                   ; end do                   ; end do
+         
+         call fL   % AdaptGradientsToFace(N(2), N(3), UxL , UyL , UzL , self % faceSide(ELEFT  ))
+         call fR   % AdaptGradientsToFace(N(2), N(3), UxR , UyR , UzR , self % faceSide(ERIGHT ))
+         call fFR  % AdaptGradientsToFace(N(1), N(3), UxFR, UyFR, UzFR, self % faceSide(EFRONT ))
+         call fBK  % AdaptGradientsToFace(N(1), N(3), UxBK, UyBK, UzBK, self % faceSide(EBACK  ))
+         call fBOT % AdaptGradientsToFace(N(1), N(2), UxBT, UyBT, UzBT, self % faceSide(EBOTTOM))
+         call fT   % AdaptGradientsToFace(N(1), N(2), UxT , UyT , UzT , self % faceSide(ETOP   ))
+
+      end subroutine HexElement_ProlongGradientsToFaces
+
+!
+!////////////////////////////////////////////////////////////////////////
+!
       logical function HexElement_FindPointWithCoords(self, x, xi)
 !
-!        *************************+********************************
+!        **********************************************************
 !          
 !           This function finds whether a point is inside or not 
 !           of the element. This is done solving
 !           the mapping non-linear system
 !
-!        *************************+********************************
+!        **********************************************************
 !          
 !
          implicit none
