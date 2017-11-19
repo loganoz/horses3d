@@ -303,8 +303,6 @@ Module DGSEMClass
 !     ----------------------------------
       call Stopwatch % Pause("Preprocessing")
 
-!      call HexMesh_CheckGeometryConsistency(self % mesh)
-      
       END SUBROUTINE ConstructDGSem
 
 !

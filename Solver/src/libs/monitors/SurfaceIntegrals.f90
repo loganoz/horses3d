@@ -57,40 +57,48 @@ module SurfaceIntegrals
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
-!$omp parallel do reduction(+:val) private(fIDs,fID,eID) schedule(guided)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces         
-!
-!           Face global ID
-!           --------------
+!$omp parallel default(private) shared(mesh,spA,zoneID,integralType,val)
+!$omp single
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID = mesh % zones(zoneID) % faces(zonefID)
-!
-!           Update solution values
-!           ----------------------
+
             eID = mesh % faces(fID) % elementIDs(1)
-            associate(e => mesh % elements(eID), f => mesh % faces(fID))
-            fIDs = e % faceIDs
-            call e % ProlongSolutionToFaces(mesh % faces(fIDs(1)),&
+            fIDs = mesh % elements(eID) % faceIDs
+!$omp task depend(inout: mesh % elements(eID))
+            call mesh % elements(eID) % ProlongSolutionToFaces(mesh % faces(fIDs(1)),&
                                             mesh % faces(fIDs(2)),&
                                             mesh % faces(fIDs(3)),&
                                             mesh % faces(fIDs(4)),&
                                             mesh % faces(fIDs(5)),&
                                             mesh % faces(fIDs(6)) )
             if ( flowIsNavierStokes ) then
-               call e % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+               call mesh % elements(eID) % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
                                                 mesh % faces(fIDs(2)),&
                                                 mesh % faces(fIDs(3)),&
                                                 mesh % faces(fIDs(4)),&
                                                 mesh % faces(fIDs(5)),&
                                                 mesh % faces(fIDs(6)) )
             end if
+!$omp end task
+         end do
+!$omp end single
+!
+!        Loop the zone to get faces and elements
+!        ---------------------------------------
+!$omp do reduction(+:val) schedule(runtime)
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces         
+!
+!           Face global ID
+!           --------------
+            fID = mesh % zones(zoneID) % faces(zonefID)
 !
 !           Compute the integral
 !           --------------------
-            val = val + ScalarSurfaceIntegral_Face(f, integralType)
-            end associate
+            val = val + ScalarSurfaceIntegral_Face(mesh % faces(fID), integralType)
 
          end do
-!$omp end parallel do
+!$omp end do
+!$omp end parallel
 
       end function ScalarSurfaceIntegral
 
@@ -223,34 +231,44 @@ module SurfaceIntegrals
          valy = 0.0_RP
          valz = 0.0_RP
 !
-!        Loop the zone to get faces and elements
-!        ---------------------------------------
-!$omp parallel do reduction(+:valx,valy,valz) private(fIDs,fID,eID,localVal) schedule(guided)
-         do zonefID = 1, mesh % zones(zoneID) % no_of_faces         
+!        *************************
+!        Perform the interpolation
+!        *************************
 !
-!           Face global ID
-!           --------------
+!$omp parallel default(private) shared(mesh,spA,zoneID,integralType,val,valx,valy,valz)
+!$omp single
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID = mesh % zones(zoneID) % faces(zonefID)
-!
-!           Update solution values
-!           ----------------------
+
             eID = mesh % faces(fID) % elementIDs(1)
-            associate(e => mesh % elements(eID), f => mesh % faces(fID))
-            fIDs = e % faceIDs
-            call e % ProlongSolutionToFaces(mesh % faces(fIDs(1)),&
+            fIDs = mesh % elements(eID) % faceIDs
+!$omp task depend(inout: mesh % elements(eID))
+            call mesh % elements(eID) % ProlongSolutionToFaces(mesh % faces(fIDs(1)),&
                                             mesh % faces(fIDs(2)),&
                                             mesh % faces(fIDs(3)),&
                                             mesh % faces(fIDs(4)),&
                                             mesh % faces(fIDs(5)),&
                                             mesh % faces(fIDs(6)) )
             if ( flowIsNavierStokes ) then
-               call e % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+               call mesh % elements(eID) % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
                                                 mesh % faces(fIDs(2)),&
                                                 mesh % faces(fIDs(3)),&
                                                 mesh % faces(fIDs(4)),&
                                                 mesh % faces(fIDs(5)),&
                                                 mesh % faces(fIDs(6)) )
             end if
+!$omp end task
+         end do
+!$omp end single
+!
+!        Loop the zone to get faces and elements
+!        ---------------------------------------
+!$omp do reduction(+:valx,valy,valz) schedule(runtime)
+         do zonefID = 1, mesh % zones(zoneID) % no_of_faces         
+!
+!           Face global ID
+!           --------------
+            fID = mesh % zones(zoneID) % faces(zonefID)
 !
 !           Compute the integral
 !           --------------------
@@ -258,10 +276,10 @@ module SurfaceIntegrals
             valx = valx + localVal(1)
             valy = valy + localVal(2)
             valz = valz + localVal(3)
-            end associate
 
          end do
-!$omp end parallel do
+!$omp end do
+!$omp end parallel
 
          val = (/valx, valy, valz/)
 
