@@ -42,12 +42,15 @@
 !     Perform the tests
 !     -----------------
 !
+      nElement = size(sem % mesh % elements)
 !
 !     ----------------------------------------------------
 !     In this point, do not use any viscous discretization
 !     ----------------------------------------------------
 !
       deallocate( ViscousMethod )
+      allocate(ViscousMethod_t :: ViscousMethod)
+
 !$omp parallel shared(sem)
       call sem % mesh % ProlongSolutionToFaces(sem % spA)
 !$omp end parallel
@@ -61,39 +64,39 @@
 !     ------------------------------------------------
 !
       DO eID = 1, nElement
-          WRITE(msg,'(A,I3)') "Gradient of F = x on element ",eID
+          WRITE(msg,'(A,I3)') "Divergence of F = x on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(1,:,:,:)+1.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-6_RP,            &
+                             tol = 2.e-8_RP,            &
                              msg = msg)
                              
-          WRITE(msg,'(A,I3)') "Gradient of F = y on element ",eID
+          WRITE(msg,'(A,I3)') "Divergence of F = y on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(2,:,:,:)+1.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-6_RP,            &
+                             tol = 2.e-8_RP,            &
                              msg = msg)
                              
-          WRITE(msg,'(A,I3)') "Gradient of F = z on element ",eID
+          WRITE(msg,'(A,I3)') "Divergence of F = z on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(3,:,:,:)+1.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-6_RP,            &
+                             tol = 2.e-8_RP,            &
                              msg = msg)
                              
-          WRITE(msg,'(A,I3)') "Gradient of F = const on element ",eID
+          WRITE(msg,'(A,I3)') "Divergence of F = const on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(4,:,:,:)))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-6_RP,            &
+                             tol = 2.e-8_RP,            &
                              msg = msg)
                              
-          WRITE(msg,'(A,I3)') "Gradient of F = x + y + z on element ",eID
+          WRITE(msg,'(A,I3)') "Divergence of F = x + y + z on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(5,:,:,:)+3.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-6_RP,            &
+                             tol = 2.e-8_RP,            &
                              msg = msg)
           
       END DO 
@@ -115,6 +118,7 @@
       USE DGSEMClass
       USE SpatialDiscretization
       USE SetupModule
+      use DGViscousDiscretization
       
       IMPLICIT NONE
 !
@@ -144,10 +148,11 @@
 !     -----------------
 !
       nElement =  SIZE(sem % mesh % elements)
+
 !$omp parallel shared(sem)
       call sem % mesh % ProlongSolutionToFaces(sem % spA)
 !$omp end parallel
-      
+
       IF ( flowIsNavierStokes )     THEN
          CALL DGSpatial_ComputeGradient( sem % mesh, sem % spA, 0.0_RP , sem % externalState , sem % externalGradients ) 
       END IF
@@ -160,40 +165,40 @@
 !     Check the divergence of the different components
 !     ------------------------------------------------
 !
-      DO eID = 1, nElement
+    DO eID = 1, nElement
           WRITE(msg,'(A,I3)') "Gradient of F = x on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(1,:,:,:)+1.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-6_RP,         &
+                             tol = 2.e-8_RP,         &
                              msg = msg)
                              
           WRITE(msg,'(A,I3)') "Gradient of F = y on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(2,:,:,:)+1.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-6_RP,         &
+                             tol = 2.e-8_RP,         &
                              msg = msg)
                              
           WRITE(msg,'(A,I3)') "Gradient of F = z on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(3,:,:,:)+1.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-6_RP,         &
+                             tol = 2.e-8_RP,         &
                              msg = msg)
                              
           WRITE(msg,'(A,I3)') "Gradient of F = const on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(4,:,:,:)))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-6_RP,         &
+                             tol = 2.e-8_RP,         &
                              msg = msg)
                              
           WRITE(msg,'(A,I3)') "Gradient of F = x + y + z on element ",eID
           maxE = MAXVAL(ABS(sem % mesh % elements(eID) % storage % QDot(5,:,:,:)+3.0_RP))
           CALL FTAssertEqual(expectedValue = 0.0_RP, &
                              actualValue = maxE,     &
-                             tol = 1.e-6_RP,         &
+                             tol = 2.e-8_RP,         &
                              msg = msg)
           
       END DO 
@@ -303,7 +308,7 @@
          INTEGER           :: fce
          INTEGER           :: N(3)
          REAL(KIND=RP)     :: x(3), Qexpected(N_EQN), Qactual(N_EQN), emax
-         CHARACTER(LEN=72) :: msg
+         CHARACTER(LEN=92) :: msg
 !
 !        ---------------------------------------------------------------------
 !        Interpolate to the faces. Then compare to the expected values at the 

@@ -39,7 +39,7 @@ module SurfaceIntegrals
 !        -----------------------------------------------------------
 !
          implicit none
-         class(HexMesh),      intent(inout) :: mesh
+         class(HexMesh),      intent(inout), target  :: mesh
          class(NodalStorage), intent(in)    :: spA(0:)
          integer,             intent(in)    :: zoneID
          integer,             intent(in)    :: integralType
@@ -50,6 +50,7 @@ module SurfaceIntegrals
 !        ---------------
 !
          integer  :: zonefID, fID, eID, fIDs(6) 
+         class(Element), pointer    :: e
 !
 !        Initialization
 !        --------------            
@@ -57,14 +58,17 @@ module SurfaceIntegrals
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
-!$omp parallel default(private) shared(mesh,spA,zoneID,integralType,val)
+!$omp parallel private(e,fID, eID, fIDs) shared(mesh,spA,zoneID,integralType,val,&
+!$omp&                                          flowIsNavierStokes)
 !$omp single
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID = mesh % zones(zoneID) % faces(zonefID)
 
             eID = mesh % faces(fID) % elementIDs(1)
             fIDs = mesh % elements(eID) % faceIDs
-!$omp task depend(inout: mesh % elements(eID))
+
+            e => mesh % elements(eID)
+!$omp task depend(inout:e)
             call mesh % elements(eID) % ProlongSolutionToFaces(mesh % faces(fIDs(1)),&
                                             mesh % faces(fIDs(2)),&
                                             mesh % faces(fIDs(3)),&
@@ -85,7 +89,7 @@ module SurfaceIntegrals
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
-!$omp do reduction(+:val) schedule(runtime)
+!$omp do private(fID) reduction(+:val) schedule(runtime)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces         
 !
 !           Face global ID
@@ -210,7 +214,7 @@ module SurfaceIntegrals
 !        -----------------------------------------------------------
 !
          implicit none
-         class(HexMesh),      intent(inout) :: mesh
+         class(HexMesh),      intent(inout), target  :: mesh
          class(NodalStorage), intent(in)    :: spA(0:)
          integer,             intent(in)    :: zoneID
          integer,             intent(in)    :: integralType
@@ -223,6 +227,7 @@ module SurfaceIntegrals
 !        ---------------
 !
          integer  :: zonefID, fID, eID, fIDs(6) 
+         class(Element), pointer  :: e
 !
 !        Initialization
 !        --------------            
@@ -235,14 +240,17 @@ module SurfaceIntegrals
 !        Perform the interpolation
 !        *************************
 !
-!$omp parallel default(private) shared(mesh,spA,zoneID,integralType,val,valx,valy,valz)
+!$omp parallel private(e,fID, eID, fIDs, localVal) shared(mesh,spA,zoneID,integralType,val,&
+!$omp&                                        valx,valy,valz,flowIsNavierStokes)
 !$omp single
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID = mesh % zones(zoneID) % faces(zonefID)
 
             eID = mesh % faces(fID) % elementIDs(1)
             fIDs = mesh % elements(eID) % faceIDs
-!$omp task depend(inout: mesh % elements(eID))
+
+            e => mesh % elements(eID)
+!$omp task depend(inout:e)
             call mesh % elements(eID) % ProlongSolutionToFaces(mesh % faces(fIDs(1)),&
                                             mesh % faces(fIDs(2)),&
                                             mesh % faces(fIDs(3)),&
@@ -263,7 +271,7 @@ module SurfaceIntegrals
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
-!$omp do reduction(+:valx,valy,valz) schedule(runtime)
+!$omp do private(fID,localVal) reduction(+:valx,valy,valz) schedule(runtime)
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces         
 !
 !           Face global ID

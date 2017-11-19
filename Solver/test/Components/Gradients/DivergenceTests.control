@@ -1,4 +1,4 @@
-Flow equations = "Euler"
+Flow equations = "NS"
 discretization nodes = "Gauss"
 inviscid discretization = Standard
 mesh file name = "./GradientsMeshFileNames.txt"
@@ -6,7 +6,7 @@ save gradients with solution = .false.
 plot file name = "none"
 restart file name = "none"
 restart               = .false.
-Polynomial order      = 10
+Polynomial order      = 9
 Number of time steps  = 1
 Output Interval       = 1000
 Number of plot points = 6

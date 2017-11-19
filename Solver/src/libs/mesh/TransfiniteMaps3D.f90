@@ -572,9 +572,8 @@
 !     Compute the mapping
 !     -------------------
 !
-      xi = 0.5_RP*(u + 1.0_RP)
-      CALL ComputeGradHexTransfiniteMap(xi, grad_x, facePoint, faceDer, &
-     &                                  edgePoint, edgeDer, cornerPoints)
+      CALL ComputeGradHexTransfiniteMap(u, grad_x, facePoint, 2.0_RP * faceDer, &
+     &                                  edgePoint, 2.0_RP * edgeDer, cornerPoints)
 !
 !     ---------------------------
 !     Zero out rounded quantities
@@ -739,6 +738,8 @@
                                    - corners(j,3)*        xi(1) *       xi(2)  &
                                    + corners(j,7)*        xi(1) *       xi(2)
       END DO
+
+      grad_x = 0.5_RP * grad_x
 !
       END SUBROUTINE ComputeGradHexTransfiniteMap
 !

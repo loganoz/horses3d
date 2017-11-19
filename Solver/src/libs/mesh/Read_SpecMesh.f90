@@ -78,7 +78,8 @@ MODULE Read_SpecMesh
          REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
          
          real(kind=RP), allocatable, dimension(:)     :: xiCL,etaCL,zetaCL
-         real(kind=RP), allocatable, dimension(:,:,:) :: face1CL,face2CL,face3CL,face4CL,face5CL,face6CL
+!         real(kind=RP), allocatable, dimension(:,:,:) :: face1CL,face2CL,face3CL,face4CL,face5CL,face6CL
+         real(kind=RP), allocatable :: faceCL(:,:,:)
           
          numberOfBoundaryFaces = 0
          corners               = 0.0_RP
@@ -124,8 +125,8 @@ MODULE Read_SpecMesh
          ALLOCATE(values(3,numBFacePoints,numBFacePoints))
          
          DO i = 1, numBFacePoints
-            uNodes(i) = -COS((i-1)*PI/(numBFacePoints-1)) 
-            vNodes(i) = -COS((i-1)*PI/(numBFacePoints-1)) 
+            uNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+            vNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
          END DO
          
          DO k = 1, 6 ! Most patches will be flat, so set up for self
@@ -208,69 +209,47 @@ MODULE Read_SpecMesh
                         END DO  
                      END DO
                         
-                     IF(facePatches(k) % noOfKnots(1) /= numBFacePoints)     THEN      ! TODO This could be problematic with anisotropy
-                        CALL facePatches(k) % destruct()
-                        CALL facePatches(k) % construct(uNodes, vNodes, values)
-                     ELSE
-                       CALL facePatches(k) % setFacePoints(points = values)
-                     END IF 
+                     CALL facePatches(k) % destruct()
+                     CALL facePatches(k) % construct(uNodes, vNodes, values)
+!
+!                    Adapt the curved face order to the polynomial order
+!                    ---------------------------------------------------
+                     if ( any( (/Nx(l),Ny(l),Nz(l)/) .lt. bFaceOrder) ) then
+                     select case (k)
+                     case(1,2)
+                       allocate(xiCL(Nx(l)+1), etaCL(Nz(l)+1))
+                       allocate(faceCL(1:3,Nx(l)+1,Nz(l)+1))
+                       xiCL  = (/ ( -cos((i-1.0_RP)*PI/Nx(l)),i=1, Nx(l)+1) /)
+                       etaCL = (/ ( -cos((i-1.0_RP)*PI/Nz(l)),i=1, Nz(l)+1) /)
+                       call ProjectFaceToNewPoints(facePatches(k), Nx(l), xiCL , Nz(l), etaCL, faceCL)
+                       call facePatches(k) % Destruct()
+                       call facePatches(k) % Construct(xiCL,etaCL,faceCL) 
+                       deallocate(xiCL, etaCL, faceCL)
+                     case(3,5)
+                       allocate(xiCL(Nx(l)+1), etaCL(Ny(l)+1))
+                       allocate(faceCL(1:3,Nx(l)+1,Ny(l)+1))
+                       xiCL  = (/ ( -cos((i-1.0_RP)*PI/Nx(l)),i=1, Nx(l)+1) /)
+                       etaCL = (/ ( -cos((i-1.0_RP)*PI/Ny(l)),i=1, Ny(l)+1) /)
+                       call ProjectFaceToNewPoints(facePatches(k), Nx(l), xiCL , Ny(l), etaCL, faceCL)
+                       call facePatches(k) % Destruct()
+                       call facePatches(k) % Construct(xiCL,etaCL,faceCL) 
+                       deallocate(xiCL, etaCL, faceCL)
+
+                     case(4,6)
+                       allocate(xiCL(Ny(l)+1), etaCL(Nz(l)+1))
+                       allocate(faceCL(1:3,Ny(l)+1,Nz(l)+1))
+                       xiCL  = (/ ( -cos((i-1.0_RP)*PI/Ny(l)),i=1, Ny(l)+1) /)
+                       etaCL = (/ ( -cos((i-1.0_RP)*PI/Nz(l)),i=1, Nz(l)+1) /)
+                       call ProjectFaceToNewPoints(facePatches(k), Ny(l), xiCL , Nz(l), etaCL, faceCL)
+                       call facePatches(k) % Destruct()
+                       call facePatches(k) % Construct(xiCL,etaCL,faceCL) 
+                       deallocate(xiCL, etaCL, faceCL)
+
+                    end select
+                    end if
                      
                   END IF
                END DO
-               
-!
-!              Impose subparametric, or at most isoparametric, representation of boundaries
-!              To do so, we interpolate the boundary points to (Nx+1, Ny+1, Nz+1) 
-!              Chebyshev-Lobatto nodes and reconstruct the patches there. 
-!              TODO: This can cause problems with p-adaptation for inner curved boundaries
-!              ----------------------------------------------------------------------------
-            
-               ! Allocation
-               
-               allocate(xiCL(Nx(l)+1),etaCL(Ny(l)+1),zetaCL(Nz(l)+1))
-               allocate(face1CL(1:3,Nx(l)+1,Nz(l)+1))
-               allocate(face2CL(1:3,Nx(l)+1,Nz(l)+1))
-               allocate(face3CL(1:3,Nx(l)+1,Ny(l)+1))
-               allocate(face4CL(1:3,Ny(l)+1,Nz(l)+1))
-               allocate(face5CL(1:3,Nx(l)+1,Ny(l)+1))
-               allocate(face6CL(1:3,Ny(l)+1,Nz(l)+1))
-            
-               ! Construct the interpolants based on Chebyshev-Lobatto points
-               
-               xiCL   = (/ ( -cos((i-1)*PI/Nx(l)),i=1, Nx(l)+1) /)
-               etaCL  = (/ ( -cos((i-1)*PI/Ny(l)),i=1, Ny(l)+1) /)
-               zetaCL = (/ ( -cos((i-1)*PI/Nz(l)),i=1, Nz(l)+1) /)
-               
-               ! Project the faces to new boundary representations
-               
-               call ProjectFaceToNewPoints(facePatches(1), Nx(l), xiCL , Nz(l), zetaCL, face1CL)
-               call ProjectFaceToNewPoints(facePatches(2), Nx(l), xiCL , Nz(l), zetaCL, face2CL)
-               call ProjectFaceToNewPoints(facePatches(3), Nx(l), xiCL , Ny(l), etaCL , face3CL)
-               call ProjectFaceToNewPoints(facePatches(4), Ny(l), etaCL, Nz(l), zetaCL, face4CL)
-               call ProjectFaceToNewPoints(facePatches(5), Nx(l), xiCL , Ny(l), etaCL , face5CL)
-               call ProjectFaceToNewPoints(facePatches(6), Ny(l), etaCL, Nz(l), zetaCL, face6CL)
-               
-               ! Destruct face patches
-               
-               call facePatches(1) % Destruct()
-               call facePatches(2) % Destruct()
-               call facePatches(3) % Destruct()
-               call facePatches(4) % Destruct()
-               call facePatches(5) % Destruct()
-               call facePatches(6) % Destruct()
-               
-               ! Construct the new Chebyshev-Lobatto face patches
-               
-               call facePatches(1) % Construct( xiCL , zetaCL, face1CL )
-               call facePatches(2) % Construct( xiCL , zetaCL, face2CL )
-               call facePatches(3) % Construct( xiCL , etaCL , face3CL )
-               call facePatches(4) % Construct( etaCL, zetaCL, face4CL )
-               call facePatches(5) % Construct( xiCL , etaCL , face5CL )
-               call facePatches(6) % Construct( etaCL, zetaCL, face6CL )
-               
-               deallocate(xiCL,etaCL,zetaCL)
-               deallocate(face1CL,face2CL,face3CL,face4CL,face5CL,face6CL)
-         
 !
 !              Construct the transfinite map with the boundary representations
 !              ---------------------------------------------------------------

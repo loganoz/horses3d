@@ -27,6 +27,8 @@ Module MappedGeometryClass
 !
       integer, parameter :: EFRONT = 1, EBACK = 2, EBOTTOM = 3
       integer, parameter :: ERIGHT = 4, ETOP = 5, ELEFT = 6
+
+      LOGICAL       :: useCrossProductMetrics = .true.
 !
 !     -----
 !     Class
@@ -53,8 +55,6 @@ Module MappedGeometryClass
             procedure :: destruct  => DestructMappedGeometryFace
       end type MappedGeometryFace
       
-      LOGICAL       :: useCrossProductMetrics = .false. ! A switch for debugging purposes. Cross product metrics are fine (and more precise) for 2D geometries... But not for 3D.
-                                                        ! Before changing, read: Kopriva, David A. "Metric identities and the discontinuous spectral element method on curvilinear meshes." Journal of Scientific Computing 26.3 (2006): 301-327.
 !
 !  ========
    CONTAINS 
@@ -106,7 +106,6 @@ Module MappedGeometryClass
 !     Compute interior locations
 !     --------------------------
 !
-!     TODO: this could be inconsistent if curveOrder > N. Otherwise I think is ok.
       DO k = 0, Nz
          DO j= 0, Ny       
             DO i = 0,Nx 
@@ -167,13 +166,13 @@ Module MappedGeometryClass
 !     ---------------
 !
       integer        :: i, j, l
+      real(kind=RP)  :: grad_x(NDIM,NDIM)
       real(kind=RP)  :: x_xi(NDIM,0:Nf(1),0:Nf(2))
       real(kind=RP)  :: x_eta(NDIM,0:Nf(1),0:Nf(2))
       real(kind=RP)  :: crossTerm1(0:Nf(1),0:Nf(2))
       real(kind=RP)  :: crossTerm2(0:Nf(1),0:Nf(2))
       real(kind=RP)  :: crossTerm1_eta(0:Nf(1),0:Nf(2))
       real(kind=RP)  :: crossTerm2_xi(0:Nf(1),0:Nf(2))
-      
       
       allocate( self % x(NDIM, 0:Nf(1), 0:Nf(2)))
       allocate( self % scal(0:Nf(1), 0:Nf(2)))
@@ -184,47 +183,65 @@ Module MappedGeometryClass
       select case(side)
          case(ELEFT)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([-1.0_RP      , spA(1) % x(i), spA(2) % x(j) ])
+               self % x(:,i,j) = hexMap % transfiniteMapAt([-1.0_RP, spA(1) % x(i), spA(2) % x(j) ])
+               grad_x = hexMap % metricDerivativesAt([-1.0_RP, spA(1) % x(i), spA(2) % x(j)])
+               x_xi(:,i,j) = grad_x(:,2)
+               x_eta(:,i,j) = grad_x(:,3)
             end do ; end do
          
          case(ERIGHT)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([ 1.0_RP      , spA(1) % x(i), spA(2) % x(j) ])
+               self % x(:,i,j) = hexMap % transfiniteMapAt([ 1.0_RP, spA(1) % x(i), spA(2) % x(j) ])
+               grad_x = hexMap % metricDerivativesAt([1.0_RP, spA(1) % x(i), spA(2) % x(j)])
+               x_xi(:,i,j) = grad_x(:,2)
+               x_eta(:,i,j) = grad_x(:,3)
             end do ; end do
          
          case(EBOTTOM)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i), spA(2) % x(j),    -1.0_RP    ])
+               self % x(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i), spA(2) % x(j),-1.0_RP])
+               grad_x = hexMap % metricDerivativesAt([spA(1) % x(i), spA(2) % x(j), -1.0_RP])
+               x_xi(:,i,j) = grad_x(:,1)
+               x_eta(:,i,j) = grad_x(:,2)
             end do ; end do
             
          case(ETOP)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i), spA(2) % x(j),     1.0_RP    ])
+               self % x(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i), spA(2) % x(j),1.0_RP])
+               grad_x = hexMap % metricDerivativesAt([spA(1) % x(i), spA(2) % x(j), 1.0_RP])
+               x_xi(:,i,j) = grad_x(:,1)
+               x_eta(:,i,j) = grad_x(:,2)
             end do ; end do
             
          case(EFRONT)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i), -1.0_RP      , spA(2) % x(j) ])
+               self % x(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i), -1.0_RP, spA(2) % x(j) ])
+               grad_x = hexMap % metricDerivativesAt([spA(1) % x(i), -1.0_RP, spA(2) % x(j)])
+               x_xi(:,i,j) = grad_x(:,1)
+               x_eta(:,i,j) = grad_x(:,3)
             end do ; end do
             
          case(EBACK)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i),  1.0_RP      , spA(2) % x(j) ])
+               self % x(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i), 1.0_RP, spA(2) % x(j) ])
+               grad_x = hexMap % metricDerivativesAt([spA(1) % x(i), 1.0_RP, spA(2) % x(j)])
+               x_xi(:,i,j) = grad_x(:,1)
+               x_eta(:,i,j) = grad_x(:,3)
             end do ; end do
             
       end select
 !
 !     Get the mappings interpolant derivatives
 !     ----------------------------------------
-      x_xi = 0.0_RP
-      do j = 0, Nf(2) ; do i = 0, Nf(1) ; do l = 0, Nf(1)  
-         x_xi(:,i,j) = x_xi(:,i,j) + spA(1) % D(i,l) * self % x(:,l,j)
-      end do              ; end do              ; end do
-
-      x_eta = 0.0_RP
-      do j = 0, Nf(2) ; do i = 0, Nf(1) ; do l = 0, Nf(2)  
-         x_eta(:,i,j) = x_eta(:,i,j) + spA(2) % D(j,l) * self % x(:,i,l)
-      end do              ; end do              ; end do
+!      x_xi = 0.0_RP
+!      do j = 0, Nf(2) ; do i = 0, Nf(1) ; do l = 0, Nf(1)  
+!         x_xi(:,i,j) = x_xi(:,i,j) + spA(1) % D(i,l) * self % x(:,l,j)
+!      end do              ; end do              ; end do
+!
+!      x_eta = 0.0_RP
+!      do j = 0, Nf(2) ; do i = 0, Nf(1) ; do l = 0, Nf(2)  
+!         x_eta(:,i,j) = x_eta(:,i,j) + spA(2) % D(j,l) * self % x(:,i,l)
+!      end do              ; end do              ; end do
 !
 !     Compute the metric terms
 !     ------------------------
@@ -240,10 +257,10 @@ Module MappedGeometryClass
 !
 !        ************************
 !        Compute the x-coordinate
-!        ************************
+!        *********************
 !
-         crossTerm1 = x_xi(2,:,:) * self % x(3,:,:)    ! y_xi z
-         crossTerm2 = x_eta(2,:,:) * self % x(3,:,:)   ! y_eta z
+         crossTerm1 = 0.5_RP * (x_xi(2,:,:) * self % x(3,:,:) - x_xi(3,:,:)*self % x(2,:,:))
+         crossTerm2 = 0.5_RP * (x_eta(2,:,:) * self % x(3,:,:) - x_eta(3,:,:)*self % x(2,:,:))
 !
 !        Compute the derivative of the cross terms
 !        -----------------------------------------
@@ -267,8 +284,8 @@ Module MappedGeometryClass
 !        Compute the y-coordinate
 !        ************************
 !
-         crossTerm1 = x_xi(3,:,:) * self % x(1,:,:)    ! z_xi x
-         crossTerm2 = x_eta(3,:,:) * self % x(1,:,:)   ! z_eta x
+         crossTerm1 = 0.5_RP * (x_xi(3,:,:) * self % x(1,:,:) - x_xi(1,:,:) * self % x(3,:,:))
+         crossTerm2 = 0.5_RP * (x_eta(3,:,:) * self % x(1,:,:) - x_eta(1,:,:) * self % x(3,:,:))
 !
 !        Compute the derivative of the cross terms
 !        -----------------------------------------
@@ -292,8 +309,8 @@ Module MappedGeometryClass
 !        Compute the z-coordinate
 !        ************************
 !
-         crossTerm1 = x_xi(1,:,:) * self % x(2,:,:)    ! x_xi y
-         crossTerm2 = x_eta(1,:,:) * self % x(2,:,:)   ! x_eta y
+         crossTerm1 = 0.5_RP * (x_xi(1,:,:) * self % x(2,:,:) - x_xi(2,:,:) * self % x(1,:,:))
+         crossTerm2 = 0.5_RP * (x_eta(1,:,:) * self % x(2,:,:) - x_eta(2,:,:) * self % x(1,:,:))
 !
 !        Compute the derivative of the cross terms
 !        -----------------------------------------
@@ -365,17 +382,19 @@ Module MappedGeometryClass
 !        ----------------------------
          grad_x = 0.0_RP
          do k = 0, self % Nz ; do j = 0, self % Ny  ; do i = 0, self % Nx
-            do l = 0, self % Nx
-               grad_x(:,1,i,j,k) = grad_x(:,1,i,j,k) + self % x(:,l,j,k) * spAxi % D(i,l)
-            end do
-      
-            do l = 0, self % Ny
-               grad_x(:,2,i,j,k) = grad_x(:,2,i,j,k) + self % x(:,i,l,k) * spAeta % D(j,l)
-            end do
-
-            do l = 0, self % Nz
-               grad_x(:,3,i,j,k) = grad_x(:,3,i,j,k) + self % x(:,i,j,l) * spAzeta % D(k,l)
-            end do
+            grad_x(:,:,i,j,k) = mapper % metricDerivativesAt([spAxi % x(i), spAeta % x(j), &
+                                                              spAzeta % x(k)])
+!            do l = 0, self % Nx
+!               grad_x(:,1,i,j,k) = grad_x(:,1,i,j,k) + self % x(:,l,j,k) * spAxi % D(i,l)
+!            end do
+!      
+!            do l = 0, self % Ny
+!               grad_x(:,2,i,j,k) = grad_x(:,2,i,j,k) + self % x(:,i,l,k) * spAeta % D(j,l)
+!            end do
+!
+!            do l = 0, self % Nz
+!               grad_x(:,3,i,j,k) = grad_x(:,3,i,j,k) + self % x(:,i,j,l) * spAzeta % D(k,l)
+!            end do
          end do         ; end do          ; end do
 !
 !        *****************************************
@@ -385,7 +404,8 @@ Module MappedGeometryClass
 !        Compute coordinates combination
 !        -------------------------------
          do k = 0, self % Nz    ; do j = 0, self % Ny  ; do i = 0, self % Nx
-            coordsProduct(:,i,j,k) = self % x(3,i,j,k) * grad_x(2,:,i,j,k)
+            coordsProduct(:,i,j,k) =   self % x(3,i,j,k) * grad_x(2,:,i,j,k)  &
+                                     - self % x(2,i,j,k) * grad_x(3,:,i,j,k)
          end do            ; end do          ; end do
 !
 !        Compute its gradient
@@ -415,9 +435,9 @@ Module MappedGeometryClass
 !
 !        Assign to the first coordinate of each metrics
 !        ----------------------------------------------
-         self % jGradXi(1,:,:,:)   = -Jai(1,:,:,:)
-         self % jGradEta(1,:,:,:)  = -Jai(2,:,:,:)
-         self % jGradZeta(1,:,:,:) = -Jai(3,:,:,:)
+         self % jGradXi(1,:,:,:)   = -0.5_RP * Jai(1,:,:,:)
+         self % jGradEta(1,:,:,:)  = -0.5_RP * Jai(2,:,:,:)
+         self % jGradZeta(1,:,:,:) = -0.5_RP * Jai(3,:,:,:)
 !
 !        *****************************************
 !        Compute the y-coordinates of the mappings
@@ -426,7 +446,8 @@ Module MappedGeometryClass
 !        Compute coordinates combination
 !        -------------------------------
          do k = 0, self % Nz    ; do j = 0, self % Ny  ; do i = 0, self % Nx
-            coordsProduct(:,i,j,k) = self % x(1,i,j,k) * grad_x(3,:,i,j,k)
+            coordsProduct(:,i,j,k) =   self % x(1,i,j,k) * grad_x(3,:,i,j,k) &
+                                     - self % x(3,i,j,k) * grad_x(1,:,i,j,k)
          end do            ; end do          ; end do
 !
 !        Compute its gradient
@@ -456,9 +477,9 @@ Module MappedGeometryClass
 !
 !        Assign to the second coordinate of each metrics
 !        -----------------------------------------------
-         self % jGradXi(2,:,:,:)   = -Jai(1,:,:,:)
-         self % jGradEta(2,:,:,:)  = -Jai(2,:,:,:)
-         self % jGradZeta(2,:,:,:) = -Jai(3,:,:,:)
+         self % jGradXi(2,:,:,:)   = -0.5_RP*Jai(1,:,:,:)
+         self % jGradEta(2,:,:,:)  = -0.5_RP*Jai(2,:,:,:)
+         self % jGradZeta(2,:,:,:) = -0.5_RP*Jai(3,:,:,:)
 !
 !        *****************************************
 !        Compute the z-coordinates of the mappings
@@ -467,7 +488,8 @@ Module MappedGeometryClass
 !        Compute coordinates combination
 !        -------------------------------
          do k = 0, self % Nz    ; do j = 0, self % Ny  ; do i = 0, self % Nx
-            coordsProduct(:,i,j,k) = self % x(2,i,j,k) * grad_x(1,:,i,j,k)
+            coordsProduct(:,i,j,k) =   self % x(2,i,j,k) * grad_x(1,:,i,j,k) &
+                                     - self % x(1,i,j,k) * grad_x(2,:,i,j,k)
          end do            ; end do          ; end do
 !
 !        Compute its gradient
@@ -497,9 +519,9 @@ Module MappedGeometryClass
 !
 !        Assign to the third coordinate of each metrics
 !        ----------------------------------------------
-         self % jGradXi(3,:,:,:)   = -Jai(1,:,:,:)
-         self % jGradEta(3,:,:,:)  = -Jai(2,:,:,:)
-         self % jGradZeta(3,:,:,:) = -Jai(3,:,:,:)
+         self % jGradXi(3,:,:,:)   = -0.5_RP * Jai(1,:,:,:)
+         self % jGradEta(3,:,:,:)  = -0.5_RP * Jai(2,:,:,:)
+         self % jGradZeta(3,:,:,:) = -0.5_RP * Jai(3,:,:,:)
 !
 !        ********************
 !        Compute the Jacobian
@@ -548,16 +570,18 @@ Module MappedGeometryClass
          DO k = 0, Nz
             DO j = 0,Ny
                DO i = 0,Nx
-                  grad_x = 0.0_RP
-                  do l = 0, Nx
-                     grad_x(:,1) = grad_x(:,1) + self % X(:,l,j,k) * spAxi % D(i,l)
-                  end do
-                  do l = 0, Ny
-                     grad_x(:,2) = grad_x(:,2) + self % X(:,i,l,k) * spAeta % D(j,l)
-                  end do
-                  do l = 0, Nz
-                     grad_x(:,3) = grad_x(:,3) + self % X(:,i,j,l) * spAzeta % D(k,l)
-                  end do
+!                  grad_x = 0.0_RP
+!                  do l = 0, Nx
+!                     grad_x(:,1) = grad_x(:,1) + self % X(:,l,j,k) * spAxi % D(i,l)
+!                  end do
+!                  do l = 0, Ny
+!                     grad_x(:,2) = grad_x(:,2) + self % X(:,i,l,k) * spAeta % D(j,l)
+!                  end do
+!                  do l = 0, Nz
+!                     grad_x(:,3) = grad_x(:,3) + self % X(:,i,j,l) * spAzeta % D(k,l)
+!                  end do
+                  grad_x = mapper % metricDerivativesAt([spAxi % x(i), spAeta % x(j), &
+                                                              spAzeta % x(k)])
                  
                   CALL vCross( grad_x(:,2), grad_x(:,3), self % jGradXi  (:,i,j,k))
                   CALL vCross( grad_x(:,3), grad_x(:,1), self % jGradEta (:,i,j,k))
