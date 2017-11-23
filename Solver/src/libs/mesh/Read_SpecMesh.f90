@@ -14,7 +14,11 @@ MODULE Read_SpecMesh
       use SMConstants
       USE TransfiniteMapClass
       use FacePatchClass
-      IMPLICIT NONE
+      implicit none
+      
+      private
+      public ConstructMesh_FromSpecMeshFile_, NumOfElems_SpecMesh
+      
 !
 !     ========
       CONTAINS
@@ -44,8 +48,6 @@ MODULE Read_SpecMesh
 !        Local variables
 !        ---------------
 !
-         TYPE(TransfiniteHexMap), POINTER :: hexMap, hex8Map, genHexMap
-         
          INTEGER                         :: numberOfElements
          INTEGER                         :: numberOfNodes
          INTEGER                         :: numberOfBoundaryFaces
@@ -66,6 +68,7 @@ MODULE Read_SpecMesh
 !        For curved patches
 !        ------------------
 !
+         type(SurfInfo_t), allocatable                  :: SurfInfo(:)
          REAL(KIND=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
          REAL(KIND=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
 !
@@ -76,18 +79,10 @@ MODULE Read_SpecMesh
          REAL(KIND=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
          REAL(KIND=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
          REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
-         
-         real(kind=RP), allocatable, dimension(:)     :: xiCL,etaCL,zetaCL
-!         real(kind=RP), allocatable, dimension(:,:,:) :: face1CL,face2CL,face3CL,face4CL,face5CL,face6CL
-         real(kind=RP), allocatable :: faceCL(:,:,:)
           
          numberOfBoundaryFaces = 0
-         corners               = 0.0_RP
          success               = .TRUE.
          
-         ALLOCATE(hex8Map)
-         CALL hex8Map % constructWithCorners(corners)
-         ALLOCATE(genHexMap)
 !
 !        -----------------------
 !        Read header information
@@ -112,6 +107,7 @@ MODULE Read_SpecMesh
 !
          ALLOCATE( self % elements(numberOfelements) )
          ALLOCATE( self % nodes(numberOfNodes) )
+         allocate( SurfInfo(numberOfelements) )
 !
 !        ----------------------------
 !        Set up for face patches
@@ -169,8 +165,9 @@ MODULE Read_SpecMesh
                DO k = 1, NODES_PER_ELEMENT
                   corners(:,k) = self % nodes(nodeIDs(k)) % x
                END DO
-               CALL hex8Map % setCorners(corners)
-               hexMap => hex8Map
+               SurfInfo(l) % IsHex8 = .TRUE.
+               SurfInfo(l) % corners = corners
+               
             ELSE
 !
 !              --------------------------------------------------------------
@@ -190,12 +187,7 @@ MODULE Read_SpecMesh
                      valuesFlat(:,2,2) = self % nodes(nodeIDs(nodeMap(3))) % x
                      valuesFlat(:,1,2) = self % nodes(nodeIDs(nodeMap(4))) % x
                      
-                     IF(facePatches(k) % noOfKnots(1) /= 2)     THEN
-                        CALL facePatches(k) % destruct()
-                        CALL facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
-                     ELSE
-                        CALL facePatches(k) % setFacePoints(points = valuesFlat)
-                     END IF 
+                     call SurfInfo(l) % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
                      
                   ELSE
 !
@@ -208,63 +200,19 @@ MODULE Read_SpecMesh
                            READ( fUnit, * ) values(:,i,j)
                         END DO  
                      END DO
-                        
-                     CALL facePatches(k) % destruct()
-                     CALL facePatches(k) % construct(uNodes, vNodes, values)
-!
-!                    Adapt the curved face order to the polynomial order
-!                    ---------------------------------------------------
-                     if ( any( (/Nx(l),Ny(l),Nz(l)/) .lt. bFaceOrder) ) then
-                     select case (k)
-                     case(1,2)
-                       allocate(xiCL(Nx(l)+1), etaCL(Nz(l)+1))
-                       allocate(faceCL(1:3,Nx(l)+1,Nz(l)+1))
-                       xiCL  = (/ ( -cos((i-1.0_RP)*PI/Nx(l)),i=1, Nx(l)+1) /)
-                       etaCL = (/ ( -cos((i-1.0_RP)*PI/Nz(l)),i=1, Nz(l)+1) /)
-                       call ProjectFaceToNewPoints(facePatches(k), Nx(l), xiCL , Nz(l), etaCL, faceCL)
-                       call facePatches(k) % Destruct()
-                       call facePatches(k) % Construct(xiCL,etaCL,faceCL) 
-                       deallocate(xiCL, etaCL, faceCL)
-                     case(3,5)
-                       allocate(xiCL(Nx(l)+1), etaCL(Ny(l)+1))
-                       allocate(faceCL(1:3,Nx(l)+1,Ny(l)+1))
-                       xiCL  = (/ ( -cos((i-1.0_RP)*PI/Nx(l)),i=1, Nx(l)+1) /)
-                       etaCL = (/ ( -cos((i-1.0_RP)*PI/Ny(l)),i=1, Ny(l)+1) /)
-                       call ProjectFaceToNewPoints(facePatches(k), Nx(l), xiCL , Ny(l), etaCL, faceCL)
-                       call facePatches(k) % Destruct()
-                       call facePatches(k) % Construct(xiCL,etaCL,faceCL) 
-                       deallocate(xiCL, etaCL, faceCL)
-
-                     case(4,6)
-                       allocate(xiCL(Ny(l)+1), etaCL(Nz(l)+1))
-                       allocate(faceCL(1:3,Ny(l)+1,Nz(l)+1))
-                       xiCL  = (/ ( -cos((i-1.0_RP)*PI/Ny(l)),i=1, Ny(l)+1) /)
-                       etaCL = (/ ( -cos((i-1.0_RP)*PI/Nz(l)),i=1, Nz(l)+1) /)
-                       call ProjectFaceToNewPoints(facePatches(k), Ny(l), xiCL , Nz(l), etaCL, faceCL)
-                       call facePatches(k) % Destruct()
-                       call facePatches(k) % Construct(xiCL,etaCL,faceCL) 
-                       deallocate(xiCL, etaCL, faceCL)
-
-                    end select
-                    end if
+                     
+                     call SurfInfo(l) % facePatches(k) % construct(uNodes, vNodes, values)
                      
                   END IF
                END DO
-!
-!              Construct the transfinite map with the boundary representations
-!              ---------------------------------------------------------------
                
-               CALL genHexMap % destruct()
-               CALL genHexMap % constructWithFaces(facePatches)
-               
-               hexMap => genHexMap
             END IF 
 !
 !           -------------------------
 !           Now construct the element
 !           -------------------------
 !
-            CALL ConstructElementGeometry( self % elements(l), spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs, hexMap , l)
+            call self % elements(l) % Construct (spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs , l)
             
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(l), names )
@@ -293,7 +241,7 @@ MODULE Read_SpecMesh
             ENDDO
             
             
-         END DO      ! l = 1, numberOfElement
+         END DO      ! l = 1, numberOfElements
         
 !
 !        ---------------------------
@@ -304,12 +252,6 @@ MODULE Read_SpecMesh
          self % numberOfFaces = numberOfFaces
          ALLOCATE( self % faces(self % numberOfFaces) )
          CALL ConstructFaces( self, success )
-!
-!        ------------------------------
-!        Set the element connectivities
-!        ------------------------------
-!
-         call self % SetConnectivities
 !
 !        -------------------------
 !        Build the different zones
@@ -334,6 +276,18 @@ MODULE Read_SpecMesh
 !        ---------------------------
 !
          CALL getElementsFaceIDs(self)
+!
+!        ------------------------------
+!        Set the element connectivities
+!        ------------------------------
+!
+         call self % SetConnectivities(spA,nodes)
+!
+!        ---------------------------------------
+!        Construct elements' and faces' geometry
+!        ---------------------------------------
+!
+         call self % ConstructGeometry(spA,SurfInfo)
             
          CLOSE( fUnit )
 !
@@ -341,10 +295,6 @@ MODULE Read_SpecMesh
 !        Finish up
 !        ---------
 !
-         CALL hex8Map % destruct()
-         DEALLOCATE(hex8Map)
-         CALL genHexMap % destruct()
-         DEALLOCATE(genHexMap)
 
          CALL self % Describe( trim(fileName) )
          
@@ -353,7 +303,9 @@ MODULE Read_SpecMesh
          call self % Export( trim(fileName) )
          
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
-      
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       function NumOfElems_SpecMesh( fileName ) result(nelem)
          implicit none
          !----------------------------------
@@ -368,5 +320,4 @@ MODULE Read_SpecMesh
          CLOSE(fUnit)
       
       end function NumOfElems_SpecMesh
-      
 end module Read_SpecMesh

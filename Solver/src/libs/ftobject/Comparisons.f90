@@ -176,7 +176,7 @@
          REAL, INTENT(in)  :: x,y,tol
          LOGICAL           :: test
          
-         IF ( x == 0.0e0 )     THEN
+         IF ( x <= tol )     THEN
             test = ABS(x-y) <= tol
          ELSE
             test = ABS(x-y) <= tol*MAX(ABS(x),ABS(y))
@@ -240,7 +240,7 @@
          DOUBLE PRECISION, INTENT(in) :: x,y,tol
          LOGICAL                      :: test
          
-         IF ( x == 0.0d0 )     THEN
+         IF ( x <= tol )     THEN
             test = ABS(x-y) <= tol
          ELSE
             test = ABS(x-y) <= tol*MAX(ABS(x),ABS(y))

@@ -9,6 +9,8 @@
 !        2008-06-19: Created by David Kopriva
 !        XXXX-XX-XX: Gonzalo Rubio implemented cross-product metrics
 !        2017-05-05: Andrés Rueda implemented polynomial anisotropy
+!        2017-05-23: Juan Manzanero implemented invatiant metrics and
+!                    face geometry construction
 !      Contains:
 !         ALGORITHM 101: MappedGeometryClass
 !         ALGORITHM 102: ConstructMappedGeometry
@@ -28,7 +30,7 @@ Module MappedGeometryClass
       integer, parameter :: EFRONT = 1, EBACK = 2, EBOTTOM = 3
       integer, parameter :: ERIGHT = 4, ETOP = 5, ELEFT = 6
 
-      LOGICAL       :: useCrossProductMetrics = .true.
+      LOGICAL       :: useCrossProductMetrics = .false.
 !
 !     -----
 !     Class
@@ -48,8 +50,8 @@ Module MappedGeometryClass
       
       type MappedGeometryFace
          real(kind=RP), dimension(:,:,:),   allocatable :: x
-         real(kind=RP), dimension(:,:)  , allocatable :: scal   ! |ja^i|: Normalization term of the normal vectors on a face
-         real(kind=RP), dimension(:,:,:), allocatable :: normal ! normal vector on a face
+         real(kind=RP), dimension(:,:)  , allocatable   :: scal   ! |ja^i|: Normalization term of the normal vectors on a face
+         real(kind=RP), dimension(:,:,:), allocatable   :: normal ! normal vector on a face
          contains
             procedure :: construct => ConstructMappedGeometryFace
             procedure :: destruct  => DestructMappedGeometryFace
@@ -118,14 +120,7 @@ Module MappedGeometryClass
 !     Metric terms
 !     ------------
 !
-!
-!     ------------------------------------------------------------
-!     If the faces are straight, the CrossProductForm is OK
-!     If there are curved faces, the Conservative form is required
-!     see Kopriva 2006
-!     ------------------------------------------------------------
-!
-      IF ( useCrossProductMetrics) THEN 
+      IF ( useCrossProductMetrics ) THEN 
       
          CALL computeMetricTermsCrossProductForm(self, spAxi, spAeta, spAzeta, mapper)
          
@@ -146,222 +141,17 @@ Module MappedGeometryClass
          DEALLOCATE( self % x)
       END SUBROUTINE DestructMappedGeometry
 !
-!//////////////////////////////////////////////////////////////////////// 
-!
-!  -----------------------------------------------------------------------------------
-!  Computation of the metric terms on a face: TODO only the Left element (rotation 0)
-!  -----------------------------------------------------------------------------------
-   subroutine ConstructMappedGeometryFace(self, Nf, spA, geom, hexMap, side)
-      use PhysicsStorage
-      implicit none
-      class(MappedGeometryFace), intent(inout)  :: self
-      integer,                   intent(in)     :: Nf(2)
-      type(NodalStorage),        intent(in)     :: spA(2)
-      type(MappedGeometry),      intent(in)     :: geom
-      type(TransfiniteHexMap),   intent(in)     :: hexMap
-      integer,                   intent(in)     :: side
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      integer        :: i, j, l
-      real(kind=RP)  :: grad_x(NDIM,NDIM)
-      real(kind=RP)  :: x_xi(NDIM,0:Nf(1),0:Nf(2))
-      real(kind=RP)  :: x_eta(NDIM,0:Nf(1),0:Nf(2))
-      real(kind=RP)  :: crossTerm1(0:Nf(1),0:Nf(2))
-      real(kind=RP)  :: crossTerm2(0:Nf(1),0:Nf(2))
-      real(kind=RP)  :: crossTerm1_eta(0:Nf(1),0:Nf(2))
-      real(kind=RP)  :: crossTerm2_xi(0:Nf(1),0:Nf(2))
-      
-      allocate( self % x(NDIM, 0:Nf(1), 0:Nf(2)))
-      allocate( self % scal(0:Nf(1), 0:Nf(2)))
-      allocate( self % normal(NDIM, 0:Nf(1), 0:Nf(2)))
-!
-!     First step: get the surface coordinates directly from the mapping
-!     -----------------------------------------------------------------
-      select case(side)
-         case(ELEFT)
-            do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([-1.0_RP, spA(1) % x(i), spA(2) % x(j) ])
-               grad_x = hexMap % metricDerivativesAt([-1.0_RP, spA(1) % x(i), spA(2) % x(j)])
-               x_xi(:,i,j) = grad_x(:,2)
-               x_eta(:,i,j) = grad_x(:,3)
-            end do ; end do
-         
-         case(ERIGHT)
-            do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([ 1.0_RP, spA(1) % x(i), spA(2) % x(j) ])
-               grad_x = hexMap % metricDerivativesAt([1.0_RP, spA(1) % x(i), spA(2) % x(j)])
-               x_xi(:,i,j) = grad_x(:,2)
-               x_eta(:,i,j) = grad_x(:,3)
-            end do ; end do
-         
-         case(EBOTTOM)
-            do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i), spA(2) % x(j),-1.0_RP])
-               grad_x = hexMap % metricDerivativesAt([spA(1) % x(i), spA(2) % x(j), -1.0_RP])
-               x_xi(:,i,j) = grad_x(:,1)
-               x_eta(:,i,j) = grad_x(:,2)
-            end do ; end do
-            
-         case(ETOP)
-            do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i), spA(2) % x(j),1.0_RP])
-               grad_x = hexMap % metricDerivativesAt([spA(1) % x(i), spA(2) % x(j), 1.0_RP])
-               x_xi(:,i,j) = grad_x(:,1)
-               x_eta(:,i,j) = grad_x(:,2)
-            end do ; end do
-            
-         case(EFRONT)
-            do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i), -1.0_RP, spA(2) % x(j) ])
-               grad_x = hexMap % metricDerivativesAt([spA(1) % x(i), -1.0_RP, spA(2) % x(j)])
-               x_xi(:,i,j) = grad_x(:,1)
-               x_eta(:,i,j) = grad_x(:,3)
-            end do ; end do
-            
-         case(EBACK)
-            do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([spA(1) % x(i), 1.0_RP, spA(2) % x(j) ])
-               grad_x = hexMap % metricDerivativesAt([spA(1) % x(i), 1.0_RP, spA(2) % x(j)])
-               x_xi(:,i,j) = grad_x(:,1)
-               x_eta(:,i,j) = grad_x(:,3)
-            end do ; end do
-            
-      end select
-!
-!     Get the mappings interpolant derivatives
-!     ----------------------------------------
-!      x_xi = 0.0_RP
-!      do j = 0, Nf(2) ; do i = 0, Nf(1) ; do l = 0, Nf(1)  
-!         x_xi(:,i,j) = x_xi(:,i,j) + spA(1) % D(i,l) * self % x(:,l,j)
-!      end do              ; end do              ; end do
-!
-!      x_eta = 0.0_RP
-!      do j = 0, Nf(2) ; do i = 0, Nf(1) ; do l = 0, Nf(2)  
-!         x_eta(:,i,j) = x_eta(:,i,j) + spA(2) % D(j,l) * self % x(:,i,l)
-!      end do              ; end do              ; end do
-!
-!     Compute the metric terms
-!     ------------------------
-      if ( useCrossProductMetrics ) then
-
-         do j = 0, Nf(2) ; do i = 0, Nf(1)
-            call vCross(x_xi(:,i,j),x_eta(:,i,j), self % normal(:,i,j))
-            self % scal(i,j) = norm2(self % normal(:,i,j))
-            self % normal(:,i,j) = self % normal(:,i,j) / self % scal(i,j)
-         end do              ; end do
-
-      else
-!
-!        ************************
-!        Compute the x-coordinate
-!        *********************
-!
-         crossTerm1 = 0.5_RP * (x_xi(2,:,:) * self % x(3,:,:) - x_xi(3,:,:)*self % x(2,:,:))
-         crossTerm2 = 0.5_RP * (x_eta(2,:,:) * self % x(3,:,:) - x_eta(3,:,:)*self % x(2,:,:))
-!
-!        Compute the derivative of the cross terms
-!        -----------------------------------------
-         crossTerm1_eta = 0.0_RP
-         crossTerm2_xi  = 0.0_RP
-         do j = 0, Nf(2)   ; do i = 0, Nf(2)
-            do l = 0, Nf(2)
-               crossTerm1_eta(i,j) = crossTerm1_eta(i,j) + crossTerm1(i,l) * spA(2) % D(j,l)
-            end do
-
-            do l = 0, Nf(1)
-               crossTerm2_xi(i,j) = crossTerm2_xi(i,j) + crossTerm2(l,j) * spA(1) % D(i,l)
-            end do
-         end do            ; end do       
-!
-!        Assign it to the normal
-!        -----------------------
-         self % normal(1,:,:) = crossTerm1_eta - crossTerm2_xi
-!
-!        ************************
-!        Compute the y-coordinate
-!        ************************
-!
-         crossTerm1 = 0.5_RP * (x_xi(3,:,:) * self % x(1,:,:) - x_xi(1,:,:) * self % x(3,:,:))
-         crossTerm2 = 0.5_RP * (x_eta(3,:,:) * self % x(1,:,:) - x_eta(1,:,:) * self % x(3,:,:))
-!
-!        Compute the derivative of the cross terms
-!        -----------------------------------------
-         crossTerm1_eta = 0.0_RP
-         crossTerm2_xi  = 0.0_RP
-         do j = 0, Nf(2)   ; do i = 0, Nf(2)
-            do l = 0, Nf(2)
-               crossTerm1_eta(i,j) = crossTerm1_eta(i,j) + crossTerm1(i,l) * spA(2) % D(j,l)
-            end do
-
-            do l = 0, Nf(1)
-               crossTerm2_xi(i,j) = crossTerm2_xi(i,j) + crossTerm2(l,j) * spA(1) % D(i,l)
-            end do
-         end do            ; end do       
-!
-!        Assign it to the normal
-!        -----------------------
-         self % normal(2,:,:) = crossTerm1_eta - crossTerm2_xi
-!
-!        ************************
-!        Compute the z-coordinate
-!        ************************
-!
-         crossTerm1 = 0.5_RP * (x_xi(1,:,:) * self % x(2,:,:) - x_xi(2,:,:) * self % x(1,:,:))
-         crossTerm2 = 0.5_RP * (x_eta(1,:,:) * self % x(2,:,:) - x_eta(2,:,:) * self % x(1,:,:))
-!
-!        Compute the derivative of the cross terms
-!        -----------------------------------------
-         crossTerm1_eta = 0.0_RP
-         crossTerm2_xi  = 0.0_RP
-         do j = 0, Nf(2)   ; do i = 0, Nf(2)
-            do l = 0, Nf(2)
-               crossTerm1_eta(i,j) = crossTerm1_eta(i,j) + crossTerm1(i,l) * spA(2) % D(j,l)
-            end do
-
-            do l = 0, Nf(1)
-               crossTerm2_xi(i,j) = crossTerm2_xi(i,j) + crossTerm2(l,j) * spA(1) % D(i,l)
-            end do
-         end do            ; end do       
-!
-!        Assign it to the normal
-!        -----------------------
-         self % normal(3,:,:) = crossTerm1_eta - crossTerm2_xi
-!
-!        ***********************
-!        Compute scal and normal
-!        ***********************
-!
-         do j = 0, Nf(2)   ; do i = 0, Nf(1)
-            self % scal(i,j) = norm2(self % normal(:,i,j))
-            self % normal(:,i,j) = self % normal(:,i,j) / self % scal(i,j)
-         end do            ; end do
-       
-      end if
-
-      if ( (side .eq. ELEFT) .or. (side .eq. EBACK) .or. (side .eq. EBOTTOM)) self % normal = -self % normal
-
-   end subroutine ConstructMappedGeometryFace
-!
-!//////////////////////////////////////////////////////////////////////// 
-!
-      subroutine DestructMappedGeometryFace(self)
-         implicit none
-         !-------------------------------------------------------------------
-         class(MappedGeometryFace), intent(inout) :: self
-         !-------------------------------------------------------------------
-         
-         deallocate (self % x    )
-         deallocate (self % scal  )
-         deallocate (self % normal)
-         
-      end subroutine DestructMappedGeometryFace
-!
 !////////////////////////////////////////////////////////////////////////
 !
       subroutine computeMetricTermsConservativeForm(self, spAxi, spAeta, spAzeta, mapper)
+!
+!        *********************************************************************
+!              Currently, the invariant form is implemented
+!
+!              Ja^i_n = -1/2 \hat{x}^i ( Xl \nabla Xm - Xm \nabla Xl ) 
+!                 (i,j,k) and (n,m,l) cyclic
+!        *********************************************************************
+!
          use PhysicsStorage
          implicit none
          type(MappedGeometry),    intent(inout) :: self
@@ -380,21 +170,9 @@ Module MappedGeometryClass
 !
 !        Compute the mapping gradient
 !        ----------------------------
-         grad_x = 0.0_RP
          do k = 0, self % Nz ; do j = 0, self % Ny  ; do i = 0, self % Nx
             grad_x(:,:,i,j,k) = mapper % metricDerivativesAt([spAxi % x(i), spAeta % x(j), &
                                                               spAzeta % x(k)])
-!            do l = 0, self % Nx
-!               grad_x(:,1,i,j,k) = grad_x(:,1,i,j,k) + self % x(:,l,j,k) * spAxi % D(i,l)
-!            end do
-!      
-!            do l = 0, self % Ny
-!               grad_x(:,2,i,j,k) = grad_x(:,2,i,j,k) + self % x(:,i,l,k) * spAeta % D(j,l)
-!            end do
-!
-!            do l = 0, self % Nz
-!               grad_x(:,3,i,j,k) = grad_x(:,3,i,j,k) + self % x(:,i,j,l) * spAzeta % D(k,l)
-!            end do
          end do         ; end do          ; end do
 !
 !        *****************************************
@@ -570,16 +348,6 @@ Module MappedGeometryClass
          DO k = 0, Nz
             DO j = 0,Ny
                DO i = 0,Nx
-!                  grad_x = 0.0_RP
-!                  do l = 0, Nx
-!                     grad_x(:,1) = grad_x(:,1) + self % X(:,l,j,k) * spAxi % D(i,l)
-!                  end do
-!                  do l = 0, Ny
-!                     grad_x(:,2) = grad_x(:,2) + self % X(:,i,l,k) * spAeta % D(j,l)
-!                  end do
-!                  do l = 0, Nz
-!                     grad_x(:,3) = grad_x(:,3) + self % X(:,i,j,l) * spAzeta % D(k,l)
-!                  end do
                   grad_x = mapper % metricDerivativesAt([spAxi % x(i), spAeta % x(j), &
                                                               spAzeta % x(k)])
                  
@@ -593,6 +361,182 @@ Module MappedGeometryClass
          END DO  
 
       END SUBROUTINE computeMetricTermsCrossProductForm
+!
+!//////////////////////////////////////////////////////////////////////// 
+!
+!  -----------------------------------------------------------------------------------
+!  Computation of the metric terms on a face: TODO only the Left element (rotation 0)
+!  -----------------------------------------------------------------------------------
+   subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, spAf, spAe, geom, hexMap, side)
+      use PhysicsStorage
+      implicit none
+      class(MappedGeometryFace), intent(inout)  :: self
+      integer,                   intent(in)     :: Nf(2)
+      integer,                   intent(in)     :: Nelf(2)
+      integer,                   intent(in)     :: Nel(3)
+      type(NodalStorage),        intent(in)     :: spAf(2)
+      type(NodalStorage),        intent(in)     :: spAe(3)
+      type(MappedGeometry),      intent(in)     :: geom
+      type(TransfiniteHexMap),   intent(in)     :: hexMap
+      integer,                   intent(in)     :: side
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer        :: i, j, k, l
+      real(kind=RP)  :: dS(NDIM,0:Nelf(1),0:Nelf(2))
+      
+      allocate( self % x(NDIM, 0:Nf(1), 0:Nf(2)))
+      allocate( self % scal(0:Nf(1), 0:Nf(2)))
+      allocate( self % normal(NDIM, 0:Nf(1), 0:Nf(2)))
+
+      dS = 0.0_RP
+
+      select case(side)
+         case(ELEFT)
+!
+!           Get face coordinates
+!           --------------------
+            do j = 0, Nf(2) ; do i = 0, Nf(1)
+               self % x(:,i,j) = hexMap % transfiniteMapAt([-1.0_RP, spAf(1) % x(i), spAf(2) % x(j) ])
+            end do ; end do
+!
+!           Get surface Jacobian and normal vector (TODO consider pAdaption)
+!           --------------------------------------
+            do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               dS(:,j,k) = dS(:,j,k) + geom % jGradXi(:,i,j,k) * spAe(1) % v(i,LEFT)
+            end do           ; end do           ; end do
+!
+!           Swap orientation
+!           ----------------
+            dS = -dS
+!
+!           Compute
+!           -------
+            do j = 0, Nf(2)   ; do i = 0, Nf(1)
+               self % scal(i,j) = norm2(dS(:,i,j))
+               self % normal(:,i,j) = dS(:,i,j) / self % scal(i,j)
+            end do            ; end do
+         
+         case(ERIGHT)
+!
+!           Get face coordinates
+!           --------------------
+            do j = 0, Nf(2) ; do i = 0, Nf(1)
+               self % x(:,i,j) = hexMap % transfiniteMapAt([ 1.0_RP, spAf(1) % x(i), spAf(2) % x(j) ])
+            end do ; end do
+!
+!           Get surface Jacobian and normal vector (TODO consider pAdaption)
+!           --------------------------------------
+            do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               dS(:,j,k) = dS(:,j,k) + geom % jGradXi(:,i,j,k) * spAe(1) % v(i,RIGHT)
+            end do           ; end do           ; end do
+!
+!           Compute
+!           -------
+            do j = 0, Nf(2)   ; do i = 0, Nf(1)
+               self % scal(i,j) = norm2(dS(:,i,j))
+               self % normal(:,i,j) = dS(:,i,j) / self % scal(i,j)
+            end do            ; end do
+         
+         case(EBOTTOM)
+            do j = 0, Nf(2) ; do i = 0, Nf(1)
+               self % x(:,i,j) = hexMap % transfiniteMapAt([spAf(1) % x(i), spAf(2) % x(j),-1.0_RP])
+            end do ; end do
+!
+!           Get surface Jacobian and normal vector (TODO consider pAdaption)
+!           --------------------------------------
+            do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               dS(:,i,j) = dS(:,i,j) + geom % jGradZeta(:,i,j,k) * spAe(3) % v(k,BOTTOM)
+            end do           ; end do           ; end do
+!
+!           Swap orientation
+!           ----------------
+            dS = -dS
+!
+!           Compute
+!           -------
+            do j = 0, Nf(2)   ; do i = 0, Nf(1)
+               self % scal(i,j) = norm2(dS(:,i,j))
+               self % normal(:,i,j) = dS(:,i,j) / self % scal(i,j)
+            end do            ; end do
+            
+         case(ETOP)
+            do j = 0, Nf(2) ; do i = 0, Nf(1)
+               self % x(:,i,j) = hexMap % transfiniteMapAt([spAf(1) % x(i), spAf(2) % x(j),1.0_RP])
+            end do ; end do
+!
+!           Get surface Jacobian and normal vector (TODO consider pAdaption)
+!           --------------------------------------
+            do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               dS(:,i,j) = dS(:,i,j) + geom % jGradZeta(:,i,j,k) * spAe(3) % v(k,TOP)
+            end do           ; end do           ; end do
+!
+!           Compute
+!           -------
+            do j = 0, Nf(2)   ; do i = 0, Nf(1)
+               self % scal(i,j) = norm2(dS(:,i,j))
+               self % normal(:,i,j) = dS(:,i,j) / self % scal(i,j)
+            end do            ; end do
+            
+         case(EFRONT)
+            do j = 0, Nf(2) ; do i = 0, Nf(1)
+               self % x(:,i,j) = hexMap % transfiniteMapAt([spAf(1) % x(i), -1.0_RP, spAf(2) % x(j) ])
+            end do ; end do
+!
+!           Get surface Jacobian and normal vector (TODO consider pAdaption)
+!           --------------------------------------
+            do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               dS(:,i,k) = dS(:,i,k) + geom % jGradEta(:,i,j,k) * spAe(2) % v(j,FRONT)
+            end do           ; end do           ; end do
+!
+!           Swap orientation
+!           ----------------
+            dS = -dS
+!
+!           Compute
+!           -------
+            do j = 0, Nf(2)   ; do i = 0, Nf(1)
+               self % scal(i,j) = norm2(dS(:,i,j))
+               self % normal(:,i,j) = dS(:,i,j) / self % scal(i,j)
+            end do            ; end do
+
+         case(EBACK)
+            do j = 0, Nf(2) ; do i = 0, Nf(1)
+               self % x(:,i,j) = hexMap % transfiniteMapAt([spAf(1) % x(i), 1.0_RP, spAf(2) % x(j) ])
+            end do ; end do
+!
+!           Get surface Jacobian and normal vector (TODO consider pAdaption)
+!           --------------------------------------
+            do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               dS(:,i,k) = dS(:,i,k) + geom % jGradEta(:,i,j,k) * spAe(2) % v(j,BACK)
+            end do           ; end do           ; end do
+!
+!           Compute
+!           -------
+            do j = 0, Nf(2)   ; do i = 0, Nf(1)
+               self % scal(i,j) = norm2(dS(:,i,j))
+               self % normal(:,i,j) = dS(:,i,j) / self % scal(i,j)
+            end do            ; end do
+      end select
+
+   end subroutine ConstructMappedGeometryFace
+!
+!//////////////////////////////////////////////////////////////////////// 
+!
+      subroutine DestructMappedGeometryFace(self)
+         implicit none
+         !-------------------------------------------------------------------
+         class(MappedGeometryFace), intent(inout) :: self
+         !-------------------------------------------------------------------
+         
+         deallocate (self % x    )
+         deallocate (self % scal  )
+         deallocate (self % normal)
+         
+      end subroutine DestructMappedGeometryFace
+
 !
 !///////////////////////////////////////////////////////////////////////
 !

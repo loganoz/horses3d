@@ -125,7 +125,7 @@
 !     Compute the derivative matrices
 !     -------------------------------
       call PolynomialDerivativeMatrix(self % noOfKnots(1)-1, self % uKnots, self % Du)
-      call PolynomialDerivativeMatrix(self % noOfKnots(1)-1, self % vKnots, self % Dv)
+      call PolynomialDerivativeMatrix(self % noOfKnots(2)-1, self % vKnots, self % Dv)
 
       IF(PRESENT(points)) CALL self % setFacePoints( points )
 !
@@ -258,8 +258,8 @@
 !     Local Variables
 !     ---------------
 !
-      REAL(KIND=RP)                              :: l_j(self % noOfKnots(1))
-      real(kind=RP)                              :: l_i(self % noOfKnots(2))
+      REAL(KIND=RP)                              :: l_j(self % noOfKnots(2))
+      real(kind=RP)                              :: l_i(self % noOfKnots(1))
       INTEGER                                    :: i, j
 
       call InterpolatingPolynomialVector(u(1), self % noOfKnots(1)-1, self % uKnots, self % wbu, l_i)

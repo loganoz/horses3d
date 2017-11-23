@@ -119,14 +119,14 @@ endif
 ##############################################################
 ##	Get objects 
 ##############################################################
-
+HORSES_LIBS=-lmonitors -ljacobian -lplot -lmesh -lphysics -lio -lspectral -lfoundation -lftobject
 
 .DEFAULT_GOAL := all
 
 all: $(TARGET)
 
 $(TARGET): ./ProblemFile.o
-	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG) $(FFLAGS) $(INCLUDE) ./ProblemFile.o -L$(HOME_DIR)/lib -lftobject
+	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG) $(FFLAGS) $(INCLUDE) ./ProblemFile.o -L$(HOME_DIR)/lib $(HORSES_LIBS)
 	
 # ---------- Executable macro -------------------
 ./ProblemFile.o: ./ProblemFile.f90

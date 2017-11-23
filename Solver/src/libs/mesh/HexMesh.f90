@@ -39,6 +39,7 @@ MODULE HexMeshClass
             procedure :: Describe          => DescribeMesh
             procedure :: ConstructZones    => HexMesh_ConstructZones
             procedure :: SetConnectivities => HexMesh_SetConnectivities
+            procedure :: ConstructGeometry => HexMesh_ConstructGeometry
             procedure :: ProlongSolutionToFaces => HexMesh_ProlongSolutionToFaces
             procedure :: ProlongGradientsToFaces => HexMesh_ProlongGradientsToFaces
             procedure :: Export            => HexMesh_Export
@@ -54,6 +55,18 @@ MODULE HexMeshClass
          INTEGER :: elmnt(7) ! "7" hardcoded for 3D hexahedrals in conforming meshes... This definition must change if the code is expected to be more general
       END TYPE Neighbour
 
+!
+!     -------------------------------------------------------------
+!     Type containing the information of the surfaces of an element
+!     -> This is used only for constructung the mesh by the readers
+!     -------------------------------------------------------------
+      type SurfInfo_t
+         ! Variables to specify that the element is a hex8
+         logical         :: IsHex8 = .FALSE.
+         real(kind=RP)   :: corners(NDIM,NODES_PER_ELEMENT)
+         ! Variables for general elements
+         type(FacePatch) :: facePatches(6)
+      end type SurfInfo_t
 !
 !     ========
       CONTAINS
@@ -720,44 +733,250 @@ MODULE HexMeshClass
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexMesh_SetConnectivities(self)
+      subroutine HexMesh_SetConnectivities(self,spA,nodes)
          implicit none
          class(HexMesh)       :: self
+         type (NodalStorage)  :: spA(0:)
+         integer              :: nodes
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: fID, eL, eR, fL, fR
+         integer  :: fID, SideL, SideR
+         integer  :: NelL(2), NelR(2), k ! Polynomial orders on left and right of a face
 
          do fID = 1, size(self % faces)
+            associate(f => self % faces(fID))
+            associate(eL => self % elements(f % elementIDs(1)))
+
 !
-!           Gather involved elements
-!           ------------------------
-            eL = self % faces(fID) % elementIDs(1)
-            eR = self % faces(fID) % elementIDs(2)
-            
-!
-!           Cycle if the right element is zero (boundary face)
-!           --------------------------------------------------
-            if ( eR .eq. 0 ) cycle
-            
-!
-!           Get element sides
-!           -----------------
-            fL = self % faces(fID) % elementSide(1)
-            fR = self % faces(fID) % elementSide(2)
-            
-!
-!           Fill the information with the connectivities
+!           Get polynomial orders of element on the left
 !           --------------------------------------------
-            self % elements(eL) % Connection( fL ) % ElementIDs(1) = eR
-            self % elements(eR) % Connection( fR ) % ElementIDs(1) = eL
 
+            NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
+
+            if ( f % faceType .eq. HMESH_INTERIOR ) then
+               associate(eR => self % elements(f % elementIDs(2)))
+!
+!              Get polynomial orders of element on the right
+!              ---------------------------------------------
+
+               NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
+
+!
+!              Fill connectivity of element type
+!              ---------------------------------
+               
+               SideL = f % elementSide(1)
+               SideR = f % elementSide(2)
+               
+               eL % Connection( SideL ) % ElementIDs(1) = eR % eID
+               eR % Connection( SideR ) % ElementIDs(1) = eL % eID
+               
+               end associate
+            else
+               NelR = NelL
+            end if
+            
+            call f % LinkWithElements(N_EQN, N_GRAD_EQN, NelL, NelR, nodes, spA)
+            
+            end associate
+            end associate
+            
          end do
-
+         
       end subroutine HexMesh_SetConnectivities
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -----------------------------------------------------------------------------
+!     Construct geometry of faces and elements
+!     -> This routine guarantees that the mapping is subparametric or isoparametric
+!     -----------------------------------------------------------------------------
+      subroutine HexMesh_ConstructGeometry(self,spA,SurfInfo)
+         implicit none
+         !--------------------------------
+         class(HexMesh)    , intent(inout) :: self
+         type(NodalStorage), intent(in)    :: spA(0:)
+         type(SurfInfo_t)  , intent(inout) :: SurfInfo(:)
+         !--------------------------------
+         integer :: fID, eID           ! Face and element counters
+         integer :: eIDLeft, eIDRight  ! Element IDs on left and right of a face
+         integer :: SideIDL, SideIDR   ! Side of elements on left and right of a face
+         integer :: buffer             ! A temporal variable
+         integer :: i
+         integer :: NSurfL(2), NSurfR(2) ! Polynomial order the face was constructef with  
+         
+         integer                    :: CLN(2)            ! Chebyshev-Lobatto face orders
+         REAL(KIND=RP)              :: corners(NDIM,NODES_PER_ELEMENT) ! Variable just for initializing purposes
+         real(kind=RP), allocatable :: xiCL(:), etaCL(:) ! Chebyshev-Lobatto node positions on face
+         real(kind=RP), allocatable :: faceCL(:,:,:)     ! Coordinates of the Chebyshev-Lobatto nodes on the face
+         
+         type(TransfiniteHexMap), pointer :: hexMap, hex8Map, genHexMap
+         !--------------------------------
+         
+         corners = 0._RP
+         
+!
+!        --------------------------------------------------------------
+!        Check surfaces' integrity and adapt them to the solution order
+!        --------------------------------------------------------------
+!
+         
+         do fID=1, size(self % faces)
+            associate( f => self % faces(fID) )
+            
+!
+!           Check if the surfaces description in mesh file is consistent 
+!           ------------------------------------------------------------
+            
+            eIDLeft  = f % elementIDs(1)
+            SideIDL  = f % elementSide(1)
+            NSurfL   = SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
+            
+            if ( f % faceType == HMESH_INTERIOR ) then
+               eIDRight = f % elementIDs(2)
+               SideIDR  = f % elementSide(2)
+               NSurfR   = SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
+            
+!              If both surfaces are of order 1.. There's no need to continue analyzing face
+!              ----------------------------------------------------------------------------
+            
+               if     ((SurfInfo(eIDLeft)  % IsHex8) .and. (SurfInfo(eIDRight) % IsHex8)) then
+                  cycle
+               elseif ((SurfInfo(eIDLeft)  % IsHex8) .and. all(NSurfR == 1) ) then
+                  cycle
+               elseif ((SurfInfo(eIDRight) % IsHex8) .and. all(NSurfL == 1) ) then
+                  cycle
+               elseif (all(NSurfL == 1) .and. all(NSurfR == 1) ) then
+                  cycle
+               elseif (any(NSurfL /= NSurfR)) then ! Only works for mesh files with isotropic boundary orders
+                  write(STD_OUT,*) 'WARNING: Curved face definitions in mesh are not consistent.'
+                  write(STD_OUT,*) '   Face:    ', fID
+                  write(STD_OUT,*) '   Elements:', f % elementIDs
+                  write(STD_OUT,*) '   N Left:  ', SurfInfo(eIDLeft) % facePatches(SideIDL) % noOfKnots - 1
+                  write(STD_OUT,*) '   N Right: ', SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
+               end if
+            
+               CLN(1) = min(f % NfLeft(1),f % NfRight(1))
+               CLN(2) = min(f % NfLeft(2),f % NfRight(2))
+            else
+               if     (SurfInfo(eIDLeft)  % IsHex8 .or. all(NSurfL == 1)) cycle
+               
+               CLN(1) = f % NfLeft(1)
+               CLN(2) = f % NfLeft(2)
+            end if
+            
+!           Adapt the curved face order to the polynomial order
+!           ---------------------------------------------------
+            
+            if (any(CLN < NSurfL)) then
+               
+               ! Element on the left 
+               ! -------------------
+               
+               allocate(xiCL(CLN(1)+1), etaCL(CLN(2)+1))
+               allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
+               xiCL  = (/ ( -cos((i-1.0_RP)*PI/CLN(1)),i=1, CLN(1)+1) /)
+               etaCL = (/ ( -cos((i-1.0_RP)*PI/CLN(2)),i=1, CLN(2)+1) /)
+               
+               call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), xiCL , CLN(2), etaCL, faceCL)
+               call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
+               call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(xiCL,etaCL,faceCL) 
+               
+               if ( f % faceType == HMESH_INTERIOR ) then
+                  
+                  ! Element on the right
+                  ! --------------------
+                                    
+                  SELECT CASE ( f % rotation )
+                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular
+                     if (CLN(1) /= CLN(2)) then
+                        buffer = CLN(1)
+                        CLN(1) = CLN(2)
+                        CLN(2) = buffer
+                        
+                        deallocate(xiCL, etaCL, faceCL)
+                        allocate(xiCL(CLN(1)+1), etaCL(CLN(2)+1))
+                        allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
+                        xiCL  = (/ ( -cos((i-1.0_RP)*PI/CLN(1)),i=1, CLN(1)+1) /)
+                        etaCL = (/ ( -cos((i-1.0_RP)*PI/CLN(2)),i=1, CLN(2)+1) /)
+                     end if
+                  end SELECT
+                  
+                  call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), xiCL , CLN(2), etaCL, faceCL)
+                  call SurfInfo(eIDRight) % facePatches(SideIDR) % Destruct()
+                  call SurfInfo(eIDRight) % facePatches(SideIDR) % Construct(xiCL,etaCL,faceCL) 
+               end if   
+               
+               deallocate(xiCL, etaCL, faceCL)
+               
+            end if
+            
+            end associate
+         end do
+         
+!
+!        ----------------------------
+!        Construct elements' geometry
+!        ----------------------------
+!
+         
+         allocate(hex8Map)
+         call hex8Map % constructWithCorners(corners)
+         allocate(genHexMap)
+         
+         do eID=1, size(self % elements)
+            
+            if (SurfInfo(eID) % IsHex8) then
+               call hex8Map % setCorners(SurfInfo(eID) % corners)
+               hexMap => hex8Map
+            else
+               CALL genHexMap % destruct()
+               CALL genHexMap % constructWithFaces(SurfInfo(eID) % facePatches)
+               
+               hexMap => genHexMap
+            end if
+            
+            call self % elements(eID) % ConstructGeometry (hexMap)
+            
+         end do
+         
+!
+!        -------------------------
+!        Construct faces' geometry
+!        -------------------------
+!
+         
+         do fID=1, size(self % faces)
+            associate(f => self % faces(fID))
+            associate(eL => self % elements(f % elementIDs(1)))
+            call f % geom % construct(f % Nf, f % NelLeft, eL % Nxyz, & 
+                                      spA(f % Nf), spA(eL % Nxyz), &
+                                      eL % geom, eL % hexMap, f % elementSide(1))
+            
+            end associate
+            end associate
+         end do
+         
+!
+!        ---------
+!        Finish up
+!        ---------
+!
+         CALL hex8Map % destruct()
+         DEALLOCATE(hex8Map)
+         CALL genHexMap % destruct()
+         DEALLOCATE(genHexMap)
+         
+      end subroutine HexMesh_ConstructGeometry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ---------------------------
+!     Export mesh to a hmesh file
+!     ---------------------------
       subroutine HexMesh_Export(self, fileName)
          use SolutionFile
          implicit none

@@ -6,7 +6,8 @@
 ##		-> Generates links to the solver.
 ######################################################################
 
-TEST_CASES="./Euler/BoxAroundCircle \
+TEST_CASES="./Components/MeshConsistency \
+	    ./Euler/BoxAroundCircle \
 	    ./Euler/Diffuser \
 	    ./Euler/PeriodicFlow \
 	    ./Euler/UniformFlow \

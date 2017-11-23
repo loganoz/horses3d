@@ -214,7 +214,7 @@ Module DGSEMClass
       end if
       CALL constructMeshFromFile( self % mesh, meshfileName, nodes, self % spA, Nx, Ny, Nz, MeshInnerCurves , success )
       
-      IF(.NOT. success) RETURN 
+      IF(.NOT. success) RETURN
 !
 !     ------------------------
 !     Allocate and zero memory
@@ -248,33 +248,6 @@ Module DGSEMClass
             END DO
          END DO
       END IF
-!
-!     ------------------------
-!     Link faces with elements
-!     ------------------------
-!      
-      DO k=1, SIZE(self % mesh % faces)
-         associate(f => self % mesh % faces(k))
-         associate(eL => self % mesh % elements(f % elementIDs(1)))
-
-         NelL(1) = eL % Nxyz(axisMap(1, f % elementSide(1)))
-         NelL(2) = eL % Nxyz(axisMap(2, f % elementSide(1)))
-
-         if ( f % faceType .eq. HMESH_INTERIOR ) then
-            NelR(1) = self % mesh % elements(f % elementIDs(2)) % Nxyz(axisMap(1, &
-                                       f % elementSide(2)))
-            NelR(2) = self % mesh % elements(f % elementIDs(2)) % Nxyz(axisMap(2, &
-                                       f % elementSide(2)))
-   
-         else
-            NelR = NelL
-
-         end if
-         call f % LinkWithElements(N_EQN, N_GRAD_EQN, NelL, NelR, eL % geom, f % elementSide(1),&
-                                             eL % hexMap, nodes, self % spA)
-         end associate
-         end associate
-      end do
 !
 !     -----------------------
 !     Set boundary conditions
@@ -702,7 +675,7 @@ Module DGSEMClass
 !         
 !
 !        --------------
-!        Invscid fluxes: Rotation is not accounted in the Mortar projection
+!        Invscid fluxes:
 !        --------------
 !
          DO j = 0, f % Nf(2)
