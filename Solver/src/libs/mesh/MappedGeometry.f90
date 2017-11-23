@@ -367,8 +367,9 @@ Module MappedGeometryClass
 !  -----------------------------------------------------------------------------------
 !  Computation of the metric terms on a face: TODO only the Left element (rotation 0)
 !  -----------------------------------------------------------------------------------
-   subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, spAf, spAe, geom, hexMap, side)
+   subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, spAf, spAe, geom, hexMap, side, projType)
       use PhysicsStorage
+      use PolynomialInterpAndDerivsModule
       implicit none
       class(MappedGeometryFace), intent(inout)  :: self
       integer,                   intent(in)     :: Nf(2)
@@ -379,12 +380,13 @@ Module MappedGeometryClass
       type(MappedGeometry),      intent(in)     :: geom
       type(TransfiniteHexMap),   intent(in)     :: hexMap
       integer,                   intent(in)     :: side
+      integer,                   intent(in)     :: projType
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      integer        :: i, j, k, l
+      integer        :: i, j, k, l, m
       real(kind=RP)  :: dS(NDIM,0:Nelf(1),0:Nelf(2))
       
       allocate( self % x(NDIM, 0:Nf(1), 0:Nf(2)))
@@ -402,7 +404,7 @@ Module MappedGeometryClass
                self % x(:,i,j) = hexMap % transfiniteMapAt([-1.0_RP, spAf(1) % x(i), spAf(2) % x(j) ])
             end do ; end do
 !
-!           Get surface Jacobian and normal vector (TODO consider pAdaption)
+!           Get surface Jacobian and normal vector
 !           --------------------------------------
             do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                dS(:,j,k) = dS(:,j,k) + geom % jGradXi(:,i,j,k) * spAe(1) % v(i,LEFT)
@@ -411,13 +413,6 @@ Module MappedGeometryClass
 !           Swap orientation
 !           ----------------
             dS = -dS
-!
-!           Compute
-!           -------
-            do j = 0, Nf(2)   ; do i = 0, Nf(1)
-               self % scal(i,j) = norm2(dS(:,i,j))
-               self % normal(:,i,j) = dS(:,i,j) / self % scal(i,j)
-            end do            ; end do
          
          case(ERIGHT)
 !
@@ -432,13 +427,6 @@ Module MappedGeometryClass
             do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                dS(:,j,k) = dS(:,j,k) + geom % jGradXi(:,i,j,k) * spAe(1) % v(i,RIGHT)
             end do           ; end do           ; end do
-!
-!           Compute
-!           -------
-            do j = 0, Nf(2)   ; do i = 0, Nf(1)
-               self % scal(i,j) = norm2(dS(:,i,j))
-               self % normal(:,i,j) = dS(:,i,j) / self % scal(i,j)
-            end do            ; end do
          
          case(EBOTTOM)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
@@ -454,13 +442,6 @@ Module MappedGeometryClass
 !           Swap orientation
 !           ----------------
             dS = -dS
-!
-!           Compute
-!           -------
-            do j = 0, Nf(2)   ; do i = 0, Nf(1)
-               self % scal(i,j) = norm2(dS(:,i,j))
-               self % normal(:,i,j) = dS(:,i,j) / self % scal(i,j)
-            end do            ; end do
             
          case(ETOP)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
@@ -472,13 +453,6 @@ Module MappedGeometryClass
             do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                dS(:,i,j) = dS(:,i,j) + geom % jGradZeta(:,i,j,k) * spAe(3) % v(k,TOP)
             end do           ; end do           ; end do
-!
-!           Compute
-!           -------
-            do j = 0, Nf(2)   ; do i = 0, Nf(1)
-               self % scal(i,j) = norm2(dS(:,i,j))
-               self % normal(:,i,j) = dS(:,i,j) / self % scal(i,j)
-            end do            ; end do
             
          case(EFRONT)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
@@ -494,13 +468,6 @@ Module MappedGeometryClass
 !           Swap orientation
 !           ----------------
             dS = -dS
-!
-!           Compute
-!           -------
-            do j = 0, Nf(2)   ; do i = 0, Nf(1)
-               self % scal(i,j) = norm2(dS(:,i,j))
-               self % normal(:,i,j) = dS(:,i,j) / self % scal(i,j)
-            end do            ; end do
 
          case(EBACK)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
@@ -512,14 +479,44 @@ Module MappedGeometryClass
             do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                dS(:,i,k) = dS(:,i,k) + geom % jGradEta(:,i,j,k) * spAe(2) % v(j,BACK)
             end do           ; end do           ; end do
-!
-!           Compute
-!           -------
-            do j = 0, Nf(2)   ; do i = 0, Nf(1)
-               self % scal(i,j) = norm2(dS(:,i,j))
-               self % normal(:,i,j) = dS(:,i,j) / self % scal(i,j)
-            end do            ; end do
+
       end select
+!
+!     Perform p-Adaption
+!     ------------------
+      select case(projType)
+      case (0)
+         self % normal = dS
+      case (1)
+         self % normal = 0.0_RP
+         do j = 0, Nf(2)  ; do l = 0, Nelf(1)   ; do i = 0, Nf(1)
+            self % normal(:,i,j) = self % normal(:,i,j) + Tset(Nelf(1), Nf(1)) % T(i,l) * dS(:,l,j)
+         end do                  ; end do                   ; end do
+         
+      case (2)
+         self % normal = 0.0_RP
+         do l = 0, Nelf(2)  ; do j = 0, Nf(2)   ; do i = 0, Nf(1)
+            self % normal(:,i,j) = self % normal(:,i,j) + Tset(Nelf(2), Nf(2)) % T(j,l) * dS(:,i,l)
+         end do                  ; end do                   ; end do
+
+      case (3)
+         self % normal = 0.0_RP
+         do l = 0, Nelf(2)  ; do j = 0, Nf(2)   
+            do m = 0, Nelf(1) ; do i = 0, Nf(1)
+               self % normal(:,i,j) = self % normal(:,i,j) +   Tset(Nelf(1), Nf(1)) % T(i,m) &
+                                         * Tset(Nelf(2), Nf(2)) % T(j,l) &
+                                         * dS(:,m,l)
+            end do                 ; end do
+         end do                  ; end do
+      end select
+!
+!     Compute
+!     -------
+      do j = 0, Nf(2)   ; do i = 0, Nf(1)
+         self % scal(i,j) = norm2(self % normal(:,i,j))
+         self % normal(:,i,j) = self % normal(:,i,j) / self % scal(i,j)
+      end do            ; end do
+
 
    end subroutine ConstructMappedGeometryFace
 !

@@ -954,7 +954,8 @@ MODULE HexMeshClass
             associate(eL => self % elements(f % elementIDs(1)))
             call f % geom % construct(f % Nf, f % NelLeft, eL % Nxyz, & 
                                       spA(f % Nf), spA(eL % Nxyz), &
-                                      eL % geom, eL % hexMap, f % elementSide(1))
+                                      eL % geom, eL % hexMap, f % elementSide(1), &
+                                      f % projectionType(1))
             
             end associate
             end associate

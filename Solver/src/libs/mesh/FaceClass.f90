@@ -24,7 +24,7 @@
       IMPLICIT NONE 
 
       private
-      public   Face, iijjIndexes, InterpolationMatrix_t, Tset
+      public   Face, iijjIndexes
 !
 !     ************************************************************************************
 !
@@ -92,25 +92,6 @@
             procedure   :: ProjectFluxToElements => Face_ProjectFluxToElements
             procedure   :: ProjectGradientFluxToElements => Face_ProjectGradientFluxToElements
       end type Face
-!
-!     ---------------------------------
-!     Interpolation matrix derived type
-!     ---------------------------------
-!
-      type InterpolationMatrix_t
-         logical        :: Constructed = .false.
-         real(kind=RP), allocatable  :: T(:,:)
-      end type InterpolationMatrix_t
-!
-!     **************************************************
-!     The set of interpolation matrices are stored here.
-!     >> The following criteria is adopted:
-!           * Tset(N,M) with N=M is never constructed.
-!           * Tset(N,M) with N<M is a forward matrix.
-!           * Tset(N,M) with N>M is a backwards matrix.
-!     **************************************************
-      integer,                      parameter :: NMAX = 40
-      type(InterpolationMatrix_t)             :: Tset(0:NMAX,0:NMAX)
 !
 !     ========
       CONTAINS
