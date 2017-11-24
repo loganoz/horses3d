@@ -40,6 +40,7 @@
       
       private  
       
+      public   MXV_DIRECT, MXV_TRANSPOSE
       public   Tset, Interpolator_t, InterpolationMatrix_t
       
       public   EvaluateLagrangePolyDerivative
@@ -48,6 +49,7 @@
       public   BarycentricWeights, PolynomialDerivativeMatrix
       public   InterpolatingPolynomialVector
       public   PolynomialInterpolationMatrix
+      public   MatrixMultiplyDeriv
 
       INTEGER, PARAMETER :: MXV_DIRECT = 1, MXV_TRANSPOSE = 2
       

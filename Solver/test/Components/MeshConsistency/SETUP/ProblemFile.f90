@@ -455,10 +455,6 @@ module MeshTests
                                 msg = msg)
          end do               ; end do
 
-
-
-
-
       end subroutine CheckElementAndFaceNormalConsistency
 
       subroutine CheckScalConsistency()
@@ -504,6 +500,7 @@ module MeshTests
          integer  :: i, j, k, ii, jj
          real(kind=RP)  :: SelL(NDIM, 0:f % NelLeft(1), 0:f % NelLeft(2))
          real(kind=RP)  :: scalL(0:f % NelLeft(1), 0:f % NelLeft(2))
+         real(kind=RP)  :: scalR(0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)  :: SelR(NDIM, 0:f % NelRight(1), 0:f % NelRight(2))
          real(kind=RP)  :: SfR(NDIM, 0:f % NfRight(1), 0:f % NfRight(2))
          real(kind=RP)  :: Sf(NDIM, 0:f % Nf(1), 0:f % Nf(2))
@@ -560,19 +557,88 @@ module MeshTests
 !        -------------
 !
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            write(msg,'(A,I0,A,I0,A,I0,A,I0,A)') "Face normals (face ",f % ID, &
+            write(msg,'(A,I0,A,I0,A,I0,A,I0,A)') "Surface Jacobian (face ",f % ID, &
                      ", element ", eL % eID," localcoords:",i,",",j,")"
             call FTAssertEqual( expectedValue = f % geom % scal(i,j), &
                                 actualValue = scalL(i,j), &
                                 tol = 1.0e-13_RP, &
                                 msg = msg)
          end do               ; end do
+!
+!        ***********************
+!        Check the right element
+!        ***********************
+!
+         if ( .not. present(eR) ) return
 
+         SelR = 0.0_RP
 
+         select case( f % elementSide(2) )
+         case (EFRONT)
+            do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
+               SelR(:,i,k) = SelR(:,i,k) + eR % geom % jGradEta(:,i,j,k) * eR % spAeta % v(j,FRONT)
+            end do                  ; end do                   ; end do
+
+            SelR = -SelR
+
+         case (EBACK)
+            do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
+               SelR(:,i,k) = SelR(:,i,k) + eR % geom % jGradEta(:,i,j,k) * eR % spAeta % v(j,BACK)
+            end do                  ; end do                   ; end do
+   
+         case (EBOTTOM)
+            do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
+               SelR(:,i,j) = SelR(:,i,j) + eR % geom % jGradZeta(:,i,j,k) * eR % spAzeta % v(k,BOTTOM)
+            end do                  ; end do                   ; end do
+
+            SelR = -SelR
+
+         case (ERIGHT)
+            do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
+               SelR(:,j,k) = SelR(:,j,k) + eR % geom % jGradXi(:,i,j,k) * eR % spAxi % v(i,RIGHT)
+            end do                  ; end do                   ; end do
+
+         case (ETOP)
+            do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
+               SelR(:,i,j) = SelR(:,i,j) + eR % geom % jGradZeta(:,i,j,k) * eR % spAzeta % v(k,TOP)
+            end do                  ; end do                   ; end do
+
+         case (ELEFT)
+            do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
+               SelR(:,j,k) = SelR(:,j,k) + eR % geom % jGradXi(:,i,j,k) * eR % spAxi % v(i,LEFT)
+            end do                  ; end do                   ; end do
+
+            SelR = -SelR
+
+         end select
+!
+!        --------------------
+!        Perform the rotation
+!        --------------------
+!
+         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+            call iijjIndexes(i,j,f % Nf(1), f % Nf(2), f % rotation, ii, jj)
+            SfR(:,i,j) = SelR(:,ii,jj)
+         end do               ; end do
+
+         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+            scalR(i,j) = norm2(SfR(:,i,j))
+         end do               ; end do
+!
+!        -------------
+!        Perform tests
+!        -------------
+!
+         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+            write(msg,'(A,I0,A,I0,A,I0,A,I0,A)') "Surface Jacobian (face ",f % ID, &
+                     ", element ", eL % eID," localcoords:",i,",",j,")"
+            call FTAssertEqual( expectedValue = f % geom % scal(i,j), &
+                                actualValue = scalR(i,j), &
+                                tol = 1.0e-13_RP, &
+                                msg = msg)
+         end do               ; end do
 
       end subroutine CheckElementAndFaceScalConsistency
-
-      
 end module MeshTests
 !
 !////////////////////////////////////////////////////////////////////////
@@ -651,6 +717,8 @@ end module MeshTests
                         "Consistency in the surface Jacobians")
 
             call testSuite % PerformTests(numberOfFailures)
+
+            if ( numberOfFailures .ne. 0 ) stop 99
             
          END SUBROUTINE UserDefinedFinalSetup
 !

@@ -1,5 +1,5 @@
 Flow equations        = "Euler"
-mesh file name        = ./MESH/CubeWithSphere5.mesh
+mesh file name        = ../../TestMeshes/CubeWithSphere5.mesh
 restart file name     = "RESULTS/Bench.hsol"
 solution file name    = "RESULTS/Bench.hsol"
 restart               = .false.
