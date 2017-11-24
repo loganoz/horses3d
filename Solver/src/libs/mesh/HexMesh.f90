@@ -194,10 +194,8 @@ MODULE HexMeshClass
                   self % faces(faceID) % elementIDs(2)  = eID
                   self % faces(faceID) % elementSide(2) = faceNumber
                   self % faces(faceID) % FaceType       = HMESH_INTERIOR
-                  self % faces(faceID) % rotation       = faceRotation(masterNodeIDs = self % faces(faceID) % nodeIDs       , &
-                                                                       slaveNodeIDs  = faceNodeIDs                          , &
-                                                                       masterSide    = self % faces(faceID) % elementSide(1), &
-                                                                       slaveSide     = faceNumber)
+                  self % faces(faceID) % rotation       = faceRotation(masterNodeIDs = self % faces(faceID) % nodeIDs, &
+                                                                       slaveNodeIDs  = faceNodeIDs                      )
                ELSE 
 !
 !                 ------------------
@@ -282,9 +280,8 @@ MODULE HexMeshClass
 !!
 !! As an example, faceRotation = 1 <=> rotating master by 90 deg. 
 !
-      INTEGER pure FUNCTION faceRotation(masterNodeIDs, slaveNodeIDs, masterSide, slaveSide)
+      INTEGER pure FUNCTION faceRotation(masterNodeIDs, slaveNodeIDs)
          IMPLICIT NONE 
-         INTEGER, intent(in)               :: masterSide   , slaveSide    !< Sides connected in interface
          INTEGER, DIMENSION(4), intent(in) :: masterNodeIDs, slaveNodeIDs !< Node IDs
 !
 !        ---------------
@@ -337,8 +334,8 @@ MODULE HexMeshClass
 ! 
 !
       REAL(KIND=RP) :: x1(NDIM), x2(NDIM)
-      LOGICAL       :: master_matched(4), slave_matched(4)
-      INTEGER       :: coord
+      LOGICAL       :: master_matched(4), slave_matched(4), success
+      INTEGER       :: coord, slaveNodeIDs(4), localCoord
       
       INTEGER       :: i,j,k,l 
       integer       :: zIDplus, zIDMinus, iFace, jFace
@@ -359,64 +356,125 @@ MODULE HexMeshClass
          if ( trim(bcTypeDictionary % stringValueForKey(key = self % zones(zIDPlus) % Name, &
                                                       requestedLength = BC_STRING_LENGTH)) .ne. "periodic+") cycle
 !
-!        ------------------------------
-!        Loop zones with BC "periodic-"
-!        ------------------------------
+!        Reset the coordinate (changes when changing zones)
+!        --------------------------------------------------
+         coord = 0 
 !
-         do zIDMinus = 1, size(self % zones)
+!        Loop faces in the periodic+ zone
+!        --------------------------------
+ploop:   do iFace = 1, self % zones(zIDPlus) % no_of_faces    
 !
-!           Cycle if the zone is not periodic-
-!           ----------------------------------
-            if ( trim(bcTypeDictionary % stringValueForKey(key = self % zones(zIDMinus) % Name, &
-                                                      requestedLength = BC_STRING_LENGTH)) .ne. "periodic-") cycle
+!           Loop zones with BC "periodic-"
+!           ------------------------------
+            do zIDMinus = 1, size(self % zones)
 !
-!           Loop all faces in both zones
-!           ----------------------------
-            do iFace = 1, self % zones(zIDPlus) % no_of_faces;    do jFace = 1, self % zones(zIDMinus) % no_of_faces
-               i = self % zones(zIDPlus) % faces(iFace)
-               j = self % zones(zIDMinus) % faces(jFace)
+!              Cycle if the zone is not periodic-
+!              ----------------------------------
+               if ( trim(bcTypeDictionary % stringValueForKey(key = self % zones(zIDMinus) % Name, &
+                                                         requestedLength = BC_STRING_LENGTH)) .ne. "periodic-") cycle
 !
-!              ----------------------------------------------------------------------------------------
-!              The index i is a periodic+ face
-!              The index j is a periodic- face
-!              We are looking for couples of periodic+ and periodic- faces where 2 of the 3 coordinates
-!              in all the corners are shared. The non-shared coordinate has to be always the same one.
-!              ----------------------------------------------------------------------------------------
-!
-               coord = 0                         ! This is the non-shared coordinate
-               master_matched(:)   = .FALSE.     ! True if the master corner finds a partner
-               slave_matched(:)    = .FALSE.     ! True if the slave corner finds a partner
-               
-               DO k = 1, 4
-                  x1 = self%nodes(self%faces(i)%nodeIDs(k))%x                           !x1 is the master coordinate
-                  DO l = 1, 4
-                     IF (.NOT.slave_matched(l)) THEN 
-                        x2 = self%nodes(self%faces(j)%nodeIDs(l))%x                     !x2 is the slave coordinate
-                        CALL CompareTwoNodes(x1, x2, master_matched(k), coord)          !x1 and x2 are compared here
-                        IF (master_matched(k)) THEN 
-                           slave_matched(l) = .TRUE. 
-                           EXIT
-                        ENDIF  
-                     ENDIF 
-                  ENDDO 
-                  IF (.NOT.master_matched(k)) EXIT  
-               ENDDO          
-               
-               IF ( (master_matched(1)) .AND. (master_matched(2)) .AND. (master_matched(3)) .AND. (master_matched(4)) ) THEN
-                  self % faces(i) % boundaryName   = ""
-                  self % faces(i) % elementIDs(2)  = self % faces(j) % elementIDs(1)
-                  self % faces(i) % elementSide(2) = self % faces(j) % elementSide(1)
-                  self % faces(i) % FaceType       = HMESH_INTERIOR
-                  self % faces(i) % rotation       = 0 !faceRotation(masterNodeIDs = self % faces(i) % nodeIDs       , &
-                                                       !                slaveNodeIDs  = self % faces(j) % nodeIDs       , &
-                                                       !                masterSide    = self % faces(i) % elementSide(1), &
-                                                       !                slaveSide     = self % faces(j) % elementSide(2))
+!              Loop faces in the periodic- zone
+!              --------------------------------
+               do jFace = 1, self % zones(zIDMinus) % no_of_faces
 
-                                                                            
-               ENDIF    
-            end do;  end do
-         end do
-      end do
+                  i = self % zones(zIDPlus) % faces(iFace)
+                  j = self % zones(zIDMinus) % faces(jFace)
+!
+!                 ----------------------------------------------------------------------------------------
+!                 The index i is a periodic+ face
+!                 The index j is a periodic- face
+!                 We are looking for couples of periodic+ and periodic- faces where 2 of the 3 coordinates
+!                 in all the corners are shared. The non-shared coordinate has to be always the same one.
+!                 ---------------------------------------------------------------------------------------
+!
+                  master_matched(:)   = .FALSE.     ! True if the master corner finds a partner
+                  slave_matched(:)    = .FALSE.     ! True if the slave corner finds a partner
+   
+                  if ( coord .eq. 0 ) then
+!
+!                    Check all coordinates
+!                    ---------------------
+                     do localCoord = 1, 3
+                        master_matched = .false.
+                        slave_matched = .false.
+mastercoord:            DO k = 1, 4
+                           x1 = self%nodes(self%faces(i)%nodeIDs(k))%x                           
+slavecoord:                DO l = 1, 4
+                              IF (.NOT.slave_matched(l)) THEN 
+                                 x2 = self%nodes(self%faces(j)%nodeIDs(l))%x        
+                                 CALL CompareTwoNodes(x1, x2, master_matched(k), localCoord) 
+                                 IF (master_matched(k)) THEN 
+                                    slave_matched(l) = .TRUE. 
+                                    EXIT  slavecoord
+                                 ENDIF  
+                              ENDIF 
+                           ENDDO    slavecoord
+                           IF (.NOT.master_matched(k)) EXIT mastercoord
+                        ENDDO mastercoord
+
+                        if ( all(master_matched) ) exit
+                     end do
+
+                  else
+!
+!                    Check only the shared coordinates
+!                    ---------------------------------
+                     DO k = 1, 4
+                        x1 = self%nodes(self%faces(i)%nodeIDs(k))%x                           
+                        DO l = 1, 4
+                           IF (.NOT.slave_matched(l)) THEN 
+                              x2 = self%nodes(self%faces(j)%nodeIDs(l))%x        
+                              CALL CompareTwoNodes(x1, x2, master_matched(k), coord) 
+                              IF (master_matched(k)) THEN 
+                                 slave_matched(l) = .TRUE. 
+                                 EXIT
+                              ENDIF  
+                           ENDIF 
+                        ENDDO 
+                        IF (.NOT.master_matched(k)) EXIT  
+                     ENDDO          
+
+                  end if
+                  
+                  IF ( all(master_matched) ) THEN
+                     if ( coord .eq. 0 ) coord = localCoord
+                     self % faces(i) % boundaryName   = emptyBCName
+                     self % faces(i) % elementIDs(2)  = self % faces(j) % elementIDs(1)
+                     self % faces(i) % elementSide(2) = self % faces(j) % elementSide(1)
+                     self % faces(i) % FaceType       = HMESH_INTERIOR
+                     self % elements(self % faces(i) % elementIDs(1)) % boundaryName(self % faces(i) % elementSide(1)) = emptyBCName
+                     self % elements(self % faces(i) % elementIDs(2)) % boundaryName(self % faces(i) % elementSide(2)) = emptyBCName
+   !
+   !                 To obtain the face rotation, we traduce the right element node IDs to the left
+   !                 ------------------------------------------------------------------------------
+                     do k = 1, 4
+                        x1 = self % nodes ( self % faces(i) % nodeIDs(k)) % x
+                        do l = 1, 4
+                           x2 = self % nodes ( self % faces(j) % nodeIDs(l) ) % x
+                           call compareTwoNodes(x1, x2, success, coord)
+                           if ( success ) then
+                              slaveNodeIDs(l) = self % faces(i) % nodeIDs(k)
+                           end if
+                        end do
+                     end do
+                     self % faces(i) % rotation = faceRotation(self % faces(i) % nodeIDs, &
+                                                               slaveNodeIDs)
+                     cycle ploop
+   
+                  ENDIF    
+               end do   ! periodic- faces
+            end do      ! periodic- zones
+!
+!           If the code arrives here, the periodic+ face was not able to find a partner
+!           ---------------------------------------------------------------------------
+            print*, "When constructing periodic boundary conditions,"
+            write(STD_OUT,'(A,I0,A,I0,A)') "Face ",i," in zone ",zIDPlus, &
+                  " was not able to find a partner."
+            errorMessage(STD_OUT)
+            stop
+
+            end do   ploop    ! periodic+ faces
+         end do               ! periodic+ zones
            
       END SUBROUTINE ConstructPeriodicFaces
 ! 
@@ -529,6 +587,7 @@ MODULE HexMeshClass
                                                       requestedLength = BC_STRING_LENGTH)) /= "periodic-") THEN 
             iFace = iFace + 1
             dummy_faces(iFace) = self%faces(i)
+            dummy_faces(iFace) % ID = iFace
          ENDIF 
       ENDDO
        
@@ -547,11 +606,10 @@ MODULE HexMeshClass
       DO i = 1, self%numberOfFaces
          self%faces(i) = dummy_faces(i)
       ENDDO 
-      
+!
 !     Reassign zones
 !     -----------------
       CALL ReassignZones(self % faces, self % zones)
-      
       
       END SUBROUTINE DeletePeriodicminusfaces
 ! 
@@ -753,7 +811,6 @@ MODULE HexMeshClass
 !
 !           Get polynomial orders of element on the left
 !           --------------------------------------------
-
             NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
 
             if ( f % faceType .eq. HMESH_INTERIOR ) then
@@ -761,17 +818,21 @@ MODULE HexMeshClass
 !
 !              Get polynomial orders of element on the right
 !              ---------------------------------------------
-
                NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
-
 !
 !              Fill connectivity of element type
 !              ---------------------------------
-               
                SideL = f % elementSide(1)
                SideR = f % elementSide(2)
-               
+!
+!              Construct connectivity
+!              ----------------------
+               eL % NumberOfConnections(SideL) = 1
+               call eL % Connection(SideL) % Construct(1)
                eL % Connection( SideL ) % ElementIDs(1) = eR % eID
+
+               eR % NumberOfConnections(SideR) = 1
+               call eR % Connection(SideR) % Construct(1)
                eR % Connection( SideR ) % ElementIDs(1) = eL % eID
                
                end associate
