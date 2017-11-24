@@ -15,10 +15,10 @@ riemann solver        = "Roe"
 AOA theta             = 0.0
 AOA phi               = 0.0
 Number of boundaries  = 6
-front 0.0 periodic-
-bottom 0.0 periodic-
-top 0.0 periodic+
-back 0.0 periodic+
-left 0.0 periodic-
-right 0.0 periodic+
+front 0.0 Inflow
+bottom 0.0 Inflow
+top 0.0 Inflow
+back 0.0 Inflow
+left 0.0 Inflow
+right 0.0 Inflow
 /

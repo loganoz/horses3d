@@ -344,7 +344,11 @@ module MeshTests
             SelL = -SelL
 
          end select
-
+!
+!        ---------------------
+!        Get the normal vector
+!        ---------------------
+!
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             SelL(:,i,j) = SelL(:,i,j) / norm2(SelL(:,i,j))
          end do               ; end do
@@ -369,6 +373,89 @@ module MeshTests
                                 tol = 1.0e-13_RP, &
                                 msg = msg)
          end do               ; end do
+!
+!        ***********************
+!        Check the right element
+!        ***********************
+!
+         if ( .not. present(eR) ) return
+
+         SelR = 0.0_RP
+
+         select case( f % elementSide(2) )
+         case (EFRONT)
+            do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
+               SelR(:,i,k) = SelR(:,i,k) + eR % geom % jGradEta(:,i,j,k) * eR % spAeta % v(j,FRONT)
+            end do                  ; end do                   ; end do
+
+            SelR = -SelR
+
+         case (EBACK)
+            do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
+               SelR(:,i,k) = SelR(:,i,k) + eR % geom % jGradEta(:,i,j,k) * eR % spAeta % v(j,BACK)
+            end do                  ; end do                   ; end do
+   
+         case (EBOTTOM)
+            do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
+               SelR(:,i,j) = SelR(:,i,j) + eR % geom % jGradZeta(:,i,j,k) * eR % spAzeta % v(k,BOTTOM)
+            end do                  ; end do                   ; end do
+
+            SelR = -SelR
+
+         case (ERIGHT)
+            do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
+               SelR(:,j,k) = SelR(:,j,k) + eR % geom % jGradXi(:,i,j,k) * eR % spAxi % v(i,RIGHT)
+            end do                  ; end do                   ; end do
+
+         case (ETOP)
+            do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
+               SelR(:,i,j) = SelR(:,i,j) + eR % geom % jGradZeta(:,i,j,k) * eR % spAzeta % v(k,TOP)
+            end do                  ; end do                   ; end do
+
+         case (ELEFT)
+            do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
+               SelR(:,j,k) = SelR(:,j,k) + eR % geom % jGradXi(:,i,j,k) * eR % spAxi % v(i,LEFT)
+            end do                  ; end do                   ; end do
+
+            SelR = -SelR
+
+         end select
+!
+!        --------------------
+!        Perform the rotation
+!        --------------------
+!
+         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+            call iijjIndexes(i,j,f % Nf(1), f % Nf(2), f % rotation, ii, jj)
+            SfR(:,i,j) = SelR(:,ii,jj)
+         end do               ; end do
+
+         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+            SfR(:,i,j) = SfR(:,i,j) / norm2(SfR(:,i,j))
+         end do               ; end do
+!
+!        -------------
+!        Perform tests
+!        -------------
+!
+         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+            write(msg,'(A,I0,A,I0,A,I0,A,I0,A)') "Face normals (face ",f % ID, &
+                     ", element ", eR % eID," localcoords:",i,",",j,")"
+            call FTAssertEqual( expectedValue = f % geom % normal(1,i,j), &
+                                actualValue = -SfR(1,i,j), &
+                                tol = 1.0e-13_RP, &
+                                msg = msg)
+            call FTAssertEqual( expectedValue = f % geom % normal(2,i,j), &
+                                actualValue = -SfR(2,i,j), &
+                                tol = 1.0e-13_RP, &
+                                msg = msg)
+            call FTAssertEqual( expectedValue = f % geom % normal(3,i,j), &
+                                actualValue = -SfR(3,i,j), &
+                                tol = 1.0e-13_RP, &
+                                msg = msg)
+         end do               ; end do
+
+
 
 
 

@@ -40,6 +40,8 @@ MODULE NodalStorageClass
       real(kind=RP), dimension(:,:), allocatable :: DT                        ! Trasposed DG derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: hatD                      ! Weak form derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: sharpD                    ! (Two times) the strong form derivative matrix
+      real(kind=RP), dimension(:),   allocatable :: xCGL, wbCGL      
+      real(kind=RP), dimension(:,:), allocatable :: DCGL, TCheb2Gauss         
       contains
          procedure :: construct => ConstructNodalStorage
          procedure :: destruct  => DestructNodalStorage
@@ -78,6 +80,10 @@ MODULE NodalStorageClass
       ALLOCATE( this % D    (0:N,0:N) )
       ALLOCATE( this % DT   (0:N,0:N) )
       ALLOCATE( this % hatD (0:N,0:N) )
+      ALLOCATE( this % xCGL (0:N) )
+      ALLOCATE( this % wbCGL (0:N) )
+      ALLOCATE( this % DCGL (0:N,0:N) )
+      ALLOCATE( this % TCheb2Gauss (0:N,0:N) )
 !
 !     -----------------
 !     Nodes and weights
@@ -132,7 +138,18 @@ MODULE NodalStorageClass
       
       this % b(0:N,LEFT)  = this % b(0:N,LEFT) /this % w
       this % b(0:N,RIGHT) = this % b(0:N,RIGHT)/this % w
-      
+!
+!     -------------------------------------------
+!     Construct Chebyshev-Gauss-Lobatto framework
+!     -------------------------------------------
+!
+      this % DCGL = 0.0_RP
+      this % TCheb2Gauss = 0.0_RP
+      this % xCGL = (/ (-cos(1.0_RP*i*PI/this % N), i = 0, this % N) /)
+      call BarycentricWeights(N, this % xCGL, this % wbCGL) 
+      call PolynomialDerivativeMatrix( this % N, this % xCGL, this % DCGL)
+      call PolynomialInterpolationMatrix(this % N, this % N, this % xCGL, this % wbCGL, this % x,&
+                                         this % TCheb2Gauss)
 !
 !     Set the nodal storage as constructed
 !     ------------------------------------      
