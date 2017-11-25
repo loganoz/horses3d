@@ -4,9 +4,9 @@
 !   @File:    partitioned_mesh.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 10:26:09 2017
-!   @Last revision date: Sat Nov 25 13:29:58 2017
+!   @Last revision date: Sat Nov 25 14:01:20 2017
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 4040089196cab3f09c3e2ea6cb34714311470831
+!   @Last revision commit: 3b34c7a95eb684f3c89837d445c6430f5449f298
 !
 !//////////////////////////////////////////////////////
 !
@@ -16,6 +16,7 @@ module PartitionedMeshClass
 
    private
    public  PartitionedMesh_t
+   public  SendPartitionsMPI, RecvPartitionMPI
 
    type PartitionedMesh_t
       integer              :: ID
@@ -33,6 +34,7 @@ module PartitionedMeshClass
 
 #ifdef _HAS_MPI_
    type(PartitionedMesh_t), public :: mpi_partition
+   type(PartitionedMesh_t), allocatable, public :: mpi_allPartitions(:)
 #endif
 
    interface PartitionedMesh_t
@@ -40,6 +42,22 @@ module PartitionedMeshClass
    end interface
 
    contains
+      subroutine Initialize_MPI_Partitions()
+         use MPI_Process_Info
+         implicit none
+!
+!        Create the set of MPI_Partitions in the root rank
+!        -------------------------------------------------      
+         if ( MPI_Process % doMPIRootAction ) then
+            allocate(mpi_allPartitions(MPI_Process % nProcs))
+         end if
+!
+!        Initialize the own MPI partition
+!        --------------------------------
+         mpi_partition = PartitionedMesh_t(MPI_Process % rank)
+         
+      end subroutine Initialize_MPI_Partitions
+         
       function ConstructPartitionedMesh(ID)
          implicit none
          integer, intent(in)     :: ID
@@ -59,5 +77,19 @@ module PartitionedMeshClass
          safedeallocate(ConstructPartitionedMesh % bdryface_sharedDomain)
    
       end function ConstructPartitionedMesh
+
+      subroutine RecvPartitionMPI()
+         implicit none
+#ifdef _HAS_MPI_
+
+#endif
+      end subroutine RecvPartitionMPI
+
+      subroutine SendPartitionsMPI()
+         implicit none
+#ifdef _HAS_MPI_
+
+#endif
+      end subroutine SendPartitionsMPI
    
 end module PartitionedMeshClass

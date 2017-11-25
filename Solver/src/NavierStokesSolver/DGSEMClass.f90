@@ -80,6 +80,7 @@ Module DGSEMClass
       use mainKeywordsModule
       use StopwatchClass
       use MPI_Process_Info
+      use PartitionedMeshClass
       use MeshPartitioning
       IMPLICIT NONE
 !
@@ -215,16 +216,42 @@ Module DGSEMClass
          MeshInnerCurves = .true.
       end if
 !
-!     ----------------------------------------------------------
+!     **********************************************************
+!     *                  MPI PREPROCESSING                     *
+!     **********************************************************
+!
+!     Prepare the processes to receive the partitions
+!     -----------------------------------------------
+      if ( MPI_Process % doMPIAction ) then
+         call RecvPartitionMPI()
+      end if
+!
 !     Read the mesh by the root rank to perform the partitioning
 !     ----------------------------------------------------------
-!
       if ( MPI_Process % doMPIRootAction ) then
-         CALL constructMeshFromFile( self % mesh, meshfileName, nodes, self % spA, Nx, Ny, Nz, MeshInnerCurves , success )
-         call PerformMeshPartitioning(self % mesh, MPI_Process % nProcs)
+!
+!        Construct the full mesh
+!        -----------------------
+         call constructMeshFromFile( self % mesh, meshfileName, nodes, self % spA, Nx, Ny, Nz, MeshInnerCurves , success )
+!
+!        Perform the partitioning
+!        ------------------------
+         call PerformMeshPartitioning(self % mesh, MPI_Process % nProcs, mpi_allPartitions)
+!
+!        Send the partitions
+!        -------------------
+         call SendPartitionsMPI()
+!
+!        Destruct the full mesh
+!        ----------------------
          call self % mesh % Destruct()
-      end if
 
+      end if
+!
+!     **********************************************************
+!     *              MESH CONSTRUCTION                         *
+!     **********************************************************
+!
       CALL constructMeshFromFile( self % mesh, meshfileName, nodes, self % spA, Nx, Ny, Nz, MeshInnerCurves , success )
       
       IF(.NOT. success) RETURN

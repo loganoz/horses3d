@@ -4,9 +4,9 @@
 !   @File:    MeshPartitioning.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 10:26:08 2017
-!   @Last revision date: Sat Nov 25 13:29:57 2017
+!   @Last revision date: Sat Nov 25 14:01:19 2017
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 4040089196cab3f09c3e2ea6cb34714311470831
+!   @Last revision commit: 3b34c7a95eb684f3c89837d445c6430f5449f298
 !
 !//////////////////////////////////////////////////////
 !
@@ -19,10 +19,11 @@ module MeshPartitioning
    public   PerformMeshPartitioning
 
    contains
-      subroutine PerformMeshPartitioning(mesh, no_of_domains)
+      subroutine PerformMeshPartitioning(mesh, no_of_domains, partitions)
          implicit none
          type(HexMesh), intent(in)  :: mesh
          integer,       intent(in)  :: no_of_domains
+         type(PartitionedMesh_t)    :: partitions(no_of_domains)
 !
 !        ---------------
 !        Local variables
@@ -30,7 +31,6 @@ module MeshPartitioning
 !
          integer               :: fID, domain
          integer               :: elementsDomain(mesh % no_of_elements)
-         type(PartitionedMesh_t) :: partitions(no_of_domains)
 !
 !        ************************************************
 !        Now, they will just be ordered in a hard-coded
@@ -38,7 +38,6 @@ module MeshPartitioning
 !        It is required to consider using METIS or a 
 !        universal partitioner later.
 !        ************************************************
-!
 !
 !        Initialize partitions
 !        ---------------------
