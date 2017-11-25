@@ -31,6 +31,7 @@ MODULE Read_SpecMesh
 !!    Only valid for conforming meshes
       SUBROUTINE ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, spA, Nx, Ny, Nz, success )
          USE Physics
+         use PartitionedMeshClass
          IMPLICIT NONE
 !
 !        ---------------
@@ -79,10 +80,18 @@ MODULE Read_SpecMesh
          REAL(KIND=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
          REAL(KIND=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
          REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
+!
+!        ********************************
+!        Check if a mesh partition exists
+!        ********************************
+!
+         if ( mpi_partition % Constructed ) then
+            call ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, spA, Nx, Ny, Nz, success ) 
+            return
+         end if
           
          numberOfBoundaryFaces = 0
          success               = .TRUE.
-         
 !
 !        -----------------------
 !        Read header information
@@ -100,14 +109,6 @@ MODULE Read_SpecMesh
 
          self % nodeType = nodes
          self % no_of_elements = numberOfElements
-!
-!        ---------------
-!        Allocate memory
-!        ---------------
-!
-         ALLOCATE( self % elements(numberOfelements) )
-         ALLOCATE( self % nodes(numberOfNodes) )
-         allocate( SurfInfo(numberOfelements) )
 !
 !        ----------------------------
 !        Set up for face patches
@@ -129,6 +130,15 @@ MODULE Read_SpecMesh
             CALL facePatches(k) % construct(uNodesFlat,vNodesFlat) 
          END DO  
 !
+!        ---------------
+!        Allocate memory
+!        ---------------
+!
+         ALLOCATE( self % elements(numberOfelements) )
+         ALLOCATE( self % nodes(numberOfNodes) )
+         allocate( SurfInfo(numberOfelements) )
+
+!
 !        ----------------------------------
 !        Read nodes: Nodes have the format:
 !        x y z
@@ -136,7 +146,7 @@ MODULE Read_SpecMesh
 !
          DO j = 1, numberOfNodes 
             READ( fUnit, * ) x
-            CALL ConstructNode( self % nodes(j), x )
+            CALL ConstructNode( self % nodes(j), x, j )
          END DO
 !
 !        -----------------------------------------
@@ -290,6 +300,320 @@ MODULE Read_SpecMesh
          call self % Export( trim(fileName) )
          
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
+
+      SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, spA, Nx, Ny, Nz, success )
+         USE Physics
+         use PartitionedMeshClass
+         use MPI_Process_Info
+         IMPLICIT NONE
+!
+!        ---------------
+!        Input variables
+!        ---------------
+!
+         CLASS(HexMesh)     :: self
+         integer            :: nodes
+         TYPE(NodalStorage) :: spA(0:)
+         CHARACTER(LEN=*)   :: fileName
+         INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+         LOGICAL            :: success
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         INTEGER                         :: numberOfAllElements
+         INTEGER                         :: numberOfAllNodes
+         INTEGER                         :: numberOfAllBoundaryFaces
+         INTEGER                         :: numberOfAllFaces
+         integer, allocatable            :: globalToLocalNodeID(:)
+         
+         INTEGER                         :: bFaceOrder, numBFacePoints
+         INTEGER                         :: i, j, k, l, pNode, pElement
+         INTEGER                         :: fUnit, fileStat
+         INTEGER                         :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
+         REAL(KIND=RP)                   :: x(NDIM)
+         INTEGER                         :: faceFlags(FACES_PER_ELEMENT)
+         CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
+         TYPE(FacePatch), DIMENSION(6)   :: facePatches
+         REAL(KIND=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
+         INTEGER, EXTERNAL               :: UnusedUnit
+!
+!        ------------------
+!        For curved patches
+!        ------------------
+!
+         type(SurfInfo_t), allocatable                  :: SurfInfo(:)
+         REAL(KIND=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
+         REAL(KIND=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
+!
+!        ----------------
+!        For flat patches
+!        ----------------
+!
+         REAL(KIND=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
+         REAL(KIND=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
+         REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
+
+         numberOfAllBoundaryFaces = 0
+         success               = .TRUE.
+!
+!        -----------------------
+!        Read header information
+!        -----------------------
+!
+         fUnit = UnusedUnit()
+         OPEN( UNIT = fUnit, FILE = fileName, iostat = fileStat )
+         IF ( fileStat /= 0 )     THEN
+            PRINT *, "Error opening file: ", fileName
+            success = .FALSE.
+            RETURN 
+         END IF
+         
+         READ(fUnit,*) numberOfAllNodes, numberOfAllElements, bFaceOrder
+
+         self % nodeType = nodes
+         self % no_of_elements = mpi_partition % no_of_elements
+print*, "Elements for partition", MPI_Process % rank, ": ", self % no_of_elements
+!
+!        ----------------------------
+!        Set up for face patches
+!        Face patches are defined 
+!        at chebyshev- lobatto points
+!        ----------------------------
+!
+         numBFacePoints = bFaceOrder + 1
+         ALLOCATE(uNodes(numBFacePoints))
+         ALLOCATE(vNodes(numBFacePoints))
+         ALLOCATE(values(3,numBFacePoints,numBFacePoints))
+         
+         DO i = 1, numBFacePoints
+            uNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+            vNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+         END DO
+         
+         DO k = 1, 6 ! Most patches will be flat, so set up for self
+            CALL facePatches(k) % construct(uNodesFlat,vNodesFlat) 
+         END DO  
+!
+!        ---------------
+!        Allocate memory
+!        ---------------
+!
+         ALLOCATE( self % elements(mpi_partition % no_of_elements) )
+         ALLOCATE( self % nodes(mpi_partition % no_of_nodes) )
+         allocate( SurfInfo(mpi_partition % no_of_nodes) )
+         allocate( globalToLocalNodeID(numberOfAllNodes) )
+         globalToLocalNodeID = -1
+!
+!        ----------------------------------
+!        Read nodes: Nodes have the format:
+!        x y z
+!        ----------------------------------
+!
+         node = 1
+         DO j = 1, numberOfAllNodes 
+            READ( fUnit, * ) x
+!
+!           Construct only nodes that belong to the partition
+!           -------------------------------------------------
+            if ( j .eq. mpi_partition % nodeIDs(pNode) ) then
+               CALL ConstructNode( self % nodes(pNode), x, j )
+               globalToLocalNodeID(j) = pNode
+               pNode = pNode + 1 
+            end if
+         END DO
+!
+!        -----------------------------------------
+!        Read elements: Elements have the format:
+!        node1ID node2ID node3ID node4ID ... node8ID
+!        b1 b2 b3 b4 b5 b6
+!           (=0 for straight side, 1 for curved)
+!        If curved boundaries, then for each:
+!           for j = 0 to bFaceOrder
+!              x_j  y_j  z_j
+!           next j
+!        bname1 bname2 bname3 bname4 bname5 bname6
+!        -----------------------------------------
+!
+         pElement = 1
+         DO l = 1, numberOfAllElements 
+            if ( l .ne. mpi_partition % nodeIDs(pElement) ) then
+!
+!              Skip the element
+!              ----------------
+               READ( fUnit, * ) nodeIDs
+               READ( fUnit, * ) faceFlags
+
+               do k = 1, FACES_PER_ELEMENT
+                  if ( faceFlags(k) .ne. 0 ) then
+                     DO j = 1, numBFacePoints
+                        DO i = 1, numBFacePoints
+                           READ( fUnit, * )
+                        END DO  
+                     END DO
+                  end if 
+               end do
+!
+!              Get the boundary names to build zones (even they could be empty)
+!              ----------------------------------------------------------------
+               READ( fUnit, * ) names
+               DO k = 1, 6
+                  IF(TRIM(names(k)) /= emptyBCName) then
+                     if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                        call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
+                     end if
+                  end if
+               END DO  
+
+               cycle 
+            end if
+
+
+            READ( fUnit, * ) nodeIDs
+            READ( fUnit, * ) faceFlags
+!
+!           Translate nodeIDs to local nodeIDs
+!           ----------------------------------
+            nodeIDs = globalToLocalNodeID(nodeIDs)
+!
+!           -----------------------------------------------------------------------------
+!           If the faceFlags are all zero, then self is a straight-sided
+!           hex. In that case, set the corners of the hex8Map and use that in determining
+!           the element geometry.
+!           -----------------------------------------------------------------------------
+!
+            IF(MAXVAL(faceFlags) == 0)     THEN
+               DO k = 1, NODES_PER_ELEMENT
+                  corners(:,k) = self % nodes(nodeIDs(k)) % x
+               END DO
+               SurfInfo(pElement) % IsHex8 = .TRUE.
+               SurfInfo(pElement) % corners = corners
+               
+            ELSE
+!
+!              --------------------------------------------------------------
+!              Otherwise, we have to look at each of the faces of the element 
+!              --------------------------------------------------------------
+!
+               DO k = 1, FACES_PER_ELEMENT 
+                 IF ( faceFlags(k) == 0 )     THEN
+!
+!                    ----------
+!                    Flat faces
+!                    ----------
+!
+                     nodeMap           = localFaceNode(:,k)
+                     valuesFlat(:,1,1) = self % nodes(nodeIDs(nodeMap(1))) % x
+                     valuesFlat(:,2,1) = self % nodes(nodeIDs(nodeMap(2))) % x
+                     valuesFlat(:,2,2) = self % nodes(nodeIDs(nodeMap(3))) % x
+                     valuesFlat(:,1,2) = self % nodes(nodeIDs(nodeMap(4))) % x
+                     
+                     call SurfInfo(pElement) % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+                     
+                  ELSE
+!
+!                    -------------
+!                    Curved faces 
+!                    -------------
+!
+                     DO j = 1, numBFacePoints
+                        DO i = 1, numBFacePoints
+                           READ( fUnit, * ) values(:,i,j)
+                        END DO  
+                     END DO
+                     
+                     call SurfInfo(pElement) % facePatches(k) % construct(uNodes, vNodes, values)
+                     
+                  END IF
+               END DO
+               
+            END IF 
+!
+!           -------------------------
+!           Now construct the element
+!           -------------------------
+!
+            call self % elements(pElement) % Construct (spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs , l)
+            
+            READ( fUnit, * ) names
+            CALL SetElementBoundaryNames( self % elements(pElement), names )
+            
+            DO k = 1, 6
+               IF(TRIM(names(k)) /= emptyBCName) then
+                  numberOfAllBoundaryFaces = numberOfAllBoundaryFaces + 1
+                  if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                     call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
+                  end if
+               end if
+            END DO  
+            
+            pElement = pElement + 1
+            
+            
+         END DO      ! l = 1, numberOfAllElements
+        
+!
+!        ---------------------------
+!        Construct the element faces
+!        ---------------------------
+!
+         numberOfAllFaces        = (6*numberOfAllElements + numberOfAllBoundaryFaces)/2
+         self % numberOfAllFaces = numberOfAllFaces
+         ALLOCATE( self % faces(self % numberOfAllFaces) )
+         CALL ConstructFaces( self, success )
+!
+!        -------------------------
+!        Build the different zones
+!        -------------------------
+!
+         call self % ConstructZones()
+!
+!        ---------------------------
+!        Construct periodic faces
+!        ---------------------------
+!
+         CALL ConstructPeriodicFaces( self )
+!
+!        ---------------------------
+!        Delete periodic- faces
+!        ---------------------------
+!
+         CALL DeletePeriodicMinusFaces( self )
+!
+!        ---------------------------
+!        Assign faces ID to elements
+!        ---------------------------
+!
+         CALL getElementsFaceIDs(self)
+!
+!        ------------------------------
+!        Set the element connectivities
+!        ------------------------------
+!
+         call self % SetConnectivities(spA,nodes)
+!
+!        ---------------------------------------
+!        Construct elements' and faces' geometry
+!        ---------------------------------------
+!
+         call self % ConstructGeometry(spA,SurfInfo)
+            
+         CLOSE( fUnit )
+!
+!        ---------
+!        Finish up
+!        ---------
+!
+
+         CALL self % Describe( trim(fileName) )
+         
+         self % Ns = Nx
+
+         call self % Export( trim(fileName) )
+         
+      END SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_
+
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

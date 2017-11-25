@@ -25,6 +25,7 @@ module PartitionedMeshClass
    public  SendPartitionsMPI, RecvPartitionMPI
 
    type PartitionedMesh_t
+      logical              :: Constructed
       integer              :: ID
       integer              :: no_of_nodes
       integer              :: no_of_elements
@@ -36,6 +37,8 @@ module PartitionedMeshClass
       integer, allocatable :: bdryface_rotation(:)
       integer, allocatable :: bdryface_elementSide(:)
       integer, allocatable :: bdryface_sharedDomain(:)
+      contains
+         procedure   :: Destruct => PartitionedMesh_Destruct
    end type PartitionedMesh_t
 
 #ifdef _HAS_MPI_
@@ -53,12 +56,17 @@ module PartitionedMeshClass
    contains
       subroutine Initialize_MPI_Partitions()
          implicit none
+         integer  :: domain
 !
 !        Create the set of MPI_Partitions in the root rank
 !        -------------------------------------------------      
          if ( MPI_Process % doMPIRootAction ) then
             allocate(mpi_allPartitions(MPI_Process % nProcs))
             allocate(send_req(MPI_Process % nProcs-1,8))
+
+            do domain = 1, MPI_Process % nProcs
+               mpi_allPartitions(domain) = PartitionedMesh_t(domain)
+            end do
          end if
 !
 !        Initialize the own MPI partition
@@ -79,6 +87,7 @@ module PartitionedMeshClass
          integer, intent(in)     :: ID
          type(PartitionedMesh_t) :: ConstructPartitionedMesh
 
+         ConstructPartitionedMesh % Constructed = .false.
          ConstructPartitionedMesh % ID = ID
          ConstructPartitionedMesh % no_of_nodes = 0
          ConstructPartitionedMesh % no_of_elements = 0
@@ -154,6 +163,8 @@ module PartitionedMeshClass
 !        Wait until all messages have been received
 !        ------------------------------------------
          call mpi_waitall(8, recv_req, MPI_STATUS_IGNORE, ierr) 
+
+         mpi_partition % Constructed = .true.
 #endif
       end subroutine RecvPartitionMPI
 
@@ -220,12 +231,39 @@ module PartitionedMeshClass
 !        Copy directly the MPI mesh partition of the root
 !        ------------------------------------------------
          mpi_partition = mpi_allPartitions(1)
+         mpi_partition % Constructed = .true.
 !
 !        Wait until all messages have been delivered
 !        -------------------------------------------
          call mpi_waitall(8*(MPI_Process % nProcs - 1), send_req, status, ierr) 
+!
+!        Destruct the partitions
+!        -----------------------
+         do domain = 1, MPI_Process % nProcs
+            call mpi_allPartitions(domain) % Destruct
+         end do
 
 #endif
       end subroutine SendPartitionsMPI
+
+      subroutine PartitionedMesh_Destruct(self)
+         implicit none
+         class(PartitionedMesh_t) :: self
+
+         self % Constructed     = .false.
+         self % ID              = 0
+         self % no_of_nodes     = 0
+         self % no_of_elements  = 0
+         self % no_of_bdryfaces = 0
+
+         safedeallocate(self % nodeIDs)
+         safedeallocate(self % elementIDs)
+         safedeallocate(self % bdryface_elements)
+         safedeallocate(self % element_bdryfaceSide)
+         safedeallocate(self % bdryface_rotation)
+         safedeallocate(self % bdryface_elementSide)
+         safedeallocate(self % bdryface_sharedDomain)
+
+      end subroutine PartitionedMesh_Destruct
    
 end module PartitionedMeshClass

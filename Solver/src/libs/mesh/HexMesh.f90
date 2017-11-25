@@ -593,11 +593,6 @@ slavecoord:                DO l = 1, 4
        
       numberOfFaces = iFace
 
-      IF (numberOfFaces /= self%numberOfFaces) THEN     
-         PRINT*, "WARNING: FACE ROTATION IN PERIODIC BOUNDARY CONDITIONS NOT IMPLEMENTED YET"
-         PRINT*, "IF A PROBLEM IS SUSPECTED, CONTACT THE DEVELOPERS WITH YOUR MESH FILE"
-      ENDIF            
-
       DEALLOCATE(self%faces)
       ALLOCATE(self%faces(numberOfFaces))
       
