@@ -36,22 +36,24 @@
       
       
       TYPE Element
-          integer                                        :: eID               ! ID of this element
-          INTEGER                                        :: nodeIDs(8)
-          integer                                        :: faceIDs(6)
-          integer                                        :: faceSide(6)
-          INTEGER, DIMENSION(3)                          :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
-          TYPE(MappedGeometry)                           :: geom
-          CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryName(6)
-          CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryType(6)
-          INTEGER                                        :: NumberOfConnections(6)
-          TYPE(Connectivity)                             :: Connection(6)
-          type(Storage_t)                                :: storage
-          type(NodalStorage), pointer                    :: spAxi
-          type(NodalStorage), pointer                    :: spAeta
-          type(NodalStorage), pointer                    :: spAzeta
-          type(TransfiniteHexMap)                        :: hexMap            ! High-order mapper
-          contains
+         integer                                        :: eID               ! ID of this element
+         INTEGER                                        :: nodeIDs(8)
+         integer                                        :: faceIDs(6)
+         integer                                        :: faceSide(6)
+         INTEGER, DIMENSION(3)                          :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
+         TYPE(MappedGeometry)                           :: geom
+         CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryName(6)
+         CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryType(6)
+         INTEGER                                        :: NumberOfConnections(6)
+         TYPE(Connectivity)                             :: Connection(6)
+         type(Storage_t)                                :: storage
+         type(NodalStorage), pointer                    :: spAxi
+         type(NodalStorage), pointer                    :: spAeta
+         type(NodalStorage), pointer                    :: spAzeta
+         type(TransfiniteHexMap)                        :: hexMap            ! High-order mapper
+         contains
+            procedure   :: Construct => HexElement_Construct
+            procedure   :: ConstructGeometry => HexElement_ConstructGeometry
             procedure   :: FindPointWithCoords => HexElement_FindPointWithCoords
             procedure   :: EvaluateSolutionAtPoint => HexElement_EvaluateSolutionAtPoint
             procedure   :: ProlongSolutionToFaces => HexElement_ProlongSolutionToFaces
@@ -78,15 +80,14 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ConstructElementGeometry( self, spAxi, spAeta, spAzeta, nodeIDs, hexMap , eID)
+      SUBROUTINE HexElement_Construct( self, spAxi, spAeta, spAzeta, nodeIDs, eID)
          IMPLICIT NONE
          
-         TYPE(Element)           :: self
+         class(Element)             :: self
          TYPE(NodalStorage), target :: spAxi
          TYPE(NodalStorage), target :: spAeta
          TYPE(NodalStorage), target :: spAzeta
          INTEGER                 :: nodeIDs(8)
-         TYPE(TransfiniteHexMap) :: hexMap
          integer                 :: eID
          
          self % eID                   = eID
@@ -99,19 +100,29 @@
          self % spAxi   => spAxi
          self % spAeta  => spAeta
          self % spAzeta => spAzeta
-         self % hexMap = hexMap
-!
-!        --------
-!        Geometry
-!        --------
-!
-         CALL ConstructMappedGeometry( self % geom, spAxi, spAeta, spAzeta, hexMap )
 !
 !        ----------------------------------------
 !        Solution Storage is allocated separately
 !        ----------------------------------------
 !
-      END SUBROUTINE ConstructElementGeometry
+      END SUBROUTINE HexElement_Construct
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!     ------------------------------------------------------------
+!     Constructs the mapped geometry of the element (metric terms)
+!     ------------------------------------------------------------
+      subroutine HexElement_ConstructGeometry( self, hexMap)
+         implicit none
+         !--------------------------------------
+         class(Element)         , intent(inout) :: self
+         TYPE(TransfiniteHexMap), intent(in)    :: hexMap
+         !--------------------------------------
+         
+         self % hexMap = hexMap
+         CALL ConstructMappedGeometry( self % geom, self % spAxi, self % spAeta, self % spAzeta, hexMap )
+         
+      end subroutine HexElement_ConstructGeometry
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

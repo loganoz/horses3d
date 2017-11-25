@@ -19,7 +19,7 @@ Headers: SMConstants
 InterpolationAndDerivatives: SMConstants LegendreAlgorithms 
 BoundaryConditions: SMConstants Physics MeshTypes HexElementClass SharedBCModule ManufacturedSolutions
 Physics: SMConstants Headers FluidData Stopwatch
-FacePatchClass: SMConstants 
+FacePatchClass: SMConstants InterpolationAndDerivatives  
 MappedGeometry: SMConstants TransfiniteMaps3D NodalStorageClass 
 TransfiniteMaps3D: SMConstants FacePatchClass 
 FaceClass: SMConstants MeshTypes InterpolationAndDerivatives LegendreAlgorithms MappedGeometry StorageClass

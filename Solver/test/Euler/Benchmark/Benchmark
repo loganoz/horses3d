@@ -67,6 +67,8 @@ for P in $POLYNOMIAL_ORDERS; do
 	./HORSES3D ./Benchmark.control > RESULTS/bench_2_$P.log
 done
 
+
+
 ## Plot
 if [ "$PYTHONISSET" != "YES" ]; then
 . ../../../../utils/PythonUtilities/configure-python

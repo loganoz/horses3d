@@ -27,7 +27,7 @@ LIB = physics
 ./build/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) -fPIC $(FFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
 lib$(LIB).a: header mkdirs $(LIBOBJS)
 	@echo

@@ -93,25 +93,6 @@
             procedure   :: ProjectGradientFluxToElements => Face_ProjectGradientFluxToElements
       end type Face
 !
-!     ---------------------------------
-!     Interpolation matrix derived type
-!     ---------------------------------
-!
-      type InterpolationMatrix_t
-         logical        :: Constructed = .false.
-         real(kind=RP), allocatable  :: T(:,:)
-      end type InterpolationMatrix_t
-!
-!     **************************************************
-!     The set of interpolation matrices are stored here.
-!     >> The following criteria is adopted:
-!           * Tset(N,M) with N=M is never constructed.
-!           * Tset(N,M) with N<M is a forward matrix.
-!           * Tset(N,M) with N>M is a backwards matrix.
-!     **************************************************
-      integer,                      parameter :: NMAX = 40
-      type(InterpolationMatrix_t)             :: Tset(0:NMAX,0:NMAX)
-!
 !     ========
       CONTAINS
 !     ========
@@ -246,17 +227,13 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Face_LinkWithElements( self, Neqn, NGradeqn, NelLeft, NelRight, &
-                                           geom, geomSide, hexMap, nodeType, spA)
+   SUBROUTINE Face_LinkWithElements( self, Neqn, NGradeqn, NelLeft, NelRight, nodeType, spA)
       IMPLICIT NONE
       class(Face)        ,     intent(INOUT) :: self        ! Current face
       integer            ,     intent(IN)    :: Neqn        ! Number of equations
       integer            ,     intent(IN)    :: NGradeqn    ! Number of gradient equations
       integer,                 intent(in)    :: NelLeft(2)  ! Left element face polynomial order
       integer,                 intent(in)    :: NelRight(2) ! Right element face polynomial order
-      type(MappedGeometry),    intent(in)    :: geom        ! Mapped geometry to construct the face
-      type(TransfiniteHexMap), intent(in)    :: hexMap      ! Mapper with the element geometry
-      integer,                 intent(in)    :: geomSide    ! The face side in the geometry mapper
       integer,                 intent(in)    :: nodeType    ! Either Gauss or Gauss-Lobatto
       type(NodalStorage),      target        :: spA(0:)     ! Nodal storage
 !
@@ -305,12 +282,6 @@
 
       call self % storage(1) % Construct(NDIM, self % Nf, self % NelLeft, nEqn, nGradEqn, flowIsNavierStokes)
       call self % storage(2) % Construct(NDIM, self % Nf, self % NelRight, nEqn, nGradEqn, flowIsNavierStokes)
-!
-!     ------------------------------
-!     Construct face mapped geometry
-!     ------------------------------
-!
-      call self % geom % construct(self % Nf, spA(self % Nf), geom, hexMap, geomSide)
 !
 !     -----------------------------------------------------------------------
 !     Construction of the projection matrices (simple Lagrange interpolation)

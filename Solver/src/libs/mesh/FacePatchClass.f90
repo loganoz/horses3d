@@ -25,12 +25,14 @@
 !!    @author David A. Kopriva
 !!    
 ! //////////////////////////////////////////////////////////////////////////////
+#include "Includes.h"
 !
 !  ******
    MODULE FacePatchClass
 !  ******
 !
      USE SMConstants
+     use PolynomialInterpAndDerivsModule
      IMPLICIT NONE
      PRIVATE
 !
@@ -45,7 +47,8 @@
      TYPE FacePatch
          REAL(KIND=RP), DIMENSION(:,:,:), ALLOCATABLE :: points
          REAL(KIND=RP), DIMENSION(:)    , ALLOCATABLE :: uKnots,vKnots
-         REAL(KIND=RP), DIMENSION(:,:,:), ALLOCATABLE :: divTable
+         REAL(kind=RP), dimension(:),     allocatable :: wbu, wbv
+         REAL(kind=RP), dimension(:,:),   allocatable :: Du, Dv
          INTEGER      , DIMENSION(2)                  :: noOfKnots
 !
 !        ========         
@@ -102,6 +105,10 @@
       ALLOCATE( self % points(3, self % noOfKnots(1), self % noOfKnots(2)) )
       ALLOCATE( self % uKnots(self % noOfKnots(1)) )
       ALLOCATE( self % vKnots(self % noOfKnots(2)) )
+      allocate( self % wbu(self % noOfKnots(1)) )
+      allocate( self % wbv(self % noOfKnots(2)) )
+      allocate( self % Du(self % noOfKnots(1), self % noOfKnots(1)) )
+      allocate( self % Dv(self % noOfKnots(2), self % noOfKnots(2)) )
 !
 !     -------------------------
 !     Save the points and knots
@@ -109,6 +116,16 @@
 !
       self % uKnots  = uKnots
       self % vKnots  = vKnots
+!
+!     Compute the barycentric weights
+!     -------------------------------
+      call BarycentricWeights(self % noOfKnots(1)-1, self % uKnots, self % wbu)
+      call BarycentricWeights(self % noOfKnots(2)-1, self % vKnots, self % wbv)
+!
+!     Compute the derivative matrices
+!     -------------------------------
+      call PolynomialDerivativeMatrix(self % noOfKnots(1)-1, self % uKnots, self % Du)
+      call PolynomialDerivativeMatrix(self % noOfKnots(2)-1, self % vKnots, self % Dv)
 
       IF(PRESENT(points)) CALL self % setFacePoints( points )
 !
@@ -131,7 +148,10 @@
       IF ( ALLOCATED( self % points ) )   DEALLOCATE( self % points )
       IF ( ALLOCATED( self % uKnots ) )   DEALLOCATE( self % uKnots )
       IF ( ALLOCATED( self % vKnots ) )   DEALLOCATE( self % vKnots )
-      IF ( ALLOCATED( self % divTable ) ) DEALLOCATE( self % divTable )
+      safedeallocate( self % wbu )
+      safedeallocate( self % wbv )
+      safedeallocate( self % Du )
+      safedeallocate( self % Dv )
       self % noOfKnots = 0
 !
       END SUBROUTINE DestructFacePatch
@@ -155,24 +175,6 @@
          INTEGER :: n, k, j
 !
          self % points  = points
-         
-         IF ( .NOT. FaceIs4CorneredQuad(self) )     THEN
-            IF(ALLOCATED(self % divTable)) DEALLOCATE( self % divTable)
-            ALLOCATE( self % divTable(self % noOfKnots(1), self % noOfKnots(2), 3) )
-!
-!           -------------------------------------
-!           Compute the divided difference tables
-!           -------------------------------------
-!
-            DO j = 1, self % noOfKnots(2)
-               DO k = 1,3
-                  DO n = 1, self % noOfKnots(1)
-                      self % divTable(n,j,k) = points(k,n,j)
-                  END DO
-                  CALL divdif(self % noOfKnots(1), self % uKnots, self % divTable(:,j,k))
-               END DO
-            END DO
-         END IF 
          
       END SUBROUTINE setFacePoints
 !
@@ -219,7 +221,7 @@
                   + self % points(j,2,2)*(1._RP + u(1))*(1._RP + u(2))  &
                   + self % points(j,1,2)*(1._RP - u(1))*(1._RP + u(2))
          END DO
-         p = 0.25_RP*p
+         p = 0.25_RP * p
       ELSE
          CALL ComputePoly2D(self, u, p)
       END IF
@@ -256,30 +258,20 @@
 !     Local Variables
 !     ---------------
 !
-      REAL(KIND=RP), DIMENSION(:,:), ALLOCATABLE :: w
-      REAL(KIND=RP)                              :: l_j
-      INTEGER                                    :: j, k
-!
-      ALLOCATE( w(3,self % noOfKnots(2)) )
-!
-      DO j = 1, self % noOfKnots(2)
-         DO k = 1,3
-            w(k,j) = EvaluateNewtonPolynomial( u(1), self % noOfKnots(1), &
-                                               self % uKnots, self % divTable(:,j,k) )
-         END DO
-      END DO
-!
+      REAL(KIND=RP)                              :: l_j(self % noOfKnots(2))
+      real(kind=RP)                              :: l_i(self % noOfKnots(1))
+      INTEGER                                    :: i, j
+
+      call InterpolatingPolynomialVector(u(1), self % noOfKnots(1)-1, self % uKnots, self % wbu, l_i)
+      call InterpolatingPolynomialVector(u(2), self % noOfKnots(2)-1, self % vKnots, self % wbv, l_j)
+
       p = 0.0_RP
       DO j = 1, self % noOfKnots(2)
-         l_j = EvaluateLagrangePoly(j,u(2), self % noOfKnots(2),self % vKnots)
-         DO k = 1,3
-            p(k) = p(k) + w(k,j)*l_j
-         END DO
-      END DO
+         do i = 1, self % noOfKnots(1)
+            p = p + self % points(:,i,j) * l_i(i) * l_j(j)
+         end do
+      end do
 
-      DEALLOCATE (w)
-      
-      RETURN
       END SUBROUTINE ComputePoly2D
 !
 !     ///////////////////////////////////////////////////////////////////////
@@ -357,7 +349,7 @@
                           + self % points(j,2,2)*(1._RP + u(1))      &
                           + self % points(j,1,2)*(1._RP - u(1))
          END DO
-         grad = 0.25*grad
+         grad = 0.25_RP * grad
       ELSE
          CALL Compute2DPolyDeriv(self, u, grad)
       END IF
@@ -390,54 +382,46 @@
 !     Local Variables
 !     ---------------
 !
-      REAL(KIND=RP), DIMENSION(:), ALLOCATABLE :: l_i
-      REAL(KIND=RP)                            :: l_j
+      REAL(KIND=RP) :: l_i(self % noOfKnots(1))
+      REAL(KIND=RP) :: l_j(self % noOfKnots(2))
+      REAL(KIND=RP) :: dl_i(self % noOfKnots(1))
+      REAL(KIND=RP) :: dl_j(self % noOfKnots(2))
       INTEGER                                  :: i, j, k
 !
       grad = 0.0_RP
-      ALLOCATE( l_i(self % noOfKnots(1)) )
 !
-!     --------------------------
-!     First direction derivative
-!     --------------------------
+!     ----------------------------
+!     Compute Lagrange polynomials
+!     ----------------------------
 !
-      DO i = 1, self % noOfKnots(1)
-         l_i(i) = EvaluateLagrangePolyDeriv(i, u(1), self % noOfKnots(1),&
-     &                                    self % uKnots)
-      END DO
-!
-      DO j = 1, self % noOfKnots(2)
-         l_j = EvaluateLagrangePoly(j, u(2), self % noOfKnots(2),&
-     &                              self % vKnots)
-         DO i = 1, self % noOfKnots(1)
-            DO k = 1,3
-               grad(k,1) = grad(k,1) + self % points(k, i, j)*l_i(i)*l_j
-            END DO
-         END DO
-      END DO
-!
-!     ---------------------------
-!     Second direction derivative
-!     ---------------------------
-!
-      DO i = 1, self % noOfKnots(1)
-         l_i(i) = EvaluateLagrangePoly(i, u(1), self % noOfKnots(1),&
-     &                                 self % uKnots)
-      END DO
-!
-      DO j = 1, self % noOfKnots(2)
-         l_j = EvaluateLagrangePolyDeriv(j, u(2), self % noOfKnots(2), &
-     &                                 self % vKnots)
-         DO i = 1, self % noOfKnots(1)
-            DO k = 1,3
-               grad(k,2) = grad(k,2) + self % points(k,i,j)*l_i(i)*l_j
-            END DO
-         END DO
-      END DO
+      call InterpolatingPolynomialVector(u(1), self % noOfKnots(1)-1, self % uKnots, self % wbu, l_i)
+      call InterpolatingPolynomialVector(u(2), self % noOfKnots(2)-1, self % vKnots, self % wbv, l_j)
 
-      DEALLOCATE (l_i )
-      
-      RETURN
+      dl_i = 0.0_RP
+      do i = 1, self % noOfKnots(1)
+         do j = 1, self % noOfKnots(1)
+            dl_i(i) = dl_i(i) + self % Du(j,i) * l_i(j)
+         end do   
+      end do
+
+      dl_j = 0.0_RP
+      do i = 1, self % noOfKnots(2)
+         do j = 1, self % noOfKnots(2)
+            dl_j(i) = dl_j(i) + self % Du(j,i) * l_j(j)
+         end do   
+      end do
+!
+!     ------------------------
+!     Evaluate the polynomials
+!     ------------------------
+!
+      do j = 1, self % noOfKnots(2)
+         do i = 1, self % noOfKnots(1)
+            grad(:,1) = grad(:,1) + self % points(:,i,j) * dl_i(i) * l_j(j)
+            grad(:,2) = grad(:,2) + self % points(:,i,j) *  l_i(i) * dl_j(j)
+         end do
+      end do
+
       END SUBROUTINE Compute2DPolyDeriv
 !
 !     /////////////////////////////////////////////////////////////////

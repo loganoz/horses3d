@@ -38,6 +38,19 @@
       USE SMConstants
       IMPLICIT NONE
       
+      private  
+      
+      public   MXV_DIRECT, MXV_TRANSPOSE
+      public   Tset, Interpolator_t, InterpolationMatrix_t
+      
+      public   EvaluateLagrangePolyDerivative
+      public   Interpolate3D, Create3DInterpolationMatrix
+      public   Create3DRestrictionMatrix
+      public   BarycentricWeights, PolynomialDerivativeMatrix
+      public   InterpolatingPolynomialVector
+      public   PolynomialInterpolationMatrix
+      public   MatrixMultiplyDeriv
+
       INTEGER, PARAMETER :: MXV_DIRECT = 1, MXV_TRANSPOSE = 2
       
       ! Interpolator type that is used in multigrid and in the plotter
@@ -45,7 +58,26 @@
          LOGICAL                     :: Created = .FALSE.
          REAL(KIND=RP), ALLOCATABLE  :: Mat(:,:)
       END TYPE Interpolator_t
-     
+
+!
+!     ---------------------------------
+!     Interpolation matrix derived type
+!     ---------------------------------
+!
+      type InterpolationMatrix_t
+         logical        :: Constructed = .false.
+         real(kind=RP), allocatable  :: T(:,:)
+      end type InterpolationMatrix_t
+!
+!     **************************************************
+!     The set of interpolation matrices are stored here.
+!     >> The following criteria is adopted:
+!           * Tset(N,M) with N=M is never constructed.
+!           * Tset(N,M) with N<M is a forward matrix.
+!           * Tset(N,M) with N>M is a backwards matrix.
+!     **************************************************
+      integer,                      parameter :: NMAX = 40
+      type(InterpolationMatrix_t)             :: Tset(0:NMAX,0:NMAX)
 !
 !    ========
      CONTAINS

@@ -16,20 +16,12 @@ module SharedSpectralBasis
    use PolynomialInterpAndDerivsModule
 
    private
-   public   spA, Tset
+   public   spA
    public   ConstructSpectralBasis, addNewSpectralBasis, addNewInterpolationMatrix
 
 
    integer,   parameter    :: NMAX = 40
-
-
-   type  InterpolationMatrices_t
-      logical                          :: Constructed = .false.
-      real(kind=RP),    allocatable    :: T(:,:)
-   end type InterpolationMatrices_t
-
    type(NodalStorage),            allocatable  :: spA(:)
-   type(InterpolationMatrices_t), allocatable  :: Tset(:,:)
 
 
    contains
@@ -37,10 +29,9 @@ module SharedSpectralBasis
       subroutine ConstructSpectralBasis()
          implicit none
 !
-!        Allocate nodal storage and interpolation matrices
-!        -------------------------------------------------
+!        Allocate nodal storage
+!        ----------------------
          allocate( spA(0:NMAX) )
-         allocate( Tset(0:NMAX, 0:NMAX) )
 
       end subroutine ConstructSpectralBasis
 !
@@ -68,7 +59,7 @@ module SharedSpectralBasis
       subroutine addNewInterpolationMatrix( Tset, Nold, spAold, Nnew, xiNew)
          use NodalStorageClass
          implicit none
-         class(InterpolationMatrices_t)     :: Tset(0:,0:)
+         class(InterpolationMatrix_t)     :: Tset(0:,0:)
          integer, intent(in)              :: Nold, Nnew
          class(NodalStorage), intent(in)  :: spAold
          real(kind=RP),       intent(in)  :: xiNew(0:Nnew)

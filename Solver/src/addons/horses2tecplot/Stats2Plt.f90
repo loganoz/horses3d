@@ -15,6 +15,7 @@ module Stats2PltModule
    use SMConstants
    use SolutionFile
    use Headers
+   use PolynomialInterpAndDerivsModule   
    implicit none
 
    private

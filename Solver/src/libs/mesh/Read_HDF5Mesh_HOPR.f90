@@ -43,8 +43,6 @@ contains
       CHARACTER(LEN=*), intent(in) :: fileName
       integer                      :: nelem
       !----------------------------------
-      integer :: k, fUnit
-      !----------------------------------
 #ifdef HAS_HDF5
 
       ! Initialize FORTRAN predefined datatypes
@@ -97,9 +95,9 @@ contains
       INTEGER  :: numberOfFaces
       INTEGER                          :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
       CHARACTER(LEN=BC_STRING_LENGTH)  :: names(FACES_PER_ELEMENT)
-      TYPE(TransfiniteHexMap), POINTER :: hexMap, hex8Map, genHexMap
       TYPE(FacePatch), DIMENSION(6)    :: facePatches
       REAL(KIND=RP)                    :: corners(NDIM,NODES_PER_ELEMENT) ! Corners of element
+      type(SurfInfo_t), allocatable                :: SurfInfo(:)
       real(kind=RP), dimension(:)    , allocatable :: uNodes, vNodes
       real(kind=RP), dimension(:,:,:), allocatable :: values
       
@@ -133,11 +131,9 @@ contains
       real(kind=RP), allocatable :: TempNodes(:,:)       ! Nodes read from file to be exported to self % nodes
       logical                    :: CurveCondition
       
-      real(kind=RP), allocatable, dimension(:)     :: xiCL,etaCL,zetaCL
-      real(kind=RP), allocatable, dimension(:,:,:) :: face1CL,face2CL,face3CL,face4CL,face5CL,face6CL
       TYPE(FacePatch), DIMENSION(6)    :: facePatchesHOPR
       !---------------------------------------------------------------
-      
+       
 !
 !     Initializations
 !     ------------------------------------
@@ -194,7 +190,7 @@ contains
 !     Set up for face patches
 !     Face patches are defined at equidistant points in HOPR (not Chebyshev-Lobatto as in .mesh format)
 !     ---------------------------------------
-      print*, 'Face order=',bFaceOrder
+      WRITE(STD_OUT,*) 'Face order=',bFaceOrder
       
       numBFacePoints = bFaceOrder + 1
       allocate(uNodes(numBFacePoints))
@@ -217,15 +213,12 @@ contains
       numberOfBoundaryFaces = 0
       corners               = 0.0_RP
       
-      ALLOCATE(hex8Map)
-      CALL hex8Map % constructWithCorners(corners)
-      ALLOCATE(genHexMap)
-      
       HSideMap = HOPR2HORSESSideMap()
       HCornerMap = HOPR2HORSESCornerMap(bFaceOrder)
       call HOPR2HORSESNodeSideMap(bFaceOrder,HNodeSideMap)
       
       ALLOCATE( self % elements(numberOfelements) )
+      allocate( SurfInfo(numberOfelements) )
       
       call InitNodeMap (TempNodes , HOPRNodeMap, nUniqueNodes)
       
@@ -266,8 +259,8 @@ contains
 !           for inner elements when MeshInnerCurves == .false. (control file variable 'mesh inner curves'). 
 !           In these cases, set the corners of the hex8Map and use that in determining the element geometry.
 !           -----------------------------------------------------------------------------
-            CALL hex8Map % setCorners(corners)
-            hexMap => hex8Map
+            SurfInfo(l) % IsHex8 = .TRUE.
+            SurfInfo(l) % corners = corners
             
          else
 !
@@ -287,13 +280,7 @@ contains
                   valuesFlat(:,2,2) = corners(:,nodeMap(3))
                   valuesFlat(:,1,2) = corners(:,nodeMap(4))
                   
-                  
-                  IF(facePatchesHOPR(k) % noOfKnots(1) /= 2)     THEN
-                     CALL facePatchesHOPR(k) % destruct()
-                     CALL facePatchesHOPR(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
-                  ELSE
-                     CALL facePatchesHOPR(k) % setFacePoints(points = valuesFlat)
-                  END IF 
+                  call SurfInfo(l) % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
                   
                ELSE
 !
@@ -308,80 +295,11 @@ contains
                      END DO  
                   END DO
                   
-                  IF(facePatchesHOPR(k) % noOfKnots(1) == 2)     THEN             ! TODO This could be problematic with anisotropy
-                     CALL facePatchesHOPR(k) % destruct()
-                     CALL facePatchesHOPR(k) % construct(uNodes, vNodes, values)
-                  ELSE
-                    CALL facePatchesHOPR(k) % setFacePoints(points = values)
-                  END IF 
+                  call SurfInfo(l) % facePatches(k) % construct(uNodes, vNodes, values)
 
                END IF
                
             END DO
-
-!
-!           Impose subparametric, or at most isoparametric, representation of boundaries
-!           To do so, we interpolate the boundary points to (Nx+1, Ny+1, Nz+1) 
-!           Chebyshev-Lobatto nodes and reconstruct the patches there. 
-!              TODO: This can cause problems with p-adaptation for inner curved boundaries
-!              TODO: This is not necessary when the metric terms are obtained in the macimum order of the mapping and then interpolated to the Gauss points (using curl metrics)
-!           ----------------------------------------------------------------------------
-            
-            ! Allocation
-            
-            allocate(xiCL(Nx(l)+1),etaCL(Ny(l)+1),zetaCL(Nz(l)+1))
-            allocate(face1CL(1:3,Nx(l)+1,Nz(l)+1))
-            allocate(face2CL(1:3,Nx(l)+1,Nz(l)+1))
-            allocate(face3CL(1:3,Nx(l)+1,Ny(l)+1))
-            allocate(face4CL(1:3,Ny(l)+1,Nz(l)+1))
-            allocate(face5CL(1:3,Nx(l)+1,Ny(l)+1))
-            allocate(face6CL(1:3,Ny(l)+1,Nz(l)+1))
-            
-            ! Construct the interpolants based on Chebyshev-Lobatto points
-            
-            xiCL   = (/ ( -cos((i-1)*PI/Nx(l)),i=1, Nx(l)+1) /)
-            etaCL  = (/ ( -cos((i-1)*PI/Ny(l)),i=1, Ny(l)+1) /)
-            zetaCL = (/ ( -cos((i-1)*PI/Nz(l)),i=1, Nz(l)+1) /)
-            
-            ! Project the faces to new boundary representations
-            
-            call ProjectFaceToNewPoints(facePatchesHOPR(1), Nx(l), xiCL , Nz(l), zetaCL, face1CL)
-            call ProjectFaceToNewPoints(facePatchesHOPR(2), Nx(l), xiCL , Nz(l), zetaCL, face2CL)
-            call ProjectFaceToNewPoints(facePatchesHOPR(3), Nx(l), xiCL , Ny(l), etaCL , face3CL)
-            call ProjectFaceToNewPoints(facePatchesHOPR(4), Ny(l), etaCL, Nz(l), zetaCL, face4CL)
-            call ProjectFaceToNewPoints(facePatchesHOPR(5), Nx(l), xiCL , Ny(l), etaCL , face5CL)
-            call ProjectFaceToNewPoints(facePatchesHOPR(6), Ny(l), etaCL, Nz(l), zetaCL, face6CL)
-            
-            ! Construct the new Chebyshev-Lobatto face patches
-            
-            call facePatches(1) % Construct( xiCL , zetaCL, face1CL )
-            call facePatches(2) % Construct( xiCL , zetaCL, face2CL )
-            call facePatches(3) % Construct( xiCL , etaCL , face3CL )
-            call facePatches(4) % Construct( etaCL, zetaCL, face4CL )
-            call facePatches(5) % Construct( xiCL , etaCL , face5CL )
-            call facePatches(6) % Construct( etaCL, zetaCL, face6CL )
-            
-            deallocate(xiCL,etaCL,zetaCL)
-            deallocate(face1CL,face2CL,face3CL,face4CL,face5CL,face6CL)
-            
-!
-!           Construct the transfinite map with the boundary representations
-!           ---------------------------------------------------------------
-            
-            CALL genHexMap % destruct()
-            CALL genHexMap % constructWithFaces(facePatches)
-            
-            hexMap => genHexMap
-   
-            ! Destruct face patches
-            
-            call facePatches(1) % Destruct()
-            call facePatches(2) % Destruct()
-            call facePatches(3) % Destruct()
-            call facePatches(4) % Destruct()
-            call facePatches(5) % Destruct()
-            call facePatches(6) % Destruct()
-            
             
          end if
          
@@ -389,8 +307,7 @@ contains
 !        Now construct the element
 !        -------------------------
 !
-         CALL ConstructElementGeometry( self % elements(l), spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs, hexMap , l)
-         
+         call self % elements(l) % Construct (spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs , l)
          
          CALL SetElementBoundaryNames( self % elements(l), names )
             
@@ -403,19 +320,7 @@ contains
             end if
          END DO  
          
-!        Construct the element connectivities
-!        ------------------------------------
-!
-         DO k = 1, 6
-            IF (TRIM(names(k)) == emptyBCName ) THEN
-               self%elements(l)%NumberOfConnections(k) = 1
-               CALL self%elements(l)%Connection(k)%construct (1)  ! Just conforming elements
-            ELSE
-               self%elements(l)%NumberOfConnections(k) = 0
-            ENDIF
-         ENDDO
-         
-      end do      ! l = 1, numberOfElement
+      end do      ! l = 1, numberOfElements
       
       call FinishNodeMap (TempNodes , HOPRNodeMap, self % nodes)
       
@@ -429,13 +334,7 @@ contains
       
       ALLOCATE( self % faces(self % numberOfFaces) )
       CALL ConstructFaces( self, success )
-      
 !
-!     ------------------------------
-!     Set the element connectivities
-!     ------------------------------
-!
-      call self % SetConnectivities
 !
 !     -------------------------
 !     Build the different zones
@@ -460,16 +359,21 @@ contains
 !     ---------------------------
 !
       CALL getElementsFaceIDs(self)
-            
+!
+!     ------------------------------
+!     Set the element connectivities
+!     ------------------------------
+      call self % SetConnectivities(spA,nodes)
+!
+!     ---------------------------------------
+!     Construct elements' and faces' geometry
+!     ---------------------------------------
+!
+      call self % ConstructGeometry(spA,SurfInfo)
 !
 !     Finish up
 !     ---------
-!
-      CALL hex8Map % destruct()
-      DEALLOCATE(hex8Map)
-      CALL genHexMap % destruct()
-      DEALLOCATE(genHexMap)
-      
+!      
       CALL self % Describe( trim(fileName) )
       
       self % Ns = Nx
@@ -912,7 +816,6 @@ contains
       integer      , allocatable, intent(inout) :: HOPRNodeMap(:)
       type(Node)   , allocatable, intent(inout) :: nodes(:)
       !--------------------------------------------
-      integer, save :: idx = 0   ! Index of new element to add
       integer       :: i,j       ! Counters
       integer       :: nUniqueNodes
       !--------------------------------------------
