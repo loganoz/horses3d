@@ -220,6 +220,10 @@ Module DGSEMClass
 !     *                  MPI PREPROCESSING                     *
 !     **********************************************************
 !
+!     Initialization
+!     --------------
+      call Initialize_MPI_Partitions
+!
 !     Prepare the processes to receive the partitions
 !     -----------------------------------------------
       if ( MPI_Process % doMPIAction ) then

@@ -17,7 +17,9 @@ module MPI_Process_Info
 #endif
 
    private
-   public   MPI_Process
+   public   MPI_Process, DEFAULT_TAG
+
+   integer, parameter   :: DEFAULT_TAG = 99
 
    type MPI_Process_t
       logical     :: doMPIRootAction = .false.

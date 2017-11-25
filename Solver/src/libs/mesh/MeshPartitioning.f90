@@ -64,10 +64,10 @@ module MeshPartitioning
 !
          use IntegerDataLinkedList
          implicit none
-         type(HexMesh), intent(in)          :: mesh
-         integer,       intent(in)          :: no_of_domains
-         integer,       intent(out)         :: elementsDomain(mesh % no_of_elements)
-         type(PartitionedMesh_t), intent(out) :: partitions(no_of_domains)
+         type(HexMesh), intent(in)              :: mesh
+         integer,       intent(in)              :: no_of_domains
+         integer,       intent(out)             :: elementsDomain(mesh % no_of_elements)
+         type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)
 !
 !        ---------------
 !        Local variables
@@ -129,10 +129,7 @@ module MeshPartitioning
             partitions(domain) % no_of_nodes = nodes(domain) % no_of_entries      
             partitions(domain) % no_of_elements = elements(domain) % no_of_entries
             
-            allocate(partitions(domain) % nodeIDs( partitions(domain) % no_of_nodes ))
-            allocate(partitions(domain) % elementIDs( partitions(domain) % no_of_elements ))
-
-            call nodes(domain)    % ExportToArray(partitions(domain) % nodeIDs)
+            call nodes(domain)    % ExportToArray(partitions(domain) % nodeIDs, sorted = .true.)
             call elements(domain) % ExportToArray(partitions(domain) % elementIDs)
          end do
          
@@ -142,7 +139,7 @@ module MeshPartitioning
          implicit none
          type(HexMesh), intent(in)  :: mesh
          integer,       intent(in)  :: no_of_domains
-         integer,       intent(in)  :: elementsDomain(no_of_domains)
+         integer,       intent(in)  :: elementsDomain(mesh % no_of_elements)
          type(PartitionedMesh_t)    :: partitions(no_of_domains)
 !
 !        ---------------
