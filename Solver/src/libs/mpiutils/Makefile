@@ -1,5 +1,5 @@
 #################################################
-#	Mesh Makefile 		#
+#	Foundation Makefile 		#
 #################################################
 INSTALL_DIR?=./
 FFLAGS?=-cpp
@@ -11,24 +11,10 @@ MOD_FLAG?=-J
 
 
 
-LIBOBJS = 	./build/ConnectivityClass.o \
-		./build/StorageClass.o \
-		./build/FacePatchClass.o \
-		./build/TransfiniteMaps3D.o \
-		./build/MappedGeometry.o \
-		./build/MeshTypes.o \
-		./build/NodeClass.o \
-		./build/HexElementConnectivityDefinitions.o \
-		./build/FaceClass.o \
-		./build/HexElementClass.o \
-		./build/ZoneClass.o \
-		./build/HexMesh.o \
-		./build/MeshPartitioning.o \
-		./build/Read_HDF5Mesh_HOPR.o \
-		./build/Read_SpecMesh.o \
-		./build/ReadMeshFile.o
+LIBOBJS = 	./build/process_info.o \
 
-LIB = mesh
+
+LIB = mpiutils
 
 ############################################
 #	MAIN COMPILATION RULES 		   #
@@ -38,7 +24,7 @@ LIB = mesh
 ./build/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) -fPIC $(FFLAGS) -I./include $(MACROS) $(EXTLIB_INC) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) -fPIC $(FFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
 lib$(LIB).a: header mkdirs $(LIBOBJS)
 	@echo
@@ -58,7 +44,7 @@ install: lib$(LIB).a
 header: FORCE
 	@echo
 	@echo "================================"
-	@echo ">>   Building Mesh        "
+	@echo ">>   Building mpiutils        "
 	@echo "================================"
 	@echo
 	@echo

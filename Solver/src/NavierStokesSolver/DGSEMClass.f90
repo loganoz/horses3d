@@ -79,6 +79,8 @@ Module DGSEMClass
       use FTValueDictionaryClass
       use mainKeywordsModule
       use StopwatchClass
+      use MPI_Process_Info
+      use MeshPartitioning
       IMPLICIT NONE
 !
 !     --------------------------
@@ -100,7 +102,7 @@ Module DGSEMClass
       INTEGER                     :: i,j,k,el                           ! Counters
       INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
       integer                     :: nodes, NelL(2), NelR(2)
-      INTEGER                     :: nelem                              ! Number of elements in mesh
+      INTEGER                     :: nTotalElem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       character(len=LINE_LENGTH)  :: meshFileName
       logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
@@ -165,11 +167,11 @@ Module DGSEMClass
          Nx => Nx_
          Ny => Ny_
          Nz => Nz_
-         nelem = SIZE(Nx)
+         nTotalElem = SIZE(Nx)
       ELSEIF (PRESENT(polynomialOrder)) THEN
-         nelem = NumOfElemsFromMeshFile( meshfileName )
+         nTotalElem = NumOfElemsFromMeshFile( meshfileName )
          
-         ALLOCATE (Nx(nelem),Ny(nelem),Nz(nelem))
+         ALLOCATE (Nx(nTotalElem),Ny(nTotalElem),Nz(nTotalElem))
          Nx = polynomialOrder(1)
          Ny = polynomialOrder(2)
          Nz = polynomialOrder(3)
@@ -181,7 +183,7 @@ Module DGSEMClass
       IF (ALLOCATED(self % Nx)) DEALLOCATE (self % Nx)
       IF (ALLOCATED(self % Ny)) DEALLOCATE (self % Ny)
       IF (ALLOCATED(self % Nz)) DEALLOCATE (self % Nz)
-      ALLOCATE (self % Nx(nelem),self % Ny(nelem),self % Nz(nelem))
+      ALLOCATE (self % Nx(nTotalElem),self % Ny(nTotalElem),self % Nz(nTotalElem))
       self % Nx = Nx
       self % Ny = Ny
       self % Nz = Nz
@@ -195,7 +197,7 @@ Module DGSEMClass
       ALLOCATE(self % spA(0:k) )
       
       self % NDOF = 0
-      DO k=1, nelem
+      DO k=1, nTotalElem
          self % NDOF = self % NDOF + N_EQN * (Nx(k) + 1) * (Ny(k) + 1) * (Nz(k) + 1)
          
          call self % spA(Nx(k)) % construct( nodes, Nx(k) )
@@ -212,6 +214,17 @@ Module DGSEMClass
       else
          MeshInnerCurves = .true.
       end if
+!
+!     ----------------------------------------------------------
+!     Read the mesh by the root rank to perform the partitioning
+!     ----------------------------------------------------------
+!
+      if ( MPI_Process % doMPIRootAction ) then
+         CALL constructMeshFromFile( self % mesh, meshfileName, nodes, self % spA, Nx, Ny, Nz, MeshInnerCurves , success )
+         call PerformMeshPartitioning(self % mesh, MPI_Process % nProcs)
+         call self % mesh % Destruct()
+      end if
+
       CALL constructMeshFromFile( self % mesh, meshfileName, nodes, self % spA, Nx, Ny, Nz, MeshInnerCurves , success )
       
       IF(.NOT. success) RETURN
