@@ -12,11 +12,11 @@ MOD_FLAG?=-J
 
 
 LIBOBJS = 	./build/ConnectivityClass.o \
+		./build/MeshTypes.o \
 		./build/StorageClass.o \
 		./build/FacePatchClass.o \
 		./build/TransfiniteMaps3D.o \
 		./build/MappedGeometry.o \
-		./build/MeshTypes.o \
 		./build/NodeClass.o \
 		./build/HexElementConnectivityDefinitions.o \
 		./build/FaceClass.o \

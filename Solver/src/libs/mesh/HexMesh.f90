@@ -1007,17 +1007,16 @@ slavecoord:                DO l = 1, 4
          type(NodalStorage), intent(in)    :: spA(0:)
          type(SurfInfo_t)  , intent(inout) :: SurfInfo(:)
          !--------------------------------
-         integer :: fID, eID           ! Face and element counters
-         integer :: eIDLeft, eIDRight  ! Element IDs on left and right of a face
-         integer :: SideIDL, SideIDR   ! Side of elements on left and right of a face
-         integer :: buffer             ! A temporal variable
-         integer :: i
-         integer :: NSurfL(2), NSurfR(2) ! Polynomial order the face was constructef with  
-         
-         integer                    :: CLN(2)            ! Chebyshev-Lobatto face orders
+         integer                    :: i
+         integer                    :: fID, eID                        ! Face and element counters
+         integer                    :: eIDLeft, eIDRight, e            ! Element IDs on left and right of a face
+         integer                    :: SideIDL, SideIDR, side          ! Side of elements on left and right of a face
+         integer                    :: buffer                          ! A temporal variable
+         integer                    :: NSurfL(2), NSurfR(2), NSurf(2)  ! Polynomial order the face was constructef with
+         integer                    :: Nelf(2), Nel(2), rot
+         integer                    :: CLN(2)                          ! Chebyshev-Lobatto face orders
          REAL(KIND=RP)              :: corners(NDIM,NODES_PER_ELEMENT) ! Variable just for initializing purposes
-         real(kind=RP), allocatable :: xiCL(:), etaCL(:) ! Chebyshev-Lobatto node positions on face
-         real(kind=RP), allocatable :: faceCL(:,:,:)     ! Coordinates of the Chebyshev-Lobatto nodes on the face
+         real(kind=RP), allocatable :: faceCL(:,:,:)                   ! Coordinates of the Chebyshev-Lobatto nodes on the face
          
          type(TransfiniteHexMap), pointer :: hexMap, hex8Map, genHexMap
          !--------------------------------
@@ -1025,30 +1024,29 @@ slavecoord:                DO l = 1, 4
          corners = 0._RP
          
 !
-!        --------------------------------------------------------------
+!        **************************************************************
 !        Check surfaces' integrity and adapt them to the solution order
-!        --------------------------------------------------------------
+!        **************************************************************
 !
-         
          do fID=1, size(self % faces)
             associate( f => self % faces(fID) )
             
 !
 !           Check if the surfaces description in mesh file is consistent 
 !           ------------------------------------------------------------
+            select case (f % faceType)
+
+            case (HMESH_INTERIOR)
+               eIDLeft  = f % elementIDs(1)
+               SideIDL  = f % elementSide(1)
+               NSurfL   = SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
             
-            eIDLeft  = f % elementIDs(1)
-            SideIDL  = f % elementSide(1)
-            NSurfL   = SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
-            
-            if ( f % faceType == HMESH_INTERIOR ) then
                eIDRight = f % elementIDs(2)
                SideIDR  = f % elementSide(2)
                NSurfR   = SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
             
 !              If both surfaces are of order 1.. There's no need to continue analyzing face
 !              ----------------------------------------------------------------------------
-            
                if     ((SurfInfo(eIDLeft)  % IsHex8) .and. (SurfInfo(eIDRight) % IsHex8)) then
                   cycle
                elseif ((SurfInfo(eIDLeft)  % IsHex8) .and. all(NSurfR == 1) ) then
@@ -1067,68 +1065,99 @@ slavecoord:                DO l = 1, 4
             
                CLN(1) = min(f % NfLeft(1),f % NfRight(1))
                CLN(2) = min(f % NfLeft(2),f % NfRight(2))
-            else
+!
+!              Adapt the curved face order to the polynomial order
+!              ---------------------------------------------------
+               if ( any(CLN < NSurfL) ) then
+                  allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
+                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), spA(CLN(1)) % xCGL, & 
+                                                                                        CLN(2), spA(CLN(2)) % xCGL, faceCL)
+                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
+                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(spA(CLN(1)) % xCGL, &  
+                                                                            spA(CLN(2)) % xCGL,faceCL) 
+                  deallocate(faceCL)
+               end if
+
+               select case ( f % rotation )
+               case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular  ! TODO this is correct?
+                  if (CLN(1) /= CLN(2)) then
+                     buffer = CLN(1)
+                     CLN(1) = CLN(2)
+                     CLN(2) = buffer
+                  end if
+               end select
+
+               if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?
+                  allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
+                  call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), spA(CLN(1)) % xCGL, &
+                                                                                         CLN(2), spA(CLN(2)) % xCGL, faceCL)
+                  call SurfInfo(eIDRight) % facePatches(SideIDR) % Destruct()
+                  call SurfInfo(eIDRight) % facePatches(SideIDR) % Construct(spA(CLN(1)) % xCGL,&
+                                                                             spA(CLN(2)) % xCGL,faceCL) 
+                  deallocate(faceCL)
+               end if
+
+            case (HMESH_BOUNDARY)
+               eIDLeft  = f % elementIDs(1)
+               SideIDL  = f % elementSide(1)
+               NSurfL   = SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
+
                if     (SurfInfo(eIDLeft)  % IsHex8 .or. all(NSurfL == 1)) cycle
                
                CLN(1) = f % NfLeft(1)
                CLN(2) = f % NfLeft(2)
-            end if
+!
+!              Adapt the curved face order to the polynomial order
+!              ---------------------------------------------------
+               if ( any(CLN < NSurfL) ) then
+                  allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
+                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), spA(CLN(1)) % xCGL, & 
+                                                                                        CLN(2), spA(CLN(2)) % xCGL, faceCL)
+                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
+                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(spA(CLN(1)) % xCGL, &  
+                                                                            spA(CLN(2)) % xCGL,faceCL) 
+                  deallocate(faceCL)
+               end if
+
+
+            case (HMESH_MPI)
+               eID = maxval(f % elementIDs)
+               side = maxval(f % elementSide)
+               NSurf = SurfInfo(eID) % facePatches(side) % noOfKnots - 1
             
-!           Adapt the curved face order to the polynomial order
-!           ---------------------------------------------------
-            
-            if (any(CLN < NSurfL)) then
-               
-               ! Element on the left 
-               ! -------------------
-               
-               allocate(xiCL(CLN(1)+1), etaCL(CLN(2)+1))
-               allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-               xiCL  = (/ ( -cos((i-1.0_RP)*PI/CLN(1)),i=1, CLN(1)+1) /)
-               etaCL = (/ ( -cos((i-1.0_RP)*PI/CLN(2)),i=1, CLN(2)+1) /)
-               
-               call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), xiCL , CLN(2), etaCL, faceCL)
-               call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
-               call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(xiCL,etaCL,faceCL) 
-               
-               if ( f % faceType == HMESH_INTERIOR ) then
-                  
-                  ! Element on the right
-                  ! --------------------
-                                    
-                  SELECT CASE ( f % rotation )
-                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular
+               if ( SurfInfo(eID) % IsHex8 .or. all(NSurf == 1) ) cycle
+
+               CLN(1) = f % NfLeft(1)  ! TODO in MPI faces, p-adaption has
+               CLN(2) = f % NfLeft(2)  ! not been accounted yet.
+
+               if ( side .eq. 2 ) then    ! Right faces need to be rotated
+                  select case ( f % rotation )
+                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular  ! TODO this is correct?
                      if (CLN(1) /= CLN(2)) then
                         buffer = CLN(1)
                         CLN(1) = CLN(2)
                         CLN(2) = buffer
-                        
-                        deallocate(xiCL, etaCL, faceCL)
-                        allocate(xiCL(CLN(1)+1), etaCL(CLN(2)+1))
-                        allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-                        xiCL  = (/ ( -cos((i-1.0_RP)*PI/CLN(1)),i=1, CLN(1)+1) /)
-                        etaCL = (/ ( -cos((i-1.0_RP)*PI/CLN(2)),i=1, CLN(2)+1) /)
                      end if
-                  end SELECT
-                  
-                  call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), xiCL , CLN(2), etaCL, faceCL)
-                  call SurfInfo(eIDRight) % facePatches(SideIDR) % Destruct()
-                  call SurfInfo(eIDRight) % facePatches(SideIDR) % Construct(xiCL,etaCL,faceCL) 
-               end if   
-               
-               deallocate(xiCL, etaCL, faceCL)
-               
-            end if
-            
+                  end select
+               end if
+
+               if ( any(CLN < NSurf) ) then
+                  allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
+                  call ProjectFaceToNewPoints(SurfInfo(eID) % facePatches(side), CLN(1), spA(CLN(1)) % xCGL, & 
+                                                                                        CLN(2), spA(CLN(2)) % xCGL, faceCL)
+                  call SurfInfo(eID) % facePatches(side) % Destruct()
+                  call SurfInfo(eID) % facePatches(side) % Construct(spA(CLN(1)) % xCGL, &  
+                                                                            spA(CLN(2)) % xCGL,faceCL) 
+                  deallocate(faceCL)
+               end if
+            end select 
             end associate
          end do
-         
 !
 !        ----------------------------
 !        Construct elements' geometry
 !        ----------------------------
 !
-         
          allocate(hex8Map)
          call hex8Map % constructWithCorners(corners)
          allocate(genHexMap)
@@ -1148,23 +1177,48 @@ slavecoord:                DO l = 1, 4
             call self % elements(eID) % ConstructGeometry (hexMap)
             
          end do
-         
 !
 !        -------------------------
 !        Construct faces' geometry
 !        -------------------------
 !
-         
          do fID=1, size(self % faces)
             associate(f => self % faces(fID))
-            associate(eL => self % elements(f % elementIDs(1)))
-            call f % geom % construct(f % Nf, f % NelLeft, eL % Nxyz, & 
-                                      spA(f % Nf), spA(eL % Nxyz), &
-                                      eL % geom, eL % hexMap, f % elementSide(1), &
-                                      f % projectionType(1))
+            select case(f % faceType)
+            case(HMESH_INTERIOR, HMESH_BOUNDARY)
+               associate(eL => self % elements(f % elementIDs(1)))
+               call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, & 
+                                         spA(f % Nf), spA(eL % Nxyz), &
+                                         eL % geom, eL % hexMap, f % elementSide(1), &
+                                         f % projectionType(1), 1, 0 )
+               end associate
+
+            case(HMESH_MPI)
+               side = maxloc(f % elementIDs, dim=1) 
+
+               select case (side)
+               case(1)
+                  Nel = f % NelLeft
+                  Nelf = f % NfLeft
+                  rot = 0
+
+               case(2)
+                  Nel = f % NelRight
+                  Nelf = f % NfRight
+                  rot = f % rotation
+   
+               end select
             
+               associate(e => self % elements(f % elementIDs(side)))
+               call f % geom % construct(f % Nf, Nelf, Nel, e % Nxyz, &
+                                         spA(f % Nf), spA(e % Nxyz), &
+                                         e % geom, e % hexMap, f % elementSide(side), &
+                                         f % projectionType(side), side, rot)
+
+               end associate
+            end select
             end associate
-            end associate
+            
          end do
          
 !

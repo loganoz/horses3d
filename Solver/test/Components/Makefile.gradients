@@ -53,6 +53,11 @@ OBJS_HORSES=  SMConstants \
 		StorageClass \
 		Stopwatch \
 		FTTimerClass \
+		IntegerDataLinkedList\
+		process_info \
+		partitioned_mesh \
+		MPI_Face \
+		MeshPartitioning \
 		SolutionFile \
 		FileReading \
 		Utilities \

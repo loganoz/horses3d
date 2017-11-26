@@ -311,7 +311,7 @@ MODULE Read_SpecMesh
          use PartitionedMeshClass
          use MPI_Process_Info
          use MPI_Face_Class
-use mpi
+!use mpi
          IMPLICIT NONE
 !
 !        ---------------
@@ -656,15 +656,16 @@ use mpi
 !        ------------------------------
 !
          call self % SetConnectivitiesAndLinkFaces(spA,nodes)
-print*, MPI_Process % rank, "ha terminado."
-call mpi_barrier(MPI_COMM_WORLD,k)
-stop
 !
 !        ---------------------------------------
 !        Construct elements' and faces' geometry
 !        ---------------------------------------
 !
          call self % ConstructGeometry(spA,SurfInfo)
+
+!print*, MPI_Process % rank, "ha terminado."
+!call mpi_barrier(MPI_COMM_WORLD,k)
+!stop
             
          CLOSE( fUnit )
 !

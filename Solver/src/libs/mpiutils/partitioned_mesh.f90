@@ -4,9 +4,9 @@
 !   @File:    partitioned_mesh.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 10:26:09 2017
-!   @Last revision date: Sat Nov 25 14:01:20 2017
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 3b34c7a95eb684f3c89837d445c6430f5449f298
+!   @Last revision date: Mon Nov 27 00:25:05 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 5a757e9f89658144f9cdf9a57dae9d700ca3115a
 !
 !//////////////////////////////////////////////////////
 !
@@ -41,10 +41,10 @@ module PartitionedMeshClass
          procedure   :: Destruct => PartitionedMesh_Destruct
    end type PartitionedMesh_t
 
-#ifdef _HAS_MPI_
    type(PartitionedMesh_t), public :: mpi_partition
    type(PartitionedMesh_t), allocatable, public :: mpi_allPartitions(:)
-      
+
+#ifdef _HAS_MPI_
    integer :: recv_req(8)
    integer, allocatable    :: send_req(:,:)
 #endif
@@ -61,8 +61,10 @@ module PartitionedMeshClass
 !        Create the set of MPI_Partitions in the root rank
 !        -------------------------------------------------      
          if ( MPI_Process % doMPIRootAction ) then
+#ifdef _HAS_MPI_
             allocate(mpi_allPartitions(MPI_Process % nProcs))
             allocate(send_req(MPI_Process % nProcs-1,8))
+#endif
 
             do domain = 1, MPI_Process % nProcs
                mpi_allPartitions(domain) = PartitionedMesh_t(domain)
@@ -74,7 +76,7 @@ module PartitionedMeshClass
          if ( MPI_Process % doMPIAction ) then
             mpi_partition = PartitionedMesh_t(MPI_Process % rank)
          end if
-         
+
       end subroutine Initialize_MPI_Partitions
          
       function ConstructPartitionedMesh(ID)

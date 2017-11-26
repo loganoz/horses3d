@@ -12,7 +12,7 @@
 PLATFORM?=LINUX
 COMPILER?=gfortran
 MODE?=RELEASE
-COMM?=PARALLEL
+COMM?=THREADED
 MAKE=make
 AR=ar
 RANLIB=ranlib
@@ -33,7 +33,7 @@ EXTLIB_INC =
 ########################################
 GNU_RELEASE_FLAGS= -cpp -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 \
 		   -fbackslash -D_has_Quad
-GNU_DEBUG_FLAGS=  -fPIC -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable \
+GNU_DEBUG_FLAGS=  -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable \
 		  -fbacktrace -fbounds-check -finit-real=snan -Wall \
 		  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
 		  -fbackslash -fcheck=pointer -D_has_Quad

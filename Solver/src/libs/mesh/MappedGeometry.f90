@@ -21,6 +21,7 @@ Module MappedGeometryClass
    USE SMConstants
    USE TransfiniteMapClass
    USE NodalStorageClass
+   use MeshTypes
    IMPLICIT NONE
 !
 !     ---------
@@ -447,28 +448,33 @@ Module MappedGeometryClass
 !  -----------------------------------------------------------------------------------
 !  Computation of the metric terms on a face: TODO only the Left element (rotation 0)
 !  -----------------------------------------------------------------------------------
-   subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, spAf, spAe, geom, hexMap, side, projType)
+   subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, Nel3D, spAf, spAe, geom, hexMap, side, projType, eSide, rot)
       use PhysicsStorage
       use PolynomialInterpAndDerivsModule
       implicit none
       class(MappedGeometryFace), intent(inout)  :: self
-      integer,                   intent(in)     :: Nf(2)
-      integer,                   intent(in)     :: Nelf(2)
-      integer,                   intent(in)     :: Nel(3)
+      integer,                   intent(in)     :: Nf(2)    ! Face polynomial order
+      integer,                   intent(in)     :: Nelf(2)  ! Element face pOrder (with rotation)
+      integer,                   intent(in)     :: Nel(2)   ! Element face pOrder (without rotation)
+      integer,                   intent(in)     :: Nel3D(3) ! Element pOrder
       type(NodalStorage),        intent(in)     :: spAf(2)
       type(NodalStorage),        intent(in)     :: spAe(3)
       type(MappedGeometry),      intent(in)     :: geom
       type(TransfiniteHexMap),   intent(in)     :: hexMap
       integer,                   intent(in)     :: side
       integer,                   intent(in)     :: projType
+      integer,                   intent(in)     :: eSide
+      integer,                   intent(in)     :: rot
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      integer        :: i, j, k, l, m
-      real(kind=RP)  :: dS(NDIM,0:Nelf(1),0:Nelf(2))
-      
+      integer        :: i, j, k, l, m, ii, jj
+      real(kind=RP)  :: xi, eta
+      real(kind=RP)  :: dS(NDIM,0:Nel(1),0:Nel(2))
+      real(kind=RP)  :: dSrot(NDIM,0:Nelf(1),0:Nelf(2))
+
       allocate( self % x(NDIM, 0:Nf(1), 0:Nf(2)))
       allocate( self % scal(0:Nf(1), 0:Nf(2)))
       allocate( self % normal(NDIM, 0:Nf(1), 0:Nf(2)))
@@ -481,12 +487,13 @@ Module MappedGeometryClass
 !           Get face coordinates
 !           --------------------
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([-1.0_RP, spAf(1) % x(i), spAf(2) % x(j) ])
+               call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
+               self % x(:,i,j) = hexMap % transfiniteMapAt([-1.0_RP, xi, eta])
             end do ; end do
 !
 !           Get surface Jacobian and normal vector
 !           --------------------------------------
-            do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+            do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
                dS(:,j,k) = dS(:,j,k) + geom % jGradXi(:,i,j,k) * spAe(1) % v(i,LEFT)
             end do           ; end do           ; end do
 !
@@ -499,23 +506,25 @@ Module MappedGeometryClass
 !           Get face coordinates
 !           --------------------
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([ 1.0_RP, spAf(1) % x(i), spAf(2) % x(j) ])
+               call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
+               self % x(:,i,j) = hexMap % transfiniteMapAt([ 1.0_RP, xi, eta ])
             end do ; end do
 !
-!           Get surface Jacobian and normal vector (TODO consider pAdaption)
+!           Get surface Jacobian and normal vector
 !           --------------------------------------
-            do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+            do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
                dS(:,j,k) = dS(:,j,k) + geom % jGradXi(:,i,j,k) * spAe(1) % v(i,RIGHT)
             end do           ; end do           ; end do
          
          case(EBOTTOM)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([spAf(1) % x(i), spAf(2) % x(j),-1.0_RP])
+               call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
+               self % x(:,i,j) = hexMap % transfiniteMapAt([xi, eta,-1.0_RP])
             end do ; end do
 !
-!           Get surface Jacobian and normal vector (TODO consider pAdaption)
+!           Get surface Jacobian and normal vector
 !           --------------------------------------
-            do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+            do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
                dS(:,i,j) = dS(:,i,j) + geom % jGradZeta(:,i,j,k) * spAe(3) % v(k,BOTTOM)
             end do           ; end do           ; end do
 !
@@ -525,23 +534,25 @@ Module MappedGeometryClass
             
          case(ETOP)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([spAf(1) % x(i), spAf(2) % x(j),1.0_RP])
+               call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
+               self % x(:,i,j) = hexMap % transfiniteMapAt([xi, eta, 1.0_RP])
             end do ; end do
 !
-!           Get surface Jacobian and normal vector (TODO consider pAdaption)
+!           Get surface Jacobian and normal vector
 !           --------------------------------------
-            do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+            do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
                dS(:,i,j) = dS(:,i,j) + geom % jGradZeta(:,i,j,k) * spAe(3) % v(k,TOP)
             end do           ; end do           ; end do
             
          case(EFRONT)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([spAf(1) % x(i), -1.0_RP, spAf(2) % x(j) ])
+               call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
+               self % x(:,i,j) = hexMap % transfiniteMapAt([xi, -1.0_RP, eta])
             end do ; end do
 !
-!           Get surface Jacobian and normal vector (TODO consider pAdaption)
+!           Get surface Jacobian and normal vector
 !           --------------------------------------
-            do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+            do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
                dS(:,i,k) = dS(:,i,k) + geom % jGradEta(:,i,j,k) * spAe(2) % v(j,FRONT)
             end do           ; end do           ; end do
 !
@@ -551,16 +562,35 @@ Module MappedGeometryClass
 
          case(EBACK)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([spAf(1) % x(i), 1.0_RP, spAf(2) % x(j) ])
+               call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
+               self % x(:,i,j) = hexMap % transfiniteMapAt([xi, 1.0_RP, eta])
             end do ; end do
 !
-!           Get surface Jacobian and normal vector (TODO consider pAdaption)
+!           Get surface Jacobian and normal vector
 !           --------------------------------------
-            do k = 0, Nel(3) ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+            do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
                dS(:,i,k) = dS(:,i,k) + geom % jGradEta(:,i,j,k) * spAe(2) % v(j,BACK)
             end do           ; end do           ; end do
 
       end select
+!
+!     Change the orientation depending on whether left or right elements are used
+!     ---------------------------------------------------------------------------
+      if ( eSide .eq. 2 ) dS = -dS 
+!
+!     Perform the rotation
+!     --------------------
+      if ( rot .eq. 0 ) then
+         dSRot = dS           ! Considered separated since is very frequent
+   
+      else
+         do j = 0, Nelf(2) ; do i = 0, Nelf(1)
+            call iijjIndexes(i,j,Nelf(1), Nelf(2), rot, ii, jj)
+            dSRot(:,i,j) = dS(:,ii,jj)
+         end do            ; end do
+
+      end if
+         
 !
 !     Perform p-Adaption
 !     ------------------
