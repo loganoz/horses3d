@@ -99,7 +99,9 @@ else ifeq ($(MODE),DEBUG)
 endif
 
 ifeq ($(COMM),THREADED)
-   FFLAGS+=-fopenmp
+   ifeq ($(MODE),RELEASE)
+      FFLAGS+=-fopenmp
+   endif
 else ifeq ($(COMM),PARALLEL)
     ifeq ($(FC),gfortran)
         FC=mpif90
