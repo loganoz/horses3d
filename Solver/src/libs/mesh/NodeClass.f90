@@ -22,7 +22,8 @@
 !     ---------------
 !
       TYPE Node
-         REAL(KIND=RP)                   :: x(3)
+         integer       :: globID
+         REAL(KIND=RP) :: x(3)
       END TYPE Node
 !
 !     ========
@@ -32,11 +33,13 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ConstructNode( this, x )
+      SUBROUTINE ConstructNode( this, x, globID )
          IMPLICIT NONE 
          TYPE(Node)    :: this
          REAL(KIND=RP) :: x(3)
-         this%x        = x
+         integer       :: globID
+         this % x  = x
+         this % globID = globID
       END SUBROUTINE ConstructNode
 !
 !////////////////////////////////////////////////////////////////////////

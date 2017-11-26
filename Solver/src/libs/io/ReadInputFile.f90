@@ -12,7 +12,7 @@
          USE FTValueDictionaryClass
          USE SharedBCModule
          USE mainKeywordsModule
-         
+         use MPI_Process_Info 
          IMPLICIT NONE
 !
 !        ---------
@@ -55,10 +55,12 @@
 !
 
          if ( command_argument_count() .eq. 0 ) then
-            write(STD_OUT,'(/,/,A)') "*** ERROR: Missing input file"
-            write(STD_OUT,'(A)') "*** ERROR: Syntax is: "
-            write(STD_OUT,'(A)') "*** ERROR:             >> HORSES3D ControlFile.control"
-            write(STD_OUT,'(A,/,/)') "*** ERROR: Stopping."
+            if ( MPI_Process % isRoot ) then
+               write(STD_OUT,'(/,/,A)') "*** ERROR: Missing input file"
+               write(STD_OUT,'(A)') "*** ERROR: Syntax is: "
+               write(STD_OUT,'(A)') "*** ERROR:             >> HORSES3D ControlFile.control"
+               write(STD_OUT,'(A,/,/)') "*** ERROR: Stopping."
+            end if
             stop
          end if
 

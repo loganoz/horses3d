@@ -24,6 +24,7 @@
       USE Headers
       USE pAdaptationClass
       use StopwatchClass
+      use MPI_Process_Info
       
       IMPLICIT NONE
 interface
@@ -93,6 +94,7 @@ end interface
 !     Initializations
 !     ---------------
 !
+      call MPI_Process % Init
       CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Solver",__DATE__,__TIME__)
 
       CALL controlVariables % initWithSize(16)
@@ -207,6 +209,8 @@ end interface
       CALL destructSharedBCModule
       
       CALL UserDefinedTermination
+
+      call MPI_Process % Close
       
       END PROGRAM HORSES3DMain
 !

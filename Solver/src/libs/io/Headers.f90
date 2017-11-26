@@ -28,6 +28,7 @@ MODULE Headers
 !       ========
 !       
         SUBROUTINE Main_header(title,date,time)
+                use MPI_Process_Info
                 IMPLICIT NONE
                 CHARACTER(LEN = *)      :: title
                 CHARACTER(LEN = *)      :: date
@@ -35,6 +36,8 @@ MODULE Headers
                 INTEGER, PARAMETER   :: siz = 100
                 CHARACTER(LEN = siz)    :: ast1,ast2,astTitle
                 INTEGER                 :: i
+
+                if ( .not. MPI_Process % isRoot ) return
 
                 ast1 = ''
                 DO i = 1 , siz
@@ -61,11 +64,14 @@ MODULE Headers
         END SUBROUTINE Main_header
      
         SUBROUTINE Section_header(title)
+           use MPI_Process_Info
            IMPLICIT NONE
            CHARACTER(LEN=*)     :: title
            INTEGER, PARAMETER   :: siz = 86
            CHARACTER(LEN=siz)      :: dotted_title
            INTEGER        :: i
+
+           if ( .not. MPI_Process % isRoot ) return
      
            dotted_title = ''
            
@@ -80,11 +86,13 @@ MODULE Headers
         END SUBROUTINE Section_header
       
         SUBROUTINE SubSection_header(title)
+           use MPI_Process_Info
            IMPLICIT NONE
            CHARACTER(LEN=*)     :: title
            INTEGER        :: i
            character(len=len_trim(title))  :: auxstring
      
+           if ( .not. MPI_Process % isRoot ) return
            do i = 1 , len_trim(title)
             auxstring(i:i) = "-"
            end do

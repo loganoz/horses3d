@@ -302,8 +302,11 @@
 !
       SUBROUTINE DescribePhysicsStorage()
          USE Headers
+         use MPI_Process_Info
          IMPLICIT NONE
          real(kind=RP)  :: pRef
+
+         if ( .not. MPI_Process % isRoot ) return 
 
          pRef = thermodynamics % R * refValues % rho * refValues % T
 

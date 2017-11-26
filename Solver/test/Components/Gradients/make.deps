@@ -15,7 +15,7 @@ Utilities: SMConstants
 Plotter: NodalStorageClass HexElementClass PlotterDataSource 
 TimerClass: SMConstants
 LegendreAlgorithms: SMConstants 
-Headers: SMConstants
+Headers: SMConstants process_info
 InterpolationAndDerivatives: SMConstants LegendreAlgorithms 
 BoundaryConditions: SMConstants Physics MeshTypes HexElementClass SharedBCModule ManufacturedSolutions
 Physics: SMConstants Headers FluidData Stopwatch
@@ -25,7 +25,7 @@ TransfiniteMaps3D: SMConstants FacePatchClass
 FaceClass: SMConstants MeshTypes InterpolationAndDerivatives LegendreAlgorithms MappedGeometry StorageClass
 HexElementClass: FaceClass SMConstants MeshTypes TransfiniteMaps3D HexElementConnectivityDefinitions NodalStorageClass LegendreAlgorithms InterpolationAndDerivatives MappedGeometry ConnectivityClass StorageClass
 HexElementConnectivityDefinitions: SMConstants 
-HexMesh: Physics TransfiniteMaps3D FaceClass MeshTypes SharedBCModule NodeClass HexElementClass Headers HexElementConnectivityDefinitions ZoneClass SolutionFile
+HexMesh: Physics TransfiniteMaps3D FaceClass MeshTypes SharedBCModule NodeClass HexElementClass Headers HexElementConnectivityDefinitions ZoneClass SolutionFile partitioned_mesh MPI_Face
 ZoneClass: SMConstants SharedBCModule RealDataLinkedList
 NodeClass: SMConstants MeshTypes 
 Monitors: MonitorDefinitions ParamfileRegions ResidualsMonitor Setup SurfaceIntegrals VolumeIntegrals SurfaceMonitor VolumeMonitor StatisticsMonitor Probe
@@ -34,10 +34,12 @@ DGInviscidDiscretization: SMConstants HexElementClass NodalStorageClass Physics
 DGViscousDiscretization: SMConstants HexElementClass NodalStorageClass Physics DGWeakIntegrals HexMesh BoundaryConditions
 DGWeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics
 SpatialDiscretization: HexElementClass Physics NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants DGInviscidDiscretization DGViscousDiscretization DGWeakIntegrals
-DGSEMClass: ReadMeshFile SpatialDiscretization Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants Monitors
+DGSEMClass: ReadMeshFile SpatialDiscretization Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants Monitors MeshPartitioning
 ReadMeshFile: Read_HDF5Mesh_HOPR Read_SpecMesh HexMesh
 Read_HDF5Mesh_HOPR: HexMesh SMConstants TransfiniteMaps3D FacePatchClass
 Read_SpecMesh: HexMesh SMConstants TransfiniteMaps3D FacePatchClass
+MeshPartitioning: IntegerDataLinkedList
+IntegerDataLinkedList: Utilities
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
 TimeIntegrator: Physics Plotter SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass Monitors
 ExplicitMethods: SMConstants DGSEMClass

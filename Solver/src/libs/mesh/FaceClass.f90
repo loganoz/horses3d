@@ -24,7 +24,7 @@
       IMPLICIT NONE 
 
       private
-      public   Face, iijjIndexes
+      public   Face
 !
 !     ************************************************************************************
 !
@@ -178,52 +178,6 @@
       end IF
       PRINT *, "-----------------------------------"
       end SUBROUTINE PrintFace
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!  ROUTINE useD TO COMPUTE FACE ROTATION INDEXES
-!     This routine takes indexes on the master Face of a mortar and
-!     output the corresponding indexes on the slave Face 
-!////////////////////////////////////////////////////////////////////////
-!
-   SUBROUTINE iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)
-      IMPLICIT NONE
-      
-      integer :: i,j       !<  Input indexes
-      integer :: Nx, Ny    !<  Polynomial orders
-      integer :: rotation  !<  Face rotation
-      integer :: ii,jj     !>  Output indexes
-      
-      SELECT CASE (rotation)
-         CASE (0)
-            ii = i
-            jj = j
-         CASE (1)
-            ii = Ny - j
-            jj = i
-         CASE (2)
-            ii = Nx - i
-            jj = Ny - j
-         CASE (3)
-            ii = j
-            jj = Nx - i
-         CASE (4)
-            ii = j
-            jj = i
-         CASE (5)
-            ii = Nx - i
-            jj = j
-         CASE (6)
-            ii = Ny - j
-            jj = Nx - i
-         CASE (7)
-            ii = i
-            jj = Ny - j
-         CASE DEFAULT 
-            PRINT *, "ERROR: Unknown rotation in element faces"
-      end SELECT
-      
-   end SUBROUTINE iijjIndexes
 !
 !////////////////////////////////////////////////////////////////////////
 !
