@@ -35,19 +35,21 @@ MODULE HexMeshClass
          type(Element), dimension(:), allocatable  :: elements
          class(Zone_t), dimension(:), allocatable  :: zones
          contains
-            procedure :: destruct          => DestructMesh
-            procedure :: Describe          => DescribeMesh
-            procedure :: ConstructZones    => HexMesh_ConstructZones
-            procedure :: SetConnectivities => HexMesh_SetConnectivities
-            procedure :: ConstructGeometry => HexMesh_ConstructGeometry
-            procedure :: ProlongSolutionToFaces => HexMesh_ProlongSolutionToFaces
-            procedure :: ProlongGradientsToFaces => HexMesh_ProlongGradientsToFaces
-            procedure :: Export            => HexMesh_Export
-            procedure :: SaveSolution      => HexMesh_SaveSolution
-            procedure :: SaveStatistics    => HexMesh_SaveStatistics
-            procedure :: ResetStatistics   => HexMesh_ResetStatistics
-            procedure :: LoadSolution      => HexMesh_LoadSolution
-            procedure :: FindPointWithCoords => HexMesh_FindPointWithCoords
+            procedure :: destruct                      => DestructMesh
+            procedure :: Describe                      => DescribeMesh
+            procedure :: ConstructZones                => HexMesh_ConstructZones
+            procedure :: DefineAsBoundaryFaces         => HexMesh_DefineAsBoundaryFaces
+            procedure :: SetConnectivitiesAndLinkFaces => HexMesh_SetConnectivitiesAndLinkFaces
+            procedure :: UpdateFacesWithPartition      => HexMesh_UpdateFacesWithPartition
+            procedure :: ConstructGeometry             => HexMesh_ConstructGeometry
+            procedure :: ProlongSolutionToFaces        => HexMesh_ProlongSolutionToFaces
+            procedure :: ProlongGradientsToFaces       => HexMesh_ProlongGradientsToFaces
+            procedure :: Export                        => HexMesh_Export
+            procedure :: SaveSolution                  => HexMesh_SaveSolution
+            procedure :: SaveStatistics                => HexMesh_SaveStatistics
+            procedure :: ResetStatistics               => HexMesh_ResetStatistics
+            procedure :: LoadSolution                  => HexMesh_LoadSolution
+            procedure :: FindPointWithCoords           => HexMesh_FindPointWithCoords
             procedure :: WriteCoordFile
       end type HexMesh
 
@@ -147,6 +149,49 @@ MODULE HexMeshClass
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+      integer function GetOriginalNumberOfFaces(self)
+         USE FTMultiIndexTableClass 
+         USE FTValueClass
+         
+         IMPLICIT NONE  
+         TYPE(HexMesh) :: self
+         
+         INTEGER                 :: eID, faceNumber
+         INTEGER                 :: faceID
+         INTEGER                 :: nodeIDs(8), faceNodeIDs(4), j
+         
+         CLASS(FTMultiIndexTable), POINTER  :: table
+         CLASS(FTObject), POINTER :: obj
+         CLASS(FTValue) , POINTER :: v
+         
+         ALLOCATE(table)
+         CALL table % initWithSize( SIZE( self % nodes) )
+         
+         GetOriginalNumberOfFaces = 0
+         DO eID = 1, SIZE( self % elements )
+         
+            nodeIDs = self % elements(eID) % nodeIDs
+            DO faceNumber = 1, 6
+               DO j = 1, 4
+                  faceNodeIDs(j) = nodeIDs(localFaceNode(j,faceNumber)) 
+               END DO
+            
+               IF (.not. table % containsKeys(faceNodeIDs) )     THEN
+                  GetOriginalNumberOfFaces = GetOriginalNumberOfFaces + 1
+                  
+                  ALLOCATE(v)
+                  CALL v % initWithValue(GetOriginalNumberOfFaces)
+                  obj => v
+                  CALL table % addObjectForKeys(obj,faceNodeIDs)
+                  CALL release(v)
+               END IF 
+            END DO 
+         END DO  
+         
+         CALL release(table)
+         
+      end function GetOriginalNumberOfFaces
+
       SUBROUTINE ConstructFaces( self, success )
 !
 !     -------------------------------------------------------------
@@ -246,7 +291,7 @@ MODULE HexMeshClass
 !        Local variables
 !        ---------------
 !
-         integer  :: fID, eL, eR
+         integer  :: fID, eL, eR, e, side
 
          do fID = 1, size(self % faces)
             select case (self % faces(fID) % faceType)
@@ -258,7 +303,19 @@ MODULE HexMeshClass
                self % elements(eR) % faceIDs(self % faces(fID) % elementSide(2)) = fID
                self % elements(eL) % faceSide(self % faces(fID) % elementSide(1)) = 1
                self % elements(eR) % faceSide(self % faces(fID) % elementSide(2)) = 2
-            case default
+            case (HMESH_BOUNDARY)
+               eL = self % faces(fID) % elementIDs(1)
+               self % elements(eL) % faceIDs(self % faces(fID) % elementSide(1)) = fID
+               self % elements(eL) % faceSide(self % faces(fID) % elementSide(1)) = 1
+
+            case (HMESH_MPI)
+               side = maxloc(self % faces(fID) % elementIDs, 1)
+      
+               e = self % faces(fID) % elementIDs(side)
+               self % elements(e) % faceIDs(self % faces(fID) % elementSide(side)) = fID
+               self % elements(e) % faceSide(self % faces(fID) % elementSide(side)) = side
+
+            case (HMESH_UNDEFINED)
                eL = self % faces(fID) % elementIDs(1)
                self % elements(eL) % faceIDs(self % faces(fID) % elementSide(1)) = fID
                self % elements(eL) % faceSide(self % faces(fID) % elementSide(1)) = 1
@@ -379,6 +436,10 @@ ploop:   do iFace = 1, self % zones(zIDPlus) % no_of_faces
 
                   i = self % zones(zIDPlus) % faces(iFace)
                   j = self % zones(zIDMinus) % faces(jFace)
+!
+!                 Consider only HMESH_UNDEFINED faces
+!                 -----------------------------------
+                  if ( (self % faces(i) % faceType .ne. HMESH_UNDEFINED)) cycle ploop
 !
 !                 ----------------------------------------------------------------------------------------
 !                 The index i is a periodic+ face
@@ -786,7 +847,7 @@ slavecoord:                DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexMesh_SetConnectivities(self,spA,nodes)
+      subroutine HexMesh_SetConnectivitiesAndLinkFaces(self,spA,nodes)
          implicit none
          class(HexMesh)       :: self
          type (NodalStorage)  :: spA(0:)
@@ -801,18 +862,15 @@ slavecoord:                DO l = 1, 4
 
          do fID = 1, size(self % faces)
             associate(f => self % faces(fID))
-            associate(eL => self % elements(f % elementIDs(1)))
+            select case (f % faceType)
 
+            case (HMESH_INTERIOR)
+               associate(eL => self % elements(f % elementIDs(1)), &
+                         eR => self % elements(f % elementIDs(2))   )
 !
-!           Get polynomial orders of element on the left
-!           --------------------------------------------
-            NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
-
-            if ( f % faceType .eq. HMESH_INTERIOR ) then
-               associate(eR => self % elements(f % elementIDs(2)))
-!
-!              Get polynomial orders of element on the right
-!              ---------------------------------------------
+!              Get polynomial orders of elements
+!              ---------------------------------
+               NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
                NelR = eR % Nxyz(axisMap(:, f % elementSide(2)))
 !
 !              Fill connectivity of element type
@@ -829,20 +887,112 @@ slavecoord:                DO l = 1, 4
                eR % NumberOfConnections(SideR) = 1
                call eR % Connection(SideR) % Construct(1)
                eR % Connection( SideR ) % ElementIDs(1) = eL % eID
-               
                end associate
-            else
+
+            case (HMESH_BOUNDARY)
+               associate(eL => self % elements(f % elementIDs(1)))
+!
+!              Get polynomial orders of elements
+!              ---------------------------------
+               NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
                NelR = NelL
-            end if
-            
+               end associate
+
+            case (HMESH_MPI)
+!
+!              ****************************************************
+!              TODO account for different orders accross both sides
+!              ****************************************************
+!
+               associate(e => self % elements(maxval(f % elementIDs)))
+               NelL = e % Nxyz(axisMap(:,maxval(f % elementSide)))
+               NelR = NelL
+               end associate
+
+            end select
+         
             call f % LinkWithElements(N_EQN, N_GRAD_EQN, NelL, NelR, nodes, spA)
             
             end associate
-            end associate
-            
          end do
          
-      end subroutine HexMesh_SetConnectivities
+      end subroutine HexMesh_SetConnectivitiesAndLinkFaces
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////
+!  
+      subroutine HexMesh_UpdateFacesWithPartition(self, partition, nAllElems, global2LocalIDs)
+!
+!        **************************************************
+!        This subroutine casts HMESH_UNDEFINED faces which
+!        are a partition boundary face as HMESH_MPI
+!        **************************************************
+!
+         use PartitionedMeshClass
+         use MPI_Process_Info
+         use MPI_Face_Class
+         implicit none
+         class(HexMesh)    :: self
+         class(PartitionedMesh_t),  intent(in)  :: partition
+         integer,                   intent(in)  :: nAllElems
+         integer,                   intent(in)  :: global2LocalIDs(nAllElems)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: k, eID, bFace, side, eSide, fID, domain
+         integer  :: no_of_bdryfaces(MPI_Process % nProcs)
+         integer, parameter  :: otherSide(2) = (/2,1/)
+!
+!        First get how many faces are shared with each other partition
+!        -------------------------------------------------------------
+         no_of_bdryfaces = 0
+         do bFace = 1, partition % no_of_bdryfaces
+            domain = partition % bdryface_sharedDomain(bFace)
+            no_of_bdryfaces(domain) = no_of_bdryfaces(domain) + 1
+         end do
+!
+!        ---------------
+!        Allocate memory
+!        ---------------
+!
+         do domain = 1, MPI_Process % nProcs
+            if ( no_of_bdryfaces(domain) .ne. 0 ) then
+               call mpi_faces(domain) % Construct(no_of_bdryfaces(domain))
+            end if
+         end do
+
+         no_of_bdryfaces = 0
+         do bFace = 1, partition % no_of_bdryfaces
+!
+!           Gather the face, and the relative position w.r.t. its element
+!           -------------------------------------------------------------
+            eID = global2LocalIDs(partition % bdryface_elements(bFace))
+            side = partition % element_bdryfaceSide(bFace)
+            eSide = partition % bdryface_elementSide(bFace)
+            fID = self % elements(eID) % faceIDs(side)
+!
+!           Change the face to a HMESH_MPI
+!           ------------------------------         
+            associate(f => self % faces(fID))
+            f % faceType = HMESH_MPI
+            f % rotation = partition % bdryface_rotation(bFace)
+            f % elementIDs(eSide) = eID
+            f % elementIDs(otherSide(eSide)) = HMESH_NONE
+            f % elementSide(eSide) = side
+            f % elementSide(otherSide(eSide)) = HMESH_NONE
+            end associate
+!
+!           Create MPI Face
+!           ---------------
+            domain = partition % bdryface_sharedDomain(bFace)
+            no_of_bdryfaces(domain) = no_of_bdryfaces(domain) + 1
+            mpi_faces(domain) % faceIDs(no_of_bdryfaces(domain)) = fID
+            mpi_faces(domain) % elementSide(no_of_bdryfaces(domain)) = eSide
+
+         end do
+
+      end subroutine HexMesh_UpdateFacesWithPartition
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1028,6 +1178,26 @@ slavecoord:                DO l = 1, 4
          DEALLOCATE(genHexMap)
          
       end subroutine HexMesh_ConstructGeometry
+
+      subroutine HexMesh_DefineAsBoundaryFaces(self)
+         implicit none
+         class(HexMesh) :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: fID
+
+         do fID = 1, size(self % faces)
+            if ( self % faces(fID) % faceType .eq. HMESH_UNDEFINED ) then
+               if ( trim(self % faces(fID) % boundaryName) .ne. emptyBCName ) then
+                  self % faces(fID) % faceType = HMESH_BOUNDARY
+               end if
+            end if
+         end do
+
+      end subroutine HexMesh_DefineAsBoundaryFaces
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

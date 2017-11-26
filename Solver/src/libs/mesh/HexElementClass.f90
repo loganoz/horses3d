@@ -37,6 +37,7 @@
       
       TYPE Element
          integer                                        :: eID               ! ID of this element
+         integer                                        :: globID           ! globalID of the element
          INTEGER                                        :: nodeIDs(8)
          integer                                        :: faceIDs(6)
          integer                                        :: faceSide(6)
@@ -80,7 +81,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE HexElement_Construct( self, spAxi, spAeta, spAzeta, nodeIDs, eID)
+      SUBROUTINE HexElement_Construct( self, spAxi, spAeta, spAzeta, nodeIDs, eID, globID)
          IMPLICIT NONE
          
          class(Element)             :: self
@@ -88,9 +89,10 @@
          TYPE(NodalStorage), target :: spAeta
          TYPE(NodalStorage), target :: spAzeta
          INTEGER                 :: nodeIDs(8)
-         integer                 :: eID
+         integer                 :: eID, globID
          
          self % eID                   = eID
+         self % globID                = globID
          self % nodeIDs               = nodeIDs
          self % Nxyz(1)               = spAxi   % N
          self % Nxyz(2)               = spAeta  % N

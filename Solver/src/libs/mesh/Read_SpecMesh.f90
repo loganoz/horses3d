@@ -42,44 +42,44 @@ MODULE Read_SpecMesh
          integer            :: nodes
          TYPE(NodalStorage) :: spA(0:)
          CHARACTER(LEN=*)   :: fileName
-         INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+         integer            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
          LOGICAL            :: success
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         INTEGER                         :: numberOfElements
-         INTEGER                         :: numberOfNodes
-         INTEGER                         :: numberOfBoundaryFaces
-         INTEGER                         :: numberOfFaces
+         integer                         :: numberOfElements
+         integer                         :: numberOfNodes
+         integer                         :: numberOfBoundaryFaces
+         integer                         :: numberOfFaces
          
-         INTEGER                         :: bFaceOrder, numBFacePoints
-         INTEGER                         :: i, j, k, l
-         INTEGER                         :: fUnit, fileStat
-         INTEGER                         :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
-         REAL(KIND=RP)                   :: x(NDIM)
-         INTEGER                         :: faceFlags(FACES_PER_ELEMENT)
+         integer                         :: bFaceOrder, numBFacePoints
+         integer                         :: i, j, k, l
+         integer                         :: fUnit, fileStat
+         integer                         :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
+         real(kind=RP)                   :: x(NDIM)
+         integer                         :: faceFlags(FACES_PER_ELEMENT)
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
          TYPE(FacePatch), DIMENSION(6)   :: facePatches
-         REAL(KIND=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
-         INTEGER, EXTERNAL               :: UnusedUnit
+         real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
+         integer, EXTERNAL               :: UnusedUnit
 !
 !        ------------------
 !        For curved patches
 !        ------------------
 !
          type(SurfInfo_t), allocatable                  :: SurfInfo(:)
-         REAL(KIND=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
-         REAL(KIND=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
+         real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
+         real(kind=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
 !
 !        ----------------
 !        For flat patches
 !        ----------------
 !
-         REAL(KIND=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
-         REAL(KIND=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
-         REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
+         real(kind=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
+         real(kind=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
+         real(kind=RP)  , DIMENSION(3,2,2) :: valuesFlat
 !
 !        ********************************
 !        Check if a mesh partition exists
@@ -117,9 +117,9 @@ MODULE Read_SpecMesh
 !        ----------------------------
 !
          numBFacePoints = bFaceOrder + 1
-         ALLOCATE(uNodes(numBFacePoints))
-         ALLOCATE(vNodes(numBFacePoints))
-         ALLOCATE(values(3,numBFacePoints,numBFacePoints))
+         allocate(uNodes(numBFacePoints))
+         allocate(vNodes(numBFacePoints))
+         allocate(values(3,numBFacePoints,numBFacePoints))
          
          DO i = 1, numBFacePoints
             uNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
@@ -134,8 +134,8 @@ MODULE Read_SpecMesh
 !        Allocate memory
 !        ---------------
 !
-         ALLOCATE( self % elements(numberOfelements) )
-         ALLOCATE( self % nodes(numberOfNodes) )
+         allocate( self % elements(numberOfelements) )
+         allocate( self % nodes(numberOfNodes) )
          allocate( SurfInfo(numberOfelements) )
 
 !
@@ -222,7 +222,7 @@ MODULE Read_SpecMesh
 !           Now construct the element
 !           -------------------------
 !
-            call self % elements(l) % Construct (spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs , l)
+            call self % elements(l) % Construct (spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs , l, l)
             
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(l), names )
@@ -247,7 +247,7 @@ MODULE Read_SpecMesh
 !
          numberOfFaces        = (6*numberOfElements + numberOfBoundaryFaces)/2
          self % numberOfFaces = numberOfFaces
-         ALLOCATE( self % faces(self % numberOfFaces) )
+         allocate( self % faces(self % numberOfFaces) )
          CALL ConstructFaces( self, success )
 !
 !        -------------------------
@@ -274,11 +274,17 @@ MODULE Read_SpecMesh
 !
          CALL getElementsFaceIDs(self)
 !
+!        ---------------------
+!        Define boundary faces
+!        ---------------------
+!
+         call self % DefineAsBoundaryFaces()
+!
 !        ------------------------------
 !        Set the element connectivities
 !        ------------------------------
 !
-         call self % SetConnectivities(spA,nodes)
+         call self % SetConnectivitiesAndLinkFaces(spA,nodes)
 !
 !        ---------------------------------------
 !        Construct elements' and faces' geometry
@@ -292,7 +298,6 @@ MODULE Read_SpecMesh
 !        Finish up
 !        ---------
 !
-
          CALL self % Describe( trim(fileName) )
          
          self % Ns = Nx
@@ -305,6 +310,8 @@ MODULE Read_SpecMesh
          USE Physics
          use PartitionedMeshClass
          use MPI_Process_Info
+         use MPI_Face_Class
+use mpi
          IMPLICIT NONE
 !
 !        ---------------
@@ -315,47 +322,46 @@ MODULE Read_SpecMesh
          integer            :: nodes
          TYPE(NodalStorage) :: spA(0:)
          CHARACTER(LEN=*)   :: fileName
-         INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+         integer            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
          LOGICAL            :: success
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         INTEGER                         :: numberOfAllElements
-         INTEGER                         :: numberOfAllNodes
-         INTEGER                         :: numberOfAllBoundaryFaces
-         INTEGER                         :: numberOfAllFaces
+         integer                         :: numberOfAllElements
+         integer                         :: numberOfAllNodes
+         integer                         :: numberOfFaces
          integer, allocatable            :: globalToLocalNodeID(:)
+         integer, allocatable            :: globalToLocalElementID(:)
          
-         INTEGER                         :: bFaceOrder, numBFacePoints
-         INTEGER                         :: i, j, k, l, pNode, pElement
-         INTEGER                         :: fUnit, fileStat
-         INTEGER                         :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
-         REAL(KIND=RP)                   :: x(NDIM)
-         INTEGER                         :: faceFlags(FACES_PER_ELEMENT)
+         integer                         :: bFaceOrder, numBFacePoints
+         integer                         :: i, j, k, l, pNode, pElement
+         integer                         :: fUnit, fileStat
+         integer                         :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
+         real(kind=RP)                   :: x(NDIM)
+         integer                         :: faceFlags(FACES_PER_ELEMENT)
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
          TYPE(FacePatch), DIMENSION(6)   :: facePatches
-         REAL(KIND=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
-         INTEGER, EXTERNAL               :: UnusedUnit
+         real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
+         integer, EXTERNAL               :: UnusedUnit
 !
 !        ------------------
 !        For curved patches
 !        ------------------
 !
          type(SurfInfo_t), allocatable                  :: SurfInfo(:)
-         REAL(KIND=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
-         REAL(KIND=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
+         real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
+         real(kind=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
 !
 !        ----------------
 !        For flat patches
 !        ----------------
 !
-         REAL(KIND=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
-         REAL(KIND=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
-         REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
+         real(kind=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
+         real(kind=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
+         real(kind=RP)  , DIMENSION(3,2,2) :: valuesFlat
 
-         numberOfAllBoundaryFaces = 0
          success               = .TRUE.
 !
 !        -----------------------
@@ -374,7 +380,6 @@ MODULE Read_SpecMesh
 
          self % nodeType = nodes
          self % no_of_elements = mpi_partition % no_of_elements
-print*, "Elements for partition", MPI_Process % rank, ": ", self % no_of_elements
 !
 !        ----------------------------
 !        Set up for face patches
@@ -383,9 +388,9 @@ print*, "Elements for partition", MPI_Process % rank, ": ", self % no_of_element
 !        ----------------------------
 !
          numBFacePoints = bFaceOrder + 1
-         ALLOCATE(uNodes(numBFacePoints))
-         ALLOCATE(vNodes(numBFacePoints))
-         ALLOCATE(values(3,numBFacePoints,numBFacePoints))
+         allocate(uNodes(numBFacePoints))
+         allocate(vNodes(numBFacePoints))
+         allocate(values(3,numBFacePoints,numBFacePoints))
          
          DO i = 1, numBFacePoints
             uNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
@@ -400,20 +405,24 @@ print*, "Elements for partition", MPI_Process % rank, ": ", self % no_of_element
 !        Allocate memory
 !        ---------------
 !
-         ALLOCATE( self % elements(mpi_partition % no_of_elements) )
-         ALLOCATE( self % nodes(mpi_partition % no_of_nodes) )
+         allocate( self % elements(mpi_partition % no_of_elements) )
+         allocate( self % nodes(mpi_partition % no_of_nodes) )
          allocate( SurfInfo(mpi_partition % no_of_nodes) )
          allocate( globalToLocalNodeID(numberOfAllNodes) )
+         allocate( globalToLocalElementID(numberOfAllElements) )
+         self % no_of_elements = mpi_partition % no_of_elements
          globalToLocalNodeID = -1
+         globalToLocalElementID = -1
 !
 !        ----------------------------------
 !        Read nodes: Nodes have the format:
 !        x y z
 !        ----------------------------------
 !
-         node = 1
+         pNode = 1
          DO j = 1, numberOfAllNodes 
             READ( fUnit, * ) x
+            if ( pNode .gt. mpi_partition % no_of_nodes ) cycle
 !
 !           Construct only nodes that belong to the partition
 !           -------------------------------------------------
@@ -438,7 +447,38 @@ print*, "Elements for partition", MPI_Process % rank, ": ", self % no_of_element
 !
          pElement = 1
          DO l = 1, numberOfAllElements 
-            if ( l .ne. mpi_partition % nodeIDs(pElement) ) then
+
+            if ( pElement .gt. mpi_partition % no_of_elements ) then
+!
+!              Skip the element
+!              ----------------
+               READ( fUnit, * ) nodeIDs
+               READ( fUnit, * ) faceFlags
+
+               do k = 1, FACES_PER_ELEMENT
+                  if ( faceFlags(k) .ne. 0 ) then
+                     DO j = 1, numBFacePoints
+                        DO i = 1, numBFacePoints
+                           READ( fUnit, * )
+                        END DO  
+                     END DO
+                  end if 
+               end do
+!
+!              Get the boundary names to build zones (even they could be empty)
+!              ----------------------------------------------------------------
+               READ( fUnit, * ) names
+               DO k = 1, 6
+                  IF(TRIM(names(k)) /= emptyBCName) then
+                     if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                        call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
+                     end if
+                  end if
+               END DO  
+
+               cycle 
+
+            else if ( l .ne. mpi_partition % elementIDs(pElement) ) then
 !
 !              Skip the element
 !              ----------------
@@ -468,8 +508,9 @@ print*, "Elements for partition", MPI_Process % rank, ": ", self % no_of_element
 
                cycle 
             end if
-
-
+!
+!           Otherwise, read the element
+!           ---------------------------
             READ( fUnit, * ) nodeIDs
             READ( fUnit, * ) faceFlags
 !
@@ -534,34 +575,51 @@ print*, "Elements for partition", MPI_Process % rank, ": ", self % no_of_element
 !           Now construct the element
 !           -------------------------
 !
-            call self % elements(pElement) % Construct (spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs , l)
+            call self % elements(pElement) % Construct (spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs , pElement, l)
             
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(pElement), names )
-            
+!
+!           Add the boundary face to the zone Name dictionary
+!           -------------------------------------------------            
             DO k = 1, 6
                IF(TRIM(names(k)) /= emptyBCName) then
-                  numberOfAllBoundaryFaces = numberOfAllBoundaryFaces + 1
                   if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
                      call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                   end if
                end if
             END DO  
-            
+!
+!           Count the partition element
+!           ---------------------------            
+            globalToLocalElementID(l) = pElement
             pElement = pElement + 1
             
-            
          END DO      ! l = 1, numberOfAllElements
-        
 !
 !        ---------------------------
 !        Construct the element faces
 !        ---------------------------
 !
-         numberOfAllFaces        = (6*numberOfAllElements + numberOfAllBoundaryFaces)/2
-         self % numberOfAllFaces = numberOfAllFaces
-         ALLOCATE( self % faces(self % numberOfAllFaces) )
+         numberOfFaces        = GetOriginalNumberOfFaces(self)
+         self % numberOfFaces = numberOfFaces
+         allocate( self % faces(self % numberOfFaces) )
          CALL ConstructFaces( self, success )
+!
+!        --------------------------------
+!        Get actual mesh element face IDs
+!        --------------------------------
+!
+         CALL getElementsFaceIDs(self)
+!
+!        --------------
+!        Cast MPI faces
+!        --------------
+!
+         call ConstructMPIFaces
+         call self % UpdateFacesWithPartition(mpi_partition, &
+                                              numberOfAllElements, &
+                                              globalToLocalElementID)
 !
 !        -------------------------
 !        Build the different zones
@@ -587,11 +645,20 @@ print*, "Elements for partition", MPI_Process % rank, ": ", self % no_of_element
 !
          CALL getElementsFaceIDs(self)
 !
+!        ---------------------
+!        Define boundary faces
+!        ---------------------
+!
+         call self % DefineAsBoundaryFaces()
+!
 !        ------------------------------
 !        Set the element connectivities
 !        ------------------------------
 !
-         call self % SetConnectivities(spA,nodes)
+         call self % SetConnectivitiesAndLinkFaces(spA,nodes)
+print*, MPI_Process % rank, "ha terminado."
+call mpi_barrier(MPI_COMM_WORLD,k)
+stop
 !
 !        ---------------------------------------
 !        Construct elements' and faces' geometry
@@ -605,7 +672,6 @@ print*, "Elements for partition", MPI_Process % rank, ": ", self % no_of_element
 !        Finish up
 !        ---------
 !
-
          CALL self % Describe( trim(fileName) )
          
          self % Ns = Nx

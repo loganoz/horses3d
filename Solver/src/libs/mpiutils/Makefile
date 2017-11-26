@@ -12,7 +12,8 @@ MOD_FLAG?=-J
 
 
 LIBOBJS = 	./build/process_info.o \
-		./build/partitioned_mesh.o 
+		./build/MPI_Face.o \
+		./build/partitioned_mesh.o \
 
 
 LIB = mpiutils

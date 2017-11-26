@@ -14,12 +14,13 @@
 !     Constants
 !     ---------
 !
-      INTEGER, PARAMETER :: HMESH_NONE                          = 0
-      INTEGER, PARAMETER :: HMESH_UNDEFINED                     = -1
-      INTEGER, PARAMETER :: HMESH_BOUNDARY = 0, HMESH_INTERIOR  = 1
-      INTEGER, PARAMETER :: HMESH_NEUMANN  = 1, HMESH_DIRICHLET = 2
+      integer, parameter :: HMESH_NONE      = 0       ! Not constructed
+      integer, parameter :: HMESH_UNDEFINED = -1      ! Constructed but undefined
+      integer, parameter :: HMESH_INTERIOR  = 1       ! Interior face
+      integer, parameter :: HMESH_BOUNDARY  = 2       ! Physical boundary face
+      integer, parameter :: HMESH_MPI       = 3       ! MPI face
       
-      CHARACTER(LEN=3)   :: emptyBCName = "---"
+      CHARACTER(LEN=3), parameter   :: emptyBCName = "---"
 
 
       END Module MeshTypes

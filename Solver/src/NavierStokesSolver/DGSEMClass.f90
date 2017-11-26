@@ -596,7 +596,7 @@ Module DGSEMClass
                                                                    
             END DO  
          END DO
-         
+
       END SUBROUTINE assignBoundaryConditions
 !
 !////////////////////////////////////////////////////////////////////////
@@ -675,16 +675,7 @@ Module DGSEMClass
 
             associate( f => self % mesh % faces(faceID))
 
-            IF ( f % faceType .eq. HMESH_UNDEFINED )     THEN
-!
-!              -------------
-!              Boundary face
-!              -------------
-!
-               CALL computeBoundaryFlux(f, time, &
-                                        self % externalState , self % externalGradients)
-               
-            ELSE IF ( f % faceType .eq. HMESH_INTERIOR ) then
+            IF ( f % faceType .eq. HMESH_INTERIOR )     THEN
 !
 !              -------------
 !              Interior face
@@ -692,6 +683,15 @@ Module DGSEMClass
 !
                CALL computeElementInterfaceFlux ( f )
 
+               
+            ELSE
+!
+!              -------------
+!              Boundary face
+!              -------------
+!
+               CALL computeBoundaryFlux(f, time, &
+                                        self % externalState , self % externalGradients)
             END IF 
 
             end associate

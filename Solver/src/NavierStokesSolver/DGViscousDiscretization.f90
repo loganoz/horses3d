@@ -277,21 +277,21 @@ module DGViscousDiscretization
 !$omp do schedule(runtime)
          do faceID = 1, SIZE(mesh % faces)
             associate(f => mesh % faces(faceID))
-            IF ( f % faceType == HMESH_UNDEFINED )     THEN
-!
-!              -------------
-!              Boundary face
-!              -------------
-!
-               call BR1_ComputeBoundaryFlux(f, time, externalStateProcedure)
-            
-            ELSE 
+            IF ( f % faceType == HMESH_INTERIOR )     THEN
 !
 !              -------------
 !              Interior face
 !              -------------
 !
                call BR1_ComputeElementInterfaceAverage(f)
+           
+            ELSE 
+!
+!              -------------
+!              Boundary face
+!              -------------
+!
+               call BR1_ComputeBoundaryFlux(f, time, externalStateProcedure)
 
             end IF 
             end associate
