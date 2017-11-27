@@ -45,6 +45,7 @@ MODULE HexMeshClass
             procedure :: ProlongSolutionToFaces        => HexMesh_ProlongSolutionToFaces
             procedure :: ProlongGradientsToFaces       => HexMesh_ProlongGradientsToFaces
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
+            procedure :: UpdateMPIFacesGradients       => HexMesh_UpdateMPIFacesGradients
             procedure :: Export                        => HexMesh_Export
             procedure :: SaveSolution                  => HexMesh_SaveSolution
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
@@ -835,6 +836,126 @@ slavecoord:                DO l = 1, 4
          end do
 #endif
       end subroutine HexMesh_UpdateMPIFacesSolution
+
+      subroutine HexMesh_UpdateMPIFacesGradients(self)
+         use MPI_Face_Class
+         use MPI_Process_Info
+#ifdef _HAS_MPI_
+         use mpi
+#endif
+         implicit none
+         class(HexMesh)    :: self
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, ierr, domain
+         integer, parameter :: otherSide(2) = (/2,1/)
+         integer, allocatable, save :: status(:,:,:)
+      
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ****************
+!        Receive solution
+!        ****************
+!
+!        ------------
+!        Loop domains
+!        ------------
+!  
+         do domain = 1, MPI_Process % nProcs
+!
+!           -----------------------------
+!           Loop MPI faces in each domain
+!           -----------------------------
+!
+            do mpifID = 1, mpi_faces(domain) % no_of_faces
+               fID = mpi_faces(domain) % faceIDs(mpifID)
+               thisSide = mpi_faces(domain) % elementSide(mpifID)
+               associate( f => self % faces(fID) )
+               call mpi_irecv( f % storage(otherSide(thisSide)) % U_x, &
+                          size(f % storage(otherSide(thisSide)) % U_x), &
+                                  MPI_DOUBLE, domain-1, MPI_ANY_TAG, &
+                                                     MPI_COMM_WORLD, &
+                               mpi_faces(domain) % gradQrecv_req(1,mpifID), ierr   )
+
+               call mpi_irecv( f % storage(otherSide(thisSide)) % U_y, &
+                          size(f % storage(otherSide(thisSide)) % U_y), &
+                                  MPI_DOUBLE, domain-1, MPI_ANY_TAG, &
+                                                     MPI_COMM_WORLD, &
+                               mpi_faces(domain) % gradQrecv_req(2,mpifID), ierr   )
+
+               call mpi_irecv( f % storage(otherSide(thisSide)) % U_z, &
+                          size(f % storage(otherSide(thisSide)) % U_z), &
+                                  MPI_DOUBLE, domain-1, MPI_ANY_TAG, &
+                                                     MPI_COMM_WORLD, &
+                               mpi_faces(domain) % gradQrecv_req(3,mpifID), ierr   )
+  
+               end associate
+            end do
+         end do
+!
+!        *************
+!        Send solution
+!        *************
+!
+!        ------------
+!        Loop domains
+!        ------------
+!  
+         do domain = 1, MPI_Process % nProcs
+!
+!           -----------------------------
+!           Loop MPI faces in each domain
+!           -----------------------------
+!
+            do mpifID = 1, mpi_faces(domain) % no_of_faces
+               fID = mpi_faces(domain) % faceIDs(mpifID)
+               thisSide = mpi_faces(domain) % elementSide(mpifID)
+               associate( f => self % faces(fID) )
+               call mpi_isend( f % storage(thisSide) % U_x, &
+                          size(f % storage(thisSide) % U_x), &
+                                    MPI_DOUBLE, domain-1, &
+                             DEFAULT_TAG, MPI_COMM_WORLD, &
+                    mpi_faces(domain) % gradQsend_req(1,mpifID), ierr )
+   
+               call mpi_isend( f % storage(thisSide) % U_y, &
+                          size(f % storage(thisSide) % U_y), &
+                                    MPI_DOUBLE, domain-1, &
+                             DEFAULT_TAG, MPI_COMM_WORLD, &
+                    mpi_faces(domain) % gradQsend_req(2,mpifID), ierr )
+   
+               call mpi_isend( f % storage(thisSide) % U_z, &
+                          size(f % storage(thisSide) % U_z), &
+                                    MPI_DOUBLE, domain-1, &
+                             DEFAULT_TAG, MPI_COMM_WORLD, &
+                    mpi_faces(domain) % gradQsend_req(3,mpifID), ierr )
+   
+               end associate
+            end do
+         end do
+!
+!        ****************************
+!        Wait until messages are sent TODO: Delay this until necessary. Requires minor reorganiz.
+!        ****************************
+!
+         do domain = 1, MPI_Process % nProcs
+            if ( mpi_faces(domain) % no_of_faces .eq. 0 ) cycle
+            allocate(status(MPI_STATUS_SIZE, 3, mpi_faces(domain) % no_of_faces))
+            call mpi_waitall(3*mpi_faces(domain) % no_of_faces, &
+                             mpi_faces(domain) % gradQrecv_req, & 
+                             status, ierr)
+
+            call mpi_waitall(3*mpi_faces(domain) % no_of_faces, &
+                             mpi_faces(domain) % gradQsend_req, & 
+                             status, ierr)
+
+            deallocate(status)
+         end do
+#endif
+      end subroutine HexMesh_UpdateMPIFacesGradients
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
