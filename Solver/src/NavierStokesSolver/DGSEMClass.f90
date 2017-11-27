@@ -649,6 +649,7 @@ Module DGSEMClass
 !
          if ( flowIsNavierStokes ) then
             CALL DGSpatial_ComputeGradient( self % mesh , self % spA, time , self % externalState , self % externalGradients )
+            call self % mesh % UpdateMPIFacesGradients
          end if
 !
 !        -------------------------------------------------------

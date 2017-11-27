@@ -22,7 +22,7 @@ HOME_DIR=@HORSES_HOME_DIR
 PLATFORM?=LINUX
 COMPILER?=gfortran
 MODE?=RELEASE
-COMM?=PARALLEL
+COMM?=THREADED
 MAKE=make
 
 ########################################
@@ -109,11 +109,21 @@ else ifeq ($(MODE),DEBUG)
      endif
 endif
 
-ifeq ($(MODE),RELEASE)
-   ifeq ($(COMM),PARALLEL)
+ifeq ($(COMM),THREADED)
+   ifeq ($(MODE),RELEASE)
       FFLAGS+=-fopenmp
    endif
+else ifeq ($(COMM),PARALLEL)
+    ifeq ($(FC),gfortran)
+        FC=mpif90
+	MACROS+= -D_HAS_MPI_
+    else ifeq ($(FC),ifort)
+        FC=mpiifort
+	MACROS+= -D_HAS_MPI_
+    endif
 endif
+
+
 
 
 ##############################################################

@@ -277,23 +277,17 @@ module DGViscousDiscretization
 !$omp do schedule(runtime)
          do faceID = 1, SIZE(mesh % faces)
             associate(f => mesh % faces(faceID))
-            IF ( f % faceType == HMESH_INTERIOR )     THEN
-!
-!              -------------
-!              Interior face
-!              -------------
-!
+            select case (f % faceType)
+            case (HMESH_INTERIOR)
                call BR1_ComputeElementInterfaceAverage(f)
            
-            ELSE 
-!
-!              -------------
-!              Boundary face
-!              -------------
-!
+            case (HMESH_BOUNDARY)
                call BR1_ComputeBoundaryFlux(f, time, externalStateProcedure)
 
-            end IF 
+            case (HMESH_MPI)
+               call BR1_ComputeMPIFaceAverage(f)
+
+            end select
             end associate
          end do           
 !$omp end do
@@ -337,6 +331,42 @@ module DGViscousDiscretization
          call f % ProjectGradientFluxToElements(HFlux,(/1,2/))
          
       end subroutine BR1_ComputeElementInterfaceAverage   
+
+      subroutine BR1_ComputeMPIFaceAverage(f)
+         use Physics  
+         use ElementClass
+         use FaceClass
+         implicit none  
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         type(Face)    :: f
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
+         real(kind=RP) :: Uhat(N_GRAD_EQN)
+         real(kind=RP) :: Hflux(N_GRAD_EQN,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         integer       :: i,j, thisSide
+         
+         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+            call GradientValuesForQ(Q = f % storage(1) % Q(:,i,j), U = UL)
+            call GradientValuesForQ(Q = f % storage(2) % Q(:,i,j), U = UR)
+   
+            Uhat = 0.5_RP * (UL + UR) * f % geom % scal(i,j)
+            Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
+            Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
+            Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
+         end do               ; end do
+
+         thisSide = maxloc(f % elementIDs, dim = 1)
+         call f % ProjectGradientFluxToElements(HFlux,(/thisSide, HMESH_NONE/))
+         
+      end subroutine BR1_ComputeMPIFaceAverage   
 
       subroutine BR1_ComputeBoundaryFlux(f, time, externalState)
          use Physics
