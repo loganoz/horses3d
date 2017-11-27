@@ -25,6 +25,9 @@
       USE pAdaptationClass
       use StopwatchClass
       use MPI_Process_Info
+#ifdef _HAS_MPI_
+      use mpi
+#endif
       
       IMPLICIT NONE
 interface
@@ -79,7 +82,7 @@ end interface
       
       LOGICAL                             :: success, saveGradients
       integer                             :: initial_iteration
-      INTEGER                             :: plotUnit, saveUnit
+      INTEGER                             :: ierr
       INTEGER, EXTERNAL                   :: UnusedUnit
       real(kind=RP)                       :: initial_time
       EXTERNAL                            :: externalStateForBoundaryName
@@ -192,6 +195,11 @@ end interface
                               sem % maxResidual, thermodynamics, dimensionless, refValues, &
                               sem % monitors, Stopwatch % ElapsedTime("Solver"), &
                               Stopwatch % CPUTime("Solver"))
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+         call mpi_barrier(MPI_COMM_WORLD, ierr)
+      end if
+#endif
 !
 !     -------------------------------------
 !     Save the results to the solution file
@@ -382,6 +390,7 @@ end interface
          use HexMeshClass
          use StopwatchClass
          use Headers
+         use MPI_Process_Info
          implicit none
          integer,    intent(in)      :: iter
          type(HexMesh),   intent(in) :: mesh
@@ -394,6 +403,8 @@ end interface
          integer                    :: NDOF
          real(kind=RP)              :: Naverage
          real(kind=RP)              :: t_elaps, t_cpu
+   
+         if ( .not. MPI_Process % isRoot ) return
 
          write(STD_OUT,'(/)')
          call Section_Header("Simulation statistics")

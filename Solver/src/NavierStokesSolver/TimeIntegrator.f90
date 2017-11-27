@@ -338,6 +338,7 @@ end interface
 !
 !
    subroutine TimeIntegrator_Display(self, mesh, monitors)
+      use MPI_Process_Info
       implicit none
       class(TimeIntegrator_t),   intent(in)     :: self
       class(HexMesh),            intent(in)     :: mesh
@@ -349,6 +350,8 @@ end interface
 !
       integer, parameter      :: showLabels = 50
       integer, save           :: shown = 0
+
+      if ( .not. MPI_Process % isRoot ) return 
 
       if ( mod(shown, showLabels) .eq. 0 ) then
          write(STD_OUT,'(/)')

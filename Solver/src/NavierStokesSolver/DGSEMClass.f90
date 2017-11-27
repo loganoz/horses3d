@@ -516,12 +516,16 @@ Module DGSEMClass
 !  Compute maximum residual L_inf norm
 !  -----------------------------------
    FUNCTION ComputeMaxResidual(self) RESULT(maxResidual)
+      use MPI_Process_Info
+#ifdef _HAS_MPI_
+      use mpi
+#endif
       IMPLICIT NONE
       !----------------------------------------------
       CLASS(DGSem)  :: self
       REAL(KIND=RP) :: maxResidual(N_EQN)
       !----------------------------------------------
-      INTEGER       :: id , eq
+      INTEGER       :: id , eq, ierr
       REAL(KIND=RP) :: localMaxResidual(N_EQN)
       real(kind=RP) :: localRho, localRhou, localRhov, localRhow, localRhoe
       real(kind=RP) :: Rho, Rhou, Rhov, Rhow, Rhoe
@@ -553,6 +557,14 @@ Module DGSEMClass
 !$omp end parallel
 
       maxResidual = (/Rho, Rhou, Rhov, Rhow, Rhoe/)
+
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+         localMaxResidual = maxResidual
+         call mpi_allreduce(localMaxResidual, maxResidual, N_EQN, MPI_DOUBLE, MPI_MAX, &
+                            MPI_COMM_WORLD, ierr)
+      end if
+#endif _HAS_MPI_
 
    END FUNCTION ComputeMaxResidual
 !
@@ -625,6 +637,12 @@ Module DGSEMClass
 !$omp parallel shared(self, time)
          call self % mesh % ProlongSolutionToFaces(self % spA)
 !
+!        ----------------
+!        Update MPI Faces
+!        ----------------
+!
+         call self % mesh % UpdateMPIFacesSolution
+!
 !        -----------------
 !        Compute gradients
 !        -----------------
@@ -672,30 +690,20 @@ Module DGSEMClass
 
 !$omp do schedule(runtime)
          DO faceID = 1, SIZE( self % mesh % faces)
-
             associate( f => self % mesh % faces(faceID))
-
-            IF ( f % faceType .eq. HMESH_INTERIOR )     THEN
-!
-!              -------------
-!              Interior face
-!              -------------
-!
+            select case (f % faceType)
+            case (HMESH_INTERIOR)
                CALL computeElementInterfaceFlux ( f )
 
-               
-            ELSE
-!
-!              -------------
-!              Boundary face
-!              -------------
-!
+            case (HMESH_BOUNDARY)
                CALL computeBoundaryFlux(f, time, &
                                         self % externalState , self % externalGradients)
-            END IF 
 
+            case (HMESH_MPI)
+               CALL computeMPIFaceFlux ( f )
+
+            end select
             end associate
-
          END DO           
 !$omp end do
          
@@ -707,11 +715,6 @@ Module DGSEMClass
          use FaceClass
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
-!
-!        ------------------------------------------------------------------------
-!        The following are auxiliar variables required until mortars modification 
-!        ------------------------------------------------------------------------
-!
          integer       :: i, j
          real(kind=RP) :: inv_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
@@ -755,6 +758,57 @@ Module DGSEMClass
          call f % ProjectFluxToElements(flux, (/1,2/))
 
       END SUBROUTINE computeElementInterfaceFlux
+
+      SUBROUTINE computeMPIFaceFlux(f)
+         use FaceClass
+         IMPLICIT NONE
+         TYPE(Face)   , INTENT(inout) :: f   
+         integer       :: i, j
+         integer       :: thisSide
+         real(kind=RP) :: inv_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+!         
+!
+!        --------------
+!        Invscid fluxes:
+!        --------------
+!
+         DO j = 0, f % Nf(2)
+            DO i = 0, f % Nf(1)
+               CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
+                                  QRight = f % storage(2) % Q(:,i,j), &
+                                  nHat   = f % geom % normal(:,i,j), &
+                                  flux   = inv_flux(:,i,j) )
+
+               CALL ViscousMethod % RiemannSolver(QLeft = f % storage(1) % Q(:,i,j), &
+                                                  QRight = f % storage(2) % Q(:,i,j), &
+                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
+                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
+                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  nHat = f % geom % normal(:,i,j) , &
+                                                  flux  = visc_flux(:,i,j) )
+               
+!
+!              Multiply by the Jacobian
+!              ------------------------
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % scal(i,j)
+               
+            END DO   
+         END DO  
+!
+!        ---------------------------
+!        Return the flux to elements: The sign in eR % storage % FstarB has already been accouted.
+!        ---------------------------
+!
+         thisSide = maxloc(f % elementIDs, dim = 1)
+         call f % ProjectFluxToElements(flux, (/thisSide, HMESH_NONE/))
+
+
+      end subroutine ComputeMPIFaceFlux
 
       SUBROUTINE computeBoundaryFlux(f, time, externalStateProcedure , externalGradientsProcedure)
       USE ElementClass
@@ -835,7 +889,7 @@ Module DGSEMClass
          END DO   
       END DO   
 
-      call f % ProjectFluxToElements(fStar, (/1,-1/))
+      call f % ProjectFluxToElements(fStar, (/1, HMESH_NONE/))
 
       END SUBROUTINE computeBoundaryFlux
 !
@@ -867,6 +921,10 @@ Module DGSEMClass
 !  -------------------------------------------------------------------
 !
       USE Physics
+      use MPI_Process_Info
+#ifdef _HAS_MPI_
+      use mpi
+#endif
       
       IMPLICIT NONE
 !
@@ -885,6 +943,7 @@ Module DGSEMClass
       INTEGER                     :: i, j, k, id
       INTEGER                     :: N(3)
       REAL(KIND=RP)               :: MaximumEigenvalue
+      real(kind=RP)               :: localMaximumEigenvalue
       EXTERNAL                    :: ComputeEigenvaluesForState
       REAL(KIND=RP)               :: Q(N_EQN)
       TYPE(NodalStorage), POINTER :: spAxi_p, spAeta_p, spAzeta_p

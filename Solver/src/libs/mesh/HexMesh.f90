@@ -44,6 +44,7 @@ MODULE HexMeshClass
             procedure :: ConstructGeometry             => HexMesh_ConstructGeometry
             procedure :: ProlongSolutionToFaces        => HexMesh_ProlongSolutionToFaces
             procedure :: ProlongGradientsToFaces       => HexMesh_ProlongGradientsToFaces
+            procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
             procedure :: Export                        => HexMesh_Export
             procedure :: SaveSolution                  => HexMesh_SaveSolution
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
@@ -303,6 +304,7 @@ MODULE HexMeshClass
                self % elements(eR) % faceIDs(self % faces(fID) % elementSide(2)) = fID
                self % elements(eL) % faceSide(self % faces(fID) % elementSide(1)) = 1
                self % elements(eR) % faceSide(self % faces(fID) % elementSide(2)) = 2
+
             case (HMESH_BOUNDARY)
                eL = self % faces(fID) % elementIDs(1)
                self % elements(eL) % faceIDs(self % faces(fID) % elementSide(1)) = fID
@@ -421,6 +423,14 @@ MODULE HexMeshClass
 !        --------------------------------
 ploop:   do iFace = 1, self % zones(zIDPlus) % no_of_faces    
 !
+!           Get the face ID
+!           ---------------
+            i = self % zones(zIDPlus) % faces(iFace)
+!
+!           Consider only HMESH_UNDEFINED faces
+!           -----------------------------------
+            if ( (self % faces(i) % faceType .ne. HMESH_UNDEFINED)) cycle ploop
+!
 !           Loop zones with BC "periodic-"
 !           ------------------------------
             do zIDMinus = 1, size(self % zones)
@@ -432,14 +442,15 @@ ploop:   do iFace = 1, self % zones(zIDPlus) % no_of_faces
 !
 !              Loop faces in the periodic- zone
 !              --------------------------------
-               do jFace = 1, self % zones(zIDMinus) % no_of_faces
-
-                  i = self % zones(zIDPlus) % faces(iFace)
+mloop:         do jFace = 1, self % zones(zIDMinus) % no_of_faces
+!
+!                 Get the face ID
+!                 ---------------
                   j = self % zones(zIDMinus) % faces(jFace)
 !
 !                 Consider only HMESH_UNDEFINED faces
 !                 -----------------------------------
-                  if ( (self % faces(i) % faceType .ne. HMESH_UNDEFINED)) cycle ploop
+                  if ( (self % faces(j) % faceType .ne. HMESH_UNDEFINED)) cycle mloop
 !
 !                 ----------------------------------------------------------------------------------------
 !                 The index i is a periodic+ face
@@ -523,8 +534,8 @@ slavecoord:                DO l = 1, 4
                      cycle ploop
    
                   ENDIF    
-               end do   ! periodic- faces
-            end do      ! periodic- zones
+               end do   mloop ! periodic- faces
+            end do            ! periodic- zones
 !
 !           If the code arrives here, the periodic+ face was not able to find a partner
 !           ---------------------------------------------------------------------------
@@ -639,13 +650,16 @@ slavecoord:                DO l = 1, 4
       TYPE(Face),ALLOCATABLE  :: dummy_faces(:)
       INTEGER                 :: i
       INTEGER                 :: iFace, numberOfFaces
+      character(len=LINE_LENGTH)    :: bName
       
          
       iFace = 0
       ALLOCATE( dummy_faces(self % numberOfFaces) )
       DO i = 1, self%numberOfFaces 
-         IF (TRIM(bcTypeDictionary % stringValueForKey(key             = self%faces(i)%boundaryName, &
-                                                      requestedLength = BC_STRING_LENGTH)) /= "periodic-") THEN 
+         bName = trim(bcTypeDictionary % stringValueForKey(key = self % faces(i) % boundaryName, &
+                                                           requestedLength = LINE_LENGTH))
+   
+         if ( (self % faces(i) % faceType .ne. HMESH_UNDEFINED) .or. (trim(bName) .ne. "periodic-") ) then
             iFace = iFace + 1
             dummy_faces(iFace) = self%faces(i)
             dummy_faces(iFace) % ID = iFace
@@ -724,6 +738,103 @@ slavecoord:                DO l = 1, 4
 !$omp end do
 
       end subroutine HexMesh_ProlongGradientsToFaces
+! 
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      subroutine HexMesh_UpdateMPIFacesSolution(self)
+         use MPI_Face_Class
+         use MPI_Process_Info
+#ifdef _HAS_MPI_
+         use mpi
+#endif
+         implicit none
+         class(HexMesh)    :: self
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, ierr, domain
+         integer, parameter :: otherSide(2) = (/2,1/)
+         integer, allocatable, save :: status(:,:)
+      
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ****************
+!        Receive solution
+!        ****************
+!
+!        ------------
+!        Loop domains
+!        ------------
+!  
+         do domain = 1, MPI_Process % nProcs
+!
+!           -----------------------------
+!           Loop MPI faces in each domain
+!           -----------------------------
+!
+            do mpifID = 1, mpi_faces(domain) % no_of_faces
+               fID = mpi_faces(domain) % faceIDs(mpifID)
+               thisSide = mpi_faces(domain) % elementSide(mpifID)
+               associate( f => self % faces(fID) )
+               call mpi_irecv( f % storage(otherSide(thisSide)) % Q, &
+                          size(f % storage(otherSide(thisSide)) % Q), &
+                                  MPI_DOUBLE, domain-1, MPI_ANY_TAG, &
+                                                     MPI_COMM_WORLD, &
+                               mpi_faces(domain) % Qrecv_req(mpifID), ierr   )
+   
+               end associate
+            end do
+         end do
+!
+!        *************
+!        Send solution
+!        *************
+!
+!        ------------
+!        Loop domains
+!        ------------
+!  
+         do domain = 1, MPI_Process % nProcs
+!
+!           -----------------------------
+!           Loop MPI faces in each domain
+!           -----------------------------
+!
+            do mpifID = 1, mpi_faces(domain) % no_of_faces
+               fID = mpi_faces(domain) % faceIDs(mpifID)
+               thisSide = mpi_faces(domain) % elementSide(mpifID)
+               associate( f => self % faces(fID) )
+               call mpi_isend( f % storage(thisSide) % Q, &
+                          size(f % storage(thisSide) % Q), &
+                                    MPI_DOUBLE, domain-1, &
+                             DEFAULT_TAG, MPI_COMM_WORLD, &
+                    mpi_faces(domain) % Qsend_req(mpifID), ierr )
+   
+               end associate
+            end do
+         end do
+!
+!        ****************************
+!        Wait until messages are sent TODO: Delay this until necessary. Requires minor reorganiz.
+!        ****************************
+!
+         do domain = 1, MPI_Process % nProcs
+            if ( mpi_faces(domain) % no_of_faces .eq. 0 ) cycle
+            allocate(status(MPI_STATUS_SIZE,mpi_faces(domain) % no_of_faces))
+            call mpi_waitall(mpi_faces(domain) % no_of_faces, &
+                             mpi_faces(domain) % Qrecv_req, & 
+                             status, ierr)
+            
+            call mpi_waitall(mpi_faces(domain) % no_of_faces, &
+                             mpi_faces(domain) % Qsend_req, & 
+                             status, ierr)
+            deallocate(status)
+         end do
+#endif
+      end subroutine HexMesh_UpdateMPIFacesSolution
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 

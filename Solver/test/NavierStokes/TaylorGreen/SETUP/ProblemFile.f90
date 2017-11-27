@@ -242,6 +242,7 @@
             USE HexMeshClass
             use MonitorsClass
             use PhysicsStorage
+            use MPI_Process_Info
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -265,7 +266,9 @@
             INTEGER                            :: i, j, k, N
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
+            integer                            :: rank
 
+            if ( .not. MPI_Process % isRoot ) return
             WRITE(6,*) "This test case has no expected solution yet."
 
          END SUBROUTINE UserDefinedFinalize

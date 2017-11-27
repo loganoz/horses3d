@@ -142,9 +142,12 @@ module MonitorsClass
 !         integrator Display procedure.
 !        ***************************************************
 !
+         use MPI_Process_Info
          implicit none
          class(Monitor_t)              :: self
          integer                       :: i 
+      
+         if ( .not. MPI_Process % isRoot ) return
 !
 !        Write "Iteration" and "Time"
 !        ----------------------------
@@ -187,6 +190,7 @@ module MonitorsClass
 !        ********************************************************
 !
          use PhysicsStorage
+         use MPI_Process_Info
          implicit none
          class(Monitor_t)                         :: self
 !
@@ -196,6 +200,8 @@ module MonitorsClass
 !
          integer                                  :: i
          character(len=MONITOR_LENGTH), parameter :: dashes = "----------"
+
+         if ( .not. MPI_Process % isRoot ) return
 !
 !        Print dashes for "Iteration" and "Time"
 !        ---------------------------------------
@@ -241,9 +247,12 @@ module MonitorsClass
 !           integrator Display procedure.
 !        *******************************************************
 !
+         use MPI_Process_Info
          implicit none
          class(Monitor_t)           :: self
          integer                    :: i
+
+         if ( .not. MPI_Process % isRoot ) return
 !
 !        Print iteration and time
 !        ------------------------
@@ -345,6 +354,7 @@ module MonitorsClass
 !           force = .false. -> Just writes to file if the buffer is full
 !        ******************************************************************
 !
+         use MPI_Process_Info
          implicit none
          class(Monitor_t)        :: self
          class(HexMesh)          :: mesh
@@ -352,6 +362,8 @@ module MonitorsClass
 !        ------------------------------------------------
          integer                 :: i 
          logical                 :: forceVal
+
+         if ( .not. MPI_Process % isRoot ) return
 
          if ( present ( force ) ) then
             forceVal = force
@@ -419,282 +431,7 @@ module MonitorsClass
          end if
 
       end subroutine Monitor_WriteToFile
-!!
-!!//////////////////////////////////////////////////////////////////////////////////////////////////
-!!
-!!           PROBE ROUTINES
-!!           --------------
-!!//////////////////////////////////////////////////////////////////////////////////////////////////
-!!
-!      subroutine Probe_Initialization( self , mesh , ID ) 
-!!
-!!        **********************************************************
-!!              This subroutine initializes the probe.
-!!           Reads from the case file the following variables needed:
-!!              -> Name: The probe name (max 10 characters)
-!!              -> x position: The x coordinate of the probe
-!!              -> y position: The y coordinate of the probe
-!!              -> variable: The name of the variable to be tracked
-!!           Then, the element which contains the probe and its position
-!!           in the reference element is computed. If any trouble occurs,
-!!           the parameter "active" is set to .false.
-!!        **********************************************************
-!!
-!         use MatrixOperations
-!         implicit none
-!         class(Probe_t)          :: self
-!         class(HexMesh)          :: mesh
-!         integer                 :: ID
-!!
-!!        ---------------
-!!        Local variables
-!!        ---------------
-!!
-!         character(len=STR_LEN_MONITORS)  :: in_label
-!         character(len=STR_LEN_MONITORS)  :: fileName
-!         real(kind=RP), allocatable       :: x,y
-!         integer                          :: pos
-!         integer                          :: fID
-!         real(kind=RP)                    :: coords(NDIM)
-!!!
-!!!        Probe ID
-!!!        --------
-!!         self % ID = ID
-!!!
-!!!        Label to search for the probe data in the file
-!!!        ----------------------------------------------
-!!         write(in_label , '(A,I0)') "#define probe " , self % ID
-!!         
-!!         call readValueInRegion ( trim ( Setup % case_file )  , "Name"       , self % monitorName , in_label , "# end" ) 
-!!         call readValueInRegion ( trim ( Setup % case_file )  , "x position" , x                  , in_label , "# end" ) 
-!!         call readValueInRegion ( trim ( Setup % case_file )  , "Variable"   , self % variable    , in_label , "# end" ) 
-!!         call readValueInRegion ( trim ( Setup % case_file )  , "y position" , y                  , in_label , "# end" ) 
-!!!
-!!!        Find for the element in the mesh, and the position in the reference element, that contains the probe
-!!!        ----------------------------------------------------------------------------------------------------
-!!         coords = [x,y]
-!!         call mesh % findElementWithCoords(coords , self % eID , self % xi , self % eta )
-!!!
-!!!        In case is not found, the active parameter is set to false
-!!!        ----------------------------------------------------------
-!!         if ( self % eID .eq. -1 ) then
-!!            self % active = .false.
-!!            return
-!!
-!!         else
-!!            self % active = .true.
-!!
-!!         end if
-!!!
-!!!        Compute the Lagrange interpolants for the probe position
-!!!        --------------------------------------------------------
-!!         self % l_xi  = mesh % elements(self % eID) % spA % lj( self % xi  )
-!!         self % l_eta = mesh % elements(self % eID) % spA % lj( self % eta )
-!!!
-!!!        Obtain the real coordinates: this will be the ones used
-!!!        -------------------------------------------------------
-!!         self % x = [ BilinearForm_F ( mesh % elements(self % eID) % X(:,:,IX) , self % l_xi , self % l_eta ) , &
-!!                      BilinearForm_F ( mesh % elements(self % eID) % X(:,:,IY) , self % l_xi , self % l_eta ) ]
-!!!
-!!!        Get the monitor file name
-!!!        -------------------------
-!!         write( self % fileName , '(A,A,A,A)') trim(Setup % solution_file) , "." , trim(self % monitorName) , ".probe"  
-!!!
-!!!        Create file
-!!!        -----------
-!!         open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" ) 
-!!!
-!!!        Set its header
-!!!        --------------
-!!         write( fID , '(A20,A    )') "Probe name :       " , trim(self % monitorName)
-!!         write( fID , '(A20,F10.3)') "x position :       " , self % x(IX) 
-!!         write( fID , '(A20,F10.3)') "y position :       " , self % x(IY) 
-!!         write( fID , '(A20,I10  )') "Element    :       " , self % eID
-!!         write( fID , '(A20,A    )') "Tracked variable : " , trim( self % variable )
-!!         write( fID , * )
-!!!
-!!!        Write "iteration", "time", and the label of the variable
-!!!        --------------------------------------------------------
-!!         write( fID , '(A10,2X,A24,2X,A24)' ) "Iteration" , "Time" , trim(self % variable)
-!!         close( fID ) 
-!              
-!      end subroutine Probe_Initialization
 !
-!      subroutine Probe_Update ( self , mesh , bufferPosition )
-!!
-!!        ***************************************************************************
-!!              This subroutine updates the value of the probe. From the mesh,
-!!           it computes the value of the tracked variable by means of an 
-!!           interpolation. It is stored in the buffer.
-!!        ***************************************************************************
-!!        
-!         implicit none
-!         class(Probe_t)          :: self
-!         class(HexMesh)       :: mesh
-!         integer                 :: bufferPosition
-!!
-!!        ---------------
-!!        Local variables
-!!        ---------------
-!!
-!         integer                 :: N 
-!         real(kind=RP)           :: rho  , rhou  , rhov  , rhoe
-!         real(kind=RP)           :: rhot , rhout , rhovt , rhoet
-!!      
-!!         if ( self % active ) then
-!!            N = mesh % elements( self % eID ) % spA % N 
-!!!   
-!!!           Select the variable
-!!!           -------------------
-!!            select case ( trim( self % variable ) )
-!!   
-!!               case ("rho")
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHO , 0:N , 0:N )  , self % l_xi , self % l_eta , rho   ) 
-!!                  self % values(bufferPosition) = rho * refValues % rho
-!!    
-!!               case ("rhou")
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHOU , 0:N , 0:N )  , self % l_xi , self % l_eta , rhou  ) 
-!!                  self % values(bufferPosition) = rhou * refValues % rho * refValues % a
-!!    
-!!               case ("rhov")
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHOV , 0:N , 0:N )  , self % l_xi , self % l_eta , rhov  ) 
-!!                  self % values(bufferPosition) = rhov * refValues % rho * refValues % a
-!!    
-!!               case ("rhoe")
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHOE , 0:N , 0:N )  , self % l_xi , self % l_eta , rhoe  ) 
-!!                  self % values(bufferPosition) = rhoe * refValues % rho * refValues % p
-!!    
-!!               case ("rhot")
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % QDot ( IRHO , 0:N , 0:N  )  , self % l_xi , self % l_eta , rhot  ) 
-!!                  self % values(bufferPosition) = rhot * refValues % rho / refValues % tc
-!!    
-!!               case ("rhout")
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % QDot ( IRHOU , 0:N , 0:N )  , self % l_xi , self % l_eta , rhout ) 
-!!                  self % values(bufferPosition) = rhout * refValues % rho * refValues % a / refValues % tc
-!!    
-!!               case ("rhovt")
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % QDot ( IRHOV , 0:N , 0:N )  , self % l_xi , self % l_eta , rhovt ) 
-!!                  self % values(bufferPosition) = rhovt * refValues % rho * refValues % a / refValues % tc
-!!    
-!!               case ("rhoet")
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % QDot ( IRHOE , 0:N , 0:N  )  , self % l_xi , self % l_eta , rhoet ) 
-!!                  self % values(bufferPosition) = rhoet * refValues % rho * refValues % p / refValues % tc
-!!    
-!!               case ("u")
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHO  , 0:N , 0:N )  , self % l_xi , self % l_eta , rho   ) 
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHOU , 0:N , 0:N )  , self % l_xi , self % l_eta , rhou  ) 
-!!                  self % values(bufferPosition) = rhou / rho * refValues % a
-!!    
-!!               case ("v")
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHO  , 0:N , 0:N )  , self % l_xi , self % l_eta , rho   ) 
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHOV , 0:N , 0:N )  , self % l_xi , self % l_eta , rhov  ) 
-!!                  self % values(bufferPosition) = rhov / rho * refValues % a
-!!       
-!!               case ("p")
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHO  , 0:N , 0:N )  , self % l_xi , self % l_eta , rho   ) 
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHOU , 0:N , 0:N )  , self % l_xi , self % l_eta , rhou  ) 
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHOV , 0:N , 0:N )  , self % l_xi , self % l_eta , rhov  ) 
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHOE , 0:N , 0:N )  , self % l_xi , self % l_eta , rhoe  ) 
-!!                  self % values(bufferPosition) = Thermodynamics % gm1 * ( rhoe - 0.5_RP * ( rhou * rhou + rhov * rhov ) / rho ) * refValues % p
-!!          
-!!               case ("Mach")
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHO  , 0:N , 0:N )  , self % l_xi , self % l_eta , rho   ) 
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHOU , 0:N , 0:N )  , self % l_xi , self % l_eta , rhou  ) 
-!!                  call BilinearForm ( mesh % elements ( self % eID )  % Q    ( IRHOV , 0:N , 0:N )  , self % l_xi , self % l_eta , rhov  ) 
-!!                  self % values(bufferPosition) = sqrt(rhou * rhou + rhov * rhov) / rho / sqrt(Thermodynamics % gamma)
-!!    
-!!               case default
-!!   
-!!                  if ( len_trim (self % variable) .eq. 0 ) then
-!!                     print*, "Variable was not specified for probe " , self % ID , "."
-!!                  else
-!!                     print*, 'Variable "',trim(self % variable),'" in probe ', self % ID, ' not implemented yet.'
-!!                     print*, "Options available are:"
-!!                     print*, "   * rho"
-!!                     print*, "   * rhou"
-!!                     print*, "   * rhov"
-!!                     print*, "   * rhoe"
-!!                     print*, "   * rhot"
-!!                     print*, "   * rhout"
-!!                     print*, "   * rhovt"
-!!                     print*, "   * rhoet"
-!!                     print*, "   * u"
-!!                     print*, "   * v"
-!!                     print*, "   * p"
-!!                     print*, "   * Mach"
-!!                     stop "Stopped."
-!!   
-!!                  end if
-!!   
-!!            end select                        
-!!   
-!!         end if
-!
-!      end subroutine Probe_Update
-!
-!      subroutine Probe_WriteLabel ( self )
-!!
-!!        ************************************************************
-!!              This subroutine displays the probe label for the time
-!!           integrator Display procedure.
-!!        ************************************************************
-!!
-!         implicit none
-!         class(Probe_t)             :: self
-!!      
-!!         if ( self % active ) then
-!!            write(STD_OUT , '(3X,A10)' , advance = "no") trim(self % monitorName(1 : MONITOR_LENGTH))
-!!         end if
-!!
-!      end subroutine Probe_WriteLabel
-!   
-!      subroutine Probe_WriteValue ( self , bufferLine ) 
-!!
-!!        ***********************************************************
-!!              This subroutine displays the probe value for the time
-!!           integrator Display procedure.
-!!        ***********************************************************
-!!
-!         implicit none
-!         class(Probe_t)             :: self
-!         integer                    :: bufferLine
-!
-!!         if ( self % active ) then
-!!            write(STD_OUT , '(1X,A,1X,ES10.3)' , advance = "no") "|" , self % values ( bufferLine ) 
-!!         end if
-!!
-!      end subroutine Probe_WriteValue 
-!
-!      subroutine Probe_WriteToFile ( self , iter , t , no_of_lines)
-!!
-!!        *********************************************************************
-!!              This subroutine exports the results to the monitor file.
-!!           Just "no_of_lines" buffer lines are written.
-!!        *********************************************************************
-!!
-!         implicit none  
-!         class(Probe_t)             :: self
-!         integer                    :: iter(:)
-!         real(kind=RP)              :: t(:)
-!         integer                    :: no_of_lines
-!!        -------------------------------------------
-!         integer                    :: i
-!         integer                    :: fID
-!
-!!         if ( self % active ) then
-!!            open( newunit = fID , file = trim ( self % fileName ) , action = "write" , access = "append" , status = "old" )
-!!            
-!!            do i = 1 , no_of_lines
-!!               write( fID , '(I10,2X,ES24.16,2X,ES24.16)' ) iter(i) , t(i) , self % values(i)
-!!   
-!!            end do
-!!           
-!!            close ( fID )
-!!
-!!            self % values(1) = self % values(no_of_lines)
-!!         end if
-!      
-!      end subroutine Probe_WriteToFile
 !//////////////////////////////////////////////////////////////////////////////
 !
 !        Auxiliars
@@ -781,6 +518,5 @@ end subroutine getNoOfMonitors
 
 end module MonitorsClass
 !
-!////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
+!///////////////////////////////////////////////////////////////////////////////////
 !

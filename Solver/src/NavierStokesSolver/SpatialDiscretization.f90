@@ -28,6 +28,7 @@ module SpatialDiscretization
          use FTValueDictionaryClass
          use mainKeywordsModule
          use Headers
+         use MPI_Process_Info
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
          character(len=LINE_LENGTH)       :: inviscidDiscretization
@@ -37,9 +38,11 @@ module SpatialDiscretization
             end subroutine toLower
          end interface
 
-         write(STD_OUT,'(/)')
-         call Section_Header("Spatial discretization scheme")
-         write(STD_OUT,'(/)')
+         if ( MPI_Process % isRoot ) then
+            write(STD_OUT,'(/)')
+            call Section_Header("Spatial discretization scheme")
+            write(STD_OUT,'(/)')
+         end if
 
          inviscidDiscretization = controlVariables % stringValueForKey(inviscidDiscretizationKey,requestedLength = LINE_LENGTH)
 

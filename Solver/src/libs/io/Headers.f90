@@ -93,6 +93,7 @@ MODULE Headers
            character(len=len_trim(title))  :: auxstring
      
            if ( .not. MPI_Process % isRoot ) return
+
            do i = 1 , len_trim(title)
             auxstring(i:i) = "-"
            end do
