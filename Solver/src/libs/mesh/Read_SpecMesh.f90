@@ -311,7 +311,6 @@ MODULE Read_SpecMesh
          use PartitionedMeshClass
          use MPI_Process_Info
          use MPI_Face_Class
-!use mpi
          IMPLICIT NONE
 !
 !        ---------------
@@ -361,6 +360,14 @@ MODULE Read_SpecMesh
          real(kind=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
          real(kind=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
          real(kind=RP)  , DIMENSION(3,2,2) :: valuesFlat
+         character(len=LINE_LENGTH)        :: partitionName
+         interface
+            character(len=LINE_LENGTH) function getFileName( inputLine )
+               use SMConstants
+               implicit none
+               character(len=*)     :: inputLine
+            end function getFileName
+         end interface
 
          success               = .TRUE.
 !
@@ -663,22 +670,19 @@ MODULE Read_SpecMesh
 !
          call self % ConstructGeometry(spA,SurfInfo)
 
-!print*, MPI_Process % rank, "ha terminado."
-!call mpi_barrier(MPI_COMM_WORLD,k)
-!stop
-            
          CLOSE( fUnit )
 !
 !        ---------
 !        Finish up
 !        ---------
 !
-         CALL self % Describe( trim(fileName) )
-         
          self % Ns = Nx
 
-         call self % Export( trim(fileName) )
-         
+         write(partitionName,'(A,A,I0,A)') trim(getFileName(trim(fileName))), ".", &
+                                           MPI_PRocess % rank, ".mesh"
+
+         call self % Export( trim(partitionName) )
+
       END SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_
 
 !

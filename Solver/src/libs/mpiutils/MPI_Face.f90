@@ -11,6 +11,8 @@ module MPI_Face_Class
       integer              :: no_of_faces
       integer, allocatable :: faceIDs(:)
       integer, allocatable :: elementSide(:)
+      integer, allocatable :: Qsend_req(:)
+      integer, allocatable :: Qrecv_req(:)
       contains
          procedure   :: Construct => MPI_Face_Construct
          procedure   :: Destruct => MPI_Face_Destruct
@@ -66,9 +68,7 @@ module MPI_Face_Class
       type(MPI_Face_t) function Construct_MPI_Face()
          implicit none  
 
-         Construct_MPI_Face % no_of_faces = 0
-         safedeallocate(Construct_MPI_Face % faceIDs)
-         safedeallocate(Construct_MPI_Face % elementSide)
+         call MPI_Face_Destruct(Construct_MPI_Face)
 
       end function Construct_MPI_Face
 
@@ -80,6 +80,8 @@ module MPI_Face_Class
          self % no_of_faces = no_of_faces
          allocate(self % faceIDs(no_of_faces))
          allocate(self % elementSide(no_of_faces))
+         allocate(self % Qsend_req(no_of_faces))
+         allocate(self % Qrecv_req(no_of_faces))
 
          self % faceIDs = -1
          self % elementSide = -1
@@ -93,6 +95,8 @@ module MPI_Face_Class
          self % no_of_faces = 0
          safedeallocate(self % faceIDs)
          safedeallocate(self % elementSide)
+         safedeallocate(self % Qsend_req)
+         safedeallocate(self % Qrecv_req)
 
       end subroutine MPI_Face_Destruct
 

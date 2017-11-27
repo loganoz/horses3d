@@ -54,6 +54,7 @@ module DGInviscidDiscretization
          use FTValueDictionaryClass
          use mainKeywordsModule
          use Headers
+         use MPI_Process_Info
          implicit none
          class(InviscidMethod_t) :: self
          class(FTValueDictionary),  intent(in)   :: controlVariables
@@ -99,7 +100,7 @@ module DGInviscidDiscretization
                splitType = PIROZZOLI_SPLIT
    
             case default
-   
+if ( MPI_Process % isRoot ) then   
                write(STD_OUT,'(A,A,A)') 'Requested split form "',trim(splitForm),'" is not implemented.'
                write(STD_OUT,'(A)') "Implemented split forms are:"
                write(STD_OUT,'(A)') "  * Standard"
@@ -109,6 +110,7 @@ module DGInviscidDiscretization
                write(STD_OUT,'(A)') "  * Pirozzoli"
                errorMessage(STD_OUT)
                stop 
+end if
    
             end select
          end select
@@ -117,6 +119,7 @@ module DGInviscidDiscretization
 !        --------
          call Subsection_Header("Inviscid discretization")
 
+if (MPI_Process % isRoot ) then
          select type ( self ) 
    
          type is (StandardDG_t)
@@ -143,6 +146,7 @@ module DGInviscidDiscretization
 
             end select
          end select
+end if
 
       end subroutine InitializeInviscidMethod
 !
