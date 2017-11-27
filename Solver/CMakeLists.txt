@@ -145,6 +145,7 @@ SET(PHYSLIB physics)
 SET(PLOTLIB plot)
 SET(SPECLIB spectral)
 SET(PROBLIB ProblemFile)
+SET(MPIUTILLIB MPIUtilities)
 
 # Define some directories
 SET(SRCDIR ${CMAKE_SOURCE_DIR}/src)
@@ -168,6 +169,7 @@ ADD_SUBDIRECTORY(${SRCDIR}/libs/physics)
 ADD_SUBDIRECTORY(${SRCDIR}/libs/plot)
 ADD_SUBDIRECTORY(${SRCDIR}/libs/spectral)
 ADD_SUBDIRECTORY(${SRCDIR}/libs/problemfile)
+ADD_SUBDIRECTORY(${SRCDIR}/libs/mpiutils)
 
 # The source for the main program and add-ons
 ADD_SUBDIRECTORY(${SRCDIR}/NavierStokesSolver)

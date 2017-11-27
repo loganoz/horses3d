@@ -16,7 +16,7 @@ ADD_EXECUTABLE(${NSEXE} ${ConsSolver_src})
 #####################################################
 
 # This links HORSES3D to the libraries
-TARGET_LINK_LIBRARIES(${NSEXE} ${FOUNDLIB} ${FTLIB} ${IOLIB} ${JACLIB} 
+TARGET_LINK_LIBRARIES(${NSEXE} ${FOUNDLIB} ${FTLIB} ${IOLIB} ${JACLIB} ${MPIUTILLIB}
                       ${MESHLIB} ${MONLIB} ${PHYSLIB} ${PLOTLIB} ${SPECLIB} ${PROBLIB})
 
 # Link MKL libraries if specified by the user

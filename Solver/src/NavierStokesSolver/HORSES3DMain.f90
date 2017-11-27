@@ -103,7 +103,6 @@ end interface
       CALL controlVariables % initWithSize(16)
       CALL UserDefinedStartup
       CALL ConstructSharedBCModule
-      CALL ConstructZoneModule
       
       CALL ReadInputFile( controlVariables )
       CALL CheckInputIntegrity(controlVariables, success)

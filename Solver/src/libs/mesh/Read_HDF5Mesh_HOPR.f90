@@ -307,7 +307,7 @@ contains
 !        Now construct the element
 !        -------------------------
 !
-         call self % elements(l) % Construct (spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs , l)
+         call self % elements(l) % Construct (spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs , l, l) ! TODO: Change for MPI
          
          CALL SetElementBoundaryNames( self % elements(l), names )
             
@@ -359,11 +359,17 @@ contains
 !     ---------------------------
 !
       CALL getElementsFaceIDs(self)
+!        --------------------- 
+!        Define boundary faces 
+!        --------------------- 
+! 
+      call self % DefineAsBoundaryFaces() 
+! 
 !
 !     ------------------------------
 !     Set the element connectivities
 !     ------------------------------
-      call self % SetConnectivities(spA,nodes)
+      call self % SetConnectivitiesAndLinkFaces(spA,nodes)
 !
 !     ---------------------------------------
 !     Construct elements' and faces' geometry
@@ -831,7 +837,7 @@ contains
       allocate (nodes(i))
       
       DO j = 1, i 
-         CALL ConstructNode( nodes(j), TempNodes(:,j) )
+         CALL ConstructNode( nodes(j), TempNodes(:,j), j ) ! TODO: Change for MPI
       END DO
       
       deallocate (TempNodes)

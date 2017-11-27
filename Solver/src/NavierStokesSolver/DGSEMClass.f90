@@ -564,7 +564,7 @@ Module DGSEMClass
          call mpi_allreduce(localMaxResidual, maxResidual, N_EQN, MPI_DOUBLE, MPI_MAX, &
                             MPI_COMM_WORLD, ierr)
       end if
-#endif _HAS_MPI_
+#endif
 
    END FUNCTION ComputeMaxResidual
 !

@@ -11,7 +11,7 @@ file(GLOB_RECURSE mesh_src "*.f90")
 ADD_LIBRARY(${MESHLIB} STATIC ${mesh_src})
 
 TARGET_LINK_LIBRARIES(${MESHLIB} ${FOUNDLIB} ${SPECLIB} ${PHYSLIB} ${FTLIB} 
-											${IOLIB})
+											${IOLIB} ${MPIUTILLIB})
 target_include_directories(${MESHLIB} PUBLIC ${INCDIR})
 
 IF(HAS_HDF5)
