@@ -14,6 +14,7 @@ module ProbeClass
 !
    type Probe_t
       logical                         :: active
+      integer                         :: rank
       integer                         :: ID
       integer                         :: eID
       real(kind=RP)                   :: x(NDIM)
@@ -29,12 +30,14 @@ module ProbeClass
          procedure   :: WriteLabel     => Probe_WriteLabel
          procedure   :: WriteValues    => Probe_WriteValue
          procedure   :: WriteToFile    => Probe_WriteToFile
+         procedure   :: LookInOtherPartitions => Probe_LookInOtherPartitions
    end type Probe_t
 
    contains
 
       subroutine Probe_Initialization(self, mesh, ID, solution_file)
          use ParamfileRegions
+         use MPI_Process_Info
          implicit none
          class(Probe_t)          :: self
          class(HexMesh)          :: mesh
@@ -62,7 +65,6 @@ module ProbeClass
                character(*), intent(in out) :: str
             end subroutine toLower
          end interface
-
 !
 !        Get monitor ID
 !        --------------
@@ -73,9 +75,9 @@ module ProbeClass
          write(in_label , '(A,I0)') "#define probe " , self % ID
          
          call get_command_argument(1, paramFile)
-         call readValueInRegion ( trim ( paramFile ) , "Name"     , self % monitorName , in_label , "# end" )
-         call readValueInRegion ( trim ( paramFile ) , "Variable" , self % variable    , in_label , "# end" )
-         call readValueInRegion ( trim ( paramFile ) , "Position" , coordinates        , in_label , "# end" )
+         call readValueInRegion(trim(paramFile), "Name"    , self % monitorName, in_label, "# end" )
+         call readValueInRegion(trim(paramFile), "Variable", self % variable   , in_label, "# end" )
+         call readValueInRegion(trim(paramFile), "Position", coordinates       , in_label, "# end" )
 !
 !        Get the coordinates
 !        -------------------
@@ -108,12 +110,31 @@ module ProbeClass
 !        Find the requested point in the mesh
 !        ------------------------------------
          self % active = mesh % FindPointWithCoords(x, self % eID, self % xi)
-
+!
+!        Check whether the probe is located in other partition
+!        -----------------------------------------------------
+         call self % LookInOtherPartitions
+!
+!        Disable the probe if the point is not found
+!        -------------------------------------------
          if ( .not. self % active ) then
-            write(STD_OUT,'(A,I0,A)') "Probe ", ID, " was not successfully initialized."
-            print*, "Probe is set to inactive."
+            if ( MPI_Process % isRoot ) then
+               write(STD_OUT,'(A,I0,A)') "Probe ", ID, " was not successfully initialized."
+               print*, "Probe is set to inactive."
+            end if
+
             return
          end if
+!
+!        Set the fileName
+!        ----------------
+         write( self % fileName , '(A,A,A,A)') trim(solution_file) , "." , &
+                                               trim(self % monitorName) , ".probe"  
+!
+!
+!        Return if the process does not contain the partition
+!        ----------------------------------------------------
+         if ( self % rank .ne. MPI_Process % rank ) return
 !
 !        Get the Lagrange interpolants
 !        -----------------------------
@@ -135,8 +156,6 @@ module ProbeClass
 !        ****************
 !        Prepare the file
 !        ****************
-!
-         write( self % fileName , '(A,A,A,A)') trim(solution_file) , "." , trim(self % monitorName) , ".probe"  
 !
 !        Create file
 !        -----------
@@ -160,6 +179,10 @@ module ProbeClass
 
       subroutine Probe_Update(self, mesh, bufferPosition)
          use Physics
+         use MPI_Process_Info
+#ifdef _HAS_MPI_
+         use mpi
+#endif
          implicit none
          class(Probe_t) :: self
          class(HexMesh)                   :: mesh
@@ -169,63 +192,88 @@ module ProbeClass
 !        Local variables
 !        ---------------
 !
-         integer        :: i, j, k
+         integer        :: i, j, k, ierr
          real(kind=RP)  :: value
          real(kind=RP)  :: var(0:mesh % elements(self % eID) % Nxyz(1),&
                                0:mesh % elements(self % eID) % Nxyz(2),&
                                0:mesh % elements(self % eID) % Nxyz(3)  )
 
-         associate( e => mesh % elements(self % eID) )
-         associate( Q => e % storage % Q )
+         if ( .not. self % active ) return 
 
-         select case (trim(self % variable))
-         case("pressure")
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
-               var(i,j,k) = Pressure(Q(:,i,j,k))
-            end do            ; end do             ; end do
-
-         case("velocity")
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               var(i,j,k) = sqrt(POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k)))/Q(IRHO,i,j,k)
-            end do         ; end do         ; end do
-
-         case("u")
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
-               var(i,j,k) = Q(IRHOU,i,j,k) / Q(IRHO,i,j,k)
-            end do            ; end do             ; end do
-
-         case("v")
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
-               var(i,j,k) = Q(IRHOV,i,j,k) / Q(IRHO,i,j,k)
-            end do            ; end do             ; end do
-
-         case("w")
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
-               var(i,j,k) = Q(IRHOW,i,j,k) / Q(IRHO,i,j,k)
-            end do            ; end do             ; end do
-
-         case("mach")
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               var(i,j,k) = POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))/POW2(Q(IRHO,i,j,k))     ! Vabs**2
-               var(i,j,k) = sqrt( var(i,j,k) / ( thermodynamics % gamma*(thermodynamics % gamma-1.0_RP)*(Q(IRHOE,i,j,k)/Q(IRHO,i,j,k)-0.5_RP * var(i,j,k)) ) )
-            end do         ; end do         ; end do
+         if ( MPI_Process % rank .eq. self % rank ) then
+!
+!           Update the probe
+!           ----------------
+            associate( e => mesh % elements(self % eID) )
+            associate( Q => e % storage % Q )
    
-         case("k")
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               var(i,j,k) = 0.5_RP * (POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k)))/Q(IRHO,i,j,k)
-            end do         ; end do         ; end do
+            select case (trim(self % variable))
+            case("pressure")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Pressure(Q(:,i,j,k))
+               end do            ; end do             ; end do
+   
+            case("velocity")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  var(i,j,k) = sqrt(POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k)))/Q(IRHO,i,j,k)
+               end do         ; end do         ; end do
+   
+            case("u")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(IRHOU,i,j,k) / Q(IRHO,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("v")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(IRHOV,i,j,k) / Q(IRHO,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("w")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
+                  var(i,j,k) = Q(IRHOW,i,j,k) / Q(IRHO,i,j,k)
+               end do            ; end do             ; end do
+   
+            case("mach")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  var(i,j,k) = POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))/POW2(Q(IRHO,i,j,k))     ! Vabs**2
+                  var(i,j,k) = sqrt( var(i,j,k) / ( thermodynamics % gamma*(thermodynamics % gamma-1.0_RP)*(Q(IRHOE,i,j,k)/Q(IRHO,i,j,k)-0.5_RP * var(i,j,k)) ) )
+               end do         ; end do         ; end do
+      
+            case("k")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  var(i,j,k) = 0.5_RP * (POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k)))/Q(IRHO,i,j,k)
+               end do         ; end do         ; end do
+   
+            end select
+   
+            value = 0.0_RP
+            do k = 0, e % Nxyz(3)    ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1)
+               value = value + var(i,j,k) * self % lxi(i) * self % leta(j) * self % lzeta(k)
+            end do               ; end do             ; end do
+   
+            self % values(bufferPosition) = value
+   
+            end associate
+            end associate
+#ifdef _HAS_MPI_            
+            if ( MPI_Process % doMPIAction ) then
+!
+!              Share the result with the rest of the processes
+!              -----------------------------------------------         
+               call mpi_bcast(value, 1, MPI_DOUBLE, self % rank, MPI_COMM_WORLD, ierr)
 
-         end select
-
-         value = 0.0_RP
-         do k = 0, e % Nxyz(3)    ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1)
-            value = value + var(i,j,k) * self % lxi(i) * self % leta(j) * self % lzeta(k)
-         end do               ; end do             ; end do
-
-         self % values(bufferPosition) = value
-
-         end associate
-         end associate
+            end if
+#endif
+         else
+!
+!           Receive the result from the rank that contains the probe
+!           --------------------------------------------------------
+#ifdef _HAS_MPI_
+            if ( MPI_Process % doMPIAction ) then
+               call mpi_bcast(self % values(bufferPosition), 1, MPI_DOUBLE, self % rank, MPI_COMM_WORLD, ierr)
+            end if
+#endif
+         end if
       end subroutine Probe_Update
 
       subroutine Probe_WriteLabel ( self )
@@ -290,5 +338,58 @@ module ProbeClass
          if ( no_of_lines .ne. 0 ) self % values(1) = self % values(no_of_lines)
       
       end subroutine Probe_WriteToFile
+
+      subroutine Probe_LookInOtherPartitions(self)
+         use MPI_Process_Info
+#ifdef _HAS_MPI_
+         use mpi
+#endif
+         implicit none
+         class(Probe_t)    :: self
+         integer           :: allActives(MPI_Process % nProcs)
+         integer           :: active, ierr
+
+         if ( MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_
+!
+!           Cast the logicals onto integers
+!           -------------------------------
+            if ( self % active ) then
+               active = 1
+            else
+               active = 0
+            end if
+!
+!           Gather all data from all processes
+!           ----------------------------------
+            call mpi_allgather(active, 1, MPI_INT, allActives, 1, MPI_INT, MPI_COMM_WORLD, ierr)
+!
+!           Check if any of them found the probe
+!           ------------------------------------
+            if ( any(allActives .eq. 1) ) then
+!
+!              Assign the domain of the partition that contains the probe
+!              ----------------------------------------------------------
+               self % active = .true.
+               self % rank = maxloc(allActives, dim = 1) - 1
+
+            else
+!
+!              Disable the probe
+!              -----------------
+               self % active = .false.
+               self % rank   = -1
+
+            end if
+#endif
+         else
+!
+!           Without MPI select the rank 0 as default
+!           ----------------------------------------
+            self % rank = 0
+
+         end if
+
+      end subroutine Probe_LookInOtherPartitions
 
 end module ProbeClass

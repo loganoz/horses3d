@@ -36,16 +36,20 @@ module VolumeIntegrals
 !              * Flow: computes the volumetric flow across the zone.
 !        -----------------------------------------------------------
 !
+
+#ifdef _HAS_MPI_
+         use mpi
+#endif
          implicit none
          class(HexMesh),      intent(in)  :: mesh
          integer,             intent(in)  :: integralType
-         real(kind=RP)                    :: val
+         real(kind=RP)                    :: val, localVal
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: eID
+         integer  :: eID, ierr
 !
 !        Initialization
 !        --------------            
@@ -63,6 +67,11 @@ module VolumeIntegrals
 
          end do
 !$omp end parallel do
+
+#ifdef _HAS_MPI_
+            localVal = val
+            call mpi_allreduce(localVal, val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
 
       end function ScalarVolumeIntegral
 

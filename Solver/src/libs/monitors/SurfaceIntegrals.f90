@@ -38,18 +38,21 @@ module SurfaceIntegrals
 !              * Flow: computes the volumetric flow across the zone.
 !        -----------------------------------------------------------
 !
+#ifdef _HAS_MPI_
+         use mpi
+#endif
          implicit none
          class(HexMesh),      intent(inout), target  :: mesh
          class(NodalStorage), intent(in)    :: spA(0:)
          integer,             intent(in)    :: zoneID
          integer,             intent(in)    :: integralType
-         real(kind=RP)                      :: val
+         real(kind=RP)                      :: val, localval
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: zonefID, fID, eID, fIDs(6) 
+         integer  :: zonefID, fID, eID, fIDs(6), ierr 
          class(Element), pointer    :: e
 !
 !        Initialization
@@ -103,6 +106,11 @@ module SurfaceIntegrals
          end do
 !$omp end do
 !$omp end parallel
+
+#ifdef _HAS_MPI_
+         localval = val
+         call mpi_allreduce(localval, val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
 
       end function ScalarSurfaceIntegral
 
@@ -213,6 +221,9 @@ module SurfaceIntegrals
 !              * Flow: computes the volumetric flow across the zone.
 !        -----------------------------------------------------------
 !
+#ifdef _HAS_MPI_
+         use mpi
+#endif
          implicit none
          class(HexMesh),      intent(inout), target  :: mesh
          class(NodalStorage), intent(in)    :: spA(0:)
@@ -226,7 +237,7 @@ module SurfaceIntegrals
 !        Local variables
 !        ---------------
 !
-         integer  :: zonefID, fID, eID, fIDs(6) 
+         integer  :: zonefID, fID, eID, fIDs(6), ierr
          class(Element), pointer  :: e
 !
 !        Initialization
@@ -290,6 +301,11 @@ module SurfaceIntegrals
 !$omp end parallel
 
          val = (/valx, valy, valz/)
+
+#ifdef _HAS_MPI_
+         localVal = val
+         call mpi_allreduce(localVal, val, NDIM, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
 
       end function VectorSurfaceIntegral
 
