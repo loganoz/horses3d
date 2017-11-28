@@ -24,6 +24,11 @@
          INTEGER      , PARAMETER         :: CP = SELECTED_REAL_KIND( DIGITS )        ! Complex Kind
          REAL(KIND=RP), PARAMETER         :: PI = 3.141592653589793238462643_RP
 
+         character(len=1), parameter      :: SINGLE_CHARACTER = "a"
+         integer      , parameter         :: SIZEOF_INT  = sizeof(integer)
+         integer      , parameter         :: SIZEOF_RP   = RP
+         integer      , parameter         :: SIZEOF_CHAR = sizeof(SINGLE_CHARACTER)
+
 #if defined(ARCH_32_BITS)
          INTEGER      , PARAMETER         :: AddrInt = SELECTED_INT_KIND(9)
 #else
@@ -44,6 +49,7 @@
          INTEGER, PARAMETER :: FRONT  = 1, BACK   = 2
 
          INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
+
 
          
       END MODULE SMConstants

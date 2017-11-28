@@ -1522,17 +1522,19 @@ slavecoord:                DO l = 1, 4
 !        Create file: it will be contained in ./MESH
 !        -------------------------------------------
          meshName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".hmesh"
-         fID = CreateNewSolutionFile( trim(meshName), MESH_FILE, self % nodeType, self % no_of_elements, 0, 0.0_RP, refs)
+         call CreateNewSolutionFile( trim(meshName), MESH_FILE, self % nodeType, self % no_of_elements, 0, 0.0_RP, refs)
 !
 !        Introduce all element nodal coordinates
 !        ---------------------------------------
+         fID = putSolutionFileInWriteDataMode(trim(meshName))
          do eID = 1, self % no_of_elements
             call writeArray(fID, self % elements(eID) % geom % x)
          end do
+         close(fid)
 !
 !        Close the file
 !        --------------
-         call CloseSolutionFile(fID)
+         call SealSolutionFile(trim(meshName))
          
       end subroutine HexMesh_Export
 
@@ -1564,13 +1566,14 @@ slavecoord:                DO l = 1, 4
 !        Create new file
 !        ---------------
          if ( saveGradients ) then
-            fid = CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
+            call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
          else
-            fid = CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
+            call CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
          end if
 !
 !        Write arrays
 !        ------------
+         fID = putSolutionFileInWriteDataMode(trim(name))
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
             call writeArray(fid, e % storage % Q)
@@ -1581,8 +1584,9 @@ slavecoord:                DO l = 1, 4
             end if
             end associate
          end do
+         close(fid)
 
-         call CloseSolutionFile(fid)
+         call SealSolutionFile(trim(name))
 
       end subroutine HexMesh_SaveSolution
 
@@ -1612,15 +1616,19 @@ slavecoord:                DO l = 1, 4
 !
 !        Create new file
 !        ---------------
-         fid = CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
+         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
 !
 !        Write arrays
 !        ------------
+         fID = putSolutionFileInWriteDataMode(trim(name))
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
             call writeArray(fid, e % storage % stats % data)
             end associate
          end do
+         close(fid)
+
+         call SealSolutionFile(trim(name))
 
       end subroutine HexMesh_SaveStatistics
 
@@ -1654,20 +1662,16 @@ slavecoord:                DO l = 1, 4
 !        ---------------
 !
          INTEGER          :: fID, eID, fileType, no_of_elements, flag, nodetype
-         integer          :: Nxp1, Nyp1, Nzp1, no_of_eqs
+         integer          :: Nxp1, Nyp1, Nzp1, no_of_eqs, array_rank
          character(len=SOLFILE_STR_LEN)      :: rstName
-!
-!        Open the file
-!        -------------
-         open(newunit = fID, file=trim(fileName), status="old", action="read", form="unformatted")
 !
 !        Get the file title
 !        ------------------
-         read(fID) rstName
+         rstName = getSolutionFileName(trim(fileName))
 !
 !        Get the file type
 !        -----------------
-         read(fID) fileType
+         fileType = getSolutionFileType(trim(fileName))
 
          select case (fileType)
          case(MESH_FILE)
@@ -1689,7 +1693,7 @@ slavecoord:                DO l = 1, 4
 !
 !        Get the node type
 !        -----------------
-         read(fID) nodeType
+         nodeType = getSolutionFileNodeType(trim(fileName))
 
          if ( nodeType .ne. self % nodeType ) then
             print*, "Solution file uses a different discretization nodes that the mesh."
@@ -1698,7 +1702,7 @@ slavecoord:                DO l = 1, 4
 !
 !        Read the number of elements
 !        ---------------------------
-         read(fID) no_of_elements
+         no_of_elements = getSolutionFileNoOfElements(trim(fileName))
 
          if ( no_of_elements .ne. size(self % elements) ) then
             write(STD_OUT,'(A,A)') "The number of elements stored in the restart file ", &
@@ -1709,16 +1713,11 @@ slavecoord:                DO l = 1, 4
 !
 !        Read the initial iteration and time
 !        -----------------------------------
-         read(fID) initial_iteration
-         read(fID) initial_time          
-!
-!        Read the reference values
-!        -------------------------
-         read(fID) 
+         call getSolutionFileTimeAndITeration(trim(fileName), initial_iteration, initial_time)
 !
 !        Read the terminator indicator
 !        -----------------------------
-         read(fID) flag
+         flag = getSolutionFileDataInitFlag(trim(fileName))
 
          if ( flag .ne. BEGINNING_DATA ) then
             print*, "Beginning data flag was not found in the file."
@@ -1728,9 +1727,10 @@ slavecoord:                DO l = 1, 4
 !
 !        Read elements data
 !        ------------------
+         fID = putSolutionFileInReadDataMode(trim(fileName))
          do eID = 1, size(self % elements)
             associate( e => self % elements(eID) )
-            read(fID)
+            read(fID) array_rank
             read(fID) no_of_eqs, Nxp1, Nyp1, Nzp1
             if (      ((Nxp1-1) .ne. e % Nxyz(1)) &
                  .or. ((Nyp1-1) .ne. e % Nxyz(2)) &
@@ -1758,9 +1758,9 @@ slavecoord:                DO l = 1, 4
 !           Skip the gradients record if proceeds
 !           -------------------------------------   
             if ( fileType .eq. SOLUTION_AND_GRADIENTS_FILE ) then
-               read(fID)
-               read(fID)
-               read(fID)
+               read(fID) e % storage % U_x
+               read(fID) e % storage % U_y
+               read(fID) e % storage % U_z
             end if
             end associate
          end do

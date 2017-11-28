@@ -7,6 +7,7 @@ program horses2plt
    use SolutionFile
    use SharedSpectralBasis
    use Headers
+   use MPI_Process_Info
    implicit none
    integer                                 :: jobType
    character(len=LINE_LENGTH)              :: meshName
@@ -17,6 +18,8 @@ program horses2plt
    integer                                 :: Nout(3)
    integer                                 :: basis
    integer                                 :: iSol
+
+   call MPI_Process % Init
 
    call Main_Header("HORSES to TecPlot conversion utility",__DATE__,__TIME__)
 !
@@ -62,5 +65,7 @@ program horses2plt
       call exit(UNKNOWN_JOB)
 
    end select
+
+   call MPI_Process % Close
 
 end program horses2plt
