@@ -9,12 +9,15 @@
 !
       PROGRAM HexMeshTestsMain 
          USE TestSuiteManagerClass
+         use MPI_Process_Info
          IMPLICIT NONE  
          TYPE(TestSuiteManager) :: testSuite
          INTEGER                :: numberOfFailures
          EXTERNAL               :: testTwoBoxesMeshConstruction
          EXTERNAL               :: testTwoElementCylindersMesh
          EXTERNAL               :: MeshFileTest
+
+         call MPI_Process % Init
          
          CALL testSuite % init()
          
@@ -29,5 +32,7 @@
          CALL testSuite % finalize()
          
          IF(numberOfFailures > 0)   STOP 99
+
+         call MPI_Process % Close
          
       END PROGRAM HexMeshTestsMain

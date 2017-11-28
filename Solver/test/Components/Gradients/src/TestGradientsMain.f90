@@ -11,6 +11,7 @@
       USE FTAssertions
       USE TestSuiteManagerClass
       USE setupModule
+      use MPI_Process_Info
       IMPLICIT NONE
       
       TYPE(TestSuiteManager) :: testSuite
@@ -23,6 +24,8 @@
       CHARACTER(LEN=132)           :: msg
       INTEGER                      :: j
       
+      call MPI_Process % Init()
+
       CALL testSuite % init()
 !
 !     ---------------------
@@ -65,6 +68,8 @@
       CALL testSuite % finalize()
          
       IF(numberOfFailures > 0)   STOP 99
+
+      call MPI_Process % Close()
          
       
       END PROGRAM TestDivergenceMain
