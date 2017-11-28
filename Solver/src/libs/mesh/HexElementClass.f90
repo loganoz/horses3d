@@ -37,7 +37,8 @@
       
       TYPE Element
          integer                                        :: eID               ! ID of this element
-         integer                                        :: globID           ! globalID of the element
+         integer                                        :: globID            ! globalID of the element
+         integer                                        :: offsetIO          ! Offset from the first element for IO
          INTEGER                                        :: nodeIDs(8)
          integer                                        :: faceIDs(6)
          integer                                        :: faceSide(6)

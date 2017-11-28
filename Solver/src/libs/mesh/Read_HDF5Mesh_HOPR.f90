@@ -4,9 +4,9 @@
 !   @File:    ReadHDF5Mesh.f90
 !   @Author:  Andrés Rueda (a.rueda@upm.es)
 !   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Tue Nov 01 14:00:00 2017
-!   @Last revision author: Andrés Rueda (a.rueda@upm.es)
-!   @Last revision commit: 
+!   @Last revision date: Tue Nov 28 17:01:48 2017
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 86a8c105a49aa182fa3416a869f7efbbc764622a
 !
 !  Module or reading HDF5 meshes as written by HOPR
 !  -> Only for hexahedral conforming meshes
@@ -381,12 +381,17 @@ contains
 !     ---------
 !      
       CALL self % Describe( trim(fileName) )
-      
       self % Ns = Nx
+!
+!     -------------------------------------------------------------
+!     Prepare mesh for I/O only if the code is running sequentially
+!     -------------------------------------------------------------
+!
+      if ( .not. MPI_Process % doMPIAction ) then
+         call self % PrepareForIO
+         call self % Export( trim(fileName) )
+      end if
 
-      call self % Export( trim(fileName) )
-      
-      
 #else
       STOP ':: HDF5 is not linked correctly'
 #endif

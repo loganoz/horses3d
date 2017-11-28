@@ -6,6 +6,7 @@ module StatisticsMonitor
 
    private
    public     StatisticsMonitor_t, U, V, W, UU, VV, WW, UV, UW, VW
+   public     NO_OF_VARIABLES
 !
 !  Commands for the parameter file
 !  -------------------------------
@@ -24,7 +25,7 @@ module StatisticsMonitor
 !
 !  Statistics monitor content
 !  --------------------------
-#define NO_OF_VARIABLES 9
+   integer, parameter :: NO_OF_VARIABLES = 9
    integer, parameter ::  U  = 1
    integer, parameter ::  V  = 2
    integer, parameter ::  W  = 3
@@ -226,111 +227,145 @@ module StatisticsMonitor
 
       subroutine StatisticsMonitor_GetState(self, reset, dump)
          use ParamfileRegions
+         use MPI_Process_Info
+#ifdef _HAS_MPI_
+         use mpi
+#endif
          implicit none
          class(StatisticsMonitor_t)    :: self
+         logical, intent(out)          :: reset, dump
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer                       :: fID, io
+         integer                       :: fID, io, ierr
          integer                       :: no_of_lines
          character(len=LINE_LENGTH)    :: paramFile
          character(len=LINE_LENGTH)    :: line
          logical                       :: isInside
          logical                       :: hasStart, hasPause, hasStop, hasDump, hasReset
-         logical                       :: reset, dump
+         integer                       :: rstInt, dumpInt
 
-         call get_command_argument(1, paramFile)
+         reset = .false.
+         dump  = .false.
 !
-!        Open the file and get to the statistics zone
-!        --------------------------------------------
-         open( newunit = fID, file = trim(paramFile), status = "old", action = "read" )
+!        Only root will read, and it will broadcast the result to the rest
+!        -----------------------------------------------------------------
+         if ( MPI_Process % isRoot ) then
    
-         isInside = .false.
-
-         no_of_lines = 0
-
-         hasStart = .false.
-         hasPause = .false.
-         hasStop  = .false.
-         hasReset = .false.
-         hasDump  = .false.
-
-         do
-            read(fID,'(A)',iostat=io) line
-            if ( io .ne. 0 ) exit
-            no_of_lines = no_of_lines + 1 
-!
-!           Check whether the line is in or out of the statistics region
-!           ------------------------------------------------------------
-            if ( index(getSquashedLine(trim(adjustl(line))), "#definestatistics" ) .ne. 0) then
-               isInside = .true.
-               cycle
-            end if
-
-            if ( isInside .and. (index(getSquashedLine(trim(adjustl(line))),"#end") .ne. 0) ) then
-               isInside = .false.
-               cycle
-            end if
-!
-!           Cycle if it is outside
-!           ----------------------        
-            if ( .not. isInside ) cycle
-!
-!           It is inside, check whether the marks are present
-!           -------------------------------------------------
-            select case ( trim(adjustl(line)) )
+            call get_command_argument(1, paramFile)
+!   
+!           Open the file and get to the statistics zone
+!           --------------------------------------------
+            open( newunit = fID, file = trim(paramFile), status = "old", action = "read" )
+      
+            isInside = .false.
+   
+            no_of_lines = 0
+   
+            hasStart = .false.
+            hasPause = .false.
+            hasStop  = .false.
+            hasReset = .false.
+            hasDump  = .false.
+   
+            do
+               read(fID,'(A)',iostat=io) line
+               if ( io .ne. 0 ) exit
+               no_of_lines = no_of_lines + 1 
+!   
+!              Check whether the line is in or out of the statistics region
+!              ------------------------------------------------------------
+               if ( index(getSquashedLine(trim(adjustl(line))), "#definestatistics" ) .ne. 0) then
+                  isInside = .true.
+                  cycle
+               end if
+   
+               if ( isInside .and. (index(getSquashedLine(trim(adjustl(line))),"#end") .ne. 0) ) then
+                  isInside = .false.
+                  cycle
+               end if
+!   
+!              Cycle if it is outside
+!              ----------------------        
+               if ( .not. isInside ) cycle
+!   
+!              It is inside, check whether the marks are present
+!              -------------------------------------------------
+               select case ( trim(adjustl(line)) )
+               
+               case(START_COMMAND)
+                  if ( index(line,"*") .eq. 0 ) hasStart = .true.
+   
+               case(PAUSE_COMMAND)
+                  if ( index(line,"*") .eq. 0 ) hasPause = .true.
+   
+               case(STOP_COMMAND)
+                  if ( index(line,"*") .eq. 0 ) hasStop = .true.
+   
+               case(RESET_COMMAND)
+                  if ( index(line,"*") .eq. 0 ) hasReset = .true.
+   
+               case(DUMP_COMMAND)
+                  if ( index(line,"*") .eq. 0 ) hasDump = .true.
+   
+               end select
+   
+            end do
+!   
+!           Update the status of the statistics monitor
+!           -------------------------------------------
+            reset = hasReset
+            dump  = hasDump
             
-            case(START_COMMAND)
-               if ( index(line,"*") .eq. 0 ) hasStart = .true.
-
-            case(PAUSE_COMMAND)
-               if ( index(line,"*") .eq. 0 ) hasPause = .true.
-
-            case(STOP_COMMAND)
-               if ( index(line,"*") .eq. 0 ) hasStop = .true.
-
-            case(RESET_COMMAND)
-               if ( index(line,"*") .eq. 0 ) hasReset = .true.
-
-            case(DUMP_COMMAND)
-               if ( index(line,"*") .eq. 0 ) hasDump = .true.
-
-            end select
-
-         end do
-!
-!        Update the status of the statistics monitor
-!        -------------------------------------------
-         reset = hasReset
-         dump  = hasDump
-         
-         if ( (self % state .eq. WAITING_STATE) .or. (self % state .eq. ACTIVE_STATE) ) then
-            if ( hasStop ) then
-               dump = .true.
-               reset = .true.
-               self % state = STOP_STATE
+            if ( (self % state .eq. WAITING_STATE) .or. (self % state .eq. ACTIVE_STATE) ) then
+               if ( hasStop ) then
+                  dump = .true.
+                  reset = .true.
+                  self % state = STOP_STATE
+               end if
+   
+               if ( hasPause ) then
+                  self % state = STOP_STATE
+               end if
+   
+               if ( hasStart ) then
+                  self % state = ACTIVE_STATE
+               end if
+   
+            elseif ( self % state .eq. STOP_STATE ) then
+               if ( hasStart )  self % state = ACTIVE_STATE
+           
             end if
-
-            if ( hasPause ) then
-               self % state = STOP_STATE
-            end if
-
-            if ( hasStart ) then
-               self % state = ACTIVE_STATE
-            end if
-
-         elseif ( self % state .eq. STOP_STATE ) then
-            if ( hasStart )  self % state = ACTIVE_STATE
-        
+   
+            close(fID)
+!   
+!           Rewrite the control file to remove the controllers      
+!           --------------------------------------------------
+            if ( hasStart .or. hasPause .or. hasStop .or. hasReset .or. hasDump ) call rewriteControlFile(paramFile, no_of_lines)
          end if
-
-         close(fID)
 !
-!        Rewrite the control file to remove the controllers      
-!        --------------------------------------------------
-         if ( hasStart .or. hasPause .or. hasStop .or. hasReset .or. hasDump ) call rewriteControlFile(paramFile, no_of_lines)
+!        Broadcast the result to the rest of the processes
+!        -------------------------------------------------
+         if ( MPI_Process % DoMPIAction ) then
+#ifdef _HAS_MPI_
+            if ( reset ) then
+               rstInt = 1
+            else
+               rstInt = 0
+            end if
+
+            if ( dump ) then
+               dumpInt = 1
+            else
+               dumpInt = 0
+            end if
+
+            call mpi_bcast(rstInt, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+#endif
+         end if
+         
 
       end subroutine StatisticsMonitor_GetState
 

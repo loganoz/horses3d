@@ -29,6 +29,7 @@ MODULE HexMeshClass
          integer                                   :: numberOfFaces
          integer                                   :: nodeType
          integer                                   :: no_of_elements
+         integer                                   :: no_of_allElements
          integer      , dimension(:), allocatable  :: Ns              !Polynomial orders of all elements
          type(Node)   , dimension(:), allocatable  :: nodes
          type(Face)   , dimension(:), allocatable  :: faces
@@ -46,6 +47,7 @@ MODULE HexMeshClass
             procedure :: ProlongGradientsToFaces       => HexMesh_ProlongGradientsToFaces
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
             procedure :: UpdateMPIFacesGradients       => HexMesh_UpdateMPIFacesGradients
+            procedure :: PrepareForIO                  => HexMesh_PrepareForIO
             procedure :: Export                        => HexMesh_Export
             procedure :: SaveSolution                  => HexMesh_SaveSolution
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
@@ -956,6 +958,86 @@ slavecoord:                DO l = 1, 4
          end do
 #endif
       end subroutine HexMesh_UpdateMPIFacesGradients
+!
+!//////////////////////////////////////////////////////////////////////// 
+!
+      subroutine HexMesh_PrepareForIO(self)
+         use MPI_Process_Info
+#ifdef _HAS_MPI_
+         use mpi
+#endif
+         implicit none
+         class(HexMesh)    :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer              :: ierr, eID
+         integer, allocatable :: elementSizes(:)
+         integer, allocatable :: allElementSizes(:)
+         integer, allocatable :: allElementsOffset(:)
+!
+!        Get the total number of elements
+!        --------------------------------
+         if ( (MPI_Process % doMPIAction)) then
+#ifdef _HAS_MPI_
+            call mpi_allreduce(self % no_of_elements, self % no_of_allelements, &
+                               1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+         else
+            self % no_of_allElements = self % no_of_elements
+         
+         end if
+!
+!        Get each element size
+!        ---------------------
+         allocate(elementSizes(self % no_of_allElements))
+
+         elementSizes = 0     ! Default value 0 to use allreduce with SUM
+         do eID = 1, self % no_of_elements
+            associate(e => self % elements(eID))
+            elementSizes(e % globID) = product( e % Nxyz + 1)
+            end associate
+         end do
+!
+!        Gather the rest of the mesh values if it is a partition
+!        -------------------------------------------------------
+         allocate(allElementSizes(self % no_of_allElements))
+   
+         allElementSizes = 0
+         if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+            call mpi_allreduce(elementSizes, allElementSizes, &
+                               self % no_of_allElements, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+         else
+            allElementSizes = elementSizes
+         
+         end if
+!
+!        Get all elements offset: the accumulation of allElementSizes
+!        -----------------------
+         allocate(allElementsOffset(self % no_of_allElements))
+
+         allElementsOffset(1) = 0
+         do eID = 2, self % no_of_allElements
+            allElementsOffset(eID) = allElementsOffset(eID-1) + allElementSizes(eID-1)
+         end do
+!
+!        Assign the results to the elements
+!        ----------------------------------
+         do eID = 1, self % no_of_elements
+            associate(e => self % elements(eID))
+            e % offsetIO = allElementsOffset(e % globID)
+            end associate
+         end do  
+!
+!        Free memory
+!        -----------
+         deallocate(elementSizes, allElementSizes, allElementsOffset)
+   
+      end subroutine HexMesh_PrepareForIO
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -1004,7 +1086,6 @@ slavecoord:                DO l = 1, 4
       
 !     Describe the zones
 !     ------------------
-      
       write(STD_OUT,'(/)')
       call Section_Header("Creating zones")
       write(STD_OUT,'(/)')
@@ -1492,6 +1573,7 @@ slavecoord:                DO l = 1, 4
 !     ---------------------------
       subroutine HexMesh_Export(self, fileName)
          use SolutionFile
+         use MPI_Process_Info
          implicit none
          class(HexMesh),   intent(in)     :: self
          character(len=*), intent(in)     :: fileName
@@ -1500,7 +1582,7 @@ slavecoord:                DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer        :: fID, eID
+         integer        :: fID, eID, pos
          character(len=LINE_LENGTH)    :: meshName
          real(kind=RP), parameter      :: refs(NO_OF_SAVED_REFS) = 0.0_RP
          interface
@@ -1522,13 +1604,17 @@ slavecoord:                DO l = 1, 4
 !        Create file: it will be contained in ./MESH
 !        -------------------------------------------
          meshName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".hmesh"
-         call CreateNewSolutionFile( trim(meshName), MESH_FILE, self % nodeType, self % no_of_elements, 0, 0.0_RP, refs)
+         call CreateNewSolutionFile( trim(meshName), MESH_FILE, self % nodeType, &
+                                     self % no_of_allElements, 0, 0.0_RP, refs)
 !
 !        Introduce all element nodal coordinates
 !        ---------------------------------------
          fID = putSolutionFileInWriteDataMode(trim(meshName))
          do eID = 1, self % no_of_elements
-            call writeArray(fID, self % elements(eID) % geom % x)
+            associate(e => self % elements(eID))
+            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + 3*e % offsetIO*SIZEOF_RP
+            call writeArray(fID, e % geom % x, position=pos)
+            end associate
          end do
          close(fid)
 !
@@ -1540,6 +1626,7 @@ slavecoord:                DO l = 1, 4
 
       subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients)
          use SolutionFile
+         use MPI_Process_Info
          implicit none
          class(HexMesh),      intent(in)        :: self
          integer,             intent(in)        :: iter
@@ -1551,7 +1638,7 @@ slavecoord:                DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer  :: fid, eID
+         integer  :: fid, eID, pos, padding
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
 !
 !        Gather reference quantities
@@ -1566,9 +1653,13 @@ slavecoord:                DO l = 1, 4
 !        Create new file
 !        ---------------
          if ( saveGradients ) then
-            call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
+            call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
+                                       self % nodeType, self % no_of_allElements, iter, time, refs)
+            padding = NCONS*4
          else
-            call CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
+            call CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % nodeType, &
+                                       self % no_of_allElements, iter, time, refs)
+            padding = NCONS
          end if
 !
 !        Write arrays
@@ -1576,7 +1667,8 @@ slavecoord:                DO l = 1, 4
          fID = putSolutionFileInWriteDataMode(trim(name))
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
-            call writeArray(fid, e % storage % Q)
+            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
+            call writeArray(fid, e % storage % Q, position=pos)
             if ( saveGradients ) then
                write(fid) e % storage % U_x
                write(fid) e % storage % U_y
@@ -1585,7 +1677,9 @@ slavecoord:                DO l = 1, 4
             end associate
          end do
          close(fid)
-
+!
+!        Close the file
+!        --------------
          call SealSolutionFile(trim(name))
 
       end subroutine HexMesh_SaveSolution
@@ -1602,7 +1696,7 @@ slavecoord:                DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer  :: fid, eID
+         integer  :: fid, eID, pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
 !
 !        Gather reference quantities
@@ -1623,11 +1717,14 @@ slavecoord:                DO l = 1, 4
          fID = putSolutionFileInWriteDataMode(trim(name))
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
-            call writeArray(fid, e % storage % stats % data)
+            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + 9*e % offsetIO*SIZEOF_RP
+            call writeArray(fid, e % storage % stats % data, position=pos)
             end associate
          end do
          close(fid)
-
+!
+!        Close the file
+!        --------------
          call SealSolutionFile(trim(name))
 
       end subroutine HexMesh_SaveStatistics

@@ -37,7 +37,7 @@ module SolutionFile
    private
    public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE
    public      :: BEGINNING_DATA
-   public      :: SOLFILE_STR_LEN
+   public      :: SOLFILE_STR_LEN, POS_INIT_DATA
    public      :: NO_OF_SAVED_REFS, GAMMA_REF, RGAS_REF, V_REF, RHO_REF, T_REF, MACH_REF
 
    public      :: CreateNewSolutionFile, writeArray, SealSolutionFile, getSolutionFileType
@@ -92,6 +92,10 @@ module SolutionFile
 !           This function creates a new solution file and writes its header
 !        **********************************************************************
 !
+         use MPI_Process_Info
+#ifdef _HAS_MPI_
+         use mpi
+#endif
          implicit none
          character(len=*), intent(in)              :: name
          integer,          intent(in)              :: type_
@@ -105,59 +109,72 @@ module SolutionFile
 !        Local variables
 !        ---------------
 !
-         integer                          :: fID
+         integer                          :: fID, ierr
          character(len=SOLFILE_STR_LEN)   :: auxstr
 !
-!        Check consistency
-!        -----------------         
-         select case (type_)
-         case(MESH_FILE)
-         case(SOLUTION_FILE)
-         case(SOLUTION_AND_GRADIENTS_FILE)
-         case(STATS_FILE)
-         case default
-            print*, "Incorrect solution file type"
-            errorMessage(STD_OUT)
-            stop
-         end select
+!        Only root creates the file
+!        --------------------------
+         if ( MPI_Process % isRoot ) then
 !
-!        Open the file
-!        -------------
-         open(newunit=fID, file=trim(name), action="write", status="replace", form="unformatted", access = "stream") 
+!           Check consistency
+!           -----------------         
+            select case (type_)
+            case(MESH_FILE)
+            case(SOLUTION_FILE)
+            case(SOLUTION_AND_GRADIENTS_FILE)
+            case(STATS_FILE)
+            case default
+               print*, "Incorrect solution file type"
+               errorMessage(STD_OUT)
+               stop
+            end select
+!   
+!           Open the file
+!           -------------
+            open(newunit=fID, file=trim(name), action="write", &
+                 status="replace", form="unformatted", access = "stream") 
+!   
+!           Write the title
+!           ---------------
+            auxstr = name
+            write(fID, POS=POS_FILENAME) trim(auxstr)
+!   
+!           Write the type
+!           --------------
+            write(fID, POS=POS_FILETYPE) type_         
+!   
+!           Write the nodes type
+!           --------------------
+            write(fID, POS=POS_NODETYPE) nodes
+!   
+!           Write the number of elements
+!           ----------------------------
+            write(fID, POS=POS_NOOFELEMENTS) no_of_elements
+!   
+!           Save the current time and iteration
+!           -----------------------------------
+            write(fID, POS=POS_ITER) iter
+            write(fID, POS=POS_TIME) time
+!   
+!           Save refernence and gas data
+!           ----------------------------
+            write(fID, POS=POS_REFS) refs
+!   
+!           Introduce the terminator indicator
+!           ----------------------------------
+            write(fID, POS=POS_TERMINATOR) BEGINNING_DATA
+!   
+!           Close the file
+!           --------------
+            close(fid)
+
+         end if
 !
-!        Write the title
-!        ---------------
-         auxstr = name
-         write(fID, POS=POS_FILENAME) trim(auxstr)
-!
-!        Write the type
-!        --------------
-         write(fID, POS=POS_FILETYPE) type_         
-!
-!        Write the nodes type
-!        --------------------
-         write(fID, POS=POS_NODETYPE) nodes
-!
-!        Write the number of elements
-!        ----------------------------
-         write(fID, POS=POS_NOOFELEMENTS) no_of_elements
-!
-!        Save the current time and iteration
-!        -----------------------------------
-         write(fID, POS=POS_ITER) iter
-         write(fID, POS=POS_TIME) time
-!
-!        Save refernence and gas data
-!        ----------------------------
-         write(fID, POS=POS_REFS) refs
-!
-!        Introduce the terminator indicator
-!        ----------------------------------
-         write(fID, POS=POS_TERMINATOR) BEGINNING_DATA
-!
-!        Close the file
-!        --------------
-         close(fid)
+!        Introduce a barrier
+!        -------------------
+#ifdef _HAS_MPI_
+         call mpi_barrier(MPI_COMM_WORLD, ierr)
+#endif
 
       end subroutine CreateNewSolutionFile
 
@@ -168,14 +185,27 @@ module SolutionFile
 !        to mark when the data has finished
 !        **********************************************
 !
+         use MPI_Process_Info
+#ifdef _HAS_MPI_
+         use mpi
+#endif
          implicit none
          character(len=*), intent(in)              :: name
-         integer                                   :: pos, fid
-   
-         open(newunit=fID, file=trim(name), action="write", status="old", form="unformatted", access = "stream") 
-         inquire(unit=fid, size=pos) 
-         write(fID, pos=pos+1) END_OF_FILE
-         close(fID)
+         integer                                   :: pos, fid, ierr
+!
+!        Add a barrier to make sure that all processes have written their data
+!        ---------------------------------------------------------------------
+#ifdef _HAS_MPI_
+         call mpi_barrier(MPI_COMM_WORLD, ierr)
+#endif
+
+         if ( MPI_Process % isRoot ) then
+            open(newunit=fID, file=trim(name), action="write", status="old", &
+                 form="unformatted", access = "stream") 
+            inquire(unit=fid, size=pos) 
+            write(fID, pos=pos+1) END_OF_FILE
+            close(fID)
+         end if
 
       end subroutine SealSolutionFile
 
@@ -416,69 +446,118 @@ module SolutionFile
 !
 !/////////////////////////////////////////////////////////////////////
 !
-      subroutine Write0DArray(fID, array)
+      subroutine Write0DArray(fID, array, position)
          implicit none
          integer, intent(in)           :: fID
          real(kind=RP), intent(in)     :: array
+         integer, intent(in), optional :: position
 
-         write(fID) 0
-         write(fID) 1
-         write(fID) array
+         if ( present(position) ) then
+            write(fID, pos = position) 0
+            write(fID) 1
+            write(fID) array
+
+         else
+            write(fID) 0
+            write(fID) 1
+            write(fID) array
+
+         end if
 
       end subroutine Write0DArray
 
-      subroutine Write1DArray(fID,array)
+      subroutine Write1DArray(fID,array, position)
          implicit none
          integer, intent(in)           :: fID
          real(kind=RP), intent(in)     :: array(:)
+         integer, intent(in), optional :: position
 
-         write(fID) 1
-         write(fID) size(array,1)
-         write(fID) array
+         if ( present(position) ) then
+            write(fID) 1
+            write(fID) size(array,1)
+            write(fID) array
+   
+         else
+            write(fID) 1
+            write(fID) size(array,1)
+            write(fID) array
+         end if
 
       end subroutine Write1DArray
 
-      subroutine Write2DArray(fID,array)
+      subroutine Write2DArray(fID,array, position)
          implicit none
          integer, intent(in)           :: fID
          real(kind=RP), intent(in)     :: array(:,:)
+         integer, intent(in), optional :: position
 
-         write(fID) 2
-         write(fID) size(array,1), size(array,2)
-         write(fID) array
+         if ( present(position) ) then
+            write(fID, pos = position) 2
+            write(fID) size(array,1), size(array,2)
+            write(fID) array
+   
+         else
+            write(fID) 2
+            write(fID) size(array,1), size(array,2)
+            write(fID) array
+         end if
 
       end subroutine Write2DArray
 
-      subroutine Write3DArray(fID,array)
+      subroutine Write3DArray(fID,array, position)
          implicit none
          integer, intent(in)           :: fID
          real(kind=RP), intent(in)     :: array(:,:,:)
+         integer, intent(in), optional :: position
 
-         write(fID) 3
-         write(fID) size(array,1), size(array,2), size(array,3)
-         write(fID) array
+         if ( present(position) ) then
+            write(fID, pos = position) 3
+            write(fID) size(array,1), size(array,2), size(array,3)
+            write(fID) array
+   
+         else
+            write(fID) 3
+            write(fID) size(array,1), size(array,2), size(array,3)
+            write(fID) array
+         end if
 
       end subroutine Write3DArray
 
-      subroutine Write4DArray(fID,array)
+      subroutine Write4DArray(fID,array, position)
          implicit none
          integer, intent(in)           :: fID
          real(kind=RP), intent(in)     :: array(:,:,:,:)
+         integer, intent(in), optional :: position
 
-         write(fID) 4
-         write(fID) size(array,1), size(array,2), size(array,3), size(array,4)
-         write(fID) array
+         if ( present(position) ) then
+            write(fID, pos = position) 4
+            write(fID) size(array,1), size(array,2), size(array,3), size(array,4)
+            write(fID) array
+   
+         else
+            write(fID) 4
+            write(fID) size(array,1), size(array,2), size(array,3), size(array,4)
+            write(fID) array
+         end if
 
       end subroutine Write4DArray
 
-      subroutine Write5DArray(fID,array)
+      subroutine Write5DArray(fID,array, position)
          implicit none
          integer, intent(in)           :: fID
          real(kind=RP), intent(in)     :: array(:,:,:,:,:)
+         integer, intent(in), optional :: position
 
-         write(fID) 5
-         write(fID) size(array,1), size(array,2), size(array,3), size(array,4), size(array,5)
-         write(fID) array
+         if ( present(position) ) then
+            write(fID, pos = position) 5
+            write(fID) size(array,1), size(array,2), size(array,3), size(array,4), size(array,5)
+            write(fID) array
+   
+         else
+            write(fID) 5
+            write(fID) size(array,1), size(array,2), size(array,3), size(array,4), size(array,5)
+            write(fID) array
+         end if
 
       end subroutine Write5DArray
 !

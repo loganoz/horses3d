@@ -134,7 +134,10 @@ module ProbeClass
 !
 !        Return if the process does not contain the partition
 !        ----------------------------------------------------
-         if ( self % rank .ne. MPI_Process % rank ) return
+         if ( self % rank .ne. MPI_Process % rank ) then
+            self % eID = 1
+            return
+         end if
 !
 !        Get the Lagrange interpolants
 !        -----------------------------
