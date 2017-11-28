@@ -407,7 +407,7 @@
       dl_j = 0.0_RP
       do i = 1, self % noOfKnots(2)
          do j = 1, self % noOfKnots(2)
-            dl_j(i) = dl_j(i) + self % Du(j,i) * l_j(j)
+            dl_j(i) = dl_j(i) + self % Dv(j,i) * l_j(j)
          end do   
       end do
 !

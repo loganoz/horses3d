@@ -1759,6 +1759,7 @@ slavecoord:                DO l = 1, 4
 !        ---------------
 !
          INTEGER          :: fID, eID, fileType, no_of_elements, flag, nodetype
+         integer          :: padding, pos
          integer          :: Nxp1, Nyp1, Nzp1, no_of_eqs, array_rank
          character(len=SOLFILE_STR_LEN)      :: rstName
 !
@@ -1777,7 +1778,11 @@ slavecoord:                DO l = 1, 4
             stop
 
          case(SOLUTION_FILE)
+            padding = 1*NCONS
+
          case(SOLUTION_AND_GRADIENTS_FILE)
+            padding = 4*NCONS
+
          case(STATS_FILE)
             print*, "The selected restart file is a statistics file"
             errorMessage(STD_OUT)
@@ -1801,7 +1806,7 @@ slavecoord:                DO l = 1, 4
 !        ---------------------------
          no_of_elements = getSolutionFileNoOfElements(trim(fileName))
 
-         if ( no_of_elements .ne. size(self % elements) ) then
+         if ( no_of_elements .ne. self % no_of_allElements ) then
             write(STD_OUT,'(A,A)') "The number of elements stored in the restart file ", &
                                    "do not match that of the mesh file"
             errorMessage(STD_OUT)
@@ -1827,7 +1832,8 @@ slavecoord:                DO l = 1, 4
          fID = putSolutionFileInReadDataMode(trim(fileName))
          do eID = 1, size(self % elements)
             associate( e => self % elements(eID) )
-            read(fID) array_rank
+            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO*SIZEOF_RP
+            read(fID, pos=pos) array_rank
             read(fID) no_of_eqs, Nxp1, Nyp1, Nzp1
             if (      ((Nxp1-1) .ne. e % Nxyz(1)) &
                  .or. ((Nyp1-1) .ne. e % Nxyz(2)) &
@@ -1851,14 +1857,6 @@ slavecoord:                DO l = 1, 4
             end if
 
             read(fID) e % storage % Q 
-!
-!           Skip the gradients record if proceeds
-!           -------------------------------------   
-            if ( fileType .eq. SOLUTION_AND_GRADIENTS_FILE ) then
-               read(fID) e % storage % U_x
-               read(fID) e % storage % U_y
-               read(fID) e % storage % U_z
-            end if
             end associate
          end do
 !
