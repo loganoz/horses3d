@@ -18,6 +18,7 @@
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
+#include "Includes.h"
 module getTask
    use SMConstants
    use OutputVariables
@@ -81,7 +82,7 @@ module getTask
          meshFilePresent = .false.
          do i = 1, no_of_arguments
             call get_command_argument(i, meshName)
-            open(newunit=fid, file=trim(meshName), action="read", form="unformatted", iostat=io)
+            open(newunit=fid, file=trim(meshName), action="read", form="unformatted", access="stream", iostat=io)
             close(fid)
             if ( io .ne. 0 ) cycle
 
@@ -95,6 +96,7 @@ module getTask
 !        ------------------------------------
          if ( .not. meshFilePresent ) then
             write(STD_OUT,'(A)') "Mesh file was not specified"
+            errorMessage(STD_OUT)
             getTaskType = UNKNOWN_JOB
             return
          end if
@@ -107,7 +109,7 @@ module getTask
          no_of_solutions = 0
          do i = 1, no_of_arguments
             call get_command_argument(i, auxiliarName)
-            open(newunit=fid, file=trim(auxiliarName), action="read", form="unformatted", iostat=io)
+            open(newunit=fid, file=trim(auxiliarName), action="read", form="unformatted", access="stream", iostat=io)
             close(fid)
             if ( io .ne. 0 ) cycle
 
@@ -125,7 +127,7 @@ module getTask
             sol = 0
             do i = 1, no_of_arguments
                call get_command_argument(i, auxiliarName)
-               open(newunit=fid, file=trim(auxiliarName), action="read", form="unformatted", iostat=io)
+               open(newunit=fid, file=trim(auxiliarName), action="read", form="unformatted", access="stream", iostat=io)
                close(fid)
                if ( io .ne. 0 ) cycle
 

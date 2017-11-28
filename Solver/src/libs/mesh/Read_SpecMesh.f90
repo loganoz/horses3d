@@ -32,6 +32,7 @@ MODULE Read_SpecMesh
       SUBROUTINE ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, spA, Nx, Ny, Nz, success )
          USE Physics
          use PartitionedMeshClass
+         use MPI_Process_Info
          IMPLICIT NONE
 !
 !        ---------------
@@ -299,10 +300,16 @@ MODULE Read_SpecMesh
 !        ---------
 !
          CALL self % Describe( trim(fileName) )
-         
          self % Ns = Nx
-
-         call self % Export( trim(fileName) )
+!
+!        -------------------------------------------------------------
+!        Prepare mesh for I/O only if the code is running sequentially
+!        -------------------------------------------------------------
+!
+         if ( .not. MPI_Process % doMPIAction ) then
+            call self % PrepareForIO
+            call self % Export( trim(fileName) )
+         end if
          
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
 
@@ -677,11 +684,13 @@ MODULE Read_SpecMesh
 !        ---------
 !
          self % Ns = Nx
-
-         write(partitionName,'(A,A,I0,A)') trim(getFileName(trim(fileName))), ".", &
-                                           MPI_PRocess % rank, ".mesh"
-
-         call self % Export( trim(partitionName) )
+!
+!        --------------------
+!        Prepare mesh for I/O
+!        --------------------
+!
+         call self % PrepareForIO
+         call self % Export( trim(fileName) )
 
       END SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_
 
