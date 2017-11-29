@@ -3,7 +3,7 @@ module MPI_Face_Class
    implicit none
 
    private
-   public  MPI_Face_t, mpi_faces
+   public  MPI_Face_t, mpi_faces, MPI_Faces_Constructed
 
    public  ConstructMPIFaces, DestructMPIFaces
 
@@ -20,6 +20,7 @@ module MPI_Face_Class
          procedure   :: Destruct => MPI_Face_Destruct
    end type MPI_Face_t
 
+   logical                          :: MPI_Faces_Constructed = .false.
    type(MPI_Face_t), allocatable    :: mpi_faces(:)
 
    interface MPI_Face_t
@@ -45,6 +46,8 @@ module MPI_Face_Class
                mpi_faces(domain) = MPI_Face_t()
             end do
          end if
+
+         MPI_Faces_Constructed = .true.
 
       end subroutine ConstructMPIFaces
 

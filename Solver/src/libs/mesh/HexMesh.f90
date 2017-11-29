@@ -630,6 +630,8 @@ slavecoord:                DO l = 1, 4
 !//////////////////////////////////////////////////////////////////////// 
 !
       SUBROUTINE DeletePeriodicminusfaces(self) 
+      use MPI_Process_Info
+      use MPI_Face_Class
       IMPLICIT NONE  
 ! 
 !------------------------------------------------------------------- 
@@ -651,11 +653,13 @@ slavecoord:                DO l = 1, 4
 !     -------------------- 
 ! 
       TYPE(Face),ALLOCATABLE  :: dummy_faces(:)
-      INTEGER                 :: i
+      INTEGER                 :: i, domain
       INTEGER                 :: iFace, numberOfFaces
       character(len=LINE_LENGTH)    :: bName
+      integer                 :: newFaceID(self % numberOfFaces)
       
          
+      newFaceID = -1
       iFace = 0
       ALLOCATE( dummy_faces(self % numberOfFaces) )
       DO i = 1, self%numberOfFaces 
@@ -666,6 +670,7 @@ slavecoord:                DO l = 1, 4
             iFace = iFace + 1
             dummy_faces(iFace) = self%faces(i)
             dummy_faces(iFace) % ID = iFace
+            newFaceID(i) = iFace
          ENDIF 
       ENDDO
        
@@ -679,6 +684,16 @@ slavecoord:                DO l = 1, 4
       DO i = 1, self%numberOfFaces
          self%faces(i) = dummy_faces(i)
       ENDDO 
+!
+!     Update MPI face IDs
+!     -------------------
+      if ( (MPI_Process % doMPIAction) .and. MPI_Faces_Constructed ) then
+         do domain = 1, MPI_Process % nProcs
+            do iFace = 1, mpi_faces(domain) % no_of_faces
+               mpi_faces(domain) % faceIDs(iFace) = newFaceID(mpi_faces(domain) % faceIDs(iFace))
+            end do
+         end do
+      end if
 !
 !     Reassign zones
 !     -----------------
@@ -821,7 +836,7 @@ slavecoord:                DO l = 1, 4
          end do
 !
 !        ****************************
-!        Wait until messages are sent TODO: Delay this until necessary. Requires minor reorganiz.
+!        Wait until messages are sent 
 !        ****************************
 !
          do domain = 1, MPI_Process % nProcs
@@ -940,7 +955,7 @@ slavecoord:                DO l = 1, 4
          end do
 !
 !        ****************************
-!        Wait until messages are sent TODO: Delay this until necessary. Requires minor reorganiz.
+!        Wait until messages are sent 
 !        ****************************
 !
          do domain = 1, MPI_Process % nProcs

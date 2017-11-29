@@ -692,6 +692,9 @@ MODULE Read_SpecMesh
          call self % PrepareForIO
          call self % Export( trim(fileName) )
 
+         deallocate(globalToLocalNodeID)
+         deallocate(globalToLocalElementID)
+
       END SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_
 
 !
