@@ -63,6 +63,7 @@ module MeshPartitioning
 !        *******************************************
 !
          use IntegerDataLinkedList
+         use MPI_Process_Info
          implicit none
          type(HexMesh), intent(in)              :: mesh
          integer,       intent(in)              :: no_of_domains
@@ -87,6 +88,8 @@ module MeshPartitioning
 !
 !        Loop in elements and fill the domains
 !        -------------------------------------         
+#define PARTITIONTYPE 2
+#if PARTITIONTYPE==1
          do eID = 1, mesh % no_of_elements
             associate(e => mesh % elements(eID))
 !
@@ -120,6 +123,32 @@ module MeshPartitioning
             end do
             end associate           
          end do
+#elif PARTITIONTYPE==2
+         do eID = 1, mesh % no_of_elements
+            associate(e => mesh % elements(eID))
+!
+!           Get the centroid
+!           ----------------
+            xc = 0.0_RP
+            do nID = 1, 8
+               xc = xc + mesh % nodes(e % nodeIDs(nID)) % x
+            end do
+            xc = xc / 8.0_RP
+!
+!           Inquire to which domain it belongs (considers NProcs slices in the z direction)
+!           ----------------------------------
+            domain = floor(MPI_Process % nProcs * (xc(3))/(2.0_RP*PI)) + 1
+!
+!           Add elements and nodes to the domain linked list
+!           ------------------------------------------------
+            elementsDomain(eID) = domain
+            call elements(domain) % Add(eID)
+            do nID = 1, 8
+               call nodes(domain) % Add(e % nodeIDs(nID))
+            end do
+            end associate           
+         end do
+#endif
 !
 !        ----------------------------------
 !        Build the MeshPartition structures      

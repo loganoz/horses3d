@@ -641,7 +641,9 @@ Module DGSEMClass
 !        Update MPI Faces
 !        ----------------
 !
+!$omp single
          call self % mesh % UpdateMPIFacesSolution
+!$omp end single
 !
 !        -----------------
 !        Compute gradients
@@ -649,7 +651,9 @@ Module DGSEMClass
 !
          if ( flowIsNavierStokes ) then
             CALL DGSpatial_ComputeGradient( self % mesh , self % spA, time , self % externalState , self % externalGradients )
+!$omp single
             call self % mesh % UpdateMPIFacesGradients
+!$omp end single
          end if
 !
 !        -------------------------------------------------------
