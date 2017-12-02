@@ -34,6 +34,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME           = "roe"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RUSANOV_SOLVER_NAME       = "rusanov"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME = "lax friedrichs"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: DUCROS_SOLVER_NAME        = "ducros"
          
       END MODULE PhysicsKeywordsModule
 !
@@ -101,7 +102,7 @@
 !    Riemann solver associated quantities
 !    ------------------------------------
 !
-     INTEGER, PARAMETER :: ROE = 0, LXF = 1, RUSANOV = 2
+     INTEGER, PARAMETER :: ROE = 0, LXF = 1, RUSANOV = 2, DUCROS = 3
      INTEGER            :: riemannSolverChoice = ROE
 
      type(Thermodynamics_t), target, private :: ThermodynamicsAir = Thermodynamics_t( &
@@ -244,6 +245,8 @@
                riemannSolverChoice = LXF 
             CASE( RUSANOV_SOLVER_NAME )
                riemannSolverChoice = RUSANOV
+            CASE( DUCROS_SOLVER_NAME )
+               riemannSolverChoice = DUCROS
             CASE DEFAULT 
                PRINT *, "Unknown Riemann solver choice: ", TRIM(keyword), ". Defaulting to Roe"
                riemannSolverChoice = ROE
@@ -442,6 +445,8 @@
                CALL LxFSolver( QLeft, QRight, nHat, flux )
             CASE (RUSANOV)
                CALL RusanovSolver( QLeft, QRight, nHat, flux )               
+            CASE (DUCROS)
+               CALL DucrosSolver( QLeft, QRight, nHat, flux )               
             CASE DEFAULT
                PRINT *, "Undefined choice of Riemann Solver. Abort"
                STOP
@@ -733,6 +738,63 @@
          end associate
          
       END SUBROUTINE RusanovSolver           
+
+      subroutine DucrosSolver(QL, QR, nHat, flux) 
+         use SMConstants
+         use PhysicsStorage
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: invRhoL, uL, vL, wL, pL
+         real(kind=RP)     :: invRhoR, uR, vR, wR, pR
+         real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
+
+         invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
+         uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
+         vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
+         wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
+   
+         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+                                                                      + QL(IRHOV) * vL &
+                                                                      + QL(IRHOW) * wL ))
+
+         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+                                                                      + QR(IRHOV) * vR &
+                                                                      + QR(IRHOW) * wR ))
+!
+!        Compute the flux
+!        ----------------
+         f(IRHO)  = 0.25_RP * ( QL(IRHO) + QR(IRHO) ) * (uL + uR)
+         f(IRHOU) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * (uL + uR) + 0.5_RP * (pL + pR)
+         f(IRHOV) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * (uL + uR)
+         f(IRHOW) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * (uL + uR)
+         f(IRHOE) = 0.25_RP * ( QL(IRHOE) + pL + QR(IRHOE) + pR ) * (uL + uR)
+
+         g(IRHO)  = 0.25_RP * ( QL(IRHO) + QR(IRHO) ) * (vL + vR)
+         g(IRHOU) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * (vL + vR)
+         g(IRHOV) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * (vL + vR) + 0.5_RP * (pL + pR)
+         g(IRHOW) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * (vL + vR)
+         g(IRHOE) = 0.25_RP * ( QL(IRHOE) + pL + QR(IRHOE) + pR ) * (vL + vR)
+
+         h(IRHO)  = 0.25_RP * ( QL(IRHO) + QR(IRHO) ) * (wL + wR)
+         h(IRHOU) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * (wL + wR)
+         h(IRHOV) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * (wL + wR)
+         h(IRHOW) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * (wL + wR) + 0.5_RP * (pL + pR)
+         h(IRHOE) = 0.25_RP * ( QL(IRHOE) + pL + QR(IRHOE) + pR ) * (wL + wR)
+!
+!        Compute the sharp flux
+!        ----------------------         
+         flux = f*nHat(IX) + g*nHat(IY) + h*nHat(IZ)
+
+      end subroutine DucrosSolver
+ 
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
