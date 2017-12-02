@@ -300,6 +300,7 @@ MODULE Read_SpecMesh
 !        ---------
 !
          CALL self % Describe( trim(fileName) )
+         allocate(self % Ns(size(Nx)))
          self % Ns = Nx
 !
 !        -------------------------------------------------------------

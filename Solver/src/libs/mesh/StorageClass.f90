@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Fri Nov 17 17:06:56 2017
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 1d9aabda0f9afc37effa581bd01b46dcacacd9ae
+!   @Last revision date: Sat Dec  2 18:10:00 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 90b9aa71dc3757f026693a952bf80bda762e11af
 !
 !//////////////////////////////////////////////////////
 !
@@ -153,12 +153,10 @@ module StorageClass
          ALLOCATE( self % Q   (nEqn,0:Nf(1),0:Nf(2)) )
          allocate( self % fStar(nEqn, 0:Nel(1), 0:Nel(2)) )
          
-         IF ( flowIsNavierStokes )     THEN
-            ALLOCATE( self % U_x(nGradEqn,0:Nf(1),0:Nf(2)) )
-            ALLOCATE( self % U_y(nGradEqn,0:Nf(1),0:Nf(2)) )
-            ALLOCATE( self % U_z(nGradEqn,0:Nf(1),0:Nf(2)) )
-            ALLOCATE( self % unStar(nGradEqn,NDIM,0:Nel(1),0:Nel(2)) )
-         END IF
+         ALLOCATE( self % U_x(nGradEqn,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % U_y(nGradEqn,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % U_z(nGradEqn,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % unStar(nGradEqn,NDIM,0:Nel(1),0:Nel(2)) )
 !
 !        -----------------
 !        Initialize memory
@@ -167,12 +165,10 @@ module StorageClass
          self % Q           = 0.0_RP
          self % fStar       = 0.0_RP
       
-         IF ( flowIsNavierStokes )     THEN
-            self % U_x         = 0.0_RP
-            self % U_y         = 0.0_RP
-            self % U_z         = 0.0_RP
-            self % unStar      = 0.0_RP
-         END IF
+         self % U_x         = 0.0_RP
+         self % U_y         = 0.0_RP
+         self % U_z         = 0.0_RP
+         self % unStar      = 0.0_RP
 
       end subroutine FaceStorage_Construct
 

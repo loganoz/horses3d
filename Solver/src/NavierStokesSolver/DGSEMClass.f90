@@ -759,7 +759,7 @@ Module DGSEMClass
          END DO  
 !
 !        ---------------------------
-!        Return the flux to elements: The sign in eR % storage % FstarB has already been accouted.
+!        Return the flux to elements
 !        ---------------------------
 !
          call f % ProjectFluxToElements(flux, (/1,2/))

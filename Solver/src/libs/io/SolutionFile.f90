@@ -394,7 +394,7 @@ module SolutionFile
 !        Local variables
 !        ---------------
 !
-         integer :: fid
+         integer :: fid, flag
 !
 !        Open file
 !        ---------
@@ -404,7 +404,13 @@ module SolutionFile
 !
 !        Move to the INIT_DATA position
 !        ------------------------------
-         read(fid, pos=POS_INIT_DATA)
+         read(fid, pos=POS_TERMINATOR) flag
+      
+         if ( flag .ne. BEGINNING_DATA ) then
+            print*, "Wrong beginning data specifier"
+            errorMessage(STD_OUT)
+            stop
+         end if
 !
 !        Return the file ID
 !        ------------------
@@ -420,7 +426,7 @@ module SolutionFile
 !        Local variables
 !        ---------------
 !
-         integer :: fid
+         integer :: fid, flag
 !
 !        Open file
 !        ---------
@@ -430,7 +436,13 @@ module SolutionFile
 !
 !        Move to the INIT_DATA position
 !        ------------------------------
-         read(fid, pos=POS_INIT_DATA)
+         read(fid, pos=POS_TERMINATOR) flag
+
+         if ( flag .ne. BEGINNING_DATA ) then
+            print*, "Wrong beginning data specifier"
+            errorMessage(STD_OUT)
+            stop
+         end if
 !
 !        Return the file ID
 !        ------------------

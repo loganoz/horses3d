@@ -74,7 +74,7 @@ module SurfaceMonitorClass
          integer                          :: pos
          integer                          :: fID
          integer                          :: zoneID
-         real(kind=RP), allocatable       :: directionValue(:)
+         real(kind=RP)                    :: directionValue(NDIM)
          interface
             function getArrayFromString( line ) result ( array )
                use SMConstants
