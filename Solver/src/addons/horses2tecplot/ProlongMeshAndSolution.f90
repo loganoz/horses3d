@@ -13,6 +13,7 @@
 module ProlongMeshAndSolution
    use SMConstants
    use NodalStorageClass
+   use FacePatchClass
 
    private
    public   ProlongMeshToGaussPoints, ProlongSolutionToGaussPoints

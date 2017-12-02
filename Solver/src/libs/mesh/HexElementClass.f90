@@ -33,7 +33,10 @@
       USE NodalStorageClass
       use PhysicsStorage
       IMPLICIT NONE
-      
+
+      private
+      public   Element, axisMap, allocateElementStorage 
+      public   DestructElement, PrintElement, SetElementBoundaryNames
       
       TYPE Element
          integer                                        :: eID               ! ID of this element
@@ -123,7 +126,7 @@
          !--------------------------------------
          
          self % hexMap = hexMap
-         CALL ConstructMappedGeometry( self % geom, self % spAxi, self % spAeta, self % spAzeta, hexMap )
+         CALL self % geom % Construct( self % spAxi, self % spAeta, self % spAzeta, hexMap )
          
       end subroutine HexElement_ConstructGeometry
 !
@@ -159,7 +162,7 @@
          IMPLICIT NONE
          TYPE(Element) :: self
          
-         CALL DestructMappedGeometry( self % geom )
+         CALL self % geom % Destruct
          call self % Storage % Destruct   
          
          nullify( self % spAxi   )

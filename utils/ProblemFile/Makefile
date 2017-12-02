@@ -132,7 +132,7 @@ endif
 ##############################################################
 ##	Get objects 
 ##############################################################
-HORSES_LIBS=-lmonitors -ljacobian -lplot -lmesh -lphysics -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS=-lmonitors -ljacobian -lmesh -lphysics -lio -lspectral -lmpiutils -lfoundation -lftobject
 
 .DEFAULT_GOAL := all
 

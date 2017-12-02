@@ -159,6 +159,7 @@ end if
       subroutine BaseClass_ComputeInnerFluxes( self , e , contravariantFlux )
          use ElementClass
          use Physics
+         use PhysicsStorage
          implicit none
          class(InviscidMethod_t), intent(in)  :: self
          type(Element),           intent(in)  :: e

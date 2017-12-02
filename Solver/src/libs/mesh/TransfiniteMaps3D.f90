@@ -44,6 +44,9 @@
       USE SMConstants
       USE FacePatchClass
       IMPLICIT NONE
+
+      private
+      public TransfiniteHexMap
       
       TYPE TransfiniteHexMap
          REAL(KIND=RP)  , DIMENSION(3,8)              :: corners

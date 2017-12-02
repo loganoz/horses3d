@@ -15,6 +15,17 @@
 !     Constants
 !     ---------
 !
+      private
+      public   HMESH_NONE, HMESH_UNDEFINED, HMESH_INTERIOR
+      public   HMESH_BOUNDARY, HMESH_MPI, emptyBCName
+      public   EFRONT, EBACK, EBOTTOM, ERIGHT, ETOP, ELEFT
+   
+      public iijjIndexes, coordRotation
+
+      integer, parameter :: EFRONT = 1, EBACK = 2, EBOTTOM = 3
+      integer, parameter :: ERIGHT = 4, ETOP = 5, ELEFT = 6
+
+   
       integer, parameter :: HMESH_NONE      = 0       ! Not constructed
       integer, parameter :: HMESH_UNDEFINED = -1      ! Constructed but undefined
       integer, parameter :: HMESH_INTERIOR  = 1       ! Interior face

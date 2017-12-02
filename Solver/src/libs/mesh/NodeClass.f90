@@ -16,6 +16,9 @@
       USE SMConstants
       USE MeshTypes
       IMPLICIT NONE 
+
+      private
+      public Node, ConstructNode, DestructNode, PrintNode
 !
 !     ---------------
 !     Node definition

@@ -28,6 +28,7 @@ Module DGSEMClass
    USE SpatialDiscretization
    USE ManufacturedSolutions
    use MonitorsClass
+   use Physics
    
    IMPLICIT NONE
    
@@ -718,6 +719,7 @@ Module DGSEMClass
 ! 
       SUBROUTINE computeElementInterfaceFlux(f)
          use FaceClass
+         use Physics
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j

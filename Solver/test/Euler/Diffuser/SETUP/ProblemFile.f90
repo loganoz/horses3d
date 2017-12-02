@@ -53,7 +53,7 @@
 !           ----------------------------------------------------------------------
 !
             USE HexMeshClass
-            USE Physics
+            USE PhysicsStorage
             USE UserDefinedDataStorage
             IMPLICIT NONE
 !
@@ -129,7 +129,7 @@
                                                                      refValues_  )
                   USE UserDefinedDataStorage
                   USE SMConstants
-                  USE Physics
+                  USE PhysicsStorage
                   IMPLICIT NONE  
                   REAL(KIND=RP) :: x(3)
                   REAL(KIND=RP) :: Q(N_EQN)
@@ -179,7 +179,7 @@
                                                                      refValues_  )
                   USE UserDefinedDataStorage
                   USE SMConstants
-                  USE Physics
+                  USE PhysicsStorage
                   IMPLICIT NONE  
                   REAL(KIND=RP) :: x(3)
                   REAL(KIND=RP) :: Q(N_EQN)
@@ -301,7 +301,7 @@
                                                                      refValues_  )
                   USE UserDefinedDataStorage
                   USE SMConstants
-                  USE Physics
+                  USE PhysicsStorage
                   IMPLICIT NONE  
                   REAL(KIND=RP) :: x(3)
                   REAL(KIND=RP) :: Q(N_EQN)
@@ -402,7 +402,7 @@
                                                          refValues_  )
       USE UserDefinedDataStorage
       USE SMConstants
-      USE Physics
+      USE PhysicsStorage
       IMPLICIT NONE  
 !
 !           ---------

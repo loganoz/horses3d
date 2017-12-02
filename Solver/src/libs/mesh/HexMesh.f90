@@ -10,15 +10,18 @@
 !
 #include "Includes.h"
 MODULE HexMeshClass
+      use SMConstants
       USE MeshTypes
       USE NodeClass
       USE ElementClass
       USE FaceClass
+      use FacePatchClass
       USE TransfiniteMapClass
       use SharedBCModule
       use ElementConnectivityDefinitions
       use ZoneClass
       use PhysicsStorage
+      use NodalStorageClass
       IMPLICIT NONE
 !
 !     ---------------

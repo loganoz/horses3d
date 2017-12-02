@@ -49,7 +49,15 @@
      
      IMPLICIT NONE
 
-     SAVE
+     private
+     public    flowIsNavierStokes, N_EQN, N_GRAD_EQN, NDIM, IX, IY, IZ
+     public    NCONS, IRHO, IRHOU, IRHOV, IRHOW, IRHOE, IGU, IGV, IGW, IGT
+     public    TScale, TRatio, ROE, LXF, RUSANOV, DUCROS, riemannSolverChoice
+     public    Thermodynamics, RefValues, Dimensionless
+     public    Thermodynamics_t, RefValues_t, Dimensionless_t
+
+     public    ConstructPhysicsStorage, DestructPhysicsStorage, DescribePhysicsStorage
+     public    CheckPhysicsInputIntegrity
 !
 !    ----------------------------
 !    Either NavierStokes or Euler
@@ -395,6 +403,11 @@
       USE SMConstants
       USE PhysicsStorage
       IMPLICIT NONE
+
+      private
+      public  RiemannSolver, InviscidFlux, ViscousFlux, GradientValuesForQ 
+      public  InviscidJacobian
+      public  GetStressTensor, Temperature, Pressure
 !
 !     ---------
 !     Constants

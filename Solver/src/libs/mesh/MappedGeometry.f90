@@ -23,14 +23,14 @@ Module MappedGeometryClass
    USE NodalStorageClass
    use MeshTypes
    IMPLICIT NONE
+
+      private
+      public MappedGeometry, MappedGeometryFace
 !
 !     ---------
 !     Constants
 !     ---------
 !
-      integer, parameter :: EFRONT = 1, EBACK = 2, EBOTTOM = 3
-      integer, parameter :: ERIGHT = 4, ETOP = 5, ELEFT = 6
-
       LOGICAL       :: useCrossProductMetrics = .false.
 !
 !     -----
