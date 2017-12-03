@@ -3,6 +3,10 @@ module ReadMeshFile
    use Read_SpecMesh
    use HexMeshClass
    implicit none
+
+   private
+   public constructMeshFromFile, NumOfElemsFromMeshFile
+
 contains
    subroutine constructMeshFromFile( self, fileName, nodes, spA, Nx, Ny, Nz, MeshInnerCurves , success )
       implicit none

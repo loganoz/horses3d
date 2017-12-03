@@ -15,6 +15,12 @@ MODULE ManufacturedSolutions
    USE Physics
    IMPLICIT NONE
 
+   private
+   public   InitializeManufacturedSol, ManufacturedSolP
+   public   ManufacturedSolutionState, ManufacturedSolutionDeriv
+   public   ManufacturedSolutionSourceEuler
+   public   ManufacturedSolutionSourceNS
+
    REAL(KIND=RP), DIMENSION(7) :: rC, uC, vC, wC, pC
 
 !========

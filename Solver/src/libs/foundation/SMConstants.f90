@@ -24,7 +24,7 @@
          INTEGER      , PARAMETER         :: CP = SELECTED_REAL_KIND( DIGITS )        ! Complex Kind
          REAL(KIND=RP), PARAMETER         :: PI = 3.141592653589793238462643_RP
 
-         character(len=1), parameter      :: SINGLE_CHARACTER = "a"
+         character(len=1), parameter, private   :: SINGLE_CHARACTER = "a"
          integer      , parameter         :: SIZEOF_INT  = sizeof(integer)
          integer      , parameter         :: SIZEOF_RP   = RP
          integer      , parameter         :: SIZEOF_CHAR = sizeof(SINGLE_CHARACTER)

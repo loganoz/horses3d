@@ -1,4 +1,8 @@
 module DGViscousDiscretization
+   use SMConstants
+   use MeshTypes
+   use Physics
+   use PhysicsStorage
    implicit none
 !
 !

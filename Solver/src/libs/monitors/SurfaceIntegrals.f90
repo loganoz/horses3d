@@ -53,7 +53,7 @@ module SurfaceIntegrals
 !        ---------------
 !
          integer  :: zonefID, fID, eID, fIDs(6), ierr 
-         class(Element), pointer    :: e
+         class(Element), pointer    :: elements(:)
 !
 !        Initialization
 !        --------------            
@@ -61,7 +61,8 @@ module SurfaceIntegrals
 !
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
-!$omp parallel private(e,fID, eID, fIDs) shared(mesh,spA,zoneID,integralType,val,&
+         elements => mesh % elements
+!$omp parallel private(fID, eID, fIDs) shared(elements,mesh,spA,zoneID,integralType,val,&
 !$omp&                                          flowIsNavierStokes)
 !$omp single
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
@@ -70,16 +71,15 @@ module SurfaceIntegrals
             eID = mesh % faces(fID) % elementIDs(1)
             fIDs = mesh % elements(eID) % faceIDs
 
-            e => mesh % elements(eID)
-!$omp task depend(inout:e)
-            call mesh % elements(eID) % ProlongSolutionToFaces(mesh % faces(fIDs(1)),&
+!$omp task depend(inout:elements(eID))
+            call elements(eID) % ProlongSolutionToFaces(mesh % faces(fIDs(1)),&
                                             mesh % faces(fIDs(2)),&
                                             mesh % faces(fIDs(3)),&
                                             mesh % faces(fIDs(4)),&
                                             mesh % faces(fIDs(5)),&
                                             mesh % faces(fIDs(6)) )
             if ( flowIsNavierStokes ) then
-               call mesh % elements(eID) % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+               call elements(eID) % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
                                                 mesh % faces(fIDs(2)),&
                                                 mesh % faces(fIDs(3)),&
                                                 mesh % faces(fIDs(4)),&
@@ -238,7 +238,7 @@ module SurfaceIntegrals
 !        ---------------
 !
          integer  :: zonefID, fID, eID, fIDs(6), ierr
-         class(Element), pointer  :: e
+         class(Element), pointer  :: elements(:)
 !
 !        Initialization
 !        --------------            
@@ -251,7 +251,8 @@ module SurfaceIntegrals
 !        Perform the interpolation
 !        *************************
 !
-!$omp parallel private(e,fID, eID, fIDs, localVal) shared(mesh,spA,zoneID,integralType,val,&
+         elements => mesh % elements
+!$omp parallel private(fID, eID, fIDs, localVal) shared(elements,mesh,spA,zoneID,integralType,val,&
 !$omp&                                        valx,valy,valz,flowIsNavierStokes)
 !$omp single
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
@@ -260,16 +261,15 @@ module SurfaceIntegrals
             eID = mesh % faces(fID) % elementIDs(1)
             fIDs = mesh % elements(eID) % faceIDs
 
-            e => mesh % elements(eID)
-!$omp task depend(inout:e)
-            call mesh % elements(eID) % ProlongSolutionToFaces(mesh % faces(fIDs(1)),&
+!$omp task depend(inout:elements(eID))
+            call elements(eID) % ProlongSolutionToFaces(mesh % faces(fIDs(1)),&
                                             mesh % faces(fIDs(2)),&
                                             mesh % faces(fIDs(3)),&
                                             mesh % faces(fIDs(4)),&
                                             mesh % faces(fIDs(5)),&
                                             mesh % faces(fIDs(6)) )
             if ( flowIsNavierStokes ) then
-               call mesh % elements(eID) % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+               call elements(eID) % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
                                                 mesh % faces(fIDs(2)),&
                                                 mesh % faces(fIDs(3)),&
                                                 mesh % faces(fIDs(4)),&

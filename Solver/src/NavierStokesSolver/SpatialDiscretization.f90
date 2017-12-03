@@ -16,6 +16,7 @@ module SpatialDiscretization
       use DGInviscidDiscretization
       use DGViscousDiscretization
       use DGWeakIntegrals
+      use MeshTypes
 !
 !     ========      
       CONTAINS 

@@ -10,6 +10,9 @@
 MODULE DenseMatUtilities
    USE SMConstants
    IMPLICIT NONE
+
+   private
+   public inverse, Mat2File
 !========
  CONTAINS
 !========

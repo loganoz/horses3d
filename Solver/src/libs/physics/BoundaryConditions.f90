@@ -63,6 +63,21 @@
          USE Physics
          USE SharedBCModule
          USE ManufacturedSolutions
+         use PhysicsStorage
+
+         private
+
+         public implementedBCNames
+
+         public FreeSlipWallState, NoSlipAdiabaticWallState
+         public NoSlipIsothermalWallState, ExternalPressure
+         public ExternalPressureState, ManufacturedSolutionState
+         public ManufacturedSolP, UserDefinedState
+         public UniformFlowState 
+   
+         public FreeSlipNeumann, NoSlipAdiabaticWallNeumann, NoSlipIsothermalWallNeumann
+         public ManufacturedSolutionDeriv, UserDefinedNeumann
+         public UniformFlowNeumann
 
          CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(11) :: implementedBCNames = &
                ["freeslipwall        ", &
@@ -593,7 +608,9 @@
 !     setting the external state for each boundary.
 !     ----------------------------------------------
 !
+      use SMConstants
       USE BoundaryConditionFunctions
+      use PhysicsStorage
       
       IMPLICIT NONE
 !
@@ -643,7 +660,9 @@
 !     setting the external gradients on each boundary.
 !     ------------------------------------------------
 !
+      use SMConstants
       USE BoundaryConditionFunctions
+      use PhysicsStorage
       IMPLICIT NONE
 !
 !     ---------
@@ -675,7 +694,7 @@
       ELSE IF ( boundaryType == "MSOutflowSpecifyP" )     THEN 
          CALL ManufacturedSolutionDeriv( x, t, nHat, U_x, U_y, U_z )
       ELSE IF ( boundaryType == "User-defined" ) THEN
-         CALL UserDefinedNeumann(x, t, nHat, U_x, U_y, U_z)
+         CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
       ELSE
          CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
       END IF

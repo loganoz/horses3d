@@ -19,6 +19,7 @@ program ExtractGeometry
    use FTValueDictionaryClass
    use getInputData_MOD
    use GeometryClass
+   use MPI_Process_Info
    implicit none
    character(len=LINE_LENGTH)      :: meshFile
    character(len=LINE_LENGTH)      :: solutionFile
@@ -26,6 +27,10 @@ program ExtractGeometry
    type(HexMesh)                   :: mesh
    type(FTValueDictionary)         :: controlVariables
    class(Geometry_t), pointer      :: geometry
+!
+!  Init MPI
+!  --------
+   call MPI_Process % Init
 !
 !  Display header
 !  --------------
@@ -49,6 +54,10 @@ program ExtractGeometry
 !  Get new points coordinates and elements
 !  ---------------------------------------
    call geometry % Compute(mesh, spA)
+!
+!  Close MPI
+!  ---------
+   call MPI_Process % Close
 
 
 end program ExtractGeometry

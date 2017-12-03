@@ -394,7 +394,7 @@ module SolutionFile
 !        Local variables
 !        ---------------
 !
-         integer :: fid
+         integer :: fid, flag
 !
 !        Open file
 !        ---------
@@ -404,7 +404,13 @@ module SolutionFile
 !
 !        Move to the INIT_DATA position
 !        ------------------------------
-         read(fid, pos=POS_INIT_DATA)
+         read(fid, pos=POS_TERMINATOR) flag
+      
+         if ( flag .ne. BEGINNING_DATA ) then
+            print*, "Wrong beginning data specifier"
+            errorMessage(STD_OUT)
+            stop
+         end if
 !
 !        Return the file ID
 !        ------------------
@@ -420,7 +426,7 @@ module SolutionFile
 !        Local variables
 !        ---------------
 !
-         integer :: fid
+         integer :: fid, flag
 !
 !        Open file
 !        ---------
@@ -430,7 +436,13 @@ module SolutionFile
 !
 !        Move to the INIT_DATA position
 !        ------------------------------
-         read(fid, pos=POS_INIT_DATA)
+         read(fid, pos=POS_TERMINATOR) flag
+
+         if ( flag .ne. BEGINNING_DATA ) then
+            print*, "Wrong beginning data specifier"
+            errorMessage(STD_OUT)
+            stop
+         end if
 !
 !        Return the file ID
 !        ------------------
@@ -568,10 +580,11 @@ module SolutionFile
 !
 !//////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine getSolutionFileArrayDimensions(fid,N)
+      subroutine getSolutionFileArrayDimensions(fid,N,pos)
          implicit none
-         integer, intent(in)     :: fid
-         integer, intent(out)    :: N(:)
+         integer, intent(in)           :: fid
+         integer, intent(out)          :: N(:)
+         integer, intent(in), optional :: pos
 !
 !        ---------------
 !        Local variables
@@ -579,7 +592,13 @@ module SolutionFile
 !
          integer     :: arrayDimension
 
-         read(fid) arrayDimension
+         if ( present(pos) ) then
+            read(fid, pos=pos) arrayDimension
+   
+         else
+            read(fid) arrayDimension
+
+         end if
 
          if ( size(N) .ne. arrayDimension) then
             print*, "Array found in file dimensions does not match that of the introduced variable."

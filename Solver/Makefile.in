@@ -148,8 +148,8 @@ endif
 ##########################################
 ##  	Select HORSES libraries 	##
 ##########################################
-HORSES_LIBS=ftobject foundation mpiutils spectral io physics mesh plot jacobian monitors
-HORSES_LIBS_REORD=monitors jacobian plot mesh physics io spectral mpiutils foundation ftobject
+HORSES_LIBS=ftobject foundation mpiutils spectral io physics mesh jacobian monitors
+HORSES_LIBS_REORD=monitors jacobian mesh physics io spectral mpiutils foundation ftobject
 HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS_REORD),$(HOME_DIR)/lib/lib$(obj).a)
 ADDONS=horses2tecplot extractgeometry
 INCLUDE += $(EXTLIB_INC)

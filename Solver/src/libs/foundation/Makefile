@@ -15,7 +15,6 @@ LIBOBJS = 	./build/SMConstants.o \
 		./build/Stopwatch.o \
 		./build/Utilities.o \
 		./build/IntegerDataLinkedList.o \
-		./build/FTTimerClass.o \
 		./build/DenseMatUtilities.o \
 		./build/SharedBCModule.o \
 		./build/Setup.o \

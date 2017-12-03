@@ -101,7 +101,9 @@
 !    ------------------------------------
 !
      INTEGER, PARAMETER :: ROE = 0, LXF = 1, RUSANOV = 2
+     integer, parameter :: MORINISHI = 3, DUCROS = 4, PIROZZOLI = 5, KENNEDYGRUBER = 6
      INTEGER            :: riemannSolverChoice = ROE
+     real(kind=RP)      :: lambdaStab = 0.0_RP
 
      type(Thermodynamics_t), target, private :: ThermodynamicsAir = Thermodynamics_t( &
                                                               "Air", & ! Name

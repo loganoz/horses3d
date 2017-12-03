@@ -53,7 +53,7 @@ module ProbeClass
          character(len=STR_LEN_MONITORS)  :: fileName
          character(len=STR_LEN_MONITORS)  :: paramFile
          character(len=STR_LEN_MONITORS)  :: coordinates
-         real(kind=RP), allocatable       :: x(:)
+         real(kind=RP)                    :: x(NDIM)
          interface
             function getArrayFromString( line ) result ( array )
                use SMConstants

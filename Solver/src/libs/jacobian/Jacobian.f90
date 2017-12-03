@@ -16,6 +16,8 @@ USE HexMeshClass
 USE PhysicsStorage 
 IMPLICIT NONE 
 
+   private
+   public Look_for_neighbour, ijk2local, local2ijk
 !
 !-------------------------------------------------------------------
 ! This module contains subroutines to calculate and print the 

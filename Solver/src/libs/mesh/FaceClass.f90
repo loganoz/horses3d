@@ -21,6 +21,7 @@
       use MappedGeometryClass
       use StorageClass
       use PhysicsStorage
+      use NodalStorageClass
       IMPLICIT NONE 
 
       private

@@ -55,6 +55,7 @@ module DGInviscidDiscretization
          use mainKeywordsModule
          use Headers
          use MPI_Process_Info
+         use PhysicsStorage
          implicit none
          class(InviscidMethod_t) :: self
          class(FTValueDictionary),  intent(in)   :: controlVariables
@@ -146,6 +147,32 @@ if (MPI_Process % isRoot ) then
 
             end select
          end select
+
+         select case (riemannSolverChoice)
+         case (ROE)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe"
+
+         case (LXF)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
+
+         case (RUSANOV)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Rusanov"
+
+         case (DUCROS)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Ducros"
+
+         case (MORINISHI)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Morinishi"
+
+         case (KENNEDYGRUBER)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Kennedy-Gruber"
+
+         case (PIROZZOLI)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Pirozzoli"
+
+         end select
+
+         write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
 end if
 
       end subroutine InitializeInviscidMethod
@@ -159,6 +186,7 @@ end if
       subroutine BaseClass_ComputeInnerFluxes( self , e , contravariantFlux )
          use ElementClass
          use Physics
+         use PhysicsStorage
          implicit none
          class(InviscidMethod_t), intent(in)  :: self
          type(Element),           intent(in)  :: e

@@ -19,7 +19,6 @@
       SUBROUTINE readMeshFilewithName(meshfileName)
          USE FTAssertions
          USE HexMeshClass 
-         USE DGSEMPlotterClass
          USE NodalStorageClass
          use ReadMeshFile
          IMPLICIT NONE  

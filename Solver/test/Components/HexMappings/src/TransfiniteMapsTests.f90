@@ -13,6 +13,7 @@
          USE FTAssertions  
          USE SMConstants
          USE TransfiniteMapClass
+         use FacePatchClass
          IMPLICIT NONE
 !
 !        ---------------
@@ -104,6 +105,7 @@
          USE FTAssertions  
          USE SMConstants
          USE TransfiniteMapClass
+         use FacePatchClass
          IMPLICIT NONE
 !
 !        ---------------
@@ -290,6 +292,7 @@
          USE FTAssertions  
          USE SMConstants
          USE TransfiniteMapClass
+         use FacePatchClass
          IMPLICIT NONE
 !
 !        ---------------
@@ -394,6 +397,7 @@
          USE FTAssertions  
          USE SMConstants
          USE TransfiniteMapClass
+         use FacePatchClass
          IMPLICIT NONE
 !
 !        ---------------
@@ -594,6 +598,7 @@
          USE FTAssertions  
          USE SMConstants
          USE TransfiniteMapClass
+         use FacePatchClass
          IMPLICIT NONE
 !
 !        ---------------
@@ -688,6 +693,7 @@
          USE FTAssertions  
          USE SMConstants
          USE TransfiniteMapClass
+         use FacePatchClass
          IMPLICIT NONE
 !
 !        ---------------
@@ -838,6 +844,7 @@
          USE FTAssertions  
          USE SMConstants
          USE TransfiniteMapClass
+         use FacePatchClass
          IMPLICIT NONE
 !
 !        ---------------
@@ -1020,6 +1027,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
       SUBROUTINE plotWithMapper(mapper, fName)
+         USE SMConstants
          USE TransfiniteMapClass
          IMPLICIT NONE
 !

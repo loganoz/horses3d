@@ -10,15 +10,18 @@
 !
 #include "Includes.h"
 MODULE HexMeshClass
+      use SMConstants
       USE MeshTypes
       USE NodeClass
       USE ElementClass
       USE FaceClass
+      use FacePatchClass
       USE TransfiniteMapClass
       use SharedBCModule
       use ElementConnectivityDefinitions
       use ZoneClass
       use PhysicsStorage
+      use NodalStorageClass
       IMPLICIT NONE
 !
 !     ---------------
@@ -121,6 +124,7 @@ MODULE HexMeshClass
 !        -----
 !
          if (allocated(self % zones)) DEALLOCATE( self % zones )
+         safedeallocate(self % Ns)
 
          
       END SUBROUTINE DestructMesh
@@ -1191,7 +1195,6 @@ slavecoord:                DO l = 1, 4
          do fID = 1, size(self % faces)
             associate(f => self % faces(fID))
             select case (f % faceType)
-
             case (HMESH_INTERIOR)
                associate(eL => self % elements(f % elementIDs(1)), &
                          eR => self % elements(f % elementIDs(2))   )

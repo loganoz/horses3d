@@ -11,7 +11,6 @@
          USE FTAssertions
          USE SMConstants
          USE HexMeshClass 
-         USE DGSEMPlotterClass
          USE SharedBCModule
          use ReadMeshFile
          IMPLICIT NONE
@@ -232,7 +231,6 @@
          USE FTAssertions
          USE SMConstants
          USE HexMeshClass 
-         USE DGSEMPlotterClass
          use ReadMeshFile
          IMPLICIT NONE
          

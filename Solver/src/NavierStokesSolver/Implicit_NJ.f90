@@ -14,6 +14,7 @@ MODULE Implicit_NJ
    USE DGSEMClass,                  ONLY: DGSem, ComputeTimeDerivative
    USE ElementClass,                ONLY: Element, allocateElementStorage    !arueda: No DGSolutionStorage implemented in nslite3d... Using whole element definitions
    USE PhysicsStorage,              ONLY: N_EQN, N_GRAD_EQN, flowIsNavierStokes
+   use HexMeshClass
    USE Jacobian
    USE ColorsClass,                 ONLY: Colors
    USE LinearSolverClass

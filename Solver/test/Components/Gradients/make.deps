@@ -1,8 +1,6 @@
 # --------------- Dependencies 
 NSLite3DMain: TimeIntegrator \
 HexMesh \
-Plotter \
-FTTimerClass \
 SharedBCModule \
 BoundaryConditions \
 ReadInputFile \
@@ -12,7 +10,6 @@ pAdaptationClass
 
 FileReading: SMConstants
 Utilities: SMConstants
-Plotter: NodalStorageClass HexElementClass PlotterDataSource 
 TimerClass: SMConstants
 LegendreAlgorithms: SMConstants 
 Headers: SMConstants process_info
@@ -41,9 +38,8 @@ Read_SpecMesh: HexMesh SMConstants TransfiniteMaps3D FacePatchClass
 MeshPartitioning: IntegerDataLinkedList
 IntegerDataLinkedList: Utilities
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
-TimeIntegrator: Physics Plotter SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass Monitors
+TimeIntegrator: Physics SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass Monitors
 ExplicitMethods: SMConstants DGSEMClass
-PlotterDataSource: SMConstants 
 GradientSetup: DGSEMClass
 ReadInputFile: SMConstants SharedBCModule Physics Setup
 Jacobian: SMConstants DGSEMClass Physics

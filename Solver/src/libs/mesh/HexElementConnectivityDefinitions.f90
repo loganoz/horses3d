@@ -28,7 +28,11 @@
       USE SMConstants
       
       IMPLICIT NONE
-      SAVE
+
+      private
+      public   NODES_PER_FACE, NODES_PER_ELEMENT, FACES_PER_ELEMENT, EDGES_PER_ELEMENT
+      public   localFaceNode, localEdgeNode, sideMap
+
       INTEGER, PARAMETER :: NODES_PER_FACE    = 4
       INTEGER, PARAMETER :: NODES_PER_ELEMENT = 8
       INTEGER, PARAMETER :: FACES_PER_ELEMENT = 6
