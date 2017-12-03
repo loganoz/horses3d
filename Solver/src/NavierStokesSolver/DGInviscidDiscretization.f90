@@ -161,6 +161,15 @@ if (MPI_Process % isRoot ) then
          case (DUCROS)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Ducros"
 
+         case (MORINISHI)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Morinishi"
+
+         case (KENNEDYGRUBER)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Kennedy-Gruber"
+
+         case (PIROZZOLI)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Pirozzoli"
+
          end select
 
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
