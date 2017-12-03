@@ -28,6 +28,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY               = "aoa phi"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY        = "flow equations"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY   = "riemann solver"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAMBDA_STABILIZATION_KEY  = "lambda stabilization"
          
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physicsKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
          
@@ -50,11 +51,15 @@
      IMPLICIT NONE
 
      private
-     public    flowIsNavierStokes, N_EQN, N_GRAD_EQN, NDIM, IX, IY, IZ
-     public    NCONS, IRHO, IRHOU, IRHOV, IRHOW, IRHOE, IGU, IGV, IGW, IGT
-     public    TScale, TRatio, ROE, LXF, RUSANOV, DUCROS, riemannSolverChoice
-     public    Thermodynamics, RefValues, Dimensionless
-     public    Thermodynamics_t, RefValues_t, Dimensionless_t
+     public :: flowIsNavierStokes, N_EQN, N_GRAD_EQN, NDIM, IX, IY, IZ
+     public :: NCONS, IRHO, IRHOU, IRHOV, IRHOW, IRHOE, IGU, IGV, IGW, IGT
+     public :: TScale, TRatio, ROE, LXF, RUSANOV, DUCROS, riemannSolverChoice
+     public :: Thermodynamics, RefValues, Dimensionless
+     public :: Thermodynamics_t, RefValues_t, Dimensionless_t
+     public :: lambdaStab
+
+     protected :: flowIsNavierStokes, riemannSolverChoice, lambdaStab
+         
 
      public    ConstructPhysicsStorage, DestructPhysicsStorage, DescribePhysicsStorage
      public    CheckPhysicsInputIntegrity
@@ -112,6 +117,7 @@
 !
      INTEGER, PARAMETER :: ROE = 0, LXF = 1, RUSANOV = 2, DUCROS = 3
      INTEGER            :: riemannSolverChoice = ROE
+     real(kind=RP)      :: lambdaStab = 0.0_RP
 
      type(Thermodynamics_t), target, private :: ThermodynamicsAir = Thermodynamics_t( &
                                                               "Air", & ! Name
@@ -278,6 +284,16 @@
       ELSE
          refValues_ % AOATheta = 0.0_RP
       END IF 
+!
+!     --------------------
+!     Lambda stabilization
+!     --------------------
+!
+      if ( controlVariables % containsKey(LAMBDA_STABILIZATION_KEY)) then
+         lambdaStab = controlVariables % doublePrecisionValueForKey(LAMBDA_STABILIZATION_KEY)
+      else
+         lambdaStab = 0.0_RP
+      end if
 !
 !     --------------------------
 !     Sutherland's law constants
@@ -588,7 +604,6 @@
 !
          REAL(KIND=RP), DIMENSION(N_EQN) :: Qleft, Qright, flux
          REAL(KIND=RP), DIMENSION(3)     :: nHat
-         REAL(KIND=RP)                   :: ds = 1.0_RP
 !
 !        ---------------
 !        Local Variables
@@ -645,7 +660,7 @@
          
          sM = MAX( ABS(ql) + cl, ABS(qr) + cr )
          
-         flux = ds * 0.5_RP * ( FL + FR - sM*(Qright - Qleft) )      
+         flux = 0.5_RP * ( FL + FR - (sM+lambdaStab)*(Qright - Qleft) )      
          
          end associate
       
@@ -765,8 +780,8 @@
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: invRhoL, uL, vL, wL, pL
-         real(kind=RP)     :: invRhoR, uR, vR, wR, pR
+         real(kind=RP)     :: invRhoL, uL, vL, wL, pL, aL, unL
+         real(kind=RP)     :: invRhoR, uR, vR, wR, pR, aR, unR
          real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
 
          invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
@@ -781,6 +796,9 @@
          pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
                                                                       + QR(IRHOV) * vR &
                                                                       + QR(IRHOW) * wR ))
+         aL = sqrt(thermodynamics % gamma * pL * invRhoL)
+         aR = sqrt(thermodynamics % gamma * pR * invRhoR)
+         unL = sum( (/uL,vL,wL/) * nHat ) ; unR = sum( (/uR,vR,wR/) * nHat )
 !
 !        Compute the flux
 !        ----------------
@@ -804,7 +822,7 @@
 !
 !        Compute the sharp flux
 !        ----------------------         
-         flux = f*nHat(IX) + g*nHat(IY) + h*nHat(IZ)
+         flux = f*nHat(IX) + g*nHat(IY) + h*nHat(IZ) - 0.5_RP * lambdaStab * max(abs(unL)+aL,abs(unR)+aR) * (QR-QL)
 
       end subroutine DucrosSolver
  
