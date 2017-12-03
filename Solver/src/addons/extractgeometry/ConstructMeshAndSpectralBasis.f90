@@ -27,14 +27,15 @@ module ConstructMeshAndSpectralBasis_MOD
          implicit none
          character(len=*),                intent(in)  :: meshFile
          character(len=*),                intent(in)  :: solutionFile
-         type(HexMesh),                   intent(out) :: mesh  
-         type(NodalStorage), allocatable, intent(out) :: spA(:) 
-         integer                       :: no_of_elements
-         integer                       :: nodeType, fileType, fid, dims(4)
-         integer                       :: eID, iter
-         integer, allocatable          :: Nx(:), Ny(:), Nz(:)
-         logical                       :: success
-         real(kind=RP)                 :: time
+         type(HexMesh),                   intent(out) :: mesh
+         type(NodalStorage), allocatable, intent(out) :: spA(:)
+         integer                                      :: no_of_elements
+         integer                                      :: nodeType, fileType, fid
+         integer                                      :: dims(4), pos
+         integer                                      :: eID, iter, padding
+         integer, allocatable                         :: Nx(:), Ny(:), Nz(:)
+         logical                                      :: success
+         real(kind=RP)                                :: time
 !
 !        Get number of elements, node types, and Euler/NS
 !        ------------------------------------------------
@@ -45,20 +46,31 @@ module ConstructMeshAndSpectralBasis_MOD
 !        Preliminar read to gather polynomial orders from solution file
 !        --------------------------------------------------------------          
          allocate(Nx(no_of_elements), Ny(no_of_elements), Nz(no_of_elements))
-
+!
+!        Set the file padding
+!        --------------------
+         if ( fileType .eq. SOLUTION_FILE ) then
+            padding = NCONS
+         else if ( fileType .eq. SOLUTION_AND_GRADIENTS_FILE ) then
+            padding = 4*NCONS
+         end if
+            
          fid = putSolutionFileInReadDataMode(trim(solutionFile))
+!
+!        Set the initial position
+!        ------------------------
+         pos = POS_INIT_DATA
+
          do eID = 1, no_of_elements
-            call getSolutionFileArrayDimensions(fid,dims)         
+            call getSolutionFileArrayDimensions(fid,dims,pos)         
             Nx(eID) = dims(2) - 1
             Ny(eID) = dims(3) - 1
             Nz(eID) = dims(4) - 1
-!      
-!           Skip solution (and gradients)
+!
+!           Skip to the next element data
 !           -----------------------------
-            read(fid)
-            if ( fileType .eq. SOLUTION_AND_GRADIENTS_FILE ) then
-               read(fid)   ; read(fid)    ; read(fid)
-            end if
+            pos = pos + 5*SIZEOF_INT + &
+                        padding*(Nx(eID)+1)*(Ny(eID)+1)*(Nz(eID)+1)*SIZEOF_RP 
          end do
          close(fid)
 !      

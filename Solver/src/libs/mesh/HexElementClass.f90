@@ -95,14 +95,15 @@
          INTEGER                 :: nodeIDs(8)
          integer                 :: eID, globID
          
-         self % eID                   = eID
-         self % globID                = globID
-         self % nodeIDs               = nodeIDs
-         self % Nxyz(1)               = spAxi   % N
-         self % Nxyz(2)               = spAeta  % N
-         self % Nxyz(3)               = spAzeta % N
-         self % boundaryName          = emptyBCName
-         self % boundaryType          = emptyBCName
+         self % eID                 = eID
+         self % globID              = globID
+         self % nodeIDs             = nodeIDs
+         self % Nxyz(1)             = spAxi   % N
+         self % Nxyz(2)             = spAeta  % N
+         self % Nxyz(3)             = spAzeta % N
+         self % boundaryName        = emptyBCName
+         self % boundaryType        = emptyBCName
+         self % NumberOfConnections = 0
          self % spAxi   => spAxi
          self % spAeta  => spAeta
          self % spAzeta => spAzeta

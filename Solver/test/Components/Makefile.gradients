@@ -52,7 +52,6 @@ OBJS_CASE= Setup Physics GradientSetup GradientTests InitialFlowState TestGradie
 OBJS_HORSES=  SMConstants \
 		StorageClass \
 		Stopwatch \
-		FTTimerClass \
 		IntegerDataLinkedList\
 		process_info \
 		partitioned_mesh \
@@ -61,7 +60,6 @@ OBJS_HORSES=  SMConstants \
 		SolutionFile \
 		FileReading \
 		Utilities \
-		Plotter \
 		RealDataLinkedList \
 		ParamfileRegions \
 		LegendreAlgorithms \
@@ -95,7 +93,6 @@ OBJS_HORSES=  SMConstants \
 		DGSEMClass \
 		SpatialDiscretization \
 		NodalStorageClass \
-		PlotterDataSource \
 		Headers \
 		ReadInputFile \
 		TimeIntegrator \

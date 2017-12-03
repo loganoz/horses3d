@@ -580,10 +580,11 @@ module SolutionFile
 !
 !//////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine getSolutionFileArrayDimensions(fid,N)
+      subroutine getSolutionFileArrayDimensions(fid,N,pos)
          implicit none
-         integer, intent(in)     :: fid
-         integer, intent(out)    :: N(:)
+         integer, intent(in)           :: fid
+         integer, intent(out)          :: N(:)
+         integer, intent(in), optional :: pos
 !
 !        ---------------
 !        Local variables
@@ -591,7 +592,13 @@ module SolutionFile
 !
          integer     :: arrayDimension
 
-         read(fid) arrayDimension
+         if ( present(pos) ) then
+            read(fid, pos=pos) arrayDimension
+   
+         else
+            read(fid) arrayDimension
+
+         end if
 
          if ( size(N) .ne. arrayDimension) then
             print*, "Array found in file dimensions does not match that of the introduced variable."
