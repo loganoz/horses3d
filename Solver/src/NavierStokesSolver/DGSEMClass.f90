@@ -29,6 +29,9 @@ Module DGSEMClass
    USE ManufacturedSolutions
    use MonitorsClass
    use Physics
+#ifdef _HAS_MPI_
+   use mpi
+#endif
    
    IMPLICIT NONE
    
@@ -518,9 +521,6 @@ Module DGSEMClass
 !  -----------------------------------
    FUNCTION ComputeMaxResidual(self) RESULT(maxResidual)
       use MPI_Process_Info
-#ifdef _HAS_MPI_
-      use mpi
-#endif
       IMPLICIT NONE
       !----------------------------------------------
       CLASS(DGSem)  :: self
@@ -929,9 +929,6 @@ Module DGSEMClass
 !
       USE Physics
       use MPI_Process_Info
-#ifdef _HAS_MPI_
-      use mpi
-#endif
       
       IMPLICIT NONE
 !

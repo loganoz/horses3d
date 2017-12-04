@@ -2,6 +2,9 @@ module VolumeIntegrals
    use SMConstants
    use Physics
    use HexMeshClass
+#ifdef _HAS_MPI_
+   use mpi
+#endif
 #include "Includes.h"
    
    private
@@ -37,9 +40,6 @@ module VolumeIntegrals
 !        -----------------------------------------------------------
 !
 
-#ifdef _HAS_MPI_
-         use mpi
-#endif
          implicit none
          class(HexMesh),      intent(in)  :: mesh
          integer,             intent(in)  :: integralType

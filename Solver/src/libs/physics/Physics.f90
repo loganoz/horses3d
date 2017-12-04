@@ -54,16 +54,13 @@
      IMPLICIT NONE
 
      private
-     public :: flowIsNavierStokes, N_EQN, N_GRAD_EQN, NDIM, IX, IY, IZ
-     public :: NCONS, IRHO, IRHOU, IRHOV, IRHOW, IRHOE, IGU, IGV, IGW, IGT
-     public :: TScale, TRatio, ROE, LXF, RUSANOV, DUCROS, riemannSolverChoice
-     public :: MORINISHI, PIROZZOLI, KENNEDYGRUBER
-     public :: Thermodynamics, RefValues, Dimensionless
-     public :: Thermodynamics_t, RefValues_t, Dimensionless_t
-     public :: lambdaStab
-
-     protected :: flowIsNavierStokes, riemannSolverChoice, lambdaStab
-         
+     public    flowIsNavierStokes, N_EQN, N_GRAD_EQN, NDIM, IX, IY, IZ
+     public    NCONS, IRHO, IRHOU, IRHOV, IRHOW, IRHOE, IGU, IGV, IGW, IGT
+     public    TScale, TRatio, ROE, LXF, RUSANOV, DUCROS, riemannSolverChoice
+     public    MORINISHI, PIROZZOLI, KENNEDYGRUBER
+     public    Thermodynamics, RefValues, Dimensionless
+     public    Thermodynamics_t, RefValues_t, Dimensionless_t
+     public    lambdaStab
 
      public    ConstructPhysicsStorage, DestructPhysicsStorage, DescribePhysicsStorage
      public    CheckPhysicsInputIntegrity
@@ -72,7 +69,7 @@
 !    Either NavierStokes or Euler
 !    ----------------------------
 !
-     LOGICAL :: flowIsNavierStokes = .true.
+     LOGICAL, protected :: flowIsNavierStokes = .true.
 !
 !    --------------------------
 !!   The sizes of the NS system
@@ -106,23 +103,23 @@
 !!   temperatures in K.
 !    --------------------------------------------
 !
-     REAL( KIND=RP ) :: TScale
+     REAL( KIND=RP ), protected :: TScale
 !
 !    ------------------------------------------------
 !!   The ratio of the scale and reference tempartures
 !    ------------------------------------------------
 !
-     REAL( KIND=RP ) :: TRatio 
+     REAL( KIND=RP ), protected :: TRatio 
 !    ----------------------------------
 !
 !    ------------------------------------
 !    Riemann solver associated quantities
 !    ------------------------------------
 !
-     INTEGER, PARAMETER :: ROE = 0, LXF = 1, RUSANOV = 2, DUCROS = 3
-     INTEGER, parameter :: MORINISHI = 4, PIROZZOLI = 5, KENNEDYGRUBER = 6
-     INTEGER            :: riemannSolverChoice = ROE
-     real(kind=RP)      :: lambdaStab = 0.0_RP
+     INTEGER, PARAMETER       :: ROE = 0, LXF = 1, RUSANOV = 2, DUCROS = 3
+     INTEGER, parameter       :: MORINISHI = 4, PIROZZOLI = 5, KENNEDYGRUBER = 6
+     INTEGER,       protected :: riemannSolverChoice = ROE
+     real(kind=RP), protected :: lambdaStab = 0.0_RP
 
      type(Thermodynamics_t), target, private :: ThermodynamicsAir = Thermodynamics_t( &
                                                               "Air", & ! Name
