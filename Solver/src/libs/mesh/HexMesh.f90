@@ -777,9 +777,8 @@ slavecoord:                DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer            :: mpifID, fID, thisSide, ierr, domain
+         integer            :: mpifID, fID, thisSide, ierr, domain, dummyreq
          integer, parameter :: otherSide(2) = (/2,1/)
-         integer, allocatable, save :: array_of_statuses(:,:)
       
          if ( .not. MPI_Process % doMPIAction ) return
 !
@@ -833,27 +832,11 @@ slavecoord:                DO l = 1, 4
                           size(f % storage(thisSide) % Q), &
                                     MPI_DOUBLE, domain-1, &
                              DEFAULT_TAG, MPI_COMM_WORLD, &
-                    mpi_faces(domain) % Qsend_req(mpifID), ierr )
+                             dummyreq, ierr )
    
+               call mpi_request_free(dummyreq, ierr)
                end associate
             end do
-         end do
-!
-!        ****************************
-!        Wait until messages are sent 
-!        ****************************
-!
-         do domain = 1, MPI_Process % nProcs
-            if ( mpi_faces(domain) % no_of_faces .eq. 0 ) cycle
-            allocate(array_of_statuses(MPI_STATUS_SIZE,mpi_faces(domain) % no_of_faces))
-            call mpi_waitall(mpi_faces(domain) % no_of_faces, &
-                             mpi_faces(domain) % Qrecv_req, & 
-                             array_of_statuses, ierr)
-            
-            call mpi_waitall(mpi_faces(domain) % no_of_faces, &
-                             mpi_faces(domain) % Qsend_req, & 
-                             array_of_statuses, ierr)
-            deallocate(array_of_statuses)
          end do
 #endif
       end subroutine HexMesh_UpdateMPIFacesSolution
@@ -869,9 +852,8 @@ slavecoord:                DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer            :: mpifID, fID, thisSide, ierr, domain
+         integer            :: mpifID, fID, thisSide, ierr, domain, dummyreq
          integer, parameter :: otherSide(2) = (/2,1/)
-         integer            :: array_of_statuses(MPI_STATUS_SIZE,3)
       
          if ( .not. MPI_Process % doMPIAction ) return
 !
@@ -937,37 +919,26 @@ slavecoord:                DO l = 1, 4
                           size(f % storage(thisSide) % U_x), &
                                     MPI_DOUBLE, domain-1, &
                              DEFAULT_TAG, MPI_COMM_WORLD, &
-                    mpi_faces(domain) % gradQsend_req(1,mpifID), ierr )
+                             dummyreq, ierr )
    
+               call mpi_request_free(dummyreq, ierr)
+
                call mpi_isend( f % storage(thisSide) % U_y, &
                           size(f % storage(thisSide) % U_y), &
                                     MPI_DOUBLE, domain-1, &
                              DEFAULT_TAG, MPI_COMM_WORLD, &
-                    mpi_faces(domain) % gradQsend_req(2,mpifID), ierr )
+                             dummyreq, ierr )
    
+               call mpi_request_free(dummyreq, ierr)
+
                call mpi_isend( f % storage(thisSide) % U_z, &
                           size(f % storage(thisSide) % U_z), &
                                     MPI_DOUBLE, domain-1, &
                              DEFAULT_TAG, MPI_COMM_WORLD, &
-                    mpi_faces(domain) % gradQsend_req(3,mpifID), ierr )
+                             dummyreq, ierr )
    
+               call mpi_request_free(dummyreq, ierr)
                end associate
-            end do
-         end do
-!
-!        ****************************
-!        Wait until messages are sent 
-!        ****************************
-!
-         do domain = 1, MPI_Process % nProcs
-            do mpifID = 1, mpi_faces(domain) % no_of_faces
-               call mpi_waitall(3, &
-                                mpi_faces(domain) % gradQrecv_req(:,mpifID), & 
-                                array_of_statuses, ierr)
-
-               call mpi_waitall(3, &
-                                mpi_faces(domain) % gradQsend_req(:,mpifID), & 
-                                array_of_statuses, ierr)
             end do
          end do
 #endif
