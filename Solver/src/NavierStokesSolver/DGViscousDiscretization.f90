@@ -147,16 +147,10 @@ module DGViscousDiscretization
          end do
 !$omp end do nowait
 !
-!        ***********************
-!        Compute Riemann solvers
-!        ***********************
+!        *******************************************
+!        Compute Riemann solvers of non-shared faces
+!        *******************************************
 !
-!$omp single
-         if ( MPI_Process % doMPIAction ) then 
-            call WaitUntilSolutionIsReady(mpi_faces)
-         end if
-!$omp end single
-
 !$omp do schedule(runtime) 
          do fID = 1, SIZE(mesh % faces) 
             associate(f => mesh % faces(fID)) 
@@ -167,6 +161,56 @@ module DGViscousDiscretization
             case (HMESH_BOUNDARY) 
                call BR1_ComputeBoundaryFlux(f, time, externalStateProcedure) 
  
+            end select 
+            end associate 
+         end do            
+!$omp end do 
+!
+!$omp do schedule(runtime) 
+         do eID = 1, size(mesh % elements) 
+            associate(e => mesh % elements(eID))
+            if ( e % hasSharedFaces ) cycle
+!
+!           Add the surface integrals
+!           -------------------------
+            call BR1_GradientFaceLoop( self , e, mesh)
+!
+!           Perform the scaling
+!           -------------------               
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1)
+               e % storage % U_x(:,i,j,k) = &
+                           e % storage % U_x(:,i,j,k) / e % geom % jacobian(i,j,k)
+               e % storage % U_y(:,i,j,k) = &
+                           e % storage % U_y(:,i,j,k) / e % geom % jacobian(i,j,k)
+               e % storage % U_z(:,i,j,k) = &
+                           e % storage % U_z(:,i,j,k) / e % geom % jacobian(i,j,k)
+            end do         ; end do          ; end do
+!
+!           Prolong gradients
+!           -----------------
+            fIDs = e % faceIDs
+            call e % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+                                             mesh % faces(fIDs(2)),&
+                                             mesh % faces(fIDs(3)),&
+                                             mesh % faces(fIDs(4)),&
+                                             mesh % faces(fIDs(5)),&
+                                             mesh % faces(fIDs(6)) )
+
+            end associate
+         end do
+!$omp end do
+
+!$omp single
+         if ( MPI_Process % doMPIAction ) then 
+            call WaitUntilSolutionIsReady(mpi_faces)
+         end if
+!$omp end single
+
+
+!$omp do schedule(runtime) 
+         do fID = 1, SIZE(mesh % faces) 
+            associate(f => mesh % faces(fID)) 
+            select case (f % faceType) 
             case (HMESH_MPI) 
                call BR1_ComputeMPIFaceAverage(f) 
  
@@ -178,6 +222,7 @@ module DGViscousDiscretization
 !$omp do schedule(runtime) 
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID))
+            if ( .not. e % hasSharedFaces ) cycle
 !
 !           Add the surface integrals
 !           -------------------------

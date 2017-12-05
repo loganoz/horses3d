@@ -326,6 +326,7 @@ MODULE HexMeshClass
                e = self % faces(fID) % elementIDs(side)
                self % elements(e) % faceIDs(self % faces(fID) % elementSide(side)) = fID
                self % elements(e) % faceSide(self % faces(fID) % elementSide(side)) = side
+               self % elements(e) % hasSharedFaces = .true.
 
             case (HMESH_UNDEFINED)
                eL = self % faces(fID) % elementIDs(1)

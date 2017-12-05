@@ -39,6 +39,7 @@
       public   DestructElement, PrintElement, SetElementBoundaryNames
       
       TYPE Element
+         logical                                        :: hasSharedFaces
          integer                                        :: eID               ! ID of this element
          integer                                        :: globID            ! globalID of the element
          integer                                        :: offsetIO          ! Offset from the first element for IO
@@ -103,6 +104,7 @@
          self % Nxyz(3)             = spAzeta % N
          self % boundaryName        = emptyBCName
          self % boundaryType        = emptyBCName
+         self % hasSharedFaces      = .false.
          self % NumberOfConnections = 0
          self % spAxi   => spAxi
          self % spAeta  => spAeta

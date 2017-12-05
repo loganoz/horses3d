@@ -123,20 +123,10 @@ module SpatialDiscretization
          end do
 !$omp end do nowait
 !
-!        ***********************
-!        Compute Riemann solvers
-!        ***********************
+!        ******************************************
+!        Compute Riemann solver of non-shared faces
+!        ******************************************
 !
-!$omp single
-         if ( MPI_Process % doMPIAction ) then
-            if ( flowIsNavierStokes ) then 
-               call WaitUntilGradientsAreReady(mpi_faces) 
-            else 
-               call WaitUntilSolutionIsReady(mpi_faces) 
-            end if          
-         end if
-!$omp end single
-
 !$omp do schedule(runtime) 
          do fID = 1, size(mesh % faces) 
             associate( f => mesh % faces(fID)) 
@@ -147,21 +137,65 @@ module SpatialDiscretization
             case (HMESH_BOUNDARY) 
                CALL computeBoundaryFlux(f, t, externalState, externalGradients) 
  
-            case (HMESH_MPI) 
-               CALL computeMPIFaceFlux ( f ) 
- 
             end select 
             end associate 
          end do 
 !$omp end do 
 !
-!        *********************************** 
-!           Surface integrals and scaling 
-!        *********************************** 
+!        ***************************************************************
+!        Surface integrals and scaling of elements with non-shared faces
+!        ***************************************************************
 ! 
 !$omp do schedule(runtime) 
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID)) 
+            if ( e % hasSharedFaces ) cycle
+            call TimeDerivative_FacesContribution(e, t, mesh) 
+ 
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
+            end do         ; end do          ; end do 
+            end associate 
+         end do
+!$omp end do
+!
+!        ****************************
+!        Wait until messages are sent
+!        ****************************
+!
+!$omp single
+         if ( MPI_Process % doMPIAction ) then
+            if ( flowIsNavierStokes ) then 
+               call WaitUntilGradientsAreReady(mpi_faces) 
+            else 
+               call WaitUntilSolutionIsReady(mpi_faces) 
+            end if          
+         end if
+!$omp end single
+!
+!        **************************************
+!        Compute Riemann solver of shared faces
+!        **************************************
+!
+!$omp do schedule(runtime) 
+         do fID = 1, size(mesh % faces) 
+            associate( f => mesh % faces(fID)) 
+            select case (f % faceType) 
+            case (HMESH_MPI) 
+               CALL computeMPIFaceFlux ( f ) 
+            end select 
+            end associate 
+         end do 
+!$omp end do 
+!
+!        ***********************************************************
+!        Surface integrals and scaling of elements with shared faces
+!        ***********************************************************
+! 
+!$omp do schedule(runtime) 
+         do eID = 1, size(mesh % elements) 
+            associate(e => mesh % elements(eID)) 
+            if ( .not. e % hasSharedFaces ) cycle
             call TimeDerivative_FacesContribution(e, t, mesh) 
  
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
