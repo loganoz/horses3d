@@ -22,6 +22,9 @@ MODULE HexMeshClass
       use ZoneClass
       use PhysicsStorage
       use NodalStorageClass
+#ifdef _HAS_MPI_
+      use mpi
+#endif
       IMPLICIT NONE
 !
 !     ---------------
@@ -323,6 +326,7 @@ MODULE HexMeshClass
                e = self % faces(fID) % elementIDs(side)
                self % elements(e) % faceIDs(self % faces(fID) % elementSide(side)) = fID
                self % elements(e) % faceSide(self % faces(fID) % elementSide(side)) = side
+               self % elements(e) % hasSharedFaces = .true.
 
             case (HMESH_UNDEFINED)
                eL = self % faces(fID) % elementIDs(1)
@@ -766,9 +770,6 @@ slavecoord:                DO l = 1, 4
       subroutine HexMesh_UpdateMPIFacesSolution(self)
          use MPI_Face_Class
          use MPI_Process_Info
-#ifdef _HAS_MPI_
-         use mpi
-#endif
          implicit none
          class(HexMesh)    :: self
 #ifdef _HAS_MPI_
@@ -777,9 +778,8 @@ slavecoord:                DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer            :: mpifID, fID, thisSide, ierr, domain
+         integer            :: mpifID, fID, thisSide, ierr, domain, dummyreq
          integer, parameter :: otherSide(2) = (/2,1/)
-         integer, allocatable, save :: status(:,:)
       
          if ( .not. MPI_Process % doMPIAction ) return
 !
@@ -833,27 +833,11 @@ slavecoord:                DO l = 1, 4
                           size(f % storage(thisSide) % Q), &
                                     MPI_DOUBLE, domain-1, &
                              DEFAULT_TAG, MPI_COMM_WORLD, &
-                    mpi_faces(domain) % Qsend_req(mpifID), ierr )
+                             dummyreq, ierr )
    
+               call mpi_request_free(dummyreq, ierr)
                end associate
             end do
-         end do
-!
-!        ****************************
-!        Wait until messages are sent 
-!        ****************************
-!
-         do domain = 1, MPI_Process % nProcs
-            if ( mpi_faces(domain) % no_of_faces .eq. 0 ) cycle
-            allocate(status(MPI_STATUS_SIZE,mpi_faces(domain) % no_of_faces))
-            call mpi_waitall(mpi_faces(domain) % no_of_faces, &
-                             mpi_faces(domain) % Qrecv_req, & 
-                             status, ierr)
-            
-            call mpi_waitall(mpi_faces(domain) % no_of_faces, &
-                             mpi_faces(domain) % Qsend_req, & 
-                             status, ierr)
-            deallocate(status)
          end do
 #endif
       end subroutine HexMesh_UpdateMPIFacesSolution
@@ -861,9 +845,6 @@ slavecoord:                DO l = 1, 4
       subroutine HexMesh_UpdateMPIFacesGradients(self)
          use MPI_Face_Class
          use MPI_Process_Info
-#ifdef _HAS_MPI_
-         use mpi
-#endif
          implicit none
          class(HexMesh)    :: self
 #ifdef _HAS_MPI_
@@ -872,9 +853,8 @@ slavecoord:                DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer            :: mpifID, fID, thisSide, ierr, domain
+         integer            :: mpifID, fID, thisSide, ierr, domain, dummyreq
          integer, parameter :: otherSide(2) = (/2,1/)
-         integer, allocatable, save :: status(:,:,:)
       
          if ( .not. MPI_Process % doMPIAction ) return
 !
@@ -940,40 +920,27 @@ slavecoord:                DO l = 1, 4
                           size(f % storage(thisSide) % U_x), &
                                     MPI_DOUBLE, domain-1, &
                              DEFAULT_TAG, MPI_COMM_WORLD, &
-                    mpi_faces(domain) % gradQsend_req(1,mpifID), ierr )
+                             dummyreq, ierr )
    
+               call mpi_request_free(dummyreq, ierr)
+
                call mpi_isend( f % storage(thisSide) % U_y, &
                           size(f % storage(thisSide) % U_y), &
                                     MPI_DOUBLE, domain-1, &
                              DEFAULT_TAG, MPI_COMM_WORLD, &
-                    mpi_faces(domain) % gradQsend_req(2,mpifID), ierr )
+                             dummyreq, ierr )
    
+               call mpi_request_free(dummyreq, ierr)
+
                call mpi_isend( f % storage(thisSide) % U_z, &
                           size(f % storage(thisSide) % U_z), &
                                     MPI_DOUBLE, domain-1, &
                              DEFAULT_TAG, MPI_COMM_WORLD, &
-                    mpi_faces(domain) % gradQsend_req(3,mpifID), ierr )
+                             dummyreq, ierr )
    
+               call mpi_request_free(dummyreq, ierr)
                end associate
             end do
-         end do
-!
-!        ****************************
-!        Wait until messages are sent 
-!        ****************************
-!
-         do domain = 1, MPI_Process % nProcs
-            if ( mpi_faces(domain) % no_of_faces .eq. 0 ) cycle
-            allocate(status(MPI_STATUS_SIZE, 3, mpi_faces(domain) % no_of_faces))
-            call mpi_waitall(3*mpi_faces(domain) % no_of_faces, &
-                             mpi_faces(domain) % gradQrecv_req, & 
-                             status, ierr)
-
-            call mpi_waitall(3*mpi_faces(domain) % no_of_faces, &
-                             mpi_faces(domain) % gradQsend_req, & 
-                             status, ierr)
-
-            deallocate(status)
          end do
 #endif
       end subroutine HexMesh_UpdateMPIFacesGradients
@@ -982,9 +949,6 @@ slavecoord:                DO l = 1, 4
 !
       subroutine HexMesh_PrepareForIO(self)
          use MPI_Process_Info
-#ifdef _HAS_MPI_
-         use mpi
-#endif
          implicit none
          class(HexMesh)    :: self
 !

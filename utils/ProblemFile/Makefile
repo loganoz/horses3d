@@ -47,7 +47,7 @@ GNU_DEBUG_FLAGS=  -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-varia
 INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc
 INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all \
                    -check bounds -check uninit -ftrapuv -debug all -warn interfaces \
-                   -ftrace=full -assume ieee_fpe_flags -ftz -fp-model precise \
+                   -ftrace=full -ftz -fp-model precise \
                    -fp-speculation=off -assume bscc
 ARFLAGS=crv
 

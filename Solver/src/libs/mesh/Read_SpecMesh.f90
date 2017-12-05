@@ -684,6 +684,7 @@ MODULE Read_SpecMesh
 !        Finish up
 !        ---------
 !
+         allocate(self % Ns(size(Nx)))
          self % Ns = Nx
 !
 !        --------------------

@@ -2,7 +2,9 @@ module SurfaceIntegrals
    use SMConstants
    use Physics
    use HexMeshClass
-   !use ProlongToFacesProcedures
+#ifdef _HAS_MPI_
+   use mpi
+#endif
    
    private
    public   SURFACE, TOTAL_FORCE, PRESSURE_FORCE, VISCOUS_FORCE, MASS_FLOW, FLOW
@@ -38,9 +40,6 @@ module SurfaceIntegrals
 !              * Flow: computes the volumetric flow across the zone.
 !        -----------------------------------------------------------
 !
-#ifdef _HAS_MPI_
-         use mpi
-#endif
          implicit none
          class(HexMesh),      intent(inout), target  :: mesh
          class(NodalStorage), intent(in)    :: spA(0:)

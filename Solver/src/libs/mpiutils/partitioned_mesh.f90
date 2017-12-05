@@ -113,7 +113,7 @@ module PartitionedMeshClass
 !        Local variables
 !        ---------------
 !
-         integer  :: sizes(3), ierr
+         integer  :: sizes(3), ierr, array_of_statuses(MPI_STATUS_SIZE, 8)
 
          if ( MPI_Process % isRoot ) return
 !
@@ -164,7 +164,7 @@ module PartitionedMeshClass
 !
 !        Wait until all messages have been received
 !        ------------------------------------------
-         call mpi_waitall(8, recv_req, MPI_STATUS_IGNORE, ierr) 
+         call mpi_waitall(8, recv_req, array_of_statuses, ierr) 
 
          mpi_partition % Constructed = .true.
 #endif
@@ -179,8 +179,8 @@ module PartitionedMeshClass
 !        ---------------
 !
          integer          :: sizes(3)
-         integer          :: domain, ierr
-         integer          :: status(MPI_STATUS_SIZE,MPI_Process % nProcs, 8)
+         integer          :: domain, ierr, msg
+         integer          :: array_of_statuses(MPI_STATUS_SIZE,MPI_Process % nProcs)
 !
 !        Send the MPI mesh partition to all processes 
 !        --------------------------------------------
@@ -237,7 +237,9 @@ module PartitionedMeshClass
 !
 !        Wait until all messages have been delivered
 !        -------------------------------------------
-         call mpi_waitall(8*(MPI_Process % nProcs - 1), send_req, status, ierr) 
+         do msg = 1, 8
+            call mpi_waitall(MPI_Process % nProcs - 1, send_req(:,msg), array_of_statuses, ierr) 
+         end do
 !
 !        Destruct the partitions
 !        -----------------------
