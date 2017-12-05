@@ -18,6 +18,7 @@ module Read_HDF5Mesh_HOPR
    use SMConstants
    USE TransfiniteMapClass
    use FacePatchClass
+   use MPI_Process_Info
 #ifdef HAS_HDF5
    use HDF5
 #endif
