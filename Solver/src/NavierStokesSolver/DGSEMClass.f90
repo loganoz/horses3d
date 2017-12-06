@@ -270,7 +270,7 @@ Module DGSEMClass
 !
       DO k = 1, SIZE(self % mesh % elements) 
          CALL allocateElementStorage( self % mesh % elements(k), Nx(k),Ny(k),Nz(k), &
-                                      N_EQN, N_GRAD_EQN, flowIsNavierStokes )
+                                      N_EQN, N_GRAD_EQN, computeGradients)
       END DO
 !
 !     ----------------------------------------------------
@@ -650,12 +650,15 @@ Module DGSEMClass
 !        Compute gradients
 !        -----------------
 !
-         if ( flowIsNavierStokes ) then
+         if ( computeGradients ) then
             CALL DGSpatial_ComputeGradient( self % mesh , self % spA, time , self % externalState , self % externalGradients )
-!$omp single
-            call self % mesh % UpdateMPIFacesGradients
-!$omp end single
          end if
+
+!$omp single
+         if ( flowIsNavierStokes ) then
+            call self % mesh % UpdateMPIFacesGradients
+         end if
+!$omp end single
 !
 !        -----------------------
 !        Compute time derivative
