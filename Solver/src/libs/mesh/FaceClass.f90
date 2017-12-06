@@ -22,6 +22,7 @@
       use StorageClass
       use PhysicsStorage
       use NodalStorageClass
+      use InterpolationMatrices
       IMPLICIT NONE 
 
       private
@@ -273,58 +274,6 @@
       end if
 
    end SUBROUTINE Face_LinkWithElements
-
-   subroutine ConstructInterpolationMatrices(Norigin, Ndest, spA)
-!
-!     ***********************************************************
-!        This subroutine computes the interpolation matrices
-!        from Norigin to Ndest (forward) and backwards
-!     ***********************************************************
-!
-      implicit none
-      integer, intent(in)  :: Norigin
-      integer, intent(in)  :: Ndest
-      type(NodalStorage)  :: spA(0:)
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      integer  :: i, j
-
-      if ( Norigin .eq. Ndest ) then
-         return
-
-      else
-         associate ( spAo => spA(Norigin), &
-                     spAd => spA(Ndest)      )
-         if ( Tset(Norigin, Ndest) % Constructed ) return
-!
-!        Allocate memory
-!        ---------------
-         allocate( Tset(Norigin, Ndest) % T(0:Ndest, 0:Norigin) )
-         allocate( Tset(Ndest, Norigin) % T(0:Norigin, 0:Ndest) )
-!
-!        Construct the forward interpolation matrix
-!        ------------------------------------------
-         call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, spAd % x, &
-                                            Tset(Norigin, Ndest) % T)
-!
-!        Construct the backwards interpolation matrix
-!        --------------------------------------------
-         do j = 0, Ndest   ; do i = 0, Norigin
-            Tset(Ndest,Norigin) % T(i,j) = Tset(Norigin,Ndest) % T(j,i) * spAd % w(j) / spAo % w(i)
-         end do            ; end do
-!
-!        Set constructed flag
-!        --------------------          
-         Tset(Norigin,Ndest) % Constructed = .true.
-         Tset(Ndest,Norigin) % Constructed = .true.
-   
-         end associate
-      end if
-
-   end subroutine ConstructInterpolationMatrices
 
    subroutine Face_AdaptSolutionToFace(self, Nelx, Nely, Qe, side)
       use MappedGeometryClass

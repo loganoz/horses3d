@@ -1,7 +1,7 @@
 module Solution2PltModule
    use SMConstants
    use SolutionFile
-   use PolynomialInterpAndDerivsModule
+   use InterpolationMatrices
    implicit none
 
    private

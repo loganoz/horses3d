@@ -398,13 +398,13 @@ module FASMultigridClass
          if (MGOutput) call PlotResiduals( lvl , sweepcount,this % p_sem )
          
          if (SmoothFine .AND. lvl > 1) then ! .AND. .not. FMG
-            if (FMG .and. MAXVAL(ComputeMaxResidual(this % p_sem)) < 0.1_RP) EXIT
+            if (FMG .and. MAXVAL(ComputeMaxResidual(this % p_sem)) < 0.1_RP) exit
             call MGRestrictToChild(this,lvl-1,t)
             call ComputeTimeDerivative(this % Child % p_sem,t)
             
-            if (MAXVAL(ComputeMaxResidual(this % p_sem)) < SmoothFineFrac * MAXVAL(ComputeMaxResidual(this % Child % p_sem))) EXIT
+            if (MAXVAL(ComputeMaxResidual(this % p_sem)) < SmoothFineFrac * MAXVAL(ComputeMaxResidual(this % Child % p_sem))) exit
          else
-            EXIT
+            exit
          end if
          
          if (sweepcount .ge. MaxSweeps) exit
@@ -486,12 +486,12 @@ module FASMultigridClass
                call MGRestrictToChild(this,lvl-1,t)
                call FASVCycle(this,t,lvl-1,lvl)
             else
-               EXIT
+               exit
             end if
          elseif (PostSmooth .or. PostFCycle) then
             if (MAXVAL(ComputeMaxResidual(this % p_sem)) < PrevRes) exit
          else
-            EXIT
+            exit
          end if
          
       end DO
@@ -570,7 +570,7 @@ module FASMultigridClass
             counter = counter + 1
             call FASVCycle(this,t,lvl,lvl)
             maxResidual = ComputeMaxResidual(this % p_sem)
-            if (maxval(maxResidual) <= tol) EXIT
+            if (maxval(maxResidual) <= tol) exit
          end DO
       else
          DO
@@ -580,7 +580,7 @@ module FASMultigridClass
             maxResidual = ComputeMaxResidual(this % p_sem)
             
             if (MOD(counter,100)==0) call PlotResiduals( lvl ,counter, this % p_sem)
-            if (maxval(maxResidual) <= tol) EXIT
+            if (maxval(maxResidual) <= tol) exit
          end DO
       end if
       call PlotResiduals( lvl ,counter, this % p_sem ,.TRUE.)

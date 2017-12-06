@@ -13,6 +13,7 @@
 module SharedSpectralBasis
    use SMConstants
    use NodalStorageClass
+   use InterpolationMatrices
    use PolynomialInterpAndDerivsModule
 
    private

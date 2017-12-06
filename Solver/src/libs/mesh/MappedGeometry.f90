@@ -450,7 +450,7 @@ Module MappedGeometryClass
 !  -----------------------------------------------------------------------------------
    subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, Nel3D, spAf, spAe, geom, hexMap, side, projType, eSide, rot)
       use PhysicsStorage
-      use PolynomialInterpAndDerivsModule
+      use InterpolationMatrices
       implicit none
       class(MappedGeometryFace), intent(inout)  :: self
       integer,                   intent(in)     :: Nf(2)    ! Face polynomial order
