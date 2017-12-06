@@ -205,8 +205,8 @@ module MeshPartitioning
 !
 !           Otherwise, the face is a domain boundary face for domains dL and dR
 !           -------------------------------------------------------------------
-            partitions(dL) % no_of_bdryfaces = partitions(dL) % no_of_bdryfaces + 1
-            partitions(dR) % no_of_bdryfaces = partitions(dR) % no_of_bdryfaces + 1
+            partitions(dL) % no_of_mpifaces = partitions(dL) % no_of_mpifaces + 1
+            partitions(dR) % no_of_mpifaces = partitions(dR) % no_of_mpifaces + 1
 
             end associate
             end associate
@@ -217,12 +217,12 @@ module MeshPartitioning
 !        **************************************
 !
          do domain = 1, no_of_domains
-            associate(nFaces => partitions(domain) % no_of_bdryfaces)
-            allocate(partitions(domain) % bdryface_elements(nFaces))
-            allocate(partitions(domain) % element_bdryfaceSide(nFaces))
-            allocate(partitions(domain) % bdryface_rotation(nFaces))
-            allocate(partitions(domain) % bdryface_elementSide(nFaces))
-            allocate(partitions(domain) % bdryface_sharedDomain(nFaces))
+            associate(nFaces => partitions(domain) % no_of_mpifaces)
+            allocate(partitions(domain) % mpiface_elements(nFaces))
+            allocate(partitions(domain) % element_mpifaceSide(nFaces))
+            allocate(partitions(domain) % mpiface_rotation(nFaces))
+            allocate(partitions(domain) % mpiface_elementSide(nFaces))
+            allocate(partitions(domain) % mpiface_sharedDomain(nFaces))
             end associate
          end do
 !
@@ -259,28 +259,28 @@ module MeshPartitioning
 !
 !           Get the elements
 !           ----------------
-            partitions(dL) % bdryface_elements(bfaceID(dL)) = eL % eID
-            partitions(dR) % bdryface_elements(bfaceID(dR)) = eR % eID
+            partitions(dL) % mpiface_elements(bfaceID(dL)) = eL % eID
+            partitions(dR) % mpiface_elements(bfaceID(dR)) = eR % eID
 !
 !           Get the face sides in the elements
 !           ----------------------------------
-            partitions(dL) % element_bdryfaceSide(bfaceID(dL)) = f % elementSide(1)
-            partitions(dR) % element_bdryfaceSide(bfaceID(dR)) = f % elementSide(2)
+            partitions(dL) % element_mpifaceSide(bfaceID(dL)) = f % elementSide(1)
+            partitions(dR) % element_mpifaceSide(bfaceID(dR)) = f % elementSide(2)
 !
 !           Get the face rotation
 !           ---------------------
-            partitions(dL) % bdryface_rotation(bfaceID(dL)) = f % rotation 
-            partitions(dR) % bdryface_rotation(bfaceID(dR)) = f % rotation 
+            partitions(dL) % mpiface_rotation(bfaceID(dL)) = f % rotation 
+            partitions(dR) % mpiface_rotation(bfaceID(dR)) = f % rotation 
 !
 !           Get the element face side
 !           -------------------------
-            partitions(dL) %  bdryface_elementSide(bfaceID(dL)) = 1
-            partitions(dR) %  bdryface_elementSide(bfaceID(dR)) = 2
+            partitions(dL) %  mpiface_elementSide(bfaceID(dL)) = 1
+            partitions(dR) %  mpiface_elementSide(bfaceID(dR)) = 2
 !
 !           Get the shared domain
 !           ---------------------
-            partitions(dL) % bdryface_sharedDomain(bfaceID(dL)) = dR
-            partitions(dR) % bdryface_sharedDomain(bfaceID(dR)) = dL
+            partitions(dL) % mpiface_sharedDomain(bfaceID(dL)) = dR
+            partitions(dR) % mpiface_sharedDomain(bfaceID(dR)) = dL
 
             end associate
             end associate

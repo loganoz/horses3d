@@ -29,6 +29,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY        = "flow equations"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY   = "riemann solver"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAMBDA_STABILIZATION_KEY  = "lambda stabilization"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: COMPUTE_GRADIENTS_KEY     = "compute gradients"
          
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physicsKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
          
@@ -54,16 +55,13 @@
      IMPLICIT NONE
 
      private
-     public :: flowIsNavierStokes, N_EQN, N_GRAD_EQN, NDIM, IX, IY, IZ
-     public :: NCONS, IRHO, IRHOU, IRHOV, IRHOW, IRHOE, IGU, IGV, IGW, IGT
-     public :: TScale, TRatio, ROE, LXF, RUSANOV, DUCROS, riemannSolverChoice
-     public :: MORINISHI, PIROZZOLI, KENNEDYGRUBER
-     public :: Thermodynamics, RefValues, Dimensionless
-     public :: Thermodynamics_t, RefValues_t, Dimensionless_t
-     public :: lambdaStab
-
-     protected :: flowIsNavierStokes, riemannSolverChoice, lambdaStab
-         
+     public    flowIsNavierStokes, N_EQN, N_GRAD_EQN, NDIM, IX, IY, IZ
+     public    NCONS, IRHO, IRHOU, IRHOV, IRHOW, IRHOE, IGU, IGV, IGW, IGT
+     public    TScale, TRatio, ROE, LXF, RUSANOV, DUCROS, riemannSolverChoice
+     public    MORINISHI, PIROZZOLI, KENNEDYGRUBER
+     public    Thermodynamics, RefValues, Dimensionless
+     public    Thermodynamics_t, RefValues_t, Dimensionless_t
+     public    lambdaStab, computeGradients
 
      public    ConstructPhysicsStorage, DestructPhysicsStorage, DescribePhysicsStorage
      public    CheckPhysicsInputIntegrity
@@ -72,7 +70,8 @@
 !    Either NavierStokes or Euler
 !    ----------------------------
 !
-     LOGICAL :: flowIsNavierStokes = .true.
+     logical, protected :: flowIsNavierStokes = .true.
+     logical, protected :: computeGradients   = .true.
 !
 !    --------------------------
 !!   The sizes of the NS system
@@ -106,23 +105,23 @@
 !!   temperatures in K.
 !    --------------------------------------------
 !
-     REAL( KIND=RP ) :: TScale
+     REAL( KIND=RP ), protected :: TScale
 !
 !    ------------------------------------------------
 !!   The ratio of the scale and reference tempartures
 !    ------------------------------------------------
 !
-     REAL( KIND=RP ) :: TRatio 
+     REAL( KIND=RP ), protected :: TRatio 
 !    ----------------------------------
 !
 !    ------------------------------------
 !    Riemann solver associated quantities
 !    ------------------------------------
 !
-     INTEGER, PARAMETER :: ROE = 0, LXF = 1, RUSANOV = 2, DUCROS = 3
-     INTEGER, parameter :: MORINISHI = 4, PIROZZOLI = 5, KENNEDYGRUBER = 6
-     INTEGER            :: riemannSolverChoice = ROE
-     real(kind=RP)      :: lambdaStab = 0.0_RP
+     INTEGER, PARAMETER       :: ROE = 0, LXF = 1, RUSANOV = 2, DUCROS = 3
+     INTEGER, parameter       :: MORINISHI = 4, PIROZZOLI = 5, KENNEDYGRUBER = 6
+     INTEGER,       protected :: riemannSolverChoice = ROE
+     real(kind=RP), protected :: lambdaStab = 0.0_RP
 
      type(Thermodynamics_t), target, private :: ThermodynamicsAir = Thermodynamics_t( &
                                                               "Air", & ! Name
@@ -221,6 +220,24 @@
                                               POW2( dimensionless_ % Mach) * &
                                       dimensionless_ % Re * dimensionless_ % Pr )
       END IF 
+
+      if ( controlVariables % containsKey(COMPUTE_GRADIENTS_KEY) ) then
+!
+!        Do not compute gradients if Euler equations are used and it is specified in the control file
+!        --------------------------------------------------------------------------------------------
+         if ( .not. flowIsNavierStokes ) then
+            if ( .not. controlVariables % logicalValueForKey(COMPUTE_GRADIENTS_KEY) ) then
+               computeGradients = .false.
+            end if
+         end if
+      else
+!
+!        Do not compute gradients if Euler equations and the default option is selected
+!        ------------------------------------------------------------------------------
+         if ( .not. flowIsNavierStokes ) then
+            computeGradients = .false.
+         end if
+      end if
 
       dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
       dimensionless_ % invFroudeSquare = 0.0_RP

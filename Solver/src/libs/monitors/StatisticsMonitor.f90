@@ -3,6 +3,9 @@ module StatisticsMonitor
    use SMConstants
    use HexMeshClass
    use StorageClass
+#ifdef _HAS_MPI_
+   use mpi
+#endif
 
    private
    public     StatisticsMonitor_t, U, V, W, UU, VV, WW, UV, UW, VW
@@ -228,9 +231,6 @@ module StatisticsMonitor
       subroutine StatisticsMonitor_GetState(self, reset, dump)
          use ParamfileRegions
          use MPI_Process_Info
-#ifdef _HAS_MPI_
-         use mpi
-#endif
          implicit none
          class(StatisticsMonitor_t)    :: self
          logical, intent(out)          :: reset, dump

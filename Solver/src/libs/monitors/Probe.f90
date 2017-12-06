@@ -3,6 +3,9 @@ module ProbeClass
    use HexMeshClass
    use MonitorDefinitions
    use PhysicsStorage
+#ifdef _HAS_MPI_
+   use mpi
+#endif
 #include "Includes.h"
    
    private
@@ -183,9 +186,6 @@ module ProbeClass
       subroutine Probe_Update(self, mesh, bufferPosition)
          use Physics
          use MPI_Process_Info
-#ifdef _HAS_MPI_
-         use mpi
-#endif
          implicit none
          class(Probe_t) :: self
          class(HexMesh)                   :: mesh
@@ -344,9 +344,6 @@ module ProbeClass
 
       subroutine Probe_LookInOtherPartitions(self)
          use MPI_Process_Info
-#ifdef _HAS_MPI_
-         use mpi
-#endif
          implicit none
          class(Probe_t)    :: self
          integer           :: allActives(MPI_Process % nProcs)

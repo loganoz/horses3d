@@ -3,6 +3,7 @@ module DGViscousDiscretization
    use MeshTypes
    use Physics
    use PhysicsStorage
+   use MPI_Face_Class
    implicit none
 !
 !
@@ -50,6 +51,11 @@ module DGViscousDiscretization
 !///////////////////////////////////////////////////////////////////////////////////
 !
       subroutine BaseClass_ComputeGradient( self , mesh , spA, time , externalStateProcedure , externalGradientsProcedure)
+!
+!        *****************************************************
+!           BaseClass computes Local Gradients by default
+!        *****************************************************
+!           
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -61,10 +67,18 @@ module DGViscousDiscretization
          external                         :: externalStateProcedure
          external                         :: externalGradientsProcedure
 !
-!        ---------------------------
-!        The base class does nothing
-!        ---------------------------
+!        ---------------
+!        Local variables
+!        ---------------
 !
+         integer  :: eID
+
+!$omp do schedule(runtime)
+         do eID = 1, mesh % no_of_elements
+            call mesh % elements(eID) % ComputeLocalGradient
+         end do
+!$omp end do
+
       end subroutine BaseClass_ComputeGradient
 
       subroutine BaseClass_ComputeInnerFluxes( self , e , contravariantFlux )
@@ -119,6 +133,7 @@ module DGViscousDiscretization
          use HexMeshClass
          use PhysicsStorage
          use Physics
+         use MPI_Process_Info
          implicit none
          class(BassiRebay1_t), intent(in) :: self
          class(HexMesh)                   :: mesh
@@ -135,48 +150,118 @@ module DGViscousDiscretization
          integer                :: i, j, k
          integer                :: eID , fID , dimID , eqID, fIDs(6)
 !
-!        Compute the averaged states
-!        ---------------------------
-         call BR1_ComputeSolutionRiemannSolver( self , mesh , time, externalStateProcedure )
+!        ************
+!        Volume loops
+!        ************
 !
-!        Perform volume loops
-!        --------------------
 !$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
-            Nx = mesh % elements(eID) % Nxyz(1)
-            Ny = mesh % elements(eID) % Nxyz(2)
-            Nz = mesh % elements(eID) % Nxyz(3)
-!
-!           Add the volumetric integrals
-!           ----------------------------
             call BR1_GradientVolumeLoop( self , mesh % elements(eID) ) 
+         end do
+!$omp end do nowait
+!
+!        *******************************************
+!        Compute Riemann solvers of non-shared faces
+!        *******************************************
+!
+!$omp do schedule(runtime) 
+         do fID = 1, SIZE(mesh % faces) 
+            associate(f => mesh % faces(fID)) 
+            select case (f % faceType) 
+            case (HMESH_INTERIOR) 
+               call BR1_ComputeElementInterfaceAverage(f) 
+            
+            case (HMESH_BOUNDARY) 
+               call BR1_ComputeBoundaryFlux(f, time, externalStateProcedure) 
+ 
+            end select 
+            end associate 
+         end do            
+!$omp end do 
+!
+!$omp do schedule(runtime) 
+         do eID = 1, size(mesh % elements) 
+            associate(e => mesh % elements(eID))
+            if ( e % hasSharedFaces ) cycle
 !
 !           Add the surface integrals
 !           -------------------------
-            call BR1_GradientFaceLoop( self , mesh % elements(eID), mesh)
+            call BR1_GradientFaceLoop( self , e, mesh)
 !
 !           Perform the scaling
 !           -------------------               
-            do k = 0, Nz   ; do j = 0, Ny    ; do i = 0, Nx
-               mesh % elements(eID) % storage % U_x(:,i,j,k) = &
-                           mesh % elements(eID) % storage % U_x(:,i,j,k) / mesh % elements(eID) % geom % jacobian(i,j,k)
-               mesh % elements(eID) % storage % U_y(:,i,j,k) = &
-                           mesh % elements(eID) % storage % U_y(:,i,j,k) / mesh % elements(eID) % geom % jacobian(i,j,k)
-               mesh % elements(eID) % storage % U_z(:,i,j,k) = &
-                           mesh % elements(eID) % storage % U_z(:,i,j,k) / mesh % elements(eID) % geom % jacobian(i,j,k)
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1)
+               e % storage % U_x(:,i,j,k) = &
+                           e % storage % U_x(:,i,j,k) / e % geom % jacobian(i,j,k)
+               e % storage % U_y(:,i,j,k) = &
+                           e % storage % U_y(:,i,j,k) / e % geom % jacobian(i,j,k)
+               e % storage % U_z(:,i,j,k) = &
+                           e % storage % U_z(:,i,j,k) / e % geom % jacobian(i,j,k)
             end do         ; end do          ; end do
 !
 !           Prolong gradients
 !           -----------------
-            fIDs = mesh % elements(eID) % faceIDs
-            call mesh % elements(eID) % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
-                                                                mesh % faces(fIDs(2)),&
-                                                                mesh % faces(fIDs(3)),&
-                                                                mesh % faces(fIDs(4)),&
-                                                                mesh % faces(fIDs(5)),&
-                                                                mesh % faces(fIDs(6)) )
+            fIDs = e % faceIDs
+            call e % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+                                             mesh % faces(fIDs(2)),&
+                                             mesh % faces(fIDs(3)),&
+                                             mesh % faces(fIDs(4)),&
+                                             mesh % faces(fIDs(5)),&
+                                             mesh % faces(fIDs(6)) )
+
+            end associate
+         end do
+!$omp end do
+
+!$omp single
+         if ( MPI_Process % doMPIAction ) then 
+            call WaitUntilSolutionIsReady(mpi_faces)
+         end if
+!$omp end single
 
 
+!$omp do schedule(runtime) 
+         do fID = 1, SIZE(mesh % faces) 
+            associate(f => mesh % faces(fID)) 
+            select case (f % faceType) 
+            case (HMESH_MPI) 
+               call BR1_ComputeMPIFaceAverage(f) 
+ 
+            end select 
+            end associate 
+         end do            
+!$omp end do 
+!
+!$omp do schedule(runtime) 
+         do eID = 1, size(mesh % elements) 
+            associate(e => mesh % elements(eID))
+            if ( .not. e % hasSharedFaces ) cycle
+!
+!           Add the surface integrals
+!           -------------------------
+            call BR1_GradientFaceLoop( self , e, mesh)
+!
+!           Perform the scaling
+!           -------------------               
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1)
+               e % storage % U_x(:,i,j,k) = &
+                           e % storage % U_x(:,i,j,k) / e % geom % jacobian(i,j,k)
+               e % storage % U_y(:,i,j,k) = &
+                           e % storage % U_y(:,i,j,k) / e % geom % jacobian(i,j,k)
+               e % storage % U_z(:,i,j,k) = &
+                           e % storage % U_z(:,i,j,k) / e % geom % jacobian(i,j,k)
+            end do         ; end do          ; end do
+!
+!           Prolong gradients
+!           -----------------
+            fIDs = e % faceIDs
+            call e % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+                                             mesh % faces(fIDs(2)),&
+                                             mesh % faces(fIDs(3)),&
+                                             mesh % faces(fIDs(4)),&
+                                             mesh % faces(fIDs(5)),&
+                                             mesh % faces(fIDs(6)) )
+            end associate
          end do
 !$omp end do
 
@@ -248,55 +333,6 @@ module DGViscousDiscretization
          e % storage % U_z = e % storage % U_z + faceInt_z
 
       end subroutine BR1_GradientFaceLoop
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-      subroutine BR1_ComputeSolutionRiemannSolver( self , mesh , time, externalStateProcedure )
-         use HexMeshClass
-         use Physics
-         use BoundaryConditionFunctions
-         implicit none 
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         type(BassiRebay1_t)            :: self
-         type(HexMesh)                  :: mesh
-         real(kind=RP)                  :: time
-         external                       :: externalStateProcedure
-!
-!        ---------------
-!        Local Variables
-!        ---------------
-!
-         integer       :: faceID
-         integer       :: eIDLeft, eIDRight
-         integer       :: fIDLeft, fIDright
-         integer       :: N(2)
-         
-         real(kind=RP) :: bvExt(N_EQN), UL(N_GRAD_EQN), UR(N_GRAD_EQN), d(N_GRAD_EQN)     
-         integer       :: i, j
-
-!$omp do schedule(runtime)
-         do faceID = 1, SIZE(mesh % faces)
-            associate(f => mesh % faces(faceID))
-            select case (f % faceType)
-            case (HMESH_INTERIOR)
-               call BR1_ComputeElementInterfaceAverage(f)
-           
-            case (HMESH_BOUNDARY)
-               call BR1_ComputeBoundaryFlux(f, time, externalStateProcedure)
-
-            case (HMESH_MPI)
-               call BR1_ComputeMPIFaceAverage(f)
-
-            end select
-            end associate
-         end do           
-!$omp end do
-         
-      end subroutine BR1_ComputeSolutionRiemannSolver
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

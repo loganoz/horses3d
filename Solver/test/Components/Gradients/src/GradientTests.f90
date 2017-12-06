@@ -55,9 +55,8 @@
       call sem % mesh % ProlongSolutionToFaces(sem % spA)
 !$omp end parallel
       
-      CALL computeRiemannFluxes(sem,0.0_RP)
-      
-      call TimeDerivative_ComputeQDot( sem % mesh , 0.0_RP )
+      call TimeDerivative_ComputeQDot( sem % mesh , 0.0_RP , &
+                     sem % externalState, sem % externalGradients)
 !
 !     ------------------------------------------------
 !     Check the divergence of the different components
@@ -157,9 +156,8 @@
          CALL DGSpatial_ComputeGradient( sem % mesh, sem % spA, 0.0_RP , sem % externalState , sem % externalGradients ) 
       END IF
 
-      CALL computeRiemannFluxes(sem,0.0_RP)
-      
-      call TimeDerivative_ComputeQDot( sem % mesh , 0.0_RP )
+      call TimeDerivative_ComputeQDot( sem % mesh , 0.0_RP, &
+                                    sem % externalState, sem % externalGradients)
 !
 !     ------------------------------------------------
 !     Check the divergence of the different components

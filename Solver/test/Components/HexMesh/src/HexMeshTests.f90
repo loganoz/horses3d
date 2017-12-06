@@ -130,7 +130,7 @@
          
          DO id = 1, SIZE(mesh % elements)
             CALL allocateElementStorage(self = mesh % elements(id),&
-                                        Nx = N(1),Ny = N(2),Nz = N(3), nEqn = 5,nGradEqn = 0,flowIsNavierStokes = .FALSE.) 
+                                        Nx = N(1),Ny = N(2),Nz = N(3), nEqn = 5,nGradEqn = 0,computeGradients = .FALSE.) 
          END DO  
 !
 !        ---------------------------
@@ -278,7 +278,7 @@
          
          DO id = 1, SIZE(mesh % elements)
             CALL allocateElementStorage(self = mesh % elements(id),&
-                                        Nx = N(1), Ny = N(2), Nz = N(3), nEqn = 5,nGradEqn = 0, flowIsNavierStokes = .FALSE.) 
+                                        Nx = N(1), Ny = N(2), Nz = N(3), nEqn = 5,nGradEqn = 0, computeGradients = .FALSE.) 
          END DO  
          
          CALL FTAssertEqual(expectedValue = 2     ,actualValue = SIZE(mesh % elements),msg = "Number of elements in mesh.")

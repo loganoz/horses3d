@@ -33,6 +33,9 @@
 #include "Includes.h"
 module SolutionFile
    use SMConstants
+#ifdef _HAS_MPI_
+   use mpi
+#endif
    
    private
    public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE
@@ -93,9 +96,6 @@ module SolutionFile
 !        **********************************************************************
 !
          use MPI_Process_Info
-#ifdef _HAS_MPI_
-         use mpi
-#endif
          implicit none
          character(len=*), intent(in)              :: name
          integer,          intent(in)              :: type_
@@ -186,9 +186,6 @@ module SolutionFile
 !        **********************************************
 !
          use MPI_Process_Info
-#ifdef _HAS_MPI_
-         use mpi
-#endif
          implicit none
          character(len=*), intent(in)              :: name
          integer                                   :: pos, fid, ierr
@@ -449,7 +446,6 @@ module SolutionFile
          putSolutionFileInWriteDataMode = fid
 
       end function putSolutionFileInWriteDataMode
-
 !
 !/////////////////////////////////////////////////////////////////////
 !

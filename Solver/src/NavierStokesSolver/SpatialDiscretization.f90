@@ -17,12 +17,15 @@ module SpatialDiscretization
       use DGViscousDiscretization
       use DGWeakIntegrals
       use MeshTypes
+#ifdef _HAS_MPI_
+      use mpi
+#endif
 !
 !     ========      
       CONTAINS 
 !     ========      
 !
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine Initialize_SpaceAndTimeMethods(controlVariables)
          use PhysicsStorage
@@ -81,20 +84,22 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine TimeDerivative_ComputeQDot( mesh , t )
+      subroutine TimeDerivative_ComputeQDot( mesh , t, externalState, externalGradients )
          use HexMeshClass
          use ElementClass
          use PhysicsStorage
+         use MPI_Face_Class
+         use MPI_Process_Info
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
+         external                   :: externalState, externalGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k
-         integer     :: Nx, Ny, Nz
+         integer     :: eID , i, j, k, ierr, fID
          interface
             subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
                USE HexMeshClass
@@ -107,34 +112,110 @@ module SpatialDiscretization
                type(RefValues_t),         intent(in) :: refValues_
             end subroutine UserDefinedSourceTerm
          end interface
-
+!
+!        ****************
+!        Volume integrals
+!        ****************
+!
 !$omp do schedule(runtime) 
          do eID = 1 , size(mesh % elements)
-            Nx = mesh % elements(eID) % Nxyz(1)
-            Ny = mesh % elements(eID) % Nxyz(2)
-            Nz = mesh % elements(eID) % Nxyz(3)
-!
-!           Perform volume integrals
-!           ------------------------            
             call TimeDerivative_VolumetricContribution( mesh % elements(eID) , t)
+         end do
+!$omp end do nowait
 !
-!           Perform surface integrals
-!           -------------------------
-            call TimeDerivative_FacesContribution( mesh % elements(eID) , t, mesh)
-
+!        ******************************************
+!        Compute Riemann solver of non-shared faces
+!        ******************************************
 !
-!           Scale with the Jacobian
-!           -----------------------
-            do k = 0, Nz   ; do j = 0, Ny    ; do i = 0, Nx
-               mesh % elements(eID) % storage % QDot(:,i,j,k) = mesh % elements(eID) % storage % QDot(:,i,j,k) &
-                                          / mesh % elements(eID) % geom % jacobian(i,j,k)
-            end do         ; end do          ; end do
+!$omp do schedule(runtime) 
+         do fID = 1, size(mesh % faces) 
+            associate( f => mesh % faces(fID)) 
+            select case (f % faceType) 
+            case (HMESH_INTERIOR) 
+               CALL computeElementInterfaceFlux ( f ) 
+ 
+            case (HMESH_BOUNDARY) 
+               CALL computeBoundaryFlux(f, t, externalState, externalGradients) 
+ 
+            end select 
+            end associate 
+         end do 
+!$omp end do 
+!
+!        ***************************************************************
+!        Surface integrals and scaling of elements with non-shared faces
+!        ***************************************************************
+! 
+!$omp do schedule(runtime) 
+         do eID = 1, size(mesh % elements) 
+            associate(e => mesh % elements(eID)) 
+            if ( e % hasSharedFaces ) cycle
+            call TimeDerivative_FacesContribution(e, t, mesh) 
+ 
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
+            end do         ; end do          ; end do 
+            end associate 
+         end do
+!$omp end do
+!
+!        ****************************
+!        Wait until messages are sent
+!        ****************************
+!
+!$omp single
+         if ( MPI_Process % doMPIAction ) then
+            if ( flowIsNavierStokes ) then 
+               call WaitUntilGradientsAreReady(mpi_faces) 
+            else  
+               call WaitUntilSolutionIsReady(mpi_faces) 
+            end if          
+         end if
+!$omp end single
+!
+!        **************************************
+!        Compute Riemann solver of shared faces
+!        **************************************
+!
+!$omp do schedule(runtime) 
+         do fID = 1, size(mesh % faces) 
+            associate( f => mesh % faces(fID)) 
+            select case (f % faceType) 
+            case (HMESH_MPI) 
+               CALL computeMPIFaceFlux ( f ) 
+            end select 
+            end associate 
+         end do 
+!$omp end do 
+!
+!        ***********************************************************
+!        Surface integrals and scaling of elements with shared faces
+!        ***********************************************************
+! 
+!$omp do schedule(runtime) 
+         do eID = 1, size(mesh % elements) 
+            associate(e => mesh % elements(eID)) 
+            if ( .not. e % hasSharedFaces ) cycle
+            call TimeDerivative_FacesContribution(e, t, mesh) 
+ 
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
+            end do         ; end do          ; end do 
+            end associate 
          end do
 !$omp end do
 !
 !        Add a source term
 !        -----------------
          call UserDefinedSourceTerm(mesh, t, thermodynamics, dimensionless, refValues)
+!
+!        Add a MPI Barrier
+!        -----------------
+#ifdef _HAS_MPI_
+!$omp single
+         if ( MPI_Process % doMPIAction ) call mpi_barrier(MPI_COMM_WORLD, ierr)
+!$omp end single
+#endif
 
       end subroutine TimeDerivative_ComputeQDot
 !
@@ -222,6 +303,204 @@ module SpatialDiscretization
                       mesh % faces(e % faceIDs(ELEFT))   % storage(e % faceSide(ELEFT))   % fStar )
 
       end subroutine TimeDerivative_FacesContribution
+!
+!///////////////////////////////////////////////////////////////////////////////////////////// 
+! 
+!        Riemann solver drivers 
+!        ---------------------- 
+! 
+!///////////////////////////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE computeElementInterfaceFlux(f)
+         use FaceClass
+         use Physics
+         use PhysicsStorage
+         IMPLICIT NONE
+         TYPE(Face)   , INTENT(inout) :: f   
+         integer       :: i, j
+         real(kind=RP) :: inv_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+!         
+!
+!        --------------
+!        Invscid fluxes:
+!        --------------
+!
+         DO j = 0, f % Nf(2)
+            DO i = 0, f % Nf(1)
+               CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
+                                  QRight = f % storage(2) % Q(:,i,j), &
+                                  nHat   = f % geom % normal(:,i,j), &
+                                  flux   = inv_flux(:,i,j) )
+
+               CALL ViscousMethod % RiemannSolver(QLeft = f % storage(1) % Q(:,i,j), &
+                                                  QRight = f % storage(2) % Q(:,i,j), &
+                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
+                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
+                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  nHat = f % geom % normal(:,i,j) , &
+                                                  flux  = visc_flux(:,i,j) )
+               
+!
+!              Multiply by the Jacobian
+!              ------------------------
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % scal(i,j)
+               
+            END DO   
+         END DO  
+!
+!        ---------------------------
+!        Return the flux to elements
+!        ---------------------------
+!
+         call f % ProjectFluxToElements(flux, (/1,2/))
+
+      END SUBROUTINE computeElementInterfaceFlux
+
+      SUBROUTINE computeMPIFaceFlux(f)
+         use FaceClass
+         use Physics
+         use PhysicsStorage
+         IMPLICIT NONE
+         TYPE(Face)   , INTENT(inout) :: f   
+         integer       :: i, j
+         integer       :: thisSide
+         real(kind=RP) :: inv_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+!         
+!
+!        --------------
+!        Invscid fluxes:
+!        --------------
+!
+         DO j = 0, f % Nf(2)
+            DO i = 0, f % Nf(1)
+               CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
+                                  QRight = f % storage(2) % Q(:,i,j), &
+                                  nHat   = f % geom % normal(:,i,j), &
+                                  flux   = inv_flux(:,i,j) )
+
+               CALL ViscousMethod % RiemannSolver(QLeft = f % storage(1) % Q(:,i,j), &
+                                                  QRight = f % storage(2) % Q(:,i,j), &
+                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
+                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
+                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  nHat = f % geom % normal(:,i,j) , &
+                                                  flux  = visc_flux(:,i,j) )
+               
+!
+!              Multiply by the Jacobian
+!              ------------------------
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % scal(i,j)
+               
+            END DO   
+         END DO  
+!
+!        ---------------------------
+!        Return the flux to elements: The sign in eR % storage % FstarB has already been accouted.
+!        ---------------------------
+!
+         thisSide = maxloc(f % elementIDs, dim = 1)
+         call f % ProjectFluxToElements(flux, (/thisSide, HMESH_NONE/))
+
+
+      end subroutine ComputeMPIFaceFlux
+
+      SUBROUTINE computeBoundaryFlux(f, time, externalStateProcedure , externalGradientsProcedure)
+      USE ElementClass
+      use FaceClass
+      USE DGViscousDiscretization
+      USE Physics
+      use PhysicsStorage
+      USE BoundaryConditionFunctions
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      type(Face),    intent(inout) :: f
+      REAL(KIND=RP)                :: time
+      EXTERNAL                     :: externalStateProcedure
+      EXTERNAL                     :: externalGradientsProcedure
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      INTEGER                         :: i, j
+      INTEGER, DIMENSION(2)           :: N
+      REAL(KIND=RP)                   :: inv_flux(N_EQN)
+      REAL(KIND=RP)                   :: UGradExt(NDIM , N_GRAD_EQN) , visc_flux(N_EQN)
+      real(kind=RP)                   :: fStar(N_EQN, 0:f % Nf(1), 0: f % Nf(2))
+      CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
+            
+      boundaryType = f % boundaryType
+      
+      DO j = 0, f % Nf(2)
+         DO i = 0, f % Nf(1)
+!
+!           Inviscid part
+!           -------------
+            f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
+            CALL externalStateProcedure( f % geom % x(:,i,j), &
+                                         time, &
+                                         f % geom % normal(:,i,j), &
+                                         f % storage(2) % Q(:,i,j),&
+                                         boundaryType )
+            CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
+                               QRight = f % storage(2) % Q(:,i,j), &   
+                               nHat   = f % geom % normal(:,i,j), &
+                               flux   = inv_flux)
+!
+!           ViscousPart
+!           -----------
+            if ( flowIsNavierStokes ) then
+
+            
+            UGradExt(IX,:) = f % storage(1) % U_x(:,i,j)
+            UGradExt(IY,:) = f % storage(1) % U_y(:,i,j)
+            UGradExt(IZ,:) = f % storage(1) % U_z(:,i,j)
+
+            CALL externalGradientsProcedure(  f % geom % x(:,i,j), &
+                                              time, &
+                                              f % geom % normal(:,i,j), &
+                                              UGradExt,&
+                                              boundaryType )
+
+            CALL ViscousMethod % RiemannSolver( QLeft = f % storage(1) % Q(:,i,j), &
+                                                QRight = f % storage(2) % Q(:,i,j), &
+                                                U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                U_xRight = UGradExt(IX,:) , &
+                                                U_yRight = UGradExt(IY,:) , &
+                                                U_zRight = UGradExt(IZ,:) , &
+                                                nHat = f % geom % normal(:,i,j), &
+                                                flux = visc_flux )
+            else
+               visc_flux = 0.0_RP
+            end if
+
+            fStar(:,i,j) = (inv_flux - visc_flux) * f % geom % scal(i,j)
+         END DO   
+      END DO   
+
+      call f % ProjectFluxToElements(fStar, (/1, HMESH_NONE/))
+
+      END SUBROUTINE computeBoundaryFlux
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

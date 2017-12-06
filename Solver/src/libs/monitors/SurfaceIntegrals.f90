@@ -2,7 +2,9 @@ module SurfaceIntegrals
    use SMConstants
    use Physics
    use HexMeshClass
-   !use ProlongToFacesProcedures
+#ifdef _HAS_MPI_
+   use mpi
+#endif
    
    private
    public   SURFACE, TOTAL_FORCE, PRESSURE_FORCE, VISCOUS_FORCE, MASS_FLOW, FLOW
@@ -38,9 +40,6 @@ module SurfaceIntegrals
 !              * Flow: computes the volumetric flow across the zone.
 !        -----------------------------------------------------------
 !
-#ifdef _HAS_MPI_
-         use mpi
-#endif
          implicit none
          class(HexMesh),      intent(inout), target  :: mesh
          class(NodalStorage), intent(in)    :: spA(0:)
@@ -63,7 +62,7 @@ module SurfaceIntegrals
 !        ---------------------------------------
          elements => mesh % elements
 !$omp parallel private(fID, eID, fIDs) shared(elements,mesh,spA,zoneID,integralType,val,&
-!$omp&                                          flowIsNavierStokes)
+!$omp&                                          computeGradients)
 !$omp single
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID = mesh % zones(zoneID) % faces(zonefID)
@@ -78,7 +77,7 @@ module SurfaceIntegrals
                                             mesh % faces(fIDs(4)),&
                                             mesh % faces(fIDs(5)),&
                                             mesh % faces(fIDs(6)) )
-            if ( flowIsNavierStokes ) then
+            if ( computeGradients ) then
                call elements(eID) % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
                                                 mesh % faces(fIDs(2)),&
                                                 mesh % faces(fIDs(3)),&
@@ -253,7 +252,7 @@ module SurfaceIntegrals
 !
          elements => mesh % elements
 !$omp parallel private(fID, eID, fIDs, localVal) shared(elements,mesh,spA,zoneID,integralType,val,&
-!$omp&                                        valx,valy,valz,flowIsNavierStokes)
+!$omp&                                        valx,valy,valz,computeGradients)
 !$omp single
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
             fID = mesh % zones(zoneID) % faces(zonefID)
@@ -268,7 +267,7 @@ module SurfaceIntegrals
                                             mesh % faces(fIDs(4)),&
                                             mesh % faces(fIDs(5)),&
                                             mesh % faces(fIDs(6)) )
-            if ( flowIsNavierStokes ) then
+            if ( computeGradients ) then
                call elements(eID) % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
                                                 mesh % faces(fIDs(2)),&
                                                 mesh % faces(fIDs(3)),&

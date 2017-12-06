@@ -41,7 +41,7 @@ GNU_DEBUG_FLAGS=  -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-varia
 INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc -D_has_Quad
 INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all \
 		   -check bounds -check uninit -ftrapuv -debug all \
-		   -ftrace=full -assume ieee_fpe_flags -ftz -fp-model precise \
+		   -ftrace=full -ftz -fp-model precise \
 		   -fp-speculation=off -assume bscc -D_has_Quad
 ARFLAGS=crv
 
@@ -51,10 +51,10 @@ ARFLAGS=crv
 ##########################################
 ifeq ($(PLATFORM),MACOSX)
    DYNLIB_FLAG=-fPIC -shared -install_name @rpath/libproblemfile.dylib -o ./libproblemfile.dylib
-   PROBLEM_LIB=$(HOME_DIR)/lib/libproblemfile.dylib -Wl,-rpath,./SETUP -Wl,-rpath,$(HOME_DIR)/lib
+   PROBLEM_LIB=$(HOME_DIR)/lib/libproblemfile.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
 else ifeq ($(PLATFORM),LINUX)
    DYNLIB_FLAG=-fPIC -shared -o ./libproblemfile.so
-   PROBLEM_LIB=-L$(HOME_DIR)/lib -lproblemfile -Wl,-rpath=./SETUP -Wl,-rpath=$(HOME_DIR)/lib
+   PROBLEM_LIB=-L$(HOME_DIR)/lib -lproblemfile -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
 endif
 
 ##########################################

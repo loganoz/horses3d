@@ -32,6 +32,7 @@
       use StorageClass
       USE NodalStorageClass
       use PhysicsStorage
+      use Physics
       IMPLICIT NONE
 
       private
@@ -39,6 +40,7 @@
       public   DestructElement, PrintElement, SetElementBoundaryNames
       
       TYPE Element
+         logical                                        :: hasSharedFaces
          integer                                        :: eID               ! ID of this element
          integer                                        :: globID            ! globalID of the element
          integer                                        :: offsetIO          ! Offset from the first element for IO
@@ -63,6 +65,7 @@
             procedure   :: EvaluateSolutionAtPoint => HexElement_EvaluateSolutionAtPoint
             procedure   :: ProlongSolutionToFaces => HexElement_ProlongSolutionToFaces
             procedure   :: ProlongGradientsToFaces => HexElement_ProlongGradientsToFaces
+            procedure   :: ComputeLocalGradient  => HexElement_ComputeLocalGradient
       END TYPE Element 
       
 !
@@ -103,6 +106,7 @@
          self % Nxyz(3)             = spAzeta % N
          self % boundaryName        = emptyBCName
          self % boundaryType        = emptyBCName
+         self % hasSharedFaces      = .false.
          self % NumberOfConnections = 0
          self % spAxi   => spAxi
          self % spAeta  => spAeta
@@ -133,13 +137,13 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE allocateElementStorage(self, Nx, Ny, Nz, nEqn, nGradEqn, flowIsNavierStokes)  
+      SUBROUTINE allocateElementStorage(self, Nx, Ny, Nz, nEqn, nGradEqn, computeGradients)  
          IMPLICIT NONE
          TYPE(Element)        :: self
          INTEGER, intent(in)  :: Nx, Ny, Nz, nEqn, nGradEqn
-         LOGICAL, intent(in)  :: flowIsNavierStokes
+         LOGICAL, intent(in)  :: computeGradients
 
-         call self % Storage % Construct(Nx, Ny, Nz, nEqn, nGradEqn, flowIsNavierStokes)
+         call self % Storage % Construct(Nx, Ny, Nz, nEqn, nGradEqn, computeGradients)
 
       END SUBROUTINE allocateElementStorage
 !
@@ -323,7 +327,93 @@
          call fT   % AdaptGradientsToFace(N(1), N(2), UxT , UyT , UzT , self % faceSide(ETOP   ))
 
       end subroutine HexElement_ProlongGradientsToFaces
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      subroutine HexElement_ComputeLocalGradient(self)
+!
+!        ****************************************************************
+!           This subroutine computes local gradients as:
+!  
+!              nabla U = (1/J) \sum_i Ja^i \cdot \partial(u)/ \partial \xi^i
+!
+!        ****************************************************************
+!  
+         implicit none
+         class(Element),   intent(inout)  :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: i, j, k, l
+         real(kind=RP)  :: U(1:N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: U_xi(1:N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: U_eta(1:N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: U_zeta(1:N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: invjac
 
+         associate( N => self % Nxyz )
+!
+!        **********************
+!        Get gradient variables
+!        **********************
+!
+         call GradientValuesForQ(N(1), N(2), N(3), self % storage % Q, U )
+!
+!        ************
+!        Compute U_xi
+!        ************
+!
+         U_xi = 0.0_RP
+         do k = 0, N(3)   ; do j = 0, N(2) ; do l = 0, N(1) ; do i = 0, N(1)
+            U_xi(:,i,j,k) = U_xi(:,i,j,k) + U(:,l,j,k) * self % spAxi % D(i,l)
+         end do           ; end do         ; end do         ; end do
+!
+!        *************
+!        Compute U_eta
+!        *************
+!
+         U_eta = 0.0_RP
+         do k = 0, N(3)   ; do l = 0, N(2) ; do j = 0, N(2) ; do i = 0, N(1)
+            U_eta(:,i,j,k) = U_eta(:,i,j,k) + U(:,i,l,k) * self % spAeta % D(j,l)
+         end do           ; end do         ; end do         ; end do
+!
+!        **************
+!        Compute U_zeta
+!        **************
+!
+         U_zeta = 0.0_RP
+         do l = 0, N(3)   ; do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            U_zeta(:,i,j,k) = U_zeta(:,i,j,k) + U(:,i,j,l) * self % spAzeta % D(k,l)
+         end do           ; end do         ; end do         ; end do
+!
+!        ******************************
+!        Project to the cartesian basis
+!        ******************************
+!
+         do k = 0, N(3) ; do j = 0, N(2)  ; do i = 0, N(1)
+            invjac = 1.0_RP / self % geom % jacobian(i,j,k)
+            self % storage % U_x(:,i,j,k) = (   U_xi(:,i,j,k) * self % geom % jGradXi(1,i,j,k) &
+                                              + U_eta(:,i,j,k) * self % geom % jGradEta(1,i,j,k) & 
+                                              + U_zeta(:,i,j,k) * self % geom % jGradZeta(1,i,j,k))&
+                                            * invjac
+
+            self % storage % U_y(:,i,j,k) = (    U_xi(:,i,j,k) * self % geom % jGradXi(2,i,j,k) &
+                                              + U_eta(:,i,j,k) * self % geom % jGradEta(2,i,j,k) & 
+                                              + U_zeta(:,i,j,k) * self % geom % jGradZeta(2,i,j,k))& 
+                                            * invjac
+
+            self % storage % U_z(:,i,j,k) = (    U_xi(:,i,j,k) * self % geom % jGradXi(3,i,j,k) &
+                                              + U_eta(:,i,j,k) * self % geom % jGradEta(3,i,j,k) & 
+                                              + U_zeta(:,i,j,k) * self % geom % jGradZeta(3,i,j,k))& 
+                                            * invjac
+         end do         ; end do          ; end do
+
+
+         end associate
+
+      end subroutine HexElement_ComputeLocalGradient
 !
 !////////////////////////////////////////////////////////////////////////
 !

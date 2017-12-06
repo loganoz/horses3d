@@ -61,12 +61,12 @@ module StorageClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Storage_Construct(self, Nx, Ny, Nz, nEqn, nGradEqn, flowIsNavierStokes)
+      subroutine Storage_Construct(self, Nx, Ny, Nz, nEqn, nGradEqn, computeGradients)
          implicit none
          class(Storage_t)     :: self
          integer, intent(in)  :: Nx, Ny, Nz
          integer, intent(in)  :: nEqn, nGradEqn
-         logical              :: flowIsNavierStokes
+         logical              :: computeGradients
 !
 !        ---------------
 !        Local variables
@@ -87,7 +87,7 @@ module StorageClass
          ALLOCATE( self % G   (nEqn,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S   (nEqn,0:Nx,0:Ny,0:Nz) )
          
-         IF ( flowIsNavierStokes )     THEN
+         IF ( computeGradients )     THEN
             ALLOCATE( self % U_x(nGradEqn,0:Nx,0:Ny,0:Nz) )
             ALLOCATE( self % U_y(nGradEqn,0:Nx,0:Ny,0:Nz) )
             ALLOCATE( self % U_z(nGradEqn,0:Nx,0:Ny,0:Nz) )
@@ -102,7 +102,7 @@ module StorageClass
          self % Q           = 0.0_RP
          self % QDot        = 0.0_RP
       
-         IF ( flowIsNavierStokes )     THEN
+         IF ( computeGradients )     THEN
             self % U_x         = 0.0_RP
             self % U_y         = 0.0_RP
             self % U_z         = 0.0_RP
@@ -133,14 +133,14 @@ module StorageClass
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine FaceStorage_Construct(self, NDIM, Nf, Nel, nEqn, nGradEqn, flowIsNavierStokes)
+      subroutine FaceStorage_Construct(self, NDIM, Nf, Nel, nEqn, nGradEqn, computeGradients)
          implicit none
          class(FaceStorage_t)     :: self
          integer, intent(in)  :: NDIM
          integer, intent(in)  :: Nf(2)              ! Face polynomial order
          integer, intent(in)  :: Nel(2)             ! Element face polynomial order
          integer, intent(in)  :: nEqn, nGradEqn     ! Equations
-         logical              :: flowIsNavierStokes 
+         logical              :: computeGradients 
 !
 !        ---------------
 !        Local variables
