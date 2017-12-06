@@ -363,8 +363,6 @@ module MonitorsClass
          integer                 :: i 
          logical                 :: forceVal
 
-         if ( .not. MPI_Process % isRoot ) return
-
          if ( present ( force ) ) then
             forceVal = force
 
@@ -377,33 +375,34 @@ module MonitorsClass
 !
 !           In this case the monitors are exported to their files and the buffer is reseted
 !           -------------------------------------------------------------------------------
-            call self % residuals % WriteToFile ( self % iter , self % t , self % bufferLine )
-
-            do i = 1 , self % no_of_probes
-               call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-            end do
-
-            do i = 1 , self % no_of_surfaceMonitors
-               call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-            end do
-
-            do i = 1 , self % no_of_volumeMonitors
-               call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-            end do
+            if ( MPI_Process % isRoot ) then
+               call self % residuals % WriteToFile ( self % iter , self % t , self % bufferLine )
+   
+               do i = 1 , self % no_of_probes
+                  call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+               end do
+   
+               do i = 1 , self % no_of_surfaceMonitors
+                  call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+               end do
+   
+               do i = 1 , self % no_of_volumeMonitors
+                  call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+               end do
 !
-!           Write statistics
-!           ----------------
-            if ( self % bufferLine .eq. 0 ) then
-               i = 1
-            else
-               i = self % bufferLine
+!              Write statistics
+!              ----------------
+               if ( self % bufferLine .eq. 0 ) then
+                  i = 1
+               else
+                  i = self % bufferLine
+               end if
+               call self % stats % WriteFile(mesh, self % iter(i), self % t(i), self % solution_file)
             end if
-            call self % stats % WriteFile(mesh, self % iter(i), self % t(i), self % solution_file)
 !
 !           Reset buffer
 !           ------------
             self % bufferLine = 0
-
 
          else
 !
@@ -411,19 +410,22 @@ module MonitorsClass
 !           ----------------------------------------------------
             if ( self % bufferLine .eq. BUFFER_SIZE ) then
 
-               call self % residuals % WriteToFile ( self % iter , self % t , BUFFER_SIZE )
-
-               do i = 1 , self % no_of_probes
-                  call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine ) 
-               end do
-
-               do i = 1 , self % no_of_surfaceMonitors
-                  call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-               end do
-
-               do i = 1 , self % no_of_volumeMonitors
-                  call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-               end do
+               if ( MPI_Process % isRoot ) then
+                  call self % residuals % WriteToFile ( self % iter , self % t , BUFFER_SIZE )
+   
+                  do i = 1 , self % no_of_probes
+                     call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine ) 
+                  end do
+   
+                  do i = 1 , self % no_of_surfaceMonitors
+                     call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+                  end do
+   
+                  do i = 1 , self % no_of_volumeMonitors
+                     call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+                  end do
+   
+               end if
 
                self % bufferLine = 0
    
