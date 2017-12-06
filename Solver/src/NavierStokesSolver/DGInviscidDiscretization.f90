@@ -173,6 +173,12 @@ if (MPI_Process % isRoot ) then
          end select
 
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
+         
+         if ( computeGradients ) then
+            write(STD_OUT,'(30X,A,A30,A)') "->","Gradients computation: ", "Enabled."
+         else
+            write(STD_OUT,'(30X,A,A30,A)') "->","Gradients computation: ", "Disabled."
+         end if
 end if
 
       end subroutine InitializeInviscidMethod

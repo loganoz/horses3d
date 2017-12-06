@@ -1236,15 +1236,15 @@ slavecoord:                DO l = 1, 4
 !        ---------------
 !
          integer  :: k, eID, bFace, side, eSide, fID, domain
-         integer  :: no_of_bdryfaces(MPI_Process % nProcs)
+         integer  :: no_of_mpifaces(MPI_Process % nProcs)
          integer, parameter  :: otherSide(2) = (/2,1/)
 !
 !        First get how many faces are shared with each other partition
 !        -------------------------------------------------------------
-         no_of_bdryfaces = 0
-         do bFace = 1, partition % no_of_bdryfaces
-            domain = partition % bdryface_sharedDomain(bFace)
-            no_of_bdryfaces(domain) = no_of_bdryfaces(domain) + 1
+         no_of_mpifaces = 0
+         do bFace = 1, partition % no_of_mpifaces
+            domain = partition % mpiface_sharedDomain(bFace)
+            no_of_mpifaces(domain) = no_of_mpifaces(domain) + 1
          end do
 !
 !        ---------------
@@ -1252,26 +1252,26 @@ slavecoord:                DO l = 1, 4
 !        ---------------
 !
          do domain = 1, MPI_Process % nProcs
-            if ( no_of_bdryfaces(domain) .ne. 0 ) then
-               call mpi_faces(domain) % Construct(no_of_bdryfaces(domain))
+            if ( no_of_mpifaces(domain) .ne. 0 ) then
+               call mpi_faces(domain) % Construct(no_of_mpifaces(domain))
             end if
          end do
 
-         no_of_bdryfaces = 0
-         do bFace = 1, partition % no_of_bdryfaces
+         no_of_mpifaces = 0
+         do bFace = 1, partition % no_of_mpifaces
 !
 !           Gather the face, and the relative position w.r.t. its element
 !           -------------------------------------------------------------
-            eID = global2LocalIDs(partition % bdryface_elements(bFace))
-            side = partition % element_bdryfaceSide(bFace)
-            eSide = partition % bdryface_elementSide(bFace)
+            eID = global2LocalIDs(partition % mpiface_elements(bFace))
+            side = partition % element_mpifaceSide(bFace)
+            eSide = partition % mpiface_elementSide(bFace)
             fID = self % elements(eID) % faceIDs(side)
 !
 !           Change the face to a HMESH_MPI
 !           ------------------------------         
             associate(f => self % faces(fID))
             f % faceType = HMESH_MPI
-            f % rotation = partition % bdryface_rotation(bFace)
+            f % rotation = partition % mpiface_rotation(bFace)
             f % elementIDs(eSide) = eID
             f % elementIDs(otherSide(eSide)) = HMESH_NONE
             f % elementSide(eSide) = side
@@ -1280,10 +1280,10 @@ slavecoord:                DO l = 1, 4
 !
 !           Create MPI Face
 !           ---------------
-            domain = partition % bdryface_sharedDomain(bFace)
-            no_of_bdryfaces(domain) = no_of_bdryfaces(domain) + 1
-            mpi_faces(domain) % faceIDs(no_of_bdryfaces(domain)) = fID
-            mpi_faces(domain) % elementSide(no_of_bdryfaces(domain)) = eSide
+            domain = partition % mpiface_sharedDomain(bFace)
+            no_of_mpifaces(domain) = no_of_mpifaces(domain) + 1
+            mpi_faces(domain) % faceIDs(no_of_mpifaces(domain)) = fID
+            mpi_faces(domain) % elementSide(no_of_mpifaces(domain)) = eSide
 
          end do
 
@@ -1634,10 +1634,10 @@ slavecoord:                DO l = 1, 4
 !
 !        Create new file
 !        ---------------
-         if ( saveGradients ) then
+         if ( saveGradients .and. computeGradients) then
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
                                        self % nodeType, self % no_of_allElements, iter, time, refs)
-            padding = NCONS*4
+            padding = NCONS + 3*N_GRAD_EQN
          else
             call CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % nodeType, &
                                        self % no_of_allElements, iter, time, refs)
@@ -1651,7 +1651,7 @@ slavecoord:                DO l = 1, 4
             associate( e => self % elements(eID) )
             pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
             call writeArray(fid, e % storage % Q, position=pos)
-            if ( saveGradients ) then
+            if ( saveGradients .and. computeGradients ) then
                write(fid) e % storage % U_x
                write(fid) e % storage % U_y
                write(fid) e % storage % U_z
@@ -1763,7 +1763,7 @@ slavecoord:                DO l = 1, 4
             padding = 1*NCONS
 
          case(SOLUTION_AND_GRADIENTS_FILE)
-            padding = 4*NCONS
+            padding = NCONS + 3 * N_GRAD_EQN
 
          case(STATS_FILE)
             print*, "The selected restart file is a statistics file"

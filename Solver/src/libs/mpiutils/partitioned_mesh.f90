@@ -29,14 +29,14 @@ module PartitionedMeshClass
       integer              :: ID
       integer              :: no_of_nodes
       integer              :: no_of_elements
-      integer              :: no_of_bdryfaces
+      integer              :: no_of_mpifaces
       integer, allocatable :: nodeIDs(:)
       integer, allocatable :: elementIDs(:)
-      integer, allocatable :: bdryface_elements(:)
-      integer, allocatable :: element_bdryfaceSide(:)
-      integer, allocatable :: bdryface_rotation(:)
-      integer, allocatable :: bdryface_elementSide(:)
-      integer, allocatable :: bdryface_sharedDomain(:)
+      integer, allocatable :: mpiface_elements(:)
+      integer, allocatable :: element_mpifaceSide(:)
+      integer, allocatable :: mpiface_rotation(:)
+      integer, allocatable :: mpiface_elementSide(:)
+      integer, allocatable :: mpiface_sharedDomain(:)
       contains
          procedure   :: Destruct => PartitionedMesh_Destruct
    end type PartitionedMesh_t
@@ -93,15 +93,15 @@ module PartitionedMeshClass
          ConstructPartitionedMesh % ID = ID
          ConstructPartitionedMesh % no_of_nodes = 0
          ConstructPartitionedMesh % no_of_elements = 0
-         ConstructPartitionedMesh % no_of_bdryfaces = 0
+         ConstructPartitionedMesh % no_of_mpifaces = 0
 
          safedeallocate(ConstructPartitionedMesh % nodeIDs)
          safedeallocate(ConstructPartitionedMesh % elementIDs)
-         safedeallocate(ConstructPartitionedMesh % bdryface_elements)
-         safedeallocate(ConstructPartitionedMesh % element_bdryfaceSide)
-         safedeallocate(ConstructPartitionedMesh % bdryface_rotation)
-         safedeallocate(ConstructPartitionedMesh % bdryface_elementSide)
-         safedeallocate(ConstructPartitionedMesh % bdryface_sharedDomain)
+         safedeallocate(ConstructPartitionedMesh % mpiface_elements)
+         safedeallocate(ConstructPartitionedMesh % element_mpifaceSide)
+         safedeallocate(ConstructPartitionedMesh % mpiface_rotation)
+         safedeallocate(ConstructPartitionedMesh % mpiface_elementSide)
+         safedeallocate(ConstructPartitionedMesh % mpiface_sharedDomain)
    
       end function ConstructPartitionedMesh
 
@@ -117,7 +117,7 @@ module PartitionedMeshClass
 
          if ( MPI_Process % isRoot ) return
 !
-!        First receive number of nodes, elements, and bdryfaces
+!        First receive number of nodes, elements, and mpifaces
 !        ------------------------------------------------------
          call mpi_irecv(sizes, 3, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr)
 !
@@ -129,15 +129,15 @@ module PartitionedMeshClass
 !        ----------------------
          mpi_partition % no_of_nodes = sizes(1)
          mpi_partition % no_of_elements = sizes(2)
-         mpi_partition % no_of_bdryfaces = sizes(3)
+         mpi_partition % no_of_mpifaces = sizes(3)
 
-         allocate(mpi_partition % nodeIDs              (mpi_partition % no_of_nodes    ))
-         allocate(mpi_partition % elementIDs           (mpi_partition % no_of_elements ))
-         allocate(mpi_partition % bdryface_elements    (mpi_partition % no_of_bdryfaces))
-         allocate(mpi_partition % element_bdryfaceSide (mpi_partition % no_of_bdryfaces))
-         allocate(mpi_partition % bdryface_rotation    (mpi_partition % no_of_bdryfaces))
-         allocate(mpi_partition % bdryface_elementSide (mpi_partition % no_of_bdryfaces))
-         allocate(mpi_partition % bdryface_sharedDomain(mpi_partition % no_of_bdryfaces))
+         allocate(mpi_partition % nodeIDs             (mpi_partition % no_of_nodes   )) 
+         allocate(mpi_partition % elementIDs          (mpi_partition % no_of_elements))
+         allocate(mpi_partition % mpiface_elements    (mpi_partition % no_of_mpifaces))
+         allocate(mpi_partition % element_mpifaceSide (mpi_partition % no_of_mpifaces))
+         allocate(mpi_partition % mpiface_rotation    (mpi_partition % no_of_mpifaces))
+         allocate(mpi_partition % mpiface_elementSide (mpi_partition % no_of_mpifaces))
+         allocate(mpi_partition % mpiface_sharedDomain(mpi_partition % no_of_mpifaces))
 !
 !        Receive the rest of the PartitionedMesh_t arrays
 !        ------------------------------------------------
@@ -147,19 +147,19 @@ module PartitionedMeshClass
          call mpi_irecv(mpi_partition % elementIDs, mpi_partition % no_of_elements, MPI_INT, 0, &
                         MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr)
 
-         call mpi_irecv(mpi_partition % bdryface_elements, mpi_partition % no_of_bdryfaces, &
+         call mpi_irecv(mpi_partition % mpiface_elements, mpi_partition % no_of_mpifaces, &
                         MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(4), ierr)
 
-         call mpi_irecv(mpi_partition % element_bdryfaceSide, mpi_partition % no_of_bdryfaces, &
+         call mpi_irecv(mpi_partition % element_mpifaceSide, mpi_partition % no_of_mpifaces, &
                         MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(5), ierr)
 
-         call mpi_irecv(mpi_partition % bdryface_rotation, mpi_partition % no_of_bdryfaces, &
+         call mpi_irecv(mpi_partition % mpiface_rotation, mpi_partition % no_of_mpifaces, &
                         MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(6), ierr)
                      
-         call mpi_irecv(mpi_partition % bdryface_elementSide, mpi_partition % no_of_bdryfaces, &
+         call mpi_irecv(mpi_partition % mpiface_elementSide, mpi_partition % no_of_mpifaces, &
                         MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(7), ierr)
 
-         call mpi_irecv(mpi_partition % bdryface_sharedDomain, mpi_partition % no_of_bdryfaces, &
+         call mpi_irecv(mpi_partition % mpiface_sharedDomain, mpi_partition % no_of_mpifaces, &
                         MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(8), ierr)
 !
 !        Wait until all messages have been received
@@ -190,7 +190,7 @@ module PartitionedMeshClass
 !           --------------------
             sizes(1) = mpi_allPartitions(domain) % no_of_nodes
             sizes(2) = mpi_allPartitions(domain) % no_of_elements
-            sizes(3) = mpi_allPartitions(domain) % no_of_bdryfaces
+            sizes(3) = mpi_allPartitions(domain) % no_of_mpifaces
             call mpi_isend(sizes, 3, MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
                            send_req(domain-1,1), ierr)
          end do
@@ -204,28 +204,28 @@ module PartitionedMeshClass
                            mpi_allPartitions(domain) % no_of_elements, MPI_INT, domain-1, &
                            DEFAULT_TAG, MPI_COMM_WORLD, send_req(domain-1,3), ierr)
 
-            call mpi_isend(mpi_allPartitions(domain) % bdryface_elements, &
-                           mpi_allPartitions(domain) % no_of_bdryfaces, &
+            call mpi_isend(mpi_allPartitions(domain) % mpiface_elements, &
+                           mpi_allPartitions(domain) % no_of_mpifaces, &
                            MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
                            send_req(domain-1,4), ierr)
 
-            call mpi_isend(mpi_allPartitions(domain) % element_bdryfaceSide, &
-                           mpi_allPartitions(domain) % no_of_bdryfaces, &
+            call mpi_isend(mpi_allPartitions(domain) % element_mpifaceSide, &
+                           mpi_allPartitions(domain) % no_of_mpifaces, &
                            MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
                            send_req(domain-1,5), ierr)
 
-            call mpi_isend(mpi_allPartitions(domain) % bdryface_rotation, &
-                           mpi_allPartitions(domain) % no_of_bdryfaces, &
+            call mpi_isend(mpi_allPartitions(domain) % mpiface_rotation, &
+                           mpi_allPartitions(domain) % no_of_mpifaces, &
                            MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
                            send_req(domain-1,6), ierr)
                      
-            call mpi_isend(mpi_allPartitions(domain) % bdryface_elementSide, &
-                           mpi_allPartitions(domain) % no_of_bdryfaces, &
+            call mpi_isend(mpi_allPartitions(domain) % mpiface_elementSide, &
+                           mpi_allPartitions(domain) % no_of_mpifaces, &
                            MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &  
                            send_req(domain-1,7), ierr)
 
-            call mpi_isend(mpi_allPartitions(domain) % bdryface_sharedDomain, &
-                           mpi_allPartitions(domain) % no_of_bdryfaces, &
+            call mpi_isend(mpi_allPartitions(domain) % mpiface_sharedDomain, &
+                           mpi_allPartitions(domain) % no_of_mpifaces, &
                            MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
                            send_req(domain-1,8), ierr)
          end do
@@ -258,15 +258,15 @@ module PartitionedMeshClass
          self % ID              = 0
          self % no_of_nodes     = 0
          self % no_of_elements  = 0
-         self % no_of_bdryfaces = 0
+         self % no_of_mpifaces = 0
 
-         safedeallocate(self % nodeIDs)
-         safedeallocate(self % elementIDs)
-         safedeallocate(self % bdryface_elements)
-         safedeallocate(self % element_bdryfaceSide)
-         safedeallocate(self % bdryface_rotation)
-         safedeallocate(self % bdryface_elementSide)
-         safedeallocate(self % bdryface_sharedDomain)
+         safedeallocate(self % nodeIDs             )
+         safedeallocate(self % elementIDs          )
+         safedeallocate(self % mpiface_elements    )
+         safedeallocate(self % element_mpifaceSide )
+         safedeallocate(self % mpiface_rotation    )
+         safedeallocate(self % mpiface_elementSide )
+         safedeallocate(self % mpiface_sharedDomain)
 
       end subroutine PartitionedMesh_Destruct
    

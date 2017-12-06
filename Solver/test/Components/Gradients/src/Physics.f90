@@ -54,6 +54,7 @@
 !    ----------------------------
 !
      LOGICAL :: flowIsNavierStokes = .true.
+     LOGICAL :: computeGradients = .true.
 !
 !    --------------------------
 !!   The sizes of the NS system

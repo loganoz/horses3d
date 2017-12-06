@@ -235,8 +235,8 @@
       self % spAxi => spA(self % Nf(1))
       self % spAeta => spA(self % Nf(2))
 
-      call self % storage(1) % Construct(NDIM, self % Nf, self % NelLeft, nEqn, nGradEqn, flowIsNavierStokes)
-      call self % storage(2) % Construct(NDIM, self % Nf, self % NelRight, nEqn, nGradEqn, flowIsNavierStokes)
+      call self % storage(1) % Construct(NDIM, self % Nf, self % NelLeft, nEqn, nGradEqn, computeGradients)
+      call self % storage(2) % Construct(NDIM, self % Nf, self % NelRight, nEqn, nGradEqn, computeGradients)
 !
 !     -----------------------------------------------------------------------
 !     Construction of the projection matrices (simple Lagrange interpolation)

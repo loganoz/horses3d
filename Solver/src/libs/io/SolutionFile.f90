@@ -446,7 +446,6 @@ module SolutionFile
          putSolutionFileInWriteDataMode = fid
 
       end function putSolutionFileInWriteDataMode
-
 !
 !/////////////////////////////////////////////////////////////////////
 !

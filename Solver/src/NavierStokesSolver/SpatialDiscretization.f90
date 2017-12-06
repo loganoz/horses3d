@@ -167,7 +167,7 @@ module SpatialDiscretization
          if ( MPI_Process % doMPIAction ) then
             if ( flowIsNavierStokes ) then 
                call WaitUntilGradientsAreReady(mpi_faces) 
-            else 
+            else  
                call WaitUntilSolutionIsReady(mpi_faces) 
             end if          
          end if

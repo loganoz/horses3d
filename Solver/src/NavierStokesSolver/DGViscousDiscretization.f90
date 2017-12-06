@@ -51,6 +51,11 @@ module DGViscousDiscretization
 !///////////////////////////////////////////////////////////////////////////////////
 !
       subroutine BaseClass_ComputeGradient( self , mesh , spA, time , externalStateProcedure , externalGradientsProcedure)
+!
+!        *****************************************************
+!           BaseClass computes Local Gradients by default
+!        *****************************************************
+!           
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -62,10 +67,18 @@ module DGViscousDiscretization
          external                         :: externalStateProcedure
          external                         :: externalGradientsProcedure
 !
-!        ---------------------------
-!        The base class does nothing
-!        ---------------------------
+!        ---------------
+!        Local variables
+!        ---------------
 !
+         integer  :: eID
+
+!$omp do schedule(runtime)
+         do eID = 1, mesh % no_of_elements
+            call mesh % elements(eID) % ComputeLocalGradient
+         end do
+!$omp end do
+
       end subroutine BaseClass_ComputeGradient
 
       subroutine BaseClass_ComputeInnerFluxes( self , e , contravariantFlux )
@@ -248,7 +261,6 @@ module DGViscousDiscretization
                                              mesh % faces(fIDs(4)),&
                                              mesh % faces(fIDs(5)),&
                                              mesh % faces(fIDs(6)) )
-
             end associate
          end do
 !$omp end do
