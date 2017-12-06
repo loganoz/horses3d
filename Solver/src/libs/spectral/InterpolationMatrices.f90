@@ -42,17 +42,17 @@ module InterpolationMatrices
  contains
 !========
 
-subroutine ConstructInterpolationMatrices(Norigin, Ndest, spA)
+subroutine ConstructInterpolationMatrices(Norigin, Ndest)
 !
-!     ***********************************************************
+!     ****************************************************************
 !        This subroutine computes the interpolation matrices
 !        from Norigin to Ndest (forward) and backwards
-!     ***********************************************************
+!     TODO: If other spA's are needed, add spA as an optional argument 
+!     ****************************************************************
 !
       implicit none
       integer, intent(in)  :: Norigin
       integer, intent(in)  :: Ndest
-      type(NodalStorage)  :: spA(0:)
 !
 !     ---------------
 !     Local variables
@@ -76,8 +76,8 @@ subroutine ConstructInterpolationMatrices(Norigin, Ndest, spA)
 !     Matrix construction
 !     -------------------      
       
-      associate ( spAo => spA(Norigin), &
-                  spAd => spA(Ndest)      )
+      associate ( spAo => GlobalspA(Norigin), &
+                  spAd => GlobalspA(Ndest)      )
       
 !
 !        Allocate memory

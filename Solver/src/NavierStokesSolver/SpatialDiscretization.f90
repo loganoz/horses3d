@@ -509,12 +509,11 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine DGSpatial_ComputeGradient( mesh , spA, time , externalStateProcedure , externalGradientsProcedure )
+      subroutine DGSpatial_ComputeGradient( mesh , time , externalStateProcedure , externalGradientsProcedure )
          use HexMeshClass
          use PhysicsStorage
          implicit none
          type(HexMesh)                  :: mesh
-         type(NodalStorage)             :: spA(0:)
          real(kind=RP),      intent(in) :: time
          interface
             subroutine externalStateProcedure(x,t,nHat,Q,boundaryName)
@@ -532,7 +531,7 @@ module SpatialDiscretization
             end subroutine externalGradientsProcedure
          end interface
 
-         call ViscousMethod % ComputeGradient( mesh , spA, time , externalStateProcedure , externalGradientsProcedure )
+         call ViscousMethod % ComputeGradient( mesh , time , externalStateProcedure , externalGradientsProcedure )
 
       end subroutine DGSpatial_ComputeGradient
 !

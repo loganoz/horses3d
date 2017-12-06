@@ -56,7 +56,7 @@ Module DGSEMClass
       integer                                                 :: nodes                 ! Either GAUSS or GAUSLOBATTO
       INTEGER                                                 :: numberOfTimeSteps
       INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
-      TYPE(NodalStorage)                        , allocatable :: spA(:)
+      TYPE(NodalStorage)                        , pointer     :: spA(:)
       INTEGER           , ALLOCATABLE                         :: Nx(:), Ny(:), Nz(:)
       TYPE(HexMesh)                                           :: mesh
       PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
@@ -199,9 +199,7 @@ Module DGSEMClass
 !     Construct the polynomial storage for the elements in the mesh
 !     -------------------------------------------------------------
 !
-      IF (ALLOCATED(self % spA)) DEALLOCATE(self % spa)
-      k = max( MAXVAL(Nx), MAXVAL(Ny), MAXVAL(Nz) )
-      ALLOCATE(self % spA(0:k) )
+      self % spA => GlobalspA
       
       self % NDOF = 0
       DO k=1, nTotalElem
@@ -653,7 +651,7 @@ Module DGSEMClass
 !        -----------------
 !
          if ( computeGradients ) then
-            CALL DGSpatial_ComputeGradient( self % mesh , self % spA, time , self % externalState , self % externalGradients )
+            CALL DGSpatial_ComputeGradient( self % mesh , time , self % externalState , self % externalGradients )
          end if
 
 !$omp single

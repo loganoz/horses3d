@@ -18,7 +18,7 @@ MODULE NodalStorageClass
    IMPLICIT NONE 
 
    private
-   public GAUSS, GAUSSLOBATTO, NodalStorage
+   public GAUSS, GAUSSLOBATTO, NodalStorage, GlobalspA, InitializeNodalStorage
 
    integer, parameter      :: GAUSS = 1
    integer, parameter      :: GAUSSLOBATTO = 2
@@ -49,10 +49,33 @@ MODULE NodalStorageClass
          procedure :: dlj      => NodalStorage_getdlj
 
    END TYPE NodalStorage
+   
+!  ------------------------------------------------
+!  GlobalspA contains the nodal storage information  
+!  for every possible polynomial order of the mesh
+!  ------------------------------------------------
+   type(NodalStorage), target, allocatable :: GlobalspA(:)
+   
 !      
 !     ========
       CONTAINS 
 !     ========
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------
+!  This routine allocates the spA
+!  ------------------------------
+   subroutine InitializeNodalStorage(Nmax)
+      implicit none
+      !---------------------------------------
+      integer  :: Nmax
+      !---------------------------------------
+      
+      if (allocated(GlobalspA)) deallocate(GlobalspA)
+      allocate ( GlobalspA(0:Nmax) )
+      
+   end subroutine InitializeNodalStorage
 !
 !////////////////////////////////////////////////////////////////////////
 !

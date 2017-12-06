@@ -243,11 +243,11 @@
 !     Construction of the projection matrices (simple Lagrange interpolation)
 !     -----------------------------------------------------------------------
 !
-      call ConstructInterpolationMatrices(self % NfLeft(1), self % Nf(1), spA)
-      call ConstructInterpolationMatrices(self % NfLeft(2), self % Nf(2), spA)
+      call ConstructInterpolationMatrices(self % NfLeft(1), self % Nf(1))
+      call ConstructInterpolationMatrices(self % NfLeft(2), self % Nf(2))
 
-      call ConstructInterpolationMatrices(self % NfRight(1), self % Nf(1), spA)
-      call ConstructInterpolationMatrices(self % NfRight(2), self % Nf(2), spA)
+      call ConstructInterpolationMatrices(self % NfRight(1), self % Nf(1))
+      call ConstructInterpolationMatrices(self % NfRight(2), self % Nf(2))
 !
 !     -----------------------  0- no projection
 !     Set the projection type: 1- x needs projection
