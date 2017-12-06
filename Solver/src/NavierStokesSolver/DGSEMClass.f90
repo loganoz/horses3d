@@ -50,6 +50,7 @@ Module DGSEMClass
    
    TYPE DGSem
       REAL(KIND=RP)                                           :: maxResidual
+      integer                                                 :: nodes                 ! Either GAUSS or GAUSLOBATTO
       INTEGER                                                 :: numberOfTimeSteps
       INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
       TYPE(NodalStorage)                        , allocatable :: spA(:)
@@ -160,6 +161,7 @@ Module DGSEMClass
          errorMessage(STD_OUT)
          stop
       end select
+      self % nodes = nodes
 !
 !     ---------------------------------------
 !     Get polynomial orders for every element

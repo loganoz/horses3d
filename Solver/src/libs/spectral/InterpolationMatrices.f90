@@ -15,7 +15,7 @@ module InterpolationMatrices
    implicit none
    
    private
-   public   Tset, InterpolationMatrix_t, ConstructInterpolationMatrices
+   public   Tset, InterpolationMatrix_t, ConstructInterpolationMatrices, Interp3DArrays
 
 !
 !  ---------------------------------

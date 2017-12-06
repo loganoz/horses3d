@@ -38,6 +38,7 @@ Read_SpecMesh: HexMesh SMConstants TransfiniteMaps3D FacePatchClass
 MeshPartitioning: IntegerDataLinkedList
 IntegerDataLinkedList: Utilities
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
+InterpolationMatrices: InterpolationAndDerivatives SMConstants NodalStorageClass
 TimeIntegrator: Physics SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass Monitors
 ExplicitMethods: SMConstants DGSEMClass
 GradientSetup: DGSEMClass
