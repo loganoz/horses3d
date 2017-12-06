@@ -54,7 +54,7 @@ ifeq ($(PLATFORM),MACOSX)
    PROBLEM_LIB=$(HOME_DIR)/lib/libproblemfile.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
 else ifeq ($(PLATFORM),LINUX)
    DYNLIB_FLAG=-fPIC -shared -o ./libproblemfile.so
-   PROBLEM_LIB=-L$(HOME_DIR)/lib -lproblemfile -Wl,-rpath=./SETUP -Wl,-rpath=$(HOME_DIR)/lib
+   PROBLEM_LIB=-L$(HOME_DIR)/lib -lproblemfile -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
 endif
 
 ##########################################
