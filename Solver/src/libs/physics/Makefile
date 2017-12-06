@@ -12,6 +12,8 @@ MOD_FLAG?=-J
 
 
 LIBOBJS = 	./build/FluidData.o \
+		./build/PhysicsStorage.o \
+		./build/RiemannSolvers.o \
 		./build/Physics.o \
 		./build/ManufacturedSolutions.o \
 		./build/BoundaryConditions.o 

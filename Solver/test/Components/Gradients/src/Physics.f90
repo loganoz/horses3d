@@ -312,6 +312,15 @@
      END MODULE PhysicsStorage
 !    **********
 !@mark -
+
+   module RiemannSolvers
+
+      contains
+         subroutine SetRiemannSolver(which)
+            integer, intent(in)  :: which
+         end subroutine SetRiemannSolver
+
+   end module RiemannSolvers
 !
 !  **************
    Module Physics 
