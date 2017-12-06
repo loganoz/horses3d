@@ -1,6 +1,7 @@
 #include "Includes.h"
 module DGInviscidDiscretization
    use SMConstants
+   use RiemannSolvers
    implicit none
 
    private
@@ -72,6 +73,7 @@ module DGInviscidDiscretization
             end subroutine toLower
          end interface
 
+         call SetRiemannSolver( riemannSolverChoice )
 
          select type ( self ) 
          type is (SplitDG_t)

@@ -4,9 +4,9 @@
 !   @File:    RiemannSolvers.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:26 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed Dec  6 17:59:35 2017
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 8cc17733385cd74924da75c3c1fd7cd89dd71fd4
 !
 !//////////////////////////////////////////////////////
 !
@@ -16,41 +16,48 @@ module RiemannSolvers
    use PhysicsStorage
 
    private 
-   public RiemannSolver
+   public RiemannSolver, SetRiemannSolver
+
+   abstract interface
+      subroutine RiemannSolverFCN(QLeft, QRight, nHat, flux)
+         use SMConstants
+         use PhysicsStorage
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
+      end subroutine RiemannSolverFCN
+   end interface
+
+   procedure(RiemannSolverFCN), pointer   :: RiemannSolver => NULL()
 
    contains
-      SUBROUTINE RiemannSolver( QLeft, QRight, nHat, flux )
+      SUBROUTINE SetRiemannSolver(which)
          IMPLICIT NONE
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         REAL(KIND=RP), DIMENSION(N_EQN)  :: Qleft, Qright, flux
-         REAL(KIND=RP), DIMENSION(3)      :: nHat
-         
-         SELECT CASE ( riemannSolverChoice )
-            CASE ( ROE )
-               CALL RoeSolver( QLeft, QRight, nHat, flux )
-            CASE (LXF)
-               CALL LxFSolver( QLeft, QRight, nHat, flux )
-            CASE (RUSANOV)
-               CALL RusanovSolver( QLeft, QRight, nHat, flux )               
-            CASE (DUCROS)
-               CALL DucrosSolver( QLeft, QRight, nHat, flux )               
-            CASE (MORINISHI)
-               CALL MorinishiSolver( QLeft, QRight, nHat, flux )               
-            case (PIROZZOLI)
-               call PirozzoliSolver(QLeft, QRight, nHat, flux)
-            case (KENNEDYGRUBER)
-               call KennedyGruberSolver(QLeft, QRight, nHat, flux)
-            CASE DEFAULT
-               PRINT *, "Undefined choice of Riemann Solver. Abort"
-               STOP
-         END SELECT
+         integer, intent(in) :: which
 
+         select case ( which )
+         case ( ROE )
+            RiemannSolver => RoeSolver
+         case (LXF)
+            RiemannSolver => LxFSolver
+         case (RUSANOV)
+            RiemannSolver => RusanovSolver
+         case (DUCROS)
+            RiemannSolver => DucrosSolver
+         case (MORINISHI)
+            RiemannSolver => MorinishiSolver
+         case (PIROZZOLI)
+            RiemannSolver => PirozzoliSolver
+         case (KENNEDYGRUBER)
+            RiemannSolver => KennedyGruberSolver
+         case default
+            PRINT *, "Undefined choice of Riemann Solver. Abort"
+            errorMessage(STD_OUT)
+            STOP
+         end select
       
-      END SUBROUTINE RiemannSolver
+      END SUBROUTINE SetRiemannSolver
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -61,8 +68,10 @@ module RiemannSolvers
 !        Arguments
 !        ---------
 !
-         REAL(KIND=RP), DIMENSION(N_EQN) :: Qleft, Qright, flux
-         REAL(KIND=RP), DIMENSION(3)     :: nHat
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local Variables
@@ -80,17 +89,17 @@ module RiemannSolvers
       
          associate ( gamma => thermodynamics % gamma )
             
-         rho  = Qleft(1)
-         rhou = Qleft(2)
-         rhov = Qleft(3)
-         rhow = Qleft(4)
-         rhoe = Qleft(5)
+         rho  = QLeft(1)
+         rhou = QLeft(2)
+         rhov = QLeft(3)
+         rhow = QLeft(4)
+         rhoe = QLeft(5)
    
-         rhon  = Qright(1)
-         rhoun = Qright(2)
-         rhovn = Qright(3)
-         rhown = Qright(4)
-         rhoen = Qright(5)
+         rhon  = QRight(1)
+         rhoun = QRight(2)
+         rhovn = QRight(3)
+         rhown = QRight(4)
+         rhoen = QRight(5)
          
          ul = rhou/rho 
          vl = rhov/rho 
@@ -170,8 +179,10 @@ module RiemannSolvers
 !        Arguments
 !        ---------
 !
-         REAL(KIND=RP), DIMENSION(N_EQN) :: Qleft, Qright, flux
-         REAL(KIND=RP), DIMENSION(3)     :: nHat
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local Variables
@@ -187,17 +198,17 @@ module RiemannSolvers
          
          associate ( gamma => thermodynamics % gamma )
          
-         rho  = Qleft(1)
-         rhou = Qleft(2)
-         rhov = Qleft(3)
-         rhow = Qleft(4)
-         rhoe = Qleft(5)
+         rho  = QLeft(1)
+         rhou = QLeft(2)
+         rhov = QLeft(3)
+         rhow = QLeft(4)
+         rhoe = QLeft(5)
          
-         rhon  = Qright(1)
-         rhoun = Qright(2)
-         rhovn = Qright(3)
-         rhown = Qright(4)
-         rhoen = Qright(5)
+         rhon  = QRight(1)
+         rhoun = QRight(2)
+         rhovn = QRight(3)
+         rhown = QRight(4)
+         rhoen = QRight(5)
          
          ul = rhou/rho 
          vl = rhov/rho 
@@ -211,8 +222,8 @@ module RiemannSolvers
          
          ql = nHat(1)*ul + nHat(2)*vl + nHat(3)*wl 
          qr = nHat(1)*ur + nHat(2)*vr + nHat(3)*wr 
-         cl = SQRT( gamma*pleft/rho )
-         cr = SQRT( gamma*pright/rhon )
+         cl = sqrt( gamma*pleft/rho )
+         cr = sqrt( gamma*pright/rhon )
          
          FL(1) = rho*ql
          FL(2) = rhou*ql + pleft*nHat(1)
@@ -228,7 +239,7 @@ module RiemannSolvers
          
          sM = MAX( ABS(ql) + cl, ABS(qr) + cr )
          
-         flux = 0.5_RP * ( FL + FR - (sM+lambdaStab)*(Qright - Qleft) )      
+         flux = 0.5_RP * ( FL + FR - (sM+lambdaStab)*(QRight - QLeft) )      
          
          end associate
       
@@ -244,8 +255,10 @@ module RiemannSolvers
 !        Arguments
 !        ---------
 !
-         REAL(KIND=RP), DIMENSION(N_EQN) :: Qleft, Qright, flux
-         REAL(KIND=RP), DIMENSION(3)     :: nHat
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local Variables
@@ -266,17 +279,17 @@ module RiemannSolvers
       
          associate ( gamma => thermodynamics % gamma ) 
 
-         rho  = Qleft(1)
-         rhou = Qleft(2)
-         rhov = Qleft(3)
-         rhow = Qleft(4)
-         rhoe = Qleft(5)
+         rho  = QLeft(1)
+         rhou = QLeft(2)
+         rhov = QLeft(3)
+         rhow = QLeft(4)
+         rhoe = QLeft(5)
    
-         rhon  = Qright(1)
-         rhoun = Qright(2)
-         rhovn = Qright(3)
-         rhown = Qright(4)
-         rhoen = Qright(5)
+         rhon  = QRight(1)
+         rhoun = QRight(2)
+         rhovn = QRight(3)
+         rhown = QRight(4)
+         rhoen = QRight(5)
    
          ul = rhou/rho 
          vl = rhov/rho 
@@ -314,8 +327,8 @@ module RiemannSolvers
          !Rusanov
          ar2 = (gamma-1.d0)*(hr - 0.5d0*(ur*ur + vr*vr + wr*wr)) 
          al2 = (gamma-1.d0)*(hl - 0.5d0*(ul*ul + vl*vl + wl*wl)) 
-         ar = SQRT(ar2)
-         al = SQRT(al2)
+         ar = sqrt(ar2)
+         al = sqrt(al2)
 !           
          rql = rho*ql 
          rqr = rhon*qr             
@@ -327,7 +340,7 @@ module RiemannSolvers
 
          smax = MAX(ar+ABS(qr),al+ABS(ql))
 
-         flux = (flux - ds*smax*(Qright-Qleft))/2.d0
+         flux = (flux - ds*smax*(QRight-QLeft))/2.d0
 
          RETURN 
 
@@ -335,12 +348,12 @@ module RiemannSolvers
          
       END SUBROUTINE RusanovSolver           
 
-      subroutine DucrosSolver(QL, QR, nHat, flux) 
+      subroutine DucrosSolver(QLeft, QRight, nHat, flux) 
          use SMConstants
          use PhysicsStorage
          implicit none
-         real(kind=RP), intent(in)       :: QL(1:NCONS)
-         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
          real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
@@ -352,54 +365,54 @@ module RiemannSolvers
          real(kind=RP)     :: invRhoR, uR, vR, wR, pR, aR, unR
          real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
 
-         invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
-         uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
-         vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
-         wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
+         invRhoL = 1.0_RP / QLeft(IRHO)   ; invRhoR = 1.0_RP / QRight(IRHO)
+         uL = invRhoL * QLeft(IRHOU)      ; uR = invRhoR * QRight(IRHOU)
+         vL = invRhoL * QLeft(IRHOV)      ; vR = invRhoR * QRight(IRHOV)
+         wL = invRhoL * QLeft(IRHOW)      ; wR = invRhoR * QRight(IRHOW)
    
-         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
-                                                                      + QL(IRHOV) * vL &
-                                                                      + QL(IRHOW) * wL ))
+         pL = thermodynamics % GammaMinus1 * ( QLeft(IRHOE) - 0.5_RP * (   QLeft(IRHOU) * uL &
+                                                                      + QLeft(IRHOV) * vL &
+                                                                      + QLeft(IRHOW) * wL ))
 
-         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
-                                                                      + QR(IRHOV) * vR &
-                                                                      + QR(IRHOW) * wR ))
+         pR = thermodynamics % GammaMinus1 * ( QRight(IRHOE) - 0.5_RP * (   QRight(IRHOU) * uR &
+                                                                      + QRight(IRHOV) * vR &
+                                                                      + QRight(IRHOW) * wR ))
          aL = sqrt(thermodynamics % gamma * pL * invRhoL)
          aR = sqrt(thermodynamics % gamma * pR * invRhoR)
          unL = sum( (/uL,vL,wL/) * nHat ) ; unR = sum( (/uR,vR,wR/) * nHat )
 !
 !        Compute the flux
 !        ----------------
-         f(IRHO)  = 0.25_RP * ( QL(IRHO) + QR(IRHO) ) * (uL + uR)
-         f(IRHOU) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * (uL + uR) + 0.5_RP * (pL + pR)
-         f(IRHOV) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * (uL + uR)
-         f(IRHOW) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * (uL + uR)
-         f(IRHOE) = 0.25_RP * ( QL(IRHOE) + pL + QR(IRHOE) + pR ) * (uL + uR)
+         f(IRHO)  = 0.25_RP * ( QLeft(IRHO) + QRight(IRHO) ) * (uL + uR)
+         f(IRHOU) = 0.25_RP * ( QLeft(IRHOU) + QRight(IRHOU) ) * (uL + uR) + 0.5_RP * (pL + pR)
+         f(IRHOV) = 0.25_RP * ( QLeft(IRHOV) + QRight(IRHOV) ) * (uL + uR)
+         f(IRHOW) = 0.25_RP * ( QLeft(IRHOW) + QRight(IRHOW) ) * (uL + uR)
+         f(IRHOE) = 0.25_RP * ( QLeft(IRHOE) + pL + QRight(IRHOE) + pR ) * (uL + uR)
 
-         g(IRHO)  = 0.25_RP * ( QL(IRHO) + QR(IRHO) ) * (vL + vR)
-         g(IRHOU) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * (vL + vR)
-         g(IRHOV) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * (vL + vR) + 0.5_RP * (pL + pR)
-         g(IRHOW) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * (vL + vR)
-         g(IRHOE) = 0.25_RP * ( QL(IRHOE) + pL + QR(IRHOE) + pR ) * (vL + vR)
+         g(IRHO)  = 0.25_RP * ( QLeft(IRHO) + QRight(IRHO) ) * (vL + vR)
+         g(IRHOU) = 0.25_RP * ( QLeft(IRHOU) + QRight(IRHOU) ) * (vL + vR)
+         g(IRHOV) = 0.25_RP * ( QLeft(IRHOV) + QRight(IRHOV) ) * (vL + vR) + 0.5_RP * (pL + pR)
+         g(IRHOW) = 0.25_RP * ( QLeft(IRHOW) + QRight(IRHOW) ) * (vL + vR)
+         g(IRHOE) = 0.25_RP * ( QLeft(IRHOE) + pL + QRight(IRHOE) + pR ) * (vL + vR)
 
-         h(IRHO)  = 0.25_RP * ( QL(IRHO) + QR(IRHO) ) * (wL + wR)
-         h(IRHOU) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * (wL + wR)
-         h(IRHOV) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * (wL + wR)
-         h(IRHOW) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * (wL + wR) + 0.5_RP * (pL + pR)
-         h(IRHOE) = 0.25_RP * ( QL(IRHOE) + pL + QR(IRHOE) + pR ) * (wL + wR)
+         h(IRHO)  = 0.25_RP * ( QLeft(IRHO) + QRight(IRHO) ) * (wL + wR)
+         h(IRHOU) = 0.25_RP * ( QLeft(IRHOU) + QRight(IRHOU) ) * (wL + wR)
+         h(IRHOV) = 0.25_RP * ( QLeft(IRHOV) + QRight(IRHOV) ) * (wL + wR)
+         h(IRHOW) = 0.25_RP * ( QLeft(IRHOW) + QRight(IRHOW) ) * (wL + wR) + 0.5_RP * (pL + pR)
+         h(IRHOE) = 0.25_RP * ( QLeft(IRHOE) + pL + QRight(IRHOE) + pR ) * (wL + wR)
 !
 !        Compute the sharp flux
 !        ----------------------         
-         flux = f*nHat(IX) + g*nHat(IY) + h*nHat(IZ) - 0.5_RP * lambdaStab * max(abs(unL)+aL,abs(unR)+aR) * (QR-QL)
+         flux = f*nHat(IX) + g*nHat(IY) + h*nHat(IZ) - 0.5_RP * lambdaStab * max(abs(unL)+aL,abs(unR)+aR) * (QRight-QLeft)
 
       end subroutine DucrosSolver
 
-      subroutine MorinishiSolver(QL,QR,nHat,flux) 
+      subroutine MorinishiSolver(QLeft,QRight,nHat,flux) 
          use SMConstants
          use PhysicsStorage
          implicit none
-         real(kind=RP), intent(in)       :: QL(1:NCONS)
-         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(NDIM)
          real(kind=RP), intent(out)      :: flux(NCONS)
 !
@@ -411,18 +424,18 @@ module RiemannSolvers
          real(kind=RP)     :: invRhoR, uR, vR, wR, pR, hR, aR, unR
          real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
 
-         invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
-         uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
-         vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
-         wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
+         invRhoL = 1.0_RP / QLeft(IRHO)   ; invRhoR = 1.0_RP / QRight(IRHO)
+         uL = invRhoL * QLeft(IRHOU)      ; uR = invRhoR * QRight(IRHOU)
+         vL = invRhoL * QLeft(IRHOV)      ; vR = invRhoR * QRight(IRHOV)
+         wL = invRhoL * QLeft(IRHOW)      ; wR = invRhoR * QRight(IRHOW)
    
-         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
-                                                                      + QL(IRHOV) * vL &
-                                                                      + QL(IRHOW) * wL ))
+         pL = thermodynamics % GammaMinus1 * ( QLeft(IRHOE) - 0.5_RP * (   QLeft(IRHOU) * uL &
+                                                                      + QLeft(IRHOV) * vL &
+                                                                      + QLeft(IRHOW) * wL ))
 
-         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
-                                                                      + QR(IRHOV) * vR &
-                                                                      + QR(IRHOW) * wR ))
+         pR = thermodynamics % GammaMinus1 * ( QRight(IRHOE) - 0.5_RP * (   QRight(IRHOU) * uR &
+                                                                      + QRight(IRHOV) * vR &
+                                                                      + QRight(IRHOW) * wR ))
          aL = sqrt(thermodynamics % gamma * pL * invRhoL)
          aR = sqrt(thermodynamics % gamma * pR * invRhoR)
          unL = sum( (/uL,vL,wL/) * nHat ) ; unR = sum( (/uR,vR,wR/) * nHat )
@@ -433,52 +446,52 @@ module RiemannSolvers
 !
 !        Compute the flux
 !        ----------------
-         f(IRHO)  = 0.5_RP * ( QL(IRHOU) + QR(IRHOU) )
-         f(IRHOU) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * ( uL + uR ) + 0.5_RP * ( pL + pR )
-         f(IRHOV) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * ( vL + vR )
-         f(IRHOW) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * ( wL + wR )
-         f(IRHOE) = 0.5_RP * ( uL*hL + uR*hR) + 0.25_RP * ( QL(IRHOU)*uL + QR(IRHOU)*uR ) * ( uL + uR ) &
-                                              + 0.25_RP * ( QL(IRHOU)*vL + QR(IRHOU)*vR ) * ( vL + vR ) &
-                                              + 0.25_RP * ( QL(IRHOU)*wL + QR(IRHOU)*wR ) * ( wL + wR ) &
-                                              - 0.25_RP * ( QL(IRHOU)*POW2(uL) + QR(IRHOU)*POW2(uR)   ) &
-                                              - 0.25_RP * ( QL(IRHOU)*POW2(vL) + QR(IRHOU)*POW2(vR)   ) &
-                                              - 0.25_RP * ( QL(IRHOU)*POW2(wL) + QR(IRHOU)*POW2(wR)   ) 
+         f(IRHO)  = 0.5_RP * ( QLeft(IRHOU) + QRight(IRHOU) )
+         f(IRHOU) = 0.25_RP * ( QLeft(IRHOU) + QRight(IRHOU) ) * ( uL + uR ) + 0.5_RP * ( pL + pR )
+         f(IRHOV) = 0.25_RP * ( QLeft(IRHOU) + QRight(IRHOU) ) * ( vL + vR )
+         f(IRHOW) = 0.25_RP * ( QLeft(IRHOU) + QRight(IRHOU) ) * ( wL + wR )
+         f(IRHOE) = 0.5_RP * ( uL*hL + uR*hR) + 0.25_RP * ( QLeft(IRHOU)*uL + QRight(IRHOU)*uR ) * ( uL + uR ) &
+                                              + 0.25_RP * ( QLeft(IRHOU)*vL + QRight(IRHOU)*vR ) * ( vL + vR ) &
+                                              + 0.25_RP * ( QLeft(IRHOU)*wL + QRight(IRHOU)*wR ) * ( wL + wR ) &
+                                              - 0.25_RP * ( QLeft(IRHOU)*POW2(uL) + QRight(IRHOU)*POW2(uR)   ) &
+                                              - 0.25_RP * ( QLeft(IRHOU)*POW2(vL) + QRight(IRHOU)*POW2(vR)   ) &
+                                              - 0.25_RP * ( QLeft(IRHOU)*POW2(wL) + QRight(IRHOU)*POW2(wR)   ) 
 
-         g(IRHO)  = 0.5_RP * ( QL(IRHOV) + QR(IRHOV) )
-         g(IRHOU) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * ( uL + uR )
-         g(IRHOV) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * ( vL + vR ) + 0.5_RP * ( pL + pR )
-         g(IRHOW) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * ( wL + wR )
-         g(IRHOE) = 0.5_RP * ( vL*hL + vR*hR) + 0.25_RP * ( QL(IRHOV)*uL + QR(IRHOV)*uR ) * ( uL + uR ) &
-                                              + 0.25_RP * ( QL(IRHOV)*vL + QR(IRHOV)*vR ) * ( vL + vR ) &
-                                              + 0.25_RP * ( QL(IRHOV)*wL + QR(IRHOV)*wR ) * ( wL + wR ) &
-                                              - 0.25_RP * ( QL(IRHOV)*POW2(uL) + QR(IRHOV)*POW2(uR)   ) &
-                                              - 0.25_RP * ( QL(IRHOV)*POW2(vL) + QR(IRHOV)*POW2(vR)   ) &
-                                              - 0.25_RP * ( QL(IRHOV)*POW2(wL) + QR(IRHOV)*POW2(wR)   ) 
+         g(IRHO)  = 0.5_RP * ( QLeft(IRHOV) + QRight(IRHOV) )
+         g(IRHOU) = 0.25_RP * ( QLeft(IRHOV) + QRight(IRHOV) ) * ( uL + uR )
+         g(IRHOV) = 0.25_RP * ( QLeft(IRHOV) + QRight(IRHOV) ) * ( vL + vR ) + 0.5_RP * ( pL + pR )
+         g(IRHOW) = 0.25_RP * ( QLeft(IRHOV) + QRight(IRHOV) ) * ( wL + wR )
+         g(IRHOE) = 0.5_RP * ( vL*hL + vR*hR) + 0.25_RP * ( QLeft(IRHOV)*uL + QRight(IRHOV)*uR ) * ( uL + uR ) &
+                                              + 0.25_RP * ( QLeft(IRHOV)*vL + QRight(IRHOV)*vR ) * ( vL + vR ) &
+                                              + 0.25_RP * ( QLeft(IRHOV)*wL + QRight(IRHOV)*wR ) * ( wL + wR ) &
+                                              - 0.25_RP * ( QLeft(IRHOV)*POW2(uL) + QRight(IRHOV)*POW2(uR)   ) &
+                                              - 0.25_RP * ( QLeft(IRHOV)*POW2(vL) + QRight(IRHOV)*POW2(vR)   ) &
+                                              - 0.25_RP * ( QLeft(IRHOV)*POW2(wL) + QRight(IRHOV)*POW2(wR)   ) 
 
-         h(IRHO)  = 0.5_RP * ( QL(IRHOW) + QR(IRHOW) )
-         h(IRHOU) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * ( uL + uR )
-         h(IRHOV) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * ( vL + vR )
-         h(IRHOW) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * ( wL + wR ) + 0.5_RP * ( pL + pR )
-         h(IRHOE) = 0.5_RP * ( wL*hL + wR*hR) + 0.25_RP * ( QL(IRHOW)*uL + QR(IRHOW)*uR ) * ( uL + uR ) &
-                                              + 0.25_RP * ( QL(IRHOW)*vL + QR(IRHOW)*vR ) * ( vL + vR ) &
-                                              + 0.25_RP * ( QL(IRHOW)*wL + QR(IRHOW)*wR ) * ( wL + wR ) &
-                                              - 0.25_RP * ( QL(IRHOW)*POW2(uL) + QR(IRHOW)*POW2(uR)   ) &
-                                              - 0.25_RP * ( QL(IRHOW)*POW2(vL) + QR(IRHOW)*POW2(vR)   ) &
-                                              - 0.25_RP * ( QL(IRHOW)*POW2(wL) + QR(IRHOW)*POW2(wR)   ) 
+         h(IRHO)  = 0.5_RP * ( QLeft(IRHOW) + QRight(IRHOW) )
+         h(IRHOU) = 0.25_RP * ( QLeft(IRHOW) + QRight(IRHOW) ) * ( uL + uR )
+         h(IRHOV) = 0.25_RP * ( QLeft(IRHOW) + QRight(IRHOW) ) * ( vL + vR )
+         h(IRHOW) = 0.25_RP * ( QLeft(IRHOW) + QRight(IRHOW) ) * ( wL + wR ) + 0.5_RP * ( pL + pR )
+         h(IRHOE) = 0.5_RP * ( wL*hL + wR*hR) + 0.25_RP * ( QLeft(IRHOW)*uL + QRight(IRHOW)*uR ) * ( uL + uR ) &
+                                              + 0.25_RP * ( QLeft(IRHOW)*vL + QRight(IRHOW)*vR ) * ( vL + vR ) &
+                                              + 0.25_RP * ( QLeft(IRHOW)*wL + QRight(IRHOW)*wR ) * ( wL + wR ) &
+                                              - 0.25_RP * ( QLeft(IRHOW)*POW2(uL) + QRight(IRHOW)*POW2(uR)   ) &
+                                              - 0.25_RP * ( QLeft(IRHOW)*POW2(vL) + QRight(IRHOW)*POW2(vR)   ) &
+                                              - 0.25_RP * ( QLeft(IRHOW)*POW2(wL) + QRight(IRHOW)*POW2(wR)   ) 
 
 !
 !        Compute the sharp flux
 !        ----------------------         
-         flux = f*nHat(IX) + g*nHat(IY) + h*nHat(IZ) - 0.5_RP * lambdaStab * max(abs(unL)+aL,abs(unR)+aR) * (QR-QL)
+         flux = f*nHat(IX) + g*nHat(IY) + h*nHat(IZ) - 0.5_RP * lambdaStab * max(abs(unL)+aL,abs(unR)+aR) * (QRight-QLeft)
 
       end subroutine MorinishiSolver
 
-      subroutine KennedyGruberSolver(QL,QR,nHat,flux) 
+      subroutine KennedyGruberSolver(QLeft,QRight,nHat,flux) 
          use SMConstants
          use PhysicsStorage
          implicit none
-         real(kind=RP), intent(in)       :: QL(1:NCONS)
-         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(NDIM)
          real(kind=RP), intent(out)      :: flux(NCONS)
 !
@@ -491,29 +504,29 @@ module RiemannSolvers
          real(kind=RP)     :: rho, u, v, w, e, p
          real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
 
-         invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
-         uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
-         vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
-         wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
+         invRhoL = 1.0_RP / QLeft(IRHO)   ; invRhoR = 1.0_RP / QRight(IRHO)
+         uL = invRhoL * QLeft(IRHOU)      ; uR = invRhoR * QRight(IRHOU)
+         vL = invRhoL * QLeft(IRHOV)      ; vR = invRhoR * QRight(IRHOV)
+         wL = invRhoL * QLeft(IRHOW)      ; wR = invRhoR * QRight(IRHOW)
    
-         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
-                                                                      + QL(IRHOV) * vL &
-                                                                      + QL(IRHOW) * wL ))
+         pL = thermodynamics % GammaMinus1 * ( QLeft(IRHOE) - 0.5_RP * (   QLeft(IRHOU) * uL &
+                                                                      + QLeft(IRHOV) * vL &
+                                                                      + QLeft(IRHOW) * wL ))
 
-         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
-                                                                      + QR(IRHOV) * vR &
-                                                                      + QR(IRHOW) * wR ))
+         pR = thermodynamics % GammaMinus1 * ( QRight(IRHOE) - 0.5_RP * (   QRight(IRHOU) * uR &
+                                                                      + QRight(IRHOV) * vR &
+                                                                      + QRight(IRHOW) * wR ))
 
          aL = sqrt(thermodynamics % gamma * pL * invRhoL)
          aR = sqrt(thermodynamics % gamma * pR * invRhoR)
          unL = sum( (/uL,vL,wL/) * nHat ) ; unR = sum( (/uR,vR,wR/) * nHat )
 
-         rho = 0.5_RP * (QL(IRHO) + QR(IRHO))
+         rho = 0.5_RP * (QLeft(IRHO) + QRight(IRHO))
          u   = 0.5_RP * (uL + uR)
          v   = 0.5_RP * (vL + vR)
          w   = 0.5_RP * (wL + wR)
          p   = 0.5_RP * (pL + pR)
-         e   = 0.5_RP * (QL(IRHOE)*invRhoL + QR(IRHOE)*invRhoR)
+         e   = 0.5_RP * (QLeft(IRHOE)*invRhoL + QRight(IRHOE)*invRhoR)
 !
 !        Compute the flux
 !        ----------------
@@ -537,16 +550,16 @@ module RiemannSolvers
 !
 !        Compute the sharp flux
 !        ----------------------         
-         flux = f*nHat(IX) + g*nHat(IY) + h*nHat(IZ) - 0.5_RP * lambdaStab * max(abs(unL)+aL,abs(unR)+aR) * (QR-QL)
+         flux = f*nHat(IX) + g*nHat(IY) + h*nHat(IZ) - 0.5_RP * lambdaStab * max(abs(unL)+aL,abs(unR)+aR) * (QRight-QLeft)
 
       end subroutine KennedyGruberSolver
 
-      subroutine PirozzoliSolver(QL,QR,nHat,flux)
+      subroutine PirozzoliSolver(QLeft,QRight,nHat,flux)
          use SMConstants
          use PhysicsStorage
          implicit none
-         real(kind=RP), intent(in)       :: QL(1:NCONS)
-         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(NDIM)
          real(kind=RP), intent(out)      :: flux(NCONS)
 !
@@ -559,28 +572,28 @@ module RiemannSolvers
          real(kind=RP)     :: rho, u, v, w, h, p
          real(kind=RP)     :: ff(NCONS), gg(NCONS), hh(NCONS)
 
-         invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
-         uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
-         vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
-         wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
+         invRhoL = 1.0_RP / QLeft(IRHO)   ; invRhoR = 1.0_RP / QRight(IRHO)
+         uL = invRhoL * QLeft(IRHOU)      ; uR = invRhoR * QRight(IRHOU)
+         vL = invRhoL * QLeft(IRHOV)      ; vR = invRhoR * QRight(IRHOV)
+         wL = invRhoL * QLeft(IRHOW)      ; wR = invRhoR * QRight(IRHOW)
    
-         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
-                                                                      + QL(IRHOV) * vL &
-                                                                      + QL(IRHOW) * wL ))
+         pL = thermodynamics % GammaMinus1 * ( QLeft(IRHOE) - 0.5_RP * (   QLeft(IRHOU) * uL &
+                                                                      + QLeft(IRHOV) * vL &
+                                                                      + QLeft(IRHOW) * wL ))
 
-         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
-                                                                      + QR(IRHOV) * vR &
-                                                                      + QR(IRHOW) * wR ))
+         pR = thermodynamics % GammaMinus1 * ( QRight(IRHOE) - 0.5_RP * (   QRight(IRHOU) * uR &
+                                                                      + QRight(IRHOV) * vR &
+                                                                      + QRight(IRHOW) * wR ))
          aL = sqrt(thermodynamics % gamma * pL * invRhoL)
          aR = sqrt(thermodynamics % gamma * pR * invRhoR)
          unL = sum( (/uL,vL,wL/) * nHat ) ; unR = sum( (/uR,vR,wR/) * nHat )
 
-         rho = 0.5_RP * (QL(IRHO) + QR(IRHO))
+         rho = 0.5_RP * (QLeft(IRHO) + QRight(IRHO))
          u   = 0.5_RP * (uL + uR)
          v   = 0.5_RP * (vL + vR)
          w   = 0.5_RP * (wL + wR)
          p   = 0.5_RP * (pL + pR)
-         h   = 0.5_RP * ((QL(IRHOE)+pL)*invRhoL + (QR(IRHOE)+pR)*invRhoR)
+         h   = 0.5_RP * ((QLeft(IRHOE)+pL)*invRhoL + (QRight(IRHOE)+pR)*invRhoR)
 !
 !        Compute the flux
 !        ----------------
@@ -604,21 +617,7 @@ module RiemannSolvers
 !
 !        Compute the sharp flux
 !        ----------------------         
-         flux = ff*nHat(IX) + gg*nHat(IY) + hh*nHat(IZ) - 0.5_RP * lambdaStab * max(abs(unL)+aL,abs(unR)+aR) * (QR-QL)
+         flux = ff*nHat(IX) + gg*nHat(IY) + hh*nHat(IZ) - 0.5_RP * lambdaStab * max(abs(unL)+aL,abs(unR)+aR) * (QRight-QLeft)
 
       end subroutine PirozzoliSolver
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 end module RiemannSolvers
