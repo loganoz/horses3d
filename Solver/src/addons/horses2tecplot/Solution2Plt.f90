@@ -149,7 +149,7 @@ module Solution2PltModule
          use ProlongMeshAndSolution
          implicit none
          type(Element_t)     :: e
-         type(NodalStorage),  intent(in)  :: spA(0:)
+         type(NodalStorage_t),  intent(in)  :: spA(0:)
          integer           ,  intent(in)  :: NM(3)
          integer           ,  intent(in)  :: NS(3)
          logical,             intent(in)  :: hasGradients
@@ -291,7 +291,7 @@ module Solution2PltModule
          use ProlongMeshAndSolution
          implicit none
          type(Element_t)     :: e
-         type(NodalStorage),  intent(in)  :: spA(0:)
+         type(NodalStorage_t),  intent(in)  :: spA(0:)
          integer           ,  intent(in)  :: NM(3)
          integer           ,  intent(in)  :: NS(3)
          integer           ,  intent(in)  :: Nout(3)

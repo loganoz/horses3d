@@ -22,7 +22,7 @@ module SharedSpectralBasis
 
 
    integer,   parameter    :: NMAX = 40
-   type(NodalStorage),            allocatable  :: spA(:)
+   type(NodalStorage_t),            allocatable  :: spA(:)
 
 
    contains
@@ -46,7 +46,7 @@ module SharedSpectralBasis
       subroutine addNewSpectralBasis( spA, N, nodeType)
          use NodalStorageClass
          implicit none
-         class(NodalStorage)     :: spA(0:)
+         class(NodalStorage_t)     :: spA(0:)
          integer                 :: N(3)
          integer, intent(in)     :: nodeType
          
@@ -62,7 +62,7 @@ module SharedSpectralBasis
          implicit none
          class(InterpolationMatrix_t)     :: Tset(0:,0:)
          integer, intent(in)              :: Nold, Nnew
-         class(NodalStorage), intent(in)  :: spAold
+         class(NodalStorage_t), intent(in)  :: spAold
          real(kind=RP),       intent(in)  :: xiNew(0:Nnew)
 
          if ( .not. Tset(Nnew,Nold) % Constructed ) then

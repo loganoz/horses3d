@@ -52,7 +52,7 @@
       allocate(ViscousMethod_t :: ViscousMethod)
 
 !$omp parallel shared(sem)
-      call sem % mesh % ProlongSolutionToFaces(sem % spA)
+      call sem % mesh % ProlongSolutionToFaces()
 !$omp end parallel
       
       call TimeDerivative_ComputeQDot( sem % mesh , 0.0_RP , &
@@ -149,7 +149,7 @@
       nElement =  SIZE(sem % mesh % elements)
 
 !$omp parallel shared(sem)
-      call sem % mesh % ProlongSolutionToFaces(sem % spA)
+      call sem % mesh % ProlongSolutionToFaces()
 !$omp end parallel
 
       IF ( flowIsNavierStokes )     THEN
@@ -314,7 +314,7 @@
 !        ---------------------------------------------------------------------
 !
 !$omp parallel shared(sem)
-         call sem % mesh % ProlongSolutionToFaces(sem % spA)
+         call sem % mesh % ProlongSolutionToFaces()
 !$omp end parallel
 
          DO eID = 1, SIZE(sem % mesh % elements)

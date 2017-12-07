@@ -43,7 +43,7 @@ module ProlongMeshAndSolution
          use Storage
          implicit none
          type(Element_t)                         :: e
-         type(NodalStorage), target, intent(in)  :: spA(0:)
+         type(NodalStorage_t), target, intent(in)  :: spA(0:)
          integer                   , intent(in)  :: N1(3)
          integer                   , intent(in)  :: N2(3)
          
@@ -54,12 +54,12 @@ module ProlongMeshAndSolution
 !                              //////////////////
 !                              // spA pointers //
 !                              //////////////////
-         type(NodalStorage), pointer  :: spAMxi
-         type(NodalStorage), pointer  :: spAMeta
-         type(NodalStorage), pointer  :: spAMzeta
-         type(NodalStorage), pointer  :: spAOxi
-         type(NodalStorage), pointer  :: spAOeta
-         type(NodalStorage), pointer  :: spAOzeta
+         type(NodalStorage_t), pointer  :: spAMxi
+         type(NodalStorage_t), pointer  :: spAMeta
+         type(NodalStorage_t), pointer  :: spAMzeta
+         type(NodalStorage_t), pointer  :: spAOxi
+         type(NodalStorage_t), pointer  :: spAOeta
+         type(NodalStorage_t), pointer  :: spAOzeta
 !                              ////////////////////////////////////////
 !                              // Mesh mapping prolongation to faces //
 !                              ////////////////////////////////////////
@@ -218,9 +218,9 @@ module ProlongMeshAndSolution
 !        
          implicit none
          integer,            intent(in)  :: N(3)
-         type(NodalStorage), intent(in)  :: spAxi
-         type(NodalStorage), intent(in)  :: spAeta
-         type(NodalStorage), intent(in)  :: spAzeta
+         type(NodalStorage_t), intent(in)  :: spAxi
+         type(NodalStorage_t), intent(in)  :: spAeta
+         type(NodalStorage_t), intent(in)  :: spAzeta
          real(kind=RP),      intent(in)  :: x(1:3,0:N(1),0:N(2),0:N(3))
          real(kind=RP),      intent(out) :: face1(1:3,0:N(1),0:N(3))
          real(kind=RP),      intent(out) :: face2(1:3,0:N(1),0:N(3))

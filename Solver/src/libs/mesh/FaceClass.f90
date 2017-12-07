@@ -82,8 +82,8 @@
          CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
          type(MappedGeometryFace)        :: geom
          type(FaceStorage_t)             :: storage(2) 
-         class(NodalStorage), pointer    :: spAxi
-         class(NodalStorage), pointer    :: spAeta
+         class(NodalStorage_t), pointer    :: spAxi
+         class(NodalStorage_t), pointer    :: spAeta
          contains
             procedure   :: Construct => ConstructFace
             procedure   :: Destruct  => DestructFace
@@ -183,7 +183,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Face_LinkWithElements( self, Neqn, NGradeqn, NelLeft, NelRight, nodeType, spA)
+   SUBROUTINE Face_LinkWithElements( self, Neqn, NGradeqn, NelLeft, NelRight, nodeType)
       IMPLICIT NONE
       class(Face)        ,     intent(INOUT) :: self        ! Current face
       integer            ,     intent(IN)    :: Neqn        ! Number of equations
@@ -191,7 +191,6 @@
       integer,                 intent(in)    :: NelLeft(2)  ! Left element face polynomial order
       integer,                 intent(in)    :: NelRight(2) ! Right element face polynomial order
       integer,                 intent(in)    :: nodeType    ! Either Gauss or Gauss-Lobatto
-      type(NodalStorage),      target        :: spA(0:)     ! Nodal storage
 !
 !     -------------------------------------------------------------
 !     First, get face elements polynomial orders (without rotation)
@@ -225,16 +224,16 @@
 !     Construct face storage
 !     ----------------------
 !
-      if ( .not. spA(self % Nf(1)) % Constructed ) then
-         call spA(self % Nf(1)) % Construct(nodeType, self % Nf(1))
+      if ( .not. NodalStorage(self % Nf(1)) % Constructed ) then
+         call NodalStorage(self % Nf(1)) % Construct(nodeType, self % Nf(1))
       end if
 
-      if ( .not. spA(self % Nf(2)) % Constructed ) then
-         call spA(self % Nf(2)) % Construct(nodeType, self % Nf(2))
+      if ( .not. NodalStorage(self % Nf(2)) % Constructed ) then
+         call NodalStorage(self % Nf(2)) % Construct(nodeType, self % Nf(2))
       end if
 
-      self % spAxi => spA(self % Nf(1))
-      self % spAeta => spA(self % Nf(2))
+      self % spAxi => NodalStorage(self % Nf(1))
+      self % spAeta => NodalStorage(self % Nf(2))
 
       call self % storage(1) % Construct(NDIM, self % Nf, self % NelLeft, nEqn, nGradEqn, computeGradients)
       call self % storage(2) % Construct(NDIM, self % Nf, self % NelRight, nEqn, nGradEqn, computeGradients)

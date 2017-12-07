@@ -54,9 +54,9 @@
          INTEGER                                        :: NumberOfConnections(6)
          TYPE(Connectivity)                             :: Connection(6)
          type(Storage_t)                                :: storage
-         type(NodalStorage), pointer                    :: spAxi
-         type(NodalStorage), pointer                    :: spAeta
-         type(NodalStorage), pointer                    :: spAzeta
+         type(NodalStorage_t), pointer                    :: spAxi
+         type(NodalStorage_t), pointer                    :: spAeta
+         type(NodalStorage_t), pointer                    :: spAzeta
          type(TransfiniteHexMap)                        :: hexMap            ! High-order mapper
          contains
             procedure   :: Construct => HexElement_Construct
@@ -88,29 +88,27 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE HexElement_Construct( self, spAxi, spAeta, spAzeta, nodeIDs, eID, globID)
+      SUBROUTINE HexElement_Construct( self, Nx, Ny, Nz, nodeIDs, eID, globID)
          IMPLICIT NONE
          
-         class(Element)             :: self
-         TYPE(NodalStorage), target :: spAxi
-         TYPE(NodalStorage), target :: spAeta
-         TYPE(NodalStorage), target :: spAzeta
-         INTEGER                 :: nodeIDs(8)
-         integer                 :: eID, globID
+         class(Element)      :: self
+         integer, intent(in) :: Nx, Ny, Nz  !<  Polynomial orders         
+         integer, intent(in) :: nodeIDs(8)
+         integer, intent(in) :: eID, globID
          
          self % eID                 = eID
          self % globID              = globID
          self % nodeIDs             = nodeIDs
-         self % Nxyz(1)             = spAxi   % N
-         self % Nxyz(2)             = spAeta  % N
-         self % Nxyz(3)             = spAzeta % N
+         self % Nxyz(1)             = Nx
+         self % Nxyz(2)             = Ny
+         self % Nxyz(3)             = Nz
          self % boundaryName        = emptyBCName
          self % boundaryType        = emptyBCName
          self % hasSharedFaces      = .false.
          self % NumberOfConnections = 0
-         self % spAxi   => spAxi
-         self % spAeta  => spAeta
-         self % spAzeta => spAzeta
+         self % spAxi   => NodalStorage(Nx)
+         self % spAeta  => NodalStorage(Ny)
+         self % spAzeta => NodalStorage(Nz)
 !
 !        ----------------------------------------
 !        Solution Storage is allocated separately

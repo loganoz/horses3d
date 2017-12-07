@@ -188,6 +188,7 @@ end interface
 
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
+      call DestructGlobalNodalStorage()
       CALL destructSharedBCModule
       
       CALL UserDefinedTermination

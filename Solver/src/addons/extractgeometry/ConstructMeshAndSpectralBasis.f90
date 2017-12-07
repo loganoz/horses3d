@@ -22,13 +22,12 @@ module ConstructMeshAndSpectralBasis_MOD
    public   ConstructMeshAndSpectralBasis
 
    contains
-      subroutine ConstructMeshAndSpectralBasis(meshFile, solutionFile, mesh, spA)
+      subroutine ConstructMeshAndSpectralBasis(meshFile, solutionFile, mesh)
          use ReadMeshFile
          implicit none
          character(len=*),                intent(in)  :: meshFile
          character(len=*),                intent(in)  :: solutionFile
          type(HexMesh),                   intent(out) :: mesh
-         type(NodalStorage), allocatable, intent(out) :: spA(:)
          integer                                      :: no_of_elements
          integer                                      :: nodeType, fileType, fid
          integer                                      :: dims(4), pos
@@ -77,20 +76,20 @@ module ConstructMeshAndSpectralBasis_MOD
 !        ----------------------
 !        Allocate nodal storage      
 !        ----------------------
-!      
-         allocate( spA(0:max(maxval(Nx), maxval(Ny), maxval(Nz))))
-      
+!
+         call InitializeNodalStorage( max(maxval(Nx), maxval(Ny), maxval(Nz)) )
+         
          do eID = 1, no_of_elements
-            if( .not. spA(Nx(eID)) % Constructed) then   
-               call spA(Nx(eID)) % Construct(nodeType, Nx(eID))
+            if( .not. NodalStorage(Nx(eID)) % Constructed) then   
+               call NodalStorage(Nx(eID)) % Construct(nodeType, Nx(eID))
             end if
 
-            if( .not. spA(Ny(eID)) % Constructed) then   
-               call spA(Ny(eID)) % Construct(nodeType, Ny(eID))
+            if( .not. NodalStorage(Ny(eID)) % Constructed) then   
+               call NodalStorage(Ny(eID)) % Construct(nodeType, Ny(eID))
             end if
 
-            if( .not. spA(Nz(eID)) % Constructed) then   
-               call spA(Nz(eID)) % Construct(nodeType, Nz(eID))
+            if( .not. NodalStorage(Nz(eID)) % Constructed) then   
+               call NodalStorage(Nz(eID)) % Construct(nodeType, Nz(eID))
             end if
          end do
 !
@@ -104,7 +103,7 @@ module ConstructMeshAndSpectralBasis_MOD
 !        Construct mesh
 !        --------------
 !      
-         CALL constructMeshFromFile(mesh, trim(meshfile), nodeType, spA, Nx, Ny, Nz, .true. , success )
+         CALL constructMeshFromFile(mesh, trim(meshfile), nodeType, Nx, Ny, Nz, .true. , success )
 !
 !     ------------------------
 !     Allocate and zero memory

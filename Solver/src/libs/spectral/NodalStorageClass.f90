@@ -18,7 +18,7 @@ MODULE NodalStorageClass
    IMPLICIT NONE 
 
    private
-   public GAUSS, GAUSSLOBATTO, NodalStorage, GlobalspA, InitializeNodalStorage
+   public GAUSS, GAUSSLOBATTO, NodalStorage_t, NodalStorage, InitializeNodalStorage, DestructGlobalNodalStorage
 
    integer, parameter      :: GAUSS = 1
    integer, parameter      :: GAUSSLOBATTO = 2
@@ -27,7 +27,7 @@ MODULE NodalStorageClass
 !  Nodal storage class
 !  -------------------
 !
-   type NodalStorage
+   type NodalStorage_t
       logical                                    :: Constructed = .FALSE.     ! Constructed flag
       integer                                    :: nodes                     ! Either GAUSS or GAUSSLOBATTO
       integer                                    :: N                         ! Polynomial order
@@ -48,13 +48,13 @@ MODULE NodalStorageClass
          procedure :: lj       => NodalStorage_getlj
          procedure :: dlj      => NodalStorage_getdlj
 
-   END TYPE NodalStorage
+   END TYPE NodalStorage_t
    
 !  ------------------------------------------------
-!  GlobalspA contains the nodal storage information  
+!  NodalStorage contains the nodal storage information  
 !  for every possible polynomial order of the mesh
 !  ------------------------------------------------
-   type(NodalStorage), target, allocatable :: GlobalspA(:)
+   type(NodalStorage_t), target, allocatable :: NodalStorage(:)
    
 !      
 !     ========
@@ -72,16 +72,30 @@ MODULE NodalStorageClass
       integer  :: Nmax
       !---------------------------------------
       
-      if (allocated(GlobalspA)) deallocate(GlobalspA)
-      allocate ( GlobalspA(0:Nmax) )
+      if (allocated(NodalStorage)) deallocate(NodalStorage)
+      allocate ( NodalStorage(0:Nmax) )
       
    end subroutine InitializeNodalStorage
 !
 !////////////////////////////////////////////////////////////////////////
 !
+   subroutine DestructGlobalNodalStorage
+      implicit none
+      !---------------------
+      integer :: k
+      !---------------------
+      
+      do k=0, UBOUND(NodalStorage,1)
+         IF (.NOT. NodalStorage(k) % Constructed) cycle
+         call NodalStorage(k) % destruct()
+      end do
+   end subroutine DestructGlobalNodalStorage
+!
+!////////////////////////////////////////////////////////////////////////
+!
    subroutine ConstructNodalStorage( this, nodes, N)
       implicit none
-      class(NodalStorage)      :: this       !<> Nodal storage being constructed
+      class(NodalStorage_t)    :: this       !<> Nodal storage being constructed
       integer, intent(in)      :: nodes
       integer, intent(in)      :: N          !<  Polynomial order
       !--------------------------------------
@@ -184,7 +198,7 @@ MODULE NodalStorageClass
 !
    SUBROUTINE DestructNodalStorage( this )
       IMPLICIT NONE
-      CLASS(NodalStorage) :: this
+      CLASS(NodalStorage_t) :: this
 !
 !     Attempting to destruct a non-constructed nodal storage
 !     ------------------------------------------------------
@@ -209,7 +223,7 @@ MODULE NodalStorageClass
 !
       function NodalStorage_getlj(self, xi)
          implicit none
-         class(NodalStorage), intent(in)  :: self
+         class(NodalStorage_t), intent(in)  :: self
          real(kind=RP),       intent(in)  :: xi
          real(kind=RP)                    :: NodalStorage_getlj(0:self % N)
 
@@ -219,7 +233,7 @@ MODULE NodalStorageClass
 
       function NodalStorage_getdlj(self, xi)
          implicit none
-         class(NodalStorage), intent(in)  :: self
+         class(NodalStorage_t), intent(in)  :: self
          real(kind=RP),       intent(in)  :: xi
          real(kind=RP)                    :: NodalStorage_getdlj(0:self % N)
 !

@@ -23,7 +23,6 @@ program ExtractGeometry
    implicit none
    character(len=LINE_LENGTH)      :: meshFile
    character(len=LINE_LENGTH)      :: solutionFile
-   type(NodalStorage), allocatable :: spA(:)
    type(HexMesh)                   :: mesh
    type(FTValueDictionary)         :: controlVariables
    class(Geometry_t), pointer      :: geometry
@@ -45,15 +44,15 @@ program ExtractGeometry
 !  ---------------------------------
    call ConstructMeshAndSpectralBasis( controlVariables % StringValueForKey(meshFileKey, LINE_LENGTH), &
                                        controlVariables % StringValueForKey(solutionFileKey, LINE_LENGTH), &
-                                       mesh, spA)
+                                       mesh)
 !
 !  Create geometry
 !  ---------------
-   geometry => Construct(mesh, spA, controlVariables)
+   geometry => Construct(mesh, NodalStorage, controlVariables)
 !
 !  Get new points coordinates and elements
 !  ---------------------------------------
-   call geometry % Compute(mesh, spA)
+   call geometry % Compute(mesh, NodalStorage)
 !
 !  Close MPI
 !  ---------

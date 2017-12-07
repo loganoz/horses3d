@@ -68,7 +68,7 @@ subroutine ConstructInterpolationMatrices(Norigin, Ndest)
       
       if ( Norigin .eq. Ndest ) then
          if (.not. Identity % Constructed) call ConstructIdentity
-         Tset(Ndest,Norigin) % T => Identity % T(0:Ndest,0:Norigin)
+         Tset(Ndest,Norigin) % T(0:,0:) => Identity % T(0:Ndest,0:Norigin)
          Tset(Ndest,Norigin) % Constructed = .TRUE.
          return
       end if
@@ -76,8 +76,8 @@ subroutine ConstructInterpolationMatrices(Norigin, Ndest)
 !     Matrix construction
 !     -------------------      
       
-      associate ( spAo => GlobalspA(Norigin), &
-                  spAd => GlobalspA(Ndest)      )
+      associate ( spAo => NodalStorage(Norigin), &
+                  spAd => NodalStorage(Ndest)      )
       
 !
 !        Allocate memory
@@ -140,9 +140,9 @@ subroutine ConstructInterpolationMatrices(Norigin, Ndest)
       
       outArray = 0.0_RP
       
-      do n = 0, Nout(3)  ; do k = 0, Nin(3)
-         do m = 0, Nout(2)  ; do j = 0, Nin(2)   
-            do l = 0, Nout(1)  ; do i = 0, Nin(1)
+      do n = 0, Nin(3)  ; do k = 0, Nout(3)
+         do m = 0, Nin(2)  ; do j = 0, Nout(2)   
+            do l = 0, Nin(1)  ; do i = 0, Nout(1)
                outArray(:,i,j,k) = outArray(:,i,j,k) +   Txi   (i,l) &
                                                        * Teta  (j,m) &
                                                        * Tzeta (k,n) &

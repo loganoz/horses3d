@@ -28,7 +28,7 @@ module SurfaceIntegrals
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      function ScalarSurfaceIntegral(mesh, spA, zoneID, integralType) result(val)
+      function ScalarSurfaceIntegral(mesh, zoneID, integralType) result(val)
 !
 !        -----------------------------------------------------------
 !           This function computes scalar integrals, that is, those
@@ -42,7 +42,6 @@ module SurfaceIntegrals
 !
          implicit none
          class(HexMesh),      intent(inout), target  :: mesh
-         class(NodalStorage), intent(in)    :: spA(0:)
          integer,             intent(in)    :: zoneID
          integer,             intent(in)    :: integralType
          real(kind=RP)                      :: val, localval
@@ -61,7 +60,7 @@ module SurfaceIntegrals
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
          elements => mesh % elements
-!$omp parallel private(fID, eID, fIDs) shared(elements,mesh,spA,zoneID,integralType,val,&
+!$omp parallel private(fID, eID, fIDs) shared(elements,mesh,NodalStorage,zoneID,integralType,val,&
 !$omp&                                          computeGradients)
 !$omp single
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces
@@ -208,7 +207,7 @@ module SurfaceIntegrals
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      function VectorSurfaceIntegral(mesh, spA, zoneID, integralType) result(val)
+      function VectorSurfaceIntegral(mesh, zoneID, integralType) result(val)
 !
 !        -----------------------------------------------------------
 !           This function computes scalar integrals, that is, those
@@ -225,7 +224,6 @@ module SurfaceIntegrals
 #endif
          implicit none
          class(HexMesh),      intent(inout), target  :: mesh
-         class(NodalStorage), intent(in)    :: spA(0:)
          integer,             intent(in)    :: zoneID
          integer,             intent(in)    :: integralType
          real(kind=RP)                      :: val(NDIM)
@@ -251,7 +249,7 @@ module SurfaceIntegrals
 !        *************************
 !
          elements => mesh % elements
-!$omp parallel private(fID, eID, fIDs, localVal) shared(elements,mesh,spA,zoneID,integralType,val,&
+!$omp parallel private(fID, eID, fIDs, localVal) shared(elements,mesh,NodalStorage,zoneID,integralType,val,&
 !$omp&                                        valx,valy,valz,computeGradients)
 !$omp single
          do zonefID = 1, mesh % zones(zoneID) % no_of_faces

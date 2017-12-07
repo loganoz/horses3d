@@ -289,7 +289,7 @@ module SurfaceMonitorClass
 
       end subroutine SurfaceMonitor_Initialization
 
-      subroutine SurfaceMonitor_Update ( self, mesh, spA, bufferPosition )
+      subroutine SurfaceMonitor_Update ( self, mesh, bufferPosition )
 !
 !        *******************************************************************
 !           This subroutine updates the monitor value computing it from
@@ -301,7 +301,6 @@ module SurfaceMonitorClass
          implicit none
          class   (  SurfaceMonitor_t )   :: self
          class   (  HexMesh       )      :: mesh
-         class   (NodalStorage    )      :: spA(0:)
          integer                         :: bufferPosition
          real(kind=RP)                   :: F(NDIM)
          real(kind=RP)                   :: direction(NDIM)
@@ -309,39 +308,39 @@ module SurfaceMonitorClass
          select case ( trim ( self % variable ) )
 
          case ("mass-flow")
-            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, spA, self % marker, MASS_FLOW)
+            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, MASS_FLOW)
 
          case ("flow")
-            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, spA, self % marker, FLOW)
+            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, FLOW)
 
          case ("pressure-force")
-            F = VectorSurfaceIntegral(mesh, spA, self % marker, PRESSURE_FORCE)
+            F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE)
             F = refValues % rho * POW2(refValues % V) * POW2(refValues % L) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("viscous-force")
-            F = VectorSurfaceIntegral(mesh, spA, self % marker, VISCOUS_FORCE)
+            F = VectorSurfaceIntegral(mesh, self % marker, VISCOUS_FORCE)
             F = refValues % rho * POW2(refValues % V) * POW2(refValues % L) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("force")
-            F = VectorSurfaceIntegral(mesh, spA, self % marker, TOTAL_FORCE)
+            F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE)
             F = refValues % rho * POW2(refValues % V) * POW2(refValues % L) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("lift")
-            F = VectorSurfaceIntegral(mesh, spA, self % marker, TOTAL_FORCE)
+            F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE)
             F = 2.0_RP * POW2(refValues % L) * F / self % referenceSurface
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("drag")
 
-            F = VectorSurfaceIntegral(mesh, spA, self % marker, TOTAL_FORCE)
+            F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE)
             F = 2.0_RP * POW2(refValues % L) * F / self % referenceSurface
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("pressure-average")
-            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, spA, self % marker, PRESSURE_FORCE) / ScalarSurfaceIntegral(mesh, spA, self % marker, SURFACE)
+            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE) / ScalarSurfaceIntegral(mesh, self % marker, SURFACE)
   
          end select
          

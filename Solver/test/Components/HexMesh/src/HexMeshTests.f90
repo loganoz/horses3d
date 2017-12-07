@@ -16,7 +16,6 @@
          IMPLICIT NONE
          
          TYPE(HexMesh)                   :: mesh
-         TYPE(NodalStorage),ALLOCATABLE  :: spA(:)
          TYPE(TransfiniteHexMap)         :: hexTransform
          TYPE(Face)                      :: testFace
          REAL(KIND=RP)                   :: nodes(3,12)
@@ -112,18 +111,18 @@
             CALL bcTypeDictionary % addValueForKey('freeslipboundary', boundaryNames(id))
          end do
          
-         ALLOCATE( spA( 0:max(N(1),N(2),N(3)) ) )
          OPEN(newunit = fUnit, FILE = meshFileName )  
             READ(fUnit,*) l, nelem, l                    ! Here l is used as default reader since this variables are not important now
          CLOSE(fUnit)
          
          ALLOCATE (Nvector(nelem))
          Nvector = N(1)
+         call InitializeNodalStorage(N(1))
          
-         call spA(N(1)) % Construct(GAUSS, N(1))
-         call spA(N(2)) % Construct(GAUSS, N(2))
-         call spA(N(3)) % Construct(GAUSS, N(3))
-         CALL constructMeshFromFile(mesh, meshfileName,GAUSS,spA,Nvector,Nvector,Nvector, .TRUE.,  success)
+         call NodalStorage(N(1)) % Construct(GAUSS, N(1))
+         call NodalStorage(N(2)) % Construct(GAUSS, N(2))
+         call NodalStorage(N(3)) % Construct(GAUSS, N(3))
+         CALL constructMeshFromFile(mesh, meshfileName,GAUSS,Nvector,Nvector,Nvector, .TRUE.,  success)
          
          CALL FTAssert(test = success,msg = "Mesh file properly constructed")
          IF(.NOT. success) return
@@ -142,9 +141,9 @@
          nElements = SIZE( mesh % elements)
          CALL FTAssertEqual(expectedValue = 2 ,actualValue = nElements, msg = "Number of elements in mesh")
          
-         CALL FTAssertEqual(expectedValue = spA(N(1)) % N, &
+         CALL FTAssertEqual(expectedValue = NodalStorage(N(1)) % N, &
                                                   actualValue = mesh % elements(1) % Nxyz(1), msg = "Polynomial order of element 1")
-         CALL FTAssertEqual(expectedValue = spA(N(1)) % N, &
+         CALL FTAssertEqual(expectedValue = NodalStorage(N(1)) % N, &
                                                   actualValue = mesh % elements(2) % Nxyz(1), msg = "Polynomial order of element 2")
          
          DO k = 1, 2
@@ -170,11 +169,11 @@
             CALL hexTransform % constructWithCorners(corners)
             
             DO k = 0, mesh % elements(id) % Nxyz(3)
-               u(3) = spA(N(3)) % x(k)
+               u(3) = NodalStorage(N(3)) % x(k)
                DO j = 0, mesh % elements(id) % Nxyz(2)
-                  u(2) = spA(N(2)) % x(j)
+                  u(2) = NodalStorage(N(2)) % x(j)
                   DO i = 0, mesh % elements(id) % Nxyz(1)
-                     u(1) = spA(N(1)) % x(i)
+                     u(1) = NodalStorage(N(1)) % x(i)
                      p = hexTransform % transfiniteMapAt(u)
                      x = mesh % elements(id) % geom % x(:,i,j,k)
                      erMax = MAX(erMax,MAXVAL(ABS(x-p)))
@@ -236,7 +235,6 @@
          
          EXTERNAL                :: cylindricalGeometry
          TYPE(HexMesh)           :: mesh
-         TYPE(NodalStorage), ALLOCATABLE      :: spA(:)
          TYPE(Face)              :: testFace
          INTEGER                 :: j, N(3), id
          INTEGER                 :: iFaceID
@@ -260,18 +258,18 @@
 !        Generate the mesh from the file
 !        -------------------------------
 !
-         ALLOCATE( spA( 0:max(N(1),N(2),N(3)) ) )
          OPEN(newunit = fUnit, FILE = meshFileName )  
             READ(fUnit,*) l, nelem, l                    ! Here l is used as default reader since this variables are not important now
          CLOSE(fUnit)
          
          ALLOCATE (Nvector(nelem))
          Nvector = N(1)
+         call InitializeNodalStorage(N(1))
          
-         call spA(N(1)) % Construct(GAUSS, N(1))
-         call spA(N(2)) % Construct(GAUSS, N(2))
-         call spA(N(3)) % Construct(GAUSS, N(3))
-         CALL constructMeshFromFile(mesh,meshfileName,GAUSS,spA,Nvector,Nvector,Nvector, .TRUE., success)
+         call NodalStorage(N(1)) % Construct(GAUSS, N(1))
+         call NodalStorage(N(2)) % Construct(GAUSS, N(2))
+         call NodalStorage(N(3)) % Construct(GAUSS, N(3))
+         CALL constructMeshFromFile(mesh,meshfileName,GAUSS,Nvector,Nvector,Nvector, .TRUE., success)
          
          CALL FTAssert(test = success,msg = "Mesh file read properly")
          IF(.NOT. success) RETURN 

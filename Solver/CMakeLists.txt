@@ -132,6 +132,7 @@ ADD_DEFINITIONS(-D_has_Quad)
 # Define the executable(s) name(s)
 SET(NSEXE HORSES3D)
 SET(HORSES2TEC horses2tecplot)
+SET(HORSESGEOM horses.geometry)
 SET(HORSESF90 horsesf90)
 
 # Define the library names
@@ -173,6 +174,7 @@ ADD_SUBDIRECTORY(${SRCDIR}/libs/mpiutils)
 ADD_SUBDIRECTORY(${SRCDIR}/NavierStokesSolver)
 ADD_SUBDIRECTORY(${SRCDIR}/addons)
 ADD_SUBDIRECTORY(${SRCDIR}/addons/horses2tecplot)
+ADD_SUBDIRECTORY(${SRCDIR}/addons/extractgeometry)
 
 # Add a distclean target to the Makefile
 ADD_CUSTOM_TARGET(distclean 

@@ -711,10 +711,9 @@ slavecoord:                DO l = 1, 4
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      subroutine HexMesh_ProlongSolutionToFaces(self, spA)
+      subroutine HexMesh_ProlongSolutionToFaces(self)
          implicit none
          class(HexMesh),   intent(inout)  :: self
-         class(NodalStorage), intent(in)  :: spA(0:)
 !
 !        ---------------
 !        Local variables
@@ -739,10 +738,9 @@ slavecoord:                DO l = 1, 4
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      subroutine HexMesh_ProlongGradientsToFaces(self, spA)
+      subroutine HexMesh_ProlongGradientsToFaces(self)
          implicit none
          class(HexMesh),   intent(inout)  :: self
-         class(NodalStorage), intent(in)  :: spA(0:)
 !
 !        ---------------
 !        Local variables
@@ -1143,10 +1141,9 @@ slavecoord:                DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexMesh_SetConnectivitiesAndLinkFaces(self,spA,nodes)
+      subroutine HexMesh_SetConnectivitiesAndLinkFaces(self,nodes)
          implicit none
          class(HexMesh)       :: self
-         type (NodalStorage)  :: spA(0:)
          integer              :: nodes
 !
 !        ---------------
@@ -1206,7 +1203,7 @@ slavecoord:                DO l = 1, 4
 
             end select
          
-            call f % LinkWithElements(N_EQN, N_GRAD_EQN, NelL, NelR, nodes, spA)
+            call f % LinkWithElements(N_EQN, N_GRAD_EQN, NelL, NelR, nodes)
             
             end associate
          end do
@@ -1295,11 +1292,10 @@ slavecoord:                DO l = 1, 4
 !     Construct geometry of faces and elements
 !     -> This routine guarantees that the mapping is subparametric or isoparametric
 !     -----------------------------------------------------------------------------
-      subroutine HexMesh_ConstructGeometry(self,spA,SurfInfo)
+      subroutine HexMesh_ConstructGeometry(self,SurfInfo)
          implicit none
          !--------------------------------
          class(HexMesh)    , intent(inout) :: self
-         type(NodalStorage), intent(in)    :: spA(0:)
          type(SurfInfo_t)  , intent(inout) :: SurfInfo(:)
          !--------------------------------
          integer                    :: i
@@ -1365,11 +1361,11 @@ slavecoord:                DO l = 1, 4
 !              ---------------------------------------------------
                if ( any(CLN < NSurfL) ) then
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), spA(CLN(1)) % xCGL, & 
-                                                                                        CLN(2), spA(CLN(2)) % xCGL, faceCL)
+                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
+                                                                                        CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
                   call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
-                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(spA(CLN(1)) % xCGL, &  
-                                                                            spA(CLN(2)) % xCGL,faceCL) 
+                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(CLN(1)) % xCGL, &  
+                                                                            NodalStorage(CLN(2)) % xCGL,faceCL) 
                   deallocate(faceCL)
                end if
 
@@ -1384,11 +1380,11 @@ slavecoord:                DO l = 1, 4
 
                if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-                  call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), spA(CLN(1)) % xCGL, &
-                                                                                         CLN(2), spA(CLN(2)) % xCGL, faceCL)
+                  call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
+                                                                                         CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
                   call SurfInfo(eIDRight) % facePatches(SideIDR) % Destruct()
-                  call SurfInfo(eIDRight) % facePatches(SideIDR) % Construct(spA(CLN(1)) % xCGL,&
-                                                                             spA(CLN(2)) % xCGL,faceCL) 
+                  call SurfInfo(eIDRight) % facePatches(SideIDR) % Construct(NodalStorage(CLN(1)) % xCGL,&
+                                                                             NodalStorage(CLN(2)) % xCGL,faceCL) 
                   deallocate(faceCL)
                end if
 
@@ -1406,11 +1402,11 @@ slavecoord:                DO l = 1, 4
 !              ---------------------------------------------------
                if ( any(CLN < NSurfL) ) then
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), spA(CLN(1)) % xCGL, & 
-                                                                                        CLN(2), spA(CLN(2)) % xCGL, faceCL)
+                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
+                                                                                        CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
                   call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
-                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(spA(CLN(1)) % xCGL, &  
-                                                                            spA(CLN(2)) % xCGL,faceCL) 
+                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(CLN(1)) % xCGL, &  
+                                                                            NodalStorage(CLN(2)) % xCGL,faceCL) 
                   deallocate(faceCL)
                end if
 
@@ -1438,11 +1434,11 @@ slavecoord:                DO l = 1, 4
 
                if ( any(CLN < NSurf) ) then
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-                  call ProjectFaceToNewPoints(SurfInfo(eID) % facePatches(side), CLN(1), spA(CLN(1)) % xCGL, & 
-                                                                                        CLN(2), spA(CLN(2)) % xCGL, faceCL)
+                  call ProjectFaceToNewPoints(SurfInfo(eID) % facePatches(side), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
+                                                                                 CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
                   call SurfInfo(eID) % facePatches(side) % Destruct()
-                  call SurfInfo(eID) % facePatches(side) % Construct(spA(CLN(1)) % xCGL, &  
-                                                                            spA(CLN(2)) % xCGL,faceCL) 
+                  call SurfInfo(eID) % facePatches(side) % Construct(NodalStorage(CLN(1)) % xCGL, &  
+                                                                     NodalStorage(CLN(2)) % xCGL,faceCL) 
                   deallocate(faceCL)
                end if
             end select 
@@ -1483,7 +1479,7 @@ slavecoord:                DO l = 1, 4
             case(HMESH_INTERIOR, HMESH_BOUNDARY)
                associate(eL => self % elements(f % elementIDs(1)))
                call f % geom % construct(f % Nf, f % NelLeft, f % NfLeft, eL % Nxyz, & 
-                                         spA(f % Nf), spA(eL % Nxyz), &
+                                         NodalStorage(f % Nf), NodalStorage(eL % Nxyz), &
                                          eL % geom, eL % hexMap, f % elementSide(1), &
                                          f % projectionType(1), 1, 0 )
                end associate
@@ -1506,7 +1502,7 @@ slavecoord:                DO l = 1, 4
             
                associate(e => self % elements(f % elementIDs(side)))
                call f % geom % construct(f % Nf, Nelf, Nel, e % Nxyz, &
-                                         spA(f % Nf), spA(e % Nxyz), &
+                                         NodalStorage(f % Nf), NodalStorage(e % Nxyz), &
                                          e % geom, e % hexMap, f % elementSide(side), &
                                          f % projectionType(side), side, rot)
 

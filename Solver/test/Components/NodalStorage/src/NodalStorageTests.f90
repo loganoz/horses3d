@@ -14,7 +14,7 @@
          use PolynomialInterpAndDerivsModule
          IMPLICIT NONE 
          INTEGER                    :: N
-         TYPE(NodalStorage)         :: spA
+         TYPE(NodalStorage_t)         :: spA
          REAL(KIND=RP), ALLOCATABLE :: f(:), d(:), dExact(:)
          INTEGER                    :: j
          REAL(KIND=RP)              :: s, e
