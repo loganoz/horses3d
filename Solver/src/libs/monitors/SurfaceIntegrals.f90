@@ -141,7 +141,7 @@ module SurfaceIntegrals
 !           **********************************
 !
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
-               val = val + f % spAxi % w(i) * f % spAeta % w(j) * f % geom % scal(i,j)
+               val = val + f % spAxi % w(i) * f % spAeta % w(j) * f % geom % jacobian(i,j)
             end do          ;    end do
 
          case ( MASS_FLOW )
@@ -158,7 +158,7 @@ module SurfaceIntegrals
                val = val +  (Q(IRHOU,i,j) * f % geom % normal(1,i,j)  &
                           + Q(IRHOV,i,j) * f % geom % normal(2,i,j)  &
                           + Q(IRHOW,i,j) * f % geom % normal(3,i,j) ) &
-                       * f % spAxi % w(i) * f % spAeta % w(j) * f % geom % scal(i,j)
+                       * f % spAxi % w(i) * f % spAeta % w(j) * f % geom % jacobian(i,j)
 
             end do          ;    end do
 
@@ -176,7 +176,7 @@ module SurfaceIntegrals
                val = val + (1.0_RP / Q(IRHO,i,j))*(Q(IRHOU,i,j) * f % geom % normal(1,i,j)  &
                                              + Q(IRHOV,i,j) * f % geom % normal(2,i,j)  &
                                              + Q(IRHOW,i,j) * f % geom % normal(3,i,j) ) &
-                                          * f % spAxi % w(i) * f % spAeta % w(j) * f % geom % scal(i,j) 
+                                          * f % spAxi % w(i) * f % spAeta % w(j) * f % geom % jacobian(i,j) 
             end do          ;    end do
 
          case ( PRESSURE_FORCE )
@@ -191,7 +191,7 @@ module SurfaceIntegrals
 !              Compute the integral
 !              --------------------
                p = Pressure(Q(:,i,j))
-               val = val + p * f % spAxi % w(i) * f % spAeta % w(j) * f % geom % scal(i,j) 
+               val = val + p * f % spAxi % w(i) * f % spAeta % w(j) * f % geom % jacobian(i,j) 
             end do          ;    end do
 
 
@@ -338,7 +338,7 @@ module SurfaceIntegrals
 !           **********************************
 !
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
-               val = val + f % spAxi % w(i) * f % spAeta % w(j) * f % geom % scal(i,j) &
+               val = val + f % spAxi % w(i) * f % spAeta % w(j) * f % geom % jacobian(i,j) &
                          * f % geom % normal(:,i,j)
             end do          ;    end do
 
@@ -357,7 +357,7 @@ module SurfaceIntegrals
                tau = getStressTensor(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j))
 
                val = val + ( p * f % geom % normal(:,i,j) - matmul(tau,f % geom % normal(:,i,j)) ) &
-                           * f % geom % scal(i,j) * f % spAxi % w(i) * f % spAeta % w(j)
+                           * f % geom % jacobian(i,j) * f % spAxi % w(i) * f % spAeta % w(j)
 
             end do          ;    end do
 
@@ -374,7 +374,7 @@ module SurfaceIntegrals
 !              --------------------
                p = Pressure(Q(:,i,j))
 
-               val = val + ( p * f % geom % normal(:,i,j) ) * f % geom % scal(i,j) &
+               val = val + ( p * f % geom % normal(:,i,j) ) * f % geom % jacobian(i,j) &
                          * f % spAxi % w(i) * f % spAeta % w(j)
 
             end do          ;    end do
@@ -391,7 +391,7 @@ module SurfaceIntegrals
 !              Compute the integral
 !              --------------------
                tau = getStressTensor(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j))
-               val = val - matmul(tau,f % geom % normal(:,i,j)) * f % geom % scal(i,j) &
+               val = val - matmul(tau,f % geom % normal(:,i,j)) * f % geom % jacobian(i,j) &
                            * f % spAxi % w(i) * f % spAeta % w(j)
 
             end do          ;    end do

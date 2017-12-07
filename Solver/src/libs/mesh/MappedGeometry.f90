@@ -50,9 +50,11 @@ Module MappedGeometryClass
       END TYPE MappedGeometry
       
       type MappedGeometryFace
-         real(kind=RP), dimension(:,:,:),   allocatable :: x
-         real(kind=RP), dimension(:,:)  , allocatable   :: scal   ! |ja^i|: Normalization term of the normal vectors on a face
-         real(kind=RP), dimension(:,:,:), allocatable   :: normal ! normal vector on a face
+         real(kind=RP), dimension(:,:,:), allocatable   :: x
+         real(kind=RP), dimension(:,:)  , allocatable   :: jacobian   ! |ja^i|: Normalization term of the normal vectors on a face
+         real(kind=RP), dimension(:,:,:), allocatable   :: normal     ! normal vector on a face
+         real(kind=RP), dimension(:,:,:), allocatable   :: t1         ! Tangent vector (along the xi direction)
+         real(kind=RP), dimension(:,:,:), allocatable   :: t2         ! Tangent vector 2 (orthonormal to t1 and normal)
          contains
             procedure :: construct => ConstructMappedGeometryFace
             procedure :: destruct  => DestructMappedGeometryFace
@@ -445,9 +447,9 @@ Module MappedGeometryClass
 !
 !//////////////////////////////////////////////////////////////////////// 
 !
-!  -----------------------------------------------------------------------------------
-!  Computation of the metric terms on a face: TODO only the Left element (rotation 0)
-!  -----------------------------------------------------------------------------------
+!  -----------------------------------------
+!  Computation of the metric terms on a face
+!  -----------------------------------------
    subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, Nel3D, spAf, spAe, geom, hexMap, side, projType, eSide, rot)
       use PhysicsStorage
       use InterpolationMatrices
@@ -476,8 +478,10 @@ Module MappedGeometryClass
       real(kind=RP)  :: dSrot(NDIM,0:Nelf(1),0:Nelf(2))
 
       allocate( self % x(NDIM, 0:Nf(1), 0:Nf(2)))
-      allocate( self % scal(0:Nf(1), 0:Nf(2)))
+      allocate( self % jacobian(0:Nf(1), 0:Nf(2)))
       allocate( self % normal(NDIM, 0:Nf(1), 0:Nf(2)))
+      allocate( self % t1(NDIM, 0:Nf(1), 0:Nf(2)))
+      allocate( self % t2(NDIM, 0:Nf(1), 0:Nf(2)))
 
       dS = 0.0_RP
 
@@ -623,9 +627,27 @@ Module MappedGeometryClass
 !     Compute
 !     -------
       do j = 0, Nf(2)   ; do i = 0, Nf(1)
-         self % scal(i,j) = norm2(self % normal(:,i,j))
-         self % normal(:,i,j) = self % normal(:,i,j) / self % scal(i,j)
+         self % jacobian(i,j) = norm2(self % normal(:,i,j))
+         self % normal(:,i,j) = self % normal(:,i,j) / self % jacobian(i,j)
       end do            ; end do
+!
+!     Compute tangent vectors
+!     -----------------------
+      self % t1 = 0.0_RP
+      do j = 0, Nf(2)   ; do l = 0, Nf(1)    ; do i = 0, Nf(1)
+         self % t1(:,i,j) = self % t1(:,i,j) + spAf(1) % D(i,l) * self % x(:,l,j)
+      end do            ; end do             ; end do
+!
+!     Tangent vectors could not be orthogonal to normal vectors (because of truncation errors)
+!     ----------------------------------------------------------------------------------------
+      do j = 0, Nf(2)   ; do i = 0, Nf(1)
+         self % t1(:,i,j)  = self % t1(:,i,j) - dot_product(self % t1(:,i,j), self % normal(:,i,j)) &
+                                              * self % normal(:,i,j)
+
+         self % t1(:,i,j)  = self % t1(:,i,j)  / norm2(self % t1(:,i,j))
+         call vCross(self % normal(:,i,j), self % t1(:,i,j), self % t2(:,i,j))
+      end do            ; end do
+      
 
 
    end subroutine ConstructMappedGeometryFace
@@ -638,9 +660,11 @@ Module MappedGeometryClass
          class(MappedGeometryFace), intent(inout) :: self
          !-------------------------------------------------------------------
          
-         deallocate (self % x    )
-         deallocate (self % scal  )
-         deallocate (self % normal)
+         deallocate(self % x       )
+         deallocate(self % jacobian)
+         deallocate(self % normal  )
+         deallocate(self % t1    )
+         deallocate(self % t2   )
          
       end subroutine DestructMappedGeometryFace
 

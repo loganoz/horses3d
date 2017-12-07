@@ -57,7 +57,7 @@ module MeshTests
                fID = mesh_ % zones(zID) % faces(nF)
                associate(f => mesh_ % faces(fID))
                   do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                     surface = surface + f % spAxi % w(i) * f % spAeta % w(j) * f % geom % scal(i,j)
+                     surface = surface + f % spAxi % w(i) * f % spAeta % w(j) * f % geom % jacobian(i,j)
                   end do               ; end do
                end associate
             end do
@@ -499,8 +499,8 @@ module MeshTests
 !
          integer  :: i, j, k, ii, jj
          real(kind=RP)  :: SelL(NDIM, 0:f % NelLeft(1), 0:f % NelLeft(2))
-         real(kind=RP)  :: scalL(0:f % NelLeft(1), 0:f % NelLeft(2))
-         real(kind=RP)  :: scalR(0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)  :: jacobianL(0:f % NelLeft(1), 0:f % NelLeft(2))
+         real(kind=RP)  :: jacobianR(0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)  :: SelR(NDIM, 0:f % NelRight(1), 0:f % NelRight(2))
          real(kind=RP)  :: SfR(NDIM, 0:f % NfRight(1), 0:f % NfRight(2))
          real(kind=RP)  :: Sf(NDIM, 0:f % Nf(1), 0:f % Nf(2))
@@ -549,7 +549,7 @@ module MeshTests
 
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            scalL(i,j) = norm2(SelL(:,i,j))
+            jacobianL(i,j) = norm2(SelL(:,i,j))
          end do               ; end do
 !
 !        -------------
@@ -559,8 +559,8 @@ module MeshTests
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             write(msg,'(A,I0,A,I0,A,I0,A,I0,A)') "Surface Jacobian (face ",f % ID, &
                      ", element ", eL % eID," localcoords:",i,",",j,")"
-            call FTAssertEqual( expectedValue = f % geom % scal(i,j), &
-                                actualValue = scalL(i,j), &
+            call FTAssertEqual( expectedValue = f % geom % jacobian(i,j), &
+                                actualValue = jacobianL(i,j), &
                                 tol = 1.0e-13_RP, &
                                 msg = msg)
          end do               ; end do
@@ -622,7 +622,7 @@ module MeshTests
          end do               ; end do
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            scalR(i,j) = norm2(SfR(:,i,j))
+            jacobianR(i,j) = norm2(SfR(:,i,j))
          end do               ; end do
 !
 !        -------------
@@ -632,8 +632,8 @@ module MeshTests
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             write(msg,'(A,I0,A,I0,A,I0,A,I0,A)') "Surface Jacobian (face ",f % ID, &
                      ", element ", eL % eID," localcoords:",i,",",j,")"
-            call FTAssertEqual( expectedValue = f % geom % scal(i,j), &
-                                actualValue = scalR(i,j), &
+            call FTAssertEqual( expectedValue = f % geom % jacobian(i,j), &
+                                actualValue = jacobianR(i,j), &
                                 tol = 1.0e-13_RP, &
                                 msg = msg)
          end do               ; end do

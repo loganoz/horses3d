@@ -348,7 +348,7 @@ module SpatialDiscretization
 !
 !              Multiply by the Jacobian
 !              ------------------------
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % scal(i,j)
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % jacobian(i,j)
                
             END DO   
          END DO  
@@ -399,7 +399,7 @@ module SpatialDiscretization
 !
 !              Multiply by the Jacobian
 !              ------------------------
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % scal(i,j)
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % jacobian(i,j)
                
             END DO   
          END DO  
@@ -490,7 +490,7 @@ module SpatialDiscretization
                visc_flux = 0.0_RP
             end if
 
-            fStar(:,i,j) = (inv_flux - visc_flux) * f % geom % scal(i,j)
+            fStar(:,i,j) = (inv_flux - visc_flux) * f % geom % jacobian(i,j)
          END DO   
       END DO   
 

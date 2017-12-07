@@ -360,7 +360,7 @@ module DGViscousDiscretization
             call GradientValuesForQ(Q = f % storage(1) % Q(:,i,j), U = UL)
             call GradientValuesForQ(Q = f % storage(2) % Q(:,i,j), U = UR)
    
-            Uhat = 0.5_RP * (UL + UR) * f % geom % scal(i,j)
+            Uhat = 0.5_RP * (UL + UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
             Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
@@ -395,7 +395,7 @@ module DGViscousDiscretization
             call GradientValuesForQ(Q = f % storage(1) % Q(:,i,j), U = UL)
             call GradientValuesForQ(Q = f % storage(2) % Q(:,i,j), U = UR)
    
-            Uhat = 0.5_RP * (UL + UR) * f % geom % scal(i,j)
+            Uhat = 0.5_RP * (UL + UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
             Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
@@ -434,7 +434,7 @@ module DGViscousDiscretization
             call GradientValuesForQ( f % storage(1) % Q(:,i,j), UL )
             call GradientValuesForQ( bvExt, UR )
    
-            Uhat = 0.5_RP * (UL + UR) * f % geom % scal(i,j)
+            Uhat = 0.5_RP * (UL + UR) * f % geom % jacobian(i,j)
             
             f % storage(1) % unStar(:,1,i,j) = Uhat * f % geom % normal(1,i,j)
             f % storage(1) % unStar(:,2,i,j) = Uhat * f % geom % normal(2,i,j)
