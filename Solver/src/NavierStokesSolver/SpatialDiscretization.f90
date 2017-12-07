@@ -332,6 +332,8 @@ module SpatialDiscretization
                CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
                                   QRight = f % storage(2) % Q(:,i,j), &
                                   nHat   = f % geom % normal(:,i,j), &
+                                  t1     = f % geom % t1(:,i,j), &
+                                  t2     = f % geom % t2(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
 
                CALL ViscousMethod % RiemannSolver(QLeft = f % storage(1) % Q(:,i,j), &
@@ -383,6 +385,8 @@ module SpatialDiscretization
                CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
                                   QRight = f % storage(2) % Q(:,i,j), &
                                   nHat   = f % geom % normal(:,i,j), &
+                                  t1     = f % geom % t1(:,i,j), &
+                                  t2     = f % geom % t2(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
 
                CALL ViscousMethod % RiemannSolver(QLeft = f % storage(1) % Q(:,i,j), &
@@ -459,6 +463,8 @@ module SpatialDiscretization
             CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
                                QRight = f % storage(2) % Q(:,i,j), &   
                                nHat   = f % geom % normal(:,i,j), &
+                               t1     = f % geom % t1(:,i,j), &
+                               t2     = f % geom % t2(:,i,j), &
                                flux   = inv_flux)
 !
 !           ViscousPart

@@ -4,9 +4,9 @@
 !   @File:    RiemannSolvers.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:26 2017
-!   @Last revision date: Wed Dec  6 17:59:35 2017
+!   @Last revision date: Thu Dec  7 19:32:19 2017
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 8cc17733385cd74924da75c3c1fd7cd89dd71fd4
+!   @Last revision commit: 52e53d02ebf3e9fc3016ba405dda0b6e87c8bdb6
 !
 !//////////////////////////////////////////////////////
 !
@@ -19,12 +19,14 @@ module RiemannSolvers
    public RiemannSolver, SetRiemannSolver
 
    abstract interface
-      subroutine RiemannSolverFCN(QLeft, QRight, nHat, flux)
+      subroutine RiemannSolverFCN(QLeft, QRight, nHat, t1, t2, flux)
          use SMConstants
          use PhysicsStorage
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
+         real(kind=RP), intent(in)       :: t1(1:NDIM)
+         real(kind=RP), intent(in)       :: t2(1:NDIM)
          real(kind=RP), intent(out)      :: flux(1:NCONS)
       end subroutine RiemannSolverFCN
    end interface
@@ -51,6 +53,8 @@ module RiemannSolvers
             RiemannSolver => PirozzoliSolver
          case (KENNEDYGRUBER)
             RiemannSolver => KennedyGruberSolver
+         CASE (STDROE)
+            RiemannSolver => RoeSolverStd
          case default
             PRINT *, "Undefined choice of Riemann Solver. Abort"
             errorMessage(STD_OUT)
@@ -61,7 +65,114 @@ module RiemannSolvers
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE RoeSolver( QLeft, QRight, nHat, flux )
+      subroutine RoeSolverStd(QLeft, QRight, nHat, t1, t2, flux)
+         implicit none 
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer        :: i
+         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, rhoHL, rhoV2L
+         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, rhoHR, rhoV2R
+         real(kind=RP)  :: sqrtRhoL, sqrtRhoR, invSumSqrtRhoLR
+         real(kind=RP)  :: invSqrtRhoL, invSqrtRhoR, invRhoL, invRhoR
+         real(kind=RP)  :: u, v, w, H, a, dQ(5), lambda(5), K(5,5), V2abs, alpha(5)
+
+         associate(gamma => thermodynamics % gamma, gm1 => thermodynamics % gammaMinus1)
+!
+!        Rotate the variables to the face local frame using normal and tangent vectors
+!        -----------------------------------------------------------------------------
+         rhoL = QLeft(1)                  ; rhoR = QRight(1)
+         invRhoL = 1.0_RP/ rhoL           ; invRhoR = 1.0_RP / rhoR
+         sqrtRhoL = sqrt(rhoL)            ; sqrtRhoR = sqrt(rhoR)
+         invSqrtRhoL = 1.0_RP / sqrtRhoL  ; invSqrtRhoR = 1.0_RP / sqrtRhoR
+         invSumSqrtRhoLR = 1.0_RP / (sqrtRhoL + sqrtRhoR)
+
+         rhouL = QLeft(2)  * nHat(1) + QLeft(3)  * nHat(2) + QLeft(4)  * nHat(3)
+         rhouR = QRight(2) * nHat(1) + QRight(3) * nHat(2) + QRight(4) * nHat(3)
+
+         rhovL = QLeft(2)  * t1(1) + QLeft(3)  * t1(2) + QLeft(4)  * t1(3)
+         rhovR = QRight(2) * t1(1) + QRight(3) * t1(2) + QRight(4) * t1(3)
+
+         rhowL = QLeft(2)  * t2(1) + QLeft(3)  * t2(2) + QLeft(4)  * t2(3)
+         rhowR = QRight(2) * t2(1) + QRight(3) * t2(2) + QRight(4) * t2(3)
+
+         rhoV2L = (POW2(rhouL) + POW2(rhovL) + POW2(rhowL)) * invRhoL
+         rhoV2R = (POW2(rhouR) + POW2(rhovR) + POW2(rhowR)) * invRhoR
+
+         rhoeL = QLeft(5) ; rhoeR = QRight(5)                
+!
+!        Compute the enthalpy: here defined as rhoH = gogm1 p + 0.5 rho V^2
+!        --------------------
+         rhoHL = gamma*rhoeL - 0.5_RP*gm1*rhoV2L
+         rhoHR = gamma*rhoeR - 0.5_RP*gm1*rhoV2R
+
+         pL = gm1 * (rhoeL - 0.5_RP * gm1 * rhoV2L)
+         pR = gm1 * (rhoeR - 0.5_RP * gm1 * rhoV2R)
+!
+!        Compute Roe variables
+!        ---------------------
+         u = (invSqrtRhoL * rhouL + invSqrtRhoR * rhouR) * invSumSqrtRhoLR
+         v = (invSqrtRhoL * rhovL + invSqrtRhoR * rhovR) * invSumSqrtRhoLR
+         w = (invSqrtRhoL * rhowL + invSqrtRhoR * rhowR) * invSumSqrtRhoLR
+         H = (invSqrtRhoL * rhoHL + invSqrtRhoR * rhoHR) * invSumSqrtRhoLR
+         V2abs = POW2(u) + POW2(v) + POW2(w)
+         a = sqrt(gm1*(H - 0.5_RP*V2abs))
+!
+!        Eigenvalues
+!        -----------
+         lambda(1)   = u-a
+         lambda(2:4) = u
+         lambda(5)   = u+a
+!
+!        Eigenvectors
+!        ------------
+         K(:,1) = (/ 1.0_RP, u-a, v, w, H-u*a /)
+         K(:,2) = (/ 1.0_RP, u, v, w, 0.5_RP*V2abs /)
+         K(:,3) = (/ 0.0_RP, 0.0_RP, 1.0_RP, 0.0_RP, v /)
+         K(:,4) = (/ 0.0_RP, 0.0_RP, 0.0_RP, 1.0_RP, w /)
+         K(:,5) = (/ 1.0_RP, u+a, v, w, H+u*a /)
+!
+!        Projections
+!        -----------
+         dQ = (/ rhoR - rhoL, rhouR - rhouL, rhovR - rhovL, rhowR - rhowL, rhoeR - rhoeL /)
+
+         alpha(3) = dQ(3) - v * dQ(1)  ; alpha(4) = dQ(4) - w * dQ(1)
+
+         dQ(5) = dQ(5) - alpha(3) * v - alpha(4) * w
+
+         alpha(2) = gm1 * ( dQ(1)*(H - u*u) + u * dQ(2) - dQ(5) ) / (POW2(a))
+         alpha(1) = 0.5_RP * (dQ(1)*lambda(5) - dQ(2) - a*alpha(2)) / a
+         alpha(5) = dQ(1) - alpha(1) - alpha(2)
+!
+!        Compute the flux
+!        ----------------
+         flux(1) = 0.5_RP * ( rhouL + rhouR )
+         flux(2) = 0.5_RP * ( POW2(rhouL*invSqrtRhoL) + pL + POW2(rhouR*invSqrtRhoR) + pR)
+         flux(3) = 0.5_RP * ( rhouL*rhovL*invRhoL + rhouR*rhovR*invRhoR )
+         flux(4) = 0.5_RP * ( rhouL*rhowL*invRhoL + rhouR*rhowR*invRhoR )
+         flux(5) = 0.5_RP * ( rhoHL*rhouL*invRhoL + rhoHR*rhouR*invRhoR )
+
+         do i = 1, 5
+            flux = flux - 0.5_RP * alpha(i) * abs(lambda(i)) * K(:,i)
+         end do
+!
+!        Return momentum equations to the cartesian frame
+!        ------------------------------------------------
+         flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
+
+         end associate
+         
+      end subroutine RoeSolverStd
+!
+!     ////////////////////////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE RoeSolver( QLeft, QRight, nHat, t1, t2, flux )
          IMPLICIT NONE
 !
 !        ---------
@@ -71,6 +182,8 @@ module RiemannSolvers
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
+         real(kind=RP), intent(in)       :: t1(1:NDIM)
+         real(kind=RP), intent(in)       :: t2(1:NDIM)
          real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
@@ -172,7 +285,7 @@ module RiemannSolvers
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE LxFSolver( QLeft, QRight, nHat, flux ) 
+      SUBROUTINE LxFSolver( QLeft, QRight, nHat, t1, t2, flux ) 
          IMPLICIT NONE 
 !
 !        ---------
@@ -182,6 +295,8 @@ module RiemannSolvers
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
+         real(kind=RP), intent(in)       :: t1(1:NDIM)
+         real(kind=RP), intent(in)       :: t2(1:NDIM)
          real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
@@ -247,7 +362,7 @@ module RiemannSolvers
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE RusanovSolver( QLeft, QRight, nHat, flux )
+      SUBROUTINE RusanovSolver( QLeft, QRight, nHat, t1, t2, flux )
       
          IMPLICIT NONE
 !
@@ -258,6 +373,8 @@ module RiemannSolvers
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
+         real(kind=RP), intent(in)       :: t1(1:NDIM)
+         real(kind=RP), intent(in)       :: t2(1:NDIM)
          real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
@@ -348,13 +465,13 @@ module RiemannSolvers
          
       END SUBROUTINE RusanovSolver           
 
-      subroutine DucrosSolver(QLeft, QRight, nHat, flux) 
-         use SMConstants
-         use PhysicsStorage
+      subroutine DucrosSolver(QLeft, QRight, nHat, t1, t2, flux) 
          implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
+         real(kind=RP), intent(in)       :: t1(1:NDIM)
+         real(kind=RP), intent(in)       :: t2(1:NDIM)
          real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
@@ -407,13 +524,13 @@ module RiemannSolvers
 
       end subroutine DucrosSolver
 
-      subroutine MorinishiSolver(QLeft,QRight,nHat,flux) 
-         use SMConstants
-         use PhysicsStorage
+      subroutine MorinishiSolver(QLeft,QRight,nHat, t1, t2,flux) 
          implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(NDIM)
+         real(kind=RP), intent(in)       :: t1(1:NDIM)
+         real(kind=RP), intent(in)       :: t2(1:NDIM)
          real(kind=RP), intent(out)      :: flux(NCONS)
 !
 !        ---------------
@@ -486,13 +603,13 @@ module RiemannSolvers
 
       end subroutine MorinishiSolver
 
-      subroutine KennedyGruberSolver(QLeft,QRight,nHat,flux) 
-         use SMConstants
-         use PhysicsStorage
+      subroutine KennedyGruberSolver(QLeft,QRight,nHat, t1, t2,flux) 
          implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(NDIM)
+         real(kind=RP), intent(in)       :: t1(1:NDIM)
+         real(kind=RP), intent(in)       :: t2(1:NDIM)
          real(kind=RP), intent(out)      :: flux(NCONS)
 !
 !        ---------------
@@ -554,13 +671,13 @@ module RiemannSolvers
 
       end subroutine KennedyGruberSolver
 
-      subroutine PirozzoliSolver(QLeft,QRight,nHat,flux)
-         use SMConstants
-         use PhysicsStorage
+      subroutine PirozzoliSolver(QLeft,QRight,nHat, t1, t2,flux)
          implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(NDIM)
+         real(kind=RP), intent(in)       :: t1(1:NDIM)
+         real(kind=RP), intent(in)       :: t2(1:NDIM)
          real(kind=RP), intent(out)      :: flux(NCONS)
 !
 !        ---------------

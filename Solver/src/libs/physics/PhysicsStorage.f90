@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Thu Dec  7 19:32:18 2017
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 52e53d02ebf3e9fc3016ba405dda0b6e87c8bdb6
 !
 !//////////////////////////////////////////////////////
 !
@@ -32,6 +32,8 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MORINISHI_SOLVER_NAME     = "morinishi"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: KENNEDYGRUBER_SOLVER_NAME = "kennedy-gruber"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PIROZZOLI_SOLVER_NAME     = "pirozzoli"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME        = "standard roe"
+      
          
       END MODULE PhysicsKeywordsModule
 !
@@ -50,7 +52,7 @@
      public    flowIsNavierStokes, N_EQN, N_GRAD_EQN, NDIM, IX, IY, IZ
      public    NCONS, IRHO, IRHOU, IRHOV, IRHOW, IRHOE, IGU, IGV, IGW, IGT
      public    TScale, TRatio, ROE, LXF, RUSANOV, DUCROS, riemannSolverChoice
-     public    MORINISHI, PIROZZOLI, KENNEDYGRUBER
+     public    MORINISHI, PIROZZOLI, KENNEDYGRUBER, STDROE
      public    Thermodynamics, RefValues, Dimensionless
      public    Thermodynamics_t, RefValues_t, Dimensionless_t
      public    lambdaStab, computeGradients
@@ -112,6 +114,7 @@
 !
      INTEGER, PARAMETER       :: ROE = 0, LXF = 1, RUSANOV = 2, DUCROS = 3
      INTEGER, parameter       :: MORINISHI = 4, PIROZZOLI = 5, KENNEDYGRUBER = 6
+     INTEGER, parameter       :: STDROE = 7
      INTEGER,       protected :: riemannSolverChoice = ROE
      real(kind=RP), protected :: lambdaStab = 0.0_RP
 
