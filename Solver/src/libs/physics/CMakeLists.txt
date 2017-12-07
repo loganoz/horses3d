@@ -3,7 +3,7 @@
 #####################################################
 
 ## Add the source files
-SET(phys_src BoundaryConditions.f90 FluidData.f90 ManufacturedSolutions.f90 Physics.f90)
+SET(phys_src BoundaryConditions.f90 FluidData.f90 ManufacturedSolutions.f90 PhysicsStorage.f90 RiemannSolvers.f90 Physics.f90)
 
 ADD_LIBRARY(${PHYSLIB} STATIC ${phys_src})
 

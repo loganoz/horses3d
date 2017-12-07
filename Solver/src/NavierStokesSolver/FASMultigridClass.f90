@@ -5,7 +5,8 @@
 !      By: Andrés Rueda
 !
 !      FAS Multigrid Class
-!        As is, it is only valid for steady-state cases
+!        As is, it is only valid for steady-state cases.
+!        New smoothers should be added to handle unsteady cases
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 module FASMultigridClass
@@ -14,6 +15,7 @@ module FASMultigridClass
    use ExplicitMethods
    use DGSEMClass
    use Physics
+   use InterpolationMatrices
    
    use PolynomialInterpAndDerivsModule
    use GaussQuadrature
@@ -22,6 +24,9 @@ module FASMultigridClass
    private
    public FASMultigrid_t
    
+!
+!  Multigrid storage
+!  -----------------
    type :: MGStorage_t
       real(kind=RP), dimension(:,:,:,:), allocatable :: Q     ! Solution of the conservative level (before the smoothing)
       real(kind=RP), dimension(:,:,:,:), allocatable :: E     ! Error (for correction)
@@ -29,24 +34,26 @@ module FASMultigridClass
       real(kind=RP), dimension(:,:,:,:), allocatable :: Scase ! Source term from the specific case that is running (this is actually not necessary for the MG scheme, but it's needed to estimate the truncation error) .. Currently, it only considers the source term from manufactured solutions (state of the code when this module was written)
    end type MGStorage_t
    
+!
+!  Multigrid class
+!  ---------------
    type :: FASMultigrid_t
       type(DGSem)            , pointer           :: p_sem                 ! Pointer to DGSem class variable of current system
       type(FASMultigrid_t)   , pointer           :: Child                 ! Next coarser multigrid solver
       type(FASMultigrid_t)   , pointer           :: Parent                ! Next finer multigrid solver
+      type(MGStorage_t)          , allocatable   :: MGStorage(:)          ! Storage
       integer                                    :: MGlevel               ! Current Multigrid level
-      type(MGStorage_t)          , allocatable   :: MGStorage(:)
-      
-      type(Interpolator_t)       , allocatable   :: Restriction(:,:,:)    ! Restriction operators (element level)
-      type(Interpolator_t)       , allocatable   :: Prolongation(:,:,:)   ! Prolongation operators (element level)
       
       contains
-         !Subroutines:
          procedure                               :: construct
          procedure                               :: solve
          procedure                               :: destruct
       
    end type FASMultigrid_t
    
+!
+!  Interface for the smoother
+!  --------------------------
    abstract interface
       subroutine SmoothIt_t(sem, t, dt)
          use DGSEMClass
@@ -61,29 +68,29 @@ module FASMultigridClass
 !  Module variables
 !  ----------------
 !
-   !! Parameters !!
+   !! Parameters
    integer, parameter :: MAX_SWEEPS_DEFAULT = 10000
+   integer, parameter :: NMIN_GAUSS        = 1 ! Minimum polynomial order when using Gauss nodes .... The threshold should actually be zero... Using 1 because code doesn't support 0
+   integer, parameter :: NMIN_GAUSSLOBATTO = 1 ! Minimum polynomial order when using Gauss-Lobatto nodes
    
-   real(kind=RP)  :: cfl
-   
-   ! Multigrid
+   ! Other variables
+   integer        :: MaxN           ! Maximum polynomial order of the mesh
    integer        :: MGlevels       ! Total number of multigrid levels
    integer        :: deltaN         ! 
    integer        :: nelem          ! Number of elements
    integer        :: ThisTimeStep   ! Current time step
    integer        :: plotInterval   ! Read to display output
-   logical        :: MGOutput       ! Display output?
-   logical        :: FMG = .FALSE.  ! Use Full Multigrid algorithm?
    integer        :: SweepNumPre    ! Number of sweeps pre-smoothing
    integer        :: SweepNumPost   ! Number of sweeps post-smoothing
    integer        :: SweepNumCoarse ! Number of sweeps on coarsest level
    integer        :: MaxSweeps      ! Maximum number of sweeps in a smoothing process
+   logical        :: MGOutput       ! Display output?
+   logical        :: FMG = .FALSE.  ! Use Full Multigrid algorithm?
    logical        :: PostFCycle,PostSmooth ! Post smoothing options
-   !
    logical        :: SmoothFine     !      
-   real(kind=RP)  :: SmoothFineFrac ! Fraction that must be smoothed in fine before going to coarser level
-   !
    logical        :: ManSol         ! Does this case have manufactured solutions?
+   real(kind=RP)  :: SmoothFineFrac ! Fraction that must be smoothed in fine before going to coarser level
+   real(kind=RP)  :: cfl
    
 !========
  contains
@@ -94,12 +101,11 @@ module FASMultigridClass
    subroutine construct(this,controlVariables,sem)
       implicit none
       !-----------------------------------------------------------
-      class(FASMultigrid_t) , intent(inout), target :: this
+      class(FASMultigrid_t) , intent(inout), target    :: this
       type(FTValueDictionary)  , intent(IN), OPTIONAL  :: controlVariables
       type(DGSem), target                  , OPTIONAL  :: sem
       character(len=LINE_LENGTH)                       :: PostSmoothOptions
       !-----------------------------------------------------------
-      !Module variables: MGlevels, deltaN
       
       if (.NOT. PRESENT(sem)) stop 'Fatal error: FASMultigrid needs sem.'
       if (.NOT. PRESENT(controlVariables)) stop 'Fatal error: FASMultigrid needs controlVariables.'
@@ -184,7 +190,8 @@ module FASMultigridClass
       MGOutput       = controlVariables % logicalValueForKey("multigrid output")
       plotInterval   = controlVariables % integerValueForKey("output interval")
       ManSol         = sem % ManufacturedSol
-      MGlevels       = MIN (MGlevels,MAX(MAXVAL(sem%Nx),MAXVAL(sem%Ny),MAXVAL(sem%Nz)))
+      MaxN           = MAX(MAXVAL(sem%Nx),MAXVAL(sem%Ny),MAXVAL(sem%Nz))
+      MGlevels       = MIN (MGlevels,MaxN)
       
       write(STD_OUT,*) 'Constructuing FAS Multigrid'
       write(STD_OUT,*) 'Number of levels:', MGlevels
@@ -207,16 +214,15 @@ module FASMultigridClass
       use BoundaryConditionFunctions
       implicit none
       type(FASMultigrid_t), target  :: Solver
-      integer, dimension(:)            :: N1x,N1y,N1z      !<  Order of approximation for every element in current solver
-      integer                          :: lvl              !<  Current multigrid level
-      type(FTValueDictionary)          :: controlVariables !< Control variables (for the construction of coarse sems
+      integer, dimension(:)         :: N1x,N1y,N1z      !<  Order of approximation for every element in current solver
+      integer                       :: lvl              !<  Current multigrid level
+      type(FTValueDictionary)       :: controlVariables !< Control variables (for the construction of coarse sems
       !----------------------------------------------
-      integer, dimension(nelem) :: N2x,N2y,N2z            !   Order of approximation for every element in child solver
-      integer                   :: N1xMAX,N1yMAX,N1zMAX   !   Maximum polynomial orders for current (fine) grid
-      integer                   :: i,j,k, iEl             !   Counter
-      logical                   :: success                ! Did the creation of sem succeed?
-      type(FASMultigrid_t) , pointer :: Child_p           ! Pointer to Child
-      integer                   :: Q1,Q2,Q3,Q4            ! Sizes of vector Q (conserved solution) used for allocation. In this version the argument MOLD of ALLOCATE is not used since several versions of gfortran don't support it yet...
+      integer, dimension(nelem)     :: N2x,N2y,N2z            !   Order of approximation for every element in child solver
+      integer                       :: i,j,k, iEl             !   Counter
+      logical                       :: success                ! Did the creation of sem succeed?
+      type(FASMultigrid_t), pointer :: Child_p                ! Pointer to Child
+      integer                       :: Q1,Q2,Q3,Q4            ! Sizes of vector Q (conserved solution) used for allocation. In this version the argument MOLD of ALLOCATE is not used since several versions of gfortran don't support it yet...
       !----------------------------------------------
       !
       integer :: Nxyz(3), fd, l
@@ -228,7 +234,7 @@ module FASMultigridClass
 !     --------------------------
 !
       ALLOCATE (Solver % MGStorage(nelem))
-!$omp parallel do private(Q1,Q2,Q3,Q4)
+!$omp parallel do private(Q1,Q2,Q3,Q4) schedule(runtime)
       DO k = 1, nelem
          Q1 = SIZE(Solver % p_sem % mesh % elements(k) % storage % Q,1)
          Q2 = SIZE(Solver % p_sem % mesh % elements(k) % storage % Q,2) - 1
@@ -273,17 +279,6 @@ module FASMultigridClass
          ALLOCATE  (Solver % Child)
          Child_p => Solver % Child
          Solver % Child % Parent => Solver
-!
-!        -----------------------------------------------
-!        Allocate restriction and prolongation operators
-!        -----------------------------------------------
-!      
-         N1xMAX = MAXVAL(N1x)
-         N1yMAX = MAXVAL(N1y)
-         N1zMAX = MAXVAL(N1z)
-         
-         ALLOCATE (Solver  % Restriction (0:N1xMAX,0:N1yMAX,0:N1zMAX))
-         ALLOCATE (Child_p % Prolongation(0:N1xMAX,0:N1yMAX,0:N1zMAX))
          
 !
 !        ---------------------------------------------
@@ -291,10 +286,8 @@ module FASMultigridClass
 !        ---------------------------------------------
 !
          DO k=1, nelem
-            call CreateInterpolationOperators(Solver % Restriction, Child_p % Prolongation, &
-                                              N1x(k),N1y(k),N1z(k),                         &
-                                              N2x(k),N2y(k),N2z(k), DeltaN)    ! TODO: Add lobatto flag if required
-            
+            call CreateInterpolationOperators(N1x(k),N1y(k),N1z(k),                         &
+                                              N2x(k),N2y(k),N2z(k), lvl-1, DeltaN, Solver % p_sem % nodes)
          end DO
          
          ! Create DGSEM class for child
@@ -309,7 +302,6 @@ module FASMultigridClass
          
          call RecursiveConstructor(Solver % Child, N2x, N2y, N2z, lvl - 1, controlVariables)
       end if
-      
       
    end subroutine RecursiveConstructor
 !
@@ -369,6 +361,7 @@ module FASMultigridClass
       type(FASMultigrid_t), pointer :: Child_p              !Pointer to child
       integer                       :: N1x, N1y, N1z        !Polynomial orders
       integer                       :: N2x, N2y, N2z        !Polynomial orders
+      integer                       :: N1(3), N2(3)
       real(kind=RP)                 :: dt                   !Time variables
       real(kind=RP)                 :: maxResidual(N_EQN)
       integer                       :: NumOfSweeps
@@ -428,34 +421,27 @@ module FASMultigridClass
 !        Interpolate coarse-grid error to this level
 !        -------------------------------------------
 !
-!$omp parallel do private(iEQ,N1x,N1y,N1z,N2x,N2y,N2z)
+!$omp parallel 
+!$omp do private(N1,N2) schedule(runtime)
          DO iEl = 1, nelem
-            DO iEQ = 1, N_EQN
-               N1x = Child_p % p_sem % Nx(iEl)
-               N1y = Child_p % p_sem % Ny(iEl)
-               N1z = Child_p % p_sem % Nz(iEl)
-               N2x = this    % p_sem % Nx(iEl)
-               N2y = this    % p_sem % Ny(iEl)
-               N2z = this    % p_sem % Nz(iEl)
-               call Interpolate3D(Q1 = Child_p % MGStorage(iEl) % E(iEQ,:,:,:)      , &
-                                  Q2 = this    % MGStorage(iEl) % E(iEQ,:,:,:)      , &
-                                  Interp = Child_p % Prolongation(N2x,N2y,N2z) % Mat, &
-                                  N1x = N1x,    N1y = N1y,    N1z = N1z             , &
-                                  N2x = N2x,    N2y = N2y,    N2z = N2z)
-            end DO
+            N1 = Child_p % p_sem % mesh % elements (iEl) % Nxyz
+            N2 = this    % p_sem % mesh % elements (iEl) % Nxyz
+            call Interp3DArrays(NCONS, N1, Child_p % MGStorage(iEl) % E, N2, this % MGStorage(iEl) % E )
          end DO
-!$omp end parallel do
+!$omp end do
 !
 !        -----------------------------------------------
 !        Correct solution with coarse-grid approximation
 !        -----------------------------------------------
 !
-!$omp parallel do
+!$omp barrier
+!$omp do schedule(runtime)
          DO iEl = 1, nelem
             this % p_sem % mesh % elements(iEl) % storage % Q = &
                               this % p_sem % mesh % elements(iEl) % storage % Q + this % MGStorage(iEl) % E
          end DO
-!$omp end parallel do
+!$omp end do
+!$omp end parallel
       
       end if
 !
@@ -502,7 +488,7 @@ module FASMultigridClass
 !     -------------------------
 !
       if (lvl < MGlevels) then
-!$omp parallel do private(iEQ)
+!$omp parallel do schedule(runtime)
          DO iEl = 1, nelem
             this % MGStorage(iEl) % E = this % p_sem % mesh % elements(iEl) % storage % Q - this % MGStorage(iEl) % Q
          end DO
@@ -528,6 +514,7 @@ module FASMultigridClass
       integer        :: iEl, iEQ             ! Element and equation counters
       integer        :: N1x, N1y, N1z        ! Origin polynomial orders
       integer        :: N2x, N2y, N2z        ! Destination polynomial orders
+      integer        :: N1(3), N2(3)
       real(kind=RP)  :: dt                   ! Time variables
       real(kind=RP)  :: maxResidual(N_EQN)   ! Maximum residual in each equation
       integer        :: counter              ! Iteration counter
@@ -539,21 +526,12 @@ module FASMultigridClass
 !     ------------------------------------------
 !
       if (lvl > 1) then
-!$omp parallel do private(iEQ,N1x,N1y,N1z,N2x,N2y,N2z)
+!$omp parallel do private(N1,N2) schedule(runtime)
          DO iEl = 1, nelem
-            DO iEQ = 1, N_EQN
-               N1x = this         % p_sem % Nx(iEl)
-               N1y = this         % p_sem % Ny(iEl)
-               N1z = this         % p_sem % Nz(iEl)
-               N2x = this % Child % p_sem % Nx(iEl)
-               N2y = this % Child % p_sem % Ny(iEl)
-               N2z = this % Child % p_sem % Nz(iEl)
-               call Interpolate3D(Q1 = this         % p_sem % mesh % elements(iEl) % storage % Q(iEQ,:,:,:), &
-                                  Q2 = this % Child % p_sem % mesh % elements(iEl) % storage % Q(iEQ,:,:,:), &
-                                  Interp = this % Restriction(N1x,N1y,N1z) % Mat            , &
-                                  N1x = N1x,    N1y = N1y,    N1z = N1z                     , &
-                                  N2x = N2x,    N2y = N2y,    N2z = N2z)
-            end DO
+            N1 = this         % p_sem % mesh % elements (iEl) % Nxyz
+            N2 = this % Child % p_sem % mesh % elements (iEl) % Nxyz
+            call Interp3DArrays(NCONS, N1, this % p_sem % mesh % elements(iEl) % storage % Q, &
+                                       N2, this % Child % p_sem % mesh % elements(iEl) % storage % Q )
          end DO
 !$omp end parallel do
 
@@ -590,21 +568,12 @@ module FASMultigridClass
 !     --------------------------------------------------
 ! 
       if (lvl < MGlevels) then
-!$omp parallel do private(iEQ,N1x,N1y,N1z,N2x,N2y,N2z)
+!$omp parallel do private(N1,N2) schedule(runtime)
          DO iEl = 1, nelem
-            DO iEQ = 1, N_EQN
-               N1x = this % p_sem % Nx(iEl)
-               N1y = this % p_sem % Ny(iEl)
-               N1z = this % p_sem % Nz(iEl)
-               N2x = this % Parent % p_sem % Nx(iEl)
-               N2y = this % Parent % p_sem % Ny(iEl)
-               N2z = this % Parent % p_sem % Nz(iEl)
-               call Interpolate3D(Q1 = this          % p_sem % mesh % elements(iEl) % storage % Q(iEQ,:,:,:)      , &
-                                  Q2 = this % Parent % p_sem % mesh % elements(iEl) % storage % Q(iEQ,:,:,:)      , &
-                                  Interp = this % Prolongation(N2x,N2y,N2z) % Mat, &
-                                  N1x = N1x,    N1y = N1y,    N1z = N1z             , &
-                                  N2x = N2x,    N2y = N2y,    N2z = N2z)
-            end DO
+            N1 = this          % p_sem % mesh % elements (iEl) % Nxyz
+            N2 = this % Parent % p_sem % mesh % elements (iEl) % Nxyz
+            call Interp3DArrays(NCONS, N1, this % p_sem % mesh % elements(iEl) % storage % Q, &
+                                       N2, this % Parent % p_sem % mesh % elements(iEl) % storage % Q )
          end DO
 !$omp end parallel do
       end if
@@ -628,53 +597,29 @@ module FASMultigridClass
       integer  :: iEQ
       integer  :: N1x,N1y,N1z
       integer  :: N2x,N2y,N2z
+      integer  :: N1(3), N2(3)
       !-------------------------------------------------------------
       
       Child_p => this % Child
-!
-!        -----------------
-!        Restrict solution
-!        -----------------
-!
-!$omp parallel do private(iEQ,N1x,N1y,N1z,N2x,N2y,N2z)
-         DO iEl = 1, nelem
-            DO iEQ = 1, N_EQN
-               N1x = this    % p_sem % Nx(iEl)
-               N1y = this    % p_sem % Ny(iEl)
-               N1z = this    % p_sem % Nz(iEl)
-               N2x = Child_p % p_sem % Nx(iEl)
-               N2y = Child_p % p_sem % Ny(iEl)
-               N2z = Child_p % p_sem % Nz(iEl)
-               call Interpolate3D(Q1 = this    % p_sem % mesh % elements(iEl) % storage % Q(iEQ,:,:,:), &
-                                  Q2 = Child_p % p_sem % mesh % elements(iEl) % storage % Q(iEQ,:,:,:), &
-                                  Interp = this % Restriction(N1x,N1y,N1z) % Mat            , &
-                                  N1x = N1x,    N1y = N1y,    N1z = N1z                     , &
-                                  N2x = N2x,    N2y = N2y,    N2z = N2z)
-            end DO
-         end DO
-!$omp end parallel do
-!
-!        -----------------
-!        Restrict residual
-!        -----------------
-!
-!$omp parallel do private(iEQ,N1x,N1y,N1z,N2x,N2y,N2z)
-         DO iEl = 1, nelem
-            DO iEQ = 1, N_EQN
-               N1x = this    % p_sem % Nx(iEl)
-               N1y = this    % p_sem % Ny(iEl)
-               N1z = this    % p_sem % Nz(iEl)
-               N2x = Child_p % p_sem % Nx(iEl)
-               N2y = Child_p % p_sem % Ny(iEl)
-               N2z = Child_p % p_sem % Nz(iEl)
-               call Interpolate3D(Q1 = this    % p_sem % mesh % elements(iEl) % storage % Qdot(iEQ,:,:,:), &
-                                  Q2 = Child_p % MGStorage(iEl) % S   (iEQ,:,:,:), &
-                                  Interp = this % Restriction(N1x,N1y,N1z) % Mat    , &
-                                  N1x = N1x,    N1y = N1y,    N1z = N1z             , &
-                                  N2x = N2x,    N2y = N2y,    N2z = N2z)
-            end DO
-         end DO
-!$omp end parallel do
+
+!$omp parallel
+!$omp do private(N1,N2) schedule(runtime)
+      DO iEl = 1, nelem
+         N1 = this    % p_sem % mesh % elements (iEl) % Nxyz
+         N2 = Child_p % p_sem % mesh % elements (iEl) % Nxyz
+         
+!           Restrict solution
+!           -----------------
+         call Interp3DArrays(NCONS, N1, this % p_sem % mesh % elements(iEl) % storage % Q, &
+                                    N2, Child_p % p_sem % mesh % elements(iEl) % storage % Q )
+                                    
+!           Restrict residual
+!           -----------------
+         call Interp3DArrays(NCONS, N1, this % p_sem % mesh % elements(iEl) % storage % Qdot, &
+                                    N2, Child_p % MGStorage(iEl) % S)
+      end DO
+!$omp end do
+
 !
 !     **********************************************************************
 !     **********************************************************************
@@ -688,12 +633,14 @@ module FASMultigridClass
 !        ... and clear source term
 !     ------------------------------------
 !
-!$omp parallel do private(iEQ)
+!$omp barrier
+!$omp do schedule(runtime)
       DO iEl = 1, nelem
          Child_p % MGStorage(iEl) % Q = Child_p % p_sem % mesh % elements(iEl) % storage % Q
          Child_p % p_sem % mesh % elements(iEl) % storage % S = 0._RP
       end DO
-!$omp end parallel do
+!$omp end do
+!$omp end parallel
 !
 !     -------------------------------------------
 !     If not on finest level, correct source term
@@ -701,7 +648,7 @@ module FASMultigridClass
 !      
       call ComputeTimeDerivative(Child_p % p_sem,t) 
       
-!$omp parallel do
+!$omp parallel do schedule(runtime)
       DO iEl = 1, nelem
          Child_p % p_sem % mesh % elements(iEl) % storage % S = Child_p % MGStorage(iEl) % S - &
                                                                 Child_p % p_sem % mesh % elements(iEl) % storage % Qdot
@@ -743,35 +690,18 @@ module FASMultigridClass
       deallocate (Solver % MGStorage) ! allocatable components are automatically deallocated
       
       if (lvl < MGlevels) then
-         
          call Solver % p_sem % destruct()
          deallocate (Solver % p_sem)
-         
-         deallocate (Solver % Prolongation)
-         
          nullify    (Solver % Parent)
       else
          nullify    (Solver % p_sem)
       end if
       
       if (lvl > 1) then
-         
-         deallocate (Solver % Restriction)
          deallocate (Solver % Child)
       end if
       
    end subroutine RecursiveDestructor
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-
-  
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!  Routines for interpolation procedures (will probably be moved to another module)
-!  
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -780,105 +710,63 @@ module FASMultigridClass
 !  for multigrid. Takes into account order anisotropy, but the coarse grid 
 !  is constructed by reducing the polynomial order uniformly.
 !  ------------------------------------------------------------------------
-   subroutine CreateInterpolationOperators(Restriction,Prolongation,N1x,N1y,N1z,N2x,N2y,N2z,DeltaN,Lobatto)
+   subroutine CreateInterpolationOperators(N1x,N1y,N1z,N2x,N2y,N2z,lvl, DeltaN,nodes)
+      use NodalStorageClass
       implicit none
       !-----------------------------------------------------
-      type(Interpolator_t), target, intent(inout)  :: Restriction (0:,0:,0:)  !>  Restriction operator
-      type(Interpolator_t), target, intent(inout)  :: Prolongation(0:,0:,0:)  !>  Prolongation operator
       integer                     , intent(in)     :: N1x, N1y, N1z           !<  Fine grid order(anisotropic) of the element
       integer                     , intent(out)    :: N2x, N2y, N2z           !>  Coarse grid order(anisotropic) of the element
+      integer                     , intent(in)     :: lvl                     !<  Current multigrid level
       integer                     , intent(in)     :: DeltaN                  !<  Interval of reduction of polynomial order for coarser level
-      logical, OPTIONAL           , intent(in)     :: Lobatto                 !<  Is the quadrature a Legendre-Gauss-Lobatto representation?
+      integer                     , intent(in)     :: nodes                   !<  Is the quadrature a Legendre-Gauss-Lobatto representation?
       !-----------------------------------------------------
-      type(Interpolator_t), pointer :: rest                    ! Pointer to constructed restriction interpolator
-      type(Interpolator_t), pointer :: prol                    ! Pointer to constructed prolongation interpolator
-      logical                       :: LGL = .FALSE.           ! Is the quadrature a Legendre-Gauss-Lobatto representation? (false is default)
       integer                       :: i,j,k,l,m,n             ! Index counters
       integer                       :: s,r                     ! Row/column counters for operators
-      real(kind=RP), allocatable    :: x1 (:), y1 (:), z1 (:)  ! Position of quadrature points on mesh 1
-      real(kind=RP), allocatable    :: w1x(:), w1y(:), w1z(:)  ! Weights for quadrature points on mesh 1
-      real(kind=RP), allocatable    :: x2 (:), y2 (:), z2 (:)  ! Position of quadrature points on mesh 2
-      real(kind=RP), allocatable    :: w2x(:), w2y(:), w2z(:)  ! Weights for quadrature points on mesh 2
       !-----------------------------------------------------
-      
-      if (PRESENT(Lobatto) .AND. Lobatto) LGL = .TRUE.
 !
 !     --------------------------------------
 !     Compute order of coarse representation
 !     --------------------------------------
 !
-      N2x = N1x - DeltaN
-      N2y = N1y - DeltaN
-      N2z = N1z - DeltaN
+      
+      ! Uniform coarsening (not used currently)
+!~      N2x = N1x - DeltaN
+!~      N2y = N1y - DeltaN
+!~      N2z = N1z - DeltaN
+
+      ! High order coarsening (see paper p-adaptation + Multigrid)
+      N2x = N1x
+      N2y = N1y
+      N2z = N1z
+      IF (N2x > (MaxN - deltaN*(MGlevels - lvl))) N2x = N2x - deltaN
+      IF (N2y > (MaxN - deltaN*(MGlevels - lvl))) N2y = N2y - deltaN
+      IF (N2z > (MaxN - deltaN*(MGlevels - lvl))) N2z = N2z - deltaN
       
       ! The order must be greater or equal to 0 (Legendre-Gauss quadrature) or 1 (Legendre-Gauss-Lobatto)
-      if (LGL) then
-         if (N2x < 1) N2x = 1
-         if (N2y < 1) N2y = 1
-         if (N2z < 1) N2z = 1
+      if (nodes == GAUSSLOBATTO) then
+         if (N2x < NMIN_GAUSSLOBATTO) N2x = NMIN_GAUSSLOBATTO
+         if (N2y < NMIN_GAUSSLOBATTO) N2y = NMIN_GAUSSLOBATTO
+         if (N2z < NMIN_GAUSSLOBATTO) N2z = NMIN_GAUSSLOBATTO
       else
-         if (N2x < 1) N2x = 1       !! The threshold should actually be zero... Using 1 because max eigenvalue subroutine doesn't support 0
-         if (N2y < 1) N2y = 1
-         if (N2z < 1) N2z = 1
+         if (N2x < NMIN_GAUSS) N2x = NMIN_GAUSS       
+         if (N2y < NMIN_GAUSS) N2y = NMIN_GAUSS
+         if (N2z < NMIN_GAUSS) N2z = NMIN_GAUSS
       end if
       
-      ! Return if the operators were already created
-      if (Restriction(N1x,N1y,N1z) % Created) RETURN
+      call NodalStorage(N2x) % construct( nodes, N2x)
+      call NodalStorage(N2y) % construct( nodes, N2y)
+      call NodalStorage(N2z) % construct( nodes, N2z)
       
-      rest => Restriction (N1x,N1y,N1z)
-      prol => Prolongation(N1x,N1y,N1z)
-!
-!     ----------------------------
-!     Allocate important variables
-!     ----------------------------
-!
-      !Nodes and weights
-      ALLOCATE(x1 (0:N1x), y1 (0:N1y), z1 (0:N1z), &
-               w1x(0:N1x), w1y(0:N1y), w1z(0:N1z), &
-               x2 (0:N2x), y2 (0:N2y), z2 (0:N2z), &
-               w2x(0:N2x), w2y(0:N2y), w2z(0:N2z))
-!
-!     ------------------------------------------
-!     Obtain the quadrature nodes on (1) and (2)
-!     ------------------------------------------
-!
-      if (LGL) then
-         call LegendreLobattoNodesAndWeights(N1x, x1, w1x)
-         call LegendreLobattoNodesAndWeights(N1y, y1, w1y)
-         call LegendreLobattoNodesAndWeights(N1z, z1, w1z)
-         call LegendreLobattoNodesAndWeights(N2x, x2, w2x)
-         call LegendreLobattoNodesAndWeights(N2y, y2, w2y)
-         call LegendreLobattoNodesAndWeights(N2z, z2, w2z)
-      else
-         call GaussLegendreNodesAndWeights(N1x, x1, w1x)
-         call GaussLegendreNodesAndWeights(N1y, y1, w1y)
-         call GaussLegendreNodesAndWeights(N1z, z1, w1z)
-         call GaussLegendreNodesAndWeights(N2x, x2, w2x)
-         call GaussLegendreNodesAndWeights(N2y, y2, w2y)
-         call GaussLegendreNodesAndWeights(N2z, z2, w2z)
-      end if
-!
-!     -----------------------------
-!     Fill the restriction operator
-!     -----------------------------
-!
-      call Create3DRestrictionMatrix(rest % Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2,w1x,w1y,w1z,w2x,w2y,w2z)
-!
-!     ------------------------------
-!     Fill the prolongation operator
-!     ------------------------------
-!
-      call Create3DInterpolationMatrix(prol % Mat,N2x,N2y,N2z,N1x,N1y,N1z,x2,y2,z2,x1,y1,z1)
-      
-      ! All done
-      rest % Created = .TRUE.
-      prol % Created = .TRUE.
+      call ConstructInterpolationMatrices(N1x, N2x)
+      call ConstructInterpolationMatrices(N1y, N2y)
+      call ConstructInterpolationMatrices(N1z, N2z)
       
    end subroutine CreateInterpolationOperators
+   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!/////////////////////////////////////////////////////////////////////////////////////////////////
+!        IO
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ------------------------------------------
 !  Internal subroutine to print the residuals
