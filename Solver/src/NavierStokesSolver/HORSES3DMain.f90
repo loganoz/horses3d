@@ -91,7 +91,7 @@ end interface
       
       ! For pAdaptation
       INTEGER, ALLOCATABLE                :: Nx(:), Ny(:), Nz(:)
-      INTEGER                             :: polynomialOrder(3)
+      INTEGER                             :: Nmax
 !
 !     ---------------
 !     Initializations
@@ -123,39 +123,14 @@ end interface
          CALL InitializeManufacturedSol(controlVariables % StringValueForKey("manufactured solution",LINE_LENGTH))
       END IF
       
-      ! Check if there's an input file with the polynomial orders
-      IF (controlVariables % containsKey("polynomial order file")) THEN
-         !Read file and construct DGSEM with it
-         CALL ReadOrderFile( controlVariables % stringValueForKey("polynomial order file", requestedLength = LINE_LENGTH), &
-                             Nx, Ny, Nz )
-         CALL sem % construct (  controlVariables  = controlVariables,                                         &
+      call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
+      call InitializeNodalStorage(Nmax)
+      
+      call sem % construct (  controlVariables  = controlVariables,                                         &
                                  externalState     = externalStateForBoundaryName,                             &
                                  externalGradients = ExternalGradientForBoundaryName,                          &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
                                  success           = success)
-      ELSE
-         IF (controlVariables % containsKey("polynomial order")) THEN
-            polynomialOrder = controlVariables % integerValueForKey("polynomial order")
-         ELSE
-            IF (controlVariables % containsKey("polynomial order i") .AND. &
-                controlVariables % containsKey("polynomial order j") .AND. &
-                controlVariables % containsKey("polynomial order k") ) THEN
-               polynomialOrder(1) = controlVariables % integerValueForKey("polynomial order i")
-               polynomialOrder(2) = controlVariables % integerValueForKey("polynomial order j")
-               polynomialOrder(3) = controlVariables % integerValueForKey("polynomial order k")
-            ELSE
-               ERROR STOP "The polynomial order(s) must be specified"
-            END IF
-         END IF
-         
-         CALL sem % construct (  controlVariables  = controlVariables,                                         &
-                                 externalState     = externalStateForBoundaryName,                             &
-                                 externalGradients = ExternalGradientForBoundaryName,                          &
-                                 polynomialOrder   = polynomialOrder                                          ,&
-                                 success           = success)
-      END IF
-      
-      
                            
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
       CALL checkBCIntegrity(sem % mesh, success)
@@ -213,6 +188,7 @@ end interface
 
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
+      call DestructGlobalNodalStorage()
       CALL destructSharedBCModule
       
       CALL UserDefinedTermination
@@ -221,7 +197,7 @@ end interface
       
       END PROGRAM HORSES3DMain
 !
-!//////////////////////////////////////////////////////////////////////// 
+!/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
 ! 
       SUBROUTINE CheckBCIntegrity(mesh, success)
 !

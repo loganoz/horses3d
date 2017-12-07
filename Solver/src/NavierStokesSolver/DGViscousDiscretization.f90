@@ -50,7 +50,7 @@ module DGViscousDiscretization
 !           --------------------
 !///////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BaseClass_ComputeGradient( self , mesh , spA, time , externalStateProcedure , externalGradientsProcedure)
+      subroutine BaseClass_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
 !
 !        *****************************************************
 !           BaseClass computes Local Gradients by default
@@ -62,7 +62,6 @@ module DGViscousDiscretization
          implicit none
          class(ViscousMethod_t), intent(in) :: self
          class(HexMesh)                   :: mesh
-         class(NodalStorage)              :: spA(0:)
          real(kind=RP),        intent(in) :: time
          external                         :: externalStateProcedure
          external                         :: externalGradientsProcedure
@@ -129,7 +128,7 @@ module DGViscousDiscretization
 !           ------------------------
 !///////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_ComputeGradient( self , mesh , spA, time , externalStateProcedure , externalGradientsProcedure)
+      subroutine BR1_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -137,7 +136,6 @@ module DGViscousDiscretization
          implicit none
          class(BassiRebay1_t), intent(in) :: self
          class(HexMesh)                   :: mesh
-         class(NodalStorage)              :: spA(0:)
          real(kind=RP),        intent(in) :: time
          external                         :: externalStateProcedure
          external                         :: externalGradientsProcedure

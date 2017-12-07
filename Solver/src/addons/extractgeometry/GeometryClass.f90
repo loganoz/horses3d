@@ -51,7 +51,7 @@ module GeometryClass
       function ConstructGeometry(mesh, spA, controlVariables)
          implicit none
          class(HexMesh),           intent(in)    :: mesh
-         class(NodalStorage),      intent(in)    :: spA(0:)
+         class(NodalStorage_t),      intent(in)    :: spA(0:)
          class(FTValueDictionary), intent(in)    :: controlVariables
          class(Geometry_t),        pointer       :: ConstructGeometry
          interface
@@ -95,7 +95,7 @@ module GeometryClass
       implicit none
       class(Geometry_t),        intent(inout) :: self
       class(HexMesh),           intent(in)    :: mesh
-      class(NodalStorage),      intent(in)    :: spA(0:)
+      class(NodalStorage_t),      intent(in)    :: spA(0:)
       class(FTValueDictionary), intent(in)    :: controlVariables
 !
 !     -------------------------------
@@ -108,7 +108,7 @@ module GeometryClass
       implicit none
       class(Geometry_t),        intent(inout) :: self
       class(HexMesh),           intent(in)    :: mesh
-      class(NodalStorage),      intent(in)    :: spA(0:)
+      class(NodalStorage_t),      intent(in)    :: spA(0:)
 !
 !     -------------------------------
 !     The template class does nothing
@@ -137,7 +137,7 @@ module GeometryClass
       implicit none
       class(Cube_t),            intent(inout) :: self
       class(HexMesh),           intent(in)    :: mesh
-      class(NodalStorage),      intent(in)    :: spA(0:)
+      class(NodalStorage_t),      intent(in)    :: spA(0:)
       class(FTValueDictionary), intent(in)    :: controlVariables
 !
 !     ---------------
@@ -234,7 +234,7 @@ module GeometryClass
          implicit none
          class(Cube_t),    intent(inout)  :: self
          class(HexMesh),   intent(in)  :: mesh
-         class(NodalStorage), intent(in)  :: spA(0:)
+         class(NodalStorage_t), intent(in)  :: spA(0:)
 !
 !        ---------------
 !        Local variables

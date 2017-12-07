@@ -74,9 +74,9 @@ Module MappedGeometryClass
 !
       CLASS(MappedGeometry)  , intent(inout) :: self
       TYPE(TransfiniteHexMap), intent(in)    :: mapper
-      TYPE(NodalStorage)     , intent(in)    :: spAxi
-      TYPE(NodalStorage)     , intent(in)    :: spAeta
-      TYPE(NodalStorage)     , intent(in)    :: spAzeta
+      TYPE(NodalStorage_t)     , intent(in)    :: spAxi
+      TYPE(NodalStorage_t)     , intent(in)    :: spAeta
+      TYPE(NodalStorage_t)     , intent(in)    :: spAzeta
 !
 !     ---------------
 !     Local Variables
@@ -156,7 +156,7 @@ Module MappedGeometryClass
          use PhysicsStorage
          implicit none
          type(MappedGeometry),    intent(inout) :: self
-         type(NodalStorage),      intent(in)    :: spAxi, spAeta, spAzeta
+         type(NodalStorage_t),      intent(in)    :: spAxi, spAeta, spAzeta
          type(TransfiniteHexMap), intent(in)    :: mapper
 !
 !        ---------------
@@ -370,9 +370,9 @@ Module MappedGeometryClass
 !        ---------
 !
          TYPE(MappedGeometry)   , intent(inout) :: self
-         TYPE(NodalStorage)     , intent(in)    :: spAxi
-         TYPE(NodalStorage)     , intent(in)    :: spAeta
-         TYPE(NodalStorage)     , intent(in)    :: spAzeta
+         TYPE(NodalStorage_t)     , intent(in)    :: spAxi
+         TYPE(NodalStorage_t)     , intent(in)    :: spAeta
+         TYPE(NodalStorage_t)     , intent(in)    :: spAzeta
          TYPE(TransfiniteHexMap), intent(in)    :: mapper
 !
 !        ---------------
@@ -450,15 +450,15 @@ Module MappedGeometryClass
 !  -----------------------------------------------------------------------------------
    subroutine ConstructMappedGeometryFace(self, Nf, Nelf, Nel, Nel3D, spAf, spAe, geom, hexMap, side, projType, eSide, rot)
       use PhysicsStorage
-      use PolynomialInterpAndDerivsModule
+      use InterpolationMatrices
       implicit none
       class(MappedGeometryFace), intent(inout)  :: self
       integer,                   intent(in)     :: Nf(2)    ! Face polynomial order
       integer,                   intent(in)     :: Nelf(2)  ! Element face pOrder (with rotation)
       integer,                   intent(in)     :: Nel(2)   ! Element face pOrder (without rotation)
       integer,                   intent(in)     :: Nel3D(3) ! Element pOrder
-      type(NodalStorage),        intent(in)     :: spAf(2)
-      type(NodalStorage),        intent(in)     :: spAe(3)
+      type(NodalStorage_t),        intent(in)     :: spAf(2)
+      type(NodalStorage_t),        intent(in)     :: spAe(3)
       type(MappedGeometry),      intent(in)     :: geom
       type(TransfiniteHexMap),   intent(in)     :: hexMap
       integer,                   intent(in)     :: side

@@ -1,9 +1,56 @@
 MODULE pAdaptationClass
+   use SMConstants
    IMPLICIT NONE
 !========
  CONTAINS
 !========
-
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+!
+   subroutine GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
+      use FTValueDictionaryClass
+      use ReadMeshFile
+      implicit none
+      !-------------------------------------------------
+      type(FTValueDictionary), intent(in)    :: controlVariables
+      integer, allocatable   , intent(inout) :: Nx(:), Ny(:), Nz(:)  
+      integer                , intent(out)   :: Nmax
+      !-------------------------------------------------
+      integer                                :: nelem
+      !-------------------------------------------------
+      
+      if (controlVariables % containsKey("polynomial order file")) THEN
+         CALL ReadOrderFile( controlVariables % stringValueForKey("polynomial order file", requestedLength = LINE_LENGTH), &
+                             Nx, Ny, Nz )
+      else
+         nelem = NumOfElemsFromMeshFile( controlVariables % stringValueForKey("mesh file name", requestedLength = LINE_LENGTH) )
+         allocate( Nx(nelem), Ny(nelem), Nz(nelem) )
+         
+         if (controlVariables % containsKey("polynomial order")) THEN
+            Nx = controlVariables % integerValueForKey("polynomial order")
+            Ny = Nx
+            Nz = Nx
+         else
+            if (controlVariables % containsKey("polynomial order i") .AND. &
+                controlVariables % containsKey("polynomial order j") .AND. &
+                controlVariables % containsKey("polynomial order k") ) THEN
+               Nx = controlVariables % integerValueForKey("polynomial order i")
+               Ny = controlVariables % integerValueForKey("polynomial order j")
+               Nz = controlVariables % integerValueForKey("polynomial order k")
+            else
+               error stop "The polynomial order(s) must be specified"
+            end if
+         end if
+      end if
+      
+      Nmax = 0
+      if (controlVariables % containsKey("adaptation nmax i")) Nmax = max(Nmax,controlVariables % integerValueForKey("adaptation nmax i"))
+      if (controlVariables % containsKey("adaptation nmax j")) Nmax = max(Nmax,controlVariables % integerValueForKey("adaptation nmax j"))
+      if (controlVariables % containsKey("adaptation nmax k")) Nmax = max(Nmax,controlVariables % integerValueForKey("adaptation nmax k"))
+      
+      Nmax = max(Nmax,maxval(Nx),maxval(Ny),maxval(Nz))
+      
+      end subroutine GetMeshPolynomialOrders
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

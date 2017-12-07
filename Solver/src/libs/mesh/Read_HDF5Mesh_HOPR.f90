@@ -18,6 +18,7 @@ module Read_HDF5Mesh_HOPR
    use SMConstants
    USE TransfiniteMapClass
    use FacePatchClass
+   use MPI_Process_Info
 #ifdef HAS_HDF5
    use HDF5
 #endif
@@ -74,13 +75,12 @@ contains
 !     * Variables as called in HOPR
 !     * Auxiliar variables
 !  -----------------------------------------------------------------------------------------------------------------------
-   subroutine ConstructMesh_FromHDF5File_( self, fileName, nodes, spA, Nx, Ny, Nz, MeshInnerCurves, success )
+   subroutine ConstructMesh_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves, success )
       implicit none
       !---------------------------------------------------------------
       class(HexMesh)     :: self
       CHARACTER(LEN=*)   :: fileName
       integer            :: nodes
-      TYPE(NodalStorage) :: spA(0:)  
       INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
       logical            :: MeshInnerCurves
       LOGICAL            :: success
@@ -307,7 +307,7 @@ contains
 !        Now construct the element
 !        -------------------------
 !
-         call self % elements(l) % Construct (spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs , l, l) ! TODO: Change for MPI
+         call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l) ! TODO: Change for MPI
          
          CALL SetElementBoundaryNames( self % elements(l), names )
             
@@ -369,13 +369,13 @@ contains
 !     ------------------------------
 !     Set the element connectivities
 !     ------------------------------
-      call self % SetConnectivitiesAndLinkFaces(spA,nodes)
+      call self % SetConnectivitiesAndLinkFaces(nodes)
 !
 !     ---------------------------------------
 !     Construct elements' and faces' geometry
 !     ---------------------------------------
 !
-      call self % ConstructGeometry(spA,SurfInfo)
+      call self % ConstructGeometry(SurfInfo)
 !
 !     Finish up
 !     ---------

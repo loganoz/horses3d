@@ -29,7 +29,7 @@ MODULE Read_SpecMesh
 !
 !!    Constructs mesh from mesh file
 !!    Only valid for conforming meshes
-      SUBROUTINE ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, spA, Nx, Ny, Nz, success )
+      SUBROUTINE ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, success )
          USE Physics
          use PartitionedMeshClass
          use MPI_Process_Info
@@ -41,7 +41,6 @@ MODULE Read_SpecMesh
 !
          CLASS(HexMesh)     :: self
          integer            :: nodes
-         TYPE(NodalStorage) :: spA(0:)
          CHARACTER(LEN=*)   :: fileName
          integer            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
          LOGICAL            :: success
@@ -87,7 +86,7 @@ MODULE Read_SpecMesh
 !        ********************************
 !
          if ( mpi_partition % Constructed ) then
-            call ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, spA, Nx, Ny, Nz, success ) 
+            call ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, success ) 
             return
          end if
           
@@ -223,7 +222,7 @@ MODULE Read_SpecMesh
 !           Now construct the element
 !           -------------------------
 !
-            call self % elements(l) % Construct (spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs , l, l)
+            call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l)
             
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(l), names )
@@ -285,13 +284,13 @@ MODULE Read_SpecMesh
 !        Set the element connectivities
 !        ------------------------------
 !
-         call self % SetConnectivitiesAndLinkFaces(spA,nodes)
+         call self % SetConnectivitiesAndLinkFaces(nodes)
 !
 !        ---------------------------------------
 !        Construct elements' and faces' geometry
 !        ---------------------------------------
 !
-         call self % ConstructGeometry(spA,SurfInfo)
+         call self % ConstructGeometry(SurfInfo)
             
          CLOSE( fUnit )
 !
@@ -314,7 +313,7 @@ MODULE Read_SpecMesh
          
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
 
-      SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, spA, Nx, Ny, Nz, success )
+      SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, success )
          USE Physics
          use PartitionedMeshClass
          use MPI_Process_Info
@@ -327,7 +326,6 @@ MODULE Read_SpecMesh
 !
          CLASS(HexMesh)     :: self
          integer            :: nodes
-         TYPE(NodalStorage) :: spA(0:)
          CHARACTER(LEN=*)   :: fileName
          integer            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
          LOGICAL            :: success
@@ -590,7 +588,7 @@ MODULE Read_SpecMesh
 !           Now construct the element
 !           -------------------------
 !
-            call self % elements(pElement) % Construct (spA(Nx(l)), spA(Ny(l)), spA(Nz(l)), nodeIDs , pElement, l)
+            call self % elements(pElement) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , pElement, l)
             
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(pElement), names )
@@ -670,13 +668,13 @@ MODULE Read_SpecMesh
 !        Set the element connectivities
 !        ------------------------------
 !
-         call self % SetConnectivitiesAndLinkFaces(spA,nodes)
+         call self % SetConnectivitiesAndLinkFaces(nodes)
 !
 !        ---------------------------------------
 !        Construct elements' and faces' geometry
 !        ---------------------------------------
 !
-         call self % ConstructGeometry(spA,SurfInfo)
+         call self % ConstructGeometry(SurfInfo)
 
          CLOSE( fUnit )
 !

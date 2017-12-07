@@ -22,6 +22,7 @@
       use StorageClass
       use PhysicsStorage
       use NodalStorageClass
+      use InterpolationMatrices
       IMPLICIT NONE 
 
       private
@@ -81,8 +82,8 @@
          CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
          type(MappedGeometryFace)        :: geom
          type(FaceStorage_t)             :: storage(2) 
-         class(NodalStorage), pointer    :: spAxi
-         class(NodalStorage), pointer    :: spAeta
+         class(NodalStorage_t), pointer    :: spAxi
+         class(NodalStorage_t), pointer    :: spAeta
          contains
             procedure   :: Construct => ConstructFace
             procedure   :: Destruct  => DestructFace
@@ -182,7 +183,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Face_LinkWithElements( self, Neqn, NGradeqn, NelLeft, NelRight, nodeType, spA)
+   SUBROUTINE Face_LinkWithElements( self, Neqn, NGradeqn, NelLeft, NelRight, nodeType)
       IMPLICIT NONE
       class(Face)        ,     intent(INOUT) :: self        ! Current face
       integer            ,     intent(IN)    :: Neqn        ! Number of equations
@@ -190,7 +191,6 @@
       integer,                 intent(in)    :: NelLeft(2)  ! Left element face polynomial order
       integer,                 intent(in)    :: NelRight(2) ! Right element face polynomial order
       integer,                 intent(in)    :: nodeType    ! Either Gauss or Gauss-Lobatto
-      type(NodalStorage),      target        :: spA(0:)     ! Nodal storage
 !
 !     -------------------------------------------------------------
 !     First, get face elements polynomial orders (without rotation)
@@ -224,16 +224,16 @@
 !     Construct face storage
 !     ----------------------
 !
-      if ( .not. spA(self % Nf(1)) % Constructed ) then
-         call spA(self % Nf(1)) % Construct(nodeType, self % Nf(1))
+      if ( .not. NodalStorage(self % Nf(1)) % Constructed ) then
+         call NodalStorage(self % Nf(1)) % Construct(nodeType, self % Nf(1))
       end if
 
-      if ( .not. spA(self % Nf(2)) % Constructed ) then
-         call spA(self % Nf(2)) % Construct(nodeType, self % Nf(2))
+      if ( .not. NodalStorage(self % Nf(2)) % Constructed ) then
+         call NodalStorage(self % Nf(2)) % Construct(nodeType, self % Nf(2))
       end if
 
-      self % spAxi => spA(self % Nf(1))
-      self % spAeta => spA(self % Nf(2))
+      self % spAxi => NodalStorage(self % Nf(1))
+      self % spAeta => NodalStorage(self % Nf(2))
 
       call self % storage(1) % Construct(NDIM, self % Nf, self % NelLeft, nEqn, nGradEqn, computeGradients)
       call self % storage(2) % Construct(NDIM, self % Nf, self % NelRight, nEqn, nGradEqn, computeGradients)
@@ -242,11 +242,11 @@
 !     Construction of the projection matrices (simple Lagrange interpolation)
 !     -----------------------------------------------------------------------
 !
-      call ConstructInterpolationMatrices(self % NfLeft(1), self % Nf(1), spA)
-      call ConstructInterpolationMatrices(self % NfLeft(2), self % Nf(2), spA)
+      call ConstructInterpolationMatrices(self % NfLeft(1), self % Nf(1))
+      call ConstructInterpolationMatrices(self % NfLeft(2), self % Nf(2))
 
-      call ConstructInterpolationMatrices(self % NfRight(1), self % Nf(1), spA)
-      call ConstructInterpolationMatrices(self % NfRight(2), self % Nf(2), spA)
+      call ConstructInterpolationMatrices(self % NfRight(1), self % Nf(1))
+      call ConstructInterpolationMatrices(self % NfRight(2), self % Nf(2))
 !
 !     -----------------------  0- no projection
 !     Set the projection type: 1- x needs projection
@@ -273,58 +273,6 @@
       end if
 
    end SUBROUTINE Face_LinkWithElements
-
-   subroutine ConstructInterpolationMatrices(Norigin, Ndest, spA)
-!
-!     ***********************************************************
-!        This subroutine computes the interpolation matrices
-!        from Norigin to Ndest (forward) and backwards
-!     ***********************************************************
-!
-      implicit none
-      integer, intent(in)  :: Norigin
-      integer, intent(in)  :: Ndest
-      type(NodalStorage)  :: spA(0:)
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      integer  :: i, j
-
-      if ( Norigin .eq. Ndest ) then
-         return
-
-      else
-         associate ( spAo => spA(Norigin), &
-                     spAd => spA(Ndest)      )
-         if ( Tset(Norigin, Ndest) % Constructed ) return
-!
-!        Allocate memory
-!        ---------------
-         allocate( Tset(Norigin, Ndest) % T(0:Ndest, 0:Norigin) )
-         allocate( Tset(Ndest, Norigin) % T(0:Norigin, 0:Ndest) )
-!
-!        Construct the forward interpolation matrix
-!        ------------------------------------------
-         call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, spAd % x, &
-                                            Tset(Norigin, Ndest) % T)
-!
-!        Construct the backwards interpolation matrix
-!        --------------------------------------------
-         do j = 0, Ndest   ; do i = 0, Norigin
-            Tset(Ndest,Norigin) % T(i,j) = Tset(Norigin,Ndest) % T(j,i) * spAd % w(j) / spAo % w(i)
-         end do            ; end do
-!
-!        Set constructed flag
-!        --------------------          
-         Tset(Norigin,Ndest) % Constructed = .true.
-         Tset(Ndest,Norigin) % Constructed = .true.
-   
-         end associate
-      end if
-
-   end subroutine ConstructInterpolationMatrices
 
    subroutine Face_AdaptSolutionToFace(self, Nelx, Nely, Qe, side)
       use MappedGeometryClass

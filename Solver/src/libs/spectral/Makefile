@@ -13,7 +13,8 @@ MOD_FLAG?=-J
 
 LIBOBJS = 	./build/LegendreAlgorithms.o \
 		./build/InterpolationAndDerivatives.o \
-		./build/NodalStorageClass.o
+		./build/NodalStorageClass.o \
+		./build/InterpolationMatrices.o
 
 
 LIB = spectral

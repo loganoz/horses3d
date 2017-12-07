@@ -79,6 +79,8 @@
 !        ----------------
 !
          N = controlVariables % integerValueForKey(polynomialOrderKey)
+         call InitializeNodalStorage(maxval(N))
+         
          CALL ConstructDGSem(self              = sem                  , &
                              polynomialOrder   = N                    , &
                              controlVariables  = controlVariables     , &

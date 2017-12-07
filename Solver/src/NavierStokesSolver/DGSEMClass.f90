@@ -53,9 +53,9 @@ Module DGSEMClass
    
    TYPE DGSem
       REAL(KIND=RP)                                           :: maxResidual
+      integer                                                 :: nodes                 ! Either GAUSS or GAUSLOBATTO
       INTEGER                                                 :: numberOfTimeSteps
       INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
-      TYPE(NodalStorage)                        , allocatable :: spA(:)
       INTEGER           , ALLOCATABLE                         :: Nx(:), Ny(:), Nz(:)
       TYPE(HexMesh)                                           :: mesh
       PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
@@ -163,6 +163,7 @@ Module DGSEMClass
          errorMessage(STD_OUT)
          stop
       end select
+      self % nodes = nodes
 !
 !     ---------------------------------------
 !     Get polynomial orders for every element
@@ -197,17 +198,14 @@ Module DGSEMClass
 !     Construct the polynomial storage for the elements in the mesh
 !     -------------------------------------------------------------
 !
-      IF (ALLOCATED(self % spA)) DEALLOCATE(self % spa)
-      k = max( MAXVAL(Nx), MAXVAL(Ny), MAXVAL(Nz) )
-      ALLOCATE(self % spA(0:k) )
       
       self % NDOF = 0
       DO k=1, nTotalElem
          self % NDOF = self % NDOF + N_EQN * (Nx(k) + 1) * (Ny(k) + 1) * (Nz(k) + 1)
          
-         call self % spA(Nx(k)) % construct( nodes, Nx(k) )
-         call self % spA(Ny(k)) % construct( nodes, Ny(k) )
-         call self % spA(Nz(k)) % construct( nodes, Nz(k) )
+         call NodalStorage(Nx(k)) % construct( nodes, Nx(k) )
+         call NodalStorage(Ny(k)) % construct( nodes, Ny(k) )
+         call NodalStorage(Nz(k)) % construct( nodes, Nz(k) )
       END DO
 !
 !     ------------------
@@ -240,7 +238,7 @@ Module DGSEMClass
 !
 !        Construct the full mesh
 !        -----------------------
-         call constructMeshFromFile( self % mesh, meshfileName, nodes, self % spA, Nx, Ny, Nz, MeshInnerCurves , success )
+         call constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , success )
 !
 !        Perform the partitioning
 !        ------------------------
@@ -260,7 +258,7 @@ Module DGSEMClass
 !     *              MESH CONSTRUCTION                         *
 !     **********************************************************
 !
-      CALL constructMeshFromFile( self % mesh, meshfileName, nodes, self % spA, Nx, Ny, Nz, MeshInnerCurves , success )
+      CALL constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , success )
       
       IF(.NOT. success) RETURN
 !
@@ -333,11 +331,6 @@ Module DGSEMClass
       IMPLICIT NONE 
       CLASS(DGSem) :: self
       INTEGER      :: k      !Counter
-      
-      DO k=0, UBOUND(self % spA,1)
-         IF (.NOT. self % spA(k) % Constructed) CYCLE
-         CALL self % spA(k) % destruct()
-      END DO
       
       CALL self % mesh % destruct
       self % externalState     => NULL()
@@ -636,7 +629,7 @@ Module DGSEMClass
 !        -----------------------------------------
 !
 !$omp parallel shared(self, time)
-         call self % mesh % ProlongSolutionToFaces(self % spA)
+         call self % mesh % ProlongSolutionToFaces()
 !
 !        ----------------
 !        Update MPI Faces
@@ -651,7 +644,7 @@ Module DGSEMClass
 !        -----------------
 !
          if ( computeGradients ) then
-            CALL DGSpatial_ComputeGradient( self % mesh , self % spA, time , self % externalState , self % externalGradients )
+            CALL DGSpatial_ComputeGradient( self % mesh , time , self % externalState , self % externalGradients )
          end if
 
 !$omp single
@@ -722,7 +715,7 @@ Module DGSEMClass
       real(kind=RP)               :: localMaximumEigenvalue
       EXTERNAL                    :: ComputeEigenvaluesForState
       REAL(KIND=RP)               :: Q(N_EQN)
-      TYPE(NodalStorage), POINTER :: spAxi_p, spAeta_p, spAzeta_p
+      TYPE(NodalStorage_t), POINTER :: spAxi_p, spAeta_p, spAzeta_p
 !            
       
 !
@@ -734,13 +727,13 @@ Module DGSEMClass
 !     -----------------------------------------------------------
 !
       MaximumEigenvalue = 0.0_RP
-!$omp parallel shared(self,MaximumEigenvalue) default(private) 
+!$omp parallel shared(self,MaximumEigenvalue,NodalStorage) default(private) 
 !$omp do reduction(max:MaximumEigenvalue)
       DO id = 1, SIZE(self % mesh % elements) 
          N = self % mesh % elements(id) % Nxyz
-         spAxi_p => self % spA(N(1))
-         spAeta_p => self % spA(N(2))
-         spAzeta_p => self % spA(N(3))
+         spAxi_p => NodalStorage(N(1))
+         spAeta_p => NodalStorage(N(2))
+         spAzeta_p => NodalStorage(N(3))
          IF ( ANY(N<1) ) THEN 
             PRINT*, "Error in MaximumEigenvalue function (N<1)"    
          ENDIF         

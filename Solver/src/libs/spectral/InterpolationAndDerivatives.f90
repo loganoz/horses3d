@@ -1,7 +1,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      Interpolation.F95
+!      InterpolationAndDerivatives.f90
 !      Created: 2009-12-15 15:36:24 -0500 
 !      By: David Kopriva  
 !
@@ -41,7 +41,7 @@
       private  
       
       public   MXV_DIRECT, MXV_TRANSPOSE
-      public   Tset, Interpolator_t, InterpolationMatrix_t
+      public   Interpolator_t
       
       public   EvaluateLagrangePolyDerivative
       public   Interpolate3D, Create3DInterpolationMatrix
@@ -58,26 +58,6 @@
          LOGICAL                     :: Created = .FALSE.
          REAL(KIND=RP), ALLOCATABLE  :: Mat(:,:)
       END TYPE Interpolator_t
-
-!
-!     ---------------------------------
-!     Interpolation matrix derived type
-!     ---------------------------------
-!
-      type InterpolationMatrix_t
-         logical        :: Constructed = .false.
-         real(kind=RP), allocatable  :: T(:,:)
-      end type InterpolationMatrix_t
-!
-!     **************************************************
-!     The set of interpolation matrices are stored here.
-!     >> The following criteria is adopted:
-!           * Tset(N,M) with N=M is never constructed.
-!           * Tset(N,M) with N<M is a forward matrix.
-!           * Tset(N,M) with N>M is a backwards matrix.
-!     **************************************************
-      integer,                      parameter :: NMAX = 40
-      type(InterpolationMatrix_t)             :: Tset(0:NMAX,0:NMAX)
 !
 !    ========
      CONTAINS

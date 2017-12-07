@@ -119,7 +119,8 @@ OBJS_HORSES=  SMConstants \
 		ReadMeshFile \
 		Read_HDF5Mesh_HOPR \
 		Read_SpecMesh \
-		AnalyticalJacobian
+		AnalyticalJacobian \
+		InterpolationMatrices
 
 OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 OBJS_CASE_EXEC=$(foreach obj,$(OBJS_CASE),./build/$(obj).o)

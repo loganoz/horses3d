@@ -58,7 +58,7 @@
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
-!              - By default it sets an uniform initial
+!              - By default it sets a uniform initial
 !                 condition.
 !           ------------------------------------------------
 !
