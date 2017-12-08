@@ -42,9 +42,11 @@ OBJS_HORSES=	DGInviscidDiscretization \
 		IterativeSolverClass \
 		MultigridSolverClass \
 		ExplicitMethods \
+		MultigridTypes \
+		AnisFASMultigridClass \
 		FASMultigridClass \
 		AnalyticalJacobian \
-		HORSES3DMain 
+		HORSES3DMain
 
 OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 
@@ -62,6 +64,11 @@ OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 .DEFAULT_GOAL := $(PROG)
 
 ./build/%.o: ./%.f90
+	@echo
+	@echo $<
+	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(MACROS) -c $< -o $@ $(MOD_FLAG) ./include
+
+./build/%.o: ./**/%.f90
 	@echo
 	@echo $<
 	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(MACROS) -c $< -o $@ $(MOD_FLAG) ./include

@@ -10,38 +10,26 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 module FASMultigridClass
-   use FTValueDictionaryClass
    use SMConstants
    use ExplicitMethods
    use DGSEMClass
    use Physics
    use InterpolationMatrices
+   use MultigridTypes
    
-   use PolynomialInterpAndDerivsModule
-   use GaussQuadrature
    implicit none
    
    private
    public FASMultigrid_t
    
 !
-!  Multigrid storage
-!  -----------------
-   type :: MGStorage_t
-      real(kind=RP), dimension(:,:,:,:), allocatable :: Q     ! Solution of the conservative level (before the smoothing)
-      real(kind=RP), dimension(:,:,:,:), allocatable :: E     ! Error (for correction)
-      real(kind=RP), dimension(:,:,:,:), allocatable :: S     ! Source term interpolated from next finer grid
-      real(kind=RP), dimension(:,:,:,:), allocatable :: Scase ! Source term from the specific case that is running (this is actually not necessary for the MG scheme, but it's needed to estimate the truncation error) .. Currently, it only considers the source term from manufactured solutions (state of the code when this module was written)
-   end type MGStorage_t
-   
-!
 !  Multigrid class
 !  ---------------
    type :: FASMultigrid_t
-      type(DGSem)            , pointer           :: p_sem                 ! Pointer to DGSem class variable of current system
-      type(FASMultigrid_t)   , pointer           :: Child                 ! Next coarser multigrid solver
-      type(FASMultigrid_t)   , pointer           :: Parent                ! Next finer multigrid solver
-      type(MGStorage_t)          , allocatable   :: MGStorage(:)          ! Storage
+      type(DGSem)            , pointer       :: p_sem                 ! Pointer to DGSem class variable of current system
+      type(FASMultigrid_t)   , pointer       :: Child                 ! Next coarser multigrid solver
+      type(FASMultigrid_t)   , pointer       :: Parent                ! Next finer multigrid solver
+      type(MGSolStorage_t)   , allocatable   :: MGStorage(:)          ! Storage
       integer                                    :: MGlevel               ! Current Multigrid level
       
       contains
@@ -50,36 +38,21 @@ module FASMultigridClass
          procedure                               :: destruct
       
    end type FASMultigrid_t
-   
-!
-!  Interface for the smoother
-!  --------------------------
-   abstract interface
-      subroutine SmoothIt_t(sem, t, dt)
-         use DGSEMClass
-         type(DGSem)   :: sem
-         real(kind=RP) :: t, dt
-      end subroutine SmoothIt_t
-   end interface
-   
-   procedure(SmoothIt_t), pointer :: SmoothIt
 !
 !  ----------------
 !  Module variables
 !  ----------------
 !
+   procedure(SmoothIt_t), pointer :: SmoothIt
+   
    !! Parameters
    integer, parameter :: MAX_SWEEPS_DEFAULT = 10000
-   integer, parameter :: NMIN_GAUSS        = 1 ! Minimum polynomial order when using Gauss nodes .... The threshold should actually be zero... Using 1 because code doesn't support 0
-   integer, parameter :: NMIN_GAUSSLOBATTO = 1 ! Minimum polynomial order when using Gauss-Lobatto nodes
    
    ! Other variables
    integer        :: MaxN           ! Maximum polynomial order of the mesh
    integer        :: MGlevels       ! Total number of multigrid levels
    integer        :: deltaN         ! 
    integer        :: nelem          ! Number of elements
-   integer        :: ThisTimeStep   ! Current time step
-   integer        :: plotInterval   ! Read to display output
    integer        :: SweepNumPre    ! Number of sweeps pre-smoothing
    integer        :: SweepNumPost   ! Number of sweeps post-smoothing
    integer        :: SweepNumCoarse ! Number of sweeps on coarsest level
@@ -99,6 +72,7 @@ module FASMultigridClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine construct(this,controlVariables,sem)
+      use FTValueDictionaryClass
       implicit none
       !-----------------------------------------------------------
       class(FASMultigrid_t) , intent(inout), target    :: this
@@ -212,6 +186,7 @@ module FASMultigridClass
 !
    recursive subroutine RecursiveConstructor(Solver, N1x, N1y, N1z, lvl, controlVariables)
       use BoundaryConditionFunctions
+      use FTValueDictionaryClass
       implicit none
       type(FASMultigrid_t), target  :: Solver
       integer, dimension(:)         :: N1x,N1y,N1z      !<  Order of approximation for every element in current solver
@@ -286,8 +261,9 @@ module FASMultigridClass
 !        ---------------------------------------------
 !
          DO k=1, nelem
-            call CreateInterpolationOperators(N1x(k),N1y(k),N1z(k),                         &
-                                              N2x(k),N2y(k),N2z(k), lvl-1, DeltaN, Solver % p_sem % nodes)
+            call CreateInterpolationOperators(N1x(k), N2x(k), MaxN, MGlevels, lvl-1, DeltaN, Solver % p_sem % nodes)
+            call CreateInterpolationOperators(N1y(k), N2y(k), MaxN, MGlevels, lvl-1, DeltaN, Solver % p_sem % nodes)
+            call CreateInterpolationOperators(N1z(k), N2z(k), MaxN, MGlevels, lvl-1, DeltaN, Solver % p_sem % nodes)
          end DO
          
          ! Create DGSEM class for child
@@ -705,102 +681,4 @@ module FASMultigridClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  ------------------------------------------------------------------------
-!  Creates the restriction and prolongation operators for a certain element
-!  for multigrid. Takes into account order anisotropy, but the coarse grid 
-!  is constructed by reducing the polynomial order uniformly.
-!  ------------------------------------------------------------------------
-   subroutine CreateInterpolationOperators(N1x,N1y,N1z,N2x,N2y,N2z,lvl, DeltaN,nodes)
-      use NodalStorageClass
-      implicit none
-      !-----------------------------------------------------
-      integer                     , intent(in)     :: N1x, N1y, N1z           !<  Fine grid order(anisotropic) of the element
-      integer                     , intent(out)    :: N2x, N2y, N2z           !>  Coarse grid order(anisotropic) of the element
-      integer                     , intent(in)     :: lvl                     !<  Current multigrid level
-      integer                     , intent(in)     :: DeltaN                  !<  Interval of reduction of polynomial order for coarser level
-      integer                     , intent(in)     :: nodes                   !<  Is the quadrature a Legendre-Gauss-Lobatto representation?
-      !-----------------------------------------------------
-      integer                       :: i,j,k,l,m,n             ! Index counters
-      integer                       :: s,r                     ! Row/column counters for operators
-      !-----------------------------------------------------
-!
-!     --------------------------------------
-!     Compute order of coarse representation
-!     --------------------------------------
-!
-      
-      ! Uniform coarsening (not used currently)
-!~      N2x = N1x - DeltaN
-!~      N2y = N1y - DeltaN
-!~      N2z = N1z - DeltaN
-
-      ! High order coarsening (see paper p-adaptation + Multigrid)
-      N2x = N1x
-      N2y = N1y
-      N2z = N1z
-      IF (N2x > (MaxN - deltaN*(MGlevels - lvl))) N2x = N2x - deltaN
-      IF (N2y > (MaxN - deltaN*(MGlevels - lvl))) N2y = N2y - deltaN
-      IF (N2z > (MaxN - deltaN*(MGlevels - lvl))) N2z = N2z - deltaN
-      
-      ! The order must be greater or equal to 0 (Legendre-Gauss quadrature) or 1 (Legendre-Gauss-Lobatto)
-      if (nodes == GAUSSLOBATTO) then
-         if (N2x < NMIN_GAUSSLOBATTO) N2x = NMIN_GAUSSLOBATTO
-         if (N2y < NMIN_GAUSSLOBATTO) N2y = NMIN_GAUSSLOBATTO
-         if (N2z < NMIN_GAUSSLOBATTO) N2z = NMIN_GAUSSLOBATTO
-      else
-         if (N2x < NMIN_GAUSS) N2x = NMIN_GAUSS       
-         if (N2y < NMIN_GAUSS) N2y = NMIN_GAUSS
-         if (N2z < NMIN_GAUSS) N2z = NMIN_GAUSS
-      end if
-      
-      call NodalStorage(N2x) % construct( nodes, N2x)
-      call NodalStorage(N2y) % construct( nodes, N2y)
-      call NodalStorage(N2z) % construct( nodes, N2z)
-      
-      call ConstructInterpolationMatrices(N1x, N2x)
-      call ConstructInterpolationMatrices(N1y, N2y)
-      call ConstructInterpolationMatrices(N1z, N2z)
-      
-   end subroutine CreateInterpolationOperators
-   
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!        IO
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!  ------------------------------------------
-!  Internal subroutine to print the residuals
-!  ------------------------------------------
-   subroutine PlotResiduals( lvl, sweeps , sem, white )
-      implicit none
-      !--------------------------------------------------------
-      integer    , intent(in)           :: lvl
-      type(DGSem), intent(in)           :: sem
-      integer    , intent(in)           :: sweeps
-      logical    , intent(in), OPTIONAL :: white
-      !--------------------------------------------------------
-      real(kind=RP)             :: maxResiduals(N_EQN)
-      character(len=5)          :: color1
-      character(len=5)          :: color2
-      !--------------------------------------------------------
-      
-      if (PRESENT(white) .AND. white) then
-         color1 = achar(27)//'[00m'
-      else
-         color1 = achar(27)//'[34m'
-      end if
-      color2 = achar(27)//'[00m'
-      
-      if( (MOD( ThisTimeStep+1, plotInterval) == 0) .or. (ThisTimeStep .eq. 0) ) then
-         maxResiduals = ComputeMaxResidual(sem)
-         write(STD_OUT , 110) color1,'FAS lvl', lvl ,"|","it",sweeps,"|", maxResiduals(IRHO) , "|" , maxResiduals(IRHOU) , &
-                                 "|", maxResiduals(IRHOV) , "|" , maxResiduals(IRHOW) , "|" , maxResiduals(IRHOE),color2
-      end if
-      
-      110 format (A,A,I3,X,A,X,A,I8,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,A)
-      
-   end subroutine PlotResiduals
-!
-!/////////////////////////////////////////////////////////////////////////////////////////////////
-
 end module FASMultigridClass

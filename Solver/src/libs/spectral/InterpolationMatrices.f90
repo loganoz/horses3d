@@ -15,7 +15,7 @@ module InterpolationMatrices
    implicit none
    
    private
-   public   Tset, InterpolationMatrix_t, ConstructInterpolationMatrices, Interp3DArrays
+   public   Tset, InterpolationMatrix_t, ConstructInterpolationMatrices, Interp3DArrays, Interp3DArraysOneDir
 
 !
 !  ---------------------------------
@@ -152,6 +152,69 @@ subroutine ConstructInterpolationMatrices(Norigin, Ndest)
       end do             ; end do
       
    end subroutine Interp3DArrays
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --------------------------------------------------
+!  Subroutine for interpolating an array of 3D arrays
+!  --------------------------------------------------
+   subroutine Interp3DArraysOneDir(Nvars, Nin, inArray, Nout, outArray, Dir, interpMat )
+      implicit none
+      !-------------------------------------------------------
+      integer                                                             :: Nvars
+      integer      , dimension(3)                                         :: Nin
+      integer      , dimension(3)                                         :: Nout
+      integer                                                             :: Dir
+      real(kind=RP), dimension(Nvars,0:Nin (1), 0:Nin (2), 0:Nin (3))     :: inArray
+      real(kind=RP), dimension(Nvars,0:Nout(1), 0:Nout(2), 0:Nout(3))     :: outArray
+      real(kind=RP), dimension(0:Nout(Dir), 0:Nin(Dir)), optional, target :: interpMat
+      !-------------------------------------------------------
+      real(kind=RP), dimension(:,:), pointer :: T     ! Interpolation matrix
+      integer :: i,j,k,l
+      !-------------------------------------------------------
+      
+      if ( present(interpMat) ) then
+         T   => interpMat
+      else
+         T   => Tset(Nin(Dir),Nout(Dir)) % T
+      end if
+      
+      outArray = 0.0_RP
+      
+      select case(Dir)
+         case (1)
+            
+            do k = 0, Nout(3)
+               do j = 0, Nout(2)   
+                  do l = 0, Nin(1)  ; do i = 0, Nout(1)
+                     outArray(:,i,j,k) = outArray(:,i,j,k) + T(i,l) * inArray(:,l,j,k)
+                  end do             ; end do
+               end do
+            end do
+            
+         case (2)
+            
+            do k = 0, Nout(3)
+               do l = 0, Nin(2)  ; do j = 0, Nout(2)   
+                  do i = 0, Nout(1)
+                     outArray(:,i,j,k) = outArray(:,i,j,k) + T(j,l) * inArray(:,i,l,k)
+                  end do
+               end do             ; end do
+            end do
+            
+         case (3)
+            
+            do l = 0, Nin(3)  ; do k = 0, Nout(3)
+               do j = 0, Nout(2)   
+                  do i = 0, Nout(1)
+                     outArray(:,i,j,k) = outArray(:,i,j,k) + T (k,l) * inArray(:,i,j,l)
+                  end do
+               end do
+            end do             ; end do
+            
+      end select
+      
+   end subroutine Interp3DArraysOneDir
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

@@ -132,7 +132,8 @@
       
       USE Implicit_JF , ONLY : TakeBDFStep_JF
       USE Implicit_NJ , ONLY : TakeBDFStep_NJ
-      USE FASMultigridClass
+      use FASMultigridClass
+      use AnisFASMultigridClass
       use StopwatchClass
       IMPLICIT NONE
 !
@@ -177,7 +178,8 @@ end interface
       ! For Implicit
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
       INTEGER                       :: JacFlag
-      TYPE(FASMultigrid_t)          :: FASSolver
+      type(FASMultigrid_t)          :: FASSolver
+      type(AnisFASMultigrid_t)      :: AnisFASSolver
       logical                       :: saveGradients
 !
 !     ----------------------
@@ -198,7 +200,8 @@ end interface
 !     Initializations
 !     ---------------
 !
-      IF (TimeIntegration == 'FAS') CALL FASSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'FAS') CALL FASSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'AnisFAS') CALL AnisFASSolver % construct(controlVariables,sem)
 !
 !     ------------------
 !     Configure restarts
@@ -257,8 +260,10 @@ end interface
                END SELECT
             CASE ('explicit')
                CALL self % RKStep ( sem, t, dt )
-            CASE ('FAS')
-               CALL FASSolver % solve(k,t)
+            case ('FAS')
+               call FASSolver % solve(k,t)
+            case ('AnisFAS')
+               call AnisFASSolver % solve(k,t)
          END SELECT
 !
 !        Compute the new time
@@ -327,6 +332,14 @@ end interface
       sem % maxResidual       = maxval(maxResidual)
       self % time             = t
       sem % numberOfTimeSteps = k
+      
+!
+!     ---------
+!     Finish up
+!     ---------
+!
+      if (TimeIntegration == 'FAS') CALL FASSolver % destruct
+      if (TimeIntegration == 'AnisFAS') CALL AnisFASSolver % destruct
 
       call Stopwatch % Pause("Solver")
 

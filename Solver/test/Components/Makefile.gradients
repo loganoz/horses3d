@@ -115,6 +115,8 @@ OBJS_HORSES=  SMConstants \
 		MultigridSolverClass \
 		ExplicitMethods \
 		FASMultigridClass \
+		AnisFASMultigridClass \
+		MultigridTypes \
 		ProblemFile \
 		ReadMeshFile \
 		Read_HDF5Mesh_HOPR \

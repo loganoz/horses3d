@@ -18,12 +18,17 @@
 ./build/TimeIntegrator.o: ./build/DGSEMClass.o ./build/Implicit_JF.o \
 	./build/Implicit_NJ.o \
 	./build/ExplicitMethods.o \
-	./build/FASMultigridClass.o
+	./build/FASMultigridClass.o \
+	./build/AnisFASMultigridClass.o
 
 ./build/ExplicitMethods.o: ./build/DGSEMClass.o
 
 ./build/FASMultigridClass.o: ./build/ExplicitMethods.o \
-			     ./build/DGSEMClass.o   
+			     ./build/DGSEMClass.o \
+			     ./build/MultigridTypes.o
+./build/AnisFASMultigridClass.o: ./build/ExplicitMethods.o \
+			     ./build/DGSEMClass.o \
+			     ./build/MultigridTypes.o
 #Implicit solvers
 ./build/Implicit_JF.o: ./build/DGSEMClass.o \
 		       ./build/JFNKClass.o
