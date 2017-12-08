@@ -56,6 +56,8 @@ JFNKClass: SMConstants GMRESClass
 GMRESClass: SMConstants
 Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices StorageClass AnalyticalJacobian
 AnalyticalJacobian: HexElementClass SMConstants HexMesh NodalStorageClass Physics Jacobian LinearSolverClass DGSEMClass
+pAdaptationClass: SMConstants DGSEMClass Physics TruncationErrorClass
+TruncationErrorClass: SMConstants MultigridTypes DGSEMClass NodalStorageClass
 
 #Linear solvers
 LinearSolverClass: MKLPardisoSolverClass PetscSolverClass IterativeSolverClass MultigridSolverClass

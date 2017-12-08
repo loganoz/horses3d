@@ -29,6 +29,12 @@
 ./build/AnisFASMultigridClass.o: ./build/ExplicitMethods.o \
 			     ./build/DGSEMClass.o \
 			     ./build/MultigridTypes.o
+./build/TruncationErrorClass.o: ./build/DGSEMClass.o \
+					 ./build/MultigridTypes.o
+
+./build/pAdaptationClass.o: ./build/DGSEMClass.o \
+   				 ./build/TruncationErrorClass.o
+
 #Implicit solvers
 ./build/Implicit_JF.o: ./build/DGSEMClass.o \
 		       ./build/JFNKClass.o

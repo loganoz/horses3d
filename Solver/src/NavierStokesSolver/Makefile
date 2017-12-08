@@ -45,6 +45,7 @@ OBJS_HORSES=	DGInviscidDiscretization \
 		MultigridTypes \
 		AnisFASMultigridClass \
 		FASMultigridClass \
+		TruncationErrorClass \
 		AnalyticalJacobian \
 		HORSES3DMain
 
