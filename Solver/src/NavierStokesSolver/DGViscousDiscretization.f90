@@ -213,7 +213,7 @@ module DGViscousDiscretization
 
 !$omp single
          if ( MPI_Process % doMPIAction ) then 
-            call WaitUntilSolutionIsReady(mpi_faces)
+            call mesh % GatherMPIFacesSolution
          end if
 !$omp end single
 

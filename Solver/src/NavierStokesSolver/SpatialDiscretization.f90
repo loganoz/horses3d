@@ -166,9 +166,9 @@ module SpatialDiscretization
 !$omp single
          if ( MPI_Process % doMPIAction ) then
             if ( flowIsNavierStokes ) then 
-               call WaitUntilGradientsAreReady(mpi_faces) 
+               call mesh % GatherMPIFacesGradients
             else  
-               call WaitUntilSolutionIsReady(mpi_faces) 
+               call mesh % GatherMPIFacesSolution
             end if          
          end if
 !$omp end single
