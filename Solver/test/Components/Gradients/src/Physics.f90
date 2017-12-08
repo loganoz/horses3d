@@ -103,6 +103,7 @@
 !
      INTEGER, PARAMETER :: ROE = 0, LXF = 1, RUSANOV = 2
      integer, parameter :: MORINISHI = 3, DUCROS = 4, PIROZZOLI = 5, KENNEDYGRUBER = 6
+     integer, parameter :: STDROE = 7
      INTEGER            :: riemannSolverChoice = ROE
      real(kind=RP)      :: lambdaStab = 0.0_RP
 
@@ -363,7 +364,7 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE RiemannSolver( QLeft, QRight, nHat, flux )
+      SUBROUTINE RiemannSolver( QLeft, QRight, nHat, t1, t2, flux )
          IMPLICIT NONE
 !
 !        ---------
@@ -371,7 +372,7 @@
 !        ---------
 !
          REAL(KIND=RP), DIMENSION(N_EQN)  :: Qleft, Qright, flux
-         REAL(KIND=RP), DIMENSION(3)      :: nHat
+         REAL(KIND=RP), DIMENSION(3)      :: nHat, t1, t2
          
          flux = 0.5_RP*(Qleft + Qright)*( nHat(1) + nHat(2) + nHat(3) )
       
