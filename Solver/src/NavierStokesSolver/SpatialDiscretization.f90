@@ -166,9 +166,9 @@ module SpatialDiscretization
 !$omp single
          if ( MPI_Process % doMPIAction ) then
             if ( flowIsNavierStokes ) then 
-               call WaitUntilGradientsAreReady(mpi_faces) 
+               call mesh % GatherMPIFacesGradients
             else  
-               call WaitUntilSolutionIsReady(mpi_faces) 
+               call mesh % GatherMPIFacesSolution
             end if          
          end if
 !$omp end single
@@ -332,6 +332,8 @@ module SpatialDiscretization
                CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
                                   QRight = f % storage(2) % Q(:,i,j), &
                                   nHat   = f % geom % normal(:,i,j), &
+                                  t1     = f % geom % t1(:,i,j), &
+                                  t2     = f % geom % t2(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
 
                CALL ViscousMethod % RiemannSolver(QLeft = f % storage(1) % Q(:,i,j), &
@@ -348,7 +350,7 @@ module SpatialDiscretization
 !
 !              Multiply by the Jacobian
 !              ------------------------
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % scal(i,j)
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % jacobian(i,j)
                
             END DO   
          END DO  
@@ -383,6 +385,8 @@ module SpatialDiscretization
                CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
                                   QRight = f % storage(2) % Q(:,i,j), &
                                   nHat   = f % geom % normal(:,i,j), &
+                                  t1     = f % geom % t1(:,i,j), &
+                                  t2     = f % geom % t2(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
 
                CALL ViscousMethod % RiemannSolver(QLeft = f % storage(1) % Q(:,i,j), &
@@ -399,7 +403,7 @@ module SpatialDiscretization
 !
 !              Multiply by the Jacobian
 !              ------------------------
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % scal(i,j)
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % jacobian(i,j)
                
             END DO   
          END DO  
@@ -459,6 +463,8 @@ module SpatialDiscretization
             CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
                                QRight = f % storage(2) % Q(:,i,j), &   
                                nHat   = f % geom % normal(:,i,j), &
+                               t1     = f % geom % t1(:,i,j), &
+                               t2     = f % geom % t2(:,i,j), &
                                flux   = inv_flux)
 !
 !           ViscousPart
@@ -490,7 +496,7 @@ module SpatialDiscretization
                visc_flux = 0.0_RP
             end if
 
-            fStar(:,i,j) = (inv_flux - visc_flux) * f % geom % scal(i,j)
+            fStar(:,i,j) = (inv_flux - visc_flux) * f % geom % jacobian(i,j)
          END DO   
       END DO   
 

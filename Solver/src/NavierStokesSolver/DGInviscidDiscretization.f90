@@ -171,6 +171,9 @@ if (MPI_Process % isRoot ) then
 
          case (PIROZZOLI)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Pirozzoli"
+   
+         case (STDROE)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Standard Roe"
 
          end select
 
