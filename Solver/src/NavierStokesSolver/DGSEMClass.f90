@@ -709,7 +709,7 @@ Module DGSEMClass
 !
       REAL(KIND=RP)               :: eValues(3)
       REAL(KIND=RP)               :: dcsi, deta, dzet, jac, lamcsi, lamzet, lameta
-      INTEGER                     :: i, j, k, id
+      INTEGER                     :: i, j, k, id, ierr
       INTEGER                     :: N(3)
       REAL(KIND=RP)               :: MaximumEigenvalue
       real(kind=RP)               :: localMaximumEigenvalue
@@ -777,6 +777,14 @@ Module DGSEMClass
       END DO 
 !$omp end do
 !$omp end parallel
+
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+         localMaximumEigenvalue = MaximumEigenvalue
+         call mpi_allreduce(localMaximumEigenvalue, MaximumEigenvalue, 1, MPI_DOUBLE, MPI_MAX, &
+                            MPI_COMM_WORLD, ierr)
+      end if
+#endif
       
    END FUNCTION MaximumEigenvalue
 
