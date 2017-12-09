@@ -4,9 +4,9 @@
 !   @File:    RiemannSolvers.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:26 2017
-!   @Last revision date: Sat Dec  9 13:26:44 2017
+!   @Last revision date: Sat Dec  9 19:57:02 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: c639f7f03c67f6b4f29bdf81ee902fc928964b84
+!   @Last revision commit: 54980f95d2f8db04714d1df9289bc14c44836a6d
 !
 !//////////////////////////////////////////////////////
 !
@@ -77,12 +77,16 @@ module RiemannSolvers
          case ( RIEMANN_CENTRAL )
             RiemannSolver => CentralRiemannSolver
 
+         case ( RIEMANN_ROEPIKE )
+            RiemannSolver => RoePikeRiemannSolver
+
          case default
             print*, "Undefined choice of Riemann Solver."
             print*, "Options available are:"
             print*, "   * Central"
             print*, "   * Roe"
             print*, "   * Standard Roe"
+            print*, "   * Roe-Pike"
             print*, "   * Lax-Friedrichs"
             print*, "   * Rusanov"
             errorMessage(STD_OUT)
@@ -196,6 +200,7 @@ module RiemannSolvers
          integer        :: i
          real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, rhoHL, rhoV2L
          real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, rhoHR, rhoV2R
+         real(kind=RP)  :: uL, vL, wL, uR, vR, wR, aL, aR, dLambda
          real(kind=RP)  :: QLRot(5), QRRot(5)
          real(kind=RP)  :: sqrtRhoL, sqrtRhoR, invSumSqrtRhoLR
          real(kind=RP)  :: invSqrtRhoL, invSqrtRhoR, invRhoL, invRhoR
@@ -221,10 +226,14 @@ module RiemannSolvers
          rhowL = QLeft(2)  * t2(1) + QLeft(3)  * t2(2) + QLeft(4)  * t2(3)
          rhowR = QRight(2) * t2(1) + QRight(3) * t2(2) + QRight(4) * t2(3)
 
-         rhoV2L = (POW2(rhouL) + POW2(rhovL) + POW2(rhowL)) * invRhoL
-         rhoV2R = (POW2(rhouR) + POW2(rhovR) + POW2(rhowR)) * invRhoR
-
          rhoeL = QLeft(5) ; rhoeR = QRight(5)                
+
+         uL = rhouL * invRhoL    ; uR = rhouR * invRhoR
+         vL = rhovL * invRhoL    ; vR = rhovR * invRhoR
+         wL = rhowL * invRhoL    ; wR = rhowR * invRhoR
+
+         rhoV2L = (POW2(uL) + POW2(vL) + POW2(wL)) * rhoL
+         rhoV2R = (POW2(uR) + POW2(vR) + POW2(wR)) * rhoR
 !
 !        Compute the enthalpy: here defined as rhoH = gogm1 p + 0.5 rho V^2
 !        --------------------
@@ -233,6 +242,9 @@ module RiemannSolvers
 
          pL = gm1 * (rhoeL - 0.5_RP * rhoV2L)
          pR = gm1 * (rhoeR - 0.5_RP * rhoV2R)
+
+         aL = sqrt(gamma * pL * invRhoL)
+         aR = sqrt(gamma * pR * invRhoR)
 !
 !        Compute Roe variables
 !        ---------------------
@@ -269,6 +281,35 @@ module RiemannSolvers
          alpha(1) = 0.5_RP * (dQ(1)*lambda(5) - dQ(2) - a*alpha(2)) / a
          alpha(5) = dQ(1) - alpha(1) - alpha(2)
 !
+!        **********************
+!        Perform an entropy fix. Here we use Van Leer's modification of Harten's entropy fix, derived
+!        in: A. Harten, "High resolution schemes for hyperbolic conservation laws". To recover the
+!        Harten entropy fix, set dLambda to 0.5
+!        **********************
+!
+!        Wave #1
+!        -------
+         dLambda = max((uR-aR) - (uL-aL), 0.0_RP)
+         if ( abs(lambda(1)) .ge. 2.0_RP * dLambda ) then
+            lambda(1) = abs(lambda(1))
+         
+         else
+            lambda(1) = POW2(lambda(1)) / (4.0_RP * dLambda) + dLambda
+
+         end if
+!
+!        Wave #5
+!        -------
+         dLambda = max((uR+aR) - (uL+aL), 0.0_RP)
+         if ( abs(lambda(5)) .ge. 2.0_RP * dLambda ) then
+            lambda(5) = abs(lambda(5))
+         
+         else
+            lambda(5) = POW2(lambda(5)) / (4.0_RP * dLambda) + dLambda
+
+         end if
+
+!
 !        ****************
 !        Compute the flux
 !        ****************
@@ -279,14 +320,26 @@ module RiemannSolvers
          QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR /)
          call AveragedStates(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux)
 !
-!        Compute the Roe stabilization: TODO correct eigenvalue matrix for KG
+!        Compute the Roe stabilization
 !        -----------------------------
+         select case (whichAverage)
+         case(PIROZZOLI_SPLIT, KENNEDYGRUBER_SPLIT)
+!
+!           ***************************************************************************
+!           Eigenvalue matrix is corrected for PI and KG variants, see Winters et. al. 
+!           "A comparative study on polynomial dealiasing and split form discontinuous 
+!           Galerkin schemes for under-resolved turbulence computations"
+!           ***************************************************************************
+!
+            lambda(1) = lambda(5)
+         end select
+         
          stab = 0.0_RP
          do i = 1, 5
             stab = stab + 0.5_RP * alpha(i) * abs(lambda(i)) * K(:,i)
          end do
 !
-!        Compute the flux: use the lambda stabilization here.
+!        Compute the flux: apply the lambda stabilization here.
 !        ----------------
          flux = flux - lambdaStab * stab
 !
@@ -299,6 +352,169 @@ module RiemannSolvers
          end associate
          
       end subroutine StdRoeRiemannSolver
+
+      subroutine RoePikeRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
+         implicit none 
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer        :: i
+         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, rhoHL, rhoV2L
+         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, rhoHR, rhoV2R
+         real(kind=RP)  :: uL, vL, wL, uR, vR, wR, aL, aR, dLambda
+         real(kind=RP)  :: QLRot(5), QRRot(5)
+         real(kind=RP)  :: sqrtRhoL, sqrtRhoR, invSumSqrtRhoLR
+         real(kind=RP)  :: invSqrtRhoL, invSqrtRhoR, invRhoL, invRhoR
+         real(kind=RP)  :: rho, u, v, w, H, a, dQ(5), lambda(5), K(5,5), V2abs, alpha(5)
+         real(kind=RP)  :: stab(5)
+
+         associate(gamma => thermodynamics % gamma, gm1 => thermodynamics % gammaMinus1)
+!
+!        Rotate the variables to the face local frame using normal and tangent vectors
+!        -----------------------------------------------------------------------------
+         rhoL = QLeft(1)                  ; rhoR = QRight(1)
+         invRhoL = 1.0_RP/ rhoL           ; invRhoR = 1.0_RP / rhoR
+         sqrtRhoL = sqrt(rhoL)            ; sqrtRhoR = sqrt(rhoR)
+         invSqrtRhoL = 1.0_RP / sqrtRhoL  ; invSqrtRhoR = 1.0_RP / sqrtRhoR
+         invSumSqrtRhoLR = 1.0_RP / (sqrtRhoL + sqrtRhoR)
+
+         rhouL = QLeft (2) * nHat(1) + QLeft (3) * nHat(2) + QLeft (4) * nHat(3)
+         rhouR = QRight(2) * nHat(1) + QRight(3) * nHat(2) + QRight(4) * nHat(3)
+
+         rhovL = QLeft(2)  * t1(1) + QLeft(3)  * t1(2) + QLeft(4)  * t1(3)
+         rhovR = QRight(2) * t1(1) + QRight(3) * t1(2) + QRight(4) * t1(3)
+
+         rhowL = QLeft(2)  * t2(1) + QLeft(3)  * t2(2) + QLeft(4)  * t2(3)
+         rhowR = QRight(2) * t2(1) + QRight(3) * t2(2) + QRight(4) * t2(3)
+
+         rhoeL = QLeft(5) ; rhoeR = QRight(5)                
+
+         uL = rhouL * invRhoL    ; uR = rhouR * invRhoR
+         vL = rhovL * invRhoL    ; vR = rhovR * invRhoR
+         wL = rhowL * invRhoL    ; wR = rhowR * invRhoR
+
+         rhoV2L = (POW2(uL) + POW2(vL) + POW2(wL)) * rhoL
+         rhoV2R = (POW2(uR) + POW2(vR) + POW2(wR)) * rhoR
+!
+!        Compute the enthalpy: here defined as rhoH = gogm1 p + 0.5 rho V^2
+!        --------------------
+         rhoHL = gamma*rhoeL - 0.5_RP*gm1*rhoV2L
+         rhoHR = gamma*rhoeR - 0.5_RP*gm1*rhoV2R
+
+         pL = gm1 * (rhoeL - 0.5_RP * rhoV2L)
+         pR = gm1 * (rhoeR - 0.5_RP * rhoV2R)
+         
+         aL = sqrt(gamma * pL * invRhoL)
+         aR = sqrt(gamma * pR * invRhoR)
+!
+!        Compute Roe - Pike variables
+!        ----------------------------
+         rho = sqrtRhoL * sqrtRhoR
+         u = (invSqrtRhoL * rhouL + invSqrtRhoR * rhouR) * invSumSqrtRhoLR
+         v = (invSqrtRhoL * rhovL + invSqrtRhoR * rhovR) * invSumSqrtRhoLR
+         w = (invSqrtRhoL * rhowL + invSqrtRhoR * rhowR) * invSumSqrtRhoLR
+         H = (invSqrtRhoL * rhoHL + invSqrtRhoR * rhoHR) * invSumSqrtRhoLR
+         V2abs = POW2(u) + POW2(v) + POW2(w)
+         a = sqrt(gm1*(H - 0.5_RP*V2abs))
+!
+!        Eigenvalues
+!        -----------
+         lambda(1)   = u-a
+         lambda(2:4) = u
+         lambda(5)   = u+a
+!
+!        Eigenvectors
+!        ------------
+         K(:,1) = (/ 1.0_RP, u-a, v, w, H-u*a /)
+         K(:,2) = (/ 1.0_RP, u, v, w, 0.5_RP*V2abs /)
+         K(:,3) = (/ 0.0_RP, 0.0_RP, 1.0_RP, 0.0_RP, v /)
+         K(:,4) = (/ 0.0_RP, 0.0_RP, 0.0_RP, 1.0_RP, w /)
+         K(:,5) = (/ 1.0_RP, u+a, v, w, H+u*a /)
+!
+!        Projections
+!        -----------
+         alpha(1) = ((pR-pL) - rho * a * (uR-uL))/(2.0_RP * a * a)
+         alpha(2) = (rhoR-rhoL) - (pR-pL)/(a*a)
+         alpha(3) = rho * (vR-vL)
+         alpha(4) = rho * (wR-wL)
+         alpha(5) = ((pR-pL) + rho * a * (uR-uL))/(2.0_RP * a * a)
+!
+!        **********************
+!        Perform an entropy fix. Here we use Van Leer's modification of Harten's entropy fix, derived
+!        in: A. Harten, "High resolution schemes for hyperbolic conservation laws". To recover the
+!        Harten entropy fix, set dLambda to 0.5
+!        **********************
+!
+!        Wave #1
+!        -------
+         dLambda = max((uR-aR) - (uL-aL), 0.0_RP)
+         if ( abs(lambda(1)) .ge. 2.0_RP * dLambda ) then
+            lambda(1) = abs(lambda(1))
+         
+         else
+            lambda(1) = POW2(lambda(1)) / (4.0_RP * dLambda) + dLambda
+
+         end if
+!
+!        Wave #5
+!        -------
+         dLambda = max((uR+aR) - (uL+aL), 0.0_RP)
+         if ( abs(lambda(5)) .ge. 2.0_RP * dLambda ) then
+            lambda(5) = abs(lambda(5))
+         
+         else
+            lambda(5) = POW2(lambda(5)) / (4.0_RP * dLambda) + dLambda
+
+         end if
+!
+!        ****************
+!        Compute the flux
+!        ****************
+!
+!        Perform the average using the averaging function
+!        ------------------------------------------------
+         QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL /)
+         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR /)
+         call AveragedStates(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux)
+!
+!        Compute the Roe stabilization
+!        -----------------------------
+         select case (whichAverage)
+         case(PIROZZOLI_SPLIT, KENNEDYGRUBER_SPLIT)
+!
+!           ***************************************************************************
+!           Eigenvalue matrix is corrected for PI and KG variants, see Winters et. al. 
+!           "A comparative study on polynomial dealiasing and split form discontinuous 
+!           Galerkin schemes for under-resolved turbulence computations"
+!           ***************************************************************************
+!
+            lambda(1) = lambda(5)
+         end select
+         
+         stab = 0.0_RP
+         do i = 1, 5
+            stab = stab + 0.5_RP * alpha(i) * abs(lambda(i)) * K(:,i)
+         end do
+!
+!        Compute the flux: apply the lambda stabilization here.
+!        ----------------
+         flux = flux - lambdaStab * stab
+!
+!        ************************************************
+!        Return momentum equations to the cartesian frame
+!        ************************************************
+!
+         flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
+
+         end associate
+      end subroutine RoePikeRiemannSolver
+ 
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -354,9 +570,9 @@ module RiemannSolvers
          aL = sqrt(gamma * pL * invRhoL)
          aR = sqrt(gamma * pR * invRhoR)
 !
-!        Eigenvalues
+!        Eigenvalues: lambda = max(|uL|,|uR|) + max(aL,aR)
 !        -----------
-         lambda = max(abs(rhouL*invRhoL)+aL, abs(rhouR*invRhoR)+aR)
+         lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR)) + max(aL, aR)
 !
 !        ****************
 !        Compute the flux
@@ -372,7 +588,7 @@ module RiemannSolvers
 !        ----------------------------------------
          stab = 0.5_RP * lambda * (QRRot - QLRot)
 !
-!        Compute the flux: use the lambda stabilization here.
+!        Compute the flux: apply the lambda stabilization here.
 !        ----------------
          flux = flux - lambdaStab * stab
 !

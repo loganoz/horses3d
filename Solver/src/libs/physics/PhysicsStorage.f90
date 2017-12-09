@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Sat Dec  9 13:26:43 2017
+!   @Last revision date: Sat Dec  9 19:57:00 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: c639f7f03c67f6b4f29bdf81ee902fc928964b84
+!   @Last revision commit: 54980f95d2f8db04714d1df9289bc14c44836a6d
 !
 !//////////////////////////////////////////////////////
 !
@@ -30,6 +30,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RUSANOV_SOLVER_NAME       = "rusanov"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME = "lax-friedrichs"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME        = "standard roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROEPIKE_SOLVER_NAME       = "roe-pike"
       
          
       END MODULE PhysicsKeywordsModule
@@ -53,7 +54,7 @@
      public    Thermodynamics_t, RefValues_t, Dimensionless_t
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV, RIEMANN_STDROE
-     public    RIEMANN_CENTRAL
+     public    RIEMANN_CENTRAL, RIEMANN_ROEPIKE
      public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
      public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT
 
@@ -116,6 +117,7 @@
      integer, parameter :: RIEMANN_RUSANOV = 2
      integer, parameter :: RIEMANN_STDROE  = 4
      integer, parameter :: RIEMANN_CENTRAL = 5
+     integer, parameter :: RIEMANN_ROEPIKE = 6
      integer, protected :: whichRiemannSolver = -1
 !
 !    -----------------------------
@@ -337,6 +339,9 @@
 
          case(CENTRAL_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_CENTRAL
+
+         case(ROEPIKE_SOLVER_NAME)
+            whichRiemannSolver = RIEMANN_ROEPIKE
             
          case default 
             print*, "Riemann solver: ", trim(keyword), " is not implemented."
@@ -346,6 +351,7 @@
             print*, "   * Standard Roe"
             print*, "   * Lax-Friedrichs"
             print*, "   * Rusanov"
+            print*, "   * Roe-Pike"
             errorMessage(STD_OUT)
             stop
          end select 

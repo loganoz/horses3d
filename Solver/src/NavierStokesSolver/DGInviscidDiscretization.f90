@@ -171,6 +171,9 @@ module DGInviscidDiscretization
 
          case (RIEMANN_CENTRAL)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"
+
+         case (RIEMANN_ROEPIKE)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe-Pike"
          
          end select
 
@@ -403,13 +406,16 @@ module DGInviscidDiscretization
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
    
-         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
-                                                                      + QL(IRHOV) * vL &
-                                                                      + QL(IRHOW) * wL ))
+         associate(gm1 => thermodynamics % GammaMinus1)
+   
+         pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+                                             + QL(IRHOV) * vL &
+                                             + QL(IRHOW) * wL ))
 
-         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
-                                                                      + QR(IRHOV) * vR &
-                                                                      + QR(IRHOW) * wR ))
+         pR = gm1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+                                             + QR(IRHOV) * vR &
+                                             + QR(IRHOW) * wR ))
+         end associate
 !
 !        Here the enthalpy does not contain the kinetic energy
 !        -----------------------------------------------------
@@ -487,14 +493,17 @@ module DGInviscidDiscretization
          uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
+         
+         associate(gm1 => thermodynamics % GammaMinus1)
    
-         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
-                                                                      + QL(IRHOV) * vL &
-                                                                      + QL(IRHOW) * wL ))
+         pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+                                             + QL(IRHOV) * vL &
+                                             + QL(IRHOW) * wL ))
 
-         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
-                                                                      + QR(IRHOV) * vR &
-                                                                      + QR(IRHOW) * wR ))
+         pR = gm1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+                                             + QR(IRHOV) * vR &
+                                             + QR(IRHOW) * wR ))
+         end associate
 !
 !        Average metrics
 !        ---------------
@@ -554,14 +563,17 @@ module DGInviscidDiscretization
          uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
-   
-         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
-                                                                      + QL(IRHOV) * vL &
-                                                                      + QL(IRHOW) * wL ))
 
-         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
-                                                                      + QR(IRHOV) * vR &
-                                                                      + QR(IRHOW) * wR ))
+         associate(gm1 => thermodynamics % GammaMinus1)
+   
+         pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+                                             + QL(IRHOV) * vL &
+                                             + QL(IRHOW) * wL ))
+
+         pR = gm1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+                                             + QR(IRHOV) * vR &
+                                             + QR(IRHOW) * wR ))
+         end associate
 
          rho = 0.5_RP * (QL(IRHO) + QR(IRHO))
          u   = 0.5_RP * (uL + uR)
