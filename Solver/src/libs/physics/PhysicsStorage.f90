@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Thu Dec  7 19:32:18 2017
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 52e53d02ebf3e9fc3016ba405dda0b6e87c8bdb6
+!   @Last revision date: Sat Dec  9 13:26:43 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: c639f7f03c67f6b4f29bdf81ee902fc928964b84
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,13 +25,10 @@
          
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physicsKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
          
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME       = "central"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME           = "roe"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RUSANOV_SOLVER_NAME       = "rusanov"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME = "lax friedrichs"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: DUCROS_SOLVER_NAME        = "ducros"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MORINISHI_SOLVER_NAME     = "morinishi"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: KENNEDYGRUBER_SOLVER_NAME = "kennedy-gruber"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PIROZZOLI_SOLVER_NAME     = "pirozzoli"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME = "lax-friedrichs"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME        = "standard roe"
       
          
@@ -51,11 +48,14 @@
      private
      public    flowIsNavierStokes, N_EQN, N_GRAD_EQN, NDIM, IX, IY, IZ
      public    NCONS, IRHO, IRHOU, IRHOV, IRHOW, IRHOE, IGU, IGV, IGW, IGT
-     public    TScale, TRatio, ROE, LXF, RUSANOV, DUCROS, riemannSolverChoice
-     public    MORINISHI, PIROZZOLI, KENNEDYGRUBER, STDROE
+     public    TScale, TRatio
      public    Thermodynamics, RefValues, Dimensionless
      public    Thermodynamics_t, RefValues_t, Dimensionless_t
-     public    lambdaStab, computeGradients
+     public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
+     public    RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV, RIEMANN_STDROE
+     public    RIEMANN_CENTRAL
+     public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
+     public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT
 
      public    ConstructPhysicsStorage, DestructPhysicsStorage, DescribePhysicsStorage
      public    CheckPhysicsInputIntegrity
@@ -94,30 +94,51 @@
      INTEGER, PARAMETER  :: IGU = 1 , IGV = 2 , IGW = 3 , IGT = 4
 !
 !    --------------------------------------------
-!!   The temperature scale in the Sutherland law:
-!!   198.6 for temperatures in R, 110.3 for
-!!   temperatures in K.
+!    The temperature scale in the Sutherland law:
+!    198.6 for temperatures in R, 110.3 for
+!    temperatures in K.
 !    --------------------------------------------
 !
      REAL( KIND=RP ), protected :: TScale
 !
 !    ------------------------------------------------
-!!   The ratio of the scale and reference tempartures
+!    The ratio of the scale and reference tempartures
 !    ------------------------------------------------
 !
      REAL( KIND=RP ), protected :: TRatio 
-!    ----------------------------------
 !
-!    ------------------------------------
-!    Riemann solver associated quantities
-!    ------------------------------------
+!    --------------------------
+!    Riemann solver definitions
+!    --------------------------
 !
-     INTEGER, PARAMETER       :: ROE = 0, LXF = 1, RUSANOV = 2, DUCROS = 3
-     INTEGER, parameter       :: MORINISHI = 4, PIROZZOLI = 5, KENNEDYGRUBER = 6
-     INTEGER, parameter       :: STDROE = 7
-     INTEGER,       protected :: riemannSolverChoice = ROE
-     real(kind=RP), protected :: lambdaStab = 0.0_RP
-
+     integer, parameter :: RIEMANN_ROE     = 0
+     integer, parameter :: RIEMANN_LXF     = 1
+     integer, parameter :: RIEMANN_RUSANOV = 2
+     integer, parameter :: RIEMANN_STDROE  = 4
+     integer, parameter :: RIEMANN_CENTRAL = 5
+     integer, protected :: whichRiemannSolver = -1
+!
+!    -----------------------------
+!    Available averaging functions
+!    -----------------------------
+!
+     integer, parameter :: STANDARD_SPLIT      = 1
+     integer, parameter :: MORINISHI_SPLIT     = 2
+     integer, parameter :: DUCROS_SPLIT        = 3
+     integer, parameter :: KENNEDYGRUBER_SPLIT = 4
+     integer, parameter :: PIROZZOLI_SPLIT     = 5
+     integer            :: whichAverage = -1
+!
+!    -------------------------------------
+!    Lambda stabilization - 1.0 by default
+!    -------------------------------------
+!
+     real(kind=RP), protected :: lambdaStab = 1.0_RP     
+!
+!    ------------------------------
+!    Thermodynamic specs of the Air
+!    ------------------------------
+!
      type(Thermodynamics_t), target, private :: ThermodynamicsAir = Thermodynamics_t( &
                                                               "Air", & ! Name
                                     287.15_RP * 5.0_RP / 9.0_RP, & ! R
@@ -192,30 +213,51 @@
       dimensionless_ % Mach = controlVariables % doublePrecisionValueForKey(MACH_NUMBER_KEY)
       dimensionless_ % Pr   = 0.72_RP
       dimensionless_ % Fr   = 0.0_RP
-
+!
+!     *********************
+!     Select flow equations
+!     *********************
+!
       keyword = controlVariables % stringValueForKey(FLOW_EQUATIONS_KEY,KEYWORD_LENGTH)
       CALL toLower(keyword)
+
       IF ( keyword == "euler" )     THEN
          flowIsNavierStokes = .FALSE.
-         dimensionless_ % Re = 0.0_RP     ! Just to avoid non-initialized variables
+         dimensionless_ % Re = 0.0_RP   
          dimensionless_ % mu = 0.0_RP
          dimensionless_ % kappa = 0.0_RP
+
       ELSE 
          flowIsNavierStokes = .TRUE.
+!
+!        ----------------------------
+!        Look for the Reynolds number
+!        ----------------------------
+!
          IF ( controlVariables % containsKey(REYNOLDS_NUMBER_KEY) )     THEN
             dimensionless_ % Re = controlVariables % doublePrecisionValueForKey(REYNOLDS_NUMBER_KEY) 
+
          ELSE 
-            PRINT *, "Input file is missing entry for keyword: ",REYNOLDS_NUMBER_KEY
+            PRINT *, "Input file is missing entry for keyword: ", REYNOLDS_NUMBER_KEY
             success = .FALSE.
             RETURN 
-         END IF 
 
+         END IF 
+!
+!        ------------------------------------------------
+!        Set molecular viscosity and thermal conductivity
+!        ------------------------------------------------
+!
          dimensionless_ % mu   = 1.0_RP / dimensionless_ % Re
          dimensionless_ % kappa = 1.0_RP / ( thermodynamics_ % gammaMinus1 * &
                                               POW2( dimensionless_ % Mach) * &
                                       dimensionless_ % Re * dimensionless_ % Pr )
       END IF 
-
+!
+!     **************************************
+!     Check if state gradients are requested
+!     **************************************
+!
       if ( controlVariables % containsKey(COMPUTE_GRADIENTS_KEY) ) then
 !
 !        Do not compute gradients if Euler equations are used and it is specified in the control file
@@ -223,6 +265,7 @@
          if ( .not. flowIsNavierStokes ) then
             if ( .not. controlVariables % logicalValueForKey(COMPUTE_GRADIENTS_KEY) ) then
                computeGradients = .false.
+
             end if
          end if
       else
@@ -231,23 +274,28 @@
 !        ------------------------------------------------------------------------------
          if ( .not. flowIsNavierStokes ) then
             computeGradients = .false.
+
          end if
       end if
 
       dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
       dimensionless_ % invFroudeSquare = 0.0_RP
 !
-!     --------------------
+!     ********************
 !     Set reference values: TODO read from parameter file
 !                           Ok, but be sure to change the mesh reading accordingly (x = x / refValues % L)
-!     --------------------
+!     ********************
 !
       refValues_ % L = 1.0_RP       ! m
       refValues_ % T = 520.0_RP     ! Rankine
+
       refValues_ % rho = 101325.0_RP / (thermodynamics_ % R * refValues_ % T)
+
       refValues_ % V =   dimensionless_ % Mach &
                        * sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
+
       refValues_ % p = refValues_ % rho * POW2( refValues_ % V )
+
       if ( flowIsNavierStokes ) then
          refValues_ % mu = refValues_ % rho * refValues_ % V * refValues_ % L / dimensionless_ % Re
          refValues_ % kappa = refValues_ % mu * thermodynamics_ % cp / dimensionless_ % Pr
@@ -259,54 +307,55 @@
       end if
 
       refValues_ % time = refValues_ % L / refValues_ % V
-
 !
-!     --------------------------------------------------------------------
-!     The riemann solver is also optional. Set it to Roe if not requested.
-!     --------------------------------------------------------------------
+!     *********************************************
+!     Choose the Riemann solver (by default is Roe)
+!     *********************************************
 !
       IF ( controlVariables % containsKey(RIEMANN_SOLVER_NAME_KEY) )     THEN
+!
+!        Get keyword from control variables
+!        ----------------------------------
          keyword = controlVariables % stringValueForKey(key             = RIEMANN_SOLVER_NAME_KEY,&
                                                         requestedLength = KEYWORD_LENGTH)
          CALL toLower(keyword)
-         SELECT CASE ( keyword )
-            CASE( ROE_SOLVER_NAME ) 
-               riemannSolverChoice = ROE
-            CASE( LAXFRIEDRICHS_SOLVER_NAME )
-               riemannSolverChoice = LXF 
-            CASE( RUSANOV_SOLVER_NAME )
-               riemannSolverChoice = RUSANOV
-            CASE( DUCROS_SOLVER_NAME )
-               riemannSolverChoice = DUCROS
-            CASE( MORINISHI_SOLVER_NAME )
-               riemannSolverChoice = MORINISHI
-            CASE( KENNEDYGRUBER_SOLVER_NAME )
-               riemannSolverChoice = KENNEDYGRUBER
-            CASE( PIROZZOLI_SOLVER_NAME )
-               riemannSolverChoice = PIROZZOLI
-            CASE DEFAULT 
-               PRINT *, "Unknown Riemann solver choice: ", TRIM(keyword), ". Defaulting to Roe"
-               riemannSolverChoice = ROE
-         END SELECT 
-      ELSE 
-         PRINT *, "Input file is missing keyword 'riemann solver'. Using Roe by default"
-         riemannSolverChoice = ROE 
-      END IF 
 !
-!     ------------------------------------------------------------------------------
-!     The angle of attack parameters are optional. If not present, set them to zero.
-!     ------------------------------------------------------------------------------
+!        Choose the appropriate Riemann Solver
+!        -------------------------------------
+         select case ( keyword )
+         case(ROE_SOLVER_NAME) 
+            whichRiemannSolver = RIEMANN_ROE
+
+         case(LAXFRIEDRICHS_SOLVER_NAME)
+            whichRiemannSolver = RIEMANN_LXF 
+
+         case(RUSANOV_SOLVER_NAME)
+            whichRiemannSolver = RIEMANN_RUSANOV
+   
+         case(STDROE_SOLVER_NAME)
+            whichRiemannSolver = RIEMANN_STDROE
+
+         case(CENTRAL_SOLVER_NAME)
+            whichRiemannSolver = RIEMANN_CENTRAL
+            
+         case default 
+            print*, "Riemann solver: ", trim(keyword), " is not implemented."
+            print*, "Options available are:"
+            print*, "   * Central"
+            print*, "   * Roe"
+            print*, "   * Standard Roe"
+            print*, "   * Lax-Friedrichs"
+            print*, "   * Rusanov"
+            errorMessage(STD_OUT)
+            stop
+         end select 
+      else 
 !
-      IF ( controlVariables % containsKey(AOA_PHI_KEY) )     THEN
-         refValues_ % AOAPhi = controlVariables % doublePrecisionValueForKey(AOA_PHI_KEY) 
-      ELSE
-         refValues_ % AOAPhi = 0.0_RP
-      END IF 
-      IF ( controlVariables % containsKey(AOA_THETA_KEY) )     THEN
-         refValues_ % AOATheta = controlVariables % doublePrecisionValueForKey(AOA_THETA_KEY) 
-      ELSE
-         refValues_ % AOATheta = 0.0_RP
-      END IF 
+!        Select Roe by default
+!        ---------------------
+         whichRiemannSolver = RIEMANN_ROE 
+
+      end if
 !
 !     --------------------
 !     Lambda stabilization
@@ -314,24 +363,68 @@
 !
       if ( controlVariables % containsKey(LAMBDA_STABILIZATION_KEY)) then
          lambdaStab = controlVariables % doublePrecisionValueForKey(LAMBDA_STABILIZATION_KEY)
+
       else
-         lambdaStab = 0.0_RP
+!
+!        By default, lambda is 1 (full upwind stabilization)
+!        ---------------------------------------------------
+         lambdaStab = 1.0_RP
+
       end if
 !
-!     --------------------------
+!     --------------------------------------------------
+!     If central fluxes are used, set lambdaStab to zero
+!     --------------------------------------------------
+!
+      if ( whichRiemannSolver .eq. RIEMANN_CENTRAL ) lambdaStab = 0.0_RP
+!
+!     ***************
+!     Angle of attack
+!     ***************
+!
+      IF ( controlVariables % containsKey(AOA_PHI_KEY) )     THEN
+         refValues_ % AOAPhi = controlVariables % doublePrecisionValueForKey(AOA_PHI_KEY) 
+
+      ELSE
+!
+!        Phi angle of attack is zero by default
+!        --------------------------------------
+         refValues_ % AOAPhi = 0.0_RP
+
+      END IF 
+
+      IF ( controlVariables % containsKey(AOA_THETA_KEY) )     THEN
+         refValues_ % AOATheta = controlVariables % doublePrecisionValueForKey(AOA_THETA_KEY) 
+
+      ELSE
+!
+!        Theta angle of attack is zero by default
+!        ----------------------------------------
+         refValues_ % AOATheta = 0.0_RP
+
+      END IF 
+!
+!     **************************
 !     Sutherland's law constants
-!     --------------------------
+!     **************************
 !
       TScale          = 198.6_RP
       TRatio          = TScale/ refValues_ % T
-
+!
+!     **********************************************************************
+!     Set the global (proteted) thermodynamics, dimensionless, and refValues
+!     **********************************************************************
+!
       call setThermodynamics( thermodynamics_ )
       call setDimensionless( dimensionless_ )
       call setRefValues( refValues_ )
-
-
-      CALL DescribePhysicsStorage()
 !
+!     ********
+!     Describe
+!     ********
+!
+      CALL DescribePhysicsStorage()
+
       END SUBROUTINE ConstructPhysicsStorage
 !
 !     ///////////////////////////////////////////////////////

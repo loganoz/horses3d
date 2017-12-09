@@ -10,12 +10,6 @@ module DGInviscidDiscretization
    integer,    parameter   :: STANDARD_DG = 1
    integer,    parameter   :: SPLIT_DG = 2
 
-   integer,    parameter   :: STANDARD_SPLIT = 1
-   integer,    parameter   :: MORINISHI_SPLIT = 2
-   integer,    parameter   :: DUCROS_SPLIT = 3
-   integer,    parameter   :: KENNEDYGRUBER_SPLIT = 4
-   integer,    parameter   :: PIROZZOLI_SPLIT = 5
-
    type InviscidMethod_t
       procedure(VolumetricSharpFlux_FCN), nopass, pointer  :: ComputeVolumetricSharpFlux => NULL()
       contains
@@ -72,17 +66,22 @@ module DGInviscidDiscretization
                character(*), intent(in out) :: str
             end subroutine toLower
          end interface
-
-         call SetRiemannSolver( riemannSolverChoice )
-
+!
+!        Set up the Inviscid Discretization
+!        ----------------------------------
          select type ( self ) 
          type is (SplitDG_t)
+!
+!           Get the split form from control variables
+!           -----------------------------------------
             splitForm = controlVariables % stringValueForKey(splitFormKey, requestedLength = LINE_LENGTH)
-   
             call toLower(splitForm)
    
             select case ( trim(splitForm) )
             case ( "standard" )
+!
+!              Skew-symmetric version of the standard DG. Useful for testing
+!              -------------------------------------------------------------
                self % ComputeVolumetricSharpFlux => StandardDG_VolumetricSharpFlux
                splitType = STANDARD_SPLIT
    
@@ -103,7 +102,7 @@ module DGInviscidDiscretization
                splitType = PIROZZOLI_SPLIT
    
             case default
-if ( MPI_Process % isRoot ) then   
+               if ( MPI_Process % isRoot ) then   
                write(STD_OUT,'(A,A,A)') 'Requested split form "',trim(splitForm),'" is not implemented.'
                write(STD_OUT,'(A)') "Implemented split forms are:"
                write(STD_OUT,'(A)') "  * Standard"
@@ -113,18 +112,25 @@ if ( MPI_Process % isRoot ) then
                write(STD_OUT,'(A)') "  * Pirozzoli"
                errorMessage(STD_OUT)
                stop 
-end if
+               end if
    
             end select
+         type is (StandardDG_t)
+            splitType = STANDARD_SPLIT
+
          end select
+
+         call SetRiemannSolver( whichRiemannSolver, splitType )
 !
+!        ********
 !        Describe
-!        --------
+!        ********
+!
          call Subsection_Header("Inviscid discretization")
 
-if (MPI_Process % isRoot ) then
+         if (.not. MPI_Process % isRoot ) return
+
          select type ( self ) 
-   
          type is (StandardDG_t)
             write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","Standard"
 
@@ -150,31 +156,22 @@ if (MPI_Process % isRoot ) then
             end select
          end select
 
-         select case (riemannSolverChoice)
-         case (ROE)
+         select case (whichRiemannSolver)
+         case (RIEMANN_ROE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe"
 
-         case (LXF)
+         case (RIEMANN_LXF)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
 
-         case (RUSANOV)
+         case (RIEMANN_RUSANOV)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Rusanov"
 
-         case (DUCROS)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Ducros"
-
-         case (MORINISHI)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Morinishi"
-
-         case (KENNEDYGRUBER)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Kennedy-Gruber"
-
-         case (PIROZZOLI)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Pirozzoli"
-   
-         case (STDROE)
+         case (RIEMANN_STDROE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Standard Roe"
 
+         case (RIEMANN_CENTRAL)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"
+         
          end select
 
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
@@ -184,7 +181,6 @@ if (MPI_Process % isRoot ) then
          else
             write(STD_OUT,'(30X,A,A30,A)') "->","Gradients computation: ", "Disabled."
          end if
-end if
 
       end subroutine InitializeInviscidMethod
 !
