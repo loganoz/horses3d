@@ -87,14 +87,25 @@ subroutine ConstructInterpolationMatrices(Norigin, Ndest)
 !
 !        Construct the forward interpolation matrix
 !        ------------------------------------------
-      call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, spAd % x, &
-                                         Tset(Norigin, Ndest) % T)
+      if (Norigin < Ndest) then
+         call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, spAd % x, &
+                                            Tset(Norigin, Ndest) % T)
+      else
+         call PolynomialInterpolationMatrix(Ndest, Norigin, spAd % x, spAd % wb, spAo % x, &
+                                            Tset(Ndest, Norigin) % T)
+      end if
 !
 !        Construct the backwards interpolation matrix
 !        --------------------------------------------
-      do j = 0, Ndest   ; do i = 0, Norigin
-         Tset(Ndest,Norigin) % T(i,j) = Tset(Norigin,Ndest) % T(j,i) * spAd % w(j) / spAo % w(i)
-      end do            ; end do
+      if (Norigin < Ndest) then
+         do j = 0, Ndest   ; do i = 0, Norigin
+            Tset(Ndest,Norigin) % T(i,j) = Tset(Norigin,Ndest) % T(j,i) * spAd % w(j) / spAo % w(i)
+         end do            ; end do
+      else
+         do j = 0, Norigin ; do i = 0, Ndest
+            Tset(Norigin,Ndest) % T(i,j) = Tset(Ndest,Norigin) % T(j,i) * spAo % w(j) / spAd % w(i)
+         end do            ; end do
+      end if
 !
 !        Set constructed flag
 !        --------------------          
