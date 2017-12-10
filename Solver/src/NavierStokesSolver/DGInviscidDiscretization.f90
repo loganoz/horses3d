@@ -175,6 +175,9 @@ module DGInviscidDiscretization
          case (RIEMANN_ROEPIKE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe-Pike"
          
+         case (RIEMANN_LOWDISSROE)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Low dissipation Roe"
+         
          end select
 
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab

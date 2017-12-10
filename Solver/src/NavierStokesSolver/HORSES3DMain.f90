@@ -98,7 +98,19 @@ end interface
 !     ---------------
 !
       call MPI_Process % Init
-      CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Solver",__DATE__,__TIME__)
+      call CheckIfTheVersionIsRequested
+!
+!     ----------------------------------------------------------------------------------
+!     The main is always compiled, so that __DATE__ and __TIME__ are updated accordingly
+!     ----------------------------------------------------------------------------------
+!
+      if ( MPI_Process % doMPIAction ) then
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Solver",__DATE__,__TIME__)
+
+      else
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Solver",__DATE__,__TIME__)
+
+      end if
 
       CALL controlVariables % initWithSize(16)
       CALL UserDefinedStartup
@@ -425,3 +437,30 @@ end interface
          write(STD_OUT,'(30X,A,A30,ES10.3,A)') "->", "Solver efficiency: " , t_elaps/(NDOF * iter)*1.0e6_RP, " seconds/(1 Million DOF·iter)."
 
       end subroutine DisplaySimulationStatistics
+
+      subroutine CheckIfTheVersionIsRequested
+         use SMConstants
+         use MPI_Process_Info
+         implicit none
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: nArgs, i
+         character(len=128)    :: arg
+
+         if ( .not. MPI_Process % isRoot ) return
+
+         nArgs = command_argument_count()
+
+         do i = 1, nArgs
+            call get_command_argument(i, arg)
+
+            if ( trim(arg) .eq. "--version" ) then
+               print*, "Current HORSES version: ", trim(VERSION)
+               stop
+            end if
+         end do
+            
+      end subroutine CheckIfTheVersionIsRequested

@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Sat Dec  9 19:57:00 2017
+!   @Last revision date: Sun Dec 10 16:53:42 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 54980f95d2f8db04714d1df9289bc14c44836a6d
+!   @Last revision commit: ba0860a80a171444b241edf1cde968cfc6e42f25
 !
 !//////////////////////////////////////////////////////
 !
@@ -31,6 +31,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME = "lax-friedrichs"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME        = "standard roe"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROEPIKE_SOLVER_NAME       = "roe-pike"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME       = "low dissipation roe"
       
          
       END MODULE PhysicsKeywordsModule
@@ -54,7 +55,7 @@
      public    Thermodynamics_t, RefValues_t, Dimensionless_t
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV, RIEMANN_STDROE
-     public    RIEMANN_CENTRAL, RIEMANN_ROEPIKE
+     public    RIEMANN_CENTRAL, RIEMANN_ROEPIKE, RIEMANN_LOWDISSROE
      public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
      public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT
 
@@ -112,12 +113,13 @@
 !    Riemann solver definitions
 !    --------------------------
 !
-     integer, parameter :: RIEMANN_ROE     = 0
-     integer, parameter :: RIEMANN_LXF     = 1
-     integer, parameter :: RIEMANN_RUSANOV = 2
-     integer, parameter :: RIEMANN_STDROE  = 4
-     integer, parameter :: RIEMANN_CENTRAL = 5
-     integer, parameter :: RIEMANN_ROEPIKE = 6
+     integer, parameter :: RIEMANN_ROE        = 0
+     integer, parameter :: RIEMANN_LXF        = 1
+     integer, parameter :: RIEMANN_RUSANOV    = 2
+     integer, parameter :: RIEMANN_STDROE     = 4
+     integer, parameter :: RIEMANN_CENTRAL    = 5
+     integer, parameter :: RIEMANN_ROEPIKE    = 6
+     integer, parameter :: RIEMANN_LOWDISSROE = 7
      integer, protected :: whichRiemannSolver = -1
 !
 !    -----------------------------
@@ -342,6 +344,9 @@
 
          case(ROEPIKE_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_ROEPIKE
+
+         case(LOWDISSROE_SOLVER_NAME)
+            whichRiemannSolver = RIEMANN_LOWDISSROE
             
          case default 
             print*, "Riemann solver: ", trim(keyword), " is not implemented."
@@ -352,6 +357,7 @@
             print*, "   * Lax-Friedrichs"
             print*, "   * Rusanov"
             print*, "   * Roe-Pike"
+            print*, "   * Low dissipation Roe"
             errorMessage(STD_OUT)
             stop
          end select 
