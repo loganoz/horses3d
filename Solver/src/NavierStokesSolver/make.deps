@@ -3,7 +3,7 @@
 ##	HORSES3D Solver source files dependencies
 ##
 ###########################################################################
-./build/HORSES3DMain.o: ./build/TimeIntegrator.o \
+./build/HORSES3DMain.o: FORCE ./build/TimeIntegrator.o \
                         ./build/DGSEMClass.o \
                         ./build/pAdaptationClass.o
 
