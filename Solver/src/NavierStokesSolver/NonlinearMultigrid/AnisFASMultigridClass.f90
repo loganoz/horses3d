@@ -13,7 +13,7 @@ module AnisFASMultigridClass
    use ExplicitMethods
    use DGSEMClass
    use Physics
-!~   use pAdaptationClass
+   use TruncationErrorClass
    use InterpolationMatrices
    use MultigridTypes
    
@@ -68,6 +68,7 @@ module AnisFASMultigridClass
    logical        :: MGOutput       ! Display output?
    logical        :: ManSol         ! Does this case have manufactured solutions?
    logical        :: SmoothFine     ! 
+   logical        :: EstimateTE = .FALSE. ! Estimate the truncation error!
    real(kind=RP)  :: SmoothFineFrac ! Fraction that must be smoothed in fine before going to coarser level
    real(kind=RP)  :: cfl
    character(len=LINE_LENGTH)    :: meshFileName
@@ -359,19 +360,15 @@ module AnisFASMultigridClass
 !  ---------------------------------------------
 !  Driver of the FAS multigrid solving procedure
 !  ---------------------------------------------
-   subroutine solve(this,timestep,t) !,pAdaptator)
+   subroutine solve(this,timestep,t,TE)
       implicit none
-      class(AnisFASMultigrid_t), intent(inout) :: this
-      integer                                  :: timestep
-      real(kind=RP)                            :: t
-!~      type(pAdaptation_t), OPTIONAL            :: pAdaptator
+      class(AnisFASMultigrid_t)        , intent(inout) :: this       !<> The AnisFAS
+      integer                          , intent(in)    :: timestep   !<  Current time step
+      real(kind=RP)                    , intent(in)    :: t          !<  Current simulation time
+      type(TruncationError_t), optional, intent(inout) :: TE(:)      !<> Truncation error for all elements. If present, the multigrid solver also estimates the TE
       !-------------------------------------------------
-      integer                                 :: niter
-      integer                                 :: i
       character(len=LINE_LENGTH)              :: FileName
       integer                                 :: Dir
-!~      logical                                 :: pAdapt
-      !!!!!!! type(TruncationError_t), allocatable    :: TE(:)
       !-------------------------------------------------
       
 !
@@ -379,14 +376,12 @@ module AnisFASMultigridClass
 !     Prepare everything for p adaptation (if required)
 !     -------------------------------------------------
 !
-!~      if (PRESENT(pAdaptator) .AND. pAdaptator % Adapt) then
-!~         pAdapt = .TRUE.
-         
-!~         call InitializeForTauEstimation(pAdaptator % TE,this % MGStorage(1) % p_sem)
-         
-!~      else
-!~         pAdapt = .FALSE.
-!~      end if
+      if (PRESENT(TE)) then
+         EstimateTE = .TRUE.
+         call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,NON_ISOLATED_TE)
+      else
+         EstimateTE = .FALSE.
+      end if
       
       ThisTimeStep = timestep
 !
@@ -397,7 +392,7 @@ module AnisFASMultigridClass
 !     ---------------------------------------------------------
 !
       do Dir = 1, 3
-         call FASVCycle(this,t,MGlevels(Dir),Dir) !,pAdapt,pAdaptator % TE)
+         call FASVCycle(this,t,MGlevels(Dir),Dir,TE)
       end do
 
 !
@@ -409,9 +404,9 @@ module AnisFASMultigridClass
 !~         call pAdaptator % pAdaptTE(this % MGStorage(1) % p_sem,pAdaptator % TE)
 !~      end if
       
-      !! Update residuals
-      call ComputeTimeDerivative(this % MGStorage(1) % p_sem, t)
+      !! Finish up
       
+      EstimateTE = .FALSE.
    end subroutine solve
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -419,15 +414,14 @@ module AnisFASMultigridClass
 !  -----------------------------------------
 !  Recursive subroutine to perform a v-cycle
 !  -----------------------------------------
-   recursive subroutine FASVCycle(this,t,lvl,Dir) !,pAdapt,TE)
+   recursive subroutine FASVCycle(this,t,lvl,Dir,TE)
       implicit none
       !----------------------------------------------------------------------------
       class(AnisFASMultigrid_t), intent(inout), TARGET :: this    !<  Current level solver
       real(kind=RP)                        :: t       !<  Simulation time
       integer                              :: lvl     !<  Current multigrid level
       integer                              :: Dir     !<  Direction in which multigrid will be performed (x:1, y:2, z:3)
-!~      logical                              :: pAdapt  !<  Must the truncation error be estimated?
-!~      type(TruncationError_t)              :: TE(:)   !>  Variable containing the truncation error estimation
+      type(TruncationError_t)              :: TE(:)   !>  Variable containing the truncation error estimation
       !----------------------------------------------------------------------------
       integer                       :: iEl        !Element counter
       type(AnisFASMultigrid_t), pointer :: Child_p        !Pointer to child
@@ -470,7 +464,7 @@ module AnisFASMultigridClass
          if (MGOutput) call PlotResiduals( lvl, sweepcount*NumOfSweeps , p_sem )
          
          if (SmoothFine .AND. lvl > 1) then
-            call MGRestrictToChild(this,Dir,lvl,t) !,TE,pAdapt)
+            call MGRestrictToChild(this,Dir,lvl,t,TE)
             call ComputeTimeDerivative(this % Child % MGStorage(Dir) % p_sem,t)
             
             if (MAXVAL(ComputeMaxResidual(p_sem)) < SmoothFineFrac * MAXVAL(ComputeMaxResidual &
@@ -487,13 +481,13 @@ module AnisFASMultigridClass
          Childp_sem => this % Child % MGStorage(Dir) % p_sem
          ChildVar   => this % Child % MGStorage(Dir) % Var
          
-         if (.not. SmoothFine) call MGRestrictToChild(this,Dir,lvl,t) !,TE,pAdapt
+         if (.not. SmoothFine) call MGRestrictToChild(this,Dir,lvl,t,TE)
 !
 !        --------------------
 !        Perform V-Cycle here
 !        --------------------
 !
-         call FASVCycle(this % Child,t, lvl-1, Dir) !,pAdapt,TE)
+         call FASVCycle(this % Child,t, lvl-1, Dir,TE)
 !
 !        -------------------------------------------
 !        Interpolate coarse-grid error to this level
@@ -575,15 +569,14 @@ module AnisFASMultigridClass
 !  ------------------------------------------
 !  Subroutine that restricts to child..... 
 !  ------------------------------------------
-   subroutine MGRestrictToChild(this,Dir,lvl,t) !,TE,pAdapt)
+   subroutine MGRestrictToChild(this,Dir,lvl,t,TE)
       implicit none
       !-------------------------------------------------------------
       class(AnisFASMultigrid_t), TARGET, intent(inout) :: this     !<  Current level solver
-      integer              , intent(in)   :: Dir
-      integer              , intent(in)   :: lvl
-      real(kind=RP)        , intent(in)   :: t
-!~      type(TruncationError_t)             :: TE(:)   !>  Variable containing the truncation error estimation
-!~      logical                             :: pAdapt
+      integer                , intent(in)    :: Dir
+      integer                , intent(in)    :: lvl
+      real(kind=RP)          , intent(in)    :: t
+      type(TruncationError_t), intent(inout) :: TE(:)   !>  Variable containing the truncation error estimation 
       !-------------------------------------------------------------
       type(DGSem)          , pointer      :: p_sem          !Pointer to the current sem class
       type(MGSolStorage_t) , pointer      :: Var(:)         !Pointer to the variable storage class
@@ -650,10 +643,7 @@ module AnisFASMultigridClass
 !     If not on finest level, correct source term
 !     -------------------------------------------
 !
-!~      if (pAdapt) then
-!~         call ComputeTimeDerivativeIsol(Childp_sem,t)
-!~         call EstimateTruncationError(TE,Childp_sem,ChildVar,Dir)
-!~      end if
+      if (EstimateTE) call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
      
      call ComputeTimeDerivative(Childp_sem,t)
       

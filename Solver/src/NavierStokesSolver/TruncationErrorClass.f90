@@ -7,6 +7,7 @@ module TruncationErrorClass
    
    private
    public TruncationError_t, EstimateTruncationError, InitializeForTauEstimation
+   public NON_ISOLATED_TE, ISOLATED_TE
    
    !---------------------------------------------------------------------------------------------------------
    ! Type for storing the truncation error for one element in one direction according to the polynomial order

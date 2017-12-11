@@ -128,12 +128,13 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE Integrate( self, sem, controlVariables, monitors)
+      SUBROUTINE Integrate( self, sem, controlVariables, monitors, pAdaptator)
       
       USE Implicit_JF , ONLY : TakeBDFStep_JF
       USE Implicit_NJ , ONLY : TakeBDFStep_NJ
       use FASMultigridClass
       use AnisFASMultigridClass
+      use pAdaptationClass
       use StopwatchClass
       
       implicit none
@@ -146,14 +147,16 @@
       TYPE(DGSem)                   :: sem
       TYPE(FTValueDictionary)       :: controlVariables
       class(Monitor_t)              :: monitors
+      type(pAdaptation_t)           :: pAdaptator
 
 !
 !     ---------
 !     Internal variables
 !     ---------
 !
+      integer              :: PA_Stage  ! P-adaptation stage
       real(kind=RP)        :: FMGres    ! Target residual for FMG solver
-      type(FASMultigrid_t) :: FMGSolver
+      type(FASMultigrid_t) :: FMGSolver ! FAS multigrid solver for Full-Multigrid (FMG) initialization
       
 !     Initializations
 !     ---------------
@@ -179,6 +182,28 @@
          call FMGSolver % solve(0,0._RP,.TRUE.,FMGres)
          
          call FMGSolver % destruct
+      end if
+      
+!     Perform p-adaptation stage(s) if requested
+!     ------------------------------------------
+      if (pAdaptator % Adapt) then
+         write(STD_OUT,*) '*******    Performing p-adaptation    *******'
+         
+         PA_Stage = 0
+         do while (pAdaptator % Adapt)
+            PA_Stage = PA_Stage + 1
+            
+            call IntegrateInTime( self, sem, controlVariables, monitors, pAdaptator % reqTE*0.1_RP)  ! The residual is hard-coded to 0.1 * truncation error threshold (see Kompenhans, Moritz, et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.)
+            
+            !! TODO: Call p-Adaptator plotter
+            call pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,0._RP)  ! Time is hardcoded to 0._RP (not important since it's only for STEADY_STATE)
+            
+            call self % Display(sem % mesh, monitors)
+            
+            !! TODO: Call p-Adaptator plotter
+            !Write plot file
+            
+         end do
       end if
       
 !     Finish time integration
