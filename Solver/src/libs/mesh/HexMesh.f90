@@ -1568,7 +1568,27 @@ slavecoord:                DO l = 1, 4
             end associate
             
          end do
-         
+!
+!        ------------------------------------------------------
+!        Compute the faces minimum orthogonal distance estimate
+!        ------------------------------------------------------
+!
+         do fID = 1, size(self % faces)
+            associate(f => self % faces(fID))
+            select case(f % faceType)
+            case(HMESH_INTERIOR)
+               f % geom % h = min(minval(self % elements(f % elementIDs(1)) % geom % jacobian), & 
+                                  minval(self % elements(f % elementIDs(2)) % geom % jacobian)) &
+                        / maxval(f % geom % jacobian)
+            case(HMESH_BOUNDARY)
+               f % geom % h = minval(self % elements(f % elementIDs(1)) % geom % jacobian) &
+                        / maxval(f % geom % jacobian)
+            case(HMESH_MPI)
+               f % geom % h = minval(self % elements(maxval(f % elementIDs)) % geom % jacobian) &
+                        / maxval(f % geom % jacobian)
+            end select
+            end associate
+         end do 
 !
 !        ---------
 !        Finish up

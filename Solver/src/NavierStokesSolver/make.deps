@@ -7,14 +7,6 @@
                         ./build/DGSEMClass.o \
                         ./build/pAdaptationClass.o
 
-./build/DGViscousDiscretization.o: ./build/DGWeakIntegrals.o 
-
-./build/SpatialDiscretization.o: ./build/DGInviscidDiscretization.o \
-				 ./build/DGViscousDiscretization.o \
-				 ./build/DGWeakIntegrals.o
-
-./build/DGSEMClass.o: ./build/SpatialDiscretization.o 
-
 ./build/TimeIntegrator.o: ./build/DGSEMClass.o ./build/Implicit_JF.o \
 	./build/Implicit_NJ.o \
 	./build/ExplicitMethods.o \

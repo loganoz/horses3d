@@ -13,8 +13,8 @@
 #include "Includes.h"
 module SpatialDiscretization
       use SMConstants
-      use DGInviscidDiscretization
-      use DGViscousDiscretization
+      use InviscidMethods
+      use ViscousMethods
       use DGWeakIntegrals
       use MeshTypes
 #ifdef _HAS_MPI_
@@ -36,6 +36,7 @@ module SpatialDiscretization
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
          character(len=LINE_LENGTH)       :: inviscidDiscretization
+         character(len=LINE_LENGTH)       :: viscousDiscretization
          interface
             subroutine toLower(str)
                character(*), intent(in out) :: str
@@ -47,7 +48,9 @@ module SpatialDiscretization
             call Section_Header("Spatial discretization scheme")
             write(STD_OUT,'(/)')
          end if
-
+!
+!        Initialize inviscid discretization
+!        ----------------------------------
          inviscidDiscretization = controlVariables % stringValueForKey(inviscidDiscretizationKey,requestedLength = LINE_LENGTH)
 
          call toLower(inviscidDiscretization)
@@ -71,9 +74,29 @@ module SpatialDiscretization
          end select
             
          call InviscidMethod % Initialize(controlVariables)
-         
+!
+!        Initialize viscous discretization
+!        ---------------------------------         
          if ( flowIsNavierStokes ) then
-            if (.not. allocated(ViscousMethod)) allocate( BassiRebay1_t :: ViscousMethod  ) 
+            viscousDiscretization = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
+            call toLower(viscousDiscretization)
+            
+            select case ( trim(viscousDiscretization) )
+            case("br1")
+               if (.not. allocated(ViscousMethod)) allocate( BassiRebay1_t :: ViscousMethod  ) 
+
+            case("ip")
+               if (.not. allocated(ViscousMethod)) allocate( InteriorPenalty_t :: ViscousMethod  ) 
+
+            case default
+               write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretization),'" is not implemented.'
+               write(STD_OUT,'(A)') "Implemented discretizations are:"
+               write(STD_OUT,'(A)') "  * BR1"
+               write(STD_OUT,'(A)') "  * IP"
+               errorMessage(STD_OUT)
+               stop 
+
+            end select
    
          else
             if (.not. allocated(ViscousMethod)) allocate( ViscousMethod_t  :: ViscousMethod )
@@ -336,7 +359,8 @@ module SpatialDiscretization
                                   t2     = f % geom % t2(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
 
-               CALL ViscousMethod % RiemannSolver(QLeft = f % storage(1) % Q(:,i,j), &
+               CALL ViscousMethod % RiemannSolver(f = f, &
+                                                  QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
                                                   U_yLeft = f % storage(1) % U_y(:,i,j), &
@@ -389,7 +413,8 @@ module SpatialDiscretization
                                   t2     = f % geom % t2(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
 
-               CALL ViscousMethod % RiemannSolver(QLeft = f % storage(1) % Q(:,i,j), &
+               CALL ViscousMethod % RiemannSolver(f = f, &
+                                                  QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
                                                   U_yLeft = f % storage(1) % U_y(:,i,j), &
@@ -421,7 +446,7 @@ module SpatialDiscretization
       SUBROUTINE computeBoundaryFlux(f, time, externalStateProcedure , externalGradientsProcedure)
       USE ElementClass
       use FaceClass
-      USE DGViscousDiscretization
+      USE ViscousMethods
       USE Physics
       use PhysicsStorage
       USE BoundaryConditionFunctions
@@ -482,7 +507,8 @@ module SpatialDiscretization
                                               UGradExt,&
                                               boundaryType )
 
-            CALL ViscousMethod % RiemannSolver( QLeft = f % storage(1) % Q(:,i,j), &
+            CALL ViscousMethod % RiemannSolver( f = f, &
+                                                QLeft = f % storage(1) % Q(:,i,j), &
                                                 QRight = f % storage(2) % Q(:,i,j), &
                                                 U_xLeft = f % storage(1) % U_x(:,i,j), &
                                                 U_yLeft = f % storage(1) % U_y(:,i,j), &

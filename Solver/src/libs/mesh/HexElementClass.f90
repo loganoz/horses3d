@@ -407,8 +407,6 @@
                                               + U_zeta(:,i,j,k) * self % geom % jGradZeta(3,i,j,k))& 
                                             * invjac
          end do         ; end do          ; end do
-
-
          end associate
 
       end subroutine HexElement_ComputeLocalGradient

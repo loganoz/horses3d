@@ -340,6 +340,11 @@ end interface
             call controlVariables % addValueForKey("Standard",inviscidDiscretizationKey)
          end if
 
+         obj => controlVariables % objectForKey(viscousDiscretizationKey)
+         if ( .not. associated(obj) ) then
+            call controlVariables % addValueForKey("BR1",viscousDiscretizationKey)
+         end if
+
          obj => controlVariables % objectForKey(splitFormKey)
          if ( .not. associated(obj) ) then
             call controlVariables % addValueForKey("Ducros",splitFormKey)

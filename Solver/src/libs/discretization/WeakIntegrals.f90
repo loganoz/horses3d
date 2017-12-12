@@ -2,12 +2,16 @@ module DGWeakIntegrals
    use SMConstants
    use ElementClass
    use PhysicsStorage
-   use Physics
+   use PhysicsStorage, only: N_EQN, N_GRAD_EQN, IX,IY,IZ
+   use MeshTypes
+   use Physics, only: GradientValuesForQ
    implicit none
 
 
    private
 
+   public ScalarWeakIntegrals_t, VectorWeakIntegrals_t
+   public ScalarWeakIntegrals  , VectorWeakIntegrals  
    
    type  ScalarWeakIntegrals_t
       contains
@@ -22,11 +26,9 @@ module DGWeakIntegrals
          procedure, nopass    :: StdFace => VectorWeakIntegrals_StdFace
    end type VectorWeakIntegrals_t
 
-   public ScalarWeakIntegrals_t, VectorWeakIntegrals_t
-   public ScalarWeakIntegrals  , VectorWeakIntegrals
-   
-   type(ScalarWeakIntegrals_t)      :: ScalarWeakIntegrals
-   type(VectorWeakIntegrals_t)      :: VectorWeakIntegrals
+
+   type(ScalarWeakIntegrals_t)   :: ScalarWeakIntegrals
+   type(VectorWeakIntegrals_t)   :: VectorWeakIntegrals
 !
 !  ========
    contains
@@ -166,6 +168,16 @@ module DGWeakIntegrals
 !/////////////////////////////////////////////////////////////////////////////
 !
       subroutine VectorWeakIntegrals_StdVolumeGreen( e, U, volInt_x, volInt_y, volInt_z )
+!
+!        ***********************************************************************************
+!              This integrals compute:
+!
+!                 volInt_d(i,j,k) =   (Ja^1_d)_{ijk}\sum_{m=0}^N \hat{D}_{im}U_{mjk}
+!                                   + (Ja^2_d)_{ijk}\sum_{m=0}^N \hat{D}_{jm}U_{imk}
+!                                   + (Ja^3_d)_{ijk}\sum_{m=0}^N \hat{D}_{km}U_{ijk}
+!
+!        ***********************************************************************************
+!
          use ElementClass
          use Physics
          use PhysicsStorage
@@ -181,29 +193,31 @@ module DGWeakIntegrals
 !        ---------------
 !
          integer        :: i,j,k,l
-         real(kind=RP)  :: contravariantU(N_GRAD_EQN,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3),NDIM )
+         real(kind=RP)  :: U_xi(N_GRAD_EQN,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP)  :: U_eta(N_GRAD_EQN,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP)  :: U_zeta(N_GRAD_EQN,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
 
          volInt_x = 0.0_RP
          volInt_y = 0.0_RP
          volInt_z = 0.0_RP
 
-            do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do l = 0, e%Nxyz(1) ; do i = 0, e%Nxyz(1)
-               volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + e % spAxi % hatD(i,l) * e % geom % jGradXi(IX,l,j,k) * U(:,l,j,k)
-               volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + e % spAxi % hatD(i,l) * e % geom % jGradXi(IY,l,j,k) * U(:,l,j,k)
-               volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + e % spAxi % hatD(i,l) * e % geom % jGradXi(IZ,l,j,k) * U(:,l,j,k)
-            end do               ; end do                ; end do             ; end do
+         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do l = 0, e%Nxyz(1) ; do i = 0, e%Nxyz(1)
+            volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + e % spAxi % hatD(i,l) * e % geom % jGradXi(IX,l,j,k) * U(:,l,j,k)
+            volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + e % spAxi % hatD(i,l) * e % geom % jGradXi(IY,l,j,k) * U(:,l,j,k)
+            volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + e % spAxi % hatD(i,l) * e % geom % jGradXi(IZ,l,j,k) * U(:,l,j,k)
+         end do               ; end do                ; end do             ; end do
 
-            do k = 0, e%Nxyz(3)   ; do l = 0, e%Nxyz(2) ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
-               volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + e % spAeta % hatD(j,l) * e % geom % jGradEta(IX,i,l,k) * U(:,i,l,k)
-               volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + e % spAeta % hatD(j,l) * e % geom % jGradEta(IY,i,l,k) * U(:,i,l,k)
-               volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + e % spAeta % hatD(j,l) * e % geom % jGradEta(IZ,i,l,k) * U(:,i,l,k)
-            end do               ; end do                ; end do    ; end do
-
-            do l = 0, e%Nxyz(3) ; do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
-               volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + e % spAzeta % hatD(k,l) * e % geom % jGradZeta(IX,i,j,l) * U(:,i,j,l)
-               volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + e % spAzeta % hatD(k,l) * e % geom % jGradZeta(IY,i,j,l) * U(:,i,j,l)
-               volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + e % spAzeta % hatD(k,l) * e % geom % jGradZeta(IZ,i,j,l) * U(:,i,j,l)
-            end do             ; end do               ; end do                ; end do
+         do k = 0, e%Nxyz(3)   ; do l = 0, e%Nxyz(2) ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
+            volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + e % spAeta % hatD(j,l) * e % geom % jGradEta(IX,i,l,k) * U(:,i,l,k)
+            volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + e % spAeta % hatD(j,l) * e % geom % jGradEta(IY,i,l,k) * U(:,i,l,k)
+            volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + e % spAeta % hatD(j,l) * e % geom % jGradEta(IZ,i,l,k) * U(:,i,l,k)
+         end do               ; end do                ; end do    ; end do
+ 
+         do l = 0, e%Nxyz(3) ; do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
+            volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + e % spAzeta % hatD(k,l) * e % geom % jGradZeta(IX,i,j,l) * U(:,i,j,l)
+            volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + e % spAzeta % hatD(k,l) * e % geom % jGradZeta(IY,i,j,l) * U(:,i,j,l)
+            volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + e % spAzeta % hatD(k,l) * e % geom % jGradZeta(IZ,i,j,l) * U(:,i,j,l)
+         end do             ; end do               ; end do                ; end do
    
       end subroutine VectorWeakIntegrals_StdVolumeGreen
 !
@@ -264,9 +278,9 @@ module DGWeakIntegrals
             faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HBK(:,IZ, iXi, iZeta) * e % spAeta % b(iEta, RIGHT) 
          end do                 ; end do                ; end do
 !
-!     ------------------
-!  >  Zeta-contributions
-!     ------------------
+!        ------------------
+!>       Zeta-contributions
+!        ------------------
 !
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
             faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HBO(:, IX, iXi, iEta) * e % spAzeta % b(iZeta, LEFT) 
@@ -281,5 +295,4 @@ module DGWeakIntegrals
          end do                 ; end do                ; end do
 
       end subroutine VectorWeakIntegrals_StdFace
-
 end module DGWeakIntegrals

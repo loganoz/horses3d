@@ -12,7 +12,7 @@
       USE DGSEMClass
       USE SpatialDiscretization
       USE SetupModule
-      USE DGViscousDiscretization
+      use ViscousMethods
       
       IMPLICIT NONE
 !
@@ -117,7 +117,7 @@
       USE DGSEMClass
       USE SpatialDiscretization
       USE SetupModule
-      use DGViscousDiscretization
+      use ViscousMethods
       
       IMPLICIT NONE
 !

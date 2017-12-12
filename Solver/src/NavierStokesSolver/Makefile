@@ -24,11 +24,7 @@ AR=ar
 RANLIB=ranlib
 PROG=./bin/HORSES3D
 
-OBJS_HORSES=	DGInviscidDiscretization \
-		DGViscousDiscretization \
-		DGWeakIntegrals \
-		DGSEMClass \
-		SpatialDiscretization \
+OBJS_HORSES=	DGSEMClass \
 		TimeIntegrator \
 		pAdaptationClass \
 		Implicit_JF \
