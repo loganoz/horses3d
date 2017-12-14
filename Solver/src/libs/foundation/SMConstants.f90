@@ -50,7 +50,7 @@
 
          INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
 
-         CHARACTER(len=*), parameter   :: VERSION = "v0.5- Development"
+         CHARACTER(len=*), parameter   :: VERSION = "v0.6"
 
 
          
