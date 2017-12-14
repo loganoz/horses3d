@@ -13,6 +13,7 @@ module ViscousBR1
 
    type, extends(ViscousMethod_t)   :: BassiRebay1_t
       contains
+         procedure      :: Initialize         => BR1_Initialize
          procedure      :: ComputeGradient    => BR1_ComputeGradient
          procedure      :: ComputeInnerFluxes => BR1_ComputeInnerFluxes
          procedure      :: RiemannSolver      => BR1_RiemannSolver
@@ -22,6 +23,32 @@ module ViscousBR1
    contains
 !  ========
 !
+      subroutine BR1_Initialize(self, controlVariables)
+         use FTValueDictionaryClass
+         use mainKeywordsModule
+         use Headers
+         use MPI_Process_Info
+         use PhysicsStorage
+         implicit none
+         class(BassiRebay1_t)                  :: self
+         class(FTValueDictionary),  intent(in) :: controlVariables
+         interface
+            subroutine toLower(str)
+               character(*), intent(in out) :: str
+            end subroutine toLower
+         end interface
+!
+!        Display the configuration
+!        -------------------------
+         if (MPI_Process % isRoot) write(STD_OUT,'(/)')
+         call Subsection_Header("Viscous discretization")
+
+         if (.not. MPI_Process % isRoot ) return
+
+         write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","BR1"
+
+      end subroutine BR1_Initialize
+
       subroutine BR1_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
          use HexMeshClass
          use PhysicsStorage

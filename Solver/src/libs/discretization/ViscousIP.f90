@@ -4,12 +4,13 @@
 !   @File:    ViscousIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Wed Dec 13 20:00:30 2017
+!   @Last revision date: Thu Dec 14 13:59:01 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: dd41d1867321d548cfb82fb2c4ae6d579d7ba5bb
+!   @Last revision commit: ee363fdf2aeb31b38afd8e7d02ae5b71ddf5266c
 !
 !//////////////////////////////////////////////////////
 !
+#include "Includes.h"
 module ViscousIP
    use SMConstants
    use MeshTypes
@@ -33,6 +34,7 @@ module ViscousIP
       real(kind=RP)        :: sigma = 1.0_RP
       integer              :: IPmethod = SIPG
       contains
+         procedure      :: Initialize         => IP_Initialize
          procedure      :: ComputeGradient    => IP_ComputeGradient
          procedure      :: ComputeInnerFluxes => IP_ComputeInnerFluxes
          procedure      :: RiemannSolver      => IP_RiemannSolver
@@ -42,6 +44,97 @@ module ViscousIP
    contains
 !  ========
 !
+      subroutine IP_Initialize(self, controlVariables)
+         use FTValueDictionaryClass
+         use mainKeywordsModule
+         use Headers
+         use MPI_Process_Info
+         use PhysicsStorage
+         implicit none
+         class(InteriorPenalty_t)                :: self
+         class(FTValueDictionary),  intent(in) :: controlVariables
+         character(len=LINE_LENGTH)            :: IPvariant
+         interface
+            subroutine toLower(str)
+               character(*), intent(in out) :: str
+            end subroutine toLower
+         end interface
+!
+!        Request the penalty parameter
+!        -----------------------------
+         if ( controlVariables % containsKey("penalty parameter") ) then
+            self % sigma = controlVariables % doublePrecisionValueForKey("penalty parameter")
+
+         else
+!            
+!           Set 1.0 by default
+!           ------------------
+            self % sigma = 1.0_RP
+
+         end if
+!
+!        Request the interior penalty variant
+!        ------------------------------------
+         if ( controlVariables % containsKey("interior penalty variant") ) then
+            IPvariant = controlVariables % stringValueForKey("interior penalty variant", LINE_LENGTH)
+            call toLower(IPVariant)
+      
+         else
+!
+!           Select SIPG by default
+!           ----------------------
+            IPvariant = "sipg"
+   
+         end if
+
+         select case (trim(IPvariant))
+         case("sipg")
+            self % IPmethod = SIPG
+
+         case("iipg")
+            self % IPmethod = IIPG
+
+         case("nipg")
+            self % IPmethod = NIPG
+
+         case default
+            if ( MPI_Process % isRoot ) then
+            print*, "Unknown selected IP variant", trim(IPvariant), "."
+            print*, "Available options are:"
+            print*, "   * SIPG"
+            print*, "   * IIPG"
+            print*, "   * NIPG"
+            errorMessage(STD_OUT)
+            stop
+            end if
+         end select
+
+!
+!        Display the configuration
+!        -------------------------
+         if (MPI_Process % isRoot) write(STD_OUT,'(/)')
+         call Subsection_Header("Viscous discretization")
+
+         if (.not. MPI_Process % isRoot ) return
+
+         write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","IP"
+
+         select case(self % IPmethod)
+         case(SIPG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Interior penalty variant: ","SIPG"
+
+         case(NIPG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Interior penalty variant: ","NIPG"
+
+         case(IIPG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Interior penalty variant: ","IIPG"
+            
+         end select
+
+         write(STD_OUT,'(30X,A,A30,F10.3)') "->","Penalty parameter: ", self % sigma
+            
+      end subroutine IP_Initialize
+
       subroutine IP_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
          use HexMeshClass
          use PhysicsStorage
@@ -390,7 +483,6 @@ module ViscousIP
 !
 !        Shahbazi estimate
 !        -----------------
-         self % sigma = 1.0_RP
          sigma = 0.5_RP * self % sigma * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h * dimensionless % mu
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) + sigma * (QRight - QLeft)

@@ -102,6 +102,8 @@ module SpatialDiscretization
             if (.not. allocated(ViscousMethod)) allocate( ViscousMethod_t  :: ViscousMethod )
             
          end if
+
+         call ViscousMethod % Initialize(controlVariables)
          
       end subroutine Initialize_SpaceAndTimeMethods
 !

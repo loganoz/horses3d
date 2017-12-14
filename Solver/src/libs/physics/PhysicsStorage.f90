@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Sun Dec 10 16:53:42 2017
+!   @Last revision date: Thu Dec 14 11:01:27 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ba0860a80a171444b241edf1cde968cfc6e42f25
+!   @Last revision commit: ee770e25819fee9fc25e412cf5f2a91e970c3fac
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,13 +25,14 @@
          
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physicsKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
          
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME       = "central"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME           = "roe"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RUSANOV_SOLVER_NAME       = "rusanov"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME = "lax-friedrichs"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME        = "standard roe"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROEPIKE_SOLVER_NAME       = "roe-pike"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME       = "low dissipation roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME      ="central"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME          ="roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RUSANOV_SOLVER_NAME      ="rusanov"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME="lax-friedrichs"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME       ="standard roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROEPIKE_SOLVER_NAME      ="roe-pike"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME   ="low dissipation roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: VISCOUSNS_SOLVER_NAME    ="viscous ns"
       
          
       END MODULE PhysicsKeywordsModule
@@ -56,6 +57,7 @@
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV, RIEMANN_STDROE
      public    RIEMANN_CENTRAL, RIEMANN_ROEPIKE, RIEMANN_LOWDISSROE
+     public    RIEMANN_VISCOUSNS
      public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
      public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT
 
@@ -120,6 +122,7 @@
      integer, parameter :: RIEMANN_CENTRAL    = 5
      integer, parameter :: RIEMANN_ROEPIKE    = 6
      integer, parameter :: RIEMANN_LOWDISSROE = 7
+     integer, parameter :: RIEMANN_VISCOUSNS  = 8
      integer, protected :: whichRiemannSolver = -1
 !
 !    -----------------------------
@@ -347,6 +350,10 @@
 
          case(LOWDISSROE_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_LOWDISSROE
+
+         case(VISCOUSNS_SOLVER_NAME)
+            whichRiemannSolver = RIEMANN_VISCOUSNS
+            
             
          case default 
             print*, "Riemann solver: ", trim(keyword), " is not implemented."
@@ -358,6 +365,7 @@
             print*, "   * Rusanov"
             print*, "   * Roe-Pike"
             print*, "   * Low dissipation Roe"
+            print*, "   * Viscous NS"
             errorMessage(STD_OUT)
             stop
          end select 

@@ -12,6 +12,7 @@ module ViscousMethodClass
 
    type ViscousMethod_t
       contains
+         procedure      :: Initialize         => BaseClass_Initialize
          procedure      :: ComputeGradient    => BaseClass_ComputeGradient
          procedure      :: ComputeInnerFluxes => BaseClass_ComputeInnerFluxes
          procedure      :: RiemannSolver      => BaseClass_RiemannSolver
@@ -21,6 +22,22 @@ module ViscousMethodClass
    contains
 !  ========
 !
+      subroutine BaseClass_Initialize(self, controlVariables)
+         use FTValueDictionaryClass
+         use mainKeywordsModule
+         use Headers
+         use MPI_Process_Info
+         use PhysicsStorage
+         implicit none
+         class(ViscousMethod_t)                :: self
+         class(FTValueDictionary),  intent(in) :: controlVariables
+         interface
+            subroutine toLower(str)
+               character(*), intent(in out) :: str
+            end subroutine toLower
+         end interface
+
+      end subroutine BaseClass_Initialize
       subroutine BaseClass_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
 !
 !        *****************************************************
