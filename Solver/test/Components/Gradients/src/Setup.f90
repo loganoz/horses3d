@@ -13,6 +13,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: discretizationNodesKey  = "discretization nodes"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveGradientsToSolutionKey  = "save gradients with solution"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: inviscidDiscretizationKey  = "inviscid discretization"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: viscousDiscretizationKey  = "viscous discretization"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: splitFormKey               = "split form"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: machNumberKey           = "mach number"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: reynoldsNumberKey       = "reynolds number"
@@ -30,9 +31,10 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfPlotPointsKey   = "number of plot points"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfBoundariesKey   = "number of boundaries"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: solutionFileNameKey     = "solution file name"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(19) :: mainKeywords =  [machNumberKey,           &
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(20) :: mainKeywords =  [machNumberKey,           &
                                                                           discretizationNodesKey,  &
                                                                           inviscidDiscretizationKey, &
+                                                                          viscousDiscretizationKey, &
                                                                           splitFormKey, &
                                                                           saveGradientsToSolutionKey, &
                                                                           reynoldsNumberKey,       &

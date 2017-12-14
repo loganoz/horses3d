@@ -4,9 +4,9 @@
 !   @File:    RiemannSolvers.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:26 2017
-!   @Last revision date: Sun Dec 10 16:53:43 2017
+!   @Last revision date: Thu Dec 14 11:01:28 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ba0860a80a171444b241edf1cde968cfc6e42f25
+!   @Last revision commit: ee770e25819fee9fc25e412cf5f2a91e970c3fac
 !
 !//////////////////////////////////////////////////////
 !
@@ -87,6 +87,9 @@ module RiemannSolvers
          case ( RIEMANN_LOWDISSROE )
             RiemannSolver => LowDissipationRoeRiemannSolver
 
+         case ( RIEMANN_VISCOUSNS )
+            RiemannSolver => ViscousNSRiemannSolver
+
          case default
             print*, "Undefined choice of Riemann Solver."
             print*, "Options available are:"
@@ -97,6 +100,7 @@ module RiemannSolvers
             print*, "   * Low dissipation Roe"
             print*, "   * Lax-Friedrichs"
             print*, "   * Rusanov"
+            print*, "   * Viscous NS"
             errorMessage(STD_OUT)
             STOP
          end select
@@ -717,6 +721,185 @@ module RiemannSolvers
          end associate
 
       end subroutine LowDissipationRoeRiemannSolver
+
+      subroutine ViscousNSRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
+!
+!        ***********************************************************************
+!           This solver is designed such that it mimicks the dissipation
+!           introduced by compressible Navier-Stokes terms
+!        ***********************************************************************
+!
+         implicit none 
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer        :: i
+         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, rhoHL, rhoV2L, ML
+         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, rhoHR, rhoV2R, MR
+         real(kind=RP)  :: uL, vL, wL, uR, vR, wR, aL, aR, dLambda, z, du, dv, dw
+         real(kind=RP)  :: dp
+         real(kind=RP)  :: QLRot(5), QRRot(5)
+         real(kind=RP)  :: sqrtRhoL, sqrtRhoR, invSumSqrtRhoLR
+         real(kind=RP)  :: invSqrtRhoL, invSqrtRhoR, invRhoL, invRhoR
+         real(kind=RP)  :: rho, u, v, w, H, a, lambda(5), V2abs, tau(5,5)
+         real(kind=RP)  :: stab(5)
+         real(kind=RP)  :: divV
+
+         associate(gamma => thermodynamics % gamma, gm1 => thermodynamics % gammaMinus1)
+!
+!        Rotate the variables to the face local frame using normal and tangent vectors
+!        -----------------------------------------------------------------------------
+         rhoL = QLeft(1)                  ; rhoR = QRight(1)
+         invRhoL = 1.0_RP/ rhoL           ; invRhoR = 1.0_RP / rhoR
+         sqrtRhoL = sqrt(rhoL)            ; sqrtRhoR = sqrt(rhoR)
+         invSqrtRhoL = 1.0_RP / sqrtRhoL  ; invSqrtRhoR = 1.0_RP / sqrtRhoR
+         invSumSqrtRhoLR = 1.0_RP / (sqrtRhoL + sqrtRhoR)
+
+         rhouL = QLeft (2) * nHat(1) + QLeft (3) * nHat(2) + QLeft (4) * nHat(3)
+         rhouR = QRight(2) * nHat(1) + QRight(3) * nHat(2) + QRight(4) * nHat(3)
+
+         rhovL = QLeft(2)  * t1(1) + QLeft(3)  * t1(2) + QLeft(4)  * t1(3)
+         rhovR = QRight(2) * t1(1) + QRight(3) * t1(2) + QRight(4) * t1(3)
+
+         rhowL = QLeft(2)  * t2(1) + QLeft(3)  * t2(2) + QLeft(4)  * t2(3)
+         rhowR = QRight(2) * t2(1) + QRight(3) * t2(2) + QRight(4) * t2(3)
+
+         rhoeL = QLeft(5) ; rhoeR = QRight(5)                
+
+         uL = rhouL * invRhoL    ; uR = rhouR * invRhoR
+         vL = rhovL * invRhoL    ; vR = rhovR * invRhoR
+         wL = rhowL * invRhoL    ; wR = rhowR * invRhoR
+
+         rhoV2L = (POW2(uL) + POW2(vL) + POW2(wL)) * rhoL
+         rhoV2R = (POW2(uR) + POW2(vR) + POW2(wR)) * rhoR
+!
+!        Compute the enthalpy: here defined as rhoH = gogm1 p + 0.5 rho V^2
+!        --------------------
+         rhoHL = gamma*rhoeL - 0.5_RP*gm1*rhoV2L
+         rhoHR = gamma*rhoeR - 0.5_RP*gm1*rhoV2R
+
+         pL = gm1 * (rhoeL - 0.5_RP * rhoV2L)
+         pR = gm1 * (rhoeR - 0.5_RP * rhoV2R)
+         
+         aL = sqrt(gamma * pL * invRhoL)
+         aR = sqrt(gamma * pR * invRhoR)
+!
+!        Compute Roe - Pike variables
+!        ----------------------------
+         rho = sqrtRhoL * sqrtRhoR
+         u = (invSqrtRhoL * rhouL + invSqrtRhoR * rhouR) * invSumSqrtRhoLR
+         v = (invSqrtRhoL * rhovL + invSqrtRhoR * rhovR) * invSumSqrtRhoLR
+         w = (invSqrtRhoL * rhowL + invSqrtRhoR * rhowR) * invSumSqrtRhoLR
+         H = (invSqrtRhoL * rhoHL + invSqrtRhoR * rhoHR) * invSumSqrtRhoLR
+         V2abs = POW2(u) + POW2(v) + POW2(w)
+         a = sqrt(gm1*(H - 0.5_RP*V2abs))
+!
+!        Eigenvalues
+!        -----------
+         lambda(1)   = u-a
+         lambda(2:4) = u
+         lambda(5)   = u+a
+!
+!        **********************
+!        Perform an entropy fix. Here we use Van Leer's modification of Harten's entropy fix, derived
+!        in: A. Harten, "High resolution schemes for hyperbolic conservation laws". To recover the
+!        Harten entropy fix, set dLambda to 0.5
+!        **********************
+!
+!        Wave #1
+!        -------
+         dLambda = max((uR-aR) - (uL-aL), 0.0_RP)
+         if ( abs(lambda(1)) .ge. 2.0_RP * dLambda ) then
+            lambda(1) = abs(lambda(1))
+         
+         else
+            lambda(1) = POW2(lambda(1)) / (4.0_RP * dLambda) + dLambda
+
+         end if
+!
+!        Wave #5
+!        -------
+         dLambda = max((uR+aR) - (uL+aL), 0.0_RP)
+         if ( abs(lambda(5)) .ge. 2.0_RP * dLambda ) then
+            lambda(5) = abs(lambda(5))
+         
+         else
+            lambda(5) = POW2(lambda(5)) / (4.0_RP * dLambda) + dLambda
+
+         end if
+!
+!        ****************
+!        Compute the flux
+!        ****************
+!
+!        Perform the average using the averaging function
+!        ------------------------------------------------
+         QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL /)
+         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR /)
+         call AveragedStates(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux)
+!
+!        Compute the stabilization
+!        -------------------------
+         select case (whichAverage)
+         case(PIROZZOLI_SPLIT, KENNEDYGRUBER_SPLIT)
+!
+!           ***************************************************************************
+!           Eigenvalue matrix is corrected for PI and KG variants, see Winters et. al. 
+!           "A comparative study on polynomial dealiasing and split form discontinuous 
+!           Galerkin schemes for under-resolved turbulence computations"
+!           ***************************************************************************
+!
+            lambda(1) = lambda(5)
+         end select
+!
+!        Use the non-rotated velocities
+!        ------------------------------
+         uL = QLeft(2) / QLeft(1)   ;     uR = QRight(2) / QRight(1)
+         vL = QLeft(3) / QLeft(1)   ;     vR = QRight(3) / QRight(1)
+         wL = QLeft(4) / QLeft(1)   ;     wR = QRight(4) / QRight(1)
+
+         divV = (uR-uL)*nHat(1) + (vR-vL)*nHat(2) + (wR-wL)*nHat(3)
+
+         tau(1,1) = 2.0_RP * (uR-uL)*nHat(1) - (1.0_RP/3.0_RP) * divV
+         tau(2,3) = 2.0_RP * (vR-vL)*nHat(2) - (1.0_RP/3.0_RP) * divV
+         tau(2,3) = 2.0_RP * (wR-wL)*nHat(3) - (1.0_RP/3.0_RP) * divV
+
+         tau(1,2) = (uR-uL)*nHat(2) + (vR-vL)*nHat(1)
+         tau(1,3) = (uR-uL)*nHat(3) + (wR-wL)*nHat(1)
+         tau(2,3) = (vR-vL)*nHat(3) + (wR-wL)*nHat(2)
+
+         tau(2,1) = tau(1,2)
+         tau(3,1) = tau(1,3)
+         tau(2,3) = tau(3,2)
+
+         
+         stab(1) = 0.0_RP
+         stab(2) = maxval(abs(lambda)) * (tau(1,1)*nHat(1) + tau(1,2)*nHat(2) + tau(1,3)*nHat(3))
+         stab(3) = maxval(abs(lambda)) * (tau(2,1)*nHat(1) + tau(2,2)*nHat(2) + tau(2,3)*nHat(3))
+         stab(4) = maxval(abs(lambda)) * (tau(3,1)*nHat(1) + tau(3,2)*nHat(2) + tau(3,3)*nHat(3))
+         stab(5) = maxval(abs(lambda)) *(( u * tau(1,1) + v*tau(1,2) + w*tau(1,3) ) * nHat(1) &
+                                       + ( u * tau(2,1) + v*tau(2,2) + w*tau(2,3) ) * nHat(2) &
+                                       + ( u * tau(3,1) + v*tau(3,2) + w*tau(3,3) ) * nHat(3) )
+!
+!        ************************************************
+!        Return momentum equations to the cartesian frame
+!        ************************************************
+!
+         flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
+!
+!        Compute the flux: apply the lambda stabilization here.
+!        ----------------
+         flux = flux - lambdaStab * stab
+
+         end associate
+
+      end subroutine ViscousNSRiemannSolver
 !
 !////////////////////////////////////////////////////////////////////////
 !

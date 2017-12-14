@@ -87,9 +87,15 @@ OBJS_HORSES=  SMConstants \
 		StatisticsMonitor \
 		Probe\
 		Monitors \
-		DGInviscidDiscretization \
-		DGViscousDiscretization \
-		DGWeakIntegrals \
+		InviscidMethodClass \
+		InviscidStandard \
+		InviscidSplitForm \
+		InviscidMethods \
+		ViscousMethodClass \
+		ViscousBR1 \
+		ViscousIP \
+		ViscousMethods \
+		WeakIntegrals \
 		DGSEMClass \
 		SpatialDiscretization \
 		NodalStorageClass \
