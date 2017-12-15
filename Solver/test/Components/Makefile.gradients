@@ -93,6 +93,7 @@ OBJS_HORSES=  SMConstants \
 		InviscidMethods \
 		ViscousMethodClass \
 		ViscousBR1 \
+		ViscousBR2 \
 		ViscousIP \
 		ViscousMethods \
 		WeakIntegrals \
