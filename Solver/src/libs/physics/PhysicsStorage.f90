@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Thu Dec 14 11:01:27 2017
+!   @Last revision date: Fri Dec 15 19:06:26 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ee770e25819fee9fc25e412cf5f2a91e970c3fac
+!   @Last revision commit: 6ff4e62306809f27aca94408301b7dfab13e3a6b
 !
 !//////////////////////////////////////////////////////
 !
@@ -179,6 +179,7 @@
       SUBROUTINE ConstructPhysicsStorage( controlVariables, success )
       USE FTValueDictionaryClass
       USE PhysicsKeywordsModule
+      use Utilities, only: toLower
 !
 !     ---------
 !     Arguments

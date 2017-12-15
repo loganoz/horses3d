@@ -108,6 +108,7 @@
 ! using barycentric form.
 !---------------------------------------------------------------------
 !
+      use Utilities, only: almostEqual
       INTEGER                      , INTENT(IN)  :: N       !! Polynomial order
       REAL(KIND=RP)                , INTENT(IN)  :: x       !! evaluation point
       REAL(KIND=RP), DIMENSION(0:N), INTENT(IN)  :: nodes   !! Interpolation nodes
@@ -121,12 +122,6 @@
       INTEGER       :: j
       LOGICAL       :: xMatchesNode
       REAL(KIND=RP) :: d, t
-!
-!     ---------
-!     Externals
-!     ---------
-!
-      LOGICAL, EXTERNAL :: AlmostEqual
 !
 !     -------------------------------------
 !     See if the evaluation point is a node
@@ -243,6 +238,7 @@
 !     Arguments
 !     ---------
 !
+      use Utilities, only: almostEqual
       REAL(KIND=RP)                 :: x
       INTEGER                       :: N
       REAL(KIND=RP), DIMENSION(0:N) :: nodes
@@ -255,8 +251,6 @@
 !
       INTEGER       :: j
       REAL(KIND=RP) :: t, numerator, denominator
-      
-      LOGICAL, EXTERNAL :: AlmostEqual
       
       numerator   = 0.0_RP
       denominator = 0.0_RP
@@ -285,6 +279,7 @@
 !     Arguments
 !     ---------
 !
+      use Utilities, only: almostEqual
       REAL(KIND=RP)                 :: l     !>  Lagrange interpolant
       REAL(KIND=RP)                 :: x     !<  Point of evaluation of interpolant
       INTEGER                       :: N     !<  Polynomial order  
@@ -297,7 +292,6 @@
 !
       INTEGER                       :: i
       REAL(KIND=RP)                 :: numerator, denominator
-      LOGICAL, EXTERNAL             :: AlmostEqual
       REAL(KIND=RP), DIMENSION(0:N) :: values
       !-----------------------------------------------------------------------------
       
@@ -396,6 +390,7 @@
 !     Arguments
 !     ---------
 !
+      use Utilities, only: almostEqual
       INTEGER                      , INTENT(IN)  :: N, M
       REAL(KIND=RP), DIMENSION(0:N), INTENT(IN)  :: oldNodes
       REAL(KIND=RP), DIMENSION(0:M), INTENT(IN)  :: newNodes
@@ -409,7 +404,6 @@
 !
       INTEGER           :: j,k
       REAL(KIND=RP)     :: s, tmp
-      LOGICAL, EXTERNAL :: AlmostEqual
       LOGICAL           :: rowHasMatch
      
       DO k = 0,M

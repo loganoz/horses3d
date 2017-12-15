@@ -4,9 +4,9 @@
 !   @File:    ViscousIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Fri Dec 15 17:39:19 2017
+!   @Last revision date: Fri Dec 15 19:06:20 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 3f52e4fec56acdc2657420c274f99b342c67dd81
+!   @Last revision commit: 6ff4e62306809f27aca94408301b7dfab13e3a6b
 !
 !//////////////////////////////////////////////////////
 !
@@ -46,6 +46,7 @@ module ViscousIP
 !
       subroutine IP_Initialize(self, controlVariables)
          use FTValueDictionaryClass
+         use Utilities, only: toLower
          use mainKeywordsModule
          use Headers
          use MPI_Process_Info
@@ -54,11 +55,6 @@ module ViscousIP
          class(InteriorPenalty_t)                :: self
          class(FTValueDictionary),  intent(in) :: controlVariables
          character(len=LINE_LENGTH)            :: IPvariant
-         interface
-            subroutine toLower(str)
-               character(*), intent(in out) :: str
-            end subroutine toLower
-         end interface
 !
 !        Request the penalty parameter
 !        -----------------------------
