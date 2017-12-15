@@ -354,7 +354,7 @@ module SurfaceIntegrals
 !              Compute the integral
 !              --------------------
                p = Pressure(Q(:,i,j))
-               tau = getStressTensor(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j))
+               call getStressTensor(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j), tau)
 
                val = val + ( p * f % geom % normal(:,i,j) - matmul(tau,f % geom % normal(:,i,j)) ) &
                            * f % geom % jacobian(i,j) * f % spAxi % w(i) * f % spAeta % w(j)
@@ -390,7 +390,7 @@ module SurfaceIntegrals
 !
 !              Compute the integral
 !              --------------------
-               tau = getStressTensor(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j))
+               call getStressTensor(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j), tau)
                val = val - matmul(tau,f % geom % normal(:,i,j)) * f % geom % jacobian(i,j) &
                            * f % spAxi % w(i) * f % spAeta % w(j)
 

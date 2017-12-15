@@ -4,9 +4,9 @@
 !   @File:    InviscidMethodClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:16:30 2017
-!   @Last revision date: Fri Dec 15 17:39:16 2017
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 3f52e4fec56acdc2657420c274f99b342c67dd81
+!   @Last revision date: Sat Dec 16 11:09:33 2017
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: ddec1961effb920e19c9b28e302f01273406797c
 !
 !//////////////////////////////////////////////////////
 !
@@ -31,7 +31,7 @@ module InviscidMethodClass
    end type InviscidMethod_t
 
    abstract interface
-      function VolumetricSharpFlux_FCN(QL,QR,JaL,JaR) 
+      subroutine VolumetricSharpFlux_FCN(QL,QR,JaL,JaR,fSharp) 
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -39,8 +39,8 @@ module InviscidMethodClass
          real(kind=RP), intent(in)       :: QR(1:NCONS)
          real(kind=RP), intent(in)       :: JaL(1:NDIM)
          real(kind=RP), intent(in)       :: JaR(1:NDIM)
-         real(kind=RP), dimension(NCONS) :: VolumetricSharpFlux_FCN
-      end function VolumetricSharpFlux_FCN
+         real(kind=RP), intent(out)      :: fSharp(1:NCONS)
+      end subroutine VolumetricSharpFlux_FCN
    end interface
 !
 !  ========

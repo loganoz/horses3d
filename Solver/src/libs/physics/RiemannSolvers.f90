@@ -4,9 +4,9 @@
 !   @File:    RiemannSolvers.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:26 2017
-!   @Last revision date: Fri Dec 15 18:03:51 2017
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 6d4f2964f557509b30fb05c7aaa354654275f4bd
+!   @Last revision date: Sat Dec 16 12:49:10 2017
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 34738aecad241ffbe014e25f1886dfc1b47f81e1
 !
 !//////////////////////////////////////////////////////
 !
@@ -128,6 +128,14 @@ module RiemannSolvers
          case (KENNEDYGRUBER_SPLIT)
             AveragedStates => KennedyGruberAverage
             whichAverage = KENNEDYGRUBER_SPLIT
+
+         case (ENTROPYCONS_SPLIT)
+            AveragedStates => EntropyConservingAverage
+            whichAverage = ENTROPYCONS_SPLIT
+
+         case (ENTROPYANDENERGYCONS_SPLIT)
+            AveragedStates => EntropyAndEnergyConservingAverage
+            whichAverage = ENTROPYANDENERGYCONS_SPLIT
 
          case default
             print*, "Split form not recognized"
@@ -1415,4 +1423,122 @@ module RiemannSolvers
          flux(IRHOE) = rho * u * h
          
       end subroutine PirozzoliAverage
+
+      subroutine EntropyConservingAverage(QLeft,QRight, pL, pR, invRhoL, invRhoR, flux)
+         use SMConstants
+         use PhysicsStorage
+         use Utilities, only: logarithmicMean
+         implicit none
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: pL, pR
+         real(kind=RP), intent(in)       :: invRhoL, invRhoR
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: rhoL, uL, vL, wL
+         real(kind=RP)     :: rhoR, uR, vR, wR
+         real(kind=RP)     :: rho, u, v, w, h, p, p2
+         real(kind=RP)     :: zL(NCONS), zR(NCONS), zSum(NCONS), invZ1Sum
+         real(kind=RP)     :: z5Log, z1Log
+
+         associate ( gammaPlus1Div2      => thermodynamics % gammaPlus1Div2, &
+                     gammaMinus1Div2     => thermodynamics % gammaMinus1Div2, &
+                     gammaDivGammaMinus1 => thermodynamics % gammaDivGammaMinus1, &
+                     invGamma            => thermodynamics % invGamma ) 
+
+         rhoL = QLeft(IRHO)               ; rhoR = QRight(IRHO)
+         uL = invRhoL * QLeft(IRHOU)      ; uR = invRhoR * QRight(IRHOU)
+         vL = invRhoL * QLeft(IRHOV)      ; vR = invRhoR * QRight(IRHOV)
+         wL = invRhoL * QLeft(IRHOW)      ; wR = invRhoR * QRight(IRHOW)
+!
+!        Compute Ismail and Roe parameter vector
+!        ---------------------------------------
+         zL(5) = sqrt(rhoL*pL)      ; zR(5) = sqrt(rhoR*pR)
+         zL(1) = rhoL / zL(5)       ; zR(1) = rhoR / zR(5)
+         zL(2) = zL(1) * uL         ; zR(2) = zR(1) * uR
+         zL(3) = zL(1) * vL         ; zR(3) = zR(1) * vR
+         zL(4) = zL(1) * wL         ; zR(4) = zR(1) * wR
+
+         zSum = zL + zR
+         invZ1Sum = 1.0_RP / zSum(1)
+
+         call logarithmicMean(zL(1),zR(1), z1Log)
+         call logarithmicMean(zL(5),zR(5), z5Log)
+
+         rho = 0.5_RP * zSum(1) * z5Log
+         u   = zSum(2) * invZ1Sum
+         v   = zSum(3) * invZ1Sum
+         w   = zSum(4) * invZ1Sum
+         p   = zSum(5) * invZ1Sum
+         p2  = (gammaPlus1Div2 * z5Log / z1Log + gammaMinus1Div2 * p) * invGamma
+         h   = gammaDivGammaMinus1 * p2 / rho + 0.5_RP*(POW2(u) + POW2(v) + POW2(w))
+!
+!        Compute the flux
+!        ----------------
+         flux(IRHO)  = rho * u
+         flux(IRHOU) = rho * u * u + p
+         flux(IRHOV) = rho * u * v
+         flux(IRHOW) = rho * u * w
+         flux(IRHOE) = rho * u * h
+         
+         end associate
+
+      end subroutine EntropyConservingAverage
+
+      subroutine EntropyAndEnergyConservingAverage(QLeft,QRight, pL, pR, invRhoL, invRhoR, flux)
+         use SMConstants
+         use PhysicsStorage
+         use Utilities, only: logarithmicMean
+         implicit none
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: pL, pR
+         real(kind=RP), intent(in)       :: invRhoL, invRhoR
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: rhoL, uL, vL, wL, betaL
+         real(kind=RP)     :: rhoR, uR, vR, wR, betaR
+         real(kind=RP)     :: rho, u, v, w, h, p, betaLog
+
+         associate ( gammaMinus1 => thermodynamics % gammaMinus1 ) 
+
+         rhoL = QLeft(IRHO)               ; rhoR = QRight(IRHO)
+         uL = invRhoL * QLeft(IRHOU)      ; uR = invRhoR * QRight(IRHOU)
+         vL = invRhoL * QLeft(IRHOV)      ; vR = invRhoR * QRight(IRHOV)
+         wL = invRhoL * QLeft(IRHOW)      ; wR = invRhoR * QRight(IRHOW)
+!
+!        Compute Chandrasekar's variables
+!        --------------------------------
+         betaL = 0.5_RP * rhoL / pL    ; betaR = 0.5_RP * rhoR / pR
+         call logarithmicMean(betaL, betaR, betaLog)
+
+         call logarithmicMean(rhoL,rhoR,rho)
+         u   = AVERAGE(uL, uR)
+         v   = AVERAGE(vL, vR)
+         w   = AVERAGE(wL, wR)
+         p   = 0.5_RP * (rhoL + rhoR) / (betaL + betaR)
+         h   =   0.5_RP/(betaLog*(gammaMinus1)) &
+               - 0.5_RP*AVERAGE(POW2(uL)+POW2(vL)+POW2(wL), POW2(uR)+POW2(vR)+POW2(wR)) &
+               + p/rho + POW2(u) + POW2(v) + POW2(w)
+!
+!        Compute the flux
+!        ----------------
+         flux(IRHO)  = rho * u
+         flux(IRHOU) = rho * u * u + p
+         flux(IRHOV) = rho * u * v
+         flux(IRHOW) = rho * u * w
+         flux(IRHOE) = rho * u * h
+
+         end associate
+
+      end subroutine EntropyAndEnergyConservingAverage
+
 end module RiemannSolvers

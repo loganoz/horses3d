@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Fri Dec 15 19:06:26 2017
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 6ff4e62306809f27aca94408301b7dfab13e3a6b
+!   @Last revision date: Sat Dec 16 12:49:10 2017
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 34738aecad241ffbe014e25f1886dfc1b47f81e1
 !
 !//////////////////////////////////////////////////////
 !
@@ -59,7 +59,8 @@
      public    RIEMANN_CENTRAL, RIEMANN_ROEPIKE, RIEMANN_LOWDISSROE
      public    RIEMANN_VISCOUSNS
      public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
-     public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT
+     public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
+     public    ENTROPYANDENERGYCONS_SPLIT
 
      public    ConstructPhysicsStorage, DestructPhysicsStorage, DescribePhysicsStorage
      public    CheckPhysicsInputIntegrity
@@ -129,12 +130,14 @@
 !    Available averaging functions
 !    -----------------------------
 !
-     integer, parameter :: STANDARD_SPLIT      = 1
-     integer, parameter :: MORINISHI_SPLIT     = 2
-     integer, parameter :: DUCROS_SPLIT        = 3
-     integer, parameter :: KENNEDYGRUBER_SPLIT = 4
-     integer, parameter :: PIROZZOLI_SPLIT     = 5
-     integer            :: whichAverage = -1
+     integer, parameter :: STANDARD_SPLIT             = 1
+     integer, parameter :: MORINISHI_SPLIT            = 2
+     integer, parameter :: DUCROS_SPLIT               = 3
+     integer, parameter :: KENNEDYGRUBER_SPLIT        = 4
+     integer, parameter :: PIROZZOLI_SPLIT            = 5
+     integer, parameter :: ENTROPYCONS_SPLIT          = 6
+     integer, parameter :: ENTROPYANDENERGYCONS_SPLIT = 7
+     integer            :: whichAverage               = -1
 !
 !    -------------------------------------
 !    Lambda stabilization - 1.0 by default

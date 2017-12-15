@@ -432,7 +432,7 @@
 !! quantities of which the gradients will be taken.
 !---------------------------------------------------------------------
 !
-      SUBROUTINE GradientValuesForQ_0D( Q, U )
+      pure SUBROUTINE GradientValuesForQ_0D( Q, U )
       IMPLICIT NONE
 !
 !     ---------
@@ -453,7 +453,7 @@
 
       END SUBROUTINE GradientValuesForQ_0D
 
-      SUBROUTINE GradientValuesForQ_3D( Nx, Ny, Nz, Q, U )
+      pure SUBROUTINE GradientValuesForQ_3D( Nx, Ny, Nz, Q, U )
       IMPLICIT NONE
 !
 !     ---------
@@ -560,13 +560,13 @@
 
       END FUNCTION Temperature
 
-      function getStressTensor(Q,U_x,U_y,U_z) result(tau)
+      pure subroutine getStressTensor(Q,U_x,U_y,U_z,tau)
          implicit none
-         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN     ) 
-         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN     ) 
-         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN     ) 
-         real(kind=RP)                    :: tau  ( 1:NDIM, 1:NDIM   )
+         real(kind=RP), intent(in)      :: Q   (1:NCONS         )
+         real(kind=RP), intent(in)      :: U_x (1:N_GRAD_EQN    )
+         real(kind=RP), intent(in)      :: U_y (1:N_GRAD_EQN    )
+         real(kind=RP), intent(in)      :: U_z (1:N_GRAD_EQN    )
+         real(kind=RP), intent(out)     :: tau (1:NDIM, 1:NDIM   )
 !
 !        ---------------
 !        Local variables
@@ -594,7 +594,7 @@
 
          end associate
 
-      end function getStressTensor
+      end subroutine getStressTensor
    END Module Physics
 !@mark -
 !
