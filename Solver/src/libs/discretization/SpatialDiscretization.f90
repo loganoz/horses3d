@@ -85,6 +85,9 @@ module SpatialDiscretization
             case("br1")
                if (.not. allocated(ViscousMethod)) allocate( BassiRebay1_t :: ViscousMethod  ) 
 
+            case("br2")
+               if (.not. allocated(ViscousMethod)) allocate( BassiRebay2_t :: ViscousMethod  ) 
+
             case("ip")
                if (.not. allocated(ViscousMethod)) allocate( InteriorPenalty_t :: ViscousMethod  ) 
 
@@ -92,6 +95,7 @@ module SpatialDiscretization
                write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretization),'" is not implemented.'
                write(STD_OUT,'(A)') "Implemented discretizations are:"
                write(STD_OUT,'(A)') "  * BR1"
+               write(STD_OUT,'(A)') "  * BR2"
                write(STD_OUT,'(A)') "  * IP"
                errorMessage(STD_OUT)
                stop 
@@ -531,10 +535,6 @@ module SpatialDiscretization
       call f % ProjectFluxToElements(fStar, (/1, HMESH_NONE/))
 
       END SUBROUTINE computeBoundaryFlux
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
