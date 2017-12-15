@@ -34,7 +34,6 @@
       public  RiemannSolver, InviscidFlux, ViscousFlux, GradientValuesForQ 
       public  InviscidJacobian
       public  getStressTensor, Temperature, Pressure
-      public  getThermalConductivity
 !
 !     ---------
 !     Constants
@@ -56,13 +55,12 @@
          module procedure ViscousFlux0D, ViscousFlux3D
      end interface ViscousFlux
 
-     interface getThermalConductivity
-         module procedure getThermalConductivity0D, getThermalConductivity3D
-     end interface getThermalConductivity
 !
 !     ========
       CONTAINS 
 !     ========
+!
+!     
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
@@ -597,33 +595,6 @@
          end associate
 
       end function getStressTensor
-!
-!//////////////////////////////////////////////////////////////////////////////
-!
-!        Get the thermal conductivity from the viscosity and Prandtl number
-!
-!//////////////////////////////////////////////////////////////////////////////
-!
-      pure subroutine getThermalConductivity0D(mu, Pr, kappa)
-         implicit none
-         real(kind=RP), intent(in)  :: mu
-         real(kind=RP), intent(in)  :: Pr
-         real(kind=RP), intent(out) :: kappa
-
-         kappa = mu / (Pr * thermodynamics % gammaMinus1 * POW2(dimensionless % Mach))
-
-      end subroutine getThermalConductivity0D
-
-      pure subroutine getThermalConductivity3D(N, mu, Pr, kappa)
-         implicit none
-         integer,       intent(in)  :: N(3)
-         real(kind=RP), intent(in)  :: mu(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)  :: Pr
-         real(kind=RP), intent(out) :: kappa(0:N(1), 0:N(2), 0:N(3))
-
-         kappa = mu / (Pr * thermodynamics % gammaMinus1 * POW2(dimensionless % Mach))
-
-      end subroutine getThermalConductivity3D
    END Module Physics
 !@mark -
 !

@@ -4,9 +4,9 @@
 !   @File:    RiemannSolvers.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:26 2017
-!   @Last revision date: Thu Dec 14 11:01:28 2017
+!   @Last revision date: Fri Dec 15 18:03:51 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ee770e25819fee9fc25e412cf5f2a91e970c3fac
+!   @Last revision commit: 6d4f2964f557509b30fb05c7aaa354654275f4bd
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,6 +14,7 @@
 module RiemannSolvers
    use SMConstants
    use PhysicsStorage
+   use FluidData, only: equationOfState, getThermalConductivity
 
    private 
    public RiemannSolver, SetRiemannSolver
@@ -740,15 +741,15 @@ module RiemannSolvers
 !        ---------------
 !
          integer        :: i
-         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, rhoHL, rhoV2L, ML
-         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, rhoHR, rhoV2R, MR
+         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, rhoHL, rhoV2L, ML, TL
+         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, rhoHR, rhoV2R, MR, TR
          real(kind=RP)  :: uL, vL, wL, uR, vR, wR, aL, aR, dLambda, z, du, dv, dw
          real(kind=RP)  :: dp
          real(kind=RP)  :: QLRot(5), QRRot(5)
          real(kind=RP)  :: sqrtRhoL, sqrtRhoR, invSumSqrtRhoLR
          real(kind=RP)  :: invSqrtRhoL, invSqrtRhoR, invRhoL, invRhoR
          real(kind=RP)  :: rho, u, v, w, H, a, lambda(5), V2abs, tau(5,5)
-         real(kind=RP)  :: stab(5)
+         real(kind=RP)  :: stab(5), kappa
          real(kind=RP)  :: divV
 
          associate(gamma => thermodynamics % gamma, gm1 => thermodynamics % gammaMinus1)
@@ -877,7 +878,12 @@ module RiemannSolvers
          tau(2,1) = tau(1,2)
          tau(3,1) = tau(1,3)
          tau(2,3) = tau(3,2)
-
+!
+!        Compute thermal diffusivity
+!        ---------------------------
+         call getThermalConductivity(1.0_RP,3.0_RP / 4.0_RP, kappa)
+         call equationOfState(pL, rhoL, TL)
+         call equationOfState(pR, rhoR, TR)
          
          stab(1) = 0.0_RP
          stab(2) = maxval(abs(lambda)) * (tau(1,1)*nHat(1) + tau(1,2)*nHat(2) + tau(1,3)*nHat(3))
@@ -885,7 +891,7 @@ module RiemannSolvers
          stab(4) = maxval(abs(lambda)) * (tau(3,1)*nHat(1) + tau(3,2)*nHat(2) + tau(3,3)*nHat(3))
          stab(5) = maxval(abs(lambda)) *(( u * tau(1,1) + v*tau(1,2) + w*tau(1,3) ) * nHat(1) &
                                        + ( u * tau(2,1) + v*tau(2,2) + w*tau(2,3) ) * nHat(2) &
-                                       + ( u * tau(3,1) + v*tau(3,2) + w*tau(3,3) ) * nHat(3) )
+                                       + ( u * tau(3,1) + v*tau(3,2) + w*tau(3,3) ) * nHat(3) + kappa * (TR-TL))
 !
 !        ************************************************
 !        Return momentum equations to the cartesian frame
