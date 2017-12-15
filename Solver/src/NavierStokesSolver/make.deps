@@ -11,7 +11,8 @@
 	./build/Implicit_NJ.o \
 	./build/ExplicitMethods.o \
 	./build/FASMultigridClass.o \
-	./build/AnisFASMultigridClass.o
+	./build/AnisFASMultigridClass.o \
+	./build/pAdaptationClass.o
 
 ./build/ExplicitMethods.o: ./build/DGSEMClass.o
 

@@ -134,6 +134,7 @@
       
       USE Implicit_JF , ONLY : TakeBDFStep_JF
       USE Implicit_NJ , ONLY : TakeBDFStep_NJ
+      use pAdaptationClass
       USE FASMultigridClass
       IMPLICIT NONE
 !

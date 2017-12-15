@@ -39,7 +39,7 @@ MeshPartitioning: IntegerDataLinkedList
 IntegerDataLinkedList: Utilities
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
 InterpolationMatrices: InterpolationAndDerivatives SMConstants NodalStorageClass
-TimeIntegrator: Physics SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods AnisFASMultigridClass FASMultigridClass Monitors
+TimeIntegrator: Physics SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods AnisFASMultigridClass FASMultigridClass Monitors pAdaptationClass
 ExplicitMethods: SMConstants DGSEMClass
 GradientSetup: DGSEMClass
 ReadInputFile: SMConstants SharedBCModule Physics Setup
@@ -49,14 +49,14 @@ CSR_Matrices: SMConstants
 ManufacturedSolutions: Physics SMConstants
 DenseMatUtilities: SMConstants
 FASMultigridClass: SMConstants MultigridTypes ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics BoundaryConditions
-AnisFASMultigridClass: SMConstants MultigridTypes ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics BoundaryConditions
+AnisFASMultigridClass: SMConstants MultigridTypes ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics BoundaryConditions TruncationErrorClass
 #Implicit solvers
 Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
 JFNKClass: SMConstants GMRESClass
 GMRESClass: SMConstants
 Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices StorageClass AnalyticalJacobian
 AnalyticalJacobian: HexElementClass SMConstants HexMesh NodalStorageClass Physics Jacobian LinearSolverClass DGSEMClass
-pAdaptationClass: SMConstants DGSEMClass Physics TruncationErrorClass
+pAdaptationClass: SMConstants DGSEMClass Physics TruncationErrorClass AnisFASMultigridClass
 TruncationErrorClass: SMConstants MultigridTypes DGSEMClass NodalStorageClass
 
 #Linear solvers
