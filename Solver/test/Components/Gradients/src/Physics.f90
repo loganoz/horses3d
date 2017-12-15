@@ -368,11 +368,11 @@
      end interface GradientValuesForQ
 
      interface InviscidFlux
-         module procedure InviscidFlux0D , InviscidFlux1D , InviscidFlux2D , InviscidFlux3D
+         module procedure InviscidFlux0D , InviscidFlux3D
      end interface InviscidFlux
 
      interface ViscousFlux
-         module procedure ViscousFlux0D , ViscousFlux1D , ViscousFlux2D , ViscousFlux3D
+         module procedure ViscousFlux0D , ViscousFlux3D
      end interface ViscousFlux
     
 !
@@ -398,10 +398,10 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure function InviscidFlux0D( Q ) result ( F )
+      pure subroutine InviscidFlux0D( Q, F )
          implicit none
          real(kind=RP), intent(in)           :: Q(1:NCONS)
-         real(kind=RP)           :: F(1:NCONS , 1:NDIM)
+         real(kind=RP), intent(out)          :: F(1:NCONS , 1:NDIM)
 !
 !        ---------------
 !        Local variables
@@ -413,55 +413,19 @@
          F(:,IY) = Q
          F(:,IZ) = Q
 
-      end function InviscidFlux0D
+      end subroutine InviscidFlux0D
 
-      pure function InviscidFlux1D( N , Q ) result ( F )
+      pure subroutine InviscidFlux3D( N , Q, F )
          implicit none
-         integer,       intent (in) :: N
-         real(kind=RP), intent (in) :: Q(1:NCONS, 0:N)
-         real(kind=RP)              :: F(1:NCONS, 0:N, 1:NDIM)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         real(kind=RP)           :: u(0:N) , v(0:N) , w(0:N) , p(0:N)
-
-         F(:,:,IX) = Q
-         F(:,:,IY) = Q
-         F(:,:,IZ) = Q 
-
-      end function InviscidFlux1D
-
-      pure function InviscidFlux2D( N , Q ) result ( F )
-         implicit none
-         integer,       intent (in) :: N
-         real(kind=RP), intent (in) :: Q(1:NCONS, 0:N , 0:N)
-         real(kind=RP)              :: F(1:NCONS, 0:N , 0:N, 1:NDIM)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         real(kind=RP)           :: u(0:N,0:N) , v(0:N,0:N) , w(0:N,0:N) , p(0:N,0:N)
-
-         F(:,:,:,IX) = Q 
-         F(:,:,:,IY) = Q 
-         F(:,:,:,IZ) = Q 
-
-      end function InviscidFlux2D
-
-      pure function InviscidFlux3D( Nx, Ny, Nz , Q ) result ( F )
-         implicit none
-         integer,       intent (in) :: Nx, Ny, Nz
-         real(kind=RP), intent (in) :: Q(1:NCONS, 0:Nx , 0:Ny , 0:Nz)
-         real(kind=RP)              :: F(1:NCONS, 0:Nx , 0:Ny , 0:Nz, 1:NDIM)
+         integer,       intent (in) :: N(3)
+         real(kind=RP), intent (in) :: Q(1:NCONS, 0:N(1) , 0:N(2) , 0:N(3))
+         real(kind=RP), intent(out) :: F(1:NCONS, 0:N(1) , 0:N(2) , 0:N(3), 1:NDIM)
 
          F(:,:,:,:,IX) = Q
          F(:,:,:,:,IY) = Q
          F(:,:,:,:,IZ) = Q
 
-      end function InviscidFlux3D
+      end subroutine InviscidFlux3D
 !
 !     -------------------------------------------------------------------------------
 !     Subroutine for computing the Jacobian of the inviscid flux when it has the form 
@@ -608,13 +572,14 @@
 !! the calculation of the gradient terms.
 !---------------------------------------------------------------------
 !
-      pure function ViscousFlux0D( Q , U_x , U_y , U_z ) result (F)
+      pure subroutine ViscousFlux0D( Q , U_x , U_y , U_z, mu, kappa, F)
          implicit none
          real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS          ) 
          real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN     ) 
          real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN     ) 
          real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN     ) 
-         real(kind=RP)                    :: F    ( 1:NCONS , 1:NDIM )
+         real ( kind=RP ) , intent ( in ) :: mu, kappa
+         real(kind=RP), intent(out)       :: F    ( 1:NCONS , 1:NDIM )
 !
 !        ---------------
 !        Local variables
@@ -629,55 +594,25 @@
          F(1:N_GRAD_EQN,IY) = U_y
          F(1:N_GRAD_EQN,IZ) = U_z
 
-      end function ViscousFlux0D
+      end subroutine ViscousFlux0D
 
-      pure function ViscousFlux1D( N , Q , U_x , U_y , U_z ) result (F)
+      pure subroutine ViscousFlux3D( N, Q , U_x , U_y , U_z, mu, kappa, F)
          implicit none
-         integer          , intent ( in ) :: N
-         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS, 0:N ) 
-         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN, 0:N ) 
-         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN, 0:N ) 
-         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN, 0:N ) 
-         real(kind=RP)                    :: F    ( 1:NCONS, 0:N, 1:NDIM )
-
-         F = 0.0_RP
-         F(1:N_GRAD_EQN,:,IX) = U_x
-         F(1:N_GRAD_EQN,:,IY) = U_y
-         F(1:N_GRAD_EQN,:,IZ) = U_z
-
-      end function ViscousFlux1D
-
-      pure function ViscousFlux2D( N , Q , U_x , U_y , U_z ) result (F)
-         implicit none
-         integer          , intent ( in ) :: N
-         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS, 0:N , 0:N ) 
-         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN, 0:N , 0:N ) 
-         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN, 0:N , 0:N ) 
-         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN, 0:N , 0:N ) 
-         real(kind=RP)                    :: F    ( 1:NCONS, 0:N , 0:N, 1:NDIM )
-
-         F = 0.0_RP
-         F(1:N_GRAD_EQN,:,:,IX) = U_x
-         F(1:N_GRAD_EQN,:,:,IY) = U_y
-         F(1:N_GRAD_EQN,:,:,IZ) = U_z
-
-      end function ViscousFlux2D
-
-      pure function ViscousFlux3D( Nx, Ny, Nz , Q , U_x , U_y , U_z ) result (F)
-         implicit none
-         integer          , intent ( in ) :: Nx, Ny, Nz
-         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS, 0:Nx , 0:Ny , 0:Nz) 
-         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN, 0:Nx , 0:Ny , 0:Nz) 
-         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN, 0:Nx , 0:Ny , 0:Nz) 
-         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN, 0:Nx , 0:Ny , 0:Nz) 
-         real ( kind=RP )                 :: F    ( 1:NCONS, 0:Nx , 0:Ny , 0:Nz, 1:NDIM )
+         integer          , intent ( in ) :: N(3)
+         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: mu   ( 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: kappa   ( 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( out) :: F    ( 1:NCONS, 0:N(1) , 0:N(2) , 0:N(3), 1:NDIM )
 
          F = 0.0_RP
          F(1:N_GRAD_EQN,:,:,:,IX) = U_x
          F(1:N_GRAD_EQN,:,:,:,IY) = U_y
          F(1:N_GRAD_EQN,:,:,:,IZ) = U_z
 
-      end function ViscousFlux3D
+      end subroutine ViscousFlux3D
 !
 !
 !

@@ -34,7 +34,7 @@ module Utilities
    private
    public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem
    public   toLower, Qsort
-   public   logarithmicMean, ln_mean
+   public   logarithmicMean
 
 
    contains

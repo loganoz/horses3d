@@ -325,6 +325,7 @@
 !     Arguments
 !     ---------
 !
+      use Utilities, only: almostEqual
       REAL(KIND=RP)                 :: x
       INTEGER                       :: N
       REAL(KIND=RP), DIMENSION(0:N) :: nodes
@@ -339,9 +340,6 @@
       REAL(KIND=RP) :: t, numerator, denominator
       REAL(KIND=RP) :: p
       LOGICAL       :: atNode
-      
-      LOGICAL, EXTERNAL :: AlmostEqual
-      
 !
 !     --------------------------
 !     See if the point is a node
