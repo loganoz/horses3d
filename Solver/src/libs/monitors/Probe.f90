@@ -41,6 +41,7 @@ module ProbeClass
       subroutine Probe_Initialization(self, mesh, ID, solution_file)
          use ParamfileRegions
          use MPI_Process_Info
+         use Utilities, only: toLower
          implicit none
          class(Probe_t)          :: self
          class(HexMesh)          :: mesh
@@ -64,9 +65,6 @@ module ProbeClass
                character(len=*),    intent(in)  :: line
                real(kind=RP), allocatable       :: array(:)
             end function getArrayFromString
-            subroutine toLower(str)
-               character(*), intent(in out) :: str
-            end subroutine toLower
          end interface
 !
 !        Get monitor ID

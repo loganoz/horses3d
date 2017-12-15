@@ -26,6 +26,18 @@
 !! Returns .TRUE. if two numbers are within rounding error of each other
 !-----------------------------------------------------------------------
 !
+#include "Includes.h"
+module Utilities
+   use SMConstants
+   implicit none
+
+   private
+   public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem
+   public   toLower, Qsort
+   public   logarithmicMean
+
+
+   contains
       LOGICAL FUNCTION AlmostEqual( a, b ) 
       USE SMConstants
       IMPLICIT NONE
@@ -153,6 +165,40 @@
        end select
      end do  
    end subroutine toLower
+
+   pure subroutine logarithmicMean(aL, aR, lnMean)
+!
+!     ************************************************
+!        Algorithm by Ismail and Roe
+!
+!     ************************************************
+!
+      implicit none
+      real(kind=RP), intent(in)  :: aL, aR
+      real(kind=RP), intent(out) :: lnMean
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      real(kind=RP), parameter   :: eps = 0.01_RP
+      real(kind=RP)              :: xi, f, u, FF
+
+      xi = aL / aR
+      f = (xi - 1.0_RP) / (xi + 1.0_RP)
+      u = f * f
+
+      if ( u .lt. eps ) then
+         FF = 1.0_RP + (1.0_RP / 3.0_RP) * u + (1.0_RP / 5.0_RP) * POW2(u) + (1.0_RP / 7.0_RP) * POW3(u)
+   
+      else
+         FF = log(xi) / ( 2.0_RP * f )
+
+      end if
+
+      lnMean = 0.5_RP * (aL + aR) / FF
+         
+   end subroutine logarithmicMean
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -166,13 +212,6 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-module SortingModule
-
-   private
-   public QSort
-
-   contains
-   
 RECURSIVE SUBROUTINE Qsort(A)
   INTEGER, INTENT(IN OUT), DIMENSION(:) :: A
   INTEGER                               :: iq
@@ -220,4 +259,6 @@ SUBROUTINE Partition(A, marker)
   END DO
 
 END SUBROUTINE Partition
-end module SortingModule
+
+end module Utilities
+

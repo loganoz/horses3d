@@ -148,6 +148,7 @@
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE SetElementBoundaryNames( self, names ) 
+         use Utilities, only: toLower
          IMPLICIT NONE
          TYPE(Element)                   :: self
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(6)
@@ -424,6 +425,7 @@
 !        **********************************************************
 !          
 !
+         use Utilities, only: SolveThreeEquationLinearSystem
          implicit none
          class(Element),      intent(in)  :: self
          real(kind=RP),       intent(in)  :: x(NDIM)
@@ -452,15 +454,6 @@
          real(kind=RP)                 :: F(NDIM)
          real(kind=RP)                 :: Jac(NDIM,NDIM)
          real(kind=RP)                 :: dx(NDIM)
-         interface
-            function SolveThreeEquationLinearSystem(A,b)
-               use SMConstants
-               implicit none
-               real(kind=RP), intent(in)  :: A(3,3)
-               real(kind=RP), intent(in)  :: b(3)
-               real(kind=RP)     :: SolveThreeEquationLinearSystem(3)
-            end function SolveThreeEquationLinearSystem
-         end interface
 !
 !        Initial seed
 !        ------------      

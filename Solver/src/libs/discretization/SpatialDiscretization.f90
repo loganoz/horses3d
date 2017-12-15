@@ -30,6 +30,7 @@ module SpatialDiscretization
       subroutine Initialize_SpaceAndTimeMethods(controlVariables)
          use PhysicsStorage
          use FTValueDictionaryClass
+         use Utilities, only: toLower
          use mainKeywordsModule
          use Headers
          use MPI_Process_Info
@@ -37,11 +38,6 @@ module SpatialDiscretization
          class(FTValueDictionary),  intent(in)  :: controlVariables
          character(len=LINE_LENGTH)       :: inviscidDiscretization
          character(len=LINE_LENGTH)       :: viscousDiscretization
-         interface
-            subroutine toLower(str)
-               character(*), intent(in out) :: str
-            end subroutine toLower
-         end interface
 
          if ( MPI_Process % isRoot ) then
             write(STD_OUT,'(/)')

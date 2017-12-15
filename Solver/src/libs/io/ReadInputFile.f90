@@ -13,6 +13,7 @@
          USE SharedBCModule
          USE mainKeywordsModule
          use MPI_Process_Info 
+         use Utilities, only: toLower
          IMPLICIT NONE
 !
 !        ---------

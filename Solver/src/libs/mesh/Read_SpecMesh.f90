@@ -33,6 +33,7 @@ MODULE Read_SpecMesh
          USE Physics
          use PartitionedMeshClass
          use MPI_Process_Info
+         use Utilities, only: UnusedUnit
          IMPLICIT NONE
 !
 !        ---------------
@@ -63,7 +64,6 @@ MODULE Read_SpecMesh
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
          TYPE(FacePatch), DIMENSION(6)   :: facePatches
          real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
-         integer, EXTERNAL               :: UnusedUnit
 !
 !        ------------------
 !        For curved patches
@@ -318,6 +318,7 @@ MODULE Read_SpecMesh
          use PartitionedMeshClass
          use MPI_Process_Info
          use MPI_Face_Class
+         use Utilities, only: UnusedUnit
          IMPLICIT NONE
 !
 !        ---------------
@@ -349,7 +350,6 @@ MODULE Read_SpecMesh
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
          TYPE(FacePatch), DIMENSION(6)   :: facePatches
          real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
-         integer, EXTERNAL               :: UnusedUnit
 !
 !        ------------------
 !        For curved patches

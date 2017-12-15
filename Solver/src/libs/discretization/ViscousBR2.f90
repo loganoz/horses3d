@@ -4,9 +4,9 @@
 !   @File:    ViscousBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Fri Dec 15 12:37:35 2017
+!   @Last revision date: Fri Dec 15 17:39:18 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 8307d9c9f7703ef3a4eedd311776c398b0b40cfc
+!   @Last revision commit: 3f52e4fec56acdc2657420c274f99b342c67dd81
 !
 !//////////////////////////////////////////////////////
 !
@@ -489,9 +489,14 @@ module ViscousBR2
 !        ---------------
 !
          real(kind=RP)       :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
 
-         cartesianFlux = ViscousFlux( e%Nxyz(1) , e%Nxyz(2) , e%Nxyz(3)  , e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z )
+         mu = dimensionless % mu
+         kappa = dimensionless % kappa
+
+         call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -536,7 +541,7 @@ module ViscousBR2
 !        ---------------
 !
          real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
-         real(kind=RP)     :: flux_vec(NCONS,NDIM)
+         real(kind=RP)     :: flux_vec(NCONS,NDIM), mu, kappa
 !
 !>       Old implementation: 1st average, then compute
 !        ------------------
@@ -545,7 +550,10 @@ module ViscousBR2
          U_y = 0.5_RP * ( U_yLeft + U_yRight)
          U_z = 0.5_RP * ( U_zLeft + U_zRight)
 
-         flux_vec = ViscousFlux(Q,U_x,U_y,U_z)
+         mu = dimensionless % mu
+         kappa = dimensionless % kappa
+
+         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) 
 

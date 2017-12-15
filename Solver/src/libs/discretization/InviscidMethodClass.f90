@@ -4,9 +4,9 @@
 !   @File:    InviscidMethodClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:16:30 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Fri Dec 15 17:39:16 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 3f52e4fec56acdc2657420c274f99b342c67dd81
 !
 !//////////////////////////////////////////////////////
 !
@@ -135,7 +135,7 @@ module InviscidMethodClass
          integer            :: i, j, k
          real(kind=RP)      :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
 
-         cartesianFlux = InviscidFlux( e%Nxyz(1) , e%Nxyz(2) , e%Nxyz(3) , e % storage % Q )
+         call InviscidFlux( e%Nxyz, e % storage % Q, cartesianFlux)
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
          
