@@ -1,17 +1,17 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    ViscousIP.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Fri Dec 15 12:37:37 2017
+!   @File:    ViscousBR2.f90
+!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Created: Fri Dec 15 10:18:31 2017
+!   @Last revision date: Fri Dec 15 12:37:35 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
 !   @Last revision commit: 8307d9c9f7703ef3a4eedd311776c398b0b40cfc
 !
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
-module ViscousIP
+module ViscousBR2
    use SMConstants
    use MeshTypes
    use ElementClass
@@ -24,36 +24,31 @@ module ViscousIP
 !
 !
    private
-   public   InteriorPenalty_t, SIPG, IIPG, NIPG
+   public   BassiRebay2_t
 
-   integer, parameter   :: SIPG = -1
-   integer, parameter   :: IIPG = 0
-   integer, parameter   :: NIPG = 1
-
-   type, extends(ViscousMethod_t)   :: InteriorPenalty_t
-      real(kind=RP)        :: sigma = 1.0_RP
-      integer              :: IPmethod = SIPG
+   type, extends(ViscousMethod_t)   :: BassiRebay2_t
+      real(kind=RP)        :: eta = 1.0_RP
       contains
-         procedure      :: Initialize         => IP_Initialize
-         procedure      :: ComputeGradient    => IP_ComputeGradient
-         procedure      :: ComputeInnerFluxes => IP_ComputeInnerFluxes
-         procedure      :: RiemannSolver      => IP_RiemannSolver
-   end type InteriorPenalty_t
+         procedure      :: Initialize         => BR2_Initialize
+         procedure      :: ComputeGradient    => BR2_ComputeGradient
+         procedure      :: ComputeInnerFluxes => BR2_ComputeInnerFluxes
+         procedure      :: RiemannSolver      => BR2_RiemannSolver
+   end type BassiRebay2_t
 !
 !  ========
    contains
 !  ========
 !
-      subroutine IP_Initialize(self, controlVariables)
+      subroutine BR2_Initialize(self, controlVariables)
          use FTValueDictionaryClass
          use mainKeywordsModule
          use Headers
          use MPI_Process_Info
          use PhysicsStorage
          implicit none
-         class(InteriorPenalty_t)                :: self
+         class(BassiRebay2_t)                :: self
          class(FTValueDictionary),  intent(in) :: controlVariables
-         character(len=LINE_LENGTH)            :: IPvariant
+         character(len=LINE_LENGTH)            :: BR2variant
          interface
             subroutine toLower(str)
                character(*), intent(in out) :: str
@@ -63,52 +58,15 @@ module ViscousIP
 !        Request the penalty parameter
 !        -----------------------------
          if ( controlVariables % containsKey("penalty parameter") ) then
-            self % sigma = controlVariables % doublePrecisionValueForKey("penalty parameter")
+            self % eta = controlVariables % doublePrecisionValueForKey("penalty parameter")
 
          else
 !            
-!           Set 1.0 by default
+!           Set 3.0 by default
 !           ------------------
-            self % sigma = 1.0_RP
+            self % eta = 2.0_RP
 
          end if
-!
-!        Request the interior penalty variant
-!        ------------------------------------
-         if ( controlVariables % containsKey("interior penalty variant") ) then
-            IPvariant = controlVariables % stringValueForKey("interior penalty variant", LINE_LENGTH)
-            call toLower(IPVariant)
-      
-         else
-!
-!           Select SIPG by default
-!           ----------------------
-            IPvariant = "sipg"
-   
-         end if
-
-         select case (trim(IPvariant))
-         case("sipg")
-            self % IPmethod = SIPG
-
-         case("iipg")
-            self % IPmethod = IIPG
-
-         case("nipg")
-            self % IPmethod = NIPG
-
-         case default
-            if ( MPI_Process % isRoot ) then
-            print*, "Unknown selected IP variant", trim(IPvariant), "."
-            print*, "Available options are:"
-            print*, "   * SIPG"
-            print*, "   * IIPG"
-            print*, "   * NIPG"
-            errorMessage(STD_OUT)
-            stop
-            end if
-         end select
-
 !
 !        Display the configuration
 !        -------------------------
@@ -117,31 +75,19 @@ module ViscousIP
 
          if (.not. MPI_Process % isRoot ) return
 
-         write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","IP"
+         write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","BR2"
 
-         select case(self % IPmethod)
-         case(SIPG)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Interior penalty variant: ","SIPG"
-
-         case(NIPG)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Interior penalty variant: ","NIPG"
-
-         case(IIPG)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Interior penalty variant: ","IIPG"
+         write(STD_OUT,'(30X,A,A30,F10.3)') "->","Penalty parameter: ", self % eta
             
-         end select
+      end subroutine BR2_Initialize
 
-         write(STD_OUT,'(30X,A,A30,F10.3)') "->","Penalty parameter: ", self % sigma
-            
-      end subroutine IP_Initialize
-
-      subroutine IP_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
+      subroutine BR2_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
          use HexMeshClass
          use PhysicsStorage
          use Physics
          use MPI_Process_Info
          implicit none
-         class(InteriorPenalty_t), intent(in) :: self
+         class(BassiRebay2_t), intent(in) :: self
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
          external                         :: externalStateProcedure
@@ -155,9 +101,9 @@ module ViscousIP
          integer                :: i, j, k
          integer                :: eID , fID , dimID , eqID, fIDs(6)
 !
-!        *********************************
-!        Volume loops and prolong to faces
-!        *********************************
+!        ***********************
+!        Compute local gradients
+!        ***********************
 !
 !$omp do schedule(runtime)
          do eID = 1, size(mesh % elements)
@@ -173,7 +119,8 @@ module ViscousIP
                                              mesh % faces(fIDs(4)),&
                                              mesh % faces(fIDs(5)),&
                                              mesh % faces(fIDs(6)) )
-            end associate 
+
+            end associate
          end do
 !$omp end do         
 !
@@ -186,10 +133,10 @@ module ViscousIP
             associate(f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_INTERIOR) 
-               call IP_GradientInterfaceSolution(f) 
+               call BR2_GradientInterfaceSolution(f) 
             
             case (HMESH_BOUNDARY) 
-               call IP_GradientInterfaceSolutionBoundary(f, time, externalStateProcedure) 
+               call BR2_GradientInterfaceSolutionBoundary(f, time, externalStateProcedure) 
  
             end select 
             end associate 
@@ -204,8 +151,8 @@ module ViscousIP
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID))
             if ( e % hasSharedFaces ) cycle
-            call IP_ComputeGradientFaceIntegrals(self, e, mesh)
-            end associate
+            call BR2_ComputeGradientFaceIntegrals(self, e, mesh)
+            end associate 
          end do
 !$omp end do
 !
@@ -228,8 +175,7 @@ module ViscousIP
             associate(f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_MPI) 
-               call IP_GradientInterfaceSolutionMPI(f) 
- 
+               call BR2_GradientInterfaceSolutionMPI(f) 
             end select 
             end associate 
          end do            
@@ -243,23 +189,35 @@ module ViscousIP
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID))
             if ( .not. e % hasSharedFaces ) cycle
-            call IP_ComputeGradientFaceIntegrals(self, e, mesh)
+            call BR2_ComputeGradientFaceIntegrals(self, e, mesh)
             end associate
          end do
 !$omp end do
 
-      end subroutine IP_ComputeGradient
+      end subroutine BR2_ComputeGradient
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_ComputeGradientFaceIntegrals( self, e, mesh)
+      subroutine BR2_ComputeGradientFaceIntegrals( self, e, mesh)
+!
+!        *******************************************************
+!              The surface integrals in the BR2 method considers
+!           also the correction of the surface gradients with
+!           the stabilizing term:
+!              \nabla u^* = \nabla u + \eta r_f([[u]])
+!
+!           where
+!              \int_{e} r_f([[u]])\tau = -0.5\int_{f} [[u]] \tau ds
+!
+!        *******************************************************
+!
          use ElementClass
          use HexMeshClass
          use PhysicsStorage
          use Physics
          use DGWeakIntegrals
          implicit none
-         class(InteriorPenalty_t),   intent(in) :: self
+         class(BassiRebay2_t),   intent(in) :: self
          class(Element)                         :: e
          class(HexMesh)                         :: mesh
 !
@@ -268,10 +226,13 @@ module ViscousIP
 !        ---------------
 !
          integer              :: i, j, k
-         real(kind=RP)        :: invjac
+         real(kind=RP)        :: invjac(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)        :: faceInt_x(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
          real(kind=RP)        :: faceInt_y(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
          real(kind=RP)        :: faceInt_z(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: bv_x(0:e % Nxyz(1),2)
+         real(kind=RP)        :: bv_y(0:e % Nxyz(2),2)
+         real(kind=RP)        :: bv_z(0:e % Nxyz(3),2)
 
          call VectorWeakIntegrals % StdFace(e, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
@@ -285,17 +246,124 @@ module ViscousIP
 !        Add the integrals weighted with the Jacobian
 !        --------------------------------------------
          do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
-            invjac = self % IPmethod / e % geom % jacobian(i,j,k)
-            e % storage % U_x(:,i,j,k) = e % storage % U_x(:,i,j,k) + faceInt_x(:,i,j,k) * invjac
-            e % storage % U_y(:,i,j,k) = e % storage % U_y(:,i,j,k) + faceInt_y(:,i,j,k) * invjac
-            e % storage % U_z(:,i,j,k) = e % storage % U_z(:,i,j,k) + faceInt_z(:,i,j,k) * invjac
+            invjac(i,j,k) = 1.0_RP / e % geom % jacobian(i,j,k)
+            e % storage % U_x(:,i,j,k) = e % storage % U_x(:,i,j,k) - faceInt_x(:,i,j,k) * invjac(i,j,k)
+            e % storage % U_y(:,i,j,k) = e % storage % U_y(:,i,j,k) - faceInt_y(:,i,j,k) * invjac(i,j,k)
+            e % storage % U_z(:,i,j,k) = e % storage % U_z(:,i,j,k) - faceInt_z(:,i,j,k) * invjac(i,j,k)
          end do                  ; end do                   ; end do
 !
-      end subroutine IP_ComputeGradientFaceIntegrals
+!        ******************************************
+!        Perform the interface gradients correction
+!        ******************************************
+!
+         bv_x = e % spAxi % b * e % spAxi % v
+         bv_y = e % spAeta % b * e % spAeta % v
+         bv_z = e % spAzeta % b * e % spAzeta % v
+!
+!        ----------------
+!>       Xi-contributions
+!        ----------------
+!
+
+         associate(U_x => mesh % faces(e % faceIDs(ELEFT)) % storage(e % faceSide(ELEFT)) % U_x, &
+                   U_y => mesh % faces(e % faceIDs(ELEFT)) % storage(e % faceSide(ELEFT)) % U_y, &
+                   U_z => mesh % faces(e % faceIDs(ELEFT)) % storage(e % faceSide(ELEFT)) % U_z, &
+                   unStar => mesh % faces(e % faceIDs(ELEFT)) % storage(e % faceSide(ELEFT)) % unStar )
+
+         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+            U_x(:,j,k) = U_x(:,j,k) - self % eta * unStar(:,1,j,k) * bv_x(i,LEFT) * invjac(i,j,k)
+            U_y(:,j,k) = U_y(:,j,k) - self % eta * unStar(:,2,j,k) * bv_x(i,LEFT) * invjac(i,j,k)
+            U_z(:,j,k) = U_z(:,j,k) - self % eta * unStar(:,3,j,k) * bv_x(i,LEFT) * invjac(i,j,k)
+         end do                 ; end do                ; end do
+         end associate
+
+         associate(U_x => mesh % faces(e % faceIDs(ERIGHT)) % storage(e % faceSide(ERIGHT)) % U_x, &
+                   U_y => mesh % faces(e % faceIDs(ERIGHT)) % storage(e % faceSide(ERIGHT)) % U_y, &
+                   U_z => mesh % faces(e % faceIDs(ERIGHT)) % storage(e % faceSide(ERIGHT)) % U_z, &
+                   unStar => mesh % faces(e % faceIDs(ERIGHT)) % storage(e % faceSide(ERIGHT)) % unStar )
+
+         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+            U_x(:,j,k) = U_x(:,j,k) - self % eta * unStar(:,1,j,k) * bv_x(i,RIGHT) * invjac(i,j,k)
+            U_y(:,j,k) = U_y(:,j,k) - self % eta * unStar(:,2,j,k) * bv_x(i,RIGHT) * invjac(i,j,k)
+            U_z(:,j,k) = U_z(:,j,k) - self % eta * unStar(:,3,j,k) * bv_x(i,RIGHT) * invjac(i,j,k)
+         end do                 ; end do                ; end do
+         end associate
+!
+!        -----------------
+!>       Eta-contributions
+!        -----------------
+!
+         associate(U_x => mesh % faces(e % faceIDs(EFRONT)) % storage(e % faceSide(EFRONT)) % U_x, &
+                   U_y => mesh % faces(e % faceIDs(EFRONT)) % storage(e % faceSide(EFRONT)) % U_y, &
+                   U_z => mesh % faces(e % faceIDs(EFRONT)) % storage(e % faceSide(EFRONT)) % U_z, &
+                   unStar => mesh % faces(e % faceIDs(EFRONT)) % storage(e % faceSide(EFRONT)) % unStar )
+
+         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+            U_x(:,i,k) = U_x(:,i,k) - self % eta * unStar(:,1,i,k) * bv_y(j,LEFT) * invjac(i,j,k)
+            U_y(:,i,k) = U_y(:,i,k) - self % eta * unStar(:,2,i,k) * bv_y(j,LEFT) * invjac(i,j,k)
+            U_z(:,i,k) = U_z(:,i,k) - self % eta * unStar(:,3,i,k) * bv_y(j,LEFT) * invjac(i,j,k)
+         end do                 ; end do                ; end do
+         end associate
+
+         associate(U_x => mesh % faces(e % faceIDs(EBACK)) % storage(e % faceSide(EBACK)) % U_x, &
+                   U_y => mesh % faces(e % faceIDs(EBACK)) % storage(e % faceSide(EBACK)) % U_y, &
+                   U_z => mesh % faces(e % faceIDs(EBACK)) % storage(e % faceSide(EBACK)) % U_z, &
+                   unStar => mesh % faces(e % faceIDs(EBACK)) % storage(e % faceSide(EBACK)) % unStar )
+
+         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+            U_x(:,i,k) = U_x(:,i,k) - self % eta * unStar(:,1,i,k) * bv_y(j,RIGHT) * invjac(i,j,k)
+            U_y(:,i,k) = U_y(:,i,k) - self % eta * unStar(:,2,i,k) * bv_y(j,RIGHT) * invjac(i,j,k)
+            U_z(:,i,k) = U_z(:,i,k) - self % eta * unStar(:,3,i,k) * bv_y(j,RIGHT) * invjac(i,j,k)
+         end do                 ; end do                ; end do
+         end associate
+!
+!        ------------------
+!>       Zeta-contributions
+!        ------------------
+!
+         associate(U_x => mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % U_x, &
+                   U_y => mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % U_y, &
+                   U_z => mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % U_z, &
+                   unStar => mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % unStar )
+
+         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+            U_x(:,i,j) = U_x(:,i,j) - self % eta * unStar(:,1,i,j) * bv_z(k,LEFT) * invjac(i,i,j)
+            U_y(:,i,j) = U_y(:,i,j) - self % eta * unStar(:,2,i,j) * bv_z(k,LEFT) * invjac(i,i,j)
+            U_z(:,i,j) = U_z(:,i,j) - self % eta * unStar(:,3,i,j) * bv_z(k,LEFT) * invjac(i,i,j)
+         end do                 ; end do                ; end do
+         end associate
+
+         associate(U_x => mesh % faces(e % faceIDs(ETOP)) % storage(e % faceSide(ETOP)) % U_x, &
+                   U_y => mesh % faces(e % faceIDs(ETOP)) % storage(e % faceSide(ETOP)) % U_y, &
+                   U_z => mesh % faces(e % faceIDs(ETOP)) % storage(e % faceSide(ETOP)) % U_z, &
+                   unStar => mesh % faces(e % faceIDs(ETOP)) % storage(e % faceSide(ETOP)) % unStar )
+
+         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+            U_x(:,i,j) = U_x(:,i,j) - self % eta * unStar(:,1,i,j) * bv_z(k,RIGHT) * invjac(i,j,k)
+            U_y(:,i,j) = U_y(:,i,j) - self % eta * unStar(:,2,i,j) * bv_z(k,RIGHT) * invjac(i,j,k)
+            U_z(:,i,j) = U_z(:,i,j) - self % eta * unStar(:,3,i,j) * bv_z(k,RIGHT) * invjac(i,j,k)
+         end do                 ; end do                ; end do
+         end associate
+
+      end subroutine BR2_ComputeGradientFaceIntegrals
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_GradientInterfaceSolution(f)
+      subroutine BR2_GradientInterfaceSolution(f)
+!
+!        ************************************************
+!           The BR2 is written in strong form, since it
+!           is more efficient for the interpolation to
+!           boundaries of the local gradients. Hence,
+!           the numerical flux is compensated with the
+!           interior solution to yield the interface
+!           jumps:
+!              U_x += -0.5\int_{S} [[u]]\tau ds
+!
+!           We compute here the interface fluxes:
+!              unStar = -0.5*[[u]]dS
+!        ************************************************
+!
          use Physics  
          use ElementClass
          use FaceClass
@@ -329,9 +397,9 @@ module ViscousIP
 
          call f % ProjectGradientFluxToElements(HFlux,(/1,2/))
          
-      end subroutine IP_GradientInterfaceSolution   
+      end subroutine BR2_GradientInterfaceSolution   
 
-      subroutine IP_GradientInterfaceSolutionMPI(f)
+      subroutine BR2_GradientInterfaceSolutionMPI(f)
          use Physics  
          use ElementClass
          use FaceClass
@@ -365,9 +433,9 @@ module ViscousIP
          thisSide = maxloc(f % elementIDs, dim = 1)
          call f % ProjectGradientFluxToElements(HFlux,(/thisSide, HMESH_NONE/))
          
-      end subroutine IP_GradientInterfaceSolutionMPI   
+      end subroutine BR2_GradientInterfaceSolutionMPI   
 
-      subroutine IP_GradientInterfaceSolutionBoundary(f, time, externalState)
+      subroutine BR2_GradientInterfaceSolutionBoundary(f, time, externalState)
          use Physics
          use FaceClass
          implicit none
@@ -403,16 +471,16 @@ module ViscousIP
 
          end do ; end do   
          
-      end subroutine IP_GradientInterfaceSolutionBoundary
+      end subroutine BR2_GradientInterfaceSolutionBoundary
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_ComputeInnerFluxes( self , e , contravariantFlux )
+      subroutine BR2_ComputeInnerFluxes( self , e , contravariantFlux )
          use ElementClass
          use PhysicsStorage
          use Physics
          implicit none
-         class(InteriorPenalty_t) ,     intent (in) :: self
+         class(BassiRebay2_t) ,     intent (in) :: self
          type(Element)                          :: e
          real(kind=RP)           , intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
@@ -442,15 +510,15 @@ module ViscousIP
 
          end do               ; end do            ; end do
 
-      end subroutine IP_ComputeInnerFluxes
+      end subroutine BR2_ComputeInnerFluxes
 
-      subroutine IP_RiemannSolver(self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+      subroutine BR2_RiemannSolver(self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , flux )
          use SMConstants
          use PhysicsStorage
          use Physics
          implicit none
-         class(InteriorPenalty_t)                 :: self
+         class(BassiRebay2_t)                 :: self
          class(Face), intent(in)                  :: f
          real(kind=RP), dimension(N_EQN)      :: QLeft
          real(kind=RP), dimension(N_EQN)      :: QRight
@@ -469,8 +537,6 @@ module ViscousIP
 !
          real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
          real(kind=RP)     :: flux_vec(NCONS,NDIM)
-         real(kind=RP)     :: sigma
-
 !
 !>       Old implementation: 1st average, then compute
 !        ------------------
@@ -480,13 +546,9 @@ module ViscousIP
          U_z = 0.5_RP * ( U_zLeft + U_zRight)
 
          flux_vec = ViscousFlux(Q,U_x,U_y,U_z)
-!
-!        Shahbazi estimate
-!        -----------------
-         sigma = 0.5_RP * self % sigma * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h * dimensionless % mu
 
-         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) + sigma * (QRight - QLeft)
+         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) 
 
-      end subroutine IP_RiemannSolver
+      end subroutine BR2_RiemannSolver
 
-end module ViscousIP
+end module ViscousBR2

@@ -50,8 +50,6 @@
 
          INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
 
-         CHARACTER(len=*), parameter   :: VERSION = "v0.6"
-
-
+         CHARACTER(len=*), parameter   :: VERSION = "Development- v0.6.1"
          
       END MODULE SMConstants

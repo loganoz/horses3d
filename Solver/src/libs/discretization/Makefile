@@ -18,6 +18,7 @@ LIBOBJS =       ./build/WeakIntegrals.o \
 		./build/InviscidMethods.o \
 		./build/ViscousMethodClass.o \
 		./build/ViscousBR1.o \
+		./build/ViscousBR2.o \
 		./build/ViscousIP.o \
 		./build/ViscousMethods.o \
 		./build/SpatialDiscretization.o
