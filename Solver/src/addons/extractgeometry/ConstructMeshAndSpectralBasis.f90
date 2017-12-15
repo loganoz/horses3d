@@ -4,9 +4,9 @@
 !   @File:    ConstructMeshAndSpectralBasis.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Nov  1 19:56:53 2017
-!   @Last revision date: Sun Nov  5 19:15:11 2017
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 431d0b8be7da5b914d9e787fc6ac9e78aceca4ef
+!   @Last revision date: Fri Dec  8 13:10:24 2017
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 30d03e7f068d114727c6fc351e203d440a864bc3
 !
 !//////////////////////////////////////////////////////
 !
@@ -51,7 +51,7 @@ module ConstructMeshAndSpectralBasis_MOD
          if ( fileType .eq. SOLUTION_FILE ) then
             padding = NCONS
          else if ( fileType .eq. SOLUTION_AND_GRADIENTS_FILE ) then
-            padding = 4*NCONS
+            padding = NCONS + 3 * N_GRAD_EQN
          end if
             
          fid = putSolutionFileInReadDataMode(trim(solutionFile))

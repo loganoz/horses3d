@@ -97,14 +97,32 @@
      REAL( KIND=RP ) :: TRatio 
 !    ----------------------------------
 !
-!    ------------------------------------
-!    Riemann solver associated quantities
-!    ------------------------------------
+!    --------------------------
+!    Riemann solver definitions
+!    --------------------------
 !
-     INTEGER, PARAMETER :: ROE = 0, LXF = 1, RUSANOV = 2
-     integer, parameter :: MORINISHI = 3, DUCROS = 4, PIROZZOLI = 5, KENNEDYGRUBER = 6
-     INTEGER            :: riemannSolverChoice = ROE
+     integer, parameter :: RIEMANN_ROE        = 0
+     integer, parameter :: RIEMANN_LXF        = 1
+     integer, parameter :: RIEMANN_RUSANOV    = 2
+     integer, parameter :: RIEMANN_STDROE     = 4
+     integer, parameter :: RIEMANN_CENTRAL    = 5
+     integer, parameter :: RIEMANN_ROEPIKE    = 6
+     integer, parameter :: RIEMANN_LOWDISSROE = 7
+     integer, parameter :: RIEMANN_VISCOUSNS  = 8
+     integer, protected :: whichRiemannSolver = -1
      real(kind=RP)      :: lambdaStab = 0.0_RP
+!
+!    -----------------------------
+!    Available averaging functions
+!    -----------------------------
+!
+     integer, parameter :: STANDARD_SPLIT      = 1
+     integer, parameter :: MORINISHI_SPLIT     = 2
+     integer, parameter :: DUCROS_SPLIT        = 3
+     integer, parameter :: KENNEDYGRUBER_SPLIT = 4
+     integer, parameter :: PIROZZOLI_SPLIT     = 5
+     integer            :: whichAverage = -1
+
 
      type(Thermodynamics_t), target, private :: ThermodynamicsAir = Thermodynamics_t( &
                                                               "Air", & ! Name
@@ -316,8 +334,9 @@
    module RiemannSolvers
 
       contains
-         subroutine SetRiemannSolver(which)
+         subroutine SetRiemannSolver(which, splitType)
             integer, intent(in)  :: which
+            integer, intent(in)  :: splitType
          end subroutine SetRiemannSolver
 
    end module RiemannSolvers
@@ -363,7 +382,7 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE RiemannSolver( QLeft, QRight, nHat, flux )
+      SUBROUTINE RiemannSolver( QLeft, QRight, nHat, t1, t2, flux )
          IMPLICIT NONE
 !
 !        ---------
@@ -371,7 +390,7 @@
 !        ---------
 !
          REAL(KIND=RP), DIMENSION(N_EQN)  :: Qleft, Qright, flux
-         REAL(KIND=RP), DIMENSION(3)      :: nHat
+         REAL(KIND=RP), DIMENSION(3)      :: nHat, t1, t2
          
          flux = 0.5_RP*(Qleft + Qright)*( nHat(1) + nHat(2) + nHat(3) )
       

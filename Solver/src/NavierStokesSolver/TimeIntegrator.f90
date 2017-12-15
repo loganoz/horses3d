@@ -19,14 +19,15 @@
       USE Physics
       USE ExplicitMethods
       use AutosaveClass
+      use StopwatchClass
       IMPLICIT NONE 
       
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
 
       TYPE TimeIntegrator_t
          INTEGER                                :: integratorType
-         REAL(KIND=RP)                          :: tFinal, time
-         INTEGER                                :: initial_iter, numTimeSteps, outputInterval
+         REAL(KIND=RP)                          :: tFinal, time, initial_time
+         INTEGER                                :: initial_iter, numTimeSteps, outputInterval, iter
          REAL(KIND=RP)                          :: dt, tolerance, cfl
          LOGICAL                                :: Compute_dt                    ! Is st computed from an inputted CFL number?
          type(Autosave_t)                       :: autosave
@@ -86,6 +87,7 @@
 !        ----------------------
 !
          self % time           =  initial_time 
+         self % initial_time   =  initial_time
          self % initial_iter   =  initial_iter
          self % numTimeSteps   =  controlVariables % integerValueForKey ("number of time steps")
          self % outputInterval =  controlVariables % integerValueForKey("output interval")
@@ -132,12 +134,8 @@
       
       USE Implicit_JF , ONLY : TakeBDFStep_JF
       USE Implicit_NJ , ONLY : TakeBDFStep_NJ
-      use FASMultigridClass
-      use AnisFASMultigridClass
-      use pAdaptationClass
-      use StopwatchClass
-      
-      implicit none
+      USE FASMultigridClass
+      IMPLICIT NONE
 !
 !     ---------
 !     Arguments
@@ -322,7 +320,7 @@ end interface
       t = self % time
       sem % MaxResidual = 1.e-3_RP !initializing to this value for implicit solvers (Newton tolerance is computed according to this)
       
-      DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
+      DO k = self % initial_iter, self % initial_iter + self % numTimeSteps-1
 !
 !        CFL-bounded time step
 !        ---------------------      
@@ -367,6 +365,7 @@ end interface
 !        Compute the new time
 !        --------------------         
          t = t + dt
+         self % time = t
 !
 !        Get maximum residuals
 !        ---------------------
@@ -458,12 +457,21 @@ end interface
 !     Local variables      
 !     ---------------
 !
+      real(kind=RP)           :: ETA, tEl
       integer, parameter      :: showLabels = 50
       integer, save           :: shown = 0
 
       if ( .not. MPI_Process % isRoot ) return 
 
       if ( mod(shown, showLabels) .eq. 0 ) then
+         if ( (self % integratorType .eq. TIME_ACCURATE) .and. (self % iter .gt. self % initial_iter+1) ) then 
+!
+!           Compute ETA
+!           -----------
+            tEl = Stopwatch % ElapsedTime("Solver")
+            ETA = (self % tFinal - self % initial_time) * tEl / (self % time - self % initial_time) - tEl
+            write(STD_OUT,'(A,F10.3,A)') "*** ETA:", ETA," seconds."
+         end if
          write(STD_OUT,'(/)')
          write(STD_OUT,'(/)')
          

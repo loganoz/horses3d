@@ -1,64 +1,31 @@
 #include "Includes.h"
-module DGInviscidDiscretization
+module InviscidSplitForm
    use SMConstants
    use RiemannSolvers
+   use InviscidMethodClass
    implicit none
 
    private
-   public   InviscidMethod_t , StandardDG_t , SplitDG_t, InviscidMethod
-
-   integer,    parameter   :: STANDARD_DG = 1
-   integer,    parameter   :: SPLIT_DG = 2
-
-   integer,    parameter   :: STANDARD_SPLIT = 1
-   integer,    parameter   :: MORINISHI_SPLIT = 2
-   integer,    parameter   :: DUCROS_SPLIT = 3
-   integer,    parameter   :: KENNEDYGRUBER_SPLIT = 4
-   integer,    parameter   :: PIROZZOLI_SPLIT = 5
-
-   type InviscidMethod_t
-      procedure(VolumetricSharpFlux_FCN), nopass, pointer  :: ComputeVolumetricSharpFlux => NULL()
-      contains
-         procedure   :: Initialize           => InitializeInviscidMethod
-         procedure   :: ComputeInnerFluxes   => BaseClass_ComputeInnerFluxes
-         procedure   :: ComputeSplitFormFluxes => BaseClass_ComputeSplitFormFluxes
-   end type InviscidMethod_t
-
-   type, extends(InviscidMethod_t)  :: StandardDG_t
-   end type StandardDG_t
+   public   SplitDG_t
 
    type, extends(InviscidMethod_t)  :: SplitDG_t
       contains 
+         procedure   :: Initialize             => SplitDG_Initialize
          procedure   :: ComputeSplitFormFluxes => SplitDG_ComputeSplitFormFluxes
    end type SplitDG_t
-
-   class(InviscidMethod_t), allocatable         :: InviscidMethod
-
-   abstract interface
-      function VolumetricSharpFlux_FCN(QL,QR,JaL,JaR) 
-         use SMConstants
-         use PhysicsStorage
-         implicit none
-         real(kind=RP), intent(in)       :: QL(1:NCONS)
-         real(kind=RP), intent(in)       :: QR(1:NCONS)
-         real(kind=RP), intent(in)       :: JaL(1:NDIM)
-         real(kind=RP), intent(in)       :: JaR(1:NDIM)
-         real(kind=RP), dimension(NCONS) :: VolumetricSharpFlux_FCN
-      end function VolumetricSharpFlux_FCN
-   end interface
 !
 !  ========
    contains
 !  ========
 !
-      subroutine InitializeInviscidMethod(self, controlVariables)
+      subroutine SplitDG_Initialize(self, controlVariables)
          use FTValueDictionaryClass
          use mainKeywordsModule
          use Headers
          use MPI_Process_Info
          use PhysicsStorage
          implicit none
-         class(InviscidMethod_t) :: self
+         class(SplitDG_t) :: self
          class(FTValueDictionary),  intent(in)   :: controlVariables
 !
 !        ---------------
@@ -72,106 +39,106 @@ module DGInviscidDiscretization
                character(*), intent(in out) :: str
             end subroutine toLower
          end interface
-
-         call SetRiemannSolver( riemannSolverChoice )
-
-         select type ( self ) 
-         type is (SplitDG_t)
-            splitForm = controlVariables % stringValueForKey(splitFormKey, requestedLength = LINE_LENGTH)
-   
-            call toLower(splitForm)
-   
-            select case ( trim(splitForm) )
-            case ( "standard" )
-               self % ComputeVolumetricSharpFlux => StandardDG_VolumetricSharpFlux
-               splitType = STANDARD_SPLIT
-   
-            case ( "morinishi" )
-               self % ComputeVolumetricSharpFlux => Morinishi_VolumetricSharpFlux
-               splitType = MORINISHI_SPLIT
-   
-            case ( "ducros" )
-               self % ComputeVolumetricSharpFlux => Ducros_VolumetricSharpFlux
-               splitType = DUCROS_SPLIT
-   
-            case ( "kennedy-gruber" )
-               self % ComputeVolumetricSharpFlux => KennedyGruber_VolumetricSharpFlux
-               splitType = KENNEDYGRUBER_SPLIT
-   
-            case ( "pirozzoli" )
-               self % ComputeVolumetricSharpFlux => Pirozzoli_VolumetricSharpFlux
-               splitType = PIROZZOLI_SPLIT
-   
-            case default
-if ( MPI_Process % isRoot ) then   
-               write(STD_OUT,'(A,A,A)') 'Requested split form "',trim(splitForm),'" is not implemented.'
-               write(STD_OUT,'(A)') "Implemented split forms are:"
-               write(STD_OUT,'(A)') "  * Standard"
-               write(STD_OUT,'(A)') "  * Morinishi"
-               write(STD_OUT,'(A)') "  * Ducros"
-               write(STD_OUT,'(A)') "  * Kennedy-Gruber"
-               write(STD_OUT,'(A)') "  * Pirozzoli"
-               errorMessage(STD_OUT)
-               stop 
-end if
-   
-            end select
-         end select
 !
+!        Get the split form from control variables
+!        -----------------------------------------
+         splitForm = controlVariables % stringValueForKey(splitFormKey, requestedLength = LINE_LENGTH)
+         call toLower(splitForm)
+
+         select case ( trim(splitForm) )
+         case ( "standard" )
+!
+!           Skew-symmetric version of the standard DG. Useful for testing
+!           -------------------------------------------------------------
+            self % ComputeVolumetricSharpFlux => StandardDG_VolumetricSharpFlux
+            splitType = STANDARD_SPLIT
+
+         case ( "morinishi" )
+            self % ComputeVolumetricSharpFlux => Morinishi_VolumetricSharpFlux
+            splitType = MORINISHI_SPLIT
+
+         case ( "ducros" )
+            self % ComputeVolumetricSharpFlux => Ducros_VolumetricSharpFlux
+            splitType = DUCROS_SPLIT
+
+         case ( "kennedy-gruber" )
+            self % ComputeVolumetricSharpFlux => KennedyGruber_VolumetricSharpFlux
+            splitType = KENNEDYGRUBER_SPLIT
+
+         case ( "pirozzoli" )
+            self % ComputeVolumetricSharpFlux => Pirozzoli_VolumetricSharpFlux
+            splitType = PIROZZOLI_SPLIT
+
+         case default
+            if ( MPI_Process % isRoot ) then   
+            write(STD_OUT,'(A,A,A)') 'Requested split form "',trim(splitForm),'" is not implemented.'
+            write(STD_OUT,'(A)') "Implemented split forms are:"
+            write(STD_OUT,'(A)') "  * Standard"
+            write(STD_OUT,'(A)') "  * Morinishi"
+            write(STD_OUT,'(A)') "  * Ducros"
+            write(STD_OUT,'(A)') "  * Kennedy-Gruber"
+            write(STD_OUT,'(A)') "  * Pirozzoli"
+            errorMessage(STD_OUT)
+            stop 
+            end if
+
+         end select
+
+         call SetRiemannSolver( whichRiemannSolver, splitType )
+!
+!        ********
 !        Describe
-!        --------
+!        ********
+!
          call Subsection_Header("Inviscid discretization")
 
-if (MPI_Process % isRoot ) then
-         select type ( self ) 
-   
-         type is (StandardDG_t)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","Standard"
+         if (.not. MPI_Process % isRoot ) return
 
-         type is (SplitDG_t)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","Split-Form"
+         write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","Split-Form"
 
-            select case ( splitType )
-            case (STANDARD_SPLIT)
-               write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Standard"
+         select case ( splitType )
+         case (STANDARD_SPLIT)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Standard"
 
-            case (MORINISHI_SPLIT)
-               write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Morinishi"
+         case (MORINISHI_SPLIT)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Morinishi"
 
-            case (DUCROS_SPLIT)
-               write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Ducros"
+         case (DUCROS_SPLIT)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Ducros"
 
-            case (KENNEDYGRUBER_SPLIT)
-               write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Kennedy-Gruber"
+         case (KENNEDYGRUBER_SPLIT)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Kennedy-Gruber"
 
-            case (PIROZZOLI_SPLIT)
-               write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Pirozzoli"
+         case (PIROZZOLI_SPLIT)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Pirozzoli"
 
-            end select
          end select
 
-         select case (riemannSolverChoice)
-         case (ROE)
+         select case (whichRiemannSolver)
+         case (RIEMANN_ROE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe"
 
-         case (LXF)
+         case (RIEMANN_LXF)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
 
-         case (RUSANOV)
+         case (RIEMANN_RUSANOV)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Rusanov"
 
-         case (DUCROS)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Ducros"
+         case (RIEMANN_STDROE)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Standard Roe"
 
-         case (MORINISHI)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Morinishi"
+         case (RIEMANN_CENTRAL)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"
 
-         case (KENNEDYGRUBER)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Kennedy-Gruber"
-
-         case (PIROZZOLI)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Pirozzoli"
-
+         case (RIEMANN_ROEPIKE)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe-Pike"
+         
+         case (RIEMANN_LOWDISSROE)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Low dissipation Roe"
+         
+         case (RIEMANN_VISCOUSNS)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Viscous NS"
+         
          end select
 
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
@@ -181,80 +148,9 @@ if (MPI_Process % isRoot ) then
          else
             write(STD_OUT,'(30X,A,A30,A)') "->","Gradients computation: ", "Disabled."
          end if
-end if
 
-      end subroutine InitializeInviscidMethod
-!
-!///////////////////////////////////////////////////////////////////////////////////
-!
-!           BaseClass Procedures
-!           --------------------
-!///////////////////////////////////////////////////////////////////////////////////
-!
-      subroutine BaseClass_ComputeInnerFluxes( self , e , contravariantFlux )
-         use ElementClass
-         use Physics
-         use PhysicsStorage
-         implicit none
-         class(InviscidMethod_t), intent(in)  :: self
-         type(Element),           intent(in)  :: e
-         real(kind=RP),           intent(out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer            :: i, j, k
-         real(kind=RP)      :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+      end subroutine SplitDG_Initialize
 
-         cartesianFlux = InviscidFlux( e%Nxyz(1) , e%Nxyz(2) , e%Nxyz(3) , e % storage % Q )
-
-         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
-         
-            contravariantFlux(:,i,j,k,IX) =    cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
-                                             + cartesianFlux(:,i,j,k,IY) * e % geom % jGradXi(IY,i,j,k)  &
-                                             + cartesianFlux(:,i,j,k,IZ) * e % geom % jGradXi(IZ,i,j,k)
-
-
-            contravariantFlux(:,i,j,k,IY) =   cartesianFlux(:,i,j,k,IX) * e % geom % jGradEta(IX,i,j,k)  &
-                                             + cartesianFlux(:,i,j,k,IY) * e % geom % jGradEta(IY,i,j,k)  &
-                                             + cartesianFlux(:,i,j,k,IZ) * e % geom % jGradEta(IZ,i,j,k)
-
-
-            contravariantFlux(:,i,j,k,IZ) =   cartesianFlux(:,i,j,k,IX) * e % geom % jGradZeta(IX,i,j,k)  &
-                                             + cartesianFlux(:,i,j,k,IY) * e % geom % jGradZeta(IY,i,j,k)  &
-                                             + cartesianFlux(:,i,j,k,IZ) * e % geom % jGradZeta(IZ,i,j,k)
-
-         end do               ; end do                ; end do
-
-      end subroutine BaseClass_ComputeInnerFluxes
-
-      subroutine BaseClass_ComputeSplitFormFluxes(self, e, contravariantFlux, fSharp, gSharp, hSharp)
-         use ElementClass
-         use PhysicsStorage
-         implicit none
-         class(InviscidMethod_t), intent(in)  :: self
-         type(Element),           intent(in)  :: e
-         real(kind=RP),           intent(in)  :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
-         real(kind=RP),           intent(out) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
-         real(kind=RP),           intent(out) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
-         real(kind=RP),           intent(out) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
-
-      end subroutine BaseClass_ComputeSplitFormFluxes
-!
-!///////////////////////////////////////////////////////////////////////////////////
-!
-!           StandardDG Procedures
-!           ---------------------
-!///////////////////////////////////////////////////////////////////////////////////
-!
-!
-!///////////////////////////////////////////////////////////////////////////////////
-!
-!           SplitDG Procedures
-!           ------------------
-!///////////////////////////////////////////////////////////////////////////////////
-!
       subroutine SplitDG_ComputeSplitFormFluxes(self, e, contravariantFlux, fSharp, gSharp, hSharp)
          use ElementClass
          use PhysicsStorage
@@ -404,13 +300,16 @@ end if
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
    
-         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
-                                                                      + QL(IRHOV) * vL &
-                                                                      + QL(IRHOW) * wL ))
+         associate(gm1 => thermodynamics % GammaMinus1)
+   
+         pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+                                             + QL(IRHOV) * vL &
+                                             + QL(IRHOW) * wL ))
 
-         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
-                                                                      + QR(IRHOV) * vR &
-                                                                      + QR(IRHOW) * wR ))
+         pR = gm1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+                                             + QR(IRHOV) * vR &
+                                             + QR(IRHOW) * wR ))
+         end associate
 !
 !        Here the enthalpy does not contain the kinetic energy
 !        -----------------------------------------------------
@@ -488,14 +387,17 @@ end if
          uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
+         
+         associate(gm1 => thermodynamics % GammaMinus1)
    
-         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
-                                                                      + QL(IRHOV) * vL &
-                                                                      + QL(IRHOW) * wL ))
+         pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+                                             + QL(IRHOV) * vL &
+                                             + QL(IRHOW) * wL ))
 
-         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
-                                                                      + QR(IRHOV) * vR &
-                                                                      + QR(IRHOW) * wR ))
+         pR = gm1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+                                             + QR(IRHOV) * vR &
+                                             + QR(IRHOW) * wR ))
+         end associate
 !
 !        Average metrics
 !        ---------------
@@ -555,14 +457,17 @@ end if
          uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
-   
-         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
-                                                                      + QL(IRHOV) * vL &
-                                                                      + QL(IRHOW) * wL ))
 
-         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
-                                                                      + QR(IRHOV) * vR &
-                                                                      + QR(IRHOW) * wR ))
+         associate(gm1 => thermodynamics % GammaMinus1)
+   
+         pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+                                             + QL(IRHOV) * vL &
+                                             + QL(IRHOW) * wL ))
+
+         pR = gm1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+                                             + QR(IRHOV) * vR &
+                                             + QR(IRHOW) * wR ))
+         end associate
 
          rho = 0.5_RP * (QL(IRHO) + QR(IRHO))
          u   = 0.5_RP * (uL + uR)
@@ -678,5 +583,4 @@ end if
          end associate
 
       end function Pirozzoli_VolumetricSharpFlux
-
-end module DGInviscidDiscretization
+end module InviscidSplitForm

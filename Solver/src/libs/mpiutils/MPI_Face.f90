@@ -1,23 +1,39 @@
 #include "Includes.h"
 module MPI_Face_Class
+   use SMConstants
+   use MPI_Process_Info
+#ifdef _HAS_MPI_ 
+   use mpi 
+#endif 
    implicit none
 
    private
    public  MPI_Face_t, mpi_faces, MPI_Faces_Constructed
 
    public  ConstructMPIFaces, DestructMPIFaces
-   public  WaitUntilSolutionIsReady 
-   public  WaitUntilGradientsAreReady 
+   public  ConstructMPIFacesStorage
 
    type MPI_Face_t
-      integer              :: no_of_faces
-      integer, allocatable :: faceIDs(:)
-      integer, allocatable :: elementSide(:)
-      integer, allocatable :: Qrecv_req(:)
-      integer, allocatable :: GradQrecv_req(:,:)
+      integer                    :: no_of_faces
+      integer, allocatable       :: faceIDs(:)
+      integer, allocatable       :: elementSide(:)
+      integer                    :: Qrecv_req
+      integer                    :: gradQrecv_req
+      integer                    :: sizeQ
+      integer                    :: sizeU_xyz
+      real(kind=RP), allocatable :: Qsend(:)
+      real(kind=RP), allocatable :: U_xyzsend(:)
+      real(kind=RP), allocatable :: Qrecv(:)
+      real(kind=RP), allocatable :: U_xyzrecv(:)
       contains
-         procedure   :: Construct => MPI_Face_Construct
-         procedure   :: Destruct => MPI_Face_Destruct
+         procedure   :: Construct        => MPI_Face_Construct
+         procedure   :: Destruct         => MPI_Face_Destruct
+         procedure   :: SendQ            => MPI_Face_SendQ
+         procedure   :: RecvQ            => MPI_Face_RecvQ
+         procedure   :: SendU_xyz        => MPI_Face_SendU_xyz
+         procedure   :: RecvU_xyz        => MPI_Face_RecvU_xyz
+         procedure   :: WaitForSolution  => MPI_Face_WaitForSolution
+         procedure   :: WaitForGradients => MPI_Face_WaitForGradients
    end type MPI_Face_t
 
    logical                          :: MPI_Faces_Constructed = .false.
@@ -30,7 +46,6 @@ module MPI_Face_Class
    contains
 
       subroutine ConstructMPIFaces()
-         use MPI_Process_Info
          implicit none
 !
 !        ---------------
@@ -51,140 +66,165 @@ module MPI_Face_Class
 
       end subroutine ConstructMPIFaces
 
-      subroutine WaitUntilSolutionIsReady(faces) 
-         use MPI_Process_Info 
-#ifdef _HAS_MPI_ 
-         use mpi 
-#endif 
+      subroutine ConstructMPIFacesStorage(NCONS, NGRAD, NDOFS)
+!
+!        ***************************************************
+!           Allocates buffers to send and receive.
+!           This subroutine is called from:
+!               mesh % SetElementConnectivitiesAndLinkFaces
+!        ***************************************************
+!
+         implicit none
+         integer, intent(in)     :: NCONS, NGRAD
+         integer, intent(in)     :: NDOFS(MPI_Process % nProcs)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: domain
+
+         do domain = 1, MPI_Process % nProcs
+            mpi_faces(domain) % sizeQ     = NCONS * NDOFS(domain)
+            mpi_faces(domain) % sizeU_xyz = 3 * NGRAD * NDOFS(domain)
+
+            if ( NDOFS(domain) .gt. 0 ) then
+               allocate( mpi_faces(domain) % Qsend(NCONS * NDOFS(domain)) )
+               allocate( mpi_faces(domain) % U_xyzsend(3 * NGRAD * NDOFS(domain)) )
+               allocate( mpi_faces(domain) % Qrecv(NCONS * NDOFS(domain)) )
+               allocate( mpi_faces(domain) % U_xyzrecv(3 * NGRAD * NDOFS(domain)) )
+            end if
+         end do
+
+      end subroutine ConstructMPIFacesStorage
+
+      subroutine MPI_Face_SendQ(self, domain)
+         implicit none
+         class(MPI_Face_t)    :: self
+         integer, intent(in)  :: domain
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: ierr, dummyreq
+   
+#ifdef _HAS_MPI_
+         if ( self % no_of_faces .gt. 0 ) then
+            call mpi_isend(self % Qsend, self % sizeQ, MPI_DOUBLE, domain-1, DEFAULT_TAG, &
+                           MPI_COMM_WORLD, dummyreq, ierr)
+            call mpi_request_free(dummyreq, ierr)
+         end if
+#endif
+
+      end subroutine MPI_Face_SendQ
+
+      subroutine MPI_Face_RecvQ(self, domain)
+         implicit none
+         class(MPI_Face_t)    :: self
+         integer, intent(in)  :: domain
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: ierr, dummyreq
+   
+#ifdef _HAS_MPI_
+         if ( self % no_of_faces .gt. 0 ) then
+            call mpi_irecv(self % Qrecv, self % sizeQ, MPI_DOUBLE, domain-1, MPI_ANY_TAG, &
+                           MPI_COMM_WORLD, self % Qrecv_req, ierr)
+         end if
+#endif
+
+      end subroutine MPI_Face_RecvQ
+
+      subroutine MPI_Face_SendU_xyz(self, domain)
+         implicit none
+         class(MPI_Face_t)    :: self
+         integer, intent(in)  :: domain
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: ierr, dummyreq
+   
+#ifdef _HAS_MPI_
+         if ( self % no_of_faces .gt. 0 ) then
+            call mpi_isend(self % U_xyzsend, self % sizeU_xyz, MPI_DOUBLE, domain-1, &
+                           DEFAULT_TAG, MPI_COMM_WORLD, dummyreq, ierr)
+            call mpi_request_free(dummyreq, ierr)
+         end if
+#endif
+
+      end subroutine MPI_Face_SendU_xyz
+
+      subroutine MPI_Face_RecvU_xyz(self, domain)
+         implicit none
+         class(MPI_Face_t)    :: self
+         integer, intent(in)  :: domain
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: ierr, dummyreq
+   
+#ifdef _HAS_MPI_
+         if ( self % no_of_faces .gt. 0 ) then
+            call mpi_irecv(self % U_xyzrecv, self % sizeU_xyz, MPI_DOUBLE, domain-1, &
+                           DEFAULT_TAG, MPI_COMM_WORLD, self % gradQrecv_req, ierr)
+         end if
+#endif
+
+      end subroutine MPI_Face_RecvU_xyz
+
+      subroutine MPI_Face_WaitForSolution(self) 
          implicit none 
-         type(MPI_Face_t)     :: faces(MPI_Process % nProcs) 
+         class(MPI_Face_t)    :: self
+#ifdef _HAS_MPI_ 
 ! 
 !        --------------- 
 !        Local variables        
 !        --------------- 
 ! 
-         integer              :: domain, ierr 
-         integer              :: no_of_faces, lb, ub
-         integer, allocatable :: status(:,:), requests(:) 
+         integer              :: ierr 
+         integer              :: status(MPI_STATUS_SIZE)
  
-#ifdef _HAS_MPI_ 
-!
-!        ---------------------------------
-!        Get the total number of MPI Faces 
-!        ---------------------------------
-!
-         no_of_faces = 0
-         do domain = 1, MPI_Process % nProcs 
-            no_of_faces = no_of_faces + faces(domain) % no_of_faces
-         end do
-
-         allocate(status(MPI_STATUS_SIZE, no_of_faces))
-         allocate(requests(no_of_faces))
-!
-!        ------------------------------
-!        Get the requests in a 1D array
-!        ------------------------------
-!
-         no_of_faces = 0
-         do domain = 1, MPI_Process % nProcs
-            if ( faces(domain) % no_of_faces .le. 0 ) cycle
-!
-!           Lower and upper bounds
-!           ----------------------
-            lb = no_of_faces + 1
-            ub = lb - 1 + faces(domain) % no_of_faces
-!
-!           Gather requests
-!           ---------------
-            requests(lb:ub) = faces(domain) % Qrecv_req
-!
-!           Get next face
-!           -------------
-            no_of_faces = no_of_faces + faces(domain) % no_of_faces
-
-         end do
 !
 !        ----------------------------------- 
 !        Wait until the solution is received
 !        ----------------------------------- 
 !
-         do domain = 1, MPI_Process % nProcs
-            call mpi_waitall(no_of_faces, requests, status, ierr) 
-         end do
+         call mpi_wait(self % Qrecv_req, status, ierr) 
 #endif 
          
-      end subroutine WaitUntilSolutionIsReady 
+      end subroutine MPI_Face_WaitForSolution 
  
-      subroutine WaitUntilGradientsAreReady(faces) 
-         use MPI_Process_Info 
-#ifdef _HAS_MPI_ 
-         use mpi 
-#endif 
+      subroutine MPI_Face_WaitForGradients(self) 
          implicit none 
-         type(MPI_Face_t)     :: faces(MPI_Process % nProcs) 
+         class(MPI_Face_t)    :: self
+#ifdef _HAS_MPI_ 
 ! 
 ! 
 !        --------------- 
 !        Local variables        
 !        --------------- 
 ! 
-         integer              :: domain, ierr, i, j, lb, ub
-         integer              :: no_of_faces
-         integer, allocatable :: status(:,:), requests(:) 
+         integer              :: ierr, status(MPI_STATUS_SIZE)
  
-#ifdef _HAS_MPI_ 
 !
-!        ---------------------------------
-!        Get the total number of MPI Faces 
-!        ---------------------------------
+!        --------------------------------- 
+!        Wait until gradients are received
+!        -------------------------------- 
 !
-         no_of_faces = 0
-         do domain = 1, MPI_Process % nProcs 
-            no_of_faces = no_of_faces + faces(domain) % no_of_faces
-         end do
-
-         allocate(status(MPI_STATUS_SIZE, 3*no_of_faces))
-         allocate(requests(3*no_of_faces))
-!
-!        ------------------------------
-!        Get the requests in a 1D array
-!        ------------------------------
-!
-         no_of_faces = 0
-         do domain = 1, MPI_Process % nProcs
-            if ( faces(domain) % no_of_faces .eq. 0 ) cycle
-            do j = 1, 3
-!
-!           Lower and upper bounds
-!           ----------------------
-            lb = 3*no_of_faces + 1 + (j-1)*faces(domain) % no_of_faces
-            ub = lb - 1 + faces(domain) % no_of_faces
-!
-!           Gather requests
-!           ---------------
-            requests(lb:ub) = faces(domain) % gradQrecv_req(j,:)
-
-            end do
-!
-!           Get next face
-!           -------------
-            no_of_faces = no_of_faces + faces(domain) % no_of_faces
-         end do
-!
-!        ----------------------------------- 
-!        Wait until the solution is received
-!        ----------------------------------- 
-!
-         call mpi_waitall(3*no_of_faces, requests, status, ierr) 
-
-         deallocate(status) 
-         deallocate(requests)
+         call mpi_wait(self % gradQrecv_req, status, ierr) 
 #endif 
  
-      end subroutine WaitUntilGradientsAreReady 
+      end subroutine MPI_Face_WaitForGradients 
 
       subroutine DestructMPIFaces()
-         use MPI_Process_Info
          implicit none
 !
 !        ---------------
@@ -217,11 +257,13 @@ module MPI_Face_Class
          self % no_of_faces = no_of_faces
          allocate(self % faceIDs(no_of_faces))
          allocate(self % elementSide(no_of_faces))
-         allocate(self % Qrecv_req(no_of_faces))
-         allocate(self % gradQrecv_req(3,no_of_faces))
 
-         self % faceIDs = -1
-         self % elementSide = -1
+         self % faceIDs       = -1
+         self % elementSide   = -1
+#ifdef _HAS_MPI_
+         self % Qrecv_req     = MPI_REQUEST_NULL
+         self % gradQrecv_req = MPI_REQUEST_NULL
+#endif
 
       end subroutine MPI_Face_Construct
 
@@ -232,8 +274,14 @@ module MPI_Face_Class
          self % no_of_faces = 0
          safedeallocate(self % faceIDs)
          safedeallocate(self % elementSide)
-         safedeallocate(self % Qrecv_req)
-         safedeallocate(self % gradQrecv_req)
+         safedeallocate(self % Qsend)
+         safedeallocate(self % U_xyzsend)
+         safedeallocate(self % Qrecv)
+         safedeallocate(self % U_xyzrecv)
+#ifdef _HAS_MPI_
+         self % Qrecv_req     = MPI_REQUEST_NULL
+         self % gradQrecv_req = MPI_REQUEST_NULL
+#endif
 
       end subroutine MPI_Face_Destruct
 

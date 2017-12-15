@@ -3,17 +3,9 @@
 ##	HORSES3D Solver source files dependencies
 ##
 ###########################################################################
-./build/HORSES3DMain.o: ./build/TimeIntegrator.o \
+./build/HORSES3DMain.o: FORCE ./build/TimeIntegrator.o \
                         ./build/DGSEMClass.o \
                         ./build/pAdaptationClass.o
-
-./build/DGViscousDiscretization.o: ./build/DGWeakIntegrals.o 
-
-./build/SpatialDiscretization.o: ./build/DGInviscidDiscretization.o \
-				 ./build/DGViscousDiscretization.o \
-				 ./build/DGWeakIntegrals.o
-
-./build/DGSEMClass.o: ./build/SpatialDiscretization.o 
 
 ./build/TimeIntegrator.o: ./build/DGSEMClass.o ./build/Implicit_JF.o \
 	./build/Implicit_NJ.o \

@@ -13,8 +13,8 @@
 #include "Includes.h"
 module SpatialDiscretization
       use SMConstants
-      use DGInviscidDiscretization
-      use DGViscousDiscretization
+      use InviscidMethods
+      use ViscousMethods
       use DGWeakIntegrals
       use MeshTypes
 #ifdef _HAS_MPI_
@@ -36,6 +36,7 @@ module SpatialDiscretization
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
          character(len=LINE_LENGTH)       :: inviscidDiscretization
+         character(len=LINE_LENGTH)       :: viscousDiscretization
          interface
             subroutine toLower(str)
                character(*), intent(in out) :: str
@@ -47,7 +48,9 @@ module SpatialDiscretization
             call Section_Header("Spatial discretization scheme")
             write(STD_OUT,'(/)')
          end if
-
+!
+!        Initialize inviscid discretization
+!        ----------------------------------
          inviscidDiscretization = controlVariables % stringValueForKey(inviscidDiscretizationKey,requestedLength = LINE_LENGTH)
 
          call toLower(inviscidDiscretization)
@@ -71,14 +74,40 @@ module SpatialDiscretization
          end select
             
          call InviscidMethod % Initialize(controlVariables)
-         
+!
+!        Initialize viscous discretization
+!        ---------------------------------         
          if ( flowIsNavierStokes ) then
-            if (.not. allocated(ViscousMethod)) allocate( BassiRebay1_t :: ViscousMethod  ) 
+            viscousDiscretization = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
+            call toLower(viscousDiscretization)
+            
+            select case ( trim(viscousDiscretization) )
+            case("br1")
+               if (.not. allocated(ViscousMethod)) allocate( BassiRebay1_t :: ViscousMethod  ) 
+
+            case("br2")
+               if (.not. allocated(ViscousMethod)) allocate( BassiRebay2_t :: ViscousMethod  ) 
+
+            case("ip")
+               if (.not. allocated(ViscousMethod)) allocate( InteriorPenalty_t :: ViscousMethod  ) 
+
+            case default
+               write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretization),'" is not implemented.'
+               write(STD_OUT,'(A)') "Implemented discretizations are:"
+               write(STD_OUT,'(A)') "  * BR1"
+               write(STD_OUT,'(A)') "  * BR2"
+               write(STD_OUT,'(A)') "  * IP"
+               errorMessage(STD_OUT)
+               stop 
+
+            end select
    
          else
             if (.not. allocated(ViscousMethod)) allocate( ViscousMethod_t  :: ViscousMethod )
             
          end if
+
+         call ViscousMethod % Initialize(controlVariables)
          
       end subroutine Initialize_SpaceAndTimeMethods
 !
@@ -166,9 +195,9 @@ module SpatialDiscretization
 !$omp single
          if ( MPI_Process % doMPIAction ) then
             if ( flowIsNavierStokes ) then 
-               call WaitUntilGradientsAreReady(mpi_faces) 
+               call mesh % GatherMPIFacesGradients
             else  
-               call WaitUntilSolutionIsReady(mpi_faces) 
+               call mesh % GatherMPIFacesSolution
             end if          
          end if
 !$omp end single
@@ -332,9 +361,12 @@ module SpatialDiscretization
                CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
                                   QRight = f % storage(2) % Q(:,i,j), &
                                   nHat   = f % geom % normal(:,i,j), &
+                                  t1     = f % geom % t1(:,i,j), &
+                                  t2     = f % geom % t2(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
 
-               CALL ViscousMethod % RiemannSolver(QLeft = f % storage(1) % Q(:,i,j), &
+               CALL ViscousMethod % RiemannSolver(f = f, &
+                                                  QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
                                                   U_yLeft = f % storage(1) % U_y(:,i,j), &
@@ -348,7 +380,7 @@ module SpatialDiscretization
 !
 !              Multiply by the Jacobian
 !              ------------------------
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % scal(i,j)
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % jacobian(i,j)
                
             END DO   
          END DO  
@@ -383,9 +415,12 @@ module SpatialDiscretization
                CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
                                   QRight = f % storage(2) % Q(:,i,j), &
                                   nHat   = f % geom % normal(:,i,j), &
+                                  t1     = f % geom % t1(:,i,j), &
+                                  t2     = f % geom % t2(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
 
-               CALL ViscousMethod % RiemannSolver(QLeft = f % storage(1) % Q(:,i,j), &
+               CALL ViscousMethod % RiemannSolver(f = f, &
+                                                  QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
                                                   U_yLeft = f % storage(1) % U_y(:,i,j), &
@@ -399,7 +434,7 @@ module SpatialDiscretization
 !
 !              Multiply by the Jacobian
 !              ------------------------
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % scal(i,j)
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) ) * f % geom % jacobian(i,j)
                
             END DO   
          END DO  
@@ -417,7 +452,7 @@ module SpatialDiscretization
       SUBROUTINE computeBoundaryFlux(f, time, externalStateProcedure , externalGradientsProcedure)
       USE ElementClass
       use FaceClass
-      USE DGViscousDiscretization
+      USE ViscousMethods
       USE Physics
       use PhysicsStorage
       USE BoundaryConditionFunctions
@@ -459,6 +494,8 @@ module SpatialDiscretization
             CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
                                QRight = f % storage(2) % Q(:,i,j), &   
                                nHat   = f % geom % normal(:,i,j), &
+                               t1     = f % geom % t1(:,i,j), &
+                               t2     = f % geom % t2(:,i,j), &
                                flux   = inv_flux)
 !
 !           ViscousPart
@@ -476,7 +513,8 @@ module SpatialDiscretization
                                               UGradExt,&
                                               boundaryType )
 
-            CALL ViscousMethod % RiemannSolver( QLeft = f % storage(1) % Q(:,i,j), &
+            CALL ViscousMethod % RiemannSolver( f = f, &
+                                                QLeft = f % storage(1) % Q(:,i,j), &
                                                 QRight = f % storage(2) % Q(:,i,j), &
                                                 U_xLeft = f % storage(1) % U_x(:,i,j), &
                                                 U_yLeft = f % storage(1) % U_y(:,i,j), &
@@ -490,17 +528,13 @@ module SpatialDiscretization
                visc_flux = 0.0_RP
             end if
 
-            fStar(:,i,j) = (inv_flux - visc_flux) * f % geom % scal(i,j)
+            fStar(:,i,j) = (inv_flux - visc_flux) * f % geom % jacobian(i,j)
          END DO   
       END DO   
 
       call f % ProjectFluxToElements(fStar, (/1, HMESH_NONE/))
 
       END SUBROUTINE computeBoundaryFlux
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
