@@ -3,6 +3,7 @@ module ProbeClass
    use HexMeshClass
    use MonitorDefinitions
    use PhysicsStorage
+   use VariableConversion, only: Pressure
 #ifdef _HAS_MPI_
    use mpi
 #endif

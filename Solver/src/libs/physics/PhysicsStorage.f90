@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Sat Dec 16 12:49:10 2017
+!   @Last revision date: Sat Dec 16 13:23:14 2017
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 34738aecad241ffbe014e25f1886dfc1b47f81e1
+!   @Last revision commit: 0f5272f7f0587c4b9dcb9f4f33d865889e46a481
 !
 !//////////////////////////////////////////////////////
 !
@@ -50,7 +50,9 @@
 
      private
      public    flowIsNavierStokes, N_EQN, N_GRAD_EQN, NDIM, IX, IY, IZ
-     public    NCONS, IRHO, IRHOU, IRHOV, IRHOW, IRHOE, IGU, IGV, IGW, IGT
+     public    NCONS, IRHO, IRHOU, IRHOV, IRHOW, IRHOE
+     public    NGRAD, IGU, IGV, IGW, IGT
+     public    NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2
      public    TScale, TRatio
      public    Thermodynamics, RefValues, Dimensionless
      public    Thermodynamics_t, RefValues_t, Dimensionless_t
@@ -92,10 +94,18 @@
      INTEGER, PARAMETER       :: NCONS = 5
      INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
 !
+!    ----------------------------------------
+!!   The positions of the primitive variables
+!    ----------------------------------------
+!
+     INTEGER, PARAMETER       :: NPRIM = 7
+     INTEGER, PARAMETER       :: IPIRHO = 1, IPU = 2, IPV = 3, IPW = 4, IPP = 5, IPT = 6, IPA2 = 7
+!
 !    ---------------------------------------
 !!   The positions of the gradient variables
 !    ---------------------------------------
 !
+     INTEGER, PARAMETER  :: NGRAD = 4
      INTEGER, PARAMETER  :: IGU = 1 , IGV = 2 , IGW = 3 , IGT = 4
 !
 !    --------------------------------------------

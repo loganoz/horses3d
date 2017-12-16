@@ -1,0 +1,198 @@
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:    VariableConversion.f90
+!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Created: Sat Dec 16 13:23:18 2017
+!   @Last revision date:
+!   @Last revision author:
+!   @Last revision commit:
+!
+!//////////////////////////////////////////////////////
+!
+#include "Includes.h"
+module VariableConversion
+   use SMConstants
+   use PhysicsStorage
+   implicit none
+
+   private
+   public   Pressure, Temperature, GradientValuesForQ
+   public   getPrimitiveVariables, getEntropyVariables
+
+   interface GradientValuesForQ
+       module procedure GradientValuesForQ_0D , GradientValuesForQ_3D
+   end interface GradientValuesForQ
+
+   contains
+!
+! /////////////////////////////////////////////////////////////////////
+!
+!@mark -
+!---------------------------------------------------------------------
+!! Compute the pressure from the state variables
+!---------------------------------------------------------------------
+!
+      PURE FUNCTION Pressure(Q) RESULT(P)
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP), DIMENSION(N_EQN), INTENT(IN) :: Q
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      REAL(KIND=RP) :: P
+      
+      P = thermodynamics % gammaMinus1*(Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1))
+
+      END FUNCTION Pressure
+!
+! /////////////////////////////////////////////////////////////////////
+!
+!---------------------------------------------------------------------
+!! Compute the temperature from the state variables
+!---------------------------------------------------------------------
+!
+      PURE FUNCTION Temperature(Q) RESULT(T)
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP), DIMENSION(N_EQN), INTENT(IN) :: Q
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      REAL(KIND=RP) :: T
+!
+      T = dimensionless % gammaM2*Pressure(Q)/Q(1)
+
+      END FUNCTION Temperature
+!
+! /////////////////////////////////////////////////////////////////////
+!
+!---------------------------------------------------------------------
+!! GradientValuesForQ takes the solution (Q) values and returns the
+!! quantities of which the gradients will be taken.
+!---------------------------------------------------------------------
+!
+      pure SUBROUTINE GradientValuesForQ_0D( Q, U )
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP), DIMENSION(N_EQN)     , INTENT(IN)  :: Q
+      REAL(KIND=RP), DIMENSION(N_GRAD_EQN), INTENT(OUT) :: U
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!     
+      U(1) = Q(2)/Q(1)
+      U(2) = Q(3)/Q(1)
+      U(3) = Q(4)/Q(1)
+      U(4) = Temperature(Q)
+
+      END SUBROUTINE GradientValuesForQ_0D
+
+      pure SUBROUTINE GradientValuesForQ_3D( Nx, Ny, Nz, Q, U )
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      integer,       intent(in)  :: Nx, Ny, Nz
+      REAL(KIND=RP), INTENT(IN)  :: Q(1:NCONS, 0:Nx, 0:Ny, 0:Nz)
+      REAL(KIND=RP), INTENT(OUT) :: U(1:N_GRAD_EQN, 0:Nx, 0:Ny, 0:Nz)
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!     
+      integer     :: i, j, k
+      associate ( gammaM2 => dimensionless % gammaM2, &
+                  gammaMinus1 => thermodynamics % gammaMinus1 ) 
+      
+      do k = 0, Nz   ; do j = 0, Ny ; do i = 0, Nx
+      U(IGU,i,j,k) = Q(IRHOU,i,j,k) / Q(IRHO,i,j,k) 
+      U(IGV,i,j,k) = Q(IRHOV,i,j,k) / Q(IRHO,i,j,k) 
+      U(IGW,i,j,k) = Q(IRHOW,i,j,k) / Q(IRHO,i,j,k) 
+      U(IGT,i,j,k) = gammaM2 * gammaMinus1 * ( Q(IRHOE,i,j,k) / Q(IRHO,i,j,k) &
+                  - 0.5_RP * ( U(IGU,i,j,k) * U(IGU,i,j,k) &
+                             + U(IGV,i,j,k) * U(IGV,i,j,k) &
+                             + U(IGW,i,j,k) * U(IGW,i,j,k) ) )
+      end do         ; end do       ; end do
+
+      end associate
+
+      END SUBROUTINE GradientValuesForQ_3D
+!
+! /////////////////////////////////////////////////////////////////////
+!
+      pure subroutine getPrimitiveVariables(U,V)
+!
+!        **************************************
+!           Primitive variables are:
+!              V = [invRho, u,v,w,p,T,a^2]
+!        **************************************
+!
+         implicit none
+         real(kind=RP), intent(in)  :: U(NCONS)
+         real(kind=RP), intent(out) :: V(NPRIM)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)  :: invRho
+
+         invRho = 1.0_RP / U(IRHO)
+
+         V(IPIRHO) = invRho
+         V(IPU) = U(IRHOU) * invRho
+         V(IPV) = U(IRHOV) * invRho
+         V(IPW) = U(IRHOW) * invRho
+         V(IPP) = thermodynamics % gammaMinus1 * ( U(IRHOE) &
+                  - 0.5_RP * (V(IPU)*U(IRHOU) + V(IPV)*U(IRHOV) + V(IPW)*U(IRHOW)))
+         V(IPT) = V(IPP) * dimensionless % gammaM2 * invRho 
+         V(IPA2) = thermodynamics % gamma * V(IPP) * invRho
+
+      end subroutine getPrimitiveVariables
+
+      pure subroutine getEntropyVariables(U,p,invRho,S)
+         implicit none
+         real(kind=RP), intent(in)  :: U(NCONS)
+         real(kind=RP), intent(in)  :: p, invRho
+         real(kind=RP), intent(out) :: S(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)  :: invP
+         real(kind=RP)  :: entropy
+
+         invP = 1.0_RP / p
+
+         entropy = log(p * (invRho ** thermodynamics % gamma))
+        
+         S(1) =   (thermodynamics % gamma - entropy) / (thermodynamics % gammaMinus1) &
+                - 0.5_RP * invRho * (POW2(U(IRHOU))+POW2(U(IRHOV))+POW2(U(IRHOW))) * invP
+
+         S(2) = U(IRHOU) * invP
+         S(3) = U(IRHOV) * invP
+         S(4) = U(IRHOW) * invP
+         S(5) = -U(IRHO) * invP
+
+      end subroutine getEntropyVariables
+
+end module VariableConversion

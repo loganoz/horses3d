@@ -33,6 +33,7 @@
       USE NodalStorageClass
       use PhysicsStorage
       use Physics
+      use VariableConversion, only: gradientValuesForQ
       IMPLICIT NONE
 
       private

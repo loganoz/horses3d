@@ -28,12 +28,13 @@
       USE SMConstants
       USE PhysicsStorage
       use RiemannSolvers
+      use VariableConversion
       IMPLICIT NONE
 
       private
-      public  RiemannSolver, InviscidFlux, ViscousFlux, GradientValuesForQ 
+      public  RiemannSolver, InviscidFlux, ViscousFlux
       public  InviscidJacobian
-      public  getStressTensor, Temperature, Pressure
+      public  getStressTensor
 !
 !     ---------
 !     Constants
@@ -43,10 +44,6 @@
       REAL(KIND=RP)        :: waveSpeed
       INTEGER              :: boundaryCondition(4), bcType
 
-     interface GradientValuesForQ
-         module procedure GradientValuesForQ_0D , GradientValuesForQ_3D
-     end interface GradientValuesForQ
-
      interface InviscidFlux
          module procedure InviscidFlux0D, InviscidFlux3D
      end interface InviscidFlux
@@ -54,7 +51,6 @@
      interface ViscousFlux
          module procedure ViscousFlux0D, ViscousFlux3D
      end interface ViscousFlux
-
 !
 !     ========
       CONTAINS 
@@ -425,94 +421,6 @@
 
       end subroutine ViscousFlux3D
 !
-! /////////////////////////////////////////////////////////////////////
-!
-!---------------------------------------------------------------------
-!! GradientValuesForQ takes the solution (Q) values and returns the
-!! quantities of which the gradients will be taken.
-!---------------------------------------------------------------------
-!
-      pure SUBROUTINE GradientValuesForQ_0D( Q, U )
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP), DIMENSION(N_EQN)     , INTENT(IN)  :: Q
-      REAL(KIND=RP), DIMENSION(N_GRAD_EQN), INTENT(OUT) :: U
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!     
-      U(1) = Q(2)/Q(1)
-      U(2) = Q(3)/Q(1)
-      U(3) = Q(4)/Q(1)
-      U(4) = Temperature(Q)
-
-      END SUBROUTINE GradientValuesForQ_0D
-
-      pure SUBROUTINE GradientValuesForQ_3D( Nx, Ny, Nz, Q, U )
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      integer,       intent(in)  :: Nx, Ny, Nz
-      REAL(KIND=RP), INTENT(IN)  :: Q(1:NCONS, 0:Nx, 0:Ny, 0:Nz)
-      REAL(KIND=RP), INTENT(OUT) :: U(1:N_GRAD_EQN, 0:Nx, 0:Ny, 0:Nz)
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!     
-      integer     :: i, j, k
-      associate ( gammaM2 => dimensionless % gammaM2, &
-                  gammaMinus1 => thermodynamics % gammaMinus1 ) 
-      
-      do k = 0, Nz   ; do j = 0, Ny ; do i = 0, Nx
-      U(IGU,i,j,k) = Q(IRHOU,i,j,k) / Q(IRHO,i,j,k) 
-      U(IGV,i,j,k) = Q(IRHOV,i,j,k) / Q(IRHO,i,j,k) 
-      U(IGW,i,j,k) = Q(IRHOW,i,j,k) / Q(IRHO,i,j,k) 
-      U(IGT,i,j,k) = gammaM2 * gammaMinus1 * ( Q(IRHOE,i,j,k) / Q(IRHO,i,j,k) &
-                  - 0.5_RP * ( U(IGU,i,j,k) * U(IGU,i,j,k) &
-                             + U(IGV,i,j,k) * U(IGV,i,j,k) &
-                             + U(IGW,i,j,k) * U(IGW,i,j,k) ) )
-      end do         ; end do       ; end do
-
-      end associate
-
-      END SUBROUTINE GradientValuesForQ_3D
-!
-! /////////////////////////////////////////////////////////////////////
-!
-!@mark -
-!---------------------------------------------------------------------
-!! Compute the pressure from the state variables
-!---------------------------------------------------------------------
-!
-      PURE FUNCTION Pressure(Q) RESULT(P)
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP), DIMENSION(N_EQN), INTENT(IN) :: Q
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      REAL(KIND=RP) :: P
-      
-      P = thermodynamics % gammaMinus1*(Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1))
-
-      END FUNCTION Pressure
-!
-! /////////////////////////////////////////////////////////////////////
-!
 !---------------------------------------------------------------------
 !! Compute the molecular diffusivity by way of Sutherland's law
 !---------------------------------------------------------------------
@@ -535,30 +443,6 @@
 
 
       END FUNCTION SutherlandsLaw
-!
-! /////////////////////////////////////////////////////////////////////
-!
-!---------------------------------------------------------------------
-!! Compute the temperature from the state variables
-!---------------------------------------------------------------------
-!
-      PURE FUNCTION Temperature(Q) RESULT(T)
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP), DIMENSION(N_EQN), INTENT(IN) :: Q
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      REAL(KIND=RP) :: T
-!
-      T = dimensionless % gammaM2*Pressure(Q)/Q(1)
-
-      END FUNCTION Temperature
 
       pure subroutine getStressTensor(Q,U_x,U_y,U_z,tau)
          implicit none
@@ -610,7 +494,7 @@
       
       USE SMConstants
       USE PhysicsStorage
-      USE Physics, ONLY:Pressure
+      USE VariableConversion, ONLY:Pressure
       IMPLICIT NONE
 !
 !     ---------

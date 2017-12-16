@@ -2,6 +2,7 @@ module SurfaceIntegrals
    use SMConstants
    use Physics
    use HexMeshClass
+   use VariableConversion, only: Pressure
 #ifdef _HAS_MPI_
    use mpi
 #endif
