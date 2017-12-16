@@ -47,7 +47,7 @@ ARFLAGS=crv
 
 
 # ------------------------------------------------
-OBJS_CASE= Setup Physics GradientSetup GradientTests InitialFlowState TestGradientsMain
+OBJS_CASE= Setup VariableConversion Physics GradientSetup GradientTests InitialFlowState TestGradientsMain
 	   
 OBJS_HORSES=  SMConstants \
 		StorageClass \

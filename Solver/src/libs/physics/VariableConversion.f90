@@ -4,9 +4,9 @@
 !   @File:    VariableConversion.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Dec 16 13:23:18 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Sat Dec 16 17:58:10 2017
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: ed7f49b4ef5c713f820bfb72c6c2c85c27613022
 !
 !//////////////////////////////////////////////////////
 !
@@ -19,6 +19,7 @@ module VariableConversion
    private
    public   Pressure, Temperature, GradientValuesForQ
    public   getPrimitiveVariables, getEntropyVariables
+   public   getRoeVariables
 
    interface GradientValuesForQ
        module procedure GradientValuesForQ_0D , GradientValuesForQ_3D
@@ -194,5 +195,49 @@ module VariableConversion
          S(5) = -U(IRHO) * invP
 
       end subroutine getEntropyVariables
+
+      pure subroutine getRoeVariables(QL, QR, VL, VR, rho, u, v, w, V2, H, a)
+!
+!        ***************************************************
+!           Roe variables are: [rho, u, v, w, H, a]
+!        ***************************************************
+!           
+         implicit none
+         real(kind=RP), intent(in)  :: QL(NCONS)
+         real(kind=RP), intent(in)  :: QR(NCONS)
+         real(kind=RP), intent(in)  :: VL(NPRIM)
+         real(kind=RP), intent(in)  :: VR(NPRIM)
+         real(kind=RP), intent(out) :: rho, u, v, w, V2, H, a
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)  :: HL, HR
+         real(kind=RP)  :: sqrtRhoL, sqrtRhoR
+         real(kind=RP)  :: invSumSqrtRhoLR
+
+         associate(gamma => thermodynamics % gamma, &
+                   gm1   => thermodynamics % gammaMinus1)
+
+         sqrtRhoL = sqrt(QL(IRHO))  ; sqrtRhoR = sqrt(QR(IRHO))
+         invSumSqrtRhoLR = 1.0_RP / (sqrtRhoL + sqrtRhoR)
+!
+!        Here the enthalpy is defined as rhoH = gogm1 p + 0.5 rho V^2 = p + rhoe
+!        -----------------------------------------------------------------------
+         HL = (VL(IPP) + QL(IRHOE)) * VL(IPIRHO)
+         HR = (VR(IPP) + QR(IRHOE)) * VR(IPIRHO)
+
+         rho = sqrtRhoL * sqrtRhoR
+         u   = (sqrtRhoL * VL(IPU) + sqrtRhoR * VR(IPU))*invSumSqrtRhoLR
+         v   = (sqrtRhoL * VL(IPV) + sqrtRhoR * VR(IPV))*invSumSqrtRhoLR
+         w   = (sqrtRhoL * VL(IPW) + sqrtRhoR * VR(IPW))*invSumSqrtRhoLR
+         H   = (sqrtRhoL * HL      + sqrtRhoR * HR     )*invSumSqrtRhoLR
+         V2  = POW2(u) + POW2(v) + POW2(w)
+         a   = sqrt(gm1*(H - 0.5_RP * V2))
+
+         end associate
+
+      end subroutine getRoeVariables
 
 end module VariableConversion
