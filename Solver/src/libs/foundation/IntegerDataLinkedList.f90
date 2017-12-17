@@ -4,9 +4,9 @@
 !   @File:    IntegerDataLinkedList.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 13:29:58 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Fri Dec 15 19:06:20 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 6ff4e62306809f27aca94408301b7dfab13e3a6b
 !
 !//////////////////////////////////////////////////////
 !
@@ -90,7 +90,7 @@ module IntegerDataLinkedList
       end subroutine IntegerDataLinkedList_Add
 
       subroutine IntegerDataLinkedList_ExportToArray( self , array, sorted ) 
-         use SortingModule
+         use Utilities, only: QSort
          implicit none
          class(IntegerDataLinkedList_t) :: self
          integer, allocatable           :: array(:)

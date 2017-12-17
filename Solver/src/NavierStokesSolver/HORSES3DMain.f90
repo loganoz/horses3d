@@ -83,7 +83,6 @@ end interface
       LOGICAL                             :: success, saveGradients
       integer                             :: initial_iteration
       INTEGER                             :: ierr
-      INTEGER, EXTERNAL                   :: UnusedUnit
       real(kind=RP)                       :: initial_time
       EXTERNAL                            :: externalStateForBoundaryName
       EXTERNAL                            :: ExternalGradientForBoundaryName
@@ -302,6 +301,7 @@ end interface
 ! 
       SUBROUTINE CheckInputIntegrity( controlVariables, success )  
          use SMConstants
+         use Utilities, only: toLower
          USE FTValueDictionaryClass
          USE mainKeywordsModule
          use FTValueClass
@@ -321,11 +321,6 @@ end interface
          CLASS(FTObject), POINTER :: obj
          INTEGER                  :: i
          character(len=LINE_LENGTH)    :: inviscidDiscretization, discretizationNodes
-         interface
-            subroutine toLower(str) 
-               character(*), intent(in out) :: str
-            end subroutine toLower
-         end interface
          
          success = .TRUE.
 !

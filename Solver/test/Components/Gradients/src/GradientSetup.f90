@@ -19,9 +19,9 @@
       USE SMConstants
       USE PhysicsStorage
       USE SharedBCModule
+      use Utilities, only: UnusedUnit
       
       IMPLICIT NONE
-      INTEGER, EXTERNAL :: UnusedUnit
       INTEGER           :: fUnit
       INTEGER           :: numberOfMeshfiles
       INTEGER           :: j

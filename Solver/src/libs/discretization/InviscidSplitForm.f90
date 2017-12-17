@@ -20,6 +20,7 @@ module InviscidSplitForm
 !
       subroutine SplitDG_Initialize(self, controlVariables)
          use FTValueDictionaryClass
+         use Utilities, only: toLower
          use mainKeywordsModule
          use Headers
          use MPI_Process_Info
@@ -34,11 +35,6 @@ module InviscidSplitForm
 !
          character(len=LINE_LENGTH)    :: splitForm
          integer                       :: splitType
-         interface
-            subroutine toLower(str)
-               character(*), intent(in out) :: str
-            end subroutine toLower
-         end interface
 !
 !        Get the split form from control variables
 !        -----------------------------------------

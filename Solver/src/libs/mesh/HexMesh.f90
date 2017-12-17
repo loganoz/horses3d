@@ -568,6 +568,7 @@ slavecoord:                DO l = 1, 4
 !//////////////////////////////////////////////////////////////////////// 
 !     
       SUBROUTINE CompareTwoNodes(x1, x2, success, coord) 
+      use Utilities, only: almostEqual
       IMPLICIT NONE  
 ! 
 !------------------------------------------------------------------- 
@@ -586,12 +587,6 @@ slavecoord:                DO l = 1, 4
       REAL(KIND=RP) :: x2(3)
       LOGICAL       :: success
       INTEGER       :: coord 
-!
-!     ---------
-!     Externals
-!     ---------
-!
-      LOGICAL, EXTERNAL :: AlmostEqual
 ! 
 !     -------------------- 
 !     Local variables 

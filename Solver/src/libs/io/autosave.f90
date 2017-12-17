@@ -33,6 +33,7 @@ module AutosaveClass
 !////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine Autosave_Configure(self, controlVariables, t0)
+      use Utilities, only: almostEqual
       implicit none
       class(Autosave_t)          :: self
       class(FTValueDictionary)   :: controlVariables
@@ -48,13 +49,6 @@ module AutosaveClass
       character(len=LINE_LENGTH), parameter :: autosaveIntervalKey = "autosave interval"
       character(len=LINE_LENGTH), parameter :: autosaveByIteration = "iteration"
       character(len=LINE_LENGTH), parameter :: autosaveByTime = "time"
-      interface
-         LOGICAL FUNCTION AlmostEqual( a, b ) 
-            USE SMConstants
-            IMPLICIT NONE
-            REAL(KIND=RP) :: a, b
-         end function AlmostEqual
-      end interface
 !
 !     Check whether the autosave mode is present
 !     ------------------------------------------

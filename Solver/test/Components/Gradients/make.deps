@@ -13,7 +13,7 @@ Utilities: SMConstants
 TimerClass: SMConstants
 LegendreAlgorithms: SMConstants 
 Headers: SMConstants process_info
-InterpolationAndDerivatives: SMConstants LegendreAlgorithms 
+InterpolationAndDerivatives: SMConstants LegendreAlgorithms Utilities
 BoundaryConditions: SMConstants Physics MeshTypes HexElementClass SharedBCModule ManufacturedSolutions
 Physics: SMConstants Headers FluidData Stopwatch
 FacePatchClass: SMConstants InterpolationAndDerivatives  

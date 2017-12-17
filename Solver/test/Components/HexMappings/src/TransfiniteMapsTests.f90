@@ -14,6 +14,7 @@
          USE SMConstants
          USE TransfiniteMapClass
          use FacePatchClass
+         use Utilities, only:UnusedUnit
          IMPLICIT NONE
 !
 !        ---------------
@@ -106,6 +107,7 @@
          USE SMConstants
          USE TransfiniteMapClass
          use FacePatchClass
+         use Utilities, only:UnusedUnit
          IMPLICIT NONE
 !
 !        ---------------
@@ -122,7 +124,6 @@
          INTEGER                            :: i, j, k, N, M, L
          INTEGER                            :: iMax, jMax, kMax
          INTEGER                            :: iUnit
-         INTEGER         , EXTERNAL         :: UnusedUnit
 !
 !        -----------------
 !        Construct corners
@@ -293,6 +294,7 @@
          USE SMConstants
          USE TransfiniteMapClass
          use FacePatchClass
+         use Utilities, only:UnusedUnit
          IMPLICIT NONE
 !
 !        ---------------
@@ -398,6 +400,7 @@
          USE SMConstants
          USE TransfiniteMapClass
          use FacePatchClass
+         use Utilities, only:UnusedUnit
          IMPLICIT NONE
 !
 !        ---------------
@@ -414,7 +417,6 @@
          INTEGER                            :: i, j, k, N, M, L
          INTEGER                            :: iUnit
          INTEGER                            :: iMax, jMax, kMax
-         INTEGER, EXTERNAL                  :: UnusedUnit
 !
 !        -----------------
 !        Construct corners
@@ -599,6 +601,7 @@
          USE SMConstants
          USE TransfiniteMapClass
          use FacePatchClass
+         use Utilities, only:UnusedUnit
          IMPLICIT NONE
 !
 !        ---------------
@@ -694,6 +697,7 @@
          USE SMConstants
          USE TransfiniteMapClass
          use FacePatchClass
+         use Utilities, only:UnusedUnit
          IMPLICIT NONE
 !
 !        ---------------
@@ -845,6 +849,7 @@
          USE SMConstants
          USE TransfiniteMapClass
          use FacePatchClass
+         use Utilities, only:UnusedUnit
          IMPLICIT NONE
 !
 !        ---------------
@@ -1029,6 +1034,7 @@
       SUBROUTINE plotWithMapper(mapper, fName)
          USE SMConstants
          USE TransfiniteMapClass
+         use Utilities, only:UnusedUnit
          IMPLICIT NONE
 !
 !        ---------
@@ -1046,7 +1052,6 @@
          INTEGER                 :: iUnit
          INTEGER                 :: iMax, jMax, kMax
          REAL(KIND=RP)           :: u, v, w, du, dv, dw, x(3)
-         INTEGER, EXTERNAL       :: UnusedUnit
 !
 !        -----------
 !        Open a file
