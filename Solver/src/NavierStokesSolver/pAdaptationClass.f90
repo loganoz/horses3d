@@ -26,7 +26,7 @@ module pAdaptationClass
    
    private
    public GetMeshPolynomialOrders, ReadOrderFile, WriteOrderFile
-   public pAdaptation_t !, PrintTEmap
+   public pAdaptation_t, PrintTEmap
    
    !--------------------------------------------------
    ! Main type for performing a p-adaptation procedure
@@ -63,17 +63,17 @@ module pAdaptationClass
 !  ----------------
 !
    !! Parameters
-   integer, parameter    :: NMIN = 1                 ! Minimum polynomial order !! TODO: remove from here and use some criteria!!
+   integer, parameter    :: NMIN = 1
    
-   
+   !! Variables
    integer               :: NInc_0 = 4
 !!    integer               :: dN_Inc = 3 
    integer               :: fN_Inc = 2
    integer               :: NInc
    integer               :: nelem   ! number of elements in mesh
    
-   EXTERNAL                            :: externalStateForBoundaryName
-   EXTERNAL                            :: ExternalGradientForBoundaryName
+   EXTERNAL              :: externalStateForBoundaryName
+   EXTERNAL              :: ExternalGradientForBoundaryName
    
 !========
  contains
@@ -326,7 +326,6 @@ module pAdaptationClass
       integer                    :: NNew(3,nelem)     !   New polynomial orders of mesh (after adaptation!)
       integer                    :: Error(3,nelem)    !   Stores (with ==1) elements where the truncation error has a strange behavior of the truncation error (in every direction)
       integer                    :: Warning(nelem)    !   Stores (with ==1) elements where the specified truncation error was not achieved
-                                                      !   New polynomial orders(after adaptation)
       integer                    :: NOld(3)
       type(DGSem)                :: Oldsem
       logical                    :: success
@@ -362,20 +361,11 @@ module pAdaptationClass
 !     -------------------------------------------------------------
 !
       ! Loop over all elements
-!!!!$OMP PARALLEL do PRIVATE(Pxyz,P_1,TEmap,NewDOFs,i,j,k)  ! TODO: Modify orivate and uncomment
+!!!!$OMP PARALLEL do PRIVATE(Pxyz,P_1,TEmap,NewDOFs,i,j,k)  ! TODO: Modify private and uncomment
       do iEl = 1, nelem
          
          Pxyz = sem % mesh % elements(iEl) % Nxyz
          P_1  = Pxyz - 1
-         
-!~         ! TODO: create routine to print this..
-!~         !!if (iEl == 12) then
-!~         !!   print*, 'Pxyz:',Pxyz
-!~         !!   print*, 'P_1: ',P_1
-!~         !!   print*, 'TEx: ',TE(iEl) % Dir(1) % maxTE
-!~         !!   print*, 'TEy: ',TE(iEl) % Dir(2) % maxTE
-!~         !!   print*, 'TEz: ',TE(iEl) % Dir(3) % maxTE
-!~         !!end if
          
          where(P_1 < NMIN) P_1 = NMIN ! minimum order
          
@@ -482,10 +472,6 @@ module pAdaptationClass
                NNew(:,iEl) = pAdapt % NxyzMax
             end if
          end if
-         
-         ! If requested, print TEmap
-!!!!          if (iEl == 3) call PrintTEmap(TEmap,iEl)
-         
 !
 !        ---------------------------------------------------------------------------
 !        If the maximum polynomial order was not found, select the maximum available
@@ -516,9 +502,7 @@ module pAdaptationClass
          
          if (MAXVAL(NNew) > NInc) then
             where(NNew > NInc) NNew = NInc
-!!             where(NNew > 1 .AND. NNew < NInc - dN_Inc) NNew = NInc - dN_Inc   ! This is new only for testing
          else
-!!             Stage = 0
             pAdapt % Adapt = .FALSE.
          end if
          
@@ -611,16 +595,8 @@ module pAdaptationClass
       integer :: indL(2)         ! Index of face polorders in 3D polorders (left element)
       integer :: indR(2)         ! Index of face polorders in 3D polorders (right element)
       integer :: NL,NR           ! Polynomial order on the left/right
-      
       logical :: finalsweep
       !------------------------------------------------------------
-!~      ! Vars for order perpendicular to face.
-!~      integer :: indZL
-!~      integer :: indZR
-!~      integer :: NzL
-!~      integer :: NzR
-!~      !------------------------------------------------------------
-      
       
       sweep = 0
       
@@ -675,21 +651,6 @@ module pAdaptationClass
                end if
             end if
             
-            !! Compare the polynomial order in the z-direction (needed???)
-!             indZL = RemainingIndex(indL)
-!             indZR = RemainingIndex(indR)
-!             NzL = NNew(indZL,eIDL)
-!             NzR = NNew(indZR,eIDR)
-            
-!             if (MIN(NzL,NzR) < GetOrderAcrossFace(MAX(NzL,NzR))) then
-!                finalsweep = .FALSE.
-!                if (NzL<NzR) then
-!                   NNew(indZL,eIDL) = GetOrderAcrossFace(NzR) !(NyR*2)/3
-!                else
-!                   NNew(indZR,eIDR) = GetOrderAcrossFace(NzL) !(NyL*2)/3
-!                end if
-!             end if
-            
          end do
          
          write(STD_OUT,*) 'Finishing "ReorganizePolOrders" sweep', sweep, '. Final = ', finalsweep
@@ -711,48 +672,33 @@ module pAdaptationClass
 !       GetOrderAcrossFace = (a*2)/3
        GetOrderAcrossFace = a-1
    end function GetOrderAcrossFace
-!~!
-!~!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!~!
-!~   function RemainingIndex(a) RESULT(b)
-!~      integer :: a(2)
-!~      integer :: b
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
+!  Subroutine for printing the TE map(s) of one element
+!  -----------------------------------------------------------------------
+   subroutine PrintTEmap(TEmap,iEl)
+      implicit none
+      !-------------------------------------------
+      real(kind=RP)  :: TEmap(NMIN:,NMIN:,NMIN:)
+      integer        :: iEl
+      !-------------------------------------------
+      integer                :: k, i, l
+      integer                :: fd
+      character(LINE_LENGTH) :: TEmapfile
+      !-------------------------------------------
       
-!~      if (any(a==1)) then
-!~         if (any(a==2)) b = 3
-!~         if (any(a==3)) b = 2
-!~      else
-!~         b = 1
-!~      end if
-      
-!~   end function
-!~!
-!~!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!~!
-!~!  -----------------------------------------------------------------------
-!~!  Subroutine for printing the TE map(s) of one element
-!~!  -----------------------------------------------------------------------
-!~   subroutine PrintTEmap(TEmap,iEl)
-!~      implicit none
-!~      !-------------------------------------------
-!~      real(kind=RP)  :: TEmap(NMIN:,NMIN:,NMIN:)
-!~      integer        :: iEl
-!~      !-------------------------------------------
-!~      integer                :: k, i, l
-!~      integer                :: fd
-!~      character(LINE_LENGTH) :: TEmapfile
-!~      !-------------------------------------------
-      
-!~      do k = NMIN, size(TEmap,3)
-!~         write(TEmapfile,'(A,I4.4,A,I2.2,A)') 'RegressionFiles/TEmapXY-Elem_',iEl,'-Nz_',k,'.dat'
+      do k = NMIN, size(TEmap,3)
+         write(TEmapfile,'(A,I4.4,A,I2.2,A)') 'RegressionFiles/TEmapXY-Elem_',iEl,'-Nz_',k,'.dat'
    
-!~         open(newunit = fd, file=TRIM(TEmapfile), action='write')
-!~            do i = NMIN, size(TEmap, 1)
-!~               write(fd,*) (TEmap(i,l,k),l=NMIN,size(TEmap,2))
-!~            end do
-!~         close(fd)
-!~      end do
-!~   end subroutine PrintTEmap
+         open(newunit = fd, file=TRIM(TEmapfile), action='write')
+            do i = NMIN, size(TEmap, 1)
+               write(fd,*) (TEmap(i,l,k),l=NMIN,size(TEmap,2))
+            end do
+         close(fd)
+      end do
+   end subroutine PrintTEmap
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -799,17 +745,6 @@ module pAdaptationClass
       x = (/ (real(i,RP), i=NMIN,P_1) /)
       call C_and_eta_estimation(N,x,y,C,eta)
       
-!~      ! Save files
-!~      write(RegfileName,'(A,I2.2,A,I4.4,A,I1,A)') 'RegressionFiles/Stage_',Stage,'/Regression_Elem_',iEl,'Dir_',Dir,'.dat'
-      
-!~      open(newunit = fd, file=RegfileName, action='write')
-!~         write(fd,*) x
-!~         write(fd,*) y
-!~         write(fd,*) C, eta
-!~         write(fd,*) P_1+1, NMax
-!~         write(fd,*) iEl, Dir
-!~      close(fd)
-      
       ! Check if there is an unexpected behavior
       if (C >= 0) then
          Error = 1 
@@ -823,74 +758,6 @@ module pAdaptationClass
       
       
    end subroutine RegressionIn1Dir
-!~!
-!~!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!~!
-!~!  -----------------------------------------------------------------------
-!~!  Subroutine for performing least square regression and giving up the coefficients
-!~!  -----------------------------------------------------------------------
-!~   function ExtrapolateNTau(TE,NMIN,NMax,NMaxF,reqTE,iEl,Dir,Error,Warn,Stage) RESULT(NNew)
-!~      implicit none
-!~      !---------------------------------
-!~      real(kind=RP)  :: TE(NMax-NMIN)
-!~      integer        :: NMIN
-!~      integer        :: NMax
-!~      integer        :: NMaxF          ! Maximum allowed by user
-!~      real(kind=RP)  :: reqTE
-!~      integer        :: iEl            ! Number of element (only for info purposes)
-!~      integer        :: Dir            ! Direction         (only for info purposes)
-!~      integer        :: NNew           !>  New polynomial ordr
-!~      Integer        :: Error
-!~      integer        :: Warn
-!~      integer        :: Stage
-!~      !---------------------------------
-!~      real(kind=RP)  :: x   (NMax-NMIN)
-!~      real(kind=RP)  :: y   (NMax-NMIN)
-!~      integer        :: N
-!~      integer        :: i
-!~      real(kind=RP)  :: C,eta             ! Regression variables
-!~      integer        :: fd
-!~      character(len=LINE_LENGTH) :: RegfileName
-!~      !---------------------------------
-      
-!~      N = NMax - NMIN
-!~      y = LOG10(TE)
-!~      x = (/ (real(i,RP), i=NMIN,NMax-1) /)
-      
-!~      call C_and_eta_estimation(N,x,y,C,eta)
-      
-!~      !!!!!!! New here **************************
-      
-!~      if (C > 0) then
-!~         print*, 'ERROR: Unexpected behavior of truncation error... This is very bad. El =', iEl,'Dir =', Dir
-!~         NNew = NMaxF
-!~         print*, '        ** Leaving with', NNew
-!~         Error = 1
-!~      else
-!~         NNew = INT((LOG10(reqTE) - C)/eta) + 1
-!~         if (NNew > NMaxF) then
-!~            print*, 'Warning: Requested truncation error not found within specified limits. El =', iEl,'Dir =', Dir
-!~            NNew = NMaxF
-!~            print*, '        ** Leaving with', NNew
-!~            Warn = 1
-!~         else if (NNew < NMIN) then
-!~            NNew = NMIN
-!~         end if
-!~      end if
-      
-!~      ! Save files
-      
-!~      write(RegfileName,'(A,I2.2,A,I4.4,A,I1,A)') 'RegressionFiles/Stage_',Stage,'/Regression_Elem_',iEl,'Dir_',Dir,'.dat'
-      
-!~      open(newunit = fd, file=RegfileName, action='write')
-!~         write(fd,*) x
-!~         write(fd,*) y
-!~         write(fd,*) C, eta
-!~         write(fd,*) NMax, NMaxF
-!~         write(fd,*) iEl, Dir, NNew
-!~      close(fd)
-      
-!~   end function
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -920,75 +787,5 @@ module pAdaptationClass
       C   = (sumsqx*sumy-sumx*sumxy)/deno
       
    end subroutine C_and_eta_estimation
-
-!~!
-!~!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!~!
-!~!  -----------------------------------------------------------------------
-!~!  Subroutine for plotting the adaptation information:
-!~!     1. Plots the polynomial orders after adaptation
-!~!     2. Plots the truncation error in every direction for the highest 
-!~!        approximated order.
-!~!  -----------------------------------------------------------------------
-!~   subroutine AdaptationPlotting(this,sem,TE,Stage,NNew,Error,Warning)
-!~      implicit none
-!~      !--------------------------------------
-!~      class(pAdaptation_t)   , intent(in) :: this      !<  p-Adaptator
-!~      type(DGSem)            , intent(in) :: sem       !<  sem
-!~      type(TruncationError_t), intent(in) :: TE(:)     !<  Type containing the element-wise truncation error estimation
-!~      integer                , intent(in) :: Stage     !<  Stage of the adaptation process
-!~      integer                , intent(in) :: NNew(:,:) !<  New polynomial orders
-!~      integer                , intent(in) :: Error(:,:)
-!~      integer                , intent(in) :: Warning(:,:)
-!~      !--------------------------------------
-!~      integer                            :: nelem
-!~      integer                            :: fd
-!~      integer                            :: id
-!~      integer                            :: N(3)      ! Polynomial order in element
-!~      integer                            :: i,j,k
-!~      real(kind=RP)                      :: Tau(3)    ! Truncation error for plotting (L_inf per element in the finest approximation level)
-!~      character(len=LINE_LENGTH)         :: plotFileName
-!~      !--------------------------------------
-      
-!~      write(plotFileName,'(A,A,I3.3,A)') trim(this % plotFileName),'_AdaptInfo_Stage_', Stage, '.tec'
-      
-!~      open(newunit = fd, file=plotFileName, action='write')
-      
-!~         Nelem = size(sem % mesh % elements)
-         
-!~         write(fd,*) 'TITLE = "p-Adaptation information (HORSES3D)"'
-!~      write(fd,*) 'VARIABLES = "X","Y","Z","TauX","TauY","TauZ","ErrorX","ErrorY","ErrorZ","WarnX","WarnY","WarnZ","Nx","Ny","Nz" '
-         
-!~         do id = 1, Nelem
-!~            N = sem % mesh % elements(id) % Nxyz
-!~            write(fd,*) 'ZONE I=', N(1)+1, ",J=",N(2)+1, ",K=",N(3)+1,", F=POINT"
-            
-!~            do i = 1, 3
-!~               if (N(i) <= NMIN) then
-!~                  Tau(i) = TE(id) % Dir(i) % maxTE(N(i))
-!~               else
-!~                  Tau(i) = TE(id) % Dir(i) % maxTE(N(i)-1)
-!~               end if
-!~            end do
-            
-!~            !-------
-!~            ! Plot!
-!~            !-------
-!~            do k = 0, N(3)
-!~               do j= 0, N(2)
-!~                  do i = 0, N(1)
-!~                     write(fd,'(3E13.5,x,3E13.5,x,3I10,x,3I10,x,3I10)') &
-!~                                sem % mesh % elements(id) % geom % x(1,i,j,k), &
-!~                                sem % mesh % elements(id) % geom % x(2,i,j,k), &
-!~                                sem % mesh % elements(id) % geom % x(3,i,j,k), &
-!~                                Tau,Error(:,id),Warning(:,id), NNew(:,id)
-!~                  end do
-!~               end do
-!~            enddo
-!~         end do
-      
-!~      close(fd)
-      
-!~   end subroutine AdaptationPlotting
    
 end module pAdaptationClass
