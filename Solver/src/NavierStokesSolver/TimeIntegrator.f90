@@ -28,7 +28,7 @@
          INTEGER                                :: integratorType
          REAL(KIND=RP)                          :: tFinal, time, initial_time
          INTEGER                                :: initial_iter, numTimeSteps, outputInterval, iter
-         REAL(KIND=RP)                          :: dt, tolerance, cfl
+         REAL(KIND=RP)                          :: dt, tolerance, cfl, dcfl
          LOGICAL                                :: Compute_dt                    ! Is st computed from an inputted CFL number?
          type(Autosave_t)                       :: autosave
          PROCEDURE(RKStepFcn), NOPASS , POINTER :: RKStep
@@ -75,6 +75,13 @@
          IF (controlVariables % containsKey("cfl")) THEN
             self % Compute_dt = .TRUE.
             self % cfl        = controlVariables % doublePrecisionValueForKey("cfl")
+            if (flowIsNavierStokes) then
+               if (controlVariables % containsKey("dcfl")) then
+                  self % dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
+               else
+                  ERROR STOP '"cfl" and "dcfl", or "dt" keyword must be specified for the time integrator'
+               end if
+            end if
          ELSEIF (controlVariables % containsKey("dt")) THEN
             self % Compute_dt = .FALSE.
             self % dt         = controlVariables % doublePrecisionValueForKey("dt")
@@ -325,7 +332,7 @@ end interface
 !
 !        CFL-bounded time step
 !        ---------------------      
-         IF ( self % Compute_dt ) self % dt = MaxTimeStep( sem, self % cfl )
+         IF ( self % Compute_dt ) self % dt = MaxTimeStep( sem, self % cfl, self % dcfl )
 !
 !        Autosave bounded time step
 !        --------------------------

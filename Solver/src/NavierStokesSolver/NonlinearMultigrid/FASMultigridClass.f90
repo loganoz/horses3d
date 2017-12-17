@@ -63,7 +63,8 @@ module FASMultigridClass
    logical        :: SmoothFine     !      
    logical        :: ManSol         ! Does this case have manufactured solutions?
    real(kind=RP)  :: SmoothFineFrac ! Fraction that must be smoothed in fine before going to coarser level
-   real(kind=RP)  :: cfl
+   real(kind=RP)  :: cfl            ! Advective cfl number
+   real(kind=RP)  :: dcfl           ! Diffusive cfl number
    
 !========
  contains
@@ -120,8 +121,18 @@ module FASMultigridClass
          SweepNumCoarse = (SweepNumPre + SweepNumPost) / 2
       end if
       
+!     Read cfl and dcfl numbers
+!     -------------------------
+      
       if (controlVariables % containsKey("cfl")) then
          cfl = controlVariables % doublePrecisionValueForKey("cfl")
+         if (flowIsNavierStokes) then
+            if (controlVariables % containsKey("dcfl")) then
+               dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
+            else
+               ERROR STOP '"cfl" and "dcfl" keywords must be specified for the FAS integrator'
+            end if
+         end if
       else
          ERROR STOP '"cfl" keyword must be specified for the FAS integrator'
       end if
@@ -359,7 +370,7 @@ module FASMultigridClass
       sweepcount = 0
       DO
          DO iEl = 1, NumOfSweeps
-            dt = MaxTimeStep(this % p_sem, cfl )
+            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
             call SmoothIt   (this % p_sem, t, dt )
          end DO
          sweepcount = sweepcount + NumOfSweeps
@@ -434,7 +445,7 @@ module FASMultigridClass
       sweepcount = 0
       DO
          DO iEl = 1, NumOfSweeps
-            dt = MaxTimeStep(this % p_sem, cfl )
+            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
             call SmoothIt   (this % p_sem, t, dt)
          end DO
          
@@ -529,7 +540,7 @@ module FASMultigridClass
       else
          DO
             counter = counter + 1
-            dt = MaxTimeStep(this % p_sem, cfl )
+            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
             call SmoothIt   (this % p_sem, t, dt )
             maxResidual = ComputeMaxResidual(this % p_sem)
             

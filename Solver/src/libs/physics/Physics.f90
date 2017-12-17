@@ -33,7 +33,7 @@
       private
       public  RiemannSolver, InviscidFlux, ViscousFlux, GradientValuesForQ 
       public  InviscidJacobian
-      public  getStressTensor, Temperature, Pressure
+      public  getStressTensor, Temperature, Pressure, SutherlandsLaw
 !
 !     ---------
 !     Constants

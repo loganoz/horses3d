@@ -70,7 +70,8 @@ module AnisFASMultigridClass
    logical        :: SmoothFine     ! 
    logical        :: EstimateTE = .FALSE. ! Estimate the truncation error!
    real(kind=RP)  :: SmoothFineFrac ! Fraction that must be smoothed in fine before going to coarser level
-   real(kind=RP)  :: cfl
+   real(kind=RP)  :: cfl            ! Advective cfl number
+   real(kind=RP)  :: dcfl           ! Diffusive cfl number
    character(len=LINE_LENGTH)    :: meshFileName
    
 !========
@@ -139,8 +140,18 @@ module AnisFASMultigridClass
          SweepNumCoarse = (SweepNumPre + SweepNumPost) / 2
       end if
       
+!     Read cfl and dcfl numbers
+!     -------------------------
+      
       if (controlVariables % containsKey("cfl")) then
          cfl = controlVariables % doublePrecisionValueForKey("cfl")
+         if (flowIsNavierStokes) then
+            if (controlVariables % containsKey("dcfl")) then
+               dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
+            else
+               ERROR STOP '"cfl" and "dcfl" keywords must be specified for the FAS integrator'
+            end if
+         end if
       else
          ERROR STOP '"cfl" keyword must be specified for the FAS integrator'
       end if
@@ -457,7 +468,7 @@ module AnisFASMultigridClass
       sweepcount = 0
       DO
          do iEl = 1, NumOfSweeps
-            dt = MaxTimeStep(p_sem, cfl )
+            dt = MaxTimeStep(p_sem, cfl, dcfl )
             call SmoothIt(p_sem, t, dt )
          end do
          sweepcount = sweepcount + 1
@@ -534,7 +545,7 @@ module AnisFASMultigridClass
       DO
          
          do iEl = 1, NumOfSweeps
-            dt = MaxTimeStep(p_sem, cfl )
+            dt = MaxTimeStep(p_sem, cfl, dcfl )
             call SmoothIt(p_sem, t, dt)
          end do
 
