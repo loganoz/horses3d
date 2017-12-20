@@ -4,9 +4,9 @@
 !   @File:    MeshPartitioning.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 10:26:08 2017
-!   @Last revision date: Tue Dec 19 16:59:00 2017
+!   @Last revision date: Wed Dec 20 19:57:11 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 388a9acc3eac24b19e7273b113b07639cafbd3cf
+!   @Last revision commit: 56f6d6999bfc5e5f4677fff49e8f949c70e8a2a4
 !
 !//////////////////////////////////////////////////////
 !
@@ -32,13 +32,6 @@ module MeshPartitioning
          integer               :: fID, domain
          integer               :: elementsDomain(mesh % no_of_elements)
 !
-!        ************************************************
-!        Now, they will just be ordered in a hard-coded
-!        way, and just valid for the TaylorGreen geometry
-!        It is required to consider using METIS or a 
-!        universal partitioner later.
-!        ************************************************
-!
 !        Initialize partitions
 !        ---------------------
          do domain = 1, no_of_domains
@@ -56,12 +49,6 @@ module MeshPartitioning
       end subroutine PerformMeshPartitioning
 
       subroutine GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions)
-!
-!        *******************************************
-!        Here is where the METIS partitioner would
-!        divide the mesh.
-!        *******************************************
-!
          use IntegerDataLinkedList
          use MPI_Process_Info
          implicit none
@@ -74,221 +61,131 @@ module MeshPartitioning
 !        Local variables
 !        ---------------
 !
-       integer, allocatable :: nodesDomain(:)
+         integer, allocatable :: nodesDomain(:)
 
-!--- End of header ------------------------------------------------------
 
-       allocate(nodesDomain(size(mesh % nodes)))
+         allocate(nodesDomain(size(mesh % nodes)))
+!
+!        ****************************************************
+!        Set which elements belong to each domain using METIS
+!        ****************************************************
+!
+         call GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain)
+!
+!        ****************************************
+!        Get which nodes belong to each partition
+!        ****************************************
+!
+         call GetNodesPartition(mesh, no_of_domains, elementsDomain, nodesDomain, partitions)   
 
-       ! call METIS to set elementsDomains
-       call GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain)
-
-       ! set partitions
-       call GetNodesPartition(mesh, no_of_domains, elementsDomain, nodesDomain, partitions)   
-
-       deallocate(nodesDomain)   
+         deallocate(nodesDomain)   
          
       end subroutine GetElementsDomain
 
 !
 !////////////////////////////////////////////////////////////////////////
 !
-     subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain)
-!
-!      ---------
-!      Arguments
-!      ---------
-!
-         implicit none
-         type(HexMesh), intent(in)              :: mesh
-         integer,       intent(in)              :: no_of_domains
-         integer,       intent(out)             :: elementsDomain(mesh % no_of_allElements)
-         integer,       intent(out)             :: nodesDomain(size(mesh % nodes))
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-       integer                :: i
-        integer                :: ielem
-         integer                :: ne               ! # elements
-       integer                :: nn               ! # nodes
-       integer                :: nvertex            ! # vertices per element
-       integer, allocatable   :: eptr(:)               ! index in eind --> eptr(ne+1)
-       integer, allocatable   :: eind(:)            ! vertices of each element   --> eind(nvertex*ne)
-       integer, pointer       :: vwgt(:) => null()   ! vertices weights
-       integer, pointer       :: vsize(:) => null()   !
-       integer                :: ncommon            ! common faces for dual nesh
-       real(kind=RP), pointer :: tpwgt(:) => null()   ! partitions' weights --> tpwgt(no_of_domains)
-       integer, pointer       :: opts(:) => null()   ! metis options
-       integer, parameter     :: metis_noptions = 39
-
-       ! output METIS variables
-       integer              :: objval               ! objective calculated value
-     
-!--- End of header ------------------------------------------------------
-
-       ne = mesh % no_of_allElements
-        nn = size(mesh % nodes)
-       nvertex = 8
-
-       allocate(eptr(ne+1))
-       allocate(eind(nvertex*ne))
-
-        ! C-index   
-       i = 1
-       do ielem=1,ne
-           eind(i:i+nvertex-1) = mesh % elements(ielem) % nodeIDs - 1
-          eptr(ielem) = i - 1
-          i = i + nvertex
-       end do
-       eptr(ne+1) = i - 1
-
-       allocate(opts(0:metis_noptions))
-       call METIS_SetDefaultOptions(opts)
-       opts(1) = 1                         ! OBJTYPE: -1  minimizing edge-cut | 1 minimizing communication volume
-                                          ! TODO fichero parametros
-
-       ! opts(5) = 1     to enable verbosity 
-
-       ncommon = 4                     ! for hexaeder elements
-       call METIS_PartMeshDual(ne, nn,  eptr, eind,  vwgt, vsize, ncommon, no_of_domains, tpwgt,  opts,  objval, elementsDomain, nodesDomain)
-
-       ! rectify idomain
-       elementsDomain = elementsDomain + 1
-       nodesDomain = nodesDomain + 1
-
-       deallocate(eptr)
-       deallocate(eind)
-
-     end subroutine GetMETISElementsPartition
-!
-!////////////////////////////////////////////////////////////////////////
-!
      subroutine GetNodesPartition(mesh, no_of_domains, elementsDomain, nodesDomain, partitions)
+        use Utilities, only: Qsort
+        implicit none
+        type(HexMesh), intent(in)              :: mesh
+        integer,       intent(in)              :: no_of_domains
+        integer,       intent(in)              :: elementsDomain(mesh % no_of_allElements)
+        integer,       intent(in)              :: nodesDomain(size(mesh % nodes))
+        type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)   
 !
-!      ---------
-!      Arguments
-!      ---------
+!       ---------------
+!       Local Variables
+!       ---------------
 !
-         implicit none
-         type(HexMesh), intent(in)              :: mesh
-       integer,       intent(in)              :: no_of_domains
-         integer,       intent(in)              :: elementsDomain(mesh % no_of_allElements)
-         integer,       intent(in)              :: nodesDomain(size(mesh % nodes))
-         type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)   
+        integer              :: nvertex
+        integer              :: i
+        integer              :: j
+        integer              :: k
+        integer              :: ipoint
+        integer              :: jpoint
+        integer              :: idomain
+        integer              :: npoints
+        integer              :: ielem
+        logical              :: isnewpoint
+        integer, allocatable :: points(:)
+
+        nvertex = 8
+
+        do idomain=1,no_of_domains
 !
-!     ---------------
-!     Local Variables
-!     ---------------
+!       Get the number of elements for the partition
+!       --------------------------------------------
+        partitions(idomain)%no_of_elements = count(elementsDomain == idomain)
+        allocate(partitions(idomain)%elementIDs(partitions(idomain)%no_of_elements))
 !
-        integer :: nvertex
-      integer :: i
-      integer :: j
-      integer :: k
-      integer :: ipoint
-      integer :: jpoint
-      integer :: idomain
-      integer :: npoints
-      integer :: ielem
-      logical :: isnewpoint
-      integer, allocatable :: points(:)
-
-!--- End of header ------------------------------------------------------
-   
-       nvertex = 8
-
-      do idomain=1,no_of_domains
-
-         ! carga nelements
-         partitions(idomain)%no_of_elements = count(elementsDomain == idomain)
-
-         ! alocata elementIDs
-         allocate(partitions(idomain)%elementIDs(partitions(idomain)%no_of_elements))
-
-         ! dummy variable
-         allocate(points(nvertex*partitions(idomain)%no_of_elements))
-         points = 0
-      
-         ! set the elements and the nodes of the domain
-         k = 0
-         npoints = 0
-         do ielem=1,mesh % no_of_allElements
-
-            if (elementsDomain(ielem) == idomain) then
-               k = k + 1
-               partitions(idomain)%elementIDs(k) = ielem                  ! set the element
-            
-               ! recorre los nodos de ese elemento para ver si ya esta introducido o no
-               do j=1,nvertex
-
-                  jpoint = mesh % elements(ielem) % nodeIDs(j)
-
-                  isnewpoint = .true.
-                  do i=1,npoints
-                     ipoint = points(i)
-                     if (jpoint == ipoint) then
-                        isnewpoint = .false.
-                        exit
-                     end if
-                  end do
-      
-                  if (isnewpoint) then
-                     npoints = npoints + 1
-                     points(npoints) = jpoint
-                  end if                  
-
-               end do
-
+!       This will store the partition nodes (allocated as 8 * no_of_elements)
+!       ---------------------------------------------------------------------
+        allocate(points(nvertex*partitions(idomain)%no_of_elements))
+        points = 0
+!
+!       ****************************************
+!       Gather each partition nodes and elements      
+!       ****************************************
+!
+        k = 0
+        npoints = 0
+        do ielem=1,mesh % no_of_allElements
+           if (elementsDomain(ielem) == idomain) then
+!
+!             Append a new element
+!             --------------------
+              k = k + 1
+              partitions(idomain)%elementIDs(k) = ielem
+!
+!             Append its nodes
+!             ----------------           
+              do j=1,nvertex
+!
+!                Get the node ID
+!                ---------------
+                 jpoint = mesh % elements(ielem) % nodeIDs(j)
+!
+!                Check if it is already stored
+!                -----------------------------
+                 isnewpoint = .true.
+                 do i=1,npoints
+                    ipoint = points(i)
+                    if (jpoint == ipoint) then
+                       isnewpoint = .false.
+                       exit
+                    end if
+                 end do
+!
+!                Store the node
+!                --------------      
+                 if (isnewpoint) then
+                    npoints = npoints + 1
+                    points(npoints) = jpoint
+                 end if                  
+              end do
             end if      
          end do
-      
+!
+!        Put the nodeIDs into the partitions structure
+!        ---------------------------------------------      
          allocate(partitions(idomain)%nodeIDs(npoints))
-
-         ! Fill the nodes vector
          partitions(idomain)%nodeIDs(:) = points(1:npoints)
-
-         ! sort the vector
-         call sort(partitions(idomain)%nodeIDs)
+!
+!        Sort the nodeIDs to read the mesh file accordingly
+!        --------------------------------------------------
+         call Qsort(partitions(idomain)%nodeIDs)
 
          partitions(idomain)%no_of_nodes = npoints
-
+!
+!        ****
+!        Free
+!        ****
+!
          deallocate(points)
-
       end do
 
      end subroutine GetNodesPartition
-!
-!////////////////////////////////////////////////////////////////////////
-!
-     subroutine sort(U)
-!
-!      ---------
-!      Arguments
-!      ---------
-!
-       integer, intent(inout) :: U(:)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-       integer :: i
-       integer :: n
-       integer :: temp
-       integer :: v(1)
-
-!--- End of header ------------------------------------------------------
-
-       n = size(U)
-       do i=1,n
-         v = minloc(U(i:n)) + i - 1
-         temp = U(i)
-         U(i) = U(v(1))
-         U(v(1)) = temp
-       end do
-
-     end subroutine sort
 !
 !////////////////////////////////////////////////////////////////////////
 !
