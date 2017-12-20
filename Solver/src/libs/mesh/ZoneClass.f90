@@ -36,6 +36,7 @@ module ZoneClass
 !     ------------------------------------------
       subroutine ConstructZones( faces , zones )
          use Headers
+         use Utilities, only: toLower
          implicit none
          class(Face), target                  :: faces(:)
          class(Zone_t), allocatable           :: zones(:)
@@ -62,6 +63,7 @@ module ZoneClass
 !        ---------------
          allocate ( zones ( no_of_markers ) )
          do zoneID = 1 , no_of_markers
+            call toLower(zoneNames(zoneID))
             call zones(zoneID) % Initialize ( zoneID , zoneNames(zoneID) )
          end do
 !

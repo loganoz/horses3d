@@ -2,11 +2,11 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    METISPartitioning.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
+!   @Author:  Mariola Gomez and Marta Cordero (marta.cordero@upm.es / mariola.gomez@upm.es)
 !   @Created: Wed Dec 20 19:57:13 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed Dec 20 20:22:04 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 6b682d113059e1a767187182f6324a94681ce47a
 !
 !//////////////////////////////////////////////////////
 !

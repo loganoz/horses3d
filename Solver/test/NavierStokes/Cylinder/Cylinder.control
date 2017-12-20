@@ -25,26 +25,26 @@ Right 0.0 OutflowSpecifyP
 riemann solver        = roe
 
 
-!#define surface monitor 1
-!   Name = cyl-drag
-!   Marker = innercylinder
-!   Variable = drag
-!   Direction = [1.0,0.0,0.0]
-!   Reference surface = 1.0	
-!#end
-!
-!#define surface monitor 2
-!   Name = cyl-lift
-!   Marker = innercylinder
-!   Variable = lift
-!   Reference surface = 1.0
-!#end
+#define surface monitor 1
+   Name = cyl-drag
+   Marker = innercylinder
+   Variable = drag
+   Direction = [1.0,0.0,0.0]
+   Reference surface = 1.0	
+#end
 
-!#define probe 1
-!   Name = wake_u
-!   Position = [0.0,2.0,4.0]
-!   Variable = u
-!#end
+#define surface monitor 2
+   Name = cyl-lift
+   Marker = innercylinder
+   Variable = lift
+   Reference surface = 1.0
+#end
+
+#define probe 1
+   Name = wake_u
+   Position = [0.0,2.0,4.0]
+   Variable = u
+#end
 
 !#define statistics
 !   Sampling interval = 10

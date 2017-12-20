@@ -3,6 +3,7 @@ module SurfaceMonitorClass
    use HexMeshClass
    use MonitorDefinitions
    use PhysicsStorage
+   use MPI_Process_Info
 #include "Includes.h"
    
    private
@@ -99,7 +100,7 @@ module SurfaceMonitorClass
          call readValueInRegion ( trim ( paramFile )  , "Variable"          , self % variable         , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "Reference surface" , self % referenceSurface , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "Direction"         , directionName        , in_label , "# end" ) 
-
+!
 !        Enable the monitor
 !        ------------------
          self % active = .true.
@@ -356,7 +357,7 @@ module SurfaceMonitorClass
 !        *************************************************************
 !
          implicit none
-         class(SurfaceMonitor_t)             :: self
+         class(SurfaceMonitor_t), intent(in)   :: self
 
          write(STD_OUT , '(3X,A10)' , advance = "no") trim(self % monitorName(1 : MONITOR_LENGTH))
 
