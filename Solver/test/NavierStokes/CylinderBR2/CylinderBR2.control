@@ -10,6 +10,7 @@ mach number           = 0.3
 Reynolds number       = 200.0
 AOA theta             = 0.0
 AOA phi               = 90.0
+viscous discretization = BR2
 solution file name    = "RESULTS/Cylinder.hsol"
 save gradients with solution = .true.
 restart               = .false.

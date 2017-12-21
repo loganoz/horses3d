@@ -216,14 +216,16 @@ module VolumeMonitorClass
          integer                    :: i
          integer                    :: fID
 
-         open( newunit = fID , file = trim ( self % fileName ) , action = "write" , access = "append" , status = "old" )
+         if ( MPI_Process % isRoot ) then
+            open( newunit = fID , file = trim ( self % fileName ) , action = "write" , access = "append" , status = "old" )
          
-         do i = 1 , no_of_lines
-            write( fID , '(I10,2X,ES24.16,2X,ES24.16)' ) iter(i) , t(i) , self % values(i)
+            do i = 1 , no_of_lines
+               write( fID , '(I10,2X,ES24.16,2X,ES24.16)' ) iter(i) , t(i) , self % values(i)
 
-         end do
+            end do
         
-         close ( fID )
+            close ( fID )
+         end if
 
          if ( no_of_lines .ne. 0 ) self % values(1) = self % values(no_of_lines)
       

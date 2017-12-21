@@ -1,4 +1,16 @@
 !
+!//////////////////////////////////////////////////////
+!
+!   @File:    ProblemFile.f90
+!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Created: Thu Dec 21 13:53:21 2017
+!   @Last revision date:
+!   @Last revision author:
+!   @Last revision commit:
+!
+!//////////////////////////////////////////////////////
+!
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      ProblemFile.f90
@@ -233,7 +245,7 @@
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Re 200 Cylinder"
+            CHARACTER(LEN=29)                  :: testName           = "Re 200 Cylinder with BR2"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
@@ -260,12 +272,12 @@
 !           ------------------------------------------------
 !
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [240.36982452369941_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [245.18407159944226_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
                                                                0E-011_RP, 0E-011_RP, &
                                                                0E-011_RP]
-            real(kind=RP), parameter           :: wake_u =  1.0911412914368071E-008_RP
-            real(kind=RP), parameter           :: cd =  34.585859295152773_RP
-            real(kind=RP), parameter           :: cl =  -4.9206795593903507E-004_RP
+            real(kind=RP), parameter           :: wake_u = 1.2328427462817117E-008
+            real(kind=RP), parameter           :: cd =  33.883192266388988_RP
+            real(kind=RP), parameter           :: cl =  6.4762350417706394E-003_RP
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 
@@ -282,7 +294,7 @@
                                msg           = "Final maximum residual")
 
             CALL FTAssertEqual(expectedValue = wake_u + 1.0_RP, &
-                               actualValue   = monitors % probes(1) % values(1) + 1.0_RP, &
+                               actualValue   = monitors % probes(1) % values(1) + 1, &
                                tol           = 1.d-11, &
                                msg           = "Wake final x-velocity at the point [0,2.0,4.0]")
 
@@ -292,7 +304,7 @@
                                msg           = "Drag coefficient")
 
             CALL FTAssertEqual(expectedValue = cl + 1.0_RP, &
-                               actualValue   = monitors % surfaceMonitors(2) % values(1) + 1.0_RP, &
+                               actualValue   = monitors % surfaceMonitors(2) % values(1)+1, &
                                tol           = 1.d-11, &
                                msg           = "Lift coefficient")
 

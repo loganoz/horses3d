@@ -1,4 +1,16 @@
 !
+!//////////////////////////////////////////////////////
+!
+!   @File:    ProblemFile.f90
+!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Created: Thu Dec 21 13:53:22 2017
+!   @Last revision date:
+!   @Last revision author:
+!   @Last revision commit:
+!
+!//////////////////////////////////////////////////////
+!
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      ProblemFile.f90
@@ -233,7 +245,7 @@
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Re 200 Cylinder"
+            CHARACTER(LEN=29)                  :: testName           = "Re 200 Cylinder with Ducros Skewsymmetric and BR2"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
@@ -260,12 +272,12 @@
 !           ------------------------------------------------
 !
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [240.36982452369941_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [269.23552705359145_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
                                                                0E-011_RP, 0E-011_RP, &
                                                                0E-011_RP]
-            real(kind=RP), parameter           :: wake_u =  1.0911412914368071E-008_RP
-            real(kind=RP), parameter           :: cd =  34.585859295152773_RP
-            real(kind=RP), parameter           :: cl =  -4.9206795593903507E-004_RP
+            real(kind=RP), parameter           :: wake_u = -1.0371296932216383E-014_RP
+            real(kind=RP), parameter           :: cd =  35.298146867752962_RP
+            real(kind=RP), parameter           :: cl = -1.9862109455884291E-003_RP
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 

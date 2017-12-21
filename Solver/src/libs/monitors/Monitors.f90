@@ -374,30 +374,28 @@ module MonitorsClass
 !
 !           In this case the monitors are exported to their files and the buffer is reseted
 !           -------------------------------------------------------------------------------
-            if ( MPI_Process % isRoot ) then
-               call self % residuals % WriteToFile ( self % iter , self % t , self % bufferLine )
+            call self % residuals % WriteToFile ( self % iter , self % t , self % bufferLine )
    
-               do i = 1 , self % no_of_probes
-                  call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-               end do
+            do i = 1 , self % no_of_probes
+               call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+            end do
    
-               do i = 1 , self % no_of_surfaceMonitors
-                  call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-               end do
+            do i = 1 , self % no_of_surfaceMonitors
+               call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+            end do
    
-               do i = 1 , self % no_of_volumeMonitors
-                  call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-               end do
+            do i = 1 , self % no_of_volumeMonitors
+               call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+            end do
 !
 !              Write statistics
 !              ----------------
-               if ( self % bufferLine .eq. 0 ) then
-                  i = 1
-               else
-                  i = self % bufferLine
-               end if
-               call self % stats % WriteFile(mesh, self % iter(i), self % t(i), self % solution_file)
+            if ( self % bufferLine .eq. 0 ) then
+               i = 1
+            else
+               i = self % bufferLine
             end if
+            call self % stats % WriteFile(mesh, self % iter(i), self % t(i), self % solution_file)
 !
 !           Reset buffer
 !           ------------
@@ -409,25 +407,20 @@ module MonitorsClass
 !           ----------------------------------------------------
             if ( self % bufferLine .eq. BUFFER_SIZE ) then
 
-               if ( MPI_Process % isRoot ) then
-                  call self % residuals % WriteToFile ( self % iter , self % t , BUFFER_SIZE )
-   
-                  do i = 1 , self % no_of_probes
-                     call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine ) 
-                  end do
-   
-                  do i = 1 , self % no_of_surfaceMonitors
-                     call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-                  end do
-   
-                  do i = 1 , self % no_of_volumeMonitors
-                     call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-                  end do
-   
-               end if
+               call self % residuals % WriteToFile ( self % iter , self % t , BUFFER_SIZE )
 
-               self % bufferLine = 0
-   
+               do i = 1 , self % no_of_probes
+                  call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine ) 
+               end do
+
+               do i = 1 , self % no_of_surfaceMonitors
+                  call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+               end do
+
+               do i = 1 , self % no_of_volumeMonitors
+                  call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+               end do
+
             end if
          end if
 
