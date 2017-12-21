@@ -70,7 +70,9 @@ module MeshPartitioning
 !        Set which elements belong to each domain using METIS
 !        ****************************************************
 !
+#ifdef _HAS_MPI_
          call GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain)
+#endif
 !
 !        ****************************************
 !        Get which nodes belong to each partition

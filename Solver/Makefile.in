@@ -103,9 +103,11 @@ ifeq ($(COMM),PARALLEL)
     ifeq ($(FC),gfortran)
         FC=mpif90
 	MACROS+= -D_HAS_MPI_
+	LIBS += $(METIS_LIB)
     else ifeq ($(FC),ifort)
         FC=mpiifort
 	MACROS+= -D_HAS_MPI_
+	LIBS += $(METIS_LIB)
     endif
 endif
 

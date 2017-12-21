@@ -1,0 +1,22 @@
+diff --git a/Solver/src/libs/jacobian/CSR_Matrices.f90 b/Solver/src/libs/jacobian/CSR_Matrices.f90
+index 3b84c31..2351f11 100644
+--- a/Solver/src/libs/jacobian/CSR_Matrices.f90
++++ b/Solver/src/libs/jacobian/CSR_Matrices.f90
+@@ -26,7 +26,7 @@ MODULE CSR_Matrices
+       INTEGER,        POINTER, CONTIGUOUS :: BlockSize(:)=>NULL()  ! Size of each block
+    CONTAINS
+    
+-      GENERIC, PUBLIC                     :: construct  => CSR_CreateMatnnz, CSR_CreateMatnnzs
++      !GENERIC, PUBLIC                     :: construct  => CSR_CreateMatnnz, CSR_CreateMatnnzs
+       PROCEDURE                           :: assigndiag => CSR_AssignDiag
+       PROCEDURE                           :: Visualize  => CSR2Visualize
+       PROCEDURE                           :: destroy
+@@ -36,7 +36,7 @@ MODULE CSR_Matrices
+       PROCEDURE                           :: GetDense => CSR2Dense
+       PROCEDURE                           :: GetBlock => CSR_GetBlock
+       
+-      PROCEDURE, PRIVATE                  :: CSR_CreateMatnnz, CSR_CreateMatnnzs
++      !PROCEDURE, PRIVATE                  :: CSR_CreateMatnnz, CSR_CreateMatnnzs
+    END TYPE
+    !-----------------------------------------------------------------------------   
+    
