@@ -12,6 +12,7 @@
 HOME_DIR=@HORSES_HOME_DIR
 PROG_TEST:=@PROG_NAME
 include $(HOME_DIR)/Makefile
+-include ./make.deps
 
 # Include the local include path
 INCLUDE:=-I./include $(INCLUDE)
@@ -22,7 +23,7 @@ INCLUDE:=-I./include $(INCLUDE)
 OBJS_CASE_F90=$(notdir $(wildcard ./src/*.f90))
 OBJS_CASE=$(patsubst %.f90,%,$(OBJS_CASE_F90))
 OBJS_CASE_EXEC=$(foreach obj,$(OBJS_CASE),./build/$(obj).o)
-OBJS_TO_REMOVE=$(OBJS_CASE) HORSES3DMain TimeIntegrator
+OBJS_TO_REMOVE=$(OBJS_CASE) HORSES3DMain
 
 #######################################
 ## Remove them from OBJS_HORSES

@@ -2,18 +2,48 @@ module MeshTests
    use FTAssertions
    use SMConstants
    use HexMeshClass
+   use MeshConsistencySetup
+   use ReadMeshFile
+   use NodalStorageClass, only: GAUSS
    use PhysicsStorage
 
    private
 
-   public mesh_
+   public mesh
 
    public CheckVolume, CheckZoneSurfaces, CheckCoordinatesConsistency
-   public CheckNormalConsistency, CheckScalConsistency
+   public CheckNormalConsistency, CheckScalConsistency, OpenNextMesh
 
-   class(HexMesh), pointer    :: mesh_ => NULL()
+   type(HexMesh)             :: mesh
+   integer                    :: currentMesh = 0
 
    contains
+      subroutine OpenNextMesh()
+         implicit none
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer              :: no_of_elements
+         integer, allocatable :: Nx(:), Ny(:), Nz(:)
+         logical              :: success
+
+         if ( currentMesh .ne. 0 ) then         
+            call mesh % Destruct()
+         end if 
+
+         currentMesh = currentMesh + 1
+         no_of_elements = NumOfElemsFromMeshFile( meshfileNames(currentMesh) )
+         allocate(Nx(no_of_elements), Ny(no_of_elements), Nz(no_of_elements))
+         Nx = 5
+         Ny = 5
+         Nz = 5
+
+         call constructMeshFromFile( mesh, meshfileNames(currentMesh), GAUSS, Nx, Ny, Nz, .true. , success )
+
+      end subroutine OpenNextMesh
+
       subroutine CheckVolume()
          implicit none
 !
@@ -25,8 +55,8 @@ module MeshTests
          real(kind=RP)  :: volume
 
          volume = 0.0_RP
-         do eID = 1, mesh_ % no_of_elements
-            associate(e => mesh_ % elements(eID))
+         do eID = 1, mesh % no_of_elements
+            associate(e => mesh % elements(eID))
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                volume = volume +  e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) &
                                  * e % geom % jacobian(i,j,k) 
@@ -51,11 +81,11 @@ module MeshTests
          integer  :: zID, nF, fID, i, j
          real(kind=RP)     :: surface
 
-         do zID = 1, size(mesh_ % zones)
+         do zID = 1, size(mesh % zones)
             surface = 0.0_RP
-            do nF = 1, mesh_ % zones(zID) % no_of_faces
-               fID = mesh_ % zones(zID) % faces(nF)
-               associate(f => mesh_ % faces(fID))
+            do nF = 1, mesh % zones(zID) % no_of_faces
+               fID = mesh % zones(zID) % faces(nF)
+               associate(f => mesh % faces(fID))
                   do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
                      surface = surface + f % spAxi % w(i) * f % spAeta % w(j) * f % geom % jacobian(i,j)
                   end do               ; end do
@@ -82,18 +112,18 @@ module MeshTests
          integer  :: eIDL, eIDR, fID
          real(kind=RP)  :: localError
 
-         do fID = 1, size(mesh_ % faces)
-            if ( mesh_ % faces(fID) % faceType .eq. HMESH_INTERIOR ) then
-               eIDL = mesh_ % faces(fID) % elementIDs(1)
-               eIDR = mesh_ % faces(fID) % elementIDs(2)
-               call CheckElementAndFaceCoordinatesConsistency(f = mesh_ % faces(fID), &
-                                                              eL = mesh_ % elements(eIDL), & 
-                                                              eR = mesh_ % elements(eIDR),&
+         do fID = 1, size(mesh % faces)
+            if ( mesh % faces(fID) % faceType .eq. HMESH_INTERIOR ) then
+               eIDL = mesh % faces(fID) % elementIDs(1)
+               eIDR = mesh % faces(fID) % elementIDs(2)
+               call CheckElementAndFaceCoordinatesConsistency(f = mesh % faces(fID), &
+                                                              eL = mesh % elements(eIDL), & 
+                                                              eR = mesh % elements(eIDR),&
                                                               localError = localError)
             else
-               eIDL = mesh_ % faces(fID) % elementIDs(1)
-               call CheckElementAndFaceCoordinatesConsistency(f = mesh_ % faces(fID), &
-                                                              eL = mesh_ % elements(eIDL), & 
+               eIDL = mesh % faces(fID) % elementIDs(1)
+               call CheckElementAndFaceCoordinatesConsistency(f = mesh % faces(fID), &
+                                                              eL = mesh % elements(eIDL), & 
                                                               localError = localError)
 
             end if
@@ -266,18 +296,18 @@ module MeshTests
          integer  :: eIDL, eIDR, fID
          real(kind=RP)  :: localError
 
-         do fID = 1, size(mesh_ % faces)
-            if ( mesh_ % faces(fID) % faceType .eq. HMESH_INTERIOR ) then
-               eIDL = mesh_ % faces(fID) % elementIDs(1)
-               eIDR = mesh_ % faces(fID) % elementIDs(2)
-               call CheckElementAndFaceNormalConsistency(f = mesh_ % faces(fID), &
-                                                              eL = mesh_ % elements(eIDL), & 
-                                                              eR = mesh_ % elements(eIDR),&
+         do fID = 1, size(mesh % faces)
+            if ( mesh % faces(fID) % faceType .eq. HMESH_INTERIOR ) then
+               eIDL = mesh % faces(fID) % elementIDs(1)
+               eIDR = mesh % faces(fID) % elementIDs(2)
+               call CheckElementAndFaceNormalConsistency(f = mesh % faces(fID), &
+                                                              eL = mesh % elements(eIDL), & 
+                                                              eR = mesh % elements(eIDR),&
                                                               localError = localError)
             else
-               eIDL = mesh_ % faces(fID) % elementIDs(1)
-               call CheckElementAndFaceNormalConsistency(f = mesh_ % faces(fID), &
-                                                              eL = mesh_ % elements(eIDL), & 
+               eIDL = mesh % faces(fID) % elementIDs(1)
+               call CheckElementAndFaceNormalConsistency(f = mesh % faces(fID), &
+                                                              eL = mesh % elements(eIDL), & 
                                                               localError = localError)
 
             end if
@@ -467,18 +497,18 @@ module MeshTests
          integer  :: eIDL, eIDR, fID
          real(kind=RP)  :: localError, error
 
-         do fID = 1, size(mesh_ % faces)
-            if ( mesh_ % faces(fID) % faceType .eq. HMESH_INTERIOR ) then
-               eIDL = mesh_ % faces(fID) % elementIDs(1)
-               eIDR = mesh_ % faces(fID) % elementIDs(2)
-               call CheckElementAndFaceScalConsistency(f = mesh_ % faces(fID), &
-                                                              eL = mesh_ % elements(eIDL), & 
-                                                              eR = mesh_ % elements(eIDR),&
+         do fID = 1, size(mesh % faces)
+            if ( mesh % faces(fID) % faceType .eq. HMESH_INTERIOR ) then
+               eIDL = mesh % faces(fID) % elementIDs(1)
+               eIDR = mesh % faces(fID) % elementIDs(2)
+               call CheckElementAndFaceScalConsistency(f = mesh % faces(fID), &
+                                                              eL = mesh % elements(eIDL), & 
+                                                              eR = mesh % elements(eIDR),&
                                                               localError = localError)
             else
-               eIDL = mesh_ % faces(fID) % elementIDs(1)
-               call CheckElementAndFaceScalConsistency(f = mesh_ % faces(fID), &
-                                                              eL = mesh_ % elements(eIDL), & 
+               eIDL = mesh % faces(fID) % elementIDs(1)
+               call CheckElementAndFaceScalConsistency(f = mesh % faces(fID), &
+                                                              eL = mesh % elements(eIDL), & 
                                                               localError = localError)
 
             end if
@@ -640,276 +670,3 @@ module MeshTests
 
       end subroutine CheckElementAndFaceScalConsistency
 end module MeshTests
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      ProblemFile.f90
-!      Created: June 26, 2015 at 8:47 AM 
-!      By: David Kopriva  
-!
-!      The Problem File contains user defined procedures
-!      that are used to "personalize" i.e. define a specific
-!      problem to be solved. These procedures include initial conditions,
-!      exact solutions (e.g. for tests), etc. and allow modifications 
-!      without having to modify the main code.
-!
-!      The procedures, *even if empty* that must be defined are
-!
-!      UserDefinedSetUp
-!      UserDefinedInitialCondition(mesh)
-!      UserDefinedPeriodicOperation(mesh)
-!      UserDefinedFinalize(mesh)
-!      UserDefinedTermination
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-         SUBROUTINE UserDefinedStartup
-!
-!        --------------------------------
-!        Called before any other routines
-!        --------------------------------
-!
-            IMPLICIT NONE  
-         END SUBROUTINE UserDefinedStartup
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-         SUBROUTINE UserDefinedFinalSetup(mesh , thermodynamics_, &
-                                                 dimensionless_, &
-                                                     refValues_ )
-!
-!           ----------------------------------------------------------------------
-!           Called after the mesh is read in to allow mesh related initializations
-!           or memory allocations.
-!           ----------------------------------------------------------------------
-!
-            use TestSuiteManagerClass
-            USE HexMeshClass
-            use PhysicsStorage
-            use MeshTests
-            IMPLICIT NONE
-            CLASS(HexMesh), target              :: mesh
-            type(Thermodynamics_t), intent(in)  :: thermodynamics_
-            type(Dimensionless_t),  intent(in)  :: dimensionless_
-            type(RefValues_t),      intent(in)  :: refValues_
-            type(TestSuiteManager)              :: testSuite
-            integer                             :: numberOfFailures
-!
-!           *************************
-!           Perform tests on the mesh
-!           *************************
-!
-            write(STD_OUT,'(/,/,A,/)') "  * Performing tests in the constructed mesh"
-   
-            call testSuite % init()
-!
-!           Set the test mesh target
-!           ------------------------
-            mesh_ => mesh
-
-            call testSuite % addTestSubroutineWithName(CheckVolume,"Mesh volume")
-            call testSuite % addTestSubroutineWithName(CheckZoneSurfaces,"Zone surfaces")
-            call testSuite % addTestSubroutineWithName(CheckCoordinatesConsistency,&
-                        "Mapping coordinates interpolation consistency")
-            call testSuite % addTestSubroutineWithName(CheckNormalConsistency,&
-                        "Consistency in the normal vectors")
-            call testSuite % addTestSubroutineWithName(CheckScalConsistency,&
-                        "Consistency in the surface Jacobians")
-
-            call testSuite % PerformTests(numberOfFailures)
-
-            if ( numberOfFailures .ne. 0 ) stop 99
-            
-         END SUBROUTINE UserDefinedFinalSetup
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-         SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
-                                                      dimensionless_, &
-                                                          refValues_  )
-!
-!           ------------------------------------------------
-!           Called to set the initial condition for the flow
-!              - By default it sets an uniform initial
-!                 condition.
-!           ------------------------------------------------
-!
-            USE SMConstants
-            use PhysicsStorage
-            use HexMeshClass
-            implicit none
-            class(HexMesh)                      :: mesh
-            type(Thermodynamics_t), intent(in)  :: thermodynamics_
-            type(Dimensionless_t),  intent(in)  :: dimensionless_
-            type(RefValues_t),      intent(in)  :: refValues_
-!
-!           ---------------
-!           Local variables
-!           ---------------
-!
-            integer        :: eID, i, j, k
-            real(kind=RP)  :: qq, u, v, w, p
-            real(kind=RP)  :: Q(N_EQN), phi, theta
-
-            associate ( gammaM2 => dimensionless_ % gammaM2, &
-                        gamma => thermodynamics_ % gamma )
-            theta = refValues_ % AOATheta*(PI/180.0_RP)
-            phi   = refValues_ % AOAPhi*(PI/180.0_RP)
-      
-            do eID = 1, mesh % no_of_elements
-               associate( Nx => mesh % elements(eID) % Nxyz(1), &
-                          Ny => mesh % elements(eID) % Nxyz(2), &
-                          Nz => mesh % elements(eID) % Nxyz(3) )
-               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
-                  qq = 1.0_RP
-                  u  = qq*cos(theta)*COS(phi)
-                  v  = qq*sin(theta)*COS(phi)
-                  w  = qq*SIN(phi)
-      
-                  Q(1) = 1.0_RP
-                  p    = 1.0_RP/(gammaM2)
-                  Q(2) = Q(1)*u
-                  Q(3) = Q(1)*v
-                  Q(4) = Q(1)*w
-                  Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
-
-                  mesh % elements(eID) % storage % Q(:,i,j,k) = Q 
-               end do;        end do;        end do
-               end associate
-            end do
-
-            end associate
-            
-         END SUBROUTINE UserDefinedInitialCondition
-
-         subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
-!
-!           -------------------------------------------------
-!           Used to define an user defined boundary condition
-!           -------------------------------------------------
-!
-            use SMConstants
-            use PhysicsStorage
-            implicit none
-            real(kind=RP), intent(in)     :: x(NDIM)
-            real(kind=RP), intent(in)     :: t
-            real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: Q(N_EQN)
-            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-            type(Dimensionless_t),     intent(in)  :: dimensionless_
-            type(RefValues_t),         intent(in)  :: refValues_
-         end subroutine UserDefinedState1
-
-         subroutine UserDefinedNeumann(x, t, nHat, U_x, U_y, U_z)
-!
-!           --------------------------------------------------------
-!           Used to define a Neumann user defined boundary condition
-!           --------------------------------------------------------
-!
-            use SMConstants
-            use PhysicsStorage
-            implicit none
-            real(kind=RP), intent(in)     :: x(NDIM)
-            real(kind=RP), intent(in)     :: t
-            real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: U_x(N_GRAD_EQN)
-            real(kind=RP), intent(inout)  :: U_y(N_GRAD_EQN)
-            real(kind=RP), intent(inout)  :: U_z(N_GRAD_EQN)
-         end subroutine UserDefinedNeumann
-
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, Monitors)
-!
-!           ----------------------------------------------------------
-!           Called at the output interval to allow periodic operations
-!           to be performed
-!           ----------------------------------------------------------
-!
-            USE HexMeshClass
-            use MonitorsClass
-            IMPLICIT NONE
-            CLASS(HexMesh)               :: mesh
-            REAL(KIND=RP)                :: time
-            type(Monitor_t), intent(in) :: monitors
-            
-         END SUBROUTINE UserDefinedPeriodicOperation
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-         subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
-!
-!           --------------------------------------------
-!           Called to apply source terms to the equation
-!           --------------------------------------------
-!
-            USE HexMeshClass
-            use PhysicsStorage
-            IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
-            REAL(KIND=RP)                         :: time
-            type(Thermodynamics_t),    intent(in) :: thermodynamics_
-            type(Dimensionless_t),     intent(in) :: dimensionless_
-            type(RefValues_t),         intent(in) :: refValues_
-!
-!           ---------------
-!           Local variables
-!           ---------------
-!
-            integer  :: i, j, k, eID
-!
-!           Usage example (by default no source terms are added)
-!           ----------------------------------------------------
-!           do eID = 1, mesh % no_of_elements
-!              associate ( e => mesh % elements(eID) )
-!              do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-!                 e % QDot(:,i,j,k) = e % QDot(:,i,j,k) + Source(:)
-!              end do                  ; end do                ; end do
-!           end do
-   
-         end subroutine UserDefinedSourceTerm
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
-                                                    dimensionless_, &
-                                                        refValues_, &  
-                                                          monitors, &
-                                                       elapsedTime, &
-                                                           CPUTime   )
-!
-!           --------------------------------------------------------
-!           Called after the solution computed to allow, for example
-!           error tests to be performed
-!           --------------------------------------------------------
-!
-            USE HexMeshClass
-            use PhysicsStorage
-            use MonitorsClass
-            IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
-            REAL(KIND=RP)                         :: time
-            integer                               :: iter
-            real(kind=RP)                         :: maxResidual
-            type(Thermodynamics_t),    intent(in) :: thermodynamics_
-            type(Dimensionless_t),     intent(in) :: dimensionless_
-            type(RefValues_t),         intent(in) :: refValues_
-            type(Monitor_t),          intent(in) :: monitors
-            real(kind=RP),             intent(in)  :: elapsedTime
-            real(kind=RP),             intent(in)  :: CPUTime
-
-         END SUBROUTINE UserDefinedFinalize
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-      SUBROUTINE UserDefinedTermination
-!
-!        -----------------------------------------------
-!        Called at the the end of the main driver after 
-!        everything else is done.
-!        -----------------------------------------------
-!
-         IMPLICIT NONE  
-      END SUBROUTINE UserDefinedTermination
-      

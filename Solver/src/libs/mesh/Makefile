@@ -35,7 +35,7 @@ LIB = mesh
 ./build/METISPartitioning.o: ./METISPartitioning.f90		# METIS calls require this, and only this flags... so it is separated
 	@echo
 	@echo $<
-	$(FC) -fPIC -cpp -O2 -ffree-line-length-0 -I./include $(MACROS) $(EXTLIB_INC) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) -cpp -O2 -ffree-line-length-0 -I./include $(MACROS) $(EXTLIB_INC) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 	
 ./build/%.o: %.f90
 	@echo

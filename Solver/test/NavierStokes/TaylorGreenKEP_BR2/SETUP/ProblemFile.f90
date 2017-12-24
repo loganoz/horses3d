@@ -55,6 +55,13 @@
          SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
                                                       dimensionless_, &
                                                           refValues_  )
+!
+!           ------------------------------------------------
+!           Called to set the initial condition for the flow
+!              - By default it sets an uniform initial
+!                 condition.
+!           ------------------------------------------------
+!
             USE SMConstants
             use PhysicsStorage
             use HexMeshClass
@@ -260,14 +267,15 @@
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: kinEn = 0.12499758737106952_RP
-            real(kind=RP), parameter           :: kinEnRate = -4.2807169311969659E-004_RP
-            real(kind=RP), parameter           :: enstrophy = 0.37499411028501956_RP 
-            real(kind=RP), parameter           :: res(5) = [5.2294183691232104E-005_RP, &
-                                                            0.12783424260634596_RP, &
-                                                            0.12783424273963268_RP, &
-                                                            0.24980299744783380_RP, &
-                                                            0.61006093083852786_RP ]
+            real(kind=RP), parameter           :: kinEn = 0.12499744094445574_RP
+            real(kind=RP), parameter           :: kinEnRate = -4.2793821051865968E-004_RP
+            real(kind=RP), parameter           :: enstrophy = 0.37499431779008724_RP 
+            real(kind=RP), parameter           :: res(5) = [7.8750058882485750E-005_RP,&
+                                                            0.12840111281132666_RP,&
+                                                            0.12840111290800676_RP,&
+                                                            0.24998276615412832_RP,&
+                                                            0.61595168801569788_RP]
+
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             

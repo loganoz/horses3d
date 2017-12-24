@@ -6,24 +6,30 @@
 ##		-> Generates links to the solver.
 ######################################################################
 
-TEST_CASES="./Components/MeshConsistency \
-	    ./Euler/BoxAroundCircle \
+TEST_CASES="./Euler/BoxAroundCircle \
 	    ./Euler/Diffuser \
 	    ./Euler/PeriodicFlow \
 	    ./Euler/UniformFlow \
 	    ./Euler/UniformFlowPETSc \
 	    ./Euler/Benchmark \
 	    ./Euler/JFNK \
+	    ./Euler/TaylorGreenKEPEC \
             ./NavierStokes/Cylinder \
+            ./NavierStokes/CylinderBR2 \
+            ./NavierStokes/CylinderIP \
+            ./NavierStokes/CylinderDucros \
             ./NavierStokes/CylinderDifferentOrders \
 	    ./NavierStokes/FlatPlate \
 	    ./NavierStokes/TaylorGreen \
+	    ./NavierStokes/TaylorGreenKEPEC_IP \
+	    ./NavierStokes/TaylorGreenKEP_BR2 \
 	    ./NavierStokes/ManufacturedSolutions"
 
 COMPONENTS_TEST_CASES="FacePatches \
  		       HexMesh \
 		       HexMappings \
 		       MappedGeometry \
+ 		       MeshConsistency \
 		       NodalStorage"
 		       
 

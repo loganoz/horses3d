@@ -55,6 +55,13 @@
          SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
                                                       dimensionless_, &
                                                           refValues_  )
+!
+!           ------------------------------------------------
+!           Called to set the initial condition for the flow
+!              - By default it sets an uniform initial
+!                 condition.
+!           ------------------------------------------------
+!
             USE SMConstants
             use PhysicsStorage
             use HexMeshClass
@@ -252,7 +259,7 @@
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Taylor-Green vortex"
+            CHARACTER(LEN=29)                  :: testName           = "Taylor-Green vortex with Kinetic Energy preserving and entrophy conserving split form + IP"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
@@ -260,14 +267,16 @@
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: kinEn = 0.12499758737106952_RP
-            real(kind=RP), parameter           :: kinEnRate = -4.2807169311969659E-004_RP
-            real(kind=RP), parameter           :: enstrophy = 0.37499411028501956_RP 
-            real(kind=RP), parameter           :: res(5) = [5.2294183691232104E-005_RP, &
-                                                            0.12783424260634596_RP, &
-                                                            0.12783424273963268_RP, &
-                                                            0.24980299744783380_RP, &
-                                                            0.61006093083852786_RP ]
+            real(kind=RP), parameter           :: kinEn = 0.12500000000766839_RP
+            real(kind=RP), parameter           :: kinEnRate = 2.3284871259485850E-006_RP
+            real(kind=RP), parameter           :: enstrophy = 0.37500245097407614_RP 
+            real(kind=RP), parameter           :: entropyRate = -4.5674348308923654E-009_RP
+            real(kind=RP), parameter           :: res(5) = [1.1131779208842484E-004_RP, &  
+                                                            0.12741606758485369_RP, &       
+                                                            0.12741606776695064_RP, &       
+                                                            0.24998271835184718_RP, &       
+                                                            0.62461894702221510_RP]
+
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
@@ -310,6 +319,11 @@
                                actualValue   = enstrophy, &
                                tol           = 1.0e-11_RP, &
                                msg           = "Enstrophy")
+
+            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(4) % values(1), &
+                               actualValue   = entropyRate, &
+                               tol           = 1.0e-11_RP, &
+                               msg           = "Entropy Rate")
 
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    

@@ -55,6 +55,13 @@
          SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
                                                       dimensionless_, &
                                                           refValues_  )
+!
+!           ------------------------------------------------
+!           Called to set the initial condition for the flow
+!              - By default it sets an uniform initial
+!                 condition.
+!           ------------------------------------------------
+!
             USE SMConstants
             use PhysicsStorage
             use HexMeshClass
@@ -252,7 +259,7 @@
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Taylor-Green vortex"
+            CHARACTER(LEN=29)                  :: testName           = "Taylor-Green vortex with Kinetic Energy preserving and entrophy conserving split form + IP"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
@@ -260,14 +267,15 @@
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: kinEn = 0.12499758737106952_RP
-            real(kind=RP), parameter           :: kinEnRate = -4.2807169311969659E-004_RP
-            real(kind=RP), parameter           :: enstrophy = 0.37499411028501956_RP 
-            real(kind=RP), parameter           :: res(5) = [5.2294183691232104E-005_RP, &
-                                                            0.12783424260634596_RP, &
-                                                            0.12783424273963268_RP, &
-                                                            0.24980299744783380_RP, &
-                                                            0.61006093083852786_RP ]
+            real(kind=RP), parameter           :: kinEn = 0.12499744094445034_RP
+            real(kind=RP), parameter           :: kinEnRate = -4.2793821018401358E-004_RP
+            real(kind=RP), parameter           :: enstrophy = 0.37499430856337029_RP 
+            real(kind=RP), parameter           :: res(5) = [7.8549638233905013E-005_RP, &
+                                                            0.12839531866734863_RP, &
+                                                            0.12839531888042091_RP, &
+                                                            0.24998301839383608_RP, &
+                                                            0.61597364426159862_RP]
+
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
