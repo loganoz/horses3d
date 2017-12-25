@@ -16,11 +16,14 @@ program main
    USE TestSuiteManagerClass
    use NodalStorageClass
    use SharedBCModule
+   use MPI_Process_Info
    implicit none
    TYPE(TestSuiteManager) :: testSuite
    INTEGER                :: numberOfFailures
    integer                :: i
    integer, parameter     :: Nmax = 40
+
+   call MPI_Process % Init
    
    CALL testSuite % init()
    

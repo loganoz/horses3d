@@ -1621,6 +1621,7 @@ slavecoord:                DO l = 1, 4
 !
 !        Get the maximum number of faces
 !        -------------------------------
+         no_of_max_faces = 0
          do i = 1, MPI_Process % nProcs
             no_of_max_faces = max(no_of_max_faces, mpi_faces(i) % no_of_faces)
          end do

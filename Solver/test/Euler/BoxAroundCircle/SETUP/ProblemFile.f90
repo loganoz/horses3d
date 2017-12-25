@@ -75,52 +75,38 @@
 !           Local variables
 !           ---------------
 !
-            REAL(KIND=RP) :: x(3)        
-            INTEGER       :: i, j, k, eID
-            REAL(KIND=RP) :: rho , u , v , w , p
-            REAL(KIND=RP) :: L, u_0, rho_0, p_0
-            integer       :: Nx, Ny, Nz
-            
-            L     = 1.0_RP
-            u_0   = 1.0_RP
-            rho_0 = 1.0_RP 
-            p_0   = 100.0_RP
+            integer        :: eID, i, j, k
+            real(kind=RP)  :: qq, u, v, w, p
+            real(kind=RP)  :: Q(N_EQN), phi, theta
 
-            associate( gamma => thermodynamics_ % gamma ) 
-            DO eID = 1, SIZE(mesh % elements)
-               Nx = mesh % elements(eID) % Nxyz(1)
-               Ny = mesh % elements(eID) % Nxyz(2)
-               Nz = mesh % elements(eID) % Nxyz(3)
+            associate ( gammaM2 => dimensionless_ % gammaM2, &
+                        gamma => thermodynamics_ % gamma )
+            theta = refValues_ % AOATheta*(PI/180.0_RP)
+            phi   = refValues_ % AOAPhi*(PI/180.0_RP)
+      
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          Ny => mesh % elements(eID) % Nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  qq = 1.0_RP
+                  u  = qq*cos(theta)*COS(phi)
+                  v  = qq*sin(theta)*COS(phi)
+                  w  = qq*SIN(phi)
+      
+                  Q(1) = 1.0_RP
+                  p    = 1.0_RP/(gammaM2)
+                  Q(2) = Q(1)*u
+                  Q(3) = Q(1)*v
+                  Q(4) = Q(1)*w
+                  Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
 
-               DO k = 0, Nz
-                  DO j = 0, Ny
-                     DO i = 0, Nx 
+                  mesh % elements(eID) % storage % Q(:,i,j,k) = Q 
+               end do;        end do;        end do
+               end associate
+            end do
 
-                         x = mesh % elements(eID) % geom % x(:,i,j,k)
-                       
-                         rho = rho_0
-                         u   =  u_0 * sin(x(1)/L) * cos(x(2)/L) * cos(x(3)/L) 
-                         v   = -u_0 * cos(x(1)/L) * sin(x(2)/L) * cos(x(3)/L)
-                         w   =  0.0_RP
-                         p   =   p_0 + rho_0 / 16.0_RP * (                          &
-                               cos(2.0_RP*x(1)/L)*cos(2.0_RP*x(3)/L) +                  &
-                               2.0_RP*cos(2.0_RP*x(2)/L) + 2.0_RP*cos(2.0_RP*x(1)/L) +  &
-                               cos(2.0_RP*x(2)/L)*cos(2.0_RP*x(3)/L)                    &
-                               )
-
-                         mesh % elements(eID) % storage % Q(1,i,j,k) = rho
-                         mesh % elements(eID) % storage % Q(2,i,j,k) = rho*u
-                         mesh % elements(eID) % storage % Q(3,i,j,k) = rho*v
-                         mesh % elements(eID) % storage % Q(4,i,j,k) = rho*w
-                         mesh % elements(eID) % storage % Q(5,i,j,k) = p / (gamma - 1.0_RP) + 0.5_RP * rho * (u*u + v*v + w*w)
-
-                     END DO
-                  END DO
-               END DO 
-               
-            END DO 
             end associate
-            
             
          END SUBROUTINE UserDefinedInitialCondition
 
@@ -210,17 +196,6 @@
             CLASS(HexMesh)  :: mesh
             REAL(KIND=RP) :: time
             type(Monitor_t),  intent(in)  :: monitors
-!
-!           ---------------
-!           Local variables
-!           ---------------
-!
-            LOGICAL, SAVE       :: created = .FALSE.
-            REAL(KIND=RP)       :: k_energy = 0.0_RP
-            INTEGER             :: fUnit
-            INTEGER, SAVE       :: restartfile = 0
-            INTEGER             :: restartUnit
-            CHARACTER(LEN=100)  :: fileName
             
          END SUBROUTINE UserDefinedPeriodicOperation
 !
@@ -240,9 +215,8 @@
 !
             use FTAssertions
             USE HexMeshClass
-            use MonitorsClass
             use PhysicsStorage
-            use MPI_Process_Info
+            use MonitorsClass
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -259,27 +233,52 @@
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Taylor-Green vortex with Kinetic Energy preserving and entrophy conserving split form + IP"
+            CHARACTER(LEN=29)                  :: testName           = "Euler Cylinder"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
             INTEGER                            :: i, j, k, N
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
-            integer                            :: rank
-            real(kind=RP), parameter           :: kinEn = 0.12500000000766839_RP
-            real(kind=RP), parameter           :: kinEnRate = 2.3284871259485850E-006_RP
-            real(kind=RP), parameter           :: enstrophy = 0.37500245097407614_RP 
-            real(kind=RP), parameter           :: entropyRate = -9.1348696617847307E-009_RP
-            real(kind=RP), parameter           :: res(5) = [1.1131779208842484E-004_RP, &  
-                                                            0.12741606758485369_RP, &       
-                                                            0.12741606776695064_RP, &       
-                                                            0.24998271835184718_RP, &       
-                                                            0.62461894702221510_RP]
+!
+!           -----------------------------------------------------------------------------------------
+!           Expected solutions. 
+!           InnerCylinder 0.0 NoSlipAdiabaticWall
+!           Front 0.0 Inflow
+!           bottom 0.0 FreeSlipWall
+!           top 0.0 FreeSlipWall
+!           Back 0.0 Inflow
+!           Left 0.0 Inflow
+!           Right 0.0 OutflowSpecifyP 
+!           -----------------------------------------------------------------------------------------
+!
+!
+!           ------------------------------------------------
+!           Expected Solutions: Wall conditions on the sides
+!           Number of iterations are for CFL of 0.3, for
+!           the roe solver and mach = 0.3
+!           ------------------------------------------------
+!
+            real(kind=RP), parameter :: final_time = 8.1360293112980031_RP
+            real(kind=RP), parameter :: res(NCONS) = [ 3.9167069726447580E-003_RP, &
+                                                       7.0027671589173224E-002_RP, &
+                                                       3.6068228611380296E-013_RP, &
+                                                       8.2231956082004870E-002_RP, &
+                                                       0.10659815868258372_RP ]
+            real(kind=RP), parameter :: wake_u = -2.1611054398635306E-002_RP
+            real(kind=RP), parameter :: cd = 453.57879703318662_RP
+            real(kind=RP), parameter :: p_aver = 7.3644805258897463_RP
+
+            N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
+            CALL FTAssertEqual(expectedValue = final_time, &
+                               actualValue   = time, &
+                               tol           = 1.0e-11_RP, &
+                               msg           = "Final time")
+
             CALL FTAssertEqual(expectedValue = monitors % residuals % values(1,1) + 1.0_RP, &
                                actualValue   = res(1) + 1.0_RP, &
                                tol           = 1.0e-11_RP, &
@@ -305,25 +304,21 @@
                                tol           = 1.0e-11_RP, &
                                msg           = "energy residual")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(1) % values(1), &
-                               actualValue   = kinEn, &
-                               tol           = 1.0e-11_RP, &
-                               msg           = "Kinetic Energy")
+            CALL FTAssertEqual(expectedValue = wake_u + 1.0_RP, &
+                               actualValue   = monitors % probes(1) % values(1) + 1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Wake final x-velocity at the point [0,2.0,4.0]")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(2) % values(1) + 1.0_RP, &
-                               actualValue   = kinEnRate + 1.0_RP, &
-                               tol           = 1.0e-11_RP, &
-                               msg           = "Kinetic Energy Rate")
+            CALL FTAssertEqual(expectedValue = cd, &
+                               actualValue   = monitors % surfaceMonitors(1) % values(1), &
+                               tol           = 1.d-10, &
+                               msg           = "Drag coefficient")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(3) % values(1), &
-                               actualValue   = enstrophy, &
-                               tol           = 1.0e-11_RP, &
-                               msg           = "Enstrophy")
+            CALL FTAssertEqual(expectedValue = p_aver, &
+                               actualValue   = monitors % surfaceMonitors(2) % values(1), &
+                               tol           = 1.d-11, &
+                               msg           = "Pressure average over the cylinder")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(4) % values(1), &
-                               actualValue   = entropyRate, &
-                               tol           = 1.0e-11_RP, &
-                               msg           = "Entropy Rate")
 
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
@@ -340,7 +335,6 @@
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
-
 
          END SUBROUTINE UserDefinedFinalize
 !

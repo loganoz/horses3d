@@ -420,6 +420,10 @@ module MonitorsClass
                do i = 1 , self % no_of_volumeMonitors
                   call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
                end do
+!
+!              Reset buffer
+!              ------------
+               self % bufferLine = 0
 
             end if
          end if
