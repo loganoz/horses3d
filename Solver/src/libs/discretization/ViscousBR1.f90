@@ -2,6 +2,7 @@ module ViscousBR1
    use SMConstants
    use MeshTypes
    use Physics
+   use VariableConversion, only: GradientValuesForQ
    use PhysicsStorage
    use MPI_Face_Class
    use ViscousMethodClass

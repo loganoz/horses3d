@@ -116,11 +116,13 @@
 !    Available averaging functions
 !    -----------------------------
 !
-     integer, parameter :: STANDARD_SPLIT      = 1
-     integer, parameter :: MORINISHI_SPLIT     = 2
-     integer, parameter :: DUCROS_SPLIT        = 3
-     integer, parameter :: KENNEDYGRUBER_SPLIT = 4
-     integer, parameter :: PIROZZOLI_SPLIT     = 5
+     integer, parameter :: STANDARD_SPLIT             = 1
+     integer, parameter :: MORINISHI_SPLIT            = 2
+     integer, parameter :: DUCROS_SPLIT               = 3
+     integer, parameter :: KENNEDYGRUBER_SPLIT        = 4
+     integer, parameter :: PIROZZOLI_SPLIT            = 5
+     integer, parameter :: ENTROPYCONS_SPLIT          = 6
+     integer, parameter :: ENTROPYANDENERGYCONS_SPLIT = 7
      integer            :: whichAverage = -1
 
 
@@ -363,10 +365,6 @@
 !    Interface block
 !    ---------------
 !
-     interface GradientValuesForQ
-         module procedure GradientValuesForQ_0D , GradientValuesForQ_3D
-     end interface GradientValuesForQ
-
      interface InviscidFlux
          module procedure InviscidFlux0D , InviscidFlux3D
      end interface InviscidFlux
@@ -457,7 +455,7 @@
          v  = q(IRHOV) / q(IRHO)
          w  = q(IRHOW) / q(IRHO)
          V2 = u*u + v*v + w*w
-         p  = Pressure(q)
+!         p  = Pressure(q)
          H  = (q(IRHOE) + p) / q(IRHO)
 !
 !        Flux in the x direction (f)
@@ -614,83 +612,6 @@
 
       end subroutine ViscousFlux3D
 !
-!
-!
-! /////////////////////////////////////////////////////////////////////
-!
-!---------------------------------------------------------------------
-!! GradientValuesForQ takes the solution (Q) values and returns the
-!! quantities of which the gradients will be taken.
-!---------------------------------------------------------------------
-!
-      SUBROUTINE GradientValuesForQ_0D( Q, U )
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP), DIMENSION(N_EQN)     , INTENT(IN)  :: Q
-      REAL(KIND=RP), DIMENSION(N_GRAD_EQN), INTENT(OUT) :: U
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!     
-      U(1) = Q(1)
-      U(2) = Q(2)
-      U(3) = Q(3)
-      U(4) = Q(4)
-
-      END SUBROUTINE GradientValuesForQ_0D
-
-      SUBROUTINE GradientValuesForQ_3D( Nx, Ny, Nz, Q, U )
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      integer,       intent(in)  :: Nx, Ny, Nz
-      REAL(KIND=RP), INTENT(IN)  :: Q(1:NCONS,0:Nx,0:Ny,0:Nz)
-      REAL(KIND=RP), INTENT(OUT) :: U(1:N_GRAD_EQN,0:Nx,0:Ny,0:Nz)
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!     
-      U(1,:,:,:) = Q(1,:,:,:)
-      U(2,:,:,:) = Q(2,:,:,:)
-      U(3,:,:,:) = Q(3,:,:,:)
-      U(4,:,:,:) = Q(4,:,:,:)
-
-      END SUBROUTINE GradientValuesForQ_3D
-!
-! /////////////////////////////////////////////////////////////////////
-!
-!@mark -
-!---------------------------------------------------------------------
-!! Compute the pressure from the state variables
-!---------------------------------------------------------------------
-!
-      PURE FUNCTION Pressure(Q) RESULT(P)
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP), DIMENSION(N_EQN), INTENT(IN) :: Q
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      REAL(KIND=RP) :: P
-      
-      P = thermodynamics % gammaMinus1*(Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1))
-
-      END FUNCTION Pressure
-!
 ! /////////////////////////////////////////////////////////////////////
 !
 !---------------------------------------------------------------------
@@ -740,38 +661,14 @@
 
 
       END FUNCTION ThermalDiffusivity
-!
-! /////////////////////////////////////////////////////////////////////
-!
-!---------------------------------------------------------------------
-!! Compute the temperature from the state variables
-!---------------------------------------------------------------------
-!
-      PURE FUNCTION Temperature(Q) RESULT(T)
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP), DIMENSION(N_EQN), INTENT(IN) :: Q
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      REAL(KIND=RP) :: T
-!
-      T = dimensionless % gammaM2*Pressure(Q)/Q(1)
 
-      END FUNCTION Temperature
-
-      function getStressTensor(Q,U_x,U_y,U_z) result(tau)
+     pure subroutine getStressTensor(Q,U_x,U_y,U_z,tau)
          implicit none
-         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN     ) 
-         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN     ) 
-         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN     ) 
-         real(kind=RP)                    :: tau  ( 1:NDIM, 1:NDIM   )
+         real(kind=RP), intent(in)      :: Q   (1:NCONS         )
+         real(kind=RP), intent(in)      :: U_x (1:N_GRAD_EQN    )
+         real(kind=RP), intent(in)      :: U_y (1:N_GRAD_EQN    )
+         real(kind=RP), intent(in)      :: U_z (1:N_GRAD_EQN    )
+         real(kind=RP), intent(out)     :: tau (1:NDIM, 1:NDIM   )
 !
 !        ---------------
 !        Local variables
@@ -782,24 +679,33 @@
 
          associate ( mu0 => dimensionless % mu )
 
-         T     = Temperature(Q)
-         muOfT = MolecularDiffusivity(T)
+!         T     = Temperature(Q)
+!         muOfT = SutherlandsLaw(T)
 
          divV = U_x(IGU) + U_y(IGV) + U_z(IGW)
 
          tau(IX,IX) = mu0 * muOfT * (2.0_RP * U_x(IGU) - 2.0_RP/3.0_RP * divV )
-         tau(IY,IX) = mu0 * muOfT * ( U_x(IGV) + U_y(IGU) ) 
-         tau(IZ,IX) = mu0 * muOfT * ( U_x(IGW) + U_z(IGU) ) 
+         tau(IY,IX) = mu0 * muOfT * ( U_x(IGV) + U_y(IGU) )
+         tau(IZ,IX) = mu0 * muOfT * ( U_x(IGW) + U_z(IGU) )
          tau(IX,IY) = tau(IY,IX)
          tau(IY,IY) = mu0 * muOfT * (2.0_RP * U_y(IGV) - 2.0_RP/3.0_RP * divV )
-         tau(IZ,IY) = mu0 * muOfT * ( U_y(IGW) + U_z(IGV) ) 
+         tau(IZ,IY) = mu0 * muOfT * ( U_y(IGW) + U_z(IGV) )
          tau(IX,IZ) = tau(IZ,IX)
          tau(IY,IZ) = tau(IZ,IY)
          tau(IZ,IZ) = mu0 * muOfT * (2.0_RP * U_z(IGW) - 2.0_RP/3.0_RP * divV )
 
          end associate
 
-      end function getStressTensor
+      end subroutine getStressTensor
+
+
+!
+! /////////////////////////////////////////////////////////////////////
+!
+!---------------------------------------------------------------------
+!! Compute the temperature from the state variables
+!---------------------------------------------------------------------
+!
 
       
    END Module Physics
@@ -817,7 +723,7 @@
       
       USE SMConstants
       USE PhysicsStorage
-      USE Physics, ONLY:Pressure
+!      USE Physics, ONLY:Pressure
       IMPLICIT NONE
 !
 !     ---------
@@ -836,7 +742,7 @@
       u = ABS( Q(2)/Q(1) )
       v = ABS( Q(3)/Q(1) )
       w = ABS( Q(4)/Q(1) )
-      p = Pressure(Q)
+!      p = Pressure(Q)
       a = SQRT(thermodynamics % gamma*p/Q(1))
       
       eigen(1) = u + a

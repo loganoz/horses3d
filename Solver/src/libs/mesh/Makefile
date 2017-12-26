@@ -8,9 +8,6 @@ ARFLAGS?=cr
 RANLIB?=ranlib
 MOD_FLAG?=-J
 
-
-
-
 LIBOBJS = 	./build/ConnectivityClass.o \
 		./build/MeshTypes.o \
 		./build/StorageClass.o \
@@ -35,18 +32,23 @@ LIB = mesh
 ############################################
 .DEFAULT_GOAL := lib$(LIB).a
 
+./build/METISPartitioning.o: ./METISPartitioning.f90		# METIS calls require this, and only this flags... so it is separated
+	@echo
+	@echo $<
+	$(FC) -cpp -O2 -ffree-line-length-0 -I./include $(MACROS) $(EXTLIB_INC) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+	
 ./build/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) -fPIC $(FFLAGS) -I./include $(MACROS) $(EXTLIB_INC) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -I./include $(MACROS) $(EXTLIB_INC) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
-lib$(LIB).a: header mkdirs $(LIBOBJS)
+lib$(LIB).a: header mkdirs $(LIBOBJS) ./build/METISPartitioning.o
 	@echo
 	@echo "---------------------------------"
 	@echo "| Linking library" $@ "|"
 	@echo "---------------------------------"
 	@$(RM) $@
-	$(AR) $(ARFLAGS) $@ $(LIBOBJS)
+	$(AR) $(ARFLAGS) $@ $(LIBOBJS) ./build/METISPartitioning.o
 	@$(RANLIB) $@
 
 install: lib$(LIB).a

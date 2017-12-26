@@ -44,7 +44,7 @@ GNU_DEBUG_FLAGS=  -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-varia
                   -fbacktrace -fbounds-check -finit-real=snan -Wall \
                   -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
                   -fbackslash -fcheck=pointer
-INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc
+INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc -fp-model precise
 INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all \
                    -check bounds -check uninit -ftrapuv -debug all -warn interfaces \
                    -ftrace=full -ftz -fp-model precise \

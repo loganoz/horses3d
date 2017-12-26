@@ -3,6 +3,7 @@ module SurfaceMonitorClass
    use HexMeshClass
    use MonitorDefinitions
    use PhysicsStorage
+   use MPI_Process_Info
 #include "Includes.h"
    
    private
@@ -99,7 +100,7 @@ module SurfaceMonitorClass
          call readValueInRegion ( trim ( paramFile )  , "Variable"          , self % variable         , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "Reference surface" , self % referenceSurface , in_label , "# end" ) 
          call readValueInRegion ( trim ( paramFile )  , "Direction"         , directionName        , in_label , "# end" ) 
-
+!
 !        Enable the monitor
 !        ------------------
          self % active = .true.
@@ -356,7 +357,7 @@ module SurfaceMonitorClass
 !        *************************************************************
 !
          implicit none
-         class(SurfaceMonitor_t)             :: self
+         class(SurfaceMonitor_t), intent(in)   :: self
 
          write(STD_OUT , '(3X,A10)' , advance = "no") trim(self % monitorName(1 : MONITOR_LENGTH))
 
@@ -396,15 +397,17 @@ module SurfaceMonitorClass
          integer                    :: i
          integer                    :: fID
 
-         open( newunit = fID , file = trim ( self % fileName ) , action = "write" , access = "append" , status = "old" )
+         if ( MPI_Process % isRoot ) then
+
+            open( newunit = fID , file = trim ( self % fileName ) , action = "write" , access = "append" , status = "old" )
          
-         do i = 1 , no_of_lines
-            write( fID , '(I10,2X,ES24.16,2X,ES24.16)' ) iter(i) , t(i) , self % values(i)
-
-         end do
+            do i = 1 , no_of_lines
+               write( fID , '(I10,2X,ES24.16,2X,ES24.16)' ) iter(i) , t(i) , self % values(i)
+   
+            end do
         
-         close ( fID )
-
+            close ( fID )
+         end if
          
          if ( no_of_lines .ne. 0 ) self % values(1) = self % values(no_of_lines)
       

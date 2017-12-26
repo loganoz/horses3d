@@ -8,6 +8,7 @@ module VolumeMonitorClass
 
    private 
    public VOLUME, KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY
+   public ENTROPY, ENTROPY_RATE
    public VolumeMonitor_t
 
 !
@@ -93,6 +94,10 @@ module VolumeMonitorClass
 
          case ("Enstrophy")
 
+         case ("Entropy")
+
+         case ("Entropy rate")
+
          case ("Mean velocity")
 
          case default
@@ -105,6 +110,8 @@ module VolumeMonitorClass
                print*, "   * Kinetic energy"
                print*, "   * Kinetic energy rate"
                print*, "   * Enstrophy"
+               print*, "   * Entropy"
+               print*, "   * Entropy rate"
                print*, "   * Mean velocity"
                stop "Stopped."
 
@@ -157,6 +164,12 @@ module VolumeMonitorClass
    
          case ("Enstrophy")
             self % values(bufferPosition) = 0.5_RP * ScalarVolumeIntegral(mesh, ENSTROPHY) / ScalarVolumeIntegral(mesh, VOLUME)
+
+         case ("Entropy")
+            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY) / ScalarVolumeIntegral(mesh, VOLUME)
+
+         case ("Entropy rate")
+            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_RATE) / ScalarVolumeIntegral(mesh, VOLUME)
 
          case ("Mean velocity")
             self % values(bufferPosition) = ScalarVolumeIntegral(mesh, VELOCITY) / ScalarVolumeIntegral(mesh, VOLUME)
@@ -216,14 +229,16 @@ module VolumeMonitorClass
          integer                    :: i
          integer                    :: fID
 
-         open( newunit = fID , file = trim ( self % fileName ) , action = "write" , access = "append" , status = "old" )
+         if ( MPI_Process % isRoot ) then
+            open( newunit = fID , file = trim ( self % fileName ) , action = "write" , access = "append" , status = "old" )
          
-         do i = 1 , no_of_lines
-            write( fID , '(I10,2X,ES24.16,2X,ES24.16)' ) iter(i) , t(i) , self % values(i)
+            do i = 1 , no_of_lines
+               write( fID , '(I10,2X,ES24.16,2X,ES24.16)' ) iter(i) , t(i) , self % values(i)
 
-         end do
+            end do
         
-         close ( fID )
+            close ( fID )
+         end if
 
          if ( no_of_lines .ne. 0 ) self % values(1) = self % values(no_of_lines)
       

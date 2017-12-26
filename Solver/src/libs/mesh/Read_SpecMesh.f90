@@ -306,6 +306,7 @@ MODULE Read_SpecMesh
 !        Prepare mesh for I/O only if the code is running sequentially
 !        -------------------------------------------------------------
 !
+         self % no_of_allElements = self % no_of_elements
          if ( .not. MPI_Process % doMPIAction ) then
             call self % PrepareForIO
             call self % Export( trim(fileName) )

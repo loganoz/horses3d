@@ -260,43 +260,43 @@
 !           ------------------------------------------------
 !
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [240.37010000259491, 0E-011, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
-                                                               0E-011, 0E-011, &
-                                                               0E-011]
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [240.36982452369941_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
+                                                               0E-011_RP, 0E-011_RP, &
+                                                               0E-011_RP]
+            real(kind=RP), parameter           :: wake_u =  1.0911412914368071E-008_RP
+            real(kind=RP), parameter           :: cd =  34.585859295152773_RP
+            real(kind=RP), parameter           :: cl =  -4.9206795593903507E-004_RP
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
-            
+
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
             CALL FTAssertEqual(expectedValue = iterations(N), &
                                actualValue   = iter, &
                                msg           = "Number of time steps to tolerance")
+
             CALL FTAssertEqual(expectedValue = residuals(N), &
                                actualValue   = maxResidual, &
-                               tol           = 1.d-3, &
+                               tol           = 1.d-11, &
                                msg           = "Final maximum residual")
-            
-            !ALLOCATE(QExpected(0:mesh % spA % N,0:mesh % spA % N,0:mesh % spA % N,N_EQN))
-            
-            ! maxError = 0.0_RP
-            ! DO eID = 1, SIZE(mesh % elements)
-            !    DO k = 0, mesh % spA % N
-            !       DO j = 0, mesh % spA % N
-            !          DO i = 0, mesh % spA % N 
-            !             CALL pointSourceFlowSolution( mesh % elements(eID) % geom % x(:,i,j,k), &
-            !                                           QExpected(i,j,k,1:N_EQN), success )
-            !          END DO
-            !       END DO
-            !    END DO
-            !    maxError = MAXVAL(ABS(QExpected - mesh % elements(eID) % storage % Q))
-            ! END DO
-            ! CALL FTAssertEqual(expectedValue = ERRORs(N), &
-            !                    actualValue   = maxError, &
-            !                    tol           = 1.d-5, &
-            !                    msg           = "Maximum error")
-            
-            
+
+            CALL FTAssertEqual(expectedValue = wake_u + 1.0_RP, &
+                               actualValue   = monitors % probes(1) % values(1) + 1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Wake final x-velocity at the point [0,2.0,4.0]")
+
+            CALL FTAssertEqual(expectedValue = cd, &
+                               actualValue   = monitors % surfaceMonitors(1) % values(1), &
+                               tol           = 1.d-11, &
+                               msg           = "Drag coefficient")
+
+            CALL FTAssertEqual(expectedValue = cl + 1.0_RP, &
+                               actualValue   = monitors % surfaceMonitors(2) % values(1) + 1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Lift coefficient")
+
+
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN

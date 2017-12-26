@@ -1584,6 +1584,10 @@ slavecoord:                DO l = 1, 4
             end select
             end associate
          end do 
+
+         if ( MPI_Process % doMPIAction ) then
+            call CommunicateMPIFaceMinimumDistance(self)
+         end if
 !
 !        ---------
 !        Finish up
@@ -1595,6 +1599,97 @@ slavecoord:                DO l = 1, 4
          DEALLOCATE(genHexMap)
          
       end subroutine HexMesh_ConstructGeometry
+
+      subroutine CommunicateMPIFaceMinimumDistance(self)
+         implicit none
+         class(HexMesh) :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+#ifdef _HAS_MPI_
+         integer  :: no_of_max_faces, i, fID, mpifID, ierr
+         real(kind=RP), allocatable  :: hsend(:,:)
+         real(kind=RP), allocatable  :: hrecv(:,:)
+         integer  :: sendReq(MPI_Process % nProcs)
+         integer  :: recvReq(MPI_Process % nProcs)
+         integer  :: sendSt(MPI_STATUS_SIZE, MPI_Process % nProcs)
+         integer  :: recvSt(MPI_STATUS_SIZE, MPI_Process % nProcs)
+
+         if ( .not. MPI_Faces_Constructed ) return
+!
+!        Get the maximum number of faces
+!        -------------------------------
+         no_of_max_faces = 0
+         do i = 1, MPI_Process % nProcs
+            no_of_max_faces = max(no_of_max_faces, mpi_faces(i) % no_of_faces)
+         end do
+!
+!        Allocate an array to store the distances
+!        ----------------------------------------
+         allocate(hsend(no_of_max_faces, MPI_Process % nProcs))
+         allocate(hrecv(no_of_max_faces, MPI_Process % nProcs))
+!
+!        Perform the receive calls
+!        -------------------------
+         do i = 1, MPI_Process % nProcs
+            if ( mpi_faces(i) % no_of_faces .le. 0 ) then
+               recvReq(i) = MPI_REQUEST_NULL
+               cycle
+
+            end if
+
+            call mpi_irecv(hrecv(:,i), mpi_faces(i) % no_of_faces, MPI_DOUBLE, i-1, MPI_ANY_TAG, &
+                           MPI_COMM_WORLD, recvReq(i), ierr)
+
+         end do
+
+!
+!        Gather the distances to send
+!        ------------------------------
+         do i = 1, MPI_Process % nProcs
+            if ( mpi_faces(i) % no_of_faces .le. 0 ) cycle
+
+            do mpifID = 1, mpi_faces(i) % no_of_faces
+               fID = mpi_faces(i) % faceIDs(mpifID)
+               hsend(mpifID,i) = self % faces(fID) % geom % h
+            end do
+         end do
+!
+!        Send the distances
+!        ------------------
+         do i = 1, MPI_Process % nProcs
+            if ( mpi_faces(i) % no_of_faces .le. 0 ) then
+               sendReq(i) = MPI_REQUEST_NULL
+               cycle
+
+            end if
+
+            call mpi_isend(hsend(:,i), mpi_faces(i) % no_of_faces, MPI_DOUBLE, i-1, DEFAULT_TAG, &
+                           MPI_COMM_WORLD, sendReq(i), ierr)
+
+         end do
+
+         call mpi_waitall(MPI_Process % nProcs, recvReq, recvSt, ierr)
+!
+!        Collect the distances
+!        ---------------------      
+         do i = 1, MPI_Process % nProcs
+            if ( mpi_faces(i) % no_of_faces .le. 0 ) cycle
+
+            do mpifID = 1, mpi_faces(i) % no_of_faces
+               fID = mpi_faces(i) % faceIDs(mpifID)
+               self % faces(fID) % geom % h = min(self % faces(fID) % geom % h, hrecv(mpifID,i))
+            end do
+         end do
+
+         call mpi_waitall(MPI_Process % nProcs, sendReq, sendSt, ierr)
+
+         deallocate(hsend, hrecv)
+
+#endif
+      end subroutine CommunicateMPIFaceMinimumDistance
 
       subroutine HexMesh_DefineAsBoundaryFaces(self)
          implicit none

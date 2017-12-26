@@ -4,7 +4,7 @@ module DGWeakIntegrals
    use PhysicsStorage
    use PhysicsStorage, only: N_EQN, N_GRAD_EQN, IX,IY,IZ
    use MeshTypes
-   use Physics, only: GradientValuesForQ
+   use VariableConversion, only: gradientValuesForQ
    implicit none
 
 

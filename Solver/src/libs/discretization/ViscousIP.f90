@@ -4,9 +4,9 @@
 !   @File:    ViscousIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Fri Dec 15 19:06:20 2017
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 6ff4e62306809f27aca94408301b7dfab13e3a6b
+!   @Last revision date: Sat Dec 16 13:23:10 2017
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 0f5272f7f0587c4b9dcb9f4f33d865889e46a481
 !
 !//////////////////////////////////////////////////////
 !
@@ -18,6 +18,7 @@ module ViscousIP
    use HexMeshClass
    use Physics
    use PhysicsStorage
+   use VariableConversion, only: gradientValuesForQ
    use MPI_Face_Class
    use ViscousMethodClass
    implicit none

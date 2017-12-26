@@ -4,9 +4,9 @@
 !   @File:    MeshPartitioning.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 10:26:08 2017
-!   @Last revision date: Sat Nov 25 14:01:19 2017
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 3b34c7a95eb684f3c89837d445c6430f5449f298
+!   @Last revision date: Wed Dec 20 19:57:11 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 56f6d6999bfc5e5f4677fff49e8f949c70e8a2a4
 !
 !//////////////////////////////////////////////////////
 !
@@ -32,13 +32,6 @@ module MeshPartitioning
          integer               :: fID, domain
          integer               :: elementsDomain(mesh % no_of_elements)
 !
-!        ************************************************
-!        Now, they will just be ordered in a hard-coded
-!        way, and just valid for the TaylorGreen geometry
-!        It is required to consider using METIS or a 
-!        universal partitioner later.
-!        ************************************************
-!
 !        Initialize partitions
 !        ---------------------
          do domain = 1, no_of_domains
@@ -56,115 +49,150 @@ module MeshPartitioning
       end subroutine PerformMeshPartitioning
 
       subroutine GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions)
-!
-!        *******************************************
-!        Here is where the METIS partitioner would
-!        divide the mesh.
-!        *******************************************
-!
          use IntegerDataLinkedList
          use MPI_Process_Info
          implicit none
          type(HexMesh), intent(in)              :: mesh
          integer,       intent(in)              :: no_of_domains
-         integer,       intent(out)             :: elementsDomain(mesh % no_of_elements)
-         type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)
+         integer,       intent(out)             :: elementsDomain(mesh % no_of_allElements)
+         type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)      
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer     :: domain, eID, nID 
-         type(IntegerDataLinkedList_t) :: elements(no_of_domains)
-         type(IntegerDataLinkedList_t) :: nodes(no_of_domains)
-         real(kind=RP)  :: xc(3)
-!
-!        Initialize the linked lists         
-!        ---------------------------
-         do domain = 1, no_of_domains
-            elements(domain) = IntegerDataLinkedList_t(allowRepetitions = .false.)
-            nodes(domain) = IntegerDataLinkedList_t(allowRepetitions = .false.)
-         end do
-!
-!        Loop in elements and fill the domains
-!        -------------------------------------         
-#define PARTITIONTYPE 2
-#if PARTITIONTYPE==1
-         do eID = 1, mesh % no_of_elements
-            associate(e => mesh % elements(eID))
-!
-!           Get the centroid
-!           ----------------
-            xc = 0.0_RP
-            do nID = 1, 8
-               xc = xc + mesh % nodes(e % nodeIDs(nID)) % x
-            end do
-            xc = xc / 8.0_RP
-!
-!           Inquire to which domain it belongs (only valid for the TGV with 8 domains)
-!           ----------------------------------
-            xc = xc - PI
-          
-            if ( xc(2) .lt. 0 ) then
-               domain = 1
-            else
-               domain = 2
-            end if
+         integer, allocatable :: nodesDomain(:)
 
-            if ( xc(1) .lt. 0 ) domain = domain + 2
-            if ( xc(3) .gt. 0 ) domain = domain + 4
+
+         allocate(nodesDomain(size(mesh % nodes)))
 !
-!           Add elements and nodes to the domain linked list
-!           ------------------------------------------------
-            elementsDomain(eID) = domain
-            call elements(domain) % Add(eID)
-            do nID = 1, 8
-               call nodes(domain) % Add(e % nodeIDs(nID))
-            end do
-            end associate           
-         end do
-#elif PARTITIONTYPE==2
-         do eID = 1, mesh % no_of_elements
-            associate(e => mesh % elements(eID))
+!        ****************************************************
+!        Set which elements belong to each domain using METIS
+!        ****************************************************
 !
-!           Get the centroid
-!           ----------------
-            xc = 0.0_RP
-            do nID = 1, 8
-               xc = xc + mesh % nodes(e % nodeIDs(nID)) % x
-            end do
-            xc = xc / 8.0_RP
-!
-!           Inquire to which domain it belongs (considers NProcs slices in the z direction)
-!           ----------------------------------
-            domain = floor(MPI_Process % nProcs * (xc(3))/(2.0_RP*PI)) + 1
-!
-!           Add elements and nodes to the domain linked list
-!           ------------------------------------------------
-            elementsDomain(eID) = domain
-            call elements(domain) % Add(eID)
-            do nID = 1, 8
-               call nodes(domain) % Add(e % nodeIDs(nID))
-            end do
-            end associate           
-         end do
+#ifdef _HAS_MPI_
+         call GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain)
 #endif
 !
-!        ----------------------------------
-!        Build the MeshPartition structures      
-!        ----------------------------------
+!        ****************************************
+!        Get which nodes belong to each partition
+!        ****************************************
 !
-         do domain = 1, no_of_domains
-            partitions(domain) % no_of_nodes = nodes(domain) % no_of_entries      
-            partitions(domain) % no_of_elements = elements(domain) % no_of_entries
-            
-            call nodes(domain)    % ExportToArray(partitions(domain) % nodeIDs, sorted = .true.)
-            call elements(domain) % ExportToArray(partitions(domain) % elementIDs)
-         end do
+         call GetNodesPartition(mesh, no_of_domains, elementsDomain, nodesDomain, partitions)   
+
+         deallocate(nodesDomain)   
          
       end subroutine GetElementsDomain
 
+!
+!////////////////////////////////////////////////////////////////////////
+!
+     subroutine GetNodesPartition(mesh, no_of_domains, elementsDomain, nodesDomain, partitions)
+        use Utilities, only: Qsort
+        implicit none
+        type(HexMesh), intent(in)              :: mesh
+        integer,       intent(in)              :: no_of_domains
+        integer,       intent(in)              :: elementsDomain(mesh % no_of_allElements)
+        integer,       intent(in)              :: nodesDomain(size(mesh % nodes))
+        type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)   
+!
+!       ---------------
+!       Local Variables
+!       ---------------
+!
+        integer              :: nvertex
+        integer              :: i
+        integer              :: j
+        integer              :: k
+        integer              :: ipoint
+        integer              :: jpoint
+        integer              :: idomain
+        integer              :: npoints
+        integer              :: ielem
+        logical              :: isnewpoint
+        integer, allocatable :: points(:)
+
+        nvertex = 8
+
+        do idomain=1,no_of_domains
+!
+!       Get the number of elements for the partition
+!       --------------------------------------------
+        partitions(idomain)%no_of_elements = count(elementsDomain == idomain)
+        allocate(partitions(idomain)%elementIDs(partitions(idomain)%no_of_elements))
+!
+!       This will store the partition nodes (allocated as 8 * no_of_elements)
+!       ---------------------------------------------------------------------
+        allocate(points(nvertex*partitions(idomain)%no_of_elements))
+        points = 0
+!
+!       ****************************************
+!       Gather each partition nodes and elements      
+!       ****************************************
+!
+        k = 0
+        npoints = 0
+        do ielem=1,mesh % no_of_allElements
+           if (elementsDomain(ielem) == idomain) then
+!
+!             Append a new element
+!             --------------------
+              k = k + 1
+              partitions(idomain)%elementIDs(k) = ielem
+!
+!             Append its nodes
+!             ----------------           
+              do j=1,nvertex
+!
+!                Get the node ID
+!                ---------------
+                 jpoint = mesh % elements(ielem) % nodeIDs(j)
+!
+!                Check if it is already stored
+!                -----------------------------
+                 isnewpoint = .true.
+                 do i=1,npoints
+                    ipoint = points(i)
+                    if (jpoint == ipoint) then
+                       isnewpoint = .false.
+                       exit
+                    end if
+                 end do
+!
+!                Store the node
+!                --------------      
+                 if (isnewpoint) then
+                    npoints = npoints + 1
+                    points(npoints) = jpoint
+                 end if                  
+              end do
+            end if      
+         end do
+!
+!        Put the nodeIDs into the partitions structure
+!        ---------------------------------------------      
+         allocate(partitions(idomain)%nodeIDs(npoints))
+         partitions(idomain)%nodeIDs(:) = points(1:npoints)
+!
+!        Sort the nodeIDs to read the mesh file accordingly
+!        --------------------------------------------------
+         call Qsort(partitions(idomain)%nodeIDs)
+
+         partitions(idomain)%no_of_nodes = npoints
+!
+!        ****
+!        Free
+!        ****
+!
+         deallocate(points)
+      end do
+
+     end subroutine GetNodesPartition
+!
+!////////////////////////////////////////////////////////////////////////
+!
       subroutine GetPartitionBoundaryFaces(mesh, no_of_domains, elementsDomain, partitions)
+ 
          implicit none
          type(HexMesh), intent(in)  :: mesh
          integer,       intent(in)  :: no_of_domains

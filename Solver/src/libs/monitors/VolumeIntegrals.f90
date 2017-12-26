@@ -1,6 +1,7 @@
 module VolumeIntegrals
    use SMConstants
    use Physics
+   use VariableConversion, only: Pressure
    use HexMeshClass
 #ifdef _HAS_MPI_
    use mpi
@@ -9,6 +10,8 @@ module VolumeIntegrals
    
    private
    public   VOLUME, KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY, VELOCITY
+   public   ENTROPY, ENTROPY_RATE
+
    public   ScalarVolumeIntegral, VectorVolumeIntegral
 
    integer, parameter      :: VOLUME              = 1
@@ -16,6 +19,8 @@ module VolumeIntegrals
    integer, parameter      :: KINETIC_ENERGY_RATE = 3
    integer, parameter      :: ENSTROPHY           = 4
    integer, parameter      :: VELOCITY            = 5
+   integer, parameter      :: ENTROPY             = 6
+   integer, parameter      :: ENTROPY_RATE        = 7
 !
 !  ========
    contains
@@ -89,6 +94,7 @@ module VolumeIntegrals
          integer     :: i, j, k
          real(kind=RP)           :: KinEn(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: uvw(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)           :: p, s, dtP
          real(kind=RP), pointer  :: Qb(:)
 
          Nel = e % Nxyz
@@ -178,7 +184,42 @@ module VolumeIntegrals
                                                            + POW2(e % storage % Q(IRHOW,i,j,k))  ) &
                                         / e % storage % Q(IRHO,i,j,k) * e % geom % jacobian(i,j,k)
             end do            ; end do           ; end do
+
+         case ( ENTROPY )
+!
+!           ********************************************
+!              Computes the specific entropy integral
+!           ********************************************
+!
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               p = Pressure( e % storage % Q )
+               s = ( log(p) - thermodynamics % gamma * log(e % storage % Q(IRHO,i,j,k)) )
+               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * s
+            end do            ; end do           ; end do
+
+          case ( ENTROPY_RATE )
+!
+!           ************************************************************
+!              Computes the specific entropy integral time derivative
+!           ************************************************************
+!
+            uvw = e % storage % Q(IRHOU,:,:,:) / e % storage % Q(IRHO,:,:,:)
+            KinEn = uvw * e % storage % QDot(IRHOU,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
+
+            uvw = e % storage % Q(IRHOV,:,:,:) / e % storage % Q(IRHO,:,:,:)
+            KinEn = KinEn + uvw * e % storage % QDot(IRHOV,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
+
+            uvw = e % storage % Q(IRHOW,:,:,:) / e % storage % Q(IRHO,:,:,:)
+            KinEn = KinEn + uvw * e % storage % QDot(IRHOW,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               p = Pressure( e % storage % Q )
+               dtP = thermodynamics % gammaMinus1 * ( e % storage % QDot(IRHOE,i,j,k) - KinEn(i,j,k) )
+               s   =  dtP/p - thermodynamics % gamma * e % storage % QDot(IRHO,i,j,k) / e % storage % Q(IRHO,i,j,k) 
+               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * s
+            end do            ; end do           ; end do
             
+           
          end select
 
          end associate

@@ -4,9 +4,9 @@
 !   @File:    ViscousBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Fri Dec 15 17:39:18 2017
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 3f52e4fec56acdc2657420c274f99b342c67dd81
+!   @Last revision date: Sat Dec 16 13:23:10 2017
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 0f5272f7f0587c4b9dcb9f4f33d865889e46a481
 !
 !//////////////////////////////////////////////////////
 !
@@ -16,8 +16,9 @@ module ViscousBR2
    use MeshTypes
    use ElementClass
    use HexMeshClass
-   use Physics
    use PhysicsStorage
+   use Physics
+   use VariableConversion, only: gradientValuesForQ
    use MPI_Face_Class
    use ViscousMethodClass
    implicit none

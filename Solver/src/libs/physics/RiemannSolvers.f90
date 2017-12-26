@@ -4,9 +4,9 @@
 !   @File:    RiemannSolvers.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:26 2017
-!   @Last revision date: Fri Dec 15 18:03:51 2017
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 6d4f2964f557509b30fb05c7aaa354654275f4bd
+!   @Last revision date: Sat Dec 16 17:58:10 2017
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: ed7f49b4ef5c713f820bfb72c6c2c85c27613022
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,6 +14,7 @@
 module RiemannSolvers
    use SMConstants
    use PhysicsStorage
+   use VariableConversion
    use FluidData, only: equationOfState, getThermalConductivity
 
    private 
@@ -129,6 +130,14 @@ module RiemannSolvers
             AveragedStates => KennedyGruberAverage
             whichAverage = KENNEDYGRUBER_SPLIT
 
+         case (ENTROPYCONS_SPLIT)
+            AveragedStates => EntropyConservingAverage
+            whichAverage = ENTROPYCONS_SPLIT
+
+         case (ENTROPYANDENERGYCONS_SPLIT)
+            AveragedStates => EntropyAndEnergyConservingAverage
+            whichAverage = ENTROPYANDENERGYCONS_SPLIT
+
          case default
             print*, "Split form not recognized"
             errorMessage(STD_OUT)
@@ -211,62 +220,44 @@ module RiemannSolvers
 !        ---------------
 !
          integer        :: i
-         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, rhoHL, rhoV2L
-         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, rhoHR, rhoV2R
-         real(kind=RP)  :: uL, vL, wL, uR, vR, wR, aL, aR, dLambda
-         real(kind=RP)  :: QLRot(5), QRRot(5)
-         real(kind=RP)  :: sqrtRhoL, sqrtRhoR, invSumSqrtRhoLR
-         real(kind=RP)  :: invSqrtRhoL, invSqrtRhoR, invRhoL, invRhoR
-         real(kind=RP)  :: u, v, w, H, a, dQ(5), lambda(5), K(5,5), V2abs, alpha(5)
-         real(kind=RP)  :: stab(5)
+         real(kind=RP)  :: QLRot(5), QRRot(5), VL(NPRIM), VR(NPRIM), aL, aR
+         real(kind=RP)  :: dQ(5), lambda(5), K(5,5), V2abs, alpha(5), dLambda
+         real(kind=RP)  :: rho, u, v, w, V2, H, a
+         real(kind=RP)  :: stab(5)     ! Careful with this variable
 
-         associate(gamma => thermodynamics % gamma, gm1 => thermodynamics % gammaMinus1)
+         associate(gm1 => thermodynamics % gammaMinus1)
 !
-!        Rotate the variables to the face local frame using normal and tangent vectors
-!        -----------------------------------------------------------------------------
-         rhoL = QLeft(1)                  ; rhoR = QRight(1)
-         invRhoL = 1.0_RP/ rhoL           ; invRhoR = 1.0_RP / rhoR
-         sqrtRhoL = sqrt(rhoL)            ; sqrtRhoR = sqrt(rhoR)
-         invSqrtRhoL = 1.0_RP / sqrtRhoL  ; invSqrtRhoR = 1.0_RP / sqrtRhoR
-         invSumSqrtRhoLR = 1.0_RP / (sqrtRhoL + sqrtRhoR)
-
-         rhouL = QLeft (2) * nHat(1) + QLeft (3) * nHat(2) + QLeft (4) * nHat(3)
-         rhouR = QRight(2) * nHat(1) + QRight(3) * nHat(2) + QRight(4) * nHat(3)
-
-         rhovL = QLeft(2)  * t1(1) + QLeft(3)  * t1(2) + QLeft(4)  * t1(3)
-         rhovR = QRight(2) * t1(1) + QRight(3) * t1(2) + QRight(4) * t1(3)
-
-         rhowL = QLeft(2)  * t2(1) + QLeft(3)  * t2(2) + QLeft(4)  * t2(3)
-         rhowR = QRight(2) * t2(1) + QRight(3) * t2(2) + QRight(4) * t2(3)
-
-         rhoeL = QLeft(5) ; rhoeR = QRight(5)                
-
-         uL = rhouL * invRhoL    ; uR = rhouR * invRhoR
-         vL = rhovL * invRhoL    ; vR = rhovR * invRhoR
-         wL = rhowL * invRhoL    ; wR = rhowR * invRhoR
-
-         rhoV2L = (POW2(uL) + POW2(vL) + POW2(wL)) * rhoL
-         rhoV2R = (POW2(uR) + POW2(vR) + POW2(wR)) * rhoR
+!        ********************
+!        Perform the rotation
+!        ********************
 !
-!        Compute the enthalpy: here defined as rhoH = gogm1 p + 0.5 rho V^2
-!        --------------------
-         rhoHL = gamma*rhoeL - 0.5_RP*gm1*rhoV2L
-         rhoHR = gamma*rhoeR - 0.5_RP*gm1*rhoV2R
+         QLRot(1) = QLeft(1)  ; QRRot(1) = QRight(1)
 
-         pL = gm1 * (rhoeL - 0.5_RP * rhoV2L)
-         pR = gm1 * (rhoeR - 0.5_RP * rhoV2R)
+         QLRot(2) = QLeft (2) * nHat(1) + QLeft (3) * nHat(2) + QLeft (4) * nHat(3)
+         QRRot(2) = QRight(2) * nHat(1) + QRight(3) * nHat(2) + QRight(4) * nHat(3)
 
-         aL = sqrt(gamma * pL * invRhoL)
-         aR = sqrt(gamma * pR * invRhoR)
+         QLRot(3) = QLeft(2)  * t1(1) + QLeft(3)  * t1(2) + QLeft(4)  * t1(3)
+         QRRot(3) = QRight(2) * t1(1) + QRight(3) * t1(2) + QRight(4) * t1(3)
+
+         QLRot(4) = QLeft(2)  * t2(1) + QLeft(3)  * t2(2) + QLeft(4)  * t2(3)
+         QRRot(4) = QRight(2) * t2(1) + QRight(3) * t2(2) + QRight(4) * t2(3)
+
+         QLRot(5) = QLeft(5) ; QRRot(5) = QRight(5)                
 !
-!        Compute Roe variables
-!        ---------------------
-         u = (invSqrtRhoL * rhouL + invSqrtRhoR * rhouR) * invSumSqrtRhoLR
-         v = (invSqrtRhoL * rhovL + invSqrtRhoR * rhovR) * invSumSqrtRhoLR
-         w = (invSqrtRhoL * rhowL + invSqrtRhoR * rhowR) * invSumSqrtRhoLR
-         H = (invSqrtRhoL * rhoHL + invSqrtRhoR * rhoHR) * invSumSqrtRhoLR
-         V2abs = POW2(u) + POW2(v) + POW2(w)
-         a = sqrt(gm1*(H - 0.5_RP*V2abs))
+!        ***************************
+!        Compute primitive variables
+!        ***************************
+!
+         call getPrimitiveVariables(QLRot, VL)
+         call getPrimitiveVariables(QRRot, VR)
+
+         aL = sqrt(VL(IPA2))  ; aR = sqrt(VR(IPA2))
+!
+!        *********************
+!        Compute Roe variables: [rho, u, v, w, H, a]
+!        *********************
+!
+         call getRoeVariables(QLRot, QRRot, VL, VR, rho, u, v, w, V2, H, a)
 !
 !        Eigenvalues
 !        -----------
@@ -277,14 +268,14 @@ module RiemannSolvers
 !        Eigenvectors
 !        ------------
          K(:,1) = (/ 1.0_RP, u-a, v, w, H-u*a /)
-         K(:,2) = (/ 1.0_RP, u, v, w, 0.5_RP*V2abs /)
+         K(:,2) = (/ 1.0_RP, u, v, w, 0.5_RP*V2 /)
          K(:,3) = (/ 0.0_RP, 0.0_RP, 1.0_RP, 0.0_RP, v /)
          K(:,4) = (/ 0.0_RP, 0.0_RP, 0.0_RP, 1.0_RP, w /)
          K(:,5) = (/ 1.0_RP, u+a, v, w, H+u*a /)
 !
 !        Projections
 !        -----------
-         dQ = (/ rhoR - rhoL, rhouR - rhouL, rhovR - rhovL, rhowR - rhowL, rhoeR - rhoeL /)
+         dQ = QRRot - QLRot
 
          alpha(3) = dQ(3) - v * dQ(1)  ; alpha(4) = dQ(4) - w * dQ(1)
 
@@ -302,7 +293,7 @@ module RiemannSolvers
 !
 !        Wave #1
 !        -------
-         dLambda = max((uR-aR) - (uL-aL), 0.0_RP)
+         dLambda = max((VR(IPU)-aR) - (VL(IPU)-aL), 0.0_RP)
          if ( abs(lambda(1)) .ge. 2.0_RP * dLambda ) then
             lambda(1) = abs(lambda(1))
          
@@ -313,7 +304,7 @@ module RiemannSolvers
 !
 !        Wave #5
 !        -------
-         dLambda = max((uR+aR) - (uL+aL), 0.0_RP)
+         dLambda = max((VR(IPU)+aR) - (VL(IPU)+aL), 0.0_RP)
          if ( abs(lambda(5)) .ge. 2.0_RP * dLambda ) then
             lambda(5) = abs(lambda(5))
          
@@ -329,9 +320,7 @@ module RiemannSolvers
 !
 !        Perform the average using the averaging function
 !        ------------------------------------------------
-         QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL /)
-         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR /)
-         call AveragedStates(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux)
+         call AveragedStates(QLRot, QRRot, VL(IPP), VR(IPP), VL(IPIRHO), VR(IPIRHO), flux)
 !
 !        Compute the Roe stabilization
 !        -----------------------------
@@ -378,62 +367,44 @@ module RiemannSolvers
 !        ---------------
 !
          integer        :: i
-         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, rhoHL, rhoV2L
-         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, rhoHR, rhoV2R
-         real(kind=RP)  :: uL, vL, wL, uR, vR, wR, aL, aR, dLambda
-         real(kind=RP)  :: QLRot(5), QRRot(5)
-         real(kind=RP)  :: sqrtRhoL, sqrtRhoR, invSumSqrtRhoLR
-         real(kind=RP)  :: invSqrtRhoL, invSqrtRhoR, invRhoL, invRhoR
-         real(kind=RP)  :: rho, u, v, w, H, a, dQ(5), lambda(5), K(5,5), V2abs, alpha(5)
-         real(kind=RP)  :: stab(5)
-         associate(gamma => thermodynamics % gamma, gm1 => thermodynamics % gammaMinus1)
+         real(kind=RP)  :: QLRot(5), QRRot(5), VL(NPRIM), VR(NPRIM), aL, aR
+         real(kind=RP)  :: dQ(5), lambda(5), K(5,5), V2abs, alpha(5), dLambda
+         real(kind=RP)  :: rho, u, v, w, V2, H, a
+         real(kind=RP)  :: stab(5)    
+
+         associate(gm1 => thermodynamics % gammaMinus1)
 !
-!        Rotate the variables to the face local frame using normal and tangent vectors
-!        -----------------------------------------------------------------------------
-         rhoL = QLeft(1)                  ; rhoR = QRight(1)
-         invRhoL = 1.0_RP/ rhoL           ; invRhoR = 1.0_RP / rhoR
-         sqrtRhoL = sqrt(rhoL)            ; sqrtRhoR = sqrt(rhoR)
-         invSqrtRhoL = 1.0_RP / sqrtRhoL  ; invSqrtRhoR = 1.0_RP / sqrtRhoR
-         invSumSqrtRhoLR = 1.0_RP / (sqrtRhoL + sqrtRhoR)
-
-         rhouL = QLeft (2) * nHat(1) + QLeft (3) * nHat(2) + QLeft (4) * nHat(3)
-         rhouR = QRight(2) * nHat(1) + QRight(3) * nHat(2) + QRight(4) * nHat(3)
-
-         rhovL = QLeft(2)  * t1(1) + QLeft(3)  * t1(2) + QLeft(4)  * t1(3)
-         rhovR = QRight(2) * t1(1) + QRight(3) * t1(2) + QRight(4) * t1(3)
-
-         rhowL = QLeft(2)  * t2(1) + QLeft(3)  * t2(2) + QLeft(4)  * t2(3)
-         rhowR = QRight(2) * t2(1) + QRight(3) * t2(2) + QRight(4) * t2(3)
-
-         rhoeL = QLeft(5) ; rhoeR = QRight(5)                
-
-         uL = rhouL * invRhoL    ; uR = rhouR * invRhoR
-         vL = rhovL * invRhoL    ; vR = rhovR * invRhoR
-         wL = rhowL * invRhoL    ; wR = rhowR * invRhoR
-
-         rhoV2L = (POW2(uL) + POW2(vL) + POW2(wL)) * rhoL
-         rhoV2R = (POW2(uR) + POW2(vR) + POW2(wR)) * rhoR
+!        ********************
+!        Perform the rotation
+!        ********************
 !
-!        Compute the enthalpy: here defined as rhoH = gogm1 p + 0.5 rho V^2
-!        --------------------
-         rhoHL = gamma*rhoeL - 0.5_RP*gm1*rhoV2L
-         rhoHR = gamma*rhoeR - 0.5_RP*gm1*rhoV2R
+         QLRot(1) = QLeft(1)  ; QRRot(1) = QRight(1)
 
-         pL = gm1 * (rhoeL - 0.5_RP * rhoV2L)
-         pR = gm1 * (rhoeR - 0.5_RP * rhoV2R)
-         
-         aL = sqrt(gamma * pL * invRhoL)
-         aR = sqrt(gamma * pR * invRhoR)
+         QLRot(2) = QLeft (2) * nHat(1) + QLeft (3) * nHat(2) + QLeft (4) * nHat(3)
+         QRRot(2) = QRight(2) * nHat(1) + QRight(3) * nHat(2) + QRight(4) * nHat(3)
+
+         QLRot(3) = QLeft(2)  * t1(1) + QLeft(3)  * t1(2) + QLeft(4)  * t1(3)
+         QRRot(3) = QRight(2) * t1(1) + QRight(3) * t1(2) + QRight(4) * t1(3)
+
+         QLRot(4) = QLeft(2)  * t2(1) + QLeft(3)  * t2(2) + QLeft(4)  * t2(3)
+         QRRot(4) = QRight(2) * t2(1) + QRight(3) * t2(2) + QRight(4) * t2(3)
+
+         QLRot(5) = QLeft(5) ; QRRot(5) = QRight(5)                
 !
-!        Compute Roe - Pike variables
-!        ----------------------------
-         rho = sqrtRhoL * sqrtRhoR
-         u = (invSqrtRhoL * rhouL + invSqrtRhoR * rhouR) * invSumSqrtRhoLR
-         v = (invSqrtRhoL * rhovL + invSqrtRhoR * rhovR) * invSumSqrtRhoLR
-         w = (invSqrtRhoL * rhowL + invSqrtRhoR * rhowR) * invSumSqrtRhoLR
-         H = (invSqrtRhoL * rhoHL + invSqrtRhoR * rhoHR) * invSumSqrtRhoLR
-         V2abs = POW2(u) + POW2(v) + POW2(w)
-         a = sqrt(gm1*(H - 0.5_RP*V2abs))
+!        ***************************
+!        Compute primitive variables
+!        ***************************
+!
+         call getPrimitiveVariables(QLRot, VL)
+         call getPrimitiveVariables(QRRot, VR)
+
+         aL = sqrt(VL(IPA2))  ; aR = sqrt(VR(IPA2))
+!
+!        *********************
+!        Compute Roe variables: [rho, u, v, w, H, a]
+!        *********************
+!
+         call getRoeVariables(QLRot, QRRot, VL, VR, rho, u, v, w, V2, H, a)
 !
 !        Eigenvalues
 !        -----------
@@ -444,18 +415,18 @@ module RiemannSolvers
 !        Eigenvectors
 !        ------------
          K(:,1) = (/ 1.0_RP, u-a, v, w, H-u*a /)
-         K(:,2) = (/ 1.0_RP, u, v, w, 0.5_RP*V2abs /)
+         K(:,2) = (/ 1.0_RP, u, v, w, 0.5_RP*V2 /)
          K(:,3) = (/ 0.0_RP, 0.0_RP, 1.0_RP, 0.0_RP, v /)
          K(:,4) = (/ 0.0_RP, 0.0_RP, 0.0_RP, 1.0_RP, w /)
          K(:,5) = (/ 1.0_RP, u+a, v, w, H+u*a /)
 !
 !        Projections
 !        -----------
-         alpha(1) = ((pR-pL) - rho * a * (uR-uL))/(2.0_RP * a * a)
-         alpha(2) = (rhoR-rhoL) - (pR-pL)/(a*a)
-         alpha(3) = rho * (vR-vL)
-         alpha(4) = rho * (wR-wL)
-         alpha(5) = ((pR-pL) + rho * a * (uR-uL))/(2.0_RP * a * a)
+         alpha(1) = ((VR(IPP)-VL(IPP)) - rho * a * (VR(IPU)-VL(IPU)))/(2.0_RP * a * a)
+         alpha(2) = (QRight(IRHO)-QLeft(IRHO)) - (VR(IPP)-VL(IPP))/(a*a)
+         alpha(3) = rho * (VR(IPV)-VL(IPV))
+         alpha(4) = rho * (VR(IPW)-VL(IPW))
+         alpha(5) = ((VR(IPP)-VL(IPP)) + rho * a * (VR(IPU)-VL(IPU)))/(2.0_RP * a * a)
 !
 !        **********************
 !        Perform an entropy fix. Here we use Van Leer's modification of Harten's entropy fix, derived
@@ -465,7 +436,7 @@ module RiemannSolvers
 !
 !        Wave #1
 !        -------
-         dLambda = max((uR-aR) - (uL-aL), 0.0_RP)
+         dLambda = max((VR(IPU)-aR) - (VL(IPU)-aL), 0.0_RP)
          if ( abs(lambda(1)) .ge. 2.0_RP * dLambda ) then
             lambda(1) = abs(lambda(1))
          
@@ -476,7 +447,7 @@ module RiemannSolvers
 !
 !        Wave #5
 !        -------
-         dLambda = max((uR+aR) - (uL+aL), 0.0_RP)
+         dLambda = max((VR(IPU)+aR) - (VL(IPU)+aL), 0.0_RP)
          if ( abs(lambda(5)) .ge. 2.0_RP * dLambda ) then
             lambda(5) = abs(lambda(5))
          
@@ -491,9 +462,7 @@ module RiemannSolvers
 !
 !        Perform the average using the averaging function
 !        ------------------------------------------------
-         QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL /)
-         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR /)
-         call AveragedStates(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux)
+         call AveragedStates(QLRot, QRRot, VL(IPP), VR(IPP), VL(IPIRHO), VR(IPIRHO), flux)
 !
 !        Compute the Roe stabilization
 !        -----------------------------
@@ -1415,4 +1384,122 @@ module RiemannSolvers
          flux(IRHOE) = rho * u * h
          
       end subroutine PirozzoliAverage
+
+      subroutine EntropyConservingAverage(QLeft,QRight, pL, pR, invRhoL, invRhoR, flux)
+         use SMConstants
+         use PhysicsStorage
+         use Utilities, only: logarithmicMean
+         implicit none
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: pL, pR
+         real(kind=RP), intent(in)       :: invRhoL, invRhoR
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: rhoL, uL, vL, wL
+         real(kind=RP)     :: rhoR, uR, vR, wR
+         real(kind=RP)     :: rho, u, v, w, h, p, p2
+         real(kind=RP)     :: zL(NCONS), zR(NCONS), zSum(NCONS), invZ1Sum
+         real(kind=RP)     :: z5Log, z1Log
+
+         associate ( gammaPlus1Div2      => thermodynamics % gammaPlus1Div2, &
+                     gammaMinus1Div2     => thermodynamics % gammaMinus1Div2, &
+                     gammaDivGammaMinus1 => thermodynamics % gammaDivGammaMinus1, &
+                     invGamma            => thermodynamics % invGamma ) 
+
+         rhoL = QLeft(IRHO)               ; rhoR = QRight(IRHO)
+         uL = invRhoL * QLeft(IRHOU)      ; uR = invRhoR * QRight(IRHOU)
+         vL = invRhoL * QLeft(IRHOV)      ; vR = invRhoR * QRight(IRHOV)
+         wL = invRhoL * QLeft(IRHOW)      ; wR = invRhoR * QRight(IRHOW)
+!
+!        Compute Ismail and Roe parameter vector
+!        ---------------------------------------
+         zL(5) = sqrt(rhoL*pL)      ; zR(5) = sqrt(rhoR*pR)
+         zL(1) = rhoL / zL(5)       ; zR(1) = rhoR / zR(5)
+         zL(2) = zL(1) * uL         ; zR(2) = zR(1) * uR
+         zL(3) = zL(1) * vL         ; zR(3) = zR(1) * vR
+         zL(4) = zL(1) * wL         ; zR(4) = zR(1) * wR
+
+         zSum = zL + zR
+         invZ1Sum = 1.0_RP / zSum(1)
+
+         call logarithmicMean(zL(1),zR(1), z1Log)
+         call logarithmicMean(zL(5),zR(5), z5Log)
+
+         rho = 0.5_RP * zSum(1) * z5Log
+         u   = zSum(2) * invZ1Sum
+         v   = zSum(3) * invZ1Sum
+         w   = zSum(4) * invZ1Sum
+         p   = zSum(5) * invZ1Sum
+         p2  = (gammaPlus1Div2 * z5Log / z1Log + gammaMinus1Div2 * p) * invGamma
+         h   = gammaDivGammaMinus1 * p2 / rho + 0.5_RP*(POW2(u) + POW2(v) + POW2(w))
+!
+!        Compute the flux
+!        ----------------
+         flux(IRHO)  = rho * u
+         flux(IRHOU) = rho * u * u + p
+         flux(IRHOV) = rho * u * v
+         flux(IRHOW) = rho * u * w
+         flux(IRHOE) = rho * u * h
+         
+         end associate
+
+      end subroutine EntropyConservingAverage
+
+      subroutine EntropyAndEnergyConservingAverage(QLeft,QRight, pL, pR, invRhoL, invRhoR, flux)
+         use SMConstants
+         use PhysicsStorage
+         use Utilities, only: logarithmicMean
+         implicit none
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: pL, pR
+         real(kind=RP), intent(in)       :: invRhoL, invRhoR
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: rhoL, uL, vL, wL, betaL
+         real(kind=RP)     :: rhoR, uR, vR, wR, betaR
+         real(kind=RP)     :: rho, u, v, w, h, p, betaLog
+
+         associate ( gammaMinus1 => thermodynamics % gammaMinus1 ) 
+
+         rhoL = QLeft(IRHO)               ; rhoR = QRight(IRHO)
+         uL = invRhoL * QLeft(IRHOU)      ; uR = invRhoR * QRight(IRHOU)
+         vL = invRhoL * QLeft(IRHOV)      ; vR = invRhoR * QRight(IRHOV)
+         wL = invRhoL * QLeft(IRHOW)      ; wR = invRhoR * QRight(IRHOW)
+!
+!        Compute Chandrasekar's variables
+!        --------------------------------
+         betaL = 0.5_RP * rhoL / pL    ; betaR = 0.5_RP * rhoR / pR
+         call logarithmicMean(betaL, betaR, betaLog)
+
+         call logarithmicMean(rhoL,rhoR,rho)
+         u   = AVERAGE(uL, uR)
+         v   = AVERAGE(vL, vR)
+         w   = AVERAGE(wL, wR)
+         p   = 0.5_RP * (rhoL + rhoR) / (betaL + betaR)
+         h   =   0.5_RP/(betaLog*(gammaMinus1)) &
+               - 0.5_RP*AVERAGE(POW2(uL)+POW2(vL)+POW2(wL), POW2(uR)+POW2(vR)+POW2(wR)) &
+               + p/rho + POW2(u) + POW2(v) + POW2(w)
+!
+!        Compute the flux
+!        ----------------
+         flux(IRHO)  = rho * u
+         flux(IRHOU) = rho * u * u + p
+         flux(IRHOV) = rho * u * v
+         flux(IRHOW) = rho * u * w
+         flux(IRHOE) = rho * u * h
+
+         end associate
+
+      end subroutine EntropyAndEnergyConservingAverage
+
 end module RiemannSolvers
