@@ -4,9 +4,9 @@
 !   @File:    InviscidMethodClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:16:30 2017
-!   @Last revision date: Sat Dec 16 11:09:33 2017
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: ddec1961effb920e19c9b28e302f01273406797c
+!   @Last revision date: Tue Dec 26 20:56:52 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 11dd5b683eba468bc0e8e4db146cbc1fbc952a8a
 !
 !//////////////////////////////////////////////////////
 !
@@ -103,6 +103,9 @@ module InviscidMethodClass
 
          case (RIEMANN_ROEPIKE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe-Pike"
+         
+         case (RIEMANN_MATRIXDISS)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Matrix dissipation"
          
          case (RIEMANN_LOWDISSROE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Low dissipation Roe"

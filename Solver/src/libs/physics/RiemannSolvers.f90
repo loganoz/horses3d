@@ -4,9 +4,9 @@
 !   @File:    RiemannSolvers.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:26 2017
-!   @Last revision date: Sat Dec 16 17:58:10 2017
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: ed7f49b4ef5c713f820bfb72c6c2c85c27613022
+!   @Last revision date: Tue Dec 26 20:56:55 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 11dd5b683eba468bc0e8e4db146cbc1fbc952a8a
 !
 !//////////////////////////////////////////////////////
 !
@@ -89,6 +89,9 @@ module RiemannSolvers
          case ( RIEMANN_LOWDISSROE )
             RiemannSolver => LowDissipationRoeRiemannSolver
 
+         case ( RIEMANN_MATRIXDISS ) 
+            RiemannSolver => MatrixDissipationRiemannSolver
+
          case ( RIEMANN_VISCOUSNS )
             RiemannSolver => ViscousNSRiemannSolver
 
@@ -102,6 +105,7 @@ module RiemannSolvers
             print*, "   * Low dissipation Roe"
             print*, "   * Lax-Friedrichs"
             print*, "   * Rusanov"
+            print*, "   * Matrix dissipation"
             print*, "   * Viscous NS"
             errorMessage(STD_OUT)
             STOP
@@ -354,6 +358,145 @@ module RiemannSolvers
          end associate
          
       end subroutine StdRoeRiemannSolver
+
+      subroutine MatrixDissipationRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
+         use Utilities, only: logarithmicMean
+         implicit none 
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer        :: i, j, k
+         real(kind=RP)  :: QLRot(5), QRRot(5), VL(NPRIM), VR(NPRIM), aL, aR, betaL, betaR
+         real(kind=RP)  :: SL(5), SR(5)
+         real(kind=RP)  :: dQ(5)
+         real(kind=RP)  :: a, h
+         real(kind=RP)  :: R1(5,5), T(5), Lambda(5)
+         real(kind=RP)  :: stab(5)
+         real(kind=RP)  :: rhoLogMean, betaLogMean, pMean, uMean, vMean, wMean, V2abs
+
+         associate(gm1 => thermodynamics % gammaMinus1, gamma => thermodynamics % gamma, &
+                   invGamma => thermodynamics % invGamma, cp => thermodynamics % GammaDivGammaMinus1, &
+                   gammaMinus1Div2g => thermodynamics % gammaMinus1Div2g)
+!
+!        ********************
+!        Perform the rotation
+!        ********************
+!
+         QLRot(1) = QLeft(1)  ; QRRot(1) = QRight(1)
+
+         QLRot(2) = QLeft (2) * nHat(1) + QLeft (3) * nHat(2) + QLeft (4) * nHat(3)
+         QRRot(2) = QRight(2) * nHat(1) + QRight(3) * nHat(2) + QRight(4) * nHat(3)
+
+         QLRot(3) = QLeft(2)  * t1(1) + QLeft(3)  * t1(2) + QLeft(4)  * t1(3)
+         QRRot(3) = QRight(2) * t1(1) + QRight(3) * t1(2) + QRight(4) * t1(3)
+
+         QLRot(4) = QLeft(2)  * t2(1) + QLeft(3)  * t2(2) + QLeft(4)  * t2(3)
+         QRRot(4) = QRight(2) * t2(1) + QRight(3) * t2(2) + QRight(4) * t2(3)
+
+         QLRot(5) = QLeft(5) ; QRRot(5) = QRight(5)                
+!
+!        ***************************
+!        Compute primitive variables
+!        ***************************
+!
+         call getPrimitiveVariables(QLRot, VL)
+         call getPrimitiveVariables(QRRot, VR)
+
+         aL = sqrt(VL(IPA2))  ; aR = sqrt(VR(IPA2))
+!
+!        *************************
+!        Compute Entropy variables
+!        *************************
+!
+         call getEntropyVariables(QLRot, VL(IPP), VL(IPIRHO), SL)
+         call getEntropyVariables(QRRot, VR(IPP), VR(IPIRHO), SR)
+         betaL = 0.5_RP * QLRot(IRHO) / VL(IPP)    ; betaR = 0.5_RP * QRRot(IRHO) / VR(IPP)
+         call logarithmicMean(betaL      , betaR      , betaLogMean)
+         call logarithmicMean(QLRot(IRHO), QRRot(IRHO), rhoLogMean)
+
+         pMean = AVERAGE(VL(IPP), VR(IPP))
+         a     = sqrt(gamma * pMean / rhoLogMean)
+         uMean = AVERAGE(VL(IPU), VR(IPU))
+         vMean = AVERAGE(VL(IPV), VR(IPV))
+         wMean = AVERAGE(VL(IPW), VR(IPW))
+         v2Abs =   2.0_RP * ( POW2(uMean) + POW2(vMean) + POW2(wMean) )      &
+                 - 0.5_RP * (  POW2(VL(IPU)) + POW2(VL(IPV)) + POW2(VL(IPW))  & 
+                             + POW2(VR(IPU)) + POW2(VR(IPV)) + POW2(VR(IPW)) )
+
+         h     = 0.5_RP * ( cp / betaLogMean + v2Abs ) 
+!
+!        ***********************
+!        Compute the eigenvalues
+!        ***********************
+!
+         lambda(1)   = abs(uMean - a)
+         lambda(2:4) = abs(uMean    )
+         lambda(5)   = abs(uMean + a)
+!
+!        Eigenvectors
+!        ------------
+         R1(:, 1) = (/ 1.0_RP, uMean-a, vMean , wMean , h-uMean*a    /) 
+         R1(:, 2) = (/ 1.0_RP, uMean  , vMean , wMean , 0.5_RP*V2abs /) 
+         R1(:, 3) = (/ 0.0_RP, 0.0_RP , 1.0_RP, 0.0_RP, vMean        /) 
+         R1(:, 4) = (/ 0.0_RP, 0.0_RP , 0.0_RP, 1.0_RP, wMean        /) 
+         R1(:, 5) = (/ 1.0_RP, uMean+a, vMean , wMean , h+uMean*a    /) 
+!
+!        Intensities
+!        -----------
+         T(1) = 0.5_RP * rhoLogMean * invGamma
+         T(2) = 2.0_RP * gammaMinus1Div2g * rhoLogMean
+         T(3) = pMean
+         T(4) = pMean
+         T(5) = T(1)
+!
+!        ****************
+!        Compute the flux
+!        ****************
+!
+!        Perform the average using the averaging function
+!        ------------------------------------------------
+         call AveragedStates(QLRot, QRRot, VL(IPP), VR(IPP), VL(IPIRHO), VR(IPIRHO), flux)
+!
+!        Compute the Roe stabilization
+!        -----------------------------
+         select case (whichAverage)
+         case(PIROZZOLI_SPLIT, KENNEDYGRUBER_SPLIT)
+!
+!           ***************************************************************************
+!           Eigenvalue matrix is corrected for PI and KG variants, see Winters et. al. 
+!           "A comparative study on polynomial dealiasing and split form discontinuous 
+!           Galerkin schemes for under-resolved turbulence computations"
+!           ***************************************************************************
+!
+            lambda(1) = lambda(5)
+         end select
+         
+         stab = 0.0_RP
+         do i = 1, 5
+            do j = 1, 5 ; do k = 1, 5
+               stab(i) = stab(i) + 0.5_RP * R1(i,j) * lambda(j) * T(j) * R1(k,j) * (SR(k) - SL(k))
+            end do      ; end do
+         end do
+!
+!        Compute the flux: apply the lambda stabilization here.
+!        ----------------
+         flux = flux - lambdaStab * stab
+!
+!        ************************************************
+!        Return momentum equations to the cartesian frame
+!        ************************************************
+!
+         flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
+
+         end associate
+         
+      end subroutine MatrixDissipationRiemannSolver
 
       subroutine RoePikeRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
          implicit none 

@@ -148,6 +148,9 @@ module InviscidSplitForm
          case (RIEMANN_LOWDISSROE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Low dissipation Roe"
          
+         case (RIEMANN_MATRIXDISS)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Matrix dissipation"
+         
          case (RIEMANN_VISCOUSNS)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Viscous NS"
          
