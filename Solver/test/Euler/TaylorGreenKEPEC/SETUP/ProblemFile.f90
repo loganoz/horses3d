@@ -282,27 +282,27 @@
             
             CALL FTAssertEqual(expectedValue = monitors % residuals % values(1,1) + 1.0_RP, &
                                actualValue   = res(1) + 1.0_RP, &
-                               tol           = 1.0e-11_RP, &
+                               tol           = 1.0e-7_RP, &
                                msg           = "continuity residual")
 
             CALL FTAssertEqual(expectedValue = monitors % residuals % values(2,1) + 1.0_RP, &
                                actualValue   = res(2) + 1.0_RP, &
-                               tol           = 1.0e-11_RP, &
+                               tol           = 1.0e-7_RP, &
                                msg           = "x-momentum residual")
 
             CALL FTAssertEqual(expectedValue = monitors % residuals % values(3,1) + 1.0_RP, &
                                actualValue   = res(3) + 1.0_RP, &
-                               tol           = 1.0e-11_RP, &
+                               tol           = 1.0e-7_RP, &
                                msg           = "y-momentum residual")
 
             CALL FTAssertEqual(expectedValue = monitors % residuals % values(4,1) + 1.0_RP, &
                                actualValue   = res(4) + 1.0_RP, &
-                               tol           = 1.0e-11_RP, &
+                               tol           = 1.0e-7_RP, &
                                msg           = "z-momentum residual")
 
             CALL FTAssertEqual(expectedValue = monitors % residuals % values(5,1) + 1.0_RP, &
                                actualValue   = res(5) + 1.0_RP, &
-                               tol           = 1.0e-11_RP, &
+                               tol           = 1.0e-7_RP, &
                                msg           = "energy residual")
 
             CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(1) % values(1), &
