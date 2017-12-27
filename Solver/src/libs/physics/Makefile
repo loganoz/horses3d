@@ -14,6 +14,7 @@ MOD_FLAG?=-J
 LIBOBJS = 	./build/FluidData.o \
 		./build/PhysicsStorage.o \
 		./build/VariableConversion.o \
+		./build/LESModels.o \
 		./build/RiemannSolvers.o \
 		./build/Physics.o \
 		./build/ManufacturedSolutions.o \

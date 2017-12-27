@@ -4,9 +4,9 @@
 !   @File:    ViscousIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Sat Dec 16 13:23:10 2017
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0f5272f7f0587c4b9dcb9f4f33d865889e46a481
+!   @Last revision date: Wed Dec 27 17:40:42 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 6a73908535b85b1244e68424fd0dd9f588570752
 !
 !//////////////////////////////////////////////////////
 !
@@ -408,6 +408,7 @@ module ViscousIP
          use ElementClass
          use PhysicsStorage
          use Physics
+         use LESModels
          implicit none
          class(InteriorPenalty_t) ,     intent (in) :: self
          type(Element)                          :: e
@@ -417,15 +418,28 @@ module ViscousIP
 !        Local variables
 !        ---------------
 !
+         real(kind=RP)       :: delta
          real(kind=RP)       :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
          real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: tauSGS(1:NDIM,1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
 
          mu = dimensionless % mu
          kappa = dimensionless % kappa
 
-         call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
+         if ( useLESModel ) then
+            delta = e % geom % Volume / product(e % Nxyz + 1)
+            call BasicSmagorinskySGSTensor(delta, e % Nxyz, e % storage % U_x, &
+                                                              e % storage % U_y, &
+                                                              e % storage % U_z, &
+                                                                         tauSGS    )
+         else
+            tauSGS = 0.0_RP
+
+         end if
+
+         call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, tauSGS, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -451,6 +465,7 @@ module ViscousIP
          use SMConstants
          use PhysicsStorage
          use Physics
+         use LESModels
          implicit none
          class(InteriorPenalty_t)                 :: self
          class(Face), intent(in)                  :: f
@@ -470,8 +485,8 @@ module ViscousIP
 !        ---------------
 !
          real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
-         real(kind=RP)     :: flux_vec(NCONS,NDIM), mu, kappa
-         real(kind=RP)     :: sigma
+         real(kind=RP)     :: flux_vec(NCONS,NDIM)
+         real(kind=RP)     :: mu, kappa, tauSGS(NDIM, NDIM), delta, sigma
 
 !
 !>       Old implementation: 1st average, then compute
@@ -480,11 +495,20 @@ module ViscousIP
          U_x = 0.5_RP * ( U_xLeft + U_xRight)
          U_y = 0.5_RP * ( U_yLeft + U_yRight)
          U_z = 0.5_RP * ( U_zLeft + U_zRight)
+   
+         if ( useLESModel ) then
+            delta = f % geom % surface / product(f % Nf + 1)
+            call BasicSmagorinskySGSTensor(delta, U_x, U_y, U_z, tauSGS) 
+
+         else
+            tauSGS = 0.0_RP
+
+         end if
 
          mu = dimensionless % mu
          kappa = dimensionless % kappa
 
-         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, flux_vec)
+         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, tauSGS, flux_vec)
 !
 !        Shahbazi estimate
 !        -----------------

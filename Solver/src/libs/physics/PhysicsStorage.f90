@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Tue Dec 26 20:56:54 2017
+!   @Last revision date: Wed Dec 27 17:40:44 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 11dd5b683eba468bc0e8e4db146cbc1fbc952a8a
+!   @Last revision commit: 6a73908535b85b1244e68424fd0dd9f588570752
 !
 !//////////////////////////////////////////////////////
 !
@@ -62,7 +62,8 @@
      public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
      public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
      public    ENTROPYANDENERGYCONS_SPLIT
-
+     public    useLESModel
+      
      public    ConstructPhysicsStorage, DestructPhysicsStorage, DescribePhysicsStorage
      public    CheckPhysicsInputIntegrity
 !
@@ -72,6 +73,7 @@
 !
      logical, protected :: flowIsNavierStokes = .true.
      logical, protected :: computeGradients   = .true.
+     logical, protected :: useLESModel        = .false.
 !
 !    --------------------------
 !!   The sizes of the NS system
@@ -441,6 +443,18 @@
          refValues_ % AOATheta = 0.0_RP
 
       END IF 
+!
+!     *****************
+!     Enable LES models
+!     *****************
+!
+      if ( controlVariables % containsKey("use les model") ) then
+         useLESmodel = controlVariables % logicalValueForKey("use les model")
+
+      else
+         useLESmodel = .false.
+
+      end if
 !
 !     **************************
 !     Sutherland's law constants

@@ -42,7 +42,7 @@ Module MappedGeometryClass
             REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: jGradXi, jGradEta, jGradZeta  ! 
             REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: x                             ! Position of points in absolute coordinates
             REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: jacobian 
-            
+            real(kind=RP)                                   :: volume 
             CONTAINS
             
             PROCEDURE :: construct => ConstructMappedGeometry
@@ -55,6 +55,7 @@ Module MappedGeometryClass
          real(kind=RP), dimension(:,:,:), allocatable   :: normal     ! normal vector on a face
          real(kind=RP), dimension(:,:,:), allocatable   :: t1         ! Tangent vector (along the xi direction)
          real(kind=RP), dimension(:,:,:), allocatable   :: t2         ! Tangent vector 2 (orthonormal to t1 and normal)
+         real(kind=RP)                                  :: surface    ! Surface
          real(kind=RP)                                  :: h          ! Element dimension orthogonal to the face
          contains
             procedure :: construct => ConstructMappedGeometryFace
@@ -133,6 +134,15 @@ Module MappedGeometryClass
          CALL computeMetricTermsConservativeForm(self, spAxi, spAeta, spAzeta, mapper)
       
       ENDIF
+!
+!     -----------
+!     Cell volume
+!     -----------
+!
+      self % volume = 0.0_RP
+      do k = 0, Nz   ; do j = 0, Ny ; do i = 0, Nx
+         self % volume = self % volume + spAxi % w(i) * spAeta % w(j) * spAzeta % w(k) * self % jacobian(i,j,k)
+      end do         ; end do       ; end do
       
    END SUBROUTINE ConstructMappedGeometry
 !
@@ -648,6 +658,16 @@ Module MappedGeometryClass
          self % t1(:,i,j)  = self % t1(:,i,j)  / norm2(self % t1(:,i,j))
          call vCross(self % normal(:,i,j), self % t1(:,i,j), self % t2(:,i,j))
       end do            ; end do
+!
+!     ------------
+!     Face surface
+!     ------------
+!
+      self % surface = 0.0_RP
+      do j = 0, Nf(2) ; do i = 0, Nf(1)
+         self % surface = self % surface + spAf(1) % w(i) * spAf(2) % w(j) * self % jacobian(i,j)
+      end do          ; end do
+
 
    end subroutine ConstructMappedGeometryFace
 !
