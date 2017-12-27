@@ -4,9 +4,9 @@
 !   @File:    MeshPartitioning.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 10:26:08 2017
-!   @Last revision date: Wed Dec 20 19:57:11 2017
+!   @Last revision date: Wed Dec 27 12:56:01 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 56f6d6999bfc5e5f4677fff49e8f949c70e8a2a4
+!   @Last revision commit: 14c9de8d349cfb26d83c71f1fd1a362b7d0d74a7
 !
 !//////////////////////////////////////////////////////
 !
@@ -54,7 +54,7 @@ module MeshPartitioning
          implicit none
          type(HexMesh), intent(in)              :: mesh
          integer,       intent(in)              :: no_of_domains
-         integer,       intent(out)             :: elementsDomain(mesh % no_of_allElements)
+         integer,       intent(out)             :: elementsDomain(mesh % no_of_elements)
          type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)      
 !
 !        ---------------
@@ -92,7 +92,7 @@ module MeshPartitioning
         implicit none
         type(HexMesh), intent(in)              :: mesh
         integer,       intent(in)              :: no_of_domains
-        integer,       intent(in)              :: elementsDomain(mesh % no_of_allElements)
+        integer,       intent(in)              :: elementsDomain(mesh % no_of_elements)
         integer,       intent(in)              :: nodesDomain(size(mesh % nodes))
         type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)   
 !
@@ -132,7 +132,7 @@ module MeshPartitioning
 !
         k = 0
         npoints = 0
-        do ielem=1,mesh % no_of_allElements
+        do ielem=1,mesh % no_of_elements
            if (elementsDomain(ielem) == idomain) then
 !
 !             Append a new element

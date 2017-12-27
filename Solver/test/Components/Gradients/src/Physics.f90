@@ -109,6 +109,7 @@
      integer, parameter :: RIEMANN_ROEPIKE    = 6
      integer, parameter :: RIEMANN_LOWDISSROE = 7
      integer, parameter :: RIEMANN_VISCOUSNS  = 8
+     integer, parameter :: RIEMANN_MATRIXDISS = 9
      integer, protected :: whichRiemannSolver = -1
      real(kind=RP)      :: lambdaStab = 0.0_RP
 !

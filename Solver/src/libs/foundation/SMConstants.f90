@@ -50,6 +50,6 @@
 
          INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
 
-         CHARACTER(len=*), parameter   :: VERSION = "v0.7.1.01jmt Development: Added Matrix dissipation"
+         CHARACTER(len=*), parameter   :: VERSION = "v0.7.0.02jmt Development: MPI small bug-fixes and enhancement"
          
       END MODULE SMConstants

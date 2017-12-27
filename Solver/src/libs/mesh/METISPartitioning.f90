@@ -4,9 +4,9 @@
 !   @File:    METISPartitioning.f90
 !   @Author:  Mariola Gomez and Marta Cordero (marta.cordero@upm.es / mariola.gomez@upm.es)
 !   @Created: Wed Dec 20 19:57:13 2017
-!   @Last revision date: Wed Dec 20 20:22:04 2017
+!   @Last revision date: Wed Dec 27 12:55:58 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 6b682d113059e1a767187182f6324a94681ce47a
+!   @Last revision commit: 14c9de8d349cfb26d83c71f1fd1a362b7d0d74a7
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,7 +21,7 @@
       implicit none
       type(HexMesh), intent(in)              :: mesh
       integer,       intent(in)              :: no_of_domains
-      integer,       intent(out)             :: elementsDomain(mesh % no_of_allElements)
+      integer,       intent(out)             :: elementsDomain(mesh % no_of_elements)
       integer,       intent(out)             :: nodesDomain(size(mesh % nodes))
 !
 !     ---------------
@@ -50,7 +50,7 @@
 !     Initialization    
 !     **************
 !
-      ne = mesh % no_of_allElements
+      ne = mesh % no_of_elements
       nn = size(mesh % nodes)
       nvertex = 8
 

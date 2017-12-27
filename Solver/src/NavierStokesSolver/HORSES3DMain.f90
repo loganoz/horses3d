@@ -299,6 +299,7 @@ end interface
          USE FTValueDictionaryClass
          USE mainKeywordsModule
          use FTValueClass
+         use MPI_Process_Info
          IMPLICIT NONE
 !
 !        ---------
@@ -354,8 +355,10 @@ end interface
          call toLower(discretizationNodes)
 
          if ( (trim(inviscidDiscretization) .eq. "split-form") .and. (trim(discretizationNodes) .eq. "gauss") ) then
-            write(STD_OUT,'(A)') "*** WARNING:    Only Gauss-Lobatto nodes are available for Split-Form discretizations"
-            write(STD_OUT,'(A)') "*** WARNING:    Automatically switched to Gauss-Lobatto points"
+            if ( MPI_Process % isRoot ) then
+               write(STD_OUT,'(A)') "*** WARNING:    Only Gauss-Lobatto nodes are available for Split-Form discretizations"
+               write(STD_OUT,'(A)') "*** WARNING:    Automatically switched to Gauss-Lobatto points"
+            end if
             call controlVariables % removeObjectForKey(discretizationNodesKey)
             call controlVariables % addValueForKey("Gauss-Lobatto",discretizationNodesKey)
          end if
@@ -378,6 +381,9 @@ end interface
          use StopwatchClass
          use Headers
          use MPI_Process_Info
+#ifdef _HAS_MPI_
+         use mpi
+#endif
          implicit none
          integer,    intent(in)      :: iter
          type(HexMesh),   intent(in) :: mesh
@@ -387,15 +393,13 @@ end interface
 !        ---------------
 !
          integer                    :: eID
-         integer                    :: NDOF
-         real(kind=RP)              :: Naverage
+         integer                    :: NDOF, localNDOF, ierr
+         real(kind=RP)              :: Naverage, localNaverage
          real(kind=RP)              :: t_elaps, t_cpu
    
-         if ( .not. MPI_Process % isRoot ) return
-
-         write(STD_OUT,'(/)')
+         if ( MPI_Process % isRoot ) write(STD_OUT,'(/)')
          call Section_Header("Simulation statistics")
-         write(STD_OUT,'(/)')
+         if ( MPI_Process % isRoot ) write(STD_OUT,'(/)')
 !
 !        Get mesh-related quantities
 !        ---------------------------
@@ -410,6 +414,25 @@ end interface
          end do
 
          Naverage = Naverage / (3.0_RP * mesh % no_of_elements)
+!
+!        Perform a broadcast for the MPI solver
+!        --------------------------------------
+#ifdef _HAS_MPI_
+         if ( MPI_Process % doMPIAction ) then
+            localNDOF = NDOF
+            localNaverage = Naverage * 3.0_RP * mesh % no_of_elements
+            call mpi_allreduce(localNDOF, NDOF, 1, MPI_INT, MPI_SUM, &
+                               MPI_COMM_WORLD, ierr)
+
+            call mpi_allreduce(localNaverage, Naverage, 1, MPI_DOUBLE, MPI_SUM, &
+                               MPI_COMM_WORLD, ierr)
+
+            Naverage = Naverage / (3.0_RP * mesh % no_of_allElements)
+
+         end if
+#endif
+
+         if ( .not. MPI_Process % isRoot ) return
 !
 !        Show preprocessing time
 !        -----------------------
