@@ -46,6 +46,7 @@ MODULE HexMeshClass
          contains
             procedure :: destruct                      => DestructMesh
             procedure :: Describe                      => DescribeMesh
+            procedure :: DescribePartition             => DescribeMeshPartition
             procedure :: ConstructZones                => HexMesh_ConstructZones
             procedure :: DefineAsBoundaryFaces         => HexMesh_DefineAsBoundaryFaces
             procedure :: SetConnectivitiesAndLinkFaces => HexMesh_SetConnectivitiesAndLinkFaces
@@ -1108,6 +1109,72 @@ slavecoord:                DO l = 1, 4
       end do
       
       END SUBROUTINE DescribeMesh     
+
+      SUBROUTINE DescribeMeshPartition( self , fileName )
+      USE Headers
+      IMPLICIT NONE
+!
+!--------------------------------------------------------------------
+!  This subroutine describes the loaded mesh partition
+!--------------------------------------------------------------------
+!
+!
+!     ------------------
+!     External variables
+!     ------------------
+!
+      CLASS(HexMesh)    :: self
+      CHARACTER(LEN=*)  :: fileName
+#ifdef _HAS_MPI_
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      INTEGER           :: fID, zoneID, rank, ierr
+      INTEGER           :: no_of_bdryfaces, no_of_mpifaces
+      character(len=64) :: partitionID
+
+      if ( .not. MPI_Process % doMPIAction ) return
+      
+      no_of_bdryfaces = 0
+      no_of_mpifaces  = 0
+
+      do fID = 1 , size ( self % faces )
+         if ( self % faces(fID) % faceType .eq. HMESH_BOUNDARY) then
+            no_of_bdryfaces = no_of_bdryfaces + 1
+         elseif ( self % faces(fID) % faceType .eq. HMESH_MPI ) then
+            no_of_mpifaces = no_of_mpifaces + 1 
+         end if
+      end do
+
+       
+      if ( MPI_Process % isRoot ) write(STD_OUT,'(/)')
+      call Section_Header("Mesh partitions")
+      if ( MPI_Process % isRoot ) write(STD_OUT,'(/)')
+      
+      do rank = 0, MPI_Process % nProcs - 1
+
+         write(partitionID,'(A,I0)') "Partition ", rank+1
+         call SubSection_Header(trim(partitionID))
+
+         call mpi_barrier(MPI_COMM_WORLD, ierr)
+
+         if ( MPI_Process % rank .eq. rank ) then
+            write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of nodes: " , size ( self % nodes )
+            write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of elements: " , size ( self % elements )
+            write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of faces: " , size ( self % faces )
+            write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bdryfaces
+            write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of mpi faces: " , no_of_mpifaces
+         end if
+
+         call mpi_barrier(MPI_COMM_WORLD, ierr)
+
+      end do
+#endif
+      
+      END SUBROUTINE DescribeMeshPartition     
+
 !
 !////////////////////////////////////////////////////////////////////////
 ! 

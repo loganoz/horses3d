@@ -32,6 +32,7 @@ MAKE=make
 INCLUDE=-I$(HOME_DIR)/include
 LIBS =
 MACROS =
+-include $(HOME_DIR)/make.inc
 -include make.inc
 
 ########################################

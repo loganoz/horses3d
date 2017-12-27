@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Sat Dec 16 13:23:14 2017
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0f5272f7f0587c4b9dcb9f4f33d865889e46a481
+!   @Last revision date: Tue Dec 26 20:56:54 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 11dd5b683eba468bc0e8e4db146cbc1fbc952a8a
 !
 !//////////////////////////////////////////////////////
 !
@@ -32,9 +32,8 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME       ="standard roe"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROEPIKE_SOLVER_NAME      ="roe-pike"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME   ="low dissipation roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MATRIXDISS_SOLVER_NAME   ="matrix dissipation"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: VISCOUSNS_SOLVER_NAME    ="viscous ns"
-      
-         
       END MODULE PhysicsKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
@@ -59,7 +58,7 @@
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV, RIEMANN_STDROE
      public    RIEMANN_CENTRAL, RIEMANN_ROEPIKE, RIEMANN_LOWDISSROE
-     public    RIEMANN_VISCOUSNS
+     public    RIEMANN_VISCOUSNS, RIEMANN_MATRIXDISS
      public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
      public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
      public    ENTROPYANDENERGYCONS_SPLIT
@@ -134,6 +133,7 @@
      integer, parameter :: RIEMANN_ROEPIKE    = 6
      integer, parameter :: RIEMANN_LOWDISSROE = 7
      integer, parameter :: RIEMANN_VISCOUSNS  = 8
+     integer, parameter :: RIEMANN_MATRIXDISS = 9
      integer, protected :: whichRiemannSolver = -1
 !
 !    -----------------------------
@@ -365,6 +365,9 @@
          case(LOWDISSROE_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_LOWDISSROE
 
+         case(MATRIXDISS_SOLVER_NAME)
+            whichRiemannSolver = RIEMANN_MATRIXDISS
+
          case(VISCOUSNS_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_VISCOUSNS
             
@@ -379,6 +382,7 @@
             print*, "   * Rusanov"
             print*, "   * Roe-Pike"
             print*, "   * Low dissipation Roe"
+            print*, "   * Matrix dissipation"
             print*, "   * Viscous NS"
             errorMessage(STD_OUT)
             stop
