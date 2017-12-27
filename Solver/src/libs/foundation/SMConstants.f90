@@ -50,6 +50,6 @@
 
          INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
 
-         CHARACTER(len=*), parameter   :: VERSION = "v0.7.1.01jmt Development: added basic Smagorinsky LES model w/o wall model"
+         CHARACTER(len=*), parameter   :: VERSION = "v0.7.1.02jmt Development: Smagorinsky LES model bug fixes"
          
       END MODULE SMConstants

@@ -4,9 +4,9 @@
 !   @File:    LESModels.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Dec 27 17:44:13 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed Dec 27 21:18:04 2017
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 1629d8be5d568335c8a035353c18a1791bfae415
 !
 !//////////////////////////////////////////////////////
 !
@@ -63,7 +63,7 @@ module LESModels
 !
 !           Compute the norm of S
 !           --------------------- 
-            normS = sqrt( 2.0_RP * product(S*S) )
+            normS = sqrt( 2.0_RP * sum(S*S) )
 !
 !           Remove the volumetric deformation tensor
 !           ----------------------------------------
@@ -110,7 +110,7 @@ module LESModels
 !
 !        Compute the norm of S
 !        --------------------- 
-         normS = sqrt( 2.0_RP * product(S*S) )
+         normS = sqrt( 2.0_RP * sum(S*S) )
 !
 !        Remove the volumetric deformation tensor
 !        ----------------------------------------

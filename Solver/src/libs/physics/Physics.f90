@@ -339,14 +339,14 @@
          F(IRHOE,IX) = F(IRHOU,IX) * u + F(IRHOV,IX) * v + F(IRHOW,IX) * w + kappa * sutherLaw * U_x(IGT) 
 
          F(IRHO,IY) = 0.0_RP
-         F(IRHOU,IY) = F(IRHOV,IX)  - tauSGS(1,2)
+         F(IRHOU,IY) = F(IRHOV,IX) 
          F(IRHOV,IY) = mu * sutherLaw * (2.0_RP * U_y(IGV) - 2.0_RP / 3.0_RP * divV ) - tauSGS(2,2)
          F(IRHOW,IY) = mu * sutherLaw * ( U_y(IGW) + U_z(IGV) ) - tauSGS(3,2)
          F(IRHOE,IY) = F(IRHOU,IY) * u + F(IRHOV,IY) * v + F(IRHOW,IY) * w + kappa * sutherLaw * U_y(IGT) 
 
          F(IRHO,IZ) = 0.0_RP
-         F(IRHOU,IZ) = F(IRHOW,IX) - tauSGS(1,3)
-         F(IRHOV,IZ) = F(IRHOW,IY) - tauSGS(2,3)
+         F(IRHOU,IZ) = F(IRHOW,IX) 
+         F(IRHOV,IZ) = F(IRHOW,IY) 
          F(IRHOW,IZ) = mu * sutherLaw * ( 2.0_RP * U_z(IGW) - 2.0_RP / 3.0_RP * divV ) - tauSGS(3,3)
          F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa * sutherLaw *U_z(IGT)
 

@@ -12,7 +12,7 @@ clc; clear all; close all;
 %
 %   Program options
 %   ---------------
-    cubeFile = '../../Cases/TaylorGreenVortex/RESULTS_Ducros/TaylorGreen8P5Ducros_0000019945.cube.tec';
+    cubeFile = '/Users/juanmanzanero/OwnCloud/Research/DGSEM/Codes/FORTRAN/HORSES3D/Solver/test/NavierStokes/TaylorGreen/RESULTS/TGV.cube.tec';
     plotSpectra = true;
     writeSpectra = true;
     resultsName = 'spectra';
@@ -101,7 +101,7 @@ clc; clear all; close all;
         hold on
         plot(k_1d,E/KinEn,'-k');
         %plot(k_1d,E/KinEn,'ok','MarkerSize',8,'MarkerFaceColor',[1,1,1]);
-        e_kolmogorov=0.001*(k_1d/k_1d(2)).^(-5/3);
+        e_kolmogorov=E(3)/KinEn*(k_1d/k_1d(3)).^(-5/3);
         plot(k_1d,e_kolmogorov,'--m','LineWidth',1);
         plot([kNYQ,kNYQ],[1e-20,1e0],'--r');
         axis([k0,2*kNYQ,1e-12,e_kolmogorov(2)]);

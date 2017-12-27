@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Wed Dec 27 17:40:44 2017
+!   @Last revision date: Wed Dec 27 21:18:06 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 6a73908535b85b1244e68424fd0dd9f588570752
+!   @Last revision commit: 1629d8be5d568335c8a035353c18a1791bfae415
 !
 !//////////////////////////////////////////////////////
 !
@@ -194,7 +194,7 @@
       SUBROUTINE ConstructPhysicsStorage( controlVariables, success )
       USE FTValueDictionaryClass
       USE PhysicsKeywordsModule
-      use Utilities, only: toLower
+      use Utilities, only: toLower, almostEqual
 !
 !     ---------
 !     Arguments
@@ -271,10 +271,16 @@
 !        Set molecular viscosity and thermal conductivity
 !        ------------------------------------------------
 !
-         dimensionless_ % mu   = 1.0_RP / dimensionless_ % Re
-         dimensionless_ % kappa = 1.0_RP / ( thermodynamics_ % gammaMinus1 * &
-                                              POW2( dimensionless_ % Mach) * &
-                                      dimensionless_ % Re * dimensionless_ % Pr )
+         if ( .not. almostEqual(dimensionless_ % Re, 0.0_RP) ) then
+            dimensionless_ % mu   = 1.0_RP / dimensionless_ % Re
+            dimensionless_ % kappa = 1.0_RP / ( thermodynamics_ % gammaMinus1 * &
+                                                 POW2( dimensionless_ % Mach) * &
+                                         dimensionless_ % Re * dimensionless_ % Pr )
+         else
+            dimensionless_ % mu = 0.0_RP
+            dimensionless_ % kappa = 0.0_RP
+
+         end if
       END IF 
 !
 !     **************************************
