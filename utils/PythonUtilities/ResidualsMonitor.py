@@ -44,20 +44,22 @@ def GatherNewResidualsValues(fileName,skip_data):
 	return (counter,time,continuity,x_momentum,y_momentum,z_momentum,energy)
 
 def NewResidualsPlot(time, continuity, x_momentum, y_momentum, z_momentum, energy, ax):
-	ax.semilogy(time,continuity,'-r', label='continuity')
-	ax.semilogy(time,x_momentum,'-b', label='x-momentum')
-	ax.semilogy(time,y_momentum,'-k', label='y-momentum')
-	ax.semilogy(time,z_momentum,'-m', label='z-momentum')
-	ax.semilogy(time,energy,'-g',     label='energy')
+	ax.semilogy(time,continuity,'-',color='#1f77b4', label='continuity',linewidth=1.5)
+	ax.semilogy(time,x_momentum,'-',color='#ff7f0e', label='x-momentum',linewidth=1.5)
+	ax.semilogy(time,y_momentum,'-',color='#2ca02c', label='y-momentum',linewidth=1.5)
+	ax.semilogy(time,z_momentum,'-',color='#d62728', label='z-momentum',linewidth=1.5)
+	ax.semilogy(time,energy,'-',color='#bcbd22', label='energy',linewidth=1.5)
 	handles, labels = ax.get_legend_handles_labels()
 	ax.legend(handles,labels)
+	ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+           ncol=5, mode="expand", borderaxespad=0.,prop={'size': 10})
 
 def AppendToResidualsPlot(time, continuity, x_momentum, y_momentum, z_momentum, energy, ax):
-	ax.semilogy(time,continuity,'-r')
-	ax.semilogy(time,x_momentum,'-b')
-	ax.semilogy(time,y_momentum,'-k')
-	ax.semilogy(time,z_momentum,'-m')
-	ax.semilogy(time,energy,'-g')
+	ax.semilogy(time,continuity,'-',color='#1f77b4',linewidth=1.5)
+	ax.semilogy(time,x_momentum,'-',color='#ff7f0e',linewidth=1.5)
+	ax.semilogy(time,y_momentum,'-',color='#2ca02c',linewidth=1.5)
+	ax.semilogy(time,z_momentum,'-',color='#d62728',linewidth=1.5)
+	ax.semilogy(time,energy,'-',color='#bcbd22',linewidth=1.5)
 
 
 def UpdateResidualsPlot(fileName, skip_data, ax):
