@@ -314,7 +314,7 @@ Module DGSEMClass
 !     Initialize Spatial discretization methods
 !     -----------------------------------------
 !
-      call Initialize_SpaceAndTimeMethods(controlVariables)
+      call Initialize_SpaceAndTimeMethods(controlVariables, self % mesh)
       
       NULLIFY(Nx,Ny,Nz)
 !

@@ -8,13 +8,13 @@
 %
 %/////////////////////////////////////////////////////////////////
 %
-clc; clear all; close all;
+%clc; clear all; close all;
 %
 %   Program options
 %   ---------------
-    cubeFile = '/Users/juanmanzanero/OwnCloud/Research/DGSEM/Codes/FORTRAN/HORSES3D/Solver/test/NavierStokes/TaylorGreen/RESULTS/TGV.cube.tec';
+    cubeFile = '~/Desktop/TGV8P8LES1d0Roe.cube.tec';
     plotSpectra = true;
-    writeSpectra = true;
+    writeSpectra = false;
     resultsName = 'spectra';
 %
 %   Read raw data from file
@@ -99,9 +99,9 @@ clc; clear all; close all;
     if ( plotSpectra ) 
         h = figure(1);
         hold on
-        plot(k_1d,E/KinEn,'-k');
+        plot(k_1d,E,'-k');
         %plot(k_1d,E/KinEn,'ok','MarkerSize',8,'MarkerFaceColor',[1,1,1]);
-        e_kolmogorov=E(3)/KinEn*(k_1d/k_1d(3)).^(-5/3);
+        e_kolmogorov=E(3)*(k_1d/k_1d(3)).^(-5/3);
         plot(k_1d,e_kolmogorov,'--m','LineWidth',1);
         plot([kNYQ,kNYQ],[1e-20,1e0],'--r');
         axis([k0,2*kNYQ,1e-12,e_kolmogorov(2)]);
@@ -128,5 +128,8 @@ clc; clear all; close all;
         spectra=[transpose(k_1d), E, transpose(e_kolmogorov)];
         save([resultsName,'.dat'],'spectra','-ASCII');
     end
+
+    
+
 
 

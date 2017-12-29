@@ -43,6 +43,7 @@ Module MappedGeometryClass
             REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: x                             ! Position of points in absolute coordinates
             REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: jacobian 
             real(kind=RP)                                   :: volume 
+            real(kind=RP), dimension(:,:,:),    allocatable :: dWall          ! Minimum distance to the nearest wall
             CONTAINS
             
             PROCEDURE :: construct => ConstructMappedGeometry
@@ -55,6 +56,7 @@ Module MappedGeometryClass
          real(kind=RP), dimension(:,:,:), allocatable   :: normal     ! normal vector on a face
          real(kind=RP), dimension(:,:,:), allocatable   :: t1         ! Tangent vector (along the xi direction)
          real(kind=RP), dimension(:,:,:), allocatable   :: t2         ! Tangent vector 2 (orthonormal to t1 and normal)
+         real(kind=RP), dimension(:,:),    allocatable  :: dWall          ! Minimum distance to the nearest wall
          real(kind=RP)                                  :: surface    ! Surface
          real(kind=RP)                                  :: h          ! Element dimension orthogonal to the face
          contains

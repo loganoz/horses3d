@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Wed Dec 27 21:18:06 2017
+!   @Last revision date: Tue Jan  2 13:01:02 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 1629d8be5d568335c8a035353c18a1791bfae415
+!   @Last revision commit: 9cc8f2b1e854175a60da8137699d5493f95d998a
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,6 +21,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY        = "flow equations"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY   = "riemann solver"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAMBDA_STABILIZATION_KEY  = "lambda stabilization"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LESMODEL_KEY              = "les model"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: COMPUTE_GRADIENTS_KEY     = "compute gradients"
          
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physicsKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
@@ -62,7 +63,6 @@
      public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
      public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
      public    ENTROPYANDENERGYCONS_SPLIT
-     public    useLESModel
       
      public    ConstructPhysicsStorage, DestructPhysicsStorage, DescribePhysicsStorage
      public    CheckPhysicsInputIntegrity
@@ -73,7 +73,6 @@
 !
      logical, protected :: flowIsNavierStokes = .true.
      logical, protected :: computeGradients   = .true.
-     logical, protected :: useLESModel        = .false.
 !
 !    --------------------------
 !!   The sizes of the NS system
@@ -326,7 +325,7 @@
       refValues_ % p = refValues_ % rho * POW2( refValues_ % V )
 
       if ( flowIsNavierStokes ) then
-         refValues_ % mu = refValues_ % rho * refValues_ % V * refValues_ % L / dimensionless_ % Re
+         refValues_ % mu = refValues_ % rho * refValues_ % V * refValues_ % L * dimensionless_ % mu
          refValues_ % kappa = refValues_ % mu * thermodynamics_ % cp / dimensionless_ % Pr
 
       else
@@ -424,6 +423,21 @@
 !
       if ( whichRiemannSolver .eq. RIEMANN_CENTRAL ) lambdaStab = 0.0_RP
 !
+!     **********
+!     LES Models
+!     **********
+!
+      if ( controlVariables % containsKey(LESMODEL_KEY)) then
+         if ( controlVariables % stringValueForKey(LESMODEL_KEY,4) .ne. "none") then
+!
+!           Enable NS fluxes
+!           ----------------
+            flowIsNavierStokes = .true.
+            computeGradients = .true.
+
+         end if
+      end if
+!
 !     ***************
 !     Angle of attack
 !     ***************
@@ -449,18 +463,6 @@
          refValues_ % AOATheta = 0.0_RP
 
       END IF 
-!
-!     *****************
-!     Enable LES models
-!     *****************
-!
-      if ( controlVariables % containsKey("use les model") ) then
-         useLESmodel = controlVariables % logicalValueForKey("use les model")
-
-      else
-         useLESmodel = .false.
-
-      end if
 !
 !     **************************
 !     Sutherland's law constants

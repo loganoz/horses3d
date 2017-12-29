@@ -55,6 +55,7 @@
 !
      LOGICAL :: flowIsNavierStokes = .true.
      LOGICAL :: computeGradients = .true.
+     logical :: useLESModel = .false.
 !
 !    --------------------------
 !!   The sizes of the NS system
@@ -81,6 +82,7 @@
 !    ---------------------------------------
 !
      INTEGER, PARAMETER  :: IGU = 1 , IGV = 2 , IGW = 3 , IGT = 4
+     integer, parameter  :: NGRAD = 4
 !
 !    --------------------------------------------
 !!   The temperature scale in the Sutherland law:
@@ -571,13 +573,14 @@
 !! the calculation of the gradient terms.
 !---------------------------------------------------------------------
 !
-      pure subroutine ViscousFlux0D( Q , U_x , U_y , U_z, mu, kappa, F)
+      pure subroutine ViscousFlux0D( Q , U_x , U_y , U_z, mu, kappa, tauSGS, qSGS, F)
          implicit none
          real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS          ) 
          real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN     ) 
          real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN     ) 
          real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN     ) 
          real ( kind=RP ) , intent ( in ) :: mu, kappa
+         real(kind=RP),    intent(in)     :: tauSGS(NDIM,NDIM), qSGS(NDIM)
          real(kind=RP), intent(out)       :: F    ( 1:NCONS , 1:NDIM )
 !
 !        ---------------
@@ -595,7 +598,7 @@
 
       end subroutine ViscousFlux0D
 
-      pure subroutine ViscousFlux3D( N, Q , U_x , U_y , U_z, mu, kappa, F)
+      pure subroutine ViscousFlux3D( N, Q , U_x , U_y , U_z, mu, kappa, tauSGS, qSGS, F)
          implicit none
          integer          , intent ( in ) :: N(3)
          real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS, 0:N(1) , 0:N(2) , 0:N(3)) 
@@ -604,6 +607,8 @@
          real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2) , 0:N(3)) 
          real ( kind=RP ) , intent ( in ) :: mu   ( 0:N(1) , 0:N(2) , 0:N(3)) 
          real ( kind=RP ) , intent ( in ) :: kappa   ( 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: tauSGS  (NDIM, NDIM, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: qSGS    (NDIM, 0:N(1) , 0:N(2) , 0:N(3)) 
          real ( kind=RP ) , intent ( out) :: F    ( 1:NCONS, 0:N(1) , 0:N(2) , 0:N(3), 1:NDIM )
 
          F = 0.0_RP

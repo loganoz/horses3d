@@ -20,26 +20,26 @@ $ python
 4. And, insider the python shell:
 
   1. Import the monitors module:
-  ```PYTHON
-  >> import Monitors
-  ```
+```PYTHON
+   >> import Monitors
+```
   2. Set the files to plot:
-  ```PYTHON
-  >> fileNames = ["file.residuals","file.monitor.volume"]
-  ```
+```PYTHON
+   >> fileNames = ["file.residuals","file.monitor.volume"]
+```
   3. Call the `plotMonitors` function
-  ```PYTHON
-  Monitors.plotMonitors(fileNames)
-  ```
+```PYTHON
+   Monitors.plotMonitors(fileNames)
+```
 
   A python `example.py` script will look like:
-  ```PYTHON
-  import Monitors
-  fileNames = ["file.residuals","file.monitor.volume"]
-  Monitors.plotMonitors(fileNames)
-  ```
+```PYTHON
+   import Monitors
+   fileNames = ["file.residuals","file.monitor.volume"]
+   Monitors.plotMonitors(fileNames)
+```
 
   and can be executed using:
-  ```bash
-  $ python example.py
-  ```
+```bash
+$ python example.py
+```

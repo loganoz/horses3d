@@ -387,23 +387,23 @@ module ViscousBR1
          real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: tauSGS(1:NDIM,1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: qSGS(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
 
          mu = dimensionless % mu
          kappa = dimensionless % kappa
 
-         if ( useLESModel ) then
-            delta = e % geom % Volume / product(e % Nxyz + 1)
-            call BasicSmagorinskySGSTensor(delta, e % Nxyz, e % storage % U_x, &
-                                                              e % storage % U_y, &
-                                                              e % storage % U_z, &
-                                                                         tauSGS    )
-         else
-            tauSGS = 0.0_RP
+!
+!        Compute subgrid-scale modelling tensor   
+!        --------------------------------------
+         delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+         call LESModel % ComputeSGSTensor(delta, e % Nxyz, e % geom % dWall, &
+                                                           e % storage % U_x, &
+                                                           e % storage % U_y, &
+                                                           e % storage % U_z, &
+                                                                tauSGS, qSGS    )
 
-         end if
-
-         call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, tauSGS, cartesianFlux )
+         call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, tauSGS, qSGS, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -425,7 +425,7 @@ module ViscousBR1
       end subroutine BR1_ComputeInnerFluxes
 
       subroutine BR1_RiemannSolver ( self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
-                                            nHat , flux )
+                                            nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
          use Physics
@@ -443,6 +443,7 @@ module ViscousBR1
          real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
          real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
          real(kind=RP), dimension(NDIM)       :: nHat
+         real(kind=RP)                        :: dWall
          real(kind=RP), dimension(N_EQN)      :: flux
 !
 !        ---------------
@@ -451,7 +452,7 @@ module ViscousBR1
 !
          real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
          real(kind=RP)     :: flux_vec(NCONS,NDIM)
-         real(kind=RP)     :: mu, kappa, tauSGS(NDIM, NDIM), delta
+         real(kind=RP)     :: mu, kappa, tauSGS(NDIM, NDIM), qSGS(NDIM), delta
 
 !
 !>       Old implementation: 1st average, then compute
@@ -460,20 +461,16 @@ module ViscousBR1
          U_x = 0.5_RP * ( U_xLeft + U_xRight)
          U_y = 0.5_RP * ( U_yLeft + U_yRight)
          U_z = 0.5_RP * ( U_zLeft + U_zRight)
-   
-         if ( useLESModel ) then
-            delta = f % geom % surface / product(f % Nf + 1)
-            call BasicSmagorinskySGSTensor(delta, U_x, U_y, U_z, tauSGS) 
+!
+!        Compute subgrid-scale modelling tensor   
+!        --------------------------------------
+         delta = sqrt(f % geom % surface / product(f % Nf + 1))
+         call LESModel % ComputeSGSTensor(delta, dWall, U_x, U_y, U_z, tauSGS, qSGS) 
 
-         else
-            tauSGS = 0.0_RP
-
-         end if
-
-         mu = dimensionless % mu
+         mu    = dimensionless % mu
          kappa = dimensionless % kappa
 
-         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, tauSGS, flux_vec)
+         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, tauSGS, qSGS, flux_vec)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 

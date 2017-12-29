@@ -4,9 +4,9 @@
 !   @File:    LESModels.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Dec 27 17:44:13 2017
-!   @Last revision date: Wed Dec 27 21:18:04 2017
+!   @Last revision date: Wed Jan  3 19:06:39 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 1629d8be5d568335c8a035353c18a1791bfae415
+!   @Last revision commit: 2895042ddfc64e498cc007fdbe6eacf1522c4701
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,28 +14,178 @@
 module LESModels
    use SMConstants
    use PhysicsStorage
+   use FTValueDictionaryClass
+   use PhysicsKeywordsModule
+   use MPI_Process_Info
+   use Headers
+   use Utilities, only: toLower
    implicit none
 
    private
-   public BasicSmagorinskySGSTensor
+   public LESModel, InitializeLESModel
 
-   real(kind=RP), parameter   :: CS = 0.2_RP
+   real(kind=RP), parameter      :: K_VONKARMAN = 0.4_RP
+   character(len=*), parameter   :: LESIntensityKey = "les model intensity"
 
-   interface BasicSmagorinskySGSTensor
-      module procedure BasicSmagorinskySGSTensor3D
-      module procedure BasicSmagorinskySGSTensor0D
-   end interface BasicSmagorinskySGSTensor   
+   type LESModel_t
+      logical  :: requiresWallDistances
+      contains
+         procedure            :: Initialize         => LESModel_Initialize
+         generic              :: ComputeSGSTensor   => ComputeSGSTensor0D, ComputeSGSTensor3D
+         procedure, private   :: ComputeSGSTensor3D => LESModel_ComputeSGSTensor3D
+         procedure, private   :: ComputeSGSTensor0D => LESModel_ComputeSGSTensor0D
+         procedure            :: Describe           => LESModel_Describe
+   end type LESModel_t
 
-   
+   type, extends(LESModel_t)  :: Smagorinsky_t
+      real(kind=RP), private  :: CS
+      contains
+         procedure          :: Initialize         => Smagorinsky_Initialize
+         procedure, private :: ComputeSGSTensor3D => Smagorinsky_ComputeSGSTensor3D
+         procedure, private :: ComputeSGSTensor0D => Smagorinsky_ComputeSGSTensor0D
+         procedure          :: Describe           => Smagorinsky_Describe
+   end type Smagorinsky_t
+
+   class(LESModel_t), allocatable   :: LESModel
+
    contains
-      subroutine BasicSmagorinskySGSTensor3D(delta, N, U_x, U_y, U_z, tau)
+      subroutine InitializeLESModel(model, controlVariables)
          implicit none
+         class(LESModel_t), allocatable        :: model
+         class(FTValueDictionary),  intent(in) :: controlVariables
+!
+!        ---------------
+!        Local variables         
+!        ---------------
+!
+         character(len=LINE_LENGTH)    :: modelName
+
+         if ( controlVariables % containsKey(LESMODEL_KEY) ) then
+            modelName = controlVariables % stringValueForKey(LESMODEL_KEY, LINE_LENGTH)
+            call toLower(modelName)
+
+            select case (trim(modelName))
+            case ("none")
+               allocate(LESModel_t     :: model)
+
+            case ("smagorinsky")
+               allocate(Smagorinsky_t  :: model)
+
+            case default
+               write(STD_OUT,'(A,A,A)') "LES Model ",trim(modelName), " is not implemented."
+               print*, "Available options are:"
+               print*, "   * None (default)"
+               print*, "   * Smagorinsky"
+               errorMessage(STD_OUT)
+               stop
+
+            end select
+   
+         else
+            allocate(LESModel_t  :: model)
+
+         end if
+
+         call model % Initialize(controlVariables)
+         call model % Describe
+
+      end subroutine InitializeLESModel
+!
+!/////////////////////////////////////////////////////////////////////////////////////////
+!
+!           Template procedures
+!           -------------------
+!
+!/////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine LESModel_Initialize(self, controlVariables)
+         implicit none
+         class(LESModel_t)                     :: self
+         class(FTValueDictionary),  intent(in) :: controlVariables
+
+         self % requiresWallDistances = .false.
+
+      end subroutine LESModel_Initialize
+
+      subroutine LESModel_ComputeSGSTensor3D(self, delta, N, dWall, U_x, U_y, U_z, tau, q)
+         implicit none
+         class(LESModel_t), intent(in) :: self
          real(kind=RP), intent(in)     :: delta
          integer,       intent(in)     :: N(3)
+         real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP), intent(in)     :: U_x(NGRAD, 0:N(1), 0:N(2), 0:N(3))
          real(kind=RP), intent(in)     :: U_y(NGRAD, 0:N(1), 0:N(2), 0:N(3))
          real(kind=RP), intent(in)     :: U_z(NGRAD, 0:N(1), 0:N(2), 0:N(3))
          real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(out)    :: q(NDIM, 0:N(1), 0:N(2), 0:N(3))
+           
+         tau = 0.0_RP
+         q   = 0.0_RP
+
+      end subroutine LESModel_ComputeSGSTensor3D
+
+      subroutine LESModel_ComputeSGSTensor0D(self, delta, dWall, U_x, U_y, U_z, tau, q)
+         implicit none
+         class(LESModel_t), intent(in) :: self
+         real(kind=RP), intent(in)     :: delta
+         real(kind=RP), intent(in)     :: dWall
+         real(kind=RP), intent(in)     :: U_x(NGRAD)
+         real(kind=RP), intent(in)     :: U_y(NGRAD)
+         real(kind=RP), intent(in)     :: U_z(NGRAD)
+         real(kind=RP), intent(out)    :: tau(NDIM, NDIM)
+         real(kind=RP), intent(out)    :: q(NDIM)
+
+         tau = 0.0_RP
+         q   = 0.0_RP
+
+      end subroutine LESModel_ComputeSGSTensor0D
+
+      subroutine LESModel_Describe(self)
+         implicit none
+         class(LESModel_t),   intent(in)  :: self
+
+
+      end subroutine
+!
+!//////////////////////////////////////////////////////////////////////////////////////
+!
+!           Basic Smagorinsky model
+!           -----------------------
+!
+!//////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine Smagorinsky_Initialize(self, controlVariables)
+         implicit none
+         class(Smagorinsky_t)                     :: self
+         class(FTValueDictionary),  intent(in) :: controlVariables
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         self % requiresWallDistances = .true.
+
+         if ( controlVariables % containsKey(LESIntensityKey) ) then
+            self % CS = controlVariables % doublePrecisionValueForKey(LESIntensityKey)
+
+         else
+            self % CS = 0.2_RP      
+
+         end if
+
+      end subroutine Smagorinsky_Initialize
+
+      subroutine Smagorinsky_ComputeSGSTensor3D(self, delta, N, dWall, U_x, U_y, U_z, tau, q)
+         implicit none
+         class(Smagorinsky_t), intent(in) :: self
+         real(kind=RP), intent(in)     :: delta
+         integer,       intent(in)     :: N(3)
+         real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: U_x(NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: U_y(NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: U_z(NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(out)    :: q(NDIM, 0:N(1), 0:N(2), 0:N(3))
 !
 !        ---------------
 !        Local variables
@@ -43,7 +193,7 @@ module LESModels
 !
          integer     :: i, j, k
          real(kind=RP)  :: S(NDIM, NDIM)
-         real(kind=RP)  :: normS, divV
+         real(kind=RP)  :: normS, divV, mu, kappa, LS
 
          do k = 0, N(3) ; do j = 0, N(2)  ; do i = 0, N(1)
 !
@@ -65,34 +215,47 @@ module LESModels
 !           --------------------- 
             normS = sqrt( 2.0_RP * sum(S*S) )
 !
+!           Compute viscosity and thermal conductivity
+!           ------------------------------------------
+            LS = min(self % CS * delta, dWall(i,j,k) * K_VONKARMAN)
+            mu = POW2(LS) * normS
+            kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Pr)
+!
 !           Remove the volumetric deformation tensor
 !           ----------------------------------------
             S(1,1) = S(1,1) - 1.0_RP / 3.0_RP * divV
             S(2,2) = S(2,2) - 1.0_RP / 3.0_RP * divV
             S(3,3) = S(3,3) - 1.0_RP / 3.0_RP * divV
 !
-!           Compute the SGS tensor
-!           ----------------------
-            tau(:,:,i,j,k) = -2.0_RP * POW2(CS*delta) * normS * S
+!           Compute the SGS tensor and heat flux
+!           ------------------------------------
+            tau(:,:,i,j,k) = -2.0_RP * mu * S
+
+            q(1,i,j,k) = -kappa * U_x(4,i,j,k)
+            q(2,i,j,k) = -kappa * U_y(4,i,j,k)
+            q(3,i,j,k) = -kappa * U_z(4,i,j,k)
 
          end do         ; end do          ; end do
          
-      end subroutine BasicSmagorinskySGSTensor3D
+      end subroutine Smagorinsky_ComputeSGSTensor3D
 
-      subroutine BasicSmagorinskySGSTensor0D(delta, U_x, U_y, U_z, tau)
+      subroutine Smagorinsky_ComputeSGSTensor0D(self, delta, dWall, U_x, U_y, U_z, tau, q)
          implicit none
+         class(Smagorinsky_t), intent(in) :: self
          real(kind=RP), intent(in)     :: delta
+         real(kind=RP), intent(in)     :: dWall
          real(kind=RP), intent(in)     :: U_x(NGRAD)
          real(kind=RP), intent(in)     :: U_y(NGRAD)
          real(kind=RP), intent(in)     :: U_z(NGRAD)
          real(kind=RP), intent(out)    :: tau(NDIM, NDIM)
+         real(kind=RP), intent(out)    :: q(NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          real(kind=RP)  :: S(NDIM, NDIM)
-         real(kind=RP)  :: normS, divV
+         real(kind=RP)  :: normS, divV, mu, kappa, LS
 !
 !        Compute symmetric part of the deformation tensor
 !        ------------------------------------------------
@@ -112,6 +275,12 @@ module LESModels
 !        --------------------- 
          normS = sqrt( 2.0_RP * sum(S*S) )
 !
+!        Compute viscosity and thermal conductivity
+!        ------------------------------------------
+         LS = min(self % CS * delta, dWall * K_VONKARMAN)
+         mu = POW2(LS) * normS
+         kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Pr)
+!
 !        Remove the volumetric deformation tensor
 !        ----------------------------------------
          S(1,1) = S(1,1) - 1.0_RP / 3.0_RP * divV
@@ -120,8 +289,25 @@ module LESModels
 !
 !        Compute the SGS tensor
 !        ----------------------
-         tau = -2.0_RP * POW2(CS*delta) * normS * S
+         tau = -2.0_RP * mu * S
 
-      end subroutine BasicSmagorinskySGSTensor0D
+         q(1) = -kappa * U_x(4)
+         q(2) = -kappa * U_y(4)
+         q(3) = -kappa * U_z(4)
+
+      end subroutine Smagorinsky_ComputeSGSTensor0D
+
+      subroutine Smagorinsky_Describe(self)
+         implicit none
+         class(Smagorinsky_t),   intent(in)  :: self
+
+         if ( .not. MPI_Process % isRoot ) return
+
+         write(STD_OUT,*)
+         call SubSection_Header("LES Model")
+         write(STD_OUT,'(30X,A,A30,A)') "->","LES model: ","Smagorinsky"
+         write(STD_OUT,'(30X,A,A30,F10.3)') "->","LES model intensity: ", self % CS
+
+      end subroutine Smagorinsky_Describe
 
 end module LESModels
