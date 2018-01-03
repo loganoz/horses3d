@@ -2198,6 +2198,8 @@ slavecoord:                DO l = 1, 4
             end associate
          end do
 
+         deallocate(Xwall)
+
       end subroutine HexMesh_ComputeWallDistances
 
       subroutine HexMesh_GatherAllWallCoordinates(self, no_of_wallDOFS, Xwall)
@@ -2286,6 +2288,8 @@ slavecoord:                DO l = 1, 4
             allocate( Xwall(NDIM, no_of_wallDOFS) )
             Xwall = localXwall
          end if
+
+         deallocate(localXwall)
 
       end subroutine HexMesh_GatherAllWallCoordinates
 !

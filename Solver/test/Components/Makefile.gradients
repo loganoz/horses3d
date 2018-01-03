@@ -69,7 +69,8 @@ OBJS_HORSES=  SMConstants \
 		SharedBCModule \
 		FacePatchClass \
 		MappedGeometry \
-		LESModels \
+		WallDistance\
+		LESModels\
 		TransfiniteMaps3D \
 		FaceClass \
 		HexElementClass \

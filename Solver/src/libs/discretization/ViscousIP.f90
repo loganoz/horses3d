@@ -4,9 +4,9 @@
 !   @File:    ViscousIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Wed Jan  3 19:06:34 2018
+!   @Last revision date: Thu Jan  4 12:45:22 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 2895042ddfc64e498cc007fdbe6eacf1522c4701
+!   @Last revision commit: 1d518c856d5a93f82524f8abcab3061fd8c243ef
 !
 !//////////////////////////////////////////////////////
 !
@@ -431,12 +431,17 @@ module ViscousIP
 !
 !        Compute subgrid-scale modelling tensor   
 !        --------------------------------------
-         delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
-         call LESModel % ComputeSGSTensor(delta, e % Nxyz, e % geom % dWall, &
-                                                           e % storage % U_x, &
-                                                           e % storage % U_y, &
-                                                           e % storage % U_z, &
-                                                                tauSGS, qSGS    )
+         if ( LESModel % active ) then
+            delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+            call LESModel % ComputeSGSTensor(delta, e % Nxyz, e % geom % dWall, &
+                                                              e % storage % U_x, &
+                                                              e % storage % U_y, &
+                                                              e % storage % U_z, &
+                                                                   tauSGS, qSGS    )
+         else
+            tauSGS = 0.0_RP ; qSGS = 0.0_RP
+
+         end if
 
          call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, tauSGS, qSGS, cartesianFlux )
 

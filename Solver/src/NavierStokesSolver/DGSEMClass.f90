@@ -337,6 +337,7 @@ Module DGSEMClass
       self % externalGradients => NULL()
       IF ( ALLOCATED(InviscidMethod) ) DEALLOCATE( InviscidMethod )
       IF ( ALLOCATED(ViscousMethod ) ) DEALLOCATE( ViscousMethod ) 
+      IF ( ALLOCATED(LESModel) ) DEALLOCATE( LESModel ) 
       
       END SUBROUTINE DestructDGSem
 !

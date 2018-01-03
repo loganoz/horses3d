@@ -396,12 +396,17 @@ module ViscousBR1
 !
 !        Compute subgrid-scale modelling tensor   
 !        --------------------------------------
-         delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
-         call LESModel % ComputeSGSTensor(delta, e % Nxyz, e % geom % dWall, &
-                                                           e % storage % U_x, &
-                                                           e % storage % U_y, &
-                                                           e % storage % U_z, &
-                                                                tauSGS, qSGS    )
+         if ( LESModel % active ) then
+            delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+            call LESModel % ComputeSGSTensor(delta, e % Nxyz, e % geom % dWall, &
+                                                              e % storage % U_x, &
+                                                              e % storage % U_y, &
+                                                              e % storage % U_z, &
+                                                                   tauSGS, qSGS    )
+         else
+            tauSGS = 0.0_RP ; qSGS = 0.0_RP
+
+         end if
 
          call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, tauSGS, qSGS, cartesianFlux )
 

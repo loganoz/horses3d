@@ -28,6 +28,7 @@ module LESModels
    character(len=*), parameter   :: LESIntensityKey = "les model intensity"
 
    type LESModel_t
+      logical  :: active
       logical  :: requiresWallDistances
       contains
          procedure            :: Initialize         => LESModel_Initialize
@@ -103,6 +104,7 @@ module LESModels
          class(LESModel_t)                     :: self
          class(FTValueDictionary),  intent(in) :: controlVariables
 
+         self % active                = .false.
          self % requiresWallDistances = .false.
 
       end subroutine LESModel_Initialize
@@ -163,6 +165,7 @@ module LESModels
 !        Local variables
 !        ---------------
 !
+         self % active                = .true.
          self % requiresWallDistances = .true.
 
          if ( controlVariables % containsKey(LESIntensityKey) ) then

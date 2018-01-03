@@ -17,6 +17,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+#include "Includes.h"
 Module MappedGeometryClass 
    USE SMConstants
    USE TransfiniteMapClass
@@ -155,6 +156,7 @@ Module MappedGeometryClass
          CLASS(MappedGeometry) :: self
          DEALLOCATE( self % jGradXi, self % jGradEta, self % jGradZeta, self % jacobian )
          DEALLOCATE( self % x)
+         safedeallocate(self % dWall)
       END SUBROUTINE DestructMappedGeometry
 !
 !////////////////////////////////////////////////////////////////////////
@@ -495,6 +497,7 @@ Module MappedGeometryClass
       allocate( self % normal(NDIM, 0:Nf(1), 0:Nf(2)))
       allocate( self % t1(NDIM, 0:Nf(1), 0:Nf(2)))
       allocate( self % t2(NDIM, 0:Nf(1), 0:Nf(2)))
+      allocate( self % dWall(0:Nf(1), 0:Nf(2)))
 
       dS = 0.0_RP
 
@@ -681,11 +684,12 @@ Module MappedGeometryClass
          class(MappedGeometryFace), intent(inout) :: self
          !-------------------------------------------------------------------
          
-         deallocate(self % x       )
-         deallocate(self % jacobian)
-         deallocate(self % normal  )
-         deallocate(self % t1    )
-         deallocate(self % t2   )
+         deallocate(self % x        ) 
+         deallocate(self % jacobian ) 
+         deallocate(self % normal   ) 
+         deallocate(self % t1       ) 
+         deallocate(self % t2       ) 
+         deallocate(self % dWall    ) 
          
       end subroutine DestructMappedGeometryFace
 
