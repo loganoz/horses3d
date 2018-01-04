@@ -20,6 +20,7 @@
       USE ExplicitMethods
       use AutosaveClass
       use StopwatchClass
+      use MPI_Process_Info
       IMPLICIT NONE 
       
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -342,7 +343,6 @@ end interface
 !
 !
    subroutine TimeIntegrator_Display(self, mesh, monitors)
-      use MPI_Process_Info
       implicit none
       class(TimeIntegrator_t),   intent(in)     :: self
       class(HexMesh),            intent(in)     :: mesh
@@ -401,7 +401,7 @@ end interface
 !     ----------------------------------------------
       
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
-      write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
+      if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
       call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients)
    
    END SUBROUTINE SaveRestart

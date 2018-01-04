@@ -24,6 +24,7 @@ MODULE HexMeshClass
       use NodalStorageClass
       use MPI_Process_Info
       use MPI_Face_Class
+      use WallDistance
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -60,12 +61,13 @@ MODULE HexMeshClass
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
             procedure :: ResetStatistics               => HexMesh_ResetStatistics
             procedure :: LoadSolution                  => HexMesh_LoadSolution
-            procedure :: FindPointWithCoords           => HexMesh_FindPointWithCoords
             procedure :: WriteCoordFile
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
             procedure :: UpdateMPIFacesGradients       => HexMesh_UpdateMPIFacesGradients
             procedure :: GatherMPIFacesSolution        => HexMesh_GatherMPIFacesSolution
             procedure :: GatherMPIFacesGradients       => HexMesh_GatherMPIFacesGradients
+            procedure :: FindPointWithCoords           => HexMesh_FindPointWithCoords
+            procedure :: ComputeWallDistances          => HexMesh_ComputeWallDistances
       end type HexMesh
 
       TYPE Neighbour         ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
@@ -1133,6 +1135,11 @@ slavecoord:                DO l = 1, 4
 !
       INTEGER           :: fID, zoneID, rank, ierr
       INTEGER           :: no_of_bdryfaces, no_of_mpifaces
+      integer           :: no_of_nodesP(MPI_Process % nProcs)
+      integer           :: no_of_elementsP(MPI_Process % nProcs)
+      integer           :: no_of_facesP(MPI_Process % nProcs)
+      integer           :: no_of_bfacesP(MPI_Process % nProcs)
+      integer           :: no_of_mpifacesP(MPI_Process % nProcs)
       character(len=64) :: partitionID
 
       if ( .not. MPI_Process % doMPIAction ) return
@@ -1147,28 +1154,31 @@ slavecoord:                DO l = 1, 4
             no_of_mpifaces = no_of_mpifaces + 1 
          end if
       end do
+!
+!     Share all quantities to the root process
+!     ----------------------------------------
+      call mpi_gather(size(self % elements) , 1 , MPI_INT , no_of_elementsP , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
+      call mpi_gather(size(self % nodes)    , 1 , MPI_INT , no_of_nodesP    , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
+      call mpi_gather(size(self % faces)    , 1 , MPI_INT , no_of_facesP    , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
+      call mpi_gather(no_of_bdryfaces       , 1 , MPI_INT , no_of_bfacesP   , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
+      call mpi_gather(no_of_mpifaces        , 1 , MPI_INT , no_of_mpifacesP , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
 
+      if ( .not. MPI_Process % isRoot ) return
        
-      if ( MPI_Process % isRoot ) write(STD_OUT,'(/)')
+      write(STD_OUT,'(/)')
       call Section_Header("Mesh partitions")
-      if ( MPI_Process % isRoot ) write(STD_OUT,'(/)')
+      write(STD_OUT,'(/)')
       
-      do rank = 0, MPI_Process % nProcs - 1
+      do rank = 1, MPI_Process % nProcs 
 
-         write(partitionID,'(A,I0)') "Partition ", rank+1
+         write(partitionID,'(A,I0)') "Partition ", rank
          call SubSection_Header(trim(partitionID))
 
-         call mpi_barrier(MPI_COMM_WORLD, ierr)
-
-         if ( MPI_Process % rank .eq. rank ) then
-            write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of nodes: " , size ( self % nodes )
-            write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of elements: " , size ( self % elements )
-            write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of faces: " , size ( self % faces )
-            write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bdryfaces
-            write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of mpi faces: " , no_of_mpifaces
-         end if
-
-         call mpi_barrier(MPI_COMM_WORLD, ierr)
+         write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of nodes: " , no_of_nodesP(rank)
+         write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of elements: " , no_of_elementsP(rank)
+         write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of faces: " , no_of_facesP(rank)
+         write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bfacesP(rank)
+         write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of mpi faces: " , no_of_mpifacesP(rank)
 
       end do
 #endif
@@ -1840,7 +1850,7 @@ slavecoord:                DO l = 1, 4
          use SolutionFile
          use MPI_Process_Info
          implicit none
-         class(HexMesh),      intent(in)        :: self
+         class(HexMesh)                         :: self
          integer,             intent(in)        :: iter
          real(kind=RP),       intent(in)        :: time
          character(len=*),    intent(in)        :: name
@@ -2127,6 +2137,161 @@ slavecoord:                DO l = 1, 4
          end do
 
       end function HexMesh_FindPointWithCoords
+
+      subroutine HexMesh_ComputeWallDistances(self)
+         implicit none
+         class(HexMesh)     :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer       :: eID, i, j, k, no_of_wallDOFS
+         real(kind=RP) :: currentDistance, minimumDistance
+         integer       :: fID
+         real(kind=RP) :: xP(NDIM)
+         real(kind=RP), allocatable    :: Xwall(:,:)
+!
+!        Gather all walls coordinates
+!        ----------------------------
+         call HexMesh_GatherAllWallCoordinates(self, no_of_wallDOFS, Xwall)
+!
+!        Get the minimum distance to each elements nodal degree of freedom
+!        -----------------------------------------------------------------            
+         do eID = 1, self % no_of_elements
+            associate(e => self % elements(eID))
+            allocate(e % geom % dWall(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+
+            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               xP = e % geom % x(:,i,j,k) 
+
+               minimumDistance = HUGE(1.0_RP)
+               do fID = 1, no_of_wallDOFS
+                  currentDistance = sum(POW2(xP - Xwall(:,fID)))
+                  minimumDistance = min(minimumDistance, currentDistance)
+               end do 
+
+               e % geom % dWall(i,j,k) = sqrt(minimumDistance)
+
+            end do                  ; end do                ; end do
+            end associate
+         end do
+!
+!        Get the minimum distance to each face nodal degree of freedom
+!        -------------------------------------------------------------            
+         do eID = 1, size(self % faces)
+            associate(fe => self % faces(eID))
+            allocate(fe % geom % dWall(0:fe % Nf(1), 0:fe % Nf(2)))
+
+            do j = 0, fe % Nf(2) ; do i = 0, fe % Nf(1)
+               xP = fe % geom % x(:,i,j) 
+
+               minimumDistance = HUGE(1.0_RP)
+               do fID = 1, no_of_wallDOFS
+                  currentDistance = sum(POW2(xP - Xwall(:,fID)))
+                  minimumDistance = min(minimumDistance, currentDistance)
+               end do 
+
+               fe % geom % dWall(i,j) = sqrt(minimumDistance)
+
+            end do                ; end do
+            end associate
+         end do
+
+         deallocate(Xwall)
+
+      end subroutine HexMesh_ComputeWallDistances
+
+      subroutine HexMesh_GatherAllWallCoordinates(self, no_of_wallDOFS, Xwall)
+         implicit none
+         class(HexMesh),              intent(in)  :: self
+         integer,                     intent(out) :: no_of_wallDOFS
+         real(kind=RP),  allocatable, intent(out) :: Xwall(:,:)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                    :: no_of_localWallDOFS
+         integer                    :: no_of_wallDOFS_perProcess(MPI_Process % nProcs)
+         integer                    :: displ(MPI_Process % nProcs)
+         real(kind=RP), allocatable :: localXwall(:,:)
+         integer                    :: zID, ierr, fID, zonefID, i, j, displacement
+         character(len=LINE_LENGTH) :: zoneName
+
+         no_of_localWallDOFS = 0
+         do zID = 1, size(self % zones)
+            zoneName = trim(bcTypeDictionary % stringValueForKey(trim(self % zones(zID) % Name), LINE_LENGTH))
+
+            if ( (trim(zoneName) .ne. "noslipadiabaticwall") .and. (trim(zoneName) .ne. "noslipisothermalwall") ) then
+               cycle
+            end if
+
+            do zonefID = 1, self % zones(zID) % no_of_faces
+               fID = self % zones(zID) % faces(zonefID)
+               no_of_localWallDOFS = no_of_localWallDOFS + product(self % faces(fID) % Nf + 1)
+            end do
+         end do
+         allocate( localXwall(NDIM, no_of_localWallDOFS) )
+!
+!        Loop all faces to gather the local wall coordinates
+!        ---------------------------------------------------
+         no_of_localWallDOFS = 0
+         do zID = 1, size(self % zones)
+            zoneName = trim(bcTypeDictionary % stringValueForKey(trim(self % zones(zID) % Name), LINE_LENGTH))
+
+            if ( (trim(zoneName) .ne. "noslipadiabaticwall") .and. (trim(zoneName) .ne. "noslipisothermalwall") ) then
+               cycle
+            end if
+
+            do zonefID = 1, self % zones(zID) % no_of_faces
+               fID = self % zones(zID) % faces(zonefID)
+               associate( f => self % faces(fID) ) 
+               do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+                  no_of_localWalLDOFS = no_of_localWallDOFS + 1  
+                  localXWall(1:NDIM,no_of_localWallDOFS) = f % geom % x(1:NDIM,i,j) 
+               end do               ; end do
+               end associate
+            end do
+         end do
+!
+!        ******************************************************************
+!        MPI: To communicate each process walls, we use the allgatherv
+!             function
+!        ******************************************************************
+!
+         if ( MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_
+!   
+!           Perform a reduction to how many walls are in each process
+!           --------------------------------------------------------- 
+            call mpi_allgather(no_of_localWallDOFS, 1, MPI_INT, no_of_wallDOFS_perProcess, 1, MPI_INT, MPI_COMM_WORLD, ierr)
+!   
+!           Compute the displacements
+!           -------------------------
+            displ(1) = 0
+            do zID = 1, MPI_Process % nProcs - 1
+               displ(zID+1) = displ(zID) + no_of_wallDOFS_perProcess(zID) * NDIM
+            end do
+!   
+!           Allocate the data
+!           -----------------
+            no_of_wallDOFS = sum(no_of_wallDOFS_perProcess)
+            allocate( Xwall(NDIM, no_of_wallDOFS) )
+!   
+!           Perform an allgatherv
+!           ---------------------
+            call mpi_allgatherv(localXwall, NDIM*no_of_localWallDOFS, MPI_DOUBLE, Xwall, NDIM*no_of_wallDOFS_perProcess, displ, MPI_DOUBLE, MPI_COMM_WORLD, ierr)
+#endif
+         else
+            no_of_wallDOFS = no_of_localWallDOFS
+            allocate( Xwall(NDIM, no_of_wallDOFS) )
+            Xwall = localXwall
+         end if
+
+         deallocate(localXwall)
+
+      end subroutine HexMesh_GatherAllWallCoordinates
 !
 !//////////////////////////////////////////////////////////////////////// 
 !

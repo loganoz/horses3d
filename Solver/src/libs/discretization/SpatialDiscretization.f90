@@ -15,8 +15,14 @@ module SpatialDiscretization
       use SMConstants
       use InviscidMethods
       use ViscousMethods
+      use LESModels
       use DGWeakIntegrals
       use MeshTypes
+      use HexMeshClass
+      use ElementClass
+      use PhysicsStorage
+      use MPI_Face_Class
+      use MPI_Process_Info
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -27,7 +33,7 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Initialize_SpaceAndTimeMethods(controlVariables)
+      subroutine Initialize_SpaceAndTimeMethods(controlVariables, mesh)
          use PhysicsStorage
          use FTValueDictionaryClass
          use Utilities, only: toLower
@@ -36,6 +42,7 @@ module SpatialDiscretization
          use MPI_Process_Info
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
+         class(HexMesh)                         :: mesh
          character(len=LINE_LENGTH)       :: inviscidDiscretization
          character(len=LINE_LENGTH)       :: viscousDiscretization
 
@@ -104,17 +111,20 @@ module SpatialDiscretization
          end if
 
          call ViscousMethod % Initialize(controlVariables)
+!
+!        Initialize models
+!        -----------------
+         call InitializeLESModel(LESModel, controlVariables)
+
+         if ( LESModel % requiresWallDistances ) then
+            call mesh % ComputeWallDistances
+         end if
          
       end subroutine Initialize_SpaceAndTimeMethods
 !
 !////////////////////////////////////////////////////////////////////////
 !
       subroutine TimeDerivative_ComputeQDot( mesh , t, externalState, externalGradients )
-         use HexMeshClass
-         use ElementClass
-         use PhysicsStorage
-         use MPI_Face_Class
-         use MPI_Process_Info
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
@@ -371,6 +381,7 @@ module SpatialDiscretization
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
                                                   nHat = f % geom % normal(:,i,j) , &
+                                                  dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
                
 !
@@ -425,6 +436,7 @@ module SpatialDiscretization
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
                                                   nHat = f % geom % normal(:,i,j) , &
+                                                  dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
                
 !
@@ -519,6 +531,7 @@ module SpatialDiscretization
                                                 U_yRight = UGradExt(IY,:) , &
                                                 U_zRight = UGradExt(IZ,:) , &
                                                 nHat = f % geom % normal(:,i,j), &
+                                                dWall = f % geom % dWall(i,j), &
                                                 flux = visc_flux )
             else
                visc_flux = 0.0_RP

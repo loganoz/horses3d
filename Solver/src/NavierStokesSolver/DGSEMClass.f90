@@ -314,7 +314,7 @@ Module DGSEMClass
 !     Initialize Spatial discretization methods
 !     -----------------------------------------
 !
-      call Initialize_SpaceAndTimeMethods(controlVariables)
+      call Initialize_SpaceAndTimeMethods(controlVariables, self % mesh)
       
       NULLIFY(Nx,Ny,Nz)
 !
@@ -337,6 +337,7 @@ Module DGSEMClass
       self % externalGradients => NULL()
       IF ( ALLOCATED(InviscidMethod) ) DEALLOCATE( InviscidMethod )
       IF ( ALLOCATED(ViscousMethod ) ) DEALLOCATE( ViscousMethod ) 
+      IF ( ALLOCATED(LESModel) ) DEALLOCATE( LESModel ) 
       
       END SUBROUTINE DestructDGSem
 !

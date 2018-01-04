@@ -4,9 +4,9 @@
 !   @File:    ViscousIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Sat Dec 16 13:23:10 2017
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0f5272f7f0587c4b9dcb9f4f33d865889e46a481
+!   @Last revision date: Thu Jan  4 12:45:22 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 1d518c856d5a93f82524f8abcab3061fd8c243ef
 !
 !//////////////////////////////////////////////////////
 !
@@ -408,6 +408,7 @@ module ViscousIP
          use ElementClass
          use PhysicsStorage
          use Physics
+         use LESModels
          implicit none
          class(InteriorPenalty_t) ,     intent (in) :: self
          type(Element)                          :: e
@@ -417,15 +418,32 @@ module ViscousIP
 !        Local variables
 !        ---------------
 !
+         real(kind=RP)       :: delta
          real(kind=RP)       :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
          real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: tauSGS(1:NDIM,1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: qSGS(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
 
-         mu = dimensionless % mu
+         mu    = dimensionless % mu
          kappa = dimensionless % kappa
+!
+!        Compute subgrid-scale modelling tensor   
+!        --------------------------------------
+         if ( LESModel % active ) then
+            delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+            call LESModel % ComputeSGSTensor(delta, e % Nxyz, e % geom % dWall, &
+                                                              e % storage % U_x, &
+                                                              e % storage % U_y, &
+                                                              e % storage % U_z, &
+                                                                   tauSGS, qSGS    )
+         else
+            tauSGS = 0.0_RP ; qSGS = 0.0_RP
 
-         call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
+         end if
+
+         call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, tauSGS, qSGS, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -447,10 +465,11 @@ module ViscousIP
       end subroutine IP_ComputeInnerFluxes
 
       subroutine IP_RiemannSolver(self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
-                                            nHat , flux )
+                                            nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
          use Physics
+         use LESModels
          implicit none
          class(InteriorPenalty_t)                 :: self
          class(Face), intent(in)                  :: f
@@ -463,6 +482,7 @@ module ViscousIP
          real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
          real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
          real(kind=RP), dimension(NDIM)       :: nHat
+         real(kind=RP)                        :: dWall
          real(kind=RP), dimension(N_EQN)      :: flux
 !
 !        ---------------
@@ -470,8 +490,8 @@ module ViscousIP
 !        ---------------
 !
          real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
-         real(kind=RP)     :: flux_vec(NCONS,NDIM), mu, kappa
-         real(kind=RP)     :: sigma
+         real(kind=RP)     :: flux_vec(NCONS,NDIM)
+         real(kind=RP)     :: mu, kappa, tauSGS(NDIM, NDIM), qSGS(NDIM), delta, sigma
 
 !
 !>       Old implementation: 1st average, then compute
@@ -480,11 +500,16 @@ module ViscousIP
          U_x = 0.5_RP * ( U_xLeft + U_xRight)
          U_y = 0.5_RP * ( U_yLeft + U_yRight)
          U_z = 0.5_RP * ( U_zLeft + U_zRight)
+!
+!        Compute subgrid-scale modelling tensor   
+!        --------------------------------------
+         delta = sqrt(f % geom % surface / product(f % Nf + 1))
+         call LESModel % ComputeSGSTensor(delta, dWall, U_x, U_y, U_z, tauSGS, qSGS) 
 
          mu = dimensionless % mu
          kappa = dimensionless % kappa
 
-         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, flux_vec)
+         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, tauSGS, qSGS, flux_vec)
 !
 !        Shahbazi estimate
 !        -----------------

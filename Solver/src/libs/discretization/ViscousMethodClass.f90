@@ -85,7 +85,7 @@ module ViscousMethodClass
       end subroutine BaseClass_ComputeInnerFluxes
 
       subroutine BaseClass_RiemannSolver ( self, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
-                                           nHat, flux )
+                                           nHat, dWall, flux )
          use SMConstants
          use PhysicsStorage
          use FaceClass
@@ -101,6 +101,7 @@ module ViscousMethodClass
          real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
          real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
          real(kind=RP), dimension(NDIM)       :: nHat
+         real(kind=RP)                        :: dWall
          real(kind=RP), dimension(N_EQN)      :: flux
 !
 !        ---------------------------

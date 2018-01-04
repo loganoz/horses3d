@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Tue Dec 26 20:56:54 2017
+!   @Last revision date: Tue Jan  2 13:01:02 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 11dd5b683eba468bc0e8e4db146cbc1fbc952a8a
+!   @Last revision commit: 9cc8f2b1e854175a60da8137699d5493f95d998a
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,6 +21,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY        = "flow equations"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY   = "riemann solver"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAMBDA_STABILIZATION_KEY  = "lambda stabilization"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LESMODEL_KEY              = "les model"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: COMPUTE_GRADIENTS_KEY     = "compute gradients"
          
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physicsKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
@@ -62,7 +63,7 @@
      public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
      public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
      public    ENTROPYANDENERGYCONS_SPLIT
-
+      
      public    ConstructPhysicsStorage, DestructPhysicsStorage, DescribePhysicsStorage
      public    CheckPhysicsInputIntegrity
 !
@@ -192,7 +193,7 @@
       SUBROUTINE ConstructPhysicsStorage( controlVariables, success )
       USE FTValueDictionaryClass
       USE PhysicsKeywordsModule
-      use Utilities, only: toLower
+      use Utilities, only: toLower, almostEqual
 !
 !     ---------
 !     Arguments
@@ -269,10 +270,16 @@
 !        Set molecular viscosity and thermal conductivity
 !        ------------------------------------------------
 !
-         dimensionless_ % mu   = 1.0_RP / dimensionless_ % Re
-         dimensionless_ % kappa = 1.0_RP / ( thermodynamics_ % gammaMinus1 * &
-                                              POW2( dimensionless_ % Mach) * &
-                                      dimensionless_ % Re * dimensionless_ % Pr )
+         if ( .not. almostEqual(dimensionless_ % Re, 0.0_RP) ) then
+            dimensionless_ % mu   = 1.0_RP / dimensionless_ % Re
+            dimensionless_ % kappa = 1.0_RP / ( thermodynamics_ % gammaMinus1 * &
+                                                 POW2( dimensionless_ % Mach) * &
+                                         dimensionless_ % Re * dimensionless_ % Pr )
+         else
+            dimensionless_ % mu = 0.0_RP
+            dimensionless_ % kappa = 0.0_RP
+
+         end if
       END IF 
 !
 !     **************************************
@@ -318,7 +325,7 @@
       refValues_ % p = refValues_ % rho * POW2( refValues_ % V )
 
       if ( flowIsNavierStokes ) then
-         refValues_ % mu = refValues_ % rho * refValues_ % V * refValues_ % L / dimensionless_ % Re
+         refValues_ % mu = refValues_ % rho * refValues_ % V * refValues_ % L * dimensionless_ % mu
          refValues_ % kappa = refValues_ % mu * thermodynamics_ % cp / dimensionless_ % Pr
 
       else
@@ -415,6 +422,21 @@
 !     --------------------------------------------------
 !
       if ( whichRiemannSolver .eq. RIEMANN_CENTRAL ) lambdaStab = 0.0_RP
+!
+!     **********
+!     LES Models
+!     **********
+!
+      if ( controlVariables % containsKey(LESMODEL_KEY)) then
+         if ( controlVariables % stringValueForKey(LESMODEL_KEY,4) .ne. "none") then
+!
+!           Enable NS fluxes
+!           ----------------
+            flowIsNavierStokes = .true.
+            computeGradients = .true.
+
+         end if
+      end if
 !
 !     ***************
 !     Angle of attack
