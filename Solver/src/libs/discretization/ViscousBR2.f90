@@ -4,9 +4,9 @@
 !   @File:    ViscousBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Thu Jan  4 12:45:22 2018
+!   @Last revision date: Sat Jan  6 11:47:44 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 1d518c856d5a93f82524f8abcab3061fd8c243ef
+!   @Last revision commit: 8cbc4d289bf792c2262bb123c81abfb96897fa95
 !
 !//////////////////////////////////////////////////////
 !
@@ -537,35 +537,42 @@ module ViscousBR2
 
       end subroutine BR2_ComputeInnerFluxes
 
-      subroutine BR2_RiemannSolver(self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
-                                            nHat , dWall, flux )
+      subroutine BR2_RiemannSolver ( self, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, flux)
          use SMConstants
          use PhysicsStorage
          use Physics
+         use FaceClass
          use LESModels
          implicit none
-         class(BassiRebay2_t)                 :: self
-         class(Face), intent(in)                  :: f
-         real(kind=RP), dimension(N_EQN)      :: QLeft
-         real(kind=RP), dimension(N_EQN)      :: QRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
-         real(kind=RP), dimension(NDIM)       :: nHat
-         real(kind=RP)                        :: dWall
-         real(kind=RP), dimension(N_EQN)      :: flux
+         class(BassiRebay2_t)       :: self
+         class(Face),   intent(in)  :: f
+         real(kind=RP), intent(in)  :: QLeft(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)  :: QRight (NCONS, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)  :: U_xLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)  :: U_yLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)  :: U_zLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)  :: U_xRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)  :: U_yRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)  :: U_zRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(out) :: flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
-         real(kind=RP)     :: flux_vec(NCONS,NDIM)
-         real(kind=RP)     :: mu, kappa, tauSGS(NDIM, NDIM), qSGS(NDIM), delta
+         integer           :: i, j
+         real(kind=RP)     :: Q(NCONS, 0:f % Nf(1), 0:f % Nf(2)) 
+         real(kind=RP)     :: U_x(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: U_y(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: U_z(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: flux_vec(NCONS,NDIM, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: mu(0:f % Nf(1), 0:f % Nf(2)), kappa(0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: tauSGS(NDIM, NDIM, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: qSGS(NDIM,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP)     :: delta
 
+         mu    = dimensionless % mu
+         kappa = dimensionless % kappa
 !
 !>       Old implementation: 1st average, then compute
 !        ------------------
@@ -573,19 +580,19 @@ module ViscousBR2
          U_x = 0.5_RP * ( U_xLeft + U_xRight)
          U_y = 0.5_RP * ( U_yLeft + U_yRight)
          U_z = 0.5_RP * ( U_zLeft + U_zRight)
-   
 !
 !        Compute subgrid-scale modelling tensor   
 !        --------------------------------------
          delta = sqrt(f % geom % surface / product(f % Nf + 1))
-         call LESModel % ComputeSGSTensor(delta, dWall, U_x, U_y, U_z, tauSGS, qSGS) 
-   
-         mu = dimensionless % mu
-         kappa = dimensionless % kappa
+         call LESModel % ComputeSGSTensor(delta, f % Nf, f % geom % dWall, U_x, U_y, U_z, tauSGS, qSGS) 
 
-         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, tauSGS, qSGS, flux_vec)
+         call ViscousFlux(f % Nf, Q,U_x,U_y,U_z, mu, kappa, tauSGS, qSGS, flux_vec)
 
-         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) 
+         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+            flux(:,i,j) =   flux_vec(:,IX,i,j) * f % geom % normal(IX,i,j) &
+                          + flux_vec(:,IY,i,j) * f % geom % normal(IY,i,j) &
+                          + flux_vec(:,IZ,i,j) * f % geom % normal(IZ,i,j) 
+         end do               ; end do
 
       end subroutine BR2_RiemannSolver
 

@@ -21,6 +21,7 @@ LIBOBJS =       ./build/WeakIntegrals.o \
 		./build/ViscousBR2.o \
 		./build/ViscousIP.o \
 		./build/ViscousMethods.o \
+		./build/SVV.o\
 		./build/SpatialDiscretization.o
 
 LIB = discretization

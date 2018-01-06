@@ -49,7 +49,7 @@
      end interface InviscidFlux
 
      interface ViscousFlux
-         module procedure ViscousFlux0D, ViscousFlux3D
+         module procedure ViscousFlux0D, ViscousFlux2D, ViscousFlux3D
      end interface ViscousFlux
 !
 !     ========
@@ -352,6 +352,72 @@
          F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa * sutherLaw *U_z(IGT) - qSGS(3)
 
       end subroutine ViscousFlux0D
+
+      pure subroutine ViscousFlux2D( N, Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
+         implicit none
+         integer         , intent(in)  :: N(2)
+         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(in)  :: U_x(1:N_GRAD_EQN, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_y(1:N_GRAD_EQN, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_z(1:N_GRAD_EQN, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
+         real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
+         real(kind=RP),    intent(in)  :: tauSGS(1:NDIM, 1:NDIM, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(in)  :: qSGS(1:NDIM, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(out) :: F   (1:NCONS, 1:NDIM, 0:N(1), 0:N(2))
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: T(0:N(1),0:N(2)) , sutherLaw(0:N(1),0:N(2))
+         real(kind=RP) :: divV(0:N(1),0:N(2))
+         real(kind=RP) :: u(0:N(1),0:N(2)) , v(0:N(1),0:N(2)) , w(0:N(1),0:N(2))
+         integer       :: i , j , k
+
+         associate( gammaM2 => dimensionless % gammaM2, &
+                    gammaMinus1 => thermodynamics % gammaMinus1 ) 
+
+         do j = 0, N(2) ; do i = 0, N(1)
+            u(i,j) = Q(IRHOU,i,j) / Q(IRHO,i,j)
+            v(i,j) = Q(IRHOV,i,j) / Q(IRHO,i,j)
+            w(i,j) = Q(IRHOW,i,j) / Q(IRHO,i,j)
+   
+   
+            T(i,j) = gammaM2 * gammaMinus1 * (Q(IRHOE,i,j)  & 
+                   - 0.5_RP * ( Q(IRHOU,i,j) * u(i,j) + Q(IRHOV,i,j) * v(i,j) + Q(IRHOW,i,j) * w(i,j) ) ) / Q(IRHO,i,j)
+   
+
+            sutherLaw(i,j) = SutherlandsLaw(T(i,j))
+
+            divV(i,j) = U_x(IGU,i,j) + U_y(IGV,i,j) + U_z(IGW,i,j)
+   
+            F(IRHO ,IX,i,j) = 0.0_RP
+            F(IRHOU,IX,i,j) = mu(i,j) * sutherLaw(i,j) * (2.0_RP * U_x(IGU,i,j) - 2.0_RP/3.0_RP * divV(i,j) ) - tauSGS(1,1,i,j)
+            F(IRHOV,IX,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGV,i,j) + U_y(IGU,i,j) ) - tauSGS(2,1,i,j)
+            F(IRHOW,IX,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGW,i,j) + U_z(IGU,i,j) ) - tauSGS(3,1,i,j)
+            F(IRHOE,IX,i,j) = F(IRHOU,IX,i,j) * u(i,j) + F(IRHOV,IX,i,j) * v(i,j) + F(IRHOW,IX,i,j) * w(i,j) &
+                  + sutherLaw(i,j) * kappa(i,j) * U_x(IGT,i,j) - qSGS(1,i,j)
+   
+            F(IRHO, IY,i,j) = 0.0_RP
+            F(IRHOU,IY,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGV,i,j) + U_y(IGU,i,j) )  - tauSGS(1,2,i,j)
+            F(IRHOV,IY,i,j) = mu(i,j) * sutherLaw(i,j) * (2.0_RP * U_y(IGV,i,j) - 2.0_RP / 3.0_RP * divV(i,j) ) - tauSGS(2,2,i,j)
+            F(IRHOW,IY,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_y(IGW,i,j) + U_z(IGV,i,j) ) - tauSGS(3,2,i,j)
+            F(IRHOE,IY,i,j) = F(IRHOU,IY,i,j) * u(i,j) + F(IRHOV,IY,i,j) * v(i,j) + F(IRHOW,IY,i,j) * w(i,j) &
+                  + sutherLaw(i,j) * kappa(i,j) * U_y(IGT,i,j) - qSGS(2,i,j)
+   
+            F(IRHO, IZ,i,j ) = 0.0_RP
+            F(IRHOU,IZ,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGW,i,j) + U_z(IGU,i,j) ) - tauSGS(1,3,i,j)
+            F(IRHOV,IZ,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_y(IGW,i,j) + U_z(IGV,i,j) ) - tauSGS(2,3,i,j)
+            F(IRHOW,IZ,i,j) = mu(i,j) * sutherLaw(i,j) * ( 2.0_RP * U_z(IGW,i,j) - 2.0_RP / 3.0_RP * divV(i,j) ) - tauSGS(3,3,i,j)
+            F(IRHOE,IZ,i,j) = F(IRHOU,IZ,i,j) * u(i,j) + F(IRHOV,IZ,i,j) * v(i,j) + F(IRHOW,IZ,i,j) * w(i,j) &
+                  + sutherLaw(i,j) * kappa(i,j) * U_z(IGT,i,j) - qSGS(3,i,j)
+   
+         end do    ; end do
+
+         end associate
+
+      end subroutine ViscousFlux2D
 
       pure subroutine ViscousFlux3D( N, Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
          implicit none

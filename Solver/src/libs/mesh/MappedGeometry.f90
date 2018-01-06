@@ -497,7 +497,6 @@ Module MappedGeometryClass
       allocate( self % normal(NDIM, 0:Nf(1), 0:Nf(2)))
       allocate( self % t1(NDIM, 0:Nf(1), 0:Nf(2)))
       allocate( self % t2(NDIM, 0:Nf(1), 0:Nf(2)))
-      allocate( self % dWall(0:Nf(1), 0:Nf(2)))
 
       dS = 0.0_RP
 
@@ -689,7 +688,7 @@ Module MappedGeometryClass
          deallocate(self % normal   ) 
          deallocate(self % t1       ) 
          deallocate(self % t2       ) 
-         deallocate(self % dWall    ) 
+         safedeallocate(self % dWall    ) 
          
       end subroutine DestructMappedGeometryFace
 

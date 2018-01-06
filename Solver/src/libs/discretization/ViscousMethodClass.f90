@@ -84,25 +84,22 @@ module ViscousMethodClass
 
       end subroutine BaseClass_ComputeInnerFluxes
 
-      subroutine BaseClass_RiemannSolver ( self, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
-                                           nHat, dWall, flux )
+      subroutine BaseClass_RiemannSolver ( self, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, flux)
          use SMConstants
          use PhysicsStorage
          use FaceClass
          implicit none
-         class(ViscousMethod_t)               :: self
-         class(Face),   intent(in)            :: f
-         real(kind=RP), dimension(N_EQN)      :: QLeft
-         real(kind=RP), dimension(N_EQN)      :: QRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
-         real(kind=RP), dimension(NDIM)       :: nHat
-         real(kind=RP)                        :: dWall
-         real(kind=RP), dimension(N_EQN)      :: flux
+         class(ViscousMethod_t)     :: self
+         class(Face),   intent(in)  :: f
+         real(kind=RP), intent(in)  :: QLeft(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)  :: QRight (NCONS, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)  :: U_xLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)  :: U_yLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)  :: U_zLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)  :: U_xRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)  :: U_yRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)  :: U_zRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(out) :: flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
 !
 !        ---------------------------
 !        The base class does nothing

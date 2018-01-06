@@ -4,9 +4,9 @@
 !   @File:    LESModels.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Dec 27 17:44:13 2017
-!   @Last revision date: Wed Jan  3 19:06:39 2018
+!   @Last revision date: Sat Jan  6 11:47:46 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 2895042ddfc64e498cc007fdbe6eacf1522c4701
+!   @Last revision commit: 8cbc4d289bf792c2262bb123c81abfb96897fa95
 !
 !//////////////////////////////////////////////////////
 !
@@ -32,8 +32,9 @@ module LESModels
       logical  :: requiresWallDistances
       contains
          procedure            :: Initialize         => LESModel_Initialize
-         generic              :: ComputeSGSTensor   => ComputeSGSTensor0D, ComputeSGSTensor3D
+         generic              :: ComputeSGSTensor   => ComputeSGSTensor0D, ComputeSGSTensor2D, ComputeSGSTensor3D
          procedure, private   :: ComputeSGSTensor3D => LESModel_ComputeSGSTensor3D
+         procedure, private   :: ComputeSGSTensor2D => LESModel_ComputeSGSTensor2D
          procedure, private   :: ComputeSGSTensor0D => LESModel_ComputeSGSTensor0D
          procedure            :: Describe           => LESModel_Describe
    end type LESModel_t
@@ -43,6 +44,7 @@ module LESModels
       contains
          procedure          :: Initialize         => Smagorinsky_Initialize
          procedure, private :: ComputeSGSTensor3D => Smagorinsky_ComputeSGSTensor3D
+         procedure, private :: ComputeSGSTensor2D => Smagorinsky_ComputeSGSTensor2D
          procedure, private :: ComputeSGSTensor0D => Smagorinsky_ComputeSGSTensor0D
          procedure          :: Describe           => Smagorinsky_Describe
    end type Smagorinsky_t
@@ -125,6 +127,23 @@ module LESModels
          q   = 0.0_RP
 
       end subroutine LESModel_ComputeSGSTensor3D
+
+      subroutine LESModel_ComputeSGSTensor2D(self, delta, N, dWall, U_x, U_y, U_z, tau, q)
+         implicit none
+         class(LESModel_t), intent(in) :: self
+         real(kind=RP), intent(in)     :: delta
+         integer,       intent(in)     :: N(2)
+         real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_x(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_y(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_z(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2))
+         real(kind=RP), intent(out)    :: q(NDIM, 0:N(1), 0:N(2))
+           
+         tau = 0.0_RP
+         q   = 0.0_RP
+
+      end subroutine LESModel_ComputeSGSTensor2D
 
       subroutine LESModel_ComputeSGSTensor0D(self, delta, dWall, U_x, U_y, U_z, tau, q)
          implicit none
@@ -241,6 +260,70 @@ module LESModels
          end do         ; end do          ; end do
          
       end subroutine Smagorinsky_ComputeSGSTensor3D
+
+      subroutine Smagorinsky_ComputeSGSTensor2D(self, delta, N, dWall, U_x, U_y, U_z, tau, q)
+         implicit none
+         class(Smagorinsky_t), intent(in) :: self
+         real(kind=RP), intent(in)     :: delta
+         integer,       intent(in)     :: N(2)
+         real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_x(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_y(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_z(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2))
+         real(kind=RP), intent(out)    :: q(NDIM, 0:N(1), 0:N(2))
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer       :: i, j
+         real(kind=RP) :: S(NDIM, NDIM)
+         real(kind=RP) :: normS, divV, mu, kappa, LS
+
+         do j = 0, N(2)  ; do i = 0, N(1)
+!
+!           Compute symmetric part of the deformation tensor
+!           ------------------------------------------------
+            S(:,1) = U_x(1:3, i, j)
+            S(:,2) = U_y(1:3, i, j)
+            S(:,3) = U_z(1:3, i, j)
+
+            S(1,:) = S(1,:) + U_x(1:3,i,j)
+            S(2,:) = S(2,:) + U_y(1:3,i,j)
+            S(3,:) = S(3,:) + U_z(1:3,i,j)
+
+            S = 0.5_RP * S
+
+            divV = S(1,1) + S(2,2) + S(3,3)
+!
+!           Compute the norm of S
+!           --------------------- 
+            normS = sqrt( 2.0_RP * sum(S*S) )
+!
+!           Compute viscosity and thermal conductivity
+!           ------------------------------------------
+            LS = min(self % CS * delta, dWall(i,j) * K_VONKARMAN)
+            mu = POW2(LS) * normS
+            kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Pr)
+!
+!           Remove the volumetric deformation tensor
+!           ----------------------------------------
+            S(1,1) = S(1,1) - 1.0_RP / 3.0_RP * divV
+            S(2,2) = S(2,2) - 1.0_RP / 3.0_RP * divV
+            S(3,3) = S(3,3) - 1.0_RP / 3.0_RP * divV
+!
+!           Compute the SGS tensor and heat flux
+!           ------------------------------------
+            tau(:,:,i,j) = -2.0_RP * mu * S
+
+            q(1,i,j) = -kappa * U_x(4,i,j)
+            q(2,i,j) = -kappa * U_y(4,i,j)
+            q(3,i,j) = -kappa * U_z(4,i,j)
+
+         end do          ; end do
+         
+      end subroutine Smagorinsky_ComputeSGSTensor2D
 
       subroutine Smagorinsky_ComputeSGSTensor0D(self, delta, dWall, U_x, U_y, U_z, tau, q)
          implicit none
