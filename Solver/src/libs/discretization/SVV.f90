@@ -4,9 +4,9 @@
 !   @File:    SVV.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Jan  6 11:47:48 2018
-!   @Last revision date: Sat Jan  6 12:27:38 2018
+!   @Last revision date: Sat Jan 13 11:52:30 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 9172fbe9a4b6249e7baf1e15d603b3719ebe7764
+!   @Last revision commit: c31c1af62cb5dd38ffb332169a65ce0c8630198e
 !
 !//////////////////////////////////////////////////////
 !
@@ -156,24 +156,13 @@ module SpectralVanishingViscosity
          real(kind=RP)       :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
          real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP)       :: tauSGS(1:NDIM,1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP)       :: qSGS(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k, ii, jj, kk
          real(kind=RP)       :: Q3D
-
-         if ( .not. self % enabled ) then
-            contravariantFlux = 0.0_RP
-            return
-         end if
 !
 !        Compute the SVV viscosity
 !        -------------------------
          mu    = self % muSVV !/ maxval(e % Nxyz+1)
          kappa = mu / ( thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Pr)
-
-
-         tauSGS = 0.0_RP
-         qSGS   = 0.0_RP
 !
 !        --------------------
 !        Filter the gradients
@@ -195,7 +184,7 @@ module SpectralVanishingViscosity
 
          end associate
 
-         call ViscousFlux( e%Nxyz, e % storage % Q , Uxf, Uyf, Uzf, mu, kappa, tauSGS, qSGS, cartesianFlux )
+         call ViscousFlux( e%Nxyz, e % storage % Q , Uxf, Uyf, Uzf, mu, kappa, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -249,14 +238,7 @@ module SpectralVanishingViscosity
          real(kind=RP)     :: Uzf(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)     :: flux_vec(NCONS,NDIM, 0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)     :: mu(0:f % Nf(1), 0:f % Nf(2)), kappa(0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: tauSGS(NDIM, NDIM, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: qSGS(NDIM,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP)     :: delta, Q2D
-
-         if ( .not. self % enabled ) then
-            flux = 0.0_RP
-            return
-         end if
 
          mu    = self % muSVV !/ maxval(f % Nf+1)
          kappa = mu / ( thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Pr)
@@ -287,10 +269,7 @@ module SpectralVanishingViscosity
 
          end associate
 
-         tauSGS = 0.0_RP
-         qSGS   = 0.0_RP
-
-         call ViscousFlux(f % Nf, Q,U_x,U_y,U_z, mu, kappa, tauSGS, qSGS, flux_vec)
+         call ViscousFlux(f % Nf, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             flux(:,i,j) =   flux_vec(:,IX,i,j) * f % geom % normal(IX,i,j) &
