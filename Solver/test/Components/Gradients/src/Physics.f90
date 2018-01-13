@@ -374,7 +374,8 @@
      end interface InviscidFlux
 
      interface ViscousFlux
-         module procedure ViscousFlux0D , ViscousFlux3D
+         module procedure ViscousFlux0D , ViscousFlux2D, ViscousFlux3D
+         module procedure ViscousFlux0DWithSGS , ViscousFlux3DWithSGS
      end interface ViscousFlux
     
 !
@@ -574,7 +575,7 @@
 !! the calculation of the gradient terms.
 !---------------------------------------------------------------------
 !
-      pure subroutine ViscousFlux0D( Q , U_x , U_y , U_z, mu, kappa, tauSGS, qSGS, F)
+      pure subroutine ViscousFlux0DWithSGS( Q , U_x , U_y , U_z, mu, kappa, tauSGS, qSGS, F)
          implicit none
          real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS          ) 
          real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN     ) 
@@ -597,9 +598,9 @@
          F(1:N_GRAD_EQN,IY) = U_y
          F(1:N_GRAD_EQN,IZ) = U_z
 
-      end subroutine ViscousFlux0D
+      end subroutine ViscousFlux0DWithSGS
 
-      pure subroutine ViscousFlux3D( N, Q , U_x , U_y , U_z, mu, kappa, tauSGS, qSGS, F)
+      pure subroutine ViscousFlux3DWithSGS( N, Q , U_x , U_y , U_z, mu, kappa, tauSGS, qSGS, F)
          implicit none
          integer          , intent ( in ) :: N(3)
          real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS, 0:N(1) , 0:N(2) , 0:N(3)) 
@@ -610,6 +611,66 @@
          real ( kind=RP ) , intent ( in ) :: kappa   ( 0:N(1) , 0:N(2) , 0:N(3)) 
          real ( kind=RP ) , intent ( in ) :: tauSGS  (NDIM, NDIM, 0:N(1) , 0:N(2) , 0:N(3)) 
          real ( kind=RP ) , intent ( in ) :: qSGS    (NDIM, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( out) :: F    ( 1:NCONS, 0:N(1) , 0:N(2) , 0:N(3), 1:NDIM )
+
+         F = 0.0_RP
+         F(1:N_GRAD_EQN,:,:,:,IX) = U_x
+         F(1:N_GRAD_EQN,:,:,:,IY) = U_y
+         F(1:N_GRAD_EQN,:,:,:,IZ) = U_z
+
+      end subroutine ViscousFlux3DWithSGS
+
+      pure subroutine ViscousFlux0D( Q , U_x , U_y , U_z, mu, kappa, F)
+         implicit none
+         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: mu, kappa
+         real(kind=RP), intent(out)       :: F    ( 1:NCONS , 1:NDIM )
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)                    :: T , muOfT , kappaOfT
+         real(kind=RP)                    :: divV
+         real(kind=RP)                    :: u , v , w
+
+         F = 0.0_RP
+         F(1:N_GRAD_EQN,IX) = U_x
+         F(1:N_GRAD_EQN,IY) = U_y
+         F(1:N_GRAD_EQN,IZ) = U_z
+
+      end subroutine ViscousFlux0D
+
+      pure subroutine ViscousFlux2D( N, Q , U_x , U_y , U_z, mu, kappa, F)
+         implicit none
+         integer          , intent ( in ) :: N(2)
+         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS, 0:N(1) , 0:N(2)) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2)) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2)) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2)) 
+         real ( kind=RP ) , intent ( in ) :: mu   ( 0:N(1) , 0:N(2)) 
+         real ( kind=RP ) , intent ( in ) :: kappa   ( 0:N(1) , 0:N(2)) 
+         real ( kind=RP ) , intent ( out) :: F    ( 1:NCONS, 0:N(1) , 0:N(2), 1:NDIM )
+
+         F = 0.0_RP
+         F(1:N_GRAD_EQN,:,:,IX) = U_x
+         F(1:N_GRAD_EQN,:,:,IY) = U_y
+         F(1:N_GRAD_EQN,:,:,IZ) = U_z
+
+      end subroutine ViscousFlux2D
+
+      pure subroutine ViscousFlux3D( N, Q , U_x , U_y , U_z, mu, kappa, F)
+         implicit none
+         integer          , intent ( in ) :: N(3)
+         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: mu   ( 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: kappa   ( 0:N(1) , 0:N(2) , 0:N(3)) 
          real ( kind=RP ) , intent ( out) :: F    ( 1:NCONS, 0:N(1) , 0:N(2) , 0:N(3), 1:NDIM )
 
          F = 0.0_RP

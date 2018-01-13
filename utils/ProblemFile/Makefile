@@ -139,11 +139,11 @@ HORSES_LIBS=-lmonitors -ljacobian -lmesh -lphysics -lio -lspectral -lmpiutils -l
 
 all: $(TARGET)
 
-$(TARGET): ./ProblemFile.o
+$(TARGET): FORCE ./ProblemFile.o
 	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG) $(FFLAGS) $(INCLUDE) ./ProblemFile.o -L$(HOME_DIR)/lib $(HORSES_LIBS)
 	
 # ---------- Executable macro -------------------
-./ProblemFile.o: ./ProblemFile.f90
+./ProblemFile.o: FORCE ./ProblemFile.f90
 	$(FC) -fPIC -shared $(FFLAGS) $(INCLUDE) -c ./ProblemFile.f90 -o $@
 
 clean: FORCE

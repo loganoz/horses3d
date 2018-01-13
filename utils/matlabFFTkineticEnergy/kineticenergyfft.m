@@ -12,7 +12,7 @@
 %
 %   Program options
 %   ---------------
-    cubeFile = '~/Desktop/TGV8P8LES1d0Roe.cube.tec';
+    cubeFile = '/Users/juanmanzanero/Volumes/magerit/horses_cases/TaylorGreen/Lambda10WithPirozzoli/RESULTS/TGV12P8PIRoe/TGV12P8PILam10Roe_0000508668.cube.tec';
     plotSpectra = true;
     writeSpectra = false;
     resultsName = 'spectra';

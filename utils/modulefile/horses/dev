@@ -1,0 +1,11 @@
+#%Module1.0
+proc ModulesHelp { } {
+   global dotversion
+
+   puts stderr "\ti HORSES - A High-Order spectral element solver"
+}
+
+module-whatis " HORSES - A High-Order spectral element solver"
+
+prepend-path PATH ~/local/codes/horses3d/Solver/bin
+setenv METIS_HOME ~/apps/metis/5.1.0
