@@ -93,6 +93,7 @@ OBJS_HORSES=  SMConstants \
 		InviscidStandard \
 		InviscidSplitForm \
 		InviscidMethods \
+		SVV \
 		ViscousMethodClass \
 		ViscousBR1 \
 		ViscousBR2 \
