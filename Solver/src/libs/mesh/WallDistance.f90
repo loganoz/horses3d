@@ -4,13 +4,14 @@
 !   @File:    WallDistance.f90
 !   @Author:  Diego Lodares and Juan Manzanero (juan.manzanero@upm.es) 
 !   @Created: Wed Jan  3 13:33:07 2018
-!   @Last revision date: Wed Jan  3 19:06:37 2018
+!   @Last revision date: Tue Jan 16 13:25:53 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 2895042ddfc64e498cc007fdbe6eacf1522c4701
+!   @Last revision commit: 5143fa03eb24e8282a2043aa22cb178df572b474
 !
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
+#if defined(NAVIERSTOKES)
 module WallDistance
    use SMConstants
    use LESModels
@@ -1118,3 +1119,4 @@ module WallDistance
       end function
            
 end module WallDistance
+#endif

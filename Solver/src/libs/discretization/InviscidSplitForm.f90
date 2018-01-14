@@ -1,4 +1,5 @@
 #include "Includes.h"
+#if defined(NAVIERSTOKES)
 module InviscidSplitForm
    use SMConstants
    use RiemannSolvers
@@ -787,3 +788,4 @@ module InviscidSplitForm
       end subroutine EntropyAndEnergyConserving_VolumetricSharpFlux
 
 end module InviscidSplitForm
+#endif

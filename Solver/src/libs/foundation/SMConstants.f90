@@ -50,6 +50,6 @@
 
          INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
 
-         CHARACTER(len=*), parameter   :: VERSION = "v0.7.4: First version with space for multiple physics"
+         CHARACTER(len=*), parameter   :: VERSION = "v0.7.5: Preliminar version of the CH solver"
          
       END MODULE SMConstants

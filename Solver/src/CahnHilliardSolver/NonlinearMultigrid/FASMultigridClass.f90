@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:42 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Fri Jan 19 10:29:28 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: c17f4e94742539c11368332a5d06386553679b0a
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,6 +21,7 @@
 !        New smoothers should be added to handle unsteady cases
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#if defined(NAVIERSTOKES)
 module FASMultigridClass
    use SMConstants
    use ExplicitMethods
@@ -138,7 +139,7 @@ module FASMultigridClass
       
       if (controlVariables % containsKey("cfl")) then
          cfl = controlVariables % doublePrecisionValueForKey("cfl")
-         if (flowIsNavierStokes) then
+         if (.true.) then
             if (controlVariables % containsKey("dcfl")) then
                dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
             else
@@ -258,14 +259,14 @@ module FASMultigridClass
             DO k=0, Solver % p_sem % Nz(iEl)
                DO j=0, Solver % p_sem % Ny(iEl)
                   DO i=0, Solver % p_sem % Nx(iEl)
-                     if (flowIsNavierStokes) then
-                        call ManufacturedSolutionSourceNS(Solver % p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
-                                                          0._RP, &
-                                                          Solver % MGStorage(iEl) % Scase (:,i,j,k)  )
+                     if (.true.) then
+!                        call ManufacturedSolutionSourceNS(Solver % p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
+!                                                          0._RP, &
+!                                                          Solver % MGStorage(iEl) % Scase (:,i,j,k)  )
                      else
-                        call ManufacturedSolutionSourceEuler(Solver % p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
-                                                             0._RP, &
-                                                             Solver % MGStorage(iEl) % Scase (:,i,j,k)  )
+!                        call ManufacturedSolutionSourceEuler(Solver % p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
+!                                                             0._RP, &
+!                                                             Solver % MGStorage(iEl) % Scase (:,i,j,k)  )
                      end if
                   end DO
                end DO
@@ -382,7 +383,7 @@ module FASMultigridClass
       sweepcount = 0
       DO
          DO iEl = 1, NumOfSweeps
-            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
+!            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
             call SmoothIt   (this % p_sem, t, dt )
          end DO
          sweepcount = sweepcount + NumOfSweeps
@@ -457,7 +458,7 @@ module FASMultigridClass
       sweepcount = 0
       DO
          DO iEl = 1, NumOfSweeps
-            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
+!            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
             call SmoothIt   (this % p_sem, t, dt)
          end DO
          
@@ -552,7 +553,7 @@ module FASMultigridClass
       else
          DO
             counter = counter + 1
-            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
+!            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
             call SmoothIt   (this % p_sem, t, dt )
             maxResidual = ComputeMaxResidual(this % p_sem)
             
@@ -705,3 +706,4 @@ module FASMultigridClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 end module FASMultigridClass
+#endif

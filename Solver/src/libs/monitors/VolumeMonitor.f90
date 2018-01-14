@@ -1,3 +1,4 @@
+#if defined(NAVIERSTOKES)
 module VolumeMonitorClass
    use SMConstants
    use HexMeshClass
@@ -244,3 +245,4 @@ module VolumeMonitorClass
       
       end subroutine VolumeMonitor_WriteToFile
 end module VolumeMonitorClass
+#endif

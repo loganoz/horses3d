@@ -63,8 +63,13 @@ module ResidualsMonitorClass
 !        ----------------------------------
          open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" ) 
          write ( fID , ' ( A                                      ) ' ) "Residuals file"
+#if defined(NAVIERSTOKES)
          write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "Iteration" , "Time" , "continuity" , &
                                                               "x-momentum" , "y-momentum" , "z-momentum", "energy"
+#elif defined(CAHNHILLIARD)
+         write ( fID , ' ( A10,2X,A24,2X,A24) ' ) "Iteration" , "Time" , "concentration"
+
+#endif
 !
 !        Close file
 !        ----------
@@ -100,12 +105,17 @@ module ResidualsMonitorClass
 !
          implicit none
          class(Residuals_t)             :: self
-
+#if defined(NAVIERSTOKES)
          write(STD_OUT , '(3X,A10)' , advance = "no") "continuity"
          write(STD_OUT , '(3X,A10)' , advance = "no") "x-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "y-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "z-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "energy"
+
+#elif defined(CAHNHILLIARD)
+         write(STD_OUT , '(3X,A10)' , advance = "no") "concentration"
+
+#endif
 
       end subroutine Residuals_WriteLabel
    

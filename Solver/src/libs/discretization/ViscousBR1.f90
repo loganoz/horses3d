@@ -17,9 +17,11 @@ module ViscousBR1
          procedure      :: Initialize                => BR1_Initialize
          procedure      :: ComputeGradient           => BR1_ComputeGradient
          procedure      :: ComputeInnerFluxes        => BR1_ComputeInnerFluxes
-         procedure      :: ComputeInnerFluxesWithSGS => BR1_ComputeInnerFluxesWithSGS
          procedure      :: RiemannSolver             => BR1_RiemannSolver
+#if defined(NAVIERSTOKES)
+         procedure      :: ComputeInnerFluxesWithSGS => BR1_ComputeInnerFluxesWithSGS
          procedure      :: RiemannSolverWithSGS      => BR1_RiemannSolverWithSGS
+#endif
    end type BassiRebay1_t
 !
 !  ========
@@ -374,7 +376,6 @@ module ViscousBR1
          use ElementClass
          use PhysicsStorage
          use Physics
-         use LESModels
          implicit none
          class(BassiRebay1_t) ,     intent (in) :: self
          type(Element)                          :: e
@@ -390,10 +391,19 @@ module ViscousBR1
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
 
+#if defined(NAVIERSTOKES)
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
 
+#else 
+         mu = 0.0_RP
+         kappa = 0.0_RP
+
+#endif
+
          call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
+
+
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -413,7 +423,7 @@ module ViscousBR1
          end do               ; end do            ; end do
 
       end subroutine BR1_ComputeInnerFluxes
-
+#if defined(NAVIERSTOKES)
       subroutine BR1_ComputeInnerFluxesWithSGS( self , e , contravariantFlux )
          use ElementClass
          use PhysicsStorage
@@ -468,14 +478,13 @@ module ViscousBR1
          end do               ; end do            ; end do
 
       end subroutine BR1_ComputeInnerFluxesWithSGS
-
+#endif
       subroutine BR1_RiemannSolver ( self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
          use Physics
          use FaceClass
-         use LESModels
          implicit none
          class(BassiRebay1_t)                 :: self
          class(Face),   intent(in)            :: f
@@ -507,15 +516,22 @@ module ViscousBR1
          U_y = 0.5_RP * ( U_yLeft + U_yRight)
          U_z = 0.5_RP * ( U_zLeft + U_zRight)
 
+#if defined(NAVIERSTOKES)
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
+
+#else
+         mu = 0.0_RP
+         kappa = 0.0_RP
+
+#endif
 
          call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 
       end subroutine BR1_RiemannSolver
-
+#if defined(NAVIERSTOKES)
       subroutine BR1_RiemannSolverWithSGS ( self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
@@ -567,5 +583,5 @@ module ViscousBR1
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 
       end subroutine BR1_RiemannSolverWithSGS
-
+#endif
 end module ViscousBR1

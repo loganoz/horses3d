@@ -1,4 +1,5 @@
 #include "Includes.h"
+#if defined(NAVIERSTOKES)
 module StatisticsMonitor
    use SMConstants
    use HexMeshClass
@@ -492,3 +493,4 @@ module StatisticsMonitor
       end subroutine StatisticsMonitor_WriteValue 
 
 end module StatisticsMonitor
+#endif

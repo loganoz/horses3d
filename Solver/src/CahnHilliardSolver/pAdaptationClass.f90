@@ -31,14 +31,17 @@ module pAdaptationClass
    use DGSEMClass
    use PhysicsStorage
    use InterpolationMatrices
+#if defined(NAVIERSTOKES)
    use TruncationErrorClass
+#endif
    use FTValueDictionaryClass
    
    implicit none
    
    private
    public GetMeshPolynomialOrders, ReadOrderFile, WriteOrderFile
-   public pAdaptation_t, PrintTEmap
+   public PrintTEmap
+   public pAdaptation_t
    
    !--------------------------------------------------
    ! Main type for performing a p-adaptation procedure
@@ -52,8 +55,9 @@ module pAdaptationClass
       logical                           :: increasing       ! Performing an increasing adaptation procedure?
       logical                           :: Constructed      ! 
       integer                           :: NxyzMax(3)       ! Maximum polynomial order in all the directions
-      
+#if defined(NAVIERSTOKES)      
       type(TruncationError_t), allocatable :: TE(:)         ! Truncation error for every element(:)
+#endif
       
       contains
          procedure :: construct => ConstructPAdaptator
@@ -270,11 +274,13 @@ module pAdaptationClass
 !     ----------------------------------------
 !
       nelem = size(Nx)
+#if defined(NAVIERSTOKES)
       allocate (this % TE(nelem))
       
       do iEl = 1, nelem
          call this % TE(iEl) % construct(NMIN,this % NxyzMax)
       end do
+#endif
       
 !
 !     ---------------------------------------------
@@ -308,11 +314,13 @@ module pAdaptationClass
       !--------------------------------------
       
       ! Truncation error
+#if defined(NAVIERSTOKES)
       do iEl = 1, nelem
          call this % TE(iEl) % destruct()
       end do
       
       deallocate (this % TE)
+#endif
    end subroutine DestructPAdaptator
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -322,7 +330,9 @@ module pAdaptationClass
 !  the truncation error estimation
 !  ------------------------------------------------------------------------
    subroutine pAdaptTE(pAdapt,sem,itera,t)
+#if defined(NAVIERSTOKES)
       use AnisFASMultigridClass
+#endif
       implicit none
       !--------------------------------------
       class(pAdaptation_t)       :: pAdapt            !<> Adaptation class
@@ -350,7 +360,9 @@ module pAdaptationClass
       integer                    :: i,j,k             !   Counters
       integer                    :: DOFs, NewDOFs
       logical                    :: notenough(3)
+#if defined(NAVIERSTOKES)
       TYPE(AnisFASMultigrid_t)      :: AnisFASpAdaptSolver
+#endif
       !--------------------------------------
 
       write(STD_OUT,*) '****     Performing p-Adaptation      ****'
@@ -364,9 +376,11 @@ module pAdaptationClass
 !     Estimate the truncation error using the anisotropic multigrid
 !     -------------------------------------------------------------
 !
+#if defined(NAVIERSTOKES)
       CALL AnisFASpAdaptSolver % construct(pAdapt % controlVariables,sem)
       CALL AnisFASpAdaptSolver % solve(itera,t,pAdapt % TE)
       CALL AnisFASpAdaptSolver % destruct
+#endif
 !
 !     -------------------------------------------------------------
 !     Find the polynomial order that fulfills the error requirement
@@ -403,9 +417,11 @@ module pAdaptationClass
             do j = NMIN, P_1(2)
                do i = NMIN, P_1(1) 
                   ! 1. Generate a TEmap entry
+#if defined(NAVIERSTOKES)
                   TEmap(i,j,k) = pAdapt % TE(iEl) % Dir(1) % maxTE(i) + &  !xi   contribution
                                  pAdapt % TE(iEl) % Dir(2) % maxTE(j) + &  !eta  contribution
                                  pAdapt % TE(iEl) % Dir(3) % maxTE(k)      !zeta contribution
+#endif
                   
                   ! 2. Check if it fulfills the requirement
                   if (TEmap(i,j,k) < pAdapt % reqTE) then
@@ -435,6 +451,7 @@ module pAdaptationClass
             
             ! 1. Regression analysis
             do Dir = 1, 3
+#if defined(NAVIERSTOKES)
                call RegressionIn1Dir(TE    = pAdapt % TE(iEl)     , &
                                      P_1   = P_1(Dir)             , & 
                                      NMax  = pAdapt % NxyzMax(Dir), &
@@ -443,6 +460,7 @@ module pAdaptationClass
                                      Dir   = Dir                  , &
                                      notenough = notenough(Dir)   , &
                                      error     = Error(Dir,iEl))
+#endif
             end do
             
             ! If the truncation error behaves as expected, continue, otherwise skip steps 2-3-4 and select maximum N
@@ -461,9 +479,11 @@ module pAdaptationClass
                         if (notenough(3) .AND. k > Pxyz(3)) cycle ! The regression was not possible in zeta (too few points), hence only checking with known values
                         
                         ! 2. Generate a TEmap entry
+#if defined(NAVIERSTOKES)
                         TEmap(i,j,k) = pAdapt % TE(iEl) % Dir(1) % maxTE(i) + &  !x contribution
                                        pAdapt % TE(iEl) % Dir(2) % maxTE(j) + &  !y contribution
                                        pAdapt % TE(iEl) % Dir(3) % maxTE(k)      !z contribution
+#endif
                         
                         ! 3. Check if TE was achieved
                         if (TEmap(i,j,k) < pAdapt % reqTE) then
@@ -595,6 +615,8 @@ module pAdaptationClass
 !  -> So far, this only works with shared memory ...and computes everything in serial! (TODO: Update to MPI!)
 !  -----------------------------------------------------------------------
    subroutine ReorganizePolOrders(faces,NNew)
+      use FaceClass
+      use ElementClass
       implicit none
       !------------------------------------------------------------
       type(Face), intent(in)    :: faces(:)
@@ -718,10 +740,13 @@ module pAdaptationClass
 !  Subroutine that extrapolates the behavior of the directional components
 !  of the truncation error.
 !  -----------------------------------------------------------------------
+#if defined(NAVIERSTOKES)
    subroutine RegressionIn1Dir(TE,P_1,NMax,Dir,notenough,error,Stage,iEl)
       implicit none
       !---------------------------------------
+#if defined(NAVIERSTOKES)
       type(TruncationError_t)    :: TE                !<> Decaupled truncation error for one element
+#endif
       integer                    :: P_1               !<  P-1 (max polynomial order with tau estimation for regression)
       integer                    :: NMax
       integer                    :: Dir
@@ -753,7 +778,9 @@ module pAdaptationClass
       
       ! Perform regression analysis   
       N = P_1 - NMIN + 1
+#if defined(NAVIERSTOKES)
       y = LOG10(TE % Dir(Dir) % maxTE (NMIN:P_1))
+#endif
       x = (/ (real(i,RP), i=NMIN,P_1) /)
       call C_and_eta_estimation(N,x,y,C,eta)
       
@@ -764,12 +791,15 @@ module pAdaptationClass
       end if
       
       ! Extrapolate the TE
+#if defined(NAVIERSTOKES)
       do i = P_1+1, NMax
          TE % Dir(Dir) % maxTE(i) = 10**(C + eta*i)
       end do
+#endif
       
       
    end subroutine RegressionIn1Dir
+#endif
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

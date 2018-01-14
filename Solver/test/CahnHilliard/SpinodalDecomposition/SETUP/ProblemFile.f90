@@ -1,4 +1,16 @@
 !
+!//////////////////////////////////////////////////////
+!
+!   @File:    ProblemFile.f90
+!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
+!   @Created: Fri Jan 19 12:22:20 2018
+!   @Last revision date: Fri Jan 19 15:06:14 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: d47bcab70e393ec443727dd07ba1872345f5ba24
+!
+!//////////////////////////////////////////////////////
+!
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      ProblemFile.f90
@@ -113,6 +125,12 @@
          subroutine userdefinedinitialcondition(mesh, thermodynamics_, &
                                                       dimensionless_, &
                                                           refvalues_  )
+!
+!           **************************************************************
+!                 This function specifies the initial condition for a 
+!              spinodal decomposition.
+!           **************************************************************
+!
             use smconstants
             use physicsstorage
             use hexmeshclass
@@ -121,6 +139,33 @@
             type(thermodynamics_t), intent(in)  :: thermodynamics_
             type(dimensionless_t),  intent(in)  :: dimensionless_
             type(refvalues_t),      intent(in)  :: refvalues_
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            integer        :: eid, i, j, k
+            real(kind=rp)  :: qq, u, v, w, p
+            real(kind=rp)  :: q(n_eqn), phi, theta
+
+            call random_seed()
+      
+            do eid = 1, mesh % no_of_elements
+               associate( nx => mesh % elements(eid) % nxyz(1), &
+                          ny => mesh % elements(eid) % nxyz(2), &
+                          nz => mesh % elements(eid) % nxyz(3) )
+               do j = 0, ny; do i = 0, nx 
+                  call random_number(mesh % elements(eID) % storage % c(i,j,0))
+                  mesh % elements(eID) % storage % c(i,j,0) = 2.0_RP * (mesh % elements(eID) % storage % c(i,j,0) - 0.5_RP)
+               end do;        end do
+
+               do k = 1, nz
+                  mesh % elements(eID) % storage % c(:,:,k) = mesh % elements(eID) % storage % c(:,:,0)
+               end do
+
+               mesh % elements(eID) % storage % Q(1,:,:,:) = mesh % elements(eID) % storage % c
+               end associate
+            end do
             
          end subroutine userdefinedinitialcondition
 #endif

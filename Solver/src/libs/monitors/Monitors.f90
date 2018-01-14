@@ -32,10 +32,12 @@ module MonitorsClass
    use HexMeshClass
    use MonitorDefinitions
    use ResidualsMonitorClass
+#if defined(NAVIERSTOKES)
    use StatisticsMonitor
    use ProbeClass
    use SurfaceMonitorClass
    use VolumeMonitorClass
+#endif
    implicit none
 !
 #include "Includes.h"
@@ -49,17 +51,21 @@ module MonitorsClass
 !  
    type Monitor_t
       character(len=LINE_LENGTH)           :: solution_file
+#if defined(NAVIERSTOKES)
       integer                              :: no_of_probes
       integer                              :: no_of_surfaceMonitors
       integer                              :: no_of_volumeMonitors
+#endif
       integer                              :: bufferLine
       integer                              :: iter( BUFFER_SIZE )
       real(kind=RP)                        :: t  (BUFFER_SIZE )
-      type(StatisticsMonitor_t)            :: stats
       type(Residuals_t)                    :: residuals
+#if defined(NAVIERSTOKES)
       class(Probe_t),          allocatable :: probes(:)
       class(SurfaceMonitor_t), allocatable :: surfaceMonitors(:)
       class(VolumeMonitor_t),  allocatable :: volumeMonitors(:)
+      type(StatisticsMonitor_t)            :: stats
+#endif
       contains
          procedure   :: WriteLabel      => Monitor_WriteLabel
          procedure   :: WriteUnderlines => Monitor_WriteUnderlines
@@ -108,12 +114,15 @@ module MonitorsClass
 !
 !        Search in case file for probes, surface monitors, and volume monitors
 !        ---------------------------------------------------------------------
+#if defined(NAVIERSTOKES)
          call getNoOfMonitors( Monitors % no_of_probes, Monitors % no_of_surfaceMonitors, Monitors % no_of_volumeMonitors )
+#endif
 !
 !        Initialize
 !        ----------
-         call Monitors % stats     % Construct(mesh)
          call Monitors % residuals % Initialization( solution_file )
+#if defined(NAVIERSTOKES)
+         call Monitors % stats     % Construct(mesh)
 
          allocate ( Monitors % probes ( Monitors % no_of_probes )  )
          do i = 1 , Monitors % no_of_probes
@@ -129,7 +138,7 @@ module MonitorsClass
          do i = 1 , Monitors % no_of_volumeMonitors
             call Monitors % volumeMonitors(i) % Initialization ( mesh , i, solution_file )
          end do
-
+#endif
 
          Monitors % bufferLine = 0
 
@@ -157,6 +166,7 @@ module MonitorsClass
 !        Write residuals labels
 !        ----------------------
          call self % residuals % WriteLabel
+#if defined(NAVIERSTOKES)
 !
 !        Write probes labels
 !        -------------------
@@ -177,6 +187,7 @@ module MonitorsClass
          end do
 
          call self % stats % WriteLabel
+#endif
 
          write(STD_OUT , *) 
 
@@ -213,6 +224,7 @@ module MonitorsClass
          do i = 1 , NCONS
             write(STD_OUT , '(3X,A10)' , advance = "no" ) trim(dashes)
          end do
+#if defined(NAVIERSTOKES)
 !
 !        Print dashes for probes
 !        -----------------------
@@ -235,6 +247,7 @@ module MonitorsClass
          end do
 
          if ( self % stats % state .ne. 0 ) write(STD_OUT,'(3X,A10)',advance="no") trim(dashes)
+#endif
 
          write(STD_OUT , *) 
 
@@ -262,6 +275,7 @@ module MonitorsClass
 !        Print residuals
 !        ---------------
          call self % residuals % WriteValues( self % bufferLine )
+#if defined(NAVIERSTOKES)
 !
 !        Print probes
 !        ------------
@@ -282,6 +296,7 @@ module MonitorsClass
          end do
 
          call self % stats % WriteValue
+#endif
 
          write(STD_OUT , *) 
 
@@ -320,6 +335,7 @@ module MonitorsClass
 !        Compute current residuals
 !        -------------------------
          call self % residuals % Update( mesh, maxResiduals, self % bufferLine )
+#if defined(NAVIERSTOKES)
 !
 !        Update probes
 !        -------------
@@ -342,6 +358,7 @@ module MonitorsClass
 !        Update statistics
 !        -----------------
          call self % stats % Update(mesh, iter, t, trim(self % solution_file) )
+#endif
 
       end subroutine Monitor_UpdateValues
 
@@ -375,7 +392,7 @@ module MonitorsClass
 !           In this case the monitors are exported to their files and the buffer is reseted
 !           -------------------------------------------------------------------------------
             call self % residuals % WriteToFile ( self % iter , self % t , self % bufferLine )
-   
+#if defined(NAVIERSTOKES)   
             do i = 1 , self % no_of_probes
                call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
@@ -396,6 +413,7 @@ module MonitorsClass
                i = self % bufferLine
             end if
             call self % stats % WriteFile(mesh, self % iter(i), self % t(i), self % solution_file)
+#endif
 !
 !           Reset buffer
 !           ------------
@@ -408,7 +426,7 @@ module MonitorsClass
             if ( self % bufferLine .eq. BUFFER_SIZE ) then
 
                call self % residuals % WriteToFile ( self % iter , self % t , BUFFER_SIZE )
-
+#if defined(NAVIERSTOKES)
                do i = 1 , self % no_of_probes
                   call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine ) 
                end do
@@ -420,6 +438,7 @@ module MonitorsClass
                do i = 1 , self % no_of_volumeMonitors
                   call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
                end do
+#endif
 !
 !              Reset buffer
 !              ------------

@@ -4,9 +4,9 @@
 !   @File:    ViscousIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Sat Jan 13 12:55:09 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7c05ca6433a0e89d4fc45c14186a44b4da90117b
+!   @Last revision date: Sat Jan 20 18:43:01 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 1fb4c93edba89e57ab928b053c6b9b4598c17d82
 !
 !//////////////////////////////////////////////////////
 !
@@ -39,6 +39,10 @@ module ViscousIP
          procedure      :: ComputeGradient    => IP_ComputeGradient
          procedure      :: ComputeInnerFluxes => IP_ComputeInnerFluxes
          procedure      :: RiemannSolver      => IP_RiemannSolver
+#if defined(NAVIERSTOKES)
+         procedure      :: ComputeInnerFluxesWithSGS => IP_ComputeInnerFluxesWithSGS
+         procedure      :: RiemannSolverWithSGS      => IP_RiemannSolverWithSGS
+#endif
    end type InteriorPenalty_t
 !
 !  ========
@@ -408,7 +412,6 @@ module ViscousIP
          use ElementClass
          use PhysicsStorage
          use Physics
-         use LESModels
          implicit none
          class(InteriorPenalty_t) ,     intent (in) :: self
          type(Element)                          :: e
@@ -424,8 +427,15 @@ module ViscousIP
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
 
+#if defined(NAVIERSTOKES)
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
+
+#elif defined(CAHNHILLIARD)
+         mu = 1.0_RP
+         kappa = 0.0_RP
+
+#endif
 
          call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
 
@@ -447,7 +457,7 @@ module ViscousIP
          end do               ; end do            ; end do
 
       end subroutine IP_ComputeInnerFluxes
-
+#if defined(NAVIERSTOKES)
       subroutine IP_ComputeInnerFluxesWithSGS( self , e , contravariantFlux )
          use ElementClass
          use PhysicsStorage
@@ -502,14 +512,13 @@ module ViscousIP
          end do               ; end do            ; end do
 
       end subroutine IP_ComputeInnerFluxesWithSGS
-
+#endif
       subroutine IP_RiemannSolver ( self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
          use Physics
          use FaceClass
-         use LESModels
          implicit none
          class(InteriorPenalty_t)                 :: self
          class(Face),   intent(in)            :: f
@@ -541,8 +550,15 @@ module ViscousIP
          U_y = 0.5_RP * ( U_yLeft + U_yRight)
          U_z = 0.5_RP * ( U_zLeft + U_zRight)
 
+#if defined(NAVIERSTOKES)
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
+
+#elif defined(CAHNHILLIARD)
+         mu = 1.0_RP
+         kappa = 0.0_RP
+
+#endif
 
          call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 !
@@ -553,7 +569,7 @@ module ViscousIP
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - sigma * (QLeft - QRight)
 
       end subroutine IP_RiemannSolver
-
+#if defined(NAVIERSTOKES)
       subroutine IP_RiemannSolverWithSGS ( self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
@@ -610,5 +626,5 @@ module ViscousIP
 
 
       end subroutine IP_RiemannSolverWithSGS
-
+#endif
 end module ViscousIP

@@ -10,6 +10,7 @@
 !
 !//////////////////////////////////////////////////////
 !
+#if defined(NAVIERSTOKES)
 module TruncationErrorClass
    use SMConstants
    use MultigridTypes
@@ -203,3 +204,4 @@ module TruncationErrorClass
       end do
    end subroutine EstimateTruncationError
 end module TruncationErrorClass
+#endif

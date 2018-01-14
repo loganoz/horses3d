@@ -79,6 +79,7 @@
             real(kind=RP)  :: qq, u, v, w, p
             real(kind=RP)  :: Q(N_EQN), phi, theta
 
+#if defined(NAVIERSTOKES)
             associate ( gammaM2 => dimensionless_ % gammaM2, &
                         gamma => thermodynamics_ % gamma )
             theta = refValues_ % AOATheta*(PI/180.0_RP)
@@ -107,6 +108,7 @@
             end do
 
             end associate
+#endif
             
          END SUBROUTINE UserDefinedInitialCondition
 
@@ -259,6 +261,7 @@
 !           the roe solver and mach = 0.3
 !           ------------------------------------------------
 !
+#if defined(NAVIERSTOKES)
             real(kind=RP), parameter :: final_time = 8.1360293112980031_RP
             real(kind=RP), parameter :: res(NCONS) = [ 3.9167069726447580E-003_RP, &
                                                        7.0027671589173224E-002_RP, &
@@ -335,6 +338,7 @@
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
+#endif
 
          END SUBROUTINE UserDefinedFinalize
 !
