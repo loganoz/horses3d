@@ -689,6 +689,7 @@ Module DGSEMClass
       !------------------------------------------------
       integer                       :: i, j, k, eID                     ! Coordinate and element counters
       integer                       :: N(3)                             ! Polynomial order in the three reference directions
+      integer                       :: ierr                             ! Error for MPI calls
       real(kind=RP)                 :: eValues(3)                       ! Advective eigenvalues
       real(kind=RP)                 :: dcsi, deta, dzet                 ! Smallest mesh spacing
       real(kind=RP)                 :: dcsi2, deta2, dzet2              ! Smallest mesh spacing squared
