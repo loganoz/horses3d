@@ -9,6 +9,7 @@ Output Interval       = 1
 Number of plot points = 2
 Convergence tolerance = 1.d-10
 cfl                   = 0.4
+dcfl                  = 0.4
 inviscid discretization = split-form
 split form            = entropy and energy conserving
 viscous discretization = IP
