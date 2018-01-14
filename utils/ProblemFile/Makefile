@@ -32,6 +32,7 @@ MAKE=make
 INCLUDE=-I$(HOME_DIR)/include
 LIBS =
 MACROS =
+-include $(HOME_DIR)/make.inc
 -include make.inc
 
 ########################################
@@ -44,7 +45,7 @@ GNU_DEBUG_FLAGS=  -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-varia
                   -fbacktrace -fbounds-check -finit-real=snan -Wall \
                   -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
                   -fbackslash -fcheck=pointer
-INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc
+INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc -fp-model precise
 INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all \
                    -check bounds -check uninit -ftrapuv -debug all -warn interfaces \
                    -ftrace=full -ftz -fp-model precise \
@@ -138,11 +139,11 @@ HORSES_LIBS=-lmonitors -ljacobian -lmesh -lphysics -lio -lspectral -lmpiutils -l
 
 all: $(TARGET)
 
-$(TARGET): ./ProblemFile.o
+$(TARGET): FORCE ./ProblemFile.o
 	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG) $(FFLAGS) $(INCLUDE) ./ProblemFile.o -L$(HOME_DIR)/lib $(HORSES_LIBS)
 	
 # ---------- Executable macro -------------------
-./ProblemFile.o: ./ProblemFile.f90
+./ProblemFile.o: FORCE ./ProblemFile.f90
 	$(FC) -fPIC -shared $(FFLAGS) $(INCLUDE) -c ./ProblemFile.f90 -o $@
 
 clean: FORCE

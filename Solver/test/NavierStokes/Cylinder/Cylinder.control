@@ -30,7 +30,7 @@ riemann solver        = roe
    Name = cyl-drag
    Marker = innercylinder
    Variable = drag
-   Direction = [1.0,0.0,0.0]
+   Direction = [0.0,0.0,1.0]
    Reference surface = 1.0	
 #end
 
@@ -38,6 +38,7 @@ riemann solver        = roe
    Name = cyl-lift
    Marker = innercylinder
    Variable = lift
+   Direction = [1.0,0.0,0.0]
    Reference surface = 1.0
 #end
 

@@ -13,6 +13,8 @@ MOD_FLAG?=-J
 
 LIBOBJS = 	./build/FluidData.o \
 		./build/PhysicsStorage.o \
+		./build/VariableConversion.o \
+		./build/LESModels.o \
 		./build/RiemannSolvers.o \
 		./build/Physics.o \
 		./build/ManufacturedSolutions.o \
@@ -29,7 +31,7 @@ LIB = physics
 ./build/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) -fPIC $(FFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) $(MACROS) $(EXTLIB_INC) -I./include $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
 lib$(LIB).a: header mkdirs $(LIBOBJS)
 	@echo

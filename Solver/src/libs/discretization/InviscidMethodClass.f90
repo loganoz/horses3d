@@ -4,9 +4,9 @@
 !   @File:    InviscidMethodClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:16:30 2017
-!   @Last revision date: Fri Dec 15 17:39:16 2017
+!   @Last revision date: Tue Dec 26 20:56:52 2017
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 3f52e4fec56acdc2657420c274f99b342c67dd81
+!   @Last revision commit: 11dd5b683eba468bc0e8e4db146cbc1fbc952a8a
 !
 !//////////////////////////////////////////////////////
 !
@@ -31,7 +31,7 @@ module InviscidMethodClass
    end type InviscidMethod_t
 
    abstract interface
-      function VolumetricSharpFlux_FCN(QL,QR,JaL,JaR) 
+      subroutine VolumetricSharpFlux_FCN(QL,QR,JaL,JaR,fSharp) 
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -39,8 +39,8 @@ module InviscidMethodClass
          real(kind=RP), intent(in)       :: QR(1:NCONS)
          real(kind=RP), intent(in)       :: JaL(1:NDIM)
          real(kind=RP), intent(in)       :: JaR(1:NDIM)
-         real(kind=RP), dimension(NCONS) :: VolumetricSharpFlux_FCN
-      end function VolumetricSharpFlux_FCN
+         real(kind=RP), intent(out)      :: fSharp(1:NCONS)
+      end subroutine VolumetricSharpFlux_FCN
    end interface
 !
 !  ========
@@ -103,6 +103,9 @@ module InviscidMethodClass
 
          case (RIEMANN_ROEPIKE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe-Pike"
+         
+         case (RIEMANN_MATRIXDISS)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Matrix dissipation"
          
          case (RIEMANN_LOWDISSROE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Low dissipation Roe"

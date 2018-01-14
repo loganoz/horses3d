@@ -12,10 +12,12 @@ module ViscousMethodClass
 
    type ViscousMethod_t
       contains
-         procedure      :: Initialize         => BaseClass_Initialize
-         procedure      :: ComputeGradient    => BaseClass_ComputeGradient
-         procedure      :: ComputeInnerFluxes => BaseClass_ComputeInnerFluxes
-         procedure      :: RiemannSolver      => BaseClass_RiemannSolver
+         procedure      :: Initialize                => BaseClass_Initialize
+         procedure      :: ComputeGradient           => BaseClass_ComputeGradient
+         procedure      :: ComputeInnerFluxes        => BaseClass_ComputeInnerFluxes
+         procedure      :: ComputeInnerFluxesWithSGS => BaseClass_ComputeInnerFluxesWithSGS
+         procedure      :: RiemannSolver             => BaseClass_RiemannSolver
+         procedure      :: RiemannSolverWithSGS      => BaseClass_RiemannSolverWithSGS
    end type ViscousMethod_t
 !
 !  ========
@@ -84,8 +86,24 @@ module ViscousMethodClass
 
       end subroutine BaseClass_ComputeInnerFluxes
 
+      subroutine BaseClass_ComputeInnerFluxesWithSGS( self , e , contravariantFlux )
+         use ElementClass
+         use PhysicsStorage
+         implicit none
+         class(ViscousMethod_t) ,  intent (in)   :: self
+         type(Element)                           :: e
+         real(kind=RP)           ,  intent (out) :: contravariantFlux(1:N_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+!
+!        ---------------------------
+!        The base class does nothing
+!        ---------------------------
+!
+         contravariantFlux = 0.0_RP
+
+      end subroutine BaseClass_ComputeInnerFluxesWithSGS
+
       subroutine BaseClass_RiemannSolver ( self, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
-                                           nHat, flux )
+                                           nHat, dWall, flux )
          use SMConstants
          use PhysicsStorage
          use FaceClass
@@ -101,6 +119,7 @@ module ViscousMethodClass
          real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
          real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
          real(kind=RP), dimension(NDIM)       :: nHat
+         real(kind=RP)                        :: dWall
          real(kind=RP), dimension(N_EQN)      :: flux
 !
 !        ---------------------------
@@ -110,4 +129,32 @@ module ViscousMethodClass
          flux = 0.0_RP
 
       end subroutine BaseClass_RiemannSolver
+
+      subroutine BaseClass_RiemannSolverWithSGS ( self, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
+                                                  nHat, dWall, flux )
+         use SMConstants
+         use PhysicsStorage
+         use FaceClass
+         implicit none
+         class(ViscousMethod_t)               :: self
+         class(Face),   intent(in)            :: f
+         real(kind=RP), dimension(N_EQN)      :: QLeft
+         real(kind=RP), dimension(N_EQN)      :: QRight
+         real(kind=RP), dimension(N_GRAD_EQN) :: U_xLeft
+         real(kind=RP), dimension(N_GRAD_EQN) :: U_yLeft
+         real(kind=RP), dimension(N_GRAD_EQN) :: U_zLeft
+         real(kind=RP), dimension(N_GRAD_EQN) :: U_xRight
+         real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
+         real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
+         real(kind=RP), dimension(NDIM)       :: nHat
+         real(kind=RP)                        :: dWall
+         real(kind=RP), dimension(N_EQN)      :: flux
+!
+!        ---------------------------
+!        The base class does nothing
+!        ---------------------------
+!
+         flux = 0.0_RP
+
+      end subroutine BaseClass_RiemannSolverWithSGS
 end module ViscousMethodClass

@@ -73,7 +73,8 @@
       IMPLICIT NONE
       
       PUBLIC  :: GaussLegendreNodesAndWeights, LegendreLobattoNodesAndWeights
-      PRIVATE :: LegendrePolyAndDerivative, qAndLEvaluation
+      PUBLIC  :: LegendrePolyAndDerivative
+      PRIVATE :: qAndLEvaluation
 !
 !     ========
       CONTAINS

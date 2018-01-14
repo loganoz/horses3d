@@ -28,6 +28,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY               = "aoa phi"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY        = "flow equations"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY   = "riemann solver"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LESMODEL_KEY              = "les model"
          
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physicsKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
          
@@ -55,6 +56,7 @@
 !
      LOGICAL :: flowIsNavierStokes = .true.
      LOGICAL :: computeGradients = .true.
+     logical :: useLESModel = .false.
 !
 !    --------------------------
 !!   The sizes of the NS system
@@ -81,6 +83,7 @@
 !    ---------------------------------------
 !
      INTEGER, PARAMETER  :: IGU = 1 , IGV = 2 , IGW = 3 , IGT = 4
+     integer, parameter  :: NGRAD = 4
 !
 !    --------------------------------------------
 !!   The temperature scale in the Sutherland law:
@@ -109,6 +112,7 @@
      integer, parameter :: RIEMANN_ROEPIKE    = 6
      integer, parameter :: RIEMANN_LOWDISSROE = 7
      integer, parameter :: RIEMANN_VISCOUSNS  = 8
+     integer, parameter :: RIEMANN_MATRIXDISS = 9
      integer, protected :: whichRiemannSolver = -1
      real(kind=RP)      :: lambdaStab = 0.0_RP
 !
@@ -116,11 +120,13 @@
 !    Available averaging functions
 !    -----------------------------
 !
-     integer, parameter :: STANDARD_SPLIT      = 1
-     integer, parameter :: MORINISHI_SPLIT     = 2
-     integer, parameter :: DUCROS_SPLIT        = 3
-     integer, parameter :: KENNEDYGRUBER_SPLIT = 4
-     integer, parameter :: PIROZZOLI_SPLIT     = 5
+     integer, parameter :: STANDARD_SPLIT             = 1
+     integer, parameter :: MORINISHI_SPLIT            = 2
+     integer, parameter :: DUCROS_SPLIT               = 3
+     integer, parameter :: KENNEDYGRUBER_SPLIT        = 4
+     integer, parameter :: PIROZZOLI_SPLIT            = 5
+     integer, parameter :: ENTROPYCONS_SPLIT          = 6
+     integer, parameter :: ENTROPYANDENERGYCONS_SPLIT = 7
      integer            :: whichAverage = -1
 
 
@@ -363,16 +369,13 @@
 !    Interface block
 !    ---------------
 !
-     interface GradientValuesForQ
-         module procedure GradientValuesForQ_0D , GradientValuesForQ_3D
-     end interface GradientValuesForQ
-
      interface InviscidFlux
          module procedure InviscidFlux0D , InviscidFlux3D
      end interface InviscidFlux
 
      interface ViscousFlux
-         module procedure ViscousFlux0D , ViscousFlux3D
+         module procedure ViscousFlux0D , ViscousFlux2D, ViscousFlux3D
+         module procedure ViscousFlux0DWithSGS , ViscousFlux3DWithSGS
      end interface ViscousFlux
     
 !
@@ -457,7 +460,7 @@
          v  = q(IRHOV) / q(IRHO)
          w  = q(IRHOW) / q(IRHO)
          V2 = u*u + v*v + w*w
-         p  = Pressure(q)
+!         p  = Pressure(q)
          H  = (q(IRHOE) + p) / q(IRHO)
 !
 !        Flux in the x direction (f)
@@ -572,6 +575,51 @@
 !! the calculation of the gradient terms.
 !---------------------------------------------------------------------
 !
+      pure subroutine ViscousFlux0DWithSGS( Q , U_x , U_y , U_z, mu, kappa, tauSGS, qSGS, F)
+         implicit none
+         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS          ) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN     ) 
+         real ( kind=RP ) , intent ( in ) :: mu, kappa
+         real(kind=RP),    intent(in)     :: tauSGS(NDIM,NDIM), qSGS(NDIM)
+         real(kind=RP), intent(out)       :: F    ( 1:NCONS , 1:NDIM )
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)                    :: T , muOfT , kappaOfT
+         real(kind=RP)                    :: divV
+         real(kind=RP)                    :: u , v , w
+
+         F = 0.0_RP
+         F(1:N_GRAD_EQN,IX) = U_x
+         F(1:N_GRAD_EQN,IY) = U_y
+         F(1:N_GRAD_EQN,IZ) = U_z
+
+      end subroutine ViscousFlux0DWithSGS
+
+      pure subroutine ViscousFlux3DWithSGS( N, Q , U_x , U_y , U_z, mu, kappa, tauSGS, qSGS, F)
+         implicit none
+         integer          , intent ( in ) :: N(3)
+         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: mu   ( 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: kappa   ( 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: tauSGS  (NDIM, NDIM, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( in ) :: qSGS    (NDIM, 0:N(1) , 0:N(2) , 0:N(3)) 
+         real ( kind=RP ) , intent ( out) :: F    ( 1:NCONS, 0:N(1) , 0:N(2) , 0:N(3), 1:NDIM )
+
+         F = 0.0_RP
+         F(1:N_GRAD_EQN,:,:,:,IX) = U_x
+         F(1:N_GRAD_EQN,:,:,:,IY) = U_y
+         F(1:N_GRAD_EQN,:,:,:,IZ) = U_z
+
+      end subroutine ViscousFlux3DWithSGS
+
       pure subroutine ViscousFlux0D( Q , U_x , U_y , U_z, mu, kappa, F)
          implicit none
          real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS          ) 
@@ -596,6 +644,24 @@
 
       end subroutine ViscousFlux0D
 
+      pure subroutine ViscousFlux2D( N, Q , U_x , U_y , U_z, mu, kappa, F)
+         implicit none
+         integer          , intent ( in ) :: N(2)
+         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS, 0:N(1) , 0:N(2)) 
+         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2)) 
+         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2)) 
+         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2)) 
+         real ( kind=RP ) , intent ( in ) :: mu   ( 0:N(1) , 0:N(2)) 
+         real ( kind=RP ) , intent ( in ) :: kappa   ( 0:N(1) , 0:N(2)) 
+         real ( kind=RP ) , intent ( out) :: F    ( 1:NCONS, 0:N(1) , 0:N(2), 1:NDIM )
+
+         F = 0.0_RP
+         F(1:N_GRAD_EQN,:,:,IX) = U_x
+         F(1:N_GRAD_EQN,:,:,IY) = U_y
+         F(1:N_GRAD_EQN,:,:,IZ) = U_z
+
+      end subroutine ViscousFlux2D
+
       pure subroutine ViscousFlux3D( N, Q , U_x , U_y , U_z, mu, kappa, F)
          implicit none
          integer          , intent ( in ) :: N(3)
@@ -613,83 +679,6 @@
          F(1:N_GRAD_EQN,:,:,:,IZ) = U_z
 
       end subroutine ViscousFlux3D
-!
-!
-!
-! /////////////////////////////////////////////////////////////////////
-!
-!---------------------------------------------------------------------
-!! GradientValuesForQ takes the solution (Q) values and returns the
-!! quantities of which the gradients will be taken.
-!---------------------------------------------------------------------
-!
-      SUBROUTINE GradientValuesForQ_0D( Q, U )
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP), DIMENSION(N_EQN)     , INTENT(IN)  :: Q
-      REAL(KIND=RP), DIMENSION(N_GRAD_EQN), INTENT(OUT) :: U
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!     
-      U(1) = Q(1)
-      U(2) = Q(2)
-      U(3) = Q(3)
-      U(4) = Q(4)
-
-      END SUBROUTINE GradientValuesForQ_0D
-
-      SUBROUTINE GradientValuesForQ_3D( Nx, Ny, Nz, Q, U )
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      integer,       intent(in)  :: Nx, Ny, Nz
-      REAL(KIND=RP), INTENT(IN)  :: Q(1:NCONS,0:Nx,0:Ny,0:Nz)
-      REAL(KIND=RP), INTENT(OUT) :: U(1:N_GRAD_EQN,0:Nx,0:Ny,0:Nz)
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!     
-      U(1,:,:,:) = Q(1,:,:,:)
-      U(2,:,:,:) = Q(2,:,:,:)
-      U(3,:,:,:) = Q(3,:,:,:)
-      U(4,:,:,:) = Q(4,:,:,:)
-
-      END SUBROUTINE GradientValuesForQ_3D
-!
-! /////////////////////////////////////////////////////////////////////
-!
-!@mark -
-!---------------------------------------------------------------------
-!! Compute the pressure from the state variables
-!---------------------------------------------------------------------
-!
-      PURE FUNCTION Pressure(Q) RESULT(P)
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP), DIMENSION(N_EQN), INTENT(IN) :: Q
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      REAL(KIND=RP) :: P
-      
-      P = thermodynamics % gammaMinus1*(Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1))
-
-      END FUNCTION Pressure
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -740,38 +729,14 @@
 
 
       END FUNCTION ThermalDiffusivity
-!
-! /////////////////////////////////////////////////////////////////////
-!
-!---------------------------------------------------------------------
-!! Compute the temperature from the state variables
-!---------------------------------------------------------------------
-!
-      PURE FUNCTION Temperature(Q) RESULT(T)
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP), DIMENSION(N_EQN), INTENT(IN) :: Q
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      REAL(KIND=RP) :: T
-!
-      T = dimensionless % gammaM2*Pressure(Q)/Q(1)
 
-      END FUNCTION Temperature
-
-      function getStressTensor(Q,U_x,U_y,U_z) result(tau)
+     pure subroutine getStressTensor(Q,U_x,U_y,U_z,tau)
          implicit none
-         real ( kind=RP ) , intent ( in ) :: Q    ( 1:NCONS          ) 
-         real ( kind=RP ) , intent ( in ) :: U_x  ( 1:N_GRAD_EQN     ) 
-         real ( kind=RP ) , intent ( in ) :: U_y  ( 1:N_GRAD_EQN     ) 
-         real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN     ) 
-         real(kind=RP)                    :: tau  ( 1:NDIM, 1:NDIM   )
+         real(kind=RP), intent(in)      :: Q   (1:NCONS         )
+         real(kind=RP), intent(in)      :: U_x (1:N_GRAD_EQN    )
+         real(kind=RP), intent(in)      :: U_y (1:N_GRAD_EQN    )
+         real(kind=RP), intent(in)      :: U_z (1:N_GRAD_EQN    )
+         real(kind=RP), intent(out)     :: tau (1:NDIM, 1:NDIM   )
 !
 !        ---------------
 !        Local variables
@@ -782,24 +747,33 @@
 
          associate ( mu0 => dimensionless % mu )
 
-         T     = Temperature(Q)
-         muOfT = MolecularDiffusivity(T)
+!         T     = Temperature(Q)
+!         muOfT = SutherlandsLaw(T)
 
          divV = U_x(IGU) + U_y(IGV) + U_z(IGW)
 
          tau(IX,IX) = mu0 * muOfT * (2.0_RP * U_x(IGU) - 2.0_RP/3.0_RP * divV )
-         tau(IY,IX) = mu0 * muOfT * ( U_x(IGV) + U_y(IGU) ) 
-         tau(IZ,IX) = mu0 * muOfT * ( U_x(IGW) + U_z(IGU) ) 
+         tau(IY,IX) = mu0 * muOfT * ( U_x(IGV) + U_y(IGU) )
+         tau(IZ,IX) = mu0 * muOfT * ( U_x(IGW) + U_z(IGU) )
          tau(IX,IY) = tau(IY,IX)
          tau(IY,IY) = mu0 * muOfT * (2.0_RP * U_y(IGV) - 2.0_RP/3.0_RP * divV )
-         tau(IZ,IY) = mu0 * muOfT * ( U_y(IGW) + U_z(IGV) ) 
+         tau(IZ,IY) = mu0 * muOfT * ( U_y(IGW) + U_z(IGV) )
          tau(IX,IZ) = tau(IZ,IX)
          tau(IY,IZ) = tau(IZ,IY)
          tau(IZ,IZ) = mu0 * muOfT * (2.0_RP * U_z(IGW) - 2.0_RP/3.0_RP * divV )
 
          end associate
 
-      end function getStressTensor
+      end subroutine getStressTensor
+
+
+!
+! /////////////////////////////////////////////////////////////////////
+!
+!---------------------------------------------------------------------
+!! Compute the temperature from the state variables
+!---------------------------------------------------------------------
+!
 
       
    END Module Physics
@@ -817,7 +791,7 @@
       
       USE SMConstants
       USE PhysicsStorage
-      USE Physics, ONLY:Pressure
+!      USE Physics, ONLY:Pressure
       IMPLICIT NONE
 !
 !     ---------
@@ -836,7 +810,7 @@
       u = ABS( Q(2)/Q(1) )
       v = ABS( Q(3)/Q(1) )
       w = ABS( Q(4)/Q(1) )
-      p = Pressure(Q)
+!      p = Pressure(Q)
       a = SQRT(thermodynamics % gamma*p/Q(1))
       
       eigen(1) = u + a

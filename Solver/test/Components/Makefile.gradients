@@ -47,7 +47,7 @@ ARFLAGS=crv
 
 
 # ------------------------------------------------
-OBJS_CASE= Setup Physics GradientSetup GradientTests InitialFlowState TestGradientsMain
+OBJS_CASE= Setup VariableConversion Physics GradientSetup GradientTests InitialFlowState TestGradientsMain
 	   
 OBJS_HORSES=  SMConstants \
 		StorageClass \
@@ -69,6 +69,8 @@ OBJS_HORSES=  SMConstants \
 		SharedBCModule \
 		FacePatchClass \
 		MappedGeometry \
+		WallDistance\
+		LESModels\
 		TransfiniteMaps3D \
 		FaceClass \
 		HexElementClass \
@@ -91,6 +93,7 @@ OBJS_HORSES=  SMConstants \
 		InviscidStandard \
 		InviscidSplitForm \
 		InviscidMethods \
+		SVV \
 		ViscousMethodClass \
 		ViscousBR1 \
 		ViscousBR2 \

@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Fri Dec 15 19:06:26 2017
+!   @Last revision date: Tue Jan  2 13:01:02 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 6ff4e62306809f27aca94408301b7dfab13e3a6b
+!   @Last revision commit: 9cc8f2b1e854175a60da8137699d5493f95d998a
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,6 +21,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY        = "flow equations"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY   = "riemann solver"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAMBDA_STABILIZATION_KEY  = "lambda stabilization"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LESMODEL_KEY              = "les model"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: COMPUTE_GRADIENTS_KEY     = "compute gradients"
          
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physicsKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
@@ -32,9 +33,8 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME       ="standard roe"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROEPIKE_SOLVER_NAME      ="roe-pike"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME   ="low dissipation roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MATRIXDISS_SOLVER_NAME   ="matrix dissipation"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: VISCOUSNS_SOLVER_NAME    ="viscous ns"
-      
-         
       END MODULE PhysicsKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
@@ -50,17 +50,20 @@
 
      private
      public    flowIsNavierStokes, N_EQN, N_GRAD_EQN, NDIM, IX, IY, IZ
-     public    NCONS, IRHO, IRHOU, IRHOV, IRHOW, IRHOE, IGU, IGV, IGW, IGT
+     public    NCONS, IRHO, IRHOU, IRHOV, IRHOW, IRHOE
+     public    NGRAD, IGU, IGV, IGW, IGT
+     public    NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2
      public    TScale, TRatio
      public    Thermodynamics, RefValues, Dimensionless
      public    Thermodynamics_t, RefValues_t, Dimensionless_t
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV, RIEMANN_STDROE
      public    RIEMANN_CENTRAL, RIEMANN_ROEPIKE, RIEMANN_LOWDISSROE
-     public    RIEMANN_VISCOUSNS
+     public    RIEMANN_VISCOUSNS, RIEMANN_MATRIXDISS
      public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
-     public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT
-
+     public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
+     public    ENTROPYANDENERGYCONS_SPLIT
+      
      public    ConstructPhysicsStorage, DestructPhysicsStorage, DescribePhysicsStorage
      public    CheckPhysicsInputIntegrity
 !
@@ -91,10 +94,18 @@
      INTEGER, PARAMETER       :: NCONS = 5
      INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
 !
+!    ----------------------------------------
+!!   The positions of the primitive variables
+!    ----------------------------------------
+!
+     INTEGER, PARAMETER       :: NPRIM = 7
+     INTEGER, PARAMETER       :: IPIRHO = 1, IPU = 2, IPV = 3, IPW = 4, IPP = 5, IPT = 6, IPA2 = 7
+!
 !    ---------------------------------------
 !!   The positions of the gradient variables
 !    ---------------------------------------
 !
+     INTEGER, PARAMETER  :: NGRAD = 4
      INTEGER, PARAMETER  :: IGU = 1 , IGV = 2 , IGW = 3 , IGT = 4
 !
 !    --------------------------------------------
@@ -123,18 +134,21 @@
      integer, parameter :: RIEMANN_ROEPIKE    = 6
      integer, parameter :: RIEMANN_LOWDISSROE = 7
      integer, parameter :: RIEMANN_VISCOUSNS  = 8
+     integer, parameter :: RIEMANN_MATRIXDISS = 9
      integer, protected :: whichRiemannSolver = -1
 !
 !    -----------------------------
 !    Available averaging functions
 !    -----------------------------
 !
-     integer, parameter :: STANDARD_SPLIT      = 1
-     integer, parameter :: MORINISHI_SPLIT     = 2
-     integer, parameter :: DUCROS_SPLIT        = 3
-     integer, parameter :: KENNEDYGRUBER_SPLIT = 4
-     integer, parameter :: PIROZZOLI_SPLIT     = 5
-     integer            :: whichAverage = -1
+     integer, parameter :: STANDARD_SPLIT             = 1
+     integer, parameter :: MORINISHI_SPLIT            = 2
+     integer, parameter :: DUCROS_SPLIT               = 3
+     integer, parameter :: KENNEDYGRUBER_SPLIT        = 4
+     integer, parameter :: PIROZZOLI_SPLIT            = 5
+     integer, parameter :: ENTROPYCONS_SPLIT          = 6
+     integer, parameter :: ENTROPYANDENERGYCONS_SPLIT = 7
+     integer            :: whichAverage               = -1
 !
 !    -------------------------------------
 !    Lambda stabilization - 1.0 by default
@@ -179,7 +193,7 @@
       SUBROUTINE ConstructPhysicsStorage( controlVariables, success )
       USE FTValueDictionaryClass
       USE PhysicsKeywordsModule
-      use Utilities, only: toLower
+      use Utilities, only: toLower, almostEqual
 !
 !     ---------
 !     Arguments
@@ -256,10 +270,16 @@
 !        Set molecular viscosity and thermal conductivity
 !        ------------------------------------------------
 !
-         dimensionless_ % mu   = 1.0_RP / dimensionless_ % Re
-         dimensionless_ % kappa = 1.0_RP / ( thermodynamics_ % gammaMinus1 * &
-                                              POW2( dimensionless_ % Mach) * &
-                                      dimensionless_ % Re * dimensionless_ % Pr )
+         if ( .not. almostEqual(dimensionless_ % Re, 0.0_RP) ) then
+            dimensionless_ % mu   = 1.0_RP / dimensionless_ % Re
+            dimensionless_ % kappa = 1.0_RP / ( thermodynamics_ % gammaMinus1 * &
+                                                 POW2( dimensionless_ % Mach) * &
+                                         dimensionless_ % Re * dimensionless_ % Pr )
+         else
+            dimensionless_ % mu = 0.0_RP
+            dimensionless_ % kappa = 0.0_RP
+
+         end if
       END IF 
 !
 !     **************************************
@@ -305,7 +325,7 @@
       refValues_ % p = refValues_ % rho * POW2( refValues_ % V )
 
       if ( flowIsNavierStokes ) then
-         refValues_ % mu = refValues_ % rho * refValues_ % V * refValues_ % L / dimensionless_ % Re
+         refValues_ % mu = refValues_ % rho * refValues_ % V * refValues_ % L * dimensionless_ % mu
          refValues_ % kappa = refValues_ % mu * thermodynamics_ % cp / dimensionless_ % Pr
 
       else
@@ -352,6 +372,9 @@
          case(LOWDISSROE_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_LOWDISSROE
 
+         case(MATRIXDISS_SOLVER_NAME)
+            whichRiemannSolver = RIEMANN_MATRIXDISS
+
          case(VISCOUSNS_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_VISCOUSNS
             
@@ -366,6 +389,7 @@
             print*, "   * Rusanov"
             print*, "   * Roe-Pike"
             print*, "   * Low dissipation Roe"
+            print*, "   * Matrix dissipation"
             print*, "   * Viscous NS"
             errorMessage(STD_OUT)
             stop
@@ -398,6 +422,21 @@
 !     --------------------------------------------------
 !
       if ( whichRiemannSolver .eq. RIEMANN_CENTRAL ) lambdaStab = 0.0_RP
+!
+!     **********
+!     LES Models
+!     **********
+!
+      if ( controlVariables % containsKey(LESMODEL_KEY)) then
+         if ( controlVariables % stringValueForKey(LESMODEL_KEY,4) .ne. "none") then
+!
+!           Enable NS fluxes
+!           ----------------
+            flowIsNavierStokes = .true.
+            computeGradients = .true.
+
+         end if
+      end if
 !
 !     ***************
 !     Angle of attack

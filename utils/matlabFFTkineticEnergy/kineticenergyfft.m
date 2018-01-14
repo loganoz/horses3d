@@ -8,13 +8,13 @@
 %
 %/////////////////////////////////////////////////////////////////
 %
-clc; clear all; close all;
+%clc; clear all; close all;
 %
 %   Program options
 %   ---------------
-    cubeFile = '../../Cases/TaylorGreenVortex/RESULTS_Ducros/TaylorGreen8P5Ducros_0000019945.cube.tec';
+    cubeFile = '/Users/juanmanzanero/Volumes/magerit/horses_cases/TaylorGreen/Lambda10WithPirozzoli/RESULTS/TGV12P8PIRoe/TGV12P8PILam10Roe_0000508668.cube.tec';
     plotSpectra = true;
-    writeSpectra = true;
+    writeSpectra = false;
     resultsName = 'spectra';
 %
 %   Read raw data from file
@@ -99,9 +99,9 @@ clc; clear all; close all;
     if ( plotSpectra ) 
         h = figure(1);
         hold on
-        plot(k_1d,E/KinEn,'-k');
+        plot(k_1d,E,'-k');
         %plot(k_1d,E/KinEn,'ok','MarkerSize',8,'MarkerFaceColor',[1,1,1]);
-        e_kolmogorov=0.001*(k_1d/k_1d(2)).^(-5/3);
+        e_kolmogorov=E(3)*(k_1d/k_1d(3)).^(-5/3);
         plot(k_1d,e_kolmogorov,'--m','LineWidth',1);
         plot([kNYQ,kNYQ],[1e-20,1e0],'--r');
         axis([k0,2*kNYQ,1e-12,e_kolmogorov(2)]);
@@ -128,5 +128,8 @@ clc; clear all; close all;
         spectra=[transpose(k_1d), E, transpose(e_kolmogorov)];
         save([resultsName,'.dat'],'spectra','-ASCII');
     end
+
+    
+
 
 

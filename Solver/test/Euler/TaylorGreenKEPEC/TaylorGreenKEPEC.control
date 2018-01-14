@@ -1,0 +1,46 @@
+Flow equations        = "Euler"
+mesh file name        = "../../TestMeshes/TaylorGreen32.mesh"
+restart file name     = "RESULTS/TGV.rst"
+solution file name    = "RESULTS/TGV.rst"
+restart               = .false.
+compute gradients = .true.
+Polynomial order      = 3
+Number of time steps  = 10
+Output Interval       = 1
+Number of plot points = 2
+Convergence tolerance = 1.d-10
+cfl                   = 0.4
+inviscid discretization = split-form
+split form            = entropy and energy conserving
+mach number           = 0.08
+riemann solver        = Central
+AOA theta             = 0.0
+AOA phi               = 0.0
+Number of boundaries  = 6
+front 0.0 periodic+
+bottom 0.0 periodic+
+top 0.0 periodic-
+back 0.0 periodic-
+left 0.0 periodic+
+right 0.0 periodic-
+/
+
+#define volume monitor 1
+   Name = KinEn
+   Variable = Kinetic energy
+#end
+
+#define volume monitor 2
+   Name = KinEnRate
+   Variable = Kinetic energy rate
+#end
+
+#define volume monitor 3
+   Name = Enstrphy
+   Variable = Enstrophy
+#end
+
+#define volume monitor 4
+   Name = EntropRate
+   Variable = Entropy rate
+#end

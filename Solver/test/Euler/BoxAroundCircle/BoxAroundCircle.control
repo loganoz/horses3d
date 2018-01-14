@@ -10,6 +10,7 @@ Number of plot points = 3
 Convergence tolerance = 1.d-10
 cfl                   = 0.7
 mach number           = 0.3
+Riemann solver        = Standard Roe
 Reynolds number       = 0.0
 AOA theta             = 0.0
 AOA phi               = 0.0
@@ -21,3 +22,23 @@ top 0.0 FreeSlipWall
 Back 0.0 Inflow
 Left 0.0 Inflow
 Right 0.0 Inflow
+
+
+#define probe 1
+   Name = wake_w
+   Position = [0.0,2.0,4.0]
+   Variable = w
+#end 
+
+#define surface monitor 1
+   Name = drag
+   Marker = innercylinder
+   Variable = pressure-force
+   Direction = [1.0, 0.0, 0.0]
+#end
+
+#define surface monitor 2
+   Name = p_average
+   Marker = innercylinder
+   Variable = pressure-average
+#end
