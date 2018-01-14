@@ -678,9 +678,8 @@ Module DGSEMClass
 !  it is the only or best way. Other variations look only at the smallest
 !  mesh values, other account for differences across the element.
 !     -------------------------------------------------------------------
-   real(kind=RP) function MaxTimeStep( self, cfl, dcfl ) 
-      use Physics
-      use PhysicsStorage
+   real(kind=RP) function MaxTimeStep( self, cfl, dcfl )
+      use VariableConversion
       use MPI_Process_Info
       implicit none
       !------------------------------------------------

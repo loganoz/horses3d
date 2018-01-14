@@ -378,6 +378,9 @@
          module procedure ViscousFlux0DWithSGS , ViscousFlux3DWithSGS
      end interface ViscousFlux
     
+     interface SutherlandsLaw
+         module procedure MolecularDiffusivity
+     end interface SutherlandsLaw
 !
 !     ========
       CONTAINS 
