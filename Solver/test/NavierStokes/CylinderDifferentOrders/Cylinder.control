@@ -11,6 +11,7 @@ Output Interval       = 10
 !Number of plot points = 5
 Convergence tolerance = 1.d-10
 cfl                   = 0.2
+dcfl                  = 0.2
 mach number           = 0.3
 Reynolds number       = 45.0
 AOA theta             = 0.0

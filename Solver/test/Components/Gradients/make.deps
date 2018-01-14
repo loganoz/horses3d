@@ -34,7 +34,7 @@ WallDistance: LESModels
 ViscousMethods: WeakIntegrals LESModels ViscousMethodClass ViscousBR1 ViscousIP ViscousBR2
 WeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics
 SpatialDiscretization: HexElementClass Physics BoundaryConditions NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants InviscidMethods ViscousMethods WeakIntegrals SVV
-DGSEMClass: ReadMeshFile SpatialDiscretization Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants Monitors MeshPartitioning
+DGSEMClass: ReadMeshFile VariableConversion SpatialDiscretization Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants Monitors MeshPartitioning
 ReadMeshFile: Read_HDF5Mesh_HOPR Read_SpecMesh HexMesh
 Read_HDF5Mesh_HOPR: HexMesh SMConstants TransfiniteMaps3D FacePatchClass
 Read_SpecMesh: HexMesh SMConstants TransfiniteMaps3D FacePatchClass
@@ -42,7 +42,7 @@ MeshPartitioning: IntegerDataLinkedList
 IntegerDataLinkedList: Utilities
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
 InterpolationMatrices: InterpolationAndDerivatives SMConstants NodalStorageClass
-TimeIntegrator: Physics SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass Monitors
+TimeIntegrator: Physics SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods AnisFASMultigridClass FASMultigridClass Monitors pAdaptationClass
 ExplicitMethods: SMConstants DGSEMClass
 GradientSetup: DGSEMClass
 ReadInputFile: SMConstants SharedBCModule Physics Setup
@@ -51,13 +51,16 @@ ColorsClass: DGSEMClass
 CSR_Matrices: SMConstants
 ManufacturedSolutions: Physics SMConstants
 DenseMatUtilities: SMConstants
-FASMultigridClass: SMConstants ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics BoundaryConditions
+FASMultigridClass: SMConstants MultigridTypes ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics BoundaryConditions
+AnisFASMultigridClass: SMConstants MultigridTypes ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics BoundaryConditions TruncationErrorClass
 #Implicit solvers
 Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
 JFNKClass: SMConstants GMRESClass
 GMRESClass: SMConstants
 Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices StorageClass AnalyticalJacobian
 AnalyticalJacobian: HexElementClass SMConstants HexMesh NodalStorageClass Physics Jacobian LinearSolverClass DGSEMClass
+pAdaptationClass: SMConstants DGSEMClass Physics TruncationErrorClass AnisFASMultigridClass
+TruncationErrorClass: SMConstants MultigridTypes DGSEMClass NodalStorageClass
 
 #Linear solvers
 LinearSolverClass: MKLPardisoSolverClass PetscSolverClass IterativeSolverClass MultigridSolverClass
