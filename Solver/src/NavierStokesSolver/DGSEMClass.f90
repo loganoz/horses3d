@@ -667,127 +667,126 @@ Module DGSEMClass
       END SUBROUTINE ComputeTimeDerivative
 !
 !//////////////////////////////////////////////////////////////////////// 
-! 
-      REAL(KIND=RP) FUNCTION MaxTimeStep( self, cfl ) 
-         IMPLICIT NONE
-         TYPE(DGSem)    :: self
-         REAL(KIND=RP)  :: cfl
-         
-         
-         MaxTimeStep  = cfl/MaximumEigenvalue( self )
-      
-      END FUNCTION MaxTimeStep
-!
-!////////////////////////////////////////////////////////////////////////
-!
-   FUNCTION MaximumEigenvalue( self )
 !
 !  -------------------------------------------------------------------
-!  Estimate the maximum eigenvalue of the system. This
+!  Estimate the maximum time-step of the system. This
 !  routine computes a heuristic based on the smallest mesh
 !  spacing (which goes as 1/N^2) AND the eigenvalues of the
-!  particular hyperbolic system being solved. This is not
-!  the only way to estimate the eigenvalues, but it works in practice.
+!  particular hyperbolic system being solved (Euler or Navier Stokes). This is not
+!  the only way to estimate the time-step, but it works in practice.
 !  Other people use variations on this and we make no assertions that
 !  it is the only or best way. Other variations look only at the smallest
 !  mesh values, other account for differences across the element.
-!  -------------------------------------------------------------------
-!
-      USE Physics
+!     -------------------------------------------------------------------
+   real(kind=RP) function MaxTimeStep( self, cfl, dcfl )
+      use VariableConversion
       use MPI_Process_Info
+      implicit none
+      !------------------------------------------------
+      type(DGSem)                :: self
+      real(kind=RP), intent(in)  :: cfl      !<  Advective cfl number
+      real(kind=RP), optional, intent(in)  :: dcfl     !<  Diffusive cfl number
+      !------------------------------------------------
+      integer                       :: i, j, k, eID                     ! Coordinate and element counters
+      integer                       :: N(3)                             ! Polynomial order in the three reference directions
+      integer                       :: ierr                             ! Error for MPI calls
+      real(kind=RP)                 :: eValues(3)                       ! Advective eigenvalues
+      real(kind=RP)                 :: dcsi, deta, dzet                 ! Smallest mesh spacing
+      real(kind=RP)                 :: dcsi2, deta2, dzet2              ! Smallest mesh spacing squared
+      real(kind=RP)                 :: lamcsi_a, lamzet_a, lameta_a     ! Advective eigenvalues in the three reference directions
+      real(kind=RP)                 :: lamcsi_v, lamzet_v, lameta_v     ! Diffusive eigenvalues in the three reference directions
+      real(kind=RP)                 :: jac, mu, T                       ! Mapping Jacobian, viscosity and temperature
+      real(kind=RP)                 :: Q(N_EQN)                         ! The solution in a node
+      real(kind=RP)                 :: TimeStep_Conv, TimeStep_Visc     ! Time-step for convective and diffusive terms
+      real(kind=RP)                 :: localMaxTimeStep                 ! Time step to perform MPI reduction
+      type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction
+      external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
+      !--------------------------------------------------------
       
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      TYPE(DGSem), TARGET    :: self
-!
+!     Initializations
 !     ---------------
-!     Local variables
-!     ---------------
-!
-      REAL(KIND=RP)               :: eValues(3)
-      REAL(KIND=RP)               :: dcsi, deta, dzet, jac, lamcsi, lamzet, lameta
-      INTEGER                     :: i, j, k, id, ierr
-      INTEGER                     :: N(3)
-      REAL(KIND=RP)               :: MaximumEigenvalue
-      real(kind=RP)               :: localMaximumEigenvalue
-      EXTERNAL                    :: ComputeEigenvaluesForState
-      REAL(KIND=RP)               :: Q(N_EQN)
-      TYPE(NodalStorage_t), POINTER :: spAxi_p, spAeta_p, spAzeta_p
-!            
       
-!
-!     -----------------------------------------------------------
-!     TODO:
-!     dcsi, deta and dzet have been modified so they work for N=2
-!     However, I'm not sure if this modification is OK.
-!     Besides, problems are expected for N=0.
-!     -----------------------------------------------------------
-!
-      MaximumEigenvalue = 0.0_RP
-!$omp parallel shared(self,MaximumEigenvalue,NodalStorage) default(private) 
-!$omp do reduction(max:MaximumEigenvalue)
-      DO id = 1, SIZE(self % mesh % elements) 
-         N = self % mesh % elements(id) % Nxyz
+      TimeStep_Conv = huge(1._RP)
+      TimeStep_Visc = huge(1._RP)
+      
+!$omp parallel shared(self,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes) default(private) 
+!$omp do reduction(min:TimeStep_Conv,TimeStep_Visc)
+      do eID = 1, SIZE(self % mesh % elements) 
+         N = self % mesh % elements(eID) % Nxyz
          spAxi_p => NodalStorage(N(1))
          spAeta_p => NodalStorage(N(2))
          spAzeta_p => NodalStorage(N(3))
          IF ( ANY(N<1) ) THEN 
             PRINT*, "Error in MaximumEigenvalue function (N<1)"    
-         ENDIF         
+         endIF         
          
          dcsi = 1.0_RP / abs( spAxi_p   % x(1) - spAxi_p   % x (0) )   
          deta = 1.0_RP / abs( spAeta_p  % x(1) - spAeta_p  % x (0) )
          dzet = 1.0_RP / abs( spAzeta_p % x(1) - spAzeta_p % x (0) )
-         DO k = 0, N(3)
-            DO j = 0, N(2)
-               DO i = 0, N(1)
+         
+         if (flowIsNavierStokes) then
+            dcsi2 = dcsi*dcsi
+            deta2 = deta*deta
+            dzet2 = dzet*dzet
+         end if
+         
+         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
 !
-!                 ------------------------------------------------------------
-!                 The maximum eigenvalues for a particular state is determined
-!                 by the physics.
-!                 ------------------------------------------------------------
+!           ------------------------------------------------------------
+!           The maximum eigenvalues for a particular state is determined
+!           by the physics.
+!           ------------------------------------------------------------
 !
-                  Q(1:N_EQN) = self % mesh % elements(id) % storage % Q(1:N_EQN,i,j,k)
-                  CALL ComputeEigenvaluesForState( Q , eValues )
+            Q(1:N_EQN) = self % mesh % elements(eID) % storage % Q(1:N_EQN,i,j,k)
+            CALL ComputeEigenvaluesForState( Q , eValues )
+            
+            jac      = self % mesh % elements(eID) % geom % jacobian(i,j,k)
 !
-!                 ----------------------------
-!                 Compute contravariant values
-!                 ----------------------------
+!           ----------------------------
+!           Compute contravariant values
+!           ----------------------------
 !              
-                  lamcsi =  ( self % mesh % elements(id) % geom % jGradXi(IX,i,j,k)   * eValues(IX) + &
-        &                     self % mesh % elements(id) % geom % jGradXi(IY,i,j,k)   * eValues(IY) + &
-        &                     self % mesh % elements(id) % geom % jGradXi(IZ,i,j,k)   * eValues(IZ) ) * dcsi
-        
-                  lameta =  ( self % mesh % elements(id) % geom % jGradEta(IX,i,j,k)  * eValues(IX) + &
-        &                     self % mesh % elements(id) % geom % jGradEta(IY,i,j,k)  * eValues(IY) + &
-        &                     self % mesh % elements(id) % geom % jGradEta(IZ,i,j,k)  * eValues(IZ) ) * deta
-        
-                  lamzet =  ( self % mesh % elements(id) % geom % jGradZeta(IX,i,j,k) * eValues(IX) + &
-        &                     self % mesh % elements(id) % geom % jGradZeta(IY,i,j,k) * eValues(IY) + &
-        &                     self % mesh % elements(id) % geom % jGradZeta(IZ,i,j,k) * eValues(IZ) ) * dzet
-        
-                  jac               = self % mesh % elements(id) % geom % jacobian(i,j,k)
-                  MaximumEigenvalue = MAX( MaximumEigenvalue, ABS(lamcsi/jac) + ABS(lameta/jac) + ABS(lamzet/jac) )
-               END DO
-            END DO
-         END DO
-      END DO 
+            lamcsi_a =abs( self % mesh % elements(eID) % geom % jGradXi(IX,i,j,k)   * eValues(IX) + &
+                           self % mesh % elements(eID) % geom % jGradXi(IY,i,j,k)   * eValues(IY) + &
+                           self % mesh % elements(eID) % geom % jGradXi(IZ,i,j,k)   * eValues(IZ) ) * dcsi
+  
+            lameta_a =abs( self % mesh % elements(eID) % geom % jGradEta(IX,i,j,k)  * eValues(IX) + &
+                           self % mesh % elements(eID) % geom % jGradEta(IY,i,j,k)  * eValues(IY) + &
+                           self % mesh % elements(eID) % geom % jGradEta(IZ,i,j,k)  * eValues(IZ) ) * deta
+  
+            lamzet_a =abs( self % mesh % elements(eID) % geom % jGradZeta(IX,i,j,k) * eValues(IX) + &
+                           self % mesh % elements(eID) % geom % jGradZeta(IY,i,j,k) * eValues(IY) + &
+                           self % mesh % elements(eID) % geom % jGradZeta(IZ,i,j,k) * eValues(IZ) ) * dzet
+            
+            TimeStep_Conv = min( TimeStep_Conv, cfl*abs(jac)/(lamcsi_a+lameta_a+lamzet_a) )
+            
+            if (flowIsNavierStokes) then
+               T        = Temperature(Q)
+               mu       = SutherlandsLaw(T)
+               lamcsi_v = mu * dcsi2 * abs(sum(self % mesh % elements(eID) % geom % jGradXi  (:,i,j,k)))
+               lameta_v = mu * deta2 * abs(sum(self % mesh % elements(eID) % geom % jGradEta (:,i,j,k)))
+               lamzet_v = mu * dzet2 * abs(sum(self % mesh % elements(eID) % geom % jGradZeta(:,i,j,k)))
+               
+               TimeStep_Visc = min( TimeStep_Visc, dcfl*abs(jac)/(lamcsi_v+lameta_v+lamzet_v) )
+            end if
+                  
+         end do ; end do ; end do
+      end do 
 !$omp end do
 !$omp end parallel
-
+      
+      MaxTimeStep  = min(TimeStep_Conv,TimeStep_Visc)
+         
 #ifdef _HAS_MPI_
       if ( MPI_Process % doMPIAction ) then
-         localMaximumEigenvalue = MaximumEigenvalue
-         call mpi_allreduce(localMaximumEigenvalue, MaximumEigenvalue, 1, MPI_DOUBLE, MPI_MAX, &
+         localMaxTimeStep = MaxTimeStep
+         call mpi_allreduce(localMaxTimeStep, MaxTimeStep, 1, MPI_DOUBLE, MPI_MIN, &
                             MPI_COMM_WORLD, ierr)
       end if
 #endif
       
-   END FUNCTION MaximumEigenvalue
-
-
-   END Module DGSEMClass
+   end function MaxTimeStep
+!
+!////////////////////////////////////////////////////////////////////////
+!
+end module DGSEMClass

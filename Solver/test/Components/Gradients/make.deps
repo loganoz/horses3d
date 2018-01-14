@@ -33,8 +33,13 @@ ViscousBR1: navierstokes/LESModels
 WallDistance: navierstokes/LESModels
 ViscousMethods: WeakIntegrals navierstokes/LESModels ViscousMethodClass ViscousBR1 ViscousIP ViscousBR2
 WeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics
+<<<<<<< HEAD
 NavierStokesSolver/SpatialDiscretization: HexElementClass Physics navierstokes/BoundaryConditions NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants InviscidMethods ViscousMethods WeakIntegrals SVV
 NavierStokesSolver/DGSEMClass: ReadMeshFile NavierStokesSolver/SpatialDiscretization Physics NodalStorageClass SharedBCModule navierstokes/BoundaryConditions HexMesh SMConstants Monitors MeshPartitioning
+=======
+SpatialDiscretization: HexElementClass Physics BoundaryConditions NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants InviscidMethods ViscousMethods WeakIntegrals SVV
+DGSEMClass: ReadMeshFile VariableConversion SpatialDiscretization Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants Monitors MeshPartitioning
+>>>>>>> master
 ReadMeshFile: Read_HDF5Mesh_HOPR Read_SpecMesh HexMesh
 Read_HDF5Mesh_HOPR: HexMesh SMConstants TransfiniteMaps3D FacePatchClass
 Read_SpecMesh: HexMesh SMConstants TransfiniteMaps3D FacePatchClass
@@ -42,15 +47,22 @@ MeshPartitioning: IntegerDataLinkedList
 IntegerDataLinkedList: Utilities
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
 InterpolationMatrices: InterpolationAndDerivatives SMConstants NodalStorageClass
+<<<<<<< HEAD
 NavierStokesSolver/TimeIntegrator: Physics SMConstants NavierStokesSolver/DGSEMClass InterpolationAndDerivatives NavierStokesSolver/Implicit_JF NavierStokesSolver/Implicit_NJ NavierStokesSolver/ExplicitMethods NavierStokesSolver/FASMultigridClass Monitors
 NavierStokesSolver/ExplicitMethods: SMConstants NavierStokesSolver/DGSEMClass
 GradientSetup: NavierStokesSolver/DGSEMClass
+=======
+TimeIntegrator: Physics SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods AnisFASMultigridClass FASMultigridClass Monitors pAdaptationClass
+ExplicitMethods: SMConstants DGSEMClass
+GradientSetup: DGSEMClass
+>>>>>>> master
 ReadInputFile: SMConstants SharedBCModule Physics Setup
 Jacobian: SMConstants NavierStokesSolver/DGSEMClass Physics
 ColorsClass: NavierStokesSolver/DGSEMClass
 CSR_Matrices: SMConstants
 navierstokes/ManufacturedSolutions: Physics SMConstants
 DenseMatUtilities: SMConstants
+<<<<<<< HEAD
 NavierStokesSolver/FASMultigridClass: SMConstants NavierStokesSolver/ExplicitMethods NavierStokesSolver/DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics navierstokes/BoundaryConditions
 #Implicit solvers
 NavierStokesSolver/Implicit_JF: SMConstants NavierStokesSolver/DGSEMClass Physics NavierStokesSolver/JFNKClass
@@ -58,6 +70,18 @@ NavierStokesSolver/JFNKClass: SMConstants NavierStokesSolver/GMRESClass
 NavierStokesSolver/GMRESClass: SMConstants
 NavierStokesSolver/Implicit_NJ: SMConstants NavierStokesSolver/DGSEMClass HexElementClass Physics Jacobian ColorsClass NavierStokesSolver/LinearSolverClass CSR_Matrices StorageClass NavierStokesSolver/AnalyticalJacobian
 NavierStokesSolver/AnalyticalJacobian: HexElementClass SMConstants HexMesh NodalStorageClass Physics Jacobian NavierStokesSolver/LinearSolverClass NavierStokesSolver/DGSEMClass
+=======
+FASMultigridClass: SMConstants MultigridTypes ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics BoundaryConditions
+AnisFASMultigridClass: SMConstants MultigridTypes ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics BoundaryConditions TruncationErrorClass
+#Implicit solvers
+Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
+JFNKClass: SMConstants GMRESClass
+GMRESClass: SMConstants
+Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices StorageClass AnalyticalJacobian
+AnalyticalJacobian: HexElementClass SMConstants HexMesh NodalStorageClass Physics Jacobian LinearSolverClass DGSEMClass
+pAdaptationClass: SMConstants DGSEMClass Physics TruncationErrorClass AnisFASMultigridClass
+TruncationErrorClass: SMConstants MultigridTypes DGSEMClass NodalStorageClass
+>>>>>>> master
 
 #Linear solvers
 NavierStokesSolver/LinearSolverClass: NavierStokesSolver/MKLPardisoSolverClass NavierStokesSolver/PetscSolverClass NavierStokesSolver/IterativeSolverClass NavierStokesSolver/MultigridSolverClass

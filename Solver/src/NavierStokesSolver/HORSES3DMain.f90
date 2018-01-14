@@ -89,8 +89,9 @@ end interface
       character(len=LINE_LENGTH)          :: solutionFileName
       
       ! For pAdaptation
-      INTEGER, ALLOCATABLE                :: Nx(:), Ny(:), Nz(:)
-      INTEGER                             :: Nmax
+      integer, allocatable                :: Nx(:), Ny(:), Nz(:)
+      integer                             :: Nmax
+      type(pAdaptation_t)                 :: pAdaptator
 !
 !     ---------------
 !     Initializations
@@ -136,6 +137,7 @@ end interface
       
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
       call InitializeNodalStorage(Nmax)
+      call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
       
       call sem % construct (  controlVariables  = controlVariables,                                         &
                                  externalState     = externalStateForBoundaryName,                             &
@@ -164,7 +166,7 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors)
+      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator)
 !
 !     --------------------------
 !     Show simulation statistics
@@ -195,8 +197,12 @@ end interface
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients)
       END IF
-
-
+!
+!     ---------
+!     Finish up
+!     ---------
+!
+      if (pAdaptator % Constructed) call pAdaptator % destruct()
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       call DestructGlobalNodalStorage()

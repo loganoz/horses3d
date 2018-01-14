@@ -12,6 +12,7 @@ Output Interval       = 50
 Convergence tolerance = 1.d-10
 manufactured solution = 2D
 cfl                   = 0.4
+dcfl                  = 0.4
 mach number           = 1.5
 Reynolds number       = 300.0
 AOA theta             = 45.0

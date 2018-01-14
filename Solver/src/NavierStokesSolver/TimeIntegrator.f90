@@ -29,7 +29,7 @@
          INTEGER                                :: integratorType
          REAL(KIND=RP)                          :: tFinal, time, initial_time
          INTEGER                                :: initial_iter, numTimeSteps, outputInterval, iter
-         REAL(KIND=RP)                          :: dt, tolerance, cfl
+         REAL(KIND=RP)                          :: dt, tolerance, cfl, dcfl
          LOGICAL                                :: Compute_dt                    ! Is st computed from an inputted CFL number?
          type(Autosave_t)                       :: autosave
          PROCEDURE(RKStepFcn), NOPASS , POINTER :: RKStep
@@ -76,6 +76,13 @@
          IF (controlVariables % containsKey("cfl")) THEN
             self % Compute_dt = .TRUE.
             self % cfl        = controlVariables % doublePrecisionValueForKey("cfl")
+            if (flowIsNavierStokes) then
+               if (controlVariables % containsKey("dcfl")) then
+                  self % dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
+               else
+                  ERROR STOP '"cfl" and "dcfl", or "dt" keyword must be specified for the time integrator'
+               end if
+            end if
          ELSEIF (controlVariables % containsKey("dt")) THEN
             self % Compute_dt = .FALSE.
             self % dt         = controlVariables % doublePrecisionValueForKey("dt")
@@ -131,10 +138,11 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE Integrate( self, sem, controlVariables, monitors)
+      SUBROUTINE Integrate( self, sem, controlVariables, monitors, pAdaptator)
       
       USE Implicit_JF , ONLY : TakeBDFStep_JF
       USE Implicit_NJ , ONLY : TakeBDFStep_NJ
+      use pAdaptationClass
       USE FASMultigridClass
       IMPLICIT NONE
 !
@@ -146,21 +154,117 @@
       TYPE(DGSem)                   :: sem
       TYPE(FTValueDictionary)       :: controlVariables
       class(Monitor_t)              :: monitors
+      type(pAdaptation_t)           :: pAdaptator
 
 !
 !     ---------
 !     Internal variables
 !     ---------
 !
+      integer              :: PA_Stage  ! P-adaptation stage
+      real(kind=RP)        :: FMGres    ! Target residual for FMG solver
+      type(FASMultigrid_t) :: FMGSolver ! FAS multigrid solver for Full-Multigrid (FMG) initialization
+      
+!     Initializations
+!     ---------------
+
+      sem  % numberOfTimeSteps = self % initial_iter
+      
+!     Measure solver time
+!     -------------------
+      
+      call Stopwatch % CreateNewEvent("Solver")
+      call Stopwatch % Start("Solver")
+      
+!     Perform FMG cycle if requested
+!     ------------------------------
+      
+      if (self % integratorType == STEADY_STATE .and. &
+          controlVariables % containsKey("fasfmg residual")) then
+          
+         FMGres = controlVariables % RealValueForKey("fasfmg residual")
+         write(STD_OUT,*) 'Using FMG solver to get initial condition. Res =', FMGres
+         
+         call FMGSolver % construct(controlVariables,sem)
+         call FMGSolver % solve(0,0._RP,.TRUE.,FMGres)
+         
+         call FMGSolver % destruct
+      end if
+      
+!     Perform p-adaptation stage(s) if requested
+!     ------------------------------------------
+      if (pAdaptator % Adapt) then
+         write(STD_OUT,*) '*******    Performing p-adaptation    *******'
+         
+         PA_Stage = 0
+         do while (pAdaptator % Adapt)
+            PA_Stage = PA_Stage + 1
+            
+            call IntegrateInTime( self, sem, controlVariables, monitors, pAdaptator % reqTE*0.1_RP)  ! The residual is hard-coded to 0.1 * truncation error threshold (see Kompenhans, Moritz, et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.)
+            
+            !! TODO: Call p-Adaptator plotter
+            call pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,0._RP)  ! Time is hardcoded to 0._RP (not important since it's only for STEADY_STATE)
+            
+            call self % Display(sem % mesh, monitors)
+            
+            !! TODO: Call p-Adaptator plotter
+            !Write plot file
+            
+         end do
+      end if
+      
+!     Finish time integration
+!     -----------------------
+
+      call IntegrateInTime( self, sem, controlVariables, monitors)
+
+!     Measure solver time
+!     -------------------
+
+      call Stopwatch % Pause("Solver")
+
+      END SUBROUTINE Integrate    
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------------------------------------------
+!  Perform the standard time marching integration
+!  -> If "tolerance" is provided, the value in controlVariables is ignored. 
+!     This is only relevant for STEADY_STATE computations.
+!  ------------------------------------------------------------------------
+   subroutine IntegrateInTime( self, sem, controlVariables, monitors, tolerance)
+      
+      USE Implicit_JF , ONLY : TakeBDFStep_JF
+      USE Implicit_NJ , ONLY : TakeBDFStep_NJ
+      use FASMultigridClass
+      use AnisFASMultigridClass
+      use StopwatchClass
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      CLASS(TimeIntegrator_t)             :: self
+      TYPE(DGSem)                         :: sem
+      TYPE(FTValueDictionary), intent(in) :: controlVariables
+      class(Monitor_t)                    :: monitors
+      real(kind=RP), optional, intent(in) :: tolerance   !< ? tolerance to integrate down to
+
+!
+!     ------------------
+!     Internal variables
+!     ------------------
+!
 interface
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, monitors)
+         subroutine UserDefinedPeriodicOperation(mesh, time, monitors)
             use HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
             CLASS(HexMesh)  :: mesh
             REAL(KIND=RP) :: time
             type(Monitor_t), intent(in)  :: monitors
-         END SUBROUTINE UserDefinedPeriodicOperation
+         end subroutine UserDefinedPeriodicOperation
          character(len=LINE_LENGTH) function getFileName(inputLine)
             use SMConstants
             implicit none
@@ -168,6 +272,7 @@ interface
          end function getFileName
 end interface
       
+      real(kind=RP)                 :: Tol                                 ! Tolerance used for STEADY_STATE computations
       REAL(KIND=RP)                 :: t
       REAL(KIND=RP)                 :: maxResidual(N_EQN)
       REAL(KIND=RP)                 :: dt
@@ -179,7 +284,8 @@ end interface
       ! For Implicit
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
       INTEGER                       :: JacFlag
-      TYPE(FASMultigrid_t)          :: FASSolver
+      type(FASMultigrid_t)          :: FASSolver
+      type(AnisFASMultigrid_t)      :: AnisFASSolver
       logical                       :: saveGradients
 !
 !     ----------------------
@@ -200,20 +306,20 @@ end interface
 !     Initializations
 !     ---------------
 !
-      IF (TimeIntegration == 'FAS') CALL FASSolver % construct(controlVariables,sem)
+      if (present(tolerance)) then
+         Tol = tolerance
+      else
+         Tol = self % tolerance
+      end if
+      
+      if (TimeIntegration == 'FAS') CALL FASSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'AnisFAS') CALL AnisFASSolver % construct(controlVariables,sem)
 !
 !     ------------------
 !     Configure restarts
 !     ------------------
 !
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
-!
-!     -------------------
-!     Measure solver time
-!     -------------------
-!
-      call Stopwatch % CreateNewEvent("Solver")
-      call Stopwatch % Start("Solver")
 !
 !     -----------------
 !     Integrate in time
@@ -224,12 +330,10 @@ end interface
       sem % MaxResidual = 1.e-3_RP !initializing to this value for implicit solvers (Newton tolerance is computed according to this)
       
       DO k = self % initial_iter, self % initial_iter + self % numTimeSteps-1
-
-         self % iter = k+1
 !
 !        CFL-bounded time step
 !        ---------------------      
-         IF ( self % Compute_dt ) self % dt = MaxTimeStep( sem, self % cfl )
+         IF ( self % Compute_dt ) self % dt = MaxTimeStep( sem, self % cfl, self % dcfl )
 !
 !        Autosave bounded time step
 !        --------------------------
@@ -261,8 +365,10 @@ end interface
                END SELECT
             CASE ('explicit')
                CALL self % RKStep ( sem, t, dt )
-            CASE ('FAS')
-               CALL FASSolver % solve(k,t)
+            case ('FAS')
+               call FASSolver % solve(k,t)
+            case ('AnisFAS')
+               call AnisFASSolver % solve(k,t)
          END SELECT
 !
 !        Compute the new time
@@ -282,7 +388,7 @@ end interface
 !        Exit if the target is reached
 !        -----------------------------
          IF (self % integratorType == STEADY_STATE) THEN
-            IF (maxval(maxResidual) <= self % tolerance )  THEN
+            IF (maxval(maxResidual) <= Tol )  THEN
               call self % Display(sem % mesh, monitors)
               sem  % maxResidual       = maxval(maxResidual)
               self % time              = t
@@ -332,10 +438,17 @@ end interface
       sem % maxResidual       = maxval(maxResidual)
       self % time             = t
       sem % numberOfTimeSteps = k
-
-      call Stopwatch % Pause("Solver")
-
-      END SUBROUTINE Integrate    
+      
+!
+!     ---------
+!     Finish up
+!     ---------
+!
+      if (TimeIntegration == 'FAS') CALL FASSolver % destruct
+      if (TimeIntegration == 'AnisFAS') CALL AnisFASSolver % destruct
+      
+   end subroutine IntegrateInTime
+      
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !

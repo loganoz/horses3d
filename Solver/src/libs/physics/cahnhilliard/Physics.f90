@@ -34,7 +34,7 @@
       private
       public  RiemannSolver, InviscidFlux, ViscousFlux
       public  InviscidJacobian
-      public  getStressTensor
+      public  getStressTensor, SutherlandsLaw
 !
 !     ---------
 !     Constants

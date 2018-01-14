@@ -13,6 +13,7 @@
 !
 !//////////////////////////////////////////////////////
 !
+
 module Read_HDF5Mesh_HOPR
    use HexMeshClass
    use SMConstants
@@ -30,6 +31,7 @@ module Read_HDF5Mesh_HOPR
    integer(HID_T) :: file_id       ! File identifier
 #endif
    integer        :: iError        ! Error flag
+   integer        :: idx = 0       ! Index of node to add to the list
    
    ! Parameters defined in HOPR io
    INTEGER,PARAMETER              :: ELEM_FirstSideInd=3
@@ -748,7 +750,7 @@ contains
       end do
       
    end subroutine HOPR2HORSESNodeSideMap
-
+   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -795,7 +797,6 @@ contains
       integer      , intent(in)    :: HOPRGlobalID
       integer      , intent(out)   :: nodeID          ! Node ID in HORSES3D!
       !--------------------------------------------
-      integer, save :: idx = 0   ! Index of new element to add
       integer       :: i         ! Counter
       !--------------------------------------------
       
@@ -831,6 +832,7 @@ contains
       integer       :: nUniqueNodes
       !--------------------------------------------
       
+      idx = 0
       nUniqueNodes = size(HOPRNodeMap)
       
       do i = 1, nUniqueNodes
@@ -849,5 +851,7 @@ contains
       deallocate (HOPRNodeMap)
       
    end subroutine FinishNodeMap
+
 #endif
 end module Read_HDF5Mesh_HOPR
+

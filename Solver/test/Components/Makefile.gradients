@@ -117,6 +117,7 @@ OBJS_HORSES=  SMConstants \
 		NavierStokesSolver/GMRESClass \
 		NavierStokesSolver/Implicit_NJ \
 		ColorsClass \
+<<<<<<< HEAD
 		NavierStokesSolver/PetscSolverClass \
 		NavierStokesSolver/GenericLinSolverClass \
 		NavierStokesSolver/MKLPardisoSolverClass \
@@ -125,12 +126,30 @@ OBJS_HORSES=  SMConstants \
 		NavierStokesSolver/MultigridSolverClass \
 		NavierStokesSolver/ExplicitMethods \
 		NavierStokesSolver/FASMultigridClass \
+=======
+		PetscSolverClass \
+		GenericLinSolverClass \
+		MKLPardisoSolverClass \
+		LinearSolverClass \
+		IterativeSolverClass \
+		MultigridSolverClass \
+		ExplicitMethods \
+		FASMultigridClass \
+		AnisFASMultigridClass \
+		MultigridTypes \
+>>>>>>> master
 		ProblemFile \
 		ReadMeshFile \
 		Read_HDF5Mesh_HOPR \
 		Read_SpecMesh \
+<<<<<<< HEAD
 		NavierStokesSolver/AnalyticalJacobian \
 		InterpolationMatrices
+=======
+		AnalyticalJacobian \
+		InterpolationMatrices \
+		TruncationErrorClass
+>>>>>>> master
 
 OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 OBJS_CASE_EXEC=$(foreach obj,$(OBJS_CASE),./build/$(obj).o)
