@@ -277,8 +277,8 @@ problemfileclean: FORCE
 	(cd $(HOME_DIR)/src/libs/problemfile && $(MAKE) $(LIBFLAGS) clean) || exit 1; 
 
 horsesclean: FORCE
-	(cd $(HOME_DIR)/src/NavierStokesSolver && $(MAKE) $(HORSESFLAGS) clean) || exit 1;
-	(cd $(HOME_DIR)/src/CahnHilliardSolver && $(MAKE) $(HORSESFLAGS) clean) || exit 1;
+	(cd $(HOME_DIR)/src/NavierStokesSolver && $(MAKE) $(HORSES_NS_FLAGS) clean) || exit 1;
+	(cd $(HOME_DIR)/src/CahnHilliardSolver && $(MAKE) $(HORSES_CH_FLAGS) clean) || exit 1;
 
 addonsclean: FORCE
 	@for subdir in $(ADDONS); do \
