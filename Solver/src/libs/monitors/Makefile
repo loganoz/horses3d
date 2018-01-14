@@ -12,60 +12,91 @@ MOD_FLAG?=-J
 
 
 
-LIBOBJS = 	./build/MonitorDefinitions.o \
-		./build/Probe.o\
-		./build/StatisticsMonitor.o \
-		./build/SurfaceIntegrals.o \
-		./build/VolumeIntegrals.o \
-		./build/ResidualsMonitor.o \
-		./build/SurfaceMonitor.o \
-		./build/VolumeMonitor.o \
-		./build/Monitors.o
+LIBOBJS_NS = 	./build_ns/MonitorDefinitions.o \
+		./build_ns/Probe.o\
+		./build_ns/StatisticsMonitor.o \
+		./build_ns/SurfaceIntegrals.o \
+		./build_ns/VolumeIntegrals.o \
+		./build_ns/ResidualsMonitor.o \
+		./build_ns/SurfaceMonitor.o \
+		./build_ns/VolumeMonitor.o \
+		./build_ns/Monitors.o
 
+LIBOBJS_CH = 	./build_ch/MonitorDefinitions.o \
+		./build_ch/Probe.o\
+		./build_ch/StatisticsMonitor.o \
+		./build_ch/SurfaceIntegrals.o \
+		./build_ch/VolumeIntegrals.o \
+		./build_ch/ResidualsMonitor.o \
+		./build_ch/SurfaceMonitor.o \
+		./build_ch/VolumeMonitor.o \
+		./build_ch/Monitors.o
 
 LIB = monitors
 
 ############################################
 #	MAIN COMPILATION RULES 		   #
 ############################################
-.DEFAULT_GOAL := lib$(LIB).a
+.DEFAULT_GOAL:=all
 
-./build/%.o: %.f90
+all: lib$(LIB)_ch.a lib$(LIB)_ns.a
+
+./build_ns/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) $(MACROS) $(EXTLIB_INC) -I./include $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -DNAVIERSTOKES -I./include_ns $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ns -c $< -o $@ $(MOD_FLAG) ./include_ns
 
-lib$(LIB).a: header mkdirs $(LIBOBJS)
+./build_ch/%.o: %.f90
+	@echo
+	@echo $<
+	$(FC) $(FFLAGS) -DCAHNHILLIARD -I./include_ch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ch -c $< -o $@ $(MOD_FLAG) ./include_ch
+
+lib$(LIB)_ns.a: header mkdirs $(LIBOBJS_NS) 
 	@echo
 	@echo "---------------------------------"
 	@echo "| Linking library" $@ "|"
 	@echo "---------------------------------"
 	@$(RM) $@
-	$(AR) $(ARFLAGS) $@ $(LIBOBJS)
+	$(AR) $(ARFLAGS) $@ $(LIBOBJS_NS) 
 	@$(RANLIB) $@
 
-install: lib$(LIB).a
-	cp -p lib$(LIB).a $(INSTALL_DIR)/lib/
-	cp -p ./include/*.mod $(INSTALL_DIR)/include/
+lib$(LIB)_ch.a: header mkdirs $(LIBOBJS_CH)
+	@echo
+	@echo "---------------------------------"
+	@echo "| Linking library" $@ "|"
+	@echo "---------------------------------"
+	@$(RM) $@
+	$(AR) $(ARFLAGS) $@ $(LIBOBJS_CH) 
+	@$(RANLIB) $@
+
+
+install: all
+	cp -p lib$(LIB)_ns.a $(INSTALL_DIR)/lib/
+	cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
+	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
+	cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
 	@echo
 	@echo
 
 header: FORCE
 	@echo
 	@echo "================================"
-	@echo ">>   Building Monitors        "
+	@echo ">>   Building Monitors    "
 	@echo "================================"
 	@echo
 	@echo
+
 mkdirs: FORCE
-	@mkdir -p ./include
-	@mkdir -p ./build
+	@mkdir -p ./include_ns ./include_ch
+	@mkdir -p ./build_ns ./build_ch
 
 clean: FORCE
-	$(RM) lib$(LIB).a 
-	$(RM) ./build/*.o ./include/*.mod
+	$(RM) lib$(LIB)_ns.a  lib$(LIB)_ch.a
+	$(RM) ./build_ns/*.o ./include_ns/*.mod
+	$(RM) ./build_ch/*.o ./include_ch/*.mod
 
 #############################################
 #	Dummy procedure to force a rule     #
 #############################################
 FORCE:
+
