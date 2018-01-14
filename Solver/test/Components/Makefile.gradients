@@ -64,13 +64,13 @@ OBJS_HORSES=  SMConstants \
 		ParamfileRegions \
 		LegendreAlgorithms \
 		InterpolationAndDerivatives \
-		FluidData \
-		BoundaryConditions \
+		navierstokes/FluidData \
+		navierstokes/BoundaryConditions \
 		SharedBCModule \
 		FacePatchClass \
 		MappedGeometry \
 		WallDistance\
-		LESModels\
+		navierstokes/LESModels\
 		TransfiniteMaps3D \
 		FaceClass \
 		HexElementClass \
@@ -100,36 +100,36 @@ OBJS_HORSES=  SMConstants \
 		ViscousIP \
 		ViscousMethods \
 		WeakIntegrals \
-		DGSEMClass \
-		SpatialDiscretization \
+		NavierStokesSolver/DGSEMClass \
 		NodalStorageClass \
 		Headers \
 		ReadInputFile \
-		TimeIntegrator \
+		NavierStokesSolver/TimeIntegrator \
 		ConnectivityClass \
 		Jacobian \
 		CSR_Matrices \
-		pAdaptationClass \
-		ManufacturedSolutions \
+		NavierStokesSolver/pAdaptationClass \
+		navierstokes/ManufacturedSolutions \
 		DenseMatUtilities \
-		Implicit_JF \
-		JFNKClass \
-		GMRESClass \
-		Implicit_NJ \
+		NavierStokesSolver/SpatialDiscretization\
+		NavierStokesSolver/Implicit_JF \
+		NavierStokesSolver/JFNKClass \
+		NavierStokesSolver/GMRESClass \
+		NavierStokesSolver/Implicit_NJ \
 		ColorsClass \
-		PetscSolverClass \
-		GenericLinSolverClass \
-		MKLPardisoSolverClass \
-		LinearSolverClass \
-		IterativeSolverClass \
-		MultigridSolverClass \
-		ExplicitMethods \
-		FASMultigridClass \
+		NavierStokesSolver/PetscSolverClass \
+		NavierStokesSolver/GenericLinSolverClass \
+		NavierStokesSolver/MKLPardisoSolverClass \
+		NavierStokesSolver/LinearSolverClass \
+		NavierStokesSolver/IterativeSolverClass \
+		NavierStokesSolver/MultigridSolverClass \
+		NavierStokesSolver/ExplicitMethods \
+		NavierStokesSolver/FASMultigridClass \
 		ProblemFile \
 		ReadMeshFile \
 		Read_HDF5Mesh_HOPR \
 		Read_SpecMesh \
-		AnalyticalJacobian \
+		NavierStokesSolver/AnalyticalJacobian \
 		InterpolationMatrices
 
 OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
@@ -301,6 +301,7 @@ mkdirs: FORCE
 
 mkdirsComponents: FORCE
 	@mkdir -p ./build ./include ./lib ./bin
+	@mkdir -p ./build/navierstokes ./build/NavierStokesSolver
 
 header: FORCE
 	@echo

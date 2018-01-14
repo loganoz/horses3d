@@ -1,12 +1,12 @@
 # --------------- Dependencies 
-NSLite3DMain: TimeIntegrator \
+NSLite3DMain: NavierStokesSolver/TimeIntegrator \
 HexMesh \
 SharedBCModule \
-BoundaryConditions \
+navierstokes/BoundaryConditions \
 ReadInputFile \
 SMConstants \
-DGSEMClass\
-pAdaptationClass
+NavierStokesSolver/DGSEMClass\
+NavierStokesSolver/pAdaptationClass
 
 FileReading: SMConstants
 Utilities: SMConstants
@@ -14,14 +14,14 @@ TimerClass: SMConstants
 LegendreAlgorithms: SMConstants 
 Headers: SMConstants process_info
 InterpolationAndDerivatives: SMConstants LegendreAlgorithms Utilities
-BoundaryConditions: SMConstants Physics MeshTypes HexElementClass SharedBCModule ManufacturedSolutions
-Physics: SMConstants Headers FluidData Stopwatch
+navierstokes/BoundaryConditions: SMConstants Physics MeshTypes HexElementClass SharedBCModule navierstokes/ManufacturedSolutions
+Physics: SMConstants Headers navierstokes/FluidData Stopwatch
 FacePatchClass: SMConstants InterpolationAndDerivatives  
 MappedGeometry: SMConstants TransfiniteMaps3D NodalStorageClass InterpolationMatrices
 TransfiniteMaps3D: SMConstants FacePatchClass 
 FaceClass: SMConstants MeshTypes InterpolationAndDerivatives LegendreAlgorithms MappedGeometry StorageClass
 HexElementClass: FaceClass SMConstants MeshTypes TransfiniteMaps3D HexElementConnectivityDefinitions NodalStorageClass LegendreAlgorithms InterpolationAndDerivatives MappedGeometry ConnectivityClass StorageClass VariableConversion
-VariableConversion: SMConstants FluidData
+VariableConversion: SMConstants navierstokes/FluidData
 HexElementConnectivityDefinitions: SMConstants 
 HexMesh: Physics TransfiniteMaps3D FaceClass MeshTypes SharedBCModule NodeClass HexElementClass Headers HexElementConnectivityDefinitions ZoneClass SolutionFile partitioned_mesh MPI_Face WallDistance
 ZoneClass: SMConstants SharedBCModule RealDataLinkedList
@@ -29,12 +29,12 @@ NodeClass: SMConstants MeshTypes
 Monitors: MonitorDefinitions ParamfileRegions ResidualsMonitor Setup SurfaceIntegrals VolumeIntegrals SurfaceMonitor VolumeMonitor StatisticsMonitor Probe
 ResidualsMonitor: MonitorDefinitions
 InviscidMethods: InviscidMethodClass InviscidStandard InviscidSplitForm
-ViscousBR1: LESModels
-WallDistance: LESModels
-ViscousMethods: WeakIntegrals LESModels ViscousMethodClass ViscousBR1 ViscousIP ViscousBR2
+ViscousBR1: navierstokes/LESModels
+WallDistance: navierstokes/LESModels
+ViscousMethods: WeakIntegrals navierstokes/LESModels ViscousMethodClass ViscousBR1 ViscousIP ViscousBR2
 WeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics
-SpatialDiscretization: HexElementClass Physics BoundaryConditions NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants InviscidMethods ViscousMethods WeakIntegrals SVV
-DGSEMClass: ReadMeshFile SpatialDiscretization Physics NodalStorageClass SharedBCModule BoundaryConditions HexMesh SMConstants Monitors MeshPartitioning
+NavierStokesSolver/SpatialDiscretization: HexElementClass Physics navierstokes/BoundaryConditions NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants InviscidMethods ViscousMethods WeakIntegrals SVV
+NavierStokesSolver/DGSEMClass: ReadMeshFile NavierStokesSolver/SpatialDiscretization Physics NodalStorageClass SharedBCModule navierstokes/BoundaryConditions HexMesh SMConstants Monitors MeshPartitioning
 ReadMeshFile: Read_HDF5Mesh_HOPR Read_SpecMesh HexMesh
 Read_HDF5Mesh_HOPR: HexMesh SMConstants TransfiniteMaps3D FacePatchClass
 Read_SpecMesh: HexMesh SMConstants TransfiniteMaps3D FacePatchClass
@@ -42,28 +42,28 @@ MeshPartitioning: IntegerDataLinkedList
 IntegerDataLinkedList: Utilities
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
 InterpolationMatrices: InterpolationAndDerivatives SMConstants NodalStorageClass
-TimeIntegrator: Physics SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass Monitors
-ExplicitMethods: SMConstants DGSEMClass
-GradientSetup: DGSEMClass
+NavierStokesSolver/TimeIntegrator: Physics SMConstants NavierStokesSolver/DGSEMClass InterpolationAndDerivatives NavierStokesSolver/Implicit_JF NavierStokesSolver/Implicit_NJ NavierStokesSolver/ExplicitMethods NavierStokesSolver/FASMultigridClass Monitors
+NavierStokesSolver/ExplicitMethods: SMConstants NavierStokesSolver/DGSEMClass
+GradientSetup: NavierStokesSolver/DGSEMClass
 ReadInputFile: SMConstants SharedBCModule Physics Setup
-Jacobian: SMConstants DGSEMClass Physics
-ColorsClass: DGSEMClass
+Jacobian: SMConstants NavierStokesSolver/DGSEMClass Physics
+ColorsClass: NavierStokesSolver/DGSEMClass
 CSR_Matrices: SMConstants
-ManufacturedSolutions: Physics SMConstants
+navierstokes/ManufacturedSolutions: Physics SMConstants
 DenseMatUtilities: SMConstants
-FASMultigridClass: SMConstants ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics BoundaryConditions
+NavierStokesSolver/FASMultigridClass: SMConstants NavierStokesSolver/ExplicitMethods NavierStokesSolver/DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics navierstokes/BoundaryConditions
 #Implicit solvers
-Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
-JFNKClass: SMConstants GMRESClass
-GMRESClass: SMConstants
-Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices StorageClass AnalyticalJacobian
-AnalyticalJacobian: HexElementClass SMConstants HexMesh NodalStorageClass Physics Jacobian LinearSolverClass DGSEMClass
+NavierStokesSolver/Implicit_JF: SMConstants NavierStokesSolver/DGSEMClass Physics NavierStokesSolver/JFNKClass
+NavierStokesSolver/JFNKClass: SMConstants NavierStokesSolver/GMRESClass
+NavierStokesSolver/GMRESClass: SMConstants
+NavierStokesSolver/Implicit_NJ: SMConstants NavierStokesSolver/DGSEMClass HexElementClass Physics Jacobian ColorsClass NavierStokesSolver/LinearSolverClass CSR_Matrices StorageClass NavierStokesSolver/AnalyticalJacobian
+NavierStokesSolver/AnalyticalJacobian: HexElementClass SMConstants HexMesh NodalStorageClass Physics Jacobian NavierStokesSolver/LinearSolverClass NavierStokesSolver/DGSEMClass
 
 #Linear solvers
-LinearSolverClass: MKLPardisoSolverClass PetscSolverClass IterativeSolverClass MultigridSolverClass
+NavierStokesSolver/LinearSolverClass: NavierStokesSolver/MKLPardisoSolverClass NavierStokesSolver/PetscSolverClass NavierStokesSolver/IterativeSolverClass NavierStokesSolver/MultigridSolverClass
 
-MKLPardisoSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass
-PetscSolverClass: CSR_Matrices GenericLinSolverClass SMConstants
-IterativeSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass DenseMatUtilities
-MultigridSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass InterpolationAndDerivatives LegendreAlgorithms Physics
-GenericLinSolverClass: SMConstants CSR_Matrices DGSEMClass
+NavierStokesSolver/MKLPardisoSolverClass: SMConstants CSR_Matrices NavierStokesSolver/PetscSolverClass NavierStokesSolver/GenericLinSolverClass
+NavierStokesSolver/PetscSolverClass: CSR_Matrices NavierStokesSolver/GenericLinSolverClass SMConstants
+NavierStokesSolver/IterativeSolverClass: SMConstants CSR_Matrices NavierStokesSolver/PetscSolverClass NavierStokesSolver/GenericLinSolverClass DenseMatUtilities
+NavierStokesSolver/MultigridSolverClass: SMConstants CSR_Matrices NavierStokesSolver/PetscSolverClass NavierStokesSolver/GenericLinSolverClass InterpolationAndDerivatives LegendreAlgorithms Physics
+NavierStokesSolver/GenericLinSolverClass: SMConstants CSR_Matrices NavierStokesSolver/DGSEMClass

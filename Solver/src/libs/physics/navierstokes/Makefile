@@ -21,7 +21,7 @@ LIBOBJS = 	./build/FluidData.o \
 		./build/BoundaryConditions.o 
 
 
-LIB = physics
+LIB = physicsns
 
 ############################################
 #	MAIN COMPILATION RULES 		   #
@@ -44,15 +44,15 @@ lib$(LIB).a: header mkdirs $(LIBOBJS)
 
 install: lib$(LIB).a
 	cp -p lib$(LIB).a $(INSTALL_DIR)/lib/
-	cp -p ./include/*.mod $(INSTALL_DIR)/include/
+	cp -p ./include/*.mod $(INSTALL_DIR)/include_ns/
 	@echo
 	@echo
 
 header: FORCE
 	@echo
-	@echo "================================"
-	@echo ">>   Building physics        "
-	@echo "================================"
+	@echo "==========================================="
+	@echo ">>   Building Navier-Stokes physics        "
+	@echo "==========================================="
 	@echo
 	@echo
 mkdirs: FORCE

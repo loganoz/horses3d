@@ -50,11 +50,11 @@ ARFLAGS=crv
 ## Select platform
 ##########################################
 ifeq ($(PLATFORM),MACOSX)
-   DYNLIB_FLAG=-fPIC -shared -install_name @rpath/libproblemfile.dylib -o ./libproblemfile.dylib
-   PROBLEM_LIB=$(HOME_DIR)/lib/libproblemfile.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
+   PROBLEM_LIB_NS=$(HOME_DIR)/lib/libproblemfile_ns.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
+   PROBLEM_LIB_CH=$(HOME_DIR)/lib/libproblemfile_ch.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
 else ifeq ($(PLATFORM),LINUX)
-   DYNLIB_FLAG=-fPIC -shared -o ./libproblemfile.so
-   PROBLEM_LIB=-L$(HOME_DIR)/lib -lproblemfile -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
+   PROBLEM_LIB_NS=-L$(HOME_DIR)/lib -lproblemfile_ns -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
+   PROBLEM_LIB_CH=-L$(HOME_DIR)/lib -lproblemfile_ch -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
 endif
 
 ##########################################
@@ -161,11 +161,10 @@ endif
 ##########################################
 ##  	Select HORSES libraries 	##
 ##########################################
-HORSES_LIBS=ftobject foundation mpiutils spectral io physics mesh discretization jacobian monitors
-HORSES_LIBS_REORD=monitors jacobian discretization mesh physics io spectral mpiutils foundation ftobject
-HORSES_LIBS_EXEC=$(foreach obj,$(HORSES_LIBS_REORD),$(HOME_DIR)/lib/lib$(obj).a)
+HORSES_LIBS=ftobject foundation mpiutils spectral io physics/navierstokes physics/cahnhilliard mesh discretization jacobian monitors
+HORSES_LIBS_NS=-L$(HOME_DIR)/lib -lmonitors_ns -ljacobian_ns -ldiscretization_ns -lmesh_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS_CH=-L$(HOME_DIR)/lib -lmonitors_ch -ljacobian_ch -ldiscretization_ch -lmesh_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject
 ADDONS=horses2tecplot extractgeometry
-INCLUDE += $(EXTLIB_INC)
 HORSESFLAGS += $(MACROS)
 ADDONSFLAGS += $(MACROS)
 
@@ -182,22 +181,33 @@ LIBFLAGS=  FC='$(FC)' \
 	   LIBS='$(LIBS)'
 	   
 
-HORSESFLAGS= FC='$(FC)' \
- 	     FFLAGS='$(FFLAGS)'\
-             INCLUDE='$(INCLUDE)' \
-             INSTALL_DIR='$(INSTALL_DIR)' \
-	     MOD_FLAG='$(MOD_FLAG)'\
-	     HORSES_LIBS_EXEC='$(HORSES_LIBS_EXEC) $(PROBLEM_LIB)' \
-	     EXTLIB_INC='$(EXTLIB_INC)' \
-	     MACROS='$(MACROS)' \
+HORSES_NS_FLAGS= FC='$(FC)' \
+ 	         FFLAGS='$(FFLAGS)'\
+                 INCLUDE='$(INCLUDE)' \
+                 INSTALL_DIR='$(INSTALL_DIR)' \
+	         MOD_FLAG='$(MOD_FLAG)'\
+	         HORSES_LIBS_EXEC='$(HORSES_LIBS_NS) $(PROBLEM_LIB_NS)' \
+	         EXTLIB_INC='$(EXTLIB_INC)' \
+	         MACROS='$(MACROS)' \
 	   	 LIBS='$(LIBS)'
+
+HORSES_CH_FLAGS= FC='$(FC)' \
+ 	         FFLAGS='$(FFLAGS)'\
+                 INCLUDE='$(INCLUDE)' \
+                 INSTALL_DIR='$(INSTALL_DIR)' \
+	         MOD_FLAG='$(MOD_FLAG)'\
+	         HORSES_LIBS_EXEC='$(HORSES_LIBS_CH) $(PROBLEM_LIB_CH)' \
+	         EXTLIB_INC='$(EXTLIB_INC)' \
+	         MACROS='$(MACROS)' \
+	   	 LIBS='$(LIBS)'
+
 
 ADDONSFLAGS= FC='$(FC)' \
  	     FFLAGS='$(FFLAGS)'\
              INCLUDE='$(INCLUDE)' \
              INSTALL_DIR='$(INSTALL_DIR)' \
 	     MOD_FLAG='$(MOD_FLAG)'\
-	     HORSES_LIBS_EXEC='$(HORSES_LIBS_EXEC)' \
+	     HORSES_LIBS_EXEC='$(HORSES_LIBS_NS)' \
 	     EXTLIB_INC='$(EXTLIB_INC)' \
 	     MACROS='$(MACROS)' \
 	     LIBS='$(LIBS)'
@@ -209,17 +219,13 @@ ADDONSFLAGS= FC='$(FC)' \
 
 .DEFAULT_GOAL := all
 
-all: header mkdirs horseslibs problemfilelib HORSES3D addons
+all: header mkdirs horseslibs problemfilelib horses3d.ns horses3d.ch addons
 
-install: FORCE
-	cp -f $(HOME_DIR)/bin/HORSES3D /usr/local/bin
-	cp -f $(HOME_DIR)/bin/horses2plt /usr/local/bin
-	cp -f $(HOME_DIR)/bin/horses.geometry /usr/local/bin
-	cp -f $(HOME_DIR)/lib/libproblemfile.so /usr/local/lib
+horses3d.ns: 
+	(cd $(HOME_DIR)/src/NavierStokesSolver/ && $(MAKE) $(HORSES_NS_FLAGS) install) || exit 1; 
 
-
-HORSES3D: 
-	(cd $(HOME_DIR)/src/NavierStokesSolver/ && $(MAKE) $(HORSESFLAGS) install) || exit 1; 
+horses3d.ch: 
+	(cd $(HOME_DIR)/src/CahnHilliardSolver/ && $(MAKE) $(HORSES_CH_FLAGS) install) || exit 1; 
 
 problemfilelib: 
 	(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install) || exit 1;
@@ -254,9 +260,9 @@ clean: FORCE horseslibclean problemfileclean horsesclean addonsclean
 
 test: all
 	(cd $(HOME_DIR)/test/Euler/Diffuser/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) allclean all \
-	&& cd ../ && ./HORSES3D DiffuserFlow.control ) || exit 1; 
+	&& cd ../ && ./horses3d.ns DiffuserFlow.control ) || exit 1; 
 	(cd $(HOME_DIR)/test/NavierStokes/Cylinder/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) allclean all \
-	&& cd ../ && ./HORSES3D Cylinder.control ) || exit 1; 
+	&& cd ../ && ./horses3d.ns Cylinder.control ) || exit 1; 
 
 allclean: FORCE clean
 	@rm -f $(HOME_DIR)/bin/*
@@ -272,6 +278,7 @@ problemfileclean: FORCE
 
 horsesclean: FORCE
 	(cd $(HOME_DIR)/src/NavierStokesSolver && $(MAKE) $(HORSESFLAGS) clean) || exit 1;
+	(cd $(HOME_DIR)/src/CahnHilliardSolver && $(MAKE) $(HORSESFLAGS) clean) || exit 1;
 
 addonsclean: FORCE
 	@for subdir in $(ADDONS); do \
@@ -279,8 +286,8 @@ addonsclean: FORCE
 	done
 
 mkdirs: FORCE
-	@mkdir -p $(HOME_DIR)/build
-	@mkdir -p $(HOME_DIR)/include
+	@mkdir -p $(HOME_DIR)/build $(HOME_DIR)/build_ns $(HOME_DIR)/build_ch
+	@mkdir -p $(HOME_DIR)/include $(HOME_DIR)/include_ns $(HOME_DIR)/include_ch
 	@mkdir -p $(HOME_DIR)/bin
 	@mkdir -p $(HOME_DIR)/lib
 

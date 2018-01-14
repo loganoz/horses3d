@@ -1,4 +1,16 @@
 !
+!//////////////////////////////////////////////////////
+!
+!   @File:    HORSES3DMain.f90
+!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
+!   @Created: Sun Jan 14 13:23:03 2018
+!   @Last revision date:
+!   @Last revision author:
+!   @Last revision commit:
+!
+!//////////////////////////////////////////////////////
+!
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      HORSES3DMain.f90
@@ -10,7 +22,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      PROGRAM HORSES3DMainNS
+      PROGRAM HORSES3DMainCH
       
       USE SMConstants
       use FTValueDictionaryClass
@@ -104,10 +116,10 @@ end interface
 !     ----------------------------------------------------------------------------------
 !
       if ( MPI_Process % doMPIAction ) then
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Cahn-Hilliard Solver",__DATE__,__TIME__)
 
       else
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Cahn-Hilliard Solver",__DATE__,__TIME__)
 
       end if
 
@@ -206,7 +218,7 @@ end interface
 
       call MPI_Process % Close
       
-      END PROGRAM HORSES3DMainNS
+      END PROGRAM HORSES3DMainCH
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
 ! 

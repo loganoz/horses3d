@@ -56,11 +56,11 @@ ARFLAGS=crv
 ## Select platform
 ##########################################
 ifeq ($(PLATFORM),LINUX)
-     TARGET=./libproblemfile.so
+     TARGET=./libproblemfile_ns.so
      DYNLIB_FLAG=-fPIC -shared -o $(TARGET)
 else ifeq ($(PLATFORM),MACOSX)
-     TARGET=./libproblemfile.dylib
-     DYNLIB_FLAG=-fPIC -shared -install_name @rpath/libproblemfile.dylib -o $(TARGET)
+     TARGET=./libproblemfile_ns.dylib
+     DYNLIB_FLAG=-fPIC -shared -install_name @rpath/libproblemfile_ns.dylib -o $(TARGET)
 endif
 
 ##########################################
@@ -133,18 +133,18 @@ endif
 ##############################################################
 ##	Get objects 
 ##############################################################
-HORSES_LIBS=-lmonitors -ljacobian -lmesh -lphysics -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS=-lmonitors_ns -ljacobian_ns -lmesh_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
 
 .DEFAULT_GOAL := all
 
 all: $(TARGET)
 
 $(TARGET): FORCE ./ProblemFile.o
-	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG) $(FFLAGS) $(INCLUDE) ./ProblemFile.o -L$(HOME_DIR)/lib $(HORSES_LIBS)
+	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns ./ProblemFile.o -L$(HOME_DIR)/lib $(HORSES_LIBS)
 	
 # ---------- Executable macro -------------------
 ./ProblemFile.o: FORCE ./ProblemFile.f90
-	$(FC) -fPIC -shared $(FFLAGS) $(INCLUDE) -c ./ProblemFile.f90 -o $@
+	$(FC) -fPIC -shared $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns -c ./ProblemFile.f90 -o $@
 
 clean: FORCE
 	rm -f ./ProblemFile.o ./*.mod
@@ -152,5 +152,13 @@ clean: FORCE
 	
 allclean: FORCE clean
 	rm -f ./libproblemfile.so
+	rm -f ./libproblemfile.dylib
+	rm -f ./libproblemfile.dSYM
+	rm -f ./libproblemfile_ns.so
+	rm -f ./libproblemfile_ns.dylib
+	rm -f ./libproblemfile_ns.dSYM
+	rm -f ./libproblemfile_ch.so
+	rm -f ./libproblemfile_ch.dylib
+	rm -f ./libproblemfile_ch.dSYM
 
 FORCE:

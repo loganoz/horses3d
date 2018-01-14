@@ -299,10 +299,6 @@ module SpatialDiscretization
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!     --------------------------
-!     TOdo: Add description here
-!     --------------------------
-!
       subroutine TimeDerivative_VolumetricContribution( e , t )
          use HexMeshClass
          use ElementClass
@@ -325,24 +321,42 @@ module SpatialDiscretization
          real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
          integer       :: eID
 !
-!        Compute inviscid and viscous contravariant fluxes
-!        -------------------------------------------------
+!        *************************************
+!        Compute interior contravariant fluxes
+!        *************************************
+!
+!        Compute inviscid contravariant flux
+!        -----------------------------------
          call InviscidMethod % ComputeInnerFluxes ( e , inviscidContravariantFlux ) 
-
+!
+!        Compute viscous contravariant flux
+!        ----------------------------------
          if ( .not. LESModel % active ) then
+!
+!           Without LES model
+!           -----------------
             call ViscousMethod  % ComputeInnerFluxes ( e , viscousContravariantFlux  ) 
 
          else
+!
+!           With LES model
+!           --------------
             call ViscousMethod  % ComputeInnerFluxesWithSGS ( e , viscousContravariantFlux  ) 
 
          end if
-
+!
+!        Compute the SVV dissipation
+!        ---------------------------
          if ( .not. SVV % enabled ) then
             SVVcontravariantFlux = 0.0_RP
          else
             call SVV % ComputeInnerFluxes(e, SVVContravariantFlux)
          end if
-
+!
+!        ************************
+!        Perform volume integrals
+!        ************************
+!
          select type ( InviscidMethod )
          type is (StandardDG_t)
 !
