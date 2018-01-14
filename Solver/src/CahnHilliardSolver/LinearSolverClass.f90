@@ -3,7 +3,7 @@
 !
 !   @File:    LinearSolverClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 13:23:05 2018
+!   @Created: Sun Jan 14 17:14:40 2018
 !   @Last revision date:
 !   @Last revision author:
 !   @Last revision commit:

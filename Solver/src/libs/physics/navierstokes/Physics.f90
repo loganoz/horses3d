@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    Physics.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 13:23:11 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
 !      Physics.f90
 !      Created: 2011-07-20 09:17:26 -0400 
 !      By: David Kopriva
@@ -46,7 +34,7 @@
       private
       public  RiemannSolver, InviscidFlux, ViscousFlux
       public  InviscidJacobian
-      public  getStressTensor
+      public  getStressTensor, SutherlandsLaw
 !
 !     ---------
 !     Constants

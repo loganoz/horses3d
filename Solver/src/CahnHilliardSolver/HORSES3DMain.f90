@@ -1,16 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    HORSES3DMain.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 13:23:03 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
-!
 !////////////////////////////////////////////////////////////////////////
 !
 !      HORSES3DMain.f90
@@ -22,7 +10,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      PROGRAM HORSES3DMainCH
+      PROGRAM HORSES3DMainNS
       
       USE SMConstants
       use FTValueDictionaryClass
@@ -101,8 +89,9 @@ end interface
       character(len=LINE_LENGTH)          :: solutionFileName
       
       ! For pAdaptation
-      INTEGER, ALLOCATABLE                :: Nx(:), Ny(:), Nz(:)
-      INTEGER                             :: Nmax
+      integer, allocatable                :: Nx(:), Ny(:), Nz(:)
+      integer                             :: Nmax
+      type(pAdaptation_t)                 :: pAdaptator
 !
 !     ---------------
 !     Initializations
@@ -116,10 +105,10 @@ end interface
 !     ----------------------------------------------------------------------------------
 !
       if ( MPI_Process % doMPIAction ) then
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Cahn-Hilliard Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Navier-Stokes Solver",__DATE__,__TIME__)
 
       else
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Cahn-Hilliard Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Navier-Stokes Solver",__DATE__,__TIME__)
 
       end if
 
@@ -148,6 +137,7 @@ end interface
       
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
       call InitializeNodalStorage(Nmax)
+      call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
       
       call sem % construct (  controlVariables  = controlVariables,                                         &
                                  externalState     = externalStateForBoundaryName,                             &
@@ -176,7 +166,7 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors)
+      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator)
 !
 !     --------------------------
 !     Show simulation statistics
@@ -207,8 +197,12 @@ end interface
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients)
       END IF
-
-
+!
+!     ---------
+!     Finish up
+!     ---------
+!
+      if (pAdaptator % Constructed) call pAdaptator % destruct()
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       call DestructGlobalNodalStorage()
@@ -218,7 +212,7 @@ end interface
 
       call MPI_Process % Close
       
-      END PROGRAM HORSES3DMainCH
+      END PROGRAM HORSES3DMainNS
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
 ! 

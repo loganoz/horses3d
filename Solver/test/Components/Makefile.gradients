@@ -117,7 +117,6 @@ OBJS_HORSES=  SMConstants \
 		NavierStokesSolver/GMRESClass \
 		NavierStokesSolver/Implicit_NJ \
 		ColorsClass \
-<<<<<<< HEAD
 		NavierStokesSolver/PetscSolverClass \
 		NavierStokesSolver/GenericLinSolverClass \
 		NavierStokesSolver/MKLPardisoSolverClass \
@@ -125,31 +124,16 @@ OBJS_HORSES=  SMConstants \
 		NavierStokesSolver/IterativeSolverClass \
 		NavierStokesSolver/MultigridSolverClass \
 		NavierStokesSolver/ExplicitMethods \
-		NavierStokesSolver/FASMultigridClass \
-=======
-		PetscSolverClass \
-		GenericLinSolverClass \
-		MKLPardisoSolverClass \
-		LinearSolverClass \
-		IterativeSolverClass \
-		MultigridSolverClass \
-		ExplicitMethods \
-		FASMultigridClass \
-		AnisFASMultigridClass \
-		MultigridTypes \
->>>>>>> master
+		NavierStokesSolver/NonlinearMultigrid/FASMultigridClass \
+		NavierStokesSolver/NonlinearMultigrid/AnisFASMultigridClass \
+		NavierStokesSolver/NonlinearMultigrid/MultigridTypes \
 		ProblemFile \
 		ReadMeshFile \
 		Read_HDF5Mesh_HOPR \
 		Read_SpecMesh \
-<<<<<<< HEAD
 		NavierStokesSolver/AnalyticalJacobian \
-		InterpolationMatrices
-=======
-		AnalyticalJacobian \
 		InterpolationMatrices \
-		TruncationErrorClass
->>>>>>> master
+		NavierStokesSolver/TruncationErrorClass
 
 OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 OBJS_CASE_EXEC=$(foreach obj,$(OBJS_CASE),./build/$(obj).o)
@@ -321,6 +305,7 @@ mkdirs: FORCE
 mkdirsComponents: FORCE
 	@mkdir -p ./build ./include ./lib ./bin
 	@mkdir -p ./build/navierstokes ./build/NavierStokesSolver
+	@mkdir -p ./build/NavierStokesSolver/NonlinearMultigrid
 
 header: FORCE
 	@echo
