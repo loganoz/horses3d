@@ -78,7 +78,7 @@ Module DGSEMClass
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE ConstructDGSem( self, meshFileName_, controlVariables, &
-                                 externalState, externalGradients, polynomialOrder, Nx_, Ny_, Nz_, success )
+                                 externalState, externalGradients, polynomialOrder, Nx_, Ny_, Nz_, success, ChildSem )
       use ReadMeshFile
       use FTValueDictionaryClass
       use mainKeywordsModule
@@ -99,6 +99,7 @@ Module DGSEMClass
       INTEGER, OPTIONAL                  :: polynomialOrder(3)                 !<  Uniform polynomial order
       INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
+      logical, optional                  :: ChildSem                           !<  Is this a (multigrid) child sem?
 !
 !     ---------------
 !     Local variables
@@ -110,7 +111,7 @@ Module DGSEMClass
       INTEGER                     :: nTotalElem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       character(len=LINE_LENGTH)  :: meshFileName
-      logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
+      logical                     :: MeshInnerCurves                    ! The inner surfaces of the mesh have curves?
       INTERFACE
          SUBROUTINE externalState(x,t,nHat,Q,boundaryName)
             USE SMConstants
@@ -126,12 +127,17 @@ Module DGSEMClass
             CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
          END SUBROUTINE externalGradients
       END INTERFACE
+      
+      if ( present(ChildSem) .and. ChildSem ) self % mesh % child = .TRUE.
+      
 !
 !     Measure preprocessing time
 !     --------------------------      
-      call Stopwatch % CreateNewEvent("Preprocessing")
-      call Stopwatch % Start("Preprocessing")
-
+      if (.not. self % mesh % child) then
+         call Stopwatch % CreateNewEvent("Preprocessing")
+         call Stopwatch % Start("Preprocessing")
+      end if
+      
       if ( present( meshFileName_ ) ) then
 !
 !        Mesh file set up by input argument
@@ -320,7 +326,7 @@ Module DGSEMClass
 !
 !     Stop measuring preprocessing time
 !     ----------------------------------
-      call Stopwatch % Pause("Preprocessing")
+      if (.not. self % mesh % child) call Stopwatch % Pause("Preprocessing")
 
       END SUBROUTINE ConstructDGSem
 

@@ -76,76 +76,80 @@ module SpatialDiscretization
          class(HexMesh)                         :: mesh
          character(len=LINE_LENGTH)       :: inviscidDiscretization
          character(len=LINE_LENGTH)       :: viscousDiscretization
+         
+         if (.not. mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
+         
+            if ( MPI_Process % isRoot ) then
+               write(STD_OUT,'(/)')
+               call Section_Header("Spatial discretization scheme")
+               write(STD_OUT,'(/)')
+            end if
+   !
+   !        Initialize inviscid discretization
+   !        ----------------------------------
+            inviscidDiscretization = controlVariables % stringValueForKey(inviscidDiscretizationKey,requestedLength = LINE_LENGTH)
 
-         if ( MPI_Process % isRoot ) then
-            write(STD_OUT,'(/)')
-            call Section_Header("Spatial discretization scheme")
-            write(STD_OUT,'(/)')
-         end if
-!
-!        Initialize inviscid discretization
-!        ----------------------------------
-         inviscidDiscretization = controlVariables % stringValueForKey(inviscidDiscretizationKey,requestedLength = LINE_LENGTH)
+            call toLower(inviscidDiscretization)
+         
+            select case ( trim(inviscidDiscretization) )
 
-         call toLower(inviscidDiscretization)
-      
-         select case ( trim(inviscidDiscretization) )
+            case ( "standard" )
+               allocate( StandardDG_t  :: InviscidMethod )
 
-         case ( "standard" )
-            if (.not. allocated(InviscidMethod)) allocate( StandardDG_t  :: InviscidMethod )
-
-         case ( "split-form")
-            if (.not. allocated(InviscidMethod)) allocate(SplitDG_t   :: InviscidMethod)
-
-         case default
-            write(STD_OUT,'(A,A,A)') 'Requested inviscid discretization "',trim(inviscidDiscretization),'" is not implemented.'
-            write(STD_OUT,'(A)') "Implemented discretizations are:"
-            write(STD_OUT,'(A)') "  * Standard"
-            write(STD_OUT,'(A)') "  * Split-Form"
-            errorMessage(STD_OUT)
-            stop 
-
-         end select
-            
-         call InviscidMethod % Initialize(controlVariables)
-!
-!        Initialize viscous discretization
-!        ---------------------------------         
-         if ( flowIsNavierStokes ) then
-            viscousDiscretization = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
-            call toLower(viscousDiscretization)
-            
-            select case ( trim(viscousDiscretization) )
-            case("br1")
-               if (.not. allocated(ViscousMethod)) allocate( BassiRebay1_t :: ViscousMethod  ) 
-
-            case("br2")
-               if (.not. allocated(ViscousMethod)) allocate( BassiRebay2_t :: ViscousMethod  ) 
-
-            case("ip")
-               if (.not. allocated(ViscousMethod)) allocate( InteriorPenalty_t :: ViscousMethod  ) 
+            case ( "split-form")
+               allocate(SplitDG_t   :: InviscidMethod)
 
             case default
-               write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretization),'" is not implemented.'
+               write(STD_OUT,'(A,A,A)') 'Requested inviscid discretization "',trim(inviscidDiscretization),'" is not implemented.'
                write(STD_OUT,'(A)') "Implemented discretizations are:"
-               write(STD_OUT,'(A)') "  * BR1"
-               write(STD_OUT,'(A)') "  * BR2"
-               write(STD_OUT,'(A)') "  * IP"
+               write(STD_OUT,'(A)') "  * Standard"
+               write(STD_OUT,'(A)') "  * Split-Form"
                errorMessage(STD_OUT)
                stop 
 
             end select
-   
-         else
-            if (.not. allocated(ViscousMethod)) allocate( ViscousMethod_t  :: ViscousMethod )
-            
-         end if
+               
+            call InviscidMethod % Initialize(controlVariables)
+   !
+   !        Initialize viscous discretization
+   !        ---------------------------------         
+            if ( flowIsNavierStokes ) then
+               viscousDiscretization = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
+               call toLower(viscousDiscretization)
+               
+               select case ( trim(viscousDiscretization) )
+               case("br1")
+                  allocate( BassiRebay1_t :: ViscousMethod  ) 
 
-         call ViscousMethod % Initialize(controlVariables)
-!
-!        Initialize models
-!        -----------------
-         call InitializeLESModel(LESModel, controlVariables)
+               case("br2")
+                  allocate( BassiRebay2_t :: ViscousMethod  ) 
+
+               case("ip")
+                  allocate( InteriorPenalty_t :: ViscousMethod  ) 
+
+               case default
+                  write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretization),'" is not implemented.'
+                  write(STD_OUT,'(A)') "Implemented discretizations are:"
+                  write(STD_OUT,'(A)') "  * BR1"
+                  write(STD_OUT,'(A)') "  * BR2"
+                  write(STD_OUT,'(A)') "  * IP"
+                  errorMessage(STD_OUT)
+                  stop 
+
+               end select
+      
+            else
+               allocate( ViscousMethod_t  :: ViscousMethod )
+               
+            end if
+
+            call ViscousMethod % Initialize(controlVariables)
+   !
+   !        Initialize models
+   !        -----------------
+            call InitializeLESModel(LESModel, controlVariables)
+         
+         end if
 !
 !        Compute wall distances
 !        ----------------------
@@ -154,14 +158,15 @@ module SpatialDiscretization
 !        Initialize SVV
 !        --------------
          call InitializeSVV(SVV, controlVariables, mesh)
+         
+         if (.not. mesh % child) then
+            if ( SVV % enabled ) then
+               computeElementInterfaceFlux => computeElementInterfaceFlux_SVV
+               computeMPIFaceFlux          => computeMPIFaceFlux_SVV
+               computeBoundaryFlux         => computeBoundaryFlux_SVV
 
-         if ( SVV % enabled ) then
-            computeElementInterfaceFlux => computeElementInterfaceFlux_SVV
-            computeMPIFaceFlux          => computeMPIFaceFlux_SVV
-            computeBoundaryFlux         => computeBoundaryFlux_SVV
-
+            end if
          end if
-            
          
       end subroutine Initialize_SpaceAndTimeMethods
 !

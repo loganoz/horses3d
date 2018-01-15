@@ -135,7 +135,6 @@ contains
       
       TYPE(FacePatch), DIMENSION(6)    :: facePatchesHOPR
       !---------------------------------------------------------------
-       
 !
 !     Initializations
 !     ------------------------------------
@@ -382,7 +381,7 @@ contains
 !     Finish up
 !     ---------
 !      
-      CALL self % Describe( trim(fileName) )
+      if (.not. self % child) CALL self % Describe( trim(fileName) )
       self % Ns = Nx
 !
 !     -------------------------------------------------------------

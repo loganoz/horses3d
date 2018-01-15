@@ -44,6 +44,7 @@ MODULE HexMeshClass
          type(Face)   , dimension(:), allocatable  :: faces
          type(Element), dimension(:), allocatable  :: elements
          class(Zone_t), dimension(:), allocatable  :: zones
+         logical                                   :: child = .FALSE.   ! Is this a (multigrid) child mesh? by default .FALSE.
          contains
             procedure :: destruct                      => DestructMesh
             procedure :: Describe                      => DescribeMesh

@@ -82,6 +82,7 @@ module AnisFASMultigridClass
 !
    subroutine construct(this,controlVariables,sem)
       use FTValueDictionaryClass
+      use StopwatchClass
       implicit none
       !-----------------------------------------------------------
       class(AnisFASMultigrid_t) , intent(inout), TARGET    :: this              !<> Anisotropic FAS multigrid solver to be constructed
@@ -92,6 +93,9 @@ module AnisFASMultigridClass
       integer   :: UserMGlvls    ! User defined number of MG levels
       character(len=LINE_LENGTH)                       :: PostSmoothOptions
       !-----------------------------------------------------------
+      
+      call Stopwatch % Pause("Solver")
+      call Stopwatch % Start("Preprocessing")
       
       if (.NOT. PRESENT(sem)) stop 'Fatal error: AnisFASMultigrid needs sem.'
       if (.NOT. PRESENT(controlVariables)) stop 'Fatal error: AnisFASMultigrid needs controlVariables.'
@@ -216,6 +220,8 @@ module AnisFASMultigridClass
          call ConstructFASInOneDirection(this, MGlevels(Dir), controlVariables, Dir)   ! TODO: change argument to meshFileName
       end do
       
+      call Stopwatch % Pause("Preprocessing")
+      call Stopwatch % Start("Solver")
    end subroutine construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -355,7 +361,8 @@ module AnisFASMultigridClass
                                            externalState     = Solver % MGStorage(Dir) % p_sem % externalState,          &
                                            externalGradients = Solver % MGStorage(Dir) % p_sem % externalGradients,      &
                                            Nx_ = N2(:,1),    Ny_ = N2(:,2),    Nz_ = N2(:,3),                            &
-                                           success = success )
+                                           success = success,                                                            &
+                                           ChildSem = .TRUE. )
          if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
          
          Child_p % MGStorage(Dir) % tempsem = Child_p % MGStorage(Dir) % p_sem

@@ -298,7 +298,7 @@ MODULE Read_SpecMesh
 !        Finish up
 !        ---------
 !
-         CALL self % Describe( trim(fileName) )
+         if (.not. self % child) CALL self % Describe( trim(fileName) )
          allocate(self % Ns(size(Nx)))
          self % Ns = Nx
 !
@@ -682,7 +682,7 @@ MODULE Read_SpecMesh
 !        Finish up
 !        ---------
 !
-         CALL self % DescribePartition( trim(fileName) )
+         if (.not. self % child) CALL self % DescribePartition( trim(fileName) )
          allocate(self % Ns(size(Nx)))
          self % Ns = Nx
 !

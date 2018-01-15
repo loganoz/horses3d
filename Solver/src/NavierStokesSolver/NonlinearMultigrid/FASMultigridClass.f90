@@ -74,6 +74,7 @@ module FASMultigridClass
 !
    subroutine construct(this,controlVariables,sem)
       use FTValueDictionaryClass
+      use StopwatchClass
       implicit none
       !-----------------------------------------------------------
       class(FASMultigrid_t) , intent(inout), target    :: this
@@ -81,6 +82,9 @@ module FASMultigridClass
       type(DGSem), target                  , OPTIONAL  :: sem
       character(len=LINE_LENGTH)                       :: PostSmoothOptions
       !-----------------------------------------------------------
+      
+      call Stopwatch % Pause("Solver")
+      call Stopwatch % Start("Preprocessing")
       
       if (.NOT. PRESENT(sem)) stop 'Fatal error: FASMultigrid needs sem.'
       if (.NOT. PRESENT(controlVariables)) stop 'Fatal error: FASMultigrid needs controlVariables.'
@@ -191,6 +195,9 @@ module FASMultigridClass
 !
       call RecursiveConstructor(this, sem % Nx, sem % Ny, sem % Nz, MGlevels, controlVariables)
       
+      call Stopwatch % Pause("Preprocessing")
+      call Stopwatch % Start("Solver")
+      
    end subroutine construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -284,7 +291,8 @@ module FASMultigridClass
                                            externalState     = Solver % p_sem % externalState,                           &
                                            externalGradients = Solver % p_sem % externalGradients,                       &
                                            Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,                                        &
-                                           success = success )
+                                           success = success,                                                            &
+                                           ChildSem = .TRUE. )
          if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
          
          call RecursiveConstructor(Solver % Child, N2x, N2y, N2z, lvl - 1, controlVariables)
