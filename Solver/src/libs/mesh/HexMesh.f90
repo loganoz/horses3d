@@ -39,12 +39,11 @@ MODULE HexMeshClass
          integer                                   :: nodeType
          integer                                   :: no_of_elements
          integer                                   :: no_of_allElements
-         integer      , dimension(:), allocatable  :: Ns              !Polynomial orders of all elements
          type(Node)   , dimension(:), allocatable  :: nodes
          type(Face)   , dimension(:), allocatable  :: faces
          type(Element), dimension(:), allocatable  :: elements
          class(Zone_t), dimension(:), allocatable  :: zones
-         logical                                   :: child = .FALSE.   ! Is this a (multigrid) child mesh? by default .FALSE.
+         logical                                   :: child = .FALSE.              ! Is this a (multigrid) child mesh?... by default .FALSE.
          contains
             procedure :: destruct                      => DestructMesh
             procedure :: Describe                      => DescribeMesh
@@ -135,8 +134,6 @@ MODULE HexMeshClass
 !        -----
 !
          if (allocated(self % zones)) DEALLOCATE( self % zones )
-         safedeallocate(self % Ns)
-
          
       END SUBROUTINE DestructMesh
 !

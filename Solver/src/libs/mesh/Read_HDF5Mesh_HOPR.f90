@@ -382,7 +382,6 @@ contains
 !     ---------
 !      
       if (.not. self % child) CALL self % Describe( trim(fileName) )
-      self % Ns = Nx
 !
 !     -------------------------------------------------------------
 !     Prepare mesh for I/O only if the code is running sequentially
