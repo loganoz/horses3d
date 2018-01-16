@@ -53,8 +53,9 @@ module MonitorsClass
       integer                              :: no_of_surfaceMonitors
       integer                              :: no_of_volumeMonitors
       integer                              :: bufferLine
-      integer                              :: iter( BUFFER_SIZE )
-      real(kind=RP)                        :: t  (BUFFER_SIZE )
+      integer                              :: iter    ( BUFFER_SIZE )
+      real(kind=RP)                        :: t       (BUFFER_SIZE )
+      real(kind=RP)                        :: SimuTime (BUFFER_SIZE )
       type(StatisticsMonitor_t)            :: stats
       type(Residuals_t)                    :: residuals
       class(Probe_t),          allocatable :: probes(:)
@@ -295,6 +296,7 @@ module MonitorsClass
 !        ***************************************************************
 !        
          use PhysicsStorage
+         use StopwatchClass
          implicit none
          class(Monitor_t)    :: self
          class(HexMesh)      :: mesh
@@ -312,10 +314,11 @@ module MonitorsClass
 !        ------------------------
          self % bufferLine = self % bufferLine + 1
 !
-!        Save time and iteration
+!        Save time, iteration and CPU-time
 !        -----------------------
-         self % t    ( self % bufferLine )  = t
-         self % iter ( self % bufferLine )  = iter
+         self % t       ( self % bufferLine )  = t
+         self % iter    ( self % bufferLine )  = iter
+         self % SimuTime ( self % bufferLine )  = Stopwatch % ElapsedTime("Solver")
 !
 !        Compute current residuals
 !        -------------------------
@@ -374,7 +377,7 @@ module MonitorsClass
 !
 !           In this case the monitors are exported to their files and the buffer is reseted
 !           -------------------------------------------------------------------------------
-            call self % residuals % WriteToFile ( self % iter , self % t , self % bufferLine )
+            call self % residuals % WriteToFile ( self % iter , self % t, self % SimuTime , self % bufferLine )
    
             do i = 1 , self % no_of_probes
                call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
@@ -407,7 +410,7 @@ module MonitorsClass
 !           ----------------------------------------------------
             if ( self % bufferLine .eq. BUFFER_SIZE ) then
 
-               call self % residuals % WriteToFile ( self % iter , self % t , BUFFER_SIZE )
+               call self % residuals % WriteToFile ( self % iter , self % t, self % SimuTime , BUFFER_SIZE )
 
                do i = 1 , self % no_of_probes
                   call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine ) 

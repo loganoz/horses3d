@@ -14,6 +14,7 @@ module ResidualsMonitorClass
    type Residuals_t
       logical                         :: active
       real(kind=RP)                   :: values(NCONS,BUFFER_SIZE)
+      real(kind=RP)                   :: CPUtime(BUFFER_SIZE)
       character(len=STR_LEN_MONITORS) :: fileName
       contains
          procedure   :: Initialization => Residuals_Initialization
@@ -63,8 +64,8 @@ module ResidualsMonitorClass
 !        ----------------------------------
          open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" ) 
          write ( fID , ' ( A                                      ) ' ) "Residuals file"
-         write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "Iteration" , "Time" , "continuity" , &
-                                                              "x-momentum" , "y-momentum" , "z-momentum", "energy"
+         write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "Iteration" , "Time" , &
+                        "Elapsed Time (s)" , "continuity" , "x-momentum" , "y-momentum" , "z-momentum", "energy" , "Max-Residual"
 !
 !        Close file
 !        ----------
@@ -128,7 +129,7 @@ module ResidualsMonitorClass
 
       end subroutine Residuals_WriteValue 
 
-      subroutine Residuals_WriteToFile ( self , iter , t , no_of_lines)
+      subroutine Residuals_WriteToFile ( self , iter , t, SimuTime , no_of_lines)
 !
 !        *********************************************************************
 !              This subroutine exports the results to the monitor file.
@@ -139,6 +140,7 @@ module ResidualsMonitorClass
          class(Residuals_t)             :: self
          integer                    :: iter(:)
          real(kind=RP)              :: t(:)
+         real(kind=RP)              :: SimuTime(:)
          integer                    :: no_of_lines
 !        -------------------------------------------
          integer                    :: i
@@ -151,7 +153,8 @@ module ResidualsMonitorClass
 !        Write values
 !        ------------         
          do i = 1 , no_of_lines
-            write( fID , '(I10,2X,ES24.16,5(2X,ES24.16))' ) iter(i) , t(i) , self % values(1:NCONS,i)
+            write( fID , '(I10,2X,ES24.16,2X,ES24.16,6(2X,ES24.16))' ) iter(i) , t(i), SimuTime(i) , &
+                                                                       self % values(1:NCONS,i), maxval(self % values(1:NCONS,i))
          end do
 !
 !        Close file
