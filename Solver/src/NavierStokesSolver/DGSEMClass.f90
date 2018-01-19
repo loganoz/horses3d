@@ -704,7 +704,7 @@ Module DGSEMClass
       real(kind=RP)                 :: jac, mu, T                       ! Mapping Jacobian, viscosity and temperature
       real(kind=RP)                 :: Q(N_EQN)                         ! The solution in a node
       real(kind=RP)                 :: TimeStep_Conv, TimeStep_Visc     ! Time-step for convective and diffusive terms
-      real(kind=RP)                 :: localMaxTimeStep                 ! Time step to perform MPI reduction
+      real(kind=RP)                 :: localMax_dt_v, localMax_dt_a     ! Time step to perform MPI reduction
       type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction
       external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
       !--------------------------------------------------------
@@ -780,17 +780,25 @@ Module DGSEMClass
       end do 
 !$omp end do
 !$omp end parallel
-      
-      MaxTimeStep  = min(TimeStep_Conv,TimeStep_Visc)
          
 #ifdef _HAS_MPI_
       if ( MPI_Process % doMPIAction ) then
-         localMaxTimeStep = MaxTimeStep
-         call mpi_allreduce(localMaxTimeStep, MaxTimeStep, 1, MPI_DOUBLE, MPI_MIN, &
+         localMax_dt_v = TimeStep_Visc
+         localMax_dt_a = TimeStep_Conv
+         call mpi_allreduce(localMax_dt_a, TimeStep_Conv, 1, MPI_DOUBLE, MPI_MIN, &
+                            MPI_COMM_WORLD, ierr)
+         call mpi_allreduce(localMax_dt_v, TimeStep_Visc, 1, MPI_DOUBLE, MPI_MIN, &
                             MPI_COMM_WORLD, ierr)
       end if
 #endif
       
+      if (TimeStep_Conv  < TimeStep_Visc) then
+         self % mesh % dt_restriction = DT_CONV
+         MaxTimeStep  = TimeStep_Conv
+      else
+         self % mesh % dt_restriction = DT_DIFF
+         MaxTimeStep  = TimeStep_Visc
+      end if
    end function MaxTimeStep
 !
 !////////////////////////////////////////////////////////////////////////

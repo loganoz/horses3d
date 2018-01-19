@@ -44,6 +44,10 @@
          INTEGER, PARAMETER               :: STRING_CONSTANT_LENGTH = 64
          
          COMPLEX(KIND=CP), parameter      :: ImgI = ( 0.0_RP, 1.0_RP) ! = SQRT(-1.0_RP)
+         
+         integer, parameter               :: DT_FIXED = 0
+         integer, parameter               :: DT_DIFF  = 1
+         integer, parameter               :: DT_CONV  = 2
 
          INTEGER, PARAMETER :: LEFT   = 1, RIGHT  = 2, TOP  = 2, BOTTOM  = 1
          INTEGER, PARAMETER :: FRONT  = 1, BACK   = 2

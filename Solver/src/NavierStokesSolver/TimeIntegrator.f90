@@ -169,6 +169,7 @@
 !     ---------------
 
       sem  % numberOfTimeSteps = self % initial_iter
+      if (.not. self % Compute_dt) monitors % dt_restriction = DT_FIXED
       
 !     Measure solver time
 !     -------------------

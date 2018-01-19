@@ -54,6 +54,8 @@ module MonitorsClass
       integer                              :: no_of_volumeMonitors
       integer                              :: bufferLine
       integer                              :: iter    ( BUFFER_SIZE )
+      integer                              :: dt_restriction
+      logical                              :: write_dt_restriction
       real(kind=RP)                        :: t       (BUFFER_SIZE )
       real(kind=RP)                        :: SimuTime (BUFFER_SIZE )
       type(StatisticsMonitor_t)            :: stats
@@ -131,7 +133,8 @@ module MonitorsClass
             call Monitors % volumeMonitors(i) % Initialization ( mesh , i, solution_file )
          end do
 
-
+         Monitors % write_dt_restriction = controlVariables % logicalValueForKey( "write dt restriction" )
+         
          Monitors % bufferLine = 0
 
       end function ConstructMonitors
@@ -178,6 +181,10 @@ module MonitorsClass
          end do
 
          call self % stats % WriteLabel
+!
+!        Write label for dt restriction
+!        ------------------------------
+         if (self % write_dt_restriction) write ( STD_OUT , ' ( 3X,A10 ) ' , advance = "no" ) "dt restr."
 
          write(STD_OUT , *) 
 
@@ -236,7 +243,12 @@ module MonitorsClass
          end do
 
          if ( self % stats % state .ne. 0 ) write(STD_OUT,'(3X,A10)',advance="no") trim(dashes)
-
+         
+!
+!        Print dashes for dt restriction
+!        -------------------------------
+         if (self % write_dt_restriction) write ( STD_OUT , ' ( 3X,A10 ) ' , advance = "no" ) trim ( dashes ) 
+         
          write(STD_OUT , *) 
 
       end subroutine Monitor_WriteUnderlines
@@ -283,6 +295,16 @@ module MonitorsClass
          end do
 
          call self % stats % WriteValue
+!
+!        Print dt restriction
+!        --------------------
+         if (self % write_dt_restriction) then
+            select case (self % dt_restriction)
+               case (DT_FIXED) ; write ( STD_OUT , ' ( 1X,A,1X,A10) ' , advance = "no" ) "|" , 'Fixed'
+               case (DT_DIFF)  ; write ( STD_OUT , ' ( 1X,A,1X,A10) ' , advance = "no" ) "|" , 'Diffusive'
+               case (DT_CONV)  ; write ( STD_OUT , ' ( 1X,A,1X,A10) ' , advance = "no" ) "|" , 'Convective'
+            end select
+         end if
 
          write(STD_OUT , *) 
 
@@ -345,7 +367,11 @@ module MonitorsClass
 !        Update statistics
 !        -----------------
          call self % stats % Update(mesh, iter, t, trim(self % solution_file) )
-
+!
+!        Update dt restriction
+!        ---------------------
+         if (self % write_dt_restriction) self % dt_restriction = mesh % dt_restriction 
+         
       end subroutine Monitor_UpdateValues
 
       subroutine Monitor_WriteToFile ( self , mesh, force) 
