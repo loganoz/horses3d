@@ -52,16 +52,25 @@ INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all
                    -fp-speculation=off -assume bscc
 ARFLAGS=crv
 
+TARGET=./libproblemfile
+
 ##########################################
 ## Select platform
 ##########################################
-ifeq ($(PLATFORM),LINUX)
-     TARGET=./libproblemfile_ns.so
-     DYNLIB_FLAG=-fPIC -shared -o $(TARGET)
-else ifeq ($(PLATFORM),MACOSX)
-     TARGET=./libproblemfile_ns.dylib
-     DYNLIB_FLAG=-fPIC -shared -install_name @rpath/libproblemfile_ns.dylib -o $(TARGET)
+ifeq ($(PLATFORM),MACOSX)
+   LIBSUFFIX=.dylib
+   TARGET_NS=$(TARGET)_ns$(LIBSUFFIX)
+   TARGET_CH=$(TARGET)_ch$(LIBSUFFIX)
+   DYNLIB_FLAG_NS=-fPIC -shared -install_name @rpath/$(TARGET_NS) -o $(TARGET_NS)
+   DYNLIB_FLAG_CH=-fPIC -shared -install_name @rpath/$(TARGET_CH) -o $(TARGET_CH)
+else ifeq ($(PLATFORM),LINUX)
+   LIBSUFFIX=.so
+   TARGET_NS=$(TARGET)_ns$(LIBSUFFIX)
+   TARGET_CH=$(TARGET)_ch$(LIBSUFFIX)
+   DYNLIB_FLAG_NS=-fPIC -shared -o $(TARGET_NS)
+   DYNLIB_FLAG_CH=-fPIC -shared -o $(TARGET_CH)
 endif
+
 
 ##########################################
 ## Select compiler 
@@ -125,29 +134,31 @@ ifeq ($(ENABLE_THREADS),YES)
     FFLAGS+=-fopenmp
 endif
 
-
-
-
-
-
 ##############################################################
 ##	Get objects 
 ##############################################################
-HORSES_LIBS=-lmonitors_ns -ljacobian_ns -lmesh_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS_NS=-lmonitors_ns -ljacobian_ns -lmesh_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS_CH=-lmonitors_ch -ljacobian_ch -lmesh_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject
 
 .DEFAULT_GOAL := all
 
-all: $(TARGET)
+all: $(TARGET_NS) $(TARGET_CH)
 
-$(TARGET): FORCE ./ProblemFile.o
-	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns ./ProblemFile.o -L$(HOME_DIR)/lib $(HORSES_LIBS)
+$(TARGET_NS): FORCE ./ProblemFile_NS.o
+	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_NS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns ./ProblemFile_NS.o -L$(HOME_DIR)/lib $(HORSES_LIBS_NS)
+
+$(TARGET_CH): FORCE ./ProblemFile_CH.o
+	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_CH) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ch ./ProblemFile_CH.o -L$(HOME_DIR)/lib $(HORSES_LIBS_CH)
 	
 # ---------- Executable macro -------------------
-./ProblemFile.o: FORCE ./ProblemFile.f90
-	$(FC) -fPIC -shared $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns -c ./ProblemFile.f90 -o $@
+./ProblemFile_NS.o: FORCE ./ProblemFile.f90
+	$(FC) -fPIC -shared -DNAVIERSTOKES $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns -c ./ProblemFile.f90 -o $@
+
+./ProblemFile_CH.o: FORCE ./ProblemFile.f90
+	$(FC) -fPIC -shared -DCAHNHILLIARD $(FFLAGS) $(INCLUDE) $(INCLUDE)_ch -c ./ProblemFile.f90 -o $@
 
 clean: FORCE
-	rm -f ./ProblemFile.o ./*.mod
+	rm -f ./ProblemFile_NS.o ./ProblemFile_CH.o ./*.mod
 	rm -f ./*__genmod.f90
 	
 allclean: FORCE clean

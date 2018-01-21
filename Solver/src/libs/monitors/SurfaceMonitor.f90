@@ -1,3 +1,4 @@
+#if defined(NAVIERSTOKES)
 module SurfaceMonitorClass
    use SMConstants
    use HexMeshClass
@@ -414,3 +415,4 @@ module SurfaceMonitorClass
       end subroutine SurfaceMonitor_WriteToFile
 !
 end module SurfaceMonitorClass
+#endif

@@ -3,6 +3,7 @@ program horses2plt
    use getTask
    use Mesh2PltModule
    use Solution2PltModule
+   use SolutionCH2PltModule
    use Stats2PltModule
    use SolutionFile
    use SharedSpectralBasis
@@ -57,6 +58,11 @@ program horses2plt
             write(STD_OUT,'(/,/)')
             call Section_Header("Statistics file conversion")
             call Stats2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)
+
+         case ( SOLUTION_CAHNHILLIARD_FILE )
+            write(STD_OUT,'(/,/)')
+            call Section_Header("Cahn-Hilliard Solution conversion")
+            call SolutionCH2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)        
 
          end select
       end do

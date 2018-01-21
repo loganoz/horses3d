@@ -24,7 +24,9 @@ MODULE HexMeshClass
       use NodalStorageClass
       use MPI_Process_Info
       use MPI_Face_Class
+#if defined(NAVIERSTOKES)
       use WallDistance
+#endif
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -1845,7 +1847,13 @@ slavecoord:                DO l = 1, 4
          call SealSolutionFile(trim(meshName))
          
       end subroutine HexMesh_Export
-
+#if defined(NAVIERSTOKES)
+!
+!     ************************************************************************
+!           Save solution subroutine for the Navier-Stokes solver. It saves
+!        the state vector (Q), and optionally the gradients.
+!     ************************************************************************
+!
       subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients)
          use SolutionFile
          use MPI_Process_Info
@@ -1905,6 +1913,58 @@ slavecoord:                DO l = 1, 4
          call SealSolutionFile(trim(name))
 
       end subroutine HexMesh_SaveSolution
+#elif defined(CAHNHILLIARD)
+!
+!     **************************************************************************
+!           Save solution subroutine for the Cahn-Hilliard equations. It saves
+!        the concentration and the chemical potential
+!     **************************************************************************
+!
+      subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients)
+         use SolutionFile
+         use MPI_Process_Info
+         implicit none
+         class(HexMesh)                         :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+         logical,             intent(in)        :: saveGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: fid, eID, pos, padding
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+!
+!        Dummy references
+!        ----------------
+         refs = 0.0_RP
+!
+!        Create new file
+!        ---------------
+         call CreateNewSolutionFile(trim(name),SOLUTION_CAHNHILLIARD_FILE, self % nodeType, &
+                                    self % no_of_allElements, iter, time, refs)
+         padding = 1
+!
+!        Write arrays
+!        ------------
+         fID = putSolutionFileInWriteDataMode(trim(name))
+         do eID = 1, self % no_of_elements
+            associate( e => self % elements(eID) )
+            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
+            call writeArray(fid, e % storage % Q, position=pos)
+            !write(fid) e % storage % mu
+            end associate
+         end do
+         close(fid)
+!
+!        Close the file
+!        --------------
+         call SealSolutionFile(trim(name))
+
+      end subroutine HexMesh_SaveSolution
+#endif
 
       subroutine HexMesh_SaveStatistics(self, iter, time, name)
          use SolutionFile
@@ -1923,12 +1983,16 @@ slavecoord:                DO l = 1, 4
 !
 !        Gather reference quantities
 !        ---------------------------
+#if defined(NAVIERSTOKES)
          refs(GAMMA_REF) = thermodynamics % gamma
          refs(RGAS_REF)  = thermodynamics % R
          refs(RHO_REF)   = refValues      % rho
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = refValues      % T
          refs(MACH_REF)  = dimensionless  % Mach
+#else
+         refs = 0.0_RP
+#endif
 !
 !        Create new file
 !        ---------------

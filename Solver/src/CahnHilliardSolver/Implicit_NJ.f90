@@ -4,9 +4,9 @@
 !   @File:    Implicit_NJ.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:39 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Fri Jan 19 10:29:26 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: c17f4e94742539c11368332a5d06386553679b0a
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,7 +25,7 @@ MODULE Implicit_NJ
    USE SMConstants                  
    USE DGSEMClass,                  ONLY: DGSem, ComputeTimeDerivative
    USE ElementClass,                ONLY: Element, allocateElementStorage    !arueda: No DGSolutionStorage implemented in nslite3d... Using whole element definitions
-   USE PhysicsStorage,              ONLY: N_EQN, N_GRAD_EQN, flowIsNavierStokes
+   USE PhysicsStorage,              ONLY: N_EQN, N_GRAD_EQN
    use HexMeshClass
    USE Jacobian
    USE ColorsClass,                 ONLY: Colors
@@ -111,7 +111,7 @@ MODULE Implicit_NJ
          ALLOCATE(nbr(nelm))
          CALL Look_for_neighbour(nbr, sem % mesh)    
          ALLOCATE(U_n(0:Dimprb-1))
-         CALL ecolors%construct(nbr,flowIsNavierStokes)       
+         CALL ecolors%construct(nbr,.true.)       
          !CALL ecolors%info
          CALL linsolver%construct(DimPrb,controlVariables,sem)             !Constructs linear solver 
          JacByConv = controlVariables % LogicalValueForKey("jacobian by convergence")
@@ -508,7 +508,7 @@ MODULE Implicit_NJ
 !           Allocate the element storage of the clean element array
 !           -------------------------------------------------------
 !
-            CALL allocateElementStorage( dgs_clean(i), Nx(i), Ny(i), Nz(i), N_EQN, N_GRAD_EQN, flowIsNavierStokes )
+            CALL allocateElementStorage( dgs_clean(i), Nx(i), Ny(i), Nz(i), N_EQN, N_GRAD_EQN, .true. )
          END DO
          firstIdx(nelm+1) = firstIdx(nelm) + ndofelm(nelm)
          
@@ -532,7 +532,7 @@ MODULE Implicit_NJ
 !        computation of the Jacobian matrix entries
 !        ---------------------------------------------------------------
 !
-         IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
+         IF (.true.) THEN ! .AND. BR1 (only implementation to date)
             ALLOCATE(used(26))   ! 25 neighbors (including itself) and a last entry that will be 0 always (boundary index)
          ELSE
             ALLOCATE(used(8))    ! 7 neighbors (including itself) and a last entry that will be 0 always (boundary index)
@@ -548,7 +548,7 @@ MODULE Implicit_NJ
 !              IMPORTANT: These numbers assume conforming meshes!
 !        -------------------------------------------------------------------------
 !
-         IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
+         IF (.true.) THEN ! .AND. BR1 (only implementation to date)
             nnz = maxndofel * 25
          ELSE
             nnz = maxndofel * 7
@@ -643,7 +643,7 @@ MODULE Implicit_NJ
                   ENDIF
                   
                   ! If we are using BR1, we also have to get the contributions of the neighbors of neighbors
-                  IF(flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
+                  IF(.true.) THEN ! .AND. BR1 (only implementation to date)
                      IF (elmnbr .NE. 0) THEN
                         DO j=1, SIZE(nbr(elmnbr)%elmnt)
                            nbrnbr = nbr(elmnbr)%elmnt(j)                          

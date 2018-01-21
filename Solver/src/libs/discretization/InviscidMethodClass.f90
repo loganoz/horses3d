@@ -4,13 +4,14 @@
 !   @File:    InviscidMethodClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:16:30 2017
-!   @Last revision date: Tue Dec 26 20:56:52 2017
+!   @Last revision date: Tue Jan 16 11:59:31 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 11dd5b683eba468bc0e8e4db146cbc1fbc952a8a
+!   @Last revision commit: cbae0faa7686246cad4b300efae466eda61473cd
 !
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
+#if defined(NAVIERSTOKES)
 module InviscidMethodClass
    use SMConstants
    use RiemannSolvers
@@ -173,3 +174,4 @@ module InviscidMethodClass
 
       end subroutine BaseClass_ComputeSplitFormFluxes
 end module InviscidMethodClass
+#endif

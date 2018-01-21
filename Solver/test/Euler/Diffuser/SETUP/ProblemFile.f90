@@ -78,7 +78,7 @@
 !           Set up for the diffuser geometry
 !           --------------------------------
 !
-   
+#if defined(NAVIERSTOKES)
             associate ( gammaMinus1Div2 => thermodynamics_ % gammaMinus1Div2, &
                         sqrtGamma => thermodynamics_ % sqrtGamma, &
                         gamma => thermodynamics_ % gamma, &
@@ -95,6 +95,7 @@
             h = GAMMA *(1.0_RP/gammaMinus1Div2 + mach**2)
 
             end associate
+#endif
             
          END SUBROUTINE UserDefinedFinalSetup
 !
@@ -140,6 +141,7 @@
                end subroutine pointSourceFlowSolution
             end interface
             
+#if defined(NAVIERSTOKES)
             DO eID = 1, SIZE(mesh % elements)
                DO k = 0, mesh % elements(eID) % Nxyz(3)
                   DO j = 0, mesh % elements(eID) % Nxyz(2)
@@ -152,6 +154,7 @@
                   END DO
                END DO 
             END DO 
+#endif
             
          END SUBROUTINE UserDefinedInitialCondition
 !
@@ -436,6 +439,8 @@
 !     beginning of the computation.
 !     -------------------------------------------
 !
+
+#if defined(NAVIERSTOKES)
       associate( gammaMinus1 => thermodynamics_ % gammaMinus1, &
                  gamma => thermodynamics_ % gamma, &
                  Mach => dimensionless_ % Mach ) 
@@ -494,6 +499,7 @@
       Q(5) = p/gammaMinus1 + 0.5_RP*rho*(u**2 + v**2)
 
       end associate
+#endif
       
    END SUBROUTINE pointSourceFlowSolution
 !

@@ -62,45 +62,25 @@
          USE SMConstants
          USE Physics
          USE SharedBCModule
-         USE ManufacturedSolutions
          use PhysicsStorage
 
          private
 
          public implementedBCNames
 
-         public FreeSlipWallState, NoSlipAdiabaticWallState
-         public NoSlipIsothermalWallState, ExternalPressure
-         public ExternalPressureState, ManufacturedSolutionState
-         public ManufacturedSolP, UserDefinedState
-         public UniformFlowState 
-   
-         public FreeSlipNeumann, NoSlipAdiabaticWallNeumann, NoSlipIsothermalWallNeumann
-         public ManufacturedSolutionDeriv, UserDefinedNeumann
-         public UniformFlowNeumann
+         public NoFluxState, NoFluxNeumann
+         public UserDefinedState, UserDefinedNeumann
 
-         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(11) :: implementedBCNames = &
-               ["freeslipwall        ", &
-               "noslipadiabaticwall ",  &
-               "noslipisothermalwall",  &
-               "inflow              ",  &
-               "outflow             ",  &
-               "outflowspecifyp     ",  &
-               "periodic-           ",  &
-               "periodic+           ",  &
-               "user-defined        ",  &
-               "manufacturedsol     ",  &
-               "msoutflowspecifyp   "]
+         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(4) :: implementedBCNames = &
+               ["no-flux             ", &
+                "periodic+           ", &
+                "periodic-           ", &
+                "user-defined        "   ]
                
-         INTEGER, PARAMETER :: FREE_SLIP_WALL_INDEX          = 1
-         INTEGER, PARAMETER :: NO_SLIP_ADIABATIC_WALL_INDEX  = 2
-         INTEGER, PARAMETER :: NO_SLIP_ISOTHERMAL_WALL_INDEX = 3
-         INTEGER, PARAMETER :: INFLOW_INDEX                  = 4
-         INTEGER, PARAMETER :: OUTFLOW_INDEX                 = 5
-         INTEGER, PARAMETER :: OUTFLOW_SPECIFY_P_INDEX       = 6
-         INTEGER, PARAMETER :: PERIODIC_PLUS_INDEX           = 7
-         INTEGER, PARAMETER :: PERIODIC_MINUS_INDEX          = 8
-         INTEGER, PARAMETER :: USER_DEFINED_INDEX            = 9
+         integer, parameter :: NO_FLUX_INDEX        = 1
+         integer, parameter :: PERIODIC_PLUS_INDEX  = 2
+         integer, parameter :: PERIODIC_MINUS_INDEX = 3
+         INTEGER, PARAMETER :: USER_DEFINED_INDEX   = 4
 !
 !     ========         
       CONTAINS
@@ -109,98 +89,22 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      FUNCTION WallTemperatureForBoundaryNamed(boundaryName) RESULT(T)
-         IMPLICIT NONE
-         CHARACTER(LEN=32), INTENT(IN)    :: boundaryName
-         REAL(KIND=RP)                    :: T
-         
-         ! Choose different temperatures according to boundary name, if desired...
-         ! For now, just use an input value.
-         
-         T = bcValueDictionary % realValueForKey(boundaryName)
-      
-      END FUNCTION WallTemperatureForBoundaryNamed
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      FUNCTION ExternalPressure() RESULT(p)
-         IMPLICIT NONE
-         REAL(KIND=RP)                    :: p
-         
-         ! Choose different temperatures according to boundary name, if desired...
-         ! For now, just use the UninformFlow value.
-         
-         p    = 1.0_RP/(dimensionless % gammaM2)
-      
-      END FUNCTION ExternalPressure
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      FUNCTION WallTemperature(x) RESULT(T)
-         IMPLICIT NONE
-         REAL(KIND=RP) :: x(3)
-         REAL(KIND=RP) :: T
-         
-         ! just a simple set the temperature value function
-         T = 1.0_RP
-      
-      END FUNCTION WallTemperature
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE FreeSlipWallState( x, t, nHat, Q )
+      SUBROUTINE NoFluxState( x, t, nHat, Q )
 !
 !     ----------------------------------------------------
-!     Set up the conditions for a wall boundary condition.
-!     This is the no-slip condition with normal velocity 
-!     of the exterior fictitious cell set to the negative
-!     of the interior value. Used for Euler and Symmetry
-!     BCs for Navier-Stokes.
+!        No flux state: boundary = interior: does nothing
 !     ----------------------------------------------------
 !
       IMPLICIT NONE 
-!
-!     ---------
-!     Arguments
-!     ---------
-!
       REAL(KIND=RP), INTENT(IN)    :: x(3), t
       REAL(KIND=RP), INTENT(IN)    :: nHat(3)
       REAL(KIND=RP), INTENT(INOUT) :: Q(N_EQN)
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      REAL(KIND=RP) :: qNorm, qTanx, qTany, qTanz
-      REAL(KIND=RP) :: QInt(N_EQN)
-      
-      QInt = Q
-      
-      qNorm =  nHat(1)*QInt(2) + nHat(2)*QInt(3) + nHat(3)*QInt(4)
-      qTanx = QInt(2) - qNorm*nHat(1)
-      qTany = QInt(3) - qNorm*nHat(2)
-      qTanz = QInt(4) - qNorm*nHat(3)
 
-      Q(1) = QInt(1)
-      Q(2) = qTanx - qNorm*nHat(1)
-      Q(3) = qTany - qNorm*nHat(2)
-      Q(4) = qTanz - qNorm*nHat(3)
-      Q(5) = QInt(5)
-
-      END SUBROUTINE FreeSlipWallState
+      END SUBROUTINE NoFluxState
 !
 !     /////////////////////////////////////////////////////////////////
 !
-!     ----------------------------------------------------------------
-!!
-!!    This routine sets the Neumann conditions for a free slip wall.
-!!    In this case it means setting the normal gradients on the exterior
-!!    (right) to be the negative of the interior (Left) gradients.
-!!    so that they average out to zero.
-!     ----------------------------------------------------------------
-!
-      SUBROUTINE FreeSlipNeumann(x, t, nHat, U_x, U_y, U_z )
+      SUBROUTINE NoFluxNeumann(x, t, nHat, U_x, U_y, U_z )
       IMPLICIT NONE
 !
 !     ---------
@@ -210,145 +114,12 @@
       REAL(KIND=RP), INTENT(IN)    :: x(3), t
       REAL(KIND=RP), INTENT(IN)    :: nHat(3)
       REAL(KIND=RP), INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
-      INTEGER       :: k
-!
-      DO k = 1, N_GRAD_EQN 
-         gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
-         UTanx = U_x(k) - gradUNorm*nHat(1)
-         UTany = U_y(k) - gradUNorm*nHat(2)
-         UTanz = U_z(k) - gradUNorm*nHat(3)
-   
-         U_x(k) = UTanx - gradUNorm*nHat(1)
-         U_y(k) = UTany - gradUNorm*nHat(2)
-         U_z(k) = UTanz - gradUNorm*nHat(3)
-      END DO
 
-      END SUBROUTINE FreeSlipNeumann
-!
-!---------------------------------------------------------------------
-!!   SUBROUTINE NoSlipWall( thisMortar, Q, time ): Enforce
-!!   the no velocity condition through the Riemann solver.
-!---------------------------------------------------------------------
-!
-      SUBROUTINE NoSlipAdiabaticWallState( x, t, Q )
-         IMPLICIT NONE
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         REAL(KIND=RP), INTENT(IN)    :: x(3), t
-         REAL(KIND=RP), INTENT(INOUT) :: Q(N_EQN)
-!
-!        -----------------------------------------------
-!        Generate the external flow along the face, that
-!        represents a solid wall.
-!        -----------------------------------------------
-!
-         Q(1) =  Q(1)
-         Q(2) = -Q(2)
-         Q(3) = -Q(3)
-         Q(4) = -Q(4)
-         Q(5) =  Q(5)
+      U_x = 0.0_RP
+      U_y = 0.0_RP
+      U_z = 0.0_RP
 
-      END SUBROUTINE NoSlipAdiabaticWallState
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, u_z )
-         IMPLICIT NONE
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         REAL(KIND=RP), INTENT(IN)    :: x(3), t
-         REAL(KIND=RP), INTENT(IN)    :: nHat(3)
-         REAL(KIND=RP), INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
-!
-!        ---------------
-!        Local Variables
-!        ---------------
-!
-         INTEGER :: k = 4 ! = temperature
-!
-         REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
-!
-         gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k)+ nHat(3)*U_z(k)
-         UTanx = U_x(k) - gradUNorm*nHat(1)
-         UTany = U_y(k) - gradUNorm*nHat(2)
-         UTanz = U_z(k) - gradUNorm*nHat(3)
-   
-         U_x(k) = UTanx - gradUNorm*nHat(1)
-         U_y(k) = UTany - gradUNorm*nHat(2)
-         U_z(k) = UTanz - gradUNorm*nHat(3)
-      
-      END SUBROUTINE NoSlipAdiabaticWallNeumann
-!
-!---------------------------------------------------------------------
-!!   SUBROUTINE NoSlipWall( thisMortar, Q, time ): Enforce
-!!   the no velocity condition through the Riemann solver.
-!---------------------------------------------------------------------
-!
-      SUBROUTINE NoSlipIsothermalWallState( x, t, Q )
-      
-      USE SMConstants
-      USE PhysicsStorage
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP), INTENT(IN)    :: x(3), t
-      REAL(KIND=RP), INTENT(INOUT) :: Q(N_EQN)
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      REAL(KIND=RP)           :: wallTemp
-!
-!     -----------------------------------------------
-!     Generate the external flow along the face, that
-!     represents a solid wall at a fixed temperature.
-!     Note that this requires an external routine 
-!     called WallTemperature
-!     -----------------------------------------------
-!
-      associate ( gammaMinus1 => thermodynamics % gammaMinus1, &
-                  gammaM2 => dimensionless % gammaM2 )
-
-         wallTemp = wallTemperature(x) !Swap this out later with BC version
-         Q(1) =  Q(1)
-         Q(2) = -Q(2)
-         Q(3) = -Q(3)
-         Q(4) = -Q(4)
-         Q(5) =  Q(1)*wallTemp/gammaMinus1/gammaM2
-
-      end associate
-
-      END SUBROUTINE NoSlipIsothermalWallState
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z  )
-      USE SMConstants
-      USE PhysicsStorage
-      IMPLICIT NONE
-      
-      REAL(KIND=RP)                :: x(3), t, nHat(3)
-      REAL(KIND=RP), INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
-      
-      !do nothing - specifying Temperature is sufficient.
-      
-      END SUBROUTINE NoSlipIsothermalWallNeumann
+      END SUBROUTINE NoFluxNeumann
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -359,28 +130,6 @@
       
       REAL(KIND=RP) :: x(3), t
       REAL(KIND=RP) :: Q(N_EQN)
-      
-      REAL(KIND=RP) :: theta, phi, qq
-      REAL(KIND=RP) :: u, v, w, p
-      
-      associate ( gammaM2 => dimensionless % gammaM2, &
-                  gamma => thermodynamics % gamma )
-      theta = refValues % AOATheta*(PI/180.0_RP)
-      phi   = refValues % AOAPhi*(PI/180.0_RP)
-      
-      qq = 1.0_RP
-      u  = qq*cos(theta)*COS(phi)
-      v  = qq*sin(theta)*COS(phi)
-      w  = qq*SIN(phi)
-      
-      Q(1) = 1.0_RP
-      p    = 1.0_RP/(gammaM2)
-      Q(2) = Q(1)*u
-      Q(3) = Q(1)*v
-      Q(4) = Q(1)*w
-      Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
-   
-      end associate
       
       END SUBROUTINE UniformFlowState
 !
@@ -400,47 +149,7 @@
       REAL(KIND=RP) :: nHat(3)
       REAL(KIND=RP), INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
       
-      INTEGER :: k
-!
-      REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
-!
-      DO k = 1, N_GRAD_EQN
-         gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
-         UTanx = U_x(k) - gradUNorm*nHat(1)
-         UTany = U_y(k) - gradUNorm*nHat(2)
-         UTanz = U_z(k) - gradUNorm*nHat(3)
-   
-         U_x(k) = UTanx - gradUNorm*nHat(1)
-         U_y(k) = UTany - gradUNorm*nHat(2)
-         U_z(k) = UTanz - gradUNorm*nHat(3)
-      END DO
-      
       END SUBROUTINE UniformFlowNeumann
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ZeroFlowState( x, t, Q )
-      USE SMConstants
-      USE PhysicsStorage
-      IMPLICIT NONE
-      
-      REAL(KIND=RP) :: x(3), t
-      REAL(KIND=RP) :: Q(N_EQN)
-      
-      REAL(KIND=RP) :: p
-      
-      associate ( gammaM2 => dimensionless % gammaM2, &
-                  gamma => thermodynamics % gamma )
-      Q(1) = 1.0_RP
-      p    = 1.0_RP/(gammaM2)
-      Q(2) = 0._RP
-      Q(3) = 0._RP
-      Q(4) = 0._RP
-      Q(5) = p/(gamma - 1._RP)
-
-      end associate
-      
-      END SUBROUTINE ZeroFlowState
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -495,76 +204,6 @@
       END DO
       
    END SUBROUTINE GaussianPerturbUnitSquare
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ExternalPressureState( x, t, nHat, Q, pExt )
-!
-!     -------------------------------------------------------
-!     Compute the external state given the internal state and
-!     the exterior pressure
-!     -------------------------------------------------------
-!
-      IMPLICIT NONE 
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP) :: x(3), t, nHat(3)
-      REAL(KIND=RP) :: Q(N_EQN), pExt
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      REAL(KIND=RP) :: qDotN, qTanx, qTany, qTanz, p, a, a2
-      REAL(KIND=RP) :: rPlus, entropyConstant, u, v, w, rho, normalMachNo
-!      
-      associate ( gammaMinus1 => thermodynamics % gammaMinus1, &
-                  gamma => thermodynamics % gamma )
-      
-      qDotN = (nHat(1)*Q(2) + nHat(2)*Q(3) + nHat(3)*Q(4))/Q(1)
-      qTanx = Q(2)/Q(1) - qDotN*nHat(1)
-      qTany = Q(3)/Q(1) - qDotN*nHat(2)
-      qTanz = Q(4)/Q(1) - qDotN*nHat(3)
-      
-      p            = gammaMinus1*( Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1) )
-      a2           = gamma*p/Q(1)
-      a            = SQRT(a2)
-      normalMachNo = ABS(qDotN/a)
-      
-      IF ( normalMachNo <= 1.0_RP )     THEN
-!
-!        -------------------------------
-!        Quantities coming from upstream
-!        -------------------------------
-!
-         rPlus           = qDotN + 2.0_RP*a/gammaMinus1
-         entropyConstant = p - a2*Q(1)
-!
-!        ----------------
-!        Resolve solution
-!        ----------------
-!
-         rho   = -(entropyConstant - pExt)/a2
-         a     = SQRT(gamma*pExt/rho)
-         qDotN = rPlus - 2.0_RP*a/gammaMinus1
-         u     = qTanx + qDotN*nHat(1)
-         v     = qTany + qDotN*nHat(2)
-         w     = qTanz + qDotN*nHat(3)
-         
-         Q(1) = rho
-         Q(2) = rho*u
-         Q(3) = rho*v
-         Q(4) = rho*w
-         Q(5) = pExt/gammaMinus1 + 0.5_RP*rho*(u*u + v*v + w*w)
-        
-      END IF
-
-      end associate
-
-      END SUBROUTINE ExternalPressureState
 
       subroutine UserDefinedState(x, t, nHat, Q)
          implicit none
@@ -629,24 +268,8 @@
       REAL(KIND=RP)   :: pExt
       LOGICAL         :: success
 
-      IF ( boundarytype == "freeslipwall" )             THEN
-         CALL FreeSlipWallState( x, t, nHat, Q )
-      ELSE IF ( boundaryType == "noslipadiabaticwall" ) THEN 
-         CALL  NoSlipAdiabaticWallState( x, t, Q)
-      ELSE IF ( boundarytype == "noslipisothermalwall") THEN 
-         CALL NoSlipIsothermalWallState( x, t, Q )
-      ELSE IF ( boundaryType == "outflowspecifyp" )     THEN 
-         pExt =  ExternalPressure()
-         CALL ExternalPressureState ( x, t, nHat, Q, pExt )
-      ELSE IF ( boundaryType == "manufacturedsol" )     THEN 
-         CALL ManufacturedSolutionState( x, t, Q )
-      ELSE IF ( boundaryType == "MSOutflowSpecifyP" )     THEN 
-         pExt =  ManufacturedSolP(x)
-         CALL ExternalPressureState ( x, t, nHat, Q, pExt )
-      ELSE IF ( boundaryType == "user-defined" ) THEN
-         call UserDefinedState(x, t, nHat, Q)
-      ELSE 
-         CALL UniformFlowState( x, t, Q ) 
+      IF ( boundarytype == "no-flux" )             THEN
+         CALL NoFluxState( x, t, nHat, Q )
       END IF
 
       END SUBROUTINE externalStateForBoundaryName
@@ -683,20 +306,8 @@
       U_y(:) = GradU(2,:)
       U_z(:) = GradU(3,:)
 
-      IF ( boundarytype == "freeslipwall" )                   THEN
-         CALL FreeSlipNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE IF ( boundaryType == "noslipadiabaticwall" )       THEN 
-         CALL  NoSlipAdiabaticWallNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE IF ( boundarytype == "noslipisothermalwall")       THEN 
-         CALL NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE IF ( boundaryType == "manufacturedsol" )     THEN 
-         CALL ManufacturedSolutionDeriv( x, t, nHat, U_x, U_y, U_z )
-      ELSE IF ( boundaryType == "MSOutflowSpecifyP" )     THEN 
-         CALL ManufacturedSolutionDeriv( x, t, nHat, U_x, U_y, U_z )
-      ELSE IF ( boundaryType == "User-defined" ) THEN
-         CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSE
-         CALL UniformFlowNeumann( x, t, nHat, U_x, U_y, U_z )
+      IF ( boundarytype == "no-flux" )                   THEN
+         CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
       END IF
 
       GradU(1,:) = U_x(:)
