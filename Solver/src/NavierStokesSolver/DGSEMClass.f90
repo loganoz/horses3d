@@ -341,10 +341,6 @@ Module DGSEMClass
       CALL self % mesh % destruct
       self % externalState     => NULL()
       self % externalGradients => NULL()
-      IF ( ALLOCATED(InviscidMethod) ) DEALLOCATE( InviscidMethod )
-      IF ( ALLOCATED(ViscousMethod ) ) DEALLOCATE( ViscousMethod ) 
-      IF ( ALLOCATED(LESModel) ) DEALLOCATE( LESModel ) 
-      
       END SUBROUTINE DestructDGSem
 !
 !////////////////////////////////////////////////////////////////////////

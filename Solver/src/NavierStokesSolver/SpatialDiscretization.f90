@@ -172,6 +172,15 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
+      subroutine Finalize_SpaceAndTimeMethods
+         implicit none
+         IF ( ALLOCATED(InviscidMethod) ) DEALLOCATE( InviscidMethod )
+         IF ( ALLOCATED(ViscousMethod ) ) DEALLOCATE( ViscousMethod ) 
+         IF ( ALLOCATED(LESModel) )       DEALLOCATE( LESModel )
+      end subroutine Finalize_SpaceAndTimeMethods
+!
+!////////////////////////////////////////////////////////////////////////
+!
       subroutine TimeDerivative_ComputeQDot( mesh , t, externalState, externalGradients )
          implicit none
          type(HexMesh)              :: mesh
