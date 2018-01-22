@@ -236,7 +236,7 @@ end module UserDefinedDataStorage
                   S(IRHOW) = c2 * cos1 + c3 * sin2
                   S(IRHOE) = c4 * cos1 + c5 * sin2
 
-                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + S
+                  e % storage % S(:,i,j,k) = S
                end do                  ; end do                ; end do
                end associate
             end do

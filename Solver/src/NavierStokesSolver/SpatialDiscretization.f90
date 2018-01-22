@@ -94,10 +94,10 @@ module SpatialDiscretization
             select case ( trim(inviscidDiscretization) )
 
             case ( "standard" )
-               allocate( StandardDG_t  :: InviscidMethod )
+               if (.not. allocated(InviscidMethod)) allocate( StandardDG_t  :: InviscidMethod )
 
             case ( "split-form")
-               allocate(SplitDG_t   :: InviscidMethod)
+               if (.not. allocated(InviscidMethod)) allocate( SplitDG_t     :: InviscidMethod)
 
             case default
                write(STD_OUT,'(A,A,A)') 'Requested inviscid discretization "',trim(inviscidDiscretization),'" is not implemented.'
@@ -119,13 +119,13 @@ module SpatialDiscretization
                
                select case ( trim(viscousDiscretization) )
                case("br1")
-                  allocate( BassiRebay1_t :: ViscousMethod  ) 
+                  if (.not. allocated(ViscousMethod)) allocate( BassiRebay1_t :: ViscousMethod  ) 
 
                case("br2")
-                  allocate( BassiRebay2_t :: ViscousMethod  ) 
+                  if (.not. allocated(ViscousMethod)) allocate( BassiRebay2_t :: ViscousMethod  ) 
 
                case("ip")
-                  allocate( InteriorPenalty_t :: ViscousMethod  ) 
+                  if (.not. allocated(ViscousMethod)) allocate( InteriorPenalty_t :: ViscousMethod  ) 
 
                case default
                   write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretization),'" is not implemented.'
@@ -139,7 +139,7 @@ module SpatialDiscretization
                end select
       
             else
-               allocate( ViscousMethod_t  :: ViscousMethod )
+               if (.not. allocated(ViscousMethod)) allocate( ViscousMethod_t  :: ViscousMethod )
                
             end if
 
@@ -229,7 +229,7 @@ module SpatialDiscretization
 !        Surface integrals and scaling of elements with non-shared faces
 !        ***************************************************************
 ! 
-!$omp do schedule(runtime) 
+!$omp do schedule(runtime) private(i,j,k)
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID)) 
             if ( e % hasSharedFaces ) cycle
@@ -275,7 +275,7 @@ module SpatialDiscretization
 !        Surface integrals and scaling of elements with shared faces
 !        ***********************************************************
 ! 
-!$omp do schedule(runtime) 
+!$omp do schedule(runtime) private(i,j,k)
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID)) 
             if ( .not. e % hasSharedFaces ) cycle
@@ -290,7 +290,16 @@ module SpatialDiscretization
 !
 !        Add a source term
 !        -----------------
-         call UserDefinedSourceTerm(mesh, t, thermodynamics, dimensionless, refValues)
+         if (.not. mesh % child) call UserDefinedSourceTerm(mesh, t, thermodynamics, dimensionless, refValues)
+!$omp do schedule(runtime) private(i,j,k)
+         do eID = 1, mesh % no_of_elements
+            associate ( e => mesh % elements(eID) )
+            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S(:,i,j,k)
+            end do                  ; end do                ; end do
+            end associate
+         end do
+!$omp end do
 !
 !        Add a MPI Barrier
 !        -----------------
