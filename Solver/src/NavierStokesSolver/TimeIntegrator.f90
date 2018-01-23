@@ -397,7 +397,7 @@ end interface
 
               write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",k+1," with Residual = ", maxval(maxResidual)
               call Stopwatch % Pause("Solver")
-              RETURN
+              exit
             END IF
          ELSEIF (self % integratorType == TIME_ACCURATE) THEN
             IF ( t .ge. self % tFinal) then
