@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Fri Jan 19 12:22:20 2018
-!   @Last revision date: Fri Jan 19 15:06:14 2018
+!   @Last revision date: Tue Jan 23 16:27:55 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d47bcab70e393ec443727dd07ba1872345f5ba24
+!   @Last revision commit: d97cdbe19b7a3be3cd0c8a1f01343de8c1714260
 !
 !//////////////////////////////////////////////////////
 !
@@ -154,14 +154,10 @@
                associate( nx => mesh % elements(eid) % nxyz(1), &
                           ny => mesh % elements(eid) % nxyz(2), &
                           nz => mesh % elements(eid) % nxyz(3) )
-               do j = 0, ny; do i = 0, nx 
+               do k = 0, nz ; do j = 0, ny; do i = 0, nx 
                   call random_number(mesh % elements(eID) % storage % c(i,j,0))
-                  mesh % elements(eID) % storage % c(i,j,0) = 2.0_RP * (mesh % elements(eID) % storage % c(i,j,0) - 0.5_RP)
-               end do;        end do
-
-               do k = 1, nz
-                  mesh % elements(eID) % storage % c(:,:,k) = mesh % elements(eID) % storage % c(:,:,0)
-               end do
+                  mesh % elements(eID) % storage % c(i,j,k) = 2.0_RP * (mesh % elements(eID) % storage % c(i,j,k) - 0.5_RP)
+               end do ; end do;        end do
 
                mesh % elements(eID) % storage % Q(1,:,:,:) = mesh % elements(eID) % storage % c
                end associate

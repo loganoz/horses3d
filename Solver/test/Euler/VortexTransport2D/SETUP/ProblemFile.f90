@@ -3,10 +3,10 @@
 !
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sat Oct 28 12:16:18 2017
-!   @Last revision date: Tue Jan 23 16:27:55 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d97cdbe19b7a3be3cd0c8a1f01343de8c1714260
+!   @Created: Tue Jan 23 16:27:56 2018
+!   @Last revision date:
+!   @Last revision author:
+!   @Last revision commit:
 !
 !//////////////////////////////////////////////////////
 !
@@ -33,21 +33,6 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#include "Includes.h"
-module UserDefinedDataStorage
-   use SMConstants
-   
-   private
-   public   c1, c2, c3, c4, c5
-
-   real(kind=RP)  :: c1
-   real(kind=RP)  :: c2 
-   real(kind=RP)  :: c3
-   real(kind=RP)  :: c4
-   real(kind=RP)  :: c5
-
-end module UserDefinedDataStorage
-
          SUBROUTINE UserDefinedStartup
 !
 !        --------------------------------
@@ -70,79 +55,96 @@ end module UserDefinedDataStorage
 !
             USE HexMeshClass
             use PhysicsStorage
-            use UserDefinedDataStorage
             IMPLICIT NONE
             CLASS(HexMesh)                      :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
-#if defined(NAVIERSTOKES)
-
-            c1 =  0.1_RP * PI
-            c2 = -0.2_RP * PI + 0.05_RP * PI * (1.0_RP + 5.0_RP * thermodynamics_ % gamma)
-            c3 = 0.01_RP * PI * ( thermodynamics_ % gamma - 1.0_RP ) 
-            c4 = 0.05_RP * ( -16.0_RP * PI + PI * (9.0_RP + 15.0_RP * thermodynamics_ % gamma ))
-            c5 = 0.01_RP * ( 3.0_RP * PI * thermodynamics_ % gamma - 2.0_RP * PI )
-
-#endif
 
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
+#if defined(NAVIERSTOKES)
+         subroutine userdefinedinitialcondition(mesh, thermodynamics_, &
                                                       dimensionless_, &
-                                                          refValues_  )
+                                                          refvalues_  )
 !
 !           ------------------------------------------------
-!           Called to set the initial condition for the flow
-!              - By default it sets an uniform initial
+!           called to set the initial condition for the flow
+!              - by default it sets an uniform initial
 !                 condition.
 !           ------------------------------------------------
 !
-            USE SMConstants
-            use PhysicsStorage
-            use HexMeshClass
+            use smconstants
+            use physicsstorage
+            use hexmeshclass
             implicit none
-            class(HexMesh)                      :: mesh
-            type(Thermodynamics_t), intent(in)  :: thermodynamics_
-            type(Dimensionless_t),  intent(in)  :: dimensionless_
-            type(RefValues_t),      intent(in)  :: refValues_
+            class(hexmesh)                      :: mesh
+            type(thermodynamics_t), intent(in)  :: thermodynamics_
+            type(dimensionless_t),  intent(in)  :: dimensionless_
+            type(refvalues_t),      intent(in)  :: refvalues_
 !
 !           ---------------
-!           Local variables
+!           local variables
 !           ---------------
 !
-            integer        :: eID, i, j, k
-            real(kind=RP)  :: qq, u, v, w, p, x(NDIM)
-            real(kind=RP)  :: Q(N_EQN), phi, theta
-#if defined(NAVIERSTOKES)
-            associate ( gammaM2 => dimensionless_ % gammaM2, &
-                        gamma => thermodynamics_ % gamma )
-      
-            do eID = 1, mesh % no_of_elements
-               associate( Nx => mesh % elements(eID) % Nxyz(1), &
-                          Ny => mesh % elements(eID) % Nxyz(2), &
-                          Nz => mesh % elements(eID) % Nxyz(3) )
-               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+            integer        :: eid, i, j, k
+            real(kind=rp)  :: q(n_eqn)
+
+            real(kind=RP), parameter :: R = 0.1_RP                  ! This is the "vortex radius" (dimensionless)
+            real(kind=RP), parameter :: Beta = 0.05_RP              ! This is the "vortex strength"
+            real(kind=RP), parameter :: XC = 0.0_RP                 ! Vortex X position (in dimensionless coordinates)
+            real(kind=RP), parameter :: ZC = 0.0_RP                 ! Vortex Y position (in dimensionless coordinates)
+            real(kind=RP), parameter :: AngleOfAttack = 0.0_RP
+            real(kind=RP)            :: r2 , rho , u , w , T, p
+            real(kind=RP)            :: x(NDIM)
+         
+            associate ( gamma => Thermodynamics_ % Gamma , Mach => Dimensionless_ % Mach , cv => Dimensionless_ % cv )
+
+            do eid = 1, mesh % no_of_elements
+               associate( nx => mesh % elements(eid) % nxyz(1), &
+                          ny => mesh % elements(eid) % nxyz(2), &
+                          nz => mesh % elements(eid) % nxyz(3) )
+               do k = 0, nz;  do j = 0, ny;  do i = 0, nx 
                   x = mesh % elements(eID) % geom % x(:,i,j,k)
-
-                  Q(1) = ( 2.0_RP + 0.1_RP * sin(PI*(x(1) + x(2) - 1.0_RP + x(3))))
-                  Q(2) = Q(1)
-                  Q(3) = Q(1)
-                  Q(4) = Q(1)
-                  Q(5) = POW2(Q(1))
-
-                  mesh % elements(eID) % storage % Q(:,i,j,k) = Q 
+            r2 = ((x(1) - XC)*(x(1) - XC) + (x(3) - ZC)*(x(3) - ZC)) / (R*R)
+         
+            u =  (cos(AngleOfAttack) - Beta * (x(3) - ZC) / R * exp(-0.5_RP * r2))
+            w =  (sin(AngleOfAttack) + Beta * (x(1) - XC) / R * exp(-0.5_RP * r2))
+             
+            T = (1.0_RP - gamma * Mach * Mach * beta * beta / (2.0_RP * Dimensionless_ % cp) * exp(-r2) )
+            rho = (T)**( dimensionless_ % cv)
+            p  = rho * T / dimensionless_ % gammaM2
+         
+            q(1) = rho
+            q(2) = rho * u
+            q(3) = 0.0_RP
+            q(4) = rho * w
+            q(5) = p/(gamma - 1.0_RP) + 0.5_RP * q(1)*(u**2 + w**2)
+      
+                  mesh % elements(eid) % storage % q(:,i,j,k) = q 
                end do;        end do;        end do
                end associate
             end do
-
             end associate
-#endif
-            
-         END SUBROUTINE UserDefinedInitialCondition
 
+         end subroutine userdefinedinitialcondition
+#elif defined(CAHNHILLIARD)
+         subroutine userdefinedinitialcondition(mesh, thermodynamics_, &
+                                                      dimensionless_, &
+                                                          refvalues_  )
+            use smconstants
+            use physicsstorage
+            use hexmeshclass
+            implicit none
+            class(hexmesh)                      :: mesh
+            type(thermodynamics_t), intent(in)  :: thermodynamics_
+            type(dimensionless_t),  intent(in)  :: dimensionless_
+            type(refvalues_t),      intent(in)  :: refvalues_
+            
+         end subroutine userdefinedinitialcondition
+#endif
          subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
 !
 !           -------------------------------------------------
@@ -189,11 +191,17 @@ end module UserDefinedDataStorage
 !           ----------------------------------------------------------
 !
             USE HexMeshClass
+#if defined(NAVIERSTOKES)
             use MonitorsClass
+#endif
             IMPLICIT NONE
             CLASS(HexMesh)               :: mesh
             REAL(KIND=RP)                :: time
+#if defined(NAVIERSTOKES)
             type(Monitor_t), intent(in) :: monitors
+#else
+            logical, intent(in) :: monitors
+#endif
             
          END SUBROUTINE UserDefinedPeriodicOperation
 !
@@ -207,7 +215,6 @@ end module UserDefinedDataStorage
 !
             USE HexMeshClass
             use PhysicsStorage
-            use UserDefinedDataStorage
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -220,32 +227,15 @@ end module UserDefinedDataStorage
 !           ---------------
 !
             integer  :: i, j, k, eID
-            real(kind=RP)  :: S(NCONS), x(NDIM)
-            real(kind=RP)  :: cos1, sin2
-#if defined(NAVIERSTOKES)
 !
 !           Usage example (by default no source terms are added)
 !           ----------------------------------------------------
-!$omp do schedule(runtime) private(i,j,k,x,cos1,sin2,S)
-            do eID = 1, mesh % no_of_elements
-               associate ( e => mesh % elements(eID) )
-               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  x = e % geom % x(:,i,j,k)
-                  cos1 = cos(PI * (x(1) + x(2) - 1.0_RP + x(3) - 2.0_RP*time))
-                  sin2 = sin(2.0_RP * PI *(x(1) + x(2) - 1.0_RP + x(3) - 2.0_RP*time))
-
-                  S(IRHO)  = c1 * cos1
-                  S(IRHOU) = c2 * cos1 + c3 * sin2
-                  S(IRHOV) = c2 * cos1 + c3 * sin2
-                  S(IRHOW) = c2 * cos1 + c3 * sin2
-                  S(IRHOE) = c4 * cos1 + c5 * sin2
-
-                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + S
-               end do                  ; end do                ; end do
-               end associate
-            end do
-!$omp end do
-#endif
+!           do eID = 1, mesh % no_of_elements
+!              associate ( e => mesh % elements(eID) )
+!              do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+!                 e % QDot(:,i,j,k) = e % QDot(:,i,j,k) + Source(:)
+!              end do                  ; end do                ; end do
+!           end do
    
          end subroutine UserDefinedSourceTerm
 !
@@ -265,7 +255,9 @@ end module UserDefinedDataStorage
 !
             USE HexMeshClass
             use PhysicsStorage
+#if defined(NAVIERSTOKES)
             use MonitorsClass
+#endif
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -274,43 +266,13 @@ end module UserDefinedDataStorage
             type(Thermodynamics_t),    intent(in) :: thermodynamics_
             type(Dimensionless_t),     intent(in) :: dimensionless_
             type(RefValues_t),         intent(in) :: refValues_
-            type(Monitor_t),           intent(in) :: monitors
-            real(kind=RP),             intent(in) :: elapsedTime
-            real(kind=RP),             intent(in) :: CPUTime
-!
-!           ---------------
-!           Local variables
-!           ---------------
-!
-            integer     :: eID, i, j, k, fid
-            real(kind=RP)  :: x(NDIM)
-            real(kind=RP)  :: L2error, L2local
-            real(kind=RP)  :: Qexpected(NCONS)
-
-            L2error = 0.0_RP
-
-            do eID = 1, mesh % no_of_elements
-               associate ( e => mesh % elements(eID) ) 
-               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
-                  x = e % geom % x(:,i,j,k)
-
-                  Qexpected(1) = ( 2.0_RP + 0.1_RP * sin(PI*(x(1) + x(2) - 1.0_RP + x(3)- 2.0_RP * time)))
-                  Qexpected(2) = Qexpected(1)
-                  Qexpected(3) = Qexpected(1)
-                  Qexpected(4) = Qexpected(1)
-                  Qexpected(5) = POW2(Qexpected(1))
-
-                  L2local = norm2( e % storage % Q(:,i,j,k) - Qexpected )
-                  L2error = max(L2local,L2error)
-               end do                  ; end do                   ; end do
-               end associate
-            end do
-!
-!           Write the results in a file
-!           ---------------------------
-            open(newunit=fid,file="./RESULTS/BenchResults.out",status="old",access="append",action="write")
-            write(fid,*) mesh % no_of_elements, mesh % elements(1) % Nxyz(1), L2error, elapsedTime, CPUTime
-            close(fid)
+#if defined(NAVIERSTOKES)
+            type(Monitor_t),          intent(in) :: monitors
+#else
+            logical, intent(in)  :: monitors
+#endif
+            real(kind=RP),             intent(in)  :: elapsedTime
+            real(kind=RP),             intent(in)  :: CPUTime
 
          END SUBROUTINE UserDefinedFinalize
 !

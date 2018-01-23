@@ -4,9 +4,9 @@
 !   @File:    ReadHDF5Mesh.f90
 !   @Author:  Andrés Rueda (a.rueda@upm.es)
 !   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Tue Nov 28 17:01:48 2017
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 86a8c105a49aa182fa3416a869f7efbbc764622a
+!   @Last revision date: Tue Jan 23 16:27:53 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: d97cdbe19b7a3be3cd0c8a1f01343de8c1714260
 !
 !  Module or reading HDF5 meshes as written by HOPR
 !  -> Only for hexahedral conforming meshes
@@ -19,6 +19,7 @@ module Read_HDF5Mesh_HOPR
    use SMConstants
    USE TransfiniteMapClass
    use FacePatchClass
+   use MappedGeometryClass
    use MPI_Process_Info
 #ifdef HAS_HDF5
    use HDF5
@@ -77,7 +78,7 @@ contains
 !     * Variables as called in HOPR
 !     * Auxiliar variables
 !  -----------------------------------------------------------------------------------------------------------------------
-   subroutine ConstructMesh_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves, success )
+   subroutine ConstructMesh_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves, dir2D, success )
       implicit none
       !---------------------------------------------------------------
       class(HexMesh)     :: self
@@ -85,6 +86,7 @@ contains
       integer            :: nodes
       INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
       logical            :: MeshInnerCurves
+      integer, intent(in) :: dir2D
       LOGICAL            :: success
       !---------------------------------------------------------------
 #ifdef HAS_HDF5
@@ -366,6 +368,15 @@ contains
 !        --------------------- 
 ! 
       call self % DefineAsBoundaryFaces() 
+!
+!        -------------------------------
+!        Set the mesh as 2D if requested
+!        -------------------------------
+!
+         if ( dir2D .ne. 0 ) then
+            call SetMappingsToCrossProduct
+            call self % CorrectOrderFor2DMesh(dir2D)
+         end if
 ! 
 !
 !     ------------------------------

@@ -1,0 +1,27 @@
+flow equations = "Euler"
+mesh file name        = "./MESH/Square8x8.mesh"
+discretization nodes = Gauss
+restart file name     = "./RESULTS/SD8x8.hsol"
+solution file name    = "./RESULTS/SD8x8.hsol"
+restart               = .false.
+Polynomial order      = 10
+Gradient energy coefficient = 1.0d-2
+Number of time steps  = 10000000
+Output Interval       = 10
+Convergence tolerance = 1.d-10
+cfl = 0.4
+2D mesh offset direction = y
+simulation type       = time-accurate
+final time            = 2.0d0
+Mach number = 0.6
+autosave mode         = time
+autosave interval     = 10.0d0
+Number of boundaries  = 6
+front 0.0 periodic+
+bottom 0.0 periodic+
+top 0.0 periodic-
+back 0.0 periodic-
+left 0.0 periodic+
+right 0.0 periodic-
+/
+

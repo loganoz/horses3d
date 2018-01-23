@@ -37,6 +37,7 @@ MODULE HexMeshClass
 !     ---------------
 !
       type HexMesh
+         integer                                   :: dir2D
          integer                                   :: numberOfFaces
          integer                                   :: nodeType
          integer                                   :: no_of_elements
@@ -52,6 +53,7 @@ MODULE HexMeshClass
             procedure :: DescribePartition             => DescribeMeshPartition
             procedure :: ConstructZones                => HexMesh_ConstructZones
             procedure :: DefineAsBoundaryFaces         => HexMesh_DefineAsBoundaryFaces
+            procedure :: CorrectOrderFor2DMesh         => HexMesh_CorrectOrderFor2DMesh
             procedure :: SetConnectivitiesAndLinkFaces => HexMesh_SetConnectivitiesAndLinkFaces
             procedure :: UpdateFacesWithPartition      => HexMesh_UpdateFacesWithPartition
             procedure :: ConstructGeometry             => HexMesh_ConstructGeometry
@@ -1244,6 +1246,208 @@ slavecoord:                DO l = 1, 4
          
       END SUBROUTINE WriteCoordFile
 !
+!//////////////////////////////////////////////////////////////////////////////
+!
+!        This subroutine gets the 2D direction in the local frame for each
+!     element and sets the polynomial order to zero in that direction
+!     --------------------------------------------------------------------
+!
+!//////////////////////////////////////////////////////////////////////////////
+!
+      subroutine HexMesh_CorrectOrderFor2DMesh(self, dir2D)
+         use Utilities, only: almostEqual
+         implicit none
+         class(HexMesh),   intent(inout) :: self
+         integer,          intent(in)    :: dir2D
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: eID, nID, no_of_orientedNodes
+         integer  :: face1Nodes(NODES_PER_FACE)
+         integer  :: face2Nodes(NODES_PER_FACE)
+         real(kind=RP)  :: d2D(NDIM)
+         real(kind=RP)  :: xNodesF1(NDIM,NODES_PER_FACE)
+         real(kind=RP)  :: xNodesF2(NDIM,NODES_PER_FACE)
+         real(kind=RP)  :: dx(NDIM,NODES_PER_FACE)
+
+         self % dir2D = dir2D
+!
+!        Construct the normal vector
+!        ---------------------------
+         select case (dir2D)
+         case(IX)
+            d2D = [1.0_RP, 0.0_RP, 0.0_RP]
+
+         case(IY)
+            d2D = [0.0_RP, 1.0_RP, 0.0_RP]
+
+         case(IZ)
+            d2D = [0.0_RP, 0.0_RP, 1.0_RP]
+
+         end select
+
+         do eID = 1, self % no_of_elements
+            associate(e => self % elements(eID))
+!
+!           *****************************************
+!           Check if the direction is xi (Left,Right)
+!           *****************************************
+!
+!           Get both face node IDs
+!           ----------------------
+            face1Nodes = e % nodeIDs(localFaceNode(:, ELEFT))
+            face2Nodes = e % nodeIDs(localFaceNode(:, ERIGHT))
+!
+!           Get the nodes coordinates
+!           -------------------------
+            do nID = 1, NODES_PER_FACE
+               xNodesF1(:,nID) = self % nodes(face1Nodes(nID)) % x
+               xNodesF2(:,nID) = self % nodes(face2Nodes(nID)) % x
+            end do
+!
+!           Compute the delta x vectors
+!           ---------------------------
+            dx = xNodesF2 - xNodesF1
+!
+!           Check how many delta x vectors are parallel to the 2D direction
+!           ---------------------------------------------------------------
+            no_of_orientedNodes = 0
+            do nID = 1, NODES_PER_FACE
+               if ( almostEqual(abs(dot_product(dx(:,nID),d2D)),1.0_RP) ) then
+                  no_of_orientedNodes = no_of_orientedNodes + 1 
+               elseif ( almostEqual(abs(dot_product(dx(:,nID),d2D)),0.0_RP)) then
+                  no_of_orientedNodes = no_of_orientedNodes - 1
+               end if
+            end do
+!
+!           Check if the direction is the geometrical 2D direction
+!           ------------------------------------------------------
+            if ( no_of_orientedNodes .eq. 4 ) then
+!
+!              This is the 2D direction
+!              ------------------------
+               e % dir2D = IX
+               e % Nxyz(1) = 0
+               e % spAxi => NodalStorage(0)
+            
+            elseif ( no_of_orientedNodes .ne. -4 ) then
+!
+!              If all delta x vectors are not perpendicular to the 2D direction, the mesh is not 2D
+!              ------------------------------------------------------------------------------------
+               print*, "The mesh does not seem to be 2D for the given direction"
+               errorMessage(STD_OUT)
+               stop
+
+            end if
+!
+!           *****************************************
+!           Check if the direction is eta (Front,Back)
+!           *****************************************
+!
+!           Get both face node IDs
+!           ----------------------
+            face1Nodes = e % nodeIDs(localFaceNode(:, EFRONT))
+            face2Nodes = e % nodeIDs(localFaceNode(:, EBACK))
+!
+!           Get the nodes coordinates
+!           -------------------------
+            do nID = 1, NODES_PER_FACE
+               xNodesF1(:,nID) = self % nodes(face1Nodes(nID)) % x
+               xNodesF2(:,nID) = self % nodes(face2Nodes(nID)) % x
+            end do
+!
+!           Compute the delta x vectors
+!           ---------------------------
+            dx = xNodesF2 - xNodesF1
+!
+!           Check how many delta x vectors are parallel to the 2D direction
+!           ---------------------------------------------------------------
+            no_of_orientedNodes = 0
+            do nID = 1, NODES_PER_FACE
+               if ( almostEqual(abs(dot_product(dx(:,nID),d2D)),1.0_RP) ) then
+                  no_of_orientedNodes = no_of_orientedNodes + 1 
+               elseif ( almostEqual(abs(dot_product(dx(:,nID),d2D)),0.0_RP)) then
+                  no_of_orientedNodes = no_of_orientedNodes - 1
+               end if
+            end do
+!
+!           Check if the direction is the geometrical 2D direction
+!           ------------------------------------------------------
+            if ( no_of_orientedNodes .eq. 4 ) then
+!
+!              This is the 2D direction
+!              ------------------------
+               e % dir2D = IY
+               e % Nxyz(2) = 0
+               e % spAeta => NodalStorage(0)
+            
+            elseif ( no_of_orientedNodes .ne. -4 ) then
+!
+!              If all delta x vectors are not perpendicular to the 2D direction, the mesh is not 2D
+!              ------------------------------------------------------------------------------------
+               print*, "The mesh does not seem to be 2D for the given direction"
+               errorMessage(STD_OUT)
+               stop
+
+            end if
+!
+!           *****************************************
+!           Check if the direction is zeta (Bottom,Top)
+!           *****************************************
+!
+!           Get both face node IDs
+!           ----------------------
+            face1Nodes = e % nodeIDs(localFaceNode(:, EBOTTOM))
+            face2Nodes = e % nodeIDs(localFaceNode(:, ETOP))   
+!
+!           Get the nodes coordinates
+!           -------------------------
+            do nID = 1, NODES_PER_FACE
+               xNodesF1(:,nID) = self % nodes(face1Nodes(nID)) % x
+               xNodesF2(:,nID) = self % nodes(face2Nodes(nID)) % x
+            end do
+!
+!           Compute the delta x vectors
+!           ---------------------------
+            dx = xNodesF2 - xNodesF1
+!
+!           Check how many delta x vectors are parallel to the 2D direction
+!           ---------------------------------------------------------------
+            no_of_orientedNodes = 0
+            do nID = 1, NODES_PER_FACE
+               if ( almostEqual(abs(dot_product(dx(:,nID),d2D)),1.0_RP) ) then
+                  no_of_orientedNodes = no_of_orientedNodes + 1 
+               elseif ( almostEqual(abs(dot_product(dx(:,nID),d2D)),0.0_RP)) then
+                  no_of_orientedNodes = no_of_orientedNodes - 1
+               end if
+            end do
+!
+!           Check if the direction is the geometrical 2D direction
+!           ------------------------------------------------------
+            if ( no_of_orientedNodes .eq. 4 ) then
+!
+!              This is the 2D direction
+!              ------------------------
+               e % dir2D = IZ
+               e % Nxyz(3) = 0
+               e % spAzeta => NodalStorage(0)
+            
+            elseif ( no_of_orientedNodes .ne. -4 ) then
+!
+!              If all delta x vectors are not perpendicular to the 2D direction, the mesh is not 2D
+!              ------------------------------------------------------------------------------------
+               print*, "The mesh does not seem to be 2D for the given direction"
+               errorMessage(STD_OUT)
+               stop
+
+            end if
+            end associate
+         end do
+
+      end subroutine HexMesh_CorrectOrderFor2DMesh
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !        Set element connectivities
@@ -1540,7 +1744,6 @@ slavecoord:                DO l = 1, 4
                                                                             NodalStorage(CLN(2)) % xCGL,faceCL) 
                   deallocate(faceCL)
                end if
-
 
             case (HMESH_MPI)
                eID = maxval(f % elementIDs)
@@ -1996,7 +2199,7 @@ slavecoord:                DO l = 1, 4
 !
 !        Create new file
 !        ---------------
-         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_elements, iter, time, refs)
+         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
 !
 !        Write arrays
 !        ------------

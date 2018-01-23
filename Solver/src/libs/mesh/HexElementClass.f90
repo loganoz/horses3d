@@ -41,32 +41,33 @@
       public   DestructElement, PrintElement, SetElementBoundaryNames
       
       TYPE Element
-         logical                                        :: hasSharedFaces
-         integer                                        :: eID               ! ID of this element
-         integer                                        :: globID            ! globalID of the element
-         integer                                        :: offsetIO          ! Offset from the first element for IO
-         INTEGER                                        :: nodeIDs(8)
-         integer                                        :: faceIDs(6)
-         integer                                        :: faceSide(6)
-         INTEGER, DIMENSION(3)                          :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
-         TYPE(MappedGeometry)                           :: geom
-         CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryName(6)
-         CHARACTER(LEN=BC_STRING_LENGTH)                :: boundaryType(6)
-         INTEGER                                        :: NumberOfConnections(6)
-         TYPE(Connectivity)                             :: Connection(6)
-         type(Storage_t)                                :: storage
-         type(NodalStorage_t), pointer                    :: spAxi
-         type(NodalStorage_t), pointer                    :: spAeta
-         type(NodalStorage_t), pointer                    :: spAzeta
-         type(TransfiniteHexMap)                        :: hexMap            ! High-order mapper
+         logical                         :: hasSharedFaces
+         integer                         :: dir2D
+         integer                         :: eID               ! ID of this element
+         integer                         :: globID            ! globalID of the element
+         integer                         :: offsetIO          ! Offset from the first element for IO
+         INTEGER                         :: nodeIDs(8)
+         integer                         :: faceIDs(6)
+         integer                         :: faceSide(6)
+         INTEGER, DIMENSION(3)           :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
+         TYPE(MappedGeometry)            :: geom
+         CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName(6)
+         CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType(6)
+         INTEGER                         :: NumberOfConnections(6)
+         TYPE(Connectivity)              :: Connection(6)
+         type(Storage_t)                 :: storage
+         type(NodalStorage_t), pointer   :: spAxi
+         type(NodalStorage_t), pointer   :: spAeta
+         type(NodalStorage_t), pointer   :: spAzeta
+         type(TransfiniteHexMap)         :: hexMap            ! High-order mapper
          contains
-            procedure   :: Construct => HexElement_Construct
-            procedure   :: ConstructGeometry => HexElement_ConstructGeometry
-            procedure   :: FindPointWithCoords => HexElement_FindPointWithCoords
+            procedure   :: Construct               => HexElement_Construct
+            procedure   :: ConstructGeometry       => HexElement_ConstructGeometry
+            procedure   :: FindPointWithCoords     => HexElement_FindPointWithCoords
             procedure   :: EvaluateSolutionAtPoint => HexElement_EvaluateSolutionAtPoint
-            procedure   :: ProlongSolutionToFaces => HexElement_ProlongSolutionToFaces
+            procedure   :: ProlongSolutionToFaces  => HexElement_ProlongSolutionToFaces
             procedure   :: ProlongGradientsToFaces => HexElement_ProlongGradientsToFaces
-            procedure   :: ComputeLocalGradient  => HexElement_ComputeLocalGradient
+            procedure   :: ComputeLocalGradient    => HexElement_ComputeLocalGradient
       END TYPE Element 
       
 !
@@ -91,13 +92,13 @@
 !
       SUBROUTINE HexElement_Construct( self, Nx, Ny, Nz, nodeIDs, eID, globID)
          IMPLICIT NONE
-         
          class(Element)      :: self
          integer, intent(in) :: Nx, Ny, Nz  !<  Polynomial orders         
          integer, intent(in) :: nodeIDs(8)
          integer, intent(in) :: eID, globID
          
          self % eID                 = eID
+         self % dir2D               = 0
          self % globID              = globID
          self % nodeIDs             = nodeIDs
          self % Nxyz(1)             = Nx
@@ -138,11 +139,18 @@
 ! 
       SUBROUTINE allocateElementStorage(self, Nx, Ny, Nz, nEqn, nGradEqn, computeGradients)  
          IMPLICIT NONE
-         TYPE(Element)        :: self
-         INTEGER, intent(in)  :: Nx, Ny, Nz, nEqn, nGradEqn
-         LOGICAL, intent(in)  :: computeGradients
+         TYPE(Element)                 :: self
+         INTEGER, intent(in), optional :: Nx, Ny, Nz
+         INTEGER, intent(in)           :: nEqn, nGradEqn
+         LOGICAL, intent(in)           :: computeGradients
 
-         call self % Storage % Construct(Nx, Ny, Nz, nEqn, nGradEqn, computeGradients)
+         if ( present(Nx) .and. present(Ny) .and. present(Nz) ) then
+            call self % Storage % Construct(Nx, Ny, Nz, nEqn, nGradEqn, computeGradients)
+
+         else
+            call self % Storage % Construct(self % Nxyz(1), self % Nxyz(2), self % Nxyz(3), nEqn, nGradEqn, computeGradients)
+
+         end if
 
       END SUBROUTINE allocateElementStorage
 !
