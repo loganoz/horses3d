@@ -75,10 +75,10 @@ module LESModels
 
             select case (trim(modelName))
             case ("none")
-               allocate(LESModel_t     :: model)
+               if (.not. allocated(model)) allocate(LESModel_t     :: model)
 
             case ("smagorinsky")
-               allocate(Smagorinsky_t  :: model)
+               if (.not. allocated(model)) allocate(Smagorinsky_t  :: model)
 
             case default
                write(STD_OUT,'(A,A,A)') "LES Model ",trim(modelName), " is not implemented."
@@ -91,7 +91,7 @@ module LESModels
             end select
    
          else
-            allocate(LESModel_t  :: model)
+            if (.not. allocated(model)) allocate(LESModel_t  :: model)
 
          end if
 

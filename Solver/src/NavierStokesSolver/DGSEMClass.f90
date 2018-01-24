@@ -78,7 +78,7 @@ Module DGSEMClass
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE ConstructDGSem( self, meshFileName_, controlVariables, &
-                                 externalState, externalGradients, polynomialOrder, Nx_, Ny_, Nz_, success )
+                                 externalState, externalGradients, polynomialOrder, Nx_, Ny_, Nz_, success, ChildSem )
       use ReadMeshFile
       use FTValueDictionaryClass
       use mainKeywordsModule
@@ -99,6 +99,7 @@ Module DGSEMClass
       INTEGER, OPTIONAL                  :: polynomialOrder(3)                 !<  Uniform polynomial order
       INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
+      logical, optional                  :: ChildSem                           !<  Is this a (multigrid) child sem?
 !
 !     ---------------
 !     Local variables
@@ -128,12 +129,17 @@ Module DGSEMClass
             CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
          END SUBROUTINE externalGradients
       END INTERFACE
+      
+      if ( present(ChildSem) .and. ChildSem ) self % mesh % child = .TRUE.
+      
 !
 !     Measure preprocessing time
 !     --------------------------      
-      call Stopwatch % CreateNewEvent("Preprocessing")
-      call Stopwatch % Start("Preprocessing")
-
+      if (.not. self % mesh % child) then
+         call Stopwatch % CreateNewEvent("Preprocessing")
+         call Stopwatch % Start("Preprocessing")
+      end if
+      
       if ( present( meshFileName_ ) ) then
 !
 !        Mesh file set up by input argument
@@ -345,7 +351,7 @@ Module DGSEMClass
 !
 !     Stop measuring preprocessing time
 !     ----------------------------------
-      call Stopwatch % Pause("Preprocessing")
+      if (.not. self % mesh % child) call Stopwatch % Pause("Preprocessing")
 
       END SUBROUTINE ConstructDGSem
 
@@ -360,10 +366,6 @@ Module DGSEMClass
       CALL self % mesh % destruct
       self % externalState     => NULL()
       self % externalGradients => NULL()
-      IF ( ALLOCATED(InviscidMethod) ) DEALLOCATE( InviscidMethod )
-      IF ( ALLOCATED(ViscousMethod ) ) DEALLOCATE( ViscousMethod ) 
-      IF ( ALLOCATED(LESModel) ) DEALLOCATE( LESModel ) 
-      
       END SUBROUTINE DestructDGSem
 !
 !////////////////////////////////////////////////////////////////////////
@@ -723,7 +725,7 @@ Module DGSEMClass
       real(kind=RP)                 :: jac, mu, T                       ! Mapping Jacobian, viscosity and temperature
       real(kind=RP)                 :: Q(N_EQN)                         ! The solution in a node
       real(kind=RP)                 :: TimeStep_Conv, TimeStep_Visc     ! Time-step for convective and diffusive terms
-      real(kind=RP)                 :: localMaxTimeStep                 ! Time step to perform MPI reduction
+      real(kind=RP)                 :: localMax_dt_v, localMax_dt_a     ! Time step to perform MPI reduction
       type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction
       external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
       !--------------------------------------------------------
@@ -816,17 +818,25 @@ Module DGSEMClass
       end do 
 !$omp end do
 !$omp end parallel
-      
-      MaxTimeStep  = min(TimeStep_Conv,TimeStep_Visc)
          
 #ifdef _HAS_MPI_
       if ( MPI_Process % doMPIAction ) then
-         localMaxTimeStep = MaxTimeStep
-         call mpi_allreduce(localMaxTimeStep, MaxTimeStep, 1, MPI_DOUBLE, MPI_MIN, &
+         localMax_dt_v = TimeStep_Visc
+         localMax_dt_a = TimeStep_Conv
+         call mpi_allreduce(localMax_dt_a, TimeStep_Conv, 1, MPI_DOUBLE, MPI_MIN, &
+                            MPI_COMM_WORLD, ierr)
+         call mpi_allreduce(localMax_dt_v, TimeStep_Visc, 1, MPI_DOUBLE, MPI_MIN, &
                             MPI_COMM_WORLD, ierr)
       end if
 #endif
       
+      if (TimeStep_Conv  < TimeStep_Visc) then
+         self % mesh % dt_restriction = DT_CONV
+         MaxTimeStep  = TimeStep_Conv
+      else
+         self % mesh % dt_restriction = DT_DIFF
+         MaxTimeStep  = TimeStep_Visc
+      end if
    end function MaxTimeStep
 !
 !////////////////////////////////////////////////////////////////////////

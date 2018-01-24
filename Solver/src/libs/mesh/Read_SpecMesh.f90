@@ -306,9 +306,7 @@ MODULE Read_SpecMesh
 !        Finish up
 !        ---------
 !
-         CALL self % Describe( trim(fileName) )
-         allocate(self % Ns(size(Nx)))
-         self % Ns = Nx
+         if (.not. self % child) CALL self % Describe( trim(fileName) )
 !
 !        -------------------------------------------------------------
 !        Prepare mesh for I/O only if the code is running sequentially
@@ -700,9 +698,7 @@ MODULE Read_SpecMesh
 !        Finish up
 !        ---------
 !
-         CALL self % DescribePartition( trim(fileName) )
-         allocate(self % Ns(size(Nx)))
-         self % Ns = Nx
+         if (.not. self % child) CALL self % DescribePartition( trim(fileName) )
 !
 !        --------------------
 !        Prepare mesh for I/O

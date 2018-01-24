@@ -169,6 +169,7 @@
 !     ---------------
 
       sem  % numberOfTimeSteps = self % initial_iter
+      if (.not. self % Compute_dt) monitors % dt_restriction = DT_FIXED
       
 !     Measure solver time
 !     -------------------
@@ -389,21 +390,17 @@ end interface
 !        -----------------------------
          IF (self % integratorType == STEADY_STATE) THEN
             IF (maxval(maxResidual) <= Tol )  THEN
-              call self % Display(sem % mesh, monitors)
-              sem  % maxResidual       = maxval(maxResidual)
-              self % time              = t
-              sem  % numberOfTimeSteps = k + 1
-
-              write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",k+1," with Residual = ", maxval(maxResidual)
-              call Stopwatch % Pause("Solver")
-              RETURN
+               call self % Display(sem % mesh, monitors)
+               write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",k+1," with Residual = ", maxval(maxResidual)
+               call Stopwatch % Pause("Solver")
+               sem % numberOfTimeSteps = k + 1
+               exit
             END IF
          ELSEIF (self % integratorType == TIME_ACCURATE) THEN
             IF ( t .ge. self % tFinal) then
-               self % time = t     
-               sem % numberOfTimeSteps = k+1
                call self % Display( sem % mesh, monitors)
                call Stopwatch % Pause("Solver")
+               sem % numberOfTimeSteps = k + 1
                exit
             end if
          END IF
@@ -426,7 +423,8 @@ end interface
 !        Flush monitors
 !        --------------
          call monitors % WriteToFile(sem % mesh)
-
+         
+         sem % numberOfTimeSteps = k + 1
       END DO
 !
 !     Flush the remaining information in the monitors
@@ -437,7 +435,6 @@ end interface
       
       sem % maxResidual       = maxval(maxResidual)
       self % time             = t
-      sem % numberOfTimeSteps = k
       
 !
 !     ---------

@@ -184,13 +184,18 @@
 !
             integer  :: i, j, k, eID
 !
-!           Usage example (by default no source terms are added)
-!           ----------------------------------------------------
+!           Usage example
+!           -------------
 !           do eID = 1, mesh % no_of_elements
 !              associate ( e => mesh % elements(eID) )
 !              do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-!                 e % QDot(:,i,j,k) = e % QDot(:,i,j,k) + Source(:)
+!                 associate(x => e % geom % x(1,i,j,k), &
+!                           y => e % geom % x(2,i,j,k), &
+!                           z => e % geom % x(3,i,j,k)  )
+!                 e % storage % S(:,i,j,k) = x + y + z + time
+!                 end associate
 !              end do                  ; end do                ; end do
+!              end associate
 !           end do
    
          end subroutine UserDefinedSourceTerm

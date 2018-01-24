@@ -57,8 +57,11 @@ module MonitorsClass
       integer                              :: no_of_volumeMonitors
 #endif
       integer                              :: bufferLine
-      integer                              :: iter( BUFFER_SIZE )
-      real(kind=RP)                        :: t  (BUFFER_SIZE )
+      integer                              :: iter    ( BUFFER_SIZE )
+      integer                              :: dt_restriction
+      logical                              :: write_dt_restriction
+      real(kind=RP)                        :: t       (BUFFER_SIZE )
+      real(kind=RP)                        :: SimuTime (BUFFER_SIZE )
       type(Residuals_t)                    :: residuals
 #if defined(NAVIERSTOKES)
       class(Probe_t),          allocatable :: probes(:)
@@ -140,6 +143,8 @@ module MonitorsClass
          end do
 #endif
 
+         Monitors % write_dt_restriction = controlVariables % logicalValueForKey( "write dt restriction" )
+         
          Monitors % bufferLine = 0
 
       end function ConstructMonitors
@@ -188,6 +193,10 @@ module MonitorsClass
 
          call self % stats % WriteLabel
 #endif
+!
+!        Write label for dt restriction
+!        ------------------------------
+         if (self % write_dt_restriction) write ( STD_OUT , ' ( 3X,A10 ) ' , advance = "no" ) "dt restr."
 
          write(STD_OUT , *) 
 
@@ -249,6 +258,12 @@ module MonitorsClass
          if ( self % stats % state .ne. 0 ) write(STD_OUT,'(3X,A10)',advance="no") trim(dashes)
 #endif
 
+         
+!
+!        Print dashes for dt restriction
+!        -------------------------------
+         if (self % write_dt_restriction) write ( STD_OUT , ' ( 3X,A10 ) ' , advance = "no" ) trim ( dashes ) 
+         
          write(STD_OUT , *) 
 
       end subroutine Monitor_WriteUnderlines
@@ -297,6 +312,16 @@ module MonitorsClass
 
          call self % stats % WriteValue
 #endif
+!
+!        Print dt restriction
+!        --------------------
+         if (self % write_dt_restriction) then
+            select case (self % dt_restriction)
+               case (DT_FIXED) ; write ( STD_OUT , ' ( 1X,A,1X,A10) ' , advance = "no" ) "|" , 'Fixed'
+               case (DT_DIFF)  ; write ( STD_OUT , ' ( 1X,A,1X,A10) ' , advance = "no" ) "|" , 'Diffusive'
+               case (DT_CONV)  ; write ( STD_OUT , ' ( 1X,A,1X,A10) ' , advance = "no" ) "|" , 'Convective'
+            end select
+         end if
 
          write(STD_OUT , *) 
 
@@ -310,6 +335,7 @@ module MonitorsClass
 !        ***************************************************************
 !        
          use PhysicsStorage
+         use StopwatchClass
          implicit none
          class(Monitor_t)    :: self
          class(HexMesh)      :: mesh
@@ -327,10 +353,11 @@ module MonitorsClass
 !        ------------------------
          self % bufferLine = self % bufferLine + 1
 !
-!        Save time and iteration
+!        Save time, iteration and CPU-time
 !        -----------------------
-         self % t    ( self % bufferLine )  = t
-         self % iter ( self % bufferLine )  = iter
+         self % t       ( self % bufferLine )  = t
+         self % iter    ( self % bufferLine )  = iter
+         self % SimuTime ( self % bufferLine )  = Stopwatch % ElapsedTime("Solver")
 !
 !        Compute current residuals
 !        -------------------------
@@ -360,6 +387,11 @@ module MonitorsClass
          call self % stats % Update(mesh, iter, t, trim(self % solution_file) )
 #endif
 
+!
+!        Update dt restriction
+!        ---------------------
+         if (self % write_dt_restriction) self % dt_restriction = mesh % dt_restriction 
+         
       end subroutine Monitor_UpdateValues
 
       subroutine Monitor_WriteToFile ( self , mesh, force) 
@@ -391,7 +423,7 @@ module MonitorsClass
 !
 !           In this case the monitors are exported to their files and the buffer is reseted
 !           -------------------------------------------------------------------------------
-            call self % residuals % WriteToFile ( self % iter , self % t , self % bufferLine )
+            call self % residuals % WriteToFile ( self % iter , self % t, self % SimuTime , self % bufferLine )
 #if defined(NAVIERSTOKES)   
             do i = 1 , self % no_of_probes
                call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
@@ -425,7 +457,7 @@ module MonitorsClass
 !           ----------------------------------------------------
             if ( self % bufferLine .eq. BUFFER_SIZE ) then
 
-               call self % residuals % WriteToFile ( self % iter , self % t , BUFFER_SIZE )
+               call self % residuals % WriteToFile ( self % iter , self % t, self % SimuTime , BUFFER_SIZE )
 #if defined(NAVIERSTOKES)
                do i = 1 , self % no_of_probes
                   call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine ) 

@@ -62,9 +62,11 @@ module FASMultigridClass
    logical        :: PostFCycle,PostSmooth ! Post smoothing options
    logical        :: SmoothFine     !      
    logical        :: ManSol         ! Does this case have manufactured solutions?
+   logical        :: Compute_dt
    real(kind=RP)  :: SmoothFineFrac ! Fraction that must be smoothed in fine before going to coarser level
    real(kind=RP)  :: cfl            ! Advective cfl number
    real(kind=RP)  :: dcfl           ! Diffusive cfl number
+   real(kind=RP)  :: dt             ! dt
    
 !========
  contains
@@ -74,6 +76,7 @@ module FASMultigridClass
 !
    subroutine construct(this,controlVariables,sem)
       use FTValueDictionaryClass
+      use StopwatchClass
       implicit none
       !-----------------------------------------------------------
       class(FASMultigrid_t) , intent(inout), target    :: this
@@ -81,6 +84,9 @@ module FASMultigridClass
       type(DGSem), target                  , OPTIONAL  :: sem
       character(len=LINE_LENGTH)                       :: PostSmoothOptions
       !-----------------------------------------------------------
+      
+      call Stopwatch % Pause("Solver")
+      call Stopwatch % Start("Preprocessing")
       
       if (.NOT. PRESENT(sem)) stop 'Fatal error: FASMultigrid needs sem.'
       if (.NOT. PRESENT(controlVariables)) stop 'Fatal error: FASMultigrid needs controlVariables.'
@@ -125,16 +131,20 @@ module FASMultigridClass
 !     -------------------------
       
       if (controlVariables % containsKey("cfl")) then
+         Compute_dt = .TRUE.
          cfl = controlVariables % doublePrecisionValueForKey("cfl")
          if (flowIsNavierStokes) then
             if (controlVariables % containsKey("dcfl")) then
                dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
             else
-               ERROR STOP '"cfl" and "dcfl" keywords must be specified for the FAS integrator'
+               ERROR STOP '"cfl" and "dcfl", or "dt", keywords must be specified for the FAS integrator'
             end if
          end if
+      elseif (controlVariables % containsKey("dt")) then
+         Compute_dt = .FALSE.
+         dt = controlVariables % doublePrecisionValueForKey("dt")
       else
-         ERROR STOP '"cfl" keyword must be specified for the FAS integrator'
+         ERROR STOP '"cfl" (and "dcfl" if Navier-Stokes) or "dt" keywords must be specified for the FAS integrator'
       end if
       
       select case (controlVariables % StringValueForKey("mg smoother",LINE_LENGTH))
@@ -190,6 +200,9 @@ module FASMultigridClass
 !     --------------------------
 !
       call RecursiveConstructor(this, sem % Nx, sem % Ny, sem % Nz, MGlevels, controlVariables)
+      
+      call Stopwatch % Pause("Preprocessing")
+      call Stopwatch % Start("Solver")
       
    end subroutine construct
 !
@@ -284,7 +297,8 @@ module FASMultigridClass
                                            externalState     = Solver % p_sem % externalState,                           &
                                            externalGradients = Solver % p_sem % externalGradients,                       &
                                            Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,                                        &
-                                           success = success )
+                                           success = success,                                                            &
+                                           ChildSem = .TRUE. )
          if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
          
          call RecursiveConstructor(Solver % Child, N2x, N2y, N2z, lvl - 1, controlVariables)
@@ -304,10 +318,6 @@ module FASMultigridClass
       real(kind=RP)                        :: t
       logical           , OPTIONAL         :: FullMG
       real(kind=RP)     , OPTIONAL         :: tol        !<  Tolerance for full multigrid
-      !-------------------------------------------------
-      integer                                 :: niter
-      integer                                 :: i
-      character(LEN=LINE_LENGTH)              :: FileName
       !-------------------------------------------------
       
       ThisTimeStep = timestep
@@ -346,10 +356,7 @@ module FASMultigridClass
       !----------------------------------------------------------------------------
       integer                       :: iEl,iEQ              !Element/equation counter
       type(FASMultigrid_t), pointer :: Child_p              !Pointer to child
-      integer                       :: N1x, N1y, N1z        !Polynomial orders
-      integer                       :: N2x, N2y, N2z        !Polynomial orders
       integer                       :: N1(3), N2(3)
-      real(kind=RP)                 :: dt                   !Time variables
       real(kind=RP)                 :: maxResidual(N_EQN)
       integer                       :: NumOfSweeps
       real(kind=RP)                 :: PrevRes
@@ -370,7 +377,7 @@ module FASMultigridClass
       sweepcount = 0
       DO
          DO iEl = 1, NumOfSweeps
-            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
+            if (Compute_dt) dt = MaxTimeStep(this % p_sem, cfl, dcfl )
             call SmoothIt   (this % p_sem, t, dt )
          end DO
          sweepcount = sweepcount + NumOfSweeps
@@ -445,7 +452,7 @@ module FASMultigridClass
       sweepcount = 0
       DO
          DO iEl = 1, NumOfSweeps
-            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
+            if (Compute_dt) dt = MaxTimeStep(this % p_sem, cfl, dcfl )
             call SmoothIt   (this % p_sem, t, dt)
          end DO
          
@@ -499,10 +506,7 @@ module FASMultigridClass
       integer              , intent(in)    :: lvl     !<  Current multigrid level
       !----------------------------------------------------------------------------
       integer        :: iEl, iEQ             ! Element and equation counters
-      integer        :: N1x, N1y, N1z        ! Origin polynomial orders
-      integer        :: N2x, N2y, N2z        ! Destination polynomial orders
       integer        :: N1(3), N2(3)
-      real(kind=RP)  :: dt                   ! Time variables
       real(kind=RP)  :: maxResidual(N_EQN)   ! Maximum residual in each equation
       integer        :: counter              ! Iteration counter
       !----------------------------------------------------------------------------
@@ -540,7 +544,7 @@ module FASMultigridClass
       else
          DO
             counter = counter + 1
-            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
+            if (Compute_dt) dt = MaxTimeStep(this % p_sem, cfl, dcfl )
             call SmoothIt   (this % p_sem, t, dt )
             maxResidual = ComputeMaxResidual(this % p_sem)
             
@@ -582,8 +586,6 @@ module FASMultigridClass
       class(FASMultigrid_t), pointer       :: Child_p  ! The child
       integer  :: iEl
       integer  :: iEQ
-      integer  :: N1x,N1y,N1z
-      integer  :: N2x,N2y,N2z
       integer  :: N1(3), N2(3)
       !-------------------------------------------------------------
       

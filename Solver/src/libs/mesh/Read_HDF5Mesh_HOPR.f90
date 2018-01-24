@@ -137,7 +137,6 @@ contains
       
       TYPE(FacePatch), DIMENSION(6)    :: facePatchesHOPR
       !---------------------------------------------------------------
-       
 !
 !     Initializations
 !     ------------------------------------
@@ -393,8 +392,7 @@ contains
 !     Finish up
 !     ---------
 !      
-      CALL self % Describe( trim(fileName) )
-      self % Ns = Nx
+      if (.not. self % child) CALL self % Describe( trim(fileName) )
 !
 !     -------------------------------------------------------------
 !     Prepare mesh for I/O only if the code is running sequentially

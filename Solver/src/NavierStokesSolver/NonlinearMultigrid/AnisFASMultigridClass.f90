@@ -69,9 +69,11 @@ module AnisFASMultigridClass
    logical        :: ManSol         ! Does this case have manufactured solutions?
    logical        :: SmoothFine     ! 
    logical        :: EstimateTE = .FALSE. ! Estimate the truncation error!
+   logical        :: Compute_dt
    real(kind=RP)  :: SmoothFineFrac ! Fraction that must be smoothed in fine before going to coarser level
    real(kind=RP)  :: cfl            ! Advective cfl number
    real(kind=RP)  :: dcfl           ! Diffusive cfl number
+   real(kind=RP)  :: dt             ! dt
    character(len=LINE_LENGTH)    :: meshFileName
    
 !========
@@ -82,6 +84,7 @@ module AnisFASMultigridClass
 !
    subroutine construct(this,controlVariables,sem)
       use FTValueDictionaryClass
+      use StopwatchClass
       implicit none
       !-----------------------------------------------------------
       class(AnisFASMultigrid_t) , intent(inout), TARGET    :: this              !<> Anisotropic FAS multigrid solver to be constructed
@@ -92,6 +95,9 @@ module AnisFASMultigridClass
       integer   :: UserMGlvls    ! User defined number of MG levels
       character(len=LINE_LENGTH)                       :: PostSmoothOptions
       !-----------------------------------------------------------
+      
+      call Stopwatch % Pause("Solver")
+      call Stopwatch % Start("Preprocessing")
       
       if (.NOT. PRESENT(sem)) stop 'Fatal error: AnisFASMultigrid needs sem.'
       if (.NOT. PRESENT(controlVariables)) stop 'Fatal error: AnisFASMultigrid needs controlVariables.'
@@ -144,16 +150,20 @@ module AnisFASMultigridClass
 !     -------------------------
       
       if (controlVariables % containsKey("cfl")) then
+         Compute_dt = .TRUE.
          cfl = controlVariables % doublePrecisionValueForKey("cfl")
          if (flowIsNavierStokes) then
             if (controlVariables % containsKey("dcfl")) then
                dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
             else
-               ERROR STOP '"cfl" and "dcfl" keywords must be specified for the FAS integrator'
+               ERROR STOP '"cfl" and "dcfl", or "dt", keywords must be specified for the FAS integrator'
             end if
          end if
+      elseif (controlVariables % containsKey("dt")) then
+         Compute_dt = .FALSE.
+         dt = controlVariables % doublePrecisionValueForKey("dt")
       else
-         ERROR STOP '"cfl" keyword must be specified for the FAS integrator'
+         ERROR STOP '"cfl" and "dcfl" if Navier-Stokes) or "dt" keywords must be specified for the FAS integrator'
       end if
       
       select case (controlVariables % StringValueForKey("mg smoother",LINE_LENGTH))
@@ -216,6 +226,8 @@ module AnisFASMultigridClass
          call ConstructFASInOneDirection(this, MGlevels(Dir), controlVariables, Dir)   ! TODO: change argument to meshFileName
       end do
       
+      call Stopwatch % Pause("Preprocessing")
+      call Stopwatch % Start("Solver")
    end subroutine construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -355,7 +367,8 @@ module AnisFASMultigridClass
                                            externalState     = Solver % MGStorage(Dir) % p_sem % externalState,          &
                                            externalGradients = Solver % MGStorage(Dir) % p_sem % externalGradients,      &
                                            Nx_ = N2(:,1),    Ny_ = N2(:,2),    Nz_ = N2(:,3),                            &
-                                           success = success )
+                                           success = success,                                                            &
+                                           ChildSem = .TRUE. )
          if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
          
          Child_p % MGStorage(Dir) % tempsem = Child_p % MGStorage(Dir) % p_sem
@@ -438,7 +451,6 @@ module AnisFASMultigridClass
       type(AnisFASMultigrid_t), pointer :: Child_p        !Pointer to child
       integer                       :: N1(3)          !Polynomial orders in origin solver       (Attention: the origin can be parent or child)
       integer                       :: N2(3)          !Polynomial orders in destination solver  (Attention: the origin can be parent or child)
-      real(kind=RP)                 :: dt             !Time variables
       real(kind=RP)                 :: PrevRes
       integer                       :: sweepcount
       type(DGSem)         , pointer :: p_sem          !Pointer to the current sem class
@@ -468,7 +480,7 @@ module AnisFASMultigridClass
       sweepcount = 0
       DO
          do iEl = 1, NumOfSweeps
-            dt = MaxTimeStep(p_sem, cfl, dcfl )
+            if (Compute_dt) dt = MaxTimeStep(p_sem, cfl, dcfl )
             call SmoothIt(p_sem, t, dt )
          end do
          sweepcount = sweepcount + 1
@@ -545,7 +557,7 @@ module AnisFASMultigridClass
       DO
          
          do iEl = 1, NumOfSweeps
-            dt = MaxTimeStep(p_sem, cfl, dcfl )
+            if (Compute_dt) dt = MaxTimeStep(p_sem, cfl, dcfl )
             call SmoothIt(p_sem, t, dt)
          end do
 

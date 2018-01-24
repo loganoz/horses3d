@@ -135,7 +135,7 @@ module StopwatchClass
          event => self % head
          do i = 1 , self % no_of_events-1
             if ( trim(event % name) .eq. trim(name) ) then
-               print*, "Warning: The event already exists."
+               print*, "Warning: The event '", trim(Name), "' already exists."
                return
             end if
     

@@ -68,7 +68,7 @@ module MultigridTypes
 
       ! High order coarsening (see paper p-adaptation + Multigrid)
       N2 = N1
-      if (N2 > (NMAX - deltaN*(MGlevels - lvl))) N2 = N2 - deltaN
+      if (N2 > (NMAX - deltaN*(MGlevels - lvl))) N2 = NMAX - deltaN*(MGlevels - lvl)
       
       ! The order must be greater or equal to 0 (Legendre-Gauss quadrature) or 1 (Legendre-Gauss-Lobatto)
       if (nodes == GAUSSLOBATTO) then

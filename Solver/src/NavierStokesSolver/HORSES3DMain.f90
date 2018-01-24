@@ -25,6 +25,7 @@
       USE pAdaptationClass
       use StopwatchClass
       use MPI_Process_Info
+      use SpatialDiscretization
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -205,6 +206,7 @@ end interface
       if (pAdaptator % Constructed) call pAdaptator % destruct()
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
+      call Finalize_SpaceAndTimeMethods
       call DestructGlobalNodalStorage()
       CALL destructSharedBCModule
       

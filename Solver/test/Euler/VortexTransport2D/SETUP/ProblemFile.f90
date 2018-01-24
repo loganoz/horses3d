@@ -309,7 +309,7 @@
                                                        1.1681607090392261E-013_RP, &
                                                        4.5003665864759282E-003_RP, &
                                                        4.6163433923638308E-003_RP    ]
-            integer, parameter         :: finalIter = 3723
+            integer, parameter         :: finalIter = 3724
             real(kind=RP), parameter   :: residuals(5) = [5.0761491133344272E-003_RP, &
                                                           0.17016555967142113_RP, &
                                                           6.7716306721775754E-014_RP, &
