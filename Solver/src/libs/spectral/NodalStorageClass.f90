@@ -164,9 +164,15 @@ MODULE NodalStorageClass
 !     --------------------------------------------------------------
 !
       if ( this % nodes .eq. GAUSSLOBATTO ) then
-         this % sharpD = 2.0_RP * this % D
-         this % sharpD(0,0) = 2.0_RP * this % D(0,0) + 1.0_RP / this % w(0)
-         this % sharpD(N,N) = 2.0_RP * this % D(N,N) - 1.0_RP / this % w(N)
+         if ( N .ne. 0 ) then
+            this % sharpD = 2.0_RP * this % D
+            this % sharpD(0,0) = 2.0_RP * this % D(0,0) + 1.0_RP / this % w(0)
+            this % sharpD(N,N) = 2.0_RP * this % D(N,N) - 1.0_RP / this % w(N)
+   
+         else
+            this % sharpD = 0.0_RP
+
+         end if
       end if
 !
 !     ---------------------
