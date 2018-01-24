@@ -391,9 +391,6 @@ end interface
          IF (self % integratorType == STEADY_STATE) THEN
             IF (maxval(maxResidual) <= Tol )  THEN
               call self % Display(sem % mesh, monitors)
-              sem  % maxResidual       = maxval(maxResidual)
-              self % time              = t
-              sem  % numberOfTimeSteps = k + 1
 
               write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",k+1," with Residual = ", maxval(maxResidual)
               call Stopwatch % Pause("Solver")
@@ -401,8 +398,6 @@ end interface
             END IF
          ELSEIF (self % integratorType == TIME_ACCURATE) THEN
             IF ( t .ge. self % tFinal) then
-               self % time = t     
-               sem % numberOfTimeSteps = k+1
                call self % Display( sem % mesh, monitors)
                call Stopwatch % Pause("Solver")
                exit
@@ -438,7 +433,7 @@ end interface
       
       sem % maxResidual       = maxval(maxResidual)
       self % time             = t
-      sem % numberOfTimeSteps = k
+      sem % numberOfTimeSteps = k + 1
       
 !
 !     ---------
