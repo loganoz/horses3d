@@ -109,8 +109,10 @@ Module DGSEMClass
       integer                     :: nodes, NelL(2), NelR(2)
       INTEGER                     :: nTotalElem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
+      integer                     :: dir2D
       character(len=LINE_LENGTH)  :: meshFileName
       logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
+      character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
       INTERFACE
          SUBROUTINE externalState(x,t,nHat,Q,boundaryName)
             USE SMConstants
@@ -198,7 +200,9 @@ Module DGSEMClass
 !     Construct the polynomial storage for the elements in the mesh
 !     -------------------------------------------------------------
 !
-      
+      call NodalStorage(0) % Construct(nodes, 0)   ! Always construct orders 0 
+      call NodalStorage(1) % Construct(nodes, 1)   ! and 1
+
       self % NDOF = 0
       DO k=1, nTotalElem
          self % NDOF = self % NDOF + N_EQN * (Nx(k) + 1) * (Ny(k) + 1) * (Nz(k) + 1)
@@ -212,6 +216,25 @@ Module DGSEMClass
 !     Construct the mesh
 !     ------------------
 !
+      if ( controlVariables % containsKey(TWOD_OFFSET_DIR_KEY) ) then
+         select case ( controlVariables % stringValueForKey(TWOD_OFFSET_DIR_KEY,1))
+         case("x")
+            dir2D = 1
+         case("y")
+            dir2D = 2
+         case("z")
+            dir2D = 3
+         case default
+            print*, "Unrecognized 2D mesh offset direction"
+            stop
+            errorMessage(STD_OUT)
+         end select
+
+      else
+         dir2D = 0
+
+      end if
+
       if (controlVariables % containsKey("mesh inner curves")) then
          MeshInnerCurves = controlVariables % logicalValueForKey("mesh inner curves")
       else
@@ -238,7 +261,7 @@ Module DGSEMClass
 !
 !        Construct the full mesh
 !        -----------------------
-         call constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , success )
+         call constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
 !
 !        Perform the partitioning
 !        ------------------------
@@ -258,7 +281,7 @@ Module DGSEMClass
 !     *              MESH CONSTRUCTION                         *
 !     **********************************************************
 !
-      CALL constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , success )
+      CALL constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
       
       IF(.NOT. success) RETURN
 !
@@ -267,8 +290,10 @@ Module DGSEMClass
 !     ------------------------
 !
       DO k = 1, SIZE(self % mesh % elements) 
-         CALL allocateElementStorage( self % mesh % elements(k), Nx(k),Ny(k),Nz(k), &
-                                      N_EQN, N_GRAD_EQN, computeGradients)
+         CALL allocateElementStorage( self = self % mesh % elements(k), &
+                                      nEqn = N_EQN, &
+                                  nGradEqn = N_GRAD_EQN, &
+                          computeGradients = computeGradients)
       END DO
 !
 !     ----------------------------------------------------
@@ -716,13 +741,30 @@ Module DGSEMClass
          spAxi_p => NodalStorage(N(1))
          spAeta_p => NodalStorage(N(2))
          spAzeta_p => NodalStorage(N(3))
-         IF ( ANY(N<1) ) THEN 
-            PRINT*, "Error in MaximumEigenvalue function (N<1)"    
-         endIF         
          
-         dcsi = 1.0_RP / abs( spAxi_p   % x(1) - spAxi_p   % x (0) )   
-         deta = 1.0_RP / abs( spAeta_p  % x(1) - spAeta_p  % x (0) )
-         dzet = 1.0_RP / abs( spAzeta_p % x(1) - spAzeta_p % x (0) )
+         if ( N(1) .ne. 0 ) then
+            dcsi = 1.0_RP / abs( spAxi_p   % x(1) - spAxi_p   % x (0) )   
+
+         else
+            dcsi = 0.0_RP
+
+         end if
+
+         if ( N(2) .ne. 0 ) then
+            deta = 1.0_RP / abs( spAeta_p  % x(1) - spAeta_p  % x (0) )
+         
+         else
+            deta = 0.0_RP
+
+         end if
+
+         if ( N(3) .ne. 0 ) then
+            dzet = 1.0_RP / abs( spAzeta_p % x(1) - spAzeta_p % x (0) )
+
+         else
+            dzet = 0.0_RP
+
+         end if
          
          if (flowIsNavierStokes) then
             dcsi2 = dcsi*dcsi

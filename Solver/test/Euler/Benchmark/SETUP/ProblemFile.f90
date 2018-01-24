@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Oct 28 12:16:18 2017
-!   @Last revision date: Sun Oct 29 17:43:40 2017
+!   @Last revision date: Tue Jan 23 16:27:55 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 923d934f3c0893856fbedc5cb9f9abe65851c070
+!   @Last revision commit: d97cdbe19b7a3be3cd0c8a1f01343de8c1714260
 !
 !//////////////////////////////////////////////////////
 !
@@ -76,13 +76,15 @@ end module UserDefinedDataStorage
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
-
+#if defined(NAVIERSTOKES)
 
             c1 =  0.1_RP * PI
             c2 = -0.2_RP * PI + 0.05_RP * PI * (1.0_RP + 5.0_RP * thermodynamics_ % gamma)
             c3 = 0.01_RP * PI * ( thermodynamics_ % gamma - 1.0_RP ) 
             c4 = 0.05_RP * ( -16.0_RP * PI + PI * (9.0_RP + 15.0_RP * thermodynamics_ % gamma ))
             c5 = 0.01_RP * ( 3.0_RP * PI * thermodynamics_ % gamma - 2.0_RP * PI )
+
+#endif
 
          END SUBROUTINE UserDefinedFinalSetup
 !
@@ -114,7 +116,7 @@ end module UserDefinedDataStorage
             integer        :: eID, i, j, k
             real(kind=RP)  :: qq, u, v, w, p, x(NDIM)
             real(kind=RP)  :: Q(N_EQN), phi, theta
-
+#if defined(NAVIERSTOKES)
             associate ( gammaM2 => dimensionless_ % gammaM2, &
                         gamma => thermodynamics_ % gamma )
       
@@ -137,6 +139,7 @@ end module UserDefinedDataStorage
             end do
 
             end associate
+#endif
             
          END SUBROUTINE UserDefinedInitialCondition
 
@@ -219,6 +222,7 @@ end module UserDefinedDataStorage
             integer  :: i, j, k, eID
             real(kind=RP)  :: S(NCONS), x(NDIM)
             real(kind=RP)  :: cos1, sin2
+#if defined(NAVIERSTOKES)
 !
 !           Usage example (by default no source terms are added)
 !           ----------------------------------------------------
@@ -241,6 +245,7 @@ end module UserDefinedDataStorage
                end associate
             end do
 !$omp end do
+#endif
    
          end subroutine UserDefinedSourceTerm
 !

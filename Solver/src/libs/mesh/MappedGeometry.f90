@@ -27,12 +27,13 @@ Module MappedGeometryClass
 
       private
       public MappedGeometry, MappedGeometryFace
+      public SetMappingsToCrossProduct
 !
 !     ---------
 !     Constants
 !     ---------
 !
-      LOGICAL       :: useCrossProductMetrics = .false.
+      LOGICAL  :: useCrossProductMetrics = .false.
 !
 !     -----
 !     Class
@@ -764,6 +765,14 @@ Module MappedGeometryClass
       vNorm = SQRT(u(1)*u(1) + u(2)*u(2) + u(3)*u(3))
 
       END FUNCTION vNorm
+
+      subroutine SetMappingsToCrossProduct() 
+         implicit none
+         
+         useCrossProductMetrics = .true.
+
+      end subroutine SetMappingsToCrossProduct
+         
 !
 !///////////////////////////////////////////////////////////////////////////////
 !

@@ -4,9 +4,9 @@
 !   @File:    RiemannSolvers.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:14 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Tue Jan 23 16:27:54 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: d97cdbe19b7a3be3cd0c8a1f01343de8c1714260
 !
 !//////////////////////////////////////////////////////
 !
@@ -986,8 +986,8 @@ module RiemannSolvers
          divV = (uR-uL)*nHat(1) + (vR-vL)*nHat(2) + (wR-wL)*nHat(3)
 
          tau(1,1) = 2.0_RP * (uR-uL)*nHat(1) - (1.0_RP/3.0_RP) * divV
-         tau(2,3) = 2.0_RP * (vR-vL)*nHat(2) - (1.0_RP/3.0_RP) * divV
-         tau(2,3) = 2.0_RP * (wR-wL)*nHat(3) - (1.0_RP/3.0_RP) * divV
+         tau(2,2) = 2.0_RP * (vR-vL)*nHat(2) - (1.0_RP/3.0_RP) * divV
+         tau(3,3) = 2.0_RP * (wR-wL)*nHat(3) - (1.0_RP/3.0_RP) * divV
 
          tau(1,2) = (uR-uL)*nHat(2) + (vR-vL)*nHat(1)
          tau(1,3) = (uR-uL)*nHat(3) + (wR-wL)*nHat(1)
@@ -995,7 +995,7 @@ module RiemannSolvers
 
          tau(2,1) = tau(1,2)
          tau(3,1) = tau(1,3)
-         tau(2,3) = tau(3,2)
+         tau(3,2) = tau(2,3)
 !
 !        Compute thermal diffusivity
 !        ---------------------------

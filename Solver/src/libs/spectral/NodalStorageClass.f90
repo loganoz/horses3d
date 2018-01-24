@@ -130,7 +130,15 @@ MODULE NodalStorageClass
          case (GAUSS)
             CALL GaussLegendreNodesAndWeights  ( N, this % x  , this % w )
          case (GAUSSLOBATTO)
-            CALL LegendreLobattoNodesAndWeights( N, this % x  , this % w )
+            if ( N .ne. 0 ) then
+               CALL LegendreLobattoNodesAndWeights( N, this % x  , this % w )
+
+            else
+               this % x = 0.0_RP
+               this % w = 2.0_RP
+
+            end if
+
             allocate( this % sharpD(0:N,0:N) )
          case default
             print*, "Undefined nodes choice"
@@ -156,9 +164,15 @@ MODULE NodalStorageClass
 !     --------------------------------------------------------------
 !
       if ( this % nodes .eq. GAUSSLOBATTO ) then
-         this % sharpD = 2.0_RP * this % D
-         this % sharpD(0,0) = 2.0_RP * this % D(0,0) + 1.0_RP / this % w(0)
-         this % sharpD(N,N) = 2.0_RP * this % D(N,N) - 1.0_RP / this % w(N)
+         if ( N .ne. 0 ) then
+            this % sharpD = 2.0_RP * this % D
+            this % sharpD(0,0) = 2.0_RP * this % D(0,0) + 1.0_RP / this % w(0)
+            this % sharpD(N,N) = 2.0_RP * this % D(N,N) - 1.0_RP / this % w(N)
+   
+         else
+            this % sharpD = 0.0_RP
+
+         end if
       end if
 !
 !     ---------------------
@@ -182,7 +196,15 @@ MODULE NodalStorageClass
 !
       this % DCGL = 0.0_RP
       this % TCheb2Gauss = 0.0_RP
-      this % xCGL = (/ (-cos(1.0_RP*i*PI/this % N), i = 0, this % N) /)
+
+      if ( N .ne. 0 ) then
+         this % xCGL = (/ (-cos(1.0_RP*i*PI/this % N), i = 0, this % N) /)
+
+      else
+         this % xCGL = 0.0_RP
+
+      end if
+
       call BarycentricWeights(N, this % xCGL, this % wbCGL) 
       call PolynomialDerivativeMatrix( this % N, this % xCGL, this % DCGL)
       call PolynomialInterpolationMatrix(this % N, this % N, this % xCGL, this % wbCGL, this % x,&

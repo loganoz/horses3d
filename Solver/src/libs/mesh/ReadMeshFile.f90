@@ -8,15 +8,16 @@ module ReadMeshFile
    public constructMeshFromFile, NumOfElemsFromMeshFile
 
 contains
-   subroutine constructMeshFromFile( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , success )
+   subroutine constructMeshFromFile( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
       implicit none
       !---------------------------------------------------------------
-      class(HexMesh)     :: self
-      CHARACTER(LEN=*)   :: fileName
-      integer            :: nodes
-      INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
-      logical            :: MeshInnerCurves         !<  Describe inner curved surfaces? (only for hdf5)
-      LOGICAL            :: success
+      class(HexMesh)      :: self
+      CHARACTER(LEN=*)    :: fileName
+      integer             :: nodes
+      INTEGER             :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+      logical             :: MeshInnerCurves         !<  Describe inner curved surfaces? (only for hdf5)
+      integer, intent(in) :: dir2D
+      LOGICAL             :: success
       !---------------------------------------------------------------
       character(len=LINE_LENGTH) :: ext
       !---------------------------------------------------------------
@@ -31,9 +32,9 @@ contains
       ext = getFileExtension(trim(filename))
       
       if (trim(ext)=='h5') then
-         call ConstructMesh_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , success )
+         call ConstructMesh_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
       elseif (trim(ext)=='mesh') then
-         call ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, success )
+         call ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
       else
          ERROR STOP 'Mesh file extension not recognized.'
       end if

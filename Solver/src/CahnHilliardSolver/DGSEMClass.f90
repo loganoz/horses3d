@@ -4,9 +4,9 @@
 !   @File:    DGSEMClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:37 2018
-!   @Last revision date: Sun Jan 21 19:01:11 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 720b62d4634a27f4b417478070e018391b8d069e
+!   @Last revision date: Tue Jan 23 16:27:48 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: d97cdbe19b7a3be3cd0c8a1f01343de8c1714260
 !
 !//////////////////////////////////////////////////////
 !
@@ -102,7 +102,9 @@ Module DGSEMClass
       integer                     :: nodes, NelL(2), NelR(2)
       INTEGER                     :: nTotalElem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
+      integer                     :: dir2D
       character(len=LINE_LENGTH)  :: meshFileName
+      character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
       logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
       INTERFACE
          SUBROUTINE externalState(x,t,nHat,Q,boundaryName)
@@ -191,6 +193,8 @@ Module DGSEMClass
 !     Construct the polynomial storage for the elements in the mesh
 !     -------------------------------------------------------------
 !
+      call NodalStorage(0) % Construct(nodes, 0)   ! Always construct orders 0 
+      call NodalStorage(1) % Construct(nodes, 1)   ! and 1
       
       self % NDOF = 0
       DO k=1, nTotalElem
@@ -205,6 +209,25 @@ Module DGSEMClass
 !     Construct the mesh
 !     ------------------
 !
+      if ( controlVariables % containsKey(TWOD_OFFSET_DIR_KEY) ) then
+         select case ( controlVariables % stringValueForKey(TWOD_OFFSET_DIR_KEY,1))
+         case("x")
+            dir2D = 1
+         case("y")
+            dir2D = 2
+         case("z")
+            dir2D = 3
+         case default
+            print*, "Unrecognized 2D mesh offset direction"
+            stop
+            errorMessage(STD_OUT)
+         end select
+
+      else
+         dir2D = 0
+
+      end if
+
       if (controlVariables % containsKey("mesh inner curves")) then
          MeshInnerCurves = controlVariables % logicalValueForKey("mesh inner curves")
       else
@@ -231,7 +254,7 @@ Module DGSEMClass
 !
 !        Construct the full mesh
 !        -----------------------
-         call constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , success )
+         call constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
 !
 !        Perform the partitioning
 !        ------------------------
@@ -251,7 +274,7 @@ Module DGSEMClass
 !     *              MESH CONSTRUCTION                         *
 !     **********************************************************
 !
-      CALL constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , success )
+      CALL constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
       
       IF(.NOT. success) RETURN
 !
@@ -260,8 +283,10 @@ Module DGSEMClass
 !     ------------------------
 !
       DO k = 1, SIZE(self % mesh % elements) 
-         CALL allocateElementStorage( self % mesh % elements(k), Nx(k),Ny(k),Nz(k), &
-                                      N_EQN, N_GRAD_EQN, computeGradients)
+         CALL allocateElementStorage( self = self % mesh % elements(k), &
+                                      nEqn = N_EQN, &
+                                  nGradEqn = N_GRAD_EQN, &
+                          computeGradients = computeGradients)
       END DO
 !
 !     -----------------------
