@@ -1,3 +1,4 @@
+#if defined(NAVIERSTOKES)
 module VolumeIntegrals
    use SMConstants
    use Physics
@@ -227,3 +228,4 @@ module VolumeIntegrals
       end function ScalarVolumeIntegral_Local
 
 end module VolumeIntegrals
+#endif

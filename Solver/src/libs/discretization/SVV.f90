@@ -4,13 +4,14 @@
 !   @File:    SVV.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Jan  6 11:47:48 2018
-!   @Last revision date: Sat Jan 13 11:52:30 2018
+!   @Last revision date: Tue Jan 16 11:59:33 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: c31c1af62cb5dd38ffb332169a65ce0c8630198e
+!   @Last revision commit: cbae0faa7686246cad4b300efae466eda61473cd
 !
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
+#if defined(NAVIERSTOKES)
 module SpectralVanishingViscosity
    use SMConstants
    use MeshTypes
@@ -349,3 +350,4 @@ print*, filterCoefficients
 
       end subroutine SVV_constructFilter
 end module SpectralVanishingViscosity
+#endif

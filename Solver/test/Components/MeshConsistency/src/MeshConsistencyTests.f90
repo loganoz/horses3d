@@ -40,7 +40,7 @@ module MeshTests
          Ny = 5
          Nz = 5
 
-         call constructMeshFromFile( mesh, meshfileNames(currentMesh), GAUSS, Nx, Ny, Nz, .true. , success )
+         call constructMeshFromFile( mesh, meshfileNames(currentMesh), GAUSS, Nx, Ny, Nz, .true. , 0, success )
 
       end subroutine OpenNextMesh
 

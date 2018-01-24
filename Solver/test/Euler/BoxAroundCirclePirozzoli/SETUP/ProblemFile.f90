@@ -75,6 +75,7 @@
 !           Local variables
 !           ---------------
 !
+#if defined(NAVIERSTOKES)
             integer        :: eID, i, j, k
             real(kind=RP)  :: qq, u, v, w, p
             real(kind=RP)  :: Q(N_EQN), phi, theta
@@ -107,6 +108,7 @@
             end do
 
             end associate
+#endif
             
          END SUBROUTINE UserDefinedInitialCondition
 
@@ -264,6 +266,8 @@
 !           the roe solver and mach = 0.3
 !           ------------------------------------------------
 !
+
+#if defined(NAVIERSTOKES)
             real(kind=RP), parameter :: final_time = 8.4020848657635838_RP
             real(kind=RP), parameter :: res(NCONS) = [ 3.2245412233756249E-003_RP, &
                                                        7.2948338786761158E-002_RP, &
@@ -340,6 +344,7 @@
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
+#endif
 
          END SUBROUTINE UserDefinedFinalize
 !

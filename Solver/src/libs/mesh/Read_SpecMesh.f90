@@ -14,6 +14,7 @@ MODULE Read_SpecMesh
       use SMConstants
       USE TransfiniteMapClass
       use FacePatchClass
+      use MappedGeometryClass
       implicit none
       
       private
@@ -29,7 +30,7 @@ MODULE Read_SpecMesh
 !
 !!    Constructs mesh from mesh file
 !!    Only valid for conforming meshes
-      SUBROUTINE ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, success )
+      SUBROUTINE ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
          USE Physics
          use PartitionedMeshClass
          use MPI_Process_Info
@@ -40,11 +41,12 @@ MODULE Read_SpecMesh
 !        Input variables
 !        ---------------
 !
-         CLASS(HexMesh)     :: self
-         integer            :: nodes
-         CHARACTER(LEN=*)   :: fileName
-         integer            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
-         LOGICAL            :: success
+         CLASS(HexMesh)      :: self
+         integer             :: nodes
+         CHARACTER(LEN=*)    :: fileName
+         integer             :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+         integer, intent(in) :: dir2D
+         LOGICAL             :: success
 !
 !        ---------------
 !        Local variables
@@ -86,7 +88,7 @@ MODULE Read_SpecMesh
 !        ********************************
 !
          if ( mpi_partition % Constructed ) then
-            call ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, success ) 
+            call ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
             return
          end if
           
@@ -235,9 +237,6 @@ MODULE Read_SpecMesh
                   end if
                end if
             END DO  
-            
-            
-            
          END DO      ! l = 1, numberOfElements
         
 !
@@ -280,6 +279,15 @@ MODULE Read_SpecMesh
 !
          call self % DefineAsBoundaryFaces()
 !
+!        -------------------------------
+!        Set the mesh as 2D if requested
+!        -------------------------------
+!
+         if ( dir2D .ne. 0 ) then
+            call SetMappingsToCrossProduct
+            call self % CorrectOrderFor2DMesh(dir2D)
+         end if
+!
 !        ------------------------------
 !        Set the element connectivities
 !        ------------------------------
@@ -311,7 +319,7 @@ MODULE Read_SpecMesh
          
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
 
-      SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, success )
+      SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
          USE Physics
          use PartitionedMeshClass
          use MPI_Process_Info
@@ -323,11 +331,12 @@ MODULE Read_SpecMesh
 !        Input variables
 !        ---------------
 !
-         CLASS(HexMesh)     :: self
-         integer            :: nodes
-         CHARACTER(LEN=*)   :: fileName
-         integer            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
-         LOGICAL            :: success
+         CLASS(HexMesh)      :: self
+         integer             :: nodes
+         CHARACTER(LEN=*)    :: fileName
+         integer             :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+         integer, intent(in) :: dir2D
+         LOGICAL             :: success
 !
 !        ---------------
 !        Local variables
@@ -661,6 +670,15 @@ MODULE Read_SpecMesh
 !        ---------------------
 !
          call self % DefineAsBoundaryFaces()
+!
+!        -------------------------------
+!        Set the mesh as 2D if requested
+!        -------------------------------
+!
+         if ( dir2D .ne. 0 ) then
+            call SetMappingsToCrossProduct
+            call self % CorrectOrderFor2DMesh(dir2D)
+         end if
 !
 !        ------------------------------
 !        Set the element connectivities

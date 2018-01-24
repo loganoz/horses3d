@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Thu Dec 21 13:53:22 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Sun Jan 21 18:28:43 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 941548e460146d29e72f98b9c4d4ec39a1e07eaa
 !
 !//////////////////////////////////////////////////////
 !
@@ -87,6 +87,7 @@
 !           Local variables
 !           ---------------
 !
+#if defined(NAVIERSTOKES)
             integer        :: eID, i, j, k
             real(kind=RP)  :: qq, u, v, w, p
             real(kind=RP)  :: Q(N_EQN), phi, theta
@@ -119,6 +120,7 @@
             end do
 
             end associate
+#endif
             
          END SUBROUTINE UserDefinedInitialCondition
 
@@ -276,6 +278,7 @@
 !           the roe solver and mach = 0.3
 !           ------------------------------------------------
 !
+#if defined(NAVIERSTOKES)
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
             REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [269.23552705359145_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
                                                                0E-011_RP, 0E-011_RP, &
@@ -329,6 +332,7 @@
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
+#endif
 
          END SUBROUTINE UserDefinedFinalize
 !

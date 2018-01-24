@@ -64,8 +64,13 @@ module ResidualsMonitorClass
 !        ----------------------------------
          open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" ) 
          write ( fID , ' ( A                                      ) ' ) "Residuals file"
+#if defined(NAVIERSTOKES)
          write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "Iteration" , "Time" , &
                         "Elapsed Time (s)" , "continuity" , "x-momentum" , "y-momentum" , "z-momentum", "energy" , "Max-Residual"
+#elif defined(CAHNHILLIARD)
+         write ( fID , ' ( A10,2X,A24,2X,A24) ' ) "Iteration" , "Time" , "concentration"
+
+#endif
 !
 !        Close file
 !        ----------
@@ -101,12 +106,17 @@ module ResidualsMonitorClass
 !
          implicit none
          class(Residuals_t)             :: self
-
+#if defined(NAVIERSTOKES)
          write(STD_OUT , '(3X,A10)' , advance = "no") "continuity"
          write(STD_OUT , '(3X,A10)' , advance = "no") "x-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "y-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "z-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "energy"
+
+#elif defined(CAHNHILLIARD)
+         write(STD_OUT , '(3X,A10)' , advance = "no") "concentration"
+
+#endif
 
       end subroutine Residuals_WriteLabel
    
@@ -151,11 +161,17 @@ module ResidualsMonitorClass
          open( newunit = fID , file = trim ( self % fileName ) , action = "write" , access = "append" , status = "old" )
 !
 !        Write values
-!        ------------         
+!        ------------      
+#if defined(NAVIERSTOKES)   
          do i = 1 , no_of_lines
             write( fID , '(I10,2X,ES24.16,2X,ES24.16,6(2X,ES24.16))' ) iter(i) , t(i), SimuTime(i) , &
                                                                        self % values(1:NCONS,i), maxval(self % values(1:NCONS,i))
          end do
+#elif defined(CAHNHILLIARD)
+         do i = 1 , no_of_lines
+            write( fID , '(I10,2X,ES24.16,5(2X,ES24.16))' ) iter(i) , t(i) , self % values(1:NCONS,i)
+         end do
+#endif
 !
 !        Close file
 !        ----------        

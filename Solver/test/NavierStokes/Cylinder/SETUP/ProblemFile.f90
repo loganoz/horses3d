@@ -75,6 +75,7 @@
 !           Local variables
 !           ---------------
 !
+#if defined(NAVIERSTOKES)
             integer        :: eID, i, j, k
             real(kind=RP)  :: qq, u, v, w, p
             real(kind=RP)  :: Q(N_EQN), phi, theta
@@ -107,6 +108,7 @@
             end do
 
             end associate
+#endif
             
          END SUBROUTINE UserDefinedInitialCondition
 
@@ -264,6 +266,7 @@
 !           the roe solver and mach = 0.3
 !           ------------------------------------------------
 !
+#if defined(NAVIERSTOKES)
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
             REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [240.36982452369941_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
                                                                0E-011_RP, 0E-011_RP, &
@@ -317,6 +320,7 @@
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
+#endif
 
          END SUBROUTINE UserDefinedFinalize
 !

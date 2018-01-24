@@ -4,9 +4,9 @@
 !   @File:    ViscousBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Sat Jan 13 12:46:18 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 6f2e4fb4ebe0f885eb4c1a61a2596a74b65a4fb3
+!   @Last revision date: Sat Jan 20 18:43:01 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 1fb4c93edba89e57ab928b053c6b9b4598c17d82
 !
 !//////////////////////////////////////////////////////
 !
@@ -34,6 +34,10 @@ module ViscousBR2
          procedure      :: ComputeGradient    => BR2_ComputeGradient
          procedure      :: ComputeInnerFluxes => BR2_ComputeInnerFluxes
          procedure      :: RiemannSolver      => BR2_RiemannSolver
+#if defined(NAVIERSTOKES)
+         procedure      :: ComputeInnerFluxesWithSGS => BR2_ComputeInnerFluxesWithSGS
+         procedure      :: RiemannSolverWithSGS      => BR2_RiemannSolverWithSGS
+#endif
    end type BassiRebay2_t
 !
 !  ========
@@ -480,7 +484,6 @@ module ViscousBR2
          use ElementClass
          use PhysicsStorage
          use Physics
-         use LESModels
          implicit none
          class(BassiRebay2_t) ,     intent (in) :: self
          type(Element)                          :: e
@@ -496,8 +499,15 @@ module ViscousBR2
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
 
+#if defined(NAVIERSTOKES)
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
+
+#elif defined(CAHNHILLIARD)
+         mu    = 1.0_RP
+         kappa = 0.0_RP
+
+#endif
 
          call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
 
@@ -519,7 +529,7 @@ module ViscousBR2
          end do               ; end do            ; end do
 
       end subroutine BR2_ComputeInnerFluxes
-
+#if defined(NAVIERSTOKES)
       subroutine BR2_ComputeInnerFluxesWithSGS( self , e , contravariantFlux )
          use ElementClass
          use PhysicsStorage
@@ -574,14 +584,13 @@ module ViscousBR2
          end do               ; end do            ; end do
 
       end subroutine BR2_ComputeInnerFluxesWithSGS
-
+#endif
       subroutine BR2_RiemannSolver ( self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
          use Physics
          use FaceClass
-         use LESModels
          implicit none
          class(BassiRebay2_t)                 :: self
          class(Face),   intent(in)            :: f
@@ -613,15 +622,21 @@ module ViscousBR2
          U_y = 0.5_RP * ( U_yLeft + U_yRight)
          U_z = 0.5_RP * ( U_zLeft + U_zRight)
 
+#if defined(NAVIERSTOKES)
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
 
+#elif defined(CAHNHILLIARD)
+         mu = 1.0_RP
+         kappa = 0.0_RP
+
+#endif
          call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 
       end subroutine BR2_RiemannSolver
-
+#if defined(NAVIERSTOKES)
       subroutine BR2_RiemannSolverWithSGS ( self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
@@ -673,5 +688,5 @@ module ViscousBR2
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 
       end subroutine BR2_RiemannSolverWithSGS
-
+#endif
 end module ViscousBR2

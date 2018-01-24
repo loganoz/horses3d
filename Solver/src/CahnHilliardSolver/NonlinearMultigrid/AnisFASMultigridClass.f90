@@ -4,9 +4,9 @@
 !   @File:    AnisFASMultigridClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:42 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Fri Jan 19 10:29:27 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: c17f4e94742539c11368332a5d06386553679b0a
 !
 !//////////////////////////////////////////////////////
 !
@@ -20,6 +20,7 @@
 !        As is, it is only valid for steady-state cases
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#if defined(NAVIERSTOKES)
 module AnisFASMultigridClass
    use SMConstants
    use ExplicitMethods
@@ -157,7 +158,7 @@ module AnisFASMultigridClass
       
       if (controlVariables % containsKey("cfl")) then
          cfl = controlVariables % doublePrecisionValueForKey("cfl")
-         if (flowIsNavierStokes) then
+         if (.true.) then
             if (controlVariables % containsKey("dcfl")) then
                dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
             else
@@ -313,14 +314,14 @@ module AnisFASMultigridClass
             do k=0, N1z(iEl)
                do j=0, N1y(iEl)
                   do i=0, N1x(iEl)
-                     if (flowIsNavierStokes) then
-                        call ManufacturedSolutionSourceNS(p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
-                                                          0._RP, &
-                                                          Solver % MGStorage(Dir) % Var(iEl) % Scase (i,j,k,:)  )
+                     if (.true.) then
+!                        call ManufacturedSolutionSourceNS(p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
+!                                                          0._RP, &
+!                                                          Solver % MGStorage(Dir) % Var(iEl) % Scase (i,j,k,:)  )
                      else
-                        call ManufacturedSolutionSourceEuler(p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
-                                                             0._RP, &
-                                                             Solver % MGStorage(Dir) % Var(iEl) % Scase (i,j,k,:)  )
+!                        call ManufacturedSolutionSourceEuler(p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
+!                                                             0._RP, &
+!                                                             Solver % MGStorage(Dir) % Var(iEl) % Scase (i,j,k,:)  )
                      end if
                   end do
                end do
@@ -480,7 +481,7 @@ module AnisFASMultigridClass
       sweepcount = 0
       DO
          do iEl = 1, NumOfSweeps
-            dt = MaxTimeStep(p_sem, cfl, dcfl )
+            !dt = MaxTimeStep(p_sem, cfl, dcfl )
             call SmoothIt(p_sem, t, dt )
          end do
          sweepcount = sweepcount + 1
@@ -557,7 +558,7 @@ module AnisFASMultigridClass
       DO
          
          do iEl = 1, NumOfSweeps
-            dt = MaxTimeStep(p_sem, cfl, dcfl )
+            !dt = MaxTimeStep(p_sem, cfl, dcfl )
             call SmoothIt(p_sem, t, dt)
          end do
 
@@ -807,7 +808,7 @@ module AnisFASMultigridClass
 !~            end do
 !~         end do
          
-!~         if ( flowIsNavierStokes )     then
+!~         if ( .true. )     then
 !~!
 !~!           --------------------------------------
 !~!           Set up the face Values on each element
@@ -853,3 +854,4 @@ module AnisFASMultigridClass
 !~   end subroutine IsolatedQdot
    
 end module AnisFASMultigridClass
+#endif

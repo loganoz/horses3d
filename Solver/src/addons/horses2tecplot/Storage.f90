@@ -149,6 +149,10 @@ module Storage
             self % hasGradients = .false.
             self % isStatistics = .true.
 
+         case (SOLUTION_CAHNHILLIARD_FILE)
+            self % hasGradients = .false.
+            self % isStatistics = .false.
+
          case default
             print*, "File expected to be a solution file"
             errorMessage(STD_OUT)
@@ -193,7 +197,7 @@ module Storage
 !              Allocate memory for the coordinates
 !              -----------------------------------            
                e % Nsol(1:3) = arrayDimensions(2:4) - 1
-               allocate( e % Q(1:5,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+               allocate( e % Q(1:arrayDimensions(1),0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
 !   
 !              Read data
 !              ---------

@@ -79,6 +79,7 @@
             real(kind=RP)  :: qq, u, v, w, p
             real(kind=RP)  :: Q(N_EQN), phi, theta
 
+#if defined(NAVIERSTOKES)
             associate ( gammaM2 => dimensionless_ % gammaM2, &
                         gamma => thermodynamics_ % gamma )
             theta = refValues_ % AOATheta*(PI/180.0_RP)
@@ -115,6 +116,7 @@
             end do
 
             end associate
+#endif
             
          END SUBROUTINE UserDefinedInitialCondition
 
@@ -261,6 +263,7 @@
 !           results are for the Mach 0.5 and rusanov solvers.
 !           -----------------------------------------------------------------------
 !
+#if defined(NAVIERSTOKES)
             INTEGER                            :: expectedIterations(3:5) = [1821,3090,4164]
             REAL(KIND=RP)                      :: expectedResidual(3:5)   = [9.7985624521602423E-011,&
                                                                              9.7825050715404729E-011,&
@@ -330,6 +333,7 @@
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
+#endif
 
          END SUBROUTINE UserDefinedFinalize
 !

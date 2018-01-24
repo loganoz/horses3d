@@ -4,9 +4,9 @@
 !   @File:    ConstructMeshAndSpectralBasis.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Nov  1 19:56:53 2017
-!   @Last revision date: Fri Dec  8 13:10:24 2017
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 30d03e7f068d114727c6fc351e203d440a864bc3
+!   @Last revision date: Tue Jan 23 16:27:50 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: d97cdbe19b7a3be3cd0c8a1f01343de8c1714260
 !
 !//////////////////////////////////////////////////////
 !
@@ -103,7 +103,7 @@ module ConstructMeshAndSpectralBasis_MOD
 !        Construct mesh
 !        --------------
 !      
-         CALL constructMeshFromFile(mesh, trim(meshfile), nodeType, Nx, Ny, Nz, .true. , success )
+         CALL constructMeshFromFile(mesh, trim(meshfile), nodeType, Nx, Ny, Nz, .true. , 0, success )
 !
 !     ------------------------
 !     Allocate and zero memory

@@ -75,6 +75,7 @@
 !           Local variables
 !           ---------------
 !
+#if defined(NAVIERSTOKES)
             REAL(KIND=RP) :: x(3)        
             INTEGER       :: i, j, k, eID
             REAL(KIND=RP) :: rho , u , v , w , p
@@ -120,7 +121,7 @@
                
             END DO 
             end associate
-            
+#endif            
             
          END SUBROUTINE UserDefinedInitialCondition
 
@@ -264,6 +265,7 @@
 !           Local variables
 !           ---------------
 !
+#if defined(NAVIERSTOKES)
             CHARACTER(LEN=29)                  :: testName           = "Taylor-Green vortex"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
@@ -339,7 +341,7 @@
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
-
+#endif
 
          END SUBROUTINE UserDefinedFinalize
 !

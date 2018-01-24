@@ -1,3 +1,4 @@
+#if defined(NAVIERSTOKES)
 module VolumeMonitorClass
    use SMConstants
    use HexMeshClass
@@ -52,6 +53,7 @@ module VolumeMonitorClass
 !        *****************************************************************************
 !  
          use ParamfileRegions
+         use Utilities, only: toLower
          implicit none
          class(VolumeMonitor_t) :: self
          class(HexMesh)         :: mesh
@@ -86,20 +88,14 @@ module VolumeMonitorClass
 !
 !        Select the variable from the available list, and compute auxiliary variables if needed
 !        --------------------------------------------------------------------------------------
+         call toLower(self % variable)
          select case ( trim ( self % variable ) )
-         
-         case ("Kinetic energy")
-
-         case ("Kinetic energy rate")
-
-         case ("Enstrophy")
-
-         case ("Entropy")
-
-         case ("Entropy rate")
-
-         case ("Mean velocity")
-
+         case ("kinetic energy")
+         case ("kinetic energy rate")
+         case ("enstrophy")
+         case ("entropy")
+         case ("entropy rate")
+         case ("mean velocity")
          case default
 
             if ( len_trim (self % variable) .eq. 0 ) then
@@ -156,22 +152,22 @@ module VolumeMonitorClass
 !        Compute the volume integral
 !        ---------------------------
          select case ( trim(self % variable) )
-         case ("Kinetic energy")
+         case ("kinetic energy")
             self % values(bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)
 
-         case ("Kinetic energy rate")
+         case ("kinetic energy rate")
             self % values(bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY_RATE) / ScalarVolumeIntegral(mesh, VOLUME)
    
-         case ("Enstrophy")
+         case ("enstrophy")
             self % values(bufferPosition) = 0.5_RP * ScalarVolumeIntegral(mesh, ENSTROPHY) / ScalarVolumeIntegral(mesh, VOLUME)
 
-         case ("Entropy")
+         case ("entropy")
             self % values(bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY) / ScalarVolumeIntegral(mesh, VOLUME)
 
-         case ("Entropy rate")
+         case ("entropy rate")
             self % values(bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_RATE) / ScalarVolumeIntegral(mesh, VOLUME)
 
-         case ("Mean velocity")
+         case ("mean velocity")
             self % values(bufferPosition) = ScalarVolumeIntegral(mesh, VELOCITY) / ScalarVolumeIntegral(mesh, VOLUME)
 
 
@@ -244,3 +240,4 @@ module VolumeMonitorClass
       
       end subroutine VolumeMonitor_WriteToFile
 end module VolumeMonitorClass
+#endif

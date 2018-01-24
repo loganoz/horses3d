@@ -1,3 +1,4 @@
+#if defined(NAVIERSTOKES)
 module ProbeClass
    use SMConstants
    use HexMeshClass
@@ -394,3 +395,4 @@ module ProbeClass
       end subroutine Probe_LookInOtherPartitions
 
 end module ProbeClass
+#endif

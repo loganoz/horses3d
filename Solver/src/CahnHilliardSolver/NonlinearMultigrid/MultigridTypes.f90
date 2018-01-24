@@ -4,12 +4,13 @@
 !   @File:    MultigridTypes.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:43 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Fri Jan 19 10:29:28 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: c17f4e94742539c11368332a5d06386553679b0a
 !
 !//////////////////////////////////////////////////////
 !
+#if defined(NAVIERSTOKES)
 module MultigridTypes
    use SMConstants
    use DGSEMClass
@@ -126,14 +127,14 @@ module MultigridTypes
       
       if( (MOD( ThisTimeStep+1, plotInterval) == 0) .or. (ThisTimeStep .eq. 0) ) then
          maxResiduals = ComputeMaxResidual(sem)
-         write(STD_OUT , 110) color1,'FAS lvl', lvl ,"|","it",sweeps,"|", maxResiduals(IRHO) , "|" , maxResiduals(IRHOU) , &
-                                 "|", maxResiduals(IRHOV) , "|" , maxResiduals(IRHOW) , "|" , maxResiduals(IRHOE),color2
+         write(STD_OUT , 110) color1,'FAS lvl', lvl ,"|","it",sweeps,"|", maxResiduals(1) 
       end if
       
-      110 format (A,A,I3,X,A,X,A,I8,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,A)
+      110 format (A,A,I3,X,A,X,A,I8,X,A,X,ES10.3)
       
    end subroutine PlotResiduals
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
 end module MultigridTypes
+#endif

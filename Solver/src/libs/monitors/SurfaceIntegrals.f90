@@ -1,3 +1,4 @@
+#if defined(NAVIERSTOKES)
 module SurfaceIntegrals
    use SMConstants
    use Physics
@@ -405,3 +406,4 @@ module SurfaceIntegrals
       end function VectorSurfaceIntegral_Face
 
 end module SurfaceIntegrals
+#endif

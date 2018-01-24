@@ -31,7 +31,7 @@ for P in $POLYNOMIAL_ORDERS; do
 	cp -f ./BenchmarkTemplate.control ./Benchmark.control
 	sed -i -e "s#@MESH_FILE#$MESH#g" ./Benchmark.control
 	sed -i -e "s#@POLYNOMIAL_ORDER#$P#g" ./Benchmark.control
-	./HORSES3D ./Benchmark.control > RESULTS/bench_2_$P.log
+	./horses3d.ns ./Benchmark.control > RESULTS/bench_2_$P.log
 done
 
 ## Case with 4^3 mesh
@@ -42,7 +42,7 @@ for P in $POLYNOMIAL_ORDERS; do
 	cp -f ./BenchmarkTemplate.control ./Benchmark.control
 	sed -i -e "s#@MESH_FILE#$MESH#g" ./Benchmark.control
 	sed -i -e "s#@POLYNOMIAL_ORDER#$P#g" ./Benchmark.control
-	./HORSES3D ./Benchmark.control > RESULTS/bench_4_$P.log
+	./horses3d.ns ./Benchmark.control > RESULTS/bench_4_$P.log
 done
 
 ## Case with 8^3 mesh
@@ -53,7 +53,7 @@ for P in $POLYNOMIAL_ORDERS; do
 	cp -f ./BenchmarkTemplate.control ./Benchmark.control
 	sed -i -e "s#@MESH_FILE#$MESH#g" ./Benchmark.control
 	sed -i -e "s#@POLYNOMIAL_ORDER#$P#g" ./Benchmark.control
-	./HORSES3D ./Benchmark.control > RESULTS/bench_8_$P.log
+	./horses3d.ns ./Benchmark.control > RESULTS/bench_8_$P.log
 done
 
 ## Case with 16^3 mesh
@@ -64,7 +64,7 @@ for P in $POLYNOMIAL_ORDERS; do
 	cp -f ./BenchmarkTemplate.control ./Benchmark.control
 	sed -i -e "s#@MESH_FILE#$MESH#g" ./Benchmark.control
 	sed -i -e "s#@POLYNOMIAL_ORDER#$P#g" ./Benchmark.control
-	./HORSES3D ./Benchmark.control > RESULTS/bench_16_$P.log
+	./horses3d.ns ./Benchmark.control > RESULTS/bench_16_$P.log
 done
 
 
