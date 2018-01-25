@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Fri Jan 19 12:22:20 2018
-!   @Last revision date: Tue Jan 23 16:27:55 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d97cdbe19b7a3be3cd0c8a1f01343de8c1714260
+!   @Last revision date: Thu Jan 25 12:49:21 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 2b44cea69a84cc8021fc589b2180267f5167983d
 !
 !//////////////////////////////////////////////////////
 !
@@ -151,15 +151,10 @@
             call random_seed()
       
             do eid = 1, mesh % no_of_elements
-               associate( nx => mesh % elements(eid) % nxyz(1), &
-                          ny => mesh % elements(eid) % nxyz(2), &
-                          nz => mesh % elements(eid) % nxyz(3) )
-               do k = 0, nz ; do j = 0, ny; do i = 0, nx 
-                  call random_number(mesh % elements(eID) % storage % c(i,j,0))
-                  mesh % elements(eID) % storage % c(i,j,k) = 2.0_RP * (mesh % elements(eID) % storage % c(i,j,k) - 0.5_RP)
-               end do ; end do;        end do
-
-               mesh % elements(eID) % storage % Q(1,:,:,:) = mesh % elements(eID) % storage % c
+               associate(e => mesh % elements(eID) % storage)
+               call random_number(e % c)
+               e % c = 2.0_RP * (e % c - 0.5_RP)
+               e % Q(1,:,:,:) = e % c
                end associate
             end do
             

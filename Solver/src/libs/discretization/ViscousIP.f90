@@ -4,9 +4,9 @@
 !   @File:    ViscousIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Sat Jan 20 18:43:01 2018
+!   @Last revision date: Thu Jan 25 12:49:20 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 1fb4c93edba89e57ab928b053c6b9b4598c17d82
+!   @Last revision commit: 2b44cea69a84cc8021fc589b2180267f5167983d
 !
 !//////////////////////////////////////////////////////
 !
@@ -564,7 +564,11 @@ module ViscousIP
 !
 !        Shahbazi estimate
 !        -----------------
+#if defined(NAVIERSTOKES)
          sigma = 0.5_RP * self % sigma * mu * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
+#elif defined(CAHNHILLIARD)
+         sigma = 0.25_RP * self % sigma * mu * (maxval(f % Nf))*(maxval(f % Nf)+1) / f % geom % h 
+#endif
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - sigma * (QLeft - QRight)
 
@@ -623,7 +627,6 @@ module ViscousIP
          sigma = 0.5_RP * self % sigma * mu * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - sigma * (QLeft - QRight)
-
 
       end subroutine IP_RiemannSolverWithSGS
 #endif
