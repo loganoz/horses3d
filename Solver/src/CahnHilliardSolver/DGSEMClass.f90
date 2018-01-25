@@ -4,9 +4,9 @@
 !   @File:    DGSEMClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:37 2018
-!   @Last revision date: Tue Jan 23 16:27:48 2018
+!   @Last revision date: Thu Jan 25 21:11:03 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d97cdbe19b7a3be3cd0c8a1f01343de8c1714260
+!   @Last revision commit: 4ae0998f1881a7de77d8fb31fe8ac95dfed811ae
 !
 !//////////////////////////////////////////////////////
 !
@@ -330,7 +330,6 @@ Module DGSEMClass
       CALL self % mesh % destruct
       self % externalState     => NULL()
       self % externalGradients => NULL()
-      IF ( ALLOCATED(ViscousMethod ) ) DEALLOCATE( ViscousMethod ) 
       
       END SUBROUTINE DestructDGSem
 !

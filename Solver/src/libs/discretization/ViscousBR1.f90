@@ -1,9 +1,11 @@
 module ViscousBR1
    use SMConstants
+   use Headers
    use MeshTypes
    use Physics
    use VariableConversion, only: GradientValuesForQ
    use PhysicsStorage
+   use MPI_Process_Info
    use MPI_Face_Class
    use ViscousMethodClass
    implicit none
@@ -14,7 +16,6 @@ module ViscousBR1
 
    type, extends(ViscousMethod_t)   :: BassiRebay1_t
       contains
-         procedure      :: Initialize                => BR1_Initialize
          procedure      :: ComputeGradient           => BR1_ComputeGradient
          procedure      :: ComputeInnerFluxes        => BR1_ComputeInnerFluxes
          procedure      :: RiemannSolver             => BR1_RiemannSolver
@@ -22,26 +23,16 @@ module ViscousBR1
          procedure      :: ComputeInnerFluxesWithSGS => BR1_ComputeInnerFluxesWithSGS
          procedure      :: RiemannSolverWithSGS      => BR1_RiemannSolverWithSGS
 #endif
+         procedure      :: Describe => BR1_Describe
    end type BassiRebay1_t
 !
 !  ========
    contains
 !  ========
 !
-      subroutine BR1_Initialize(self, controlVariables)
-         use FTValueDictionaryClass
-         use mainKeywordsModule
-         use Headers
-         use MPI_Process_Info
-         use PhysicsStorage
+      subroutine BR1_Describe(self)
          implicit none
-         class(BassiRebay1_t)                  :: self
-         class(FTValueDictionary),  intent(in) :: controlVariables
-         interface
-            subroutine toLower(str)
-               character(*), intent(in out) :: str
-            end subroutine toLower
-         end interface
+         class(BassiRebay1_t),   intent(in)  :: self  
 !
 !        Display the configuration
 !        -------------------------
@@ -52,13 +43,12 @@ module ViscousBR1
 
          write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","BR1"
 
-      end subroutine BR1_Initialize
+      end subroutine BR1_Describe
 
       subroutine BR1_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
          use HexMeshClass
          use PhysicsStorage
          use Physics
-         use MPI_Process_Info
          implicit none
          class(BassiRebay1_t), intent(in) :: self
          class(HexMesh)                   :: mesh

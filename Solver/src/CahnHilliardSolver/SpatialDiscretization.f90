@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Thu Jan 25 12:49:19 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 2b44cea69a84cc8021fc589b2180267f5167983d
+!   @Last revision date: Thu Jan 25 21:11:05 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 4ae0998f1881a7de77d8fb31fe8ac95dfed811ae
 !
 !//////////////////////////////////////////////////////
 !
@@ -68,36 +68,36 @@ module SpatialDiscretization
 !
 !        Initialize viscous discretization
 !        ---------------------------------         
-            viscousDiscretization = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
-            call toLower(viscousDiscretization)
-            
-            select case ( trim(viscousDiscretization) )
-            case("br1")
-               if (.not. allocated(ViscousMethod)) allocate( BassiRebay1_t :: ViscousMethod  ) 
+         call BassiRebay1     % Initialize(controlVariables)
+         call BassiRebay2     % Initialize(controlVariables)
+         call InteriorPenalty % Initialize(controlVariables)
 
-            case("br2")
-               if (.not. allocated(ViscousMethod)) allocate( BassiRebay2_t :: ViscousMethod  ) 
-
-            case("ip")
-               if (.not. allocated(ViscousMethod)) allocate( InteriorPenalty_t :: ViscousMethod  ) 
-
-            case default
-               write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretization),'" is not implemented.'
-               write(STD_OUT,'(A)') "Implemented discretizations are:"
-               write(STD_OUT,'(A)') "  * BR1"
-               write(STD_OUT,'(A)') "  * BR2"
-               write(STD_OUT,'(A)') "  * IP"
-               errorMessage(STD_OUT)
-               stop 
-
-            end select
-   
-         call ViscousMethod % Initialize(controlVariables)
-!
-!        Compute wall distances
-!        ----------------------
-         call mesh % ComputeWallDistances
+         viscousDiscretization = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
+         call toLower(viscousDiscretization)
          
+         select case ( trim(viscousDiscretization) )
+         case("br1")
+            ViscousMethod => BassiRebay1
+
+         case("br2")
+            ViscousMethod => BassiRebay2
+
+         case("ip")
+            ViscousMethod => InteriorPenalty
+
+         case default
+            write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretization),'" is not implemented.'
+            write(STD_OUT,'(A)') "Implemented discretizations are:"
+            write(STD_OUT,'(A)') "  * BR1"
+            write(STD_OUT,'(A)') "  * BR2"
+            write(STD_OUT,'(A)') "  * IP"
+            errorMessage(STD_OUT)
+            stop 
+
+         end select
+
+         call ViscousMethod % Describe
+      
       end subroutine Initialize_SpaceAndTimeMethods
 !
 !////////////////////////////////////////////////////////////////////////
