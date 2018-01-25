@@ -352,7 +352,7 @@ module pAdaptationClass
 !     Estimate the truncation error using the anisotropic multigrid
 !     -------------------------------------------------------------
 !
-      CALL AnisFASpAdaptSolver % construct(pAdapt % controlVariables,sem)
+      CALL AnisFASpAdaptSolver % construct(pAdapt % controlVariables,sem,estimator=.TRUE.)
       CALL AnisFASpAdaptSolver % solve(itera,t,pAdapt % TE)
       CALL AnisFASpAdaptSolver % destruct
 !

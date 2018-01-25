@@ -82,31 +82,35 @@ module AnisFASMultigridClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,controlVariables,sem)
+   subroutine construct(this,controlVariables,sem,estimator)
       use FTValueDictionaryClass
       use StopwatchClass
       implicit none
       !-----------------------------------------------------------
-      class(AnisFASMultigrid_t) , intent(inout), TARGET    :: this              !<> Anisotropic FAS multigrid solver to be constructed
-      type(FTValueDictionary)  , intent(in), OPTIONAL  :: controlVariables  !<  Input variables
-      type(DGSem), TARGET                  , OPTIONAL  :: sem               !<  Fine sem class
+      class(AnisFASMultigrid_t), intent(inout), target :: this              !<> Anisotropic FAS multigrid solver to be constructed
+      type(FTValueDictionary)  , intent(in)            :: controlVariables  !<  Input variables
+      type(DGSem)              , intent(in)   , target :: sem               !<  Fine sem class
+      logical                  , intent(in) , optional :: estimator         !<  Is this anisotropic FAS only an estimator?
       !-----------------------------------------------------------
-      integer   :: Dir           ! Direction of coarsening
-      integer   :: UserMGlvls    ! User defined number of MG levels
-      character(len=LINE_LENGTH)                       :: PostSmoothOptions
+      integer                    :: Dir               ! Direction of coarsening
+      integer                    :: UserMGlvls        ! User defined number of MG levels
+      logical                    :: AnisFASestimator  ! Whether this is an AnisFAS estimator or not
+      character(len=LINE_LENGTH) :: PostSmoothOptions
       !-----------------------------------------------------------
       
       call Stopwatch % Pause("Solver")
       call Stopwatch % Start("Preprocessing")
-      
-      if (.NOT. PRESENT(sem)) stop 'Fatal error: AnisFASMultigrid needs sem.'
-      if (.NOT. PRESENT(controlVariables)) stop 'Fatal error: AnisFASMultigrid needs controlVariables.'
-      
 !
 !     ----------------------------------
 !     Read important variables from file
 !     ----------------------------------
 !
+      if ( present(estimator) ) then
+         AnisFASestimator = estimator
+      else
+         AnisFASestimator = .FALSE.
+      end if
+      
       if (.NOT. controlVariables % containsKey("multigrid levels")) then
          print*, 'Fatal error: "multigrid levels" keyword is needed by the AnisFASMultigrid solver'
          STOP
@@ -122,28 +126,72 @@ module AnisFASMultigridClass
       MGlevels(2)  = MIN(MaxN(2),UserMGlvls)
       MGlevels(3)  = MIN(MaxN(3),UserMGlvls)
       
-      if (controlVariables % containsKey("delta n")) then
-         deltaN = controlVariables % IntegerValueForKey("delta n")
-      else
+      if (AnisFASestimator) then
          deltaN = 1
-      end if
-      
-      if (controlVariables % containsKey("mg sweeps pre" ) .AND. &
-          controlVariables % containsKey("mg sweeps post") ) then
-         SweepNumPre  = controlVariables % IntegerValueForKey("mg sweeps pre")
-         SweepNumPost = controlVariables % IntegerValueForKey("mg sweeps post")
-      elseif (controlVariables % containsKey("mg sweeps")) then
-         SweepNumPre  = controlVariables % IntegerValueForKey("mg sweeps")
-         SweepNumPost = SweepNumPre
-      else
          SweepNumPre  = 1
          SweepNumPost = 1
+         SweepNumCoarse = 1
+         PostFCycle = .FALSE.
+         PostSmooth = .FALSE.
+         SmoothFine = .FALSE.
+      else
+         ! Read deltaN
+         if (controlVariables % containsKey("delta n")) then
+            deltaN = controlVariables % IntegerValueForKey("delta n")
+         else
+            deltaN = 1
+         end if
+         
+         ! Read number of sweeps
+         if (controlVariables % containsKey("mg sweeps pre" ) .AND. &
+             controlVariables % containsKey("mg sweeps post") ) then
+            SweepNumPre  = controlVariables % IntegerValueForKey("mg sweeps pre")
+            SweepNumPost = controlVariables % IntegerValueForKey("mg sweeps post")
+         elseif (controlVariables % containsKey("mg sweeps")) then
+            SweepNumPre  = controlVariables % IntegerValueForKey("mg sweeps")
+            SweepNumPost = SweepNumPre
+         else
+            SweepNumPre  = 1
+            SweepNumPost = 1
+         end if
+         
+         ! Read number of sweeps in the coarsest leveñ
+         if (controlVariables % containsKey("mg sweeps coarsest")) then
+            SweepNumCoarse = controlVariables % IntegerValueForKey("mg sweeps coarsest")
+         else
+            SweepNumCoarse = (SweepNumPre + SweepNumPost) / 2
+         end if
+         
+         ! Read post-smoothing options
+         PostSmoothOptions = controlVariables % StringValueForKey("postsmooth option",LINE_LENGTH)
+         if (trim(PostSmoothOptions) == 'f-cycle') then
+            PostFCycle = .TRUE.
+         elseif (trim(PostSmoothOptions) == 'smooth') then
+            PostSmooth = .TRUE.
+         end if
+         
+         if (controlVariables % containsKey("smooth fine")) then
+            SmoothFine = .TRUE.
+            SmoothFineFrac = controlVariables % doublePrecisionValueForKey("smooth fine")
+         else
+            SmoothFine = .FALSE.
+         end if
       end if
       
-      if (controlVariables % containsKey("mg sweeps coarsest")) then
-         SweepNumCoarse = controlVariables % IntegerValueForKey("mg sweeps coarsest")
+      select case (controlVariables % StringValueForKey("mg smoother",LINE_LENGTH))
+         case('RK3')  ; SmoothIt => TakeRK3Step
+         case('SIRK')
+            !! SmoothIt => TakeSIRKStep
+            error stop ':: SIRK smoother not implemented yet'
+         case default 
+            write(STD_OUT,*) '"mg smoother" not recognized. Defaulting to RK3.'
+            SmoothIt => TakeRK3Step
+      end select
+      
+      if (controlVariables % containsKey("max mg sweeps")) then
+         MaxSweeps = controlVariables % IntegerValueForKey("max mg sweeps")
       else
-         SweepNumCoarse = (SweepNumPre + SweepNumPost) / 2
+         MaxSweeps = MAX_SWEEPS_DEFAULT
       end if
       
 !     Read cfl and dcfl numbers
@@ -164,36 +212,6 @@ module AnisFASMultigridClass
          dt = controlVariables % doublePrecisionValueForKey("dt")
       else
          ERROR STOP '"cfl" and "dcfl" if Navier-Stokes) or "dt" keywords must be specified for the FAS integrator'
-      end if
-      
-      select case (controlVariables % StringValueForKey("mg smoother",LINE_LENGTH))
-         case('RK3')  ; SmoothIt => TakeRK3Step
-         case('SIRK')
-            !! SmoothIt => TakeSIRKStep
-            error stop ':: SIRK smoother not implemented yet'
-         case default 
-            write(STD_OUT,*) '"mg smoother" not recognized. Defaulting to RK3.'
-            SmoothIt => TakeRK3Step
-      end select
-      
-      PostSmoothOptions = controlVariables % StringValueForKey("postsmooth option",LINE_LENGTH)
-      if (trim(PostSmoothOptions) == 'f-cycle') then
-         PostFCycle = .true.
-      elseif (trim(PostSmoothOptions) == 'smooth') then
-         PostSmooth = .true.
-      end if
-      
-      if (controlVariables % containsKey("smooth fine")) then
-         SmoothFine = .TRUE.
-         SmoothFineFrac = controlVariables % doublePrecisionValueForKey("smooth fine")
-      else
-         SmoothFine = .FALSE.
-      end if
-      
-      if (controlVariables % containsKey("max mg sweeps")) then
-         MaxSweeps = controlVariables % IntegerValueForKey("max mg sweeps")
-      else
-         MaxSweeps = MAX_SWEEPS_DEFAULT
       end if
       
 !

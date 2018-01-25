@@ -79,17 +79,15 @@ module FASMultigridClass
       use StopwatchClass
       implicit none
       !-----------------------------------------------------------
-      class(FASMultigrid_t) , intent(inout), target    :: this
-      type(FTValueDictionary)  , intent(IN), OPTIONAL  :: controlVariables
-      type(DGSem), target                  , OPTIONAL  :: sem
-      character(len=LINE_LENGTH)                       :: PostSmoothOptions
+      class(FASMultigrid_t)  , intent(inout), target :: this               !<> Anisotropic FAS multigrid solver to be constructed
+      type(FTValueDictionary), intent(in)            :: controlVariables   !<  Input variables
+      type(DGSem)            , intent(in)   , target :: sem                !<  Fine sem class
+      !-----------------------------------------------------------
+      character(len=LINE_LENGTH)                     :: PostSmoothOptions
       !-----------------------------------------------------------
       
       call Stopwatch % Pause("Solver")
       call Stopwatch % Start("Preprocessing")
-      
-      if (.NOT. PRESENT(sem)) stop 'Fatal error: FASMultigrid needs sem.'
-      if (.NOT. PRESENT(controlVariables)) stop 'Fatal error: FASMultigrid needs controlVariables.'
       
 !
 !     ----------------------------------
