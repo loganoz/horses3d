@@ -54,6 +54,6 @@
 
          INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
 
-         CHARACTER(len=*), parameter   :: VERSION = "v0.8.1: Code with 2D mode. Fixed issues with FAS multigrid in Navier-Stokes."
+         CHARACTER(len=*), parameter   :: VERSION = "v0.8.2: CH yields better results"
          
       END MODULE SMConstants

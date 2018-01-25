@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Sun Jan 21 13:30:39 2018
+!   @Last revision date: Thu Jan 25 12:49:19 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0ffaf34ffe08cc70daf3a0555c12a80c4a3b9930
+!   @Last revision commit: 2b44cea69a84cc8021fc589b2180267f5167983d
 !
 !//////////////////////////////////////////////////////
 !
@@ -40,30 +40,6 @@ module SpatialDiscretization
       private
       public  ComputeLaplacian, DGSpatial_ComputeGradient
       public  Initialize_SpaceAndTimeMethods
-
-      abstract interface
-         SUBROUTINE computeElementInterfaceFluxF(f)
-            use FaceClass
-            IMPLICIT NONE
-            TYPE(Face)   , INTENT(inout) :: f   
-         end subroutine computeElementInterfaceFluxF
-
-         SUBROUTINE computeMPIFaceFluxF(f)
-            use FaceClass
-            IMPLICIT NONE
-            TYPE(Face)   , INTENT(inout) :: f   
-         end subroutine computeMPIFaceFluxF
-
-         SUBROUTINE computeBoundaryFluxF(f, time, externalStateProcedure , externalGradientsProcedure)
-            use SMConstants
-            use FaceClass
-            IMPLICIT NONE
-            type(Face),    intent(inout) :: f
-            REAL(KIND=RP)                :: time
-            EXTERNAL                     :: externalStateProcedure
-            EXTERNAL                     :: externalGradientsProcedure
-         end subroutine computeBoundaryFluxF
-      end interface
 !
 !     ========      
       CONTAINS 
@@ -161,7 +137,14 @@ module SpatialDiscretization
  
             case (HMESH_BOUNDARY) 
                CALL computeBoundaryFlux(f, t, externalState, externalGradients) 
- 
+            
+            case (HMESH_MPI)
+
+            case default
+               print*, "Unrecognized face type"
+               errorMessage(STD_OUT)
+               stop
+                
             end select 
             end associate 
          end do 
@@ -188,50 +171,50 @@ module SpatialDiscretization
 !        Wait until messages are sent
 !        ****************************
 !
-!$omp single
+#ifdef _HAS_MPI_
          if ( MPI_Process % doMPIAction ) then
+!$omp single
             call mesh % GatherMPIFacesGradients
-         end if
 !$omp end single
 !
-!        **************************************
-!        Compute Riemann solver of shared faces
-!        **************************************
+!           **************************************
+!           Compute Riemann solver of shared faces
+!           **************************************
 !
 !$omp do schedule(runtime) 
-         do fID = 1, size(mesh % faces) 
-            associate( f => mesh % faces(fID)) 
-            select case (f % faceType) 
-            case (HMESH_MPI) 
-               CALL computeMPIFaceFlux( f ) 
-            end select 
-            end associate 
-         end do 
+            do fID = 1, size(mesh % faces) 
+               associate( f => mesh % faces(fID)) 
+               select case (f % faceType) 
+               case (HMESH_MPI) 
+                  CALL computeMPIFaceFlux( f ) 
+               end select 
+               end associate 
+            end do 
 !$omp end do 
 !
-!        ***********************************************************
-!        Surface integrals and scaling of elements with shared faces
-!        ***********************************************************
+!           ***********************************************************
+!           Surface integrals and scaling of elements with shared faces
+!           ***********************************************************
 ! 
 !$omp do schedule(runtime) 
-         do eID = 1, size(mesh % elements) 
-            associate(e => mesh % elements(eID)) 
-            if ( .not. e % hasSharedFaces ) cycle
-            call TimeDerivative_FacesContribution(e, t, mesh) 
+            do eID = 1, size(mesh % elements) 
+               associate(e => mesh % elements(eID)) 
+               if ( .not. e % hasSharedFaces ) cycle
+               call TimeDerivative_FacesContribution(e, t, mesh) 
  
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
-            end do         ; end do          ; end do 
-            end associate 
-         end do
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
+                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
+               end do         ; end do          ; end do 
+               end associate 
+            end do
 !$omp end do
 !
-!        Add a MPI Barrier
-!        -----------------
-#ifdef _HAS_MPI_
+!           Add a MPI Barrier
+!           -----------------
 !$omp single
-         if ( MPI_Process % doMPIAction ) call mpi_barrier(MPI_COMM_WORLD, ierr)
+            call mpi_barrier(MPI_COMM_WORLD, ierr)
 !$omp end single
+         end if
 #endif
 
       end subroutine ComputeLaplacian
