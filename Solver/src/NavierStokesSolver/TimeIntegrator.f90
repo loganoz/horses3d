@@ -163,6 +163,7 @@
 !
       integer              :: PA_Stage  ! P-adaptation stage
       real(kind=RP)        :: FMGres    ! Target residual for FMG solver
+      REAL(KIND=RP)        :: maxResidual(N_EQN)
       type(FASMultigrid_t) :: FMGSolver ! FAS multigrid solver for Full-Multigrid (FMG) initialization
       
 !     Initializations
@@ -203,13 +204,11 @@
             
             call IntegrateInTime( self, sem, controlVariables, monitors, pAdaptator % reqTE*0.1_RP)  ! The residual is hard-coded to 0.1 * truncation error threshold (see Kompenhans, Moritz, et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.)
             
-            !! TODO: Call p-Adaptator plotter
             call pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,0._RP)  ! Time is hardcoded to 0._RP (not important since it's only for STEADY_STATE)
             
+            maxResidual = ComputeMaxResidual(sem)
+            call Monitors % UpdateValues( sem % mesh, self % time, sem % numberOfTimeSteps, maxResidual )
             call self % Display(sem % mesh, monitors)
-            
-            !! TODO: Call p-Adaptator plotter
-            !Write plot file
             
          end do
       end if

@@ -111,7 +111,6 @@ Module DGSEMClass
       INTEGER                     :: nTotalElem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       integer                     :: dir2D
-      character(len=LINE_LENGTH)  :: meshFileName
       logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
       character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
       INTERFACE
@@ -144,13 +143,13 @@ Module DGSEMClass
 !
 !        Mesh file set up by input argument
 !        ----------------------------------
-         meshFileName = trim(meshFileName_)
+         self % mesh % meshFileName = trim(meshFileName_)
 
       else
 !
 !        Mesh file set up by controlVariables
 !        ------------------------------------
-         meshFileName = controlVariables % stringValueForKey(meshFileNameKey, requestedLength = LINE_LENGTH) 
+         self % mesh % meshFileName = controlVariables % stringValueForKey(meshFileNameKey, requestedLength = LINE_LENGTH) 
 
       end if
 !
@@ -183,7 +182,7 @@ Module DGSEMClass
          Nz => Nz_
          nTotalElem = SIZE(Nx)
       ELSEIF (PRESENT(polynomialOrder)) THEN
-         nTotalElem = NumOfElemsFromMeshFile( meshfileName )
+         nTotalElem = NumOfElemsFromMeshFile( self % mesh % meshfileName )
          
          ALLOCATE (Nx(nTotalElem),Ny(nTotalElem),Nz(nTotalElem))
          Nx = polynomialOrder(1)
@@ -267,7 +266,7 @@ Module DGSEMClass
 !
 !        Construct the full mesh
 !        -----------------------
-         call constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+         call constructMeshFromFile( self % mesh, self % mesh % meshFileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
 !
 !        Perform the partitioning
 !        ------------------------
@@ -287,7 +286,7 @@ Module DGSEMClass
 !     *              MESH CONSTRUCTION                         *
 !     **********************************************************
 !
-      CALL constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+      CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
       
       IF(.NOT. success) RETURN
 !
@@ -692,6 +691,59 @@ Module DGSEMClass
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!     This routine computes the time derivative element by element, without considering the Riemann Solvers
+!     This is useful for estimating the isolated truncation error
+!
+      SUBROUTINE ComputeTimeDerivativeIsolated( self, time )
+         USE SpatialDiscretization
+         use ViscousMethodClass
+         IMPLICIT NONE 
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(DGSem)   :: self
+         REAL(KIND=RP) :: time
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         INTEGER :: k
+!
+!        -----------------------------------------
+!        Prolongation of the solution to the faces
+!        -----------------------------------------
+!
+!$omp parallel shared(self, time)
+         call self % mesh % ProlongSolutionToFaces()
+!
+!        -----------------------------------------------------
+!        Compute LOCAL gradients and prolong them to the faces
+!        -----------------------------------------------------
+!
+         if ( computeGradients ) then
+            CALL BaseClass_ComputeGradient( ViscousMethod, self % mesh , time , self % externalState , self % externalGradients )
+!
+!           The prolongation is usually done in the viscous methods, but not in the BaseClass
+!           ---------------------------------------------------------------------------------
+            call self % mesh % ProlongGradientsToFaces()
+         end if
+
+!
+!        -----------------------
+!        Compute time derivative
+!        -----------------------
+!
+         call TimeDerivative_ComputeQDotIsolated(mesh = self % mesh , &
+                                                 t    = time )
+!$omp end parallel
+!
+      END SUBROUTINE ComputeTimeDerivativeIsolated
 !
 !//////////////////////////////////////////////////////////////////////// 
 !

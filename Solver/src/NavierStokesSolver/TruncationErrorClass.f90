@@ -24,7 +24,7 @@ module TruncationErrorClass
    !-----------------------------------------------------------------------------
    type :: TruncationError_t
       type(TruncErrorPol_t)       :: Dir(3)
-      
+      integer                     :: TruncErrorType
       contains
          procedure :: construct => ConstructTruncationError
          procedure :: destruct  => DestructTruncationError
@@ -125,14 +125,14 @@ module TruncationErrorClass
       !------------------------------------------
       
       do eID=1, size(sem % mesh % elements)
+         TE(eID) % TruncErrorType = TruncErrorType
          TE(eID) % Dir(1) % P = sem % Nx(eID)
          TE(eID) % Dir(2) % P = sem % Ny(eID)
          TE(eID) % Dir(3) % P = sem % Nz(eID)
       end do
       
       if (TruncErrorType == ISOLATED_TE) then
-         error stop ':: Isolated truncation error is not yet implemented'
-!~         TimeDerivative => ComputeTimeDerivativeIsol 
+         TimeDerivative => ComputeTimeDerivativeIsolated
       else
          TimeDerivative => ComputeTimeDerivative
       end if
@@ -151,8 +151,8 @@ module TruncationErrorClass
       implicit none
       !-----------------------------
       type(TruncationError_t)  :: TE(:)       !<> Type containing the truncation error estimation
-      type(DGSem)              :: sem           !<  sem  containing the Qdot after evaluating the fine solution in a given coarser mesh
-      real(kind=RP)            :: t
+      type(DGSem)              :: sem         !<> sem (to evaluate Qdot in a given coarser mesh)
+      real(kind=RP)            :: t          !<  time 
       type(MGSolStorage_t)     :: Var(:)        !<  Type containing the source term in the mesh where the truncation error is being estimated
       integer                  :: Dir           !<  Direction in which the truncation error is being estimated
       !-----------------------------

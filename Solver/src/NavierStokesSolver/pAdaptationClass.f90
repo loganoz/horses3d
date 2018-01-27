@@ -40,6 +40,7 @@ module pAdaptationClass
       logical                           :: increasing       ! Performing an increasing adaptation procedure?
       logical                           :: Constructed      ! 
       integer                           :: NxyzMax(3)       ! Maximum polynomial order in all the directions
+      integer                           :: TruncErrorType   ! Truncation error type (either ISOLATED_TE or NON_ISOLATED_TE)
       
       type(TruncationError_t), allocatable :: TE(:)         ! Truncation error for every element(:)
       
@@ -257,6 +258,20 @@ module pAdaptationClass
 !     Allocate truncation error array
 !     ----------------------------------------
 !
+      if ( controlVariables % containsKey("truncation error type") ) then
+         select case ( trim(controlVariables % stringValueForKey("truncation error type", requestedLength = LINE_LENGTH)) )
+            case ('isolated')
+               this % TruncErrorType = ISOLATED_TE
+            case ('non-isolated')
+               this % TruncErrorType = NON_ISOLATED_TE
+            case default
+               write(STD_OUT,*) "Not recognized 'truncation error type'. Defaulting to isolated."
+               this % TruncErrorType = ISOLATED_TE
+         end select
+      else
+         this % TruncErrorType = ISOLATED_TE
+      end if
+      
       nelem = size(Nx)
       allocate (this % TE(nelem))
       
@@ -339,9 +354,27 @@ module pAdaptationClass
       integer                    :: DOFs, NewDOFs
       logical                    :: notenough(3)
       TYPE(AnisFASMultigrid_t)      :: AnisFASpAdaptSolver
+      character(len=LINE_LENGTH) :: AdaptedMeshFile
+      interface
+         character(len=LINE_LENGTH) function getFileName( inputLine )
+            use SMConstants
+            implicit none
+            character(len=*)     :: inputLine
+         end function getFileName
+      end interface
       !--------------------------------------
-
-      write(STD_OUT,*) '****     Performing p-Adaptation      ****'
+      
+      write(STD_OUT,*)
+      write(STD_OUT,*)
+      select case (pAdapt % TruncErrorType)
+         case (ISOLATED_TE)
+            write(STD_OUT,*) '****     Performing p-Adaptation with isolated truncation error estimates      ****'
+         case (NON_ISOLATED_TE)
+            write(STD_OUT,*) '****     Performing p-Adaptation with non-isolated truncation error estimates      ****'
+         case default
+            error stop ':: Non-defined truncation error type.'
+      end select
+      write(STD_OUT,*)
       
       Error = 0
       Warning= 0
@@ -353,7 +386,7 @@ module pAdaptationClass
 !     -------------------------------------------------------------
 !
       CALL AnisFASpAdaptSolver % construct(pAdapt % controlVariables,sem,estimator=.TRUE.)
-      CALL AnisFASpAdaptSolver % solve(itera,t,pAdapt % TE)
+      CALL AnisFASpAdaptSolver % solve(itera,t,pAdapt % TE, pAdapt % TruncErrorType)
       CALL AnisFASpAdaptSolver % destruct
 !
 !     -------------------------------------------------------------
@@ -569,6 +602,10 @@ module pAdaptationClass
       end do
       
       call Oldsem % destruct
+      
+      ! Post-adaptation mesh (for plotting)
+      write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim(getFileName( sem % mesh % meshFileName )), '_p-Adapted_Stage_', Stage, '.hmesh'
+      call sem % mesh % Export(AdaptedMeshFile)
       
       ! Update residuals
       call ComputeTimeDerivative(sem, t)

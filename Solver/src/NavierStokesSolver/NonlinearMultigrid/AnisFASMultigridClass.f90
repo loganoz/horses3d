@@ -27,7 +27,6 @@ module AnisFASMultigridClass
    !--------------------------------------------------------------------------------
    type :: MGStorage_t
       type(DGSem)            , pointer           :: p_sem            ! Pointer to DGSem class variable of current system
-      type(DGSem)                                :: tempsem          ! sem used to compute the truncation error using the finest grid solution
       type(MGSolStorage_t), allocatable          :: Var(:)           ! Variables stored element-wise
    end type MGStorage_t
    
@@ -128,9 +127,9 @@ module AnisFASMultigridClass
       
       if (AnisFASestimator) then
          deltaN = 1
-         SweepNumPre  = 1
-         SweepNumPost = 1
-         SweepNumCoarse = 1
+         SweepNumPre  = 0
+         SweepNumPost = 0
+         SweepNumCoarse = 0
          PostFCycle = .FALSE.
          PostSmooth = .FALSE.
          SmoothFine = .FALSE.
@@ -389,8 +388,6 @@ module AnisFASMultigridClass
                                            ChildSem = .TRUE. )
          if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
          
-         Child_p % MGStorage(Dir) % tempsem = Child_p % MGStorage(Dir) % p_sem
-         
          call ConstructFASInOneDirection(Solver % Child, lvl - 1, controlVariables,Dir)
          
       end if
@@ -402,12 +399,13 @@ module AnisFASMultigridClass
 !  ---------------------------------------------
 !  Driver of the FAS multigrid solving procedure
 !  ---------------------------------------------
-   subroutine solve(this,timestep,t,TE)
+   subroutine solve(this,timestep,t,TE,TEType)
       implicit none
       class(AnisFASMultigrid_t)        , intent(inout) :: this       !<> The AnisFAS
       integer                          , intent(in)    :: timestep   !<  Current time step
       real(kind=RP)                    , intent(in)    :: t          !<  Current simulation time
       type(TruncationError_t), optional, intent(inout) :: TE(:)      !<> Truncation error for all elements. If present, the multigrid solver also estimates the TE
+      integer                , optional, intent(in)    :: TEType     !<  Truncation error type (either NON_ISOLATED_TE or ISOLATED_TE)
       !-------------------------------------------------
       character(len=LINE_LENGTH)              :: FileName
       integer                                 :: Dir
@@ -420,7 +418,11 @@ module AnisFASMultigridClass
 !
       if (PRESENT(TE)) then
          EstimateTE = .TRUE.
-         call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,NON_ISOLATED_TE)
+         if (present(TEType)) then
+            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,TEType)
+         else ! using NON_ISOLATED_TE by default
+            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,NON_ISOLATED_TE)
+         end if
       else
          EstimateTE = .FALSE.
       end if
@@ -436,15 +438,6 @@ module AnisFASMultigridClass
       do Dir = 1, 3
          call FASVCycle(this,t,MGlevels(Dir),Dir,TE)
       end do
-
-!
-!     -------------------------------------------
-!     Perform p-adaptation and destruct variables
-!     -------------------------------------------
-!
-!~      if (PRESENT(pAdaptator) .AND. pAdaptator % Adapt) then
-!~         call pAdaptator % pAdaptTE(this % MGStorage(1) % p_sem,pAdaptator % TE)
-!~      end if
       
       !! Finish up
       
@@ -684,10 +677,16 @@ module AnisFASMultigridClass
 !     If not on finest level, correct source term
 !     -------------------------------------------
 !
-      if (EstimateTE) call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
-     
-     call ComputeTimeDerivative(Childp_sem,t)
-      
+      if (EstimateTE) then
+         if ( TE(1) % TruncErrorType == NON_ISOLATED_TE) then ! This assumes that the truncation error type is the same in all elements
+            call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
+         elseif ( TE(1) % TruncErrorType == ISOLATED_TE) then
+            call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
+            call ComputeTimeDerivative(Childp_sem,t)
+         end if
+      else
+         call ComputeTimeDerivative(Childp_sem,t)
+      end if
       
 !$omp parallel do schedule(runtime)
       do iEl = 1, nelem
@@ -702,7 +701,6 @@ module AnisFASMultigridClass
 !
 !  -----------------------------------------------
 !  Subroutine that destructs an AnisFAS integrator
-!  TODO: finish this
 !  -----------------------------------------------
    subroutine destruct(this)       
       implicit none
@@ -739,7 +737,6 @@ module AnisFASMultigridClass
       deallocate (Solver % MGStorage(Dir) % Var) ! allocatable components are automatically deallocated
       
       if (lvl < MGlevels(Dir)) then
-         call Solver % MGStorage(Dir) % tempsem % destruct()
          call Solver % MGStorage(Dir) % p_sem % destruct()
          deallocate (Solver % MGStorage(Dir) % p_sem)
       else

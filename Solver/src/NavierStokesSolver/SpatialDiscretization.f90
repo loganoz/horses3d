@@ -319,6 +319,98 @@ module SpatialDiscretization
 !$omp end do
       end subroutine TimeDerivative_ComputeQDot
 !
+!////////////////////////////////////////////////////////////////////////
+!
+!     -------------------------------------------------------------------------------
+!     This routine computes Qdot neglecting the interaction with neighboring elements
+!     and boundaries. Therefore, the external states are not needed.
+!     -------------------------------------------------------------------------------
+      subroutine TimeDerivative_ComputeQDotIsolated( mesh , t )
+         implicit none
+         type(HexMesh)              :: mesh
+         real(kind=RP)              :: t
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: eID , i, j, k, fID
+         interface
+            subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
+               USE HexMeshClass
+               use PhysicsStorage
+               IMPLICIT NONE
+               CLASS(HexMesh)                        :: mesh
+               REAL(KIND=RP)                         :: time
+               type(Thermodynamics_t),    intent(in) :: thermodynamics_
+               type(Dimensionless_t),     intent(in) :: dimensionless_
+               type(RefValues_t),         intent(in) :: refValues_
+            end subroutine UserDefinedSourceTerm
+         end interface
+!
+!        ****************
+!        Volume integrals
+!        ****************
+!
+!$omp do schedule(runtime) 
+         do eID = 1 , size(mesh % elements)
+            call TimeDerivative_VolumetricContribution( mesh % elements(eID) , t)
+         end do
+!$omp end do
+!
+!        ******************************
+!        Compute isolated flux on faces
+!           Only NS version... TODO: implement SVV version
+!        ******************************
+!
+!$omp do schedule(runtime) 
+         do fID = 1, size(mesh % faces) 
+            associate( f => mesh % faces(fID))
+            select case (f % faceType) 
+               case (HMESH_INTERIOR) 
+                  call computeIsolatedFaceFluxes_NS( f )
+               case (HMESH_BOUNDARY)
+                  call computeIsolatedFaceFlux_NS  ( f , 1 )
+               case (HMESH_MPI)
+                  call computeIsolatedFaceFlux_NS  ( f , maxloc(f % elementIDs, dim = 1) )
+            end select
+            end associate 
+         end do 
+!$omp end do 
+!
+!        ***********************************************************
+!        Surface integrals (with local data) and scaling of elements
+!        ***********************************************************
+! 
+!$omp do schedule(runtime) private(i,j,k)
+         do eID = 1, size(mesh % elements) 
+            associate(e => mesh % elements(eID))
+            call TimeDerivative_FacesContribution(e, t, mesh) 
+
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
+            end do         ; end do          ; end do 
+            end associate 
+         end do
+!$omp end do
+!
+!        *****************
+!        Add a source term
+!        *****************
+!
+         if (.not. mesh % child) call UserDefinedSourceTerm(mesh, t, thermodynamics, dimensionless, refValues)
+!$omp do schedule(runtime) private(i,j,k)
+         do eID = 1, mesh % no_of_elements
+            associate ( e => mesh % elements(eID) )
+            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S(:,i,j,k)
+            end do                  ; end do                ; end do
+            end associate
+         end do
+!$omp end do
+         
+      end subroutine TimeDerivative_ComputeQDotIsolated
+!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine TimeDerivative_VolumetricContribution( e , t )
@@ -975,6 +1067,209 @@ module SpatialDiscretization
       call f % ProjectFluxToElements(fStar, (/1, HMESH_NONE/))
 
       END SUBROUTINE computeBoundaryFlux_SVV
+!
+!////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -----------------------------------------------------------------
+!     Subroutine to compute the isolated fluxes on both sides of a face
+!     -----------------------------------------------------------------
+      SUBROUTINE computeIsolatedFaceFluxes_NS(f)
+         use FaceClass
+         use Physics
+         use PhysicsStorage
+         IMPLICIT NONE
+         TYPE(Face)   , INTENT(inout) :: f   
+         !-----------------------------------------------------------
+         integer       :: i, j
+         real(kind=RP) :: inv_fluxL (1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: inv_fluxR (1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_fluxL(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_fluxR(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: fluxL     (1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: fluxR     (1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         !-----------------------------------------------------------
+         real(kind=RP) :: nHat(NDIM)
+         real(kind=RP) :: mu, kappa             !
+         real(kind=RP) :: flux_vec(NCONS,NDIM)  ! Flux tensor
+         !-----------------------------------------------------------
+         
+#if defined(NAVIERSTOKES)
+         mu    = dimensionless % mu
+         kappa = dimensionless % kappa
+#else
+         mu = 0.0_RP
+         kappa = 0.0_RP
+#endif
+         
+         if ( .not. LESModel % active ) then
+            do j = 0, f % Nf(2)
+               do i = 0, f % Nf(1)
+                  
+                  nHat = f % geom % normal (:,i,j)
+                  
+!                 
+!                 Viscous flux on the left
+!                 ------------------------
+                  
+                  call ViscousFlux(Q     = f % storage(1) % Q  (:,i,j), &
+                                   U_x   = f % storage(1) % U_x(:,i,j), &
+                                   U_y   = f % storage(1) % U_y(:,i,j), &
+                                   U_z   = f % storage(1) % U_z(:,i,j), &
+                                   mu    = mu                         , &
+                                   kappa = kappa                      , &
+                                   F     = flux_vec                     )
+                  
+                  visc_fluxL(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
+                  
+!                 
+!                 Viscous flux on the right
+!                 -------------------------
+                  
+                  call ViscousFlux(Q     = f % storage(2) % Q  (:,i,j), &
+                                   U_x   = f % storage(2) % U_x(:,i,j), &
+                                   U_y   = f % storage(2) % U_y(:,i,j), &
+                                   U_z   = f % storage(2) % U_z(:,i,j), &
+                                   mu    = mu                         , &
+                                   kappa = kappa                      , &
+                                   F     = flux_vec                     )
+                  
+                  visc_fluxR(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) ! The inversion is performed later
+               end do
+            end do
+
+         else
+            error stop ':: The isolated face flux computation is not yet implemented for LES models. Sorry...'
+         end if
+
+         do j = 0, f % Nf(2)
+            do i = 0, f % Nf(1)
+               
+               nHat = f % geom % normal (:,i,j)
+               
+!      
+!              Inviscid flux on the left
+!              -------------------------
+               
+               call InviscidFlux(f % storage(1) % Q  (:,i,j), flux_vec)
+               
+               inv_fluxL(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
+               
+!      
+!              Inviscid flux on the right
+!              --------------------------
+               
+               call InviscidFlux(f % storage(2) % Q  (:,i,j), flux_vec)
+               
+               inv_fluxR(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) ! The inversion is performed later
+               
+!
+!              Multiply by the Jacobian
+!              ------------------------
+               fluxL(:,i,j) = ( inv_fluxL(:,i,j) - visc_fluxL(:,i,j)) * f % geom % jacobian(i,j)
+               
+               fluxR(:,i,j) = ( inv_fluxR(:,i,j) - visc_fluxR(:,i,j)) * f % geom % jacobian(i,j)
+               
+            end do
+         end do
+!
+!        ---------------------------
+!        Return the flux to elements
+!        ---------------------------
+!
+         ! Left element
+         call f % ProjectFluxToElements(fluxL, (/1,HMESH_NONE/))
+         
+         ! Right element
+         call f % ProjectFluxToElements(fluxR, (/2,HMESH_NONE/))
+
+      END SUBROUTINE computeIsolatedFaceFluxes_NS
+!
+!////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     --------------------------------------------------------------------
+!     Subroutine to compute the isolated fluxes on only one side of a face
+!     --------------------------------------------------------------------
+      SUBROUTINE computeIsolatedFaceFlux_NS(f,thisSide)
+         use FaceClass
+         use Physics
+         use PhysicsStorage
+         IMPLICIT NONE
+         !-----------------------------------------------------------
+         TYPE(Face)   , INTENT(inout) :: f
+         integer      , intent(in)    :: thisSide
+         !-----------------------------------------------------------
+         integer       :: i, j
+         real(kind=RP) :: inv_flux (1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux     (1:N_EQN,0:f % Nf(1),0:f % Nf(2))    
+         real(kind=RP) :: nHat(NDIM)                                    ! Face normal vector
+         real(kind=RP) :: mu, kappa                                     ! dimensionless constants
+         real(kind=RP) :: flux_vec(NCONS,NDIM)                          ! Flux tensor
+         !-----------------------------------------------------------
+         
+#if defined(NAVIERSTOKES)
+         mu    = dimensionless % mu
+         kappa = dimensionless % kappa
+#else
+         mu = 0.0_RP
+         kappa = 0.0_RP
+#endif
+         
+         if ( .not. LESModel % active ) then
+            do j = 0, f % Nf(2)
+               do i = 0, f % Nf(1)
+                  
+                  nHat = f % geom % normal (:,i,j)
+                  
+!                 
+!                 Viscous flux
+!                 ------------
+                  
+                  call ViscousFlux(Q     = f % storage(thisSide) % Q  (:,i,j), &
+                                   U_x   = f % storage(thisSide) % U_x(:,i,j), &
+                                   U_y   = f % storage(thisSide) % U_y(:,i,j), &
+                                   U_z   = f % storage(thisSide) % U_z(:,i,j), &
+                                   mu    = mu                                , &
+                                   kappa = kappa                             , &
+                                   F     = flux_vec                          )
+                  
+                  visc_flux(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
+                  
+               end do
+            end do
+
+         else
+            error stop ':: The isolated face flux computation is not yet implemented for LES models. Sorry...'
+         end if
+
+         do j = 0, f % Nf(2)
+            do i = 0, f % Nf(1)
+               
+               nHat = f % geom % normal (:,i,j)
+               
+!      
+!              Inviscid flux
+!              -------------
+               
+               call InviscidFlux(f % storage(thisSide) % Q  (:,i,j), flux_vec)
+               
+               inv_flux(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) ! The inversion is performed later
+               
+!
+!              Multiply by the Jacobian
+!              ------------------------
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
+               
+            end do
+         end do
+!
+!        ------------------------------
+!        Return the flux to the element
+!        ------------------------------
+!
+         call f % ProjectFluxToElements(flux, (/thisSide,HMESH_NONE/))
+
+      END SUBROUTINE computeIsolatedFaceFlux_NS
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

@@ -43,6 +43,7 @@ MODULE HexMeshClass
          integer                                   :: no_of_elements
          integer                                   :: no_of_allElements
          integer                                   :: dt_restriction       ! Time step restriction of last step (DT_FIXED, DT_DIFF or DT_CONV)
+         character(len=LINE_LENGTH)                :: meshFileName
          type(Node)   , dimension(:), allocatable  :: nodes
          type(Face)   , dimension(:), allocatable  :: faces
          type(Element), dimension(:), allocatable  :: elements
