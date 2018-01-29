@@ -63,6 +63,7 @@ MODULE HexMeshClass
             procedure :: ProlongGradientsToFaces       => HexMesh_ProlongGradientsToFaces
             procedure :: PrepareForIO                  => HexMesh_PrepareForIO
             procedure :: Export                        => HexMesh_Export
+            procedure :: ExportOrders                  => HexMesh_ExportOrders
             procedure :: SaveSolution                  => HexMesh_SaveSolution
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
             procedure :: ResetStatistics               => HexMesh_ResetStatistics
@@ -2050,6 +2051,57 @@ slavecoord:                DO l = 1, 4
          call SealSolutionFile(trim(meshName))
          
       end subroutine HexMesh_Export
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ----------------------------
+!     Export mesh orders to a file
+!     ----------------------------
+      subroutine HexMesh_ExportOrders(self,fileName)
+         implicit none
+         !------------------------------------------
+         class(HexMesh),   intent(in)     :: self
+         character(len=*), intent(in)     :: fileName          !<  Name of file containing polynomial orders to initialize
+         !------------------------------------------
+         integer                          :: fd       ! File unit
+         integer                          :: k
+         character(len=LINE_LENGTH)       :: OrderFileName
+         !------------------------------------------
+         interface
+            character(len=LINE_LENGTH) function RemovePath( inputLine )
+               use SMConstants
+               implicit none
+               character(len=*)     :: inputLine
+            end function RemovePath
+      
+            character(len=LINE_LENGTH) function getFileName( inputLine )
+               use SMConstants
+               implicit none
+               character(len=*)     :: inputLine
+            end function getFileName
+         end interface
+         !------------------------------------------
+            
+!
+!        Create file: it will be contained in ./MESH
+!        -------------------------------------------
+         OrderFileName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".omesh"
+         
+         
+         open( newunit = fd , FILE = TRIM(OrderFileName), ACTION = 'write')
+            
+            write(fd,*) size(self % elements)
+            
+            do k=1, size(self % elements)
+               write(fd,*) self % elements(k) % Nxyz
+            end do
+            
+         close (fd)
+         
+      end subroutine HexMesh_ExportOrders
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 #if defined(NAVIERSTOKES)
 !
 !     ************************************************************************

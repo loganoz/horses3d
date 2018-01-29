@@ -25,7 +25,7 @@ module pAdaptationClass
    implicit none
    
    private
-   public GetMeshPolynomialOrders, ReadOrderFile, WriteOrderFile
+   public GetMeshPolynomialOrders, ReadOrderFile
    public pAdaptation_t, PrintTEmap
    
    !--------------------------------------------------
@@ -33,8 +33,9 @@ module pAdaptationClass
    !--------------------------------------------------
    type :: pAdaptation_t
       type(FTValueDictionary)           :: controlVariables ! Own copy of the control variables (needed to construct sem) ! TODO: Change this?
-      character(len=LINE_LENGTH)        :: plotFileName     ! Name of file for plotting adaptation information
+      character(len=LINE_LENGTH)        :: solutionFileName ! Name of file for plotting adaptation information
       real(kind=RP)                     :: reqTE            ! Requested truncation error
+      logical                           :: saveGradients    ! Save gradients in pre-adapt and p-adapted solution files?
       logical                           :: PlotInfo
       logical                           :: Adapt            ! Is the adaptator going to be used??
       logical                           :: increasing       ! Performing an increasing adaptation procedure?
@@ -154,31 +155,6 @@ module pAdaptationClass
       close(UNIT=fd)
       
    end subroutine ReadOrderFile
-   
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   subroutine WriteOrderFile(sem,filename)
-      implicit none
-      !------------------------------------------
-      type(DGSem)     , intent(in) :: sem      !<  Sem class
-      character(len=*), intent(in) :: filename          !<  Name of file containing polynomial orders to initialize
-      !------------------------------------------
-      integer                      :: fd       ! File unit
-      integer                      :: k
-      !------------------------------------------
-      
-      open( newunit = fd , FILE = TRIM(filename), ACTION = 'write')
-         
-         write(fd,*) size(sem % mesh % elements)
-         
-         do k=1, size(sem % mesh % elements)
-            write(fd,*) sem % mesh % elements(k) % Nxyz
-         end do
-         
-      close (fd)
-   end subroutine WriteOrderFile
-
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -227,10 +203,9 @@ module pAdaptationClass
       this % controlVariables = controlVariables
       
       this % PlotInfo     = controlVariables % LogicalValueForKey("plot p-adaptation") ! Default false if not present
-      if (this % PlotInfo) then
-         this % plotFileName = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
-         this % plotFileName = trim(this % plotFileName) // '_AdaptInfo.tec'
-      end if
+      
+      this % solutionFileName = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
+      this % saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
 !
 !     ------------------------------
 !     Save maximum polynomial orders
@@ -326,6 +301,7 @@ module pAdaptationClass
 !  ------------------------------------------------------------------------
    subroutine pAdaptTE(pAdapt,sem,itera,t)
       use AnisFASMultigridClass
+      use StopwatchClass
       implicit none
       !--------------------------------------
       class(pAdaptation_t)       :: pAdapt            !<> Adaptation class
@@ -353,7 +329,7 @@ module pAdaptationClass
       integer                    :: i,j,k             !   Counters
       integer                    :: DOFs, NewDOFs
       logical                    :: notenough(3)
-      TYPE(AnisFASMultigrid_t)      :: AnisFASpAdaptSolver
+      TYPE(AnisFASMultigrid_t)   :: AnisFASpAdaptSolver
       character(len=LINE_LENGTH) :: AdaptedMeshFile
       interface
          character(len=LINE_LENGTH) function getFileName( inputLine )
@@ -379,7 +355,15 @@ module pAdaptationClass
       Error = 0
       Warning= 0
       Stage = Stage + 1
+!
+!     --------------------------------------
+!     Write pre-adaptation mesh and solution
+!     --------------------------------------
+!
+      write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( pAdapt % solutionFileName ), '_pre-Adapt_Stage_', Stage, '.hsol'
+      call sem % mesh % Export(AdaptedMeshFile)
       
+      call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),pAdapt % saveGradients)
 !
 !     -------------------------------------------------------------
 !     Estimate the truncation error using the anisotropic multigrid
@@ -556,6 +540,9 @@ module pAdaptationClass
 !     Adapt sem to new polynomial orders
 !     ----------------------------------
 !
+      call Stopwatch % Pause("Solver")
+      call Stopwatch % Start("Preprocessing")
+      
       Oldsem = sem
       call sem % destruct
       call sem % construct (  controlVariables  = pAdapt % controlVariables                              ,  &
@@ -564,6 +551,9 @@ module pAdaptationClass
                               Nx_ = NNew(1,:) ,     Ny_ = NNew(2,:),     Nz_ = NNew(3,:),                   &
                               success           = success)
       IF(.NOT. success)   ERROR STOP "Error constructing adapted DGSEM"
+      
+      call Stopwatch % Pause("Preprocessing")
+      call Stopwatch % Start("Solver")
       
 !
 !     ------------------------------------
@@ -603,14 +593,25 @@ module pAdaptationClass
       
       call Oldsem % destruct
       
-      ! Post-adaptation mesh (for plotting)
-      write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim(getFileName( sem % mesh % meshFileName )), '_p-Adapted_Stage_', Stage, '.hmesh'
+!
+!     ---------------------------------------------------
+!     Write post-adaptation mesh, solution and order file
+!     ---------------------------------------------------
+!
+      write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( pAdapt % solutionFileName ), '_p-Adapted_Stage_', Stage, '.hsol'
       call sem % mesh % Export(AdaptedMeshFile)
+      call sem % mesh % ExportOrders(AdaptedMeshFile)
       
-      ! Update residuals
+      call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),pAdapt % saveGradients)
+      
+!
+!     ----------------
+!     Update residuals
+!     ----------------
+!
       call ComputeTimeDerivative(sem, t)
       
-      write(STD_OUT,*) 'p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1))
+      write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
    end subroutine pAdaptTE
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -706,8 +707,8 @@ module pAdaptationClass
    integer function GetOrderAcrossFace(a)
       integer :: a
       
-!       GetOrderAcrossFace = (a*2)/3
-       GetOrderAcrossFace = a-1
+      !GetOrderAcrossFace = (a*2)/3
+      GetOrderAcrossFace = a-1
    end function GetOrderAcrossFace
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

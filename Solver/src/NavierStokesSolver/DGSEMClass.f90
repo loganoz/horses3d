@@ -61,7 +61,7 @@ Module DGSEMClass
       PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
       PROCEDURE(externalGradientsSubroutine), NOPASS, POINTER :: externalGradients => NULL()
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
-      type(Monitor_t)                                        :: monitors
+      type(Monitor_t)                                         :: monitors
       contains
          procedure :: construct => ConstructDGSem
          procedure :: destruct  => DestructDGSem   
