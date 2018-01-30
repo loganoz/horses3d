@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Thu Jan 25 21:11:05 2018
+!   @Last revision date: Tue Jan 30 09:06:29 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 4ae0998f1881a7de77d8fb31fe8ac95dfed811ae
+!   @Last revision commit: 882f5bf78f7b6f83a4885a55d62f44ba5e21ad98
 !
 !//////////////////////////////////////////////////////
 !
@@ -97,6 +97,10 @@ module SpatialDiscretization
          end select
 
          call ViscousMethod % Describe
+!
+!        Compute wall distances
+!        ----------------------
+         call mesh % ComputeWallDistances
       
       end subroutine Initialize_SpaceAndTimeMethods
 !

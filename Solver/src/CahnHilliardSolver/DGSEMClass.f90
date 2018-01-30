@@ -4,9 +4,9 @@
 !   @File:    DGSEMClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:37 2018
-!   @Last revision date: Thu Jan 25 21:11:03 2018
+!   @Last revision date: Tue Jan 30 09:06:28 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 4ae0998f1881a7de77d8fb31fe8ac95dfed811ae
+!   @Last revision commit: 882f5bf78f7b6f83a4885a55d62f44ba5e21ad98
 !
 !//////////////////////////////////////////////////////
 !
@@ -590,7 +590,7 @@ Module DGSEMClass
 !
       SUBROUTINE ComputeTimeDerivative( self, time )
          USE SpatialDiscretization
-         use Physics, only: QuarticHomogeneousPotential
+         use Physics, only: QuarticDWPDerivative
          IMPLICIT NONE 
 !
 !        ---------
@@ -662,7 +662,7 @@ Module DGSEMClass
             associate(e => self % mesh % elements(eID))
             e % storage % mu = - POW2(dimensionless % eps) * e % storage % QDot(1,:,:,:)
             e % storage % c  = e % storage % Q(1,:,:,:)
-            call QuarticHomogeneousPotential(e % Nxyz, e % storage % c, e % storage % mu)
+            call QuarticDWPDerivative(e % Nxyz, e % storage % c, e % storage % mu)
             e % storage % Q(1,:,:,:) = e % storage % mu
             end associate
          end do

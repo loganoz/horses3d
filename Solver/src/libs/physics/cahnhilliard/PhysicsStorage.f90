@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Sun Jan 14 20:15:15 2018
+!   @Last revision date: Tue Jan 30 09:06:31 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 53ad310d33adeba47d7e53543e83c942a4ec528b
+!   @Last revision commit: 882f5bf78f7b6f83a4885a55d62f44ba5e21ad98
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,8 +14,25 @@
       Module PhysicsKeywordsModule
          IMPLICIT NONE 
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
-         character(len=KEYWORD_LENGTH), parameter  :: GRADIENT_ENERGY_COEF_KEY   = "gradient energy coefficient"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(1) :: physicsKeywords = [GRADIENT_ENERGY_COEF_KEY]
+!
+!        ******************
+!        Required arguments
+!        ******************
+!
+         character(len=KEYWORD_LENGTH), parameter    :: MOBILITY_KEY         = "mobility"
+         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_WIDTH_KEY  = "interface width (dimensionless)"
+         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_ENERGY_KEY = "interface energy (dimensionless)"
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(3) :: physicsKeywords = [MOBILITY_KEY, &
+                                                                           INTERFACE_WIDTH_KEY, &
+                                                                           INTERFACE_ENERGY_KEY]
+!
+!        ******************
+!        Optional arguments
+!        ******************
+!
+         character(len=KEYWORD_LENGTH), parameter  :: REFERENCE_LENGTH_KEY    = "reference length"
+         character(len=KEYWORD_LENGTH), parameter  :: ALPHA_CONCENTRATION_KEY = "alpha concentration"
+         character(len=KEYWORD_LENGTH), parameter  :: BETA_CONCENTRATION_KEY  = "beta concentration"
       END MODULE PhysicsKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
@@ -106,7 +123,7 @@
 !     ---------------
 !
       CHARACTER(LEN=KEYWORD_LENGTH) :: keyword
-      type(Thermodynamics_t), pointer  :: thermodynamics_
+      type(Thermodynamics_t)           :: thermodynamics_
       type(RefValues_t)                :: refValues_
       type(Dimensionless_t)            :: dimensionless_
 !
@@ -118,12 +135,56 @@
       CALL CheckPhysicsInputIntegrity(controlVariables,success)
       IF(.NOT. success) RETURN 
 !
-!     *********************
-!     Select flow equations
-!     *********************
+!     *************************
+!     Read Reference quantities
+!     *************************
 !
-      refValues_ % L = 1.0_RP       ! m
-      refValues_ % time = 1.0_RP
+      if ( controlVariables % containsKey(REFERENCE_LENGTH_KEY) ) then
+         refValues_ % L = controlVariables % DoublePrecisionValueForKey(REFERENCE_LENGTH_KEY)
+
+      else
+         refValues_ % L = 1.0_RP       ! m
+
+      end if
+!
+!     *******************************
+!     Read thermodynamical properties
+!     *******************************
+!
+      thermodynamics_ % M = controlVariables % DoublePrecisionValueForKey(MOBILITY_KEY)
+   
+      if ( controlVariables % containsKey(ALPHA_CONCENTRATION_KEY) ) then
+         thermodynamics_ % c_alpha = controlVariables % DoublePrecisionValueForKey(ALPHA_CONCENTRATION_KEY)
+
+      else
+         thermodynamics_ % c_alpha = 0.0_RP
+
+      end if
+
+      if ( controlVariables % containsKey(BETA_CONCENTRATION_KEY) ) then
+         thermodynamics_ % c_beta = controlVariables % DoublePrecisionValueForKey(BETA_CONCENTRATION_KEY)
+
+      else
+         thermodynamics_ % c_beta = 1.0_RP
+
+      end if
+!
+!     *****************************
+!     Read dimensionless properties
+!     *****************************
+!
+      dimensionless_ % w     = controlVariables % DoublePrecisionValueForKey(INTERFACE_WIDTH_KEY)
+      dimensionless_ % eps   = dimensionless_ % w / 7.071_RP
+      dimensionless_ % sigma = controlVariables % DoublePrecisionValueForKey(INTERFACE_ENERGY_KEY)
+!
+!     **********************************
+!     Compute the rest of the quantities
+!     **********************************
+!
+      thermodynamics_ % rhoS  = (7.071_RP / 0.01508_RP ) * dimensionless_ % sigma / dimensionless_ % w
+      thermodynamics_ % kappa = dimensionless_ % w * dimensionless_ % sigma * POW2(refValues_ % L) / (7.071_RP * 0.01508_RP)
+
+      refValues_ % time = POW2(refValues_ % L) / thermodynamics_ % M
 !
 !     **********************************************************************
 !     Set the global (proteted) thermodynamics, dimensionless, and refValues

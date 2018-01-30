@@ -6,7 +6,7 @@ module Physics
       IMPLICIT NONE
 
       private
-      public  ViscousFlux, QuarticHomogeneousPotential
+      public  ViscousFlux, QuarticDWPDerivative
 !
 !     ---------
 !     Constants
@@ -19,10 +19,10 @@ module Physics
       module procedure ViscousFlux0D, ViscousFlux2D, ViscousFlux3D
      end interface ViscousFlux
 
-     interface QuarticHomogeneousPotential
-      module procedure QuarticHomogeneousPotential_0D
-      module procedure QuarticHomogeneousPotential_3D
-     end interface QuarticHomogeneousPotential
+     interface QuarticDWPDerivative
+      module procedure QuarticDWPDerivative_0D
+      module procedure QuarticDWPDerivative_3D
+     end interface QuarticDWPDerivative
 !
 !     ========
       CONTAINS 
@@ -85,16 +85,16 @@ module Physics
 
       end subroutine ViscousFlux3D
 
-      pure subroutine QuarticHomogeneousPotential_0D(c, f)
+      pure subroutine QuarticDWPDerivative_0D(c, f)
          implicit none
          real(kind=RP), intent(in)  :: c
          real(kind=RP), intent(out) :: f
 
          f = -c + POW3(c)
 
-      end subroutine QuarticHomogeneousPotential_0D
+      end subroutine QuarticDWPDerivative_0D
 
-      pure subroutine QuarticHomogeneousPotential_3D(N, c, mu)
+      pure subroutine QuarticDWPDerivative_3D(N, c, mu)
          implicit none
          integer,       intent(in)    :: N(3)
          real(kind=RP), intent(in)    :: c (0:N(1),0:N(2),0:N(3))
@@ -102,6 +102,6 @@ module Physics
 
          mu = mu - c + POW3(c)
 
-      end subroutine QuarticHomogeneousPotential_3D
+      end subroutine QuarticDWPDerivative_3D
 
 END Module Physics
