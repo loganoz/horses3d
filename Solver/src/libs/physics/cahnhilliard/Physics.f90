@@ -85,23 +85,26 @@ module Physics
 
       end subroutine ViscousFlux3D
 
-      pure subroutine QuarticDWPDerivative_0D(c, f)
+      pure subroutine QuarticDWPDerivative_0D(c, c_alpha, c_beta, f)
          implicit none
          real(kind=RP), intent(in)  :: c
          real(kind=RP), intent(out) :: f
+         real(kind=RP), intent(in)  :: c_alpha
+         real(kind=RP), intent(in)  :: c_beta
+         
 
-         f = -c + POW3(c)
+         f = 4.0_RP * (c - c_alpha) * (c - c_beta) * (c - AVERAGE(c_alpha,c_beta))
 
       end subroutine QuarticDWPDerivative_0D
 
-      pure subroutine QuarticDWPDerivative_3D(N, c, mu)
+      pure subroutine QuarticDWPDerivative_3D(N, c, c_alpha, c_beta, mu)
          implicit none
          integer,       intent(in)    :: N(3)
          real(kind=RP), intent(in)    :: c (0:N(1),0:N(2),0:N(3))
+         real(kind=RP), intent(in)    :: c_alpha, c_beta
          real(kind=RP), intent(inout) :: mu(0:N(1),0:N(2),0:N(3))
 
-         mu = mu - c + POW3(c)
+         mu = mu + 4.0_RP * (c-c_alpha)*(c-c_beta)*(c-AVERAGE(c_alpha,c_beta))
 
       end subroutine QuarticDWPDerivative_3D
-
 END Module Physics

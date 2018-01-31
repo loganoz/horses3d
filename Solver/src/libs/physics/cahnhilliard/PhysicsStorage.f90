@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Tue Jan 30 09:06:31 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 882f5bf78f7b6f83a4885a55d62f44ba5e21ad98
+!   @Last revision date: Wed Jan 31 18:27:07 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 1181c365aba00e78739d327d06901d6d8ca99e02
 !
 !//////////////////////////////////////////////////////
 !
@@ -157,7 +157,7 @@
          thermodynamics_ % c_alpha = controlVariables % DoublePrecisionValueForKey(ALPHA_CONCENTRATION_KEY)
 
       else
-         thermodynamics_ % c_alpha = 0.0_RP
+         thermodynamics_ % c_alpha = -1.0_RP
 
       end if
 
@@ -229,9 +229,24 @@
 
          write(STD_OUT,'(/,/)')
 
+         call SubSection_Header("Chemical properties")
+         write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Mobility: " , thermodynamics % M
+         write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Double-well potential height: " , thermodynamics % rhoS
+         write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Gradient energy coefficient: " , thermodynamics % kappa
+         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Alpha equilibrium concentration: " , thermodynamics % c_alpha 
+         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Beta  equilibrium concentration: " , thermodynamics % c_beta
+
+      
+         write(STD_OUT,'(/)')
+         call SubSection_Header("Dimensionless quantities")
+         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Interface width (dimensionless): " , dimensionless % w
+         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Interface energy (dimensionless): " , dimensionless % sigma
+         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Epsilon: " , dimensionless % eps
+
+         write(STD_OUT,'(/)')
          call SubSection_Header("Reference quantities")
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reynolds length: " , refValues % L , " m."
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference time: ", refValues % time, " s."
+         write(STD_OUT,'(30X,A,A30,ES10.3,A)') "->" , "Reference length: " , refValues % L , " m."
+         write(STD_OUT,'(30X,A,A30,ES10.3,A)') "->" , "Reference time: ", refValues % time, " s."
          
       END SUBROUTINE DescribePhysicsStorage
 !

@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Tue Jan 30 09:06:29 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 882f5bf78f7b6f83a4885a55d62f44ba5e21ad98
+!   @Last revision date: Wed Jan 31 18:27:05 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 1181c365aba00e78739d327d06901d6d8ca99e02
 !
 !//////////////////////////////////////////////////////
 !
@@ -158,7 +158,7 @@ module SpatialDiscretization
 !        Surface integrals and scaling of elements with non-shared faces
 !        ***************************************************************
 ! 
-!$omp do schedule(runtime) 
+!$omp do schedule(runtime) private(i, j, k)
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID)) 
             if ( e % hasSharedFaces ) cycle
