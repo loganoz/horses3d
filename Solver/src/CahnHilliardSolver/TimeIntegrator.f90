@@ -4,9 +4,9 @@
 !   @File:    TimeIntegrator.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Fri Jan 19 12:22:17 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 559e5cf54668b31e5c35c2c0cb4d7fa8dff3d8d5
+!   @Last revision date: Wed Jan 31 18:27:05 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 1181c365aba00e78739d327d06901d6d8ca99e02
 !
 !//////////////////////////////////////////////////////
 !
@@ -393,7 +393,7 @@ end interface
                END SELECT
             CASE ('explicit')
 !               CALL self % RKStep ( sem, t, dt )
-                call takeRK3Step ( sem, t, dt )
+                call takeRK5Step ( sem, t, dt )
             case ('FAS')
 #if defined(NAVIERSTOKES)
                call FASSolver % solve(k,t)

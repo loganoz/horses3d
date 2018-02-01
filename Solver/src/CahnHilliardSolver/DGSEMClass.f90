@@ -4,9 +4,9 @@
 !   @File:    DGSEMClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:37 2018
-!   @Last revision date: Tue Jan 23 16:27:48 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d97cdbe19b7a3be3cd0c8a1f01343de8c1714260
+!   @Last revision date: Wed Jan 31 18:27:04 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 1181c365aba00e78739d327d06901d6d8ca99e02
 !
 !//////////////////////////////////////////////////////
 !
@@ -330,7 +330,6 @@ Module DGSEMClass
       CALL self % mesh % destruct
       self % externalState     => NULL()
       self % externalGradients => NULL()
-      IF ( ALLOCATED(ViscousMethod ) ) DEALLOCATE( ViscousMethod ) 
       
       END SUBROUTINE DestructDGSem
 !
@@ -591,7 +590,7 @@ Module DGSEMClass
 !
       SUBROUTINE ComputeTimeDerivative( self, time )
          USE SpatialDiscretization
-         use Physics, only: QuarticHomogeneousPotential
+         use Physics, only: QuarticDWPDerivative
          IMPLICIT NONE 
 !
 !        ---------
@@ -658,16 +657,20 @@ Module DGSEMClass
                                t    = time, &
                   externalState     = self % externalState, &
                   externalGradients = self % externalGradients )
+
+         associate(c_alpha => thermodynamics % c_alpha, &
+                   c_beta  => thermodynamics % c_beta    ) 
 !$omp do
          do eID = 1, self % mesh % no_of_elements
             associate(e => self % mesh % elements(eID))
             e % storage % mu = - POW2(dimensionless % eps) * e % storage % QDot(1,:,:,:)
             e % storage % c  = e % storage % Q(1,:,:,:)
-            call QuarticHomogeneousPotential(e % Nxyz, e % storage % c, e % storage % mu)
+            call QuarticDWPDerivative(e % Nxyz, e % storage % c, c_alpha, c_beta, e % storage % mu)
             e % storage % Q(1,:,:,:) = e % storage % mu
             end associate
          end do
 !$omp end do
+         end associate
 !
 !        *************************
 !        Compute cDot: Q stores mu

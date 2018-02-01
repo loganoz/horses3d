@@ -25,7 +25,8 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./NavierStokes/TaylorGreenKEPEC_IP \
 	    ./NavierStokes/TaylorGreenKEP_BR2 \
 	    ./NavierStokes/ManufacturedSolutions \
-	    ./CahnHilliard/SpinodalDecomposition"
+	    ./CahnHilliard/SpinodalDecomposition \
+	    ./CahnHilliard/Bubble"
 
 COMPONENTS_TEST_CASES="FacePatches \
  		       HexMesh \

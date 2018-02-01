@@ -1,0 +1,32 @@
+mesh file name        = "./MESH/Square40x40_20el.mesh"
+discretization nodes = Gauss
+restart file name     = "./RESULTS/Bubble20x20P2.hsol"
+solution file name    = "./RESULTS/Bubble20x20P2.hsol"
+restart               = .false.
+Polynomial order      = 3
+Number of time steps  = 10000000
+Reference length = 20.0d-6
+Output Interval       = 10
+Convergence tolerance = 1.d-10
+viscous discretization = IP
+2D mesh offset direction = y
+interior penalty variant = IIPG
+penalty parameter = 1.0
+!--Multiphase parameters:
+Mobility = 5.0d0
+Interface width (dimensionless) = 21.0d+0
+Interface energy (dimensionless) = 0.047d0
+dt                    = 2.0d-5
+simulation type       = time-accurate
+final time            = 25.0d0
+autosave mode         = iteration
+autosave interval     = 1000
+Number of boundaries  = 6
+front 0.0 periodic+
+bottom 0.0 periodic+
+top 0.0 periodic-
+back 0.0 periodic-
+left 0.0 periodic+
+right 0.0 periodic-
+/
+

@@ -15,16 +15,22 @@ module FluidData
 !  ----------------
 !
    type Thermodynamics_t
+      real(kind=RP)  :: M        ! Mobility
+      real(kind=RP)  :: rhoS     ! Double-well function height
+      real(kind=RP)  :: kappa    ! Gradient energy coefficient
+      real(kind=RP)  :: c_alpha  ! Alpha equilibrium concentration
+      real(kind=RP)  :: c_beta   ! Beta equilibrium concentration
    end type Thermodynamics_t
 
-
    type RefValues_t
-      real(kind=RP)        :: L
-      real(kind=RP)        :: time
+      real(kind=RP)        :: L     ! Reference length
+      real(kind=RP)        :: time  ! Reference time
    end type RefValues_t
 
    type Dimensionless_t
-      real(kind=RP)  :: eps = 0.01_RP
+      real(kind=RP)  :: eps         ! Coefficient in the dimensionless CH equation
+      real(kind=RP)  :: w           ! Dimensionless interface width: 7.071 sqrt(kappa/rhoS)/Lref
+      real(kind=RP)  :: sigma       ! Interface energy: 0.01508 sqrt(kappa*rhoS)/Lref
    end type Dimensionless_t
 !
 !  ---------
@@ -34,7 +40,6 @@ module FluidData
    type(Thermodynamics_t), protected   :: thermodynamics
    type(RefValues_t),      protected   :: refValues
    type(Dimensionless_t),  protected   :: dimensionless
-
 
    contains
 !
@@ -51,6 +56,12 @@ module FluidData
          implicit none
          type(Thermodynamics_t), intent(in)  :: thermodynamics_
 
+         thermodynamics % M       = thermodynamics_ % M
+         thermodynamics % rhoS    = thermodynamics_ % rhoS
+         thermodynamics % kappa   = thermodynamics_ % kappa
+         thermodynamics % c_alpha = thermodynamics_ % c_alpha
+         thermodynamics % c_beta  = thermodynamics_ % c_beta
+
       end subroutine SetThermodynamics
 
       subroutine SetRefValues( refValues_ )
@@ -65,6 +76,10 @@ module FluidData
       subroutine SetDimensionless( dimensionless_ )
          implicit none
          type(Dimensionless_t),  intent(in)     :: dimensionless_
+
+         dimensionless % w     = dimensionless_ % w
+         dimensionless % eps   = dimensionless_ % eps
+         dimensionless % sigma = dimensionless_ % sigma
 
       end subroutine SetDimensionless
 
