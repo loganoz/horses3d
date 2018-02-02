@@ -4,9 +4,9 @@
 !   @File:    DGSEMClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:37 2018
-!   @Last revision date: Wed Jan 31 18:27:04 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 1181c365aba00e78739d327d06901d6d8ca99e02
+!   @Last revision date: Mon Feb  5 17:12:29 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 927ab75300a02eaf61a4b7df82b11b48cb498151
 !
 !//////////////////////////////////////////////////////
 !
@@ -597,7 +597,7 @@ Module DGSEMClass
 !        Arguments
 !        ---------
 !
-         TYPE(DGSem)   :: self
+         TYPE(DGSem), target   :: self
          REAL(KIND=RP) :: time
 !
 !        ---------------
@@ -605,6 +605,7 @@ Module DGSEMClass
 !        ---------------
 !
          INTEGER :: k, eID
+         class(Element), pointer  :: e
          interface
             subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
                USE HexMeshClass
@@ -623,7 +624,7 @@ Module DGSEMClass
 !        Compute chemical potential: Q stores c
 !        **************************************
 !
-!$omp parallel shared(self, time)
+!$omp parallel shared(self, time) private(e)
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -660,14 +661,16 @@ Module DGSEMClass
 
          associate(c_alpha => thermodynamics % c_alpha, &
                    c_beta  => thermodynamics % c_beta    ) 
-!$omp do
+!$omp do schedule(runtime)
          do eID = 1, self % mesh % no_of_elements
-            associate(e => self % mesh % elements(eID))
+            e => self % mesh % elements(eID)
             e % storage % mu = - POW2(dimensionless % eps) * e % storage % QDot(1,:,:,:)
             e % storage % c  = e % storage % Q(1,:,:,:)
+            e % storage % gradC(1,:,:,:) = e % storage % U_x(1,:,:,:)
+            e % storage % gradC(2,:,:,:) = e % storage % U_y(1,:,:,:)
+            e % storage % gradC(3,:,:,:) = e % storage % U_z(1,:,:,:)
             call QuarticDWPDerivative(e % Nxyz, e % storage % c, c_alpha, c_beta, e % storage % mu)
             e % storage % Q(1,:,:,:) = e % storage % mu
-            end associate
          end do
 !$omp end do
          end associate
@@ -719,11 +722,12 @@ Module DGSEMClass
 !        Return the concentration to Q
 !        *****************************
 !
-!$omp do
+!$omp do schedule(runtime)
          do eID = 1, self % mesh % no_of_elements
-            associate(e => self % mesh % elements(eID))
+            e => self % mesh % elements(eID)
+!            associate(e => self % mesh % elements(eID))
             e % storage % Q(1,:,:,:) = e % storage % c
-            end associate
+!            end associate
          end do
 !$omp end do
 !$omp end parallel

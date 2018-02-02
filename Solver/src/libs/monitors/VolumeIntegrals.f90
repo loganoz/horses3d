@@ -1,8 +1,7 @@
-#if defined(NAVIERSTOKES)
 module VolumeIntegrals
    use SMConstants
    use Physics
-   use VariableConversion, only: Pressure
+   use VariableConversion
    use HexMeshClass
 #ifdef _HAS_MPI_
    use mpi
@@ -10,18 +9,34 @@ module VolumeIntegrals
 #include "Includes.h"
    
    private
-   public   VOLUME, KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY, VELOCITY
-   public   ENTROPY, ENTROPY_RATE
+   public   VOLUME
+
+#if defined(NAVIERSTOKES)
+   public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY, VELOCITY
+   public ENTROPY, ENTROPY_RATE
+
+#elif defined(CAHNHILLIARD)
+   public FREE_ENERGY
+
+#endif
 
    public   ScalarVolumeIntegral, VectorVolumeIntegral
 
+
    integer, parameter      :: VOLUME              = 1
+
+#if defined(NAVIERSTOKES)
    integer, parameter      :: KINETIC_ENERGY      = 2
    integer, parameter      :: KINETIC_ENERGY_RATE = 3
    integer, parameter      :: ENSTROPHY           = 4
    integer, parameter      :: VELOCITY            = 5
    integer, parameter      :: ENTROPY             = 6
    integer, parameter      :: ENTROPY_RATE        = 7
+
+#elif defined(CAHNHILLIARD)   
+   integer, parameter      :: FREE_ENERGY         = 2
+
+#endif
 !
 !  ========
    contains
@@ -97,6 +112,7 @@ module VolumeIntegrals
          real(kind=RP)           :: uvw(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: p, s, dtP
          real(kind=RP), pointer  :: Qb(:)
+         real(kind=RP)           :: free_en, fchem
 
          Nel = e % Nxyz
 
@@ -123,6 +139,7 @@ module VolumeIntegrals
                val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k)
             end do            ; end do           ; end do
 
+#if defined(NAVIERSTOKES)
          case ( KINETIC_ENERGY )
 !
 !           ***********************************
@@ -220,7 +237,18 @@ module VolumeIntegrals
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * s
             end do            ; end do           ; end do
             
+#elif defined(CAHNHILLIARD)
+         case (FREE_ENERGY)
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               call QuarticDWP(e % storage % c(i,j,k), thermodynamics % c_alpha, thermodynamics % c_beta, fchem)
+               free_en = fchem + 0.5_RP * POW2(dimensionless % eps) *(   POW2(e % storage % gradC(1,i,j,k)) &
+                                                                       + POW2(e % storage % gradC(2,i,j,k)) &
+                                                                       + POW2(e % storage % gradC(3,i,j,k)) )
+               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * free_en
+            end do            ; end do           ; end do
            
+#endif
          end select
 
          end associate
@@ -228,4 +256,3 @@ module VolumeIntegrals
       end function ScalarVolumeIntegral_Local
 
 end module VolumeIntegrals
-#endif

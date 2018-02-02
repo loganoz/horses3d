@@ -77,6 +77,8 @@
 \usepackage{dsfont}             %para poner los N,R etc. de conjuntos con $ \mathds{R} $
 \usepackage{amssymb}            % para los N, R con \mathbb{R}
 \usepackage{mathabx}
+\usepackage{stmaryrd}
+
 \usepackage[justification=justified]{caption} %para centrar leyendas de graficos
 \usepackage{longtable}
 \usepackage[colorlinks=true,linkcolor=black]{hyperref}
@@ -130,6 +132,61 @@ The input parameters are:
 \begin{equation}
 L_{ref}, w, \sigma, M
 \end{equation}
+
+\section{Discretization of fourth-order derivatives (a.k.a. bi-Laplacian)}
+
+We consider the equation
+
+\begin{equation}
+f = \nabla^4 u
+\end{equation}
+
+which can be solved using the following primal form:
+
+\begin{equation}
+\begin{split}
+\int_{\Omega}fvdx =&~~~ \int_{\Omega}\nabla^2 u \nabla^2 vdx - \int_{\mathcal{E}}\llbracket\nabla v \rrbracket \{\!\{\nabla^2 u\}\!\}ds - \int_{\mathcal{E}}\llbracket \nabla u\rrbracket \{\!\{\nabla^2 v\}\!\}ds\\
+&+\int_{\mathcal{E}}\{\!\{\nabla\nabla^2 u\}\!\}\llbracket v\rrbracket ds + \int_{\mathcal{E}}\{\!\{\nabla \nabla^2 v\}\!\}\llbracket u\rrbracket ds \\
+&+\frac{\sigma_0}{h^3}\int_{\mathcal{E}}\llbracket u\rrbracket \llbracket v\rrbracket ds
+\end{split}
+\end{equation}
+
+
+\subsection{One-dimensional version}
+
+\begin{equation}
+\begin{split}
+&\boldsymbol{D_2}^T \boldsymbol{M}\boldsymbol{D_2}\underline{u}^k +T_{u3} + T_{v3} - T_{u2} - T_{v2}+T_{\sigma} \\
+&
+\end{split}
+\end{equation}
+
+\begin{equation}
+\begin{split}
+T_{u3} &= \frac{1}{2}\biggl[\boldsymbol{L}_{1}^1 \boldsymbol{D}_3\boldsymbol{\underline{u}}^k+
+\boldsymbol{L}_{1}^{-1} \boldsymbol{D}_3\boldsymbol{\underline{u}}^{k+1} -  
+\boldsymbol{L}_{-1}^{-1} \boldsymbol{D}_3\boldsymbol{\underline{u}}^k - 
+\boldsymbol{L}_{-1}^{1} \boldsymbol{D}_3\boldsymbol{\underline{u}}^{k-1}\biggr] \\
+T_{v3} &= \frac{1}{2}\biggl[\boldsymbol{D}^{T}_3\boldsymbol{L}_{1}^1 \boldsymbol{\underline{u}}^k-
+\boldsymbol{D}^{T}_3\boldsymbol{L}_{1}^{-1} \boldsymbol{\underline{u}}^{k+1} - \boldsymbol{D}^{T}_3\boldsymbol{L}_{-1}^{-1} \boldsymbol{\underline{u}}^k + \boldsymbol{D}^{T}_3\boldsymbol{L}_{-1}^{1} \boldsymbol{\underline{u}}^{k-1}\biggr] \\
+T_{u2} &= \frac{1}{2}\biggl[\boldsymbol{D}^T \boldsymbol{L}_{1}^1 \boldsymbol{D}_2 \underline{u}^k + \boldsymbol{D}^T \boldsymbol{L}_{1}^{-1} \boldsymbol{D}_2 \underline{u}^{k+1} -\boldsymbol{D}^T \boldsymbol{L}_{-1}^1 \boldsymbol{D}_2 \underline{u}^{k-1} - \boldsymbol{D}^T \boldsymbol{L}_{-1}^{-1} \boldsymbol{D}_2 \underline{u}^{k}  \biggr]\\
+T_{v2} &= \frac{1}{2}\biggl[\boldsymbol{D}_2^T \boldsymbol{L}_{1}^1  \boldsymbol{D}^T\underline{u}^k - \boldsymbol{D}_2^T \boldsymbol{L}_{1}^{-1}  \boldsymbol{D}^T \underline{u}^{k+1} +
+ \boldsymbol{D}_2^T \boldsymbol{L}_{-1}^{1}  \boldsymbol{D}^T \underline{u}^{k-1} -
+  \boldsymbol{D}_2^T \boldsymbol{L}_{-1}^{-1}  \boldsymbol{D}^T\underline{u}^{k}  \biggr]\\
+T_\sigma &= \frac{\sigma_0}{h^3}\biggl[ \boldsymbol{L}_{1}^1 \underline{u}^{k} +  \boldsymbol{L}_{-1}^{-1} \underline{u}^{k} - \boldsymbol{L}_{1}^{-1} \underline{u}^{k+1}- \boldsymbol{L}_{-1}^{1} \underline{u}^{k-1}\biggr]
+\end{split}
+\end{equation}
+
+
+Left, central, and right matrices are:
+
+\begin{equation}
+\begin{split}
+\boldsymbol{L} & = \frac{1}{2}\bigl[-\boldsymbol{L}_{-1}^{1} \boldsymbol{D}_3 + \boldsymbol{D}^{T}_3\boldsymbol{L}_{-1}^{1} +\boldsymbol{D}^T \boldsymbol{L}_{-1}^1 \boldsymbol{D}_2 - \boldsymbol{D}_2^T \boldsymbol{L}_{-1}^{1}  \boldsymbol{D}\bigr] -\frac{\sigma_0}{h^3}\boldsymbol{L}_{-1}^{1}\\ 
+\boldsymbol{C} & = \boldsymbol{D_2}^T \boldsymbol{M}\boldsymbol{D_2} + \text{sym}\biggl[\bigl(\boldsymbol{L}_{1}^1 -\boldsymbol{L}_{-1}^{-1}\bigr) \boldsymbol{D}_3-\boldsymbol{D}^T \bigl(\boldsymbol{L}_{1}^1 -\boldsymbol{L}_{-1}^{-1}\bigr)\boldsymbol{D}_2\biggr] + \frac{\sigma_0}{h^3}\bigl(\boldsymbol{L}_{1}^1 +\boldsymbol{L}_{-1}^{-1}\bigr)\\
+\boldsymbol{R} & = \frac{1}{2}\bigl[\boldsymbol{L}_{1}^{-1} \boldsymbol{D}_3 - \boldsymbol{D}^{T}_3\boldsymbol{L}_{1}^{-1} -\boldsymbol{D}^T \boldsymbol{L}_{1}^{-1} \boldsymbol{D}_2 + \boldsymbol{D}_2^T \boldsymbol{L}_{1}^{-1}  \boldsymbol{D}^T\bigr] -\frac{\sigma_0}{h^3}\boldsymbol{L}_{1}^{-1}\\
+\end{split}
+\end{equation}
+
+
 \end{document}
-
-

@@ -4,9 +4,9 @@
 !   @File:    ViscousIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Thu Jan 25 21:11:08 2018
+!   @Last revision date: Sun Feb 11 14:05:26 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 4ae0998f1881a7de77d8fb31fe8ac95dfed811ae
+!   @Last revision commit: 9eb409679efa26d6e91dc6ca4a2dbca96d67813d
 !
 !//////////////////////////////////////////////////////
 !
@@ -328,14 +328,14 @@ module ViscousIP
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             call GradientValuesForQ(Q = f % storage(1) % Q(:,i,j), U = UL)
             call GradientValuesForQ(Q = f % storage(2) % Q(:,i,j), U = UR)
-   
+
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
             Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
-         call f % ProjectGradientFluxToElements(HFlux,(/1,2/))
+         call f % ProjectGradientFluxToElements(HFlux,(/1,2/),1)
          
       end subroutine IP_GradientInterfaceSolution   
 
@@ -371,7 +371,7 @@ module ViscousIP
          end do               ; end do
 
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectGradientFluxToElements(HFlux,(/thisSide, HMESH_NONE/))
+         call f % ProjectGradientFluxToElements(HFlux,(/thisSide, HMESH_NONE/),1)
          
       end subroutine IP_GradientInterfaceSolutionMPI   
 

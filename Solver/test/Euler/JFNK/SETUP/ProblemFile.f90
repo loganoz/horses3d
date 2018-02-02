@@ -196,7 +196,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, monitor)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, monitors)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -217,7 +217,7 @@
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
                                                     dimensionless_, &
                                                         refValues_, &
-                                                            monitor, &
+                                                            monitors, &
                                                          elapsedTime, &
                                                             CPUTime   )
 !

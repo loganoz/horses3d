@@ -4,9 +4,9 @@
 !   @File:    RiemannSolvers.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:14 2018
-!   @Last revision date: Tue Jan 23 16:27:54 2018
+!   @Last revision date: Mon Feb  5 17:12:30 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d97cdbe19b7a3be3cd0c8a1f01343de8c1714260
+!   @Last revision commit: 927ab75300a02eaf61a4b7df82b11b48cb498151
 !
 !//////////////////////////////////////////////////////
 !
@@ -982,6 +982,10 @@ module RiemannSolvers
          uL = QLeft(2) / QLeft(1)   ;     uR = QRight(2) / QRight(1)
          vL = QLeft(3) / QLeft(1)   ;     vR = QRight(3) / QRight(1)
          wL = QLeft(4) / QLeft(1)   ;     wR = QRight(4) / QRight(1)
+
+         u = 0.5_RP * (uL + uR)
+         v = 0.5_RP * (vL + vR)
+         w = 0.5_RP * (wL + wR)
 
          divV = (uR-uL)*nHat(1) + (vR-vL)*nHat(2) + (wR-wL)*nHat(3)
 

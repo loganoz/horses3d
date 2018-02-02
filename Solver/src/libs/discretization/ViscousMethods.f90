@@ -21,6 +21,7 @@ module ViscousMethods
    private
    public   ViscousMethod_t, BassiRebay1_t, BassiRebay2_t, InteriorPenalty_t
    public   ViscousMethod,   BassiRebay1,   BassiRebay2,   InteriorPenalty
+   public   SIPG, IIPG, NIPG
 !
    class(ViscousMethod_t),  pointer :: ViscousMethod
    type(BassiRebay1_t),     target  :: BassiRebay1

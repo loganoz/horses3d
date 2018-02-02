@@ -582,13 +582,14 @@
 
    end subroutine Face_ProjectFluxToElements
 
-   subroutine Face_ProjectGradientFluxToElements(self, Hflux, whichElements)
+   subroutine Face_ProjectGradientFluxToElements(self, Hflux, whichElements, factor)
       use MappedGeometryClass
       use PhysicsStorage
       implicit none
       class(Face)       :: self
       real(kind=RP), intent(in)  :: Hflux(N_GRAD_EQN, NDIM, 0:self % Nf(1), 0:self % Nf(2))
       integer,       intent(in)  :: whichElements(2)
+      integer,       intent(in)  :: factor               ! A factor that relates LEFT and RIGHT fluxes
 !
 !     ---------------
 !     Local variables
@@ -671,10 +672,10 @@
             end do                        ; end do
 !
 !           *********
-!           3rd stage: Inversion
+!           3rd stage: Multiplication by a factor (inversion usually)
 !           *********
 !
-            unStar = -unStar
+            unStar = factor * unStar
 
             end associate
          end select
