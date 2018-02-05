@@ -6,7 +6,6 @@ module ViscousMethodClass
    use MPI_Face_Class
    implicit none
 !
-!
    private
    public   ViscousMethod_t, BaseClass_ComputeGradient
 
@@ -18,6 +17,7 @@ module ViscousMethodClass
          procedure      :: ComputeInnerFluxesWithSGS => BaseClass_ComputeInnerFluxesWithSGS
          procedure      :: RiemannSolver             => BaseClass_RiemannSolver
          procedure      :: RiemannSolverWithSGS      => BaseClass_RiemannSolverWithSGS
+         procedure      :: Describe                  => BaseClass_Describe
    end type ViscousMethod_t
 !
 !  ========
@@ -33,13 +33,15 @@ module ViscousMethodClass
          implicit none
          class(ViscousMethod_t)                :: self
          class(FTValueDictionary),  intent(in) :: controlVariables
-         interface
-            subroutine toLower(str)
-               character(*), intent(in out) :: str
-            end subroutine toLower
-         end interface
 
       end subroutine BaseClass_Initialize
+
+      subroutine BaseClass_Describe(self)
+         implicit none
+         class(ViscousMethod_t), intent(in)  :: self
+
+      end subroutine BaseClass_Describe
+
       subroutine BaseClass_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
 !
 !        *****************************************************

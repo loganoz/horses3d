@@ -4,15 +4,16 @@
 !   @File:    ViscousIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Thu Jan 25 12:49:20 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 2b44cea69a84cc8021fc589b2180267f5167983d
+!   @Last revision date: Thu Jan 25 21:11:08 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 4ae0998f1881a7de77d8fb31fe8ac95dfed811ae
 !
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
 module ViscousIP
    use SMConstants
+   use Headers
    use MeshTypes
    use ElementClass
    use HexMeshClass
@@ -43,6 +44,7 @@ module ViscousIP
          procedure      :: ComputeInnerFluxesWithSGS => IP_ComputeInnerFluxesWithSGS
          procedure      :: RiemannSolverWithSGS      => IP_RiemannSolverWithSGS
 #endif
+         procedure      :: Describe                => IP_Describe
    end type InteriorPenalty_t
 !
 !  ========
@@ -53,7 +55,6 @@ module ViscousIP
          use FTValueDictionaryClass
          use Utilities, only: toLower
          use mainKeywordsModule
-         use Headers
          use MPI_Process_Info
          use PhysicsStorage
          implicit none
@@ -110,6 +111,12 @@ module ViscousIP
             end if
          end select
 
+
+      end subroutine IP_Initialize
+
+      subroutine IP_Describe(self)
+         implicit none
+         class(InteriorPenalty_t),  intent(in)  :: self
 !
 !        Display the configuration
 !        -------------------------
@@ -134,7 +141,7 @@ module ViscousIP
 
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Penalty parameter: ", self % sigma
             
-      end subroutine IP_Initialize
+      end subroutine IP_Describe
 
       subroutine IP_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
          use HexMeshClass

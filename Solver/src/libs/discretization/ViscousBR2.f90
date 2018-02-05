@@ -4,15 +4,16 @@
 !   @File:    ViscousBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Sat Jan 20 18:43:01 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 1fb4c93edba89e57ab928b053c6b9b4598c17d82
+!   @Last revision date: Thu Jan 25 21:11:07 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 4ae0998f1881a7de77d8fb31fe8ac95dfed811ae
 !
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
 module ViscousBR2
    use SMConstants
+   use Headers
    use MeshTypes
    use ElementClass
    use HexMeshClass
@@ -38,6 +39,7 @@ module ViscousBR2
          procedure      :: ComputeInnerFluxesWithSGS => BR2_ComputeInnerFluxesWithSGS
          procedure      :: RiemannSolverWithSGS      => BR2_RiemannSolverWithSGS
 #endif
+         procedure      :: Describe           => BR2_Describe
    end type BassiRebay2_t
 !
 !  ========
@@ -47,18 +49,12 @@ module ViscousBR2
       subroutine BR2_Initialize(self, controlVariables)
          use FTValueDictionaryClass
          use mainKeywordsModule
-         use Headers
          use MPI_Process_Info
          use PhysicsStorage
          implicit none
          class(BassiRebay2_t)                :: self
          class(FTValueDictionary),  intent(in) :: controlVariables
          character(len=LINE_LENGTH)            :: BR2variant
-         interface
-            subroutine toLower(str)
-               character(*), intent(in out) :: str
-            end subroutine toLower
-         end interface
 !
 !        Request the penalty parameter
 !        -----------------------------
@@ -72,6 +68,12 @@ module ViscousBR2
             self % eta = 2.0_RP
 
          end if
+            
+      end subroutine BR2_Initialize
+   
+      subroutine BR2_Describe(self)
+         implicit none
+         class(BassiRebay2_t),   intent(in)  :: self
 !
 !        Display the configuration
 !        -------------------------
@@ -83,8 +85,8 @@ module ViscousBR2
          write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","BR2"
 
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Penalty parameter: ", self % eta
-            
-      end subroutine BR2_Initialize
+
+      end subroutine BR2_Describe
 
       subroutine BR2_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
          use HexMeshClass

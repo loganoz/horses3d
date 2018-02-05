@@ -2362,6 +2362,8 @@ slavecoord:                DO l = 1, 4
             print*, "The selected restart file is a statistics file"
             errorMessage(STD_OUT)
             stop
+         case(SOLUTION_CAHNHILLIARD_FILE)
+            padding = 1*NCONS
          case default
             print*, "Unknown restart file format"
             errorMessage(STD_OUT)

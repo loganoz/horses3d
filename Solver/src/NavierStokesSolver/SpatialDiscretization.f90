@@ -114,18 +114,22 @@ module SpatialDiscretization
    !        Initialize viscous discretization
    !        ---------------------------------         
             if ( flowIsNavierStokes ) then
+               call BassiRebay1     % Initialize(controlVariables)
+               call BassiRebay2     % Initialize(controlVariables)
+               call InteriorPenalty % Initialize(controlVariables)
+
                viscousDiscretization = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
                call toLower(viscousDiscretization)
                
                select case ( trim(viscousDiscretization) )
                case("br1")
-                  if (.not. allocated(ViscousMethod)) allocate( BassiRebay1_t :: ViscousMethod  ) 
+                  ViscousMethod => BassiRebay1
 
                case("br2")
-                  if (.not. allocated(ViscousMethod)) allocate( BassiRebay2_t :: ViscousMethod  ) 
+                  ViscousMethod => BassiRebay2
 
                case("ip")
-                  if (.not. allocated(ViscousMethod)) allocate( InteriorPenalty_t :: ViscousMethod  ) 
+                  ViscousMethod => InteriorPenalty
 
                case default
                   write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretization),'" is not implemented.'
@@ -137,13 +141,15 @@ module SpatialDiscretization
                   stop 
 
                end select
+
+               call ViscousMethod % Describe
       
             else
-               if (.not. allocated(ViscousMethod)) allocate( ViscousMethod_t  :: ViscousMethod )
+               if (.not. associated(ViscousMethod)) allocate( ViscousMethod_t  :: ViscousMethod )
+               call ViscousMethod % Initialize(controlVariables)
                
             end if
 
-            call ViscousMethod % Initialize(controlVariables)
    !
    !        Initialize models
    !        -----------------
@@ -175,7 +181,6 @@ module SpatialDiscretization
       subroutine Finalize_SpaceAndTimeMethods
          implicit none
          IF ( ALLOCATED(InviscidMethod) ) DEALLOCATE( InviscidMethod )
-         IF ( ALLOCATED(ViscousMethod ) ) DEALLOCATE( ViscousMethod ) 
          IF ( ALLOCATED(LESModel) )       DEALLOCATE( LESModel )
       end subroutine Finalize_SpaceAndTimeMethods
 !
