@@ -200,6 +200,8 @@ Module DGSEMClass
       self % Nx = Nx
       self % Ny = Ny
       self % Nz = Nz
+      
+      if ( max(maxval(Nx),maxval(Ny),maxval(Nz)) /= min(minval(Nx),minval(Ny),minval(Nz)) ) self % mesh % anisotropic = .TRUE.
 !
 !     -------------------------------------------------------------
 !     Construct the polynomial storage for the elements in the mesh

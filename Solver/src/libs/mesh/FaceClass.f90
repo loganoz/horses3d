@@ -68,6 +68,7 @@
          logical                         :: flat
          integer                         :: ID                       ! face ID
          integer                         :: FaceType                 ! Type of face: 0 = HMESH_BOUNDARY, 1 = HMESH_INTERIOR
+         integer                         :: zone                     ! In the case of HMESH_BOUNDARY, which zone it belongs to
          integer                         :: rotation                 ! Relative orientation between faces
          integer                         :: NelLeft(2)               ! Left element face polynomial order
          integer                         :: NelRight(2)              ! Right element face polynomial order
@@ -132,6 +133,7 @@
          self % elementSide(2) = HMESH_NONE
          self % boundaryName   = emptyBCName
          self % rotation       = 0
+         self % zone           = 0
 
       end SUBROUTINE ConstructFace
 !

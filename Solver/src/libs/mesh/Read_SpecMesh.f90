@@ -284,6 +284,7 @@ MODULE Read_SpecMesh
 !        -------------------------------
 !
          if ( dir2D .ne. 0 ) then
+            self % meshIs2D = .TRUE.
             call SetMappingsToCrossProduct
             call self % CorrectOrderFor2DMesh(dir2D)
          end if
@@ -306,7 +307,7 @@ MODULE Read_SpecMesh
 !        Finish up
 !        ---------
 !
-         if (.not. self % child) CALL self % Describe( trim(fileName) )
+         if (.not. self % child) CALL self % Describe( trim(fileName), bFaceOrder )
 !
 !        -------------------------------------------------------------
 !        Prepare mesh for I/O only if the code is running sequentially

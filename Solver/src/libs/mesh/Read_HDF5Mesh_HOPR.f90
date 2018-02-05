@@ -193,7 +193,6 @@ contains
 !     Set up for face patches
 !     Face patches are defined at equidistant points in HOPR (not Chebyshev-Lobatto as in .mesh format)
 !     ---------------------------------------
-      WRITE(STD_OUT,*) 'Face order=',bFaceOrder
       
       numBFacePoints = bFaceOrder + 1
       allocate(uNodes(numBFacePoints))
@@ -373,6 +372,7 @@ contains
 !        -------------------------------
 !
          if ( dir2D .ne. 0 ) then
+            self % meshIs2D = .TRUE.
             call SetMappingsToCrossProduct
             call self % CorrectOrderFor2DMesh(dir2D)
          end if
@@ -392,7 +392,7 @@ contains
 !     Finish up
 !     ---------
 !      
-      if (.not. self % child) CALL self % Describe( trim(fileName) )
+      if (.not. self % child) CALL self % Describe( trim(fileName) , bFaceOrder)
 !
 !     -------------------------------------------------------------
 !     Prepare mesh for I/O only if the code is running sequentially

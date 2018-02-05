@@ -48,7 +48,9 @@ MODULE HexMeshClass
          type(Face)   , dimension(:), allocatable  :: faces
          type(Element), dimension(:), allocatable  :: elements
          class(Zone_t), dimension(:), allocatable  :: zones
-         logical                                   :: child = .FALSE.              ! Is this a (multigrid) child mesh?... by default .FALSE.
+         logical                                   :: child       = .FALSE.         ! Is this a (multigrid) child mesh? default .FALSE.
+         logical                                   :: meshIs2D    = .FALSE.         ! Is this a 2D mesh? default .FALSE.
+         logical                                   :: anisotropic = .FALSE.         ! Is the mesh composed by elements with anisotropic polynomial orders? default false
          contains
             procedure :: destruct                      => DestructMesh
             procedure :: Describe                      => DescribeMesh
@@ -1061,7 +1063,7 @@ slavecoord:                DO l = 1, 4
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE DescribeMesh( self , fileName )
+      SUBROUTINE DescribeMesh( self , fileName, bFaceOrder )
       USE Headers
       IMPLICIT NONE
 !
@@ -1074,8 +1076,9 @@ slavecoord:                DO l = 1, 4
 !     External variables
 !     ------------------
 !
-      CLASS(HexMesh)    :: self
-      CHARACTER(LEN=*)  :: fileName
+      CLASS(HexMesh)      :: self
+      CHARACTER(LEN=*)    :: fileName
+      integer, intent(in) :: bFaceOrder
 !
 !     ---------------
 !     Local variables
@@ -1095,7 +1098,7 @@ slavecoord:                DO l = 1, 4
       write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of nodes: " , size ( self % nodes )
       write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of elements: " , size ( self % elements )
       write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of faces: " , size ( self % faces )
-   
+      
       do fID = 1 , size ( self % faces )
          if ( self % faces(fID) % faceType .ne. HMESH_INTERIOR) then
             no_of_bdryfaces = no_of_bdryfaces + 1
@@ -1103,6 +1106,7 @@ slavecoord:                DO l = 1, 4
       end do
 
       write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bdryfaces
+      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Order of curved faces: " , bFaceOrder
       
 !     Describe the zones
 !     ------------------
@@ -1648,7 +1652,32 @@ slavecoord:                DO l = 1, 4
          type(TransfiniteHexMap), pointer :: hexMap, hex8Map, genHexMap
          !--------------------------------
          
+         integer  :: zoneID, zonefID
+         integer, allocatable :: bfOrder(:)
          corners = 0._RP
+
+!
+!        ******************************************************************
+!        Find the polynomial order of the boundaries for anisotropic meshes
+!        -> Unlike isotropic meshes, anisotropic meshes need boundary orders
+!           bfOrder=N-1 in 3D (not in 2D) to be free-stream-preserving
+!        ******************************************************************
+!
+         if (self % anisotropic .and. (.not. self % meshIs2D) ) then
+            allocate ( bfOrder(size(self % zones)) )
+            bfOrder = 50 ! Initialize to a big number
+            do zoneID=1, size(self % zones)
+               do zonefID = 1, self % zones(zoneID) % no_of_faces
+                  fID = self % zones(zoneID) % faces(zonefID)
+                  
+                  associate( f => self % faces(fID) )
+                  bfOrder(zoneID) = min(bfOrder(zoneID),f % NfLeft(1),f % NfLeft(2))
+                  end associate
+               end do
+               bfOrder(zoneID) = bfOrder(zoneID) - 1
+               call NodalStorage (bfOrder(zoneID)) % construct (self % nodeType, bfOrder(zoneID))
+            end do
+         end if
          
 !
 !        **************************************************************
@@ -1689,7 +1718,7 @@ slavecoord:                DO l = 1, 4
                   write(STD_OUT,*) '   N Left:  ', SurfInfo(eIDLeft) % facePatches(SideIDL) % noOfKnots - 1
                   write(STD_OUT,*) '   N Right: ', SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
                end if
-            
+               
                CLN(1) = min(f % NfLeft(1),f % NfRight(1))
                CLN(2) = min(f % NfLeft(2),f % NfRight(2))
 !
@@ -1731,8 +1760,13 @@ slavecoord:                DO l = 1, 4
 
                if     (SurfInfo(eIDLeft)  % IsHex8 .or. all(NSurfL == 1)) cycle
                
-               CLN(1) = f % NfLeft(1)
-               CLN(2) = f % NfLeft(2)
+               if (self % anisotropic  .and. (.not. self % meshIs2D) ) then
+                  CLN = bfOrder(f % zone)
+               else
+                  CLN(1) = f % NfLeft(1)
+                  CLN(2) = f % NfLeft(2)
+               end if
+               
 !
 !              Adapt the curved face order to the polynomial order
 !              ---------------------------------------------------

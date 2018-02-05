@@ -46,12 +46,12 @@
 !
       INTEGER, DIMENSION(4,6) :: localFaceNode = &
      &         RESHAPE( (/                    & 
-     &         1, 2, 6, 5,                    & ! Node numbers, face 1
-     &         4, 3, 7, 8,                    & ! Node numbers, face 2
-     &         1, 2, 3, 4,                    & ! Node numbers, face 3
-     &         2, 3, 7, 6,                    & ! Node numbers, face 4
-     &         5, 6, 7, 8,                    & ! Node numbers, face 5
-     &         1, 4, 8, 5                     & ! Node numbers, face 6
+     &         1, 2, 6, 5,                    & ! Node numbers, face 1 FRONT
+     &         4, 3, 7, 8,                    & ! Node numbers, face 2 BACK
+     &         1, 2, 3, 4,                    & ! Node numbers, face 3 BOTTOM
+     &         2, 3, 7, 6,                    & ! Node numbers, face 4 RIGHT
+     &         5, 6, 7, 8,                    & ! Node numbers, face 5 TOP
+     &         1, 4, 8, 5                     & ! Node numbers, face 6 LEFT
      &         /),(/4,6/))
 !
 !-------------------------------------------------------------------------

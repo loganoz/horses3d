@@ -311,10 +311,10 @@ module AnisFASMultigridClass
    
 !$omp parallel do
       do k = 1, nelem
-         allocate(Solver % MGStorage(Dir) % Var(k) % Q    (0:N1x(k),0:N1y(k),0:N1z(k),N_EQN))
-         allocate(Solver % MGStorage(Dir) % Var(k) % E    (0:N1x(k),0:N1y(k),0:N1z(k),N_EQN))
-         allocate(Solver % MGStorage(Dir) % Var(k) % S    (0:N1x(k),0:N1y(k),0:N1z(k),N_EQN))
-         allocate(Solver % MGStorage(Dir) % Var(k) % Scase(0:N1x(k),0:N1y(k),0:N1z(k),N_EQN))
+         allocate(Solver % MGStorage(Dir) % Var(k) % Q    (N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % E    (N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % S    (N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % Scase(N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
          
          Solver % MGStorage(Dir) % Var(k) % Scase = 0._RP
       end do   
