@@ -64,18 +64,16 @@ module pAdaptationClass
 !  Module variables
 !  ----------------
 !
-   !! Parameters
-   integer, parameter    :: NMIN = 1
-   
    !! Variables
-   integer               :: NInc_0 = 4
+   integer    :: NMIN = 1
+   integer    :: NInc_0 = 4
 !!    integer               :: dN_Inc = 3 
-   integer               :: fN_Inc = 2
-   integer               :: NInc
-   integer               :: nelem   ! number of elements in mesh
+   integer    :: fN_Inc = 2
+   integer    :: NInc
+   integer    :: nelem   ! number of elements in mesh
    
-   EXTERNAL              :: externalStateForBoundaryName
-   EXTERNAL              :: ExternalGradientForBoundaryName
+   EXTERNAL   :: externalStateForBoundaryName
+   EXTERNAL   :: ExternalGradientForBoundaryName
    
 !========
  contains
@@ -249,6 +247,16 @@ module pAdaptationClass
       
       nelem = size(Nx)
       allocate (this % TE(nelem))
+      
+!
+!     If this is a p-anisotropic 3D case, the minimum polynomial order is 2
+!     ---------------------------------------------------------------------
+      
+      if ( .not. controlVariables % containsKey("2d mesh offset direction") ) then
+         NMIN = 2
+      else
+         NMIN = 1
+      end if
       
       do iEl = 1, nelem
          call this % TE(iEl) % construct(NMIN,this % NxyzMax)

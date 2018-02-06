@@ -202,6 +202,7 @@ Module DGSEMClass
       self % Nz = Nz
       
       if ( max(maxval(Nx),maxval(Ny),maxval(Nz)) /= min(minval(Nx),minval(Ny),minval(Nz)) ) self % mesh % anisotropic = .TRUE.
+      
 !
 !     -------------------------------------------------------------
 !     Construct the polynomial storage for the elements in the mesh
@@ -241,6 +242,8 @@ Module DGSEMClass
          dir2D = 0
 
       end if
+      
+      if ( self % mesh % anisotropic .and. (min(minval(Nx),minval(Ny),minval(Nz)) <=1) .and. dir2D == 0 ) ERROR STOP ':: 3D anisotropic mesh must have N>=2'
 
       if (controlVariables % containsKey("mesh inner curves")) then
          MeshInnerCurves = controlVariables % logicalValueForKey("mesh inner curves")

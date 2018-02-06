@@ -57,6 +57,7 @@ module AnisFASMultigridClass
    !! Variables
    integer        :: MGlevels(3)    ! Total number of multigrid levels        
    integer        :: MaxN(3)        ! Maximum polynomial order in every direction
+   integer        :: NMIN           ! Minimum polynomial order allowed
    integer        :: deltaN         !                                         ! TODO: deltaN(3)
    integer        :: nelem          ! Number of elements (this is a p-multigrid implementation)
    integer        :: SweepNumPre    ! Number of sweeps pre-smoothing
@@ -116,14 +117,6 @@ module AnisFASMultigridClass
       end if
       
       UserMGlvls = controlVariables % IntegerValueForKey("multigrid levels")
-      
-      MaxN(1) = MAXVAL(sem%Nx)
-      MaxN(2) = MAXVAL(sem%Ny)
-      MaxN(3) = MAXVAL(sem%Nz)
-      
-      MGlevels(1)  = MIN(MaxN(1),UserMGlvls)
-      MGlevels(2)  = MIN(MaxN(2),UserMGlvls)
-      MGlevels(3)  = MIN(MaxN(3),UserMGlvls)
       
       if (AnisFASestimator) then
          deltaN = 1
@@ -218,6 +211,25 @@ module AnisFASMultigridClass
 !     Update module variables
 !     -----------------------
 !
+      MaxN(1) = MAXVAL(sem%Nx)
+      MaxN(2) = MAXVAL(sem%Ny)
+      MaxN(3) = MAXVAL(sem%Nz)
+      
+!
+!     3D anisotropic meshes must have N >= 2
+!        (and AnisFAS ALWAYS creates anisotropic meshes)
+!     --------------------------------------------------
+      
+      if (.not. sem % mesh % meshIs2D ) then
+         NMIN = 2
+      else
+         NMIN = 1
+      end if
+      
+      MGlevels(1)  = MIN(MaxN(1) - NMIN + 1,UserMGlvls)
+      MGlevels(2)  = MIN(MaxN(2) - NMIN + 1,UserMGlvls)
+      MGlevels(3)  = MIN(MaxN(3) - NMIN + 1,UserMGlvls)
+      
       MGOutput       = controlVariables % logicalValueForKey("multigrid output")
       plotInterval   = controlVariables % integerValueForKey("output interval")
       ManSol         = sem % ManufacturedSol
