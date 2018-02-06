@@ -44,7 +44,7 @@ module SurfaceMonitorClass
 !           --------------------------
 !/////////////////////////////////////////////////////////////////////////
 !
-      subroutine SurfaceMonitor_Initialization( self , mesh , ID, solution_file )
+      subroutine SurfaceMonitor_Initialization( self , mesh , ID, solution_file , FirstCall)
 !
 !        *****************************************************************************
 !              This subroutine initializes the surface monitor. The following
@@ -62,6 +62,7 @@ module SurfaceMonitorClass
          class(HexMesh)          :: mesh
          integer                 :: ID
          character(len=*)        :: solution_file
+         logical, intent(in)     :: FirstCall
 !
 !        ---------------
 !        Local variables
@@ -272,23 +273,24 @@ module SurfaceMonitorClass
 !
 !        Create file
 !        -----------
-         open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" ) 
+         if (FirstCall) then
+            open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" ) 
 !
 !        Write the file headers
 !        ----------------------
-         write( fID , '(A20,A  )') "Monitor name:      ", trim(self % monitorName)
-         write( fID , '(A20,I0 )') "Surface marker:    ", self % marker
-         write( fID , '(A20,A  )') "Selected variable: " , trim(self % variable)
+            write( fID , '(A20,A  )') "Monitor name:      ", trim(self % monitorName)
+            write( fID , '(A20,I0 )') "Surface marker:    ", self % marker
+            write( fID , '(A20,A  )') "Selected variable: " , trim(self % variable)
 
-         if ( self % isDimensionless ) then
-            write(fID , '(A20,ES24.10)') "Dynamic pressure: " , self % dynamicPressure
+            if ( self % isDimensionless ) then
+               write(fID , '(A20,ES24.10)') "Dynamic pressure: " , self % dynamicPressure
+            end if
+
+            write( fID , * )
+            write( fID , '(A10,2X,A24,2X,A24)' ) "Iteration" , "Time" , trim(self % variable)
+
+            close ( fID )
          end if
-
-         write( fID , * )
-         write( fID , '(A10,2X,A24,2X,A24)' ) "Iteration" , "Time" , trim(self % variable)
-
-         close ( fID ) 
-
       end subroutine SurfaceMonitor_Initialization
 
       subroutine SurfaceMonitor_Update ( self, mesh, bufferPosition )

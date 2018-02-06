@@ -196,7 +196,6 @@
 !     Perform p-adaptation stage(s) if requested
 !     ------------------------------------------
       if (pAdaptator % Adapt) then
-         write(STD_OUT,*) '*******    Performing p-adaptation    *******'
          
          PA_Stage = 0
          do while (pAdaptator % Adapt)
@@ -207,6 +206,7 @@
             call pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,0._RP)  ! Time is hardcoded to 0._RP (not important since it's only for STEADY_STATE)
             
             maxResidual = ComputeMaxResidual(sem)
+            sem % numberOfTimeSteps = sem % numberOfTimeSteps + 1
             call Monitors % UpdateValues( sem % mesh, self % time, sem % numberOfTimeSteps, maxResidual )
             call self % Display(sem % mesh, monitors)
             
@@ -329,7 +329,7 @@ end interface
       t = self % time
       sem % MaxResidual = 1.e-3_RP !initializing to this value for implicit solvers (Newton tolerance is computed according to this)
       
-      DO k = self % initial_iter, self % initial_iter + self % numTimeSteps-1
+      DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 !
 !        CFL-bounded time step
 !        ---------------------      

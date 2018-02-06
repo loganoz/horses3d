@@ -99,6 +99,7 @@ module MonitorsClass
          integer                         :: i
          character(len=STR_LEN_MONITORS) :: line
          character(len=STR_LEN_MONITORS) :: solution_file                                            
+         logical, save                   :: FirstCall = .TRUE.
          interface
             character(len=LINE_LENGTH) function getFileName(inputLine)
                use SMConstants
@@ -123,30 +124,31 @@ module MonitorsClass
 !
 !        Initialize
 !        ----------
-         call Monitors % residuals % Initialization( solution_file )
+         call Monitors % residuals % Initialization( solution_file , FirstCall )
 #if defined(NAVIERSTOKES)
          call Monitors % stats     % Construct(mesh)
 
          allocate ( Monitors % probes ( Monitors % no_of_probes )  )
          do i = 1 , Monitors % no_of_probes
-            call Monitors % probes(i) % Initialization ( mesh , i, solution_file )
+            call Monitors % probes(i) % Initialization ( mesh , i, solution_file , FirstCall )
          end do
 
          allocate ( Monitors % surfaceMonitors ( Monitors % no_of_surfaceMonitors )  )
          do i = 1 , Monitors % no_of_surfaceMonitors
-            call Monitors % surfaceMonitors(i) % Initialization ( mesh , i, solution_file )
+            call Monitors % surfaceMonitors(i) % Initialization ( mesh , i, solution_file , FirstCall )
          end do
 
          allocate ( Monitors % volumeMonitors ( Monitors % no_of_volumeMonitors )  )
          do i = 1 , Monitors % no_of_volumeMonitors
-            call Monitors % volumeMonitors(i) % Initialization ( mesh , i, solution_file )
+            call Monitors % volumeMonitors(i) % Initialization ( mesh , i, solution_file , FirstCall )
          end do
 #endif
 
          Monitors % write_dt_restriction = controlVariables % logicalValueForKey( "write dt restriction" )
          
          Monitors % bufferLine = 0
-
+         
+         FirstCall = .FALSE.
       end function ConstructMonitors
 
       subroutine Monitor_WriteLabel ( self )
