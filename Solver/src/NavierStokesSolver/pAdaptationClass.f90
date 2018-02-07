@@ -75,6 +75,11 @@ module pAdaptationClass
    EXTERNAL   :: externalStateForBoundaryName
    EXTERNAL   :: ExternalGradientForBoundaryName
    
+   ! Here we define the input variables that can be changed after p-adaptation
+   character(len=18), parameter :: ReplacedInputVars(4) = (/'mg sweeps         ', &
+                                                            'mg sweeps pre     ', &
+                                                            'mg sweeps post    ', &
+                                                            'mg sweeps coarsest'/)
 !========
  contains
 !========
@@ -307,7 +312,7 @@ module pAdaptationClass
 !  Main routine for adapting the polynomial order in all elements based on 
 !  the truncation error estimation
 !  ------------------------------------------------------------------------
-   subroutine pAdaptTE(pAdapt,sem,itera,t)
+   subroutine pAdaptTE(pAdapt,sem,itera,t,controlVariables)
       use AnisFASMultigridClass
       use StopwatchClass
       implicit none
@@ -315,7 +320,8 @@ module pAdaptationClass
       class(pAdaptation_t)       :: pAdapt            !<> Adaptation class
       type(DGSem)                :: sem               !<> sem
       integer                    :: itera             !<  iteration
-      real(kind=RP)              :: t                 !< time!!
+      real(kind=RP)              :: t                 !<  time!!
+      type(FTValueDictionary)    :: controlVariables  !<> Input vaiables (that can be modified depending on the user input)
       !--------------------------------------
       integer                    :: iEl               !   Element counter
       integer                    :: iEQ               !   Equation counter
@@ -329,6 +335,7 @@ module pAdaptationClass
       type(DGSem)                :: Oldsem
       logical                    :: success
       integer, save              :: Stage = 0         !   Stage of p-adaptation for the increasing method
+      CHARACTER(LEN=LINE_LENGTH) :: newInput          !   Variable used to change the input in controlVariables after p-adaptation 
       !--------------------------------------
       ! For new adaptation algorithm
       integer                    :: Pxyz(3)           !   Polynomial order the estimation was performed with
@@ -612,6 +619,20 @@ module pAdaptationClass
       
       call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),pAdapt % saveGradients)
       
+!
+!     ------------------------------------------------
+!     Rewrite controlVariables according to user input
+!     ------------------------------------------------
+!
+      do i = 1, size(ReplacedInputVars)
+         if ( controlVariables % containsKey( "padapted " // trim(ReplacedInputVars(i)) ) ) then
+            newInput = controlVariables % stringValueForKey("padapted " // trim(ReplacedInputVars(i)), requestedLength = LINE_LENGTH)
+            call controlVariables % removeObjectForKey( trim(ReplacedInputVars(i)) )
+            call controlVariables % addValueForKey( TRIM(newInput) , trim(ReplacedInputVars(i)) )
+         end if
+      end do
+!
+!
 !
 !     ----------------
 !     Update residuals

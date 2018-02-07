@@ -203,12 +203,9 @@
             
             call IntegrateInTime( self, sem, controlVariables, monitors, pAdaptator % reqTE*0.1_RP)  ! The residual is hard-coded to 0.1 * truncation error threshold (see Kompenhans, Moritz, et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.)
             
-            call pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,0._RP)  ! Time is hardcoded to 0._RP (not important since it's only for STEADY_STATE)
+            call pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,0._RP,controlVariables)  ! Time is hardcoded to 0._RP (not important since it's only for STEADY_STATE)
             
-            maxResidual = ComputeMaxResidual(sem)
             sem % numberOfTimeSteps = sem % numberOfTimeSteps + 1
-            call Monitors % UpdateValues( sem % mesh, self % time, sem % numberOfTimeSteps, maxResidual )
-            call self % Display(sem % mesh, monitors)
             
          end do
       end if
@@ -312,8 +309,8 @@ end interface
          Tol = self % tolerance
       end if
       
-      if (TimeIntegration == 'FAS') CALL FASSolver % construct(controlVariables,sem)
-      if (TimeIntegration == 'AnisFAS') CALL AnisFASSolver % construct(controlVariables,sem)
+      mNumber = 0
+      t = self % time
 !
 !     ------------------
 !     Configure restarts
@@ -321,13 +318,29 @@ end interface
 !
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
 !
+!     -----------------------
+!     Check initial residuals
+!     -----------------------
+!
+      call ComputeTimeDerivative(sem,t)
+      maxResidual       = ComputeMaxResidual(sem)
+      sem % maxResidual = maxval(maxResidual)
+      call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
+      call self % Display(sem % mesh, monitors)
+      IF (self % integratorType == STEADY_STATE) THEN
+         IF (maxval(maxResidual) <= Tol )  THEN
+            write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",sem % numberOfTimeSteps," with Residual = ", maxval(maxResidual)
+            call Monitors % writeToFile(sem % mesh, force = .true. )
+            return
+         END IF
+      end if
+!
 !     -----------------
 !     Integrate in time
 !     -----------------
-!      
-      mNumber = 0
-      t = self % time
-      sem % MaxResidual = 1.e-3_RP !initializing to this value for implicit solvers (Newton tolerance is computed according to this)
+!
+      if (TimeIntegration == 'FAS') CALL FASSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'AnisFAS') CALL AnisFASSolver % construct(controlVariables,sem)
       
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 !
@@ -391,14 +404,12 @@ end interface
             IF (maxval(maxResidual) <= Tol )  THEN
                call self % Display(sem % mesh, monitors)
                write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",k+1," with Residual = ", maxval(maxResidual)
-               call Stopwatch % Pause("Solver")
                sem % numberOfTimeSteps = k + 1
                exit
             END IF
          ELSEIF (self % integratorType == TIME_ACCURATE) THEN
             IF ( t .ge. self % tFinal) then
                call self % Display( sem % mesh, monitors)
-               call Stopwatch % Pause("Solver")
                sem % numberOfTimeSteps = k + 1
                exit
             end if
