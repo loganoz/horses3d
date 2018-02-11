@@ -6,7 +6,7 @@ module Physics
       IMPLICIT NONE
 
       private
-      public  ViscousFlux, QuarticDWPDerivative
+      public  ViscousFlux, QuarticDWPDerivative, QuarticDWP
 !
 !     ---------
 !     Constants
@@ -23,6 +23,10 @@ module Physics
       module procedure QuarticDWPDerivative_0D
       module procedure QuarticDWPDerivative_3D
      end interface QuarticDWPDerivative
+
+     interface QuarticDWP
+      module procedure QuarticDWP_0D
+     end interface QuarticDWP
 !
 !     ========
       CONTAINS 
@@ -107,4 +111,15 @@ module Physics
          mu = mu + 4.0_RP * (c-c_alpha)*(c-c_beta)*(c-AVERAGE(c_alpha,c_beta))
 
       end subroutine QuarticDWPDerivative_3D
+
+      pure subroutine QuarticDWP_0D(c, c_alpha, c_beta, f)
+         implicit none
+         real(kind=RP), intent(in)  :: c
+         real(kind=RP), intent(in)  :: c_alpha, c_beta
+         real(kind=RP), intent(out) :: f
+
+         f = POW2((c-c_alpha)*(c-c_beta))
+
+      end subroutine QuarticDWP_0D
+
 END Module Physics

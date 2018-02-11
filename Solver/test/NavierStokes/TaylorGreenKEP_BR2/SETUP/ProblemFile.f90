@@ -274,18 +274,18 @@
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: kinEn = 0.12499744094445574_RP
-            real(kind=RP), parameter           :: kinEnRate = -4.2793821051865968E-004_RP
-            real(kind=RP), parameter           :: enstrophy = 0.37499431779008724_RP 
-            real(kind=RP), parameter           :: res(5) = [7.8750058882485750E-005_RP,&
-                                                            0.12840111281132666_RP,&
-                                                            0.12840111290800676_RP,&
-                                                            0.24998276615412832_RP,&
-                                                            0.61595168801569788_RP]
+            real(kind=RP), parameter           :: kinEn = 0.12499744094576655_RP
+            real(kind=RP), parameter           :: kinEnRate = -4.2793777235400484E-004_RP
+            real(kind=RP), parameter           :: enstrophy = 0.37499382750806631_RP 
+            real(kind=RP), parameter           :: res(5) = [7.8971092040190316E-005_RP, &
+                                                            0.12840017295540926_RP, &
+                                                            0.12840017309057389_RP, &
+                                                            0.24998272936400881_RP, &
+                                                            0.61595752146535865_RP ]
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
-            
+
             CALL FTAssertEqual(expectedValue = monitors % residuals % values(1,1) + 1.0_RP, &
                                actualValue   = res(1) + 1.0_RP, &
                                tol           = 1.0e-7_RP, &

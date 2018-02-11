@@ -282,7 +282,7 @@ module ViscousBR1
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
-         call f % ProjectGradientFluxToElements(HFlux,(/1,2/))
+         call f % ProjectGradientFluxToElements(HFlux,(/1,2/),-1)
          
       end subroutine BR1_ComputeElementInterfaceAverage   
 
@@ -318,7 +318,7 @@ module ViscousBR1
          end do               ; end do
 
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectGradientFluxToElements(HFlux,(/thisSide, HMESH_NONE/))
+         call f % ProjectGradientFluxToElements(HFlux,(/thisSide, HMESH_NONE/),-1)
          
       end subroutine BR1_ComputeMPIFaceAverage   
 

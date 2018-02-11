@@ -393,7 +393,7 @@ end interface
                END SELECT
             CASE ('explicit')
 !               CALL self % RKStep ( sem, t, dt )
-                call takeRK5Step ( sem, t, dt )
+                call takeExplicitEulerStep ( sem, t, dt )
             case ('FAS')
 #if defined(NAVIERSTOKES)
                call FASSolver % solve(k,t)

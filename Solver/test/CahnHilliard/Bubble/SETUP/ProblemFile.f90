@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jan 30 09:07:46 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Sun Feb 11 14:05:27 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 9eb409679efa26d6e91dc6ca4a2dbca96d67813d
 !
 !//////////////////////////////////////////////////////
 !
@@ -170,6 +170,7 @@
                e % storage % Q(1,:,:,:) = e % storage % c
                end associate
             end do
+print*, dimensionless_ % eps
             
          end subroutine userdefinedinitialcondition
 #endif
@@ -219,16 +220,19 @@
 !           ----------------------------------------------------------
 !
             USE HexMeshClass
-#if defined(NAVIERSTOKES)
             use MonitorsClass
-#endif
             IMPLICIT NONE
             CLASS(HexMesh)               :: mesh
             REAL(KIND=RP)                :: time
-#if defined(NAVIERSTOKES)
             type(Monitor_t), intent(in) :: monitors
-#else
-            logical, intent(in) :: monitors
+            integer     :: eID
+
+#if defined(CAHNHILLIARD)
+            do eID = 1, mesh % no_of_elements
+               if ( any(isnan(mesh % elements(eID) % storage % c) )) then
+                  print*, "NAN!!!!"
+               end if
+            end do
 #endif
             
          END SUBROUTINE UserDefinedPeriodicOperation

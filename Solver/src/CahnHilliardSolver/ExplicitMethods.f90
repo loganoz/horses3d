@@ -25,7 +25,11 @@
 MODULE ExplicitMethods
    USE SMConstants
    USE DGSEMClass
+
    IMPLICIT NONE
+
+   private
+   public TakeRK3Step, TakeRK5Step, TakeExplicitEulerStep
 !========
  CONTAINS
 !========
@@ -112,6 +116,34 @@ MODULE ExplicitMethods
       END DO
 
    end subroutine TakeRK5Step
+
+   subroutine TakeExplicitEulerStep(sem, t, deltaT)
+!  
+!        *****************************************************************************************
+!           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
+!          Runge-Kutta Schemes", written by Mark H. Carpented and Christopher A. Kennedy
+!        *****************************************************************************************
+!
+      implicit none
+      TYPE(DGSem)     :: sem
+      REAL(KIND=RP)   :: t, deltaT, tk
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer                    :: id, k
+
+      CALL ComputeTimeDerivative( sem, tk )
+         
+!$omp parallel do schedule(runtime)
+         DO id = 1, SIZE( sem % mesh % elements )
+            sem % mesh % elements(id) % storage % Q = sem % mesh % elements(id) % storage % Q  + deltaT*sem % mesh % elements(id) % storage % QDot
+         END DO
+!$omp end parallel do
+         
+   end subroutine TakeExplicitEulerStep
+
 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////

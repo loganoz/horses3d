@@ -4,9 +4,9 @@
 !   @File:    ViscousBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Thu Jan 25 21:11:07 2018
+!   @Last revision date: Sun Feb 11 14:05:25 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 4ae0998f1881a7de77d8fb31fe8ac95dfed811ae
+!   @Last revision commit: 9eb409679efa26d6e91dc6ca4a2dbca96d67813d
 !
 !//////////////////////////////////////////////////////
 !
@@ -402,7 +402,7 @@ module ViscousBR2
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
-         call f % ProjectGradientFluxToElements(HFlux,(/1,2/))
+         call f % ProjectGradientFluxToElements(HFlux,(/1,2/),1)
          
       end subroutine BR2_GradientInterfaceSolution   
 
@@ -438,7 +438,7 @@ module ViscousBR2
          end do               ; end do
 
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectGradientFluxToElements(HFlux,(/thisSide, HMESH_NONE/))
+         call f % ProjectGradientFluxToElements(HFlux,(/thisSide, HMESH_NONE/),1)
          
       end subroutine BR2_GradientInterfaceSolutionMPI   
 
