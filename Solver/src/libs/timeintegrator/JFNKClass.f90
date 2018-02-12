@@ -12,6 +12,8 @@
 MODULE JFNKClass
    USE SMConstants,                 ONLY: RP
    USE GMRESClass,                  ONLY: GmresSolver
+   use TimeIntegratorDefinitions
+   use DGSEMClass,                  only: ComputeQDot_FCN
    IMPLICIT NONE
       
    !Class public variables
@@ -55,11 +57,13 @@ MODULE JFNKClass
 
    !Module Interfaces
    ABSTRACT INTERFACE
-      FUNCTION TimeDerivative(u,tt) RESULT(F)
-         IMPORT RP
+      FUNCTION TimeDerivative(u,tt, ComputeTimeDerivative) RESULT(F)
+         use SMConstants, only: RP
+         use DGSEMClass, only: ComputeQDot_FCN
          REAL(KIND = RP), INTENT(IN)  :: u(:)
          REAL(KIND = RP)              :: F(size(u))
          REAL(KIND = RP)              :: tt
+         procedure(ComputeQDot_FCN)   :: ComputeTimeDerivative
       END FUNCTION
    END INTERFACE
    
@@ -129,8 +133,9 @@ MODULE JFNKClass
       
       END SUBROUTINE
 !/////////////////////////////////////////////////////////////////////////     
-      SUBROUTINE JFNK_Integrate(this)
+      SUBROUTINE JFNK_Integrate(this, ComputeTimeDerivative)
          CLASS(JFNK_Integrator), INTENT(INOUT)     :: this
+         procedure(ComputeQDot_FCN)          :: ComputeTimeDerivative
          LOGICAL                                   :: ISFIRST = .TRUE.
          !Used module variables: F_Ur, Ur                        
          
@@ -147,7 +152,7 @@ MODULE JFNKClass
          
          DO ! While inner_t < Dt
             Ur = this%Un
-            F_Ur = p_F(Ur,time+Comp_Dt)
+            F_Ur = p_F(Ur,time+Comp_Dt, ComputeTimeDerivative)
             this%norm_G = UNORM(F_Ur,'L2')
             this%norm_x0 = UNORM(Ur,'L2')       
             this%norm_x_abs = this%norm_x0
@@ -160,7 +165,7 @@ MODULE JFNKClass
             ENDIF
             
             ! Newton solver will use value of Comp_Dt at this point to perform computations
-            CALL NewtonSolver(this)
+            CALL NewtonSolver(this, ComputeTimeDerivative)
             IF((this%linsolver%CONVERGED) .AND. (this%CONVERGED)) THEN  
                this%nsteps = this%nsteps + 1
                inner_t = inner_t + Comp_Dt                                  ! Increases integration time
@@ -224,20 +229,21 @@ MODULE JFNKClass
      
       END SUBROUTINE JFNK_Integrate
 !/////////////////////////////////////////////////////////////////////////           
-      SUBROUTINE NewtonSolver(this)
+      SUBROUTINE NewtonSolver(this, ComputeTimeDerivative)
          CLASS(JFNK_Integrator), INTENT(INOUT)     :: this
+         procedure(ComputeQDot_FCN)          :: ComputeTimeDerivative
          INTEGER                                   :: i
                     
          DO i = 1, this%MAX_NEWTON_ITER
             this%niter = i
             
-            CALL NewtonInnerIt(this)
+            CALL NewtonInnerIt(this, ComputeTimeDerivative)
             
             IF(.NOT. this%linsolver%CONVERGED) THEN                  
                RETURN
             ENDIF
             
-            F_Ur = p_F(Ur,time+Comp_Dt)                              ! Update F(Ur)
+            F_Ur = p_F(Ur,time+Comp_Dt, ComputeTimeDerivative)                              ! Update F(Ur)
 
             this%norm_x_abs = UNORM(this%linsolver%x,'L2')           ! Compute L_2 norm of x (U_r correction)
             this%norm_x_rel = this%norm_x_abs / this%norm_x0         ! Adimensionalize norm with the firsrt norm
@@ -259,8 +265,9 @@ MODULE JFNKClass
          
       END SUBROUTINE NewtonSolver
 !/////////////////////////////////////////////////////////////////////////     
-      SUBROUTINE NewtonInnerIt(this)
+      SUBROUTINE NewtonInnerIt(this, ComputeTimeDerivative)
          CLASS(JFNK_Integrator), INTENT(INOUT)     :: this
+         procedure(ComputeQDot_FCN)                :: ComputeTimeDerivative
          ! Used module variables: Ur, RHS
          
          IF (this%niter == 1) THEN ! Use a tolerance based on F(U_r) and Dt for the first iteration         
@@ -279,7 +286,7 @@ MODULE JFNKClass
          CALL ComputeRHS(this)                     
          CALL this%linsolver%SetRHS(RHS)
          CALL this%linsolver%SetTol(gmres_tol)
-         CALL this%linsolver%Solve
+         CALL this%linsolver%Solve(ComputeTimeDerivative)
          this%n_linsolver_iter = this%n_linsolver_iter + this%linsolver%niter
          IF (this%linsolver%ERROR_CODE  .NE. 0) THEN
             print*, 'error in linear solver: ',  this%linsolver%ERROR_CODE
@@ -295,14 +302,7 @@ MODULE JFNKClass
 !/////////////////////////////////////////////////////////////////////////          
       SUBROUTINE SetTimeDerivative(this, F)
          CLASS(JFNK_Integrator), INTENT(INOUT)     :: this
-         INTERFACE
-            FUNCTION F(u, time) RESULT(Func)
-               IMPORT RP
-               REAL(KIND = RP), INTENT(IN)  :: u(:)
-               REAL(KIND = RP)              :: Func(size(u))
-               REAL(KIND = RP)              :: time
-            END FUNCTION
-         END INTERFACE
+         procedure(TimeDerivative)           :: F
          !Used module variables: p_F
          
          p_F    => F ! Shared Pointer to TimeDerivative in this module
@@ -355,35 +355,38 @@ MODULE JFNKClass
       
       END SUBROUTINE ComputeRHS
 !/////////////////////////////////////////////////////////////////////////  
-      SUBROUTINE JacFreeAx(x, Ax)
+      SUBROUTINE JacFreeAx(x, Ax, ComputeTimeDerivative)
          REAL(KIND = RP), INTENT(IN)         :: x(:)
          REAL(KIND = RP), INTENT(OUT)        :: Ax(:)
+         procedure(ComputeQDot_FCN)          :: ComputeTimeDerivative
          !Module variables: Dt_Comp, p_F, eps, F_Ur
           
          eps = 1e-8_RP * (1._RP + UNORM(x,'L2'))
-         Ax = ( p_F(Ur + x * eps,time+Comp_Dt) - F_Ur)  / eps  - x / Comp_Dt                          !First order   ! arueda: this is also defined only for BDF1
+         Ax = ( p_F(Ur + x * eps,time+Comp_Dt, ComputeTimeDerivative) - F_Ur)  / eps  - x / Comp_Dt                          !First order   ! arueda: this is also defined only for BDF1
          !Ax = ( p_F(Ur + x * eps) - p_F(Ur - x * eps))  /(2._RP * eps)  - x / Comp_Dt   !Second order
       
       END SUBROUTINE JacFreeAx
 !/////////////////////////////////////////////////////////////////////////          
-      SUBROUTINE JacFreeAx_PRECO(x, Ax)
+      SUBROUTINE JacFreeAx_PRECO(x, Ax, ComputeTimeDerivative)
          REAL(KIND = RP), INTENT(IN)         :: x(:)
          REAL(KIND = RP), INTENT(OUT)        :: Ax(:)
+         procedure(ComputeQDot_FCN)          :: ComputeTimeDerivative
          !Module variables: Dt_Comp, p_F, eps, F_Ur
           
          eps = 1e-8_RP * (1._RP + UNORM(x,'L2'))
-         Ax = ( p_F(Ur + x * eps,time+Comp_Dt) - F_Ur)  / eps  - x / (Comp_Dt)                          !First order   ! arueda: this is also defined only for BDF1
+         Ax = ( p_F(Ur + x * eps,time+Comp_Dt, ComputeTimeDerivative) - F_Ur)  / eps  - x / (Comp_Dt)                          !First order   ! arueda: this is also defined only for BDF1
       
       END SUBROUTINE JacFreeAx_PRECO
 !/////////////////////////////////////////////////////////////////////////          
-      SUBROUTINE GMRES_Preco(v, Pv)
+      SUBROUTINE GMRES_Preco(v, Pv, ComputeTimeDerivative)
          ! Returns  the preconditioning product   Pv = P⁻¹ * v 
          REAL(KIND = RP), INTENT(IN)         :: v(:)
          REAL(KIND = RP), INTENT(OUT)        :: Pv(:)
+         procedure(ComputeQDot_FCN)          :: ComputeTimeDerivative
          
           
         CALL PCSolver%SetRHS(v)
-        CALL PCSolver%Solve
+        CALL PCSolver%Solve(ComputeTimeDerivative)
         CALL PCSolver%Settol(1e-1_RP)                 ! TODO: aquí habrá que poner algo más elaborado
         Pv = PCSolver%x
         n_preco_iter = n_preco_iter + PCSolver%niter

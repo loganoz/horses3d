@@ -41,6 +41,7 @@
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -79,6 +80,7 @@
             real(kind=RP)  :: qq, u, v, w, p
             real(kind=RP)  :: Q(N_EQN), phi, theta
 
+#if defined(NAVIERSTOKES)
             associate ( gammaM2 => dimensionless_ % gammaM2, &
                         gamma => thermodynamics_ % gamma )
             theta = refValues_ % AOATheta*(PI/180.0_RP)
@@ -107,6 +109,7 @@
             end do
 
             end associate
+#endif
             
          END SUBROUTINE UserDefinedInitialCondition
 
@@ -154,6 +157,7 @@
 !           Called to apply source terms to the equation
 !           --------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -196,6 +200,7 @@
 !           ----------------------------------------------------------
 !
             USE HexMeshClass
+            use SMConstants
             use MonitorsClass
             IMPLICIT NONE
             CLASS(HexMesh)  :: mesh
@@ -220,6 +225,7 @@
 !
             use FTAssertions
             USE HexMeshClass
+            use SMConstants
             use PhysicsStorage
             use MonitorsClass
             IMPLICIT NONE

@@ -41,6 +41,7 @@
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -170,6 +171,7 @@
 !           Called to apply source terms to the equation
 !           --------------------------------------------
 !
+            USE SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -211,6 +213,7 @@
 !           to be performed
 !           ----------------------------------------------------------
 !
+            USE SMConstants
             USE HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
@@ -246,6 +249,7 @@
 !           --------------------------------------------------------
 !
             use FTAssertions
+            USE SMConstants
             USE HexMeshClass
             use MonitorsClass
             use PhysicsStorage

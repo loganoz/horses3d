@@ -1,10 +1,15 @@
 module MultigridTypes
    use SMConstants
-   use DGSEMClass
+   use HexMeshClass
    use InterpolationMatrices
+   use TimeIntegratorDefinitions
+   use DGSEMClass
    implicit none
    
-   public
+   private
+   public MGSolStorage_t, SmoothIt_t, NMIN_GAUSS, NMIN_GAUSSLOBATTO, ThisTimeStep, plotInterval
+
+   public CreateInterpolationOperators, PlotResiduals
 !
 !  Multigrid solution storage
 !  --------------------------
@@ -19,10 +24,15 @@ module MultigridTypes
 !  Interface for the smoother
 !  --------------------------
    abstract interface
-      subroutine SmoothIt_t(sem, t, dt)
-         use DGSEMClass
-         type(DGSem)   :: sem
-         real(kind=RP) :: t, dt
+      subroutine SmoothIt_t( mesh, t, externalState, externalGradients, deltaT, ComputeTimeDerivative )
+         use SMConstants, only: RP
+         use HexMeshClass, only: HexMesh
+         use DGSEMClass, only: ComputeQDot_FCN
+         IMPLICIT NONE
+         type(HexMesh)              :: mesh
+         REAL(KIND=RP)              :: t, deltaT
+         external                   :: externalState, externalGradients
+         procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
       end subroutine SmoothIt_t
    end interface
    
@@ -91,18 +101,19 @@ module MultigridTypes
 !  ------------------------------------------
 !  Internal subroutine to print the residuals
 !  ------------------------------------------
-   subroutine PlotResiduals( lvl, sweeps , sem, white )
+   subroutine PlotResiduals( lvl, sweeps , mesh, white )
       use PhysicsStorage
       implicit none
       !--------------------------------------------------------
       integer    , intent(in)           :: lvl
       integer    , intent(in)           :: sweeps
-      type(DGSem), intent(in)           :: sem
+      type(HexMesh), intent(in)           :: mesh
       logical    , intent(in), optional :: white
       !--------------------------------------------------------
       real(kind=RP)             :: maxResiduals(N_EQN)
       character(len=5)          :: color1
       character(len=5)          :: color2
+      integer                   :: eqn
       !--------------------------------------------------------
       
       if (present(white) .AND. white) then
@@ -113,12 +124,16 @@ module MultigridTypes
       color2 = achar(27)//'[00m'
       
       if( (MOD( ThisTimeStep+1, plotInterval) == 0) .or. (ThisTimeStep .eq. 0) ) then
-         maxResiduals = ComputeMaxResidual(sem)
-         write(STD_OUT , 110) color1,'FAS lvl', lvl ,"|","it",sweeps,"|", maxResiduals(IRHO) , "|" , maxResiduals(IRHOU) , &
-                                 "|", maxResiduals(IRHOV) , "|" , maxResiduals(IRHOW) , "|" , maxResiduals(IRHOE),color2
+         maxResiduals = ComputeMaxResiduals(mesh)
+
+         write(STD_OUT,'(A,A,I3,X,A,X,A,I8)',advance="no") color1,'FAS lvl', lvl ,"|","it",sweeps
+
+         do eqn = 1, N_EQN
+            write(STD_OUT ,'(X,A,X,ES10.3)',advance="no") "|", maxResiduals(eqn)
+         end do
+   
+         write(STD_OUT,'(A)') color2
       end if
-      
-      110 format (A,A,I3,X,A,X,A,I8,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,X,A,X,ES10.3,A)
       
    end subroutine PlotResiduals
 !

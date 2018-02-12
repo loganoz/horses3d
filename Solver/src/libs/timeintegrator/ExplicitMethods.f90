@@ -1,16 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    ExplicitMethods.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 17:14:37 2018
-!   @Last revision date: Wed Jan 31 18:27:04 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 1181c365aba00e78739d327d06901d6d8ca99e02
-!
-!//////////////////////////////////////////////////////
-!
-!
 !////////////////////////////////////////////////////////////////////////
 !
 !      EcplicitMethods.f90
@@ -24,12 +12,13 @@
 !
 MODULE ExplicitMethods
    USE SMConstants
-   USE DGSEMClass
-
+   use HexMeshClass
+   use TimeIntegratorDefinitions
+   use DGSEMClass, only: ComputeQDot_FCN
    IMPLICIT NONE
 
    private
-   public TakeRK3Step, TakeRK5Step, TakeExplicitEulerStep
+   public   TakeRK3Step, TakeRK5Step, TakeExplicitEulerStep
 !========
  CONTAINS
 !========
@@ -39,7 +28,7 @@ MODULE ExplicitMethods
 !  ------------------------------
 !  Routine for taking a RK3 step.
 !  ------------------------------
-   SUBROUTINE TakeRK3Step( sem, t, deltaT )
+   SUBROUTINE TakeRK3Step( mesh, t, externalState, externalGradients, deltaT, ComputeTimeDerivative )
 !
 !     ----------------------------------
 !     Williamson's 3rd order Runge-Kutta
@@ -51,8 +40,10 @@ MODULE ExplicitMethods
 !     Input parameters:
 !     -----------------
 !
-      TYPE(DGSem)     :: sem
+      type(HexMesh)      :: mesh
       REAL(KIND=RP)   :: t, deltaT, tk
+      external        :: externalState, externalGradients
+      procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
 !
 !     ---------------
 !     Local variables
@@ -67,12 +58,12 @@ MODULE ExplicitMethods
       DO k = 1,3
          
          tk = t + b(k)*deltaT
-         CALL ComputeTimeDerivative( sem, tk )
+         CALL ComputeTimeDerivative( mesh, tk, externalState, externalGradients )
          
 !$omp parallel do schedule(runtime)
-         DO id = 1, SIZE( sem % mesh % elements )
-            sem % mesh % elements(id) % storage % G = a(k)*sem % mesh % elements(id) % storage % G  +             sem % mesh % elements(id) % storage % QDot
-            sem % mesh % elements(id) % storage % Q =      sem % mesh % elements(id) % storage % Q  + c(k)*deltaT*sem % mesh % elements(id) % storage % G
+         DO id = 1, SIZE( mesh % elements )
+             mesh % elements(id) % storage % G = a(k)* mesh % elements(id) % storage % G  +              mesh % elements(id) % storage % QDot
+             mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G
          END DO
 !$omp end parallel do
          
@@ -80,7 +71,7 @@ MODULE ExplicitMethods
       
    END SUBROUTINE TakeRK3Step
 
-   subroutine TakeRK5Step(sem, t, deltaT)
+   SUBROUTINE TakeRK5Step( mesh, t, externalState, externalGradients, deltaT, ComputeTimeDerivative )
 !  
 !        *****************************************************************************************
 !           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
@@ -88,8 +79,10 @@ MODULE ExplicitMethods
 !        *****************************************************************************************
 !
       implicit none
-      TYPE(DGSem)     :: sem
+      type(HexMesh)      :: mesh
       REAL(KIND=RP)   :: t, deltaT, tk
+      external        :: externalState, externalGradients
+      procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
 !
 !     ---------------
 !     Local variables
@@ -104,12 +97,12 @@ MODULE ExplicitMethods
       DO k = 1, N_STAGES
          
          tk = t + b(k)*deltaT
-         CALL ComputeTimeDerivative( sem, tk )
+         CALL ComputeTimeDerivative( mesh, tk, externalState, externalGradients )
          
 !$omp parallel do schedule(runtime)
-         DO id = 1, SIZE( sem % mesh % elements )
-            sem % mesh % elements(id) % storage % G = a(k)*sem % mesh % elements(id) % storage % G  +             sem % mesh % elements(id) % storage % QDot
-            sem % mesh % elements(id) % storage % Q =      sem % mesh % elements(id) % storage % Q  + c(k)*deltaT*sem % mesh % elements(id) % storage % G
+         DO id = 1, SIZE( mesh % elements )
+            mesh % elements(id) % storage % G = a(k)*mesh % elements(id) % storage % G  +             mesh % elements(id) % storage % QDot
+            mesh % elements(id) % storage % Q =      mesh % elements(id) % storage % Q  + c(k)*deltaT*mesh % elements(id) % storage % G
          END DO
 !$omp end parallel do
          
@@ -117,7 +110,7 @@ MODULE ExplicitMethods
 
    end subroutine TakeRK5Step
 
-   subroutine TakeExplicitEulerStep(sem, t, deltaT)
+   SUBROUTINE TakeExplicitEulerStep( mesh, t, externalState, externalGradients, deltaT, ComputeTimeDerivative )
 !  
 !        *****************************************************************************************
 !           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
@@ -125,8 +118,10 @@ MODULE ExplicitMethods
 !        *****************************************************************************************
 !
       implicit none
-      TYPE(DGSem)     :: sem
+      type(HexMesh)      :: mesh
       REAL(KIND=RP)   :: t, deltaT, tk
+      external        :: externalState, externalGradients
+      procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
 !
 !     ---------------
 !     Local variables
@@ -134,18 +129,17 @@ MODULE ExplicitMethods
 !
       integer                    :: id, k
 
-      CALL ComputeTimeDerivative( sem, tk )
+      CALL ComputeTimeDerivative( mesh, t, externalState, externalGradients )
          
 !$omp parallel do schedule(runtime)
-         DO id = 1, SIZE( sem % mesh % elements )
-            sem % mesh % elements(id) % storage % Q = sem % mesh % elements(id) % storage % Q  + deltaT*sem % mesh % elements(id) % storage % QDot
+         DO id = 1, SIZE( mesh % elements )
+            mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q  + deltaT*mesh % elements(id) % storage % QDot
          END DO
 !$omp end parallel do
          
    end subroutine TakeExplicitEulerStep
 
-
 !
-!///////////////////////////////////////////////////////////////////////////////////////////////////
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 END MODULE ExplicitMethods

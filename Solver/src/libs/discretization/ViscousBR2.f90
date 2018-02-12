@@ -4,9 +4,9 @@
 !   @File:    ViscousBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Sun Feb 11 14:05:25 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 9eb409679efa26d6e91dc6ca4a2dbca96d67813d
+!   @Last revision date: Tue Feb 13 19:37:38 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: c01958bbb74b2de9252027cd1c501fe081a58ef2
 !
 !//////////////////////////////////////////////////////
 !
@@ -20,8 +20,10 @@ module ViscousBR2
    use PhysicsStorage
    use Physics
    use VariableConversion, only: gradientValuesForQ
+   use MPI_Process_Info
    use MPI_Face_Class
    use ViscousMethodClass
+   use DGSEMClass, only: BCState_FCN
    implicit none
 !
 !
@@ -88,7 +90,7 @@ module ViscousBR2
 
       end subroutine BR2_Describe
 
-      subroutine BR2_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
+      subroutine BR2_ComputeGradient( self , mesh , time , externalStateProcedure)
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -97,8 +99,7 @@ module ViscousBR2
          class(BassiRebay2_t), intent(in) :: self
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
-         external                         :: externalStateProcedure
-         external                         :: externalGradientsProcedure
+         procedure(BCState_FCN)           :: externalStateProcedure
          integer                          :: Nx, Ny, Nz
 !
 !        ---------------

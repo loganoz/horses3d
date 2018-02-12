@@ -20,6 +20,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/CylinderIP \
             ./NavierStokes/CylinderDucros \
             ./NavierStokes/CylinderDifferentOrders \
+            ./NavierStokes/CylinderLES \
 	    ./NavierStokes/FlatPlate \
 	    ./NavierStokes/TaylorGreen \
 	    ./NavierStokes/TaylorGreenKEPEC_IP \

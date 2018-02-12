@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Thu Dec 21 13:53:23 2017
-!   @Last revision date: Sun Feb 11 16:30:44 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 5d9704c2bcf32035b80a946790c52fb1c8a7085c
+!   @Last revision date: Tue Feb 13 20:29:46 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 9cdffcbe5af1cc3ea1e17c83c91d73cc17fecde1
 !
 !//////////////////////////////////////////////////////
 !
@@ -53,6 +53,7 @@
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -168,6 +169,7 @@
 !           Called to apply source terms to the equation
 !           --------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -209,6 +211,7 @@
 !           to be performed
 !           ----------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
@@ -232,6 +235,7 @@
 !           error tests to be performed
 !           --------------------------------------------------------
 !
+            use SMConstants
             use FTAssertions
             USE HexMeshClass
             use PhysicsStorage

@@ -1,8 +1,11 @@
 module VolumeIntegrals
    use SMConstants
+   use PhysicsStorage
    use Physics
    use VariableConversion
+   use ElementClass
    use HexMeshClass
+   use FluidData
 #ifdef _HAS_MPI_
    use mpi
 #endif

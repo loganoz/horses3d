@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jan  3 21:04:50 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Tue Feb 13 20:29:46 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 9cdffcbe5af1cc3ea1e17c83c91d73cc17fecde1
 !
 !//////////////////////////////////////////////////////
 !
@@ -53,6 +53,7 @@
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -84,6 +85,7 @@
             real(kind=RP)  :: qq, u, v, w, p
             real(kind=RP)  :: Q(N_EQN), phi, theta
 
+#if defined(NAVIERSTOKES)
             associate ( gammaM2 => dimensionless_ % gammaM2, &
                         gamma => thermodynamics_ % gamma )
             theta = refValues_ % AOATheta*(PI/180.0_RP)
@@ -112,6 +114,7 @@
             end do
 
             end associate
+#endif
             
             
          END SUBROUTINE UserDefinedInitialCondition
@@ -160,6 +163,7 @@
 !           Called to apply source terms to the equation
 !           --------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -201,6 +205,7 @@
 !           to be performed
 !           ----------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
@@ -235,6 +240,7 @@
 !           error tests to be performed
 !           --------------------------------------------------------
 !
+            use SMConstants
             use FTAssertions
             USE HexMeshClass
             use MonitorsClass
@@ -272,7 +278,7 @@
                                                             7.1507132015419264E-002_RP, &
                                                             20.428146710534985_RP, &
                                                             208.93433106182741_RP]
-
+#if defined(NAVIERSTOKES)
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
@@ -331,6 +337,7 @@
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
+#endif
 
 
          END SUBROUTINE UserDefinedFinalize

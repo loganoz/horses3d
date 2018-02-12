@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Oct 28 12:16:18 2017
-!   @Last revision date: Tue Jan 23 16:27:55 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d97cdbe19b7a3be3cd0c8a1f01343de8c1714260
+!   @Last revision date: Tue Feb 13 20:29:40 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 9cdffcbe5af1cc3ea1e17c83c91d73cc17fecde1
 !
 !//////////////////////////////////////////////////////
 !
@@ -68,6 +68,7 @@ end module UserDefinedDataStorage
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             use UserDefinedDataStorage
@@ -188,6 +189,7 @@ end module UserDefinedDataStorage
 !           to be performed
 !           ----------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
@@ -205,6 +207,7 @@ end module UserDefinedDataStorage
 !           Called to apply source terms to the equation
 !           --------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             use UserDefinedDataStorage
@@ -263,6 +266,7 @@ end module UserDefinedDataStorage
 !           error tests to be performed
 !           --------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             use MonitorsClass

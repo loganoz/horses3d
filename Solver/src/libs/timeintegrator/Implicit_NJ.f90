@@ -1,16 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    Implicit_NJ.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 17:14:39 2018
-!   @Last revision date: Fri Jan 19 10:29:26 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: c17f4e94742539c11368332a5d06386553679b0a
-!
-!//////////////////////////////////////////////////////
-!
-!
 !////////////////////////////////////////////////////////////////////////
 !
 !      Implicit_NJ.f90
@@ -23,9 +11,9 @@
 MODULE Implicit_NJ
    use AnalyticalJacobian
    USE SMConstants                  
-   USE DGSEMClass,                  ONLY: DGSem, ComputeTimeDerivative
+   USE DGSEMClass,                  ONLY: DGSem
    USE ElementClass,                ONLY: Element, allocateElementStorage    !arueda: No DGSolutionStorage implemented in nslite3d... Using whole element definitions
-   USE PhysicsStorage,              ONLY: N_EQN, N_GRAD_EQN
+   USE PhysicsStorage
    use HexMeshClass
    USE Jacobian
    USE ColorsClass,                 ONLY: Colors
@@ -33,6 +21,8 @@ MODULE Implicit_NJ
    
    USE CSR_Matrices
    USE FTValueDictionaryClass
+   use TimeIntegratorDefinitions
+   use DGSEMClass, only: ComputeQDot_FCN
    
    IMPLICIT NONE
    
@@ -46,13 +36,14 @@ MODULE Implicit_NJ
 
    CONTAINS
    !/////////////////////////////////////////////////////////////////////////////////////////////////
-   SUBROUTINE TakeBDFStep_NJ (sem, t , dt , controlVariables)
+   SUBROUTINE TakeBDFStep_NJ (sem, t , dt , controlVariables, ComputeTimeDerivative)
 
       IMPLICIT NONE
       TYPE(DGSem),                  INTENT(INOUT)           :: sem                  !<>DGSem class with solution storage 
       REAL(KIND=RP),                INTENT(IN)              :: t                    !< Time at the beginning of time step
       REAL(KIND=RP),                INTENT(IN)              :: dt                   !< Initial (outer) time step (can internally, the subroutine can use a smaller one depending on convergence)
       TYPE(FTValueDictionary),      INTENT(IN)              :: controlVariables     !< Input file variables
+      procedure(ComputeQDot_FCN)                            :: ComputeTimeDerivative
       !--------------------------------------------------------
       CHARACTER(len=LINE_LENGTH)                            :: LinearSolver
         
@@ -111,7 +102,11 @@ MODULE Implicit_NJ
          ALLOCATE(nbr(nelm))
          CALL Look_for_neighbour(nbr, sem % mesh)    
          ALLOCATE(U_n(0:Dimprb-1))
-         CALL ecolors%construct(nbr,.true.)       
+#if defined(NAVIERSTOKES)
+         CALL ecolors%construct(nbr,flowIsNavierStokes)       
+#elif defined(CAHNHILLIARD)
+         CALL ecolors%construct(nbr, .true. ) 
+#endif
          !CALL ecolors%info
          CALL linsolver%construct(DimPrb,controlVariables,sem)             !Constructs linear solver 
          JacByConv = controlVariables % LogicalValueForKey("jacobian by convergence")
@@ -135,7 +130,7 @@ MODULE Implicit_NJ
       ! If the Jacobian must only be computed sometimes
        IF (JacByConv) THEN
          IF (computeA) THEN
-            CALL ComputeNumJac(sem, time+inner_dt, ecolors, nbr, linsolver, nelm, .TRUE.,.FALSE.) 
+            CALL ComputeNumJac(sem, time+inner_dt, ecolors, nbr, linsolver, nelm, ComputeTimeDerivative, .TRUE.,.FALSE.) 
             CALL linsolver%SetOperatorDt(inner_dt)
             computeA = .FALSE. 
          ELSE
@@ -149,7 +144,7 @@ MODULE Implicit_NJ
       
       DO                                                 
          CALL NewtonSolve(sem, time+inner_dt, inner_dt, ecolors, nbr, linsolver, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
-                          PRINT_NEWTON_INFO, minrate,JacByConv,ConvRate, newtonit,CONVERGED)
+                          PRINT_NEWTON_INFO, minrate,JacByConv,ConvRate, newtonit,CONVERGED, ComputeTimeDerivative)
          
          IF (CONVERGED) THEN
             time = time + inner_dt
@@ -161,7 +156,7 @@ MODULE Implicit_NJ
                IF (PRINT_NEWTON_INFO) THEN
                   WRITE(*,*) "Convergence rate is poor,  recomputing jacobian matrix..."
                ENDIF
-               CALL ComputeNumJac(sem, time+inner_dt, ecolors, nbr, linsolver, nelm, .TRUE., .FALSE.)
+               CALL ComputeNumJac(sem, time+inner_dt, ecolors, nbr, linsolver, nelm, ComputeTimeDerivative, .TRUE., .FALSE.)
                CALL linsolver%SetOperatorDt(inner_dt)                                         
             ENDIF
             !
@@ -222,7 +217,7 @@ MODULE Implicit_NJ
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE NewtonSolve(sem, t, dt, ecolors, nbr, linsolver, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
-                          INFO, minrate,JacByConv,ConvRate, niter,CONVERGED)
+                          INFO, minrate,JacByConv,ConvRate, niter,CONVERGED, ComputeTimeDerivative)
 !     
 !     ----------------------
 !     Input-Output arguments
@@ -244,6 +239,7 @@ MODULE Implicit_NJ
       REAL(KIND=RP),                INTENT(OUT)             :: ConvRate
       INTEGER,                      INTENT(OUT)             :: niter
       LOGICAL,                      INTENT(OUT)             :: CONVERGED   
+      procedure(ComputeQDot_FCN)                            :: ComputeTimeDerivative
 !~       TYPE(csrMat_t) :: Acsr        !   CSR matrix 
 !     
 !     ------------------
@@ -274,7 +270,7 @@ MODULE Implicit_NJ
       DO newtonit = 1, MAX_NEWTON_ITER                                 !NEWTON LOOP
          
          IF (.NOT. JacByConv) THEN !If Jacobian must be computed always
-            CALL ComputeNumJac(sem, t, ecolors, nbr, linsolver, nelm, .TRUE., .FALSE.) 
+            CALL ComputeNumJac(sem, t, ecolors, nbr, linsolver, nelm, ComputeTimeDerivative, .TRUE., .FALSE.) 
 !~             call AnalyticalJacobian_Compute(sem,linsolver)
 !~             call linsolver % GetCSRMatrix(Acsr)    ! For testing. TODO: change
 !~             call Acsr % Visualize('AnJacDifOrd.dat')
@@ -282,12 +278,13 @@ MODULE Implicit_NJ
             
             CALL linsolver%SetOperatorDt(dt)
          ELSE
-            CALL ComputeTimeDerivative( sem, t )
+            CALL ComputeTimeDerivative( sem % mesh, t, sem % externalState, sem % externalGradients)
          END IF
          
          CALL ComputeRHS(sem, dt, U_n, nelm, linsolver )               ! Computes b (RHS) and stores it into linsolver
          CALL SYSTEM_CLOCK(COUNT=cli)
-         CALL linsolver%solve(tol=norm*1.e-3_RP, maxiter=500, time= t, dt=dt)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
+         CALL linsolver%solve(tol=norm*1.e-3_RP, maxiter=500, time= t, dt=dt, &
+                              ComputeTimeDerivative = ComputeTimeDerivative)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          CALL SYSTEM_CLOCK(COUNT=clf)
          IF (.NOT. linsolver%converged) THEN                           ! If linsolver did not converge, return converged=false
             converged = .FALSE.
@@ -436,7 +433,7 @@ MODULE Implicit_NJ
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE ComputeNumJac(sem, t, ecolors, nbr, linsolver, nelm, PINFO ,PRINT_JAC)
+   SUBROUTINE ComputeNumJac(sem, t, ecolors, nbr, linsolver, nelm, ComputeTimeDerivative, PINFO ,PRINT_JAC)
 !
 !     ---------------
 !     Input arguments
@@ -448,6 +445,7 @@ MODULE Implicit_NJ
       TYPE(Neighbour),            INTENT(IN)             :: nbr(:)
       CLASS(GenericLinSolver_t),  INTENT(INOUT)          :: linsolver
       INTEGER,                    INTENT(IN)             :: nelm     
+      procedure(ComputeQDot_FCN)                         :: ComputeTimeDerivative
       LOGICAL,                    OPTIONAL               :: PINFO
       LOGICAL,                    OPTIONAL               :: PRINT_JAC
 !
@@ -508,7 +506,7 @@ MODULE Implicit_NJ
 !           Allocate the element storage of the clean element array
 !           -------------------------------------------------------
 !
-            CALL allocateElementStorage( dgs_clean(i), Nx(i), Ny(i), Nz(i), N_EQN, N_GRAD_EQN, .true. )
+            CALL allocateElementStorage( dgs_clean(i), Nx(i), Ny(i), Nz(i), N_EQN, N_GRAD_EQN, computeGradients )
          END DO
          firstIdx(nelm+1) = firstIdx(nelm) + ndofelm(nelm)
          
@@ -532,11 +530,15 @@ MODULE Implicit_NJ
 !        computation of the Jacobian matrix entries
 !        ---------------------------------------------------------------
 !
-         IF (.true.) THEN ! .AND. BR1 (only implementation to date)
+#if defined(NAVIERSTOKES)
+         IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
             ALLOCATE(used(26))   ! 25 neighbors (including itself) and a last entry that will be 0 always (boundary index)
          ELSE
             ALLOCATE(used(8))    ! 7 neighbors (including itself) and a last entry that will be 0 always (boundary index)
          END IF
+#elif defined(CAHNHILLIARD)
+         allocate(used(26))
+#endif
          
 !
 !        -------------------------------------------------------------------------
@@ -548,11 +550,15 @@ MODULE Implicit_NJ
 !              IMPORTANT: These numbers assume conforming meshes!
 !        -------------------------------------------------------------------------
 !
-         IF (.true.) THEN ! .AND. BR1 (only implementation to date)
+#if defined(NAVIERSTOKES)
+         IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
             nnz = maxndofel * 25
          ELSE
             nnz = maxndofel * 7
          END IF
+#elif defined(CAHNHILLIARD)
+         nnz = maxndofel * 25
+#endif
 !
 !        --------------------------------------------------------------
 !        Compute the maximum number of degrees of freedom in each color               TODO: if there's p-adaptation, this has to be recomputed
@@ -593,7 +599,7 @@ MODULE Implicit_NJ
       CALL linsolver%PreallocateA(nnz)
       CALL linsolver%ResetA
       
-      CALL ComputeTimeDerivative( sem, t )
+      CALL ComputeTimeDerivative( sem % mesh, t, sem % externalState, sem % externalGradients)
 !
 !     ------------------------------------------
 !     Compute numerical Jacobian using colorings
@@ -615,7 +621,7 @@ MODULE Implicit_NJ
                                                    sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
             ENDDO
             
-            CALL ComputeTimeDerivative( sem, t )            
+            CALL ComputeTimeDerivative( sem % mesh, t, sem % externalState, sem % externalGradients )            
             
             DO thiselmidx = ielm, felm-1
                thiselm = ecolors%elmnts(thiselmidx)
@@ -643,7 +649,11 @@ MODULE Implicit_NJ
                   ENDIF
                   
                   ! If we are using BR1, we also have to get the contributions of the neighbors of neighbors
-                  IF(.true.) THEN ! .AND. BR1 (only implementation to date)
+#if defined(NAVIERSTOKES)
+                  IF(flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
+#elif defined(CAHNHILLIARD)
+                  if ( .true. ) then
+#endif
                      IF (elmnbr .NE. 0) THEN
                         DO j=1, SIZE(nbr(elmnbr)%elmnt)
                            nbrnbr = nbr(elmnbr)%elmnt(j)                          

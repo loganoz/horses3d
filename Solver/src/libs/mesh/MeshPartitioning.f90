@@ -4,14 +4,15 @@
 !   @File:    MeshPartitioning.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 10:26:08 2017
-!   @Last revision date: Wed Dec 27 12:56:01 2017
+!   @Last revision date: Mon Feb 12 19:00:34 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 14c9de8d349cfb26d83c71f1fd1a362b7d0d74a7
+!   @Last revision commit: 04004b13db40efe389672a6abc8cfae5187c2c0e
 !
 !//////////////////////////////////////////////////////
 !
 module MeshPartitioning
    use SMConstants
+   use MeshTypes
    use HexMeshClass
    use PartitionedMeshClass
 

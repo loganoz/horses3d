@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jan 30 09:07:46 2018
-!   @Last revision date: Sun Feb 11 14:05:27 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 9eb409679efa26d6e91dc6ca4a2dbca96d67813d
+!   @Last revision date: Tue Feb 13 18:26:52 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 9fda048fa3d932b2d823a3c39e7ad4b2e9e19efd
 !
 !//////////////////////////////////////////////////////
 !
@@ -59,6 +59,7 @@
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -220,6 +221,7 @@ print*, dimensionless_ % eps
 !           ----------------------------------------------------------
 !
             USE HexMeshClass
+            use SMConstants
             use MonitorsClass
             IMPLICIT NONE
             CLASS(HexMesh)               :: mesh
@@ -245,6 +247,7 @@ print*, dimensionless_ % eps
 !           Called to apply source terms to the equation
 !           --------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -285,11 +288,10 @@ print*, dimensionless_ % eps
 !           error tests to be performed
 !           --------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
-#if defined(NAVIERSTOKES)
             use MonitorsClass
-#endif
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -298,11 +300,7 @@ print*, dimensionless_ % eps
             type(Thermodynamics_t),    intent(in) :: thermodynamics_
             type(Dimensionless_t),     intent(in) :: dimensionless_
             type(RefValues_t),         intent(in) :: refValues_
-#if defined(NAVIERSTOKES)
             type(Monitor_t),          intent(in) :: monitors
-#else
-            logical, intent(in)  :: monitors
-#endif
             real(kind=RP),             intent(in)  :: elapsedTime
             real(kind=RP),             intent(in)  :: CPUTime
 

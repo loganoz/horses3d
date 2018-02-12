@@ -19,6 +19,7 @@
       USE SMConstants
       USE PhysicsStorage
       USE SharedBCModule
+      use NodalStorageClass
       use Utilities, only: UnusedUnit
       
       IMPLICIT NONE
@@ -61,6 +62,8 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
       SUBROUTINE setUpDGSEM(meshFileName, success)  
+      use NodalStorageClass
+      use SpatialDiscretization
          IMPLICIT NONE  
 !
 !        ---------
@@ -95,6 +98,8 @@
 !        ----------------------
 !
          CALL SetInitialCondition( sem, initialFlowState )
+   
+         call Initialize_SpaceAndTimeMethods(controlVariables, sem % mesh)
          
       END SUBROUTINE setUpDGSEM
       

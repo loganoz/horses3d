@@ -4,9 +4,9 @@
 !   @File:    ViscousIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Sun Feb 11 14:05:26 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 9eb409679efa26d6e91dc6ca4a2dbca96d67813d
+!   @Last revision date: Tue Feb 13 19:37:38 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: c01958bbb74b2de9252027cd1c501fe081a58ef2
 !
 !//////////////////////////////////////////////////////
 !
@@ -20,8 +20,10 @@ module ViscousIP
    use Physics
    use PhysicsStorage
    use VariableConversion, only: gradientValuesForQ
+   use MPI_Process_Info
    use MPI_Face_Class
    use ViscousMethodClass
+   use DGSEMClass
    implicit none
 !
 !
@@ -143,7 +145,7 @@ module ViscousIP
             
       end subroutine IP_Describe
 
-      subroutine IP_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
+      subroutine IP_ComputeGradient( self , mesh , time , externalStateProcedure)
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -152,8 +154,7 @@ module ViscousIP
          class(InteriorPenalty_t), intent(in) :: self
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
-         external                         :: externalStateProcedure
-         external                         :: externalGradientsProcedure
+         procedure(BCState_FCN)           :: externalStateProcedure
          integer                          :: Nx, Ny, Nz
 !
 !        ---------------

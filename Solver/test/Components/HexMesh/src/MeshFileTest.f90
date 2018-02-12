@@ -20,6 +20,7 @@
          USE FTAssertions
          USE HexMeshClass 
          USE NodalStorageClass
+         use ElementClass
          use ReadMeshFile
          IMPLICIT NONE  
          

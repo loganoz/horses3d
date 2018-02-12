@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    FASMultigridClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 17:14:42 2018
-!   @Last revision date: Fri Jan 19 10:29:28 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: c17f4e94742539c11368332a5d06386553679b0a
-!
-!//////////////////////////////////////////////////////
-!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !      FASMultigridClass.f90
@@ -21,14 +9,19 @@
 !        New smoothers should be added to handle unsteady cases
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#if defined(NAVIERSTOKES)
+#include "Includes.h"
 module FASMultigridClass
    use SMConstants
    use ExplicitMethods
    use DGSEMClass
+   use PhysicsStorage
    use Physics
    use InterpolationMatrices
    use MultigridTypes
+   use TimeIntegratorDefinitions
+#if defined(NAVIERSTOKES)
+   use ManufacturedSolutions
+#endif
    
    implicit none
    
@@ -75,9 +68,11 @@ module FASMultigridClass
    logical        :: PostFCycle,PostSmooth ! Post smoothing options
    logical        :: SmoothFine     !      
    logical        :: ManSol         ! Does this case have manufactured solutions?
+   logical        :: Compute_dt
    real(kind=RP)  :: SmoothFineFrac ! Fraction that must be smoothed in fine before going to coarser level
    real(kind=RP)  :: cfl            ! Advective cfl number
    real(kind=RP)  :: dcfl           ! Diffusive cfl number
+   real(kind=RP)  :: dt             ! dt
    
 !========
  contains
@@ -87,6 +82,7 @@ module FASMultigridClass
 !
    subroutine construct(this,controlVariables,sem)
       use FTValueDictionaryClass
+      use StopwatchClass
       implicit none
       !-----------------------------------------------------------
       class(FASMultigrid_t) , intent(inout), target    :: this
@@ -94,6 +90,9 @@ module FASMultigridClass
       type(DGSem), target                  , OPTIONAL  :: sem
       character(len=LINE_LENGTH)                       :: PostSmoothOptions
       !-----------------------------------------------------------
+      
+      call Stopwatch % Pause("Solver")
+      call Stopwatch % Start("Preprocessing")
       
       if (.NOT. PRESENT(sem)) stop 'Fatal error: FASMultigrid needs sem.'
       if (.NOT. PRESENT(controlVariables)) stop 'Fatal error: FASMultigrid needs controlVariables.'
@@ -138,16 +137,26 @@ module FASMultigridClass
 !     -------------------------
       
       if (controlVariables % containsKey("cfl")) then
+#if defined(NAVIERSTOKES)
+         Compute_dt = .TRUE.
          cfl = controlVariables % doublePrecisionValueForKey("cfl")
-         if (.true.) then
+         if (flowIsNavierStokes) then
             if (controlVariables % containsKey("dcfl")) then
                dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
             else
-               ERROR STOP '"cfl" and "dcfl" keywords must be specified for the FAS integrator'
+               ERROR STOP '"cfl" and "dcfl", or "dt", keywords must be specified for the FAS integrator'
             end if
          end if
+#elif defined(CAHNHILLIARD)
+         print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
+         errorMessage(STD_OUT)
+         stop
+#endif
+      elseif (controlVariables % containsKey("dt")) then
+         Compute_dt = .FALSE.
+         dt = controlVariables % doublePrecisionValueForKey("dt")
       else
-         ERROR STOP '"cfl" keyword must be specified for the FAS integrator'
+         ERROR STOP '"cfl" (and "dcfl" if Navier-Stokes) or "dt" keywords must be specified for the FAS integrator'
       end if
       
       select case (controlVariables % StringValueForKey("mg smoother",LINE_LENGTH))
@@ -204,6 +213,9 @@ module FASMultigridClass
 !
       call RecursiveConstructor(this, sem % Nx, sem % Ny, sem % Nz, MGlevels, controlVariables)
       
+      call Stopwatch % Pause("Preprocessing")
+      call Stopwatch % Start("Solver")
+      
    end subroutine construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -253,26 +265,28 @@ module FASMultigridClass
 !        (only for lower meshes)
 !     --------------------------------------------------------------
 !
+#if defined(NAVIERSTOKES)
       if (ManSol) then
          DO iEl = 1, nelem
             
             DO k=0, Solver % p_sem % Nz(iEl)
                DO j=0, Solver % p_sem % Ny(iEl)
                   DO i=0, Solver % p_sem % Nx(iEl)
-                     if (.true.) then
-!                        call ManufacturedSolutionSourceNS(Solver % p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
-!                                                          0._RP, &
-!                                                          Solver % MGStorage(iEl) % Scase (:,i,j,k)  )
+                     if (flowIsNavierStokes) then
+                        call ManufacturedSolutionSourceNS(Solver % p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
+                                                          0._RP, &
+                                                          Solver % MGStorage(iEl) % Scase (:,i,j,k)  )
                      else
-!                        call ManufacturedSolutionSourceEuler(Solver % p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
-!                                                             0._RP, &
-!                                                             Solver % MGStorage(iEl) % Scase (:,i,j,k)  )
+                        call ManufacturedSolutionSourceEuler(Solver % p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
+                                                             0._RP, &
+                                                             Solver % MGStorage(iEl) % Scase (:,i,j,k)  )
                      end if
                   end DO
                end DO
             end DO
          end DO
       end if
+#endif
       
       if (lvl > 1) then
          ALLOCATE  (Solver % Child)
@@ -297,7 +311,8 @@ module FASMultigridClass
                                            externalState     = Solver % p_sem % externalState,                           &
                                            externalGradients = Solver % p_sem % externalGradients,                       &
                                            Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,                                        &
-                                           success = success )
+                                           success = success,                                                            &
+                                           ChildSem = .TRUE. )
          if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
          
          call RecursiveConstructor(Solver % Child, N2x, N2y, N2z, lvl - 1, controlVariables)
@@ -310,17 +325,14 @@ module FASMultigridClass
 !  ---------------------------------------------
 !  Driver of the FAS multigrid solving procedure
 !  ---------------------------------------------
-   subroutine solve(this,timestep,t,FullMG,tol)
+   subroutine solve(this,timestep,t,ComputeTimeDerivative,FullMG,tol)
       implicit none
       class(FASMultigrid_t), intent(inout) :: this
       integer                              :: timestep
       real(kind=RP)                        :: t
+      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
       logical           , OPTIONAL         :: FullMG
       real(kind=RP)     , OPTIONAL         :: tol        !<  Tolerance for full multigrid
-      !-------------------------------------------------
-      integer                                 :: niter
-      integer                                 :: i
-      character(LEN=LINE_LENGTH)              :: FileName
       !-------------------------------------------------
       
       ThisTimeStep = timestep
@@ -337,9 +349,9 @@ module FASMultigridClass
 !     -----------------------
 !
       if (FMG) then
-         call FASFMGCycle(this,t,tol,MGlevels)
+         call FASFMGCycle(this,t,tol,MGlevels, ComputeTimeDerivative)
       else
-         call FASVCycle(this,t,MGlevels,MGlevels)
+         call FASVCycle(this,t,MGlevels,MGlevels, ComputetimeDerivative)
       end if
       
    end subroutine solve  
@@ -349,20 +361,18 @@ module FASMultigridClass
 !  -----------------------------------------
 !  Recursive subroutine to perform a v-cycle
 !  -----------------------------------------
-   recursive subroutine FASVCycle(this,t,lvl,MGlevels)
+   recursive subroutine FASVCycle(this,t,lvl,MGlevels, ComputeTimeDerivative)
       implicit none
       !----------------------------------------------------------------------------
       class(FASMultigrid_t), intent(inout) :: this     !<  Current level solver
       real(kind=RP)        , intent(in)    :: t        !<  Simulation time
       integer              , intent(in)    :: lvl      !<  Current multigrid level
       integer              , intent(in)    :: MGlevels !<  Number of finest multigrid level
+      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
       !----------------------------------------------------------------------------
       integer                       :: iEl,iEQ              !Element/equation counter
       type(FASMultigrid_t), pointer :: Child_p              !Pointer to child
-      integer                       :: N1x, N1y, N1z        !Polynomial orders
-      integer                       :: N2x, N2y, N2z        !Polynomial orders
       integer                       :: N1(3), N2(3)
-      real(kind=RP)                 :: dt                   !Time variables
       real(kind=RP)                 :: maxResidual(N_EQN)
       integer                       :: NumOfSweeps
       real(kind=RP)                 :: PrevRes
@@ -383,19 +393,21 @@ module FASMultigridClass
       sweepcount = 0
       DO
          DO iEl = 1, NumOfSweeps
-!            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
-            call SmoothIt   (this % p_sem, t, dt )
+            if (Compute_dt) dt = MaxTimeStep(this % p_sem, cfl, dcfl )
+            call SmoothIt   (this % p_sem % mesh, t, this % p_sem % externalState, &
+                             this % p_sem % externalGradients, dt, ComputeTimeDerivative )
          end DO
          sweepcount = sweepcount + NumOfSweeps
          
-         if (MGOutput) call PlotResiduals( lvl , sweepcount,this % p_sem )
+         if (MGOutput) call PlotResiduals( lvl , sweepcount,this % p_sem % mesh)
          
          if (SmoothFine .AND. lvl > 1) then ! .AND. .not. FMG
-            if (FMG .and. MAXVAL(ComputeMaxResidual(this % p_sem)) < 0.1_RP) exit
-            call MGRestrictToChild(this,lvl-1,t)
-            call ComputeTimeDerivative(this % Child % p_sem,t)
+            if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
+            call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
+            call ComputeTimeDerivative(this % Child % p_sem % mesh,t, this % Child % p_sem % externalState, &
+                                       this % Child % p_sem % externalGradients)
             
-            if (MAXVAL(ComputeMaxResidual(this % p_sem)) < SmoothFineFrac * MAXVAL(ComputeMaxResidual(this % Child % p_sem))) exit
+            if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals(this % Child % p_sem % mesh))) exit
          else
             exit
          end if
@@ -403,17 +415,17 @@ module FASMultigridClass
          if (sweepcount .ge. MaxSweeps) exit
       end DO
       
-      PrevRes = MAXVAL(ComputeMaxResidual(this % p_sem))
+      PrevRes = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
       
       
       if (lvl > 1) then
-         if (.not. SmoothFine) call MGRestrictToChild(this,lvl-1,t)
+         if (.not. SmoothFine) call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
 !
 !        --------------------
 !        Perform V-Cycle here
 !        --------------------
 !
-         call FASVCycle(this % Child,t, lvl-1,MGlevels)
+         call FASVCycle(this % Child,t, lvl-1,MGlevels, ComputeTimeDerivative)
          
          Child_p => this % Child
 !
@@ -458,24 +470,25 @@ module FASMultigridClass
       sweepcount = 0
       DO
          DO iEl = 1, NumOfSweeps
-!            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
-            call SmoothIt   (this % p_sem, t, dt)
+            if (Compute_dt) dt = MaxTimeStep(this % p_sem, cfl, dcfl )
+            call SmoothIt   (this % p_sem % mesh, t, this % p_sem % externalState, this % p_sem % externalGradients, dt, &
+                             ComputeTimeDerivative)
          end DO
          
          sweepcount = sweepcount + NumOfSweeps
-         if (MGOutput) call PlotResiduals( lvl, sweepcount , this % p_sem )
+         if (MGOutput) call PlotResiduals( lvl, sweepcount , this % p_sem % mesh)
          
          if (sweepcount .ge. MaxSweeps) exit
          
          if (lvl > 1 .and. PostFCycle) then
-            if (MAXVAL(ComputeMaxResidual(this % p_sem)) > PrevRes) then
-               call MGRestrictToChild(this,lvl-1,t)
-               call FASVCycle(this,t,lvl-1,lvl)
+            if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) > PrevRes) then
+               call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
+               call FASVCycle(this,t,lvl-1,lvl, ComputeTimeDerivative)
             else
                exit
             end if
          elseif (PostSmooth .or. PostFCycle) then
-            if (MAXVAL(ComputeMaxResidual(this % p_sem)) < PrevRes) exit
+            if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < PrevRes) exit
          else
             exit
          end if
@@ -503,19 +516,17 @@ module FASMultigridClass
 !  ------------------------------------------------------
 !  Recursive subroutine to perform a full multigrid cycle
 !  ------------------------------------------------------
-   recursive subroutine FASFMGCycle(this,t,tol,lvl)
+   recursive subroutine FASFMGCycle(this,t,tol,lvl, ComputeTimeDerivative)
       implicit none
       !----------------------------------------------------------------------------
       class(FASMultigrid_t), intent(inout) :: this    !<> Current level solver
       real(kind=RP)        , intent(in)    :: t       !<  Simulation time
       real(kind=RP)        , intent(in)    :: tol     !<  Convergence tolerance
       integer              , intent(in)    :: lvl     !<  Current multigrid level
+      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
       !----------------------------------------------------------------------------
       integer        :: iEl, iEQ             ! Element and equation counters
-      integer        :: N1x, N1y, N1z        ! Origin polynomial orders
-      integer        :: N2x, N2y, N2z        ! Destination polynomial orders
       integer        :: N1(3), N2(3)
-      real(kind=RP)  :: dt                   ! Time variables
       real(kind=RP)  :: maxResidual(N_EQN)   ! Maximum residual in each equation
       integer        :: counter              ! Iteration counter
       !----------------------------------------------------------------------------
@@ -535,7 +546,7 @@ module FASMultigridClass
          end DO
 !$omp end parallel do
 
-         call FASFMGCycle(this % Child,t,tol,lvl-1)
+         call FASFMGCycle(this % Child,t,tol,lvl-1, ComputeTimeDerivative)
       end if
 !
 !     ----------------------
@@ -546,22 +557,24 @@ module FASMultigridClass
       if (lvl > 1 ) then
          DO
             counter = counter + 1
-            call FASVCycle(this,t,lvl,lvl)
-            maxResidual = ComputeMaxResidual(this % p_sem)
+            call FASVCycle(this,t,lvl,lvl, ComputeTimeDerivative)
+            maxResidual = ComputeMaxResiduals(this % p_sem % mesh)
             if (maxval(maxResidual) <= tol) exit
          end DO
       else
          DO
             counter = counter + 1
-!            dt = MaxTimeStep(this % p_sem, cfl, dcfl )
-            call SmoothIt   (this % p_sem, t, dt )
-            maxResidual = ComputeMaxResidual(this % p_sem)
+            if (Compute_dt) dt = MaxTimeStep(this % p_sem, cfl, dcfl )
+            call SmoothIt   (this % p_sem % mesh, t, this % p_sem % externalState, &
+                             this % p_sem % externalGradients, dt, ComputeTimeDerivative )
+
+            maxResidual = ComputeMaxResiduals(this % p_sem % mesh)
             
-            if (MOD(counter,100)==0) call PlotResiduals( lvl ,counter, this % p_sem)
+            if (MOD(counter,100)==0) call PlotResiduals( lvl ,counter, this % p_sem % mesh)
             if (maxval(maxResidual) <= tol) exit
          end DO
       end if
-      call PlotResiduals( lvl ,counter, this % p_sem ,.TRUE.)
+      call PlotResiduals( lvl ,counter, this % p_sem % mesh,.TRUE.)
 !
 !     --------------------------------------------------
 !     If not on finest, Interpolate to next (finer) grid
@@ -585,18 +598,17 @@ module FASMultigridClass
 !  ------------------------------------------
 !  Subroutine for restricting the solution and residual to the child solver
 !  ------------------------------------------
-   subroutine MGRestrictToChild(this,lvl,t)
+   subroutine MGRestrictToChild(this,lvl,t, ComputeTimeDerivative)
       implicit none
       !-------------------------------------------------------------
       class(FASMultigrid_t), intent(inout) :: this     !<  Current level solver
       integer              , intent(IN)    :: lvl
       real(kind=RP)        , intent(IN)    :: t
+      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
       !-------------------------------------------------------------
       class(FASMultigrid_t), pointer       :: Child_p  ! The child
       integer  :: iEl
       integer  :: iEQ
-      integer  :: N1x,N1y,N1z
-      integer  :: N2x,N2y,N2z
       integer  :: N1(3), N2(3)
       !-------------------------------------------------------------
       
@@ -646,7 +658,7 @@ module FASMultigridClass
 !     If not on finest level, correct source term
 !     -------------------------------------------
 !      
-      call ComputeTimeDerivative(Child_p % p_sem,t) 
+      call ComputeTimeDerivative(Child_p % p_sem % mesh,t, Child_p % p_sem % externalState, Child_p % p_sem % externalGradients) 
       
 !$omp parallel do schedule(runtime)
       DO iEl = 1, nelem
@@ -706,4 +718,3 @@ module FASMultigridClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 end module FASMultigridClass
-#endif

@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    MultigridSolverClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 17:14:41 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !      MultigridSolverClass.f90
@@ -30,6 +18,8 @@ MODULE MultigridSolverClass
    
    USE PolynomialInterpAndDerivsModule
    USE GaussQuadrature
+   use DGSEMClass
+   use TimeIntegratorDefinitions
    IMPLICIT NONE
    
    PRIVATE
@@ -366,13 +356,14 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this,tol,maxiter,time,dt)
+   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative)
       IMPLICIT NONE
       CLASS(MultigridSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
       REAL(KIND=RP), OPTIONAL                 :: time
       REAL(KIND=RP), OPTIONAL                 :: dt
+      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       !-------------------------------------------------
       INTEGER                                 :: niter
       INTEGER                                 :: i
@@ -559,10 +550,11 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   FUNCTION AxMult(this,x) RESULT(Ax)
+   FUNCTION AxMult(this,x, ComputeTimeDerivative) RESULT(Ax)
       IMPLICIT NONE
       CLASS(MultigridSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP)                           :: x (:)
+      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       REAL(KIND=RP)                           :: Ax(size(x))
       !--------------------------------------------------
 !~      REAL(KIND=RP)                           :: eps
@@ -578,7 +570,8 @@ CONTAINS
       
 !~      CALL this % p_sem % GetQ(buffer)
       CALL this % p_sem % SetQ(this % Ur + x*eps)
-      CALL ComputeTimeDerivative(this % p_sem,timesolve)
+      CALL ComputeTimeDerivative(this % p_sem % mesh, timesolve, this % p_sem % externalState, &
+                                 this % p_sem % externalGradients)
       CALL this % p_sem % GetQdot(F)
 !~      CALL this % p_sem % SetQ(buffer)
       Ax = ( F - this % F_Ur) / eps - x / (dtsolve)                          !First order   ! arueda: this is defined only for BDF1
