@@ -1,6 +1,9 @@
 module MeshTests
    use FTAssertions
    use SMConstants
+   use FaceClass
+   use ElementClass
+   use MeshTypes
    use HexMeshClass
    use MeshConsistencySetup
    use ReadMeshFile

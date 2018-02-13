@@ -8,33 +8,47 @@ ARFLAGS?=cr
 RANLIB?=ranlib
 MOD_FLAG?=-J
 
-LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
-		./build_ns/WeakIntegrals.o \
-		./build_ns/InviscidMethodClass.o \
-		./build_ns/InviscidStandard.o \
-		./build_ns/InviscidSplitForm.o \
-		./build_ns/InviscidMethods.o \
-		./build_ns/ViscousMethodClass.o \
-		./build_ns/ViscousBR1.o \
-		./build_ns/ViscousBR2.o \
-		./build_ns/ViscousIP.o \
-		./build_ns/ViscousMethods.o \
-		./build_ns/SVV.o 
+LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
+		./build_ns/GMRESClass.o \
+		./build_ns/JFNKClass.o \
+		./build_ns/Implicit_JF.o \
+		./build_ns/GenericLinSolverClass.o \
+		./build_ns/PetscSolverClass.o \
+		./build_ns/MKLPardisoSolverClass.o \
+		./build_ns/IterativeSolverClass.o \
+		./build_ns/MultigridTypes.o \
+		./build_ns/TruncationErrorClass.o \
+		./build_ns/ExplicitMethods.o \
+		./build_ns/AnisFASMultigridClass.o \
+		./build_ns/pAdaptationClass.o \
+		./build_ns/FASMultigridClass.o \
+		./build_ns/MultigridSolverClass.o \
+		./build_ns/LinearSolverClass.o \
+		./build_ns/AnalyticalJacobian.o \
+		./build_ns/Implicit_NJ.o \
+		./build_ns/TimeIntegrator.o 
 
-LIBOBJS_CH =    ./build_ch/DGSEMClass.o \
-		./build_ch/WeakIntegrals.o \
-		./build_ch/InviscidMethodClass.o \
-		./build_ch/InviscidStandard.o \
-		./build_ch/InviscidSplitForm.o \
-		./build_ch/InviscidMethods.o \
-		./build_ch/ViscousMethodClass.o \
-		./build_ch/ViscousBR1.o \
-		./build_ch/ViscousBR2.o \
-		./build_ch/ViscousIP.o \
-		./build_ch/ViscousMethods.o \
-		./build_ch/SVV.o 
+LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
+		./build_ch/GMRESClass.o \
+		./build_ch/JFNKClass.o \
+		./build_ch/Implicit_JF.o \
+		./build_ch/GenericLinSolverClass.o \
+		./build_ch/PetscSolverClass.o \
+		./build_ch/MKLPardisoSolverClass.o \
+		./build_ch/IterativeSolverClass.o \
+		./build_ch/MultigridTypes.o \
+		./build_ch/TruncationErrorClass.o \
+		./build_ch/ExplicitMethods.o \
+		./build_ch/AnisFASMultigridClass.o \
+		./build_ch/pAdaptationClass.o \
+		./build_ch/FASMultigridClass.o \
+		./build_ch/MultigridSolverClass.o \
+		./build_ch/LinearSolverClass.o \
+		./build_ch/AnalyticalJacobian.o \
+		./build_ch/Implicit_NJ.o \
+		./build_ch/TimeIntegrator.o 
 
-LIB = discretization
+LIB = timeintegrator
 
 ############################################
 #	MAIN COMPILATION RULES 		   #
@@ -83,7 +97,7 @@ install: all
 header: FORCE
 	@echo
 	@echo "================================"
-	@echo ">>   Building Discretization    "
+	@echo ">>   Building Time integrator    "
 	@echo "================================"
 	@echo
 	@echo

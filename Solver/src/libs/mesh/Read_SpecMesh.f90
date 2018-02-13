@@ -10,11 +10,17 @@
 !
 #include "Includes.h"
 MODULE Read_SpecMesh
-      use HexMeshClass
       use SMConstants
+      use MeshTypes
+      use ElementConnectivityDefinitions
       USE TransfiniteMapClass
       use FacePatchClass
       use MappedGeometryClass
+      use NodeClass
+      use ElementClass
+      use HexMeshClass
+      use sharedBCModule
+      use PhysicsStorage
       implicit none
       
       private

@@ -2,7 +2,9 @@ module TruncationErrorClass
    use SMConstants
    use MultigridTypes
    use DGSEMClass
-   
+   use TimeIntegratorDefinitions
+   use PhysicsStorage
+   use HexMeshClass
    implicit none
    
    private
@@ -35,18 +37,7 @@ module TruncationErrorClass
 !  Module variables
 !  ----------------
 !
-   !
-   !  Interface for the time derivative
-   !  ---------------------------------
-   abstract interface
-      subroutine TimeDerivative_t(sem, t)
-         use DGSEMClass
-         type(DGSem)   :: sem
-         real(kind=RP) :: t
-      end subroutine TimeDerivative_t
-   end interface
-   
-   procedure(TimeDerivative_t), pointer :: TimeDerivative
+    procedure(ComputeQDot_FCN), pointer :: TimeDerivative
    
    !! Parameters
    integer, parameter :: ISOLATED_TE = 0
@@ -114,12 +105,13 @@ module TruncationErrorClass
 !  ----------------------------------------------------------------------
 !  Subroutine that sets P for all elements in TE
 !  ----------------------------------------------------------------------
-   subroutine InitializeForTauEstimation(TE,sem,TruncErrorType)
+   subroutine InitializeForTauEstimation(TE,sem,TruncErrorType, ComputeTimeDerivative)
       implicit none
       !------------------------------------------
       type(TruncationError_t) :: TE(:)
       type(DGSem), intent(in) :: sem
       integer    , intent(in) :: TruncErrorType !<  Either NON_ISOLATED_TE or ISOLATED_TE
+      procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
       !------------------------------------------
       integer                 :: eID
       !------------------------------------------
@@ -165,7 +157,7 @@ module TruncationErrorClass
       real(kind=RP)            :: maxTE
       !-----------------------------
       
-      call TimeDerivative(sem,t)
+      call TimeDerivative(sem % mesh,t, sem % externalState, sem % externalGradients)
       
       do iEl = 1, size(sem % mesh % elements)
          N = sem % mesh % elements(iEl) % Nxyz

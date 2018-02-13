@@ -3,8 +3,8 @@ module VolumeMonitorClass
    use HexMeshClass
    use MonitorDefinitions
    use PhysicsStorage
+   use MPI_Process_Info
 #include "Includes.h"
-
 
    private 
    public VOLUME

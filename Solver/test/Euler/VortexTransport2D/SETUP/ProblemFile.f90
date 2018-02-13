@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jan 23 16:27:56 2018
-!   @Last revision date: Wed Jan 24 09:17:07 2018
+!   @Last revision date: Tue Feb 13 20:29:43 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 1156f0ee63f23c67fe25dfbdd5d9687f4574c161
+!   @Last revision commit: 9cdffcbe5af1cc3ea1e17c83c91d73cc17fecde1
 !
 !//////////////////////////////////////////////////////
 !
@@ -53,6 +53,7 @@
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -211,18 +212,13 @@
 !           to be performed
 !           ----------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
-#if defined(NAVIERSTOKES)
             use MonitorsClass
-#endif
             IMPLICIT NONE
             CLASS(HexMesh)               :: mesh
             REAL(KIND=RP)                :: time
-#if defined(NAVIERSTOKES)
             type(Monitor_t), intent(in) :: monitors
-#else
-            logical, intent(in) :: monitors
-#endif
             
          END SUBROUTINE UserDefinedPeriodicOperation
 !
@@ -234,6 +230,7 @@
 !           Called to apply source terms to the equation
 !           --------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -274,12 +271,11 @@
 !           error tests to be performed
 !           --------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             use FTAssertions
-#if defined(NAVIERSTOKES)
             use MonitorsClass
-#endif
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -288,11 +284,7 @@
             type(Thermodynamics_t),    intent(in) :: thermodynamics_
             type(Dimensionless_t),     intent(in) :: dimensionless_
             type(RefValues_t),         intent(in) :: refValues_
-#if defined(NAVIERSTOKES)
             type(Monitor_t),          intent(in) :: monitors
-#else
-            logical, intent(in)  :: monitors
-#endif
             real(kind=RP),             intent(in)  :: elapsedTime
             real(kind=RP),             intent(in)  :: CPUTime
 #if defined(NAVIERSTOKES)

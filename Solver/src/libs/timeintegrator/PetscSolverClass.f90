@@ -12,6 +12,8 @@ MODULE PetscSolverClass
    USE GenericLinSolverClass
    USE CSR_Matrices
    USE SMConstants
+   use DGSEMClass
+   use TimeIntegratorDefinitions
    IMPLICIT NONE
 #ifdef HAS_PETSC
 #include <petsc.h>
@@ -156,11 +158,12 @@ MODULE PetscSolverClass
 #endif
    END SUBROUTINE SetPetscPreco 
 !/////////////////////////////////////////////////////////////////////////////////////////////////
-   SUBROUTINE SolveLinPrb(this, tol, maxiter, time,dt)
+   SUBROUTINE SolveLinPrb(this, tol, maxiter, time,dt, ComputeTimeDerivative)
       IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT)    :: this
       REAL(KIND=RP), OPTIONAL                         :: time
       REAL(KIND=RP), OPTIONAL                         :: dt
+      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
 #ifdef HAS_PETSC
       PetscReal, OPTIONAL                             :: tol
       PetscInt,  OPTIONAL                             :: maxiter

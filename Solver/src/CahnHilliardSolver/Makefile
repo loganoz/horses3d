@@ -25,25 +25,6 @@ RANLIB=ranlib
 PROG=./bin/horses3d.ch
 
 OBJS_HORSES=	SpatialDiscretization \
-		DGSEMClass \
-		TimeIntegrator \
-		pAdaptationClass \
-		Implicit_JF \
-		JFNKClass \
-		GMRESClass \
-		Implicit_NJ \
-		PetscSolverClass \
-		GenericLinSolverClass \
-		MKLPardisoSolverClass \
-		LinearSolverClass \
-		IterativeSolverClass \
-		MultigridSolverClass \
-		ExplicitMethods \
-		MultigridTypes \
-		AnisFASMultigridClass \
-		FASMultigridClass \
-		TruncationErrorClass \
-		AnalyticalJacobian \
 		HORSES3DMain
 
 OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)

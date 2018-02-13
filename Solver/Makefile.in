@@ -161,9 +161,9 @@ endif
 ##########################################
 ##  	Select HORSES libraries 	##
 ##########################################
-HORSES_LIBS=ftobject foundation mpiutils spectral io physics/navierstokes physics/cahnhilliard mesh discretization jacobian monitors
-HORSES_LIBS_NS=-L$(HOME_DIR)/lib -lmonitors_ns -ljacobian_ns -ldiscretization_ns -lmesh_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
-HORSES_LIBS_CH=-L$(HOME_DIR)/lib -lmonitors_ch -ljacobian_ch -ldiscretization_ch -lmesh_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS=ftobject foundation mpiutils spectral io physics/navierstokes physics/cahnhilliard mesh monitors discretization jacobian timeintegrator
+HORSES_LIBS_NS=-L$(HOME_DIR)/lib -ltimeintegrator_ns -ljacobian_ns -ldiscretization_ns -lmonitors_ns -lmesh_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS_CH=-L$(HOME_DIR)/lib -ltimeintegrator_ch -ljacobian_ch -ldiscretization_ch -lmonitors_ch -lmesh_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject
 ADDONS=horses2tecplot extractgeometry
 HORSESFLAGS += $(MACROS)
 ADDONSFLAGS += $(MACROS)
@@ -256,6 +256,8 @@ clean: FORCE horseslibclean problemfileclean horsesclean addonsclean
 	$(info Removing object *.o files from $(NSLITE3D_PATH)/build)
 	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
 	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod $(HOME_DIR)/include/*.h $(HOME_DIR)/lib/*.a
+	@rm -f $(HOME_DIR)/build_ns/*.o* $(HOME_DIR)/include_ns/*.mod $(HOME_DIR)/include_ns/*.h
+	@rm -f $(HOME_DIR)/build_ch/*.o* $(HOME_DIR)/include_ch/*.mod $(HOME_DIR)/include_ch/*.h
 	@rm -f $(HOME_DIR)/lib/libproblemfile.so
 
 test: all

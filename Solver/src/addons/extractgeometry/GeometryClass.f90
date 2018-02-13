@@ -4,14 +4,16 @@
 !   @File:    GeometryClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Fri Nov 10 15:48:11 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Tue Feb 13 20:29:39 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 9cdffcbe5af1cc3ea1e17c83c91d73cc17fecde1
 !
 !//////////////////////////////////////////////////////
 !
 module GeometryClass
    use SMConstants
+   use PhysicsStorage
+   use NodalStorageClass
    use HexMeshClass
    use FTValueDictionaryClass
    use getInputData_MOD

@@ -6,10 +6,10 @@ restart               = .false.
 Polynomial order      = 4
 Number of time steps  = 2600000
 Reference length = 20.0d-6
-Output Interval       = 1
+Output Interval       = 100
 Convergence tolerance = 1.d-10
 viscous discretization = IP
-!2D mesh offset direction = y
+2D mesh offset direction = y
 interior penalty variant = SIPG
 penalty parameter = 1.0
 !--Multiphase parameters:

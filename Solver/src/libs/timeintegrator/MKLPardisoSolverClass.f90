@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    MKLPardisoSolverClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 17:14:41 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !      PetscSolverClass.f90
@@ -24,6 +12,8 @@ MODULE MKLPardisoSolverClass
    USE CSR_Matrices
    USE SMConstants
    USE PetscSolverClass   ! For allocating Jacobian matrix
+   use DGSEMClass
+   use TimeIntegratorDefinitions
    IMPLICIT NONE
    
    TYPE, EXTENDS(GenericLinSolver_t) :: MKLPardisoSolver_t
@@ -235,7 +225,7 @@ MODULE MKLPardisoSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this,tol,maxiter,time,dt)         
+   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative) 
       IMPLICIT NONE
 !
 !     ----------------------------------------------------
@@ -248,6 +238,7 @@ MODULE MKLPardisoSolverClass
       INTEGER      , OPTIONAL                  :: maxiter
       REAL(KIND=RP), OPTIONAL                  :: time
       REAL(KIND=RP), OPTIONAL                  :: dt
+      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       !-----------------------------------------------------------
 #ifdef HAS_MKL
       INTEGER                                  :: error

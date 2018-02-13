@@ -26,6 +26,9 @@
       use StopwatchClass
       use MPI_Process_Info
       use SpatialDiscretization
+      use pAdaptationClass
+      use NodalStorageClass
+      use ManufacturedSolutions
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -38,6 +41,7 @@ interface
          SUBROUTINE UserDefinedFinalSetup(mesh , thermodynamics_, &
                                                  dimensionless_, &
                                                      refValues_ )
+            use SMConstants
             use PhysicsStorage
             use HexMeshClass
             IMPLICIT NONE
@@ -52,6 +56,7 @@ interface
                                                           monitors, &
                                                        elapsedTime, &
                                                            CPUTime   )
+            use SMConstants
             use PhysicsStorage
             use HexMeshClass
             use MonitorsClass
@@ -85,8 +90,8 @@ end interface
       integer                             :: initial_iteration
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
-      EXTERNAL                            :: externalStateForBoundaryName
-      EXTERNAL                            :: ExternalGradientForBoundaryName
+      procedure(BCState_FCN)              :: externalStateForBoundaryName
+      procedure(BCGradients_FCN)          :: ExternalGradientForBoundaryName
       character(len=LINE_LENGTH)          :: solutionFileName
       
       ! For pAdaptation
@@ -145,6 +150,8 @@ end interface
                                  externalGradients = ExternalGradientForBoundaryName,                          &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
                                  success           = success)
+
+      call Initialize_SpaceAndTimeMethods(controlVariables, sem % mesh)
                            
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
       CALL checkBCIntegrity(sem % mesh, success)
@@ -167,7 +174,7 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator)
+      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative)
 !
 !     --------------------------
 !     Show simulation statistics
@@ -220,6 +227,8 @@ end interface
 ! 
       SUBROUTINE CheckBCIntegrity(mesh, success)
 !
+         use SMConstants
+         use MeshTypes
          USE HexMeshClass
          use FTValueDictionaryClass
          USE SharedBCModule

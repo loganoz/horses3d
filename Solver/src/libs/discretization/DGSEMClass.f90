@@ -22,11 +22,15 @@
 !
 #include "Includes.h"
 Module DGSEMClass
+   use SMConstants
    USE NodalStorageClass
+   use MeshTypes
+   use ElementClass
    USE HexMeshClass
    USE PhysicsStorage
-   USE SpatialDiscretization
+#if defined(NAVIERSTOKES)
    USE ManufacturedSolutions
+#endif
    use MonitorsClass
    use Physics
 #ifdef _HAS_MPI_
@@ -34,22 +38,12 @@ Module DGSEMClass
 #endif
    
    IMPLICIT NONE
-   
-   ABSTRACT INTERFACE
-      SUBROUTINE externalStateSubroutine(x,t,nHat,Q,boundaryName)
-         USE SMConstants
-         REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-         REAL(KIND=RP)   , INTENT(INOUT) :: Q(:)
-         CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
-      END SUBROUTINE externalStateSubroutine
-      
-      SUBROUTINE externalGradientsSubroutine(x,t,nHat,gradU,boundaryName)
-         USE SMConstants
-         REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-         REAL(KIND=RP)   , INTENT(INOUT) :: gradU(:,:)
-         CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
-      END SUBROUTINE externalGradientsSubroutine
-   END INTERFACE
+
+   private
+   public   ComputeQDot_FCN, DGSem, ConstructDGSem
+   public   BCState_FCN, BCGradients_FCN
+
+   public   DestructDGSEM, MaxTimeStep, ComputeMaxResiduals
    
    TYPE DGSem
       REAL(KIND=RP)                                           :: maxResidual
@@ -58,8 +52,8 @@ Module DGSEMClass
       INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
       INTEGER           , ALLOCATABLE                         :: Nx(:), Ny(:), Nz(:)
       TYPE(HexMesh)                                           :: mesh
-      PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState => NULL()
-      PROCEDURE(externalGradientsSubroutine), NOPASS, POINTER :: externalGradients => NULL()
+      PROCEDURE(BCState_FCN)    , NOPASS, POINTER :: externalState => NULL()
+      PROCEDURE(BCGradients_FCN), NOPASS, POINTER :: externalGradients => NULL()
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
       type(Monitor_t)                                        :: monitors
       contains
@@ -71,8 +65,35 @@ Module DGSEMClass
          procedure :: SaveSolutionForRestart
          procedure :: SetInitialCondition => DGSEM_SetInitialCondition
    END TYPE DGSem
-   
-      
+
+   abstract interface
+      SUBROUTINE BCState_FCN(x,t,nHat,Q,boundaryName)
+         USE SMConstants
+         REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+         REAL(KIND=RP)   , INTENT(INOUT) :: Q(:)
+         CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+      END SUBROUTINE BCState_FCN      
+
+      SUBROUTINE BCGradients_FCN(x,t,nHat,gradU,boundaryName)
+         USE SMConstants
+         REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+         REAL(KIND=RP)   , INTENT(INOUT) :: gradU(:,:)
+         CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+      END SUBROUTINE BCGradients_FCN
+
+      SUBROUTINE ComputeQDot_FCN( mesh, time, externalState, externalGradients )
+         use SMConstants
+         use HexMeshClass
+         import BCState_FCN
+         import BCGradients_FCN
+         IMPLICIT NONE 
+         type(HexMesh), target      :: mesh
+         REAL(KIND=RP)              :: time
+         procedure(BCState_FCN)     :: externalState
+         procedure(BCGradients_FCN) :: externalGradients
+      end subroutine ComputeQDot_FCN
+   END INTERFACE
+
    CONTAINS 
 !
 !////////////////////////////////////////////////////////////////////////
@@ -306,6 +327,7 @@ Module DGSEMClass
 !     Get manufactured solution source term (if requested)
 !     ----------------------------------------------------
 !
+#if defined(NAVIERSTOKES)
       IF (self % ManufacturedSol) THEN
          DO el = 1, SIZE(self % mesh % elements) 
             DO k=0, Nz(el)
@@ -325,6 +347,7 @@ Module DGSEMClass
             END DO
          END DO
       END IF
+#endif
 !
 !     -----------------------
 !     Set boundary conditions
@@ -340,12 +363,6 @@ Module DGSEMClass
 !     ------------------
 !
       self % monitors = ConstructMonitors(self % mesh, controlVariables)
-!
-!     -----------------------------------------
-!     Initialize Spatial discretization methods
-!     -----------------------------------------
-!
-      call Initialize_SpaceAndTimeMethods(controlVariables, self % mesh)
       
       NULLIFY(Nx,Ny,Nz)
 !
@@ -534,62 +551,6 @@ Module DGSEMClass
       END DO
       
    END SUBROUTINE GetQdot
- !
-!////////////////////////////////////////////////////////////////////////////////////////      
-!
-!  -----------------------------------
-!  Compute maximum residual L_inf norm
-!  -----------------------------------
-   FUNCTION ComputeMaxResidual(self) RESULT(maxResidual)
-      use MPI_Process_Info
-      IMPLICIT NONE
-      !----------------------------------------------
-      CLASS(DGSem)  :: self
-      REAL(KIND=RP) :: maxResidual(N_EQN)
-      !----------------------------------------------
-      INTEGER       :: id , eq, ierr
-      REAL(KIND=RP) :: localMaxResidual(N_EQN)
-      real(kind=RP) :: localRho, localRhou, localRhov, localRhow, localRhoe
-      real(kind=RP) :: Rho, Rhou, Rhov, Rhow, Rhoe
-      !----------------------------------------------
-      
-      maxResidual = 0.0_RP
-      Rho = 0.0_RP
-      Rhou = 0.0_RP
-      Rhov = 0.0_RP
-      Rhow = 0.0_RP
-      Rhoe = 0.0_RP
-
-!$omp parallel shared(maxResidual, Rho, Rhou, Rhov, Rhow, Rhoe, self) default(private)
-!$omp do reduction(max:Rho,Rhou,Rhov,Rhow,Rhoe)
-      DO id = 1, SIZE( self % mesh % elements )
-         localRho = maxval(abs(self % mesh % elements(id) % storage % QDot(IRHO,:,:,:)))
-         localRhou = maxval(abs(self % mesh % elements(id) % storage % QDot(IRHOU,:,:,:)))
-         localRhov = maxval(abs(self % mesh % elements(id) % storage % QDot(IRHOV,:,:,:)))
-         localRhow = maxval(abs(self % mesh % elements(id) % storage % QDot(IRHOW,:,:,:)))
-         localRhoe = maxval(abs(self % mesh % elements(id) % storage % QDot(IRHOE,:,:,:)))
-      
-         Rho = max(Rho,localRho)
-         Rhou = max(Rhou,localRhou)
-         Rhov = max(Rhov,localRhov)
-         Rhow = max(Rhow,localRhow)
-         Rhoe = max(Rhoe,localRhoe)
-      END DO
-!$omp end do
-!$omp end parallel
-
-      maxResidual = (/Rho, Rhou, Rhov, Rhow, Rhoe/)
-
-#ifdef _HAS_MPI_
-      if ( MPI_Process % doMPIAction ) then
-         localMaxResidual = maxResidual
-         call mpi_allreduce(localMaxResidual, maxResidual, N_EQN, MPI_DOUBLE, MPI_MAX, &
-                            MPI_COMM_WORLD, ierr)
-      end if
-#endif
-
-   END FUNCTION ComputeMaxResidual
-!
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -635,63 +596,99 @@ Module DGSEMClass
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeTimeDerivative( self, time )
-         USE SpatialDiscretization
-         IMPLICIT NONE 
+!  -----------------------------------
+!  Compute maximum residual L_inf norm
+!  -----------------------------------
 !
-!        ---------
-!        Arguments
-!        ---------
-!
-         TYPE(DGSem)   :: self
-         REAL(KIND=RP) :: time
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         INTEGER :: k
-!
-!        -----------------------------------------
-!        Prolongation of the solution to the faces
-!        -----------------------------------------
-!
-!$omp parallel shared(self, time)
-         call self % mesh % ProlongSolutionToFaces()
-!
-!        ----------------
-!        Update MPI Faces
-!        ----------------
-!
-!$omp single
-         call self % mesh % UpdateMPIFacesSolution
-!$omp end single
-!
-!        -----------------
-!        Compute gradients
-!        -----------------
-!
-         if ( computeGradients ) then
-            CALL DGSpatial_ComputeGradient( self % mesh , time , self % externalState , self % externalGradients )
-         end if
+#if defined(NAVIERSTOKES)
+   FUNCTION ComputeMaxResiduals(mesh) RESULT(maxResidual)
+      use MPI_Process_Info
+      IMPLICIT NONE
+      !----------------------------------------------
+      CLASS(HexMesh), intent(in)  :: mesh
+      REAL(KIND=RP) :: maxResidual(N_EQN)
+      !----------------------------------------------
+      INTEGER       :: id , eq, ierr
+      REAL(KIND=RP) :: localMaxResidual(N_EQN)
+      real(kind=RP) :: localRho, localRhou, localRhov, localRhow, localRhoe
+      real(kind=RP) :: Rho, Rhou, Rhov, Rhow, Rhoe
+      !----------------------------------------------
+      
+      maxResidual = 0.0_RP
+      Rho = 0.0_RP
+      Rhou = 0.0_RP
+      Rhov = 0.0_RP
+      Rhow = 0.0_RP
+      Rhoe = 0.0_RP
 
-!$omp single
-         if ( flowIsNavierStokes ) then
-            call self % mesh % UpdateMPIFacesGradients
-         end if
-!$omp end single
-!
-!        -----------------------
-!        Compute time derivative
-!        -----------------------
-!
-         call TimeDerivative_ComputeQDot(mesh = self % mesh , &
-                                         t    = time, &
-                                         externalState     = self % externalState, &
-                                         externalGradients = self % externalGradients )
+!$omp parallel shared(maxResidual, Rho, Rhou, Rhov, Rhow, Rhoe, mesh) default(private)
+!$omp do reduction(max:Rho,Rhou,Rhov,Rhow,Rhoe)
+      DO id = 1, SIZE( mesh % elements )
+         localRho = maxval(abs(mesh % elements(id) % storage % QDot(IRHO,:,:,:)))
+         localRhou = maxval(abs(mesh % elements(id) % storage % QDot(IRHOU,:,:,:)))
+         localRhov = maxval(abs(mesh % elements(id) % storage % QDot(IRHOV,:,:,:)))
+         localRhow = maxval(abs(mesh % elements(id) % storage % QDot(IRHOW,:,:,:)))
+         localRhoe = maxval(abs(mesh % elements(id) % storage % QDot(IRHOE,:,:,:)))
+      
+         Rho = max(Rho,localRho)
+         Rhou = max(Rhou,localRhou)
+         Rhov = max(Rhov,localRhov)
+         Rhow = max(Rhow,localRhow)
+         Rhoe = max(Rhoe,localRhoe)
+      END DO
+!$omp end do
 !$omp end parallel
-!
-      END SUBROUTINE ComputeTimeDerivative
+
+      maxResidual = (/Rho, Rhou, Rhov, Rhow, Rhoe/)
+
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+         localMaxResidual = maxResidual
+         call mpi_allreduce(localMaxResidual, maxResidual, N_EQN, MPI_DOUBLE, MPI_MAX, &
+                            MPI_COMM_WORLD, ierr)
+      end if
+#endif
+
+   END FUNCTION ComputeMaxResiduals
+#elif defined(CAHNHILLIARD)
+   FUNCTION ComputeMaxResiduals(mesh) RESULT(maxResidual)
+      use MPI_Process_Info
+      IMPLICIT NONE
+      !----------------------------------------------
+      CLASS(HexMesh)  :: mesh
+      REAL(KIND=RP) :: maxResidual(N_EQN)
+      !----------------------------------------------
+      INTEGER       :: id , eq, ierr
+      real(kind=RP) :: cMax
+      REAL(KIND=RP) :: localCMax(NCONS)
+      !----------------------------------------------
+      
+      maxResidual = 0.0_RP
+
+      cMax = 0.0_RP
+      localCMax = 0.0_RP
+!$omp parallel shared(maxResidual,cMax,mesh) default(private)
+!$omp do reduction(max:cMax)
+      DO id = 1, SIZE( mesh % elements )
+         localCMax(1) = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
+         
+         cMax = max(localCMax(1), cMax)
+      END DO
+!$omp end do
+!$omp end parallel
+
+      maxResidual = cMax
+
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+         localCMax = maxResidual
+         call mpi_allreduce(localCMax, maxResidual, N_EQN, MPI_DOUBLE, MPI_MAX, &
+                            MPI_COMM_WORLD, ierr)
+      end if
+#endif
+   END FUNCTION ComputeMaxResiduals
+#endif
+
 !
 !//////////////////////////////////////////////////////////////////////// 
 !
@@ -729,7 +726,7 @@ Module DGSEMClass
       type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction
       external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
       !--------------------------------------------------------
-      
+#if defined(NAVIERSTOKES)      
 !     Initializations
 !     ---------------
       
@@ -837,6 +834,7 @@ Module DGSEMClass
          self % mesh % dt_restriction = DT_DIFF
          MaxTimeStep  = TimeStep_Visc
       end if
+#endif
    end function MaxTimeStep
 !
 !////////////////////////////////////////////////////////////////////////

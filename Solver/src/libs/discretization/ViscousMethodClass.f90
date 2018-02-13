@@ -4,6 +4,7 @@ module ViscousMethodClass
    use Physics
    use PhysicsStorage
    use MPI_Face_Class
+   use DGSEMClass, only: BCState_FCN
    implicit none
 !
    private
@@ -42,7 +43,7 @@ module ViscousMethodClass
 
       end subroutine BaseClass_Describe
 
-      subroutine BaseClass_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
+      subroutine BaseClass_ComputeGradient( self , mesh , time , externalStateProcedure)
 !
 !        *****************************************************
 !           BaseClass computes Local Gradients by default
@@ -55,8 +56,7 @@ module ViscousMethodClass
          class(ViscousMethod_t), intent(in) :: self
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
-         external                         :: externalStateProcedure
-         external                         :: externalGradientsProcedure
+         procedure(BCState_FCN)           :: externalStateProcedure
 !
 !        ---------------
 !        Local variables

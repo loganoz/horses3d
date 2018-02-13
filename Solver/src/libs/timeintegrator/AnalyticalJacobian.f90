@@ -2,17 +2,11 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    AnalyticalJacobian.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 17:14:36 2018
-!   @Last revision date: Fri Jan 19 10:29:24 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: c17f4e94742539c11368332a5d06386553679b0a
-!
-!//////////////////////////////////////////////////////
-!
-!
-!//////////////////////////////////////////////////////
-!
+!   @Author:  Andrés Rueda (a.rueda@upm.es)
+!   @Created: Tue Oct 31 14:00:00 2017
+!   @Last revision date: Tue Feb 13 19:37:39 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: c01958bbb74b2de9252027cd1c501fe081a58ef2
 !
 !//////////////////////////////////////////////////////
 !
@@ -22,6 +16,7 @@ module AnalyticalJacobian
    use SMConstants
    use HexMeshClass
    use NodalStorageClass
+   use PhysicsStorage
    use Physics
    use Jacobian
    use LinearSolverClass
@@ -208,7 +203,7 @@ contains
       do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
          Idx0 = ijk2local(i,j,k,1,NCONS,N(1),N(2),N(3)) ! Beginning index of local block matrix
          
-!         call InviscidJacobian(e % storage % Q(:,i,j,k),dfdq_,dgdq_,dhdq_)
+         call InviscidJacobian(e % storage % Q(:,i,j,k),dfdq_,dgdq_,dhdq_)
          
          dFdQ(Idx0:Idx0+NCONS-1,Idx0:Idx0+NCONS-1) = dfdq_
          dGdQ(Idx0:Idx0+NCONS-1,Idx0:Idx0+NCONS-1) = dgdq_

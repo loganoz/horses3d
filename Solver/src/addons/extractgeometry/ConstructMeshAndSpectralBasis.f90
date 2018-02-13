@@ -4,15 +4,18 @@
 !   @File:    ConstructMeshAndSpectralBasis.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Nov  1 19:56:53 2017
-!   @Last revision date: Tue Jan 23 16:27:50 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d97cdbe19b7a3be3cd0c8a1f01343de8c1714260
+!   @Last revision date: Tue Feb 13 20:29:37 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 9cdffcbe5af1cc3ea1e17c83c91d73cc17fecde1
 !
 !//////////////////////////////////////////////////////
 !
 module ConstructMeshAndSpectralBasis_MOD
+   use SMConstants
    use SolutionFile
+   use PhysicsStorage
    use NodalStorageClass
+   use ElementClass
    use mainKeywordsModule
    use FTValueDictionaryClass
    use HexMeshClass

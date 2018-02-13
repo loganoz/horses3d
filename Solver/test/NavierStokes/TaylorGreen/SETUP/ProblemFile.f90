@@ -41,6 +41,7 @@
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -163,6 +164,7 @@
 !           --------------------------------------------
 !
             USE HexMeshClass
+            use SMConstants
             use PhysicsStorage
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
@@ -203,6 +205,7 @@
 !           to be performed
 !           ----------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
@@ -238,6 +241,7 @@
 !           --------------------------------------------------------
 !
             use FTAssertions
+            use SMConstants
             USE HexMeshClass
             use MonitorsClass
             use PhysicsStorage

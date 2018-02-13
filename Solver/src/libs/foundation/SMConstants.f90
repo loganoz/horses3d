@@ -54,6 +54,6 @@
 
          INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
 
-         CHARACTER(len=*), parameter   :: VERSION = "v0.8.4: Bug fix that affects IP and BR2 methods"
+         CHARACTER(len=*), parameter   :: VERSION = "v0.8.5: Version with libtimeintegrator"
          
       END MODULE SMConstants

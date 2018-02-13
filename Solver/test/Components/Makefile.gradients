@@ -100,40 +100,41 @@ OBJS_HORSES=  SMConstants \
 		ViscousIP \
 		ViscousMethods \
 		WeakIntegrals \
-		NavierStokesSolver/DGSEMClass \
+		DGSEMClass \
+		TimeIntegratorDefinitions \
 		NodalStorageClass \
 		Headers \
 		ReadInputFile \
-		NavierStokesSolver/TimeIntegrator \
+		TimeIntegrator \
 		ConnectivityClass \
 		Jacobian \
 		CSR_Matrices \
-		NavierStokesSolver/pAdaptationClass \
+		pAdaptationClass \
 		navierstokes/ManufacturedSolutions \
 		DenseMatUtilities \
 		NavierStokesSolver/SpatialDiscretization\
-		NavierStokesSolver/Implicit_JF \
-		NavierStokesSolver/JFNKClass \
-		NavierStokesSolver/GMRESClass \
-		NavierStokesSolver/Implicit_NJ \
+		Implicit_JF \
+		JFNKClass \
+		GMRESClass \
+		Implicit_NJ \
 		ColorsClass \
-		NavierStokesSolver/PetscSolverClass \
-		NavierStokesSolver/GenericLinSolverClass \
-		NavierStokesSolver/MKLPardisoSolverClass \
-		NavierStokesSolver/LinearSolverClass \
-		NavierStokesSolver/IterativeSolverClass \
-		NavierStokesSolver/MultigridSolverClass \
-		NavierStokesSolver/ExplicitMethods \
-		NavierStokesSolver/NonlinearMultigrid/FASMultigridClass \
-		NavierStokesSolver/NonlinearMultigrid/AnisFASMultigridClass \
-		NavierStokesSolver/NonlinearMultigrid/MultigridTypes \
+		PetscSolverClass \
+		GenericLinSolverClass \
+		MKLPardisoSolverClass \
+		LinearSolverClass \
+		IterativeSolverClass \
+		MultigridSolverClass \
+		ExplicitMethods \
+		FASMultigridClass \
+		AnisFASMultigridClass \
+		MultigridTypes \
 		ProblemFile \
 		ReadMeshFile \
 		Read_HDF5Mesh_HOPR \
 		Read_SpecMesh \
-		NavierStokesSolver/AnalyticalJacobian \
+		AnalyticalJacobian \
 		InterpolationMatrices \
-		NavierStokesSolver/TruncationErrorClass
+		TruncationErrorClass
 
 OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 OBJS_CASE_EXEC=$(foreach obj,$(OBJS_CASE),./build/$(obj).o)
@@ -249,7 +250,7 @@ LIBFLAGS=  FC='$(FC)' \
 all: header mkdirs mkdirsComponents horseslibs $(PROG)
 
 
-$(PROG): $(OBJS_CASE) $(OBJS_HORSES) ProblemFile
+$(PROG): $(OBJS_HORSES) $(OBJS_CASE) ProblemFile
 	@echo
 	@echo
 	@echo "---------------------------------"

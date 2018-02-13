@@ -8,6 +8,7 @@ module ViscousBR1
    use MPI_Process_Info
    use MPI_Face_Class
    use ViscousMethodClass
+   use DGSEMClass, only: BCState_FCN
    implicit none
 !
 !
@@ -45,7 +46,7 @@ module ViscousBR1
 
       end subroutine BR1_Describe
 
-      subroutine BR1_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
+      subroutine BR1_ComputeGradient( self , mesh , time , externalStateProcedure )
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -53,8 +54,7 @@ module ViscousBR1
          class(BassiRebay1_t), intent(in) :: self
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
-         external                         :: externalStateProcedure
-         external                         :: externalGradientsProcedure
+         procedure(BCState_FCN)           :: externalStateProcedure
          integer                          :: Nx, Ny, Nz
 !
 !        ---------------

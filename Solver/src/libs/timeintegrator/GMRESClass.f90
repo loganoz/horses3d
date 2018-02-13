@@ -1,17 +1,6 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    GMRESClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 17:14:37 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
 MODULE GMRESClass
    USE SMConstants,                 ONLY: RP
+   use DGSEMClass,   only: ComputeQDot_FCN
    IMPLICIT NONE
    
    TYPE GmresSolver
@@ -52,14 +41,14 @@ MODULE GMRESClass
    END TYPE GmresSolver
 
    ABSTRACT INTERFACE
-      SUBROUTINE matmultsub(v,x)
-         IMPORT RP
+      SUBROUTINE matmultsub(v,x, ComputeTimeDerivative)
+         use SMConstants
+         use DGSEMClass, only: ComputeQDot_FCN
          REAL(KIND = RP), INTENT(IN)         :: v(:)
          REAL(KIND = RP), INTENT(OUT)        :: x(:)
+         procedure(ComputeQDot_FCN)          :: ComputeTimeDerivative
       END SUBROUTINE
    END INTERFACE
-   
-
 
    PRIVATE
    PUBLIC   :: GmresSolver 
@@ -151,13 +140,14 @@ MODULE GMRESClass
          this%x0 = x0
       END SUBROUTINE
 !///////////////////////////////////////////////////////////////////////// 
-      RECURSIVE SUBROUTINE innerGMRES(this)   !arueda: This subroutine has been made recursive since GMRES can be preconditioned using another GMRES
+      RECURSIVE SUBROUTINE innerGMRES(this, ComputeTimeDerivative)   !arueda: This subroutine has been made recursive since GMRES can be preconditioned using another GMRES
          CLASS(GmresSolver), INTENT(INOUT)      :: this
+         procedure(ComputeQDot_FCN)             :: ComputeTimeDerivative
          INTEGER                                :: i,j,k, l, ii,kk, m
          REAL(KIND = RP)                        :: tmp1, tmp2
          
          !Compute first krylov vector
-         CALL this%MatMult(this%x0,this%V(:,1))
+         CALL this%MatMult(this%x0,this%V(:,1), ComputeTimeDerivative)
          this%V(:,1) = this%RHS - this%V(:,1)   
          this%g(1) = NORM2(this%V(:,1))
          this%V(:,1) = this%V(:,1) / this%g(1)
@@ -167,10 +157,10 @@ MODULE GMRESClass
 
          DO j = 1,m ! Krylov loop
             IF (this%FLEXIBLE) THEN
-               CALL this%PCMult(this%V(:,j),this%Z(:,j))
-               CALL this%MatMult(this%Z(:,j),this%W)
+               CALL this%PCMult(this%V(:,j),this%Z(:,j), ComputeTimeDerivative)
+               CALL this%MatMult(this%Z(:,j),this%W, ComputeTimeDerivative)
             ELSE
-               CALL this%MatMult(this%V(:,j),this%W)
+               CALL this%MatMult(this%V(:,j),this%W, ComputeTimeDerivative)
             ENDIF
             
             DO i = 1,j
@@ -237,8 +227,9 @@ MODULE GMRESClass
          ENDIF
        END SUBROUTINE innerGMRES
  !/////////////////////////////////////////////////////////////////////////      
-      RECURSIVE SUBROUTINE SolveGMRES(this)    !arueda: This subroutine has been made recursive since GMRES can be preconditioned using another GMRES
+      RECURSIVE SUBROUTINE SolveGMRES(this, ComputeTimeDerivative)    !arueda: This subroutine has been made recursive since GMRES can be preconditioned using another GMRES
          CLASS(GmresSolver), INTENT(INOUT)      :: this
+         procedure(ComputeQDot_FCN)             :: ComputeTimeDerivative
          
          INTEGER                                :: i
          INTEGER                                :: MAX_OUTER_ITER = 5000 ! this is a "security" limit, should never be reached....
@@ -247,7 +238,7 @@ MODULE GMRESClass
          this%CONVERGED = .FALSE.
          this%x0 = 0._RP
          DO i = 1, MAX_OUTER_ITER
-            CALL innerGMRES(this)
+            CALL innerGMRES(this, ComputeTimeDerivative)
             IF (this%ERROR_CODE .NE. 0) THEN ! Some day, and that day may never come, this will be useful
                PRINT*, 'ERROR IN GMRES, ERROR CODE: ', this%ERROR_CODE
                CALL this%Destruct()
