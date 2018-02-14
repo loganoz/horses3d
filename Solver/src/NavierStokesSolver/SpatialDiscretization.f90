@@ -532,7 +532,7 @@ module SpatialDiscretization
 ! 
       SUBROUTINE computeElementInterfaceFlux_NS(f)
          use FaceClass
-         use Physics
+         use RiemannSolvers
          use PhysicsStorage
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
@@ -625,7 +625,7 @@ module SpatialDiscretization
 
       SUBROUTINE computeMPIFaceFlux_NS(f)
          use FaceClass
-         use Physics
+         use RiemannSolvers
          use PhysicsStorage
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
@@ -687,7 +687,7 @@ module SpatialDiscretization
       USE ElementClass
       use FaceClass
       USE ViscousMethods
-      USE Physics
+      USE RiemannSolvers
       use PhysicsStorage
       USE BoundaryConditionFunctions
       IMPLICIT NONE
@@ -792,7 +792,7 @@ module SpatialDiscretization
 
       SUBROUTINE computeElementInterfaceFlux_SVV(f)
          use FaceClass
-         use Physics
+         use RiemannSolvers
          use PhysicsStorage
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
@@ -874,7 +874,7 @@ module SpatialDiscretization
 
       SUBROUTINE computeMPIFaceFlux_SVV(f)
          use FaceClass
-         use Physics
+         use RiemannSolvers
          use PhysicsStorage
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
@@ -954,7 +954,7 @@ module SpatialDiscretization
       USE ElementClass
       use FaceClass
       USE ViscousMethods
-      USE Physics
+      USE RiemannSolvers
       use PhysicsStorage
       USE BoundaryConditionFunctions
       IMPLICIT NONE

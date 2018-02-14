@@ -27,12 +27,11 @@
 !
       USE SMConstants
       USE PhysicsStorage
-      use RiemannSolvers
       use VariableConversion
       IMPLICIT NONE
 
       private
-      public  RiemannSolver, InviscidFlux, ViscousFlux
+      public  InviscidFlux, ViscousFlux
       public  InviscidJacobian
       public  getStressTensor, SutherlandsLaw
 !

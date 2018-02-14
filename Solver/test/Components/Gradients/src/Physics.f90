@@ -336,16 +336,6 @@
      END MODULE PhysicsStorage
 !    **********
 !@mark -
-
-   module RiemannSolvers
-
-      contains
-         subroutine SetRiemannSolver(which, splitType)
-            integer, intent(in)  :: which
-            integer, intent(in)  :: splitType
-         end subroutine SetRiemannSolver
-
-   end module RiemannSolvers
 !
 !  **************
    Module Physics 
@@ -385,22 +375,6 @@
 !     ========
       CONTAINS 
 !     ========
-!
-!     ////////////////////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE RiemannSolver( QLeft, QRight, nHat, t1, t2, flux )
-         IMPLICIT NONE
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         REAL(KIND=RP), DIMENSION(N_EQN)  :: Qleft, Qright, flux
-         REAL(KIND=RP), DIMENSION(3)      :: nHat, t1, t2
-         
-         flux = 0.5_RP*(Qleft + Qright)*( nHat(1) + nHat(2) + nHat(3) )
-      
-      END SUBROUTINE RiemannSolver
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -780,6 +754,35 @@
 
       
    END Module Physics
+   
+   module RiemannSolvers
+      use SMConstants
+      use Physics
+      use PhysicsStorage
+      use VariableConversion
+      use FluidData, only: equationOfState, getThermalConductivity
+      contains
+         subroutine SetRiemannSolver(which, splitType)
+            integer, intent(in)  :: which
+            integer, intent(in)  :: splitType
+         end subroutine SetRiemannSolver
+!
+!     ////////////////////////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE RiemannSolver( QLeft, QRight, nHat, t1, t2, flux )
+         IMPLICIT NONE
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         REAL(KIND=RP), DIMENSION(N_EQN)  :: Qleft, Qright, flux
+         REAL(KIND=RP), DIMENSION(3)      :: nHat, t1, t2
+         
+         flux = 0.5_RP*(Qleft + Qright)*( nHat(1) + nHat(2) + nHat(3) )
+      
+      END SUBROUTINE RiemannSolver
+   end module RiemannSolvers
 !@mark -
 !
 ! /////////////////////////////////////////////////////////////////////

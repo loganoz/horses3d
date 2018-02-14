@@ -32,6 +32,13 @@ module AnalyticalJacobian
       logical       :: created =.false.
    end type ElementDivMatrix_t
    
+!
+!  ----------
+!  Parameters
+!  ----------
+!
+   real(kind=RP), parameter :: jaceps = 1.e-8_RP ! Minimum value of a Jacobian entry (smaller values are considered as 0._RP)
+   
    ! Variables to be moved to Jacobian Storage
    integer, allocatable :: ndofelm(:)
    integer, allocatable :: firstIdx(:)
@@ -44,17 +51,28 @@ contains
 !  -------------------------------------------------------
 !  Subroutine for computing the analytical Jacobian matrix
 !  -------------------------------------------------------
-   subroutine AnalyticalJacobian_Compute(sem,linsolver) !,Jacobian
+   subroutine AnalyticalJacobian_Compute(sem,linsolver,BlockDiagonalized) !,Jacobian
       implicit none
       !--------------------------------------------
       type(DGSem)              , intent(inout) :: sem
-      class(GenericLinSolver_t), intent(inout) :: linsolver
+      class(GenericLinSolver_t), intent(inout) :: linsolver          !
+      logical        , optional, intent(in)    :: BlockDiagonalized  !<? Construct only the block diagonal?
       !--------------------------------------------
-      integer :: eID
-      
+      integer :: eID, fID  ! Element and face counters
       integer :: nnz
       integer :: nelem
+      logical :: BlockDiagonal
       !--------------------------------------------
+      
+!
+!     Initializations
+!     ---------------
+      
+      if ( present(BlockDiagonalized) ) then
+         BlockDiagonal = BlockDiagonalized
+      else
+         BlockDiagonal = .FALSE.
+      end if
       
       nelem = size(sem % mesh % elements)
       
@@ -94,11 +112,29 @@ contains
 !$omp end do
 
 !
-!     Add faces contribution (TODO)
-!     -----------------------------
+!     Add faces contribution to off-diagonal blocks
+!     ---------------------------------------------
+      if (.not. BlockDiagonal) then
+!$omp do schedule(runtime)
+         do fID = 1, size(sem % mesh % faces)
+            call Local_OffDiagonalFaceContribution(sem % mesh % faces(fID),linsolver)
+         end do
+!$omp end do
+      end if
       
+!     Pre-assembly the matrix with the volumetric contribution
+!        TODO: this is needed to change from INSERT_VALUES to ADD_VALUES in PETSc
+!     --------------------------------------------------------
       
-      
+!
+!     Add faces contribution to diagonal blocks
+!     -----------------------------------------
+!$omp do schedule(runtime)
+      do fID = 1, size(sem % mesh % faces)
+         call Local_DiagonalFaceContribution(sem % mesh % faces(fID),linsolver)
+      end do
+!$omp end do
+
 !$omp end parallel
       
 !
@@ -132,7 +168,8 @@ contains
       type(ElementDivMatrix_t)      :: ElDivMatrix       ! Matrix containing the terms for computing the volumetric terms of the DG div
       integer              :: N(3)              ! Polynomial orders of element
       integer              :: NDOFEL            ! Number of degrees of freedom in element
-      integer, allocatable :: irow_0(:)
+      integer, allocatable :: irow_0(:)         ! Row indexes for the matrix
+      integer, allocatable :: irow(:)           ! Formatted row indexes for the column assignment (small values with index -1)
       integer              :: j
       
       !--------------------------------------------
@@ -162,15 +199,48 @@ contains
       
       ! Setting matrix by columns
       do j=1, NDOFEL
-         ! TODO: add where statement to ignore small values
+         irow = irow_0
+         where (LocalMatrix(:,j) < jaceps) irow = -1
          
-         call linsolver % setAColumn(NDOFEL, irow_0, firstIdx(e % eID) + j-1, LocalMatrix(:,j) )
+         call linsolver % setAColumn(NDOFEL, irow, firstIdx(e % eID) + j-1, LocalMatrix(:,j) )
       end do
       
       deallocate (LocalMatrix)
       
    end subroutine Local_VolumetricMatrix
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------------------------------
+!  Subroutine for adding the faces' contribution to the off-diagonal blocks of the Jacobian matrix
+!  -----------------------------------------------------------------------------------------------
+   subroutine Local_OffDiagonalFaceContribution(f,linsolver)
+      implicit none
+      !--------------------------------------------
+      type(Face)               , intent(in)    :: f
+      class(GenericLinSolver_t), intent(inout) :: linsolver
+      !--------------------------------------------
+      
+      
+      
+   end subroutine Local_OffDiagonalFaceContribution
 
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -------------------------------------------------------------------------------------------
+!  Subroutine for adding the faces' contribution to the diagonal blocks of the Jacobian matrix
+!  -------------------------------------------------------------------------------------------
+   subroutine Local_DiagonalFaceContribution(f,linsolver)
+      implicit none
+      !--------------------------------------------
+      type(Face)               , intent(in)    :: f
+      class(GenericLinSolver_t), intent(inout) :: linsolver
+      !--------------------------------------------
+      
+      
+      
+   end subroutine Local_DiagonalFaceContribution
 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
