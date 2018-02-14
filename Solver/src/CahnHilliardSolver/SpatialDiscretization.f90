@@ -40,7 +40,7 @@ module SpatialDiscretization
 
       private
       public  ComputeLaplacian, DGSpatial_ComputeGradient
-      public  Initialize_SpaceAndTimeMethods, ComputeTimeDerivative
+      public  Initialize_SpaceAndTimeMethods, ComputeTimeDerivative, ComputeTimeDerivativeIsolated
 !
 !     ========      
       CONTAINS 
@@ -255,6 +255,22 @@ module SpatialDiscretization
 !$omp end parallel
 
       END SUBROUTINE ComputeTimeDerivative
+      
+      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, time, externalState, externalGradients)
+         use Physics, only: QuarticDWPDerivative
+         IMPLICIT NONE 
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(HexMesh), target      :: mesh
+         REAL(KIND=RP)              :: time
+         procedure(BCState_FCN)     :: externalState
+         procedure(BCGradients_FCN) :: externalGradients
+         
+         ERROR stop 'ComputeTimeDerivativeIsolated not implemented for Cahn-Hilliard'
+      END SUBROUTINE ComputeTimeDerivativeIsolated
 
       subroutine ComputeLaplacian( mesh , t, externalState, externalGradients )
          implicit none

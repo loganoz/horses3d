@@ -14,9 +14,9 @@
 !      The procedures, *even if empty* that must be defined are
 !
 !      UserDefinedSetUp
-!      UserDefinedInitialCondition(sem)
-!      UserDefinedPeriodicOperation(sem)
-!      UserDefinedFinalize(sem)
+!      UserDefinedInitialCondition(mesh)
+!      UserDefinedPeriodicOperation(mesh)
+!      UserDefinedFinalize(mesh)
 !      UserDefinedTermination
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -59,7 +59,7 @@
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
-!              - By default it sets an uniform initial
+!              - By default it sets a uniform initial
 !                 condition.
 !           ------------------------------------------------
 !
@@ -80,6 +80,7 @@
             real(kind=RP)  :: qq, u, v, w, p
             real(kind=RP)  :: Q(N_EQN), phi, theta
 
+#if defined(NAVIERSTOKES)
             associate ( gammaM2 => dimensionless_ % gammaM2, &
                         gamma => thermodynamics_ % gamma )
             theta = refValues_ % AOATheta*(PI/180.0_RP)
@@ -116,6 +117,7 @@
             end do
 
             end associate
+#endif
             
          END SUBROUTINE UserDefinedInitialCondition
 

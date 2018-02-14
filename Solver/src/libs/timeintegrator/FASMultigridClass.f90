@@ -166,6 +166,7 @@ module FASMultigridClass
 !     -------------------------
       
       if (controlVariables % containsKey("cfl")) then
+#if defined(NAVIERSTOKES)      
          Compute_dt = .TRUE.
          cfl = controlVariables % doublePrecisionValueForKey("cfl")
          if (flowIsNavierStokes) then
@@ -175,6 +176,11 @@ module FASMultigridClass
                ERROR STOP '"cfl" and "dcfl", or "dt", keywords must be specified for the FAS integrator'
             end if
          end if
+#elif defined(CAHNHILLIARD)
+         print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
+         errorMessage(STD_OUT)
+         stop
+#endif
       elseif (controlVariables % containsKey("dt")) then
          Compute_dt = .FALSE.
          dt = controlVariables % doublePrecisionValueForKey("dt")

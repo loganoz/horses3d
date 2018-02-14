@@ -174,7 +174,7 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative)
+      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !     --------------------------
 !     Show simulation statistics

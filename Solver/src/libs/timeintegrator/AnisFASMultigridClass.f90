@@ -423,12 +423,13 @@ module AnisFASMultigridClass
 !  ---------------------------------------------
 !  Driver of the FAS multigrid solving procedure
 !  ---------------------------------------------
-   subroutine solve(this,timestep,t,TE,TEType)
+   subroutine solve(this,timestep,t,ComputeTimeDerivative,ComputeTimeDerivativeIsolated,TE,TEType)
       implicit none
       class(AnisFASMultigrid_t)        , intent(inout) :: this       !<> The AnisFAS
       integer                          , intent(in)    :: timestep   !<  Current time step
       real(kind=RP)                    , intent(in)    :: t          !<  Current simulation time
       procedure(ComputeQDot_FCN)                       :: ComputeTimeDerivative
+      procedure(ComputeQDot_FCN), optional             :: ComputeTimeDerivativeIsolated
       type(TruncationError_t), optional, intent(inout) :: TE(:)      !<> Truncation error for all elements. If present, the multigrid solver also estimates the TE
       integer                , optional, intent(in)    :: TEType     !<  Truncation error type (either NON_ISOLATED_TE or ISOLATED_TE)
       !-------------------------------------------------
@@ -444,9 +445,9 @@ module AnisFASMultigridClass
       if (PRESENT(TE)) then
          EstimateTE = .TRUE.
          if (present(TEType)) then
-            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,TEType)
+            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,TEType, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
          else ! using NON_ISOLATED_TE by default
-            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,NON_ISOLATED_TE)
+            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,NON_ISOLATED_TE, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
          end if
       else
          EstimateTE = .FALSE.
@@ -711,10 +712,10 @@ module AnisFASMultigridClass
             call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
          elseif ( TE(1) % TruncErrorType == ISOLATED_TE) then
             call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
-            call ComputeTimeDerivative(Childp_sem,t)
+            call ComputeTimeDerivative(Childp_sem % mesh,t,Childp_sem % externalState,Childp_sem % externalGradients)
          end if
       else
-         call ComputeTimeDerivative(Childp_sem,t)
+         call ComputeTimeDerivative(Childp_sem % mesh,t,Childp_sem % externalState,Childp_sem % externalGradients)
       end if
       
 !$omp parallel do schedule(runtime)

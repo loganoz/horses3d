@@ -315,7 +315,7 @@ module pAdaptationClass
 !  Main routine for adapting the polynomial order in all elements based on 
 !  the truncation error estimation
 !  ------------------------------------------------------------------------
-   subroutine pAdaptTE(pAdapt,sem,itera,t, computeTimeDerivative, controlVariables)
+   subroutine pAdaptTE(pAdapt,sem,itera,t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
       use AnisFASMultigridClass
       use StopwatchClass
       implicit none
@@ -325,6 +325,7 @@ module pAdaptationClass
       integer                    :: itera             !<  iteration
       real(kind=RP)              :: t                 !< time!!
       procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
+      procedure(ComputeQDot_FCN) :: ComputeTimeDerivativeIsolated
       type(FTValueDictionary)    :: controlVariables  !<> Input vaiables (that can be modified depending on the user input)
       !--------------------------------------
       integer                    :: iEl               !   Element counter
@@ -389,7 +390,7 @@ module pAdaptationClass
 !     -------------------------------------------------------------
 !
       CALL AnisFASpAdaptSolver % construct(pAdapt % controlVariables,sem,estimator=.TRUE.)
-      CALL AnisFASpAdaptSolver % solve(itera,t,computeTimeDerivative,pAdapt % TE, pAdapt % TruncErrorType)
+      CALL AnisFASpAdaptSolver % solve(itera,t,computeTimeDerivative,ComputeTimeDerivativeIsolated,pAdapt % TE, pAdapt % TruncErrorType)
       CALL AnisFASpAdaptSolver % destruct
 !
 !     -------------------------------------------------------------

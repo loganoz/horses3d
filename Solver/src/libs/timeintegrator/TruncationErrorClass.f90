@@ -105,13 +105,14 @@ module TruncationErrorClass
 !  ----------------------------------------------------------------------
 !  Subroutine that sets P for all elements in TE
 !  ----------------------------------------------------------------------
-   subroutine InitializeForTauEstimation(TE,sem,TruncErrorType, ComputeTimeDerivative)
+   subroutine InitializeForTauEstimation(TE,sem,TruncErrorType, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       implicit none
       !------------------------------------------
       type(TruncationError_t) :: TE(:)
       type(DGSem), intent(in) :: sem
       integer    , intent(in) :: TruncErrorType !<  Either NON_ISOLATED_TE or ISOLATED_TE
       procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
+      procedure(ComputeQDot_FCN) :: ComputeTimeDerivativeIsolated
       !------------------------------------------
       integer                 :: eID
       !------------------------------------------

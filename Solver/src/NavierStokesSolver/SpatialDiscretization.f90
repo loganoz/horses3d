@@ -245,6 +245,60 @@ module SpatialDiscretization
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!     This routine computes the time derivative element by element, without considering the Riemann Solvers
+!     This is useful for estimating the isolated truncation error
+!
+      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, time, externalState, externalGradients )
+         use ViscousMethodClass
+         IMPLICIT NONE 
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(HexMesh), target      :: mesh
+         REAL(KIND=RP)              :: time
+         procedure(BCState_FCN)     :: externalState
+         procedure(BCGradients_FCN) :: externalGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         INTEGER :: k
+!
+!        -----------------------------------------
+!        Prolongation of the solution to the faces
+!        -----------------------------------------
+!
+!$omp parallel shared(mesh, time)
+         call mesh % ProlongSolutionToFaces()
+!
+!        -----------------------------------------------------
+!        Compute LOCAL gradients and prolong them to the faces
+!        -----------------------------------------------------
+!
+         if ( computeGradients ) then
+            CALL BaseClass_ComputeGradient( ViscousMethod, mesh , time , externalState )
+!
+!           The prolongation is usually done in the viscous methods, but not in the BaseClass
+!           ---------------------------------------------------------------------------------
+            call mesh % ProlongGradientsToFaces()
+         end if
+
+!
+!        -----------------------
+!        Compute time derivative
+!        -----------------------
+!
+         call TimeDerivative_ComputeQDotIsolated(mesh = mesh , &
+                                                 t    = time )
+!$omp end parallel
+!
+      END SUBROUTINE ComputeTimeDerivativeIsolated
 
       subroutine TimeDerivative_ComputeQDot( mesh , t, externalState, externalGradients )
          implicit none
@@ -404,6 +458,7 @@ module SpatialDiscretization
          integer     :: eID , i, j, k, fID
          interface
             subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
+               use SMConstants
                USE HexMeshClass
                use PhysicsStorage
                IMPLICIT NONE

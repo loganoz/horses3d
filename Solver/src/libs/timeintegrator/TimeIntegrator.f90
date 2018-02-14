@@ -150,7 +150,7 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE Integrate( self, sem, controlVariables, monitors, pAdaptator, ComputeTimeDerivative)
+      SUBROUTINE Integrate( self, sem, controlVariables, monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       
       USE Implicit_JF , ONLY : TakeBDFStep_JF
       USE Implicit_NJ , ONLY : TakeBDFStep_NJ
@@ -168,6 +168,7 @@
       class(Monitor_t)              :: monitors
       type(pAdaptation_t)           :: pAdaptator
       procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
+      procedure(ComputeQDot_FCN)    :: ComputeTimeDerivativeIsolated
 
 !
 !     ---------
@@ -216,7 +217,7 @@
             
             call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, pAdaptator % reqTE*0.1_RP)  ! The residual is hard-coded to 0.1 * truncation error threshold (see Kompenhans, Moritz, et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.)
             
-            call pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,0._RP, ComputeTimeDerivative, controlVariables)  ! Time is hardcoded to 0._RP (not important since it's only for STEADY_STATE)
+            call pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,0._RP, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)  ! Time is hardcoded to 0._RP (not important since it's only for STEADY_STATE)
             
             sem % numberOfTimeSteps = sem % numberOfTimeSteps + 1
             
@@ -338,8 +339,8 @@ end interface
 !     Check initial residuals
 !     -----------------------
 !
-      call ComputeTimeDerivative(sem,t)
-      maxResidual       = ComputeMaxResidual(sem)
+      call ComputeTimeDerivative(sem % mesh,t, sem % externalState, sem % externalGradients)
+      maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
       call self % Display(sem % mesh, monitors)

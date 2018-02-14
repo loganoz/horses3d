@@ -216,6 +216,7 @@ contains
 !  Subroutine for adding the faces' contribution to the off-diagonal blocks of the Jacobian matrix
 !  -----------------------------------------------------------------------------------------------
    subroutine Local_OffDiagonalFaceContribution(f,linsolver)
+      use FaceClass
       implicit none
       !--------------------------------------------
       type(Face)               , intent(in)    :: f
@@ -233,6 +234,7 @@ contains
 !  Subroutine for adding the faces' contribution to the diagonal blocks of the Jacobian matrix
 !  -------------------------------------------------------------------------------------------
    subroutine Local_DiagonalFaceContribution(f,linsolver)
+      use FaceClass
       implicit none
       !--------------------------------------------
       type(Face)               , intent(in)    :: f

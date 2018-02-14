@@ -692,60 +692,6 @@ Module DGSEMClass
 #endif
    END FUNCTION ComputeMaxResiduals
 #endif
-
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!     This routine computes the time derivative element by element, without considering the Riemann Solvers
-!     This is useful for estimating the isolated truncation error
-!
-      SUBROUTINE ComputeTimeDerivativeIsolated( self, time )
-         USE SpatialDiscretization
-         use ViscousMethodClass
-         IMPLICIT NONE 
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         TYPE(DGSem)   :: self
-         REAL(KIND=RP) :: time
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         INTEGER :: k
-!
-!        -----------------------------------------
-!        Prolongation of the solution to the faces
-!        -----------------------------------------
-!
-!$omp parallel shared(self, time)
-         call self % mesh % ProlongSolutionToFaces()
-!
-!        -----------------------------------------------------
-!        Compute LOCAL gradients and prolong them to the faces
-!        -----------------------------------------------------
-!
-         if ( computeGradients ) then
-            CALL BaseClass_ComputeGradient( ViscousMethod, self % mesh , time , self % externalState , self % externalGradients )
-!
-!           The prolongation is usually done in the viscous methods, but not in the BaseClass
-!           ---------------------------------------------------------------------------------
-            call self % mesh % ProlongGradientsToFaces()
-         end if
-
-!
-!        -----------------------
-!        Compute time derivative
-!        -----------------------
-!
-         call TimeDerivative_ComputeQDotIsolated(mesh = self % mesh , &
-                                                 t    = time )
-!$omp end parallel
-!
-      END SUBROUTINE ComputeTimeDerivativeIsolated
 !
 !//////////////////////////////////////////////////////////////////////// 
 !

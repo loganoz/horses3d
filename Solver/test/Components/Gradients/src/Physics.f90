@@ -759,7 +759,6 @@
       use SMConstants
       use Physics
       use PhysicsStorage
-      use VariableConversion
       use FluidData, only: equationOfState, getThermalConductivity
       contains
          subroutine SetRiemannSolver(which, splitType)
