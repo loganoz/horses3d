@@ -1,15 +1,19 @@
-#if defined(NAVIERSTOKES)
 module VolumeMonitorClass
    use SMConstants
    use HexMeshClass
    use MonitorDefinitions
    use PhysicsStorage
+   use MPI_Process_Info
 #include "Includes.h"
 
-
    private 
-   public VOLUME, KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY
+   public VOLUME
+#if defined(NAVIERSTOKES)
+   public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY
    public ENTROPY, ENTROPY_RATE
+#elif defined(CAHNHILLIARD)
+   public FREE_ENERGY
+#endif
    public VolumeMonitor_t
 
 !
@@ -90,6 +94,8 @@ module VolumeMonitorClass
 !        Select the variable from the available list, and compute auxiliary variables if needed
 !        --------------------------------------------------------------------------------------
          call toLower(self % variable)
+
+#if defined(NAVIERSTOKES)
          select case ( trim ( self % variable ) )
          case ("kinetic energy")
          case ("kinetic energy rate")
@@ -115,6 +121,21 @@ module VolumeMonitorClass
             end if
          end select
 
+#elif defined(CAHNHILLIARD)
+         select case ( trim ( self % variable ) )
+         case ("free energy")
+         case default
+            if ( len_trim (self % variable) .eq. 0 ) then
+               print*, "Variable was not specified for volume monitor " , self % ID , "."
+            else
+               print*, 'Variable "',trim(self % variable),'" volume monitor ', self % ID, ' not implemented yet.'
+               print*, "Options available are:"
+               print*, "   * Free energy"
+               stop "Stopped."
+
+            end if
+         end select
+#endif
 !
 !        Prepare the file in which the monitor is exported
 !        -------------------------------------------------
@@ -155,6 +176,7 @@ module VolumeMonitorClass
 !        Compute the volume integral
 !        ---------------------------
          select case ( trim(self % variable) )
+#if defined(NAVIERSTOKES)
          case ("kinetic energy")
             self % values(bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)
 
@@ -173,7 +195,11 @@ module VolumeMonitorClass
          case ("mean velocity")
             self % values(bufferPosition) = ScalarVolumeIntegral(mesh, VELOCITY) / ScalarVolumeIntegral(mesh, VOLUME)
 
-
+#elif defined(CAHNHILLIARD)
+         case ("free energy")
+            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, FREE_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)
+            
+#endif
          end select
 
 
@@ -243,4 +269,3 @@ module VolumeMonitorClass
       
       end subroutine VolumeMonitor_WriteToFile
 end module VolumeMonitorClass
-#endif

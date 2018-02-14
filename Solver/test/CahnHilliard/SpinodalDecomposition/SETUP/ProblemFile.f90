@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Fri Jan 19 12:22:20 2018
-!   @Last revision date: Thu Jan 25 12:49:21 2018
+!   @Last revision date: Tue Feb 13 20:29:39 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 2b44cea69a84cc8021fc589b2180267f5167983d
+!   @Last revision commit: 9cdffcbe5af1cc3ea1e17c83c91d73cc17fecde1
 !
 !//////////////////////////////////////////////////////
 !
@@ -53,6 +53,7 @@
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -205,6 +206,7 @@
 !           to be performed
 !           ----------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
 #if defined(NAVIERSTOKES)
             use MonitorsClass
@@ -228,6 +230,7 @@
 !           Called to apply source terms to the equation
 !           --------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -268,6 +271,7 @@
 !           error tests to be performed
 !           --------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
 #if defined(NAVIERSTOKES)

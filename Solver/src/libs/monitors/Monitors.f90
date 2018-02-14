@@ -32,11 +32,11 @@ module MonitorsClass
    use HexMeshClass
    use MonitorDefinitions
    use ResidualsMonitorClass
+   use VolumeMonitorClass
 #if defined(NAVIERSTOKES)
    use StatisticsMonitor
    use ProbeClass
    use SurfaceMonitorClass
-   use VolumeMonitorClass
 #endif
    implicit none
 !
@@ -51,11 +51,9 @@ module MonitorsClass
 !  
    type Monitor_t
       character(len=LINE_LENGTH)           :: solution_file
-#if defined(NAVIERSTOKES)
       integer                              :: no_of_probes
       integer                              :: no_of_surfaceMonitors
       integer                              :: no_of_volumeMonitors
-#endif
       integer                              :: bufferLine
       integer                              :: iter    ( BUFFER_SIZE )
       integer                              :: dt_restriction
@@ -63,10 +61,10 @@ module MonitorsClass
       real(kind=RP)                        :: t       (BUFFER_SIZE )
       real(kind=RP)                        :: SimuTime (BUFFER_SIZE )
       type(Residuals_t)                    :: residuals
+      class(VolumeMonitor_t),  allocatable :: volumeMonitors(:)
 #if defined(NAVIERSTOKES)
       class(Probe_t),          allocatable :: probes(:)
       class(SurfaceMonitor_t), allocatable :: surfaceMonitors(:)
-      class(VolumeMonitor_t),  allocatable :: volumeMonitors(:)
       type(StatisticsMonitor_t)            :: stats
 #endif
       contains
@@ -118,13 +116,17 @@ module MonitorsClass
 !
 !        Search in case file for probes, surface monitors, and volume monitors
 !        ---------------------------------------------------------------------
-#if defined(NAVIERSTOKES)
          call getNoOfMonitors( Monitors % no_of_probes, Monitors % no_of_surfaceMonitors, Monitors % no_of_volumeMonitors )
-#endif
 !
 !        Initialize
 !        ----------
          call Monitors % residuals % Initialization( solution_file , FirstCall )
+
+         allocate ( Monitors % volumeMonitors ( Monitors % no_of_volumeMonitors )  )
+         do i = 1 , Monitors % no_of_volumeMonitors
+            call Monitors % volumeMonitors(i) % Initialization ( mesh , i, solution_file , FirstCall  )
+         end do
+
 #if defined(NAVIERSTOKES)
          call Monitors % stats     % Construct(mesh)
 
@@ -136,11 +138,6 @@ module MonitorsClass
          allocate ( Monitors % surfaceMonitors ( Monitors % no_of_surfaceMonitors )  )
          do i = 1 , Monitors % no_of_surfaceMonitors
             call Monitors % surfaceMonitors(i) % Initialization ( mesh , i, solution_file , FirstCall )
-         end do
-
-         allocate ( Monitors % volumeMonitors ( Monitors % no_of_volumeMonitors )  )
-         do i = 1 , Monitors % no_of_volumeMonitors
-            call Monitors % volumeMonitors(i) % Initialization ( mesh , i, solution_file , FirstCall )
          end do
 #endif
 
@@ -173,6 +170,13 @@ module MonitorsClass
 !        Write residuals labels
 !        ----------------------
          call self % residuals % WriteLabel
+!
+!        Write volume monitors labels
+!        -----------------------------
+         do i = 1 , self % no_of_volumeMonitors
+            call self % volumeMonitors(i) % WriteLabel
+         end do
+
 #if defined(NAVIERSTOKES)
 !
 !        Write probes labels
@@ -185,12 +189,6 @@ module MonitorsClass
 !        -----------------------------
          do i = 1 , self % no_of_surfaceMonitors
             call self % surfaceMonitors(i) % WriteLabel
-         end do
-!
-!        Write volume monitors labels
-!        -----------------------------
-         do i = 1 , self % no_of_volumeMonitors
-            call self % volumeMonitors(i) % WriteLabel
          end do
 
          call self % stats % WriteLabel
@@ -235,6 +233,12 @@ module MonitorsClass
          do i = 1 , NCONS
             write(STD_OUT , '(3X,A10)' , advance = "no" ) trim(dashes)
          end do
+!
+!        Print dashes for volume monitors
+!        --------------------------------
+         do i = 1 , self % no_of_volumeMonitors
+            write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % volumeMonitors(i) % monitorName ) + 2 ) )
+         end do
 #if defined(NAVIERSTOKES)
 !
 !        Print dashes for probes
@@ -249,12 +253,6 @@ module MonitorsClass
 !        ---------------------------------
          do i = 1 , self % no_of_surfaceMonitors
             write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % surfaceMonitors(i) % monitorName ) + 2 ) )
-         end do
-!
-!        Print dashes for volume monitors
-!        --------------------------------
-         do i = 1 , self % no_of_volumeMonitors
-            write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % volumeMonitors(i) % monitorName ) + 2 ) )
          end do
 
          if ( self % stats % state .ne. 0 ) write(STD_OUT,'(3X,A10)',advance="no") trim(dashes)
@@ -292,6 +290,13 @@ module MonitorsClass
 !        Print residuals
 !        ---------------
          call self % residuals % WriteValues( self % bufferLine )
+!
+!        Print volume monitors
+!        ---------------------
+         do i = 1 , self % no_of_volumeMonitors
+            call self % volumeMonitors(i) % WriteValues ( self % bufferLine )
+         end do
+
 #if defined(NAVIERSTOKES)
 !
 !        Print probes
@@ -304,12 +309,6 @@ module MonitorsClass
 !        ----------------------
          do i = 1 , self % no_of_surfaceMonitors
             call self % surfaceMonitors(i) % WriteValues ( self % bufferLine )
-         end do
-!
-!        Print volume monitors
-!        ---------------------
-         do i = 1 , self % no_of_volumeMonitors
-            call self % volumeMonitors(i) % WriteValues ( self % bufferLine )
          end do
 
          call self % stats % WriteValue
@@ -364,6 +363,13 @@ module MonitorsClass
 !        Compute current residuals
 !        -------------------------
          call self % residuals % Update( mesh, maxResiduals, self % bufferLine )
+!
+!        Update volume monitors
+!        ----------------------
+         do i = 1 , self % no_of_volumeMonitors
+            call self % volumeMonitors(i) % Update( mesh , self % bufferLine )
+         end do
+
 #if defined(NAVIERSTOKES)
 !
 !        Update probes
@@ -376,12 +382,6 @@ module MonitorsClass
 !        -----------------------
          do i = 1 , self % no_of_surfaceMonitors
             call self % surfaceMonitors(i) % Update( mesh , self % bufferLine )
-         end do
-!
-!        Update volume monitors
-!        ----------------------
-         do i = 1 , self % no_of_volumeMonitors
-            call self % volumeMonitors(i) % Update( mesh , self % bufferLine )
          end do
 !
 !        Update statistics
@@ -426,6 +426,11 @@ module MonitorsClass
 !           In this case the monitors are exported to their files and the buffer is reseted
 !           -------------------------------------------------------------------------------
             call self % residuals % WriteToFile ( self % iter , self % t, self % SimuTime , self % bufferLine )
+   
+            do i = 1 , self % no_of_volumeMonitors
+               call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+            end do
+
 #if defined(NAVIERSTOKES)   
             do i = 1 , self % no_of_probes
                call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
@@ -433,10 +438,6 @@ module MonitorsClass
    
             do i = 1 , self % no_of_surfaceMonitors
                call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-            end do
-   
-            do i = 1 , self % no_of_volumeMonitors
-               call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
 !
 !              Write statistics
@@ -460,6 +461,11 @@ module MonitorsClass
             if ( self % bufferLine .eq. BUFFER_SIZE ) then
 
                call self % residuals % WriteToFile ( self % iter , self % t, self % SimuTime , BUFFER_SIZE )
+
+               do i = 1 , self % no_of_volumeMonitors
+                  call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+               end do
+
 #if defined(NAVIERSTOKES)
                do i = 1 , self % no_of_probes
                   call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine ) 
@@ -467,10 +473,6 @@ module MonitorsClass
 
                do i = 1 , self % no_of_surfaceMonitors
                   call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
-               end do
-
-               do i = 1 , self % no_of_volumeMonitors
-                  call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
                end do
 #endif
 !
@@ -563,7 +565,6 @@ readloop:do
 !     Close case file
 !     ---------------
       close(fID)                             
-
 
 end subroutine getNoOfMonitors
 

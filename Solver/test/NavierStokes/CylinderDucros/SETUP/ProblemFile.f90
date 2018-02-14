@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Thu Dec 21 13:53:22 2017
-!   @Last revision date: Sun Jan 21 18:28:43 2018
+!   @Last revision date: Tue Feb 13 20:29:45 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 941548e460146d29e72f98b9c4d4ec39a1e07eaa
+!   @Last revision commit: 9cdffcbe5af1cc3ea1e17c83c91d73cc17fecde1
 !
 !//////////////////////////////////////////////////////
 !
@@ -53,6 +53,7 @@
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -168,6 +169,7 @@
 !           Called to apply source terms to the equation
 !           --------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -209,6 +211,7 @@
 !           to be performed
 !           ----------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
@@ -232,6 +235,7 @@
 !           error tests to be performed
 !           --------------------------------------------------------
 !
+            use SMConstants
             use FTAssertions
             USE HexMeshClass
             use PhysicsStorage
@@ -280,12 +284,12 @@
 !
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [269.23552705359145_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [262.24107034520205_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
                                                                0E-011_RP, 0E-011_RP, &
                                                                0E-011_RP]
-            real(kind=RP), parameter           :: wake_u = -1.0371296932216383E-014_RP
-            real(kind=RP), parameter           :: cd =  35.298146867752962_RP
-            real(kind=RP), parameter           :: cl = -1.9862109455884291E-003_RP
+            real(kind=RP), parameter           :: wake_u = 6.4277506128128369E-015_RP
+            real(kind=RP), parameter           :: cd =  35.336400944272917_RP
+            real(kind=RP), parameter           :: cl = 2.2827210208489213E-003_RP
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 

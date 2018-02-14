@@ -8,14 +8,19 @@
 !        As is, it is only valid for steady-state cases
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#include "Includes.h"
 module AnisFASMultigridClass
    use SMConstants
    use ExplicitMethods
-   use DGSEMClass
+   use PhysicsStorage
    use Physics
    use TruncationErrorClass
    use InterpolationMatrices
    use MultigridTypes
+   use DGSEMClass
+#if defined(NAVIERSTOKES)
+   use ManufacturedSolutions
+#endif
    
    implicit none
    
@@ -188,8 +193,8 @@ module AnisFASMultigridClass
       
 !     Read cfl and dcfl numbers
 !     -------------------------
-      
       if (controlVariables % containsKey("cfl")) then
+#if defined(NAVIERSTOKES)
          Compute_dt = .TRUE.
          cfl = controlVariables % doublePrecisionValueForKey("cfl")
          if (flowIsNavierStokes) then
@@ -199,6 +204,11 @@ module AnisFASMultigridClass
                ERROR STOP '"cfl" and "dcfl", or "dt", keywords must be specified for the FAS integrator'
             end if
          end if
+#elif defined(CAHNHILLIARD)
+         print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
+         errorMessage(STD_OUT)
+         stop
+#endif
       elseif (controlVariables % containsKey("dt")) then
          Compute_dt = .FALSE.
          dt = controlVariables % doublePrecisionValueForKey("dt")
@@ -336,6 +346,7 @@ module AnisFASMultigridClass
 !     Fill source term if required (manufactured solutions)
 !     -----------------------------------------------------
 !
+#if defined(NAVIERSTOKES)
       if (ManSol) then
          do iEl = 1, nelem
             
@@ -356,6 +367,7 @@ module AnisFASMultigridClass
             end do
          end do
       end if
+#endif
       
       if (lvl > 1) then
          Child_p => Solver % Child
@@ -416,6 +428,7 @@ module AnisFASMultigridClass
       class(AnisFASMultigrid_t)        , intent(inout) :: this       !<> The AnisFAS
       integer                          , intent(in)    :: timestep   !<  Current time step
       real(kind=RP)                    , intent(in)    :: t          !<  Current simulation time
+      procedure(ComputeQDot_FCN)                       :: ComputeTimeDerivative
       type(TruncationError_t), optional, intent(inout) :: TE(:)      !<> Truncation error for all elements. If present, the multigrid solver also estimates the TE
       integer                , optional, intent(in)    :: TEType     !<  Truncation error type (either NON_ISOLATED_TE or ISOLATED_TE)
       !-------------------------------------------------
@@ -448,7 +461,7 @@ module AnisFASMultigridClass
 !     ---------------------------------------------------------
 !
       do Dir = 1, 3
-         call FASVCycle(this,t,MGlevels(Dir),Dir,TE)
+         call FASVCycle(this,t,MGlevels(Dir),Dir,TE, ComputeTimeDerivative)
       end do
       
       !! Finish up
@@ -461,7 +474,7 @@ module AnisFASMultigridClass
 !  -----------------------------------------
 !  Recursive subroutine to perform a v-cycle
 !  -----------------------------------------
-   recursive subroutine FASVCycle(this,t,lvl,Dir,TE)
+   recursive subroutine FASVCycle(this,t,lvl,Dir,TE, ComputeTimeDerivative)
       implicit none
       !----------------------------------------------------------------------------
       class(AnisFASMultigrid_t), intent(inout), TARGET :: this    !<  Current level solver
@@ -469,6 +482,7 @@ module AnisFASMultigridClass
       integer                              :: lvl     !<  Current multigrid level
       integer                              :: Dir     !<  Direction in which multigrid will be performed (x:1, y:2, z:3)
       type(TruncationError_t)              :: TE(:)   !>  Variable containing the truncation error estimation
+      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
       !----------------------------------------------------------------------------
       integer                       :: iEl        !Element counter
       type(AnisFASMultigrid_t), pointer :: Child_p        !Pointer to child
@@ -504,22 +518,24 @@ module AnisFASMultigridClass
       DO
          do iEl = 1, NumOfSweeps
             if (Compute_dt) dt = MaxTimeStep(p_sem, cfl, dcfl )
-            call SmoothIt(p_sem, t, dt )
+            call SmoothIt(p_sem % mesh, t, p_sem % externalState, p_sem % externalGradients, dt, ComputeTimeDerivative )
          end do
          sweepcount = sweepcount + 1
-         if (MGOutput) call PlotResiduals( lvl, sweepcount*NumOfSweeps , p_sem )
+         if (MGOutput) call PlotResiduals( lvl, sweepcount*NumOfSweeps , p_sem % mesh )
          
          if (SmoothFine .AND. lvl > 1) then
-            call MGRestrictToChild(this,Dir,lvl,t,TE)
-            call ComputeTimeDerivative(this % Child % MGStorage(Dir) % p_sem,t)
+            call MGRestrictToChild(this,Dir,lvl,t,TE, ComputeTimeDerivative)
+            associate(p_sem => this % Child % MGStorage(Dir) % p_sem)
+            call ComputeTimeDerivative(p_sem % mesh, t, p_sem % externalState, p_sem % externalGradients)
+            end associate
             
-            if (MAXVAL(ComputeMaxResidual(p_sem)) < SmoothFineFrac * MAXVAL(ComputeMaxResidual &
-                                                            (this % Child % MGStorage(Dir) % p_sem))) exit
+            if (MAXVAL(ComputeMaxResiduals(p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals &
+                                                            (this % Child % MGStorage(Dir) % p_sem % mesh))) exit
          else
             exit
          end if
       end do
-      PrevRes = MAXVAL(ComputeMaxResidual(p_sem))
+      PrevRes = MAXVAL(ComputeMaxResiduals(p_sem % mesh))
       
 !~       if (MGOutput) call PlotResiduals( lvl , p_sem )
       
@@ -527,13 +543,13 @@ module AnisFASMultigridClass
          Childp_sem => this % Child % MGStorage(Dir) % p_sem
          ChildVar   => this % Child % MGStorage(Dir) % Var
          
-         if (.not. SmoothFine) call MGRestrictToChild(this,Dir,lvl,t,TE)
+         if (.not. SmoothFine) call MGRestrictToChild(this,Dir,lvl,t,TE, ComputeTimeDerivative)
 !
 !        --------------------
 !        Perform V-Cycle here
 !        --------------------
 !
-         call FASVCycle(this % Child,t, lvl-1, Dir,TE)
+         call FASVCycle(this % Child,t, lvl-1, Dir,TE, ComputeTimeDerivative)
 !
 !        -------------------------------------------
 !        Interpolate coarse-grid error to this level
@@ -581,14 +597,14 @@ module AnisFASMultigridClass
          
          do iEl = 1, NumOfSweeps
             if (Compute_dt) dt = MaxTimeStep(p_sem, cfl, dcfl )
-            call SmoothIt(p_sem, t, dt)
+            call SmoothIt(p_sem % mesh, t, p_sem % externalState, p_sem % externalGradients, dt, ComputeTimeDerivative )
          end do
 
          sweepcount = sweepcount + 1
-         if (MGOutput) call PlotResiduals( lvl,sweepcount*NumOfSweeps, p_sem )
+         if (MGOutput) call PlotResiduals( lvl,sweepcount*NumOfSweeps, p_sem % mesh)
          
          if (PostSmooth .or. PostFCycle) then
-            if (MAXVAL(ComputeMaxResidual(p_sem)) < PrevRes) exit
+            if (MAXVAL(ComputeMaxResiduals(p_sem % mesh)) < PrevRes) exit
          else
             exit
          end if
@@ -615,7 +631,7 @@ module AnisFASMultigridClass
 !  ------------------------------------------
 !  Subroutine that restricts to child..... 
 !  ------------------------------------------
-   subroutine MGRestrictToChild(this,Dir,lvl,t,TE)
+   subroutine MGRestrictToChild(this,Dir,lvl,t,TE, ComputeTimeDerivative)
       implicit none
       !-------------------------------------------------------------
       class(AnisFASMultigrid_t), TARGET, intent(inout) :: this     !<  Current level solver
@@ -623,6 +639,7 @@ module AnisFASMultigridClass
       integer                , intent(in)    :: lvl
       real(kind=RP)          , intent(in)    :: t
       type(TruncationError_t), intent(inout) :: TE(:)   !>  Variable containing the truncation error estimation 
+      procedure(ComputeQDot_FCN)             :: ComputeTimeDerivative
       !-------------------------------------------------------------
       type(DGSem)          , pointer      :: p_sem          !Pointer to the current sem class
       type(MGSolStorage_t) , pointer      :: Var(:)         !Pointer to the variable storage class

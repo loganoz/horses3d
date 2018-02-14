@@ -5,6 +5,7 @@ module ProbeClass
    use MonitorDefinitions
    use PhysicsStorage
    use VariableConversion, only: Pressure
+   use MPI_Process_Info
 #ifdef _HAS_MPI_
    use mpi
 #endif

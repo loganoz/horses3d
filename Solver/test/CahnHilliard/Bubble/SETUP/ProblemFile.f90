@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jan 30 09:07:46 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Tue Feb 13 18:26:52 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 9fda048fa3d932b2d823a3c39e7ad4b2e9e19efd
 !
 !//////////////////////////////////////////////////////
 !
@@ -59,6 +59,7 @@
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -170,6 +171,7 @@
                e % storage % Q(1,:,:,:) = e % storage % c
                end associate
             end do
+print*, dimensionless_ % eps
             
          end subroutine userdefinedinitialcondition
 #endif
@@ -219,16 +221,20 @@
 !           ----------------------------------------------------------
 !
             USE HexMeshClass
-#if defined(NAVIERSTOKES)
+            use SMConstants
             use MonitorsClass
-#endif
             IMPLICIT NONE
             CLASS(HexMesh)               :: mesh
             REAL(KIND=RP)                :: time
-#if defined(NAVIERSTOKES)
             type(Monitor_t), intent(in) :: monitors
-#else
-            logical, intent(in) :: monitors
+            integer     :: eID
+
+#if defined(CAHNHILLIARD)
+            do eID = 1, mesh % no_of_elements
+               if ( any(isnan(mesh % elements(eID) % storage % c) )) then
+                  print*, "NAN!!!!"
+               end if
+            end do
 #endif
             
          END SUBROUTINE UserDefinedPeriodicOperation
@@ -241,6 +247,7 @@
 !           Called to apply source terms to the equation
 !           --------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -281,11 +288,10 @@
 !           error tests to be performed
 !           --------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
-#if defined(NAVIERSTOKES)
             use MonitorsClass
-#endif
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -294,11 +300,7 @@
             type(Thermodynamics_t),    intent(in) :: thermodynamics_
             type(Dimensionless_t),     intent(in) :: dimensionless_
             type(RefValues_t),         intent(in) :: refValues_
-#if defined(NAVIERSTOKES)
             type(Monitor_t),          intent(in) :: monitors
-#else
-            logical, intent(in)  :: monitors
-#endif
             real(kind=RP),             intent(in)  :: elapsedTime
             real(kind=RP),             intent(in)  :: CPUTime
 

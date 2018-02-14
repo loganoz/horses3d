@@ -153,7 +153,7 @@
 !$omp end parallel
 
       IF ( flowIsNavierStokes )     THEN
-         CALL DGSpatial_ComputeGradient( sem % mesh , 0.0_RP , sem % externalState , sem % externalGradients ) 
+         CALL DGSpatial_ComputeGradient( sem % mesh , 0.0_RP , sem % externalState) 
       END IF
 
       call TimeDerivative_ComputeQDot( sem % mesh , 0.0_RP, &

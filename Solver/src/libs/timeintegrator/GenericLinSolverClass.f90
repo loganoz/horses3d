@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    GenericLinSolverClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 17:14:38 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !      GenericLinSolverClass.f90
@@ -23,10 +11,11 @@ MODULE GenericLinSolverClass
    USE SMConstants
    USE DGSEMClass
    USE FTValueDictionaryClass
+   use TimeIntegratorDefinitions
    IMPLICIT NONE
    
    PRIVATE
-   PUBLIC GenericLinSolver_t, DGSem, ComputeTimeDerivative, FTValueDictionary
+   PUBLIC GenericLinSolver_t, FTValueDictionary
    
    TYPE :: GenericLinSolver_t
       LOGICAL                                     :: converged = .FALSE.   ! The solution converged?
@@ -135,13 +124,14 @@ CONTAINS
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   SUBROUTINE solve(this,tol,maxiter,time,dt)
+   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative)
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP), OPTIONAL                  :: tol
       INTEGER      , OPTIONAL                  :: maxiter
       REAL(KIND=RP), OPTIONAL                  :: time
       REAL(KIND=RP), OPTIONAL                  :: dt
+      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
    END SUBROUTINE solve
 
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

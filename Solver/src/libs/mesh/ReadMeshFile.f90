@@ -1,4 +1,5 @@
 module ReadMeshFile
+   use SMConstants
    use Read_HDF5Mesh_HOPR
    use Read_SpecMesh
    use HexMeshClass
@@ -71,7 +72,4 @@ contains
       end if
       
    end function NumOfElemsFromMeshFile   
-   
-   
-   
 end module ReadMeshFile

@@ -31,6 +31,13 @@ MODULE HexMeshClass
       use mpi
 #endif
       IMPLICIT NONE
+
+      private
+      public      HexMesh, Neighbour, SurfInfo_t
+
+      public      GetOriginalNumberOfFaces
+      public      ConstructFaces, ConstructPeriodicFaces
+      public      DeletePeriodicMinusFaces, GetElementsFaceIDs
 !
 !     ---------------
 !     Mesh definition
@@ -2662,6 +2669,7 @@ slavecoord:                DO l = 1, 4
       call ConstructZones ( self % faces , self % zones )
 
       end subroutine HexMesh_ConstructZones
+
 !
 !///////////////////////////////////////////////////////////////////////
 !

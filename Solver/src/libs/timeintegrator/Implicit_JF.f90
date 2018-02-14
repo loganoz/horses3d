@@ -1,16 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    Implicit_JF.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 17:14:38 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
-!
 !////////////////////////////////////////////////////////////////////////
 !
 !      Implicit_JF.f90
@@ -22,9 +10,11 @@
 !////////////////////////////////////////////////////////////////////////
 MODULE Implicit_JF
    USE SMConstants,                 ONLY: RP                  
-   USE DGSEMClass,                  ONLY: DGSem, ComputeTimeDerivative
+   USE DGSEMClass,                  ONLY: DGSem
    USE PhysicsStorage,              ONLY: N_EQN, N_GRAD_EQN
    USE JFNKClass,                   ONLY: JFNK_Integrator
+   use TimeIntegratorDefinitions
+   use DGSEMClass,                  only: ComputeQDot_FCN
    
    IMPLICIT NONE
    
@@ -41,10 +31,11 @@ MODULE Implicit_JF
  CONTAINS
 !========
    
-   SUBROUTINE TakeBDFStep_JF(sem, t , dt )
+   SUBROUTINE TakeBDFStep_JF(sem, t , dt, ComputeTimeDerivative )
       TYPE(DGSem),TARGET,  INTENT(INOUT)           :: sem
       REAL(KIND=RP),       INTENT(IN)              :: t
       REAL(KIND=RP),       INTENT(IN)              :: dt
+      procedure(ComputeQDot_FCN)                   :: ComputeTimeDerivative
       !--------------------------------------------------------
       LOGICAL                                      :: isfirst = .TRUE.
       INTEGER                                      :: k
@@ -67,24 +58,25 @@ MODULE Implicit_JF
       CALL p_sem % GetQ(U_n)                                 ! Stores sem%mesh%elements(:)%Q into U_n    ! TODO: is this always necessary?                      
       CALL integrator%SetUn(U_n)                             ! Sets U_n  in the time integrator
       CALL integrator%SetTimeDerivative(DGTimeDerivative)    ! Sets DGTime derivative as Time derivative function in the integrtor
-      CALL integrator%Integrate                              ! Performs the time step implicit integrator
+      CALL integrator%Integrate(ComputeTimeDerivative)       ! Performs the time step implicit integrator
       CALL integrator%GetUnp1(U_n)                           ! Gets U_n+1 and stores it in U n
       CALL p_sem % SetQ(U_n)                                 ! Stores U_n (with the updated U_n+1) into sem%Q  ! TODO: is this always necessary?
          
    END SUBROUTINE TakeBDFStep_JF
 !
 !//////////////////////////////////////////////////////////////////////////////////////// 
-!
-   FUNCTION DGTimeDerivative(u,time) RESULT(F)
+
+   FUNCTION DGTimeDerivative(u,time, ComputeTimeDerivative) RESULT(F)
+      implicit none
       REAL(KIND = RP), INTENT(IN)                  :: u(:)
       REAL(KIND = RP)                              :: F(size(u)) 
       REAL(KIND = RP)                              :: time
+      procedure(ComputeQDot_FCN)                   :: ComputeTimeDerivative
   
       CALL p_sem % SetQ(u)
-      CALL ComputeTimeDerivative(p_sem,time)
+      CALL ComputeTimeDerivative(p_sem % mesh, time, p_sem % externalState, p_sem % externalGradients)
       CALL p_sem % GetQdot(F)
     
    END FUNCTION DGTimeDerivative
-
 
 END MODULE Implicit_JF

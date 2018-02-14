@@ -4,9 +4,9 @@
 !   @File:    SVV.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Jan  6 11:47:48 2018
-!   @Last revision date: Tue Jan 16 11:59:33 2018
+!   @Last revision date: Mon Feb 12 19:00:32 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: cbae0faa7686246cad4b300efae466eda61473cd
+!   @Last revision commit: 04004b13db40efe389672a6abc8cfae5187c2c0e
 !
 !//////////////////////////////////////////////////////
 !
@@ -20,6 +20,7 @@ module SpectralVanishingViscosity
    use MPI_Face_Class
    use ViscousMethodClass
    use HexMeshClass
+   use NodalStorageClass
    use GaussQuadrature
    implicit none
 

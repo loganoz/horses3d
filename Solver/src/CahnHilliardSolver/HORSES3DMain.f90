@@ -25,6 +25,8 @@
       USE pAdaptationClass
       use StopwatchClass
       use MPI_Process_Info
+      use SpatialDiscretization
+      use NodalStorageClass
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -51,6 +53,7 @@ interface
                                                           monitors, &
                                                        elapsedTime, &
                                                            CPUTime   )
+            use SMConstants
             use PhysicsStorage
             use HexMeshClass
             use MonitorsClass
@@ -76,22 +79,22 @@ interface
       end function getFileName
 end interface
 
-      TYPE( FTValueDictionary)            :: controlVariables
-      TYPE( DGSem )                       :: sem
-      TYPE( TimeIntegrator_t )            :: timeIntegrator
+      TYPE( FTValueDictionary)   :: controlVariables
+      TYPE( DGSem )              :: sem
+      TYPE( TimeIntegrator_t )   :: timeIntegrator
       
-      LOGICAL                             :: success, saveGradients
-      integer                             :: initial_iteration
-      INTEGER                             :: ierr
-      real(kind=RP)                       :: initial_time
-      EXTERNAL                            :: externalStateForBoundaryName
-      EXTERNAL                            :: ExternalGradientForBoundaryName
-      character(len=LINE_LENGTH)          :: solutionFileName
+      LOGICAL                    :: success, saveGradients
+      integer                    :: initial_iteration
+      INTEGER                    :: ierr
+      real(kind=RP)              :: initial_time
+      procedure(BCState_FCN)     :: externalStateForBoundaryName
+      procedure(BCGradients_FCN) :: ExternalGradientForBoundaryName
+      character(len=LINE_LENGTH)             :: solutionFileName
       
       ! For pAdaptation
-      integer, allocatable                :: Nx(:), Ny(:), Nz(:)
-      integer                             :: Nmax
-      type(pAdaptation_t)                 :: pAdaptator
+      integer, allocatable                   :: Nx(:), Ny(:), Nz(:)
+      integer                                :: Nmax
+      type(pAdaptation_t)                    :: pAdaptator
 !
 !     ---------------
 !     Initializations
@@ -150,6 +153,12 @@ end interface
       call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)
 !
 !     -----------------------------
+!     Set up spatial discretization
+!     -----------------------------
+!
+      call Initialize_SpaceAndTimeMethods(controlVariables, sem % mesh)
+!
+!     -----------------------------
 !     Construct the time integrator
 !     -----------------------------
 !
@@ -159,7 +168,7 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator)
+      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative)
 !
 !     --------------------------
 !     Show simulation statistics
@@ -211,6 +220,8 @@ end interface
 ! 
       SUBROUTINE CheckBCIntegrity(mesh, success)
 !
+         use SMConstants
+         use MeshTypes
          USE HexMeshClass
          use FTValueDictionaryClass
          USE SharedBCModule

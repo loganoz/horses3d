@@ -1,21 +1,36 @@
+!! 
+!////////////////////////////////////////////////////////////////////////
 !
-!//////////////////////////////////////////////////////
+!      DGSEMClass.f95
+!      Created: 2008-07-12 13:38:26 -0400 
+!      By: David Kopriva
 !
-!   @File:    DGSEMClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 17:14:37 2018
-!   @Last revision date: Wed Jan 31 18:27:04 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 1181c365aba00e78739d327d06901d6d8ca99e02
+!      Basic class for the discontinuous Galerkin spectral element
+!      solution of conservation laws.
 !
-!//////////////////////////////////////////////////////
+!      Algorithms:
+!         Algorithm 136: DGSEM Class
+!         Algorithm 129: ConstructDGSem (Constructor)
+!         Algorithm 138: ComputeTimeDerivative (TimeDerivative)
+!         Algorithm 137: ComputeRiemannFluxes (EdgeFluxes)
+!         Algorithm  35: InterpolateToFineMesh (2DCoarseToFineInterpolation)
+!
+!      Modified for 3D       6/11/15, 11:32 AM by DAK
+!      Modified for mortars 25/04/17, 18:00    by arueda
+!
+!////////////////////////////////////////////////////////////////////////
 !
 #include "Includes.h"
 Module DGSEMClass
+   use SMConstants
    USE NodalStorageClass
+   use MeshTypes
+   use ElementClass
    USE HexMeshClass
    USE PhysicsStorage
-   USE SpatialDiscretization
+#if defined(NAVIERSTOKES)
+   USE ManufacturedSolutions
+#endif
    use MonitorsClass
    use Physics
 #ifdef _HAS_MPI_
@@ -25,24 +40,10 @@ Module DGSEMClass
    IMPLICIT NONE
 
    private
-   public DGSem, ComputeTimeDerivative, ComputeMaxResidual, InitializeNodalStorage
-   public DestructGlobalNodalStorage
-   
-   ABSTRACT INTERFACE
-      SUBROUTINE externalStateSubroutine(x,t,nHat,Q,boundaryName)
-         USE SMConstants
-         REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-         REAL(KIND=RP)   , INTENT(INOUT) :: Q(:)
-         CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
-      END SUBROUTINE externalStateSubroutine
-      
-      SUBROUTINE externalGradientsSubroutine(x,t,nHat,gradU,boundaryName)
-         USE SMConstants
-         REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-         REAL(KIND=RP)   , INTENT(INOUT) :: gradU(:,:)
-         CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
-      END SUBROUTINE externalGradientsSubroutine
-   END INTERFACE
+   public   ComputeQDot_FCN, DGSem, ConstructDGSem
+   public   BCState_FCN, BCGradients_FCN
+
+   public   DestructDGSEM, MaxTimeStep, ComputeMaxResiduals
    
    TYPE DGSem
       REAL(KIND=RP)                                           :: maxResidual
@@ -51,8 +52,8 @@ Module DGSEMClass
       INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
       INTEGER           , ALLOCATABLE                         :: Nx(:), Ny(:), Nz(:)
       TYPE(HexMesh)                                           :: mesh
-      PROCEDURE(externalStateSubroutine)    , NOPASS, POINTER :: externalState     => NULL()
-      PROCEDURE(externalGradientsSubroutine), NOPASS, POINTER :: externalGradients => NULL()
+      PROCEDURE(BCState_FCN)    , NOPASS, POINTER :: externalState => NULL()
+      PROCEDURE(BCGradients_FCN), NOPASS, POINTER :: externalGradients => NULL()
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
       contains
@@ -64,14 +65,41 @@ Module DGSEMClass
          procedure :: SaveSolutionForRestart
          procedure :: SetInitialCondition => DGSEM_SetInitialCondition
    END TYPE DGSem
-   
-      
+
+   abstract interface
+      SUBROUTINE BCState_FCN(x,t,nHat,Q,boundaryName)
+         USE SMConstants
+         REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+         REAL(KIND=RP)   , INTENT(INOUT) :: Q(:)
+         CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+      END SUBROUTINE BCState_FCN      
+
+      SUBROUTINE BCGradients_FCN(x,t,nHat,gradU,boundaryName)
+         USE SMConstants
+         REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+         REAL(KIND=RP)   , INTENT(INOUT) :: gradU(:,:)
+         CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+      END SUBROUTINE BCGradients_FCN
+
+      SUBROUTINE ComputeQDot_FCN( mesh, time, externalState, externalGradients )
+         use SMConstants
+         use HexMeshClass
+         import BCState_FCN
+         import BCGradients_FCN
+         IMPLICIT NONE 
+         type(HexMesh), target      :: mesh
+         REAL(KIND=RP)              :: time
+         procedure(BCState_FCN)     :: externalState
+         procedure(BCGradients_FCN) :: externalGradients
+      end subroutine ComputeQDot_FCN
+   END INTERFACE
+
    CONTAINS 
 !
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE ConstructDGSem( self, meshFileName_, controlVariables, &
-                                 externalState, externalGradients, polynomialOrder, Nx_, Ny_, Nz_, success )
+                                 externalState, externalGradients, polynomialOrder, Nx_, Ny_, Nz_, success, ChildSem )
       use ReadMeshFile
       use FTValueDictionaryClass
       use mainKeywordsModule
@@ -92,6 +120,7 @@ Module DGSEMClass
       INTEGER, OPTIONAL                  :: polynomialOrder(3)                 !<  Uniform polynomial order
       INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
+      logical, optional                  :: ChildSem                           !<  Is this a (multigrid) child sem?
 !
 !     ---------------
 !     Local variables
@@ -103,9 +132,8 @@ Module DGSEMClass
       INTEGER                     :: nTotalElem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       integer                     :: dir2D
-      character(len=LINE_LENGTH)  :: meshFileName
-      character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
       logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
+      character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
       INTERFACE
          SUBROUTINE externalState(x,t,nHat,Q,boundaryName)
             USE SMConstants
@@ -121,23 +149,28 @@ Module DGSEMClass
             CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
          END SUBROUTINE externalGradients
       END INTERFACE
+      
+      if ( present(ChildSem) .and. ChildSem ) self % mesh % child = .TRUE.
+      
 !
 !     Measure preprocessing time
 !     --------------------------      
-      call Stopwatch % CreateNewEvent("Preprocessing")
-      call Stopwatch % Start("Preprocessing")
-
+      if (.not. self % mesh % child) then
+         call Stopwatch % CreateNewEvent("Preprocessing")
+         call Stopwatch % Start("Preprocessing")
+      end if
+      
       if ( present( meshFileName_ ) ) then
 !
 !        Mesh file set up by input argument
 !        ----------------------------------
-         meshFileName = trim(meshFileName_)
+         self % mesh % meshFileName = trim(meshFileName_)
 
       else
 !
 !        Mesh file set up by controlVariables
 !        ------------------------------------
-         meshFileName = controlVariables % stringValueForKey(meshFileNameKey, requestedLength = LINE_LENGTH) 
+         self % mesh % meshFileName = controlVariables % stringValueForKey(meshFileNameKey, requestedLength = LINE_LENGTH) 
 
       end if
 !
@@ -170,7 +203,7 @@ Module DGSEMClass
          Nz => Nz_
          nTotalElem = SIZE(Nx)
       ELSEIF (PRESENT(polynomialOrder)) THEN
-         nTotalElem = NumOfElemsFromMeshFile( meshfileName )
+         nTotalElem = NumOfElemsFromMeshFile( self % mesh % meshfileName )
          
          ALLOCATE (Nx(nTotalElem),Ny(nTotalElem),Nz(nTotalElem))
          Nx = polynomialOrder(1)
@@ -188,6 +221,9 @@ Module DGSEMClass
       self % Nx = Nx
       self % Ny = Ny
       self % Nz = Nz
+      
+      if ( max(maxval(Nx),maxval(Ny),maxval(Nz)) /= min(minval(Nx),minval(Ny),minval(Nz)) ) self % mesh % anisotropic = .TRUE.
+      
 !
 !     -------------------------------------------------------------
 !     Construct the polynomial storage for the elements in the mesh
@@ -195,7 +231,7 @@ Module DGSEMClass
 !
       call NodalStorage(0) % Construct(nodes, 0)   ! Always construct orders 0 
       call NodalStorage(1) % Construct(nodes, 1)   ! and 1
-      
+
       self % NDOF = 0
       DO k=1, nTotalElem
          self % NDOF = self % NDOF + N_EQN * (Nx(k) + 1) * (Ny(k) + 1) * (Nz(k) + 1)
@@ -227,6 +263,8 @@ Module DGSEMClass
          dir2D = 0
 
       end if
+      
+      if ( self % mesh % anisotropic .and. (min(minval(Nx),minval(Ny),minval(Nz)) <=1) .and. dir2D == 0 ) ERROR STOP ':: 3D anisotropic mesh must have N>=2'
 
       if (controlVariables % containsKey("mesh inner curves")) then
          MeshInnerCurves = controlVariables % logicalValueForKey("mesh inner curves")
@@ -254,7 +292,7 @@ Module DGSEMClass
 !
 !        Construct the full mesh
 !        -----------------------
-         call constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+         call constructMeshFromFile( self % mesh, self % mesh % meshFileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
 !
 !        Perform the partitioning
 !        ------------------------
@@ -274,7 +312,7 @@ Module DGSEMClass
 !     *              MESH CONSTRUCTION                         *
 !     **********************************************************
 !
-      CALL constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+      CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
       
       IF(.NOT. success) RETURN
 !
@@ -288,6 +326,32 @@ Module DGSEMClass
                                   nGradEqn = N_GRAD_EQN, &
                           computeGradients = computeGradients)
       END DO
+!
+!     ----------------------------------------------------
+!     Get manufactured solution source term (if requested)
+!     ----------------------------------------------------
+!
+#if defined(NAVIERSTOKES)
+      IF (self % ManufacturedSol) THEN
+         DO el = 1, SIZE(self % mesh % elements) 
+            DO k=0, Nz(el)
+               DO j=0, Ny(el)
+                  DO i=0, Nx(el)
+                     IF (flowIsNavierStokes) THEN
+                        CALL ManufacturedSolutionSourceNS(self % mesh % elements(el) % geom % x(:,i,j,k), &
+                                                          0._RP, &
+                                                          self % mesh % elements(el) % storage % S (:,i,j,k)  )
+                     ELSE
+                        CALL ManufacturedSolutionSourceEuler(self % mesh % elements(el) % geom % x(:,i,j,k), &
+                                                             0._RP, &
+                                                             self % mesh % elements(el) % storage % S (:,i,j,k)  )
+                     END IF
+                  END DO
+               END DO
+            END DO
+         END DO
+      END IF
+#endif
 !
 !     -----------------------
 !     Set boundary conditions
@@ -303,18 +367,12 @@ Module DGSEMClass
 !     ------------------
 !
       self % monitors = ConstructMonitors(self % mesh, controlVariables)
-!
-!     -----------------------------------------
-!     Initialize Spatial discretization methods
-!     -----------------------------------------
-!
-      call Initialize_SpaceAndTimeMethods(controlVariables, self % mesh)
       
       NULLIFY(Nx,Ny,Nz)
 !
 !     Stop measuring preprocessing time
 !     ----------------------------------
-      call Stopwatch % Pause("Preprocessing")
+      if (.not. self % mesh % child) call Stopwatch % Pause("Preprocessing")
 
       END SUBROUTINE ConstructDGSem
 
@@ -322,7 +380,6 @@ Module DGSEMClass
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE DestructDGSem( self )
-      use ViscousMethods
       IMPLICIT NONE 
       CLASS(DGSem) :: self
       INTEGER      :: k      !Counter
@@ -330,7 +387,6 @@ Module DGSEMClass
       CALL self % mesh % destruct
       self % externalState     => NULL()
       self % externalGradients => NULL()
-      
       END SUBROUTINE DestructDGSem
 !
 !////////////////////////////////////////////////////////////////////////
@@ -499,50 +555,6 @@ Module DGSEMClass
       END DO
       
    END SUBROUTINE GetQdot
- !
-!////////////////////////////////////////////////////////////////////////////////////////      
-!
-!  -----------------------------------
-!  Compute maximum residual L_inf norm
-!  -----------------------------------
-   FUNCTION ComputeMaxResidual(self) RESULT(maxResidual)
-      use MPI_Process_Info
-      IMPLICIT NONE
-      !----------------------------------------------
-      CLASS(DGSem)  :: self
-      REAL(KIND=RP) :: maxResidual(N_EQN)
-      !----------------------------------------------
-      INTEGER       :: id , eq, ierr
-      real(kind=RP) :: cMax
-      REAL(KIND=RP) :: localCMax(NCONS)
-      !----------------------------------------------
-      
-      maxResidual = 0.0_RP
-
-      cMax = 0.0_RP
-      localCMax = 0.0_RP
-!$omp parallel shared(maxResidual,cMax,self) default(private)
-!$omp do reduction(max:cMax)
-      DO id = 1, SIZE( self % mesh % elements )
-         localCMax(1) = maxval(abs(self % mesh % elements(id) % storage % QDot(1,:,:,:)))
-         
-         cMax = max(localCMax(1), cMax)
-      END DO
-!$omp end do
-!$omp end parallel
-
-      maxResidual = cMax
-
-#ifdef _HAS_MPI_
-      if ( MPI_Process % doMPIAction ) then
-         localCMax = maxResidual
-         call mpi_allreduce(localCMax, maxResidual, N_EQN, MPI_DOUBLE, MPI_MAX, &
-                            MPI_COMM_WORLD, ierr)
-      end if
-#endif
-
-   END FUNCTION ComputeMaxResidual
-!
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -588,9 +600,108 @@ Module DGSEMClass
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeTimeDerivative( self, time )
+!  -----------------------------------
+!  Compute maximum residual L_inf norm
+!  -----------------------------------
+!
+#if defined(NAVIERSTOKES)
+   FUNCTION ComputeMaxResiduals(mesh) RESULT(maxResidual)
+      use MPI_Process_Info
+      IMPLICIT NONE
+      !----------------------------------------------
+      CLASS(HexMesh), intent(in)  :: mesh
+      REAL(KIND=RP) :: maxResidual(N_EQN)
+      !----------------------------------------------
+      INTEGER       :: id , eq, ierr
+      REAL(KIND=RP) :: localMaxResidual(N_EQN)
+      real(kind=RP) :: localRho, localRhou, localRhov, localRhow, localRhoe
+      real(kind=RP) :: Rho, Rhou, Rhov, Rhow, Rhoe
+      !----------------------------------------------
+      
+      maxResidual = 0.0_RP
+      Rho = 0.0_RP
+      Rhou = 0.0_RP
+      Rhov = 0.0_RP
+      Rhow = 0.0_RP
+      Rhoe = 0.0_RP
+
+!$omp parallel shared(maxResidual, Rho, Rhou, Rhov, Rhow, Rhoe, mesh) default(private)
+!$omp do reduction(max:Rho,Rhou,Rhov,Rhow,Rhoe)
+      DO id = 1, SIZE( mesh % elements )
+         localRho = maxval(abs(mesh % elements(id) % storage % QDot(IRHO,:,:,:)))
+         localRhou = maxval(abs(mesh % elements(id) % storage % QDot(IRHOU,:,:,:)))
+         localRhov = maxval(abs(mesh % elements(id) % storage % QDot(IRHOV,:,:,:)))
+         localRhow = maxval(abs(mesh % elements(id) % storage % QDot(IRHOW,:,:,:)))
+         localRhoe = maxval(abs(mesh % elements(id) % storage % QDot(IRHOE,:,:,:)))
+      
+         Rho = max(Rho,localRho)
+         Rhou = max(Rhou,localRhou)
+         Rhov = max(Rhov,localRhov)
+         Rhow = max(Rhow,localRhow)
+         Rhoe = max(Rhoe,localRhoe)
+      END DO
+!$omp end do
+!$omp end parallel
+
+      maxResidual = (/Rho, Rhou, Rhov, Rhow, Rhoe/)
+
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+         localMaxResidual = maxResidual
+         call mpi_allreduce(localMaxResidual, maxResidual, N_EQN, MPI_DOUBLE, MPI_MAX, &
+                            MPI_COMM_WORLD, ierr)
+      end if
+#endif
+
+   END FUNCTION ComputeMaxResiduals
+#elif defined(CAHNHILLIARD)
+   FUNCTION ComputeMaxResiduals(mesh) RESULT(maxResidual)
+      use MPI_Process_Info
+      IMPLICIT NONE
+      !----------------------------------------------
+      CLASS(HexMesh)  :: mesh
+      REAL(KIND=RP) :: maxResidual(N_EQN)
+      !----------------------------------------------
+      INTEGER       :: id , eq, ierr
+      real(kind=RP) :: cMax
+      REAL(KIND=RP) :: localCMax(NCONS)
+      !----------------------------------------------
+      
+      maxResidual = 0.0_RP
+
+      cMax = 0.0_RP
+      localCMax = 0.0_RP
+!$omp parallel shared(maxResidual,cMax,mesh) default(private)
+!$omp do reduction(max:cMax)
+      DO id = 1, SIZE( mesh % elements )
+         localCMax(1) = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
+         
+         cMax = max(localCMax(1), cMax)
+      END DO
+!$omp end do
+!$omp end parallel
+
+      maxResidual = cMax
+
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+         localCMax = maxResidual
+         call mpi_allreduce(localCMax, maxResidual, N_EQN, MPI_DOUBLE, MPI_MAX, &
+                            MPI_COMM_WORLD, ierr)
+      end if
+#endif
+   END FUNCTION ComputeMaxResiduals
+#endif
+
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!     This routine computes the time derivative element by element, without considering the Riemann Solvers
+!     This is useful for estimating the isolated truncation error
+!
+      SUBROUTINE ComputeTimeDerivativeIsolated( self, time )
          USE SpatialDiscretization
-         use Physics, only: QuarticDWPDerivative
+         use ViscousMethodClass
          IMPLICIT NONE 
 !
 !        ---------
@@ -604,131 +715,184 @@ Module DGSEMClass
 !        Local variables
 !        ---------------
 !
-         INTEGER :: k, eID
-         interface
-            subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
-               USE HexMeshClass
-               use PhysicsStorage
-               IMPLICIT NONE
-               CLASS(HexMesh)                        :: mesh
-               REAL(KIND=RP)                         :: time
-               type(Thermodynamics_t),    intent(in) :: thermodynamics_
-               type(Dimensionless_t),     intent(in) :: dimensionless_
-               type(RefValues_t),         intent(in) :: refValues_
-            end subroutine UserDefinedSourceTerm
-         end interface
-
+         INTEGER :: k
 !
-!        **************************************
-!        Compute chemical potential: Q stores c
-!        **************************************
+!        -----------------------------------------
+!        Prolongation of the solution to the faces
+!        -----------------------------------------
 !
 !$omp parallel shared(self, time)
-!
-!        -----------------------------------------
-!        Prolongation of the solution to the faces
-!        -----------------------------------------
-!
          call self % mesh % ProlongSolutionToFaces()
 !
-!        ----------------
-!        Update MPI Faces
-!        ----------------
+!        -----------------------------------------------------
+!        Compute LOCAL gradients and prolong them to the faces
+!        -----------------------------------------------------
 !
-!$omp single
-         call self % mesh % UpdateMPIFacesSolution
-!$omp end single
+         if ( computeGradients ) then
+            CALL BaseClass_ComputeGradient( ViscousMethod, self % mesh , time , self % externalState , self % externalGradients )
 !
-!        -----------------
-!        Compute gradients
-!        -----------------
-!
-         CALL DGSpatial_ComputeGradient( self % mesh , time , self % externalState , self % externalGradients )
+!           The prolongation is usually done in the viscous methods, but not in the BaseClass
+!           ---------------------------------------------------------------------------------
+            call self % mesh % ProlongGradientsToFaces()
+         end if
 
-!$omp single
-         call self % mesh % UpdateMPIFacesGradients
-!$omp end single
 !
-!        ------------------------------
-!        Compute the chemical potential
-!        ------------------------------
+!        -----------------------
+!        Compute time derivative
+!        -----------------------
 !
-         call ComputeLaplacian(mesh = self % mesh , &
-                               t    = time, &
-                  externalState     = self % externalState, &
-                  externalGradients = self % externalGradients )
+         call TimeDerivative_ComputeQDotIsolated(mesh = self % mesh , &
+                                                 t    = time )
+!$omp end parallel
+!
+      END SUBROUTINE ComputeTimeDerivativeIsolated
+!
+!//////////////////////////////////////////////////////////////////////// 
+!
+!  -------------------------------------------------------------------
+!  Estimate the maximum time-step of the system. This
+!  routine computes a heuristic based on the smallest mesh
+!  spacing (which goes as 1/N^2) AND the eigenvalues of the
+!  particular hyperbolic system being solved (Euler or Navier Stokes). This is not
+!  the only way to estimate the time-step, but it works in practice.
+!  Other people use variations on this and we make no assertions that
+!  it is the only or best way. Other variations look only at the smallest
+!  mesh values, other account for differences across the element.
+!     -------------------------------------------------------------------
+   real(kind=RP) function MaxTimeStep( self, cfl, dcfl )
+      use VariableConversion
+      use MPI_Process_Info
+      implicit none
+      !------------------------------------------------
+      type(DGSem)                :: self
+      real(kind=RP), intent(in)  :: cfl      !<  Advective cfl number
+      real(kind=RP), optional, intent(in)  :: dcfl     !<  Diffusive cfl number
+      !------------------------------------------------
+      integer                       :: i, j, k, eID                     ! Coordinate and element counters
+      integer                       :: N(3)                             ! Polynomial order in the three reference directions
+      integer                       :: ierr                             ! Error for MPI calls
+      real(kind=RP)                 :: eValues(3)                       ! Advective eigenvalues
+      real(kind=RP)                 :: dcsi, deta, dzet                 ! Smallest mesh spacing
+      real(kind=RP)                 :: dcsi2, deta2, dzet2              ! Smallest mesh spacing squared
+      real(kind=RP)                 :: lamcsi_a, lamzet_a, lameta_a     ! Advective eigenvalues in the three reference directions
+      real(kind=RP)                 :: lamcsi_v, lamzet_v, lameta_v     ! Diffusive eigenvalues in the three reference directions
+      real(kind=RP)                 :: jac, mu, T                       ! Mapping Jacobian, viscosity and temperature
+      real(kind=RP)                 :: Q(N_EQN)                         ! The solution in a node
+      real(kind=RP)                 :: TimeStep_Conv, TimeStep_Visc     ! Time-step for convective and diffusive terms
+      real(kind=RP)                 :: localMax_dt_v, localMax_dt_a     ! Time step to perform MPI reduction
+      type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction
+      external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
+      !--------------------------------------------------------
+#if defined(NAVIERSTOKES)      
+!     Initializations
+!     ---------------
+      
+      TimeStep_Conv = huge(1._RP)
+      TimeStep_Visc = huge(1._RP)
+      
+!$omp parallel shared(self,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes) default(private) 
+!$omp do reduction(min:TimeStep_Conv,TimeStep_Visc)
+      do eID = 1, SIZE(self % mesh % elements) 
+         N = self % mesh % elements(eID) % Nxyz
+         spAxi_p => NodalStorage(N(1))
+         spAeta_p => NodalStorage(N(2))
+         spAzeta_p => NodalStorage(N(3))
+         
+         if ( N(1) .ne. 0 ) then
+            dcsi = 1.0_RP / abs( spAxi_p   % x(1) - spAxi_p   % x (0) )   
 
-         associate(c_alpha => thermodynamics % c_alpha, &
-                   c_beta  => thermodynamics % c_beta    ) 
-!$omp do
-         do eID = 1, self % mesh % no_of_elements
-            associate(e => self % mesh % elements(eID))
-            e % storage % mu = - POW2(dimensionless % eps) * e % storage % QDot(1,:,:,:)
-            e % storage % c  = e % storage % Q(1,:,:,:)
-            call QuarticDWPDerivative(e % Nxyz, e % storage % c, c_alpha, c_beta, e % storage % mu)
-            e % storage % Q(1,:,:,:) = e % storage % mu
-            end associate
-         end do
-!$omp end do
-         end associate
+         else
+            dcsi = 0.0_RP
+
+         end if
+
+         if ( N(2) .ne. 0 ) then
+            deta = 1.0_RP / abs( spAeta_p  % x(1) - spAeta_p  % x (0) )
+         
+         else
+            deta = 0.0_RP
+
+         end if
+
+         if ( N(3) .ne. 0 ) then
+            dzet = 1.0_RP / abs( spAzeta_p % x(1) - spAzeta_p % x (0) )
+
+         else
+            dzet = 0.0_RP
+
+         end if
+         
+         if (flowIsNavierStokes) then
+            dcsi2 = dcsi*dcsi
+            deta2 = deta*deta
+            dzet2 = dzet*dzet
+         end if
+         
+         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
 !
-!        *************************
-!        Compute cDot: Q stores mu
-!        *************************
+!           ------------------------------------------------------------
+!           The maximum eigenvalues for a particular state is determined
+!           by the physics.
+!           ------------------------------------------------------------
 !
-!        -----------------------------------------
-!        Prolongation of the solution to the faces
-!        -----------------------------------------
+            Q(1:N_EQN) = self % mesh % elements(eID) % storage % Q(1:N_EQN,i,j,k)
+            CALL ComputeEigenvaluesForState( Q , eValues )
+            
+            jac      = self % mesh % elements(eID) % geom % jacobian(i,j,k)
 !
-         call self % mesh % ProlongSolutionToFaces()
-!
-!        ----------------
-!        Update MPI Faces
-!        ----------------
-!
-!$omp single
-         call self % mesh % UpdateMPIFacesSolution
-!$omp end single
-!
-!        -----------------
-!        Compute gradients
-!        -----------------
-!
-         CALL DGSpatial_ComputeGradient( self % mesh , time , self % externalState , self % externalGradients )
-!
-!$omp single
-         call self % mesh % UpdateMPIFacesGradients
-!$omp end single
-!
-!        ------------------------------
-!        Compute the chemical potential
-!        ------------------------------
-!
-         call ComputeLaplacian(mesh = self % mesh , &
-                               t    = time, &
-                  externalState     = self % externalState, &
-                  externalGradients = self % externalGradients )
-!
-!        Add a source term
-!        -----------------
-!$omp single
-         call UserDefinedSourceTerm(self % mesh, time, thermodynamics, dimensionless, refValues)
-!$omp end single
-!
-!        *****************************
-!        Return the concentration to Q
-!        *****************************
-!
-!$omp do
-         do eID = 1, self % mesh % no_of_elements
-            associate(e => self % mesh % elements(eID))
-            e % storage % Q(1,:,:,:) = e % storage % c
-            end associate
-         end do
+!           ----------------------------
+!           Compute contravariant values
+!           ----------------------------
+!              
+            lamcsi_a =abs( self % mesh % elements(eID) % geom % jGradXi(IX,i,j,k)   * eValues(IX) + &
+                           self % mesh % elements(eID) % geom % jGradXi(IY,i,j,k)   * eValues(IY) + &
+                           self % mesh % elements(eID) % geom % jGradXi(IZ,i,j,k)   * eValues(IZ) ) * dcsi
+  
+            lameta_a =abs( self % mesh % elements(eID) % geom % jGradEta(IX,i,j,k)  * eValues(IX) + &
+                           self % mesh % elements(eID) % geom % jGradEta(IY,i,j,k)  * eValues(IY) + &
+                           self % mesh % elements(eID) % geom % jGradEta(IZ,i,j,k)  * eValues(IZ) ) * deta
+  
+            lamzet_a =abs( self % mesh % elements(eID) % geom % jGradZeta(IX,i,j,k) * eValues(IX) + &
+                           self % mesh % elements(eID) % geom % jGradZeta(IY,i,j,k) * eValues(IY) + &
+                           self % mesh % elements(eID) % geom % jGradZeta(IZ,i,j,k) * eValues(IZ) ) * dzet
+            
+            TimeStep_Conv = min( TimeStep_Conv, cfl*abs(jac)/(lamcsi_a+lameta_a+lamzet_a) )
+            
+            if (flowIsNavierStokes) then
+               T        = Temperature(Q)
+               mu       = SutherlandsLaw(T)
+               lamcsi_v = mu * dcsi2 * abs(sum(self % mesh % elements(eID) % geom % jGradXi  (:,i,j,k)))
+               lameta_v = mu * deta2 * abs(sum(self % mesh % elements(eID) % geom % jGradEta (:,i,j,k)))
+               lamzet_v = mu * dzet2 * abs(sum(self % mesh % elements(eID) % geom % jGradZeta(:,i,j,k)))
+               
+               TimeStep_Visc = min( TimeStep_Visc, dcfl*abs(jac)/(lamcsi_v+lameta_v+lamzet_v) )
+            end if
+                  
+         end do ; end do ; end do
+      end do 
 !$omp end do
 !$omp end parallel
-
-      END SUBROUTINE ComputeTimeDerivative
+         
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+         localMax_dt_v = TimeStep_Visc
+         localMax_dt_a = TimeStep_Conv
+         call mpi_allreduce(localMax_dt_a, TimeStep_Conv, 1, MPI_DOUBLE, MPI_MIN, &
+                            MPI_COMM_WORLD, ierr)
+         call mpi_allreduce(localMax_dt_v, TimeStep_Visc, 1, MPI_DOUBLE, MPI_MIN, &
+                            MPI_COMM_WORLD, ierr)
+      end if
+#endif
+      
+      if (TimeStep_Conv  < TimeStep_Visc) then
+         self % mesh % dt_restriction = DT_CONV
+         MaxTimeStep  = TimeStep_Conv
+      else
+         self % mesh % dt_restriction = DT_DIFF
+         MaxTimeStep  = TimeStep_Visc
+      end if
+#endif
+   end function MaxTimeStep
 !
 !////////////////////////////////////////////////////////////////////////
 !

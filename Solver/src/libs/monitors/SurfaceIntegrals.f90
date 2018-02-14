@@ -1,9 +1,13 @@
 #if defined(NAVIERSTOKES)
 module SurfaceIntegrals
    use SMConstants
+   use PhysicsStorage
    use Physics
+   use FaceClass
+   use ElementClass
    use HexMeshClass
    use VariableConversion, only: Pressure
+   use NodalStorageClass
 #ifdef _HAS_MPI_
    use mpi
 #endif

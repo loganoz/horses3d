@@ -10,9 +10,14 @@
       SUBROUTINE testTwoBoxesMeshConstruction 
          USE FTAssertions
          USE SMConstants
+         use FaceClass
          USE HexMeshClass 
+         use MeshTypes
          USE SharedBCModule
          use ReadMeshFile
+         use TransfiniteMapClass
+         use NodalStorageClass
+         use ElementClass 
          IMPLICIT NONE
          
          TYPE(HexMesh)                   :: mesh
@@ -231,6 +236,10 @@
          USE SMConstants
          USE HexMeshClass 
          use ReadMeshFile
+         use FaceClass
+         use NodalStorageClass
+         use ElementClass
+         use MeshTypes
          IMPLICIT NONE
          
          EXTERNAL                :: cylindricalGeometry

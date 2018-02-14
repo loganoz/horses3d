@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Wed Jan 31 18:27:05 2018
+!   @Last revision date: Tue Feb 13 19:37:35 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 1181c365aba00e78739d327d06901d6d8ca99e02
+!   @Last revision commit: c01958bbb74b2de9252027cd1c501fe081a58ef2
 !
 !//////////////////////////////////////////////////////
 !
@@ -33,13 +33,14 @@ module SpatialDiscretization
       use PhysicsStorage
       use MPI_Face_Class
       use MPI_Process_Info
+      use DGSEMClass
 #ifdef _HAS_MPI_
       use mpi
 #endif
 
       private
       public  ComputeLaplacian, DGSpatial_ComputeGradient
-      public  Initialize_SpaceAndTimeMethods
+      public  Initialize_SpaceAndTimeMethods, ComputeTimeDerivative
 !
 !     ========      
       CONTAINS 
@@ -106,6 +107,155 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
+      SUBROUTINE ComputeTimeDerivative( mesh, time, externalState, externalGradients)
+         use Physics, only: QuarticDWPDerivative
+         IMPLICIT NONE 
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(HexMesh), target      :: mesh
+         REAL(KIND=RP)              :: time
+         procedure(BCState_FCN)     :: externalState
+         procedure(BCGradients_FCN) :: externalGradients
+         
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         INTEGER :: k, eID
+         class(Element), pointer  :: e
+         interface
+            subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
+               use SMConstants
+               USE HexMeshClass
+               use PhysicsStorage
+               IMPLICIT NONE
+               CLASS(HexMesh)                        :: mesh
+               REAL(KIND=RP)                         :: time
+               type(Thermodynamics_t),    intent(in) :: thermodynamics_
+               type(Dimensionless_t),     intent(in) :: dimensionless_
+               type(RefValues_t),         intent(in) :: refValues_
+            end subroutine UserDefinedSourceTerm
+         end interface
+
+!
+!        **************************************
+!        Compute chemical potential: Q stores c
+!        **************************************
+!
+!$omp parallel shared(mesh, time) private(e)
+!
+!        -----------------------------------------
+!        Prolongation of the solution to the faces
+!        -----------------------------------------
+!
+         call mesh % ProlongSolutionToFaces()
+!
+!        ----------------
+!        Update MPI Faces
+!        ----------------
+!
+!$omp single
+         call mesh % UpdateMPIFacesSolution
+!$omp end single
+!
+!        -----------------
+!        Compute gradients
+!        -----------------
+!
+         CALL DGSpatial_ComputeGradient( mesh , time , externalState)
+
+!$omp single
+         call mesh % UpdateMPIFacesGradients
+!$omp end single
+!
+!        ------------------------------
+!        Compute the chemical potential
+!        ------------------------------
+!
+         call ComputeLaplacian(mesh = mesh , &
+                               t    = time, &
+                  externalState     = externalState, &
+                  externalGradients = externalGradients )
+
+         associate(c_alpha => thermodynamics % c_alpha, &
+                   c_beta  => thermodynamics % c_beta    ) 
+!$omp do schedule(runtime)
+         do eID = 1, mesh % no_of_elements
+            e => mesh % elements(eID)
+            e % storage % mu = - POW2(dimensionless % eps) * e % storage % QDot(1,:,:,:)
+            e % storage % c  = e % storage % Q(1,:,:,:)
+            e % storage % gradC(1,:,:,:) = e % storage % U_x(1,:,:,:)
+            e % storage % gradC(2,:,:,:) = e % storage % U_y(1,:,:,:)
+            e % storage % gradC(3,:,:,:) = e % storage % U_z(1,:,:,:)
+            call QuarticDWPDerivative(e % Nxyz, e % storage % c, c_alpha, c_beta, e % storage % mu)
+            e % storage % Q(1,:,:,:) = e % storage % mu
+         end do
+!$omp end do
+         end associate
+!
+!        *************************
+!        Compute cDot: Q stores mu
+!        *************************
+!
+!        -----------------------------------------
+!        Prolongation of the solution to the faces
+!        -----------------------------------------
+!
+         call mesh % ProlongSolutionToFaces()
+!
+!        ----------------
+!        Update MPI Faces
+!        ----------------
+!
+!$omp single
+         call mesh % UpdateMPIFacesSolution
+!$omp end single
+!
+!        -----------------
+!        Compute gradients
+!        -----------------
+!
+         CALL DGSpatial_ComputeGradient( mesh , time , externalState)
+!
+!$omp single
+         call mesh % UpdateMPIFacesGradients
+!$omp end single
+!
+!        ------------------------------
+!        Compute the chemical potential
+!        ------------------------------
+!
+         call ComputeLaplacian(mesh = mesh , &
+                               t    = time, &
+                  externalState     = externalState, &
+                  externalGradients = externalGradients )
+!
+!        Add a source term
+!        -----------------
+!$omp single
+         call UserDefinedSourceTerm(mesh, time, thermodynamics, dimensionless, refValues)
+!$omp end single
+!
+!        *****************************
+!        Return the concentration to Q
+!        *****************************
+!
+!$omp do schedule(runtime)
+         do eID = 1, mesh % no_of_elements
+            e => mesh % elements(eID)
+!            associate(e => mesh % elements(eID))
+            e % storage % Q(1,:,:,:) = e % storage % c
+!            end associate
+         end do
+!$omp end do
+!$omp end parallel
+
+      END SUBROUTINE ComputeTimeDerivative
+
       subroutine ComputeLaplacian( mesh , t, externalState, externalGradients )
          implicit none
          type(HexMesh)              :: mesh
@@ -386,8 +536,8 @@ module SpatialDiscretization
 !
       type(Face),    intent(inout) :: f
       REAL(KIND=RP)                :: time
-      EXTERNAL                     :: externalStateProcedure
-      EXTERNAL                     :: externalGradientsProcedure
+      procedure(BCState_FCN)     :: externalState
+      procedure(BCGradients_FCN) :: externalGradients
 !
 !     ---------------
 !     Local variables
@@ -464,29 +614,15 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine DGSpatial_ComputeGradient( mesh , time , externalStateProcedure , externalGradientsProcedure )
+      subroutine DGSpatial_ComputeGradient( mesh , time , externalStateProcedure)
          use HexMeshClass
          use PhysicsStorage
          implicit none
          type(HexMesh)                  :: mesh
          real(kind=RP),      intent(in) :: time
-         interface
-            subroutine externalStateProcedure(x,t,nHat,Q,boundaryName)
-               use SMConstants
-               real(kind=RP)   , intent(in)    :: x(3), t, nHat(3)
-               real(kind=RP)   , intent(inout) :: Q(:)
-               character(len=*), intent(in)    :: boundaryName
-            end subroutine externalStateProcedure
-            
-            subroutine externalGradientsProcedure(x,t,nHat,gradU,boundaryName)
-               use SMConstants
-               real(kind=RP)   , intent(in)    :: x(3), t, nHat(3)
-               real(kind=RP)   , intent(inout) :: gradU(:,:)
-               character(len=*), intent(in)    :: boundaryName
-            end subroutine externalGradientsProcedure
-         end interface
+         procedure(BCState_FCN)         :: externalStateProcedure
 
-         call ViscousMethod % ComputeGradient( mesh , time , externalStateProcedure , externalGradientsProcedure )
+         call ViscousMethod % ComputeGradient( mesh , time , externalStateProcedure)
 
       end subroutine DGSpatial_ComputeGradient
 !

@@ -169,6 +169,7 @@
 !           to be performed
 !           ----------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
 #if defined(NAVIERSTOKES)
             use MonitorsClass
@@ -192,6 +193,7 @@
 !           Called to apply source terms to the equation
 !           --------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -237,6 +239,7 @@
 !           error tests to be performed
 !           --------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
 #if defined(NAVIERSTOKES)

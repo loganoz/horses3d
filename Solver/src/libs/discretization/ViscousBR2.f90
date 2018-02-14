@@ -4,9 +4,9 @@
 !   @File:    ViscousBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Thu Jan 25 21:11:07 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 4ae0998f1881a7de77d8fb31fe8ac95dfed811ae
+!   @Last revision date: Tue Feb 13 19:37:38 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: c01958bbb74b2de9252027cd1c501fe081a58ef2
 !
 !//////////////////////////////////////////////////////
 !
@@ -20,8 +20,10 @@ module ViscousBR2
    use PhysicsStorage
    use Physics
    use VariableConversion, only: gradientValuesForQ
+   use MPI_Process_Info
    use MPI_Face_Class
    use ViscousMethodClass
+   use DGSEMClass, only: BCState_FCN
    implicit none
 !
 !
@@ -88,7 +90,7 @@ module ViscousBR2
 
       end subroutine BR2_Describe
 
-      subroutine BR2_ComputeGradient( self , mesh , time , externalStateProcedure , externalGradientsProcedure)
+      subroutine BR2_ComputeGradient( self , mesh , time , externalStateProcedure)
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -97,8 +99,7 @@ module ViscousBR2
          class(BassiRebay2_t), intent(in) :: self
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
-         external                         :: externalStateProcedure
-         external                         :: externalGradientsProcedure
+         procedure(BCState_FCN)           :: externalStateProcedure
          integer                          :: Nx, Ny, Nz
 !
 !        ---------------
@@ -402,7 +403,7 @@ module ViscousBR2
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
-         call f % ProjectGradientFluxToElements(HFlux,(/1,2/))
+         call f % ProjectGradientFluxToElements(HFlux,(/1,2/),1)
          
       end subroutine BR2_GradientInterfaceSolution   
 
@@ -438,7 +439,7 @@ module ViscousBR2
          end do               ; end do
 
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectGradientFluxToElements(HFlux,(/thisSide, HMESH_NONE/))
+         call f % ProjectGradientFluxToElements(HFlux,(/thisSide, HMESH_NONE/),1)
          
       end subroutine BR2_GradientInterfaceSolutionMPI   
 

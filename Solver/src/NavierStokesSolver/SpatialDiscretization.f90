@@ -24,6 +24,7 @@ module SpatialDiscretization
       use PhysicsStorage
       use MPI_Face_Class
       use MPI_Process_Info
+      use DGSEMClass
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -186,11 +187,71 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
+      SUBROUTINE ComputeTimeDerivative( mesh, time, externalState, externalGradients )
+         IMPLICIT NONE 
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(HexMesh), target      :: mesh
+         REAL(KIND=RP)              :: time
+         procedure(BCState_FCN)     :: externalState
+         procedure(BCGradients_FCN) :: externalGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         INTEGER :: k
+!
+!        -----------------------------------------
+!        Prolongation of the solution to the faces
+!        -----------------------------------------
+!
+!$omp parallel shared(mesh, time)
+         call mesh % ProlongSolutionToFaces()
+!
+!        ----------------
+!        Update MPI Faces
+!        ----------------
+!
+!$omp single
+         call mesh % UpdateMPIFacesSolution
+!$omp end single
+!
+!        -----------------
+!        Compute gradients
+!        -----------------
+!
+         if ( computeGradients ) then
+            CALL DGSpatial_ComputeGradient( mesh , time , externalState)
+         end if
+
+!$omp single
+         if ( flowIsNavierStokes ) then
+            call mesh % UpdateMPIFacesGradients
+         end if
+!$omp end single
+!
+!        -----------------------
+!        Compute time derivative
+!        -----------------------
+!
+         call TimeDerivative_ComputeQDot(mesh = mesh , &
+                                         t    = time, &
+                                         externalState     = externalState, &
+                                         externalGradients = externalGradients )
+!$omp end parallel
+!
+      END SUBROUTINE ComputeTimeDerivative
+
       subroutine TimeDerivative_ComputeQDot( mesh , t, externalState, externalGradients )
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
-         external                   :: externalState, externalGradients
+         procedure(BCState_FCN)     :: externalState
+         procedure(BCGradients_FCN) :: externalGradients
 !
 !        ---------------
 !        Local variables
@@ -199,6 +260,7 @@ module SpatialDiscretization
          integer     :: eID , i, j, k, ierr, fID
          interface
             subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
+               use SMConstants
                USE HexMeshClass
                use PhysicsStorage
                IMPLICIT NONE
@@ -698,8 +760,8 @@ module SpatialDiscretization
 !
       type(Face),    intent(inout) :: f
       REAL(KIND=RP)                :: time
-      EXTERNAL                     :: externalStateProcedure
-      EXTERNAL                     :: externalGradientsProcedure
+      procedure(BCState_FCN)       :: externalState
+      procedure(BCGradients_FCN)   :: externalGradients
 !
 !     ---------------
 !     Local variables
@@ -1283,29 +1345,15 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine DGSpatial_ComputeGradient( mesh , time , externalStateProcedure , externalGradientsProcedure )
+      subroutine DGSpatial_ComputeGradient( mesh , time , externalStateProcedure)
          use HexMeshClass
          use PhysicsStorage
          implicit none
          type(HexMesh)                  :: mesh
          real(kind=RP),      intent(in) :: time
-         interface
-            subroutine externalStateProcedure(x,t,nHat,Q,boundaryName)
-               use SMConstants
-               real(kind=RP)   , intent(in)    :: x(3), t, nHat(3)
-               real(kind=RP)   , intent(inout) :: Q(:)
-               character(len=*), intent(in)    :: boundaryName
-            end subroutine externalStateProcedure
-            
-            subroutine externalGradientsProcedure(x,t,nHat,gradU,boundaryName)
-               use SMConstants
-               real(kind=RP)   , intent(in)    :: x(3), t, nHat(3)
-               real(kind=RP)   , intent(inout) :: gradU(:,:)
-               character(len=*), intent(in)    :: boundaryName
-            end subroutine externalGradientsProcedure
-         end interface
+         procedure(BCState_FCN)         :: externalStateProcedure
 
-         call ViscousMethod % ComputeGradient( mesh , time , externalStateProcedure , externalGradientsProcedure )
+         call ViscousMethod % ComputeGradient( mesh , time , externalStateProcedure)
 
       end subroutine DGSpatial_ComputeGradient
 !

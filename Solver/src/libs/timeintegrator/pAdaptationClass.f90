@@ -16,11 +16,14 @@
 !
 module pAdaptationClass
    use SMConstants
-   use DGSEMClass
-   use PhysicsStorage
    use InterpolationMatrices
+   use PhysicsStorage
+   use FaceClass
+   use ElementClass
+   use DGSEMClass
    use TruncationErrorClass
    use FTValueDictionaryClass
+   use TimeIntegratorDefinitions
    
    implicit none
    
@@ -312,7 +315,7 @@ module pAdaptationClass
 !  Main routine for adapting the polynomial order in all elements based on 
 !  the truncation error estimation
 !  ------------------------------------------------------------------------
-   subroutine pAdaptTE(pAdapt,sem,itera,t,controlVariables)
+   subroutine pAdaptTE(pAdapt,sem,itera,t, computeTimeDerivative, controlVariables)
       use AnisFASMultigridClass
       use StopwatchClass
       implicit none
@@ -320,7 +323,8 @@ module pAdaptationClass
       class(pAdaptation_t)       :: pAdapt            !<> Adaptation class
       type(DGSem)                :: sem               !<> sem
       integer                    :: itera             !<  iteration
-      real(kind=RP)              :: t                 !<  time!!
+      real(kind=RP)              :: t                 !< time!!
+      procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
       type(FTValueDictionary)    :: controlVariables  !<> Input vaiables (that can be modified depending on the user input)
       !--------------------------------------
       integer                    :: iEl               !   Element counter
@@ -385,7 +389,7 @@ module pAdaptationClass
 !     -------------------------------------------------------------
 !
       CALL AnisFASpAdaptSolver % construct(pAdapt % controlVariables,sem,estimator=.TRUE.)
-      CALL AnisFASpAdaptSolver % solve(itera,t,pAdapt % TE, pAdapt % TruncErrorType)
+      CALL AnisFASpAdaptSolver % solve(itera,t,computeTimeDerivative,pAdapt % TE, pAdapt % TruncErrorType)
       CALL AnisFASpAdaptSolver % destruct
 !
 !     -------------------------------------------------------------
@@ -638,7 +642,7 @@ module pAdaptationClass
 !     Update residuals
 !     ----------------
 !
-      call ComputeTimeDerivative(sem, t)
+      call ComputeTimeDerivative(sem % mesh, t, sem % externalState, sem % externalGradients)
       
       write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
    end subroutine pAdaptTE

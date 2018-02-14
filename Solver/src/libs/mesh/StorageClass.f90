@@ -13,6 +13,7 @@
 #include "Includes.h"
 module StorageClass
    use SMConstants
+   use PhysicsStorage
    implicit none
 
    private
@@ -35,8 +36,9 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),  allocatable :: U_z
       type(Statistics_t)                              :: stats
 #if defined(CAHNHILLIARD)
-      real(kind=RP), dimension(:,:,:),  allocatable :: c   ! Cahn-Hilliard concentration
-      real(kind=RP), dimension(:,:,:),  allocatable :: mu  ! Cahn-Hilliard chemical pot.
+      real(kind=RP), dimension(:,:,:),   allocatable :: c   ! Cahn-Hilliard concentration
+      real(kind=RP), dimension(:,:,:,:), allocatable :: gradC
+      real(kind=RP), dimension(:,:,:),   allocatable :: mu  ! Cahn-Hilliard chemical pot.
 #endif
       contains
          procedure   :: Construct => Storage_Construct
@@ -103,6 +105,7 @@ module StorageClass
 #if defined(CAHNHILLIARD)
          allocate( self % mu(0:Nx, 0:Ny, 0:Nz) )
          allocate( self % c (0:Nx, 0:Ny, 0:Nz) )
+         allocate( self % gradC (1:NDIM,0:Nx, 0:Ny, 0:Nz) )
 #endif
 !         
 !        -----------------
@@ -117,6 +120,7 @@ module StorageClass
 #if defined(CAHNHILLIARD)
          self % mu = 0.0_RP
          self % c  = 0.0_RP
+         self % gradC = 0.0_RP
 #endif
       
          IF ( computeGradients )     THEN
@@ -141,6 +145,8 @@ module StorageClass
 
 #if defined(CAHNHILLIARD)
          safedeallocate(self % mu)
+         safedeallocate(self % c)
+         safedeallocate(self % gradC)
 #endif
 
          call self % stats % Destruct()

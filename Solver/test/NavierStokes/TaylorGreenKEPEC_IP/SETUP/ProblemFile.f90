@@ -41,6 +41,7 @@
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
+            use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -170,6 +171,7 @@
 !           Called to apply source terms to the equation
 !           --------------------------------------------
 !
+            USE SMConstants
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
@@ -211,6 +213,7 @@
 !           to be performed
 !           ----------------------------------------------------------
 !
+            USE SMConstants
             USE HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
@@ -246,6 +249,7 @@
 !           --------------------------------------------------------
 !
             use FTAssertions
+            USE SMConstants
             USE HexMeshClass
             use MonitorsClass
             use PhysicsStorage
@@ -275,14 +279,14 @@
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: kinEn = 0.12499744094445034_RP
-            real(kind=RP), parameter           :: kinEnRate = -4.2793821018401358E-004_RP
-            real(kind=RP), parameter           :: enstrophy = 0.37499430856337029_RP 
-            real(kind=RP), parameter           :: res(5) = [7.8549638233905013E-005_RP, &
-                                                            0.12839531866734863_RP, &
-                                                            0.12839531888042091_RP, &
-                                                            0.24998301839383608_RP, &
-                                                            0.61597364426159862_RP]
+            real(kind=RP), parameter           :: kinEn = 0.12499744094576197_RP
+            real(kind=RP), parameter           :: kinEnRate = -4.2793777270020350E-004_RP
+            real(kind=RP), parameter           :: enstrophy = 0.37499382750807664_RP 
+            real(kind=RP), parameter           :: res(5) = [7.8469872929594112E-005_RP, &
+                                                            0.12839595215106728_RP, & 
+                                                            0.12839595254623606_RP, & 
+                                                            0.24998296113284613_RP, &
+                                                            0.61597739698335341_RP ]
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
