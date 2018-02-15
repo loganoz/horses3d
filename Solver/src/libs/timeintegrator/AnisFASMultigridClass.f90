@@ -526,8 +526,8 @@ module AnisFASMultigridClass
          
          if (SmoothFine .AND. lvl > 1) then
             call MGRestrictToChild(this,Dir,lvl,t,TE, ComputeTimeDerivative)
-            associate(p_sem => this % Child % MGStorage(Dir) % p_sem)
-            call ComputeTimeDerivative(p_sem % mesh, t, p_sem % externalState, p_sem % externalGradients)
+            associate(Childp_sem => this % Child % MGStorage(Dir) % p_sem)
+            call ComputeTimeDerivative(Childp_sem % mesh, t, Childp_sem % externalState, Childp_sem % externalGradients)
             end associate
             
             if (MAXVAL(ComputeMaxResiduals(p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals &

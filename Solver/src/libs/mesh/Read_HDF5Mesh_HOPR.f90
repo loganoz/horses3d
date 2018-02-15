@@ -15,8 +15,13 @@
 !
 
 module Read_HDF5Mesh_HOPR
-   use HexMeshClass
    use SMConstants
+   use HexMeshClass
+   use MeshTypes
+   use ElementClass
+   use ElementConnectivityDefinitions
+   use sharedBCModule
+   use PhysicsStorage
    USE TransfiniteMapClass
    use FacePatchClass
    use MappedGeometryClass
@@ -831,6 +836,7 @@ contains
 !  Construct nodes of mesh and deallocate temporal arrays
 !  ----------------------------------------------------------------
    subroutine FinishNodeMap (TempNodes , HOPRNodeMap, nodes)
+      use NodeClass
       implicit none
       !--------------------------------------------
       real(kind=RP), allocatable, intent(inout) :: TempNodes(:,:)
