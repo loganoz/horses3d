@@ -25,7 +25,7 @@ module RiemannSolvers
    use FluidData, only: equationOfState, getThermalConductivity
 
    private 
-   public RiemannSolver, SetRiemannSolver
+   public RiemannSolver, SetRiemannSolver, RiemannSolver_dFdQ
 
    abstract interface
       subroutine RiemannSolverFCN(QLeft, QRight, nHat, t1, t2, flux)
@@ -82,7 +82,9 @@ module RiemannSolvers
          IMPLICIT NONE
          integer, intent(in) :: which
          integer, intent(in) :: splitType
-
+         
+         RiemannSolver_dFdQ => BaseClass_RiemannSolver_dFdQ
+         
          select case ( which )
          case ( RIEMANN_ROE )
             RiemannSolver => RoeRiemannSolver
@@ -174,6 +176,19 @@ module RiemannSolvers
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
+      subroutine BaseClass_RiemannSolver_dFdQ(ql,qr,nHat,dfdq_num,side)
+         implicit none
+         !--------------------------------------------
+         real(kind=RP), intent (in)  :: ql(NCONS)                 !<  Current solution on the left
+         real(kind=RP), intent (in)  :: qr(NCONS)                 !<  Current solution on the right
+         real(kind=RP), intent (in)  :: nHat(NDIM)                !<  Normal vector
+         real(kind=RP), intent(out)  :: dfdq_num(NCONS,NCONS)     !>  Numerical flux Jacobian 
+         integer      , intent (in)  :: side                      !<  Either LEFT or RIGHT
+         !--------------------------------------------
+         
+         ERROR stop 'Requested Riemann solver not implemented for implicit time-integration'
+      end subroutine BaseClass_RiemannSolver_dFdQ
+      
       subroutine CentralRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
          implicit none 
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)

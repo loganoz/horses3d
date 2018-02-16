@@ -12,8 +12,8 @@
 !
 #include "Includes.h"
 module AnalyticalJacobian
-   use ElementClass
    use SMConstants
+   use ElementClass
    use HexMeshClass
    use NodalStorageClass
    use PhysicsStorage
@@ -52,10 +52,11 @@ contains
 !  -------------------------------------------------------
 !  Subroutine for computing the analytical Jacobian matrix
 !  -------------------------------------------------------
-   subroutine AnalyticalJacobian_Compute(sem,linsolver,BlockDiagonalized) !,Jacobian
+   subroutine AnalyticalJacobian_Compute(sem,time,linsolver,BlockDiagonalized) !,Jacobian
       implicit none
       !--------------------------------------------
       type(DGSem)              , intent(inout) :: sem
+      real(kind=RP)            , intent(in)    :: time
       class(GenericLinSolver_t), intent(inout) :: linsolver          !
       logical        , optional, intent(in)    :: BlockDiagonalized  !<? Construct only the block diagonal?
       !--------------------------------------------
@@ -101,10 +102,11 @@ contains
       call linsolver%ResetA
       
 !$omp parallel
-
 !
-!     Add volumetric contribution
-!     ---------------------------
+!     ***********************
+!     Volumetric contribution
+!     ***********************
+!
 
 !$omp do schedule(runtime)
       do eID = 1, nelem
@@ -113,28 +115,27 @@ contains
 !$omp end do
 
 !
+!     ******************
+!     Faces contribution
+!     ******************
+!
+#if defined(NAVIERSTOKES)
+      call ComputeNumericalFluxJacobian(sem % mesh,time,sem % externalState)
+#endif
+      
+!
 !     Add faces contribution to off-diagonal blocks
 !     ---------------------------------------------
-      if (.not. BlockDiagonal) then
-!$omp do schedule(runtime)
-         do fID = 1, size(sem % mesh % faces)
-            call Local_OffDiagonalFaceContribution(sem % mesh % faces(fID),linsolver)
-         end do
-!$omp end do
-      end if
+      if (.not. BlockDiagonal) call OffDiagonalBlocks(sem % mesh,linsolver)
       
 !     Pre-assembly the matrix with the volumetric contribution
-!        TODO: this is needed to change from INSERT_VALUES to ADD_VALUES in PETSc
 !     --------------------------------------------------------
-      
+      call linsolver % PreAssemblyA 
 !
 !     Add faces contribution to diagonal blocks
 !     -----------------------------------------
-!$omp do schedule(runtime)
-      do fID = 1, size(sem % mesh % faces)
-         call Local_DiagonalFaceContribution(sem % mesh % faces(fID),linsolver)
-      end do
-!$omp end do
+
+      call BlockDiagonal_FacesContribution(sem % mesh,linsolver)
 
 !$omp end parallel
       
@@ -182,7 +183,7 @@ contains
       N = e % Nxyz
       NDOFEL = ndofelm(e % eID)
       
-      allocate(irow_0(NDOFEL))
+      allocate(irow_0(NDOFEL),irow(NDOFEL))
       irow_0 (1:NDOFEL) = (/ (firstIdx(e % eID) + j, j=0,NDOFEL-1) /)
       
       allocate (LocalMatrix(NDOFEL,NDOFEL), &
@@ -203,29 +204,98 @@ contains
          irow = irow_0
          where (LocalMatrix(:,j) < jaceps) irow = -1
          
-         call linsolver % setAColumn(NDOFEL, irow, firstIdx(e % eID) + j-1, LocalMatrix(:,j) )
+         call linsolver % setAColumn(NDOFEL, irow_0, firstIdx(e % eID) + j-1, LocalMatrix(:,j) )
       end do
       
-      deallocate (LocalMatrix)
+      deallocate (LocalMatrix,irow_0,irow)
       
    end subroutine Local_VolumetricMatrix
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -----------------------------------------------------------------------------------------------
+!  
+!  -----------------------------------------------------------------------------------------------
+#if defined(NAVIERSTOKES)
+   subroutine ComputeNumericalFluxJacobian(mesh,time,externalStateProcedure)
+      use RiemannSolvers
+      use FaceClass
+      use MeshTypes
+      implicit none
+      !--------------------------------------------
+      type(HexMesh), intent(inout)    :: mesh
+      real(kind=RP), intent(in)       :: time
+      procedure(BCState_FCN)          :: externalStateProcedure
+      !--------------------------------------------
+      integer :: i,j, fID
+      !--------------------------------------------
+      
+      call mesh % ProlongSolutionToFaces
+      
+!$omp do private(i,j) schedule(runtime)
+      do fID = 1, size(mesh % faces)
+         associate (f => mesh % faces(fID) )
+         
+!        Get external states
+!        -------------------
+         
+         if (f % faceType == HMESH_BOUNDARY) then
+            do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+               f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
+               CALL externalStateProcedure( f % geom % x(:,i,j), &
+                                            time, &
+                                            f % geom % normal(:,i,j), &
+                                            f % storage(2) % Q(:,i,j),&
+                                            f % boundaryType )
+            end do               ; end do
+         end if
+         
+         do j = 0, f % Nf(2) ; do i = 0, f % Nf(1) 
+!
+!           Get numerical flux jacobian on the face point (i,j)
+!           ---------------------------------------------------
+
+            call RiemannSolver_dFdQ(ql   = f % storage(LEFT)  % Q(:,i,j), &
+                                    qr   = f % storage(RIGHT) % Q(:,i,j), &
+                                    nHat = f % geom % normal (:,i,j)    , &
+                                    dfdq_num = f % storage(LEFT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqL
+                                    side = LEFT)
+            call RiemannSolver_dFdQ(ql   = f % storage(LEFT)  % Q(:,i,j), &
+                                    qr   = f % storage(RIGHT) % Q(:,i,j), &
+                                    nHat = f % geom % normal (:,i,j)    , &
+                                    dfdq_num = f % storage(RIGHT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqR
+                                    side = RIGHT)
+!
+!           Scale with the mapping Jacobian
+!           -------------------------------
+            f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT ) % dFStar_dqF (:,:,i,j) * f % geom % jacobian(i,j)
+            f % storage(RIGHT) % dFStar_dqF (:,:,i,j) = f % storage(LEFT ) % dFStar_dqF (:,:,i,j) * f % geom % jacobian(i,j)
+            
+         end do             ; end do
+         
+         end associate
+      end do
+!$omp end do
+   
+   end subroutine ComputeNumericalFluxJacobian
+#endif
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------------------------------
 !  Subroutine for adding the faces' contribution to the off-diagonal blocks of the Jacobian matrix
 !  -----------------------------------------------------------------------------------------------
-   subroutine Local_OffDiagonalFaceContribution(f,linsolver)
+   subroutine OffDiagonalBlocks(mesh,linsolver)
       use FaceClass
       implicit none
       !--------------------------------------------
-      type(Face)               , intent(in)    :: f
+      type(HexMesh), target    , intent(inout)    :: mesh
       class(GenericLinSolver_t), intent(inout) :: linsolver
       !--------------------------------------------
       
       
       
-   end subroutine Local_OffDiagonalFaceContribution
+   end subroutine OffDiagonalBlocks
 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -233,18 +303,149 @@ contains
 !  -------------------------------------------------------------------------------------------
 !  Subroutine for adding the faces' contribution to the diagonal blocks of the Jacobian matrix
 !  -------------------------------------------------------------------------------------------
-   subroutine Local_DiagonalFaceContribution(f,linsolver)
+   subroutine BlockDiagonal_FacesContribution(mesh,linsolver)
       use FaceClass
+      use MeshTypes
       implicit none
       !--------------------------------------------
-      type(Face)               , intent(in)    :: f
+      type(HexMesh), target    , intent(inout)    :: mesh
+      class(GenericLinSolver_t), intent(inout) :: linsolver
+      !--------------------------------------------
+      integer :: fID, eID
+      
+      !--------------------------------------------
+      
+      !--------------------------------------------
+      
+!     Project flux Jacobian to element face
+!        -> For the block diagonal, it is only needed to transfer dF/dQL to the left element and
+!                                                                 dF/dQR to the right element
+!     -------------------------------------
+!$omp do schedule(runtime)
+      do fID = 1, size(mesh % faces)
+         associate (f => mesh % faces(fID)) 
+         call f % ProjectFluxJacobianToElements(LEFT ,LEFT )   ! dF/dQL to the left element 
+         if (.not. f % faceType == HMESH_BOUNDARY) call f % ProjectFluxJacobianToElements(RIGHT,RIGHT)   ! dF/dQR to the right element
+                                                               ! check if right element's rotation is ok for the Jacobian
+         end associate
+      end do
+!$omp end do
+      !private(irow_0,irow,NDOFEL,LocalMat,j)
+!$omp do schedule(runtime)
+      do eID = 1, size(mesh % elements)
+         associate (e => mesh % elements(eID)) 
+         
+         call AddBlock(e,mesh,linsolver)
+         end associate
+      end do
+!$omp end do
+      
+      
+   end subroutine BlockDiagonal_FacesContribution
+   
+   subroutine AddBlock(e,mesh,linsolver)
+      use MeshTypes
+      implicit none
+      type(Element)                    , intent(in) :: e
+      type(HexMesh), target    , intent(inout)    :: mesh
       class(GenericLinSolver_t), intent(inout) :: linsolver
       !--------------------------------------------
       
+      integer :: irow_0(ndofelm(e % eID))         ! Row indexes for the matrix
+      integer :: irow(ndofelm(e % eID))           ! Formatted row indexes for the column assignment (small values with index -1)
+      integer              :: j, NDOFEL
+      real(kind=RP) :: LocalMat(ndofelm(e % eID),ndofelm(e % eID))
+      
+      NDOFEL = ndofelm(e % eID)
+      irow_0 (1:NDOFEL) = (/ (firstIdx(e % eID) + j, j=0,NDOFEL-1) /)   
+      
+      call Local_GetDiagonalBlock(e, &
+               mesh % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFStar_dqEl(:,:,:,:,e %faceSide(EFRONT )), &
+               mesh % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFStar_dqEl(:,:,:,:,e %faceSide(EBACK  )), &
+               mesh % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFStar_dqEl(:,:,:,:,e %faceSide(EBOTTOM)), &
+               mesh % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFStar_dqEl(:,:,:,:,e %faceSide(ERIGHT )), &
+               mesh % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFStar_dqEl(:,:,:,:,e %faceSide(ETOP   )), &
+               mesh % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFStar_dqEl(:,:,:,:,e %faceSide(ELEFT  )), &
+               LocalMat  )
+      
+      do j=1, NDOFEL
+         irow = irow_0
+         where (LocalMat(:,j) < jaceps) irow = -1
+         
+         call linsolver % AddToAColumn(NDOFEL, irow_0, firstIdx(e % eID) + j-1, LocalMat(:,j) )
+      end do
       
       
-   end subroutine Local_DiagonalFaceContribution
+   end subroutine AddBlock
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------------------------------------------
+!  
+!  ----------------------------------------------------------
+   subroutine Local_GetDiagonalBlock(e,dfdq_fr,dfdq_ba,dfdq_bo,dfdq_ri,dfdq_to,dfdq_le,LocalMat)
+      implicit none
+      !-------------------------------------------
+      type(Element)                    , intent(in) :: e
+      real(kind=RP), dimension(NCONS,NCONS,0:e%Nxyz(1),0:e%Nxyz(3)), intent(in) :: dfdq_fr, dfdq_ba
+      real(kind=RP), dimension(NCONS,NCONS,0:e%Nxyz(1),0:e%Nxyz(2)), intent(in) :: dfdq_bo, dfdq_to
+      real(kind=RP), dimension(NCONS,NCONS,0:e%Nxyz(2),0:e%Nxyz(3)), intent(in) :: dfdq_ri, dfdq_le
+      real(kind=RP) :: LocalMat(ndofelm(e % eID),ndofelm(e % eID))
+      !-------------------------------------------
+      integer :: i, j             ! Matrix indices
+      integer :: i1, j1, k1, eq1  ! variable counters
+      integer :: i2, j2, k2, eq2  ! variable counters
+      integer :: nXi, nEta, nZeta ! Number of nodes in every direction
+      real(kind=RP) :: di, dj, dk       ! Kronecker deltas
+      !-------------------------------------------
+      
+      nXi   = e % Nxyz(1) + 1
+      nEta  = e % Nxyz(2) + 1
+      nZeta = e % Nxyz(3) + 1
+      
+      LocalMat = 0._RP
+      
+      do k2 = 0, e % Nxyz(3) ; do j2 = 0, e % Nxyz(2) ; do i2 = 0, e % Nxyz(1) ; do eq2 = 1, NCONS 
+         do k1 = 0, e % Nxyz(3) ; do j1 = 0, e % Nxyz(2) ; do i1 = 0, e % Nxyz(1) ; do eq1 = 1, NCONS 
+            
+!           Kronecker deltas
+!           -----------------
 
+            if (i1 == i2) then
+               di = 1._RP
+            else
+               di = 0._RP
+            end if
+            if (j1 == j2) then
+               dj = 1._RP
+            else
+               dj = 0._RP
+            end if
+            if (k1 == k2) then
+               dk = 1._RP
+            else
+               dk = 0._RP
+            end if
+            
+!           Add faces contribution
+!           ----------------------
+
+            i = eq1 + i1*NCONS + j1*NCONS*nXi + k1*NCONS*nEta*nXi ! row index (1-based)
+            j = eq2 + i2*NCONS + j2*NCONS*nXi + k2*NCONS*nEta*nXi ! column index (1-based)
+            
+            LocalMat(i,j) = LocalMat(i,j) &
+                                    + ( dfdq_fr(eq1,eq2,i1,k1) * e % spAeta % b(j1,FRONT ) * e % spAeta % v(j2,FRONT ) * di * dk   & ! 1 Front
+                                    +   dfdq_ba(eq1,eq2,i1,k1) * e % spAeta % b(j1,BACK  ) * e % spAeta % v(j2,BACK  ) * di * dk   & ! 2 Back
+                                    +   dfdq_bo(eq1,eq2,i1,j1) * e % spAZeta% b(k1,BOTTOM) * e % spAZeta% v(k2,BOTTOM) * di * dj   & ! 3 Bottom
+                                    +   dfdq_to(eq1,eq2,i1,j1) * e % spAZeta% b(k1,TOP   ) * e % spAZeta% v(k2,TOP   ) * di * dj   & ! 5 Top
+                                    +   dfdq_ri(eq1,eq2,j1,k1) * e % spAXi  % b(i1,RIGHT ) * e % spAXi  % v(i2,RIGHT ) * dj * dk   & ! 4 Right
+                                    +   dfdq_le(eq1,eq2,j1,k1) * e % spAXi  % b(i1,LEFT  ) * e % spAXi  % v(i2,LEFT  ) * dj * dk ) & ! 6 Left
+                                                                                                / e % geom % jacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
+            
+         end do                ; end do                ; end do                ; end do
+      end do                ; end do                ; end do                ; end do
+      
+   end subroutine Local_GetDiagonalBlock
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -271,7 +472,7 @@ contains
       dFdQ = 0._RP
       dGdQ = 0._RP
       dHdQ = 0._RP
-      
+#if defined(NAVIERSTOKES)
       do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
          Idx0 = ijk2local(i,j,k,1,NCONS,N(1),N(2),N(3)) ! Beginning index of local block matrix
          
@@ -282,7 +483,7 @@ contains
          dHdQ(Idx0:Idx0+NCONS-1,Idx0:Idx0+NCONS-1) = dhdq_
          
       end do ; end do ; end do
-      
+#endif
    end subroutine CreateElementFluxJacobians
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

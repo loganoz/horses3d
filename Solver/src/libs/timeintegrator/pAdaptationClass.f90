@@ -75,8 +75,8 @@ module pAdaptationClass
    integer    :: NInc
    integer    :: nelem   ! number of elements in mesh
    
-   EXTERNAL   :: externalStateForBoundaryName
-   EXTERNAL   :: ExternalGradientForBoundaryName
+   procedure(BCState_FCN)   :: externalStateForBoundaryName
+   procedure(BCGradients_FCN)   :: ExternalGradientForBoundaryName
    
    ! Here we define the input variables that can be changed after p-adaptation
    character(len=18), parameter :: ReplacedInputVars(4) = (/'mg sweeps         ', &
@@ -571,7 +571,6 @@ module pAdaptationClass
                               Nx_ = NNew(1,:) ,     Ny_ = NNew(2,:),     Nz_ = NNew(3,:),                   &
                               success           = success)
       IF(.NOT. success)   ERROR STOP "Error constructing adapted DGSEM"
-      
       call Stopwatch % Pause("Preprocessing")
       call Stopwatch % Start("Solver")
       

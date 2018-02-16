@@ -27,7 +27,9 @@ MODULE GenericLinSolverClass
       PROCEDURE :: PreallocateA
       PROCEDURE :: ResetA
       PROCEDURE :: SetAColumn
+      PROCEDURE :: AddToAColumn
       PROCEDURE :: AssemblyA
+      PROCEDURE :: PreAssemblyA
       PROCEDURE :: SetBValue
       PROCEDURE :: SetBValues
       PROCEDURE :: solve
@@ -92,12 +94,34 @@ CONTAINS
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
+   SUBROUTINE AddToAColumn(this,nvalues,irow,icol,values)
+      IMPLICIT NONE
+      CLASS(GenericLinSolver_t), INTENT(INOUT)  :: this
+      INTEGER       , INTENT(IN)                :: nvalues
+      INTEGER       , INTENT(IN), DIMENSION(:)  :: irow
+      INTEGER       , INTENT(IN)                :: icol
+      REAL(KIND=RP) , INTENT(IN), DIMENSION(:)  :: values
+   END SUBROUTINE AddToAColumn
+
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   
    SUBROUTINE AssemblyA(this,BlockIdx,BlockSize)
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockIdx(:)
       INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockSize(:)
    END SUBROUTINE AssemblyA
+
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   
+   SUBROUTINE PreAssemblyA(this)
+      IMPLICIT NONE
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+   END SUBROUTINE PreAssemblyA
 
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    

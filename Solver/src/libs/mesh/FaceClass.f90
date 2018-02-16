@@ -93,6 +93,7 @@
             procedure   :: AdaptSolutionToFace   => Face_AdaptSolutionToFace
             procedure   :: AdaptGradientsToFace   => Face_AdaptGradientsToFace
             procedure   :: ProjectFluxToElements => Face_ProjectFluxToElements
+            procedure   :: ProjectFluxJacobianToElements => Face_ProjectFluxJacobianToElements
             procedure   :: ProjectGradientFluxToElements => Face_ProjectGradientFluxToElements
       end type Face
 !
@@ -583,6 +584,112 @@
       end do
 
    end subroutine Face_ProjectFluxToElements
+   
+   subroutine Face_ProjectFluxJacobianToElements(self, whichElement,whichderiv)
+      use MappedGeometryClass
+      use PhysicsStorage
+      implicit none
+      class(Face), target        :: self
+      integer,       intent(in)  :: whichElement
+      integer,       intent(in)  :: whichderiv           !<  One can either transfer the derivative with respect to qL (LEFT) or to qR (RIGHT)
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      ! real(kind=RP), intent(in)  :: flux(1:NCONS,1:NCONS, 0:self % Nf(1), 0:self % Nf(2))
+      integer                :: i, j, ii, jj, l, m, side
+      real(kind=RP), pointer :: fluxDeriv(:,:,:,:)
+      real(kind=RP)     :: fStarAux(NCONS,NCONS, 0:self % NfRight(1), 0:self % NfRight(2))
+      
+      fluxDeriv => self % storage(whichderiv) % dFStar_dqF
+      
+      select case ( whichElement )
+         case (LEFT)    ! Prolong to left element
+            associate(dFStar_dq => self % storage(1) % dFStar_dqEl)
+            select case ( self % projectionType(1) )
+            case (0)
+               dFStar_dq(1:NCONS,1:NCONS,:,:,whichderiv) = fluxDeriv
+            case (1)
+               dFStar_dq(1:NCONS,1:NCONS,:,:,whichderiv) = 0._RP
+               do j = 0, self % NelLeft(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NelLeft(1)
+                  dFStar_dq(1:NCONS,1:NCONS,i,j,whichderiv) = dFStar_dq(1:NCONS,1:NCONS,i,j,whichderiv) &
+                                                               + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * fluxDeriv(:,:,l,j)
+               end do                  ; end do                   ; end do
+               
+            case (2)
+               dFStar_dq(1:NCONS,1:NCONS,:,:,whichderiv) = 0._RP
+               do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
+                  dFStar_dq(1:NCONS,1:NCONS,i,j,whichderiv) = dFStar_dq(1:NCONS,1:NCONS,i,j,whichderiv) &
+                                                               + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * fluxDeriv(:,:,i,l)
+               end do                  ; end do                   ; end do
+      
+            case (3)
+               dFStar_dq(1:NCONS,1:NCONS,:,:,whichderiv) = 0._RP
+               do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
+                  do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
+                     dFStar_dq(1:NCONS,1:NCONS,i,j,whichderiv) = dFStar_dq(1:NCONS,1:NCONS,i,j,whichderiv) &
+                                                              +  Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
+                                                               * Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) &
+                                                               * fluxDeriv(:,:,m,l)
+                  end do                 ; end do
+               end do                  ; end do
+            end select
+            end associate
+
+         case (RIGHT)    ! Prolong to right element
+!      
+!           *********
+!           1st stage: Projection
+!           *********
+!      
+            select case ( self % projectionType(2) )
+            case (0)
+               fStarAux(1:NCONS,1:NCONS,:,:) = fluxDeriv
+            case (1)
+               fStarAux(1:NCONS,1:NCONS,:,:) = 0.0
+               do j = 0, self % NfRight(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NfRight(1)
+                  fStarAux(1:NCONS,1:NCONS,i,j) = fStarAux(1:NCONS,1:NCONS,i,j) + Tset(self % Nf(1), self % NfRight(1)) % T(i,l) * fluxDeriv(:,:,l,j)
+               end do                  ; end do                   ; end do
+               
+            case (2)
+               fStarAux(1:NCONS,1:NCONS,:,:) = 0.0
+               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+                  fStarAux(1:NCONS,1:NCONS,i,j) = fStarAux(1:NCONS,1:NCONS,i,j) + Tset(self % Nf(2), self % NfRight(2)) % T(j,l) * fluxDeriv(:,:,i,l)
+               end do                  ; end do                   ; end do
+      
+            case (3)
+               fStarAux(1:NCONS,1:NCONS,:,:) = 0.0
+               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   
+                  do m = 0, self % Nf(1) ; do i = 0, self % NfRight(1)
+                     fStarAux(1:NCONS,1:NCONS,i,j) = fStarAux(1:NCONS,1:NCONS,i,j) +   Tset(self % Nf(1), self % NfRight(1)) % T(i,m) &
+                                                             * Tset(self % Nf(2), self % NfRight(2)) % T(j,l) &
+                                                             * fluxDeriv(:,:,m,l)
+                  end do                 ; end do
+               end do                  ; end do
+            end select
+!      
+!           *********
+!           2nd stage: Rotation
+!           *********
+!      
+            associate(dFStar_dq => self % storage(2) % dFStar_dqEl)
+            do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+               call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+               dFStar_dq(1:NCONS,1:NCONS,ii,jj,whichderiv) = fStarAux(1:NCONS,1:NCONS,i,j) 
+            end do                        ; end do
+!
+!           *********
+!           3rd stage: Inversion ... TODO: is this ok for the Jacobian?
+!           *********
+!
+            dFStar_dq = -dFStar_dq
+
+            end associate
+      end select
+      
+
+   end subroutine Face_ProjectFluxJacobianToElements
 
    subroutine Face_ProjectGradientFluxToElements(self, Hflux, whichElements, factor)
       use MappedGeometryClass
