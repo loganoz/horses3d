@@ -46,7 +46,9 @@ MODULE IterativeSolverClass
       PROCEDURE                                  :: PreallocateA
       PROCEDURE                                  :: ResetA
       PROCEDURE                                  :: SetAColumn 
+      PROCEDURE                                  :: AddToAColumn
       PROCEDURE                                  :: AssemblyA
+      PROCEDURE                                  :: PreAssemblyA
       PROCEDURE                                  :: SetBValue
       PROCEDURE                                  :: SetBValues
       PROCEDURE                                  :: solve
@@ -199,6 +201,40 @@ CONTAINS
       END IF
       
    END SUBROUTINE SetAColumn
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE AddToAColumn(this,nvalues,irow,icol,values)         
+      IMPLICIT NONE
+      !-----------------------------------------------------------
+      CLASS(IterativeSolver_t), INTENT(INOUT)  :: this
+      INTEGER       , INTENT(IN)                :: nvalues
+      INTEGER       , INTENT(IN), DIMENSION(:)  :: irow
+      INTEGER       , INTENT(IN)                :: icol
+      REAL(KIND=RP) , INTENT(IN), DIMENSION(:)  :: values
+      !-----------------------------------------------------------
+      
+      IF (this % AIsPetsc) THEN
+         CALL this % PetscSolver % AddToAColumn(nvalues,irow,icol,values)
+      ELSE
+         CALL this % A % SetColumn(irow+1,icol+1,values)
+      END IF
+      
+   END SUBROUTINE AddToAColumn
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE PreAssemblyA(this)         
+      IMPLICIT NONE
+      !-----------------------------------------------------------
+      CLASS(IterativeSolver_t) , INTENT(INOUT) :: this
+      !-----------------------------------------------------------
+      
+      IF (this % AIsPetsc) THEN
+         CALL this % PetscSolver % PreAssemblyA
+      END IF
+      
+   end SUBROUTINE PreAssemblyA
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

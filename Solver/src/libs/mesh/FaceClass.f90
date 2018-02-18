@@ -680,11 +680,10 @@
             end do                        ; end do
 !
 !           *********
-!           3rd stage: Inversion ... TODO: is this ok for the Jacobian?
+!           3rd stage: Inversion
 !           *********
 !
             dFStar_dq = -dFStar_dq
-
             end associate
       end select
       

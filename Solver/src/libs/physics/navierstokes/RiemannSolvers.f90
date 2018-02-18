@@ -1111,6 +1111,7 @@ module RiemannSolvers
 !
 !        Eigenvalues: lambda = max(|uL|,|uR|) + max(aL,aR)
 !        -----------
+     !!!    lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR)) + max(aL, aR)   ! This is a more dissipative version (not consistent with the Jacobian below)
          lambda = max(abs(rhouL*invRhoL) + aL,abs(rhouR*invRhoR) + aR)
 !
 !        ****************
@@ -1159,8 +1160,8 @@ module RiemannSolvers
          real(kind=RP) :: lambda    ! Lax-Friedrichs constant (penalty term for jump)
          real(kind=RP) :: lambdaL   ! Lax-Friedrichs constant on the left
          real(kind=RP) :: lambdaR   ! Lax-Friedrichs constant on the right
-         REAL(KIND=RP) :: ul, vl, wl, pL, velL, aL, srhoL   ! Quantities on the left
-         REAL(KIND=RP) :: ur, vr, wr, pR, velR, aR, srhoR   ! Quantities on the right
+         REAL(KIND=RP) :: ul, vl, wl, pL, velL, aL, srhoL, rhoV2L   ! Quantities on the left
+         REAL(KIND=RP) :: ur, vr, wr, pR, velR, aR, srhoR, rhoV2R   ! Quantities on the right
          real(kind=RP) :: dvn_dq(NCONS)                  ! Derivative of the normal velocity
          real(kind=RP) :: da_dq (NCONS)                  ! Derivative of the speed of sound
          real(kind=RP) :: dlambda_dq     (1,NCONS)       ! Derivative of Lax-Friedrichs constant (row matrix)
@@ -1176,13 +1177,15 @@ module RiemannSolvers
          ul = ql(IRHOU) * srhoL 
          vl = ql(IRHOV) * srhoL 
          wl = ql(IRHOW) * srhoL
-         pL = gammaMinus1 * (ql(IRHOE) - 0.5d0 * srhoL * (ql(IRHOU)**2 + ql(IRHOV)**2 + ql(IRHOW)**2))
+         rhoV2L = srhoL * (ql(IRHOU)**2 + ql(IRHOV)**2 + ql(IRHOW)**2)
+         pL = gammaMinus1 * (ql(IRHOE) - 0.5d0 * rhoV2L)
          
          srhoR = 1._RP / qr(IRHO) 
          ur = qr(IRHOU) * srhoR 
          vr = qr(IRHOV) * srhoR 
          wr = qr(IRHOW) * srhoR
-         pR = gammaMinus1 * (qr(IRHOE) - 0.5d0 * srhoR * (qr(IRHOU)**2 + qr(IRHOV)**2 + qr(IRHOW)**2))
+         rhoV2R = srhoR * (qr(IRHOU)**2 + qr(IRHOV)**2 + qr(IRHOW)**2)
+         pR = gammaMinus1 * (qr(IRHOE) - 0.5d0 * rhoV2R)
          
          velL = nHat(1)*ul + nHat(2)*vl + nHat(3)*wl 
          velR = nHat(1)*ur + nHat(2)*vr + nHat(3)*wr 
@@ -1204,8 +1207,8 @@ module RiemannSolvers
                if (lambdaL .ge. lambdaR) then
                   
                   dvn_dq = (/ -velL * srhoL, nHat(1) * srhoL, nHat(2) * srhoL, nHat(3) * srhoL, 0._RP /)
-                  da_dq  = (/ ( (ul*ul+vl*vl+wl*wl)-ql(IRHOE)*srhoL )*srhoL , -ul * srhoL , -vl * srhoL , -wl * srhoL , srhoL /) * &
-                                                                                                      gammaMinus1 / (2._RP * aL)
+                  da_dq  = (/ ( rhoV2L -ql(IRHOE) )*srhoL**2 , -ul * srhoL , -vl * srhoL , -wl * srhoL , srhoL /) * &
+                                                                                                gamma * gammaMinus1 / (2._RP * aL)
                   dlambda_dq(1,:) = sign(1._RP,velL) * dvn_dq + da_dq
                   q_jump    (:,1) = ql - qr
                   
@@ -1225,8 +1228,8 @@ module RiemannSolvers
                if (lambdaR .ge. lambdaL) then
                   
                   dvn_dq = (/ -velR * srhoR, nHat(1) * srhoR, nHat(2) * srhoR, nHat(3) * srhoR, 0._RP /)
-                  da_dq  = (/ ( (ur*ur+vr*vr+wr*wr)-qr(IRHOE)*srhoR )*srhoR , -ur * srhoR , -vr * srhoR , -wr * srhoR , srhoR /) * &
-                                                                                                      gammaMinus1 / (2._RP * aR)
+                  da_dq  = (/ ( rhoV2R - qr(IRHOE) )*srhoR**2 , -ur * srhoR , -vr * srhoR , -wr * srhoR , srhoR /) * &
+                                                                                                gamma * gammaMinus1 / (2._RP * aR)
                   dlambda_dq(1,:) = sign(1._RP,velR) * dvn_dq + da_dq
                   q_jump    (:,1) = ql - qr
                   
@@ -1252,7 +1255,7 @@ module RiemannSolvers
 !
 !        Finish up
 !        ---------
-         dfdq_num = dfdq * nHat(1) + dgdq * nHat(2) + dgdq * nHat(3) + lambdaTerm
+         dfdq_num = 0.5_RP * (dfdq * nHat(1) + dgdq * nHat(2) + dhdq * nHat(3) + lambdaTerm)
          
          end associate
       end subroutine LxFRiemannSolver_dFdQ

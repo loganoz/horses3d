@@ -781,6 +781,21 @@
          flux = 0.5_RP*(Qleft + Qright)*( nHat(1) + nHat(2) + nHat(3) )
       
       END SUBROUTINE RiemannSolver
+      
+      SUBROUTINE RiemannSolver_dFdQ(ql,qr,nHat,dfdq_num,side)
+         IMPLICIT NONE
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         REAL(KIND=RP), DIMENSION(N_EQN)        :: Ql, Qr
+         REAL(KIND=RP), DIMENSION(N_EQN,N_EQN)  :: dfdq_num
+         integer                                :: side
+         REAL(KIND=RP), DIMENSION(3)            :: nHat
+         
+      
+      END SUBROUTINE RiemannSolver_dFdQ
    end module RiemannSolvers
 !@mark -
 !

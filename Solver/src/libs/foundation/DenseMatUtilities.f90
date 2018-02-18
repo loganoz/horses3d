@@ -86,7 +86,7 @@ MODULE DenseMatUtilities
       IF (PRESENT(Formato)) THEN
          Forma = Formato
       ELSE
-         Forma = '(300000F12.8)' !Case default
+         Forma = '(300000F14.8)' !Case default
       END IF
       
       OPEN(newunit=fd,file=FileName)

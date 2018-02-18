@@ -45,7 +45,6 @@ INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all
 		   -fp-speculation=off -assume bscc -D_has_Quad
 ARFLAGS=crv
 
-
 # ------------------------------------------------
 OBJS_CASE= Setup VariableConversion Physics GradientSetup GradientTests InitialFlowState TestGradientsMain
 	   
@@ -256,7 +255,7 @@ $(PROG): $(OBJS_HORSES) $(OBJS_CASE) ProblemFile
 	@echo "---------------------------------"
 	@echo "| Linking " $@ "|"
 	@echo "---------------------------------"
-	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_EXEC) $(OBJS_CASE_EXEC) $(HORSES_LIBS_EXEC)
+	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_EXEC) $(OBJS_CASE_EXEC) $(HORSES_LIBS_EXEC) $(LIBS)
 
 horseslibs:
 	@for subdir in $(HORSES_LIBS); do \

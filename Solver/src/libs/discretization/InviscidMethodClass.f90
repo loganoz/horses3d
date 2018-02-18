@@ -26,9 +26,10 @@ module InviscidMethodClass
    type InviscidMethod_t
       procedure(VolumetricSharpFlux_FCN), nopass, pointer  :: ComputeVolumetricSharpFlux => NULL()
       contains
-         procedure   :: Initialize             => BaseClass_Initialize
-         procedure   :: ComputeInnerFluxes     => BaseClass_ComputeInnerFluxes
-         procedure   :: ComputeSplitFormFluxes => BaseClass_ComputeSplitFormFluxes
+         procedure   :: Initialize               => BaseClass_Initialize
+         procedure   :: ComputeInnerFluxes       => BaseClass_ComputeInnerFluxes
+         procedure   :: ComputeSplitFormFluxes   => BaseClass_ComputeSplitFormFluxes
+         procedure   :: ComputeInnerFluxJacobian => BaseClass_ComputeInnerFluxJacobian
    end type InviscidMethod_t
 
    abstract interface
@@ -159,8 +160,52 @@ module InviscidMethodClass
 
          end do               ; end do                ; end do
 
-      end subroutine BaseClass_ComputeInnerFluxes
+      end subroutine BaseClass_ComputeInnerFluxes      
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ----------------------------------------------------------
+!     Subroutine to get the Jacobian of the contravariant fluxes
+!     -> dFdQ (:,:,i,j,k,dim)
+!                 |     |
+!              jac|coord|flux in cartesian direction dim 
+!     ----------------------------------------------------------
+      subroutine BaseClass_ComputeInnerFluxJacobian( self, e, dFdQ) 
+         use ElementClass
+         use Physics
+         use PhysicsStorage
+         implicit none
+         !--------------------------------------------
+         class(InviscidMethod_t), intent(in)  :: self
+         type(Element)          , intent(in)  :: e
+         real(kind=RP)          , intent(out) :: dFdQ( NCONS, NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM )
+         !--------------------------------------------
+         real(kind=RP), DIMENSION(NCONS,NCONS)  :: dfdq_,dgdq_,dhdq_
+         integer                                :: i,j,k
+         !--------------------------------------------
+         
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            
+            call InviscidJacobian(e % storage % Q(:,i,j,k),dfdq_,dgdq_,dhdq_)
+            
+            
+            dFdQ(:,:,i,j,k,IX) = e % geom % jGradXi  (1,i,j,k) * dfdq_ + &
+                                 e % geom % jGradXi  (2,i,j,k) * dgdq_ + &
+                                 e % geom % jGradXi  (3,i,j,k) * dhdq_ 
 
+            dFdQ(:,:,i,j,k,IY) = e % geom % jGradEta (1,i,j,k) * dfdq_ + &
+                                 e % geom % jGradEta (2,i,j,k) * dgdq_ + &
+                                 e % geom % jGradEta (3,i,j,k) * dhdq_ 
+
+            dFdQ(:,:,i,j,k,IZ) = e % geom % jGradZeta(1,i,j,k) * dfdq_ + &
+                                 e % geom % jGradZeta(2,i,j,k) * dgdq_ + &
+                                 e % geom % jGradZeta(3,i,j,k) * dhdq_ 
+         end do                ; end do                ; end do
+         
+      end subroutine BaseClass_ComputeInnerFluxJacobian
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       subroutine BaseClass_ComputeSplitFormFluxes(self, e, contravariantFlux, fSharp, gSharp, hSharp)
          use ElementClass
          use PhysicsStorage
