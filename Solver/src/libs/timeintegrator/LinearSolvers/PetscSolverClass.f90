@@ -10,7 +10,7 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE PetscSolverClass
    USE GenericLinSolverClass
-   USE CSR_Matrices
+   USE CSRMatrixClass
    USE SMConstants
    use DGSEMClass
    use TimeIntegratorDefinitions
@@ -532,7 +532,9 @@ MODULE PetscSolverClass
          CALL CheckPetscErr(ierr,'error in Petsc MatRestoreRow')
       END DO
       
-      CALL Acsr % construct(this % dimprb, this % dimprb, nnz_row)
+      CALL Acsr % construct(this % dimprb)
+      call Acsr % Preallocate(nnzs= nnz_row)
+      call Acsr % Reset
       
       DO i = 1, this % dimprb
          

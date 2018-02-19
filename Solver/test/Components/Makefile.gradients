@@ -107,7 +107,8 @@ OBJS_HORSES=  SMConstants \
 		TimeIntegrator \
 		ConnectivityClass \
 		Jacobian \
-		CSR_Matrices \
+		GenericMatrixClass \
+		CSRMatrixClass \
 		pAdaptationClass \
 		navierstokes/ManufacturedSolutions \
 		DenseMatUtilities \
@@ -270,7 +271,7 @@ $(OBJS_HORSES): %: $(or $(wildcard $(HOME_DIR)/src/**/%.f90), $(wildcard $(HOME_
 	@echo $@.f90
 	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)./include -c $(FILE_HORSES) -o ./build/$@.o
 
-FILE_HORSES = $(or $(wildcard $(HOME_DIR)/src/**/$@.f90),$(wildcard $(HOME_DIR)/src/$@.f90),$(wildcard $(HOME_DIR)/src/***/**/$@.f90))
+FILE_HORSES = $(or $(wildcard $(HOME_DIR)/src/**/$@.f90),$(wildcard $(HOME_DIR)/src/$@.f90),$(wildcard $(HOME_DIR)/src/***/**/$@.f90),$(wildcard $(HOME_DIR)/src/**/**/**/$@.f90))
 
 
 $(OBJS_CASE): %: ./src/%.f90

@@ -163,7 +163,7 @@ CONTAINS
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    SUBROUTINE GetCSRMatrix(this,Acsr)
-      USE CSR_Matrices
+      USE CSRMatrixClass
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(IN)  :: this
       TYPE(csrMat_t)             , INTENT(OUT) :: Acsr 

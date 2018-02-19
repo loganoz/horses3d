@@ -189,7 +189,7 @@ contains
       class(GenericLinSolver_t), intent(inout) :: linsolver
       !--------------------------------------------
       
-      
+      ERROR stop ':: Analytical Jacobian not implemented for off-diagonal blocks'
       
    end subroutine AnalyticalJacobian_OffDiagonalBlocks
 !

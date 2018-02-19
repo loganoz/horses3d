@@ -19,7 +19,7 @@ MODULE Implicit_NJ
    USE ColorsClass,                 ONLY: Colors
    USE LinearSolverClass
    
-   USE CSR_Matrices
+   USE CSRMatrixClass
    USE FTValueDictionaryClass
    use TimeIntegratorDefinitions
    use DGSEMClass, only: ComputeQDot_FCN
@@ -434,6 +434,7 @@ MODULE Implicit_NJ
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE ComputeNumJac(sem, t, ecolors, nbr, linsolver, nelm, ComputeTimeDerivative, PINFO ,PRINT_JAC)
+      use StopwatchClass
 !
 !     ---------------
 !     Input arguments
@@ -467,7 +468,7 @@ MODULE Implicit_NJ
       INTEGER, ALLOCATABLE, DIMENSION(:), SAVE           :: ndofcol                                ! Maximum number of degrees of freedom in each color        
       
       
-      INTEGER                                            :: icol, cli, clf, clrate
+      INTEGER                                            :: icol
       INTEGER, DIMENSION(4)                              :: ijkl                                   ! Indexes to locate certain degree of freedom i,j,k...l:equation number
       INTEGER, ALLOCATABLE, DIMENSION(:), SAVE           :: irow_0, irow
 !~      REAL(KIND=RP), POINTER, DIMENSION(:)               :: pbuffer                              ! Outcommented, new definition below (arueda: previous was more efficient.. change after defining storage)
@@ -478,14 +479,17 @@ MODULE Implicit_NJ
       CHARACTER(LEN=15)                                  :: filename 
       
       LOGICAL, SAVE                                      :: isfirst = .TRUE.
-            
-      CALL SYSTEM_CLOCK(cli,clrate)
+      
 !
 !     --------------------------------------------------------------------
 !     Initialize variables that will be used throughout all the simulation
 !     --------------------------------------------------------------------
 !
-      IF (isfirst) THEN
+      
+      IF (isfirst) call Stopwatch % CreateNewEvent("Numerical Jacobian construction")
+      call Stopwatch % Start("Numerical Jacobian construction")
+      
+      IF (isfirst) THEN   
          ALLOCATE(ndofelm(nelm), firstIdx(nelm+1))
          ALLOCATE(Nx(nelm), Ny(nelm), Nz(nelm))
          ALLOCATE(dgs_clean(nelm))
@@ -688,11 +692,12 @@ MODULE Implicit_NJ
       
       CALL linsolver%AssemblyA(firstIdx,ndofelm)                             ! Matrix A needs to be assembled before being used in PETSc (at least)
       
-      CALL SYSTEM_CLOCK(clf)
-      ctime = (clf - cli) / REAL(clrate)
+      call Stopwatch % Pause("Numerical Jacobian construction")
       IF (PRESENT(PINFO)) THEN
-         IF (PINFO) PRINT*, "Implicit operator computing and assembly time: ", ctime, "s"
+         IF (PINFO) PRINT*, "Numerical Jacobian construction: ", Stopwatch % ElapsedTime("Numerical Jacobian construction"), "seconds"
       ENDIF
+      call Stopwatch % Reset("Numerical Jacobian construction")
+      
       IF (PRESENT(PRINT_JAC)) THEN
          IF(PRINT_JAC) THEN
             WRITE(filename,"(A2,f6.4,A4)") "A_",t,".dat"

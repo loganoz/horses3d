@@ -9,7 +9,7 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE MKLPardisoSolverClass
    USE GenericLinSolverClass
-   USE CSR_Matrices
+   USE CSRMatrixClass
    USE SMConstants
    USE PetscSolverClass   ! For allocating Jacobian matrix
    use DGSEMClass
@@ -164,7 +164,7 @@ MODULE MKLPardisoSolverClass
       IF (this % AIsPetsc) THEN
          CALL this % PetscSolver % SetAColumn(nvalues,irow,icol,values)
       ELSE
-         CALL this % A % SetColumn(irow+1,icol+1,values)
+         CALL this % A % SetColumn(nvalues,irow+1,icol+1,values)
       END IF
       
    END SUBROUTINE SetAColumn
@@ -355,7 +355,7 @@ MODULE MKLPardisoSolverClass
       IF (this % AIsPetsc) THEN
          CALL this % PetscSolver % SetOperatorDt(dt)
       ELSE
-         CALL this % A % SetMatShift(this % Ashift)
+         CALL this % A % Shift(this % Ashift)
       END IF
       
     END SUBROUTINE SetOperatorDt
@@ -375,8 +375,8 @@ MODULE MKLPardisoSolverClass
       IF (this % AIsPetsc) THEN
          CALL this % PetscSolver % ReSetOperatorDt(dt)
       ELSE
-         CALL this % A % SetMatShift(-this % Ashift)
-         CALL this % A % SetMatShift(shift)
+         CALL this % A % Shift(-this % Ashift)
+         CALL this % A % Shift(shift)
       END IF
       this % Ashift = shift
       

@@ -48,7 +48,7 @@ GradientSetup: DGSEMClass
 ReadInputFile: SMConstants SharedBCModule Physics Setup
 Jacobian: SMConstants DGSEMClass Physics
 ColorsClass: DGSEMClass
-CSR_Matrices: SMConstants
+CSRMatrixClass: SMConstants GenericMatrixClass
 navierstokes/ManufacturedSolutions: Physics SMConstants
 DenseMatUtilities: SMConstants
 FASMultigridClass: SMConstants ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics navierstokes/BoundaryConditions MultigridTypes
@@ -56,15 +56,15 @@ FASMultigridClass: SMConstants ExplicitMethods DGSEMClass InterpolationAndDeriva
 Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
 JFNKClass: SMConstants GMRESClass TimeIntegratorDefinitions
 GMRESClass: SMConstants
-Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices StorageClass AnalyticalJacobian
+Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSRMatrixClass StorageClass AnalyticalJacobian
 AnalyticalJacobian: HexElementClass SMConstants HexMesh NodalStorageClass Physics Jacobian LinearSolverClass DGSEMClass
 
 #Linear solvers
 LinearSolverClass: MKLPardisoSolverClass PetscSolverClass IterativeSolverClass MultigridSolverClass
 
-MKLPardisoSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass
-PetscSolverClass: CSR_Matrices GenericLinSolverClass SMConstants
-IterativeSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass DenseMatUtilities
-MultigridSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass InterpolationAndDerivatives LegendreAlgorithms Physics
-GenericLinSolverClass: SMConstants CSR_Matrices DGSEMClass
+MKLPardisoSolverClass: SMConstants CSRMatrixClass PetscSolverClass GenericLinSolverClass
+PetscSolverClass: CSRMatrixClass GenericLinSolverClass SMConstants
+IterativeSolverClass: SMConstants CSRMatrixClass PetscSolverClass GenericLinSolverClass DenseMatUtilities
+MultigridSolverClass: SMConstants CSRMatrixClass PetscSolverClass GenericLinSolverClass InterpolationAndDerivatives LegendreAlgorithms Physics
+GenericLinSolverClass: SMConstants CSRMatrixClass DGSEMClass
 pAdaptationClass: TruncationErrorClass AnisFASMultigridClass
