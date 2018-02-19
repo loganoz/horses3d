@@ -343,7 +343,7 @@ end interface
       maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
-      call self % Display(sem % mesh, monitors)
+      call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
       IF (self % integratorType == STEADY_STATE) THEN
          IF (maxval(maxResidual) <= Tol )  THEN
             write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",sem % numberOfTimeSteps," with Residual = ", maxval(maxResidual)
@@ -419,14 +419,14 @@ end interface
 !        -----------------------------
          IF (self % integratorType == STEADY_STATE) THEN
             IF (maxval(maxResidual) <= Tol )  THEN
-               call self % Display(sem % mesh, monitors)
+               call self % Display(sem % mesh, monitors, k+1)
                write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",k+1," with Residual = ", maxval(maxResidual)
                sem % numberOfTimeSteps = k + 1
                exit
             END IF
          ELSEIF (self % integratorType == TIME_ACCURATE) THEN
             IF ( t .ge. self % tFinal) then
-               call self % Display( sem % mesh, monitors)
+               call self % Display( sem % mesh, monitors, k+1)
                sem % numberOfTimeSteps = k + 1
                exit
             end if
@@ -438,7 +438,7 @@ end interface
 !
 !        Print monitors
 !        --------------
-         IF( (MOD( k+1, self % outputInterval) == 0) .or. (k .eq. self % initial_iter) ) call self % Display(sem % mesh, monitors)
+         IF( (MOD( k+1, self % outputInterval) == 0) .or. (k .eq. self % initial_iter) ) call self % Display(sem % mesh, monitors, k+1)
 !
 !        Autosave
 !        --------         
@@ -479,11 +479,12 @@ end interface
 !     Subroutine to print the residuals
 !
 !
-   subroutine TimeIntegrator_Display(self, mesh, monitors)
+   subroutine TimeIntegrator_Display(self, mesh, monitors, iter)
       implicit none
       class(TimeIntegrator_t),   intent(in)     :: self
       class(HexMesh),            intent(in)     :: mesh
       class(Monitor_t),          intent(inout)  :: monitors
+      integer                  , intent(in)     :: iter
 !
 !     ---------------
 !     Local variables      
@@ -496,7 +497,7 @@ end interface
       if ( .not. MPI_Process % isRoot ) return 
 
       if ( mod(shown, showLabels) .eq. 0 ) then
-         if ( (self % integratorType .eq. TIME_ACCURATE) .and. (self % iter .gt. self % initial_iter+1) ) then 
+         if ( (self % integratorType .eq. TIME_ACCURATE) .and. (iter .gt. self % initial_iter+1) ) then 
 !
 !           Compute ETA
 !           -----------
