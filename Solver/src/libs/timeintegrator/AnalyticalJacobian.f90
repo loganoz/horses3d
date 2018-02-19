@@ -25,7 +25,7 @@ module AnalyticalJacobian
    use PhysicsStorage
    use Physics
    use Jacobian
-   use LinearSolverClass
+   use MatrixClass
    use DGSEMClass
    use StopWatchClass
    use MeshTypes
@@ -53,12 +53,12 @@ contains
 !  -------------------------------------------------------
 !  Subroutine for computing the analytical Jacobian matrix
 !  -------------------------------------------------------
-   subroutine AnalyticalJacobian_Compute(sem,time,linsolver,BlockDiagonalized)
+   subroutine AnalyticalJacobian_Compute(sem,time,Matrix,BlockDiagonalized)
       implicit none
       !--------------------------------------------
       type(DGSem)              , intent(inout) :: sem
       real(kind=RP)            , intent(in)    :: time
-      class(GenericLinSolver_t), intent(inout) :: linsolver          !
+      class(Matrix_t)          , intent(inout) :: Matrix
       logical        , optional, intent(in)    :: BlockDiagonalized  !<? Construct only the block diagonal?
       !--------------------------------------------
       integer :: eID, fID  ! Element and face counters
@@ -106,28 +106,28 @@ contains
 !     Preallocate Jacobian matrix
 !     ---------------------------
       
-      call linsolver%PreallocateA(nnz)
-      call linsolver%ResetA
+      call Matrix % Preallocate(nnz)
+      call Matrix % Reset
 !$omp parallel
 !
 !     ***************
 !     Diagonal blocks
 !     ***************
 !
-      call AnalyticalJacobian_DiagonalBlocks(sem % mesh, time, sem % externalState, linsolver)
+      call AnalyticalJacobian_DiagonalBlocks(sem % mesh, time, sem % externalState, Matrix)
 !
 !     *******************
 !     Off-Diagonal blocks
 !     *******************
 !
-      if (.not. BlockDiagonal) call AnalyticalJacobian_OffDiagonalBlocks(sem % mesh,linsolver)
+      if (.not. BlockDiagonal) call AnalyticalJacobian_OffDiagonalBlocks(sem % mesh,Matrix)
 !$omp end parallel
       
 !
 !     Finish assembling matrix
 !     ------------------------
       
-      call linsolver%AssemblyA(firstIdx,ndofelm)
+      call Matrix % Assembly(firstIdx,ndofelm)
       
       call Stopwatch % Pause("Analytical Jacobian construction")
       
@@ -141,14 +141,14 @@ contains
 !  -----------------------------------------------------------------------------------------------
 !  Subroutine for adding the faces' contribution to the off-diagonal blocks of the Jacobian matrix
 !  -----------------------------------------------------------------------------------------------
-   subroutine AnalyticalJacobian_DiagonalBlocks(mesh,time,externalStateProcedure,linsolver)
+   subroutine AnalyticalJacobian_DiagonalBlocks(mesh,time,externalStateProcedure,Matrix)
       use FaceClass
       implicit none
       !--------------------------------------------
       type(HexMesh), target    , intent(inout) :: mesh
       real(kind=RP)            , intent(in)    :: time
       procedure(BCState_FCN)                   :: externalStateProcedure
-      class(GenericLinSolver_t), intent(inout) :: linsolver
+      class(Matrix_t)          , intent(inout) :: Matrix
       !--------------------------------------------
       integer :: eID, fID
       !--------------------------------------------
@@ -169,7 +169,7 @@ contains
 !$omp do schedule(runtime)
       do eID = 1, size(mesh % elements)
          associate (e=> mesh % elements(eID))
-         call computeBlock(e,mesh,linsolver)
+         call computeBlock(e,mesh,Matrix)
          end associate
       end do
 !$omp end do
@@ -181,12 +181,12 @@ contains
 !  -----------------------------------------------------------------------------------------------
 !  Subroutine for adding the faces' contribution to the off-diagonal blocks of the Jacobian matrix
 !  -----------------------------------------------------------------------------------------------
-   subroutine AnalyticalJacobian_OffDiagonalBlocks(mesh,linsolver)
+   subroutine AnalyticalJacobian_OffDiagonalBlocks(mesh,Matrix)
       use FaceClass
       implicit none
       !--------------------------------------------
-      type(HexMesh), target    , intent(inout)    :: mesh
-      class(GenericLinSolver_t), intent(inout) :: linsolver
+      type(HexMesh), target    , intent(inout) :: mesh
+      class(Matrix_t)          , intent(inout) :: Matrix
       !--------------------------------------------
       
       ERROR stop ':: Analytical Jacobian not implemented for off-diagonal blocks'
@@ -289,7 +289,7 @@ contains
                                      externalStateProcedure, &
                                      BCjac )
          f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = dFStar_dqL &
-                                            + matmul(dFStar_dqR,BCjac)
+                                            + matmul(dFStar_dqR,BCjac)  ! TODO: Why is this not working anymore???
       end do             ; end do
       
    end subroutine ComputeBoundaryFluxJacobian
@@ -373,11 +373,11 @@ contains
 !
 !//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine ComputeBlock(e,mesh,linsolver)
+   subroutine ComputeBlock(e,mesh,Matrix)
       implicit none
       type(Element)            , intent(in) :: e
       type(HexMesh)            , intent(in)    :: mesh
-      class(GenericLinSolver_t), intent(inout) :: linsolver
+      class(Matrix_t), intent(inout) :: Matrix
       !-------------------------------------
       real(kind=RP) :: dFdQ(NCONS,NCONS,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3),NDIM) 
       real(kind=RP) :: LocalMat(ndofelm(e % eID),ndofelm(e % eID)) 
@@ -405,7 +405,7 @@ contains
          irow = irow_0
          where (LocalMat(:,j) < jaceps) irow = -1
          
-         call linsolver % SetAColumn(NDOFEL, irow_0, firstIdx(e % eID) + j-1, LocalMat(:,j) )
+         call Matrix % SetColumn (NDOFEL, irow_0, firstIdx(e % eID) + j-1, LocalMat(:,j) )
       end do
       
    end subroutine ComputeBlock

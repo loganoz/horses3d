@@ -6,6 +6,7 @@ module GenericMatrixClass
    public Matrix_t
    
    type Matrix_t
+      integer :: NumRows
       contains
          procedure :: construct
          procedure :: Preallocate
@@ -16,6 +17,7 @@ module GenericMatrixClass
          procedure :: ReShift
          procedure :: PreAssembly
          procedure :: Assembly
+         procedure :: destruct
    end type Matrix_t
 contains
 !
@@ -128,5 +130,15 @@ contains
       
       ERROR stop ' :: Assembly not implemented for current matrix type'
    END SUBROUTINE Assembly
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE destruct(this)
+      IMPLICIT NONE
+      !---------------------------------------------
+      CLASS(Matrix_t),     INTENT(INOUT)     :: this
+      
+      ERROR stop ' :: destruct not implemented for current matrix type'
+   END SUBROUTINE destruct
    
 end module GenericMatrixClass

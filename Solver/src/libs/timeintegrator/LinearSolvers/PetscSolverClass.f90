@@ -10,17 +10,21 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE PetscSolverClass
    USE GenericLinSolverClass
+   use MatrixClass
    USE CSRMatrixClass
    USE SMConstants
    use DGSEMClass
    use TimeIntegratorDefinitions
+   use NumericalJacobian
    IMPLICIT NONE
 #ifdef HAS_PETSC
 #include <petsc.h>
 #endif
    TYPE, EXTENDS(GenericLinSolver_t) :: PetscKspLinearSolver_t
+      type(PETSCMatrix_t), allocatable              :: A
+      TYPE(DGSem), POINTER                          :: p_sem   
 #ifdef HAS_PETSC
-      Mat                                           :: A                                  ! Jacobian matrix
+      Mat                                           :: AA                                 ! Jacobian matrix
       Vec                                           :: x                                  ! Solution vector
       Vec                                           :: b                                  ! Right hand side
       KSP                                           :: ksp                                ! 
@@ -36,23 +40,16 @@ MODULE PetscSolverClass
       CONTAINS
          !Subroutines
          PROCEDURE                                  :: construct => ConstructPetscContext
-         PROCEDURE                                  :: ResetA
-         PROCEDURE                                  :: SetAColumn
-         PROCEDURE                                  :: AddToAColumn
          PROCEDURE                                  :: SetBValues
          PROCEDURE                                  :: SetBValue
          PROCEDURE                                  :: GetXValues
          PROCEDURE                                  :: GetXValue
-         PROCEDURE                                  :: PreallocateA
          PROCEDURE                                  :: SetOperatorDt
          PROCEDURE                                  :: ReSetOperatorDt
-         PROCEDURE                                  :: AssemblyA
-         PROCEDURE                                  :: PreAssemblyA
          PROCEDURE                                  :: AssemblyB
          PROCEDURE                                  :: SaveMat
          PROCEDURE                                  :: solve   =>   SolveLinPrb
          PROCEDURE                                  :: destroy =>   DestroyPetscObjects
-         PROCEDURE                                  :: GetCSRMatrix
          !Functions
          PROCEDURE                                  :: Getxnorm
          PROCEDURE                                  :: Getrnorm
@@ -87,38 +84,28 @@ MODULE PetscSolverClass
       STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE CheckPetscErr
-!///////////////////////////////////////////////////////////////////////////////     
+!
+!/////////////////////////////////////////////////////////////////////////////// 
+!
    SUBROUTINE ConstructPetscContext(this, DimPrb,controlVariables,sem)
       IMPLICIT NONE
+      !--------------------------------------------------------------
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT), TARGET :: this
       TYPE(FTValueDictionary)      , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                      , OPTIONAL  :: sem
+      !--------------------------------------------------------------
 #ifdef HAS_PETSC
       PetscInt, INTENT(IN)                                 :: DimPrb
       PetscErrorCode                                       :: ierr
+      
+      this % p_sem => sem
       
       !Initialisation of the PETSc variables
       CALL PetscInitialize(PETSC_NULL_CHARACTER,ierr)
 
 !     PETSc matrix A 
-      CALL MatCreate(PETSC_COMM_WORLD,this%A,ierr)                           ; CALL CheckPetscErr(ierr,'error creating A matrix')
-      IF (this%withMPI) THEN
-         CALL MatSetSizes(this%A,PETSC_DECIDE,PETSC_DECIDE,dimPrb,dimPrb,ierr)
-         CALL CheckPetscErr(ierr,'error setting mat size')
-         CALL MatSetType(this%A,MATMPIAIJ, ierr)                              
-         CALL CheckPetscErr(ierr,'error in MatSetType')
-         CALL MatSetFromOptions(this%A,ierr)                                  
-         CALL CheckPetscErr(ierr,'error in MatSetFromOptions')
-      ELSE
-         CALL MatSetSizes(this%A,PETSC_DECIDE,PETSC_DECIDE,dimPrb,dimPrb,ierr)
-         CALL CheckPetscErr(ierr,'error setting mat size')
-         CALL CheckPetscErr(ierr,'error in MatSetType')
-         CALL MatSetFromOptions(this%A,ierr)                                  
-         CALL CheckPetscErr(ierr,'error in MatSetFromOptions')
-!         CALL MatSetOption(this%A,MAT_ROW_ORIENTED,PETSC_FALSE,ierr)  
-         CALL MatSetOption(this%A,MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE,ierr)                 
-         CALL CheckPetscErr(ierr,'error in MatSetOption')
-       ENDIF
+      allocate (PETSCMatrix_t :: this % A)
+      call this % A % construct(DimPrb,this % WithMPI)
 
 !     Petsc vectors x and b (of A x = b)
       CALL VecCreate(PETSC_COMM_WORLD,this%x,ierr)          ; CALL CheckPetscErr(ierr,'error creating Petsc vector')
@@ -133,7 +120,7 @@ MODULE PetscSolverClass
       CALL KSPGetPC(this%ksp,this%pc,ierr)                              ; CALL CheckPetscErr(ierr,'error in KSPGetPC')
 
 !     Preset ksp solver
-      CALL KSPSetOperators(this%ksp, this%A, this%A, ierr)              ; CALL CheckPetscErr(ierr,'error in KSPSetOperators')
+      CALL KSPSetOperators(this%ksp, this%A%A, this%A%A, ierr)              ; CALL CheckPetscErr(ierr,'error in KSPSetOperators')
 !~      CALL KSPSetTolerances(this%ksp,PETSC_DEFAULT_REAL,this%tol,PETSC_DEFAULT_REAL,this%maxiter,ierr)
 !~      CALL CheckPetscErr(ierr,'error in KSPSetTolerances')
       this%init_context = PETSC_TRUE
@@ -156,17 +143,34 @@ MODULE PetscSolverClass
       STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE SetPetscPreco 
+!
 !/////////////////////////////////////////////////////////////////////////////////////////////////
-   SUBROUTINE SolveLinPrb(this, tol, maxiter, time,dt, ComputeTimeDerivative)
+!
+   SUBROUTINE SolveLinPrb(this, tol, maxiter, time,dt, ComputeTimeDerivative, ComputeA)
       IMPLICIT NONE
-      CLASS(PetscKspLinearSolver_t), INTENT(INOUT)    :: this
-      REAL(KIND=RP), OPTIONAL                         :: time
-      REAL(KIND=RP), OPTIONAL                         :: dt
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
+      !-------------------------------------------------------------
+      CLASS(PetscKspLinearSolver_t), INTENT(INOUT) :: this
+      REAL(KIND=RP), OPTIONAL                      :: time
+      REAL(KIND=RP), OPTIONAL                      :: dt
+      procedure(ComputeQDot_FCN)                   :: ComputeTimeDerivative
+      logical      , optional      , intent(inout) :: ComputeA
+      !-------------------------------------------------------------
 #ifdef HAS_PETSC
       PetscReal, OPTIONAL                             :: tol
       PetscInt,  OPTIONAL                             :: maxiter
       PetscErrorCode                                  :: ierr
+      !-------------------------------------------------------------
+      
+      if ( present(ComputeA)) then
+         if (ComputeA) then
+            call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+            call this % A % shift(-1._RP/dt)
+            ComputeA = .FALSE.
+         end if
+      else 
+         call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+         call this % A % shift(-1._RP/dt)
+      end if
       
       ! Set , if given, solver tolerance and max number of iterations
       IF (PRESENT(tol)) THEN
@@ -194,7 +198,7 @@ MODULE PetscSolverClass
          !  - PCBJACOBI: (block Jacobi) Bad results 
       ENDIF
 
-      CALL KSPSetOperators(this%ksp, this%A, this%A, ierr)     ; CALL CheckPetscErr(ierr, 'error in KSPSetOperators')
+      CALL KSPSetOperators(this%ksp, this%A%A, this%A%A, ierr)     ; CALL CheckPetscErr(ierr, 'error in KSPSetOperators')
       CALL KSPSolve(this%ksp,this%b,this%x,ierr)               ; CALL CheckPetscErr(ierr, 'error in KSPSolve')
       CALL KSPGetIterationNumber(this%ksp,this%niter,ierr)     ; CALL CheckPetscErr(ierr,'error in KSPGetIterationNumber')
 !~       CALL KSPGetResidualNorm(this%ksp, this%residual, ierr)   ; CALL CheckPetscErr(ierr,'error in KSPGetResidualNorm')
@@ -210,96 +214,20 @@ MODULE PetscSolverClass
       STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE SolveLinPrb
-!/////////////////////////////////////////////////////////////////////////////////////////////////
-   SUBROUTINE PreallocateA(this, nnz)
-      IMPLICIT NONE
-      CLASS(PetscKspLinearSolver_t), INTENT(INOUT)       :: this
-#ifdef HAS_PETSC
-      PetscInt                                         :: nnz
-      PetscErrorCode                                   :: ierr      
-      
-      this%nz = nnz
-      IF(this%withMPI) THEN
-         CALL MatMPIAIJSetPreallocation(this%A, this%nz/25, PETSC_NULL_INTEGER,24 * this%nz/25, PETSC_NULL_INTEGER,ierr)
-         CALL CheckPetscErr(ierr, 'error in MatMPIAIJSetPreallocation')
-      ELSE
-         CALL MatSeqAIJSetPreallocation(this%A, this%nz, PETSC_NULL_INTEGER,ierr)
-         CALL CheckPetscErr(ierr, 'error in MatSeqAIJSetPreallocation')
-      ENDIF
-#else
-      INTEGER                                         :: nnz
-      STOP ':: PETSc is not linked correctly'
-#endif
-   END SUBROUTINE
+!
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
-   SUBROUTINE SetAColumn(this,nvalues, irow, icol, values )
-      IMPLICIT NONE
-      CLASS(PetscKspLinearSolver_t), INTENT(INOUT)         :: this
-#ifdef HAS_PETSC
-      PetscInt, INTENT(IN)                               :: nvalues
-      PetscInt, DIMENSION(:), INTENT(IN)                 :: irow
-      PetscInt, INTENT(IN)                               :: icol
-      PetscScalar, DIMENSION(:), INTENT(IN)              :: values
-      PetscErrorCode                                     :: ierr
-   
-      CALL MatSetValues(this%A,nvalues,irow,1,icol,values,INSERT_VALUES,ierr)
-      CALL CheckPetscErr(ierr, 'error in MatSetValues')
-#else
-      INTEGER, INTENT(IN)                               :: nvalues
-      INTEGER, DIMENSION(:), INTENT(IN)                 :: irow
-      INTEGER, INTENT(IN)                               :: icol
-      REAL*8 , DIMENSION(:), INTENT(IN)                 :: values
-      STOP ':: PETSc is not linked correctly'
-#endif
-   END SUBROUTINE SetAColumn
-!/////////////////////////////////////////////////////////////////////////////////////////////////   
-   SUBROUTINE AddToAColumn(this,nvalues, irow, icol, values )
-      IMPLICIT NONE
-      CLASS(PetscKspLinearSolver_t), INTENT(INOUT)         :: this
-#ifdef HAS_PETSC
-      PetscInt, INTENT(IN)                               :: nvalues
-      PetscInt, DIMENSION(:), INTENT(IN)                 :: irow
-      PetscInt, INTENT(IN)                               :: icol
-      PetscScalar, DIMENSION(:), INTENT(IN)              :: values
-      PetscErrorCode                                     :: ierr
-   
-      CALL MatSetValues(this%A,nvalues,irow,1,icol,values,ADD_VALUES,ierr)
-      CALL CheckPetscErr(ierr, 'error in MatSetValues')
-#else
-      INTEGER, INTENT(IN)                               :: nvalues
-      INTEGER, DIMENSION(:), INTENT(IN)                 :: irow
-      INTEGER, INTENT(IN)                               :: icol
-      REAL*8 , DIMENSION(:), INTENT(IN)                 :: values
-      STOP ':: PETSc is not linked correctly'
-#endif
-   END SUBROUTINE AddToAColumn
-!/////////////////////////////////////////////////////////////////////////////////////////////////      
-   SUBROUTINE ResetA(this)
-      IMPLICIT NONE
-      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
-#ifdef HAS_PETSC
-      PetscErrorCode                                     :: ierr
-
-      CALL MatZeroEntries(this%A, ierr)
-      CALL CheckPetscErr(ierr,'error in MatZeroEntries')
-#else
-      STOP ':: PETSc is not linked correctly'
-#endif
-   END SUBROUTINE
-!/////////////////////////////////////////////////////////////////////////////////////////////////   
+!
    SUBROUTINE SetOperatorDt(this, dt)
       IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       PetscScalar,                     INTENT(IN)        :: dt
       PetscScalar                                        :: shift
-      PetscScalar                                        :: eps = 1e-10                                       
-      PetscErrorCode                                     :: ierr
+      PetscScalar                                        :: eps = 1e-10
 
       shift = -1._RP/dt !
-      IF (ABS(shift) .GT. eps) THEN
-         CALL MatShift(this%A,shift, ierr)                  ! A = A + shift * I
-         CALL CheckPetscErr(ierr)
+      IF (ABS(shift) .GT. eps) THEN                  
+         call this % A % shift(shift) ! A = A + shift * I
          this % Ashift = shift
       ENDIF
 #else
@@ -322,13 +250,11 @@ MODULE PetscSolverClass
 #ifdef HAS_PETSC
       PetscScalar,                     INTENT(IN)        :: dt
       PetscScalar                                        :: shift
-      PetscScalar                                        :: eps = 1e-10                                       
-      PetscErrorCode                                     :: ierr
+      PetscScalar                                        :: eps = 1e-10
 
       shift = -1._RP/dt !
       IF (ABS(shift) .GT. eps) THEN
-         CALL MatShift(this%A,shift - this % Ashift, ierr)                  ! A = A + shift * I
-         CALL CheckPetscErr(ierr)
+         call this % A % Reshift (shift) ! A = A + shift * I
          this % Ashift = shift
       ENDIF
 #else
@@ -374,35 +300,9 @@ MODULE PetscSolverClass
       STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE SetBValue
+!
 !/////////////////////////////////////////////////////////////////////////////////////////////////     
-   SUBROUTINE AssemblyA(this,BlockIdx,BlockSize)
-      IMPLICIT NONE
-      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)   :: this
-      INTEGER, TARGET, OPTIONAL    ,     INTENT(IN)      :: BlockIdx(:)
-      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockSize(:)
-#ifdef HAS_PETSC
-      PetscErrorCode                                     :: ierr
- 
-      CALL MatAssemblyBegin(this%A,MAT_FINAL_ASSEMBLY,ierr);  CALL CheckPetscErr(ierr," Assembly A in PETSc Begin")      
-      CALL MatAssemblyEnd(this%A,MAT_FINAL_ASSEMBLY,ierr)  ;  CALL CheckPetscErr(ierr," Assembly A in PETSc End")                  
-#else
-      STOP ':: PETSc is not linked correctly'
-#endif
-   END SUBROUTINE
-!/////////////////////////////////////////////////////////////////////////////////////////////////     
-   SUBROUTINE PreAssemblyA(this)
-      IMPLICIT NONE
-      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)   :: this
-#ifdef HAS_PETSC
-      PetscErrorCode                                     :: ierr
- 
-      CALL MatAssemblyBegin(this%A,MAT_FLUSH_ASSEMBLY ,ierr);  CALL CheckPetscErr(ierr," PreAssembly A in PETSc Begin")      
-      CALL MatAssemblyEnd(this%A,MAT_FLUSH_ASSEMBLY,ierr)  ;  CALL CheckPetscErr(ierr," PreAssembly A in PETSc End")                  
-#else
-      STOP ':: PETSc is not linked correctly'
-#endif
-   END SUBROUTINE PreAssemblyA
-!//////////////////////////////////////////////////////////////////////////////////////////////////
+!
    SUBROUTINE AssemblyB(this)
       IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)   :: this
@@ -461,7 +361,7 @@ MODULE PetscSolverClass
       PetscErrorCode                                     :: ierr
       
       
-      CALL MatView(this%A,PETSC_VIEWER_DRAW_SELF)
+      CALL MatView(this % A % A,PETSC_VIEWER_DRAW_SELF)
       read(*,*)
 !~       IF (.NOT. PRESENT(filename)) filename = &
 !~                             '/home/andresrueda/Dropbox/PhD/03_Initial_Codes/3D/Implicit/nslite3d/Tests/Euler/NumJac/MatMatlab.dat'
@@ -481,7 +381,7 @@ MODULE PetscSolverClass
       PetscErrorCode                                   :: ierr1, ierr2, ierr3, ierr4, ierr5, ierr6
       CALL VecDestroy(this%x,ierr1)
       CALL VecDestroy(this%b,ierr2)
-      CALL MatDestroy(this%A,ierr3)
+      call this % A % destruct
 !~       CALL PCDestroy (this%pc, ierr5) !! Outcommented: PC destroyed in KSP environment (KSPDestroy)
       CALL KSPDestroy(this%ksp,ierr4)
       
@@ -496,68 +396,6 @@ MODULE PetscSolverClass
       STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE DestroyPetscObjects
-!
-!////////////////////////////////////////////////////////////////////////////////////////////////// 
-!
-   SUBROUTINE GetCSRMatrix(this,Acsr)
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      CLASS(PetscKspLinearSolver_t), INTENT(IN)  :: this        !<    
-      TYPE(csrMat_t)               , INTENT(OUT) :: Acsr        !>    CSR matrix
-#ifdef HAS_PETSC
-!
-!     ------------------
-!     Internal variables
-!     ------------------
-!
-      INTEGER                                  :: i, ncols
-      INTEGER                                  :: nnz_row(this % dimprb)
-      INTEGER      , ALLOCATABLE, DIMENSION(:) :: ACols 
-      REAL(KIND=RP), ALLOCATABLE, DIMENSION(:) :: AVals
-      PetscErrorCode                           :: ierr
-      !---------------------------------------------------------------------------------
-      
-      !We first get the number of nonzero entries in each row
-      DO i = 1, this % dimprb
-         CALL MatGetRow(this%A,i-1,ncols,PETSC_NULL_INTEGER,PETSC_NULL_SCALAR,ierr)
-         CALL CheckPetscErr(ierr,'error in Petsc MatGetRow')
-         
-         nnz_row(i) = ncols
-         
-         CALL MatRestoreRow(this%A,i-1,ncols,PETSC_NULL_INTEGER,PETSC_NULL_SCALAR,ierr)
-         CALL CheckPetscErr(ierr,'error in Petsc MatRestoreRow')
-      END DO
-      
-      CALL Acsr % construct(this % dimprb)
-      call Acsr % Preallocate(nnzs= nnz_row)
-      call Acsr % Reset
-      
-      DO i = 1, this % dimprb
-         
-         ALLOCATE(AVals(nnz_row(i)))
-         ALLOCATE(ACols(nnz_row(i)))
-         
-         CALL MatGetRow(this%A,i-1,ncols,ACols,AVals,ierr)      ;  CALL CheckPetscErr(ierr,'error in Petsc MatGetRow')
-         
-         Acsr % Values  (Acsr % Rows (i) : Acsr % Rows (i+1) -1) = AVals
-         Acsr % Cols    (Acsr % Rows (i) : Acsr % Rows (i+1) -1) = ACols + 1
-         
-         CALL MatRestoreRow(this%A,i-1,ncols,ACols,AVals,ierr)  ;  CALL CheckPetscErr(ierr,'error in Petsc MatRestoreRow')
-         
-         DEALLOCATE(AVals)
-         DEALLOCATE(ACols)
-      END DO
-      
-      CALL Acsr % assigndiag
-      
-#else
-      STOP ':: PETSc is not linked correctly'
-#endif
-   END SUBROUTINE GetCSRMatrix
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////// 
 !

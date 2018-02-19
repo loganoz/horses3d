@@ -106,9 +106,12 @@ OBJS_HORSES=  SMConstants \
 		ReadInputFile \
 		TimeIntegrator \
 		ConnectivityClass \
-		Jacobian \
 		GenericMatrixClass \
 		CSRMatrixClass \
+		PETScMatrixClass \
+		MatrixClass \
+		Jacobian \
+		NumericalJacobian \
 		pAdaptationClass \
 		navierstokes/ManufacturedSolutions \
 		DenseMatUtilities \

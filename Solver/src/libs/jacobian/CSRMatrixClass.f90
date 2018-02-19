@@ -19,7 +19,6 @@ MODULE CSRMatrixClass
       INTEGER,        POINTER, CONTIGUOUS :: Rows(:)     =>NULL()  ! Row indices (index of first value of each row)
       INTEGER,        POINTER, CONTIGUOUS :: Diag(:)     =>NULL()  ! Array containing position of the diagonal entry (handy for some calculations)
       
-      INTEGER                             :: NumRows               ! Number of rows of matrix
       INTEGER                             :: NumCols               ! Number of colunms of matrix
       
       ! Variables for matrices with blocks
@@ -32,7 +31,7 @@ MODULE CSRMatrixClass
       procedure                           :: Reset       => CSR_Reset
       PROCEDURE                           :: assigndiag  => CSR_AssignDiag
       PROCEDURE                           :: Visualize   => CSR2Visualize
-      PROCEDURE                           :: destroy
+      PROCEDURE                           :: destruct
       PROCEDURE                           :: Shift       => SetMatShift
       PROCEDURE                           :: SetColumn
       PROCEDURE                           :: SetElem
@@ -42,7 +41,7 @@ MODULE CSRMatrixClass
    !-----------------------------------------------------------------------------   
    
    PRIVATE
-   PUBLIC                                 :: csrMat_t, CSR_MatVecMul
+   PUBLIC                                 :: csrMat_t, CSR_MatVecMul, Matrix_t
 !
 !========
  CONTAINS
@@ -97,7 +96,7 @@ MODULE CSRMatrixClass
       
       IF(total_nnz < 1) STOP ':: Invalid nnz' 
       
-      k = this % NumRows * nnz
+      k = this % NumRows * total_nnz
        
       ALLOCATE( this % Cols(total_nnz),STAT=istat )
       IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
@@ -293,7 +292,7 @@ MODULE CSRMatrixClass
    !----------------------------------------------------------------------------------
   
   !----------------------------------------------------------------------------------
-   SUBROUTINE destroy(this)
+   SUBROUTINE destruct(this)
    !----------------------------------------------------------------------------------
       IMPLICIT NONE
       !------------------------------------------
@@ -305,7 +304,7 @@ MODULE CSRMatrixClass
       NULLIFY(this % Values)
       NULLIFY(this % Diag)
    !----------------------------------------------------------------------------------
-   END SUBROUTINE destroy
+   END SUBROUTINE destruct
    !----------------------------------------------------------------------------------
    
    !----------------------------------------------------------------------------------

@@ -1,11 +1,13 @@
 module PETScMatrixClass
+   use SMConstants
    use GenericMatrixClass
+   use CSRMatrixClass
    implicit none
 #ifdef HAS_PETSC
 #include <petsc.h>
 #endif
    private
-   public PETSCMatrix_t
+   public PETSCMatrix_t, Matrix_t
    
    type, extends(Matrix_t) :: PETSCMatrix_t
 #ifdef HAS_PETSC
@@ -23,6 +25,7 @@ module PETScMatrixClass
          procedure :: ReShift
          procedure :: PreAssembly
          procedure :: Assembly
+         procedure :: GetCSRMatrix
    end type PETSCMatrix_t
    
 !
@@ -46,6 +49,7 @@ module PETScMatrixClass
       PetscBool, optional, INTENT(IN) :: withMPI
       !---------------------------------------------
       
+      this % NumRows = dimPrb
       this % withMPI = withMPI
       
       !     PETSc matrix A 
@@ -240,13 +244,74 @@ module PETScMatrixClass
       STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE Assembly
+!
 !/////////////////////////////////////////////////////////////////////////////////////////////////     
-   
-   
-   
-   
-   
-   
+!
+!
+!////////////////////////////////////////////////////////////////////////////////////////////////// 
+!
+   SUBROUTINE GetCSRMatrix(this,Acsr)
+      IMPLICIT NONE
+      !---------------------------------------------------------------------------------
+      CLASS(PETSCMatrix_t), INTENT(IN)  :: this        !<    PETSc matrix
+      TYPE(csrMat_t)      , INTENT(OUT) :: Acsr        !>    CSR matrix
+      !---------------------------------------------------------------------------------
+#ifdef HAS_PETSC
+      INTEGER                                  :: i, ncols
+      INTEGER                                  :: nnz_row(this % NumRows)
+      INTEGER      , ALLOCATABLE, DIMENSION(:) :: ACols 
+      REAL(KIND=RP), ALLOCATABLE, DIMENSION(:) :: AVals
+      PetscErrorCode                           :: ierr
+      !---------------------------------------------------------------------------------
+      
+      !We first get the number of nonzero entries in each row
+      DO i = 1, this % NumRows
+         CALL MatGetRow(this % A,i-1,ncols,PETSC_NULL_INTEGER,PETSC_NULL_SCALAR,ierr)
+         CALL CheckPetscErr(ierr,'error in Petsc MatGetRow')
+         
+         nnz_row(i) = ncols
+         
+         CALL MatRestoreRow(this % A,i-1,ncols,PETSC_NULL_INTEGER,PETSC_NULL_SCALAR,ierr)
+         CALL CheckPetscErr(ierr,'error in Petsc MatRestoreRow')
+      END DO
+      
+      CALL Acsr % construct(this % NumRows)
+      call Acsr % Preallocate(nnzs= nnz_row)
+      call Acsr % Reset
+      
+      DO i = 1, this % NumRows
+         
+         ALLOCATE(AVals(nnz_row(i)))
+         ALLOCATE(ACols(nnz_row(i)))
+         
+         CALL MatGetRow(this % A,i-1,ncols,ACols,AVals,ierr)      ;  CALL CheckPetscErr(ierr,'error in Petsc MatGetRow')
+         
+         Acsr % Values  (Acsr % Rows (i) : Acsr % Rows (i+1) -1) = AVals
+         Acsr % Cols    (Acsr % Rows (i) : Acsr % Rows (i+1) -1) = ACols + 1
+         
+         CALL MatRestoreRow(this % A,i-1,ncols,ACols,AVals,ierr)  ;  CALL CheckPetscErr(ierr,'error in Petsc MatRestoreRow')
+         
+         DEALLOCATE(AVals)
+         DEALLOCATE(ACols)
+      END DO
+      
+      CALL Acsr % assigndiag
+      
+#else
+      STOP ':: PETSc is not linked correctly'
+#endif
+   END SUBROUTINE GetCSRMatrix
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE destruct(this)
+      IMPLICIT NONE
+      !---------------------------------------------
+      CLASS(PETSCMatrix_t),     INTENT(INOUT)     :: this
+#ifdef HAS_PETSC
+      CALL MatDestroy(this%A,ierr)
+      CALL CheckPetscErr(ierr," A destruction")  
+#endif
+   END SUBROUTINE destruct
    
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

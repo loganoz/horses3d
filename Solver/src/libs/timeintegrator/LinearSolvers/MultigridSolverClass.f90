@@ -14,12 +14,12 @@ MODULE MultigridSolverClass
    USE CSRMatrixClass
    USE SMConstants
    USE PhysicsStorage
-   USE PetscSolverClass   ! For allocating Jacobian matrix
    
    USE PolynomialInterpAndDerivsModule
    USE GaussQuadrature
    use DGSEMClass
    use TimeIntegratorDefinitions
+   use NumericalJacobian
    IMPLICIT NONE
    
    PRIVATE
@@ -27,6 +27,7 @@ MODULE MultigridSolverClass
    
    TYPE, EXTENDS(GenericLinSolver_t) :: MultigridSolver_t
       TYPE(csrMat_t)                             :: A                                  ! Jacobian matrix
+      type(PETSCMatrix_t)                        :: PETScA
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: x                                  ! Solution vector
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: b                                  ! Right hand side
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: F_Ur                               ! Qdot at the beginning of solving procedure
@@ -36,7 +37,6 @@ MODULE MultigridSolverClass
       LOGICAL                                    :: AIsPrealloc                        ! Has A already been preallocated? (to be deprecated)
       
       !Variables for creating Jacobian in PETSc context:
-      TYPE(PetscKspLinearSolver_t)               :: PetscSolver                        ! PETSc solver (created only for allocating the matrix -to be deprecated?)
       LOGICAL                                    :: AIsPetsc = .TRUE.
       
       TYPE(DGSem)            , POINTER           :: p_sem                              ! Pointer to DGSem class variable of current system
@@ -52,14 +52,9 @@ MODULE MultigridSolverClass
    CONTAINS
       !Subroutines:
       PROCEDURE                                  :: construct
-      PROCEDURE                                  :: PreallocateA
-      PROCEDURE                                  :: ResetA
-      PROCEDURE                                  :: SetAColumn 
-      PROCEDURE                                  :: AssemblyA
       PROCEDURE                                  :: SetBValue
       PROCEDURE                                  :: SetBValues
       PROCEDURE                                  :: solve
-      PROCEDURE                                  :: GetCSRMatrix
       PROCEDURE                                  :: GetXValue
       PROCEDURE                                  :: destroy
       PROCEDURE                                  :: SetOperatorDt
@@ -143,7 +138,7 @@ CONTAINS
 !
       CALL RecursiveConstructor(this, Nx, Ny, Nz, MGlevels, controlVariables)
       
-      IF(this % AIsPetsc) CALL this % PetscSolver % construct (DimPrb)
+      IF(this % AIsPetsc) CALL this % PETScA % construct (DimPrb,.FALSE.)
       
       DEALLOCATE (Nx,Ny,Nz)
       
@@ -231,97 +226,6 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE PreallocateA(this,nnz)
-      IMPLICIT NONE
-!
-!  --------------------------------------------
-!  Subroutine for preallocating Jacobian matrix
-!     IMPORTANT:
-!        - To date, it's using the PETSc library for preallocating due to its efficiency
-!        - A proposed alternative to emulate PETSc allocation is to use 
-!          a linked list matrix and then transform it to CSR format
-!  --------------------------------------------
-!
-      !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT)  :: this
-      INTEGER                                  :: nnz
-      !-----------------------------------------------------------
-      LOGICAL, SAVE                            :: isfirst = .TRUE.
-      !-----------------------------------------------------------
-      
-      this % AIsPetsc = .TRUE.
-      IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % PreallocateA(nnz)
-      ELSE
-         IF (.NOT. this % AIsPrealloc) THEN
-            stop 'routines for preallocating matrix not implemented'
-         ELSE
-            print*, 'Matrix already preallocated'
-         END IF
-      END IF
-      this % AIsPrealloc = .TRUE.
-      
-   END SUBROUTINE PreallocateA
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   SUBROUTINE ResetA(this)         
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
-      !-----------------------------------------------------------
-      
-      IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % ResetA
-      ELSE
-         this % A % Values = 0._RP
-      END IF
-      
-   END SUBROUTINE ResetA
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   SUBROUTINE SetAColumn(this,nvalues,irow,icol,values)         
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT)  :: this
-      INTEGER       , INTENT(IN)                :: nvalues
-      INTEGER       , INTENT(IN), DIMENSION(:)  :: irow
-      INTEGER       , INTENT(IN)                :: icol
-      REAL(KIND=RP) , INTENT(IN), DIMENSION(:)  :: values
-      !-----------------------------------------------------------
-      
-      IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % SetAColumn(nvalues,irow,icol,values)
-      ELSE
-         CALL this % A % SetColumn(nvalues,irow+1,icol+1,values)
-      END IF
-      
-   END SUBROUTINE SetAColumn
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   SUBROUTINE AssemblyA(this,BlockIdx,BlockSize)         
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(MultigridSolver_t) , INTENT(INOUT) :: this
-      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockIdx(:)
-      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockSize(:)
-      !-----------------------------------------------------------
-      
-      IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % AssemblyA
-         CALL this % PetscSolver % GetCSRMatrix(this % A)
-!~          CALL this % PetscSolver % destroy
-         this % AIsPetsc = .FALSE.
-      ELSE
-         print*, 'A is assembled'
-      END IF
-      
-   end SUBROUTINE AssemblyA
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
    SUBROUTINE SetBValue(this, irow, value)
       IMPLICIT NONE
       !-----------------------------------------------------------
@@ -356,7 +260,7 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative)
+   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative, ComputeA)
       IMPLICIT NONE
       CLASS(MultigridSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP), OPTIONAL                 :: tol
@@ -364,13 +268,33 @@ CONTAINS
       REAL(KIND=RP), OPTIONAL                 :: time
       REAL(KIND=RP), OPTIONAL                 :: dt
       procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
+      logical      , optional      , intent(inout) :: ComputeA
       !-------------------------------------------------
       INTEGER                                 :: niter
       INTEGER                                 :: i
 !~      LOGICAL, SAVE :: isfirst = .TRUE.
       !-------------------------------------------------
       
-      IF (.NOT. PRESENT(time) .OR. .NOT. PRESENT(dt)) STOP 'time and dt needed for iterative solver'
+      IF (.NOT. PRESENT(time) .OR. .NOT. PRESENT(dt)) STOP 'time and dt needed for Multigrid solver'
+      
+!
+!     Compute Jacobian matrix if needed
+!        (done in petsc format and then transformed to CSR since the CSR cannot be filled by the Jacobian calculators)
+!     -----------------------------------------------------
+      
+      if ( present(ComputeA)) then
+         if (ComputeA) then
+            call NumericalJacobian_Compute(this % p_sem, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
+            call this % PETScA % shift(-1._RP/dt)
+            call this % PETScA % GetCSRMatrix(this % A)
+            this % AIsPetsc = .FALSE.
+            ComputeA = .FALSE.
+         end if
+      else 
+         call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+         call this % PETScA % shift(-1._RP/dt)
+         call this % PETScA % GetCSRMatrix(this % A)
+      end if
       
       timesolve= time
       dtsolve  = dt
@@ -402,18 +326,6 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE GetCSRMatrix(this,Acsr)         
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(IN)  :: this
-      TYPE(csrMat_t)          , INTENT(OUT) :: Acsr 
-      !-----------------------------------------------------------
-      
-      Acsr = this % A
-   END SUBROUTINE GetCSRMatrix
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
    SUBROUTINE GetXValue(this,irow,x_i)       
       IMPLICIT NONE
       !-----------------------------------------------------------
@@ -434,12 +346,12 @@ CONTAINS
       CLASS(MultigridSolver_t), INTENT(INOUT) :: this
       !-----------------------------------------------------------
       
-      CALL this % A % destroy()
+      CALL this % A % destruct()
       
       DEALLOCATE(this % b)
       DEALLOCATE(this % x)
       
-      IF (this % AIsPetsc) CALL this % PetscSolver % destroy()
+      CALL this % PETScA % destruct
       this % AIsPetsc    = .TRUE.
       this % AIsPrealloc = .FALSE.
       
@@ -461,7 +373,7 @@ CONTAINS
       
       this % Ashift = -1._RP/dt
       IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % SetOperatorDt(dt)
+         CALL this % PETScA % shift(this % Ashift)
       ELSE
          CALL this % A % Shift(this % Ashift)
       END IF
@@ -481,7 +393,7 @@ CONTAINS
       
       shift = -1._RP/dt
       IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % ReSetOperatorDt(dt)
+         CALL this % PETScA % ReShift(shift)
       ELSE
          CALL this % A % Shift(-this % Ashift)
          CALL this % A % Shift(shift)
