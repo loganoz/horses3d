@@ -88,7 +88,7 @@ module ZoneClass
 !        Local variables
 !        ---------------
 !
-         integer                                  :: zoneID
+         integer                                  :: zoneID, fID
          integer                                  :: no_of_markers
          character(len=STR_LEN_ZONE), allocatable :: zoneNames(:)
 !
@@ -101,6 +101,12 @@ module ZoneClass
 !        ---------------------
          allocate ( zoneNames( 1:no_of_markers ) ) 
          zoneNames = zoneNameDictionary % allKeys()
+!
+!        Reset faces
+!        -----------
+         do fID = 1, size(faces)
+            faces (fID) % zone = 0
+         end do
 !
 !        Assign the faces
 !        ----------------         
@@ -160,6 +166,7 @@ module ZoneClass
             if (zoneID > no_of_markers) cycle
             
             call zoneList(zoneID) % Append( 1.0_RP * fID + 0.1_RP )
+            faces (fID) % zone = zoneID
          end do
 !
 !        Dump the linked list contents onto fixed-size arrays 

@@ -8,14 +8,19 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE IterativeSolverClass
+   use MatrixClass
    USE GenericLinSolverClass
-   USE CSR_Matrices
+   USE CSRMatrixClass
    USE SMConstants
    USE PetscSolverClass   ! For allocating Jacobian matrix
    use DGSEMClass
    use TimeIntegratorDefinitions
+   use NumericalJacobian
+   use PhysicsStorage
    IMPLICIT NONE
-   
+#ifdef HAS_PETSC
+#include <petsc.h>
+#endif
    PRIVATE
    PUBLIC IterativeSolver_t, GenericLinSolver_t
    
@@ -24,7 +29,8 @@ MODULE IterativeSolverClass
    END TYPE BlockPreco_t
    
    TYPE, EXTENDS(GenericLinSolver_t) :: IterativeSolver_t
-      TYPE(csrMat_t)                             :: A                                  ! Jacobian matrix
+      TYPE(csrMat_t)                             :: A                                 ! Jacobian matrix
+      type(PETSCMatrix_t)                        :: PETScA
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: x                                  ! Solution vector
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: b                                  ! Right hand side
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: F_Ur                               ! Qdot at the beginning of solving procedure
@@ -37,16 +43,12 @@ MODULE IterativeSolverClass
       TYPE(PetscKspLinearSolver_t)               :: PetscSolver                        ! PETSc solver (created only for allocating the matrix -to be deprecated?)
       LOGICAL                                    :: AIsPetsc = .TRUE.
       
-      TYPE(DGSem), POINTER                       :: p_sem                              ! Pointer to DGSem class variable of current system
+      TYPE(DGSem), POINTER                       :: p_sem                          ! Pointer to DGSem class variable of current system
       CHARACTER(LEN=LINE_LENGTH)                 :: Smoother
       TYPE(BlockPreco_t), ALLOCATABLE            :: BlockPreco(:)
    CONTAINS
       !Subroutines:
       PROCEDURE                                  :: construct
-      PROCEDURE                                  :: PreallocateA
-      PROCEDURE                                  :: ResetA
-      PROCEDURE                                  :: SetAColumn 
-      PROCEDURE                                  :: AssemblyA
       PROCEDURE                                  :: SetBValue
       PROCEDURE                                  :: SetBValues
       PROCEDURE                                  :: solve
@@ -55,6 +57,7 @@ MODULE IterativeSolverClass
       PROCEDURE                                  :: destroy
       PROCEDURE                                  :: SetOperatorDt
       PROCEDURE                                  :: ReSetOperatorDt
+      procedure                                  :: FillAInfo
       !Functions:
       PROCEDURE                                  :: Getxnorm    !Get solution norm
       PROCEDURE                                  :: Getrnorm    !Get residual norm
@@ -94,7 +97,10 @@ CONTAINS
       INTEGER :: k          ! Counter  
       INTEGER :: N_EQN                                       
       !-----------------------------------------------------------
-      
+#ifdef HAS_PETSC
+      PetscErrorCode :: ierr
+      CALL PetscInitialize(PETSC_NULL_CHARACTER,ierr)
+#endif
       IF (.NOT. PRESENT(sem)) stop 'Fatal error: IterativeSolver needs sem.'
       
       
@@ -105,8 +111,8 @@ CONTAINS
       ALLOCATE(this % b   (DimPrb))
       ALLOCATE(this % F_Ur(DimPrb))
       ALLOCATE(this % Ur  (DimPrb))
-      
-      IF(this % AIsPetsc) CALL this % PetscSolver % construct (DimPrb)
+
+      IF(this % AIsPetsc) CALL this % PETScA % construct (DimPrb,.FALSE.)
       
       this % p_sem => sem
 !
@@ -128,106 +134,43 @@ CONTAINS
             END DO
       END SELECT
    END SUBROUTINE construct
-   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE PreallocateA(this,nnz)
-      IMPLICIT NONE
-!
-!  --------------------------------------------
-!  Subroutine for preallocating Jacobian matrix
-!     IMPORTANT:
-!        - To date, it's using the PETSc library for preallocating due to its efficiency
-!        - A proposed alternative to emulate PETSc allocation is to use 
-!          a linked list matrix and then transform it to CSR format
-!  --------------------------------------------
-!
-      !-----------------------------------------------------------
-      CLASS(IterativeSolver_t), INTENT(INOUT)  :: this
-      INTEGER                                  :: nnz
-      !-----------------------------------------------------------
-      LOGICAL, SAVE                            :: isfirst = .TRUE.
-      !-----------------------------------------------------------
-      
-      this % AIsPetsc = .TRUE.      ! This is always the case when creating a new Jacobian
-      IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % PreallocateA(nnz)
-      ELSE
-         IF (.NOT. this % AIsPrealloc) THEN
-            stop 'routines for preallocating matrix not implemented'
-         ELSE
-            print*, 'Matrix already preallocated'
-         END IF
-      END IF
-      this % AIsPrealloc = .TRUE.
-      
-   END SUBROUTINE PreallocateA
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   SUBROUTINE ResetA(this)         
-      IMPLICIT NONE
+   subroutine FillAInfo(this)
+      implicit none
       !-----------------------------------------------------------
       CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       !-----------------------------------------------------------
-      
-      IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % ResetA
-      ELSE
-         this % A % Values = 0._RP
-      END IF
-      
-   END SUBROUTINE ResetA
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   SUBROUTINE SetAColumn(this,nvalues,irow,icol,values)         
-      IMPLICIT NONE
+      integer :: i
+      integer, target, allocatable, dimension(:) :: Nx, Ny, Nz, ndofelm
+      integer, target, allocatable :: firstIdx(:)
+      integer :: nelem
       !-----------------------------------------------------------
-      CLASS(IterativeSolver_t), INTENT(INOUT)  :: this
-      INTEGER       , INTENT(IN)                :: nvalues
-      INTEGER       , INTENT(IN), DIMENSION(:)  :: irow
-      INTEGER       , INTENT(IN)                :: icol
-      REAL(KIND=RP) , INTENT(IN), DIMENSION(:)  :: values
-      !-----------------------------------------------------------
+      nelem= size(this % p_sem % mesh % elements)
       
-      IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % SetAColumn(nvalues,irow,icol,values)
-      ELSE
-         CALL this % A % SetColumn(irow+1,icol+1,values)
-      END IF
+      allocate ( Nx(nelem), Ny(nelem), Nz(nelem), ndofelm(nelem) )
+      allocate ( firstIdx(nelem+1) )
       
-   END SUBROUTINE SetAColumn
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   SUBROUTINE AssemblyA(this,BlockIdx,BlockSize)         
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(IterativeSolver_t) , INTENT(INOUT) :: this
-      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockIdx(:)
-      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockSize(:)
-      !-----------------------------------------------------------
+      firstIdx(1) = 0
+      do i=1, size(this % p_sem % mesh % elements)
+            Nx(i) = this % p_sem % mesh % elements(i) % Nxyz(1)
+            Ny(i) = this % p_sem % mesh % elements(i) % Nxyz(2)
+            Nz(i) = this % p_sem % mesh % elements(i) % Nxyz(3)
+            
+!           Get block sizes and position in matrix
+!              TODO: change to store the permutation indexes in the element
+!           --------------------------------------
+! 
+            ndofelm(i)  = N_EQN * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)
+            IF (i>1) firstIdx(i) = firstIdx(i-1) + ndofelm(i-1)
+      end do
       
-      IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % AssemblyA
-         CALL this % PetscSolver % GetCSRMatrix(this % A)
-!~         CALL this % PetscSolver % destroy
-         this % AIsPetsc = .FALSE.
-      ELSE
-         print*, 'A is assembled'
-      END IF
-      
-      IF (this % Smoother == 'BlockJacobi') THEN
-         IF (.NOT. PRESENT(BlockIdx) .OR. .NOT. PRESENT(BlockSize)) THEN
-            STOP 'Iterative Class :AssemblyA :: Block Jacobi smoother needs block information'
-         ELSE
-            this % A % BlockIdx  => BlockIdx
-            this % A % BlockSize => BlockSize
-         END IF
-      END IF
-   end SUBROUTINE AssemblyA
+      allocate (this % A % BlockIdx(nelem+1))
+      allocate (this % A % BlockSize(nelem))
+      this % A % BlockIdx  = firstIdx
+      this % A % BlockSize = ndofelm
+   end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -265,7 +208,8 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative)
+   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative, ComputeA)
+   use DenseMatUtilities
       IMPLICIT NONE
       CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP), OPTIONAL                 :: tol
@@ -273,12 +217,34 @@ CONTAINS
       REAL(KIND=RP), OPTIONAL                 :: time
       REAL(KIND=RP), OPTIONAL                 :: dt
       procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
+      logical      , optional      , intent(inout) :: ComputeA
       !-------------------------------------------------
       INTEGER                                 :: i
 !~      LOGICAL, SAVE :: isfirst = .TRUE.
       !-------------------------------------------------
       
       IF (.NOT. PRESENT(time) .OR. .NOT. PRESENT(dt)) STOP 'time and dt needed for iterative solver'
+      
+!
+!     Compute Jacobian matrix if needed
+!        (done in petsc format and then transformed to CSR since the CSR cannot be filled by the Jacobian calculators)
+!     -----------------------------------------------------
+      
+      if ( present(ComputeA)) then
+         if (ComputeA) then
+            call NumericalJacobian_Compute(this % p_sem, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
+            call this % PETScA % shift(-1._RP/dt)
+            call this % PETScA % GetCSRMatrix(this % A)
+            if (this % Smoother == 'BlockJacobi') call this % FillAInfo
+            this % AIsPetsc = .FALSE.
+            ComputeA = .FALSE.
+         end if
+      else 
+         call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+         call this % PETScA % shift(-1._RP/dt)
+         call this % PETScA % GetCSRMatrix(this % A)
+         if (this % Smoother == 'BlockJacobi') call this % FillAInfo
+      end if
       
       timesolve= time
       dtsolve  = dt
@@ -345,7 +311,7 @@ CONTAINS
       CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       !-----------------------------------------------------------
       
-      CALL this % A % destroy()
+      CALL this % A % destruct()
       
       DEALLOCATE(this % b)
       DEALLOCATE(this % x)
@@ -374,7 +340,7 @@ CONTAINS
       IF (this % AIsPetsc) THEN
          CALL this % PetscSolver % SetOperatorDt(dt)
       ELSE
-         CALL this % A % SetMatShift(this % Ashift)
+         CALL this % A % Shift(this % Ashift)
       END IF
       
       IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
@@ -396,8 +362,8 @@ CONTAINS
       IF (this % AIsPetsc) THEN
          CALL this % PetscSolver % ReSetOperatorDt(dt)
       ELSE
-         CALL this % A % SetMatShift(-this % Ashift)
-         CALL this % A % SetMatShift(shift)
+         CALL this % A % Shift(-this % Ashift)
+         CALL this % A % Shift(shift)
       END IF
       this % Ashift = shift
       

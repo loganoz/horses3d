@@ -28,7 +28,7 @@ module pAdaptationClass
    implicit none
    
    private
-   public GetMeshPolynomialOrders, ReadOrderFile, WriteOrderFile
+   public GetMeshPolynomialOrders, ReadOrderFile
    public pAdaptation_t, PrintTEmap
    
    !--------------------------------------------------
@@ -36,13 +36,15 @@ module pAdaptationClass
    !--------------------------------------------------
    type :: pAdaptation_t
       type(FTValueDictionary)           :: controlVariables ! Own copy of the control variables (needed to construct sem) ! TODO: Change this?
-      character(len=LINE_LENGTH)        :: plotFileName     ! Name of file for plotting adaptation information
+      character(len=LINE_LENGTH)        :: solutionFileName ! Name of file for plotting adaptation information
       real(kind=RP)                     :: reqTE            ! Requested truncation error
+      logical                           :: saveGradients    ! Save gradients in pre-adapt and p-adapted solution files?
       logical                           :: PlotInfo
       logical                           :: Adapt            ! Is the adaptator going to be used??
       logical                           :: increasing       ! Performing an increasing adaptation procedure?
       logical                           :: Constructed      ! 
       integer                           :: NxyzMax(3)       ! Maximum polynomial order in all the directions
+      integer                           :: TruncErrorType   ! Truncation error type (either ISOLATED_TE or NON_ISOLATED_TE)
       
       type(TruncationError_t), allocatable :: TE(:)         ! Truncation error for every element(:)
       
@@ -65,19 +67,22 @@ module pAdaptationClass
 !  Module variables
 !  ----------------
 !
-   !! Parameters
-   integer, parameter    :: NMIN = 1
-   
    !! Variables
-   integer               :: NInc_0 = 4
+   integer    :: NMIN = 1
+   integer    :: NInc_0 = 4
 !!    integer               :: dN_Inc = 3 
-   integer               :: fN_Inc = 2
-   integer               :: NInc
-   integer               :: nelem   ! number of elements in mesh
+   integer    :: fN_Inc = 2
+   integer    :: NInc
+   integer    :: nelem   ! number of elements in mesh
    
-   EXTERNAL              :: externalStateForBoundaryName
-   EXTERNAL              :: ExternalGradientForBoundaryName
+   procedure(BCState_FCN)   :: externalStateForBoundaryName
+   procedure(BCGradients_FCN)   :: ExternalGradientForBoundaryName
    
+   ! Here we define the input variables that can be changed after p-adaptation
+   character(len=18), parameter :: ReplacedInputVars(4) = (/'mg sweeps         ', &
+                                                            'mg sweeps pre     ', &
+                                                            'mg sweeps post    ', &
+                                                            'mg sweeps coarsest'/)
 !========
  contains
 !========
@@ -156,31 +161,6 @@ module pAdaptationClass
       close(UNIT=fd)
       
    end subroutine ReadOrderFile
-   
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   subroutine WriteOrderFile(sem,filename)
-      implicit none
-      !------------------------------------------
-      type(DGSem)     , intent(in) :: sem      !<  Sem class
-      character(len=*), intent(in) :: filename          !<  Name of file containing polynomial orders to initialize
-      !------------------------------------------
-      integer                      :: fd       ! File unit
-      integer                      :: k
-      !------------------------------------------
-      
-      open( newunit = fd , FILE = TRIM(filename), ACTION = 'write')
-         
-         write(fd,*) size(sem % mesh % elements)
-         
-         do k=1, size(sem % mesh % elements)
-            write(fd,*) sem % mesh % elements(k) % Nxyz
-         end do
-         
-      close (fd)
-   end subroutine WriteOrderFile
-
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -229,10 +209,9 @@ module pAdaptationClass
       this % controlVariables = controlVariables
       
       this % PlotInfo     = controlVariables % LogicalValueForKey("plot p-adaptation") ! Default false if not present
-      if (this % PlotInfo) then
-         this % plotFileName = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
-         this % plotFileName = trim(this % plotFileName) // '_AdaptInfo.tec'
-      end if
+      
+      this % solutionFileName = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
+      this % saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
 !
 !     ------------------------------
 !     Save maximum polynomial orders
@@ -260,8 +239,32 @@ module pAdaptationClass
 !     Allocate truncation error array
 !     ----------------------------------------
 !
+      if ( controlVariables % containsKey("truncation error type") ) then
+         select case ( trim(controlVariables % stringValueForKey("truncation error type", requestedLength = LINE_LENGTH)) )
+            case ('isolated')
+               this % TruncErrorType = ISOLATED_TE
+            case ('non-isolated')
+               this % TruncErrorType = NON_ISOLATED_TE
+            case default
+               write(STD_OUT,*) "Not recognized 'truncation error type'. Defaulting to isolated."
+               this % TruncErrorType = ISOLATED_TE
+         end select
+      else
+         this % TruncErrorType = ISOLATED_TE
+      end if
+      
       nelem = size(Nx)
       allocate (this % TE(nelem))
+      
+!
+!     If this is a p-anisotropic 3D case, the minimum polynomial order is 2
+!     ---------------------------------------------------------------------
+      
+      if ( .not. controlVariables % containsKey("2d mesh offset direction") ) then
+         NMIN = 2
+      else
+         NMIN = 1
+      end if
       
       do iEl = 1, nelem
          call this % TE(iEl) % construct(NMIN,this % NxyzMax)
@@ -312,8 +315,9 @@ module pAdaptationClass
 !  Main routine for adapting the polynomial order in all elements based on 
 !  the truncation error estimation
 !  ------------------------------------------------------------------------
-   subroutine pAdaptTE(pAdapt,sem,itera,t, computeTimeDerivative)
+   subroutine pAdaptTE(pAdapt,sem,itera,t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
       use AnisFASMultigridClass
+      use StopwatchClass
       implicit none
       !--------------------------------------
       class(pAdaptation_t)       :: pAdapt            !<> Adaptation class
@@ -321,6 +325,8 @@ module pAdaptationClass
       integer                    :: itera             !<  iteration
       real(kind=RP)              :: t                 !< time!!
       procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
+      procedure(ComputeQDot_FCN) :: ComputeTimeDerivativeIsolated
+      type(FTValueDictionary)    :: controlVariables  !<> Input vaiables (that can be modified depending on the user input)
       !--------------------------------------
       integer                    :: iEl               !   Element counter
       integer                    :: iEQ               !   Equation counter
@@ -334,6 +340,7 @@ module pAdaptationClass
       type(DGSem)                :: Oldsem
       logical                    :: success
       integer, save              :: Stage = 0         !   Stage of p-adaptation for the increasing method
+      CHARACTER(LEN=LINE_LENGTH) :: newInput          !   Variable used to change the input in controlVariables after p-adaptation 
       !--------------------------------------
       ! For new adaptation algorithm
       integer                    :: Pxyz(3)           !   Polynomial order the estimation was performed with
@@ -342,22 +349,48 @@ module pAdaptationClass
       integer                    :: i,j,k             !   Counters
       integer                    :: DOFs, NewDOFs
       logical                    :: notenough(3)
-      TYPE(AnisFASMultigrid_t)      :: AnisFASpAdaptSolver
+      TYPE(AnisFASMultigrid_t)   :: AnisFASpAdaptSolver
+      character(len=LINE_LENGTH) :: AdaptedMeshFile
+      interface
+         character(len=LINE_LENGTH) function getFileName( inputLine )
+            use SMConstants
+            implicit none
+            character(len=*)     :: inputLine
+         end function getFileName
+      end interface
       !--------------------------------------
-
-      write(STD_OUT,*) '****     Performing p-Adaptation      ****'
+      
+      write(STD_OUT,*)
+      write(STD_OUT,*)
+      select case (pAdapt % TruncErrorType)
+         case (ISOLATED_TE)
+            write(STD_OUT,*) '****     Performing p-Adaptation with isolated truncation error estimates      ****'
+         case (NON_ISOLATED_TE)
+            write(STD_OUT,*) '****     Performing p-Adaptation with non-isolated truncation error estimates      ****'
+         case default
+            error stop ':: Non-defined truncation error type.'
+      end select
+      write(STD_OUT,*)
       
       Error = 0
       Warning= 0
       Stage = Stage + 1
+!
+!     --------------------------------------
+!     Write pre-adaptation mesh and solution
+!     --------------------------------------
+!
+      write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( pAdapt % solutionFileName ), '_pre-Adapt_Stage_', Stage, '.hsol'
+      call sem % mesh % Export(AdaptedMeshFile)
       
+      call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),pAdapt % saveGradients)
 !
 !     -------------------------------------------------------------
 !     Estimate the truncation error using the anisotropic multigrid
 !     -------------------------------------------------------------
 !
-      CALL AnisFASpAdaptSolver % construct(pAdapt % controlVariables,sem)
-      CALL AnisFASpAdaptSolver % solve(itera,t, computeTimeDerivative, pAdapt % TE)
+      CALL AnisFASpAdaptSolver % construct(pAdapt % controlVariables,sem,estimator=.TRUE.)
+      CALL AnisFASpAdaptSolver % solve(itera,t,computeTimeDerivative,ComputeTimeDerivativeIsolated,pAdapt % TE, pAdapt % TruncErrorType)
       CALL AnisFASpAdaptSolver % destruct
 !
 !     -------------------------------------------------------------
@@ -527,6 +560,9 @@ module pAdaptationClass
 !     Adapt sem to new polynomial orders
 !     ----------------------------------
 !
+      call Stopwatch % Pause("Solver")
+      call Stopwatch % Start("Preprocessing")
+      
       Oldsem = sem
       call sem % destruct
       call sem % construct (  controlVariables  = pAdapt % controlVariables                              ,  &
@@ -535,6 +571,8 @@ module pAdaptationClass
                               Nx_ = NNew(1,:) ,     Ny_ = NNew(2,:),     Nz_ = NNew(3,:),                   &
                               success           = success)
       IF(.NOT. success)   ERROR STOP "Error constructing adapted DGSEM"
+      call Stopwatch % Pause("Preprocessing")
+      call Stopwatch % Start("Solver")
       
 !
 !     ------------------------------------
@@ -574,10 +612,39 @@ module pAdaptationClass
       
       call Oldsem % destruct
       
-      ! Update residuals
+!
+!     ---------------------------------------------------
+!     Write post-adaptation mesh, solution and order file
+!     ---------------------------------------------------
+!
+      write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( pAdapt % solutionFileName ), '_p-Adapted_Stage_', Stage, '.hsol'
+      call sem % mesh % Export(AdaptedMeshFile)
+      call sem % mesh % ExportOrders(AdaptedMeshFile)
+      
+      call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),pAdapt % saveGradients)
+      
+!
+!     ------------------------------------------------
+!     Rewrite controlVariables according to user input
+!     ------------------------------------------------
+!
+      do i = 1, size(ReplacedInputVars)
+         if ( controlVariables % containsKey( "padapted " // trim(ReplacedInputVars(i)) ) ) then
+            newInput = controlVariables % stringValueForKey("padapted " // trim(ReplacedInputVars(i)), requestedLength = LINE_LENGTH)
+            call controlVariables % removeObjectForKey( trim(ReplacedInputVars(i)) )
+            call controlVariables % addValueForKey( TRIM(newInput) , trim(ReplacedInputVars(i)) )
+         end if
+      end do
+!
+!
+!
+!     ----------------
+!     Update residuals
+!     ----------------
+!
       call ComputeTimeDerivative(sem % mesh, t, sem % externalState, sem % externalGradients)
       
-      write(STD_OUT,*) 'p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1))
+      write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
    end subroutine pAdaptTE
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -673,8 +740,8 @@ module pAdaptationClass
    integer function GetOrderAcrossFace(a)
       integer :: a
       
-!       GetOrderAcrossFace = (a*2)/3
-       GetOrderAcrossFace = a-1
+      !GetOrderAcrossFace = (a*2)/3
+      GetOrderAcrossFace = a-1
    end function GetOrderAcrossFace
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

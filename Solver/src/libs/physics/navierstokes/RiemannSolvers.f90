@@ -19,12 +19,13 @@
 #include "Includes.h"
 module RiemannSolvers
    use SMConstants
+   use Physics
    use PhysicsStorage
    use VariableConversion
    use FluidData, only: equationOfState, getThermalConductivity
 
    private 
-   public RiemannSolver, SetRiemannSolver
+   public RiemannSolver, SetRiemannSolver, RiemannSolver_dFdQ
 
    abstract interface
       subroutine RiemannSolverFCN(QLeft, QRight, nHat, t1, t2, flux)
@@ -47,12 +48,21 @@ module RiemannSolvers
          real(kind=RP), intent(in)       :: invRhoL, invRhoR
          real(kind=RP), intent(out)      :: flux(1:NCONS)
       end subroutine AveragedStatesFCN
-
+      subroutine RiemannSolver_dFdQFCN(ql,qr,nHat,dfdq_num,side)
+         use SMConstants
+         use PhysicsStorage
+         implicit none
+         real(kind=RP), intent (in)  :: ql(NCONS)                 !<  Current solution on the left
+         real(kind=RP), intent (in)  :: qr(NCONS)                 !<  Current solution on the right
+         real(kind=RP), intent (in)  :: nHat(NDIM)                !<  Normal vector
+         real(kind=RP), intent(out)  :: dfdq_num(NCONS,NCONS)     !>  Numerical flux Jacobian 
+         integer      , intent (in)  :: side   
+      end subroutine RiemannSolver_dFdQFCN
    end interface
 
-   procedure(RiemannSolverFCN),  pointer  :: RiemannSolver  => NULL()
-   procedure(AveragedStatesFCN), pointer  :: AveragedStates => NULL()
-
+   procedure(RiemannSolverFCN)     , pointer  :: RiemannSolver      => NULL()
+   procedure(AveragedStatesFCN)    , pointer  :: AveragedStates     => NULL()
+   procedure(RiemannSolver_dFdQFCN), pointer  :: RiemannSolver_dFdQ => NULL()
    contains
       SUBROUTINE SetRiemannSolver(which, splitType)
 !
@@ -72,13 +82,16 @@ module RiemannSolvers
          IMPLICIT NONE
          integer, intent(in) :: which
          integer, intent(in) :: splitType
-
+         
+         RiemannSolver_dFdQ => BaseClass_RiemannSolver_dFdQ
+         
          select case ( which )
          case ( RIEMANN_ROE )
             RiemannSolver => RoeRiemannSolver
 
          case ( RIEMANN_LXF)
             RiemannSolver => LxFRiemannSolver
+            RiemannSolver_dFdQ => LxFRiemannSolver_dFdQ
 
          case ( RIEMANN_RUSANOV)
             RiemannSolver => RusanovRiemannSolver
@@ -163,6 +176,19 @@ module RiemannSolvers
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
+      subroutine BaseClass_RiemannSolver_dFdQ(ql,qr,nHat,dfdq_num,side)
+         implicit none
+         !--------------------------------------------
+         real(kind=RP), intent (in)  :: ql(NCONS)                 !<  Current solution on the left
+         real(kind=RP), intent (in)  :: qr(NCONS)                 !<  Current solution on the right
+         real(kind=RP), intent (in)  :: nHat(NDIM)                !<  Normal vector
+         real(kind=RP), intent(out)  :: dfdq_num(NCONS,NCONS)     !>  Numerical flux Jacobian 
+         integer      , intent (in)  :: side                      !<  Either LEFT or RIGHT
+         !--------------------------------------------
+         
+         ERROR stop 'Requested Riemann solver not implemented for implicit time-integration'
+      end subroutine BaseClass_RiemannSolver_dFdQ
+      
       subroutine CentralRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
          implicit none 
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
@@ -1085,7 +1111,8 @@ module RiemannSolvers
 !
 !        Eigenvalues: lambda = max(|uL|,|uR|) + max(aL,aR)
 !        -----------
-         lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR)) + max(aL, aR)
+     !!!    lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR)) + max(aL, aR)   ! This is a more dissipative version (not consistent with the Jacobian below)
+         lambda = max(abs(rhouL*invRhoL) + aL,abs(rhouR*invRhoR) + aR)
 !
 !        ****************
 !        Compute the flux
@@ -1114,6 +1141,124 @@ module RiemannSolvers
          end associate
          
       END SUBROUTINE LxFRiemannSolver
+!
+!     ////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ---------------------------------------------
+!     Jacobian of the Lax-Friedrichs numerical flux
+!     ---------------------------------------------
+      subroutine LxFRiemannSolver_dFdQ(ql,qr,nHat,dfdq_num,side)
+         implicit none
+         !--------------------------------------------
+         real(kind=RP), intent (in)  :: ql(NCONS)                 !<  Current solution on the left
+         real(kind=RP), intent (in)  :: qr(NCONS)                 !<  Current solution on the right
+         real(kind=RP), intent (in)  :: nHat(NDIM)                !<  Normal vector
+         real(kind=RP), intent(out)  :: dfdq_num(NCONS,NCONS)     !>  Numerical flux Jacobian 
+         integer      , intent (in)  :: side                      !<  Either LEFT or RIGHT
+         !--------------------------------------------
+         real(kind=RP), dimension(NCONS,NCONS) :: dfdq,dgdq,dhdq  ! Flux Jacobians in every direction
+         real(kind=RP) :: lambda    ! Lax-Friedrichs constant (penalty term for jump)
+         real(kind=RP) :: lambdaL   ! Lax-Friedrichs constant on the left
+         real(kind=RP) :: lambdaR   ! Lax-Friedrichs constant on the right
+         REAL(KIND=RP) :: ul, vl, wl, pL, velL, aL, srhoL, rhoV2L   ! Quantities on the left
+         REAL(KIND=RP) :: ur, vr, wr, pR, velR, aR, srhoR, rhoV2R   ! Quantities on the right
+         real(kind=RP) :: dvn_dq(NCONS)                  ! Derivative of the normal velocity
+         real(kind=RP) :: da_dq (NCONS)                  ! Derivative of the speed of sound
+         real(kind=RP) :: dlambda_dq     (1,NCONS)       ! Derivative of Lax-Friedrichs constant (row matrix)
+         real(kind=RP) :: q_jump     (NCONS,1)           ! Solution jump (column matrix)
+         real(kind=RP) :: lambdaTerm (NCONS,NCONS)       ! Matrix contribution of lambda terms
+         integer       :: i                              ! Counter
+         !--------------------------------------------
+         
+         associate( gammaMinus1 => thermodynamics % gammaMinus1, & 
+                    gamma => thermodynamics % gamma )
+         
+         srhoL = 1._RP / ql(IRHO) 
+         ul = ql(IRHOU) * srhoL 
+         vl = ql(IRHOV) * srhoL 
+         wl = ql(IRHOW) * srhoL
+         rhoV2L = srhoL * (ql(IRHOU)**2 + ql(IRHOV)**2 + ql(IRHOW)**2)
+         pL = gammaMinus1 * (ql(IRHOE) - 0.5d0 * rhoV2L)
+         
+         srhoR = 1._RP / qr(IRHO) 
+         ur = qr(IRHOU) * srhoR 
+         vr = qr(IRHOV) * srhoR 
+         wr = qr(IRHOW) * srhoR
+         rhoV2R = srhoR * (qr(IRHOU)**2 + qr(IRHOV)**2 + qr(IRHOW)**2)
+         pR = gammaMinus1 * (qr(IRHOE) - 0.5d0 * rhoV2R)
+         
+         velL = nHat(1)*ul + nHat(2)*vl + nHat(3)*wl 
+         velR = nHat(1)*ur + nHat(2)*vr + nHat(3)*wr 
+         aL = SQRT( gamma*pL * srhoL )
+         aR = SQRT( gamma*pR * srhoR )
+         
+         lambdaL = abs(velL) + aL
+         lambdaR = abs(velR) + aR
+         lambda  = max(lambdaL,lambdaR)
+         
+!
+!        Compute matricial terms depending on side
+!        -----------------------------------------
+         
+         select case(side)
+            case(LEFT)
+               call InviscidJacobian(ql,dfdq,dgdq,dhdq)
+               
+               if (lambdaL .ge. lambdaR) then
+                  
+                  dvn_dq = (/ -velL * srhoL, nHat(1) * srhoL, nHat(2) * srhoL, nHat(3) * srhoL, 0._RP /)
+                  da_dq  = (/ ( rhoV2L -ql(IRHOE) )*srhoL**2 , -ul * srhoL , -vl * srhoL , -wl * srhoL , srhoL /) * &
+                                                                                                gamma * gammaMinus1 / (2._RP * aL)
+                  dlambda_dq(1,:) = sign(1._RP,velL) * dvn_dq + da_dq
+                  q_jump    (:,1) = ql - qr
+                  
+                  lambdaTerm = matmul(q_jump, dlambda_dq)
+               else
+                  lambdaTerm = 0._RP
+               end if
+               
+               ! Shift with lambda
+               do i = 1, NCONS
+                  lambdaTerm(i,i) = lambdaTerm(i,i) + lambda
+               end do
+            
+            case(RIGHT)
+               call InviscidJacobian(qr,dfdq,dgdq,dhdq)
+               
+               if (lambdaR .ge. lambdaL) then
+                  
+                  dvn_dq = (/ -velR * srhoR, nHat(1) * srhoR, nHat(2) * srhoR, nHat(3) * srhoR, 0._RP /)
+                  da_dq  = (/ ( rhoV2R - qr(IRHOE) )*srhoR**2 , -ur * srhoR , -vr * srhoR , -wr * srhoR , srhoR /) * &
+                                                                                                gamma * gammaMinus1 / (2._RP * aR)
+                  dlambda_dq(1,:) = sign(1._RP,velR) * dvn_dq + da_dq
+                  q_jump    (:,1) = ql - qr
+                  
+                  lambdaTerm = matmul(q_jump, dlambda_dq)
+               else
+                  lambdaTerm = 0._RP
+               end if
+               
+               ! Shift with lambda
+               do i = 1, NCONS
+                  lambdaTerm(i,i) = lambdaTerm(i,i) - lambda
+               end do
+            
+            case default
+               ERROR stop 'LxFRiemannSolver_dFdQ: side must be LEFT or RIGHT'
+         end select
+         
+!
+!        Apply the lambda stabilization
+!        ------------------------------
+         lambdaTerm = lambdaTerm * lambdaStab
+         
+!
+!        Finish up
+!        ---------
+         dfdq_num = 0.5_RP * (dfdq * nHat(1) + dgdq * nHat(2) + dhdq * nHat(3) + lambdaTerm)
+         
+         end associate
+      end subroutine LxFRiemannSolver_dFdQ
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !

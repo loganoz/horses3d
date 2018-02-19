@@ -1,6 +1,6 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!      PetscSolverClass.f90
+!      MKLPardisoSolverClass.f90
 !      Created: 2017-04-10 10:006:00 +0100 
 !      By: Andrés Rueda
 !
@@ -9,22 +9,24 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE MKLPardisoSolverClass
    USE GenericLinSolverClass
-   USE CSR_Matrices
+   USE CSRMatrixClass
+   use PETScMatrixClass
    USE SMConstants
-   USE PetscSolverClass   ! For allocating Jacobian matrix
    use DGSEMClass
    use TimeIntegratorDefinitions
+   use NumericalJacobian
    IMPLICIT NONE
    
    TYPE, EXTENDS(GenericLinSolver_t) :: MKLPardisoSolver_t
       TYPE(csrMat_t)                             :: A                                  ! Jacobian matrix
+      type(PETSCMatrix_t)                        :: PETScA
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: x                                  ! Solution vector
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: b                                  ! Right hand side
       REAL(KIND=RP)                              :: Ashift
       LOGICAL                                    :: AIsPrealloc   
+      TYPE(DGSem), POINTER                       :: p_sem
       
       !Variables for creating Jacobian in PETSc context:
-      TYPE(PetscKspLinearSolver_t)               :: PetscSolver                        ! PETSc solver (created only for allocating the matrix -to be deprecated?)
       LOGICAL                                    :: AIsPetsc = .TRUE.
       
       !Variables directly related with mkl pardiso solver
@@ -35,13 +37,8 @@ MODULE MKLPardisoSolverClass
    CONTAINS
       !Subroutines:
       PROCEDURE                                  :: construct => ConstructMKLContext
-      PROCEDURE                                  :: PreallocateA
-      PROCEDURE                                  :: ResetA
-      PROCEDURE                                  :: SetAColumn 
-      PROCEDURE                                  :: AssemblyA
       PROCEDURE                                  :: SetBValue
       PROCEDURE                                  :: solve
-      PROCEDURE                                  :: GetCSRMatrix
       PROCEDURE                                  :: GetXValue
       PROCEDURE                                  :: destroy
       PROCEDURE                                  :: SetOperatorDt
@@ -78,6 +75,8 @@ MODULE MKLPardisoSolverClass
       END INTERFACE
       !-----------------------------------------------------------
       
+      this % p_sem => sem
+      
       this % DimPrb = DimPrb
       
       ALLOCATE(this % x(DimPrb))
@@ -91,104 +90,13 @@ MODULE MKLPardisoSolverClass
       ALLOCATE(this % perm(DimPrb))
       this % perm = 0
       
-      IF(this % AIsPetsc) CALL this % PetscSolver % construct (DimPrb)
+      IF(this % AIsPetsc) CALL this % PETScA % construct (DimPrb,.FALSE.)
 #ifdef HAS_MKL
       CALL pardisoinit(this % Pardiso_pt, this % mtype, this % Pardiso_iparm)
 #else
       STOP 'MKL not linked correctly'
 #endif
    END SUBROUTINE ConstructMKLContext
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   SUBROUTINE PreallocateA(this,nnz)
-      IMPLICIT NONE
-!
-!  --------------------------------------------
-!  Subroutine for preallocating Jacobian matrix
-!     IMPORTANT:
-!        - To date, it's using the PETSc library for preallocating due to its efficiency
-!        - A proposed alternative to emulate PETSc allocation is to use 
-!          a linked list matrix and then transform it to CSR format
-!  --------------------------------------------
-!
-      !-----------------------------------------------------------
-      CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
-      INTEGER                                  :: nnz
-      !-----------------------------------------------------------
-      LOGICAL, SAVE                            :: isfirst = .TRUE.
-      !-----------------------------------------------------------
-      
-      this % AIsPetsc = .TRUE.
-      IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % PreallocateA(nnz)
-      ELSE
-         IF (.NOT. this % AIsPrealloc) THEN
-            stop 'routines for preallocating matrix not implemented'
-         ELSE
-            print*, 'Matrix already preallocated'
-         END IF
-      END IF
-      this % AIsPrealloc = .TRUE.
-      
-   END SUBROUTINE PreallocateA
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   SUBROUTINE ResetA(this)         
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
-      !-----------------------------------------------------------
-      
-      IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % ResetA
-      ELSE
-         this % A % Values = 0._RP
-      END IF
-      
-   END SUBROUTINE ResetA
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   SUBROUTINE SetAColumn(this,nvalues,irow,icol,values)         
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(MKLPardisoSolver_t), INTENT(INOUT)  :: this
-      INTEGER       , INTENT(IN)                :: nvalues
-      INTEGER       , INTENT(IN), DIMENSION(:)  :: irow
-      INTEGER       , INTENT(IN)                :: icol
-      REAL(KIND=RP) , INTENT(IN), DIMENSION(:)  :: values
-      !-----------------------------------------------------------
-      
-      IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % SetAColumn(nvalues,irow,icol,values)
-      ELSE
-         CALL this % A % SetColumn(irow+1,icol+1,values)
-      END IF
-      
-   END SUBROUTINE SetAColumn
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   SUBROUTINE AssemblyA(this,BlockIdx,BlockSize)         
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
-      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockIdx(:)
-      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockSize(:)
-      !-----------------------------------------------------------
-      
-      IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % AssemblyA
-         CALL this % PetscSolver % GetCSRMatrix(this % A)
-!~         CALL this % PetscSolver % destroy
-         this % AIsPetsc = .FALSE.
-      ELSE
-         print*, 'A is assembled'
-      END IF
-      
-   end SUBROUTINE AssemblyA
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -225,7 +133,7 @@ MODULE MKLPardisoSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative) 
+   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative,ComputeA) 
       IMPLICIT NONE
 !
 !     ----------------------------------------------------
@@ -239,6 +147,7 @@ MODULE MKLPardisoSolverClass
       REAL(KIND=RP), OPTIONAL                  :: time
       REAL(KIND=RP), OPTIONAL                  :: dt
       procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
+      logical      , optional      , intent(inout) :: ComputeA
       !-----------------------------------------------------------
 #ifdef HAS_MKL
       INTEGER                                  :: error
@@ -255,6 +164,25 @@ MODULE MKLPardisoSolverClass
          END SUBROUTINE pardiso
       END INTERFACE
       !-----------------------------------------------------------
+      
+!
+!     Compute Jacobian matrix if needed
+!        (done in petsc format and then transformed to CSR since the CSR cannot be filled by the Jacobian calculators)
+!     -----------------------------------------------------
+      
+      if ( present(ComputeA)) then
+         if (ComputeA) then
+            call NumericalJacobian_Compute(this % p_sem, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
+            call this % PETScA % shift(-1._RP/dt)
+            call this % PETScA % GetCSRMatrix(this % A)
+            this % AIsPetsc = .FALSE.
+            ComputeA = .FALSE.
+         end if
+      else 
+         call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+         call this % PETScA % shift(-1._RP/dt)
+         call this % PETScA % GetCSRMatrix(this % A)
+      end if
       
 !~    	call mkl_set_num_threads( 4 )
       
@@ -296,18 +224,6 @@ MODULE MKLPardisoSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE GetCSRMatrix(this,Acsr)         
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(MKLPardisoSolver_t), INTENT(IN)  :: this
-      TYPE(csrMat_t)             , INTENT(OUT) :: Acsr 
-      !-----------------------------------------------------------
-      
-      Acsr = this % A
-   END SUBROUTINE GetCSRMatrix
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
    SUBROUTINE GetXValue(this,irow,x_i)       
       IMPLICIT NONE
       !-----------------------------------------------------------
@@ -328,7 +244,7 @@ MODULE MKLPardisoSolverClass
       CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
       !-----------------------------------------------------------
       
-      CALL this % A % destroy()
+      CALL this % A % destruct
       
       DEALLOCATE(this % b)
       DEALLOCATE(this % x)
@@ -336,7 +252,7 @@ MODULE MKLPardisoSolverClass
       DEALLOCATE(this % Pardiso_iparm)
       DEALLOCATE(this % perm)
       
-      IF (this % AIsPetsc) CALL this % PetscSolver % destroy()
+      CALL this % PETScA % destruct
       this % AIsPetsc    = .TRUE.
       this % AIsPrealloc = .FALSE.
       
@@ -353,9 +269,9 @@ MODULE MKLPardisoSolverClass
       
       this % Ashift = -1._RP/dt
       IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % SetOperatorDt(dt)
+         CALL this % PETScA % shift(this % Ashift)
       ELSE
-         CALL this % A % SetMatShift(this % Ashift)
+         CALL this % A % Shift(this % Ashift)
       END IF
       
     END SUBROUTINE SetOperatorDt
@@ -373,10 +289,10 @@ MODULE MKLPardisoSolverClass
       
       shift = -1._RP/dt
       IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % ReSetOperatorDt(dt)
+         CALL this % PETScA % shift(shift)
       ELSE
-         CALL this % A % SetMatShift(-this % Ashift)
-         CALL this % A % SetMatShift(shift)
+         CALL this % A % Shift(-this % Ashift)
+         CALL this % A % Shift(shift)
       END IF
       this % Ashift = shift
       

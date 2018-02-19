@@ -24,14 +24,9 @@ MODULE GenericLinSolverClass
    CONTAINS
       !Subroutines:
       PROCEDURE :: construct
-      PROCEDURE :: PreallocateA
-      PROCEDURE :: ResetA
-      PROCEDURE :: SetAColumn
-      PROCEDURE :: AssemblyA
       PROCEDURE :: SetBValue
       PROCEDURE :: SetBValues
       PROCEDURE :: solve
-      PROCEDURE :: GetCSRMatrix
       PROCEDURE :: GetXValue
       PROCEDURE :: destroy
       PROCEDURE :: SetOperatorDt
@@ -57,50 +52,6 @@ CONTAINS
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   SUBROUTINE PreallocateA(this,nnz)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
-      INTEGER                                  :: nnz
-   END SUBROUTINE PreallocateA
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   SUBROUTINE ResetA(this)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
-   END SUBROUTINE ResetA
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   SUBROUTINE SetAColumn(this,nvalues,irow,icol,values)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT)  :: this
-      INTEGER       , INTENT(IN)                :: nvalues
-      INTEGER       , INTENT(IN), DIMENSION(:)  :: irow
-      INTEGER       , INTENT(IN)                :: icol
-      REAL(KIND=RP) , INTENT(IN), DIMENSION(:)  :: values
-   END SUBROUTINE SetAColumn
-
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   SUBROUTINE AssemblyA(this,BlockIdx,BlockSize)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
-      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockIdx(:)
-      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockSize(:)
-   END SUBROUTINE AssemblyA
-
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    SUBROUTINE SetBValue(this, irow, value)
@@ -124,26 +75,16 @@ CONTAINS
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative)
+   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative,computeA)
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP), OPTIONAL                  :: tol
       INTEGER      , OPTIONAL                  :: maxiter
       REAL(KIND=RP), OPTIONAL                  :: time
       REAL(KIND=RP), OPTIONAL                  :: dt
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
+      procedure(ComputeQDot_FCN)               :: ComputeTimeDerivative
+      logical      , optional  , intent(inout) :: computeA
    END SUBROUTINE solve
-
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   SUBROUTINE GetCSRMatrix(this,Acsr)
-      USE CSR_Matrices
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(IN)  :: this
-      TYPE(csrMat_t)             , INTENT(OUT) :: Acsr 
-   END SUBROUTINE GetCSRMatrix
 
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    

@@ -11,8 +11,9 @@
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
-#if defined(NAVIERSTOKES)
+
 module WallDistance
+#if defined(NAVIERSTOKES)
    use SMConstants
    use LESModels
    use NodalStorageClass
@@ -1117,6 +1118,6 @@ module WallDistance
          200 flag=-3
          
       end function
-           
-end module WallDistance
 #endif
+end module WallDistance
+

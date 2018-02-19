@@ -56,6 +56,7 @@ module FASMultigridClass
    
    ! Other variables
    integer        :: MaxN           ! Maximum polynomial order of the mesh
+   integer        :: NMIN           ! Minimum polynomial order allowed
    integer        :: MGlevels       ! Total number of multigrid levels
    integer        :: deltaN         ! 
    integer        :: nelem          ! Number of elements
@@ -85,17 +86,15 @@ module FASMultigridClass
       use StopwatchClass
       implicit none
       !-----------------------------------------------------------
-      class(FASMultigrid_t) , intent(inout), target    :: this
-      type(FTValueDictionary)  , intent(IN), OPTIONAL  :: controlVariables
-      type(DGSem), target                  , OPTIONAL  :: sem
-      character(len=LINE_LENGTH)                       :: PostSmoothOptions
+      class(FASMultigrid_t)  , intent(inout), target :: this               !<> Anisotropic FAS multigrid solver to be constructed
+      type(FTValueDictionary), intent(in)            :: controlVariables   !<  Input variables
+      type(DGSem)            , intent(in)   , target :: sem                !<  Fine sem class
+      !-----------------------------------------------------------
+      character(len=LINE_LENGTH)                     :: PostSmoothOptions
       !-----------------------------------------------------------
       
       call Stopwatch % Pause("Solver")
       call Stopwatch % Start("Preprocessing")
-      
-      if (.NOT. PRESENT(sem)) stop 'Fatal error: FASMultigrid needs sem.'
-      if (.NOT. PRESENT(controlVariables)) stop 'Fatal error: FASMultigrid needs controlVariables.'
       
 !
 !     ----------------------------------
@@ -133,32 +132,6 @@ module FASMultigridClass
          SweepNumCoarse = (SweepNumPre + SweepNumPost) / 2
       end if
       
-!     Read cfl and dcfl numbers
-!     -------------------------
-      
-      if (controlVariables % containsKey("cfl")) then
-#if defined(NAVIERSTOKES)
-         Compute_dt = .TRUE.
-         cfl = controlVariables % doublePrecisionValueForKey("cfl")
-         if (flowIsNavierStokes) then
-            if (controlVariables % containsKey("dcfl")) then
-               dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
-            else
-               ERROR STOP '"cfl" and "dcfl", or "dt", keywords must be specified for the FAS integrator'
-            end if
-         end if
-#elif defined(CAHNHILLIARD)
-         print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
-         errorMessage(STD_OUT)
-         stop
-#endif
-      elseif (controlVariables % containsKey("dt")) then
-         Compute_dt = .FALSE.
-         dt = controlVariables % doublePrecisionValueForKey("dt")
-      else
-         ERROR STOP '"cfl" (and "dcfl" if Navier-Stokes) or "dt" keywords must be specified for the FAS integrator'
-      end if
-      
       select case (controlVariables % StringValueForKey("mg smoother",LINE_LENGTH))
          case('RK3')  ; SmoothIt => TakeRK3Step
          case('SIRK')
@@ -189,15 +162,47 @@ module FASMultigridClass
          MaxSweeps = MAX_SWEEPS_DEFAULT
       end if
       
+!     Read cfl and dcfl numbers
+!     -------------------------
+      
+      if (controlVariables % containsKey("cfl")) then
+#if defined(NAVIERSTOKES)      
+         Compute_dt = .TRUE.
+         cfl = controlVariables % doublePrecisionValueForKey("cfl")
+         if (flowIsNavierStokes) then
+            if (controlVariables % containsKey("dcfl")) then
+               dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
+            else
+               ERROR STOP '"cfl" and "dcfl", or "dt", keywords must be specified for the FAS integrator'
+            end if
+         end if
+#elif defined(CAHNHILLIARD)
+         print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
+         errorMessage(STD_OUT)
+         stop
+#endif
+      elseif (controlVariables % containsKey("dt")) then
+         Compute_dt = .FALSE.
+         dt = controlVariables % doublePrecisionValueForKey("dt")
+      else
+         ERROR STOP '"cfl" (and "dcfl" if Navier-Stokes) or "dt" keywords must be specified for the FAS integrator'
+      end if
+      
 !
 !     -----------------------
 !     Update module variables
 !     -----------------------
 !
+      if (sem % mesh % anisotropic .and. (.not. sem % mesh % meshIs2D) ) then
+         NMIN = 2
+      else
+         NMIN = 1
+      end if
+      
       MGOutput       = controlVariables % logicalValueForKey("multigrid output")
       plotInterval   = controlVariables % integerValueForKey("output interval")
       ManSol         = sem % ManufacturedSol
-      MaxN           = MAX(MAXVAL(sem%Nx),MAXVAL(sem%Ny),MAXVAL(sem%Nz))
+      MaxN           = MAX(MAXVAL(sem%Nx),MAXVAL(sem%Ny),MAXVAL(sem%Nz)) - NMIN + 1
       MGlevels       = MIN (MGlevels,MaxN)
       
       write(STD_OUT,*) 'Constructuing FAS Multigrid'

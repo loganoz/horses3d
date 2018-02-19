@@ -41,7 +41,7 @@ module ProbeClass
 
    contains
 
-      subroutine Probe_Initialization(self, mesh, ID, solution_file)
+      subroutine Probe_Initialization(self, mesh, ID, solution_file, FirstCall)
          use ParamfileRegions
          use MPI_Process_Info
          use Utilities, only: toLower
@@ -50,6 +50,7 @@ module ProbeClass
          class(HexMesh)          :: mesh
          integer                 :: ID
          character(len=*)        :: solution_file
+         logical, intent(in)     :: FirstCall
 !
 !        ---------------
 !        Local variables
@@ -166,21 +167,22 @@ module ProbeClass
 !
 !        Create file
 !        -----------
-         open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" ) 
+         if (FirstCall) then
+            open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" ) 
 !
 !        Write the file headers
 !        ----------------------
-         write( fID , '(A20,A  )') "Monitor name:      ", trim(self % monitorName)
-         write( fID , '(A20,A  )') "Selected variable: " , trim(self % variable)
-         write( fID , '(A20,ES24.10)') "x coordinate: ", self % x(1)
-         write( fID , '(A20,ES24.10)') "y coordinate: ", self % x(2)
-         write( fID , '(A20,ES24.10)') "z coordinate: ", self % x(3)
+            write( fID , '(A20,A  )') "Monitor name:      ", trim(self % monitorName)
+            write( fID , '(A20,A  )') "Selected variable: " , trim(self % variable)
+            write( fID , '(A20,ES24.10)') "x coordinate: ", self % x(1)
+            write( fID , '(A20,ES24.10)') "y coordinate: ", self % x(2)
+            write( fID , '(A20,ES24.10)') "z coordinate: ", self % x(3)
 
-         write( fID , * )
-         write( fID , '(A10,2X,A24,2X,A24)' ) "Iteration" , "Time" , trim(self % variable)
+            write( fID , * )
+            write( fID , '(A10,2X,A24,2X,A24)' ) "Iteration" , "Time" , trim(self % variable)
 
-         close ( fID ) 
-
+            close ( fID )
+         end if
          end associate
       end subroutine Probe_Initialization
 

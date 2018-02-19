@@ -46,10 +46,12 @@ module StorageClass
    end type Storage_t
 
    type FaceStorage_t
-      real(kind=RP), dimension(:,:,:),   allocatable  :: Q
-      real(kind=RP), dimension(:,:,:),   allocatable  :: U_x, U_y, U_z
-      real(kind=RP), dimension(:,:,:),   allocatable  :: FStar
-      real(kind=RP), dimension(:,:,:,:), allocatable  :: unStar
+      real(kind=RP), dimension(:,:,:),     allocatable :: Q
+      real(kind=RP), dimension(:,:,:),     allocatable :: U_x, U_y, U_z
+      real(kind=RP), dimension(:,:,:),     allocatable :: FStar
+      real(kind=RP), dimension(:,:,:,:)  , allocatable :: unStar
+      real(kind=RP), dimension(:,:,:,:)  , allocatable :: dFStar_dqF   ! In storage(1), it stores dFStar/dqL, and in storage(2), it stores dFStar/dqR on the mortar points
+      real(kind=RP), dimension(:,:,:,:,:), allocatable :: dFStar_dqEl  ! Stores both dFStar/dqL and dFStar/dqR on the face-element points of the corresponding side
 #if defined(CAHNHILLIARD)
       real(kind=RP), dimension(:,:), allocatable :: c 
       real(kind=RP), dimension(:,:), allocatable :: mu 
@@ -180,6 +182,9 @@ module StorageClass
          ALLOCATE( self % Q   (nEqn,0:Nf(1),0:Nf(2)) )
          allocate( self % fStar(nEqn, 0:Nel(1), 0:Nel(2)) )
          
+         allocate( self % dFStar_dqF (nEqn,nEqn, 0: Nf(1), 0: Nf(2)) )
+         allocate( self % dFStar_dqEl(nEqn,nEqn, 0:Nel(1), 0:Nel(2),2) )
+         
          ALLOCATE( self % U_x(nGradEqn,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % U_y(nGradEqn,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % U_z(nGradEqn,0:Nf(1),0:Nf(2)) )
@@ -219,6 +224,8 @@ module StorageClass
          safedeallocate(self % U_y)
          safedeallocate(self % unStar)
          safedeallocate(self % U_z)
+         safedeallocate(self % dFStar_dqF)
+         safedeallocate(self % dFStar_dqEl)
 
       end subroutine FaceStorage_Destruct
 !

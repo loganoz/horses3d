@@ -55,7 +55,7 @@ Module DGSEMClass
       PROCEDURE(BCState_FCN)    , NOPASS, POINTER :: externalState => NULL()
       PROCEDURE(BCGradients_FCN), NOPASS, POINTER :: externalGradients => NULL()
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
-      type(Monitor_t)                                        :: monitors
+      type(Monitor_t)                                         :: monitors
       contains
          procedure :: construct => ConstructDGSem
          procedure :: destruct  => DestructDGSem   
@@ -132,7 +132,6 @@ Module DGSEMClass
       INTEGER                     :: nTotalElem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       integer                     :: dir2D
-      character(len=LINE_LENGTH)  :: meshFileName
       logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
       character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
       INTERFACE
@@ -165,13 +164,13 @@ Module DGSEMClass
 !
 !        Mesh file set up by input argument
 !        ----------------------------------
-         meshFileName = trim(meshFileName_)
+         self % mesh % meshFileName = trim(meshFileName_)
 
       else
 !
 !        Mesh file set up by controlVariables
 !        ------------------------------------
-         meshFileName = controlVariables % stringValueForKey(meshFileNameKey, requestedLength = LINE_LENGTH) 
+         self % mesh % meshFileName = controlVariables % stringValueForKey(meshFileNameKey, requestedLength = LINE_LENGTH) 
 
       end if
 !
@@ -204,7 +203,7 @@ Module DGSEMClass
          Nz => Nz_
          nTotalElem = SIZE(Nx)
       ELSEIF (PRESENT(polynomialOrder)) THEN
-         nTotalElem = NumOfElemsFromMeshFile( meshfileName )
+         nTotalElem = NumOfElemsFromMeshFile( self % mesh % meshfileName )
          
          ALLOCATE (Nx(nTotalElem),Ny(nTotalElem),Nz(nTotalElem))
          Nx = polynomialOrder(1)
@@ -222,6 +221,9 @@ Module DGSEMClass
       self % Nx = Nx
       self % Ny = Ny
       self % Nz = Nz
+      
+      if ( max(maxval(Nx),maxval(Ny),maxval(Nz)) /= min(minval(Nx),minval(Ny),minval(Nz)) ) self % mesh % anisotropic = .TRUE.
+      
 !
 !     -------------------------------------------------------------
 !     Construct the polynomial storage for the elements in the mesh
@@ -261,6 +263,8 @@ Module DGSEMClass
          dir2D = 0
 
       end if
+      
+      if ( self % mesh % anisotropic .and. (min(minval(Nx),minval(Ny),minval(Nz)) <=1) .and. dir2D == 0 ) ERROR STOP ':: 3D anisotropic mesh must have N>=2'
 
       if (controlVariables % containsKey("mesh inner curves")) then
          MeshInnerCurves = controlVariables % logicalValueForKey("mesh inner curves")
@@ -288,7 +292,7 @@ Module DGSEMClass
 !
 !        Construct the full mesh
 !        -----------------------
-         call constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+         call constructMeshFromFile( self % mesh, self % mesh % meshFileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
 !
 !        Perform the partitioning
 !        ------------------------
@@ -308,7 +312,7 @@ Module DGSEMClass
 !     *              MESH CONSTRUCTION                         *
 !     **********************************************************
 !
-      CALL constructMeshFromFile( self % mesh, meshfileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+      CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
       
       IF(.NOT. success) RETURN
 !
@@ -688,7 +692,6 @@ Module DGSEMClass
 #endif
    END FUNCTION ComputeMaxResiduals
 #endif
-
 !
 !//////////////////////////////////////////////////////////////////////// 
 !

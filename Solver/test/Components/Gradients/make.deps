@@ -48,7 +48,9 @@ GradientSetup: DGSEMClass
 ReadInputFile: SMConstants SharedBCModule Physics Setup
 Jacobian: SMConstants DGSEMClass Physics
 ColorsClass: DGSEMClass
-CSR_Matrices: SMConstants
+CSRMatrixClass: SMConstants GenericMatrixClass
+PETScMatrixClass: SMConstants GenericMatrixClass CSRMatrixClass
+MatrixClass: PETScMatrixClass CSRMatrixClass
 navierstokes/ManufacturedSolutions: Physics SMConstants
 DenseMatUtilities: SMConstants
 FASMultigridClass: SMConstants ExplicitMethods DGSEMClass InterpolationAndDerivatives LegendreAlgorithms Physics navierstokes/BoundaryConditions MultigridTypes
@@ -56,15 +58,16 @@ FASMultigridClass: SMConstants ExplicitMethods DGSEMClass InterpolationAndDeriva
 Implicit_JF: SMConstants DGSEMClass Physics JFNKClass
 JFNKClass: SMConstants GMRESClass TimeIntegratorDefinitions
 GMRESClass: SMConstants
-Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSR_Matrices StorageClass AnalyticalJacobian
+Implicit_NJ: SMConstants DGSEMClass HexElementClass Physics Jacobian ColorsClass LinearSolverClass CSRMatrixClass StorageClass AnalyticalJacobian
 AnalyticalJacobian: HexElementClass SMConstants HexMesh NodalStorageClass Physics Jacobian LinearSolverClass DGSEMClass
+NumericalJacobian: SMConstants MatrixClass ColorsClass HexMesh DGSEMClass HexElementClass Jacobian Physics
 
 #Linear solvers
 LinearSolverClass: MKLPardisoSolverClass PetscSolverClass IterativeSolverClass MultigridSolverClass
 
-MKLPardisoSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass
-PetscSolverClass: CSR_Matrices GenericLinSolverClass SMConstants
-IterativeSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass DenseMatUtilities
-MultigridSolverClass: SMConstants CSR_Matrices PetscSolverClass GenericLinSolverClass InterpolationAndDerivatives LegendreAlgorithms Physics
-GenericLinSolverClass: SMConstants CSR_Matrices DGSEMClass
+MKLPardisoSolverClass: SMConstants MatrixClass PetscSolverClass GenericLinSolverClass NumericalJacobian
+PetscSolverClass: GenericLinSolverClass SMConstants MatrixClass NumericalJacobian
+IterativeSolverClass: SMConstants MatrixClass PetscSolverClass GenericLinSolverClass DenseMatUtilities NumericalJacobian
+MultigridSolverClass: SMConstants MatrixClass PetscSolverClass GenericLinSolverClass InterpolationAndDerivatives LegendreAlgorithms Physics NumericalJacobian
+GenericLinSolverClass: SMConstants MatrixClass DGSEMClass
 pAdaptationClass: TruncationErrorClass AnisFASMultigridClass

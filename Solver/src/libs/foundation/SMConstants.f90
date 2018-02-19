@@ -54,6 +54,6 @@
 
          INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
 
-         CHARACTER(len=*), parameter   :: VERSION = "v0.8.5: Version with libtimeintegrator"
+         CHARACTER(len=*), parameter   :: VERSION = "v0.8.6: Changes in linear solvers and Jacobian computation"
          
       END MODULE SMConstants

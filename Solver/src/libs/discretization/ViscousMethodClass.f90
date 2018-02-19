@@ -8,7 +8,7 @@ module ViscousMethodClass
    implicit none
 !
    private
-   public   ViscousMethod_t 
+   public   ViscousMethod_t, BaseClass_ComputeGradient
 
    type ViscousMethod_t
       contains

@@ -32,7 +32,6 @@ module AnisFASMultigridClass
    !--------------------------------------------------------------------------------
    type :: MGStorage_t
       type(DGSem)            , pointer           :: p_sem            ! Pointer to DGSem class variable of current system
-      type(DGSem)                                :: tempsem          ! sem used to compute the truncation error using the finest grid solution
       type(MGSolStorage_t), allocatable          :: Var(:)           ! Variables stored element-wise
    end type MGStorage_t
    
@@ -63,6 +62,7 @@ module AnisFASMultigridClass
    !! Variables
    integer        :: MGlevels(3)    ! Total number of multigrid levels        
    integer        :: MaxN(3)        ! Maximum polynomial order in every direction
+   integer        :: NMIN           ! Minimum polynomial order allowed
    integer        :: deltaN         !                                         ! TODO: deltaN(3)
    integer        :: nelem          ! Number of elements (this is a p-multigrid implementation)
    integer        :: SweepNumPre    ! Number of sweeps pre-smoothing
@@ -87,31 +87,35 @@ module AnisFASMultigridClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,controlVariables,sem)
+   subroutine construct(this,controlVariables,sem,estimator)
       use FTValueDictionaryClass
       use StopwatchClass
       implicit none
       !-----------------------------------------------------------
-      class(AnisFASMultigrid_t) , intent(inout), TARGET    :: this              !<> Anisotropic FAS multigrid solver to be constructed
-      type(FTValueDictionary)  , intent(in), OPTIONAL  :: controlVariables  !<  Input variables
-      type(DGSem), TARGET                  , OPTIONAL  :: sem               !<  Fine sem class
+      class(AnisFASMultigrid_t), intent(inout), target :: this              !<> Anisotropic FAS multigrid solver to be constructed
+      type(FTValueDictionary)  , intent(in)            :: controlVariables  !<  Input variables
+      type(DGSem)              , intent(in)   , target :: sem               !<  Fine sem class
+      logical                  , intent(in) , optional :: estimator         !<  Is this anisotropic FAS only an estimator?
       !-----------------------------------------------------------
-      integer   :: Dir           ! Direction of coarsening
-      integer   :: UserMGlvls    ! User defined number of MG levels
-      character(len=LINE_LENGTH)                       :: PostSmoothOptions
+      integer                    :: Dir               ! Direction of coarsening
+      integer                    :: UserMGlvls        ! User defined number of MG levels
+      logical                    :: AnisFASestimator  ! Whether this is an AnisFAS estimator or not
+      character(len=LINE_LENGTH) :: PostSmoothOptions
       !-----------------------------------------------------------
       
       call Stopwatch % Pause("Solver")
       call Stopwatch % Start("Preprocessing")
-      
-      if (.NOT. PRESENT(sem)) stop 'Fatal error: AnisFASMultigrid needs sem.'
-      if (.NOT. PRESENT(controlVariables)) stop 'Fatal error: AnisFASMultigrid needs controlVariables.'
-      
 !
 !     ----------------------------------
 !     Read important variables from file
 !     ----------------------------------
 !
+      if ( present(estimator) ) then
+         AnisFASestimator = estimator
+      else
+         AnisFASestimator = .FALSE.
+      end if
+      
       if (.NOT. controlVariables % containsKey("multigrid levels")) then
          print*, 'Fatal error: "multigrid levels" keyword is needed by the AnisFASMultigrid solver'
          STOP
@@ -119,36 +123,72 @@ module AnisFASMultigridClass
       
       UserMGlvls = controlVariables % IntegerValueForKey("multigrid levels")
       
-      MaxN(1) = MAXVAL(sem%Nx)
-      MaxN(2) = MAXVAL(sem%Ny)
-      MaxN(3) = MAXVAL(sem%Nz)
-      
-      MGlevels(1)  = MIN(MaxN(1),UserMGlvls)
-      MGlevels(2)  = MIN(MaxN(2),UserMGlvls)
-      MGlevels(3)  = MIN(MaxN(3),UserMGlvls)
-      
-      if (controlVariables % containsKey("delta n")) then
-         deltaN = controlVariables % IntegerValueForKey("delta n")
-      else
+      if (AnisFASestimator) then
          deltaN = 1
+         SweepNumPre  = 0
+         SweepNumPost = 0
+         SweepNumCoarse = 0
+         PostFCycle = .FALSE.
+         PostSmooth = .FALSE.
+         SmoothFine = .FALSE.
+      else
+         ! Read deltaN
+         if (controlVariables % containsKey("delta n")) then
+            deltaN = controlVariables % IntegerValueForKey("delta n")
+         else
+            deltaN = 1
+         end if
+         
+         ! Read number of sweeps
+         if (controlVariables % containsKey("mg sweeps pre" ) .AND. &
+             controlVariables % containsKey("mg sweeps post") ) then
+            SweepNumPre  = controlVariables % IntegerValueForKey("mg sweeps pre")
+            SweepNumPost = controlVariables % IntegerValueForKey("mg sweeps post")
+         elseif (controlVariables % containsKey("mg sweeps")) then
+            SweepNumPre  = controlVariables % IntegerValueForKey("mg sweeps")
+            SweepNumPost = SweepNumPre
+         else
+            SweepNumPre  = 1
+            SweepNumPost = 1
+         end if
+         
+         ! Read number of sweeps in the coarsest leveñ
+         if (controlVariables % containsKey("mg sweeps coarsest")) then
+            SweepNumCoarse = controlVariables % IntegerValueForKey("mg sweeps coarsest")
+         else
+            SweepNumCoarse = (SweepNumPre + SweepNumPost) / 2
+         end if
+         
+         ! Read post-smoothing options
+         PostSmoothOptions = controlVariables % StringValueForKey("postsmooth option",LINE_LENGTH)
+         if (trim(PostSmoothOptions) == 'f-cycle') then
+            PostFCycle = .TRUE.
+         elseif (trim(PostSmoothOptions) == 'smooth') then
+            PostSmooth = .TRUE.
+         end if
+         
+         if (controlVariables % containsKey("smooth fine")) then
+            SmoothFine = .TRUE.
+            SmoothFineFrac = controlVariables % doublePrecisionValueForKey("smooth fine")
+         else
+            SmoothFine = .FALSE.
+         end if
       end if
       
-      if (controlVariables % containsKey("mg sweeps pre" ) .AND. &
-          controlVariables % containsKey("mg sweeps post") ) then
-         SweepNumPre  = controlVariables % IntegerValueForKey("mg sweeps pre")
-         SweepNumPost = controlVariables % IntegerValueForKey("mg sweeps post")
-      elseif (controlVariables % containsKey("mg sweeps")) then
-         SweepNumPre  = controlVariables % IntegerValueForKey("mg sweeps")
-         SweepNumPost = SweepNumPre
-      else
-         SweepNumPre  = 1
-         SweepNumPost = 1
-      end if
+      select case (controlVariables % StringValueForKey("mg smoother",LINE_LENGTH))
+         case('RK3')  ; SmoothIt => TakeRK3Step
+         case('SIRK')
+            !! SmoothIt => TakeSIRKStep
+            error stop ':: SIRK smoother not implemented yet'
+         case default 
+            write(STD_OUT,*) '"mg smoother" not recognized. Defaulting to RK3.'
+            SmoothIt => TakeRK3Step
+      end select
       
-      if (controlVariables % containsKey("mg sweeps coarsest")) then
-         SweepNumCoarse = controlVariables % IntegerValueForKey("mg sweeps coarsest")
+      if (controlVariables % containsKey("max mg sweeps")) then
+         MaxSweeps = controlVariables % IntegerValueForKey("max mg sweeps")
       else
-         SweepNumCoarse = (SweepNumPre + SweepNumPost) / 2
+         MaxSweeps = MAX_SWEEPS_DEFAULT
       end if
       
 !     Read cfl and dcfl numbers
@@ -176,41 +216,30 @@ module AnisFASMultigridClass
          ERROR STOP '"cfl" and "dcfl" if Navier-Stokes) or "dt" keywords must be specified for the FAS integrator'
       end if
       
-      select case (controlVariables % StringValueForKey("mg smoother",LINE_LENGTH))
-         case('RK3')  ; SmoothIt => TakeRK3Step
-         case('SIRK')
-            !! SmoothIt => TakeSIRKStep
-            error stop ':: SIRK smoother not implemented yet'
-         case default 
-            write(STD_OUT,*) '"mg smoother" not recognized. Defaulting to RK3.'
-            SmoothIt => TakeRK3Step
-      end select
-      
-      PostSmoothOptions = controlVariables % StringValueForKey("postsmooth option",LINE_LENGTH)
-      if (trim(PostSmoothOptions) == 'f-cycle') then
-         PostFCycle = .true.
-      elseif (trim(PostSmoothOptions) == 'smooth') then
-         PostSmooth = .true.
-      end if
-      
-      if (controlVariables % containsKey("smooth fine")) then
-         SmoothFine = .TRUE.
-         SmoothFineFrac = controlVariables % doublePrecisionValueForKey("smooth fine")
-      else
-         SmoothFine = .FALSE.
-      end if
-      
-      if (controlVariables % containsKey("max mg sweeps")) then
-         MaxSweeps = controlVariables % IntegerValueForKey("max mg sweeps")
-      else
-         MaxSweeps = MAX_SWEEPS_DEFAULT
-      end if
-      
 !
 !     -----------------------
 !     Update module variables
 !     -----------------------
 !
+      MaxN(1) = MAXVAL(sem%Nx)
+      MaxN(2) = MAXVAL(sem%Ny)
+      MaxN(3) = MAXVAL(sem%Nz)
+      
+!
+!     3D anisotropic meshes must have N >= 2
+!        (and AnisFAS ALWAYS creates anisotropic meshes)
+!     --------------------------------------------------
+      
+      if (.not. sem % mesh % meshIs2D ) then
+         NMIN = 2
+      else
+         NMIN = 1
+      end if
+      
+      MGlevels(1)  = MIN(MaxN(1) - NMIN + 1,UserMGlvls)
+      MGlevels(2)  = MIN(MaxN(2) - NMIN + 1,UserMGlvls)
+      MGlevels(3)  = MIN(MaxN(3) - NMIN + 1,UserMGlvls)
+      
       MGOutput       = controlVariables % logicalValueForKey("multigrid output")
       plotInterval   = controlVariables % integerValueForKey("output interval")
       ManSol         = sem % ManufacturedSol
@@ -304,10 +333,10 @@ module AnisFASMultigridClass
    
 !$omp parallel do
       do k = 1, nelem
-         allocate(Solver % MGStorage(Dir) % Var(k) % Q    (0:N1x(k),0:N1y(k),0:N1z(k),N_EQN))
-         allocate(Solver % MGStorage(Dir) % Var(k) % E    (0:N1x(k),0:N1y(k),0:N1z(k),N_EQN))
-         allocate(Solver % MGStorage(Dir) % Var(k) % S    (0:N1x(k),0:N1y(k),0:N1z(k),N_EQN))
-         allocate(Solver % MGStorage(Dir) % Var(k) % Scase(0:N1x(k),0:N1y(k),0:N1z(k),N_EQN))
+         allocate(Solver % MGStorage(Dir) % Var(k) % Q    (N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % E    (N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % S    (N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % Scase(N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
          
          Solver % MGStorage(Dir) % Var(k) % Scase = 0._RP
       end do   
@@ -383,8 +412,6 @@ module AnisFASMultigridClass
                                            ChildSem = .TRUE. )
          if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
          
-         Child_p % MGStorage(Dir) % tempsem = Child_p % MGStorage(Dir) % p_sem
-         
          call ConstructFASInOneDirection(Solver % Child, lvl - 1, controlVariables,Dir)
          
       end if
@@ -396,13 +423,15 @@ module AnisFASMultigridClass
 !  ---------------------------------------------
 !  Driver of the FAS multigrid solving procedure
 !  ---------------------------------------------
-   subroutine solve(this,timestep,t, ComputeTimeDerivative, TE)
+   subroutine solve(this,timestep,t,ComputeTimeDerivative,ComputeTimeDerivativeIsolated,TE,TEType)
       implicit none
       class(AnisFASMultigrid_t)        , intent(inout) :: this       !<> The AnisFAS
       integer                          , intent(in)    :: timestep   !<  Current time step
       real(kind=RP)                    , intent(in)    :: t          !<  Current simulation time
       procedure(ComputeQDot_FCN)                       :: ComputeTimeDerivative
+      procedure(ComputeQDot_FCN), optional             :: ComputeTimeDerivativeIsolated
       type(TruncationError_t), optional, intent(inout) :: TE(:)      !<> Truncation error for all elements. If present, the multigrid solver also estimates the TE
+      integer                , optional, intent(in)    :: TEType     !<  Truncation error type (either NON_ISOLATED_TE or ISOLATED_TE)
       !-------------------------------------------------
       character(len=LINE_LENGTH)              :: FileName
       integer                                 :: Dir
@@ -415,7 +444,11 @@ module AnisFASMultigridClass
 !
       if (PRESENT(TE)) then
          EstimateTE = .TRUE.
-         call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,NON_ISOLATED_TE, ComputeTimeDerivative)
+         if (present(TEType)) then
+            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,TEType, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+         else ! using NON_ISOLATED_TE by default
+            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,NON_ISOLATED_TE, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+         end if
       else
          EstimateTE = .FALSE.
       end if
@@ -431,15 +464,6 @@ module AnisFASMultigridClass
       do Dir = 1, 3
          call FASVCycle(this,t,MGlevels(Dir),Dir,TE, ComputeTimeDerivative)
       end do
-
-!
-!     -------------------------------------------
-!     Perform p-adaptation and destruct variables
-!     -------------------------------------------
-!
-!~      if (PRESENT(pAdaptator) .AND. pAdaptator % Adapt) then
-!~         call pAdaptator % pAdaptTE(this % MGStorage(1) % p_sem,pAdaptator % TE)
-!~      end if
       
       !! Finish up
       
@@ -502,8 +526,8 @@ module AnisFASMultigridClass
          
          if (SmoothFine .AND. lvl > 1) then
             call MGRestrictToChild(this,Dir,lvl,t,TE, ComputeTimeDerivative)
-            associate(p_sem => this % Child % MGStorage(Dir) % p_sem)
-            call ComputeTimeDerivative(p_sem % mesh, t, p_sem % externalState, p_sem % externalGradients)
+            associate(Childp_sem => this % Child % MGStorage(Dir) % p_sem)
+            call ComputeTimeDerivative(Childp_sem % mesh, t, Childp_sem % externalState, Childp_sem % externalGradients)
             end associate
             
             if (MAXVAL(ComputeMaxResiduals(p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals &
@@ -683,10 +707,16 @@ module AnisFASMultigridClass
 !     If not on finest level, correct source term
 !     -------------------------------------------
 !
-      if (EstimateTE) call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
-     
-     call ComputeTimeDerivative(Childp_sem % mesh,t, Childp_sem % externalState, Childp_sem % externalGradients)
-      
+      if (EstimateTE) then
+         if ( TE(1) % TruncErrorType == NON_ISOLATED_TE) then ! This assumes that the truncation error type is the same in all elements
+            call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
+         elseif ( TE(1) % TruncErrorType == ISOLATED_TE) then
+            call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
+            call ComputeTimeDerivative(Childp_sem % mesh,t,Childp_sem % externalState,Childp_sem % externalGradients)
+         end if
+      else
+         call ComputeTimeDerivative(Childp_sem % mesh,t,Childp_sem % externalState,Childp_sem % externalGradients)
+      end if
       
 !$omp parallel do schedule(runtime)
       do iEl = 1, nelem
@@ -701,7 +731,6 @@ module AnisFASMultigridClass
 !
 !  -----------------------------------------------
 !  Subroutine that destructs an AnisFAS integrator
-!  TODO: finish this
 !  -----------------------------------------------
    subroutine destruct(this)       
       implicit none
@@ -738,7 +767,6 @@ module AnisFASMultigridClass
       deallocate (Solver % MGStorage(Dir) % Var) ! allocatable components are automatically deallocated
       
       if (lvl < MGlevels(Dir)) then
-         call Solver % MGStorage(Dir) % tempsem % destruct()
          call Solver % MGStorage(Dir) % p_sem % destruct()
          deallocate (Solver % MGStorage(Dir) % p_sem)
       else

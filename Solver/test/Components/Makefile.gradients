@@ -45,7 +45,6 @@ INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all
 		   -fp-speculation=off -assume bscc -D_has_Quad
 ARFLAGS=crv
 
-
 # ------------------------------------------------
 OBJS_CASE= Setup VariableConversion Physics GradientSetup GradientTests InitialFlowState TestGradientsMain
 	   
@@ -107,8 +106,12 @@ OBJS_HORSES=  SMConstants \
 		ReadInputFile \
 		TimeIntegrator \
 		ConnectivityClass \
+		GenericMatrixClass \
+		CSRMatrixClass \
+		PETScMatrixClass \
+		MatrixClass \
 		Jacobian \
-		CSR_Matrices \
+		NumericalJacobian \
 		pAdaptationClass \
 		navierstokes/ManufacturedSolutions \
 		DenseMatUtilities \
@@ -256,7 +259,7 @@ $(PROG): $(OBJS_HORSES) $(OBJS_CASE) ProblemFile
 	@echo "---------------------------------"
 	@echo "| Linking " $@ "|"
 	@echo "---------------------------------"
-	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_EXEC) $(OBJS_CASE_EXEC) $(HORSES_LIBS_EXEC)
+	$(FC) $(FFLAGS) -o $(PROG) $(OBJS_HORSES_EXEC) $(OBJS_CASE_EXEC) $(HORSES_LIBS_EXEC) $(LIBS)
 
 horseslibs:
 	@for subdir in $(HORSES_LIBS); do \
@@ -271,7 +274,7 @@ $(OBJS_HORSES): %: $(or $(wildcard $(HOME_DIR)/src/**/%.f90), $(wildcard $(HOME_
 	@echo $@.f90
 	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(MOD_FLAG)./include -c $(FILE_HORSES) -o ./build/$@.o
 
-FILE_HORSES = $(or $(wildcard $(HOME_DIR)/src/**/$@.f90),$(wildcard $(HOME_DIR)/src/$@.f90),$(wildcard $(HOME_DIR)/src/***/**/$@.f90))
+FILE_HORSES = $(or $(wildcard $(HOME_DIR)/src/**/$@.f90),$(wildcard $(HOME_DIR)/src/$@.f90),$(wildcard $(HOME_DIR)/src/***/**/$@.f90),$(wildcard $(HOME_DIR)/src/**/**/**/$@.f90))
 
 
 $(OBJS_CASE): %: ./src/%.f90

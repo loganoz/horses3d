@@ -15,8 +15,8 @@ LIBOBJS = 	./build/FluidData.o \
 		./build/PhysicsStorage.o \
 		./build/VariableConversion.o \
 		./build/LESModels.o \
-		./build/RiemannSolvers.o \
 		./build/Physics.o \
+		./build/RiemannSolvers.o \
 		./build/ManufacturedSolutions.o \
 		./build/BoundaryConditions.o 
 

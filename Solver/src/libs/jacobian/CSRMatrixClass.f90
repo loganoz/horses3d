@@ -1,24 +1,24 @@
 !////////////////////////////////////////////////////////////////////////
 !
-!      CSR_Matrices.f90
+!      CSRMatrixClass.f90
 !      Created: 2017-03-21 17:07:00 +0100 
 !      By: Andrés Rueda
 !
 !      Class for sparse csr matrices
 !
 !////////////////////////////////////////////////////////////////////////
-MODULE CSR_Matrices
-   USE SMConstants,                 ONLY: RP                  
+MODULE CSRMatrixClass
+   USE SMConstants,                 ONLY: RP    
+   use GenericMatrixClass              
    IMPLICIT NONE
    
    !-----------------------------------------------------------------------------
-   TYPE csrMat_t
+   TYPE, extends(Matrix_t) :: csrMat_t
       REAL(KIND=RP),  POINTER, CONTIGUOUS :: Values(:)   =>NULL()  ! Values of nonzero entries of matrix
       INTEGER,        POINTER, CONTIGUOUS :: Cols(:)     =>NULL()  ! Column indices that correspond to each value
       INTEGER,        POINTER, CONTIGUOUS :: Rows(:)     =>NULL()  ! Row indices (index of first value of each row)
       INTEGER,        POINTER, CONTIGUOUS :: Diag(:)     =>NULL()  ! Array containing position of the diagonal entry (handy for some calculations)
       
-      INTEGER                             :: NumRows               ! Number of rows of matrix
       INTEGER                             :: NumCols               ! Number of colunms of matrix
       
       ! Variables for matrices with blocks
@@ -26,122 +26,113 @@ MODULE CSR_Matrices
       INTEGER,        POINTER, CONTIGUOUS :: BlockSize(:)=>NULL()  ! Size of each block
    CONTAINS
    
-      GENERIC, PUBLIC                     :: construct  => CSR_CreateMatnnz, CSR_CreateMatnnzs
-      PROCEDURE                           :: assigndiag => CSR_AssignDiag
-      PROCEDURE                           :: Visualize  => CSR2Visualize
-      PROCEDURE                           :: destroy
-      PROCEDURE                           :: SetMatShift
+      procedure                           :: construct   => CSR_CreateMat
+      procedure                           :: PreAllocate => CSR_PreAllocate
+      procedure                           :: Reset       => CSR_Reset
+      PROCEDURE                           :: assigndiag  => CSR_AssignDiag
+      PROCEDURE                           :: Visualize   => CSR2Visualize
+      PROCEDURE                           :: destruct
+      PROCEDURE                           :: Shift       => SetMatShift
       PROCEDURE                           :: SetColumn
       PROCEDURE                           :: SetElem
       PROCEDURE                           :: GetDense => CSR2Dense
       PROCEDURE                           :: GetBlock => CSR_GetBlock
-      
-      PROCEDURE, PRIVATE                  :: CSR_CreateMatnnz, CSR_CreateMatnnzs
    END TYPE
    !-----------------------------------------------------------------------------   
    
    PRIVATE
-   PUBLIC                                 :: csrMat_t, CSR_MatVecMul
+   PUBLIC                                 :: csrMat_t, CSR_MatVecMul, Matrix_t
 !
 !========
  CONTAINS
 !========
 !
    !------------------------------------------------------------------------------
-   SUBROUTINE CSR_CreateMatnnz(this,NumRows,NumCols,nnz)
+   SUBROUTINE CSR_CreateMat(this,DimPrb,WithMPI)
    !  Creates a matrix in the CSR format using the same number of nonzero entries
    !  for all rows (nnz)
    !------------------------------------------------------------------------------
       CLASS(csrMat_t)     :: this             !<> Matrix to be Created
-      INTEGER, INTENT(IN) :: NumRows          !<  Num of rows in the matrix
-      INTEGER, INTENT(IN) :: NumCols          !<  Num of cols in the matrix
-      INTEGER, INTENT(IN) :: nnz              !<  Num of nonzero entries in every row (extend to non-constant value with an interface)
-   
-    
+      INTEGER, INTENT(IN) :: DimPrb          !<  Num of rows in the matrix
+      logical, optional, intent(in) :: WithMPI
       !------------------------------------------------------------------------------
-      INTEGER             :: i,k,istat
+      INTEGER             :: istat
       !------------------------------------------------------------------------------
       
-      IF(nnz < 1) STOP 'CSR_Create: Invalid nnz'
-      
-      ALLOCATE( this % Rows(NumRows+1),STAT=istat )
+      ALLOCATE( this % Rows(DimPrb+1),STAT=istat )
       IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
       
-      ALLOCATE( this % Diag(NumRows),STAT=istat )
+      ALLOCATE( this % Diag(DimPrb),STAT=istat )
+      IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
+      
+      this % NumRows = DimPrb
+      this % NumCols = DimPrb !The matrix can be a rectangular matrix
+      
+   !------------------------------------------------------------------------------
+   END SUBROUTINE CSR_CreateMat
+   !------------------------------------------------------------------------------
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine CSR_PreAllocate(this,nnz,nnzs)
+      implicit none
+      !-----------------------------------
+      CLASS(csrMat_t), INTENT(INOUT):: this             !<> Matrix to be preallocated
+      INTEGER, optional, intent(in) :: nnz        !< Num of nonzero entries all rows
+      INTEGER, optional, intent(in) :: nnzs(:)     !< Num of nonzero entries in every row 
+      !-----------------------------------
+      integer :: i,k,istat
+      integer :: total_nnz
+      !-----------------------------------
+      
+      if (present(nnz)) then
+         total_nnz = this % NumRows * nnz
+      elseif (present(nnzs)) then
+         if (size(nnzs) /= this % NumRows) ERROR stop ':: CSRMatrix: Not consistent nnzs'
+         total_nnz = sum(nnzs)
+      else
+         ERROR stop ':: CSR matrix needs nnz or nnzs'
+      end if
+      
+      IF(total_nnz < 1) STOP ':: Invalid nnz' 
+      
+      k = this % NumRows * total_nnz
+       
+      ALLOCATE( this % Cols(total_nnz),STAT=istat )
       IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
        
-      k = NumRows*nnz
-       
-      ALLOCATE( this % Cols(k),STAT=istat )
+      ALLOCATE( this % Values(total_nnz), STAT=istat )
       IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
-       
-      ALLOCATE( this % Values(k), STAT=istat )
-      IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
-       
-      this % NumRows = NumRows
-      this % NumCols = NumCols !The matrix can be a rectangular matrix
+      
       this % Rows(1) = 1
-       
-      DO i=2, NumRows + 1
-         this % Rows(i) = this % Rows(i-1) + nnz
-      END DO
+      if (present(nnz)) then
+         DO i=2, this % NumRows + 1
+            this % Rows(i) = this % Rows(i-1) + nnz
+         END DO
+      else
+         DO i=2, this % NumRows + 1
+            this % Rows(i) = this % Rows(i-1) + nnzs(i-1)
+         END DO
+      end if
+      
+   end subroutine CSR_PreAllocate
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine CSR_Reset(this)
+      implicit none
+      !-----------------------------------
+      CLASS(csrMat_t), INTENT(INOUT) :: this           !<> Matrix
+      !-----------------------------------
       
       this % Cols = 0
       this % Diag = 0
-       
       this % Values = 0._RP
-   !------------------------------------------------------------------------------
-   END SUBROUTINE CSR_CreateMatnnz
-   !------------------------------------------------------------------------------
-   
-   !------------------------------------------------------------------------------
-   SUBROUTINE CSR_CreateMatnnzs(this,NumRows,NumCols,nnz_row)
-   !  Creates a matrix in the CSR format using a different number of nonzero entries
-   !  for each row (nnz_row)
-   !------------------------------------------------------------------------------
-      CLASS(csrMat_t)     :: this             !<> Matrix to be Created
-      INTEGER, INTENT(IN) :: NumRows          !<  Num of rows in the matrix
-      INTEGER, INTENT(IN) :: NumCols          !<  Num of cols in the matrix
-      INTEGER, INTENT(IN) :: nnz_row(:)       !<  Num of nonzero entries in every row (extend to non-constant value with an interface)
-   
-    
-      !------------------------------------------------------------------------------
-      INTEGER             :: i,k,istat
-      INTEGER             :: nnz
-      !------------------------------------------------------------------------------
+   end subroutine CSR_Reset
       
-      nnz = SUM(nnz_row)
-      IF(nnz < 1) STOP 'CSR_Create: Invalid nnz'
-      
-      ALLOCATE( this % Rows(NumRows+1),STAT=istat )
-      IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
-       
-       
-      ALLOCATE( this % Diag(NumRows),STAT=istat )
-      IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
-       
-      ALLOCATE( this % Cols(nnz),STAT=istat )
-      IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
-       
-      ALLOCATE( this % Values(nnz), STAT=istat )
-      IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
-       
-      this % NumRows = NumRows
-      this % NumCols = NumCols !The matrix can be a rectangular matrix
-      this % Rows(1) = 1
-       
-      DO i=2, NumRows + 1
-         this % Rows(i) = this % Rows(i-1) + nnz_row(i-1)
-      END DO
-      
-      this % Cols = 0
-      this % Diag = 0
-       
-      this % Values = 0._RP
-   !------------------------------------------------------------------------------
-   END SUBROUTINE CSR_CreateMatnnzs
-   !------------------------------------------------------------------------------
-  
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    !----------------------------------------------------------------------------------
    SUBROUTINE CSR_AssignDiag(A)
    !----------------------------------------------------------------------------------
@@ -169,38 +160,36 @@ MODULE CSR_Matrices
    !----------------------------------------------------------------------------------
    END SUBROUTINE CSR_AssignDiag
    !----------------------------------------------------------------------------------
-   
+      
    !------------------------------------------------------------------------------
-   SUBROUTINE SetColumn(A, RowIndexes, ColNum, Values )
+   SUBROUTINE SetColumn(this, nvalues, irow, icol, values )
    !    Adds values to (part of) a column of a csr matrix
    !------------------------------------------------------------------------------
       IMPLICIT NONE
       !------------------------------------------------------------------------------ 
-      CLASS(csrMat_t)               :: A                 !<> Global matrix
-      INTEGER       , INTENT(IN)    :: RowIndexes(1:)    !< Different positions of Column
-      INTEGER       , INTENT(IN)    :: ColNum            !< Number of Row/Column
-      REAL(KIND=RP) , INTENT(IN)    :: Values(:)         !< Values to be added to global matrivx¿x
+      CLASS(csrMat_t), INTENT(INOUT) :: this              !<> Global matrix
+      INTEGER        , INTENT(IN)    :: nvalues
+      INTEGER        , INTENT(IN)    :: irow(1:)    !< Different positions of Column
+      INTEGER        , INTENT(IN)    :: icol            !< Number of Row/Column
+      REAL(KIND=RP)  , INTENT(IN)    :: values(:)         !< Values to be added to global matrivx¿x
       !------------------------------------------------------------------------------ 
-      INTEGER :: NumRows, i,Row !,k,l,c,
+      INTEGER :: i !,k,l,c,
       !------------------------------------------------------------------------------
       
-      NumRows = SIZE(RowIndexes)
-      
-      IF (NumRows .NE. SIZE(Values)) THEN
+      IF (nvalues .NE. SIZE(Values)) THEN
          WRITE (*,*) 'CSR_AddToCol: Dimension error (Values-RowIndexes)'
          STOP
       END IF
       
-      IF ( ColNum <= 0 ) THEN
-         WRITE (*,*) 'CSR_AddToCol: ColNum error'
+      IF ( icol <= 0 ) THEN
+         WRITE (*,*) 'CSR_AddToCol: icol error'
          STOP
       END IF
       
-      DO i=1,NumRows
-         Row = RowIndexes(i)
-         IF ( Row <=0 ) CYCLE
+      DO i=1,nvalues
+         IF ( irow(i) <= 0 ) CYCLE
          
-         CALL A % SetElem(Row,ColNum,Values(i))
+         CALL this % SetElem(irow(i),icol,values(i))
       END DO
       
    !------------------------------------------------------------------------------
@@ -303,7 +292,7 @@ MODULE CSR_Matrices
    !----------------------------------------------------------------------------------
   
   !----------------------------------------------------------------------------------
-   SUBROUTINE destroy(this)
+   SUBROUTINE destruct(this)
    !----------------------------------------------------------------------------------
       IMPLICIT NONE
       !------------------------------------------
@@ -315,22 +304,22 @@ MODULE CSR_Matrices
       NULLIFY(this % Values)
       NULLIFY(this % Diag)
    !----------------------------------------------------------------------------------
-   END SUBROUTINE destroy
+   END SUBROUTINE destruct
    !----------------------------------------------------------------------------------
    
    !----------------------------------------------------------------------------------
-   SUBROUTINE SetMatShift(this,shift)
+   SUBROUTINE SetMatShift(this,shiftval)
    !----------------------------------------------------------------------------------
       IMPLICIT NONE
       !------------------------------------------
-      CLASS(csrMat_t), INTENT(INOUT) :: this
-      REAL(KIND=RP), INTENT(IN)      :: shift
+      CLASS(csrMat_t), INTENT(INOUT)     :: this
+      real(kind=RP)  , INTENT(IN)        :: shiftval
       !------------------------------------------
       INTEGER                        :: i
       !------------------------------------------
       
       DO i=1, this % NumRows
-         this % Values(this % Diag(i)) = this % Values(this % Diag(i)) + shift
+         this % Values(this % Diag(i)) = this % Values(this % Diag(i)) + shiftval
       END DO 
       
    !----------------------------------------------------------------------------------
@@ -464,4 +453,4 @@ MODULE CSR_Matrices
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    
-END MODULE
+END MODULE CSRMatrixClass

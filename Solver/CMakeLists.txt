@@ -53,6 +53,7 @@ SET(HORSES_F90FLAGS "${CMAKE_Fortran_FLAGS_${CMAKE_BUILD_TYPE}}")
 ############################################################
 # Locate additional libraries if specified by the user
 ############################################################
+ADD_DEFINITIONS(-DNAVIERSTOKES)
 
 IF(WITH_MKL)
   # Find MKL
@@ -102,16 +103,14 @@ ENDIF()
 
 IF(WITH_HDF5)
   FIND_PACKAGE(HDF5 REQUIRED)
-  FIND_PACKAGE(ZLIB REQUIRED)
   ADD_DEFINITIONS(-DHAS_HDF5)
   SET(HAS_HDF5 TRUE)
   MARK_AS_ADVANCED(HAS_HDF5)
   INCLUDE_DIRECTORIES(${HDF5_INCLUDE_DIRS})
-  SET (HDF5_Fortran_LIBRARIES "${HDF5_hdf5_LIBRARY_${CMAKE_BUILD_TYPE}}" CACHE FILEPATH "HDF5 Fortran LIBS" FORCE)
   SET (HDF5_C_INCLUDE_DIR ${HDF5_C_INCLUDE_DIR} CACHE FILEPATH "HDF5 Fortran INC" FORCE)
   SET (HDF5_Fortran_COMPILER_EXECUTABLE ${HDF5_Fortran_COMPILER_EXECUTABLE} CACHE FILEPATH "HDF5 Fortran COMPILER" FORCE)
-  
-	SET(CMAKE_Fortran_COMPILER ${HDF5_Fortran_COMPILER_EXECUTABLE})
+  SET (HDF5_Fortran_LIBRARIES ${HDF5_Fortran_LIBRARIES} CACHE FILEPATH "HDF5 Fortran Libraries" FORCE)
+#	 SET(CMAKE_Fortran_COMPILER ${HDF5_Fortran_COMPILER_EXECUTABLE})
 ENDIF()
 
 # There is an error in CMAKE with this flag for pgf90.  Unset it
@@ -147,6 +146,7 @@ SET(SPECLIB spectral)
 SET(PROBLIB ProblemFile)
 SET(MPIUTILLIB MPIUtilities)
 SET(DISCLIB discretization)
+SET(TIMEINTLIB timeintegrator)
 
 # Define some directories
 SET(SRCDIR ${CMAKE_SOURCE_DIR}/src)
@@ -166,11 +166,12 @@ ADD_SUBDIRECTORY(${SRCDIR}/libs/io)
 ADD_SUBDIRECTORY(${SRCDIR}/libs/jacobian)
 ADD_SUBDIRECTORY(${SRCDIR}/libs/mesh)
 ADD_SUBDIRECTORY(${SRCDIR}/libs/monitors)
-ADD_SUBDIRECTORY(${SRCDIR}/libs/physics)
+ADD_SUBDIRECTORY(${SRCDIR}/libs/physics/navierstokes)
 ADD_SUBDIRECTORY(${SRCDIR}/libs/spectral)
 ADD_SUBDIRECTORY(${SRCDIR}/libs/problemfile)
 ADD_SUBDIRECTORY(${SRCDIR}/libs/mpiutils)
 ADD_SUBDIRECTORY(${SRCDIR}/libs/discretization)
+ADD_SUBDIRECTORY(${SRCDIR}/libs/timeintegrator)
 
 # The source for the main program and add-ons
 ADD_SUBDIRECTORY(${SRCDIR}/NavierStokesSolver)

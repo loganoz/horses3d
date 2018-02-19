@@ -11,13 +11,21 @@ MOD_FLAG?=-J
 
 
 
-LIBOBJS_NS = 	./build_ns/CSR_Matrices.o \
+LIBOBJS_NS = 	./build_ns/GenericMatrixClass.o \
+    ./build_ns/CSRMatrixClass.o \
+    ./build_ns/PETScMatrixClass.o \
+    ./build_ns/MatrixClass.o \
 		./build_ns/ColorsClass.o \
-		./build_ns/Jacobian.o
+		./build_ns/Jacobian.o \
+		./build_ns/NumericalJacobian.o
 
-LIBOBJS_CH = 	./build_ch/CSR_Matrices.o \
+LIBOBJS_CH = 	./build_ch/GenericMatrixClass.o \
+		./build_ch/CSRMatrixClass.o \
+		./build_ch/PETScMatrixClass.o \
+		./build_ch/MatrixClass.o \
 		./build_ch/ColorsClass.o \
-		./build_ch/Jacobian.o
+		./build_ch/Jacobian.o\
+		./build_ch/NumericalJacobian.o
 
 LIB = jacobian
 

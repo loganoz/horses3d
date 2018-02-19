@@ -14,9 +14,9 @@
 !      The procedures, *even if empty* that must be defined are
 !
 !      UserDefinedSetUp
-!      UserDefinedInitialCondition(sem)
-!      UserDefinedPeriodicOperation(sem)
-!      UserDefinedFinalize(sem)
+!      UserDefinedInitialCondition(mesh)
+!      UserDefinedPeriodicOperation(mesh)
+!      UserDefinedFinalize(mesh)
 !      UserDefinedTermination
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -59,7 +59,7 @@
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
-!              - By default it sets an uniform initial
+!              - By default it sets a uniform initial
 !                 condition.
 !           ------------------------------------------------
 !
@@ -80,6 +80,7 @@
             real(kind=RP)  :: qq, u, v, w, p
             real(kind=RP)  :: Q(N_EQN), phi, theta
 
+#if defined(NAVIERSTOKES)
             associate ( gammaM2 => dimensionless_ % gammaM2, &
                         gamma => thermodynamics_ % gamma )
             theta = refValues_ % AOATheta*(PI/180.0_RP)
@@ -102,7 +103,7 @@
                   Q(4) = Q(1)*w
                   Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
 
-                  mesh % elements(eID) % storage % Q(i,j,k,:) = Q 
+                  mesh % elements(eID) % storage % Q(:,i,j,k) = Q 
                end do;        end do;        end do
                end associate
 !
@@ -111,11 +112,12 @@
 !              relax back to the mean flow
 !              -------------------------------------------------
 !
-               mesh % elements(eID) % storage % Q(3,3,3,1) = 1.05_RP*mesh % elements(eID) % storage % Q(3,3,3,1)
+               mesh % elements(eID) % storage % Q(1,3,3,3) = 1.05_RP*mesh % elements(eID) % storage % Q(1,3,3,3)
 
             end do
 
             end associate
+#endif
             
          END SUBROUTINE UserDefinedInitialCondition
 
@@ -205,8 +207,8 @@
 !           to be performed
 !           ----------------------------------------------------------
 !
+            USE HexMeshClass
             use SMConstants
-            USE DGSEMClass
             use MonitorsClass
             IMPLICIT NONE
             CLASS(HexMesh)  :: mesh
@@ -230,8 +232,9 @@
 !           --------------------------------------------------------
 !
             use SMConstants
-            USE DGSEMClass
+            USE FTAssertions
             use PhysicsStorage
+            use HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
             class(HexMesh)                        :: mesh
@@ -244,7 +247,95 @@
             type(Monitor_t),           intent(in) :: monitors
             real(kind=RP),          intent(in) :: elapsedTime
             real(kind=RP),          intent(in) :: CPUTime
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            INTEGER                            :: numberOfFailures
+            CHARACTER(LEN=29)                  :: testName           = "27 element uniform flow tests"
+            REAL(KIND=RP)                      :: maxError
+            REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
+            INTEGER                            :: eID
+            INTEGER                            :: i, j, k, N
+            real(kind=RP)                      :: qq, u, v, w, p, Q(N_EQN), theta, phi
+            TYPE(FTAssertionsManager), POINTER :: sharedManager
+!
+!           -----------------------------------------------------------------------
+!           Expected Values. Note they will change if the run parameters change and
+!           when the eigenvalue computation for the time step is fixed. These 
+!           results are for the Mach 0.5 and rusanov solvers.
+!           -----------------------------------------------------------------------
+!
+#if defined(NAVIERSTOKES)
+            INTEGER                            :: expectedIterations = 45
+            REAL(KIND=RP)                      :: expectedResidual   = 8.0503558326281992E-011
+            
+            CALL initializeSharedAssertionsManager
+            sharedManager => sharedAssertionsManager()
+            
+            N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order
+            CALL FTAssertEqual(expectedValue= expectedIterations, &
+                               actualValue   =  iter, &
+                               msg           = "Number of time steps to tolerance")
+            CALL FTAssertEqual(expectedValue = expectedResidual, &
+                               actualValue   = maxResidual, &
+                               tol           = 1.d-3, &
+                               msg           = "Final maximum residual")
+            
+            ALLOCATE(QExpected(N_EQN,0:N,0:N,0:N))
+            
+            maxError = 0.0_RP
+            associate ( gammaM2 => dimensionless_ % gammaM2, &
+                        gamma => thermodynamics_ % gamma )
+            theta = refValues_ % AOATheta*(PI/180.0_RP)
+            phi   = refValues_ % AOAPhi*(PI/180.0_RP)
+      
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          Ny => mesh % elements(eID) % Nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  qq = 1.0_RP
+                  u  = qq*cos(theta)*COS(phi)
+                  v  = qq*sin(theta)*COS(phi)
+                  w  = qq*SIN(phi)
+      
+                  Q(1) = 1.0_RP
+                  p    = 1.0_RP/(gammaM2)
+                  Q(2) = Q(1)*u
+                  Q(3) = Q(1)*v
+                  Q(4) = Q(1)*w
+                  Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
 
+                  QExpected(:,i,j,k) = Q 
+               end do;        end do;        end do
+               end associate
+               maxError = MAXVAL(ABS(QExpected - mesh % elements(eID) % storage % Q))
+            end do
+            end associate
+
+            CALL FTAssertEqual(expectedValue = 0.0_RP, &
+                               actualValue   = maxError, &
+                               tol           = 1.d-10, &
+                               msg           = "Maximum error")
+            
+            
+            CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
+   
+            IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
+               WRITE(6,*) testName, " ... Passed"
+            ELSE
+               WRITE(6,*) testName, " ... Failed"
+               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is fixed."
+               WRITE(6,*) "      When that is done, re-compute the expected values and modify this procedure"
+               STOP 99
+            END IF 
+            WRITE(6,*)
+            
+            CALL finalizeSharedAssertionsManager
+            CALL detachSharedAssertionsManager
+#endif
          END SUBROUTINE UserDefinedFinalize
 !
 !//////////////////////////////////////////////////////////////////////// 
