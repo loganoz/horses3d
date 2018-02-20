@@ -87,13 +87,13 @@ contains
       nelem = size(sem % mesh % elements)
       
 !
-!     Get block sizes and position in matrix (using 0-based index because of PETSc) TODO:: change!! ... This can be moved elsewhere since it's needed by both the numerical and analytical Jacobians
-!     ---------------------------------------------------------------------------------------------
+!     Get block sizes and position in matrix. This can be moved elsewhere since it's needed by both the numerical and analytical Jacobians
+!     ---------------------------------------
       
       safedeallocate(ndofelm)  ; allocate (ndofelm(nelem))
       safedeallocate(firstIdx) ; allocate (firstIdx(nelem+1))
       
-      firstIdx = 0
+      firstIdx = 1
       DO eID=1, nelem
          ndofelm(eID)  = NCONS * (sem % Nx(eID)+1) * (sem % Ny(eID)+1) * (sem % Nz(eID)+1)
          if (eID>1) firstIdx(eID) = firstIdx(eID-1) + ndofelm(eID-1)
@@ -288,8 +288,8 @@ contains
                                      f % boundaryType, &
                                      externalStateProcedure, &
                                      BCjac )
-         f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = dFStar_dqL &
-                                            + matmul(dFStar_dqR,BCjac)  ! TODO: Why is this not working anymore???
+         f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = dFStar_dqL !&
+!~                                            + matmul(dFStar_dqR,BCjac)  ! TODO: Why is this not working anymore???
       end do             ; end do
       
    end subroutine ComputeBoundaryFluxJacobian

@@ -1,3 +1,12 @@
+!////////////////////////////////////////////////////////////////////////
+!
+!      PETScMatrixClass.f90
+!      Created: 2018-02-18 17:07:00 +0100 
+!      By: Andrés Rueda
+!
+!      Class for sparse csr matrices in PETSc context
+!
+!////////////////////////////////////////////////////////////////////////
 module PETScMatrixClass
    use SMConstants
    use GenericMatrixClass
@@ -135,7 +144,7 @@ module PETScMatrixClass
       PetscScalar, DIMENSION(:), INTENT(IN)              :: values
       !---------------------------------------------
    
-      CALL MatSetValues(this%A,nvalues,irow,1,icol,values,INSERT_VALUES,ierr)
+      CALL MatSetValues(this%A,nvalues,irow-1,1,icol-1,values,INSERT_VALUES,ierr)
       CALL CheckPetscErr(ierr, 'error in MatSetValues')
 #else
       INTEGER, INTENT(IN)                               :: nvalues
@@ -157,7 +166,7 @@ module PETScMatrixClass
       PetscInt, INTENT(IN)                               :: icol
       PetscScalar, DIMENSION(:), INTENT(IN)              :: values
    
-      CALL MatSetValues(this%A,nvalues,irow,1,icol,values,ADD_VALUES,ierr)
+      CALL MatSetValues(this%A,nvalues,irow-1,1,icol-1,values,ADD_VALUES,ierr)
       CALL CheckPetscErr(ierr, 'error in MatSetValues')
 #else
       INTEGER, INTENT(IN)                               :: nvalues
@@ -301,6 +310,7 @@ module PETScMatrixClass
       STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE GetCSRMatrix
+!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE destruct(this)

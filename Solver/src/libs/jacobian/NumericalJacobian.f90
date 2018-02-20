@@ -86,7 +86,7 @@ contains
          allocate(ndofelm(nelm), firstIdx(nelm+1))
          allocate(Nx(nelm), Ny(nelm), Nz(nelm))
          allocate(dgs_clean(nelm))
-         firstIdx = 0
+         firstIdx = 1
          DO i=1, nelm
             Nx(i) = sem%mesh%elements(i)%Nxyz(1)
             Ny(i) = sem%mesh%elements(i)%Nxyz(2)
