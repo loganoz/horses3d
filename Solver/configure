@@ -16,6 +16,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./Euler/JFNK \
 	    ./Euler/TaylorGreenKEPEC \
             ./NavierStokes/Cylinder \
+            ./NavierStokes/CylinderFAS \
             ./NavierStokes/CylinderBR2 \
             ./NavierStokes/CylinderIP \
             ./NavierStokes/CylinderDucros \
