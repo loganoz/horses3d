@@ -12,5 +12,6 @@ MODULE LinearSolverClass
    USE MKLPardisoSolverClass
    USE IterativeSolverClass
    USE MultigridSolverClass
+   use MatrixFreeSmootherClass
    IMPLICIT NONE
 END MODULE LinearSolverClass

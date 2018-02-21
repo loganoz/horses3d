@@ -12,11 +12,70 @@ MODULE DenseMatUtilities
    IMPLICIT NONE
 
    private
-   public inverse, Mat2File
+   public inverse, Mat2File, ComputeLU, SolveLU
 !========
  CONTAINS
 !========
 
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine ComputeLU(A,ALU,LUpivots)
+      implicit none
+      !------------------------------------------------------------
+      real(kind=RP), dimension(:,:)                , intent(in)  :: A          !<  Matrix to factorize
+      real(kind=RP), dimension(size(A,1),size(A,1)), intent(out) :: ALU        !>  Factorized LU matrix
+      integer      , dimension(size(A,1))          , intent(out) :: LUpivots   !>  LU pivots for factorization
+      !------------------------------------------------------------
+      integer :: n      ! Matrix size
+      integer :: info   ! Lapack error code
+      !------------------------------------------------------------
+#ifdef HAS_LAPACK
+
+      ! Store A in Ainv to prevent it from being overwritten by LAPACK
+      ALU = A
+      n = size(A,1)
+      
+      ! DGETRF computes an LU factorization of a general M-by-N matrix A
+      ! using partial pivoting with row interchanges.
+      call DGETRF(n, n, ALU, n, LUpivots, info)
+      
+      if (info /= 0) then
+         print*, 'Matrix is numerically singular. ERROR:', info
+         stop
+      end if
+#else
+      STOP ':: Matrix LU factorization routine needs LAPACK.'
+#endif
+   end subroutine
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SolveLU(ALU,LUpivots,x,b)
+      implicit none
+      !------------------------------------------------------------
+      real(kind=RP), dimension(:,:)        , intent(in)  :: ALU              !<  Factorized LU matrix
+      integer      , dimension(size(ALU,1)), intent(in)  :: LUpivots   !<  LU pivots for factorization
+      real(kind=RP), dimension(size(ALU,1)), intent(in)  :: b
+      real(kind=RP), dimension(size(ALU,1)), intent(out) :: x
+      !------------------------------------------------------------
+      integer :: n      ! Matrix size
+      integer :: info   ! Lapack error code
+      !------------------------------------------------------------
+#ifdef HAS_LAPACK
+      
+      n = size(ALU,1)
+      x = b
+      
+      call dgetrs ( 'N' , n, 1   , ALU, n  , LUpivots, x ,n  , info )
+      if (info /= 0) then
+         print*,  '*** System could not be solved. ERROR:', info
+         stop
+      end if
+#else
+      STOP ':: System solving routine needs LAPACK.'
+#endif
+   end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

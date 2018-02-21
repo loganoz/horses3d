@@ -99,14 +99,17 @@ contains
          if (eID>1) firstIdx(eID) = firstIdx(eID-1) + ndofelm(eID-1)
       END DO
       firstIdx(nelem+1) = firstIdx(nelem) + ndofelm(nelem)
-         
-      nnz = MAXVAL(ndofelm) ! 
       
 !
 !     Preallocate Jacobian matrix
 !     ---------------------------
-      
-      call Matrix % Preallocate(nnz)
+      select type(Matrix_p => Matrix)
+         type is(DenseBlockDiagMatrix_t)
+            call Matrix_p % Preallocate(nnzs=ndofelm) ! Constructing with block size
+         class default ! Construct with nonzeros in each row
+            nnz = MAXVAL(ndofelm) ! currently only for block diagonal
+            call Matrix % Preallocate(nnz)
+      end select
       call Matrix % Reset
 !$omp parallel
 !

@@ -128,8 +128,6 @@ contains
       integer, target, optional    ,     intent(in)      :: BlockIdx(:)
       integer, target, optional, intent(in)    :: BlockSize(:)
       !---------------------------------------------
-      
-      ERROR stop ' :: Assembly not implemented for current matrix type'
    end subroutine Assembly
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

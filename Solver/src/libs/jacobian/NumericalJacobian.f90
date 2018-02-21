@@ -193,7 +193,12 @@ contains
 !     Preallocate Jacobian matrix
 !     ---------------------------
 !
-      CALL Matrix % Preallocate(nnz)
+      select type(Matrix_p => Matrix)
+         type is(DenseBlockDiagMatrix_t)
+            call Matrix_p % Preallocate(nnzs=ndofelm) ! Constructing with block size
+         class default ! Construct with nonzeros in each row
+            call Matrix % Preallocate(nnz)
+      end select
       CALL Matrix % Reset
       
       CALL ComputeTimeDerivative( sem % mesh, t, sem % externalState, sem % externalGradients)

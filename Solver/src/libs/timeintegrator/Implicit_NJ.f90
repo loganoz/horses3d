@@ -60,7 +60,7 @@ CONTAINS
       REAL(KIND=RP)                                         :: ctime
       
       !NEWTON PARAMETERS, TODO: this should be defined in a better place
-      REAL(KIND=RP)  :: minrate = 0.5_RP              ! If newton convergence rate lower this value,  newton loop stops and inner_dt is reduced  
+      REAL(KIND=RP)  :: minrate = 0.1_RP              ! If newton convergence rate lower this value,  newton loop stops and inner_dt is reduced  
       REAL(KIND=RP)  :: maxrate = 1.7_RP              ! If newton loop convergence rate passes this value, inner_dt is increased
       REAL(KIND=RP)  :: NEWTON_TOLERANCE =1.e-6_RP    ! newton iter tolerance relative to the first iter norm !=1.e-6_RP
       INTEGER        :: MAX_NEWTON_ITER = 30          ! If newton iter reachs this limit, this iteration is marked as  not converged 
@@ -80,6 +80,8 @@ CONTAINS
                ALLOCATE (PetscKspLinearSolver_t :: linsolver)
             CASE('pardiso')
                ALLOCATE (MKLPardisoSolver_t     :: linsolver)
+            CASE('matrix-free smooth')
+               ALLOCATE (MatFreeSmooth_t        :: linsolver)
             CASE('smooth')
                ALLOCATE (IterativeSolver_t      :: linsolver)
             CASE('multigrid')
@@ -203,6 +205,7 @@ CONTAINS
 !
    SUBROUTINE NewtonSolve(sem, t, dt, linsolver, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
                           INFO, minrate,JacByConv,ConvRate, niter,CONVERGED, ComputeTimeDerivative)
+      implicit none
 !     
 !     ----------------------
 !     Input-Output arguments
@@ -232,15 +235,16 @@ CONTAINS
       INTEGER(8)                                               :: cli, clf, clrate           
       INTEGER                                               :: newtonit
       REAL(KIND=RP)                                         :: norm, norm_old, rel_tol, norm1
-!~       LOGICAL, SAVE :: isfirst = .TRUE.
-!~       SAVE norm1
+      LOGICAL, SAVE :: isfirst = .TRUE.
       
-!~       IF (isfirst) THEN
+      SAVE norm1
+      
+      IF (isfirst) THEN
          norm = 1.0_RP
-!~          isfirst = .FALSE.
-!~       ELSE
-!~          norm = norm1
-!~       END IF
+         isfirst = .FALSE.
+      ELSE
+         norm = norm1
+      END IF
       norm_old = -1.0_RP  !Must be initialized to -1 to avoid bad things in the first newton iter
       ConvRate = 1.0_RP
    
@@ -253,8 +257,7 @@ CONTAINS
       DO newtonit = 1, MAX_NEWTON_ITER                                 !NEWTON LOOP
          if (.not. JacByConv) computeA = .TRUE.
          
-         CALL ComputeTimeDerivative( sem % mesh, t, sem % externalState, sem % externalGradients)
-         CALL ComputeRHS(sem, dt, U_n, nelm, linsolver )               ! Computes b (RHS) and stores it into linsolver
+         CALL ComputeRHS(sem, t, dt, U_n, linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
          
          CALL SYSTEM_CLOCK(COUNT=cli)
          CALL linsolver%solve(tol=norm*1.e-3_RP, maxiter=500, time= t, dt=dt, &
@@ -268,7 +271,7 @@ CONTAINS
          
          norm = linsolver%Getxnorm('infinity')
 
-         IF (norm_old .NE. -1.0_RP) THEN
+         IF (norm_old > 0._RP) THEN
             ConvRate = ConvRate + (LOG10(norm_old/norm)-ConvRate)/newtonit 
          ENDIF
          norm_old = norm
@@ -289,7 +292,7 @@ CONTAINS
          ENDIF
         
          IF (norm < MAX(rel_tol,NEWTON_TOLERANCE)) THEN
-            converged = .TRUE.
+            converged = .TRUE. 
             RETURN
          ENDIF
          
@@ -299,25 +302,26 @@ CONTAINS
 !  
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE ComputeRHS(sem, dt, U_n, nelm, linsolver )
-
+   SUBROUTINE ComputeRHS(sem, t, dt, U_n, linsolver, ComputeTimeDerivative )
+      implicit none
+      !----------------------------------------------------------------
       TYPE(DGSem),                INTENT(IN)       :: sem
+      REAL(KIND=RP),              INTENT(IN)       :: t
       REAL(KIND=RP),              INTENT(IN)       :: dt
       REAL(KIND=RP),              INTENT(IN)       :: U_n(0:)
-      INTEGER,                    INTENT(IN)       :: nelm
       CLASS(GenericLinSolver_t),  INTENT (INOUT)   :: linsolver
-
+      procedure(ComputeQDot_FCN)                   :: ComputeTimeDerivative
+      !----------------------------------------------------------------
       INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, elmnt, counter   
       REAL(KIND=RP)                                :: value
 
 !     Right-Hand side BDF1 (stored into the linsolver vector b):
-!     b = [(Q(n+1) - Q(n))/dt] - Qdot  == [(U_r - U_n ) / dt] - F(U_r)
-!     U_r is stored in sem%dgs% storage % Q
+!     b = [(Q(n+1) - Q(n))/dt] - Qdot  == [(U_r - U_n ) / dt] - F(U_r) 
 
-!      CALL ComputeTimeDerivative( sem ) ! computes Qdot
+      call ComputeTimeDerivative( sem % mesh, t, sem % externalState, sem % externalGradients)
       
       counter = 0
-      DO elmnt = 1, nelm
+      DO elmnt = 1, size(sem % mesh % elements)
          Nx = sem%mesh%elements(elmnt)%Nxyz(1)
          Ny = sem%mesh%elements(elmnt)%Nxyz(2)
          Nz = sem%mesh%elements(elmnt)%Nxyz(3)
