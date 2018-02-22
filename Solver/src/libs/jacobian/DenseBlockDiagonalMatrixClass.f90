@@ -11,14 +11,15 @@
 module DenseBlockDiagonalMatrixClass
    use SMConstants
    use GenericMatrixClass
+#include "Includes.h"
    implicit none
    
    private
    public DenseBlockDiagMatrix_t, Matrix_t, Block_t
    
    type Block_t
-      real(kind=RP), pointer, contiguous :: Matrix(:,:)
-      integer      , pointer, contiguous :: Indexes(:)
+      real(kind=RP), allocatable :: Matrix(:,:)
+      integer      , allocatable :: Indexes(:)
    end type Block_t
    
    type, extends(Matrix_t) :: DenseBlockDiagMatrix_t
@@ -77,8 +78,8 @@ contains
       
 !$omp parallel do private(k) schedule(runtime)
       do i=1, this % NumOfBlocks
-         allocate ( this % Blocks(i) % Matrix(nnzs(i),nnzs(i)) )
-         allocate ( this % Blocks(i) % Indexes(nnzs(i)) )
+         safedeallocate (this % Blocks(i) % Matrix ) ; allocate ( this % Blocks(i) % Matrix(nnzs(i),nnzs(i)) )
+         safedeallocate (this % Blocks(i) % Indexes) ; allocate ( this % Blocks(i) % Indexes(nnzs(i)) )
          
          this % Blocks(i) % Indexes = (/ (k, k=this % BlockIdx(i),this % BlockIdx(i+1) - 1 ) /)
          
@@ -115,7 +116,7 @@ contains
       !---------------------------------------------
       integer :: thisblock, thiscol, thisrow, firstIdx, lastIdx
       integer :: i
-      integer, pointer :: indexes(:)
+!~      integer, pointer :: indexes(:)
       !---------------------------------------------
       
       if ( (icol > this % NumRows) .or. (icol < 1) ) ERROR stop ':: DenseBlockDiagMatrix: icol value is out of bounds'
@@ -125,7 +126,7 @@ contains
          if (icol <= this % BlockIdx(thisblock+1) -1) exit
       end do
       
-      indexes => this % Blocks(thisblock) % Indexes
+      associate (indexes => this % Blocks(thisblock) % Indexes)
       firstIdx = this % BlockIdx(thisblock)
       lastIdx  = this % BlockIdx(thisblock+1) - 1
       
@@ -145,7 +146,7 @@ contains
       
       end do
       
-      nullify(indexes)
+      end associate
       
    end subroutine SetColumn
 !
@@ -158,15 +159,16 @@ contains
       real(kind=RP)                , intent(in)    :: shiftval
       !------------------------------------------
       INTEGER                :: i, iBL
-      real(kind=RP), pointer :: Mat_p(:,:)
+!~      real(kind=RP), pointer :: Mat_p(:,:)
       !------------------------------------------
       
-!$omp parallel do private(i,Mat_p) schedule(runtime)
+!$omp parallel do private(i) schedule(runtime)
       do iBL=1, this % NumOfBlocks
-         Mat_p => this % Blocks(iBL) % Matrix
+         associate (Mat_p => this % Blocks(iBL) % Matrix)
          do i=1, size(Mat_p,1)
             Mat_p(i,i) = Mat_p(i,i) + shiftval
          end do
+         end associate
       end do
 !$omp end parallel do
       

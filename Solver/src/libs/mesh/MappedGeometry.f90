@@ -43,7 +43,7 @@ Module MappedGeometryClass
             INTEGER                                         :: Nx, Ny, Nz                    ! Polynomial order
             REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: jGradXi, jGradEta, jGradZeta  ! 
             REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: x                             ! Position of points in absolute coordinates
-            REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: jacobian 
+            REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: jacobian, invJacobian         ! Mapping Jacobian and 1/Jacobian 
             real(kind=RP)                                   :: volume 
             real(kind=RP), dimension(:,:,:),    allocatable :: dWall          ! Minimum distance to the nearest wall
             CONTAINS
@@ -111,6 +111,7 @@ Module MappedGeometryClass
       ALLOCATE( self % JGradEta (3,0:Nx,0:Ny,0:Nz) )
       ALLOCATE( self % JGradZeta(3,0:Nx,0:Ny,0:Nz) )
       ALLOCATE( self % jacobian   (0:Nx,0:Ny,0:Nz) )
+      ALLOCATE( self % invJacobian(0:Nx,0:Ny,0:Nz) )
       ALLOCATE( self % x        (3,0:Nx,0:Ny,0:Nz)    )
 !
 !     --------------------------
@@ -369,7 +370,9 @@ Module MappedGeometryClass
                                           * spAzeta % TCheb2Gauss(k,n) 
             end do              ; end do              ; end do
          end do               ; end do               ; end do
-
+         do k = 0, self % Nz  ; do j = 0, self % Ny  ; do i = 0, self % Nx
+            self % invJacobian(i,j,k) = 1._RP / self % jacobian(i,j,k)
+         end do               ; end do               ; end do
       end subroutine computeMetricTermsConservativeForm
 !
 !///////////////////////////////////////////////////////////////////////
@@ -456,7 +459,9 @@ Module MappedGeometryClass
                                           * spAzeta % TCheb2Gauss(k,n) 
             end do              ; end do              ; end do
          end do               ; end do               ; end do
-
+         do k = 0, self % Nz  ; do j = 0, self % Ny  ; do i = 0, self % Nx
+            self % invJacobian(i,j,k) = 1._RP / self % jacobian(i,j,k)
+         end do               ; end do               ; end do
 
 
       END SUBROUTINE computeMetricTermsCrossProductForm

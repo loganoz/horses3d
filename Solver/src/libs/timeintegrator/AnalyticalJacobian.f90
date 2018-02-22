@@ -291,8 +291,9 @@ contains
                                      f % boundaryType, &
                                      externalStateProcedure, &
                                      BCjac )
-         f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = dFStar_dqL !&
-!~                                            + matmul(dFStar_dqR,BCjac)  ! TODO: Why is this not working anymore???
+         
+         f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = dFStar_dqL &
+                                            + matmul(dFStar_dqR,BCjac)
       end do             ; end do
       
    end subroutine ComputeBoundaryFluxJacobian
@@ -339,6 +340,9 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  -----------------------------------------------------------------------------------------------
+!  This routine obtains the Jacobian of the boundary condition numerically.
+!  This can be optimized introducing the analytical Jacobian of every single implemented BC...
 !  -----------------------------------------------------------------------------------------------
    subroutine ExternalStateJacobian(x,time,nHat,Qin,Qex,boundaryType,externalStateProcedure,BCjac)
       implicit none
@@ -431,41 +435,47 @@ contains
       integer :: i, j             ! Matrix indices
       integer :: i1, j1, k1, eq1  ! variable counters
       integer :: i2, j2, k2, eq2  ! variable counters
-      integer :: nXi, nEta, nZeta ! Number of nodes in every direction
-      real(kind=RP) :: di, dj, dk       ! Kronecker deltas
+      integer :: nXi, nEta        ! Number of nodes in every direction
+      integer :: EtaSpa, ZetaSpa  ! Spacing for these two coordinate directions
+      real(kind=RP) :: di, dj, dk ! Kronecker deltas
+      integer :: Deltas           ! A variable to know if two deltas are zero, in which case this is a zero entry of the matrix..
       !-------------------------------------------
       
       nXi   = e % Nxyz(1) + 1
       nEta  = e % Nxyz(2) + 1
-      nZeta = e % Nxyz(3) + 1
+      EtaSpa  = NCONS*nXi
+      ZetaSpa = NCONS*nXi*nEta
       
       LocalMat = 0._RP
       do k2 = 0, e % Nxyz(3) ; do j2 = 0, e % Nxyz(2) ; do i2 = 0, e % Nxyz(1) ; do eq2 = 1, NCONS 
          do k1 = 0, e % Nxyz(3) ; do j1 = 0, e % Nxyz(2) ; do i1 = 0, e % Nxyz(1) ; do eq1 = 1, NCONS 
-            
+            Deltas = 0
 !           Kronecker deltas
 !           -----------------
 
             if (i1 == i2) then
                di = 1._RP
+               Deltas = Deltas + 1
             else
                di = 0._RP
             end if
             if (j1 == j2) then
                dj = 1._RP
+               Deltas = Deltas + 1
             else
                dj = 0._RP
             end if
             if (k1 == k2) then
                dk = 1._RP
+               Deltas = Deltas + 1
             else
                dk = 0._RP
             end if
             
+            if (Deltas < 2) cycle
 
-
-            i = eq1 + i1*NCONS + j1*NCONS*nXi + k1*NCONS*nEta*nXi ! row index (1-based)
-            j = eq2 + i2*NCONS + j2*NCONS*nXi + k2*NCONS*nEta*nXi ! column index (1-based)
+            i = eq1 + i1*NCONS + j1*EtaSpa + k1*ZetaSpa ! row index (1-based)
+            j = eq2 + i2*NCONS + j2*EtaSpa + k2*ZetaSpa ! column index (1-based)
             
             LocalMat(i,j) = &
             
@@ -482,7 +492,7 @@ contains
                            -   dfdq_to(eq1,eq2,i1,j1) * e % spAZeta% b(k1,TOP   ) * e % spAZeta% v(k2,TOP   ) * di * dj   & ! 5 Top
                            -   dfdq_ri(eq1,eq2,j1,k1) * e % spAXi  % b(i1,RIGHT ) * e % spAXi  % v(i2,RIGHT ) * dj * dk   & ! 4 Right
                            -   dfdq_le(eq1,eq2,j1,k1) * e % spAXi  % b(i1,LEFT  ) * e % spAXi  % v(i2,LEFT  ) * dj * dk ) & ! 6 Left
-                                                                                       / e % geom % jacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
+                                                                                       * e % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
             
          end do                ; end do                ; end do                ; end do
       end do                ; end do                ; end do                ; end do
