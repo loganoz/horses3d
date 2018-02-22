@@ -631,7 +631,7 @@
 !     ---------
 !
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
+      REAL(KIND=RP)   , INTENT(INOUT) :: Q(NCONS)
       CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
 !
 !     ---------------

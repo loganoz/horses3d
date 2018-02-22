@@ -69,15 +69,17 @@ Module DGSEMClass
    abstract interface
       SUBROUTINE BCState_FCN(x,t,nHat,Q,boundaryName)
          USE SMConstants
+         use PhysicsStorage
          REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-         REAL(KIND=RP)   , INTENT(INOUT) :: Q(:)
+         REAL(KIND=RP)   , INTENT(INOUT) :: Q(NCONS)
          CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
       END SUBROUTINE BCState_FCN      
 
       SUBROUTINE BCGradients_FCN(x,t,nHat,gradU,boundaryName)
          USE SMConstants
+         use PhysicsStorage
          REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-         REAL(KIND=RP)   , INTENT(INOUT) :: gradU(:,:)
+         REAL(KIND=RP)   , INTENT(INOUT) :: gradU(3,N_GRAD_EQN)
          CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
       END SUBROUTINE BCGradients_FCN
 
@@ -116,11 +118,27 @@ Module DGSEMClass
       CLASS(DGSem)                       :: self                               !<> Class to be constructed
       character(len=*),         optional :: meshFileName_
       class(FTValueDictionary)           :: controlVariables                   !<  Name of mesh file
-      EXTERNAL                           :: externalState, externalGradients   !<  External procedures that define the BCs
       INTEGER, OPTIONAL                  :: polynomialOrder(3)                 !<  Uniform polynomial order
       INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
       logical, optional                  :: ChildSem                           !<  Is this a (multigrid) child sem?
+      INTERFACE
+         SUBROUTINE externalState(x,t,nHat,Q,boundaryName)
+            USE SMConstants
+            use PhysicsStorage
+            REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+            REAL(KIND=RP)   , INTENT(INOUT) :: Q(NCONS)
+            CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+         END SUBROUTINE externalState
+         
+         SUBROUTINE externalGradients(x,t,nHat,gradU,boundaryName)
+            USE SMConstants
+            use PhysicsStorage
+            REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+            REAL(KIND=RP)   , INTENT(INOUT) :: gradU(3,N_GRAD_EQN)
+            CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+         END SUBROUTINE externalGradients
+      END INTERFACE
 !
 !     ---------------
 !     Local variables
@@ -134,21 +152,6 @@ Module DGSEMClass
       integer                     :: dir2D
       logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
       character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
-      INTERFACE
-         SUBROUTINE externalState(x,t,nHat,Q,boundaryName)
-            USE SMConstants
-            REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-            REAL(KIND=RP)   , INTENT(INOUT) :: Q(:)
-            CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
-         END SUBROUTINE externalState
-         
-         SUBROUTINE externalGradients(x,t,nHat,gradU,boundaryName)
-            USE SMConstants
-            REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-            REAL(KIND=RP)   , INTENT(INOUT) :: gradU(:,:)
-            CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
-         END SUBROUTINE externalGradients
-      END INTERFACE
       
       if ( present(ChildSem) .and. ChildSem ) self % mesh % child = .TRUE.
       
@@ -313,7 +316,12 @@ Module DGSEMClass
 !     **********************************************************
 !
       CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
-      
+!
+!     Compute wall distances
+!     ----------------------
+#if defined(NAVIERSTOKES)
+      call self % mesh % ComputeWallDistances
+#endif
       IF(.NOT. success) RETURN
 !
 !     ------------------------

@@ -109,6 +109,7 @@ OBJS_HORSES=  SMConstants \
 		GenericMatrixClass \
 		CSRMatrixClass \
 		PETScMatrixClass \
+		DenseBlockDiagonalMatrixClass \
 		MatrixClass \
 		Jacobian \
 		NumericalJacobian \
@@ -127,6 +128,7 @@ OBJS_HORSES=  SMConstants \
 		LinearSolverClass \
 		IterativeSolverClass \
 		MultigridSolverClass \
+		MatrixFreeSmootherClass \
 		ExplicitMethods \
 		FASMultigridClass \
 		AnisFASMultigridClass \
