@@ -10,8 +10,7 @@
 !////////////////////////////////////////////////////////////////////////
 MODULE Implicit_NJ
    use AnalyticalJacobian
-   USE SMConstants                  
-   USE DGSEMClass,                  ONLY: DGSem
+   USE SMConstants
    USE ElementClass,                ONLY: Element, allocateElementStorage    !arueda: No DGSolutionStorage implemented in nslite3d... Using whole element definitions
    USE PhysicsStorage
    use HexMeshClass
@@ -20,11 +19,11 @@ MODULE Implicit_NJ
    USE FTValueDictionaryClass
    use TimeIntegratorDefinitions
    use MatrixClass
-   use DGSEMClass, only: ComputeQDot_FCN
+   use DGSEMClass
    implicit none
    
    PRIVATE                          
-   PUBLIC TakeBDFStep_NJ
+   PUBLIC TakeBDFStep_NJ, ComputeRHS, UpdateNewtonSol
    
    real(kind=RP) :: time               ! Time at the beginning of each inner(!) time step
    logical       :: computeA = .TRUE.  ! Compute Jacobian? (only valid if it is meant to be computed according to the convergence)
@@ -267,7 +266,7 @@ CONTAINS
             converged = .FALSE.
             RETURN
          ENDIF
-         CALL UpdateNewtonSol(sem, nelm, linsolver)                    ! Q_r+1 = Q_r + x
+         CALL UpdateNewtonSol(sem, linsolver)                    ! Q_r+1 = Q_r + x
          
          norm = linsolver%Getxnorm('infinity')
 
@@ -341,17 +340,16 @@ CONTAINS
       CALL linsolver%AssemblyB     ! b must be assembled before using
    END SUBROUTINE ComputeRHS
 !//////////////////////////////////////////////////////////////////////////////////////////////
-   SUBROUTINE UpdateNewtonSol(sem, nelm, linsolver)
+   SUBROUTINE UpdateNewtonSol(sem, linsolver)
 
       TYPE(DGSem),                     INTENT(INOUT)    :: sem
-      INTEGER,                         INTENT(IN)       :: nelm
       CLASS(GenericLinSolver_t),       INTENT(INOUT)    :: linsolver
 
       REAL(KIND=RP)                                     :: value
       INTEGER                                           :: Nx, Ny, Nz, l, i, j, k, counter, elm
-
+      
       counter = 0
-      DO elm = 1, nelm
+      DO elm = 1, size(sem % mesh % elements)
          Nx = sem%mesh%elements(elm)%Nxyz(1)
          Ny = sem%mesh%elements(elm)%Nxyz(2)
          Nz = sem%mesh%elements(elm)%Nxyz(3)
