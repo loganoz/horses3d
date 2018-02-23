@@ -173,16 +173,13 @@ CONTAINS
       logical      , optional      , intent(inout) :: ComputeA
       !-------------------------------------------------
       INTEGER                                 :: i, k
-!~      LOGICAL, SAVE :: isfirst = .TRUE.
+      logical :: TolPresent
       !-------------------------------------------------
-      !<temp
-      integer :: blockn
-      !temp>
-      IF (.NOT. PRESENT(time) .OR. .NOT. PRESENT(dt)) STOP 'time and dt needed for iterative solver'
       
+      IF (.NOT. PRESENT(time) .OR. .NOT. PRESENT(dt)) STOP 'time and dt needed for iterative solver'
+      TolPresent = present(tol)
 !
 !     Compute Jacobian matrix if needed
-!        (done in petsc format and then transformed to CSR since the CSR cannot be filled by the Jacobian calculators)
 !     -----------------------------------------------------
       
       if ( present(ComputeA)) then
@@ -199,10 +196,6 @@ CONTAINS
          IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
       end if
       
-!~      blockn = 1
-!~      call Mat2File(this % A % Blocks(blockn) % Matrix,'BlockNum.dat')
-!~      stop
-      
       timesolve= time
       dtsolve  = dt
       
@@ -217,7 +210,7 @@ CONTAINS
       
       SELECT CASE (this % Smoother)
          CASE('BlockJacobi')
-            CALL BlockJacobiSmoother(this, maxiter, tol, this % niter, ComputeTimeDerivative)
+            CALL BlockJacobiSmoother(this, maxiter, this % niter, ComputeTimeDerivative, TolPresent, tol)
       END SELECT
       
       CALL this % p_sem % SetQ (this % Ur)
@@ -461,15 +454,16 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE BlockJacobiSmoother(this, SmoothIters, tol, niter, ComputeTimeDerivative)
+   SUBROUTINE BlockJacobiSmoother(this, SmoothIters, niter, ComputeTimeDerivative, TolPresent, tol)
       USE DenseMatUtilities
       IMPLICIT NONE
       !--------------------------------------------
-      CLASS(MatFreeSmooth_t), TARGET, INTENT(INOUT) :: this            !<  Iterative solver class
-      INTEGER                                         :: SmoothIters     !<  Number of smoothing operations
-      REAL(KIND=RP), OPTIONAL                         :: tol             !   Relative AND absolute tolerance of the method
-      INTEGER                         , INTENT(OUT)   :: niter           !>  Number of iterations needed
-      procedure(ComputeQDot_FCN)                      :: ComputeTimeDerivative
+      CLASS(MatFreeSmooth_t), TARGET, intent(INOUT) :: this            !<  Iterative solver class
+      INTEGER                                       :: SmoothIters     !<  Number of smoothing operations
+      INTEGER                       , intent(OUT)   :: niter           !>  Number of iterations needed
+      procedure(ComputeQDot_FCN)                    :: ComputeTimeDerivative
+      logical                       , intent(in)    :: TolPresent      !   
+      REAL(KIND=RP), OPTIONAL                       :: tol             !   Relative AND absolute tolerance of the method
       !--------------------------------------------
        INTEGER                                 :: n                ! System size
       REAL(KIND=RP)                           :: r   (this % DimPrb) ! Residual
@@ -481,14 +475,13 @@ CONTAINS
       
       REAL(KIND=RP)                           :: bnorm, rnorm, oldrnorm, ConvRate     ! Norm of b and r vectors
       REAL(KIND=RP)                           :: endtol           ! Final tolerance that will be used to evaluate convergence 
-!~       REAL(KIND=RP) :: res(size(x,1),1), LinChange
       !--------------------------------------------
       
       n =  this % DimPrb
       x => this % x
       b => this % b
       
-      IF(PRESENT(tol)) THEN
+      IF(TolPresent) THEN
          bnorm = NORM2(b)
          endtol = MAX(bnorm*tol,tol)  ! rtol and atol are taken as the same value
       END IF
@@ -516,14 +509,14 @@ CONTAINS
          END DO
 !$omp end parallel do
          
-         IF (PRESENT(tol)) THEN
+         IF (TolPresent) THEN
             rnorm = NORM2(r)       ! Saves relative tolerance (one iteration behind)
 !~             print*, '\x1b[1;34m', i, rnorm, rnorm/oldrnorm ,'\x1b[0m'
 !~             read(*,*)
-            IF (oldrnorm .NE. -1.0_RP) THEN
+            IF (oldrnorm > 0._RP) THEN
                ConvRate = ConvRate + (LOG10(oldrnorm/rnorm)-ConvRate)/i 
             ENDIF
-            IF (rnorm < endtol .OR. ABS(rnorm/oldrnorm-1._RP) < 0.01_RP) THEN
+            IF (rnorm < endtol .or. ConvRate <= 8e-3_RP) then ! .OR. ABS(rnorm/oldrnorm-1._RP) < 0.01_RP) THEN
                this % rnorm = rnorm
                oldrnorm     = rnorm
                EXIT

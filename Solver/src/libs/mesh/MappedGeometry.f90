@@ -156,7 +156,7 @@ Module MappedGeometryClass
       SUBROUTINE DestructMappedGeometry(self)
          IMPLICIT NONE 
          CLASS(MappedGeometry) :: self
-         DEALLOCATE( self % jGradXi, self % jGradEta, self % jGradZeta, self % jacobian )
+         DEALLOCATE( self % jGradXi, self % jGradEta, self % jGradZeta, self % jacobian, self % invJacobian )
          DEALLOCATE( self % x)
          safedeallocate(self % dWall)
       END SUBROUTINE DestructMappedGeometry

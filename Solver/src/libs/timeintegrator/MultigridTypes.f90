@@ -6,10 +6,7 @@ module MultigridTypes
    use DGSEMClass
    implicit none
    
-   private
-   public MGSolStorage_t, SmoothIt_t, NMIN_GAUSS, NMIN_GAUSSLOBATTO, ThisTimeStep, plotInterval
-
-   public CreateInterpolationOperators, PlotResiduals
+   public 
 !
 !  Multigrid solution storage
 !  --------------------------
@@ -36,9 +33,16 @@ module MultigridTypes
       end subroutine SmoothIt_t
    end interface
    
-   ! Parameters
+!  Parameters
+!  ----------
+   
+   ! Node type
    integer, parameter :: NMIN_GAUSS        = 1 ! Minimum polynomial order when using Gauss nodes .... The threshold should actually be zero... Using 1 because code doesn't support 0
    integer, parameter :: NMIN_GAUSSLOBATTO = 1 ! Minimum polynomial order when using Gauss-Lobatto nodes
+   
+   ! smoothers
+   integer, parameter :: RK3_SMOOTHER = 0 ! Williamson's 3rd order low-storage Runge-Kutta (only for steady state cases)
+   integer, parameter :: BJ_SMOOTHER  = 1 ! Block Jacobi smoother
    
    ! Variables for IO
    integer        :: ThisTimeStep   ! Current time step

@@ -193,6 +193,7 @@
       call Stopwatch % Start("Solver")
       
 !     Perform FMG cycle if requested
+!        (only for steady simulations)
 !     ------------------------------
       
       if (self % integratorType == STEADY_STATE .and. &
@@ -202,7 +203,7 @@
          write(STD_OUT,*) 'Using FMG solver to get initial condition. Res =', FMGres
          
          call FMGSolver % construct(controlVariables,sem)
-         call FMGSolver % solve(0,0._RP, ComputeTimeDerivative, .TRUE.,FMGres)
+         call FMGSolver % solve(0,0._RP, 0._RP, ComputeTimeDerivative, .TRUE.,FMGres) 
          
          call FMGSolver % destruct
       end if
@@ -274,6 +275,7 @@ interface
             use SMConstants
             use HexMeshClass
             use MonitorsClass
+            use PhysicsStorage
             IMPLICIT NONE
             CLASS(HexMesh)  :: mesh
             REAL(KIND=RP) :: time
@@ -344,10 +346,11 @@ end interface
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
+      call monitors % WriteToFile(sem % mesh)
       IF (self % integratorType == STEADY_STATE) THEN
          IF (maxval(maxResidual) <= Tol )  THEN
             write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",sem % numberOfTimeSteps," with Residual = ", maxval(maxResidual)
-            call Monitors % writeToFile(sem % mesh, force = .true. )
+            call monitors % WriteToFile(sem % mesh, force = .TRUE.)
             return
          END IF
       end if
@@ -396,7 +399,7 @@ end interface
             CASE ('explicit')
                CALL self % RKStep ( sem % mesh, t, sem % externalState, sem % externalGradients, dt, ComputeTimeDerivative)
             case ('FAS')
-               call FASSolver % solve(k,t, ComputeTimeDerivative)
+               call FASSolver % solve(k, t, dt, ComputeTimeDerivative)
             case ('AnisFAS')
                call AnisFASSolver % solve(k,t, ComputeTimeDerivative)
          END SELECT
