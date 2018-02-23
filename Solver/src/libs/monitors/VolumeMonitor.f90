@@ -24,7 +24,7 @@ module VolumeMonitorClass
    type VolumeMonitor_t
       logical                         :: active
       integer                         :: ID
-      real(kind=RP)                   :: values(BUFFER_SIZE)
+      real(kind=RP), allocatable      :: values(:)
       character(len=STR_LEN_MONITORS) :: monitorName
       character(len=STR_LEN_MONITORS) :: fileName
       character(len=STR_LEN_MONITORS) :: variable
@@ -90,6 +90,7 @@ module VolumeMonitorClass
 !        Enable the monitor
 !        ------------------
          self % active = .true.
+         allocate ( self % values(BUFFER_SIZE) )
 !
 !        Select the variable from the available list, and compute auxiliary variables if needed
 !        --------------------------------------------------------------------------------------

@@ -55,11 +55,11 @@ module MonitorsClass
       integer                              :: no_of_surfaceMonitors
       integer                              :: no_of_volumeMonitors
       integer                              :: bufferLine
-      integer                              :: iter    ( BUFFER_SIZE )
+      integer                , allocatable :: iter(:)
       integer                              :: dt_restriction
       logical                              :: write_dt_restriction
-      real(kind=RP)                        :: t       (BUFFER_SIZE )
-      real(kind=RP)                        :: SimuTime (BUFFER_SIZE )
+      real(kind=RP)          , allocatable :: t(:)
+      real(kind=RP)          , allocatable :: SimuTime(:)
       type(Residuals_t)                    :: residuals
       class(VolumeMonitor_t),  allocatable :: volumeMonitors(:)
 #if defined(NAVIERSTOKES)
@@ -104,6 +104,15 @@ module MonitorsClass
                character(len=*)   :: inputLine
             end function getFileName
          end interface
+!
+!        Setup the buffer
+!        ----------------
+         if (controlVariables % containsKey("monitors flush interval") ) then
+            BUFFER_SIZE = controlVariables % integerValueForKey("monitors flush interval")
+         else
+            BUFFER_SIZE = BUFFER_SIZE_DEFAULT
+         end if
+         allocate ( Monitors % SimuTime(BUFFER_SIZE), Monitors % t(BUFFER_SIZE), Monitors % iter(BUFFER_SIZE) )
 !
 !        Get the solution file name
 !        --------------------------

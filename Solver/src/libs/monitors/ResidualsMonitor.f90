@@ -13,8 +13,8 @@ module ResidualsMonitorClass
 !
    type Residuals_t
       logical                         :: active
-      real(kind=RP)                   :: values(NCONS,BUFFER_SIZE)
-      real(kind=RP)                   :: CPUtime(BUFFER_SIZE)
+      real(kind=RP), allocatable      :: values(:,:)
+      real(kind=RP), allocatable      :: CPUtime(:)
       character(len=STR_LEN_MONITORS) :: fileName
       contains
          procedure   :: Initialization => Residuals_Initialization
@@ -56,6 +56,7 @@ module ResidualsMonitorClass
 !        Enable the monitor
 !        ------------------
          self % active = .true.
+         allocate ( self % values(NCONS,1:BUFFER_SIZE) , self % CPUtime(BUFFER_SIZE) )
 !
 !        Get monitor file name
 !        ---------------------

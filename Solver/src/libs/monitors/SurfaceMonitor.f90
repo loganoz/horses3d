@@ -23,7 +23,7 @@ module SurfaceMonitorClass
       real(kind=RP)                   :: direction(NDIM)
       integer                         :: marker
       real(kind=RP), allocatable      :: referenceSurface
-      real(kind=RP)                   :: values(BUFFER_SIZE)
+      real(kind=RP), allocatable      :: values(:)
       real(kind=RP)                   :: dynamicPressure
       character(len=STR_LEN_MONITORS) :: monitorName
       character(len=STR_LEN_MONITORS) :: fileName
@@ -106,6 +106,7 @@ module SurfaceMonitorClass
 !        Enable the monitor
 !        ------------------
          self % active = .true.
+         allocate ( self % values(BUFFER_SIZE) )
 !
 !        Get the surface marker
 !        ----------------------
