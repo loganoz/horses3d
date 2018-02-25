@@ -328,12 +328,8 @@ Module DGSEMClass
 !     Allocate and zero memory
 !     ------------------------
 !
-      DO k = 1, SIZE(self % mesh % elements) 
-         CALL allocateElementStorage( self = self % mesh % elements(k), &
-                                      nEqn = N_EQN, &
-                                  nGradEqn = N_GRAD_EQN, &
-                          computeGradients = computeGradients)
-      END DO
+      call self % mesh % AllocateStorage(self % NDOF, controlVariables,computeGradients)
+      
 !
 !     ----------------------------------------------------
 !     Get manufactured solution source term (if requested)

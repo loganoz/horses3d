@@ -24,6 +24,7 @@ MODULE HexMeshClass
       use NodalStorageClass
       use MPI_Process_Info
       use MPI_Face_Class
+      use StorageClass
 #if defined(NAVIERSTOKES)
       use WallDistance
 #endif
@@ -51,6 +52,7 @@ MODULE HexMeshClass
          integer                                   :: no_of_allElements
          integer                                   :: dt_restriction       ! Time step restriction of last step (DT_FIXED, DT_DIFF or DT_CONV)
          character(len=LINE_LENGTH)                :: meshFileName
+         type(Storage_t)                           :: storage              ! Here the solution and its derivative are stored
          type(Node)   , dimension(:), allocatable  :: nodes
          type(Face)   , dimension(:), allocatable  :: faces
          type(Element), dimension(:), allocatable  :: elements
@@ -62,6 +64,7 @@ MODULE HexMeshClass
             procedure :: destruct                      => DestructMesh
             procedure :: Describe                      => DescribeMesh
             procedure :: DescribePartition             => DescribeMeshPartition
+            procedure :: AllocateStorage               => HexMesh_AllocateStorage
             procedure :: ConstructZones                => HexMesh_ConstructZones
             procedure :: DefineAsBoundaryFaces         => HexMesh_DefineAsBoundaryFaces
             procedure :: CorrectOrderFor2DMesh         => HexMesh_CorrectOrderFor2DMesh
@@ -150,6 +153,12 @@ MODULE HexMeshClass
 !        -----
 !
          if (allocated(self % zones)) DEALLOCATE( self % zones )
+!
+!        --------------
+!        Global storage
+!        --------------
+!
+         call self % storage % destruct
          
       END SUBROUTINE DestructMesh
 !
@@ -2673,5 +2682,45 @@ slavecoord:                DO l = 1, 4
 !
 !///////////////////////////////////////////////////////////////////////
 !
+   subroutine HexMesh_AllocateStorage(self,NDOF,controlVariables,computeGradients)
+      use FTValueDictionaryClass
+      implicit none
+      !-----------------------------------------------------------
+      class(HexMesh)                         :: self
+      integer                 , intent(in)   :: NDOF
+      class(FTValueDictionary), intent(in)   :: controlVariables
+      logical                 , intent(in)   :: computeGradients
+      !-----------------------------------------------------------
+      integer :: bdf_order, eID, firstIdx
+      !-----------------------------------------------------------
+      
+      if (controlVariables % containsKey("bdf order")) then
+         bdf_order = controlVariables % integerValueForKey("bdf order")
+      else
+         bdf_order = 0
+      end if
+      
+!     Construct global storage
+!     ------------------------
+      call self % storage % construct(NDOF, bdf_order)
+      
+!     Construct element storage
+!     -------------------------
+      firstIdx = 1
+      DO eID = 1, SIZE(self % elements)
+         associate (e => self % elements(eID))
+         call self % elements(eID) % Storage % Construct(Nx = e % Nxyz(1), &
+                                                         Ny = e % Nxyz(2), &
+                                                         Nz = e % Nxyz(3), &
+                                                       nEqn = N_EQN, &
+                                                   nGradEqn = N_GRAD_EQN, &
+                                           computeGradients = computeGradients, &
+                                              globalStorage = self % storage, &
+                                                   firstIdx = firstIdx)
+         end associate
+         firstIdx = firstIdx + self % elements(eID) % Storage % NDOF
+      END DO
+      
+   end subroutine HexMesh_AllocateStorage
 END MODULE HexMeshClass
       

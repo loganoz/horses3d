@@ -113,8 +113,8 @@ module ConstructMeshAndSpectralBasis_MOD
 !     ------------------------
 !
       DO eID = 1, SIZE(mesh % elements) 
-         CALL allocateElementStorage( mesh % elements(eID), Nx(eID),Ny(eID),Nz(eID), &
-                                      NCONS, N_GRAD_EQN, .true. )
+         CALL allocateElementStorage( mesh % elements(eID), &
+                                      NCONS, N_GRAD_EQN, .true., Nx(eID),Ny(eID),Nz(eID) )
       END DO
 !
 !     -------------

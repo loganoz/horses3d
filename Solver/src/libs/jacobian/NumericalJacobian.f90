@@ -103,7 +103,7 @@ contains
 !           Allocate the element storage of the clean element array
 !           -------------------------------------------------------
 !
-            CALL allocateElementStorage( dgs_clean(i), Nx(i), Ny(i), Nz(i), N_EQN, N_GRAD_EQN, computeGradients )
+            CALL allocateElementStorage( dgs_clean(i), N_EQN, N_GRAD_EQN, computeGradients, Nx(i), Ny(i), Nz(i) )
          END DO
          firstIdx(nelm+1) = firstIdx(nelm) + ndofelm(nelm)
          

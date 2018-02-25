@@ -17,7 +17,7 @@ module StorageClass
    implicit none
 
    private
-   public   Storage_t, FaceStorage_t
+   public   ElementStorage_t, FaceStorage_t, Storage_t
 
    type Statistics_t
       real(kind=RP), dimension(:,:,:,:),  allocatable    :: data
@@ -25,15 +25,34 @@ module StorageClass
          procedure   :: Construct => Statistics_Construct
          procedure   :: Destruct  => Statistics_Destruct
    end type Statistics_t
-
+   
+!  
+!  Class for storing variables in the whole domain
+!  ***********************************************
    type Storage_t
-      real(kind=RP), dimension(:,:,:,:),  allocatable :: Q
-      real(kind=RP), dimension(:,:,:,:),  allocatable :: QDot
+      real(kind=RP), dimension(:)  , allocatable :: Qdot
+      real(kind=RP), dimension(:)  , allocatable :: Q
+      real(kind=RP), dimension(:,:), allocatable :: PrevQ ! Previous solution(s) in the whole domain
+      
+      contains
+         procedure :: Construct => Storage_Construct
+         procedure :: Destruct  => Storage_Destruct
+   end type Storage_t
+!  
+!  Class for storing variables element-wise
+!     (Q and Qdot are not owned by ElementStorage_t) 
+!  ****************************************
+   type ElementStorage_t
+      real(kind=RP), dimension(:,:,:,:),  pointer     :: Q
+      real(kind=RP), dimension(:,:,:,:),  pointer     :: QDot
       real(kind=RP), dimension(:,:,:,:),  allocatable :: G
       real(kind=RP), dimension(:,:,:,:),  allocatable :: S
       real(kind=RP), dimension(:,:,:,:),  allocatable :: U_x
       real(kind=RP), dimension(:,:,:,:),  allocatable :: U_y
       real(kind=RP), dimension(:,:,:,:),  allocatable :: U_z
+      integer                                         :: NDOF     ! Number of degrees of freedom of element
+      integer                                         :: firstIdx ! Position in the global solution array
+      logical                                         :: pointed  ! .TRUE. if the Q and Qdot are pointed instead of allocated (needed for destruction since there's no other way to check this)
       type(Statistics_t)                              :: stats
 #if defined(CAHNHILLIARD)
       real(kind=RP), dimension(:,:,:),   allocatable :: c   ! Cahn-Hilliard concentration
@@ -41,10 +60,13 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),   allocatable :: mu  ! Cahn-Hilliard chemical pot.
 #endif
       contains
-         procedure   :: Construct => Storage_Construct
-         procedure   :: Destruct  => Storage_Destruct
-   end type Storage_t
+         procedure   :: Construct => ElementStorage_Construct
+         procedure   :: Destruct  => ElementStorage_Destruct
+   end type ElementStorage_t
 
+!  
+!  Class for storing variables in the faces
+!  ****************************************
    type FaceStorage_t
       real(kind=RP), dimension(:,:,:),     allocatable :: Q
       real(kind=RP), dimension(:,:,:),     allocatable :: U_x, U_y, U_z
@@ -65,36 +87,81 @@ module StorageClass
    contains
 !  ========
 !
-!///////////////////////////////////////////////////////////////////////////////////////////
-!
-!           Storage procedures
-!           ------------------
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Storage_Construct(self, Nx, Ny, Nz, nEqn, nGradEqn, computeGradients)
+!           Global Storage procedures
+!           --------------------------
+!
+!///////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine Storage_Construct(self, NDOF, bdf_order)
          implicit none
-         class(Storage_t)     :: self
-         integer, intent(in)  :: Nx, Ny, Nz
-         integer, intent(in)  :: nEqn, nGradEqn
-         logical              :: computeGradients
+         !----------------------------------------------
+         class(Storage_t)    :: self
+         integer, intent(in) :: NDOF
+         integer, intent(in) :: bdf_order
+         !----------------------------------------------
+         
+         allocate ( self % Q   (NDOF) )
+         allocate ( self % Qdot(NDOF) )
+         
+         if (bdf_order /= 0) then
+            allocate ( self % PrevQ (NDOF,bdf_order) )
+         end if
+      end subroutine Storage_Construct
 !
-!        ---------------
-!        Local variables
-!        ---------------
+!/////////////////////////////////////////////////
 !
-         integer  :: Nmax
+      subroutine Storage_Destruct(self)
+         implicit none
+         !----------------------------------------------
+         class(Storage_t)    :: self
+         !----------------------------------------------
+         
+         safedeallocate(self % Q)
+         safedeallocate(self % Qdot)
+         safedeallocate(self % PrevQ)
+      end subroutine Storage_Destruct
 !
-!        --------------
-!        Get dimensions         
-!        --------------
+!///////////////////////////////////////////////////////////////////////////////////////////
+!
+!           Element Storage procedures
+!           --------------------------
+!
+!///////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine ElementStorage_Construct(self, Nx, Ny, Nz, nEqn, nGradEqn, computeGradients,globalStorage,firstIdx)
+         implicit none
+         !------------------------------------------------------------
+         class(ElementStorage_t)     :: self                               !<> Storage to be constructed
+         integer        , intent(in) :: Nx, Ny, Nz                         !<  Polynomial orders in every direction
+         integer        , intent(in) :: nEqn, nGradEqn                     !<  Number of equations and gradient equations
+         logical        , intent(in) :: computeGradients                   !<  Compute gradients?
+         type(Storage_t), intent(in), target, optional :: globalStorage    !<? 
+         integer        , intent(in)        , optional :: firstIdx         !<? 
+         !------------------------------------------------------------
+!
+!        --------------------------------
+!        Get number of degrees of freedom
+!        --------------------------------
+!
+         self % NDOF = (Nx + 1) * (Ny + 1) * (Nz + 1) * nEqn
 !
 !        ----------------
 !        Volume variables
 !        ----------------
 !
-         ALLOCATE( self % Q   (nEqn,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % QDot(nEqn,0:Nx,0:Ny,0:Nz) )
+         if ( present(globalStorage) .and. present(firstIdx) ) then
+            self % Q   (1:nEqn,0:Nx,0:Ny,0:Nz) => globalStorage % Q   (firstIdx : firstIdx + self % NDOF-1)
+            self % Qdot(1:nEqn,0:Nx,0:Ny,0:Nz) => globalStorage % Qdot(firstIdx : firstIdx + self % NDOF-1)
+            self % pointed = .TRUE.
+         else
+            ALLOCATE( self % Q   (nEqn,0:Nx,0:Ny,0:Nz) )
+            ALLOCATE( self % QDot(nEqn,0:Nx,0:Ny,0:Nz) )
+            self % pointed = .FALSE.
+         end if
+         
          ALLOCATE( self % G   (nEqn,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S   (nEqn,0:Nx,0:Ny,0:Nz) )
          
@@ -131,14 +198,19 @@ module StorageClass
             self % U_z         = 0.0_RP
          END IF
 
-      end subroutine Storage_Construct
+      end subroutine ElementStorage_Construct
 
-      subroutine Storage_Destruct(self)
+      subroutine ElementStorage_Destruct(self)
          implicit none
-         class(Storage_t)     :: self
-   
-         safedeallocate(self % Q)
-         safedeallocate(self % QDot)
+         class(ElementStorage_t) :: self
+         
+         if (self % pointed) then
+            nullify(self % Q)
+            nullify(self % Qdot)
+         else
+            deallocate(self % Q)
+            deallocate(self % QDot)
+         end if
          safedeallocate(self % G)
          safedeallocate(self % S)
          safedeallocate(self % U_x)
@@ -153,7 +225,7 @@ module StorageClass
 
          call self % stats % Destruct()
 
-      end subroutine Storage_Destruct
+      end subroutine ElementStorage_Destruct
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !

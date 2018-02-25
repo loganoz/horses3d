@@ -55,7 +55,7 @@
          CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType(6)
          INTEGER                         :: NumberOfConnections(6)
          TYPE(Connectivity)              :: Connection(6)
-         type(Storage_t)                 :: storage
+         type(ElementStorage_t)          :: storage
          type(NodalStorage_t), pointer   :: spAxi
          type(NodalStorage_t), pointer   :: spAeta
          type(NodalStorage_t), pointer   :: spAzeta
@@ -137,20 +137,14 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE allocateElementStorage(self, Nx, Ny, Nz, nEqn, nGradEqn, computeGradients)  
+      SUBROUTINE allocateElementStorage(self, nEqn, nGradEqn, computeGradients, Nx, Ny, Nz)  
          IMPLICIT NONE
-         TYPE(Element)                 :: self
-         INTEGER, intent(in), optional :: Nx, Ny, Nz
-         INTEGER, intent(in)           :: nEqn, nGradEqn
-         LOGICAL, intent(in)           :: computeGradients
+         TYPE(Element)       :: self
+         INTEGER, intent(in) :: nEqn, nGradEqn
+         LOGICAL, intent(in) :: computeGradients
+         INTEGER, intent(in) :: Nx, Ny, Nz
 
-         if ( present(Nx) .and. present(Ny) .and. present(Nz) ) then
-            call self % Storage % Construct(Nx, Ny, Nz, nEqn, nGradEqn, computeGradients)
-
-         else
-            call self % Storage % Construct(self % Nxyz(1), self % Nxyz(2), self % Nxyz(3), nEqn, nGradEqn, computeGradients)
-
-         end if
+         call self % Storage % Construct(Nx, Ny, Nz, nEqn, nGradEqn, computeGradients)
 
       END SUBROUTINE allocateElementStorage
 !
