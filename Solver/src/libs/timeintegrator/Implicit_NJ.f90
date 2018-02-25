@@ -27,7 +27,7 @@ MODULE Implicit_NJ
    
    real(kind=RP) :: time               ! Time at the beginning of each inner(!) time step
    logical       :: computeA = .TRUE.  ! Compute Jacobian? (only valid if it is meant to be computed according to the convergence)
-   
+   logical       :: Adaptive_dt = .TRUE.
 CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -90,6 +90,7 @@ CONTAINS
                ALLOCATE (PetscKspLinearSolver_t :: linsolver)
          END SELECT
          
+         Adaptive_dt = controlVariables % logicalValueForKey("implicit adaptive dt")
          PRINT_NEWTON_INFO = controlVariables % logicalValueForKey("print newton info")
          
          nelm = SIZE(sem%mesh%elements)
@@ -102,7 +103,7 @@ CONTAINS
          CALL linsolver%construct(DimPrb,controlVariables,sem)             !Constructs linear solver 
          JacByConv = controlVariables % LogicalValueForKey("jacobian by convergence")
          
-         IF (controlVariables % StringValueForKey("time integration",LINE_LENGTH) == 'time-accurate') TimeAccurate = .TRUE.
+         IF (controlVariables % StringValueForKey("simulation type",LINE_LENGTH) == 'time-accurate') TimeAccurate = .TRUE.
          
          IF (controlVariables % containsKey("newton tolerance")) THEN
             UserNewtonTol = .TRUE.
@@ -110,7 +111,7 @@ CONTAINS
          END IF
       ENDIF
       
-      IF (.NOT. TimeAccurate .AND. .NOT. UserNewtonTol) THEN
+      IF ((.not. TimeAccurate) .and. (.not. UserNewtonTol)) THEN
          NEWTON_TOLERANCE = sem % MaxResidual* 1e-3_RP
       END IF
       
@@ -139,12 +140,12 @@ CONTAINS
             
             !*************************************************
             !
-            IF (JacByConv .AND. newtonit .GT. LIM_NEWTON_ITER) THEN   !Recomputes jacobian Matrix if convergence rate is poor
-               IF (PRINT_NEWTON_INFO) THEN
-                  WRITE(*,*) "Convergence rate is poor, Jacobian matrix will be computed in next iteration..."
-               ENDIF
+            if (JacByConv .and. (newtonit > LIM_NEWTON_ITER) ) then   !Recomputes jacobian Matrix if convergence rate is poor
+               if (PRINT_NEWTON_INFO) then
+                  write(STD_OUT,*) "Convergence rate is poor, Jacobian matrix will be computed in next iteration..."
+               end if
                computeA = .TRUE.                                        
-            ENDIF
+            end if
             !
             !*************************************************
             
@@ -156,7 +157,7 @@ CONTAINS
             ENDIF
             
             !Increase Comp_Dt if good convergence in previous step ¿¿IF (newtonit .LE. LIM_NEWTON_ITER) THEN??
-            IF (ConvRate > maxrate) THEN
+            IF (Adaptive_dt .and. ConvRate > maxrate) THEN
                inner_dt = inner_dt * 2.0_RP
                IF (JacByConv)  CALL linsolver%ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
                
@@ -175,11 +176,20 @@ CONTAINS
             !*************************************************
             
          ELSE  ! Reduce dt
-            inner_dt = inner_dt / 2._RP
-            IF (JacByConv)  CALL linsolver%ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
-            
-            CALL sem % SetQ(U_n)          ! restores Q in sem to begin a new newton iteration       
-            IF (PRINT_NEWTON_INFO) WRITE(*,*) "Newton loop did not converge, trying a smaller dt = ", inner_dt
+            if (Adaptive_dt) then
+               inner_dt = inner_dt / 2._RP
+               IF (JacByConv)  CALL linsolver%ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
+               
+               CALL sem % SetQ(U_n)          ! restores Q in sem to begin a new newton iteration       
+               IF (PRINT_NEWTON_INFO) WRITE(*,*) "Newton loop did not converge, trying a smaller dt = ", inner_dt
+            else
+               if (TimeAccurate) then
+                  ERROR stop 'Newton loop did not converge. Consider using a smaller dt or "implicit adaptive dt = .TRUE."'
+               else
+                  print*, 'WARNING: Newton loop did not converge. Consider using a smaller dt or "implicit adaptive dt = .TRUE."'
+                  exit
+               end if
+            end if
          END IF
       
       END DO
@@ -189,9 +199,8 @@ CONTAINS
       
       !**************************
       ! for computing sometimes
-      IF (JacByConv .AND. ConvRate <0.65_RP .AND. newtonit .LT. LIM_NEWTON_ITER) THEN
+      IF (JacByConv .AND. ConvRate <0.65_RP ) THEN
          computeA = .TRUE.
-         !computeA = linsolver % ComputeANextStep()
       END IF
       ! for computing sometimes
       !**************************
@@ -262,7 +271,7 @@ CONTAINS
          CALL linsolver%solve(tol=norm*1.e-3_RP, maxiter=500, time= t, dt=dt, &
                               ComputeTimeDerivative = ComputeTimeDerivative, computeA = computeA)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          CALL SYSTEM_CLOCK(COUNT=clf)
-         IF (.NOT. linsolver%converged) THEN                           ! If linsolver did not converge, return converged=false
+         IF (.NOT. linsolver%converged .and. Adaptive_dt) THEN                           ! If linsolver did not converge, return converged=false
             converged = .FALSE.
             RETURN
          ENDIF
@@ -290,7 +299,7 @@ CONTAINS
             RETURN
          ENDIF
         
-         IF (norm < MAX(rel_tol,NEWTON_TOLERANCE)) THEN
+         IF (norm < max(rel_tol,NEWTON_TOLERANCE)) THEN ! Careful: this may not be appropriate for unsteady simulations
             converged = .TRUE. 
             RETURN
          ENDIF
