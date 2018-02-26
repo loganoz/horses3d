@@ -23,7 +23,7 @@ module FASMultigridClass
    use MultigridTypes
    use TimeIntegratorDefinitions
    use LinearSolverClass
-   use Implicit_NJ
+   use BDFTimeIntegrator
 #if defined(NAVIERSTOKES)
    use ManufacturedSolutions
 #endif
@@ -389,6 +389,8 @@ module FASMultigridClass
 !     -----------------------
 !
       if (Smoother == BJ_SMOOTHER) call SetPreviousSolution(this,MGlevels)
+      
+      this % computeA = .TRUE.
       
       if (FMG) then
          call FASFMGCycle(this,t,tol,MGlevels, ComputeTimeDerivative)

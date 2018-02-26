@@ -146,13 +146,13 @@ MODULE PetscSolverClass
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SolveLinPrb(this, tol, maxiter, time,dt, ComputeTimeDerivative, ComputeA)
+   SUBROUTINE SolveLinPrb(this, ComputeTimeDerivative, tol, maxiter, time,dt, ComputeA)
       IMPLICIT NONE
       !-------------------------------------------------------------
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT) :: this
+      procedure(ComputeQDot_FCN)                   :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                      :: time
       REAL(KIND=RP), OPTIONAL                      :: dt
-      procedure(ComputeQDot_FCN)                   :: ComputeTimeDerivative
       logical      , optional      , intent(inout) :: ComputeA
       !-------------------------------------------------------------
 #ifdef HAS_PETSC

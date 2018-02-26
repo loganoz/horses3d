@@ -260,14 +260,14 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative, ComputeA)
+   SUBROUTINE solve(this, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
       IMPLICIT NONE
       CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
       REAL(KIND=RP), OPTIONAL                 :: time
       REAL(KIND=RP), OPTIONAL                 :: dt
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       logical      , optional      , intent(inout) :: ComputeA
       !-------------------------------------------------
       INTEGER                                 :: niter

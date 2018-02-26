@@ -160,9 +160,8 @@ The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
 
 jacobian flag           & \textit{INTEGER}: Specifies the type of Jacobian matrix to be computed. Options are:\
 				\begin{enumerate}
-					\item Jacobian free: Uses JFNK algorithm with GMRES linear solver.
 					\item Numerical Jacobian: Uses coloring algorithm for computing Jacobian.
-					\item Analytical Jacobian: Not yet implemented.
+					\item Analytical Jacobian: Being implemented. To date only available for the compressible Euler equations and 'matrix-free smooth' linear solver to compute the blocks of the Jacobian.
 					\end{enumerate}
 										& 1 \\ \hline
 
@@ -172,13 +171,15 @@ linear solver           & \textit{CHARACTER}: Specifies the linear solver that h
 				\begin{itemize}
 					\item 'petsc': PETSc library Krylov-Subspace methods.
 					\item 'pardiso': Intel MKL PARDISO.
-					\item 'smooth': .
+					\item 'matrix-free gmres': A matrix-free version of the GMRES algorithm. Can be used without preconditioner or with a recursive GMRES preconditioner using 'preconditioner=GMRES'.
+					\item 'smooth': Traditional iterative methods. One can select either 'smoother=WeightedJacobi' or 'smoother=BlockJacobi'.
+					\item 'matrix-free smooth': A matrix-free version of the previous solver. Only available eith 'smoother=BlockJacobi'
 					\item 'multigrid': .
 				\end{itemize}
 										& 'petsc'  \\ \hline
 print newton info       & \textit{LOGICAL}: If .TRUE., the information of the Newton iterations will be displayed. &  '.FALSE.'\\ \hline
-  &  &  \\ \hline
-   &  &  \\ \hline
+implicit adaptive dt  & \textit{LOGICAL}: Specifies if the time-step should be computed according to the convergence behavior of the Newton iterative method and the linear solver. & .FALSE. \\ \hline
+newton tolerance   & \textit{REAL}: Specifies the tolerance for the Newton method. &  $10^{-6}$ or  $MaxResidual \times 10^{-3}$ in STEADY\_STATE \\ \hline
     &  &  \\ \hline
 \end{tabular}
 \label{tab:implicitkey}

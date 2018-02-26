@@ -1,6 +1,6 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!      MatrixFreeSmoother.f90
+!      MatrixFreeSmootherClass.f90
 !      Created: 2017-04-XX 10:006:00 +0100 
 !      By: Andrés Rueda
 !
@@ -161,15 +161,15 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative, ComputeA)
-   use DenseMatUtilities
+   SUBROUTINE solve(this, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
+      use DenseMatUtilities
       IMPLICIT NONE
       CLASS(MatFreeSmooth_t), INTENT(INOUT) :: this
+      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
       REAL(KIND=RP), OPTIONAL                 :: time
       REAL(KIND=RP), OPTIONAL                 :: dt
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       logical      , optional      , intent(inout) :: ComputeA
       !-------------------------------------------------
       INTEGER                                 :: i, k

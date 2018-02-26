@@ -4,7 +4,7 @@
 !      Created: 2017-04-XX 10:006:00 +0100 
 !      By: Andrés Rueda
 !
-!      Class for solving a system with simple smoothers and matrix free operations
+!      Class for solving a system with simple smoothers
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE IterativeSolverClass
@@ -16,6 +16,7 @@ MODULE IterativeSolverClass
    use DGSEMClass
    use TimeIntegratorDefinitions
    use NumericalJacobian
+   use AnalyticalJacobian
    use PhysicsStorage
    IMPLICIT NONE
 #ifdef HAS_PETSC
@@ -25,11 +26,12 @@ MODULE IterativeSolverClass
    PUBLIC IterativeSolver_t, GenericLinSolver_t
    
    TYPE :: BlockPreco_t
-      REAL(KIND=RP), DIMENSION(:,:), ALLOCATABLE :: Pinv     ! Inverse of elemental preconditioner matrix
+      real(KIND=RP), DIMENSION(:,:), ALLOCATABLE :: PLU        ! LU factorization of elemental preconditioner matrix
+      integer      , dimension(:)  , allocatable :: LUpivots   ! LU pivots
    END TYPE BlockPreco_t
    
    TYPE, EXTENDS(GenericLinSolver_t) :: IterativeSolver_t
-      TYPE(csrMat_t)                             :: A                                 ! Jacobian matrix
+      TYPE(csrMat_t)                             :: A                                  ! Jacobian matrix
       type(PETSCMatrix_t)                        :: PETScA
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: x                                  ! Solution vector
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: b                                  ! Right hand side
@@ -63,7 +65,6 @@ MODULE IterativeSolverClass
       PROCEDURE                                  :: Getrnorm    !Get residual norm
       
       !! Internal procedures
-      PROCEDURE                                  :: AxMult                  ! arueda: This is needed here for lower multigrid levels
       PROCEDURE                                  :: WeightedJacobiSmoother
       PROCEDURE                                  :: ComputeBlockPreco
       
@@ -129,8 +130,9 @@ CONTAINS
                Nx = sem % mesh % elements(k) % Nxyz(1)
                Ny = sem % mesh % elements(k) % Nxyz(2)
                Nz = sem % mesh % elements(k) % Nxyz(3)
-               ndofelm = N_EQN*(Nx+1)*(Ny+1)*(Nz+1)
-               ALLOCATE (this % BlockPreco(k) % Pinv(ndofelm,ndofelm))
+               ndofelm = NCONS*(Nx+1)*(Ny+1)*(Nz+1)
+               allocate (this % BlockPreco(k) % PLU(ndofelm,ndofelm) )
+               allocate (this % BlockPreco(k) % LUpivots   (ndofelm) )
             END DO
       END SELECT
    END SUBROUTINE construct
@@ -152,8 +154,10 @@ CONTAINS
       allocate ( Nx(nelem), Ny(nelem), Nz(nelem), ndofelm(nelem) )
       allocate ( firstIdx(nelem+1) )
       
-      firstIdx(1) = 0
-      do i=1, size(this % p_sem % mesh % elements)
+      firstIdx(1) = 1
+      
+      nelem = size(this % p_sem % mesh % elements)
+      do i=1, nelem
             Nx(i) = this % p_sem % mesh % elements(i) % Nxyz(1)
             Ny(i) = this % p_sem % mesh % elements(i) % Nxyz(2)
             Nz(i) = this % p_sem % mesh % elements(i) % Nxyz(3)
@@ -165,6 +169,7 @@ CONTAINS
             ndofelm(i)  = N_EQN * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)
             IF (i>1) firstIdx(i) = firstIdx(i-1) + ndofelm(i-1)
       end do
+      firstIdx(nelem+1) = firstIdx(nelem) + ndofelm(nelem)
       
       allocate (this % A % BlockIdx(nelem+1))
       allocate (this % A % BlockSize(nelem))
@@ -208,21 +213,24 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative, ComputeA)
+   SUBROUTINE solve(this, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
    use DenseMatUtilities
       IMPLICIT NONE
       CLASS(IterativeSolver_t), INTENT(INOUT) :: this
+      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
       REAL(KIND=RP), OPTIONAL                 :: time
       REAL(KIND=RP), OPTIONAL                 :: dt
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       logical      , optional      , intent(inout) :: ComputeA
       !-------------------------------------------------
       INTEGER                                 :: i
 !~      LOGICAL, SAVE :: isfirst = .TRUE.
       !-------------------------------------------------
-      
+      !<temp
+!~      real(kind=RP), allocatable :: A(:,:)
+!~      integer :: blockn
+      !temp>
       IF (.NOT. PRESENT(time) .OR. .NOT. PRESENT(dt)) STOP 'time and dt needed for iterative solver'
       
 !
@@ -232,10 +240,12 @@ CONTAINS
       
       if ( present(ComputeA)) then
          if (ComputeA) then
+!~            call AnalyticalJacobian_Compute(this % p_sem,time,this % PETScA,.TRUE.)
             call NumericalJacobian_Compute(this % p_sem, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
             call this % PETScA % shift(-1._RP/dt)
             call this % PETScA % GetCSRMatrix(this % A)
             if (this % Smoother == 'BlockJacobi') call this % FillAInfo
+            IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
             this % AIsPetsc = .FALSE.
             ComputeA = .FALSE.
          end if
@@ -245,6 +255,12 @@ CONTAINS
          call this % PETScA % GetCSRMatrix(this % A)
          if (this % Smoother == 'BlockJacobi') call this % FillAInfo
       end if
+      
+!~      blockn = 1
+!~      allocate ( A(this % A % BlockSize(blockn),this % A % BlockSize(blockn)) )
+!~      A = this % A % GetBlock(blockn,this % A % BlockSize(blockn))
+!~      call Mat2File(A,'NewNum.dat')
+!~      stop
       
       timesolve= time
       dtsolve  = dt
@@ -259,6 +275,7 @@ CONTAINS
       DO i=1, this % DimPrb
          this % x(i) = this % b(i) / this % A % Values(this%A%Diag(i))
       END DO
+      
       
       SELECT CASE (this % Smoother)
          CASE('WeightedJacobi')
@@ -430,56 +447,6 @@ CONTAINS
 !  Internal procedures
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-   FUNCTION AxMult(this,x, computeTimeDerivative) RESULT(Ax)
-      IMPLICIT NONE
-      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
-      REAL(KIND=RP)                           :: x (:)
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
-      REAL(KIND=RP)                           :: Ax(size(x))
-      
-      !--------------------------------------------------
-!~      REAL(KIND=RP)                           :: eps
-      REAL(KIND=RP)                           :: F (size(x))
-      
-!~       REAL(KIND=RP)                           :: xxx (size(x)) !x vector... But normalized!!
-!~      REAL(KIND=RP)                           :: buffer (size(x))
-      !--------------------------------------------------
-      
-!~      eps = 1e-8_RP * (1._RP + NORM2(x))                           ! ~2e-5 2e-4
-!~      eps = 1e-8_RP * (1._RP + NORM2(this % Ur))                   ! better: ~6e-7
-!~       eps = SQRT(EPSILON(eps)) * (1._RP + NORM2(this % Ur))        !slightly better: ~4e-7 
-!~       eps = SQRT(EPSILON(eps)) * (NORM2(this % Ur))
-!~      eps = SQRT(EPSILON(eps)) * (1._RP + MAXVAL(ABS(this % Ur)))  !slightly worse: ~1e-5 9e-6
-!~      eps = SQRT(EPSILON(eps))                                     !worse:        : ~1e-4
-      
-!~       eps = SQRT(EPSILON(eps)) * NORM2(this % Ur) / NORM2(x) ! hillewaert2013 ! Best performance... but eps too big for small x?
-      
-!~      eps = SQRT(EPSILON(eps)) * NORM2(this % Ur) / NORM2(x)**2 ! This doesn't work at all
-!~      eps = SQRT(EPSILON(eps)) * SIGN(MAX(DOT_PRODUCT(this % Ur,x),MAXVAL(ABS(x))),DOT_PRODUCT(this % Ur,x)) / (NORM2(x)) ! Saad with typical value u~1
-!~      eps = SQRT(EPSILON(eps)) * SIGN(NORM2(this % Ur),DOT_PRODUCT(this % Ur,x)) / NORM2(x) ! hillewaert2003 using different sign (same behavior)
-!~       eps = SQRT(EPSILON(eps)) * (1._RP + NORM2(this % Ur)) / NORM2(x) !Combining hillawaert with Sipp
-!~       eps = SQRT(EPSILON(eps)) * 1._RP + NORM2(this % Ur) / (NORM2(x))
-!~       eps = SQRT(EPSILON(eps) * (1._RP + NORM2(this % Ur))) / (NORM2(x)) ! NISTOL Package
-      
-      eps = SQRT(EPSILON(eps) * (1._RP + NORM2(this % Ur))) * DOT_PRODUCT(this % Ur,x) / (NORM2(x)) ! NISTOL Package modified    !! This works down to 10⁻¹⁰, but slowly (linear residual does not always go as low as desired).. At the end short tie-steps are needed
-      
-!~       eps = SQRT(EPSILON(eps)) * (NORM2(this % Ur)*DOT_PRODUCT(this % Ur,x)) / NORM2(x) ! My recipe.. goes lower but slower
-      
-!~      CALL this % p_sem % GetQ(buffer)
-
-!~       xxx = x / NORM2(x)
-
-!~       CALL this % p_sem % SetQ(this % Ur + x*eps)
-!~       CALL ComputeTimeDerivative(this % p_sem,timesolve)
-!~       CALL this % p_sem % GetQdot(F)
-!~      CALL this % p_sem % SetQ(buffer)
-!~       Ax = ( F - this % F_Ur) / eps - x / (dtsolve)                          !First order   ! arueda: this is defined only for BDF1
-      Ax = ( this % p_F(this % Ur + x * eps, computeTimeDerivative) - this % F_Ur) / eps - x / dtsolve
-!~       Ax = ( this % p_F(this % Ur + x * eps) - this % p_F(this % Ur - x * eps))  /(2._RP * eps)  - x / dtsolve   !Second order
-      
-      ! *NORM2(x)
-   END FUNCTION AxMult
    
    FUNCTION p_F(this,u, computeTimeDerivative) RESULT(F)
       IMPLICIT NONE
@@ -524,7 +491,6 @@ CONTAINS
       REAL(KIND=RP)                           :: endtol           ! Final tolerance that will be used to evaluate convergence 
 !~       REAL(KIND=RP) :: res(size(x,1),1), LinChange
       !--------------------------------------------
-      
       n =  this % DimPrb
       x => this % x
       b => this % b
@@ -538,8 +504,7 @@ CONTAINS
 !~      print*, '    iter      residual'
       
       DO i=1,SmoothIters
-        r = this % AxMult(x, ComputeTimeDerivative)        ! Matrix free mult
-!~          r = CSR_MatVecMul(this%A,x) ! CSR matrix product
+          r = CSR_MatVecMul(this%A,x) ! CSR matrix product
          
 !$omp parallel do
          DO j=1,n
@@ -571,6 +536,7 @@ CONTAINS
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE BlockJacobiSmoother(this, SmoothIters, tol, niter, ComputeTimeDerivative)
+      USE DenseMatUtilities
       IMPLICIT NONE
       !--------------------------------------------
       CLASS(IterativeSolver_t), TARGET, INTENT(INOUT) :: this            !<  Iterative solver class
@@ -581,6 +547,7 @@ CONTAINS
       !--------------------------------------------
        INTEGER                                 :: n                ! System size
       REAL(KIND=RP)                           :: r(this % DimPrb) ! Residual
+      REAL(KIND=RP)                           :: P_1r(this % DimPrb) ! Residual
       REAL(KIND=RP), POINTER                  :: x(:)             ! Solution
       REAL(KIND=RP), POINTER                  :: b(:)             ! Right-hand-side
       INTEGER                                 :: i,j              ! Counters
@@ -590,7 +557,6 @@ CONTAINS
       REAL(KIND=RP)                           :: endtol           ! Final tolerance that will be used to evaluate convergence 
 !~       REAL(KIND=RP) :: res(size(x,1),1), LinChange
       !--------------------------------------------
-      
       n =  this % DimPrb
       x => this % x
       b => this % b
@@ -606,16 +572,19 @@ CONTAINS
       oldrnorm = -1._RP
       ConvRate = 1._RP
       DO i=1,SmoothIters
-         r = this % AxMult(x, computeTimeDerivative)        ! Matrix free mult
-!~          r = CSR_MatVecMul(this%A,x) ! CSR matrix product
-         
+            print*, 'MatMult'
+          r = CSR_MatVecMul(this%A,x) ! CSR matrix product
 !$omp parallel do private(idx1,idx2)
-         DO j=1,SIZE(this % A % BlockSize)
-            idx1 = this % A % BlockIdx(j) + 1   ! zero-based indexing
-            idx2 = this % A % BlockIdx(j+1)
-            
+         DO j=1,size (this % p_sem % mesh % elements)
+            idx1 = this % A % BlockIdx(j)
+            idx2 = this % A % BlockIdx(j+1) -1
             r(idx1:idx2) = b(idx1:idx2) - r(idx1:idx2)
-            x(idx1:idx2) = x(idx1:idx2) + MATMUL(this%BlockPreco(j)%Pinv,r(idx1:idx2))
+            call SolveLU(ALU      = this%BlockPreco(j) % PLU, &
+                         LUpivots = this%BlockPreco(j) % LUpivots, &
+                         x = P_1r(idx1:idx2), &
+                         b = r   (idx1:idx2))
+            
+            x(idx1:idx2) = x(idx1:idx2) + P_1r(idx1:idx2)
          END DO
 !$omp end parallel do
          
@@ -638,7 +607,7 @@ CONTAINS
 !~         print*, x
 !~         read(*,*)
       END DO
-      print*, '\x1b[1;34mSmoother ConvRate:', ConvRate ,'\x1b[0m'
+!~      print*, '\x1b[1;34mSmoother ConvRate:', ConvRate ,'\x1b[0m'
       this % rnorm = NORM2(r)
       niter=i
       
@@ -646,21 +615,41 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!~   SUBROUTINE ComputeBlockPreco(this)
+!~      USE DenseMatUtilities
+!~      IMPLICIT NONE
+!~      !-------------------------------------------------------------
+!~      CLASS(IterativeSolver_t), TARGET, INTENT(INOUT) :: this            !<  Iterative solver class
+!~      !-------------------------------------------------------------
+!~      INTEGER :: nelem
+!~      INTEGER :: k, N      ! Counter / size of block
+!~      !-------------------------------------------------------------
+      
+!~      nelem = SIZE (this % A % BlockSize)
+!~      DO k=1, nelem
+!~         N = this % A % BlockSize(k)
+!~         this % BlockPreco(k) % Pinv = inverse(this % A % GetBlock(k,N))
+!~      END DO
+      
+!~   END SUBROUTINE ComputeBlockPreco
+   
    SUBROUTINE ComputeBlockPreco(this)
       USE DenseMatUtilities
       IMPLICIT NONE
       !-------------------------------------------------------------
       CLASS(IterativeSolver_t), TARGET, INTENT(INOUT) :: this            !<  Iterative solver class
       !-------------------------------------------------------------
-      INTEGER :: nelem
-      INTEGER :: k, N      ! Counter / size of block
+      INTEGER :: k, N     ! Counter
       !-------------------------------------------------------------
       
-      nelem = SIZE (this % A % BlockSize)
-      DO k=1, nelem
+!$omp parallel do schedule(runtime)
+      DO k=1, size (this % p_sem % mesh % elements)
          N = this % A % BlockSize(k)
-         this % BlockPreco(k) % Pinv = inverse(this % A % GetBlock(k,N))
+         call ComputeLU (A        = this % A % GetBlock(k,N), &
+                         ALU      = this % BlockPreco(k) % PLU, &
+                         LUpivots = this % BlockPreco(k) % LUpivots)
       END DO
+!$omp end parallel do
       
    END SUBROUTINE ComputeBlockPreco
 END MODULE IterativeSolverClass

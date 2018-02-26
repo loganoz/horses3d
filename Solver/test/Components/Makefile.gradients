@@ -117,10 +117,8 @@ OBJS_HORSES=  SMConstants \
 		navierstokes/ManufacturedSolutions \
 		DenseMatUtilities \
 		NavierStokesSolver/SpatialDiscretization\
-		Implicit_JF \
-		JFNKClass \
-		GMRESClass \
-		Implicit_NJ \
+		MatrixFreeGMRESClass \
+		BDFTimeIntegrator \
 		ColorsClass \
 		PetscSolverClass \
 		GenericLinSolverClass \

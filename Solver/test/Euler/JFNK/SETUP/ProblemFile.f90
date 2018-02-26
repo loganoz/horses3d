@@ -268,8 +268,8 @@
 !           -----------------------------------------------------------------------
 !
 #if defined(NAVIERSTOKES)
-            INTEGER                            :: expectedIterations = 45
-            REAL(KIND=RP)                      :: expectedResidual   = 8.0503558326281992E-011
+            INTEGER                            :: expectedIterations = 4
+            REAL(KIND=RP)                      :: expectedResidual   = 3.9790393202565636E-013_RP
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
@@ -280,7 +280,7 @@
                                msg           = "Number of time steps to tolerance")
             CALL FTAssertEqual(expectedValue = expectedResidual, &
                                actualValue   = maxResidual, &
-                               tol           = 1.d-3, &
+                               tol           = 1.d-12, &
                                msg           = "Final maximum residual")
             
             ALLOCATE(QExpected(N_EQN,0:N,0:N,0:N))

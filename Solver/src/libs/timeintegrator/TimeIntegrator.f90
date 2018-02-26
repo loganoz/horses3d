@@ -152,8 +152,6 @@
 !
       SUBROUTINE Integrate( self, sem, controlVariables, monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       
-      USE Implicit_JF , ONLY : TakeBDFStep_JF
-      USE Implicit_NJ , ONLY : TakeBDFStep_NJ
       use pAdaptationClass
       USE FASMultigridClass
       IMPLICIT NONE
@@ -246,8 +244,7 @@
 !  ------------------------------------------------------------------------
    subroutine IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, tolerance)
       
-      USE Implicit_JF , ONLY : TakeBDFStep_JF
-      USE Implicit_NJ , ONLY : TakeBDFStep_NJ
+      USE BDFTimeIntegrator , ONLY : TakeBDFStep
       use FASMultigridClass
       use AnisFASMultigridClass
       use StopwatchClass
@@ -299,7 +296,6 @@ end interface
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName
       ! For Implicit
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
-      INTEGER                       :: JacFlag
       type(FASMultigrid_t)          :: FASSolver
       type(AnisFASMultigrid_t)      :: AnisFASSolver
       logical                       :: saveGradients
@@ -315,8 +311,6 @@ end interface
       END IF
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       
-      ! Specific keywords
-      IF (TimeIntegration == 'implicit') JacFlag = controlVariables % IntegerValueForKey("jacobian flag")
 !
 !     ---------------
 !     Initializations
@@ -384,18 +378,7 @@ end interface
 !        -----------------         
          SELECT CASE (TimeIntegration)
             CASE ('implicit')
-               SELECT CASE (JacFlag)
-                  CASE (1)
-                     CALL TakeBDFStep_JF (sem, t , dt , ComputeTimeDerivative)
-                  CASE (2)
-                     CALL TakeBDFStep_NJ (sem, t , dt , controlVariables, ComputeTimeDerivative)
-                  CASE (3)
-                     STOP 'Analytical Jacobian not implemented yet'
-                  CASE DEFAULT
-                     PRINT*, "Not valid 'Jacobian Flag'. Running with Jacobian-Free Newton-Krylov."
-                     JacFlag = 1
-                     CALL TakeBDFStep_JF (sem, t , dt, ComputeTimeDerivative )
-               END SELECT
+               CALL TakeBDFStep (sem, t , dt , controlVariables, ComputeTimeDerivative)
             CASE ('explicit')
                CALL self % RKStep ( sem % mesh, t, sem % externalState, sem % externalGradients, dt, ComputeTimeDerivative)
             case ('FAS')

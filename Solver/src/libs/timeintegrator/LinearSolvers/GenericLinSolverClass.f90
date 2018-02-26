@@ -48,6 +48,8 @@ CONTAINS
       INTEGER                  , INTENT(IN)            :: DimPrb
       TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
+      
+      ERROR stop ':: Linear solver does not have a constructor yet'
    END SUBROUTINE Construct
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -59,6 +61,8 @@ CONTAINS
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       INTEGER                  , INTENT(IN)  :: irow
       REAL(KIND=RP)            , INTENT(IN)  :: value
+      
+      ERROR stop ':: SetBValue not implemented for desired linear solver'
    END SUBROUTINE SetBValue
 
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -69,21 +73,25 @@ CONTAINS
       INTEGER                    , INTENT(IN)        :: nvalues
       INTEGER      , DIMENSION(:), INTENT(IN)        :: irow
       REAL(KIND=RP), DIMENSION(:), INTENT(IN)        :: values
+      
+      ERROR stop ':: SetBValues not implemented for desired linear solver'
    END SUBROUTINE SetBValues
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative,computeA)
+   SUBROUTINE solve(this,ComputeTimeDerivative,tol,maxiter,time,dt,computeA)
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      procedure(ComputeQDot_FCN)               :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                  :: tol
       INTEGER      , OPTIONAL                  :: maxiter
       REAL(KIND=RP), OPTIONAL                  :: time
       REAL(KIND=RP), OPTIONAL                  :: dt
-      procedure(ComputeQDot_FCN)               :: ComputeTimeDerivative
       logical      , optional  , intent(inout) :: computeA
+      
+      ERROR stop ':: solve not implemented for desired linear solver!!!'
    END SUBROUTINE solve
 
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -95,6 +103,8 @@ CONTAINS
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       INTEGER                  , INTENT(IN)    :: irow
       REAL(KIND=RP)            , INTENT(OUT)   :: x_i
+      
+      ERROR stop ':: GetXValue not implemented for desired linear solver'
    END SUBROUTINE GetXValue
 
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -104,6 +114,8 @@ CONTAINS
    SUBROUTINE destroy(this)
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      
+      write(STD_OUT,*) 'WARNING :: destroy not implemented for desired linear solver'
    END SUBROUTINE destroy
 
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -114,6 +126,8 @@ CONTAINS
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP)            , INTENT(IN)    :: dt
+      
+      write(STD_OUT,*) 'WARNING :: SetOperatorDt not implemented for desired linear solver'
    END SUBROUTINE SetOperatorDt
 
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -124,6 +138,8 @@ CONTAINS
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP)            , INTENT(IN)    :: dt
+      
+      write(STD_OUT,*) 'WARNING :: ReSetOperatorDt not implemented for desired linear solver'
    END SUBROUTINE ReSetOperatorDt
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -146,6 +162,8 @@ CONTAINS
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       CHARACTER(len=*)                         :: TypeOfNorm
       REAL(KIND=RP)                            :: xnorm
+      
+      ERROR stop ':: Getxnorm not implemented for desired linear solver'
    END FUNCTION Getxnorm
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -156,6 +174,8 @@ CONTAINS
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       REAL(KIND=RP)                            :: rnorm
+      
+      ERROR stop ':: Getrnorm not implemented for desired linear solver'
    END FUNCTION Getrnorm
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

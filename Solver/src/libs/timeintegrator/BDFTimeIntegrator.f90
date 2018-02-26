@@ -8,7 +8,7 @@
 !      Implicit module using BDF1 and numerical Jacobian computed using colorings
 !
 !////////////////////////////////////////////////////////////////////////
-MODULE Implicit_NJ
+MODULE BDFTimeIntegrator
    use AnalyticalJacobian
    USE SMConstants
    USE ElementClass,                ONLY: Element, allocateElementStorage    !arueda: No DGSolutionStorage implemented in nslite3d... Using whole element definitions
@@ -23,7 +23,7 @@ MODULE Implicit_NJ
    implicit none
    
    PRIVATE                          
-   PUBLIC TakeBDFStep_NJ, ComputeRHS, UpdateNewtonSol
+   PUBLIC TakeBDFStep, ComputeRHS, UpdateNewtonSol
    
    real(kind=RP) :: time               ! Time at the beginning of each inner(!) time step
    logical       :: computeA = .TRUE.  ! Compute Jacobian? (only valid if it is meant to be computed according to the convergence)
@@ -32,7 +32,7 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !   
-   SUBROUTINE TakeBDFStep_NJ (sem, t , dt , controlVariables, ComputeTimeDerivative)
+   SUBROUTINE TakeBDFStep (sem, t , dt , controlVariables, ComputeTimeDerivative)
 
       IMPLICIT NONE
       TYPE(DGSem),                  INTENT(INOUT)           :: sem                  !<>DGSem class with solution storage 
@@ -81,6 +81,8 @@ CONTAINS
                ALLOCATE (MKLPardisoSolver_t     :: linsolver)
             CASE('matrix-free smooth')
                ALLOCATE (MatFreeSmooth_t        :: linsolver)
+            CASE('matrix-free gmres')
+               ALLOCATE (MatFreeGMRES_t         :: linsolver)
             CASE('smooth')
                ALLOCATE (IterativeSolver_t      :: linsolver)
             CASE('multigrid')
@@ -207,7 +209,7 @@ CONTAINS
       
 !~       IF (MAXVAL(maxResidual) > sem % maxResidual) computeA = .TRUE.
       
-   END SUBROUTINE TakeBDFStep_NJ
+   END SUBROUTINE TakeBDFStep
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -234,7 +236,6 @@ CONTAINS
       INTEGER,                      INTENT(OUT)             :: niter
       LOGICAL,                      INTENT(OUT)             :: CONVERGED   
       procedure(ComputeQDot_FCN)                            :: ComputeTimeDerivative
-!~       TYPE(csrMat_t) :: Acsr        !   CSR matrix 
 !     
 !     ------------------
 !     Internal variables
@@ -244,6 +245,7 @@ CONTAINS
       INTEGER                                               :: newtonit
       REAL(KIND=RP)                                         :: norm, norm_old, rel_tol, norm1
       LOGICAL, SAVE :: isfirst = .TRUE.
+      real(kind=RP) :: linsolver_tol
       
       SAVE norm1
       
@@ -265,10 +267,16 @@ CONTAINS
       DO newtonit = 1, MAX_NEWTON_ITER                                 !NEWTON LOOP
          if (.not. JacByConv) computeA = .TRUE.
          
+         if (newtonit == 1) then
+            linsolver_tol = norm*1.e-3_RP    ! Maybe not the best approach in the first iteration...
+         else
+            linsolver_tol = norm*1.e-3_RP
+         end if
+         
          CALL ComputeRHS(sem, t, dt, U_n, linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
          
          CALL SYSTEM_CLOCK(COUNT=cli)
-         CALL linsolver%solve(tol=norm*1.e-3_RP, maxiter=500, time= t, dt=dt, &
+         CALL linsolver%solve( tol = linsolver_tol, maxiter=500, time= t, dt=dt, &
                               ComputeTimeDerivative = ComputeTimeDerivative, computeA = computeA)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          CALL SYSTEM_CLOCK(COUNT=clf)
          IF (.NOT. linsolver%converged .and. Adaptive_dt) THEN                           ! If linsolver did not converge, return converged=false
@@ -411,4 +419,4 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-END MODULE Implicit_NJ
+END MODULE BDFTimeIntegrator
