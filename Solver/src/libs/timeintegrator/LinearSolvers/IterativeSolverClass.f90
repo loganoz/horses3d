@@ -18,6 +18,7 @@ MODULE IterativeSolverClass
    use NumericalJacobian
    use AnalyticalJacobian
    use PhysicsStorage
+   use BDFFunctions
    IMPLICIT NONE
 #ifdef HAS_PETSC
 #include <petsc.h>
@@ -51,8 +52,8 @@ MODULE IterativeSolverClass
    CONTAINS
       !Subroutines:
       PROCEDURE                                  :: construct
-      PROCEDURE                                  :: SetBValue
-      PROCEDURE                                  :: SetBValues
+      PROCEDURE                                  :: SetRHSValue
+      PROCEDURE                                  :: SetRHSValues
       PROCEDURE                                  :: solve
       PROCEDURE                                  :: GetCSRMatrix
       PROCEDURE                                  :: GetXValue
@@ -179,7 +180,7 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SetBValue(this, irow, value)
+   SUBROUTINE SetRHSValue(this, irow, value)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(IterativeSolver_t), INTENT(INOUT) :: this
@@ -189,12 +190,12 @@ CONTAINS
       
       this % b (irow+1) = value
       
-   END SUBROUTINE SetBValue
+   END SUBROUTINE SetRHSValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   SUBROUTINE SetBValues(this, nvalues, irow, values)
+   SUBROUTINE SetRHSValues(this, nvalues, irow, values)
       IMPLICIT NONE
       CLASS(IterativeSolver_t)   , INTENT(INOUT)     :: this
       INTEGER                     , INTENT(IN)        :: nvalues
@@ -208,7 +209,7 @@ CONTAINS
          this % b(irow(i)+1) = values(i)
       END DO
       
-   END SUBROUTINE SetBValues
+   END SUBROUTINE SetRHSValues
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -242,7 +243,7 @@ CONTAINS
          if (ComputeA) then
 !~            call AnalyticalJacobian_Compute(this % p_sem,time,this % PETScA,.TRUE.)
             call NumericalJacobian_Compute(this % p_sem, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
-            call this % PETScA % shift(-1._RP/dt)
+            call this % PETScA % shift( BDF_MatrixShift(dt) )
             call this % PETScA % GetCSRMatrix(this % A)
             if (this % Smoother == 'BlockJacobi') call this % FillAInfo
             IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
@@ -251,7 +252,7 @@ CONTAINS
          end if
       else 
          call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % PETScA % shift(-1._RP/dt)
+         call this % PETScA % shift( BDF_MatrixShift(dt) )
          call this % PETScA % GetCSRMatrix(this % A)
          if (this % Smoother == 'BlockJacobi') call this % FillAInfo
       end if
@@ -353,7 +354,7 @@ CONTAINS
       REAL(KIND=RP)           , INTENT(IN)    :: dt
       !-----------------------------------------------------------
       
-      this % Ashift = -1._RP/dt
+      this % Ashift = BDF_MatrixShift(dt)
       IF (this % AIsPetsc) THEN
          CALL this % PetscSolver % SetOperatorDt(dt)
       ELSE
@@ -375,7 +376,7 @@ CONTAINS
       REAL(KIND=RP)                            :: shift
       !-----------------------------------------------------------
       
-      shift = -1._RP/dt
+      shift = BDF_MatrixShift(dt)
       IF (this % AIsPetsc) THEN
          CALL this % PetscSolver % ReSetOperatorDt(dt)
       ELSE

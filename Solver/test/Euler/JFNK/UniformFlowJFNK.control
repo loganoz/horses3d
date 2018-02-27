@@ -25,7 +25,6 @@ right 0.0 Outflow
 !-----Information about time integration solver---------------
 simulation type       = steady-state
 time integration      = implicit
-jacobian flag         = 2
 linear solver         = "matrix-free gmres"
 preconditioner        = "GMRES"
 /*print newton info     = .TRUE.*/

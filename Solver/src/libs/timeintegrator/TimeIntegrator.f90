@@ -244,7 +244,7 @@
 !  ------------------------------------------------------------------------
    subroutine IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, tolerance)
       
-      USE BDFTimeIntegrator , ONLY : TakeBDFStep
+      USE BDFTimeIntegrator
       use FASMultigridClass
       use AnisFASMultigridClass
       use StopwatchClass
@@ -294,10 +294,12 @@ end interface
       CHARACTER(LEN=2)              :: numChar
       EXTERNAL                      :: ExternalState, ExternalGradients
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName
-      ! For Implicit
-      CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
+      ! Time-step solvers:
       type(FASMultigrid_t)          :: FASSolver
       type(AnisFASMultigrid_t)      :: AnisFASSolver
+      type(BDFIntegrator_t)         :: BDFSolver
+      
+      CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
       logical                       :: saveGradients
 !
 !     ----------------------
@@ -353,8 +355,9 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      if (TimeIntegration == 'FAS') CALL FASSolver % construct(controlVariables,sem)
-      if (TimeIntegration == 'AnisFAS') CALL AnisFASSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'FAS')      call FASSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'AnisFAS')  call AnisFASSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'implicit') call BDFSolver % construct(controlVariables,sem)
       
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 !
@@ -378,7 +381,8 @@ end interface
 !        -----------------         
          SELECT CASE (TimeIntegration)
             CASE ('implicit')
-               CALL TakeBDFStep (sem, t , dt , controlVariables, ComputeTimeDerivative)
+!~               CALL TakeBDFStep (sem, t , dt , controlVariables, ComputeTimeDerivative)
+               call BDFSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
             CASE ('explicit')
                CALL self % RKStep ( sem % mesh, t, sem % externalState, sem % externalGradients, dt, ComputeTimeDerivative)
             case ('FAS')
@@ -454,9 +458,9 @@ end interface
 !     Finish up
 !     ---------
 !
-      if (TimeIntegration == 'FAS') CALL FASSolver % destruct
-      if (TimeIntegration == 'AnisFAS') CALL AnisFASSolver % destruct
-      
+      if (TimeIntegration == 'FAS')      CALL FASSolver % destruct
+      if (TimeIntegration == 'AnisFAS')  CALL AnisFASSolver % destruct
+      if (TimeIntegration == 'implicit') call BDFSolver % destruct
    end subroutine IntegrateInTime
       
 !

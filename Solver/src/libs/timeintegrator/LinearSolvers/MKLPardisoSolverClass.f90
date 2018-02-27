@@ -15,6 +15,7 @@ MODULE MKLPardisoSolverClass
    use DGSEMClass
    use TimeIntegratorDefinitions
    use NumericalJacobian
+   use BDFFunctions
    IMPLICIT NONE
    
    TYPE, EXTENDS(GenericLinSolver_t) :: MKLPardisoSolver_t
@@ -37,7 +38,7 @@ MODULE MKLPardisoSolverClass
    CONTAINS
       !Subroutines:
       PROCEDURE                                  :: construct => ConstructMKLContext
-      PROCEDURE                                  :: SetBValue
+      PROCEDURE                                  :: SetRHSValue
       PROCEDURE                                  :: solve
       PROCEDURE                                  :: GetXValue
       PROCEDURE                                  :: destroy
@@ -100,7 +101,7 @@ MODULE MKLPardisoSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SetBValue(this, irow, value)
+   SUBROUTINE SetRHSValue(this, irow, value)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
@@ -110,12 +111,12 @@ MODULE MKLPardisoSolverClass
       
       this % b (irow+1) = value
       
-   END SUBROUTINE SetBValue
+   END SUBROUTINE SetRHSValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   SUBROUTINE SetBValues(this, nvalues, irow, values)
+   SUBROUTINE SetRHSValues(this, nvalues, irow, values)
       CLASS(MKLPardisoSolver_t)   , INTENT(INOUT)     :: this
       INTEGER                     , INTENT(IN)        :: nvalues
       INTEGER      , DIMENSION(1:), INTENT(IN)        :: irow
@@ -128,7 +129,7 @@ MODULE MKLPardisoSolverClass
          this % b(irow(i)+1) = values(i)
       END DO
       
-   END SUBROUTINE SetBValues
+   END SUBROUTINE SetRHSValues
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -173,14 +174,14 @@ MODULE MKLPardisoSolverClass
       if ( present(ComputeA)) then
          if (ComputeA) then
             call NumericalJacobian_Compute(this % p_sem, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
-            call this % PETScA % shift(-1._RP/dt)
+            call this % PETScA % shift( BDF_MatrixShift(dt) )
             call this % PETScA % GetCSRMatrix(this % A)
             this % AIsPetsc = .FALSE.
             ComputeA = .FALSE.
          end if
       else 
          call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % PETScA % shift(-1._RP/dt)
+         call this % PETScA % shift( BDF_MatrixShift(dt) )
          call this % PETScA % GetCSRMatrix(this % A)
       end if
       
@@ -267,7 +268,7 @@ MODULE MKLPardisoSolverClass
       REAL(KIND=RP)            , INTENT(IN)    :: dt
       !-----------------------------------------------------------
       
-      this % Ashift = -1._RP/dt
+      this % Ashift = BDF_MatrixShift(dt)
       IF (this % AIsPetsc) THEN
          CALL this % PETScA % shift(this % Ashift)
       ELSE
@@ -287,7 +288,7 @@ MODULE MKLPardisoSolverClass
       REAL(KIND=RP)                            :: shift
       !-----------------------------------------------------------
       
-      shift = -1._RP/dt
+      shift = BDF_MatrixShift(dt)
       IF (this % AIsPetsc) THEN
          CALL this % PETScA % shift(shift)
       ELSE

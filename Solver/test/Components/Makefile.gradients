@@ -118,6 +118,7 @@ OBJS_HORSES=  SMConstants \
 		DenseMatUtilities \
 		NavierStokesSolver/SpatialDiscretization\
 		MatrixFreeGMRESClass \
+		BDFFunctions \
 		BDFTimeIntegrator \
 		ColorsClass \
 		PetscSolverClass \

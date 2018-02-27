@@ -13,13 +13,14 @@ module MatrixFreeGMRESClass
    use SMConstants
    use DGSEMClass
    use FTValueDictionaryClass
+   use BDFFunctions
    implicit none
    
    private
    public   :: MatFreeGMRES_t 
    
    type, extends(GenericLinSolver_t) :: MatFreeGMRES_t
-      integer                              :: m = 60                 ! arueda: Number of GMRES iterations before restart (?) -- Default petsc value m=30 
+      integer                              :: m = 60           ! Number of GMRES iterations before restart -- Default petsc value m=30 
       integer                              :: maxiter = 500
       real(kind=RP)                        :: tol = 1e-15_RP
       real(kind=RP)                        :: res = -1._RP
@@ -29,19 +30,19 @@ module MatrixFreeGMRESClass
       real(kind=RP), allocatable           :: x(:)
       real(kind=RP), allocatable           :: x0(:)
       real(kind=RP)                        :: rnorm
-      integer                              :: Preconditioner         ! Which preconditioner is being used (PC_NONE, PC_GMRES, PC_BlockJacobi -last one to be developed)
+      integer                              :: Preconditioner   ! Which preconditioner is being used (PC_NONE, PC_GMRES, PC_BlockJacobi -last one to be developed)
       
-      type(DGSem), pointer                 :: p_sem                  ! Associated sem
-      real(kind=RP), allocatable           :: F_Ur(:)                ! Qdot at the beginning of solving procedure
-      real(kind=RP), allocatable           :: Ur(:)                  ! Q at the beginning of solving procedure
+      type(DGSem), pointer                 :: p_sem            ! Associated sem
+      real(kind=RP), allocatable           :: F_Ur(:)          ! Qdot at the beginning of solving procedure
+      real(kind=RP), allocatable           :: Ur(:)            ! Q at the beginning of solving procedure
       
-      real(kind=RP)                        :: timesolve   ! Time at the solution
-      real(kind=RP)                        :: dtsolve     ! dt for the solution
+      real(kind=RP)                        :: timesolve        ! Time at the solution
+      real(kind=RP)                        :: dtsolve          ! dt for the solution
       
       ! Krylov subspace variables:
       real(kind=RP), allocatable, private  :: H(:,:)
       real(kind=RP), allocatable, private  :: W(:)
-      real(kind=RP), allocatable, private  :: V(:,:)                ! arueda: Orthogonal vectors of Krylov subspace (Arnoldi)
+      real(kind=RP), allocatable, private  :: V(:,:)           ! Orthogonal vectors of Krylov subspace (Arnoldi)
       real(kind=RP), allocatable, private  :: Z(:,:)
       real(kind=RP), allocatable, private  :: Y(:)
       real(kind=RP), allocatable, private  :: cc(:)
@@ -50,29 +51,25 @@ module MatrixFreeGMRESClass
       
       TYPE(MatFreeGMRES_t), pointer, private :: PCsolver ! Inner GMRES solver for preconditioning
       
-      ! To remove:
-!~      logical                                :: CONVERGED = .FALSE.  ! TODO: take out of here (in generic class)
-!~      integer                                :: DimPrb               ! TODO: take out of here (in generic class)
-!~      integer                                :: niter                ! TODO: take out of here (in generic class)
-      
       contains
-         ! Global procedures:
+         ! Overriden procedures:
          procedure                           :: Construct => ConstructSolver
          procedure                           :: Destroy   => DestructSolver
-         procedure                           :: SetBValue
-         procedure                           :: SetBValues
+         procedure                           :: SetRHSValue
+         procedure                           :: SetRHSValues
          procedure                           :: SetOperatorDt
          procedure                           :: ReSetOperatorDt
          procedure                           :: GetXValue
          procedure                           :: SetRHS
+         procedure                           :: Getxnorm    !Get solution norm
+         procedure                           :: Getrnorm    !Get residual norm
+         procedure                           :: Solve     => SolveGMRES
+         ! Own procedures
          procedure                           :: SetTol
          procedure                           :: SetMaxIter
          procedure                           :: SetMaxInnerIter
-         procedure                           :: Solve     => SolveGMRES
          procedure                           :: SetInitialGuess
          
-         procedure                           :: Getxnorm    !Get solution norm
-         procedure                           :: Getrnorm    !Get residual norm
          ! Internal procedures:
          procedure :: p_F         ! Get the time derivative for a specific global Q
          procedure :: MatFreeAx   ! Matrix action
@@ -169,7 +166,7 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE SetBValue(this, irow, value)
+      SUBROUTINE SetRHSValue(this, irow, value)
          IMPLICIT NONE
          !-----------------------------------------------------------
          CLASS(MatFreeGMRES_t), INTENT(INOUT) :: this
@@ -179,11 +176,11 @@ contains
          
          this % RHS (irow+1) = value
          
-      END SUBROUTINE SetBValue
+      END SUBROUTINE SetRHSValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE SetBValues(this, nvalues, irow, values)
+      SUBROUTINE SetRHSValues(this, nvalues, irow, values)
          IMPLICIT NONE
          !------------------------------------------------------
          CLASS(MatFreeGMRES_t)       , INTENT(INOUT)     :: this
@@ -198,7 +195,7 @@ contains
             this % RHS(irow(i)+1) = values(i)
          END DO
          
-      END SUBROUTINE SetBValues
+      END SUBROUTINE SetRHSValues
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -339,8 +336,8 @@ contains
 ! 
       subroutine SetRHS(this,RHS)
          implicit none
-         class(MatFreeGMRES_t), intent(inout)         :: this
-         real(kind = RP)                           :: RHS(:)
+         class(MatFreeGMRES_t), intent(inout)   :: this
+         real(kind = RP)      , intent(in)      :: RHS(:)
          
          this%RHS = RHS
       end subroutine  SetRHS
@@ -357,7 +354,7 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      recursive subroutine innerGMRES(this, ComputeTimeDerivative)   !arueda: This subroutine has been made recursive since GMRES can be preconditioned using another GMRES
+      recursive subroutine innerGMRES(this, ComputeTimeDerivative)
          implicit none
          class(MatFreeGMRES_t), intent(inout)      :: this
          procedure(ComputeQDot_FCN)             :: ComputeTimeDerivative
@@ -450,7 +447,7 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ! 
-      recursive subroutine SolveGMRES(this, ComputeTimeDerivative, tol, maxiter,time,dt,computeA)    !arueda: This subroutine has been made recursive since GMRES can be preconditioned using another GMRES
+      recursive subroutine SolveGMRES(this, ComputeTimeDerivative, tol, maxiter,time,dt,computeA)
          implicit none
          !----------------------------------------------------
          class(MatFreeGMRES_t), intent(inout)      :: this
@@ -550,11 +547,13 @@ contains
          real(kind=RP), intent(out)           :: Ax(this % DimPrb)
          procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
          !---------------------------------------------------------
-         real(kind=RP) :: eps
+         real(kind=RP) :: eps, shift
          !---------------------------------------------------------
           
          eps = 1e-8_RP * (1._RP + norm2(x) )
-         Ax = ( this % p_F(this % Ur + x * eps, ComputeTimeDerivative) - this % F_Ur)/ eps  - x / this % dtsolve                          !First order   ! arueda: this is also defined only for BDF1
+         shift = BDF_MatrixShift(this % dtsolve)
+         
+         Ax = ( this % p_F(this % Ur + x * eps, ComputeTimeDerivative) - this % F_Ur)/ eps  + shift * x     !First order 
          !Ax = ( this % p_F(this % Ur + x * eps, ComputeTimeDerivative) - this % p_F(Ur - x * eps, ComputeTimeDerivative))  /(2._RP * eps)  - x / Comp_Dt   !Second order
       
       end subroutine MatFreeAx

@@ -24,6 +24,7 @@ module FASMultigridClass
    use TimeIntegratorDefinitions
    use LinearSolverClass
    use BDFTimeIntegrator
+   use BDFFunctions
 #if defined(NAVIERSTOKES)
    use ManufacturedSolutions
 #endif
@@ -42,7 +43,6 @@ module FASMultigridClass
       type(FASMultigrid_t)   , pointer       :: Parent                ! Next finer multigrid solver
       type(MGSolStorage_t)   , allocatable   :: MGStorage(:)          ! Storage
       type(MatFreeSmooth_t)                  :: linsolver             ! Linear solver for implicit smoothing (set as matrix-free but can be generealized to GenericLinSolver_t)
-      real(kind=RP)          , allocatable   :: PrevQ(:)                ! Solution at the beginning of time-step (needed for steady-state BDF1)
       integer                                :: MGlevel               ! Current Multigrid level
       logical                                :: computeA              !< Compute A in this level?
       
@@ -51,7 +51,7 @@ module FASMultigridClass
          procedure :: solve
          procedure :: Smooth
          procedure :: destruct
-         procedure :: SetPreviousSolution    ! For implicit smoothing, it's necessary to store the previous solution(s) in all levels
+         procedure :: SetPreviousSolution => FAS_SetPreviousSolution    ! For implicit smoothing, it's necessary to store the previous solution(s) in all levels
       
    end type FASMultigrid_t
 !
@@ -154,12 +154,25 @@ module FASMultigridClass
             Smoother = RK3_SMOOTHER
          case('BlockJacobi')
             Smoother = BJ_SMOOTHER
+            call BDF_SetOrder( controlVariables % integerValueForKey("bdf order") )
          case('SIRK')
             !! SmoothIt => TakeSIRKStep
             error stop ':: SIRK smoother not implemented yet'
          case default 
             write(STD_OUT,*) '"mg smoother" not recognized. Defaulting to RK3.'
             Smoother = RK3_SMOOTHER
+      end select
+      
+!     Check that the BDF order is consistent
+!        (only valid for implicit smoothers)
+!     --------------------------------------
+      select case (Smoother)
+         case(BJ_SMOOTHER)
+            if (bdf_order > 1) then
+               if (.not. controlVariables % containsKey("dt") ) then
+                  ERROR stop ':: "bdf order">1 is only valid with fixed time-step sizes'
+               end if
+            end if
       end select
       
       PostSmoothOptions = controlVariables % StringValueForKey("postsmooth option",LINE_LENGTH)
@@ -320,7 +333,6 @@ module FASMultigridClass
 !
       if (Smoother == BJ_SMOOTHER) then
          call Solver % linsolver %  construct(Solver % p_sem % NDOF, controlVariables, Solver % p_sem)
-         allocate (Solver % PrevQ ( 0:NCONS*sum((N1x+1)*(N1y+1)*(N1z+1)) - 1 ) )  ! TODO: store this in mesh
          Solver % computeA = .TRUE.
       end if
       
@@ -388,7 +400,7 @@ module FASMultigridClass
 !     Perform multigrid cycle
 !     -----------------------
 !
-      if (Smoother == BJ_SMOOTHER) call SetPreviousSolution(this,MGlevels)
+      if (Smoother == BJ_SMOOTHER) call FAS_SetPreviousSolution(this,MGlevels)
       
       this % computeA = .TRUE.
       
@@ -401,7 +413,6 @@ module FASMultigridClass
                case (RK3_SMOOTHER) ! Only one iteration per pseudo time-step for RK3 smoother
                   exit 
                case (BJ_SMOOTHER)  ! Check if the nonlinear problem was solved to a given tolerance
-!~                  call ComputeRHS(this % p_sem, t, dt, this % PrevQ, this % linsolver, ComputeTimeDerivative )
                   rnorm = this % linsolver % Getrnorm()
                   print*, 'V-Cycle', i, 'rnorm=', rnorm
                   if (rnorm<1.e-6_RP) exit
@@ -792,7 +803,7 @@ module FASMultigridClass
 !        Block-Jacobi smoother
 !        ---------------------
          case (BJ_SMOOTHER)
-            call ComputeRHS(this % p_sem, t, dt, this % PrevQ, this % linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
+            call ComputeRHS(this % p_sem, t, dt, this % linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
             
 !~            this % computeA = .TRUE.
             call this % linsolver % solve(maxiter=SmoothSweeps, time= t, dt = dt, &
@@ -804,7 +815,7 @@ module FASMultigridClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   recursive subroutine SetPreviousSolution(this,lvl)
+   recursive subroutine FAS_SetPreviousSolution(this,lvl)
       implicit none
       !-------------------------------------------------------------
       class(FASMultigrid_t), target, intent(inout) :: this     !<> Anisotropic FAS multigrid 
@@ -817,7 +828,8 @@ module FASMultigridClass
 !     Set the previous solution in this level
 !     ---------------------------------------
       
-      call this % p_sem % GetQ(this % PrevQ)
+      call BDF_SetPreviousSolution(PrevQ = this % p_sem % mesh % storage % PrevQ, &
+                                   Q     = this % p_sem % mesh % storage % Q )
       
 !
 !     Send the solution to the next (coarser) level
@@ -836,7 +848,7 @@ module FASMultigridClass
          end do
 !$omp end parallel do
          
-         call SetPreviousSolution(this % Child,lvl-1)
+         call FAS_SetPreviousSolution(this % Child,lvl-1)
       end if
-   end subroutine SetPreviousSolution
+   end subroutine FAS_SetPreviousSolution
 end module FASMultigridClass

@@ -2697,7 +2697,7 @@ slavecoord:                DO l = 1, 4
       if (controlVariables % containsKey("bdf order")) then
          bdf_order = controlVariables % integerValueForKey("bdf order")
       else
-         bdf_order = 0
+         bdf_order = 1
       end if
       
 !     Construct global storage

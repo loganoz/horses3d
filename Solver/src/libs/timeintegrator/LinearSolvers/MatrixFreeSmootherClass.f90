@@ -18,6 +18,7 @@ MODULE MatrixFreeSmootherClass
    use NumericalJacobian
    use AnalyticalJacobian
    use PhysicsStorage
+   use BDFFunctions
    IMPLICIT NONE
 #ifdef HAS_PETSC
 #include <petsc.h>
@@ -45,8 +46,8 @@ MODULE MatrixFreeSmootherClass
    CONTAINS
       !Subroutines:
       PROCEDURE                                  :: construct
-      PROCEDURE                                  :: SetBValue
-      PROCEDURE                                  :: SetBValues
+      PROCEDURE                                  :: SetRHSValue
+      PROCEDURE                                  :: SetRHSValues
       PROCEDURE                                  :: solve
       PROCEDURE                                  :: GetXValue
       PROCEDURE                                  :: destroy
@@ -127,7 +128,7 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SetBValue(this, irow, value)
+   SUBROUTINE SetRHSValue(this, irow, value)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(MatFreeSmooth_t), INTENT(INOUT) :: this
@@ -137,12 +138,12 @@ CONTAINS
       
       this % b (irow+1) = value
       
-   END SUBROUTINE SetBValue
+   END SUBROUTINE SetRHSValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   SUBROUTINE SetBValues(this, nvalues, irow, values)
+   SUBROUTINE SetRHSValues(this, nvalues, irow, values)
       IMPLICIT NONE
       CLASS(MatFreeSmooth_t)   , INTENT(INOUT)     :: this
       INTEGER                     , INTENT(IN)        :: nvalues
@@ -156,7 +157,7 @@ CONTAINS
          this % b(irow(i)+1) = values(i)
       END DO
       
-   END SUBROUTINE SetBValues
+   END SUBROUTINE SetRHSValues
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -186,13 +187,13 @@ CONTAINS
          if (ComputeA) then
             call AnalyticalJacobian_Compute(this % p_sem,time,this % A,.TRUE.)
 !~            call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
-            call this % A % shift(-1._RP/dt)
+            call this % A % shift( BDF_MatrixShift(dt) )
             IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
             ComputeA = .FALSE.
          end if
       else 
          call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % A % shift(-1._RP/dt)
+         call this % A % shift( BDF_MatrixShift(dt) )
          IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
       end if
       
@@ -291,8 +292,8 @@ CONTAINS
       REAL(KIND=RP)           , INTENT(IN)    :: dt
       !-----------------------------------------------------------
       
-      this % Ashift = -1._RP/dt
-      CALL this % A % Shift(this % Ashift)
+      this % Ashift = BDF_MatrixShift(dt)
+      CALL this % A % Shift( this % Ashift )
       
       IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
       
@@ -309,9 +310,9 @@ CONTAINS
       REAL(KIND=RP)                            :: shift
       !-----------------------------------------------------------
       
-      shift = -1._RP/dt
+      shift = BDF_MatrixShift(dt)
       
-      CALL this % A % Shift(-this % Ashift)
+      CALL this % A % Shift( -this % Ashift )
       CALL this % A % Shift(shift)
       
       this % Ashift = shift
@@ -386,14 +387,16 @@ CONTAINS
       REAL(KIND=RP)                           :: x (:)
       procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       REAL(KIND=RP)                           :: Ax(size(x))
-      
       !--------------------------------------------------
+      real(kind=RP)                           :: shift
 !~      REAL(KIND=RP)                           :: eps
       REAL(KIND=RP)                           :: F (size(x))
       
 !~       REAL(KIND=RP)                           :: xxx (size(x)) !x vector... But normalized!!
 !~      REAL(KIND=RP)                           :: buffer (size(x))
       !--------------------------------------------------
+      
+      shift = BDF_MatrixShift(dtsolve)
       
 !~      eps = 1e-8_RP * (1._RP + NORM2(x))                           ! ~2e-5 2e-4
 !~      eps = 1e-8_RP * (1._RP + NORM2(this % Ur))                   ! better: ~6e-7
@@ -423,8 +426,7 @@ CONTAINS
 !~       CALL ComputeTimeDerivative(this % p_sem,timesolve)
 !~       CALL this % p_sem % GetQdot(F)
 !~      CALL this % p_sem % SetQ(buffer)
-!~       Ax = ( F - this % F_Ur) / eps - x / (dtsolve)                          !First order   ! arueda: this is defined only for BDF1
-      Ax = ( this % p_F(this % Ur + x * eps, computeTimeDerivative) - this % F_Ur) / eps - x / dtsolve
+      Ax = ( this % p_F(this % Ur + x * eps, computeTimeDerivative) - this % F_Ur) / eps + shift * x
 !~       Ax = ( this % p_F(this % Ur + x * eps) - this % p_F(this % Ur - x * eps))  /(2._RP * eps)  - x / dtsolve   !Second order
       
       ! *NORM2(x)

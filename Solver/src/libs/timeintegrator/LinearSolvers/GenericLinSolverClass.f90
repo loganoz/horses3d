@@ -24,14 +24,15 @@ MODULE GenericLinSolverClass
    CONTAINS
       !Subroutines:
       PROCEDURE :: construct
-      PROCEDURE :: SetBValue
-      PROCEDURE :: SetBValues
+      PROCEDURE :: SetRHSValue
+      PROCEDURE :: SetRHSValues
+      PROCEDURE :: SetRHS
       PROCEDURE :: solve
       PROCEDURE :: GetXValue
       PROCEDURE :: destroy
       PROCEDURE :: SetOperatorDt
       PROCEDURE :: ReSetOperatorDt
-      PROCEDURE :: AssemblyB
+      PROCEDURE :: AssemblyRHS
       !Functions:
       PROCEDURE :: Getxnorm    !Get solution norm
       PROCEDURE :: Getrnorm    !Get residual norm
@@ -56,26 +57,38 @@ CONTAINS
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   SUBROUTINE SetBValue(this, irow, value)
+   SUBROUTINE SetRHS(this, RHS)
+      IMPLICIT NONE
+      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      REAL(KIND=RP)            , INTENT(IN)    :: RHS(:)
+      
+      ERROR stop ':: SetRHS not implemented for desired linear solver'
+   END SUBROUTINE SetRHS
+
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   
+   SUBROUTINE SetRHSValue(this, irow, value)
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       INTEGER                  , INTENT(IN)  :: irow
       REAL(KIND=RP)            , INTENT(IN)  :: value
       
-      ERROR stop ':: SetBValue not implemented for desired linear solver'
-   END SUBROUTINE SetBValue
+      ERROR stop ':: SetRHSValue not implemented for desired linear solver'
+   END SUBROUTINE SetRHSValue
 
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   SUBROUTINE SetBValues(this, nvalues, irow, values)
+   SUBROUTINE SetRHSValues(this, nvalues, irow, values)
       CLASS(GenericLinSolver_t)  , INTENT(INOUT)     :: this
       INTEGER                    , INTENT(IN)        :: nvalues
       INTEGER      , DIMENSION(:), INTENT(IN)        :: irow
       REAL(KIND=RP), DIMENSION(:), INTENT(IN)        :: values
       
-      ERROR stop ':: SetBValues not implemented for desired linear solver'
-   END SUBROUTINE SetBValues
+      ERROR stop ':: SetRHSValues not implemented for desired linear solver'
+   END SUBROUTINE SetRHSValues
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    
@@ -146,10 +159,10 @@ CONTAINS
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   SUBROUTINE AssemblyB(this)
+   SUBROUTINE AssemblyRHS(this)
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
-   END SUBROUTINE AssemblyB
+   END SUBROUTINE AssemblyRHS
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -16,6 +16,7 @@ MODULE PetscSolverClass
    use DGSEMClass
    use TimeIntegratorDefinitions
    use NumericalJacobian
+   use BDFFunctions
    IMPLICIT NONE
 #ifdef HAS_PETSC
 #include <petsc.h>
@@ -40,13 +41,13 @@ MODULE PetscSolverClass
       CONTAINS
          !Subroutines
          PROCEDURE                                  :: construct => ConstructPetscContext
-         PROCEDURE                                  :: SetBValues
-         PROCEDURE                                  :: SetBValue
+         PROCEDURE                                  :: SetRHSValues
+         PROCEDURE                                  :: SetRHSValue
          PROCEDURE                                  :: GetXValues
          PROCEDURE                                  :: GetXValue
          PROCEDURE                                  :: SetOperatorDt
          PROCEDURE                                  :: ReSetOperatorDt
-         PROCEDURE                                  :: AssemblyB
+         PROCEDURE                                  :: AssemblyRHS
          PROCEDURE                                  :: SaveMat
          PROCEDURE                                  :: solve   =>   SolveLinPrb
          PROCEDURE                                  :: destroy =>   DestroyPetscObjects
@@ -164,12 +165,12 @@ MODULE PetscSolverClass
       if ( present(ComputeA)) then
          if (ComputeA) then
             call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
-            call this % A % shift(-1._RP/dt)
+            call this % A % shift( BDF_MatrixShift(dt) )
             ComputeA = .FALSE.
          end if
       else 
          call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % A % shift(-1._RP/dt)
+         call this % A % shift( BDF_MatrixShift(dt) )
       end if
       
       ! Set , if given, solver tolerance and max number of iterations
@@ -225,7 +226,7 @@ MODULE PetscSolverClass
       PetscScalar                                        :: shift
       PetscScalar                                        :: eps = 1e-10
 
-      shift = -1._RP/dt !
+      shift = BDF_MatrixShift(dt) !
       IF (ABS(shift) .GT. eps) THEN                  
          call this % A % shift(shift) ! A = A + shift * I
          this % Ashift = shift
@@ -252,7 +253,7 @@ MODULE PetscSolverClass
       PetscScalar                                        :: shift
       PetscScalar                                        :: eps = 1e-10
 
-      shift = -1._RP/dt !
+      shift = BDF_MatrixShift(dt) !
       IF (ABS(shift) .GT. eps) THEN
          call this % A % Reshift (shift) ! A = A + shift * I
          this % Ashift = shift
@@ -265,7 +266,7 @@ MODULE PetscSolverClass
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
 !
-   SUBROUTINE SetBValues(this, nvalues, irow, values)
+   SUBROUTINE SetRHSValues(this, nvalues, irow, values)
       IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
@@ -282,9 +283,9 @@ MODULE PetscSolverClass
       REAL*8    , DIMENSION(:),       INTENT(IN)        :: values
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE SetBValues
+   END SUBROUTINE SetRHSValues
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
-   SUBROUTINE SetBValue(this, irow, value)
+   SUBROUTINE SetRHSValue(this, irow, value)
       IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
@@ -299,11 +300,11 @@ MODULE PetscSolverClass
       REAL*8    ,        INTENT(IN)        :: value
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE SetBValue
+   END SUBROUTINE SetRHSValue
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////     
 !
-   SUBROUTINE AssemblyB(this)
+   SUBROUTINE AssemblyRHS(this)
       IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)   :: this
 #ifdef HAS_PETSC
