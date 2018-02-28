@@ -99,19 +99,17 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine ConstructSolver(this,DimPrb,controlVariables, sem)
+      recursive subroutine ConstructSolver(this,DimPrb,controlVariables, sem)
          implicit none
          !------------------------------------------------
          class(MatFreeGMRES_t)  , intent(inout), target :: this
          integer                , intent(in)            :: DimPrb
-!~         integer, intent(in),optional                   :: m          ! to be deprecated
          TYPE(FTValueDictionary), intent(in), optional  :: controlVariables
          TYPE(DGSem), target                , optional  :: sem
          !------------------------------------------------
          character(len=LINE_LENGTH)                 :: pc
          !------------------------------------------------
          
-!~         if(PRESENT(m)) this%m = m
          if (.not. present(sem)) ERROR stop ':: Matrix free GMRES needs sem'
          
          this % DimPrb = DimPrb
@@ -133,34 +131,32 @@ contains
 !        Set preconditioner
 !        ------------------
          if ( present(controlVariables) ) then
-            if ( controlVariables % containsKey("preconditioner") ) THEN
-               pc = controlVariables % StringValueForKey("preconditioner",LINE_LENGTH)
-               select case(pc)
-!                 ********************
-!                 GMRES preconditioner
-!                 ********************
-                  case('GMRES')
-                     ! Allocate extra storage
-                     allocate(this%Z(this%DimPrb,this%m+1))
-                     ! Construct inner GMRES solver
-                     allocate (this % PCsolver)
-                     call this % PCsolver % Construct(dimprb,sem = sem)
-                     call this % PCsolver % SetMaxInnerIter(15)      ! Hardcoded to 15
-                     call this % PCsolver % SetMaxIter(30)           ! Hardcoded to 30... old: 15
-                     ! Change this solver's definitions
-                     this % maxiter = 60                        ! Hardcoded to 60... old: 30
-                     this % Preconditioner = PC_GMRES
-                     
-!                 *****************
-!                 No preconditioner
-!                 *****************
-                  case default
-                     write(STD_OUT,*) pc, ' preconditioner not found. No preconditioner will be used for GMRES'
-                     this % Preconditioner = PC_NONE
-               end select
-            else
-               this % Preconditioner = PC_NONE
-            end if
+            pc = controlVariables % StringValueForKey("preconditioner",LINE_LENGTH)
+            select case(pc)
+!              ********************
+!              GMRES preconditioner
+!              ********************
+               case('GMRES')
+                  ! Allocate extra storage
+                  allocate(this%Z(this%DimPrb,this%m+1))
+                  ! Construct inner GMRES solver
+                  allocate (this % PCsolver)
+                  call this % PCsolver % Construct(dimprb,sem = sem)
+                  call this % PCsolver % SetMaxInnerIter(15)      ! Hardcoded to 15
+                  call this % PCsolver % SetMaxIter(30)           ! Hardcoded to 30... old: 15
+                  ! Change this solver's definitions
+                  this % maxiter = 60                        ! Hardcoded to 60... old: 30
+                  this % Preconditioner = PC_GMRES
+                  
+!              *****************
+!              No preconditioner
+!              *****************
+               case default
+                  write(STD_OUT,*) trim(pc), ' preconditioner not found. No preconditioner will be used for GMRES'
+                  this % Preconditioner = PC_NONE
+            end select
+         else
+            this % Preconditioner = PC_NONE
          end if
       end subroutine ConstructSolver
 !
@@ -266,7 +262,7 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine DestructSolver(this)
+      recursive subroutine DestructSolver(this)
          implicit none
          class(MatFreeGMRES_t), intent(inout)          :: this
          

@@ -38,6 +38,10 @@ module StorageClass
          procedure :: Construct => Storage_Construct
          procedure :: Destruct  => Storage_Destruct
    end type Storage_t
+   
+   type ElementPrevSol_t
+      real(kind=RP), dimension(:,:,:,:),  pointer     :: Q
+   end type ElementPrevSol_t
 !  
 !  Class for storing variables element-wise
 !     (Q and Qdot are not owned by ElementStorage_t) 
@@ -45,14 +49,15 @@ module StorageClass
    type ElementStorage_t
       real(kind=RP), dimension(:,:,:,:),  pointer     :: Q
       real(kind=RP), dimension(:,:,:,:),  pointer     :: QDot
+      type(ElementPrevSol_t)           ,  allocatable :: PrevQ(:)
       real(kind=RP), dimension(:,:,:,:),  allocatable :: G
       real(kind=RP), dimension(:,:,:,:),  allocatable :: S
       real(kind=RP), dimension(:,:,:,:),  allocatable :: U_x
       real(kind=RP), dimension(:,:,:,:),  allocatable :: U_y
       real(kind=RP), dimension(:,:,:,:),  allocatable :: U_z
-      integer                                         :: NDOF     ! Number of degrees of freedom of element
-      integer                                         :: firstIdx ! Position in the global solution array
-      logical                                         :: pointed  ! .TRUE. if the Q and Qdot are pointed instead of allocated (needed for destruction since there's no other way to check this)
+      integer                                         :: NDOF              ! Number of degrees of freedom of element
+      integer                                         :: firstIdx          ! Position in the global solution array
+      logical                                         :: pointed = .TRUE.  ! .TRUE. (default) if Q and Qdot are pointed instead of allocated (needed for destruction since there's no other way to check this)
       type(Statistics_t)                              :: stats
 #if defined(CAHNHILLIARD)
       real(kind=RP), dimension(:,:,:),   allocatable :: c   ! Cahn-Hilliard concentration
@@ -138,8 +143,10 @@ module StorageClass
          integer        , intent(in) :: Nx, Ny, Nz                         !<  Polynomial orders in every direction
          integer        , intent(in) :: nEqn, nGradEqn                     !<  Number of equations and gradient equations
          logical        , intent(in) :: computeGradients                   !<  Compute gradients?
-         type(Storage_t), intent(in), target, optional :: globalStorage    !<? 
-         integer        , intent(in)        , optional :: firstIdx         !<? 
+         type(Storage_t), intent(in), target, optional :: globalStorage    !<? Global storage to point to
+         integer        , intent(in)        , optional :: firstIdx         !<? Position of the solution of the element in the global array
+         !------------------------------------------------------------
+         integer :: k, num_prevSol
          !------------------------------------------------------------
 !
 !        --------------------------------
@@ -153,8 +160,17 @@ module StorageClass
 !        ----------------
 !
          if ( present(globalStorage) .and. present(firstIdx) ) then
+            ! Solution and its derivative:
             self % Q   (1:nEqn,0:Nx,0:Ny,0:Nz) => globalStorage % Q   (firstIdx : firstIdx + self % NDOF-1)
             self % Qdot(1:nEqn,0:Nx,0:Ny,0:Nz) => globalStorage % Qdot(firstIdx : firstIdx + self % NDOF-1)
+            
+            ! Previous solution
+            num_prevSol = size(globalStorage % PrevQ,2)
+            allocate ( self % PrevQ(num_prevSol) )
+            do k=1, num_prevSol
+               self % PrevQ(k) % Q(1:nEqn,0:Nx,0:Ny,0:Nz) => globalStorage % PrevQ(firstIdx : firstIdx + self % NDOF-1,k)
+            end do
+            
             self % pointed = .TRUE.
          else
             ALLOCATE( self % Q   (nEqn,0:Nx,0:Ny,0:Nz) )
@@ -199,14 +215,22 @@ module StorageClass
          END IF
 
       end subroutine ElementStorage_Construct
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////
+!
       subroutine ElementStorage_Destruct(self)
          implicit none
          class(ElementStorage_t) :: self
+         integer                 :: num_prevSol, k
          
          if (self % pointed) then
             nullify(self % Q)
             nullify(self % Qdot)
+            num_prevSol = size(self % PrevQ)
+            do k=1, num_prevSol
+               nullify( self % PrevQ(k) % Q )
+            end do
+            safedeallocate(self % PrevQ)
          else
             deallocate(self % Q)
             deallocate(self % QDot)
