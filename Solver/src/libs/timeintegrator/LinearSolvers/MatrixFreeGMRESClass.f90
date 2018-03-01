@@ -113,6 +113,51 @@ contains
          if (.not. present(sem)) ERROR stop ':: Matrix free GMRES needs sem'
          
          this % DimPrb = DimPrb
+         
+!        ***********************************         
+!        Set variables from controlVariables
+!        ***********************************
+         if ( present(controlVariables) ) then
+            
+!           Inner iterations (before restart)
+!           *********************************
+            if ( controlVariables % containsKey("gmres inner iterations") ) then
+               this % m = controlVariables % integerValueForKey("gmres inner iterations")
+            end if
+            
+!           Preconditioner
+!           **************
+            pc = controlVariables % StringValueForKey("preconditioner",LINE_LENGTH)
+            select case(pc)
+!              
+!              GMRES preconditioner
+!              --------------------
+               case('GMRES')
+                  ! Allocate extra storage
+                  allocate(this%Z(this%DimPrb,this%m+1))
+                  ! Construct inner GMRES solver
+                  allocate (this % PCsolver)
+                  call this % PCsolver % Construct(dimprb,sem = sem)
+                  call this % PCsolver % SetMaxInnerIter(15)      ! Hardcoded to 15
+                  call this % PCsolver % SetMaxIter(30)           ! Hardcoded to 30... old: 15
+                  ! Change this solver's definitions
+                  this % maxiter = 60                        ! Hardcoded to 60... old: 30
+                  this % Preconditioner = PC_GMRES
+!              
+!              No preconditioner
+!              -----------------
+               case default
+                  write(STD_OUT,*) trim(pc), ' preconditioner not found. No preconditioner will be used for GMRES'
+                  this % Preconditioner = PC_NONE
+            end select
+         else
+            this % Preconditioner = PC_NONE
+         end if
+         
+!        ******************
+!        Allocate variables
+!        ******************
+         
          allocate(this % RHS (DimPrb))
          allocate(this % x0  (DimPrb))
          allocate(this % F_Ur(DimPrb))
@@ -127,37 +172,6 @@ contains
          allocate(this%g (this%m+1))
          
          this % p_sem => sem
-         
-!        Set preconditioner
-!        ------------------
-         if ( present(controlVariables) ) then
-            pc = controlVariables % StringValueForKey("preconditioner",LINE_LENGTH)
-            select case(pc)
-!              ********************
-!              GMRES preconditioner
-!              ********************
-               case('GMRES')
-                  ! Allocate extra storage
-                  allocate(this%Z(this%DimPrb,this%m+1))
-                  ! Construct inner GMRES solver
-                  allocate (this % PCsolver)
-                  call this % PCsolver % Construct(dimprb,sem = sem)
-                  call this % PCsolver % SetMaxInnerIter(15)      ! Hardcoded to 15
-                  call this % PCsolver % SetMaxIter(30)           ! Hardcoded to 30... old: 15
-                  ! Change this solver's definitions
-                  this % maxiter = 60                        ! Hardcoded to 60... old: 30
-                  this % Preconditioner = PC_GMRES
-                  
-!              *****************
-!              No preconditioner
-!              *****************
-               case default
-                  write(STD_OUT,*) trim(pc), ' preconditioner not found. No preconditioner will be used for GMRES'
-                  this % Preconditioner = PC_NONE
-            end select
-         else
-            this % Preconditioner = PC_NONE
-         end if
       end subroutine ConstructSolver
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
