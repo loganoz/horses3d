@@ -2717,8 +2717,8 @@ slavecoord:                DO l = 1, 4
                                            computeGradients = computeGradients, &
                                               globalStorage = self % storage, &
                                                    firstIdx = firstIdx)
+         firstIdx = firstIdx + e % Storage % NDOF
          end associate
-         firstIdx = firstIdx + self % elements(eID) % Storage % NDOF
       END DO
       
    end subroutine HexMesh_AllocateStorage

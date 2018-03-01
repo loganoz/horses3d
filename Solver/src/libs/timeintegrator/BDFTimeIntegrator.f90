@@ -11,7 +11,7 @@
 MODULE BDFTimeIntegrator
    use SMConstants
    use BDFFunctions
-   USE ElementClass,                ONLY: Element, allocateElementStorage    !arueda: No DGSolutionStorage implemented in nslite3d... Using whole element definitions
+   USE ElementClass,                ONLY: Element, allocateElementStorage
    USE PhysicsStorage
    use HexMeshClass
    USE LinearSolverClass
@@ -32,7 +32,6 @@ MODULE BDFTimeIntegrator
    type BDFIntegrator_t
       
       class(GenericLinSolver_t), allocatable :: linsolver     ! Linear solver
-      logical                                :: Adaptive_dt   ! .TRUE. if the time-step size must be computed according to the convergence behavior
       logical                                :: JacByConv     ! .TRUE. if the Jacobian must be computed only when the convergence is bad
       logical                                :: TimeAccurate  ! .TRUE. if this is a time-accurate simulation
       logical                                :: UserNewtonTol ! .TRUE. if the newton tolerance is specified by the user
@@ -79,7 +78,7 @@ contains
 !     Get general definitions
 !     -----------------------
 
-      this % Adaptive_dt = controlVariables % logicalValueForKey("implicit adaptive dt")
+      Adaptive_dt = controlVariables % logicalValueForKey("implicit adaptive dt")
       this % JacByConv = controlVariables % LogicalValueForKey("jacobian by convergence")
       if (controlVariables % StringValueForKey("simulation type",LINE_LENGTH) == 'time-accurate') then
          this % TimeAccurate = .TRUE.
@@ -129,7 +128,7 @@ contains
       
       ! Check that the BDF order is consistent
       if (bdf_order > 1) then
-         if ( (.not. controlVariables % containsKey("dt") ) .or. this % Adaptive_dt) then
+         if ( (.not. controlVariables % containsKey("dt") ) .or. Adaptive_dt) then
             ERROR stop ':: "bdf order">1 is only valid with fixed time-step sizes'
          end if
       end if
