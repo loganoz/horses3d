@@ -13,7 +13,6 @@ module MatrixFreeGMRESClass
    use SMConstants
    use DGSEMClass
    use FTValueDictionaryClass
-   use BDFFunctions
    implicit none
    
    private
@@ -60,6 +59,7 @@ module MatrixFreeGMRESClass
          procedure                           :: SetOperatorDt
          procedure                           :: ReSetOperatorDt
          procedure                           :: GetXValue
+         procedure                           :: GetX
          procedure                           :: SetRHS
          procedure                           :: Getxnorm    !Get solution norm
          procedure                           :: Getrnorm    !Get residual norm
@@ -99,18 +99,21 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      recursive subroutine ConstructSolver(this,DimPrb,controlVariables, sem)
+      recursive subroutine ConstructSolver(this,DimPrb,controlVariables, sem,MatrixShiftFunc)
          implicit none
          !------------------------------------------------
          class(MatFreeGMRES_t)  , intent(inout), target :: this
          integer                , intent(in)            :: DimPrb
          TYPE(FTValueDictionary), intent(in), optional  :: controlVariables
          TYPE(DGSem), target                , optional  :: sem
+         procedure(MatrixShift_FCN)                     :: MatrixShiftFunc
          !------------------------------------------------
          character(len=LINE_LENGTH)                 :: pc
          !------------------------------------------------
          
          if (.not. present(sem)) ERROR stop ':: Matrix free GMRES needs sem'
+         
+         MatrixShift => MatrixShiftFunc
          
          this % DimPrb = DimPrb
          
@@ -137,11 +140,11 @@ contains
                   allocate(this%Z(this%DimPrb,this%m+1))
                   ! Construct inner GMRES solver
                   allocate (this % PCsolver)
-                  call this % PCsolver % Construct(dimprb,sem = sem)
+                  call this % PCsolver % Construct(dimprb,sem = sem, MatrixShiftFunc = MatrixShiftFunc)
                   call this % PCsolver % SetMaxInnerIter(15)      ! Hardcoded to 15
                   call this % PCsolver % SetMaxIter(30)           ! Hardcoded to 30... old: 15
                   ! Change this solver's definitions
-                  this % maxiter = 60                        ! Hardcoded to 60... old: 30
+                  this % maxiter = 60                             ! Hardcoded to 60... old: 30
                   this % Preconditioner = PC_GMRES
 !              
 !              No preconditioner
@@ -220,6 +223,19 @@ contains
          x_i = this % x(irow+1)
          
       END SUBROUTINE GetXValue
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      function GetX(this) result(x)
+         IMPLICIT NONE
+         !-----------------------------------------------------------
+         CLASS(MatFreeGMRES_t), INTENT(INOUT) :: this
+         REAL(KIND=RP)                        :: x(this % DimPrb)
+         !-----------------------------------------------------------
+         
+         x = this % x
+         
+      end function GetX
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -561,7 +577,7 @@ contains
          !---------------------------------------------------------
           
          eps = 1e-8_RP * (1._RP + norm2(x) )
-         shift = BDF_MatrixShift(this % dtsolve)
+         shift = MatrixShift(this % dtsolve)
          
          Ax = ( this % p_F(this % Ur + x * eps, ComputeTimeDerivative) - this % F_Ur)/ eps  + shift * x     !First order 
          !Ax = ( this % p_F(this % Ur + x * eps, ComputeTimeDerivative) - this % p_F(Ur - x * eps, ComputeTimeDerivative))  /(2._RP * eps)  - x / Comp_Dt   !Second order

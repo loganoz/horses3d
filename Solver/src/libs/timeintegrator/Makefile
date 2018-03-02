@@ -20,6 +20,7 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/MatrixFreeGMRESClass.o \
 		./build_ns/LinearSolverClass.o \
 		./build_ns/BDFTimeIntegrator.o \
+		./build_ns/RosenbrockTimeIntegrator.o \
 		./build_ns/MultigridTypes.o \
 		./build_ns/TruncationErrorClass.o \
 		./build_ns/ExplicitMethods.o \
@@ -40,6 +41,7 @@ LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/MatrixFreeGMRESClass.o \
 		./build_ch/LinearSolverClass.o \
 		./build_ch/BDFTimeIntegrator.o \
+		./build_ch/RosenbrockTimeIntegrator.o \
 		./build_ch/MultigridTypes.o \
 		./build_ch/TruncationErrorClass.o \
 		./build_ch/ExplicitMethods.o \

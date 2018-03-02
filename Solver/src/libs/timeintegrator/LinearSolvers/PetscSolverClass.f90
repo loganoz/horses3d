@@ -16,7 +16,6 @@ MODULE PetscSolverClass
    use DGSEMClass
    use TimeIntegratorDefinitions
    use NumericalJacobian
-   use BDFFunctions
    IMPLICIT NONE
 #ifdef HAS_PETSC
 #include <petsc.h>
@@ -25,7 +24,6 @@ MODULE PetscSolverClass
       type(PETSCMatrix_t), allocatable              :: A
       TYPE(DGSem), POINTER                          :: p_sem   
 #ifdef HAS_PETSC
-      Mat                                           :: AA                                 ! Jacobian matrix
       Vec                                           :: x                                  ! Solution vector
       Vec                                           :: b                                  ! Right hand side
       KSP                                           :: ksp                                ! 
@@ -88,16 +86,19 @@ MODULE PetscSolverClass
 !
 !/////////////////////////////////////////////////////////////////////////////// 
 !
-   SUBROUTINE ConstructPetscContext(this, DimPrb,controlVariables,sem)
+   SUBROUTINE ConstructPetscContext(this, DimPrb,controlVariables,sem,MatrixShiftFunc)
       IMPLICIT NONE
       !--------------------------------------------------------------
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT), TARGET :: this
       TYPE(FTValueDictionary)      , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                      , OPTIONAL  :: sem
+      procedure(MatrixShift_FCN)                           :: MatrixShiftFunc
       !--------------------------------------------------------------
 #ifdef HAS_PETSC
       PetscInt, INTENT(IN)                                 :: DimPrb
       PetscErrorCode                                       :: ierr
+      
+      MatrixShift => MatrixShiftFunc
       
       this % p_sem => sem
       
@@ -165,12 +166,12 @@ MODULE PetscSolverClass
       if ( present(ComputeA)) then
          if (ComputeA) then
             call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
-            call this % A % shift( BDF_MatrixShift(dt) )
+            call this % A % shift( MatrixShift(dt) )
             ComputeA = .FALSE.
          end if
       else 
          call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % A % shift( BDF_MatrixShift(dt) )
+         call this % A % shift( MatrixShift(dt) )
       end if
       
       ! Set , if given, solver tolerance and max number of iterations
@@ -226,7 +227,7 @@ MODULE PetscSolverClass
       PetscScalar                                        :: shift
       PetscScalar                                        :: eps = 1e-10
 
-      shift = BDF_MatrixShift(dt) !
+      shift = MatrixShift(dt) !
       IF (ABS(shift) .GT. eps) THEN                  
          call this % A % shift(shift) ! A = A + shift * I
          this % Ashift = shift
@@ -253,7 +254,7 @@ MODULE PetscSolverClass
       PetscScalar                                        :: shift
       PetscScalar                                        :: eps = 1e-10
 
-      shift = BDF_MatrixShift(dt) !
+      shift = MatrixShift(dt) !
       IF (ABS(shift) .GT. eps) THEN
          call this % A % Reshift (shift) ! A = A + shift * I
          this % Ashift = shift

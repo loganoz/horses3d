@@ -11,7 +11,6 @@
 MODULE BDFTimeIntegrator
    use SMConstants
    use BDFFunctions
-   USE ElementClass,                ONLY: Element, allocateElementStorage
    USE PhysicsStorage
    use HexMeshClass
    USE LinearSolverClass
@@ -118,7 +117,7 @@ contains
             allocate (PetscKspLinearSolver_t :: this % linsolver)
       end select
       
-      call this % linsolver % construct (DimPrb,controlVariables,sem)             !Constructs linear solver 
+      call this % linsolver % construct (DimPrb,controlVariables,sem,BDF_MatrixShift)             !Constructs linear solver 
       
 !
 !     Setup BDF methods
@@ -284,6 +283,11 @@ contains
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  -------------------------------------------------------------
+!  Routine for performing a nonlinear Newton iterative procedure
+!  -> This can be taken out of the BDFTimeIntegrator if needed
+!        (but careful with Adaptive_dt and the Newton vars)
+!  -------------------------------------------------------------
    SUBROUTINE NewtonSolve(sem, t, dt, linsolver, NEWTON_TOLERANCE, JacByConv,ConvRate, niter,CONVERGED, ComputeTimeDerivative)
       implicit none
       !----------------------------------------------------------------------

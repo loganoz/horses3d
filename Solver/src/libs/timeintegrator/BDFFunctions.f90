@@ -58,7 +58,7 @@ contains
     
       order = min(StepsTaken, bdf_order)
       
-      do i=Order, 2, -1
+      do i=Order, 2, -1                   ! TODO: Don't shift the array.. Just store the last solution on top of the oldest... And store indexes!
          PrevQ(:,i) = PrevQ(:,i-1)
       end do
       

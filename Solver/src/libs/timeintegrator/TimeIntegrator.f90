@@ -247,6 +247,7 @@
       USE BDFTimeIntegrator
       use FASMultigridClass
       use AnisFASMultigridClass
+      use RosenbrockTimeIntegrator
       use StopwatchClass
       IMPLICIT NONE
 !
@@ -298,6 +299,7 @@ end interface
       type(FASMultigrid_t)          :: FASSolver
       type(AnisFASMultigrid_t)      :: AnisFASSolver
       type(BDFIntegrator_t)         :: BDFSolver
+      type(RosenbrockIntegrator_t)  :: RosenbrockSolver
       
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
       logical                       :: saveGradients
@@ -355,9 +357,10 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      if (TimeIntegration == 'FAS')      call FASSolver % construct(controlVariables,sem)
-      if (TimeIntegration == 'AnisFAS')  call AnisFASSolver % construct(controlVariables,sem)
-      if (TimeIntegration == 'implicit') call BDFSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'FAS')        call FASSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'AnisFAS')    call AnisFASSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'implicit')   call BDFSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'rosenbrock') call RosenbrockSolver % construct(controlVariables,sem)
       
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 !
@@ -381,8 +384,9 @@ end interface
 !        -----------------         
          SELECT CASE (TimeIntegration)
             CASE ('implicit')
-!~               CALL TakeBDFStep (sem, t , dt , controlVariables, ComputeTimeDerivative)
                call BDFSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
+            CASE ('rosenbrock')
+               call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
             CASE ('explicit')
                CALL self % RKStep ( sem % mesh, t, sem % externalState, sem % externalGradients, dt, ComputeTimeDerivative)
             case ('FAS')
@@ -458,9 +462,10 @@ end interface
 !     Finish up
 !     ---------
 !
-      if (TimeIntegration == 'FAS')      CALL FASSolver % destruct
-      if (TimeIntegration == 'AnisFAS')  CALL AnisFASSolver % destruct
-      if (TimeIntegration == 'implicit') call BDFSolver % destruct
+      if (TimeIntegration == 'FAS')        CALL FASSolver % destruct
+      if (TimeIntegration == 'AnisFAS')    CALL AnisFASSolver % destruct
+      if (TimeIntegration == 'implicit')   call BDFSolver % destruct
+      if (TimeIntegration == 'rosenbrock') call RosenbrockSolver % destruct
    end subroutine IntegrateInTime
       
 !

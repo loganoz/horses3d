@@ -15,7 +15,6 @@ MODULE MKLPardisoSolverClass
    use DGSEMClass
    use TimeIntegratorDefinitions
    use NumericalJacobian
-   use BDFFunctions
    IMPLICIT NONE
    
    TYPE, EXTENDS(GenericLinSolver_t) :: MKLPardisoSolver_t
@@ -57,13 +56,14 @@ MODULE MKLPardisoSolverClass
  CONTAINS
 !========
    
-   SUBROUTINE ConstructMKLContext(this,DimPrb,controlVariables,sem)
+   SUBROUTINE ConstructMKLContext(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(MKLPardisoSolver_t), INTENT(INOUT), TARGET :: this
       INTEGER                  , INTENT(IN)            :: DimPrb
       TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
+      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
       !-----------------------------------------------------------
       INTERFACE
          SUBROUTINE pardisoinit(pt, mtype, iparm)
@@ -75,6 +75,8 @@ MODULE MKLPardisoSolverClass
          END SUBROUTINE pardisoinit
       END INTERFACE
       !-----------------------------------------------------------
+      
+      MatrixShift => MatrixShiftFunc
       
       this % p_sem => sem
       
@@ -174,14 +176,14 @@ MODULE MKLPardisoSolverClass
       if ( present(ComputeA)) then
          if (ComputeA) then
             call NumericalJacobian_Compute(this % p_sem, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
-            call this % PETScA % shift( BDF_MatrixShift(dt) )
+            call this % PETScA % shift( MatrixShift(dt) )
             call this % PETScA % GetCSRMatrix(this % A)
             this % AIsPetsc = .FALSE.
             ComputeA = .FALSE.
          end if
       else 
          call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % PETScA % shift( BDF_MatrixShift(dt) )
+         call this % PETScA % shift( MatrixShift(dt) )
          call this % PETScA % GetCSRMatrix(this % A)
       end if
       
@@ -268,7 +270,7 @@ MODULE MKLPardisoSolverClass
       REAL(KIND=RP)            , INTENT(IN)    :: dt
       !-----------------------------------------------------------
       
-      this % Ashift = BDF_MatrixShift(dt)
+      this % Ashift = MatrixShift(dt)
       IF (this % AIsPetsc) THEN
          CALL this % PETScA % shift(this % Ashift)
       ELSE
@@ -288,7 +290,7 @@ MODULE MKLPardisoSolverClass
       REAL(KIND=RP)                            :: shift
       !-----------------------------------------------------------
       
-      shift = BDF_MatrixShift(dt)
+      shift = MatrixShift(dt)
       IF (this % AIsPetsc) THEN
          CALL this % PETScA % shift(shift)
       ELSE

@@ -20,7 +20,6 @@ MODULE MultigridSolverClass
    use DGSEMClass
    use TimeIntegratorDefinitions
    use NumericalJacobian
-   use BDFFunctions
    IMPLICIT NONE
    
    PRIVATE
@@ -87,19 +86,22 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE construct(this,DimPrb,controlVariables,sem)
+   SUBROUTINE construct(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(MultigridSolver_t) , INTENT(INOUT), TARGET :: this
       INTEGER                  , INTENT(IN)            :: DimPrb
       TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
+      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
       !-----------------------------------------------------------
       INTEGER                            :: lvl              ! Multigrid level
       INTEGER                            :: k
       INTEGER, DIMENSION(:), ALLOCATABLE :: Nx, Ny, Nz       ! Dimensions of fine mesh
       !-----------------------------------------------------------
       !Module variables: MGlevels, deltaN
+      
+      MatrixShift => MatrixShiftFunc
       
       IF (.NOT. PRESENT(sem)) stop 'Fatal error: MultigridSolver needs sem.'
       IF (.NOT. PRESENT(controlVariables)) stop 'Fatal error: MultigridSolver needs controlVariables.'
@@ -286,14 +288,14 @@ CONTAINS
       if ( present(ComputeA)) then
          if (ComputeA) then
             call NumericalJacobian_Compute(this % p_sem, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
-            call this % PETScA % shift( BDF_MatrixShift(dt) )
+            call this % PETScA % shift( MatrixShift(dt) )
             call this % PETScA % GetCSRMatrix(this % A)
             this % AIsPetsc = .FALSE.
             ComputeA = .FALSE.
          end if
       else 
          call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % PETScA % shift( BDF_MatrixShift(dt) )
+         call this % PETScA % shift( MatrixShift(dt) )
          call this % PETScA % GetCSRMatrix(this % A)
       end if
       
@@ -372,7 +374,7 @@ CONTAINS
       REAL(KIND=RP)           , INTENT(IN)    :: dt
       !-----------------------------------------------------------
       
-      this % Ashift = BDF_MatrixShift(dt)
+      this % Ashift = MatrixShift(dt)
       IF (this % AIsPetsc) THEN
          CALL this % PETScA % shift(this % Ashift)
       ELSE
@@ -392,7 +394,7 @@ CONTAINS
       REAL(KIND=RP)                            :: shift
       !-----------------------------------------------------------
       
-      shift = BDF_MatrixShift(dt)
+      shift = MatrixShift(dt)
       IF (this % AIsPetsc) THEN
          CALL this % PETScA % ReShift(shift)
       ELSE
@@ -474,7 +476,7 @@ CONTAINS
       REAL(KIND=RP)                           :: F (size(x)), shift
 !~      REAL(KIND=RP)                           :: buffer (size(x))
       !--------------------------------------------------
-      shift = BDF_MatrixShift(dtsolve)
+      shift = MatrixShift(dtsolve)
 !~      eps = 1e-8_RP * (1._RP + NORM2(x))                           ! ~2e-5 2e-4
 !~      eps = 1e-8_RP * (1._RP + NORM2(this % Ur))                   ! better: ~6e-7
       eps = SQRT(EPSILON(eps)) * (1._RP + NORM2(this % Ur))        !slightly better: ~4e-7 

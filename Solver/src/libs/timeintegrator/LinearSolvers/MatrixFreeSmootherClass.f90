@@ -18,7 +18,6 @@ MODULE MatrixFreeSmootherClass
    use NumericalJacobian
    use AnalyticalJacobian
    use PhysicsStorage
-   use BDFFunctions
    IMPLICIT NONE
 #ifdef HAS_PETSC
 #include <petsc.h>
@@ -78,13 +77,14 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE construct(this,DimPrb,controlVariables,sem)
+   SUBROUTINE construct(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(MatFreeSmooth_t) , INTENT(INOUT), TARGET :: this
       INTEGER                  , INTENT(IN)            :: DimPrb
       TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
+      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
       !-----------------------------------------------------------
       INTEGER :: nelem      ! Number of elements
       INTEGER :: Nx,Ny,Nz   ! Polynomial orders for element
@@ -94,6 +94,7 @@ CONTAINS
       
       IF (.NOT. PRESENT(sem)) stop 'Fatal error: IterativeSolver needs sem.'
       
+      MatrixShift => MatrixShiftFunc
       
       this % DimPrb = DimPrb
       this % Smoother = controlVariables % StringValueForKey("smoother",LINE_LENGTH)
@@ -187,13 +188,13 @@ CONTAINS
          if (ComputeA) then
             call AnalyticalJacobian_Compute(this % p_sem,time,this % A,.TRUE.)
 !~            call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
-            call this % A % shift( BDF_MatrixShift(dt) )
+            call this % A % shift( MatrixShift(dt) )
             IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
             ComputeA = .FALSE.
          end if
       else 
          call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % A % shift( BDF_MatrixShift(dt) )
+         call this % A % shift( MatrixShift(dt) )
          IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
       end if
       
@@ -292,7 +293,7 @@ CONTAINS
       REAL(KIND=RP)           , INTENT(IN)    :: dt
       !-----------------------------------------------------------
       
-      this % Ashift = BDF_MatrixShift(dt)
+      this % Ashift = MatrixShift(dt)
       CALL this % A % Shift( this % Ashift )
       
       IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
@@ -310,7 +311,7 @@ CONTAINS
       REAL(KIND=RP)                            :: shift
       !-----------------------------------------------------------
       
-      shift = BDF_MatrixShift(dt)
+      shift = MatrixShift(dt)
       
       CALL this % A % Shift( -this % Ashift )
       CALL this % A % Shift(shift)
@@ -396,7 +397,7 @@ CONTAINS
 !~      REAL(KIND=RP)                           :: buffer (size(x))
       !--------------------------------------------------
       
-      shift = BDF_MatrixShift(dtsolve)
+      shift = MatrixShift(dtsolve)
       
 !~      eps = 1e-8_RP * (1._RP + NORM2(x))                           ! ~2e-5 2e-4
 !~      eps = 1e-8_RP * (1._RP + NORM2(this % Ur))                   ! better: ~6e-7

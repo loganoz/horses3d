@@ -332,7 +332,7 @@ module FASMultigridClass
 !     -------------------------------------------
 !
       if (Smoother == BJ_SMOOTHER) then
-         call Solver % linsolver %  construct(Solver % p_sem % NDOF, controlVariables, Solver % p_sem)
+         call Solver % linsolver %  construct(Solver % p_sem % NDOF, controlVariables, Solver % p_sem, BDF_MatrixShift)
          Solver % computeA = .TRUE.
       end if
       
@@ -384,8 +384,8 @@ module FASMultigridClass
       logical           , OPTIONAL         :: FullMG
       real(kind=RP)     , OPTIONAL         :: tol        !<  Tolerance for full multigrid
       !-------------------------------------------------
-      integer :: maxVcycles = 1, i
-      real(kind=RP) :: rnorm
+      integer :: maxVcycles = 20, i
+      real(kind=RP) :: rnorm, xnorm
       
       ThisTimeStep = timestep
       
@@ -402,8 +402,6 @@ module FASMultigridClass
 !
       if (Smoother == BJ_SMOOTHER) call FAS_SetPreviousSolution(this,MGlevels)
       
-      this % computeA = .TRUE.
-      
       if (FMG) then
          call FASFMGCycle(this,t,tol,MGlevels, ComputeTimeDerivative)
       else
@@ -414,13 +412,28 @@ module FASMultigridClass
                   exit 
                case (BJ_SMOOTHER)  ! Check if the nonlinear problem was solved to a given tolerance
                   rnorm = this % linsolver % Getrnorm()
-                  print*, 'V-Cycle', i, 'rnorm=', rnorm
-                  if (rnorm<1.e-6_RP) exit
+                  xnorm = this % linsolver % Getxnorm('infinity')
+                  print*, 'V-Cycle', i, 'rnorm=', rnorm, 'xnorm', xnorm 
+                  if (xnorm<1.e-6_RP) exit
             end select
+            if (rnorm > 1e-2_RP) call computeA_AllLevels(this,MGlevels)
          end do
       end if
+      if (i > 4) call computeA_AllLevels(this,MGlevels)
+      
       
    end subroutine solve  
+   
+   subroutine computeA_AllLevels(this,lvl)
+      implicit none
+      class(FASMultigrid_t), intent(inout) :: this     !<  Current level solver
+      integer :: lvl
+      
+      this % computeA = .TRUE.
+      
+      if (lvl>1) call computeA_AllLevels(this % Child,lvl-1)
+      
+   end subroutine computeA_AllLevels
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -456,7 +469,7 @@ module FASMultigridClass
       else
          NumOfSweeps = SweepNumPre
       end if
-      this % computeA = .TRUE.
+!~      this % computeA = .TRUE.
       sweepcount = 0
       DO
          call this % Smooth(NumOfSweeps,t,dt, ComputeTimeDerivative)
@@ -785,7 +798,6 @@ module FASMultigridClass
       !-------------------------------------------------------------
       real(kind=RP) :: own_dt
       integer :: sweep
-      logical :: computeA
       !-------------------------------------------------------------
       
       select case (Smoother)
