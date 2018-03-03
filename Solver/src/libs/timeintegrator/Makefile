@@ -9,7 +9,6 @@ RANLIB?=ranlib
 MOD_FLAG?=-J
 
 LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
-		./build_ns/BDFFunctions.o \
 		./build_ns/AnalyticalJacobian.o \
 		./build_ns/GenericLinSolverClass.o \
 		./build_ns/PetscSolverClass.o \
@@ -30,7 +29,6 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/TimeIntegrator.o 
 
 LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
-		./build_ch/BDFFunctions.o \
 		./build_ch/AnalyticalJacobian.o \
 		./build_ch/GenericLinSolverClass.o \
 		./build_ch/PetscSolverClass.o \

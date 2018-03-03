@@ -24,7 +24,6 @@ module FASMultigridClass
    use TimeIntegratorDefinitions
    use LinearSolverClass
    use BDFTimeIntegrator
-   use BDFFunctions
 #if defined(NAVIERSTOKES)
    use ManufacturedSolutions
 #endif
@@ -423,8 +422,13 @@ module FASMultigridClass
       
       
    end subroutine solve  
-   
-   subroutine computeA_AllLevels(this,lvl)
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------
+!  Signals computeA=.TRUE. in all MG levels
+!  -----------------------------------------
+   recursive subroutine computeA_AllLevels(this,lvl)
       implicit none
       class(FASMultigrid_t), intent(inout) :: this     !<  Current level solver
       integer :: lvl

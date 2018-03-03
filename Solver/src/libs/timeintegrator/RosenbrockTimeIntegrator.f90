@@ -28,11 +28,8 @@ module RosenbrockTimeIntegrator
       integer                                :: NumStages      ! Number of stages of the Rosenbrock scheme
       
       real(kind=RP)            , allocatable :: Y(:,:)         ! Intermediate solutions
-      
-      
-!~      logical                                :: JacByConv     ! .TRUE. if the Jacobian must be computed only when the convergence is bad
-!~      logical                                :: TimeAccurate  ! .TRUE. if this is a time-accurate simulation
-!~      logical                                :: UserNewtonTol ! .TRUE. if the newton tolerance is specified by the user
+      logical                                :: JacByConv     ! .TRUE. if the Jacobian must be computed only when the convergence is bad
+      logical                                :: TimeAccurate  ! .TRUE. if this is a time-accurate simulation
       
       contains
          procedure :: construct
