@@ -130,7 +130,7 @@ contains
       logical :: computeA  ! Must the linear solver compute the Jacobian?
       !--------------------------------------------------------
       
-      computeA = .FALSE. ! Check this!
+      computeA = .TRUE. ! Check this!
       this % Y = 0._RP
       
       write(STD_OUT, "(A8,x,A18,x,A10,x,A9)") "Stage", "LinSolverErr","iterations","CONVERGED"

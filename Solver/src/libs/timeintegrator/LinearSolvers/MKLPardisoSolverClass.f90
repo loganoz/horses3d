@@ -16,7 +16,9 @@ MODULE MKLPardisoSolverClass
    use TimeIntegratorDefinitions
    use NumericalJacobian
    IMPLICIT NONE
-   
+#ifdef HAS_PETSC
+#include <petsc.h>
+#endif
    TYPE, EXTENDS(GenericLinSolver_t) :: MKLPardisoSolver_t
       TYPE(csrMat_t)                             :: A                                  ! Jacobian matrix
       type(PETSCMatrix_t)                        :: PETScA
@@ -65,6 +67,9 @@ MODULE MKLPardisoSolverClass
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
       procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
       !-----------------------------------------------------------
+#ifdef HAS_PETSC
+      PetscErrorCode :: ierr
+#endif
       INTERFACE
          SUBROUTINE pardisoinit(pt, mtype, iparm)
             USE SMConstants
@@ -75,6 +80,11 @@ MODULE MKLPardisoSolverClass
          END SUBROUTINE pardisoinit
       END INTERFACE
       !-----------------------------------------------------------
+#ifdef HAS_PETSC
+      CALL PetscInitialize(PETSC_NULL_CHARACTER,ierr)
+#else
+      ERROR stop "MKL-Pardiso needs PETSc for constructung the Jacobian Matrix"
+#endif
       
       MatrixShift => MatrixShiftFunc
       

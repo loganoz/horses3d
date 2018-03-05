@@ -43,6 +43,7 @@ MODULE PetscSolverClass
          PROCEDURE                                  :: SetRHSValue
          PROCEDURE                                  :: GetXValues
          PROCEDURE                                  :: GetXValue
+         PROCEDURE                                  :: GetX
          PROCEDURE                                  :: SetOperatorDt
          PROCEDURE                                  :: ReSetOperatorDt
          PROCEDURE                                  :: AssemblyRHS
@@ -353,7 +354,34 @@ MODULE PetscSolverClass
       STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE GetXValue
+!
 !//////////////////////////////////////////////////////////////////////////////////////////////////
+!   
+   function GetX(this) result(x)
+      IMPLICIT NONE
+      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)      :: this
+#ifdef HAS_PETSC
+      
+      PetscScalar                                           :: x(this % DimPrb)
+      !------------------------------------------
+      PetscInt                          :: irow(this % DimPrb), i
+      PetscErrorCode                    :: ierr
+      !------------------------------------------
+      
+      irow = (/ (i, i=0, this % DimPrb-1) /)
+      
+      CALL VecGetValues(this%x,this % DimPrb ,irow,x, ierr)
+      CALL CheckPetscErr(ierr, 'error in VecGetValue')
+      
+#else
+      INTEGER         :: irow
+      REAL(kind=RP)                        :: x(this % DimPrb)
+      STOP ':: PETSc is not linked correctly'
+#endif
+   END function GetX
+!
+!//////////////////////////////////////////////////////////////////////////////////////////////////
+!
    SUBROUTINE SaveMat(this,filename)
       IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT)         :: this

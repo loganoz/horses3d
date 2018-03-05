@@ -26,6 +26,7 @@ module PETScMatrixClass
 #endif
       contains
          procedure :: construct
+         procedure :: destruct
          procedure :: Preallocate
          procedure :: Reset
          procedure :: SetColumn
@@ -123,9 +124,15 @@ module PETScMatrixClass
       CLASS(PETSCMatrix_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
       !---------------------------------------------
+      integer :: i
       
       CALL MatZeroEntries(this%A, ierr)
       CALL CheckPetscErr(ierr,'error in MatZeroEntries')
+      
+      ! secure diagonal entries
+      do i=0, this % NumRows-1
+         CALL MatSetValues(this%A,1,i,1,i,0._RP ,INSERT_VALUES,ierr)
+      end do
 #else
       STOP ':: PETSc is not linked correctly'
 #endif

@@ -47,8 +47,8 @@ module StorageClass
 !     (Q and Qdot are not owned by ElementStorage_t) 
 !  ****************************************
    type ElementStorage_t
-      real(kind=RP), dimension(:,:,:,:),  pointer     :: Q
-      real(kind=RP), dimension(:,:,:,:),  pointer     :: QDot
+      real(kind=RP), dimension(:,:,:,:), pointer, contiguous :: Q
+      real(kind=RP), dimension(:,:,:,:), pointer, contiguous :: QDot
       type(ElementPrevSol_t)           ,  allocatable :: PrevQ(:)
       real(kind=RP), dimension(:,:,:,:),  allocatable :: G
       real(kind=RP), dimension(:,:,:,:),  allocatable :: S
