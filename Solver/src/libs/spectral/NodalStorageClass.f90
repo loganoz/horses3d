@@ -39,6 +39,7 @@ MODULE NodalStorageClass
       real(kind=RP), dimension(:,:), allocatable :: D                         ! DG derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: DT                        ! Trasposed DG derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: hatD                      ! Weak form derivative matrix
+      real(kind=RP), dimension(:,:), allocatable :: hatG                      ! Weak form Laplacian derivative matrix hatG := W⁻¹DᵀWD (where W is the diagonal matrix with the quadrature weights)
       real(kind=RP), dimension(:,:), allocatable :: sharpD                    ! (Two times) the strong form derivative matrix
       real(kind=RP), dimension(:),   allocatable :: xCGL, wbCGL      
       real(kind=RP), dimension(:,:), allocatable :: DCGL, TCheb2Gauss         
@@ -117,6 +118,7 @@ MODULE NodalStorageClass
       ALLOCATE( this % D    (0:N,0:N) )
       ALLOCATE( this % DT   (0:N,0:N) )
       ALLOCATE( this % hatD (0:N,0:N) )
+      ALLOCATE( this % hatG (0:N,0:N) )
       ALLOCATE( this % xCGL (0:N) )
       ALLOCATE( this % wbCGL (0:N) )
       ALLOCATE( this % DCGL (0:N,0:N) )
@@ -158,6 +160,7 @@ MODULE NodalStorageClass
          END DO
       END DO
       
+      this % hatG = matmul(this % hatD, this % D)
 !
 !     --------------------------------------------------------------
 !     Construct the strong form derivative matrices (Skew-Symmetric)

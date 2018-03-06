@@ -33,7 +33,7 @@
       private
       public  InviscidFlux, ViscousFlux
       public  InviscidJacobian
-      public  getStressTensor, SutherlandsLaw
+      public  getStressTensor, SutherlandsLaw, ViscousJacobian
 !
 !     ---------
 !     Constants
@@ -501,10 +501,10 @@
 !
 !     In every G matrix, the first index indicates the flux term and second index indicates the conserved 
 !     variable (gradient) term. For example:
-!                dfdq     := df/dq
-!                            d f(2)  |
-!           df_dgradq(2,4) = ------- |
-!                            d ∇q(4) |q
+!           df_dgradq       := df/d(∇q)
+!                              d f(2)    |
+!           df_dgradq(2,4,i) = --------- |
+!                              d ∇q_i(4) |q
 !
 !     NOTE: Here the thermal conductivity and the viscosity are computed using Sutherland's law!     
 !

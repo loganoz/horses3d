@@ -60,6 +60,7 @@ contains
       real(kind=RP)            , intent(in)    :: time
       class(Matrix_t)          , intent(inout) :: Matrix
       logical        , optional, intent(in)    :: BlockDiagonalized  !<? Construct only the block diagonal?
+#if defined(NAVIERSTOKES)
       !--------------------------------------------
       integer :: eID, fID  ! Element and face counters
       integer :: nnz
@@ -101,23 +102,37 @@ contains
       firstIdx(nelem+1) = firstIdx(nelem) + ndofelm(nelem)
       
 !
+!     ***************************
 !     Preallocate Jacobian matrix
-!     ---------------------------
+!     ***************************
+!
       select type(Matrix_p => Matrix)
+!
+!        If block-diagonal matrix, construct with number of blocks
+!        ----------------------------------------------------------
          type is(DenseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=ndofelm) ! Constructing with block size
-         class default ! Construct with nonzeros in each row
+            call Matrix_p % Preallocate(nnzs=ndofelm)
+!
+!        Otherwise, construct with nonzeros in each row
+!        ----------------------------------------------
+         class default 
             nnz = MAXVAL(ndofelm) ! currently only for block diagonal
             call Matrix % Preallocate(nnz)
       end select
       call Matrix % Reset
 !$omp parallel
 !
+!     **************************************************
+!     Compute the Jacobian of the Numerical Flux (FStar)
+!     **************************************************
+!
+      call ComputeNumericalFluxJacobian(sem % mesh,time,sem % externalState)
+!
 !     ***************
 !     Diagonal blocks
 !     ***************
 !
-      call AnalyticalJacobian_DiagonalBlocks(sem % mesh, time, sem % externalState, Matrix)
+      call AnalyticalJacobian_DiagonalBlocks(sem % mesh, time, Matrix)
 !
 !     *******************
 !     Off-Diagonal blocks
@@ -137,38 +152,43 @@ contains
       write(STD_OUT,'(A,ES10.3,A)') "Analytical Jacobian construction: ", Stopwatch % Elapsedtime("Analytical Jacobian construction"), ' seconds'
       
       call Stopwatch % Reset("Analytical Jacobian construction")
+#else
+      ERROR stop ':: Analytical Jacobian only for NS'
+#endif
    end subroutine AnalyticalJacobian_Compute
+#if defined(NAVIERSTOKES)
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  -----------------------------------------------------------------------------------------------
-!  Subroutine for adding the faces' contribution to the off-diagonal blocks of the Jacobian matrix
-!  -----------------------------------------------------------------------------------------------
-   subroutine AnalyticalJacobian_DiagonalBlocks(mesh,time,externalStateProcedure,Matrix)
+!  -------------------------------------------------------------------------------------------
+!  Subroutine for adding the faces' contribution to the diagonal blocks of the Jacobian matrix
+!  -------------------------------------------------------------------------------------------
+   subroutine AnalyticalJacobian_DiagonalBlocks(mesh,time,Matrix)
       use FaceClass
       implicit none
       !--------------------------------------------
       type(HexMesh), target    , intent(inout) :: mesh
       real(kind=RP)            , intent(in)    :: time
-      procedure(BCState_FCN)                   :: externalStateProcedure
       class(Matrix_t)          , intent(inout) :: Matrix
       !--------------------------------------------
       integer :: eID, fID
       !--------------------------------------------
-#if defined(NAVIERSTOKES)
-      call ComputeNumericalFluxJacobian(mesh,time,externalStateProcedure)
-#endif
 
+!
+!     Project flux Jacobian to corresponding element
+!     ----------------------------------------------
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
          associate (f => mesh % faces(fID)) 
          call f % ProjectFluxJacobianToElements(LEFT ,LEFT )   ! dF/dQL to the left element 
          if (.not. (f % faceType == HMESH_BOUNDARY)) call f % ProjectFluxJacobianToElements(RIGHT,RIGHT)   ! dF/dQR to the right element
-                                                               ! check if right element's rotation is ok for the Jacobian
          end associate
       end do
 !$omp end do
 
+!
+!     Compute each element's diagonal block
+!     -------------------------------------
 !$omp do schedule(runtime)
       do eID = 1, size(mesh % elements)
          associate (e=> mesh % elements(eID))
@@ -183,6 +203,7 @@ contains
 !
 !  -----------------------------------------------------------------------------------------------
 !  Subroutine for adding the faces' contribution to the off-diagonal blocks of the Jacobian matrix
+!  -> Note: Only the interior faces contribute to the off-diagonal blocks
 !  -----------------------------------------------------------------------------------------------
    subroutine AnalyticalJacobian_OffDiagonalBlocks(mesh,Matrix)
       use FaceClass
@@ -191,9 +212,41 @@ contains
       type(HexMesh), target    , intent(inout) :: mesh
       class(Matrix_t)          , intent(inout) :: Matrix
       !--------------------------------------------
+      integer :: eID, fID
+      !--------------------------------------------
       
       ERROR stop ':: Analytical Jacobian not implemented for off-diagonal blocks'
+      ! And will only be for polynomial(ly?) conforming meshes!!!!
       
+!$omp do schedule(runtime)
+      do fID = 1, size(mesh % faces)
+         associate (f => mesh % faces(fID)) 
+         if (f % faceType == HMESH_INTERIOR) then
+!
+!           Project flux Jacobian to opposed elements
+!           -----------------------------------------
+            call f % ProjectFluxJacobianToElements(LEFT ,RIGHT)   ! dF/dQR to the left element
+            call f % ProjectFluxJacobianToElements(RIGHT,LEFT )   ! dF/dQL to the right element 
+!
+!           Compute the two associated off-diagonal blocks
+!           ----------------------------------------------
+            
+            ! For the element on the left
+!~            f % storage(LEFT) % dFStar_dq(1:NCONS,1:NCONS,i,j,RIGHT)
+!~            eL % spAXXX % b(j1,XXX )
+!~            eR % spAYYY % v(j2,YYY ) * 
+            
+      !!!      dfdq(eq1,eq2,i1,k1) * e % spAeta % b(j1,FRONT ) * e % spAeta % v(j2,FRONT ) * di * dk   &
+            
+            
+            ! For the element on the right
+!~            f % storage(RIGHT) % dFStar_dq(1:NCONS,1:NCONS,i,j,LEFT)
+            
+            
+         end if
+         end associate
+      end do
+!$omp end do
    end subroutine AnalyticalJacobian_OffDiagonalBlocks
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -201,7 +254,6 @@ contains
 !  -----------------------------------------------------------------------------------------------
 !  
 !  -----------------------------------------------------------------------------------------------
-#if defined(NAVIERSTOKES)
    subroutine ComputeNumericalFluxJacobian(mesh,time,externalStateProcedure)
       use RiemannSolvers
       use FaceClass
@@ -234,7 +286,12 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -----------------------------------------------------------------------------------------------
-!  
+!  Computes the Jacobian of the numerical flux on a boundary as
+!     dF*    dF*(Q⁺,Q⁻,n^)     dF*(Q⁺,Q⁻,n^)     dQ⁻
+!    ---- = --------------- + --------------- * ----,
+!     dQ⁺      dQ⁺               dQ⁻             dQ⁺
+!  where the last term is the Jacobian of the boundary condition.... +: internal state
+!                                                                    -: internal state
 !  -----------------------------------------------------------------------------------------------
    subroutine ComputeBoundaryFluxJacobian(f,time,externalStateProcedure)
       use RiemannSolvers
@@ -301,7 +358,10 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -----------------------------------------------------------------------------------------------
-!  
+!  Computes the Jacobians of the numerical flux for an inner face as
+!                         dF*(Q⁺,Q⁻,n^)                        dF*(Q⁺,Q⁻,n^) 
+!           dFStar/dqL = ---------------         dFStar/dqR = ---------------
+!                          dQ⁺                                  dQ⁻         
 !  -----------------------------------------------------------------------------------------------
    subroutine ComputeInterfaceFluxJacobian(f)
       use RiemannSolvers
@@ -376,7 +436,6 @@ contains
       end do
       
    end subroutine ExternalStateJacobian
-#endif
 !
 !//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -386,7 +445,6 @@ contains
       type(HexMesh)            , intent(in)    :: mesh
       class(Matrix_t), intent(inout) :: Matrix
       !-------------------------------------
-      real(kind=RP) :: dFdQ(NCONS,NCONS,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3),NDIM) 
       real(kind=RP) :: LocalMat(ndofelm(e % eID),ndofelm(e % eID)) 
       integer :: irow_0(ndofelm(e % eID))         ! Row indexes for the matrix
       integer :: irow(ndofelm(e % eID))           ! Formatted row indexes for the column assignment (small values with index -1)
@@ -395,9 +453,7 @@ contains
       NDOFEL = ndofelm(e % eID)
       irow_0 (1:NDOFEL) = (/ (firstIdx(e % eID) + j, j=0,NDOFEL-1) /)   
          
-         
-         call ComputeContravariantFluxJacobian( e, dFdQ) 
-         call Local_GetDiagonalBlock(e, dFdQ, &
+         call Local_GetDiagonalBlock(e, &
                mesh % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFStar_dqEl(:,:,:,:,e %faceSide(EFRONT )), &
                mesh % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFStar_dqEl(:,:,:,:,e %faceSide(EBACK  )), &
                mesh % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFStar_dqEl(:,:,:,:,e %faceSide(EBOTTOM)), &
@@ -422,16 +478,19 @@ contains
 !  -----------------------------------------------------------------------------------------------
 !  
 !  -----------------------------------------------------------------------------------------------
-   subroutine Local_GetDiagonalBlock(e,dFdQ,dfdq_fr,dfdq_ba,dfdq_bo,dfdq_ri,dfdq_to,dfdq_le,LocalMat)
+   subroutine Local_GetDiagonalBlock(e,dfdq_fr,dfdq_ba,dfdq_bo,dfdq_ri,dfdq_to,dfdq_le,LocalMat)
+      use InviscidMethods
+      use ViscousMethods
       implicit none
       !-------------------------------------------
       type(Element)                    , intent(in) :: e
-      real(kind=RP), dimension(NCONS,NCONS,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3),3), intent(in) :: dFdQ
       real(kind=RP), dimension(NCONS,NCONS,0:e%Nxyz(1),0:e%Nxyz(3)), intent(in) :: dfdq_fr, dfdq_ba
       real(kind=RP), dimension(NCONS,NCONS,0:e%Nxyz(1),0:e%Nxyz(2)), intent(in) :: dfdq_bo, dfdq_to
       real(kind=RP), dimension(NCONS,NCONS,0:e%Nxyz(2),0:e%Nxyz(3)), intent(in) :: dfdq_ri, dfdq_le
       real(kind=RP) :: LocalMat(ndofelm(e % eID),ndofelm(e % eID))
       !-------------------------------------------
+      real(kind=RP) :: dFdQ      (NCONS,NCONS,     0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3),NDIM)
+      real(kind=RP) :: dF_dgradQ (NCONS,NCONS,NDIM,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3),NDIM)
       integer :: i, j             ! Matrix indices
       integer :: i1, j1, k1, eq1  ! variable counters
       integer :: i2, j2, k2, eq2  ! variable counters
@@ -445,6 +504,13 @@ contains
       nEta  = e % Nxyz(2) + 1
       EtaSpa  = NCONS*nXi
       ZetaSpa = NCONS*nXi*nEta
+      
+!
+!     *********************
+!     Inviscid contribution
+!     *********************
+!
+      call InviscidMethod % ComputeInnerFluxJacobian( e, dFdQ) 
       
       LocalMat = 0._RP
       do k2 = 0, e % Nxyz(3) ; do j2 = 0, e % Nxyz(2) ; do i2 = 0, e % Nxyz(1) ; do eq2 = 1, NCONS 
@@ -482,61 +548,158 @@ contains
 !           Volumetric contribution
 !           -----------------------
                            ( dFdQ(eq1,eq2,i2,j2,k2,1) * e % spAXi   % hatD(i1,i2) * dj * dk &
-                           + dFdQ(eq1,eq2,i2,j2,k2,2) * e % spAEta  % hatD(j1,j2) * di * dk &
-                           + dFdQ(eq1,eq2,i2,j2,k2,3) * e % spAZeta % hatD(k1,k2) * di * dj &
+                            + dFdQ(eq1,eq2,i2,j2,k2,2) * e % spAEta  % hatD(j1,j2) * di * dk &
+                            + dFdQ(eq1,eq2,i2,j2,k2,3) * e % spAZeta % hatD(k1,k2) * di * dj &
 !           Faces contribution
 !           ------------------
-                           -   dfdq_fr(eq1,eq2,i1,k1) * e % spAeta % b(j1,FRONT ) * e % spAeta % v(j2,FRONT ) * di * dk   & ! 1 Front
-                           -   dfdq_ba(eq1,eq2,i1,k1) * e % spAeta % b(j1,BACK  ) * e % spAeta % v(j2,BACK  ) * di * dk   & ! 2 Back
-                           -   dfdq_bo(eq1,eq2,i1,j1) * e % spAZeta% b(k1,BOTTOM) * e % spAZeta% v(k2,BOTTOM) * di * dj   & ! 3 Bottom
-                           -   dfdq_to(eq1,eq2,i1,j1) * e % spAZeta% b(k1,TOP   ) * e % spAZeta% v(k2,TOP   ) * di * dj   & ! 5 Top
-                           -   dfdq_ri(eq1,eq2,j1,k1) * e % spAXi  % b(i1,RIGHT ) * e % spAXi  % v(i2,RIGHT ) * dj * dk   & ! 4 Right
-                           -   dfdq_le(eq1,eq2,j1,k1) * e % spAXi  % b(i1,LEFT  ) * e % spAXi  % v(i2,LEFT  ) * dj * dk ) & ! 6 Left
+                            -   dfdq_fr(eq1,eq2,i1,k1) * e % spAeta % b(j1,FRONT ) * e % spAeta % v(j2,FRONT ) * di * dk   & ! 1 Front
+                            -   dfdq_ba(eq1,eq2,i1,k1) * e % spAeta % b(j1,BACK  ) * e % spAeta % v(j2,BACK  ) * di * dk   & ! 2 Back
+                            -   dfdq_bo(eq1,eq2,i1,j1) * e % spAZeta% b(k1,BOTTOM) * e % spAZeta% v(k2,BOTTOM) * di * dj   & ! 3 Bottom
+                            -   dfdq_to(eq1,eq2,i1,j1) * e % spAZeta% b(k1,TOP   ) * e % spAZeta% v(k2,TOP   ) * di * dj   & ! 5 Top
+                            -   dfdq_ri(eq1,eq2,j1,k1) * e % spAXi  % b(i1,RIGHT ) * e % spAXi  % v(i2,RIGHT ) * dj * dk   & ! 4 Right
+                            -   dfdq_le(eq1,eq2,j1,k1) * e % spAXi  % b(i1,LEFT  ) * e % spAXi  % v(i2,LEFT  ) * dj * dk ) & ! 6 Left
                                                                                        * e % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
             
          end do                ; end do                ; end do                ; end do
       end do                ; end do                ; end do                ; end do
-      
+!
+!     ********************
+!     Viscous contribution
+!     ********************
+!
+      if (flowIsNavierStokes) then
+         call ViscousMethod % ComputeInnerFluxJacobian( e, dF_dgradQ) 
+         
+         do k2 = 0, e % Nxyz(3) ; do j2 = 0, e % Nxyz(2) ; do i2 = 0, e % Nxyz(1) ; do eq2 = 1, NCONS 
+            do k1 = 0, e % Nxyz(3) ; do j1 = 0, e % Nxyz(2) ; do i1 = 0, e % Nxyz(1) ; do eq1 = 1, NCONS 
+               
+!              Kronecker deltas
+!              -----------------
+
+               if (i1 == i2) then
+                  di = 1._RP
+               else
+                  di = 0._RP
+               end if
+               if (j1 == j2) then
+                  dj = 1._RP
+               else
+                  dj = 0._RP
+               end if
+               if (k1 == k2) then
+                  dk = 1._RP
+               else
+                  dk = 0._RP
+               end if
+               
+               i = eq1 + i1*NCONS + j1*EtaSpa + k1*ZetaSpa ! row index (1-based)
+               j = eq2 + i2*NCONS + j2*EtaSpa + k2*ZetaSpa ! column index (1-based)
+               
+               LocalMat(i,j) = LocalMat(i,j) &
+
+!              Volumetric contribution
+!              ***********************
+!                 x-component of the flux
+!                 -----------------------
+                - (  dF_dgradQ(eq1,eq2,1,i2,j2,k2,1) * e % spAxi   % hatG(i1,i2) * dj * dk                          &
+                   + dF_dgradQ(eq1,eq2,2,i2,j2,k2,1) * e % spAxi   % hatD(i1,i2) * e % spAEta  % D(j1,j2) * dk      &
+                   + dF_dgradQ(eq1,eq2,3,i2,j2,k2,1) * e % spAxi   % hatD(i1,i2) * e % spAZeta % D(k1,k2) * dj      &
+!                 y-component of the flux
+!                 -----------------------
+                   + dF_dgradQ(eq1,eq2,1,i2,j2,k2,2) * e % spAEta  % hatD(j1,j2) * e % spAXi   % D(i1,i2) * dk      &
+                   + dF_dgradQ(eq1,eq2,2,i2,j2,k2,2) * e % spAEta  % hatG(j1,j2) * di * dk                          &
+                   + dF_dgradQ(eq1,eq2,3,i2,j2,k2,2) * e % spAEta  % hatD(j1,j2) * e % spAZeta % D(k1,k2) * di      &
+!                 y-component of the flux
+!                 -----------------------
+                   + dF_dgradQ(eq1,eq2,1,i2,j2,k2,3) * e % spAZeta % hatD(k1,k2) * e % spAXi   % D(i1,i2) * dj      &
+                   + dF_dgradQ(eq1,eq2,2,i2,j2,k2,3) * e % spAZeta % hatD(k1,k2) * e % spAEta  % D(j1,j2) * di      &
+                   + dF_dgradQ(eq1,eq2,3,i2,j2,k2,3) * e % spAZeta % hatG(k1,k2) * di * dj                        ) &
+                                                                                 * e % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
+               
+            end do                ; end do                ; end do                ; end do
+         end do                ; end do                ; end do                ; end do
+      end if
    end subroutine Local_GetDiagonalBlock
-   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  ----------------------------------------------------------
-!  Subroutine to get the Jacobian of the contravariant fluxes
-!  -> dFdQ (:,:,i,j,k,dim)
-!              |     |
-!           jac|coord|flux in cartesian direction dim 
-!  ----------------------------------------------------------
-   subroutine ComputeContravariantFluxJacobian( e, dFdQ) 
+!  -----------------------------------------------------------------------------------------------
+!  This will be only for conforming representations... Initially
+!  -----------------------------------------------------------------------------------------------
+   subroutine Local_GetOffDiagonalBlock(f,e,side,LocalMat)
+      use FaceClass
       implicit none
-      !--------------------------------------------
-      type(Element)              :: e
-      real(kind=RP), intent(out) :: dFdQ( NCONS, NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM )
-      !--------------------------------------------
-      real(kind=RP), DIMENSION(NCONS,NCONS)  :: dfdq_,dgdq_,dhdq_
-      integer                                :: i,j,k
-      !--------------------------------------------
-#if defined(NAVIERSTOKES)      
-      do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+      !-------------------------------------------
+      type(Face)                       , intent(in)    :: f
+      type(Element)                    , intent(in)    :: e(2)   !<  Elements on the left(1) and right(2) of the face
+      integer                          , intent(in)    :: side   !<  Contribution to equations of left element (1) or right element(2)?
+      real(kind=RP), allocatable       , intent(inout) :: LocalMat(:,:)
+      !-------------------------------------------
+      integer :: i, j             ! Matrix indices
+      integer :: i1, j1, k1, eq1  ! variable counters
+      integer :: i2, j2, k2, eq2  ! variable counters
+      integer :: nXi1, nEta1       ! Number of nodes in every direction
+      integer :: EtaSpa1, ZetaSpa1 ! Spacing for these two coordinate directions
+      integer :: nXi2, nEta2       ! Number of nodes in every direction
+      integer :: EtaSpa2, ZetaSpa2 ! Spacing for these two coordinate directions
+      real(kind=RP) :: di, dj, dk ! Kronecker deltas
+      integer :: Deltas           ! A variable to know if two deltas are zero, in which case this is a zero entry of the matrix..
+      
+      integer, parameter :: other(2) = (/ 2, 1 /)
+      !-------------------------------------------
+      
+!     Allocate block
+!     --------------
+!~      allocate ( LocalMat ( ndofelm(e(side) % eID) , ndofelm(e(other(side)) % eID) ) )
+      
+      
+      
+!~      nXi1     = e(1) % Nxyz(1) + 1
+!~      nEta1    = e(1) % Nxyz(2) + 1
+!~      EtaSpa1  = NCONS*nXi1
+!~      ZetaSpa1 = NCONS*nXi1*nEta1
+      
+!~      nXi2     = e(2) % Nxyz(1) + 1
+!~      nEta2    = e(2) % Nxyz(2) + 1
+!~      EtaSpa2  = NCONS*nXi2
+!~      ZetaSpa2 = NCONS*nXi2*nEta2
+      
+!~      LocalMat = 0._RP
+!~      do k2 = 0, e(other(side)) % Nxyz(3) ; do j2 = 0, e(other(side)) % Nxyz(2) ; do i2 = 0, e(other(side)) % Nxyz(1) ; do eq2 = 1, NCONS 
+!~         do k1 = 0, e(side) % Nxyz(3) ; do j1 = 0, e(side) % Nxyz(2) ; do i1 = 0, e(side) % Nxyz(1) ; do eq1 = 1, NCONS 
+!~            Deltas = 0
+!~!           Kronecker deltas
+!~!           -----------------
 
-         call InviscidJacobian(e % storage % Q(:,i,j,k),dfdq_,dgdq_,dhdq_)
-         
-         
-         dFdQ(:,:,i,j,k,IX) = e % geom % jGradXi  (1,i,j,k) * dfdq_ + &
-                              e % geom % jGradXi  (2,i,j,k) * dgdq_ + &
-                              e % geom % jGradXi  (3,i,j,k) * dhdq_ 
+!~            if (i1 == i2) then
+!~               di = 1._RP
+!~               Deltas = Deltas + 1
+!~            else
+!~               di = 0._RP
+!~            end if
+!~            if (j1 == j2) then
+!~               dj = 1._RP
+!~               Deltas = Deltas + 1
+!~            else
+!~               dj = 0._RP
+!~            end if
+!~            if (k1 == k2) then
+!~               dk = 1._RP
+!~               Deltas = Deltas + 1
+!~            else
+!~               dk = 0._RP
+!~            end if
+            
+!~            if (Deltas < 2) cycle
 
-         dFdQ(:,:,i,j,k,IY) = e % geom % jGradEta (1,i,j,k) * dfdq_ + &
-                              e % geom % jGradEta (2,i,j,k) * dgdq_ + &
-                              e % geom % jGradEta (3,i,j,k) * dhdq_ 
-
-         dFdQ(:,:,i,j,k,IZ) = e % geom % jGradZeta(1,i,j,k) * dfdq_ + &
-                              e % geom % jGradZeta(2,i,j,k) * dgdq_ + &
-                              e % geom % jGradZeta(3,i,j,k) * dhdq_ 
-      end do                ; end do                ; end do
+!~            i = eq1 + i1*NCONS + j1*EtaSpa1 + k1*ZetaSpa1 ! row index (1-based)
+!~            j = eq2 + i2*NCONS + j2*EtaSpa2 + k2*ZetaSpa2 ! column index (1-based)
+            
+!~!            LocalMat(i,j) = 1
+            
+!~         end do                ; end do                ; end do                ; end do
+!~      end do                ; end do                ; end do                ; end do
+      
+   end subroutine Local_GetOffDiagonalBlock
 #endif
-   end subroutine ComputeContravariantFluxJacobian
-   
-
 end module AnalyticalJacobian

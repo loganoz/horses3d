@@ -15,6 +15,7 @@ module ViscousMethodClass
          procedure      :: Initialize                => BaseClass_Initialize
          procedure      :: ComputeGradient           => BaseClass_ComputeGradient
          procedure      :: ComputeInnerFluxes        => BaseClass_ComputeInnerFluxes
+         procedure      :: ComputeInnerFluxJacobian  => BaseClass_ComputeInnerFluxJacobian
          procedure      :: ComputeInnerFluxesWithSGS => BaseClass_ComputeInnerFluxesWithSGS
          procedure      :: RiemannSolver             => BaseClass_RiemannSolver
          procedure      :: RiemannSolverWithSGS      => BaseClass_RiemannSolverWithSGS
@@ -47,6 +48,7 @@ module ViscousMethodClass
 !
 !        *****************************************************
 !           BaseClass computes Local Gradients by default
+!              Do not change.. Used by ComputeTimeDerivativeIsolated
 !        *****************************************************
 !           
          use HexMeshClass
@@ -87,7 +89,51 @@ module ViscousMethodClass
          contravariantFlux = 0.0_RP
 
       end subroutine BaseClass_ComputeInnerFluxes
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ----------------------------------------------------------
+!     Subroutine to get the Jacobian of the contravariant fluxes
+!     -> dFdQ (:,:,i,j,k,dim)
+!                 |     |
+!              jac|coord|flux in cartesian direction dim 
+!     ----------------------------------------------------------
+      subroutine BaseClass_ComputeInnerFluxJacobian( self, e, dFdQ) 
+         use ElementClass
+         use Physics
+         use PhysicsStorage
+         implicit none
+         !--------------------------------------------
+         class(ViscousMethod_t), intent(in)  :: self
+         type(Element)         , intent(in)  :: e
+         real(kind=RP)         , intent(out) :: dFdQ( NCONS, NCONS, NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM )
+         !--------------------------------------------
+         real(kind=RP), DIMENSION(NCONS,NCONS,NDIM)  :: df_dgradq, dg_dgradq, dh_dgradq
+         integer                                     :: i,j,k
+         !--------------------------------------------
+#if defined(NAVIERSTOKES)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            
+            call ViscousJacobian(e % storage % Q(:,i,j,k), df_dgradq, dg_dgradq, dh_dgradq)
+            
+            
+            dFdQ(:,:,:,i,j,k,IX) = e % geom % jGradXi  (1,i,j,k) * df_dgradq + &
+                                   e % geom % jGradXi  (2,i,j,k) * dg_dgradq + &
+                                   e % geom % jGradXi  (3,i,j,k) * dh_dgradq 
 
+            dFdQ(:,:,:,i,j,k,IY) = e % geom % jGradEta (1,i,j,k) * df_dgradq + &
+                                   e % geom % jGradEta (2,i,j,k) * dg_dgradq + &
+                                   e % geom % jGradEta (3,i,j,k) * dh_dgradq 
+
+            dFdQ(:,:,:,i,j,k,IZ) = e % geom % jGradZeta(1,i,j,k) * df_dgradq + &
+                                   e % geom % jGradZeta(2,i,j,k) * dg_dgradq + &
+                                   e % geom % jGradZeta(3,i,j,k) * dh_dgradq 
+         end do                ; end do                ; end do
+#endif
+      end subroutine BaseClass_ComputeInnerFluxJacobian
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       subroutine BaseClass_ComputeInnerFluxesWithSGS( self , e , contravariantFlux )
          use ElementClass
          use PhysicsStorage
