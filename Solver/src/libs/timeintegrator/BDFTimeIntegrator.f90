@@ -29,11 +29,13 @@ MODULE BDFTimeIntegrator
 !  ********************
    type BDFIntegrator_t
       
-      class(GenericLinSolver_t), allocatable :: linsolver     ! Linear solver
-      logical                                :: JacByConv     ! .TRUE. if the Jacobian must be computed only when the convergence is bad
-      logical                                :: TimeAccurate  ! .TRUE. if this is a time-accurate simulation
-      logical                                :: UserNewtonTol ! .TRUE. if the newton tolerance is specified by the user
-      real(kind=RP)                          :: NewtonTol     ! Specified Newton tolerance
+      class(GenericLinSolver_t), allocatable :: linsolver     !  Linear solver
+      integer                                :: StepsForJac   !· Maximum number of steps that should be taken for computing a new Jacobian matrix
+      integer                                :: StepsSinceJac !  
+      logical                                :: JacByConv     !· .TRUE. if the Jacobian must be computed only when the convergence is bad
+      logical                                :: TimeAccurate  !· .TRUE. if this is a time-accurate simulation
+      logical                                :: UserNewtonTol !· .TRUE. if the newton tolerance is specified by the user
+      real(kind=RP)                          :: NewtonTol     !  Specified Newton tolerance
       
       contains
          procedure :: construct => ConstructBDFIntegrator
@@ -109,6 +111,7 @@ contains
          this % NewtonTol = NEWTON_TOL_DEFAULT
       end if
       
+      this % StepsForJac = controlVariables % integerValueForKey("compute jacobian every")
 !
 !     Setup linear solver
 !     -------------------
@@ -213,6 +216,15 @@ contains
 !        Perform Newton interative procedure
 !        -----------------------------------
          
+         if (computeA) then
+            this % StepsSinceJac = 0
+         else
+            this % StepsSinceJac = this % StepsSinceJac + 1
+            if (this % StepsSinceJac == this % StepsForJac) then
+               computeA = .TRUE.
+               this % StepsSinceJac = 0
+            end if
+         end if
          CALL NewtonSolve(sem, time+inner_dt, inner_dt, this % linsolver, this % NewtonTol, &
                           this % JacByConv,ConvRate, newtonit,CONVERGED, ComputeTimeDerivative)
          
