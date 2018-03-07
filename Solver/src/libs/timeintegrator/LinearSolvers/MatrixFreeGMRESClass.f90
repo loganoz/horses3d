@@ -13,11 +13,15 @@ module MatrixFreeGMRESClass
    use SMConstants
    use DGSEMClass
    use FTValueDictionaryClass
+   use MatrixClass
    implicit none
    
    private
    public   :: MatFreeGMRES_t 
    
+!  ***********************
+!  Matrix-Free GMRES class
+!  ***********************
    type, extends(GenericLinSolver_t) :: MatFreeGMRES_t
       integer                              :: m = 60           ! Number of GMRES iterations before restart -- Default petsc value m=30 
       integer                              :: maxiter = 500
@@ -29,7 +33,6 @@ module MatrixFreeGMRESClass
       real(kind=RP), allocatable           :: x(:)
       real(kind=RP), allocatable           :: x0(:)
       real(kind=RP)                        :: rnorm
-      integer                              :: Preconditioner   ! Which preconditioner is being used (PC_NONE, PC_GMRES, PC_BlockJacobi -last one to be developed)
       
       type(DGSem), pointer                 :: p_sem            ! Associated sem
       real(kind=RP), allocatable           :: F_Ur(:)          ! Qdot at the beginning of solving procedure
@@ -38,7 +41,17 @@ module MatrixFreeGMRESClass
       real(kind=RP)                        :: timesolve        ! Time at the solution
       real(kind=RP)                        :: dtsolve          ! dt for the solution
       
-      ! Krylov subspace variables:
+!     Variables for preconditioners
+!     -----------------------------
+      integer                                :: Preconditioner    ! Which preconditioner is being used (PC_NONE, PC_GMRES, PC_BlockJacobi)
+      ! Block-Jacobi:
+      type(DenseBlockDiagMatrix_t)           :: BlockA            ! Block-diagonal Jacobian matrix for BlockJacobi preconditioner
+      type(DenseBlockDiagMatrix_t)           :: BlockPreco        ! LU factorized Block-diagonal Jacobian matrix for BlockJacobi preconditioner (in each block Matrix = L+U, Indexes = LU-pivots)
+      ! GMRES:
+      type(MatFreeGMRES_t), pointer, private :: PCsolver          ! Inner GMRES solver for preconditioning
+      
+!     Krylov subspace variables
+!     -------------------------
       real(kind=RP), allocatable, private  :: H(:,:)
       real(kind=RP), allocatable, private  :: W(:)
       real(kind=RP), allocatable, private  :: V(:,:)           ! Orthogonal vectors of Krylov subspace (Arnoldi)
@@ -48,7 +61,6 @@ module MatrixFreeGMRESClass
       real(kind=RP), allocatable, private  :: ss(:)
       real(kind=RP), allocatable, private  :: g(:)
       
-      TYPE(MatFreeGMRES_t), pointer, private :: PCsolver ! Inner GMRES solver for preconditioning
       
       contains
          ! Overriden procedures:
@@ -73,7 +85,10 @@ module MatrixFreeGMRESClass
          ! Internal procedures:
          procedure :: p_F         ! Get the time derivative for a specific global Q
          procedure :: MatFreeAx   ! Matrix action
-         procedure :: PC_GMRES_Ax ! Matrix free multiplication used for GMRES recursive preconditioning
+         
+         ! Preconditioner action procedures
+         procedure :: PC_GMRES_Ax         ! P⁻¹x for GMRES recursive preconditioning
+         procedure :: PC_BlockJacobi_Ax   ! P⁻¹x for Block-Jacobi preconditioning
    end type MatFreeGMRES_t
 
    abstract interface
@@ -100,6 +115,7 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       recursive subroutine ConstructSolver(this,DimPrb,controlVariables, sem,MatrixShiftFunc)
+         use PhysicsStorage
          implicit none
          !------------------------------------------------
          class(MatFreeGMRES_t)  , intent(inout), target :: this
@@ -109,6 +125,9 @@ contains
          procedure(MatrixShift_FCN)                     :: MatrixShiftFunc
          !------------------------------------------------
          character(len=LINE_LENGTH)                 :: pc
+         integer                                    :: nelem
+         integer                                    :: k, Nx, Ny, Nz
+         integer, allocatable                       :: ndofelm(:)
          !------------------------------------------------
          
          if (.not. present(sem)) ERROR stop ':: Matrix free GMRES needs sem'
@@ -147,6 +166,28 @@ contains
                   this % maxiter = 60                             ! Hardcoded to 60... old: 30
                   this % Preconditioner = PC_GMRES
 !              
+!              Block-Jacobi preconditioner
+!              ---------------------------
+               case('BlockJacobi')
+                  allocate(this%Z(this%DimPrb,this%m+1))
+                  
+                  nelem = sem % mesh % no_of_elements
+                  call this % BlockA % construct(nelem)
+                  call this % BlockPreco % construct(nelem)
+                  
+                  allocate ( ndofelm(nelem) )
+                  do k = 1, nelem
+                     Nx = sem % mesh % elements(k) % Nxyz(1)
+                     Ny = sem % mesh % elements(k) % Nxyz(2)
+                     Nz = sem % mesh % elements(k) % Nxyz(3)
+                     ndofelm(k) = NCONS*(Nx+1)*(Ny+1)*(Nz+1)
+                  end do
+                  call this % BlockPreco % PreAllocate(nnzs = ndofelm)
+                  
+                  deallocate ( ndofelm )
+                  
+                  this % Preconditioner = PC_BlockJacobi
+!                 
 !              No preconditioner
 !              -----------------
                case default
@@ -306,10 +347,15 @@ contains
          deallocate(this%ss)
          deallocate(this%g)
          
-         if (this % Preconditioner == PC_GMRES) then
-            deallocate(this%Z)
-            call this % PCsolver % destroy
-         end if
+         select case (this % Preconditioner)
+            case (PC_GMRES)
+               deallocate(this%Z)
+               call this % PCsolver % destroy
+            case (PC_BlockJacobi)
+               deallocate(this%Z)
+               call this % BlockA % destruct
+               call this % BlockPreco % destruct
+         end select
       end subroutine DestructSolver
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -323,6 +369,11 @@ contains
          
          this % dtsolve = dt
          
+         if (this % Preconditioner == PC_BlockJacobi) then
+            call this % BlockA % shift( MatrixShift(dt) )
+            call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
+         end if
+         
       END SUBROUTINE SetOperatorDt
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -335,6 +386,11 @@ contains
          !------------------------------------------------
          
          this % dtsolve = dt
+         
+         if (this % Preconditioner == PC_BlockJacobi) then
+            call this % BlockA % shift( MatrixShift(dt) )
+            call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
+         end if
          
       END SUBROUTINE ReSetOperatorDt
 !
@@ -400,7 +456,10 @@ contains
          do j = 1,m ! Krylov loop
             select case (this % Preconditioner)
                case (PC_GMRES)
-                  call this%PC_GMRES_Ax(this%V(:,j),this%Z(:,j), ComputeTimeDerivative)
+                  call this % PC_GMRES_Ax(this%V(:,j),this%Z(:,j), ComputeTimeDerivative)
+                  call this % MatFreeAx(this%Z(:,j),this%W, ComputeTimeDerivative)
+               case (PC_BlockJacobi)
+                  call this % PC_BlockJacobi_Ax(this%V(:,j),this%Z(:,j))
                   call this % MatFreeAx(this%Z(:,j),this%W, ComputeTimeDerivative)
                case default ! PC_NONE
                   call this % MatFreeAx(this%V(:,j),this%W, ComputeTimeDerivative)
@@ -464,16 +523,17 @@ contains
          end if ! m > 0
          
          select case (this % Preconditioner)
-            case (PC_GMRES)
-               this%x = this%x0 + MATMUL(this%Z(:,1:m),this%y(1:m))
-            case default !PC_NONE
+            case (PC_NONE)
                this%x = this%x0 + MATMUL(this%V(:,1:m),this%y(1:m))
+            case default !PC_GMRES, PC_BlockJacobi
+               this%x = this%x0 + MATMUL(this%Z(:,1:m),this%y(1:m))
          end select
        end subroutine innerGMRES
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ! 
       recursive subroutine SolveGMRES(this, ComputeTimeDerivative, tol, maxiter,time,dt,computeA)
+         use AnalyticalJacobian
          implicit none
          !----------------------------------------------------
          class(MatFreeGMRES_t), intent(inout)      :: this
@@ -506,6 +566,31 @@ contains
          
          this % Ur   = this % p_sem % mesh % storage % Q
          this % F_Ur = this % p_F (this % Ur, ComputeTimeDerivative)    ! need to compute the time derivative?
+          
+!        Preconditioner initializations
+!        ------------------------------
+         select case (this % Preconditioner)
+            case (PC_BlockJacobi)
+               if ( present(ComputeA)) then
+                  if (ComputeA) then
+                     call AnalyticalJacobian_Compute(this % p_sem, this % timesolve, this % BlockA,.TRUE.)
+!~                     call NumericalJacobian_Compute(this % p_sem, this % timesolve, this % BlockA, ComputeTimeDerivative, .TRUE. )
+                     
+                     call this % BlockA % shift( MatrixShift(dt) )
+                     call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
+                     ComputeA = .FALSE.
+                  end if
+               else
+                  call AnalyticalJacobian_Compute(this % p_sem, this % timesolve, this % BlockA,.TRUE.)
+!~                  call NumericalJacobian_Compute(this % p_sem, this % timesolve, this % BlockA, ComputeTimeDerivative, .TRUE. )
+                  
+                  call this % BlockA % shift( MatrixShift(dt) )
+                  call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
+               end if
+         end select
+         
+!        Initializations
+!        ---------------
          
          this%niter = 0
          this%CONVERGED = .FALSE.
@@ -540,9 +625,9 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!     ---------------------------------------------------
-!     Returns the preconditioning product   Pv = P⁻¹ * v 
-!     ---------------------------------------------------
+!     -----------------------------------------------------------------------------------------
+!     Returns the preconditioning product   Pv = P⁻¹ * v for the GMRES recursive preconditioner
+!     -----------------------------------------------------------------------------------------
       subroutine PC_GMRES_Ax(this,v, Pv, ComputeTimeDerivative)
          implicit none
          !---------------------------------------------------------
@@ -559,6 +644,27 @@ contains
 !         n_preco_iter = n_preco_iter + PCSolver%niter     ! Not really needed
                         
       END subroutine PC_GMRES_Ax
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     --------------------------------------------------------------------------------------
+!     Returns the preconditioning product   Pv = P⁻¹ * v for the Block-Jacobi preconditioner
+!     --------------------------------------------------------------------------------------
+      subroutine PC_BlockJacobi_Ax(this, v, Pv)
+         use DenseMatUtilities
+         implicit none
+         !---------------------------------------------------------
+         class(MatFreeGMRES_t), intent(inout) :: this
+         real(kind=RP)        , intent(in)    :: v(:)
+         real(kind=RP)        , intent(out)   :: Pv(:)
+         !---------------------------------------------------------
+         integer :: eID
+         real(kind=RP), allocatable :: x(:)
+         !---------------------------------------------------------
+         
+         call this % BlockPreco % SolveBlocks_LU(Pv,v)
+         
+      end subroutine PC_BlockJacobi_Ax
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

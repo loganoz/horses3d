@@ -33,6 +33,8 @@ module DenseBlockDiagonalMatrixClass
          procedure :: Reset
          procedure :: SetColumn
          procedure :: shift
+         procedure :: FactorizeBlocks_LU
+         procedure :: SolveBlocks_LU
    end type DenseBlockDiagMatrix_t
 contains
 !
@@ -173,5 +175,69 @@ contains
 !$omp end parallel do
       
    end subroutine shift
-   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --------------------------------------------------------
+!  Factorizes the blocks of the matrix as A=LU
+!  -> Stores L+U in Factorized % Blocks(:) % Matrix
+!  -> Stores the pivots in Factorized % Blocks(:) % Indexes
+!  --------------------------------------------------------
+   subroutine FactorizeBlocks_LU(this,Factorized)
+      use DenseMatUtilities
+      implicit none
+      !-------------------------------------------------------------
+      class(DenseBlockDiagMatrix_t), intent(in)    :: this            !<  This matrix
+      class(DenseBlockDiagMatrix_t), intent(inout) :: Factorized      !<  Facorized matrix
+      !-------------------------------------------------------------
+      integer :: k      ! Counter
+      !-------------------------------------------------------------
+      
+!$omp parallel do schedule(runtime)
+      do k=1, this % NumOfBlocks
+         call ComputeLU (A        = this       % Blocks(k) % Matrix, &
+                         ALU      = Factorized % Blocks(k) % Matrix, &
+                         LUpivots = Factorized % Blocks(k) % Indexes)
+      end do
+!$omp end parallel do
+      
+   end subroutine FactorizeBlocks_LU
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --------------------------------------------------------
+!  Solves a system of the for Ax=b using LU factorization in each block
+!  -> To be used with a matrix factorized using FactorizeBlocks_LU (Factorized)
+!  -> 
+!  --------------------------------------------------------
+   subroutine SolveBlocks_LU(this,x,b)
+      use DenseMatUtilities
+      implicit none
+      !-------------------------------------------------------------
+      class(DenseBlockDiagMatrix_t), intent(in)    :: this                 !<  FACTORIZED matrix for solving the problem
+      real(kind=RP)                , intent(in)    :: b(this % NumRows)    !<  RHS
+      real(kind=RP)                , intent(inout) :: x(this % NumRows)    !<  Solution
+      !-------------------------------------------------------------
+      integer                    :: k        ! Counter
+      real(kind=RP), allocatable :: x_loc(:) ! Local x
+      !-------------------------------------------------------------
+      
+!$omp parallel do private(x_loc) schedule(runtime)
+      do k = 1, this % NumOfBlocks
+         allocate( x_loc(this % BlockSizes(k)) )
+         call SolveLU(ALU      = this % Blocks(k) % Matrix, &
+                      LUpivots = this % Blocks(k) % Indexes, &
+                      x = x_loc, &
+                      b = b ( this % BlockIdx(k):this % BlockIdx(k+1)-1 ) )
+!$omp critical
+         x( this % BlockIdx(k):this % BlockIdx(k+1)-1 ) = x_loc
+!$omp end critical
+         deallocate(x_loc)
+      end do
+!$omp end parallel do
+      
+   end subroutine SolveBlocks_LU
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 end module DenseBlockDiagonalMatrixClass

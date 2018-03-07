@@ -11,7 +11,8 @@
 !//////////////////////////////////////////////////////
 !
 !  This module provides the routines for computing the analytical Jacobian matrix
-!  -> Implemented for inviscid terms
+!  -> Implemented for inviscid terms (diagonal blocks)
+!  -> Viscous terms are under development
 !  -> TODO: MPI implementation is missing
 !  -> The Jacobian of the BCs is temporarily computed numerically
 !
