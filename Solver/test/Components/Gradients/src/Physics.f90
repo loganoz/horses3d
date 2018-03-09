@@ -657,13 +657,11 @@
 
       end subroutine ViscousFlux3D
       
-      pure subroutine ViscousJacobian(q, df_dgradq, dg_dgradq, dh_dgradq)
+      pure subroutine ViscousJacobian(q, df_dgradq)
          implicit none
          !-------------------------------------------------
          real(kind=RP), intent(in)  :: q(NCONS)                      !< Conserved variables state
-         real(kind=RP), intent(out) :: df_dgradq(NCONS,NCONS,NDIM)
-         real(kind=RP), intent(out) :: dg_dgradq(NCONS,NCONS,NDIM)
-         real(kind=RP), intent(out) :: dh_dgradq(NCONS,NCONS,NDIM)
+         real(kind=RP), intent(out) :: df_dgradq(NCONS,NCONS,NDIM,NDIM)
          !-------------------------------------------------
          ! DO NOTHING
       end subroutine ViscousJacobian

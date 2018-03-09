@@ -92,12 +92,16 @@ module ViscousMethodClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!     ----------------------------------------------------------
-!     Subroutine to get the Jacobian of the contravariant fluxes
-!     -> dFdQ (:,:,i,j,k,dim)
-!                 |     |
-!              jac|coord|flux in cartesian direction dim 
-!     ----------------------------------------------------------
+!     --------------------------------------------------------------------------------------------------
+!     Subroutine to get the Jacobian of the contravariant fluxes (with respect to ∇q) on the inner Gauss points of an element
+!     -> The contravariant Jacobian is a 4th order tensor in every Gauss point
+!     -> dFdQ (:,:,:,i,j,k,dim)
+!              |_| | |_|_| |
+!               |  |  |    |_flux direction: f(1), g(2), h(3)
+!               |  |  |______Coordinate indexes in element 
+!               |  |_________∇q component: 1, 2, 3
+!               |____________Jacobian for this component
+!     --------------------------------------------------------------------------------------------------
       subroutine BaseClass_ComputeInnerFluxJacobian( self, e, dFdQ) 
          use ElementClass
          use Physics
@@ -105,29 +109,57 @@ module ViscousMethodClass
          implicit none
          !--------------------------------------------
          class(ViscousMethod_t), intent(in)  :: self
-         type(Element)         , intent(in)  :: e
-         real(kind=RP)         , intent(out) :: dFdQ( NCONS, NCONS, NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM )
+         type(Element)         , intent(in)  :: e                                                                             !<  This element
+         real(kind=RP)         , intent(out) :: dFdQ( NCONS, NCONS, NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM ) !>  Contravariant Jacobians for each Gaus point in the element
          !--------------------------------------------
-         real(kind=RP), DIMENSION(NCONS,NCONS,NDIM)  :: df_dgradq, dg_dgradq, dh_dgradq
-         integer                                     :: i,j,k
+         real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq   ! Cartesian Jacobian tensor
+         real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq_  ! Intermediate Jacobian tensor (between the cartesian and the contravariant)
+         integer :: i,j,k     ! Coordinate counters
+         integer :: i1, i2    ! Index of G_xx
          !--------------------------------------------
 #if defined(NAVIERSTOKES)
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             
-            call ViscousJacobian(e % storage % Q(:,i,j,k), df_dgradq, dg_dgradq, dh_dgradq)
+            call ViscousJacobian(e % storage % Q(:,i,j,k), df_dgradq)
             
+!           Fill intermedate Jacobian tensor
+!           --------------------------------
+            df_dgradq_ = 0._RP
+            do i1 = 1, NDIM ; do i2 = 1, NDIM
+               df_dgradq_(:,:,i1,1) = df_dgradq_(:,:,i1,1) + df_dgradq(:,:,i2,i1) * e % geom % jGradXi  (i2,i,j,k)
+            end do          ; end do
+            do i1 = 1, NDIM ; do i2 = 1, NDIM
+               df_dgradq_(:,:,i1,2) = df_dgradq_(:,:,i1,2) + df_dgradq(:,:,i2,i1) * e % geom % jGradEta (i2,i,j,k)
+            end do          ; end do
+            do i1 = 1, NDIM ; do i2 = 1, NDIM
+               df_dgradq_(:,:,i1,3) = df_dgradq_(:,:,i1,3) + df_dgradq(:,:,i2,i1) * e % geom % jGradZeta(i2,i,j,k)
+            end do          ; end do
+            df_dgradq_ = df_dgradq_ * e % geom % invJacobian(i,j,k)
             
-            dFdQ(:,:,:,i,j,k,IX) = e % geom % jGradXi  (1,i,j,k) * df_dgradq + &
-                                   e % geom % jGradXi  (2,i,j,k) * dg_dgradq + &
-                                   e % geom % jGradXi  (3,i,j,k) * dh_dgradq 
-
-            dFdQ(:,:,:,i,j,k,IY) = e % geom % jGradEta (1,i,j,k) * df_dgradq + &
-                                   e % geom % jGradEta (2,i,j,k) * dg_dgradq + &
-                                   e % geom % jGradEta (3,i,j,k) * dh_dgradq 
-
-            dFdQ(:,:,:,i,j,k,IZ) = e % geom % jGradZeta(1,i,j,k) * df_dgradq + &
-                                   e % geom % jGradZeta(2,i,j,k) * dg_dgradq + &
-                                   e % geom % jGradZeta(3,i,j,k) * dh_dgradq 
+!           Fill Finished Jacobian contravariant tensor
+!           *******************************************
+            
+!           Xi-flux
+!           -------
+            dFdQ(:,:,:,i,j,k,1) = 0._RP
+            do i1 = 1, NDIM ; do i2 = 1, NDIM
+               dFdQ(:,:,i1,i,j,k,1) = dFdQ(:,:,i1,i,j,k,1) + df_dgradq_(:,:,i2,i1) * e % geom % jGradXi  (i2,i,j,k)
+            end do          ; end do
+            
+!           Eta-flux
+!           --------
+            dFdQ(:,:,:,i,j,k,2) = 0._RP
+            do i1 = 1, NDIM ; do i2 = 1, NDIM
+               dFdQ(:,:,i1,i,j,k,2) = dFdQ(:,:,i1,i,j,k,2) + df_dgradq_(:,:,i2,i1) * e % geom % jGradEta (i2,i,j,k)
+            end do          ; end do
+            
+!           Zeta-flux
+!           ---------
+            dFdQ(:,:,:,i,j,k,3) = 0._RP
+            do i1 = 1, NDIM ; do i2 = 1, NDIM
+               dFdQ(:,:,i1,i,j,k,3) = dFdQ(:,:,i1,i,j,k,3) + df_dgradq_(:,:,i2,i1) * e % geom % jGradZeta(i2,i,j,k)
+            end do          ; end do
+            
          end do                ; end do                ; end do
 #endif
       end subroutine BaseClass_ComputeInnerFluxJacobian

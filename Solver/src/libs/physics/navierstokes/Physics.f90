@@ -499,24 +499,23 @@
 !
 !     F_i = G_{i:} · ∇q
 !
-!     In every G matrix, the first index indicates the flux term and second index indicates the conserved 
+!     In every G_xx matrix, the first index indicates the flux term and second index indicates the conserved 
 !     variable (gradient) term. For example:
 !           df_dgradq       := df/d(∇q)
 !                              d f(2)    |
 !           df_dgradq(2,4,i) = --------- |
 !                              d ∇q_i(4) |q
+!     Therefore, df_dgradq = G is a 4th order tensor
 !
 !     NOTE: Here the thermal conductivity and the viscosity are computed using Sutherland's law!     
 !
 !     ***** This routine is necessary for computing the analytical Jacobian. *****
 !     ------------------------------------------------------------------------------------------
-      pure subroutine ViscousJacobian(q, df_dgradq, dg_dgradq, dh_dgradq)
+      pure subroutine ViscousJacobian(q, df_dgradq)
          implicit none
          !-------------------------------------------------
          real(kind=RP), intent(in)  :: q(NCONS)                      !< Conserved variables state
-         real(kind=RP), intent(out) :: df_dgradq(NCONS,NCONS,NDIM)
-         real(kind=RP), intent(out) :: dg_dgradq(NCONS,NCONS,NDIM)
-         real(kind=RP), intent(out) :: dh_dgradq(NCONS,NCONS,NDIM)
+         real(kind=RP), intent(out) :: df_dgradq(NCONS,NCONS,NDIM,NDIM)
          !-------------------------------------------------
          real(kind=RP)            :: T , sutherLaw
          real(kind=RP)            :: u , v , w, u2, v2, w2, Vel2
@@ -547,81 +546,81 @@
 !        ----------------------------------------
          
          ! G_{11}
-         df_dgradq(:,1,1) = (/ 0._RP , -f4_3*u ,      -v ,      -w , -(f4_3*u2 + v2 + w2 + gamma_Pr*(Q(IRHOE) - Vel2)) /)
-         df_dgradq(:,2,1) = (/ 0._RP ,  f4_3   ,   0._RP ,   0._RP , u * (  f4_3 - gamma_Pr)                           /)
-         df_dgradq(:,3,1) = (/ 0._RP ,   0._RP ,   1._RP ,   0._RP , v * (1.0_RP - gamma_Pr)                           /)
-         df_dgradq(:,4,1) = (/ 0._RP ,   0._RP ,   0._RP ,   1._RP , w * (1.0_RP - gamma_Pr)                           /)
-         df_dgradq(:,5,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,               gamma_Pr                            /)
+         df_dgradq(:,1,1,1) = (/ 0._RP , -f4_3*u ,      -v ,      -w , -(f4_3*u2 + v2 + w2 + gamma_Pr*(Q(IRHOE) - Vel2)) /)
+         df_dgradq(:,2,1,1) = (/ 0._RP ,  f4_3   ,   0._RP ,   0._RP , u * (  f4_3 - gamma_Pr)                           /)
+         df_dgradq(:,3,1,1) = (/ 0._RP ,   0._RP ,   1._RP ,   0._RP , v * (1.0_RP - gamma_Pr)                           /)
+         df_dgradq(:,4,1,1) = (/ 0._RP ,   0._RP ,   0._RP ,   1._RP , w * (1.0_RP - gamma_Pr)                           /)
+         df_dgradq(:,5,1,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,               gamma_Pr                            /)
          
          ! G_{12}
-         df_dgradq(:,1,2) = (/ 0._RP ,  f2_3*v ,      -u ,   0._RP , -f1_3*u*v /)
-         df_dgradq(:,2,2) = (/ 0._RP ,   0._RP ,   1._RP ,   0._RP ,       v   /)
-         df_dgradq(:,3,2) = (/ 0._RP , -f2_3   ,   0._RP ,   0._RP , -f2_3*u   /)
-         df_dgradq(:,4,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
-         df_dgradq(:,5,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,1,2,1) = (/ 0._RP ,  f2_3*v ,      -u ,   0._RP , -f1_3*u*v /)
+         df_dgradq(:,2,2,1) = (/ 0._RP ,   0._RP ,   1._RP ,   0._RP ,       v   /)
+         df_dgradq(:,3,2,1) = (/ 0._RP , -f2_3   ,   0._RP ,   0._RP , -f2_3*u   /)
+         df_dgradq(:,4,2,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,5,2,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
          
          ! G_{13}
-         df_dgradq(:,1,3) = (/ 0._RP ,  f2_3*w ,   0._RP ,      -u , -f1_3*u*w /)
-         df_dgradq(:,2,3) = (/ 0._RP ,   0._RP ,   0._RP ,   1._RP ,       w   /)
-         df_dgradq(:,3,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
-         df_dgradq(:,4,3) = (/ 0._RP , -f2_3   ,   0._RP ,   0._RP , -f2_3*u   /)
-         df_dgradq(:,5,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
-         
-         df_dgradq = df_dgradq * sutherLaw / ( Q(IRHO) * Re )
+         df_dgradq(:,1,3,1) = (/ 0._RP ,  f2_3*w ,   0._RP ,      -u , -f1_3*u*w /)
+         df_dgradq(:,2,3,1) = (/ 0._RP ,   0._RP ,   0._RP ,   1._RP ,       w   /)
+         df_dgradq(:,3,3,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,4,3,1) = (/ 0._RP , -f2_3   ,   0._RP ,   0._RP , -f2_3*u   /)
+         df_dgradq(:,5,3,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
          
 !
 !        Flux in the y direction: g = G_{2:} · ∇q
 !        ----------------------------------------
          
          ! G_{21}
-         dg_dgradq(:,1,1) = (/ 0._RP ,      -v ,  f2_3*u ,   0._RP , -f1_3*u*v /)
-         dg_dgradq(:,2,1) = (/ 0._RP ,   0._RP , -f2_3   ,   0._RP , -f2_3*v   /)
-         dg_dgradq(:,3,1) = (/ 0._RP ,   1._RP ,   0._RP ,   0._RP ,       u   /)
-         dg_dgradq(:,4,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
-         dg_dgradq(:,5,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,1,1,2) = (/ 0._RP ,      -v ,  f2_3*u ,   0._RP , -f1_3*u*v /)
+         df_dgradq(:,2,1,2) = (/ 0._RP ,   0._RP , -f2_3   ,   0._RP , -f2_3*v   /)
+         df_dgradq(:,3,1,2) = (/ 0._RP ,   1._RP ,   0._RP ,   0._RP ,       u   /)
+         df_dgradq(:,4,1,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,5,1,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
          
          ! G_{22}
-         dg_dgradq(:,1,2) = (/ 0._RP ,      -u , -f4_3*v ,      -w , -(u2 + f4_3*v2 + w2 + gamma_Pr*(Q(IRHOE) - Vel2)) /)
-         dg_dgradq(:,2,2) = (/ 0._RP ,   1._RP ,   0._RP ,   0._RP , u * (1.0_RP - gamma_Pr)                           /)
-         dg_dgradq(:,3,2) = (/ 0._RP ,   0._RP ,  f4_3   ,   0._RP , v * (  f4_3 - gamma_Pr)                           /)
-         dg_dgradq(:,4,2) = (/ 0._RP ,   0._RP ,   0._RP ,   1._RP , w * (1.0_RP - gamma_Pr)                           /)
-         dg_dgradq(:,5,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,               gamma_Pr                            /)
+         df_dgradq(:,1,2,2) = (/ 0._RP ,      -u , -f4_3*v ,      -w , -(u2 + f4_3*v2 + w2 + gamma_Pr*(Q(IRHOE) - Vel2)) /)
+         df_dgradq(:,2,2,2) = (/ 0._RP ,   1._RP ,   0._RP ,   0._RP , u * (1.0_RP - gamma_Pr)                           /)
+         df_dgradq(:,3,2,2) = (/ 0._RP ,   0._RP ,  f4_3   ,   0._RP , v * (  f4_3 - gamma_Pr)                           /)
+         df_dgradq(:,4,2,2) = (/ 0._RP ,   0._RP ,   0._RP ,   1._RP , w * (1.0_RP - gamma_Pr)                           /)
+         df_dgradq(:,5,2,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,               gamma_Pr                            /)
          
          ! G_{23}
-         dg_dgradq(:,1,3) = (/ 0._RP ,   0._RP ,  f2_3*w ,      -v , -f1_3*v*w /)
-         dg_dgradq(:,2,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
-         dg_dgradq(:,3,3) = (/ 0._RP ,   0._RP ,   0._RP ,   1._RP ,       w   /)
-         dg_dgradq(:,4,3) = (/ 0._RP ,   0._RP , -f2_3   ,   0._RP , -f2_3*v   /)
-         dg_dgradq(:,5,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
-         
-         dg_dgradq = dg_dgradq * sutherLaw / ( Q(IRHO) * Re )
+         df_dgradq(:,1,3,2) = (/ 0._RP ,   0._RP ,  f2_3*w ,      -v , -f1_3*v*w /)
+         df_dgradq(:,2,3,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,3,3,2) = (/ 0._RP ,   0._RP ,   0._RP ,   1._RP ,       w   /)
+         df_dgradq(:,4,3,2) = (/ 0._RP ,   0._RP , -f2_3   ,   0._RP , -f2_3*v   /)
+         df_dgradq(:,5,3,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
          
 !
 !        Flux in the z direction: h = G_{3:} · ∇q
 !        ----------------------------------------
          
          ! G_{31}
-         dh_dgradq(:,1,1) = (/ 0._RP ,      -w ,   0._RP ,  f2_3*u , -f1_3*u*w /)
-         dh_dgradq(:,2,1) = (/ 0._RP ,   0._RP ,   0._RP , -f2_3   , -f2_3*w   /)
-         dh_dgradq(:,3,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
-         dh_dgradq(:,4,1) = (/ 0._RP ,   1._RP ,   0._RP ,   0._RP ,       u   /)
-         dh_dgradq(:,5,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,1,1,3) = (/ 0._RP ,      -w ,   0._RP ,  f2_3*u , -f1_3*u*w /)
+         df_dgradq(:,2,1,3) = (/ 0._RP ,   0._RP ,   0._RP , -f2_3   , -f2_3*w   /)
+         df_dgradq(:,3,1,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,4,1,3) = (/ 0._RP ,   1._RP ,   0._RP ,   0._RP ,       u   /)
+         df_dgradq(:,5,1,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
          
          ! G_{32}
-         dh_dgradq(:,1,2) = (/ 0._RP ,   0._RP ,      -w ,  f2_3*v , -f1_3*v*w /)
-         dh_dgradq(:,2,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
-         dh_dgradq(:,3,2) = (/ 0._RP ,   0._RP ,   0._RP , -f2_3   , -f2_3*w   /)
-         dh_dgradq(:,4,2) = (/ 0._RP ,   0._RP ,   1._RP ,   0._RP ,       v   /)
-         dh_dgradq(:,5,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,1,2,3) = (/ 0._RP ,   0._RP ,      -w ,  f2_3*v , -f1_3*v*w /)
+         df_dgradq(:,2,2,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,3,2,3) = (/ 0._RP ,   0._RP ,   0._RP , -f2_3   , -f2_3*w   /)
+         df_dgradq(:,4,2,3) = (/ 0._RP ,   0._RP ,   1._RP ,   0._RP ,       v   /)
+         df_dgradq(:,5,2,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
          
          ! G_{33}
-         dh_dgradq(:,1,3) = (/ 0._RP ,      -u ,      -v , -f4_3*w , -(u2 + v2 + f4_3*w2 + gamma_Pr*(Q(IRHOE) - Vel2)) /)
-         dh_dgradq(:,2,3) = (/ 0._RP ,   1._RP ,   0._RP ,   0._RP , u * (1.0_RP - gamma_Pr)                           /)
-         dh_dgradq(:,3,3) = (/ 0._RP ,   0._RP ,   1._RP ,   0._RP , v * (1.0_RP - gamma_Pr)                           /)
-         dh_dgradq(:,4,3) = (/ 0._RP ,   0._RP ,   0._RP ,  f4_3   , w * (  f4_3 - gamma_Pr)                           /)
-         dh_dgradq(:,5,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,               gamma_Pr                            /)
+         df_dgradq(:,1,3,3) = (/ 0._RP ,      -u ,      -v , -f4_3*w , -(u2 + v2 + f4_3*w2 + gamma_Pr*(Q(IRHOE) - Vel2)) /)
+         df_dgradq(:,2,3,3) = (/ 0._RP ,   1._RP ,   0._RP ,   0._RP , u * (1.0_RP - gamma_Pr)                           /)
+         df_dgradq(:,3,3,3) = (/ 0._RP ,   0._RP ,   1._RP ,   0._RP , v * (1.0_RP - gamma_Pr)                           /)
+         df_dgradq(:,4,3,3) = (/ 0._RP ,   0._RP ,   0._RP ,  f4_3   , w * (  f4_3 - gamma_Pr)                           /)
+         df_dgradq(:,5,3,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,               gamma_Pr                            /)
          
-         dh_dgradq = dh_dgradq * sutherLaw / ( Q(IRHO) * Re )
+!
+!        Scale with mu/(rho*Re) .or. kappa/(rho*Re)
+!        ------------------------------------------
+         
+         df_dgradq = df_dgradq * sutherLaw / ( Q(IRHO) * Re )
          
          end associate
       end subroutine ViscousJacobian
