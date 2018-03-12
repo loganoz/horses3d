@@ -30,6 +30,7 @@ module AnalyticalJacobian
    use DGSEMClass
    use StopWatchClass
    use MeshTypes
+   use ViscousMethods
    implicit none
    
    private
@@ -186,7 +187,20 @@ contains
          end associate
       end do
 !$omp end do
-
+!
+!     Project flux Jacobian with respect to gradients to corresponding elements
+!     -> Here LEFT to LEFT and RIGHT to RIGHT are hardcoded
+!     -------------------------------------------------------------------------
+      if (flowIsNavierStokes) then
+!$omp do schedule(runtime)
+         do fID = 1, size(mesh % faces)
+            associate (f => mesh % faces(fID)) 
+            call f % ProjectGradJacobianToElements(LEFT)   ! dF/dQL to the left element 
+            if (.not. (f % faceType == HMESH_BOUNDARY)) call f % ProjectGradJacobianToElements(RIGHT)   ! dF/dQR to the right element
+            end associate
+         end do
+!$omp end do
+      end if
 !
 !     Compute each element's diagonal block
 !     -------------------------------------
@@ -354,6 +368,8 @@ contains
                                             + matmul(dFStar_dqR,BCjac)
       end do             ; end do
       
+      if (flowIsNavierStokes) call ViscousMethod % RiemannSolver_dF_dGradQ(f)  ! TODO: Check if external gradient has to be taken into account
+      
    end subroutine ComputeBoundaryFluxJacobian
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -396,6 +412,8 @@ contains
          f % storage(RIGHT) % dFStar_dqF (:,:,i,j) = f % storage(RIGHT ) % dFStar_dqF (:,:,i,j) * f % geom % jacobian(i,j)
          
       end do             ; end do
+      
+      if (flowIsNavierStokes) call ViscousMethod % RiemannSolver_dF_dGradQ(f)
       
    end subroutine ComputeInterfaceFluxJacobian
 !
@@ -474,7 +492,6 @@ contains
 !  -----------------------------------------------------------------------------------------------
    subroutine Local_GetDiagonalBlock(e,LocalMat)
       use InviscidMethods
-      use ViscousMethods
       implicit none
       !-------------------------------------------
       type(Element)                    , intent(in) :: e
@@ -597,23 +614,52 @@ contains
 !              **************************************
 !                 Xi-component of the flux
 !                 -----------------------
-                - (  dF_dgradQ(eq1,eq2,1,i2,j2,k2,1) * e % spAxi   % hatG(i1,i2) * dj * dk                          &
-                   + dF_dgradQ(eq1,eq2,2,i2,j2,k2,1) * e % spAxi   % hatD(i1,i2) * e % spAEta  % D(j1,j2) * dk      &
-                   + dF_dgradQ(eq1,eq2,3,i2,j2,k2,1) * e % spAxi   % hatD(i1,i2) * e % spAZeta % D(k1,k2) * dj      &
+                + (- dF_dgradQ(eq1,eq2,1,i2,j2,k2,1) * e % spAxi   % hatG(i1,i2) * dj * dk                          &
+                   - dF_dgradQ(eq1,eq2,2,i2,j2,k2,1) * e % spAxi   % hatD(i1,i2) * e % spAEta  % D(j1,j2) * dk      &
+                   - dF_dgradQ(eq1,eq2,3,i2,j2,k2,1) * e % spAxi   % hatD(i1,i2) * e % spAZeta % D(k1,k2) * dj      &
 !                 Eta-component of the flux
-!                 -----------------------
-                   + dF_dgradQ(eq1,eq2,1,i2,j2,k2,2) * e % spAEta  % hatD(j1,j2) * e % spAXi   % D(i1,i2) * dk      &
-                   + dF_dgradQ(eq1,eq2,2,i2,j2,k2,2) * e % spAEta  % hatG(j1,j2) * di * dk                          &
-                   + dF_dgradQ(eq1,eq2,3,i2,j2,k2,2) * e % spAEta  % hatD(j1,j2) * e % spAZeta % D(k1,k2) * di      &
+!                 -------------------------
+                   - dF_dgradQ(eq1,eq2,1,i2,j2,k2,2) * e % spAEta  % hatD(j1,j2) * e % spAXi   % D(i1,i2) * dk      &
+                   - dF_dgradQ(eq1,eq2,2,i2,j2,k2,2) * e % spAEta  % hatG(j1,j2) * di * dk                          &
+                   - dF_dgradQ(eq1,eq2,3,i2,j2,k2,2) * e % spAEta  % hatD(j1,j2) * e % spAZeta % D(k1,k2) * di      &
 !                 Zeta-component of the flux
-!                 -----------------------
-                   + dF_dgradQ(eq1,eq2,1,i2,j2,k2,3) * e % spAZeta % hatD(k1,k2) * e % spAXi   % D(i1,i2) * dj      &
-                   + dF_dgradQ(eq1,eq2,2,i2,j2,k2,3) * e % spAZeta % hatD(k1,k2) * e % spAEta  % D(j1,j2) * di      &
-                   + dF_dgradQ(eq1,eq2,3,i2,j2,k2,3) * e % spAZeta % hatG(k1,k2) * di * dj                          &
+!                 --------------------------
+                   - dF_dgradQ(eq1,eq2,1,i2,j2,k2,3) * e % spAZeta % hatD(k1,k2) * e % spAXi   % D(i1,i2) * dj      &
+                   - dF_dgradQ(eq1,eq2,2,i2,j2,k2,3) * e % spAZeta % hatD(k1,k2) * e % spAEta  % D(j1,j2) * di      &
+                   - dF_dgradQ(eq1,eq2,3,i2,j2,k2,3) * e % spAZeta % hatG(k1,k2) * di * dj                          &
 !
 !              Faces contribution (numerical fluxes from the outer equation) 
 !              *************************************************************
-                   
+!                 Front face
+!                 ----------
+                   +   e % storage % dfdGradQ_fr(eq1,eq2,1,i1,k1) * e % spAEta  % b(j1,FRONT ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,FRONT ) * dk   & ! Xi
+                   +   e % storage % dfdGradQ_fr(eq1,eq2,2,i1,k1) * e % spAEta  % b(j1,FRONT ) * e % spAEta  % bd(j2,FRONT ) * di * dk                      & ! Eta
+                   +   e % storage % dfdGradQ_fr(eq1,eq2,3,i1,k1) * e % spAEta  % b(j1,FRONT ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,FRONT ) * di   & ! Zeta
+!                 Back face
+!                 ---------
+                   +   e % storage % dfdGradQ_ba(eq1,eq2,1,i1,k1) * e % spAEta  % b(j1,BACK  ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,BACK  ) * dk   & ! Xi
+                   +   e % storage % dfdGradQ_ba(eq1,eq2,2,i1,k1) * e % spAEta  % b(j1,BACK  ) * e % spAEta  % bd(j2,BACK  ) * di * dk                      & ! Eta
+                   +   e % storage % dfdGradQ_ba(eq1,eq2,3,i1,k1) * e % spAEta  % b(j1,BACK  ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,BACK  ) * di   & ! Zeta
+!                 Bottom face
+!                 -----------
+                   +   e % storage % dfdGradQ_bo(eq1,eq2,1,i1,j1) * e % spAZeta % b(k1,BOTTOM) * e % spAXi   % D(i1,i2) * e % spAZeta % v(k2,BOTTOM) * dj   & ! Xi
+                   +   e % storage % dfdGradQ_bo(eq1,eq2,2,i1,j1) * e % spAZeta % b(k1,BOTTOM) * e % spAEta  % D(j1,j2) * e % spAZeta % v(k2,BOTTOM) * di   & ! Eta
+                   +   e % storage % dfdGradQ_bo(eq1,eq2,3,i1,j1) * e % spAZeta % b(k1,BOTTOM) * e % spAZeta % bd(k2,BOTTOM) * di * dj                      & ! Zeta 
+!                 Top face
+!                 --------
+                   +   e % storage % dfdGradQ_to(eq1,eq2,1,i1,j1) * e % spAZeta % b(k1,TOP   ) * e % spAXi   % D(i1,i2) * e % spAZeta % v(k2,TOP   ) * dj   & ! Xi
+                   +   e % storage % dfdGradQ_to(eq1,eq2,2,i1,j1) * e % spAZeta % b(k1,TOP   ) * e % spAeta  % D(j1,j2) * e % spAZeta % v(k2,TOP   ) * di   & ! Eta
+                   +   e % storage % dfdGradQ_to(eq1,eq2,3,i1,j1) * e % spAZeta % b(k1,TOP   ) * e % spAZeta % bd(k2,TOP   ) * di * dj                      & ! Zeta
+!                 Right face
+!                 ----------
+                   +   e % storage % dfdGradQ_ri(eq1,eq2,1,j1,k1) * e % spAXi   % b(i1,RIGHT ) * e % spAXi   % bd(i2,RIGHT ) * dj * dk                      & ! Xi
+                   +   e % storage % dfdGradQ_ri(eq1,eq2,2,j1,k1) * e % spAXi   % b(i1,RIGHT ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,RIGHT ) * dk   & ! Eta
+                   +   e % storage % dfdGradQ_ri(eq1,eq2,3,j1,k1) * e % spAXi   % b(i1,RIGHT ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,RIGHT ) * dj   & ! Zeta
+!                 Left face
+!                 ---------
+                   +   e % storage % dfdGradQ_le(eq1,eq2,1,j1,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAXi   % bd(i2,LEFT  ) * dj * dk                      & ! Xi
+                   +   e % storage % dfdGradQ_le(eq1,eq2,2,j1,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,LEFT  ) * dk   & ! Eta
+                   +   e % storage % dfdGradQ_le(eq1,eq2,3,j1,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,LEFT  ) * dj   & ! Zeta
 !
 !              Faces contribution (surface integrals from the inner equation)
 !              **************************************************************

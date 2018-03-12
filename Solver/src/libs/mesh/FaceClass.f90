@@ -95,6 +95,7 @@
             procedure   :: ProjectFluxToElements => Face_ProjectFluxToElements
             procedure   :: ProjectFluxJacobianToElements => Face_ProjectFluxJacobianToElements
             procedure   :: ProjectGradientFluxToElements => Face_ProjectGradientFluxToElements
+            procedure   :: ProjectGradJacobianToElements => Face_ProjectGradJacobianToElements
       end type Face
 !
 !     ========
@@ -584,7 +585,9 @@
       end do
 
    end subroutine Face_ProjectFluxToElements
-   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    subroutine Face_ProjectFluxJacobianToElements(self, whichElement,whichderiv)
       use MappedGeometryClass
       use PhysicsStorage
@@ -602,7 +605,7 @@
       real(kind=RP), pointer :: fluxDeriv(:,:,:,:)
       real(kind=RP)     :: fStarAux(NCONS,NCONS, 0:self % NfRight(1), 0:self % NfRight(2))
       
-      fluxDeriv => self % storage(whichderiv) % dFStar_dqF
+      fluxDeriv(1:,1:,0:,0:) => self % storage(whichderiv) % dFStar_dqF
       
       select case ( whichElement )
          case (LEFT)    ! Prolong to left element
@@ -689,7 +692,9 @@
       
 
    end subroutine Face_ProjectFluxJacobianToElements
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    subroutine Face_ProjectGradientFluxToElements(self, Hflux, whichElements, factor)
       use MappedGeometryClass
       use PhysicsStorage
@@ -790,7 +795,119 @@
       end do
 
    end subroutine Face_ProjectGradientFluxToElements
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Face_ProjectGradJacobianToElements(self, whichElement)
+      use MappedGeometryClass
+      use PhysicsStorage
+      implicit none
+      !---------------------------------------------------------
+      class(Face), target        :: self
+      integer,       intent(in)  :: whichElement
+      !---------------------------------------------------------
+      integer                :: i, j, ii, jj, l, m, side
+      real(kind=RP), pointer :: fluxDeriv(:,:,:,:,:)
+      real(kind=RP)          :: fStarAux(NCONS,NCONS,1:NDIM, 0:self % NfRight(1), 0:self % NfRight(2))
+      integer                :: whichderiv
+      !---------------------------------------------------------
+      
+      whichderiv = whichElement  ! Hardcoded: df/d∇q⁺ goes to left element and df/d∇q⁻ goes to right element
+      
+      fluxDeriv(1:,1:,1:,0:,0:) => self % storage(whichderiv) % dFv_dGradQF
+      
+      select case ( whichElement )
+         case (LEFT)    ! Prolong to left element
+            associate(dFv_dGradQEl => self % storage(1) % dFv_dGradQEl)
+            
+            select case ( self % projectionType(1) )
+            case (0)
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,:,:) = fluxDeriv
+            case (1)
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,:,:) = 0._RP
+               do j = 0, self % NelLeft(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NelLeft(1)
+                  dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j) &
+                                                               + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * fluxDeriv(:,:,:,l,j)
+               end do                  ; end do                   ; end do
+               
+            case (2)
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,:,:) = 0._RP
+               do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
+                  dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j) &
+                                                               + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * fluxDeriv(:,:,:,i,l)
+               end do                  ; end do                   ; end do
+      
+            case (3)
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,:,:) = 0._RP
+               do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
+                  do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
+                     dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j) &
+                                                                                   +  Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
+                                                                                    * Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) &
+                                                                                    * fluxDeriv(:,:,:,m,l)
+                  end do                 ; end do
+               end do                  ; end do
+            end select
+            
+            end associate
 
+         case (RIGHT)    ! Prolong to right element
+!      
+!           *********
+!           1st stage: Projection
+!           *********
+!      
+            select case ( self % projectionType(2) )
+            case (0)
+               fStarAux(1:NCONS,1:NCONS,1:NDIM,:,:) = fluxDeriv
+            case (1)
+               fStarAux(1:NCONS,1:NCONS,1:NDIM,:,:) = 0.0
+               do j = 0, self % NfRight(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NfRight(1)
+                  fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) = fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) + Tset(self % Nf(1), self % NfRight(1)) % T(i,l) * fluxDeriv(:,:,:,l,j)
+               end do                  ; end do                   ; end do
+               
+            case (2)
+               fStarAux(1:NCONS,1:NCONS,1:NDIM,:,:) = 0.0
+               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+                  fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) = fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) + Tset(self % Nf(2), self % NfRight(2)) % T(j,l) * fluxDeriv(:,:,:,i,l)
+               end do                  ; end do                   ; end do
+      
+            case (3)
+               fStarAux(1:NCONS,1:NCONS,1:NDIM,:,:) = 0.0
+               do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   
+                  do m = 0, self % Nf(1) ; do i = 0, self % NfRight(1)
+                     fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) = fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) +   Tset(self % Nf(1), self % NfRight(1)) % T(i,m) &
+                                                             * Tset(self % Nf(2), self % NfRight(2)) % T(j,l) &
+                                                             * fluxDeriv(:,:,:,m,l)
+                  end do                 ; end do
+               end do                  ; end do
+            end select
+!      
+!           *********
+!           2nd stage: Rotation
+!           *********
+!      
+            associate(dFv_dGradQEl => self % storage(2) % dFv_dGradQEl)
+            
+            do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+               call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,ii,jj) = fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) 
+            end do                        ; end do
+!
+!           *********
+!           3rd stage: Inversion
+!           *********
+!
+            dFv_dGradQEl = -dFv_dGradQEl
+            
+            end associate
+      end select
+      
+
+   end subroutine Face_ProjectGradJacobianToElements
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    SUBROUTINE InterpolateToBoundary( u, v, Nx, Ny, Nz, which_dim , bValue , NEQ)
       use SMConstants
       use PhysicsStorage

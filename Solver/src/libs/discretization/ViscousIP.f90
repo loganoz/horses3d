@@ -38,10 +38,11 @@ module ViscousIP
       real(kind=RP)        :: sigma = 1.0_RP
       integer              :: IPmethod = SIPG
       contains
-         procedure      :: Initialize         => IP_Initialize
-         procedure      :: ComputeGradient    => IP_ComputeGradient
-         procedure      :: ComputeInnerFluxes => IP_ComputeInnerFluxes
-         procedure      :: RiemannSolver      => IP_RiemannSolver
+         procedure      :: Initialize              => IP_Initialize
+         procedure      :: ComputeGradient         => IP_ComputeGradient
+         procedure      :: ComputeInnerFluxes      => IP_ComputeInnerFluxes
+         procedure      :: RiemannSolver           => IP_RiemannSolver
+         procedure      :: RiemannSolver_dF_dGradQ => IP_RiemannSolver_dF_dGradQ
 #if defined(NAVIERSTOKES)
          procedure      :: ComputeInnerFluxesWithSGS => IP_ComputeInnerFluxesWithSGS
          procedure      :: RiemannSolverWithSGS      => IP_RiemannSolverWithSGS
@@ -546,18 +547,11 @@ module ViscousIP
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
-         real(kind=RP)     :: flux_vec(NCONS,NDIM)
+         real(kind=RP)     :: flux_vec (NCONS,NDIM)
+         real(kind=RP)     :: flux_vecL(NCONS,NDIM)
+         real(kind=RP)     :: flux_vecR(NCONS,NDIM)
          real(kind=RP)     :: mu, kappa, delta, sigma
-
-!
-!>       Old implementation: 1st average, then compute
-!        ------------------
-         Q   = 0.5_RP * ( QLeft + QRight)
-         U_x = 0.5_RP * ( U_xLeft + U_xRight)
-         U_y = 0.5_RP * ( U_yLeft + U_yRight)
-         U_z = 0.5_RP * ( U_zLeft + U_zRight)
-
+         
 #if defined(NAVIERSTOKES)
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
@@ -565,10 +559,12 @@ module ViscousIP
 #elif defined(CAHNHILLIARD)
          mu = 1.0_RP
          kappa = 0.0_RP
-
 #endif
 
-         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, flux_vec)
+         call ViscousFlux(QLeft , U_xLeft , U_yLeft , U_zLeft , mu, kappa, flux_vecL)
+         call ViscousFlux(QRight, U_xRight, U_yRight, U_zRight, mu, kappa, flux_vecR)
+         
+         flux_vec = 0.5_RP * (flux_vecL + flux_vecR)
 !
 !        Shahbazi estimate
 !        -----------------
@@ -581,6 +577,101 @@ module ViscousIP
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - sigma * (QLeft - QRight)
 
       end subroutine IP_RiemannSolver
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -----------------------------------------------------------------------------
+!     Subroutine to get the Jacobian (with respect to ∇q⁺ and ∇q⁻) of the numerical
+!     contravariant fluxes on a face. Stored in:
+!     -> f % storage(side) % dFv_dGradQF(:,:,:,i,j)
+!                    |                   |_| | |_|
+!                    |                    |  |  | 
+!                    |                    |  |  |____Coordinate indexes in face 
+!                    |                    |  |_______∇q component: 1, 2, 3
+!                    |                    |__________Jacobian for this component
+!                    |_______________________________1 for ∇q⁺ and 2 for ∇q⁻
+!     -----------------------------------------------------------------------------
+      subroutine IP_RiemannSolver_dF_dGradQ( self, f) 
+         use FaceClass
+         use Physics
+         use PhysicsStorage
+         implicit none
+         !--------------------------------------------
+         class(InteriorPenalty_t), intent(in)    :: self
+         type(Face)              , intent(inout) :: f
+         !--------------------------------------------
+         real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq   ! First: Cartesian Jacobian tensor => Later: Contravariant Jacobian tensor 
+         real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq_  ! Intermediate Jacobian tensor (between the cartesian and the contravariant)
+         integer :: i,j    ! Face coordinate counters
+         integer :: i1,i2  ! Index of G_xx
+         integer :: side
+         !--------------------------------------------
+#if defined(NAVIERSTOKES)
+         
+         do side = 1, 2
+            do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+               
+               call ViscousJacobian(f % storage(side) % Q(:,i,j), df_dgradq)
+            
+!              Fill intermedate Jacobian tensor
+!              ********************************
+               df_dgradq_ = 0._RP
+               do i1 = 1, NDIM ; do i2 = 1, NDIM
+                  df_dgradq_(:,:,i1,1) = df_dgradq_(:,:,i1,1) + df_dgradq(:,:,i2,i1) * f % geom % GradXi  (i2,i,j)
+               end do          ; end do
+               do i1 = 1, NDIM ; do i2 = 1, NDIM
+                  df_dgradq_(:,:,i1,2) = df_dgradq_(:,:,i1,2) + df_dgradq(:,:,i2,i1) * f % geom % GradEta (i2,i,j)
+               end do          ; end do
+               do i1 = 1, NDIM ; do i2 = 1, NDIM
+                  df_dgradq_(:,:,i1,3) = df_dgradq_(:,:,i1,3) + df_dgradq(:,:,i2,i1) * f % geom % GradZeta(i2,i,j)
+               end do          ; end do
+               
+!              Fill contravariant Jacobian tensor
+!              **********************************
+   !           Xi-flux
+   !           -------
+               df_dgradq = 0._RP
+               do i1 = 1, NDIM ; do i2 = 1, NDIM
+                  df_dgradq(:,:,i1,1) = df_dgradq(:,:,i1,1) + df_dgradq_(:,:,i2,i1) * f % geom % GradXi  (i2,i,j)
+               end do          ; end do
+            
+   !           Eta-flux
+   !           --------
+               do i1 = 1, NDIM ; do i2 = 1, NDIM
+                  df_dgradq(:,:,i1,2) = df_dgradq(:,:,i1,2) + df_dgradq_(:,:,i2,i1) * f % geom % GradEta (i2,i,j)
+               end do          ; end do
+            
+   !           Zeta-flux
+   !           ---------
+               do i1 = 1, NDIM ; do i2 = 1, NDIM
+                  df_dgradq(:,:,i1,3) = df_dgradq(:,:,i1,3) + df_dgradq_(:,:,i2,i1) * f % geom % GradZeta(i2,i,j)
+               end do          ; end do
+               
+!              Construct face point Jacobians
+!              ******************************
+               
+               associate( nHat        => f % geom % normal(:,i,j), &
+                          dFv_dGradQF => f % storage(side) % dFv_dGradQF(:,:,:,i,j) )
+               
+               dFv_dGradQF = 0._RP
+               do i1 = 1, NDIM ; do i2 = 1, NDIM
+                  dFv_dGradQF(:,:,i2) = dFv_dGradQF(:,:,i2) + df_dgradq(:,:,i2,i1) * nHat(i1)
+               end do          ; end do
+               
+!              Multiply by 1/2 (IP scheme) and the jacobian (surface integral) 
+!              ***************************************************************
+               dFv_dGradQF = dFv_dGradQF * 0.5_RP * f % geom % jacobian(i,j)
+
+               end associate
+               
+            end do              ; end do
+            
+         end do
+#endif
+      end subroutine IP_RiemannSolver_dF_dGradQ
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 #if defined(NAVIERSTOKES)
       subroutine IP_RiemannSolverWithSGS ( self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
@@ -608,27 +699,25 @@ module ViscousIP
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
-         real(kind=RP)     :: flux_vec(NCONS,NDIM)
-         real(kind=RP)     :: mu, kappa, tauSGS(NDIM, NDIM), qSGS(NDIM), delta, sigma
-
-!
-!>       Old implementation: 1st average, then compute
-!        ------------------
-         Q   = 0.5_RP * ( QLeft + QRight)
-         U_x = 0.5_RP * ( U_xLeft + U_xRight)
-         U_y = 0.5_RP * ( U_yLeft + U_yRight)
-         U_z = 0.5_RP * ( U_zLeft + U_zRight)
+         real(kind=RP)     :: flux_vec (NCONS,NDIM)
+         real(kind=RP)     :: flux_vecL(NCONS,NDIM), tauSGS_L(NDIM, NDIM), qSGS_L(NDIM)
+         real(kind=RP)     :: flux_vecR(NCONS,NDIM), tauSGS_R(NDIM, NDIM), qSGS_R(NDIM)
+         real(kind=RP)     :: mu, kappa, delta, sigma
 !
 !        Compute subgrid-scale modelling tensor   
 !        --------------------------------------
          delta = sqrt(f % geom % surface / product(f % Nf + 1))
-         call LESModel % ComputeSGSTensor(delta, dWall, U_x, U_y, U_z, tauSGS, qSGS) 
+         
+         call LESModel % ComputeSGSTensor(delta, dWall, U_xLeft , U_yLeft , U_zLeft , tauSGS_L, qSGS_L)
+         call LESModel % ComputeSGSTensor(delta, dWall, U_xRight, U_yRight, U_zRight, tauSGS_R, qSGS_R) 
 
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
-
-         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, tauSGS, qSGS, flux_vec)
+         
+         call ViscousFlux(QLeft , U_xLeft , U_yLeft , U_zLeft , mu, kappa, tauSGS_L, qSGS_L, flux_vecL)
+         call ViscousFlux(QRight, U_xRight, U_yRight, U_zRight, mu, kappa, tauSGS_R, qSGS_R, flux_vecR)
+         
+         flux_vec = 0.5_RP * (flux_vecL + flux_vecR)
 !
 !        Shahbazi estimate
 !        -----------------
