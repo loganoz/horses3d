@@ -50,7 +50,7 @@ Jacobian: SMConstants DGSEMClass Physics
 ColorsClass: DGSEMClass
 CSRMatrixClass: SMConstants GenericMatrixClass
 PETScMatrixClass: SMConstants GenericMatrixClass CSRMatrixClass
-DenseBlockDiagonalMatrixClass: SMConstants GenericMatrixClass
+DenseBlockDiagonalMatrixClass: SMConstants GenericMatrixClass DenseMatUtilities
 MatrixClass: PETScMatrixClass CSRMatrixClass DenseBlockDiagonalMatrixClass
 navierstokes/ManufacturedSolutions: Physics SMConstants
 DenseMatUtilities: SMConstants

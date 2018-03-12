@@ -2686,7 +2686,7 @@ slavecoord:                DO l = 1, 4
       use FTValueDictionaryClass
       implicit none
       !-----------------------------------------------------------
-      class(HexMesh)                         :: self
+      class(HexMesh), target                 :: self
       integer                 , intent(in)   :: NDOF
       class(FTValueDictionary), intent(in)   :: controlVariables
       logical                 , intent(in)   :: computeGradients
@@ -2718,6 +2718,23 @@ slavecoord:                DO l = 1, 4
                                               globalStorage = self % storage, &
                                                    firstIdx = firstIdx)
          firstIdx = firstIdx + e % Storage % NDOF
+!
+!        Point face Jacobians
+!        --------------------
+         e % Storage % dfdq_fr(1:,1:,0:,0:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFStar_dqEl(:,:,:,:,e %faceSide(EFRONT ))
+         e % Storage % dfdq_ba(1:,1:,0:,0:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFStar_dqEl(:,:,:,:,e %faceSide(EBACK  ))
+         e % Storage % dfdq_bo(1:,1:,0:,0:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFStar_dqEl(:,:,:,:,e %faceSide(EBOTTOM))
+         e % Storage % dfdq_to(1:,1:,0:,0:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFStar_dqEl(:,:,:,:,e %faceSide(ETOP   ))
+         e % Storage % dfdq_ri(1:,1:,0:,0:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFStar_dqEl(:,:,:,:,e %faceSide(ERIGHT ))
+         e % Storage % dfdq_le(1:,1:,0:,0:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFStar_dqEl(:,:,:,:,e %faceSide(ELEFT  ))
+         
+         e % Storage % dfdGradQ_fr(1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFv_dGradQEl
+         e % Storage % dfdGradQ_ba(1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFv_dGradQEl
+         e % Storage % dfdGradQ_bo(1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFv_dGradQEl
+         e % Storage % dfdGradQ_to(1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFv_dGradQEl
+         e % Storage % dfdGradQ_ri(1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFv_dGradQEl
+         e % Storage % dfdGradQ_le(1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFv_dGradQEl
+         
          end associate
       END DO
       

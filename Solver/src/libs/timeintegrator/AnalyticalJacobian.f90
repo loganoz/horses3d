@@ -292,7 +292,7 @@ contains
 !    ---- = --------------- + --------------- * ----,
 !     dQ⁺      dQ⁺               dQ⁻             dQ⁺
 !  where the last term is the Jacobian of the boundary condition.... +: internal state
-!                                                                    -: internal state
+!                                                                    -: external state
 !  -----------------------------------------------------------------------------------------------
    subroutine ComputeBoundaryFluxJacobian(f,time,externalStateProcedure)
       use RiemannSolvers
@@ -390,8 +390,8 @@ contains
                                  dfdq_num = f % storage(RIGHT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqR
                                  side = RIGHT)
 !
-!           Scale with the mapping Jacobian
-!           -------------------------------
+!        Scale with the mapping Jacobian
+!        -------------------------------
          f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT  ) % dFStar_dqF (:,:,i,j) * f % geom % jacobian(i,j)
          f % storage(RIGHT) % dFStar_dqF (:,:,i,j) = f % storage(RIGHT ) % dFStar_dqF (:,:,i,j) * f % geom % jacobian(i,j)
          
@@ -454,14 +454,7 @@ contains
       NDOFEL = ndofelm(e % eID)
       irow_0 (1:NDOFEL) = (/ (firstIdx(e % eID) + j, j=0,NDOFEL-1) /)   
          
-         call Local_GetDiagonalBlock(e, &
-               mesh % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFStar_dqEl(:,:,:,:,e %faceSide(EFRONT )), &
-               mesh % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFStar_dqEl(:,:,:,:,e %faceSide(EBACK  )), &
-               mesh % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFStar_dqEl(:,:,:,:,e %faceSide(EBOTTOM)), &
-               mesh % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFStar_dqEl(:,:,:,:,e %faceSide(ERIGHT )), &
-               mesh % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFStar_dqEl(:,:,:,:,e %faceSide(ETOP   )), &
-               mesh % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFStar_dqEl(:,:,:,:,e %faceSide(ELEFT  )), &
-               LocalMat  )
+      call Local_GetDiagonalBlock(e, LocalMat )
       
       ! Dump to mat
       
@@ -479,15 +472,12 @@ contains
 !  -----------------------------------------------------------------------------------------------
 !  
 !  -----------------------------------------------------------------------------------------------
-   subroutine Local_GetDiagonalBlock(e,dfdq_fr,dfdq_ba,dfdq_bo,dfdq_ri,dfdq_to,dfdq_le,LocalMat)
+   subroutine Local_GetDiagonalBlock(e,LocalMat)
       use InviscidMethods
       use ViscousMethods
       implicit none
       !-------------------------------------------
       type(Element)                    , intent(in) :: e
-      real(kind=RP), dimension(NCONS,NCONS,0:e%Nxyz(1),0:e%Nxyz(3)), intent(in) :: dfdq_fr, dfdq_ba
-      real(kind=RP), dimension(NCONS,NCONS,0:e%Nxyz(1),0:e%Nxyz(2)), intent(in) :: dfdq_bo, dfdq_to
-      real(kind=RP), dimension(NCONS,NCONS,0:e%Nxyz(2),0:e%Nxyz(3)), intent(in) :: dfdq_ri, dfdq_le
       real(kind=RP) :: LocalMat(ndofelm(e % eID),ndofelm(e % eID))
       !-------------------------------------------
       real(kind=RP) :: dFdQ      (NCONS,NCONS,     0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3),NDIM)
@@ -546,19 +536,19 @@ contains
             
             LocalMat(i,j) = &
             
-!           Volumetric contribution
-!           -----------------------
-                           ( dFdQ(eq1,eq2,i2,j2,k2,1) * e % spAXi   % hatD(i1,i2) * dj * dk &
+!           Volumetric contribution (inner fluxes)
+!           **************************************
+                           (  dFdQ(eq1,eq2,i2,j2,k2,1) * e % spAXi   % hatD(i1,i2) * dj * dk &
                             + dFdQ(eq1,eq2,i2,j2,k2,2) * e % spAEta  % hatD(j1,j2) * di * dk &
                             + dFdQ(eq1,eq2,i2,j2,k2,3) * e % spAZeta % hatD(k1,k2) * di * dj &
-!           Faces contribution
-!           ------------------
-                            -   dfdq_fr(eq1,eq2,i1,k1) * e % spAeta % b(j1,FRONT ) * e % spAeta % v(j2,FRONT ) * di * dk   & ! 1 Front
-                            -   dfdq_ba(eq1,eq2,i1,k1) * e % spAeta % b(j1,BACK  ) * e % spAeta % v(j2,BACK  ) * di * dk   & ! 2 Back
-                            -   dfdq_bo(eq1,eq2,i1,j1) * e % spAZeta% b(k1,BOTTOM) * e % spAZeta% v(k2,BOTTOM) * di * dj   & ! 3 Bottom
-                            -   dfdq_to(eq1,eq2,i1,j1) * e % spAZeta% b(k1,TOP   ) * e % spAZeta% v(k2,TOP   ) * di * dj   & ! 5 Top
-                            -   dfdq_ri(eq1,eq2,j1,k1) * e % spAXi  % b(i1,RIGHT ) * e % spAXi  % v(i2,RIGHT ) * dj * dk   & ! 4 Right
-                            -   dfdq_le(eq1,eq2,j1,k1) * e % spAXi  % b(i1,LEFT  ) * e % spAXi  % v(i2,LEFT  ) * dj * dk ) & ! 6 Left
+!           Faces contribution (numerical fluxes)
+!           *************************************
+                            -   e % storage % dfdq_fr(eq1,eq2,i1,k1) * e % spAeta % b(j1,FRONT ) * e % spAeta % v(j2,FRONT ) * di * dk   & ! 1 Front
+                            -   e % storage % dfdq_ba(eq1,eq2,i1,k1) * e % spAeta % b(j1,BACK  ) * e % spAeta % v(j2,BACK  ) * di * dk   & ! 2 Back
+                            -   e % storage % dfdq_bo(eq1,eq2,i1,j1) * e % spAZeta% b(k1,BOTTOM) * e % spAZeta% v(k2,BOTTOM) * di * dj   & ! 3 Bottom
+                            -   e % storage % dfdq_to(eq1,eq2,i1,j1) * e % spAZeta% b(k1,TOP   ) * e % spAZeta% v(k2,TOP   ) * di * dj   & ! 5 Top
+                            -   e % storage % dfdq_ri(eq1,eq2,j1,k1) * e % spAXi  % b(i1,RIGHT ) * e % spAXi  % v(i2,RIGHT ) * dj * dk   & ! 4 Right
+                            -   e % storage % dfdq_le(eq1,eq2,j1,k1) * e % spAXi  % b(i1,LEFT  ) * e % spAXi  % v(i2,LEFT  ) * dj * dk ) & ! 6 Left
                                                                                        * e % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
             
          end do                ; end do                ; end do                ; end do
@@ -573,48 +563,61 @@ contains
          
          do k2 = 0, e % Nxyz(3) ; do j2 = 0, e % Nxyz(2) ; do i2 = 0, e % Nxyz(1) ; do eq2 = 1, NCONS 
             do k1 = 0, e % Nxyz(3) ; do j1 = 0, e % Nxyz(2) ; do i1 = 0, e % Nxyz(1) ; do eq1 = 1, NCONS 
-               
+               Deltas = 0
 !              Kronecker deltas
 !              -----------------
 
                if (i1 == i2) then
                   di = 1._RP
+                  Deltas = Deltas + 1
                else
                   di = 0._RP
                end if
                if (j1 == j2) then
                   dj = 1._RP
+                  Deltas = Deltas + 1
                else
                   dj = 0._RP
                end if
                if (k1 == k2) then
                   dk = 1._RP
+                  Deltas = Deltas + 1
                else
                   dk = 0._RP
                end if
+               
+               if (Deltas < 1) cycle
                
                i = eq1 + i1*NCONS + j1*EtaSpa + k1*ZetaSpa ! row index (1-based)
                j = eq2 + i2*NCONS + j2*EtaSpa + k2*ZetaSpa ! column index (1-based)
                
                LocalMat(i,j) = LocalMat(i,j) &
-
-!              Volumetric contribution
-!              ***********************
-!                 x-component of the flux
+!
+!              Volumetric contribution (inner fluxes)
+!              **************************************
+!                 Xi-component of the flux
 !                 -----------------------
                 - (  dF_dgradQ(eq1,eq2,1,i2,j2,k2,1) * e % spAxi   % hatG(i1,i2) * dj * dk                          &
                    + dF_dgradQ(eq1,eq2,2,i2,j2,k2,1) * e % spAxi   % hatD(i1,i2) * e % spAEta  % D(j1,j2) * dk      &
                    + dF_dgradQ(eq1,eq2,3,i2,j2,k2,1) * e % spAxi   % hatD(i1,i2) * e % spAZeta % D(k1,k2) * dj      &
-!                 y-component of the flux
+!                 Eta-component of the flux
 !                 -----------------------
                    + dF_dgradQ(eq1,eq2,1,i2,j2,k2,2) * e % spAEta  % hatD(j1,j2) * e % spAXi   % D(i1,i2) * dk      &
                    + dF_dgradQ(eq1,eq2,2,i2,j2,k2,2) * e % spAEta  % hatG(j1,j2) * di * dk                          &
                    + dF_dgradQ(eq1,eq2,3,i2,j2,k2,2) * e % spAEta  % hatD(j1,j2) * e % spAZeta % D(k1,k2) * di      &
-!                 y-component of the flux
+!                 Zeta-component of the flux
 !                 -----------------------
                    + dF_dgradQ(eq1,eq2,1,i2,j2,k2,3) * e % spAZeta % hatD(k1,k2) * e % spAXi   % D(i1,i2) * dj      &
                    + dF_dgradQ(eq1,eq2,2,i2,j2,k2,3) * e % spAZeta % hatD(k1,k2) * e % spAEta  % D(j1,j2) * di      &
-                   + dF_dgradQ(eq1,eq2,3,i2,j2,k2,3) * e % spAZeta % hatG(k1,k2) * di * dj                        ) &
+                   + dF_dgradQ(eq1,eq2,3,i2,j2,k2,3) * e % spAZeta % hatG(k1,k2) * di * dj                          &
+!
+!              Faces contribution (numerical fluxes from the outer equation) 
+!              *************************************************************
+                   
+!
+!              Faces contribution (surface integrals from the inner equation)
+!              **************************************************************
+                     ) &
                                                                                  * e % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
                
             end do                ; end do                ; end do                ; end do

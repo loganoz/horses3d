@@ -59,6 +59,22 @@ module StorageClass
       integer                                         :: firstIdx          ! Position in the global solution array
       logical                                         :: pointed = .TRUE.  ! .TRUE. (default) if Q and Qdot are pointed instead of allocated (needed for destruction since there's no other way to check this)
       type(Statistics_t)                              :: stats
+!     Pointers to face Jacobians
+!     -> Currently only for df/dq⁺, For off-diagonal blocks, add df/dq⁻
+!     ----------------------------------------------------------------
+      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_fr  ! FRONT
+      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_ba  ! BACK
+      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_bo  ! BOTTOM
+      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_to  ! TOP
+      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_ri  ! RIGHT
+      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_le  ! LEFT
+      
+      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdGradQ_fr  ! FRONT
+      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdGradQ_ba  ! BACK
+      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdGradQ_bo  ! BOTTOM
+      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdGradQ_to  ! TOP
+      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdGradQ_ri  ! RIGHT
+      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdGradQ_le  ! LEFT
 #if defined(CAHNHILLIARD)
       real(kind=RP), dimension(:,:,:),   allocatable :: c   ! Cahn-Hilliard concentration
       real(kind=RP), dimension(:,:,:,:), allocatable :: gradC
@@ -77,8 +93,12 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     allocatable :: U_x, U_y, U_z
       real(kind=RP), dimension(:,:,:),     allocatable :: FStar
       real(kind=RP), dimension(:,:,:,:)  , allocatable :: unStar
+      ! Inviscid Jacobians
       real(kind=RP), dimension(:,:,:,:)  , allocatable :: dFStar_dqF   ! In storage(1), it stores dFStar/dqL, and in storage(2), it stores dFStar/dqR on the mortar points
       real(kind=RP), dimension(:,:,:,:,:), allocatable :: dFStar_dqEl  ! Stores both dFStar/dqL and dFStar/dqR on the face-element points of the corresponding side
+      ! Viscous Jacobians
+      real(kind=RP), dimension(:,:,:,:,:), allocatable :: dFv_dGradQF  ! In storage(1), it stores dFv*/d∇qL, and in storage(2), it stores dFv*/d∇qR on the mortar points
+      real(kind=RP), dimension(:,:,:,:,:), allocatable :: dFv_dGradQEl ! In storage(1), it stores dFv*/d∇qL, and in storage(2), it stores dFv*/d∇qR on the face-element points ... NOTE: this is enough for the diagonal blocks of the Jacobian, for off-diagonal blocks the crossed quantities must be computed and stored
 #if defined(CAHNHILLIARD)
       real(kind=RP), dimension(:,:), allocatable :: c 
       real(kind=RP), dimension(:,:), allocatable :: mu 
@@ -240,6 +260,20 @@ module StorageClass
          safedeallocate(self % U_x)
          safedeallocate(self % U_y)
          safedeallocate(self % U_z)
+         
+         nullify ( self % dfdq_fr )
+         nullify ( self % dfdq_ba )
+         nullify ( self % dfdq_bo )
+         nullify ( self % dfdq_to )
+         nullify ( self % dfdq_ri )
+         nullify ( self % dfdq_le )
+         
+         nullify ( self % dfdGradQ_fr )
+         nullify ( self % dfdGradQ_ba )
+         nullify ( self % dfdGradQ_bo )
+         nullify ( self % dfdGradQ_to )
+         nullify ( self % dfdGradQ_ri )
+         nullify ( self % dfdGradQ_le )
 
 #if defined(CAHNHILLIARD)
          safedeallocate(self % mu)
@@ -285,6 +319,9 @@ module StorageClass
          ALLOCATE( self % U_y(nGradEqn,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % U_z(nGradEqn,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % unStar(nGradEqn,NDIM,0:Nel(1),0:Nel(2)) )
+         
+         allocate( self % dFv_dGradQF (nEqn,nEqn,NDIM,0: Nf(1),0: Nf(2)) )
+         allocate( self % dFv_dGradQEl(nEqn,nEqn,NDIM,0:Nel(1),0:Nel(2)) )
 
 #if defined(CAHNHILLIARD)
          allocate( self % mu(0:Nf(1),0:Nf(2)) )
@@ -322,6 +359,8 @@ module StorageClass
          safedeallocate(self % U_z)
          safedeallocate(self % dFStar_dqF)
          safedeallocate(self % dFStar_dqEl)
+         safedeallocate(self % dFv_dGradQF)
+         safedeallocate(self % dFv_dGradQEl)
 
       end subroutine FaceStorage_Destruct
 !
