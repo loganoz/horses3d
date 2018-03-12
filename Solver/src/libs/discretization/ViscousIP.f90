@@ -600,8 +600,8 @@ module ViscousIP
          class(InteriorPenalty_t), intent(in)    :: self
          type(Face)              , intent(inout) :: f
          !--------------------------------------------
-         real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq   ! First: Cartesian Jacobian tensor => Later: Contravariant Jacobian tensor 
-         real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq_  ! Intermediate Jacobian tensor (between the cartesian and the contravariant)
+         real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq   ! Cartesian Jacobian tensor
+         real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq_  ! Contravariant Jacobian tensor 
          integer :: i,j    ! Face coordinate counters
          integer :: i1,i2  ! Index of G_xx
          integer :: side
@@ -613,8 +613,8 @@ module ViscousIP
                
                call ViscousJacobian(f % storage(side) % Q(:,i,j), df_dgradq)
             
-!              Fill intermedate Jacobian tensor
-!              ********************************
+!              Fill contravariant Jacobian tensor
+!              **********************************
                df_dgradq_ = 0._RP
                do i1 = 1, NDIM ; do i2 = 1, NDIM
                   df_dgradq_(:,:,i1,1) = df_dgradq_(:,:,i1,1) + df_dgradq(:,:,i2,i1) * f % geom % GradXi  (i2,i,j)
@@ -626,36 +626,14 @@ module ViscousIP
                   df_dgradq_(:,:,i1,3) = df_dgradq_(:,:,i1,3) + df_dgradq(:,:,i2,i1) * f % geom % GradZeta(i2,i,j)
                end do          ; end do
                
-!              Fill contravariant Jacobian tensor
-!              **********************************
-   !           Xi-flux
-   !           -------
-               df_dgradq = 0._RP
-               do i1 = 1, NDIM ; do i2 = 1, NDIM
-                  df_dgradq(:,:,i1,1) = df_dgradq(:,:,i1,1) + df_dgradq_(:,:,i2,i1) * f % geom % GradXi  (i2,i,j)
-               end do          ; end do
-            
-   !           Eta-flux
-   !           --------
-               do i1 = 1, NDIM ; do i2 = 1, NDIM
-                  df_dgradq(:,:,i1,2) = df_dgradq(:,:,i1,2) + df_dgradq_(:,:,i2,i1) * f % geom % GradEta (i2,i,j)
-               end do          ; end do
-            
-   !           Zeta-flux
-   !           ---------
-               do i1 = 1, NDIM ; do i2 = 1, NDIM
-                  df_dgradq(:,:,i1,3) = df_dgradq(:,:,i1,3) + df_dgradq_(:,:,i2,i1) * f % geom % GradZeta(i2,i,j)
-               end do          ; end do
-               
 !              Construct face point Jacobians
 !              ******************************
-               
                associate( nHat        => f % geom % normal(:,i,j), &
                           dFv_dGradQF => f % storage(side) % dFv_dGradQF(:,:,:,i,j) )
                
                dFv_dGradQF = 0._RP
                do i1 = 1, NDIM ; do i2 = 1, NDIM
-                  dFv_dGradQF(:,:,i2) = dFv_dGradQF(:,:,i2) + df_dgradq(:,:,i2,i1) * nHat(i1)
+                  dFv_dGradQF(:,:,i2) = dFv_dGradQF(:,:,i2) + df_dgradq_(:,:,i2,i1) * nHat(i1)
                end do          ; end do
                
 !              Multiply by 1/2 (IP scheme) and the jacobian (surface integral) 
