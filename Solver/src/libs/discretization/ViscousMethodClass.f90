@@ -18,7 +18,7 @@ module ViscousMethodClass
          procedure      :: ComputeInnerFluxJacobian  => BaseClass_ComputeInnerFluxJacobian
          procedure      :: ComputeInnerFluxesWithSGS => BaseClass_ComputeInnerFluxesWithSGS
          procedure      :: RiemannSolver             => BaseClass_RiemannSolver
-         procedure      :: RiemannSolver_dF_dGradQ   => BaseClass_RiemannSolver_dF_dGradQ
+         procedure      :: RiemannSolver_Jacobians   => BaseClass_RiemannSolver_Jacobians
          procedure      :: RiemannSolverWithSGS      => BaseClass_RiemannSolverWithSGS
          procedure      :: Describe                  => BaseClass_Describe
    end type ViscousMethod_t
@@ -167,7 +167,7 @@ module ViscousMethodClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BaseClass_RiemannSolver_dF_dGradQ( self, f) 
+      subroutine BaseClass_RiemannSolver_Jacobians( self, f) 
          use FaceClass
          use Physics
          use PhysicsStorage
@@ -176,9 +176,10 @@ module ViscousMethodClass
          class(ViscousMethod_t), intent(in)    :: self
          type(Face)            , intent(inout) :: f
          !--------------------------------------------
-         
-         ERROR stop ':: RiemannSolver_dF_dGradQ not implemented for selected Viscous Method'
-      end subroutine BaseClass_RiemannSolver_dF_dGradQ
+!$omp single
+         ERROR stop ':: RiemannSolver_Jacobians not implemented for selected Viscous Method'
+!$omp end single
+      end subroutine BaseClass_RiemannSolver_Jacobians
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

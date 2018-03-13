@@ -322,6 +322,12 @@ contains
       real(kind=RP), dimension(NCONS,NCONS) :: dFStar_dqL, dFStar_dqR
       !--------------------------------------------
       
+!
+!     *********************
+!     Inviscid contribution
+!     *********************
+!
+      
       do j = 0, f % Nf(2) ; do i = 0, f % Nf(1) 
 !
 !        Get external state
@@ -340,21 +346,33 @@ contains
          call RiemannSolver_dFdQ(ql   = f % storage(LEFT)  % Q(:,i,j), &
                                  qr   = f % storage(RIGHT) % Q(:,i,j), &
                                  nHat = f % geom % normal (:,i,j)    , &
-                                 dfdq_num = dFStar_dqL, & ! this is dFStar/dqL
+                                 dfdq_num = f % storage(LEFT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqL
                                  side = LEFT)
          call RiemannSolver_dFdQ(ql   = f % storage(LEFT)  % Q(:,i,j), &
                                  qr   = f % storage(RIGHT) % Q(:,i,j), &
                                  nHat = f % geom % normal (:,i,j)    , &
-                                 dfdq_num = dFStar_dqR, & ! this is dFStar/dqR
+                                 dfdq_num = f % storage(RIGHT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqR
                                  side = RIGHT)
 !
 !        Scale with the mapping Jacobian
 !        -------------------------------
-         dFStar_dqL = dFStar_dqL * f % geom % jacobian(i,j)
-         dFStar_dqR = dFStar_dqR * f % geom % jacobian(i,j)
+         f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT  ) % dFStar_dqF (:,:,i,j) * f % geom % jacobian(i,j)
+         f % storage(RIGHT) % dFStar_dqF (:,:,i,j) = f % storage(RIGHT ) % dFStar_dqF (:,:,i,j) * f % geom % jacobian(i,j)
+
+      end do             ; end do
 !
-!        Correct dFstar/dQL with the Jacobian of the boundary condition
-!        --------------------------------------------------------------
+!     ********************
+!     Viscous contribution
+!     ********************
+!
+      if (flowIsNavierStokes) call ViscousMethod % RiemannSolver_Jacobians(f)  ! TODO: Check if external gradient has to be taken into account
+!
+!     **************************************************************
+!     Correct dFstar/dQL with the Jacobian of the boundary condition
+!     **************************************************************
+!
+      do j = 0, f % Nf(2) ; do i = 0, f % Nf(1) 
+         
          call ExternalStateJacobian( f % geom % x(:,i,j), &
                                      time, &
                                      f % geom % normal(:,i,j), &
@@ -364,11 +382,9 @@ contains
                                      externalStateProcedure, &
                                      BCjac )
          
-         f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = dFStar_dqL &
-                                            + matmul(dFStar_dqR,BCjac)
+         f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT  ) % dFStar_dqF (:,:,i,j) &
+                                            + matmul(f % storage(RIGHT ) % dFStar_dqF (:,:,i,j),BCjac)
       end do             ; end do
-      
-      if (flowIsNavierStokes) call ViscousMethod % RiemannSolver_dF_dGradQ(f)  ! TODO: Check if external gradient has to be taken into account
       
    end subroutine ComputeBoundaryFluxJacobian
 !
@@ -413,7 +429,7 @@ contains
          
       end do             ; end do
       
-      if (flowIsNavierStokes) call ViscousMethod % RiemannSolver_dF_dGradQ(f)
+      if (flowIsNavierStokes) call ViscousMethod % RiemannSolver_Jacobians(f)
       
    end subroutine ComputeInterfaceFluxJacobian
 !

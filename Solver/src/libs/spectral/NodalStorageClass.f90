@@ -202,8 +202,6 @@ MODULE NodalStorageClass
 !
       CALL PolyDerivativeVector(  1.0_RP, N, this % x, this % bd(:,RIGHT) )
       CALL PolyDerivativeVector( -1.0_RP, N, this % x, this % bd(:,LEFT)  )
-      print*, this % bd(:,RIGHT)
-      print*, this % bd(:,LEFT)
 !
 !     -------------------------------------------
 !     Construct Chebyshev-Gauss-Lobatto framework

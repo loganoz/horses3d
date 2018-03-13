@@ -41,8 +41,9 @@ module ViscousIP
          procedure      :: Initialize              => IP_Initialize
          procedure      :: ComputeGradient         => IP_ComputeGradient
          procedure      :: ComputeInnerFluxes      => IP_ComputeInnerFluxes
+         procedure      :: PenaltyParameter        => IP_PenaltyParameter
          procedure      :: RiemannSolver           => IP_RiemannSolver
-         procedure      :: RiemannSolver_dF_dGradQ => IP_RiemannSolver_dF_dGradQ
+         procedure      :: RiemannSolver_Jacobians => IP_RiemannSolver_Jacobians
 #if defined(NAVIERSTOKES)
          procedure      :: ComputeInnerFluxesWithSGS => IP_ComputeInnerFluxesWithSGS
          procedure      :: RiemannSolverWithSGS      => IP_RiemannSolverWithSGS
@@ -522,6 +523,34 @@ module ViscousIP
 
       end subroutine IP_ComputeInnerFluxesWithSGS
 #endif
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ----------------------------------------
+!     Function to get the IP penalty parameter
+!     ----------------------------------------
+      function IP_PenaltyParameter(self,f,mu) result(sigma)
+         use FaceClass
+         implicit none
+         !-----------------------------------------
+         class(InteriorPenalty_t)  :: self
+         class(Face)  , intent(in) :: f      !<  Face
+         real(kind=RP), intent(in) :: mu     !<  "dimensionless mu": 1/Re
+         real(kind=RP)             :: sigma  !>  IP penalty parameter
+         !-----------------------------------------
+!
+!        Shahbazi estimate
+!        -----------------
+#if defined(NAVIERSTOKES)
+         sigma = 0.5_RP  * self % sigma * mu * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
+#elif defined(CAHNHILLIARD)
+         sigma = 0.25_RP * self % sigma * mu * (maxval(f % Nf))  *(maxval(f % Nf)+1) / f % geom % h 
+#endif
+         
+      end function IP_PenaltyParameter
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       subroutine IP_RiemannSolver ( self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
@@ -565,14 +594,8 @@ module ViscousIP
          call ViscousFlux(QRight, U_xRight, U_yRight, U_zRight, mu, kappa, flux_vecR)
          
          flux_vec = 0.5_RP * (flux_vecL + flux_vecR)
-!
-!        Shahbazi estimate
-!        -----------------
-#if defined(NAVIERSTOKES)
-         sigma = 0.5_RP * self % sigma * mu * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
-#elif defined(CAHNHILLIARD)
-         sigma = 0.25_RP * self % sigma * mu * (maxval(f % Nf))*(maxval(f % Nf)+1) / f % geom % h 
-#endif
+         
+         sigma = self % PenaltyParameter(f,mu)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - sigma * (QLeft - QRight)
 
@@ -591,7 +614,7 @@ module ViscousIP
 !                    |                    |__________Jacobian for this component
 !                    |_______________________________1 for ∇q⁺ and 2 for ∇q⁻
 !     -----------------------------------------------------------------------------
-      subroutine IP_RiemannSolver_dF_dGradQ( self, f) 
+      subroutine IP_RiemannSolver_Jacobians( self, f) 
          use FaceClass
          use Physics
          use PhysicsStorage
@@ -602,19 +625,23 @@ module ViscousIP
          !--------------------------------------------
          real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq   ! Cartesian Jacobian tensor
          real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq_  ! Contravariant Jacobian tensor 
+         real(kind=RP) :: mu, sigma
          integer :: i,j    ! Face coordinate counters
          integer :: i1,i2  ! Index of G_xx
          integer :: side
          !--------------------------------------------
 #if defined(NAVIERSTOKES)
-         
+
          do side = 1, 2
             do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
-               
+!
+!           Jacobian with respect to ∇q: dF/d∇q⁺ and dF/d∇q⁻
+!           ************************************************
+!
                call ViscousJacobian(f % storage(side) % Q(:,i,j), df_dgradq)
             
 !              Fill contravariant Jacobian tensor
-!              **********************************
+!              ----------------------------------
                df_dgradq_ = 0._RP
                do i1 = 1, NDIM ; do i2 = 1, NDIM
                   df_dgradq_(:,:,i1,1) = df_dgradq_(:,:,i1,1) + df_dgradq(:,:,i2,i1) * f % geom % GradXi  (i2,i,j)
@@ -627,7 +654,7 @@ module ViscousIP
                end do          ; end do
                
 !              Construct face point Jacobians
-!              ******************************
+!              ------------------------------
                associate( nHat        => f % geom % normal(:,i,j), &
                           dFv_dGradQF => f % storage(side) % dFv_dGradQF(:,:,:,i,j) )
                
@@ -637,16 +664,41 @@ module ViscousIP
                end do          ; end do
                
 !              Multiply by 1/2 (IP scheme) and the jacobian (surface integral) 
-!              ***************************************************************
+!              ---------------------------------------------------------------
                dFv_dGradQF = dFv_dGradQF * 0.5_RP * f % geom % jacobian(i,j)
-
+               
                end associate
                
             end do              ; end do
             
          end do
+         
+!
+!        Jacobian with respect to q: dF/dq⁺ and dF/dq⁻
+!        *********************************************
+         
+         mu    = dimensionless % mu             ! TODO: change for Cahn-Hilliard
+         sigma = self % PenaltyParameter(f,mu)
+         
+         do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+!
+!           Penalty contribution (shifts dFStar_dq matrix)
+!           ----------------------------------------------
+            
+            associate ( dFStar_dqL  =>  f % storage(LEFT ) % dFStar_dqF(:,:,i,j), &
+                        dFStar_dqR  =>  f % storage(RIGHT) % dFStar_dqF(:,:,i,j) )
+            do i1 = 1, NCONS
+               dFStar_dqL(i1,i1) = dFStar_dqL(i1,i1) + sigma * f % geom % jacobian(i,j)
+            end do
+            
+            do i1 = 1, NCONS
+               dFStar_dqR(i1,i1) = dFStar_dqR(i1,i1) - sigma * f % geom % jacobian(i,j)
+            end do
+            
+            end associate
+         end do              ; end do
 #endif
-      end subroutine IP_RiemannSolver_dF_dGradQ
+      end subroutine IP_RiemannSolver_Jacobians
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
