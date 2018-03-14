@@ -807,14 +807,14 @@
       integer,       intent(in)  :: whichElement
       !---------------------------------------------------------
       integer                :: i, j, ii, jj, l, m, side
-      real(kind=RP), pointer :: fluxDeriv(:,:,:,:,:)
-      real(kind=RP)          :: fStarAux(NCONS,NCONS,1:NDIM, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP), pointer :: fluxDeriv(:,:,:,:,:,:)
+      real(kind=RP)          :: fStarAux(NCONS,NCONS,1:NDIM,2, 0:self % NfRight(1), 0:self % NfRight(2))
       integer                :: whichderiv
       !---------------------------------------------------------
       
       whichderiv = whichElement  ! Hardcoded: df/d∇q⁺ goes to left element and df/d∇q⁻ goes to right element
       
-      fluxDeriv(1:,1:,1:,0:,0:) => self % storage(whichderiv) % dFv_dGradQF
+      fluxDeriv(1:,1:,1:,1:,0:,0:) => self % storage(whichderiv) % dFv_dGradQF
       
       select case ( whichElement )
          case (LEFT)    ! Prolong to left element
@@ -822,29 +822,29 @@
             
             select case ( self % projectionType(1) )
             case (0)
-               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,:,:) = fluxDeriv
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,:,:) = fluxDeriv
             case (1)
-               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,:,:) = 0._RP
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,:,:) = 0._RP
                do j = 0, self % NelLeft(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NelLeft(1)
-                  dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j) &
-                                                               + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * fluxDeriv(:,:,:,l,j)
+                  dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) &
+                                                               + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * fluxDeriv(:,:,:,:,l,j)
                end do                  ; end do                   ; end do
                
             case (2)
-               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,:,:) = 0._RP
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,:,:) = 0._RP
                do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
-                  dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j) &
-                                                               + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * fluxDeriv(:,:,:,i,l)
+                  dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) &
+                                                               + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * fluxDeriv(:,:,:,:,i,l)
                end do                  ; end do                   ; end do
       
             case (3)
-               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,:,:) = 0._RP
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,:,:) = 0._RP
                do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
                   do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
-                     dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j) &
+                     dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) &
                                                                                    +  Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
                                                                                     * Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) &
-                                                                                    * fluxDeriv(:,:,:,m,l)
+                                                                                    * fluxDeriv(:,:,:,:,m,l)
                   end do                 ; end do
                end do                  ; end do
             end select
@@ -859,26 +859,26 @@
 !      
             select case ( self % projectionType(2) )
             case (0)
-               fStarAux(1:NCONS,1:NCONS,1:NDIM,:,:) = fluxDeriv
+               fStarAux(1:NCONS,1:NCONS,1:NDIM,1:2,:,:) = fluxDeriv
             case (1)
-               fStarAux(1:NCONS,1:NCONS,1:NDIM,:,:) = 0.0
+               fStarAux(1:NCONS,1:NCONS,1:NDIM,1:2,:,:) = 0.0
                do j = 0, self % NfRight(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NfRight(1)
-                  fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) = fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) + Tset(self % Nf(1), self % NfRight(1)) % T(i,l) * fluxDeriv(:,:,:,l,j)
+                  fStarAux(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) = fStarAux(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) + Tset(self % Nf(1), self % NfRight(1)) % T(i,l) * fluxDeriv(:,:,:,:,l,j)
                end do                  ; end do                   ; end do
                
             case (2)
-               fStarAux(1:NCONS,1:NCONS,1:NDIM,:,:) = 0.0
+               fStarAux(1:NCONS,1:NCONS,1:NDIM,1:2,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-                  fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) = fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) + Tset(self % Nf(2), self % NfRight(2)) % T(j,l) * fluxDeriv(:,:,:,i,l)
+                  fStarAux(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) = fStarAux(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) + Tset(self % Nf(2), self % NfRight(2)) % T(j,l) * fluxDeriv(:,:,:,:,i,l)
                end do                  ; end do                   ; end do
       
             case (3)
-               fStarAux(1:NCONS,1:NCONS,1:NDIM,:,:) = 0.0
+               fStarAux(1:NCONS,1:NCONS,1:NDIM,1:2,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   
                   do m = 0, self % Nf(1) ; do i = 0, self % NfRight(1)
-                     fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) = fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) +   Tset(self % Nf(1), self % NfRight(1)) % T(i,m) &
+                     fStarAux(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) = fStarAux(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) +   Tset(self % Nf(1), self % NfRight(1)) % T(i,m) &
                                                              * Tset(self % Nf(2), self % NfRight(2)) % T(j,l) &
-                                                             * fluxDeriv(:,:,:,m,l)
+                                                             * fluxDeriv(:,:,:,:,m,l)
                   end do                 ; end do
                end do                  ; end do
             end select
@@ -891,7 +891,7 @@
             
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,ii,jj) = fStarAux(1:NCONS,1:NCONS,1:NDIM,i,j) 
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,ii,jj) = fStarAux(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) 
             end do                        ; end do
 !
 !           *********
@@ -903,7 +903,7 @@
             end associate
       end select
       
-
+      
    end subroutine Face_ProjectGradJacobianToElements
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

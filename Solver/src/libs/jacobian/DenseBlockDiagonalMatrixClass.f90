@@ -161,16 +161,13 @@ contains
       real(kind=RP)                , intent(in)    :: shiftval
       !------------------------------------------
       INTEGER                :: i, iBL
-!~      real(kind=RP), pointer :: Mat_p(:,:)
       !------------------------------------------
       
 !$omp parallel do private(i) schedule(runtime)
       do iBL=1, this % NumOfBlocks
-         associate (Mat_p => this % Blocks(iBL) % Matrix)
-         do i=1, size(Mat_p,1)
-            Mat_p(i,i) = Mat_p(i,i) + shiftval
+         do i=1, size(this % Blocks(iBL) % Matrix,1)
+            this % Blocks(iBL) % Matrix(i,i) = this % Blocks(iBL) % Matrix(i,i) + shiftval
          end do
-         end associate
       end do
 !$omp end parallel do
       

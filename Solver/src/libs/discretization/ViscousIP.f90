@@ -606,10 +606,11 @@ module ViscousIP
 !     -----------------------------------------------------------------------------
 !     Subroutine to get the Jacobian (with respect to ∇q⁺ and ∇q⁻) of the numerical
 !     contravariant fluxes on a face. Stored in:
-!     -> f % storage(side) % dFv_dGradQF(:,:,:,i,j)
-!                    |                   |_| | |_|
-!                    |                    |  |  | 
-!                    |                    |  |  |____Coordinate indexes in face 
+!     -> f % storage(side) % dFv_dGradQF(:,:,:,:,i,j)
+!                    |                   |_| | | |_|
+!                    |                    |  | |  | 
+!                    |                    |  | |  |__Coordinate indexes in face 
+!                    |                    |  | |_____1 for inner term, 2 for outer term
 !                    |                    |  |_______∇q component: 1, 2, 3
 !                    |                    |__________Jacobian for this component
 !                    |_______________________________1 for ∇q⁺ and 2 for ∇q⁻
@@ -625,21 +626,69 @@ module ViscousIP
          !--------------------------------------------
          real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq   ! Cartesian Jacobian tensor
          real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq_  ! Contravariant Jacobian tensor 
+         real(kind=RP), parameter :: SideSign(2) = (/ 1._RP, -1._RP /)
          real(kind=RP) :: mu, sigma
          integer :: i,j    ! Face coordinate counters
          integer :: i1,i2  ! Index of G_xx
          integer :: side
          !--------------------------------------------
 #if defined(NAVIERSTOKES)
-
+         
+!        Initializations
+!        ---------------
+         mu    = dimensionless % mu             ! TODO: change for Cahn-Hilliard
+         sigma = self % PenaltyParameter(f,mu)
+         
          do side = 1, 2
             do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
 !
+!           ************************************************
 !           Jacobian with respect to ∇q: dF/d∇q⁺ and dF/d∇q⁻
 !           ************************************************
 !
-               call ViscousJacobian(f % storage(side) % Q(:,i,j), df_dgradq)
-            
+!            
+!              Definitions
+!              -----------
+               associate( Q             => f % storage(side) % Q(:,i,j)                , &
+                          nHat          => f % geom % normal(:,i,j)                    , &
+                          dFStar_dq     => f % storage(side) % dFStar_dqF(:,:,i,j)     , &
+                          dF_dGradQ_in  => f % storage(side) % dFv_dGradQF(:,:,:,1,i,j), & 
+                          dF_dGradQ_out => f % storage(side) % dFv_dGradQF(:,:,:,2,i,j) )
+               
+               call ViscousJacobian(Q, df_dgradq)
+!
+!            For the inner surface integral
+!            ******************************
+               
+!              Fill contravariant Jacobian tensor
+!              ----------------------------------
+               df_dgradq_ = 0._RP
+               do i2 = 1, NDIM ; do i1 = 1, NDIM
+                  df_dgradq_(:,:,i1,1) = df_dgradq_(:,:,i1,1) + df_dgradq(:,:,i1,i2) * f % geom % GradXi  (i2,i,j)
+               end do          ; end do
+               do i2 = 1, NDIM ; do i1 = 1, NDIM
+                  df_dgradq_(:,:,i1,2) = df_dgradq_(:,:,i1,2) + df_dgradq(:,:,i1,i2) * f % geom % GradEta (i2,i,j)
+               end do          ; end do
+               do i2 = 1, NDIM ; do i1 = 1, NDIM
+                  df_dgradq_(:,:,i1,3) = df_dgradq_(:,:,i1,3) + df_dgradq(:,:,i1,i2) * f % geom % GradZeta(i2,i,j)
+               end do          ; end do
+               
+!              Construct face point Jacobians
+!              ------------------------------
+               
+               dF_dGradQ_in = 0._RP
+               do i2 = 1, NDIM ; do i1 = 1, NDIM
+                  dF_dGradQ_in(:,:,i2) = dF_dGradQ_in(:,:,i2) + df_dgradq_(:,:,i1,i2) * nHat(i1)
+               end do          ; end do
+               
+!              Scale according to scheme multipĺy by the jacobian (surface integral) 
+!              ---------------------------------------------------------------------
+               dF_dGradQ_in = dF_dGradQ_in * (-0.5_RP) * SideSign(side) * f % geom % jacobian(i,j) ! TODO: check if it's -0.5
+               
+!               
+!            For the outer surface integral
+!            ******************************
+!            
 !              Fill contravariant Jacobian tensor
 !              ----------------------------------
                df_dgradq_ = 0._RP
@@ -655,17 +704,28 @@ module ViscousIP
                
 !              Construct face point Jacobians
 !              ------------------------------
-               associate( nHat        => f % geom % normal(:,i,j), &
-                          dFv_dGradQF => f % storage(side) % dFv_dGradQF(:,:,:,i,j) )
                
-               dFv_dGradQF = 0._RP
+               dF_dGradQ_out = 0._RP
                do i1 = 1, NDIM ; do i2 = 1, NDIM
-                  dFv_dGradQF(:,:,i2) = dFv_dGradQF(:,:,i2) + df_dgradq_(:,:,i2,i1) * nHat(i1)
+                  dF_dGradQ_out(:,:,i2) = dF_dGradQ_out(:,:,i2) + df_dgradq_(:,:,i2,i1) * nHat(i1)
                end do          ; end do
                
 !              Multiply by 1/2 (IP scheme) and the jacobian (surface integral) 
 !              ---------------------------------------------------------------
-               dFv_dGradQF = dFv_dGradQF * 0.5_RP * f % geom % jacobian(i,j)
+               dF_dGradQ_out = dF_dGradQ_out * 0.5_RP * f % geom % jacobian(i,j)
+               
+!
+!           *********************************************
+!           Jacobian with respect to q: dF/dq⁺ and dF/dq⁻
+!           *********************************************
+!
+!
+!              Penalty contribution (shifts dFStar_dq matrix)
+!              ----------------------------------------------
+            
+               do i1 = 1, NCONS
+                  dFStar_dq(i1,i1) = dFStar_dq(i1,i1) + SideSign(side) * sigma * f % geom % jacobian(i,j)
+               end do
                
                end associate
                
@@ -673,30 +733,6 @@ module ViscousIP
             
          end do
          
-!
-!        Jacobian with respect to q: dF/dq⁺ and dF/dq⁻
-!        *********************************************
-         
-         mu    = dimensionless % mu             ! TODO: change for Cahn-Hilliard
-         sigma = self % PenaltyParameter(f,mu)
-         
-         do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
-!
-!           Penalty contribution (shifts dFStar_dq matrix)
-!           ----------------------------------------------
-            
-            associate ( dFStar_dqL  =>  f % storage(LEFT ) % dFStar_dqF(:,:,i,j), &
-                        dFStar_dqR  =>  f % storage(RIGHT) % dFStar_dqF(:,:,i,j) )
-            do i1 = 1, NCONS
-               dFStar_dqL(i1,i1) = dFStar_dqL(i1,i1) + sigma * f % geom % jacobian(i,j)
-            end do
-            
-            do i1 = 1, NCONS
-               dFStar_dqR(i1,i1) = dFStar_dqR(i1,i1) - sigma * f % geom % jacobian(i,j)
-            end do
-            
-            end associate
-         end do              ; end do
 #endif
       end subroutine IP_RiemannSolver_Jacobians
 !

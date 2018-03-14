@@ -38,7 +38,9 @@ module StorageClass
          procedure :: Construct => Storage_Construct
          procedure :: Destruct  => Storage_Destruct
    end type Storage_t
-   
+!  
+!  Class for pointing to previous solutions in an element
+!  ******************************************************
    type ElementPrevSol_t
       real(kind=RP), dimension(:,:,:,:),  pointer     :: Q
    end type ElementPrevSol_t
@@ -69,12 +71,12 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_ri  ! RIGHT
       real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_le  ! LEFT
       
-      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdGradQ_fr  ! FRONT
-      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdGradQ_ba  ! BACK
-      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdGradQ_bo  ! BOTTOM
-      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdGradQ_to  ! TOP
-      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdGradQ_ri  ! RIGHT
-      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdGradQ_le  ! LEFT
+      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_fr  ! FRONT
+      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_ba  ! BACK
+      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_bo  ! BOTTOM
+      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_to  ! TOP
+      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_ri  ! RIGHT
+      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_le  ! LEFT
 #if defined(CAHNHILLIARD)
       real(kind=RP), dimension(:,:,:),   allocatable :: c   ! Cahn-Hilliard concentration
       real(kind=RP), dimension(:,:,:,:), allocatable :: gradC
@@ -97,8 +99,8 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:)  , allocatable :: dFStar_dqF   ! In storage(1), it stores dFStar/dqL, and in storage(2), it stores dFStar/dqR on the mortar points
       real(kind=RP), dimension(:,:,:,:,:), allocatable :: dFStar_dqEl  ! Stores both dFStar/dqL and dFStar/dqR on the face-element points of the corresponding side
       ! Viscous Jacobians
-      real(kind=RP), dimension(:,:,:,:,:), allocatable :: dFv_dGradQF  ! In storage(1), it stores dFv*/d∇qL, and in storage(2), it stores dFv*/d∇qR on the mortar points
-      real(kind=RP), dimension(:,:,:,:,:), allocatable :: dFv_dGradQEl ! In storage(1), it stores dFv*/d∇qL, and in storage(2), it stores dFv*/d∇qR on the face-element points ... NOTE: this is enough for the diagonal blocks of the Jacobian, for off-diagonal blocks the crossed quantities must be computed and stored
+      real(kind=RP), dimension(:,:,:,:,:,:), allocatable :: dFv_dGradQF  ! In storage(1), it stores dFv*/d∇qL, and in storage(2), it stores dFv*/d∇qR on the mortar points
+      real(kind=RP), dimension(:,:,:,:,:,:), allocatable :: dFv_dGradQEl ! In storage(1), it stores dFv*/d∇qL, and in storage(2), it stores dFv*/d∇qR on the face-element points ... NOTE: this is enough for the diagonal blocks of the Jacobian, for off-diagonal blocks the crossed quantities must be computed and stored
 #if defined(CAHNHILLIARD)
       real(kind=RP), dimension(:,:), allocatable :: c 
       real(kind=RP), dimension(:,:), allocatable :: mu 
@@ -320,8 +322,8 @@ module StorageClass
          ALLOCATE( self % U_z(nGradEqn,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % unStar(nGradEqn,NDIM,0:Nel(1),0:Nel(2)) )
          
-         allocate( self % dFv_dGradQF (nEqn,nEqn,NDIM,0: Nf(1),0: Nf(2)) )
-         allocate( self % dFv_dGradQEl(nEqn,nEqn,NDIM,0:Nel(1),0:Nel(2)) )
+         allocate( self % dFv_dGradQF (nEqn,nEqn,NDIM,2,0: Nf(1),0: Nf(2)) )
+         allocate( self % dFv_dGradQEl(nEqn,nEqn,NDIM,2,0:Nel(1),0:Nel(2)) )
 
 #if defined(CAHNHILLIARD)
          allocate( self % mu(0:Nf(1),0:Nf(2)) )

@@ -644,43 +644,72 @@ contains
                    - dF_dgradQ(eq1,eq2,2,i2,j2,k2,3) * e % spAZeta % hatD(k1,k2) * e % spAEta  % D(j1,j2) * di      &
                    - dF_dgradQ(eq1,eq2,3,i2,j2,k2,3) * e % spAZeta % hatG(k1,k2) * di * dj                          &
 !
-!              Faces contribution (numerical fluxes from the outer equation) 
-!              *************************************************************
-!                 Front face
-!                 ----------
-                   +   e % storage % dfdGradQ_fr(eq1,eq2,1,i1,k1) * e % spAEta  % b(j1,FRONT ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,FRONT ) * dk   & ! Xi
-                   +   e % storage % dfdGradQ_fr(eq1,eq2,2,i1,k1) * e % spAEta  % b(j1,FRONT ) * e % spAEta  % bd(j2,FRONT ) * di * dk                      & ! Eta
-                   +   e % storage % dfdGradQ_fr(eq1,eq2,3,i1,k1) * e % spAEta  % b(j1,FRONT ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,FRONT ) * di   & ! Zeta
+!              Faces contribution (surface integrals from the inner equation)
+!              ***********************************************|**************
+!                 Front face                               ___|
+!                 ----------                               |
+                   -   e % storage % dfdGradQ_fr(eq1,eq2,1,1,i2,k2) * e % spAEta  % b(j1,FRONT ) * e % spAXi   % hatD(i1,i2) * e % spAEta  % v(j2,FRONT ) * dk   & ! Xi
+                   -   e % storage % dfdGradQ_fr(eq1,eq2,2,1,i2,k2) * e % spAEta  % v(j2,FRONT ) * e % spAEta  % bd(j1,FRONT ) * di * dk                         & ! Eta
+                   -   e % storage % dfdGradQ_fr(eq1,eq2,3,1,i2,k2) * e % spAEta  % b(j1,FRONT ) * e % spAZeta % hatD(k1,k2) * e % spAEta  % v(j2,FRONT ) * di   & ! Zeta
 !                 Back face
 !                 ---------
-                   +   e % storage % dfdGradQ_ba(eq1,eq2,1,i1,k1) * e % spAEta  % b(j1,BACK  ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,BACK  ) * dk   & ! Xi
-                   +   e % storage % dfdGradQ_ba(eq1,eq2,2,i1,k1) * e % spAEta  % b(j1,BACK  ) * e % spAEta  % bd(j2,BACK  ) * di * dk                      & ! Eta
-                   +   e % storage % dfdGradQ_ba(eq1,eq2,3,i1,k1) * e % spAEta  % b(j1,BACK  ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,BACK  ) * di   & ! Zeta
+                   -   e % storage % dfdGradQ_ba(eq1,eq2,1,1,i2,k2) * e % spAEta  % b(j1,BACK  ) * e % spAXi   % hatD(i1,i2) * e % spAEta  % v(j2,BACK  ) * dk   & ! Xi
+                   -   e % storage % dfdGradQ_ba(eq1,eq2,2,1,i2,k2) * e % spAEta  % v(j2,BACK  ) * e % spAEta  % bd(j1,BACK  ) * di * dk                         & ! Eta
+                   -   e % storage % dfdGradQ_ba(eq1,eq2,3,1,i2,k2) * e % spAEta  % b(j1,BACK  ) * e % spAZeta % hatD(k1,k2) * e % spAEta  % v(j2,BACK  ) * di   & ! Zeta
 !                 Bottom face
 !                 -----------
-                   +   e % storage % dfdGradQ_bo(eq1,eq2,1,i1,j1) * e % spAZeta % b(k1,BOTTOM) * e % spAXi   % D(i1,i2) * e % spAZeta % v(k2,BOTTOM) * dj   & ! Xi
-                   +   e % storage % dfdGradQ_bo(eq1,eq2,2,i1,j1) * e % spAZeta % b(k1,BOTTOM) * e % spAEta  % D(j1,j2) * e % spAZeta % v(k2,BOTTOM) * di   & ! Eta
-                   +   e % storage % dfdGradQ_bo(eq1,eq2,3,i1,j1) * e % spAZeta % b(k1,BOTTOM) * e % spAZeta % bd(k2,BOTTOM) * di * dj                      & ! Zeta 
+                   -   e % storage % dfdGradQ_bo(eq1,eq2,1,1,i2,j2) * e % spAZeta % b(k1,BOTTOM) * e % spAXi   % hatD(i1,i2) * e % spAZeta % v(k2,BOTTOM) * dj   & ! Xi
+                   -   e % storage % dfdGradQ_bo(eq1,eq2,2,1,i2,j2) * e % spAZeta % b(k1,BOTTOM) * e % spAEta  % hatD(j1,j2) * e % spAZeta % v(k2,BOTTOM) * di   & ! Eta
+                   -   e % storage % dfdGradQ_bo(eq1,eq2,3,1,i2,j2) * e % spAZeta % v(k2,BOTTOM) * e % spAZeta % bd(k1,BOTTOM) * di * dj                         & ! Zeta
 !                 Top face
-!                 --------
-                   +   e % storage % dfdGradQ_to(eq1,eq2,1,i1,j1) * e % spAZeta % b(k1,TOP   ) * e % spAXi   % D(i1,i2) * e % spAZeta % v(k2,TOP   ) * dj   & ! Xi
-                   +   e % storage % dfdGradQ_to(eq1,eq2,2,i1,j1) * e % spAZeta % b(k1,TOP   ) * e % spAeta  % D(j1,j2) * e % spAZeta % v(k2,TOP   ) * di   & ! Eta
-                   +   e % storage % dfdGradQ_to(eq1,eq2,3,i1,j1) * e % spAZeta % b(k1,TOP   ) * e % spAZeta % bd(k2,TOP   ) * di * dj                      & ! Zeta
+!                 ---------
+                   -   e % storage % dfdGradQ_to(eq1,eq2,1,1,i2,j2) * e % spAZeta % b(k1,TOP   ) * e % spAXi   % hatD(i1,i2) * e % spAZeta % v(k2,TOP   ) * dj   & ! Xi
+                   -   e % storage % dfdGradQ_to(eq1,eq2,2,1,i2,j2) * e % spAZeta % b(k1,TOP   ) * e % spAEta  % hatD(j1,j2) * e % spAZeta % v(k2,TOP   ) * di   & ! Eta
+                   -   e % storage % dfdGradQ_to(eq1,eq2,3,1,i2,j2) * e % spAZeta % v(k2,TOP   ) * e % spAZeta % bd(k1,TOP   ) * di * dj                         & ! Zeta
 !                 Right face
 !                 ----------
-                   +   e % storage % dfdGradQ_ri(eq1,eq2,1,j1,k1) * e % spAXi   % b(i1,RIGHT ) * e % spAXi   % bd(i2,RIGHT ) * dj * dk                      & ! Xi
-                   +   e % storage % dfdGradQ_ri(eq1,eq2,2,j1,k1) * e % spAXi   % b(i1,RIGHT ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,RIGHT ) * dk   & ! Eta
-                   +   e % storage % dfdGradQ_ri(eq1,eq2,3,j1,k1) * e % spAXi   % b(i1,RIGHT ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,RIGHT ) * dj   & ! Zeta
+                   -   e % storage % dfdGradQ_ri(eq1,eq2,1,1,j2,k2) * e % spAXi   % v(i2,RIGHT ) * e % spAXi   % bd(i1,RIGHT ) * dj * dk                         & ! Xi
+                   -   e % storage % dfdGradQ_ri(eq1,eq2,2,1,j2,k2) * e % spAXi   % b(i1,RIGHT ) * e % spAEta  % hatD(j1,j2) * e % spAXi   % v(i2,RIGHT ) * dk   & ! Eta
+                   -   e % storage % dfdGradQ_ri(eq1,eq2,3,1,j2,k2) * e % spAXi   % b(i1,RIGHT ) * e % spAZeta % hatD(k1,k2) * e % spAXi   % v(i2,RIGHT ) * dj   & ! Zeta
 !                 Left face
 !                 ---------
-                   +   e % storage % dfdGradQ_le(eq1,eq2,1,j1,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAXi   % bd(i2,LEFT  ) * dj * dk                      & ! Xi
-                   +   e % storage % dfdGradQ_le(eq1,eq2,2,j1,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,LEFT  ) * dk   & ! Eta
-                   +   e % storage % dfdGradQ_le(eq1,eq2,3,j1,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,LEFT  ) * dj   & ! Zeta
+                   -   e % storage % dfdGradQ_le(eq1,eq2,1,1,j2,k2) * e % spAXi   % v(i2,LEFT  ) * e % spAXi   % bd(i1,LEFT  ) * dj * dk                         & ! Xi
+                   -   e % storage % dfdGradQ_le(eq1,eq2,2,1,j2,k2) * e % spAXi   % b(i1,LEFT  ) * e % spAEta  % hatD(j1,j2) * e % spAXi   % v(i2,LEFT  ) * dk   & ! Eta
+                   -   e % storage % dfdGradQ_le(eq1,eq2,3,1,j2,k2) * e % spAXi   % b(i1,LEFT  ) * e % spAZeta % hatD(k1,k2) * e % spAXi   % v(i2,LEFT  ) * dj   & ! Zeta
 !
-!              Faces contribution (surface integrals from the inner equation)
-!              **************************************************************
-                     ) &
-                                                                                 * e % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
+!              Faces contribution (surface integrals from the outer equation) 
+!              ***********************************************|**************
+!                 Front face                               ___|
+!                 ----------                               |
+                   +   e % storage % dfdGradQ_fr(eq1,eq2,1,2,i1,k1) * e % spAEta  % b(j1,FRONT ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,FRONT ) * dk   & ! Xi
+                   +   e % storage % dfdGradQ_fr(eq1,eq2,2,2,i1,k1) * e % spAEta  % b(j1,FRONT ) * e % spAEta  % vd(j2,FRONT ) * di * dk                      & ! Eta
+                   +   e % storage % dfdGradQ_fr(eq1,eq2,3,2,i1,k1) * e % spAEta  % b(j1,FRONT ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,FRONT ) * di   & ! Zeta
+!                 Back face
+!                 ---------
+                   +   e % storage % dfdGradQ_ba(eq1,eq2,1,2,i1,k1) * e % spAEta  % b(j1,BACK  ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,BACK  ) * dk   & ! Xi
+                   +   e % storage % dfdGradQ_ba(eq1,eq2,2,2,i1,k1) * e % spAEta  % b(j1,BACK  ) * e % spAEta  % vd(j2,BACK  ) * di * dk                      & ! Eta
+                   +   e % storage % dfdGradQ_ba(eq1,eq2,3,2,i1,k1) * e % spAEta  % b(j1,BACK  ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,BACK  ) * di   & ! Zeta
+!                 Bottom face
+!                 -----------
+                   +   e % storage % dfdGradQ_bo(eq1,eq2,1,2,i1,j1) * e % spAZeta % b(k1,BOTTOM) * e % spAXi   % D(i1,i2) * e % spAZeta % v(k2,BOTTOM) * dj   & ! Xi
+                   +   e % storage % dfdGradQ_bo(eq1,eq2,2,2,i1,j1) * e % spAZeta % b(k1,BOTTOM) * e % spAEta  % D(j1,j2) * e % spAZeta % v(k2,BOTTOM) * di   & ! Eta
+                   +   e % storage % dfdGradQ_bo(eq1,eq2,3,2,i1,j1) * e % spAZeta % b(k1,BOTTOM) * e % spAZeta % vd(k2,BOTTOM) * di * dj                      & ! Zeta 
+!                 Top face
+!                 --------
+                   +   e % storage % dfdGradQ_to(eq1,eq2,1,2,i1,j1) * e % spAZeta % b(k1,TOP   ) * e % spAXi   % D(i1,i2) * e % spAZeta % v(k2,TOP   ) * dj   & ! Xi
+                   +   e % storage % dfdGradQ_to(eq1,eq2,2,2,i1,j1) * e % spAZeta % b(k1,TOP   ) * e % spAeta  % D(j1,j2) * e % spAZeta % v(k2,TOP   ) * di   & ! Eta
+                   +   e % storage % dfdGradQ_to(eq1,eq2,3,2,i1,j1) * e % spAZeta % b(k1,TOP   ) * e % spAZeta % vd(k2,TOP   ) * di * dj                      & ! Zeta
+!                 Right face
+!                 ----------
+                   +   e % storage % dfdGradQ_ri(eq1,eq2,1,2,j1,k1) * e % spAXi   % b(i1,RIGHT ) * e % spAXi   % vd(i2,RIGHT ) * dj * dk                      & ! Xi
+                   +   e % storage % dfdGradQ_ri(eq1,eq2,2,2,j1,k1) * e % spAXi   % b(i1,RIGHT ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,RIGHT ) * dk   & ! Eta
+                   +   e % storage % dfdGradQ_ri(eq1,eq2,3,2,j1,k1) * e % spAXi   % b(i1,RIGHT ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,RIGHT ) * dj   & ! Zeta
+!                 Left face
+!                 ---------
+                   +   e % storage % dfdGradQ_le(eq1,eq2,1,2,j1,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAXi   % vd(i2,LEFT  ) * dj * dk                      & ! Xi
+                   +   e % storage % dfdGradQ_le(eq1,eq2,2,2,j1,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,LEFT  ) * dk   & ! Eta
+                   +   e % storage % dfdGradQ_le(eq1,eq2,3,2,j1,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,LEFT  ) * dj   & ! Zeta
+                                                                                ) * e % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
                
             end do                ; end do                ; end do                ; end do
          end do                ; end do                ; end do                ; end do

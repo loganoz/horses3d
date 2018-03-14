@@ -34,9 +34,10 @@ MODULE NodalStorageClass
       real(kind=RP), dimension(:)  , allocatable :: x                         ! Node position
       real(kind=RP), dimension(:)  , allocatable :: w                         ! Weights
       real(kind=RP), dimension(:)  , allocatable :: wb                        ! Barycentric weights
-      real(kind=RP), dimension(:,:), allocatable :: v                         ! Interpolation vector
-      real(kind=RP), dimension(:,:), allocatable :: b                         ! Boundary vector
-      real(kind=RP), dimension(:,:), allocatable :: bd                        ! Boundary derivative vector
+      real(kind=RP), dimension(:,:), allocatable :: v                         ! Boundary interpolation vector
+      real(kind=RP), dimension(:,:), allocatable :: b                         ! Boundary interpolation vector scaled with weight
+      real(kind=RP), dimension(:,:), allocatable :: vd                        ! Boundary derivative vector
+      real(kind=RP), dimension(:,:), allocatable :: bd                        ! Boundary derivative vector scaled with weight
       real(kind=RP), dimension(:,:), allocatable :: D                         ! DG derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: DT                        ! Trasposed DG derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: hatD                      ! Weak form derivative matrix
@@ -116,6 +117,7 @@ MODULE NodalStorageClass
       ALLOCATE( this % wb   (0:N) )
       ALLOCATE( this % v    (0:N,2) )
       ALLOCATE( this % b    (0:N,2) )
+      ALLOCATE( this % vd   (0:N,2) )
       ALLOCATE( this % bd   (0:N,2) )
       ALLOCATE( this % D    (0:N,0:N) )
       ALLOCATE( this % DT   (0:N,0:N) )
@@ -202,6 +204,11 @@ MODULE NodalStorageClass
 !
       CALL PolyDerivativeVector(  1.0_RP, N, this % x, this % bd(:,RIGHT) )
       CALL PolyDerivativeVector( -1.0_RP, N, this % x, this % bd(:,LEFT)  )
+      
+      this % vd = this % bd
+      
+      this % bd(0:N,LEFT)  = this % bd(0:N,LEFT) /this % w
+      this % bd(0:N,RIGHT) = this % bd(0:N,RIGHT)/this % w
 !
 !     -------------------------------------------
 !     Construct Chebyshev-Gauss-Lobatto framework
