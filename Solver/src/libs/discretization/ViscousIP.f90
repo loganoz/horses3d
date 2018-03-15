@@ -625,11 +625,10 @@ module ViscousIP
          type(Face)              , intent(inout) :: f
          !--------------------------------------------
          real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq   ! Cartesian Jacobian tensor
-         real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq_  ! Contravariant Jacobian tensor 
          real(kind=RP), parameter :: SideSign(2) = (/ 1._RP, -1._RP /)
          real(kind=RP) :: mu, sigma
          integer :: i,j    ! Face coordinate counters
-         integer :: i1,i2  ! Index of G_xx
+         integer :: n, m ! Index of G_xx
          integer :: side
          !--------------------------------------------
 #if defined(NAVIERSTOKES)
@@ -660,54 +659,30 @@ module ViscousIP
 !            For the inner surface integral
 !            ******************************
                
-!              Fill contravariant Jacobian tensor
-!              ----------------------------------
-               df_dgradq_ = 0._RP
-               do i2 = 1, NDIM ; do i1 = 1, NDIM
-                  df_dgradq_(:,:,i1,1) = df_dgradq_(:,:,i1,1) + df_dgradq(:,:,i1,i2) * f % geom % GradXi  (i2,i,j)
-               end do          ; end do
-               do i2 = 1, NDIM ; do i1 = 1, NDIM
-                  df_dgradq_(:,:,i1,2) = df_dgradq_(:,:,i1,2) + df_dgradq(:,:,i1,i2) * f % geom % GradEta (i2,i,j)
-               end do          ; end do
-               do i2 = 1, NDIM ; do i1 = 1, NDIM
-                  df_dgradq_(:,:,i1,3) = df_dgradq_(:,:,i1,3) + df_dgradq(:,:,i1,i2) * f % geom % GradZeta(i2,i,j)
-               end do          ; end do
-               
 !              Construct face point Jacobians
 !              ------------------------------
-               
                dF_dGradQ_in = 0._RP
-               do i2 = 1, NDIM ; do i1 = 1, NDIM
-                  dF_dGradQ_in(:,:,i2) = dF_dGradQ_in(:,:,i2) + df_dgradq_(:,:,i1,i2) * nHat(i1)
+               do n = 1, NDIM ; do m = 1, NDIM
+                  dF_dGradQ_in(:,:,1) = dF_dGradQ_in(:,:,1) + df_dgradq(:,:,m,n) * f % geom % GradXi  (n,i,j) * nHat(m)
+                  dF_dGradQ_in(:,:,2) = dF_dGradQ_in(:,:,2) + df_dgradq(:,:,m,n) * f % geom % GradEta (n,i,j) * nHat(m)
+                  dF_dGradQ_in(:,:,3) = dF_dGradQ_in(:,:,3) + df_dgradq(:,:,m,n) * f % geom % GradZeta(n,i,j) * nHat(m)
                end do          ; end do
                
 !              Scale according to scheme multipĺy by the jacobian (surface integral) 
 !              ---------------------------------------------------------------------
-               dF_dGradQ_in = dF_dGradQ_in * (-0.5_RP) * SideSign(side) * f % geom % jacobian(i,j) ! TODO: check if it's -0.5
+               dF_dGradQ_in = dF_dGradQ_in * (-0.5_RP) * SideSign(side) * f % geom % jacobian(i,j) ! TODO: check if it's -0.5.... Much faster with +0.5_RP
                
 !               
 !            For the outer surface integral
 !            ******************************
 !            
-!              Fill contravariant Jacobian tensor
-!              ----------------------------------
-               df_dgradq_ = 0._RP
-               do i1 = 1, NDIM ; do i2 = 1, NDIM
-                  df_dgradq_(:,:,i1,1) = df_dgradq_(:,:,i1,1) + df_dgradq(:,:,i2,i1) * f % geom % GradXi  (i2,i,j)
-               end do          ; end do
-               do i1 = 1, NDIM ; do i2 = 1, NDIM
-                  df_dgradq_(:,:,i1,2) = df_dgradq_(:,:,i1,2) + df_dgradq(:,:,i2,i1) * f % geom % GradEta (i2,i,j)
-               end do          ; end do
-               do i1 = 1, NDIM ; do i2 = 1, NDIM
-                  df_dgradq_(:,:,i1,3) = df_dgradq_(:,:,i1,3) + df_dgradq(:,:,i2,i1) * f % geom % GradZeta(i2,i,j)
-               end do          ; end do
-               
 !              Construct face point Jacobians
 !              ------------------------------
-               
                dF_dGradQ_out = 0._RP
-               do i1 = 1, NDIM ; do i2 = 1, NDIM
-                  dF_dGradQ_out(:,:,i2) = dF_dGradQ_out(:,:,i2) + df_dgradq_(:,:,i2,i1) * nHat(i1)
+               do m = 1, NDIM ; do n = 1, NDIM
+                  dF_dGradQ_out(:,:,1) = dF_dGradQ_out(:,:,1) + df_dgradq(:,:,n,m) * f % geom % GradXi  (n,i,j) * nHat(m)
+                  dF_dGradQ_out(:,:,2) = dF_dGradQ_out(:,:,2) + df_dgradq(:,:,n,m) * f % geom % GradEta (n,i,j) * nHat(m)
+                  dF_dGradQ_out(:,:,3) = dF_dGradQ_out(:,:,3) + df_dgradq(:,:,n,m) * f % geom % GradZeta(n,i,j) * nHat(m)
                end do          ; end do
                
 !              Multiply by 1/2 (IP scheme) and the jacobian (surface integral) 
@@ -723,8 +698,8 @@ module ViscousIP
 !              Penalty contribution (shifts dFStar_dq matrix)
 !              ----------------------------------------------
             
-               do i1 = 1, NCONS
-                  dFStar_dq(i1,i1) = dFStar_dq(i1,i1) + SideSign(side) * sigma * f % geom % jacobian(i,j)
+               do n = 1, NCONS
+                  dFStar_dq(n,n) = dFStar_dq(n,n) + SideSign(side) * sigma * f % geom % jacobian(i,j)
                end do
                
                end associate
