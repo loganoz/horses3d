@@ -32,7 +32,9 @@ module DenseBlockDiagonalMatrixClass
          procedure :: Preallocate
          procedure :: Reset
          procedure :: SetColumn
+         procedure :: SetDiagonalBlock
          procedure :: shift
+         procedure :: destruct
          procedure :: FactorizeBlocks_LU
          procedure :: SolveBlocks_LU
    end type DenseBlockDiagMatrix_t
@@ -154,6 +156,23 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+   subroutine SetDiagonalBlock(this,BlockNum, values )
+      implicit none
+      !---------------------------------------------
+      class(DenseBlockDiagMatrix_t), intent(inout) :: this
+      integer                      , intent(in)    :: BlockNum
+      real(kind=RP), dimension(:,:), intent(in)    :: values
+      !---------------------------------------------
+      
+      if ( size(values,1) /= this % BlockSizes(BlockNum) .or. &
+           size(values,2) /= this % BlockSizes(BlockNum) ) ERROR stop ':: DenseBlockDiagMatrix_t % DenseBlockDiagMatrix_t. Block size is not consistent'
+      
+      this % Blocks(BlockNum) % Matrix = values
+      
+   end subroutine SetDiagonalBlock
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    subroutine shift(this,shiftval)
       implicit none
       !------------------------------------------
@@ -172,6 +191,27 @@ contains
 !$omp end parallel do
       
    end subroutine shift
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine destruct(this)
+      implicit none
+      !---------------------------------------------
+      class(DenseBlockDiagMatrix_t),     intent(inout)     :: this
+      !---------------------------------------------
+      integer :: i
+      !---------------------------------------------
+      
+      do i = 1, this % NumOfBlocks
+         deallocate (this % Blocks(i) % Matrix )
+         deallocate (this % Blocks(i) % Indexes)
+      end do
+      
+      deallocate (this % Blocks)
+      deallocate (this % BlockSizes)
+      deallocate (this % BlockIdx)
+      
+   end subroutine destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

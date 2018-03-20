@@ -476,28 +476,18 @@ contains
 !
    subroutine ComputeBlock(e,mesh,Matrix)
       implicit none
+      !-------------------------------------
       type(Element)            , intent(in) :: e
       type(HexMesh)            , intent(in)    :: mesh
       class(Matrix_t), intent(inout) :: Matrix
       !-------------------------------------
-      real(kind=RP) :: LocalMat(ndofelm(e % eID),ndofelm(e % eID)) 
-      integer :: irow_0(ndofelm(e % eID))         ! Row indexes for the matrix
-      integer :: irow(ndofelm(e % eID))           ! Formatted row indexes for the column assignment (small values with index -1)
-      integer              :: j, NDOFEL
+      real(kind=RP) :: LocalMat(ndofelm(e % eID),ndofelm(e % eID))
+      !-------------------------------------
       
-      NDOFEL = ndofelm(e % eID)
-      irow_0 (1:NDOFEL) = (/ (firstIdx(e % eID) + j, j=0,NDOFEL-1) /)   
-         
       call Local_GetDiagonalBlock(e, LocalMat )
       
       ! Dump to mat
-      
-      do j=1, NDOFEL
-         irow = irow_0
-         where (LocalMat(:,j) < jaceps) irow = -1
-         
-         call Matrix % SetColumn (NDOFEL, irow_0, firstIdx(e % eID) + j-1, LocalMat(:,j) )
-      end do
+      call Matrix % SetDiagonalBlock(e % eID,LocalMat)
       
    end subroutine ComputeBlock
 !

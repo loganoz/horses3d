@@ -13,6 +13,7 @@ module GenericMatrixClass
          procedure :: Reset
          procedure :: SetColumn
          procedure :: AddToColumn
+         procedure :: SetDiagonalBlock
          procedure :: Shift
          procedure :: ReShift
          procedure :: PreAssembly
@@ -82,6 +83,18 @@ contains
       !---------------------------------------------
       ERROR stop ' :: AddToColumn not implemented for current matrix type'
    end subroutine AddToColumn
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SetDiagonalBlock(this,BlockNum, values )
+      implicit none
+      !---------------------------------------------
+      class(Matrix_t)              , intent(inout) :: this
+      integer                      , intent(in)    :: BlockNum
+      real(kind=RP), dimension(:,:), intent(in)    :: values
+      !---------------------------------------------
+      ERROR stop ' :: SetDiagonalBlock not implemented for current matrix type'
+   end subroutine SetDiagonalBlock
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
