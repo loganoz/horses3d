@@ -10,7 +10,6 @@ RESIDUALS_HEADER_SIZE = 2
 
 def GatherNewResidualsValues(fileName,skip_data):
 	residuals_fid = open(fileName, 'r')
-	fig = plt.figure(1)
 	counter = -1
 	iter = []
 	time = []

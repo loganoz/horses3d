@@ -8,7 +8,6 @@ import numpy as np
 
 def GatherNewScalarValues(fileName,skip_data):
 	fid = open(fileName, 'r')
-	fig = plt.figure(1)
 	counter = -1
 	iter = []
 	time = []
