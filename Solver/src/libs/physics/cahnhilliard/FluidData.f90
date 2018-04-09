@@ -20,6 +20,7 @@ module FluidData
       real(kind=RP)  :: kappa    ! Gradient energy coefficient
       real(kind=RP)  :: c_alpha  ! Alpha equilibrium concentration
       real(kind=RP)  :: c_beta   ! Beta equilibrium concentration
+      real(kind=RP)  :: thetaw   ! Wall angle
    end type Thermodynamics_t
 
    type RefValues_t

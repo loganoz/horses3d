@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jan 30 09:07:46 2018
-!   @Last revision date: Tue Feb 13 18:26:52 2018
+!   @Last revision date: Tue Apr 10 00:35:19 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 9fda048fa3d932b2d823a3c39e7ad4b2e9e19efd
+!   @Last revision commit: f29151019ab7b61620e51c8f9aaa7bca7762a0ef
 !
 !//////////////////////////////////////////////////////
 !
@@ -162,9 +162,9 @@
                   x = e % geom % x(:,i,j,k)
 
                   if ( (abs(x(1)-20.0_RP) .le. 7.0_RP) .and. (abs(x(3)-20.0_RP) .le. 7.0_RP)) then
-                     e % storage % c(i,j,k) = 1.0_RP
-                  else
                      e % storage % c(i,j,k) = -1.0_RP
+                  else
+                     e % storage % c(i,j,k) =  1.0_RP
                   end if
                end do                  ; end do                   ; end do
          
@@ -233,6 +233,7 @@ print*, dimensionless_ % eps
             do eID = 1, mesh % no_of_elements
                if ( any(isnan(mesh % elements(eID) % storage % c) )) then
                   print*, "NAN!!!!"
+                  stop
                end if
             end do
 #endif

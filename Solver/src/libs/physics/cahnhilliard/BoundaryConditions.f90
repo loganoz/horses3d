@@ -66,9 +66,10 @@
 
          private
 
+         public C_BC, MU_BC
          public implementedBCNames
 
-         public NoFluxState, NoFluxNeumann
+         public NoFluxState, NoFluxNeumann, WallAngleBC
          public UserDefinedState, UserDefinedNeumann
 
          CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(4) :: implementedBCNames = &
@@ -77,6 +78,8 @@
                 "periodic-           ", &
                 "user-defined        "   ]
                
+         integer, parameter :: C_BC = 1
+         integer, parameter :: MU_BC = 2
          integer, parameter :: NO_FLUX_INDEX        = 1
          integer, parameter :: PERIODIC_PLUS_INDEX  = 2
          integer, parameter :: PERIODIC_MINUS_INDEX = 3
@@ -120,6 +123,18 @@
       U_z = 0.0_RP
 
       END SUBROUTINE NoFluxNeumann
+
+      subroutine WallAngleBC(x, t, nHat, U_x, U_y, U_z)
+      implicit none
+      real(kind=RP), intent(in)  :: x(3), t
+      real(kind=RP), intent(in)  :: nHat(3)
+      REAL(KIND=RP), INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
+
+      U_x = thermodynamics % thetaw * nHat(1)
+      U_y = thermodynamics % thetaw * nHat(2)
+      U_z = thermodynamics % thetaw * nHat(3)
+
+      end subroutine WallAngleBC 
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -268,15 +283,13 @@
       REAL(KIND=RP)   :: pExt
       LOGICAL         :: success
 
-      IF ( boundarytype == "no-flux" )             THEN
-         CALL NoFluxState( x, t, nHat, Q )
-      END IF
+      CALL NoFluxState( x, t, nHat, Q )
 
       END SUBROUTINE externalStateForBoundaryName
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, GradU, boundaryType )
+      SUBROUTINE ExternalConcentrationGradientForBoundaryName( x, t, nHat, GradU, boundaryType )
 !
 !     ------------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -308,10 +321,50 @@
 
       IF ( boundarytype == "no-flux" )                   THEN
          CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
+      ELSEIF ( boundaryType == "noSlipAdiabaticWall" ) then
+         call WallAngleBC(x, t, nHat, U_x, U_y, U_z)
       END IF
 
       GradU(1,:) = U_x(:)
       GradU(2,:) = U_y(:)
       GradU(3,:) = U_z(:)
 
-      END SUBROUTINE ExternalGradientForBoundaryName
+      END SUBROUTINE ExternalConcentrationGradientForBoundaryName
+
+      SUBROUTINE ExternalChemicalPotentialGradientForBoundaryName( x, t, nHat, GradU, boundaryType )
+!
+!     ------------------------------------------------
+!     Set the boundary conditions for the mesh by
+!     setting the external gradients on each boundary.
+!     ------------------------------------------------
+!
+      use SMConstants
+      USE BoundaryConditionFunctions
+      use PhysicsStorage
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,N_GRAD_EQN)
+      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      REAL(KIND=RP) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
+
+      U_x(:) = GradU(1,:)
+      U_y(:) = GradU(2,:)
+      U_z(:) = GradU(3,:)
+
+      CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
+
+      GradU(1,:) = U_x(:)
+      GradU(2,:) = U_y(:)
+      GradU(3,:) = U_z(:)
+
+      END SUBROUTINE ExternalChemicalPotentialGradientForBoundaryName

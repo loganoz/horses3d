@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (a.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Tue Feb 13 19:37:39 2018
+!   @Last revision date: Tue Apr 10 00:35:11 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: c01958bbb74b2de9252027cd1c501fe081a58ef2
+!   @Last revision commit: f29151019ab7b61620e51c8f9aaa7bca7762a0ef
 !
 !//////////////////////////////////////////////////////
 !
@@ -114,7 +114,7 @@ contains
 !     Diagonal blocks
 !     ***************
 !
-      call AnalyticalJacobian_DiagonalBlocks(sem % mesh, time, sem % externalState, Matrix)
+      call AnalyticalJacobian_DiagonalBlocks(sem % mesh, time, sem % BCFunctions(1) % externalState, Matrix)
 !
 !     *******************
 !     Off-Diagonal blocks

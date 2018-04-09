@@ -90,6 +90,7 @@ end interface
       integer                             :: initial_iteration
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
+      type(BCFunctions_t)                 :: BCFunctions(1)
       procedure(BCState_FCN)              :: externalStateForBoundaryName
       procedure(BCGradients_FCN)          :: ExternalGradientForBoundaryName
       character(len=LINE_LENGTH)          :: solutionFileName
@@ -145,9 +146,11 @@ end interface
       call InitializeNodalStorage(Nmax)
       call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
       
+      BCFunctions(1) % externalState => externalStateForBoundaryName
+      BCFunctions(1) % externalGradients => externalGradientForBoundaryName
+
       call sem % construct (  controlVariables  = controlVariables,                                         &
-                                 externalState     = externalStateForBoundaryName,                             &
-                                 externalGradients = ExternalGradientForBoundaryName,                          &
+                              BCFunctions = BCFunctions, &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
                                  success           = success)
 
