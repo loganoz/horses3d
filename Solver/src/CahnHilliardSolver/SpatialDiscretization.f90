@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Tue Feb 13 19:37:35 2018
+!   @Last revision date: Tue Apr 10 15:17:43 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: c01958bbb74b2de9252027cd1c501fe081a58ef2
+!   @Last revision commit: 658a80652781edb7b6384320f7fd61a982405f91
 !
 !//////////////////////////////////////////////////////
 !
@@ -34,6 +34,7 @@ module SpatialDiscretization
       use MPI_Face_Class
       use MPI_Process_Info
       use DGSEMClass
+      use BoundaryConditionFunctions, only: C_BC, MU_BC
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -107,7 +108,7 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeTimeDerivative( mesh, time, externalState, externalGradients)
+      SUBROUTINE ComputeTimeDerivative( mesh, time, BCFunctions)
          use Physics, only: QuarticDWPDerivative
          IMPLICIT NONE 
 !
@@ -117,9 +118,7 @@ module SpatialDiscretization
 !
          TYPE(HexMesh), target      :: mesh
          REAL(KIND=RP)              :: time
-         procedure(BCState_FCN)     :: externalState
-         procedure(BCGradients_FCN) :: externalGradients
-         
+         type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
 !
 !        ---------------
 !        Local variables
@@ -166,7 +165,7 @@ module SpatialDiscretization
 !        Compute gradients
 !        -----------------
 !
-         CALL DGSpatial_ComputeGradient( mesh , time , externalState)
+         CALL DGSpatial_ComputeGradient( mesh , time , BCFunctions(C_BC) % externalState)
 
 !$omp single
          call mesh % UpdateMPIFacesGradients
@@ -178,8 +177,8 @@ module SpatialDiscretization
 !
          call ComputeLaplacian(mesh = mesh , &
                                t    = time, &
-                  externalState     = externalState, &
-                  externalGradients = externalGradients )
+                  externalState     = BCFunctions(C_BC) % externalState, &
+                  externalGradients = BCFunctions(C_BC) % externalGradients )
 
          associate(c_alpha => thermodynamics % c_alpha, &
                    c_beta  => thermodynamics % c_beta    ) 
@@ -219,7 +218,7 @@ module SpatialDiscretization
 !        Compute gradients
 !        -----------------
 !
-         CALL DGSpatial_ComputeGradient( mesh , time , externalState)
+         CALL DGSpatial_ComputeGradient( mesh , time , BCFunctions(MU_BC) % externalState)
 !
 !$omp single
          call mesh % UpdateMPIFacesGradients
@@ -231,8 +230,18 @@ module SpatialDiscretization
 !
          call ComputeLaplacian(mesh = mesh , &
                                t    = time, &
-                  externalState     = externalState, &
-                  externalGradients = externalGradients )
+                  externalState     = BCFunctions(MU_BC) % externalState, &
+                  externalGradients = BCFunctions(MU_BC) % externalGradients )
+!
+!        Scale QDot with the Peclet number
+!        ---------------------------------
+!$omp do schedule(runtime)
+         do eID = 1, mesh % no_of_elements
+            e => mesh % elements(eID)
+            e % storage % QDot = (1.0_RP / Pe) * e % storage % QDot
+         end do
+!$omp end do
+
 !
 !        Add a source term
 !        -----------------
@@ -256,7 +265,7 @@ module SpatialDiscretization
 
       END SUBROUTINE ComputeTimeDerivative
       
-      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, time, externalState, externalGradients)
+      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, time, BCFunctions)
          use Physics, only: QuarticDWPDerivative
          IMPLICIT NONE 
 !
@@ -266,8 +275,7 @@ module SpatialDiscretization
 !
          TYPE(HexMesh), target      :: mesh
          REAL(KIND=RP)              :: time
-         procedure(BCState_FCN)     :: externalState
-         procedure(BCGradients_FCN) :: externalGradients
+         type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
          
          ERROR stop 'ComputeTimeDerivativeIsolated not implemented for Cahn-Hilliard'
       END SUBROUTINE ComputeTimeDerivativeIsolated
@@ -592,6 +600,10 @@ module SpatialDiscretization
                                            f % geom % normal(:,i,j), &
                                            UGradExt,&
                                            boundaryType )
+
+         f % storage(1) % U_x(:,i,j) = UGradExt(IX,:)
+         f % storage(1) % U_y(:,i,j) = UGradExt(IY,:)
+         f % storage(1) % U_z(:,i,j) = UGradExt(IZ,:)
 
          f % storage(2) % U_x(:,i,j) = UGradExt(IX,:)
          f % storage(2) % U_y(:,i,j) = UGradExt(IY,:)

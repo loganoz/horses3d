@@ -187,7 +187,7 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeTimeDerivative( mesh, time, externalState, externalGradients )
+      SUBROUTINE ComputeTimeDerivative( mesh, time, BCFunctions)
          IMPLICIT NONE 
 !
 !        ---------
@@ -196,8 +196,7 @@ module SpatialDiscretization
 !
          TYPE(HexMesh), target      :: mesh
          REAL(KIND=RP)              :: time
-         procedure(BCState_FCN)     :: externalState
-         procedure(BCGradients_FCN) :: externalGradients
+         type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
 !
 !        ---------------
 !        Local variables
@@ -225,7 +224,7 @@ module SpatialDiscretization
 !        -----------------
 !
          if ( computeGradients ) then
-            CALL DGSpatial_ComputeGradient( mesh , time , externalState)
+            CALL DGSpatial_ComputeGradient( mesh , time , BCFunctions(1) % externalState)
          end if
 
 !$omp single
@@ -240,8 +239,8 @@ module SpatialDiscretization
 !
          call TimeDerivative_ComputeQDot(mesh = mesh , &
                                          t    = time, &
-                                         externalState     = externalState, &
-                                         externalGradients = externalGradients )
+                                         externalState     = BCFunctions(1) % externalState, &
+                                         externalGradients = BCFunctions(1) % externalGradients )
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative
@@ -251,7 +250,7 @@ module SpatialDiscretization
 !     This routine computes the time derivative element by element, without considering the Riemann Solvers
 !     This is useful for estimating the isolated truncation error
 !
-      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, time, externalState, externalGradients )
+      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, time, BCFunctions)
          use ViscousMethodClass
          IMPLICIT NONE 
 !
@@ -261,8 +260,7 @@ module SpatialDiscretization
 !
          TYPE(HexMesh), target      :: mesh
          REAL(KIND=RP)              :: time
-         procedure(BCState_FCN)     :: externalState
-         procedure(BCGradients_FCN) :: externalGradients
+         type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
 !
 !        ---------------
 !        Local variables
@@ -282,7 +280,7 @@ module SpatialDiscretization
 !        -----------------------------------------------------
 !
          if ( computeGradients ) then
-            CALL BaseClass_ComputeGradient( ViscousMethod, mesh , time , externalState )
+            CALL BaseClass_ComputeGradient( ViscousMethod, mesh , time , BCFunctions(1) % externalState )
 !
 !           The prolongation is usually done in the viscous methods, but not in the BaseClass
 !           ---------------------------------------------------------------------------------

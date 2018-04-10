@@ -313,8 +313,7 @@ module FASMultigridClass
          ALLOCATE (Child_p % p_sem)
          
          call Child_p % p_sem % construct (controlVariables = controlVariables,                                          &
-                                           externalState     = Solver % p_sem % externalState,                           &
-                                           externalGradients = Solver % p_sem % externalGradients,                       &
+                                           BCFunctions      = Solver % p_sem % BCFunctions,                              &
                                            Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,                                        &
                                            success = success,                                                            &
                                            ChildSem = .TRUE. )
@@ -399,8 +398,8 @@ module FASMultigridClass
       DO
          DO iEl = 1, NumOfSweeps
             if (Compute_dt) dt = MaxTimeStep(this % p_sem, cfl, dcfl )
-            call SmoothIt   (this % p_sem % mesh, t, this % p_sem % externalState, &
-                             this % p_sem % externalGradients, dt, ComputeTimeDerivative )
+            call SmoothIt   (this % p_sem % mesh, t, this % p_sem % BCFunctions, &
+                             dt, ComputeTimeDerivative )
          end DO
          sweepcount = sweepcount + NumOfSweeps
          
@@ -409,8 +408,7 @@ module FASMultigridClass
          if (SmoothFine .AND. lvl > 1) then ! .AND. .not. FMG
             if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
             call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
-            call ComputeTimeDerivative(this % Child % p_sem % mesh,t, this % Child % p_sem % externalState, &
-                                       this % Child % p_sem % externalGradients)
+            call ComputeTimeDerivative(this % Child % p_sem % mesh,t, this % Child % p_sem % BCFunctions)
             
             if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals(this % Child % p_sem % mesh))) exit
          else
@@ -476,7 +474,7 @@ module FASMultigridClass
       DO
          DO iEl = 1, NumOfSweeps
             if (Compute_dt) dt = MaxTimeStep(this % p_sem, cfl, dcfl )
-            call SmoothIt   (this % p_sem % mesh, t, this % p_sem % externalState, this % p_sem % externalGradients, dt, &
+            call SmoothIt   (this % p_sem % mesh, t, this % p_sem % BCFunctions, dt, &
                              ComputeTimeDerivative)
          end DO
          
@@ -570,8 +568,8 @@ module FASMultigridClass
          DO
             counter = counter + 1
             if (Compute_dt) dt = MaxTimeStep(this % p_sem, cfl, dcfl )
-            call SmoothIt   (this % p_sem % mesh, t, this % p_sem % externalState, &
-                             this % p_sem % externalGradients, dt, ComputeTimeDerivative )
+            call SmoothIt   (this % p_sem % mesh, t, this % p_sem % BCFunctions, &
+                             dt, ComputeTimeDerivative )
 
             maxResidual = ComputeMaxResiduals(this % p_sem % mesh)
             
@@ -663,7 +661,7 @@ module FASMultigridClass
 !     If not on finest level, correct source term
 !     -------------------------------------------
 !      
-      call ComputeTimeDerivative(Child_p % p_sem % mesh,t, Child_p % p_sem % externalState, Child_p % p_sem % externalGradients) 
+      call ComputeTimeDerivative(Child_p % p_sem % mesh,t, Child_p % p_sem % BCFunctions) 
       
 !$omp parallel do schedule(runtime)
       DO iEl = 1, nelem

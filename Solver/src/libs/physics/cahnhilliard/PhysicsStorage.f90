@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed Dec  6 17:42:24 2017
-!   @Last revision date: Wed Jan 31 18:27:07 2018
+!   @Last revision date: Tue Apr 10 00:35:11 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 1181c365aba00e78739d327d06901d6d8ca99e02
+!   @Last revision commit: f29151019ab7b61620e51c8f9aaa7bca7762a0ef
 !
 !//////////////////////////////////////////////////////
 !
@@ -19,20 +19,21 @@
 !        Required arguments
 !        ******************
 !
-         character(len=KEYWORD_LENGTH), parameter    :: MOBILITY_KEY         = "mobility"
+!         character(len=KEYWORD_LENGTH), parameter    :: MOBILITY_KEY         = "mobility"
+         character(len=KEYWORD_LENGTH), parameter    :: PECLET_NUMBER_KEY    = "peclet number"
          character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_WIDTH_KEY  = "interface width (dimensionless)"
-         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_ENERGY_KEY = "interface energy (dimensionless)"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(3) :: physicsKeywords = [MOBILITY_KEY, &
-                                                                           INTERFACE_WIDTH_KEY, &
-                                                                           INTERFACE_ENERGY_KEY]
+!         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_ENERGY_KEY = "interface energy (dimensionless)"
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physicsKeywords = [INTERFACE_WIDTH_KEY, &
+                                                                           PECLET_NUMBER_KEY ]
 !
 !        ******************
 !        Optional arguments
 !        ******************
 !
          character(len=KEYWORD_LENGTH), parameter  :: REFERENCE_LENGTH_KEY    = "reference length"
-         character(len=KEYWORD_LENGTH), parameter  :: ALPHA_CONCENTRATION_KEY = "alpha concentration"
-         character(len=KEYWORD_LENGTH), parameter  :: BETA_CONCENTRATION_KEY  = "beta concentration"
+         character(len=KEYWORD_LENGTH), parameter  :: WALL_CONTACT_ANGLE_KEY  = "wall contact angle"
+!         character(len=KEYWORD_LENGTH), parameter  :: ALPHA_CONCENTRATION_KEY = "alpha concentration"
+!         character(len=KEYWORD_LENGTH), parameter  :: BETA_CONCENTRATION_KEY  = "beta concentration"
       END MODULE PhysicsKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
@@ -51,6 +52,7 @@
      public    NCONS
      public    NGRAD
      public    NPRIM
+     public    Pe
      public    Thermodynamics, RefValues, Dimensionless
      public    Thermodynamics_t, RefValues_t, Dimensionless_t
      public    computeGradients
@@ -94,6 +96,12 @@
 !    ---------------------------------------
 !
      INTEGER, PARAMETER  :: NGRAD = 1
+!
+!    -----------------
+!    The Peclet number
+!    -----------------
+!
+     real(kind=RP), protected    :: Pe
 !
 !    ========
      CONTAINS
@@ -147,44 +155,39 @@
 
       end if
 !
-!     *******************************
-!     Read thermodynamical properties
-!     *******************************
-!
-      thermodynamics_ % M = controlVariables % DoublePrecisionValueForKey(MOBILITY_KEY)
-   
-      if ( controlVariables % containsKey(ALPHA_CONCENTRATION_KEY) ) then
-         thermodynamics_ % c_alpha = controlVariables % DoublePrecisionValueForKey(ALPHA_CONCENTRATION_KEY)
-
-      else
-         thermodynamics_ % c_alpha = -1.0_RP
-
-      end if
-
-      if ( controlVariables % containsKey(BETA_CONCENTRATION_KEY) ) then
-         thermodynamics_ % c_beta = controlVariables % DoublePrecisionValueForKey(BETA_CONCENTRATION_KEY)
-
-      else
-         thermodynamics_ % c_beta = 1.0_RP
-
-      end if
-!
 !     *****************************
 !     Read dimensionless properties
 !     *****************************
 !
       dimensionless_ % w     = controlVariables % DoublePrecisionValueForKey(INTERFACE_WIDTH_KEY)
-      dimensionless_ % eps   = dimensionless_ % w / 7.071_RP
-      dimensionless_ % sigma = controlVariables % DoublePrecisionValueForKey(INTERFACE_ENERGY_KEY)
+      dimensionless_ % eps   = dimensionless_ % w 
+      Pe                     = controlVariables % DoublePrecisionValueForKey(PECLET_NUMBER_KEY)
+!
+!     **************************************
+!     Read the wall contact angle if present
+!     **************************************
+!
+      if ( controlVariables % containsKey(WALL_CONTACT_ANGLE_KEY) ) then
+         thermodynamics_ % thetaw = controlVariables % DoublePrecisionValueForKey(WALL_CONTACT_ANGLE_KEY)
+
+      else
+         thermodynamics_ % thetaw = 0.0_RP
+
+      end if
 !
 !     **********************************
 !     Compute the rest of the quantities
 !     **********************************
 !
-      thermodynamics_ % rhoS  = (7.071_RP / 0.01508_RP ) * dimensionless_ % sigma / dimensionless_ % w
-      thermodynamics_ % kappa = dimensionless_ % w * dimensionless_ % sigma * POW2(refValues_ % L) / (7.071_RP * 0.01508_RP)
+      thermodynamics_ % rhoS  = 1.0_RP
+      thermodynamics_ % M     = refValues_ % L / (thermodynamics_ % rhoS * Pe)
+      thermodynamics_ % kappa = POW2(dimensionless % eps*refValues_ % L) * thermodynamics_ % rhoS
+      thermodynamics_ % c_alpha = -1.0_RP
+      thermodynamics_ % c_beta  =  1.0_RP
 
-      refValues_ % time = POW2(refValues_ % L) / thermodynamics_ % M
+      refValues_ % time = 1.0_RP
+
+      dimensionless_ % sigma = sqrt(2.0_RP * thermodynamics_ % kappa * thermodynamics_ % rhoS)/3.0_RP
 !
 !     **********************************************************************
 !     Set the global (proteted) thermodynamics, dimensionless, and refValues
@@ -235,6 +238,7 @@
          write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Gradient energy coefficient: " , thermodynamics % kappa
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Alpha equilibrium concentration: " , thermodynamics % c_alpha 
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Beta  equilibrium concentration: " , thermodynamics % c_beta
+         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Wall contact angle: " , thermodynamics % thetaw
 
       
          write(STD_OUT,'(/)')

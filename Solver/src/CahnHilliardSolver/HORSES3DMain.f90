@@ -88,7 +88,9 @@ end interface
       INTEGER                    :: ierr
       real(kind=RP)              :: initial_time
       procedure(BCState_FCN)     :: externalStateForBoundaryName
-      procedure(BCGradients_FCN) :: ExternalGradientForBoundaryName
+      procedure(BCGradients_FCN) :: ExternalConcentrationGradientForBoundaryName
+      procedure(BCGradients_FCN) :: ExternalChemicalPotentialGradientForBoundaryName
+      type(BCFunctions_t)        :: BCFunctions(no_of_BCsets)
       character(len=LINE_LENGTH)             :: solutionFileName
       
       ! For pAdaptation
@@ -134,10 +136,19 @@ end interface
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
       call InitializeNodalStorage(Nmax)
       call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
+!
+!     --------------------------
+!     Set up boundary conditions
+!     --------------------------
+!
+      BCFunctions(C_BC) % externalState      => externalStateForBoundaryName
+      BCFunctions(C_BC) % externalGradients  => externalConcentrationGradientForBoundaryName
+
+      BCFunctions(MU_BC) % externalState     => externalStateForBoundaryName
+      BCFunctions(MU_BC) % externalGradients => externalChemicalPotentialGradientForBoundaryName
       
       call sem % construct (  controlVariables  = controlVariables,                                         &
-                                 externalState     = externalStateForBoundaryName,                             &
-                                 externalGradients = ExternalGradientForBoundaryName,                          &
+                              BCFunctions = BCFunctions, &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
                                  success           = success)
                            

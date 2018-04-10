@@ -24,14 +24,14 @@ module MultigridTypes
 !  Interface for the smoother
 !  --------------------------
    abstract interface
-      subroutine SmoothIt_t( mesh, t, externalState, externalGradients, deltaT, ComputeTimeDerivative )
+      subroutine SmoothIt_t( mesh, t, BCFunctions, deltaT, ComputeTimeDerivative )
          use SMConstants, only: RP
          use HexMeshClass, only: HexMesh
-         use DGSEMClass, only: ComputeQDot_FCN
+         use DGSEMClass, only: ComputeQDot_FCN, BCFunctions_t, no_of_BCsets
          IMPLICIT NONE
          type(HexMesh)              :: mesh
          REAL(KIND=RP)              :: t, deltaT
-         external                   :: externalState, externalGradients
+         type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
          procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
       end subroutine SmoothIt_t
    end interface

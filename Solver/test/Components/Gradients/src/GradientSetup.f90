@@ -75,7 +75,9 @@
          INTEGER             :: N(3)
          
          EXTERNAL            :: initialFlowState
-         EXTERNAL            :: externalBoundaryState, externalGradientState
+         type(BCFunctions_t)                 :: BCFunctions(1)
+         procedure(BCState_FCN)              :: externalBoundaryState
+         procedure(BCGradients_FCN)          :: ExternalGradientState
 !
 !        ----------------
 !        Set up the DGSEM
@@ -84,12 +86,13 @@
          N = controlVariables % integerValueForKey(polynomialOrderKey)
          call InitializeNodalStorage(maxval(N))
          
+         BCFunctions(1) % externalState     => externalBoundaryState
+         BCFunctions(1) % externalGradients => externalGradientState
          CALL ConstructDGSem(self              = sem                  , &
                              polynomialOrder   = N                    , &
                              controlVariables  = controlVariables     , &
                              meshFileName_     = meshFileName         , &
-                             externalState     = externalBoundaryState, &
-                             externalGradients = externalGradientState, &
+                             BCFunctions       = BCFunctions          , &
                              success           = success)
          IF(.NOT. success)     RETURN 
 !

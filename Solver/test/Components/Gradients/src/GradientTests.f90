@@ -56,7 +56,7 @@
 !$omp end parallel
       
       call TimeDerivative_ComputeQDot( sem % mesh , 0.0_RP , &
-                     sem % externalState, sem % externalGradients)
+                     sem % BCFunctions(1) % externalState, sem % BCFunctions(1) % externalGradients)
 !
 !     ------------------------------------------------
 !     Check the divergence of the different components
@@ -153,11 +153,11 @@
 !$omp end parallel
 
       IF ( flowIsNavierStokes )     THEN
-         CALL DGSpatial_ComputeGradient( sem % mesh , 0.0_RP , sem % externalState) 
+         CALL DGSpatial_ComputeGradient( sem % mesh , 0.0_RP , sem % BCFunctions(1) % externalState) 
       END IF
 
       call TimeDerivative_ComputeQDot( sem % mesh , 0.0_RP, &
-                                    sem % externalState, sem % externalGradients)
+                                    sem % BCFunctions(1) % externalState, sem % BCFunctions(1) % externalGradients)
 !
 !     ------------------------------------------------
 !     Check the divergence of the different components
