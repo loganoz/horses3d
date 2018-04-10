@@ -32,6 +32,7 @@ Module DGSEMClass
    USE ManufacturedSolutions
 #endif
    use MonitorsClass
+   use ParticlesClass
    use Physics
 #ifdef _HAS_MPI_
    use mpi
@@ -66,6 +67,11 @@ Module DGSEMClass
       class(BCFunctions_t), allocatable                       :: BCFunctions(:)
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
+#if defined(NAVIERSTOKES)
+      type(Particles_t)                                       :: particles
+#else
+      logical                                                 :: particles
+#endif
       contains
          procedure :: construct => ConstructDGSem
          procedure :: destruct  => DestructDGSem   
@@ -77,29 +83,39 @@ Module DGSEMClass
    END TYPE DGSem
 
    abstract interface
-      SUBROUTINE BCState_FCN(x,t,nHat,Q,boundaryName)
+      SUBROUTINE BCState_FCN(x,t,nHat,Q,boundaryType,boundaryName)
          USE SMConstants
+         use PhysicsStorage
          REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-         REAL(KIND=RP)   , INTENT(INOUT) :: Q(:)
+         REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
+         CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
          CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
       END SUBROUTINE BCState_FCN      
 
-      SUBROUTINE BCGradients_FCN(x,t,nHat,gradU,boundaryName)
+      SUBROUTINE BCGradients_FCN(x,t,nHat,gradU,boundaryType,boundaryName)
          USE SMConstants
+         use PhysicsStorage
          REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-         REAL(KIND=RP)   , INTENT(INOUT) :: gradU(:,:)
+         REAL(KIND=RP)   , INTENT(INOUT) :: gradU(NDIM,N_GRAD_EQN)
+         CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
          CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
       END SUBROUTINE BCGradients_FCN
 
-      SUBROUTINE ComputeQDot_FCN( mesh, time, BCFunctions )
+      SUBROUTINE ComputeQDot_FCN( mesh, particles, time, BCFunctions )
          use SMConstants
          use HexMeshClass
+         use ParticlesClass
          import BCState_FCN
          import BCGradients_FCN
          import BCFunctions_t
          import no_of_BCsets
          IMPLICIT NONE 
          type(HexMesh), target           :: mesh
+#if defined(NAVIERSTOKES)
+         type(Particles_t)               :: particles
+#else
+         logical                         :: particles
+#endif
          REAL(KIND=RP)                   :: time
          type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
       end subroutine ComputeQDot_FCN
@@ -366,6 +382,15 @@ Module DGSEMClass
 !     ------------------
 !
       self % monitors = ConstructMonitors(self % mesh, controlVariables)
+
+#if defined(NAVIERSTOKES)
+!
+!     -------------------
+!     Build the particles
+!     -------------------
+!
+!      call self % particles % construct(self % mesh, controlVariables)
+#endif
       
       NULLIFY(Nx,Ny,Nz)
 !

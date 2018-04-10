@@ -196,7 +196,7 @@ contains
       CALL Matrix % Preallocate(nnz)
       CALL Matrix % Reset
       
-      CALL ComputeTimeDerivative( sem % mesh, t, sem % BCFunctions )
+      CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions )
 !
 !     ------------------------------------------
 !     Compute numerical Jacobian using colorings
@@ -218,7 +218,7 @@ contains
                                                    sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
             ENDDO
             
-            CALL ComputeTimeDerivative( sem % mesh, t, sem % BCFunctions )  
+            CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions )  
             
             DO thiselmidx = ielm, felm-1
                thiselm = ecolors%elmnts(thiselmidx)

@@ -24,6 +24,8 @@
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MACH_NUMBER_KEY           = "mach number"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: REYNOLDS_NUMBER_KEY       = "reynolds number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PRANDTL_NUMBER_KEY        = "prandtl number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FROUDE_NUMBER_KEY         = "froude number"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY             = "aoa theta"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY               = "aoa phi"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY        = "flow equations"
@@ -204,7 +206,12 @@
          dimensionless_ % kappa = 0.0_RP
       end if
       dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
-      dimensionless_ % invFroudeSquare = 0.0_RP
+
+      if ( dimensionless_ % Fr == huge(1.d0) ) then  
+            dimensionless_ % invFroudeSquare = 0.0_RP 
+      else  
+            dimensionless_ % invFroudeSquare = 1.0_RP / POW2( dimensionless_ % Fr ) 
+      endif  
 !
 !     ----------------
 !     Reference values
@@ -297,6 +304,8 @@
             write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Reynolds number: " , dimensionless % Re
             write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Prandtl number: " , dimensionless % Pr
          end if
+
+         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Froude number: " , dimensionless % Fr 
 
       END SUBROUTINE DescribePhysicsStorage
 !

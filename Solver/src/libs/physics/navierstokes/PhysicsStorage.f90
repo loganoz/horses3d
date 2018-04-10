@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Tue Apr 10 17:29:22 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
 !
 !//////////////////////////////////////////////////////
 !
@@ -22,6 +22,7 @@
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MACH_NUMBER_KEY           = "mach number"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: REYNOLDS_NUMBER_KEY       = "reynolds number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PRANDTL_NUMBER_KEY        = "prandtl number"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY             = "aoa theta"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY               = "aoa phi"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY        = "flow equations"
@@ -41,6 +42,17 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME   ="low dissipation roe"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MATRIXDISS_SOLVER_NAME   ="matrix dissipation"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: VISCOUSNS_SOLVER_NAME    ="viscous ns"
+
+         !PARTICLES 
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfParticlesKey     = "number of particles"          
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STOKES_NUMBER_PART_KEY   = "stokes number" 
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FROUDE_NUMBER_KEY        = "froude number"          
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GAMMA_PART_KEY           = "gamma" 
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PHI_M_PART_KEY           = "phi_m" 
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: I0_PART_KEY              = "radiation source" 
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: gx_PART_KEY              = "gravity_x" 
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: gy_PART_KEY              = "gravity_y" 
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: gz_PART_KEY              = "gravity_z" 
       END MODULE PhysicsKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
@@ -239,8 +251,22 @@
       dimensionless_ % cp = thermodynamics_ % gamma * thermodynamics_ % InvGammaMinus1
       dimensionless_ % cv = thermodynamics_ % InvGammaMinus1
       dimensionless_ % Mach = controlVariables % doublePrecisionValueForKey(MACH_NUMBER_KEY)
-      dimensionless_ % Pr   = 0.72_RP
-      dimensionless_ % Fr   = 0.0_RP
+
+      dimensionless_ % Pr   = controlVariables % doublePrecisionValueForKey(PRANDTL_NUMBER_KEY) 
+      dimensionless_ % Fr   = controlVariables % doublePrecisionValueForKey(FROUDE_NUMBER_KEY) 
+ 
+      if (dimensionless_ % Pr == huge(1._RP)) then  
+            write(*,*) "WARNING:" 
+            write(*,*) "Prandtl number not set. Setting automatically to its default value: 0.72" 
+            dimensionless_ % Pr = 0.72_RP 
+      dimensionless_ % Fr   = 0.0_RP 
+      endif  
+ 
+      if (dimensionless_ % Fr == huge(1._RP)) then  
+            write(*,*) "WARNING:" 
+            write(*,*) "Froude number not set. Setting automatically to its default value: infinity" 
+            dimensionless_ % Fr = huge(1._RP) 
+      endif  
 !
 !     *********************
 !     Select flow equations
@@ -313,7 +339,11 @@
       end if
 
       dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
-      dimensionless_ % invFroudeSquare = 0.0_RP
+      if ( dimensionless_ % Fr == huge(1.d0) ) then  
+            dimensionless_ % invFroudeSquare = 0.0_RP 
+      else  
+            dimensionless_ % invFroudeSquare = 1.0_RP / POW2( dimensionless_ % Fr ) 
+      endif  
 !
 !     ********************
 !     Set reference values: TODO read from parameter file
@@ -554,6 +584,8 @@
             write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Reynolds number: " , dimensionless % Re
             write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Prandtl number: " , dimensionless % Pr
          end if
+
+         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Froude number: " , dimensionless % Fr
 
       END SUBROUTINE DescribePhysicsStorage
 !
