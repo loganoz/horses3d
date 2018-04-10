@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Tue Apr 10 12:12:09 2018
+!   @Last revision date: Tue Apr 10 15:17:43 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 00cf81fc8040d50de254463075cfb5043c152064
+!   @Last revision commit: 658a80652781edb7b6384320f7fd61a982405f91
 !
 !//////////////////////////////////////////////////////
 !
@@ -600,6 +600,10 @@ module SpatialDiscretization
                                            f % geom % normal(:,i,j), &
                                            UGradExt,&
                                            boundaryType )
+
+         f % storage(1) % U_x(:,i,j) = UGradExt(IX,:)
+         f % storage(1) % U_y(:,i,j) = UGradExt(IY,:)
+         f % storage(1) % U_z(:,i,j) = UGradExt(IZ,:)
 
          f % storage(2) % U_x(:,i,j) = UGradExt(IX,:)
          f % storage(2) % U_y(:,i,j) = UGradExt(IY,:)

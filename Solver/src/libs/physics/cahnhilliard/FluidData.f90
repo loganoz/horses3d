@@ -62,6 +62,7 @@ module FluidData
          thermodynamics % kappa   = thermodynamics_ % kappa
          thermodynamics % c_alpha = thermodynamics_ % c_alpha
          thermodynamics % c_beta  = thermodynamics_ % c_beta
+         thermodynamics % thetaw  = thermodynamics_ % thetaw
 
       end subroutine SetThermodynamics
 

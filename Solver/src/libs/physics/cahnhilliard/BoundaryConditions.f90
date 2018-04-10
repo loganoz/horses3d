@@ -72,10 +72,11 @@
          public NoFluxState, NoFluxNeumann, WallAngleBC
          public UserDefinedState, UserDefinedNeumann
 
-         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(4) :: implementedBCNames = &
+         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(5) :: implementedBCNames = &
                ["no-flux             ", &
                 "periodic+           ", &
                 "periodic-           ", &
+                "noslipadiabaticwall ", &
                 "user-defined        "   ]
                
          integer, parameter :: C_BC = 1
@@ -321,7 +322,7 @@
 
       IF ( boundarytype == "no-flux" )                   THEN
          CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
-      ELSEIF ( boundaryType == "noSlipAdiabaticWall" ) then
+      ELSEIF ( boundaryType == "noslipadiabaticwall" ) then
          call WallAngleBC(x, t, nHat, U_x, U_y, U_z)
       END IF
 
