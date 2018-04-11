@@ -255,14 +255,14 @@
       dimensionless_ % Pr   = controlVariables % doublePrecisionValueForKey(PRANDTL_NUMBER_KEY) 
       dimensionless_ % Fr   = controlVariables % doublePrecisionValueForKey(FROUDE_NUMBER_KEY) 
  
-      if (dimensionless_ % Pr == huge(1._RP)) then  
+      if ( abs(dimensionless_ % Pr - huge(1._RP) < 1.d0 ) then  
             write(*,*) "WARNING:" 
             write(*,*) "Prandtl number not set. Setting automatically to its default value: 0.72" 
             dimensionless_ % Pr = 0.72_RP 
       dimensionless_ % Fr   = 0.0_RP 
       endif  
  
-      if (dimensionless_ % Fr == huge(1._RP)) then  
+      if ( abs(dimensionless_ % Fr - huge(1._RP) < 1.d0 ) then    
             write(*,*) "WARNING:" 
             write(*,*) "Froude number not set. Setting automatically to its default value: infinity" 
             dimensionless_ % Fr = huge(1._RP) 
@@ -339,7 +339,7 @@
       end if
 
       dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
-      if ( dimensionless_ % Fr == huge(1.d0) ) then  
+      if ( abs(dimensionless_ % Fr - huge(1._RP) < 1.d0 ) then   
             dimensionless_ % invFroudeSquare = 0.0_RP 
       else  
             dimensionless_ % invFroudeSquare = 1.0_RP / POW2( dimensionless_ % Fr ) 
