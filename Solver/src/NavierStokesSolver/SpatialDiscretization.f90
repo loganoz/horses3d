@@ -560,7 +560,7 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , inviscidContravariantFlux ) 
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , InviscidFlux3D, inviscidContravariantFlux ) 
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
