@@ -1,7 +1,7 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    ViscousBR2.f90
+!   @File:    EllipticBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
 !   @Last revision date: Tue Feb 13 19:37:38 2018
@@ -11,7 +11,7 @@
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
-module ViscousBR2
+module EllipticBR2
    use SMConstants
    use Headers
    use MeshTypes
@@ -22,7 +22,7 @@ module ViscousBR2
    use VariableConversion, only: gradientValuesForQ
    use MPI_Process_Info
    use MPI_Face_Class
-   use ViscousMethodClass
+   use EllipticDiscretizationClass
    use DGSEMClass, only: BCState_FCN
    implicit none
 !
@@ -30,7 +30,7 @@ module ViscousBR2
    private
    public   BassiRebay2_t
 
-   type, extends(ViscousMethod_t)   :: BassiRebay2_t
+   type, extends(EllipticDiscretization_t)   :: BassiRebay2_t
       real(kind=RP)        :: eta = 1.0_RP
       contains
          procedure      :: Initialize         => BR2_Initialize
@@ -226,21 +226,21 @@ module ViscousBR2
          use DGWeakIntegrals
          implicit none
          class(BassiRebay2_t),   intent(in) :: self
-         class(Element)                         :: e
-         class(HexMesh)                         :: mesh
+         class(Element)                     :: e
+         class(HexMesh)                     :: mesh
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer              :: i, j, k
-         real(kind=RP)        :: invjac(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP)        :: faceInt_x(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP)        :: faceInt_y(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP)        :: faceInt_z(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP)        :: bv_x(0:e % Nxyz(1),2)
-         real(kind=RP)        :: bv_y(0:e % Nxyz(2),2)
-         real(kind=RP)        :: bv_z(0:e % Nxyz(3),2)
+         integer       :: i, j, k
+         real(kind=RP) :: invjac(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP) :: faceInt_x(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP) :: faceInt_y(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP) :: faceInt_z(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP) :: bv_x(0:e % Nxyz(1),2)
+         real(kind=RP) :: bv_y(0:e % Nxyz(2),2)
+         real(kind=RP) :: bv_z(0:e % Nxyz(3),2)
 
          call VectorWeakIntegrals % StdFace(e, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
@@ -483,13 +483,14 @@ module ViscousBR2
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR2_ComputeInnerFluxes( self , e , contravariantFlux )
+      subroutine BR2_ComputeInnerFluxes( self , e , EllipticFlux, contravariantFlux )
          use ElementClass
          use PhysicsStorage
          use Physics
          implicit none
          class(BassiRebay2_t) ,     intent (in) :: self
          type(Element)                          :: e
+         procedure(EllipticFlux3D_f)            :: EllipticFlux
          real(kind=RP)           , intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
@@ -512,7 +513,7 @@ module ViscousBR2
 
 #endif
 
-         call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
+         call EllipticFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -588,7 +589,7 @@ module ViscousBR2
 
       end subroutine BR2_ComputeInnerFluxesWithSGS
 #endif
-      subroutine BR2_RiemannSolver ( self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+      subroutine BR2_RiemannSolver ( self , f, EllipticFlux, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
@@ -597,6 +598,7 @@ module ViscousBR2
          implicit none
          class(BassiRebay2_t)                 :: self
          class(Face),   intent(in)            :: f
+         procedure(EllipticFlux0D_f)          :: EllipticFlux
          real(kind=RP), dimension(N_EQN)      :: QLeft
          real(kind=RP), dimension(N_EQN)      :: QRight
          real(kind=RP), dimension(N_GRAD_EQN) :: U_xLeft
@@ -634,7 +636,7 @@ module ViscousBR2
          kappa = 0.0_RP
 
 #endif
-         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, flux_vec)
+         call EllipticFlux(Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 
@@ -692,4 +694,4 @@ module ViscousBR2
 
       end subroutine BR2_RiemannSolverWithSGS
 #endif
-end module ViscousBR2
+end module EllipticBR2

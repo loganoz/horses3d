@@ -630,12 +630,12 @@
          real ( kind=RP ) , intent ( in ) :: U_z  ( 1:N_GRAD_EQN, 0:N(1) , 0:N(2)) 
          real ( kind=RP ) , intent ( in ) :: mu   ( 0:N(1) , 0:N(2)) 
          real ( kind=RP ) , intent ( in ) :: kappa   ( 0:N(1) , 0:N(2)) 
-         real ( kind=RP ) , intent ( out) :: F    ( 1:NCONS, 0:N(1) , 0:N(2), 1:NDIM )
+         real ( kind=RP ) , intent ( out) :: F    ( 1:NCONS, 1:NDIM, 0:N(1) , 0:N(2))
 
          F = 0.0_RP
-         F(1:N_GRAD_EQN,:,:,IX) = U_x
-         F(1:N_GRAD_EQN,:,:,IY) = U_y
-         F(1:N_GRAD_EQN,:,:,IZ) = U_z
+         F(1:N_GRAD_EQN,IX,:,:) = U_x
+         F(1:N_GRAD_EQN,IY,:,:) = U_y
+         F(1:N_GRAD_EQN,IZ,:,:) = U_z
 
       end subroutine ViscousFlux2D
 

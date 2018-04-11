@@ -7,6 +7,7 @@ module Physics
 
       private
       public  ViscousFlux, QuarticDWPDerivative, QuarticDWP
+      public  ViscousFlux0D, ViscousFlux3D
 !
 !     ---------
 !     Constants

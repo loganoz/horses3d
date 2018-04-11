@@ -1,7 +1,7 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    InviscidMethods.f90
+!   @File:    HyperbolicDiscretizations.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:16:31 2017
 !   @Last revision date: Tue Jan 16 11:59:31 2018
@@ -12,22 +12,22 @@
 !
 #include "Includes.h"
 #if defined(NAVIERSTOKES)
-module InviscidMethods
+module HyperbolicDiscretizations
    use SMConstants
    use RiemannSolvers
-   use InviscidMethodClass
-   use InviscidStandard
-   use InviscidSplitForm
+   use HyperbolicDiscretizationClass
+   use HyperbolicStandard
+   use HyperbolicSplitForm
    implicit none
 
    private
-   public   InviscidMethod_t , StandardDG_t , SplitDG_t, InviscidMethod
+   public   HyperbolicDiscretization_t , StandardDG_t , SplitDG_t, HyperbolicDiscretization
    
-   class(InviscidMethod_t), allocatable         :: InviscidMethod
+   class(HyperbolicDiscretization_t), allocatable         :: HyperbolicDiscretization
 !
 !  ========
    contains
 !  ========
 !
-end module InviscidMethods
+end module HyperbolicDiscretizations
 #endif

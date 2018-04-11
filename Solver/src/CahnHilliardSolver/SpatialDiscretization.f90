@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Tue Apr 10 15:17:43 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 658a80652781edb7b6384320f7fd61a982405f91
+!   @Last revision date: Wed Apr 11 13:13:18 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,11 +25,12 @@
 #include "Includes.h"
 module SpatialDiscretization
       use SMConstants
-      use ViscousMethods
+      use EllipticDiscretizations
       use DGWeakIntegrals
       use MeshTypes
       use HexMeshClass
       use ElementClass
+      use Physics
       use PhysicsStorage
       use MPI_Face_Class
       use MPI_Process_Info
@@ -50,7 +51,6 @@ module SpatialDiscretization
 !////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine Initialize_SpaceAndTimeMethods(controlVariables, mesh)
-         use PhysicsStorage
          use FTValueDictionaryClass
          use Utilities, only: toLower
          use mainKeywordsModule
@@ -79,13 +79,13 @@ module SpatialDiscretization
          
          select case ( trim(viscousDiscretization) )
          case("br1")
-            ViscousMethod => BassiRebay1
+            EllipticDiscretization => BassiRebay1
 
          case("br2")
-            ViscousMethod => BassiRebay2
+            EllipticDiscretization => BassiRebay2
 
          case("ip")
-            ViscousMethod => InteriorPenalty
+            EllipticDiscretization => InteriorPenalty
 
          case default
             write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretization),'" is not implemented.'
@@ -98,7 +98,7 @@ module SpatialDiscretization
 
          end select
 
-         call ViscousMethod % Describe
+         call EllipticDiscretization % Describe
 !
 !        Compute wall distances
 !        ----------------------
@@ -109,7 +109,6 @@ module SpatialDiscretization
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE ComputeTimeDerivative( mesh, time, BCFunctions)
-         use Physics, only: QuarticDWPDerivative
          IMPLICIT NONE 
 !
 !        ---------
@@ -266,7 +265,6 @@ module SpatialDiscretization
       END SUBROUTINE ComputeTimeDerivative
       
       SUBROUTINE ComputeTimeDerivativeIsolated( mesh, time, BCFunctions)
-         use Physics, only: QuarticDWPDerivative
          IMPLICIT NONE 
 !
 !        ---------
@@ -402,7 +400,6 @@ module SpatialDiscretization
       subroutine TimeDerivative_VolumetricContribution( e , t )
          use HexMeshClass
          use ElementClass
-         use PhysicsStorage
          implicit none
          type(Element)      :: e
          real(kind=RP)      :: t
@@ -421,7 +418,7 @@ module SpatialDiscretization
 !
 !        Compute contravariant flux
 !        --------------------------
-         call ViscousMethod  % ComputeInnerFluxes ( e , contravariantFlux  ) 
+         call EllipticDiscretization  % ComputeInnerFluxes ( e , ViscousFlux3D, contravariantFlux  ) 
 !
 !        ************************
 !        Perform volume integrals
@@ -475,7 +472,8 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL ViscousMethod % RiemannSolver(f = f, &
+               CALL EllipticDiscretization % RiemannSolver(f = f, &
+                                                  EllipticFlux = ViscousFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -518,7 +516,8 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL ViscousMethod % RiemannSolver(f = f, &
+               CALL EllipticDiscretization % RiemannSolver(f = f, &
+                                                  EllipticFlux = ViscousFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -548,7 +547,7 @@ module SpatialDiscretization
       SUBROUTINE computeBoundaryFlux(f, time, externalStateProcedure , externalGradientsProcedure)
       USE ElementClass
       use FaceClass
-      USE ViscousMethods
+      USE EllipticDiscretizations
       USE Physics
       use PhysicsStorage
       USE BoundaryConditionFunctions
@@ -614,7 +613,8 @@ module SpatialDiscretization
 !           Viscous fluxes
 !           --------------
 !   
-         CALL ViscousMethod % RiemannSolver(f = f, &
+         CALL EllipticDiscretization % RiemannSolver(f = f, &
+                                            EllipticFlux = ViscousFlux0D, &
                                             QLeft = f % storage(1) % Q(:,i,j), &
                                             QRight = f % storage(2) % Q(:,i,j), &
                                             U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -650,7 +650,7 @@ module SpatialDiscretization
          real(kind=RP),      intent(in) :: time
          procedure(BCState_FCN)         :: externalStateProcedure
 
-         call ViscousMethod % ComputeGradient( mesh , time , externalStateProcedure)
+         call EllipticDiscretization % ComputeGradient( mesh , time , externalStateProcedure)
 
       end subroutine DGSpatial_ComputeGradient
 !
