@@ -259,7 +259,6 @@
             write(*,*) "WARNING:" 
             write(*,*) "Prandtl number not set. Setting automatically to its default value: 0.72" 
             dimensionless_ % Pr = 0.72_RP 
-      dimensionless_ % Fr   = 0.0_RP 
       endif  
  
       if ( abs(dimensionless_ % Fr - huge(1._RP)) < 1.d0 ) then    
