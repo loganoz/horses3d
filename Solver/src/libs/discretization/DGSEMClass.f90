@@ -389,7 +389,11 @@ Module DGSEMClass
 !     Build the particles
 !     -------------------
 !
-!      call self % particles % construct(self % mesh, controlVariables)
+
+      self % particles % active = controlVariables % logicalValueForKey("lagrangian particles")
+      if ( self % particles % active ) then 
+            call self % particles % construct(self % mesh, controlVariables)
+      endif 
 #endif
       
       NULLIFY(Nx,Ny,Nz)

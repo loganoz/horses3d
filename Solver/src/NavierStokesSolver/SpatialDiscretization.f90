@@ -434,11 +434,13 @@ module SpatialDiscretization
          if (.not. mesh % child) call UserDefinedSourceTerm(mesh, t, thermodynamics, dimensionless, refValues)
 
          if (.not. mesh % child) then
+            if ( particles % active ) then             
 !$omp do schedule(runtime)
-            do eID = 1, size(mesh % elements)
-               call particles % AddSource(mesh % elements(eID), t, thermodynamics, dimensionless, refValues)
-            end do
+               do eID = 1, size(mesh % elements)
+                  call particles % AddSource(mesh % elements(eID), t, thermodynamics, dimensionless, refValues)
+               end do
 !$omp end do
+            endif 
          end if
 
 !$omp do schedule(runtime) private(i,j,k)

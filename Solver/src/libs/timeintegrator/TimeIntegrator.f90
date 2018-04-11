@@ -436,7 +436,9 @@ end interface
 !
 !        Integration of particles
 !        ------------------------
-         call sem % particles % Integrate(sem % mesh, dt)
+         if ( sem % particles % active ) then 
+            call sem % particles % Integrate(sem % mesh, dt)
+         endif 
 #endif
 !
 !        User defined periodic operation

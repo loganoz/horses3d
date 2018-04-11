@@ -54,9 +54,10 @@ type dimensionlessParticles_t
 endtype    
 
 type Particles_t
-    integer                              :: no_of_particles
+    integer                             :: no_of_particles
     type(Particle_t),       allocatable :: particle(:)
-    type(dimensionlessParticles_t)       :: dimensionless
+    type(dimensionlessParticles_t)      :: dimensionless
+    logical                             :: active 
     contains
         procedure   :: Construct      => ConstructParticles    
         procedure   :: Integrate      => IntegrateParticles
