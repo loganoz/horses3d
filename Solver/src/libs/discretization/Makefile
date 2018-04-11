@@ -10,6 +10,7 @@ MOD_FLAG?=-J
 
 LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
 		./build_ns/WeakIntegrals.o \
+		./build_ns/GradientsStabilization.o \
 		./build_ns/HyperbolicDiscretizationClass.o \
 		./build_ns/HyperbolicStandard.o \
 		./build_ns/HyperbolicSplitForm.o \
@@ -23,6 +24,7 @@ LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
 
 LIBOBJS_CH =    ./build_ch/DGSEMClass.o \
 		./build_ch/WeakIntegrals.o \
+		./build_ch/GradientsStabilization.o \
 		./build_ch/HyperbolicDiscretizationClass.o \
 		./build_ch/HyperbolicStandard.o \
 		./build_ch/HyperbolicSplitForm.o \
