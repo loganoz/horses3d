@@ -179,6 +179,12 @@ end interface
 !
       CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
+!     ----------------------------------
+!     Export particles to VTK (temporal)
+!     ----------------------------------
+!TODO
+!      call sem % particles % ExportToVTK()
+!
 !     --------------------------
 !     Show simulation statistics
 !     --------------------------
@@ -253,6 +259,7 @@ end interface
          INTEGER                              :: faceID, eId
          CHARACTER(LEN=BC_STRING_LENGTH)      :: bcName, namedBC
          CHARACTER(LEN=BC_STRING_LENGTH)      :: bcType
+         real(kind=RP)                        :: bcValue
          TYPE(FTMutableObjectArray), POINTER :: bcObjects
          CLASS(FTValue)             , POINTER :: v
          CLASS(FTObject), POINTER             :: obj

@@ -26,6 +26,7 @@ module SpatialDiscretization
       use MPI_Face_Class
       use MPI_Process_Info
       use DGSEMClass
+      use ParticlesClass
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -187,7 +188,7 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeTimeDerivative( mesh, time, BCFunctions)
+      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, BCFunctions)
          IMPLICIT NONE 
 !
 !        ---------
@@ -195,6 +196,7 @@ module SpatialDiscretization
 !        ---------
 !
          TYPE(HexMesh), target      :: mesh
+         type(Particles_t)          :: particles
          REAL(KIND=RP)              :: time
          type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
 !
@@ -238,6 +240,7 @@ module SpatialDiscretization
 !        -----------------------
 !
          call TimeDerivative_ComputeQDot(mesh = mesh , &
+                                         particles = particles, &
                                          t    = time, &
                                          externalState     = BCFunctions(1) % externalState, &
                                          externalGradients = BCFunctions(1) % externalGradients )
@@ -250,7 +253,7 @@ module SpatialDiscretization
 !     This routine computes the time derivative element by element, without considering the Riemann Solvers
 !     This is useful for estimating the isolated truncation error
 !
-      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, time, BCFunctions)
+      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, BCFunctions)
          use EllipticDiscretizationClass
          IMPLICIT NONE 
 !
@@ -259,6 +262,7 @@ module SpatialDiscretization
 !        ---------
 !
          TYPE(HexMesh), target      :: mesh
+         type(Particles_t)          :: particles
          REAL(KIND=RP)              :: time
          type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
 !
@@ -298,9 +302,10 @@ module SpatialDiscretization
 !
       END SUBROUTINE ComputeTimeDerivativeIsolated
 
-      subroutine TimeDerivative_ComputeQDot( mesh , t, externalState, externalGradients )
+      subroutine TimeDerivative_ComputeQDot( mesh , particles, t, externalState, externalGradients )
          implicit none
          type(HexMesh)              :: mesh
+         type(Particles_t)          :: particles
          real(kind=RP)              :: t
          procedure(BCState_FCN)     :: externalState
          procedure(BCGradients_FCN) :: externalGradients
@@ -427,6 +432,17 @@ module SpatialDiscretization
 !        Add a source term
 !        -----------------
          if (.not. mesh % child) call UserDefinedSourceTerm(mesh, t, thermodynamics, dimensionless, refValues)
+
+         if (.not. mesh % child) then
+            if ( particles % active ) then             
+!$omp do schedule(runtime)
+               do eID = 1, size(mesh % elements)
+                  call particles % AddSource(mesh % elements(eID), t, thermodynamics, dimensionless, refValues)
+               end do
+!$omp end do
+            endif 
+         end if
+
 !$omp do schedule(runtime) private(i,j,k)
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
@@ -825,8 +841,10 @@ module SpatialDiscretization
       real(kind=RP)                   :: fStar(N_EQN, 0:f % Nf(1), 0: f % Nf(2))
       
       CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
+      CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName
             
       boundaryType = f % boundaryType
+      boundaryName = f % boundaryName
 !
 !     -------------------
 !     Get external states
@@ -838,7 +856,7 @@ module SpatialDiscretization
                                       time, &
                                       f % geom % normal(:,i,j), &
                                       f % storage(2) % Q(:,i,j),&
-                                      boundaryType )
+                                      boundaryType, boundaryName )
 
       end do               ; end do
 
@@ -852,7 +870,7 @@ module SpatialDiscretization
                                               time, &
                                               f % geom % normal(:,i,j), &
                                               UGradExt,&
-                                              boundaryType )
+                                              boundaryType, boundaryName)
 
             f % storage(2) % U_x(:,i,j) = UGradExt(IX,:)
             f % storage(2) % U_y(:,i,j) = UGradExt(IY,:)

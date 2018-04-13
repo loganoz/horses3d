@@ -253,7 +253,7 @@ CONTAINS
       DO newtonit = 1, MAX_NEWTON_ITER                                 !NEWTON LOOP
          if (.not. JacByConv) computeA = .TRUE.
          
-         CALL ComputeTimeDerivative( sem % mesh, t, sem % BCFunctions)
+         CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions)
          CALL ComputeRHS(sem, dt, U_n, nelm, linsolver )               ! Computes b (RHS) and stores it into linsolver
          
          CALL SYSTEM_CLOCK(COUNT=cli)

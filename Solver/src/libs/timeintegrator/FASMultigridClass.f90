@@ -398,7 +398,7 @@ module FASMultigridClass
       DO
          DO iEl = 1, NumOfSweeps
             if (Compute_dt) dt = MaxTimeStep(this % p_sem, cfl, dcfl )
-            call SmoothIt   (this % p_sem % mesh, t, this % p_sem % BCFunctions, &
+            call SmoothIt   (this % p_sem % mesh, this % p_sem % particles, t, this % p_sem % BCFunctions, &
                              dt, ComputeTimeDerivative )
          end DO
          sweepcount = sweepcount + NumOfSweeps
@@ -408,7 +408,7 @@ module FASMultigridClass
          if (SmoothFine .AND. lvl > 1) then ! .AND. .not. FMG
             if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
             call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
-            call ComputeTimeDerivative(this % Child % p_sem % mesh,t, this % Child % p_sem % BCFunctions)
+            call ComputeTimeDerivative(this % Child % p_sem % mesh,this % Child % p_sem % particles, t, this % Child % p_sem % BCFunctions)
             
             if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals(this % Child % p_sem % mesh))) exit
          else
@@ -474,7 +474,7 @@ module FASMultigridClass
       DO
          DO iEl = 1, NumOfSweeps
             if (Compute_dt) dt = MaxTimeStep(this % p_sem, cfl, dcfl )
-            call SmoothIt   (this % p_sem % mesh, t, this % p_sem % BCFunctions, dt, &
+            call SmoothIt   (this % p_sem % mesh, this % p_sem % particles, t, this % p_sem % BCFunctions, dt, &
                              ComputeTimeDerivative)
          end DO
          
@@ -568,7 +568,7 @@ module FASMultigridClass
          DO
             counter = counter + 1
             if (Compute_dt) dt = MaxTimeStep(this % p_sem, cfl, dcfl )
-            call SmoothIt   (this % p_sem % mesh, t, this % p_sem % BCFunctions, &
+            call SmoothIt   (this % p_sem % mesh, this % p_sem % particles, t, this % p_sem % BCFunctions, &
                              dt, ComputeTimeDerivative )
 
             maxResidual = ComputeMaxResiduals(this % p_sem % mesh)
@@ -661,7 +661,7 @@ module FASMultigridClass
 !     If not on finest level, correct source term
 !     -------------------------------------------
 !      
-      call ComputeTimeDerivative(Child_p % p_sem % mesh,t, Child_p % p_sem % BCFunctions) 
+      call ComputeTimeDerivative(Child_p % p_sem % mesh,Child_p % p_sem % particles, t, Child_p % p_sem % BCFunctions) 
       
 !$omp parallel do schedule(runtime)
       DO iEl = 1, nelem

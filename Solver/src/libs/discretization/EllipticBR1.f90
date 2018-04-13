@@ -133,7 +133,6 @@ module EllipticBR1
          end if
 !$omp end single
 
-
 !$omp do schedule(runtime) 
          do fID = 1, SIZE(mesh % faces) 
             associate(f => mesh % faces(fID)) 
@@ -341,7 +340,7 @@ module EllipticBR1
                                 time               , &
                                 f % geom % normal(:,i,j)      , &
                                 bvExt              , &
-                                f % boundaryType )  
+                                f % boundaryType, f % boundaryName )  
 !   
 !           -------------------
 !           u, v, w, T averages

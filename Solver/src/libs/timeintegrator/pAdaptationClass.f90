@@ -664,7 +664,7 @@ module pAdaptationClass
 !     Update residuals
 !     ----------------
 !
-      call ComputeTimeDerivative(sem % mesh, t, sem % BCFunctions)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
       
       write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
    end subroutine pAdaptTE

@@ -132,7 +132,12 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
+<<<<<<< HEAD
       SUBROUTINE ComputeTimeDerivative( mesh, time, BCFunctions)
+=======
+      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, BCFunctions)
+         use Physics, only: QuarticDWPDerivative
+>>>>>>> master
          IMPLICIT NONE 
 !
 !        ---------
@@ -140,6 +145,7 @@ module SpatialDiscretization
 !        ---------
 !
          TYPE(HexMesh), target      :: mesh
+         logical                    :: particles
          REAL(KIND=RP)              :: time
          type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
 !
@@ -337,7 +343,8 @@ module SpatialDiscretization
 
       END SUBROUTINE ComputeTimeDerivative
       
-      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, time, BCFunctions)
+      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, BCFunctions)
+         use Physics, only: QuarticDWPDerivative
          IMPLICIT NONE 
 !
 !        ---------
@@ -345,6 +352,7 @@ module SpatialDiscretization
 !        ---------
 !
          TYPE(HexMesh), target      :: mesh
+         logical                    :: particles
          REAL(KIND=RP)              :: time
          type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
          

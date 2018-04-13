@@ -55,7 +55,7 @@
       call sem % mesh % ProlongSolutionToFaces()
 !$omp end parallel
       
-      call TimeDerivative_ComputeQDot( sem % mesh , 0.0_RP , &
+      call TimeDerivative_ComputeQDot( sem % mesh , sem % particles, 0.0_RP , &
                      sem % BCFunctions(1) % externalState, sem % BCFunctions(1) % externalGradients)
 !
 !     ------------------------------------------------
@@ -156,7 +156,7 @@
          CALL DGSpatial_ComputeGradient( sem % mesh , 0.0_RP , sem % BCFunctions(1) % externalState) 
       END IF
 
-      call TimeDerivative_ComputeQDot( sem % mesh , 0.0_RP, &
+      call TimeDerivative_ComputeQDot( sem % mesh , sem % particles, 0.0_RP, &
                                     sem % BCFunctions(1) % externalState, sem % BCFunctions(1) % externalGradients)
 !
 !     ------------------------------------------------

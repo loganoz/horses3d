@@ -74,7 +74,7 @@ MODULE Implicit_JF
       procedure(ComputeQDot_FCN)                   :: ComputeTimeDerivative
   
       CALL p_sem % SetQ(u)
-      CALL ComputeTimeDerivative(p_sem % mesh, time, p_sem % BCFunctions )
+      CALL ComputeTimeDerivative(p_sem % mesh, p_sem % particles, time, p_sem % BCFunctions )
       CALL p_sem % GetQdot(F)
     
    END FUNCTION DGTimeDerivative

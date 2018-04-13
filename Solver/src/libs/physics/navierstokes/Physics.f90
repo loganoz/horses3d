@@ -351,6 +351,7 @@
          F(IRHOW,IZ) = mu * sutherLaw * ( 2.0_RP * U_z(IGW) - 2.0_RP / 3.0_RP * divV ) 
          F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa * sutherLaw *U_z(IGT)
 
+         ! with Pr = constant, dmudx = dkappadx
       end subroutine ViscousFlux0D
 
       pure subroutine ViscousFlux2D( N, Q, U_x, U_y, U_z, mu, kappa, F)

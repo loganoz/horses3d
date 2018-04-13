@@ -30,11 +30,13 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-         SUBROUTINE externalBoundaryState(x,t,nHat,Q,boundaryName)
+         SUBROUTINE externalBoundaryState(x,t,nHat,Q,boundaryType,boundaryName)
             USE SMConstants
-            REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-            REAL(KIND=RP)   , INTENT(INOUT) :: Q(:)
-            CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+            use PhysicsStorage
+            REAL(KIND=RP)   , INTENT(IN)                :: x(3), t, nHat(3)
+            REAL(KIND=RP)   , INTENT(INOUT)             :: Q(N_EQN)
+            CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN) :: boundaryType
+            CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN) :: boundaryName
 !
 !           ----------
 !           Do nothing
@@ -44,11 +46,13 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-         SUBROUTINE externalGradientState(x,t,nHat,gradU,boundaryName)
+         SUBROUTINE externalGradientState(x,t,nHat,gradU,boundaryType,boundaryName)
             USE SMConstants
-            REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-            REAL(KIND=RP)   , INTENT(INOUT) :: gradU(:,:)
-            CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+            use PhysicsStorage
+            REAL(KIND=RP)   , INTENT(IN)                :: x(3), t, nHat(3)
+            REAL(KIND=RP)   , INTENT(INOUT)             :: gradU(NDIM,N_GRAD_EQN)
+            CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN) :: boundaryType
+            CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN) :: boundaryName
 !
 !           ----------
 !           Do nothing
