@@ -32,7 +32,8 @@ WallDistance: navierstokes/LESModels
 ViscousMethods: WeakIntegrals navierstokes/LESModels ViscousMethodClass ViscousBR1 ViscousIP ViscousBR2
 WeakIntegrals: SMConstants HexElementClass NodalStorageClass Physics DGSEMClass
 NavierStokesSolver/SpatialDiscretization: HexElementClass Physics navierstokes/BoundaryConditions NodalStorageClass MappedGeometry InterpolationAndDerivatives SMConstants InviscidMethods ViscousMethods WeakIntegrals SVV DGSEMClass
-DGSEMClass: ReadMeshFile Physics NodalStorageClass SharedBCModule navierstokes/BoundaryConditions HexMesh SMConstants Monitors MeshPartitioning
+DGSEMClass: ReadMeshFile Physics NodalStorageClass SharedBCModule navierstokes/BoundaryConditions HexMesh SMConstants Monitors MeshPartitioning Particles
+Particles: Particle
 SVV: ViscousMethods
 ReadMeshFile: Read_HDF5Mesh_HOPR Read_SpecMesh HexMesh
 Read_HDF5Mesh_HOPR: HexMesh SMConstants TransfiniteMaps3D FacePatchClass

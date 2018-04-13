@@ -4,9 +4,9 @@
 !   @File:    ViscousIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Tue Feb 13 19:37:38 2018
+!   @Last revision date: Tue Apr 10 17:29:20 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: c01958bbb74b2de9252027cd1c501fe081a58ef2
+!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
 !
 !//////////////////////////////////////////////////////
 !
@@ -155,14 +155,14 @@ module ViscousIP
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
          procedure(BCState_FCN)           :: externalStateProcedure
-         integer                          :: Nx, Ny, Nz
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer                :: i, j, k
-         integer                :: eID , fID , dimID , eqID, fIDs(6)
+         integer :: Nx, Ny, Nz
+         integer :: i, j, k
+         integer :: eID , fID , dimID , eqID, fIDs(6)
 !
 !        *********************************
 !        Volume loops and prolong to faces
@@ -395,7 +395,7 @@ module ViscousIP
                                 time               , &
                                 f % geom % normal(:,i,j)      , &
                                 bvExt              , &
-                                f % boundaryType )  
+                                f % boundaryType, f % boundaryName )  
 !   
 !           -------------------
 !           u, v, w, T averages

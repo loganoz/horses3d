@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Tue Apr 10 15:17:43 2018
+!   @Last revision date: Fri Apr 13 09:29:40 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 658a80652781edb7b6384320f7fd61a982405f91
+!   @Last revision commit: 78e35c938e3225ddf5f9e91ebda5fe93637cac52
 !
 !//////////////////////////////////////////////////////
 !
@@ -108,7 +108,7 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeTimeDerivative( mesh, time, BCFunctions)
+      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, BCFunctions)
          use Physics, only: QuarticDWPDerivative
          IMPLICIT NONE 
 !
@@ -117,6 +117,7 @@ module SpatialDiscretization
 !        ---------
 !
          TYPE(HexMesh), target      :: mesh
+         logical                    :: particles
          REAL(KIND=RP)              :: time
          type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
 !
@@ -265,7 +266,7 @@ module SpatialDiscretization
 
       END SUBROUTINE ComputeTimeDerivative
       
-      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, time, BCFunctions)
+      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, BCFunctions)
          use Physics, only: QuarticDWPDerivative
          IMPLICIT NONE 
 !
@@ -274,6 +275,7 @@ module SpatialDiscretization
 !        ---------
 !
          TYPE(HexMesh), target      :: mesh
+         logical                    :: particles
          REAL(KIND=RP)              :: time
          type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
          

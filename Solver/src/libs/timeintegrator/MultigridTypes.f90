@@ -24,12 +24,20 @@ module MultigridTypes
 !  Interface for the smoother
 !  --------------------------
    abstract interface
-      subroutine SmoothIt_t( mesh, t, BCFunctions, deltaT, ComputeTimeDerivative )
+      subroutine SmoothIt_t( mesh, particles, t, BCFunctions, deltaT, ComputeTimeDerivative )
          use SMConstants, only: RP
          use HexMeshClass, only: HexMesh
          use DGSEMClass, only: ComputeQDot_FCN, BCFunctions_t, no_of_BCsets
+#if defined(NAVIERSTOKES)
+         use ParticlesClass, only: Particles_t
+#endif
          IMPLICIT NONE
          type(HexMesh)              :: mesh
+#if defined(NAVIERSTOKES)
+      type(Particles_t)  :: particles
+#else
+      logical            :: particles
+#endif
          REAL(KIND=RP)              :: t, deltaT
          type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
          procedure(ComputeQDot_FCN) :: ComputeTimeDerivative

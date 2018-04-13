@@ -26,6 +26,7 @@
       use MPI_Process_Info
       use TimeIntegratorDefinitions
       use MonitorsClass
+      use ParticlesClass
       IMPLICIT NONE 
       
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -339,7 +340,7 @@ end interface
 !     Check initial residuals
 !     -----------------------
 !
-      call ComputeTimeDerivative(sem % mesh,t, sem % BCFunctions)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
       maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
@@ -394,7 +395,7 @@ end interface
                      CALL TakeBDFStep_JF (sem, t , dt, ComputeTimeDerivative )
                END SELECT
             CASE ('explicit')
-               CALL self % RKStep ( sem % mesh, t, sem % BCFunctions, dt, ComputeTimeDerivative)
+               CALL self % RKStep ( sem % mesh, sem % particles, t, sem % BCFunctions, dt, ComputeTimeDerivative)
             case ('FAS')
                call FASSolver % solve(k,t, ComputeTimeDerivative)
             case ('AnisFAS')
@@ -431,6 +432,14 @@ end interface
                exit
             end if
          END IF
+#if defined(NAVIERSTOKES)
+!
+!        Integration of particles
+!        ------------------------
+         if ( sem % particles % active ) then 
+            call sem % particles % Integrate(sem % mesh, dt)
+         endif 
+#endif
 !
 !        User defined periodic operation
 !        -------------------------------

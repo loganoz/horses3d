@@ -481,7 +481,7 @@ CONTAINS
       
 !~      CALL this % p_sem % GetQ(buffer)
       CALL this % p_sem % SetQ(this % Ur + x*eps)
-      CALL ComputeTimeDerivative(this % p_sem % mesh, timesolve, this % p_sem % BCFunctions)
+      CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, this % p_sem % BCFunctions)
       CALL this % p_sem % GetQdot(F)
 !~      CALL this % p_sem % SetQ(buffer)
       Ax = ( F - this % F_Ur) / eps - x / (dtsolve)                          !First order   ! arueda: this is defined only for BDF1

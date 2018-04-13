@@ -518,7 +518,7 @@ module AnisFASMultigridClass
       DO
          do iEl = 1, NumOfSweeps
             if (Compute_dt) dt = MaxTimeStep(p_sem, cfl, dcfl )
-            call SmoothIt(p_sem % mesh, t, p_sem % BCFunctions, dt, ComputeTimeDerivative )
+            call SmoothIt(p_sem % mesh, p_sem % particles, t, p_sem % BCFunctions, dt, ComputeTimeDerivative )
          end do
          sweepcount = sweepcount + 1
          if (MGOutput) call PlotResiduals( lvl, sweepcount*NumOfSweeps , p_sem % mesh )
@@ -526,7 +526,7 @@ module AnisFASMultigridClass
          if (SmoothFine .AND. lvl > 1) then
             call MGRestrictToChild(this,Dir,lvl,t,TE, ComputeTimeDerivative)
             associate(Childp_sem => this % Child % MGStorage(Dir) % p_sem)
-            call ComputeTimeDerivative(Childp_sem % mesh, t, Childp_sem % BCFunctions)
+            call ComputeTimeDerivative(Childp_sem % mesh, Childp_sem % particles, t, Childp_sem % BCFunctions)
             end associate
             
             if (MAXVAL(ComputeMaxResiduals(p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals &
@@ -597,7 +597,7 @@ module AnisFASMultigridClass
          
          do iEl = 1, NumOfSweeps
             if (Compute_dt) dt = MaxTimeStep(p_sem, cfl, dcfl )
-            call SmoothIt(p_sem % mesh, t, p_sem % BCFunctions, dt, ComputeTimeDerivative )
+            call SmoothIt(p_sem % mesh, p_sem % particles, t, p_sem % BCFunctions, dt, ComputeTimeDerivative )
          end do
 
          sweepcount = sweepcount + 1
@@ -711,10 +711,10 @@ module AnisFASMultigridClass
             call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
          elseif ( TE(1) % TruncErrorType == ISOLATED_TE) then
             call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
-            call ComputeTimeDerivative(Childp_sem % mesh,t,Childp_sem % BCFunctions)
+            call ComputeTimeDerivative(Childp_sem % mesh,Childp_sem % particles, t,Childp_sem % BCFunctions)
          end if
       else
-         call ComputeTimeDerivative(Childp_sem % mesh,t,Childp_sem % BCFunctions)
+         call ComputeTimeDerivative(Childp_sem % mesh, Childp_sem % particles, t,Childp_sem % BCFunctions)
       end if
       
 !$omp parallel do schedule(runtime)
