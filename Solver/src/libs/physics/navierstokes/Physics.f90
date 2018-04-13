@@ -32,6 +32,8 @@
 
       private
       public  InviscidFlux, ViscousFlux
+      public  ViscousFlux0D, ViscousFlux2D, ViscousFlux3D
+      public  InviscidFlux0D, InviscidFlux3D
       public  InviscidJacobian
       public  getStressTensor, SutherlandsLaw
 !

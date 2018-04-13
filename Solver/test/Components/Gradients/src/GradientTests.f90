@@ -12,7 +12,7 @@
       USE DGSEMClass
       USE SpatialDiscretization
       USE SetupModule
-      use ViscousMethods
+      use EllipticDiscretizations
       
       IMPLICIT NONE
 !
@@ -48,8 +48,8 @@
 !     In this point, do not use any viscous discretization
 !     ----------------------------------------------------
 !
-      deallocate( ViscousMethod )
-      allocate(ViscousMethod_t :: ViscousMethod)
+      deallocate( EllipticDiscretization )
+      allocate(EllipticDiscretization_t :: EllipticDiscretization)
 
 !$omp parallel shared(sem)
       call sem % mesh % ProlongSolutionToFaces()
@@ -117,7 +117,7 @@
       USE DGSEMClass
       USE SpatialDiscretization
       USE SetupModule
-      use ViscousMethods
+      use EllipticDiscretizations
       
       IMPLICIT NONE
 !

@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Fri Apr 13 09:29:40 2018
+!   @Last revision date: Fri Apr 13 09:52:01 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 78e35c938e3225ddf5f9e91ebda5fe93637cac52
+!   @Last revision commit: f39f7ff8d703e35a2fba4ddea56765703bbdacca
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,16 +25,19 @@
 #include "Includes.h"
 module SpatialDiscretization
       use SMConstants
-      use ViscousMethods
+      use Physics
+      use EllipticDiscretizations
       use DGWeakIntegrals
       use MeshTypes
-      use HexMeshClass
+      use FaceClass
       use ElementClass
+      use HexMeshClass
       use PhysicsStorage
       use MPI_Face_Class
       use MPI_Process_Info
       use DGSEMClass
       use BoundaryConditionFunctions, only: C_BC, MU_BC
+      use GradientsStabilization
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -42,6 +45,12 @@ module SpatialDiscretization
       private
       public  ComputeLaplacian, DGSpatial_ComputeGradient
       public  Initialize_SpaceAndTimeMethods, ComputeTimeDerivative, ComputeTimeDerivativeIsolated
+
+      interface GetPoiseuilleFlow
+         module procedure GetPoiseuilleFlow_Element, GetPoiseuilleFlow_Face
+      end interface 
+
+      logical, parameter   :: enable_speed = .true. 
 !
 !     ========      
       CONTAINS 
@@ -50,7 +59,6 @@ module SpatialDiscretization
 !////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine Initialize_SpaceAndTimeMethods(controlVariables, mesh)
-         use PhysicsStorage
          use FTValueDictionaryClass
          use Utilities, only: toLower
          use mainKeywordsModule
@@ -59,8 +67,14 @@ module SpatialDiscretization
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
          class(HexMesh)                         :: mesh
-         character(len=LINE_LENGTH)       :: inviscidDiscretization
-         character(len=LINE_LENGTH)       :: viscousDiscretization
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         character(len=LINE_LENGTH) :: inviscidDiscretization
+         character(len=LINE_LENGTH) :: viscousDiscretization
+         integer                    :: eID, fID
 
          if ( MPI_Process % isRoot ) then
             write(STD_OUT,'(/)')
@@ -79,13 +93,13 @@ module SpatialDiscretization
          
          select case ( trim(viscousDiscretization) )
          case("br1")
-            ViscousMethod => BassiRebay1
+            EllipticDiscretization => BassiRebay1
 
          case("br2")
-            ViscousMethod => BassiRebay2
+            EllipticDiscretization => BassiRebay2
 
          case("ip")
-            ViscousMethod => InteriorPenalty
+            EllipticDiscretization => InteriorPenalty
 
          case default
             write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretization),'" is not implemented.'
@@ -98,11 +112,21 @@ module SpatialDiscretization
 
          end select
 
-         call ViscousMethod % Describe
+         call EllipticDiscretization % Describe
 !
 !        Compute wall distances
 !        ----------------------
          call mesh % ComputeWallDistances
+!
+!        Get Poiseuille flow
+!        -------------------
+         do eID = 1, mesh % no_of_elements
+            call GetPoiseuilleFlow(mesh % elements(eID))
+         end do
+
+         do fID = 1, size(mesh % faces)   
+            call GetPoiseuilleFlow(mesh % faces(fID))
+         end do
       
       end subroutine Initialize_SpaceAndTimeMethods
 !
@@ -125,8 +149,9 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         INTEGER :: k, eID
+         INTEGER :: i, j, k, eID, fID
          class(Element), pointer  :: e
+         class(Face),    pointer  :: f
          interface
             subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
                use SMConstants
@@ -146,7 +171,7 @@ module SpatialDiscretization
 !        Compute chemical potential: Q stores c
 !        **************************************
 !
-!$omp parallel shared(mesh, time) private(e)
+!$omp parallel shared(mesh, time) private(e, i, j, k)
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -188,11 +213,19 @@ module SpatialDiscretization
             e => mesh % elements(eID)
             e % storage % mu = - POW2(dimensionless % eps) * e % storage % QDot(1,:,:,:)
             e % storage % c  = e % storage % Q(1,:,:,:)
-            e % storage % gradC(1,:,:,:) = e % storage % U_x(1,:,:,:)
-            e % storage % gradC(2,:,:,:) = e % storage % U_y(1,:,:,:)
-            e % storage % gradC(3,:,:,:) = e % storage % U_z(1,:,:,:)
+            e % storage % gradC(IX,:,:,:) = e % storage % U_x(1,:,:,:)
+            e % storage % gradC(IY,:,:,:) = e % storage % U_y(1,:,:,:)
+            e % storage % gradC(IZ,:,:,:) = e % storage % U_z(1,:,:,:)
             call QuarticDWPDerivative(e % Nxyz, e % storage % c, c_alpha, c_beta, e % storage % mu)
             e % storage % Q(1,:,:,:) = e % storage % mu
+         end do
+!$omp end do
+
+!$omp do schedule(runtime)
+         do fID = 1, size(mesh % faces)
+            f => mesh % faces(fID)
+            f % storage(1) % c = f % storage(1) % Q(1,:,:)
+            f % storage(2) % c = f % storage(2) % Q(1,:,:)
          end do
 !$omp end do
          end associate
@@ -258,10 +291,50 @@ module SpatialDiscretization
          do eID = 1, mesh % no_of_elements
             e => mesh % elements(eID)
 !            associate(e => mesh % elements(eID))
-            e % storage % Q(1,:,:,:) = e % storage % c
+            e % storage % Q(1,:,:,:)   = e % storage % c
+            e % storage % U_x(1,:,:,:) = e % storage % gradC(IX,:,:,:)
+            e % storage % U_y(1,:,:,:) = e % storage % gradC(IY,:,:,:)
+            e % storage % U_z(1,:,:,:) = e % storage % gradC(IZ,:,:,:)
 !            end associate
          end do
 !$omp end do
+
+!$omp do schedule(runtime)
+         do fID = 1, size(mesh % faces)
+            f => mesh % faces(fID)
+            f % storage(1) % Q(1,:,:) = f % storage(1) % c
+            f % storage(2) % Q(1,:,:) = f % storage(2) % c
+         end do
+!$omp end do
+
+!
+!        ***********************************
+!        Compute the concentration advection
+!        ***********************************
+!
+         if ( enable_speed ) then
+!
+!        Perform the stabilization
+!        -------------------------
+         call StabilizeGradients(mesh, time, BCFunctions(C_BC) % externalState)
+!
+!        Add the velocity field
+!        ----------------------
+!$omp do schedule(runtime)
+         do eID = 1, mesh % no_of_elements
+            e => mesh % elements(eID)
+         
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)   ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(1,i,j,k) = e % storage % QDot(1,i,j,k) &
+                                 - e % storage % v(IX,i,j,k) * e % storage % U_x(1,i,j,k) &
+                                 - e % storage % v(IY,i,j,k) * e % storage % U_y(1,i,j,k) &
+                                 - e % storage % v(IZ,i,j,k) * e % storage % U_z(1,i,j,k) 
+            end do                ; end do                  ; end do
+         end do
+!$omp end do
+
+         end if
+         
 !$omp end parallel
 
       END SUBROUTINE ComputeTimeDerivative
@@ -404,7 +477,6 @@ module SpatialDiscretization
       subroutine TimeDerivative_VolumetricContribution( e , t )
          use HexMeshClass
          use ElementClass
-         use PhysicsStorage
          implicit none
          type(Element)      :: e
          real(kind=RP)      :: t
@@ -423,7 +495,7 @@ module SpatialDiscretization
 !
 !        Compute contravariant flux
 !        --------------------------
-         call ViscousMethod  % ComputeInnerFluxes ( e , contravariantFlux  ) 
+         call EllipticDiscretization  % ComputeInnerFluxes ( e , ViscousFlux3D, contravariantFlux  ) 
 !
 !        ************************
 !        Perform volume integrals
@@ -477,7 +549,8 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL ViscousMethod % RiemannSolver(f = f, &
+               CALL EllipticDiscretization % RiemannSolver(f = f, &
+                                                  EllipticFlux = ViscousFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -520,7 +593,8 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL ViscousMethod % RiemannSolver(f = f, &
+               CALL EllipticDiscretization % RiemannSolver(f = f, &
+                                                  EllipticFlux = ViscousFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -550,7 +624,7 @@ module SpatialDiscretization
       SUBROUTINE computeBoundaryFlux(f, time, externalStateProcedure , externalGradientsProcedure)
       USE ElementClass
       use FaceClass
-      USE ViscousMethods
+      USE EllipticDiscretizations
       USE Physics
       use PhysicsStorage
       USE BoundaryConditionFunctions
@@ -616,7 +690,8 @@ module SpatialDiscretization
 !           Viscous fluxes
 !           --------------
 !   
-         CALL ViscousMethod % RiemannSolver(f = f, &
+         CALL EllipticDiscretization % RiemannSolver(f = f, &
+                                            EllipticFlux = ViscousFlux0D, &
                                             QLeft = f % storage(1) % Q(:,i,j), &
                                             QRight = f % storage(2) % Q(:,i,j), &
                                             U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -652,10 +727,90 @@ module SpatialDiscretization
          real(kind=RP),      intent(in) :: time
          procedure(BCState_FCN)         :: externalStateProcedure
 
-         call ViscousMethod % ComputeGradient( mesh , time , externalStateProcedure)
+         call EllipticDiscretization % ComputeGradient( mesh , time , externalStateProcedure)
 
       end subroutine DGSpatial_ComputeGradient
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
+!           GET POISEUILLE FLOW
+!           -------------------
+!
+!////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine GetPoiseuilleFlow_Element(e)
+!
+!        ****************************************************************************
+!              To ensure a continuous flow (OK, impossible in NS, but at least
+!           in the advection eqn) we first interpolate the poiseuille flow in
+!           Chebyshev-Gauss-Lobatto points, and then traduce the result
+!           to Gauss-(Lobatto) points.
+!        ****************************************************************************
+!
+         implicit none
+         type(Element)  :: e
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer        :: i, j, k, n, m, l
+         real(kind=RP)  :: xCGL(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)  :: vCGL(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+!!
+!!        Recover CGL coordinates
+!!        -----------------------
+!         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+!            xCGL(:,i,j,k) = e % hexMap % transfiniteMapAt([e % spAxi % xCGL(i), e % spAeta % xCGL(j), &
+!                                                           e % spAzeta % xCGL(k)])
+!         end do         ; end do          ; end do
+!!
+!!        Compute the velocity in CGL points
+!!        ----------------------------------
+!         do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+!            call PoiseuilleFlow(xCGL(:,i,j,k), vCGL(:,i,j,k))
+!         end do                  ; end do                ; end do
+!!
+!!        Return to Gauss points
+!!        ----------------------
+!         do k = 0, e % Nxyz(3)  ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1)
+!            do n = 0, e % Nxyz(3) ; do m = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1)
+!               e % storage % v(:,i,j,k) = e % storage % v(:,i,j,k) + vCGL(:,l,m,n) & 
+!                                          * e % spAxi   % TCheb2Gauss(i,l) &
+!                                          * e % spAeta  % TCheb2Gauss(j,m) &
+!                                          * e % spAzeta % TCheb2Gauss(k,n)
+!            end do              ; end do              ; end do
+!         end do               ; end do               ; end do
+
+         do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            call PoiseuilleFlow(e % geom % x(:,i,j,k), e % storage % v(:,i,j,k))
+         end do                  ; end do                ; end do
+         
+      end subroutine GetPoiseuilleFlow_Element
+
+      subroutine GetPoiseuilleFlow_Face(f)
+         implicit none
+         type(Face)  :: f
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer        :: i, j
+         logical, save :: shown = .false.
+
+         if ( .not. shown ) then
+            write(STD_OUT,'(A)' )"Poiseuille flow computed in face with Gauss points directly."
+            shown = .true.
+         end if
+!
+!        Compute the velocity    TODO: compute it in Chebyshev points first 
+!        --------------------
+         do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+            call PoiseuilleFlow(f % geom % x(:,i,j), f % storage(1) % v(:,i,j))
+            call PoiseuilleFlow(f % geom % x(:,i,j), f % storage(2) % v(:,i,j))
+         end do                ; end do
+
+      end subroutine GetPoiseuilleFlow_Face
+
 end module SpatialDiscretization

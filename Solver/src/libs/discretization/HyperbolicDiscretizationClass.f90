@@ -1,38 +1,64 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    InviscidMethodClass.f90
+!   @File:    HyperbolicDiscretizationClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:16:30 2017
-!   @Last revision date: Tue Jan 16 11:59:31 2018
+!   @Last revision date: Wed Apr 11 15:08:07 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: cbae0faa7686246cad4b300efae466eda61473cd
+!   @Last revision commit: 376f4a4922e7a9120e6c373514196f48dd0439c8
 !
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
 #if defined(NAVIERSTOKES)
-module InviscidMethodClass
+module HyperbolicDiscretizationClass
    use SMConstants
    use RiemannSolvers
    implicit none
 
    private
-   public   InviscidMethod_t, volumetricSharpFlux_FCN
+   public   HyperbolicDiscretization_t, volumetricSharpFlux_FCN
 
    integer,    parameter   :: STANDARD_DG = 1
    integer,    parameter   :: SPLIT_DG = 2
 
-   type InviscidMethod_t
+   type HyperbolicDiscretization_t
       procedure(VolumetricSharpFlux_FCN), nopass, pointer  :: ComputeVolumetricSharpFlux => NULL()
       contains
          procedure   :: Initialize               => BaseClass_Initialize
          procedure   :: ComputeInnerFluxes       => BaseClass_ComputeInnerFluxes
          procedure   :: ComputeSplitFormFluxes   => BaseClass_ComputeSplitFormFluxes
          procedure   :: ComputeInnerFluxJacobian => BaseClass_ComputeInnerFluxJacobian
-   end type InviscidMethod_t
+   end type HyperbolicDiscretization_t
 
    abstract interface
+      pure subroutine HyperbolicFlux0D_f(Q, F)
+         use SMConstants
+         use PhysicsStorage
+         implicit none
+         real(kind=RP), intent(in)  :: Q   (1:NCONS     )
+         real(kind=RP), intent(out) :: F(1:NCONS, 1:NDIM)
+      end subroutine HyperbolicFlux0D_f
+
+      pure subroutine HyperbolicFlux2D_f( N, Q, F)
+         use SMConstants
+         use PhysicsStorage
+         implicit none
+         integer         , intent(in)  :: N(2)
+         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(out) :: F   (1:NCONS, 1:NDIM, 0:N(1), 0:N(2))
+      end subroutine HyperbolicFlux2D_f
+
+      pure subroutine HyperbolicFlux3D_f( N, Q, F)
+         use SMConstants
+         use PhysicsStorage
+         implicit none
+         integer         , intent(in)  :: N(3)
+         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP),    intent(out) :: F   (1:NCONS, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
+      end subroutine HyperbolicFlux3D_f
+
       subroutine VolumetricSharpFlux_FCN(QL,QR,JaL,JaR,fSharp) 
          use SMConstants
          use PhysicsStorage
@@ -56,7 +82,7 @@ module InviscidMethodClass
          use MPI_Process_Info
          use PhysicsStorage
          implicit none
-         class(InviscidMethod_t) :: self
+         class(HyperbolicDiscretization_t) :: self
          class(FTValueDictionary),  intent(in)   :: controlVariables
 !
 !        ---------------
@@ -71,7 +97,7 @@ module InviscidMethodClass
             end subroutine toLower
          end interface
 !
-!        Set up the Inviscid Discretization
+!        Set up the Hyperbolic Discretization
 !        ----------------------------------
          splitType = STANDARD_SPLIT
 
@@ -81,7 +107,7 @@ module InviscidMethodClass
 !        Describe
 !        ********
 !
-         call Subsection_Header("Inviscid discretization")
+         call Subsection_Header("Hyperbolic discretization")
 
          if (.not. MPI_Process % isRoot ) return
 
@@ -124,13 +150,14 @@ module InviscidMethodClass
 
       end subroutine BaseClass_Initialize
 
-      subroutine BaseClass_ComputeInnerFluxes( self , e , contravariantFlux )
+      subroutine BaseClass_ComputeInnerFluxes( self , e , HyperbolicFlux, contravariantFlux )
          use ElementClass
          use Physics
          use PhysicsStorage
          implicit none
-         class(InviscidMethod_t), intent(in)  :: self
+         class(HyperbolicDiscretization_t), intent(in)  :: self
          type(Element),           intent(in)  :: e
+         procedure(HyperbolicFlux3D_f)        :: HyperbolicFlux
          real(kind=RP),           intent(out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
@@ -140,7 +167,7 @@ module InviscidMethodClass
          integer            :: i, j, k
          real(kind=RP)      :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
 
-         call InviscidFlux( e%Nxyz, e % storage % Q, cartesianFlux)
+         call HyperbolicFlux( e%Nxyz, e % storage % Q, cartesianFlux)
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
          
@@ -176,7 +203,7 @@ module InviscidMethodClass
          use PhysicsStorage
          implicit none
          !--------------------------------------------
-         class(InviscidMethod_t), intent(in)  :: self
+         class(HyperbolicDiscretization_t), intent(in)  :: self
          type(Element)          , intent(in)  :: e
          real(kind=RP)          , intent(out) :: dFdQ( NCONS, NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM )
          !--------------------------------------------
@@ -210,7 +237,7 @@ module InviscidMethodClass
          use ElementClass
          use PhysicsStorage
          implicit none
-         class(InviscidMethod_t), intent(in)  :: self
+         class(HyperbolicDiscretization_t), intent(in)  :: self
          type(Element),           intent(in)  :: e
          real(kind=RP),           intent(in)  :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
          real(kind=RP),           intent(out) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
@@ -218,5 +245,5 @@ module InviscidMethodClass
          real(kind=RP),           intent(out) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
 
       end subroutine BaseClass_ComputeSplitFormFluxes
-end module InviscidMethodClass
+end module HyperbolicDiscretizationClass
 #endif

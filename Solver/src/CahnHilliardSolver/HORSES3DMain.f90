@@ -10,6 +10,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+#include "Includes.h"
       PROGRAM HORSES3DMainCH
       
       USE SMConstants

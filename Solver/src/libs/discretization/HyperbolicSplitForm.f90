@@ -1,15 +1,15 @@
 #include "Includes.h"
 #if defined(NAVIERSTOKES)
-module InviscidSplitForm
+module HyperbolicSplitForm
    use SMConstants
    use RiemannSolvers
-   use InviscidMethodClass
+   use HyperbolicDiscretizationClass
    implicit none
 
    private
    public   SplitDG_t
 
-   type, extends(InviscidMethod_t)  :: SplitDG_t
+   type, extends(HyperbolicDiscretization_t)  :: SplitDG_t
       contains 
          procedure   :: Initialize             => SplitDG_Initialize
          procedure   :: ComputeSplitFormFluxes => SplitDG_ComputeSplitFormFluxes
@@ -97,7 +97,7 @@ module InviscidSplitForm
 !        Describe
 !        ********
 !
-         call Subsection_Header("Inviscid discretization")
+         call Subsection_Header("Hyperbolic discretization")
 
          if (.not. MPI_Process % isRoot ) return
 
@@ -787,5 +787,5 @@ module InviscidSplitForm
 
       end subroutine EntropyAndEnergyConserving_VolumetricSharpFlux
 
-end module InviscidSplitForm
+end module HyperbolicSplitForm
 #endif

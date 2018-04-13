@@ -1,7 +1,7 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    InviscidStandard.f90
+!   @File:    HyperbolicStandard.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:16:32 2017
 !   @Last revision date: Tue Jan 16 11:59:32 2018
@@ -12,17 +12,17 @@
 !
 #include "Includes.h"
 #if defined(NAVIERSTOKES)
-module InviscidStandard
+module HyperbolicStandard
    use SMConstants
    use RiemannSolvers
-   use InviscidMethodClass
+   use HyperbolicDiscretizationClass
    implicit none
 
    private
    public   StandardDG_t
 
-   type, extends(InviscidMethod_t)  :: StandardDG_t
+   type, extends(HyperbolicDiscretization_t)  :: StandardDG_t
    end type StandardDG_t
 
-end module InviscidStandard
+end module HyperbolicStandard
 #endif

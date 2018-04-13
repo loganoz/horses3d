@@ -10,28 +10,30 @@ MOD_FLAG?=-J
 
 LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
 		./build_ns/WeakIntegrals.o \
-		./build_ns/InviscidMethodClass.o \
-		./build_ns/InviscidStandard.o \
-		./build_ns/InviscidSplitForm.o \
-		./build_ns/InviscidMethods.o \
-		./build_ns/ViscousMethodClass.o \
-		./build_ns/ViscousBR1.o \
-		./build_ns/ViscousBR2.o \
-		./build_ns/ViscousIP.o \
-		./build_ns/ViscousMethods.o \
+		./build_ns/GradientsStabilization.o \
+		./build_ns/HyperbolicDiscretizationClass.o \
+		./build_ns/HyperbolicStandard.o \
+		./build_ns/HyperbolicSplitForm.o \
+		./build_ns/HyperbolicDiscretizations.o \
+		./build_ns/EllipticDiscretizationClass.o \
+		./build_ns/EllipticBR1.o \
+		./build_ns/EllipticBR2.o \
+		./build_ns/EllipticIP.o \
+		./build_ns/EllipticDiscretizations.o \
 		./build_ns/SVV.o 
 
 LIBOBJS_CH =    ./build_ch/DGSEMClass.o \
 		./build_ch/WeakIntegrals.o \
-		./build_ch/InviscidMethodClass.o \
-		./build_ch/InviscidStandard.o \
-		./build_ch/InviscidSplitForm.o \
-		./build_ch/InviscidMethods.o \
-		./build_ch/ViscousMethodClass.o \
-		./build_ch/ViscousBR1.o \
-		./build_ch/ViscousBR2.o \
-		./build_ch/ViscousIP.o \
-		./build_ch/ViscousMethods.o \
+		./build_ch/GradientsStabilization.o \
+		./build_ch/HyperbolicDiscretizationClass.o \
+		./build_ch/HyperbolicStandard.o \
+		./build_ch/HyperbolicSplitForm.o \
+		./build_ch/HyperbolicDiscretizations.o \
+		./build_ch/EllipticDiscretizationClass.o \
+		./build_ch/EllipticBR1.o \
+		./build_ch/EllipticBR2.o \
+		./build_ch/EllipticIP.o \
+		./build_ch/EllipticDiscretizations.o \
 		./build_ch/SVV.o 
 
 LIB = discretization
