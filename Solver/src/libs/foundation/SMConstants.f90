@@ -54,6 +54,6 @@
 
          INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
 
-         CHARACTER(len=*), parameter   :: VERSION = "v0.8.6: Changes in linear solvers and Jacobian computation"
+         CHARACTER(len=*), parameter   :: VERSION = "v0.8.7: Added particles and arranged elliptic solvers. In CH, added the advection field."
          
       END MODULE SMConstants

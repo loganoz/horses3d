@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Fri Apr 13 09:03:25 2018
+!   @Last revision date: Fri Apr 13 09:52:01 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0122ccf4e338290aac81495d4aabdf486b3c6a09
+!   @Last revision commit: f39f7ff8d703e35a2fba4ddea56765703bbdacca
 !
 !//////////////////////////////////////////////////////
 !
@@ -132,12 +132,8 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
-<<<<<<< HEAD
-      SUBROUTINE ComputeTimeDerivative( mesh, time, BCFunctions)
-=======
       SUBROUTINE ComputeTimeDerivative( mesh, particles, time, BCFunctions)
          use Physics, only: QuarticDWPDerivative
->>>>>>> master
          IMPLICIT NONE 
 !
 !        ---------
