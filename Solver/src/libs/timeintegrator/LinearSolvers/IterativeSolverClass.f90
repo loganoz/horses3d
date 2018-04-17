@@ -7,6 +7,10 @@
 !      Class for solving a system with simple smoothers and matrix free operations
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#ifdef HAS_PETSC
+!#include <petsc.h>
+#include "petsc/finclude/petsc.h"
+#endif
 MODULE IterativeSolverClass
    use MatrixClass
    USE GenericLinSolverClass
@@ -17,10 +21,10 @@ MODULE IterativeSolverClass
    use TimeIntegratorDefinitions
    use NumericalJacobian
    use PhysicsStorage
-   IMPLICIT NONE
 #ifdef HAS_PETSC
-#include <petsc.h>
+   use petsc
 #endif
+   IMPLICIT NONE
    PRIVATE
    PUBLIC IterativeSolver_t, GenericLinSolver_t
    

@@ -244,10 +244,7 @@ Module DGSEMClass
       call NodalStorage(0) % Construct(nodes, 0)   ! Always construct orders 0 
       call NodalStorage(1) % Construct(nodes, 1)   ! and 1
 
-      self % NDOF = 0
       DO k=1, nTotalElem
-         self % NDOF = self % NDOF + N_EQN * (Nx(k) + 1) * (Ny(k) + 1) * (Nz(k) + 1)
-         
          call NodalStorage(Nx(k)) % construct( nodes, Nx(k) )
          call NodalStorage(Ny(k)) % construct( nodes, Ny(k) )
          call NodalStorage(Nz(k)) % construct( nodes, Nz(k) )
@@ -338,6 +335,18 @@ Module DGSEMClass
                                   nGradEqn = N_GRAD_EQN, &
                           computeGradients = computeGradients)
       END DO
+!
+!     ----------------------------
+!     Get the final number of DOFS
+!     ----------------------------
+!
+      self % NDOF = 0
+      DO k=1, nTotalElem
+         associate(e => self % mesh % elements(k))
+         self % NDOF = self % NDOF + N_EQN * (e % Nxyz(1) + 1) * (e % Nxyz(2) + 1) * (e % Nxyz(3) + 1)
+         end associate
+      END DO
+
 !
 !     ----------------------------------------------------
 !     Get manufactured solution source term (if requested)

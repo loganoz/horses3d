@@ -25,7 +25,7 @@ module NumericalJacobian
    type(Colors)                :: ecolors
    
 contains
-   subroutine NumericalJacobian_Compute(sem, t, Matrix, ComputeTimeDerivative, PINFO )
+   subroutine NumericalJacobian_Compute(sem, t, Matrix, ComputeTimeDerivative, PINFO, eps_in )
       use StopwatchClass
       !-------------------------------------------------------------------
       type(DGSem),                intent(inout), target  :: sem
@@ -33,6 +33,7 @@ contains
       class(Matrix_t)          ,  intent(inout)          :: Matrix
       procedure(ComputeQDot_FCN)                         :: ComputeTimeDerivative      !   
       logical,                    OPTIONAL               :: PINFO                      !<? Print information?
+      real(kind=RP),              optional               :: eps_in
       !-------------------------------------------------------------------
       integer                                            :: nelm
       integer                                            :: thiscolor, thiselmidx, thiselm         ! specific counters
@@ -105,6 +106,7 @@ contains
 !
             CALL allocateElementStorage( dgs_clean(i), Nx(i), Ny(i), Nz(i), N_EQN, N_GRAD_EQN, computeGradients )
          END DO
+
          firstIdx(nelm+1) = firstIdx(nelm) + ndofelm(nelm)
          
          maxndofel = MAXVAL(ndofelm)                                             ! TODO: if there's p-adaptation, this value has to be recomputed
@@ -187,7 +189,12 @@ contains
 !
       IF (.NOT. allocated(Q)) allocate(Q(sem % NDOF))
       CALL sem % GetQ(Q)
-      eps = SQRT(EPSILON(eps))*(NORM2(Q)+1._RP)
+
+      if (present(eps_in)) then
+         eps = eps_in
+      else
+         eps = SQRT(EPSILON(eps))*(NORM2(Q)+1._RP)
+      end if
 !
 !     ---------------------------
 !     Preallocate Jacobian matrix
@@ -265,7 +272,6 @@ contains
                               WHERE (ABS(pbuffer(1:maxndofel)) .LT. jaceps) irow = -1          !MatSetvalues will ignore entries with irow=-1
                               icol = firstIdx(thiselm) + thisdof - 1 !(thiselm - 1) * ndofelm  + thisdof - 1
                               CALL Matrix % SetColumn(ndof, irow(1:ndof), icol, pbuffer(1:ndof) )
-                              
                               used(usedctr) = nbrnbr
                               usedctr = usedctr + 1                        
                            ENDIF

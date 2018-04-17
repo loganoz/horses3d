@@ -26,6 +26,7 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/LinearSolverClass.o \
 		./build_ns/AnalyticalJacobian.o \
 		./build_ns/Implicit_NJ.o \
+		./build_ns/IMEXMethods.o \
 		./build_ns/TimeIntegrator.o 
 
 LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
@@ -46,6 +47,7 @@ LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/LinearSolverClass.o \
 		./build_ch/AnalyticalJacobian.o \
 		./build_ch/Implicit_NJ.o \
+		./build_ch/IMEXMethods.o \
 		./build_ch/TimeIntegrator.o 
 
 LIB = timeintegrator

@@ -7,6 +7,9 @@
 !      Class for solving linear systems using MKL version of Pardiso
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#ifdef HAS_PETSC
+#include "petsc/finclude/petsc.h"
+#endif
 MODULE MKLPardisoSolverClass
    USE GenericLinSolverClass
    USE CSRMatrixClass
@@ -15,6 +18,9 @@ MODULE MKLPardisoSolverClass
    use DGSEMClass
    use TimeIntegratorDefinitions
    use NumericalJacobian
+#ifdef HAS_PETSC
+   use petsc
+#endif
    IMPLICIT NONE
    
    TYPE, EXTENDS(GenericLinSolver_t) :: MKLPardisoSolver_t
@@ -36,16 +42,18 @@ MODULE MKLPardisoSolverClass
       INTEGER(KIND=AddrInt), POINTER             :: Pardiso_pt(:)    => NULL()  
    CONTAINS
       !Subroutines:
-      PROCEDURE                                  :: construct => ConstructMKLContext
-      PROCEDURE                                  :: SetBValue
-      PROCEDURE                                  :: solve
-      PROCEDURE                                  :: GetXValue
-      PROCEDURE                                  :: destroy
-      PROCEDURE                                  :: SetOperatorDt
-      PROCEDURE                                  :: ReSetOperatorDt
+      PROCEDURE :: construct => ConstructMKLContext
+      procedure :: ComputeAndFactorizeJacobian => MKL_ComputeAndFactorizeJacobian
+      PROCEDURE :: SetBValue
+      PROCEDURE :: solve
+      procedure :: SolveLUDirect => MKL_SolveLUDirect
+      PROCEDURE :: GetXValue
+      PROCEDURE :: destroy
+      PROCEDURE :: SetOperatorDt
+      PROCEDURE :: ReSetOperatorDt
       !Functions:
-      PROCEDURE                                  :: Getxnorm    !Get solution norm
-      PROCEDURE                                  :: Getrnorm    !Get residual norm
+      PROCEDURE :: Getxnorm    !Get solution norm
+      PROCEDURE :: Getrnorm    !Get residual norm
    END TYPE MKLPardisoSolver_t
    
    PRIVATE
@@ -74,7 +82,14 @@ MODULE MKLPardisoSolverClass
          END SUBROUTINE pardisoinit
       END INTERFACE
       !-----------------------------------------------------------
-      
+!
+!     PETSc requires initialization
+!     -----------------------------
+#ifdef HAS_PETSC
+      PetscErrorCode :: ierr
+      CALL PetscInitialize(PETSC_NULL_CHARACTER,ierr)
+#endif
+
       this % p_sem => sem
       
       this % DimPrb = DimPrb
@@ -90,7 +105,10 @@ MODULE MKLPardisoSolverClass
       ALLOCATE(this % perm(DimPrb))
       this % perm = 0
       
-      IF(this % AIsPetsc) CALL this % PETScA % construct (DimPrb,.FALSE.)
+      IF(this % AIsPetsc) then
+         CALL this % PETScA % construct (DimPrb,.FALSE.)
+      end if
+
 #ifdef HAS_MKL
       CALL pardisoinit(this % Pardiso_pt, this % mtype, this % Pardiso_iparm)
 #else
@@ -344,4 +362,75 @@ MODULE MKLPardisoSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+
+   subroutine MKL_ComputeAndFactorizeJacobian(self, F_J, dt, eps)
+!
+!     *************************************************************************************
+!     This subroutine performs the following:
+!           -> Construct the numerical Jacobian of the function F_J, with perturbation eps.
+!           -> Shifts the Jacobian -dt * I.
+!           -> Converts the Jacobian to CSR.
+!           -> Factorizes the Jacobian (jobs 12 in Pardiso).
+!
+!     *************************************************************************************
+!
+      implicit none
+      class(MKLPardisoSolver_t), intent(inout) :: self
+      procedure(ComputeQDot_FCN)               :: F_J
+      real(kind=RP), intent(in)                :: dt
+      real(kind=RP), intent(in)                :: eps
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer     :: error
+!
+!     Compute numerical Jacobian in the PETSc matrix
+!     ----------------------------------------------
+      call NumericalJacobian_Compute(self % p_sem, 0.0_RP, self % PETScA, F_J, .true., eps)
+!
+!     Shift the Jacobian
+!     ------------------
+      call self % PETScA % shift(-1.0_RP/dt)
+!
+!     Transform the Jacobian to CSRMatrix
+!     -----------------------------------
+      call self % PETScA % GetCSRMatrix(self % A)
+!
+!     Correct the shifted Jacobian values
+!     -----------------------------------
+      self % A % values = -dt * self % A % values
+!
+!     Perform the factorization
+!     -------------------------
+#ifdef HAS_MKL
+      call pardiso(self % Pardiso_pt, 1, 1, self % mtype, 12, self % A % NumRows, self % A % values, &
+                   self % A % rows, self % A % cols, self % perm, 1, self % Pardiso_iparm, 0, &
+                   self % b, self % x, error)
+#else
+      STOP 'MKL not linked correctly'
+#endif
+
+   end subroutine MKL_ComputeAndFactorizeJacobian
+
+   subroutine MKL_SolveLUDirect(self)
+      implicit none
+      class(MKLPardisoSolver_t), intent(inout)  :: self
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer     :: error
+
+#ifdef HAS_MKL
+      call pardiso(self % Pardiso_pt, 1, 1, self % mtype, 33, self % A % NumRows, self % A % values, &
+                   self % A % rows, self % A % cols, self % perm, 1, self % Pardiso_iparm, 0, &
+                   self % b, self % x, error)
+#else
+      STOP 'MKL not linked correctly'
+#endif
+   end subroutine MKL_SolveLUDirect
+
 END MODULE MKLPardisoSolverClass

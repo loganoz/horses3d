@@ -2,12 +2,17 @@ module PETScMatrixClass
    use SMConstants
    use GenericMatrixClass
    use CSRMatrixClass
-   implicit none
 #ifdef HAS_PETSC
-#include <petsc.h>
+   use petsc
 #endif
+   implicit none
    private
    public PETSCMatrix_t, Matrix_t
+
+#ifdef HAS_PETSC
+!#include <petsc.h>
+#include "petsc/finclude/petsc.h"
+#endif
    
    type, extends(Matrix_t) :: PETSCMatrix_t
 #ifdef HAS_PETSC
@@ -34,6 +39,7 @@ module PETScMatrixClass
 #ifdef HAS_PETSC
    PetscErrorCode :: ierr
 #endif
+!
 !========
  contains
 !========
@@ -312,7 +318,6 @@ module PETScMatrixClass
       CALL CheckPetscErr(ierr," A destruction")  
 #endif
    END SUBROUTINE destruct
-   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

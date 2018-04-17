@@ -21,6 +21,7 @@
       use PhysicsStorage
       USE Physics
       USE ExplicitMethods
+      USE IMEXMethods    
       use AutosaveClass
       use StopwatchClass
       use MPI_Process_Info
@@ -151,8 +152,8 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE Integrate( self, sem, controlVariables, monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
-      
+      SUBROUTINE Integrate( self, sem, controlVariables, monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, &
+                            ComputeTimeDerivative_onlyLinear, ComputeTimeDerivative_onlyNonLinear) 
       USE Implicit_JF , ONLY : TakeBDFStep_JF
       USE Implicit_NJ , ONLY : TakeBDFStep_NJ
       use pAdaptationClass
@@ -163,13 +164,15 @@
 !     Arguments
 !     ---------
 !
-      CLASS(TimeIntegrator_t)       :: self
-      TYPE(DGSem)                   :: sem
-      TYPE(FTValueDictionary)       :: controlVariables
-      class(Monitor_t)              :: monitors
-      type(pAdaptation_t)           :: pAdaptator
-      procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
-      procedure(ComputeQDot_FCN)    :: ComputeTimeDerivativeIsolated
+      CLASS(TimeIntegrator_t)              :: self
+      TYPE(DGSem)                          :: sem
+      TYPE(FTValueDictionary)              :: controlVariables
+      class(Monitor_t)                     :: monitors
+      type(pAdaptation_t)                  :: pAdaptator
+      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivativeIsolated
+      procedure(ComputeQDot_FCN), optional :: ComputeTimeDerivative_onlyLinear
+      procedure(ComputeQDot_FCN), optional :: ComputeTimeDerivative_onlyNonLinear
 
 !
 !     ---------
@@ -227,8 +230,11 @@
       
 !     Finish time integration
 !     -----------------------
-
-      call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative)
+      if ( present(ComputeTimeDerivative_onlyLinear) ) then
+         call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivative_onlyLinear, ComputeTimeDerivative_onlyNonLinear)
+      else
+         call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative)
+      end if
 
 !     Measure solver time
 !     -------------------
@@ -244,7 +250,7 @@
 !  -> If "tolerance" is provided, the value in controlVariables is ignored. 
 !     This is only relevant for STEADY_STATE computations.
 !  ------------------------------------------------------------------------
-   subroutine IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, tolerance)
+   subroutine IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, tolerance, CTD_linear, CTD_nonlinear)
       
       USE Implicit_JF , ONLY : TakeBDFStep_JF
       USE Implicit_NJ , ONLY : TakeBDFStep_NJ
@@ -257,14 +263,14 @@
 !     Arguments
 !     ---------
 !
-      CLASS(TimeIntegrator_t)             :: self
-      TYPE(DGSem)                         :: sem
-      TYPE(FTValueDictionary), intent(in) :: controlVariables
-      class(Monitor_t)                    :: monitors
-      procedure(ComputeQDot_FCN)          :: ComputeTimeDerivative
-      real(kind=RP), optional, intent(in) :: tolerance   !< ? tolerance to integrate down to
-   
-
+      CLASS(TimeIntegrator_t)              :: self
+      TYPE(DGSem)                          :: sem
+      TYPE(FTValueDictionary), intent(in)  :: controlVariables
+      class(Monitor_t)                     :: monitors
+      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+      real(kind=RP), optional, intent(in)  :: tolerance   !< ? tolerance to integrate down to
+      procedure(ComputeQDot_FCN), optional :: CTD_linear
+      procedure(ComputeQDot_FCN), optional :: CTD_nonlinear
 !
 !     ------------------
 !     Internal variables
@@ -345,6 +351,7 @@ end interface
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
+
       IF (self % integratorType == STEADY_STATE) THEN
          IF (maxval(maxResidual) <= Tol )  THEN
             write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",sem % numberOfTimeSteps," with Residual = ", maxval(maxResidual)
@@ -400,6 +407,8 @@ end interface
                call FASSolver % solve(k,t, ComputeTimeDerivative)
             case ('AnisFAS')
                call AnisFASSolver % solve(k,t, ComputeTimeDerivative)
+            case ('imex')
+               call TakeIMEXEulerStep(sem, t, dt, controlVariables, computeTimeDerivative, CTD_linear, CTD_nonlinear)
          END SELECT
 !
 !        Compute the new time

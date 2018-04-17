@@ -106,6 +106,7 @@ OBJS_HORSES=  SMConstants \
 		NodalStorageClass \
 		Headers \
 		ReadInputFile \
+		IMEXMethods \
 		TimeIntegrator \
 		ConnectivityClass \
 		GenericMatrixClass \

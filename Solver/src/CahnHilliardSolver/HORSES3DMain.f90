@@ -168,7 +168,7 @@ end interface
 !     Set up spatial discretization
 !     -----------------------------
 !
-      call Initialize_SpaceAndTimeMethods(controlVariables, sem % mesh)
+      call Initialize_SpaceAndTimeMethods(controlVariables, sem)
 !
 !     -----------------------------
 !     Construct the time integrator
@@ -180,7 +180,7 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, ComputeTimeDerivative_onlyLinear, ComputeTimeDerivative_onlyNonLinear)
 !
 !     --------------------------
 !     Show simulation statistics

@@ -43,7 +43,7 @@ IntegerDataLinkedList: Utilities
 NodalStorageClass: SMConstants LegendreAlgorithms InterpolationAndDerivatives 
 StorageClass: Physics
 InterpolationMatrices: InterpolationAndDerivatives SMConstants NodalStorageClass
-TimeIntegrator: Physics SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass Monitors pAdaptationClass
+TimeIntegrator: Physics SMConstants DGSEMClass InterpolationAndDerivatives Implicit_JF Implicit_NJ ExplicitMethods FASMultigridClass Monitors pAdaptationClass IMEXMethods
 ExplicitMethods: SMConstants DGSEMClass
 GradientSetup: DGSEMClass
 ReadInputFile: SMConstants SharedBCModule Physics Setup

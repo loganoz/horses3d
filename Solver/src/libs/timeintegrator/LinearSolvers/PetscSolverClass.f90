@@ -8,6 +8,10 @@
 !      Class for solving linear systems using the Krylov Subspace Methods of PETSc library
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#ifdef HAS_PETSC
+!#include <petsc.h>
+#include "petsc/finclude/petsc.h"
+#endif
 MODULE PetscSolverClass
    USE GenericLinSolverClass
    use MatrixClass
@@ -16,10 +20,10 @@ MODULE PetscSolverClass
    use DGSEMClass
    use TimeIntegratorDefinitions
    use NumericalJacobian
-   IMPLICIT NONE
 #ifdef HAS_PETSC
-#include <petsc.h>
+   use petsc
 #endif
+   IMPLICIT NONE
    TYPE, EXTENDS(GenericLinSolver_t) :: PetscKspLinearSolver_t
       type(PETSCMatrix_t), allocatable              :: A
       TYPE(DGSem), POINTER                          :: p_sem   
