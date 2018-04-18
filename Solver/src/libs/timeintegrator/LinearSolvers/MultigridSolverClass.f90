@@ -200,7 +200,7 @@ CONTAINS
                                               N1x(k),N1y(k),N1z(k),                         &
                                               N2x(k),N2y(k),N2z(k), DeltaN)    ! TODO: Add lobatto flag if required
             
-            DimPrb = DimPrb + N_EQN * (N2x(k) + 1) * (N2y(k) + 1) * (N2z(k) + 1)
+            DimPrb = DimPrb + NCONS * (N2x(k) + 1) * (N2y(k) + 1) * (N2z(k) + 1)
          END DO
          Solver % Child % DimPrb = DimPrb
          
@@ -698,8 +698,8 @@ CONTAINS
       
       Idx1 = 0
       
-      DO iEQ = 1, N_EQN
-!~             U1_p => U1(Idx1+iEq::N_EQN)
+      DO iEQ = 1, NCONS
+!~             U1_p => U1(Idx1+iEq::NCONS)
 !~             U2_p => U2()
          
          U2_p = MATMUL(Interp,U1_p)

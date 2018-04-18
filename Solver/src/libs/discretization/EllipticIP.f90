@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Tue Apr 10 17:29:20 2018
+!   @Last revision date: Wed Apr 18 20:19:00 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
+!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -24,6 +24,7 @@ module EllipticIP
    use MPI_Face_Class
    use EllipticDiscretizationClass
    use DGSEMClass
+   use FluidData
    implicit none
 !
 !
@@ -278,9 +279,9 @@ module EllipticIP
 !
          integer              :: i, j, k
          real(kind=RP)        :: invjac
-         real(kind=RP)        :: faceInt_x(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP)        :: faceInt_y(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP)        :: faceInt_z(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_x(NGRAD, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_y(NGRAD, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_z(NGRAD, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
 
          call VectorWeakIntegrals % StdFace(e, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
@@ -320,9 +321,9 @@ module EllipticIP
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         real(kind=RP) :: Uhat(N_GRAD_EQN)
-         real(kind=RP) :: Hflux(N_GRAD_EQN,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP) :: UL(NGRAD), UR(NGRAD)
+         real(kind=RP) :: Uhat(NGRAD)
+         real(kind=RP) :: Hflux(NGRAD,NDIM,0:f % Nf(1), 0:f % Nf(2))
 
          integer       :: i,j
          
@@ -356,9 +357,9 @@ module EllipticIP
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         real(kind=RP) :: Uhat(N_GRAD_EQN)
-         real(kind=RP) :: Hflux(N_GRAD_EQN,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP) :: UL(NGRAD), UR(NGRAD)
+         real(kind=RP) :: Uhat(NGRAD)
+         real(kind=RP) :: Hflux(NGRAD,NDIM,0:f % Nf(1), 0:f % Nf(2))
          integer       :: i,j, thisSide
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
@@ -384,8 +385,8 @@ module EllipticIP
          real(kind=RP) :: time
          external      :: externalState
          integer       :: i, j
-         real(kind=RP) :: Uhat(N_GRAD_EQN), UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         real(kind=RP) :: bvExt(N_EQN)
+         real(kind=RP) :: Uhat(NGRAD), UL(NGRAD), UR(NGRAD)
+         real(kind=RP) :: bvExt(NCONS)
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 
@@ -532,23 +533,23 @@ module EllipticIP
          class(InteriorPenalty_t)             :: self
          class(Face),   intent(in)            :: f
          procedure(EllipticFlux0D_f)          :: EllipticFlux
-         real(kind=RP), dimension(N_EQN)      :: QLeft
-         real(kind=RP), dimension(N_EQN)      :: QRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
+         real(kind=RP), dimension(NCONS)      :: QLeft
+         real(kind=RP), dimension(NCONS)      :: QRight
+         real(kind=RP), dimension(NGRAD) :: U_xLeft
+         real(kind=RP), dimension(NGRAD) :: U_yLeft
+         real(kind=RP), dimension(NGRAD) :: U_zLeft
+         real(kind=RP), dimension(NGRAD) :: U_xRight
+         real(kind=RP), dimension(NGRAD) :: U_yRight
+         real(kind=RP), dimension(NGRAD) :: U_zRight
          real(kind=RP), dimension(NDIM)       :: nHat
          real(kind=RP)                        :: dWall
-         real(kind=RP), dimension(N_EQN)      :: flux
+         real(kind=RP), dimension(NCONS)      :: flux
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
+         real(kind=RP)     :: Q(NCONS) , U_x(NGRAD) , U_y(NGRAD) , U_z(NGRAD)
          real(kind=RP)     :: flux_vec(NCONS,NDIM)
          real(kind=RP)     :: mu, kappa, delta, sigma
 
@@ -594,23 +595,23 @@ module EllipticIP
          implicit none
          class(InteriorPenalty_t)                 :: self
          class(Face),   intent(in)            :: f
-         real(kind=RP), dimension(N_EQN)      :: QLeft
-         real(kind=RP), dimension(N_EQN)      :: QRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
+         real(kind=RP), dimension(NCONS)      :: QLeft
+         real(kind=RP), dimension(NCONS)      :: QRight
+         real(kind=RP), dimension(NGRAD) :: U_xLeft
+         real(kind=RP), dimension(NGRAD) :: U_yLeft
+         real(kind=RP), dimension(NGRAD) :: U_zLeft
+         real(kind=RP), dimension(NGRAD) :: U_xRight
+         real(kind=RP), dimension(NGRAD) :: U_yRight
+         real(kind=RP), dimension(NGRAD) :: U_zRight
          real(kind=RP), dimension(NDIM)       :: nHat
          real(kind=RP)                        :: dWall
-         real(kind=RP), dimension(N_EQN)      :: flux
+         real(kind=RP), dimension(NCONS)      :: flux
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
+         real(kind=RP)     :: Q(NCONS) , U_x(NGRAD) , U_y(NGRAD) , U_z(NGRAD)
          real(kind=RP)     :: flux_vec(NCONS,NDIM)
          real(kind=RP)     :: mu, kappa, tauSGS(NDIM, NDIM), qSGS(NDIM), delta, sigma
 

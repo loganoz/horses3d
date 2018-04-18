@@ -4,9 +4,9 @@
 !   @File:    ManufacturedSolutions.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:11 2018
-!   @Last revision date: Wed Apr 18 18:07:27 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 5d55ee46456724ed80f439a8f58177f760cc1db5
+!   @Last revision date: Wed Apr 18 20:19:09 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -111,7 +111,7 @@ MODULE ManufacturedSolutions
 !      
       
       REAL(KIND=RP) :: x(3), t
-      REAL(KIND=RP) :: Q(NS_NEQN)
+      REAL(KIND=RP) :: Q(NCONS)
       
       REAL(KIND=RP) :: rho, u, v, w, p
       
@@ -145,7 +145,7 @@ MODULE ManufacturedSolutions
       
       REAL(KIND=RP) :: xx(3), t
       REAL(KIND=RP) :: nHat(3)
-      REAL(KIND=RP), INTENT(INOUT) :: U_x(NS_NGRAD), U_y(NS_NGRAD), U_z(NS_NGRAD)
+      REAL(KIND=RP), INTENT(INOUT) :: U_x(NGRAD), U_y(NGRAD), U_z(NGRAD)
       
       REAL(KIND=RP) :: x, y, z
       
@@ -208,7 +208,7 @@ MODULE ManufacturedSolutions
       IMPLICIT NONE
       
       REAL(KIND=RP) :: xx(3), t
-      REAL(KIND=RP) :: Q(NS_NEQN)
+      REAL(KIND=RP) :: Q(NCONS)
       
       REAL(KIND=RP) :: x, y, z
       
@@ -2983,7 +2983,7 @@ MODULE ManufacturedSolutions
       IMPLICIT NONE
       
       REAL(KIND=RP) :: xx(3), t
-      REAL(KIND=RP) :: Q(NS_NEQN)
+      REAL(KIND=RP) :: Q(NCONS)
       
       REAL(KIND=RP) :: x, y, z
       

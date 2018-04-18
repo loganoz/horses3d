@@ -333,10 +333,10 @@ module AnisFASMultigridClass
    
 !$omp parallel do
       do k = 1, nelem
-         allocate(Solver % MGStorage(Dir) % Var(k) % Q    (N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
-         allocate(Solver % MGStorage(Dir) % Var(k) % E    (N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
-         allocate(Solver % MGStorage(Dir) % Var(k) % S    (N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
-         allocate(Solver % MGStorage(Dir) % Var(k) % Scase(N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % Q    (NCONS,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % E    (NCONS,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % S    (NCONS,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % Scase(NCONS,0:N1x(k),0:N1y(k),0:N1z(k)))
          
          Solver % MGStorage(Dir) % Var(k) % Scase = 0._RP
       end do   
@@ -561,7 +561,7 @@ module AnisFASMultigridClass
             N1 = Childp_sem % mesh % elements(iEl) % Nxyz
             N2 =      p_sem % mesh % elements(iEl) % Nxyz
             
-            call Interp3DArraysOneDir(N_EQN, &
+            call Interp3DArraysOneDir(NCONS, &
                                       N1, ChildVar(iEl) % E, &
                                       N2, Var     (iEl) % E, &
                                       Dir)
@@ -665,7 +665,7 @@ module AnisFASMultigridClass
 !        Restrict solution
 !        -----------------
          
-         call Interp3DArraysOneDir(N_EQN, &
+         call Interp3DArraysOneDir(NCONS, &
                                    N1, p_sem      % mesh % elements(iEl) % storage % Q, &
                                    N2, Childp_sem % mesh % elements(iEl) % storage % Q, &
                                    Dir)
@@ -673,7 +673,7 @@ module AnisFASMultigridClass
 !        Restrict residual
 !        -----------------
             
-         call Interp3DArraysOneDir(N_EQN, &
+         call Interp3DArraysOneDir(NCONS, &
                                    N1, p_sem % mesh % elements(iEl) % storage % Qdot, &
                                    N2, ChildVar(iEl) % S, &
                                    Dir)
@@ -814,7 +814,7 @@ module AnisFASMultigridClass
 !~         !---------------------------------
 !~         integer :: Nx, Ny, Nz, NB(2)
 !~         integer :: i,j,iFace
-!~         real(kind=RP) :: bvExt(N_EQN), flux(N_EQN)
+!~         real(kind=RP) :: bvExt(NCONS), flux(NCONS)
 !~         !---------------------------------
 !~!
 !~!        -----------------------------------------

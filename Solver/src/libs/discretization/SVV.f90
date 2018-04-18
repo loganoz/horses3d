@@ -4,9 +4,9 @@
 !   @File:    SVV.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Jan  6 11:47:48 2018
-!   @Last revision date: Wed Apr 11 13:13:19 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
+!   @Last revision date: Wed Apr 18 20:19:03 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -22,6 +22,7 @@ module SpectralVanishingViscosity
    use HexMeshClass
    use NodalStorageClass
    use GaussQuadrature
+   use FluidData
    implicit none
 
    private
@@ -234,12 +235,12 @@ module SpectralVanishingViscosity
 !
          integer           :: i, j, ii, jj
          real(kind=RP)     :: Q(NCONS, 0:f % Nf(1), 0:f % Nf(2)) 
-         real(kind=RP)     :: U_x(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: U_y(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: U_z(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: Uxf(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: Uyf(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: Uzf(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: U_x(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: U_y(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: U_z(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: Uxf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: Uyf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: Uzf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)     :: flux_vec(NCONS,NDIM, 0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)     :: mu(0:f % Nf(1), 0:f % Nf(2)), kappa(0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)     :: delta, Q2D

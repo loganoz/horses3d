@@ -56,6 +56,7 @@
             USE HexMeshClass
             USE PhysicsStorage
             USE UserDefinedDataStorage
+            use FluidData
             IMPLICIT NONE
 !
 !           ---------
@@ -113,6 +114,7 @@
             USE SMConstants
             use HexMeshClass
             use PhysicsStorage
+            use FluidData
             implicit none
             class(HexMesh)                        :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
@@ -132,9 +134,10 @@
                   USE UserDefinedDataStorage
                   USE SMConstants
                   USE PhysicsStorage
+                  use FluidData
                   IMPLICIT NONE  
                   REAL(KIND=RP) :: x(3)
-                  REAL(KIND=RP) :: Q(N_EQN)
+                  REAL(KIND=RP) :: Q(NCONS)
                   LOGICAL       :: success
                   type(Thermodynamics_t), intent(in)  :: thermodynamics_
                   type(Dimensionless_t),  intent(in)  :: dimensionless_
@@ -169,11 +172,12 @@
 !
             use SMConstants
             use PhysicsStorage
+            use FluidData
             implicit none
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: Q(N_EQN)
+            real(kind=RP), intent(inout)  :: Q(NCONS)
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
@@ -184,9 +188,10 @@
                   USE UserDefinedDataStorage
                   USE SMConstants
                   USE PhysicsStorage
+                  use FluidData
                   IMPLICIT NONE  
                   REAL(KIND=RP) :: x(3)
-                  REAL(KIND=RP) :: Q(N_EQN)
+                  REAL(KIND=RP) :: Q(NCONS)
                   LOGICAL       :: success
                   type(Thermodynamics_t), intent(in)  :: thermodynamics_
                   type(Dimensionless_t),  intent(in)  :: dimensionless_
@@ -216,6 +221,7 @@
             use SMConstants
             USE HexMeshClass
             use PhysicsStorage
+            use FluidData
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -315,9 +321,10 @@
                   USE UserDefinedDataStorage
                   USE SMConstants
                   USE PhysicsStorage
+                  use FluidData
                   IMPLICIT NONE  
                   REAL(KIND=RP) :: x(3)
-                  REAL(KIND=RP) :: Q(N_EQN)
+                  REAL(KIND=RP) :: Q(NCONS)
                   LOGICAL       :: success
                   type(Thermodynamics_t), intent(in)  :: thermodynamics_
                   type(Dimensionless_t),  intent(in)  :: dimensionless_
@@ -358,7 +365,7 @@
                                tol           = 1.d-3, &
                                msg           = "Final maximum residual")
             
-            ALLOCATE(QExpected(N_EQN,0:N,0:N,0:N))
+            ALLOCATE(QExpected(NCONS,0:N,0:N,0:N))
             
             maxError = 0.0_RP
             DO eID = 1, SIZE(mesh % elements)
@@ -416,6 +423,7 @@
       USE UserDefinedDataStorage
       USE SMConstants
       USE PhysicsStorage
+      use FluidData
       IMPLICIT NONE  
 !
 !           ---------
@@ -423,7 +431,7 @@
 !           ---------
 !
       REAL(KIND=RP) :: x(3)
-      REAL(KIND=RP) :: Q(N_EQN)
+      REAL(KIND=RP) :: Q(NCONS)
       LOGICAL       :: success
       type(Thermodynamics_t), intent(in)  :: thermodynamics_
       type(Dimensionless_t),  intent(in)  :: dimensionless_

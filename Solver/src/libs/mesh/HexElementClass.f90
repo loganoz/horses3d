@@ -283,12 +283,12 @@
 !        ---------------
 !
          integer  :: i, j, k, l, N(3)
-         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: UxFR, UyFR, UzFR
-         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: UxBK, UyBK, UzBK
-         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: UxBT, UyBT, UzBT
-         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: UxT, UyT, UzT
-         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: UxL, UyL, UzL
-         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: UxR, UyR, UzR
+         real(kind=RP), dimension(NGRAD, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: UxFR, UyFR, UzFR
+         real(kind=RP), dimension(NGRAD, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: UxBK, UyBK, UzBK
+         real(kind=RP), dimension(NGRAD, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: UxBT, UyBT, UzBT
+         real(kind=RP), dimension(NGRAD, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: UxT, UyT, UzT
+         real(kind=RP), dimension(NGRAD, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: UxL, UyL, UzL
+         real(kind=RP), dimension(NGRAD, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: UxR, UyR, UzR
 
          N = self % Nxyz
 !
@@ -355,10 +355,10 @@
 !        ---------------
 !
          integer  :: i, j, k, l
-         real(kind=RP)  :: U(1:N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
-         real(kind=RP)  :: U_xi(1:N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
-         real(kind=RP)  :: U_eta(1:N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
-         real(kind=RP)  :: U_zeta(1:N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: U(1:NGRAD, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: U_xi(1:NGRAD, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: U_eta(1:NGRAD, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: U_zeta(1:NGRAD, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
          real(kind=RP)  :: invjac
 
          associate( N => self % Nxyz )

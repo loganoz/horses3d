@@ -43,6 +43,7 @@
 !
             USE HexMeshClass
             use PhysicsStorage
+            use FluidData
             IMPLICIT NONE
             CLASS(HexMesh)                      :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
@@ -66,6 +67,7 @@
             use smconstants
             use physicsstorage
             use hexmeshclass
+            use fluiddata
             implicit none
             class(hexmesh)                      :: mesh
             type(thermodynamics_t), intent(in)  :: thermodynamics_
@@ -78,7 +80,7 @@
 !
             integer        :: eid, i, j, k
             real(kind=rp)  :: qq, u, v, w, p
-            real(kind=rp)  :: q(n_eqn), phi, theta
+            real(kind=rp)  :: q(ncons), phi, theta
             associate ( gammam2 => dimensionless_ % gammam2, &
                         gamma => thermodynamics_ % gamma )
             theta = refvalues_ % aoatheta*(pi/180.0_rp)
@@ -132,11 +134,12 @@
 !
             use SMConstants
             use PhysicsStorage
+            use FluidData
             implicit none
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: Q(N_EQN)
+            real(kind=RP), intent(inout)  :: Q(NCONS)
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
@@ -150,13 +153,14 @@
 !
             use SMConstants
             use PhysicsStorage
+            use FluidData
             implicit none
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: U_x(N_GRAD_EQN)
-            real(kind=RP), intent(inout)  :: U_y(N_GRAD_EQN)
-            real(kind=RP), intent(inout)  :: U_z(N_GRAD_EQN)
+            real(kind=RP), intent(inout)  :: U_x(NGRAD)
+            real(kind=RP), intent(inout)  :: U_y(NGRAD)
+            real(kind=RP), intent(inout)  :: U_z(NGRAD)
          end subroutine UserDefinedNeumann
 
 !
@@ -196,6 +200,7 @@
             use SMConstants
             USE HexMeshClass
             use PhysicsStorage
+            use FluidData
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -242,6 +247,7 @@
             use SMConstants
             USE HexMeshClass
             use PhysicsStorage
+            use FluidData
 #if defined(NAVIERSTOKES)
             use MonitorsClass
 #endif

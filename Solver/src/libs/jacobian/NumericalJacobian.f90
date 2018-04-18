@@ -97,14 +97,14 @@ contains
 !           Get block sizes and position in matrix
 !           --------------------------------------
 ! 
-            ndofelm(i)  = N_EQN * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)              ! TODO: if there's p-adaptation, this value has to be recomputed
+            ndofelm(i)  = NCONS * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)              ! TODO: if there's p-adaptation, this value has to be recomputed
             IF (i>1) firstIdx(i) = firstIdx(i-1) + ndofelm(i-1)
 !
 !           -------------------------------------------------------
 !           Allocate the element storage of the clean element array
 !           -------------------------------------------------------
 !
-            CALL allocateElementStorage( dgs_clean(i), Nx(i), Ny(i), Nz(i), N_EQN, N_GRAD_EQN, computeGradients )
+            CALL allocateElementStorage( dgs_clean(i), Nx(i), Ny(i), Nz(i), NCONS, NGRAD, computeGradients )
          END DO
 
          firstIdx(nelm+1) = firstIdx(nelm) + ndofelm(nelm)
@@ -219,7 +219,7 @@ contains
                thiselm = ecolors%elmnts(thiselmidx)
                IF (ndofelm(thiselm)<thisdof) CYCLE       ! Do nothing if the DOF exceeds the NDOF of thiselm
                
-               ijkl = local2ijk(thisdof,N_EQN,Nx(thiselm),Ny(thiselm),Nz(thiselm))
+               ijkl = local2ijk(thisdof,NCONS,Nx(thiselm),Ny(thiselm),Nz(thiselm))
                
                sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
                                                    sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
@@ -320,7 +320,7 @@ contains
       DO k = 0, Nz
          DO j = 0, Ny
             DO i = 0, Nx
-               DO l = 1,N_EQN
+               DO l = 1,NCONS
                   Qdot(counter)  = CurrEl% storage % Qdot(l, i, j, k) 
                   counter =  counter + 1
                END DO

@@ -24,6 +24,7 @@ MODULE HexMeshClass
       use NodalStorageClass
       use MPI_Process_Info
       use MPI_Face_Class
+      use FluidData
 #if defined(NAVIERSTOKES)
       use WallDistance
 #endif
@@ -822,8 +823,8 @@ slavecoord:                DO l = 1, 4
                thisSide = mpi_faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  mpi_faces(domain) % Qsend(counter:counter+N_EQN-1) = f % storage(thisSide) % Q(:,i,j)
-                  counter = counter + N_EQN
+                  mpi_faces(domain) % Qsend(counter:counter+NCONS-1) = f % storage(thisSide) % Q(:,i,j)
+                  counter = counter + NCONS
                end do               ; end do
                end associate
             end do
@@ -875,18 +876,18 @@ slavecoord:                DO l = 1, 4
                thisSide = mpi_faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  mpi_faces(domain) % U_xyzsend(counter:counter+N_GRAD_EQN-1) = f % storage(thisSide) % U_x(:,i,j)
-                  counter = counter + N_GRAD_EQN
+                  mpi_faces(domain) % U_xyzsend(counter:counter+NGRAD-1) = f % storage(thisSide) % U_x(:,i,j)
+                  counter = counter + NGRAD
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  mpi_faces(domain) % U_xyzsend(counter:counter+N_GRAD_EQN-1) = f % storage(thisSide) % U_y(:,i,j)
-                  counter = counter + N_GRAD_EQN
+                  mpi_faces(domain) % U_xyzsend(counter:counter+NGRAD-1) = f % storage(thisSide) % U_y(:,i,j)
+                  counter = counter + NGRAD
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  mpi_faces(domain) % U_xyzsend(counter:counter+N_GRAD_EQN-1) = f % storage(thisSide) % U_z(:,i,j)
-                  counter = counter + N_GRAD_EQN
+                  mpi_faces(domain) % U_xyzsend(counter:counter+NGRAD-1) = f % storage(thisSide) % U_z(:,i,j)
+                  counter = counter + NGRAD
                end do               ; end do
                end associate
             end do
@@ -929,8 +930,8 @@ slavecoord:                DO l = 1, 4
                thisSide = mpi_faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % Q(:,i,j) = mpi_faces(domain) % Qrecv(counter:counter+N_EQN-1)
-                  counter = counter + N_EQN
+                  f % storage(otherSide(thisSide)) % Q(:,i,j) = mpi_faces(domain) % Qrecv(counter:counter+NCONS-1)
+                  counter = counter + NCONS
                end do               ; end do
                end associate
             end do
@@ -972,18 +973,18 @@ slavecoord:                DO l = 1, 4
                thisSide = mpi_faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % U_x(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+N_GRAD_EQN-1)
-                  counter = counter + N_GRAD_EQN
+                  f % storage(otherSide(thisSide)) % U_x(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+NGRAD-1)
+                  counter = counter + NGRAD
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % U_y(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+N_GRAD_EQN-1)
-                  counter = counter + N_GRAD_EQN
+                  f % storage(otherSide(thisSide)) % U_y(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+NGRAD-1)
+                  counter = counter + NGRAD
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % U_z(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+N_GRAD_EQN-1)
-                  counter = counter + N_GRAD_EQN
+                  f % storage(otherSide(thisSide)) % U_z(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+NGRAD-1)
+                  counter = counter + NGRAD
                end do               ; end do
                end associate
             end do
@@ -1233,7 +1234,7 @@ slavecoord:                DO l = 1, 4
             Nx = self % elements(el) % Nxyz(1)
             Ny = self % elements(el) % Nxyz(2)
             Nz = self % elements(el) % Nxyz(3)
-            ndof = ndof + (Nx + 1)*(Ny + 1)*(Nz + 1)*N_EQN
+            ndof = ndof + (Nx + 1)*(Ny + 1)*(Nz + 1)*NCONS
          END DO
          
          OPEN(newunit=cooh, file=FileName, action='WRITE')
@@ -1530,7 +1531,7 @@ slavecoord:                DO l = 1, 4
 
             end select
          
-            call f % LinkWithElements(N_EQN, N_GRAD_EQN, NelL, NelR, nodes)
+            call f % LinkWithElements(NCONS, NGRAD, NelL, NelR, nodes)
             
             end associate
          end do
@@ -1553,7 +1554,7 @@ slavecoord:                DO l = 1, 4
                end do
             end do
 
-            call ConstructMPIFacesStorage(NCONS, N_GRAD_EQN, MPI_NDOFS)
+            call ConstructMPIFacesStorage(NCONS, NGRAD, MPI_NDOFS)
 #endif
          end if
          
@@ -2181,7 +2182,7 @@ slavecoord:                DO l = 1, 4
          if ( saveGradients .and. computeGradients) then
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
                                        self % nodeType, self % no_of_allElements, iter, time, refs)
-            padding = NCONS + 3*N_GRAD_EQN
+            padding = NCONS + 3*NGRAD
          else
             call CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % nodeType, &
                                        self % no_of_allElements, iter, time, refs)
@@ -2363,7 +2364,7 @@ slavecoord:                DO l = 1, 4
             padding = 1*NCONS
 
          case(SOLUTION_AND_GRADIENTS_FILE)
-            padding = NCONS + 3 * N_GRAD_EQN
+            padding = NCONS + 3 * NGRAD
 
          case(STATS_FILE)
             print*, "The selected restart file is a statistics file"

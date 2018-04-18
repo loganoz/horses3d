@@ -324,7 +324,7 @@ CONTAINS
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
-                  DO l = 1,N_EQN
+                  DO l = 1,NCONS
                      value = (sem%mesh%elements(elmnt)% storage % Q(l,i,j,k) - U_n(counter))/dt - &
                               sem%mesh%elements(elmnt)% storage % QDot(l,i,j,k)
                      CALL linsolver%SetBValue(counter, value)
@@ -354,7 +354,7 @@ CONTAINS
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
-                  DO l = 1, N_EQN
+                  DO l = 1, NCONS
                      CALL linsolver%GetXValue(counter,value)
                      sem%mesh%elements(elm)% storage % Q(l,i,j,k) = sem%mesh%elements(elm)% storage % Q(l,i,j,k) + value
                      counter =  counter + 1
@@ -385,7 +385,7 @@ CONTAINS
       ! .frm file
       OPEN(newunit=fd, file=TRIM(FileName)//'.frm', action='WRITE')
          WRITE(fd,*)
-         WRITE(fd,*) SIZE(Mat % Values), SIZE(Mat % Rows)-1, 1, N_EQN, 1
+         WRITE(fd,*) SIZE(Mat % Values), SIZE(Mat % Rows)-1, 1, NCONS, 1
          WRITE(fd,*) sem % mesh % elements(1) % Nxyz(1), SIZE(sem % mesh % elements)
       CLOSE (fd)
       

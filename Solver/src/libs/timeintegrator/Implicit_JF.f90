@@ -11,7 +11,7 @@
 MODULE Implicit_JF
    USE SMConstants,                 ONLY: RP                  
    USE DGSEMClass,                  ONLY: DGSem
-   USE PhysicsStorage,              ONLY: N_EQN, N_GRAD_EQN
+   USE PhysicsStorage,              ONLY: NCONS, NGRAD
    USE JFNKClass,                   ONLY: JFNK_Integrator
    use TimeIntegratorDefinitions
    use DGSEMClass,                  only: ComputeQDot_FCN

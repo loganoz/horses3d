@@ -4,9 +4,9 @@
 !   @File:    ConstructMeshAndSpectralBasis.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Nov  1 19:56:53 2017
-!   @Last revision date: Tue Feb 13 20:29:37 2018
+!   @Last revision date: Wed Apr 18 20:18:57 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 9cdffcbe5af1cc3ea1e17c83c91d73cc17fecde1
+!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -54,7 +54,7 @@ module ConstructMeshAndSpectralBasis_MOD
          if ( fileType .eq. SOLUTION_FILE ) then
             padding = NCONS
          else if ( fileType .eq. SOLUTION_AND_GRADIENTS_FILE ) then
-            padding = NCONS + 3 * N_GRAD_EQN
+            padding = NCONS + 3 * NGRAD
          end if
             
          fid = putSolutionFileInReadDataMode(trim(solutionFile))
@@ -114,7 +114,7 @@ module ConstructMeshAndSpectralBasis_MOD
 !
       DO eID = 1, SIZE(mesh % elements) 
          CALL allocateElementStorage( mesh % elements(eID), Nx(eID),Ny(eID),Nz(eID), &
-                                      NCONS, N_GRAD_EQN, .true. )
+                                      NCONS, NGRAD, .true. )
       END DO
 !
 !     -------------

@@ -4,9 +4,9 @@
 !   @File:    IMEXMethods.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed Apr 18 20:19:14 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -120,7 +120,7 @@ CONTAINS
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
-                  DO l = 1,N_EQN
+                  DO l = 1,NCONS
                      value = sem%mesh%elements(elmnt)%storage%Q(l,i,j,k) + &
                           dt*sem%mesh%elements(elmnt)%storage%QDot(l,i,j,k)
 

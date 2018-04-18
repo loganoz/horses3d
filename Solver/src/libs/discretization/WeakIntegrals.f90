@@ -2,7 +2,6 @@ module DGWeakIntegrals
    use SMConstants
    use ElementClass
    use PhysicsStorage
-   use PhysicsStorage, only: N_EQN, N_GRAD_EQN, IX,IY,IZ
    use MeshTypes
    use VariableConversion, only: gradientValuesForQ
    implicit none
@@ -183,19 +182,19 @@ module DGWeakIntegrals
          use PhysicsStorage
          implicit none
          class(Element),      intent(in)  :: e
-         real(kind=RP),       intent(in)  :: U        (N_GRAD_EQN,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP),       intent(out) :: volInt_x (N_GRAD_EQN,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP),       intent(out) :: volInt_y (N_GRAD_EQN,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP),       intent(out) :: volInt_z (N_GRAD_EQN,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),       intent(in)  :: U        (NGRAD,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),       intent(out) :: volInt_x (NGRAD,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),       intent(out) :: volInt_y (NGRAD,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),       intent(out) :: volInt_z (NGRAD,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer        :: i,j,k,l
-         real(kind=RP)  :: U_xi(N_GRAD_EQN,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
-         real(kind=RP)  :: U_eta(N_GRAD_EQN,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
-         real(kind=RP)  :: U_zeta(N_GRAD_EQN,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP)  :: U_xi(NGRAD,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP)  :: U_eta(NGRAD,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP)  :: U_zeta(NGRAD,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
 
          volInt_x = 0.0_RP
          volInt_y = 0.0_RP
@@ -230,15 +229,15 @@ module DGWeakIntegrals
          use PhysicsStorage
          implicit none
          class(Element), intent(in)  :: e
-         real(kind=RP),  intent(in)  :: HF  (N_GRAD_EQN,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(3))
-         real(kind=RP),  intent(in)  :: HBK (N_GRAD_EQN,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(3))
-         real(kind=RP),  intent(in)  :: HBO (N_GRAD_EQN,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(2))
-         real(kind=RP),  intent(in)  :: HR  (N_GRAD_EQN,NDIM, 0:e % Nxyz(2), 0: e % Nxyz(3))
-         real(kind=RP),  intent(in)  :: HT  (N_GRAD_EQN,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(2))
-         real(kind=RP),  intent(in)  :: HL  (N_GRAD_EQN,NDIM, 0:e % Nxyz(2), 0: e % Nxyz(3))
-         real(kind=RP),  intent(out) :: faceInt_x(N_GRAD_EQN, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3)) 
-         real(kind=RP),  intent(out) :: faceInt_y(N_GRAD_EQN, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3)) 
-         real(kind=RP),  intent(out) :: faceInt_z(N_GRAD_EQN, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),  intent(in)  :: HF  (NGRAD,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(3))
+         real(kind=RP),  intent(in)  :: HBK (NGRAD,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(3))
+         real(kind=RP),  intent(in)  :: HBO (NGRAD,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(2))
+         real(kind=RP),  intent(in)  :: HR  (NGRAD,NDIM, 0:e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP),  intent(in)  :: HT  (NGRAD,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(2))
+         real(kind=RP),  intent(in)  :: HL  (NGRAD,NDIM, 0:e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP),  intent(out) :: faceInt_x(NGRAD, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3)) 
+         real(kind=RP),  intent(out) :: faceInt_y(NGRAD, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3)) 
+         real(kind=RP),  intent(out) :: faceInt_z(NGRAD, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
 !
 !        ---------------
 !        Local variables

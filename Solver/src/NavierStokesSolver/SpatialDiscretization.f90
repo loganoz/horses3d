@@ -27,6 +27,7 @@ module SpatialDiscretization
       use MPI_Process_Info
       use DGSEMClass
       use ParticlesClass
+      use FluidData
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -320,6 +321,7 @@ module SpatialDiscretization
                use SMConstants
                USE HexMeshClass
                use PhysicsStorage
+               use FluidData
                IMPLICIT NONE
                CLASS(HexMesh)                        :: mesh
                REAL(KIND=RP)                         :: time
@@ -475,6 +477,7 @@ module SpatialDiscretization
                use SMConstants
                USE HexMeshClass
                use PhysicsStorage
+               use FluidData
                IMPLICIT NONE
                CLASS(HexMesh)                        :: mesh
                REAL(KIND=RP)                         :: time
@@ -576,7 +579,7 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , InviscidFlux3D, inviscidContravariantFlux ) 
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux3D, inviscidContravariantFlux ) 
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
@@ -661,13 +664,13 @@ module SpatialDiscretization
 ! 
       SUBROUTINE computeElementInterfaceFlux_NS(f)
          use FaceClass
-         use RiemannSolvers
+         use RiemannSolvers_NS
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
-         real(kind=RP) :: inv_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
 
          if ( .not. LESModel % active ) then
          DO j = 0, f % Nf(2)
@@ -754,14 +757,14 @@ module SpatialDiscretization
 
       SUBROUTINE computeMPIFaceFlux_NS(f)
          use FaceClass
-         use RiemannSolvers
+         use RiemannSolvers_NS
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
          integer       :: thisSide
-         real(kind=RP) :: inv_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
 !
 !        --------------
 !        Invscid fluxes
@@ -816,7 +819,7 @@ module SpatialDiscretization
       USE ElementClass
       use FaceClass
       USE EllipticDiscretizations
-      USE RiemannSolvers
+      USE RiemannSolvers_NS
       USE BoundaryConditionFunctions
       IMPLICIT NONE
 !
@@ -835,10 +838,10 @@ module SpatialDiscretization
 !
       INTEGER                         :: i, j
       INTEGER, DIMENSION(2)           :: N
-      REAL(KIND=RP)                   :: inv_flux(N_EQN)
-      REAL(KIND=RP)                   :: UGradExt(NDIM , N_GRAD_EQN) 
-      real(kind=RP)                   :: visc_flux(N_EQN, 0:f % Nf(1), 0:f % Nf(2))
-      real(kind=RP)                   :: fStar(N_EQN, 0:f % Nf(1), 0: f % Nf(2))
+      REAL(KIND=RP)                   :: inv_flux(NCONS)
+      REAL(KIND=RP)                   :: UGradExt(NDIM , NGRAD) 
+      real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
       
       CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
       CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName
@@ -923,14 +926,14 @@ module SpatialDiscretization
 
       SUBROUTINE computeElementInterfaceFlux_SVV(f)
          use FaceClass
-         use RiemannSolvers
+         use RiemannSolvers_NS
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
-         real(kind=RP) :: inv_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: SVV_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: SVV_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
 !
 !        ----------
 !        SVV fluxes
@@ -1006,15 +1009,15 @@ module SpatialDiscretization
 
       SUBROUTINE computeMPIFaceFlux_SVV(f)
          use FaceClass
-         use RiemannSolvers
+         use RiemannSolvers_NS
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
          integer       :: thisSide
-         real(kind=RP) :: inv_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: SVV_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: SVV_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
 !
 !        ----------
 !        SVV fluxes
@@ -1087,7 +1090,7 @@ module SpatialDiscretization
       USE ElementClass
       use FaceClass
       USE EllipticDiscretizations
-      USE RiemannSolvers
+      USE RiemannSolvers_NS
       USE BoundaryConditionFunctions
       IMPLICIT NONE
 !
@@ -1106,11 +1109,11 @@ module SpatialDiscretization
 !
       INTEGER                         :: i, j
       INTEGER, DIMENSION(2)           :: N
-      REAL(KIND=RP)                   :: inv_flux(N_EQN)
-      REAL(KIND=RP)                   :: UGradExt(NDIM , N_GRAD_EQN) 
-      real(kind=RP)                   :: visc_flux(N_EQN, 0:f % Nf(1), 0:f % Nf(2))
-      real(kind=RP)                   :: SVV_flux(N_EQN, 0:f % Nf(1), 0:f % Nf(2))
-      real(kind=RP)                   :: fStar(N_EQN, 0:f % Nf(1), 0: f % Nf(2))
+      REAL(KIND=RP)                   :: inv_flux(NCONS)
+      REAL(KIND=RP)                   :: UGradExt(NDIM , NGRAD) 
+      real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: SVV_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
       
       CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
             
@@ -1218,12 +1221,12 @@ module SpatialDiscretization
          TYPE(Face)   , INTENT(inout) :: f   
          !-----------------------------------------------------------
          integer       :: i, j
-         real(kind=RP) :: inv_fluxL (1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: inv_fluxR (1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_fluxL(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_fluxR(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: fluxL     (1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: fluxR     (1:N_EQN,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: inv_fluxL (1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: inv_fluxR (1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_fluxL(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_fluxR(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: fluxL     (1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: fluxR     (1:NCONS,0:f % Nf(1),0:f % Nf(2))
          !-----------------------------------------------------------
          real(kind=RP) :: nHat(NDIM)
          real(kind=RP) :: mu, kappa             !
@@ -1287,7 +1290,7 @@ module SpatialDiscretization
 !              Hyperbolic flux on the left
 !              -------------------------
                
-               call InviscidFlux(f % storage(1) % Q  (:,i,j), flux_vec)
+               call EulerFlux(f % storage(1) % Q  (:,i,j), flux_vec)
                
                inv_fluxL(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
                
@@ -1295,7 +1298,7 @@ module SpatialDiscretization
 !              Hyperbolic flux on the right
 !              --------------------------
                
-               call InviscidFlux(f % storage(2) % Q  (:,i,j), flux_vec)
+               call EulerFlux(f % storage(2) % Q  (:,i,j), flux_vec)
                
                inv_fluxR(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) ! The inversion is performed later
                
@@ -1334,9 +1337,9 @@ module SpatialDiscretization
          integer      , intent(in)    :: thisSide
          !-----------------------------------------------------------
          integer       :: i, j
-         real(kind=RP) :: inv_flux (1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:N_EQN,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: flux     (1:N_EQN,0:f % Nf(1),0:f % Nf(2))    
+         real(kind=RP) :: inv_flux (1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux     (1:NCONS,0:f % Nf(1),0:f % Nf(2))    
          real(kind=RP) :: nHat(NDIM)                                    ! Face normal vector
          real(kind=RP) :: mu, kappa                                     ! dimensionless constants
          real(kind=RP) :: flux_vec(NCONS,NDIM)                          ! Flux tensor
@@ -1386,7 +1389,7 @@ module SpatialDiscretization
 !              Hyperbolic flux
 !              -------------
                
-               call InviscidFlux(f % storage(thisSide) % Q  (:,i,j), flux_vec)
+               call EulerFlux(f % storage(thisSide) % Q  (:,i,j), flux_vec)
                
                inv_flux(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) ! The inversion is performed later
                

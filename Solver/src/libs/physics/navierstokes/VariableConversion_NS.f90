@@ -4,9 +4,9 @@
 !   @File:    VariableConversion_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:34 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed Apr 18 20:19:11 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -41,7 +41,7 @@ module VariableConversion_NS
 !     Arguments
 !     ---------
 !
-      REAL(KIND=RP), DIMENSION(NS_NEQN), INTENT(IN) :: Q
+      REAL(KIND=RP), DIMENSION(NCONS), INTENT(IN) :: Q
 !
 !     ---------------
 !     Local Variables
@@ -65,7 +65,7 @@ module VariableConversion_NS
 !     Arguments
 !     ---------
 !
-      REAL(KIND=RP), DIMENSION(NS_NEQN), INTENT(IN) :: Q
+      REAL(KIND=RP), DIMENSION(NCONS), INTENT(IN) :: Q
 !
 !     ---------------
 !     Local Variables
@@ -91,8 +91,8 @@ module VariableConversion_NS
 !     Arguments
 !     ---------
 !
-      REAL(KIND=RP), DIMENSION(NS_NEQN)     , INTENT(IN)  :: Q
-      REAL(KIND=RP), DIMENSION(NS_NGRAD), INTENT(OUT) :: U
+      REAL(KIND=RP), DIMENSION(NCONS)     , INTENT(IN)  :: Q
+      REAL(KIND=RP), DIMENSION(NGRAD), INTENT(OUT) :: U
 !
 !     ---------------
 !     Local Variables
@@ -113,8 +113,8 @@ module VariableConversion_NS
 !     ---------
 !
       integer,       intent(in)  :: Nx, Ny, Nz
-      REAL(KIND=RP), INTENT(IN)  :: Q(1:NS_NEQN, 0:Nx, 0:Ny, 0:Nz)
-      REAL(KIND=RP), INTENT(OUT) :: U(1:NS_NGRAD, 0:Nx, 0:Ny, 0:Nz)
+      REAL(KIND=RP), INTENT(IN)  :: Q(1:NCONS, 0:Nx, 0:Ny, 0:Nz)
+      REAL(KIND=RP), INTENT(OUT) :: U(1:NGRAD, 0:Nx, 0:Ny, 0:Nz)
 !
 !     ---------------
 !     Local Variables
@@ -148,8 +148,8 @@ module VariableConversion_NS
 !        **************************************
 !
          implicit none
-         real(kind=RP), intent(in)  :: U(NS_NEQN)
-         real(kind=RP), intent(out) :: V(NS_NPRIM)
+         real(kind=RP), intent(in)  :: U(NCONS)
+         real(kind=RP), intent(out) :: V(NPRIM)
 !
 !        ---------------
 !        Local variables
@@ -172,9 +172,9 @@ module VariableConversion_NS
 
       pure subroutine getEntropyVariables(U,p,invRho,S)
          implicit none
-         real(kind=RP), intent(in)  :: U(NS_NEQN)
+         real(kind=RP), intent(in)  :: U(NCONS)
          real(kind=RP), intent(in)  :: p, invRho
-         real(kind=RP), intent(out) :: S(NS_NEQN)
+         real(kind=RP), intent(out) :: S(NCONS)
 !
 !        ---------------
 !        Local variables
@@ -204,10 +204,10 @@ module VariableConversion_NS
 !        ***************************************************
 !           
          implicit none
-         real(kind=RP), intent(in)  :: QL(NS_NEQN)
-         real(kind=RP), intent(in)  :: QR(NS_NEQN)
-         real(kind=RP), intent(in)  :: VL(NS_NPRIM)
-         real(kind=RP), intent(in)  :: VR(NS_NPRIM)
+         real(kind=RP), intent(in)  :: QL(NCONS)
+         real(kind=RP), intent(in)  :: QR(NCONS)
+         real(kind=RP), intent(in)  :: VL(NPRIM)
+         real(kind=RP), intent(in)  :: VR(NPRIM)
          real(kind=RP), intent(out) :: rho, u, v, w, V2, H, a
 !
 !        ---------------

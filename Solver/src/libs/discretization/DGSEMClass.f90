@@ -28,6 +28,7 @@ Module DGSEMClass
    use ElementClass
    USE HexMeshClass
    USE PhysicsStorage
+   use FluidData
 #if defined(NAVIERSTOKES)
    USE ManufacturedSolutions
 #endif
@@ -87,7 +88,7 @@ Module DGSEMClass
          USE SMConstants
          use PhysicsStorage
          REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-         REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
+         REAL(KIND=RP)   , INTENT(INOUT) :: Q(NCONS)
          CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
          CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
       END SUBROUTINE BCState_FCN      
@@ -96,7 +97,7 @@ Module DGSEMClass
          USE SMConstants
          use PhysicsStorage
          REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-         REAL(KIND=RP)   , INTENT(INOUT) :: gradU(NDIM,N_GRAD_EQN)
+         REAL(KIND=RP)   , INTENT(INOUT) :: gradU(NDIM,NGRAD)
          CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
          CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
       END SUBROUTINE BCGradients_FCN
@@ -331,8 +332,8 @@ Module DGSEMClass
 !
       DO k = 1, SIZE(self % mesh % elements) 
          CALL allocateElementStorage( self = self % mesh % elements(k), &
-                                      nEqn = N_EQN, &
-                                  nGradEqn = N_GRAD_EQN, &
+                                      nEqn = NCONS, &
+                                  nGradEqn = NGRAD, &
                           computeGradients = computeGradients)
       END DO
 !
@@ -343,7 +344,7 @@ Module DGSEMClass
       self % NDOF = 0
       DO k=1, nTotalElem
          associate(e => self % mesh % elements(k))
-         self % NDOF = self % NDOF + N_EQN * (e % Nxyz(1) + 1) * (e % Nxyz(2) + 1) * (e % Nxyz(3) + 1)
+         self % NDOF = self % NDOF + NCONS * (e % Nxyz(1) + 1) * (e % Nxyz(2) + 1) * (e % Nxyz(3) + 1)
          end associate
       END DO
 
@@ -462,6 +463,7 @@ Module DGSEMClass
                USE SMConstants
                use PhysicsStorage
                use HexMeshClass
+               use FluidData
                implicit none
                class(HexMesh)                  :: mesh
                type(Thermodynamics_t), intent(in)  :: thermodynamics_
@@ -519,7 +521,7 @@ Module DGSEMClass
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
-                  DO l = 1,N_EQN
+                  DO l = 1,NCONS
                      self%mesh%elements(elm)%storage%Q(l,i,j,k) = Q(counter) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
@@ -550,7 +552,7 @@ Module DGSEMClass
          DO k = 0, Nz
             DO j = 0, Ny
                 DO i = 0, Nx
-                  DO l = 1,N_EQN
+                  DO l = 1,NCONS
                      Q(counter)  = self%mesh%elements(elm)%storage%Q(l,i, j, k) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
@@ -581,7 +583,7 @@ Module DGSEMClass
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
-                  DO l = 1,N_EQN
+                  DO l = 1,NCONS
                      Qdot(counter)  = self%mesh%elements(elm)%storage%Qdot(l,i, j, k) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
@@ -646,10 +648,10 @@ Module DGSEMClass
       IMPLICIT NONE
       !----------------------------------------------
       CLASS(HexMesh), intent(in)  :: mesh
-      REAL(KIND=RP) :: maxResidual(N_EQN)
+      REAL(KIND=RP) :: maxResidual(NCONS)
       !----------------------------------------------
       INTEGER       :: id , eq, ierr
-      REAL(KIND=RP) :: localMaxResidual(N_EQN)
+      REAL(KIND=RP) :: localMaxResidual(NCONS)
       real(kind=RP) :: localRho, localRhou, localRhov, localRhow, localRhoe
       real(kind=RP) :: Rho, Rhou, Rhov, Rhow, Rhoe
       !----------------------------------------------
@@ -684,7 +686,7 @@ Module DGSEMClass
 #ifdef _HAS_MPI_
       if ( MPI_Process % doMPIAction ) then
          localMaxResidual = maxResidual
-         call mpi_allreduce(localMaxResidual, maxResidual, N_EQN, MPI_DOUBLE, MPI_MAX, &
+         call mpi_allreduce(localMaxResidual, maxResidual, NCONS, MPI_DOUBLE, MPI_MAX, &
                             MPI_COMM_WORLD, ierr)
       end if
 #endif
@@ -696,7 +698,7 @@ Module DGSEMClass
       IMPLICIT NONE
       !----------------------------------------------
       CLASS(HexMesh)  :: mesh
-      REAL(KIND=RP) :: maxResidual(N_EQN)
+      REAL(KIND=RP) :: maxResidual(NCONS)
       !----------------------------------------------
       INTEGER       :: id , eq, ierr
       real(kind=RP) :: cMax
@@ -722,7 +724,7 @@ Module DGSEMClass
 #ifdef _HAS_MPI_
       if ( MPI_Process % doMPIAction ) then
          localCMax = maxResidual
-         call mpi_allreduce(localCMax, maxResidual, N_EQN, MPI_DOUBLE, MPI_MAX, &
+         call mpi_allreduce(localCMax, maxResidual, NCONS, MPI_DOUBLE, MPI_MAX, &
                             MPI_COMM_WORLD, ierr)
       end if
 #endif
@@ -759,7 +761,7 @@ Module DGSEMClass
       real(kind=RP)                 :: lamcsi_a, lamzet_a, lameta_a     ! Advective eigenvalues in the three reference directions
       real(kind=RP)                 :: lamcsi_v, lamzet_v, lameta_v     ! Diffusive eigenvalues in the three reference directions
       real(kind=RP)                 :: jac, mu, T                       ! Mapping Jacobian, viscosity and temperature
-      real(kind=RP)                 :: Q(N_EQN)                         ! The solution in a node
+      real(kind=RP)                 :: Q(NCONS)                         ! The solution in a node
       real(kind=RP)                 :: TimeStep_Conv, TimeStep_Visc     ! Time-step for convective and diffusive terms
       real(kind=RP)                 :: localMax_dt_v, localMax_dt_a     ! Time step to perform MPI reduction
       type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction
@@ -817,7 +819,7 @@ Module DGSEMClass
 !           by the physics.
 !           ------------------------------------------------------------
 !
-            Q(1:N_EQN) = self % mesh % elements(eID) % storage % Q(1:N_EQN,i,j,k)
+            Q(1:NCONS) = self % mesh % elements(eID) % storage % Q(1:NCONS,i,j,k)
             CALL ComputeEigenvaluesForState( Q , eValues )
             
             jac      = self % mesh % elements(eID) % geom % jacobian(i,j,k)

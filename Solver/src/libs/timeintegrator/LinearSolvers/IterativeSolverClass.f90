@@ -99,7 +99,7 @@ CONTAINS
       INTEGER :: Nx,Ny,Nz   ! Polynomial orders for element
       INTEGER :: ndofelm    ! Number of degrees of freedom of element
       INTEGER :: k          ! Counter  
-      INTEGER :: N_EQN                                       
+      INTEGER :: NCONS                                       
       !-----------------------------------------------------------
 #ifdef HAS_PETSC
       PetscErrorCode :: ierr
@@ -127,13 +127,13 @@ CONTAINS
       SELECT CASE (this % Smoother)
          CASE('BlockJacobi')
             nelem = SIZE(sem % mesh % elements)
-            N_EQN = SIZE(sem % mesh % elements(1) % storage % Q,4)
+            NCONS = SIZE(sem % mesh % elements(1) % storage % Q,4)
             ALLOCATE (this % BlockPreco(nelem))
             DO k = 1, nelem
                Nx = sem % mesh % elements(k) % Nxyz(1)
                Ny = sem % mesh % elements(k) % Nxyz(2)
                Nz = sem % mesh % elements(k) % Nxyz(3)
-               ndofelm = N_EQN*(Nx+1)*(Ny+1)*(Nz+1)
+               ndofelm = NCONS*(Nx+1)*(Ny+1)*(Nz+1)
                ALLOCATE (this % BlockPreco(k) % Pinv(ndofelm,ndofelm))
             END DO
       END SELECT
@@ -166,7 +166,7 @@ CONTAINS
 !              TODO: change to store the permutation indexes in the element
 !           --------------------------------------
 ! 
-            ndofelm(i)  = N_EQN * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)
+            ndofelm(i)  = NCONS * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)
             IF (i>1) firstIdx(i) = firstIdx(i-1) + ndofelm(i-1)
       end do
       

@@ -363,9 +363,9 @@
       implicit none
       class(Face),   intent(inout)  :: self
       integer,       intent(in)     :: Nelx, Nely
-      real(kind=RP), intent(in)     :: Uxe(N_GRAD_EQN, 0:Nelx, 0:Nely)
-      real(kind=RP), intent(in)     :: Uye(N_GRAD_EQN, 0:Nelx, 0:Nely)
-      real(kind=RP), intent(in)     :: Uze(N_GRAD_EQN, 0:Nelx, 0:Nely)
+      real(kind=RP), intent(in)     :: Uxe(NGRAD, 0:Nelx, 0:Nely)
+      real(kind=RP), intent(in)     :: Uye(NGRAD, 0:Nelx, 0:Nely)
+      real(kind=RP), intent(in)     :: Uze(NGRAD, 0:Nelx, 0:Nely)
       integer,       intent(in)     :: side
 !
 !     ---------------
@@ -373,9 +373,9 @@
 !     ---------------
 !
       integer       :: i, j, k, l, m, ii, jj
-      real(kind=RP) :: Uxe_rot(N_GRAD_EQN, 0:self % NfRight(1), 0:self % NfRight(2))
-      real(kind=RP) :: Uye_rot(N_GRAD_EQN, 0:self % NfRight(1), 0:self % NfRight(2))
-      real(kind=RP) :: Uze_rot(N_GRAD_EQN, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP) :: Uxe_rot(NGRAD, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP) :: Uye_rot(NGRAD, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP) :: Uze_rot(NGRAD, 0:self % NfRight(1), 0:self % NfRight(2))
 
       select case (side)
       case(1)
@@ -695,7 +695,7 @@
       use PhysicsStorage
       implicit none
       class(Face)       :: self
-      real(kind=RP), intent(in)  :: Hflux(N_GRAD_EQN, NDIM, 0:self % Nf(1), 0:self % Nf(2))
+      real(kind=RP), intent(in)  :: Hflux(NGRAD, NDIM, 0:self % Nf(1), 0:self % Nf(2))
       integer,       intent(in)  :: whichElements(2)
       integer,       intent(in)  :: factor               ! A factor that relates LEFT and RIGHT fluxes
 !
@@ -704,7 +704,7 @@
 !     ---------------
 !
       integer           :: i, j, ii, jj, l, m, side
-      real(kind=RP)     :: hStarAux(N_GRAD_EQN, NDIM, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP)     :: hStarAux(NGRAD, NDIM, 0:self % NfRight(1), 0:self % NfRight(2))
 
       do side = 1, 2
          select case ( whichElements(side) )

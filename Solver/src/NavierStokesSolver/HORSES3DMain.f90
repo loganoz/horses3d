@@ -29,6 +29,7 @@
       use pAdaptationClass
       use NodalStorageClass
       use ManufacturedSolutions
+      use FluidData
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -44,6 +45,7 @@ interface
             use SMConstants
             use PhysicsStorage
             use HexMeshClass
+            use FluidData
             IMPLICIT NONE
             CLASS(HexMesh)             :: mesh
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
@@ -60,6 +62,7 @@ interface
             use PhysicsStorage
             use HexMeshClass
             use MonitorsClass
+            use FluidData
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -91,8 +94,8 @@ end interface
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
       type(BCFunctions_t)                 :: BCFunctions(1)
-      procedure(BCState_FCN)              :: externalStateForBoundaryName
-      procedure(BCGradients_FCN)          :: ExternalGradientForBoundaryName
+      procedure(BCState_FCN)              :: externalStateForBoundaryName_NS
+      procedure(BCGradients_FCN)          :: ExternalGradientForBoundaryName_NS
       character(len=LINE_LENGTH)          :: solutionFileName
       
       ! For pAdaptation
@@ -132,7 +135,7 @@ end interface
 !     Set up the DGSEM
 !     ----------------
 !      
-      CALL ConstructPhysicsStorage( controlVariables, success )
+      CALL ConstructPhysicsStorage_NS( controlVariables, success )
       IF(.NOT. success)   ERROR STOP "Physics parameters input error"
       
       ! Initialize manufactured solutions if necessary
@@ -146,8 +149,8 @@ end interface
       call InitializeNodalStorage(Nmax)
       call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
       
-      BCFunctions(1) % externalState => externalStateForBoundaryName
-      BCFunctions(1) % externalGradients => externalGradientForBoundaryName
+      BCFunctions(1) % externalState => externalStateForBoundaryName_NS
+      BCFunctions(1) % externalGradients => externalGradientForBoundaryName_NS
 
       call sem % construct (  controlVariables  = controlVariables,                                         &
                               BCFunctions = BCFunctions, &
@@ -241,7 +244,7 @@ end interface
          USE HexMeshClass
          use FTValueDictionaryClass
          USE SharedBCModule
-         USE BoundaryConditionFunctions, ONLY:implementedBCNames
+         USE BoundaryConditionFunctions_NS, ONLY:implementedNSBCNames
          IMPLICIT NONE
 !
 !        ---------
@@ -297,8 +300,8 @@ end interface
             obj => bcObjects % objectAtIndex(j)
             CALL castToValue(obj,v)
             bcType = v % stringValue(requestedLength = BC_STRING_LENGTH)
-            DO i = 1, SIZE(implementedBCNames)
-               IF ( bcType == implementedBCNames(i) )     THEN
+            DO i = 1, SIZE(implementedNSBCNames)
+               IF ( bcType == implementedNSBCNames(i) )     THEN
                   success = .TRUE. 
                   EXIT 
                ELSE 

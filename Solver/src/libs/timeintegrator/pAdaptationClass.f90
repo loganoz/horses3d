@@ -79,8 +79,8 @@ module pAdaptationClass
    integer    :: nelem   ! number of elements in mesh
    
 #if defined(NAVIERSTOKES)
-   procedure(BCState_FCN)   :: externalStateForBoundaryName
-   procedure(BCGradients_FCN)   :: ExternalGradientForBoundaryName
+   procedure(BCState_FCN)   :: externalStateForBoundaryName_NS
+   procedure(BCGradients_FCN)   :: ExternalGradientForBoundaryName_NS
 #elif defined(CAHNHILLIARD)
    procedure(BCState_FCN)   :: externalStateForBoundaryName
    procedure(BCGradients_FCN)   :: ExternalChemicalPotentialGradientForBoundaryName
@@ -574,8 +574,8 @@ module pAdaptationClass
       call Stopwatch % Start("Preprocessing")
       
 #if defined(NAVIERSTOKES)
-      BCFunctions(1) % externalState => externalStateForBoundaryName
-      BCFunctions(1) % externalGradients => externalGradientForBoundaryName
+      BCFunctions(1) % externalState => externalStateForBoundaryName_NS
+      BCFunctions(1) % externalGradients => externalGradientForBoundaryName_NS
 #elif defined(CAHNHILLIARD)
       BCFunctions(C_BC) % externalState      => externalStateForBoundaryName
       BCFunctions(C_BC) % externalGradients  => externalConcentrationGradientForBoundaryName
@@ -622,7 +622,7 @@ module pAdaptationClass
             ! Interpolate solution to new solution storage
             !---------------------------------------------
             
-            call Interp3DArrays  (Nvars      = N_EQN                                       , &
+            call Interp3DArrays  (Nvars      = NCONS                                       , &
                                   Nin        = NOld                                        , &
                                   inArray    = Oldsem % mesh % elements(iEl) % storage % Q , &
                                   Nout       = NNew(:,iEl)                                 , &

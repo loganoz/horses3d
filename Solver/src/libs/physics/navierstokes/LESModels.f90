@@ -4,9 +4,9 @@
 !   @File:    LESModels.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:10 2018
-!   @Last revision date: Wed Apr 18 18:07:25 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 5d55ee46456724ed80f439a8f58177f760cc1db5
+!   @Last revision date: Wed Apr 18 20:19:09 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -124,9 +124,9 @@ module LESModels
          real(kind=RP), intent(in)     :: delta
          integer,       intent(in)     :: N(3)
          real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: U_x(NS_NGRAD, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: U_y(NS_NGRAD, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: U_z(NS_NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: U_x(NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: U_y(NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: U_z(NGRAD, 0:N(1), 0:N(2), 0:N(3))
          real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2), 0:N(3))
          real(kind=RP), intent(out)    :: q(NDIM, 0:N(1), 0:N(2), 0:N(3))
            
@@ -141,9 +141,9 @@ module LESModels
          real(kind=RP), intent(in)     :: delta
          integer,       intent(in)     :: N(2)
          real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: U_x(NS_NGRAD, 0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: U_y(NS_NGRAD, 0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: U_z(NS_NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_x(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_y(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_z(NGRAD, 0:N(1), 0:N(2))
          real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2))
          real(kind=RP), intent(out)    :: q(NDIM, 0:N(1), 0:N(2))
            
@@ -157,9 +157,9 @@ module LESModels
          class(LESModel_t), intent(in) :: self
          real(kind=RP), intent(in)     :: delta
          real(kind=RP), intent(in)     :: dWall
-         real(kind=RP), intent(in)     :: U_x(NS_NGRAD)
-         real(kind=RP), intent(in)     :: U_y(NS_NGRAD)
-         real(kind=RP), intent(in)     :: U_z(NS_NGRAD)
+         real(kind=RP), intent(in)     :: U_x(NGRAD)
+         real(kind=RP), intent(in)     :: U_y(NGRAD)
+         real(kind=RP), intent(in)     :: U_z(NGRAD)
          real(kind=RP), intent(out)    :: tau(NDIM, NDIM)
          real(kind=RP), intent(out)    :: q(NDIM)
 
@@ -210,9 +210,9 @@ module LESModels
          real(kind=RP), intent(in)     :: delta
          integer,       intent(in)     :: N(3)
          real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: U_x(NS_NGRAD, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: U_y(NS_NGRAD, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: U_z(NS_NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: U_x(NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: U_y(NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: U_z(NGRAD, 0:N(1), 0:N(2), 0:N(3))
          real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2), 0:N(3))
          real(kind=RP), intent(out)    :: q(NDIM, 0:N(1), 0:N(2), 0:N(3))
 !
@@ -274,9 +274,9 @@ module LESModels
          real(kind=RP), intent(in)     :: delta
          integer,       intent(in)     :: N(2)
          real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: U_x(NS_NGRAD, 0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: U_y(NS_NGRAD, 0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: U_z(NS_NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_x(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_y(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_z(NGRAD, 0:N(1), 0:N(2))
          real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2))
          real(kind=RP), intent(out)    :: q(NDIM, 0:N(1), 0:N(2))
 !
@@ -337,9 +337,9 @@ module LESModels
          class(Smagorinsky_t), intent(in) :: self
          real(kind=RP), intent(in)     :: delta
          real(kind=RP), intent(in)     :: dWall
-         real(kind=RP), intent(in)     :: U_x(NS_NGRAD)
-         real(kind=RP), intent(in)     :: U_y(NS_NGRAD)
-         real(kind=RP), intent(in)     :: U_z(NS_NGRAD)
+         real(kind=RP), intent(in)     :: U_x(NGRAD)
+         real(kind=RP), intent(in)     :: U_y(NGRAD)
+         real(kind=RP), intent(in)     :: U_z(NGRAD)
          real(kind=RP), intent(out)    :: tau(NDIM, NDIM)
          real(kind=RP), intent(out)    :: q(NDIM)
 !

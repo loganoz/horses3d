@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (a.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Tue Apr 10 17:29:23 2018
+!   @Last revision date: Wed Apr 18 20:19:12 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
+!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -200,7 +200,7 @@ contains
 !  -----------------------------------------------------------------------------------------------
 #if defined(NAVIERSTOKES)
    subroutine ComputeNumericalFluxJacobian(mesh,time,externalStateProcedure)
-      use RiemannSolvers
+      use RiemannSolvers_NS
       use FaceClass
       implicit none
       !--------------------------------------------
@@ -234,7 +234,7 @@ contains
 !  
 !  -----------------------------------------------------------------------------------------------
    subroutine ComputeBoundaryFluxJacobian(f,time,externalStateProcedure)
-      use RiemannSolvers
+      use RiemannSolvers_NS
       use FaceClass
       implicit none
       !--------------------------------------------
@@ -301,7 +301,7 @@ contains
 !  
 !  -----------------------------------------------------------------------------------------------
    subroutine ComputeInterfaceFluxJacobian(f)
-      use RiemannSolvers
+      use RiemannSolvers_NS
       use FaceClass
       implicit none
       !--------------------------------------------

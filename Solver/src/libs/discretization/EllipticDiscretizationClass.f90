@@ -29,9 +29,9 @@ module EllipticDiscretizationClass
          use PhysicsStorage
          implicit none
          real(kind=RP), intent(in)  :: Q   (1:NCONS     )
-         real(kind=RP), intent(in)  :: U_x (1:N_GRAD_EQN)
-         real(kind=RP), intent(in)  :: U_y (1:N_GRAD_EQN)
-         real(kind=RP), intent(in)  :: U_z (1:N_GRAD_EQN)
+         real(kind=RP), intent(in)  :: U_x (1:NGRAD)
+         real(kind=RP), intent(in)  :: U_y (1:NGRAD)
+         real(kind=RP), intent(in)  :: U_z (1:NGRAD)
          real(kind=RP), intent(in)  :: mu
          real(kind=RP), intent(in)  :: kappa
          real(kind=RP), intent(out) :: F(1:NCONS, 1:NDIM)
@@ -43,9 +43,9 @@ module EllipticDiscretizationClass
          implicit none
          integer         , intent(in)  :: N(2)
          real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: U_x(1:N_GRAD_EQN, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_y(1:N_GRAD_EQN, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_z(1:N_GRAD_EQN, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_x(1:NGRAD, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_y(1:NGRAD, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_z(1:NGRAD, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
          real(kind=RP),    intent(out) :: F   (1:NCONS, 1:NDIM, 0:N(1), 0:N(2))
@@ -57,9 +57,9 @@ module EllipticDiscretizationClass
          implicit none
          integer         , intent(in)  :: N(3)
          real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: U_x(1:N_GRAD_EQN, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_y(1:N_GRAD_EQN, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_z(1:N_GRAD_EQN, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: U_x(1:NGRAD, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: U_y(1:NGRAD, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: U_z(1:NGRAD, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(out) :: F   (1:NCONS, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
@@ -126,7 +126,7 @@ module EllipticDiscretizationClass
          class(EllipticDiscretization_t) ,  intent (in) :: self
          type(Element)                                  :: e
          procedure(EllipticFlux3D_f)                    :: EllipticFlux
-         real(kind=RP)           ,  intent (out)        :: contravariantFlux(1:N_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP)           ,  intent (out)        :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------------------
 !        The base class does nothing
@@ -142,7 +142,7 @@ module EllipticDiscretizationClass
          implicit none
          class(EllipticDiscretization_t) ,  intent (in)   :: self
          type(Element)                           :: e
-         real(kind=RP)           ,  intent (out) :: contravariantFlux(1:N_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP)           ,  intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------------------
 !        The base class does nothing
@@ -161,17 +161,17 @@ module EllipticDiscretizationClass
          class(EllipticDiscretization_t)         :: self
          class(Face),   intent(in)               :: f
          procedure(EllipticFlux0D_f)             :: EllipticFlux
-         real(kind=RP), dimension(N_EQN)         :: QLeft
-         real(kind=RP), dimension(N_EQN)         :: QRight
-         real(kind=RP), dimension(N_GRAD_EQN)    :: U_xLeft
-         real(kind=RP), dimension(N_GRAD_EQN)    :: U_yLeft
-         real(kind=RP), dimension(N_GRAD_EQN)    :: U_zLeft
-         real(kind=RP), dimension(N_GRAD_EQN)    :: U_xRight
-         real(kind=RP), dimension(N_GRAD_EQN)    :: U_yRight
-         real(kind=RP), dimension(N_GRAD_EQN)    :: U_zRight
+         real(kind=RP), dimension(NCONS)         :: QLeft
+         real(kind=RP), dimension(NCONS)         :: QRight
+         real(kind=RP), dimension(NGRAD)    :: U_xLeft
+         real(kind=RP), dimension(NGRAD)    :: U_yLeft
+         real(kind=RP), dimension(NGRAD)    :: U_zLeft
+         real(kind=RP), dimension(NGRAD)    :: U_xRight
+         real(kind=RP), dimension(NGRAD)    :: U_yRight
+         real(kind=RP), dimension(NGRAD)    :: U_zRight
          real(kind=RP), dimension(NDIM)          :: nHat
          real(kind=RP)                           :: dWall
-         real(kind=RP), dimension(N_EQN)         :: flux
+         real(kind=RP), dimension(NCONS)         :: flux
 !
 !        ---------------------------
 !        The base class does nothing
@@ -189,17 +189,17 @@ module EllipticDiscretizationClass
          implicit none
          class(EllipticDiscretization_t)               :: self
          class(Face),   intent(in)            :: f
-         real(kind=RP), dimension(N_EQN)      :: QLeft
-         real(kind=RP), dimension(N_EQN)      :: QRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
+         real(kind=RP), dimension(NCONS)      :: QLeft
+         real(kind=RP), dimension(NCONS)      :: QRight
+         real(kind=RP), dimension(NGRAD) :: U_xLeft
+         real(kind=RP), dimension(NGRAD) :: U_yLeft
+         real(kind=RP), dimension(NGRAD) :: U_zLeft
+         real(kind=RP), dimension(NGRAD) :: U_xRight
+         real(kind=RP), dimension(NGRAD) :: U_yRight
+         real(kind=RP), dimension(NGRAD) :: U_zRight
          real(kind=RP), dimension(NDIM)       :: nHat
          real(kind=RP)                        :: dWall
-         real(kind=RP), dimension(N_EQN)      :: flux
+         real(kind=RP), dimension(NCONS)      :: flux
 !
 !        ---------------------------
 !        The base class does nothing

@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:09 2018
-!   @Last revision date: Tue Apr 10 17:29:21 2018
+!   @Last revision date: Wed Apr 18 20:19:08 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
+!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -187,14 +187,14 @@
 !
       REAL(KIND=RP), INTENT(IN)    :: x(3), t
       REAL(KIND=RP), INTENT(IN)    :: nHat(3)
-      REAL(KIND=RP), INTENT(INOUT) :: Q(NS_NEQN)
+      REAL(KIND=RP), INTENT(INOUT) :: Q(NCONS)
 !
 !     ---------------
 !     Local Variables
 !     ---------------
 !
       REAL(KIND=RP) :: qNorm, qTanx, qTany, qTanz
-      REAL(KIND=RP) :: QInt(NS_NEQN)
+      REAL(KIND=RP) :: QInt(NCONS)
       
       QInt = Q
       
@@ -230,7 +230,7 @@
 !
       REAL(KIND=RP), INTENT(IN)    :: x(3), t
       REAL(KIND=RP), INTENT(IN)    :: nHat(3)
-      REAL(KIND=RP), INTENT(INOUT) :: U_x(NS_NGRAD), U_y(NS_NGRAD), U_z(NS_NGRAD)
+      REAL(KIND=RP), INTENT(INOUT) :: U_x(NGRAD), U_y(NGRAD), U_z(NGRAD)
 !
 !     ---------------
 !     Local Variables
@@ -239,7 +239,7 @@
       REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
       INTEGER       :: k
 !
-      DO k = 1, NS_NGRAD 
+      DO k = 1, NGRAD 
          gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
          UTanx = U_x(k) - gradUNorm*nHat(1)
          UTany = U_y(k) - gradUNorm*nHat(2)
@@ -265,7 +265,7 @@
 !        ---------
 !
          REAL(KIND=RP), INTENT(IN)    :: x(3), t
-         REAL(KIND=RP), INTENT(INOUT) :: Q(NS_NEQN)
+         REAL(KIND=RP), INTENT(INOUT) :: Q(NCONS)
 !
 !        -----------------------------------------------
 !        Generate the external flow along the face, that
@@ -291,7 +291,7 @@
 !
          REAL(KIND=RP), INTENT(IN)    :: x(3), t
          REAL(KIND=RP), INTENT(IN)    :: nHat(3)
-         REAL(KIND=RP), INTENT(INOUT) :: U_x(NS_NGRAD), U_y(NS_NGRAD), U_z(NS_NGRAD)
+         REAL(KIND=RP), INTENT(INOUT) :: U_x(NGRAD), U_y(NGRAD), U_z(NGRAD)
 !
 !        ---------------
 !        Local Variables
@@ -328,7 +328,7 @@
 !     ---------
 !
       REAL(KIND=RP), INTENT(IN)    :: x(3), t
-      REAL(KIND=RP), INTENT(INOUT) :: Q(NS_NEQN)
+      REAL(KIND=RP), INTENT(INOUT) :: Q(NCONS)
 !
 !     ---------------
 !     Local variables
@@ -365,7 +365,7 @@
       IMPLICIT NONE
       
       REAL(KIND=RP)                :: x(3), t, nHat(3)
-      REAL(KIND=RP), INTENT(INOUT) :: U_x(NS_NGRAD), U_y(NS_NGRAD), U_z(NS_NGRAD)
+      REAL(KIND=RP), INTENT(INOUT) :: U_x(NGRAD), U_y(NGRAD), U_z(NGRAD)
       
       !do nothing - specifying Temperature is sufficient.
       
@@ -379,7 +379,7 @@
       IMPLICIT NONE
       
       REAL(KIND=RP) :: x(3), t
-      REAL(KIND=RP) :: Q(NS_NEQN)
+      REAL(KIND=RP) :: Q(NCONS)
       
       REAL(KIND=RP) :: theta, phi, qq
       REAL(KIND=RP) :: u, v, w, p
@@ -419,13 +419,13 @@
       
       REAL(KIND=RP) :: x(3), t
       REAL(KIND=RP) :: nHat(3)
-      REAL(KIND=RP), INTENT(INOUT) :: U_x(NS_NGRAD), U_y(NS_NGRAD), U_z(NS_NGRAD)
+      REAL(KIND=RP), INTENT(INOUT) :: U_x(NGRAD), U_y(NGRAD), U_z(NGRAD)
       
       INTEGER :: k
 !
       REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
 !
-      DO k = 1, NS_NGRAD
+      DO k = 1, NGRAD
          gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
          UTanx = U_x(k) - gradUNorm*nHat(1)
          UTany = U_y(k) - gradUNorm*nHat(2)
@@ -446,7 +446,7 @@
       IMPLICIT NONE
       
       REAL(KIND=RP) :: x(3), t
-      REAL(KIND=RP) :: Q(NS_NEQN)
+      REAL(KIND=RP) :: Q(NCONS)
       
       REAL(KIND=RP) :: p
       
@@ -472,7 +472,7 @@
       IMPLICIT NONE
       
       REAL(KIND=RP) :: x(3)
-      REAL(KIND=RP) :: Q(NS_NEQN)
+      REAL(KIND=RP) :: Q(NCONS)
       
       REAL(KIND=RP) :: GaussFac, RandNum
       INTEGER       :: i
@@ -483,7 +483,7 @@
       
       GaussFac = exp((-(x(1)-0.5_RP)**2-(x(2)-0.5_RP)**2-(x(3)-0.5_RP)**2)*20)
       
-      DO i=1, NS_NEQN
+      DO i=1, NCONS
          CALL RANDOM_NUMBER(RandNum)
          Q(i) = Q(i) + Q(i) * GaussFac * (RandNum-0.5_RP) * 0.5_RP
       END DO
@@ -499,7 +499,7 @@
       IMPLICIT NONE
       
       REAL(KIND=RP) :: x(3)
-      REAL(KIND=RP) :: Q(NS_NEQN)
+      REAL(KIND=RP) :: Q(NCONS)
       
       REAL(KIND=RP) :: GaussFac, RandNum
       INTEGER       :: i
@@ -510,7 +510,7 @@
       
       GaussFac = exp((-(x(1)-0.5_RP)**2-(x(2)-0.5_RP)**2)*20)
       
-      DO i=1, NS_NEQN
+      DO i=1, NCONS
          CALL RANDOM_NUMBER(RandNum)
          Q(i) = Q(i) + Q(i) * GaussFac * (RandNum-0.5_RP) * 0.5_RP
       END DO
@@ -533,7 +533,7 @@
 !     ---------
 !
       REAL(KIND=RP) :: x(3), t, nHat(3)
-      REAL(KIND=RP) :: Q(NS_NEQN), pExt
+      REAL(KIND=RP) :: Q(NCONS), pExt
 !
 !     ---------------
 !     Local Variables
@@ -592,7 +592,7 @@
          real(kind=RP)  :: x(NDIM)
          real(kind=RP)  :: t
          real(kind=RP)  :: nHat(NDIM)
-         real(kind=RP)  :: Q(NS_NEQN)
+         real(kind=RP)  :: Q(NCONS)
          interface
             subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
                use SMConstants
@@ -602,7 +602,7 @@
                real(kind=RP)  :: x(NDIM)
                real(kind=RP)  :: t
                real(kind=RP)  :: nHat(NDIM)
-               real(kind=RP)  :: Q(NS_NEQN)
+               real(kind=RP)  :: Q(NCONS)
                type(Thermodynamics_t), intent(in)  :: thermodynamics_
                type(Dimensionless_t),  intent(in)  :: dimensionless_
                type(RefValues_t),      intent(in)  :: refValues_
@@ -641,7 +641,7 @@
 !     ---------
 !
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: Q(NS_NEQN)
+      REAL(KIND=RP)   , INTENT(INOUT) :: Q(NCONS)
       CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryType
       CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryName
 !
@@ -695,7 +695,7 @@
 !     ---------
 !
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,NS_NGRAD)
+      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,NGRAD)
       CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryType
       CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryName
 !
@@ -703,7 +703,7 @@
 !     Local variables
 !     ---------------
 !
-      REAL(KIND=RP) :: U_x(NS_NGRAD), U_y(NS_NGRAD), U_z(NS_NGRAD)
+      REAL(KIND=RP) :: U_x(NGRAD), U_y(NGRAD), U_z(NGRAD)
 
       U_x(:) = GradU(1,:)
       U_y(:) = GradU(2,:)

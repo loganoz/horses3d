@@ -4,9 +4,9 @@
 !   @File:    RiemannSolvers_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:14 2018
-!   @Last revision date: Mon Feb  5 17:12:30 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 927ab75300a02eaf61a4b7df82b11b48cb498151
+!   @Last revision date: Wed Apr 18 20:19:11 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,31 +25,31 @@ module RiemannSolvers_NS
       subroutine RiemannSolverFCN(QLeft, QRight, nHat, t1, t2, flux)
          use SMConstants
          use PhysicsStorage_NS
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
          real(kind=RP), intent(in)       :: t1(1:NDIM)
          real(kind=RP), intent(in)       :: t2(1:NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
       end subroutine RiemannSolverFCN
       subroutine AveragedStatesFCN(QLeft, QRight, pL, pR, invRhoL, invRhoR, flux) 
          use SMConstants
          use PhysicsStorage_NS
          implicit none
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: pL, pR
          real(kind=RP), intent(in)       :: invRhoL, invRhoR
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
       end subroutine AveragedStatesFCN
       subroutine RiemannSolver_dFdQFCN(ql,qr,nHat,dfdq_num,side)
          use SMConstants
          use PhysicsStorage_NS
          implicit none
-         real(kind=RP), intent (in)  :: ql(NS_NEQN)                 !<  Current solution on the left
-         real(kind=RP), intent (in)  :: qr(NS_NEQN)                 !<  Current solution on the right
+         real(kind=RP), intent (in)  :: ql(NCONS)                 !<  Current solution on the left
+         real(kind=RP), intent (in)  :: qr(NCONS)                 !<  Current solution on the right
          real(kind=RP), intent (in)  :: nHat(NDIM)                !<  Normal vector
-         real(kind=RP), intent(out)  :: dfdq_num(NS_NEQN,NS_NEQN)     !>  Numerical flux Jacobian 
+         real(kind=RP), intent(out)  :: dfdq_num(NCONS,NCONS)     !>  Numerical flux Jacobian 
          integer      , intent (in)  :: side   
       end subroutine RiemannSolver_dFdQFCN
    end interface
@@ -173,10 +173,10 @@ module RiemannSolvers_NS
       subroutine BaseClass_RiemannSolver_dFdQ(ql,qr,nHat,dfdq_num,side)
          implicit none
          !--------------------------------------------
-         real(kind=RP), intent (in)  :: ql(NS_NEQN)                 !<  Current solution on the left
-         real(kind=RP), intent (in)  :: qr(NS_NEQN)                 !<  Current solution on the right
+         real(kind=RP), intent (in)  :: ql(NCONS)                 !<  Current solution on the left
+         real(kind=RP), intent (in)  :: qr(NCONS)                 !<  Current solution on the right
          real(kind=RP), intent (in)  :: nHat(NDIM)                !<  Normal vector
-         real(kind=RP), intent(out)  :: dfdq_num(NS_NEQN,NS_NEQN)     !>  Numerical flux Jacobian 
+         real(kind=RP), intent(out)  :: dfdq_num(NCONS,NCONS)     !>  Numerical flux Jacobian 
          integer      , intent (in)  :: side                      !<  Either LEFT or RIGHT
          !--------------------------------------------
          
@@ -185,10 +185,10 @@ module RiemannSolvers_NS
       
       subroutine CentralRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
          implicit none 
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
@@ -197,7 +197,7 @@ module RiemannSolvers_NS
          real(kind=RP) :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, rhoV2L
          real(kind=RP) :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, rhoV2R
          real(kind=RP) :: invRhoL, invRhoR
-         real(kind=RP) :: QLRot(5), QRRot(5), oflux(NS_NEQN)
+         real(kind=RP) :: QLRot(5), QRRot(5), oflux(NCONS)
 
          associate(gm1 => thermodynamics % GammaMinus1)
 !
@@ -240,17 +240,17 @@ module RiemannSolvers_NS
 
       subroutine StdRoeRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
          implicit none 
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer        :: i
-         real(kind=RP)  :: QLRot(5), QRRot(5), VL(NS_NPRIM), VR(NS_NPRIM), aL, aR
+         real(kind=RP)  :: QLRot(5), QRRot(5), VL(NPRIM), VR(NPRIM), aL, aR
          real(kind=RP)  :: dQ(5), lambda(5), K(5,5), V2abs, alpha(5), dLambda
          real(kind=RP)  :: rho, u, v, w, V2, H, a
          real(kind=RP)  :: stab(5)     ! Careful with this variable
@@ -388,17 +388,17 @@ module RiemannSolvers_NS
       subroutine MatrixDissipationRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
          use Utilities, only: logarithmicMean
          implicit none 
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer        :: i, j, k
-         real(kind=RP)  :: QLRot(5), QRRot(5), VL(NS_NPRIM), VR(NS_NPRIM), aL, aR, betaL, betaR
+         real(kind=RP)  :: QLRot(5), QRRot(5), VL(NPRIM), VR(NPRIM), aL, aR, betaL, betaR
          real(kind=RP)  :: SL(5), SR(5)
          real(kind=RP)  :: dQ(5)
          real(kind=RP)  :: a, h
@@ -526,17 +526,17 @@ module RiemannSolvers_NS
 
       subroutine RoePikeRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
          implicit none 
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer        :: i
-         real(kind=RP)  :: QLRot(5), QRRot(5), VL(NS_NPRIM), VR(NS_NPRIM), aL, aR
+         real(kind=RP)  :: QLRot(5), QRRot(5), VL(NPRIM), VR(NPRIM), aL, aR
          real(kind=RP)  :: dQ(5), lambda(5), K(5,5), V2abs, alpha(5), dLambda
          real(kind=RP)  :: rho, u, v, w, V2, H, a
          real(kind=RP)  :: stab(5)    
@@ -684,10 +684,10 @@ module RiemannSolvers_NS
 !        ***********************************************************************
 !
          implicit none 
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
@@ -869,10 +869,10 @@ module RiemannSolvers_NS
 !        ***********************************************************************
 !
          implicit none 
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
@@ -1058,12 +1058,12 @@ module RiemannSolvers_NS
 !        Arguments
 !        ---------
 !
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
          real(kind=RP), intent(in)       :: t1(1:NDIM)
          real(kind=RP), intent(in)       :: t2(1:NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local Variables
@@ -1144,23 +1144,23 @@ module RiemannSolvers_NS
       subroutine LxFRiemannSolver_dFdQ(ql,qr,nHat,dfdq_num,side)
          implicit none
          !--------------------------------------------
-         real(kind=RP), intent (in)  :: ql(NS_NEQN)                 !<  Current solution on the left
-         real(kind=RP), intent (in)  :: qr(NS_NEQN)                 !<  Current solution on the right
+         real(kind=RP), intent (in)  :: ql(NCONS)                 !<  Current solution on the left
+         real(kind=RP), intent (in)  :: qr(NCONS)                 !<  Current solution on the right
          real(kind=RP), intent (in)  :: nHat(NDIM)                !<  Normal vector
-         real(kind=RP), intent(out)  :: dfdq_num(NS_NEQN,NS_NEQN)     !>  Numerical flux Jacobian 
+         real(kind=RP), intent(out)  :: dfdq_num(NCONS,NCONS)     !>  Numerical flux Jacobian 
          integer      , intent (in)  :: side                      !<  Either LEFT or RIGHT
          !--------------------------------------------
-         real(kind=RP), dimension(NS_NEQN,NS_NEQN) :: dfdq,dgdq,dhdq  ! Flux Jacobians in every direction
+         real(kind=RP), dimension(NCONS,NCONS) :: dfdq,dgdq,dhdq  ! Flux Jacobians in every direction
          real(kind=RP) :: lambda    ! Lax-Friedrichs constant (penalty term for jump)
          real(kind=RP) :: lambdaL   ! Lax-Friedrichs constant on the left
          real(kind=RP) :: lambdaR   ! Lax-Friedrichs constant on the right
          REAL(KIND=RP) :: ul, vl, wl, pL, velL, aL, srhoL, rhoV2L   ! Quantities on the left
          REAL(KIND=RP) :: ur, vr, wr, pR, velR, aR, srhoR, rhoV2R   ! Quantities on the right
-         real(kind=RP) :: dvn_dq(NS_NEQN)                  ! Derivative of the normal velocity
-         real(kind=RP) :: da_dq (NS_NEQN)                  ! Derivative of the speed of sound
-         real(kind=RP) :: dlambda_dq     (1,NS_NEQN)       ! Derivative of Lax-Friedrichs constant (row matrix)
-         real(kind=RP) :: q_jump     (NS_NEQN,1)           ! Solution jump (column matrix)
-         real(kind=RP) :: lambdaTerm (NS_NEQN,NS_NEQN)       ! Matrix contribution of lambda terms
+         real(kind=RP) :: dvn_dq(NCONS)                  ! Derivative of the normal velocity
+         real(kind=RP) :: da_dq (NCONS)                  ! Derivative of the speed of sound
+         real(kind=RP) :: dlambda_dq     (1,NCONS)       ! Derivative of Lax-Friedrichs constant (row matrix)
+         real(kind=RP) :: q_jump     (NCONS,1)           ! Solution jump (column matrix)
+         real(kind=RP) :: lambdaTerm (NCONS,NCONS)       ! Matrix contribution of lambda terms
          integer       :: i                              ! Counter
          !--------------------------------------------
          
@@ -1212,7 +1212,7 @@ module RiemannSolvers_NS
                end if
                
                ! Shift with lambda
-               do i = 1, NS_NEQN
+               do i = 1, NCONS
                   lambdaTerm(i,i) = lambdaTerm(i,i) + lambda
                end do
             
@@ -1233,7 +1233,7 @@ module RiemannSolvers_NS
                end if
                
                ! Shift with lambda
-               do i = 1, NS_NEQN
+               do i = 1, NCONS
                   lambdaTerm(i,i) = lambdaTerm(i,i) - lambda
                end do
             
@@ -1269,12 +1269,12 @@ module RiemannSolvers_NS
 !        Arguments
 !        ---------
 !
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
          real(kind=RP), intent(in)       :: t1(1:NDIM)
          real(kind=RP), intent(in)       :: t2(1:NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local Variables
@@ -1384,12 +1384,12 @@ module RiemannSolvers_NS
 !        Arguments
 !        ---------
 !
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
          real(kind=RP), intent(in)       :: t1(1:NDIM)
          real(kind=RP), intent(in)       :: t2(1:NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local Variables
@@ -1507,11 +1507,11 @@ module RiemannSolvers_NS
 !        *********************************************************************
 !
          implicit none
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: pL, pR
          real(kind=RP), intent(in)       :: invRhoL, invRhoR
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
@@ -1536,11 +1536,11 @@ module RiemannSolvers_NS
 
       subroutine DucrosAverage(QLeft, QRight, pL, pR, invRhoL, invRhoR, flux) 
          implicit none
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: pL, pR
          real(kind=RP), intent(in)       :: invRhoL, invRhoR
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
@@ -1565,11 +1565,11 @@ module RiemannSolvers_NS
 
       subroutine MorinishiAverage(QLeft,QRight, pL, pR, invRhoL, invRhoR, flux)
          implicit none
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: pL, pR
          real(kind=RP), intent(in)       :: invRhoL, invRhoR
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
@@ -1603,11 +1603,11 @@ module RiemannSolvers_NS
 
       subroutine KennedyGruberAverage(QLeft,QRight, pL, pR, invRhoL, invRhoR, flux) 
          implicit none
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: pL, pR
          real(kind=RP), intent(in)       :: invRhoL, invRhoR
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
@@ -1642,11 +1642,11 @@ module RiemannSolvers_NS
 
       subroutine PirozzoliAverage(QLeft,QRight, pL, pR, invRhoL, invRhoR, flux)
          implicit none
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: pL, pR
          real(kind=RP), intent(in)       :: invRhoL, invRhoR
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
@@ -1681,11 +1681,11 @@ module RiemannSolvers_NS
          use SMConstants
          use Utilities, only: logarithmicMean
          implicit none
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: pL, pR
          real(kind=RP), intent(in)       :: invRhoL, invRhoR
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
@@ -1694,7 +1694,7 @@ module RiemannSolvers_NS
          real(kind=RP)     :: rhoL, uL, vL, wL
          real(kind=RP)     :: rhoR, uR, vR, wR
          real(kind=RP)     :: rho, u, v, w, h, p, p2
-         real(kind=RP)     :: zL(NS_NEQN), zR(NS_NEQN), zSum(NS_NEQN), invZ1Sum
+         real(kind=RP)     :: zL(NCONS), zR(NCONS), zSum(NCONS), invZ1Sum
          real(kind=RP)     :: z5Log, z1Log
 
          associate ( gammaPlus1Div2      => thermodynamics % gammaPlus1Div2, &
@@ -1745,11 +1745,11 @@ module RiemannSolvers_NS
          use SMConstants
          use Utilities, only: logarithmicMean
          implicit none
-         real(kind=RP), intent(in)       :: QLeft(1:NS_NEQN)
-         real(kind=RP), intent(in)       :: QRight(1:NS_NEQN)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: pL, pR
          real(kind=RP), intent(in)       :: invRhoL, invRhoR
-         real(kind=RP), intent(out)      :: flux(1:NS_NEQN)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables

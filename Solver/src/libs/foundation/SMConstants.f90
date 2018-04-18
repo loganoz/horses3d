@@ -44,6 +44,8 @@
          INTEGER, PARAMETER               :: STRING_CONSTANT_LENGTH = 64
          
          COMPLEX(KIND=CP), parameter      :: ImgI = ( 0.0_RP, 1.0_RP) ! = SQRT(-1.0_RP)
+
+         integer, parameter               :: NDIM = 3, IX = 1, IY = 2, IZ = 3
          
          integer, parameter               :: DT_FIXED = 0
          integer, parameter               :: DT_DIFF  = 1

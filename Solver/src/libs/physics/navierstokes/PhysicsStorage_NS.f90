@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date: Tue Apr 10 17:29:22 2018
+!   @Last revision date: Wed Apr 18 20:19:10 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
+!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -62,10 +62,10 @@
      IMPLICIT NONE
 
      private
-     public    flowIsNavierStokes, NS_NEQN, NS_NGRAD
+     public    flowIsNavierStokes, NCONS, NGRAD
      public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE
      public    IGU, IGV, IGW, IGT
-     public    NS_NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2
+     public    NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2
      public    TScale, TRatio
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV, RIEMANN_STDROE
@@ -89,7 +89,7 @@
 !!   The sizes of the NS system
 !    --------------------------
 !
-     INTEGER, PARAMETER :: NS_NEQN = 5, NS_NGRAD = 4
+     INTEGER, PARAMETER :: NCONS = 5, NGRAD = 4
 !
 !    -------------------------------------------
 !!   The positions of the conservative variables
@@ -101,14 +101,13 @@
 !!   The positions of the primitive variables
 !    ----------------------------------------
 !
-     INTEGER, PARAMETER       :: NS_NPRIM = 7
+     INTEGER, PARAMETER       :: NPRIM = 7
      INTEGER, PARAMETER       :: IPIRHO = 1, IPU = 2, IPV = 3, IPW = 4, IPP = 5, IPT = 6, IPA2 = 7
 !
 !    ---------------------------------------
 !!   The positions of the gradient variables
 !    ---------------------------------------
 !
-     INTEGER, PARAMETER  :: NGRAD = 4
      INTEGER, PARAMETER  :: IGU = 1 , IGV = 2 , IGW = 3 , IGT = 4
 !
 !    --------------------------------------------
@@ -219,7 +218,7 @@
 !     --------------------
 !
       success = .TRUE.
-      CALL CheckPhysicsInputIntegrity(controlVariables,success)
+      CALL CheckPhysicsNSInputIntegrity(controlVariables,success)
       IF(.NOT. success) RETURN 
 !
 !

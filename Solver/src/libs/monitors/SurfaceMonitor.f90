@@ -5,6 +5,7 @@ module SurfaceMonitorClass
    use MonitorDefinitions
    use PhysicsStorage
    use MPI_Process_Info
+   use FluidData
 #include "Includes.h"
    
    private

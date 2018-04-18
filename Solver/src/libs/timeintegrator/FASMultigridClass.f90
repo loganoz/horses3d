@@ -377,7 +377,7 @@ module FASMultigridClass
       integer                       :: iEl,iEQ              !Element/equation counter
       type(FASMultigrid_t), pointer :: Child_p              !Pointer to child
       integer                       :: N1(3), N2(3)
-      real(kind=RP)                 :: maxResidual(N_EQN)
+      real(kind=RP)                 :: maxResidual(NCONS)
       integer                       :: NumOfSweeps
       real(kind=RP)                 :: PrevRes
       integer                       :: sweepcount           ! Number of sweeps done in a point in time
@@ -530,7 +530,7 @@ module FASMultigridClass
       !----------------------------------------------------------------------------
       integer        :: iEl, iEQ             ! Element and equation counters
       integer        :: N1(3), N2(3)
-      real(kind=RP)  :: maxResidual(N_EQN)   ! Maximum residual in each equation
+      real(kind=RP)  :: maxResidual(NCONS)   ! Maximum residual in each equation
       integer        :: counter              ! Iteration counter
       !----------------------------------------------------------------------------
 !
