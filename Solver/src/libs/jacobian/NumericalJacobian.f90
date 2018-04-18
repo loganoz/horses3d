@@ -267,7 +267,7 @@ contains
                               ndof   = ndofelm(nbrnbr)
                                              
                               sem%mesh%elements(nbrnbr)% storage % QDot = (sem%mesh%elements(nbrnbr)% storage % QDot - dgs_clean(nbrnbr)% storage % QDot) / eps                      
-                              pbuffer(1:ndof) => sem%mesh%elements(elmnbr)% storage % QDot       !maps Qdot array into a 1D pointer
+                              pbuffer(1:ndof) => sem%mesh%elements(nbrnbr)% storage % QDot       !maps Qdot array into a 1D pointer
                               irow = irow_0 + firstIdx(nbrnbr)                                   !generates the row indices vector
                               WHERE (ABS(pbuffer(1:ndof)) .LT. jaceps) irow = -1                 !SetColumn will ignore entries with irow=-1
                               icol = firstIdx(thiselm) + thisdof - 1 
