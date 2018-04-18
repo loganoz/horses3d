@@ -314,7 +314,8 @@ contains
       REAL(KIND=RP)                            :: residual(this % DimPrb)
       !-----------------------------------------------------------
       
-      rnorm = this % rnorm
+!~      rnorm = this % rnorm
+      rnorm = this % res
       
    END FUNCTION Getrnorm
 !

@@ -518,17 +518,22 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine BDF_SetPreviousSolution(PrevQ,Q)
+   subroutine BDF_SetPreviousSolution(PrevQ,Q,NotANewStep)
       implicit none
       !------------------------------------------------------
-      real(kind=RP) :: PrevQ(:,:)
-      real(kind=RP) :: Q(:)
+      real(kind=RP)     :: PrevQ(:,:)
+      real(kind=RP)     :: Q(:)
+      logical, optional :: NotANewStep
       !------------------------------------------------------
       integer :: i      ! Counter
       !------------------------------------------------------
       
-      StepsTaken = StepsTaken + 1
-    
+      if (present(NotANewStep)) then
+         if (.not. NotANewStep) StepsTaken = StepsTaken + 1
+      else
+         StepsTaken = StepsTaken + 1
+      end if
+      
       order = min(StepsTaken, bdf_order)
       
       do i=Order, 2, -1                   ! TODO: Don't shift the array.. Just store the last solution on top of the oldest... And store indexes!
