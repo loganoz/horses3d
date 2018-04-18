@@ -762,9 +762,10 @@ slavecoord:                DO l = 1, 4
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      subroutine HexMesh_ProlongGradientsToFaces(self)
+      subroutine HexMesh_ProlongGradientsToFaces(self,Prolong_gradRho)
          implicit none
          class(HexMesh),   intent(inout)  :: self
+         logical, optional                :: Prolong_gradRho
 !
 !        ---------------
 !        Local variables
@@ -784,7 +785,14 @@ slavecoord:                DO l = 1, 4
                                                                 self % faces(fIDs(6)) )
          end do
 !$omp end do
-
+			
+         ! TODO: prolong gradRho to faces!!
+!~         if (present(Prolong_gradRho)) then
+!~            if (Prolong_gradRho) then
+            
+!~            end if
+!~         end if
+			
       end subroutine HexMesh_ProlongGradientsToFaces
 ! 
 !//////////////////////////////////////////////////////////////////////// 
@@ -1677,6 +1685,7 @@ slavecoord:                DO l = 1, 4
 !        Find the polynomial order of the boundaries for anisotropic meshes
 !        -> Unlike isotropic meshes, anisotropic meshes need boundary orders
 !           bfOrder=N-1 in 3D (not in 2D) to be free-stream-preserving
+!			TODO: Not true... Change this!!!
 !        ******************************************************************
 !
          if (self % anisotropic .and. (.not. self % meshIs2D) ) then
@@ -1758,7 +1767,7 @@ slavecoord:                DO l = 1, 4
                      CLN(2) = buffer
                   end if
                end select
-
+				   
                if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
                   call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
@@ -1782,7 +1791,6 @@ slavecoord:                DO l = 1, 4
                   CLN(1) = f % NfLeft(1)
                   CLN(2) = f % NfLeft(2)
                end if
-               
 !
 !              Adapt the curved face order to the polynomial order
 !              ---------------------------------------------------

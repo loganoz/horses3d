@@ -57,6 +57,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),  allocatable :: U_x
       real(kind=RP), dimension(:,:,:,:),  allocatable :: U_y
       real(kind=RP), dimension(:,:,:,:),  allocatable :: U_z
+      real(kind=RP), dimension(:,:,:,:),  allocatable :: gradRho
       integer                                         :: NDOF              ! Number of degrees of freedom of element
       integer                                         :: firstIdx          ! Position in the global solution array
       logical                                         :: pointed = .TRUE.  ! .TRUE. (default) if Q and Qdot are pointed instead of allocated (needed for destruction since there's no other way to check this)
@@ -92,7 +93,8 @@ module StorageClass
 !  ****************************************
    type FaceStorage_t
       real(kind=RP), dimension(:,:,:),     allocatable :: Q
-      real(kind=RP), dimension(:,:,:),     allocatable :: U_x, U_y, U_z
+      real(kind=RP), dimension(:,:,:),     allocatable :: U_x, U_y, U_z    ! Gradient of primitive variables
+      real(kind=RP), dimension(:,:,:),     allocatable :: gradRho          ! Gradient of density
       real(kind=RP), dimension(:,:,:),     allocatable :: FStar
       real(kind=RP), dimension(:,:,:,:)  , allocatable :: unStar
       ! Inviscid Jacobians
@@ -207,6 +209,7 @@ module StorageClass
             ALLOCATE( self % U_x(nGradEqn,0:Nx,0:Ny,0:Nz) )
             ALLOCATE( self % U_y(nGradEqn,0:Nx,0:Ny,0:Nz) )
             ALLOCATE( self % U_z(nGradEqn,0:Nx,0:Ny,0:Nz) )
+            allocate( self % gradRho( 3  ,0:Nx,0:Ny,0:Nz) )
          END IF
 
 #if defined(CAHNHILLIARD)
@@ -262,6 +265,7 @@ module StorageClass
          safedeallocate(self % U_x)
          safedeallocate(self % U_y)
          safedeallocate(self % U_z)
+         safedeallocate(self % gradRho)
          
          nullify ( self % dfdq_fr )
          nullify ( self % dfdq_ba )
@@ -320,6 +324,7 @@ module StorageClass
          ALLOCATE( self % U_x(nGradEqn,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % U_y(nGradEqn,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % U_z(nGradEqn,0:Nf(1),0:Nf(2)) )
+         allocate( self % gradRho   (3,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % unStar(nGradEqn,NDIM,0:Nel(1),0:Nel(2)) )
          
          allocate( self % dFv_dGradQF (nEqn,nEqn,NDIM,2,0: Nf(1),0: Nf(2)) )
@@ -363,6 +368,7 @@ module StorageClass
          safedeallocate(self % dFStar_dqEl)
          safedeallocate(self % dFv_dGradQF)
          safedeallocate(self % dFv_dGradQEl)
+         safedeallocate(self % gradRho)
 
       end subroutine FaceStorage_Destruct
 !

@@ -5,7 +5,7 @@
 !      By: Andrés Rueda
 !
 !      Class for sparse csr matrices
-!
+! TODO: change contiguous pointers by allocatables... Memory leaking here!!!!
 !////////////////////////////////////////////////////////////////////////
 MODULE CSRMatrixClass
    USE SMConstants,                 ONLY: RP    
@@ -37,6 +37,7 @@ MODULE CSRMatrixClass
       PROCEDURE                           :: SetElem
       PROCEDURE                           :: GetDense => CSR2Dense
       PROCEDURE                           :: GetBlock => CSR_GetBlock
+      procedure                           :: Assembly
    END TYPE
    !-----------------------------------------------------------------------------   
    
@@ -449,6 +450,19 @@ MODULE CSRMatrixClass
    END FUNCTION CSR_GetBlock
    !------------------------------------------------------------------------------
    
+   subroutine Assembly(this,BlockIdx,BlockSize)
+      implicit none
+      !---------------------------------------------
+      class(csrMat_t),     intent(inout)   :: this
+      integer, target, optional    ,     intent(in)      :: BlockIdx(:)
+      integer, target, optional, intent(in)    :: BlockSize(:)
+      !---------------------------------------------
+      
+      allocate (this % BlockIdx (size(BlockIdx)) )
+      allocate (this % BlockSize(size(BlockSize)) )
+      this % BlockIdx = BlockIdx
+      this % BlockSize = BlockSize
+   end subroutine Assembly
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

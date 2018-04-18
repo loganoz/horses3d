@@ -282,6 +282,7 @@ contains
       !--------------------------------------------
       
       call mesh % ProlongSolutionToFaces
+      if (flowIsNavierStokes) call mesh % ProlongGradientsToFaces( Prolong_gradRho = .TRUE. )
       
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
@@ -477,8 +478,8 @@ contains
    subroutine ComputeBlock(e,mesh,Matrix)
       implicit none
       !-------------------------------------
-      type(Element)            , intent(in) :: e
-      type(HexMesh)            , intent(in)    :: mesh
+      type(Element)  , intent(inout) :: e
+      type(HexMesh)  , intent(in)    :: mesh
       class(Matrix_t), intent(inout) :: Matrix
       !-------------------------------------
       real(kind=RP) :: LocalMat(ndofelm(e % eID),ndofelm(e % eID))
@@ -500,8 +501,8 @@ contains
       use InviscidMethods
       implicit none
       !-------------------------------------------
-      type(Element)                    , intent(in) :: e
-      real(kind=RP) :: LocalMat(ndofelm(e % eID),ndofelm(e % eID))
+      type(Element), intent(inout) :: e
+      real(kind=RP), intent(inout) :: LocalMat(ndofelm(e % eID),ndofelm(e % eID))
       !-------------------------------------------
       real(kind=RP) :: dFdQ      (NCONS,NCONS,     0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3),NDIM)
       real(kind=RP) :: dF_dgradQ (NCONS,NCONS,NDIM,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3),NDIM)
@@ -525,6 +526,7 @@ contains
 !     *********************
 !
       call InviscidMethod % ComputeInnerFluxJacobian( e, dFdQ) 
+      if (flowIsNavierStokes) call ViscousMethod % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
       
       LocalMat = 0._RP
       do k2 = 0, e % Nxyz(3) ; do j2 = 0, e % Nxyz(2) ; do i2 = 0, e % Nxyz(1) ; do eq2 = 1, NCONS 
@@ -582,7 +584,6 @@ contains
 !     ********************
 !
       if (flowIsNavierStokes) then
-         call ViscousMethod % ComputeInnerFluxJacobian( e, dF_dgradQ) 
          
          do k2 = 0, e % Nxyz(3) ; do j2 = 0, e % Nxyz(2) ; do i2 = 0, e % Nxyz(1) ; do eq2 = 1, NCONS 
             do k1 = 0, e % Nxyz(3) ; do j1 = 0, e % Nxyz(2) ; do i1 = 0, e % Nxyz(1) ; do eq1 = 1, NCONS 

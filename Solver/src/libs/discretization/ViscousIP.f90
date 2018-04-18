@@ -625,6 +625,7 @@ module ViscousIP
          type(Face)              , intent(inout) :: f
          !--------------------------------------------
          real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq   ! Cartesian Jacobian tensor
+         real(kind=RP), DIMENSION(NCONS,NCONS,NDIM)      :: dfdq_
          real(kind=RP), parameter :: SideSign(2) = (/ 1._RP, -1._RP /)
          real(kind=RP) :: mu, sigma
          integer :: i,j    ! Face coordinate counters
@@ -648,13 +649,16 @@ module ViscousIP
 !            
 !              Definitions
 !              -----------
-               associate( Q             => f % storage(side) % Q(:,i,j)                , &
+               associate( Q             => f % storage(side) % Q  (:,i,j)                , &
+                          U_x           => f % storage(side) % U_x(:,i,j)                , &
+                          U_y           => f % storage(side) % U_y(:,i,j)                , &
+                          U_z           => f % storage(side) % U_z(:,i,j)                , &
                           nHat          => f % geom % normal(:,i,j)                    , &
                           dFStar_dq     => f % storage(side) % dFStar_dqF(:,:,i,j)     , &
                           dF_dGradQ_in  => f % storage(side) % dFv_dGradQF(:,:,:,1,i,j), & 
                           dF_dGradQ_out => f % storage(side) % dFv_dGradQF(:,:,:,2,i,j) )
                
-               call ViscousJacobian(Q, df_dgradq)
+               call ViscousJacobian(Q, U_x, U_y, U_z, (/1._RP, 1._RP, 1._RP/), df_dgradq, dfdq_)
 !
 !            For the inner surface integral
 !            ******************************
@@ -670,7 +674,7 @@ module ViscousIP
                
 !              Scale according to scheme multipĺy by the jacobian (surface integral) 
 !              ---------------------------------------------------------------------
-               dF_dGradQ_in = dF_dGradQ_in * (-0.5_RP) * SideSign(side) * f % geom % jacobian(i,j) ! TODO: check if it's -0.5.... Much faster with +0.5_RP
+               dF_dGradQ_in = dF_dGradQ_in * (-0.5_RP) * f % geom % jacobian(i,j)
                
 !               
 !            For the outer surface integral
