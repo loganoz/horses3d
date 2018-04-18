@@ -1,4 +1,4 @@
-!      Physics.f90
+!      Physics_NS.f90
 !      Created: 2011-07-20 09:17:26 -0400 
 !      By: David Kopriva
 !      From DSEM Code
@@ -22,32 +22,25 @@
 !
 #include "Includes.h"
 !  **************
-   Module Physics 
+   module Physics_NS
 !  **************
 !
-      USE SMConstants
-      USE PhysicsStorage
-      use VariableConversion
-      IMPLICIT NONE
+      use SMConstants
+      use PhysicsStorage_NS
+      use VariableConversion_NS
+      use FluidData_NS
+      implicit none
 
       private
-      public  InviscidFlux, ViscousFlux
+      public  EulerFlux, ViscousFlux
       public  ViscousFlux0D, ViscousFlux2D, ViscousFlux3D
-      public  InviscidFlux0D, InviscidFlux3D
+      public  EulerFlux0D, EulerFlux3D
       public  InviscidJacobian
       public  getStressTensor, SutherlandsLaw
-!
-!     ---------
-!     Constants
-!     ---------
-!
-      INTEGER, PARAMETER   :: WALL_BC = 1, RADIATION_BC = 2
-      REAL(KIND=RP)        :: waveSpeed
-      INTEGER              :: boundaryCondition(4), bcType
 
-     interface InviscidFlux
-         module procedure InviscidFlux0D, InviscidFlux3D
-     end interface InviscidFlux
+     interface EulerFlux
+         module procedure EulerFlux0D, EulerFlux3D
+     end interface EulerFlux
 
      interface ViscousFlux
          module procedure ViscousFlux0D, ViscousFlux2D, ViscousFlux3D
@@ -67,10 +60,10 @@
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine InviscidFlux0D(Q, F)
+      pure subroutine EulerFlux0D(Q, F)
          implicit none
-         real(kind=RP), intent(in)   :: Q(1:NCONS)
-         real(kind=RP), intent(out)  :: F(1:NCONS , 1:NDIM)
+         real(kind=RP), intent(in)   :: Q(1:NS_NEQN)
+         real(kind=RP), intent(out)  :: F(1:NS_NEQN , 1:NDIM)
 !
 !        ---------------
 !        Local variables
@@ -111,13 +104,13 @@
       
          end associate
 
-      end subroutine InviscidFlux0D
+      end subroutine EulerFlux0D
 
-      pure subroutine InviscidFlux3D(N, Q, F)
+      pure subroutine EulerFlux3D(N, Q, F)
          implicit none
          integer,       intent(in)  :: N(3)
-         real(kind=RP), intent(in)  :: Q(1:NCONS,0:N(1),0:N(2),0:N(3))
-         real(kind=RP), intent(out) :: F(1:NCONS,0:N(1),0:N(2),0:N(3),1:NDIM)
+         real(kind=RP), intent(in)  :: Q(1:NS_NEQN,0:N(1),0:N(2),0:N(3))
+         real(kind=RP), intent(out) :: F(1:NS_NEQN,0:N(1),0:N(2),0:N(3),1:NDIM)
 !
 !        ---------------
 !        Local variables
@@ -160,7 +153,7 @@
 
          end associate
 
-      end subroutine InviscidFlux3D
+      end subroutine EulerFlux3D
 !
 !     -------------------------------------------------------------------------------
 !     Subroutine for computing the Jacobian of the inviscid flux when it has the form 
@@ -174,10 +167,10 @@
       pure subroutine InviscidJacobian(q,dfdq,dgdq,dhdq)
          implicit none
          !-------------------------------------------------
-         real(kind=RP), intent (in)  :: q(NCONS)
-         real(kind=RP), intent (out) :: dfdq(NCONS,NCONS)
-         real(kind=RP), intent (out) :: dgdq(NCONS,NCONS)
-         real(kind=RP), intent (out) :: dhdq(NCONS,NCONS)
+         real(kind=RP), intent (in)  :: q(NS_NEQN)
+         real(kind=RP), intent (out) :: dfdq(NS_NEQN,NS_NEQN)
+         real(kind=RP), intent (out) :: dgdq(NS_NEQN,NS_NEQN)
+         real(kind=RP), intent (out) :: dhdq(NS_NEQN,NS_NEQN)
          !-------------------------------------------------
          real(kind=RP)  :: u,v,w ! Velocity components
          real(kind=RP)  :: V2    ! Total velocity squared
@@ -308,13 +301,13 @@
 !
       pure subroutine ViscousFlux0D(Q, U_x, U_y, U_z, mu, kappa, F)
          implicit none
-         real(kind=RP), intent(in)  :: Q   (1:NCONS     )
-         real(kind=RP), intent(in)  :: U_x (1:N_GRAD_EQN)
-         real(kind=RP), intent(in)  :: U_y (1:N_GRAD_EQN)
-         real(kind=RP), intent(in)  :: U_z (1:N_GRAD_EQN)
+         real(kind=RP), intent(in)  :: Q   (1:NS_NEQN     )
+         real(kind=RP), intent(in)  :: U_x (1:NS_NGRAD)
+         real(kind=RP), intent(in)  :: U_y (1:NS_NGRAD)
+         real(kind=RP), intent(in)  :: U_z (1:NS_NGRAD)
          real(kind=RP), intent(in)  :: mu
          real(kind=RP), intent(in)  :: kappa
-         real(kind=RP), intent(out) :: F(1:NCONS, 1:NDIM)
+         real(kind=RP), intent(out) :: F(1:NS_NEQN, 1:NDIM)
 !
 !        ---------------
 !        Local variables
@@ -357,13 +350,13 @@
       pure subroutine ViscousFlux2D( N, Q, U_x, U_y, U_z, mu, kappa, F)
          implicit none
          integer         , intent(in)  :: N(2)
-         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: U_x(1:N_GRAD_EQN, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_y(1:N_GRAD_EQN, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_z(1:N_GRAD_EQN, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: Q  (1:NS_NEQN, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(in)  :: U_x(1:NS_NGRAD, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_y(1:NS_NGRAD, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_z(1:NS_NGRAD, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
-         real(kind=RP),    intent(out) :: F   (1:NCONS, 1:NDIM, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(out) :: F   (1:NS_NEQN, 1:NDIM, 0:N(1), 0:N(2))
 !
 !        ---------------
 !        Local variables
@@ -421,13 +414,13 @@
       pure subroutine ViscousFlux3D( N, Q, U_x, U_y, U_z, mu, kappa, F)
          implicit none
          integer         , intent(in)  :: N(3)
-         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: U_x(1:N_GRAD_EQN, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_y(1:N_GRAD_EQN, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_z(1:N_GRAD_EQN, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: Q  (1:NS_NEQN, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP),    intent(in)  :: U_x(1:NS_NGRAD, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: U_y(1:NS_NGRAD, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: U_z(1:NS_NGRAD, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(out) :: F   (1:NCONS, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
+         real(kind=RP),    intent(out) :: F   (1:NS_NEQN, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
 !
 !        ---------------
 !        Local variables
@@ -487,15 +480,15 @@
 
       pure subroutine ViscousFlux0D_withSGS(Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
          implicit none
-         real(kind=RP), intent(in)  :: Q   (1:NCONS     )
-         real(kind=RP), intent(in)  :: U_x (1:N_GRAD_EQN)
-         real(kind=RP), intent(in)  :: U_y (1:N_GRAD_EQN)
-         real(kind=RP), intent(in)  :: U_z (1:N_GRAD_EQN)
+         real(kind=RP), intent(in)  :: Q   (1:NS_NEQN     )
+         real(kind=RP), intent(in)  :: U_x (1:NS_NGRAD)
+         real(kind=RP), intent(in)  :: U_y (1:NS_NGRAD)
+         real(kind=RP), intent(in)  :: U_z (1:NS_NGRAD)
          real(kind=RP), intent(in)  :: mu
          real(kind=RP), intent(in)  :: kappa
          real(kind=RP), intent(in)  :: tauSGS(NDIM, NDIM)
          real(kind=RP), intent(in)  :: qSGS(NDIM)
-         real(kind=RP), intent(out) :: F(1:NCONS, 1:NDIM)
+         real(kind=RP), intent(out) :: F(1:NS_NEQN, 1:NDIM)
 !
 !        ---------------
 !        Local variables
@@ -537,15 +530,15 @@
       pure subroutine ViscousFlux2D_withSGS( N, Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
          implicit none
          integer         , intent(in)  :: N(2)
-         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: U_x(1:N_GRAD_EQN, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_y(1:N_GRAD_EQN, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_z(1:N_GRAD_EQN, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: Q  (1:NS_NEQN, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(in)  :: U_x(1:NS_NGRAD, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_y(1:NS_NGRAD, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_z(1:NS_NGRAD, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: tauSGS(1:NDIM, 1:NDIM, 0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: qSGS(1:NDIM, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(out) :: F   (1:NCONS, 1:NDIM, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(out) :: F   (1:NS_NEQN, 1:NDIM, 0:N(1), 0:N(2))
 !
 !        ---------------
 !        Local variables
@@ -603,15 +596,15 @@
       pure subroutine ViscousFlux3D_withSGS( N, Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
          implicit none
          integer         , intent(in)  :: N(3)
-         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: U_x(1:N_GRAD_EQN, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_y(1:N_GRAD_EQN, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_z(1:N_GRAD_EQN, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: Q  (1:NS_NEQN, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP),    intent(in)  :: U_x(1:NS_NGRAD, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: U_y(1:NS_NGRAD, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: U_z(1:NS_NGRAD, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: tauSGS(1:NDIM, 1:NDIM, 0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: qSGS(1:NDIM, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(out) :: F   (1:NCONS, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
+         real(kind=RP),    intent(out) :: F   (1:NS_NEQN, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
 !
 !        ---------------
 !        Local variables
@@ -698,10 +691,10 @@
 
       pure subroutine getStressTensor(Q,U_x,U_y,U_z,tau)
          implicit none
-         real(kind=RP), intent(in)      :: Q   (1:NCONS         )
-         real(kind=RP), intent(in)      :: U_x (1:N_GRAD_EQN    )
-         real(kind=RP), intent(in)      :: U_y (1:N_GRAD_EQN    )
-         real(kind=RP), intent(in)      :: U_z (1:N_GRAD_EQN    )
+         real(kind=RP), intent(in)      :: Q   (1:NS_NEQN         )
+         real(kind=RP), intent(in)      :: U_x (1:NS_NGRAD    )
+         real(kind=RP), intent(in)      :: U_y (1:NS_NGRAD    )
+         real(kind=RP), intent(in)      :: U_z (1:NS_NGRAD    )
          real(kind=RP), intent(out)     :: tau (1:NDIM, 1:NDIM   )
 !
 !        ---------------
@@ -731,7 +724,7 @@
          end associate
 
       end subroutine getStressTensor
-   END Module Physics
+   END Module Physics_NS
 !@mark -
 !
 ! /////////////////////////////////////////////////////////////////////
@@ -745,15 +738,16 @@
       SUBROUTINE ComputeEigenvaluesForState( Q, eigen )
       
       USE SMConstants
-      USE PhysicsStorage
-      USE VariableConversion, ONLY:Pressure
+      USE PhysicsStorage_NS
+      USE VariableConversion_NS, ONLY:Pressure
+      use FluidData_NS,          only: Thermodynamics
       IMPLICIT NONE
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      REAL(KIND=Rp), DIMENSION(N_EQN) :: Q
+      REAL(KIND=Rp), DIMENSION(NS_NEQN) :: Q
       REAL(KIND=Rp), DIMENSION(3)     :: eigen
 !
 !     ---------------

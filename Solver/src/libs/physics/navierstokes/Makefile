@@ -11,14 +11,14 @@ MOD_FLAG?=-J
 
 
 
-LIBOBJS = 	./build/FluidData.o \
-		./build/PhysicsStorage.o \
-		./build/VariableConversion.o \
+LIBOBJS = 	./build/FluidData_NS.o \
+		./build/PhysicsStorage_NS.o \
+		./build/VariableConversion_NS.o \
 		./build/LESModels.o \
-		./build/Physics.o \
-		./build/RiemannSolvers.o \
+		./build/Physics_NS.o \
+		./build/RiemannSolvers_NS.o \
 		./build/ManufacturedSolutions.o \
-		./build/BoundaryConditions.o 
+		./build/BoundaryConditions_NS.o 
 
 
 LIB = physicsns
@@ -44,7 +44,7 @@ lib$(LIB).a: header mkdirs $(LIBOBJS)
 
 install: lib$(LIB).a
 	cp -p lib$(LIB).a $(INSTALL_DIR)/lib/
-	cp -p ./include/*.mod $(INSTALL_DIR)/include_ns/
+	cp -p ./include/*.mod $(INSTALL_DIR)/include/
 	@echo
 	@echo
 

@@ -1,7 +1,7 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    PhysicsStorage.f90
+!   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
 !   @Last revision date: Tue Apr 10 17:29:22 2018
@@ -10,14 +10,8 @@
 !
 !//////////////////////////////////////////////////////
 !
-!
-!//////////////////////////////////////////////////////
-!
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
-      Module PhysicsKeywordsModule
+      Module Physics_NSKeywordsModule
          IMPLICIT NONE 
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MACH_NUMBER_KEY           = "mach number"
@@ -31,7 +25,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LESMODEL_KEY              = "les model"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: COMPUTE_GRADIENTS_KEY     = "compute gradients"
          
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physicsKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_NSKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
          
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME      ="central"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME          ="roe"
@@ -54,27 +48,25 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: gx_PART_KEY              = "gravity_x" 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: gy_PART_KEY              = "gravity_y" 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: gz_PART_KEY              = "gravity_z" 
-      END MODULE PhysicsKeywordsModule
+      END MODULE Physics_NSKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
 !    
 !    ******
-     MODULE PhysicsStorage
+     MODULE PhysicsStorage_NS
 !    ******
 !
      USE SMConstants
-     use FluidData
+     use FluidData_NS
      
      IMPLICIT NONE
 
      private
-     public    flowIsNavierStokes, N_EQN, N_GRAD_EQN, NDIM, IX, IY, IZ
-     public    NCONS, IRHO, IRHOU, IRHOV, IRHOW, IRHOE
-     public    NGRAD, IGU, IGV, IGW, IGT
-     public    NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2
+     public    flowIsNavierStokes, NS_NEQN, NS_NGRAD
+     public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE
+     public    IGU, IGV, IGW, IGT
+     public    NS_NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2
      public    TScale, TRatio
-     public    Thermodynamics, RefValues, Dimensionless
-     public    Thermodynamics_t, RefValues_t, Dimensionless_t
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV, RIEMANN_STDROE
      public    RIEMANN_CENTRAL, RIEMANN_ROEPIKE, RIEMANN_LOWDISSROE
@@ -83,8 +75,8 @@
      public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
      public    ENTROPYANDENERGYCONS_SPLIT
       
-     public    ConstructPhysicsStorage, DestructPhysicsStorage, DescribePhysicsStorage
-     public    CheckPhysicsInputIntegrity
+     public    ConstructPhysicsStorage_NS, DestructPhysicsStorage_NS, DescribePhysicsStorage_NS
+     public    CheckPhysicsNSInputIntegrity
 !
 !    ----------------------------
 !    Either NavierStokes or Euler
@@ -97,27 +89,19 @@
 !!   The sizes of the NS system
 !    --------------------------
 !
-     INTEGER, PARAMETER :: N_EQN = 5, N_GRAD_EQN = 4
-!
-!    -----------------------------
-!    Number of physical dimensions
-!    -----------------------------
-!
-     INTEGER, PARAMETER       :: NDIM = 3
-     INTEGER, PARAMETER       :: IX = 1 , IY = 2 , IZ = 3
+     INTEGER, PARAMETER :: NS_NEQN = 5, NS_NGRAD = 4
 !
 !    -------------------------------------------
 !!   The positions of the conservative variables
 !    -------------------------------------------
 !
-     INTEGER, PARAMETER       :: NCONS = 5
      INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
 !
 !    ----------------------------------------
 !!   The positions of the primitive variables
 !    ----------------------------------------
 !
-     INTEGER, PARAMETER       :: NPRIM = 7
+     INTEGER, PARAMETER       :: NS_NPRIM = 7
      INTEGER, PARAMETER       :: IPIRHO = 1, IPU = 2, IPV = 3, IPW = 4, IPP = 5, IPT = 6, IPA2 = 7
 !
 !    ---------------------------------------
@@ -209,9 +193,9 @@
 !!    variables.
 !     --------------------------------------------------
 !
-      SUBROUTINE ConstructPhysicsStorage( controlVariables, success )
+      SUBROUTINE ConstructPhysicsStorage_NS( controlVariables, success )
       USE FTValueDictionaryClass
-      USE PhysicsKeywordsModule
+      USE Physics_NSKeywordsModule
       use Utilities, only: toLower, almostEqual
 !
 !     ---------
@@ -519,9 +503,9 @@
 !     Describe
 !     ********
 !
-      CALL DescribePhysicsStorage()
+      CALL DescribePhysicsStorage_NS()
 
-      END SUBROUTINE ConstructPhysicsStorage
+      END SUBROUTINE ConstructPhysicsStorage_NS
 !
 !     ///////////////////////////////////////////////////////
 !
@@ -529,9 +513,9 @@
 !!    Destructor: Does nothing for this storage
 !     -------------------------------------------------
 !
-      SUBROUTINE DestructPhysicsStorage
+      SUBROUTINE DestructPhysicsStorage_NS
       
-      END SUBROUTINE DestructPhysicsStorage
+      END SUBROUTINE DestructPhysicsStorage_NS
 !
 !     //////////////////////////////////////////////////////
 !
@@ -539,7 +523,7 @@
 !!    Descriptor: Shows the gathered data
 !     -----------------------------------------
 !
-      SUBROUTINE DescribePhysicsStorage()
+      SUBROUTINE DescribePhysicsStorage_NS()
          USE Headers
          use MPI_Process_Info
          IMPLICIT NONE
@@ -587,13 +571,13 @@
 
          write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Froude number: " , dimensionless % Fr
 
-      END SUBROUTINE DescribePhysicsStorage
+      END SUBROUTINE DescribePhysicsStorage_NS
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE CheckPhysicsInputIntegrity( controlVariables, success )  
+      SUBROUTINE CheckPhysicsNSInputIntegrity( controlVariables, success )  
          USE FTValueDictionaryClass
-         USE PhysicsKeywordsModule
+         USE Physics_NSKeywordsModule
          IMPLICIT NONE
 !
 !        ---------
@@ -611,17 +595,17 @@
          INTEGER                  :: i
          success = .TRUE.
          
-         DO i = 1, SIZE(physicsKeywords)
-            obj => controlVariables % objectForKey(physicsKeywords(i))
+         DO i = 1, SIZE(physics_NSKeywords)
+            obj => controlVariables % objectForKey(physics_NSKeywords(i))
             IF ( .NOT. ASSOCIATED(obj) )     THEN
-               PRINT *, "Input file is missing entry for keyword: ",physicsKeywords(i)
+               PRINT *, "Input file is missing entry for keyword: ",physics_NSKeywords(i)
                success = .FALSE. 
             END IF  
          END DO  
          
-      END SUBROUTINE CheckPhysicsInputIntegrity
+      END SUBROUTINE CheckPhysicsNSInputIntegrity
 !
 !    **********       
-     END MODULE PhysicsStorage
+     END MODULE PhysicsStorage_NS
 !    **********
 

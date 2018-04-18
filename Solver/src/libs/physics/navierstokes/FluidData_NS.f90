@@ -1,7 +1,7 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    FluidData.f90
+!   @File:    FluidData_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:09 2018
 !   @Last revision date:
@@ -11,7 +11,7 @@
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
-module FluidData
+module FluidData_NS
    use SMConstants
    implicit none
 
@@ -202,5 +202,4 @@ module FluidData
 
       end subroutine getThermalConductivity3D
 
-
-end module FluidData
+end module FluidData_NS

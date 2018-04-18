@@ -1,7 +1,7 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    BoundaryConditions.f90
+!   @File:    BoundaryConditions_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:09 2018
 !   @Last revision date: Tue Apr 10 17:29:21 2018
@@ -13,7 +13,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      BoundaryConditions.f90
+!      BoundaryConditions_NS.f90
 !      Created: 2011-07-21 10:30:14 -0400 
 !      By: David Kopriva
 !      
@@ -70,16 +70,17 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      MODULE BoundaryConditionFunctions
+      MODULE BoundaryConditionFunctions_NS
          USE SMConstants
-         USE Physics
+         USE Physics_NS
          USE SharedBCModule
          USE ManufacturedSolutions
-         use PhysicsStorage
+         use PhysicsStorage_NS
+         use FluidData_NS
 
          private
 
-         public implementedBCNames
+         public implementedNSBCNames
 
          public FreeSlipWallState, NoSlipAdiabaticWallState
          public NoSlipIsothermalWallState, ExternalPressure
@@ -91,7 +92,7 @@
          public ManufacturedSolutionDeriv, UserDefinedNeumann
          public UniformFlowNeumann
 
-         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(11) :: implementedBCNames = &
+         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(11) :: implementedNSBCNames = &
                ["freeslipwall        ", &
                "noslipadiabaticwall ",  &
                "noslipisothermalwall",  &
@@ -186,14 +187,14 @@
 !
       REAL(KIND=RP), INTENT(IN)    :: x(3), t
       REAL(KIND=RP), INTENT(IN)    :: nHat(3)
-      REAL(KIND=RP), INTENT(INOUT) :: Q(N_EQN)
+      REAL(KIND=RP), INTENT(INOUT) :: Q(NS_NEQN)
 !
 !     ---------------
 !     Local Variables
 !     ---------------
 !
       REAL(KIND=RP) :: qNorm, qTanx, qTany, qTanz
-      REAL(KIND=RP) :: QInt(N_EQN)
+      REAL(KIND=RP) :: QInt(NS_NEQN)
       
       QInt = Q
       
@@ -229,7 +230,7 @@
 !
       REAL(KIND=RP), INTENT(IN)    :: x(3), t
       REAL(KIND=RP), INTENT(IN)    :: nHat(3)
-      REAL(KIND=RP), INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
+      REAL(KIND=RP), INTENT(INOUT) :: U_x(NS_NGRAD), U_y(NS_NGRAD), U_z(NS_NGRAD)
 !
 !     ---------------
 !     Local Variables
@@ -238,7 +239,7 @@
       REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
       INTEGER       :: k
 !
-      DO k = 1, N_GRAD_EQN 
+      DO k = 1, NS_NGRAD 
          gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
          UTanx = U_x(k) - gradUNorm*nHat(1)
          UTany = U_y(k) - gradUNorm*nHat(2)
@@ -264,7 +265,7 @@
 !        ---------
 !
          REAL(KIND=RP), INTENT(IN)    :: x(3), t
-         REAL(KIND=RP), INTENT(INOUT) :: Q(N_EQN)
+         REAL(KIND=RP), INTENT(INOUT) :: Q(NS_NEQN)
 !
 !        -----------------------------------------------
 !        Generate the external flow along the face, that
@@ -290,7 +291,7 @@
 !
          REAL(KIND=RP), INTENT(IN)    :: x(3), t
          REAL(KIND=RP), INTENT(IN)    :: nHat(3)
-         REAL(KIND=RP), INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
+         REAL(KIND=RP), INTENT(INOUT) :: U_x(NS_NGRAD), U_y(NS_NGRAD), U_z(NS_NGRAD)
 !
 !        ---------------
 !        Local Variables
@@ -319,7 +320,7 @@
       SUBROUTINE NoSlipIsothermalWallState( x, t, Q )
       
       USE SMConstants
-      USE PhysicsStorage
+      USE PhysicsStorage_NS
       IMPLICIT NONE
 !
 !     ---------
@@ -327,7 +328,7 @@
 !     ---------
 !
       REAL(KIND=RP), INTENT(IN)    :: x(3), t
-      REAL(KIND=RP), INTENT(INOUT) :: Q(N_EQN)
+      REAL(KIND=RP), INTENT(INOUT) :: Q(NS_NEQN)
 !
 !     ---------------
 !     Local variables
@@ -360,11 +361,11 @@
 !
       SUBROUTINE NoSlipIsothermalWallNeumann( x, t, nHat, U_x, U_y, U_z  )
       USE SMConstants
-      USE PhysicsStorage
+      USE PhysicsStorage_NS
       IMPLICIT NONE
       
       REAL(KIND=RP)                :: x(3), t, nHat(3)
-      REAL(KIND=RP), INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
+      REAL(KIND=RP), INTENT(INOUT) :: U_x(NS_NGRAD), U_y(NS_NGRAD), U_z(NS_NGRAD)
       
       !do nothing - specifying Temperature is sufficient.
       
@@ -374,11 +375,11 @@
 !
       SUBROUTINE UniformFlowState( x, t, Q )
       USE SMConstants
-      USE PhysicsStorage
+      USE PhysicsStorage_NS
       IMPLICIT NONE
       
       REAL(KIND=RP) :: x(3), t
-      REAL(KIND=RP) :: Q(N_EQN)
+      REAL(KIND=RP) :: Q(NS_NEQN)
       
       REAL(KIND=RP) :: theta, phi, qq
       REAL(KIND=RP) :: u, v, w, p
@@ -413,18 +414,18 @@
 !     ----------------------------
 !
       USE SMConstants
-      USE PhysicsStorage
+      USE PhysicsStorage_NS
       IMPLICIT NONE
       
       REAL(KIND=RP) :: x(3), t
       REAL(KIND=RP) :: nHat(3)
-      REAL(KIND=RP), INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
+      REAL(KIND=RP), INTENT(INOUT) :: U_x(NS_NGRAD), U_y(NS_NGRAD), U_z(NS_NGRAD)
       
       INTEGER :: k
 !
       REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
 !
-      DO k = 1, N_GRAD_EQN
+      DO k = 1, NS_NGRAD
          gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
          UTanx = U_x(k) - gradUNorm*nHat(1)
          UTany = U_y(k) - gradUNorm*nHat(2)
@@ -441,11 +442,11 @@
 !
       SUBROUTINE ZeroFlowState( x, t, Q )
       USE SMConstants
-      USE PhysicsStorage
+      USE PhysicsStorage_NS
       IMPLICIT NONE
       
       REAL(KIND=RP) :: x(3), t
-      REAL(KIND=RP) :: Q(N_EQN)
+      REAL(KIND=RP) :: Q(NS_NEQN)
       
       REAL(KIND=RP) :: p
       
@@ -471,7 +472,7 @@
       IMPLICIT NONE
       
       REAL(KIND=RP) :: x(3)
-      REAL(KIND=RP) :: Q(N_EQN)
+      REAL(KIND=RP) :: Q(NS_NEQN)
       
       REAL(KIND=RP) :: GaussFac, RandNum
       INTEGER       :: i
@@ -482,7 +483,7 @@
       
       GaussFac = exp((-(x(1)-0.5_RP)**2-(x(2)-0.5_RP)**2-(x(3)-0.5_RP)**2)*20)
       
-      DO i=1, N_EQN
+      DO i=1, NS_NEQN
          CALL RANDOM_NUMBER(RandNum)
          Q(i) = Q(i) + Q(i) * GaussFac * (RandNum-0.5_RP) * 0.5_RP
       END DO
@@ -498,7 +499,7 @@
       IMPLICIT NONE
       
       REAL(KIND=RP) :: x(3)
-      REAL(KIND=RP) :: Q(N_EQN)
+      REAL(KIND=RP) :: Q(NS_NEQN)
       
       REAL(KIND=RP) :: GaussFac, RandNum
       INTEGER       :: i
@@ -509,7 +510,7 @@
       
       GaussFac = exp((-(x(1)-0.5_RP)**2-(x(2)-0.5_RP)**2)*20)
       
-      DO i=1, N_EQN
+      DO i=1, NS_NEQN
          CALL RANDOM_NUMBER(RandNum)
          Q(i) = Q(i) + Q(i) * GaussFac * (RandNum-0.5_RP) * 0.5_RP
       END DO
@@ -532,7 +533,7 @@
 !     ---------
 !
       REAL(KIND=RP) :: x(3), t, nHat(3)
-      REAL(KIND=RP) :: Q(N_EQN), pExt
+      REAL(KIND=RP) :: Q(NS_NEQN), pExt
 !
 !     ---------------
 !     Local Variables
@@ -591,16 +592,17 @@
          real(kind=RP)  :: x(NDIM)
          real(kind=RP)  :: t
          real(kind=RP)  :: nHat(NDIM)
-         real(kind=RP)  :: Q(N_EQN)
+         real(kind=RP)  :: Q(NS_NEQN)
          interface
             subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
                use SMConstants
-               use PhysicsStorage
+               use PhysicsStorage_NS
+               use FluidData_NS
                implicit none
                real(kind=RP)  :: x(NDIM)
                real(kind=RP)  :: t
                real(kind=RP)  :: nHat(NDIM)
-               real(kind=RP)  :: Q(N_EQN)
+               real(kind=RP)  :: Q(NS_NEQN)
                type(Thermodynamics_t), intent(in)  :: thermodynamics_
                type(Dimensionless_t),  intent(in)  :: dimensionless_
                type(RefValues_t),      intent(in)  :: refValues_
@@ -614,14 +616,14 @@
 !////////////////////////////////////////////////////////////////////////
 !
 !     ===========
-      END MODULE BoundaryConditionFunctions
+      END MODULE BoundaryConditionFunctions_NS
 !     ===========
 !
 !=====================================================================================================
 !=====================================================================================================
 !
 !
-      SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryType, boundaryName )
+      SUBROUTINE externalStateForBoundaryName_NS( x, t, nHat, Q, boundaryType, boundaryName )
 !
 !     ----------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -629,8 +631,8 @@
 !     ----------------------------------------------
 !
       use SMConstants
-      USE BoundaryConditionFunctions
-      use PhysicsStorage
+      USE BoundaryConditionFunctions_NS
+      use PhysicsStorage_NS
       
       IMPLICIT NONE
 !
@@ -639,7 +641,7 @@
 !     ---------
 !
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
+      REAL(KIND=RP)   , INTENT(INOUT) :: Q(NS_NEQN)
       CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryType
       CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryName
 !
@@ -672,11 +674,11 @@
          CALL UniformFlowState( x, t, Q ) 
       END IF
 
-      END SUBROUTINE externalStateForBoundaryName
+      END SUBROUTINE externalStateForBoundaryName_NS
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, GradU, boundaryType, boundaryName )
+      SUBROUTINE ExternalGradientForBoundaryName_NS( x, t, nHat, GradU, boundaryType, boundaryName )
 !
 !     ------------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -684,8 +686,8 @@
 !     ------------------------------------------------
 !
       use SMConstants
-      USE BoundaryConditionFunctions
-      use PhysicsStorage
+      USE BoundaryConditionFunctions_NS
+      use PhysicsStorage_NS
       IMPLICIT NONE
 !
 !     ---------
@@ -693,7 +695,7 @@
 !     ---------
 !
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,N_GRAD_EQN)
+      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,NS_NGRAD)
       CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryType
       CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryName
 !
@@ -701,7 +703,7 @@
 !     Local variables
 !     ---------------
 !
-      REAL(KIND=RP) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
+      REAL(KIND=RP) :: U_x(NS_NGRAD), U_y(NS_NGRAD), U_z(NS_NGRAD)
 
       U_x(:) = GradU(1,:)
       U_y(:) = GradU(2,:)
@@ -727,4 +729,4 @@
       GradU(2,:) = U_y(:)
       GradU(3,:) = U_z(:)
 
-      END SUBROUTINE ExternalGradientForBoundaryName
+      END SUBROUTINE ExternalGradientForBoundaryName_NS
