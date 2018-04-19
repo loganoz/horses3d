@@ -4,9 +4,9 @@
 !   @File:    EllipticBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Wed Apr 18 20:18:59 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
+!   @Last revision date: Thu Apr 19 17:24:23 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: ca7f00098495d6fca03f13af3e8a139f88ed41e0
 !
 !//////////////////////////////////////////////////////
 !
@@ -243,7 +243,7 @@ module EllipticBR2
          real(kind=RP) :: bv_y(0:e % Nxyz(2),2)
          real(kind=RP) :: bv_z(0:e % Nxyz(3),2)
 
-         call VectorWeakIntegrals % StdFace(e, &
+         call VectorWeakIntegrals % StdFace(e, NGRAD, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
                mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % unStar, &
                mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % unStar, &

@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date: Wed Apr 18 20:19:10 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
+!   @Last revision date: Thu Apr 19 17:24:27 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: ca7f00098495d6fca03f13af3e8a139f88ed41e0
 !
 !//////////////////////////////////////////////////////
 !
@@ -192,7 +192,7 @@
 !!    variables.
 !     --------------------------------------------------
 !
-      SUBROUTINE ConstructPhysicsStorage_NS( controlVariables, success )
+      SUBROUTINE ConstructPhysicsStorage_NS( controlVariables, Lref, timeref, success )
       USE FTValueDictionaryClass
       USE Physics_NSKeywordsModule
       use Utilities, only: toLower, almostEqual
@@ -201,8 +201,9 @@
 !     Arguments
 !     ---------
 !
-      TYPE(FTValueDictionary) :: controlVariables
-      LOGICAL                 :: success
+      TYPE(FTValueDictionary)      :: controlVariables
+      real(kind=RP), intent(inout) :: Lref, timeref
+      LOGICAL                      :: success
 !
 !     ---------------
 !     Local variables
@@ -333,7 +334,7 @@
 !                           Ok, but be sure to change the mesh reading accordingly (x = x / refValues % L)
 !     ********************
 !
-      refValues_ % L = 1.0_RP       ! m
+      Lref = 1.0_RP
       refValues_ % T = 520.0_RP     ! Rankine
 
       refValues_ % rho = 101325.0_RP / (thermodynamics_ % R * refValues_ % T)
@@ -344,7 +345,7 @@
       refValues_ % p = refValues_ % rho * POW2( refValues_ % V )
 
       if ( flowIsNavierStokes ) then
-         refValues_ % mu = refValues_ % rho * refValues_ % V * refValues_ % L * dimensionless_ % mu
+         refValues_ % mu = refValues_ % rho * refValues_ % V * Lref * dimensionless_ % mu
          refValues_ % kappa = refValues_ % mu * thermodynamics_ % cp / dimensionless_ % Pr
 
       else
@@ -353,7 +354,7 @@
       
       end if
 
-      refValues_ % time = refValues_ % L / refValues_ % V
+      timeref = Lref / refValues_ % V
 !
 !     *********************************************
 !     Choose the Riemann solver (by default is Roe)
@@ -396,7 +397,6 @@
 
          case(VISCOUSNS_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_VISCOUSNS
-            
             
          case default 
             print*, "Riemann solver: ", trim(keyword), " is not implemented."
@@ -551,14 +551,11 @@
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference pressure: " , pRef, " Pa."
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference density: " , refValues % rho , " kg/m^3."
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference velocity: " , refValues % V , " m/s."
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reynolds length: " , refValues % L , " m."
          
          if ( flowIsNavierStokes ) then
             write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference viscosity: ",refValues % mu , " Pa·s."
             write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference conductivity: ", refValues % kappa, " W/(m·K)."
          end if
-
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference time: ", refValues % time, " s."
 
          write(STD_OUT,'(/)')
          call SubSection_Header("Dimensionless quantities")

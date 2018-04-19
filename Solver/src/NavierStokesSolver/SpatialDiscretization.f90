@@ -618,7 +618,7 @@ module SpatialDiscretization
 !
 !           Perform the Weak Volume Green integral
 !           --------------------------------------
-            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e , contravariantFlux ) 
+            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e, NCONS, contravariantFlux ) 
 
          type is (SplitDG_t)
 !
@@ -645,7 +645,7 @@ module SpatialDiscretization
          real(kind=RP)           :: t
          type(HexMesh)           :: mesh
 
-         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e, &
+         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e, NCONS, &
                       mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % fStar, &
                       mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % fStar, &
                       mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % fStar, &

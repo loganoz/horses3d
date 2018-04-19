@@ -204,7 +204,7 @@ module EllipticBR1
 !
 !        Perform the weak integral
 !        -------------------------
-         call VectorWeakIntegrals % StdVolumeGreen (e , U , e % storage % U_x , e % storage % U_y , e % storage % U_z )
+         call VectorWeakIntegrals % StdVolumeGreen (e , NGRAD, U , e % storage % U_x , e % storage % U_y , e % storage % U_z )
 
          e % storage % U_x = -e % storage % U_x
          e % storage % U_y = -e % storage % U_y
@@ -233,7 +233,7 @@ module EllipticBR1
          real(kind=RP)        :: faceInt_y(NGRAD, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
          real(kind=RP)        :: faceInt_z(NGRAD, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
 
-         call VectorWeakIntegrals % StdFace(e, &
+         call VectorWeakIntegrals % StdFace(e, NGRAD, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
                mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % unStar, &
                mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % unStar, &

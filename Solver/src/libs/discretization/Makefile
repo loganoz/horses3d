@@ -43,7 +43,7 @@ LIB = discretization
 ############################################
 .DEFAULT_GOAL:=all
 
-all: lib$(LIB)_ns.a lib$(LIB)_ch.a
+all: lib$(LIB)_ns.a
 
 ./build_ns/%.o: %.f90
 	@echo
@@ -76,9 +76,9 @@ lib$(LIB)_ch.a: header mkdirs $(LIBOBJS_CH)
 
 install: all
 	cp -p lib$(LIB)_ns.a $(INSTALL_DIR)/lib/
-	cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
+#	cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
 	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
-	cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
+#	cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
 	@echo
 	@echo
 

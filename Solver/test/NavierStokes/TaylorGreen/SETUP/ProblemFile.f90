@@ -44,6 +44,7 @@
             use SMConstants
             USE HexMeshClass
             use PhysicsStorage
+            use FluidData
             IMPLICIT NONE
             CLASS(HexMesh)             :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
@@ -58,6 +59,7 @@
                                                           refValues_  )
             USE SMConstants
             use PhysicsStorage
+            use FluidData
             use HexMeshClass
             implicit none
             class(HexMesh)                        :: mesh
@@ -127,11 +129,12 @@
 !
             use SMConstants
             use PhysicsStorage
+            use FluidData
             implicit none
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: Q(N_EQN)
+            real(kind=RP), intent(inout)  :: Q(NCONS)
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
@@ -145,13 +148,14 @@
 !
             use SMConstants
             use PhysicsStorage
+            use FluidData
             implicit none
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: U_x(N_GRAD_EQN)
-            real(kind=RP), intent(inout)  :: U_y(N_GRAD_EQN)
-            real(kind=RP), intent(inout)  :: U_z(N_GRAD_EQN)
+            real(kind=RP), intent(inout)  :: U_x(NGRAD)
+            real(kind=RP), intent(inout)  :: U_y(NGRAD)
+            real(kind=RP), intent(inout)  :: U_z(NGRAD)
          end subroutine UserDefinedNeumann
 
 !
@@ -166,6 +170,7 @@
             USE HexMeshClass
             use SMConstants
             use PhysicsStorage
+            use FluidData
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -245,6 +250,7 @@
             USE HexMeshClass
             use MonitorsClass
             use PhysicsStorage
+            use FluidData
             use MPI_Process_Info
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh

@@ -40,11 +40,12 @@ module DGWeakIntegrals
 !        ----------------------------------------
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !
-      function ScalarWeakIntegrals_StdVolumeGreen( e, F ) result ( volInt )
+      function ScalarWeakIntegrals_StdVolumeGreen( e, NEQ, F ) result ( volInt )
          implicit none
          class(Element),      intent(in)  :: e
-         real(kind=RP),       intent(in)  :: F     (1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
-         real(kind=RP)                    :: volInt(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         integer,             intent(in)  :: NEQ
+         real(kind=RP),       intent(in)  :: F     (1:NEQ, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP)                    :: volInt(1:NEQ, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
 !
 !        ---------------
 !        Local variables
@@ -105,16 +106,17 @@ module DGWeakIntegrals
 !
 !///////////////////////////////////////////////////////////////
 !
-      pure function ScalarWeakIntegrals_StdFace(e, F_FR, F_BK, F_BOT, F_R, F_T, F_L) result(faceInt)
+      pure function ScalarWeakIntegrals_StdFace(e, NEQ, F_FR, F_BK, F_BOT, F_R, F_T, F_L) result(faceInt)
          implicit none
          class(Element),      intent(in)     :: e
-         real(kind=RP),       intent(in)     :: F_FR(1:NCONS,0:e % Nxyz(1),0:e % Nxyz(3))
-         real(kind=RP),       intent(in)     :: F_BK(1:NCONS,0:e % Nxyz(1),0:e % Nxyz(3))
-         real(kind=RP),       intent(in)     :: F_BOT(1:NCONS,0:e % Nxyz(1),0:e % Nxyz(2))
-         real(kind=RP),       intent(in)     :: F_R(1:NCONS,0:e % Nxyz(2),0:e % Nxyz(3))
-         real(kind=RP),       intent(in)     :: F_T(1:NCONS,0:e % Nxyz(1),0:e % Nxyz(2))
-         real(kind=RP),       intent(in)     :: F_L(1:NCONS,0:e % Nxyz(2),0:e % Nxyz(3))
-         real(kind=RP)                       :: faceInt(1:NCONS, 0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))
+         integer,             intent(in)     :: NEQ
+         real(kind=RP),       intent(in)     :: F_FR(1:NEQ,0:e % Nxyz(1),0:e % Nxyz(3))
+         real(kind=RP),       intent(in)     :: F_BK(1:NEQ,0:e % Nxyz(1),0:e % Nxyz(3))
+         real(kind=RP),       intent(in)     :: F_BOT(1:NEQ,0:e % Nxyz(1),0:e % Nxyz(2))
+         real(kind=RP),       intent(in)     :: F_R(1:NEQ,0:e % Nxyz(2),0:e % Nxyz(3))
+         real(kind=RP),       intent(in)     :: F_T(1:NEQ,0:e % Nxyz(1),0:e % Nxyz(2))
+         real(kind=RP),       intent(in)     :: F_L(1:NEQ,0:e % Nxyz(2),0:e % Nxyz(3))
+         real(kind=RP)                       :: faceInt(1:NEQ, 0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))
 !
 !        ---------------
 !        Local variables
@@ -166,7 +168,7 @@ module DGWeakIntegrals
 !        ----------------------------------------
 !/////////////////////////////////////////////////////////////////////////////
 !
-      subroutine VectorWeakIntegrals_StdVolumeGreen( e, U, volInt_x, volInt_y, volInt_z )
+      subroutine VectorWeakIntegrals_StdVolumeGreen( e, NEQ, U, volInt_x, volInt_y, volInt_z )
 !
 !        ***********************************************************************************
 !              This integrals compute:
@@ -182,19 +184,20 @@ module DGWeakIntegrals
          use PhysicsStorage
          implicit none
          class(Element),      intent(in)  :: e
-         real(kind=RP),       intent(in)  :: U        (NGRAD,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP),       intent(out) :: volInt_x (NGRAD,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP),       intent(out) :: volInt_y (NGRAD,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP),       intent(out) :: volInt_z (NGRAD,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         integer,             intent(in)  :: NEQ
+         real(kind=RP),       intent(in)  :: U        (NEQ,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),       intent(out) :: volInt_x (NEQ,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),       intent(out) :: volInt_y (NEQ,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),       intent(out) :: volInt_z (NEQ,0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer        :: i,j,k,l
-         real(kind=RP)  :: U_xi(NGRAD,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
-         real(kind=RP)  :: U_eta(NGRAD,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
-         real(kind=RP)  :: U_zeta(NGRAD,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP)  :: U_xi(NEQ,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP)  :: U_eta(NEQ,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP)  :: U_zeta(NEQ,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
 
          volInt_x = 0.0_RP
          volInt_y = 0.0_RP
@@ -222,22 +225,23 @@ module DGWeakIntegrals
 !
 !/////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine VectorWeakIntegrals_StdFace( e, HF, HBK, HBO, HR, HT, HL , &
+      subroutine VectorWeakIntegrals_StdFace( e, NEQ, HF, HBK, HBO, HR, HT, HL , &
                                              faceInt_x, faceInt_y, faceInt_z )
          use ElementClass
          use Physics
          use PhysicsStorage
          implicit none
          class(Element), intent(in)  :: e
-         real(kind=RP),  intent(in)  :: HF  (NGRAD,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(3))
-         real(kind=RP),  intent(in)  :: HBK (NGRAD,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(3))
-         real(kind=RP),  intent(in)  :: HBO (NGRAD,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(2))
-         real(kind=RP),  intent(in)  :: HR  (NGRAD,NDIM, 0:e % Nxyz(2), 0: e % Nxyz(3))
-         real(kind=RP),  intent(in)  :: HT  (NGRAD,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(2))
-         real(kind=RP),  intent(in)  :: HL  (NGRAD,NDIM, 0:e % Nxyz(2), 0: e % Nxyz(3))
-         real(kind=RP),  intent(out) :: faceInt_x(NGRAD, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3)) 
-         real(kind=RP),  intent(out) :: faceInt_y(NGRAD, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3)) 
-         real(kind=RP),  intent(out) :: faceInt_z(NGRAD, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         integer,        intent(in)  :: NEQ
+         real(kind=RP),  intent(in)  :: HF  (NEQ,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(3))
+         real(kind=RP),  intent(in)  :: HBK (NEQ,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(3))
+         real(kind=RP),  intent(in)  :: HBO (NEQ,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(2))
+         real(kind=RP),  intent(in)  :: HR  (NEQ,NDIM, 0:e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP),  intent(in)  :: HT  (NEQ,NDIM, 0:e % Nxyz(1), 0: e % Nxyz(2))
+         real(kind=RP),  intent(in)  :: HL  (NEQ,NDIM, 0:e % Nxyz(2), 0: e % Nxyz(3))
+         real(kind=RP),  intent(out) :: faceInt_x(NEQ, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3)) 
+         real(kind=RP),  intent(out) :: faceInt_y(NEQ, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3)) 
+         real(kind=RP),  intent(out) :: faceInt_z(NEQ, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
 !
 !        ---------------
 !        Local variables

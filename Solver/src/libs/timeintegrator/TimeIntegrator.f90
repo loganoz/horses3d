@@ -231,7 +231,7 @@
 !     Finish time integration
 !     -----------------------
       if ( present(ComputeTimeDerivative_onlyLinear) ) then
-         call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivative_onlyLinear, ComputeTimeDerivative_onlyNonLinear)
+         call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, CTD_linear = ComputeTimeDerivative_onlyLinear, CTD_nonlinear = ComputeTimeDerivative_onlyNonLinear)
       else
          call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative)
       end if

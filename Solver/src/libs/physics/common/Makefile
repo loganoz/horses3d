@@ -17,6 +17,13 @@ LIBOBJS_NS = 	./build_ns/FluidData.o \
 		./build_ns/Physics.o \
 		./build_ns/BoundaryConditions.o 
 
+LIBOBJS_CH = 	./build_ch/FluidData.o \
+		./build_ch/PhysicsStorage.o \
+		./build_ch/VariableConversion.o \
+		./build_ch/Physics.o \
+		./build_ch/BoundaryConditions.o 
+
+
 LIB = physics
 
 ############################################
@@ -24,7 +31,7 @@ LIB = physics
 ############################################
 .DEFAULT_GOAL := lib$(LIB).a
 
-all: lib$(LIB)_ns.a
+all: lib$(LIB)_ns.a lib$(LIB)_ch.a
 
 ./build_ns/%.o: %.f90
 	@echo
@@ -57,9 +64,9 @@ lib$(LIB)_ch.a: header mkdirs $(LIBOBJS_CH)
 
 install: all
 	cp -p lib$(LIB)_ns.a $(INSTALL_DIR)/lib/
-	#cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
+	cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
 	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
-	#cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
+	cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
 	@echo
 	@echo
 

@@ -4,9 +4,9 @@
 !   @File:    FluidData_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:09 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Thu Apr 19 17:24:26 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: ca7f00098495d6fca03f13af3e8a139f88ed41e0
 !
 !//////////////////////////////////////////////////////
 !
@@ -50,14 +50,12 @@ module FluidData_NS
 
 
    type RefValues_t
-      real(kind=RP)        :: L
       real(kind=RP)        :: V
       real(kind=RP)        :: T
       real(kind=RP)        :: p
       real(kind=RP)        :: rho
       real(kind=RP)        :: mu
       real(kind=RP)        :: kappa
-      real(kind=RP)        :: time
       real(kind=RP)        :: AoATheta
       real(kind=RP)        :: AoAPhi
    end type RefValues_t
@@ -127,14 +125,12 @@ module FluidData_NS
          implicit none
          type(RefValues_t),   intent(in)     :: refValues_
 
-         refValues % L        = refValues_ % L
          refValues % T        = refValues_ % T
          refValues % p        = refValues_ % p
          refValues % rho      = refValues_ % rho
          refValues % V        = refValues_ % V
          refValues % mu       = refValues_ % mu
          refValues % kappa    = refValues_ % kappa
-         refValues % time     = refValues_ % time
          refValues % AoATheta = refValues_ % AoATheta
          refValues % AoAPhi   = refValues_ % AoAPhi
 

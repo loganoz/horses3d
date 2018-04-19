@@ -135,7 +135,7 @@ end interface
 !     Set up the DGSEM
 !     ----------------
 !      
-      CALL ConstructPhysicsStorage_NS( controlVariables, success )
+      CALL ConstructPhysicsStorage( controlVariables, success )
       IF(.NOT. success)   ERROR STOP "Physics parameters input error"
       
       ! Initialize manufactured solutions if necessary

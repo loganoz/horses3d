@@ -30,7 +30,7 @@ endif
 ############################################
 .DEFAULT_GOAL:=all
 
-all: lib$(LIB)_ns$(LIBSUFFIX) lib$(LIB)_ch$(LIBSUFFIX)
+all: lib$(LIB)_ns$(LIBSUFFIX) 
 
 ./build_ns/%.o: %.f90
 	@echo
@@ -65,7 +65,7 @@ lib$(LIB)_ch$(LIBSUFFIX): header mkdirs ./build_ch/ProblemFile.o
 
 install: all
 	cp -p lib$(LIB)_ns$(LIBSUFFIX) $(INSTALL_DIR)/lib/
-	cp -p lib$(LIB)_ch$(LIBSUFFIX) $(INSTALL_DIR)/lib/
+#	cp -p lib$(LIB)_ch$(LIBSUFFIX) $(INSTALL_DIR)/lib/
 	@echo
 	@echo
 
