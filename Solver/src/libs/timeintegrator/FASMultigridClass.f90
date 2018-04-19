@@ -372,8 +372,7 @@ module FASMultigridClass
          ALLOCATE (Child_p % p_sem)
          
          call Child_p % p_sem % construct (controlVariables = controlVariables,                                          &
-                                           externalState     = Solver % p_sem % externalState,                           &
-                                           externalGradients = Solver % p_sem % externalGradients,                       &
+                                           BCFunctions      = Solver % p_sem % BCFunctions,                              &
                                            Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,                                        &
                                            success = success,                                                            &
                                            ChildSem = .TRUE. )
@@ -501,8 +500,7 @@ module FASMultigridClass
          if (SmoothFine .AND. lvl > 1) then ! .AND. .not. FMG
             if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
             call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
-            call ComputeTimeDerivative(this % Child % p_sem % mesh,t, this % Child % p_sem % externalState, &
-                                       this % Child % p_sem % externalGradients)
+            call ComputeTimeDerivative(this % Child % p_sem % mesh,this % Child % p_sem % particles, t, this % Child % p_sem % BCFunctions)
             
             if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals(this % Child % p_sem % mesh))) exit
          else
@@ -749,7 +747,7 @@ module FASMultigridClass
 !     If not on finest level, correct source term
 !     -------------------------------------------
 !      
-      call ComputeTimeDerivative(Child_p % p_sem % mesh,t, Child_p % p_sem % externalState, Child_p % p_sem % externalGradients) 
+      call ComputeTimeDerivative(Child_p % p_sem % mesh,Child_p % p_sem % particles, t, Child_p % p_sem % BCFunctions) 
       
 !$omp parallel do schedule(runtime)
       DO iEl = 1, nelem
@@ -835,8 +833,8 @@ module FASMultigridClass
          case (RK3_SMOOTHER)
             do sweep = 1, SmoothSweeps
                if (Compute_dt) own_dt = MaxTimeStep(this % p_sem, cfl, dcfl )
-               call TakeRK3Step (this % p_sem % mesh, t, this % p_sem % externalState, &
-                                this % p_sem % externalGradients, own_dt, ComputeTimeDerivative )
+               call TakeRK3Step (this % p_sem % mesh, this % p_sem % particles, t, this % p_sem % BCFunctions, &
+                             own_dt, ComputeTimeDerivative )
             end do
 !
 !        Implicit smoothers

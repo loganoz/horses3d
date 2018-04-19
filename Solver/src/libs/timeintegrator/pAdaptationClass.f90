@@ -24,6 +24,9 @@ module pAdaptationClass
    use TruncationErrorClass
    use FTValueDictionaryClass
    use TimeIntegratorDefinitions
+#if defined(CAHNHILLIARD)
+   use BoundaryConditionFunctions, only: C_BC, MU_BC
+#endif
    
    implicit none
    
@@ -75,8 +78,14 @@ module pAdaptationClass
    integer    :: NInc
    integer    :: nelem   ! number of elements in mesh
    
+#if defined(NAVIERSTOKES)
    procedure(BCState_FCN)   :: externalStateForBoundaryName
    procedure(BCGradients_FCN)   :: ExternalGradientForBoundaryName
+#elif defined(CAHNHILLIARD)
+   procedure(BCState_FCN)   :: externalStateForBoundaryName
+   procedure(BCGradients_FCN)   :: ExternalChemicalPotentialGradientForBoundaryName
+   procedure(BCGradients_FCN)   :: ExternalConcentrationGradientForBoundaryName
+#endif
    
    ! Here we define the input variables that can be changed after p-adaptation
    character(len=18), parameter :: ReplacedInputVars(4) = (/'mg sweeps         ', &
@@ -351,6 +360,7 @@ module pAdaptationClass
       logical                    :: notenough(3)
       TYPE(AnisFASMultigrid_t)   :: AnisFASpAdaptSolver
       character(len=LINE_LENGTH) :: AdaptedMeshFile
+      type(BCFunctions_t)        :: BCFunctions(no_of_BCsets)
       interface
          character(len=LINE_LENGTH) function getFileName( inputLine )
             use SMConstants
@@ -563,11 +573,23 @@ module pAdaptationClass
       call Stopwatch % Pause("Solver")
       call Stopwatch % Start("Preprocessing")
       
+#if defined(NAVIERSTOKES)
+      BCFunctions(1) % externalState => externalStateForBoundaryName
+      BCFunctions(1) % externalGradients => externalGradientForBoundaryName
+#elif defined(CAHNHILLIARD)
+      BCFunctions(C_BC) % externalState      => externalStateForBoundaryName
+      BCFunctions(C_BC) % externalGradients  => externalConcentrationGradientForBoundaryName
+
+      BCFunctions(MU_BC) % externalState     => externalStateForBoundaryName
+      BCFunctions(MU_BC) % externalGradients => externalChemicalPotentialGradientForBoundaryName
+#endif
+
+
+
       Oldsem = sem
       call sem % destruct
       call sem % construct (  controlVariables  = pAdapt % controlVariables                              ,  &
-                              externalState     = externalStateForBoundaryName,                             &
-                              externalGradients = ExternalGradientForBoundaryName,                          &
+                              BCFunctions       = BCFunctions, &
                               Nx_ = NNew(1,:) ,     Ny_ = NNew(2,:),     Nz_ = NNew(3,:),                   &
                               success           = success)
       IF(.NOT. success)   ERROR STOP "Error constructing adapted DGSEM"
@@ -642,7 +664,7 @@ module pAdaptationClass
 !     Update residuals
 !     ----------------
 !
-      call ComputeTimeDerivative(sem % mesh, t, sem % externalState, sem % externalGradients)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
       
       write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
    end subroutine pAdaptTE

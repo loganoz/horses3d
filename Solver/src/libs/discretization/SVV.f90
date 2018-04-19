@@ -4,9 +4,9 @@
 !   @File:    SVV.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Jan  6 11:47:48 2018
-!   @Last revision date: Mon Feb 12 19:00:32 2018
+!   @Last revision date: Wed Apr 11 13:13:19 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 04004b13db40efe389672a6abc8cfae5187c2c0e
+!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
 !
 !//////////////////////////////////////////////////////
 !
@@ -18,7 +18,7 @@ module SpectralVanishingViscosity
    use Physics
    use PhysicsStorage
    use MPI_Face_Class
-   use ViscousMethodClass
+   use EllipticDiscretizationClass
    use HexMeshClass
    use NodalStorageClass
    use GaussQuadrature
@@ -138,7 +138,7 @@ module SpectralVanishingViscosity
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine SVV_ComputeInnerFluxes( self , e , contravariantFlux )
+      subroutine SVV_ComputeInnerFluxes( self , e , EllipticFlux, contravariantFlux )
          use ElementClass
          use PhysicsStorage
          use Physics
@@ -146,6 +146,7 @@ module SpectralVanishingViscosity
          implicit none
          class(SVV_t) ,     intent (in)         :: self
          type(Element)                          :: e
+         procedure(EllipticFlux3D_f)            :: EllipticFlux
          real(kind=RP)           , intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
@@ -186,7 +187,7 @@ module SpectralVanishingViscosity
 
          end associate
 
-         call ViscousFlux( e%Nxyz, e % storage % Q , Uxf, Uyf, Uzf, mu, kappa, cartesianFlux )
+         call EllipticFlux( e%Nxyz, e % storage % Q , Uxf, Uyf, Uzf, mu, kappa, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -207,24 +208,25 @@ module SpectralVanishingViscosity
 
       end subroutine SVV_ComputeInnerFluxes
 
-      subroutine SVV_RiemannSolver ( self, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, flux)
+      subroutine SVV_RiemannSolver ( self, f, EllipticFlux, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, flux)
          use SMConstants
          use PhysicsStorage
          use Physics
          use FaceClass
          use LESModels
          implicit none
-         class(SVV_t)               :: self
-         class(Face),   intent(in)  :: f
-         real(kind=RP), intent(in)  :: QLeft(NCONS, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(in)  :: QRight (NCONS, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(in)  :: U_xLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(in)  :: U_yLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(in)  :: U_zLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(in)  :: U_xRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(in)  :: U_yRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(in)  :: U_zRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(out) :: flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+         class(SVV_t)                :: self
+         class(Face),   intent(in)   :: f
+         procedure(EllipticFlux2D_f) :: EllipticFlux
+         real(kind=RP), intent(in)   :: QLeft(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)   :: QRight (NCONS, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)   :: U_xLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)   :: U_yLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)   :: U_zLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)   :: U_xRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)   :: U_yRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(in)   :: U_zRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), intent(out)  :: flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
 !
 !        ---------------
 !        Local variables
@@ -271,7 +273,7 @@ module SpectralVanishingViscosity
 
          end associate
 
-         call ViscousFlux(f % Nf, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
+         call EllipticFlux(f % Nf, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             flux(:,i,j) =   flux_vec(:,IX,i,j) * f % geom % normal(IX,i,j) &

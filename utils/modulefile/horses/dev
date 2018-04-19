@@ -7,5 +7,8 @@ proc ModulesHelp { } {
 
 module-whatis " HORSES - A High-Order spectral element solver"
 
-prepend-path PATH ~/local/codes/horses3d/Solver/bin
+
+prepend-path PATH /home/juan/OwnCloud/Research/DGSEM/Codes/FORTRAN/HORSES3D/Solver/bin
 setenv METIS_HOME ~/apps/metis/5.1.0
+set-alias horses-get-makefile "cp /home/juan/OwnCloud/Research/DGSEM/Codes/FORTRAN/HORSES3D/Solver/test/Makefile.template ./Makefile.template"
+set-alias horses-get-problemfile "cp /home/juan/OwnCloud/Research/DGSEM/Codes/FORTRAN/HORSES3D/Solver/src/libs/problemfile/ProblemFile.f90 ./ProblemFileTemplate.f90"

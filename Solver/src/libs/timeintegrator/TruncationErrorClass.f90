@@ -158,7 +158,7 @@ module TruncationErrorClass
       real(kind=RP)            :: maxTE
       !-----------------------------
       
-      call TimeDerivative(sem % mesh,t, sem % externalState, sem % externalGradients)
+      call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
       
       do iEl = 1, size(sem % mesh % elements)
          N = sem % mesh % elements(iEl) % Nxyz

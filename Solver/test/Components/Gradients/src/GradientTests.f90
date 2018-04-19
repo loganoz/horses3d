@@ -12,7 +12,7 @@
       USE DGSEMClass
       USE SpatialDiscretization
       USE SetupModule
-      use ViscousMethods
+      use EllipticDiscretizations
       
       IMPLICIT NONE
 !
@@ -48,15 +48,15 @@
 !     In this point, do not use any viscous discretization
 !     ----------------------------------------------------
 !
-      deallocate( ViscousMethod )
-      allocate(ViscousMethod_t :: ViscousMethod)
+      deallocate( EllipticDiscretization )
+      allocate(EllipticDiscretization_t :: EllipticDiscretization)
 
 !$omp parallel shared(sem)
       call sem % mesh % ProlongSolutionToFaces()
 !$omp end parallel
       
-      call TimeDerivative_ComputeQDot( sem % mesh , 0.0_RP , &
-                     sem % externalState, sem % externalGradients)
+      call TimeDerivative_ComputeQDot( sem % mesh , sem % particles, 0.0_RP , &
+                     sem % BCFunctions(1) % externalState, sem % BCFunctions(1) % externalGradients)
 !
 !     ------------------------------------------------
 !     Check the divergence of the different components
@@ -117,7 +117,7 @@
       USE DGSEMClass
       USE SpatialDiscretization
       USE SetupModule
-      use ViscousMethods
+      use EllipticDiscretizations
       
       IMPLICIT NONE
 !
@@ -153,11 +153,11 @@
 !$omp end parallel
 
       IF ( flowIsNavierStokes )     THEN
-         CALL DGSpatial_ComputeGradient( sem % mesh , 0.0_RP , sem % externalState) 
+         CALL DGSpatial_ComputeGradient( sem % mesh , 0.0_RP , sem % BCFunctions(1) % externalState) 
       END IF
 
-      call TimeDerivative_ComputeQDot( sem % mesh , 0.0_RP, &
-                                    sem % externalState, sem % externalGradients)
+      call TimeDerivative_ComputeQDot( sem % mesh , sem % particles, 0.0_RP, &
+                                    sem % BCFunctions(1) % externalState, sem % BCFunctions(1) % externalGradients)
 !
 !     ------------------------------------------------
 !     Check the divergence of the different components

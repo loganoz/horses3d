@@ -197,7 +197,7 @@ contains
       end select
       CALL Matrix % Reset
       
-      CALL ComputeTimeDerivative( sem % mesh, t, sem % externalState, sem % externalGradients)
+      CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions )
 !
 !     Save base state in dgs_clean
 !     ----------------------------
@@ -227,7 +227,7 @@ contains
                                                    sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
             ENDDO
             
-            CALL ComputeTimeDerivative( sem % mesh, t, sem % externalState, sem % externalGradients )            
+            CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions )  
             
             DO thiselmidx = ielm, felm-1
                thiselm = ecolors%elmnts(thiselmidx)

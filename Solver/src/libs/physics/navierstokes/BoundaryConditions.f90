@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:09 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Tue Apr 10 17:29:21 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
 !
 !//////////////////////////////////////////////////////
 !
@@ -123,7 +123,7 @@
 !
       FUNCTION WallTemperatureForBoundaryNamed(boundaryName) RESULT(T)
          IMPLICIT NONE
-         CHARACTER(LEN=32), INTENT(IN)    :: boundaryName
+         CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryName
          REAL(KIND=RP)                    :: T
          
          ! Choose different temperatures according to boundary name, if desired...
@@ -135,14 +135,22 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      FUNCTION ExternalPressure() RESULT(p)
+      FUNCTION ExternalPressure(boundaryName) RESULT(p)
          IMPLICIT NONE
+         CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryName
          REAL(KIND=RP)                    :: p
-         
-         ! Choose different temperatures according to boundary name, if desired...
-         ! For now, just use the UninformFlow value.
-         
-         p    = 1.0_RP/(dimensionless % gammaM2)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         REAL(KIND=RP)                    :: deltaP 
+          
+         ! The external pressure (p) is the UniformFlow value minus deltaP 
+         ! The value of deltaP is specified in the control file 
+ 
+         deltaP = bcValueDictionary % realValueForKey(boundaryName) 
+         p    = 1.0_RP/(dimensionless % gammaM2) - deltaP          
       
       END FUNCTION ExternalPressure
 !
@@ -613,7 +621,7 @@
 !=====================================================================================================
 !
 !
-      SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryType )
+      SUBROUTINE externalStateForBoundaryName( x, t, nHat, Q, boundaryType, boundaryName )
 !
 !     ----------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -631,8 +639,9 @@
 !     ---------
 !
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: Q(NCONS)
-      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+      REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
+      CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryType
+      CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryName
 !
 !     ---------------
 !     Local variables
@@ -648,8 +657,10 @@
       ELSE IF ( boundarytype == "noslipisothermalwall") THEN 
          CALL NoSlipIsothermalWallState( x, t, Q )
       ELSE IF ( boundaryType == "outflowspecifyp" )     THEN 
-         pExt =  ExternalPressure()
+!$omp critical
+         pExt =  ExternalPressure(boundaryName)
          CALL ExternalPressureState ( x, t, nHat, Q, pExt )
+!$omp end critical
       ELSE IF ( boundaryType == "manufacturedsol" )     THEN 
          CALL ManufacturedSolutionState( x, t, Q )
       ELSE IF ( boundaryType == "MSOutflowSpecifyP" )     THEN 
@@ -665,7 +676,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, GradU, boundaryType )
+      SUBROUTINE ExternalGradientForBoundaryName( x, t, nHat, GradU, boundaryType, boundaryName )
 !
 !     ------------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -683,7 +694,8 @@
 !
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
       REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,N_GRAD_EQN)
-      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+      CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryType
+      CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryName
 !
 !     ---------------
 !     Local variables

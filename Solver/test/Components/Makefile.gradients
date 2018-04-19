@@ -78,6 +78,8 @@ OBJS_HORSES=  SMConstants \
 		HexMesh \
 		MeshTypes \
 		NodeClass \
+		Particle \
+		Particles \
 		autosave \
 		MonitorDefinitions \
 		ResidualsMonitor \
@@ -88,16 +90,16 @@ OBJS_HORSES=  SMConstants \
 		StatisticsMonitor \
 		Probe\
 		Monitors \
-		InviscidMethodClass \
-		InviscidStandard \
-		InviscidSplitForm \
-		InviscidMethods \
+		HyperbolicDiscretizationClass \
+		HyperbolicStandard \
+		HyperbolicSplitForm \
+		HyperbolicDiscretizations \
 		SVV \
-		ViscousMethodClass \
-		ViscousBR1 \
-		ViscousBR2 \
-		ViscousIP \
-		ViscousMethods \
+		EllipticDiscretizationClass \
+		EllipticBR1 \
+		EllipticBR2 \
+		EllipticIP \
+		EllipticDiscretizations \
 		WeakIntegrals \
 		DGSEMClass \
 		TimeIntegratorDefinitions \

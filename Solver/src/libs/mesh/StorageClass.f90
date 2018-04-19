@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Tue Jan 16 13:25:53 2018
+!   @Last revision date: Wed Apr 11 16:48:12 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 5143fa03eb24e8282a2043aa22cb178df572b474
+!   @Last revision commit: bbf58e3f84d7b02811cdad12966f27e084fd8a36
 !
 !//////////////////////////////////////////////////////
 !
@@ -79,9 +79,10 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_ri  ! RIGHT
       real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_le  ! LEFT
 #if defined(CAHNHILLIARD)
-      real(kind=RP), dimension(:,:,:),   allocatable :: c   ! Cahn-Hilliard concentration
-      real(kind=RP), dimension(:,:,:,:), allocatable :: gradC
-      real(kind=RP), dimension(:,:,:),   allocatable :: mu  ! Cahn-Hilliard chemical pot.
+      real(kind=RP), dimension(:,:,:),   allocatable :: c     ! Cahn-Hilliard concentration
+      real(kind=RP), dimension(:,:,:,:), allocatable :: gradC ! Cahn-Hilliard concentration gradient
+      real(kind=RP), dimension(:,:,:),   allocatable :: mu    ! Cahn-Hilliard chemical pot.
+      real(kind=RP), dimension(:,:,:,:), allocatable :: v   ! External flow field
 #endif
       contains
          procedure   :: Construct => ElementStorage_Construct
@@ -106,6 +107,7 @@ module StorageClass
 #if defined(CAHNHILLIARD)
       real(kind=RP), dimension(:,:), allocatable :: c 
       real(kind=RP), dimension(:,:), allocatable :: mu 
+      real(kind=RP), dimension(:,:,:), allocatable :: v 
 #endif
       contains
          procedure   :: Construct => FaceStorage_Construct
@@ -216,6 +218,7 @@ module StorageClass
          allocate( self % mu(0:Nx, 0:Ny, 0:Nz) )
          allocate( self % c (0:Nx, 0:Ny, 0:Nz) )
          allocate( self % gradC (1:NDIM,0:Nx, 0:Ny, 0:Nz) )
+         allocate( self % v (1:NDIM,0:Nx, 0:Ny, 0:Nz) )
 #endif
 !         
 !        -----------------
@@ -228,9 +231,10 @@ module StorageClass
          self % QDot        = 0.0_RP
 
 #if defined(CAHNHILLIARD)
-         self % mu = 0.0_RP
-         self % c  = 0.0_RP
+         self % mu    = 0.0_RP
+         self % c     = 0.0_RP
          self % gradC = 0.0_RP
+         self % v     = 0.0_RP
 #endif
       
          IF ( computeGradients )     THEN
@@ -285,6 +289,7 @@ module StorageClass
          safedeallocate(self % mu)
          safedeallocate(self % c)
          safedeallocate(self % gradC)
+         safedeallocate(self % v)
 #endif
 
          call self % stats % Destruct()
@@ -333,6 +338,7 @@ module StorageClass
 #if defined(CAHNHILLIARD)
          allocate( self % mu(0:Nf(1),0:Nf(2)) )
          allocate( self % c (0:Nf(1),0:Nf(2)) )
+         allocate( self % v (1:NDIM,0:Nf(1),0:Nf(2)) )
 #endif
 !
 !        -----------------
@@ -350,6 +356,7 @@ module StorageClass
 #if defined(CAHNHILLIARD)
          self % mu = 0.0_RP
          self % c  = 0.0_RP
+         self % v  = 0.0_RP
 #endif
 
       end subroutine FaceStorage_Construct
@@ -369,6 +376,11 @@ module StorageClass
          safedeallocate(self % dFv_dGradQF)
          safedeallocate(self % dFv_dGradQEl)
          safedeallocate(self % gradRho)
+#if defined(CAHNHILLIARD)
+         safedeallocate(self % mu)
+         safedeallocate(self % c)
+         safedeallocate(self % v)
+#endif
 
       end subroutine FaceStorage_Destruct
 !

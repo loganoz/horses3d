@@ -32,6 +32,7 @@ Module DGSEMClass
    USE ManufacturedSolutions
 #endif
    use MonitorsClass
+   use ParticlesClass
    use Physics
 #ifdef _HAS_MPI_
    use mpi
@@ -41,9 +42,20 @@ Module DGSEMClass
 
    private
    public   ComputeQDot_FCN, DGSem, ConstructDGSem
-   public   BCState_FCN, BCGradients_FCN
+   public   BCFunctions_t, BCState_FCN, BCGradients_FCN, no_of_BCsets
 
    public   DestructDGSEM, MaxTimeStep, ComputeMaxResiduals
+
+#if defined(NAVIERSTOKES)
+   integer, parameter   :: no_of_BCsets = 1
+#elif defined(CAHNHILLIARD)
+   integer, parameter   :: no_of_BCsets = 2
+#endif
+
+   type BCFunctions_t
+      PROCEDURE(BCState_FCN)    , NOPASS, POINTER :: externalState     => NULL()
+      PROCEDURE(BCGradients_FCN), NOPASS, POINTER :: externalGradients => NULL()
+   end type BCFunctions_t
    
    TYPE DGSem
       REAL(KIND=RP)                                           :: maxResidual
@@ -52,10 +64,14 @@ Module DGSEMClass
       INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
       INTEGER           , ALLOCATABLE                         :: Nx(:), Ny(:), Nz(:)
       TYPE(HexMesh)                                           :: mesh
-      PROCEDURE(BCState_FCN)    , NOPASS, POINTER :: externalState => NULL()
-      PROCEDURE(BCGradients_FCN), NOPASS, POINTER :: externalGradients => NULL()
+      class(BCFunctions_t), allocatable                       :: BCFunctions(:)
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
+#if defined(NAVIERSTOKES)
+      type(Particles_t)                                       :: particles
+#else
+      logical                                                 :: particles
+#endif
       contains
          procedure :: construct => ConstructDGSem
          procedure :: destruct  => DestructDGSem   
@@ -67,32 +83,41 @@ Module DGSEMClass
    END TYPE DGSem
 
    abstract interface
-      SUBROUTINE BCState_FCN(x,t,nHat,Q,boundaryName)
+      SUBROUTINE BCState_FCN(x,t,nHat,Q,boundaryType,boundaryName)
          USE SMConstants
          use PhysicsStorage
          REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-         REAL(KIND=RP)   , INTENT(INOUT) :: Q(NCONS)
+         REAL(KIND=RP)   , INTENT(INOUT) :: Q(N_EQN)
+         CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
          CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
       END SUBROUTINE BCState_FCN      
 
-      SUBROUTINE BCGradients_FCN(x,t,nHat,gradU,boundaryName)
+      SUBROUTINE BCGradients_FCN(x,t,nHat,gradU,boundaryType,boundaryName)
          USE SMConstants
          use PhysicsStorage
          REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-         REAL(KIND=RP)   , INTENT(INOUT) :: gradU(3,N_GRAD_EQN)
+         REAL(KIND=RP)   , INTENT(INOUT) :: gradU(NDIM,N_GRAD_EQN)
+         CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
          CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
       END SUBROUTINE BCGradients_FCN
 
-      SUBROUTINE ComputeQDot_FCN( mesh, time, externalState, externalGradients )
+      SUBROUTINE ComputeQDot_FCN( mesh, particles, time, BCFunctions )
          use SMConstants
          use HexMeshClass
+         use ParticlesClass
          import BCState_FCN
          import BCGradients_FCN
+         import BCFunctions_t
+         import no_of_BCsets
          IMPLICIT NONE 
-         type(HexMesh), target      :: mesh
-         REAL(KIND=RP)              :: time
-         procedure(BCState_FCN)     :: externalState
-         procedure(BCGradients_FCN) :: externalGradients
+         type(HexMesh), target           :: mesh
+#if defined(NAVIERSTOKES)
+         type(Particles_t)               :: particles
+#else
+         logical                         :: particles
+#endif
+         REAL(KIND=RP)                   :: time
+         type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
       end subroutine ComputeQDot_FCN
    END INTERFACE
 
@@ -101,7 +126,7 @@ Module DGSEMClass
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE ConstructDGSem( self, meshFileName_, controlVariables, &
-                                 externalState, externalGradients, polynomialOrder, Nx_, Ny_, Nz_, success, ChildSem )
+                                 BCFunctions, polynomialOrder, Nx_, Ny_, Nz_, success, ChildSem )
       use ReadMeshFile
       use FTValueDictionaryClass
       use mainKeywordsModule
@@ -118,6 +143,7 @@ Module DGSEMClass
       CLASS(DGSem)                       :: self                               !<> Class to be constructed
       character(len=*),         optional :: meshFileName_
       class(FTValueDictionary)           :: controlVariables                   !<  Name of mesh file
+      type(BCFunctions_t), intent(in)    :: BCFunctions(no_of_BCsets)
       INTEGER, OPTIONAL                  :: polynomialOrder(3)                 !<  Uniform polynomial order
       INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
@@ -144,7 +170,7 @@ Module DGSEMClass
 !     Local variables
 !     ---------------
 !
-      INTEGER                     :: i,j,k,el                           ! Counters
+      INTEGER                     :: i,j,k,el,bcset                     ! Counters
       INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
       integer                     :: nodes, NelL(2), NelR(2)
       INTEGER                     :: nTotalElem                              ! Number of elements in mesh
@@ -361,8 +387,11 @@ Module DGSEMClass
 !     Set boundary conditions
 !     -----------------------
 !
-      self % externalState     => externalState
-      self % externalGradients => externalGradients
+      allocate(self % BCFunctions(no_of_BCsets))
+      do bcset = 1, no_of_BCsets
+         self % BCFunctions(bcset) % externalState     => BCFunctions(bcset) % externalState
+         self % BCFunctions(bcset) % externalGradients => BCFunctions(bcset) % externalGradients
+      end do
       
       call assignBoundaryConditions(self)
 !
@@ -371,6 +400,19 @@ Module DGSEMClass
 !     ------------------
 !
       self % monitors = ConstructMonitors(self % mesh, controlVariables)
+
+#if defined(NAVIERSTOKES)
+!
+!     -------------------
+!     Build the particles
+!     -------------------
+!
+
+      self % particles % active = controlVariables % logicalValueForKey("lagrangian particles")
+      if ( self % particles % active ) then 
+            call self % particles % construct(self % mesh, controlVariables)
+      endif 
+#endif
       
       NULLIFY(Nx,Ny,Nz)
 !
@@ -389,8 +431,7 @@ Module DGSEMClass
       INTEGER      :: k      !Counter
       
       CALL self % mesh % destruct
-      self % externalState     => NULL()
-      self % externalGradients => NULL()
+      deallocate(self % BCFunctions)
       END SUBROUTINE DestructDGSem
 !
 !////////////////////////////////////////////////////////////////////////

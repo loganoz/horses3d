@@ -14,7 +14,8 @@ MODULE ExplicitMethods
    USE SMConstants
    use HexMeshClass
    use TimeIntegratorDefinitions
-   use DGSEMClass, only: ComputeQDot_FCN
+   use DGSEMClass, only: ComputeQDot_FCN, BCFunctions_t, no_of_BCsets
+   use ParticlesClass
    IMPLICIT NONE
 
    private
@@ -28,7 +29,7 @@ MODULE ExplicitMethods
 !  ------------------------------
 !  Routine for taking a RK3 step.
 !  ------------------------------
-   SUBROUTINE TakeRK3Step( mesh, t, externalState, externalGradients, deltaT, ComputeTimeDerivative )
+   SUBROUTINE TakeRK3Step( mesh, particles, t, BCFunctions, deltaT, ComputeTimeDerivative )
 !
 !     ----------------------------------
 !     Williamson's 3rd order Runge-Kutta
@@ -41,8 +42,13 @@ MODULE ExplicitMethods
 !     -----------------
 !
       type(HexMesh)      :: mesh
+#if defined(NAVIERSTOKES)
+      type(Particles_t)  :: particles
+#else
+      logical            :: particles
+#endif
       REAL(KIND=RP)   :: t, deltaT, tk
-      external        :: externalState, externalGradients
+      type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
       procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
 !
 !     ---------------
@@ -58,7 +64,7 @@ MODULE ExplicitMethods
       DO k = 1,3
          
          tk = t + b(k)*deltaT
-         CALL ComputeTimeDerivative( mesh, tk, externalState, externalGradients )
+         CALL ComputeTimeDerivative( mesh, particles, tk, BCFunctions)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -71,7 +77,7 @@ MODULE ExplicitMethods
       
    END SUBROUTINE TakeRK3Step
 
-   SUBROUTINE TakeRK5Step( mesh, t, externalState, externalGradients, deltaT, ComputeTimeDerivative )
+   SUBROUTINE TakeRK5Step( mesh, particles, t, BCFunctions, deltaT, ComputeTimeDerivative )
 !  
 !        *****************************************************************************************
 !           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
@@ -79,10 +85,15 @@ MODULE ExplicitMethods
 !        *****************************************************************************************
 !
       implicit none
-      type(HexMesh)      :: mesh
-      REAL(KIND=RP)   :: t, deltaT, tk
-      external        :: externalState, externalGradients
-      procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
+      type(HexMesh)                   :: mesh
+#if defined(NAVIERSTOKES)
+      type(Particles_t)  :: particles
+#else
+      logical            :: particles
+#endif
+      REAL(KIND=RP)                   :: t, deltaT, tk
+      type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
+      procedure(ComputeQDot_FCN)      :: ComputeTimeDerivative
 !
 !     ---------------
 !     Local variables
@@ -97,7 +108,7 @@ MODULE ExplicitMethods
       DO k = 1, N_STAGES
          
          tk = t + b(k)*deltaT
-         CALL ComputeTimeDerivative( mesh, tk, externalState, externalGradients )
+         CALL ComputeTimeDerivative( mesh, particles, tk, BCFunctions)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -110,7 +121,7 @@ MODULE ExplicitMethods
 
    end subroutine TakeRK5Step
 
-   SUBROUTINE TakeExplicitEulerStep( mesh, t, externalState, externalGradients, deltaT, ComputeTimeDerivative )
+   SUBROUTINE TakeExplicitEulerStep( mesh, particles, t, BCFunctions, deltaT, ComputeTimeDerivative )
 !  
 !        *****************************************************************************************
 !           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
@@ -118,18 +129,23 @@ MODULE ExplicitMethods
 !        *****************************************************************************************
 !
       implicit none
-      type(HexMesh)      :: mesh
-      REAL(KIND=RP)   :: t, deltaT, tk
-      external        :: externalState, externalGradients
-      procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
-!
+      type(HexMesh)                   :: mesh
+#if defined(NAVIERSTOKES)
+      type(Particles_t)  :: particles
+#else
+      logical            :: particles
+#endif
+      REAL(KIND=RP)                   :: t, deltaT, tk
+      type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
+      procedure(ComputeQDot_FCN)      :: ComputeTimeDerivative
+      !
 !     ---------------
 !     Local variables
 !     ---------------
 !
       integer                    :: id, k
 
-      CALL ComputeTimeDerivative( mesh, t, externalState, externalGradients )
+      CALL ComputeTimeDerivative( mesh, particles, t, BCFunctions)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -138,7 +154,6 @@ MODULE ExplicitMethods
 !$omp end parallel do
          
    end subroutine TakeExplicitEulerStep
-
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

@@ -1,4 +1,4 @@
-module ViscousBR1
+module EllipticBR1
    use SMConstants
    use Headers
    use MeshTypes
@@ -7,7 +7,7 @@ module ViscousBR1
    use PhysicsStorage
    use MPI_Process_Info
    use MPI_Face_Class
-   use ViscousMethodClass
+   use EllipticDiscretizationClass
    use DGSEMClass, only: BCState_FCN
    implicit none
 !
@@ -15,7 +15,7 @@ module ViscousBR1
    private
    public   BassiRebay1_t
 
-   type, extends(ViscousMethod_t)   :: BassiRebay1_t
+   type, extends(EllipticDiscretization_t)   :: BassiRebay1_t
       contains
          procedure      :: ComputeGradient           => BR1_ComputeGradient
          procedure      :: ComputeInnerFluxes        => BR1_ComputeInnerFluxes
@@ -132,7 +132,6 @@ module ViscousBR1
             call mesh % GatherMPIFacesSolution
          end if
 !$omp end single
-
 
 !$omp do schedule(runtime) 
          do fID = 1, SIZE(mesh % faces) 
@@ -341,7 +340,7 @@ module ViscousBR1
                                 time               , &
                                 f % geom % normal(:,i,j)      , &
                                 bvExt              , &
-                                f % boundaryType )  
+                                f % boundaryType, f % boundaryName )  
 !   
 !           -------------------
 !           u, v, w, T averages
@@ -362,13 +361,14 @@ module ViscousBR1
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_ComputeInnerFluxes( self , e , contravariantFlux )
+      subroutine BR1_ComputeInnerFluxes( self , e , EllipticFlux, contravariantFlux )
          use ElementClass
          use PhysicsStorage
          use Physics
          implicit none
          class(BassiRebay1_t) ,     intent (in) :: self
          type(Element)                          :: e
+         procedure(EllipticFlux3D_f)            :: EllipticFlux
          real(kind=RP)           , intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
@@ -391,9 +391,7 @@ module ViscousBR1
 
 #endif
 
-         call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
-
-
+         call EllipticFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -469,26 +467,27 @@ module ViscousBR1
 
       end subroutine BR1_ComputeInnerFluxesWithSGS
 #endif
-      subroutine BR1_RiemannSolver ( self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+      subroutine BR1_RiemannSolver ( self , f, EllipticFlux, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
          use Physics
          use FaceClass
          implicit none
-         class(BassiRebay1_t)                 :: self
-         class(Face),   intent(in)            :: f
-         real(kind=RP), dimension(N_EQN)      :: QLeft
-         real(kind=RP), dimension(N_EQN)      :: QRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
-         real(kind=RP), dimension(NDIM)       :: nHat
-         real(kind=RP)                        :: dWall
-         real(kind=RP), dimension(N_EQN)      :: flux
+         class(BassiRebay1_t)                    :: self
+         class(Face),   intent(in)               :: f
+         procedure(EllipticFlux0D_f)             :: EllipticFlux
+         real(kind=RP), dimension(N_EQN)         :: QLeft
+         real(kind=RP), dimension(N_EQN)         :: QRight
+         real(kind=RP), dimension(N_GRAD_EQN)    :: U_xLeft
+         real(kind=RP), dimension(N_GRAD_EQN)    :: U_yLeft
+         real(kind=RP), dimension(N_GRAD_EQN)    :: U_zLeft
+         real(kind=RP), dimension(N_GRAD_EQN)    :: U_xRight
+         real(kind=RP), dimension(N_GRAD_EQN)    :: U_yRight
+         real(kind=RP), dimension(N_GRAD_EQN)    :: U_zRight
+         real(kind=RP), dimension(NDIM)          :: nHat
+         real(kind=RP)                           :: dWall
+         real(kind=RP), dimension(N_EQN)         :: flux
 !
 !        ---------------
 !        Local variables
@@ -516,7 +515,7 @@ module ViscousBR1
 
 #endif
 
-         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, flux_vec)
+         call EllipticFlux(Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 
@@ -574,4 +573,4 @@ module ViscousBR1
 
       end subroutine BR1_RiemannSolverWithSGS
 #endif
-end module ViscousBR1
+end module EllipticBR1

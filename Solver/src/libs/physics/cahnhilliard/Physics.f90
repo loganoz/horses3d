@@ -7,6 +7,7 @@ module Physics
 
       private
       public  ViscousFlux, QuarticDWPDerivative, QuarticDWP
+      public  ViscousFlux0D, ViscousFlux3D, PoiseuilleFlow
 !
 !     ---------
 !     Constants
@@ -121,5 +122,22 @@ module Physics
          f = POW2((c-c_alpha)*(c-c_beta))
 
       end subroutine QuarticDWP_0D
+
+      pure subroutine PoiseuilleFlow(x, v)
+         implicit none
+         real(kind=RP), intent(in)  :: x(NDIM)
+         real(kind=RP), intent(out) :: v(NDIM)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP), parameter  :: L = 40.0_RP
+
+         v(1) = 0.0_RP
+         v(2) = 0.0_RP
+         v(3) = 4.0_RP * x(1) * ( L - x(1) )
+
+      end subroutine PoiseuilleFlow
 
 END Module Physics

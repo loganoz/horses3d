@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (a.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Tue Feb 13 19:37:39 2018
+!   @Last revision date: Tue Apr 10 17:29:23 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: c01958bbb74b2de9252027cd1c501fe081a58ef2
+!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
 !
 !//////////////////////////////////////////////////////
 !
@@ -128,7 +128,7 @@ contains
 !     Compute the Jacobian of the Numerical Flux (FStar)
 !     **************************************************
 !
-      call ComputeNumericalFluxJacobian(sem % mesh,time,sem % externalState)
+      call ComputeNumericalFluxJacobian(sem % mesh,time,sem % BCFunctions(1) % externalState)
 !
 !     ***************
 !     Diagonal blocks
@@ -339,7 +339,7 @@ contains
                                       time, &
                                       f % geom % normal(:,i,j), &
                                       f % storage(2) % Q(:,i,j),&
-                                      f % boundaryType )
+                                      f % boundaryType, f % boundaryName )
 !
 !        Get numerical flux jacobian on the face point (i,j)
 !        ---------------------------------------------------
@@ -380,6 +380,7 @@ contains
                                      f % storage(1) % Q(:,i,j),&
                                      f % storage(2) % Q(:,i,j),&
                                      f % boundaryType, &
+                                     f % boundaryName, &
                                      externalStateProcedure, &
                                      BCjac )
          
@@ -440,7 +441,7 @@ contains
 !  This routine obtains the Jacobian of the boundary condition numerically.
 !  This can be optimized introducing the analytical Jacobian of every single implemented BC...
 !  -----------------------------------------------------------------------------------------------
-   subroutine ExternalStateJacobian(x,time,nHat,Qin,Qex,boundaryType,externalStateProcedure,BCjac)
+   subroutine ExternalStateJacobian(x,time,nHat,Qin,Qex,boundaryType,boundaryName,externalStateProcedure,BCjac)
       implicit none
       !--------------------------------------------
       real(kind=RP), intent(in)       :: x(3)
@@ -449,6 +450,7 @@ contains
       real(kind=RP), intent(in)       :: Qin(NCONS)
       real(kind=RP), intent(in)       :: Qex(NCONS)
       CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+      CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
       procedure(BCState_FCN)          :: externalStateProcedure
       real(kind=RP), intent(out)      :: BCjac(NCONS,NCONS)
       !--------------------------------------------
@@ -464,7 +466,7 @@ contains
          buffer = q(i)
          q(i) = q(i) + eps
          newQext = q
-         CALL externalStateProcedure( x, time, nHat, newQext, boundaryType )
+         CALL externalStateProcedure( x, time, nHat, newQext, boundaryType, boundaryName )
          
          BCjac(:,i) = (newQext-Qex)/eps
          
