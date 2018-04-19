@@ -191,7 +191,7 @@ contains
          RHS = RHS - Ros_c(j,stage) * this % Y(:,j)
       end do
       
-      call ComputeTimeDerivative( sem % mesh, t, sem % externalState, sem % externalGradients)
+      call ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions)
       
       RHS = RHS/dt - Qdot
       

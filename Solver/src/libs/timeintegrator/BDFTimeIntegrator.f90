@@ -424,7 +424,7 @@ contains
       real(kind=RP)  :: RHS(sem % NDOF), maxQ, maxPrevQ, maxQdot, maxRHS
       !----------------------------------------------------------------
       
-      call ComputeTimeDerivative( sem % mesh, t, sem % externalState, sem % externalGradients)
+      call ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions)
       
       RHS = BDF_GetRHS(Q     = sem % mesh % storage % Q, &
                        PrevQ = sem % mesh % storage % PrevQ, &

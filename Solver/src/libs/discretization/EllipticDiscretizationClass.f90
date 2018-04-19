@@ -166,7 +166,7 @@ module EllipticDiscretizationClass
          use PhysicsStorage
          implicit none
          !--------------------------------------------
-         class(ViscousMethod_t), intent(in)    :: self
+         class(EllipticDiscretization_t), intent(in)    :: self
          type(Element)         , intent(inout) :: e                                                                             !<  This element
          real(kind=RP)         , intent(out)   :: df_dgradq( NCONS, NCONS, NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM ) !>  Jacobian with respect to ∇q
          real(kind=RP)         , intent(inout) :: dFdQ     ( NCONS, NCONS      , 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM ) !<> Jacobian with respect to q
@@ -264,7 +264,7 @@ module EllipticDiscretizationClass
          use PhysicsStorage
          implicit none
          !--------------------------------------------
-         class(ViscousMethod_t), intent(in)    :: self
+         class(EllipticDiscretization_t), intent(in)    :: self
          type(Face)            , intent(inout) :: f
          !--------------------------------------------
 !$omp single

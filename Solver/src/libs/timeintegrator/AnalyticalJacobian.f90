@@ -11,8 +11,6 @@
 !//////////////////////////////////////////////////////
 !
 !  This module provides the routines for computing the analytical Jacobian matrix
-!  -> Implemented for inviscid terms (diagonal blocks)
-!  -> Viscous terms are under development
 !  -> TODO: MPI implementation is missing
 !  -> The Jacobian of the BCs is temporarily computed numerically
 !
@@ -30,7 +28,7 @@ module AnalyticalJacobian
    use DGSEMClass
    use StopWatchClass
    use MeshTypes
-   use ViscousMethods
+   use EllipticDiscretizations
    implicit none
    
    private
@@ -366,7 +364,7 @@ contains
 !     Viscous contribution
 !     ********************
 !
-      if (flowIsNavierStokes) call ViscousMethod % RiemannSolver_Jacobians(f)  ! TODO: Check if external gradient has to be taken into account
+      if (flowIsNavierStokes) call EllipticDiscretization % RiemannSolver_Jacobians(f)  ! TODO: Check if external gradient has to be taken into account
 !
 !     **************************************************************
 !     Correct dFstar/dQL with the Jacobian of the boundary condition
@@ -431,7 +429,7 @@ contains
          
       end do             ; end do
       
-      if (flowIsNavierStokes) call ViscousMethod % RiemannSolver_Jacobians(f)
+      if (flowIsNavierStokes) call EllipticDiscretization % RiemannSolver_Jacobians(f)
       
    end subroutine ComputeInterfaceFluxJacobian
 !
@@ -500,7 +498,7 @@ contains
 !  
 !  -----------------------------------------------------------------------------------------------
    subroutine Local_GetDiagonalBlock(e,LocalMat)
-      use InviscidMethods
+      use HyperbolicDiscretizations
       implicit none
       !-------------------------------------------
       type(Element), intent(inout) :: e
@@ -527,8 +525,8 @@ contains
 !     Inviscid contribution
 !     *********************
 !
-      call InviscidMethod % ComputeInnerFluxJacobian( e, dFdQ) 
-      if (flowIsNavierStokes) call ViscousMethod % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
+      call HyperbolicDiscretization % ComputeInnerFluxJacobian( e, dFdQ) 
+      if (flowIsNavierStokes) call EllipticDiscretization % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
       
       LocalMat = 0._RP
       do k2 = 0, e % Nxyz(3) ; do j2 = 0, e % Nxyz(2) ; do i2 = 0, e % Nxyz(1) ; do eq2 = 1, NCONS 
