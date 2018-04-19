@@ -19,6 +19,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/CylinderFAS \
             ./NavierStokes/CylinderBR2 \
             ./NavierStokes/CylinderIP \
+            ./NavierStokes/CylinderIP_BDF2 \
             ./NavierStokes/CylinderDucros \
             ./NavierStokes/CylinderDifferentOrders \
             ./NavierStokes/CylinderLES \

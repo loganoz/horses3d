@@ -672,9 +672,9 @@ module ViscousIP
                   dF_dGradQ_in(:,:,3) = dF_dGradQ_in(:,:,3) + df_dgradq(:,:,m,n) * f % geom % GradZeta(n,i,j) * nHat(m)
                end do          ; end do
                
-!              Scale according to scheme multipĺy by the jacobian (surface integral) 
-!              ---------------------------------------------------------------------
-               dF_dGradQ_in = dF_dGradQ_in * (-0.5_RP) * f % geom % jacobian(i,j)
+!              Scale according to scheme and multipĺy by the jacobian (surface integral) 
+!              -------------------------------------------------------------------------
+               dF_dGradQ_in = dF_dGradQ_in * (0.5_RP) * f % geom % jacobian(i,j) ! TODO: Should the constant be -0.5???
                
 !               
 !            For the outer surface integral
