@@ -159,10 +159,6 @@ module SpatialDiscretization
          
          end if
 !
-!        Compute wall distances
-!        ----------------------
-         call mesh % ComputeWallDistances
-!
 !        Initialize SVV
 !        --------------
          call InitializeSVV(SVV, controlVariables, mesh)

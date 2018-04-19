@@ -13,6 +13,7 @@ module GenericMatrixClass
          procedure :: Reset
          procedure :: SetColumn
          procedure :: AddToColumn
+         procedure :: SetDiagonalBlock
          procedure :: Shift
          procedure :: ReShift
          procedure :: PreAssembly
@@ -29,69 +30,82 @@ contains
       class(Matrix_t) :: this
       integer, intent(in)           :: dimPrb
       logical, optional, intent(in) :: WithMPI
-      
+      !---------------------------------------------
       ERROR stop ' :: construct not implemented for current matrix type'
    end subroutine construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Preallocate(this, nnz, nnzs)
-      IMPLICIT NONE
+   subroutine Preallocate(this, nnz, nnzs)
+      implicit none
       !---------------------------------------------
-      CLASS(Matrix_t), INTENT(INOUT) :: this
-      INTEGER, optional, intent(in)  :: nnz
-      INTEGER, optional, intent(in)  :: nnzs(:)
-      
+      class(Matrix_t), intent(inout) :: this
+      integer, optional, intent(in)  :: nnz
+      integer, optional, intent(in)  :: nnzs(:)
+      !---------------------------------------------
       ERROR stop ' :: Preallocate not implemented for current matrix type'
-   END SUBROUTINE Preallocate
+   end subroutine Preallocate
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Reset(this)
-      IMPLICIT NONE
+   subroutine Reset(this)
+      implicit none
       !---------------------------------------------
-      CLASS(Matrix_t),     INTENT(INOUT)     :: this
-      
+      class(Matrix_t),     intent(inout)     :: this
+      !---------------------------------------------
       ERROR stop ' :: Reset not implemented for current matrix type'
-   END SUBROUTINE Reset
+   end subroutine Reset
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SetColumn(this,nvalues, irow, icol, values )
-      IMPLICIT NONE
+   subroutine SetColumn(this,nvalues, irow, icol, values )
+      implicit none
       !---------------------------------------------
-      CLASS(Matrix_t), INTENT(INOUT)         :: this
-      INTEGER, INTENT(IN)                               :: nvalues
-      INTEGER, DIMENSION(:), INTENT(IN)                 :: irow
-      INTEGER, INTENT(IN)                               :: icol
-      real(kind=RP) , DIMENSION(:), INTENT(IN)                 :: values
-      
+      class(Matrix_t)            , intent(inout) :: this
+      integer                    , intent(in)    :: nvalues
+      integer, dimension(:)      , intent(in)    :: irow
+      integer                    , intent(in)    :: icol
+      real(kind=RP), dimension(:), intent(in)    :: values
+      !---------------------------------------------
       ERROR stop ' :: SetColumn not implemented for current matrix type'
-   END SUBROUTINE SetColumn
+   end subroutine SetColumn
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ! 
-   SUBROUTINE AddToColumn(this,nvalues, irow, icol, values )
-      IMPLICIT NONE
-      CLASS(Matrix_t), INTENT(INOUT)         :: this
-      INTEGER, INTENT(IN)                               :: nvalues
-      INTEGER, DIMENSION(:), INTENT(IN)                 :: irow
-      INTEGER, INTENT(IN)                               :: icol
-      real(kind=RP) , DIMENSION(:), INTENT(IN)                 :: values
-      
+   subroutine AddToColumn(this,nvalues, irow, icol, values )
+      implicit none
+      !---------------------------------------------
+      class(Matrix_t), intent(inout)         :: this
+      integer, intent(in)                               :: nvalues
+      integer, dimension(:), intent(in)                 :: irow
+      integer, intent(in)                               :: icol
+      real(kind=RP) , dimension(:), intent(in)                 :: values
+      !---------------------------------------------
       ERROR stop ' :: AddToColumn not implemented for current matrix type'
-   END SUBROUTINE AddToColumn
+   end subroutine AddToColumn
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Shift(this, shiftval)
-      IMPLICIT NONE
+   subroutine SetDiagonalBlock(this,BlockNum, values )
+      implicit none
       !---------------------------------------------
-      CLASS(Matrix_t), INTENT(INOUT)     :: this
-      real(kind=RP),                     INTENT(IN)        :: shiftval
-      
+      class(Matrix_t)              , intent(inout) :: this
+      integer                      , intent(in)    :: BlockNum
+      real(kind=RP), dimension(:,:), intent(in)    :: values
+      !---------------------------------------------
+      ERROR stop ' :: SetDiagonalBlock not implemented for current matrix type'
+   end subroutine SetDiagonalBlock
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Shift(this, shiftval)
+      implicit none
+      !---------------------------------------------
+      class(Matrix_t), intent(inout)     :: this
+      real(kind=RP),                     intent(in)        :: shiftval
+      !---------------------------------------------
       ERROR stop ' :: Shift not implemented for current matrix type'
-   END SUBROUTINE Shift
+   end subroutine Shift
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -99,46 +113,44 @@ contains
 !  Removes previous shift in order to insert new one 
 !              (important when Jacobian is reused)
 !  --------------------------------------------------
-   SUBROUTINE ReShift(this, shiftval)
-      IMPLICIT NONE
+   subroutine ReShift(this, shiftval)
+      implicit none
       !---------------------------------------------
-      CLASS(Matrix_t), INTENT(INOUT)     :: this
-      real(kind=RP),               INTENT(IN)        :: shiftval
-      
+      class(Matrix_t), intent(inout)     :: this
+      real(kind=RP),               intent(in)        :: shiftval
+      !---------------------------------------------
       ERROR stop ' :: ReShift not implemented for current matrix type'
-   END SUBROUTINE ReShift
+   end subroutine ReShift
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE PreAssembly(this)
-      IMPLICIT NONE
+   subroutine PreAssembly(this)
+      implicit none
       !---------------------------------------------
-      CLASS(Matrix_t),     INTENT(INOUT)   :: this
-      
+      class(Matrix_t),     intent(inout)   :: this
+      !---------------------------------------------
       ERROR stop ' :: PreAssembly not implemented for current matrix type'
-   END SUBROUTINE PreAssembly
+   end subroutine PreAssembly
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Assembly(this,BlockIdx,BlockSize)
-      IMPLICIT NONE
+   subroutine Assembly(this,BlockIdx,BlockSize)
+      implicit none
       !---------------------------------------------
-      CLASS(Matrix_t),     INTENT(INOUT)   :: this
-      INTEGER, TARGET, OPTIONAL    ,     INTENT(IN)      :: BlockIdx(:)
-      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockSize(:)
+      class(Matrix_t),     intent(inout)   :: this
+      integer, target, optional    ,     intent(in)      :: BlockIdx(:)
+      integer, target, optional, intent(in)    :: BlockSize(:)
       !---------------------------------------------
-      
-      ERROR stop ' :: Assembly not implemented for current matrix type'
-   END SUBROUTINE Assembly
+   end subroutine Assembly
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE destruct(this)
-      IMPLICIT NONE
+   subroutine destruct(this)
+      implicit none
       !---------------------------------------------
-      CLASS(Matrix_t),     INTENT(INOUT)     :: this
-      
+      class(Matrix_t),     intent(inout)     :: this
+      !---------------------------------------------
       ERROR stop ' :: destruct not implemented for current matrix type'
-   END SUBROUTINE destruct
+   end subroutine destruct
    
 end module GenericMatrixClass

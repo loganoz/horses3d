@@ -17,7 +17,7 @@ module StorageClass
    implicit none
 
    private
-   public   Storage_t, FaceStorage_t
+   public   ElementStorage_t, FaceStorage_t, Storage_t
 
    type Statistics_t
       real(kind=RP), dimension(:,:,:,:),  allocatable    :: data
@@ -25,16 +25,59 @@ module StorageClass
          procedure   :: Construct => Statistics_Construct
          procedure   :: Destruct  => Statistics_Destruct
    end type Statistics_t
-
+   
+!  
+!  Class for storing variables in the whole domain
+!  ***********************************************
    type Storage_t
-      real(kind=RP), dimension(:,:,:,:),  allocatable :: Q
-      real(kind=RP), dimension(:,:,:,:),  allocatable :: QDot
+      real(kind=RP), dimension(:)  , allocatable :: Qdot
+      real(kind=RP), dimension(:)  , allocatable :: Q
+      real(kind=RP), dimension(:,:), allocatable :: PrevQ ! Previous solution(s) in the whole domain
+      
+      contains
+         procedure :: Construct => Storage_Construct
+         procedure :: Destruct  => Storage_Destruct
+   end type Storage_t
+!  
+!  Class for pointing to previous solutions in an element
+!  ******************************************************
+   type ElementPrevSol_t
+      real(kind=RP), dimension(:,:,:,:),  pointer     :: Q
+   end type ElementPrevSol_t
+!  
+!  Class for storing variables element-wise
+!     (Q and Qdot are not owned by ElementStorage_t) 
+!  ****************************************
+   type ElementStorage_t
+      real(kind=RP), dimension(:,:,:,:), pointer, contiguous :: Q
+      real(kind=RP), dimension(:,:,:,:), pointer, contiguous :: QDot
+      type(ElementPrevSol_t)           ,  allocatable :: PrevQ(:)
       real(kind=RP), dimension(:,:,:,:),  allocatable :: G
       real(kind=RP), dimension(:,:,:,:),  allocatable :: S
       real(kind=RP), dimension(:,:,:,:),  allocatable :: U_x
       real(kind=RP), dimension(:,:,:,:),  allocatable :: U_y
       real(kind=RP), dimension(:,:,:,:),  allocatable :: U_z
+      real(kind=RP), dimension(:,:,:,:),  allocatable :: gradRho
+      integer                                         :: NDOF              ! Number of degrees of freedom of element
+      integer                                         :: firstIdx          ! Position in the global solution array
+      logical                                         :: pointed = .TRUE.  ! .TRUE. (default) if Q and Qdot are pointed instead of allocated (needed for destruction since there's no other way to check this)
       type(Statistics_t)                              :: stats
+!     Pointers to face Jacobians
+!     -> Currently only for df/dq⁺, For off-diagonal blocks, add df/dq⁻
+!     ----------------------------------------------------------------
+      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_fr  ! FRONT
+      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_ba  ! BACK
+      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_bo  ! BOTTOM
+      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_to  ! TOP
+      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_ri  ! RIGHT
+      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_le  ! LEFT
+      
+      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_fr  ! FRONT
+      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_ba  ! BACK
+      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_bo  ! BOTTOM
+      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_to  ! TOP
+      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_ri  ! RIGHT
+      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_le  ! LEFT
 #if defined(CAHNHILLIARD)
       real(kind=RP), dimension(:,:,:),   allocatable :: c     ! Cahn-Hilliard concentration
       real(kind=RP), dimension(:,:,:,:), allocatable :: gradC ! Cahn-Hilliard concentration gradient
@@ -42,17 +85,25 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:), allocatable :: v   ! External flow field
 #endif
       contains
-         procedure   :: Construct => Storage_Construct
-         procedure   :: Destruct  => Storage_Destruct
-   end type Storage_t
+         procedure   :: Construct => ElementStorage_Construct
+         procedure   :: Destruct  => ElementStorage_Destruct
+   end type ElementStorage_t
 
+!  
+!  Class for storing variables in the faces
+!  ****************************************
    type FaceStorage_t
       real(kind=RP), dimension(:,:,:),     allocatable :: Q
-      real(kind=RP), dimension(:,:,:),     allocatable :: U_x, U_y, U_z
+      real(kind=RP), dimension(:,:,:),     allocatable :: U_x, U_y, U_z    ! Gradient of primitive variables
+      real(kind=RP), dimension(:,:,:),     allocatable :: gradRho          ! Gradient of density
       real(kind=RP), dimension(:,:,:),     allocatable :: FStar
       real(kind=RP), dimension(:,:,:,:)  , allocatable :: unStar
+      ! Inviscid Jacobians
       real(kind=RP), dimension(:,:,:,:)  , allocatable :: dFStar_dqF   ! In storage(1), it stores dFStar/dqL, and in storage(2), it stores dFStar/dqR on the mortar points
       real(kind=RP), dimension(:,:,:,:,:), allocatable :: dFStar_dqEl  ! Stores both dFStar/dqL and dFStar/dqR on the face-element points of the corresponding side
+      ! Viscous Jacobians
+      real(kind=RP), dimension(:,:,:,:,:,:), allocatable :: dFv_dGradQF  ! In storage(1), it stores dFv*/d∇qL, and in storage(2), it stores dFv*/d∇qR on the mortar points
+      real(kind=RP), dimension(:,:,:,:,:,:), allocatable :: dFv_dGradQEl ! In storage(1), it stores dFv*/d∇qL, and in storage(2), it stores dFv*/d∇qR on the face-element points ... NOTE: this is enough for the diagonal blocks of the Jacobian, for off-diagonal blocks the crossed quantities must be computed and stored
 #if defined(CAHNHILLIARD)
       real(kind=RP), dimension(:,:), allocatable :: c 
       real(kind=RP), dimension(:,:), allocatable :: mu 
@@ -67,36 +118,92 @@ module StorageClass
    contains
 !  ========
 !
-!///////////////////////////////////////////////////////////////////////////////////////////
-!
-!           Storage procedures
-!           ------------------
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Storage_Construct(self, Nx, Ny, Nz, nEqn, nGradEqn, computeGradients)
+!           Global Storage procedures
+!           --------------------------
+!
+!///////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine Storage_Construct(self, NDOF, bdf_order)
          implicit none
-         class(Storage_t)     :: self
-         integer, intent(in)  :: Nx, Ny, Nz
-         integer, intent(in)  :: nEqn, nGradEqn
-         logical              :: computeGradients
+         !----------------------------------------------
+         class(Storage_t)    :: self
+         integer, intent(in) :: NDOF
+         integer, intent(in) :: bdf_order
+         !----------------------------------------------
+         
+         allocate ( self % Q   (NDOF) )
+         allocate ( self % Qdot(NDOF) )
+         
+         if (bdf_order /= 0) then
+            allocate ( self % PrevQ (NDOF,bdf_order) )
+         end if
+      end subroutine Storage_Construct
 !
-!        ---------------
-!        Local variables
-!        ---------------
+!/////////////////////////////////////////////////
 !
-         integer  :: Nmax
+      subroutine Storage_Destruct(self)
+         implicit none
+         !----------------------------------------------
+         class(Storage_t)    :: self
+         !----------------------------------------------
+         
+         safedeallocate(self % Q)
+         safedeallocate(self % Qdot)
+         safedeallocate(self % PrevQ)
+      end subroutine Storage_Destruct
 !
-!        --------------
-!        Get dimensions         
-!        --------------
+!///////////////////////////////////////////////////////////////////////////////////////////
+!
+!           Element Storage procedures
+!           --------------------------
+!
+!///////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine ElementStorage_Construct(self, Nx, Ny, Nz, nEqn, nGradEqn, computeGradients,globalStorage,firstIdx)
+         implicit none
+         !------------------------------------------------------------
+         class(ElementStorage_t)     :: self                               !<> Storage to be constructed
+         integer        , intent(in) :: Nx, Ny, Nz                         !<  Polynomial orders in every direction
+         integer        , intent(in) :: nEqn, nGradEqn                     !<  Number of equations and gradient equations
+         logical        , intent(in) :: computeGradients                   !<  Compute gradients?
+         type(Storage_t), intent(in), target, optional :: globalStorage    !<? Global storage to point to
+         integer        , intent(in)        , optional :: firstIdx         !<? Position of the solution of the element in the global array
+         !------------------------------------------------------------
+         integer :: k, num_prevSol
+         !------------------------------------------------------------
+!
+!        --------------------------------
+!        Get number of degrees of freedom
+!        --------------------------------
+!
+         self % NDOF = (Nx + 1) * (Ny + 1) * (Nz + 1) * nEqn
 !
 !        ----------------
 !        Volume variables
 !        ----------------
 !
-         ALLOCATE( self % Q   (nEqn,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % QDot(nEqn,0:Nx,0:Ny,0:Nz) )
+         if ( present(globalStorage) .and. present(firstIdx) ) then
+            ! Solution and its derivative:
+            self % Q   (1:nEqn,0:Nx,0:Ny,0:Nz) => globalStorage % Q   (firstIdx : firstIdx + self % NDOF-1)
+            self % Qdot(1:nEqn,0:Nx,0:Ny,0:Nz) => globalStorage % Qdot(firstIdx : firstIdx + self % NDOF-1)
+            
+            ! Previous solution
+            num_prevSol = size(globalStorage % PrevQ,2)
+            allocate ( self % PrevQ(num_prevSol) )
+            do k=1, num_prevSol
+               self % PrevQ(k) % Q(1:nEqn,0:Nx,0:Ny,0:Nz) => globalStorage % PrevQ(firstIdx : firstIdx + self % NDOF-1,k)
+            end do
+            
+            self % pointed = .TRUE.
+         else
+            ALLOCATE( self % Q   (nEqn,0:Nx,0:Ny,0:Nz) )
+            ALLOCATE( self % QDot(nEqn,0:Nx,0:Ny,0:Nz) )
+            self % pointed = .FALSE.
+         end if
+         
          ALLOCATE( self % G   (nEqn,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S   (nEqn,0:Nx,0:Ny,0:Nz) )
          
@@ -104,6 +211,7 @@ module StorageClass
             ALLOCATE( self % U_x(nGradEqn,0:Nx,0:Ny,0:Nz) )
             ALLOCATE( self % U_y(nGradEqn,0:Nx,0:Ny,0:Nz) )
             ALLOCATE( self % U_z(nGradEqn,0:Nx,0:Ny,0:Nz) )
+            allocate( self % gradRho( 3  ,0:Nx,0:Ny,0:Nz) )
          END IF
 
 #if defined(CAHNHILLIARD)
@@ -135,19 +243,47 @@ module StorageClass
             self % U_z         = 0.0_RP
          END IF
 
-      end subroutine Storage_Construct
-
-      subroutine Storage_Destruct(self)
+      end subroutine ElementStorage_Construct
+!
+!///////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine ElementStorage_Destruct(self)
          implicit none
-         class(Storage_t)     :: self
-   
-         safedeallocate(self % Q)
-         safedeallocate(self % QDot)
+         class(ElementStorage_t) :: self
+         integer                 :: num_prevSol, k
+         
+         if (self % pointed) then
+            nullify(self % Q)
+            nullify(self % Qdot)
+            num_prevSol = size(self % PrevQ)
+            do k=1, num_prevSol
+               nullify( self % PrevQ(k) % Q )
+            end do
+            safedeallocate(self % PrevQ)
+         else
+            deallocate(self % Q)
+            deallocate(self % QDot)
+         end if
          safedeallocate(self % G)
          safedeallocate(self % S)
          safedeallocate(self % U_x)
          safedeallocate(self % U_y)
          safedeallocate(self % U_z)
+         safedeallocate(self % gradRho)
+         
+         nullify ( self % dfdq_fr )
+         nullify ( self % dfdq_ba )
+         nullify ( self % dfdq_bo )
+         nullify ( self % dfdq_to )
+         nullify ( self % dfdq_ri )
+         nullify ( self % dfdq_le )
+         
+         nullify ( self % dfdGradQ_fr )
+         nullify ( self % dfdGradQ_ba )
+         nullify ( self % dfdGradQ_bo )
+         nullify ( self % dfdGradQ_to )
+         nullify ( self % dfdGradQ_ri )
+         nullify ( self % dfdGradQ_le )
 
 #if defined(CAHNHILLIARD)
          safedeallocate(self % mu)
@@ -158,7 +294,7 @@ module StorageClass
 
          call self % stats % Destruct()
 
-      end subroutine Storage_Destruct
+      end subroutine ElementStorage_Destruct
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -193,7 +329,11 @@ module StorageClass
          ALLOCATE( self % U_x(nGradEqn,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % U_y(nGradEqn,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % U_z(nGradEqn,0:Nf(1),0:Nf(2)) )
+         allocate( self % gradRho   (3,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % unStar(nGradEqn,NDIM,0:Nel(1),0:Nel(2)) )
+         
+         allocate( self % dFv_dGradQF (nEqn,nEqn,NDIM,2,0: Nf(1),0: Nf(2)) )
+         allocate( self % dFv_dGradQEl(nEqn,nEqn,NDIM,2,0:Nel(1),0:Nel(2)) )
 
 #if defined(CAHNHILLIARD)
          allocate( self % mu(0:Nf(1),0:Nf(2)) )
@@ -233,6 +373,9 @@ module StorageClass
          safedeallocate(self % U_z)
          safedeallocate(self % dFStar_dqF)
          safedeallocate(self % dFStar_dqEl)
+         safedeallocate(self % dFv_dGradQF)
+         safedeallocate(self % dFv_dGradQEl)
+         safedeallocate(self % gradRho)
 #if defined(CAHNHILLIARD)
          safedeallocate(self % mu)
          safedeallocate(self % c)

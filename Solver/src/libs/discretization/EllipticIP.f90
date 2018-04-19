@@ -38,10 +38,12 @@ module EllipticIP
       real(kind=RP)        :: sigma = 1.0_RP
       integer              :: IPmethod = SIPG
       contains
-         procedure      :: Initialize         => IP_Initialize
-         procedure      :: ComputeGradient    => IP_ComputeGradient
-         procedure      :: ComputeInnerFluxes => IP_ComputeInnerFluxes
-         procedure      :: RiemannSolver      => IP_RiemannSolver
+         procedure      :: Initialize              => IP_Initialize
+         procedure      :: ComputeGradient         => IP_ComputeGradient
+         procedure      :: ComputeInnerFluxes      => IP_ComputeInnerFluxes
+         procedure      :: PenaltyParameter        => IP_PenaltyParameter
+         procedure      :: RiemannSolver           => IP_RiemannSolver
+         procedure      :: RiemannSolver_Jacobians => IP_RiemannSolver_Jacobians
 #if defined(NAVIERSTOKES)
          procedure      :: ComputeInnerFluxesWithSGS => IP_ComputeInnerFluxesWithSGS
          procedure      :: RiemannSolverWithSGS      => IP_RiemannSolverWithSGS
@@ -522,6 +524,34 @@ module EllipticIP
 
       end subroutine IP_ComputeInnerFluxesWithSGS
 #endif
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ----------------------------------------
+!     Function to get the IP penalty parameter
+!     ----------------------------------------
+      function IP_PenaltyParameter(self,f,mu) result(sigma)
+         use FaceClass
+         implicit none
+         !-----------------------------------------
+         class(InteriorPenalty_t)  :: self
+         class(Face)  , intent(in) :: f      !<  Face
+         real(kind=RP), intent(in) :: mu     !<  "dimensionless mu": 1/Re
+         real(kind=RP)             :: sigma  !>  IP penalty parameter
+         !-----------------------------------------
+!
+!        Shahbazi estimate
+!        -----------------
+#if defined(NAVIERSTOKES)
+         sigma = 0.5_RP  * self % sigma * mu * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
+#elif defined(CAHNHILLIARD)
+         sigma = 0.25_RP * self % sigma * mu * (maxval(f % Nf))  *(maxval(f % Nf)+1) / f % geom % h 
+#endif
+         
+      end function IP_PenaltyParameter
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       subroutine IP_RiemannSolver ( self , f, EllipticFlux, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
@@ -548,18 +578,11 @@ module EllipticIP
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
-         real(kind=RP)     :: flux_vec(NCONS,NDIM)
+         real(kind=RP)     :: flux_vec (NCONS,NDIM)
+         real(kind=RP)     :: flux_vecL(NCONS,NDIM)
+         real(kind=RP)     :: flux_vecR(NCONS,NDIM)
          real(kind=RP)     :: mu, kappa, delta, sigma
-
-!
-!>       Old implementation: 1st average, then compute
-!        ------------------
-         Q   = 0.5_RP * ( QLeft + QRight)
-         U_x = 0.5_RP * ( U_xLeft + U_xRight)
-         U_y = 0.5_RP * ( U_yLeft + U_yRight)
-         U_z = 0.5_RP * ( U_zLeft + U_zRight)
-
+         
 #if defined(NAVIERSTOKES)
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
@@ -567,22 +590,135 @@ module EllipticIP
 #elif defined(CAHNHILLIARD)
          mu = 1.0_RP
          kappa = 0.0_RP
-
 #endif
 
-         call EllipticFlux(Q,U_x,U_y,U_z, mu, kappa, flux_vec)
-!
-!        Shahbazi estimate
-!        -----------------
-#if defined(NAVIERSTOKES)
-         sigma = 0.5_RP * self % sigma * mu * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
-#elif defined(CAHNHILLIARD)
-         sigma = 0.25_RP * self % sigma * mu * (maxval(f % Nf))*(maxval(f % Nf)+1) / f % geom % h 
-#endif
+         call ViscousFlux(QLeft , U_xLeft , U_yLeft , U_zLeft , mu, kappa, flux_vecL)
+         call ViscousFlux(QRight, U_xRight, U_yRight, U_zRight, mu, kappa, flux_vecR)
+         
+         flux_vec = 0.5_RP * (flux_vecL + flux_vecR)
+         
+         sigma = self % PenaltyParameter(f,mu)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - sigma * (QLeft - QRight)
 
       end subroutine IP_RiemannSolver
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -----------------------------------------------------------------------------
+!     Subroutine to get the Jacobian (with respect to ∇q⁺ and ∇q⁻) of the numerical
+!     contravariant fluxes on a face. Stored in:
+!     -> f % storage(side) % dFv_dGradQF(:,:,:,:,i,j)
+!                    |                   |_| | | |_|
+!                    |                    |  | |  | 
+!                    |                    |  | |  |__Coordinate indexes in face 
+!                    |                    |  | |_____1 for inner term, 2 for outer term
+!                    |                    |  |_______∇q component: 1, 2, 3
+!                    |                    |__________Jacobian for this component
+!                    |_______________________________1 for ∇q⁺ and 2 for ∇q⁻
+!     -----------------------------------------------------------------------------
+      subroutine IP_RiemannSolver_Jacobians( self, f) 
+         use FaceClass
+         use Physics
+         use PhysicsStorage
+         implicit none
+         !--------------------------------------------
+         class(InteriorPenalty_t), intent(in)    :: self
+         type(Face)              , intent(inout) :: f
+         !--------------------------------------------
+         real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq   ! Cartesian Jacobian tensor
+         real(kind=RP), DIMENSION(NCONS,NCONS,NDIM)      :: dfdq_
+         real(kind=RP), parameter :: SideSign(2) = (/ 1._RP, -1._RP /)
+         real(kind=RP) :: mu, sigma
+         integer :: i,j    ! Face coordinate counters
+         integer :: n, m ! Index of G_xx
+         integer :: side
+         !--------------------------------------------
+#if defined(NAVIERSTOKES)
+         
+!        Initializations
+!        ---------------
+         mu    = dimensionless % mu             ! TODO: change for Cahn-Hilliard
+         sigma = self % PenaltyParameter(f,mu)
+         
+         do side = 1, 2
+            do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+!
+!           ************************************************
+!           Jacobian with respect to ∇q: dF/d∇q⁺ and dF/d∇q⁻
+!           ************************************************
+!
+!            
+!              Definitions
+!              -----------
+               associate( Q             => f % storage(side) % Q  (:,i,j)                , &
+                          U_x           => f % storage(side) % U_x(:,i,j)                , &
+                          U_y           => f % storage(side) % U_y(:,i,j)                , &
+                          U_z           => f % storage(side) % U_z(:,i,j)                , &
+                          nHat          => f % geom % normal(:,i,j)                    , &
+                          dFStar_dq     => f % storage(side) % dFStar_dqF(:,:,i,j)     , &
+                          dF_dGradQ_in  => f % storage(side) % dFv_dGradQF(:,:,:,1,i,j), & 
+                          dF_dGradQ_out => f % storage(side) % dFv_dGradQF(:,:,:,2,i,j) )
+               
+               call ViscousJacobian(Q, U_x, U_y, U_z, (/1._RP, 1._RP, 1._RP/), df_dgradq, dfdq_)
+!
+!            For the inner surface integral
+!            ******************************
+               
+!              Construct face point Jacobians
+!              ------------------------------
+               dF_dGradQ_in = 0._RP
+               do n = 1, NDIM ; do m = 1, NDIM
+                  dF_dGradQ_in(:,:,1) = dF_dGradQ_in(:,:,1) + df_dgradq(:,:,m,n) * f % geom % GradXi  (n,i,j) * nHat(m)
+                  dF_dGradQ_in(:,:,2) = dF_dGradQ_in(:,:,2) + df_dgradq(:,:,m,n) * f % geom % GradEta (n,i,j) * nHat(m)
+                  dF_dGradQ_in(:,:,3) = dF_dGradQ_in(:,:,3) + df_dgradq(:,:,m,n) * f % geom % GradZeta(n,i,j) * nHat(m)
+               end do          ; end do
+               
+!              Scale according to scheme and multipĺy by the jacobian (surface integral) 
+!              -------------------------------------------------------------------------
+               dF_dGradQ_in = dF_dGradQ_in * (0.5_RP) * f % geom % jacobian(i,j) ! TODO: Should the constant be -0.5???
+               
+!               
+!            For the outer surface integral
+!            ******************************
+!            
+!              Construct face point Jacobians
+!              ------------------------------
+               dF_dGradQ_out = 0._RP
+               do m = 1, NDIM ; do n = 1, NDIM
+                  dF_dGradQ_out(:,:,1) = dF_dGradQ_out(:,:,1) + df_dgradq(:,:,n,m) * f % geom % GradXi  (n,i,j) * nHat(m)
+                  dF_dGradQ_out(:,:,2) = dF_dGradQ_out(:,:,2) + df_dgradq(:,:,n,m) * f % geom % GradEta (n,i,j) * nHat(m)
+                  dF_dGradQ_out(:,:,3) = dF_dGradQ_out(:,:,3) + df_dgradq(:,:,n,m) * f % geom % GradZeta(n,i,j) * nHat(m)
+               end do          ; end do
+               
+!              Multiply by 1/2 (IP scheme) and the jacobian (surface integral) 
+!              ---------------------------------------------------------------
+               dF_dGradQ_out = dF_dGradQ_out * 0.5_RP * f % geom % jacobian(i,j)
+               
+!
+!           *********************************************
+!           Jacobian with respect to q: dF/dq⁺ and dF/dq⁻
+!           *********************************************
+!
+!
+!              Penalty contribution (shifts dFStar_dq matrix)
+!              ----------------------------------------------
+            
+               do n = 1, NCONS
+                  dFStar_dq(n,n) = dFStar_dq(n,n) + SideSign(side) * sigma * f % geom % jacobian(i,j)
+               end do
+               
+               end associate
+               
+            end do              ; end do
+            
+         end do
+         
+#endif
+      end subroutine IP_RiemannSolver_Jacobians
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 #if defined(NAVIERSTOKES)
       subroutine IP_RiemannSolverWithSGS ( self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
@@ -610,27 +746,25 @@ module EllipticIP
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
-         real(kind=RP)     :: flux_vec(NCONS,NDIM)
-         real(kind=RP)     :: mu, kappa, tauSGS(NDIM, NDIM), qSGS(NDIM), delta, sigma
-
-!
-!>       Old implementation: 1st average, then compute
-!        ------------------
-         Q   = 0.5_RP * ( QLeft + QRight)
-         U_x = 0.5_RP * ( U_xLeft + U_xRight)
-         U_y = 0.5_RP * ( U_yLeft + U_yRight)
-         U_z = 0.5_RP * ( U_zLeft + U_zRight)
+         real(kind=RP)     :: flux_vec (NCONS,NDIM)
+         real(kind=RP)     :: flux_vecL(NCONS,NDIM), tauSGS_L(NDIM, NDIM), qSGS_L(NDIM)
+         real(kind=RP)     :: flux_vecR(NCONS,NDIM), tauSGS_R(NDIM, NDIM), qSGS_R(NDIM)
+         real(kind=RP)     :: mu, kappa, delta, sigma
 !
 !        Compute subgrid-scale modelling tensor   
 !        --------------------------------------
          delta = sqrt(f % geom % surface / product(f % Nf + 1))
-         call LESModel % ComputeSGSTensor(delta, dWall, U_x, U_y, U_z, tauSGS, qSGS) 
+         
+         call LESModel % ComputeSGSTensor(delta, dWall, U_xLeft , U_yLeft , U_zLeft , tauSGS_L, qSGS_L)
+         call LESModel % ComputeSGSTensor(delta, dWall, U_xRight, U_yRight, U_zRight, tauSGS_R, qSGS_R) 
 
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
-
-         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, tauSGS, qSGS, flux_vec)
+         
+         call ViscousFlux(QLeft , U_xLeft , U_yLeft , U_zLeft , mu, kappa, tauSGS_L, qSGS_L, flux_vecL)
+         call ViscousFlux(QRight, U_xRight, U_yRight, U_zRight, mu, kappa, tauSGS_R, qSGS_R, flux_vecR)
+         
+         flux_vec = 0.5_RP * (flux_vecL + flux_vecR)
 !
 !        Shahbazi estimate
 !        -----------------

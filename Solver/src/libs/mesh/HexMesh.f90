@@ -24,6 +24,7 @@ MODULE HexMeshClass
       use NodalStorageClass
       use MPI_Process_Info
       use MPI_Face_Class
+      use StorageClass
 #if defined(NAVIERSTOKES)
       use WallDistance
 #endif
@@ -51,6 +52,7 @@ MODULE HexMeshClass
          integer                                   :: no_of_allElements
          integer                                   :: dt_restriction       ! Time step restriction of last step (DT_FIXED, DT_DIFF or DT_CONV)
          character(len=LINE_LENGTH)                :: meshFileName
+         type(Storage_t)                           :: storage              ! Here the solution and its derivative are stored
          type(Node)   , dimension(:), allocatable  :: nodes
          type(Face)   , dimension(:), allocatable  :: faces
          type(Element), dimension(:), allocatable  :: elements
@@ -62,6 +64,7 @@ MODULE HexMeshClass
             procedure :: destruct                      => DestructMesh
             procedure :: Describe                      => DescribeMesh
             procedure :: DescribePartition             => DescribeMeshPartition
+            procedure :: AllocateStorage               => HexMesh_AllocateStorage
             procedure :: ConstructZones                => HexMesh_ConstructZones
             procedure :: DefineAsBoundaryFaces         => HexMesh_DefineAsBoundaryFaces
             procedure :: CorrectOrderFor2DMesh         => HexMesh_CorrectOrderFor2DMesh
@@ -150,6 +153,12 @@ MODULE HexMeshClass
 !        -----
 !
          if (allocated(self % zones)) DEALLOCATE( self % zones )
+!
+!        --------------
+!        Global storage
+!        --------------
+!
+         call self % storage % destruct
          
       END SUBROUTINE DestructMesh
 !
@@ -753,9 +762,10 @@ slavecoord:                DO l = 1, 4
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      subroutine HexMesh_ProlongGradientsToFaces(self)
+      subroutine HexMesh_ProlongGradientsToFaces(self,Prolong_gradRho)
          implicit none
          class(HexMesh),   intent(inout)  :: self
+         logical, optional                :: Prolong_gradRho
 !
 !        ---------------
 !        Local variables
@@ -775,7 +785,14 @@ slavecoord:                DO l = 1, 4
                                                                 self % faces(fIDs(6)) )
          end do
 !$omp end do
-
+			
+         ! TODO: prolong gradRho to faces!!
+!~         if (present(Prolong_gradRho)) then
+!~            if (Prolong_gradRho) then
+            
+!~            end if
+!~         end if
+			
       end subroutine HexMesh_ProlongGradientsToFaces
 ! 
 !//////////////////////////////////////////////////////////////////////// 
@@ -1668,6 +1685,7 @@ slavecoord:                DO l = 1, 4
 !        Find the polynomial order of the boundaries for anisotropic meshes
 !        -> Unlike isotropic meshes, anisotropic meshes need boundary orders
 !           bfOrder=N-1 in 3D (not in 2D) to be free-stream-preserving
+!			TODO: Not true... Change this!!!
 !        ******************************************************************
 !
          if (self % anisotropic .and. (.not. self % meshIs2D) ) then
@@ -1749,7 +1767,7 @@ slavecoord:                DO l = 1, 4
                      CLN(2) = buffer
                   end if
                end select
-
+				   
                if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
                   call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
@@ -1773,7 +1791,6 @@ slavecoord:                DO l = 1, 4
                   CLN(1) = f % NfLeft(1)
                   CLN(2) = f % NfLeft(2)
                end if
-               
 !
 !              Adapt the curved face order to the polynomial order
 !              ---------------------------------------------------
@@ -2673,5 +2690,62 @@ slavecoord:                DO l = 1, 4
 !
 !///////////////////////////////////////////////////////////////////////
 !
+   subroutine HexMesh_AllocateStorage(self,NDOF,controlVariables,computeGradients)
+      use FTValueDictionaryClass
+      implicit none
+      !-----------------------------------------------------------
+      class(HexMesh), target                 :: self
+      integer                 , intent(in)   :: NDOF
+      class(FTValueDictionary), intent(in)   :: controlVariables
+      logical                 , intent(in)   :: computeGradients
+      !-----------------------------------------------------------
+      integer :: bdf_order, eID, firstIdx
+      !-----------------------------------------------------------
+      
+      if (controlVariables % containsKey("bdf order")) then
+         bdf_order = controlVariables % integerValueForKey("bdf order")
+      else
+         bdf_order = 1
+      end if
+      
+!     Construct global storage
+!     ------------------------
+      call self % storage % construct(NDOF, bdf_order)
+      
+!     Construct element storage
+!     -------------------------
+      firstIdx = 1
+      DO eID = 1, SIZE(self % elements)
+         associate (e => self % elements(eID))
+         call self % elements(eID) % Storage % Construct(Nx = e % Nxyz(1), &
+                                                         Ny = e % Nxyz(2), &
+                                                         Nz = e % Nxyz(3), &
+                                                       nEqn = N_EQN, &
+                                                   nGradEqn = N_GRAD_EQN, &
+                                           computeGradients = computeGradients, &
+                                              globalStorage = self % storage, &
+                                                   firstIdx = firstIdx)
+         firstIdx = firstIdx + e % Storage % NDOF
+!
+!        Point face Jacobians
+!        --------------------
+         e % Storage % dfdq_fr(1:,1:,0:,0:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFStar_dqEl(:,:,:,:,e %faceSide(EFRONT ))
+         e % Storage % dfdq_ba(1:,1:,0:,0:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFStar_dqEl(:,:,:,:,e %faceSide(EBACK  ))
+         e % Storage % dfdq_bo(1:,1:,0:,0:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFStar_dqEl(:,:,:,:,e %faceSide(EBOTTOM))
+         e % Storage % dfdq_to(1:,1:,0:,0:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFStar_dqEl(:,:,:,:,e %faceSide(ETOP   ))
+         e % Storage % dfdq_ri(1:,1:,0:,0:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFStar_dqEl(:,:,:,:,e %faceSide(ERIGHT ))
+         e % Storage % dfdq_le(1:,1:,0:,0:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFStar_dqEl(:,:,:,:,e %faceSide(ELEFT  ))
+         
+         e % Storage % dfdGradQ_fr(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFv_dGradQEl
+         e % Storage % dfdGradQ_ba(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFv_dGradQEl
+         e % Storage % dfdGradQ_bo(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFv_dGradQEl
+         e % Storage % dfdGradQ_to(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFv_dGradQEl
+         e % Storage % dfdGradQ_ri(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFv_dGradQEl
+         e % Storage % dfdGradQ_le(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFv_dGradQEl
+         
+         end associate
+      END DO
+      
+   end subroutine HexMesh_AllocateStorage
 END MODULE HexMeshClass
       

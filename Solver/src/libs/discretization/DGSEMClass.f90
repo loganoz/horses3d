@@ -148,6 +148,23 @@ Module DGSEMClass
       INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
       logical, optional                  :: ChildSem                           !<  Is this a (multigrid) child sem?
+      INTERFACE
+         SUBROUTINE externalState(x,t,nHat,Q,boundaryName)
+            USE SMConstants
+            use PhysicsStorage
+            REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+            REAL(KIND=RP)   , INTENT(INOUT) :: Q(NCONS)
+            CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+         END SUBROUTINE externalState
+         
+         SUBROUTINE externalGradients(x,t,nHat,gradU,boundaryName)
+            USE SMConstants
+            use PhysicsStorage
+            REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+            REAL(KIND=RP)   , INTENT(INOUT) :: gradU(3,N_GRAD_EQN)
+            CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+         END SUBROUTINE externalGradients
+      END INTERFACE
 !
 !     ---------------
 !     Local variables
@@ -325,19 +342,20 @@ Module DGSEMClass
 !     **********************************************************
 !
       CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
-      
+!
+!     Compute wall distances
+!     ----------------------
+#if defined(NAVIERSTOKES)
+      call self % mesh % ComputeWallDistances
+#endif
       IF(.NOT. success) RETURN
 !
 !     ------------------------
 !     Allocate and zero memory
 !     ------------------------
 !
-      DO k = 1, SIZE(self % mesh % elements) 
-         CALL allocateElementStorage( self = self % mesh % elements(k), &
-                                      nEqn = N_EQN, &
-                                  nGradEqn = N_GRAD_EQN, &
-                          computeGradients = computeGradients)
-      END DO
+      call self % mesh % AllocateStorage(self % NDOF, controlVariables,computeGradients)
+      
 !
 !     ----------------------------------------------------
 !     Get manufactured solution source term (if requested)

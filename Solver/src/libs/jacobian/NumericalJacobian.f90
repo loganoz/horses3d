@@ -5,7 +5,7 @@
 !      By: Andrés Rueda (based on Carlos Redondo's implementation for 2D code)
 !
 !      Routines for computing the Jacobian matrix numerically using the colorings technique
-!
+!  ! TODO: Implement as a class with a destructor to prevent memory leaking
 !////////////////////////////////////////////////////////////////////////
 module NumericalJacobian
    use SMConstants
@@ -51,11 +51,8 @@ contains
       integer                                            :: icol
       integer, dimension(4)                              :: ijkl                                   ! Indexes to locate certain degree of freedom i,j,k...l:equation number
       integer, allocatable, dimension(:), save           :: irow_0, irow
-!~      real(kind=RP), POINTER, dimension(:)               :: pbuffer                              ! Outcommented, new definition below (arueda: previous was more efficient.. change after defining storage)
-      real(kind=RP), allocatable, dimension(:), save     :: pbuffer                                ! arueda: changed to allocatable variable because of i,j,k,l distribution in nslite3d
-      real(kind=RP)                                      :: ctime
-      real(kind=RP), allocatable, dimension(:)           :: Q                                      ! Solution as vector             
-      real(kind=RP), save                                :: eps
+      real(kind=RP), POINTER, dimension(:)               :: pbuffer                                ! Buffer to point to an element's Qdot
+      real(kind=RP), save                                :: eps                                    ! Perturbation magnitude
       
       logical, save                                      :: isfirst = .TRUE.
       !-------------------------------------------------------------------
@@ -86,7 +83,7 @@ contains
          allocate(ndofelm(nelm), firstIdx(nelm+1))
          allocate(Nx(nelm), Ny(nelm), Nz(nelm))
          allocate(dgs_clean(nelm))
-         firstIdx = 0
+         firstIdx = 1
          DO i=1, nelm
             Nx(i) = sem%mesh%elements(i)%Nxyz(1)
             Ny(i) = sem%mesh%elements(i)%Nxyz(2)
@@ -103,13 +100,12 @@ contains
 !           Allocate the element storage of the clean element array
 !           -------------------------------------------------------
 !
-            CALL allocateElementStorage( dgs_clean(i), Nx(i), Ny(i), Nz(i), N_EQN, N_GRAD_EQN, computeGradients )
+            CALL allocateElementStorage( dgs_clean(i), N_EQN, N_GRAD_EQN, computeGradients, Nx(i), Ny(i), Nz(i) )
          END DO
          firstIdx(nelm+1) = firstIdx(nelm) + ndofelm(nelm)
          
          maxndofel = MAXVAL(ndofelm)                                             ! TODO: if there's p-adaptation, this value has to be recomputed
          
-         allocate(pbuffer(maxndofel))  ! This works if there's no p-Adaptation (change to include it)
 !
 !        -------------------
 !        Row position arrays
@@ -185,24 +181,37 @@ contains
 !           > Knoll, Dana A., and David E. Keyes. "Jacobian-free Newton–Krylov methods: a survey of approaches and applications." Journal of Computational Physics 193.2 (2004): 357-397.
 !     --------------------------------------------
 !
-      IF (.NOT. allocated(Q)) allocate(Q(sem % NDOF))
-      CALL sem % GetQ(Q)
+      associate (Q => sem % mesh % storage % Q)
       eps = SQRT(EPSILON(eps))*(NORM2(Q)+1._RP)
+      end associate
 !
 !     ---------------------------
 !     Preallocate Jacobian matrix
 !     ---------------------------
 !
-      CALL Matrix % Preallocate(nnz)
+      select type(Matrix_p => Matrix)
+         type is(DenseBlockDiagMatrix_t)
+            call Matrix_p % Preallocate(nnzs=ndofelm) ! Constructing with block size
+         class default ! Construct with nonzeros in each row
+            call Matrix % Preallocate(nnz)
+      end select
       CALL Matrix % Reset
       
       CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions )
+!
+!     Save base state in dgs_clean
+!     ----------------------------
+!$omp parallel do schedule(runtime)
+      do i=1, nelm
+         dgs_clean(i) % storage % Q    = sem%mesh%elements(i) % storage % Q
+         dgs_clean(i) % storage % Qdot = sem%mesh%elements(i) % storage % Qdot
+      end do
+!$omp end parallel do
 !
 !     ------------------------------------------
 !     Compute numerical Jacobian using colorings
 !     ------------------------------------------
 !
-      dgs_clean = sem%mesh%elements
       DO thiscolor = 1 , ecolors%ncolors
          ielm = ecolors%bounds(thiscolor)             
          felm = ecolors%bounds(thiscolor+1)
@@ -210,7 +219,7 @@ contains
             
             DO thiselmidx = ielm, felm-1              ! Perturbs a dof in all elements within current color
                thiselm = ecolors%elmnts(thiselmidx)
-               IF (ndofelm(thiselm)<thisdof) CYCLE       ! Do nothing if the DOF exceeds the NDOF of thiselm
+               IF (ndofelm(thiselm)<thisdof) CYCLE    ! Do nothing if the DOF exceeds the NDOF of thiselm
                
                ijkl = local2ijk(thisdof,N_EQN,Nx(thiselm),Ny(thiselm),Nz(thiselm))
                
@@ -230,15 +239,14 @@ contains
                DO i = 1,SIZE(nbr(thiselm)%elmnt)
                   elmnbr = nbr(thiselm)%elmnt(i) 
                
-                  IF (.NOT. ANY(used == elmnbr)) THEN  !(elmnbr .NE. 0)
+                  IF (.NOT. ANY(used == elmnbr)) THEN
                      ndof   = ndofelm(elmnbr)
                      
                      sem%mesh%elements(elmnbr)% storage % QDot = (sem%mesh%elements(elmnbr)% storage % QDot - dgs_clean(elmnbr)% storage % QDot) / eps                      
-!~                     pbuffer(1:ndofelm) => sem%mesh%elements(elmnbr)% storage % QDot                     !maps Qdot array into a 1D pointer 
-                     CALL GetElemQdot(sem%mesh%elements(elmnbr),pbuffer(1:ndof))
-                     irow = irow_0 + firstIdx(elmnbr)        !irow_0 + ndofelm * (elmnbr - 1)                         !generates the row indices vector
-                     WHERE (ABS(pbuffer(1:maxndofel)) .LT. jaceps) irow = -1          !MatSetvalues will ignore entries with irow=-1
-                     icol = firstIdx(thiselm) + thisdof - 1  !(thiselm - 1) * ndofelm  + thisdof - 1
+                     pbuffer(1:ndof) => sem%mesh%elements(elmnbr)% storage % QDot                     !maps Qdot array into a 1D pointer
+                     irow = irow_0 + firstIdx(elmnbr)                                                 !generates the row indices vector
+                     WHERE (ABS(pbuffer(1:ndof)) .LT. jaceps) irow = -1                               !MatSetvalues will ignore entries with irow=-1
+                     icol = firstIdx(thiselm) + thisdof - 1  
                      CALL Matrix % SetColumn(ndof, irow(1:ndof), icol, pbuffer(1:ndof) )
                      
                      used(usedctr) = elmnbr
@@ -259,11 +267,10 @@ contains
                               ndof   = ndofelm(nbrnbr)
                                              
                               sem%mesh%elements(nbrnbr)% storage % QDot = (sem%mesh%elements(nbrnbr)% storage % QDot - dgs_clean(nbrnbr)% storage % QDot) / eps                      
-         !~                     pbuffer(1:ndofelm) => sem%mesh%elements(elmnbr)% storage % QDot                     !maps Qdot array into a 1D pointer 
-                              CALL GetElemQdot(sem%mesh%elements(nbrnbr),pbuffer(1:ndof))
-                              irow = irow_0 + firstIdx(nbrnbr)       !irow_0 + ndofelm * (nbrnbr - 1)                         !generates the row indices vector
-                              WHERE (ABS(pbuffer(1:maxndofel)) .LT. jaceps) irow = -1          !MatSetvalues will ignore entries with irow=-1
-                              icol = firstIdx(thiselm) + thisdof - 1 !(thiselm - 1) * ndofelm  + thisdof - 1
+                              pbuffer(1:ndof) => sem%mesh%elements(nbrnbr)% storage % QDot       !maps Qdot array into a 1D pointer
+                              irow = irow_0 + firstIdx(nbrnbr)                                   !generates the row indices vector
+                              WHERE (ABS(pbuffer(1:ndof)) .LT. jaceps) irow = -1                 !SetColumn will ignore entries with irow=-1
+                              icol = firstIdx(thiselm) + thisdof - 1 
                               CALL Matrix % SetColumn(ndof, irow(1:ndof), icol, pbuffer(1:ndof) )
                               
                               used(usedctr) = nbrnbr
@@ -281,9 +288,8 @@ contains
             END DO                                                
          ENDDO
       ENDDO
-      sem%mesh%elements = dgs_clean ! Cleans sem % mesh % elements completely
       
-      CALL Matrix % Assembly(firstIdx,ndofelm)                             ! Matrix A needs to be assembled before being used in PETSc (at least)
+      CALL Matrix % Assembly(firstIdx,ndofelm)                             ! Matrix A needs to be assembled before being used
       
       call Stopwatch % Pause("Numerical Jacobian construction")
       IF (PRESENT(PINFO)) THEN
@@ -292,35 +298,4 @@ contains
       call Stopwatch % Reset("Numerical Jacobian construction")
                 
    END subroutine NumericalJacobian_Compute
-!  To be deprecated...
-!
-!////////////////////////////////////////////////////////////////////////////////////////      
-!  Subroutine for extracting Qdot of a single element as a 1 dimensional array
-!  arueda: Originally, this process was done by a pbuffer 1D pointer (better performance)... However, copying procedure had to be introduced since 
-!  NSLITE3D organizes the element information in a different manner than NSLITE2D...
-!   
-   SUBROUTINE GetElemQdot(CurrEl,Qdot) !arueda: check ordering of variables in solution vector
-      TYPE(Element)                                 :: CurrEl
-      REAL(KIND = RP),     INTENT(OUT)              :: Qdot(:)
-      
-      INTEGER                                       :: Nx, Ny, Nz, l, i, j, k, counter
-      
-      counter = 1
-      
-      Nx = CurrEl%Nxyz(1)
-      Ny = CurrEl%Nxyz(2)
-      Nz = CurrEl%Nxyz(3)
-      
-      DO k = 0, Nz
-         DO j = 0, Ny
-            DO i = 0, Nx
-               DO l = 1,N_EQN
-                  Qdot(counter)  = CurrEl% storage % Qdot(l, i, j, k) 
-                  counter =  counter + 1
-               END DO
-            END DO
-         END DO
-      END DO
-      
-   END SUBROUTINE GetElemQdot
 end module NumericalJacobian

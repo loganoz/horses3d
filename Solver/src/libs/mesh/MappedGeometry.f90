@@ -41,9 +41,9 @@ Module MappedGeometryClass
 !
       TYPE MappedGeometry
             INTEGER                                         :: Nx, Ny, Nz                    ! Polynomial order
-            REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: jGradXi, jGradEta, jGradZeta  ! 
+            REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: jGradXi, jGradEta, jGradZeta  ! Contravariant vectors times Jacobian!
             REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: x                             ! Position of points in absolute coordinates
-            REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: jacobian 
+            REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: jacobian, invJacobian         ! Mapping Jacobian and 1/Jacobian 
             real(kind=RP)                                   :: volume 
             real(kind=RP), dimension(:,:,:),    allocatable :: dWall          ! Minimum distance to the nearest wall
             CONTAINS
@@ -55,6 +55,7 @@ Module MappedGeometryClass
       type MappedGeometryFace
          real(kind=RP), dimension(:,:,:), allocatable   :: x
          real(kind=RP), dimension(:,:)  , allocatable   :: jacobian   ! |ja^i|: Normalization term of the normal vectors on a face
+         real(kind=RP), dimension(:,:,:), allocatable   :: GradXi, GradEta, GradZeta  ! Contravariant vectors
          real(kind=RP), dimension(:,:,:), allocatable   :: normal     ! normal vector on a face
          real(kind=RP), dimension(:,:,:), allocatable   :: t1         ! Tangent vector (along the xi direction)
          real(kind=RP), dimension(:,:,:), allocatable   :: t2         ! Tangent vector 2 (orthonormal to t1 and normal)
@@ -111,6 +112,7 @@ Module MappedGeometryClass
       ALLOCATE( self % JGradEta (3,0:Nx,0:Ny,0:Nz) )
       ALLOCATE( self % JGradZeta(3,0:Nx,0:Ny,0:Nz) )
       ALLOCATE( self % jacobian   (0:Nx,0:Ny,0:Nz) )
+      ALLOCATE( self % invJacobian(0:Nx,0:Ny,0:Nz) )
       ALLOCATE( self % x        (3,0:Nx,0:Ny,0:Nz)    )
 !
 !     --------------------------
@@ -155,7 +157,7 @@ Module MappedGeometryClass
       SUBROUTINE DestructMappedGeometry(self)
          IMPLICIT NONE 
          CLASS(MappedGeometry) :: self
-         DEALLOCATE( self % jGradXi, self % jGradEta, self % jGradZeta, self % jacobian )
+         DEALLOCATE( self % jGradXi, self % jGradEta, self % jGradZeta, self % jacobian, self % invJacobian )
          DEALLOCATE( self % x)
          safedeallocate(self % dWall)
       END SUBROUTINE DestructMappedGeometry
@@ -369,7 +371,9 @@ Module MappedGeometryClass
                                           * spAzeta % TCheb2Gauss(k,n) 
             end do              ; end do              ; end do
          end do               ; end do               ; end do
-
+         do k = 0, self % Nz  ; do j = 0, self % Ny  ; do i = 0, self % Nx
+            self % invJacobian(i,j,k) = 1._RP / self % jacobian(i,j,k)
+         end do               ; end do               ; end do
       end subroutine computeMetricTermsConservativeForm
 !
 !///////////////////////////////////////////////////////////////////////
@@ -456,7 +460,9 @@ Module MappedGeometryClass
                                           * spAzeta % TCheb2Gauss(k,n) 
             end do              ; end do              ; end do
          end do               ; end do               ; end do
-
+         do k = 0, self % Nz  ; do j = 0, self % Ny  ; do i = 0, self % Nx
+            self % invJacobian(i,j,k) = 1._RP / self % jacobian(i,j,k)
+         end do               ; end do               ; end do
 
 
       END SUBROUTINE computeMetricTermsCrossProductForm
@@ -490,16 +496,28 @@ Module MappedGeometryClass
 !
       integer        :: i, j, k, l, m, ii, jj
       real(kind=RP)  :: xi, eta
-      real(kind=RP)  :: dS(NDIM,0:Nel(1),0:Nel(2))
-      real(kind=RP)  :: dSrot(NDIM,0:Nelf(1),0:Nelf(2))
+      real(kind=RP)  :: dS      (NDIM,0:Nel(1),0:Nel(2))
+      real(kind=RP)  :: GradXi  (NDIM,0:Nel(1),0:Nel(2))
+      real(kind=RP)  :: GradEta (NDIM,0:Nel(1),0:Nel(2))
+      real(kind=RP)  :: GradZeta(NDIM,0:Nel(1),0:Nel(2))
+      real(kind=RP)  :: dSrot      (NDIM,0:Nelf(1),0:Nelf(2))
+      real(kind=RP)  :: GradXiRot  (NDIM,0:Nelf(1),0:Nelf(2))
+      real(kind=RP)  :: GradEtaRot (NDIM,0:Nelf(1),0:Nelf(2))
+      real(kind=RP)  :: GradZetaRot(NDIM,0:Nelf(1),0:Nelf(2))
 
-      allocate( self % x(NDIM, 0:Nf(1), 0:Nf(2)))
       allocate( self % jacobian(0:Nf(1), 0:Nf(2)))
-      allocate( self % normal(NDIM, 0:Nf(1), 0:Nf(2)))
-      allocate( self % t1(NDIM, 0:Nf(1), 0:Nf(2)))
-      allocate( self % t2(NDIM, 0:Nf(1), 0:Nf(2)))
+      allocate( self % x       (NDIM, 0:Nf(1), 0:Nf(2)))
+      allocate( self % normal  (NDIM, 0:Nf(1), 0:Nf(2)))
+      allocate( self % GradXi  (NDIM, 0:Nf(1), 0:Nf(2)))
+      allocate( self % GradEta (NDIM, 0:Nf(1), 0:Nf(2)))
+      allocate( self % GradZeta(NDIM, 0:Nf(1), 0:Nf(2)))
+      allocate( self % t1      (NDIM, 0:Nf(1), 0:Nf(2)))
+      allocate( self % t2      (NDIM, 0:Nf(1), 0:Nf(2)))
 
       dS = 0.0_RP
+      GradXi   = 0.0_RP
+      GradEta  = 0.0_RP
+      GradZeta = 0.0_RP
 
       select case(side)
          case(ELEFT)
@@ -515,6 +533,9 @@ Module MappedGeometryClass
 !           --------------------------------------
             do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
                dS(:,j,k) = dS(:,j,k) + geom % jGradXi(:,i,j,k) * spAe(1) % v(i,LEFT)
+               GradXi  (:,j,k) = GradXi  (:,j,k) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(1) % v(i,LEFT)
+               GradEta (:,j,k) = GradEta (:,j,k) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(1) % v(i,LEFT)
+               GradZeta(:,j,k) = GradZeta(:,j,k) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * spAe(1) % v(i,LEFT)
             end do           ; end do           ; end do
 !
 !           Swap orientation
@@ -534,6 +555,9 @@ Module MappedGeometryClass
 !           --------------------------------------
             do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
                dS(:,j,k) = dS(:,j,k) + geom % jGradXi(:,i,j,k) * spAe(1) % v(i,RIGHT)
+               GradXi  (:,j,k) = GradXi  (:,j,k) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(1) % v(i,RIGHT)
+               GradEta (:,j,k) = GradEta (:,j,k) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(1) % v(i,RIGHT)
+               GradZeta(:,j,k) = GradZeta(:,j,k) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * spAe(1) % v(i,RIGHT)
             end do           ; end do           ; end do
          
          case(EBOTTOM)
@@ -546,6 +570,9 @@ Module MappedGeometryClass
 !           --------------------------------------
             do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
                dS(:,i,j) = dS(:,i,j) + geom % jGradZeta(:,i,j,k) * spAe(3) % v(k,BOTTOM)
+               GradXi  (:,i,j) = GradXi  (:,i,j) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(3) % v(k,BOTTOM)
+               GradEta (:,i,j) = GradEta (:,i,j) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(3) % v(k,BOTTOM)
+               GradZeta(:,i,j) = GradZeta(:,i,j) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * spAe(3) % v(k,BOTTOM)
             end do           ; end do           ; end do
 !
 !           Swap orientation
@@ -562,6 +589,9 @@ Module MappedGeometryClass
 !           --------------------------------------
             do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
                dS(:,i,j) = dS(:,i,j) + geom % jGradZeta(:,i,j,k) * spAe(3) % v(k,TOP)
+               GradXi  (:,i,j) = GradXi  (:,i,j) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(3) % v(k,TOP)
+               GradEta (:,i,j) = GradEta (:,i,j) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(3) % v(k,TOP)
+               GradZeta(:,i,j) = GradZeta(:,i,j) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * spAe(3) % v(k,TOP)
             end do           ; end do           ; end do
             
          case(EFRONT)
@@ -574,6 +604,9 @@ Module MappedGeometryClass
 !           --------------------------------------
             do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
                dS(:,i,k) = dS(:,i,k) + geom % jGradEta(:,i,j,k) * spAe(2) % v(j,FRONT)
+               GradXi  (:,i,k) = GradXi  (:,i,k) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(2) % v(j,FRONT)
+               GradEta (:,i,k) = GradEta (:,i,k) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(2) % v(j,FRONT)
+               GradZeta(:,i,k) = GradZeta(:,i,k) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * spAe(2) % v(j,FRONT)
             end do           ; end do           ; end do
 !
 !           Swap orientation
@@ -590,6 +623,9 @@ Module MappedGeometryClass
 !           --------------------------------------
             do k = 0, Nel3D(3) ; do j = 0, Nel3D(2) ; do i = 0, Nel3D(1)
                dS(:,i,k) = dS(:,i,k) + geom % jGradEta(:,i,j,k) * spAe(2) % v(j,BACK)
+               GradXi  (:,i,k) = GradXi  (:,i,k) + geom % jGradXi  (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(2) % v(j,BACK)
+               GradEta (:,i,k) = GradEta (:,i,k) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(2) % v(j,BACK)
+               GradZeta(:,i,k) = GradZeta(:,i,k) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * spAe(2) % v(j,BACK)
             end do           ; end do           ; end do
 
       end select
@@ -602,11 +638,17 @@ Module MappedGeometryClass
 !     --------------------
       if ( rot .eq. 0 ) then
          dSRot = dS           ! Considered separated since is very frequent
+         GradXiRot   = GradXi
+         GradEtaRot  = GradEta
+         GradZetaRot = GradZeta
    
       else
          do j = 0, Nelf(2) ; do i = 0, Nelf(1)
             call iijjIndexes(i,j,Nelf(1), Nelf(2), rot, ii, jj)
             dSRot(:,i,j) = dS(:,ii,jj)
+            GradXiRot  (:,i,j) = GradXi  (:,ii,jj)
+            GradEtaRot (:,i,j) = GradEta (:,ii,jj)
+            GradZetaRot(:,i,j) = GradZeta(:,ii,jj)
          end do            ; end do
 
       end if
@@ -617,25 +659,52 @@ Module MappedGeometryClass
       select case(projType)
       case (0)
          self % normal = dS
+         self % GradXi   = GradXiRot
+         self % GradEta  = GradEtaRot
+         self % GradZeta = GradZetaRot
       case (1)
          self % normal = 0.0_RP
+         self % GradXi   = 0.0_RP
+         self % GradEta  = 0.0_RP
+         self % GradZeta = 0.0_RP
          do j = 0, Nf(2)  ; do l = 0, Nelf(1)   ; do i = 0, Nf(1)
             self % normal(:,i,j) = self % normal(:,i,j) + Tset(Nelf(1), Nf(1)) % T(i,l) * dS(:,l,j)
+            self % GradXi  (:,i,j) = self % GradXi  (:,i,j) + Tset(Nelf(1), Nf(1)) % T(i,l) * GradXiRot  (:,l,j)
+            self % GradEta (:,i,j) = self % GradEta (:,i,j) + Tset(Nelf(1), Nf(1)) % T(i,l) * GradEtaRot (:,l,j)
+            self % GradZeta(:,i,j) = self % GradZeta(:,i,j) + Tset(Nelf(1), Nf(1)) % T(i,l) * GradZetaRot(:,l,j)
          end do                  ; end do                   ; end do
          
       case (2)
          self % normal = 0.0_RP
+         self % GradXi   = 0.0_RP
+         self % GradEta  = 0.0_RP
+         self % GradZeta = 0.0_RP
          do l = 0, Nelf(2)  ; do j = 0, Nf(2)   ; do i = 0, Nf(1)
             self % normal(:,i,j) = self % normal(:,i,j) + Tset(Nelf(2), Nf(2)) % T(j,l) * dS(:,i,l)
+            self % GradXi  (:,i,j) = self % GradXi  (:,i,j) + Tset(Nelf(2), Nf(2)) % T(j,l) * GradXiRot  (:,i,l)
+            self % GradEta (:,i,j) = self % GradEta (:,i,j) + Tset(Nelf(2), Nf(2)) % T(j,l) * GradEtaRot (:,i,l)
+            self % GradZeta(:,i,j) = self % GradZeta(:,i,j) + Tset(Nelf(2), Nf(2)) % T(j,l) * GradZetaRot(:,i,l)
          end do                  ; end do                   ; end do
 
       case (3)
          self % normal = 0.0_RP
+         self % GradXi   = 0.0_RP
+         self % GradEta  = 0.0_RP
+         self % GradZeta = 0.0_RP
          do l = 0, Nelf(2)  ; do j = 0, Nf(2)   
             do m = 0, Nelf(1) ; do i = 0, Nf(1)
                self % normal(:,i,j) = self % normal(:,i,j) +   Tset(Nelf(1), Nf(1)) % T(i,m) &
                                          * Tset(Nelf(2), Nf(2)) % T(j,l) &
                                          * dS(:,m,l)
+               self % GradXi  (:,i,j) = self % GradXi  (:,i,j) +   Tset(Nelf(1), Nf(1)) % T(i,m) &
+                                         * Tset(Nelf(2), Nf(2)) % T(j,l) &
+                                         * GradXiRot  (:,m,l)
+               self % GradEta (:,i,j) = self % GradEta (:,i,j) +   Tset(Nelf(1), Nf(1)) % T(i,m) &
+                                         * Tset(Nelf(2), Nf(2)) % T(j,l) &
+                                         * GradEtaRot (:,m,l)
+               self % GradZeta(:,i,j) = self % GradZeta(:,i,j) +   Tset(Nelf(1), Nf(1)) % T(i,m) &
+                                         * Tset(Nelf(2), Nf(2)) % T(j,l) &
+                                         * GradZetaRot(:,m,l)
             end do                 ; end do
          end do                  ; end do
       end select

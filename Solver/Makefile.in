@@ -143,8 +143,8 @@ ifeq '$(WITH_MKL)''y'
 		MACROS+= -DHAS_MKL -DHAS_LAPACK
   	LIBS += $(LIB_BLAS) $(LIB_LAPACK)
   else #ifort
-  	MACROS+= -DHAS_MKL
-  	FCFLAGS+= -mkl
+  	MACROS+= -DHAS_MKL -DHAS_LAPACK
+  	FFLAGS+= -mkl
   endif
 endif
 

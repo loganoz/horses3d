@@ -153,8 +153,6 @@
 !
       SUBROUTINE Integrate( self, sem, controlVariables, monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       
-      USE Implicit_JF , ONLY : TakeBDFStep_JF
-      USE Implicit_NJ , ONLY : TakeBDFStep_NJ
       use pAdaptationClass
       USE FASMultigridClass
       IMPLICIT NONE
@@ -194,6 +192,7 @@
       call Stopwatch % Start("Solver")
       
 !     Perform FMG cycle if requested
+!        (only for steady simulations)
 !     ------------------------------
       
       if (self % integratorType == STEADY_STATE .and. &
@@ -203,7 +202,7 @@
          write(STD_OUT,*) 'Using FMG solver to get initial condition. Res =', FMGres
          
          call FMGSolver % construct(controlVariables,sem)
-         call FMGSolver % solve(0,0._RP, ComputeTimeDerivative, .TRUE.,FMGres)
+         call FMGSolver % solve(0,0._RP, 0._RP, ComputeTimeDerivative, .TRUE.,FMGres) 
          
          call FMGSolver % destruct
       end if
@@ -246,10 +245,10 @@
 !  ------------------------------------------------------------------------
    subroutine IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, tolerance)
       
-      USE Implicit_JF , ONLY : TakeBDFStep_JF
-      USE Implicit_NJ , ONLY : TakeBDFStep_NJ
+      USE BDFTimeIntegrator
       use FASMultigridClass
       use AnisFASMultigridClass
+      use RosenbrockTimeIntegrator
       use StopwatchClass
       IMPLICIT NONE
 !
@@ -275,6 +274,7 @@ interface
             use SMConstants
             use HexMeshClass
             use MonitorsClass
+            use PhysicsStorage
             IMPLICIT NONE
             CLASS(HexMesh)  :: mesh
             REAL(KIND=RP) :: time
@@ -296,11 +296,13 @@ end interface
       CHARACTER(LEN=2)              :: numChar
       EXTERNAL                      :: ExternalState, ExternalGradients
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName
-      ! For Implicit
-      CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
-      INTEGER                       :: JacFlag
+      ! Time-step solvers:
       type(FASMultigrid_t)          :: FASSolver
       type(AnisFASMultigrid_t)      :: AnisFASSolver
+      type(BDFIntegrator_t)         :: BDFSolver
+      type(RosenbrockIntegrator_t)  :: RosenbrockSolver
+      
+      CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
       logical                       :: saveGradients
 !
 !     ----------------------
@@ -314,8 +316,6 @@ end interface
       END IF
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       
-      ! Specific keywords
-      IF (TimeIntegration == 'implicit') JacFlag = controlVariables % IntegerValueForKey("jacobian flag")
 !
 !     ---------------
 !     Initializations
@@ -345,10 +345,11 @@ end interface
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
+      call monitors % WriteToFile(sem % mesh)
       IF (self % integratorType == STEADY_STATE) THEN
          IF (maxval(maxResidual) <= Tol )  THEN
             write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",sem % numberOfTimeSteps," with Residual = ", maxval(maxResidual)
-            call Monitors % writeToFile(sem % mesh, force = .true. )
+            call monitors % WriteToFile(sem % mesh, force = .TRUE.)
             return
          END IF
       end if
@@ -357,8 +358,10 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      if (TimeIntegration == 'FAS') CALL FASSolver % construct(controlVariables,sem)
-      if (TimeIntegration == 'AnisFAS') CALL AnisFASSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'FAS')        call FASSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'AnisFAS')    call AnisFASSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'implicit')   call BDFSolver % construct(controlVariables,sem)
+      if (TimeIntegration == 'rosenbrock') call RosenbrockSolver % construct(controlVariables,sem)
       
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 !
@@ -382,22 +385,13 @@ end interface
 !        -----------------         
          SELECT CASE (TimeIntegration)
             CASE ('implicit')
-               SELECT CASE (JacFlag)
-                  CASE (1)
-                     CALL TakeBDFStep_JF (sem, t , dt , ComputeTimeDerivative)
-                  CASE (2)
-                     CALL TakeBDFStep_NJ (sem, t , dt , controlVariables, ComputeTimeDerivative)
-                  CASE (3)
-                     STOP 'Analytical Jacobian not implemented yet'
-                  CASE DEFAULT
-                     PRINT*, "Not valid 'Jacobian Flag'. Running with Jacobian-Free Newton-Krylov."
-                     JacFlag = 1
-                     CALL TakeBDFStep_JF (sem, t , dt, ComputeTimeDerivative )
-               END SELECT
+               call BDFSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
+            CASE ('rosenbrock')
+               call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
             CASE ('explicit')
                CALL self % RKStep ( sem % mesh, sem % particles, t, sem % BCFunctions, dt, ComputeTimeDerivative)
             case ('FAS')
-               call FASSolver % solve(k,t, ComputeTimeDerivative)
+               call FASSolver % solve(k, t, dt, ComputeTimeDerivative)
             case ('AnisFAS')
                call AnisFASSolver % solve(k,t, ComputeTimeDerivative)
          END SELECT
@@ -477,9 +471,10 @@ end interface
 !     Finish up
 !     ---------
 !
-      if (TimeIntegration == 'FAS') CALL FASSolver % destruct
-      if (TimeIntegration == 'AnisFAS') CALL AnisFASSolver % destruct
-      
+      if (TimeIntegration == 'FAS')        CALL FASSolver % destruct
+      if (TimeIntegration == 'AnisFAS')    CALL AnisFASSolver % destruct
+      if (TimeIntegration == 'implicit')   call BDFSolver % destruct
+      if (TimeIntegration == 'rosenbrock') call RosenbrockSolver % destruct
    end subroutine IntegrateInTime
       
 !

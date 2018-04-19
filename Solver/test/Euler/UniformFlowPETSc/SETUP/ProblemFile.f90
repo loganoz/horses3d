@@ -32,7 +32,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalSetup(mesh , thermodynamics_, &
+         SUBROUTINE UserDefinedFinalSetup(mesh, thermodynamics_, &
                                                  dimensionless_, &
                                                      refValues_ )
 !
@@ -207,12 +207,12 @@
 !           to be performed
 !           ----------------------------------------------------------
 !
-            USE HexMeshClass
             use SMConstants
+            USE HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
             CLASS(HexMesh)  :: mesh
-            REAL(KIND=RP)   :: time
+            REAL(KIND=RP) :: time
             type(Monitor_t),  intent(in)  :: monitors
             
          END SUBROUTINE UserDefinedPeriodicOperation
@@ -222,7 +222,7 @@
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
                                                     dimensionless_, &
                                                         refValues_, &
-                                                            monitors, &
+                                                          monitors, &
                                                          elapsedTime, &
                                                             CPUTime   )
 !
@@ -237,10 +237,10 @@
             use HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
-            class(HexMesh)                        :: mesh
+            CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
-            integer, intent(in)                   :: iter
-            real(kind=RP), intent(in)             :: maxResidual
+            integer,                   intent(in) :: iter
+            real(kind=RP),             intent(in) :: maxResidual
             type(Thermodynamics_t),    intent(in) :: thermodynamics_
             type(Dimensionless_t),     intent(in) :: dimensionless_
             type(RefValues_t),         intent(in) :: refValues_
@@ -268,13 +268,14 @@
 !           -----------------------------------------------------------------------
 !
 #if defined(NAVIERSTOKES)
-            INTEGER                            :: expectedIterations = 4
-            REAL(KIND=RP)                      :: expectedResidual   = 3.9790393202565636E-013_RP
+            INTEGER                            :: expectedIterations = 8
+            REAL(KIND=RP)                      :: expectedResidual   = 1.0700773600547120E-011_RP
+            
+            N = mesh % elements(1) % Nxyz(1) ! This works only because this is an isotropic case.
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order
             CALL FTAssertEqual(expectedValue= expectedIterations, &
                                actualValue   =  iter, &
                                msg           = "Number of time steps to tolerance")
@@ -336,6 +337,7 @@
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
 #endif
+
          END SUBROUTINE UserDefinedFinalize
 !
 !//////////////////////////////////////////////////////////////////////// 

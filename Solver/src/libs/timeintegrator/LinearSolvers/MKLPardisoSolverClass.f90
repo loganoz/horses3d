@@ -16,7 +16,9 @@ MODULE MKLPardisoSolverClass
    use TimeIntegratorDefinitions
    use NumericalJacobian
    IMPLICIT NONE
-   
+#ifdef HAS_PETSC
+#include <petsc.h>
+#endif
    TYPE, EXTENDS(GenericLinSolver_t) :: MKLPardisoSolver_t
       TYPE(csrMat_t)                             :: A                                  ! Jacobian matrix
       type(PETSCMatrix_t)                        :: PETScA
@@ -37,7 +39,7 @@ MODULE MKLPardisoSolverClass
    CONTAINS
       !Subroutines:
       PROCEDURE                                  :: construct => ConstructMKLContext
-      PROCEDURE                                  :: SetBValue
+      PROCEDURE                                  :: SetRHSValue
       PROCEDURE                                  :: solve
       PROCEDURE                                  :: GetXValue
       PROCEDURE                                  :: destroy
@@ -56,14 +58,18 @@ MODULE MKLPardisoSolverClass
  CONTAINS
 !========
    
-   SUBROUTINE ConstructMKLContext(this,DimPrb,controlVariables,sem)
+   SUBROUTINE ConstructMKLContext(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(MKLPardisoSolver_t), INTENT(INOUT), TARGET :: this
       INTEGER                  , INTENT(IN)            :: DimPrb
       TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
+      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
       !-----------------------------------------------------------
+#ifdef HAS_PETSC
+      PetscErrorCode :: ierr
+#endif
       INTERFACE
          SUBROUTINE pardisoinit(pt, mtype, iparm)
             USE SMConstants
@@ -74,6 +80,13 @@ MODULE MKLPardisoSolverClass
          END SUBROUTINE pardisoinit
       END INTERFACE
       !-----------------------------------------------------------
+#ifdef HAS_PETSC
+      CALL PetscInitialize(PETSC_NULL_CHARACTER,ierr)
+#else
+      ERROR stop "MKL-Pardiso needs PETSc for constructung the Jacobian Matrix"
+#endif
+      
+      MatrixShift => MatrixShiftFunc
       
       this % p_sem => sem
       
@@ -100,7 +113,7 @@ MODULE MKLPardisoSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SetBValue(this, irow, value)
+   SUBROUTINE SetRHSValue(this, irow, value)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
@@ -110,12 +123,12 @@ MODULE MKLPardisoSolverClass
       
       this % b (irow+1) = value
       
-   END SUBROUTINE SetBValue
+   END SUBROUTINE SetRHSValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   SUBROUTINE SetBValues(this, nvalues, irow, values)
+   SUBROUTINE SetRHSValues(this, nvalues, irow, values)
       CLASS(MKLPardisoSolver_t)   , INTENT(INOUT)     :: this
       INTEGER                     , INTENT(IN)        :: nvalues
       INTEGER      , DIMENSION(1:), INTENT(IN)        :: irow
@@ -128,12 +141,12 @@ MODULE MKLPardisoSolverClass
          this % b(irow(i)+1) = values(i)
       END DO
       
-   END SUBROUTINE SetBValues
+   END SUBROUTINE SetRHSValues
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative,ComputeA) 
+   SUBROUTINE solve(this, ComputeTimeDerivative,tol,maxiter,time,dt,ComputeA) 
       IMPLICIT NONE
 !
 !     ----------------------------------------------------
@@ -142,11 +155,11 @@ MODULE MKLPardisoSolverClass
 !
       !-----------------------------------------------------------
       CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
+      procedure(ComputeQDot_FCN)               :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                  :: tol
       INTEGER      , OPTIONAL                  :: maxiter
       REAL(KIND=RP), OPTIONAL                  :: time
       REAL(KIND=RP), OPTIONAL                  :: dt
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       logical      , optional      , intent(inout) :: ComputeA
       !-----------------------------------------------------------
 #ifdef HAS_MKL
@@ -173,14 +186,14 @@ MODULE MKLPardisoSolverClass
       if ( present(ComputeA)) then
          if (ComputeA) then
             call NumericalJacobian_Compute(this % p_sem, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
-            call this % PETScA % shift(-1._RP/dt)
+            call this % PETScA % shift( MatrixShift(dt) )
             call this % PETScA % GetCSRMatrix(this % A)
             this % AIsPetsc = .FALSE.
             ComputeA = .FALSE.
          end if
       else 
          call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % PETScA % shift(-1._RP/dt)
+         call this % PETScA % shift( MatrixShift(dt) )
          call this % PETScA % GetCSRMatrix(this % A)
       end if
       
@@ -267,7 +280,7 @@ MODULE MKLPardisoSolverClass
       REAL(KIND=RP)            , INTENT(IN)    :: dt
       !-----------------------------------------------------------
       
-      this % Ashift = -1._RP/dt
+      this % Ashift = MatrixShift(dt)
       IF (this % AIsPetsc) THEN
          CALL this % PETScA % shift(this % Ashift)
       ELSE
@@ -287,7 +300,7 @@ MODULE MKLPardisoSolverClass
       REAL(KIND=RP)                            :: shift
       !-----------------------------------------------------------
       
-      shift = -1._RP/dt
+      shift = MatrixShift(dt)
       IF (this % AIsPetsc) THEN
          CALL this % PETScA % shift(shift)
       ELSE
