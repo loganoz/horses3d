@@ -24,6 +24,7 @@ module pAdaptationClass
    use TruncationErrorClass
    use FTValueDictionaryClass
    use TimeIntegratorDefinitions
+   use StorageClass
 #if defined(CAHNHILLIARD)
    use BoundaryConditionFunctions, only: C_BC, MU_BC
 #endif
@@ -345,8 +346,8 @@ module pAdaptationClass
       integer                    :: NNew(3,nelem)     !   New polynomial orders of mesh (after adaptation!)
       integer                    :: Error(3,nelem)    !   Stores (with ==1) elements where the truncation error has a strange behavior of the truncation error (in every direction)
       integer                    :: Warning(nelem)    !   Stores (with ==1) elements where the specified truncation error was not achieved
-      integer                    :: NOld(3)
-      type(DGSem)                :: Oldsem
+      integer                    :: NOld(3,nelem)     !   Old polynomial orders of mesh
+      type(ElementStorage_t), allocatable :: TempStorage(:) ! Temporary variable to store the solution before the adaptation procedure 
       logical                    :: success
       integer, save              :: Stage = 0         !   Stage of p-adaptation for the increasing method
       CHARACTER(LEN=LINE_LENGTH) :: newInput          !   Variable used to change the input in controlVariables after p-adaptation 
@@ -583,10 +584,22 @@ module pAdaptationClass
       BCFunctions(MU_BC) % externalState     => externalStateForBoundaryName
       BCFunctions(MU_BC) % externalGradients => externalChemicalPotentialGradientForBoundaryName
 #endif
-
-
-
-      Oldsem = sem
+!
+!     ---------------------------
+!     Store the previous solution
+!     ---------------------------
+!
+      allocate (TempStorage(nelem))
+      do iEl = 1, nelem
+         NOld (:,iEl) = sem % mesh % elements(iEl) % Nxyz
+         call TempStorage(iEl) % Construct(NOld (1,iEl), NOld (2,iEl), NOld (3,iEl), N_EQN, N_GRAD_EQN, .FALSE.)
+         TempStorage(iEl) % Q = sem % mesh % elements(iEl) % storage % Q
+      end do
+!
+!     -----------------
+!     Construct new sem
+!     -----------------
+!
       call sem % destruct
       call sem % construct (  controlVariables  = pAdapt % controlVariables                              ,  &
                               BCFunctions       = BCFunctions, &
@@ -604,36 +617,41 @@ module pAdaptationClass
       ! Loop over all elements
       do iEl = 1, size(sem % mesh % elements)
          
-         NOld = Oldsem % mesh % elements(iEl) % Nxyz
-         
          ! Copy the solution if the polynomial orders are the same, if not, interpolate
-         if (ALL(NOld == NNew(:,iEl))) then
-            sem % mesh % elements(iEl) % storage % Q = Oldsem % mesh % elements(iEl) % storage % Q
+         if (ALL(NOld(:,iEl) == NNew(:,iEl))) then
+            sem % mesh % elements(iEl) % storage % Q = TempStorage(iEl) % Q
          else
             
             !------------------------------------------------------------------
             ! Construct the interpolation matrices in every direction if needed
             !------------------------------------------------------------------
-            call ConstructInterpolationMatrices( NOld(1),NNew(1,iEl) )  ! Xi
-            call ConstructInterpolationMatrices( NOld(2),NNew(2,iEl) )  ! Eta
-            call ConstructInterpolationMatrices( NOld(3),NNew(3,iEl) )  ! Zeta
+            call ConstructInterpolationMatrices( NOld(1,iEl),NNew(1,iEl) )  ! Xi
+            call ConstructInterpolationMatrices( NOld(2,iEl),NNew(2,iEl) )  ! Eta
+            call ConstructInterpolationMatrices( NOld(3,iEl),NNew(3,iEl) )  ! Zeta
             
             !---------------------------------------------
             ! Interpolate solution to new solution storage
             !---------------------------------------------
             
             call Interp3DArrays  (Nvars      = N_EQN                                       , &
-                                  Nin        = NOld                                        , &
-                                  inArray    = Oldsem % mesh % elements(iEl) % storage % Q , &
+                                  Nin        = NOld(:,iEl)                                 , &
+                                  inArray    = TempStorage(iEl) % Q , &
                                   Nout       = NNew(:,iEl)                                 , &
                                   outArray   = sem % mesh % elements(iEl) % storage % Q)
             
          end if
          
       end do
-      
-      call Oldsem % destruct
-      
+
+!
+!     ------------------------------
+!     Destruct the temporary storage
+!     ------------------------------
+!
+      do iEl = 1, nelem
+         call TempStorage(iEl) % destruct
+      end do
+      deallocate (TempStorage)
 !
 !     ---------------------------------------------------
 !     Write post-adaptation mesh, solution and order file

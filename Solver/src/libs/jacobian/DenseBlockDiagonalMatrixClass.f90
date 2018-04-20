@@ -1,6 +1,6 @@
 !////////////////////////////////////////////////////////////////////////
 !
-!      PETScMatrixClass.f90
+!      DenseBlockDiagonalMatrixClass.f90
 !      Created: 2018-02-19 17:07:00 +0100 
 !      By: Andrés Rueda
 !
