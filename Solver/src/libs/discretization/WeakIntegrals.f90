@@ -3,7 +3,6 @@ module DGWeakIntegrals
    use ElementClass
    use PhysicsStorage
    use MeshTypes
-   use VariableConversion, only: gradientValuesForQ
    implicit none
 
 
@@ -15,8 +14,10 @@ module DGWeakIntegrals
    type  ScalarWeakIntegrals_t
       contains
          procedure, nopass    :: StdVolumeGreen  => ScalarWeakIntegrals_StdVolumeGreen
-         procedure, nopass    :: SplitVolumeDivergence => ScalarWeakIntegrals_SplitVolumeDivergence
          procedure, nopass    :: StdFace => ScalarWeakIntegrals_StdFace
+#if defined(NAVIERSTOKES)
+         procedure, nopass    :: SplitVolumeDivergence => ScalarWeakIntegrals_SplitVolumeDivergence
+#endif
    end type ScalarWeakIntegrals_t
 
    type  VectorWeakIntegrals_t
@@ -68,7 +69,7 @@ module DGWeakIntegrals
          end do             ; end do             ; end do               ; end do
 
       end function ScalarWeakIntegrals_StdVolumeGreen
-
+#if defined(NAVIERSTOKES)
       function ScalarWeakIntegrals_SplitVolumeDivergence( e, fSharp, gSharp, hSharp, Fv ) result ( volInt )
          implicit none
          class(Element),      intent(in)  :: e
@@ -102,7 +103,7 @@ module DGWeakIntegrals
          end do             ; end do             ; end do               ; end do
 
       end function ScalarWeakIntegrals_SplitVolumeDivergence
-
+#endif
 !
 !///////////////////////////////////////////////////////////////
 !

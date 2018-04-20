@@ -76,14 +76,14 @@ module SurfaceIntegrals
             fIDs = mesh % elements(eID) % faceIDs
 
 !$omp task depend(inout:elements(eID))
-            call elements(eID) % ProlongSolutionToFaces(mesh % faces(fIDs(1)),&
+            call elements(eID) % ProlongSolutionToFaces(NCONS, mesh % faces(fIDs(1)),&
                                             mesh % faces(fIDs(2)),&
                                             mesh % faces(fIDs(3)),&
                                             mesh % faces(fIDs(4)),&
                                             mesh % faces(fIDs(5)),&
                                             mesh % faces(fIDs(6)) )
             if ( computeGradients ) then
-               call elements(eID) % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+               call elements(eID) % ProlongGradientsToFaces(NGRAD, mesh % faces(fIDs(1)),&
                                                 mesh % faces(fIDs(2)),&
                                                 mesh % faces(fIDs(3)),&
                                                 mesh % faces(fIDs(4)),&
@@ -265,14 +265,14 @@ module SurfaceIntegrals
             fIDs = mesh % elements(eID) % faceIDs
 
 !$omp task depend(inout:elements(eID))
-            call elements(eID) % ProlongSolutionToFaces(mesh % faces(fIDs(1)),&
+            call elements(eID) % ProlongSolutionToFaces(NCONS, mesh % faces(fIDs(1)),&
                                             mesh % faces(fIDs(2)),&
                                             mesh % faces(fIDs(3)),&
                                             mesh % faces(fIDs(4)),&
                                             mesh % faces(fIDs(5)),&
                                             mesh % faces(fIDs(6)) )
             if ( computeGradients ) then
-               call elements(eID) % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+               call elements(eID) % ProlongGradientsToFaces(NCONS, mesh % faces(fIDs(1)),&
                                                 mesh % faces(fIDs(2)),&
                                                 mesh % faces(fIDs(3)),&
                                                 mesh % faces(fIDs(4)),&

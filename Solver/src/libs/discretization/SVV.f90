@@ -4,9 +4,9 @@
 !   @File:    SVV.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Jan  6 11:47:48 2018
-!   @Last revision date: Wed Apr 18 20:19:03 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
+!   @Last revision date: Fri Apr 20 17:25:01 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
 !
 !//////////////////////////////////////////////////////
 !
@@ -188,7 +188,7 @@ module SpectralVanishingViscosity
 
          end associate
 
-         call EllipticFlux( e%Nxyz, e % storage % Q , Uxf, Uyf, Uzf, mu, kappa, cartesianFlux )
+         call EllipticFlux( NCONS, NGRAD, e%Nxyz, e % storage % Q , Uxf, Uyf, Uzf, mu, kappa, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -274,7 +274,7 @@ module SpectralVanishingViscosity
 
          end associate
 
-         call EllipticFlux(f % Nf, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
+         call EllipticFlux(NCONS, NGRAD, f % Nf, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             flux(:,i,j) =   flux_vec(:,IX,i,j) * f % geom % normal(IX,i,j) &

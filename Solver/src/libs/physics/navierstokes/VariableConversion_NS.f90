@@ -4,9 +4,9 @@
 !   @File:    VariableConversion_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:34 2018
-!   @Last revision date: Wed Apr 18 20:19:11 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
+!   @Last revision date: Fri Apr 20 17:25:11 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
 !
 !//////////////////////////////////////////////////////
 !
@@ -18,13 +18,14 @@ module VariableConversion_NS
    implicit none
 
    private
-   public   Pressure, Temperature, GradientValuesForQ
+   public   Pressure, Temperature, NSGradientValuesForQ
+   public   NSGradientValuesForQ_0D, NSGradientValuesForQ_3D
    public   getPrimitiveVariables, getEntropyVariables
    public   getRoeVariables
 
-   interface GradientValuesForQ
-       module procedure GradientValuesForQ_0D , GradientValuesForQ_3D
-   end interface GradientValuesForQ
+   interface NSGradientValuesForQ
+       module procedure NSGradientValuesForQ_0D , NSGradientValuesForQ_3D
+   end interface NSGradientValuesForQ
 
    contains
 !
@@ -35,7 +36,7 @@ module VariableConversion_NS
 !! Compute the pressure from the state variables
 !---------------------------------------------------------------------
 !
-      PURE FUNCTION Pressure(Q) RESULT(P)
+      PURE function Pressure(Q) RESULT(P)
 !
 !     ---------
 !     Arguments
@@ -51,7 +52,7 @@ module VariableConversion_NS
       
       P = thermodynamics % gammaMinus1*(Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1))
 
-      END FUNCTION Pressure
+      end function Pressure
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -59,7 +60,7 @@ module VariableConversion_NS
 !! Compute the temperature from the state variables
 !---------------------------------------------------------------------
 !
-      PURE FUNCTION Temperature(Q) RESULT(T)
+      PURE function Temperature(Q) RESULT(T)
 !
 !     ---------
 !     Arguments
@@ -75,7 +76,7 @@ module VariableConversion_NS
 !
       T = dimensionless % gammaM2*Pressure(Q)/Q(1)
 
-      END FUNCTION Temperature
+      end function Temperature
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -84,59 +85,51 @@ module VariableConversion_NS
 !! quantities of which the gradients will be taken.
 !---------------------------------------------------------------------
 !
-      pure SUBROUTINE GradientValuesForQ_0D( Q, U )
-      IMPLICIT NONE
+      pure subroutine NSGradientValuesForQ_0D( nEqn, nGrad, Q, U )
+         implicit none
+         integer, intent(in)        :: nEqn, nGrad
+         real(kind=RP), intent(in)  :: Q(nEqn)
+         real(kind=RP), intent(out) :: U(nGrad)
 !
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP), DIMENSION(NCONS)     , INTENT(IN)  :: Q
-      REAL(KIND=RP), DIMENSION(NGRAD), INTENT(OUT) :: U
-!
-!     ---------------
-!     Local Variables
-!     ---------------
+!        ---------------
+!        Local Variables
+!        ---------------
 !     
-      U(1) = Q(2)/Q(1)
-      U(2) = Q(3)/Q(1)
-      U(3) = Q(4)/Q(1)
-      U(4) = Temperature(Q)
+         U(1) = Q(2)/Q(1)
+         U(2) = Q(3)/Q(1)
+         U(3) = Q(4)/Q(1)
+         U(4) = Temperature(Q)
 
-      END SUBROUTINE GradientValuesForQ_0D
+      end subroutine NSGradientValuesForQ_0D
 
-      pure SUBROUTINE GradientValuesForQ_3D( Nx, Ny, Nz, Q, U )
-      IMPLICIT NONE
+      pure subroutine NSGradientValuesForQ_3D( nEqn, nGrad, Nx, Ny, Nz, Q, U )
+         implicit none
+         integer,       intent(in)  :: nEqn, nGrad, Nx, Ny, Nz
+         real(kind=RP), intent(in)  :: Q(1:nEqn,  0:Nx, 0:Ny, 0:Nz)
+         real(kind=RP), intent(out) :: U(1:nGrad, 0:Nx, 0:Ny, 0:Nz)
 !
-!     ---------
-!     Arguments
-!     ---------
-!
-      integer,       intent(in)  :: Nx, Ny, Nz
-      REAL(KIND=RP), INTENT(IN)  :: Q(1:NCONS, 0:Nx, 0:Ny, 0:Nz)
-      REAL(KIND=RP), INTENT(OUT) :: U(1:NGRAD, 0:Nx, 0:Ny, 0:Nz)
-!
-!     ---------------
-!     Local Variables
-!     ---------------
+!        ---------------
+!        Local Variables
+!        ---------------
 !     
-      integer     :: i, j, k
-      associate ( gammaM2 => dimensionless % gammaM2, &
-                  gammaMinus1 => thermodynamics % gammaMinus1 ) 
+         integer     :: i, j, k
+
+         associate ( gammaM2 => dimensionless % gammaM2, &
+                     gammaMinus1 => thermodynamics % gammaMinus1 ) 
       
-      do k = 0, Nz   ; do j = 0, Ny ; do i = 0, Nx
-      U(IGU,i,j,k) = Q(IRHOU,i,j,k) / Q(IRHO,i,j,k) 
-      U(IGV,i,j,k) = Q(IRHOV,i,j,k) / Q(IRHO,i,j,k) 
-      U(IGW,i,j,k) = Q(IRHOW,i,j,k) / Q(IRHO,i,j,k) 
-      U(IGT,i,j,k) = gammaM2 * gammaMinus1 * ( Q(IRHOE,i,j,k) / Q(IRHO,i,j,k) &
-                  - 0.5_RP * ( U(IGU,i,j,k) * U(IGU,i,j,k) &
-                             + U(IGV,i,j,k) * U(IGV,i,j,k) &
-                             + U(IGW,i,j,k) * U(IGW,i,j,k) ) )
-      end do         ; end do       ; end do
+         do k = 0, Nz   ; do j = 0, Ny ; do i = 0, Nx
+            U(IGU,i,j,k) = Q(IRHOU,i,j,k) / Q(IRHO,i,j,k) 
+            U(IGV,i,j,k) = Q(IRHOV,i,j,k) / Q(IRHO,i,j,k) 
+            U(IGW,i,j,k) = Q(IRHOW,i,j,k) / Q(IRHO,i,j,k) 
+            U(IGT,i,j,k) = gammaM2 * gammaMinus1 * ( Q(IRHOE,i,j,k) / Q(IRHO,i,j,k) &
+                        - 0.5_RP * ( U(IGU,i,j,k) * U(IGU,i,j,k) &
+                                   + U(IGV,i,j,k) * U(IGV,i,j,k) &
+                                   + U(IGW,i,j,k) * U(IGW,i,j,k) ) )
+         end do         ; end do       ; end do
+   
+         end associate
 
-      end associate
-
-      END SUBROUTINE GradientValuesForQ_3D
+      end subroutine NSGradientValuesForQ_3D
 !
 ! /////////////////////////////////////////////////////////////////////
 !

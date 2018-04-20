@@ -13,7 +13,7 @@ module ResidualsMonitorClass
 !
    type Residuals_t
       logical                         :: active
-      real(kind=RP)                   :: values(NCONS,BUFFER_SIZE)
+      real(kind=RP)                   :: values(NTOTALVARS,BUFFER_SIZE)
       real(kind=RP)                   :: CPUtime(BUFFER_SIZE)
       character(len=STR_LEN_MONITORS) :: fileName
       contains
@@ -90,12 +90,12 @@ module ResidualsMonitorClass
          implicit none
          class(Residuals_t)         :: self
          class(HexMesh), intent(in) :: mesh
-         real(kind=RP)              :: maxResiduals(NCONS)
+         real(kind=RP)              :: maxResiduals(NTOTALVARS)
          integer                    :: bufferPosition
 !
 !        Update buffer values
 !        --------------------      
-         self % values( 1:NCONS , bufferPosition ) = maxResiduals
+         self % values( 1:NTOTALVARS, bufferPosition ) = maxResiduals
 
       end subroutine Residuals_Update
 
@@ -135,7 +135,7 @@ module ResidualsMonitorClass
 !        ---------------------------------------------------------
          integer            :: eq
       
-         do eq = 1 , NCONS
+         do eq = 1 , NTOTALVARS
             write(STD_OUT , '(1X,A,1X,ES10.3)' , advance = "no") "|" , self % values(eq , bufferLine)
          end do
 
@@ -164,24 +164,27 @@ module ResidualsMonitorClass
 !
 !        Write values
 !        ------------      
-#if defined(NAVIERSTOKES)   
          do i = 1 , no_of_lines
-            write( fID , '(I10,2X,ES24.16,2X,ES24.16,6(2X,ES24.16))' ) iter(i) , t(i), SimuTime(i) , &
-                                                                       self % values(1:NCONS,i), maxval(self % values(1:NCONS,i))
+            write(fID, '(I10,2(2X,ES24.16))', advance="no") iter(i), t(i), SimuTime(i)
+            write(fID, 111) self % values(1:NTOTALVARS,i), maxval(self % values(1:NTOTALVARS,i))
          end do
-#elif defined(CAHNHILLIARD)
-         do i = 1 , no_of_lines
-            write( fID , '(I10,2X,ES24.16,5(2X,ES24.16))' ) iter(i) , t(i) , self % values(1:NCONS,i)
-         end do
-#endif
 !
 !        Close file
 !        ----------        
          close ( fID )
 
          if ( no_of_lines .ne. 0 ) then
-            self % values(1:NCONS,1) = self % values(1:NCONS,no_of_lines)
+            self % values(1:NTOTALVARS,1) = self % values(1:NTOTALVARS,no_of_lines)
          end if
+
+#if (defined(NAVIERSTOKES) && !defined(CAHNHILLIARD))
+111 format(6(2X,ES24.16))
+#elif (!defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
+111 format(2(2X,ES24.16))
+#elif (defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
+111 format(7(2X,ES24.16))
+#endif
+
       
       end subroutine Residuals_WriteToFile
 

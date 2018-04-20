@@ -75,8 +75,10 @@ MODULE HexMeshClass
             procedure :: Export                        => HexMesh_Export
             procedure :: ExportOrders                  => HexMesh_ExportOrders
             procedure :: SaveSolution                  => HexMesh_SaveSolution
+#if defined(NAVIERSTOKES)
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
             procedure :: ResetStatistics               => HexMesh_ResetStatistics
+#endif
             procedure :: LoadSolution                  => HexMesh_LoadSolution
             procedure :: WriteCoordFile
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
@@ -727,9 +729,10 @@ slavecoord:                DO l = 1, 4
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      subroutine HexMesh_ProlongSolutionToFaces(self)
+      subroutine HexMesh_ProlongSolutionToFaces(self, nEqn)
          implicit none
          class(HexMesh),   intent(inout)  :: self
+         integer,          intent(in)     :: nEqn
 !
 !        ---------------
 !        Local variables
@@ -741,7 +744,8 @@ slavecoord:                DO l = 1, 4
 !$omp do schedule(runtime)
          do eID = 1, size(self % elements)
             fIDs = self % elements(eID) % faceIDs
-            call self % elements(eID) % ProlongSolutionToFaces(self % faces(fIDs(1)),&
+            call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
+                                                               self % faces(fIDs(1)),&
                                                                self % faces(fIDs(2)),&
                                                                self % faces(fIDs(3)),&
                                                                self % faces(fIDs(4)),&
@@ -754,9 +758,10 @@ slavecoord:                DO l = 1, 4
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      subroutine HexMesh_ProlongGradientsToFaces(self)
+      subroutine HexMesh_ProlongGradientsToFaces(self, nEqn)
          implicit none
          class(HexMesh),   intent(inout)  :: self
+         integer,          intent(in)     :: nEqn
 !
 !        ---------------
 !        Local variables
@@ -768,7 +773,8 @@ slavecoord:                DO l = 1, 4
 !$omp do schedule(runtime)
          do eID = 1, size(self % elements)
             fIDs = self % elements(eID) % faceIDs
-            call self % elements(eID) % ProlongGradientsToFaces(self % faces(fIDs(1)),&
+            call self % elements(eID) % ProlongGradientsToFaces(nEqn, &
+                                                                self % faces(fIDs(1)),&
                                                                 self % faces(fIDs(2)),&
                                                                 self % faces(fIDs(3)),&
                                                                 self % faces(fIDs(4)),&
@@ -1205,7 +1211,7 @@ slavecoord:                DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 ! 
-      SUBROUTINE WriteCoordFile(self,FileName)
+      SUBROUTINE WriteCoordFile(self,nEqn, FileName)
          USE PhysicsStorage
          IMPLICIT NONE
 !
@@ -1216,6 +1222,7 @@ slavecoord:                DO l = 1, 4
 !
          !--------------------------------------------------------
          CLASS(HexMesh)       :: self        !<  this mesh
+         integer              :: nEqn
          CHARACTER(len=*)     :: FileName    !<  ...
          !--------------------------------------------------------
          INTEGER              :: NumOfElem
@@ -1234,7 +1241,7 @@ slavecoord:                DO l = 1, 4
             Nx = self % elements(el) % Nxyz(1)
             Ny = self % elements(el) % Nxyz(2)
             Nz = self % elements(el) % Nxyz(3)
-            ndof = ndof + (Nx + 1)*(Ny + 1)*(Nz + 1)*NCONS
+            ndof = ndof + (Nx + 1)*(Ny + 1)*(Nz + 1)*nEqn
          END DO
          
          OPEN(newunit=cooh, file=FileName, action='WRITE')
@@ -1531,7 +1538,7 @@ slavecoord:                DO l = 1, 4
 
             end select
          
-            call f % LinkWithElements(NCONS, NGRAD, NelL, NelR, nodes)
+            call f % LinkWithElements(NelL, NelR, nodes)
             
             end associate
          end do
@@ -2144,7 +2151,6 @@ slavecoord:                DO l = 1, 4
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-#if defined(NAVIERSTOKES)
 !
 !     ************************************************************************
 !           Save solution subroutine for the Navier-Stokes solver. It saves
@@ -2167,26 +2173,33 @@ slavecoord:                DO l = 1, 4
 !
          integer  :: fid, eID, pos, padding
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+#if (!defined(NAVIERSTOKES))
+         logical                          :: computeGradients = .true.
+#endif
 !
 !        Gather reference quantities
 !        ---------------------------
+#if defined(NAVIERSTOKES)
          refs(GAMMA_REF) = thermodynamics % gamma
          refs(RGAS_REF)  = thermodynamics % R
          refs(RHO_REF)   = refValues      % rho
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = refValues      % T
          refs(MACH_REF)  = dimensionless  % Mach
+#else
+         refs = 0.0_RP
+#endif
 !
 !        Create new file
 !        ---------------
          if ( saveGradients .and. computeGradients) then
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
                                        self % nodeType, self % no_of_allElements, iter, time, refs)
-            padding = NCONS + 3*NGRAD
+            padding = NTOTALVARS + 3*NTOTALGRADS
          else
             call CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % nodeType, &
                                        self % no_of_allElements, iter, time, refs)
-            padding = NCONS
+            padding = NTOTALVARS
          end if
 !
 !        Write arrays
@@ -2210,59 +2223,7 @@ slavecoord:                DO l = 1, 4
          call SealSolutionFile(trim(name))
 
       end subroutine HexMesh_SaveSolution
-#elif defined(CAHNHILLIARD)
-!
-!     **************************************************************************
-!           Save solution subroutine for the Cahn-Hilliard equations. It saves
-!        the concentration and the chemical potential
-!     **************************************************************************
-!
-      subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients)
-         use SolutionFile
-         use MPI_Process_Info
-         implicit none
-         class(HexMesh)                         :: self
-         integer,             intent(in)        :: iter
-         real(kind=RP),       intent(in)        :: time
-         character(len=*),    intent(in)        :: name
-         logical,             intent(in)        :: saveGradients
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer  :: fid, eID, pos, padding
-         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
-!
-!        Dummy references
-!        ----------------
-         refs = 0.0_RP
-!
-!        Create new file
-!        ---------------
-         call CreateNewSolutionFile(trim(name),SOLUTION_CAHNHILLIARD_FILE, self % nodeType, &
-                                    self % no_of_allElements, iter, time, refs)
-         padding = 1
-!
-!        Write arrays
-!        ------------
-         fID = putSolutionFileInWriteDataMode(trim(name))
-         do eID = 1, self % no_of_elements
-            associate( e => self % elements(eID) )
-            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
-            call writeArray(fid, e % storage % Q, position=pos)
-            !write(fid) e % storage % mu
-            end associate
-         end do
-         close(fid)
-!
-!        Close the file
-!        --------------
-         call SealSolutionFile(trim(name))
-
-      end subroutine HexMesh_SaveSolution
-#endif
-
+#if defined(NAVIERSTOKES)
       subroutine HexMesh_SaveStatistics(self, iter, time, name)
          use SolutionFile
          implicit none
@@ -2280,16 +2241,12 @@ slavecoord:                DO l = 1, 4
 !
 !        Gather reference quantities
 !        ---------------------------
-#if defined(NAVIERSTOKES)
          refs(GAMMA_REF) = thermodynamics % gamma
          refs(RGAS_REF)  = thermodynamics % R
          refs(RHO_REF)   = refValues      % rho
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = refValues      % T
          refs(MACH_REF)  = dimensionless  % Mach
-#else
-         refs = 0.0_RP
-#endif
 !
 !        Create new file
 !        ---------------
@@ -2327,7 +2284,7 @@ slavecoord:                DO l = 1, 4
          end do
 
       end subroutine HexMesh_ResetStatistics
-
+#endif
       subroutine HexMesh_LoadSolution( self, fileName, initial_iteration, initial_time ) 
          use SolutionFile
          IMPLICIT NONE
@@ -2361,17 +2318,15 @@ slavecoord:                DO l = 1, 4
             stop
 
          case(SOLUTION_FILE)
-            padding = 1*NCONS
+            padding = 1*NTOTALVARS
 
          case(SOLUTION_AND_GRADIENTS_FILE)
-            padding = NCONS + 3 * NGRAD
+            padding = NTOTALVARS + 3 * NTOTALGRADS
 
          case(STATS_FILE)
             print*, "The selected restart file is a statistics file"
             errorMessage(STD_OUT)
             stop
-         case(SOLUTION_CAHNHILLIARD_FILE)
-            padding = 1*NCONS
          case default
             print*, "Unknown restart file format"
             errorMessage(STD_OUT)
@@ -2423,7 +2378,7 @@ slavecoord:                DO l = 1, 4
             if (      ((Nxp1-1) .ne. e % Nxyz(1)) &
                  .or. ((Nyp1-1) .ne. e % Nxyz(2)) &
                  .or. ((Nzp1-1) .ne. e % Nxyz(3)) &
-                 .or. (no_of_eqs .ne. NCONS )       ) then
+                 .or. (no_of_eqs .ne. NTOTALVARS )       ) then
                write(STD_OUT,'(A,I0,A)') "Error reading restart file: wrong dimension for element "&
                                            ,eID,"."
 

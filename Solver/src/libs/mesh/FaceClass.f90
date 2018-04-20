@@ -93,8 +93,10 @@
             procedure   :: AdaptSolutionToFace   => Face_AdaptSolutionToFace
             procedure   :: AdaptGradientsToFace   => Face_AdaptGradientsToFace
             procedure   :: ProjectFluxToElements => Face_ProjectFluxToElements
-            procedure   :: ProjectFluxJacobianToElements => Face_ProjectFluxJacobianToElements
             procedure   :: ProjectGradientFluxToElements => Face_ProjectGradientFluxToElements
+#if defined(NAVIERSTOKES)
+            procedure   :: ProjectFluxJacobianToElements => Face_ProjectFluxJacobianToElements
+#endif
       end type Face
 !
 !     ========
@@ -186,14 +188,15 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Face_LinkWithElements( self, Neqn, NGradeqn, NelLeft, NelRight, nodeType)
+   SUBROUTINE Face_LinkWithElements( self, NelLeft, NelRight, nodeType)
       IMPLICIT NONE
       class(Face)        ,     intent(INOUT) :: self        ! Current face
-      integer            ,     intent(IN)    :: Neqn        ! Number of equations
-      integer            ,     intent(IN)    :: NGradeqn    ! Number of gradient equations
       integer,                 intent(in)    :: NelLeft(2)  ! Left element face polynomial order
       integer,                 intent(in)    :: NelRight(2) ! Right element face polynomial order
       integer,                 intent(in)    :: nodeType    ! Either Gauss or Gauss-Lobatto
+#if (!defined(NAVIERSTOKES))
+      logical  :: computeGradients = .true.
+#endif
 !
 !     -------------------------------------------------------------
 !     First, get face elements polynomial orders (without rotation)
@@ -238,8 +241,8 @@
       self % spAxi => NodalStorage(self % Nf(1))
       self % spAeta => NodalStorage(self % Nf(2))
 
-      call self % storage(1) % Construct(NDIM, self % Nf, self % NelLeft, nEqn, nGradEqn, computeGradients)
-      call self % storage(2) % Construct(NDIM, self % Nf, self % NelRight, nEqn, nGradEqn, computeGradients)
+      call self % storage(1) % Construct(NDIM, self % Nf, self % NelLeft, computeGradients)
+      call self % storage(2) % Construct(NDIM, self % Nf, self % NelRight, computeGradients)
 !
 !     -----------------------------------------------------------------------
 !     Construction of the projection matrices (simple Lagrange interpolation)
@@ -277,12 +280,13 @@
 
    end SUBROUTINE Face_LinkWithElements
 
-   subroutine Face_AdaptSolutionToFace(self, Nelx, Nely, Qe, side)
+   subroutine Face_AdaptSolutionToFace(self, nEqn, Nelx, Nely, Qe, side)
       use MappedGeometryClass
       implicit none
       class(Face),   intent(inout)  :: self
+      integer,       intent(in)     :: nEqn
       integer,       intent(in)     :: Nelx, Nely
-      real(kind=RP), intent(in)     :: Qe(1:NCONS, 0:Nelx, 0:Nely)
+      real(kind=RP), intent(in)     :: Qe(1:nEqn, 0:Nelx, 0:Nely)
       integer,       intent(in)     :: side
 !
 !     ---------------
@@ -290,7 +294,7 @@
 !     ---------------
 !
       integer       :: i, j, k, l, m, ii, jj
-      real(kind=RP) :: Qe_rot(1:NCONS, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP) :: Qe_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
 
       select case (side)
       case(1)
@@ -358,14 +362,15 @@
 
    end subroutine Face_AdaptSolutionToFace
 
-   subroutine Face_AdaptGradientsToFace(self, Nelx, Nely, Uxe, Uye, Uze, side)
+   subroutine Face_AdaptGradientsToFace(self, nEqn, Nelx, Nely, Uxe, Uye, Uze, side)
       use MappedGeometryClass
       implicit none
       class(Face),   intent(inout)  :: self
+      integer,       intent(in)     :: nEqn 
       integer,       intent(in)     :: Nelx, Nely
-      real(kind=RP), intent(in)     :: Uxe(NGRAD, 0:Nelx, 0:Nely)
-      real(kind=RP), intent(in)     :: Uye(NGRAD, 0:Nelx, 0:Nely)
-      real(kind=RP), intent(in)     :: Uze(NGRAD, 0:Nelx, 0:Nely)
+      real(kind=RP), intent(in)     :: Uxe(nEqn, 0:Nelx, 0:Nely)
+      real(kind=RP), intent(in)     :: Uye(nEqn, 0:Nelx, 0:Nely)
+      real(kind=RP), intent(in)     :: Uze(nEqn, 0:Nelx, 0:Nely)
       integer,       intent(in)     :: side
 !
 !     ---------------
@@ -373,9 +378,9 @@
 !     ---------------
 !
       integer       :: i, j, k, l, m, ii, jj
-      real(kind=RP) :: Uxe_rot(NGRAD, 0:self % NfRight(1), 0:self % NfRight(2))
-      real(kind=RP) :: Uye_rot(NGRAD, 0:self % NfRight(1), 0:self % NfRight(2))
-      real(kind=RP) :: Uze_rot(NGRAD, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP) :: Uxe_rot(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP) :: Uye_rot(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP) :: Uze_rot(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
 
       select case (side)
       case(1)
@@ -485,12 +490,13 @@
 
    end subroutine Face_AdaptGradientsToFace
 
-   subroutine Face_ProjectFluxToElements(self, flux, whichElements)
+   subroutine Face_ProjectFluxToElements(self, nEqn, flux, whichElements)
       use MappedGeometryClass
       use PhysicsStorage
       implicit none
       class(Face)       :: self
-      real(kind=RP), intent(in)  :: flux(1:NCONS, 0:self % Nf(1), 0:self % Nf(2))
+      integer,       intent(in)  :: nEqn
+      real(kind=RP), intent(in)  :: flux(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
       integer,       intent(in)  :: whichElements(2)
 !
 !     ---------------
@@ -498,7 +504,7 @@
 !     ---------------
 !
       integer           :: i, j, ii, jj, l, m, side
-      real(kind=RP)     :: fStarAux(NCONS, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP)     :: fStarAux(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
 
       do side = 1, 2
          select case ( whichElements(side) )
@@ -506,24 +512,24 @@
             associate(fStar => self % storage(1) % Fstar)
             select case ( self % projectionType(1) )
             case (0)
-               fStar(1:NCONS,:,:) = flux
+               fStar(1:nEqn,:,:) = flux
             case (1)
-               fStar(1:NCONS,:,:) = 0.0
+               fStar(1:nEqn,:,:) = 0.0
                do j = 0, self % NelLeft(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NelLeft(1)
-                  fStar(1:NCONS,i,j) = fStar(1:NCONS,i,j) + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * flux(:,l,j)
+                  fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * flux(:,l,j)
                end do                  ; end do                   ; end do
                
             case (2)
-               fStar(1:NCONS,:,:) = 0.0
+               fStar(1:nEqn,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
-                  fStar(1:NCONS,i,j) = fStar(1:NCONS,i,j) + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * flux(:,i,l)
+                  fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * flux(:,i,l)
                end do                  ; end do                   ; end do
       
             case (3)
-               fStar(1:NCONS,:,:) = 0.0
+               fStar(1:nEqn,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
                   do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
-                     fStar(1:NCONS,i,j) = fStar(1:NCONS,i,j) +   Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
+                     fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +   Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
                                                              * Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) &
                                                              * flux(:,m,l)
                   end do                 ; end do
@@ -539,24 +545,24 @@
 !      
             select case ( self % projectionType(2) )
             case (0)
-               fStarAux(1:NCONS,:,:) = flux
+               fStarAux(1:nEqn,:,:) = flux
             case (1)
-               fStarAux(1:NCONS,:,:) = 0.0
+               fStarAux(1:nEqn,:,:) = 0.0
                do j = 0, self % NfRight(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NfRight(1)
-                  fStarAux(1:NCONS,i,j) = fStarAux(1:NCONS,i,j) + Tset(self % Nf(1), self % NfRight(1)) % T(i,l) * flux(:,l,j)
+                  fStarAux(1:nEqn,i,j) = fStarAux(1:nEqn,i,j) + Tset(self % Nf(1), self % NfRight(1)) % T(i,l) * flux(:,l,j)
                end do                  ; end do                   ; end do
                
             case (2)
-               fStarAux(1:NCONS,:,:) = 0.0
+               fStarAux(1:nEqn,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-                  fStarAux(1:NCONS,i,j) = fStarAux(1:NCONS,i,j) + Tset(self % Nf(2), self % NfRight(2)) % T(j,l) * flux(:,i,l)
+                  fStarAux(1:nEqn,i,j) = fStarAux(1:nEqn,i,j) + Tset(self % Nf(2), self % NfRight(2)) % T(j,l) * flux(:,i,l)
                end do                  ; end do                   ; end do
       
             case (3)
-               fStarAux(1:NCONS,:,:) = 0.0
+               fStarAux(1:nEqn,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   
                   do m = 0, self % Nf(1) ; do i = 0, self % NfRight(1)
-                     fStarAux(1:NCONS,i,j) = fStarAux(1:NCONS,i,j) +   Tset(self % Nf(1), self % NfRight(1)) % T(i,m) &
+                     fStarAux(1:nEqn,i,j) = fStarAux(1:nEqn,i,j) +   Tset(self % Nf(1), self % NfRight(1)) % T(i,m) &
                                                              * Tset(self % Nf(2), self % NfRight(2)) % T(j,l) &
                                                              * flux(:,m,l)
                   end do                 ; end do
@@ -570,7 +576,7 @@
             associate(fStar => self % storage(2) % Fstar)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-               fStar(1:NCONS,ii,jj) = fStarAux(1:NCONS,i,j) 
+               fStar(1:nEqn,ii,jj) = fStarAux(1:nEqn,i,j) 
             end do                        ; end do
 !
 !           *********
@@ -584,12 +590,13 @@
       end do
 
    end subroutine Face_ProjectFluxToElements
-   
-   subroutine Face_ProjectFluxJacobianToElements(self, whichElement,whichderiv)
+#if defined(NAVIERSTOKES) 
+   subroutine Face_ProjectFluxJacobianToElements(self, nEqn, whichElement,whichderiv)
       use MappedGeometryClass
       use PhysicsStorage
       implicit none
       class(Face), target        :: self
+      integer,       intent(in)  :: nEqn
       integer,       intent(in)  :: whichElement
       integer,       intent(in)  :: whichderiv           !<  One can either transfer the derivative with respect to qL (LEFT) or to qR (RIGHT)
 !
@@ -597,10 +604,10 @@
 !     Local variables
 !     ---------------
 !
-      ! real(kind=RP), intent(in)  :: flux(1:NCONS,1:NCONS, 0:self % Nf(1), 0:self % Nf(2))
+      ! real(kind=RP), intent(in)  :: flux(1:nEqn,1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
       integer                :: i, j, ii, jj, l, m, side
       real(kind=RP), pointer :: fluxDeriv(:,:,:,:)
-      real(kind=RP)     :: fStarAux(NCONS,NCONS, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP)     :: fStarAux(nEqn,nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
       
       fluxDeriv => self % storage(whichderiv) % dFStar_dqF
       
@@ -609,26 +616,26 @@
             associate(dFStar_dq => self % storage(1) % dFStar_dqEl)
             select case ( self % projectionType(1) )
             case (0)
-               dFStar_dq(1:NCONS,1:NCONS,:,:,whichderiv) = fluxDeriv
+               dFStar_dq(1:nEqn,1:nEqn,:,:,whichderiv) = fluxDeriv
             case (1)
-               dFStar_dq(1:NCONS,1:NCONS,:,:,whichderiv) = 0._RP
+               dFStar_dq(1:nEqn,1:nEqn,:,:,whichderiv) = 0._RP
                do j = 0, self % NelLeft(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NelLeft(1)
-                  dFStar_dq(1:NCONS,1:NCONS,i,j,whichderiv) = dFStar_dq(1:NCONS,1:NCONS,i,j,whichderiv) &
+                  dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) = dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) &
                                                                + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * fluxDeriv(:,:,l,j)
                end do                  ; end do                   ; end do
                
             case (2)
-               dFStar_dq(1:NCONS,1:NCONS,:,:,whichderiv) = 0._RP
+               dFStar_dq(1:nEqn,1:nEqn,:,:,whichderiv) = 0._RP
                do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
-                  dFStar_dq(1:NCONS,1:NCONS,i,j,whichderiv) = dFStar_dq(1:NCONS,1:NCONS,i,j,whichderiv) &
+                  dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) = dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) &
                                                                + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * fluxDeriv(:,:,i,l)
                end do                  ; end do                   ; end do
       
             case (3)
-               dFStar_dq(1:NCONS,1:NCONS,:,:,whichderiv) = 0._RP
+               dFStar_dq(1:nEqn,1:nEqn,:,:,whichderiv) = 0._RP
                do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
                   do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
-                     dFStar_dq(1:NCONS,1:NCONS,i,j,whichderiv) = dFStar_dq(1:NCONS,1:NCONS,i,j,whichderiv) &
+                     dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) = dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) &
                                                               +  Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
                                                                * Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) &
                                                                * fluxDeriv(:,:,m,l)
@@ -645,24 +652,24 @@
 !      
             select case ( self % projectionType(2) )
             case (0)
-               fStarAux(1:NCONS,1:NCONS,:,:) = fluxDeriv
+               fStarAux(1:nEqn,1:nEqn,:,:) = fluxDeriv
             case (1)
-               fStarAux(1:NCONS,1:NCONS,:,:) = 0.0
+               fStarAux(1:nEqn,1:nEqn,:,:) = 0.0
                do j = 0, self % NfRight(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NfRight(1)
-                  fStarAux(1:NCONS,1:NCONS,i,j) = fStarAux(1:NCONS,1:NCONS,i,j) + Tset(self % Nf(1), self % NfRight(1)) % T(i,l) * fluxDeriv(:,:,l,j)
+                  fStarAux(1:nEqn,1:nEqn,i,j) = fStarAux(1:nEqn,1:nEqn,i,j) + Tset(self % Nf(1), self % NfRight(1)) % T(i,l) * fluxDeriv(:,:,l,j)
                end do                  ; end do                   ; end do
                
             case (2)
-               fStarAux(1:NCONS,1:NCONS,:,:) = 0.0
+               fStarAux(1:nEqn,1:nEqn,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-                  fStarAux(1:NCONS,1:NCONS,i,j) = fStarAux(1:NCONS,1:NCONS,i,j) + Tset(self % Nf(2), self % NfRight(2)) % T(j,l) * fluxDeriv(:,:,i,l)
+                  fStarAux(1:nEqn,1:nEqn,i,j) = fStarAux(1:nEqn,1:nEqn,i,j) + Tset(self % Nf(2), self % NfRight(2)) % T(j,l) * fluxDeriv(:,:,i,l)
                end do                  ; end do                   ; end do
       
             case (3)
-               fStarAux(1:NCONS,1:NCONS,:,:) = 0.0
+               fStarAux(1:nEqn,1:nEqn,:,:) = 0.0
                do l = 0, self % Nf(2)  ; do j = 0, self % NfRight(2)   
                   do m = 0, self % Nf(1) ; do i = 0, self % NfRight(1)
-                     fStarAux(1:NCONS,1:NCONS,i,j) = fStarAux(1:NCONS,1:NCONS,i,j) +   Tset(self % Nf(1), self % NfRight(1)) % T(i,m) &
+                     fStarAux(1:nEqn,1:nEqn,i,j) = fStarAux(1:nEqn,1:nEqn,i,j) +   Tset(self % Nf(1), self % NfRight(1)) % T(i,m) &
                                                              * Tset(self % Nf(2), self % NfRight(2)) % T(j,l) &
                                                              * fluxDeriv(:,:,m,l)
                   end do                 ; end do
@@ -676,7 +683,7 @@
             associate(dFStar_dq => self % storage(2) % dFStar_dqEl)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-               dFStar_dq(1:NCONS,1:NCONS,ii,jj,whichderiv) = fStarAux(1:NCONS,1:NCONS,i,j) 
+               dFStar_dq(1:nEqn,1:nEqn,ii,jj,whichderiv) = fStarAux(1:nEqn,1:nEqn,i,j) 
             end do                        ; end do
 !
 !           *********
@@ -689,13 +696,15 @@
       
 
    end subroutine Face_ProjectFluxJacobianToElements
+#endif
 
-   subroutine Face_ProjectGradientFluxToElements(self, Hflux, whichElements, factor)
+   subroutine Face_ProjectGradientFluxToElements(self, nEqn, Hflux, whichElements, factor)
       use MappedGeometryClass
       use PhysicsStorage
       implicit none
       class(Face)       :: self
-      real(kind=RP), intent(in)  :: Hflux(NGRAD, NDIM, 0:self % Nf(1), 0:self % Nf(2))
+      integer,       intent(in)  :: nEqn
+      real(kind=RP), intent(in)  :: Hflux(nEqn, NDIM, 0:self % Nf(1), 0:self % Nf(2))
       integer,       intent(in)  :: whichElements(2)
       integer,       intent(in)  :: factor               ! A factor that relates LEFT and RIGHT fluxes
 !
@@ -704,7 +713,7 @@
 !     ---------------
 !
       integer           :: i, j, ii, jj, l, m, side
-      real(kind=RP)     :: hStarAux(NGRAD, NDIM, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP)     :: hStarAux(nEqn, NDIM, 0:self % NfRight(1), 0:self % NfRight(2))
 
       do side = 1, 2
          select case ( whichElements(side) )

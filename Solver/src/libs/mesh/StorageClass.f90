@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Thu Apr 19 17:24:24 2018
+!   @Last revision date: Fri Apr 20 17:25:05 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ca7f00098495d6fca03f13af3e8a139f88ed41e0
+!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
 !
 !//////////////////////////////////////////////////////
 !
@@ -27,10 +27,10 @@ module StorageClass
          procedure   :: Destruct  => Statistics_Destruct
    end type Statistics_t
 
-   integer, parameter   :: OFF = 0
-   integer, parameter   :: NS  = 1
-   integer, parameter   :: C   = 2
-   integer, parameter   :: MU  = 3
+
+   enum, bind(C)
+      enumerator :: OFF = 0, NS, C, MU
+   end enum 
 
    type Storage_t
 !
@@ -55,16 +55,16 @@ module StorageClass
       type(Statistics_t)                   :: stats                ! NSE statistics
 #endif
 #if defined(CAHNHILLIARD)
-      real(kind=RP), dimension(:,:,:),   allocatable :: c     ! CHE concentration
-      real(kind=RP), dimension(:,:,:),   allocatable :: c_x   ! CHE concentration x-gradient
-      real(kind=RP), dimension(:,:,:),   allocatable :: c_y   ! CHE concentration y-gradient
-      real(kind=RP), dimension(:,:,:),   allocatable :: c_z   ! CHE concentration z-gradient
-      real(kind=RP), dimension(:,:,:),   allocatable :: cDot  ! CHE concentration time derivative
-      real(kind=RP), dimension(:,:,:),   allocatable :: mu    ! CHE chemical potential
-      real(kind=RP), dimension(:,:,:),   allocatable :: mu_x  ! CHE chemical potential x-gradient
-      real(kind=RP), dimension(:,:,:),   allocatable :: mu_y  ! CHE chemical potential y-gradient
-      real(kind=RP), dimension(:,:,:),   allocatable :: mu_z  ! CHE chemical potential z-gradient
-      real(kind=RP), dimension(:,:,:,:), allocatable :: v     ! CHE flow field velocity
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: c     ! CHE concentration
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: c_x   ! CHE concentration x-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: c_y   ! CHE concentration y-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: c_z   ! CHE concentration z-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: cDot  ! CHE concentration time derivative
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: mu    ! CHE chemical potential
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: mu_x  ! CHE chemical potential x-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: mu_y  ! CHE chemical potential y-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: mu_z  ! CHE chemical potential z-gradient
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: v     ! CHE flow field velocity
 #endif
       contains
          procedure   :: Construct         => Storage_Construct
@@ -92,15 +92,15 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:,:), allocatable :: dFStar_dqEl  ! Stores both dFStar/dqL and dFStar/dqR on the face-element points of the corresponding side
 #endif
 #if defined(CAHNHILLIARD)
-      real(kind=RP), dimension(:,:),   allocatable :: c
-      real(kind=RP), dimension(:,:),   allocatable :: c_x
-      real(kind=RP), dimension(:,:),   allocatable :: c_y
-      real(kind=RP), dimension(:,:),   allocatable :: c_z
-      real(kind=RP), dimension(:,:),   allocatable :: mu
-      real(kind=RP), dimension(:,:),   allocatable :: mu_x
-      real(kind=RP), dimension(:,:),   allocatable :: mu_y
-      real(kind=RP), dimension(:,:),   allocatable :: mu_z
-      real(kind=RP), dimension(:,:,:), allocatable :: v
+      real(kind=RP), dimension(:,:,:),   allocatable :: c
+      real(kind=RP), dimension(:,:,:),   allocatable :: c_x
+      real(kind=RP), dimension(:,:,:),   allocatable :: c_y
+      real(kind=RP), dimension(:,:,:),   allocatable :: c_z
+      real(kind=RP), dimension(:,:,:),   allocatable :: mu
+      real(kind=RP), dimension(:,:,:),   allocatable :: mu_x
+      real(kind=RP), dimension(:,:,:),   allocatable :: mu_y
+      real(kind=RP), dimension(:,:,:),   allocatable :: mu_z
+      real(kind=RP), dimension(:,:,:),   allocatable :: v
 #endif
       contains
          procedure   :: Construct => FaceStorage_Construct
@@ -125,11 +125,10 @@ module StorageClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Storage_Construct(self, Nx, Ny, Nz, nEqn, nGradEqn, computeGradients)
+      subroutine Storage_Construct(self, Nx, Ny, Nz, computeGradients)
          implicit none
          class(Storage_t)     :: self
          integer, intent(in)  :: Nx, Ny, Nz
-         integer, intent(in)  :: nEqn, nGradEqn
          logical              :: computeGradients
 !
 !        ---------------
@@ -147,15 +146,15 @@ module StorageClass
 !        ----------------
 !
 #if defined(NAVIERSTOKES)
-         ALLOCATE( self % QNS    (nEqn,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % QDotNS (nEqn,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % G      (nEqn,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % S      (nEqn,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % QNS    (NCONS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % QDotNS (NCONS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % G      (NCONS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % S      (NCONS,0:Nx,0:Ny,0:Nz) )
          
          IF ( computeGradients )     THEN
-            ALLOCATE( self % U_xNS (nGradEqn,0:Nx,0:Ny,0:Nz) )
-            ALLOCATE( self % U_yNS (nGradEqn,0:Nx,0:Ny,0:Nz) )
-            ALLOCATE( self % U_zNS (nGradEqn,0:Nx,0:Ny,0:Nz) )
+            ALLOCATE( self % U_xNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+            ALLOCATE( self % U_yNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+            ALLOCATE( self % U_zNS (NGRAD,0:Nx,0:Ny,0:Nz) )
          END IF
 !
 !        Point to NS by default
@@ -164,15 +163,15 @@ module StorageClass
 #endif
 
 #if defined(CAHNHILLIARD)
-         allocate( self % c     (0:Nx, 0:Ny, 0:Nz        ) ) 
-         allocate( self % c_x   (0:Nx, 0:Ny, 0:Nz        ) ) 
-         allocate( self % c_y   (0:Nx, 0:Ny, 0:Nz        ) ) 
-         allocate( self % c_z   (0:Nx, 0:Ny, 0:Nz        ) ) 
-         allocate( self % mu    (0:Nx, 0:Ny, 0:Nz        ) ) 
-         allocate( self % mu_x  (0:Nx, 0:Ny, 0:Nz        ) ) 
-         allocate( self % mu_y  (0:Nx, 0:Ny, 0:Nz        ) ) 
-         allocate( self % mu_z  (0:Nx, 0:Ny, 0:Nz        ) ) 
-         allocate( self % v     (1:NDIM,0:Nx, 0:Ny, 0:Nz ) ) 
+         allocate(self % c   (nComp, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % c_x (nComp, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % c_y (nComp, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % c_z (nComp, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % mu  (nComp, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % mu_x(nComp, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % mu_y(nComp, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % mu_z(nComp, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % v   (1:NDIM, 0:Nx, 0:Ny, 0:Nz))
 #endif
 !         
 !        -----------------
@@ -276,43 +275,16 @@ module StorageClass
 !
          implicit none
          class(Storage_t), target   :: self
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         real(kind=RP), pointer  ::  pc(:), pc_x(:), pc_y(:), pc_z(:), pcDot(:)
-         integer                 ::  Nx, Ny, Nz
       
          self % currentlyLoaded = C
 !
-!        Get sizes
-!        ---------
-         Nx = size(self % c,1) - 1 
-         Ny = size(self % c,2) - 1 
-         Nz = size(self % c,3) - 1 
-!
-!        Construct one dimensional temporary pointers
-!        --------------------------------------------
-         call c_f_pointer(c_loc(self % c  ) , pc   , [size(self % c  )])
-         call c_f_pointer(c_loc(self % c_x) , pc_x , [size(self % c_x)])
-         call c_f_pointer(c_loc(self % c_y) , pc_y , [size(self % c_y)])
-         call c_f_pointer(c_loc(self % c_z) , pc_z , [size(self % c_z)])
-         call c_f_pointer(c_loc(self % cDot), pcDot, [size(self % cDot)])
-!
 !        Point to the one dimensional pointers with generic arrays
 !        ---------------------------------------------------------
-         self % Q   (1:1,0:Nx,0:Ny,0:Nz) => pc
-         self % U_x (1:1,0:Nx,0:Ny,0:Nz) => pc_x
-         self % U_y (1:1,0:Nx,0:Ny,0:Nz) => pc_y
-         self % U_z (1:1,0:Nx,0:Ny,0:Nz) => pc_z
-         self % QDot(1:1,0:Nx,0:Ny,0:Nz) => pcDot
-!
-!        Nullify auxiliar pointers
-!        -------------------------
-         pc    => NULL()
-         pc_x  => NULL() ; pc_y => NULL()  ; pc_z => NULL()
-         pcDot => NULL()
+         self % Q   (1:,0:,0:,0:) => self % c
+         self % U_x (1:,0:,0:,0:) => self % c_x
+         self % U_y (1:,0:,0:,0:) => self % c_y
+         self % U_z (1:,0:,0:,0:) => self % c_z
+         self % QDot(1:,0:,0:,0:) => self % cDot
    
       end subroutine Storage_SetStorageToCH_c
 
@@ -326,43 +298,14 @@ module StorageClass
 !
          implicit none
          class(Storage_t), target   :: self
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         real(kind=RP), pointer  ::  pmu(:), pmu_x(:), pmu_y(:), pmu_z(:), pcDot(:)
-         integer                 ::  Nx, Ny, Nz
 
          self % currentlyLoaded = MU
-!
-!        Get sizes
-!        ---------
-         Nx = size(self % mu,1) - 1 
-         Ny = size(self % mu,2) - 1 
-         Nz = size(self % mu,3) - 1 
-!
-!        Construct one dimensional temporary pointers
-!        --------------------------------------------
-         call c_f_pointer(c_loc(self % mu  ) , pmu   , [size(self % mu  )])
-         call c_f_pointer(c_loc(self % mu_x) , pmu_x , [size(self % mu_x)])
-         call c_f_pointer(c_loc(self % mu_y) , pmu_y , [size(self % mu_y)])
-         call c_f_pointer(c_loc(self % mu_z) , pmu_z , [size(self % mu_z)])
-         call c_f_pointer(c_loc(self % cDot) , pcDot , [size(self % cDot)])
-!
-!        Point to the one dimensional pointers with generic arrays
-!        ---------------------------------------------------------
-         self % Q   (1:1,0:Nx,0:Ny,0:Nz) => pmu
-         self % U_x (1:1,0:Nx,0:Ny,0:Nz) => pmu_x
-         self % U_y (1:1,0:Nx,0:Ny,0:Nz) => pmu_y
-         self % U_z (1:1,0:Nx,0:Ny,0:Nz) => pmu_z
-         self % QDot(1:1,0:Nx,0:Ny,0:Nz) => pcDot
-!
-!        Nullify auxiliar pointers
-!        -------------------------
-         pmu    => NULL()
-         pmu_x  => NULL() ; pmu_y => NULL()  ; pmu_z => NULL()
-         pcDot  => NULL()
+
+         self % Q   (1:,0:,0:,0:) => self % mu
+         self % U_x (1:,0:,0:,0:) => self % mu_x
+         self % U_y (1:,0:,0:,0:) => self % mu_y
+         self % U_z (1:,0:,0:,0:) => self % mu_z
+         self % QDot(1:,0:,0:,0:) => self % cDot
    
       end subroutine Storage_SetStorageToCH_mu
 #endif
@@ -374,13 +317,12 @@ module StorageClass
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine FaceStorage_Construct(self, NDIM, Nf, Nel, nEqn, nGradEqn, computeGradients)
+      subroutine FaceStorage_Construct(self, NDIM, Nf, Nel, computeGradients)
          implicit none
          class(FaceStorage_t)     :: self
          integer, intent(in)  :: NDIM
          integer, intent(in)  :: Nf(2)              ! Face polynomial order
          integer, intent(in)  :: Nel(2)             ! Element face polynomial order
-         integer, intent(in)  :: nEqn, nGradEqn     ! Equations
          logical              :: computeGradients 
 !
 !        ---------------
@@ -393,44 +335,43 @@ module StorageClass
 
 #if defined(NAVIERSTOKES)
 
-         ALLOCATE( self % QNS   (nEqn,0:Nf(1),0:Nf(2)) )
-
+         ALLOCATE( self % QNS   (NCONS,0:Nf(1),0:Nf(2)) )
          if (computeGradients) then
-            ALLOCATE( self % U_xNS(nGradEqn,0:Nf(1),0:Nf(2)) )
-            ALLOCATE( self % U_yNS(nGradEqn,0:Nf(1),0:Nf(2)) )
-            ALLOCATE( self % U_zNS(nGradEqn,0:Nf(1),0:Nf(2)) )
+            ALLOCATE( self % U_xNS(NGRAD,0:Nf(1),0:Nf(2)) )
+            ALLOCATE( self % U_yNS(NGRAD,0:Nf(1),0:Nf(2)) )
+            ALLOCATE( self % U_zNS(NGRAD,0:Nf(1),0:Nf(2)) )
 !
 !           Biggest Interface flux memory size is u\vec{n}
 !           ----------------------------------------------
-            interfaceFluxMemorySize = nGradEqn * nDIM * product(Nf + 1)
+            interfaceFluxMemorySize = NGRAD * nDIM * product(Nf + 1)
 
          else
 !
 !           Biggers Interface flux memory is fStar
 !           --------------------------------------
-            interfaceFluxMemorySize = nEqn * product(Nf + 1)
+            interfaceFluxMemorySize = NCONS * product(Nf + 1)
 
          end if
 !
 !        TODO: JMT, if (implicit..?)
-         allocate( self % dFStar_dqF (nEqn,nEqn, 0: Nf(1), 0: Nf(2)) )
-         allocate( self % dFStar_dqEl(nEqn,nEqn, 0:Nel(1), 0:Nel(2),2) )
+         allocate( self % dFStar_dqF (NCONS,NCONS, 0: Nf(1), 0: Nf(2)) )
+         allocate( self % dFStar_dqEl(NCONS,NCONS, 0:Nel(1), 0:Nel(2),2) )
 
 #endif
 #if defined(CAHNHILLIARD)
-         allocate(self % c   (0:Nf(1),0:Nf(2)))
-         allocate(self % c_x (0:Nf(1),0:Nf(2)))
-         allocate(self % c_y (0:Nf(1),0:Nf(2)))
-         allocate(self % c_z (0:Nf(1),0:Nf(2)))
-         allocate(self % mu  (0:Nf(1),0:Nf(2)))
-         allocate(self % mu_x(0:Nf(1),0:Nf(2)))
-         allocate(self % mu_y(0:Nf(1),0:Nf(2)))
-         allocate(self % mu_z(0:Nf(1),0:Nf(2)))
-         allocate(self % v(1:NDIM,0:Nf(1),0:Nf(2)))
+         allocate(self % c   (nComp , 0:Nf(1), 0:Nf(2)))
+         allocate(self % c_x (nComp , 0:Nf(1), 0:Nf(2)))
+         allocate(self % c_y (nComp , 0:Nf(1), 0:Nf(2)))
+         allocate(self % c_z (nComp , 0:Nf(1), 0:Nf(2)))
+         allocate(self % mu  (nComp , 0:Nf(1), 0:Nf(2)))
+         allocate(self % mu_x(nComp , 0:Nf(1), 0:Nf(2)))
+         allocate(self % mu_y(nComp , 0:Nf(1), 0:Nf(2)))
+         allocate(self % mu_z(nComp , 0:Nf(1), 0:Nf(2)))
+         allocate(self % v   (1:NDIM, 0:Nf(1), 0:Nf(2)))
 !
 !        CH will never be the biggest memory requirement unless NSE are disabled
 !        -----------------------------------------------------------------------
-         interfaceFluxMemorySize = max(interfaceFluxMemorySize, nDIM*product(Nf+1))
+         interfaceFluxMemorySize = max(interfaceFluxMemorySize, nComp*nDIM*product(Nf+1))
 #endif
 !
 !        Reserve memory for the interface fluxes
@@ -517,28 +458,87 @@ module StorageClass
 !        Local variables
 !        ---------------
 !
-         integer     :: nEqn, nGradEqn, Nx, Ny, Nz
+         integer     :: Nx, Ny
 
          self % currentlyLoaded = NS
 !
 !        Get sizes
 !        ---------
-         nEqn = size(self % QNS,1)
          Nx   = size(self % QNS,2) - 1 
          Ny   = size(self % QNS,3) - 1 
 
          self % Q   (1:,0:,0:)            => self % QNS
-         self % fStar(1:nEqn, 0:Nx, 0:Ny) => self % genericInterfaceFluxMemory
+         self % fStar(1:NCONS, 0:Nx, 0:Ny) => self % genericInterfaceFluxMemory
+
+         self % genericInterfaceFluxMemory = 0.0_RP
 
          if ( allocated(self % U_xNS) ) then
-            nGradEqn = size(self % U_xNS,1)
             self % U_x (1:,0:,0:) => self % U_xNS
             self % U_y (1:,0:,0:) => self % U_yNS
             self % U_z (1:,0:,0:) => self % U_zNS
-            self % unStar(1:nGradEqn,1:NDIM,0:Nx,0:Ny) => self % genericInterfaceFluxMemory
+            self % unStar(1:NGRAD, 1:NDIM, 0:Nx, 0:Ny) => self % genericInterfaceFluxMemory
          end if
 
       end subroutine FaceStorage_SetStorageToNS
+#endif
+#if defined(CAHNHILLIARD)
+      subroutine FaceStorage_SetStorageToCH_c(self)
+         implicit none
+         class(FaceStorage_t), target  :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: Nx, Ny
+
+         self % currentlyLoaded = C
+!
+!        Get sizes
+!        ---------
+         Nx   = size(self % c,2) - 1 
+         Ny   = size(self % c,3) - 1 
+
+         self % Q(1:,0:,0:)   => self % c
+         self % U_x(1:,0:,0:) => self % c_x
+         self % U_y(1:,0:,0:) => self % c_y
+         self % U_z(1:,0:,0:) => self % c_z
+
+         self % fStar(1:NCOMP,0:Nx,0:Ny)            => self % genericInterfaceFluxMemory
+         self % unStar(1:NCOMP, 1:NDIM, 0:Nx, 0:Ny) => self % genericInterfaceFluxMemory
+
+         self % genericInterfaceFluxMemory = 0.0_RP
+
+      end subroutine FaceStorage_SetStorageToCH_c
+
+      subroutine FaceStorage_SetStorageToCH_mu(self)
+         implicit none
+         class(FaceStorage_t), target  :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: Nx, Ny
+
+         self % currentlyLoaded = MU
+!
+!        Get sizes
+!        ---------
+         Nx   = size(self % mu,2) - 1 
+         Ny   = size(self % mu,3) - 1 
+
+         self % Q(1:,0:,0:)   => self % mu
+         self % U_x(1:,0:,0:) => self % mu_x
+         self % U_y(1:,0:,0:) => self % mu_y
+         self % U_z(1:,0:,0:) => self % mu_z
+
+         self % fStar(1:NCOMP,0:Nx,0:Ny)            => self % genericInterfaceFluxMemory
+         self % unStar(1:NCOMP, 1:NDIM, 0:Nx, 0:Ny) => self % genericInterfaceFluxMemory
+
+         self % genericInterfaceFluxMemory = 0.0_RP
+
+      end subroutine FaceStorage_SetStorageToCH_mu
 #endif
 !
 !/////////////////////////////////////////////////////////////////////////////////////

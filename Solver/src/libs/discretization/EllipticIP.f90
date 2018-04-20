@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Thu Apr 19 17:24:23 2018
+!   @Last revision date: Fri Apr 20 17:25:00 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ca7f00098495d6fca03f13af3e8a139f88ed41e0
+!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
 !
 !//////////////////////////////////////////////////////
 !
@@ -19,7 +19,7 @@ module EllipticIP
    use HexMeshClass
    use Physics
    use PhysicsStorage
-   use VariableConversion, only: gradientValuesForQ
+   use VariableConversion
    use MPI_Process_Info
    use MPI_Face_Class
    use EllipticDiscretizationClass
@@ -146,16 +146,19 @@ module EllipticIP
             
       end subroutine IP_Describe
 
-      subroutine IP_ComputeGradient( self , mesh , time , externalStateProcedure)
+      subroutine IP_ComputeGradient(self, nEqn, nGradEqn, mesh, time, externalStateProcedure, GetGradients0D, GetGradients3D)
          use HexMeshClass
          use PhysicsStorage
          use Physics
          use MPI_Process_Info
          implicit none
          class(InteriorPenalty_t), intent(in) :: self
-         class(HexMesh)                   :: mesh
-         real(kind=RP),        intent(in) :: time
-         procedure(BCState_FCN)           :: externalStateProcedure
+         integer,                  intent(in) :: nEqn, nGradEqn
+         class(HexMesh)                       :: mesh
+         real(kind=RP),        intent(in)     :: time
+         procedure(BCState_FCN)               :: externalStateProcedure
+         procedure(GetGradientValues0D_f)     :: GetGradients0D
+         procedure(GetGradientValues3D_f)     :: GetGradients3D
 !
 !        ---------------
 !        Local variables
@@ -172,12 +175,13 @@ module EllipticIP
 !$omp do schedule(runtime)
          do eID = 1, size(mesh % elements)
             associate( e => mesh % elements(eID) )
-            call e % ComputeLocalGradient
+            call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients3D)
 !
 !           Prolong to faces
 !           ----------------
             fIDs = e % faceIDs
-            call e % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+            call e % ProlongGradientsToFaces(nGradEqn, &
+                                             mesh % faces(fIDs(1)),&
                                              mesh % faces(fIDs(2)),&
                                              mesh % faces(fIDs(3)),&
                                              mesh % faces(fIDs(4)),&
@@ -196,10 +200,10 @@ module EllipticIP
             associate(f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_INTERIOR) 
-               call IP_GradientInterfaceSolution(f) 
+               call IP_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients0D) 
             
             case (HMESH_BOUNDARY) 
-               call IP_GradientInterfaceSolutionBoundary(f, time, externalStateProcedure) 
+               call IP_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients0D, externalStateProcedure) 
  
             end select 
             end associate 
@@ -214,7 +218,7 @@ module EllipticIP
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID))
             if ( e % hasSharedFaces ) cycle
-            call IP_ComputeGradientFaceIntegrals(self, e, mesh)
+            call IP_ComputeGradientFaceIntegrals(self, nGradEqn, e, mesh)
             end associate
          end do
 !$omp end do
@@ -238,7 +242,7 @@ module EllipticIP
             associate(f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_MPI) 
-               call IP_GradientInterfaceSolutionMPI(f) 
+               call IP_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn, GetGradients0D) 
  
             end select 
             end associate 
@@ -253,7 +257,7 @@ module EllipticIP
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID))
             if ( .not. e % hasSharedFaces ) cycle
-            call IP_ComputeGradientFaceIntegrals(self, e, mesh)
+            call IP_ComputeGradientFaceIntegrals(self, nGradEqn, e, mesh)
             end associate
          end do
 !$omp end do
@@ -262,7 +266,7 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_ComputeGradientFaceIntegrals( self, e, mesh)
+      subroutine IP_ComputeGradientFaceIntegrals( self, nGradEqn, e, mesh)
          use ElementClass
          use HexMeshClass
          use PhysicsStorage
@@ -270,6 +274,7 @@ module EllipticIP
          use DGWeakIntegrals
          implicit none
          class(InteriorPenalty_t),   intent(in) :: self
+         integer,                    intent(in) :: nGradEqn
          class(Element)                         :: e
          class(HexMesh)                         :: mesh
 !
@@ -279,11 +284,11 @@ module EllipticIP
 !
          integer              :: i, j, k
          real(kind=RP)        :: invjac
-         real(kind=RP)        :: faceInt_x(NGRAD, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP)        :: faceInt_y(NGRAD, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP)        :: faceInt_z(NGRAD, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_x(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_y(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_z(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
 
-         call VectorWeakIntegrals % StdFace(e, NGRAD, &
+         call VectorWeakIntegrals % StdFace(e, nGradEqn, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
                mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % unStar, &
                mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % unStar, &
@@ -305,7 +310,7 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_GradientInterfaceSolution(f)
+      subroutine IP_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients)
          use Physics  
          use ElementClass
          use FaceClass
@@ -315,21 +320,23 @@ module EllipticIP
 !        Arguments
 !        ---------
 !
-         type(Face)    :: f
+         type(Face)                       :: f
+         integer, intent(in)              :: nEqn, nGradEqn
+         procedure(GetGradientValues0D_f) :: GetGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: UL(NGRAD), UR(NGRAD)
-         real(kind=RP) :: Uhat(NGRAD)
-         real(kind=RP) :: Hflux(NGRAD,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
+         real(kind=RP) :: Uhat(nGradEqn)
+         real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
 
          integer       :: i,j
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call GradientValuesForQ(Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GradientValuesForQ(Q = f % storage(2) % Q(:,i,j), U = UR)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
 
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
@@ -337,11 +344,11 @@ module EllipticIP
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
-         call f % ProjectGradientFluxToElements(HFlux,(/1,2/),1)
+         call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1)
          
       end subroutine IP_GradientInterfaceSolution   
 
-      subroutine IP_GradientInterfaceSolutionMPI(f)
+      subroutine IP_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn, GetGradients)
          use Physics  
          use ElementClass
          use FaceClass
@@ -351,20 +358,22 @@ module EllipticIP
 !        Arguments
 !        ---------
 !
-         type(Face)    :: f
+         type(Face)                       :: f
+         integer,    intent(in)           :: nEqn, nGradEqn
+         procedure(GetGradientValues0D_f) :: GetGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: UL(NGRAD), UR(NGRAD)
-         real(kind=RP) :: Uhat(NGRAD)
-         real(kind=RP) :: Hflux(NGRAD,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
+         real(kind=RP) :: Uhat(nGradEqn)
+         real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
          integer       :: i,j, thisSide
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call GradientValuesForQ(Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GradientValuesForQ(Q = f % storage(2) % Q(:,i,j), U = UR)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
    
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
@@ -373,20 +382,28 @@ module EllipticIP
          end do               ; end do
 
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectGradientFluxToElements(HFlux,(/thisSide, HMESH_NONE/),1)
+         call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/thisSide, HMESH_NONE/),1)
          
       end subroutine IP_GradientInterfaceSolutionMPI   
 
-      subroutine IP_GradientInterfaceSolutionBoundary(f, time, externalState)
+      subroutine IP_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients, externalState)
          use Physics
          use FaceClass
          implicit none
-         type(Face)    :: f
-         real(kind=RP) :: time
-         external      :: externalState
+         type(Face)                       :: f
+         integer,    intent(in)           :: nEqn
+         integer,    intent(in)           :: nGradEqn
+         real(kind=RP)                    :: time
+         procedure(GetGradientValues0D_f) :: GetGradients
+         external                         :: externalState
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
          integer       :: i, j
-         real(kind=RP) :: Uhat(NGRAD), UL(NGRAD), UR(NGRAD)
-         real(kind=RP) :: bvExt(NCONS)
+         real(kind=RP) :: Uhat(nGradEqn), UL(nGradEqn), UR(nGradEqn)
+         real(kind=RP) :: bvExt(nEqn)
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 
@@ -417,22 +434,23 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_ComputeInnerFluxes( self , e , EllipticFlux, contravariantFlux )
+      subroutine IP_ComputeInnerFluxes( self , nEqn, nGradEqn, e , EllipticFlux, contravariantFlux )
          use ElementClass
          use PhysicsStorage
          use Physics
          implicit none
-         class(InteriorPenalty_t) ,     intent (in) :: self
+         class(InteriorPenalty_t) ,     intent(in)  :: self
+         integer,                       intent(in)  :: nEqn, nGradEqn
          type(Element)                              :: e
          procedure(EllipticFlux3D_f)                :: EllipticFlux
-         real(kind=RP)           , intent (out)     :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP)           , intent (out)     :: contravariantFlux(1:nEqn, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          real(kind=RP)       :: delta
-         real(kind=RP)       :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP)       :: cartesianFlux(1:nEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
          real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
@@ -444,10 +462,9 @@ module EllipticIP
 #elif defined(CAHNHILLIARD)
          mu = 1.0_RP
          kappa = 0.0_RP
-
 #endif
 
-         call EllipticFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
+         call EllipticFlux( nEqn, nGradEqn, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -523,7 +540,7 @@ module EllipticIP
 
       end subroutine IP_ComputeInnerFluxesWithSGS
 #endif
-      subroutine IP_RiemannSolver ( self , f, EllipticFlux, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+      subroutine IP_RiemannSolver ( self , nEqn, nGradEqn, f, EllipticFlux, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
@@ -531,26 +548,27 @@ module EllipticIP
          use FaceClass
          implicit none
          class(InteriorPenalty_t)             :: self
+         integer,       intent(in)            :: nEqn, nGradEqn
          class(Face),   intent(in)            :: f
          procedure(EllipticFlux0D_f)          :: EllipticFlux
-         real(kind=RP), dimension(NCONS)      :: QLeft
-         real(kind=RP), dimension(NCONS)      :: QRight
-         real(kind=RP), dimension(NGRAD) :: U_xLeft
-         real(kind=RP), dimension(NGRAD) :: U_yLeft
-         real(kind=RP), dimension(NGRAD) :: U_zLeft
-         real(kind=RP), dimension(NGRAD) :: U_xRight
-         real(kind=RP), dimension(NGRAD) :: U_yRight
-         real(kind=RP), dimension(NGRAD) :: U_zRight
+         real(kind=RP), dimension(nEqn)      :: QLeft
+         real(kind=RP), dimension(nEqn)      :: QRight
+         real(kind=RP), dimension(nGradEqn) :: U_xLeft
+         real(kind=RP), dimension(nGradEqn) :: U_yLeft
+         real(kind=RP), dimension(nGradEqn) :: U_zLeft
+         real(kind=RP), dimension(nGradEqn) :: U_xRight
+         real(kind=RP), dimension(nGradEqn) :: U_yRight
+         real(kind=RP), dimension(nGradEqn) :: U_zRight
          real(kind=RP), dimension(NDIM)       :: nHat
          real(kind=RP)                        :: dWall
-         real(kind=RP), dimension(NCONS)      :: flux
+         real(kind=RP), dimension(nEqn)      :: flux
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: Q(NCONS) , U_x(NGRAD) , U_y(NGRAD) , U_z(NGRAD)
-         real(kind=RP)     :: flux_vec(NCONS,NDIM)
+         real(kind=RP)     :: Q(nEqn) , U_x(nGradEqn) , U_y(nGradEqn) , U_z(nGradEqn)
+         real(kind=RP)     :: flux_vec(nEqn,NDIM)
          real(kind=RP)     :: mu, kappa, delta, sigma
 
 !
@@ -571,7 +589,7 @@ module EllipticIP
 
 #endif
 
-         call EllipticFlux(Q,U_x,U_y,U_z, mu, kappa, flux_vec)
+         call EllipticFlux(nEqn, nGradEqn, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 !
 !        Shahbazi estimate
 !        -----------------
@@ -593,19 +611,19 @@ module EllipticIP
          use FaceClass
          use LESModels
          implicit none
-         class(InteriorPenalty_t)                 :: self
-         class(Face),   intent(in)            :: f
-         real(kind=RP), dimension(NCONS)      :: QLeft
-         real(kind=RP), dimension(NCONS)      :: QRight
+         class(InteriorPenalty_t)        :: self
+         class(Face),   intent(in)       :: f
+         real(kind=RP), dimension(NCONS) :: QLeft
+         real(kind=RP), dimension(NCONS) :: QRight
          real(kind=RP), dimension(NGRAD) :: U_xLeft
          real(kind=RP), dimension(NGRAD) :: U_yLeft
          real(kind=RP), dimension(NGRAD) :: U_zLeft
          real(kind=RP), dimension(NGRAD) :: U_xRight
          real(kind=RP), dimension(NGRAD) :: U_yRight
          real(kind=RP), dimension(NGRAD) :: U_zRight
-         real(kind=RP), dimension(NDIM)       :: nHat
-         real(kind=RP)                        :: dWall
-         real(kind=RP), dimension(NCONS)      :: flux
+         real(kind=RP), dimension(NDIM)  :: nHat
+         real(kind=RP)                   :: dWall
+         real(kind=RP), dimension(NCONS) :: flux
 !
 !        ---------------
 !        Local variables

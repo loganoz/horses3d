@@ -4,9 +4,9 @@
 !   @File:    GradientsStabilization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Thu Apr 12 11:32:49 2018
-!   @Last revision date: Fri Apr 13 09:03:25 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0122ccf4e338290aac81495d4aabdf486b3c6a09
+!   @Last revision date: Fri Apr 20 17:25:00 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
 !
 !//////////////////////////////////////////////////////
 !
@@ -82,12 +82,12 @@ module GradientsStabilization
 !           Revert the scaling
 !           -------------------               
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1)
-               e % storage % U_x(:,i,j,k) = &
-                           e % storage % U_x(:,i,j,k) * e % geom % jacobian(i,j,k)
-               e % storage % U_y(:,i,j,k) = &
-                           e % storage % U_y(:,i,j,k) * e % geom % jacobian(i,j,k)
-               e % storage % U_z(:,i,j,k) = &
-                           e % storage % U_z(:,i,j,k) * e % geom % jacobian(i,j,k)
+               e % storage % c_x(:,i,j,k) = &
+                           e % storage % c_x(:,i,j,k) * e % geom % jacobian(i,j,k)
+               e % storage % c_y(:,i,j,k) = &
+                           e % storage % c_y(:,i,j,k) * e % geom % jacobian(i,j,k)
+               e % storage % c_z(:,i,j,k) = &
+                           e % storage % c_z(:,i,j,k) * e % geom % jacobian(i,j,k)
             end do         ; end do          ; end do
 !
 !           Add the surface integrals
@@ -97,12 +97,12 @@ module GradientsStabilization
 !           Perform the scaling
 !           -------------------               
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1)
-               e % storage % U_x(:,i,j,k) = &
-                           e % storage % U_x(:,i,j,k) / e % geom % jacobian(i,j,k)
-               e % storage % U_y(:,i,j,k) = &
-                           e % storage % U_y(:,i,j,k) / e % geom % jacobian(i,j,k)
-               e % storage % U_z(:,i,j,k) = &
-                           e % storage % U_z(:,i,j,k) / e % geom % jacobian(i,j,k)
+               e % storage % c_x(:,i,j,k) = &
+                           e % storage % c_x(:,i,j,k) / e % geom % jacobian(i,j,k)
+               e % storage % c_y(:,i,j,k) = &
+                           e % storage % c_y(:,i,j,k) / e % geom % jacobian(i,j,k)
+               e % storage % c_z(:,i,j,k) = &
+                           e % storage % c_z(:,i,j,k) / e % geom % jacobian(i,j,k)
             end do         ; end do          ; end do
 
             end associate
@@ -130,12 +130,12 @@ module GradientsStabilization
 !           Revert the scaling
 !           -------------------               
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1)
-               e % storage % U_x(:,i,j,k) = &
-                           e % storage % U_x(:,i,j,k) * e % geom % jacobian(i,j,k)
-               e % storage % U_y(:,i,j,k) = &
-                           e % storage % U_y(:,i,j,k) * e % geom % jacobian(i,j,k)
-               e % storage % U_z(:,i,j,k) = &
-                           e % storage % U_z(:,i,j,k) * e % geom % jacobian(i,j,k)
+               e % storage % c_x(:,i,j,k) = &
+                           e % storage % c_x(:,i,j,k) * e % geom % jacobian(i,j,k)
+               e % storage % c_y(:,i,j,k) = &
+                           e % storage % c_y(:,i,j,k) * e % geom % jacobian(i,j,k)
+               e % storage % c_z(:,i,j,k) = &
+                           e % storage % c_z(:,i,j,k) * e % geom % jacobian(i,j,k)
             end do         ; end do          ; end do
 
 !
@@ -146,19 +146,18 @@ module GradientsStabilization
 !           Perform the scaling
 !           -------------------               
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1)
-               e % storage % U_x(:,i,j,k) = &
-                           e % storage % U_x(:,i,j,k) / e % geom % jacobian(i,j,k)
-               e % storage % U_y(:,i,j,k) = &
-                           e % storage % U_y(:,i,j,k) / e % geom % jacobian(i,j,k)
-               e % storage % U_z(:,i,j,k) = &
-                           e % storage % U_z(:,i,j,k) / e % geom % jacobian(i,j,k)
+               e % storage % c_x(:,i,j,k) = &
+                           e % storage % c_x(:,i,j,k) / e % geom % jacobian(i,j,k)
+               e % storage % c_y(:,i,j,k) = &
+                           e % storage % c_y(:,i,j,k) / e % geom % jacobian(i,j,k)
+               e % storage % c_z(:,i,j,k) = &
+                           e % storage % c_z(:,i,j,k) / e % geom % jacobian(i,j,k)
             end do         ; end do          ; end do
 
             end associate
          end do
 !$omp end do
 #endif
-
       end subroutine StabilizeGradients
 
       subroutine GradientsStabilization_InteriorFace(f)
@@ -179,24 +178,23 @@ module GradientsStabilization
 !        ---------------
 !
          integer       :: i,j
-         real(kind=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         real(kind=RP) :: Uhat(N_GRAD_EQN)
-         real(kind=RP) :: Hflux(N_GRAD_EQN,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP) :: cL(NCOMP), cR(NCOMP), uHat(NCOMP)
+         real(kind=RP) :: Hflux(NCOMP,NDIM,0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP) :: vAver(NDIM)
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call GradientValuesForQ(Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GradientValuesForQ(Q = f % storage(2) % Q(:,i,j), U = UR)
+            cL = f % storage(1) % c(:,i,j)
+            cR = f % storage(2) % c(:,i,j)
   
             vAver = AVERAGE( f % storage(1) % v(:,i,j) , f % storage(2) % v(:,i,j))
 
-            Uhat = 0.5_RP * sign2(dot_product(vAver, f % geom % normal(:,i,j)))*(UL - UR) * f % geom % jacobian(i,j) 
+            Uhat = 0.5_RP * sign2(dot_product(vAver, f % geom % normal(:,i,j)))*(cL - cR) * f % geom % jacobian(i,j) 
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
             Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
-         call f % ProjectGradientFluxToElements(HFlux,(/1,2/),-1)
+         call f % ProjectGradientFluxToElements(NCOMP, HFlux,(/1,2/),-1)
          
       end subroutine GradientsStabilization_InteriorFace   
 
@@ -217,25 +215,24 @@ module GradientsStabilization
 !        ---------------
 !
          integer       :: i,j, thisSide
-         real(kind=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         real(kind=RP) :: Uhat(N_GRAD_EQN)
-         real(kind=RP) :: Hflux(N_GRAD_EQN,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP) :: cL(NCOMP), cR(NCOMP), Uhat(NCOMP)
+         real(kind=RP) :: Hflux(NCOMP,NDIM,0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP) :: vAver(NDIM)
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call GradientValuesForQ(Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GradientValuesForQ(Q = f % storage(2) % Q(:,i,j), U = UR)
+            cL = f % storage(1) % c(:,i,j)
+            cR = f % storage(2) % c(:,i,j)
    
             vAver = AVERAGE( f % storage(1) % v(:,i,j) , f % storage(2) % v(:,i,j))
 
-            Uhat = 0.5_RP * sign2(dot_product(vAver, f % geom % normal(:,i,j)))*(UL - UR) * f % geom % jacobian(i,j)
+            Uhat = 0.5_RP * sign2(dot_product(vAver, f % geom % normal(:,i,j)))*(cL - cR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
             Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectGradientFluxToElements(HFlux,(/thisSide, HMESH_NONE/),-1)
+         call f % ProjectGradientFluxToElements(NCOMP, HFlux, (/thisSide, HMESH_NONE/), -1)
          
       end subroutine GradientsStabilization_MPIFace   
 
@@ -247,12 +244,12 @@ module GradientsStabilization
          real(kind=RP) :: time
          external      :: externalState
          integer       :: i, j
-         real(kind=RP) :: Uhat(N_GRAD_EQN), UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         real(kind=RP) :: bvExt(N_EQN)
+         real(kind=RP) :: Uhat(NCOMP), cL(NCOMP), cR(NCOMP)
+         real(kind=RP) :: bvExt(NCOMP)
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 
-            bvExt =  f % storage(1) % Q(:,i,j)
+            bvExt =  f % storage(1) % c(:,i,j)
    
             call externalState( f % geom % x(:,i,j), &
                                 time               , &
@@ -264,10 +261,10 @@ module GradientsStabilization
 !           u, v, w, T averages
 !           -------------------
 !   
-            call GradientValuesForQ( f % storage(1) % Q(:,i,j), UL )
-            call GradientValuesForQ( bvExt, UR )
+            cL = f % storage(1) % Q(:,i,j)
+            cR = bvExt
    
-            Uhat = 0.5_RP * dot_product(f % storage(1) % v(:,i,j), f % geom % normal(:,i,j))*(UL - UR) * f % geom % jacobian(i,j) / (abs(dot_product(f % storage(1) % v(:,i,j),f % geom % normal(:,i,j))) + epsilon(1.0_RP))
+            Uhat = 0.5_RP * dot_product(f % storage(1) % v(:,i,j), f % geom % normal(:,i,j))*(cL - cR) * f % geom % jacobian(i,j) / (abs(dot_product(f % storage(1) % v(:,i,j),f % geom % normal(:,i,j))) + epsilon(1.0_RP))
             f % storage(1) % unStar(:,1,i,j) = Uhat * f % geom % normal(1,i,j)
             f % storage(1) % unStar(:,2,i,j) = Uhat * f % geom % normal(2,i,j)
             f % storage(1) % unStar(:,3,i,j) = Uhat * f % geom % normal(3,i,j)
@@ -290,11 +287,11 @@ module GradientsStabilization
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)        :: faceInt_x(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP)        :: faceInt_y(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP)        :: faceInt_z(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_x(NCOMP, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_y(NCOMP, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_z(NCOMP, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
 
-         call VectorWeakIntegrals % StdFace(e, &
+         call VectorWeakIntegrals % StdFace(e, NCOMP, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
                mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % unStar, &
                mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % unStar, &
@@ -303,9 +300,9 @@ module GradientsStabilization
                mesh % faces(e % faceIDs(ELEFT))   % storage(e % faceSide(ELEFT))   % unStar, &
                faceInt_x, faceInt_y, faceInt_z )
 
-         e % storage % U_x = e % storage % U_x + faceInt_x
-         e % storage % U_y = e % storage % U_y + faceInt_y
-         e % storage % U_z = e % storage % U_z + faceInt_z
+         e % storage % c_x = e % storage % c_x + faceInt_x
+         e % storage % c_y = e % storage % c_y + faceInt_y
+         e % storage % c_z = e % storage % c_z + faceInt_z
 
       end subroutine PerformSurfaceIntegrals
 #endif

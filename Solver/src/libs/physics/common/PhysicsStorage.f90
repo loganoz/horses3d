@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Thu Apr 19 17:24:26 2018
+!   @Last revision date: Fri Apr 20 17:25:09 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ca7f00098495d6fca03f13af3e8a139f88ed41e0
+!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,6 +21,17 @@ module PhysicsStorage
    implicit none
 
    private RP
+
+#if (defined(NAVIERSTOKES) && !defined(CANHILLIARD))
+   integer, parameter   :: NTOTALVARS = NCONS
+   integer, parameter   :: NTOTALGRADS = NGRAD
+#elif (!defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
+   integer, parameter   :: NTOTALVARS = NCOMP
+   integer, parameter   :: NTOTALGRADS = NCOMP
+#elif (defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
+   integer, parameter   :: NTOTALVARS = NCONS + NCOMP
+   integer, parameter   :: NTOTALGRADS = NGRAD + NCOMP
+#endif
 
    real(kind=RP)     :: Lref
    real(kind=RP)     :: timeref
