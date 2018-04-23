@@ -299,15 +299,17 @@
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine ViscousFlux0D(Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine ViscousFlux0D(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, kappa, F)
          implicit none
-         real(kind=RP), intent(in)  :: Q   (1:NCONS     )
-         real(kind=RP), intent(in)  :: U_x (1:NGRAD)
-         real(kind=RP), intent(in)  :: U_y (1:NGRAD)
-         real(kind=RP), intent(in)  :: U_z (1:NGRAD)
+         integer,       intent(in)  :: nEqn
+         integer,       intent(in)  :: nGradEqn
+         real(kind=RP), intent(in)  :: Q   (1:nEqn     )
+         real(kind=RP), intent(in)  :: U_x (1:nGradEqn)
+         real(kind=RP), intent(in)  :: U_y (1:nGradEqn)
+         real(kind=RP), intent(in)  :: U_z (1:nGradEqn)
          real(kind=RP), intent(in)  :: mu
          real(kind=RP), intent(in)  :: kappa
-         real(kind=RP), intent(out) :: F(1:NCONS, 1:NDIM)
+         real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
 !
 !        ---------------
 !        Local variables
@@ -347,16 +349,18 @@
          ! with Pr = constant, dmudx = dkappadx
       end subroutine ViscousFlux0D
 
-      pure subroutine ViscousFlux2D( N, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine ViscousFlux2D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, F)
          implicit none
+         integer,       intent(in)  :: nEqn
+         integer,       intent(in)  :: nGradEqn
          integer         , intent(in)  :: N(2)
-         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: U_x(1:NGRAD, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_y(1:NGRAD, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_z(1:NGRAD, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
-         real(kind=RP),    intent(out) :: F   (1:NCONS, 1:NDIM, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(out) :: F   (1:nEqn, 1:NDIM, 0:N(1), 0:N(2))
 !
 !        ---------------
 !        Local variables
@@ -411,16 +415,18 @@
 
       end subroutine ViscousFlux2D
 
-      pure subroutine ViscousFlux3D( N, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine ViscousFlux3D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, F)
          implicit none
+         integer,       intent(in)  :: nEqn
+         integer,       intent(in)  :: nGradEqn
          integer         , intent(in)  :: N(3)
-         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: U_x(1:NGRAD, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_y(1:NGRAD, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_z(1:NGRAD, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(out) :: F   (1:NCONS, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
+         real(kind=RP),    intent(out) :: F   (1:nEqn, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
 !
 !        ---------------
 !        Local variables
@@ -478,17 +484,19 @@
 
       end subroutine ViscousFlux3D
 
-      pure subroutine ViscousFlux0D_withSGS(Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
+      pure subroutine ViscousFlux0D_withSGS(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
          implicit none
-         real(kind=RP), intent(in)  :: Q   (1:NCONS     )
-         real(kind=RP), intent(in)  :: U_x (1:NGRAD)
-         real(kind=RP), intent(in)  :: U_y (1:NGRAD)
-         real(kind=RP), intent(in)  :: U_z (1:NGRAD)
+         integer,       intent(in)  :: nEqn
+         integer,       intent(in)  :: nGradEqn
+         real(kind=RP), intent(in)  :: Q   (1:nEqn     )
+         real(kind=RP), intent(in)  :: U_x (1:nGradEqn)
+         real(kind=RP), intent(in)  :: U_y (1:nGradEqn)
+         real(kind=RP), intent(in)  :: U_z (1:nGradEqn)
          real(kind=RP), intent(in)  :: mu
          real(kind=RP), intent(in)  :: kappa
          real(kind=RP), intent(in)  :: tauSGS(NDIM, NDIM)
          real(kind=RP), intent(in)  :: qSGS(NDIM)
-         real(kind=RP), intent(out) :: F(1:NCONS, 1:NDIM)
+         real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
 !
 !        ---------------
 !        Local variables
@@ -527,18 +535,20 @@
 
       end subroutine ViscousFlux0D_withSGS
 
-      pure subroutine ViscousFlux2D_withSGS( N, Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
+      pure subroutine ViscousFlux2D_withSGS( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
          implicit none
+         integer,          intent(in)  :: nEqn
+         integer,          intent(in)  :: nGradEqn
          integer         , intent(in)  :: N(2)
-         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: U_x(1:NGRAD, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_y(1:NGRAD, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_z(1:NGRAD, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: tauSGS(1:NDIM, 1:NDIM, 0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: qSGS(1:NDIM, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(out) :: F   (1:NCONS, 1:NDIM, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(out) :: F   (1:nEqn, 1:NDIM, 0:N(1), 0:N(2))
 !
 !        ---------------
 !        Local variables
@@ -593,18 +603,20 @@
 
       end subroutine ViscousFlux2D_withSGS
 
-      pure subroutine ViscousFlux3D_withSGS( N, Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
+      pure subroutine ViscousFlux3D_withSGS(nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
          implicit none
+         integer,          intent(in)  :: nEqn
+         integer,          intent(in)  :: nGradEqn
          integer         , intent(in)  :: N(3)
-         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: U_x(1:NGRAD, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_y(1:NGRAD, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_z(1:NGRAD, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: tauSGS(1:NDIM, 1:NDIM, 0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: qSGS(1:NDIM, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(out) :: F   (1:NCONS, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
+         real(kind=RP),    intent(out) :: F   (1:nEqn, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
 !
 !        ---------------
 !        Local variables

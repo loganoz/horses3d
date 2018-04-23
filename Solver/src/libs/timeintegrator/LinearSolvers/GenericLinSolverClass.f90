@@ -75,9 +75,11 @@ CONTAINS
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
-   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative,computeA)
+   SUBROUTINE solve(this,nEqn,nGradEqn,tol,maxiter,time,dt, ComputeTimeDerivative,computeA)
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      integer,       intent(in)                :: nEqn
+      integer,       intent(in)                :: nGradEqn
       REAL(KIND=RP), OPTIONAL                  :: tol
       INTEGER      , OPTIONAL                  :: maxiter
       REAL(KIND=RP), OPTIONAL                  :: time

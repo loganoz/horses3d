@@ -168,7 +168,7 @@ module TruncationErrorClass
          maxTE = 0._RP
          
          ! loop over all the degrees of freedom of the element
-         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1) ; do iEQ = 1, NCONS
+         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1) ; do iEQ = 1, NTOTALVARS
             wx  = NodalStorage(N(1)) % w (i)
             wy  = NodalStorage(N(2)) % w (j)
             wz  = NodalStorage(N(3)) % w (k)

@@ -181,7 +181,7 @@
 !
       integer              :: PA_Stage  ! P-adaptation stage
       real(kind=RP)        :: FMGres    ! Target residual for FMG solver
-      REAL(KIND=RP)        :: maxResidual(NCONS)
+      REAL(KIND=RP)        :: maxResidual(NTOTALVARS)
       type(FASMultigrid_t) :: FMGSolver ! FAS multigrid solver for Full-Multigrid (FMG) initialization
       
 !     Initializations
@@ -295,7 +295,7 @@ end interface
       
       real(kind=RP)                 :: Tol                                 ! Tolerance used for STEADY_STATE computations
       REAL(KIND=RP)                 :: t
-      REAL(KIND=RP)                 :: maxResidual(NCONS)
+      REAL(KIND=RP)                 :: maxResidual(NTOTALVARS)
       REAL(KIND=RP)                 :: dt
       INTEGER                       :: k, mNumber
       CHARACTER(LEN=13)             :: fName = "Movie_XX.tec"

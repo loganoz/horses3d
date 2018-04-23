@@ -4,9 +4,9 @@
 !   @File:    IMEXMethods.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date: Wed Apr 18 20:19:14 2018
+!   @Last revision date: Mon Apr 23 16:22:31 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
+!   @Last revision commit: 537e46dd1de9842e00daf5c4b578c75f98071222
 !
 !//////////////////////////////////////////////////////
 !
@@ -49,12 +49,18 @@ CONTAINS
 !     Local variables
 !     ---------------
 !
-      type(MKLPardisoSolver_t), save                        :: linsolver        
-      INTEGER                                               :: nelm, DimPrb
-      LOGICAL, save                                         :: isfirst = .TRUE.
-      REAL(KIND=RP), DIMENSION(:), ALLOCATABLE              :: U_n                                   !Solution at the beginning of time step (even for inner time steps)
-      LOGICAL                                               :: TimeAccurate = .true.
+      type(MKLPardisoSolver_t), save           :: linsolver
+      INTEGER                                  :: nelm, DimPrb
+      LOGICAL, save                            :: isfirst = .TRUE.
+      REAL(KIND=RP), DIMENSION(:), ALLOCATABLE :: U_n                                   !Solution at the beginning of time step (even for inner time steps)
+      LOGICAL                                  :: TimeAccurate = .true.
+      integer                                  :: nEqnJac, nGradJac
       SAVE DimPrb, nelm, TimeAccurate
+
+#if defined(CAHNHILLIARD)
+      nEqnJac = NCOMP
+      nGradJac = NCOMP
+#endif
       
       IF (isfirst) THEN           
 !
@@ -72,7 +78,7 @@ CONTAINS
          CALL linsolver%construct(DimPrb,controlVariables,sem) 
 
 
-         call linsolver%ComputeAndFactorizeJacobian(ComputeTimeDerivative, dt, 1.0_RP)
+         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac,ComputeTimeDerivative, dt, 1.0_RP)
 
          
       ENDIF
@@ -111,7 +117,7 @@ CONTAINS
 
       INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, elmnt, counter   
       REAL(KIND=RP)                                :: value
-
+#if defined(CAHNHILLIARD)
       counter = 0
       DO elmnt = 1, nelm
          Nx = sem%mesh%elements(elmnt)%Nxyz(1)
@@ -120,9 +126,9 @@ CONTAINS
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
-                  DO l = 1,NCONS
-                     value = sem%mesh%elements(elmnt)%storage%Q(l,i,j,k) + &
-                          dt*sem%mesh%elements(elmnt)%storage%QDot(l,i,j,k)
+                  DO l = 1,NCOMP
+                     value = sem%mesh%elements(elmnt)%storage%c(l,i,j,k) + &
+                          dt*sem%mesh%elements(elmnt)%storage%cDot(l,i,j,k)
 
                      CALL linsolver%SetBValue(counter, value)
                      counter =  counter + 1
@@ -133,7 +139,7 @@ CONTAINS
       END DO
 
       CALL linsolver%AssemblyB     ! b must be assembled before using
-
+#endif
    END SUBROUTINE ComputeRHS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -150,10 +150,11 @@ MODULE PetscSolverClass
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SolveLinPrb(this, tol, maxiter, time,dt, ComputeTimeDerivative, ComputeA)
+   SUBROUTINE SolveLinPrb(this, nEqn, nGradEqn, tol, maxiter, time,dt, ComputeTimeDerivative, ComputeA)
       IMPLICIT NONE
       !-------------------------------------------------------------
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT) :: this
+      integer,       intent(in)                    :: nEqn, nGradEqn
       REAL(KIND=RP), OPTIONAL                      :: time
       REAL(KIND=RP), OPTIONAL                      :: dt
       procedure(ComputeQDot_FCN)                   :: ComputeTimeDerivative
@@ -167,12 +168,12 @@ MODULE PetscSolverClass
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
             call this % A % shift(-1._RP/dt)
             ComputeA = .FALSE.
          end if
       else 
-         call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
          call this % A % shift(-1._RP/dt)
       end if
       

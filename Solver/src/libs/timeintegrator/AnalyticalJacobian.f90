@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (a.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Wed Apr 18 20:19:12 2018
+!   @Last revision date: Mon Apr 23 16:22:28 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
+!   @Last revision commit: 537e46dd1de9842e00daf5c4b578c75f98071222
 !
 !//////////////////////////////////////////////////////
 !
@@ -53,10 +53,11 @@ contains
 !  -------------------------------------------------------
 !  Subroutine for computing the analytical Jacobian matrix
 !  -------------------------------------------------------
-   subroutine AnalyticalJacobian_Compute(sem,time,Matrix,BlockDiagonalized)
+   subroutine AnalyticalJacobian_Compute(sem,nEqn, time,Matrix,BlockDiagonalized)
       implicit none
       !--------------------------------------------
       type(DGSem)              , intent(inout) :: sem
+      integer,                   intent(in)    :: nEqn
       real(kind=RP)            , intent(in)    :: time
       class(Matrix_t)          , intent(inout) :: Matrix
       logical        , optional, intent(in)    :: BlockDiagonalized  !<? Construct only the block diagonal?
@@ -95,7 +96,7 @@ contains
       
       firstIdx = 0
       DO eID=1, nelem
-         ndofelm(eID)  = NCONS * (sem % Nx(eID)+1) * (sem % Ny(eID)+1) * (sem % Nz(eID)+1)
+         ndofelm(eID)  = nEqn * (sem % Nx(eID)+1) * (sem % Ny(eID)+1) * (sem % Nz(eID)+1)
          if (eID>1) firstIdx(eID) = firstIdx(eID-1) + ndofelm(eID-1)
       END DO
       firstIdx(nelem+1) = firstIdx(nelem) + ndofelm(nelem)
@@ -114,7 +115,7 @@ contains
 !     Diagonal blocks
 !     ***************
 !
-      call AnalyticalJacobian_DiagonalBlocks(sem % mesh, time, sem % BCFunctions(1) % externalState, Matrix)
+      call AnalyticalJacobian_DiagonalBlocks(sem % mesh, nEqn, time, sem % BCFunctions(1) % externalState, Matrix)
 !
 !     *******************
 !     Off-Diagonal blocks
@@ -141,11 +142,12 @@ contains
 !  -----------------------------------------------------------------------------------------------
 !  Subroutine for adding the faces' contribution to the off-diagonal blocks of the Jacobian matrix
 !  -----------------------------------------------------------------------------------------------
-   subroutine AnalyticalJacobian_DiagonalBlocks(mesh,time,externalStateProcedure,Matrix)
+   subroutine AnalyticalJacobian_DiagonalBlocks(mesh,nEqn,time,externalStateProcedure,Matrix)
       use FaceClass
       implicit none
       !--------------------------------------------
       type(HexMesh), target    , intent(inout) :: mesh
+      integer,                   intent(in)    :: nEqn
       real(kind=RP)            , intent(in)    :: time
       procedure(BCState_FCN)                   :: externalStateProcedure
       class(Matrix_t)          , intent(inout) :: Matrix
@@ -153,14 +155,13 @@ contains
       integer :: eID, fID
       !--------------------------------------------
 #if defined(NAVIERSTOKES)
-      call ComputeNumericalFluxJacobian(mesh,time,externalStateProcedure)
-#endif
+      call ComputeNumericalFluxJacobian(mesh,nEqn, time,externalStateProcedure)
 
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
          associate (f => mesh % faces(fID)) 
-         call f % ProjectFluxJacobianToElements(LEFT ,LEFT )   ! dF/dQL to the left element 
-         if (.not. (f % faceType == HMESH_BOUNDARY)) call f % ProjectFluxJacobianToElements(RIGHT,RIGHT)   ! dF/dQR to the right element
+         call f % ProjectFluxJacobianToElements(nEqn, LEFT ,LEFT )   ! dF/dQL to the left element 
+         if (.not. (f % faceType == HMESH_BOUNDARY)) call f % ProjectFluxJacobianToElements(nEqn, RIGHT,RIGHT)   ! dF/dQR to the right element
                                                                ! check if right element's rotation is ok for the Jacobian
          end associate
       end do
@@ -174,6 +175,7 @@ contains
       end do
 !$omp end do
       
+#endif
    end subroutine AnalyticalJacobian_DiagonalBlocks   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -199,19 +201,20 @@ contains
 !  
 !  -----------------------------------------------------------------------------------------------
 #if defined(NAVIERSTOKES)
-   subroutine ComputeNumericalFluxJacobian(mesh,time,externalStateProcedure)
+   subroutine ComputeNumericalFluxJacobian(mesh,nEqn,time,externalStateProcedure)
       use RiemannSolvers_NS
       use FaceClass
       implicit none
       !--------------------------------------------
       type(HexMesh), intent(inout)    :: mesh
+      integer,       intent(in)       :: nEqn
       real(kind=RP), intent(in)       :: time
       procedure(BCState_FCN)          :: externalStateProcedure
       !--------------------------------------------
       integer :: fID
       !--------------------------------------------
       
-      call mesh % ProlongSolutionToFaces
+      call mesh % ProlongSolutionToFaces(nEqn)
       
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
@@ -253,7 +256,8 @@ contains
 !        ------------------
          
          f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
-         CALL externalStateProcedure( f % geom % x(:,i,j), &
+         CALL externalStateProcedure( NCONS, &
+                                      f % geom % x(:,i,j), &
                                       time, &
                                       f % geom % normal(:,i,j), &
                                       f % storage(2) % Q(:,i,j),&
@@ -363,7 +367,7 @@ contains
          buffer = q(i)
          q(i) = q(i) + eps
          newQext = q
-         CALL externalStateProcedure( x, time, nHat, newQext, boundaryType, boundaryName )
+         CALL externalStateProcedure( NCONS, x, time, nHat, newQext, boundaryType, boundaryName )
          
          BCjac(:,i) = (newQext-Qex)/eps
          
@@ -381,12 +385,12 @@ contains
       type(HexMesh)            , intent(in)    :: mesh
       class(Matrix_t), intent(inout) :: Matrix
       !-------------------------------------
+#if defined(NAVIERSTOKES)      
       real(kind=RP) :: dFdQ(NCONS,NCONS,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3),NDIM) 
       real(kind=RP) :: LocalMat(ndofelm(e % eID),ndofelm(e % eID)) 
       integer :: irow_0(ndofelm(e % eID))         ! Row indexes for the matrix
       integer :: irow(ndofelm(e % eID))           ! Formatted row indexes for the column assignment (small values with index -1)
       integer              :: j, NDOFEL
-      
       NDOFEL = ndofelm(e % eID)
       irow_0 (1:NDOFEL) = (/ (firstIdx(e % eID) + j, j=0,NDOFEL-1) /)   
          
@@ -409,7 +413,7 @@ contains
          
          call Matrix % SetColumn (NDOFEL, irow_0, firstIdx(e % eID) + j-1, LocalMat(:,j) )
       end do
-      
+#endif      
    end subroutine ComputeBlock
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -417,6 +421,7 @@ contains
 !  -----------------------------------------------------------------------------------------------
 !  
 !  -----------------------------------------------------------------------------------------------
+#if defined(NAVIERSTOKES)
    subroutine Local_GetDiagonalBlock(e,dFdQ,dfdq_fr,dfdq_ba,dfdq_bo,dfdq_ri,dfdq_to,dfdq_le,LocalMat)
       implicit none
       !-------------------------------------------
@@ -485,8 +490,8 @@ contains
             
          end do                ; end do                ; end do                ; end do
       end do                ; end do                ; end do                ; end do
-      
    end subroutine Local_GetDiagonalBlock
+#endif      
    
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -497,6 +502,7 @@ contains
 !              |     |
 !           jac|coord|flux in cartesian direction dim 
 !  ----------------------------------------------------------
+#if defined(NAVIERSTOKES)      
    subroutine ComputeContravariantFluxJacobian( e, dFdQ) 
       implicit none
       !--------------------------------------------
@@ -506,7 +512,6 @@ contains
       real(kind=RP), DIMENSION(NCONS,NCONS)  :: dfdq_,dgdq_,dhdq_
       integer                                :: i,j,k
       !--------------------------------------------
-#if defined(NAVIERSTOKES)      
       do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
 
          call InviscidJacobian(e % storage % Q(:,i,j,k),dfdq_,dgdq_,dhdq_)
@@ -524,8 +529,8 @@ contains
                               e % geom % jGradZeta(2,i,j,k) * dgdq_ + &
                               e % geom % jGradZeta(3,i,j,k) * dhdq_ 
       end do                ; end do                ; end do
-#endif
    end subroutine ComputeContravariantFluxJacobian
+#endif
    
 
 end module AnalyticalJacobian

@@ -758,10 +758,10 @@ slavecoord:                DO l = 1, 4
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      subroutine HexMesh_ProlongGradientsToFaces(self, nEqn)
+      subroutine HexMesh_ProlongGradientsToFaces(self, nGradEqn)
          implicit none
          class(HexMesh),   intent(inout)  :: self
-         integer,          intent(in)     :: nEqn
+         integer,          intent(in)     :: nGradEqn
 !
 !        ---------------
 !        Local variables
@@ -773,7 +773,7 @@ slavecoord:                DO l = 1, 4
 !$omp do schedule(runtime)
          do eID = 1, size(self % elements)
             fIDs = self % elements(eID) % faceIDs
-            call self % elements(eID) % ProlongGradientsToFaces(nEqn, &
+            call self % elements(eID) % ProlongGradientsToFaces(nGradEqn, &
                                                                 self % faces(fIDs(1)),&
                                                                 self % faces(fIDs(2)),&
                                                                 self % faces(fIDs(3)),&

@@ -150,8 +150,13 @@ CONTAINS
       integer, target, allocatable, dimension(:) :: Nx, Ny, Nz, ndofelm
       integer, target, allocatable :: firstIdx(:)
       integer :: nelem
+      integer  :: nEqn
       !-----------------------------------------------------------
       nelem= size(this % p_sem % mesh % elements)
+      
+#if defined(NAVIERSTOKES)
+      nEqn = NCONS
+#endif
       
       allocate ( Nx(nelem), Ny(nelem), Nz(nelem), ndofelm(nelem) )
       allocate ( firstIdx(nelem+1) )
@@ -166,7 +171,7 @@ CONTAINS
 !              TODO: change to store the permutation indexes in the element
 !           --------------------------------------
 ! 
-            ndofelm(i)  = NCONS * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)
+            ndofelm(i)  = nEqn * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)
             IF (i>1) firstIdx(i) = firstIdx(i-1) + ndofelm(i-1)
       end do
       
@@ -212,10 +217,11 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative, ComputeA)
+   SUBROUTINE solve(this,nEqn,nGradEqn,tol,maxiter,time,dt, ComputeTimeDerivative, ComputeA)
    use DenseMatUtilities
       IMPLICIT NONE
       CLASS(IterativeSolver_t), INTENT(INOUT) :: this
+      integer,       intent(in)               :: nEqn, nGradEqn
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
       REAL(KIND=RP), OPTIONAL                 :: time
@@ -236,7 +242,7 @@ CONTAINS
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call NumericalJacobian_Compute(this % p_sem, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
+            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
             call this % PETScA % shift(-1._RP/dt)
             call this % PETScA % GetCSRMatrix(this % A)
             if (this % Smoother == 'BlockJacobi') call this % FillAInfo
@@ -244,7 +250,7 @@ CONTAINS
             ComputeA = .FALSE.
          end if
       else 
-         call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
          call this % PETScA % shift(-1._RP/dt)
          call this % PETScA % GetCSRMatrix(this % A)
          if (this % Smoother == 'BlockJacobi') call this % FillAInfo

@@ -161,9 +161,9 @@ endif
 ##########################################
 ##  	Select HORSES libraries 	##
 ##########################################
-HORSES_LIBS=ftobject foundation mpiutils spectral io physics/navierstokes physics/cahnhilliard mesh particles monitors discretization jacobian timeintegrator
-HORSES_LIBS_NS=-L$(HOME_DIR)/lib -ltimeintegrator_ns -ljacobian_ns -ldiscretization_ns -lmonitors_ns -lparticles_ns -lmesh_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
-HORSES_LIBS_CH=-L$(HOME_DIR)/lib -ltimeintegrator_ch -ljacobian_ch -ldiscretization_ch -lmonitors_ch -lparticles_ch -lmesh_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS=ftobject foundation mpiutils spectral io physics/navierstokes physics/cahnhilliard physics/common mesh particles monitors discretization jacobian timeintegrator
+HORSES_LIBS_NS=-L$(HOME_DIR)/lib -ltimeintegrator_ns -ljacobian_ns -ldiscretization_ns -lmonitors_ns -lparticles_ns -lmesh_ns -lphysics_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS_CH=-L$(HOME_DIR)/lib -ltimeintegrator_ch -ljacobian_ch -ldiscretization_ch -lmonitors_ch -lparticles_ch -lmesh_ch -lphysics_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject
 ADDONS=horses2tecplot extractgeometry
 HORSESFLAGS += $(MACROS)
 ADDONSFLAGS += $(MACROS)

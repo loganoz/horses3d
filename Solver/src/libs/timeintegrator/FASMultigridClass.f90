@@ -377,12 +377,12 @@ module FASMultigridClass
       integer                       :: iEl,iEQ              !Element/equation counter
       type(FASMultigrid_t), pointer :: Child_p              !Pointer to child
       integer                       :: N1(3), N2(3)
-      real(kind=RP)                 :: maxResidual(NCONS)
+      real(kind=RP)                 :: maxResidual(NTOTALVARS)
       integer                       :: NumOfSweeps
       real(kind=RP)                 :: PrevRes
       integer                       :: sweepcount           ! Number of sweeps done in a point in time
       !----------------------------------------------------------------------------
-      
+#if defined(NAVIERSTOKES)      
 !
 !     -----------------------
 !     Pre-smoothing procedure
@@ -511,6 +511,7 @@ module FASMultigridClass
 !$omp end parallel do
       end if
       
+#endif 
    end subroutine FASVCycle
 
 !
@@ -530,9 +531,10 @@ module FASMultigridClass
       !----------------------------------------------------------------------------
       integer        :: iEl, iEQ             ! Element and equation counters
       integer        :: N1(3), N2(3)
-      real(kind=RP)  :: maxResidual(NCONS)   ! Maximum residual in each equation
+      real(kind=RP)  :: maxResidual(NTOTALVARS)   ! Maximum residual in each equation
       integer        :: counter              ! Iteration counter
       !----------------------------------------------------------------------------
+#if defined(NAVIERSTOKES)
 !
 !     ------------------------------------------
 !     At the beginning, go to the coarsest level
@@ -593,6 +595,7 @@ module FASMultigridClass
          end DO
 !$omp end parallel do
       end if
+#endif
    end subroutine FASFMGCycle
 
 !
@@ -614,7 +617,8 @@ module FASMultigridClass
       integer  :: iEQ
       integer  :: N1(3), N2(3)
       !-------------------------------------------------------------
-      
+#if defined(NAVIERSTOKES)      
+
       Child_p => this % Child
 
 !$omp parallel
@@ -670,7 +674,7 @@ module FASMultigridClass
       end DO
 !$omp end parallel do
       
-      
+#endif      
    end subroutine MGRestrictToChild
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

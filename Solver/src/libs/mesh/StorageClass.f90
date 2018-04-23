@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Fri Apr 20 17:25:05 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
+!   @Last revision date: Mon Apr 23 16:22:27 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 537e46dd1de9842e00daf5c4b578c75f98071222
 !
 !//////////////////////////////////////////////////////
 !
@@ -46,11 +46,11 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),  pointer     :: U_z         !
 #if defined(NAVIERSTOKES)
       real(kind=RP), private,  allocatable :: QNS(:,:,:,:)         ! NSE State vector
-      real(kind=RP), private,  allocatable :: QDotNS(:,:,:,:)      ! NSE State vector time derivative
       real(kind=RP), private,  allocatable :: U_xNS(:,:,:,:)       ! NSE x-gradients
       real(kind=RP), private,  allocatable :: U_yNS(:,:,:,:)       ! NSE y-gradients
       real(kind=RP), private,  allocatable :: U_zNS(:,:,:,:)       ! NSE z-gradients
-      real(kind=RP),           allocatable :: G(:,:,:,:)           ! NSE auxiliar storage
+      real(kind=RP), private,  allocatable :: QDotNS(:,:,:,:)      ! NSE State vector time derivative
+      real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliar storage
       real(kind=RP),           allocatable :: S(:,:,:,:)           ! NSE source term
       type(Statistics_t)                   :: stats                ! NSE statistics
 #endif
@@ -65,6 +65,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),   allocatable :: mu_y  ! CHE chemical potential y-gradient
       real(kind=RP), dimension(:,:,:,:),   allocatable :: mu_z  ! CHE chemical potential z-gradient
       real(kind=RP), dimension(:,:,:,:),   allocatable :: v     ! CHE flow field velocity
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: G_CH  ! CHE auxiliar storage   
 #endif
       contains
          procedure   :: Construct         => Storage_Construct
@@ -148,7 +149,7 @@ module StorageClass
 #if defined(NAVIERSTOKES)
          ALLOCATE( self % QNS    (NCONS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % QDotNS (NCONS,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % G      (NCONS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % G_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S      (NCONS,0:Nx,0:Ny,0:Nz) )
          
          IF ( computeGradients )     THEN
@@ -163,14 +164,15 @@ module StorageClass
 #endif
 
 #if defined(CAHNHILLIARD)
-         allocate(self % c   (nComp, 0:Nx, 0:Ny, 0:Nz))
-         allocate(self % c_x (nComp, 0:Nx, 0:Ny, 0:Nz))
-         allocate(self % c_y (nComp, 0:Nx, 0:Ny, 0:Nz))
-         allocate(self % c_z (nComp, 0:Nx, 0:Ny, 0:Nz))
-         allocate(self % mu  (nComp, 0:Nx, 0:Ny, 0:Nz))
-         allocate(self % mu_x(nComp, 0:Nx, 0:Ny, 0:Nz))
-         allocate(self % mu_y(nComp, 0:Nx, 0:Ny, 0:Nz))
-         allocate(self % mu_z(nComp, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % c   (NCOMP, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % c_x (NCOMP, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % c_y (NCOMP, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % c_z (NCOMP, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % mu  (NCOMP, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % mu_x(NCOMP, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % mu_y(NCOMP, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % mu_z(NCOMP, 0:Nx, 0:Ny, 0:Nz))
+         ALLOCATE(self % G_CH(NCOMP,0:Nx,0:Ny,0:Nz) )
          allocate(self % v   (1:NDIM, 0:Nx, 0:Ny, 0:Nz))
 #endif
 !         
@@ -179,7 +181,7 @@ module StorageClass
 !        -----------------
 !
 #if defined(NAVIERSTOKES)
-         self % G      = 0.0_RP
+         self % G_NS   = 0.0_RP
          self % S      = 0.0_RP
          self % QNS    = 0.0_RP
          self % QDotNS = 0.0_RP
@@ -200,6 +202,7 @@ module StorageClass
          self % mu_x  = 0.0_RP
          self % mu_y  = 0.0_RP
          self % mu_z  = 0.0_RP
+         self % G_CH  = 0.0_RP
          self % v     = 0.0_RP
 #endif
       
@@ -214,7 +217,7 @@ module StorageClass
 #if defined(NAVIERSTOKES)
          safedeallocate(self % QNS)
          safedeallocate(self % QDotNS)
-         safedeallocate(self % G)
+         safedeallocate(self % G_NS)
          safedeallocate(self % S)
          safedeallocate(self % U_xNS)
          safedeallocate(self % U_yNS)
@@ -233,6 +236,7 @@ module StorageClass
          safedeallocate(self % mu_x)
          safedeallocate(self % mu_y)
          safedeallocate(self % mu_z)
+         safedeallocate(self % G_CH)
          safedeallocate(self % v)
 #endif
 
@@ -359,19 +363,19 @@ module StorageClass
 
 #endif
 #if defined(CAHNHILLIARD)
-         allocate(self % c   (nComp , 0:Nf(1), 0:Nf(2)))
-         allocate(self % c_x (nComp , 0:Nf(1), 0:Nf(2)))
-         allocate(self % c_y (nComp , 0:Nf(1), 0:Nf(2)))
-         allocate(self % c_z (nComp , 0:Nf(1), 0:Nf(2)))
-         allocate(self % mu  (nComp , 0:Nf(1), 0:Nf(2)))
-         allocate(self % mu_x(nComp , 0:Nf(1), 0:Nf(2)))
-         allocate(self % mu_y(nComp , 0:Nf(1), 0:Nf(2)))
-         allocate(self % mu_z(nComp , 0:Nf(1), 0:Nf(2)))
+         allocate(self % c   (NCOMP , 0:Nf(1), 0:Nf(2)))
+         allocate(self % c_x (NCOMP , 0:Nf(1), 0:Nf(2)))
+         allocate(self % c_y (NCOMP , 0:Nf(1), 0:Nf(2)))
+         allocate(self % c_z (NCOMP , 0:Nf(1), 0:Nf(2)))
+         allocate(self % mu  (NCOMP , 0:Nf(1), 0:Nf(2)))
+         allocate(self % mu_x(NCOMP , 0:Nf(1), 0:Nf(2)))
+         allocate(self % mu_y(NCOMP , 0:Nf(1), 0:Nf(2)))
+         allocate(self % mu_z(NCOMP , 0:Nf(1), 0:Nf(2)))
          allocate(self % v   (1:NDIM, 0:Nf(1), 0:Nf(2)))
 !
 !        CH will never be the biggest memory requirement unless NSE are disabled
 !        -----------------------------------------------------------------------
-         interfaceFluxMemorySize = max(interfaceFluxMemorySize, nComp*nDIM*product(Nf+1))
+         interfaceFluxMemorySize = max(interfaceFluxMemorySize, NCOMP*nDIM*product(Nf+1))
 #endif
 !
 !        Reserve memory for the interface fluxes

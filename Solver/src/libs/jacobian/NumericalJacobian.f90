@@ -25,10 +25,11 @@ module NumericalJacobian
    type(Colors)                :: ecolors
    
 contains
-   subroutine NumericalJacobian_Compute(sem, t, Matrix, ComputeTimeDerivative, PINFO, eps_in )
+   subroutine NumericalJacobian_Compute(sem, nEqn, nGradEqn, t, Matrix, ComputeTimeDerivative, PINFO, eps_in )
       use StopwatchClass
       !-------------------------------------------------------------------
       type(DGSem),                intent(inout), target  :: sem
+      integer,                    intent(in)             :: nEqn, nGradEqn
       real(kind=RP),              intent(IN)             :: t
       class(Matrix_t)          ,  intent(inout)          :: Matrix
       procedure(ComputeQDot_FCN)                         :: ComputeTimeDerivative      !   
@@ -59,6 +60,9 @@ contains
       real(kind=RP), save                                :: eps
       
       logical, save                                      :: isfirst = .TRUE.
+#if (!defined(NAVIERSTOKES))
+      logical                                            :: computeGradients = .false.
+#endif
       !-------------------------------------------------------------------
       
 !
@@ -97,14 +101,14 @@ contains
 !           Get block sizes and position in matrix
 !           --------------------------------------
 ! 
-            ndofelm(i)  = NCONS * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)              ! TODO: if there's p-adaptation, this value has to be recomputed
+            ndofelm(i)  = nEqn * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)              ! TODO: if there's p-adaptation, this value has to be recomputed
             IF (i>1) firstIdx(i) = firstIdx(i-1) + ndofelm(i-1)
 !
 !           -------------------------------------------------------
 !           Allocate the element storage of the clean element array
 !           -------------------------------------------------------
 !
-            CALL allocateElementStorage( dgs_clean(i), Nx(i), Ny(i), Nz(i), NCONS, NGRAD, computeGradients )
+            CALL allocateElementStorage( dgs_clean(i), Nx(i), Ny(i), Nz(i), computeGradients )
          END DO
 
          firstIdx(nelm+1) = firstIdx(nelm) + ndofelm(nelm)
@@ -219,7 +223,7 @@ contains
                thiselm = ecolors%elmnts(thiselmidx)
                IF (ndofelm(thiselm)<thisdof) CYCLE       ! Do nothing if the DOF exceeds the NDOF of thiselm
                
-               ijkl = local2ijk(thisdof,NCONS,Nx(thiselm),Ny(thiselm),Nz(thiselm))
+               ijkl = local2ijk(thisdof,nEqn,Nx(thiselm),Ny(thiselm),Nz(thiselm))
                
                sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
                                                    sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
@@ -242,7 +246,7 @@ contains
                      
                      sem%mesh%elements(elmnbr)% storage % QDot = (sem%mesh%elements(elmnbr)% storage % QDot - dgs_clean(elmnbr)% storage % QDot) / eps                      
 !~                     pbuffer(1:ndofelm) => sem%mesh%elements(elmnbr)% storage % QDot                     !maps Qdot array into a 1D pointer 
-                     CALL GetElemQdot(sem%mesh%elements(elmnbr),pbuffer(1:ndof))
+                     CALL GetElemQdot(nEqn, sem%mesh%elements(elmnbr),pbuffer(1:ndof))
                      irow = irow_0 + firstIdx(elmnbr)        !irow_0 + ndofelm * (elmnbr - 1)                         !generates the row indices vector
                      WHERE (ABS(pbuffer(1:maxndofel)) .LT. jaceps) irow = -1          !MatSetvalues will ignore entries with irow=-1
                      icol = firstIdx(thiselm) + thisdof - 1  !(thiselm - 1) * ndofelm  + thisdof - 1
@@ -267,7 +271,7 @@ contains
                                              
                               sem%mesh%elements(nbrnbr)% storage % QDot = (sem%mesh%elements(nbrnbr)% storage % QDot - dgs_clean(nbrnbr)% storage % QDot) / eps                      
          !~                     pbuffer(1:ndofelm) => sem%mesh%elements(elmnbr)% storage % QDot                     !maps Qdot array into a 1D pointer 
-                              CALL GetElemQdot(sem%mesh%elements(nbrnbr),pbuffer(1:ndof))
+                              CALL GetElemQdot(nEqn,sem%mesh%elements(nbrnbr),pbuffer(1:ndof))
                               irow = irow_0 + firstIdx(nbrnbr)       !irow_0 + ndofelm * (nbrnbr - 1)                         !generates the row indices vector
                               WHERE (ABS(pbuffer(1:maxndofel)) .LT. jaceps) irow = -1          !MatSetvalues will ignore entries with irow=-1
                               icol = firstIdx(thiselm) + thisdof - 1 !(thiselm - 1) * ndofelm  + thisdof - 1
@@ -305,7 +309,8 @@ contains
 !  arueda: Originally, this process was done by a pbuffer 1D pointer (better performance)... However, copying procedure had to be introduced since 
 !  NSLITE3D organizes the element information in a different manner than NSLITE2D...
 !   
-   SUBROUTINE GetElemQdot(CurrEl,Qdot) !arueda: check ordering of variables in solution vector
+   SUBROUTINE GetElemQdot(nEqn,CurrEl,Qdot) !arueda: check ordering of variables in solution vector
+      integer,             intent(in)               :: nEqn
       TYPE(Element)                                 :: CurrEl
       REAL(KIND = RP),     INTENT(OUT)              :: Qdot(:)
       
@@ -320,7 +325,7 @@ contains
       DO k = 0, Nz
          DO j = 0, Ny
             DO i = 0, Nx
-               DO l = 1,NCONS
+               DO l = 1,nEqn
                   Qdot(counter)  = CurrEl% storage % Qdot(l, i, j, k) 
                   counter =  counter + 1
                END DO

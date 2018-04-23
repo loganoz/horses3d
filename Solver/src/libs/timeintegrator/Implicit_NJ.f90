@@ -58,6 +58,7 @@ CONTAINS
       ! Not used variables?
       CHARACTER(LEN=15)                                     :: filename
       REAL(KIND=RP)                                         :: ctime
+      integer                                               :: nEqnJac, nGradJac
       
       !NEWTON PARAMETERS, TODO: this should be defined in a better place
       REAL(KIND=RP)  :: minrate = 0.5_RP              ! If newton convergence rate lower this value,  newton loop stops and inner_dt is reduced  
@@ -69,6 +70,11 @@ CONTAINS
       
       SAVE isfirst, ninner, JacByConv, PRINT_NEWTON_INFO
       SAVE u_N, DimPrb, nelm, linsolver, TimeAccurate, UserNewtonTol
+
+#if defined(NAVIERSTOKES)
+      nEqnJac = NCONS
+      nGradJac = NGRAD
+#endif
       
       IF (isfirst) THEN           
          isfirst = .FALSE.
@@ -129,7 +135,7 @@ CONTAINS
       CALL sem % GetQ(U_n)      !stores sem%mesh%elements(:)% storage % Q in Vector U_n
       
       DO                                                 
-         CALL NewtonSolve(sem, time+inner_dt, inner_dt, linsolver, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
+         CALL NewtonSolve(sem, nEqnJac, nGradJac, time+inner_dt, inner_dt, linsolver, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
                           PRINT_NEWTON_INFO, minrate,JacByConv,ConvRate, newtonit,CONVERGED, ComputeTimeDerivative)
          
          IF (CONVERGED) THEN
@@ -201,7 +207,7 @@ CONTAINS
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE NewtonSolve(sem, t, dt, linsolver, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
+   SUBROUTINE NewtonSolve(sem, nEqn, nGradEqn, t, dt, linsolver, nelm, U_n, MAX_NEWTON_ITER, NEWTON_TOLERANCE, &
                           INFO, minrate,JacByConv,ConvRate, niter,CONVERGED, ComputeTimeDerivative)
 !     
 !     ----------------------
@@ -209,6 +215,8 @@ CONTAINS
 !     ----------------------
 !      
       TYPE(DGSem),                  INTENT(INOUT)           :: sem
+      integer,                      intent(in)              :: nEqn
+      integer,                      intent(in)              :: nGradEqn
       REAL(KIND=RP),                INTENT(IN)              :: t
       REAL(KIND=RP),                INTENT(IN)              :: dt              !< Inner dt
       CLASS(GenericLinSolver_t),    INTENT(INOUT)           :: linsolver       !Linear operator is calculate outside this subroutine
@@ -257,7 +265,7 @@ CONTAINS
          CALL ComputeRHS(sem, dt, U_n, nelm, linsolver )               ! Computes b (RHS) and stores it into linsolver
          
          CALL SYSTEM_CLOCK(COUNT=cli)
-         CALL linsolver%solve(tol=norm*1.e-3_RP, maxiter=500, time= t, dt=dt, &
+         CALL linsolver%solve(nEqn, nGradEqn, tol=norm*1.e-3_RP, maxiter=500, time= t, dt=dt, &
                               ComputeTimeDerivative = ComputeTimeDerivative, computeA = computeA)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          CALL SYSTEM_CLOCK(COUNT=clf)
          IF (.NOT. linsolver%converged) THEN                           ! If linsolver did not converge, return converged=false
@@ -309,6 +317,7 @@ CONTAINS
 
       INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, elmnt, counter   
       REAL(KIND=RP)                                :: value
+#if defined(NAVIERSTOKES)
 
 !     Right-Hand side BDF1 (stored into the linsolver vector b):
 !     b = [(Q(n+1) - Q(n))/dt] - Qdot  == [(U_r - U_n ) / dt] - F(U_r)
@@ -335,6 +344,7 @@ CONTAINS
          END DO
       END DO
       CALL linsolver%AssemblyB     ! b must be assembled before using
+#endif
    END SUBROUTINE ComputeRHS
 !//////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE UpdateNewtonSol(sem, nelm, linsolver)
@@ -345,6 +355,7 @@ CONTAINS
 
       REAL(KIND=RP)                                     :: value
       INTEGER                                           :: Nx, Ny, Nz, l, i, j, k, counter, elm
+#if defined(NAVIERSTOKES)
 
       counter = 0
       DO elm = 1, nelm
@@ -363,11 +374,13 @@ CONTAINS
             END DO
          END DO
       END DO
+
+#endif
    END SUBROUTINE UpdateNewtonSol
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !  
-   SUBROUTINE WriteEigenFiles(Mat,sem,FileName)
+   SUBROUTINE WriteEigenFiles(Mat,sem,nEqn,FileName)
       IMPLICIT NONE
 !
 !     -----------------------------------------------------------
@@ -375,12 +388,14 @@ CONTAINS
 !        This only works for isotropic order meshes.........................TODO: Change that
 !     -----------------------------------------------------------
 !
-      TYPE(csrMat_t)    :: Mat      !< Jacobian matrix
-      TYPE(DGSem)       :: sem      !< DGSem class containing mesh
-      CHARACTER(len=*)  :: FileName !< ...
+      TYPE(csrMat_t)      :: Mat      !< Jacobian matrix
+      TYPE(DGSem)         :: sem      !< DGSem class containing mesh
+      integer, intent(in) :: nEqn
+      CHARACTER(len=*)    :: FileName !< ...
 !     -----------------------------------------------------------
       INTEGER           :: fd
 !     -----------------------------------------------------------
+#if defined(NAVIERSTOKES)
       
       ! .frm file
       OPEN(newunit=fd, file=TRIM(FileName)//'.frm', action='WRITE')
@@ -393,8 +408,9 @@ CONTAINS
       CALL Mat % Visualize(TRIM(FileName)//'.amg',FirstRow=.FALSE.)
       
       ! .coo file
-      CALL sem % mesh % WriteCoordFile(TRIM(FileName)//'.coo')
+      CALL sem % mesh % WriteCoordFile(nEqn,TRIM(FileName)//'.coo')
       
+#endif
       
    END SUBROUTINE WriteEigenFiles
 !

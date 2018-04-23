@@ -162,7 +162,7 @@ CONTAINS
       TYPE(MultigridSolver_t) , POINTER :: Child_p          ! Pointer to Child
       !----------------------------------------------
       !
-      
+#if defined(NAVIERSTOKES)      
       
       Solver % MGlevel = lvl
       
@@ -221,6 +221,7 @@ CONTAINS
       ALLOCATE(Solver % F_Ur(Solver % DimPrb))
       ALLOCATE(Solver % Ur  (Solver % DimPrb))
       
+#endif
    END SUBROUTINE RecursiveConstructor
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -259,9 +260,10 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative, ComputeA)
+   SUBROUTINE solve(this,nEqn,nGradEqn,tol,maxiter,time,dt, ComputeTimeDerivative, ComputeA)
       IMPLICIT NONE
       CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      integer,       intent(in)               :: nEqn, nGradEqn
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
       REAL(KIND=RP), OPTIONAL                 :: time
@@ -283,14 +285,14 @@ CONTAINS
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call NumericalJacobian_Compute(this % p_sem, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
+            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
             call this % PETScA % shift(-1._RP/dt)
             call this % PETScA % GetCSRMatrix(this % A)
             this % AIsPetsc = .FALSE.
             ComputeA = .FALSE.
          end if
       else 
-         call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
          call this % PETScA % shift(-1._RP/dt)
          call this % PETScA % GetCSRMatrix(this % A)
       end if
@@ -695,7 +697,7 @@ CONTAINS
       INTEGER                :: iEQ       ! Equation counter
       INTEGER                :: Idx1      ! First index of the solution of this element ( - 1)
       !--------------------------------------------------------------
-      
+#if defined(NAVIERSTOKES)      
       Idx1 = 0
       
       DO iEQ = 1, NCONS
@@ -711,7 +713,7 @@ CONTAINS
 !     ------------
 !
       NULLIFY(U1_p,U2_p,N1x,N1y,N1z,N2x,N2y,N2z)
-      
+#endif      
    END FUNCTION InterpolateSol
    
    !SUBROUTINE InterpolateJac

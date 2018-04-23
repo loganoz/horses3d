@@ -4,9 +4,9 @@
 !   @File:    EllipticBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Fri Apr 20 17:24:58 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
+!   @Last revision date: Mon Apr 23 16:22:25 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 537e46dd1de9842e00daf5c4b578c75f98071222
 !
 !//////////////////////////////////////////////////////
 !
@@ -486,8 +486,8 @@ module EllipticBR2
 !           u, v, w, T averages
 !           -------------------
 !   
-            call GetGradient( nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
-            call GetGradient( nEqn, nGradEqn, bvExt, UR )
+            call GetGradients( nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
+            call GetGradients( nEqn, nGradEqn, bvExt, UR )
    
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             
@@ -587,7 +587,7 @@ module EllipticBR2
                                                            e % storage % U_z, &
                                                                 tauSGS, qSGS    )
 
-         call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, tauSGS, qSGS, cartesianFlux )
+         call ViscousFlux(NCONS, NGRAD, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, tauSGS, qSGS, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -709,7 +709,7 @@ module EllipticBR2
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
 
-         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, tauSGS, qSGS, flux_vec)
+         call ViscousFlux(NCONS, NGRAD, Q,U_x,U_y,U_z, mu, kappa, tauSGS, qSGS, flux_vec)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 

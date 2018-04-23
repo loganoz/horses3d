@@ -151,7 +151,7 @@ MODULE MKLPardisoSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this,tol,maxiter,time,dt, ComputeTimeDerivative,ComputeA) 
+   SUBROUTINE solve(this,nEqn, nGradEqn,tol,maxiter,time,dt, ComputeTimeDerivative,ComputeA) 
       IMPLICIT NONE
 !
 !     ----------------------------------------------------
@@ -160,6 +160,8 @@ MODULE MKLPardisoSolverClass
 !
       !-----------------------------------------------------------
       CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
+      integer,       intent(in)                :: nEqn
+      integer,       intent(in)                :: nGradEqn
       REAL(KIND=RP), OPTIONAL                  :: tol
       INTEGER      , OPTIONAL                  :: maxiter
       REAL(KIND=RP), OPTIONAL                  :: time
@@ -190,14 +192,14 @@ MODULE MKLPardisoSolverClass
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call NumericalJacobian_Compute(this % p_sem, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
+            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
             call this % PETScA % shift(-1._RP/dt)
             call this % PETScA % GetCSRMatrix(this % A)
             this % AIsPetsc = .FALSE.
             ComputeA = .FALSE.
          end if
       else 
-         call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
          call this % PETScA % shift(-1._RP/dt)
          call this % PETScA % GetCSRMatrix(this % A)
       end if
@@ -363,7 +365,7 @@ MODULE MKLPardisoSolverClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 
-   subroutine MKL_ComputeAndFactorizeJacobian(self, F_J, dt, eps)
+   subroutine MKL_ComputeAndFactorizeJacobian(self,nEqn, nGradEqn, F_J, dt, eps)
 !
 !     *************************************************************************************
 !     This subroutine performs the following:
@@ -376,6 +378,7 @@ MODULE MKLPardisoSolverClass
 !
       implicit none
       class(MKLPardisoSolver_t), intent(inout) :: self
+      integer,                   intent(in)    :: nEqn, nGradEqn
       procedure(ComputeQDot_FCN)               :: F_J
       real(kind=RP), intent(in)                :: dt
       real(kind=RP), intent(in)                :: eps
@@ -385,10 +388,11 @@ MODULE MKLPardisoSolverClass
 !     ---------------
 !
       integer     :: error
+
 !
 !     Compute numerical Jacobian in the PETSc matrix
 !     ----------------------------------------------
-      call NumericalJacobian_Compute(self % p_sem, 0.0_RP, self % PETScA, F_J, .true., eps)
+      call NumericalJacobian_Compute(self % p_sem, nEqn, nGradEqn, 0.0_RP, self % PETScA, F_J, .true., eps)
 !
 !     Shift the Jacobian
 !     ------------------

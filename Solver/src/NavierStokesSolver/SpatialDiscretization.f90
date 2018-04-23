@@ -28,6 +28,7 @@ module SpatialDiscretization
       use DGSEMClass
       use ParticlesClass
       use FluidData
+      use VariableConversion, only: NSGradientValuesForQ_0D, NSGradientValuesForQ_3D
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -212,8 +213,8 @@ module SpatialDiscretization
 !        -----------------------------------------
 !
 !$omp parallel shared(mesh, time)
-         call mesh % ProlongSolutionToFaces()
-!
+         call mesh % ProlongSolutionToFaces(NCONS)
+
 !        ----------------
 !        Update MPI Faces
 !        ----------------
@@ -227,7 +228,7 @@ module SpatialDiscretization
 !        -----------------
 !
          if ( computeGradients ) then
-            CALL DGSpatial_ComputeGradient( mesh , time , BCFunctions(1) % externalState)
+            CALL DGSpatial_ComputeGradient(mesh , time , BCFunctions(1) % externalState)
          end if
 
 !$omp single
@@ -278,18 +279,18 @@ module SpatialDiscretization
 !        -----------------------------------------
 !
 !$omp parallel shared(mesh, time)
-         call mesh % ProlongSolutionToFaces()
+         call mesh % ProlongSolutionToFaces(NCONS)
 !
 !        -----------------------------------------------------
 !        Compute LOCAL gradients and prolong them to the faces
 !        -----------------------------------------------------
 !
          if ( computeGradients ) then
-            CALL BaseClass_ComputeGradient( EllipticDiscretization, mesh , time , BCFunctions(1) % externalState )
+            CALL BaseClass_ComputeGradient( EllipticDiscretization, NCONS, NGRAD, mesh , time , BCFunctions(1) % externalState, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D )
 !
 !           The prolongation is usually done in the viscous methods, but not in the BaseClass
 !           ---------------------------------------------------------------------------------
-            call mesh % ProlongGradientsToFaces()
+            call mesh % ProlongGradientsToFaces(NGRAD)
          end if
 
 !
@@ -587,7 +588,7 @@ module SpatialDiscretization
 !
 !           Without LES model
 !           -----------------
-            call EllipticDiscretization  % ComputeInnerFluxes ( e , ViscousFlux3D, viscousContravariantFlux) 
+            call EllipticDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, e , ViscousFlux3D, viscousContravariantFlux) 
 
          else
 !
@@ -681,7 +682,8 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL EllipticDiscretization % RiemannSolver(f = f, &
+               CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+                                                  f = f, &
                                                   EllipticFlux = ViscousFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -751,7 +753,7 @@ module SpatialDiscretization
 !        Return the flux to elements
 !        ---------------------------
 !
-         call f % ProjectFluxToElements(flux, (/1,2/))
+         call f % ProjectFluxToElements(NCONS, flux, (/1,2/))
 
       END SUBROUTINE computeElementInterfaceFlux_NS
 
@@ -777,7 +779,8 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL EllipticDiscretization % RiemannSolver(f = f, &
+               CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+                                                  f = f, &
                                                   EllipticFlux = ViscousFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -811,7 +814,7 @@ module SpatialDiscretization
 !        ---------------------------
 !
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectFluxToElements(flux, (/thisSide, HMESH_NONE/))
+         call f % ProjectFluxToElements(NCONS, flux, (/thisSide, HMESH_NONE/))
 
       end subroutine ComputeMPIFaceFlux_NS
 
@@ -884,7 +887,8 @@ module SpatialDiscretization
 !           Viscous fluxes
 !           --------------
 !   
-            CALL EllipticDiscretization % RiemannSolver(f = f, &
+            CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+                                               f = f, &
                                                EllipticFlux = ViscousFlux0D, &
                                                QLeft = f % storage(1) % Q(:,i,j), &
                                                QRight = f % storage(2) % Q(:,i,j), &
@@ -920,7 +924,7 @@ module SpatialDiscretization
          END DO   
       END DO   
 
-      call f % ProjectFluxToElements(fStar, (/1, HMESH_NONE/))
+      call f % ProjectFluxToElements(NCONS, fStar, (/1, HMESH_NONE/))
 
       END SUBROUTINE computeBoundaryFlux_NS
 
@@ -964,7 +968,8 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL EllipticDiscretization % RiemannSolver(f = f, &
+               CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+                                                  f = f, &
                                                   EllipticFlux = ViscousFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -1003,7 +1008,7 @@ module SpatialDiscretization
 !        Return the flux to elements
 !        ---------------------------
 !
-         call f % ProjectFluxToElements(flux, (/1,2/))
+         call f % ProjectFluxToElements(NCONS, flux, (/1,2/))
 
       END SUBROUTINE computeElementInterfaceFlux_SVV
 
@@ -1047,7 +1052,8 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL EllipticDiscretization % RiemannSolver(f = f, &
+               CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+                                                  f = f, &
                                                   EllipticFlux = ViscousFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -1081,7 +1087,7 @@ module SpatialDiscretization
 !        ---------------------------
 !
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectFluxToElements(flux, (/thisSide, HMESH_NONE/))
+         call f % ProjectFluxToElements(NCONS, flux, (/thisSide, HMESH_NONE/))
 
 
       end subroutine ComputeMPIFaceFlux_SVV
@@ -1154,7 +1160,8 @@ module SpatialDiscretization
 !           Viscous fluxes
 !           --------------
 !   
-            CALL EllipticDiscretization % RiemannSolver(f = f, &
+            CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+                                               f = f, &
                                                EllipticFlux = ViscousFlux0D, &
                                                QLeft = f % storage(1) % Q(:,i,j), &
                                                QRight = f % storage(2) % Q(:,i,j), &
@@ -1206,7 +1213,7 @@ module SpatialDiscretization
          END DO   
       END DO   
 
-      call f % ProjectFluxToElements(fStar, (/1, HMESH_NONE/))
+      call f % ProjectFluxToElements(NCONS, fStar, (/1, HMESH_NONE/))
 
       END SUBROUTINE computeBoundaryFlux_SVV
 !
@@ -1251,7 +1258,9 @@ module SpatialDiscretization
 !                 Viscous flux on the left
 !                 ------------------------
                   
-                  call ViscousFlux(Q     = f % storage(1) % Q  (:,i,j), &
+                  call ViscousFlux(nEqn  = NCONS,                       &
+                                   nGradEqn = NGRAD,                    &
+                                   Q     = f % storage(1) % Q  (:,i,j), &
                                    U_x   = f % storage(1) % U_x(:,i,j), &
                                    U_y   = f % storage(1) % U_y(:,i,j), &
                                    U_z   = f % storage(1) % U_z(:,i,j), &
@@ -1265,7 +1274,8 @@ module SpatialDiscretization
 !                 Viscous flux on the right
 !                 -------------------------
                   
-                  call ViscousFlux(Q     = f % storage(2) % Q  (:,i,j), &
+                  call ViscousFlux(nEqn  = NCONS, nGradEqn = NGRAD,     &
+                                   Q     = f % storage(2) % Q  (:,i,j), &
                                    U_x   = f % storage(2) % U_x(:,i,j), &
                                    U_y   = f % storage(2) % U_y(:,i,j), &
                                    U_z   = f % storage(2) % U_z(:,i,j), &
@@ -1317,10 +1327,10 @@ module SpatialDiscretization
 !        ---------------------------
 !
          ! Left element
-         call f % ProjectFluxToElements(fluxL, (/1,HMESH_NONE/))
+         call f % ProjectFluxToElements(NCONS, fluxL, (/1,HMESH_NONE/))
          
          ! Right element
-         call f % ProjectFluxToElements(fluxR, (/2,HMESH_NONE/))
+         call f % ProjectFluxToElements(NCONS, fluxR, (/2,HMESH_NONE/))
 
       END SUBROUTINE computeIsolatedFaceFluxes_NS
 !
@@ -1363,7 +1373,8 @@ module SpatialDiscretization
 !                 Viscous flux
 !                 ------------
                   
-                  call ViscousFlux(Q     = f % storage(thisSide) % Q  (:,i,j), &
+                  call ViscousFlux(nEqn  = NCONS, nGradEqn = NGRAD,            &
+                                   Q     = f % storage(thisSide) % Q  (:,i,j), &
                                    U_x   = f % storage(thisSide) % U_x(:,i,j), &
                                    U_y   = f % storage(thisSide) % U_y(:,i,j), &
                                    U_z   = f % storage(thisSide) % U_z(:,i,j), &
@@ -1405,7 +1416,7 @@ module SpatialDiscretization
 !        Return the flux to the element
 !        ------------------------------
 !
-         call f % ProjectFluxToElements(flux, (/thisSide,HMESH_NONE/))
+         call f % ProjectFluxToElements(NCONS, flux, (/thisSide,HMESH_NONE/))
 
       END SUBROUTINE computeIsolatedFaceFlux_NS
 !
@@ -1423,7 +1434,7 @@ module SpatialDiscretization
          real(kind=RP),      intent(in) :: time
          procedure(BCState_FCN)         :: externalStateProcedure
 
-         call EllipticDiscretization % ComputeGradient( mesh , time , externalStateProcedure)
+         call EllipticDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time , externalStateProcedure, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D)
 
       end subroutine DGSpatial_ComputeGradient
 !

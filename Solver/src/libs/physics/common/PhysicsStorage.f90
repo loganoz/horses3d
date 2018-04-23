@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Fri Apr 20 17:25:09 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
+!   @Last revision date: Mon Apr 23 16:22:27 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 537e46dd1de9842e00daf5c4b578c75f98071222
 !
 !//////////////////////////////////////////////////////
 !
@@ -19,8 +19,6 @@ module PhysicsStorage
    use PhysicsStorage_CH
 #endif
    implicit none
-
-   private RP
 
 #if (defined(NAVIERSTOKES) && !defined(CANHILLIARD))
    integer, parameter   :: NTOTALVARS = NCONS
@@ -60,5 +58,4 @@ module PhysicsStorage
 #endif
    
       end subroutine ConstructPhysicsStorage
-      
 end module PhysicsStorage

@@ -369,6 +369,7 @@ module pAdaptationClass
          end function getFileName
       end interface
       !--------------------------------------
+#if defined(NAVIERSTOKES)
       
       write(STD_OUT,*)
       write(STD_OUT,*)
@@ -667,6 +668,8 @@ module pAdaptationClass
       call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
       
       write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
+
+#endif
    end subroutine pAdaptTE
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

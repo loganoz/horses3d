@@ -319,6 +319,11 @@ module AnisFASMultigridClass
       !----------------------------------------------
       !
       integer :: Nxyz(3), fd, l
+      integer  :: nEqn
+
+#if defined(NAVIERSTOKES)
+      nEqn = NCONS
+#endif
       !--------------------------
       ! Allocate variable storage
       !--------------------------
@@ -333,10 +338,10 @@ module AnisFASMultigridClass
    
 !$omp parallel do
       do k = 1, nelem
-         allocate(Solver % MGStorage(Dir) % Var(k) % Q    (NCONS,0:N1x(k),0:N1y(k),0:N1z(k)))
-         allocate(Solver % MGStorage(Dir) % Var(k) % E    (NCONS,0:N1x(k),0:N1y(k),0:N1z(k)))
-         allocate(Solver % MGStorage(Dir) % Var(k) % S    (NCONS,0:N1x(k),0:N1y(k),0:N1z(k)))
-         allocate(Solver % MGStorage(Dir) % Var(k) % Scase(NCONS,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % Q    (nEqn,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % E    (nEqn,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % S    (nEqn,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % Scase(nEqn,0:N1x(k),0:N1y(k),0:N1z(k)))
          
          Solver % MGStorage(Dir) % Var(k) % Scase = 0._RP
       end do   
@@ -495,7 +500,12 @@ module AnisFASMultigridClass
       type(DGSem)         , pointer :: Childp_sem          !Pointer to the current child's sem class
       type(MGSolStorage_t), pointer :: ChildVar(:)         !Pointer to the child's variable storage class
       integer                       :: NumOfSweeps
+      integer                       :: nEqn
       !----------------------------------------------------------------------------
+
+#if defined(NAVIERSTOKES)
+      nEqn = NCONS
+#endif
 !
 !     -----------
 !     Definitions
@@ -561,7 +571,7 @@ module AnisFASMultigridClass
             N1 = Childp_sem % mesh % elements(iEl) % Nxyz
             N2 =      p_sem % mesh % elements(iEl) % Nxyz
             
-            call Interp3DArraysOneDir(NCONS, &
+            call Interp3DArraysOneDir(nEqn, &
                                       N1, ChildVar(iEl) % E, &
                                       N2, Var     (iEl) % E, &
                                       Dir)
@@ -649,7 +659,8 @@ module AnisFASMultigridClass
       integer  :: N1(3)
       integer  :: N2(3)
       !-------------------------------------------------------------
-      
+#if defined(NAVIERSTOKES)      
+
       p_sem      => this % MGStorage(Dir) % p_sem
       Var        => this % MGStorage(Dir) % Var
       Childp_sem => this % Child % MGStorage(Dir) % p_sem
@@ -723,7 +734,7 @@ module AnisFASMultigridClass
       end do
 !$omp end parallel do
       
-      
+#endif      
    end subroutine MGRestrictToChild
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
