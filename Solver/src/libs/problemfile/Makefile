@@ -15,10 +15,12 @@ LIB = problemfile
 ifeq ($(PLATFORM),MACOSX)
    DYNLIB_FLAG_NS=-fPIC -shared -install_name @rpath/libproblemfile_ns.dylib -o ./libproblemfile_ns.dylib
    DYNLIB_FLAG_CH=-fPIC -shared -install_name @rpath/libproblemfile_ch.dylib -o ./libproblemfile_ch.dylib
+   DYNLIB_FLAG_NSCH=-fPIC -shared -install_name @rpath/libproblemfile_nsch.dylib -o ./libproblemfile_nsch.dylib
    LIBSUFFIX=.dylib
 else ifeq ($(PLATFORM),LINUX)
    DYNLIB_FLAG_NS=-fPIC -shared -o ./libproblemfile_ns.so
    DYNLIB_FLAG_CH=-fPIC -shared -o ./libproblemfile_ch.so
+   DYNLIB_FLAG_NSCH=-fPIC -shared -o ./libproblemfile_nsch.so
    LIBSUFFIX=.so
 endif
 
@@ -30,7 +32,7 @@ endif
 ############################################
 .DEFAULT_GOAL:=all
 
-all: lib$(LIB)_ns$(LIBSUFFIX) 
+all: lib$(LIB)_ns$(LIBSUFFIX) lib$(LIB)_ch$(LIBSUFFIX) lib$(LIB)_nsch$(LIBSUFFIX)
 
 ./build_ns/%.o: %.f90
 	@echo
@@ -42,11 +44,19 @@ all: lib$(LIB)_ns$(LIBSUFFIX)
 	@echo $<
 	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
+./build_nsch/%.o: %.f90
+	@echo
+	@echo $<
+	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+
 ./build_ns/ProblemFile.o: ./ProblemFile.f90
 	$(FC) -fPIC -shared -DNAVIERSTOKES $(FFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ns $(MOD_FLAG)./include -c $< -o $@
 
 ./build_ch/ProblemFile.o: ./ProblemFile.f90
 	$(FC) -fPIC -shared -DCAHNHILLIARD $(FFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ch $(MOD_FLAG)./include -c $< -o $@
+
+./build_nsch/ProblemFile.o: ./ProblemFile.f90
+	$(FC) -fPIC -shared -DNAVIERSTOKES -DCAHNHILLIARD $(FFLAGS) $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_nsch $(MOD_FLAG)./include -c $< -o $@
 
 lib$(LIB)_ns$(LIBSUFFIX): header mkdirs ./build_ns/ProblemFile.o
 	@echo
@@ -62,10 +72,17 @@ lib$(LIB)_ch$(LIBSUFFIX): header mkdirs ./build_ch/ProblemFile.o
 	@echo "---------------------------------"
 	$(FC) $(DYNLIB_FLAG_CH) $(FFLAGS) $(MACROS) $(INCLUDE)_ch ./build_ch/ProblemFile.o $(LIBS)
 
+lib$(LIB)_nsch$(LIBSUFFIX): header mkdirs ./build_nsch/ProblemFile.o
+	@echo
+	@echo "---------------------------------"
+	@echo "| Linking library" $@ "|"
+	@echo "---------------------------------"
+	$(FC) $(DYNLIB_FLAG_NSCH) $(FFLAGS) $(MACROS) $(INCLUDE)_nsch ./build_nsch/ProblemFile.o $(LIBS)
 
 install: all
 	cp -p lib$(LIB)_ns$(LIBSUFFIX) $(INSTALL_DIR)/lib/
-#	cp -p lib$(LIB)_ch$(LIBSUFFIX) $(INSTALL_DIR)/lib/
+	cp -p lib$(LIB)_ch$(LIBSUFFIX) $(INSTALL_DIR)/lib/
+	cp -p lib$(LIB)_nsch$(LIBSUFFIX) $(INSTALL_DIR)/lib/
 	@echo
 	@echo
 
@@ -79,11 +96,11 @@ header: FORCE
 
 mkdirs: FORCE
 	@mkdir -p ./include
-	@mkdir -p ./build_ns ./build_ch
+	@mkdir -p ./build_ns ./build_ch ./build_nsch
 
 clean: FORCE
 	$(RM) $(LIBNAME)
-	$(RM) ./build_ns/*.o ./build_ch/*.o ./include/*.mod
+	$(RM) ./build_ns/*.o ./build_ch/*.o ./build_nsch/*.o ./include/*.mod
 
 #############################################
 #	Dummy procedure to force a rule     #
