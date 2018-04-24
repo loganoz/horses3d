@@ -1,4 +1,4 @@
-!! 
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      DGSEMClass.f95
@@ -7,16 +7,6 @@
 !
 !      Basic class for the discontinuous Galerkin spectral element
 !      solution of conservation laws.
-!
-!      Algorithms:
-!         Algorithm 136: DGSEM Class
-!         Algorithm 129: ConstructDGSem (Constructor)
-!         Algorithm 138: ComputeTimeDerivative (TimeDerivative)
-!         Algorithm 137: ComputeRiemannFluxes (EdgeFluxes)
-!         Algorithm  35: InterpolateToFineMesh (2DCoarseToFineInterpolation)
-!
-!      Modified for 3D       6/11/15, 11:32 AM by DAK
-!      Modified for mortars 25/04/17, 18:00    by arueda
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -509,13 +499,14 @@ Module DGSEMClass
             initial_time = 0.0_RP
             initial_iteration = 0
 !
-!           Save the initial condition (for initialized cases)
+!           Save the initial condition
 !           --------------------------
             saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
             solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
             solutionName = trim(getFileName(solutionName))
             write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
-            call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
+!            call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
+print*, "***WARNING, enable again the initial condition save"
 
          END IF
    

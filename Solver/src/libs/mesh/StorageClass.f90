@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Mon Apr 23 16:22:27 2018
+!   @Last revision date: Tue Apr 24 11:13:19 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 537e46dd1de9842e00daf5c4b578c75f98071222
+!   @Last revision commit: 60804273321199c0675663c7d4f1c517987552a7
 !
 !//////////////////////////////////////////////////////
 !
@@ -172,6 +172,7 @@ module StorageClass
          allocate(self % mu_x(NCOMP, 0:Nx, 0:Ny, 0:Nz))
          allocate(self % mu_y(NCOMP, 0:Nx, 0:Ny, 0:Nz))
          allocate(self % mu_z(NCOMP, 0:Nx, 0:Ny, 0:Nz))
+         allocate(self % cDot(NCOMP, 0:Nx, 0:Ny, 0:Nz))
          ALLOCATE(self % G_CH(NCOMP,0:Nx,0:Ny,0:Nz) )
          allocate(self % v   (1:NDIM, 0:Nx, 0:Ny, 0:Nz))
 #endif
@@ -288,7 +289,7 @@ module StorageClass
          self % U_x (1:,0:,0:,0:) => self % c_x
          self % U_y (1:,0:,0:,0:) => self % c_y
          self % U_z (1:,0:,0:,0:) => self % c_z
-         self % QDot(1:,0:,0:,0:) => self % cDot
+         self % QDot(1:,0:,0:,0:) => self % mu
    
       end subroutine Storage_SetStorageToCH_c
 

@@ -4,9 +4,9 @@
 !   @File:    Physics_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:31 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Tue Apr 24 11:13:20 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 60804273321199c0675663c7d4f1c517987552a7
 !
 !//////////////////////////////////////////////////////
 !
@@ -18,7 +18,7 @@ module Physics_CH
       IMPLICIT NONE
 
       private
-      public  CHDivergenceFlux, QuarticDWPDerivative, QuarticDWP
+      public  CHDivergenceFlux, AddQuarticDWPDerivative, QuarticDWP
       public  CHDivergenceFlux0D, CHDivergenceFlux3D, PoiseuilleFlow
 !
 !     ---------
@@ -43,15 +43,16 @@ module Physics_CH
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine CHDivergenceFlux0D(Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine CHDivergenceFlux0D(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, kappa, F)
          implicit none
-         real(kind=RP), intent(in)  :: Q   (NCOMP)
-         real(kind=RP), intent(in)  :: U_x (NCOMP)
-         real(kind=RP), intent(in)  :: U_y (NCOMP)
-         real(kind=RP), intent(in)  :: U_z (NCOMP)
+         integer,       intent(in)  :: nEqn, nGradEqn
+         real(kind=RP), intent(in)  :: Q   (nEqn)
+         real(kind=RP), intent(in)  :: U_x (nGradEqn)
+         real(kind=RP), intent(in)  :: U_y (nGradEqn)
+         real(kind=RP), intent(in)  :: U_z (nGradEqn)
          real(kind=RP), intent(in)  :: mu
          real(kind=RP), intent(in)  :: kappa
-         real(kind=RP), intent(out) :: F(1:NCOMP, 1:NDIM)
+         real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
 
          F(1,IX) = U_x(1)
          F(1,IY) = U_y(1)
@@ -59,16 +60,17 @@ module Physics_CH
 
       end subroutine CHDivergenceFlux0D
 
-      pure subroutine CHDivergenceFlux2D( N, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine CHDivergenceFlux2D(nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, F)
          implicit none
+         integer,          intent(in)  :: nEqn, nGradEqn
          integer         , intent(in)  :: N(2)
-         real(kind=RP),    intent(in)  :: Q  (1:NCOMP, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: U_x(1:NCOMP, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_y(1:NCOMP, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_z(1:NCOMP, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
-         real(kind=RP),    intent(out) :: F   (1:NCOMP, 0:N(1), 0:N(2), 1:NDIM)
+         real(kind=RP),    intent(out) :: F   (1:nEqn, 0:N(1), 0:N(2), 1:NDIM)
 
          F(1,:,:,IX) = U_x(1,:,:)
          F(1,:,:,IY) = U_y(1,:,:)
@@ -76,16 +78,17 @@ module Physics_CH
 
       end subroutine CHDivergenceFlux2D
 
-      pure subroutine CHDivergenceFlux3D( N, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine CHDivergenceFlux3D(nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, F)
          implicit none
+         integer,          intent(in)  :: nEqn, nGradEqn
          integer         , intent(in)  :: N(3)
-         real(kind=RP),    intent(in)  :: Q  (1:NCOMP, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: U_x(1:NCOMP, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_y(1:NCOMP, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_z(1:NCOMP, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(out) :: F   (1:NCOMP, 0:N(1), 0:N(2), 0:N(3),1:NDIM)
+         real(kind=RP),    intent(out) :: F   (1:nEqn, 0:N(1), 0:N(2), 0:N(3),1:NDIM)
 
          F(1,:,:,:,IX) = U_x(1,:,:,:)
          F(1,:,:,:,IY) = U_y(1,:,:,:)
@@ -93,14 +96,14 @@ module Physics_CH
 
       end subroutine CHDivergenceFlux3D
 
-      elemental subroutine QuarticDWPDerivative(c, f)
+      elemental subroutine AddQuarticDWPDerivative(c, mu)
          implicit none
-         real(kind=RP), intent(in)  :: c
-         real(kind=RP), intent(out) :: f
+         real(kind=RP), intent(in)    :: c
+         real(kind=RP), intent(inout) :: mu
          
-         f = 4.0_RP * c*(c-1.0_RP)*(c+1.0_RP) 
+         mu = mu + 4.0_RP * c*(c-1.0_RP)*(c+1.0_RP) 
 
-      end subroutine QuarticDWPDerivative
+      end subroutine AddQuarticDWPDerivative
 
       elemental subroutine QuarticDWP(c, f)
          implicit none

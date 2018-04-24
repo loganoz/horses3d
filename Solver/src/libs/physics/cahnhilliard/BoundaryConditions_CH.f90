@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:29 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Tue Apr 24 11:13:19 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 60804273321199c0675663c7d4f1c517987552a7
 !
 !//////////////////////////////////////////////////////
 !
@@ -20,7 +20,7 @@
          private
 
          public C_BC, MU_BC
-         public implementedBCNames
+         public implementedCHBCNames
 
          public NoFluxState, NoFluxNeumann, WallAngleBC
          public UserDefinedState, UserDefinedNeumann
@@ -89,32 +89,6 @@
       U_z = multiphase % thetaw * nHat(3)
 
       end subroutine WallAngleBC 
-!
-!////////////////////////////////////////////////////////////////////////
-!
-      subroutine UserDefinedConcentrationState(x, t, nHat, Q)
-         implicit none
-         real(kind=RP)  :: x(NDIM)
-         real(kind=RP)  :: t
-         real(kind=RP)  :: nHat(NDIM)
-         real(kind=RP)  :: Q(NCOMP)
-         interface
-            subroutine UserDefinedConcentrationState1(x, t, nHat, Q, multiphase_)
-               use SMConstants
-               use PhysicsStorage_CH
-               use FluidData_CH
-               implicit none
-               real(kind=RP)      :: x(NDIM)
-               real(kind=RP)      :: t
-               real(kind=RP)      :: nHat(NDIM)
-               real(kind=RP)      :: Q(NCOMP)
-               type(Multiphase_t) :: multiphase_
-            end subroutine UserDefinedConcentrationState1
-         end interface
-
-         call UserDefinedConcentrationState1(x, t, nHat, Q, multiphase)
-
-      end subroutine UserDefinedConcentrationState
 !
 !////////////////////////////////////////////////////////////////////////
 !

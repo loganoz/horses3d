@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:30 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Tue Apr 24 11:13:20 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 60804273321199c0675663c7d4f1c517987552a7
 !
 !//////////////////////////////////////////////////////
 !
@@ -27,7 +27,7 @@
 !
 !         character(len=KEYWORD_LENGTH), parameter    :: MOBILITY_KEY         = "mobility"
          character(len=KEYWORD_LENGTH), parameter    :: PECLET_NUMBER_KEY    = "peclet number"
-         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_WIDTH_KEY  = "interface width (multiphase)"
+         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_WIDTH_KEY  = "interface width (dimensionless)"
 !         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_ENERGY_KEY = "interface energy (multiphase)"
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_CHKeywords = [INTERFACE_WIDTH_KEY, &
                                                                               PECLET_NUMBER_KEY ]
@@ -97,7 +97,7 @@
 !     --------------------
 !
       success = .TRUE.
-      CALL CheckPhysicsInputIntegrity(controlVariables,success)
+      CALL CheckPhysicsCHInputIntegrity(controlVariables,success)
       IF(.NOT. success) RETURN 
 !
 !     *****************************
@@ -180,8 +180,8 @@
       
          write(STD_OUT,'(/)')
          call SubSection_Header("Dimensionless quantities")
-         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Interface width (multiphase): " , multiphase % w
-         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Interface energy (multiphase): " , multiphase % sigma
+         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Interface width (dimensionless): " , multiphase % w
+         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Interface energy (dimensionless): " , multiphase % sigma
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Epsilon: " , multiphase % eps
 
       END SUBROUTINE DescribePhysicsStorage_CH

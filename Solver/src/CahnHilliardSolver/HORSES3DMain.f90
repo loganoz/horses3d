@@ -19,6 +19,7 @@
       USE SharedBCModule
       USE zoneClass
       USE DGSEMClass
+      use FluidData
       USE BoundaryConditionFunctions
       USE TimeIntegratorClass
       USE mainKeywordsModule
@@ -37,38 +38,31 @@ interface
          SUBROUTINE UserDefinedStartup
             IMPLICIT NONE  
          END SUBROUTINE UserDefinedStartup
-         SUBROUTINE UserDefinedFinalSetup(mesh , thermodynamics_, &
-                                                 dimensionless_, &
-                                                     refValues_ )
-            use PhysicsStorage
+         SUBROUTINE UserDefinedFinalSetup(mesh , multiphase_) 
             use HexMeshClass
+            use FluidData
             IMPLICIT NONE
-            CLASS(HexMesh)             :: mesh
-            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-            type(Dimensionless_t),     intent(in)  :: dimensionless_
-            type(RefValues_t),         intent(in)  :: refValues_
+            CLASS(HexMesh)                 :: mesh
+            type(Multiphase_t), intent(in) :: multiphase_
          END SUBROUTINE UserDefinedFinalSetup
-         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
-                                                    dimensionless_, &
-                                                        refValues_, &
+         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, &
+                                                          multiphase_, &
                                                           monitors, &
                                                        elapsedTime, &
                                                            CPUTime   )
             use SMConstants
-            use PhysicsStorage
             use HexMeshClass
+            use FluidData
             use MonitorsClass
             IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
-            REAL(KIND=RP)                         :: time
-            integer                               :: iter
-            real(kind=RP)                         :: maxResidual
-            type(Thermodynamics_t),    intent(in) :: thermodynamics_
-            type(Dimensionless_t),     intent(in) :: dimensionless_
-            type(RefValues_t),         intent(in) :: refValues_
-            type(Monitor_t),          intent(in) :: monitors
-            real(kind=RP),             intent(in) :: elapsedTime
-            real(kind=RP),             intent(in) :: CPUTime
+            CLASS(HexMesh)                  :: mesh
+            REAL(KIND=RP)                   :: time
+            integer                         :: iter
+            real(kind=RP)                   :: maxResidual
+            type(Multiphase_t),  intent(in) :: multiphase_
+            type(Monitor_t),     intent(in) :: monitors
+            real(kind=RP),       intent(in) :: elapsedTime
+            real(kind=RP),       intent(in) :: CPUTime
          END SUBROUTINE UserDefinedFinalize
       SUBROUTINE UserDefinedTermination
          IMPLICIT NONE  
@@ -88,7 +82,7 @@ end interface
       integer                    :: initial_iteration
       INTEGER                    :: ierr
       real(kind=RP)              :: initial_time
-      procedure(BCState_FCN)     :: externalStateForBoundaryName
+      procedure(BCState_FCN)     :: externalCHStateForBoundaryName
       procedure(BCGradients_FCN) :: ExternalConcentrationGradientForBoundaryName
       procedure(BCGradients_FCN) :: ExternalChemicalPotentialGradientForBoundaryName
       type(BCFunctions_t)        :: BCFunctions(no_of_BCsets)
@@ -142,10 +136,10 @@ end interface
 !     Set up boundary conditions
 !     --------------------------
 !
-      BCFunctions(C_BC) % externalState      => externalStateForBoundaryName
+      BCFunctions(C_BC) % externalState      => externalCHStateForBoundaryName
       BCFunctions(C_BC) % externalGradients  => externalConcentrationGradientForBoundaryName
 
-      BCFunctions(MU_BC) % externalState     => externalStateForBoundaryName
+      BCFunctions(MU_BC) % externalState     => externalCHStateForBoundaryName
       BCFunctions(MU_BC) % externalGradients => externalChemicalPotentialGradientForBoundaryName
       
       call sem % construct (  controlVariables  = controlVariables,                                         &
@@ -156,7 +150,7 @@ end interface
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
       CALL checkBCIntegrity(sem % mesh, success)
       IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
-      CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues)
+      CALL UserDefinedFinalSetup(sem % mesh, multiphase)
 !
 !     -------------------------
 !     Set the initial condition
@@ -193,7 +187,7 @@ end interface
 !     -----------------------------------------------------
 !
       CALL UserDefinedFinalize(sem % mesh, timeIntegrator % time, sem % numberOfTimeSteps, &
-                              sem % maxResidual, thermodynamics, dimensionless, refValues, &
+                              sem % maxResidual, multiphase, &
                               sem % monitors, Stopwatch % ElapsedTime("Solver"), &
                               Stopwatch % CPUTime("Solver"))
 #ifdef _HAS_MPI_
@@ -237,7 +231,7 @@ end interface
          USE HexMeshClass
          use FTValueDictionaryClass
          USE SharedBCModule
-         USE BoundaryConditionFunctions, ONLY:implementedBCNames
+         USE BoundaryConditionFunctions, ONLY:implementedCHBCNames
          IMPLICIT NONE
 !
 !        ---------
@@ -292,8 +286,8 @@ end interface
             obj => bcObjects % objectAtIndex(j)
             CALL castToValue(obj,v)
             bcType = v % stringValue(requestedLength = BC_STRING_LENGTH)
-            DO i = 1, SIZE(implementedBCNames)
-               IF ( bcType == implementedBCNames(i) )     THEN
+            DO i = 1, SIZE(implementedCHBCNames)
+               IF ( bcType == implementedCHBCNames(i) )     THEN
                   success = .TRUE. 
                   EXIT 
                ELSE 
