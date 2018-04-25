@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Mon Apr 23 16:22:27 2018
+!   @Last revision date: Wed Apr 25 19:40:19 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 537e46dd1de9842e00daf5c4b578c75f98071222
+!   @Last revision commit: 4749ed1216d5512d7b79f2485e9471f3161753ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -20,7 +20,7 @@ module PhysicsStorage
 #endif
    implicit none
 
-#if (defined(NAVIERSTOKES) && !defined(CANHILLIARD))
+#if (defined(NAVIERSTOKES) && !defined(CAHNHILLIARD))
    integer, parameter   :: NTOTALVARS = NCONS
    integer, parameter   :: NTOTALGRADS = NGRAD
 #elif (!defined(NAVIERSTOKES) && defined(CAHNHILLIARD))

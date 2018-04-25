@@ -197,10 +197,10 @@ module SpatialDiscretization
 !        Arguments
 !        ---------
 !
-         TYPE(HexMesh), target      :: mesh
-         type(Particles_t)          :: particles
-         REAL(KIND=RP)              :: time
-         type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
+         TYPE(HexMesh), target           :: mesh
+         type(Particles_t)               :: particles
+         REAL(KIND=RP)                   :: time
+         type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
 !
 !        ---------------
 !        Local variables

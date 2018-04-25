@@ -37,11 +37,15 @@ Module DGSEMClass
 
    public   DestructDGSEM, MaxTimeStep, ComputeMaxResiduals
 
+   enum, bind(C)
 #if defined(NAVIERSTOKES)
-   integer, parameter   :: no_of_BCsets = 1
-#elif defined(CAHNHILLIARD)
-   integer, parameter   :: no_of_BCsets = 2
+      enumerator :: BC_ns
 #endif
+#if defined(CAHNHILLIARD)
+      enumerator :: BC_ch_c, BC_ch_mu
+#endif
+      enumerator :: no_of_BCsets
+   end enum
 
    type BCFunctions_t
       PROCEDURE(BCState_FCN)    , NOPASS, POINTER :: externalState     => NULL()
@@ -677,8 +681,8 @@ print*, "***WARNING, enable again the initial condition save"
       Rhoe = 0.0_RP
       c    = 0.0_RP
 
-!$omp parallel shared(maxResidual, Rho, Rhou, Rhov, Rhow, Rhoe, mesh) default(private)
-!$omp do reduction(max:Rho,Rhou,Rhov,Rhow,Rhoe)
+!$omp parallel shared(maxResidual, Rho, Rhou, Rhov, Rhow, Rhoe, c, mesh) default(private)
+!$omp do reduction(max:Rho,Rhou,Rhov,Rhow,Rhoe,c)
       DO id = 1, SIZE( mesh % elements )
 #if defined(NAVIERSTOKES)
          localRho = maxval(abs(mesh % elements(id) % storage % QDot(IRHO,:,:,:)))
@@ -716,7 +720,7 @@ print*, "***WARNING, enable again the initial condition save"
 #ifdef _HAS_MPI_
       if ( MPI_Process % doMPIAction ) then
          localMaxResidual = maxResidual
-         call mpi_allreduce(localMaxResidual, maxResidual, NCONS, MPI_DOUBLE, MPI_MAX, &
+         call mpi_allreduce(localMaxResidual, maxResidual, NTOTALVARS, MPI_DOUBLE, MPI_MAX, &
                             MPI_COMM_WORLD, ierr)
       end if
 #endif

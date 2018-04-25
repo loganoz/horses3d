@@ -4,23 +4,11 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Tue Apr 24 11:37:50 2018
+!   @Last revision date: Wed Apr 25 19:40:16 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 81ae6fab48ae4e0c72bb0a2e4dd812457c78e5ca
+!   @Last revision commit: 4749ed1216d5512d7b79f2485e9471f3161753ca
 !
 !//////////////////////////////////////////////////////
-!
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      DGTimeDerivativeRoutines.f95
-!      Created: 2008-07-13 16:13:12 -0400 
-!      By: David Kopriva  
-!
-!      3D version by D.A. Kopriva 6/17/15, 12:35 PM
-!
-!
-!////////////////////////////////////////////////////////////////////////////////////////
 !
 #ifdef HAS_PETSC
 #include "petsc/finclude/petsc.h"
@@ -56,7 +44,7 @@ module SpatialDiscretization
          module procedure GetPoiseuilleFlow_Element, GetPoiseuilleFlow_Face
       end interface 
 
-      logical, parameter   :: enable_speed = .true. 
+      logical, parameter   :: enable_speed = .false. 
 !
 !     ========      
       CONTAINS 
@@ -174,7 +162,7 @@ module SpatialDiscretization
 !        Compute chemical potential: Q stores c
 !        **************************************
 !
-!$omp parallel shared(mesh, time) private(e, i, j, k)
+!$omp parallel shared(mesh, time) private(e, i, j, k, eID, fID)
 !
 !        ------------------------------
 !        Change memory to concentration

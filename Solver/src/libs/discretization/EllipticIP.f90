@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Mon Apr 23 16:22:25 2018
+!   @Last revision date: Wed Apr 25 19:40:18 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 537e46dd1de9842e00daf5c4b578c75f98071222
+!   @Last revision commit: 4749ed1216d5512d7b79f2485e9471f3161753ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -458,9 +458,8 @@ module EllipticIP
 #if defined(NAVIERSTOKES)
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
-
-#elif defined(CAHNHILLIARD)
-         mu = 1.0_RP
+#else
+         mu = 0.0_RP
          kappa = 0.0_RP
 #endif
 
@@ -582,22 +581,22 @@ module EllipticIP
 #if defined(NAVIERSTOKES)
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
-
-#elif defined(CAHNHILLIARD)
+#else
          mu = 1.0_RP
          kappa = 0.0_RP
-
 #endif
 
          call EllipticFlux(nEqn, nGradEqn, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 !
 !        Shahbazi estimate
 !        -----------------
-#if defined(NAVIERSTOKES)
-         sigma = 0.5_RP * self % sigma * mu * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
-#elif defined(CAHNHILLIARD)
-         sigma = 0.25_RP * self % sigma * mu * (maxval(f % Nf))*(maxval(f % Nf)+1) / f % geom % h 
-#endif
+         if ( nEqn .eq. 1 ) then
+            sigma = 0.25_RP * self % sigma * (maxval(f % Nf))*(maxval(f % Nf)+1) / f % geom % h 
+
+         else
+            sigma = 0.5_RP * self % sigma * mu * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
+
+         end if
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - sigma * (QLeft - QRight)
 

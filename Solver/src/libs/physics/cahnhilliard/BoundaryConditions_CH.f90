@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:29 2018
-!   @Last revision date: Tue Apr 24 11:13:19 2018
+!   @Last revision date: Wed Apr 25 19:40:19 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 60804273321199c0675663c7d4f1c517987552a7
+!   @Last revision commit: 4749ed1216d5512d7b79f2485e9471f3161753ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -19,7 +19,6 @@
 
          private
 
-         public C_BC, MU_BC
          public implementedCHBCNames
 
          public NoFluxState, NoFluxNeumann, WallAngleBC
@@ -32,8 +31,6 @@
                 "noslipadiabaticwall ", &
                 "user-defined        "   ]
                
-         integer, parameter :: C_BC = 1
-         integer, parameter :: MU_BC = 2
          integer, parameter :: NO_FLUX_INDEX        = 1
          integer, parameter :: PERIODIC_PLUS_INDEX  = 2
          integer, parameter :: PERIODIC_MINUS_INDEX = 3

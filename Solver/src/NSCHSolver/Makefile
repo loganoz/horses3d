@@ -25,7 +25,7 @@ RANLIB=ranlib
 PROG=./bin/horses3d.nsch
 
 OBJS_HORSES=	SpatialDiscretization \
-		HORSES3DMain
+		main        
 
 OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 
@@ -35,6 +35,7 @@ OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 ##########################################
 -include ./make.deps
 
+./build/main.o: FORCE
 
 ##########################################################
 ##		COMPILATION RULES 			##

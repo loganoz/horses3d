@@ -155,10 +155,8 @@
                           Ny => mesh % elements(eid) % Nxyz(2), &
                           Nz => mesh % elements(eid) % Nxyz(3) )
                associate(e => mesh % elements(eID) % storage)
-               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
-                  call random_number(e % c) 
-                  e % c = 2.0_RP * (e % c - 0.5_RP)
-               end do;        end do;        end do
+               call random_number(e % c) 
+               e % c = 2.0_RP * (e % c - 0.5_RP)
                end associate
                end associate
             end do

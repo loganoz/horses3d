@@ -52,9 +52,11 @@ ARFLAGS=crv
 ifeq ($(PLATFORM),MACOSX)
    PROBLEM_LIB_NS=$(HOME_DIR)/lib/libproblemfile_ns.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
    PROBLEM_LIB_CH=$(HOME_DIR)/lib/libproblemfile_ch.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
+   PROBLEM_LIB_NSCH=$(HOME_DIR)/lib/libproblemfile_nsch.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
 else ifeq ($(PLATFORM),LINUX)
    PROBLEM_LIB_NS=-L$(HOME_DIR)/lib -lproblemfile_ns -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
    PROBLEM_LIB_CH=-L$(HOME_DIR)/lib -lproblemfile_ch -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
+   PROBLEM_LIB_NSCH=-L$(HOME_DIR)/lib -lproblemfile_nsch -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
 endif
 
 ##########################################

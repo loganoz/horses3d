@@ -114,8 +114,9 @@ module ResidualsMonitorClass
          write(STD_OUT , '(3X,A10)' , advance = "no") "y-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "z-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "energy"
+#endif
 
-#elif defined(CAHNHILLIARD)
+#if defined(CAHNHILLIARD)
          write(STD_OUT , '(3X,A10)' , advance = "no") "concentration"
 
 #endif
@@ -184,7 +185,6 @@ module ResidualsMonitorClass
 #elif (defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
 111 format(7(2X,ES24.16))
 #endif
-
       
       end subroutine Residuals_WriteToFile
 
