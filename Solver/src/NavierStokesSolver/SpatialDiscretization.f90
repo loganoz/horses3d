@@ -1226,13 +1226,8 @@ module SpatialDiscretization
          real(kind=RP) :: flux_vec(NCONS,NDIM)  ! Flux tensor
          !-----------------------------------------------------------
          
-#if defined(NAVIERSTOKES)
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
-#else
-         mu = 0.0_RP
-         kappa = 0.0_RP
-#endif
          
          if ( .not. LESModel % active ) then
             do j = 0, f % Nf(2)
@@ -1338,13 +1333,8 @@ module SpatialDiscretization
          real(kind=RP) :: flux_vec(NCONS,NDIM)                          ! Flux tensor
          !-----------------------------------------------------------
          
-#if defined(NAVIERSTOKES)
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
-#else
-         mu = 0.0_RP
-         kappa = 0.0_RP
-#endif
          
          if ( .not. LESModel % active ) then
             do j = 0, f % Nf(2)
