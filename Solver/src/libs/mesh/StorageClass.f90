@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Tue Apr 24 11:13:19 2018
+!   @Last revision date: Fri Apr 27 12:22:05 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 60804273321199c0675663c7d4f1c517987552a7
+!   @Last revision commit: c3532365f3cc0c1e6e95281cbe9836354994daea
 !
 !//////////////////////////////////////////////////////
 !
@@ -289,7 +289,7 @@ module StorageClass
          self % U_x (1:,0:,0:,0:) => self % c_x
          self % U_y (1:,0:,0:,0:) => self % c_y
          self % U_z (1:,0:,0:,0:) => self % c_z
-         self % QDot(1:,0:,0:,0:) => self % mu
+         self % QDot(1:,0:,0:,0:) => self % cDot
    
       end subroutine Storage_SetStorageToCH_c
 

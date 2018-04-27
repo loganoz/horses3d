@@ -44,6 +44,7 @@
             use SMConstants
             use HexMeshClass
             use PhysicsStorage
+            use FluidData
             IMPLICIT NONE
             CLASS(HexMesh)             :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
@@ -65,6 +66,7 @@
 !
             USE SMConstants
             use PhysicsStorage
+            use FluidData
             use HexMeshClass
             implicit none
             class(HexMesh)                      :: mesh
@@ -78,7 +80,7 @@
 !
             integer        :: eID, i, j, k
             real(kind=RP)  :: qq, u, v, w, p
-            real(kind=RP)  :: Q(N_EQN), phi, theta
+            real(kind=RP)  :: Q(NCONS), phi, theta
 
 #if defined(NAVIERSTOKES)
             associate ( gammaM2 => dimensionless_ % gammaM2, &
@@ -129,11 +131,12 @@
 !
             use SMConstants
             use PhysicsStorage
+            use FluidData
             implicit none
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: Q(N_EQN)
+            real(kind=RP), intent(inout)  :: Q(NCONS)
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
@@ -147,13 +150,14 @@
 !
             use SMConstants
             use PhysicsStorage
+            use FluidData
             implicit none
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: U_x(N_GRAD_EQN)
-            real(kind=RP), intent(inout)  :: U_y(N_GRAD_EQN)
-            real(kind=RP), intent(inout)  :: U_z(N_GRAD_EQN)
+            real(kind=RP), intent(inout)  :: U_x(NGRAD)
+            real(kind=RP), intent(inout)  :: U_y(NGRAD)
+            real(kind=RP), intent(inout)  :: U_z(NGRAD)
          end subroutine UserDefinedNeumann
 
 !
@@ -168,6 +172,7 @@
             use SMConstants
             USE HexMeshClass
             use PhysicsStorage
+            use FluidData
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -234,6 +239,7 @@
             use SMConstants
             USE FTAssertions
             use PhysicsStorage
+            use FluidData
             use HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
@@ -258,7 +264,7 @@
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
             INTEGER                            :: i, j, k, N
-            real(kind=RP)                      :: qq, u, v, w, p, Q(N_EQN), theta, phi
+            real(kind=RP)                      :: qq, u, v, w, p, Q(NCONS), theta, phi
             TYPE(FTAssertionsManager), POINTER :: sharedManager
 !
 !           -----------------------------------------------------------------------
@@ -285,7 +291,7 @@
                                tol           = 1.d-3, &
                                msg           = "Final maximum residual")
             
-            ALLOCATE(QExpected(N_EQN,0:N,0:N,0:N))
+            ALLOCATE(QExpected(NCONS,0:N,0:N,0:N))
             
             maxError = 0.0_RP
             associate ( gammaM2 => dimensionless_ % gammaM2, &

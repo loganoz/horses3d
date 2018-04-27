@@ -4,9 +4,9 @@
 !   @File:    IMEXMethods.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date: Mon Apr 23 16:22:31 2018
+!   @Last revision date: Fri Apr 27 12:22:05 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 537e46dd1de9842e00daf5c4b578c75f98071222
+!   @Last revision commit: c3532365f3cc0c1e6e95281cbe9836354994daea
 !
 !//////////////////////////////////////////////////////
 !
@@ -77,9 +77,7 @@ CONTAINS
 
          CALL linsolver%construct(DimPrb,controlVariables,sem) 
 
-
-         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac,ComputeTimeDerivative, dt, 1.0_RP)
-
+         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, CTD_onlyLinear, dt, 1.0_RP)
          
       ENDIF
       
@@ -103,6 +101,10 @@ CONTAINS
 !     Return the computed state vector to storage
 !     -------------------------------------------
       call sem % SetQ(linsolver % x)
+!
+!     Compute the standard time derivative to get residuals
+!     -----------------------------------------------------
+      call ComputeTimeDerivative(sem % mesh, sem % particles, time, sem % BCFunctions)
       
    END SUBROUTINE TakeIMEXEulerStep
 !  
@@ -117,6 +119,7 @@ CONTAINS
 
       INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, elmnt, counter   
       REAL(KIND=RP)                                :: value
+
 #if defined(CAHNHILLIARD)
       counter = 0
       DO elmnt = 1, nelm
@@ -138,8 +141,9 @@ CONTAINS
          END DO
       END DO
 
-      CALL linsolver%AssemblyB     ! b must be assembled before using
+!      CALL linsolver%AssemblyB     ! b must be assembled before using
 #endif
+
    END SUBROUTINE ComputeRHS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

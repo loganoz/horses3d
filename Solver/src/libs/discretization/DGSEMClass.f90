@@ -537,7 +537,7 @@ print*, "***WARNING, enable again the initial condition save"
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
-                  DO l = 1,NTOTALVARS
+                  DO l = 1,size(self % mesh % elements(elm) % storage % Q,1)
                      self%mesh%elements(elm)%storage%Q(l,i,j,k) = Q(counter) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
@@ -568,7 +568,7 @@ print*, "***WARNING, enable again the initial condition save"
          DO k = 0, Nz
             DO j = 0, Ny
                 DO i = 0, Nx
-                  DO l = 1,NTOTALVARS
+                  DO l = 1,size(self % mesh % elements(elm) % storage % Q,1)
                      Q(counter)  = self%mesh%elements(elm)%storage%Q(l,i, j, k) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
@@ -599,7 +599,7 @@ print*, "***WARNING, enable again the initial condition save"
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
-                  DO l = 1,NTOTALVARS
+                  DO l = 1,size(self % mesh % elements(elm) % storage % Q,1)
                      Qdot(counter)  = self%mesh%elements(elm)%storage%Qdot(l,i, j, k) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO

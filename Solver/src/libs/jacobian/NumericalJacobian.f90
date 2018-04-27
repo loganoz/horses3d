@@ -61,7 +61,7 @@ contains
       
       logical, save                                      :: isfirst = .TRUE.
 #if (!defined(NAVIERSTOKES))
-      logical                                            :: computeGradients = .false.
+      logical                                            :: computeGradients = .true.
 #endif
       !-------------------------------------------------------------------
       
@@ -109,6 +109,11 @@ contains
 !           -------------------------------------------------------
 !
             CALL allocateElementStorage( dgs_clean(i), Nx(i), Ny(i), Nz(i), computeGradients )
+
+#if defined(CAHNHILLIARD)
+            call dgs_clean(i) % Storage % SetStorageToCH_c
+            call sem % mesh % elements(i) % Storage % SetStorageToCH_c
+#endif
          END DO
 
          firstIdx(nelm+1) = firstIdx(nelm) + ndofelm(nelm)
@@ -192,6 +197,7 @@ contains
 !     --------------------------------------------
 !
       IF (.NOT. allocated(Q)) allocate(Q(sem % NDOF))
+print*, sem % NDOF
       CALL sem % GetQ(Q)
 
       if (present(eps_in)) then
@@ -214,6 +220,18 @@ contains
 !     ------------------------------------------
 !
       dgs_clean = sem%mesh%elements
+
+      do thiselm = 1, size(dgs_clean)
+#if defined(NAVIERSTOKES)
+!TODO this is provisional!
+         call dgs_clean(thiselm) % Storage % SetStorageToNS
+#endif
+#if defined(CAHNHILLIARD)
+!TODO this is provisional!
+         call dgs_clean(thiselm) % Storage % SetStorageToCH_c
+#endif
+      end do
+
       DO thiscolor = 1 , ecolors%ncolors
          ielm = ecolors%bounds(thiscolor)             
          felm = ecolors%bounds(thiscolor+1)
@@ -243,8 +261,10 @@ contains
                
                   IF (.NOT. ANY(used == elmnbr)) THEN  !(elmnbr .NE. 0)
                      ndof   = ndofelm(elmnbr)
-                     
-                     sem%mesh%elements(elmnbr)% storage % QDot = (sem%mesh%elements(elmnbr)% storage % QDot - dgs_clean(elmnbr)% storage % QDot) / eps                      
+#if defined(CAHNHILLIARD)                     
+!TODO this is provisional!
+                     sem%mesh%elements(elmnbr)% storage % cDot = (sem%mesh%elements(elmnbr)% storage % cDot - dgs_clean(elmnbr)% storage % cDot) / eps                      
+#endif
 !~                     pbuffer(1:ndofelm) => sem%mesh%elements(elmnbr)% storage % QDot                     !maps Qdot array into a 1D pointer 
                      CALL GetElemQdot(nEqn, sem%mesh%elements(elmnbr),pbuffer(1:ndof))
                      irow = irow_0 + firstIdx(elmnbr)        !irow_0 + ndofelm * (elmnbr - 1)                         !generates the row indices vector
