@@ -37,8 +37,8 @@ module OutputVariables
    public   getOutputVariables, ComputeOutputVariables, getOutputVariablesLabel
 
    integer, parameter   :: STR_VAR_LEN = 16
-   integer, parameter   :: NO_OF_VARIABLES = 37
-   integer, parameter   :: NO_OF_INVISCID_VARIABLES = 21
+   integer, parameter   :: NO_OF_VARIABLES = 42
+   integer, parameter   :: NO_OF_INVISCID_VARIABLES = 26
 !
 !  ***************************
 !  Variables without gradients
@@ -65,27 +65,33 @@ module OutputVariables
    integer, parameter :: Nzeta_V= 19
    integer, parameter :: Nav_V  = 20
    integer, parameter :: N_V    = 21
+   integer, parameter :: Xi_V   = 22
+   integer, parameter :: Eta_V  = 23
+   integer, parameter :: Zeta_V = 24
+   integer, parameter :: ThreeAxes_V = 25
+   integer, parameter :: Axes_V = 26
+   
 !
 !  ************************
 !  Variables with gradients
 !  ************************
 !
-   integer, parameter :: GRADV_V = 22
-   integer, parameter :: UX_V = 23
-   integer, parameter :: VX_V = 24
-   integer, parameter :: WX_V = 25
-   integer, parameter :: UY_V = 26
-   integer, parameter :: VY_V = 27
-   integer, parameter :: WY_V = 28
-   integer, parameter :: UZ_V = 29
-   integer, parameter :: VZ_V = 30
-   integer, parameter :: WZ_V = 31
-   integer, parameter :: OMEGA_V = 32
-   integer, parameter :: OMEGAX_V = 33
-   integer, parameter :: OMEGAY_V = 34
-   integer, parameter :: OMEGAZ_V = 35
-   integer, parameter :: OMEGAABS_V = 36
-   integer, parameter :: QCRIT_V = 37
+   integer, parameter :: GRADV_V = 27
+   integer, parameter :: UX_V = 28
+   integer, parameter :: VX_V = 29
+   integer, parameter :: WX_V = 30
+   integer, parameter :: UY_V = 31
+   integer, parameter :: VY_V = 32
+   integer, parameter :: WY_V = 33
+   integer, parameter :: UZ_V = 34
+   integer, parameter :: VZ_V = 35
+   integer, parameter :: WZ_V = 36
+   integer, parameter :: OMEGA_V = 37
+   integer, parameter :: OMEGAX_V = 38
+   integer, parameter :: OMEGAY_V = 39
+   integer, parameter :: OMEGAZ_V = 40
+   integer, parameter :: OMEGAABS_V = 41
+   integer, parameter :: QCRIT_V = 42
 
    character(len = STR_VAR_LEN), parameter  :: QKey    = "Q"
    character(len = STR_VAR_LEN), parameter  :: RHOKey  = "rho"
@@ -108,6 +114,11 @@ module OutputVariables
    character(len = STR_VAR_LEN), parameter  :: NzetaKey= "Nzeta"
    character(len = STR_VAR_LEN), parameter  :: NavKey  = "Nav"
    character(len = STR_VAR_LEN), parameter  :: NKey    = "N"
+   character(len = STR_VAR_LEN), parameter  :: XiKey   = "Ax_Xi"
+   character(len = STR_VAR_LEN), parameter  :: EtaKey  = "Ax_Eta"
+   character(len = STR_VAR_LEN), parameter  :: ZetaKey = "Ax_Zeta"
+   character(len = STR_VAR_LEN), parameter  :: ThreeAxesKey = "ThreeAxes"
+   character(len = STR_VAR_LEN), parameter  :: AxesKey = "Axes"
    character(len = STR_VAR_LEN), parameter  :: gradVKey = "gradV"
    character(len = STR_VAR_LEN), parameter  :: uxKey = "u_x"
    character(len = STR_VAR_LEN), parameter  :: vxKey = "v_x"
@@ -131,8 +142,8 @@ module OutputVariables
                                                                             PKey, TKey, MachKey, SKey, VabsKey, &
                                                                             VvecKey, HtKey, RHOUKey, RHOVKey, RHOWKey, &
                                                                             RHOEKey, NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
-                                                                            gradVKey, uxKey, vxKey, wxKey, &
-                                                                            uyKey, vyKey, wyKey, uzKey, vzKey, wzKey, &
+                                                                            XiKey, EtaKey, ZetaKey, ThreeAxesKey, AxesKey, gradVKey, & 
+                                                                            uxKey, vxKey, wxKey, uyKey, vyKey, wyKey, uzKey, vzKey, wzKey, &
                                                                             omegaKey, omegaxKey, omegayKey, omegazKey, &
                                                                             omegaAbsKey, QCriterionKey /)
                                                                
@@ -396,6 +407,30 @@ module OutputVariables
                case(Nav_V)
                   output(var,:,:,:) = sum(e % Nsol)/real(NDIM)
                   
+               case(Xi_V)
+                  output(var,:,:,:) = 0
+                  output(var,:,0,0) = 3
+                  output(var,0,:,0) = 0
+                  output(var,0,0,:) = 0
+                  
+               case(Eta_V)
+                  output(var,:,:,:) = 0
+                  output(var,:,0,0) = 0
+                  output(var,0,:,0) = 3
+                  output(var,0,0,:) = 0
+                  
+               case(Zeta_V)
+                  output(var,:,:,:) = 0
+                  output(var,:,0,0) = 0
+                  output(var,0,:,0) = 0
+                  output(var,0,0,:) = 3
+                  
+               case(ThreeAxes_V)
+                  output(var,:,:,:) = 0
+                  output(var,:,0,0) = 3
+                  output(var,0,:,0) = 1.5
+                  output(var,0,0,:) = 1.5
+                  
 !
 !
 !              ******************
@@ -552,6 +587,9 @@ module OutputVariables
             
          case(N_V)
             outputVariablesForVariable = 4
+            
+         case(Axes_V)
+            outputVariablesForVariable = 4
 
          case default
             outputVariablesForVariable = 1
@@ -581,7 +619,10 @@ module OutputVariables
             
          case(N_V)
             output = (/Nxi_V, Neta_V, Nzeta_V, Nav_V/)
-
+         
+         case(Axes_V)
+            output = (/Xi_V, Eta_V, Zeta_V, ThreeAxes_V/)
+            
          case default
             output = iVar
 
