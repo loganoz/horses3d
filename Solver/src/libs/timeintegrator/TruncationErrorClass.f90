@@ -137,7 +137,7 @@ module TruncationErrorClass
 !  ------------------------------------------------------------------------
 !  Routine for computing the truncation error associated with every element
 !  in a specified direction for a specific evaluation of the fine solution
-!     (a-posteriori or quasio a-priori without correction)
+!     (a-posteriori or quasi a-priori without correction)
 !  ------------------------------------------------------------------------
    subroutine EstimateTruncationError(TE,sem,t,Var,Dir)
       use NodalStorageClass

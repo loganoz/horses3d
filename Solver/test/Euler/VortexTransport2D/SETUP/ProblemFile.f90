@@ -224,7 +224,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedSourceTerm(x, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -234,26 +234,16 @@
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
-            REAL(KIND=RP)                         :: time
-            type(Thermodynamics_t),    intent(in) :: thermodynamics_
-            type(Dimensionless_t),     intent(in) :: dimensionless_
-            type(RefValues_t),         intent(in) :: refValues_
+            real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: time
+            real(kind=RP),             intent(out) :: S(NCONS)
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
 !
-!           ---------------
-!           Local variables
-!           ---------------
-!
-            integer  :: i, j, k, eID
-!
-!           Usage example (by default no source terms are added)
-!           ----------------------------------------------------
-!           do eID = 1, mesh % no_of_elements
-!              associate ( e => mesh % elements(eID) )
-!              do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-!                 e % QDot(:,i,j,k) = e % QDot(:,i,j,k) + Source(:)
-!              end do                  ; end do                ; end do
-!           end do
+!           Usage example
+!           -------------
+!           S(:) = x(1) + x(2) + x(3) + time
    
          end subroutine UserDefinedSourceTerm
 !
