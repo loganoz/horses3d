@@ -198,7 +198,7 @@
       if (self % integratorType == STEADY_STATE .and. &
           controlVariables % containsKey("fasfmg residual")) then
           
-         FMGres = controlVariables % RealValueForKey("fasfmg residual")
+         FMGres = controlVariables % doubleprecisionValueForKey("fasfmg residual")
          write(STD_OUT,*) 'Using FMG solver to get initial condition. Res =', FMGres
          
          call FMGSolver % construct(controlVariables,sem)

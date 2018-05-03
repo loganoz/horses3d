@@ -33,7 +33,7 @@
 \definecolor{mylilas}{RGB}{170,55,241}
 
 
-\title{\textbf{NSLITE3D \\ User Manual}}
+\title{\textbf{HORSES3D \\ User Manual}}
 \author{Andrés Rueda \\ Many others (future?)}
 
 \begin{document}
@@ -60,15 +60,19 @@
 
 \tableofcontents
 
-\chapter{Running a simulation}
+\chapter{Running a Simulation}
 List of all the mandatory keywords for running a simulation and some basic optional keywords. The specific keywords are listed in the other chapters.
-%\begin{table}[htbp]
-%\caption{General keywords for running a case.}
 
 \begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
 \caption{General keywords for running a case.} \label{tab:runningkey} \\
 \hline
-\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{General keywords for running a case - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
 
 solution file name   & \textit{CHARACTER}: Path and name of the output file. The name of this file is used for naming other output files. & \textbf{Mandatory\ keyword} \\ \hline
 
@@ -130,7 +134,7 @@ Number of boundaries & \textit{INTEGER}: Specifies the number of boundaries of t
 
 \end{longtable}
 
-\chapter{Restarting a case}
+\chapter{Restarting a Case}
 
 \begin{table}[htbp]
 \caption{Keywords for restarting a case.}
@@ -148,15 +152,26 @@ restart interval    & \textit{INTEGER}: Indicates how often restart files have t
 \end{table}
 
 
-\chapter{Implicit solvers}
-\section{General keywords}
+\chapter{Implicit Solvers}
+\section{General Keywords}
 The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
 
-\begin{table}[htbp]
-\caption{Keywords for implicit solvers.}
-\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+%\begin{table}[htbp]
+%\caption{Keywords for implicit solvers.}
+%\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+%\hline
+%\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for implicit solvers.} \label{tab:implicitkey} \\
 \hline
-\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for implicit solvers - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
 
 \textbf{time integration} & \textit{CHARACTER}: This is the main keyword for activating the implicit solvers. The value of it should be set to 'implicit'. & 'explicit' \\ \hline
 
@@ -181,18 +196,24 @@ linear solver           & \textit{CHARACTER}: Specifies the linear solver that h
 										& 'petsc'  \\ \hline
 print newton info       & \textit{LOGICAL}: If .TRUE., the information of the Newton iterations will be displayed. &  '.FALSE.'\\ \hline
 implicit adaptive dt  & \textit{LOGICAL}: Specifies if the time-step should be computed according to the convergence behavior of the Newton iterative method and the linear solver. & .FALSE. \\ \hline
-newton tolerance   & \textit{REAL}: Specifies the tolerance for the Newton method. &  $10^{-6}$ or  $MaxResidual \times 10^{-3}$ in STEADY\_STATE \\ \hline
+newton tolerance   & \textit{REAL}: Specifies the tolerance for the Newton method. &  $10^{-6}$ or for time-accurate simulations and  $MaxResidual \times 10^{-3}$ for steady-state simulations \\ \hline
     &  &  \\ \hline
-\end{tabular}
-\label{tab:implicitkey}
-\end{table}
+    
+\end{longtable}
 
 \section{Multigrid}
-\begin{table}[htbp]
-\caption{Keywords for the multigrid solver.}
-\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the multigrid solver.} \label{tab:multigridKey} \\
 \hline
-\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the multigrid solver - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
 
 multigrid levels & \textit{INTEGER}: Number of multigrid levels for the computations. & \textbf{Mandatory keyword} \\ \hline
 
@@ -201,9 +222,49 @@ delta n          & \textit{INTEGER}: Interval of reduction of polynomial order f
 multigrid output & \textit{LOGICAL}: If .TRUE., the residuals at the different multigrid levels will be displayed. & .FALSE. \\ \hline
    
     &  &  \\ \hline
-\end{tabular}
-\label{tab:multigridKey}
-\end{table}
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{p-Adaptation Methods}
+The p-adaptation methods are used when the general keyword is in the control file:\\
+
+padaptation = .TRUE.
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the p-adaptation algorithms.} \label{tab:pAdaptationKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+
+truncation error & \textit{REAL}: Target truncation error for the p-adaptation algorithm. & \textbf{Mandatory keyword} \\ \hline
+
+adaptation nmax i \
+
+adaptation nmax j \
+
+adaptation nmax k          & \textit{INTEGER}: Maximum polynomial order in each direction for the adaptation algorithm. & N \\ \hline
+
+truncation error type & \textit{CHARACTER}: Can be either "isolated" or "non-isolated". & "isolated" \\ \hline
+   
+increasing adaptation & \textit{LOGICAL}: If .TRUE. the multi-stage FMG adaptation algorithm is used.  & .FALSE. \\ \hline
+
+adaptation conforming boundaries & \textit{INTEGER}: Specifies the number of boundaries of the geometry that must be forced to be conforming after the p-adaptation process. This keyword must be followed by an equal number of lines in the control file that Specifying the boundary names: \ 
+
+\begin{center}
+\textit{boundaryName1} \ 
+
+\textit{boundaryName2} \
+
+\textit{...} 
+\end{center} & 0 \\ \hline
+\end{longtable}
+
 
 \chapter{Input files}
 \begin{itemize}

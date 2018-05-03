@@ -103,6 +103,8 @@ module FASMultigridClass
       type(DGSem)            , intent(in)   , target :: sem                !<  Fine sem class
       !-----------------------------------------------------------
       character(len=LINE_LENGTH)                     :: PostSmoothOptions
+      integer                                        :: zoneID                ! Zone counter
+      logical                                        :: conformingBoundaries  ! Is the mesh conforming on all boundaries?
       !-----------------------------------------------------------
       
       call Stopwatch % Pause("Solver")
@@ -226,23 +228,37 @@ module FASMultigridClass
       end if
       
 !
+!     ------------------------------------------
+!     Get the minimum multigrid polynomial order
+!     ------------------------------------------
+!
+      if (sem % mesh % meshIs2D) then
+         NMIN = 1
+      else
+         conformingBoundaries = .TRUE.
+         do zoneID = 1, size(sem % mesh % zones)
+            conformingBoundaries = (conformingBoundaries .and. sem % mesh % ConformingOnZone(zoneID))
+         end do
+         
+         if (conformingBoundaries) then
+            NMIN = 1
+         else
+            NMIN = 2
+         end if
+      end if
+      
+!
 !     -----------------------
 !     Update module variables
 !     -----------------------
 !
-      if (sem % mesh % anisotropic .and. (.not. sem % mesh % meshIs2D) ) then
-         NMIN = 2
-      else
-         NMIN = 1
-      end if
-      
       MGOutput       = controlVariables % logicalValueForKey("multigrid output")
       plotInterval   = controlVariables % integerValueForKey("output interval")
       ManSol         = sem % ManufacturedSol
-      MaxN           = MAX(MAXVAL(sem%Nx),MAXVAL(sem%Ny),MAXVAL(sem%Nz)) - NMIN + 1
-      MGlevels       = MIN (MGlevels,MaxN)
+      MaxN           = MAX(MAXVAL(sem%Nx),MAXVAL(sem%Ny),MAXVAL(sem%Nz))
+      MGlevels       = MIN (MGlevels,MaxN - NMIN + 1)
       
-      write(STD_OUT,*) 'Constructuing FAS Multigrid'
+      write(STD_OUT,*) 'Constructing FAS Multigrid'
       write(STD_OUT,*) 'Number of levels:', MGlevels
       
       this % p_sem => sem

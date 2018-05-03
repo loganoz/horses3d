@@ -111,22 +111,22 @@
                END DO
             END IF
             
-            IF(keyword == "boundaries to analyze") THEN 
+            IF(keyword == "adaptation conforming boundaries") THEN
 !
 !              ---------------------------------------------------------------------------
-!              We will store the name of the zones (boundaries where we want to compute lift and
-!              drag) in a dictionary. Currently, this quantities are computed taking into 
-!              account the angle of attack. However, this dictionary can be easily modified in 
-!              order to compute forces in a different direction (added as value).
-!              ---------------------------------------------------------------------------
+!              If there's p-adaptation the user may want to keep a conforming representation 
+!              on certain boundaries.
+!              TODO: Move this elsewhere after implementing the adaptator definition
+!                    as a block
+!              ---------------------------------------------------------------------------   
 !
-               numberOfBCs = controlVariables%integerValueForKey("boundaries to analyze")
+               numberOfBCs = controlVariables%integerValueForKey("adaptation conforming boundaries")
                
                DO k = 1, numberOfBCs 
                   READ(10,*) boundaryName
                   
                   CALL toLower(boundaryName)
-                  CALL zoneNameDictionary % addValueForKey(boundaryName, boundaryName)
+                  CALL conformingBoundariesDic % addValueForKey(boundaryName, boundaryName)
                   
                END DO
             END IF
