@@ -142,45 +142,66 @@ module TruncationErrorClass
    subroutine EstimateTruncationError(TE,sem,t,Var,Dir)
       use NodalStorageClass
       implicit none
-      !-----------------------------
+      !--------------------------------------------------------
       type(TruncationError_t)  :: TE(:)       !<> Type containing the truncation error estimation
       type(DGSem)              :: sem         !<> sem (to evaluate Qdot in a given coarser mesh)
-      real(kind=RP)            :: t          !<  time 
-      type(MGSolStorage_t)     :: Var(:)        !<  Type containing the source term in the mesh where the truncation error is being estimated
-      integer                  :: Dir           !<  Direction in which the truncation error is being estimated
-      !-----------------------------
-      integer                  :: N(3)          !   Polynomial orders in element
+      real(kind=RP)            :: t           !<  time 
+      type(MGSolStorage_t)     :: Var(:)      !<  Type containing the source term in the mesh where the truncation error is being estimated (to be deprecated.. maintained just to keep consistency with manufactured solutions module)
+      integer                  :: Dir         !<  Direction in which the truncation error is being estimated
+      !--------------------------------------------------------
       integer                  :: iEl           !   Element counter
       integer                  :: iEQ           !   Equation counter
       integer                  :: i,j,k         !   Coordinate index counters
       real(kind=RP)            :: wx, wy, wz    ! 
       real(kind=RP)            :: Jac
       real(kind=RP)            :: maxTE
-      !-----------------------------
+      real(kind=RP)            :: S(NCONS)      !   Source term
+      !--------------------------------------------------------
+      interface
+         subroutine UserDefinedSourceTerm(x, time, S, thermodynamics_, dimensionless_, refValues_)
+            use SMConstants
+            USE HexMeshClass
+            use PhysicsStorage
+            IMPLICIT NONE
+            real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: time
+            real(kind=RP),             intent(out)  :: S(NCONS)
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
+         end subroutine UserDefinedSourceTerm
+      end interface
+      !---------------------------------------------------------
       
       call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
       
+      S = 0._RP ! Initialize source term
+      
       do iEl = 1, size(sem % mesh % elements)
-         N = sem % mesh % elements(iEl) % Nxyz
+         associate (e => sem % mesh % elements(iEl))
          
-         if (N(Dir) >= TE(iEl) % Dir(Dir) % P) cycle ! it is actually never going to be greater than... but for security
+         if (e % Nxyz(Dir) >= TE(iEl) % Dir(Dir) % P) cycle ! it is actually never going to be greater than... but for security
          
          maxTE = 0._RP
          
          ! loop over all the degrees of freedom of the element
-         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1) ; do iEQ = 1, N_EQN
-            wx  = NodalStorage(N(1)) % w (i)
-            wy  = NodalStorage(N(2)) % w (j)
-            wz  = NodalStorage(N(3)) % w (k)
-            Jac = sem % mesh % elements(iEl) % geom % jacobian(i,j,k)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             
-            maxTE =  MAX(maxTE , wx * wy * wz * Jac * ABS  (sem % mesh % elements(iEl) % storage % Qdot (iEQ,i,j,k) + &
-                                                                                        Var(iEl) % Scase(iEQ,i,j,k))  )
+            call UserDefinedSourceTerm(e % geom % x(:,i,j,k), t, S, thermodynamics, dimensionless, refValues)
             
-         end do         ; end do         ; end do         ; end do
+            do iEQ = 1, NCONS
+               wx  = NodalStorage(e % Nxyz(1)) % w (i)
+               wy  = NodalStorage(e % Nxyz(2)) % w (j)
+               wz  = NodalStorage(e % Nxyz(3)) % w (k)
+               Jac = e % geom % jacobian(i,j,k)
+               
+               maxTE =  MAX(maxTE , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,i,j,k) + S(iEQ) + Var(iEl) % Scase(iEQ,i,j,k) )  )
+            end do
+         end do         ; end do         ; end do
          
-         TE(iEl) % Dir(Dir) % maxTE(N(Dir)) = maxTE
+         TE(iEl) % Dir(Dir) % maxTE(e % Nxyz(Dir)) = maxTE
          
+         end associate
       end do
    end subroutine EstimateTruncationError
 end module TruncationErrorClass
