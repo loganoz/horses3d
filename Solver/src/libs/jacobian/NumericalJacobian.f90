@@ -82,9 +82,9 @@ contains
 !        ----------------------------------
          allocate(nbr(nelm))
          CALL Look_for_neighbour(nbr, sem % mesh)
-#if defined(NAVIERSTOKES)
+#if (!defined(CAHNHILLIARD))
          CALL ecolors%construct(nbr,flowIsNavierStokes)
-#elif defined(CAHNHILLIARD)
+#else
          CALL ecolors%construct(nbr, .true. )
 #endif
          
@@ -138,13 +138,13 @@ contains
 !        computation of the Jacobian matrix entries
 !        ---------------------------------------------------------------
 !
-#if defined(NAVIERSTOKES)
+#if (!defined(CAHNHILLIARD))
          IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
             allocate(used(26))   ! 25 neighbors (including itself) and a last entry that will be 0 always (boundary index)
          ELSE
             allocate(used(8))    ! 7 neighbors (including itself) and a last entry that will be 0 always (boundary index)
          END IF
-#elif defined(CAHNHILLIARD)
+#else
          allocate(used(26))
 #endif
          
@@ -158,13 +158,13 @@ contains
 !              IMPORTANT: These numbers assume conforming meshes!
 !        -------------------------------------------------------------------------
 !
-#if defined(NAVIERSTOKES)
+#if (!defined(CAHNHILLIARD))
          IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
             nnz = maxndofel * 25
          ELSE
             nnz = maxndofel * 7
          END IF
-#elif defined(CAHNHILLIARD)
+#else
          nnz = maxndofel * 25
 #endif
 !
@@ -196,9 +196,13 @@ contains
 !           > Knoll, Dana A., and David E. Keyes. "Jacobian-free Newton–Krylov methods: a survey of approaches and applications." Journal of Computational Physics 193.2 (2004): 357-397.
 !     --------------------------------------------
 !
+#if (!defined(CAHNHILLIARD))
       IF (.NOT. allocated(Q)) allocate(Q(sem % NDOF))
-print*, sem % NDOF
-      CALL sem % GetQ(Q)
+#else
+      IF (.NOT. allocated(Q)) allocate(Q(sem % NDOF/NTOTALVARS*NCOMP))
+#endif
+
+      CALL sem % GetQ(Q, nEqn)
 
       if (present(eps_in)) then
          eps = eps_in
@@ -261,10 +265,7 @@ print*, sem % NDOF
                
                   IF (.NOT. ANY(used == elmnbr)) THEN  !(elmnbr .NE. 0)
                      ndof   = ndofelm(elmnbr)
-#if defined(CAHNHILLIARD)                     
-!TODO this is provisional!
-                     sem%mesh%elements(elmnbr)% storage % cDot = (sem%mesh%elements(elmnbr)% storage % cDot - dgs_clean(elmnbr)% storage % cDot) / eps                      
-#endif
+                     sem%mesh%elements(elmnbr)% storage % QDot = (sem%mesh%elements(elmnbr)% storage % QDot - dgs_clean(elmnbr)% storage % QDot) / eps                      
 !~                     pbuffer(1:ndofelm) => sem%mesh%elements(elmnbr)% storage % QDot                     !maps Qdot array into a 1D pointer 
                      CALL GetElemQdot(nEqn, sem%mesh%elements(elmnbr),pbuffer(1:ndof))
                      irow = irow_0 + firstIdx(elmnbr)        !irow_0 + ndofelm * (elmnbr - 1)                         !generates the row indices vector
@@ -277,9 +278,9 @@ print*, sem % NDOF
                   ENDIF
                   
                   ! If we are using BR1, we also have to get the contributions of the neighbors of neighbors
-#if defined(NAVIERSTOKES)
+#if (!defined(CAHNHILLIARD))
                   IF(flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
-#elif defined(CAHNHILLIARD)
+#else
                   if ( .true. ) then
 #endif
                      IF (elmnbr .NE. 0) THEN
@@ -312,6 +313,19 @@ print*, sem % NDOF
          ENDDO
       ENDDO
       sem%mesh%elements = dgs_clean ! Cleans sem % mesh % elements completely
+
+!
+!     ******************************
+!     Return the storage to NS or CH TODO could be avoided.
+!     ******************************
+!
+      DO i=1, nelm
+#if defined(NAVIERSTOKES)
+         call sem % mesh % elements(i) % Storage % SetStorageToNS
+#elif defined(CAHNHILLIARD)
+         call sem % mesh % elements(i) % Storage % SetStorageToCH_c
+#endif
+      END DO
       
       CALL Matrix % Assembly(firstIdx,ndofelm)                             ! Matrix A needs to be assembled before being used in PETSc (at least)
       

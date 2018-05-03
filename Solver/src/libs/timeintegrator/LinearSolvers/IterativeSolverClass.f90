@@ -261,7 +261,7 @@ CONTAINS
       
 !~      IF (isfirst) THEN
          CALL this % p_sem % GetQdot(this % F_Ur)
-         CALL this % p_sem % GetQ   (this % Ur)
+         CALL this % p_sem % GetQ   (this % Ur, nEqn)
 !~         isfirst = .FALSE.
 !~      END IF
       
@@ -277,7 +277,7 @@ CONTAINS
             CALL BlockJacobiSmoother(this, maxiter, tol, this % niter, ComputeTimeDerivative)
       END SELECT
       
-      CALL this % p_sem % SetQ   (this % Ur)
+      CALL this % p_sem % SetQ   (this % Ur, NTOTALVARS)
       
 !~      IF (this % niter < maxiter) THEN
          this % CONVERGED = .TRUE.
@@ -498,7 +498,7 @@ CONTAINS
       procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       REAL(KIND = RP)                         :: F(size(u))
       
-      CALL this % p_sem % SetQ(u)
+      CALL this % p_sem % SetQ(u, NTOTALVARS)
       CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, this % p_sem % BCFunctions)
       CALL this % p_sem % GetQdot(F)
       

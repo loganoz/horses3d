@@ -4,9 +4,9 @@
 !   @File:    HORSES3DMain.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Thu May  3 16:26:14 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 5a86eb6fbfa5f685edfa7826a0b6714de7b3cf7c
 !
 !//////////////////////////////////////////////////////
 !
@@ -201,7 +201,7 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, ComputeTimeDerivative_onlyLinear, ComputeTimeDerivative_onlyNonLinear)
 !
 !     ----------------------------------
 !     Export particles to VTK (temporal)

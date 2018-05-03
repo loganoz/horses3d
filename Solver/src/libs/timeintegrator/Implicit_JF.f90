@@ -8,12 +8,14 @@
 !      Implicit module using BDF1 and Jacobian Free Newton-Krylov
 !
 !////////////////////////////////////////////////////////////////////////
+!
 MODULE Implicit_JF
    USE SMConstants,                 ONLY: RP                  
    USE DGSEMClass,                  ONLY: DGSem
    USE JFNKClass,                   ONLY: JFNK_Integrator
    use TimeIntegratorDefinitions
    use DGSEMClass,                  only: ComputeQDot_FCN
+   use PhysicsStorage
    
    IMPLICIT NONE
    
@@ -54,12 +56,12 @@ MODULE Implicit_JF
       CALL integrator%SetTime(t)                             ! Sets time at the beginning of iteration
       CALL integrator%SetDt(dt)                              ! Sets Dt in the time integrator
       
-      CALL p_sem % GetQ(U_n)                                 ! Stores sem%mesh%elements(:)%Q into U_n    ! TODO: is this always necessary?                      
+      CALL p_sem % GetQ(U_n, NTOTALVARS)                     ! Stores sem%mesh%elements(:)%Q into U_n    ! TODO: is this always necessary?                      
       CALL integrator%SetUn(U_n)                             ! Sets U_n  in the time integrator
       CALL integrator%SetTimeDerivative(DGTimeDerivative)    ! Sets DGTime derivative as Time derivative function in the integrtor
       CALL integrator%Integrate(ComputeTimeDerivative)       ! Performs the time step implicit integrator
       CALL integrator%GetUnp1(U_n)                           ! Gets U_n+1 and stores it in U n
-      CALL p_sem % SetQ(U_n)                                 ! Stores U_n (with the updated U_n+1) into sem%Q  ! TODO: is this always necessary?
+      CALL p_sem % SetQ(U_n, NTOTALVARS)                                 ! Stores U_n (with the updated U_n+1) into sem%Q  ! TODO: is this always necessary?
          
    END SUBROUTINE TakeBDFStep_JF
 !
@@ -72,7 +74,7 @@ MODULE Implicit_JF
       REAL(KIND = RP)                              :: time
       procedure(ComputeQDot_FCN)                   :: ComputeTimeDerivative
   
-      CALL p_sem % SetQ(u)
+      CALL p_sem % SetQ(u, NTOTALVARS)
       CALL ComputeTimeDerivative(p_sem % mesh, p_sem % particles, time, p_sem % BCFunctions )
       CALL p_sem % GetQdot(F)
     

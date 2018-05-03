@@ -4,9 +4,9 @@
 !   @File:    IMEXMethods.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date: Fri Apr 27 12:22:05 2018
+!   @Last revision date: Thu May  3 16:26:16 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: c3532365f3cc0c1e6e95281cbe9836354994daea
+!   @Last revision commit: 5a86eb6fbfa5f685edfa7826a0b6714de7b3cf7c
 !
 !//////////////////////////////////////////////////////
 !
@@ -55,6 +55,11 @@ CONTAINS
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE :: U_n                                   !Solution at the beginning of time step (even for inner time steps)
       LOGICAL                                  :: TimeAccurate = .true.
       integer                                  :: nEqnJac, nGradJac
+      REAL(KIND=RP), DIMENSION(3)              :: a = (/0.0_RP       , -5.0_RP /9.0_RP , -153.0_RP/128.0_RP/)
+      REAL(KIND=RP), DIMENSION(3)              :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  /)
+      REAL(KIND=RP), DIMENSION(3)              :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
+      real(kind=RP)                            :: tk
+      INTEGER                                  :: k, id
       SAVE DimPrb, nelm, TimeAccurate
 
 #if defined(CAHNHILLIARD)
@@ -71,7 +76,11 @@ CONTAINS
 !
          isfirst = .FALSE.
          nelm = SIZE(sem%mesh%elements)
+#if (!defined(CAHNHILLIARD))
          DimPrb = sem % NDOF
+#else
+         DimPrb = sem % NDOF / NTOTALVARS * NCOMP
+#endif
          
          ALLOCATE(U_n(0:Dimprb-1))
 
@@ -88,6 +97,7 @@ CONTAINS
 !
 !     Compute the non linear time derivative
 !     -------------------------------------- 
+#if defined(CAHNHILLIARD)
       call CTD_onlyNonLinear(sem % mesh, sem % particles, time, sem % BCFunctions)
 !
 !     Compute the RHS
@@ -100,11 +110,31 @@ CONTAINS
 !
 !     Return the computed state vector to storage
 !     -------------------------------------------
-      call sem % SetQ(linsolver % x)
+      call sem % SetQ(linsolver % x, NCOMP)
+#endif
+
+#if (!defined(NAVIERSTOKES))
 !
 !     Compute the standard time derivative to get residuals
 !     -----------------------------------------------------
       call ComputeTimeDerivative(sem % mesh, sem % particles, time, sem % BCFunctions)
+
+#else
+!
+!     Perform a RK3 time step in NS
+!     -----------------------------
+      DO k = 1,3
+         tk = t + b(k)*dt
+         CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, sem % BCFunctions)
+         
+!$omp parallel do schedule(runtime)
+         DO id = 1, SIZE( sem % mesh % elements )
+             sem % mesh % elements(id) % storage % G_NS = a(k)* sem % mesh % elements(id) % storage % G_NS  +          sem % mesh % elements(id) % storage % QDot
+             sem % mesh % elements(id) % storage % Q    =       sem % mesh % elements(id) % storage % Q     + c(k)*dt* sem % mesh % elements(id) % storage % G_NS
+         END DO
+!$omp end parallel do
+      END DO
+#endif
       
    END SUBROUTINE TakeIMEXEulerStep
 !  

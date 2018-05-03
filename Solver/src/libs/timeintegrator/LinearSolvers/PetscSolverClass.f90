@@ -348,7 +348,7 @@ MODULE PetscSolverClass
       PetscScalar,                     INTENT(OUT)        :: x_i
       PetscErrorCode                                      :: ierr
       
-      CALL VecGetValues(this%x,1 ,irow,x_i, ierr)
+      !CALL VecGetValues(this%x,1 ,irow,x_i, ierr)
       CALL CheckPetscErr(ierr, 'error in VecGetValue')
 #else
       INTEGER,           INTENT(IN)        :: irow
@@ -366,7 +366,7 @@ MODULE PetscSolverClass
       PetscErrorCode                                     :: ierr
       
       
-      CALL MatView(this % A % A,PETSC_VIEWER_DRAW_SELF)
+      !CALL MatView(this % A % A,PETSC_VIEWER_DRAW_SELF)
       read(*,*)
 !~       IF (.NOT. PRESENT(filename)) filename = &
 !~                             '/home/andresrueda/Dropbox/PhD/03_Initial_Codes/3D/Implicit/nslite3d/Tests/Euler/NumJac/MatMatlab.dat'

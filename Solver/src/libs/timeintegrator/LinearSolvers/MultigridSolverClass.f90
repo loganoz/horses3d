@@ -302,7 +302,7 @@ CONTAINS
       
 !~      IF (isfirst) THEN
          CALL this % p_sem % GetQdot(this % F_Ur)
-         CALL this % p_sem % GetQ   (this % Ur)
+         CALL this % p_sem % GetQ   (this % Ur, nEqn)
 !~         isfirst = .FALSE.
 !~      END IF
       
@@ -315,7 +315,7 @@ CONTAINS
       
       CALL this % WeightedJacobiSmoother( this%A%Values(this%A%Diag), maxiter, tol, this % niter)
       
-      CALL this % p_sem % SetQ   (this % Ur)
+      CALL this % p_sem % SetQ   (this % Ur, NTOTALVARS)
       
 !~      IF (this % niter < maxiter) THEN
          this % CONVERGED = .TRUE.
@@ -482,7 +482,7 @@ CONTAINS
 !~      eps = SQRT(EPSILON(eps))                                     !worse:        : ~1e-4
       
 !~      CALL this % p_sem % GetQ(buffer)
-      CALL this % p_sem % SetQ(this % Ur + x*eps)
+      CALL this % p_sem % SetQ(this % Ur + x*eps, NTOTALVARS)
       CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, this % p_sem % BCFunctions)
       CALL this % p_sem % GetQdot(F)
 !~      CALL this % p_sem % SetQ(buffer)

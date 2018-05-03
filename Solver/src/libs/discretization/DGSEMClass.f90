@@ -520,14 +520,15 @@ print*, "***WARNING, enable again the initial condition save"
 !
 !  Routine to set the solution in each element with a global solution vector
 !
-   SUBROUTINE SetQ(self,Q)
+   SUBROUTINE SetQ(self,Q, nEqn)
       IMPLICIT NONE
       CLASS(DGSem)   ,     INTENT(INOUT)           :: self 
+      integer,             intent(in)              :: nEqn
       REAL(KIND = RP),     INTENT(IN)              :: Q(:)   
       
       INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, counter, elm
       
-      IF (SIZE(Q) /= self % NDOF) ERROR STOP 'Size mismatch in DGSEM:SetQ'
+      IF (SIZE(Q) /= self % NDOF/NTOTALVARS*nEqn) ERROR STOP 'Size mismatch in DGSEM:SetQ'
       
       counter = 1
       DO elm = 1, size(self%mesh%elements)
@@ -537,7 +538,7 @@ print*, "***WARNING, enable again the initial condition save"
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
-                  DO l = 1,size(self % mesh % elements(elm) % storage % Q,1)
+                  DO l = 1, nEqn
                      self%mesh%elements(elm)%storage%Q(l,i,j,k) = Q(counter) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO
@@ -552,14 +553,15 @@ print*, "***WARNING, enable again the initial condition save"
 !
 !  Routine to get the solution in each element as a global solution vector
 !
-   SUBROUTINE GetQ(self,Q)
+   SUBROUTINE GetQ(self,Q, nEqn)
       IMPLICIT NONE
       CLASS(DGSem),        INTENT(INOUT)            :: self
+      integer,             intent(in)               :: nEqn
       REAL(KIND = RP),     INTENT(OUT)              :: Q(:)
       
       INTEGER                                       :: Nx, Ny, Nz, l, i, j, k, counter, elm
       
-      IF (SIZE(Q) /= self % NDOF) ERROR STOP 'Size mismatch in DGSEM:GetQ'
+      IF (SIZE(Q) /= self % NDOF/NTOTALVARS*nEqn) ERROR STOP 'Size mismatch in DGSEM:GetQ'
       counter = 1
       DO elm = 1, size(self%mesh%elements)
          Nx = self%mesh%elements(elm)%Nxyz(1)
@@ -568,7 +570,7 @@ print*, "***WARNING, enable again the initial condition save"
          DO k = 0, Nz
             DO j = 0, Ny
                 DO i = 0, Nx
-                  DO l = 1,size(self % mesh % elements(elm) % storage % Q,1)
+                  DO l = 1,nEqn
                      Q(counter)  = self%mesh%elements(elm)%storage%Q(l,i, j, k) ! This creates a temporary array: storage must be modified to avoid that
                      counter =  counter + 1
                   END DO

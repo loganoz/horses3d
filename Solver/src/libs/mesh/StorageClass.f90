@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Fri Apr 27 12:22:05 2018
+!   @Last revision date: Thu May  3 16:26:16 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: c3532365f3cc0c1e6e95281cbe9836354994daea
+!   @Last revision commit: 5a86eb6fbfa5f685edfa7826a0b6714de7b3cf7c
 !
 !//////////////////////////////////////////////////////
 !
@@ -45,7 +45,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),  pointer     :: U_y         !
       real(kind=RP), dimension(:,:,:,:),  pointer     :: U_z         !
 #if defined(NAVIERSTOKES)
-      real(kind=RP), private,  allocatable :: QNS(:,:,:,:)         ! NSE State vector
+      real(kind=RP),           allocatable :: QNS(:,:,:,:)         ! NSE State vector
       real(kind=RP), private,  allocatable :: U_xNS(:,:,:,:)       ! NSE x-gradients
       real(kind=RP), private,  allocatable :: U_yNS(:,:,:,:)       ! NSE y-gradients
       real(kind=RP), private,  allocatable :: U_zNS(:,:,:,:)       ! NSE z-gradients
