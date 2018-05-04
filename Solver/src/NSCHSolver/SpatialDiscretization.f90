@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Thu May  3 16:26:14 2018
+!   @Last revision date: Fri May  4 13:55:31 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 5a86eb6fbfa5f685edfa7826a0b6714de7b3cf7c
+!   @Last revision commit: a0b0d307719b0b49ef776f8ec85b0bed73b4a32d
 !
 !//////////////////////////////////////////////////////
 !
@@ -83,7 +83,7 @@ module SpatialDiscretization
       procedure(computeMPIFaceFluxF),          pointer :: computeMPIFaceFlux          => computeMPIFaceFlux_NS
       procedure(computeBoundaryFluxF),         pointer :: computeBoundaryFlux         => computeBoundaryFlux_NS
 
-      logical :: enable_speed = .false.
+      logical :: enable_speed = .true.
 
 !
 !     ========      
@@ -176,10 +176,9 @@ module SpatialDiscretization
                call EllipticDiscretization % Initialize(controlVariables)
                
             end if
-
-   !
-   !        Initialize models
-   !        -----------------
+!
+!           Initialize models
+!           -----------------
             call InitializeLESModel(LESModel, controlVariables)
          
          end if
@@ -309,7 +308,7 @@ module SpatialDiscretization
 !        Compute gradients
 !        -----------------
 !
-         call EllipticDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+         call InteriorPenalty % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
 
 !$omp single
          call mesh % UpdateMPIFacesGradients
@@ -367,7 +366,7 @@ module SpatialDiscretization
 !        Compute gradients
 !        -----------------
 !
-         call EllipticDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(MU_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+         call InteriorPenalty % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(MU_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
 
 !$omp single
          call mesh % UpdateMPIFacesGradients
@@ -531,7 +530,7 @@ module SpatialDiscretization
 !        Compute gradients
 !        -----------------
 !
-         call EllipticDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+         call InteriorPenalty % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
 
 !$omp single
          call mesh % UpdateMPIFacesGradients
@@ -588,7 +587,7 @@ module SpatialDiscretization
 !        Compute gradients
 !        -----------------
 !
-         call EllipticDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(MU_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+         call InteriorPenalty % ComputeGradient(NCOMP, NCOMP, mesh , time , BCFunctions(MU_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
 
 !$omp single
          call mesh % UpdateMPIFacesGradients
@@ -616,7 +615,6 @@ module SpatialDiscretization
 !        Return the concentration to Q
 !        *****************************
 !
-
 !$omp do schedule(runtime)
          do eID = 1, mesh % no_of_elements
             call mesh % elements(eID) % storage % SetStorageToCH_c
@@ -702,7 +700,7 @@ module SpatialDiscretization
 !        Compute gradients
 !        -----------------
 !
-         call EllipticDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+         call InteriorPenalty % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
 
 !$omp single
          call mesh % UpdateMPIFacesGradients
@@ -760,7 +758,7 @@ module SpatialDiscretization
 !        Compute gradients
 !        -----------------
 !
-         call EllipticDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(MU_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+         call InteriorPenalty % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(MU_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
 
 !$omp single
          call mesh % UpdateMPIFacesGradients
@@ -1539,7 +1537,7 @@ module SpatialDiscretization
 !
 !        Compute contravariant flux
 !        --------------------------
-         call EllipticDiscretization  % ComputeInnerFluxes (NCOMP, NCOMP, e , CHDivergenceFlux3D, contravariantFlux  ) 
+         call InteriorPenalty  % ComputeInnerFluxes (NCOMP, NCOMP, e , CHDivergenceFlux3D, contravariantFlux  ) 
 !
 !        ************************
 !        Perform volume integrals
@@ -1593,7 +1591,7 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL EllipticDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
+               CALL InteriorPenalty % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                                   f = f, &
                                                   EllipticFlux = CHDivergenceFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
@@ -1638,7 +1636,7 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL EllipticDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
+               CALL InteriorPenalty % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                                   f = f, &
                                                   EllipticFlux = CHDivergenceFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
@@ -1736,7 +1734,7 @@ module SpatialDiscretization
 !           Viscous fluxes
 !           --------------
 !   
-         CALL EllipticDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
+         CALL InteriorPenalty % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                             f = f, &
                                             EllipticFlux = CHDivergenceFlux0D, &
                                             QLeft = f % storage(1) % Q(:,i,j), &
@@ -1781,23 +1779,6 @@ module SpatialDiscretization
          TYPE(Face)   , INTENT(inout) :: f
          integer      , intent(in)    :: thisSide
       END SUBROUTINE computeIsolatedFaceFlux_NS
-!
-!////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!              GRADIENT PROCEDURES !              -------------------
-!
-!////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-      subroutine DGSpatial_ComputeGradient( mesh , time , externalStateProcedure)
-         use HexMeshClass
-         implicit none
-         type(HexMesh)                  :: mesh
-         real(kind=RP),      intent(in) :: time
-         procedure(BCState_FCN)         :: externalStateProcedure
-
-         call EllipticDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time , externalStateProcedure, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D)
-
-      end subroutine DGSpatial_ComputeGradient
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !

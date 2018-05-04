@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Thu May  3 16:26:16 2018
+!   @Last revision date: Fri May  4 13:55:34 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 5a86eb6fbfa5f685edfa7826a0b6714de7b3cf7c
+!   @Last revision commit: a0b0d307719b0b49ef776f8ec85b0bed73b4a32d
 !
 !//////////////////////////////////////////////////////
 !
@@ -68,6 +68,8 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),   allocatable :: G_CH  ! CHE auxiliar storage   
 #endif
       contains
+         procedure   :: Assign            => Storage_Assign
+         generic     :: assignment(=)     => Assign
          procedure   :: Construct         => Storage_Construct
          procedure   :: Destruct          => Storage_Destruct
 #if defined(NAVIERSTOKES)
@@ -208,6 +210,63 @@ module StorageClass
 #endif
       
       end subroutine Storage_Construct
+
+      subroutine Storage_Assign(to, from)
+!
+!        ***********************************
+!        We need an special assign procedure
+!        ***********************************
+!
+         implicit none
+         class(Storage_t), intent(out) :: to
+         type(Storage_t),  intent(in)  :: from
+!
+!        Copy the storage
+!        ----------------
+#if defined(NAVIERSTOKES)
+         to % QNS    = from % QNS
+         to % U_xNS  = from % U_xNS
+         to % U_yNS  = from % U_yNS
+         to % U_zNS  = from % U_zNS
+         to % QDotNS = from % QDotNS
+         to % G_NS   = from % G_NS
+#endif
+#if defined(CAHNHILLIARD)
+         to % c    = from % c
+         to % c_x  = from % c_x
+         to % c_y  = from % c_y
+         to % c_z  = from % c_z
+         to % mu   = from % mu
+         to % mu_x = from % mu_x
+         to % mu_y = from % mu_y
+         to % mu_z = from % mu_z
+         to % v    = from % v
+         to % cDot = from % cDot
+         to % G_CH = from % G_CH
+#endif
+
+         select case ( to % currentlyLoaded ) 
+         case (OFF)
+            to % Q    => NULL()
+            to % U_x  => NULL()
+            to % U_y  => NULL()
+            to % U_z  => NULL()
+            to % QDot => NULL()
+
+#if defined(NAVIERSTOKES)
+         case (NS)
+            call to % SetStorageToNS   
+#endif
+#if defined(CAHNHILLIARD)
+         case (C)
+            call to % SetStorageToCH_c
+
+         case (MU)
+            call to % SetStorageToCH_mu
+#endif
+         end select
+
+      end subroutine Storage_Assign
 
       subroutine Storage_Destruct(self)
          implicit none

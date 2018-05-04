@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Wed Apr 25 19:40:18 2018
+!   @Last revision date: Fri May  4 13:55:33 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 4749ed1216d5512d7b79f2485e9471f3161753ca
+!   @Last revision commit: a0b0d307719b0b49ef776f8ec85b0bed73b4a32d
 !
 !//////////////////////////////////////////////////////
 !
@@ -595,7 +595,6 @@ module EllipticIP
 
          else
             sigma = 0.5_RP * self % sigma * mu * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
-
          end if
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - sigma * (QLeft - QRight)

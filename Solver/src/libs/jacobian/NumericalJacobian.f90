@@ -225,17 +225,6 @@ contains
 !
       dgs_clean = sem%mesh%elements
 
-      do thiselm = 1, size(dgs_clean)
-#if defined(NAVIERSTOKES)
-!TODO this is provisional!
-         call dgs_clean(thiselm) % Storage % SetStorageToNS
-#endif
-#if defined(CAHNHILLIARD)
-!TODO this is provisional!
-         call dgs_clean(thiselm) % Storage % SetStorageToCH_c
-#endif
-      end do
-
       DO thiscolor = 1 , ecolors%ncolors
          ielm = ecolors%bounds(thiscolor)             
          felm = ecolors%bounds(thiscolor+1)
@@ -314,18 +303,6 @@ contains
       ENDDO
       sem%mesh%elements = dgs_clean ! Cleans sem % mesh % elements completely
 
-!
-!     ******************************
-!     Return the storage to NS or CH TODO could be avoided.
-!     ******************************
-!
-      DO i=1, nelm
-#if defined(NAVIERSTOKES)
-         call sem % mesh % elements(i) % Storage % SetStorageToNS
-#elif defined(CAHNHILLIARD)
-         call sem % mesh % elements(i) % Storage % SetStorageToCH_c
-#endif
-      END DO
       
       CALL Matrix % Assembly(firstIdx,ndofelm)                             ! Matrix A needs to be assembled before being used in PETSc (at least)
       
