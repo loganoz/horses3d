@@ -2173,6 +2173,7 @@ slavecoord:                DO l = 1, 4
 !
          integer  :: fid, eID, pos, padding
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+         real(kind=RP), allocatable       :: Q(:,:,:,:)
 #if (!defined(NAVIERSTOKES))
          logical                          :: computeGradients = .true.
 #endif
@@ -2207,12 +2208,49 @@ slavecoord:                DO l = 1, 4
          fID = putSolutionFileInWriteDataMode(trim(name))
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
+
+            allocate(Q(NTOTALVARS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+
+#if defined(NAVIERSTOKES)
+            Q(1:NCONS,:,:,:) = e % storage % Q
+#endif
+#if defined(CAHNHILLIARD)
+            Q(NTOTALVARS,:,:,:) = e % storage % c(1,:,:,:)
+#endif
+            
             pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
-            call writeArray(fid, e % storage % Q, position=pos)
+            call writeArray(fid, Q, position=pos)
+
+            deallocate(Q)
             if ( saveGradients .and. computeGradients ) then
-               write(fid) e % storage % U_x
-               write(fid) e % storage % U_y
-               write(fid) e % storage % U_z
+
+               allocate(Q(NTOTALGRADS,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+
+#if defined(NAVIERSTOKES)
+               Q(1:NGRAD,:,:,:) = e % storage % U_x
+#endif
+#if defined(CAHNHILLIARD)
+               Q(NTOTALGRADS,:,:,:) = e % storage % c_x(1,:,:,:)
+#endif
+               write(fid) Q
+
+#if defined(NAVIERSTOKES)
+               Q(1:NGRAD,:,:,:) = e % storage % U_y
+#endif
+#if defined(CAHNHILLIARD)
+               Q(NTOTALGRADS,:,:,:) = e % storage % c_y(1,:,:,:)
+#endif
+               write(fid) Q
+
+#if defined(NAVIERSTOKES)
+               Q(1:NGRAD,:,:,:) = e % storage % U_z
+#endif
+#if defined(CAHNHILLIARD)
+               Q(NTOTALGRADS,:,:,:) = e % storage % c_z(1,:,:,:)
+#endif
+               write(fid) Q
+
+               deallocate(Q)
             end if
             end associate
          end do

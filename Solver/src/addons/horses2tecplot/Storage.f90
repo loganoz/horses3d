@@ -6,7 +6,9 @@ module Storage
    implicit none
    
    private
-   public Mesh_t, Element_t
+   public Mesh_t, Element_t, NVARS, NGRADVARS
+
+   integer     :: NVARS, NGRADVARS
 
    type Element_t
 !                                /* Mesh quantities */
@@ -149,10 +151,6 @@ module Storage
             self % hasGradients = .false.
             self % isStatistics = .true.
 
-         case (SOLUTION_CAHNHILLIARD_FILE)
-            self % hasGradients = .false.
-            self % isStatistics = .false.
-
          case default
             print*, "File expected to be a solution file"
             errorMessage(STD_OUT)
@@ -193,6 +191,9 @@ module Storage
             do eID = 1, self % no_of_elements
                associate ( e => self % elements(eID) ) 
                call getSolutionFileArrayDimensions(fid,arrayDimensions)
+
+               NVARS = arrayDimensions(1)
+               NGRADVARS = max(1, NVARS-1)
 !   
 !              Allocate memory for the coordinates
 !              -----------------------------------            
@@ -207,9 +208,9 @@ module Storage
 !   
 !                 Allocate memory for the gradients
 !                 ---------------------------------
-                  allocate( e % U_x(1:4,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
-                  allocate( e % U_y(1:4,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
-                  allocate( e % U_z(1:4,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                  allocate( e % U_x(1:NGRADVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                  allocate( e % U_y(1:NGRADVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                  allocate( e % U_z(1:NGRADVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
 !   
 !                 Read data
 !                 ---------

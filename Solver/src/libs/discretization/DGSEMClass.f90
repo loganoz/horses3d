@@ -509,8 +509,7 @@ Module DGSEMClass
             solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
             solutionName = trim(getFileName(solutionName))
             write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
-!            call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
-print*, "***WARNING, enable again the initial condition save"
+            call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
 
          END IF
    

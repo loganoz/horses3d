@@ -4,9 +4,9 @@
 !   @File:    OutputVariables.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Oct 14 20:44:38 2017
-!   @Last revision date: Fri Oct 27 18:22:27 2017
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 44bfd062343e60e3001d20111ce1a76e97e9df5b
+!   @Last revision date: Fri May  4 19:10:15 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 645da75463f6c79ebe9b55fc9ede7086fd10304f
 !
 !//////////////////////////////////////////////////////
 !
@@ -31,112 +31,87 @@ module OutputVariables
    use SMConstants
    use PhysicsStorage
    use Headers
+   use Storage, only: NVARS
 
    private
    public   no_of_outputVariables
    public   getOutputVariables, ComputeOutputVariables, getOutputVariablesLabel
 
    integer, parameter   :: STR_VAR_LEN = 16
-   integer, parameter   :: NO_OF_VARIABLES = 37
-   integer, parameter   :: NO_OF_INVISCID_VARIABLES = 21
 !
 !  ***************************
 !  Variables without gradients
 !  ***************************
 !
-   integer, parameter :: Q_V    = 1
-   integer, parameter :: RHO_V  = 2
-   integer, parameter :: U_V    = 3
-   integer, parameter :: V_V    = 4
-   integer, parameter :: W_V    = 5
-   integer, parameter :: P_V    = 6
-   integer, parameter :: T_V    = 7
-   integer, parameter :: Mach_V = 8
-   integer, parameter :: S_V    = 9
-   integer, parameter :: Vabs_V = 10
-   integer, parameter :: Vvec_V = 11
-   integer, parameter :: Ht_V   = 12
-   integer, parameter :: RHOU_V = 13
-   integer, parameter :: RHOV_V = 14
-   integer, parameter :: RHOW_V = 15
-   integer, parameter :: RHOE_V = 16
-   integer, parameter :: Nxi_V  = 17
-   integer, parameter :: Neta_V = 18
-   integer, parameter :: Nzeta_V= 19
-   integer, parameter :: Nav_V  = 20
-   integer, parameter :: N_V    = 21
-!
-!  ************************
-!  Variables with gradients
-!  ************************
-!
-   integer, parameter :: GRADV_V = 22
-   integer, parameter :: UX_V = 23
-   integer, parameter :: VX_V = 24
-   integer, parameter :: WX_V = 25
-   integer, parameter :: UY_V = 26
-   integer, parameter :: VY_V = 27
-   integer, parameter :: WY_V = 28
-   integer, parameter :: UZ_V = 29
-   integer, parameter :: VZ_V = 30
-   integer, parameter :: WZ_V = 31
-   integer, parameter :: OMEGA_V = 32
-   integer, parameter :: OMEGAX_V = 33
-   integer, parameter :: OMEGAY_V = 34
-   integer, parameter :: OMEGAZ_V = 35
-   integer, parameter :: OMEGAABS_V = 36
-   integer, parameter :: QCRIT_V = 37
+   enum, bind(C)
+      enumerator :: Q_V = 1, RHO_V, U_V, V_V, W_V
+      enumerator :: P_V, T_V, Mach_V, S_V, Vabs_V
+      enumerator :: Vvec_V, Ht_V, RHOU_V, RHOV_V
+      enumerator :: RHOW_V, RHOE_V, C_V, Nxi_V, Neta_V
+      enumerator :: Nzeta_V, Nav_V, N_V
+      enumerator :: GRADV_V, UX_V, VX_V, WX_V
+      enumerator :: UY_V, VY_V, WY_V, UZ_V, VZ_V, WZ_V
+      enumerator :: CX_V, CY_V, CZ_V
+      enumerator :: OMEGA_V, OMEGAX_V, OMEGAY_V, OMEGAZ_V
+      enumerator :: OMEGAABS_V, QCRIT_V
+      enumerator :: LASTVARIABLE
+   end enum
 
-   character(len = STR_VAR_LEN), parameter  :: QKey    = "Q"
-   character(len = STR_VAR_LEN), parameter  :: RHOKey  = "rho"
-   character(len = STR_VAR_LEN), parameter  :: UKey    = "u"
-   character(len = STR_VAR_LEN), parameter  :: VKey    = "v"
-   character(len = STR_VAR_LEN), parameter  :: WKey    = "w"
-   character(len = STR_VAR_LEN), parameter  :: PKey    = "p"
-   character(len = STR_VAR_LEN), parameter  :: TKey    = "T"
-   character(len = STR_VAR_LEN), parameter  :: MachKey = "Mach"
-   character(len = STR_VAR_LEN), parameter  :: SKey    = "s"
-   character(len = STR_VAR_LEN), parameter  :: VabsKey = "Vabs"
-   character(len = STR_VAR_LEN), parameter  :: VvecKey = "V"
-   character(len = STR_VAR_LEN), parameter  :: HtKey   = "Ht"
-   character(len = STR_VAR_LEN), parameter  :: RHOUKey = "rhou"
-   character(len = STR_VAR_LEN), parameter  :: RHOVKey = "rhov"
-   character(len = STR_VAR_LEN), parameter  :: RHOWKey = "rhow"
-   character(len = STR_VAR_LEN), parameter  :: RHOEKey = "rhoe"
-   character(len = STR_VAR_LEN), parameter  :: NxiKey  = "Nxi"
-   character(len = STR_VAR_LEN), parameter  :: NetaKey = "Neta"
-   character(len = STR_VAR_LEN), parameter  :: NzetaKey= "Nzeta"
-   character(len = STR_VAR_LEN), parameter  :: NavKey  = "Nav"
-   character(len = STR_VAR_LEN), parameter  :: NKey    = "N"
-   character(len = STR_VAR_LEN), parameter  :: gradVKey = "gradV"
-   character(len = STR_VAR_LEN), parameter  :: uxKey = "u_x"
-   character(len = STR_VAR_LEN), parameter  :: vxKey = "v_x"
-   character(len = STR_VAR_LEN), parameter  :: wxKey = "w_x"
-   character(len = STR_VAR_LEN), parameter  :: uyKey = "u_y"
-   character(len = STR_VAR_LEN), parameter  :: vyKey = "v_y"
-   character(len = STR_VAR_LEN), parameter  :: wyKey = "w_y"
-   character(len = STR_VAR_LEN), parameter  :: uzKey = "u_z"
-   character(len = STR_VAR_LEN), parameter  :: vzKey = "v_z"
-   character(len = STR_VAR_LEN), parameter  :: wzKey = "w_z"
-   character(len = STR_VAR_LEN), parameter  :: omegaKey = "omega"
-   character(len = STR_VAR_LEN), parameter  :: omegaxKey = "omega_x"
-   character(len = STR_VAR_LEN), parameter  :: omegayKey = "omega_y"
-   character(len = STR_VAR_LEN), parameter  :: omegazKey = "omega_z"
-   character(len = STR_VAR_LEN), parameter  :: omegaAbsKey = "omega_abs"
-   character(len = STR_VAR_LEN), parameter  :: QCriterionKey = "Qcrit"
-   
-   
+   integer, parameter   :: NO_OF_VARIABLES = LASTVARIABLE-1
+   integer, parameter   :: NO_OF_INVISCID_VARIABLES = N_V 
 
+   character(len=STR_VAR_LEN), parameter  :: QKey          = "Q"
+   character(len=STR_VAR_LEN), parameter  :: RHOKey        = "rho"
+   character(len=STR_VAR_LEN), parameter  :: UKey          = "u"
+   character(len=STR_VAR_LEN), parameter  :: VKey          = "v"
+   character(len=STR_VAR_LEN), parameter  :: WKey          = "w"
+   character(len=STR_VAR_LEN), parameter  :: PKey          = "p"
+   character(len=STR_VAR_LEN), parameter  :: TKey          = "T"
+   character(len=STR_VAR_LEN), parameter  :: MachKey       = "Mach"
+   character(len=STR_VAR_LEN), parameter  :: SKey          = "s"
+   character(len=STR_VAR_LEN), parameter  :: VabsKey       = "Vabs"
+   character(len=STR_VAR_LEN), parameter  :: VvecKey       = "V"
+   character(len=STR_VAR_LEN), parameter  :: HtKey         = "Ht"
+   character(len=STR_VAR_LEN), parameter  :: RHOUKey       = "rhou"
+   character(len=STR_VAR_LEN), parameter  :: RHOVKey       = "rhov"
+   character(len=STR_VAR_LEN), parameter  :: RHOWKey       = "rhow"
+   character(len=STR_VAR_LEN), parameter  :: RHOEKey       = "rhoe"
+   character(len=STR_VAR_LEN), parameter  :: cKey          = "c"
+   character(len=STR_VAR_LEN), parameter  :: NxiKey        = "Nxi"
+   character(len=STR_VAR_LEN), parameter  :: NetaKey       = "Neta"
+   character(len=STR_VAR_LEN), parameter  :: NzetaKey      = "Nzeta"
+   character(len=STR_VAR_LEN), parameter  :: NavKey        = "Nav"
+   character(len=STR_VAR_LEN), parameter  :: NKey          = "N"
+   character(len=STR_VAR_LEN), parameter  :: gradVKey      = "gradV"
+   character(len=STR_VAR_LEN), parameter  :: uxKey         = "u_x"
+   character(len=STR_VAR_LEN), parameter  :: vxKey         = "v_x"
+   character(len=STR_VAR_LEN), parameter  :: wxKey         = "w_x"
+   character(len=STR_VAR_LEN), parameter  :: uyKey         = "u_y"
+   character(len=STR_VAR_LEN), parameter  :: vyKey         = "v_y"
+   character(len=STR_VAR_LEN), parameter  :: wyKey         = "w_y"
+   character(len=STR_VAR_LEN), parameter  :: uzKey         = "u_z"
+   character(len=STR_VAR_LEN), parameter  :: vzKey         = "v_z"
+   character(len=STR_VAR_LEN), parameter  :: wzKey         = "w_z"
+   character(len=STR_VAR_LEN), parameter  :: cxKey         = "c_x"
+   character(len=STR_VAR_LEN), parameter  :: cyKey         = "c_y"
+   character(len=STR_VAR_LEN), parameter  :: czKey         = "c_z"
+   character(len=STR_VAR_LEN), parameter  :: omegaKey      = "omega"
+   character(len=STR_VAR_LEN), parameter  :: omegaxKey     = "omega_x"
+   character(len=STR_VAR_LEN), parameter  :: omegayKey     = "omega_y"
+   character(len=STR_VAR_LEN), parameter  :: omegazKey     = "omega_z"
+   character(len=STR_VAR_LEN), parameter  :: omegaAbsKey   = "omega_abs"
+   character(len=STR_VAR_LEN), parameter  :: QCriterionKey = "Qcrit"
+   
    character(len=STR_VAR_LEN), dimension(NO_OF_VARIABLES), parameter  :: variableNames = (/ QKey, RHOKey, UKey, VKey, WKey, &
                                                                             PKey, TKey, MachKey, SKey, VabsKey, &
                                                                             VvecKey, HtKey, RHOUKey, RHOVKey, RHOWKey, &
-                                                                            RHOEKey, NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
+                                                                            RHOEKey, cKey, NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
                                                                             gradVKey, uxKey, vxKey, wxKey, &
                                                                             uyKey, vyKey, wyKey, uzKey, vzKey, wzKey, &
+                                                                            cxKey, cyKey, czKey, &
                                                                             omegaKey, omegaxKey, omegayKey, omegazKey, &
-                                                                            omegaAbsKey, QCriterionKey /)
+                                                                            omegaAbsKey, QCriterionKey/)
                                                                
-
    integer                :: no_of_outputVariables
    integer, allocatable   :: outputVariableNames(:)
    logical                :: outScale
@@ -247,6 +222,7 @@ module OutputVariables
             call outputVariablesForPreliminarVariable(preliminarVariables(i), outputVariableNames(pos:pos2) )
       
             pos = pos + outputVariablesForVariable(preliminarVariables(i))
+
          end do
 !
 !        *****************************
@@ -257,16 +233,19 @@ module OutputVariables
          call Section_Header("Output variables")
          write(STD_OUT,'(/)')
          call Subsection_Header("Selected output variables")
+
          do i = 1, no_of_outputVariables
             write(STD_OUT,'(30X,A,A)') "* ",trim(variableNames(outputVariableNames(i)))
+
          end do
 
          if ( outScale ) then
             write(STD_OUT,'(30X,A,A)') "-> Variables are exported with dimensions."
+
          else
             write(STD_OUT,'(30X,A,A)') "-> Dimensionless mode."
+
          end if
-         
 
       end subroutine getOutputVariables
 
@@ -286,7 +265,7 @@ module OutputVariables
 !
          integer       :: var, i, j, k
          real(kind=RP) :: Sym, Asym
-         
+
          do var = 1, no_of_outputVariables
             if ( hasGradients .or. (outputVariableNames(var) .le. NO_OF_INVISCID_VARIABLES ) ) then
                associate ( Q   => e % Qout, &
@@ -495,6 +474,26 @@ module OutputVariables
 
                      output(var,i,j,k) = 0.5_RP*( Asym - Sym )
                   end do            ; end do            ; end do
+
+               case(C_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = Q(size(Q,1),i,j,k)
+                  end do         ; end do         ; end do
+               
+               case(CX_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = U_x(size(U_x,1),i,j,k)
+                  end do         ; end do         ; end do
+               
+               case(CY_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = U_y(size(U_y,1),i,j,k)
+                  end do         ; end do         ; end do
+               
+               case(CZ_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = U_z(size(U_z,1),i,j,k)
+                  end do         ; end do         ; end do
                
                end select
                end associate
@@ -505,7 +504,6 @@ module OutputVariables
             end if
          end do
 
-   
       end subroutine ComputeOutputVariables
 
       character(len=1024) function getOutputVariablesLabel()
@@ -539,7 +537,7 @@ module OutputVariables
          select case(iVar)
    
          case(Q_V)
-            outputVariablesForVariable = 5
+            outputVariablesForVariable = NVARS
 
          case(Vvec_V)
             outputVariablesForVariable = 3
@@ -568,7 +566,16 @@ module OutputVariables
          select case(iVar)
 
          case(Q_V)
-            output = (/RHO_V, RHOU_V, RHOV_V, RHOW_V, RHOE_V/)
+            if ( NVARS .eq. 5 ) then
+               output = (/RHO_V, RHOU_V, RHOV_V, RHOW_V, RHOE_V/)
+      
+            elseif ( NVARS .eq. 6 ) then
+               output = (/RHO_V, RHOU_V, RHOV_V, RHOW_V, RHOE_V, C_V/)
+
+            elseif ( NVARS .eq. 1 ) then
+               output = (/C_V/)
+
+            end if
 
          case(Vvec_V)
             output = (/U_V, V_V, W_V/)
