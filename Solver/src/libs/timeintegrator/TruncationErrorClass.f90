@@ -2,13 +2,18 @@ module TruncationErrorClass
    use SMConstants
    use MultigridTypes
    use DGSEMClass
+   use FTValueDictionaryClass
    use TimeIntegratorDefinitions
    use PhysicsStorage
    use HexMeshClass
+   use NodalStorageClass
+#if defined(CAHNHILLIARD)
+   use BoundaryConditionFunctions, only: C_BC, MU_BC
+#endif
    implicit none
    
    private
-   public TruncationError_t, EstimateTruncationError, InitializeForTauEstimation
+   public TruncationError_t, EstimateTruncationError, InitializeForTauEstimation, GenerateExactTEmap
    public NON_ISOLATED_TE, ISOLATED_TE
    
    !---------------------------------------------------------------------------------------------------------
@@ -31,13 +36,41 @@ module TruncationErrorClass
          procedure :: construct => ConstructTruncationError
          procedure :: destruct  => DestructTruncationError
    end type TruncationError_t
+
+!
+!  -------------------
+!  External procedures
+!  -------------------
+!
+#if defined(NAVIERSTOKES)
+   procedure(BCState_FCN)   :: externalStateForBoundaryName
+   procedure(BCGradients_FCN)   :: ExternalGradientForBoundaryName
+#elif defined(CAHNHILLIARD)
+   procedure(BCState_FCN)   :: externalStateForBoundaryName
+   procedure(BCGradients_FCN)   :: ExternalChemicalPotentialGradientForBoundaryName
+   procedure(BCGradients_FCN)   :: ExternalConcentrationGradientForBoundaryName
+#endif
    
+   interface
+      subroutine UserDefinedSourceTerm(x, time, S, thermodynamics_, dimensionless_, refValues_)
+         use SMConstants
+         USE HexMeshClass
+         use PhysicsStorage
+         IMPLICIT NONE
+         real(kind=RP),             intent(in)  :: x(NDIM)
+         real(kind=RP),             intent(in)  :: time
+         real(kind=RP),             intent(out)  :: S(NCONS)
+         type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+         type(Dimensionless_t),     intent(in)  :: dimensionless_
+         type(RefValues_t),         intent(in)  :: refValues_
+      end subroutine UserDefinedSourceTerm
+   end interface
 !
 !  ----------------
 !  Module variables
 !  ----------------
 !
-    procedure(ComputeQDot_FCN), pointer :: TimeDerivative
+   procedure(ComputeQDot_FCN), pointer :: TimeDerivative
    
    !! Parameters
    integer, parameter :: ISOLATED_TE = 0
@@ -140,7 +173,6 @@ module TruncationErrorClass
 !     (a-posteriori or quasi a-priori without correction)
 !  ------------------------------------------------------------------------
    subroutine EstimateTruncationError(TE,sem,t,Var,Dir)
-      use NodalStorageClass
       implicit none
       !--------------------------------------------------------
       type(TruncationError_t)  :: TE(:)       !<> Type containing the truncation error estimation
@@ -157,21 +189,6 @@ module TruncationErrorClass
       real(kind=RP)            :: maxTE
       real(kind=RP)            :: S(NCONS)      !   Source term
       !--------------------------------------------------------
-      interface
-         subroutine UserDefinedSourceTerm(x, time, S, thermodynamics_, dimensionless_, refValues_)
-            use SMConstants
-            USE HexMeshClass
-            use PhysicsStorage
-            IMPLICIT NONE
-            real(kind=RP),             intent(in)  :: x(NDIM)
-            real(kind=RP),             intent(in)  :: time
-            real(kind=RP),             intent(out)  :: S(NCONS)
-            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-            type(Dimensionless_t),     intent(in)  :: dimensionless_
-            type(RefValues_t),         intent(in)  :: refValues_
-         end subroutine UserDefinedSourceTerm
-      end interface
-      !---------------------------------------------------------
       
       call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
       
@@ -204,4 +221,183 @@ module TruncationErrorClass
          end associate
       end do
    end subroutine EstimateTruncationError
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
+!  Subroutine for printing the TE map(s) of one element
+!  -----------------------------------------------------------------------
+   subroutine PrintTEmap(TEmap,iEl)
+      implicit none
+      !-------------------------------------------
+      real(kind=RP)  :: TEmap(:,:,:)
+      integer        :: iEl
+      !-------------------------------------------
+      integer                :: k, i, l
+      integer                :: fd
+      character(LINE_LENGTH) :: TEmapfile
+      !-------------------------------------------
+      
+      do k = 1, size(TEmap,3)
+         write(TEmapfile,'(A,I7.7,A,I2.2,A)') 'RegressionFiles/TEmapXY-Elem_',iEl,'-Nz_',k,'.dat'
+   
+         open(newunit = fd, file=TRIM(TEmapfile), action='write')
+            do i = 1, size(TEmap, 1)
+               write(fd,*) (TEmap(i,l,k),l=1,size(TEmap,2))
+            end do
+         close(fd)
+      end do
+   end subroutine PrintTEmap
+!
+!  ------------------------------------------------------------------------
+!  Subroutine for generating the exact  truncation error map in one element
+!  -> The exact solution must be coded down in UserDefinedState1 (ProblemFile.f90)
+!  ------------------------------------------------------------------------
+!
+   subroutine GenerateExactTEmap(sem, NMIN, NMAX, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, iEl, TruncErrorType)
+      implicit none
+      !-------------------------------------------------------------------------
+      type(DGSem)                :: sem
+      integer, intent(in)        :: NMIN
+      integer, intent(in)        :: NMAX(NDIM)
+      real(kind=RP)              :: t
+      procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
+      procedure(ComputeQDot_FCN) :: ComputeTimeDerivativeIsolated
+      type(FTValueDictionary)    :: controlVariables
+      integer, intent(in)        :: iEl
+      integer, intent(in)        :: TruncErrorType
+      !-------------------------------------------------------------------------
+      real(kind=RP)              :: TEmap (NMIN:NMAX(1),NMIN:NMAX(2),NMIN:NMAX(3))
+      integer                    :: i,j,k
+      integer                    :: nelem      ! Number of elements
+      type(BCFunctions_t)        :: BCFunctions(no_of_BCsets)
+!~       type(SolStorage_t), allocatable :: Var(:)  
+      logical                              :: success   
+      integer, dimension(size(sem % mesh % elements) ) :: Nx, Ny, Nz
+!~       integer                              :: eID
+!~       integer                              :: ii,jj,kk
+      
+!~       real(kind=RP)  :: maxTE, wx, wy, wz, Jac, maxTEtemp
+!~       integer        :: iEQ, ElMax
+      !-------------------------------------------------------------------------
+      
+      ! Initializations
+      nelem   = SIZE(sem % mesh % elements)
+      
+      if (TruncErrorType == ISOLATED_TE) then
+         TimeDerivative => ComputeTimeDerivativeIsolated
+      else
+         TimeDerivative => ComputeTimeDerivative
+      end if
+      
+#if defined(NAVIERSTOKES)
+      BCFunctions(1) % externalState => externalStateForBoundaryName
+      BCFunctions(1) % externalGradients => externalGradientForBoundaryName
+#elif defined(CAHNHILLIARD)
+      BCFunctions(C_BC) % externalState      => externalStateForBoundaryName
+      BCFunctions(C_BC) % externalGradients  => externalConcentrationGradientForBoundaryName
+
+      BCFunctions(MU_BC) % externalState     => externalStateForBoundaryName
+      BCFunctions(MU_BC) % externalGradients => externalChemicalPotentialGradientForBoundaryName
+#endif
+      
+      do k = NMIN, NMAX(3)
+         do j = NMIN, NMAX(2)
+            do i = NMIN, NMAX(1)
+               
+               Nx = i
+               Ny = j
+               Nz = k
+               
+               !-------------------------------------------
+               !Destruct previous sem and construct new one
+               !-------------------------------------------
+               CALL sem % destruct()
+               
+               sem % ManufacturedSol = controlVariables % containsKey("manufactured solution")
+               
+               call sem % construct (  controlVariables  = controlVariables                              ,  &
+                           BCFunctions       = BCFunctions, &
+                           Nx_ = Nx ,     Ny_ = Ny,     Nz_ = Nz,                   &
+                           success           = success)
+               
+               print*, 'Computing TE for N=',i,j,k,'. success=', success
+               
+               if(.NOT. success)   ERROR STOP ":: problem creating sem"
+               
+               CALL UserDefinedFinalSetup(sem % mesh , thermodynamics, dimensionless, refValues)
+               
+               
+               TEmap(i,j,k) = EstimateTauOfElem(sem,t,controlVariables,iEl)
+               
+               print*, 'Done for N=',i,j,k
+            end do
+         end do
+      end do
+      
+      CALL PrintTEmap(TEmap,iEl)
+      stop
+      
+   end subroutine GenerateExactTEmap
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -----
+!     Estimates the infinity norm of the truncation error for a given mesh given a restart solution or a manufactured solution
+!     ---
+      function EstimateTauOfElem(sem,t,controlVariables,iEl) result(maxTE)
+         implicit none
+         !-------------------------------------------------------
+         type(DGSem), target    , intent(inout) :: sem              !<> sem class (inout cause' we compute Qdot)
+         real(kind=RP)          , intent(in)    :: t                !>  Time
+         type(FTValueDictionary), intent(in)    :: controlVariables !<
+         integer                , intent(in)    :: iEl              !<  Present if the result is wanted for a certain element
+         real(kind=RP)                          :: maxTE            !>  |\tau|_{\infty}
+         !-------------------------------------------------------
+         integer          :: nelem
+         integer          :: eID             ! element counter
+         integer          :: iEQ             ! Equation counter
+         integer          :: ii,jj,kk        ! doF counters
+         real(kind=RP)    :: wx, wy, wz      ! Quadrature weights
+         real(kind=RP)    :: Jac             ! Jacobian (mapping)
+         !-------------------------------------------------------
+         
+         nelem = SIZE(sem % mesh % elements)
+         
+         !-------------------------------------------
+         !Get exact solution (from ProblemFile.f90)
+         !-------------------------------------------
+         
+         do eID = 1, nelem
+            associate (e => sem % mesh % elements(eID))
+            
+            do kk = 0, e % Nxyz(3) ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+               call UserDefinedState1(e % geom % x(:,ii,jj,kk), t, [0._RP, 0._RP, 0._RP], e % storage % Q(:,ii,jj,kk), thermodynamics, dimensionless, refValues)
+            end do                 ; end do                 ; end do
+            
+            end associate
+         end do
+         
+         call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
+         
+         maxTE = 0._RP ! Initialization
+         
+         associate ( e => sem % mesh % elements(iEl) )
+         
+         ! loop over all the degrees of freedom of the element
+         do kk = 0, e % Nxyz(3) ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+            
+            do iEQ = 1, N_EQN
+               wx  = NodalStorage(e % Nxyz(1)) % w (ii)
+               wy  = NodalStorage(e % Nxyz(2)) % w (jj)
+               wz  = NodalStorage(e % Nxyz(3)) % w (kk)
+               Jac = e % geom % jacobian(ii,jj,kk)
+      
+               maxTE =  MAX(maxTE , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,ii,jj,kk) ) )
+            end do
+         end do          ; end do          ; end do
+          
+         end associate
+      end function EstimateTauOfElem
+      
 end module TruncationErrorClass

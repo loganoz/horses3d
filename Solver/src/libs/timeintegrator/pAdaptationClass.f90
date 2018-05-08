@@ -34,7 +34,7 @@ module pAdaptationClass
    
    private
    public GetMeshPolynomialOrders, ReadOrderFile
-   public pAdaptation_t, PrintTEmap
+   public pAdaptation_t
    
    !--------------------------------------------------
    ! Main type for performing a p-adaptation procedure
@@ -392,6 +392,17 @@ module pAdaptationClass
       Error = 0
       Warning= 0
       Stage = Stage + 1
+      
+!
+!     -------------------------------------------
+!     Get exact truncation error map if requested
+!     -------------------------------------------
+!
+      if ( controlVariables % containsKey("get exact temap elem") ) then
+         iEl = controlVariables % integerValueForKey("get exact temap elem")
+         call GenerateExactTEmap(sem, NMIN, pAdapt % NxyzMax, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, iEl, pAdapt % TruncErrorType)
+      end if
+      
 !
 !     --------------------------------------
 !     Write pre-adaptation mesh and solution
@@ -416,6 +427,10 @@ module pAdaptationClass
 !
       ! Loop over all elements
 !!!!$OMP PARALLEL do PRIVATE(Pxyz,P_1,TEmap,NewDOFs,i,j,k)  ! TODO: Modify private and uncomment
+      
+      ! Allocate the TEmap with the maximum number of N compinations and initialize it
+      allocate(TEmap(NMIN:pAdapt % NxyzMax(1),NMIN:pAdapt % NxyzMax(2),NMIN:pAdapt % NxyzMax(3)))
+      
       do iEl = 1, nelem
          
          Pxyz = sem % mesh % elements(iEl) % Nxyz
@@ -423,8 +438,6 @@ module pAdaptationClass
          
          where(P_1 < NMIN) P_1 = NMIN ! minimum order
          
-         ! Allocate the TEmap with the maximum number of N compinations and initialize it
-         allocate(TEmap(NMIN:pAdapt % NxyzMax(1),NMIN:pAdapt % NxyzMax(2),NMIN:pAdapt % NxyzMax(3)))
          TEmap = 0._RP
          
          NNew(:,iEl) = -1 ! Initialized to negative value
@@ -538,9 +551,9 @@ module pAdaptationClass
             NNew(:,iEl) = pAdapt % NxyzMax
          end if
          
-         deallocate(TEmap)
-         
       end do
+      
+      deallocate(TEmap)
       
 !!!!$OMP END PARALLEL DO
 !
@@ -904,33 +917,6 @@ module pAdaptationClass
       
       SameNumber = a
    end function SameNumber
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!  -----------------------------------------------------------------------
-!  Subroutine for printing the TE map(s) of one element
-!  -----------------------------------------------------------------------
-   subroutine PrintTEmap(TEmap,iEl)
-      implicit none
-      !-------------------------------------------
-      real(kind=RP)  :: TEmap(NMIN:,NMIN:,NMIN:)
-      integer        :: iEl
-      !-------------------------------------------
-      integer                :: k, i, l
-      integer                :: fd
-      character(LINE_LENGTH) :: TEmapfile
-      !-------------------------------------------
-      
-      do k = NMIN, size(TEmap,3)
-         write(TEmapfile,'(A,I4.4,A,I2.2,A)') 'RegressionFiles/TEmapXY-Elem_',iEl,'-Nz_',k,'.dat'
-   
-         open(newunit = fd, file=TRIM(TEmapfile), action='write')
-            do i = NMIN, size(TEmap, 1)
-               write(fd,*) (TEmap(i,l,k),l=NMIN,size(TEmap,2))
-            end do
-         close(fd)
-      end do
-   end subroutine PrintTEmap
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
