@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Wed May  9 15:26:10 2018
+!   @Last revision date: Wed May  9 17:37:14 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 030a84de7dedac0cada2e2d9ba22dfd63aa09eb8
+!   @Last revision commit: e80c813a91351f13e891ae11ac338543a0c24264
 !
 !//////////////////////////////////////////////////////
 !
@@ -223,7 +223,7 @@ module SpatialDiscretization
 !        Prolongation of the solution to the faces
 !        -----------------------------------------
 !
-!$omp parallel shared(mesh, time) private(k, eID, fID, i, j, k)
+!$omp parallel shared(mesh, time) private(k, eID, fID, i, j, k, e)
          call mesh % ProlongSolutionToFaces(NCONS)
 !        ----------------
 !        Update MPI Faces
@@ -313,7 +313,7 @@ module SpatialDiscretization
                   externalState     = BCFunctions(C_BC) % externalState, &
                   externalGradients = BCFunctions(C_BC) % externalGradients )
 
-!$omp do schedule(runtime)
+!$omp do schedule(runtime) private(e)
          do eID = 1, mesh % no_of_elements
             e => mesh % elements(eID)
             e % storage % mu = - POW2(multiphase % eps) * e % storage % QDot
@@ -371,7 +371,7 @@ module SpatialDiscretization
 !
 !        Scale QDot with the Peclet number
 !        ---------------------------------
-!$omp do schedule(runtime)
+!$omp do schedule(runtime) private(e)
          do eID = 1, mesh % no_of_elements
             e => mesh % elements(eID)
             e % storage % QDot = (1.0_RP / multiphase % Pe) * e % storage % QDot
@@ -414,7 +414,7 @@ module SpatialDiscretization
 !
 !        Add the velocity field
 !        ----------------------
-!$omp do schedule(runtime)
+!$omp do schedule(runtime) private(e)
          do eID = 1, mesh % no_of_elements
             e => mesh % elements(eID)
          
@@ -445,7 +445,24 @@ module SpatialDiscretization
             call mesh % faces(fID) % storage(2) % SetStorageToNS
          end do
 !$omp end do
+!
+!        ****************************
+!        Compute the Capilar pressure
+!        ****************************
+!
+!$omp do schedule(runtime) private(e)
+         do eID = 1, mesh % no_of_elements
+            e => mesh % elements(eID) 
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)   ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(IRHOU,i,j,k) =   e % storage % QDot(IRHOU,i,j,k) &
+                                                      + (1.0_RP / (dimensionless % Re * multiphase % Ca)) * e % storage % mu(1,i,j,k) * e % storage % c_x(1,i,j,k)
+               e % storage % QDot(IRHOV,i,j,k) =   e % storage % QDot(IRHOV,i,j,k) &
+                                                      + (1.0_RP / (dimensionless % Re * multiphase % Ca)) * e % storage % mu(1,i,j,k) * e % storage % c_y(1,i,j,k)
+               e % storage % QDot(IRHOW,i,j,k) =   e % storage % QDot(IRHOW,i,j,k) &
+                                                      + (1.0_RP / (dimensionless % Re * multiphase % Ca)) * e % storage % mu(1,i,j,k) * e % storage % c_z(1,i,j,k)
 
+            end do                ; end do                  ; end do
+         end do
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative
@@ -705,7 +722,7 @@ module SpatialDiscretization
                   externalState     = BCFunctions(C_BC) % externalState, &
                   externalGradients = BCFunctions(C_BC) % externalGradients )
 
-!$omp do schedule(runtime)
+!$omp do schedule(runtime) private(e)
          do eID = 1, mesh % no_of_elements
             e => mesh % elements(eID)
             e % storage % mu = - POW2(multiphase % eps) * e % storage % QDot
@@ -763,7 +780,7 @@ module SpatialDiscretization
 !
 !        Scale QDot with the Peclet number
 !        ---------------------------------
-!$omp do schedule(runtime)
+!$omp do schedule(runtime) private(e)
          do eID = 1, mesh % no_of_elements
             e => mesh % elements(eID)
             e % storage % QDot = (1.0_RP / multiphase % Pe) * e % storage % QDot

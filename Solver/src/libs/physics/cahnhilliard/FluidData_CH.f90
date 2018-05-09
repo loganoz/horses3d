@@ -4,9 +4,9 @@
 !   @File:    FluidData_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:30 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed May  9 17:37:15 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: e80c813a91351f13e891ae11ac338543a0c24264
 !
 !//////////////////////////////////////////////////////
 !
@@ -31,10 +31,11 @@ module FluidData_CH
       real(kind=RP)  :: c_alpha  ! Alpha equilibrium concentration
       real(kind=RP)  :: c_beta   ! Beta equilibrium concentration
       real(kind=RP)  :: thetaw   ! Wall angle
-      real(kind=RP)  :: eps         ! Coefficient in the dimensionless CH equation
-      real(kind=RP)  :: w           ! Dimensionless interface width: 7.071 sqrt(kappa/rhoS)/Lref
-      real(kind=RP)  :: sigma       ! Interface energy: 0.01508 sqrt(kappa*rhoS)/Lref
-      real(kind=RP)  :: Pe
+      real(kind=RP)  :: eps      ! Coefficient in the dimensionless CH equation
+      real(kind=RP)  :: w        ! Dimensionless interface width: 7.071 sqrt(kappa/rhoS)/Lref
+      real(kind=RP)  :: sigma    ! Interface energy: 0.01508 sqrt(kappa*rhoS)/Lref
+      real(kind=RP)  :: Pe       ! Peclet number (for CH)
+      real(kind=RP)  :: Ca       ! Capilar number (for NS)
    end type Multiphase_t
 
    type(Multiphase_t), protected    :: multiphase
@@ -54,6 +55,7 @@ module FluidData_CH
          multiphase % w       = multiphase_ % w
          multiphase % sigma   = multiphase_ % sigma
          multiphase % Pe      = multiphase_ % Pe
+         multiphase % Ca      = multiphase_ % Ca
 
       end subroutine SetMultiphase
 
