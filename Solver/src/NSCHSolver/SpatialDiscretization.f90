@@ -4,23 +4,11 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Fri May  4 13:55:31 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: a0b0d307719b0b49ef776f8ec85b0bed73b4a32d
+!   @Last revision date: Wed May  9 15:26:10 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 030a84de7dedac0cada2e2d9ba22dfd63aa09eb8
 !
 !//////////////////////////////////////////////////////
-!
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      DGTimeDerivativeRoutines.f95
-!      Created: 2008-07-13 16:13:12 -0400 
-!      By: David Kopriva  
-!
-!      3D version by D.A. Kopriva 6/17/15, 12:35 PM
-!
-!
-!////////////////////////////////////////////////////////////////////////////////////////
 !
 #include "Includes.h"
 module SpatialDiscretization
@@ -710,9 +698,9 @@ module SpatialDiscretization
 !        Compute the chemical potential
 !        ------------------------------
 !
-!        Linear part
+!        Linear part: only Neumann boundary conditions contribution
 !        -----------
-         call ComputeLaplacian(mesh = mesh , &
+         call ComputeLaplacianNeumannBCs(mesh = mesh , &
                                t    = time, &
                   externalState     = BCFunctions(C_BC) % externalState, &
                   externalGradients = BCFunctions(C_BC) % externalGradients )
@@ -720,7 +708,7 @@ module SpatialDiscretization
 !$omp do schedule(runtime)
          do eID = 1, mesh % no_of_elements
             e => mesh % elements(eID)
-            e % storage % mu = 0.0_RP
+            e % storage % mu = - POW2(multiphase % eps) * e % storage % QDot
             call AddQuarticDWPDerivative(e % storage % c, e % storage % mu)
 !
 !           Move storage to chemical potential
@@ -1513,6 +1501,116 @@ module SpatialDiscretization
 #endif
 
       end subroutine ComputeLaplacian
+
+      subroutine ComputeLaplacianNeumannBCs( mesh , t, externalState, externalGradients )
+         implicit none
+         type(HexMesh)              :: mesh
+         real(kind=RP)              :: t
+         external                   :: externalState, externalGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: eID , i, j, k, ierr, fID
+!
+!        **************************
+!        Reset QDot and face fluxes
+!        **************************
+!
+         do eID = 1, mesh % no_of_elements
+            mesh % elements(eID) % storage % QDot = 0.0_RP
+         end do
+   
+         do fID = 1, size(mesh % faces)
+            mesh % faces(fID) % storage(1) % genericInterfaceFluxMemory = 0.0_RP
+            mesh % faces(fID) % storage(2) % genericInterfaceFluxMemory = 0.0_RP
+         end do
+!
+!        ******************************************
+!        Compute Riemann solver of non-shared faces
+!        ******************************************
+!
+!$omp do schedule(runtime) 
+         do fID = 1, size(mesh % faces) 
+            associate( f => mesh % faces(fID)) 
+            select case (f % faceType) 
+            case (HMESH_BOUNDARY) 
+               CALL computeBoundaryFlux(f, t, externalState, externalGradients) 
+            end select 
+            end associate 
+         end do 
+!$omp end do 
+!
+!        ***************************************************************
+!        Surface integrals and scaling of elements with non-shared faces
+!        ***************************************************************
+! 
+!$omp do schedule(runtime) private(i, j, k)
+         do eID = 1, size(mesh % elements) 
+            associate(e => mesh % elements(eID)) 
+            if ( e % hasSharedFaces ) cycle
+            call TimeDerivative_FacesContribution(e, t, mesh) 
+ 
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
+            end do         ; end do          ; end do 
+            end associate 
+         end do
+!$omp end do
+!
+!        ****************************
+!        Wait until messages are sent
+!        ****************************
+!
+#ifdef _HAS_MPI_
+         if ( MPI_Process % doMPIAction ) then
+!$omp single
+            call mesh % GatherMPIFacesGradients
+!$omp end single
+!
+!           **************************************
+!           Compute Riemann solver of shared faces
+!           **************************************
+!
+!$omp do schedule(runtime) 
+            do fID = 1, size(mesh % faces) 
+               associate( f => mesh % faces(fID)) 
+               select case (f % faceType) 
+               case (HMESH_MPI) 
+                  CALL computeMPIFaceFlux( f ) 
+               end select 
+               end associate 
+            end do 
+!$omp end do 
+!
+!           ***********************************************************
+!           Surface integrals and scaling of elements with shared faces
+!           ***********************************************************
+! 
+!$omp do schedule(runtime) 
+            do eID = 1, size(mesh % elements) 
+               associate(e => mesh % elements(eID)) 
+               if ( .not. e % hasSharedFaces ) cycle
+               call TimeDerivative_FacesContribution(e, t, mesh) 
+ 
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
+                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
+               end do         ; end do          ; end do 
+               end associate 
+            end do
+!$omp end do
+!
+!           Add a MPI Barrier
+!           -----------------
+!$omp single
+            call mpi_barrier(MPI_COMM_WORLD, ierr)
+!$omp end single
+         end if
+#endif
+
+      end subroutine ComputeLaplacianNeumannBCs
+
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

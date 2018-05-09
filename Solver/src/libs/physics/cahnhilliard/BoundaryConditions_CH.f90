@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:29 2018
-!   @Last revision date: Wed Apr 25 19:40:19 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 4749ed1216d5512d7b79f2485e9471f3161753ca
+!   @Last revision date: Wed May  9 15:26:11 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 030a84de7dedac0cada2e2d9ba22dfd63aa09eb8
 !
 !//////////////////////////////////////////////////////
 !
@@ -24,17 +24,20 @@
          public NoFluxState, NoFluxNeumann, WallAngleBC
          public UserDefinedState, UserDefinedNeumann
 
-         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(5) :: implementedCHBCNames = &
+         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(7) :: implementedCHBCNames = &
                ["no-flux             ", &
                 "periodic+           ", &
                 "periodic-           ", &
                 "noslipadiabaticwall ", &
+                "inflow              ", &
+                "outflowspecifyp     ", &
                 "user-defined        "   ]
-               
-         integer, parameter :: NO_FLUX_INDEX        = 1
-         integer, parameter :: PERIODIC_PLUS_INDEX  = 2
-         integer, parameter :: PERIODIC_MINUS_INDEX = 3
-         INTEGER, PARAMETER :: USER_DEFINED_INDEX   = 4
+
+         enum, bind(C)
+            enumerator :: NO_FLUX_INDEX=1, PERIODIC_PLUS_INDEX, PERIODIC_MINUS_INDEX
+            enumerator :: INFLOW_INDEX, OUTFLOWSPECIFYP_INDEX
+            enumerator :: USER_DEFINED_INDEX
+         end enum
 !
 !     ========         
       CONTAINS
@@ -165,6 +168,10 @@
          CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
       ELSEIF ( boundaryType == "noslipadiabaticwall" ) then
          call WallAngleBC(x, t, nHat, U_x, U_y, U_z)
+      elseif ( boundaryType == "inflow" ) then
+         CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
+      elseif ( boundaryType == "outflowspecifyp") then
+         CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
       END IF
 
       GradU(1,:) = U_x(:)
