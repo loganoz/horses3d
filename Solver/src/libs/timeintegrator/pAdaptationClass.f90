@@ -24,6 +24,8 @@ module pAdaptationClass
    use TruncationErrorClass
    use FTValueDictionaryClass
    use TimeIntegratorDefinitions
+   use StorageClass
+   use SharedBCModule
 #if defined(CAHNHILLIARD)
    use BoundaryConditionFunctions, only: C_BC, MU_BC
 #endif
@@ -32,15 +34,15 @@ module pAdaptationClass
    
    private
    public GetMeshPolynomialOrders, ReadOrderFile
-   public pAdaptation_t, PrintTEmap
+   public pAdaptation_t
    
    !--------------------------------------------------
    ! Main type for performing a p-adaptation procedure
    !--------------------------------------------------
    type :: pAdaptation_t
-      type(FTValueDictionary)           :: controlVariables ! Own copy of the control variables (needed to construct sem) ! TODO: Change this?
       character(len=LINE_LENGTH)        :: solutionFileName ! Name of file for plotting adaptation information
       real(kind=RP)                     :: reqTE            ! Requested truncation error
+      logical                           :: RegressionFiles  ! Write regression files?
       logical                           :: saveGradients    ! Save gradients in pre-adapt and p-adapted solution files?
       logical                           :: PlotInfo
       logical                           :: Adapt            ! Is the adaptator going to be used??
@@ -59,6 +61,11 @@ module pAdaptationClass
    end type pAdaptation_t
    
    interface
+      character(len=LINE_LENGTH) function RemovePath( inputLine )
+         use SMConstants
+         implicit none
+         character(len=*)     :: inputLine
+      end function RemovePath
       character(len=LINE_LENGTH) function getFileName( inputLine )
          use SMConstants
          implicit none
@@ -213,11 +220,10 @@ module pAdaptationClass
       
       ! The truncation error threshold is required (only adaptation strategy implemented)
       if (.NOT. controlVariables % containsKey("truncation error")) ERROR STOP 'A truncation error must be specified for p-adapt'
-      this % reqTE        = controlVariables % RealValueForKey   ("truncation error")
+      this % reqTE        = controlVariables % doubleprecisionValueForKey   ("truncation error")
       
-      this % controlVariables = controlVariables
-      
-      this % PlotInfo     = controlVariables % LogicalValueForKey("plot p-adaptation") ! Default false if not present
+      this % PlotInfo        = controlVariables % LogicalValueForKey("plot p-adaptation") ! Default false if not present
+      this % RegressionFiles = controlVariables % LogicalValueForKey("write regression files") ! Default false if not present
       
       this % solutionFileName = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
       this % saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
@@ -345,8 +351,8 @@ module pAdaptationClass
       integer                    :: NNew(3,nelem)     !   New polynomial orders of mesh (after adaptation!)
       integer                    :: Error(3,nelem)    !   Stores (with ==1) elements where the truncation error has a strange behavior of the truncation error (in every direction)
       integer                    :: Warning(nelem)    !   Stores (with ==1) elements where the specified truncation error was not achieved
-      integer                    :: NOld(3)
-      type(DGSem)                :: Oldsem
+      integer                    :: NOld(3,nelem)     !   Old polynomial orders of mesh
+      type(ElementStorage_t), allocatable :: TempStorage(:) ! Temporary variable to store the solution before the adaptation procedure 
       logical                    :: success
       integer, save              :: Stage = 0         !   Stage of p-adaptation for the increasing method
       CHARACTER(LEN=LINE_LENGTH) :: newInput          !   Variable used to change the input in controlVariables after p-adaptation 
@@ -361,6 +367,7 @@ module pAdaptationClass
       TYPE(AnisFASMultigrid_t)   :: AnisFASpAdaptSolver
       character(len=LINE_LENGTH) :: AdaptedMeshFile
       type(BCFunctions_t)        :: BCFunctions(no_of_BCsets)
+      logical                    :: last
       interface
          character(len=LINE_LENGTH) function getFileName( inputLine )
             use SMConstants
@@ -385,6 +392,17 @@ module pAdaptationClass
       Error = 0
       Warning= 0
       Stage = Stage + 1
+      
+!
+!     -------------------------------------------
+!     Get exact truncation error map if requested
+!     -------------------------------------------
+!
+      if ( controlVariables % containsKey("get exact temap elem") ) then
+         iEl = controlVariables % integerValueForKey("get exact temap elem")
+         call GenerateExactTEmap(sem, NMIN, pAdapt % NxyzMax, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, iEl, pAdapt % TruncErrorType)
+      end if
+      
 !
 !     --------------------------------------
 !     Write pre-adaptation mesh and solution
@@ -399,7 +417,7 @@ module pAdaptationClass
 !     Estimate the truncation error using the anisotropic multigrid
 !     -------------------------------------------------------------
 !
-      CALL AnisFASpAdaptSolver % construct(pAdapt % controlVariables,sem,estimator=.TRUE.)
+      CALL AnisFASpAdaptSolver % construct(controlVariables,sem,estimator=.TRUE.)
       CALL AnisFASpAdaptSolver % solve(itera,t,computeTimeDerivative,ComputeTimeDerivativeIsolated,pAdapt % TE, pAdapt % TruncErrorType)
       CALL AnisFASpAdaptSolver % destruct
 !
@@ -409,6 +427,10 @@ module pAdaptationClass
 !
       ! Loop over all elements
 !!!!$OMP PARALLEL do PRIVATE(Pxyz,P_1,TEmap,NewDOFs,i,j,k)  ! TODO: Modify private and uncomment
+      
+      ! Allocate the TEmap with the maximum number of N compinations and initialize it
+      allocate(TEmap(NMIN:pAdapt % NxyzMax(1),NMIN:pAdapt % NxyzMax(2),NMIN:pAdapt % NxyzMax(3)))
+      
       do iEl = 1, nelem
          
          Pxyz = sem % mesh % elements(iEl) % Nxyz
@@ -416,8 +438,6 @@ module pAdaptationClass
          
          where(P_1 < NMIN) P_1 = NMIN ! minimum order
          
-         ! Allocate the TEmap with the maximum number of N compinations and initialize it
-         allocate(TEmap(NMIN:pAdapt % NxyzMax(1),NMIN:pAdapt % NxyzMax(2),NMIN:pAdapt % NxyzMax(3)))
          TEmap = 0._RP
          
          NNew(:,iEl) = -1 ! Initialized to negative value
@@ -470,14 +490,14 @@ module pAdaptationClass
             
             ! 1. Regression analysis
             do Dir = 1, 3
-               call RegressionIn1Dir(TE    = pAdapt % TE(iEl)     , &
+               call RegressionIn1Dir(Adaptator = pAdapt               , &
                                      P_1   = P_1(Dir)             , & 
                                      NMax  = pAdapt % NxyzMax(Dir), &
                                      Stage = Stage                , &
                                      iEl   = iEl                  , &
                                      Dir   = Dir                  , &
                                      notenough = notenough(Dir)   , &
-                                     error     = Error(Dir,iEl))
+                                     error     = Error(Dir,iEl)   )
             end do
             
             ! If the truncation error behaves as expected, continue, otherwise skip steps 2-3-4 and select maximum N
@@ -531,9 +551,9 @@ module pAdaptationClass
             NNew(:,iEl) = pAdapt % NxyzMax
          end if
          
-         deallocate(TEmap)
-         
       end do
+      
+      deallocate(TEmap)
       
 !!!!$OMP END PARALLEL DO
 !
@@ -557,8 +577,12 @@ module pAdaptationClass
          pAdapt % Adapt = .FALSE.
       end if
       
-      call ReorganizePolOrders(sem % mesh % faces,NNew)
-      
+      last = .FALSE.
+      do while (.not. last)
+         last = .TRUE.
+         call makeBoundariesPConforming(sem % mesh,NNew,last)
+         call ReorganizePolOrders(sem % mesh % faces,NNew,last)
+      end do
 !
 !     -----------------------
 !     Plot files if requested
@@ -583,12 +607,24 @@ module pAdaptationClass
       BCFunctions(MU_BC) % externalState     => externalStateForBoundaryName
       BCFunctions(MU_BC) % externalGradients => externalChemicalPotentialGradientForBoundaryName
 #endif
-
-
-
-      Oldsem = sem
+!
+!     ---------------------------
+!     Store the previous solution
+!     ---------------------------
+!
+      allocate (TempStorage(nelem))
+      do iEl = 1, nelem
+         NOld (:,iEl) = sem % mesh % elements(iEl) % Nxyz
+         call TempStorage(iEl) % Construct(NOld (1,iEl), NOld (2,iEl), NOld (3,iEl), N_EQN, N_GRAD_EQN, .FALSE.)
+         TempStorage(iEl) % Q = sem % mesh % elements(iEl) % storage % Q
+      end do
+!
+!     -----------------
+!     Construct new sem
+!     -----------------
+!
       call sem % destruct
-      call sem % construct (  controlVariables  = pAdapt % controlVariables                              ,  &
+      call sem % construct (  controlVariables  = controlVariables                              ,  &
                               BCFunctions       = BCFunctions, &
                               Nx_ = NNew(1,:) ,     Ny_ = NNew(2,:),     Nz_ = NNew(3,:),                   &
                               success           = success)
@@ -604,36 +640,41 @@ module pAdaptationClass
       ! Loop over all elements
       do iEl = 1, size(sem % mesh % elements)
          
-         NOld = Oldsem % mesh % elements(iEl) % Nxyz
-         
          ! Copy the solution if the polynomial orders are the same, if not, interpolate
-         if (ALL(NOld == NNew(:,iEl))) then
-            sem % mesh % elements(iEl) % storage % Q = Oldsem % mesh % elements(iEl) % storage % Q
+         if (ALL(NOld(:,iEl) == NNew(:,iEl))) then
+            sem % mesh % elements(iEl) % storage % Q = TempStorage(iEl) % Q
          else
             
             !------------------------------------------------------------------
             ! Construct the interpolation matrices in every direction if needed
             !------------------------------------------------------------------
-            call ConstructInterpolationMatrices( NOld(1),NNew(1,iEl) )  ! Xi
-            call ConstructInterpolationMatrices( NOld(2),NNew(2,iEl) )  ! Eta
-            call ConstructInterpolationMatrices( NOld(3),NNew(3,iEl) )  ! Zeta
+            call ConstructInterpolationMatrices( NOld(1,iEl),NNew(1,iEl) )  ! Xi
+            call ConstructInterpolationMatrices( NOld(2,iEl),NNew(2,iEl) )  ! Eta
+            call ConstructInterpolationMatrices( NOld(3,iEl),NNew(3,iEl) )  ! Zeta
             
             !---------------------------------------------
             ! Interpolate solution to new solution storage
             !---------------------------------------------
             
             call Interp3DArrays  (Nvars      = N_EQN                                       , &
-                                  Nin        = NOld                                        , &
-                                  inArray    = Oldsem % mesh % elements(iEl) % storage % Q , &
+                                  Nin        = NOld(:,iEl)                                 , &
+                                  inArray    = TempStorage(iEl) % Q , &
                                   Nout       = NNew(:,iEl)                                 , &
                                   outArray   = sem % mesh % elements(iEl) % storage % Q)
             
          end if
          
       end do
-      
-      call Oldsem % destruct
-      
+
+!
+!     ------------------------------
+!     Destruct the temporary storage
+!     ------------------------------
+!
+      do iEl = 1, nelem
+         call TempStorage(iEl) % destruct
+      end do
+      deallocate (TempStorage)
 !
 !     ---------------------------------------------------
 !     Write post-adaptation mesh, solution and order file
@@ -672,22 +713,96 @@ module pAdaptationClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -----------------------------------------------------------------------
+!  
+!  -----------------------------------------------------------------------
+   subroutine makeBoundariesPConforming(mesh,NNew,last)
+      use HexMeshClass
+      use ElementConnectivityDefinitions
+      implicit none
+      !------------------------------------------------------------
+      type(HexMesh), intent(in)    :: mesh
+      integer      , intent(inout) :: NNew (:,:)
+      logical :: last
+      !------------------------------------------------------------
+      integer :: zoneID    ! Zone counters
+      integer :: fID       ! Index of face on boundary (in partition)
+      integer :: fIdx      ! Index of face on boundary (in zone)
+      integer :: eID       ! Index of element on bountary
+      integer :: eSide     ! Side of element on boundary
+      integer :: f_conf
+      integer :: sweep     ! Sweep counter
+      logical :: finalsweep
+      character(len=LINE_LENGTH), allocatable :: boundaryNames(:)
+      !------------------------------------------------------------
+      
+      write(STD_OUT,*) '## Forcing p-conforming boundaries ##'
+      
+      allocate ( boundaryNames( conformingBoundariesDic % COUNT() )  ) 
+      boundaryNames = conformingBoundariesDic % allKeys()
+      
+!     ************************
+!     Loop over the boundaries
+!     ************************
+      do zoneID = 1, size(mesh % zones)
+         
+         if ( all ( boundaryNames /= trim(mesh % zones(zoneID) % Name) ) ) cycle
+         
+         write(STD_OUT,*) '## Boundary:', mesh % zones(zoneID) % Name
+         write(STD_OUT,*) '   Sweep   |   Last'
+         sweep = 0
+         
+         ! Perform a number of sweeps until the representation is conforming
+         do
+            sweep = sweep + 1
+            finalsweep = .TRUE. ! let's first assume this is the final sweep
+            
+            ! loop over the faces on every boundary
+            do fIdx = 1, mesh % zones(zoneID) % no_of_faces
+               
+               fID   = mesh % zones(zoneID) % faces(fIdx)
+               eID   = mesh % faces(fID) % elementIDs(1)
+               eSide = mesh % faces(fID) % elementSide(1)
+               
+               ! loop over the faces that are shares between boundary elements
+               do f_conf = 1, 4
+                  
+                  associate (f => mesh % faces ( mesh % elements(eID) % faceIDs (neighborFaces(f_conf,eSide) ) ) )
+                  
+                  call AdjustPAcrossFace( f, NNew, SameNumber, finalsweep)
+                  
+                  end associate
+               end do
+               
+            end do
+            
+            write(STD_OUT,'(I10,X,A,X,L)') sweep ,'|', finalsweep 
+            
+            if (finalsweep) then
+               if (sweep > 1) last = .FALSE.
+               exit
+            end if
+         end do
+      end do
+      
+      write(STD_OUT,*) '#####################################'
+      
+   end subroutine makeBoundariesPConforming
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
 !  Subroutine for reorganizing the polynomial orders with neighbor contraints
 !  -> So far, this only works with shared memory ...and computes everything in serial! (TODO: Update to MPI!)
 !  -----------------------------------------------------------------------
-   subroutine ReorganizePolOrders(faces,NNew)
+   subroutine ReorganizePolOrders(faces,NNew,last)
       implicit none
       !------------------------------------------------------------
       type(Face), intent(in)    :: faces(:)
       integer   , intent(inout) :: NNew (:,:)
+      logical :: last
       !------------------------------------------------------------
       integer :: sweep
       integer :: fID
-      integer :: eIDL            ! Element ID on the left
-      integer :: eIDR            ! Element ID on the right
-      integer :: indL(2)         ! Index of face polorders in 3D polorders (left element)
-      integer :: indR(2)         ! Index of face polorders in 3D polorders (right element)
-      integer :: NL,NR           ! Polynomial order on the left/right
       logical :: finalsweep
       !------------------------------------------------------------
       
@@ -704,53 +819,80 @@ module pAdaptationClass
             !Cycle if this is a boundary face!!
             if (faces(fID) % elementIDs(2) == 0) cycle
             
-            eIDL = faces(fID) % elementIDs(1)
-            eIDR = faces(fID) % elementIDs(2)
-            
-            indL = axisMap(:, faces(fID) % elementSide(1))
-            
-            select case ( faces(fID) % rotation )
-               case ( 0, 2, 5, 7 ) ! Local x and y axis are parallel or antiparallel
-                  indR(1) = axisMap(1, faces(fID) % elementSide(2))
-                  indR(2) = axisMap(2, faces(fID) % elementSide(2))
-               case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular
-                  indR(2) = axisMap(1, faces(fID) % elementSide(2))
-                  indR(1) = axisMap(2, faces(fID) % elementSide(2))
-            end select
-            
-            !! Compare the polynomial order in the x-direction
-            NL = NNew(indL(1),eIDL)
-            NR = NNew(indR(1),eIDR)
-            
-            if (MIN(NL,NR) < GetOrderAcrossFace(MAX(NL,NR))) then
-               finalsweep = .FALSE.
-               if (NL<NR) then
-                  NNew(indL(1),eIDL) = GetOrderAcrossFace(NR)
-               else
-                  NNew(indR(1),eIDR) = GetOrderAcrossFace(NL)
-               end if
-            end if
-            
-            !! Compare the polynomial order in the y-direction
-            NL = NNew(indL(2),eIDL)
-            NR = NNew(indR(2),eIDR)
-            
-            if (MIN(NL,NR) < GetOrderAcrossFace(MAX(NL,NR))) then
-               finalsweep = .FALSE.
-               if (NL<NR) then
-                  NNew(indL(2),eIDL) = GetOrderAcrossFace(NR)
-               else
-                  NNew(indR(2),eIDR) = GetOrderAcrossFace(NL)
-               end if
-            end if
+            call AdjustPAcrossFace(faces(fID),NNew,GetOrderAcrossFace,finalsweep)
             
          end do
          
          write(STD_OUT,*) 'Finishing "ReorganizePolOrders" sweep', sweep, '. Final = ', finalsweep
-         if (finalsweep) exit
+         if (finalsweep) then
+            if (sweep > 1) last = .FALSE.
+            exit
+         end if
       end do
       
    end subroutine ReorganizePolOrders
+   
+   subroutine AdjustPAcrossFace(f,NNew,OrderAcrossFace,same)
+      implicit none
+      !-arguments--------------------------------------------
+      type(Face), intent(in)    :: f
+      integer   , intent(inout) :: NNew(:,:)
+      logical                   :: same   !<> Returns false if the function changes a polynomial order
+      !------------------------------------------------------
+      interface
+         integer function OrderAcrossFace(a)
+            integer :: a
+         end function
+      end interface
+      !-local-variables--------------------------------------
+      integer :: eIDL            ! Element ID on the left
+      integer :: eIDR            ! Element ID on the right
+      integer :: indL(2)         ! Index of face polorders in 3D polorders (left element)
+      integer :: indR(2)         ! Index of face polorders in 3D polorders (right element)
+      integer :: NL,NR           ! Polynomial order on the left/right
+      !------------------------------------------------------
+      
+      eIDL = f % elementIDs(1)
+      eIDR = f % elementIDs(2)
+      
+      indL = axisMap(:, f % elementSide(1))
+      
+      select case ( f % rotation )
+         case ( 0, 2, 5, 7 ) ! Local x and y axis are parallel or antiparallel
+            indR(1) = axisMap(1, f % elementSide(2))
+            indR(2) = axisMap(2, f % elementSide(2))
+         case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular
+            indR(2) = axisMap(1, f % elementSide(2))
+            indR(1) = axisMap(2, f % elementSide(2))
+      end select
+      
+      !! Compare the polynomial order in the x-direction
+      NL = NNew(indL(1),eIDL)
+      NR = NNew(indR(1),eIDR)
+      
+      if (MIN(NL,NR) < OrderAcrossFace(MAX(NL,NR))) then
+         same = .FALSE.
+         if (NL<NR) then
+            NNew(indL(1),eIDL) = OrderAcrossFace(NR)
+         else
+            NNew(indR(1),eIDR) = OrderAcrossFace(NL)
+         end if
+      end if
+      
+      !! Compare the polynomial order in the y-direction
+      NL = NNew(indL(2),eIDL)
+      NR = NNew(indR(2),eIDR)
+      
+      if (MIN(NL,NR) < OrderAcrossFace(MAX(NL,NR))) then
+         same = .FALSE.
+         if (NL<NR) then
+            NNew(indL(2),eIDL) = OrderAcrossFace(NR)
+         else
+            NNew(indR(2),eIDR) = OrderAcrossFace(NL)
+         end if
+      end if
+      
+   end subroutine AdjustPAcrossFace
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -768,30 +910,13 @@ module pAdaptationClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  -----------------------------------------------------------------------
-!  Subroutine for printing the TE map(s) of one element
-!  -----------------------------------------------------------------------
-   subroutine PrintTEmap(TEmap,iEl)
+!  -------------------------------------------------------------------------------------
+   integer function SameNumber(a)
       implicit none
-      !-------------------------------------------
-      real(kind=RP)  :: TEmap(NMIN:,NMIN:,NMIN:)
-      integer        :: iEl
-      !-------------------------------------------
-      integer                :: k, i, l
-      integer                :: fd
-      character(LINE_LENGTH) :: TEmapfile
-      !-------------------------------------------
+      integer :: a
       
-      do k = NMIN, size(TEmap,3)
-         write(TEmapfile,'(A,I4.4,A,I2.2,A)') 'RegressionFiles/TEmapXY-Elem_',iEl,'-Nz_',k,'.dat'
-   
-         open(newunit = fd, file=TRIM(TEmapfile), action='write')
-            do i = NMIN, size(TEmap, 1)
-               write(fd,*) (TEmap(i,l,k),l=NMIN,size(TEmap,2))
-            end do
-         close(fd)
-      end do
-   end subroutine PrintTEmap
+      SameNumber = a
+   end function SameNumber
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -799,10 +924,10 @@ module pAdaptationClass
 !  Subroutine that extrapolates the behavior of the directional components
 !  of the truncation error.
 !  -----------------------------------------------------------------------
-   subroutine RegressionIn1Dir(TE,P_1,NMax,Dir,notenough,error,Stage,iEl)
+   subroutine RegressionIn1Dir(Adaptator,P_1,NMax,Dir,notenough,error,Stage,iEl)
       implicit none
       !---------------------------------------
-      type(TruncationError_t)    :: TE                !<> Decaupled truncation error for one element
+      type(pAdaptation_t)        :: Adaptator
       integer                    :: P_1               !<  P-1 (max polynomial order with tau estimation for regression)
       integer                    :: NMax
       integer                    :: Dir
@@ -834,7 +959,7 @@ module pAdaptationClass
       
       ! Perform regression analysis   
       N = P_1 - NMIN + 1
-      y = LOG10(TE % Dir(Dir) % maxTE (NMIN:P_1))
+      y = LOG10(Adaptator % TE(iEl) % Dir(Dir) % maxTE (NMIN:P_1))
       x = (/ (real(i,RP), i=NMIN,P_1) /)
       call C_and_eta_estimation(N,x,y,C,eta)
       
@@ -846,8 +971,21 @@ module pAdaptationClass
       
       ! Extrapolate the TE
       do i = P_1+1, NMax
-         TE % Dir(Dir) % maxTE(i) = 10**(C + eta*i)
+         Adaptator % TE(iEl) % Dir(Dir) % maxTE(i) = 10**(C + eta*i)
       end do
+      
+      ! Write regression files
+      if (Adaptator % RegressionFiles) then
+         write(RegfileName,'(A,I2.2,3A,I7.7,A,I1,A)') 'RegressionFiles/Stage_',Stage,'/',trim(removePath(Adaptator % solutionFileName)),'_Elem_',iEl,'_Dir_',Dir,'.dat'
+      
+         open(newunit = fd, file=RegfileName, action='WRITE')
+            WRITE(fd,*) x
+            WRITE(fd,*) y
+            WRITE(fd,*) C, eta
+            WRITE(fd,*) NMax
+            WRITE(fd,*) iEl, Dir
+         close(fd)
+      end if
       
       
    end subroutine RegressionIn1Dir

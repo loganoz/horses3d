@@ -60,6 +60,7 @@ MODULE HexMeshClass
          logical                                   :: child       = .FALSE.         ! Is this a (multigrid) child mesh? default .FALSE.
          logical                                   :: meshIs2D    = .FALSE.         ! Is this a 2D mesh? default .FALSE.
          logical                                   :: anisotropic = .FALSE.         ! Is the mesh composed by elements with anisotropic polynomial orders? default false
+         logical                                   :: ignoreBCnonConformities = .FALSE.
          contains
             procedure :: destruct                      => DestructMesh
             procedure :: Describe                      => DescribeMesh
@@ -87,6 +88,7 @@ MODULE HexMeshClass
             procedure :: GatherMPIFacesGradients       => HexMesh_GatherMPIFacesGradients
             procedure :: FindPointWithCoords           => HexMesh_FindPointWithCoords
             procedure :: ComputeWallDistances          => HexMesh_ComputeWallDistances
+            procedure :: ConformingOnZone              => HexMesh_ConformingOnZone
       end type HexMesh
 
       TYPE Neighbour         ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
@@ -1675,23 +1677,27 @@ slavecoord:                DO l = 1, 4
          
          type(TransfiniteHexMap), pointer :: hexMap, hex8Map, genHexMap
          !--------------------------------
-         
-         integer  :: zoneID, zonefID
+         logical                    :: isConforming   ! Is the representation conforming on a boundary?
+         integer                    :: zoneID, zonefID
          integer, allocatable :: bfOrder(:)
          corners = 0._RP
 
 !
-!        ******************************************************************
-!        Find the polynomial order of the boundaries for anisotropic meshes
-!        -> Unlike isotropic meshes, anisotropic meshes need boundary orders
-!           bfOrder=N-1 in 3D (not in 2D) to be free-stream-preserving
-!			TODO: Not true... Change this!!!
-!        ******************************************************************
+!        ***********************************************************************
+!        Find the polynomial order of the boundaries for 3D nonconforming meshes
+!        -> In 3D meshes we force all the faces on a boundary to be mapped with the
+!           same polynomial order, in order to have "water-tight" meshes. This condition
+!           can be sometimes too strict... 
+!        -> When the representation is p-nonconforming on a boundary, the mapping 
+!           must be of order P <= min(N)/2. This is the general sufficient condition.
+!        *************************************************************1**********
 !
          if (self % anisotropic .and. (.not. self % meshIs2D) ) then
             allocate ( bfOrder(size(self % zones)) )
-            bfOrder = 50 ! Initialize to a big number
+            bfOrder = huge(bfOrder) ! Initialize to a big number
+            
             do zoneID=1, size(self % zones)
+               
                do zonefID = 1, self % zones(zoneID) % no_of_faces
                   fID = self % zones(zoneID) % faces(zonefID)
                   
@@ -1699,8 +1705,20 @@ slavecoord:                DO l = 1, 4
                   bfOrder(zoneID) = min(bfOrder(zoneID),f % NfLeft(1),f % NfLeft(2))
                   end associate
                end do
-               bfOrder(zoneID) = bfOrder(zoneID) - 1
+               
+               if ( self % ConformingOnZone(zoneID) .or. self % ignoreBCnonConformities) then
+                  bfOrder(zoneID) = bfOrder(zoneID)
+               else
+                  bfOrder(zoneID) = bfOrder(zoneID)/2
+                  if ( bfOrder(zoneID) < 1 ) then
+                     write(STD_OUT,*) 'ERROR :: The chosen polynomial orders are too low to represent the boundaries accurately'
+                     write(STD_OUT,*) '      :: Nonconforming representations on boundaries need N>=2'
+                     stop
+                  end if
+               end if
+               
                call NodalStorage (bfOrder(zoneID)) % construct (self % nodeType, bfOrder(zoneID))
+               
             end do
          end if
          
@@ -2747,5 +2765,52 @@ slavecoord:                DO l = 1, 4
       END DO
       
    end subroutine HexMesh_AllocateStorage
+   
+!
+!///////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------------------------
+!  Checks if the representation is conforming on a zone (Boundary)
+!  ---------------------------------------------------------------
+   function HexMesh_ConformingOnZone (self,zoneID) result(conforming)
+      implicit none
+      !-----------------------------------------------------------
+      class(HexMesh), intent(in) :: self
+      integer       , intent(in) :: zoneID
+      logical                    :: conforming
+      !-----------------------------------------------------------
+      integer :: fIdx   ! Local face index in zone
+      integer :: fID    ! Face index
+      integer :: eID    ! Element index
+      integer :: eSide  ! Side of the element in contact with boundary
+      integer :: nFace  ! Counter for neighbor faces
+      !-----------------------------------------------------------
+      
+      if (zoneID < lbound(self % zones,1) .or. zoneID > ubound(self % zones,1) ) ERROR stop 'HexMesh_ConformingOnZone :: Out of bounds'
+      
+      conforming = .TRUE.
+      do fIdx = 1, self % zones(zoneID) % no_of_faces
+         
+         fID   = self % zones(zoneID) % faces(fIdx)
+         eID   = self % faces(fID) % elementIDs(1)
+         eSide = self % faces(fID) % elementSide(1)
+         
+         ! loop over the faces that are shared between boundary elements
+         do nFace = 1, 4
+            associate (f => self % faces ( self % elements(eID) % faceIDs (neighborFaces(nFace,eSide) ) ) )
+            
+            if (f % FaceType == HMESH_BOUNDARY) cycle
+            
+            if (any(f % NfLeft /= f % NfRight)) then
+               conforming = .FALSE.
+               return
+            end if
+            
+            end associate
+         end do
+         
+      end do
+      
+   end function
 END MODULE HexMeshClass
       

@@ -201,7 +201,7 @@ end module UserDefinedDataStorage
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedSourceTerm(x, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -212,42 +212,33 @@ end module UserDefinedDataStorage
             use PhysicsStorage
             use UserDefinedDataStorage
             IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
-            REAL(KIND=RP)                         :: time
-            type(Thermodynamics_t),    intent(in) :: thermodynamics_
-            type(Dimensionless_t),     intent(in) :: dimensionless_
-            type(RefValues_t),         intent(in) :: refValues_
+            real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: time
+            real(kind=RP),             intent(out) :: S(NCONS)
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
 !
 !           ---------------
 !           Local variables
 !           ---------------
 !
             integer  :: i, j, k, eID
-            real(kind=RP)  :: S(NCONS), x(NDIM)
             real(kind=RP)  :: cos1, sin2
 #if defined(NAVIERSTOKES)
 !
 !           Usage example (by default no source terms are added)
 !           ----------------------------------------------------
-!$omp do schedule(runtime) private(i,j,k,x,cos1,sin2,S)
-            do eID = 1, mesh % no_of_elements
-               associate ( e => mesh % elements(eID) )
-               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  x = e % geom % x(:,i,j,k)
-                  cos1 = cos(PI * (x(1) + x(2) - 1.0_RP + x(3) - 2.0_RP*time))
-                  sin2 = sin(2.0_RP * PI *(x(1) + x(2) - 1.0_RP + x(3) - 2.0_RP*time))
-
-                  S(IRHO)  = c1 * cos1
-                  S(IRHOU) = c2 * cos1 + c3 * sin2
-                  S(IRHOV) = c2 * cos1 + c3 * sin2
-                  S(IRHOW) = c2 * cos1 + c3 * sin2
-                  S(IRHOE) = c4 * cos1 + c5 * sin2
-
-                  e % storage % S(:,i,j,k) = S
-               end do                  ; end do                ; end do
-               end associate
-            end do
-!$omp end do
+            
+            cos1 = cos(PI * (x(1) + x(2) - 1.0_RP + x(3) - 2.0_RP*time))
+            sin2 = sin(2.0_RP * PI *(x(1) + x(2) - 1.0_RP + x(3) - 2.0_RP*time))
+            
+            S(IRHO)  = c1 * cos1
+            S(IRHOU) = c2 * cos1 + c3 * sin2
+            S(IRHOV) = c2 * cos1 + c3 * sin2
+            S(IRHOW) = c2 * cos1 + c3 * sin2
+            S(IRHOE) = c4 * cos1 + c5 * sin2
+            
 #endif
    
          end subroutine UserDefinedSourceTerm
