@@ -4,9 +4,9 @@
 !   @File:    ConstructMeshAndSpectralBasis.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Nov  1 19:56:53 2017
-!   @Last revision date: Wed Apr 18 20:18:57 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
+!   @Last revision date: Thu May 10 16:18:42 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: c2afece84e4d760f10f227761dc63b7b1b966697
 !
 !//////////////////////////////////////////////////////
 !
@@ -113,8 +113,7 @@ module ConstructMeshAndSpectralBasis_MOD
 !     ------------------------
 !
       DO eID = 1, SIZE(mesh % elements) 
-         CALL allocateElementStorage( mesh % elements(eID), Nx(eID),Ny(eID),Nz(eID), &
-                                      NCONS, NGRAD, .true. )
+         CALL allocateElementStorage( mesh % elements(eID), Nx(eID),Ny(eID),Nz(eID), .true. )
       END DO
 !
 !     -------------

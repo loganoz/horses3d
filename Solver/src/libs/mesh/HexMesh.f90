@@ -2336,10 +2336,11 @@ slavecoord:                DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         INTEGER          :: fID, eID, fileType, no_of_elements, flag, nodetype
-         integer          :: padding, pos
-         integer          :: Nxp1, Nyp1, Nzp1, no_of_eqs, array_rank
-         character(len=SOLFILE_STR_LEN)      :: rstName
+         INTEGER                        :: fID, eID, fileType, no_of_elements, flag, nodetype
+         integer                        :: padding, pos
+         integer                        :: Nxp1, Nyp1, Nzp1, no_of_eqs, array_rank
+         real(kind=RP), allocatable     :: Q(:,:,:,:)
+         character(len=SOLFILE_STR_LEN) :: rstName
 !
 !        Get the file title
 !        ------------------
@@ -2434,7 +2435,17 @@ slavecoord:                DO l = 1, 4
                stop
             end if
 
-            read(fID) e % storage % Q 
+            allocate(Q(NTOTALVARS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+            read(fID) Q
+
+#if defined(NAVIERSTOKES)
+            e % storage % Q = Q(1:NCONS,:,:,:)
+#endif
+#if defined(CAHNHILLIARD)
+            e % storage % c(1,:,:,:) = Q(NTOTALVARS,:,:,:)
+#endif
+
+            deallocate(Q)
             end associate
          end do
 !

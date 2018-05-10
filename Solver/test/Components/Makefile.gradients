@@ -63,7 +63,8 @@ OBJS_HORSES=  SMConstants \
 		ParamfileRegions \
 		LegendreAlgorithms \
 		InterpolationAndDerivatives \
-		navierstokes/FluidData \
+		navierstokes/FluidData_NS \
+		common/FluidData \
 		navierstokes/BoundaryConditions \
 		SharedBCModule \
 		FacePatchClass \
@@ -311,7 +312,7 @@ mkdirs: FORCE
 
 mkdirsComponents: FORCE
 	@mkdir -p ./build ./include ./lib ./bin
-	@mkdir -p ./build/navierstokes ./build/NavierStokesSolver
+	@mkdir -p ./build/navierstokes ./build/common ./build/NavierStokesSolver
 	@mkdir -p ./build/NavierStokesSolver/NonlinearMultigrid
 
 header: FORCE

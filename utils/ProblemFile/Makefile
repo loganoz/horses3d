@@ -141,9 +141,9 @@ endif
 ##############################################################
 ##	Get objects 
 ##############################################################
-HORSES_LIBS_NS=-lmonitors_ns -ljacobian_ns -lmesh_ns -lphysics_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
-HORSES_LIBS_CH=-lmonitors_ch -ljacobian_ch -lmesh_ch -lphysics_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject
-HORSES_LIBS_NSCH=-lmonitors_ch -ljacobian_ch -lmesh_ch -lphysics_nsch -lphysicsch -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS_NS=-ltimeintegrator_ns -ljacobian_ns -ldiscretization_ns -lmonitors_ns -lparticles_ns -lmesh_ns -lphysics_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS_CH=-ltimeintegrator_ch -ljacobian_ch -ldiscretization_ch -lmonitors_ch -lparticles_ch -lmesh_ch -lphysics_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS_NSCH=-ltimeintegrator_nsch -ljacobian_nsch -ldiscretization_nsch -lmonitors_nsch -lparticles_nsch -lmesh_nsch -lphysics_nsch -lphysicsch -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
 
 .DEFAULT_GOAL := all
 

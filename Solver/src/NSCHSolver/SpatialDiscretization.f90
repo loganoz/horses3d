@@ -223,7 +223,7 @@ module SpatialDiscretization
 !        Prolongation of the solution to the faces
 !        -----------------------------------------
 !
-!$omp parallel shared(mesh, time) private(k, eID, fID, i, j, k, e)
+!$omp parallel shared(mesh, time) private(k, eID, fID, i, j)
          call mesh % ProlongSolutionToFaces(NCONS)
 !        ----------------
 !        Update MPI Faces

@@ -78,13 +78,6 @@
 !
      INTEGER, PARAMETER :: N_EQN = 5, N_GRAD_EQN = 4
 !
-!    -----------------------------
-!    Number of physical dimensions
-!    -----------------------------
-!
-     INTEGER, PARAMETER       :: NDIM = 3
-     INTEGER, PARAMETER       :: IX = 1 , IY = 2 , IZ = 3
-!
 !    -------------------------------------------
 !!   The positions of the conservative variables
 !    -------------------------------------------
@@ -111,7 +104,8 @@
 !!   The ratio of the scale and reference tempartures
 !    ------------------------------------------------
 !
-     REAL( KIND=RP ) :: TRatio 
+     REAL( KIND=RP ) :: TRatio
+     real(kind=RP)   :: Lref, timeRef
 !    ----------------------------------
 !
 !    --------------------------
@@ -229,7 +223,7 @@
 !     Reference values
 !     ----------------
 !
-      refValues_ % L  = 1.0_RP 
+      Lref  = 1.0_RP 
       refValues_ % T  = 520.0_RP
       refValues_ % rho = 101325.0_RP / (thermodynamics_ % R * refValues_ % T)
       refValues_ % V =   dimensionless_ % Mach &
@@ -237,7 +231,7 @@
       refValues_ % p = refValues_ % rho * POW2( refValues_ % V )
 
       if ( flowIsNavierStokes ) then
-         refValues_ % mu = refValues_ % rho * refValues_ % V * refValues_ % L / dimensionless_ % Re
+         refValues_ % mu = refValues_ % rho * refValues_ % V * Lref / dimensionless_ % Re
          refValues_ % kappa = refValues_ % mu * thermodynamics_ % cp / dimensionless_ % Pr
 
       else
@@ -246,7 +240,7 @@
       
       end if
 
-      refValues_ % time = refValues_ % L / refValues_ % V
+      timeref = Lref / refValues_ % V
 
       TScale          = 198.6_RP
       TRatio          = TScale/ refValues_ % T
@@ -300,14 +294,14 @@
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference pressure: " , pRef, " Pa."
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference density: " , refValues % rho , " kg/m^3."
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference velocity: " , refValues % V , " m/s."
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reynolds length: " , refValues % L , " m."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reynolds length: " , Lref , " m."
          
          if ( flowIsNavierStokes ) then
             write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference viscosity: ",refValues % mu , " Pa·s."
             write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference conductivity: ", refValues % kappa, " W/(m·K)."
          end if
 
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference time: ", refValues % time, " s."
+         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference time: ", timeref, " s."
 
          write(STD_OUT,'(/)')
          call SubSection_Header("Dimensionless quantities")
