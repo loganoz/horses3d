@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Wed May  9 15:26:09 2018
+!   @Last revision date: Fri May 11 13:06:51 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 030a84de7dedac0cada2e2d9ba22dfd63aa09eb8
+!   @Last revision commit: 8e164298629e7c619d07ae268e3284e9ecc3158c
 !
 !//////////////////////////////////////////////////////
 !
@@ -187,9 +187,11 @@ module SpatialDiscretization
 !        Update MPI Faces
 !        ----------------
 !
+#ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesSolution
 !$omp end single
+#endif
 !
 !        -----------------
 !        Compute gradients
@@ -197,9 +199,11 @@ module SpatialDiscretization
 !
          CALL DGSpatial_ComputeGradient( mesh , time , BCFunctions(C_BC) % externalState)
 
+#ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesGradients
 !$omp end single
+#endif
 !
 !        ------------------------------
 !        Compute the chemical potential
@@ -245,9 +249,11 @@ module SpatialDiscretization
 !        Update MPI Faces
 !        ----------------
 !
+#ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesSolution
 !$omp end single
+#endif
 !
 !        -----------------
 !        Compute gradients
@@ -255,9 +261,11 @@ module SpatialDiscretization
 !
          CALL DGSpatial_ComputeGradient( mesh , time , BCFunctions(MU_BC) % externalState)
 
+#ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesGradients
 !$omp end single
+#endif
 !
 !        ------------------------------
 !        Compute the chemical potential
@@ -328,7 +336,6 @@ module SpatialDiscretization
 !$omp end do
 
          end if
-         
 !$omp end parallel
 
       end subroutine ComputeTimeDerivative
@@ -393,9 +400,11 @@ module SpatialDiscretization
 !        Update MPI Faces
 !        ----------------
 !
+#ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesSolution
 !$omp end single
+#endif
 !
 !        -----------------
 !        Compute gradients
@@ -403,9 +412,11 @@ module SpatialDiscretization
 !
          CALL DGSpatial_ComputeGradient( mesh , time , BCFunctions(C_BC) % externalState)
 
+#ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesGradients
 !$omp end single
+#endif
 !
 !        ------------------------------
 !        Compute the chemical potential
@@ -450,9 +461,11 @@ module SpatialDiscretization
 !        Update MPI Faces
 !        ----------------
 !
+#ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesSolution
 !$omp end single
+#endif
 !
 !        -----------------
 !        Compute gradients
@@ -460,9 +473,11 @@ module SpatialDiscretization
 !
          CALL DGSpatial_ComputeGradient( mesh , time , BCFunctions(MU_BC) % externalState)
 
+#ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesGradients
 !$omp end single
+#endif
 !
 !        ------------------------------
 !        Compute the chemical potential
@@ -505,7 +520,6 @@ module SpatialDiscretization
             call mesh % faces(fID) % storage(2) % SetStorageToCH_c
          end do
 !$omp end do
-
 !$omp end parallel
 
       end subroutine ComputeTimeDerivative_OnlyLinear
@@ -571,9 +585,11 @@ module SpatialDiscretization
 !        Update MPI Faces
 !        ----------------
 !
+#ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesSolution
 !$omp end single
+#endif
 !
 !        -----------------
 !        Compute gradients
@@ -581,9 +597,11 @@ module SpatialDiscretization
 !
          CALL DGSpatial_ComputeGradient( mesh , time , BCFunctions(C_BC) % externalState)
 
+#ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesGradients
 !$omp end single
+#endif
 !
 !        ------------------------------
 !        Compute the chemical potential
@@ -629,9 +647,11 @@ module SpatialDiscretization
 !        Update MPI Faces
 !        ----------------
 !
+#ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesSolution
 !$omp end single
+#endif
 !
 !        -----------------
 !        Compute gradients
@@ -639,9 +659,11 @@ module SpatialDiscretization
 !
          CALL DGSpatial_ComputeGradient( mesh , time , BCFunctions(MU_BC) % externalState)
 
+#ifdef _HAS_MPI_
 !$omp single
          call mesh % UpdateMPIFacesGradients
 !$omp end single
+#endif
 !
 !        ------------------------------
 !        Compute the chemical potential
@@ -714,7 +736,6 @@ module SpatialDiscretization
          end if
          
 !$omp end parallel
-
 
       end subroutine ComputeTimeDerivative_OnlyNonLinear
       

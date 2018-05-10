@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Fri May  4 13:55:34 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: a0b0d307719b0b49ef776f8ec85b0bed73b4a32d
+!   @Last revision date: Fri May 11 13:06:55 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 8e164298629e7c619d07ae268e3284e9ecc3158c
 !
 !//////////////////////////////////////////////////////
 !
@@ -154,11 +154,9 @@ module StorageClass
          ALLOCATE( self % G_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S      (NCONS,0:Nx,0:Ny,0:Nz) )
          
-         IF ( computeGradients )     THEN
-            ALLOCATE( self % U_xNS (NGRAD,0:Nx,0:Ny,0:Nz) )
-            ALLOCATE( self % U_yNS (NGRAD,0:Nx,0:Ny,0:Nz) )
-            ALLOCATE( self % U_zNS (NGRAD,0:Nx,0:Ny,0:Nz) )
-         END IF
+         ALLOCATE( self % U_xNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % U_yNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % U_zNS (NGRAD,0:Nx,0:Ny,0:Nz) )
 !
 !        Point to NS by default
 !        ----------------------
@@ -189,11 +187,9 @@ module StorageClass
          self % QNS    = 0.0_RP
          self % QDotNS = 0.0_RP
          
-         IF ( computeGradients )     THEN
-            self % U_xNS = 0.0_RP
-            self % U_yNS = 0.0_RP
-            self % U_zNS = 0.0_RP
-         END IF
+         self % U_xNS = 0.0_RP
+         self % U_yNS = 0.0_RP
+         self % U_zNS = 0.0_RP
 #endif
 
 #if defined(CAHNHILLIARD)
@@ -400,22 +396,13 @@ module StorageClass
 #if defined(NAVIERSTOKES)
 
          ALLOCATE( self % QNS   (NCONS,0:Nf(1),0:Nf(2)) )
-         if (computeGradients) then
-            ALLOCATE( self % U_xNS(NGRAD,0:Nf(1),0:Nf(2)) )
-            ALLOCATE( self % U_yNS(NGRAD,0:Nf(1),0:Nf(2)) )
-            ALLOCATE( self % U_zNS(NGRAD,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % U_xNS(NGRAD,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % U_yNS(NGRAD,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % U_zNS(NGRAD,0:Nf(1),0:Nf(2)) )
 !
-!           Biggest Interface flux memory size is u\vec{n}
-!           ----------------------------------------------
-            interfaceFluxMemorySize = NGRAD * nDIM * product(Nf + 1)
-
-         else
-!
-!           Biggers Interface flux memory is fStar
-!           --------------------------------------
-            interfaceFluxMemorySize = NCONS * product(Nf + 1)
-
-         end if
+!        Biggest Interface flux memory size is u\vec{n}
+!        ----------------------------------------------
+         interfaceFluxMemorySize = NGRAD * nDIM * product(Nf + 1)
 !
 !        TODO: JMT, if (implicit..?)
          allocate( self % dFStar_dqF (NCONS,NCONS, 0: Nf(1), 0: Nf(2)) )
@@ -456,11 +443,9 @@ module StorageClass
 #if defined(NAVIERSTOKES)
          self % QNS    = 0.0_RP
          
-         IF ( computeGradients )     THEN
-            self % U_xNS = 0.0_RP
-            self % U_yNS = 0.0_RP
-            self % U_zNS = 0.0_RP
-         END IF
+         self % U_xNS = 0.0_RP
+         self % U_yNS = 0.0_RP
+         self % U_zNS = 0.0_RP
 
          self % dFStar_dqF  = 0.0_RP
          self % dFStar_dqEl = 0.0_RP

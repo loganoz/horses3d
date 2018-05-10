@@ -787,10 +787,11 @@ slavecoord:                DO l = 1, 4
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      subroutine HexMesh_UpdateMPIFacesSolution(self)
+      subroutine HexMesh_UpdateMPIFacesSolution(self, nEqn)
          use MPI_Face_Class
          implicit none
-         class(HexMesh)    :: self
+         class(HexMesh)         :: self
+         integer,    intent(in) :: nEqn
 #ifdef _HAS_MPI_
 !
 !        ---------------
@@ -808,7 +809,7 @@ slavecoord:                DO l = 1, 4
 !        ***************************
 !
          do domain = 1, MPI_Process % nProcs
-            call mpi_faces(domain) % RecvQ(domain)
+            call mpi_faces(domain) % RecvQ(domain, nEqn)
          end do
 !
 !        *************
@@ -829,8 +830,8 @@ slavecoord:                DO l = 1, 4
                thisSide = mpi_faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  mpi_faces(domain) % Qsend(counter:counter+NCONS-1) = f % storage(thisSide) % Q(:,i,j)
-                  counter = counter + NCONS
+                  mpi_faces(domain) % Qsend(counter:counter+nEqn-1) = f % storage(thisSide) % Q(:,i,j)
+                  counter = counter + nEqn
                end do               ; end do
                end associate
             end do
@@ -839,15 +840,16 @@ slavecoord:                DO l = 1, 4
 !           Send solution
 !           -------------
 !
-            call mpi_faces(domain) % SendQ(domain)
+            call mpi_faces(domain) % SendQ(domain, nEqn)
          end do
 #endif
       end subroutine HexMesh_UpdateMPIFacesSolution
 
-      subroutine HexMesh_UpdateMPIFacesGradients(self)
+      subroutine HexMesh_UpdateMPIFacesGradients(self, nEqn)
          use MPI_Face_Class
          implicit none
-         class(HexMesh)    :: self
+         class(HexMesh)      :: self
+         integer, intent(in) :: nEqn
 #ifdef _HAS_MPI_
 !
 !        ---------------
@@ -865,7 +867,7 @@ slavecoord:                DO l = 1, 4
 !        ***************************
 !
          do domain = 1, MPI_Process % nProcs
-            call mpi_faces(domain) % RecvU_xyz(domain)
+            call mpi_faces(domain) % RecvU_xyz(domain, nEqn)
          end do
 !
 !        ***************
@@ -882,30 +884,31 @@ slavecoord:                DO l = 1, 4
                thisSide = mpi_faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  mpi_faces(domain) % U_xyzsend(counter:counter+NGRAD-1) = f % storage(thisSide) % U_x(:,i,j)
-                  counter = counter + NGRAD
+                  mpi_faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_x(:,i,j)
+                  counter = counter + nEqn
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  mpi_faces(domain) % U_xyzsend(counter:counter+NGRAD-1) = f % storage(thisSide) % U_y(:,i,j)
-                  counter = counter + NGRAD
+                  mpi_faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_y(:,i,j)
+                  counter = counter + nEqn
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  mpi_faces(domain) % U_xyzsend(counter:counter+NGRAD-1) = f % storage(thisSide) % U_z(:,i,j)
-                  counter = counter + NGRAD
+                  mpi_faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_z(:,i,j)
+                  counter = counter + nEqn
                end do               ; end do
                end associate
             end do
 
-            call mpi_faces(domain) % SendU_xyz(domain)
+            call mpi_faces(domain) % SendU_xyz(domain, nEqn)
          end do
 #endif
       end subroutine HexMesh_UpdateMPIFacesGradients
 
-      subroutine HexMesh_GatherMPIFacesSolution(self)
+      subroutine HexMesh_GatherMPIFacesSolution(self, nEqn)
          implicit none
          class(HexMesh)    :: self
+         integer, intent(in) :: nEqn
 #ifdef _HAS_MPI_
 !
 !        ---------------
@@ -936,8 +939,8 @@ slavecoord:                DO l = 1, 4
                thisSide = mpi_faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % Q(:,i,j) = mpi_faces(domain) % Qrecv(counter:counter+NCONS-1)
-                  counter = counter + NCONS
+                  f % storage(otherSide(thisSide)) % Q(:,i,j) = mpi_faces(domain) % Qrecv(counter:counter+nEqn-1)
+                  counter = counter + nEqn
                end do               ; end do
                end associate
             end do
@@ -945,9 +948,10 @@ slavecoord:                DO l = 1, 4
 #endif
       end subroutine HexMesh_GatherMPIFacesSolution
 
-      subroutine HexMesh_GatherMPIFacesGradients(self)
+      subroutine HexMesh_GatherMPIFacesGradients(self, nEqn)
          implicit none
-         class(HexMesh)    :: self
+         class(HexMesh)      :: self
+         integer, intent(in) :: nEqn
 #ifdef _HAS_MPI_
 !
 !        ---------------
@@ -979,18 +983,18 @@ slavecoord:                DO l = 1, 4
                thisSide = mpi_faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % U_x(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+NGRAD-1)
-                  counter = counter + NGRAD
+                  f % storage(otherSide(thisSide)) % U_x(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
+                  counter = counter + nEqn
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % U_y(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+NGRAD-1)
-                  counter = counter + NGRAD
+                  f % storage(otherSide(thisSide)) % U_y(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
+                  counter = counter + nEqn
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % U_z(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+NGRAD-1)
-                  counter = counter + NGRAD
+                  f % storage(otherSide(thisSide)) % U_z(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
+                  counter = counter + nEqn
                end do               ; end do
                end associate
             end do
@@ -1561,7 +1565,12 @@ slavecoord:                DO l = 1, 4
                end do
             end do
 
+#if defined(NAVIERSTOKES)
             call ConstructMPIFacesStorage(NCONS, NGRAD, MPI_NDOFS)
+#elif defined(CAHNHILLIARD)
+            call ConstructMPIFacesStorage(NCOMP, NCOMP, MPI_NDOFS)
+#endif
+
 #endif
          end if
          

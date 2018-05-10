@@ -272,7 +272,7 @@ module SurfaceIntegrals
                                             mesh % faces(fIDs(5)),&
                                             mesh % faces(fIDs(6)) )
             if ( computeGradients ) then
-               call elements(eID) % ProlongGradientsToFaces(NCONS, mesh % faces(fIDs(1)),&
+               call elements(eID) % ProlongGradientsToFaces(NGRAD, mesh % faces(fIDs(1)),&
                                                 mesh % faces(fIDs(2)),&
                                                 mesh % faces(fIDs(3)),&
                                                 mesh % faces(fIDs(4)),&

@@ -339,7 +339,7 @@ Module DGSEMClass
 !     ----------------------------
 !
       self % NDOF = 0
-      DO k=1, nTotalElem
+      DO k=1, self % mesh % no_of_elements
          associate(e => self % mesh % elements(k))
          self % NDOF = self % NDOF + NTOTALVARS * (e % Nxyz(1) + 1) * (e % Nxyz(2) + 1) * (e % Nxyz(3) + 1)
          end associate

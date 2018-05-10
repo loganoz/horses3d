@@ -219,9 +219,11 @@ module SpatialDiscretization
 !        Update MPI Faces
 !        ----------------
 !
+#ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesSolution
+         call mesh % UpdateMPIFacesSolution(NCONS)
 !$omp end single
+#endif
 !
 !        -----------------
 !        Compute gradients
@@ -231,11 +233,13 @@ module SpatialDiscretization
             CALL DGSpatial_ComputeGradient(mesh , time , BCFunctions(1) % externalState)
          end if
 
+#ifdef _HAS_MPI_
 !$omp single
          if ( flowIsNavierStokes ) then
-            call mesh % UpdateMPIFacesGradients
+            call mesh % UpdateMPIFacesGradients(NGRAD)
          end if
 !$omp end single
+#endif
 !
 !        -----------------------
 !        Compute time derivative
@@ -386,9 +390,9 @@ module SpatialDiscretization
          if ( MPI_Process % doMPIAction ) then
 !$omp single
             if ( flowIsNavierStokes ) then 
-               call mesh % GatherMPIFacesGradients
+               call mesh % GatherMPIFacesGradients(NGRAD)
             else  
-               call mesh % GatherMPIFacesSolution
+               call mesh % GatherMPIFacesSolution(NCONS)
             end if          
 !$omp end single
 !

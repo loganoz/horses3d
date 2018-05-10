@@ -4,9 +4,9 @@
 !   @File:    GradientsStabilization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Thu Apr 12 11:32:49 2018
-!   @Last revision date: Fri Apr 20 17:25:00 2018
+!   @Last revision date: Fri May 11 13:06:55 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
+!   @Last revision commit: 8e164298629e7c619d07ae268e3284e9ecc3158c
 !
 !//////////////////////////////////////////////////////
 !
@@ -75,7 +75,7 @@ module GradientsStabilization
 !$omp do schedule(runtime) 
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID))
-#ifdef __HAS_MPI__
+#ifdef _HAS_MPI_
             if ( e % hasSharedFaces ) cycle
 #endif
 !
@@ -109,7 +109,7 @@ module GradientsStabilization
          end do
 !$omp end do
 
-#ifdef __HAS_MPI__
+#ifdef _HAS_MPI_
 !$omp do schedule(runtime) 
          do fID = 1, SIZE(mesh % faces) 
             associate(f => mesh % faces(fID)) 

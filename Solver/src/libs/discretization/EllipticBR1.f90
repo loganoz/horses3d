@@ -133,7 +133,7 @@ module EllipticBR1
 
 !$omp single
          if ( MPI_Process % doMPIAction ) then 
-            call mesh % GatherMPIFacesSolution
+            call mesh % GatherMPIFacesSolution(nEqn)
          end if
 !$omp end single
 
