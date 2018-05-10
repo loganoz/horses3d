@@ -55,6 +55,22 @@ module SpatialDiscretization
             EXTERNAL                     :: externalGradientsProcedure
          end subroutine computeBoundaryFluxF
       end interface
+      
+      
+      interface
+         subroutine UserDefinedSourceTerm(x, time, S, thermodynamics_, dimensionless_, refValues_)
+            use SMConstants
+            USE HexMeshClass
+            use PhysicsStorage
+            IMPLICIT NONE
+            real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: time
+            real(kind=RP),             intent(out)  :: S(NCONS)
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
+         end subroutine UserDefinedSourceTerm
+      end interface
 
       procedure(computeElementInterfaceFluxF), pointer :: computeElementInterfaceFlux => computeElementInterfaceFlux_NS
       procedure(computeMPIFaceFluxF),          pointer :: computeMPIFaceFlux          => computeMPIFaceFlux_NS
@@ -311,20 +327,6 @@ module SpatialDiscretization
 !        ---------------
 !
          integer     :: eID , i, j, k, ierr, fID
-         interface
-            subroutine UserDefinedSourceTerm(x, time, S, thermodynamics_, dimensionless_, refValues_)
-               use SMConstants
-               USE HexMeshClass
-               use PhysicsStorage
-               IMPLICIT NONE
-               real(kind=RP),             intent(in)  :: x(NDIM)
-               real(kind=RP),             intent(in)  :: time
-               real(kind=RP),             intent(out)  :: S(NCONS)
-               type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-               type(Dimensionless_t),     intent(in)  :: dimensionless_
-               type(RefValues_t),         intent(in)  :: refValues_
-            end subroutine UserDefinedSourceTerm
-         end interface
 !
 !        ****************
 !        Volume integrals
@@ -477,19 +479,6 @@ module SpatialDiscretization
 !        ---------------
 !
          integer     :: eID , i, j, k, fID
-         interface
-            subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
-               use SMConstants
-               USE HexMeshClass
-               use PhysicsStorage
-               IMPLICIT NONE
-               CLASS(HexMesh)                        :: mesh
-               REAL(KIND=RP)                         :: time
-               type(Thermodynamics_t),    intent(in) :: thermodynamics_
-               type(Dimensionless_t),     intent(in) :: dimensionless_
-               type(RefValues_t),         intent(in) :: refValues_
-            end subroutine UserDefinedSourceTerm
-         end interface
 !
 !        ****************
 !        Volume integrals
@@ -537,11 +526,20 @@ module SpatialDiscretization
          end do
 !$omp end do
 !
-!        *****************
 !        Add a source term
-!        *****************
-!
-         if (.not. mesh % child) call UserDefinedSourceTerm(mesh, t, thermodynamics, dimensionless, refValues)
+!        -----------------
+         if (.not. mesh % child) then
+!$omp do schedule(runtime) private(i,j,k)
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  call UserDefinedSourceTerm(e % geom % x(:,i,j,k), t, e % storage % S(:,i,j,k), thermodynamics, dimensionless, refValues)
+               end do                  ; end do                ; end do
+               end associate
+            end do
+!$omp end do
+         end if
+         
 !$omp do schedule(runtime) private(i,j,k)
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
