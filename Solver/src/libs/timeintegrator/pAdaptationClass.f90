@@ -275,8 +275,8 @@ module pAdaptationClass
 !     If this is a p-anisotropic 3D case, the minimum polynomial order is 2
 !     ---------------------------------------------------------------------
       
-      if ( .not. controlVariables % containsKey("2d mesh offset direction") ) then
-         NMIN = 2
+      if ( controlVariables % containsKey("adaptation nmin") ) then
+         NMIN = controlVariables % integerValueForKey("adaptation nmin")
       else
          NMIN = 1
       end if
@@ -417,7 +417,7 @@ module pAdaptationClass
 !     Estimate the truncation error using the anisotropic multigrid
 !     -------------------------------------------------------------
 !
-      CALL AnisFASpAdaptSolver % construct(controlVariables,sem,estimator=.TRUE.)
+      CALL AnisFASpAdaptSolver % construct(controlVariables,sem,estimator=.TRUE.,NMINestim = NMIN)
       CALL AnisFASpAdaptSolver % solve(itera,t,computeTimeDerivative,ComputeTimeDerivativeIsolated,pAdapt % TE, pAdapt % TruncErrorType)
       CALL AnisFASpAdaptSolver % destruct
 !
@@ -425,12 +425,11 @@ module pAdaptationClass
 !     Find the polynomial order that fulfills the error requirement
 !     -------------------------------------------------------------
 !
-      ! Loop over all elements
-!!!!$OMP PARALLEL do PRIVATE(Pxyz,P_1,TEmap,NewDOFs,i,j,k)  ! TODO: Modify private and uncomment
-      
       ! Allocate the TEmap with the maximum number of N compinations and initialize it
       allocate(TEmap(NMIN:pAdapt % NxyzMax(1),NMIN:pAdapt % NxyzMax(2),NMIN:pAdapt % NxyzMax(3)))
       
+      ! Loop over all elements
+!!!!$OMP PARALLEL do PRIVATE(Pxyz,P_1,TEmap,NewDOFs,i,j,k)  ! TODO: Modify private and uncomment
       do iEl = 1, nelem
          
          Pxyz = sem % mesh % elements(iEl) % Nxyz
@@ -539,6 +538,8 @@ module pAdaptationClass
                NNew(:,iEl) = pAdapt % NxyzMax
             end if
          end if
+         
+!~         if (iEl==1) call PrintTEmap(TEmap,1,NMIN,pAdapt % solutionFileName)
 !
 !        ---------------------------------------------------------------------------
 !        If the maximum polynomial order was not found, select the maximum available
@@ -552,10 +553,10 @@ module pAdaptationClass
          end if
          
       end do
+!!!!$OMP END PARALLEL DO
       
       deallocate(TEmap)
       
-!!!!$OMP END PARALLEL DO
 !
 !     ----------------------------------------------------------------------------
 !     In case of increasing adaptator, modify polynomial orders according to stage
@@ -624,9 +625,9 @@ module pAdaptationClass
 !     -----------------
 !
       call sem % destruct
-      call sem % construct (  controlVariables  = controlVariables                              ,  &
+      call sem % construct (  controlVariables  = controlVariables                       ,   &
                               BCFunctions       = BCFunctions, &
-                              Nx_ = NNew(1,:) ,     Ny_ = NNew(2,:),     Nz_ = NNew(3,:),                   &
+                              Nx_ = NNew(1,:) ,     Ny_ = NNew(2,:),     Nz_ = NNew(3,:),    &
                               success           = success)
       IF(.NOT. success)   ERROR STOP "Error constructing adapted DGSEM"
       call Stopwatch % Pause("Preprocessing")
@@ -713,7 +714,7 @@ module pAdaptationClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -----------------------------------------------------------------------
-!  
+!  Subroutine to make the p-representation on certain boundaries conforming
 !  -----------------------------------------------------------------------
    subroutine makeBoundariesPConforming(mesh,NNew,last)
       use HexMeshClass
@@ -963,12 +964,6 @@ module pAdaptationClass
       x = (/ (real(i,RP), i=NMIN,P_1) /)
       call C_and_eta_estimation(N,x,y,C,eta)
       
-      ! Check if there is an unexpected behavior
-      if (C >= 0) then
-         Error = 1 
-         return
-      end if
-      
       ! Extrapolate the TE
       do i = P_1+1, NMax
          Adaptator % TE(iEl) % Dir(Dir) % maxTE(i) = 10**(C + eta*i)
@@ -987,6 +982,11 @@ module pAdaptationClass
          close(fd)
       end if
       
+      ! Check if there is an unexpected behavior
+      if (eta >= 0) then
+         Error = 1 
+         return
+      end if
       
    end subroutine RegressionIn1Dir
 !

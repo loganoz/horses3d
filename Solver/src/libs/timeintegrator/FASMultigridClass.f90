@@ -46,7 +46,6 @@ module FASMultigridClass
       class(GenericLinSolver_t), allocatable  :: linsolver             ! Linear solver for implicit smoothing
       integer                                 :: MGlevel               ! Current Multigrid level
       logical                                 :: computeA              !< Compute A in this level?
-      
       contains
          procedure :: construct
          procedure :: solve
@@ -82,11 +81,21 @@ module FASMultigridClass
    logical        :: SmoothFine     !      
    logical        :: ManSol         ! Does this case have manufactured solutions?
    logical        :: Compute_dt
+   logical        :: SaveFMGFile =.FALSE.
+   character(len=LINE_LENGTH)              :: FMGSolutionFile
+   logical                                 :: saveGradients
    real(kind=RP)  :: SmoothFineFrac ! Fraction that must be smoothed in fine before going to coarser level
    real(kind=RP)  :: cfl            ! Advective cfl number
    real(kind=RP)  :: dcfl           ! Diffusive cfl number
    real(kind=RP)  :: own_dt             ! dt
    
+   interface
+      character(len=LINE_LENGTH) function getFileName( inputLine )
+         use SMConstants
+         implicit none
+         character(len=*)     :: inputLine
+      end function getFileName
+   end interface
 !========
  contains
 !========
@@ -199,6 +208,12 @@ module FASMultigridClass
          MaxSweeps = controlVariables % IntegerValueForKey("max mg sweeps")
       else
          MaxSweeps = MAX_SWEEPS_DEFAULT
+      end if
+      
+      if (controlVariables % logicalValueForKey("fasfmg save solutions") ) then
+         SaveFMGFile = .TRUE.
+         saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
+         FMGSolutionFile = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
       end if
       
 !     Read cfl and dcfl numbers
@@ -636,6 +651,7 @@ module FASMultigridClass
       integer        :: N1(3), N2(3)
       real(kind=RP)  :: maxResidual(N_EQN)   ! Maximum residual in each equation
       integer        :: counter              ! Iteration counter
+      character(len=LINE_LENGTH) :: FMGFile
       !----------------------------------------------------------------------------
 !
 !     ------------------------------------------
@@ -655,6 +671,17 @@ module FASMultigridClass
 
          call FASFMGCycle(this % Child,t,tol,lvl-1, ComputeTimeDerivative)
       end if
+!
+!     ------------------------------
+!     Save FMG solution if requested
+!     ------------------------------
+!
+      
+      if (SaveFMGFile) then
+         write(FMGFile,'(A,A,I2.2,A)')  trim( FMGSolutionFile ), '_FMG_', lvl, '.hsol'
+         call this % p_sem % mesh % SaveSolution(0,0._RP,trim(FMGFile),saveGradients)
+      end if
+
 !
 !     ----------------------
 !     Perform a V-Cycle here

@@ -13,7 +13,7 @@ module TruncationErrorClass
    implicit none
    
    private
-   public TruncationError_t, EstimateTruncationError, InitializeForTauEstimation, GenerateExactTEmap
+   public TruncationError_t, EstimateTruncationError, InitializeForTauEstimation, PrintTEmap, AssignTimeDerivative, EstimateTauOfElem, GenerateExactTEmap
    public NON_ISOLATED_TE, ISOLATED_TE
    
    !---------------------------------------------------------------------------------------------------------
@@ -64,6 +64,11 @@ module TruncationErrorClass
          type(Dimensionless_t),     intent(in)  :: dimensionless_
          type(RefValues_t),         intent(in)  :: refValues_
       end subroutine UserDefinedSourceTerm
+      character(len=LINE_LENGTH) function RemovePath( inputLine )
+         use SMConstants
+         implicit none
+         character(len=*)     :: inputLine
+      end function RemovePath
    end interface
 !
 !  ----------------
@@ -227,27 +232,41 @@ module TruncationErrorClass
 !  -----------------------------------------------------------------------
 !  Subroutine for printing the TE map(s) of one element
 !  -----------------------------------------------------------------------
-   subroutine PrintTEmap(TEmap,iEl)
+   subroutine PrintTEmap(TEmap,iEl,NMIN,FileName)
       implicit none
       !-------------------------------------------
-      real(kind=RP)  :: TEmap(:,:,:)
-      integer        :: iEl
+      real(kind=RP)    :: TEmap(NMIN:,NMIN:,NMIN:)
+      integer          :: iEl
+      integer          :: NMIN
+      character(len=*) :: FileName
       !-------------------------------------------
       integer                :: k, i, l
       integer                :: fd
       character(LINE_LENGTH) :: TEmapfile
       !-------------------------------------------
       
-      do k = 1, size(TEmap,3)
-         write(TEmapfile,'(A,I7.7,A,I2.2,A)') 'RegressionFiles/TEmapXY-Elem_',iEl,'-Nz_',k,'.dat'
+      do k = lbound(TEmap,3), ubound(TEmap,3)
+         write(TEmapfile,'(3A,I7.7,A,I2.2,A)') 'RegressionFiles/TEmap_', trim(RemovePath(FileName)), '-Elem_',iEl,'-Nz_',k,'.dat'
    
          open(newunit = fd, file=TRIM(TEmapfile), action='write')
-            do i = 1, size(TEmap, 1)
-               write(fd,*) (TEmap(i,l,k),l=1,size(TEmap,2))
+            do i = lbound(TEmap, 1), ubound(TEmap, 1)
+               write(fd,*) (TEmap(i,l,k),l=lbound(TEmap,2),ubound(TEmap,2))
             end do
          close(fd)
       end do
    end subroutine PrintTEmap
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
+!  Subroutine for printing the TE map(s) of one element
+!  -----------------------------------------------------------------------
+   subroutine AssignTimeDerivative(ComputeTimeDerivative)
+      implicit none
+      procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
+      
+      TimeDerivative => ComputeTimeDerivative
+   end subroutine AssignTimeDerivative
 !
 !  ------------------------------------------------------------------------
 !  Subroutine for generating the exact  truncation error map in one element
@@ -271,14 +290,8 @@ module TruncationErrorClass
       integer                    :: i,j,k
       integer                    :: nelem      ! Number of elements
       type(BCFunctions_t)        :: BCFunctions(no_of_BCsets)
-!~       type(SolStorage_t), allocatable :: Var(:)  
       logical                              :: success   
       integer, dimension(size(sem % mesh % elements) ) :: Nx, Ny, Nz
-!~       integer                              :: eID
-!~       integer                              :: ii,jj,kk
-      
-!~       real(kind=RP)  :: maxTE, wx, wy, wz, Jac, maxTEtemp
-!~       integer        :: iEQ, ElMax
       !-------------------------------------------------------------------------
       
       ! Initializations
@@ -296,7 +309,6 @@ module TruncationErrorClass
 #elif defined(CAHNHILLIARD)
       BCFunctions(C_BC) % externalState      => externalStateForBoundaryName
       BCFunctions(C_BC) % externalGradients  => externalConcentrationGradientForBoundaryName
-
       BCFunctions(MU_BC) % externalState     => externalStateForBoundaryName
       BCFunctions(MU_BC) % externalGradients => externalChemicalPotentialGradientForBoundaryName
 #endif
@@ -335,7 +347,7 @@ module TruncationErrorClass
          end do
       end do
       
-      CALL PrintTEmap(TEmap,iEl)
+      CALL PrintTEmap(TEmap,iEl,NMIN,"Exact")
       stop
       
    end subroutine GenerateExactTEmap

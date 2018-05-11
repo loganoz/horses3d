@@ -89,7 +89,7 @@ module AnisFASMultigridClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,controlVariables,sem,estimator)
+   subroutine construct(this,controlVariables,sem,estimator,NMINestim)
       use FTValueDictionaryClass
       use StopwatchClass
       implicit none
@@ -98,6 +98,7 @@ module AnisFASMultigridClass
       type(FTValueDictionary)  , intent(in)            :: controlVariables  !<  Input variables
       type(DGSem)              , intent(in)   , target :: sem               !<  Fine sem class
       logical                  , intent(in) , optional :: estimator         !<  Is this anisotropic FAS only an estimator?
+      integer                  , intent(in) , optional :: NMINestim         !<  NMIN for tau-estimation
       !-----------------------------------------------------------
       integer                    :: Dir               ! Direction of coarsening
       integer                    :: UserMGlvls        ! User defined number of MG levels
@@ -231,8 +232,14 @@ module AnisFASMultigridClass
 !        (and AnisFAS ALWAYS creates anisotropic meshes - almost guaranteed to be nonconforming - change?)
 !     --------------------------------------------------
       
-      if (sem % mesh % meshIs2D .or. AnisFASestimator) then
+      if (sem % mesh % meshIs2D) then
          NMIN = 1
+      elseif (AnisFASestimator) then
+         if ( present(NMINestim) ) then
+            NMIN = NMINestim
+         else
+            NMIN = 1
+         end if
       else 
          NMIN = 2
       end if
