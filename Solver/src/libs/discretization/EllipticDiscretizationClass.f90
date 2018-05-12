@@ -22,7 +22,6 @@ module EllipticDiscretizationClass
 #if defined(NAVIERSTOKES)
          procedure      :: ComputeInnerFluxesWithSGS => BaseClass_ComputeInnerFluxesWithSGS
          procedure      :: ComputeInnerFluxJacobian  => BaseClass_ComputeInnerFluxJacobian
-         procedure      :: ComputeInnerFluxesWithSGS => BaseClass_ComputeInnerFluxesWithSGS
          procedure      :: RiemannSolver_Jacobians   => BaseClass_RiemannSolver_Jacobians
          procedure      :: RiemannSolverWithSGS      => BaseClass_RiemannSolverWithSGS
 #endif
@@ -169,6 +168,7 @@ module EllipticDiscretizationClass
 !                    |__________Jacobian for this component
 !              (added to existing Jacobian)
 !     --------------------------------------------------------------------------------------------------
+#if defined(NAVIERSTOKES)
       subroutine BaseClass_ComputeInnerFluxJacobian( self, e, df_dgradq, dFdQ) 
          use ElementClass
          use Physics
@@ -186,8 +186,7 @@ module EllipticDiscretizationClass
          integer :: i,j,k     ! Coordinate counters
          integer :: i1, i2    ! Index of G_xx
          !--------------------------------------------
-#if defined(NAVIERSTOKES)
-         call e % ComputeLocalGradient
+         call e % ComputeLocalGradient(NCONS, NGRAD, NSGradientValuesForQ_3D)
          call e % ComputeRhoGradient
             
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
@@ -262,7 +261,6 @@ module EllipticDiscretizationClass
                                                          e % geom % jGradZeta(3,i,j,k) * dfdq_(:,:,3) )
             
          end do                ; end do                ; end do
-#endif
       end subroutine BaseClass_ComputeInnerFluxJacobian
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

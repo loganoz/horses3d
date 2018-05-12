@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Sat May 12 20:53:33 2018
+!   @Last revision date: Sat May 12 21:51:10 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: ece79010cbff566c377be7e7026f86a2889a191e
+!   @Last revision commit: 0a98ff59a5332051367a2a5c89543fa1ed797190
 !
 !//////////////////////////////////////////////////////
 !
@@ -44,7 +44,7 @@ module StorageClass
       real(kind=RP), dimension(:,:), allocatable :: PrevQNS ! Previous solution(s) in the whole domain
 #endif
 #if defined(CAHNHILLIARD)
-      real(kind=RP), dimension(:)  , allocatable :: cDotNS
+      real(kind=RP), dimension(:)  , allocatable :: cDot
       real(kind=RP), dimension(:)  , allocatable :: c
       real(kind=RP), dimension(:,:), allocatable :: Prevc(:,:)
 #endif      
@@ -71,19 +71,19 @@ module StorageClass
       integer                                         :: currentlyLoaded
       integer                                         :: NDOF              ! Number of degrees of freedom of element
       integer                                         :: firstIdx          ! Position in the global solution array
-      real(kind=RP), dimension(:,:,:,:),  pointer     :: Q           ! Pointers to the appropriate storage (NS or CH)
-      real(kind=RP), dimension(:,:,:,:),  pointer     :: QDot        !
-      real(kind=RP), dimension(:,:,:,:),  pointer     :: U_x         !
-      real(kind=RP), dimension(:,:,:,:),  pointer     :: U_y         !
-      real(kind=RP), dimension(:,:,:,:),  pointer     :: U_z         !
+      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q           ! Pointers to the appropriate storage (NS or CH)
+      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: QDot        !
+      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_x         !
+      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_y         !
+      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_z         !
       type(ElementPrevSol_t),  allocatable :: PrevQ(:)           ! Previous solution
 #if defined(NAVIERSTOKES)
-      real(kind=RP),           pointer     :: QNS(:,:,:,:)         ! NSE State vector
+      real(kind=RP),           pointer    , contiguous :: QNS(:,:,:,:)         ! NSE State vector
+      real(kind=RP), private,  pointer    , contiguous :: QDotNS(:,:,:,:)      ! NSE State vector time derivative
       real(kind=RP), private,  allocatable :: U_xNS(:,:,:,:)       ! NSE x-gradients
       real(kind=RP), private,  allocatable :: U_yNS(:,:,:,:)       ! NSE y-gradients
       real(kind=RP), private,  allocatable :: U_zNS(:,:,:,:)       ! NSE z-gradients
       real(kind=RP),           allocatable :: gradRho(:,:,:,:)
-      real(kind=RP), private,  pointer     :: QDotNS(:,:,:,:)      ! NSE State vector time derivative
       real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliar storage
       real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
       type(Statistics_t)                   :: stats                ! NSE statistics
@@ -106,8 +106,8 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_le  ! LEFT
 #endif
 #if defined(CAHNHILLIARD)
-      real(kind=RP), dimension(:,:,:,:),   pointer     :: c     ! CHE concentration
-      real(kind=RP), dimension(:,:,:,:),   pointer     :: cDot  ! CHE concentration time derivative
+      real(kind=RP), dimension(:,:,:,:),   pointer    , contiguous :: c     ! CHE concentration
+      real(kind=RP), dimension(:,:,:,:),   pointer    , contiguous :: cDot  ! CHE concentration time derivative
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c_x   ! CHE concentration x-gradient
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c_y   ! CHE concentration y-gradient
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c_z   ! CHE concentration z-gradient
@@ -273,7 +273,6 @@ module StorageClass
             self % PrevQ(k) % QNS(1:NCONS,0:Nx,0:Ny,0:Nz) => globalStorage % PrevQNS(bounds(1):bounds(2),k)
          end do
 
-#if defined(NAVIERSTOKES)
          ALLOCATE( self % G_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
          
@@ -290,8 +289,8 @@ module StorageClass
 #if defined(CAHNHILLIARD)
          bounds(1) = (firstIdx-1)*NCOMP + 1
          bounds(2) = bounds(1) + NCOMP * self % NDOF - 1
-         self % c   (1:NCONS,0:Nx,0:Ny,0:Nz) => globalStorage % c   (bounds(1) : bounds(2))
-         self % cDot(1:NCONS,0:Nx,0:Ny,0:Nz) => globalStorage % cDot(bounds(1) : bounds(2))
+         self % c   (1:NCOMP,0:Nx,0:Ny,0:Nz) => globalStorage % c   (bounds(1) : bounds(2))
+         self % cDot(1:NCOMP,0:Nx,0:Ny,0:Nz) => globalStorage % cDot(bounds(1) : bounds(2))
          ! Previous solution
          num_prevSol = size(globalStorage % PrevC,2)
          allocate ( self % PrevQ(num_prevSol) )
@@ -316,7 +315,7 @@ module StorageClass
 !
 #if defined(NAVIERSTOKES)
          self % G_NS   = 0.0_RP
-         self % S      = 0.0_RP
+         self % S_NS   = 0.0_RP
          self % QNS    = 0.0_RP
          self % QDotNS = 0.0_RP
          
@@ -569,8 +568,8 @@ module StorageClass
          allocate( self % dFStar_dqF (NCONS,NCONS, 0: Nf(1), 0: Nf(2)) )
          allocate( self % dFStar_dqEl(NCONS,NCONS, 0:Nel(1), 0:Nel(2),2) )
          
-         allocate( self % dFv_dGradQF (nEqn,nEqn,NDIM,2,0: Nf(1),0: Nf(2)) )
-         allocate( self % dFv_dGradQEl(nEqn,nEqn,NDIM,2,0:Nel(1),0:Nel(2)) )
+         allocate( self % dFv_dGradQF (NCONS,NCONS,NDIM,2,0: Nf(1),0: Nf(2)) )
+         allocate( self % dFv_dGradQEl(NCONS,NCONS,NDIM,2,0:Nel(1),0:Nel(2)) )
          
          allocate( self % gradRho   (NDIM,0:Nf(1),0:Nf(2)) )
 #endif

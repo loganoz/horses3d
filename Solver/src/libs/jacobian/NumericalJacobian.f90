@@ -264,10 +264,10 @@ contains
                   
                ENDDO
             END DO           
-            DO thiselmidx = ielm, felm-1                              !Cleans modified Qs
-               thiselm = ecolors%elmnts(thiselmidx)
-               sem%mesh%elements(thiselm)% storage % Q = dgs_clean(thiselm)% storage % Q           
-            END DO                                                
+!
+!           Restore original values for Q
+!           -----------------------------
+            sem % mesh % storage % Q = Q0
          ENDDO
       ENDDO
       

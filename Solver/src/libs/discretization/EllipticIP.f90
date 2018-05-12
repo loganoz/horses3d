@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Sat May 12 20:53:27 2018
+!   @Last revision date: Sat May 12 21:51:08 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: ece79010cbff566c377be7e7026f86a2889a191e
+!   @Last revision commit: 0a98ff59a5332051367a2a5c89543fa1ed797190
 !
 !//////////////////////////////////////////////////////
 !
@@ -44,10 +44,10 @@ module EllipticIP
          procedure      :: ComputeInnerFluxes      => IP_ComputeInnerFluxes
          procedure      :: PenaltyParameter        => IP_PenaltyParameter
          procedure      :: RiemannSolver           => IP_RiemannSolver
-         procedure      :: RiemannSolver_Jacobians => IP_RiemannSolver_Jacobians
 #if defined(NAVIERSTOKES)
          procedure      :: ComputeInnerFluxesWithSGS => IP_ComputeInnerFluxesWithSGS
          procedure      :: RiemannSolverWithSGS      => IP_RiemannSolverWithSGS
+         procedure      :: RiemannSolver_Jacobians => IP_RiemannSolver_Jacobians
 #endif
          procedure      :: Describe                => IP_Describe
    end type InteriorPenalty_t
@@ -568,7 +568,7 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_RiemannSolver ( self , f, EllipticFlux, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+      subroutine IP_RiemannSolver ( self , nEqn, nGradEqn, f, EllipticFlux, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
@@ -597,7 +597,6 @@ module EllipticIP
 !
          real(kind=RP)     :: Q(nEqn) , U_x(nGradEqn) , U_y(nGradEqn) , U_z(nGradEqn)
          real(kind=RP)     :: flux_vec(nEqn,NDIM)
-         real(kind=RP)     :: flux_vec (nEqn,NDIM)
          real(kind=RP)     :: flux_vecL(nEqn,NDIM)
          real(kind=RP)     :: flux_vecR(nEqn,NDIM)
          real(kind=RP)     :: mu, kappa, delta, sigma
@@ -610,8 +609,8 @@ module EllipticIP
          kappa = 0.0_RP
 #endif
 
-         call ViscousFlux(nEqn, QLeft , U_xLeft , U_yLeft , U_zLeft , mu, kappa, flux_vecL)
-         call ViscousFlux(nEqn, QRight, U_xRight, U_yRight, U_zRight, mu, kappa, flux_vecR)
+         call EllipticFlux(nEqn, nGradEqn, QLeft , U_xLeft , U_yLeft , U_zLeft, mu, kappa, flux_vecL )
+         call EllipticFlux(nEqn, nGradEqn, QRight , U_xRight , U_yRight , U_zRight, mu, kappa, flux_vecR )
 
          flux_vec = 0.5_RP * (flux_vecL + flux_vecR)
 
@@ -640,6 +639,7 @@ module EllipticIP
 !                    |                    |__________Jacobian for this component
 !                    |_______________________________1 for ∇q⁺ and 2 for ∇q⁻
 !     -----------------------------------------------------------------------------
+#if defined(NAVIERSTOKES)
       subroutine IP_RiemannSolver_Jacobians( self, f) 
          use FaceClass
          use Physics
@@ -657,12 +657,12 @@ module EllipticIP
          integer :: n, m ! Index of G_xx
          integer :: side
          !--------------------------------------------
-#if defined(NAVIERSTOKES)
-         
+!
 !        Initializations
 !        ---------------
          mu    = dimensionless % mu             ! TODO: change for Cahn-Hilliard
-         sigma = self % PenaltyParameter(f,mu)
+         sigma = self % PenaltyParameter(f)
+         sigma = sigma * mu
          
          do side = 1, 2
             do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
@@ -737,8 +737,8 @@ module EllipticIP
             
          end do
          
-#endif
       end subroutine IP_RiemannSolver_Jacobians
+#endif
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

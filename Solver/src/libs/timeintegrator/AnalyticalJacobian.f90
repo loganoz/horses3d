@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (a.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Sat May 12 20:53:39 2018
+!   @Last revision date: Sat May 12 21:51:11 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: ece79010cbff566c377be7e7026f86a2889a191e
+!   @Last revision commit: 0a98ff59a5332051367a2a5c89543fa1ed797190
 !
 !//////////////////////////////////////////////////////
 !
@@ -124,13 +124,13 @@ contains
 !     Compute the Jacobian of the Numerical Flux (FStar)
 !     **************************************************
 !
-      call ComputeNumericalFluxJacobian(sem % mesh,time,sem % BCFunctions(1) % externalState)
+      call ComputeNumericalFluxJacobian(sem % mesh,nEqn,time,sem % BCFunctions(1) % externalState)
 !
 !     ***************
 !     Diagonal blocks
 !     ***************
 !
-      call AnalyticalJacobian_DiagonalBlocks(sem % mesh, time, Matrix)
+      call AnalyticalJacobian_DiagonalBlocks(sem % mesh, nEqn,time, Matrix)
 !
 !     *******************
 !     Off-Diagonal blocks
@@ -161,7 +161,7 @@ contains
 !  -------------------------------------------------------------------------------------------
 !  Subroutine for adding the faces' contribution to the diagonal blocks of the Jacobian matrix
 !  -------------------------------------------------------------------------------------------
-   subroutine AnalyticalJacobian_DiagonalBlocks(mesh,time,Matrix)
+   subroutine AnalyticalJacobian_DiagonalBlocks(mesh,nEqn,time,Matrix)
       use FaceClass
       implicit none
       !--------------------------------------------
@@ -178,8 +178,8 @@ contains
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
          associate (f => mesh % faces(fID)) 
-         call f % ProjectFluxJacobianToElements(LEFT ,LEFT )   ! dF/dQL to the left element 
-         if (.not. (f % faceType == HMESH_BOUNDARY)) call f % ProjectFluxJacobianToElements(RIGHT,RIGHT)   ! dF/dQR to the right element
+         call f % ProjectFluxJacobianToElements(nEqn,LEFT ,LEFT )   ! dF/dQL to the left element 
+         if (.not. (f % faceType == HMESH_BOUNDARY)) call f % ProjectFluxJacobianToElements(nEqn,RIGHT,RIGHT)   ! dF/dQR to the right element
          end associate
       end do
 !$omp end do
@@ -208,7 +208,6 @@ contains
       end do
 !$omp end do
       
-#endif
    end subroutine AnalyticalJacobian_DiagonalBlocks   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -237,8 +236,8 @@ contains
 !
 !           Project flux Jacobian to opposed elements
 !           -----------------------------------------
-            call f % ProjectFluxJacobianToElements(LEFT ,RIGHT)   ! dF/dQR to the left element
-            call f % ProjectFluxJacobianToElements(RIGHT,LEFT )   ! dF/dQL to the right element 
+            call f % ProjectFluxJacobianToElements(NCONS, LEFT ,RIGHT)   ! dF/dQR to the left element
+            call f % ProjectFluxJacobianToElements(NCONS, RIGHT,LEFT )   ! dF/dQL to the right element 
 !
 !           Compute the two associated off-diagonal blocks
 !           ----------------------------------------------
@@ -266,8 +265,8 @@ contains
 !  -----------------------------------------------------------------------------------------------
 !  
 !  -----------------------------------------------------------------------------------------------
-   subroutine ComputeNumericalFluxJacobian(mesh,time,externalStateProcedure)
-      use RiemannSolvers
+   subroutine ComputeNumericalFluxJacobian(mesh,nEqn,time,externalStateProcedure)
+      use RiemannSolvers_NS
       use FaceClass
       implicit none
       !--------------------------------------------
@@ -279,8 +278,8 @@ contains
       integer :: fID
       !--------------------------------------------
       
-      call mesh % ProlongSolutionToFaces
-      if (flowIsNavierStokes) call mesh % ProlongGradientsToFaces( Prolong_gradRho = .TRUE. )
+      call mesh % ProlongSolutionToFaces(NCONS)
+      if (flowIsNavierStokes) call mesh % ProlongGradientsToFaces(NGRAD, Prolong_gradRho = .TRUE. )
       
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)

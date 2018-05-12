@@ -92,10 +92,13 @@
             procedure   :: LinkWithElements      => Face_LinkWithElements
             procedure   :: AdaptSolutionToFace   => Face_AdaptSolutionToFace
             procedure   :: AdaptGradientsToFace   => Face_AdaptGradientsToFace
-            procedure   :: AdaptDensityGradientToFace => Face_AdaptDensityGradientToFace
             procedure   :: ProjectFluxToElements => Face_ProjectFluxToElements
             procedure   :: ProjectGradientFluxToElements => Face_ProjectGradientFluxToElements
+#if defined(NAVIERSTOKES)
+            procedure   :: ProjectFluxJacobianToElements => Face_ProjectFluxJacobianToElements
             procedure   :: ProjectGradJacobianToElements => Face_ProjectGradJacobianToElements
+            procedure   :: AdaptDensityGradientToFace => Face_AdaptDensityGradientToFace
+#endif
       end type Face
 !
 !     ========
@@ -368,6 +371,7 @@
 !  -------------------------------
 !  Only needed by implicit methods
 !  -------------------------------
+#if defined(NAVIERSTOKES)
    subroutine Face_AdaptDensityGradientToFace(self, Nelx, Nely, Qe, side)
       use MappedGeometryClass
       implicit none
@@ -448,6 +452,7 @@
       end select
 
    end subroutine Face_AdaptDensityGradientToFace
+#endif
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -896,6 +901,7 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+#if defined(NAVIERSTOKES)
    subroutine Face_ProjectGradJacobianToElements(self, whichElement)
       use MappedGeometryClass
       use PhysicsStorage
@@ -1003,6 +1009,7 @@
       
       
    end subroutine Face_ProjectGradJacobianToElements
+#endif
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

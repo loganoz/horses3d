@@ -145,23 +145,8 @@ Module DGSEMClass
       INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
       logical, optional                  :: ChildSem                           !<  Is this a (multigrid) child sem?
-      INTERFACE
-         SUBROUTINE externalState(x,t,nHat,Q,boundaryName)
-            USE SMConstants
-            use PhysicsStorage
-            REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-            REAL(KIND=RP)   , INTENT(INOUT) :: Q(NCONS)
-            CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
-         END SUBROUTINE externalState
-         
-         SUBROUTINE externalGradients(x,t,nHat,gradU,boundaryName)
-            USE SMConstants
-            use PhysicsStorage
-            REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-            REAL(KIND=RP)   , INTENT(INOUT) :: gradU(3,N_GRAD_EQN)
-            CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
-         END SUBROUTINE externalGradients
-      END INTERFACE
+      procedure(BCState_FCN)             :: externalState
+      procedure(BCGradients_FCN)         :: externalGradients
 !
 !     ---------------
 !     Local variables
@@ -376,11 +361,11 @@ Module DGSEMClass
                      IF (flowIsNavierStokes) THEN
                         CALL ManufacturedSolutionSourceNS(self % mesh % elements(el) % geom % x(:,i,j,k), &
                                                           0._RP, &
-                                                          self % mesh % elements(el) % storage % S (:,i,j,k)  )
+                                                          self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
                      ELSE
                         CALL ManufacturedSolutionSourceEuler(self % mesh % elements(el) % geom % x(:,i,j,k), &
                                                              0._RP, &
-                                                             self % mesh % elements(el) % storage % S (:,i,j,k)  )
+                                                             self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
                      END IF
                   END DO
                END DO

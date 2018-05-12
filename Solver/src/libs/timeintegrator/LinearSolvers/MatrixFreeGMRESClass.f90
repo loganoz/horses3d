@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeGMRESClass.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:06 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Sat May 12 21:51:13 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 0a98ff59a5332051367a2a5c89543fa1ed797190
 !
 !//////////////////////////////////////////////////////
 !
@@ -545,11 +545,13 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ! 
-      recursive subroutine SolveGMRES(this, ComputeTimeDerivative, tol, maxiter,time,dt,computeA)
+      recursive subroutine SolveGMRES(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter,time,dt,computeA)
          use AnalyticalJacobian
          implicit none
          !----------------------------------------------------
          class(MatFreeGMRES_t), intent(inout)      :: this
+         integer,       intent(in)                :: nEqn
+         integer,       intent(in)                :: nGradEqn
          procedure(ComputeQDot_FCN)                :: ComputeTimeDerivative
          real(kind=RP), optional                   :: tol
          integer      , optional                   :: maxiter

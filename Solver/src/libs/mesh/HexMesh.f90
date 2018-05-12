@@ -92,7 +92,7 @@ MODULE HexMeshClass
             procedure :: FindPointWithCoords           => HexMesh_FindPointWithCoords
             procedure :: ComputeWallDistances          => HexMesh_ComputeWallDistances
             procedure :: ConformingOnZone              => HexMesh_ConformingOnZone
-            procedure :: SetStorage                    => HexMesh_SetStorage
+            procedure :: SetStorageToEqn          => HexMesh_SetStorageToEqn
       end type HexMesh
 
       TYPE Neighbour         ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
@@ -2760,6 +2760,7 @@ slavecoord:                DO l = 1, 4
 !
 !        Point face Jacobians
 !        --------------------
+#if defined(NAVIERSTOKES)
          e % Storage % dfdq_fr(1:,1:,0:,0:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFStar_dqEl(:,:,:,:,e %faceSide(EFRONT ))
          e % Storage % dfdq_ba(1:,1:,0:,0:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFStar_dqEl(:,:,:,:,e %faceSide(EBACK  ))
          e % Storage % dfdq_bo(1:,1:,0:,0:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFStar_dqEl(:,:,:,:,e %faceSide(EBOTTOM))
@@ -2773,6 +2774,7 @@ slavecoord:                DO l = 1, 4
          e % Storage % dfdGradQ_to(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFv_dGradQEl
          e % Storage % dfdGradQ_ri(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFv_dGradQEl
          e % Storage % dfdGradQ_le(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFv_dGradQEl
+#endif
          
          end associate
       END DO
@@ -2781,8 +2783,8 @@ slavecoord:                DO l = 1, 4
 
    subroutine HexMesh_SetStorageToEqn(self, which)
       implicit none
-      class(HexMesh)    :: self
-      integer, intent(in)  :: which
+      class(HexMesh), target :: self
+      integer, intent(in)    :: which
 !
 !     ---------------
 !     Local variables
@@ -2793,10 +2795,7 @@ slavecoord:                DO l = 1, 4
 
       call GetStorageEquations(off, ns, c, mu)
 
-      select case(which)
-      case(off)
-
-      case(ns)
+      if ( which .eq. ns ) then
 #if defined(NAVIERSTOKES)
          self % storage % Q => self % storage % QNS 
          self % storage % QDot => self % storage % QDotNS 
@@ -2810,7 +2809,7 @@ slavecoord:                DO l = 1, 4
             call self % elements(fID) % storage % SetStorageToNS
          end do
 #endif
-      case(c)
+      elseif ( which .eq. c ) then
 #if defined(CAHNHILLIARD)
          self % storage % Q => self % storage % c
          self % storage % QDot => self % storage % cDot
@@ -2824,7 +2823,7 @@ slavecoord:                DO l = 1, 4
             call self % elements(fID) % storage % SetStorageToCH_c
          end do
 #endif
-      case(mu)
+      elseif ( which .eq. mu ) then
 #if defined(CAHNHILLIARD)
          self % storage % Q => self % storage % c
          self % storage % QDot => self % storage % cDot
@@ -2838,7 +2837,7 @@ slavecoord:                DO l = 1, 4
             call self % elements(fID) % storage % SetStorageToCH_mu
          end do
 #endif
-      end select
+      end if    
 
    end subroutine HexMesh_SetStorageToEqn
 !

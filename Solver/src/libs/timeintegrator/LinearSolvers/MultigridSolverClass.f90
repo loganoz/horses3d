@@ -304,7 +304,7 @@ CONTAINS
       dtsolve  = dt
       
 !~      IF (isfirst) THEN
-         CALL this % p_sem % GetQdot(this % F_Ur)
+         CALL this % p_sem % GetQdot(nEqn, this % F_Ur)
          CALL this % p_sem % GetQ   (this % Ur, nEqn)
 !~         isfirst = .FALSE.
 !~      END IF
@@ -466,9 +466,10 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   FUNCTION AxMult(this,x, ComputeTimeDerivative) RESULT(Ax)
+   FUNCTION AxMult(this,nEqn,x, ComputeTimeDerivative) RESULT(Ax)
       IMPLICIT NONE
       CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      integer, intent(in)                     :: nEqn
       REAL(KIND=RP)                           :: x (:)
       procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       REAL(KIND=RP)                           :: Ax(size(x))
@@ -487,7 +488,7 @@ CONTAINS
 !~      CALL this % p_sem % GetQ(buffer)
       CALL this % p_sem % SetQ(this % Ur + x*eps, NTOTALVARS)
       CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, this % p_sem % BCFunctions)
-      CALL this % p_sem % GetQdot(F)
+      CALL this % p_sem % GetQdot(nEqn,F)
 !~      CALL this % p_sem % SetQ(buffer)
       Ax = ( F - this % F_Ur) / eps + shift * x                          !First order
       

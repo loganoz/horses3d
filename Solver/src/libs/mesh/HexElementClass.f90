@@ -68,7 +68,9 @@
             procedure   :: ProlongSolutionToFaces  => HexElement_ProlongSolutionToFaces
             procedure   :: ProlongGradientsToFaces => HexElement_ProlongGradientsToFaces
             procedure   :: ComputeLocalGradient    => HexElement_ComputeLocalGradient
+#if defined(NAVIERSTOKES)
             procedure   :: ComputeRhoGradient      => HexElement_ComputeRhoGradient
+#endif
       END TYPE Element 
       
 !
@@ -138,13 +140,15 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE allocateElementStorage(self, Nx, Ny, Nz, computeGradients)  
+      SUBROUTINE allocateElementStorage(self, Nx, Ny, Nz, computeGradients, globalStorage, firstIdx)  
          IMPLICIT NONE
          TYPE(Element)                 :: self
          INTEGER, intent(in), optional :: Nx, Ny, Nz
          LOGICAL, intent(in)           :: computeGradients
+         type(Storage_t)               :: globalStorage
+         integer, intent(in)           :: firstIdx
 
-         call self % Storage % Construct(Nx, Ny, Nz, nEqn, nGradEqn, computeGradients)
+         call self % Storage % Construct(Nx, Ny, Nz, computeGradients, globalStorage, firstIdx)
 
       END SUBROUTINE allocateElementStorage
 !
@@ -420,6 +424,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+#if defined(NAVIERSTOKES)  
       subroutine HexElement_ComputeRhoGradient(self)
 !
 !        ****************************************************************
@@ -500,6 +505,7 @@
          end associate
 
       end subroutine HexElement_ComputeRhoGradient
+#endif
 !
 !////////////////////////////////////////////////////////////////////////
 !

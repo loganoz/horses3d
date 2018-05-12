@@ -46,7 +46,6 @@ MODULE MKLPardisoSolverClass
       !Subroutines:
       PROCEDURE :: construct => ConstructMKLContext
       procedure :: ComputeAndFactorizeJacobian => MKL_ComputeAndFactorizeJacobian
-      PROCEDURE :: SetBValue
       PROCEDURE :: solve
       procedure :: SolveLUDirect => MKL_SolveLUDirect
       PROCEDURE :: GetXValue

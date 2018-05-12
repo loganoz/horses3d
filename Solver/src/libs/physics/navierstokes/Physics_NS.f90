@@ -525,9 +525,9 @@
          implicit none
          !-------------------------------------------------
          real(kind=RP), intent(in)  :: q(NCONS)                      !< Conserved variables state
-         real(kind=RP), intent(in)  :: U_x (1:N_GRAD_EQN)
-         real(kind=RP), intent(in)  :: U_y (1:N_GRAD_EQN)
-         real(kind=RP), intent(in)  :: U_z (1:N_GRAD_EQN) ! , intent(in)
+         real(kind=RP), intent(in)  :: U_x (1:NGRAD)
+         real(kind=RP), intent(in)  :: U_y (1:NGRAD)
+         real(kind=RP), intent(in)  :: U_z (1:NGRAD) ! , intent(in)
          real(kind=RP), intent(in)  :: gradRho (3)
          real(kind=RP), intent(out) :: df_dgradq(NCONS,NCONS,NDIM,NDIM)
          real(kind=RP), intent(out) :: df_dq    (NCONS,NCONS,NDIM)
