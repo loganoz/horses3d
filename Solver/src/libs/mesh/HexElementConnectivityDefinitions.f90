@@ -31,12 +31,24 @@
 
       private
       public   NODES_PER_FACE, NODES_PER_ELEMENT, FACES_PER_ELEMENT, EDGES_PER_ELEMENT
-      public   localFaceNode, localEdgeNode, sideMap
+      public   localFaceNode, localEdgeNode, sideMap, neighborFaces
 
       INTEGER, PARAMETER :: NODES_PER_FACE    = 4
       INTEGER, PARAMETER :: NODES_PER_ELEMENT = 8
       INTEGER, PARAMETER :: FACES_PER_ELEMENT = 6
       INTEGER, PARAMETER :: EDGES_PER_ELEMENT = 12
+      
+!
+!-------------------------------------------------------------------------
+!  Definition of the neighbor faces to a given face
+!-------------------------------------------------------------------------
+!      
+      integer, parameter :: neighborFaces(4,6) = reshape (  (/ 3, 4, 5, 6, &
+                                                               3, 4, 5, 6, &
+                                                               1, 2, 4, 6, &
+                                                               1, 2, 3, 5, &
+                                                               1, 2, 4, 6, &
+                                                               1, 2, 3, 5 /) , (/4,6/) )
 
 !
 !-------------------------------------------------------------------------

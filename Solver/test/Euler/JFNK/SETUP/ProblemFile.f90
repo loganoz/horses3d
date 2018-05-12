@@ -212,6 +212,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+<<<<<<< HEAD
          subroutine UserDefinedSourceTerm(mesh, time      &
 #if defined(NAVIERSTOKES)
                                         , thermodynamics_ &
@@ -222,6 +223,9 @@
                                         , multiphase_ &
 #endif
 )
+=======
+         subroutine UserDefinedSourceTerm(x, time, S, thermodynamics_, dimensionless_, refValues_)
+>>>>>>> master
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -232,6 +236,7 @@
             use PhysicsStorage
             use FluidData
             IMPLICIT NONE
+<<<<<<< HEAD
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
 #if defined(NAVIERSTOKES)
@@ -248,20 +253,18 @@
 !           ---------------
 !
             integer  :: i, j, k, eID
+=======
+            real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: time
+            real(kind=RP),             intent(out) :: S(NCONS)
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
+>>>>>>> master
 !
 !           Usage example
 !           -------------
-!           do eID = 1, mesh % no_of_elements
-!              associate ( e => mesh % elements(eID) )
-!              do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-!                 associate(x => e % geom % x(1,i,j,k), &
-!                           y => e % geom % x(2,i,j,k), &
-!                           z => e % geom % x(3,i,j,k)  )
-!                 e % storage % S(:,i,j,k) = x + y + z + time
-!                 end associate
-!              end do                  ; end do                ; end do
-!              end associate
-!           end do
+!           S(:) = x(1) + x(2) + x(3) + time
    
          end subroutine UserDefinedSourceTerm
 !
@@ -330,8 +333,8 @@
 !           -----------------------------------------------------------------------
 !
 #if defined(NAVIERSTOKES)
-            INTEGER                            :: expectedIterations = 45
-            REAL(KIND=RP)                      :: expectedResidual   = 8.0503558326281992E-011
+            INTEGER                            :: expectedIterations = 4
+            REAL(KIND=RP)                      :: expectedResidual   = 3.9790393202565636E-013_RP
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
@@ -342,7 +345,7 @@
                                msg           = "Number of time steps to tolerance")
             CALL FTAssertEqual(expectedValue = expectedResidual, &
                                actualValue   = maxResidual, &
-                               tol           = 1.d-3, &
+                               tol           = 1.d-16, &
                                msg           = "Final maximum residual")
             
             ALLOCATE(QExpected(NCONS,0:N,0:N,0:N))

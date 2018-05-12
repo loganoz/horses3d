@@ -25,6 +25,7 @@ MODULE HexMeshClass
       use MPI_Process_Info
       use MPI_Face_Class
       use FluidData
+      use StorageClass
 #if defined(NAVIERSTOKES)
       use WallDistance
 #endif
@@ -52,6 +53,7 @@ MODULE HexMeshClass
          integer                                   :: no_of_allElements
          integer                                   :: dt_restriction       ! Time step restriction of last step (DT_FIXED, DT_DIFF or DT_CONV)
          character(len=LINE_LENGTH)                :: meshFileName
+         type(Storage_t)                           :: storage              ! Here the solution and its derivative are stored
          type(Node)   , dimension(:), allocatable  :: nodes
          type(Face)   , dimension(:), allocatable  :: faces
          type(Element), dimension(:), allocatable  :: elements
@@ -59,10 +61,12 @@ MODULE HexMeshClass
          logical                                   :: child       = .FALSE.         ! Is this a (multigrid) child mesh? default .FALSE.
          logical                                   :: meshIs2D    = .FALSE.         ! Is this a 2D mesh? default .FALSE.
          logical                                   :: anisotropic = .FALSE.         ! Is the mesh composed by elements with anisotropic polynomial orders? default false
+         logical                                   :: ignoreBCnonConformities = .FALSE.
          contains
             procedure :: destruct                      => DestructMesh
             procedure :: Describe                      => DescribeMesh
             procedure :: DescribePartition             => DescribeMeshPartition
+            procedure :: AllocateStorage               => HexMesh_AllocateStorage
             procedure :: ConstructZones                => HexMesh_ConstructZones
             procedure :: DefineAsBoundaryFaces         => HexMesh_DefineAsBoundaryFaces
             procedure :: CorrectOrderFor2DMesh         => HexMesh_CorrectOrderFor2DMesh
@@ -87,6 +91,8 @@ MODULE HexMeshClass
             procedure :: GatherMPIFacesGradients       => HexMesh_GatherMPIFacesGradients
             procedure :: FindPointWithCoords           => HexMesh_FindPointWithCoords
             procedure :: ComputeWallDistances          => HexMesh_ComputeWallDistances
+            procedure :: ConformingOnZone              => HexMesh_ConformingOnZone
+            procedure :: SetStorage                    => HexMesh_SetStorage
       end type HexMesh
 
       TYPE Neighbour         ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
@@ -153,6 +159,12 @@ MODULE HexMeshClass
 !        -----
 !
          if (allocated(self % zones)) DEALLOCATE( self % zones )
+!
+!        --------------
+!        Global storage
+!        --------------
+!
+         call self % storage % destruct
          
       END SUBROUTINE DestructMesh
 !
@@ -758,10 +770,11 @@ slavecoord:                DO l = 1, 4
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      subroutine HexMesh_ProlongGradientsToFaces(self, nGradEqn)
+      subroutine HexMesh_ProlongGradientsToFaces(self, nGradEqn, prolong_gradRho)
          implicit none
          class(HexMesh),   intent(inout)  :: self
          integer,          intent(in)     :: nGradEqn
+         logical, optional                :: Prolong_gradRho
 !
 !        ---------------
 !        Local variables
@@ -782,7 +795,14 @@ slavecoord:                DO l = 1, 4
                                                                 self % faces(fIDs(6)) )
          end do
 !$omp end do
-
+			
+         ! TODO: prolong gradRho to faces!!
+!~         if (present(Prolong_gradRho)) then
+!~            if (Prolong_gradRho) then
+            
+!~            end if
+!~         end if
+			
       end subroutine HexMesh_ProlongGradientsToFaces
 ! 
 !//////////////////////////////////////////////////////////////////////// 
@@ -1675,22 +1695,27 @@ slavecoord:                DO l = 1, 4
          
          type(TransfiniteHexMap), pointer :: hexMap, hex8Map, genHexMap
          !--------------------------------
-         
-         integer  :: zoneID, zonefID
+         logical                    :: isConforming   ! Is the representation conforming on a boundary?
+         integer                    :: zoneID, zonefID
          integer, allocatable :: bfOrder(:)
          corners = 0._RP
 
 !
-!        ******************************************************************
-!        Find the polynomial order of the boundaries for anisotropic meshes
-!        -> Unlike isotropic meshes, anisotropic meshes need boundary orders
-!           bfOrder=N-1 in 3D (not in 2D) to be free-stream-preserving
-!        ******************************************************************
+!        ***********************************************************************
+!        Find the polynomial order of the boundaries for 3D nonconforming meshes
+!        -> In 3D meshes we force all the faces on a boundary to be mapped with the
+!           same polynomial order, in order to have "water-tight" meshes. This condition
+!           can be sometimes too strict... 
+!        -> When the representation is p-nonconforming on a boundary, the mapping 
+!           must be of order P <= min(N)/2. This is the general sufficient condition.
+!        *************************************************************1**********
 !
          if (self % anisotropic .and. (.not. self % meshIs2D) ) then
             allocate ( bfOrder(size(self % zones)) )
-            bfOrder = 50 ! Initialize to a big number
+            bfOrder = huge(bfOrder) ! Initialize to a big number
+            
             do zoneID=1, size(self % zones)
+               
                do zonefID = 1, self % zones(zoneID) % no_of_faces
                   fID = self % zones(zoneID) % faces(zonefID)
                   
@@ -1698,8 +1723,20 @@ slavecoord:                DO l = 1, 4
                   bfOrder(zoneID) = min(bfOrder(zoneID),f % NfLeft(1),f % NfLeft(2))
                   end associate
                end do
-               bfOrder(zoneID) = bfOrder(zoneID) - 1
+               
+               if ( self % ConformingOnZone(zoneID) .or. self % ignoreBCnonConformities) then
+                  bfOrder(zoneID) = bfOrder(zoneID)
+               else
+                  bfOrder(zoneID) = bfOrder(zoneID)/2
+                  if ( bfOrder(zoneID) < 1 ) then
+                     write(STD_OUT,*) 'ERROR :: The chosen polynomial orders are too low to represent the boundaries accurately'
+                     write(STD_OUT,*) '      :: Nonconforming representations on boundaries need N>=2'
+                     stop
+                  end if
+               end if
+               
                call NodalStorage (bfOrder(zoneID)) % construct (self % nodeType, bfOrder(zoneID))
+               
             end do
          end if
          
@@ -1766,7 +1803,7 @@ slavecoord:                DO l = 1, 4
                      CLN(2) = buffer
                   end if
                end select
-
+				   
                if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
                   call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
@@ -1790,7 +1827,6 @@ slavecoord:                DO l = 1, 4
                   CLN(1) = f % NfLeft(1)
                   CLN(2) = f % NfLeft(2)
                end if
-               
 !
 !              Adapt the curved face order to the polynomial order
 !              ---------------------------------------------------
@@ -2687,5 +2723,169 @@ slavecoord:                DO l = 1, 4
 !
 !///////////////////////////////////////////////////////////////////////
 !
+   subroutine HexMesh_AllocateStorage(self,NDOF,controlVariables,computeGradients)
+      use FTValueDictionaryClass
+      implicit none
+      !-----------------------------------------------------------
+      class(HexMesh), target                 :: self
+      integer                 , intent(in)   :: NDOF
+      class(FTValueDictionary), intent(in)   :: controlVariables
+      logical                 , intent(in)   :: computeGradients
+      !-----------------------------------------------------------
+      integer :: bdf_order, eID, firstIdx
+      !-----------------------------------------------------------
+      
+      if (controlVariables % containsKey("bdf order")) then
+         bdf_order = controlVariables % integerValueForKey("bdf order")
+      else
+         bdf_order = 1
+      end if
+      
+!     Construct global storage
+!     ------------------------
+      call self % storage % construct(NDOF, bdf_order)
+      
+!     Construct element storage
+!     -------------------------
+      firstIdx = 1
+      DO eID = 1, SIZE(self % elements)
+         associate (e => self % elements(eID))
+         call self % elements(eID) % Storage % Construct(Nx = e % Nxyz(1), &
+                                                         Ny = e % Nxyz(2), &
+                                                         Nz = e % Nxyz(3), &
+                                           computeGradients = computeGradients, &
+                                              globalStorage = self % storage, &
+                                                   firstIdx = firstIdx)
+         firstIdx = firstIdx + e % Storage % NDOF
+!
+!        Point face Jacobians
+!        --------------------
+         e % Storage % dfdq_fr(1:,1:,0:,0:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFStar_dqEl(:,:,:,:,e %faceSide(EFRONT ))
+         e % Storage % dfdq_ba(1:,1:,0:,0:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFStar_dqEl(:,:,:,:,e %faceSide(EBACK  ))
+         e % Storage % dfdq_bo(1:,1:,0:,0:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFStar_dqEl(:,:,:,:,e %faceSide(EBOTTOM))
+         e % Storage % dfdq_to(1:,1:,0:,0:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFStar_dqEl(:,:,:,:,e %faceSide(ETOP   ))
+         e % Storage % dfdq_ri(1:,1:,0:,0:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFStar_dqEl(:,:,:,:,e %faceSide(ERIGHT ))
+         e % Storage % dfdq_le(1:,1:,0:,0:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFStar_dqEl(:,:,:,:,e %faceSide(ELEFT  ))
+         
+         e % Storage % dfdGradQ_fr(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFv_dGradQEl
+         e % Storage % dfdGradQ_ba(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFv_dGradQEl
+         e % Storage % dfdGradQ_bo(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFv_dGradQEl
+         e % Storage % dfdGradQ_to(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFv_dGradQEl
+         e % Storage % dfdGradQ_ri(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFv_dGradQEl
+         e % Storage % dfdGradQ_le(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFv_dGradQEl
+         
+         end associate
+      END DO
+      
+   end subroutine HexMesh_AllocateStorage
+
+   subroutine HexMesh_SetStorageToEqn(self, which)
+      implicit none
+      class(HexMesh)    :: self
+      integer, intent(in)  :: which
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer  :: off, ns, c, mu
+      integer  :: eID, fID
+
+      call GetStorageEquations(off, ns, c, mu)
+
+      select case(which)
+      case(off)
+
+      case(ns)
+#if defined(NAVIERSTOKES)
+         self % storage % Q => self % storage % QNS 
+         self % storage % QDot => self % storage % QDotNS 
+         self % storage % PrevQ => self % storage % PrevQNS 
+
+         do eID = 1, self % no_of_elements
+            call self % elements(eID) % storage % SetStorageToNS
+         end do
+
+         do fID = 1, size(self % faces)
+            call self % elements(fID) % storage % SetStorageToNS
+         end do
+#endif
+      case(c)
+#if defined(CAHNHILLIARD)
+         self % storage % Q => self % storage % c
+         self % storage % QDot => self % storage % cDot
+         self % storage % PrevQ => self % storage % PrevC 
+
+         do eID = 1, self % no_of_elements
+            call self % elements(eID) % storage % SetStorageToCH_c
+         end do
+
+         do fID = 1, size(self % faces)
+            call self % elements(fID) % storage % SetStorageToCH_c
+         end do
+#endif
+      case(mu)
+#if defined(CAHNHILLIARD)
+         self % storage % Q => self % storage % c
+         self % storage % QDot => self % storage % cDot
+         self % storage % PrevQ => self % storage % PrevC 
+
+         do eID = 1, self % no_of_elements
+            call self % elements(eID) % storage % SetStorageToCH_mu
+         end do
+
+         do fID = 1, size(self % faces)
+            call self % elements(fID) % storage % SetStorageToCH_mu
+         end do
+#endif
+      end select
+
+   end subroutine HexMesh_SetStorageToEqn
+!
+!///////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------------------------
+!  Checks if the representation is conforming on a zone (Boundary)
+!  ---------------------------------------------------------------
+   function HexMesh_ConformingOnZone (self,zoneID) result(conforming)
+      implicit none
+      !-----------------------------------------------------------
+      class(HexMesh), intent(in) :: self
+      integer       , intent(in) :: zoneID
+      logical                    :: conforming
+      !-----------------------------------------------------------
+      integer :: fIdx   ! Local face index in zone
+      integer :: fID    ! Face index
+      integer :: eID    ! Element index
+      integer :: eSide  ! Side of the element in contact with boundary
+      integer :: nFace  ! Counter for neighbor faces
+      !-----------------------------------------------------------
+      
+      if (zoneID < lbound(self % zones,1) .or. zoneID > ubound(self % zones,1) ) ERROR stop 'HexMesh_ConformingOnZone :: Out of bounds'
+      
+      conforming = .TRUE.
+      do fIdx = 1, self % zones(zoneID) % no_of_faces
+         
+         fID   = self % zones(zoneID) % faces(fIdx)
+         eID   = self % faces(fID) % elementIDs(1)
+         eSide = self % faces(fID) % elementSide(1)
+         
+         ! loop over the faces that are shared between boundary elements
+         do nFace = 1, 4
+            associate (f => self % faces ( self % elements(eID) % faceIDs (neighborFaces(nFace,eSide) ) ) )
+            
+            if (f % FaceType == HMESH_BOUNDARY) cycle
+            
+            if (any(f % NfLeft /= f % NfRight)) then
+               conforming = .FALSE.
+               return
+            end if
+            
+            end associate
+         end do
+         
+      end do
+      
+   end function
 END MODULE HexMeshClass
       

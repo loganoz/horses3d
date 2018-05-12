@@ -28,7 +28,6 @@ MODULE PetscSolverClass
       type(PETSCMatrix_t), allocatable              :: A
       TYPE(DGSem), POINTER                          :: p_sem   
 #ifdef HAS_PETSC
-      Mat                                           :: AA                                 ! Jacobian matrix
       Vec                                           :: x                                  ! Solution vector
       Vec                                           :: b                                  ! Right hand side
       KSP                                           :: ksp                                ! 
@@ -44,13 +43,14 @@ MODULE PetscSolverClass
       CONTAINS
          !Subroutines
          PROCEDURE                                  :: construct => ConstructPetscContext
-         PROCEDURE                                  :: SetBValues
-         PROCEDURE                                  :: SetBValue
+         PROCEDURE                                  :: SetRHSValues
+         PROCEDURE                                  :: SetRHSValue
          PROCEDURE                                  :: GetXValues
          PROCEDURE                                  :: GetXValue
+         PROCEDURE                                  :: GetX
          PROCEDURE                                  :: SetOperatorDt
          PROCEDURE                                  :: ReSetOperatorDt
-         PROCEDURE                                  :: AssemblyB
+         PROCEDURE                                  :: AssemblyRHS
          PROCEDURE                                  :: SaveMat
          PROCEDURE                                  :: solve   =>   SolveLinPrb
          PROCEDURE                                  :: destroy =>   DestroyPetscObjects
@@ -91,16 +91,19 @@ MODULE PetscSolverClass
 !
 !/////////////////////////////////////////////////////////////////////////////// 
 !
-   SUBROUTINE ConstructPetscContext(this, DimPrb,controlVariables,sem)
+   SUBROUTINE ConstructPetscContext(this, DimPrb,controlVariables,sem,MatrixShiftFunc)
       IMPLICIT NONE
       !--------------------------------------------------------------
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT), TARGET :: this
       TYPE(FTValueDictionary)      , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                      , OPTIONAL  :: sem
+      procedure(MatrixShift_FCN)                           :: MatrixShiftFunc
       !--------------------------------------------------------------
 #ifdef HAS_PETSC
       PetscInt, INTENT(IN)                                 :: DimPrb
       PetscErrorCode                                       :: ierr
+      
+      MatrixShift => MatrixShiftFunc
       
       this % p_sem => sem
       
@@ -150,14 +153,14 @@ MODULE PetscSolverClass
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SolveLinPrb(this, nEqn, nGradEqn, tol, maxiter, time,dt, ComputeTimeDerivative, ComputeA)
+   SUBROUTINE SolveLinPrb(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter, time,dt, ComputeA)
       IMPLICIT NONE
       !-------------------------------------------------------------
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT) :: this
       integer,       intent(in)                    :: nEqn, nGradEqn
+      procedure(ComputeQDot_FCN)                   :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                      :: time
       REAL(KIND=RP), OPTIONAL                      :: dt
-      procedure(ComputeQDot_FCN)                   :: ComputeTimeDerivative
       logical      , optional      , intent(inout) :: ComputeA
       !-------------------------------------------------------------
 #ifdef HAS_PETSC
@@ -169,12 +172,12 @@ MODULE PetscSolverClass
       if ( present(ComputeA)) then
          if (ComputeA) then
             call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
-            call this % A % shift(-1._RP/dt)
+            call this % A % shift( MatrixShift(dt) )
             ComputeA = .FALSE.
          end if
       else 
          call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % A % shift(-1._RP/dt)
+         call this % A % shift( MatrixShift(dt) )
       end if
       
       ! Set , if given, solver tolerance and max number of iterations
@@ -230,7 +233,7 @@ MODULE PetscSolverClass
       PetscScalar                                        :: shift
       PetscScalar                                        :: eps = 1e-10
 
-      shift = -1._RP/dt !
+      shift = MatrixShift(dt) !
       IF (ABS(shift) .GT. eps) THEN                  
          call this % A % shift(shift) ! A = A + shift * I
          this % Ashift = shift
@@ -257,7 +260,7 @@ MODULE PetscSolverClass
       PetscScalar                                        :: shift
       PetscScalar                                        :: eps = 1e-10
 
-      shift = -1._RP/dt !
+      shift = MatrixShift(dt) !
       IF (ABS(shift) .GT. eps) THEN
          call this % A % Reshift (shift) ! A = A + shift * I
          this % Ashift = shift
@@ -270,7 +273,7 @@ MODULE PetscSolverClass
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
 !
-   SUBROUTINE SetBValues(this, nvalues, irow, values)
+   SUBROUTINE SetRHSValues(this, nvalues, irow, values)
       IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
@@ -287,9 +290,9 @@ MODULE PetscSolverClass
       REAL*8    , DIMENSION(:),       INTENT(IN)        :: values
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE SetBValues
+   END SUBROUTINE SetRHSValues
 !/////////////////////////////////////////////////////////////////////////////////////////////////   
-   SUBROUTINE SetBValue(this, irow, value)
+   SUBROUTINE SetRHSValue(this, irow, value)
       IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)     :: this
 #ifdef HAS_PETSC
@@ -304,11 +307,11 @@ MODULE PetscSolverClass
       REAL*8    ,        INTENT(IN)        :: value
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE SetBValue
+   END SUBROUTINE SetRHSValue
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////     
 !
-   SUBROUTINE AssemblyB(this)
+   SUBROUTINE AssemblyRHS(this)
       IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)   :: this
 #ifdef HAS_PETSC
@@ -356,7 +359,34 @@ MODULE PetscSolverClass
       STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE GetXValue
+!
 !//////////////////////////////////////////////////////////////////////////////////////////////////
+!   
+   function GetX(this) result(x)
+      IMPLICIT NONE
+      CLASS(PetscKspLinearSolver_t),     INTENT(INOUT)      :: this
+#ifdef HAS_PETSC
+      
+      PetscScalar                                           :: x(this % DimPrb)
+      !------------------------------------------
+      PetscInt                          :: irow(this % DimPrb), i
+      PetscErrorCode                    :: ierr
+      !------------------------------------------
+      
+      irow = (/ (i, i=0, this % DimPrb-1) /)
+      
+      CALL VecGetValues(this%x,this % DimPrb ,irow,x, ierr)
+      CALL CheckPetscErr(ierr, 'error in VecGetValue')
+      
+#else
+      INTEGER         :: irow
+      REAL(kind=RP)                        :: x(this % DimPrb)
+      STOP ':: PETSc is not linked correctly'
+#endif
+   END function GetX
+!
+!//////////////////////////////////////////////////////////////////////////////////////////////////
+!
    SUBROUTINE SaveMat(this,filename)
       IMPLICIT NONE
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT)         :: this

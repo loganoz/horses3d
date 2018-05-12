@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jan 30 09:07:46 2018
-!   @Last revision date: Tue Apr 24 11:13:21 2018
+!   @Last revision date: Sat May 12 20:53:46 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 60804273321199c0675663c7d4f1c517987552a7
+!   @Last revision commit: ece79010cbff566c377be7e7026f86a2889a191e
 !
 !//////////////////////////////////////////////////////
 !
@@ -245,6 +245,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+<<<<<<< HEAD
          subroutine UserDefinedSourceTerm(mesh, time &
 #if defined(NAVIERSTOKES)
                                         , thermodynamics_, dimensionless_, refValues_ &
@@ -253,6 +254,9 @@
                                         , multiphase_ &
 #endif
 )
+=======
+         subroutine UserDefinedSourceTerm(x, time, S, thermodynamics_, dimensionless_, refValues_)
+>>>>>>> master
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -263,6 +267,7 @@
             use PhysicsStorage
             use FluidData
             IMPLICIT NONE
+<<<<<<< HEAD
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
 #if defined(NAVIERSTOKES)
@@ -279,15 +284,18 @@
 !           ---------------
 !
             integer  :: i, j, k, eID
+=======
+            real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: time
+            real(kind=RP),             intent(out) :: S(NCONS)
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
+>>>>>>> master
 !
-!           Usage example (by default no source terms are added)
-!           ----------------------------------------------------
-!           do eID = 1, mesh % no_of_elements
-!              associate ( e => mesh % elements(eID) )
-!              do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-!                 e % QDot(:,i,j,k) = e % QDot(:,i,j,k) + Source(:)
-!              end do                  ; end do                ; end do
-!           end do
+!           Usage example
+!           -------------
+!           S(:) = x(1) + x(2) + x(3) + time
    
          end subroutine UserDefinedSourceTerm
 !

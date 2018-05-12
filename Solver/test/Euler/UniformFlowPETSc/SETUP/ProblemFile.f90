@@ -2,11 +2,11 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    ProblemFile.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Wed Jan  3 21:04:50 2018
-!   @Last revision date: Sat May 12 20:53:55 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: ece79010cbff566c377be7e7026f86a2889a191e
+!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Created: Sat May 12 20:54:09 2018
+!   @Last revision date:
+!   @Last revision author:
+!   @Last revision commit:
 !
 !//////////////////////////////////////////////////////
 !
@@ -44,7 +44,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalSetup(mesh , thermodynamics_, &
+         SUBROUTINE UserDefinedFinalSetup(mesh, thermodynamics_, &
                                                  dimensionless_, &
                                                      refValues_ )
 !
@@ -54,7 +54,7 @@
 !           ----------------------------------------------------------------------
 !
             use SMConstants
-            USE HexMeshClass
+            use HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
             CLASS(HexMesh)             :: mesh
@@ -68,11 +68,18 @@
          SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
                                                       dimensionless_, &
                                                           refValues_  )
+!
+!           ------------------------------------------------
+!           Called to set the initial condition for the flow
+!              - By default it sets a uniform initial
+!                 condition.
+!           ------------------------------------------------
+!
             USE SMConstants
             use PhysicsStorage
             use HexMeshClass
             implicit none
-            class(HexMesh)                        :: mesh
+            class(HexMesh)                      :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -111,11 +118,18 @@
                   mesh % elements(eID) % storage % Q(:,i,j,k) = Q 
                end do;        end do;        end do
                end associate
+!
+!              -------------------------------------------------
+!              Perturb mean flow in the expectation that it will
+!              relax back to the mean flow
+!              -------------------------------------------------
+!
+               mesh % elements(eID) % storage % Q(1,3,3,3) = 1.05_RP*mesh % elements(eID) % storage % Q(1,3,3,3)
+
             end do
 
             end associate
 #endif
-            
             
          END SUBROUTINE UserDefinedInitialCondition
 
@@ -197,17 +211,6 @@
             CLASS(HexMesh)  :: mesh
             REAL(KIND=RP) :: time
             type(Monitor_t),  intent(in)  :: monitors
-!
-!           ---------------
-!           Local variables
-!           ---------------
-!
-            LOGICAL, SAVE       :: created = .FALSE.
-            REAL(KIND=RP)       :: k_energy = 0.0_RP
-            INTEGER             :: fUnit
-            INTEGER, SAVE       :: restartfile = 0
-            INTEGER             :: restartUnit
-            CHARACTER(LEN=100)  :: fileName
             
          END SUBROUTINE UserDefinedPeriodicOperation
 !
@@ -218,7 +221,7 @@
                                                         refValues_, &
                                                           monitors, &
                                                          elapsedTime, &
-                                                             CPUTime   )
+                                                            CPUTime   )
 !
 !           --------------------------------------------------------
 !           Called after the solution computed to allow, for example
@@ -226,16 +229,15 @@
 !           --------------------------------------------------------
 !
             use SMConstants
-            use FTAssertions
-            USE HexMeshClass
-            use MonitorsClass
+            USE FTAssertions
             use PhysicsStorage
-            use MPI_Process_Info
+            use HexMeshClass
+            use MonitorsClass
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
-            integer                               :: iter
-            real(kind=RP)                         :: maxResidual
+            integer,                   intent(in) :: iter
+            real(kind=RP),             intent(in) :: maxResidual
             type(Thermodynamics_t),    intent(in) :: thermodynamics_
             type(Dimensionless_t),     intent(in) :: dimensionless_
             type(RefValues_t),         intent(in) :: refValues_
@@ -247,83 +249,91 @@
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Cylinder Smagorinsky"
+            INTEGER                            :: numberOfFailures
+            CHARACTER(LEN=29)                  :: testName           = "27 element uniform flow tests"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
             INTEGER                            :: i, j, k, N
+            real(kind=RP)                      :: qq, u, v, w, p, Q(N_EQN), theta, phi
             TYPE(FTAssertionsManager), POINTER :: sharedManager
-            LOGICAL                            :: success
-            integer                            :: rank
-            real(kind=RP), parameter           :: cd = 34.917483643503139_RP
-            real(kind=RP), parameter           :: cl =  -2.2061258436933961E-004_RP
-            real(kind=RP), parameter           :: wake_u = 9.7886653196591037E-009_RP
-            real(kind=RP), parameter           :: res(5) = [7.6239168947547791_RP, &
-                                                            15.644699595794473_RP, &
-                                                            7.1507132015419264E-002_RP, &
-                                                            20.428146710534985_RP, &
-                                                            208.93433106182741_RP]
+!
+!           -----------------------------------------------------------------------
+!           Expected Values. Note they will change if the run parameters change and
+!           when the eigenvalue computation for the time step is fixed. These 
+!           results are for the Mach 0.5 and rusanov solvers.
+!           -----------------------------------------------------------------------
+!
 #if defined(NAVIERSTOKES)
+            INTEGER                            :: expectedIterations = 8
+            REAL(KIND=RP)                      :: expectedResidual   = 1.0700773600547120E-011_RP
+            
+            N = mesh % elements(1) % Nxyz(1) ! This works only because this is an isotropic case.
+            
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(1,1) + 1.0_RP, &
-                               actualValue   = res(1) + 1.0_RP, &
-                               tol           = 1.0e-7_RP, &
-                               msg           = "continuity residual")
+            CALL FTAssertEqual(expectedValue= expectedIterations, &
+                               actualValue   =  iter, &
+                               msg           = "Number of time steps to tolerance")
+            CALL FTAssertEqual(expectedValue = expectedResidual, &
+                               actualValue   = maxResidual, &
+                               tol           = 1.d-16, &
+                               msg           = "Final maximum residual")
+            
+            ALLOCATE(QExpected(N_EQN,0:N,0:N,0:N))
+            
+            maxError = 0.0_RP
+            associate ( gammaM2 => dimensionless_ % gammaM2, &
+                        gamma => thermodynamics_ % gamma )
+            theta = refValues_ % AOATheta*(PI/180.0_RP)
+            phi   = refValues_ % AOAPhi*(PI/180.0_RP)
+      
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          Ny => mesh % elements(eID) % Nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  qq = 1.0_RP
+                  u  = qq*cos(theta)*COS(phi)
+                  v  = qq*sin(theta)*COS(phi)
+                  w  = qq*SIN(phi)
+      
+                  Q(1) = 1.0_RP
+                  p    = 1.0_RP/(gammaM2)
+                  Q(2) = Q(1)*u
+                  Q(3) = Q(1)*v
+                  Q(4) = Q(1)*w
+                  Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
 
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(2,1) + 1.0_RP, &
-                               actualValue   = res(2) + 1.0_RP, &
-                               tol           = 1.0e-7_RP, &
-                               msg           = "x-momentum residual")
+                  QExpected(:,i,j,k) = Q 
+               end do;        end do;        end do
+               end associate
+               maxError = MAXVAL(ABS(QExpected - mesh % elements(eID) % storage % Q))
+            end do
+            end associate
 
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(3,1) + 1.0_RP, &
-                               actualValue   = res(3) + 1.0_RP, &
-                               tol           = 1.0e-7_RP, &
-                               msg           = "y-momentum residual")
-
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(4,1) + 1.0_RP, &
-                               actualValue   = res(4) + 1.0_RP, &
-                               tol           = 1.0e-7_RP, &
-                               msg           = "z-momentum residual")
-
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(5,1) + 1.0_RP, &
-                               actualValue   = res(5) + 1.0_RP, &
-                               tol           = 1.0e-7_RP, &
-                               msg           = "energy residual")
-
-            CALL FTAssertEqual(expectedValue = wake_u + 1.0_RP, &
-                               actualValue   = monitors % probes(1) % values(1) + 1.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "Wake final x-velocity at the point [0,2.0,4.0]")
-
-            CALL FTAssertEqual(expectedValue = cd, &
-                               actualValue   = monitors % surfaceMonitors(1) % values(1), &
-                               tol           = 1.d-11, &
-                               msg           = "Drag coefficient")
-
-            CALL FTAssertEqual(expectedValue = cl + 1.0_RP, &
-                               actualValue   = monitors % surfaceMonitors(2) % values(1) + 1.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "Lift coefficient")
-
+            CALL FTAssertEqual(expectedValue = 0.0_RP, &
+                               actualValue   = maxError, &
+                               tol           = 1.d-10, &
+                               msg           = "Maximum error")
+            
+            
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
             ELSE
                WRITE(6,*) testName, " ... Failed"
-               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
-               WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
-                STOP 99
+               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is fixed."
+               WRITE(6,*) "      When that is done, re-compute the expected values and modify this procedure"
+               STOP 99
             END IF 
             WRITE(6,*)
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
 #endif
-
 
          END SUBROUTINE UserDefinedFinalize
 !

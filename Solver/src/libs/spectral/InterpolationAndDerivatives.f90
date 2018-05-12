@@ -47,7 +47,7 @@
       public   Interpolate3D, Create3DInterpolationMatrix
       public   Create3DRestrictionMatrix
       public   BarycentricWeights, PolynomialDerivativeMatrix
-      public   InterpolatingPolynomialVector
+      public   InterpolatingPolynomialVector, PolyDerivativeVector
       public   PolynomialInterpolationMatrix
       public   MatrixMultiplyDeriv
 
@@ -152,6 +152,29 @@
       END DO
       
    END SUBROUTINE InterpolatingPolynomialVector
+!
+! /////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------------------
+!  Algorithm to obtain the polynomial derivative vector in x
+!  -> TODO: See if there's a more efficient way of computing
+!           this with the barycentric formula.
+!  ---------------------------------------------------------
+   subroutine PolyDerivativeVector( x, N, nodes, p )
+      implicit none
+      !----------------------------------------------
+      real(kind=RP)                , intent(in)    :: x     !<  Where to evaluate the derivative
+      integer                      , intent(in)    :: N     !<  Polynomial order
+      real(kind=RP), dimension(0:N), intent(in)    :: nodes !<  Node position
+      real(kind=RP), dimension(0:N), intent(inout) :: p     !<> Poly derivative vector
+      !----------------------------------------------
+      integer :: j
+      !----------------------------------------------
+      
+      do j = 0, N
+         p(j) = EvaluateLagrangePolyDerivative( j, x, N, nodes)
+      end do
+   end subroutine PolyDerivativeVector
 !
 ! /////////////////////////////////////////////////////////////////////
 !

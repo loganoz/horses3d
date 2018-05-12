@@ -81,6 +81,8 @@ module AnisFASMultigridClass
    real(kind=RP)  :: dt             ! dt
    character(len=LINE_LENGTH)    :: meshFileName
    
+   logical                    :: AnisFASestimator  ! Whether this is an AnisFAS estimator or not
+   
 !========
  contains
 !========
@@ -99,7 +101,6 @@ module AnisFASMultigridClass
       !-----------------------------------------------------------
       integer                    :: Dir               ! Direction of coarsening
       integer                    :: UserMGlvls        ! User defined number of MG levels
-      logical                    :: AnisFASestimator  ! Whether this is an AnisFAS estimator or not
       character(len=LINE_LENGTH) :: PostSmoothOptions
       !-----------------------------------------------------------
       
@@ -226,19 +227,22 @@ module AnisFASMultigridClass
       MaxN(3) = MAXVAL(sem%Nz)
       
 !
-!     3D anisotropic meshes must have N >= 2
-!        (and AnisFAS ALWAYS creates anisotropic meshes)
+!     If 3D meshes are not conforming on boundaries, we must have N >= 2
+!        (and AnisFAS ALWAYS creates anisotropic meshes - almost guaranteed to be nonconforming - change?)
 !     --------------------------------------------------
       
-      if (.not. sem % mesh % meshIs2D ) then
-         NMIN = 2
-      else
+      if (sem % mesh % meshIs2D .or. AnisFASestimator) then
          NMIN = 1
+      else 
+         NMIN = 2
       end if
       
       MGlevels(1)  = MIN(MaxN(1) - NMIN + 1,UserMGlvls)
       MGlevels(2)  = MIN(MaxN(2) - NMIN + 1,UserMGlvls)
       MGlevels(3)  = MIN(MaxN(3) - NMIN + 1,UserMGlvls)
+      
+      write(STD_OUT,*) 'Constructing anisotropic FAS Multigrid'
+      write(STD_OUT,*) 'Number of levels:', MGlevels
       
       MGOutput       = controlVariables % logicalValueForKey("multigrid output")
       plotInterval   = controlVariables % integerValueForKey("output interval")
@@ -408,6 +412,8 @@ module AnisFASMultigridClass
 !
          allocate (Child_p % MGStorage(Dir) % p_sem)
          
+         if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .TRUE.
+         
          call Child_p % MGStorage(Dir) % p_sem % construct &
                                           (controlVariables  = controlVariables,                                         &
                                            BCFunctions       = Solver % MGStorage(Dir) % p_sem % BCFunctions , &
@@ -415,6 +421,7 @@ module AnisFASMultigridClass
                                            success = success,                                                            &
                                            ChildSem = .TRUE. )
          if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
+         if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .FALSE.
          
          call ConstructFASInOneDirection(Solver % Child, lvl - 1, controlVariables,Dir)
          

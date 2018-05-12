@@ -229,16 +229,8 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         subroutine UserDefinedSourceTerm(mesh, time      &
 #if defined(NAVIERSTOKES)
-                                        , thermodynamics_ &
-                                        , dimensionless_  &
-                                        , refValues_ & 
-#endif
-#if defined(CAHNHILLIARD)
-                                        , multiphase_ &
-#endif
-)
+         subroutine UserDefinedSourceTermNS(x, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -249,16 +241,12 @@
             use PhysicsStorage
             use FluidData
             IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
-            REAL(KIND=RP)                         :: time
-#if defined(NAVIERSTOKES)
+            real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: time
+            real(kind=RP),             intent(out) :: S(NCONS)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
-#endif
-#if defined(CAHNHILLIARD)
-            type(Multiphase_t),     intent(in)  :: multiphase_
-#endif
 !
 !           ---------------
 !           Local variables
@@ -268,19 +256,40 @@
 !
 !           Usage example
 !           -------------
-!           do eID = 1, mesh % no_of_elements
-!              associate ( e => mesh % elements(eID) )
-!              do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-!                 associate(x => e % geom % x(1,i,j,k), &
-!                           y => e % geom % x(2,i,j,k), &
-!                           z => e % geom % x(3,i,j,k)  )
-!                 e % storage % S(:,i,j,k) = x + y + z + time
-!                 end associate
-!              end do                  ; end do                ; end do
-!              end associate
-!           end do
+!           S(:) = x(1) + x(2) + x(3) + time
    
-         end subroutine UserDefinedSourceTerm
+         end subroutine UserDefinedSourceTermNS
+#endif
+#if defined(CAHNHILLIARD)
+         subroutine UserDefinedSourceTermCH(x, time, S, multiphase_)
+!
+!           --------------------------------------------
+!           Called to apply source terms to the equation
+!           --------------------------------------------
+!
+            use SMConstants
+            USE HexMeshClass
+            use PhysicsStorage
+            use FluidData
+            IMPLICIT NONE
+            real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: time
+            real(kind=RP),             intent(out) :: S(NCOMP)
+            type(Multiphase_t),      intent(in)    :: multiphase_
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            integer  :: i, j, k, eID
+!
+!           Usage example
+!           -------------
+!           S(:) = x(1) + x(2) + x(3) + time
+   
+         end subroutine UserDefinedSourceTermCH
+#endif
+
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

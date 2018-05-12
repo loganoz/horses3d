@@ -4,9 +4,9 @@
 !   @File:    OutputVariables.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Oct 14 20:44:38 2017
-!   @Last revision date: Fri May  4 19:10:15 2018
+!   @Last revision date: Sat May 12 20:53:25 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 645da75463f6c79ebe9b55fc9ede7086fd10304f
+!   @Last revision commit: ece79010cbff566c377be7e7026f86a2889a191e
 !
 !//////////////////////////////////////////////////////
 !
@@ -49,6 +49,7 @@ module OutputVariables
       enumerator :: Vvec_V, Ht_V, RHOU_V, RHOV_V
       enumerator :: RHOW_V, RHOE_V, C_V, Nxi_V, Neta_V
       enumerator :: Nzeta_V, Nav_V, N_V
+      enumerator :: Xi_V, Eta_V, Zeta_V, ThreeAxes_V, Axes_V
       enumerator :: GRADV_V, UX_V, VX_V, WX_V
       enumerator :: UY_V, VY_V, WY_V, UZ_V, VZ_V, WZ_V
       enumerator :: CX_V, CY_V, CZ_V
@@ -58,7 +59,7 @@ module OutputVariables
    end enum
 
    integer, parameter   :: NO_OF_VARIABLES = LASTVARIABLE-1
-   integer, parameter   :: NO_OF_INVISCID_VARIABLES = N_V 
+   integer, parameter   :: NO_OF_INVISCID_VARIABLES = Axes_V
 
    character(len=STR_VAR_LEN), parameter  :: QKey          = "Q"
    character(len=STR_VAR_LEN), parameter  :: RHOKey        = "rho"
@@ -82,6 +83,11 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: NzetaKey      = "Nzeta"
    character(len=STR_VAR_LEN), parameter  :: NavKey        = "Nav"
    character(len=STR_VAR_LEN), parameter  :: NKey          = "N"
+   character(len=STR_VAR_LEN), parameter  :: XiKey   = "Ax_Xi"
+   character(len=STR_VAR_LEN), parameter  :: EtaKey  = "Ax_Eta"
+   character(len=STR_VAR_LEN), parameter  :: ZetaKey = "Ax_Zeta"
+   character(len=STR_VAR_LEN), parameter  :: ThreeAxesKey = "ThreeAxes"
+   character(len=STR_VAR_LEN), parameter  :: AxesKey = "Axes"   
    character(len=STR_VAR_LEN), parameter  :: gradVKey      = "gradV"
    character(len=STR_VAR_LEN), parameter  :: uxKey         = "u_x"
    character(len=STR_VAR_LEN), parameter  :: vxKey         = "v_x"
@@ -106,6 +112,7 @@ module OutputVariables
                                                                             PKey, TKey, MachKey, SKey, VabsKey, &
                                                                             VvecKey, HtKey, RHOUKey, RHOVKey, RHOWKey, &
                                                                             RHOEKey, cKey, NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
+                                                                            XiKey, EtaKey, ZetaKey, ThreeAxesKey, AxesKey, &
                                                                             gradVKey, uxKey, vxKey, wxKey, &
                                                                             uyKey, vyKey, wyKey, uzKey, vzKey, wzKey, &
                                                                             cxKey, cyKey, czKey, &
@@ -375,6 +382,30 @@ module OutputVariables
                case(Nav_V)
                   output(var,:,:,:) = sum(e % Nsol)/real(NDIM)
                   
+               case(Xi_V)
+                  output(var,:,:,:) = 0
+                  output(var,:,0,0) = 3
+                  output(var,0,:,0) = 0
+                  output(var,0,0,:) = 0
+                  
+               case(Eta_V)
+                  output(var,:,:,:) = 0
+                  output(var,:,0,0) = 0
+                  output(var,0,:,0) = 3
+                  output(var,0,0,:) = 0
+                  
+               case(Zeta_V)
+                  output(var,:,:,:) = 0
+                  output(var,:,0,0) = 0
+                  output(var,0,:,0) = 0
+                  output(var,0,0,:) = 3
+                  
+               case(ThreeAxes_V)
+                  output(var,:,:,:) = 0
+                  output(var,:,0,0) = 3
+                  output(var,0,:,0) = 1.5
+                  output(var,0,0,:) = 1.5
+                  
 !
 !
 !              ******************
@@ -550,6 +581,9 @@ module OutputVariables
             
          case(N_V)
             outputVariablesForVariable = 4
+            
+         case(Axes_V)
+            outputVariablesForVariable = 4
 
          case default
             outputVariablesForVariable = 1
@@ -588,7 +622,10 @@ module OutputVariables
             
          case(N_V)
             output = (/Nxi_V, Neta_V, Nzeta_V, Nav_V/)
-
+         
+         case(Axes_V)
+            output = (/Xi_V, Eta_V, Zeta_V, ThreeAxes_V/)
+            
          case default
             output = iVar
 

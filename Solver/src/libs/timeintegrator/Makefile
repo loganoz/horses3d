@@ -9,66 +9,63 @@ RANLIB?=ranlib
 MOD_FLAG?=-J
 
 LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
-		./build_ns/GMRESClass.o \
-		./build_ns/JFNKClass.o \
-		./build_ns/Implicit_JF.o \
+		./build_ns/AnalyticalJacobian.o \
 		./build_ns/GenericLinSolverClass.o \
 		./build_ns/PetscSolverClass.o \
+		./build_ns/MultigridSolverClass.o \
 		./build_ns/MKLPardisoSolverClass.o \
 		./build_ns/IterativeSolverClass.o \
+		./build_ns/MatrixFreeSmootherClass.o \
+		./build_ns/MatrixFreeGMRESClass.o \
+		./build_ns/LinearSolverClass.o \
+		./build_ns/BDFTimeIntegrator.o \
+		./build_ns/RosenbrockTimeIntegrator.o \
 		./build_ns/MultigridTypes.o \
 		./build_ns/TruncationErrorClass.o \
 		./build_ns/ExplicitMethods.o \
 		./build_ns/AnisFASMultigridClass.o \
 		./build_ns/pAdaptationClass.o \
 		./build_ns/FASMultigridClass.o \
-		./build_ns/MultigridSolverClass.o \
-		./build_ns/LinearSolverClass.o \
-		./build_ns/AnalyticalJacobian.o \
-		./build_ns/Implicit_NJ.o \
-		./build_ns/IMEXMethods.o \
 		./build_ns/TimeIntegrator.o 
 
 LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
-		./build_ch/GMRESClass.o \
-		./build_ch/JFNKClass.o \
-		./build_ch/Implicit_JF.o \
+		./build_ch/AnalyticalJacobian.o \
 		./build_ch/GenericLinSolverClass.o \
 		./build_ch/PetscSolverClass.o \
+		./build_ch/MultigridSolverClass.o \
 		./build_ch/MKLPardisoSolverClass.o \
 		./build_ch/IterativeSolverClass.o \
+		./build_ch/MatrixFreeSmootherClass.o \
+		./build_ch/MatrixFreeGMRESClass.o \
+		./build_ch/LinearSolverClass.o \
+		./build_ch/BDFTimeIntegrator.o \
+		./build_ch/RosenbrockTimeIntegrator.o \
 		./build_ch/MultigridTypes.o \
 		./build_ch/TruncationErrorClass.o \
 		./build_ch/ExplicitMethods.o \
 		./build_ch/AnisFASMultigridClass.o \
 		./build_ch/pAdaptationClass.o \
 		./build_ch/FASMultigridClass.o \
-		./build_ch/MultigridSolverClass.o \
-		./build_ch/LinearSolverClass.o \
-		./build_ch/AnalyticalJacobian.o \
-		./build_ch/Implicit_NJ.o \
-		./build_ch/IMEXMethods.o \
 		./build_ch/TimeIntegrator.o 
 
 LIBOBJS_NSCH =  ./build_nsch/TimeIntegratorDefinitions.o \
-		./build_nsch/GMRESClass.o \
-		./build_nsch/JFNKClass.o \
-		./build_nsch/Implicit_JF.o \
+		./build_nsch/AnalyticalJacobian.o \
 		./build_nsch/GenericLinSolverClass.o \
 		./build_nsch/PetscSolverClass.o \
+		./build_nsch/MultigridSolverClass.o \
 		./build_nsch/MKLPardisoSolverClass.o \
 		./build_nsch/IterativeSolverClass.o \
+		./build_nsch/MatrixFreeSmootherClass.o \
+		./build_nsch/MatrixFreeGMRESClass.o \
+		./build_nsch/LinearSolverClass.o \
+		./build_nsch/BDFTimeIntegrator.o \
+		./build_nsch/RosenbrockTimeIntegrator.o \
 		./build_nsch/MultigridTypes.o \
 		./build_nsch/TruncationErrorClass.o \
 		./build_nsch/ExplicitMethods.o \
 		./build_nsch/AnisFASMultigridClass.o \
 		./build_nsch/pAdaptationClass.o \
 		./build_nsch/FASMultigridClass.o \
-		./build_nsch/MultigridSolverClass.o \
-		./build_nsch/LinearSolverClass.o \
-		./build_nsch/AnalyticalJacobian.o \
-		./build_nsch/Implicit_NJ.o \
-		./build_nsch/IMEXMethods.o \
 		./build_nsch/TimeIntegrator.o 
 
 LIB = timeintegrator

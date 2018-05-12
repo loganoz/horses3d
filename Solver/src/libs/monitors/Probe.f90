@@ -26,7 +26,7 @@ module ProbeClass
       integer                         :: eID
       real(kind=RP)                   :: x(NDIM)
       real(kind=RP)                   :: xi(NDIM)
-      real(kind=RP)                   :: values(BUFFER_SIZE)
+      real(kind=RP), allocatable      :: values(:)
       real(kind=RP), allocatable      :: lxi(:) , leta(:), lzeta(:)
       character(len=STR_LEN_MONITORS) :: fileName
       character(len=STR_LEN_MONITORS) :: monitorName
@@ -71,6 +71,11 @@ module ProbeClass
                real(kind=RP), allocatable       :: array(:)
             end function getArrayFromString
          end interface
+         
+!
+!        Allocate memory
+!        ---------------
+         allocate ( self % values(BUFFER_SIZE) )
 !
 !        Get monitor ID
 !        --------------

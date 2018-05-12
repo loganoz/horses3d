@@ -145,6 +145,23 @@ Module DGSEMClass
       INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
       logical, optional                  :: ChildSem                           !<  Is this a (multigrid) child sem?
+      INTERFACE
+         SUBROUTINE externalState(x,t,nHat,Q,boundaryName)
+            USE SMConstants
+            use PhysicsStorage
+            REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+            REAL(KIND=RP)   , INTENT(INOUT) :: Q(NCONS)
+            CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+         END SUBROUTINE externalState
+         
+         SUBROUTINE externalGradients(x,t,nHat,gradU,boundaryName)
+            USE SMConstants
+            use PhysicsStorage
+            REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
+            REAL(KIND=RP)   , INTENT(INOUT) :: gradU(3,N_GRAD_EQN)
+            CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
+         END SUBROUTINE externalGradients
+      END INTERFACE
 !
 !     ---------------
 !     Local variables
@@ -273,8 +290,6 @@ Module DGSEMClass
 
       end if
       
-      if ( self % mesh % anisotropic .and. (min(minval(Nx),minval(Ny),minval(Nz)) <=1) .and. dir2D == 0 ) ERROR STOP ':: 3D anisotropic mesh must have N>=2'
-
       if (controlVariables % containsKey("mesh inner curves")) then
          MeshInnerCurves = controlVariables % logicalValueForKey("mesh inner curves")
       else
@@ -322,17 +337,13 @@ Module DGSEMClass
 !     **********************************************************
 !
       CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
-      
+!
+!     Compute wall distances
+!     ----------------------
+#if defined(NAVIERSTOKES)
+      call self % mesh % ComputeWallDistances
+#endif
       IF(.NOT. success) RETURN
-!
-!     ------------------------
-!     Allocate and zero memory
-!     ------------------------
-!
-      DO k = 1, SIZE(self % mesh % elements) 
-         CALL allocateElementStorage( self = self % mesh % elements(k), &
-                          computeGradients = computeGradients)
-      END DO
 !
 !     ----------------------------
 !     Get the final number of DOFS
@@ -341,10 +352,16 @@ Module DGSEMClass
       self % NDOF = 0
       DO k=1, self % mesh % no_of_elements
          associate(e => self % mesh % elements(k))
-         self % NDOF = self % NDOF + NTOTALVARS * (e % Nxyz(1) + 1) * (e % Nxyz(2) + 1) * (e % Nxyz(3) + 1)
+         self % NDOF = self % NDOF + (e % Nxyz(1) + 1) * (e % Nxyz(2) + 1) * (e % Nxyz(3) + 1)
          end associate
       END DO
 
+!
+!     ------------------------
+!     Allocate and zero memory
+!     ------------------------
+!
+      call self % mesh % AllocateStorage(self % NDOF, controlVariables,computeGradients)
 !
 !     ----------------------------------------------------
 !     Get manufactured solution source term (if requested)
@@ -527,7 +544,7 @@ Module DGSEMClass
       
       INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, counter, elm
       
-      IF (SIZE(Q) /= self % NDOF/NTOTALVARS*nEqn) ERROR STOP 'Size mismatch in DGSEM:SetQ'
+      IF (SIZE(Q) /= self % NDOF*nEqn) ERROR STOP 'Size mismatch in DGSEM:SetQ'
       
       counter = 1
       DO elm = 1, size(self%mesh%elements)
@@ -560,7 +577,7 @@ Module DGSEMClass
       
       INTEGER                                       :: Nx, Ny, Nz, l, i, j, k, counter, elm
       
-      IF (SIZE(Q) /= self % NDOF/NTOTALVARS*nEqn) ERROR STOP 'Size mismatch in DGSEM:GetQ'
+      IF (SIZE(Q) /= self % NDOF*nEqn) ERROR STOP 'Size mismatch in DGSEM:GetQ'
       counter = 1
       DO elm = 1, size(self%mesh%elements)
          Nx = self%mesh%elements(elm)%Nxyz(1)
@@ -584,14 +601,15 @@ Module DGSEMClass
 !
 !  Routine to get the solution's time derivative in each element as a global solution vector
 !
-   SUBROUTINE GetQdot(self,Qdot)
+   SUBROUTINE GetQdot(self,nEqn,Qdot)
       IMPLICIT NONE
       CLASS(DGSem),        INTENT(INOUT)            :: self
+      integer,             intent(in)               :: nEqn
       REAL(KIND = RP),     INTENT(OUT)              :: Qdot(:)
       
       INTEGER                                       :: Nx, Ny, Nz, l, i, j, k, counter, elm
       
-      IF (SIZE(Qdot) /= self % NDOF) ERROR STOP 'Size mismatch in DGSEM:GetQdot'
+      IF (SIZE(Qdot) /= self % NDOF*nEqn) ERROR STOP 'Size mismatch in DGSEM:GetQdot'
       counter = 1
       DO elm = 1, size(self%mesh%elements)
          Nx = self%mesh%elements(elm)%Nxyz(1)

@@ -5,6 +5,7 @@
 \usepackage{float} 
 \usepackage{multirow}
 \usepackage{vmargin}
+\usepackage{longtable}
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{subfigure}
@@ -32,7 +33,7 @@
 \definecolor{mylilas}{RGB}{170,55,241}
 
 
-\title{\textbf{NSLITE3D \\ User Manual}}
+\title{\textbf{HORSES3D \\ User Manual}}
 \author{Andrés Rueda \\ Many others (future?)}
 
 \begin{document}
@@ -59,15 +60,21 @@
 
 \tableofcontents
 
-\chapter{Running a simulation}
+\chapter{Running a Simulation}
 List of all the mandatory keywords for running a simulation and some basic optional keywords. The specific keywords are listed in the other chapters.
-\begin{table}[htbp]
-\caption{General keywords for running a case.}
-\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
-\hline
-\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
 
-job name   & \textit{CHARACTER}: Name of the job/case to be run. This name will be used for naming all the output files. \textbf{NOT YET IMPLEMENTED}. & \textbf{Mandatory\ keyword} \\ \hline
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{General keywords for running a case.} \label{tab:runningkey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{General keywords for running a case - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+solution file name   & \textit{CHARACTER}: Path and name of the output file. The name of this file is used for naming other output files. & \textbf{Mandatory\ keyword} \\ \hline
 
 simulation type        & \textit{CHARACTER}: Specifies if NSLITE3D must perform a 'steady-state' or a 'time-accurate' simulation. &  'steady-state'\\ \hline
 
@@ -75,13 +82,19 @@ time integration & \textit{CHARACTER}: Can be 'implicit', 'explicit', or 'FAS'. 
 
 polynomial order   & \textit{INTEGER}: Polynomial order to be assigned uniformly to all the elements of the mesh. If the keyword \textit{polynomial order file} is specified, the value of this keyword is overridden. & --* \\ \hline
 
-polynomial order \textit{i/j/k}  & \textit{INTEGER}: Polynomial order in the i, j, or k component for all the elements in the domain. If used, the three directions must be declared explicitly, unless you are using a polynomial order file. If the keyword \textit{polynomial order file} is specified, the value of this keyword is overridden. & --** \\ \hline
+polynomial order i \
+
+polynomial order j \
+
+polynomial order k & \textit{INTEGER}: Polynomial order in the i, j, or k component for all the elements in the domain. If used, the three directions must be declared explicitly, unless you are using a polynomial order file. If the keyword \textit{polynomial order file} is specified, the value of this keyword is overridden. & --* \\ \hline
 
 polynomial order file  & \textit{CHARACTER}: Path to a file containing the polynomial order of each element in the domain. & --* \\ \hline
 
 restart 			& \textit{LOGICAL}: If .TRUE., initial conditions of simulation will be read from restart file specified using the keyword \textit{restart file name}. \textbf{THIS SHOULD NOT BE MANDATORY... DEFAULT FALSE WOULD BE EASIER}. & \textbf{Mandatory keyword} \\ \hline
 
-cfl & \textit{REAL}: Approximate CFL number that the program will use to compute the time step size. If this keyword is specified, the keyword \textit{dt} will be neglected. & --** \\ \hline
+cfl & \textit{REAL}: A constant related with the \textbf{convective} Courant-Friedrichs-Lewy (CFL) condition that the program will use to compute the time step size. & --** \\ \hline
+
+dcfl & \textit{REAL}: A constant related with the \textbf{diffusive} Courant-Friedrichs-Lewy (DCFL) condition that the program will use to compute the time step size. & --** \\ \hline
 
 dt  & \textit{REAL}: Constant time step size.  & --** \\ \hline
 
@@ -96,8 +109,6 @@ number of time steps & \textit{INTEGER}: \textit{Maximum} number of time steps t
 output interval   & \textit{INTEGER}: In steady-state, this keyword indicates the interval of time steps to display the residuals on screen. In time-accurate simulations, this keyword indicates how often a 3D output file must be stored.  & \textbf{Mandatory\ keyword} \\ \hline
 
 convergence tolerance & \textit{real}: \textbf{WHY MANDATORY?.. ONLY USED FOR STEADY-STATE}  & \textbf{Mandatory\ keyword} \\ \hline
-
-number of plot points & \textit{INTEGER}: Number of equidistant plot points inside each element for plotting. If this variable is not specified, the program will plot only the values at the Gauss points.  & -- \\ \hline
 
 manufactured solution & \textit{CHARACTER}: Must have the value '2D' or '3D'. When this keyword is used, the program will add source terms for the conservative variables taken into account an exact analytic solution for each primitive variable j ($\rho$, $u$, $v$, $w$, $p$) of the form:\
  
@@ -117,18 +128,13 @@ Number of boundaries & \textit{INTEGER}: Specifies the number of boundaries of t
 \end{center}
 & \textbf{Mandatory keyword} \\ \hline
 
-boundaries to analyze & \textit{INTEGER}: Specifies the number of boundaries where lift and drag must be computed. This keyword must be followed by an equal number of lines in the control file that state the boundaries to analyze. & -- \\ \hline
+\multicolumn{3}{p{16.4cm}}{*  At least one of these two keywords must be specified} \\
 
-\multicolumn{3}{l}{*  At least one of these two keywords must be specified} \\
+\multicolumn{3}{p{16.4cm}}{** For Euler simulations, the user must specify either the CFL number or the time-step size. For Navier-Stokes simulations, the user must specify the CFL and DCFL numbers \textbf{or} the time-step size.}
 
-\multicolumn{3}{l}{** At least one of these two keywords must be specified}
+\end{longtable}
 
-\end{tabular}
-\label{tab:runningkey}
-\end{table}
-
-
-\chapter{Restarting a case}
+\chapter{Restarting a Case}
 
 \begin{table}[htbp]
 \caption{Keywords for restarting a case.}
@@ -146,23 +152,33 @@ restart interval    & \textit{INTEGER}: Indicates how often restart files have t
 \end{table}
 
 
-\chapter{Implicit solvers}
-\section{General keywords}
+\chapter{Implicit Solvers}
+\section{General Keywords}
 The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
 
-\begin{table}[htbp]
-\caption{Keywords for implicit solvers.}
-\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+%\begin{table}[htbp]
+%\caption{Keywords for implicit solvers.}
+%\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+%\hline
+%\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for implicit solvers.} \label{tab:implicitkey} \\
 \hline
-\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for implicit solvers - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
 
 \textbf{time integration} & \textit{CHARACTER}: This is the main keyword for activating the implicit solvers. The value of it should be set to 'implicit'. & 'explicit' \\ \hline
 
 jacobian flag           & \textit{INTEGER}: Specifies the type of Jacobian matrix to be computed. Options are:\
 				\begin{enumerate}
-					\item Jacobian free: Uses JFNK algorithm with GMRES linear solver.
 					\item Numerical Jacobian: Uses coloring algorithm for computing Jacobian.
-					\item Analytical Jacobian: Not yet implemented.
+					\item Analytical Jacobian: Being implemented. To date only available for the compressible Euler equations and 'matrix-free smooth' linear solver to compute the blocks of the Jacobian.
 					\end{enumerate}
 										& 1 \\ \hline
 
@@ -172,24 +188,32 @@ linear solver           & \textit{CHARACTER}: Specifies the linear solver that h
 				\begin{itemize}
 					\item 'petsc': PETSc library Krylov-Subspace methods.
 					\item 'pardiso': Intel MKL PARDISO.
-					\item 'smooth': .
+					\item 'matrix-free gmres': A matrix-free version of the GMRES algorithm. Can be used without preconditioner or with a recursive GMRES preconditioner using 'preconditioner=GMRES'.
+					\item 'smooth': Traditional iterative methods. One can select either 'smoother=WeightedJacobi' or 'smoother=BlockJacobi'.
+					\item 'matrix-free smooth': A matrix-free version of the previous solver. Only available eith 'smoother=BlockJacobi'
 					\item 'multigrid': .
 				\end{itemize}
 										& 'petsc'  \\ \hline
 print newton info       & \textit{LOGICAL}: If .TRUE., the information of the Newton iterations will be displayed. &  '.FALSE.'\\ \hline
-  &  &  \\ \hline
-   &  &  \\ \hline
+implicit adaptive dt  & \textit{LOGICAL}: Specifies if the time-step should be computed according to the convergence behavior of the Newton iterative method and the linear solver. & .FALSE. \\ \hline
+newton tolerance   & \textit{REAL}: Specifies the tolerance for the Newton method. &  $10^{-6}$ or for time-accurate simulations and  $MaxResidual \times 10^{-3}$ for steady-state simulations \\ \hline
     &  &  \\ \hline
-\end{tabular}
-\label{tab:implicitkey}
-\end{table}
+    
+\end{longtable}
 
 \section{Multigrid}
-\begin{table}[htbp]
-\caption{Keywords for the multigrid solver.}
-\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the multigrid solver.} \label{tab:multigridKey} \\
 \hline
-\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the multigrid solver - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
 
 multigrid levels & \textit{INTEGER}: Number of multigrid levels for the computations. & \textbf{Mandatory keyword} \\ \hline
 
@@ -198,9 +222,49 @@ delta n          & \textit{INTEGER}: Interval of reduction of polynomial order f
 multigrid output & \textit{LOGICAL}: If .TRUE., the residuals at the different multigrid levels will be displayed. & .FALSE. \\ \hline
    
     &  &  \\ \hline
-\end{tabular}
-\label{tab:multigridKey}
-\end{table}
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{p-Adaptation Methods}
+The p-adaptation methods are used when the general keyword is in the control file:\\
+
+padaptation = .TRUE.
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the p-adaptation algorithms.} \label{tab:pAdaptationKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+
+truncation error & \textit{REAL}: Target truncation error for the p-adaptation algorithm. & \textbf{Mandatory keyword} \\ \hline
+
+adaptation nmax i \
+
+adaptation nmax j \
+
+adaptation nmax k          & \textit{INTEGER}: Maximum polynomial order in each direction for the adaptation algorithm. & N \\ \hline
+
+truncation error type & \textit{CHARACTER}: Can be either "isolated" or "non-isolated". & "isolated" \\ \hline
+   
+increasing adaptation & \textit{LOGICAL}: If .TRUE. the multi-stage FMG adaptation algorithm is used.  & .FALSE. \\ \hline
+
+adaptation conforming boundaries & \textit{INTEGER}: Specifies the number of boundaries of the geometry that must be forced to be conforming after the p-adaptation process. This keyword must be followed by an equal number of lines in the control file that Specifying the boundary names: \ 
+
+\begin{center}
+\textit{boundaryName1} \ 
+
+\textit{boundaryName2} \
+
+\textit{...} 
+\end{center} & 0 \\ \hline
+\end{longtable}
+
 
 \chapter{Input files}
 \begin{itemize}

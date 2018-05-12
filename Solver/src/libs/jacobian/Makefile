@@ -12,28 +12,31 @@ MOD_FLAG?=-J
 
 
 LIBOBJS_NS = 	./build_ns/GenericMatrixClass.o \
-                ./build_ns/CSRMatrixClass.o \
-                ./build_ns/PETScMatrixClass.o \
-                ./build_ns/MatrixClass.o \
-		./build_ns/ColorsClass.o \
-		./build_ns/Jacobian.o \
-		./build_ns/NumericalJacobian.o
+			    ./build_ns/CSRMatrixClass.o \
+			    ./build_ns/PETScMatrixClass.o \
+			    ./build_ns/DenseBlockDiagonalMatrixClass.o \
+			    ./build_ns/MatrixClass.o \
+				./build_ns/ColorsClass.o \
+				./build_ns/Jacobian.o \
+				./build_ns/NumericalJacobian.o
 
 LIBOBJS_CH = 	./build_ch/GenericMatrixClass.o \
-		./build_ch/CSRMatrixClass.o \
-		./build_ch/PETScMatrixClass.o \
-		./build_ch/MatrixClass.o \
-		./build_ch/ColorsClass.o \
-		./build_ch/Jacobian.o\
-		./build_ch/NumericalJacobian.o
+			    ./build_ch/CSRMatrixClass.o \
+			    ./build_ch/PETScMatrixClass.o \
+			    ./build_ch/DenseBlockDiagonalMatrixClass.o \
+			    ./build_ch/MatrixClass.o \
+				./build_ch/ColorsClass.o \
+				./build_ch/Jacobian.o \
+				./build_ch/NumericalJacobian.o
 
 LIBOBJS_NSCH = 	./build_nsch/GenericMatrixClass.o \
-		./build_nsch/CSRMatrixClass.o \
-		./build_nsch/PETScMatrixClass.o \
-		./build_nsch/MatrixClass.o \
-		./build_nsch/ColorsClass.o \
-		./build_nsch/Jacobian.o\
-		./build_nsch/NumericalJacobian.o
+			    ./build_nsch/CSRMatrixClass.o \
+			    ./build_nsch/PETScMatrixClass.o \
+			    ./build_nsch/DenseBlockDiagonalMatrixClass.o \
+			    ./build_nsch/MatrixClass.o \
+				./build_nsch/ColorsClass.o \
+				./build_nsch/Jacobian.o \
+				./build_nsch/NumericalJacobian.o
 
 
 LIB = jacobian

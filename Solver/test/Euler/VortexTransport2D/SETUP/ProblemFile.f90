@@ -231,6 +231,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+<<<<<<< HEAD
          subroutine UserDefinedSourceTerm(mesh, time      &
 #if defined(NAVIERSTOKES)
                                         , thermodynamics_ &
@@ -241,6 +242,9 @@
                                         , multiphase_ &
 #endif
 )
+=======
+         subroutine UserDefinedSourceTerm(x, time, S, thermodynamics_, dimensionless_, refValues_)
+>>>>>>> master
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -251,6 +255,7 @@
             use PhysicsStorage
             use FluidData
             IMPLICIT NONE
+<<<<<<< HEAD
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
 #if defined(NAVIERSTOKES)
@@ -281,6 +286,18 @@
 !              end do                  ; end do                ; end do
 !              end associate
 !           end do
+=======
+            real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: time
+            real(kind=RP),             intent(out) :: S(NCONS)
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
+!
+!           Usage example
+!           -------------
+!           S(:) = x(1) + x(2) + x(3) + time
+>>>>>>> master
    
          end subroutine UserDefinedSourceTerm
 !

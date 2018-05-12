@@ -8,9 +8,11 @@
 !
 !////////////////////////////////////////////////////////////////////////
 MODULE LinearSolverClass
-!   USE PetscSolverClass
-!   USE MKLPardisoSolverClass
-!   USE IterativeSolverClass
-!   USE MultigridSolverClass
+   USE PetscSolverClass
+   USE MKLPardisoSolverClass
+   USE IterativeSolverClass
+   USE MultigridSolverClass
+   use MatrixFreeSmootherClass
+   use MatrixFreeGMRESClass
    IMPLICIT NONE
 END MODULE LinearSolverClass

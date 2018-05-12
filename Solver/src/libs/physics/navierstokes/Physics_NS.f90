@@ -36,7 +36,7 @@
       public  ViscousFlux0D, ViscousFlux2D, ViscousFlux3D
       public  EulerFlux0D, EulerFlux3D
       public  InviscidJacobian
-      public  getStressTensor, SutherlandsLaw
+      public  getStressTensor, SutherlandsLaw, ViscousJacobian
 
      interface EulerFlux
          module procedure EulerFlux0D, EulerFlux3D
@@ -161,7 +161,11 @@
 !        F = f*iHat + g*jHat + h*kHat
 !
 !     First index indicates the flux term and second index indicates the conserved 
-!     variable term. 
+!     variable term. For example:
+!           dfdq     := df/dq
+!                       d f(2) |
+!           dfdq(2,4) = ------ |
+!                       d q(4) |q
 !     ***** This routine is necessary for computing the analytical Jacobian. *****
 !     -------------------------------------------------------------------------------
       pure subroutine InviscidJacobian(q,dfdq,dgdq,dhdq)
@@ -483,7 +487,244 @@
          end associate
 
       end subroutine ViscousFlux3D
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!
+!     ------------------------------------------------------------------------------------------
+!     Subroutine for computing the Jacobians of the viscous fluxes 
+!
+!     1. Jacobian with respect to the gradients of the conserved variables: df/d(∇q)
+!        Every direction of the viscous flux can be expressed as
+!
+!        f_i = \sum_j df_dgradq(:,:,j,i) dq/dx_j
+!
+!        In Navier-Stokes, this dependence is linear. Therefore:
+!
+!              df_dgradq         := df/d(∇q)
+!                                   d f_i(2)   |
+!              df_dgradq(2,4,j,i) = ---------- |
+!                                   d(∇q)_j(4) |q=cons,
+!			where (∇q)_j = dq/dx_j
+!        
+!			Following Hartmann's notation, G_{ij} = df_dgradq(:,:,j,i). --> R. Hartmann. "Discontinuous Galerkin methods for compressible flows: higher order accuracy, error estimation and adaptivity". 2005.
+!
+!     2. Jacobian with respect to the conserved variables: df/dq
+!
+!				 	df_dq       := df/d(∇q)
+!                             d f_i(2) |
+!              df_dq(2,4,i) = -------- |
+!                             dq(4)    |∇q=cons
+!
+!     NOTE 1: Here the thermal conductivity and the viscosity are computed using Sutherland's law!     
+!     NOTE 2: The dependence of the temperature on q is not considered in Sutherland's law
+!
+!     ***** This routine is necessary for computing the analytical Jacobian. *****
+!     ------------------------------------------------------------------------------------------
+      pure subroutine ViscousJacobian(q, U_x, U_y, U_z, gradRho, df_dgradq, df_dq)
+         implicit none
+         !-------------------------------------------------
+         real(kind=RP), intent(in)  :: q(NCONS)                      !< Conserved variables state
+         real(kind=RP), intent(in)  :: U_x (1:N_GRAD_EQN)
+         real(kind=RP), intent(in)  :: U_y (1:N_GRAD_EQN)
+         real(kind=RP), intent(in)  :: U_z (1:N_GRAD_EQN) ! , intent(in)
+         real(kind=RP), intent(in)  :: gradRho (3)
+         real(kind=RP), intent(out) :: df_dgradq(NCONS,NCONS,NDIM,NDIM)
+         real(kind=RP), intent(out) :: df_dq    (NCONS,NCONS,NDIM)
+         !-------------------------------------------------
+         real(kind=RP)            :: T , sutherLaw
+         real(kind=RP)            :: u , v , w, E, u2, v2, w2, Vel2
+         real(kind=RP)            :: vv_x, vv_y, vv_z
+         real(kind=RP)            :: V_gradU, V_gradV, V_gradW, gradE(3)
+         real(kind=RP)            :: gamma_Pr
+         real(kind=RP)            :: rho_DivV, V_gradRho
+         real(kind=RP), parameter :: lambda = 1._RP/3._RP
+         real(kind=RP), parameter :: f4_3 = 4._RP/3._RP
+         real(kind=RP), parameter :: f2_3 = 2._RP/3._RP
+         !-------------------------------------------------
+         
+         u  = Q(IRHOU) / Q(IRHO)
+         v  = Q(IRHOV) / Q(IRHO)
+         w  = Q(IRHOW) / Q(IRHO)
+         E  = Q(IRHOE) / Q(IRHO)
+         u2 = u*u
+         v2 = v*v
+         w2 = w*w
+         Vel2 = u2 + v2 + w2
 
+         T     = Temperature(q)
+         sutherLaw = SutherlandsLaw(T)
+         
+         associate ( gamma => thermodynamics % gamma, & 
+                     gammaM2 => dimensionless % gammaM2, &
+                     gammaMinus1 => thermodynamics % gammaMinus1, &
+                     Re    => dimensionless % Re    , &
+                     Pr    => dimensionless % Pr ) 
+         
+         gamma_Pr = gamma/Pr
+         
+!
+!        *****************************
+!        Derivative with respect to ∇q
+!        *****************************
+!
+         
+!
+!        Flux in the x direction: f = G_{1:} · ∇q
+!        ----------------------------------------
+         
+         ! G_{11}
+         df_dgradq(:,1,1,1) = (/ 0._RP , -f4_3*u ,      -v ,      -w , -(f4_3*u2 + v2 + w2 + gamma_Pr*(E - Vel2)) /)
+         df_dgradq(:,2,1,1) = (/ 0._RP ,  f4_3   ,   0._RP ,   0._RP , u * (  f4_3 - gamma_Pr)                           /)
+         df_dgradq(:,3,1,1) = (/ 0._RP ,   0._RP ,   1._RP ,   0._RP , v * (1.0_RP - gamma_Pr)                           /)
+         df_dgradq(:,4,1,1) = (/ 0._RP ,   0._RP ,   0._RP ,   1._RP , w * (1.0_RP - gamma_Pr)                           /)
+         df_dgradq(:,5,1,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,               gamma_Pr                            /)
+         
+         ! G_{12}
+         df_dgradq(:,1,2,1) = (/ 0._RP ,  f2_3*v ,      -u ,   0._RP , -lambda*u*v /)
+         df_dgradq(:,2,2,1) = (/ 0._RP ,   0._RP ,   1._RP ,   0._RP ,       v   /)
+         df_dgradq(:,3,2,1) = (/ 0._RP , -f2_3   ,   0._RP ,   0._RP , -f2_3*u   /)
+         df_dgradq(:,4,2,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,5,2,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         
+         ! G_{13}
+         df_dgradq(:,1,3,1) = (/ 0._RP ,  f2_3*w ,   0._RP ,      -u , -lambda*u*w /)
+         df_dgradq(:,2,3,1) = (/ 0._RP ,   0._RP ,   0._RP ,   1._RP ,       w   /)
+         df_dgradq(:,3,3,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,4,3,1) = (/ 0._RP , -f2_3   ,   0._RP ,   0._RP , -f2_3*u   /)
+         df_dgradq(:,5,3,1) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         
+!
+!        Flux in the y direction: g = G_{2:} · ∇q
+!        ----------------------------------------
+         
+         ! G_{21}
+         df_dgradq(:,1,1,2) = (/ 0._RP ,      -v ,  f2_3*u ,   0._RP , -lambda*u*v /)
+         df_dgradq(:,2,1,2) = (/ 0._RP ,   0._RP , -f2_3   ,   0._RP , -f2_3*v   /)
+         df_dgradq(:,3,1,2) = (/ 0._RP ,   1._RP ,   0._RP ,   0._RP ,       u   /)
+         df_dgradq(:,4,1,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,5,1,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         
+         ! G_{22}
+         df_dgradq(:,1,2,2) = (/ 0._RP ,      -u , -f4_3*v ,      -w , -(u2 + f4_3*v2 + w2 + gamma_Pr*(E - Vel2)) /)
+         df_dgradq(:,2,2,2) = (/ 0._RP ,   1._RP ,   0._RP ,   0._RP , u * (1.0_RP - gamma_Pr)                           /)
+         df_dgradq(:,3,2,2) = (/ 0._RP ,   0._RP ,  f4_3   ,   0._RP , v * (  f4_3 - gamma_Pr)                           /)
+         df_dgradq(:,4,2,2) = (/ 0._RP ,   0._RP ,   0._RP ,   1._RP , w * (1.0_RP - gamma_Pr)                           /)
+         df_dgradq(:,5,2,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,               gamma_Pr                            /)
+         
+         ! G_{23}
+         df_dgradq(:,1,3,2) = (/ 0._RP ,   0._RP ,  f2_3*w ,      -v , -lambda*v*w /)
+         df_dgradq(:,2,3,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,3,3,2) = (/ 0._RP ,   0._RP ,   0._RP ,   1._RP ,       w   /)
+         df_dgradq(:,4,3,2) = (/ 0._RP ,   0._RP , -f2_3   ,   0._RP , -f2_3*v   /)
+         df_dgradq(:,5,3,2) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         
+!
+!        Flux in the z direction: h = G_{3:} · ∇q
+!        ----------------------------------------
+         
+         ! G_{31}
+         df_dgradq(:,1,1,3) = (/ 0._RP ,      -w ,   0._RP ,  f2_3*u , -lambda*u*w /)
+         df_dgradq(:,2,1,3) = (/ 0._RP ,   0._RP ,   0._RP , -f2_3   , -f2_3*w   /)
+         df_dgradq(:,3,1,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,4,1,3) = (/ 0._RP ,   1._RP ,   0._RP ,   0._RP ,       u   /)
+         df_dgradq(:,5,1,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         
+         ! G_{32}
+         df_dgradq(:,1,2,3) = (/ 0._RP ,   0._RP ,      -w ,  f2_3*v , -lambda*v*w /)
+         df_dgradq(:,2,2,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         df_dgradq(:,3,2,3) = (/ 0._RP ,   0._RP ,   0._RP , -f2_3   , -f2_3*w   /)
+         df_dgradq(:,4,2,3) = (/ 0._RP ,   0._RP ,   1._RP ,   0._RP ,       v   /)
+         df_dgradq(:,5,2,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,   0._RP   /)
+         
+         ! G_{33}
+         df_dgradq(:,1,3,3) = (/ 0._RP ,      -u ,      -v , -f4_3*w , -(u2 + v2 + f4_3*w2 + gamma_Pr*(E - Vel2)) /)
+         df_dgradq(:,2,3,3) = (/ 0._RP ,   1._RP ,   0._RP ,   0._RP , u * (1.0_RP - gamma_Pr)                           /)
+         df_dgradq(:,3,3,3) = (/ 0._RP ,   0._RP ,   1._RP ,   0._RP , v * (1.0_RP - gamma_Pr)                           /)
+         df_dgradq(:,4,3,3) = (/ 0._RP ,   0._RP ,   0._RP ,  f4_3   , w * (  f4_3 - gamma_Pr)                           /)
+         df_dgradq(:,5,3,3) = (/ 0._RP ,   0._RP ,   0._RP ,   0._RP ,               gamma_Pr                            /)
+         
+!
+!        Scale with mu/(rho*Re) .or. kappa/(rho*Re)
+!        ------------------------------------------
+         
+         df_dgradq = df_dgradq * sutherLaw / ( Q(IRHO) * Re )
+         
+!
+!        ****************************
+!        Derivative with respect to q
+!        ****************************
+!
+!        Auxiliar variables
+!        ------------------
+         
+         rho_DivV      = Q(IRHO) * ( U_x(IGU) + U_y(IGV) + U_z(IGW) )       ! rho ∇ · v
+         V_gradRho     = u * gradRho(1) + v * gradRho(2) + w * gradRho(3)   ! v · ∇rho
+         V_gradU       = u * U_x(IGU) + v * U_y(IGU) + w * U_z(IGU)
+         V_gradV       = u * U_x(IGV) + v * U_y(IGV) + w * U_z(IGV)
+         V_gradW       = u * U_x(IGW) + v * U_y(IGW) + w * U_z(IGW)
+         
+         vv_x = 2._RP * Q(IRHO) * ( u * U_x(IGU) + v * U_x(IGV) + w * U_x(IGW) )
+         vv_y = 2._RP * Q(IRHO) * ( u * U_y(IGU) + v * U_y(IGV) + w * U_y(IGW) )
+         vv_z = 2._RP * Q(IRHO) * ( u * U_z(IGU) + v * U_z(IGV) + w * U_z(IGW) )
+         
+         gradE(1) = U_x(IGT) / (gammaM2 * gammaMinus1) + vv_x / Q(IRHO)
+         gradE(2) = U_y(IGT) / (gammaM2 * gammaMinus1) + vv_y / Q(IRHO)
+         gradE(3) = U_z(IGT) / (gammaM2 * gammaMinus1) + vv_z / Q(IRHO)
+         
+!        Jacobian entries
+!        ----------------
+         
+         ! A_1
+         df_dq(:,1,1) = (/ 0._RP , & 
+                           2._RP * lambda * (rho_DivV - V_gradRho) + 2._RP * ( u * gradRho(1) - Q(IRHO) * U_x(IGU) ), &
+                           u * gradRho(2) + v * gradRho(1) - Q(IRHO) * ( U_y(IGU) + U_x(IGV)) , &
+                           u * gradRho(3) + w * gradRho(1) - Q(IRHO) * ( U_z(IGU) + U_x(IGW)) , &
+                           (1._RP - gamma_Pr) * ( Vel2*gradRho(1) - vv_x ) + lambda * u * (4._RP*rho_DivV + V_gradRho) &
+                                - 2 * Q(IRHO) * V_gradU + gamma_Pr * ( E * gradRho(1) + Q(IRHO) * gradE(1) ) /)
+         
+         df_dq(:,2,1) = (/ 0._RP , -4._RP*lambda*gradRho(1) , -gradRho(2) , -gradRho(3) , -u * (lambda - gamma_Pr) * gradRho(1) + Q(IRHO) * ( 2._RP - gamma_Pr) * U_x(IGU) - V_gradRho - 2._RP * lambda * rho_DivV /)
+         df_dq(:,3,1) = (/ 0._RP ,  2._RP*lambda*gradRho(2) , -gradRho(1) , 0._RP       , (1._RP - gamma_Pr) * (Q(IRHO) * U_x(IGV) - v * gradRho(1)) + Q(IRHO) * U_y(IGU) + 2._RP * lambda * u * gradRho(2) /)
+         df_dq(:,4,1) = (/ 0._RP ,  2._RP*lambda*gradRho(3) , 0._RP       , -gradRho(1) , (1._RP - gamma_Pr) * (Q(IRHO) * U_x(IGW) - w * gradRho(1)) + Q(IRHO) * U_z(IGU) + 2._RP * lambda * u * gradRho(3) /)
+         df_dq(:,5,1) = (/ 0._RP , 0._RP                    , 0._RP       , 0._RP       , -gamma_Pr * gradRho(1) /)
+         
+         ! A_2
+         df_dq(:,1,2) = (/ 0._RP , & 
+                           v * gradRho(1) + u * gradRho(2) - Q(IRHO) * ( U_x(IGV) + U_y(IGU)) , &
+                           2._RP * lambda * (rho_DivV - V_gradRho) + 2._RP * ( v * gradRho(2) - Q(IRHO) * U_y(IGV) ), &
+                           v * gradRho(3) + w * gradRho(2) - Q(IRHO) * ( U_z(IGV) + U_y(IGW)) , &
+                           (1._RP - gamma_Pr) * ( Vel2*gradRho(2) - vv_y ) + lambda * v * (4._RP*rho_DivV + V_gradRho) &
+                                - 2 * Q(IRHO) * V_gradV + gamma_Pr * ( E * gradRho(2) + Q(IRHO) * gradE(2) ) /)
+         
+         df_dq(:,2,2) = (/ 0._RP , -gradRho(2) ,  2._RP*lambda*gradRho(1) , 0._RP       , (1._RP - gamma_Pr) * (Q(IRHO) * U_y(IGU) - u * gradRho(2)) + Q(IRHO) * U_x(IGV) + 2._RP * lambda * v * gradRho(1) /)
+         df_dq(:,3,2) = (/ 0._RP , -gradRho(1) , -4._RP*lambda*gradRho(2) , -gradRho(3) , -v * (lambda - gamma_Pr) * gradRho(2) + Q(IRHO) * ( 2._RP - gamma_Pr) * U_y(IGV) - V_gradRho - 2._RP * lambda * rho_DivV /)
+         df_dq(:,4,2) = (/ 0._RP , 0._RP       ,  2._RP*lambda*gradRho(3) , -gradRho(2) , (1._RP - gamma_Pr) * (Q(IRHO) * U_y(IGW) - w * gradRho(2)) + Q(IRHO) * U_z(IGV) + 2._RP * lambda * v * gradRho(3) /)
+         df_dq(:,5,2) = (/ 0._RP , 0._RP       , 0._RP                    , 0._RP       , -gamma_Pr * gradRho(2) /)
+         
+         ! A_3
+         df_dq(:,1,3) = (/ 0._RP , & 
+                           w * gradRho(1) + u * gradRho(3) - Q(IRHO) * ( U_x(IGW) + U_z(IGU)) , &
+                           w * gradRho(2) + v * gradRho(3) - Q(IRHO) * ( U_y(IGW) + U_z(IGV)) , &
+                           2._RP * lambda * (rho_DivV - V_gradRho) + 2._RP * ( w * gradRho(3) - Q(IRHO) * U_z(IGW) ), &
+                           (1._RP - gamma_Pr) * ( Vel2*gradRho(3) - vv_z ) + lambda * w * (4._RP*rho_DivV + V_gradRho) &
+                                - 2 * Q(IRHO) * V_gradW + gamma_Pr * ( E * gradRho(3) + Q(IRHO) * gradE(3) ) /)
+         
+         df_dq(:,2,3) = (/ 0._RP , -gradRho(3) , 0._RP       ,  2._RP*lambda*gradRho(1) , (1._RP - gamma_Pr) * (Q(IRHO) * U_z(IGU) - u * gradRho(3)) + Q(IRHO) * U_x(IGW) + 2._RP * lambda * w * gradRho(1) /)
+         df_dq(:,3,3) = (/ 0._RP , 0._RP       , -gradRho(3) ,  2._RP*lambda*gradRho(2) , (1._RP - gamma_Pr) * (Q(IRHO) * U_z(IGV) - v * gradRho(3)) + Q(IRHO) * U_y(IGW) + 2._RP * lambda * w * gradRho(2) /)
+         df_dq(:,4,3) = (/ 0._RP , -gradRho(1) , -gradRho(2) , -4._RP*lambda*gradRho(3) , -w * (lambda - gamma_Pr) * gradRho(3) + Q(IRHO) * ( 2._RP - gamma_Pr) * U_z(IGW) - V_gradRho - 2._RP * lambda * rho_DivV /)
+         df_dq(:,5,3) = (/ 0._RP , 0._RP       , 0._RP       , 0._RP                    , -gamma_Pr * gradRho(3) /)
+         
+!
+!        Scale with mu/(rho² Re) .or. kappa/(rho² Re)
+!        --------------------------------------------
+         
+         df_dq = df_dq * sutherLaw / ( Q(IRHO)**2 * Re ) 
+         
+         end associate
+      end subroutine ViscousJacobian
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       pure subroutine ViscousFlux0D_withSGS(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
          implicit none
          integer,       intent(in)  :: nEqn

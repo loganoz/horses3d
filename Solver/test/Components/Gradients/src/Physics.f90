@@ -671,6 +671,20 @@
          F(1:N_GRAD_EQN,:,:,:,IZ) = U_z
 
       end subroutine ViscousFlux3D
+      
+      pure subroutine ViscousJacobian(q, U_x, U_y, U_z, gradRho, df_dgradq, df_dq)
+         implicit none
+         !-------------------------------------------------
+         real(kind=RP), intent(in)  :: q(NCONS)                      !< Conserved variables state
+         real(kind=RP), intent(in)  :: U_x (1:N_GRAD_EQN)
+         real(kind=RP), intent(in)  :: U_y (1:N_GRAD_EQN)
+         real(kind=RP), intent(in)  :: U_z (1:N_GRAD_EQN) ! , intent(in)
+         real(kind=RP), intent(in)  :: gradRho (3)
+         real(kind=RP), intent(out) :: df_dgradq(NCONS,NCONS,NDIM,NDIM)
+         real(kind=RP), intent(out) :: df_dq    (NCONS,NCONS,NDIM)
+         !-------------------------------------------------
+         ! DO NOTHING
+      end subroutine ViscousJacobian
 !
 ! /////////////////////////////////////////////////////////////////////
 !

@@ -44,7 +44,10 @@
             use SMConstants
             use HexMeshClass
             use PhysicsStorage
+<<<<<<< HEAD
             use FluidData
+=======
+>>>>>>> master
             IMPLICIT NONE
             CLASS(HexMesh)             :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
@@ -66,7 +69,10 @@
 !
             USE SMConstants
             use PhysicsStorage
+<<<<<<< HEAD
             use FluidData
+=======
+>>>>>>> master
             use HexMeshClass
             implicit none
             class(HexMesh)                      :: mesh
@@ -80,7 +86,11 @@
 !
             integer        :: eID, i, j, k
             real(kind=RP)  :: qq, u, v, w, p
+<<<<<<< HEAD
             real(kind=RP)  :: Q(NCONS), phi, theta
+=======
+            real(kind=RP)  :: Q(N_EQN), phi, theta
+>>>>>>> master
 
 #if defined(NAVIERSTOKES)
             associate ( gammaM2 => dimensionless_ % gammaM2, &
@@ -114,7 +124,11 @@
 !              relax back to the mean flow
 !              -------------------------------------------------
 !
+<<<<<<< HEAD
                mesh % elements(eID) % storage % Q(1,3,3,3) = 1.05_RP*mesh % elements(eID) % storage % Q(1,3,3,3)
+=======
+               mesh % elements(eID) % storage % Q(1,0,0,0) = 1.05_RP*mesh % elements(eID) % storage % Q(1,0,0,0)
+>>>>>>> master
 
             end do
 
@@ -131,12 +145,19 @@
 !
             use SMConstants
             use PhysicsStorage
+<<<<<<< HEAD
             use FluidData
+=======
+>>>>>>> master
             implicit none
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
+<<<<<<< HEAD
             real(kind=RP), intent(inout)  :: Q(NCONS)
+=======
+            real(kind=RP), intent(inout)  :: Q(N_EQN)
+>>>>>>> master
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
@@ -150,20 +171,33 @@
 !
             use SMConstants
             use PhysicsStorage
+<<<<<<< HEAD
             use FluidData
+=======
+>>>>>>> master
             implicit none
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
+<<<<<<< HEAD
             real(kind=RP), intent(inout)  :: U_x(NGRAD)
             real(kind=RP), intent(inout)  :: U_y(NGRAD)
             real(kind=RP), intent(inout)  :: U_z(NGRAD)
+=======
+            real(kind=RP), intent(inout)  :: U_x(N_GRAD_EQN)
+            real(kind=RP), intent(inout)  :: U_y(N_GRAD_EQN)
+            real(kind=RP), intent(inout)  :: U_z(N_GRAD_EQN)
+>>>>>>> master
          end subroutine UserDefinedNeumann
 
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+<<<<<<< HEAD
          subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_)
+=======
+         subroutine UserDefinedSourceTerm(x, time, S, thermodynamics_, dimensionless_, refValues_)
+>>>>>>> master
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -172,6 +206,7 @@
             use SMConstants
             USE HexMeshClass
             use PhysicsStorage
+<<<<<<< HEAD
             use FluidData
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
@@ -199,6 +234,19 @@
 !              end do                  ; end do                ; end do
 !              end associate
 !           end do
+=======
+            IMPLICIT NONE
+            real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: time
+            real(kind=RP),             intent(out) :: S(NCONS)
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
+!
+!           Usage example
+!           -------------
+!           S(:) = x(1) + x(2) + x(3) + time
+>>>>>>> master
    
          end subroutine UserDefinedSourceTerm
 !
@@ -239,7 +287,10 @@
             use SMConstants
             USE FTAssertions
             use PhysicsStorage
+<<<<<<< HEAD
             use FluidData
+=======
+>>>>>>> master
             use HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
@@ -264,7 +315,11 @@
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
             INTEGER                            :: i, j, k, N
+<<<<<<< HEAD
             real(kind=RP)                      :: qq, u, v, w, p, Q(NCONS), theta, phi
+=======
+            real(kind=RP)                      :: qq, u, v, w, p, Q(N_EQN), theta, phi
+>>>>>>> master
             TYPE(FTAssertionsManager), POINTER :: sharedManager
 !
 !           -----------------------------------------------------------------------
@@ -274,10 +329,17 @@
 !           -----------------------------------------------------------------------
 !
 #if defined(NAVIERSTOKES)
+<<<<<<< HEAD
             INTEGER                            :: expectedIterations(3:5) = [1821,3090,4164]
             REAL(KIND=RP)                      :: expectedResidual(3:5)   = [9.7985624521602423E-011,&
                                                                              9.7825050715404729E-011,&
                                                                              9.7454147241309180E-011]
+=======
+            INTEGER                            :: expectedIterations(3:8) = [1821,3090,4164,0,0,0]
+            REAL(KIND=RP)                      :: expectedResidual(3:8)   = [9.7985624521602423E-011,&
+                                                                             9.7825050715404729E-011,&
+                                                                             9.7454147241309180E-011,0.,0.,0.]
+>>>>>>> master
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
@@ -291,7 +353,11 @@
                                tol           = 1.d-3, &
                                msg           = "Final maximum residual")
             
+<<<<<<< HEAD
             ALLOCATE(QExpected(NCONS,0:N,0:N,0:N))
+=======
+            ALLOCATE(QExpected(N_EQN,0:N,0:N,0:N))
+>>>>>>> master
             
             maxError = 0.0_RP
             associate ( gammaM2 => dimensionless_ % gammaM2, &
@@ -337,7 +403,11 @@
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is fixed."
                WRITE(6,*) "      When that is done, re-compute the expected values and modify this procedure"
+<<<<<<< HEAD
                STOP 99
+=======
+!~               STOP 99
+>>>>>>> master
             END IF 
             WRITE(6,*)
             

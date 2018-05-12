@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Fri May 11 13:06:53 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 8e164298629e7c619d07ae268e3284e9ecc3158c
+!   @Last revision date: Sat May 12 20:53:25 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: ece79010cbff566c377be7e7026f86a2889a191e
 !
 !//////////////////////////////////////////////////////
 !
@@ -65,6 +65,22 @@ module SpatialDiscretization
             EXTERNAL                     :: externalStateProcedure
             EXTERNAL                     :: externalGradientsProcedure
          end subroutine computeBoundaryFluxF
+      end interface
+
+      interface
+         subroutine UserDefinedSourceTermNS(x, time, S, thermodynamics_, dimensionless_, refValues_)
+            use SMConstants
+            USE HexMeshClass
+            use PhysicsStorage
+            use FluidData
+            IMPLICIT NONE
+            real(kind=RP),             intent(in) :: x(NDIM)
+            REAL(KIND=RP),             intent(in) :: time
+            real(kind=RP),             intent(in) :: S(NCONS)
+            type(Thermodynamics_t),    intent(in) :: thermodynamics_
+            type(Dimensionless_t),     intent(in) :: dimensionless_
+            type(RefValues_t),         intent(in) :: refValues_
+         end subroutine UserDefinedSourceTermNS
       end interface
 
       procedure(computeElementInterfaceFluxF), pointer :: computeElementInterfaceFlux => computeElementInterfaceFlux_NS
@@ -389,13 +405,6 @@ module SpatialDiscretization
             e % storage % QDot = (1.0_RP / multiphase % Pe) * e % storage % QDot
          end do
 !$omp end do
-
-!
-!        Add a source term
-!        -----------------
-!$omp single
-         call UserDefinedSourceTerm(mesh, time, multiphase)
-!$omp end single
 !
 !        *****************************
 !        Return the concentration to Q
@@ -498,17 +507,6 @@ module SpatialDiscretization
          INTEGER :: i, j, k, eID, fID
          class(Element), pointer  :: e
          class(Face),    pointer  :: f
-         interface
-            subroutine UserDefinedSourceTerm(mesh, time, multiphase_)
-               use SMConstants
-               USE HexMeshClass
-               use FluidData
-               IMPLICIT NONE
-               CLASS(HexMesh)                        :: mesh
-               REAL(KIND=RP)                         :: time
-               type(Multiphase_t),        intent(in) :: multiphase_
-            end subroutine UserDefinedSourceTerm
-         end interface
 !
 !        **************************************
 !        Compute chemical potential: Q stores c
@@ -675,17 +673,6 @@ module SpatialDiscretization
          INTEGER :: i, j, k, eID, fID
          class(Element), pointer  :: e
          class(Face),    pointer  :: f
-         interface
-            subroutine UserDefinedSourceTerm(mesh, time, multiphase_)
-               use SMConstants
-               USE HexMeshClass
-               use FluidData
-               IMPLICIT NONE
-               CLASS(HexMesh)                        :: mesh
-               REAL(KIND=RP)                         :: time
-               type(Multiphase_t)                    :: multiphase_
-            end subroutine UserDefinedSourceTerm
-         end interface
 
 !
 !        **************************************
@@ -814,13 +801,6 @@ module SpatialDiscretization
             e % storage % QDot = (1.0_RP / multiphase % Pe) * e % storage % QDot
          end do
 !$omp end do
-
-!
-!        Add a source term
-!        -----------------
-!$omp single
-         call UserDefinedSourceTerm(mesh, time, multiphase)
-!$omp end single
 !
 !        *****************************
 !        Return the concentration to Q
@@ -902,21 +882,6 @@ module SpatialDiscretization
 !        ---------------
 !
          integer     :: eID , i, j, k, ierr, fID
-         interface
-            subroutine UserDefinedSourceTerm(mesh, time, thermodynamics_, dimensionless_, refValues_, multiphase_)
-               use SMConstants
-               USE HexMeshClass
-               use PhysicsStorage
-               use FluidData
-               IMPLICIT NONE
-               CLASS(HexMesh)                        :: mesh
-               REAL(KIND=RP)                         :: time
-               type(Thermodynamics_t),    intent(in) :: thermodynamics_
-               type(Dimensionless_t),     intent(in) :: dimensionless_
-               type(RefValues_t),         intent(in) :: refValues_
-               type(Multiphase_t),        intent(in) :: multiphase_
-            end subroutine UserDefinedSourceTerm
-         end interface
 !
 !        ****************
 !        Volume integrals
@@ -1020,7 +985,17 @@ module SpatialDiscretization
 !
 !        Add a source term
 !        -----------------
-         if (.not. mesh % child) call UserDefinedSourceTerm(mesh, t, thermodynamics, dimensionless, refValues, multiphase)
+         if (.not. mesh % child) then
+!$omp do schedule(runtime) private(i,j,k)
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), t, e % storage % S(:,i,j,k), thermodynamics, dimensionless, refValues)
+               end do                  ; end do                ; end do
+               end associate
+            end do
+!$omp end do
+         end if
 
          if (.not. mesh % child) then
             if ( particles % active ) then             
@@ -1041,6 +1016,7 @@ module SpatialDiscretization
             end associate
          end do
 !$omp end do
+
       end subroutine TimeDerivative_ComputeQDot
 !
 !////////////////////////////////////////////////////////////////////////
