@@ -715,7 +715,7 @@ module AnisFASMultigridClass
 !$omp do schedule(runtime)
       do iEl = 1, nelem
          ChildVar(iEl) % Q = Childp_sem % mesh % elements(iEl) % storage % Q
-         Childp_sem   % mesh % elements(iEl) % storage % S = 0._RP
+         Childp_sem   % mesh % elements(iEl) % storage % S_NS = 0._RP
       end do
 !$omp end do
 !$omp end parallel
@@ -737,7 +737,7 @@ module AnisFASMultigridClass
       
 !$omp parallel do schedule(runtime)
       do iEl = 1, nelem
-         Childp_sem % mesh % elements(iEl) % storage % S = ChildVar(iEl) % S - Childp_sem % mesh % elements(iEl) % storage % Qdot
+         Childp_sem % mesh % elements(iEl) % storage % S_NS = ChildVar(iEl) % S - Childp_sem % mesh % elements(iEl) % storage % Qdot
       end do
 !$omp end parallel do
       

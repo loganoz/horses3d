@@ -4,9 +4,9 @@
 !   @File:    BDFTimeIntegrator.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:04 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Sun May 13 11:22:06 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
 !
 !//////////////////////////////////////////////////////
 !
@@ -380,7 +380,7 @@ contains
          CALL ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
          
          CALL SYSTEM_CLOCK(COUNT=cli)
-         CALL linsolver%solve( tol = linsolver_tol, maxiter=500, time= t, dt=dt, &
+         CALL linsolver%solve( nEqn=NTOTALVARS, nGradEqn=NTOTALGRADS, tol = linsolver_tol, maxiter=500, time= t, dt=dt, &
                               ComputeTimeDerivative = ComputeTimeDerivative, computeA = computeA)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          CALL SYSTEM_CLOCK(COUNT=clf)
          IF (.NOT. linsolver%converged .and. Adaptive_dt) THEN                           ! If linsolver did not converge, return converged=false
@@ -467,7 +467,7 @@ contains
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
-                  DO l = 1, N_EQN
+                  DO l = 1, NTOTALVARS
                      CALL linsolver%GetXValue(counter,value)
                      sem%mesh%elements(elm)% storage % Q(l,i,j,k) = sem%mesh%elements(elm)% storage % Q(l,i,j,k) + value
                      counter =  counter + 1
@@ -498,7 +498,7 @@ contains
       ! .frm file
       OPEN(newunit=fd, file=TRIM(FileName)//'.frm', action='WRITE')
          WRITE(fd,*)
-         WRITE(fd,*) SIZE(Mat % Values), SIZE(Mat % Rows)-1, 1, N_EQN, 1
+         WRITE(fd,*) SIZE(Mat % Values), SIZE(Mat % Rows)-1, 1, NTOTALVARS, 1
          WRITE(fd,*) sem % mesh % elements(1) % Nxyz(1), SIZE(sem % mesh % elements)
       CLOSE (fd)
       
@@ -506,7 +506,7 @@ contains
       CALL Mat % Visualize(TRIM(FileName)//'.amg',FirstRow=.FALSE.)
       
       ! .coo file
-      CALL sem % mesh % WriteCoordFile(TRIM(FileName)//'.coo')
+      CALL sem % mesh % WriteCoordFile(NTOTALVARS, TRIM(FileName)//'.coo')
       
       
    END SUBROUTINE WriteEigenFiles

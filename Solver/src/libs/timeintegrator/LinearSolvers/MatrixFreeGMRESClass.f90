@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeGMRESClass.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:06 2018
-!   @Last revision date: Sat May 12 21:51:13 2018
+!   @Last revision date: Sun May 13 11:22:08 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0a98ff59a5332051367a2a5c89543fa1ed797190
+!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
 !
 !//////////////////////////////////////////////////////
 !
@@ -26,6 +26,7 @@ module MatrixFreeGMRESClass
    use DGSEMClass
    use FTValueDictionaryClass
    use MatrixClass
+   use PhysicsStorage
    implicit none
    
    private
@@ -192,7 +193,7 @@ contains
                      Nx = sem % mesh % elements(k) % Nxyz(1)
                      Ny = sem % mesh % elements(k) % Nxyz(2)
                      Nz = sem % mesh % elements(k) % Nxyz(3)
-                     ndofelm(k) = NCONS*(Nx+1)*(Ny+1)*(Nz+1)
+                     ndofelm(k) = NTOTALVARS*(Nx+1)*(Ny+1)*(Nz+1)
                   end do
                   call this % BlockPreco % PreAllocate(nnzs = ndofelm)
                   
@@ -588,7 +589,7 @@ contains
             case (PC_BlockJacobi)
                if ( present(ComputeA)) then
                   if (ComputeA) then
-                     call AnalyticalJacobian_Compute(this % p_sem, this % timesolve, this % BlockA,.TRUE.)
+                     call AnalyticalJacobian_Compute(this % p_sem, nEqn, this % timesolve, this % BlockA,.TRUE.)
 !~                     call NumericalJacobian_Compute(this % p_sem, this % timesolve, this % BlockA, ComputeTimeDerivative, .TRUE. )
                      
                      call this % BlockA % shift( MatrixShift(dt) )
@@ -596,7 +597,7 @@ contains
                      ComputeA = .FALSE.
                   end if
                else
-                  call AnalyticalJacobian_Compute(this % p_sem, this % timesolve, this % BlockA,.TRUE.)
+                  call AnalyticalJacobian_Compute(this % p_sem, nEqn, this % timesolve, this % BlockA,.TRUE.)
 !~                  call NumericalJacobian_Compute(this % p_sem, this % timesolve, this % BlockA, ComputeTimeDerivative, .TRUE. )
                   
                   call this % BlockA % shift( MatrixShift(dt) )
@@ -653,7 +654,7 @@ contains
          !---------------------------------------------------------
           
          CALL this % PCSolver % SetRHS(v)
-         CALL this % PCSolver % Solve(ComputeTimeDerivative,time = this % timesolve, dt = this % dtsolve)
+         CALL this % PCSolver % Solve(NTOTALVARS, NTOTALGRADS, ComputeTimeDerivative,time = this % timesolve, dt = this % dtsolve)
          CALL this % PCSolver % Settol(1e-1_RP)                 ! TODO: aquí habrá que poner algo más elaborado
          Pv = this % PCSolver % x
 !         n_preco_iter = n_preco_iter + PCSolver%niter     ! Not really needed

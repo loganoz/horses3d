@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Sat May 12 20:53:24 2018
+!   @Last revision date: Sun May 13 11:22:00 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: ece79010cbff566c377be7e7026f86a2889a191e
+!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
 !
 !//////////////////////////////////////////////////////
 !
@@ -145,18 +145,6 @@ module SpatialDiscretization
          INTEGER :: i, j, k, eID, fID
          class(Element), pointer  :: e
          class(Face),    pointer  :: f
-         interface
-            subroutine UserDefinedSourceTermCH(x, time, S, multiphase_)
-               use SMConstants
-               USE HexMeshClass
-               use FluidData
-               IMPLICIT NONE
-               real(kind=RP),             intent(in)  :: x(NDIM)
-               real(kind=RP),             intent(in)  :: time
-               real(kind=RP),             intent(out) :: S(NCONS)
-               type(Multiphase_t)                     :: multiphase_               
-            end subroutine UserDefinedSourceTermCH
-         end interface
 
 !
 !        **************************************
@@ -284,19 +272,6 @@ module SpatialDiscretization
             e => mesh % elements(eID)
             e % storage % QDot = (1.0_RP / multiphase % Pe) * e % storage % QDot
          end do
-!$omp end do
-
-!
-!        Add a source term
-!        -----------------
-!$omp do schedule(runtime) private(i,j,k)
-      do eID = 1, mesh % no_of_elements
-         associate ( e => mesh % elements(eID) )
-         do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            call UserDefinedSourceTermCH(e % geom % x(:,i,j,k), time, e % storage % S(:,i,j,k), multiphase)
-         end do                  ; end do                ; end do
-         end associate
-      end do
 !$omp end do
 !
 !        *****************************
@@ -533,19 +508,6 @@ module SpatialDiscretization
          INTEGER                 :: i, j, k, eID, fID
          class(Element), pointer :: e
          class(Face),    pointer :: f
-         interface
-            subroutine UserDefinedSourceTermCH(x, time, S, multiphase_)
-               use SMConstants
-               USE HexMeshClass
-               use FluidData
-               IMPLICIT NONE
-               real(kind=RP),             intent(in)  :: x(NDIM)
-               real(kind=RP),             intent(in)  :: time
-               real(kind=RP),             intent(out) :: S(NCONS)
-               type(Multiphase_t)                     :: multiphase_               
-            end subroutine UserDefinedSourceTermCH
-         end interface
-
 !
 !        **************************************
 !        Compute chemical potential: Q stores c
@@ -672,19 +634,6 @@ module SpatialDiscretization
             e => mesh % elements(eID)
             e % storage % QDot = (1.0_RP / multiphase % Pe) * e % storage % QDot
          end do
-!$omp end do
-
-!
-!        Add a source term
-!        -----------------
-!$omp do schedule(runtime) private(i,j,k)
-      do eID = 1, mesh % no_of_elements
-      associate ( e => mesh % elements(eID) )
-      do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-         call UserDefinedSourceTermCH(e % geom % x(:,i,j,k), time, e % storage % S(:,i,j,k), multiphase)
-      end do                  ; end do                ; end do
-      end associate
-   end do
 !$omp end do
 !
 !        *****************************

@@ -64,6 +64,7 @@ module SpatialDiscretization
             use SMConstants
             USE HexMeshClass
             use PhysicsStorage
+            use FluidData
             IMPLICIT NONE
             real(kind=RP),             intent(in)  :: x(NDIM)
             real(kind=RP),             intent(in)  :: time
@@ -441,7 +442,7 @@ module SpatialDiscretization
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), t, e % storage % S(:,i,j,k), thermodynamics, dimensionless, refValues)
+                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                end do                  ; end do                ; end do
                end associate
             end do
@@ -462,7 +463,7 @@ module SpatialDiscretization
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S(:,i,j,k)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
             end do                  ; end do                ; end do
             end associate
          end do
@@ -539,7 +540,7 @@ module SpatialDiscretization
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), t, e % storage % S(:,i,j,k), thermodynamics, dimensionless, refValues)
+                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                end do                  ; end do                ; end do
                end associate
             end do
@@ -550,7 +551,7 @@ module SpatialDiscretization
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S(:,i,j,k)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
             end do                  ; end do                ; end do
             end associate
          end do

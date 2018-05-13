@@ -4,9 +4,9 @@
 !   @File:    IMEXMethods.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date: Fri May  4 13:55:34 2018
+!   @Last revision date: Sun May 13 11:22:07 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: a0b0d307719b0b49ef776f8ec85b0bed73b4a32d
+!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
 !
 !//////////////////////////////////////////////////////
 !
@@ -84,7 +84,7 @@ CONTAINS
          
          ALLOCATE(U_n(0:Dimprb-1))
 
-         CALL linsolver%construct(DimPrb,controlVariables,sem) 
+         CALL linsolver%construct(DimPrb,controlVariables,sem, IMEXEuler_MatrixShift) 
 
          call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, CTD_onlyLinear, dt, 1.0_RP)
          
@@ -163,7 +163,7 @@ CONTAINS
                      value = sem%mesh%elements(elmnt)%storage%c(l,i,j,k) + &
                           dt*sem%mesh%elements(elmnt)%storage%cDot(l,i,j,k)
 
-                     CALL linsolver%SetBValue(counter, value)
+                     CALL linsolver%SetRHSValue(counter, value)
                      counter =  counter + 1
                   END DO
                END DO
@@ -175,6 +175,17 @@ CONTAINS
 #endif
 
    END SUBROUTINE ComputeRHS
+
+   function IMEXEuler_MatrixShift(dt) result(Ashift)
+      implicit none
+      !------------------------------------------------------
+      real(kind=RP), intent(in) :: dt
+      real(kind=RP)             :: Ashift
+      !------------------------------------------------------
+      
+      Ashift = -1.0_RP/dt
+      
+   end function IMEXEuler_MatrixShift
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

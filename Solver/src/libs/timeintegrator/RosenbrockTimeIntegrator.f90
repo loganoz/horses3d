@@ -4,9 +4,9 @@
 !   @File:    RosenbrockTimeIntegrator.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:08 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Sun May 13 11:22:09 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,6 +25,7 @@ module RosenbrockTimeIntegrator
    use DGSEMClass
    use SMConstants
    use LinearSolverClass
+   use PhysicsStorage
    implicit none
    
    private
@@ -151,7 +152,7 @@ contains
          
          call this % ComputeRHS(sem, t, dt, this % linsolver, ComputeTimeDerivative, stage)
          
-         CALL this % linsolver % solve ( tol = 1e-6_RP, maxiter=500, time= t, dt=dt, &
+         CALL this % linsolver % solve ( nEqn=NTOTALVARS, nGradEqn=NTOTALGRADS, tol = 1e-6_RP, maxiter=500, time= t, dt=dt, &
                                           ComputeTimeDerivative = ComputeTimeDerivative, computeA = computeA)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          
          this % Y (:,stage) = this % linsolver % GetX()

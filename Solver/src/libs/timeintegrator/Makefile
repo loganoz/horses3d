@@ -18,6 +18,7 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/MatrixFreeSmootherClass.o \
 		./build_ns/MatrixFreeGMRESClass.o \
 		./build_ns/LinearSolverClass.o \
+		./build_ns/IMEXMethods.o \
 		./build_ns/BDFTimeIntegrator.o \
 		./build_ns/RosenbrockTimeIntegrator.o \
 		./build_ns/MultigridTypes.o \
@@ -38,6 +39,7 @@ LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/MatrixFreeSmootherClass.o \
 		./build_ch/MatrixFreeGMRESClass.o \
 		./build_ch/LinearSolverClass.o \
+		./build_ch/IMEXMethods.o \
 		./build_ch/BDFTimeIntegrator.o \
 		./build_ch/RosenbrockTimeIntegrator.o \
 		./build_ch/MultigridTypes.o \
@@ -58,6 +60,7 @@ LIBOBJS_NSCH =  ./build_nsch/TimeIntegratorDefinitions.o \
 		./build_nsch/MatrixFreeSmootherClass.o \
 		./build_nsch/MatrixFreeGMRESClass.o \
 		./build_nsch/LinearSolverClass.o \
+		./build_nsch/IMEXMethods.o \
 		./build_nsch/BDFTimeIntegrator.o \
 		./build_nsch/RosenbrockTimeIntegrator.o \
 		./build_nsch/MultigridTypes.o \

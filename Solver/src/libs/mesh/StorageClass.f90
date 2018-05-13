@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Sat May 12 21:51:10 2018
+!   @Last revision date: Sun May 13 11:22:02 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0a98ff59a5332051367a2a5c89543fa1ed797190
+!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
 !
 !//////////////////////////////////////////////////////
 !
@@ -35,6 +35,7 @@ module StorageClass
 !  Class for storing variables in the whole domain
 !  ***********************************************
    type Storage_t
+      integer                                    :: NDOF
       real(kind=RP),                 pointer     :: Q(:)
       real(kind=RP),                 pointer     :: QDot(:)
       real(kind=RP),                 pointer     :: PrevQ(:,:)
@@ -194,6 +195,8 @@ module StorageClass
          integer, intent(in) :: NDOF
          integer, intent(in) :: bdf_order
          !----------------------------------------------
+      
+         self % NDOF = NDOF
          
 #if defined(NAVIERSTOKES)
          allocate ( self % QNS   (NCONS*NDOF) )

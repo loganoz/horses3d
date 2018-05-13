@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Sat May 12 20:53:25 2018
+!   @Last revision date: Sun May 13 11:22:00 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: ece79010cbff566c377be7e7026f86a2889a191e
+!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
 !
 !//////////////////////////////////////////////////////
 !
@@ -990,7 +990,7 @@ module SpatialDiscretization
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), t, e % storage % S(:,i,j,k), thermodynamics, dimensionless, refValues)
+                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                end do                  ; end do                ; end do
                end associate
             end do
@@ -1011,7 +1011,7 @@ module SpatialDiscretization
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S(:,i,j,k)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
             end do                  ; end do                ; end do
             end associate
          end do

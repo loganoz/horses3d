@@ -353,6 +353,8 @@ module pAdaptationClass
       integer                    :: Warning(nelem)    !   Stores (with ==1) elements where the specified truncation error was not achieved
       integer                    :: NOld(3,nelem)     !   Old polynomial orders of mesh
       type(ElementStorage_t), allocatable :: TempStorage(:) ! Temporary variable to store the solution before the adaptation procedure 
+      type(Storage_t)                     :: Temp1DStor
+      integer                             :: firstIdx
       logical                    :: success
       integer, save              :: Stage = 0         !   Stage of p-adaptation for the increasing method
       CHARACTER(LEN=LINE_LENGTH) :: newInput          !   Variable used to change the input in controlVariables after p-adaptation 
@@ -613,11 +615,14 @@ module pAdaptationClass
 !     Store the previous solution
 !     ---------------------------
 !
+      call Temp1DStor % Construct(sem % mesh % storage % NDOF, 0)
+      firstIdx = 1
       allocate (TempStorage(nelem))
       do iEl = 1, nelem
          NOld (:,iEl) = sem % mesh % elements(iEl) % Nxyz
-         call TempStorage(iEl) % Construct(NOld (1,iEl), NOld (2,iEl), NOld (3,iEl), N_EQN, N_GRAD_EQN, .FALSE.)
+         call TempStorage(iEl) % Construct(NOld (1,iEl), NOld (2,iEl), NOld (3,iEl), .FALSE., Temp1DStor, firstIdx)
          TempStorage(iEl) % Q = sem % mesh % elements(iEl) % storage % Q
+         firstIdx = firstIdx + product(NOld(:,iEl)+1)
       end do
 !
 !     -----------------
@@ -676,6 +681,7 @@ module pAdaptationClass
          call TempStorage(iEl) % destruct
       end do
       deallocate (TempStorage)
+      call Temp1DStor % Destruct
 !
 !     ---------------------------------------------------
 !     Write post-adaptation mesh, solution and order file

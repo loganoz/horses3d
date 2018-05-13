@@ -4,9 +4,9 @@
 !   @File:    ConstructMeshAndSpectralBasis.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Nov  1 19:56:53 2017
-!   @Last revision date: Thu May 10 16:18:42 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: c2afece84e4d760f10f227761dc63b7b1b966697
+!   @Last revision date: Sun May 13 11:22:01 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
 !
 !//////////////////////////////////////////////////////
 !
@@ -20,17 +20,19 @@ module ConstructMeshAndSpectralBasis_MOD
    use FTValueDictionaryClass
    use HexMeshClass
    use SharedBCModule
+   use FTValueDictionaryClass
 
    private
    public   ConstructMeshAndSpectralBasis
 
    contains
-      subroutine ConstructMeshAndSpectralBasis(meshFile, solutionFile, mesh)
+      subroutine ConstructMeshAndSpectralBasis(meshFile, solutionFile, mesh, controlVariables)
          use ReadMeshFile
          implicit none
          character(len=*),                intent(in)  :: meshFile
          character(len=*),                intent(in)  :: solutionFile
          type(HexMesh),                   intent(out) :: mesh
+         type(FTValueDictionary)                      :: controlVariables
          integer                                      :: no_of_elements
          integer                                      :: nodeType, fileType, fid
          integer                                      :: dims(4), pos
@@ -38,6 +40,7 @@ module ConstructMeshAndSpectralBasis_MOD
          integer, allocatable                         :: Nx(:), Ny(:), Nz(:)
          logical                                      :: success
          real(kind=RP)                                :: time
+         integer                                      :: NDOF
 !
 !        Get number of elements, node types, and Euler/NS
 !        ------------------------------------------------
@@ -63,6 +66,7 @@ module ConstructMeshAndSpectralBasis_MOD
 !        ------------------------
          pos = POS_INIT_DATA
 
+         NDOF = 0
          do eID = 1, no_of_elements
             call getSolutionFileArrayDimensions(fid,dims,pos)         
             Nx(eID) = dims(2) - 1
@@ -73,6 +77,8 @@ module ConstructMeshAndSpectralBasis_MOD
 !           -----------------------------
             pos = pos + 5*SIZEOF_INT + &
                         padding*(Nx(eID)+1)*(Ny(eID)+1)*(Nz(eID)+1)*SIZEOF_RP 
+
+            NDOF = NDOF + (Nx(eID)+1)*(Ny(eID)+1)*(Nz(eID)+1)
          end do
          close(fid)
 !      
@@ -112,9 +118,7 @@ module ConstructMeshAndSpectralBasis_MOD
 !     Allocate and zero memory
 !     ------------------------
 !
-      DO eID = 1, SIZE(mesh % elements) 
-         CALL allocateElementStorage( mesh % elements(eID), Nx(eID),Ny(eID),Nz(eID), .true. )
-      END DO
+      call mesh % AllocateStorage(NDOF, controlVariables, .true.)
 !
 !     -------------
 !     Read solution

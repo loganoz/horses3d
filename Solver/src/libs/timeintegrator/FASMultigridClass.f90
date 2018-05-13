@@ -758,7 +758,7 @@ module FASMultigridClass
 !$omp do schedule(runtime)
       DO iEl = 1, nelem
          Child_p % MGStorage(iEl) % Q = Child_p % p_sem % mesh % elements(iEl) % storage % Q
-         Child_p % p_sem % mesh % elements(iEl) % storage % S = 0._RP
+         Child_p % p_sem % mesh % elements(iEl) % storage % S_NS = 0._RP
       end DO
 !$omp end do
 !$omp end parallel
@@ -771,7 +771,7 @@ module FASMultigridClass
       
 !$omp parallel do schedule(runtime)
       DO iEl = 1, nelem
-         Child_p % p_sem % mesh % elements(iEl) % storage % S = Child_p % MGStorage(iEl) % S - &
+         Child_p % p_sem % mesh % elements(iEl) % storage % S_NS = Child_p % MGStorage(iEl) % S - &
                                                                 Child_p % p_sem % mesh % elements(iEl) % storage % Qdot
       end DO
 !$omp end parallel do
@@ -863,7 +863,7 @@ module FASMultigridClass
             call ComputeRHS(this % p_sem, t, dt, this % linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
             
 !~            this % computeA = .TRUE.
-            call this % linsolver % solve(maxiter=SmoothSweeps, time= t, dt = dt, &
+            call this % linsolver % solve(NTOTALVARS, NTOTALGRADS, maxiter=SmoothSweeps, time= t, dt = dt, &
                                              ComputeTimeDerivative = ComputeTimeDerivative, computeA = this % computeA) ! 
             call UpdateNewtonSol(this % p_sem, this % linsolver)
       end select
@@ -905,7 +905,7 @@ module FASMultigridClass
          
 !           Restrict solution
 !           -----------------
-            call Interp3DArrays(NCONS, N1, this % p_sem % mesh % elements(eID) % storage % Q, &
+            call Interp3DArrays(NTOTALVARS, N1, this % p_sem % mesh % elements(eID) % storage % Q, &
                                        N2, this % Child % p_sem % mesh % elements(eID) % storage % Q )
          end do
 !$omp end parallel do
