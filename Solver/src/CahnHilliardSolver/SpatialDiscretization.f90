@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Sun May 13 11:22:00 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
+!   @Last revision date: Mon May 14 19:03:25 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 906a1fbd4b925a9ac8f739be4a24a8f9b70a93ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -779,7 +779,9 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
          if ( MPI_Process % doMPIAction ) then
 !$omp single
-            call mesh % GatherMPIFacesGradients
+errorMessage(STD_OUT)
+stop
+!            call mesh % GatherMPIFacesGradients
 !$omp end single
 !
 !           **************************************
@@ -888,7 +890,9 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
          if ( MPI_Process % doMPIAction ) then
 !$omp single
-            call mesh % GatherMPIFacesGradients
+errorMessage(STD_OUT)
+stop
+!            call mesh % GatherMPIFacesGradients
 !$omp end single
 !
 !           **************************************

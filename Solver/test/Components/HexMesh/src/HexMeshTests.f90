@@ -32,6 +32,7 @@
          INTEGER                         :: nonne(6)
          INTEGER                         :: i,j,k, N(3), l, id
          INTEGER                 :: nElements, nNodes, nFaces, iFaceID
+         INTEGER                            :: eID, NDOF, firstIdx
          INTEGER                 :: numberOfBoundaryFaces, NumberofInteriorFaces
          CHARACTER(LEN=1)        :: space = " "
          CHARACTER(LEN=16)       :: meshfileName = "TwoElements.mesh"
@@ -131,11 +132,37 @@
          
          CALL FTAssert(test = success,msg = "Mesh file properly constructed")
          IF(.NOT. success) return
-         
-         DO id = 1, SIZE(mesh % elements)
-            CALL allocateElementStorage(self = mesh % elements(id),&
-                                        Nx = N(1),Ny = N(2),Nz = N(3), computeGradients = .FALSE.) 
-         END DO  
+
+!
+!        ****************
+!        Allocate storage: since there are no control variables, I have copied the AllocateStorage function
+!        ****************
+!
+         NDOF = 0
+         do eID = 1, size(mesh % elements)
+            associate (e => mesh % elements(eID))
+            NDOF = NDOF + (e % Nxyz(1) + 1)*(e % Nxyz(2) + 1)*(e % Nxyz(3) + 1) 
+            end associate
+         end do
+      
+!        Construct global storage
+!        ------------------------
+         call mesh % storage % construct(NDOF, 0)
+      
+!        Construct element storage
+!        -------------------------
+         firstIdx = 1
+         DO eID = 1, SIZE(mesh % elements)
+            associate (e => mesh % elements(eID))
+            call mesh % elements(eID) % Storage % Construct(Nx = e % Nxyz(1), &
+                                                            Ny = e % Nxyz(2), &
+                                                            Nz = e % Nxyz(3), &
+                                              computeGradients = .true., &
+                                                 globalStorage = mesh % storage, &
+                                                      firstIdx = firstIdx)
+            firstIdx = firstIdx + e % Storage % NDOF
+            end associate
+         END DO
 !
 !        ---------------------------
 !        Check integrity of the mesh
@@ -248,12 +275,13 @@
          INTEGER                 :: j, N(3), id
          INTEGER                 :: iFaceID
          INTEGER                 :: numberOfBoundaryFaces, NumberofInteriorFaces
+         INTEGER                 :: eID, l, NDOF, firstIdx
          CHARACTER(LEN=27)       :: meshfileName = "TwoClyindricalElements.mesh"
          LOGICAL                 :: success
          
          INTEGER, ALLOCATABLE               :: Nvector(:)
          INTEGER                            :: nelem
-         INTEGER                            :: fUnit, l
+         INTEGER                            :: fUnit
 !         
          N = 6
 !
@@ -282,12 +310,37 @@
          
          CALL FTAssert(test = success,msg = "Mesh file read properly")
          IF(.NOT. success) RETURN 
-         
-         DO id = 1, SIZE(mesh % elements)
-            CALL allocateElementStorage(self = mesh % elements(id),&
-                                        Nx = N(1), Ny = N(2), Nz = N(3), computeGradients = .FALSE.) 
-         END DO  
-         
+!
+!        ****************
+!        Allocate storage: since there are no control variables, I have copied the AllocateStorage function
+!        ****************
+!
+         NDOF = 0
+         do eID = 1, size(mesh % elements)
+            associate (e => mesh % elements(eID))
+            NDOF = NDOF + (e % Nxyz(1) + 1)*(e % Nxyz(2) + 1)*(e % Nxyz(3) + 1) 
+            end associate
+         end do
+      
+!        Construct global storage
+!        ------------------------
+         call mesh % storage % construct(NDOF, 0)
+      
+!        Construct element storage
+!        -------------------------
+         firstIdx = 1
+         DO eID = 1, SIZE(mesh % elements)
+            associate (e => mesh % elements(eID))
+            call mesh % elements(eID) % Storage % Construct(Nx = e % Nxyz(1), &
+                                                            Ny = e % Nxyz(2), &
+                                                            Nz = e % Nxyz(3), &
+                                              computeGradients = .true., &
+                                                 globalStorage = mesh % storage, &
+                                                      firstIdx = firstIdx)
+            firstIdx = firstIdx + e % Storage % NDOF
+            end associate
+         END DO
+
          CALL FTAssertEqual(expectedValue = 2     ,actualValue = SIZE(mesh % elements),msg = "Number of elements in mesh.")
          CALL FTAssertEqual(expectedValue = N(1)+1,actualValue = SIZE(mesh % elements(1) % storage % Q,2) ,msg = "Number of solution points")
 !
