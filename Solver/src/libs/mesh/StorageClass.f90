@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Sun May 13 11:22:02 2018
+!   @Last revision date: Tue May 15 13:03:31 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
+!   @Last revision commit: efd38dcda37311c51d1c88fb0eed9bc4749f0031
 !
 !//////////////////////////////////////////////////////
 !
@@ -191,7 +191,7 @@ module StorageClass
       subroutine Storage_Construct(self, NDOF, bdf_order)
          implicit none
          !----------------------------------------------
-         class(Storage_t)    :: self
+         class(Storage_t), target    :: self
          integer, intent(in) :: NDOF
          integer, intent(in) :: bdf_order
          !----------------------------------------------
@@ -205,6 +205,10 @@ module StorageClass
          if (bdf_order /= 0) then
             allocate ( self % PrevQNS (NCONS*NDOF,bdf_order) )
          end if
+
+         self % Q => self % QNS
+         self % QDot => self % QDotNS
+         self % PrevQ => self % PrevQNS
 #endif
 #if defined(CAHNHILLIARD)
          allocate ( self % c(NCOMP*NDOF) )
@@ -247,7 +251,7 @@ module StorageClass
          class(ElementStorage_t)     :: self                               !<> Storage to be constructed
          integer        , intent(in) :: Nx, Ny, Nz                         !<  Polynomial orders in every direction
          logical        , intent(in) :: computeGradients                   !<  Compute gradients?
-         type(Storage_t), intent(in), target :: globalStorage    !<? Global storage to point to
+         type(Storage_t), intent(inout), target :: globalStorage    !<? Global storage to point to
          integer        , intent(in)         :: firstIdx         !<? Position of the solution of the element in the global array
          !------------------------------------------------------------
          integer :: k, num_prevSol

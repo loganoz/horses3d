@@ -795,14 +795,14 @@ slavecoord:                DO l = 1, 4
                                                                 self % faces(fIDs(6)) )
          end do
 !$omp end do
-			
+         
          ! TODO: prolong gradRho to faces!!
 !~         if (present(Prolong_gradRho)) then
 !~            if (Prolong_gradRho) then
             
 !~            end if
 !~         end if
-			
+         
       end subroutine HexMesh_ProlongGradientsToFaces
 ! 
 !//////////////////////////////////////////////////////////////////////// 
@@ -1803,7 +1803,7 @@ slavecoord:                DO l = 1, 4
                      CLN(2) = buffer
                   end if
                end select
-				   
+               
                if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
                   call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
@@ -2778,7 +2778,7 @@ slavecoord:                DO l = 1, 4
          
          end associate
       END DO
-      
+
    end subroutine HexMesh_AllocateStorage
 
    subroutine HexMesh_SetStorageToEqn(self, which)
@@ -2799,14 +2799,15 @@ slavecoord:                DO l = 1, 4
 #if defined(NAVIERSTOKES)
          self % storage % Q => self % storage % QNS 
          self % storage % QDot => self % storage % QDotNS 
-         self % storage % PrevQ => self % storage % PrevQNS 
+         self % storage % PrevQ(1:,1:) => self % storage % PrevQNS(1:,1:)
 
          do eID = 1, self % no_of_elements
             call self % elements(eID) % storage % SetStorageToNS
          end do
 
          do fID = 1, size(self % faces)
-            call self % elements(fID) % storage % SetStorageToNS
+            call self % faces(fID) % storage(1) % SetStorageToNS
+            call self % faces(fID) % storage(2) % SetStorageToNS
          end do
 #endif
       elseif ( which .eq. c ) then
@@ -2820,7 +2821,8 @@ slavecoord:                DO l = 1, 4
          end do
 
          do fID = 1, size(self % faces)
-            call self % elements(fID) % storage % SetStorageToCH_c
+            call self % faces(fID) % storage(1) % SetStorageToCH_c
+            call self % faces(fID) % storage(2) % SetStorageToCH_c
          end do
 #endif
       elseif ( which .eq. mu ) then
@@ -2834,7 +2836,8 @@ slavecoord:                DO l = 1, 4
          end do
 
          do fID = 1, size(self % faces)
-            call self % elements(fID) % storage % SetStorageToCH_mu
+            call self % faces(fID) % storage(1) % SetStorageToCH_mu
+            call self % faces(fID) % storage(2) % SetStorageToCH_mu
          end do
 #endif
       end if    

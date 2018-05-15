@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Mon May 14 19:03:26 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 906a1fbd4b925a9ac8f739be4a24a8f9b70a93ca
+!   @Last revision date: Tue May 15 13:03:30 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: efd38dcda37311c51d1c88fb0eed9bc4749f0031
 !
 !//////////////////////////////////////////////////////
 !
@@ -247,7 +247,9 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesSolution
+errorMessage(STD_OUT)
+stop
+         !call mesh % UpdateMPIFacesSolution
 !$omp end single
 #endif
 !
@@ -262,7 +264,9 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
 !$omp single
          if ( flowIsNavierStokes ) then
-            call mesh % UpdateMPIFacesGradients
+errorMessage(STD_OUT)
+stop
+            !call mesh % UpdateMPIFacesGradients
          end if
 !$omp end single
 #endif
@@ -310,7 +314,9 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesSolution
+errorMessage(STD_OUT)
+stop
+         !call mesh % UpdateMPIFacesSolution
 !$omp end single
 #endif
 !
@@ -322,7 +328,9 @@ module SpatialDiscretization
 
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesGradients
+errorMessage(STD_OUT)
+stop
+         !call mesh % UpdateMPIFacesGradients
 !$omp end single
 #endif
 !
@@ -372,7 +380,9 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesSolution
+errorMessage(STD_OUT)
+stop
+         !call mesh % UpdateMPIFacesSolution
 !$omp end single
 #endif
 !
@@ -384,7 +394,9 @@ module SpatialDiscretization
 
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesGradients
+!         call mesh % UpdateMPIFacesGradients
+errorMessage(STD_OUT)
+stop
 !$omp end single
 #endif
 !
@@ -539,7 +551,9 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesSolution
+errorMessage(STD_OUT)
+stop
+         !call mesh % UpdateMPIFacesSolution
 !$omp end single
 #endif
 !
@@ -551,7 +565,9 @@ module SpatialDiscretization
 
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesGradients
+errorMessage(STD_OUT)
+stop
+         !call mesh % UpdateMPIFacesGradients
 !$omp end single
 #endif
 !
@@ -600,7 +616,9 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesSolution
+!         call mesh % UpdateMPIFacesSolution
+errorMessage(STD_OUT)
+stop
 !$omp end single
 #endif
 !
@@ -612,7 +630,9 @@ module SpatialDiscretization
 
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesGradients
+errorMessage(STD_OUT)
+stop
+         !call mesh % UpdateMPIFacesGradients
 !$omp end single
 #endif
 !
@@ -706,7 +726,9 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesSolution
+errorMessage(STD_OUT)
+stop
+         !call mesh % UpdateMPIFacesSolution
 !$omp end single
 #endif
 !
@@ -718,7 +740,9 @@ module SpatialDiscretization
 
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesGradients
+errorMessage(STD_OUT)
+stop
+         !call mesh % UpdateMPIFacesGradients
 !$omp end single
 #endif
 !
@@ -768,7 +792,9 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesSolution
+errorMessage(STD_OUT)
+stop
+         !call mesh % UpdateMPIFacesSolution
 !$omp end single
 #endif
 !
@@ -780,7 +806,9 @@ module SpatialDiscretization
 
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesGradients
+!         call mesh % UpdateMPIFacesGradients
+errorMessage(STD_OUT)
+stop
 !$omp end single
 #endif
 !
@@ -1591,7 +1619,9 @@ stop
 #ifdef _HAS_MPI_
          if ( MPI_Process % doMPIAction ) then
 !$omp single
-            call mesh % GatherMPIFacesGradients
+            !call mesh % GatherMPIFacesGradients
+errorMessage(STD_OUT)
+stop
 !$omp end single
 !
 !           **************************************

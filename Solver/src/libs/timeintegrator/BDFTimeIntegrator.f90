@@ -4,9 +4,9 @@
 !   @File:    BDFTimeIntegrator.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:04 2018
-!   @Last revision date: Sun May 13 11:22:06 2018
+!   @Last revision date: Tue May 15 13:03:31 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
+!   @Last revision commit: efd38dcda37311c51d1c88fb0eed9bc4749f0031
 !
 !//////////////////////////////////////////////////////
 !
@@ -127,7 +127,7 @@ contains
 !
 !     Setup linear solver
 !     -------------------
-      DimPrb = sem % NDOF
+      DimPrb = sem % NDOF * NTOTALVARS
       
       select case ( trim(controlVariables % StringValueForKey("linear solver",LINE_LENGTH)) )
          case('petsc')
@@ -433,7 +433,7 @@ contains
       !----------------------------------------------------------------
       INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, elmnt, counter   
       REAL(KIND=RP)                                :: value
-      real(kind=RP)  :: RHS(sem % NDOF), maxQ, maxPrevQ, maxQdot, maxRHS
+      real(kind=RP)  :: RHS(NTOTALVARS*sem % NDOF), maxQ, maxPrevQ, maxQdot, maxRHS
       !----------------------------------------------------------------
       
       call ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions)

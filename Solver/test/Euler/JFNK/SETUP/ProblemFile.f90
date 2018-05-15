@@ -145,6 +145,7 @@
 
             end associate
 #endif
+
          end subroutine UserDefinedInitialCondition
 #if defined(NAVIERSTOKES)
          subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
@@ -212,20 +213,8 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-<<<<<<< HEAD
-         subroutine UserDefinedSourceTerm(mesh, time      &
 #if defined(NAVIERSTOKES)
-                                        , thermodynamics_ &
-                                        , dimensionless_  &
-                                        , refValues_ & 
-#endif
-#if defined(CAHNHILLIARD)
-                                        , multiphase_ &
-#endif
-)
-=======
-         subroutine UserDefinedSourceTerm(x, time, S, thermodynamics_, dimensionless_, refValues_)
->>>>>>> master
+         subroutine UserDefinedSourceTermNS(x, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -236,37 +225,55 @@
             use PhysicsStorage
             use FluidData
             IMPLICIT NONE
-<<<<<<< HEAD
-            CLASS(HexMesh)                        :: mesh
-            REAL(KIND=RP)                         :: time
-#if defined(NAVIERSTOKES)
+            real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: time
+            real(kind=RP),             intent(out) :: S(NCONS)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
-#endif
-#if defined(CAHNHILLIARD)
-            type(Multiphase_t),     intent(in)  :: multiphase_
-#endif
 !
 !           ---------------
 !           Local variables
 !           ---------------
 !
             integer  :: i, j, k, eID
-=======
-            real(kind=RP),             intent(in)  :: x(NDIM)
-            real(kind=RP),             intent(in)  :: time
-            real(kind=RP),             intent(out) :: S(NCONS)
-            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-            type(Dimensionless_t),     intent(in)  :: dimensionless_
-            type(RefValues_t),         intent(in)  :: refValues_
->>>>>>> master
 !
 !           Usage example
 !           -------------
 !           S(:) = x(1) + x(2) + x(3) + time
    
-         end subroutine UserDefinedSourceTerm
+         end subroutine UserDefinedSourceTermNS
+#endif
+#if defined(CAHNHILLIARD)
+         subroutine UserDefinedSourceTermCH(x, time, S, multiphase_)
+!
+!           --------------------------------------------
+!           Called to apply source terms to the equation
+!           --------------------------------------------
+!
+            use SMConstants
+            USE HexMeshClass
+            use PhysicsStorage
+            use FluidData
+            IMPLICIT NONE
+            real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: time
+            real(kind=RP),             intent(out) :: S(NCOMP)
+            type(Multiphase_t),      intent(in)    :: multiphase_
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            integer  :: i, j, k, eID
+!
+!           Usage example
+!           -------------
+!           S(:) = x(1) + x(2) + x(3) + time
+   
+         end subroutine UserDefinedSourceTermCH
+#endif
+
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -289,11 +296,11 @@
 !           --------------------------------------------------------
 !
             use SMConstants
-            use FTAssertions
             USE HexMeshClass
             use PhysicsStorage
             use FluidData
             use MonitorsClass
+            use FTAssertions
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -401,6 +408,8 @@
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
 #endif
+
+
 
          END SUBROUTINE UserDefinedFinalize
 !
