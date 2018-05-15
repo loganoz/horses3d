@@ -45,7 +45,7 @@ MODULE Implicit_JF
       IF (isfirst) THEN                                      
          isfirst = .FALSE.
          
-         DimPrb = sem % NDOF
+         DimPrb = sem % NDOF * NTOTALVARS
          ALLOCATE(U_n(1:Dimprb))
          
          !CALL integrator%Construct(DimPrb)                  !Constructs jfnk solver

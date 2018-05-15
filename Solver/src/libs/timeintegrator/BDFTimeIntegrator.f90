@@ -152,7 +152,6 @@ contains
 !
 !     Setup BDF methods
 !     -----------------
-      
       call BDF_SetOrder( controlVariables % integerValueForKey("bdf order") )
       
       ! Check that the BDF order is consistent
@@ -442,7 +441,7 @@ contains
                        PrevQ = sem % mesh % storage % PrevQ, &
                        Qdot  = sem % mesh % storage % Qdot, dt = dt)
       
-      do i=1, sem % NDOF                                 ! TODO: Use SetRHS!!
+      do i=1, sem % NDOF * NTOTALVARS                                ! TODO: Use SetRHS!!
          CALL linsolver % SetRHSValue(i-1, RHS(i))
       end do
       
