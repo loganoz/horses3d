@@ -4,9 +4,9 @@
 !   @File:    HyperbolicDiscretizationClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:16:30 2017
-!   @Last revision date: Wed Apr 11 15:08:07 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 376f4a4922e7a9120e6c373514196f48dd0439c8
+!   @Last revision date: Wed Apr 18 20:19:01 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,7 +14,7 @@
 #if defined(NAVIERSTOKES)
 module HyperbolicDiscretizationClass
    use SMConstants
-   use RiemannSolvers
+   use RiemannSolvers_NS
    implicit none
 
    private

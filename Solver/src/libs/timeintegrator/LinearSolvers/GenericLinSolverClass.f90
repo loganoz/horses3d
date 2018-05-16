@@ -120,10 +120,11 @@ CONTAINS
    
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   SUBROUTINE solve(this,ComputeTimeDerivative,tol,maxiter,time,dt,computeA)
+   SUBROUTINE solve(this,nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt,computeA)
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+      integer,       intent(in)                :: nEqn
+      integer,       intent(in)                :: nGradEqn
       procedure(ComputeQDot_FCN)               :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                  :: tol
       INTEGER      , OPTIONAL                  :: maxiter
@@ -133,11 +134,9 @@ CONTAINS
       
       ERROR stop ':: solve not implemented for desired linear solver!!!'
    END SUBROUTINE solve
-
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    
    !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
    SUBROUTINE GetXValue(this,irow,x_i)
       IMPLICIT NONE
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this

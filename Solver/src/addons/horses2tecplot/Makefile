@@ -30,7 +30,6 @@ OBJS=	Storage\
 	sharedSpectralBasis\
 	ProlongMeshAndSolution\
 	Mesh2Plt\
-	SolutionCH2Plt\
 	Solution2Plt\
 	Stats2Plt\
 	main \

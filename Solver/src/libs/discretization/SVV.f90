@@ -4,9 +4,9 @@
 !   @File:    SVV.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Jan  6 11:47:48 2018
-!   @Last revision date: Wed Apr 11 13:13:19 2018
+!   @Last revision date: Fri Apr 20 17:25:01 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
+!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
 !
 !//////////////////////////////////////////////////////
 !
@@ -22,6 +22,7 @@ module SpectralVanishingViscosity
    use HexMeshClass
    use NodalStorageClass
    use GaussQuadrature
+   use FluidData
    implicit none
 
    private
@@ -187,7 +188,7 @@ module SpectralVanishingViscosity
 
          end associate
 
-         call EllipticFlux( e%Nxyz, e % storage % Q , Uxf, Uyf, Uzf, mu, kappa, cartesianFlux )
+         call EllipticFlux( NCONS, NGRAD, e%Nxyz, e % storage % Q , Uxf, Uyf, Uzf, mu, kappa, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -234,12 +235,12 @@ module SpectralVanishingViscosity
 !
          integer           :: i, j, ii, jj
          real(kind=RP)     :: Q(NCONS, 0:f % Nf(1), 0:f % Nf(2)) 
-         real(kind=RP)     :: U_x(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: U_y(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: U_z(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: Uxf(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: Uyf(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: Uzf(N_GRAD_EQN, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: U_x(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: U_y(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: U_z(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: Uxf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: Uyf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: Uzf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)     :: flux_vec(NCONS,NDIM, 0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)     :: mu(0:f % Nf(1), 0:f % Nf(2)), kappa(0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)     :: delta, Q2D
@@ -273,7 +274,7 @@ module SpectralVanishingViscosity
 
          end associate
 
-         call EllipticFlux(f % Nf, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
+         call EllipticFlux(NCONS, NGRAD, f % Nf, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             flux(:,i,j) =   flux_vec(:,IX,i,j) * f % geom % normal(IX,i,j) &

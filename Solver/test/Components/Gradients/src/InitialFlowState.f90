@@ -12,7 +12,7 @@
          IMPLICIT NONE  
          REAL(KIND=RP) :: x(3)
          REAL(KIND=RP) :: t
-         REAL(KIND=RP) :: state(N_EQN)
+         REAL(KIND=RP) :: state(NCONS)
          
          state(1) = x(1)
          state(2) = x(2)
@@ -34,7 +34,7 @@
             USE SMConstants
             use PhysicsStorage
             REAL(KIND=RP)   , INTENT(IN)                :: x(3), t, nHat(3)
-            REAL(KIND=RP)   , INTENT(INOUT)             :: Q(N_EQN)
+            REAL(KIND=RP)   , INTENT(INOUT)             :: Q(NCONS)
             CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN) :: boundaryType
             CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN) :: boundaryName
 !
@@ -50,7 +50,7 @@
             USE SMConstants
             use PhysicsStorage
             REAL(KIND=RP)   , INTENT(IN)                :: x(3), t, nHat(3)
-            REAL(KIND=RP)   , INTENT(INOUT)             :: gradU(NDIM,N_GRAD_EQN)
+            REAL(KIND=RP)   , INTENT(INOUT)             :: gradU(NDIM,NGRAD)
             CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN) :: boundaryType
             CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN) :: boundaryName
 !

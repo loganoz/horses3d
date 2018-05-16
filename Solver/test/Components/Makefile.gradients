@@ -46,101 +46,135 @@ INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all
 ARFLAGS=crv
 
 # ------------------------------------------------
-OBJS_CASE= Setup VariableConversion Physics GradientSetup GradientTests InitialFlowState TestGradientsMain
+#OBJS_CASE= Setup VariableConversion Physics GradientSetup GradientTests InitialFlowState TestGradientsMain
+OBJS_CASE= Setup navierstokes/VariableConversion_NS navierstokes/PhysicsStorage_NS navierstokes/Physics_NS navierstokes/RiemannSolvers_NS common/PhysicsStorage GradientSetup GradientTests InitialFlowState TestGradientsMain 
+
 	   
-OBJS_HORSES=  SMConstants \
-		StorageClass \
-		Stopwatch \
-		IntegerDataLinkedList\
-		process_info \
-		partitioned_mesh \
-		MPI_Face \
-		MeshPartitioning \
-		SolutionFile \
-		FileReading \
-		Utilities \
-		RealDataLinkedList \
-		ParamfileRegions \
-		LegendreAlgorithms \
-		InterpolationAndDerivatives \
-		navierstokes/FluidData \
-		navierstokes/BoundaryConditions \
-		SharedBCModule \
-		FacePatchClass \
-		MappedGeometry \
-		WallDistance\
-		navierstokes/LESModels\
-		TransfiniteMaps3D \
-		FaceClass \
-		HexElementClass \
-		ZoneClass \
-		HexElementConnectivityDefinitions \
-		HexMesh \
-		MeshTypes \
-		NodeClass \
-		Particle \
-		Particles \
-		autosave \
-		MonitorDefinitions \
-		ResidualsMonitor \
-		SurfaceIntegrals \
-		VolumeIntegrals \
-		SurfaceMonitor \
-		VolumeMonitor \
-		StatisticsMonitor \
-		Probe\
-		Monitors \
-		HyperbolicDiscretizationClass \
-		HyperbolicStandard \
-		HyperbolicSplitForm \
-		HyperbolicDiscretizations \
-		SVV \
-		EllipticDiscretizationClass \
-		EllipticBR1 \
-		EllipticBR2 \
-		EllipticIP \
-		EllipticDiscretizations \
-		WeakIntegrals \
-		DGSEMClass \
-		TimeIntegratorDefinitions \
-		NodalStorageClass \
-		Headers \
-		ReadInputFile \
-		TimeIntegrator \
-		ConnectivityClass \
-		GenericMatrixClass \
-		CSRMatrixClass \
-		PETScMatrixClass \
-		DenseBlockDiagonalMatrixClass \
-		MatrixClass \
-		Jacobian \
-		NumericalJacobian \
-		pAdaptationClass \
-		navierstokes/ManufacturedSolutions \
-		DenseMatUtilities \
-		NavierStokesSolver/SpatialDiscretization\
-		MatrixFreeGMRESClass \
-		BDFTimeIntegrator \
-		RosenbrockTimeIntegrator \
-		ColorsClass \
-		PetscSolverClass \
-		GenericLinSolverClass \
-		MKLPardisoSolverClass \
-		LinearSolverClass \
-		IterativeSolverClass \
-		MultigridSolverClass \
-		MatrixFreeSmootherClass \
-		ExplicitMethods \
-		FASMultigridClass \
-		AnisFASMultigridClass \
-		MultigridTypes \
-		ProblemFile \
-		ReadMeshFile \
-		Read_HDF5Mesh_HOPR \
-		Read_SpecMesh \
-		AnalyticalJacobian \
-		InterpolationMatrices \
-		TruncationErrorClass
+OBJS_HORSES = \
+AnalyticalJacobian \
+AnisFASMultigridClass \
+Assert \
+autosave \
+BDFTimeIntegrator \
+navierstokes/BoundaryConditions_NS \
+common/BoundaryConditions \
+ColorsClass \
+Comparisons \
+ConnectivityClass \
+CSRMatrixClass \
+DenseBlockDiagonalMatrixClass \
+DenseMatUtilities \
+DGSEMClass \
+EllipticBR1 \
+EllipticBR2 \
+EllipticDiscretizationClass \
+EllipticDiscretizations \
+EllipticIP \
+ExplicitMethods \
+IMEXMethods \
+FaceClass \
+FacePatchClass \
+FASMultigridClass \
+FileReading \
+navierstokes/FluidData_NS \
+common/FluidData \
+FTDataClass \
+FTDictionaryClass \
+FTExceptionClass \
+FTLinkedListClass \
+FTMultiIndexTable \
+FTObjectArrayClass \
+FTObjectClass \
+FTObjectLibrary \
+FTOLConstants \
+FTSparseMatrixClass \
+FTStackClass \
+FTValueClass \
+FTValueDictionaryClass \
+GenericLinSolverClass \
+GenericMatrixClass \
+GradientsStabilization \
+Hash \
+Headers \
+HexElementClass \
+HexElementConnectivityDefinitions \
+HexMesh \
+HyperbolicDiscretizationClass \
+HyperbolicDiscretizations \
+HyperbolicSplitForm \
+HyperbolicStandard \
+IntegerDataLinkedList \
+InterpolationAndDerivatives \
+InterpolationMatrices \
+IterativeSolverClass \
+Jacobian \
+LegendreAlgorithms \
+navierstokes/LESModels \
+LinearSolverClass \
+navierstokes/ManufacturedSolutions \
+MappedGeometry \
+MatrixClass \
+MatrixFreeGMRESClass \
+MatrixFreeSmootherClass \
+MeshPartitioning \
+MeshTypes \
+METISPartitioning \
+MKLPardisoSolverClass \
+MonitorDefinitions \
+Monitors \
+MPI_Face \
+MultigridSolverClass \
+MultigridTypes \
+NodalStorageClass \
+NodeClass \
+NumericalJacobian \
+pAdaptationClass \
+ParamfileRegions \
+Particle \
+Particles \
+partitioned_mesh \
+PETScMatrixClass \
+PetscSolverClass \
+navierstokes/Physics_NS \
+common/Physics \
+navierstokes/PhysicsStorage_NS \
+common/PhysicsStorage \
+Probe \
+ProblemFile \
+process_info \
+Read_HDF5Mesh_HOPR \
+Read_SpecMesh \
+ReadInputFile \
+ReadMeshFile \
+RealDataLinkedList \
+ResidualsMonitor \
+navierstokes/RiemannSolvers_NS \
+RosenbrockTimeIntegrator \
+Setup \
+SharedBCModule \
+SMConstants \
+SolutionFile \
+StatisticsMonitor \
+Stopwatch \
+StorageClass \
+SurfaceIntegrals \
+SurfaceMonitor \
+SVV \
+TestSuiteManagerClass \
+TimeIntegrator \
+TimeIntegratorDefinitions \
+TransfiniteMaps3D \
+TruncationErrorClass \
+Utilities \
+navierstokes/VariableConversion_NS \
+common/VariableConversion \
+VolumeIntegrals \
+VolumeMonitor \
+WallDistance \
+WeakIntegrals \
+ZoneClass \
+NavierStokesSolver/SpatialDiscretization
+
 
 OBJS_HORSES_EXEC=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 OBJS_CASE_EXEC=$(foreach obj,$(OBJS_CASE),./build/$(obj).o)
@@ -292,6 +326,7 @@ clean: FORCE horseslibclean
 	$(info Removing module *.mod files from $(NSLITE3D_PATH)/include)
 	@rm -f $(HOME_DIR)/build/*.o* $(HOME_DIR)/include/*.mod* $(HOME_DIR)/lib/*.a
 	@rm -f ./build/*.o ./lib/*.a ./include/*.mod
+	@rm -rf ./build/navierstokes/*.o ./build/common/*.o ./build/*
 	@rm -f $(HOME_DIR)/build/libproblemfile.so
 
 allclean: FORCE clean
@@ -311,7 +346,7 @@ mkdirs: FORCE
 
 mkdirsComponents: FORCE
 	@mkdir -p ./build ./include ./lib ./bin
-	@mkdir -p ./build/navierstokes ./build/NavierStokesSolver
+	@mkdir -p ./build/navierstokes ./build/common ./build/NavierStokesSolver
 	@mkdir -p ./build/NavierStokesSolver/NonlinearMultigrid
 
 header: FORCE

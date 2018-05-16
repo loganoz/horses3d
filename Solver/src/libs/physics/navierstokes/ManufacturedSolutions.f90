@@ -4,9 +4,9 @@
 !   @File:    ManufacturedSolutions.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:11 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed Apr 18 20:19:09 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -23,8 +23,9 @@
 !////////////////////////////////////////////////////////////////////////////////////////
 MODULE ManufacturedSolutions
    USE SMConstants
-   USE PhysicsStorage
-   USE Physics
+   USE PhysicsStorage_NS
+   USE Physics_NS
+   use FluidData_NS
    IMPLICIT NONE
 
    private
@@ -110,7 +111,7 @@ MODULE ManufacturedSolutions
 !      
       
       REAL(KIND=RP) :: x(3), t
-      REAL(KIND=RP) :: Q(N_EQN)
+      REAL(KIND=RP) :: Q(NCONS)
       
       REAL(KIND=RP) :: rho, u, v, w, p
       
@@ -140,13 +141,11 @@ MODULE ManufacturedSolutions
 !     Manufactured solution derivatives (only needed for NS)
 !     ------------------------------------------------------
 ! 
-      USE SMConstants
-      USE PhysicsStorage
       IMPLICIT NONE
       
       REAL(KIND=RP) :: xx(3), t
       REAL(KIND=RP) :: nHat(3)
-      REAL(KIND=RP), INTENT(INOUT) :: U_x(N_GRAD_EQN), U_y(N_GRAD_EQN), U_z(N_GRAD_EQN)
+      REAL(KIND=RP), INTENT(INOUT) :: U_x(NGRAD), U_y(NGRAD), U_z(NGRAD)
       
       REAL(KIND=RP) :: x, y, z
       
@@ -206,12 +205,10 @@ MODULE ManufacturedSolutions
 !     Source term for MS Navier Stokes
 !     --------------------------------
 !
-      USE SMConstants
-      USE PhysicsStorage
       IMPLICIT NONE
       
       REAL(KIND=RP) :: xx(3), t
-      REAL(KIND=RP) :: Q(N_EQN)
+      REAL(KIND=RP) :: Q(NCONS)
       
       REAL(KIND=RP) :: x, y, z
       
@@ -2983,12 +2980,10 @@ MODULE ManufacturedSolutions
 !     Source term for MS Euler
 !     ------------------------
 !
-      USE SMConstants
-      USE PhysicsStorage
       IMPLICIT NONE
       
       REAL(KIND=RP) :: xx(3), t
-      REAL(KIND=RP) :: Q(N_EQN)
+      REAL(KIND=RP) :: Q(NCONS)
       
       REAL(KIND=RP) :: x, y, z
       

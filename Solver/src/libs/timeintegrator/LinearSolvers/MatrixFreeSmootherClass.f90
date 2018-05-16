@@ -1,3 +1,15 @@
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:    MatrixFreeSmootherClass.f90
+!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Created: Sat May 12 20:54:07 2018
+!   @Last revision date: Sun May 13 11:22:08 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
+!
+!//////////////////////////////////////////////////////
+!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !      MatrixFreeSmootherClass.f90
@@ -120,7 +132,7 @@ CONTAINS
                Nx = sem % mesh % elements(k) % Nxyz(1)
                Ny = sem % mesh % elements(k) % Nxyz(2)
                Nz = sem % mesh % elements(k) % Nxyz(3)
-               ndofelm = NCONS*(Nx+1)*(Ny+1)*(Nz+1)
+               ndofelm = NTOTALVARS*(Nx+1)*(Ny+1)*(Nz+1)
                allocate (this % BlockPreco(k) % PLU(ndofelm,ndofelm) )
                allocate (this % BlockPreco(k) % LUpivots   (ndofelm) )
             END DO
@@ -163,10 +175,11 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
+   SUBROUTINE solve(this, nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
       use DenseMatUtilities
       IMPLICIT NONE
       CLASS(MatFreeSmooth_t), INTENT(INOUT) :: this
+      integer, intent(in)                     :: nEqn, nGradEqn
       procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
@@ -186,14 +199,14 @@ CONTAINS
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call AnalyticalJacobian_Compute(this % p_sem,time,this % A,.TRUE.)
+            call AnalyticalJacobian_Compute(this % p_sem,nEqn,time,this % A,.TRUE.)
 !~            call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
             call this % A % shift( MatrixShift(dt) )
             IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
             ComputeA = .FALSE.
          end if
       else 
-         call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
          call this % A % shift( MatrixShift(dt) )
          IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
       end if
@@ -202,8 +215,8 @@ CONTAINS
       dtsolve  = dt
       
 !~      IF (isfirst) THEN
-         CALL this % p_sem % GetQdot(this % F_Ur)
-         CALL this % p_sem % GetQ   (this % Ur)
+         CALL this % p_sem % GetQdot(nEqn, this % F_Ur)
+         CALL this % p_sem % GetQ   (this % Ur, nEqn)
 !~         isfirst = .FALSE.
 !~      END IF
       
@@ -215,7 +228,7 @@ CONTAINS
             CALL BlockJacobiSmoother(this, maxiter, this % niter, ComputeTimeDerivative, TolPresent, tol)
       END SELECT
       
-      CALL this % p_sem % SetQ (this % Ur)
+      CALL this % p_sem % SetQ (this % Ur, nEqn)
       
       IF (this % niter <= maxiter) THEN
          this % CONVERGED = .TRUE.
@@ -440,9 +453,9 @@ CONTAINS
       procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       REAL(KIND = RP)                         :: F(size(u))
       
-      CALL this % p_sem % SetQ(u)
+      CALL this % p_sem % SetQ(u,NTOTALVARS)
       CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, this % p_sem % BCFunctions)
-      CALL this % p_sem % GetQdot(F)
+      CALL this % p_sem % GetQdot(NTOTALVARS,F)
       
    END FUNCTION p_F
    

@@ -11,11 +11,11 @@ MOD_FLAG?=-J
 
 
 
-LIBOBJS = 	./build/FluidData.o \
-		./build/PhysicsStorage.o \
-		./build/VariableConversion.o \
-		./build/Physics.o \
-		./build/BoundaryConditions.o 
+LIBOBJS = 	./build/FluidData_CH.o \
+		./build/PhysicsStorage_CH.o \
+		./build/VariableConversion_CH.o \
+		./build/Physics_CH.o \
+		./build/BoundaryConditions_CH.o 
 
 
 LIB = physicsch
@@ -41,7 +41,7 @@ lib$(LIB).a: header mkdirs $(LIBOBJS)
 
 install: lib$(LIB).a
 	cp -p lib$(LIB).a $(INSTALL_DIR)/lib/
-	cp -p ./include/*.mod $(INSTALL_DIR)/include_ch/
+	cp -p ./include/*.mod $(INSTALL_DIR)/include/
 	@echo
 	@echo
 

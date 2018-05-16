@@ -1,4 +1,16 @@
 !
+!//////////////////////////////////////////////////////
+!
+!   @File:    BDFTimeIntegrator.f90
+!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Created: Sat May 12 20:54:04 2018
+!   @Last revision date: Tue May 15 13:03:31 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: efd38dcda37311c51d1c88fb0eed9bc4749f0031
+!
+!//////////////////////////////////////////////////////
+!
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      BDFTimeIntegrator.f90
@@ -115,7 +127,7 @@ contains
 !
 !     Setup linear solver
 !     -------------------
-      DimPrb = sem % NDOF
+      DimPrb = sem % NDOF * NTOTALVARS
       
       select case ( trim(controlVariables % StringValueForKey("linear solver",LINE_LENGTH)) )
          case('petsc')
@@ -140,7 +152,6 @@ contains
 !
 !     Setup BDF methods
 !     -----------------
-      
       call BDF_SetOrder( controlVariables % integerValueForKey("bdf order") )
       
       ! Check that the BDF order is consistent
@@ -368,7 +379,7 @@ contains
          CALL ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
          
          CALL SYSTEM_CLOCK(COUNT=cli)
-         CALL linsolver%solve( tol = linsolver_tol, maxiter=500, time= t, dt=dt, &
+         CALL linsolver%solve( nEqn=NTOTALVARS, nGradEqn=NTOTALGRADS, tol = linsolver_tol, maxiter=500, time= t, dt=dt, &
                               ComputeTimeDerivative = ComputeTimeDerivative, computeA = computeA)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          CALL SYSTEM_CLOCK(COUNT=clf)
          IF (.NOT. linsolver%converged .and. Adaptive_dt) THEN                           ! If linsolver did not converge, return converged=false
@@ -421,7 +432,7 @@ contains
       !----------------------------------------------------------------
       INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, elmnt, counter   
       REAL(KIND=RP)                                :: value
-      real(kind=RP)  :: RHS(sem % NDOF), maxQ, maxPrevQ, maxQdot, maxRHS
+      real(kind=RP)  :: RHS(NTOTALVARS*sem % NDOF), maxQ, maxPrevQ, maxQdot, maxRHS
       !----------------------------------------------------------------
       
       call ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions)
@@ -430,7 +441,7 @@ contains
                        PrevQ = sem % mesh % storage % PrevQ, &
                        Qdot  = sem % mesh % storage % Qdot, dt = dt)
       
-      do i=1, sem % NDOF                                 ! TODO: Use SetRHS!!
+      do i=1, sem % NDOF * NTOTALVARS                                ! TODO: Use SetRHS!!
          CALL linsolver % SetRHSValue(i-1, RHS(i))
       end do
       
@@ -455,7 +466,7 @@ contains
          DO k = 0, Nz
             DO j = 0, Ny
                DO i = 0, Nx
-                  DO l = 1, N_EQN
+                  DO l = 1, NTOTALVARS
                      CALL linsolver%GetXValue(counter,value)
                      sem%mesh%elements(elm)% storage % Q(l,i,j,k) = sem%mesh%elements(elm)% storage % Q(l,i,j,k) + value
                      counter =  counter + 1
@@ -486,7 +497,7 @@ contains
       ! .frm file
       OPEN(newunit=fd, file=TRIM(FileName)//'.frm', action='WRITE')
          WRITE(fd,*)
-         WRITE(fd,*) SIZE(Mat % Values), SIZE(Mat % Rows)-1, 1, N_EQN, 1
+         WRITE(fd,*) SIZE(Mat % Values), SIZE(Mat % Rows)-1, 1, NTOTALVARS, 1
          WRITE(fd,*) sem % mesh % elements(1) % Nxyz(1), SIZE(sem % mesh % elements)
       CLOSE (fd)
       
@@ -494,7 +505,7 @@ contains
       CALL Mat % Visualize(TRIM(FileName)//'.amg',FirstRow=.FALSE.)
       
       ! .coo file
-      CALL sem % mesh % WriteCoordFile(TRIM(FileName)//'.coo')
+      CALL sem % mesh % WriteCoordFile(NTOTALVARS, TRIM(FileName)//'.coo')
       
       
    END SUBROUTINE WriteEigenFiles
