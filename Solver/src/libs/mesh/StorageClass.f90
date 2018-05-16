@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Tue May 15 13:03:31 2018
+!   @Last revision date: Thu May 17 12:24:27 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: efd38dcda37311c51d1c88fb0eed9bc4749f0031
+!   @Last revision commit: 4a73d35da5d055590e5d37148afcc2d9d66a1483
 !
 !//////////////////////////////////////////////////////
 !
@@ -300,7 +300,10 @@ module StorageClass
          self % cDot(1:NCOMP,0:Nx,0:Ny,0:Nz) => globalStorage % cDot(bounds(1) : bounds(2))
          ! Previous solution
          num_prevSol = size(globalStorage % PrevC,2)
-         allocate ( self % PrevQ(num_prevSol) )
+         if ( .not. allocated(self % PrevQ)) then
+            allocate ( self % PrevQ(num_prevSol) )
+         end if
+
          do k=1, num_prevSol
             self % PrevQ(k) % c(1:NCOMP,0:Nx,0:Ny,0:Nz) => globalStorage % PrevC(bounds(1):bounds(2),k)
          end do

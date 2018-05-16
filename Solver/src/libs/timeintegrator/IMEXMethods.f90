@@ -4,9 +4,9 @@
 !   @File:    IMEXMethods.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date: Sun May 13 11:22:07 2018
+!   @Last revision date: Thu May 17 12:24:27 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
+!   @Last revision commit: 4a73d35da5d055590e5d37148afcc2d9d66a1483
 !
 !//////////////////////////////////////////////////////
 !
@@ -77,9 +77,9 @@ CONTAINS
          isfirst = .FALSE.
          nelm = SIZE(sem%mesh%elements)
 #if (!defined(CAHNHILLIARD))
-         DimPrb = sem % NDOF
+         DimPrb = sem % NDOF * NCONS
 #else
-         DimPrb = sem % NDOF / NTOTALVARS * NCOMP
+         DimPrb = sem % NDOF * NCOMP
 #endif
          
          ALLOCATE(U_n(0:Dimprb-1))

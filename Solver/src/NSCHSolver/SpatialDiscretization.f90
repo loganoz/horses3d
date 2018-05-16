@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Tue May 15 13:03:30 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: efd38dcda37311c51d1c88fb0eed9bc4749f0031
+!   @Last revision date: Tue May 22 14:00:49 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: da8f4ea14b56ff63296a257925015456e9e77df3
 !
 !//////////////////////////////////////////////////////
 !
@@ -189,7 +189,7 @@ module SpatialDiscretization
 !
 !        Compute wall distances
 !        ----------------------
-         call mesh % ComputeWallDistances
+        ! call mesh % ComputeWallDistances
          
       end subroutine Initialize_SpaceAndTimeMethods
 !
@@ -226,14 +226,9 @@ module SpatialDiscretization
 !        Obtain the NS time derivative
 !        *****************************
 !
-         do eID = 1, mesh % no_of_elements
-            call mesh % elements(eID) % storage % SetStorageToNS
-         end do
-
-         do fID = 1, size(mesh % faces)
-            call mesh % faces(fID) % storage(1) % SetStorageToNS
-            call mesh % faces(fID) % storage(2) % SetStorageToNS
-         end do
+!$omp single
+         call mesh % SetStorageToEqn(1)
+!$omp end single
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -289,18 +284,9 @@ stop
 !        Change memory to concentration
 !        ------------------------------
 !
-!$omp do
-         do eID = 1, mesh % no_of_elements
-            call mesh % elements(eID) % storage % SetStorageToCH_c
-         end do
-!$omp end do
-
-!$omp do
-         do fID = 1, size(mesh % faces)
-            call mesh % faces(fID) % storage(1) % SetStorageToCH_c
-            call mesh % faces(fID) % storage(2) % SetStorageToCH_c
-         end do
-!$omp end do
+!$omp single
+         call mesh % SetStorageToEqn(2)
+!$omp end single
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -350,19 +336,12 @@ stop
             e => mesh % elements(eID)
             e % storage % mu = - POW2(multiphase % eps) * e % storage % QDot
             call AddQuarticDWPDerivative(e % storage % c, e % storage % mu)
-!
-!           Move storage to chemical potential
-!           ----------------------------------
-            call e % storage % SetStorageToCH_mu
          end do
 !$omp end do
 
-!$omp do schedule(runtime)
-         do fID = 1, size(mesh % faces)
-            call mesh % faces(fID) % storage(1) % SetStorageToCH_mu
-            call mesh % faces(fID) % storage(2) % SetStorageToCH_mu
-         end do
-!$omp end do
+!$omp single
+         call mesh % SetStorageToEqn(3)
+!$omp end single
 !
 !        *************************
 !        Compute cDot: Q stores mu
@@ -422,18 +401,9 @@ stop
 !        Return the concentration to Q
 !        *****************************
 !
-!$omp do schedule(runtime)
-         do eID = 1, mesh % no_of_elements
-            call mesh % elements(eID) % storage % SetStorageToCH_c
-         end do
-!$omp end do
-
-!$omp do schedule(runtime)
-         do fID = 1, size(mesh % faces)
-            call mesh % faces(fID) % storage(1) % SetStorageToCH_c
-            call mesh % faces(fID) % storage(2) % SetStorageToCH_c
-         end do
-!$omp end do
+!$omp single
+         call mesh % SetStorageToEqn(2)
+!$omp end single
 !
 !        ***********************************
 !        Compute the concentration advection
@@ -466,18 +436,9 @@ stop
 !        Return NS as default storage
 !        ****************************
 !
-!$omp do schedule(runtime)
-         do eID = 1, mesh % no_of_elements
-            call mesh % elements(eID) % storage % SetStorageToNS
-         end do
-!$omp end do
-
-!$omp do schedule(runtime)
-         do fID = 1, size(mesh % faces)
-            call mesh % faces(fID) % storage(1) % SetStorageToNS
-            call mesh % faces(fID) % storage(2) % SetStorageToNS
-         end do
-!$omp end do
+!$omp single
+         call mesh % SetStorageToEqn(1)
+!$omp end single
 !
 !        ****************************
 !        Compute the Capilar pressure
@@ -530,14 +491,9 @@ stop
 !        Change memory to concentration
 !        ------------------------------
 !
-         do eID = 1, mesh % no_of_elements
-            call mesh % elements(eID) % storage % SetStorageToCH_c
-         end do
-
-         do fID = 1, size(mesh % faces)
-            call mesh % faces(fID) % storage(1) % SetStorageToCH_c
-            call mesh % faces(fID) % storage(2) % SetStorageToCH_c
-         end do
+!$omp single
+         call mesh % SetStorageToEqn(2)
+!$omp end single
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -586,19 +542,12 @@ stop
          do eID = 1, mesh % no_of_elements
             e => mesh % elements(eID)
             e % storage % mu = - POW2(multiphase % eps) * e % storage % QDot
-!
-!           Move storage to chemical potential
-!           ----------------------------------
-            call e % storage % SetStorageToCH_mu
          end do
 !$omp end do
 
-!$omp do schedule(runtime)
-         do fID = 1, size(mesh % faces)
-            call mesh % faces(fID) % storage(1) % SetStorageToCH_mu
-            call mesh % faces(fID) % storage(2) % SetStorageToCH_mu
-         end do
-!$omp end do
+!$omp single
+         call mesh % SetStorageToEqn(3)
+!$omp end single
 !
 !        *************************
 !        Compute cDot: Q stores mu
@@ -640,7 +589,7 @@ stop
 !        Compute the chemical potential
 !        ------------------------------
 !
-         call ComputeLaplacian(mesh = mesh , &
+ call ComputeLaplacian(mesh = mesh , &
                                t    = time, &
                   externalState     = BCFunctions(MU_BC) % externalState, &
                   externalGradients = BCFunctions(MU_BC) % externalGradients )
@@ -658,18 +607,9 @@ stop
 !        Return the concentration to Q
 !        *****************************
 !
-!$omp do schedule(runtime)
-         do eID = 1, mesh % no_of_elements
-            call mesh % elements(eID) % storage % SetStorageToCH_c
-         end do
-!$omp end do
-
-!$omp do schedule(runtime)
-         do fID = 1, size(mesh % faces)
-            call mesh % faces(fID) % storage(1) % SetStorageToCH_c
-            call mesh % faces(fID) % storage(2) % SetStorageToCH_c
-         end do
-!$omp end do
+!$omp single
+         call mesh % SetStorageToEqn(2)
+!$omp end single
 !$omp end parallel
 
       end subroutine ComputeTimeDerivative_OnlyLinear
@@ -705,14 +645,9 @@ stop
 !        Change memory to concentration
 !        ------------------------------
 !
-         do eID = 1, mesh % no_of_elements
-            call mesh % elements(eID) % storage % SetStorageToCH_c
-         end do
-
-         do fID = 1, size(mesh % faces)
-            call mesh % faces(fID) % storage(1) % SetStorageToCH_c
-            call mesh % faces(fID) % storage(2) % SetStorageToCH_c
-         end do
+!$omp single
+         call mesh % SetStorageToEqn(2)
+!$omp end single
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -762,19 +697,12 @@ stop
             e => mesh % elements(eID)
             e % storage % mu = - POW2(multiphase % eps) * e % storage % QDot
             call AddQuarticDWPDerivative(e % storage % c, e % storage % mu)
-!
-!           Move storage to chemical potential
-!           ----------------------------------
-            call e % storage % SetStorageToCH_mu
          end do
 !$omp end do
 
-!$omp do schedule(runtime)
-         do fID = 1, size(mesh % faces)
-            call mesh % faces(fID) % storage(1) % SetStorageToCH_mu
-            call mesh % faces(fID) % storage(2) % SetStorageToCH_mu
-         end do
-!$omp end do
+!$omp single
+         call mesh % SetStorageToEqn(3)
+!$omp end single
 !
 !        *************************
 !        Compute cDot: Q stores mu
@@ -834,19 +762,9 @@ stop
 !        Return the concentration to Q
 !        *****************************
 !
-!$omp do schedule(runtime)
-         do eID = 1, mesh % no_of_elements
-            call mesh % elements(eID) % storage % SetStorageToCH_c
-         end do
-!$omp end do
-
-!$omp do schedule(runtime)
-         do fID = 1, size(mesh % faces)
-            call mesh % faces(fID) % storage(1) % SetStorageToCH_c
-            call mesh % faces(fID) % storage(2) % SetStorageToCH_c
-         end do
-!$omp end do
-
+!$omp single
+         call mesh % SetStorageToEqn(2)
+!$omp end single
 !
 !        ***********************************
 !        Compute the concentration advection
@@ -1589,7 +1507,7 @@ stop
             associate( f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_BOUNDARY) 
-               CALL computeBoundaryFlux(f, t, externalState, externalGradients) 
+               CALL computeBoundaryFlux_Laplacian(f, t, externalState, externalGradients) 
             end select 
             end associate 
          end do 
