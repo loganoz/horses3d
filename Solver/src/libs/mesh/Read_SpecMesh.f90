@@ -285,6 +285,12 @@ MODULE Read_SpecMesh
 !
          call self % DefineAsBoundaryFaces()
 !
+!        -----------------------------------
+!        Check if this is a 2D extruded mesh
+!        -----------------------------------
+!
+         call self % CheckIfMeshIs2D()
+!
 !        -------------------------------
 !        Set the mesh as 2D if requested
 !        -------------------------------
@@ -677,6 +683,12 @@ MODULE Read_SpecMesh
 !        ---------------------
 !
          call self % DefineAsBoundaryFaces()
+!
+!        -----------------------------------
+!        Check if this is a 2D extruded mesh
+!        -----------------------------------
+!
+         call self % CheckIfMeshIs2D()
 !
 !        -------------------------------
 !        Set the mesh as 2D if requested

@@ -857,6 +857,8 @@ module pAdaptationClass
       eIDL = f % elementIDs(1)
       eIDR = f % elementIDs(2)
       
+      if (eIDL < 1 .or. eIDR < 1) return
+      
       indL = axisMap(:, f % elementSide(1))
       
       select case ( f % rotation )

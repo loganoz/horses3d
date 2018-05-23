@@ -232,14 +232,14 @@ module AnisFASMultigridClass
 !        (and AnisFAS ALWAYS creates anisotropic meshes - almost guaranteed to be nonconforming - change?)
 !     --------------------------------------------------
       
-      if (sem % mesh % meshIs2D) then
-         NMIN = 1
-      elseif (AnisFASestimator) then
+      if (AnisFASestimator) then
          if ( present(NMINestim) ) then
             NMIN = NMINestim
          else
             NMIN = 1
          end if
+      elseif (sem % mesh % meshIs2D) then
+         NMIN = 1
       else 
          NMIN = 2
       end if
