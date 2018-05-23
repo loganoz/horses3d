@@ -4,9 +4,9 @@
 !   @File:    HORSES3DMain.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Thu May  3 16:26:14 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 5a86eb6fbfa5f685edfa7826a0b6714de7b3cf7c
+!   @Last revision date: Wed May 23 12:57:20 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
 !
 !//////////////////////////////////////////////////////
 !
@@ -351,6 +351,7 @@ end interface
          USE mainKeywordsModule
          use FTValueClass
          use MPI_Process_Info
+         use SpatialDiscretization, only: viscousDiscretizationKey, CHDiscretizationKey
          IMPLICIT NONE
 !
 !        ---------
@@ -390,6 +391,11 @@ end interface
          obj => controlVariables % objectForKey(viscousDiscretizationKey)
          if ( .not. associated(obj) ) then
             call controlVariables % addValueForKey("BR1",viscousDiscretizationKey)
+         end if
+
+         obj => controlVariables % objectForKey(CHDiscretizationKey)
+         if ( .not. associated(obj) ) then
+            call controlVariables % addValueForKey("IP",CHDiscretizationKey)
          end if
 
          obj => controlVariables % objectForKey(splitFormKey)

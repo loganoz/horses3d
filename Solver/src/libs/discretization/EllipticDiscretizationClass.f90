@@ -14,8 +14,11 @@ module EllipticDiscretizationClass
    public BaseClass_ComputeGradient
 
    type EllipticDiscretization_t
+      procedure(EllipticFlux0D_f), nopass, pointer   :: EllipticFlux0D
+      procedure(EllipticFlux2D_f), nopass, pointer   :: EllipticFlux2D
+      procedure(EllipticFlux3D_f), nopass, pointer   :: EllipticFlux3D
       contains
-         procedure      :: Initialize                => BaseClass_Initialize
+         procedure      :: Construct                => BaseClass_Construct
          procedure      :: ComputeGradient           => BaseClass_ComputeGradient
          procedure      :: ComputeInnerFluxes        => BaseClass_ComputeInnerFluxes
          procedure      :: RiemannSolver             => BaseClass_RiemannSolver
@@ -78,17 +81,28 @@ module EllipticDiscretizationClass
    contains
 !  ========
 !
-      subroutine BaseClass_Initialize(self, controlVariables)
+      subroutine BaseClass_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D)
          use FTValueDictionaryClass
          use mainKeywordsModule
          use Headers
          use MPI_Process_Info
          use PhysicsStorage
          implicit none
-         class(EllipticDiscretization_t)                :: self
-         class(FTValueDictionary),  intent(in) :: controlVariables
+         class(EllipticDiscretization_t)       :: self
+         class(FTValueDictionary), intent(in)  :: controlVariables
+         procedure(EllipticFlux0D_f)           :: EllipticFlux0D
+         procedure(EllipticFlux2D_f)           :: EllipticFlux2D
+         procedure(EllipticFlux3D_f)           :: EllipticFlux3D
+!
+!        ----------------------------------------------------------
+!        Set the particular procedures to compute the elliptic flux
+!        ----------------------------------------------------------
+!
+         self % EllipticFlux0D => EllipticFlux0D
+         self % EllipticFlux2D => EllipticFlux2D
+         self % EllipticFlux3D => EllipticFlux3D
 
-      end subroutine BaseClass_Initialize
+      end subroutine BaseClass_Construct
 
       subroutine BaseClass_Describe(self)
          implicit none
@@ -129,14 +143,13 @@ module EllipticDiscretizationClass
 
       end subroutine BaseClass_ComputeGradient
 
-      subroutine BaseClass_ComputeInnerFluxes( self, nEqn, nGradEqn, e, EllipticFlux, contravariantFlux )
+      subroutine BaseClass_ComputeInnerFluxes( self, nEqn, nGradEqn, e, contravariantFlux )
          use ElementClass
          use PhysicsStorage
          implicit none
          class(EllipticDiscretization_t) ,  intent(in) :: self
          integer,                           intent(in) :: nEqn, nGradEqn
          type(Element)                                 :: e
-         procedure(EllipticFlux3D_f)                   :: EllipticFlux
          real(kind=RP)           ,  intent (out)       :: contravariantFlux(1:nEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------------------
@@ -297,7 +310,7 @@ module EllipticDiscretizationClass
 
       end subroutine BaseClass_ComputeInnerFluxesWithSGS
 #endif
-      subroutine BaseClass_RiemannSolver ( self, nEqn, nGradEqn, f, EllipticFlux, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
+      subroutine BaseClass_RiemannSolver ( self, nEqn, nGradEqn, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
                                            nHat, dWall, flux )
          use SMConstants
          use PhysicsStorage
@@ -307,7 +320,6 @@ module EllipticDiscretizationClass
          integer,       intent(in)       :: nEqn
          integer,       intent(in)       :: nGradEqn
          class(Face),   intent(in)       :: f
-         procedure(EllipticFlux0D_f)     :: EllipticFlux
          real(kind=RP), dimension(nEqn) :: QLeft
          real(kind=RP), dimension(nEqn) :: QRight
          real(kind=RP), dimension(nGradEqn) :: U_xLeft

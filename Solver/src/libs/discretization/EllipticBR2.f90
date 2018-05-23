@@ -4,9 +4,9 @@
 !   @File:    EllipticBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Mon Apr 23 16:22:25 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 537e46dd1de9842e00daf5c4b578c75f98071222
+!   @Last revision date: Wed May 23 12:57:23 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
 !
 !//////////////////////////////////////////////////////
 !
@@ -49,15 +49,31 @@ module EllipticBR2
    contains
 !  ========
 !
-      subroutine BR2_Initialize(self, controlVariables)
+      subroutine BR2_Initialize(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D)
          use FTValueDictionaryClass
          use mainKeywordsModule
          use MPI_Process_Info
          use PhysicsStorage
          implicit none
-         class(BassiRebay2_t)                :: self
-         class(FTValueDictionary),  intent(in) :: controlVariables
+         class(BassiRebay2_t)                  :: self
+         class(FTValueDictionary), intent(in)  :: controlVariables
+         procedure(EllipticFlux0D_f)           :: EllipticFlux0D
+         procedure(EllipticFlux2D_f)           :: EllipticFlux2D
+         procedure(EllipticFlux3D_f)           :: EllipticFlux3D
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
          character(len=LINE_LENGTH)            :: BR2variant
+!
+!        ----------------------------------------------------------
+!        Set the particular procedures to compute the elliptic flux
+!        ----------------------------------------------------------
+!
+         self % EllipticFlux0D => EllipticFlux0D
+         self % EllipticFlux2D => EllipticFlux2D
+         self % EllipticFlux3D => EllipticFlux3D
 !
 !        Request the penalty parameter
 !        -----------------------------
@@ -501,7 +517,7 @@ module EllipticBR2
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR2_ComputeInnerFluxes(self, nEqn, nGradEqn, e, EllipticFlux, contravariantFlux )
+      subroutine BR2_ComputeInnerFluxes(self, nEqn, nGradEqn, e, contravariantFlux )
          use ElementClass
          use PhysicsStorage
          use Physics
@@ -509,7 +525,6 @@ module EllipticBR2
          class(BassiRebay2_t) ,     intent (in) :: self
          integer,                   intent(in)  :: nEqn, nGradEqn
          type(Element)                          :: e
-         procedure(EllipticFlux3D_f)            :: EllipticFlux
          real(kind=RP)           , intent (out) :: contravariantFlux(1:nEqn, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
@@ -532,7 +547,7 @@ module EllipticBR2
 
 #endif
 
-         call EllipticFlux(nEqn, nGradEqn, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
+         call self % EllipticFlux3D(nEqn, nGradEqn, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -608,7 +623,7 @@ module EllipticBR2
 
       end subroutine BR2_ComputeInnerFluxesWithSGS
 #endif
-      subroutine BR2_RiemannSolver ( self , nEqn, nGradEqn, f, EllipticFlux, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+      subroutine BR2_RiemannSolver ( self , nEqn, nGradEqn, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
@@ -619,7 +634,6 @@ module EllipticBR2
          integer,       intent(in)            :: nEqn
          integer,       intent(in)            :: nGradEqn
          class(Face),   intent(in)            :: f
-         procedure(EllipticFlux0D_f)          :: EllipticFlux
          real(kind=RP), dimension(nEqn)      :: QLeft
          real(kind=RP), dimension(nEqn)      :: QRight
          real(kind=RP), dimension(nGradEqn) :: U_xLeft
@@ -657,7 +671,7 @@ module EllipticBR2
          kappa = 0.0_RP
 
 #endif
-         call EllipticFlux(nEqn, nGradEqn, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
+         call self % EllipticFlux0D(nEqn, nGradEqn, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 

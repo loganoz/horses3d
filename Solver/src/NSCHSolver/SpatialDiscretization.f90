@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Tue May 22 14:00:49 2018
+!   @Last revision date: Wed May 23 12:57:19 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: da8f4ea14b56ff63296a257925015456e9e77df3
+!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
 !
 !//////////////////////////////////////////////////////
 !
@@ -41,6 +41,7 @@ module SpatialDiscretization
       public  Initialize_SpaceAndTimeMethods, ComputeTimeDerivative, ComputeTimeDerivativeIsolated
       public  ComputeTimeDerivative_onlyLinear, ComputetimeDerivative_onlyNonLinear
       public  Finalize_SpaceAndTimeMethods
+      public  viscousDiscretizationKey, CHDiscretizationKey
 
 
       abstract interface
@@ -89,6 +90,9 @@ module SpatialDiscretization
 
       logical :: enable_speed = .true.
 
+      character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
+      character(len=LINE_LENGTH), parameter  :: CHDiscretizationKey      = "cahn-hilliard discretization"
+
 !
 !     ========      
       CONTAINS 
@@ -105,8 +109,14 @@ module SpatialDiscretization
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
          class(HexMesh)                         :: mesh
-         character(len=LINE_LENGTH)       :: inviscidDiscretization
-         character(len=LINE_LENGTH)       :: viscousDiscretization
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         character(len=LINE_LENGTH)       :: inviscidDiscretizationName
+         character(len=LINE_LENGTH)       :: viscousDiscretizationName
+         character(len=LINE_LENGTH)       :: CHDiscretizationName
          
          if (.not. mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
          
@@ -118,12 +128,11 @@ module SpatialDiscretization
    !
    !        Initialize inviscid discretization
    !        ----------------------------------
-            inviscidDiscretization = controlVariables % stringValueForKey(inviscidDiscretizationKey,requestedLength = LINE_LENGTH)
+            inviscidDiscretizationName = controlVariables % stringValueForKey(inviscidDiscretizationKey,requestedLength = LINE_LENGTH)
 
-            call toLower(inviscidDiscretization)
+            call toLower(inviscidDiscretizationName)
          
-            select case ( trim(inviscidDiscretization) )
-
+            select case ( trim(inviscidDiscretizationName) )
             case ( "standard" )
                if (.not. allocated(HyperbolicDiscretization)) allocate( StandardDG_t  :: HyperbolicDiscretization )
 
@@ -131,7 +140,7 @@ module SpatialDiscretization
                if (.not. allocated(HyperbolicDiscretization)) allocate( SplitDG_t     :: HyperbolicDiscretization)
 
             case default
-               write(STD_OUT,'(A,A,A)') 'Requested inviscid discretization "',trim(inviscidDiscretization),'" is not implemented.'
+               write(STD_OUT,'(A,A,A)') 'Requested inviscid discretization "',trim(inviscidDiscretizationName),'" is not implemented.'
                write(STD_OUT,'(A)') "Implemented discretizations are:"
                write(STD_OUT,'(A)') "  * Standard"
                write(STD_OUT,'(A)') "  * Split-Form"
@@ -145,25 +154,27 @@ module SpatialDiscretization
    !        Initialize viscous discretization
    !        ---------------------------------         
             if ( flowIsNavierStokes ) then
-               call BassiRebay1     % Initialize(controlVariables)
-               call BassiRebay2     % Initialize(controlVariables)
-               call InteriorPenalty % Initialize(controlVariables)
+               if ( .not. controlVariables % ContainsKey(viscousDiscretizationKey) ) then
+                  print*, "Input file is missing entry for keyword: viscous discretization"
+                  errorMessage(STD_OUT)
+                  stop
+               end if
 
-               viscousDiscretization = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
-               call toLower(viscousDiscretization)
+               viscousDiscretizationName = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
+               call toLower(viscousDiscretizationName)
                
-               select case ( trim(viscousDiscretization) )
+               select case ( trim(viscousDiscretizationName) )
                case("br1")
-                  EllipticDiscretization => BassiRebay1
+                  allocate(BassiRebay1_t     :: ViscousDiscretization)
 
                case("br2")
-                  EllipticDiscretization => BassiRebay2
+                  allocate(BassiRebay2_t     :: ViscousDiscretization)
 
                case("ip")
-                  EllipticDiscretization => InteriorPenalty
+                  allocate(InteriorPenalty_t :: ViscousDiscretization)
 
                case default
-                  write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretization),'" is not implemented.'
+                  write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretizationName),'" is not implemented.'
                   write(STD_OUT,'(A)') "Implemented discretizations are:"
                   write(STD_OUT,'(A)') "  * BR1"
                   write(STD_OUT,'(A)') "  * BR2"
@@ -173,17 +184,55 @@ module SpatialDiscretization
 
                end select
 
-               call EllipticDiscretization % Describe
+               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D)
+               call ViscousDiscretization % Describe
       
             else
-               if (.not. associated(EllipticDiscretization)) allocate( EllipticDiscretization_t  :: EllipticDiscretization )
-               call EllipticDiscretization % Initialize(controlVariables)
+               if (.not. allocated(ViscousDiscretization)) allocate(EllipticDiscretization_t :: ViscousDiscretization)
+               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D)
                
             end if
+
 !
 !           Initialize models
 !           -----------------
             call InitializeLESModel(LESModel, controlVariables)
+         
+!   
+!           Initialize Cahn-Hilliard discretization
+!           ---------------------------------------         
+            if ( .not. controlVariables % ContainsKey(CHDiscretizationKey) ) then
+               print*, "Input file is missing entry for keyword: viscous discretization"
+               errorMessage(STD_OUT)
+               stop
+            end if
+
+            CHDiscretizationName = controlVariables % stringValueForKey(CHDiscretizationKey, requestedLength = LINE_LENGTH)
+            call toLower(CHDiscretizationName)
+            
+            select case ( trim(CHDiscretizationName) )
+            case("br1")
+               allocate(BassiRebay1_t     :: CHDiscretization)
+   
+            case("br2")
+               allocate(BassiRebay2_t     :: CHDiscretization)
+   
+            case("ip")
+               allocate(InteriorPenalty_t :: CHDiscretization)
+   
+            case default
+               write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(CHDiscretizationName),'" is not implemented.'
+               write(STD_OUT,'(A)') "Implemented discretizations are:"
+               write(STD_OUT,'(A)') "  * BR1"
+               write(STD_OUT,'(A)') "  * BR2"
+               write(STD_OUT,'(A)') "  * IP"
+               errorMessage(STD_OUT)
+               stop 
+   
+            end select
+   
+            call CHDiscretization % Construct(controlVariables, CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D)
+            call CHDiscretization % Describe
          
          end if
 !
@@ -253,7 +302,7 @@ stop
 !        -----------------
 !
          if ( computeGradients ) then
-            call EllipticDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time , BCFunctions(NS_BC) % externalState, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D)
+            call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time , BCFunctions(NS_BC) % externalState, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D)
          end if
 
 #ifdef _HAS_MPI_
@@ -310,7 +359,7 @@ stop
 !        Compute gradients
 !        -----------------
 !
-         call InteriorPenalty % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+         call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
 
 #ifdef _HAS_MPI_
 !$omp single
@@ -369,7 +418,7 @@ stop
 !        Compute gradients
 !        -----------------
 !
-         call InteriorPenalty % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(MU_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+         call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(MU_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
 
 #ifdef _HAS_MPI_
 !$omp single
@@ -517,7 +566,7 @@ stop
 !        Compute gradients
 !        -----------------
 !
-         call InteriorPenalty % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+         call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
 
 #ifdef _HAS_MPI_
 !$omp single
@@ -575,7 +624,7 @@ stop
 !        Compute gradients
 !        -----------------
 !
-         call InteriorPenalty % ComputeGradient(NCOMP, NCOMP, mesh , time , BCFunctions(MU_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+         call CHDiscretization % ComputeGradient(NCOMP, NCOMP, mesh , time , BCFunctions(MU_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
 
 #ifdef _HAS_MPI_
 !$omp single
@@ -671,7 +720,7 @@ stop
 !        Compute gradients
 !        -----------------
 !
-         call InteriorPenalty % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+         call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
 
 #ifdef _HAS_MPI_
 !$omp single
@@ -730,7 +779,7 @@ stop
 !        Compute gradients
 !        -----------------
 !
-         call InteriorPenalty % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(MU_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+         call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(MU_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
 
 #ifdef _HAS_MPI_
 !$omp single
@@ -1015,13 +1064,13 @@ stop
 !
 !           Without LES model
 !           -----------------
-            call EllipticDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, e , ViscousFlux3D, viscousContravariantFlux) 
+            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, e , viscousContravariantFlux) 
 
          else
 !
 !           With LES model
 !           --------------
-            call EllipticDiscretization  % ComputeInnerFluxesWithSGS ( e , viscousContravariantFlux  ) 
+            call ViscousDiscretization  % ComputeInnerFluxesWithSGS ( e , viscousContravariantFlux  ) 
 
          end if
 !
@@ -1101,9 +1150,8 @@ stop
 !              Viscous fluxes
 !              --------------
 !      
-               CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
-                                                  EllipticFlux = ViscousFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1128,7 +1176,7 @@ stop
 !              Viscous fluxes
 !              --------------
 !      
-               CALL EllipticDiscretization % RiemannSolverWithSGS(f = f, &
+               CALL ViscousDiscretization % RiemannSolverWithSGS(f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1198,9 +1246,8 @@ stop
 !              Viscous fluxes
 !              --------------
 !      
-               CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
-                                                  EllipticFlux = ViscousFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1306,9 +1353,8 @@ stop
 !           Viscous fluxes
 !           --------------
 !   
-            CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+            CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                f = f, &
-                                               EllipticFlux = ViscousFlux0D, &
                                                QLeft = f % storage(1) % Q(:,i,j), &
                                                QRight = f % storage(2) % Q(:,i,j), &
                                                U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1608,7 +1654,7 @@ stop
 !
 !        Compute contravariant flux
 !        --------------------------
-         call InteriorPenalty  % ComputeInnerFluxes (NCOMP, NCOMP, e , CHDivergenceFlux3D, contravariantFlux  ) 
+         call CHDiscretization  % ComputeInnerFluxes (NCOMP, NCOMP, e , contravariantFlux  ) 
 !
 !        ************************
 !        Perform volume integrals
@@ -1662,9 +1708,8 @@ stop
 !              Viscous fluxes
 !              --------------
 !      
-               CALL InteriorPenalty % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
+               CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                                   f = f, &
-                                                  EllipticFlux = CHDivergenceFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1707,9 +1752,8 @@ stop
 !              Viscous fluxes
 !              --------------
 !      
-               CALL InteriorPenalty % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
+               CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                                   f = f, &
-                                                  EllipticFlux = CHDivergenceFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1805,9 +1849,8 @@ stop
 !           Viscous fluxes
 !           --------------
 !   
-         CALL InteriorPenalty % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
+         CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                             f = f, &
-                                            EllipticFlux = CHDivergenceFlux0D, &
                                             QLeft = f % storage(1) % Q(:,i,j), &
                                             QRight = f % storage(2) % Q(:,i,j), &
                                             U_xLeft = f % storage(1) % U_x(:,i,j), &

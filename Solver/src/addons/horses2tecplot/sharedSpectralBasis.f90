@@ -4,9 +4,9 @@
 !   @File:    sharedSpectralBasis.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Oct 15 13:07:03 2017
-!   @Last revision date: Wed Oct 25 18:53:00 2017
+!   @Last revision date: Wed May 23 12:57:22 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 5edaf46ab67ee96cdf80ff143c0ab65970c05b73
+!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
 !
 !//////////////////////////////////////////////////////
 !
@@ -57,19 +57,19 @@ module SharedSpectralBasis
 
       end subroutine addNewSpectralBasis
 
-      subroutine addNewInterpolationMatrix( Tset, Nold, spAold, Nnew, xiNew)
+      subroutine addNewInterpolationMatrix( Tset_, Nold, spAold, Nnew, xiNew)
          use NodalStorageClass
          implicit none
-         class(InterpolationMatrix_t)     :: Tset(0:,0:)
+         class(InterpolationMatrix_t)     :: Tset_(0:,0:)
          integer, intent(in)              :: Nold, Nnew
          class(NodalStorage_t), intent(in)  :: spAold
          real(kind=RP),       intent(in)  :: xiNew(0:Nnew)
 
-         if ( .not. Tset(Nnew,Nold) % Constructed ) then
-            allocate ( Tset(Nnew,Nold) % T(0:Nnew,0:Nold) )
+         if ( .not. Tset_(Nnew,Nold) % Constructed ) then
+            allocate ( Tset_(Nnew,Nold) % T(0:Nnew,0:Nold) )
             call PolynomialInterpolationMatrix( Nold, Nnew, spAold % x, spAold % wb, xiNew, &
-                                                Tset(Nnew,Nold) % T)
-            Tset(Nnew,Nold) % Constructed = .true.
+                                                Tset_(Nnew,Nold) % T)
+            Tset_(Nnew,Nold) % Constructed = .true.
          end if
 
       end subroutine addNewInterpolationMatrix

@@ -330,6 +330,7 @@ end interface
          USE mainKeywordsModule
          use FTValueClass
          use MPI_Process_Info
+         use SpatialDiscretization, only: viscousDiscretizationKey
          IMPLICIT NONE
 !
 !        ---------

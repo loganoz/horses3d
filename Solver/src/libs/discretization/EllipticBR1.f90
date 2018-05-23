@@ -379,7 +379,7 @@ module EllipticBR1
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_ComputeInnerFluxes( self , nEqn, nGradEqn, e , EllipticFlux, contravariantFlux )
+      subroutine BR1_ComputeInnerFluxes( self , nEqn, nGradEqn, e , contravariantFlux )
          use ElementClass
          use PhysicsStorage
          use Physics
@@ -388,7 +388,6 @@ module EllipticBR1
          integer,                   intent(in)  :: nEqn
          integer,                   intent(in)  :: nGradEqn
          type(Element)                          :: e
-         procedure(EllipticFlux3D_f)            :: EllipticFlux
          real(kind=RP)           , intent (out) :: contravariantFlux(1:nEqn, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
@@ -411,7 +410,7 @@ module EllipticBR1
 
 #endif
 
-         call EllipticFlux( nEqn, nGradEqn, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
+         call self % EllipticFlux3D( nEqn, nGradEqn, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -487,7 +486,7 @@ module EllipticBR1
 
       end subroutine BR1_ComputeInnerFluxesWithSGS
 #endif
-      subroutine BR1_RiemannSolver ( self , nEqn, nGradEqn, f, EllipticFlux, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+      subroutine BR1_RiemannSolver ( self , nEqn, nGradEqn, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
@@ -498,7 +497,6 @@ module EllipticBR1
          integer,       intent(in)          :: nEqn
          integer,       intent(in)          :: nGradEqn
          class(Face),   intent(in)          :: f
-         procedure(EllipticFlux0D_f)        :: EllipticFlux
          real(kind=RP), dimension(nEqn)     :: QLeft
          real(kind=RP), dimension(nEqn)     :: QRight
          real(kind=RP), dimension(nGradEqn) :: U_xLeft
@@ -537,7 +535,7 @@ module EllipticBR1
 
 #endif
 
-         call EllipticFlux(nEqn, nGradEqn, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
+         call self % EllipticFlux0D(nEqn, nGradEqn, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 

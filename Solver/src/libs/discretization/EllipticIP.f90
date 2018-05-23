@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Sat May 12 21:51:08 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0a98ff59a5332051367a2a5c89543fa1ed797190
+!   @Last revision date: Wed May 23 12:57:24 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
 !
 !//////////////////////////////////////////////////////
 !
@@ -39,7 +39,7 @@ module EllipticIP
       real(kind=RP)        :: sigma = 1.0_RP
       integer              :: IPmethod = SIPG
       contains
-         procedure      :: Initialize              => IP_Initialize
+         procedure      :: Construct              => IP_Construct
          procedure      :: ComputeGradient         => IP_ComputeGradient
          procedure      :: ComputeInnerFluxes      => IP_ComputeInnerFluxes
          procedure      :: PenaltyParameter        => IP_PenaltyParameter
@@ -56,16 +56,32 @@ module EllipticIP
    contains
 !  ========
 !
-      subroutine IP_Initialize(self, controlVariables)
+      subroutine IP_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D)
          use FTValueDictionaryClass
          use Utilities, only: toLower
          use mainKeywordsModule
          use MPI_Process_Info
          use PhysicsStorage
          implicit none
-         class(InteriorPenalty_t)                :: self
-         class(FTValueDictionary),  intent(in) :: controlVariables
+         class(InteriorPenalty_t)              :: self
+         class(FTValueDictionary), intent(in)  :: controlVariables
+         procedure(EllipticFlux0D_f)           :: EllipticFlux0D
+         procedure(EllipticFlux2D_f)           :: EllipticFlux2D
+         procedure(EllipticFlux3D_f)           :: EllipticFlux3D
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
          character(len=LINE_LENGTH)            :: IPvariant
+!
+!        ----------------------------------------------------------
+!        Set the particular procedures to compute the elliptic flux
+!        ----------------------------------------------------------
+!
+         self % EllipticFlux0D => EllipticFlux0D
+         self % EllipticFlux2D => EllipticFlux2D
+         self % EllipticFlux3D => EllipticFlux3D
 !
 !        Request the penalty parameter
 !        -----------------------------
@@ -116,8 +132,7 @@ module EllipticIP
             end if
          end select
 
-
-      end subroutine IP_Initialize
+      end subroutine IP_Construct
 
       subroutine IP_Describe(self)
          implicit none
@@ -436,7 +451,7 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_ComputeInnerFluxes( self , nEqn, nGradEqn, e , EllipticFlux, contravariantFlux )
+      subroutine IP_ComputeInnerFluxes( self , nEqn, nGradEqn, e , contravariantFlux )
          use ElementClass
          use PhysicsStorage
          use Physics
@@ -444,7 +459,6 @@ module EllipticIP
          class(InteriorPenalty_t) ,     intent(in)  :: self
          integer,                       intent(in)  :: nEqn, nGradEqn
          type(Element)                              :: e
-         procedure(EllipticFlux3D_f)                :: EllipticFlux
          real(kind=RP)           , intent (out)     :: contravariantFlux(1:nEqn, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
@@ -465,7 +479,7 @@ module EllipticIP
          kappa = 0.0_RP
 #endif
 
-         call EllipticFlux( nEqn, nGradEqn, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
+         call self % EllipticFlux3D( nEqn, nGradEqn, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -568,7 +582,7 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_RiemannSolver ( self , nEqn, nGradEqn, f, EllipticFlux, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+      subroutine IP_RiemannSolver ( self , nEqn, nGradEqn, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
@@ -578,7 +592,6 @@ module EllipticIP
          class(InteriorPenalty_t)             :: self
          integer,       intent(in)            :: nEqn, nGradEqn
          class(Face),   intent(in)            :: f
-         procedure(EllipticFlux0D_f)          :: EllipticFlux
          real(kind=RP), dimension(nEqn)      :: QLeft
          real(kind=RP), dimension(nEqn)      :: QRight
          real(kind=RP), dimension(nGradEqn) :: U_xLeft
@@ -609,8 +622,8 @@ module EllipticIP
          kappa = 0.0_RP
 #endif
 
-         call EllipticFlux(nEqn, nGradEqn, QLeft , U_xLeft , U_yLeft , U_zLeft, mu, kappa, flux_vecL )
-         call EllipticFlux(nEqn, nGradEqn, QRight , U_xRight , U_yRight , U_zRight, mu, kappa, flux_vecR )
+         call self % EllipticFlux0D(nEqn, nGradEqn, QLeft , U_xLeft , U_yLeft , U_zLeft, mu, kappa, flux_vecL )
+         call self % EllipticFlux0D(nEqn, nGradEqn, QRight , U_xRight , U_yRight , U_zRight, mu, kappa, flux_vecR )
 
          flux_vec = 0.5_RP * (flux_vecL + flux_vecR)
 

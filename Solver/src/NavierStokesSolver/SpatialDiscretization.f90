@@ -33,6 +33,10 @@ module SpatialDiscretization
       use mpi
 #endif
 
+      private
+      public   ComputeTimeDerivative, ComputeTimeDerivativeIsolated, viscousDiscretizationKey
+      public   Initialize_SpaceAndTimeMethods, Finalize_SpaceAndTimeMethods
+
 
       abstract interface
          SUBROUTINE computeElementInterfaceFluxF(f)
@@ -78,7 +82,8 @@ module SpatialDiscretization
       procedure(computeElementInterfaceFluxF), pointer :: computeElementInterfaceFlux => computeElementInterfaceFlux_NS
       procedure(computeMPIFaceFluxF),          pointer :: computeMPIFaceFlux          => computeMPIFaceFlux_NS
       procedure(computeBoundaryFluxF),         pointer :: computeBoundaryFlux         => computeBoundaryFlux_NS
-
+   
+      character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
 !
 !     ========      
       CONTAINS 
@@ -95,8 +100,13 @@ module SpatialDiscretization
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
          class(HexMesh)                         :: mesh
-         character(len=LINE_LENGTH)       :: inviscidDiscretization
-         character(len=LINE_LENGTH)       :: viscousDiscretization
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         character(len=LINE_LENGTH)       :: inviscidDiscretizationName
+         character(len=LINE_LENGTH)       :: viscousDiscretizationName
          
          if (.not. mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
          
@@ -108,12 +118,11 @@ module SpatialDiscretization
    !
    !        Initialize inviscid discretization
    !        ----------------------------------
-            inviscidDiscretization = controlVariables % stringValueForKey(inviscidDiscretizationKey,requestedLength = LINE_LENGTH)
+            inviscidDiscretizationName = controlVariables % stringValueForKey(inviscidDiscretizationKey,requestedLength = LINE_LENGTH)
 
-            call toLower(inviscidDiscretization)
+            call toLower(inviscidDiscretizationName)
          
-            select case ( trim(inviscidDiscretization) )
-
+            select case ( trim(inviscidDiscretizationName) )
             case ( "standard" )
                if (.not. allocated(HyperbolicDiscretization)) allocate( StandardDG_t  :: HyperbolicDiscretization )
 
@@ -121,7 +130,7 @@ module SpatialDiscretization
                if (.not. allocated(HyperbolicDiscretization)) allocate( SplitDG_t     :: HyperbolicDiscretization)
 
             case default
-               write(STD_OUT,'(A,A,A)') 'Requested inviscid discretization "',trim(inviscidDiscretization),'" is not implemented.'
+               write(STD_OUT,'(A,A,A)') 'Requested inviscid discretization "',trim(inviscidDiscretizationName),'" is not implemented.'
                write(STD_OUT,'(A)') "Implemented discretizations are:"
                write(STD_OUT,'(A)') "  * Standard"
                write(STD_OUT,'(A)') "  * Split-Form"
@@ -135,25 +144,27 @@ module SpatialDiscretization
    !        Initialize viscous discretization
    !        ---------------------------------         
             if ( flowIsNavierStokes ) then
-               call BassiRebay1     % Initialize(controlVariables)
-               call BassiRebay2     % Initialize(controlVariables)
-               call InteriorPenalty % Initialize(controlVariables)
+               if ( .not. controlVariables % ContainsKey(viscousDiscretizationKey) ) then
+                  print*, "Input file is missing entry for keyword: viscous discretization"
+                  errorMessage(STD_OUT)
+                  stop
+               end if
 
-               viscousDiscretization = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
-               call toLower(viscousDiscretization)
+               viscousDiscretizationName = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
+               call toLower(viscousDiscretizationName)
                
-               select case ( trim(viscousDiscretization) )
+               select case ( trim(viscousDiscretizationName) )
                case("br1")
-                  EllipticDiscretization => BassiRebay1
+                  allocate(BassiRebay1_t     :: ViscousDiscretization)
 
                case("br2")
-                  EllipticDiscretization => BassiRebay2
+                  allocate(BassiRebay2_t     :: ViscousDiscretization)
 
                case("ip")
-                  EllipticDiscretization => InteriorPenalty
+                  allocate(InteriorPenalty_t :: ViscousDiscretization)
 
                case default
-                  write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretization),'" is not implemented.'
+                  write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(viscousDiscretizationName),'" is not implemented.'
                   write(STD_OUT,'(A)') "Implemented discretizations are:"
                   write(STD_OUT,'(A)') "  * BR1"
                   write(STD_OUT,'(A)') "  * BR2"
@@ -163,11 +174,12 @@ module SpatialDiscretization
 
                end select
 
-               call EllipticDiscretization % Describe
+               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D)
+               call ViscousDiscretization % Describe
       
             else
-               if (.not. associated(EllipticDiscretization)) allocate( EllipticDiscretization_t  :: EllipticDiscretization )
-               call EllipticDiscretization % Initialize(controlVariables)
+               if (.not. allocated(ViscousDiscretization)) allocate(EllipticDiscretization_t :: ViscousDiscretization)
+               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D)
                
             end if
 
@@ -303,7 +315,7 @@ module SpatialDiscretization
 !        -----------------------------------------------------
 !
          if ( computeGradients ) then
-            CALL BaseClass_ComputeGradient( EllipticDiscretization, NCONS, NGRAD, mesh , time , BCFunctions(1) % externalState, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D )
+            CALL BaseClass_ComputeGradient( ViscousDiscretization, NCONS, NGRAD, mesh , time , BCFunctions(1) % externalState, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D )
 !
 !           The prolongation is usually done in the viscous methods, but not in the BaseClass
 !           ---------------------------------------------------------------------------------
@@ -596,13 +608,13 @@ module SpatialDiscretization
 !
 !           Without LES model
 !           -----------------
-            call EllipticDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, e , ViscousFlux3D, viscousContravariantFlux) 
+            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, e , viscousContravariantFlux) 
 
          else
 !
 !           With LES model
 !           --------------
-            call EllipticDiscretization  % ComputeInnerFluxesWithSGS ( e , viscousContravariantFlux  ) 
+            call ViscousDiscretization  % ComputeInnerFluxesWithSGS ( e , viscousContravariantFlux  ) 
 
          end if
 !
@@ -690,9 +702,8 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
-                                                  EllipticFlux = ViscousFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -717,7 +728,7 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL EllipticDiscretization % RiemannSolverWithSGS(f = f, &
+               CALL ViscousDiscretization % RiemannSolverWithSGS(f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -787,9 +798,8 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
-                                                  EllipticFlux = ViscousFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -895,9 +905,8 @@ module SpatialDiscretization
 !           Viscous fluxes
 !           --------------
 !   
-            CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+            CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                f = f, &
-                                               EllipticFlux = ViscousFlux0D, &
                                                QLeft = f % storage(1) % Q(:,i,j), &
                                                QRight = f % storage(2) % Q(:,i,j), &
                                                U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -976,9 +985,8 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
-                                                  EllipticFlux = ViscousFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1060,9 +1068,8 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
-                                                  EllipticFlux = ViscousFlux0D, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1168,9 +1175,8 @@ module SpatialDiscretization
 !           Viscous fluxes
 !           --------------
 !   
-            CALL EllipticDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+            CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                f = f, &
-                                               EllipticFlux = ViscousFlux0D, &
                                                QLeft = f % storage(1) % Q(:,i,j), &
                                                QRight = f % storage(2) % Q(:,i,j), &
                                                U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1432,7 +1438,7 @@ module SpatialDiscretization
          real(kind=RP),      intent(in) :: time
          procedure(BCState_FCN)         :: externalStateProcedure
 
-         call EllipticDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time , externalStateProcedure, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D)
+         call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time , externalStateProcedure, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D)
 
       end subroutine DGSpatial_ComputeGradient
 !
