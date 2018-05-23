@@ -281,7 +281,7 @@ module GradientsStabilization
          use HexMeshClass
          use PhysicsStorage
          use Physics
-         use DGWeakIntegrals
+         use DGIntegrals
          implicit none
          class(Element)                      :: e
          class(HexMesh)                      :: mesh

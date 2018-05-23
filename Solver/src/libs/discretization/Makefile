@@ -9,7 +9,7 @@ RANLIB?=ranlib
 MOD_FLAG?=-J
 
 LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
-		./build_ns/WeakIntegrals.o \
+		./build_ns/DGIntegrals.o \
 		./build_ns/GradientsStabilization.o \
 		./build_ns/HyperbolicDiscretizationClass.o \
 		./build_ns/HyperbolicStandard.o \
@@ -23,7 +23,7 @@ LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
 		./build_ns/SVV.o 
 
 LIBOBJS_CH =    ./build_ch/DGSEMClass.o \
-		./build_ch/WeakIntegrals.o \
+		./build_ch/DGIntegrals.o \
 		./build_ch/GradientsStabilization.o \
 		./build_ch/HyperbolicDiscretizationClass.o \
 		./build_ch/HyperbolicStandard.o \

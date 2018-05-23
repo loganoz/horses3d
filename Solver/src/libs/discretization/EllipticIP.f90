@@ -268,7 +268,7 @@ module EllipticIP
          use HexMeshClass
          use PhysicsStorage
          use Physics
-         use DGWeakIntegrals
+         use DGIntegrals
          implicit none
          class(InteriorPenalty_t),   intent(in) :: self
          class(Element)                         :: e

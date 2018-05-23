@@ -16,14 +16,13 @@
 !
 module pAdaptationClass
    use SMConstants
-   use InterpolationMatrices
-   use PhysicsStorage
-   use FaceClass
+   use InterpolationMatrices, only: Tset, Interp3DArrays, ConstructInterpolationMatrices
+   use PhysicsStorage       , only: NCONS, N_GRAD_EQN
+   use FaceClass            , only: Face
    use ElementClass
    use DGSEMClass
    use TruncationErrorClass
    use FTValueDictionaryClass
-   use TimeIntegratorDefinitions
    use StorageClass
    use SharedBCModule
 #if defined(CAHNHILLIARD)
@@ -83,7 +82,7 @@ module pAdaptationClass
 !!    integer               :: dN_Inc = 3 
    integer    :: fN_Inc = 2
    integer    :: NInc
-   integer    :: nelem   ! number of elements in mesh
+   integer    :: nelem           ! number of elements in mesh
    
 #if defined(NAVIERSTOKES)
    procedure(BCState_FCN)   :: externalStateForBoundaryName
@@ -192,7 +191,6 @@ module pAdaptationClass
 !   -> If increasing (multi-stage) adaptation is selected, the final step is to rewrite the polynomial orders for the sem contruction
 !  ----------------------------------------
    subroutine ConstructPAdaptator(this,Nx,Ny,Nz,controlVariables)
-      use FTValueDictionaryClass
       implicit none
       !--------------------------------------
       class(pAdaptation_t)                :: this             !>  P-Adaptator
@@ -227,6 +225,7 @@ module pAdaptationClass
       
       this % solutionFileName = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
       this % saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
+      
 !
 !     ------------------------------
 !     Save maximum polynomial orders
@@ -616,7 +615,7 @@ module pAdaptationClass
       allocate (TempStorage(nelem))
       do iEl = 1, nelem
          NOld (:,iEl) = sem % mesh % elements(iEl) % Nxyz
-         call TempStorage(iEl) % Construct(NOld (1,iEl), NOld (2,iEl), NOld (3,iEl), N_EQN, N_GRAD_EQN, .FALSE.)
+         call TempStorage(iEl) % Construct(NOld (1,iEl), NOld (2,iEl), NOld (3,iEl), NCONS, N_GRAD_EQN, .FALSE.)
          TempStorage(iEl) % Q = sem % mesh % elements(iEl) % storage % Q
       end do
 !
@@ -657,7 +656,7 @@ module pAdaptationClass
             ! Interpolate solution to new solution storage
             !---------------------------------------------
             
-            call Interp3DArrays  (Nvars      = N_EQN                                       , &
+            call Interp3DArrays  (Nvars      = NCONS                                       , &
                                   Nin        = NOld(:,iEl)                                 , &
                                   inArray    = TempStorage(iEl) % Q , &
                                   Nout       = NNew(:,iEl)                                 , &
@@ -736,10 +735,12 @@ module pAdaptationClass
       character(len=LINE_LENGTH), allocatable :: boundaryNames(:)
       !------------------------------------------------------------
       
-      write(STD_OUT,*) '## Forcing p-conforming boundaries ##'
-      
       allocate ( boundaryNames( conformingBoundariesDic % COUNT() )  ) 
       boundaryNames = conformingBoundariesDic % allKeys()
+      
+      if ( size(boundaryNames) < 1 ) return
+      
+      write(STD_OUT,*) '## Forcing p-conforming boundaries ##'
       
 !     ************************
 !     Loop over the boundaries

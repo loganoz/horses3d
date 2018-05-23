@@ -1,12 +1,19 @@
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!      TruncationErrorClass.f90
+!      Created: February, 2018 at 12:56 PM 
+!      By: Andrés Rueda
+!
+!////////////////////////////////////////////////////////////////////////
+!
 module TruncationErrorClass
    use SMConstants
-   use MultigridTypes
-   use DGSEMClass
-   use FTValueDictionaryClass
-   use TimeIntegratorDefinitions
-   use PhysicsStorage
-   use HexMeshClass
-   use NodalStorageClass
+   use MultigridTypes            , only: MGSolStorage_t
+   use DGSEMClass                , only: DGSem, BCFunctions_t, ComputeQDot_FCN, BCState_FCN, BCGradients_FCN, no_of_BCsets
+   use FTValueDictionaryClass    , only: FTValueDictionary
+   use PhysicsStorage            , only: NCONS, NDIM, Thermodynamics, RefValues, Dimensionless
+   use NodalStorageClass         , only: NodalStorage
 #if defined(CAHNHILLIARD)
    use BoundaryConditionFunctions, only: C_BC, MU_BC
 #endif
@@ -200,6 +207,7 @@ module TruncationErrorClass
       S = 0._RP ! Initialize source term
       
       do iEl = 1, size(sem % mesh % elements)
+         
          associate (e => sem % mesh % elements(iEl))
          
          if (e % Nxyz(Dir) >= TE(iEl) % Dir(Dir) % P) cycle ! it is actually never going to be greater than... but for security
@@ -399,7 +407,7 @@ module TruncationErrorClass
          ! loop over all the degrees of freedom of the element
          do kk = 0, e % Nxyz(3) ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
             
-            do iEQ = 1, N_EQN
+            do iEQ = 1, NCONS
                wx  = NodalStorage(e % Nxyz(1)) % w (ii)
                wy  = NodalStorage(e % Nxyz(2)) % w (jj)
                wz  = NodalStorage(e % Nxyz(3)) % w (kk)
