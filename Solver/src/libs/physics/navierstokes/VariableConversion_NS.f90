@@ -4,9 +4,9 @@
 !   @File:    VariableConversion_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:34 2018
-!   @Last revision date: Fri Apr 20 17:25:11 2018
+!   @Last revision date: Thu May 24 12:03:21 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
+!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,7 +21,7 @@ module VariableConversion_NS
    public   Pressure, Temperature, NSGradientValuesForQ
    public   NSGradientValuesForQ_0D, NSGradientValuesForQ_3D
    public   getPrimitiveVariables, getEntropyVariables
-   public   getRoeVariables
+   public   getRoeVariables, GetNSViscosity
 
    interface NSGradientValuesForQ
        module procedure NSGradientValuesForQ_0D , NSGradientValuesForQ_3D
@@ -77,6 +77,15 @@ module VariableConversion_NS
       T = dimensionless % gammaM2*Pressure(Q)/Q(1)
 
       end function Temperature
+      
+      pure subroutine GetNSViscosity(phi, mu)
+         implicit none
+         real(kind=RP), intent(in)   :: phi
+         real(kind=RP), intent(out)  :: mu
+
+         mu = dimensionless % mu
+
+      end subroutine GetNSViscosity
 !
 ! /////////////////////////////////////////////////////////////////////
 !

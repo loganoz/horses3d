@@ -9,7 +9,7 @@ module EllipticDiscretizationClass
    implicit none
 !
    private
-   public   EllipticDiscretization_t, EllipticFlux0D_f, EllipticFlux2D_f, EllipticFlux3D_f
+   public   EllipticDiscretization_t, EllipticFlux0D_f, EllipticFlux2D_f, EllipticFlux3D_f, GetViscosity_f
 
    public BaseClass_ComputeGradient
 
@@ -17,6 +17,7 @@ module EllipticDiscretizationClass
       procedure(EllipticFlux0D_f), nopass, pointer   :: EllipticFlux0D
       procedure(EllipticFlux2D_f), nopass, pointer   :: EllipticFlux2D
       procedure(EllipticFlux3D_f), nopass, pointer   :: EllipticFlux3D
+      procedure(GetViscosity_f),   nopass, pointer   :: GetViscosity
       contains
          procedure      :: Construct                => BaseClass_Construct
          procedure      :: ComputeGradient           => BaseClass_ComputeGradient
@@ -75,13 +76,20 @@ module EllipticDiscretizationClass
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(out) :: F   (1:nEqn, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
       end subroutine EllipticFlux3D_f
+
+      pure subroutine GetViscosity_f(phi, mu)
+         use SMConstants
+         implicit none
+         real(kind=RP), intent(in)  :: phi
+         real(kind=RP), intent(out) :: mu
+      end subroutine GetViscosity_f
    end interface
 !
 !  ========
    contains
 !  ========
 !
-      subroutine BaseClass_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D)
+      subroutine BaseClass_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D, GetViscosity)
          use FTValueDictionaryClass
          use mainKeywordsModule
          use Headers
@@ -93,6 +101,7 @@ module EllipticDiscretizationClass
          procedure(EllipticFlux0D_f)           :: EllipticFlux0D
          procedure(EllipticFlux2D_f)           :: EllipticFlux2D
          procedure(EllipticFlux3D_f)           :: EllipticFlux3D
+         procedure(GetViscosity_f)             :: GetViscosity
 !
 !        ----------------------------------------------------------
 !        Set the particular procedures to compute the elliptic flux
@@ -101,6 +110,7 @@ module EllipticDiscretizationClass
          self % EllipticFlux0D => EllipticFlux0D
          self % EllipticFlux2D => EllipticFlux2D
          self % EllipticFlux3D => EllipticFlux3D
+         self % GetViscosity   => GetViscosity
 
       end subroutine BaseClass_Construct
 
@@ -310,8 +320,8 @@ module EllipticDiscretizationClass
 
       end subroutine BaseClass_ComputeInnerFluxesWithSGS
 #endif
-      subroutine BaseClass_RiemannSolver ( self, nEqn, nGradEqn, f, node, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
-                                           nHat, dWall, flux )
+      subroutine BaseClass_RiemannSolver ( self, nEqn, nGradEqn, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
+                                           mu, nHat, dWall, flux )
          use SMConstants
          use PhysicsStorage
          use FaceClass
@@ -320,18 +330,18 @@ module EllipticDiscretizationClass
          integer,       intent(in)       :: nEqn
          integer,       intent(in)       :: nGradEqn
          class(Face),   intent(in)       :: f
-         integer,       intent(in)       :: node(2)
-         real(kind=RP), dimension(nEqn) :: QLeft
-         real(kind=RP), dimension(nEqn) :: QRight
-         real(kind=RP), dimension(nGradEqn) :: U_xLeft
-         real(kind=RP), dimension(nGradEqn) :: U_yLeft
-         real(kind=RP), dimension(nGradEqn) :: U_zLeft
-         real(kind=RP), dimension(nGradEqn) :: U_xRight
-         real(kind=RP), dimension(nGradEqn) :: U_yRight
-         real(kind=RP), dimension(nGradEqn) :: U_zRight
-         real(kind=RP), dimension(NDIM)  :: nHat
-         real(kind=RP)                   :: dWall
-         real(kind=RP), dimension(nEqn) :: flux
+         real(kind=RP), intent(in)       :: QLeft(nEqn)
+         real(kind=RP), intent(in)       :: QRight(nEqn)
+         real(kind=RP), intent(in)       :: U_xLeft(nGradEqn)
+         real(kind=RP), intent(in)       :: U_yLeft(nGradEqn)
+         real(kind=RP), intent(in)       :: U_zLeft(nGradEqn)
+         real(kind=RP), intent(in)       :: U_xRight(nGradEqn)
+         real(kind=RP), intent(in)       :: U_yRight(nGradEqn)
+         real(kind=RP), intent(in)       :: U_zRight(nGradEqn)
+         real(kind=RP), intent(in)       :: mu
+         real(kind=RP), intent(in)       :: nHat(NDIM)
+         real(kind=RP), intent(in)       :: dWall
+         real(kind=RP), intent(out)      :: flux(nEqn)
 !
 !        ---------------------------
 !        The base class does nothing

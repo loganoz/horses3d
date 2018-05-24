@@ -4,9 +4,9 @@
 !   @File:    FluidData_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:30 2018
-!   @Last revision date: Wed May 23 12:57:26 2018
+!   @Last revision date: Thu May 24 12:03:19 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
+!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -36,7 +36,7 @@ module FluidData_CH
       real(kind=RP)  :: sigma    ! Interface energy: 0.01508 sqrt(kappa*rhoS)/Lref
       real(kind=RP)  :: Pe       ! Peclet number (for CH)
       real(kind=RP)  :: Ca       ! Capilar number (for NS)
-      real(kind=RP)  :: visc_ratio ! Viscosity ratio: mu(c=1)/mu(c=-1)
+      real(kind=RP)  :: viscRatio ! Viscosity ratio: mu(c=1)/mu(c=-1)
    end type Multiphase_t
 
    type(Multiphase_t), protected    :: multiphase
@@ -57,7 +57,7 @@ module FluidData_CH
          multiphase % sigma   = multiphase_ % sigma
          multiphase % Pe      = multiphase_ % Pe
          multiphase % Ca      = multiphase_ % Ca
-         multiphase % visc_ratio = multiphase_ % visc_ratio
+         multiphase % viscRatio = multiphase_ % viscRatio
 
       end subroutine SetMultiphase
 

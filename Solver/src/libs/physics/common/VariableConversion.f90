@@ -4,9 +4,9 @@
 !   @File:    VariableConversion.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Fri Apr 20 17:25:10 2018
+!   @Last revision date: Thu May 24 12:03:20 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
+!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -36,5 +36,20 @@ module VariableConversion
          real(kind=RP), intent(out) :: U(1:nGradEqn, 0:Nx, 0:Ny, 0:Nz)
       end subroutine GetGradientValues3D_f
    end interface
+
+   contains
+      pure subroutine GetNSCHViscosity(phi, mu)
+         use SMConstants, only: RP
+         use FluidData
+         implicit none
+         real(kind=RP), intent(in)     :: phi
+         real(kind=RP), intent(out)    :: mu
+#if (defined(CAHNHILLIARD) && defined(NAVIERSTOKES))
+         mu = 0.5_RP * dimensionless % mu * (1.0_RP - phi + multiphase % viscRatio * (1.0_RP + phi))
+#else
+         mu = 0.0_RP
+#endif
+
+      end subroutine GetNSCHViscosity
 
 end module VariableConversion

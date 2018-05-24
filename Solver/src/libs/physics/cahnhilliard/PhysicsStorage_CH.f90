@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:30 2018
-!   @Last revision date: Wed May  9 17:37:15 2018
+!   @Last revision date: Thu May 24 12:03:19 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: e80c813a91351f13e891ae11ac338543a0c24264
+!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -29,10 +29,12 @@
          character(len=KEYWORD_LENGTH), parameter    :: PECLET_NUMBER_KEY    = "peclet number"
          character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_WIDTH_KEY  = "interface width (dimensionless)"
          character(len=KEYWORD_LENGTH), parameter    :: CAPILAR_NUMBER_KEY   = "capilar number"
+         character(len=KEYWORD_LENGTH), parameter    :: VISCOSITY_RATIO_KEY  = "viscosity ratio (mu2/mu1)"
 !         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_ENERGY_KEY = "interface energy (multiphase)"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(3) :: physics_CHKeywords = [INTERFACE_WIDTH_KEY, &
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(4) :: physics_CHKeywords = [INTERFACE_WIDTH_KEY, &
                                                                               CAPILAR_NUMBER_KEY, &
-                                                                              PECLET_NUMBER_KEY ]
+                                                                              PECLET_NUMBER_KEY,  &
+                                                                              VISCOSITY_RATIO_KEY ]
 !
 !        ******************
 !        Optional arguments
@@ -110,6 +112,7 @@
       multiphase_ % eps = multiphase_ % w
       multiphase_ % Pe  = controlVariables % DoublePrecisionValueForKey(PECLET_NUMBER_KEY)
       multiphase_ % Ca  = controlVariables % DoublePrecisionValueForKey(CAPILAR_NUMBER_KEY)
+      multiphase_ % viscRatio = controlVariables % DoublePrecisionValueForKey(VISCOSITY_RATIO_KEY)
 !
 !     **************************************
 !     Read the wall contact angle if present
@@ -180,6 +183,7 @@
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Beta  equilibrium concentration: " , multiphase % c_beta
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Wall contact angle: " , multiphase % thetaw
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Capilar number: " , multiphase % Ca
+         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Viscosity ratio: " , multiphase % viscRatio
 
       
          write(STD_OUT,'(/)')

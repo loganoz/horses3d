@@ -4,9 +4,9 @@
 !   @File:    EllipticBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Thu May 24 10:29:31 2018
+!   @Last revision date: Thu May 24 12:03:17 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: a87c133c17e52a750daa42e49ea58b0c608609d1
+!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -34,7 +34,7 @@ module EllipticBR2
    type, extends(EllipticDiscretization_t)   :: BassiRebay2_t
       real(kind=RP)        :: eta = 1.0_RP
       contains
-         procedure      :: Initialize         => BR2_Initialize
+         procedure      :: Construct         => BR2_Construct
          procedure      :: ComputeGradient    => BR2_ComputeGradient
          procedure      :: ComputeInnerFluxes => BR2_ComputeInnerFluxes
          procedure      :: RiemannSolver      => BR2_RiemannSolver
@@ -49,7 +49,7 @@ module EllipticBR2
    contains
 !  ========
 !
-      subroutine BR2_Initialize(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D)
+      subroutine BR2_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D, GetViscosity)
          use FTValueDictionaryClass
          use mainKeywordsModule
          use MPI_Process_Info
@@ -60,6 +60,7 @@ module EllipticBR2
          procedure(EllipticFlux0D_f)           :: EllipticFlux0D
          procedure(EllipticFlux2D_f)           :: EllipticFlux2D
          procedure(EllipticFlux3D_f)           :: EllipticFlux3D
+         procedure(GetViscosity_f)             :: GetViscosity
 !
 !        ---------------
 !        Local variables
@@ -74,6 +75,7 @@ module EllipticBR2
          self % EllipticFlux0D => EllipticFlux0D
          self % EllipticFlux2D => EllipticFlux2D
          self % EllipticFlux3D => EllipticFlux3D
+         self % GetViscosity   => GetViscosity
 !
 !        Request the penalty parameter
 !        -----------------------------
@@ -88,7 +90,7 @@ module EllipticBR2
 
          end if
             
-      end subroutine BR2_Initialize
+      end subroutine BR2_Construct
    
       subroutine BR2_Describe(self)
          implicit none
@@ -623,29 +625,29 @@ module EllipticBR2
 
       end subroutine BR2_ComputeInnerFluxesWithSGS
 #endif
-      subroutine BR2_RiemannSolver ( self , nEqn, nGradEqn, f, node, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
-                                            nHat , dWall, flux )
+      subroutine BR2_RiemannSolver ( self , nEqn, nGradEqn, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+                                            mu, nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
          use Physics
          use FaceClass
          implicit none
-         class(BassiRebay2_t)                 :: self
-         integer,       intent(in)            :: nEqn
-         integer,       intent(in)            :: nGradEqn
-         class(Face),   intent(in)            :: f
-         integer,       intent(in)           :: node(2)
-         real(kind=RP), dimension(nEqn)      :: QLeft
-         real(kind=RP), dimension(nEqn)      :: QRight
-         real(kind=RP), dimension(nGradEqn) :: U_xLeft
-         real(kind=RP), dimension(nGradEqn) :: U_yLeft
-         real(kind=RP), dimension(nGradEqn) :: U_zLeft
-         real(kind=RP), dimension(nGradEqn) :: U_xRight
-         real(kind=RP), dimension(nGradEqn) :: U_yRight
-         real(kind=RP), dimension(nGradEqn) :: U_zRight
-         real(kind=RP), dimension(NDIM)       :: nHat
-         real(kind=RP)                        :: dWall
-         real(kind=RP), dimension(nEqn)      :: flux
+         class(BassiRebay2_t)            :: self
+         integer,       intent(in)       :: nEqn
+         integer,       intent(in)       :: nGradEqn
+         class(Face),   intent(in)       :: f
+         real(kind=RP), intent(in)       :: QLeft(nEqn)
+         real(kind=RP), intent(in)       :: QRight(nEqn)
+         real(kind=RP), intent(in)       :: U_xLeft(nGradEqn)
+         real(kind=RP), intent(in)       :: U_yLeft(nGradEqn)
+         real(kind=RP), intent(in)       :: U_zLeft(nGradEqn)
+         real(kind=RP), intent(in)       :: U_xRight(nGradEqn)
+         real(kind=RP), intent(in)       :: U_yRight(nGradEqn)
+         real(kind=RP), intent(in)       :: U_zRight(nGradEqn)
+         real(kind=RP), intent(in)       :: mu
+         real(kind=RP), intent(in)       :: nHat(NDIM)
+         real(kind=RP), intent(in)       :: dWall
+         real(kind=RP), intent(out)      :: flux(nEqn)
 !
 !        ---------------
 !        Local variables
@@ -653,7 +655,7 @@ module EllipticBR2
 !
          real(kind=RP)     :: Q(nEqn) , U_x(nGradEqn) , U_y(nGradEqn) , U_z(nGradEqn)
          real(kind=RP)     :: flux_vec(nEqn,NDIM)
-         real(kind=RP)     :: mu, kappa, delta
+         real(kind=RP)     :: kappa
 
 !
 !>       Old implementation: 1st average, then compute
@@ -664,14 +666,12 @@ module EllipticBR2
          U_z = 0.5_RP * ( U_zLeft + U_zRight)
 
 #if defined(NAVIERSTOKES)
-         mu    = dimensionless % mu
-         kappa = dimensionless % kappa
-
-#elif defined(CAHNHILLIARD)
-         mu = 1.0_RP
+         kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
+                            POW2( dimensionless % Mach) * dimensionless % Pr ) * mu
+#else
          kappa = 0.0_RP
-
 #endif
+
          call self % EllipticFlux0D(nEqn, nGradEqn, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)

@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Thu May 24 10:29:32 2018
+!   @Last revision date: Thu May 24 12:03:18 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: a87c133c17e52a750daa42e49ea58b0c608609d1
+!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -56,7 +56,7 @@ module EllipticIP
    contains
 !  ========
 !
-      subroutine IP_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D)
+      subroutine IP_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D, GetViscosity)
          use FTValueDictionaryClass
          use Utilities, only: toLower
          use mainKeywordsModule
@@ -68,6 +68,7 @@ module EllipticIP
          procedure(EllipticFlux0D_f)           :: EllipticFlux0D
          procedure(EllipticFlux2D_f)           :: EllipticFlux2D
          procedure(EllipticFlux3D_f)           :: EllipticFlux3D
+         procedure(GetViscosity_f)             :: GetViscosity
 !
 !        ---------------
 !        Local variables
@@ -82,6 +83,7 @@ module EllipticIP
          self % EllipticFlux0D => EllipticFlux0D
          self % EllipticFlux2D => EllipticFlux2D
          self % EllipticFlux3D => EllipticFlux3D
+         self % GetViscosity   => GetViscosity
 !
 !        Request the penalty parameter
 !        -----------------------------
@@ -582,28 +584,29 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_RiemannSolver ( self , nEqn, nGradEqn, f, node, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
-                                            nHat , dWall, flux )
+      subroutine IP_RiemannSolver ( self , nEqn, nGradEqn, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+                                           mu, nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
          use Physics
          use FaceClass
          implicit none
-         class(InteriorPenalty_t)             :: self
-         integer,       intent(in)            :: nEqn, nGradEqn
-         class(Face),   intent(in)            :: f
-         integer,       intent(in)            :: node(2)
-         real(kind=RP), dimension(nEqn)      :: QLeft
-         real(kind=RP), dimension(nEqn)      :: QRight
-         real(kind=RP), dimension(nGradEqn) :: U_xLeft
-         real(kind=RP), dimension(nGradEqn) :: U_yLeft
-         real(kind=RP), dimension(nGradEqn) :: U_zLeft
-         real(kind=RP), dimension(nGradEqn) :: U_xRight
-         real(kind=RP), dimension(nGradEqn) :: U_yRight
-         real(kind=RP), dimension(nGradEqn) :: U_zRight
-         real(kind=RP), dimension(NDIM)       :: nHat
-         real(kind=RP)                        :: dWall
-         real(kind=RP), dimension(nEqn)      :: flux
+         class(InteriorPenalty_t)        :: self
+         integer,       intent(in)       :: nEqn
+         integer,       intent(in)       :: nGradEqn
+         class(Face),   intent(in)       :: f
+         real(kind=RP), intent(in)       :: QLeft(nEqn)
+         real(kind=RP), intent(in)       :: QRight(nEqn)
+         real(kind=RP), intent(in)       :: U_xLeft(nGradEqn)
+         real(kind=RP), intent(in)       :: U_yLeft(nGradEqn)
+         real(kind=RP), intent(in)       :: U_zLeft(nGradEqn)
+         real(kind=RP), intent(in)       :: U_xRight(nGradEqn)
+         real(kind=RP), intent(in)       :: U_yRight(nGradEqn)
+         real(kind=RP), intent(in)       :: U_zRight(nGradEqn)
+         real(kind=RP), intent(in)       :: mu
+         real(kind=RP), intent(in)       :: nHat(NDIM)
+         real(kind=RP), intent(in)       :: dWall
+         real(kind=RP), intent(out)      :: flux(nEqn)
 !
 !        ---------------
 !        Local variables
@@ -613,13 +616,14 @@ module EllipticIP
          real(kind=RP)     :: flux_vec(nEqn,NDIM)
          real(kind=RP)     :: flux_vecL(nEqn,NDIM)
          real(kind=RP)     :: flux_vecR(nEqn,NDIM)
-         real(kind=RP)     :: mu, kappa, delta, sigma
+         real(kind=RP)     :: kappa, delta, sigma
          
+         sigma = self % PenaltyParameter(f)
+
 #if defined(NAVIERSTOKES)
-         mu    = dimensionless % mu
-         kappa = dimensionless % kappa
+         kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
+                            POW2( dimensionless % Mach) * dimensionless % Pr ) * mu
 #else
-         mu = 1.0_RP
          kappa = 0.0_RP
 #endif
 
@@ -628,14 +632,7 @@ module EllipticIP
 
          flux_vec = 0.5_RP * (flux_vecL + flux_vecR)
 
-         sigma = self % PenaltyParameter(f)
-
-         if ( nEqn .ne. 1 ) then
-            sigma = mu * sigma
-
-         end if
-
-         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - sigma * (QLeft - QRight)
+         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - sigma * mu * (QLeft - QRight)
 
       end subroutine IP_RiemannSolver
 !

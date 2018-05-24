@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Thu May 24 10:29:29 2018
+!   @Last revision date: Thu May 24 12:03:15 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: a87c133c17e52a750daa42e49ea58b0c608609d1
+!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -185,12 +185,12 @@ module SpatialDiscretization
 
                end select
 
-               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D)
+               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D, GetNSCHViscosity)
                call ViscousDiscretization % Describe
       
             else
                if (.not. allocated(ViscousDiscretization)) allocate(EllipticDiscretization_t :: ViscousDiscretization)
-               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D)
+               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D, GetNSCHViscosity)
                
             end if
 
@@ -232,7 +232,7 @@ module SpatialDiscretization
    
             end select
    
-            call CHDiscretization % Construct(controlVariables, CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D)
+            call CHDiscretization % Construct(controlVariables, CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D, GetCHViscosity)
             call CHDiscretization % Describe
          
          end if
@@ -1141,6 +1141,7 @@ stop
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: mu, muL, muR
 
          if ( .not. LESModel % active ) then
          DO j = 0, f % Nf(2)
@@ -1151,9 +1152,12 @@ stop
 !              Viscous fluxes
 !              --------------
 !      
+               call ViscousDiscretization % GetViscosity(f % storage(1) % c(1,i,j), muL)
+               call ViscousDiscretization % GetViscosity(f % storage(2) % c(1,i,j), muR)
+               mu = 0.5_RP * (muL + muR)
+
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
-                                                node = [i,j], &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1162,6 +1166,7 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  mu = mu, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -1236,6 +1241,7 @@ stop
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: mu, muL, muR
 !
 !        --------------
 !        Invscid fluxes
@@ -1248,9 +1254,12 @@ stop
 !              Viscous fluxes
 !              --------------
 !      
+               call ViscousDiscretization % GetViscosity(f % storage(1) % c(1,i,j), muL)
+               call ViscousDiscretization % GetViscosity(f % storage(2) % c(1,i,j), muR)
+               mu = 0.5_RP * (muL + muR)
+
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
-                                                node = [i,j], &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1259,6 +1268,7 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  mu = mu, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -1314,6 +1324,7 @@ stop
       REAL(KIND=RP)                   :: UGradExt(NDIM , NGRAD) 
       real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
+      real(kind=RP)                   :: mu, muL, muR
       
       CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
       CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName
@@ -1356,9 +1367,12 @@ stop
 !           Viscous fluxes
 !           --------------
 !   
+            call ViscousDiscretization % GetViscosity(f % storage(1) % c(1,i,j), muL)
+            call ViscousDiscretization % GetViscosity(f % storage(2) % c(1,i,j), muR)
+            mu = 0.5_RP * (muL + muR)
+
             CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                f = f, &
-                                                node = [i,j], &
                                                QLeft = f % storage(1) % Q(:,i,j), &
                                                QRight = f % storage(2) % Q(:,i,j), &
                                                U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1367,6 +1381,7 @@ stop
                                                U_xRight = f % storage(2) % U_x(:,i,j), &
                                                U_yRight = f % storage(2) % U_y(:,i,j), &
                                                U_zRight = f % storage(2) % U_z(:,i,j), &
+                                               mu = mu, &
                                                nHat = f % geom % normal(:,i,j) , &
                                                dWall = f % geom % dWall(i,j), &
                                                flux  = visc_flux(:,i,j) )
@@ -1714,7 +1729,6 @@ stop
 !      
                CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                                   f = f, &
-                                                node = [i,j], &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1723,6 +1737,7 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  mu = 1.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = flux(:,i,j) )
@@ -1759,7 +1774,6 @@ stop
 !      
                CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                                   f = f, &
-                                                node = [i,j], &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1768,6 +1782,7 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  mu = 1.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = flux(:,i,j) )
@@ -1857,7 +1872,6 @@ stop
 !   
          CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                             f = f, &
-                                                node = [i,j], &
                                             QLeft = f % storage(1) % Q(:,i,j), &
                                             QRight = f % storage(2) % Q(:,i,j), &
                                             U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1866,6 +1880,7 @@ stop
                                             U_xRight = f % storage(2) % U_x(:,i,j), &
                                             U_yRight = f % storage(2) % U_y(:,i,j), &
                                             U_zRight = f % storage(2) % U_z(:,i,j), &
+                                            mu = 1.0_RP, &
                                             nHat = f % geom % normal(:,i,j) , &
                                             dWall = f % geom % dWall(i,j), &
                                             flux  = flux(:,i,j) )

@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Thu May 24 10:29:28 2018
+!   @Last revision date: Thu May 24 12:03:10 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: a87c133c17e52a750daa42e49ea58b0c608609d1
+!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -110,7 +110,7 @@ module SpatialDiscretization
 
          end select
 
-         call CHDiscretization % Construct(controlVariables, CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D)
+         call CHDiscretization % Construct(controlVariables, CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D, GetCHViscosity)
          call CHDiscretization % Describe
 !
 !        Compute wall distances
@@ -1034,6 +1034,7 @@ stop
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
          real(kind=RP) :: flux(1:NCOMP,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: mu
 
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
@@ -1043,9 +1044,9 @@ stop
 !              Viscous fluxes
 !              --------------
 !      
+               call CHDiscretization % GetViscosity(0.0_RP, mu)
                CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                                   f = f, &
-                                                node = [i,j], &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1054,6 +1055,7 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  mu = mu, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = flux(:,i,j) )
@@ -1080,6 +1082,7 @@ stop
          integer       :: i, j
          integer       :: thisSide
          real(kind=RP) :: flux(1:NCOMP,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: mu
 
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
@@ -1088,9 +1091,9 @@ stop
 !              Viscous fluxes
 !              --------------
 !      
+               call CHDiscretization % GetViscosity(0.0_RP, mu)
                CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                                   f = f, &
-                                                node = [i,j], &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1099,6 +1102,7 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  mu = mu, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = flux(:,i,j) )
@@ -1143,6 +1147,7 @@ stop
       INTEGER, DIMENSION(2)           :: N
       REAL(KIND=RP)                   :: UGradExt(NDIM , NCOMP) 
       real(kind=RP)                   :: flux(NCOMP, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: mu
       
       CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
             
@@ -1186,9 +1191,9 @@ stop
 !           Viscous fluxes
 !           --------------
 !   
+         call CHDiscretization % GetViscosity(0.0_RP, mu)
          CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                             f = f, &
-                                                node = [i,j], &
                                             QLeft = f % storage(1) % Q(:,i,j), &
                                             QRight = f % storage(2) % Q(:,i,j), &
                                             U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1197,6 +1202,7 @@ stop
                                             U_xRight = f % storage(2) % U_x(:,i,j), &
                                             U_yRight = f % storage(2) % U_y(:,i,j), &
                                             U_zRight = f % storage(2) % U_z(:,i,j), &
+                                            mu = mu, &
                                             nHat = f % geom % normal(:,i,j) , &
                                             dWall = f % geom % dWall(i,j), &
                                             flux  = flux(:,i,j) )
