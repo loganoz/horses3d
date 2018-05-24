@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Thu May 17 12:24:27 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 4a73d35da5d055590e5d37148afcc2d9d66a1483
+!   @Last revision date: Thu May 24 12:33:34 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 9c7308b38dea39541d69eb6214359dc41401f180
 !
 !//////////////////////////////////////////////////////
 !
@@ -274,11 +274,13 @@ module StorageClass
          self % QNS   (1:NCONS,0:Nx,0:Ny,0:Nz) => globalStorage % QNS   (bounds(1) : bounds(2))
          self % QdotNS(1:NCONS,0:Nx,0:Ny,0:Nz) => globalStorage % QdotNS(bounds(1) : bounds(2))
          ! Previous solution
-         num_prevSol = size(globalStorage % PrevQ,2)
-         allocate ( self % PrevQ(num_prevSol) )
-         do k=1, num_prevSol
-            self % PrevQ(k) % QNS(1:NCONS,0:Nx,0:Ny,0:Nz) => globalStorage % PrevQNS(bounds(1):bounds(2),k)
-         end do
+         if ( allocated(globalStorage % PrevQNS)) then
+            num_prevSol = size(globalStorage % PrevQ,2)
+            allocate ( self % PrevQ(num_prevSol) )
+            do k=1, num_prevSol
+               self % PrevQ(k) % QNS(1:NCONS,0:Nx,0:Ny,0:Nz) => globalStorage % PrevQNS(bounds(1):bounds(2),k)
+            end do
+         end if
 
          ALLOCATE( self % G_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
@@ -299,9 +301,11 @@ module StorageClass
          self % c   (1:NCOMP,0:Nx,0:Ny,0:Nz) => globalStorage % c   (bounds(1) : bounds(2))
          self % cDot(1:NCOMP,0:Nx,0:Ny,0:Nz) => globalStorage % cDot(bounds(1) : bounds(2))
          ! Previous solution
-         num_prevSol = size(globalStorage % PrevC,2)
-         if ( .not. allocated(self % PrevQ)) then
-            allocate ( self % PrevQ(num_prevSol) )
+         if ( allocated(globalStorage % PrevC) ) then
+            num_prevSol = size(globalStorage % PrevC,2)
+            if ( .not. allocated(self % PrevQ)) then
+               allocate ( self % PrevQ(num_prevSol) )
+            end if
          end if
 
          do k=1, num_prevSol

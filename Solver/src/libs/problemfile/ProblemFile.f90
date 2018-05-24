@@ -261,36 +261,6 @@
    
          end subroutine UserDefinedSourceTermNS
 #endif
-#if defined(CAHNHILLIARD)
-         subroutine UserDefinedSourceTermCH(x, time, S, multiphase_)
-!
-!           --------------------------------------------
-!           Called to apply source terms to the equation
-!           --------------------------------------------
-!
-            use SMConstants
-            USE HexMeshClass
-            use PhysicsStorage
-            use FluidData
-            IMPLICIT NONE
-            real(kind=RP),             intent(in)  :: x(NDIM)
-            real(kind=RP),             intent(in)  :: time
-            real(kind=RP),             intent(out) :: S(NCOMP)
-            type(Multiphase_t),      intent(in)    :: multiphase_
-!
-!           ---------------
-!           Local variables
-!           ---------------
-!
-            integer  :: i, j, k, eID
-!
-!           Usage example
-!           -------------
-!           S(:) = x(1) + x(2) + x(3) + time
-   
-         end subroutine UserDefinedSourceTermCH
-#endif
-
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

@@ -144,7 +144,7 @@
             NDOF = NDOF + (e % Nxyz(1) + 1)*(e % Nxyz(2) + 1)*(e % Nxyz(3) + 1) 
             end associate
          end do
-      
+!      
 !        Construct global storage
 !        ------------------------
          call mesh % storage % construct(NDOF, 0)
@@ -163,6 +163,8 @@
             firstIdx = firstIdx + e % Storage % NDOF
             end associate
          END DO
+
+         call mesh % SetStorageToEqn(1)
 !
 !        ---------------------------
 !        Check integrity of the mesh
