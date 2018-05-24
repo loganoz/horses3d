@@ -53,8 +53,8 @@ module SpatialDiscretization
             IMPLICIT NONE
             type(Face),    intent(inout) :: f
             REAL(KIND=RP)                :: time
-            EXTERNAL                     :: externalStateProcedure
-            EXTERNAL                     :: externalGradientsProcedure
+            PROCEDURE(BCState_FCN)       :: externalStateProcedure
+            PROCEDURE(BCGradients_FCN)   :: externalGradientsProcedure
          end subroutine computeBoundaryFluxF
       end interface
       
@@ -840,8 +840,8 @@ module SpatialDiscretization
 !
       type(Face),    intent(inout) :: f
       REAL(KIND=RP)                :: time
-      procedure(BCState_FCN)       :: externalState
-      procedure(BCGradients_FCN)   :: externalGradients
+      procedure(BCState_FCN)       :: externalStateProcedure
+      procedure(BCGradients_FCN)   :: externalGradientsProcedure
 !
 !     ---------------
 !     Local variables
@@ -866,7 +866,8 @@ module SpatialDiscretization
 !
       do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
          f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
-         CALL externalStateProcedure( f % geom % x(:,i,j), &
+         CALL externalStateProcedure( NCONS, &
+                                      f % geom % x(:,i,j), &
                                       time, &
                                       f % geom % normal(:,i,j), &
                                       f % storage(2) % Q(:,i,j),&
@@ -880,7 +881,8 @@ module SpatialDiscretization
             UGradExt(IY,:) = f % storage(1) % U_y(:,i,j)
             UGradExt(IZ,:) = f % storage(1) % U_z(:,i,j)
 
-            CALL externalGradientsProcedure(  f % geom % x(:,i,j), &
+            CALL externalGradientsProcedure(  NGRAD, &
+                                              f % geom % x(:,i,j), &
                                               time, &
                                               f % geom % normal(:,i,j), &
                                               UGradExt,&
@@ -1114,8 +1116,8 @@ module SpatialDiscretization
 !
       type(Face),    intent(inout) :: f
       REAL(KIND=RP)                :: time
-      EXTERNAL                     :: externalStateProcedure
-      EXTERNAL                     :: externalGradientsProcedure
+      procedure(BCState_FCN)       :: externalStateProcedure
+      procedure(BCGradients_FCN)   :: externalGradientsProcedure
 !
 !     ---------------
 !     Local variables
@@ -1139,11 +1141,13 @@ module SpatialDiscretization
 !
       do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
          f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
-         CALL externalStateProcedure( f % geom % x(:,i,j), &
+         CALL externalStateProcedure( NCONS, &
+                                      f % geom % x(:,i,j), &
                                       time, &
                                       f % geom % normal(:,i,j), &
                                       f % storage(2) % Q(:,i,j),&
-                                      boundaryType )
+                                      boundaryType, &
+                                      f % boundaryName )
 
       end do               ; end do
 
@@ -1153,11 +1157,13 @@ module SpatialDiscretization
             UGradExt(IY,:) = f % storage(1) % U_y(:,i,j)
             UGradExt(IZ,:) = f % storage(1) % U_z(:,i,j)
 
-            CALL externalGradientsProcedure(  f % geom % x(:,i,j), &
+            CALL externalGradientsProcedure(  NGRAD, &
+                                              f % geom % x(:,i,j), &
                                               time, &
                                               f % geom % normal(:,i,j), &
                                               UGradExt,&
-                                              boundaryType )
+                                              boundaryType, &
+                                              f % boundaryName )
 
             f % storage(2) % U_x(:,i,j) = UGradExt(IX,:)
             f % storage(2) % U_y(:,i,j) = UGradExt(IY,:)
