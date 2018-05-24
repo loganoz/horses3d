@@ -310,7 +310,7 @@ module EllipticDiscretizationClass
 
       end subroutine BaseClass_ComputeInnerFluxesWithSGS
 #endif
-      subroutine BaseClass_RiemannSolver ( self, nEqn, nGradEqn, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
+      subroutine BaseClass_RiemannSolver ( self, nEqn, nGradEqn, f, node, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
                                            nHat, dWall, flux )
          use SMConstants
          use PhysicsStorage
@@ -320,6 +320,7 @@ module EllipticDiscretizationClass
          integer,       intent(in)       :: nEqn
          integer,       intent(in)       :: nGradEqn
          class(Face),   intent(in)       :: f
+         integer,       intent(in)       :: node(2)
          real(kind=RP), dimension(nEqn) :: QLeft
          real(kind=RP), dimension(nEqn) :: QRight
          real(kind=RP), dimension(nGradEqn) :: U_xLeft

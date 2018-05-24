@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Wed May 23 12:57:24 2018
+!   @Last revision date: Thu May 24 10:29:32 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
+!   @Last revision commit: a87c133c17e52a750daa42e49ea58b0c608609d1
 !
 !//////////////////////////////////////////////////////
 !
@@ -582,7 +582,7 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_RiemannSolver ( self , nEqn, nGradEqn, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+      subroutine IP_RiemannSolver ( self , nEqn, nGradEqn, f, node, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
@@ -592,6 +592,7 @@ module EllipticIP
          class(InteriorPenalty_t)             :: self
          integer,       intent(in)            :: nEqn, nGradEqn
          class(Face),   intent(in)            :: f
+         integer,       intent(in)            :: node(2)
          real(kind=RP), dimension(nEqn)      :: QLeft
          real(kind=RP), dimension(nEqn)      :: QRight
          real(kind=RP), dimension(nGradEqn) :: U_xLeft

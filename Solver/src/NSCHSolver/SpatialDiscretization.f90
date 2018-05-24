@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Wed May 23 12:57:19 2018
+!   @Last revision date: Thu May 24 10:29:29 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
+!   @Last revision commit: a87c133c17e52a750daa42e49ea58b0c608609d1
 !
 !//////////////////////////////////////////////////////
 !
@@ -69,13 +69,14 @@ module SpatialDiscretization
       end interface
 
       interface
-         subroutine UserDefinedSourceTermNS(x, time, S, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
             USE HexMeshClass
             use PhysicsStorage
             use FluidData
             IMPLICIT NONE
             real(kind=RP),             intent(in) :: x(NDIM)
+            real(kind=RP),             intent(in) :: Q(NCONS)
             REAL(KIND=RP),             intent(in) :: time
             real(kind=RP),             intent(in) :: S(NCONS)
             type(Thermodynamics_t),    intent(in) :: thermodynamics_
@@ -987,7 +988,7 @@ stop
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
+                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                end do                  ; end do                ; end do
                end associate
             end do
@@ -1152,6 +1153,7 @@ stop
 !      
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
+                                                node = [i,j], &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1248,6 +1250,7 @@ stop
 !      
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
+                                                node = [i,j], &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1355,6 +1358,7 @@ stop
 !   
             CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                f = f, &
+                                                node = [i,j], &
                                                QLeft = f % storage(1) % Q(:,i,j), &
                                                QRight = f % storage(2) % Q(:,i,j), &
                                                U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1710,6 +1714,7 @@ stop
 !      
                CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                                   f = f, &
+                                                node = [i,j], &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1754,6 +1759,7 @@ stop
 !      
                CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                                   f = f, &
+                                                node = [i,j], &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
                                                   U_xLeft = f % storage(1) % U_x(:,i,j), &
@@ -1851,6 +1857,7 @@ stop
 !   
          CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
                                             f = f, &
+                                                node = [i,j], &
                                             QLeft = f % storage(1) % Q(:,i,j), &
                                             QRight = f % storage(2) % Q(:,i,j), &
                                             U_xLeft = f % storage(1) % U_x(:,i,j), &

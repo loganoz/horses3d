@@ -1,3 +1,4 @@
+#include "Includes.h"
 module EllipticBR1
    use SMConstants
    use Headers
@@ -399,11 +400,18 @@ module EllipticBR1
          real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
+         real(kind=RP), parameter :: mu1 = 5e-1_RP, mu2 = 1.85e-2_RP
 
 #if defined(NAVIERSTOKES)
+#if defined(CAHNHILLIARD)
+! TODO TODO TODO this is very-very provisional!
+         mu    = 0.5_RP * (mu1 * (1.0_RP - e % storage % c(1,:,:,:)) + mu2 * (1.0_RP + e % storage % c(1,:,:,:)))
+         kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
+                            POW2( dimensionless % Mach) * dimensionless % Pr ) * mu
+#else
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
-
+#endif
 #else 
          mu = 0.0_RP
          kappa = 0.0_RP
@@ -486,7 +494,7 @@ module EllipticBR1
 
       end subroutine BR1_ComputeInnerFluxesWithSGS
 #endif
-      subroutine BR1_RiemannSolver ( self , nEqn, nGradEqn, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+      subroutine BR1_RiemannSolver ( self , nEqn, nGradEqn, f, node, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
@@ -497,6 +505,7 @@ module EllipticBR1
          integer,       intent(in)          :: nEqn
          integer,       intent(in)          :: nGradEqn
          class(Face),   intent(in)          :: f
+         integer,       intent(in)          :: node(2)
          real(kind=RP), dimension(nEqn)     :: QLeft
          real(kind=RP), dimension(nEqn)     :: QRight
          real(kind=RP), dimension(nGradEqn) :: U_xLeft
@@ -515,8 +524,8 @@ module EllipticBR1
 !
          real(kind=RP)     :: Q(nEqn) , U_x(nGradEqn) , U_y(nGradEqn) , U_z(nGradEqn)
          real(kind=RP)     :: flux_vec(nEqn,NDIM)
-         real(kind=RP)     :: mu, kappa, delta
-
+         real(kind=RP)     :: mu, kappa, delta, muL, muR
+         real(kind=RP), parameter :: mu1 = 5e-1_RP, mu2 = 1.85e-2_RP
 !
 !>       Old implementation: 1st average, then compute
 !        ------------------
@@ -526,8 +535,17 @@ module EllipticBR1
          U_z = 0.5_RP * ( U_zLeft + U_zRight)
 
 #if defined(NAVIERSTOKES)
+#if defined(CAHNHILLIARD)
+! TODO TODO TODO this is very-very provisional!
+         muL    = 0.5_RP * (mu1 * (1.0_RP - f % storage(1) % c(1,node(1),node(2))) + mu2 * (1.0_RP + f % storage(1) % c(1,node(1),node(2))))
+         muR    = 0.5_RP * (mu1 * (1.0_RP - f % storage(2) % c(1,node(1),node(2))) + mu2 * (1.0_RP + f % storage(2) % c(1,node(1),node(2))))
+         mu     = 0.5_RP * (muL + muR)
+         kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
+                            POW2( dimensionless % Mach) * dimensionless % Pr ) * mu
+#else
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
+#endif
 
 #else
          mu = 0.0_RP

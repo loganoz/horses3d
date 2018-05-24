@@ -4,9 +4,9 @@
 !   @File:    EllipticBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Wed May 23 12:57:23 2018
+!   @Last revision date: Thu May 24 10:29:31 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
+!   @Last revision commit: a87c133c17e52a750daa42e49ea58b0c608609d1
 !
 !//////////////////////////////////////////////////////
 !
@@ -623,7 +623,7 @@ module EllipticBR2
 
       end subroutine BR2_ComputeInnerFluxesWithSGS
 #endif
-      subroutine BR2_RiemannSolver ( self , nEqn, nGradEqn, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+      subroutine BR2_RiemannSolver ( self , nEqn, nGradEqn, f, node, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
@@ -634,6 +634,7 @@ module EllipticBR2
          integer,       intent(in)            :: nEqn
          integer,       intent(in)            :: nGradEqn
          class(Face),   intent(in)            :: f
+         integer,       intent(in)           :: node(2)
          real(kind=RP), dimension(nEqn)      :: QLeft
          real(kind=RP), dimension(nEqn)      :: QRight
          real(kind=RP), dimension(nGradEqn) :: U_xLeft
