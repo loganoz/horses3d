@@ -623,7 +623,7 @@
 !=====================================================================================================
 !
 !
-      SUBROUTINE externalStateForBoundaryName_NS( x, t, nHat, Q, boundaryType, boundaryName )
+      SUBROUTINE externalStateForBoundaryName_NS( nEqn, x, t, nHat, Q, boundaryType, boundaryName )
 !
 !     ----------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -640,8 +640,9 @@
 !     Arguments
 !     ---------
 !
+      integer         , intent(in)    :: nEqn
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: Q(NCONS)
+      REAL(KIND=RP)   , INTENT(INOUT) :: Q(nEqn)
       CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryType
       CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryName
 !
@@ -673,12 +674,11 @@
       ELSE 
          CALL UniformFlowState( x, t, Q ) 
       END IF
-
       END SUBROUTINE externalStateForBoundaryName_NS
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ExternalGradientForBoundaryName_NS( x, t, nHat, GradU, boundaryType, boundaryName )
+      SUBROUTINE ExternalGradientForBoundaryName_NS( nGradEqn, x, t, nHat, GradU, boundaryType, boundaryName )
 !
 !     ------------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -694,8 +694,9 @@
 !     Arguments
 !     ---------
 !
+      integer,          intent(in)    :: nGradEqn
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,NGRAD)
+      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,nGradEqn)
       CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryType
       CHARACTER(LEN=BC_STRING_LENGTH), INTENT(IN)    :: boundaryName
 !

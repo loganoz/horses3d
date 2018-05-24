@@ -100,7 +100,7 @@
 !=====================================================================================================
 !
 !
-      SUBROUTINE externalCHStateForBoundaryName( x, t, nHat, Q, boundaryType )
+      SUBROUTINE externalCHStateForBoundaryName( nEqn, x, t, nHat, Q, boundaryType, boundaryName )
 !
 !     ----------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -117,9 +117,11 @@
 !     Arguments
 !     ---------
 !
+      integer         , intent(in)    :: nEqn
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: Q(NCOMP)
+      REAL(KIND=RP)   , INTENT(INOUT) :: Q(nEqn)
       CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+      CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
 !
 !     ---------------
 !     Local variables
@@ -134,7 +136,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ExternalConcentrationGradientForBoundaryName( x, t, nHat, GradU, boundaryType )
+      SUBROUTINE ExternalConcentrationGradientForBoundaryName( nGradEqn, x, t, nHat, GradU, boundaryType, boundaryName )
 !
 !     ------------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -150,15 +152,17 @@
 !     Arguments
 !     ---------
 !
+      integer,          intent(in)    :: nGradEqn
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,NCOMP)
+      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,nGradEqn)
       CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+      CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      REAL(KIND=RP) :: U_x(NCOMP), U_y(NCOMP), U_z(NCOMP)
+      REAL(KIND=RP) :: U_x(nGradEqn), U_y(nGradEqn), U_z(nGradEqn)
 
       U_x(:) = GradU(1,:)
       U_y(:) = GradU(2,:)
@@ -180,7 +184,7 @@
 
       END SUBROUTINE ExternalConcentrationGradientForBoundaryName
 
-      SUBROUTINE ExternalChemicalPotentialGradientForBoundaryName( x, t, nHat, GradU, boundaryType )
+      SUBROUTINE ExternalChemicalPotentialGradientForBoundaryName( nGradEqn, x, t, nHat, GradU, boundaryType, boundaryName )
 !
 !     ------------------------------------------------
 !     Set the boundary conditions for the mesh by
@@ -196,15 +200,17 @@
 !     Arguments
 !     ---------
 !
+      integer,          intent(in)    :: nGradEqn
       REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,NCOMP)
+      REAL(KIND=RP)   , INTENT(INOUT) :: GradU(3,nGradEqn)
       CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
+      CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      REAL(KIND=RP) :: U_x(NCOMP), U_y(NCOMP), U_z(NCOMP)
+      REAL(KIND=RP) :: U_x(nGradEqn), U_y(nGradEqn), U_z(nGradEqn)
 
       U_x(:) = GradU(1,:)
       U_y(:) = GradU(2,:)

@@ -240,22 +240,23 @@ module GradientsStabilization
          use Physics
          use FaceClass
          implicit none
-         type(Face)    :: f
-         real(kind=RP) :: time
-         external      :: externalState
-         integer       :: i, j
-         real(kind=RP) :: Uhat(NCOMP), cL(NCOMP), cR(NCOMP)
-         real(kind=RP) :: bvExt(NCOMP)
+         type(Face)             :: f
+         real(kind=RP)          :: time
+         procedure(BCState_FCN) :: externalState
+         integer                :: i, j
+         real(kind=RP)          :: Uhat(NCOMP), cL(NCOMP), cR(NCOMP)
+         real(kind=RP)          :: bvExt(NCOMP)
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 
             bvExt =  f % storage(1) % c(:,i,j)
    
-            call externalState( f % geom % x(:,i,j), &
+            call externalState( NCOMP, f % geom % x(:,i,j), &     ! TODO: Check if this is only for CH... NCOMP?
                                 time               , &
                                 f % geom % normal(:,i,j)      , &
                                 bvExt              , &
-                                f % boundaryType )  
+                                f % boundaryType , &
+                                f % boundaryName)  
 !   
 !           -------------------
 !           u, v, w, T averages
