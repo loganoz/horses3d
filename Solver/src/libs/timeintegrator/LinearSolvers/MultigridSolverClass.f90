@@ -165,7 +165,7 @@ CONTAINS
       TYPE(MultigridSolver_t) , POINTER :: Child_p          ! Pointer to Child
       !----------------------------------------------
       !
-      
+#if defined(NAVIERSTOKES)      
       
       Solver % MGlevel = lvl
       
@@ -203,7 +203,7 @@ CONTAINS
                                               N1x(k),N1y(k),N1z(k),                         &
                                               N2x(k),N2y(k),N2z(k), DeltaN)    ! TODO: Add lobatto flag if required
             
-            DimPrb = DimPrb + N_EQN * (N2x(k) + 1) * (N2y(k) + 1) * (N2z(k) + 1)
+            DimPrb = DimPrb + NCONS * (N2x(k) + 1) * (N2y(k) + 1) * (N2z(k) + 1)
          END DO
          Solver % Child % DimPrb = DimPrb
          
@@ -224,6 +224,7 @@ CONTAINS
       ALLOCATE(Solver % F_Ur(Solver % DimPrb))
       ALLOCATE(Solver % Ur  (Solver % DimPrb))
       
+#endif
    END SUBROUTINE RecursiveConstructor
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -262,9 +263,10 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
+   SUBROUTINE solve(this, nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
       IMPLICIT NONE
       CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      integer,       intent(in)               :: nEqn, nGradEqn
       procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
@@ -286,14 +288,14 @@ CONTAINS
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call NumericalJacobian_Compute(this % p_sem, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
+            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
             call this % PETScA % shift( MatrixShift(dt) )
             call this % PETScA % GetCSRMatrix(this % A)
             this % AIsPetsc = .FALSE.
             ComputeA = .FALSE.
          end if
       else 
-         call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
          call this % PETScA % shift( MatrixShift(dt) )
          call this % PETScA % GetCSRMatrix(this % A)
       end if
@@ -302,8 +304,8 @@ CONTAINS
       dtsolve  = dt
       
 !~      IF (isfirst) THEN
-         CALL this % p_sem % GetQdot(this % F_Ur)
-         CALL this % p_sem % GetQ   (this % Ur)
+         CALL this % p_sem % GetQdot(nEqn, this % F_Ur)
+         CALL this % p_sem % GetQ   (this % Ur, nEqn)
 !~         isfirst = .FALSE.
 !~      END IF
       
@@ -316,7 +318,7 @@ CONTAINS
       
       CALL this % WeightedJacobiSmoother( this%A%Values(this%A%Diag), maxiter, tol, this % niter)
       
-      CALL this % p_sem % SetQ   (this % Ur)
+      CALL this % p_sem % SetQ   (this % Ur, NTOTALVARS)
       
 !~      IF (this % niter < maxiter) THEN
          this % CONVERGED = .TRUE.
@@ -464,9 +466,10 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   FUNCTION AxMult(this,x, ComputeTimeDerivative) RESULT(Ax)
+   FUNCTION AxMult(this,nEqn,x, ComputeTimeDerivative) RESULT(Ax)
       IMPLICIT NONE
       CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      integer, intent(in)                     :: nEqn
       REAL(KIND=RP)                           :: x (:)
       procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       REAL(KIND=RP)                           :: Ax(size(x))
@@ -483,9 +486,9 @@ CONTAINS
 !~      eps = SQRT(EPSILON(eps))                                     !worse:        : ~1e-4
       
 !~      CALL this % p_sem % GetQ(buffer)
-      CALL this % p_sem % SetQ(this % Ur + x*eps)
+      CALL this % p_sem % SetQ(this % Ur + x*eps, NTOTALVARS)
       CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, this % p_sem % BCFunctions)
-      CALL this % p_sem % GetQdot(F)
+      CALL this % p_sem % GetQdot(nEqn,F)
 !~      CALL this % p_sem % SetQ(buffer)
       Ax = ( F - this % F_Ur) / eps + shift * x                          !First order
       
@@ -698,11 +701,11 @@ CONTAINS
       INTEGER                :: iEQ       ! Equation counter
       INTEGER                :: Idx1      ! First index of the solution of this element ( - 1)
       !--------------------------------------------------------------
-      
+#if defined(NAVIERSTOKES)      
       Idx1 = 0
       
-      DO iEQ = 1, N_EQN
-!~             U1_p => U1(Idx1+iEq::N_EQN)
+      DO iEQ = 1, NCONS
+!~             U1_p => U1(Idx1+iEq::NCONS)
 !~             U2_p => U2()
          
          U2_p = MATMUL(Interp,U1_p)
@@ -714,7 +717,7 @@ CONTAINS
 !     ------------
 !
       NULLIFY(U1_p,U2_p,N1x,N1y,N1z,N2x,N2y,N2z)
-      
+#endif      
    END FUNCTION InterpolateSol
    
    !SUBROUTINE InterpolateJac

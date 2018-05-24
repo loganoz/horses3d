@@ -14,6 +14,7 @@ module MPI_Face_Class
    public  ConstructMPIFacesStorage
 
    type MPI_Face_t
+      integer                    :: nDOFs
       integer                    :: no_of_faces
       integer, allocatable       :: faceIDs(:)
       integer, allocatable       :: elementSide(:)
@@ -85,23 +86,25 @@ module MPI_Face_Class
          integer  :: domain
 
          do domain = 1, MPI_Process % nProcs
+            mpi_faces(domain) % nDOFs     = NDOFS(domain)
             mpi_faces(domain) % sizeQ     = NCONS * NDOFS(domain)
-            mpi_faces(domain) % sizeU_xyz = 3 * NGRAD * NDOFS(domain)
+            mpi_faces(domain) % sizeU_xyz = NDIM * NGRAD * NDOFS(domain)
 
             if ( NDOFS(domain) .gt. 0 ) then
                allocate( mpi_faces(domain) % Qsend(NCONS * NDOFS(domain)) )
-               allocate( mpi_faces(domain) % U_xyzsend(3 * NGRAD * NDOFS(domain)) )
+               allocate( mpi_faces(domain) % U_xyzsend(NDIM * NGRAD * NDOFS(domain)) )
                allocate( mpi_faces(domain) % Qrecv(NCONS * NDOFS(domain)) )
-               allocate( mpi_faces(domain) % U_xyzrecv(3 * NGRAD * NDOFS(domain)) )
+               allocate( mpi_faces(domain) % U_xyzrecv(NDIM * NGRAD * NDOFS(domain)) )
             end if
          end do
 
       end subroutine ConstructMPIFacesStorage
 
-      subroutine MPI_Face_SendQ(self, domain)
+      subroutine MPI_Face_SendQ(self, domain, nEqn)
          implicit none
-         class(MPI_Face_t)    :: self
-         integer, intent(in)  :: domain
+         class(MPI_Face_t)      :: self
+         integer, intent(in)    :: domain
+         integer,    intent(in) :: nEqn
 !
 !        ---------------
 !        Local variables
@@ -111,7 +114,7 @@ module MPI_Face_Class
    
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
-            call mpi_isend(self % Qsend, self % sizeQ, MPI_DOUBLE, domain-1, DEFAULT_TAG, &
+            call mpi_isend(self % Qsend, nEqn * self % nDOFs, MPI_DOUBLE, domain-1, DEFAULT_TAG, &
                            MPI_COMM_WORLD, dummyreq, ierr)
             call mpi_request_free(dummyreq, ierr)
          end if
@@ -119,10 +122,11 @@ module MPI_Face_Class
 
       end subroutine MPI_Face_SendQ
 
-      subroutine MPI_Face_RecvQ(self, domain)
+      subroutine MPI_Face_RecvQ(self, domain, nEqn)
          implicit none
-         class(MPI_Face_t)    :: self
-         integer, intent(in)  :: domain
+         class(MPI_Face_t)      :: self
+         integer, intent(in)    :: domain
+         integer,    intent(in) :: nEqn
 !
 !        ---------------
 !        Local variables
@@ -132,17 +136,18 @@ module MPI_Face_Class
    
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
-            call mpi_irecv(self % Qrecv, self % sizeQ, MPI_DOUBLE, domain-1, MPI_ANY_TAG, &
+            call mpi_irecv(self % Qrecv, nEqn * self % nDOFs, MPI_DOUBLE, domain-1, MPI_ANY_TAG, &
                            MPI_COMM_WORLD, self % Qrecv_req, ierr)
          end if
 #endif
 
       end subroutine MPI_Face_RecvQ
 
-      subroutine MPI_Face_SendU_xyz(self, domain)
+      subroutine MPI_Face_SendU_xyz(self, domain, nEqn)
          implicit none
          class(MPI_Face_t)    :: self
          integer, intent(in)  :: domain
+         integer, intent(in)  :: nEqn
 !
 !        ---------------
 !        Local variables
@@ -152,7 +157,7 @@ module MPI_Face_Class
    
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
-            call mpi_isend(self % U_xyzsend, self % sizeU_xyz, MPI_DOUBLE, domain-1, &
+            call mpi_isend(self % U_xyzsend, nEqn * NDIM * self % nDOFs, MPI_DOUBLE, domain-1, &
                            DEFAULT_TAG, MPI_COMM_WORLD, dummyreq, ierr)
             call mpi_request_free(dummyreq, ierr)
          end if
@@ -160,10 +165,11 @@ module MPI_Face_Class
 
       end subroutine MPI_Face_SendU_xyz
 
-      subroutine MPI_Face_RecvU_xyz(self, domain)
+      subroutine MPI_Face_RecvU_xyz(self, domain, nEqn)
          implicit none
          class(MPI_Face_t)    :: self
          integer, intent(in)  :: domain
+         integer, intent(in)  :: nEqn
 !
 !        ---------------
 !        Local variables
@@ -173,7 +179,7 @@ module MPI_Face_Class
    
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
-            call mpi_irecv(self % U_xyzrecv, self % sizeU_xyz, MPI_DOUBLE, domain-1, &
+            call mpi_irecv(self % U_xyzrecv, nEqn * NDIM * self % nDOFs, MPI_DOUBLE, domain-1, &
                            DEFAULT_TAG, MPI_COMM_WORLD, self % gradQrecv_req, ierr)
          end if
 #endif

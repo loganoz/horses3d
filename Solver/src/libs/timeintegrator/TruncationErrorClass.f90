@@ -12,7 +12,10 @@ module TruncationErrorClass
    use MultigridTypes            , only: MGSolStorage_t
    use DGSEMClass                , only: DGSem, BCFunctions_t, ComputeQDot_FCN, BCState_FCN, BCGradients_FCN, no_of_BCsets
    use FTValueDictionaryClass    , only: FTValueDictionary
-   use PhysicsStorage            , only: NCONS, NDIM, Thermodynamics, RefValues, Dimensionless
+   use PhysicsStorage            , only: NTOTALVARS
+#if defined(NAVIERSTOKES)  
+   use FluidData_NS              , only: Thermodynamics, RefValues, Dimensionless
+#endif
    use NodalStorageClass         , only: NodalStorage
 #if defined(CAHNHILLIARD)
    use BoundaryConditionFunctions, only: C_BC, MU_BC
@@ -50,19 +53,21 @@ module TruncationErrorClass
 !  -------------------
 !
 #if defined(NAVIERSTOKES)
-   procedure(BCState_FCN)   :: externalStateForBoundaryName
-   procedure(BCGradients_FCN)   :: ExternalGradientForBoundaryName
+   procedure(BCState_FCN)   :: externalStateForBoundaryName_NS
+   procedure(BCGradients_FCN)   :: ExternalGradientForBoundaryName_NS
 #elif defined(CAHNHILLIARD)
-   procedure(BCState_FCN)   :: externalStateForBoundaryName
+   procedure(BCState_FCN)   :: externalCHStateForBoundaryName
    procedure(BCGradients_FCN)   :: ExternalChemicalPotentialGradientForBoundaryName
    procedure(BCGradients_FCN)   :: ExternalConcentrationGradientForBoundaryName
 #endif
    
+#if defined(NAVIERSTOKES)
    interface
-      subroutine UserDefinedSourceTerm(x, time, S, thermodynamics_, dimensionless_, refValues_)
+      subroutine UserDefinedSourceTermNS(x, time, S, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          USE HexMeshClass
          use PhysicsStorage
+         use FluidData
          IMPLICIT NONE
          real(kind=RP),             intent(in)  :: x(NDIM)
          real(kind=RP),             intent(in)  :: time
@@ -70,7 +75,10 @@ module TruncationErrorClass
          type(Thermodynamics_t),    intent(in)  :: thermodynamics_
          type(Dimensionless_t),     intent(in)  :: dimensionless_
          type(RefValues_t),         intent(in)  :: refValues_
-      end subroutine UserDefinedSourceTerm
+      end subroutine UserDefinedSourceTermNS
+   end interface
+#endif
+   interface
       character(len=LINE_LENGTH) function RemovePath( inputLine )
          use SMConstants
          implicit none
@@ -199,7 +207,7 @@ module TruncationErrorClass
       real(kind=RP)            :: wx, wy, wz    ! 
       real(kind=RP)            :: Jac
       real(kind=RP)            :: maxTE
-      real(kind=RP)            :: S(NCONS)      !   Source term
+      real(kind=RP)            :: S(NTOTALVARS)      !   Source term
       !--------------------------------------------------------
       
       call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
@@ -216,10 +224,11 @@ module TruncationErrorClass
          
          ! loop over all the degrees of freedom of the element
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+#if defined(NAVIERSTOKES)            
+            call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), t, S, thermodynamics, dimensionless, refValues)
+#endif
             
-            call UserDefinedSourceTerm(e % geom % x(:,i,j,k), t, S, thermodynamics, dimensionless, refValues)
-            
-            do iEQ = 1, NCONS
+            do iEQ = 1, NTOTALVARS
                wx  = NodalStorage(e % Nxyz(1)) % w (i)
                wy  = NodalStorage(e % Nxyz(2)) % w (j)
                wz  = NodalStorage(e % Nxyz(3)) % w (k)
@@ -312,12 +321,13 @@ module TruncationErrorClass
       end if
       
 #if defined(NAVIERSTOKES)
-      BCFunctions(1) % externalState => externalStateForBoundaryName
-      BCFunctions(1) % externalGradients => externalGradientForBoundaryName
+      BCFunctions(1) % externalState => externalStateForBoundaryName_NS
+      BCFunctions(1) % externalGradients => externalGradientForBoundaryName_NS
 #elif defined(CAHNHILLIARD)
-      BCFunctions(C_BC) % externalState      => externalStateForBoundaryName
+      BCFunctions(C_BC) % externalState      => externalCHStateForBoundaryName
       BCFunctions(C_BC) % externalGradients  => externalConcentrationGradientForBoundaryName
-      BCFunctions(MU_BC) % externalState     => externalStateForBoundaryName
+
+      BCFunctions(MU_BC) % externalState     => externalCHStateForBoundaryName
       BCFunctions(MU_BC) % externalGradients => externalChemicalPotentialGradientForBoundaryName
 #endif
       
@@ -345,7 +355,9 @@ module TruncationErrorClass
                
                if(.NOT. success)   ERROR STOP ":: problem creating sem"
                
+#if defined(NAVIERSTOKES)
                CALL UserDefinedFinalSetup(sem % mesh , thermodynamics, dimensionless, refValues)
+#endif
                
                
                TEmap(i,j,k) = EstimateTauOfElem(sem,t,controlVariables,iEl)
@@ -390,10 +402,11 @@ module TruncationErrorClass
          
          do eID = 1, nelem
             associate (e => sem % mesh % elements(eID))
-            
+#if defined(NAVIERSTOKES)            
             do kk = 0, e % Nxyz(3) ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
                call UserDefinedState1(e % geom % x(:,ii,jj,kk), t, [0._RP, 0._RP, 0._RP], e % storage % Q(:,ii,jj,kk), thermodynamics, dimensionless, refValues)
             end do                 ; end do                 ; end do
+#endif
             
             end associate
          end do
@@ -407,7 +420,7 @@ module TruncationErrorClass
          ! loop over all the degrees of freedom of the element
          do kk = 0, e % Nxyz(3) ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
             
-            do iEQ = 1, NCONS
+            do iEQ = 1, NTOTALVARS
                wx  = NodalStorage(e % Nxyz(1)) % w (ii)
                wy  = NodalStorage(e % Nxyz(2)) % w (jj)
                wz  = NodalStorage(e % Nxyz(3)) % w (kk)
@@ -419,5 +432,4 @@ module TruncationErrorClass
           
          end associate
       end function EstimateTauOfElem
-      
 end module TruncationErrorClass

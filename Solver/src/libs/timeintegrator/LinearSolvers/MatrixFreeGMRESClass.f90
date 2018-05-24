@@ -1,3 +1,15 @@
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:    MatrixFreeGMRESClass.f90
+!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Created: Sat May 12 20:54:06 2018
+!   @Last revision date: Sun May 13 11:22:08 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
+!
+!//////////////////////////////////////////////////////
+!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !      MatrixFreeGMRESClass.f90
@@ -9,11 +21,13 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 module MatrixFreeGMRESClass
-   use GenericLinSolverClass
-   use SMConstants
-   use DGSEMClass
-   use FTValueDictionaryClass
-   use MatrixClass
+   use GenericLinSolverClass , only: GenericLinSolver_t, MatrixShift_FCN, MatrixShift
+   use SMConstants           , only: RP, STD_OUT, LINE_LENGTH
+   use DGSEMClass            , only: DGSem, ComputeQDot_FCN
+   use FTValueDictionaryClass, only: FTValueDictionary
+   use MatrixClass           , only: DenseBlockDiagMatrix_t
+   use PhysicsStorage        , only: NTOTALVARS, NTOTALGRADS
+   use AnalyticalJacobian    , only: AnalyticalJacobian_Compute
    implicit none
    
    private
@@ -93,8 +107,8 @@ module MatrixFreeGMRESClass
 
    abstract interface
       subroutine matmultsub(v,x, ComputeTimeDerivative)
-         use SMConstants
-         use DGSEMClass, only: ComputeQDot_FCN
+         use SMConstants, only: RP
+         use DGSEMClass,  only: ComputeQDot_FCN
          real(kind = RP), intent(in)         :: v(:)
          real(kind = RP), intent(out)        :: x(:)
          procedure(ComputeQDot_FCN)          :: ComputeTimeDerivative
@@ -115,7 +129,6 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       recursive subroutine ConstructSolver(this,DimPrb,controlVariables, sem,MatrixShiftFunc)
-         use PhysicsStorage
          implicit none
          !------------------------------------------------
          class(MatFreeGMRES_t)  , intent(inout), target :: this
@@ -180,7 +193,7 @@ contains
                      Nx = sem % mesh % elements(k) % Nxyz(1)
                      Ny = sem % mesh % elements(k) % Nxyz(2)
                      Nz = sem % mesh % elements(k) % Nxyz(3)
-                     ndofelm(k) = NCONS*(Nx+1)*(Ny+1)*(Nz+1)
+                     ndofelm(k) = NTOTALVARS*(Nx+1)*(Ny+1)*(Nz+1)
                   end do
                   call this % BlockPreco % PreAllocate(nnzs = ndofelm)
                   
@@ -533,11 +546,12 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ! 
-      recursive subroutine SolveGMRES(this, ComputeTimeDerivative, tol, maxiter,time,dt,computeA)
-         use AnalyticalJacobian
+      recursive subroutine SolveGMRES(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter,time,dt,computeA)
          implicit none
          !----------------------------------------------------
          class(MatFreeGMRES_t), intent(inout)      :: this
+         integer,       intent(in)                :: nEqn
+         integer,       intent(in)                :: nGradEqn
          procedure(ComputeQDot_FCN)                :: ComputeTimeDerivative
          real(kind=RP), optional                   :: tol
          integer      , optional                   :: maxiter
@@ -574,7 +588,7 @@ contains
             case (PC_BlockJacobi)
                if ( present(ComputeA)) then
                   if (ComputeA) then
-                     call AnalyticalJacobian_Compute(this % p_sem, this % timesolve, this % BlockA,.TRUE.)
+                     call AnalyticalJacobian_Compute(this % p_sem, nEqn, this % timesolve, this % BlockA,.TRUE.)
 !~                     call NumericalJacobian_Compute(this % p_sem, this % timesolve, this % BlockA, ComputeTimeDerivative, .TRUE. )
                      
                      call this % BlockA % shift( MatrixShift(dt) )
@@ -582,7 +596,7 @@ contains
                      ComputeA = .FALSE.
                   end if
                else
-                  call AnalyticalJacobian_Compute(this % p_sem, this % timesolve, this % BlockA,.TRUE.)
+                  call AnalyticalJacobian_Compute(this % p_sem, nEqn, this % timesolve, this % BlockA,.TRUE.)
 !~                  call NumericalJacobian_Compute(this % p_sem, this % timesolve, this % BlockA, ComputeTimeDerivative, .TRUE. )
                   
                   call this % BlockA % shift( MatrixShift(dt) )
@@ -639,7 +653,7 @@ contains
          !---------------------------------------------------------
           
          CALL this % PCSolver % SetRHS(v)
-         CALL this % PCSolver % Solve(ComputeTimeDerivative,time = this % timesolve, dt = this % dtsolve)
+         CALL this % PCSolver % Solve(NTOTALVARS, NTOTALGRADS, ComputeTimeDerivative,time = this % timesolve, dt = this % dtsolve)
          CALL this % PCSolver % Settol(1e-1_RP)                 ! TODO: aquí habrá que poner algo más elaborado
          Pv = this % PCSolver % x
 !         n_preco_iter = n_preco_iter + PCSolver%niter     ! Not really needed
@@ -652,7 +666,6 @@ contains
 !     Returns the preconditioning product   Pv = P⁻¹ * v for the Block-Jacobi preconditioner
 !     --------------------------------------------------------------------------------------
       subroutine PC_BlockJacobi_Ax(this, v, Pv)
-         use DenseMatUtilities
          implicit none
          !---------------------------------------------------------
          class(MatFreeGMRES_t), intent(inout) :: this

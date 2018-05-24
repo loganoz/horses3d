@@ -4,9 +4,9 @@
 !   @File:    Particles.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 10 17:31:22 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed Apr 18 20:19:08 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
 !
 !//////////////////////////////////////////////////////
 !
@@ -76,7 +76,7 @@ contains
 !
 subroutine ConstructParticles( self, mesh, controlVariables )
     use FTValueDictionaryClass
-    use PhysicsKeywordsModule
+    use Physics_NSKeywordsModule
     use headers
     implicit none
     class(Particles_t)      , intent(inout) :: self
@@ -303,7 +303,7 @@ subroutine AddSourceParticles( self, e, time, thermodynamics_, dimensionless_, r
 !    call cpu_time(t1)
     if ( self % no_of_particles > 0 ) then
         associate ( d => self % dimensionless )
-        allocate( Source( N_EQN, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3) ) )  
+        allocate( Source( NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3) ) )  
         call self % computeSourceTerm( e, Source )                          
         do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
 

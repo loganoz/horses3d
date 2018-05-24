@@ -6,6 +6,7 @@ module ProbeClass
    use PhysicsStorage
    use VariableConversion, only: Pressure
    use MPI_Process_Info
+   use FluidData
 #ifdef _HAS_MPI_
    use mpi
 #endif

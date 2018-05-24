@@ -12,22 +12,32 @@ MOD_FLAG?=-J
 
 
 LIBOBJS_NS = 	./build_ns/GenericMatrixClass.o \
-    ./build_ns/CSRMatrixClass.o \
-    ./build_ns/PETScMatrixClass.o \
-    ./build_ns/DenseBlockDiagonalMatrixClass.o \
-    ./build_ns/MatrixClass.o \
-		./build_ns/ColorsClass.o \
-		./build_ns/Jacobian.o \
-		./build_ns/NumericalJacobian.o
+			    ./build_ns/CSRMatrixClass.o \
+			    ./build_ns/PETScMatrixClass.o \
+			    ./build_ns/DenseBlockDiagonalMatrixClass.o \
+			    ./build_ns/MatrixClass.o \
+				./build_ns/ColorsClass.o \
+				./build_ns/Jacobian.o \
+				./build_ns/NumericalJacobian.o
 
 LIBOBJS_CH = 	./build_ch/GenericMatrixClass.o \
-		./build_ch/CSRMatrixClass.o \
-		./build_ch/PETScMatrixClass.o \
-		./build_ch/DenseBlockDiagonalMatrixClass.o \
-		./build_ch/MatrixClass.o \
-		./build_ch/ColorsClass.o \
-		./build_ch/Jacobian.o\
-		./build_ch/NumericalJacobian.o
+			    ./build_ch/CSRMatrixClass.o \
+			    ./build_ch/PETScMatrixClass.o \
+			    ./build_ch/DenseBlockDiagonalMatrixClass.o \
+			    ./build_ch/MatrixClass.o \
+				./build_ch/ColorsClass.o \
+				./build_ch/Jacobian.o \
+				./build_ch/NumericalJacobian.o
+
+LIBOBJS_NSCH = 	./build_nsch/GenericMatrixClass.o \
+			    ./build_nsch/CSRMatrixClass.o \
+			    ./build_nsch/PETScMatrixClass.o \
+			    ./build_nsch/DenseBlockDiagonalMatrixClass.o \
+			    ./build_nsch/MatrixClass.o \
+				./build_nsch/ColorsClass.o \
+				./build_nsch/Jacobian.o \
+				./build_nsch/NumericalJacobian.o
+
 
 LIB = jacobian
 
@@ -36,7 +46,7 @@ LIB = jacobian
 ############################################
 .DEFAULT_GOAL:=all
 
-all: lib$(LIB)_ch.a lib$(LIB)_ns.a
+all: lib$(LIB)_ns.a lib$(LIB)_ch.a lib$(LIB)_nsch.a
 
 ./build_ns/%.o: %.f90
 	@echo
@@ -47,6 +57,11 @@ all: lib$(LIB)_ch.a lib$(LIB)_ns.a
 	@echo
 	@echo $<
 	$(FC) $(FFLAGS) -DCAHNHILLIARD -I./include_ch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ch -c $< -o $@ $(MOD_FLAG) ./include_ch
+
+./build_nsch/%.o: %.f90
+	@echo
+	@echo $<
+	$(FC) $(FFLAGS) -DNAVIERSTOKES -DCAHNHILLIARD -I./include_nsch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_nsch -c $< -o $@ $(MOD_FLAG) ./include_nsch
 
 lib$(LIB)_ns.a: header mkdirs $(LIBOBJS_NS) 
 	@echo
@@ -66,12 +81,22 @@ lib$(LIB)_ch.a: header mkdirs $(LIBOBJS_CH)
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS_CH) 
 	@$(RANLIB) $@
 
+lib$(LIB)_nsch.a: header mkdirs $(LIBOBJS_NSCH)
+	@echo
+	@echo "---------------------------------"
+	@echo "| Linking library" $@ "|"
+	@echo "---------------------------------"
+	@$(RM) $@
+	$(AR) $(ARFLAGS) $@ $(LIBOBJS_NSCH) 
+	@$(RANLIB) $@
 
 install: all
 	cp -p lib$(LIB)_ns.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
+	cp -p lib$(LIB)_nsch.a $(INSTALL_DIR)/lib/
 	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
 	cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
+	cp -p ./include_nsch/*.mod $(INSTALL_DIR)/include_nsch/
 	@echo
 	@echo
 
@@ -84,13 +109,14 @@ header: FORCE
 	@echo
 
 mkdirs: FORCE
-	@mkdir -p ./include_ns ./include_ch
-	@mkdir -p ./build_ns ./build_ch
+	@mkdir -p ./include_ns ./include_ch ./include_nsch
+	@mkdir -p ./build_ns ./build_ch ./build_nsch
 
 clean: FORCE
 	$(RM) lib$(LIB)_ns.a  lib$(LIB)_ch.a
 	$(RM) ./build_ns/*.o ./include_ns/*.mod
 	$(RM) ./build_ch/*.o ./include_ch/*.mod
+	$(RM) ./build_nsch/*.o ./include_nsch/*.mod
 
 #############################################
 #	Dummy procedure to force a rule     #

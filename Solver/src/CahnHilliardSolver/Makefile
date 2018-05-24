@@ -25,7 +25,7 @@ RANLIB=ranlib
 PROG=./bin/horses3d.ch
 
 OBJS_HORSES=	SpatialDiscretization \
-		HORSES3DMain
+		main        
 
 OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 
@@ -34,6 +34,8 @@ OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 ##	Include dependencies 		##
 ##########################################
 -include ./make.deps
+
+./build/main.o: FORCE
 
 
 ##########################################################
@@ -45,12 +47,12 @@ OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 ./build/%.o: ./%.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_ch $(MACROS) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_ch $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include
 
 ./build/%.o: ./**/%.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_ch $(MACROS) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_ch $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include
 
 $(PROG): header mkdirs $(OBJS_HORSES_BUILD)
 	@echo

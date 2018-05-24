@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Tue Apr 10 17:29:20 2018
+!   @Last revision date: Sat May 12 21:51:08 2018
 !   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
+!   @Last revision commit: 0a98ff59a5332051367a2a5c89543fa1ed797190
 !
 !//////////////////////////////////////////////////////
 !
@@ -19,11 +19,12 @@ module EllipticIP
    use HexMeshClass
    use Physics
    use PhysicsStorage
-   use VariableConversion, only: gradientValuesForQ
+   use VariableConversion
    use MPI_Process_Info
    use MPI_Face_Class
    use EllipticDiscretizationClass
    use DGSEMClass
+   use FluidData
    implicit none
 !
 !
@@ -43,10 +44,10 @@ module EllipticIP
          procedure      :: ComputeInnerFluxes      => IP_ComputeInnerFluxes
          procedure      :: PenaltyParameter        => IP_PenaltyParameter
          procedure      :: RiemannSolver           => IP_RiemannSolver
-         procedure      :: RiemannSolver_Jacobians => IP_RiemannSolver_Jacobians
 #if defined(NAVIERSTOKES)
          procedure      :: ComputeInnerFluxesWithSGS => IP_ComputeInnerFluxesWithSGS
          procedure      :: RiemannSolverWithSGS      => IP_RiemannSolverWithSGS
+         procedure      :: RiemannSolver_Jacobians => IP_RiemannSolver_Jacobians
 #endif
          procedure      :: Describe                => IP_Describe
    end type InteriorPenalty_t
@@ -147,16 +148,19 @@ module EllipticIP
             
       end subroutine IP_Describe
 
-      subroutine IP_ComputeGradient( self , mesh , time , externalStateProcedure)
+      subroutine IP_ComputeGradient(self, nEqn, nGradEqn, mesh, time, externalStateProcedure, GetGradients0D, GetGradients3D)
          use HexMeshClass
          use PhysicsStorage
          use Physics
          use MPI_Process_Info
          implicit none
          class(InteriorPenalty_t), intent(in) :: self
-         class(HexMesh)                   :: mesh
-         real(kind=RP),        intent(in) :: time
-         procedure(BCState_FCN)           :: externalStateProcedure
+         integer,                  intent(in) :: nEqn, nGradEqn
+         class(HexMesh)                       :: mesh
+         real(kind=RP),        intent(in)     :: time
+         procedure(BCState_FCN)               :: externalStateProcedure
+         procedure(GetGradientValues0D_f)     :: GetGradients0D
+         procedure(GetGradientValues3D_f)     :: GetGradients3D
 !
 !        ---------------
 !        Local variables
@@ -173,12 +177,13 @@ module EllipticIP
 !$omp do schedule(runtime)
          do eID = 1, size(mesh % elements)
             associate( e => mesh % elements(eID) )
-            call e % ComputeLocalGradient
+            call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients3D)
 !
 !           Prolong to faces
 !           ----------------
             fIDs = e % faceIDs
-            call e % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+            call e % ProlongGradientsToFaces(nGradEqn, &
+                                             mesh % faces(fIDs(1)),&
                                              mesh % faces(fIDs(2)),&
                                              mesh % faces(fIDs(3)),&
                                              mesh % faces(fIDs(4)),&
@@ -197,10 +202,10 @@ module EllipticIP
             associate(f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_INTERIOR) 
-               call IP_GradientInterfaceSolution(f) 
+               call IP_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients0D) 
             
             case (HMESH_BOUNDARY) 
-               call IP_GradientInterfaceSolutionBoundary(f, time, externalStateProcedure) 
+               call IP_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients0D, externalStateProcedure) 
  
             end select 
             end associate 
@@ -215,7 +220,7 @@ module EllipticIP
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID))
             if ( e % hasSharedFaces ) cycle
-            call IP_ComputeGradientFaceIntegrals(self, e, mesh)
+            call IP_ComputeGradientFaceIntegrals(self, nGradEqn, e, mesh)
             end associate
          end do
 !$omp end do
@@ -226,7 +231,7 @@ module EllipticIP
 !
 !$omp single
          if ( MPI_Process % doMPIAction ) then 
-            call mesh % GatherMPIFacesSolution
+            call mesh % GatherMPIFacesSolution(nEqn)
          end if
 !$omp end single
 !
@@ -239,7 +244,7 @@ module EllipticIP
             associate(f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_MPI) 
-               call IP_GradientInterfaceSolutionMPI(f) 
+               call IP_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn, GetGradients0D) 
  
             end select 
             end associate 
@@ -254,7 +259,7 @@ module EllipticIP
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID))
             if ( .not. e % hasSharedFaces ) cycle
-            call IP_ComputeGradientFaceIntegrals(self, e, mesh)
+            call IP_ComputeGradientFaceIntegrals(self, nGradEqn, e, mesh)
             end associate
          end do
 !$omp end do
@@ -263,7 +268,7 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_ComputeGradientFaceIntegrals( self, e, mesh)
+      subroutine IP_ComputeGradientFaceIntegrals( self, nGradEqn, e, mesh)
          use ElementClass
          use HexMeshClass
          use PhysicsStorage
@@ -271,6 +276,7 @@ module EllipticIP
          use DGIntegrals
          implicit none
          class(InteriorPenalty_t),   intent(in) :: self
+         integer,                    intent(in) :: nGradEqn
          class(Element)                         :: e
          class(HexMesh)                         :: mesh
 !
@@ -280,11 +286,11 @@ module EllipticIP
 !
          integer              :: i, j, k
          real(kind=RP)        :: invjac
-         real(kind=RP)        :: faceInt_x(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP)        :: faceInt_y(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP)        :: faceInt_z(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_x(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_y(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP)        :: faceInt_z(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
 
-         call VectorWeakIntegrals % StdFace(e, &
+         call VectorWeakIntegrals % StdFace(e, nGradEqn, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
                mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % unStar, &
                mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % unStar, &
@@ -306,7 +312,7 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_GradientInterfaceSolution(f)
+      subroutine IP_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients)
          use Physics  
          use ElementClass
          use FaceClass
@@ -316,21 +322,23 @@ module EllipticIP
 !        Arguments
 !        ---------
 !
-         type(Face)    :: f
+         type(Face)                       :: f
+         integer, intent(in)              :: nEqn, nGradEqn
+         procedure(GetGradientValues0D_f) :: GetGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         real(kind=RP) :: Uhat(N_GRAD_EQN)
-         real(kind=RP) :: Hflux(N_GRAD_EQN,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
+         real(kind=RP) :: Uhat(nGradEqn)
+         real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
 
          integer       :: i,j
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call GradientValuesForQ(Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GradientValuesForQ(Q = f % storage(2) % Q(:,i,j), U = UR)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
 
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
@@ -338,11 +346,11 @@ module EllipticIP
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
-         call f % ProjectGradientFluxToElements(HFlux,(/1,2/),1)
+         call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1)
          
       end subroutine IP_GradientInterfaceSolution   
 
-      subroutine IP_GradientInterfaceSolutionMPI(f)
+      subroutine IP_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn, GetGradients)
          use Physics  
          use ElementClass
          use FaceClass
@@ -352,20 +360,22 @@ module EllipticIP
 !        Arguments
 !        ---------
 !
-         type(Face)    :: f
+         type(Face)                       :: f
+         integer,    intent(in)           :: nEqn, nGradEqn
+         procedure(GetGradientValues0D_f) :: GetGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         real(kind=RP) :: Uhat(N_GRAD_EQN)
-         real(kind=RP) :: Hflux(N_GRAD_EQN,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
+         real(kind=RP) :: Uhat(nGradEqn)
+         real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
          integer       :: i,j, thisSide
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call GradientValuesForQ(Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GradientValuesForQ(Q = f % storage(2) % Q(:,i,j), U = UR)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
    
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
@@ -374,26 +384,34 @@ module EllipticIP
          end do               ; end do
 
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectGradientFluxToElements(HFlux,(/thisSide, HMESH_NONE/),1)
+         call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/thisSide, HMESH_NONE/),1)
          
       end subroutine IP_GradientInterfaceSolutionMPI   
 
-      subroutine IP_GradientInterfaceSolutionBoundary(f, time, externalState)
+      subroutine IP_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients, externalState)
          use Physics
          use FaceClass
          implicit none
-         type(Face)    :: f
-         real(kind=RP) :: time
-         external      :: externalState
+         type(Face)                       :: f
+         integer,    intent(in)           :: nEqn
+         integer,    intent(in)           :: nGradEqn
+         real(kind=RP)                    :: time
+         procedure(GetGradientValues0D_f) :: GetGradients
+         procedure(BCState_FCN)           :: externalState
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
          integer       :: i, j
-         real(kind=RP) :: Uhat(N_GRAD_EQN), UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         real(kind=RP) :: bvExt(N_EQN)
+         real(kind=RP) :: Uhat(nGradEqn), UL(nGradEqn), UR(nGradEqn)
+         real(kind=RP) :: bvExt(nEqn)
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 
             bvExt =  f % storage(1) % Q(:,i,j)
    
-            call externalState( f % geom % x(:,i,j), &
+            call externalState( nEqn, f % geom % x(:,i,j), &
                                 time               , &
                                 f % geom % normal(:,i,j)      , &
                                 bvExt              , &
@@ -403,8 +421,8 @@ module EllipticIP
 !           u, v, w, T averages
 !           -------------------
 !   
-            call GradientValuesForQ( f % storage(1) % Q(:,i,j), UL )
-            call GradientValuesForQ( bvExt, UR )
+            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
+            call GetGradients(nEqn, nGradEqn, bvExt, UR )
    
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             
@@ -418,22 +436,23 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_ComputeInnerFluxes( self , e , EllipticFlux, contravariantFlux )
+      subroutine IP_ComputeInnerFluxes( self , nEqn, nGradEqn, e , EllipticFlux, contravariantFlux )
          use ElementClass
          use PhysicsStorage
          use Physics
          implicit none
-         class(InteriorPenalty_t) ,     intent (in) :: self
+         class(InteriorPenalty_t) ,     intent(in)  :: self
+         integer,                       intent(in)  :: nEqn, nGradEqn
          type(Element)                              :: e
          procedure(EllipticFlux3D_f)                :: EllipticFlux
-         real(kind=RP)           , intent (out)     :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP)           , intent (out)     :: contravariantFlux(1:nEqn, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          real(kind=RP)       :: delta
-         real(kind=RP)       :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP)       :: cartesianFlux(1:nEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
          real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
@@ -441,14 +460,12 @@ module EllipticIP
 #if defined(NAVIERSTOKES)
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
-
-#elif defined(CAHNHILLIARD)
-         mu = 1.0_RP
+#else
+         mu = 0.0_RP
          kappa = 0.0_RP
-
 #endif
 
-         call EllipticFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
+         call EllipticFlux( nEqn, nGradEqn, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -503,7 +520,7 @@ module EllipticIP
                                                            e % storage % U_z, &
                                                                 tauSGS, qSGS    )
 
-         call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, tauSGS, qSGS, cartesianFlux )
+         call ViscousFlux(NCONS, NGRAD, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, tauSGS, qSGS, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -530,29 +547,28 @@ module EllipticIP
 !     ----------------------------------------
 !     Function to get the IP penalty parameter
 !     ----------------------------------------
-      function IP_PenaltyParameter(self,f,mu) result(sigma)
+      function IP_PenaltyParameter(self,f) result(sigma)
          use FaceClass
          implicit none
          !-----------------------------------------
          class(InteriorPenalty_t)  :: self
          class(Face)  , intent(in) :: f      !<  Face
-         real(kind=RP), intent(in) :: mu     !<  "dimensionless mu": 1/Re
          real(kind=RP)             :: sigma  !>  IP penalty parameter
          !-----------------------------------------
 !
 !        Shahbazi estimate
 !        -----------------
 #if defined(NAVIERSTOKES)
-         sigma = 0.5_RP  * self % sigma * mu * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
+         sigma = 0.5_RP  * self % sigma * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
 #elif defined(CAHNHILLIARD)
-         sigma = 0.25_RP * self % sigma * mu * (maxval(f % Nf))  *(maxval(f % Nf)+1) / f % geom % h 
+         sigma = 0.25_RP * self % sigma * (maxval(f % Nf))  *(maxval(f % Nf)+1) / f % geom % h 
 #endif
          
       end function IP_PenaltyParameter
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_RiemannSolver ( self , f, EllipticFlux, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+      subroutine IP_RiemannSolver ( self , nEqn, nGradEqn, f, EllipticFlux, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
                                             nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
@@ -560,44 +576,50 @@ module EllipticIP
          use FaceClass
          implicit none
          class(InteriorPenalty_t)             :: self
+         integer,       intent(in)            :: nEqn, nGradEqn
          class(Face),   intent(in)            :: f
          procedure(EllipticFlux0D_f)          :: EllipticFlux
-         real(kind=RP), dimension(N_EQN)      :: QLeft
-         real(kind=RP), dimension(N_EQN)      :: QRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
+         real(kind=RP), dimension(nEqn)      :: QLeft
+         real(kind=RP), dimension(nEqn)      :: QRight
+         real(kind=RP), dimension(nGradEqn) :: U_xLeft
+         real(kind=RP), dimension(nGradEqn) :: U_yLeft
+         real(kind=RP), dimension(nGradEqn) :: U_zLeft
+         real(kind=RP), dimension(nGradEqn) :: U_xRight
+         real(kind=RP), dimension(nGradEqn) :: U_yRight
+         real(kind=RP), dimension(nGradEqn) :: U_zRight
          real(kind=RP), dimension(NDIM)       :: nHat
          real(kind=RP)                        :: dWall
-         real(kind=RP), dimension(N_EQN)      :: flux
+         real(kind=RP), dimension(nEqn)      :: flux
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: flux_vec (NCONS,NDIM)
-         real(kind=RP)     :: flux_vecL(NCONS,NDIM)
-         real(kind=RP)     :: flux_vecR(NCONS,NDIM)
+         real(kind=RP)     :: Q(nEqn) , U_x(nGradEqn) , U_y(nGradEqn) , U_z(nGradEqn)
+         real(kind=RP)     :: flux_vec(nEqn,NDIM)
+         real(kind=RP)     :: flux_vecL(nEqn,NDIM)
+         real(kind=RP)     :: flux_vecR(nEqn,NDIM)
          real(kind=RP)     :: mu, kappa, delta, sigma
          
 #if defined(NAVIERSTOKES)
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
-
-#elif defined(CAHNHILLIARD)
+#else
          mu = 1.0_RP
          kappa = 0.0_RP
 #endif
 
-         call ViscousFlux(QLeft , U_xLeft , U_yLeft , U_zLeft , mu, kappa, flux_vecL)
-         call ViscousFlux(QRight, U_xRight, U_yRight, U_zRight, mu, kappa, flux_vecR)
-         
+         call EllipticFlux(nEqn, nGradEqn, QLeft , U_xLeft , U_yLeft , U_zLeft, mu, kappa, flux_vecL )
+         call EllipticFlux(nEqn, nGradEqn, QRight , U_xRight , U_yRight , U_zRight, mu, kappa, flux_vecR )
+
          flux_vec = 0.5_RP * (flux_vecL + flux_vecR)
-         
-         sigma = self % PenaltyParameter(f,mu)
+
+         sigma = self % PenaltyParameter(f)
+
+         if ( nEqn .ne. 1 ) then
+            sigma = mu * sigma
+
+         end if
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - sigma * (QLeft - QRight)
 
@@ -617,6 +639,7 @@ module EllipticIP
 !                    |                    |__________Jacobian for this component
 !                    |_______________________________1 for ∇q⁺ and 2 for ∇q⁻
 !     -----------------------------------------------------------------------------
+#if defined(NAVIERSTOKES)
       subroutine IP_RiemannSolver_Jacobians( self, f) 
          use FaceClass
          use Physics
@@ -634,12 +657,12 @@ module EllipticIP
          integer :: n, m ! Index of G_xx
          integer :: side
          !--------------------------------------------
-#if defined(NAVIERSTOKES)
-         
+!
 !        Initializations
 !        ---------------
          mu    = dimensionless % mu             ! TODO: change for Cahn-Hilliard
-         sigma = self % PenaltyParameter(f,mu)
+         sigma = self % PenaltyParameter(f)
+         sigma = sigma * mu
          
          do side = 1, 2
             do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
@@ -714,8 +737,8 @@ module EllipticIP
             
          end do
          
-#endif
       end subroutine IP_RiemannSolver_Jacobians
+#endif
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -728,25 +751,26 @@ module EllipticIP
          use FaceClass
          use LESModels
          implicit none
-         class(InteriorPenalty_t)                 :: self
-         class(Face),   intent(in)            :: f
-         real(kind=RP), dimension(N_EQN)      :: QLeft
-         real(kind=RP), dimension(N_EQN)      :: QRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
-         real(kind=RP), dimension(NDIM)       :: nHat
-         real(kind=RP)                        :: dWall
-         real(kind=RP), dimension(N_EQN)      :: flux
+         class(InteriorPenalty_t)        :: self
+         class(Face),   intent(in)       :: f
+         real(kind=RP), dimension(NCONS) :: QLeft
+         real(kind=RP), dimension(NCONS) :: QRight
+         real(kind=RP), dimension(NGRAD) :: U_xLeft
+         real(kind=RP), dimension(NGRAD) :: U_yLeft
+         real(kind=RP), dimension(NGRAD) :: U_zLeft
+         real(kind=RP), dimension(NGRAD) :: U_xRight
+         real(kind=RP), dimension(NGRAD) :: U_yRight
+         real(kind=RP), dimension(NGRAD) :: U_zRight
+         real(kind=RP), dimension(NDIM)  :: nHat
+         real(kind=RP)                   :: dWall
+         real(kind=RP), dimension(NCONS) :: flux
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: flux_vec (NCONS,NDIM)
+         real(kind=RP)     :: Q(NCONS) , U_x(NGRAD) , U_y(NGRAD) , U_z(NGRAD)
+         real(kind=RP)     :: flux_vec(NCONS,NDIM)
          real(kind=RP)     :: flux_vecL(NCONS,NDIM), tauSGS_L(NDIM, NDIM), qSGS_L(NDIM)
          real(kind=RP)     :: flux_vecR(NCONS,NDIM), tauSGS_R(NDIM, NDIM), qSGS_R(NDIM)
          real(kind=RP)     :: mu, kappa, delta, sigma
@@ -761,8 +785,8 @@ module EllipticIP
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
          
-         call ViscousFlux(QLeft , U_xLeft , U_yLeft , U_zLeft , mu, kappa, tauSGS_L, qSGS_L, flux_vecL)
-         call ViscousFlux(QRight, U_xRight, U_yRight, U_zRight, mu, kappa, tauSGS_R, qSGS_R, flux_vecR)
+         call ViscousFlux(NCONS, NGRAD, QLeft , U_xLeft , U_yLeft , U_zLeft , mu, kappa, tauSGS_L, qSGS_L, flux_vecL)
+         call ViscousFlux(NCONS, NGRAD, QRight, U_xRight, U_yRight, U_zRight, mu, kappa, tauSGS_R, qSGS_R, flux_vecR)
          
          flux_vec = 0.5_RP * (flux_vecL + flux_vecR)
 !

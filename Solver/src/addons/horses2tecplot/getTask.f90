@@ -26,15 +26,13 @@ module getTask
    
    private
    public   MESH_2_PLT, SOLUTION_2_PLT, UNKNOWN_JOB
-   public   SOLUTION_CAHNHILLIARD_2_PLT
-   public   EXPORT_GAUSS, EXPORT_HOMOGENEOUS
+   public   EXPORT_GAUSS, EXPORT_HOMOGENEOUS, OUTPUT_VARIABLES_FLAG
 
    public   getTaskType
 
    integer, parameter   :: UNKNOWN_JOB = 0
    integer, parameter   :: MESH_2_PLT = 1
    integer, parameter   :: SOLUTION_2_PLT = 2
-   integer, parameter   :: SOLUTION_CAHNHILLIARD_2_PLT = 3
    
    integer, parameter   :: EXPORT_GAUSS = 0
    integer, parameter   :: EXPORT_HOMOGENEOUS = 1
@@ -244,12 +242,6 @@ module getTask
             end if
 
          end if
-!
-!        ******************************************
-!        Get output variables
-!        ******************************************
-!
-         call getOutputVariables(OUTPUT_VARIABLES_FLAG)
 
       end function getTaskType
 end module getTask

@@ -2,8 +2,9 @@
 #if defined(NAVIERSTOKES)
 module HyperbolicSplitForm
    use SMConstants
-   use RiemannSolvers
+   use RiemannSolvers_NS
    use HyperbolicDiscretizationClass
+   use FluidData
    implicit none
 
    private
