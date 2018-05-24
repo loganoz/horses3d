@@ -21,12 +21,13 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 module MatrixFreeGMRESClass
-   use GenericLinSolverClass
-   use SMConstants
-   use DGSEMClass
-   use FTValueDictionaryClass
-   use MatrixClass
-   use PhysicsStorage
+   use GenericLinSolverClass , only: GenericLinSolver_t, MatrixShift_FCN, MatrixShift
+   use SMConstants           , only: RP, STD_OUT, LINE_LENGTH
+   use DGSEMClass            , only: DGSem, ComputeQDot_FCN
+   use FTValueDictionaryClass, only: FTValueDictionary
+   use MatrixClass           , only: DenseBlockDiagMatrix_t
+   use PhysicsStorage        , only: NTOTALVARS, NTOTALGRADS
+   use AnalyticalJacobian    , only: AnalyticalJacobian_Compute
    implicit none
    
    private
@@ -106,8 +107,8 @@ module MatrixFreeGMRESClass
 
    abstract interface
       subroutine matmultsub(v,x, ComputeTimeDerivative)
-         use SMConstants
-         use DGSEMClass, only: ComputeQDot_FCN
+         use SMConstants, only: RP
+         use DGSEMClass,  only: ComputeQDot_FCN
          real(kind = RP), intent(in)         :: v(:)
          real(kind = RP), intent(out)        :: x(:)
          procedure(ComputeQDot_FCN)          :: ComputeTimeDerivative
@@ -128,7 +129,6 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       recursive subroutine ConstructSolver(this,DimPrb,controlVariables, sem,MatrixShiftFunc)
-         use PhysicsStorage
          implicit none
          !------------------------------------------------
          class(MatFreeGMRES_t)  , intent(inout), target :: this
@@ -547,7 +547,6 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ! 
       recursive subroutine SolveGMRES(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter,time,dt,computeA)
-         use AnalyticalJacobian
          implicit none
          !----------------------------------------------------
          class(MatFreeGMRES_t), intent(inout)      :: this
@@ -667,7 +666,6 @@ contains
 !     Returns the preconditioning product   Pv = P⁻¹ * v for the Block-Jacobi preconditioner
 !     --------------------------------------------------------------------------------------
       subroutine PC_BlockJacobi_Ax(this, v, Pv)
-         use DenseMatUtilities
          implicit none
          !---------------------------------------------------------
          class(MatFreeGMRES_t), intent(inout) :: this

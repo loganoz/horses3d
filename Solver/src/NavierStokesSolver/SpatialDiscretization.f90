@@ -49,7 +49,8 @@ module SpatialDiscretization
 
          SUBROUTINE computeBoundaryFluxF(f, time, externalStateProcedure , externalGradientsProcedure)
             use SMConstants
-            use FaceClass
+            use FaceClass,  only: Face
+            use DGSEMClass, only: BCState_FCN, BCGradients_FCN
             IMPLICIT NONE
             type(Face),    intent(inout) :: f
             REAL(KIND=RP)                :: time
