@@ -414,7 +414,7 @@ module EllipticIP
          integer,    intent(in)           :: nGradEqn
          real(kind=RP)                    :: time
          procedure(GetGradientValues0D_f) :: GetGradients
-         external                         :: externalState
+         procedure(BCState_FCN)           :: externalState
 !
 !        ---------------
 !        Local variables
@@ -428,7 +428,7 @@ module EllipticIP
 
             bvExt =  f % storage(1) % Q(:,i,j)
    
-            call externalState( f % geom % x(:,i,j), &
+            call externalState( nEqn, f % geom % x(:,i,j), &
                                 time               , &
                                 f % geom % normal(:,i,j)      , &
                                 bvExt              , &

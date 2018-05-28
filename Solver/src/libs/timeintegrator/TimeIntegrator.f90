@@ -300,7 +300,6 @@ end interface
       INTEGER                       :: k, mNumber
       CHARACTER(LEN=13)             :: fName = "Movie_XX.tec"
       CHARACTER(LEN=2)              :: numChar
-      EXTERNAL                      :: ExternalState, ExternalGradients
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName
       ! Time-step solvers:
       type(FASMultigrid_t)          :: FASSolver

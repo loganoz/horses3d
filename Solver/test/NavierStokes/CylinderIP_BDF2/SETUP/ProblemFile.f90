@@ -312,7 +312,7 @@
 !           ---------------
 !
 #if defined(NAVIERSTOKES)
-            CHARACTER(LEN=29)                  :: testName           = "Re 200 Cylinder with IP+BDF2"
+            CHARACTER(LEN=29)                  :: testName           = "Re 48 Cylinder with IP+BDF2"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
@@ -339,12 +339,12 @@
 !           ------------------------------------------------
 !
             INTEGER                            :: iterations(3:7) = [2, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [28.487331367996440_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [28.487302073315337_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
                                                                0E-011_RP, 0E-011_RP, &
                                                                0E-011_RP]
-            real(kind=RP), parameter           :: wake_u = -4.5283579994625125E-006_RP
-            real(kind=RP), parameter           :: cd =  4.8745508281618442_RP
-            real(kind=RP), parameter           :: cl = -5.8518911524862993E-005_RP
+            real(kind=RP), parameter           :: wake_u = -4.5279938812418286E-006_RP
+            real(kind=RP), parameter           :: cd =  4.8745508140898473_RP
+            real(kind=RP), parameter           :: cl = -5.8527394968255209E-005_RP
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 
@@ -353,7 +353,7 @@
             
             CALL FTAssertEqual(expectedValue = iterations(N), &
                                actualValue   = iter, &
-                               msg           = "Number of time steps to tolerance")
+                               msg           = "Number of time steps")
 
             CALL FTAssertEqual(expectedValue = 0.01_RP * residuals(N), &
                                actualValue   = 0.01_RP * maxResidual, &

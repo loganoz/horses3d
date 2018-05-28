@@ -740,7 +740,8 @@ stop
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
-         external                   :: externalState, externalGradients
+         procedure(BCState_FCN)     :: externalState
+         procedure(BCGradients_FCN) :: externalGradients
 !
 !        ---------------
 !        Local variables
@@ -859,7 +860,8 @@ stop
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
-         external                   :: externalState, externalGradients
+         procedure(BCState_FCN)     :: externalState
+         procedure(BCGradients_FCN) :: externalGradients
 !
 !        ---------------
 !        Local variables
@@ -1136,8 +1138,8 @@ stop
 !
       type(Face),    intent(inout) :: f
       REAL(KIND=RP)                :: time
-      procedure(BCState_FCN)     :: externalState
-      procedure(BCGradients_FCN) :: externalGradients
+      procedure(BCState_FCN)     :: externalStateProcedure
+      procedure(BCGradients_FCN) :: externalGradientsProcedure
 !
 !     ---------------
 !     Local variables
@@ -1159,11 +1161,12 @@ stop
 !
       do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
          f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
-         CALL externalStateProcedure( f % geom % x(:,i,j), &
+         CALL externalStateProcedure( NCOMP, f % geom % x(:,i,j), &
                                       time, &
                                       f % geom % normal(:,i,j), &
                                       f % storage(2) % Q(:,i,j),&
-                                      boundaryType )
+                                      boundaryType, &
+                                      f % boundaryName )
 
       end do               ; end do
 
@@ -1172,11 +1175,12 @@ stop
          UGradExt(IY,:) = f % storage(1) % U_y(:,i,j)
          UGradExt(IZ,:) = f % storage(1) % U_z(:,i,j)
 
-         CALL externalGradientsProcedure(  f % geom % x(:,i,j), &
+         CALL externalGradientsProcedure(  NCOMP, f % geom % x(:,i,j), &
                                            time, &
                                            f % geom % normal(:,i,j), &
                                            UGradExt,&
-                                           boundaryType )
+                                           boundaryType, &
+                                           f % boundaryName )
 
          f % storage(1) % U_x(:,i,j) = UGradExt(IX,:)
          f % storage(1) % U_y(:,i,j) = UGradExt(IY,:)
