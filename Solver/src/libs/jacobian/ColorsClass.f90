@@ -1,7 +1,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      Implicit_NJ.f90
+!      ColorsClass.f90
 !      Created: 2017-03-17 15:21:00 +0100 
 !      By:  Carlos Redondo (module for 2D) 
 !           Andrés Rueda   (3D implementation and changes) 

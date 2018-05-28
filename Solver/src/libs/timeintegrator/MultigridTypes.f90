@@ -1,9 +1,9 @@
 module MultigridTypes
    use SMConstants
-   use HexMeshClass
-   use InterpolationMatrices
+   use HexMeshClass              , only: HexMesh
+   use InterpolationMatrices     , only: ConstructInterpolationMatrices
    use TimeIntegratorDefinitions
-   use DGSEMClass
+   use DGSEMClass                , only: ComputeMaxResiduals
    implicit none
    
    public 

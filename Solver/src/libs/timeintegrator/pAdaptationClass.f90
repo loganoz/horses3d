@@ -16,15 +16,15 @@
 !
 module pAdaptationClass
    use SMConstants
-   use InterpolationMatrices, only: Tset, Interp3DArrays, ConstructInterpolationMatrices
-   use PhysicsStorage       , only: NTOTALVARS
-   use FaceClass            , only: Face
+   use InterpolationMatrices  , only: Tset, Interp3DArrays, ConstructInterpolationMatrices
+   use PhysicsStorage         , only: NTOTALVARS
+   use FaceClass              , only: Face
    use ElementClass
-   use DGSEMClass
+   use DGSEMClass             , only: DGSem, BCFunctions_t, BCState_FCN, BCGradients_FCN, ComputeQdot_FCN, no_of_BCsets
    use TruncationErrorClass
-   use FTValueDictionaryClass
+   use FTValueDictionaryClass , only: FTValueDictionary
    use StorageClass
-   use SharedBCModule
+   use SharedBCModule         , only: conformingBoundariesDic
 #if defined(CAHNHILLIARD)
    use BoundaryConditionFunctions, only: C_BC, MU_BC
 #endif
@@ -85,7 +85,7 @@ module pAdaptationClass
    integer    :: nelem           ! number of elements in mesh
    
 #if defined(NAVIERSTOKES)
-   procedure(BCState_FCN)   :: externalStateForBoundaryName_NS
+   procedure(BCState_FCN)       :: externalStateForBoundaryName_NS
    procedure(BCGradients_FCN)   :: ExternalGradientForBoundaryName_NS
 #elif defined(CAHNHILLIARD)
    procedure(BCState_FCN)   :: externalStateForBoundaryName
@@ -615,7 +615,7 @@ module pAdaptationClass
 !     Store the previous solution
 !     ---------------------------
 !
-      call Temp1DStor % Construct(sem % mesh % storage % NDOF, 0)
+      call Temp1DStor % Construct(sem % mesh % storage % NDOF, 1)
       firstIdx = 1
       allocate (TempStorage(nelem))
       do iEl = 1, nelem
@@ -662,7 +662,7 @@ module pAdaptationClass
             ! Interpolate solution to new solution storage
             !---------------------------------------------
             
-            call Interp3DArrays  (Nvars      = NTOTALVARS                                  , & ! TODO: check if this is correct for CHNS
+            call Interp3DArrays  (Nvars      = NTOTALVARS                                  , & ! TODO: check if this holds for CHNS
                                   Nin        = NOld(:,iEl)                                 , &
                                   inArray    = TempStorage(iEl) % Q , &
                                   Nout       = NNew(:,iEl)                                 , &

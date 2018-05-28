@@ -145,8 +145,6 @@ Module DGSEMClass
       INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
       logical, optional                  :: ChildSem                           !<  Is this a (multigrid) child sem?
-      procedure(BCState_FCN)             :: externalState
-      procedure(BCGradients_FCN)         :: externalGradients
 !
 !     ---------------
 !     Local variables

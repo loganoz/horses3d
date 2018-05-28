@@ -832,7 +832,7 @@ module FASMultigridClass
       integer                              :: lvl
       !-----------------------------------------------------------
       
-      ! First go to finest level
+      ! First go to coarsest level
       if (lvl > 1) call RecursiveDestructor(Solver % Child,lvl-1)
       
       !Destruct Multigrid storage
