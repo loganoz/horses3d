@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (a.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Sat May 12 21:51:11 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0a98ff59a5332051367a2a5c89543fa1ed797190
+!   @Last revision date: Wed May 23 12:57:27 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
 !
 !//////////////////////////////////////////////////////
 !
@@ -364,7 +364,7 @@ contains
 !     Viscous contribution
 !     ********************
 !
-      if (flowIsNavierStokes) call EllipticDiscretization % RiemannSolver_Jacobians(f)  ! TODO: Check if external gradient has to be taken into account
+      if (flowIsNavierStokes) call ViscousDiscretization % RiemannSolver_Jacobians(f)  ! TODO: Check if external gradient has to be taken into account
 !
 !     **************************************************************
 !     Correct dFstar/dQL with the Jacobian of the boundary condition
@@ -429,7 +429,7 @@ contains
          
       end do             ; end do
       
-      if (flowIsNavierStokes) call EllipticDiscretization % RiemannSolver_Jacobians(f)
+      if (flowIsNavierStokes) call ViscousDiscretization % RiemannSolver_Jacobians(f)
       
    end subroutine ComputeInterfaceFluxJacobian
 !
@@ -526,7 +526,7 @@ contains
 !     *********************
 !
       call HyperbolicDiscretization % ComputeInnerFluxJacobian( e, dFdQ) 
-      if (flowIsNavierStokes) call EllipticDiscretization % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
+      if (flowIsNavierStokes) call ViscousDiscretization % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
       
       LocalMat = 0._RP
       do k2 = 0, e % Nxyz(3) ; do j2 = 0, e % Nxyz(2) ; do i2 = 0, e % Nxyz(1) ; do eq2 = 1, NCONS 
