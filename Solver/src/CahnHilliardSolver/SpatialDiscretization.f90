@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Thu May 24 12:03:10 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
+!   @Last revision date: Tue May 29 17:43:55 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 3c1e755ecd17ea60f252dec3daa7823c04603dcd
 !
 !//////////////////////////////////////////////////////
 !
@@ -110,7 +110,7 @@ module SpatialDiscretization
 
          end select
 
-         call CHDiscretization % Construct(controlVariables, CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D, GetCHViscosity)
+         call CHDiscretization % Construct(controlVariables, CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D, GetCHViscosity, "CH")
          call CHDiscretization % Describe
 !
 !        Compute wall distances

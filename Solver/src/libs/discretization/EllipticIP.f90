@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Thu May 24 12:03:18 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
+!   @Last revision date: Tue May 29 17:43:58 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 3c1e755ecd17ea60f252dec3daa7823c04603dcd
 !
 !//////////////////////////////////////////////////////
 !
@@ -36,13 +36,13 @@ module EllipticIP
    integer, parameter   :: NIPG = 1
 
    type, extends(EllipticDiscretization_t)   :: InteriorPenalty_t
+      procedure(PenaltyParameter_f), pointer   :: PenaltyParameter
       real(kind=RP)        :: sigma = 1.0_RP
       integer              :: IPmethod = SIPG
       contains
          procedure      :: Construct              => IP_Construct
          procedure      :: ComputeGradient         => IP_ComputeGradient
          procedure      :: ComputeInnerFluxes      => IP_ComputeInnerFluxes
-         procedure      :: PenaltyParameter        => IP_PenaltyParameter
          procedure      :: RiemannSolver           => IP_RiemannSolver
 #if defined(NAVIERSTOKES)
          procedure      :: ComputeInnerFluxesWithSGS => IP_ComputeInnerFluxesWithSGS
@@ -51,12 +51,24 @@ module EllipticIP
 #endif
          procedure      :: Describe                => IP_Describe
    end type InteriorPenalty_t
+
+   abstract interface
+      function PenaltyParameter_f(self, f)
+         use SMConstants
+         use FaceClass
+         import InteriorPenalty_t
+         implicit none
+         class(InteriorPenalty_t)   :: self
+         class(Face), intent(in)    :: f
+         real(kind=RP)              :: PenaltyParameter_f
+      end function PenaltyParameter_f
+   end interface
 !
 !  ========
    contains
 !  ========
 !
-      subroutine IP_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D, GetViscosity)
+      subroutine IP_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D, GetViscosity, eqname)
          use FTValueDictionaryClass
          use Utilities, only: toLower
          use mainKeywordsModule
@@ -69,11 +81,13 @@ module EllipticIP
          procedure(EllipticFlux2D_f)           :: EllipticFlux2D
          procedure(EllipticFlux3D_f)           :: EllipticFlux3D
          procedure(GetViscosity_f)             :: GetViscosity
+         character(len=*),         intent(in)  :: eqname
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
+         character(len=LINE_LENGTH)            :: eqnameaux
          character(len=LINE_LENGTH)            :: IPvariant
 !
 !        ----------------------------------------------------------
@@ -84,6 +98,25 @@ module EllipticIP
          self % EllipticFlux2D => EllipticFlux2D
          self % EllipticFlux3D => EllipticFlux3D
          self % GetViscosity   => GetViscosity
+
+         eqnameaux = eqname
+         call tolower(eqnameaux)
+         select case(trim(eqnameaux))
+         case("ns")
+            self % PenaltyParameter => PenaltyParameterNS
+
+         case("ch")
+            self % PenaltyParameter => PenaltyParameterCH
+
+         case default
+            print*, "Unrecognized equation name."
+            print*, "Options available are:"
+            print*, "   * NS"
+            print*, "   * CH"    
+            errorMessage(STD_OUT)
+            stop
+
+         end select
 !
 !        Request the penalty parameter
 !        -----------------------------
@@ -473,13 +506,23 @@ module EllipticIP
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
 
-#if defined(NAVIERSTOKES)
-         mu    = dimensionless % mu
-         kappa = dimensionless % kappa
+#if defined(CAHNHILLIARD)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            call self % GetViscosity(e % storage % c(1,i,j,k), mu(i,j,k))      
+         end do                ; end do                ; end do
 #else
-         mu = 0.0_RP
+         mu = dimensionless % mu
+
+#endif
+
+#if defined(NAVIERSTOKES)
+         kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
+                               POW2( dimensionless % Mach) * dimensionless % Pr ) * mu
+#else
          kappa = 0.0_RP
 #endif
+
+
 
          call self % EllipticFlux3D( nEqn, nGradEqn, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
 
@@ -563,24 +606,29 @@ module EllipticIP
 !     ----------------------------------------
 !     Function to get the IP penalty parameter
 !     ----------------------------------------
-      function IP_PenaltyParameter(self,f) result(sigma)
+      function PenaltyParameterNS(self, f)
          use FaceClass
          implicit none
-         !-----------------------------------------
-         class(InteriorPenalty_t)  :: self
-         class(Face)  , intent(in) :: f      !<  Face
-         real(kind=RP)             :: sigma  !>  IP penalty parameter
-         !-----------------------------------------
-!
-!        Shahbazi estimate
-!        -----------------
-#if defined(NAVIERSTOKES)
-         sigma = 0.5_RP  * self % sigma * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
-#elif defined(CAHNHILLIARD)
-         sigma = 0.25_RP * self % sigma * (maxval(f % Nf))  *(maxval(f % Nf)+1) / f % geom % h 
-#endif
-         
-      end function IP_PenaltyParameter
+         class(InteriorPenalty_t)   :: self
+         class(Face), intent(in)    :: f
+         real(kind=RP)              :: PenaltyParameterNS
+
+         PenaltyParameterNS = 0.5_RP*self % sigma * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
+
+      end function PenaltyParameterNS
+
+      function PenaltyParameterCH(self, f)
+         use FaceClass
+         implicit none
+         class(InteriorPenalty_t)   :: self
+         class(Face), intent(in)    :: f
+         real(kind=RP)              :: PenaltyParameterCH
+
+         PenaltyParameterCH = 0.5_RP*self % sigma * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h 
+         !PenaltyParameterCH = 0.25_RP * self % sigma * (maxval(f % Nf))  *(maxval(f % Nf)+1) / f % geom % h 
+
+      end function PenaltyParameterCH
+
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

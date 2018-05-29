@@ -264,6 +264,8 @@ Module DGSEMClass
             dir2D = 2
          case("z")
             dir2D = 3
+         case("3d")
+            dir2D = 0
          case default
             print*, "Unrecognized 2D mesh offset direction"
             stop

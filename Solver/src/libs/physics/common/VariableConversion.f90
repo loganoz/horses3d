@@ -4,12 +4,13 @@
 !   @File:    VariableConversion.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Thu May 24 12:03:20 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
+!   @Last revision date: Tue May 29 17:43:59 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 3c1e755ecd17ea60f252dec3daa7823c04603dcd
 !
 !//////////////////////////////////////////////////////
 !
+#include "Includes.h"
 module VariableConversion
 #if defined(NAVIERSTOKES)
    use VariableConversion_NS
@@ -44,8 +45,18 @@ module VariableConversion
          implicit none
          real(kind=RP), intent(in)     :: phi
          real(kind=RP), intent(out)    :: mu
+!
+!        ---------------
+!        Local variables         
+!        ---------------
+!
+         real(kind=RP)  :: cIn01, p
+
+         cIn01 = 0.5_RP * (phi + 1.0_RP)
+         p = POW3(cIn01) * (6.0_RP * POW2(cIn01) - 15.0_RP * cIn01 + 10.0_RP)
+
 #if (defined(CAHNHILLIARD) && defined(NAVIERSTOKES))
-         mu = 0.5_RP * dimensionless % mu * (1.0_RP - phi + multiphase % viscRatio * (1.0_RP + phi))
+         mu = dimensionless % mu * ( (1.0_RP - p) + (p)*multiphase % viscRatio)
 #else
          mu = 0.0_RP
 #endif

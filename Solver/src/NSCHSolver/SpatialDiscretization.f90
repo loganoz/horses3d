@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Thu May 24 12:03:15 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
+!   @Last revision date: Tue May 29 17:43:55 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 3c1e755ecd17ea60f252dec3daa7823c04603dcd
 !
 !//////////////////////////////////////////////////////
 !
@@ -186,12 +186,12 @@ module SpatialDiscretization
 
                end select
 
-               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D, GetNSCHViscosity)
+               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D, GetNSCHViscosity, "NS")
                call ViscousDiscretization % Describe
       
             else
                if (.not. allocated(ViscousDiscretization)) allocate(EllipticDiscretization_t :: ViscousDiscretization)
-               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D, GetNSCHViscosity)
+               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D, GetNSCHViscosity, "NS")
                
             end if
 
@@ -233,7 +233,7 @@ module SpatialDiscretization
    
             end select
    
-            call CHDiscretization % Construct(controlVariables, CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D, GetCHViscosity)
+            call CHDiscretization % Construct(controlVariables, CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D, GetCHViscosity, "CH")
             call CHDiscretization % Describe
          
          end if
@@ -273,6 +273,21 @@ module SpatialDiscretization
          class(Element), pointer    :: e
          INTEGER :: k, eID, fID, i, j
 !
+!        -----------------------------------------
+!        Prolongation of the solution to the faces
+!        -----------------------------------------
+!
+!$omp parallel shared(mesh, time) private(k, eID, fID, i, j)
+!
+!        **********************************
+!        Project the concentration to faces (it is used to estimate the viscosity)
+!        **********************************
+!
+!$omp single
+         call mesh % SetStorageToEqn(2)
+!$omp end single
+         call mesh % ProlongSolutionToFaces(NCOMP)
+!
 !        *****************************
 !        Obtain the NS time derivative
 !        *****************************
@@ -280,12 +295,7 @@ module SpatialDiscretization
 !$omp single
          call mesh % SetStorageToEqn(1)
 !$omp end single
-!
-!        -----------------------------------------
-!        Prolongation of the solution to the faces
-!        -----------------------------------------
-!
-!$omp parallel shared(mesh, time) private(k, eID, fID, i, j)
+
          call mesh % ProlongSolutionToFaces(NCONS)
 !        ----------------
 !        Update MPI Faces
@@ -339,12 +349,6 @@ stop
          call mesh % SetStorageToEqn(2)
 !$omp end single
 !
-!        -----------------------------------------
-!        Prolongation of the solution to the faces
-!        -----------------------------------------
-!
-         call mesh % ProlongSolutionToFaces(NCOMP)
-!
 !        ----------------
 !        Update MPI Faces
 !        ----------------
@@ -358,7 +362,7 @@ stop
 #endif
 !
 !        -----------------
-!        Compute gradients
+!        Compute gradients: prolongation has already been performe: prolongation has already been performedd
 !        -----------------
 !
          call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
@@ -1155,7 +1159,7 @@ stop
 !      
                call ViscousDiscretization % GetViscosity(f % storage(1) % c(1,i,j), muL)
                call ViscousDiscretization % GetViscosity(f % storage(2) % c(1,i,j), muR)
-               mu = 0.5_RP * (muL + muR)
+               mu = max(muL, muR)
 
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
@@ -1257,7 +1261,7 @@ stop
 !      
                call ViscousDiscretization % GetViscosity(f % storage(1) % c(1,i,j), muL)
                call ViscousDiscretization % GetViscosity(f % storage(2) % c(1,i,j), muR)
-               mu = 0.5_RP * (muL + muR)
+               mu = max(muL, muR)
 
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
@@ -1370,7 +1374,7 @@ stop
 !   
             call ViscousDiscretization % GetViscosity(f % storage(1) % c(1,i,j), muL)
             call ViscousDiscretization % GetViscosity(f % storage(2) % c(1,i,j), muR)
-            mu = 0.5_RP * (muL + muR)
+            mu = max(muL, muR)
 
             CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                f = f, &

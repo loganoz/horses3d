@@ -4,9 +4,9 @@
 !   @File:    EllipticBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Thu May 24 12:03:17 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
+!   @Last revision date: Tue May 29 17:43:57 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 3c1e755ecd17ea60f252dec3daa7823c04603dcd
 !
 !//////////////////////////////////////////////////////
 !
@@ -49,7 +49,7 @@ module EllipticBR2
    contains
 !  ========
 !
-      subroutine BR2_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D, GetViscosity)
+      subroutine BR2_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D, GetViscosity, eqname)
          use FTValueDictionaryClass
          use mainKeywordsModule
          use MPI_Process_Info
@@ -61,6 +61,7 @@ module EllipticBR2
          procedure(EllipticFlux2D_f)           :: EllipticFlux2D
          procedure(EllipticFlux3D_f)           :: EllipticFlux3D
          procedure(GetViscosity_f)             :: GetViscosity
+         character(len=*), intent(in)          :: eqname
 !
 !        ---------------
 !        Local variables

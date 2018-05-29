@@ -176,12 +176,12 @@ module SpatialDiscretization
 
                end select
 
-               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D, GetNSViscosity)
+               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D, GetNSViscosity, "NS")
                call ViscousDiscretization % Describe
       
             else
                if (.not. allocated(ViscousDiscretization)) allocate(EllipticDiscretization_t :: ViscousDiscretization)
-               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D, GetNSViscosity)
+               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D, GetNSViscosity, "NS")
                
             end if
 
@@ -701,7 +701,6 @@ module SpatialDiscretization
             DO i = 0, f % Nf(1)
 
                call ViscousDiscretization % GetViscosity(0.0_RP, mu)
-
 !      
 !              --------------
 !              Viscous fluxes
@@ -806,6 +805,7 @@ module SpatialDiscretization
 !              --------------
 !      
                call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
@@ -918,6 +918,7 @@ module SpatialDiscretization
 !           --------------
 !   
             call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+
             CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                f = f, &
                                                QLeft = f % storage(1) % Q(:,i,j), &

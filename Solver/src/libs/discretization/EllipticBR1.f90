@@ -408,6 +408,7 @@ module EllipticBR1
          end do                ; end do                ; end do
 #else
          mu = dimensionless % mu
+
 #endif
 
 #if defined(NAVIERSTOKES)

@@ -89,7 +89,7 @@ module EllipticDiscretizationClass
    contains
 !  ========
 !
-      subroutine BaseClass_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D, GetViscosity)
+      subroutine BaseClass_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D, GetViscosity, eqname)
          use FTValueDictionaryClass
          use mainKeywordsModule
          use Headers
@@ -102,6 +102,7 @@ module EllipticDiscretizationClass
          procedure(EllipticFlux2D_f)           :: EllipticFlux2D
          procedure(EllipticFlux3D_f)           :: EllipticFlux3D
          procedure(GetViscosity_f)             :: GetViscosity
+         character(len=*), intent(in)          :: eqname
 !
 !        ----------------------------------------------------------
 !        Set the particular procedures to compute the elliptic flux
