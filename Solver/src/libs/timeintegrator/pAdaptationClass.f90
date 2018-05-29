@@ -25,6 +25,8 @@ module pAdaptationClass
    use FTValueDictionaryClass
    use StorageClass
    use SharedBCModule
+   use FileReadingUtilities , only: RemovePath, getFileName
+   use FileReaders          , only: ReadOrderFile
 #if defined(CAHNHILLIARD)
    use BoundaryConditionFunctions, only: C_BC, MU_BC
 #endif
@@ -58,19 +60,6 @@ module pAdaptationClass
 !~         procedure :: plot      => AdaptationPlotting
          procedure :: pAdaptTE
    end type pAdaptation_t
-   
-   interface
-      character(len=LINE_LENGTH) function RemovePath( inputLine )
-         use SMConstants
-         implicit none
-         character(len=*)     :: inputLine
-      end function RemovePath
-      character(len=LINE_LENGTH) function getFileName( inputLine )
-         use SMConstants
-         implicit none
-         character(len=*)     :: inputLine
-      end function getFileName
-   end interface
 !
 !  ----------------
 !  Module variables
@@ -147,35 +136,6 @@ module pAdaptationClass
       Nmax = max(Nmax,maxval(Nx),maxval(Ny),maxval(Nz))
       
       end subroutine GetMeshPolynomialOrders
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   subroutine ReadOrderFile(filename, Nx, Ny, Nz)
-      implicit none
-!
-!     ----------------------------------------------------------------------
-!     Subroutine that reads input file containing polynomial orders for mesh
-!     ----------------------------------------------------------------------
-!
-      character(len=*), intent(in) :: filename          !<  Name of file containing polynomial orders to initialize
-      integer, allocatable         :: Nx(:),Ny(:),Nz(:) !>  Polynomial orders for each element
-      !------------------------------------------
-      integer                      :: fd       ! File unit
-      integer                      :: nelem    ! Number of elements
-      integer                      :: i        ! counter
-      !------------------------------------------
-      
-      open(newunit = fd, FILE = filename )   
-         READ(fd,*) nelem
-         
-         allocate(Nx(nelem),Ny(nelem),Nz(nelem))
-         
-         do i = 1, nelem
-            READ(fd,*) Nx(i), Ny(i), Nz(i)
-         ENDDO
-      close(UNIT=fd)
-      
-   end subroutine ReadOrderFile
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

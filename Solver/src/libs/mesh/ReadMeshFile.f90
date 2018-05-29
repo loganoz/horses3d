@@ -3,6 +3,7 @@ module ReadMeshFile
    use Read_HDF5Mesh_HOPR
    use Read_SpecMesh
    use HexMeshClass
+   use FileReadingUtilities, only: getFileExtension
    implicit none
 
    private
@@ -22,13 +23,6 @@ contains
       !---------------------------------------------------------------
       character(len=LINE_LENGTH) :: ext
       !---------------------------------------------------------------
-      interface
-         character(len=LINE_LENGTH) function getFileExtension( inputLine )
-            use SMConstants
-            implicit none
-            character(len=*)     :: inputLine
-         end function getFileExtension
-      end interface
       
       ext = getFileExtension(trim(filename))
       
@@ -52,14 +46,6 @@ contains
       !---------------------------------------------------------------
       character(len=LINE_LENGTH) :: ext
       !---------------------------------------------------------------
-      
-      interface
-         character(len=LINE_LENGTH) function getFileExtension( inputLine )
-            use SMConstants
-            implicit none
-            character(len=*)     :: inputLine
-         end function getFileExtension
-      end interface
       
       ext = getFileExtension(trim(filename))
       

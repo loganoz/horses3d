@@ -14,6 +14,7 @@ module TruncationErrorClass
    use FTValueDictionaryClass    , only: FTValueDictionary
    use PhysicsStorage            , only: NCONS, NDIM, Thermodynamics, RefValues, Dimensionless
    use NodalStorageClass         , only: NodalStorage
+   use FileReadingUtilities      , only: RemovePath
 #if defined(CAHNHILLIARD)
    use BoundaryConditionFunctions, only: C_BC, MU_BC
 #endif
@@ -71,11 +72,6 @@ module TruncationErrorClass
          type(Dimensionless_t),     intent(in)  :: dimensionless_
          type(RefValues_t),         intent(in)  :: refValues_
       end subroutine UserDefinedSourceTerm
-      character(len=LINE_LENGTH) function RemovePath( inputLine )
-         use SMConstants
-         implicit none
-         character(len=*)     :: inputLine
-      end function RemovePath
    end interface
 !
 !  ----------------

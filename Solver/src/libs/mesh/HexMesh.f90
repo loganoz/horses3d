@@ -26,6 +26,7 @@ MODULE HexMeshClass
       use MPI_Process_Info
       use MPI_Face_Class
       use StorageClass
+      use FileReadingUtilities, only: RemovePath, getFileName
 #if defined(NAVIERSTOKES)
       use WallDistance
 #endif
@@ -2109,20 +2110,6 @@ slavecoord:                DO l = 1, 4
          integer        :: fID, eID, pos
          character(len=LINE_LENGTH)    :: meshName
          real(kind=RP), parameter      :: refs(NO_OF_SAVED_REFS) = 0.0_RP
-         interface
-            character(len=LINE_LENGTH) function RemovePath( inputLine )
-               use SMConstants
-               implicit none
-               character(len=*)     :: inputLine
-            end function RemovePath
-      
-            character(len=LINE_LENGTH) function getFileName( inputLine )
-               use SMConstants
-               implicit none
-               character(len=*)     :: inputLine
-            end function getFileName
-         end interface
-
             
 !
 !        Create file: it will be contained in ./MESH
@@ -2162,20 +2149,6 @@ slavecoord:                DO l = 1, 4
          integer                          :: fd       ! File unit
          integer                          :: k
          character(len=LINE_LENGTH)       :: OrderFileName
-         !------------------------------------------
-         interface
-            character(len=LINE_LENGTH) function RemovePath( inputLine )
-               use SMConstants
-               implicit none
-               character(len=*)     :: inputLine
-            end function RemovePath
-      
-            character(len=LINE_LENGTH) function getFileName( inputLine )
-               use SMConstants
-               implicit none
-               character(len=*)     :: inputLine
-            end function getFileName
-         end interface
          !------------------------------------------
             
 !

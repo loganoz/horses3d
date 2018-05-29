@@ -21,6 +21,7 @@ MODULE Read_SpecMesh
       use HexMeshClass
       use sharedBCModule
       use PhysicsStorage
+      use FileReadingUtilities      , only: getFileName
       implicit none
       
       private
@@ -387,13 +388,6 @@ MODULE Read_SpecMesh
          real(kind=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
          real(kind=RP)  , DIMENSION(3,2,2) :: valuesFlat
          character(len=LINE_LENGTH)        :: partitionName
-         interface
-            character(len=LINE_LENGTH) function getFileName( inputLine )
-               use SMConstants
-               implicit none
-               character(len=*)     :: inputLine
-            end function getFileName
-         end interface
 
          success               = .TRUE.
 !

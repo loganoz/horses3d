@@ -28,6 +28,7 @@ Module DGSEMClass
    use ElementClass
    USE HexMeshClass
    USE PhysicsStorage
+   use FileReadingUtilities      , only: getFileName
 #if defined(NAVIERSTOKES)
    USE ManufacturedSolutions
 #endif
@@ -475,11 +476,6 @@ Module DGSEMClass
                type(Dimensionless_t),  intent(in)  :: dimensionless_
                type(RefValues_t),      intent(in)  :: refValues_
             END SUBROUTINE UserDefinedInitialCondition
-            character(len=LINE_LENGTH) function getFileName( inputLine )
-               use SMConstants
-               implicit none
-               character(len=*)     :: inputLine
-            end function getFileName
          end interface
 
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN

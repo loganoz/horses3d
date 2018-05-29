@@ -7,13 +7,23 @@
 !
 !///////////////////////////////////////////////////////////////////////
 !
+module FileReadingUtilities
+   USE SMConstants
+   use RealDataLinkedList
+   implicit none
+   
+   public
+   
+contains
+!
+!///////////////////////////////////////////////////////////////////////
+!
 !     ----------------------------------------------------------------
 !!    Extracts the string at the left of the =, which corresponds to
 !!    the keyword for an input value.
 !     ----------------------------------------------------------------
 !
       CHARACTER( LEN=LINE_LENGTH ) FUNCTION GetKeyword( inputLine )
-         USE SMConstants
          IMPLICIT NONE
 !
          CHARACTER ( LEN = * )          :: inputLine
@@ -33,7 +43,6 @@
 !     ----------------------------------------------------------------
 !
       CHARACTER( LEN=LINE_LENGTH ) FUNCTION GetValueAsString( inputLine )
-         USE SMConstants
          IMPLICIT NONE
 !
          CHARACTER ( LEN = * ) :: inputLine
@@ -61,7 +70,6 @@
 !     ----------------------------------------------------------------
 !
       INTEGER FUNCTION GetRealValue( inputLine )
-         USE SMConstants
          IMPLICIT NONE
 !
          CHARACTER ( LEN = * ) :: inputLine
@@ -83,7 +91,6 @@
 !     ----------------------------------------------------------------
 !
       FUNCTION GetRealArray( inputLine ) RESULT(x)
-         USE SMConstants
          IMPLICIT NONE
 !
          REAL(KIND=RP), DIMENSION(2) :: x
@@ -146,7 +153,6 @@
 !     ----------------------------------------------------------------
 !
       CHARACTER( LEN=LINE_LENGTH ) FUNCTION GetStringValue( inputLine )
-         USE SMConstants
          IMPLICIT NONE
 !
          CHARACTER ( LEN = * ) :: inputLine
@@ -180,7 +186,6 @@
       END FUNCTION GetLogicalValue
 
       character(len=LINE_LENGTH) function RemovePath( inputLine )
-         use SMConstants
          implicit none
          character(len=*)     :: inputLine
 !
@@ -205,7 +210,6 @@
       end function RemovePath
 
       character(len=LINE_LENGTH) function getFileName( inputLine )
-         use SMConstants
          implicit none
          character(len=*)     :: inputLine
 !
@@ -230,7 +234,6 @@
       end function getFileName
       
       character(len=LINE_LENGTH) function getFileExtension( inputLine )
-         use SMConstants
          implicit none
          character(len=*)     :: inputLine
 !
@@ -262,8 +265,6 @@
 !                       line = "[a,b,c,...]"
 !           ****************************************************
 !
-         use SMConstants
-         use RealDataLinkedList
          implicit none
          character(len=*),    intent(in)  :: line
          real(kind=RP), allocatable       :: array(:)
@@ -324,3 +325,4 @@
 
       end function getArrayFromString
 
+end module FileReadingUtilities

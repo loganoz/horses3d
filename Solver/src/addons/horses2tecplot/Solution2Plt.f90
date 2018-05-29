@@ -2,6 +2,7 @@ module Solution2PltModule
    use SMConstants
    use SolutionFile
    use InterpolationMatrices
+   use FileReadingUtilities      , only: getFileName
    implicit none
 
    private
@@ -65,13 +66,6 @@ module Solution2PltModule
          implicit none  
          character(len=*), intent(in)     :: meshName
          character(len=*), intent(in)     :: solutionName
-         interface
-            character(len=LINE_LENGTH) function getFileName(inputLine)
-               use SMConstants
-               implicit none
-               character(len=*)    :: inputLine
-            end function getFileName
-         end interface
 !
 !        ---------------
 !        Local variables
@@ -190,13 +184,6 @@ module Solution2PltModule
          character(len=*), intent(in)     :: meshName
          character(len=*), intent(in)     :: solutionName
          integer,          intent(in)     :: Nout(3)
-         interface
-            character(len=LINE_LENGTH) function getFileName(inputLine)
-               use SMConstants
-               implicit none
-               character(len=*)    :: inputLine
-            end function getFileName
-         end interface
 !
 !        ---------------
 !        Local variables
@@ -355,13 +342,6 @@ module Solution2PltModule
          character(len=*), intent(in)     :: meshName
          character(len=*), intent(in)     :: solutionName
          integer,          intent(in)     :: Nout(3)
-         interface
-            character(len=LINE_LENGTH) function getFileName(inputLine)
-               use SMConstants
-               implicit none
-               character(len=*)    :: inputLine
-            end function getFileName
-         end interface
 !
 !        ---------------
 !        Local variables
