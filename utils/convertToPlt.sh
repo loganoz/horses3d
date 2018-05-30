@@ -18,12 +18,14 @@ do
 	tecname=$(echo "${entry%.*}").tec
 	if [ -f $tecname ]; then
 		if [ $entry -nt $tecname ]; then
-  			horses2plt $MESH_NAME $entry $HORSES2PLT_FLAGS
+			echo "Converting $entry"
+  			horses2plt $MESH_NAME $entry $HORSES2PLT_FLAGS > /dev/null 2>&1
 		else
 			echo "$entry conversion skipped since a more recent *.tec file exists"
 		fi
 	else
-  		horses2plt $MESH_NAME $entry $HORSES2PLT_FLAGS
+		echo "Converting $entry"
+  		horses2plt $MESH_NAME $entry $HORSES2PLT_FLAGS > /dev/null 2>&1
 	fi
 done
 ########################################################

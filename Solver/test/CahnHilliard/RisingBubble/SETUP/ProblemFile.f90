@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed May 30 10:42:47 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed May 30 18:56:42 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 6c26635381273e7968609bf2a4e2297ce0a1ad45
 !
 !//////////////////////////////////////////////////////
 !
@@ -167,7 +167,7 @@
                   x = e % geom % x(:,i,j,k) 
                   r = x([1,3]) - [1.0_RP , 1.0_RP]
    
-                  if ( sum(POW2(r)) .le. 0.25_RP) then
+                  if ( sum(POW2(r)) .le. 0.125_RP) then
                      e % storage % c(1,i,j,k) = 1.0_RP
 
                   else
