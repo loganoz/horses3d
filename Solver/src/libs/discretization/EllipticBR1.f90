@@ -191,7 +191,7 @@ module EllipticBR1
          use ElementClass
          use PhysicsStorage
          use Physics
-         use DGWeakIntegrals
+         use DGIntegrals
          implicit none
          class(BassiRebay1_t),   intent(in)     :: self
          integer,                intent(in)     :: nEqn, nGradEqn
@@ -225,7 +225,7 @@ module EllipticBR1
          use HexMeshClass
          use PhysicsStorage
          use Physics
-         use DGWeakIntegrals
+         use DGIntegrals
          implicit none
          class(BassiRebay1_t),   intent(in)  :: self
          integer,                intent(in)  :: nGradEqn

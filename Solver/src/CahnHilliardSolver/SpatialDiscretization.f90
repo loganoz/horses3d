@@ -18,7 +18,7 @@ module SpatialDiscretization
       use SMConstants
       use Physics
       use EllipticDiscretizations
-      use DGWeakIntegrals
+      use DGIntegrals
       use MeshTypes
       use FaceClass
       use ElementClass

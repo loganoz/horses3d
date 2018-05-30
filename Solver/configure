@@ -6,6 +6,7 @@
 ##		-> Generates links to the solver.
 ######################################################################
 TEST_CASES="./Euler/BoxAroundCircle \
+            ./Euler/BoxAroundCircle_pAdapted
             ./Euler/BoxAroundCirclePirozzoli \
 	    ./Euler/Diffuser \
 	    ./Euler/PeriodicFlow \

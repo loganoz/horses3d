@@ -1,4 +1,4 @@
-module DGWeakIntegrals
+module DGIntegrals
    use SMConstants
    use ElementClass
    use PhysicsStorage
@@ -8,8 +8,8 @@ module DGWeakIntegrals
 
    private
 
-   public ScalarWeakIntegrals_t, VectorWeakIntegrals_t
-   public ScalarWeakIntegrals  , VectorWeakIntegrals  
+   public ScalarWeakIntegrals_t, VectorWeakIntegrals_t, ScalarStrongIntegrals_t
+   public ScalarWeakIntegrals  , VectorWeakIntegrals  , ScalarStrongIntegrals
    
    type  ScalarWeakIntegrals_t
       contains
@@ -25,10 +25,15 @@ module DGWeakIntegrals
          procedure, nopass    :: StdVolumeGreen  => VectorWeakIntegrals_StdVolumeGreen
          procedure, nopass    :: StdFace => VectorWeakIntegrals_StdFace
    end type VectorWeakIntegrals_t
-
+   
+   type  ScalarStrongIntegrals_t
+      contains
+         procedure, nopass    :: StdVolumeGreen  => ScalarStrongIntegrals_StdVolumeGreen
+   end type ScalarStrongIntegrals_t
 
    type(ScalarWeakIntegrals_t)   :: ScalarWeakIntegrals
    type(VectorWeakIntegrals_t)   :: VectorWeakIntegrals
+   type(ScalarStrongIntegrals_t) :: ScalarStrongIntegrals
 !
 !  ========
    contains
@@ -69,6 +74,36 @@ module DGWeakIntegrals
          end do             ; end do             ; end do               ; end do
 
       end function ScalarWeakIntegrals_StdVolumeGreen
+      
+      function ScalarStrongIntegrals_StdVolumeGreen( e, NEQ, F ) result ( volInt )
+         implicit none
+         class(Element),      intent(in)  :: e
+         integer,             intent(in)  :: NEQ
+         real(kind=RP),       intent(in)  :: F     (1:NEQ, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP)                    :: volInt(1:NEQ, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: i, j, k, l
+
+         volInt = 0.0_RP
+
+         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do l = 0, e%Nxyz(1) ; do i = 0, e%Nxyz(1)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + e % spAxi % D(i,l) * F(:,l,j,k,IX)
+         end do             ; end do               ; end do             ; end do
+
+         do k = 0, e%Nxyz(3) ; do l = 0, e%Nxyz(2) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + e % spAeta % D(j,l) * F(:,i,l,k,IY)
+         end do             ; end do               ; end do             ; end do
+
+         do l = 0, e%Nxyz(3) ; do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + e % spAzeta % D(k,l) * F(:,i,j,l,IZ)
+         end do             ; end do             ; end do               ; end do
+
+      end function ScalarStrongIntegrals_StdVolumeGreen
+
 #if defined(NAVIERSTOKES)
       function ScalarWeakIntegrals_SplitVolumeDivergence( e, fSharp, gSharp, hSharp, Fv ) result ( volInt )
          implicit none
@@ -299,4 +334,4 @@ module DGWeakIntegrals
          end do                 ; end do                ; end do
 
       end subroutine VectorWeakIntegrals_StdFace
-end module DGWeakIntegrals
+end module DGIntegrals

@@ -1,15 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    MatrixFreeGMRESClass.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
-!   @Created: Sat May 12 20:54:06 2018
-!   @Last revision date: Sun May 13 11:22:08 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
-!
-!//////////////////////////////////////////////////////
-!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !      MatrixFreeGMRESClass.f90

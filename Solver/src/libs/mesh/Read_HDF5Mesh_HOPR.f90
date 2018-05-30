@@ -372,15 +372,21 @@ contains
 ! 
       call self % DefineAsBoundaryFaces() 
 !
-!        -------------------------------
-!        Set the mesh as 2D if requested
-!        -------------------------------
+!     -----------------------------------
+!     Check if this is a 2D extruded mesh
+!     -----------------------------------
 !
-         if ( dir2D .ne. 0 ) then
-            self % meshIs2D = .TRUE.
-            call SetMappingsToCrossProduct
-            call self % CorrectOrderFor2DMesh(dir2D)
-         end if
+      call self % CheckIfMeshIs2D()
+!
+!     -------------------------------
+!     Set the mesh as 2D if requested
+!     -------------------------------
+!
+      if ( dir2D .ne. 0 ) then
+         self % meshIs2D = .TRUE.
+         call SetMappingsToCrossProduct
+         call self % CorrectOrderFor2DMesh(dir2D)
+      end if
 ! 
 !
 !     ------------------------------

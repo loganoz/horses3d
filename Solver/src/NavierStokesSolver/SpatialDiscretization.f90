@@ -17,7 +17,7 @@ module SpatialDiscretization
       use EllipticDiscretizations
       use LESModels
       use SpectralVanishingViscosity
-      use DGWeakIntegrals
+      use DGIntegrals
       use MeshTypes
       use HexMeshClass
       use ElementClass
@@ -507,38 +507,17 @@ module SpatialDiscretization
 !
 !$omp do schedule(runtime) 
          do eID = 1 , size(mesh % elements)
-            call TimeDerivative_VolumetricContribution( mesh % elements(eID) , t)
+            call TimeDerivative_StrongVolumetricContribution( mesh % elements(eID) , t)
          end do
 !$omp end do
 !
-!        ******************************
-!        Compute isolated flux on faces
-!           Only NS version... TODO: implement SVV version
-!        ******************************
-!
-!$omp do schedule(runtime) 
-         do fID = 1, size(mesh % faces) 
-            associate( f => mesh % faces(fID))
-            select case (f % faceType) 
-               case (HMESH_INTERIOR) 
-                  call computeIsolatedFaceFluxes_NS( f )
-               case (HMESH_BOUNDARY)
-                  call computeIsolatedFaceFlux_NS  ( f , 1 )
-               case (HMESH_MPI)
-                  call computeIsolatedFaceFlux_NS  ( f , maxloc(f % elementIDs, dim = 1) )
-            end select
-            end associate 
-         end do 
-!$omp end do 
-!
-!        ***********************************************************
-!        Surface integrals (with local data) and scaling of elements
-!        ***********************************************************
+!        *******************
+!        Scaling of elements
+!        *******************
 ! 
 !$omp do schedule(runtime) private(i,j,k)
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID))
-            call TimeDerivative_FacesContribution(e, t, mesh) 
 
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
                e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
@@ -572,6 +551,93 @@ module SpatialDiscretization
 !$omp end do
          
       end subroutine TimeDerivative_ComputeQDotIsolated
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine TimeDerivative_StrongVolumetricContribution( e , t )
+         use HexMeshClass
+         use ElementClass
+         implicit none
+         type(Element)      :: e
+         real(kind=RP)      :: t
+
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: SVVContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         integer       :: eID
+!
+!        *************************************
+!        Compute interior contravariant fluxes
+!        *************************************
+!
+!        Compute inviscid contravariant flux
+!        -----------------------------------
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux3D, inviscidContravariantFlux ) 
+!
+!        Compute viscous contravariant flux
+!        ----------------------------------
+         if ( .not. LESModel % active ) then
+!
+!           Without LES model
+!           -----------------
+            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, e , viscousContravariantFlux) 
+
+         else
+!
+!           With LES model
+!           --------------
+            call ViscousDiscretization  % ComputeInnerFluxesWithSGS ( e , viscousContravariantFlux  ) 
+
+         end if
+!
+!        Compute the SVV dissipation
+!        ---------------------------
+         if ( .not. SVV % enabled ) then
+            SVVcontravariantFlux = 0.0_RP
+         else
+            call SVV % ComputeInnerFluxes(e, ViscousFlux3D, SVVContravariantFlux)
+         end if
+!
+!        ************************
+!        Perform volume integrals
+!        ************************
+!
+         select type ( HyperbolicDiscretization )
+         type is (StandardDG_t)
+!
+!           Compute the total Navier-Stokes flux
+!           ------------------------------------
+            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - SVVContravariantFlux
+!
+!           Perform the Weak Volume Green integral
+!           --------------------------------------
+            e % storage % QDot = ScalarStrongIntegrals % StdVolumeGreen ( e , NCONS, contravariantFlux ) 
+
+         type is (SplitDG_t)
+            ERROR stop ':: TimeDerivative_StrongVolumetricContribution not implemented for split form'
+!~ !
+!~ !           Compute sharp fluxes for skew-symmetric approximations
+!~ !           ------------------------------------------------------
+!~             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
+!~ !
+!~ !           Peform the Weak volume green integral
+!~ !           -------------------------------------
+!~             viscousContravariantFlux = viscousContravariantFlux + SVVContravariantFlux
+
+!~             e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
+
+         end select
+
+      end subroutine TimeDerivative_StrongVolumetricContribution
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -848,7 +914,6 @@ module SpatialDiscretization
       SUBROUTINE computeBoundaryFlux_NS(f, time, externalStateProcedure , externalGradientsProcedure)
       USE ElementClass
       use FaceClass
-      USE EllipticDiscretizations
       USE RiemannSolvers_NS
       USE BoundaryConditionFunctions
       IMPLICIT NONE
@@ -1131,7 +1196,6 @@ module SpatialDiscretization
       SUBROUTINE computeBoundaryFlux_SVV(f, time, externalStateProcedure , externalGradientsProcedure)
       USE ElementClass
       use FaceClass
-      USE EllipticDiscretizations
       USE RiemannSolvers_NS
       USE BoundaryConditionFunctions
       IMPLICIT NONE
@@ -1258,199 +1322,6 @@ module SpatialDiscretization
       call f % ProjectFluxToElements(NCONS, fStar, (/1, HMESH_NONE/))
 
       END SUBROUTINE computeBoundaryFlux_SVV
-!
-!////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!     -----------------------------------------------------------------
-!     Subroutine to compute the isolated fluxes on both sides of a face
-!     -----------------------------------------------------------------
-      SUBROUTINE computeIsolatedFaceFluxes_NS(f)
-         use FaceClass
-         IMPLICIT NONE
-         TYPE(Face)   , INTENT(inout) :: f   
-         !-----------------------------------------------------------
-         integer       :: i, j
-         real(kind=RP) :: inv_fluxL (1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: inv_fluxR (1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_fluxL(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_fluxR(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: fluxL     (1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: fluxR     (1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         !-----------------------------------------------------------
-         real(kind=RP) :: nHat(NDIM)
-         real(kind=RP) :: mu, kappa             !
-         real(kind=RP) :: flux_vec(NCONS,NDIM)  ! Flux tensor
-         !-----------------------------------------------------------
-         
-         mu    = dimensionless % mu
-         kappa = dimensionless % kappa
-         
-         if ( .not. LESModel % active ) then
-            do j = 0, f % Nf(2)
-               do i = 0, f % Nf(1)
-                  
-                  nHat = f % geom % normal (:,i,j)
-                  
-!                 
-!                 Viscous flux on the left
-!                 ------------------------
-                  
-                  call ViscousFlux(nEqn  = NCONS,                       &
-                                   nGradEqn = NGRAD,                    &
-                                   Q     = f % storage(1) % Q  (:,i,j), &
-                                   U_x   = f % storage(1) % U_x(:,i,j), &
-                                   U_y   = f % storage(1) % U_y(:,i,j), &
-                                   U_z   = f % storage(1) % U_z(:,i,j), &
-                                   mu    = mu                         , &
-                                   kappa = kappa                      , &
-                                   F     = flux_vec                     )
-                  
-                  visc_fluxL(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
-                  
-!                 
-!                 Viscous flux on the right
-!                 -------------------------
-                  
-                  call ViscousFlux(nEqn  = NCONS, nGradEqn = NGRAD,     &
-                                   Q     = f % storage(2) % Q  (:,i,j), &
-                                   U_x   = f % storage(2) % U_x(:,i,j), &
-                                   U_y   = f % storage(2) % U_y(:,i,j), &
-                                   U_z   = f % storage(2) % U_z(:,i,j), &
-                                   mu    = mu                         , &
-                                   kappa = kappa                      , &
-                                   F     = flux_vec                     )
-                  
-                  visc_fluxR(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) ! The inversion is performed later
-               end do
-            end do
-
-         else
-            error stop ':: The isolated face flux computation is not yet implemented for LES models. Sorry...'
-         end if
-
-         do j = 0, f % Nf(2)
-            do i = 0, f % Nf(1)
-               
-               nHat = f % geom % normal (:,i,j)
-               
-!      
-!              Hyperbolic flux on the left
-!              -------------------------
-               
-               call EulerFlux(f % storage(1) % Q  (:,i,j), flux_vec)
-               
-               inv_fluxL(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
-               
-!      
-!              Hyperbolic flux on the right
-!              --------------------------
-               
-               call EulerFlux(f % storage(2) % Q  (:,i,j), flux_vec)
-               
-               inv_fluxR(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) ! The inversion is performed later
-               
-!
-!              Multiply by the Jacobian
-!              ------------------------
-               fluxL(:,i,j) = ( inv_fluxL(:,i,j) - visc_fluxL(:,i,j)) * f % geom % jacobian(i,j)
-               
-               fluxR(:,i,j) = ( inv_fluxR(:,i,j) - visc_fluxR(:,i,j)) * f % geom % jacobian(i,j)
-               
-            end do
-         end do
-!
-!        ---------------------------
-!        Return the flux to elements
-!        ---------------------------
-!
-         ! Left element
-         call f % ProjectFluxToElements(NCONS, fluxL, (/1,HMESH_NONE/))
-         
-         ! Right element
-         call f % ProjectFluxToElements(NCONS, fluxR, (/2,HMESH_NONE/))
-
-      END SUBROUTINE computeIsolatedFaceFluxes_NS
-!
-!////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!     --------------------------------------------------------------------
-!     Subroutine to compute the isolated fluxes on only one side of a face
-!     --------------------------------------------------------------------
-      SUBROUTINE computeIsolatedFaceFlux_NS(f,thisSide)
-         use FaceClass
-         IMPLICIT NONE
-         !-----------------------------------------------------------
-         TYPE(Face)   , INTENT(inout) :: f
-         integer      , intent(in)    :: thisSide
-         !-----------------------------------------------------------
-         integer       :: i, j
-         real(kind=RP) :: inv_flux (1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: flux     (1:NCONS,0:f % Nf(1),0:f % Nf(2))    
-         real(kind=RP) :: nHat(NDIM)                                    ! Face normal vector
-         real(kind=RP) :: mu, kappa                                     ! dimensionless constants
-         real(kind=RP) :: flux_vec(NCONS,NDIM)                          ! Flux tensor
-         !-----------------------------------------------------------
-         
-         mu    = dimensionless % mu
-         kappa = dimensionless % kappa
-         
-         if ( .not. LESModel % active ) then
-            do j = 0, f % Nf(2)
-               do i = 0, f % Nf(1)
-                  
-                  nHat = f % geom % normal (:,i,j)
-                  
-!                 
-!                 Viscous flux
-!                 ------------
-                  
-                  call ViscousFlux(nEqn  = NCONS, nGradEqn = NGRAD,            &
-                                   Q     = f % storage(thisSide) % Q  (:,i,j), &
-                                   U_x   = f % storage(thisSide) % U_x(:,i,j), &
-                                   U_y   = f % storage(thisSide) % U_y(:,i,j), &
-                                   U_z   = f % storage(thisSide) % U_z(:,i,j), &
-                                   mu    = mu                                , &
-                                   kappa = kappa                             , &
-                                   F     = flux_vec                          )
-                  
-                  visc_flux(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
-                  
-               end do
-            end do
-
-         else
-            error stop ':: The isolated face flux computation is not yet implemented for LES models. Sorry...'
-         end if
-
-         do j = 0, f % Nf(2)
-            do i = 0, f % Nf(1)
-               
-               nHat = f % geom % normal (:,i,j)
-               
-!      
-!              Hyperbolic flux
-!              -------------
-               
-               call EulerFlux(f % storage(thisSide) % Q  (:,i,j), flux_vec)
-               
-               inv_flux(:,i,j) = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) ! The inversion is performed later
-               
-!
-!              Multiply by the Jacobian
-!              ------------------------
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
-               
-            end do
-         end do
-!
-!        ------------------------------
-!        Return the flux to the element
-!        ------------------------------
-!
-         call f % ProjectFluxToElements(NCONS, flux, (/thisSide,HMESH_NONE/))
-
-      END SUBROUTINE computeIsolatedFaceFlux_NS
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
