@@ -28,6 +28,7 @@
       use TimeIntegratorDefinitions
       use MonitorsClass
       use ParticlesClass
+      use Utilities, only: ToLower
       IMPLICIT NONE 
       
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -319,6 +320,7 @@ end interface
       ELSE ! Default value
          TimeIntegration = 'explicit'
       END IF
+      call toLower(TimeIntegration)
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       
 !

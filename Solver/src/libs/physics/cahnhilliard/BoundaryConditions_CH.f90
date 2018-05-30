@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:29 2018
-!   @Last revision date: Wed May  9 15:26:11 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 030a84de7dedac0cada2e2d9ba22dfd63aa09eb8
+!   @Last revision date: Wed May 30 10:40:40 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 4f8965e46980c4f95aa4ff4c00996b34c42b4b94
 !
 !//////////////////////////////////////////////////////
 !
@@ -24,17 +24,19 @@
          public NoFluxState, NoFluxNeumann, WallAngleBC
          public UserDefinedState, UserDefinedNeumann
 
-         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(7) :: implementedCHBCNames = &
+         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(8) :: implementedCHBCNames = &
                ["no-flux             ", &
                 "periodic+           ", &
                 "periodic-           ", &
                 "noslipadiabaticwall ", &
+                "freeslipwall        ", &
                 "inflow              ", &
                 "outflowspecifyp     ", &
                 "user-defined        "   ]
 
          enum, bind(C)
             enumerator :: NO_FLUX_INDEX=1, PERIODIC_PLUS_INDEX, PERIODIC_MINUS_INDEX
+            enumerator :: NOSLIPADIABATICWALL_INDEX, FREESLIPWALL_INDEX
             enumerator :: INFLOW_INDEX, OUTFLOWSPECIFYP_INDEX
             enumerator :: USER_DEFINED_INDEX
          end enum
@@ -171,6 +173,8 @@
       IF ( boundarytype == "no-flux" )                   THEN
          CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
       ELSEIF ( boundaryType == "noslipadiabaticwall" ) then
+         call WallAngleBC(x, t, nHat, U_x, U_y, U_z)
+      ELSEIF ( boundaryType == "freeslipwall" ) then
          call WallAngleBC(x, t, nHat, U_x, U_y, U_z)
       elseif ( boundaryType == "inflow" ) then
          CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )

@@ -4,9 +4,9 @@
 !   @File:    FluidData_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:09 2018
-!   @Last revision date: Thu Apr 19 17:24:26 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ca7f00098495d6fca03f13af3e8a139f88ed41e0
+!   @Last revision date: Wed May 30 10:40:42 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 4f8965e46980c4f95aa4ff4c00996b34c42b4b94
 !
 !//////////////////////////////////////////////////////
 !
@@ -71,7 +71,7 @@ module FluidData_NS
       real(kind=RP)        :: Mach
       real(kind=RP)        :: gammaM2
       real(kind=RP)        :: invFroudeSquare
-
+      real(kind=RP)        :: gravity_dir(NDIM)
    end type Dimensionless_t
 !
 !  ---------
@@ -150,6 +150,7 @@ module FluidData_NS
          dimensionless % Mach            = dimensionless_ % Mach
          dimensionless % gammaM2         = dimensionless_ % gammaM2
          dimensionless % invFroudeSquare = dimensionless_ % invFroudeSquare
+         dimensionless % gravity_dir     = dimensionless_ % gravity_dir
 
       end subroutine SetDimensionless
 !

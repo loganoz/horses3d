@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:30 2018
-!   @Last revision date: Thu May 24 12:03:19 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
+!   @Last revision date: Wed May 30 10:40:41 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 4f8965e46980c4f95aa4ff4c00996b34c42b4b94
 !
 !//////////////////////////////////////////////////////
 !
@@ -29,11 +29,13 @@
          character(len=KEYWORD_LENGTH), parameter    :: PECLET_NUMBER_KEY    = "peclet number"
          character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_WIDTH_KEY  = "interface width (dimensionless)"
          character(len=KEYWORD_LENGTH), parameter    :: CAPILAR_NUMBER_KEY   = "capilar number"
+         character(len=KEYWORD_LENGTH), parameter    :: DENSITY_RATIO_KEY    = "density ratio (rho2/rho1)"
          character(len=KEYWORD_LENGTH), parameter    :: VISCOSITY_RATIO_KEY  = "viscosity ratio (mu2/mu1)"
 !         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_ENERGY_KEY = "interface energy (multiphase)"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(4) :: physics_CHKeywords = [INTERFACE_WIDTH_KEY, &
-                                                                              CAPILAR_NUMBER_KEY, &
-                                                                              PECLET_NUMBER_KEY,  &
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(5) :: physics_CHKeywords = [INTERFACE_WIDTH_KEY, &
+                                                                              CAPILAR_NUMBER_KEY,  &
+                                                                              PECLET_NUMBER_KEY,   &
+                                                                              DENSITY_RATIO_KEY,   &
                                                                               VISCOSITY_RATIO_KEY ]
 !
 !        ******************
@@ -112,6 +114,7 @@
       multiphase_ % eps = multiphase_ % w
       multiphase_ % Pe  = controlVariables % DoublePrecisionValueForKey(PECLET_NUMBER_KEY)
       multiphase_ % Ca  = controlVariables % DoublePrecisionValueForKey(CAPILAR_NUMBER_KEY)
+      multiphase_ % densityRatio = controlVariables % DoublePrecisionValueForKey(DENSITY_RATIO_KEY)
       multiphase_ % viscRatio = controlVariables % DoublePrecisionValueForKey(VISCOSITY_RATIO_KEY)
 !
 !     **************************************
