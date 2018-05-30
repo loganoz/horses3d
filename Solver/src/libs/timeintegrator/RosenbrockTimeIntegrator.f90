@@ -81,11 +81,11 @@ contains
 !     -----------------------------
       call this % SetupCoefficients ( trim(controlVariables % StringValueForKey("rosenbrock scheme",LINE_LENGTH)) )
       
-      allocate ( this % Y (sem % NDOF,this % NumStages) )
+      allocate ( this % Y (sem % NDOF * NTOTALVARS,this % NumStages) )
 !
 !     Setup linear solver
 !     -------------------
-      DimPrb = sem % NDOF
+      DimPrb = sem % NDOF * NTOTALVARS
       
       select case ( trim(controlVariables % StringValueForKey("linear solver",LINE_LENGTH)) )
          case('petsc')
@@ -183,8 +183,8 @@ contains
       procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
       integer,        intent(in)    :: stage                   !<  Current stage
       !--------------------------------------------------------
-      real(kind=RP) :: Qn (sem % NDOF) ! Buffer to store the previous solution
-      real(kind=RP) :: RHS(sem % NDOF) ! Right-hand side for this stage
+      real(kind=RP) :: Qn (sem % NDOF * NTOTALVARS) ! Buffer to store the previous solution
+      real(kind=RP) :: RHS(sem % NDOF * NTOTALVARS) ! Right-hand side for this stage
       integer       :: j               ! Counter
       !--------------------------------------------------------
       
@@ -215,7 +215,7 @@ contains
       
 !     Load RHS into solver
 !     --------------------
-      do j = 1, sem % NDOF                                 ! TODO: Use SetRHS!!
+      do j = 1, sem % NDOF  * NTOTALVARS                                ! TODO: Use SetRHS!!
          CALL linsolver % SetRHSValue(j-1, RHS(j))
       end do
       

@@ -1,16 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    BDFTimeIntegrator.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
-!   @Created: Sat May 12 20:54:04 2018
-!   @Last revision date: Tue May 15 13:03:31 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: efd38dcda37311c51d1c88fb0eed9bc4749f0031
-!
-!//////////////////////////////////////////////////////
-!
-!
 !////////////////////////////////////////////////////////////////////////
 !
 !      BDFTimeIntegrator.f90

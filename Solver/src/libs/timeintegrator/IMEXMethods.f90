@@ -13,7 +13,7 @@
 MODULE IMEXMethods
    USE SMConstants                  
    USE DGSEMClass,                  ONLY: DGSem
-   USE ElementClass,                ONLY: Element, allocateElementStorage    !arueda: No DGSolutionStorage implemented in nslite3d... Using whole element definitions
+   USE ElementClass,                ONLY: Element
    USE PhysicsStorage
    use HexMeshClass
    use MKLPardisoSolverClass

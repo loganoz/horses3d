@@ -1,9 +1,9 @@
 module MultigridTypes
    use SMConstants
-   use HexMeshClass
-   use InterpolationMatrices
+   use HexMeshClass              , only: HexMesh
+   use InterpolationMatrices     , only: ConstructInterpolationMatrices
    use TimeIntegratorDefinitions
-   use DGSEMClass
+   use DGSEMClass                , only: ComputeMaxResiduals
    implicit none
    
    public 
@@ -29,11 +29,11 @@ module MultigridTypes
          use ParticlesClass, only: Particles_t
 #endif
          IMPLICIT NONE
-         type(HexMesh)              :: mesh
+         type(HexMesh)      :: mesh
 #if defined(NAVIERSTOKES)
-      type(Particles_t)  :: particles
+         type(Particles_t)  :: particles
 #else
-      logical            :: particles
+         logical            :: particles
 #endif
          REAL(KIND=RP)              :: t, deltaT
          type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)

@@ -171,7 +171,7 @@ common/VariableConversion \
 VolumeIntegrals \
 VolumeMonitor \
 WallDistance \
-WeakIntegrals \
+DGIntegrals \
 ZoneClass \
 NavierStokesSolver/SpatialDiscretization
 

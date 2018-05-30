@@ -17,7 +17,7 @@ module SpatialDiscretization
       use EllipticDiscretizations
       use LESModels
       use SpectralVanishingViscosity
-      use DGWeakIntegrals
+      use DGIntegrals
       use MeshTypes
       use HexMeshClass
       use FaceClass

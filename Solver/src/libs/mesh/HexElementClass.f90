@@ -37,7 +37,7 @@
       IMPLICIT NONE
 
       private
-      public   Element, axisMap, allocateElementStorage 
+      public   Element, axisMap 
       public   DestructElement, PrintElement, SetElementBoundaryNames
       
       TYPE Element
@@ -137,20 +137,6 @@
          CALL self % geom % Construct( self % spAxi, self % spAeta, self % spAzeta, hexMap )
          
       end subroutine HexElement_ConstructGeometry
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-      SUBROUTINE allocateElementStorage(self, Nx, Ny, Nz, computeGradients, globalStorage, firstIdx)  
-         IMPLICIT NONE
-         TYPE(Element)                 :: self
-         INTEGER, intent(in), optional :: Nx, Ny, Nz
-         LOGICAL, intent(in)           :: computeGradients
-         type(Storage_t)               :: globalStorage
-         integer, intent(in)           :: firstIdx
-
-         call self % Storage % Construct(Nx, Ny, Nz, computeGradients, globalStorage, firstIdx)
-
-      END SUBROUTINE allocateElementStorage
 !
 !////////////////////////////////////////////////////////////////////////
 !

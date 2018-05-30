@@ -443,7 +443,7 @@ MODULE CSRMatrixClass
       INTEGER                   :: k, l     ! Variables containing positions in sparse matrix arrays
       !------------------------------------------------------------------------------
       
-      RC0 = A % BlockIdx(Num) + 1  ! Using "+ 1" since the index is zero based because of Implicit_NJ (TODO: change?)
+      RC0 = A % BlockIdx(Num) 
       RCf  = RC0 + N - 1
       
       i=0

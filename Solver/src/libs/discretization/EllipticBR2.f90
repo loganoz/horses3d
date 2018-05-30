@@ -247,7 +247,7 @@ module EllipticBR2
          use HexMeshClass
          use PhysicsStorage
          use Physics
-         use DGWeakIntegrals
+         use DGIntegrals
          implicit none
          class(BassiRebay2_t),   intent(in) :: self
          integer,                intent(in) :: nGradEqn
