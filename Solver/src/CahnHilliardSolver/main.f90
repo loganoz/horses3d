@@ -316,6 +316,7 @@ end interface
          USE mainKeywordsModule
          use FTValueClass
          use MPI_Process_Info
+         use SpatialDiscretization, only: CHDiscretizationKey
          IMPLICIT NONE
 !
 !        ---------
@@ -352,9 +353,9 @@ end interface
             call controlVariables % addValueForKey("Standard",inviscidDiscretizationKey)
          end if
 
-         obj => controlVariables % objectForKey(viscousDiscretizationKey)
+         obj => controlVariables % objectForKey(CHDiscretizationKey)
          if ( .not. associated(obj) ) then
-            call controlVariables % addValueForKey("BR1",viscousDiscretizationKey)
+            call controlVariables % addValueForKey("IP",CHDiscretizationKey)
          end if
 
          obj => controlVariables % objectForKey(splitFormKey)

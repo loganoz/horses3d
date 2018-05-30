@@ -7,6 +7,7 @@
 !      Class for solving linear systems using MKL version of Pardiso
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#include "Includes.h"
 #ifdef HAS_PETSC
 #include "petsc/finclude/petsc.h"
 #endif
@@ -35,7 +36,7 @@ MODULE MKLPardisoSolverClass
       TYPE(DGSem), POINTER                       :: p_sem
       
       !Variables for creating Jacobian in PETSc context:
-      LOGICAL                                    :: AIsPetsc = .TRUE.
+      LOGICAL                                    :: AIsPetsc = .false.
       
       !Variables directly related with mkl pardiso solver
       INTEGER                                    :: mtype                              ! Matrix type. See construct
@@ -48,6 +49,7 @@ MODULE MKLPardisoSolverClass
       procedure :: ComputeAndFactorizeJacobian => MKL_ComputeAndFactorizeJacobian
       PROCEDURE :: solve
       procedure :: SolveLUDirect => MKL_SolveLUDirect
+      procedure :: SetRHSValue => MKL_SetRHSValue
       PROCEDURE :: GetXValue
       PROCEDURE :: destroy
       PROCEDURE :: SetOperatorDt
@@ -87,11 +89,6 @@ MODULE MKLPardisoSolverClass
          END SUBROUTINE pardisoinit
       END INTERFACE
       !-----------------------------------------------------------
-#ifdef HAS_PETSC
-      CALL PetscInitialize(PETSC_NULL_CHARACTER,ierr)
-#else
-      ERROR stop "MKL-Pardiso needs PETSc for constructung the Jacobian Matrix"
-#endif
       
       MatrixShift => MatrixShiftFunc
       
@@ -111,7 +108,15 @@ MODULE MKLPardisoSolverClass
       this % perm = 0
       
       IF(this % AIsPetsc) then
+#ifdef HAS_PETSC
+         CALL PetscInitialize(PETSC_NULL_CHARACTER,ierr)
+#else
+         ERROR stop "MKL-Pardiso needs PETSc for constructung the Jacobian Matrix"
+#endif
          CALL this % PETScA % construct (DimPrb,.FALSE.)
+      else
+         call this % A % construct(DimPrb, .false.)
+         
       end if
 
 #ifdef HAS_MKL
@@ -123,7 +128,7 @@ MODULE MKLPardisoSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SetRHSValue(this, irow, value)
+   SUBROUTINE MKL_SetRHSValue(this, irow, value)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
@@ -133,7 +138,7 @@ MODULE MKLPardisoSolverClass
       
       this % b (irow+1) = value
       
-   END SUBROUTINE SetRHSValue
+   END SUBROUTINE MKL_SetRHSValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -397,19 +402,29 @@ MODULE MKLPardisoSolverClass
 !
 !     Compute numerical Jacobian in the PETSc matrix
 !     ----------------------------------------------
-      call NumericalJacobian_Compute(self % p_sem, nEqn, nGradEqn, 0.0_RP, self % PETScA, F_J, .true., eps)
+      if ( self % AIsPetsc) then
+         call NumericalJacobian_Compute(self % p_sem, nEqn, nGradEqn, 0.0_RP, self % PETScA, F_J, .true., eps)
 !
-!     Shift the Jacobian
-!     ------------------
-      call self % PETScA % shift(-1.0_RP/dt)
+!        Shift the Jacobian
+!        ------------------
+         call self % PETScA % shift(-1.0_RP/dt)
 !
-!     Transform the Jacobian to CSRMatrix
-!     -----------------------------------
-      call self % PETScA % GetCSRMatrix(self % A)
+!        Transform the Jacobian to CSRMatrix
+!        -----------------------------------
+         call self % PETScA % GetCSRMatrix(self % A)
 !
-!     Correct the shifted Jacobian values
-!     -----------------------------------
-      self % A % values = -dt * self % A % values
+!        Correct the shifted Jacobian values
+!        -----------------------------------
+         self % A % values = -dt * self % A % values
+      
+      else
+         call NumericalJacobian_Compute(self % p_sem, nEqn, nGradEqn, 0.0_RP, self % A, F_J, .true., eps)
+!
+!        Shift the Jacobian
+!        ------------------
+         self % A % values(self % A % diag) = self % A % values(self % A % diag) - 1.0_RP / dt
+         self % A % values = -dt * self % A % values
+      end if
 !
 !     Perform the factorization
 !     -------------------------

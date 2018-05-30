@@ -4,9 +4,9 @@
 !   @File:    VariableConversion_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:31 2018
-!   @Last revision date: Fri Apr 20 17:25:09 2018
+!   @Last revision date: Thu May 24 12:03:20 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
+!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -24,6 +24,7 @@ module VariableConversion_CH
 
    private
    public CHGradientValuesForQ, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D
+   public GetCHViscosity
 
    interface CHGradientValuesForQ
        module procedure CHGradientValuesForQ_0D , CHGradientValuesForQ_3D
@@ -55,5 +56,14 @@ module VariableConversion_CH
          U = Q
 
       end subroutine CHGradientValuesForQ_3D
+
+      pure subroutine GetCHViscosity(phi, mu)
+         implicit none
+         real(kind=RP), intent(in)  :: phi
+         real(kind=RP), intent(out) :: mu
+
+         mu = 1.0_RP
+
+      end subroutine GetCHViscosity
 
 end module VariableConversion_CH

@@ -4,9 +4,9 @@
 !   @File:    Physics_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:31 2018
-!   @Last revision date: Tue Apr 24 11:13:20 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 60804273321199c0675663c7d4f1c517987552a7
+!   @Last revision date: Wed May 23 12:57:26 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
 !
 !//////////////////////////////////////////////////////
 !
@@ -19,7 +19,7 @@ module Physics_CH
 
       private
       public  CHDivergenceFlux, AddQuarticDWPDerivative, QuarticDWP
-      public  CHDivergenceFlux0D, CHDivergenceFlux3D, PoiseuilleFlow
+      public  CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D, PoiseuilleFlow
 !
 !     ---------
 !     Constants
@@ -70,11 +70,11 @@ module Physics_CH
          real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
-         real(kind=RP),    intent(out) :: F   (1:nEqn, 0:N(1), 0:N(2), 1:NDIM)
+         real(kind=RP),    intent(out) :: F   (1:nEqn, 1:NDIM, 0:N(1), 0:N(2))
 
-         F(1,:,:,IX) = U_x(1,:,:)
-         F(1,:,:,IY) = U_y(1,:,:)
-         F(1,:,:,IZ) = U_z(1,:,:)
+         F(1,IX,:,:) = U_x(1,:,:)
+         F(1,IY,:,:) = U_y(1,:,:)
+         F(1,IZ,:,:) = U_z(1,:,:)
 
       end subroutine CHDivergenceFlux2D
 

@@ -13,7 +13,7 @@ MOD_FLAG?=-J
 
 
 LIBOBJS_NS = 	./build_ns/MonitorDefinitions.o \
-		./build_ns/Probe.o\
+		./build_ns/Probe.o \
 		./build_ns/StatisticsMonitor.o \
 		./build_ns/SurfaceIntegrals.o \
 		./build_ns/VolumeIntegrals.o \

@@ -4,12 +4,13 @@
 !   @File:    VariableConversion.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Fri Apr 20 17:25:10 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 056b1604b8f7d76486a7e001dc56e0b24c5e0edf
+!   @Last revision date: Tue May 29 17:43:59 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 3c1e755ecd17ea60f252dec3daa7823c04603dcd
 !
 !//////////////////////////////////////////////////////
 !
+#include "Includes.h"
 module VariableConversion
 #if defined(NAVIERSTOKES)
    use VariableConversion_NS
@@ -36,5 +37,30 @@ module VariableConversion
          real(kind=RP), intent(out) :: U(1:nGradEqn, 0:Nx, 0:Ny, 0:Nz)
       end subroutine GetGradientValues3D_f
    end interface
+
+   contains
+      pure subroutine GetNSCHViscosity(phi, mu)
+         use SMConstants, only: RP
+         use FluidData
+         implicit none
+         real(kind=RP), intent(in)     :: phi
+         real(kind=RP), intent(out)    :: mu
+!
+!        ---------------
+!        Local variables         
+!        ---------------
+!
+         real(kind=RP)  :: cIn01, p
+
+         cIn01 = 0.5_RP * (phi + 1.0_RP)
+         p = POW3(cIn01) * (6.0_RP * POW2(cIn01) - 15.0_RP * cIn01 + 10.0_RP)
+
+#if (defined(CAHNHILLIARD) && defined(NAVIERSTOKES))
+         mu = dimensionless % mu * ( (1.0_RP - p) + (p)*multiphase % viscRatio)
+#else
+         mu = 0.0_RP
+#endif
+
+      end subroutine GetNSCHViscosity
 
 end module VariableConversion
