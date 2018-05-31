@@ -4,7 +4,7 @@
 !       *******************
 !
 !-------------------------- Configuration:-
-                          Mesh file name = ./MESH/Channel2D.mesh
+                          Mesh file name = ./MESH/RisingBubble.mesh
                       Solution file name = ./RESULTS/RisingBubble.hsol
               Save gradients to solution = .true.
                 2D mesh offset direction = y
@@ -23,9 +23,9 @@
                        Compute gradients = .true.
 
 !                        ** Cahn-Hilliard
-                           Peclet number = 10.0
-                          Capilar number = 0.1
-         Interface width (dimensionless) = 0.1
+                           Peclet number = 1.0
+                          Capilar number = 0.001
+         Interface width (dimensionless) = 0.035
                Density ratio (rho2/rho1) = 100.0
                Viscosity ratio (mu2/mu1) = 1.0
                       Wall contact angle = 0.0
@@ -44,14 +44,14 @@
 
 !----------------------- Time integration:-
                         Time integration = IMEX
-                                      dt = 8.0d-4
-                    Number of time steps = 50000
+                                      dt = 1.0d-4
+                    Number of time steps = 500000
                    Convergence tolerance = 1.0d-10
                          Output interval = 10
                          Simulation type = time-accurate
                               Final time = 100.0
                            Autosave mode = Time
-                       Autosave interval = 0.5
+                       Autosave interval = 0.2
 
 !-------------------- Boundary conditions:-
 Number of boundaries  = 6
@@ -59,8 +59,8 @@ top 0.0 FreeSlipWall
 bottom 0.0 FreeSlipWall
 left 0.0 FreeSlipWall
 right 0.0 FreeSlipWall
-front 0.0 periodic+
-back 0.0 periodic-
+front 0.0 FreeSlipWall
+back 0.0 FreeSlipWall
 
 
 !#define probe 1

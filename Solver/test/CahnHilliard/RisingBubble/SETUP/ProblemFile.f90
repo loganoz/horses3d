@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed May 30 10:42:47 2018
-!   @Last revision date: Wed May 30 18:56:42 2018
+!   @Last revision date: Thu May 31 17:50:43 2018
 !   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 6c26635381273e7968609bf2a4e2297ce0a1ad45
+!   @Last revision commit: 9f51b78f530e0b14ce379c13179d6eadd1012a93
 !
 !//////////////////////////////////////////////////////
 !
@@ -165,14 +165,18 @@
                associate(e => mesh % elements(eID))
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   x = e % geom % x(:,i,j,k) 
-                  r = x([1,3]) - [1.0_RP , 1.0_RP]
+                  r = x([1,3]) - [0.6_RP , 1.5_RP]
    
-                  if ( sum(POW2(r)) .le. 0.125_RP) then
+                  if ( sum(POW2(r)) .le. 0.17_RP) then
                      e % storage % c(1,i,j,k) = 1.0_RP
 
                   else
                      e % storage % c(1,i,j,k) = -1.0_RP
                
+                  end if
+
+                  if ( x(1) .gt. 3.0_RP ) then
+                     e % storage % c(1,i,j,k) = 1.0_RP
                   end if
                end do                ; end do                ; end do
                end associate
