@@ -328,7 +328,7 @@ MODULE Read_SpecMesh
 !
          if ( .not. MPI_Process % doMPIAction ) then
             call self % PrepareForIO
-            call self % Export( trim(fileName) )
+            if (.not. self % child) call self % Export( trim(fileName) )
          end if
          
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
@@ -718,7 +718,7 @@ MODULE Read_SpecMesh
 !        --------------------
 !
          call self % PrepareForIO
-         call self % Export( trim(fileName) )
+         if (.not. self % child) call self % Export( trim(fileName) )
 
          deallocate(globalToLocalNodeID)
          deallocate(globalToLocalElementID)

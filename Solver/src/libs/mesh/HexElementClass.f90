@@ -69,6 +69,7 @@
             procedure   :: ProlongGradientsToFaces => HexElement_ProlongGradientsToFaces
             procedure   :: ComputeLocalGradient    => HexElement_ComputeLocalGradient
             procedure   :: ComputeRhoGradient      => HexElement_ComputeRhoGradient
+            procedure   :: InterpolateSolution     => HexElement_InterpolateSolution
       END TYPE Element 
       
 !
@@ -635,5 +636,83 @@
          HexElement_EvaluateSolutionAtPoint = Q
 
       end function HexElement_EvaluateSolutionAtPoint
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ----------------------------------------------
+!     Interpolate solution to another element
+!            this % storage % Q  ->  e % storage % Q
+!     ----------------------------------------------
+      impure elemental subroutine HexElement_InterpolateSolution(this,e,nodes,with_gradients)
+         use InterpolationMatrices, only: ConstructInterpolationMatrices, Interp3DArrays
+         implicit none
+         !-arguments----------------------------------------------
+         class(Element), intent(in)    :: this
+         type(Element) , intent(inout) :: e
+         integer       , intent(in)    :: nodes
+         logical, optional, intent(in) :: with_gradients
+         !-local-variables----------------------------------------
+         logical                       :: gradients
+         !--------------------------------------------------------
+         
+         if ( present(with_gradients) ) then
+            gradients = with_gradients
+         else
+            gradients = .FALSE.
+         end if
+         
+         ! Copy the solution if the polynomial orders are the same, if not, interpolate
+         
+         
+         if (all(this % Nxyz == e % Nxyz)) then
+            e % storage % Q = this % storage % Q
+         else
+            
+            call NodalStorage(this % Nxyz(1)) % construct(nodes,this % Nxyz(1))
+            call NodalStorage(this % Nxyz(2)) % construct(nodes,this % Nxyz(2))
+            call NodalStorage(this % Nxyz(3)) % construct(nodes,this % Nxyz(3))
+            call NodalStorage(e % Nxyz(1)) % construct(nodes,e % Nxyz(1))
+            call NodalStorage(e % Nxyz(2)) % construct(nodes,e % Nxyz(2))
+            call NodalStorage(e % Nxyz(3)) % construct(nodes,e % Nxyz(3))
+            
+            !------------------------------------------------------------------
+            ! Construct the interpolation matrices in every direction if needed
+            !------------------------------------------------------------------
+            call ConstructInterpolationMatrices( this % Nxyz(1), e % Nxyz(1) )  ! Xi
+            call ConstructInterpolationMatrices( this % Nxyz(2), e % Nxyz(2) )  ! Eta
+            call ConstructInterpolationMatrices( this % Nxyz(3), e % Nxyz(3) )  ! Zeta
+            
+            !---------------------------------------------
+            ! Interpolate solution to new solution storage
+            !---------------------------------------------
+            
+            call Interp3DArrays  (Nvars      = NCONS              , &
+                                  Nin        = this % Nxyz        , &
+                                  inArray    = this % storage % Q , &
+                                  Nout       = e % Nxyz           , &
+                                  outArray   = e % storage % Q          )
+            
+            if (gradients) then
+               call Interp3DArrays  (Nvars      = NGRAD              , &
+                                  Nin        = this % Nxyz        , &
+                                  inArray    = this % storage % U_x , &
+                                  Nout       = e % Nxyz           , &
+                                  outArray   = e % storage % U_x          )
+               
+               call Interp3DArrays  (Nvars      = NGRAD              , &
+                                  Nin        = this % Nxyz        , &
+                                  inArray    = this % storage % U_y , &
+                                  Nout       = e % Nxyz           , &
+                                  outArray   = e % storage % U_y        )
+                                  
+               call Interp3DArrays  (Nvars      = NGRAD              , &
+                                  Nin        = this % Nxyz        , &
+                                  inArray    = this % storage % U_z , &
+                                  Nout       = e % Nxyz           , &
+                                  outArray   = e % storage % U_z        )
+            end if
+            
+         end if
+      end subroutine HexElement_InterpolateSolution
       
       END Module ElementClass

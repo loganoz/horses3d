@@ -101,7 +101,8 @@ module pAdaptationClass
       integer, allocatable   , intent(inout) :: Nx(:), Ny(:), Nz(:)  
       integer                , intent(out)   :: Nmax
       !-------------------------------------------------
-      integer                                :: nelem
+      integer              :: nelem
+      integer, allocatable :: Nx_r(:), Ny_r(:), Nz_r(:)  
       !-------------------------------------------------
       
       if (controlVariables % containsKey("polynomial order file")) then
@@ -128,10 +129,27 @@ module pAdaptationClass
          end if
       end if
       
+!
+!     ********************************************************
+!     Set maximum polynomial order for NodalStorage allocation
+!     ********************************************************
+!
       Nmax = 0
+      
+      ! Adaptation
       if (controlVariables % containsKey("adaptation nmax i")) Nmax = max(Nmax,controlVariables % integerValueForKey("adaptation nmax i"))
       if (controlVariables % containsKey("adaptation nmax j")) Nmax = max(Nmax,controlVariables % integerValueForKey("adaptation nmax j"))
       if (controlVariables % containsKey("adaptation nmax k")) Nmax = max(Nmax,controlVariables % integerValueForKey("adaptation nmax k"))
+      
+      ! Restart polynomial order
+      if (controlVariables % containsKey("restart polorder" )) Nmax = max(Nmax,controlVariables % integerValueForKey("restart polorder" ))
+      
+      if (controlVariables % containsKey("restart polorder file" )) then
+         call ReadOrderFile( controlVariables % stringValueForKey("restart polorder file", requestedLength = LINE_LENGTH), &
+                             Nx_r, Ny_r, Nz_r )
+         
+         Nmax = max(Nmax,maxval(Nx_r),maxval(Ny_r),maxval(Nz_r))
+      end if
       
       Nmax = max(Nmax,maxval(Nx),maxval(Ny),maxval(Nz))
       

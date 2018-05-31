@@ -461,7 +461,7 @@ Module DGSEMClass
 !        Local variables
 !        ---------------
 !
-         character(len=LINE_LENGTH)             :: fileName, solutionName
+         character(len=LINE_LENGTH)             :: solutionName
          logical                                :: saveGradients
          interface
             SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
@@ -479,8 +479,7 @@ Module DGSEMClass
          end interface
 
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
-            fileName = controlVariables % stringValueForKey(restartFileNameKey,requestedLength = LINE_LENGTH)
-            CALL self % mesh % LoadSolution(fileName, initial_iteration, initial_time)
+            CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time)
          ELSE
    
             call UserDefinedInitialCondition(self % mesh, thermodynamics, &
