@@ -28,6 +28,7 @@
       use TimeIntegratorDefinitions
       use MonitorsClass
       use ParticlesClass
+      use Utilities, only: ToLower
       IMPLICIT NONE 
       
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -60,6 +61,14 @@
             real(kind=RP)   :: t, deltaT
          end subroutine RKStepFcn
       end interface
+
+      character(len=*), parameter   :: TIME_INTEGRATION_KEY  = 'time integration'
+      character(len=*), parameter   :: EXPLICIT_SOLVER   = 'explicit'
+      character(len=*), parameter   :: IMEX_SOLVER       = 'imex'
+      character(len=*), parameter   :: IMPLICIT_SOLVER   = 'implicit'
+      character(len=*), parameter   :: FAS_SOLVER        = 'fas'
+      character(len=*), parameter   :: ANISFAS_SOLVER    = 'anisfas'
+      character(len=*), parameter   :: ROSENBROCK_SOLVER = 'rosenbrock'
 !
 !     ========      
       CONTAINS 
@@ -314,11 +323,12 @@ end interface
 !     Read Control variables
 !     ----------------------
 !
-      IF (controlVariables % containsKey("time integration")) THEN
-         TimeIntegration  = controlVariables % StringValueForKey("time integration",LINE_LENGTH)
+      IF (controlVariables % containsKey(TIME_INTEGRATION_KEY)) THEN
+         TimeIntegration  = controlVariables % StringValueForKey(TIME_INTEGRATION_KEY,LINE_LENGTH)
       ELSE ! Default value
-         TimeIntegration = 'explicit'
+         TimeIntegration = EXPLICIT_SOLVER
       END IF
+      call toLower(TimeIntegration)
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       
 !
@@ -365,10 +375,20 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      if (TimeIntegration == 'FAS')        call FASSolver % construct(controlVariables,sem)
-      if (TimeIntegration == 'AnisFAS')    call AnisFASSolver % construct(controlVariables,sem)
-      if (TimeIntegration == 'implicit')   call BDFSolver % construct(controlVariables,sem)
-      if (TimeIntegration == 'rosenbrock') call RosenbrockSolver % construct(controlVariables,sem)
+      select case (TimeIntegration)
+      case(FAS_SOLVER)
+         call FASSolver % construct(controlVariables,sem)
+
+      case(ANISFAS_SOLVER)
+         call AnisFASSolver % construct(controlVariables,sem)
+
+      case(IMPLICIT_SOLVER)
+         call BDFSolver % construct(controlVariables,sem)
+
+      case(ROSENBROCK_SOLVER)
+         call RosenbrockSolver % construct(controlVariables,sem)
+
+      end select
       
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 !
@@ -391,18 +411,18 @@ end interface
 !        Perform time step
 !        -----------------         
          SELECT CASE (TimeIntegration)
-            CASE ('implicit')
-               call BDFSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
-            CASE ('rosenbrock')
-               call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
-            CASE ('explicit')
-               CALL self % RKStep ( sem % mesh, sem % particles, t, sem % BCFunctions, dt, ComputeTimeDerivative)
-            case ('FAS')
-               call FASSolver % solve(k, t, dt, ComputeTimeDerivative)
-            case ('AnisFAS')
-               call AnisFASSolver % solve(k,t, ComputeTimeDerivative)
-            case ('imex')
-               call TakeIMEXEulerStep(sem, t, dt, controlVariables, computeTimeDerivative, CTD_linear, CTD_nonlinear)
+         CASE (IMPLICIT_SOLVER)
+            call BDFSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
+         CASE (ROSENBROCK_SOLVER)
+            call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
+         CASE (EXPLICIT_SOLVER)
+            CALL self % RKStep ( sem % mesh, sem % particles, t, sem % BCFunctions, dt, ComputeTimeDerivative)
+         case (FAS_SOLVER)
+            call FASSolver % solve(k, t, dt, ComputeTimeDerivative)
+         case (ANISFAS_SOLVER)
+            call AnisFASSolver % solve(k,t, ComputeTimeDerivative)
+         case (IMEX_SOLVER)
+            call TakeIMEXEulerStep(sem, t, dt, controlVariables, computeTimeDerivative, CTD_linear, CTD_nonlinear)
          END SELECT
 !
 !        Compute the new time
@@ -480,10 +500,21 @@ end interface
 !     Finish up
 !     ---------
 !
-      if (TimeIntegration == 'FAS')        CALL FASSolver % destruct
-      if (TimeIntegration == 'AnisFAS')    CALL AnisFASSolver % destruct
-      if (TimeIntegration == 'implicit')   call BDFSolver % destruct
-      if (TimeIntegration == 'rosenbrock') call RosenbrockSolver % destruct
+      select case(TimeIntegration)
+      case(FAS_SOLVER)
+         CALL FASSolver % destruct
+      
+      case(ANISFAS_SOLVER)
+         CALL AnisFASSolver % destruct
+      
+      case(IMPLICIT_SOLVER)
+         call BDFSolver % destruct
+
+      case(ROSENBROCK_SOLVER)
+         call RosenbrockSolver % destruct
+
+      end select
+
    end subroutine IntegrateInTime
       
 !

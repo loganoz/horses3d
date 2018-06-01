@@ -223,12 +223,14 @@
          write(fid,'(A40,A,A)') "Prandtl number", " = ", "0.72"
          write(fid,'(A40,A,A)') "AoA Theta", " = ", "0.0"
          write(fid,'(A40,A,A)') "AoA Phi", " = ", "0.0"
+         write(fid,'(A40,A,A)') "Gravity direction", " = ", "[x,y,z]"
          write(fid,'(A40,A,A)') "Compute gradients", " = ", ".true."
 
          write(fid,'(/,A)') "!                        ** Cahn-Hilliard"
          write(fid,'(A40,A,A)') "Peclet number", " = ", "1.0"
          write(fid,'(A40,A,A)') "Capilar number", " = ", "1.0"
          write(fid,'(A40,A,A)') "Interface width (dimensionless)", " = ", "1.0"
+         write(fid,'(A40,A,A)') "Density ratio (rho2/rho1)", " = ", "1.0"
          write(fid,'(A40,A,A)') "Viscosity ratio (mu2/mu1)", " = ", "1.0"
          write(fid,'(A40,A,A)') "Wall contact angle", " = ", "0.0"
 

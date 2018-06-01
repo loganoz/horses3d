@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Tue May 29 17:43:55 2018
-!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 3c1e755ecd17ea60f252dec3daa7823c04603dcd
+!   @Last revision date: Wed May 30 10:40:38 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 4f8965e46980c4f95aa4ff4c00996b34c42b4b94
 !
 !//////////////////////////////////////////////////////
 !
@@ -883,6 +883,7 @@ stop
 !        ---------------
 !
          integer     :: eID , i, j, k, ierr, fID
+         real(kind=RP) :: p, cIn01, fm(NDIM)
 !
 !        ****************
 !        Volume integrals
@@ -985,6 +986,27 @@ stop
 !$omp end single
          end if
 #endif
+!
+!           ******************
+!           Add gravity forces
+!           ******************
+!
+!$omp do schedule(runtime) private(i,j,k,cIn01,p,fm)
+            do eID = 1, size(mesh % elements)
+               associate(e => mesh % elements(eID))
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  cIn01 = 0.5_RP * (e % storage % c(1,i,j,k) + 1.0_RP)
+                  p = POW3(cIn01) * (6.0_RP * POW2(cIn01) - 15.0_RP * cIn01 + 10.0_RP)
+                  fm =   dimensionless % invFroudeSquare * dimensionless % gravity_dir &
+                       * ((1.0_RP - p) + p * multiphase % densityRatio)
+                  e % storage % QDot(IRHOU:IRHOW,i,j,k) = e % storage % QDot(IRHOU:IRHOW,i,j,k) + fm
+                  e % storage % QDot(IRHOE,i,j,k) = e % storage % QDot(IRHOE,i,j,k) &
+                    + product(fm * e % storage % Q(IRHOU:IRHOW,i,j,k)) / e % storage % Q(IRHO,i,j,k)
+               end do                ; end do                ; end do
+               end associate
+            end do
+!$omp end do
+
 !
 !        Add a source term
 !        -----------------

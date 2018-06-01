@@ -50,26 +50,26 @@ LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/FASMultigridClass.o \
 		./build_ch/TimeIntegrator.o 
 
-LIBOBJS_NSCH =  ./build_nsch/TimeIntegratorDefinitions.o \
-		./build_nsch/AnalyticalJacobian.o \
-		./build_nsch/GenericLinSolverClass.o \
-		./build_nsch/PetscSolverClass.o \
-		./build_nsch/MultigridSolverClass.o \
-		./build_nsch/MKLPardisoSolverClass.o \
-		./build_nsch/IterativeSolverClass.o \
-		./build_nsch/MatrixFreeSmootherClass.o \
-		./build_nsch/MatrixFreeGMRESClass.o \
-		./build_nsch/LinearSolverClass.o \
-		./build_nsch/IMEXMethods.o \
-		./build_nsch/BDFTimeIntegrator.o \
-		./build_nsch/RosenbrockTimeIntegrator.o \
-		./build_nsch/MultigridTypes.o \
-		./build_nsch/TruncationErrorClass.o \
-		./build_nsch/ExplicitMethods.o \
-		./build_nsch/AnisFASMultigridClass.o \
-		./build_nsch/pAdaptationClass.o \
-		./build_nsch/FASMultigridClass.o \
-		./build_nsch/TimeIntegrator.o 
+LIBOBJS_MU =  ./build_mu/TimeIntegratorDefinitions.o \
+		./build_mu/AnalyticalJacobian.o \
+		./build_mu/GenericLinSolverClass.o \
+		./build_mu/PetscSolverClass.o \
+		./build_mu/MultigridSolverClass.o \
+		./build_mu/MKLPardisoSolverClass.o \
+		./build_mu/IterativeSolverClass.o \
+		./build_mu/MatrixFreeSmootherClass.o \
+		./build_mu/MatrixFreeGMRESClass.o \
+		./build_mu/LinearSolverClass.o \
+		./build_mu/IMEXMethods.o \
+		./build_mu/BDFTimeIntegrator.o \
+		./build_mu/RosenbrockTimeIntegrator.o \
+		./build_mu/MultigridTypes.o \
+		./build_mu/TruncationErrorClass.o \
+		./build_mu/ExplicitMethods.o \
+		./build_mu/AnisFASMultigridClass.o \
+		./build_mu/pAdaptationClass.o \
+		./build_mu/FASMultigridClass.o \
+		./build_mu/TimeIntegrator.o 
 
 LIB = timeintegrator
 
@@ -78,7 +78,7 @@ LIB = timeintegrator
 ############################################
 .DEFAULT_GOAL:=all
 
-all: lib$(LIB)_ns.a lib$(LIB)_ch.a lib$(LIB)_nsch.a
+all: lib$(LIB)_ns.a lib$(LIB)_ch.a lib$(LIB)_mu.a
 
 ./build_ns/%.o: %.f90
 	@echo
@@ -100,15 +100,15 @@ all: lib$(LIB)_ns.a lib$(LIB)_ch.a lib$(LIB)_nsch.a
 	@echo $<
 	$(FC) $(FFLAGS) -DCAHNHILLIARD -I./include_ch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ch -c $< -o $@ $(MOD_FLAG) ./include_ch
 
-./build_nsch/%.o: %.f90
+./build_mu/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -DNAVIERSTOKES -DCAHNHILLIARD -I./include_nsch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_nsch -c $< -o $@ $(MOD_FLAG) ./include_nsch
+	$(FC) $(FFLAGS) -DNAVIERSTOKES -DCAHNHILLIARD -I./include_mu $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_mu -c $< -o $@ $(MOD_FLAG) ./include_mu
 
-./build_nsch/%.o: **/%.f90
+./build_mu/%.o: **/%.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -DNAVIERSTOKES -DCAHNHILLIARD -I./include_nsch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_nsch -c $<  -o $@ $(MOD_FLAG) ./include_nsch
+	$(FC) $(FFLAGS) -DNAVIERSTOKES -DCAHNHILLIARD -I./include_mu $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_mu -c $<  -o $@ $(MOD_FLAG) ./include_mu
 
 lib$(LIB)_ns.a: header mkdirs $(LIBOBJS_NS) 
 	@echo
@@ -128,22 +128,22 @@ lib$(LIB)_ch.a: header mkdirs $(LIBOBJS_CH)
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS_CH) 
 	@$(RANLIB) $@
 
-lib$(LIB)_nsch.a: header mkdirs $(LIBOBJS_NSCH)
+lib$(LIB)_mu.a: header mkdirs $(LIBOBJS_MU)
 	@echo
 	@echo "---------------------------------"
 	@echo "| Linking library" $@ "|"
 	@echo "---------------------------------"
 	@$(RM) $@
-	$(AR) $(ARFLAGS) $@ $(LIBOBJS_NSCH) 
+	$(AR) $(ARFLAGS) $@ $(LIBOBJS_MU) 
 	@$(RANLIB) $@
 
 install: all
 	cp -p lib$(LIB)_ns.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
-	cp -p lib$(LIB)_nsch.a $(INSTALL_DIR)/lib/
+	cp -p lib$(LIB)_mu.a $(INSTALL_DIR)/lib/
 	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
 	cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
-	cp -p ./include_nsch/*.mod $(INSTALL_DIR)/include_nsch/
+	cp -p ./include_mu/*.mod $(INSTALL_DIR)/include_mu/
 	@echo
 	@echo
 
@@ -156,14 +156,14 @@ header: FORCE
 	@echo
 
 mkdirs: FORCE
-	@mkdir -p ./include_ns ./include_ch ./include_nsch
-	@mkdir -p ./build_ns ./build_ch ./build_nsch
+	@mkdir -p ./include_ns ./include_ch ./include_mu
+	@mkdir -p ./build_ns ./build_ch ./build_mu
 
 clean: FORCE
-	$(RM) lib$(LIB)_ns.a  lib$(LIB)_ch.a lib$(LIB)_nsch.a
+	$(RM) lib$(LIB)_ns.a  lib$(LIB)_ch.a lib$(LIB)_mu.a
 	$(RM) ./build_ns/*.o ./include_ns/*.mod
 	$(RM) ./build_ch/*.o ./include_ch/*.mod
-	$(RM) ./build_nsch/*.o ./include_nsch/*.mod
+	$(RM) ./build_mu/*.o ./include_mu/*.mod
 
 #############################################
 #	Dummy procedure to force a rule     #

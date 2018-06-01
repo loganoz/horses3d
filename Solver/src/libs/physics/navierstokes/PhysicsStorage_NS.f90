@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date: Thu Apr 19 17:24:27 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ca7f00098495d6fca03f13af3e8a139f88ed41e0
+!   @Last revision date: Wed May 30 10:40:42 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 4f8965e46980c4f95aa4ff4c00996b34c42b4b94
 !
 !//////////////////////////////////////////////////////
 !
@@ -17,6 +17,8 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MACH_NUMBER_KEY           = "mach number"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: REYNOLDS_NUMBER_KEY       = "reynolds number"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PRANDTL_NUMBER_KEY        = "prandtl number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FROUDE_NUMBER_KEY         = "froude number"  
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_DIRECTION_KEY     = "gravity direction"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY             = "aoa theta"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY               = "aoa phi"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY        = "flow equations"
@@ -41,7 +43,6 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"         
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfParticlesKey     = "number of particles"          
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STOKES_NUMBER_PART_KEY   = "stokes number" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FROUDE_NUMBER_KEY        = "froude number"          
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GAMMA_PART_KEY           = "gamma" 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PHI_M_PART_KEY           = "phi_m" 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: I0_PART_KEY              = "radiation source" 
@@ -213,6 +214,16 @@
       type(Thermodynamics_t), pointer  :: thermodynamics_
       type(RefValues_t)                :: refValues_
       type(Dimensionless_t)            :: dimensionless_
+      real(kind=RP), allocatable       :: array(:)
+      interface
+         function getArrayFromString( line ) result ( array )
+            use SMConstants
+            implicit none
+            character(len=*),    intent(in)  :: line
+            real(kind=RP), allocatable       :: array(:)
+         end function getArrayFromString
+      end interface
+
 !
 !     --------------------
 !     Collect input values
@@ -239,12 +250,14 @@
 
       dimensionless_ % Pr   = controlVariables % doublePrecisionValueForKey(PRANDTL_NUMBER_KEY) 
       dimensionless_ % Fr   = controlVariables % doublePrecisionValueForKey(FROUDE_NUMBER_KEY) 
- 
-      if ( abs(dimensionless_ % Pr - huge(1._RP)) < 1.d0 ) then  
-            write(*,*) "WARNING:" 
-            write(*,*) "Prandtl number not set. Setting automatically to its default value: 0.72" 
-            dimensionless_ % Pr = 0.72_RP 
-      endif  
+   
+      if ( controlVariables % ContainsKey(PRANDTL_NUMBER_KEY) ) then
+         dimensionless_ % Pr   = controlVariables % doublePrecisionValueForKey(PRANDTL_NUMBER_KEY) 
+      else
+         dimensionless_ % Pr = 0.72_RP
+      end if
+
+
  
       if ( abs(dimensionless_ % Fr - huge(1._RP)) < 1.d0 ) then    
             write(*,*) "WARNING:" 
@@ -355,6 +368,56 @@
       end if
 
       timeref = Lref / refValues_ % V
+!
+!     *******************************************
+!     Set the Froude number and gravity direction
+!     *******************************************
+!
+      if ( controlVariables % ContainsKey(FROUDE_NUMBER_KEY) ) then
+         dimensionless_ % Fr = controlVariables % DoublePrecisionValueForKey(FROUDE_NUMBER_KEY)
+
+      else
+!
+!        Default Froude number: earth's gravity
+!        --------------------------------------
+         dimensionless_ % Fr = refValues_ % V / sqrt(9.81_RP * Lref)
+
+      end if
+
+      if ( controlVariables % ContainsKey(GRAVITY_DIRECTION_KEY) ) then
+         array = GetArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
+                                                                             KEYWORD_LENGTH))
+         dimensionless_ % gravity_dir = array(1:3)
+
+         if ( norm2(dimensionless_ % gravity_dir) < epsilon(1.0_RP)*10.0_RP ) then
+!
+!           Disable gravity
+!           ---------------
+            dimensionless_ % gravity_dir = 0.0_RP
+            dimensionless_ % invFroudeSquare = 0.0_RP
+            dimensionless_ % Fr = huge(1.0_RP)
+         else
+            dimensionless_ % gravity_dir = dimensionless_ % gravity_dir / norm2(dimensionless_ % gravity_dir)
+            dimensionless_ % invFroudeSquare = 1.0_RP / POW2(dimensionless_ % Fr)
+
+         end if
+      else
+         if ( controlVariables % ContainsKey(FROUDE_NUMBER_KEY) ) then
+            print*, "When specifying a Froude number, the gravity direction must be specified"
+            print*, "Gravity direction = [x,y,z]"
+            errorMessage(STD_OUT)
+            stop
+
+         else
+!
+!           Gravity is disabled
+!           -------------------
+            dimensionless_ % gravity_dir = 0.0_RP
+            dimensionless_ % Fr = huge(1.0_RP)
+            dimensionless_ % invFroudeSquare = 0.0_RP
+
+         end if
+      end if
 !
 !     *********************************************
 !     Choose the Riemann solver (by default is Roe)
@@ -566,6 +629,10 @@
          end if
 
          write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Froude number: " , dimensionless % Fr
+         write(STD_OUT,'(30X,A,A20,A,F4.1,A,F4.1,A,F4.1,A)') "->" , "Gravity direction: ","[", &
+                                                   dimensionless % gravity_dir(1), ", ", &
+                                                   dimensionless % gravity_dir(2), ", ", &
+                                                   dimensionless % gravity_dir(3), "]"
 
       END SUBROUTINE DescribePhysicsStorage_NS
 !
