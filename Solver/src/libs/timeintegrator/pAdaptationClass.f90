@@ -25,17 +25,34 @@ module pAdaptationClass
    use FTValueDictionaryClass
    use StorageClass
    use SharedBCModule
-   use FileReadingUtilities , only: RemovePath, getFileName
+   use FileReadingUtilities , only: RemovePath, getFileName, getArrayFromString
    use FileReaders          , only: ReadOrderFile
+   use ParamfileRegions     , only: readValueInRegion, getSquashedLine
+   use HexMeshClass         , only: HexMesh
 #if defined(CAHNHILLIARD)
    use BoundaryConditionFunctions, only: C_BC, MU_BC
 #endif
    
    implicit none
    
+#include "Includes.h"
    private
    public GetMeshPolynomialOrders, ReadOrderFile
    public pAdaptation_t
+   
+   !--------------------------------------------------
+   ! Main type for performing a p-adaptation procedure
+   !--------------------------------------------------
+   type :: overenriching_t
+      integer           :: ID
+      integer           :: order
+      real(kind=RP)     :: x_span(2)
+      real(kind=RP)     :: y_span(2)
+      real(kind=RP)     :: z_span(2)
+      
+      contains
+         procedure      :: initialize => OverEnriching_Initialize
+   end type overenriching_t
    
    !--------------------------------------------------
    ! Main type for performing a p-adaptation procedure
@@ -51,8 +68,9 @@ module pAdaptationClass
       logical                           :: Constructed      ! 
       integer                           :: NxyzMax(3)       ! Maximum polynomial order in all the directions
       integer                           :: TruncErrorType   ! Truncation error type (either ISOLATED_TE or NON_ISOLATED_TE)
-      
       type(TruncationError_t), allocatable :: TE(:)         ! Truncation error for every element(:)
+      
+      type(overenriching_t)  , allocatable :: overenriching(:)
       
       contains
          procedure :: construct => ConstructPAdaptator
@@ -160,6 +178,187 @@ module pAdaptationClass
 !     ROUTINES FOR ADAPTATION
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine OverEnriching_Initialize(this,oID)
+         implicit none
+         !----------------------------------
+         class(overenriching_t) :: this
+         integer, intent(in)    :: oID
+         !----------------------------------
+         character(LINE_LENGTH) :: paramFile
+         character(LINE_LENGTH) :: in_label
+         character(LINE_LENGTH) :: x_span
+         character(LINE_LENGTH) :: y_span
+         character(LINE_LENGTH) :: z_span
+         integer, allocatable   :: order
+         !----------------------------------
+         
+         call get_command_argument(1, paramFile)
+!
+!        Get overenriching region ID
+!        ---------------------------
+         this % ID = oID
+!
+!        Search for the parameters in the case file
+!        ------------------------------------------
+         write(in_label , '(A,I0)') "#define overenriching box " , this % ID
+         
+         call get_command_argument(1, paramFile) !
+         call readValueInRegion ( trim ( paramFile )  , "order"  , order       , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "x span" , x_span      , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "y span" , y_span      , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "z span" , z_span      , in_label , "# end" ) 
+         
+         if (allocated(order)) then
+            this % order = order
+         else
+            this % order = 1
+         end if
+         
+         this % x_span = getArrayFromString(x_span)
+         this % y_span = getArrayFromString(y_span)
+         this % z_span = getArrayFromString(z_span)
+         
+      end subroutine OverEnriching_Initialize
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine getNoOfOverEnrichingBoxes(no_of_regions)
+      implicit none
+      integer, intent(out)    :: no_of_regions
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      character(len=LINE_LENGTH) :: case_name, line
+      integer                    :: fID
+      integer                    :: io
+!
+!     Initialize
+!     ----------
+      no_of_regions = 0
+!
+!     Get case file name
+!     ------------------
+      call get_command_argument(1, case_name)
+
+!
+!     Open case file
+!     --------------
+      open ( newunit = fID , file = case_name , status = "old" , action = "read" )
+
+!
+!     Read the whole file to find monitors
+!     ------------------------------------
+readloop:do 
+         read ( fID , '(A)' , iostat = io ) line
+
+         if ( io .lt. 0 ) then
+!
+!           End of file
+!           -----------
+            line = ""
+            exit readloop
+
+         elseif ( io .gt. 0 ) then
+!
+!           Error
+!           -----
+            errorMessage(STD_OUT)
+            stop "Stopped."
+
+         else
+!
+!           Succeeded
+!           ---------
+            line = getSquashedLine( line )
+
+            if ( index ( line , '#defineoverenrichingbox' ) .gt. 0 ) then
+               no_of_regions = no_of_regions + 1
+            end if
+            
+         end if
+         
+      end do readloop
+!
+!     Close case file
+!     ---------------
+      close(fID)                             
+
+   end subroutine getNoOfOverEnrichingBoxes
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine OverEnrichRegions(overenriching,mesh,NNew,Nmax)
+      implicit none
+      !---------------------------------------
+      type(overenriching_t), allocatable :: overenriching(:)
+      type(HexMesh), intent(in)          :: mesh
+      integer                            :: NNew(:,:)
+      integer      , intent(in)          :: Nmax(3)
+      !---------------------------------------
+      integer :: oID       ! Overenriching region counter
+      integer :: eID       ! Element counter
+      integer :: cornerID  ! Corner counter
+      logical :: enriched(mesh % no_of_elements)
+      !---------------------------------------
+      
+      if (.not. allocated(overenriching) ) return
+      
+      enriched = .FALSE.
+      
+      do oID = 1, size(overenriching)
+         associate (region => overenriching(oID) )
+         
+         element_loop: do eID=1, mesh % no_of_elements
+            
+            if ( enriched(eID) ) cycle element_loop
+            
+            associate ( corners => mesh % elements(eID) % hexMap % corners )
+            
+!
+!           Enrich element if any of the corners is inside the region
+!           ---------------------------------------------------------
+            corner_loop: do cornerID=1, 8
+               if( (corners(1,cornerID) > region % x_span(1) .and. corners(1,cornerID) < region % x_span(2)) .and. &
+                   (corners(2,cornerID) > region % y_span(1) .and. corners(2,cornerID) < region % y_span(2)) .and. &
+                   (corners(3,cornerID) > region % z_span(1) .and. corners(3,cornerID) < region % z_span(2)) ) then
+                   
+                  if ( NNew(1,eID) + region % order >= Nmax(1) ) then
+                     NNew(1,eID) = Nmax(1)
+                  else
+                     NNew(1,eID) = NNew(1,eID) + region % order
+                  end if
+                  if ( NNew(2,eID) + region % order >= Nmax(2) ) then
+                     NNew(2,eID) = Nmax(2)
+                  else
+                     NNew(2,eID) = NNew(2,eID) + region % order
+                  end if
+                  if ( NNew(3,eID) + region % order >= Nmax(3) ) then
+                     NNew(3,eID) = Nmax(3)
+                  else
+                     NNew(3,eID) = NNew(3,eID) + region % order
+                  end if
+                  
+                  enriched(eID) = .TRUE.
+                  exit corner_loop
+               end if 
+            end do corner_loop
+            
+            end associate
+         end do element_loop
+         
+         end associate
+      end do
+      
+   end subroutine OverEnrichRegions
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ROUTINES FOR ADAPTATION
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -175,7 +374,8 @@ module pAdaptationClass
       integer, DIMENSION(:)               :: Nx,Ny,Nz         !<> Input: polynomial orders as read from input files - Output: Polynomial orders to start simulation with (increasing adaptation?)
       type(FTValueDictionary), intent(in) :: controlVariables !<  Input values
       !--------------------------------------
-      integer              :: iEl      ! Element counter
+      integer              :: i      ! Element counter
+      integer              :: no_of_overen_boxes
       !--------------------------------------
       
 !
@@ -258,10 +458,23 @@ module pAdaptationClass
          NMIN = 1
       end if
       
-      do iEl = 1, nelem
-         call this % TE(iEl) % construct(NMIN,this % NxyzMax)
+      do i = 1, nelem
+         call this % TE(i) % construct(NMIN,this % NxyzMax)
       end do
       
+      
+!     Adaptation overenriching
+!     *************************
+      
+      call getNoOfOverEnrichingBoxes(no_of_overen_boxes)
+         
+      if (no_of_overen_boxes > 0) then
+         allocate ( this % overenriching(no_of_overen_boxes) )
+         
+         do i = 1, no_of_overen_boxes
+            call this % overenriching(i) % initialize (i)
+         end do
+      end if
 !
 !     ---------------------------------------------
 !     If increasing adaptation is selected, rewrite
@@ -270,10 +483,10 @@ module pAdaptationClass
       if (this % increasing) then
          NInc = NInc_0
 !$omp parallel do schedule(runtime)
-         do iEl = 1, nelem
-            if (Nx(iEl) > NInc) Nx(iEl) = NInc
-            if (Ny(iEl) > NInc) Ny(iEl) = NInc
-            if (Nz(iEl) > NInc) Nz(iEl) = NInc
+         do i = 1, nelem
+            if (Nx(i) > NInc) Nx(i) = NInc
+            if (Ny(i) > NInc) Ny(i) = NInc
+            if (Nz(i) > NInc) Nz(i) = NInc
          end do
 !$omp end parallel do
       end if
@@ -555,6 +768,8 @@ module pAdaptationClass
          pAdapt % Adapt = .FALSE.
       end if
       
+      call OverEnrichRegions(pAdapt % overenriching,sem % mesh,NNew, pAdapt % NxyzMax)
+      
       last = .FALSE.
       do while (.not. last)
          last = .TRUE.
@@ -694,7 +909,6 @@ module pAdaptationClass
 !  Subroutine to make the p-representation on certain boundaries conforming
 !  -----------------------------------------------------------------------
    subroutine makeBoundariesPConforming(mesh,NNew,last)
-      use HexMeshClass
       use ElementConnectivityDefinitions
       implicit none
       !------------------------------------------------------------

@@ -604,7 +604,7 @@ module FASMultigridClass
                exit
             end if
          elseif (PostSmooth .or. PostFCycle) then
-            if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
+            !if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
             if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < PrevRes) exit
          else
             exit
