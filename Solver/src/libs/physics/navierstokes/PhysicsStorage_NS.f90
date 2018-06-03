@@ -248,22 +248,11 @@
       dimensionless_ % cv = thermodynamics_ % InvGammaMinus1
       dimensionless_ % Mach = controlVariables % doublePrecisionValueForKey(MACH_NUMBER_KEY)
 
-      dimensionless_ % Pr   = controlVariables % doublePrecisionValueForKey(PRANDTL_NUMBER_KEY) 
-      dimensionless_ % Fr   = controlVariables % doublePrecisionValueForKey(FROUDE_NUMBER_KEY) 
-   
       if ( controlVariables % ContainsKey(PRANDTL_NUMBER_KEY) ) then
          dimensionless_ % Pr   = controlVariables % doublePrecisionValueForKey(PRANDTL_NUMBER_KEY) 
       else
          dimensionless_ % Pr = 0.72_RP
       end if
-
-
- 
-      if ( abs(dimensionless_ % Fr - huge(1._RP)) < 1.d0 ) then    
-            write(*,*) "WARNING:" 
-            write(*,*) "Froude number not set. Setting automatically to its default value: infinity" 
-            dimensionless_ % Fr = huge(1._RP) 
-      endif  
 !
 !     *********************
 !     Select flow equations
@@ -336,11 +325,6 @@
       end if
 
       dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
-      if ( abs(dimensionless_ % Fr - huge(1._RP)) < 1.d0 ) then   
-            dimensionless_ % invFroudeSquare = 0.0_RP 
-      else  
-            dimensionless_ % invFroudeSquare = 1.0_RP / POW2( dimensionless_ % Fr ) 
-      endif  
 !
 !     ********************
 !     Set reference values: TODO read from parameter file

@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed May 30 10:42:47 2018
-!   @Last revision date: Thu May 31 17:50:43 2018
+!   @Last revision date: Mon Jun  4 18:05:55 2018
 !   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 9f51b78f530e0b14ce379c13179d6eadd1012a93
+!   @Last revision commit: 2355abaef579817f771ad9146d80ed4a4e10e404
 !
 !//////////////////////////////////////////////////////
 !
@@ -119,39 +119,6 @@
 #if defined(NAVIERSTOKES)
             real(kind=RP)  :: Q(NCONS), phi, theta
 #endif
-
-!
-!           ---------------------------------------
-!           Navier-Stokes default initial condition
-!           ---------------------------------------
-!
-#if defined(NAVIERSTOKES)
-            associate ( gammaM2 => dimensionless_ % gammaM2, &
-                        gamma => thermodynamics_ % gamma )
-      
-            do eID = 1, mesh % no_of_elements
-               associate( Nx => mesh % elements(eID) % Nxyz(1), &
-                          ny => mesh % elemeNts(eID) % nxyz(2), &
-                          Nz => mesh % elements(eID) % Nxyz(3) )
-               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
-                  u  = 0.0_RP
-                  v  = 0.0_RP
-                  w  = 0.0_RP
-      
-                  q(1) = 1.0_RP
-                  p    = 1.0_RP/(gammaM2)
-                  q(2) = q(1)*u
-                  q(3) = q(1)*v
-                  q(4) = q(1)*w
-                  q(5) = p/(gamma - 1._RP) + 0.5_RP*q(1)*(u**2 + v**2 + w**2)
-
-                  mesh % elements(eID) % storage % q(:,i,j,k) = q 
-               end do;        end do;        end do
-               end associate
-            end do
-
-            end associate
-#endif
 !
 !           ---------------------------------------
 !           Cahn-Hilliard default initial condition
@@ -182,6 +149,41 @@
                end associate
                end associate
             end do
+#endif
+!
+!           ---------------------------------------
+!           Navier-Stokes default initial condition
+!           ---------------------------------------
+!
+#if defined(NAVIERSTOKES)
+            associate ( gammaM2 => dimensionless_ % gammaM2, &
+                        gamma => thermodynamics_ % gamma )
+      
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          ny => mesh % elemeNts(eID) % nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  u  = 0.0_RP
+                  v  = 0.0_RP
+                  w  = 0.0_RP
+#if defined(CAHNHILLIARD)      
+                  q(1) = multiphase_ % tildeRho * mesh % elements(eID) % storage % c(1,i,j,k) + multiphase_ % barRho
+#else
+                  q(1) = 1.0_RP
+#endif
+                  p    = q(1)/(gammaM2)
+                  q(2) = q(1)*u
+                  q(3) = q(1)*v
+                  q(4) = q(1)*w
+                  q(5) = p/(gamma - 1._RP) + 0.5_RP*q(1)*(u**2 + v**2 + w**2)
+
+                  mesh % elements(eID) % storage % q(:,i,j,k) = q 
+               end do;        end do;        end do
+               end associate
+            end do
+
+            end associate
 #endif
 
          end subroutine UserDefinedInitialCondition

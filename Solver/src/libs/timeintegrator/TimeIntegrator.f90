@@ -161,8 +161,7 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE Integrate( self, sem, controlVariables, monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, &
-                            ComputeTimeDerivative_onlyLinear, ComputeTimeDerivative_onlyNonLinear) 
+      SUBROUTINE Integrate( self, sem, controlVariables, monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       use pAdaptationClass
       USE FASMultigridClass
       IMPLICIT NONE
@@ -178,8 +177,6 @@
       type(pAdaptation_t)                  :: pAdaptator
       procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
       procedure(ComputeQDot_FCN)           :: ComputeTimeDerivativeIsolated
-      procedure(ComputeQDot_FCN), optional :: ComputeTimeDerivative_onlyLinear
-      procedure(ComputeQDot_FCN), optional :: ComputeTimeDerivative_onlyNonLinear
 
 !
 !     ---------
@@ -238,15 +235,10 @@
       
 !     Finish time integration
 !     -----------------------
-      if ( present(ComputeTimeDerivative_onlyLinear) ) then
-         call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, CTD_linear = ComputeTimeDerivative_onlyLinear, CTD_nonlinear = ComputeTimeDerivative_onlyNonLinear)
-      else
-         call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative)
-      end if
+      call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative)
 
 !     Measure solver time
 !     -------------------
-
       call Stopwatch % Pause("Solver")
 
       END SUBROUTINE Integrate    
@@ -422,7 +414,7 @@ end interface
          case (ANISFAS_SOLVER)
             call AnisFASSolver % solve(k,t, ComputeTimeDerivative)
          case (IMEX_SOLVER)
-            call TakeIMEXEulerStep(sem, t, dt, controlVariables, computeTimeDerivative, CTD_linear, CTD_nonlinear)
+            call TakeIMEXStep(sem, t, dt, controlVariables, computeTimeDerivative)
          END SELECT
 !
 !        Compute the new time

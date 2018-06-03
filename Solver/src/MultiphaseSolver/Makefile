@@ -22,7 +22,7 @@ COMM?=PARALLEL
 MAKE=make
 AR=ar
 RANLIB=ranlib
-PROG=./bin/horses3d.ch
+PROG=./bin/horses3d.mp
 
 OBJS_HORSES=	SpatialDiscretization \
 		main        
@@ -37,7 +37,6 @@ OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 
 ./build/main.o: FORCE
 
-
 ##########################################################
 ##		COMPILATION RULES 			##
 ##########################################################
@@ -47,12 +46,12 @@ OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 ./build/%.o: ./%.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_ch $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_nsch $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include
 
 ./build/%.o: ./**/%.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_ch $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_nsch $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include
 
 $(PROG): header mkdirs $(OBJS_HORSES_BUILD)
 	@echo
@@ -60,7 +59,7 @@ $(PROG): header mkdirs $(OBJS_HORSES_BUILD)
 	@echo "---------------------------------"
 	@echo "| Linking " $@ "|"
 	@echo "---------------------------------"
-	$(FC) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ch -o $(PROG) $(OBJS_HORSES_BUILD) $(HORSES_LIBS_EXEC) $(LIBS)
+	$(FC) $(FFLAGS) $(INCLUDE) $(INCLUDE)_nsch -o $(PROG) $(OBJS_HORSES_BUILD) $(HORSES_LIBS_EXEC) $(LIBS)
 
 
 install: $(PROG)
@@ -83,9 +82,9 @@ mkdirs: FORCE
 
 header: FORCE
 	@echo
-	@echo "============================================="
-	@echo ">>   Building HORSES3D Cahn-Hilliard Solver  "
-	@echo "============================================="
+	@echo "==========================================================="
+	@echo ">>   Building HORSES3D Multiphase Solver  "
+	@echo "==========================================================="
 	@echo
 	@echo
 

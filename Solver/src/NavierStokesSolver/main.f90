@@ -102,6 +102,8 @@ end interface
       integer, allocatable                :: Nx(:), Ny(:), Nz(:)
       integer                             :: Nmax
       type(pAdaptation_t)                 :: pAdaptator
+
+      solver = "navier-stokes"
 !
 !     ---------------
 !     Initializations

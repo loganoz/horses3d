@@ -65,7 +65,6 @@ $(PROG): header mkdirs $(OBJS_HORSES_BUILD)
 
 install: $(PROG)
 	cp -p $(PROG) $(INSTALL_DIR)/bin
-	cp -p ./include/*.mod $(INSTALL_DIR)/include_ns
 	@echo
 	@echo
 

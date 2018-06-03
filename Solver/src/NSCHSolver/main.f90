@@ -4,9 +4,9 @@
 !   @File:    HORSES3DMain.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Wed May 23 12:57:20 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
+!   @Last revision date: Mon Jun  4 18:05:52 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 2355abaef579817f771ad9146d80ed4a4e10e404
 !
 !//////////////////////////////////////////////////////
 !
@@ -117,6 +117,8 @@ end interface
       integer, allocatable       :: Nx(:), Ny(:), Nz(:)
       integer                    :: Nmax
       type(pAdaptation_t)        :: pAdaptator
+
+      solver = "nsch"
 !
 !     ---------------
 !     Initializations
@@ -201,7 +203,7 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, ComputeTimeDerivative_onlyLinear, ComputeTimeDerivative_onlyNonLinear)
+      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !     ----------------------------------
 !     Export particles to VTK (temporal)
