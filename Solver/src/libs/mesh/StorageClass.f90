@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Thu May 24 12:33:34 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 9c7308b38dea39541d69eb6214359dc41401f180
+!   @Last revision date: Fri Jun  8 16:10:47 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 689bd2caf36aed1f14a7753ecd58cd5a5ce33533
 !
 !//////////////////////////////////////////////////////
 !
@@ -137,6 +137,7 @@ module StorageClass
 !  ****************************************
    type FaceStorage_t
       integer                                          :: currentlyLoaded
+      integer                                          :: Nf(2), Nel(2)
       real(kind=RP), dimension(:,:,:),     pointer     :: Q
       real(kind=RP), dimension(:,:,:),     pointer     :: U_x, U_y, U_z
       real(kind=RP), dimension(:,:,:),     pointer     :: FStar
@@ -565,6 +566,9 @@ module StorageClass
 !
          integer     :: interfaceFluxMemorySize
 
+         self % Nf  = Nf
+         self % Nel = Nel
+
          interfaceFluxMemorySize = 0
 
 #if defined(NAVIERSTOKES)
@@ -683,22 +687,13 @@ module StorageClass
       subroutine FaceStorage_SetStorageToNS(self)
          implicit none
          class(FaceStorage_t), target    :: self
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer     :: Nx, Ny
 
          self % currentlyLoaded = NS
 !
 !        Get sizes
 !        ---------
-         Nx   = size(self % QNS,2) - 1 
-         Ny   = size(self % QNS,3) - 1 
-
          self % Q   (1:,0:,0:)            => self % QNS
-         self % fStar(1:NCONS, 0:Nx, 0:Ny) => self % genericInterfaceFluxMemory
+         self % fStar(1:NCONS, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
 
          self % genericInterfaceFluxMemory = 0.0_RP
 
@@ -706,7 +701,7 @@ module StorageClass
             self % U_x (1:,0:,0:) => self % U_xNS
             self % U_y (1:,0:,0:) => self % U_yNS
             self % U_z (1:,0:,0:) => self % U_zNS
-            self % unStar(1:NGRAD, 1:NDIM, 0:Nx, 0:Ny) => self % genericInterfaceFluxMemory
+            self % unStar(1:NGRAD, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
          end if
 
       end subroutine FaceStorage_SetStorageToNS
@@ -715,27 +710,18 @@ module StorageClass
       subroutine FaceStorage_SetStorageToCH_c(self)
          implicit none
          class(FaceStorage_t), target  :: self
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer     :: Nx, Ny
 
          self % currentlyLoaded = C
 !
 !        Get sizes
 !        ---------
-         Nx   = size(self % c,2) - 1 
-         Ny   = size(self % c,3) - 1 
-
          self % Q(1:,0:,0:)   => self % c
          self % U_x(1:,0:,0:) => self % c_x
          self % U_y(1:,0:,0:) => self % c_y
          self % U_z(1:,0:,0:) => self % c_z
 
-         self % fStar(1:NCOMP,0:Nx,0:Ny)            => self % genericInterfaceFluxMemory
-         self % unStar(1:NCOMP, 1:NDIM, 0:Nx, 0:Ny) => self % genericInterfaceFluxMemory
+         self % fStar(1:NCOMP,0:self % Nel(1),0:self % Nel(2))            => self % genericInterfaceFluxMemory
+         self % unStar(1:NCOMP, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
 
          self % genericInterfaceFluxMemory = 0.0_RP
 
@@ -744,27 +730,16 @@ module StorageClass
       subroutine FaceStorage_SetStorageToCH_mu(self)
          implicit none
          class(FaceStorage_t), target  :: self
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer     :: Nx, Ny
 
          self % currentlyLoaded = MU
-!
-!        Get sizes
-!        ---------
-         Nx   = size(self % mu,2) - 1 
-         Ny   = size(self % mu,3) - 1 
 
          self % Q(1:,0:,0:)   => self % mu
          self % U_x(1:,0:,0:) => self % mu_x
          self % U_y(1:,0:,0:) => self % mu_y
          self % U_z(1:,0:,0:) => self % mu_z
 
-         self % fStar(1:NCOMP,0:Nx,0:Ny)            => self % genericInterfaceFluxMemory
-         self % unStar(1:NCOMP, 1:NDIM, 0:Nx, 0:Ny) => self % genericInterfaceFluxMemory
+         self % fStar(1:NCOMP,0:self % Nel(1),0:self % Nel(2))            => self % genericInterfaceFluxMemory
+         self % unStar(1:NCOMP, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
 
          self % genericInterfaceFluxMemory = 0.0_RP
 
