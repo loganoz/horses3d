@@ -2439,6 +2439,8 @@ slavecoord:                DO l = 1, 4
             end do
             call auxMesh % storage % destruct
             deallocate (auxMesh % elements)
+            
+            if ( controlVariables % containsKey("get discretization error of") ) call GetDiscretizationError(self,controlVariables)
 !
 !        *****************************************************
 !        The restart polynomial orders are the same as in self
@@ -2588,6 +2590,66 @@ slavecoord:                DO l = 1, 4
          if (present(with_gradients) ) with_gradients = gradients
 
       END SUBROUTINE HexMesh_LoadSolution
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine GetDiscretizationError(mesh,controlVariables)
+      implicit none
+      !----------------------------------------------
+      type(HexMesh) :: mesh
+      type(FTValueDictionary) :: controlVariables
+      !----------------------------------------------
+      character(len=LINE_LENGTH) :: fileName
+      type(HexMesh)              :: refMesh
+      integer       :: NDOF, eID
+      integer       :: initial_iteration
+      real(kind=RP) :: initial_time
+      !----------------------------------------------
+      
+      fileName = controlVariables % stringValueForKey("get discretization error of",LINE_LENGTH)
+      
+!     Construct an auxiliar mesh to read the solution
+!     -----------------------------------------------
+
+      refMesh % nodeType = mesh % nodeType
+      refMesh % no_of_elements = mesh % no_of_elements
+      allocate ( refMesh % elements (mesh % no_of_elements) )
+      
+      NDOF = 0
+      do eID = 1, mesh % no_of_elements
+         associate ( e_aux => refMesh % elements(eID), &
+                     e     =>    mesh % elements(eID) )
+         e_aux % globID = e % globID
+         e_aux % Nxyz = e % Nxyz
+         NDOF = NDOF + N_EQN * product(e % Nxyz + 1)
+         end associate
+      end do
+      
+      call refMesh % PrepareForIO
+      call refMesh % AllocateStorage (NDOF, controlVariables,.FALSE.,.FALSE.)
+      
+!     Read the solution in the auxiliar mesh and interpolate to current mesh
+!     ----------------------------------------------------------------------
+      
+      call refMesh % LoadSolution ( fileName, initial_iteration, initial_time )
+      
+      refMesh % storage % Q = mesh % storage % Q - refMesh % storage % Q
+      
+      print*, '|disc_error|∞ = ', maxval(abs(refMesh % storage % Q))
+      print*, '|disc_error|² = ', norm2(refMesh % storage % Q)
+      
+      call refMesh % SaveSolution(0, 0._RP, 'RESULTS/DiscError.hsol', .FALSE.)
+      
+!           Clean up
+!           --------
+      
+      do eID = 1, refMesh % no_of_elements
+         call refMesh % elements(eID) % storage % destruct
+      end do
+      call refMesh % storage % destruct
+      deallocate (refMesh % elements)
+      
+   end subroutine GetDiscretizationError
 !
 !////////////////////////////////////////////////////////////////////////
 !

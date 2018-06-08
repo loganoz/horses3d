@@ -83,13 +83,14 @@ module pAdaptationClass
 !  Module variables
 !  ----------------
 !
-   !! Variables
    integer    :: NMIN = 1
    integer    :: NInc_0 = 4
 !!    integer               :: dN_Inc = 3 
    integer    :: fN_Inc = 2
    integer    :: NInc
    integer    :: nelem           ! number of elements in mesh
+   
+   logical    :: reorganize_z
    
 #if defined(NAVIERSTOKES)
    procedure(BCState_FCN)   :: externalStateForBoundaryName
@@ -403,6 +404,8 @@ readloop:do
       
       this % solutionFileName = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
       this % saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
+      
+      reorganize_z = controlVariables % logicalValueForKey("adaptation adjust nz")
       
 !
 !     ------------------------------
@@ -1013,7 +1016,7 @@ readloop:do
             !Cycle if this is a boundary face!!
             if (faces(fID) % elementIDs(2) == 0) cycle
             
-            call AdjustPAcrossFace(faces(fID),NNew,GetOrderAcrossFace,finalsweep)
+            call AdjustPAcrossFace(faces(fID),NNew,GetOrderAcrossFace,finalsweep,reorganize_z)
             
          end do
          
@@ -1026,12 +1029,13 @@ readloop:do
       
    end subroutine ReorganizePolOrders
    
-   subroutine AdjustPAcrossFace(f,NNew,OrderAcrossFace,same)
+   subroutine AdjustPAcrossFace(f,NNew,OrderAcrossFace,same,z_dir)
       implicit none
       !-arguments--------------------------------------------
       type(Face), intent(in)    :: f
       integer   , intent(inout) :: NNew(:,:)
       logical                   :: same   !<> Returns false if the function changes a polynomial order
+      logical   , optional      :: z_dir
       !------------------------------------------------------
       interface
          integer function OrderAcrossFace(a)
@@ -1044,7 +1048,15 @@ readloop:do
       integer :: indL(2)         ! Index of face polorders in 3D polorders (left element)
       integer :: indR(2)         ! Index of face polorders in 3D polorders (right element)
       integer :: NL,NR           ! Polynomial order on the left/right
+      integer :: indZL, indZR
+      logical :: direction_z
       !------------------------------------------------------
+      
+      if (present(z_dir) ) then
+         direction_z = z_dir
+      else
+         direction_z = .FALSE.
+      end if
       
       eIDL = f % elementIDs(1)
       eIDR = f % elementIDs(2)
@@ -1088,6 +1100,22 @@ readloop:do
          end if
       end if
       
+      if ( direction_z ) then
+         !! Compare the polynomial order in the z-direction (needed???) 
+         indZL = RemainingIndex(indL) 
+         indZR = RemainingIndex(indR) 
+         NL = NNew(indZL,eIDL) 
+         NR = NNew(indZR,eIDR) 
+                
+         if (MIN(NL,NR) < GetOrderAcrossFace(MAX(NL,NR))) then 
+            same = .FALSE. 
+            if (NL<NR) then 
+               NNew(indZL,eIDL) = OrderAcrossFace(NR) 
+            else 
+               NNew(indZR,eIDR) = OrderAcrossFace(NL) 
+            end if 
+         end if 
+      end if
    end subroutine AdjustPAcrossFace
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1103,6 +1131,21 @@ readloop:do
       !GetOrderAcrossFace = (a*2)/3
       GetOrderAcrossFace = a-1
    end function GetOrderAcrossFace
+! 
+!/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+! 
+   function RemainingIndex(a) RESULT(b) 
+      integer :: a(2) 
+      integer :: b 
+       
+      if (any(a==1)) then 
+         if (any(a==2)) b = 3 
+         if (any(a==3)) b = 2 
+      else 
+         b = 1 
+      end if 
+       
+   end function 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1138,7 +1181,7 @@ readloop:do
       real(kind=RP)              :: y   (P_1-NMIN+1)
       integer                    :: N
       integer                    :: i
-      real(kind=RP)              :: C,eta             ! Regression variables
+      real(kind=RP)              :: C,eta,r             ! Regression variables
       character(len=LINE_LENGTH) :: RegfileName
       integer                    :: fd
       !---------------------------------------
@@ -1157,7 +1200,7 @@ readloop:do
       N = P_1 - NMIN + 1
       y = LOG10(Adaptator % TE(iEl) % Dir(Dir) % maxTE (NMIN:P_1))
       x = (/ (real(i,RP), i=NMIN,P_1) /)
-      call C_and_eta_estimation(N,x,y,C,eta)
+      call C_and_eta_estimation(N,x,y,C,eta,r)
       
       ! Extrapolate the TE
       do i = P_1+1, NMax
@@ -1190,7 +1233,7 @@ readloop:do
 !  -----------------------------------------------------------------------
 !  Subroutine for performing least square regression and giving up the coefficients
 !  -----------------------------------------------------------------------
-   pure subroutine C_and_eta_estimation(N,x,y,C,eta)
+   pure subroutine C_and_eta_estimation(N,x,y,C,eta,r)
       implicit none
       !--------------------------------------
       integer      , intent(in)  :: N        !< Number of points
@@ -1198,19 +1241,22 @@ readloop:do
       real(kind=RP), intent(in)  :: y(N)
       real(kind=RP), intent(out) :: C
       real(kind=RP), intent(out) :: eta
+      real(kind=RP), intent(out) :: r
       !--------------------------------------
-      real(kind=RP)              :: sumx,sumy,sumsqx,sumxy,deno
+      real(kind=RP)              :: sumx,sumy,sumsqx,sumxy,deno,sumsqy
       !--------------------------------------
       
       sumx = sum(x)
       sumy = sum(y)
       sumsqx = sum(x*x)
+      sumsqy = sum(y*y)
       sumxy  = sum(x*y)
       
       deno=n*sumsqx-sumx*sumx
       
       eta = (n*sumxy-sumx*sumy)/deno
       C   = (sumsqx*sumy-sumx*sumxy)/deno
+      r   = (  sumxy-sumx*sumy/n) / sqrt((sumsqx - sumx*sumx/n) * (sumsqy - sumy*sumy/n))
       
    end subroutine C_and_eta_estimation
    

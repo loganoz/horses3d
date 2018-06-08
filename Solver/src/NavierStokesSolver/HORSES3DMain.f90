@@ -26,7 +26,7 @@
       use StopwatchClass
       use MPI_Process_Info
       use SpatialDiscretization
-      use pAdaptationClass
+      use pAdaptationClass          , only: GetMeshPolynomialOrders
       use NodalStorageClass
       use ManufacturedSolutions
       use FileReaders               , only: ReadControlFile 
