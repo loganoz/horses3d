@@ -1,3 +1,4 @@
+/* Test case for the cylinder with different polynomial orders */
 Flow equations        = "NS"
 mesh file name        = "../../TestMeshes/CylinderNSpol3_1elem_y.mesh"
 restart file name     = "RESULTS/CylinderN2N3N4N5.rst"
@@ -33,3 +34,25 @@ jacobian flag           = 2
 linear solver           = Petsc
 jacobian by convergence = .false. 
 !-------------------------------------------------------------
+
+#define surface monitor 1
+   Name = cyl-drag
+   Marker = innercylinder
+   Variable = drag
+   Direction = [0.0,0.0,1.0]
+   Reference surface = 1.0	
+#end
+
+#define surface monitor 2
+   Name = cyl-lift
+   Marker = innercylinder
+   Variable = lift
+   Direction = [1.0,0.0,0.0]
+   Reference surface = 1.0
+#end
+
+#define probe 1
+   Name = wake_u
+   Position = [0.0,0.5,4.0]
+   Variable = u
+#end
