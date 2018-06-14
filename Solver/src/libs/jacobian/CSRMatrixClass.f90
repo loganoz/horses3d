@@ -4,7 +4,7 @@
 !      Created: 2017-03-21 17:07:00 +0100 
 !      By: Andrés Rueda
 !
-!      Class for sparse csr matrices
+!      Class for sparse Compressed Sparse Row (CSR) matrices
 ! TODO: change contiguous pointers by allocatables... Memory leaking here!!!!
 !////////////////////////////////////////////////////////////////////////
 MODULE CSRMatrixClass

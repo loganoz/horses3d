@@ -14,13 +14,10 @@ module NumericalJacobian
    use HexMeshClass
    use DGSEMClass
    use ElementClass
-   use Jacobian
+   use Jacobian,  only: JACEPS, local2ijk, Look_for_neighbour
    use PhysicsStorage
    use Utilities, only: Qsort
    implicit none
-   
-   real(kind=RP), parameter :: jaceps=1e-8_RP ! Minimum value of a Jacobian entry (smaller values are considered as 0._RP)
-   
    
    type(Neighbour),allocatable :: nbr(:)  ! Neighbors information
    type(Colors)                :: ecolors

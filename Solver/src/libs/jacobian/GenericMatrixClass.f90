@@ -14,6 +14,7 @@ module GenericMatrixClass
          procedure :: SetColumn
          procedure :: AddToColumn
          procedure :: SetDiagonalBlock
+         procedure :: SetEntry
          procedure :: Shift
          procedure :: ReShift
          procedure :: PreAssembly
@@ -95,6 +96,19 @@ contains
       !---------------------------------------------
       ERROR stop ' :: SetDiagonalBlock not implemented for current matrix type'
    end subroutine SetDiagonalBlock
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+! 
+   subroutine SetEntry(this, row, col, value )
+      implicit none
+      !---------------------------------------------
+      class(Matrix_t), intent(inout) :: this
+      integer        , intent(in)    :: row
+      integer        , intent(in)    :: col
+      real(kind=RP)  , intent(in)    :: value
+      !---------------------------------------------
+      ERROR stop ' :: SetEntry not implemented for current matrix type'
+   end subroutine SetEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

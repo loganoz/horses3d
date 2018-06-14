@@ -23,7 +23,7 @@ module AnalyticalJacobian
    use NodalStorageClass
    use PhysicsStorage
    use Physics
-   use Jacobian
+   use Jacobian, only: JACEPS
    use MatrixClass
    use DGSEMClass
    use StopWatchClass
@@ -33,13 +33,6 @@ module AnalyticalJacobian
    
    private
    public AnalyticalJacobian_Compute
-   
-!
-!  ----------
-!  Parameters
-!  ----------
-!
-   real(kind=RP), parameter :: jaceps = 1.e-8_RP ! Minimum value of a Jacobian entry (smaller values are considered as 0._RP)
    
    ! Variables to be moved to Jacobian Storage
    integer, allocatable :: ndofelm(:)
