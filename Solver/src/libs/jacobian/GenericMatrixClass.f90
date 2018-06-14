@@ -101,7 +101,7 @@ contains
 ! 
    subroutine SetEntry(this, row, col, value )
       implicit none
-      !---------------------------------------------
+      !-arguments-----------------------------------
       class(Matrix_t), intent(inout) :: this
       integer        , intent(in)    :: row
       integer        , intent(in)    :: col

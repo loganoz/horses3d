@@ -11,6 +11,7 @@ module LinkedListMatrixClass
    use SMConstants
    use GenericMatrixClass
    use Jacobian, only: JACEPS
+#include "Includes.h"
    implicit none
    
    private
@@ -29,7 +30,7 @@ module LinkedListMatrixClass
    ! Type for rows
    !--------------
    type Row_t
-      type(Entry_t), pointer :: head
+      type(Entry_t), pointer :: head => null()
       integer :: num_of_entries
    end type Row_t
    
@@ -42,9 +43,11 @@ module LinkedListMatrixClass
       contains
       procedure :: construct
       procedure :: setEntry
+      procedure :: setColumn
       procedure :: destruct
       procedure :: PointToEntry
       procedure :: getCSRarrays
+      procedure :: Shift
    end type LinkedListMatrix_t
    
 contains
@@ -89,7 +92,10 @@ contains
       type(Entry_t), pointer :: Entry
       !----------------------------------------------
       
-      if (value < JACEPS) return
+      if (abs(value) < JACEPS) return
+      
+      if (row<1) return
+      if (col<1) return
       
       Entry => this % PointToEntry(row,col)
       Entry % value = value
@@ -98,9 +104,39 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  -------------------------------
-!  Set entry of linked-list matrix
-!  ------------------------------- 
+   subroutine SetColumn(this,nvalues, irow, icol, values )
+      implicit none
+      !-arguments-----------------------------------
+      class(LinkedListMatrix_t)  , intent(inout) :: this
+      integer                    , intent(in)    :: nvalues
+      integer, dimension(:)      , intent(in)    :: irow
+      integer                    , intent(in)    :: icol
+      real(kind=RP), dimension(:), intent(in)    :: values
+      !-local-variables------------------------------
+      integer :: i
+      !----------------------------------------------
+      
+      if (nvalues .NE. size(Values)) then
+         write (*,*) 'CSR_AddToCol: Dimension error (Values-RowIndexes)'
+         stop
+      end if
+      
+      if ( icol <= 0 ) then
+         write (*,*) 'CSR_AddToCol: icol error'
+         stop
+      end if
+      
+      do i=1, nvalues
+         call this % SetEntry(irow(i),icol,values(i))
+      end do
+      
+   end subroutine SetColumn
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------
+!  Destructor
+!  ----------
    subroutine destruct(this)
       implicit none
       !-arguments-----------------------------------
@@ -112,11 +148,13 @@ contains
       
       do i=1, this % NumRows
          CEntry => this % rows(i) % head
+         
          do while ( associated(CEntry) )
             next => CEntry % next
             deallocate(CEntry)
             Centry => next
          end do
+         this % rows(i) % head => null()
       end do
       
       deallocate ( this % rows )
@@ -128,7 +166,7 @@ contains
 !
 !  -----------------------------------------------------------
 !  Function to point to a specific entry of the matrix. If the
-!  entry has not been created, then it creates it 
+!  entry has not been created, then it creates it
 !  -----------------------------------------------------------
    function PointToEntry(Matrix,i,j ) result(Entry)
       implicit none
@@ -189,9 +227,9 @@ contains
       type(Entry_t), pointer :: CEntry
       !----------------------------------------------------------------
       
-      allocate ( Rows(this % NumRows + 1) )
-      allocate ( Cols(this % num_of_entries) )
-      allocate ( Values(this % num_of_entries) )
+      safedeallocate(Rows)   ; allocate ( Rows  (this % NumRows + 1) )
+      safedeallocate(Cols)   ; allocate ( Cols  (this % num_of_entries) )
+      safedeallocate(Values) ; allocate ( Values(this % num_of_entries) )
       
 !     Set first row
 !     -------------
@@ -199,8 +237,8 @@ contains
       Rows(1) = 1
       CEntry => this % rows(1) % head
       do j=0, this % rows(1) % num_of_entries - 1
-         Values(Rows(i)+j) = CEntry % value
-         Cols  (Rows(i)+j) = CEntry % col
+         Values(1+j) = CEntry % value
+         Cols  (1+j) = CEntry % col
          
          CEntry => CEntry % next
       end do
@@ -223,4 +261,25 @@ contains
       Rows(this % NumRows + 1) = Rows(this % NumRows) + this % rows(this % NumRows) % num_of_entries
       
    end subroutine getCSRarrays
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Shift(this, shiftval)
+      implicit none
+      !-arguments-----------------------------------
+      class(LinkedListMatrix_t), intent(inout) :: this
+      real(kind=RP),             intent(in)    :: shiftval
+      !-local-variables-----------------------------
+      type(Entry_t), pointer :: Entry
+      integer :: i
+      !---------------------------------------------
+      
+      if (shiftval < JACEPS) return
+      
+      do i=1, this % NumRows
+         Entry => this % PointToEntry(i,i)
+         Entry % value = Entry % value + shiftval
+      end do
+      
+   end subroutine Shift
 end module LinkedListMatrixClass
