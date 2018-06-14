@@ -6,8 +6,22 @@
 !      By: David Kopriva  
 !
 !////////////////////////////////////////////////////////////////////////
-! 
-      SUBROUTINE ReadInputFile (controlVariables)
+!
+   module FileReaders
+      use FileReadingUtilities, only: GetKeyword, GetValueAsString
+      implicit none
+      
+      private
+      public ReadControlFile, ReadOrderFile
+      
+   contains
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!     -------------------
+!     Control file reader
+!     -------------------
+      SUBROUTINE ReadControlFile (controlVariables)
          USE SMConstants
          USE FTValueDictionaryClass
          USE SharedBCModule
@@ -42,10 +56,6 @@
 !        ---------------------------------------
 !
          integer                                 :: fid, io
-         REAL(KIND=RP)             , EXTERNAL    :: GetRealValue
-         INTEGER                   , EXTERNAL    :: GetIntValue
-         CHARACTER(LEN=LINE_LENGTH), EXTERNAL    :: GetStringValue, GetKeyword, GetValueAsString
-         LOGICAL                   , EXTERNAL    :: GetLogicalValue
          interface
             subroutine PreprocessInputLine(line)
                implicit none
@@ -158,7 +168,36 @@
 
          CLOSE(UNIT=fid)
 
-      END SUBROUTINE ReadInputFile
+      END SUBROUTINE ReadControlFile
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ----------------------------------------------------------------------
+!     Subroutine that reads input file containing polynomial orders for mesh
+!     ----------------------------------------------------------------------
+      subroutine ReadOrderFile(filename, Nx, Ny, Nz)
+         implicit none
+         !-arguments----------------------------------------
+         character(len=*), intent(in) :: filename          !<  Name of file containing polynomial orders to initialize
+         integer, allocatable         :: Nx(:),Ny(:),Nz(:) !>  Polynomial orders for each element
+         !-local-variables----------------------------------
+         integer                      :: fd       ! File unit
+         integer                      :: nelem    ! Number of elements
+         integer                      :: i        ! counter
+         !--------------------------------------------------
+         
+         open(newunit = fd, FILE = filename )   
+            READ(fd,*) nelem
+            
+            allocate(Nx(nelem),Ny(nelem),Nz(nelem))
+            
+            do i = 1, nelem
+               READ(fd,*) Nx(i), Ny(i), Nz(i)
+            ENDDO
+         close(UNIT=fd)
+         
+      end subroutine ReadOrderFile
+   end module FileReaders
       
       subroutine PreprocessInputLine(line)
 !

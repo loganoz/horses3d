@@ -17,6 +17,7 @@ module GeometryClass
    use HexMeshClass
    use FTValueDictionaryClass
    use getInputData_MOD
+   use FileReadingUtilities      , only: getFileName, getArrayFromString
 
    private
    public   Geometry_t, Construct
@@ -56,14 +57,6 @@ module GeometryClass
          class(NodalStorage_t),      intent(in)    :: spA(0:)
          class(FTValueDictionary), intent(in)    :: controlVariables
          class(Geometry_t),        pointer       :: ConstructGeometry
-         interface
-            character(len=LINE_LENGTH) function getFileName( inputLine )
-            use SMConstants
-            implicit none
-            character(len=*)     :: inputLine
-            end function getFileName
-         end interface
-
 !
 !        Allocate memory for the geometry
 !        --------------------------------
@@ -150,15 +143,6 @@ module GeometryClass
       real(kind=RP)  :: NDOF
       real(kind=RP)  :: volume, xintegral(3)
       real(kind=RP), allocatable :: xc(:)
-      interface
-         function getArrayFromString( line ) result ( array )
-         use SMConstants
-         use RealDataLinkedList
-         implicit none
-         character(len=*),    intent(in)  :: line
-         real(kind=RP), allocatable       :: array(:)
-         end function getArrayFromString
-      end interface
 
 !
 !     Compute domain volume

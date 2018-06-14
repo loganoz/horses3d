@@ -147,6 +147,14 @@ restart 			& \textit{LOGICAL}: If .TRUE., initial conditions of simulation will 
 restart file name   & \textit{CHARACTER}: Name of the restart file to be written and, if keyword \textit{restart} = .TRUE., also name of the restart file to be read for starting the simulation. & \textbf{Mandatory\ keyword} \\ \hline
 
 restart interval    & \textit{INTEGER}: Indicates how often restart files have to be written. & Huge number \\ \hline
+
+restart polorder & \textit{INTEGER}: Uniform polynomial order of the solution to restart from. This keyword is only needed when the restart solution is of a different order than the current case. & same as case's \\ \hline
+
+restart polorder file & 
+			\textit{CHARACTER}: File containing the polynomial orders of the solution to restart from. This keyword is only needed when the restart solution is of a different order than the current case.  &  same as case's\\ \hline
+
+get discretization error of & \textit{CHARACTER}: Path to solution file. This can be used to estimate the discretization error of a solution when restarting from a higher-order solution. & -- \\ \hline
+
 \end{tabular}
 \label{tab:restartkey}
 \end{table}
@@ -248,7 +256,7 @@ adaptation nmax i \
 
 adaptation nmax j \
 
-adaptation nmax k          & \textit{INTEGER}: Maximum polynomial order in each direction for the adaptation algorithm. & N \\ \hline
+adaptation nmax k          & \textit{INTEGER}: Maximum polynomial order in each direction for the p-adaptation algorithm. & N \\ \hline
 
 truncation error type & \textit{CHARACTER}: Can be either "isolated" or "non-isolated". & "isolated" \\ \hline
    
@@ -263,6 +271,17 @@ adaptation conforming boundaries & \textit{INTEGER}: Specifies the number of bou
 
 \textit{...} 
 \end{center} & 0 \\ \hline
+
+adaptation nmin &
+			\textit{INTEGER}: Mimimum polynomial order after the p-adaptation procedure. & 
+					1  \\ \hline
+write regression files &
+			\textit{LOGICAL}: If .TRUE., the program writes files containing the information about the lin-log regression procedure that is performed for the $\tau$-estimation extrapolation. The files are stored in the folder \textit{./RegressionFiles/Stage\_XX/}, where \textit{XX} is the adaptation stage number. & 
+			 		.FALSE. \\ \hline
+adaptation adjust nz & 
+			\textit{LOGICAL}: If .TRUE., the order accross faces is adjusted i    n the directions xi, eta, and zeta of the face (being zeta the normal direction). If .FALSE., the     order is only adjusted in the xi and eta directions. The adjustment currently consists (hard-cod    ed) in allowing jumps in the polynomial order of at most 1. & 
+					.FALSE. \\ \hline
+
 \end{longtable}
 
 

@@ -10,7 +10,7 @@
 !
 #include "Includes.h"
 MODULE HexMeshClass
-      use Utilities, only: almostEqual
+      use Utilities                       , only: almostEqual
       use SMConstants
       USE MeshTypes
       USE NodeClass
@@ -27,6 +27,9 @@ MODULE HexMeshClass
       use MPI_Face_Class
       use FluidData
       use StorageClass
+      use FileReadingUtilities            , only: RemovePath, getFileName
+      use FTValueDictionaryClass          , only: FTValueDictionary
+      use SolutionFile
 #if defined(NAVIERSTOKES)
       use WallDistance
 #endif
@@ -86,6 +89,7 @@ MODULE HexMeshClass
             procedure :: ResetStatistics               => HexMesh_ResetStatistics
 #endif
             procedure :: LoadSolution                  => HexMesh_LoadSolution
+            procedure :: LoadSolutionForRestart        => HexMesh_LoadSolutionForRestart
             procedure :: WriteCoordFile
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
             procedure :: UpdateMPIFacesGradients       => HexMesh_UpdateMPIFacesGradients
@@ -2127,20 +2131,6 @@ slavecoord:                DO l = 1, 4
          integer        :: fID, eID, pos
          character(len=LINE_LENGTH)    :: meshName
          real(kind=RP), parameter      :: refs(NO_OF_SAVED_REFS) = 0.0_RP
-         interface
-            character(len=LINE_LENGTH) function RemovePath( inputLine )
-               use SMConstants
-               implicit none
-               character(len=*)     :: inputLine
-            end function RemovePath
-      
-            character(len=LINE_LENGTH) function getFileName( inputLine )
-               use SMConstants
-               implicit none
-               character(len=*)     :: inputLine
-            end function getFileName
-         end interface
-
             
 !
 !        Create file: it will be contained in ./MESH
@@ -2180,20 +2170,6 @@ slavecoord:                DO l = 1, 4
          integer                          :: fd       ! File unit
          integer                          :: k
          character(len=LINE_LENGTH)       :: OrderFileName
-         !------------------------------------------
-         interface
-            character(len=LINE_LENGTH) function RemovePath( inputLine )
-               use SMConstants
-               implicit none
-               character(len=*)     :: inputLine
-            end function RemovePath
-      
-            character(len=LINE_LENGTH) function getFileName( inputLine )
-               use SMConstants
-               implicit none
-               character(len=*)     :: inputLine
-            end function getFileName
-         end interface
          !------------------------------------------
             
 !
@@ -2388,13 +2364,116 @@ slavecoord:                DO l = 1, 4
 
       end subroutine HexMesh_ResetStatistics
 #endif
-      subroutine HexMesh_LoadSolution( self, fileName, initial_iteration, initial_time ) 
-         use SolutionFile
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -----------------------------------------------------------------------------------
+!     Subroutine to load a solution for restart using the information in the control file
+!     -----------------------------------------------------------------------------------
+      subroutine HexMesh_LoadSolutionForRestart( self, controlVariables, initial_iteration, initial_time ) 
+         use mainKeywordsModule, only: restartFileNameKey
+         use FileReaders       , only: ReadOrderFile
+         implicit none
+         !-arguments-----------------------------------------------
+         class(HexMesh)                       :: self
+         type(FTValueDictionary), intent(in)  :: controlVariables
+         integer                , intent(out) :: initial_iteration
+         real(kind=RP)          , intent(out) :: initial_time
+         !-local-variables-----------------------------------------
+         character(len=LINE_LENGTH)           :: fileName
+         character(len=LINE_LENGTH)           :: orderFileName
+         integer, allocatable                 :: Nx(:), Ny(:), Nz(:)
+         type(HexMesh)                        :: auxMesh
+         integer                              :: NDOF, eID
+         logical                              :: with_gradients
+#if (!defined(NAVIERSTOKES))
+         logical                          :: computeGradients = .true.
+#endif
+         !---------------------------------------------------------
+         
+         fileName = controlVariables % stringValueForKey(restartFileNameKey,requestedLength = LINE_LENGTH)
+         
+!
+!        *****************************************************
+!        The restart polynomial orders are different to self's
+!        *****************************************************
+!
+         if ( controlVariables % containsKey("restart polorder")        .or. &
+              controlVariables % containsKey("restart polorder file") ) then
+            
+            
+!           Read the polynomial order of the solution to be loaded
+!           ------------------------------------------------------
+
+            if ( controlVariables % containsKey("restart polorder") ) then
+               allocate ( Nx(self % no_of_allElements) , Ny(self % no_of_allElements) , Nz(self % no_of_allElements) )
+               Nx = controlVariables % integerValueForKey ("restart polorder")
+               Ny = Nx
+               Nz = Nx
+            elseif ( controlVariables % containsKey("restart polorder file") ) then
+               orderFileName = controlVariables % stringValueForKey("restart polorder file",requestedLength = LINE_LENGTH)
+               call ReadOrderFile(trim(orderFileName), Nx, Ny, Nz)
+            end if
+            
+!           Construct an auxiliar mesh to read the solution
+!           -----------------------------------------------
+
+            auxMesh % nodeType = self % nodeType
+            auxMesh % no_of_elements = self % no_of_elements
+            allocate ( auxMesh % elements (self % no_of_elements) )
+            
+            NDOF = 0
+            do eID = 1, self % no_of_elements
+               associate ( e_aux => auxMesh % elements(eID), &
+                           e     =>    self % elements(eID) )
+               e_aux % globID = e % globID
+               e_aux % Nxyz = [Nx(e % globID) , Ny(e % globID) , Nz(e % globID)]
+               NDOF = NDOF + (Nx(e % globID) + 1) * (Ny(e % globID) + 1) * (Nz(e % globID) + 1)               ! TODO: change for new NDOF 
+               end associate
+            end do
+            
+            call auxMesh % PrepareForIO
+            call auxMesh % AllocateStorage (NDOF, controlVariables,computeGradients,.FALSE.)
+            
+!           Read the solution in the auxiliar mesh and interpolate to current mesh
+!           ----------------------------------------------------------------------
+            
+            call auxMesh % LoadSolution ( fileName, initial_iteration, initial_time , with_gradients)
+            call auxMesh % elements % InterpolateSolution (self % elements,auxMesh % nodeType , with_gradients)
+            
+!           Clean up
+!           --------
+            
+            do eID = 1, auxMesh % no_of_elements
+               call auxMesh % elements(eID) % storage % destruct
+            end do
+            call auxMesh % storage % destruct
+            deallocate (auxMesh % elements)
+            
+            if ( controlVariables % containsKey("get discretization error of") ) call GetDiscretizationError(self,controlVariables)
+!
+!        *****************************************************
+!        The restart polynomial orders are the same as in self
+!        *****************************************************
+!       
+         else
+            call self % LoadSolution ( fileName, initial_iteration, initial_time )
+         end if
+         
+      end subroutine HexMesh_LoadSolutionForRestart
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ----------------------------------------------
+!     Subroutine to load a solution (*.hsol) in self
+!     ----------------------------------------------
+      subroutine HexMesh_LoadSolution( self, fileName, initial_iteration, initial_time , with_gradients) 
          IMPLICIT NONE
-         CLASS(HexMesh)             :: self
-         character(len=*)           :: fileName
-         integer,       intent(out) :: initial_iteration
-         real(kind=RP), intent(out) :: initial_time
+         CLASS(HexMesh)                  :: self
+         character(len=*)                :: fileName
+         integer           , intent(out) :: initial_iteration
+         real(kind=RP)     , intent(out) :: initial_time
+         logical, optional , intent(out) :: with_gradients
          
 !
 !        ---------------
@@ -2406,6 +2485,9 @@ slavecoord:                DO l = 1, 4
          integer                        :: Nxp1, Nyp1, Nzp1, no_of_eqs, array_rank
          real(kind=RP), allocatable     :: Q(:,:,:,:)
          character(len=SOLFILE_STR_LEN) :: rstName
+         logical          :: gradients
+         
+         gradients = .FALSE.
 !
 !        Get the file title
 !        ------------------
@@ -2426,6 +2508,7 @@ slavecoord:                DO l = 1, 4
 
          case(SOLUTION_AND_GRADIENTS_FILE)
             padding = NTOTALVARS + 3 * NTOTALGRADS
+            gradients = .TRUE.
 
          case(STATS_FILE)
             print*, "The selected restart file is a statistics file"
@@ -2442,7 +2525,7 @@ slavecoord:                DO l = 1, 4
          nodeType = getSolutionFileNodeType(trim(fileName))
 
          if ( nodeType .ne. self % nodeType ) then
-            print*, "Solution file uses a different discretization nodes that the mesh."
+            print*, "Solution file uses a different discretization nodes than the mesh."
             errorMessage(STD_OUT)
          end if
 !
@@ -2505,6 +2588,11 @@ slavecoord:                DO l = 1, 4
 
 #if defined(NAVIERSTOKES)
             e % storage % Q = Q(1:NCONS,:,:,:)
+            if (gradients) then
+               read(fID) e % storage % U_x
+               read(fID) e % storage % U_y
+               read(fID) e % storage % U_z
+            end if
 #endif
 #if defined(CAHNHILLIARD)
             e % storage % c(1,:,:,:) = Q(NTOTALVARS,:,:,:)
@@ -2517,8 +2605,70 @@ slavecoord:                DO l = 1, 4
 !        Close the file
 !        --------------
          close(fID)
+         
+         if (present(with_gradients) ) with_gradients = gradients
 
       END SUBROUTINE HexMesh_LoadSolution
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine GetDiscretizationError(mesh,controlVariables)
+      implicit none
+      !----------------------------------------------
+      type(HexMesh) :: mesh
+      type(FTValueDictionary) :: controlVariables
+      !----------------------------------------------
+      character(len=LINE_LENGTH) :: fileName
+      type(HexMesh)              :: refMesh
+      integer       :: NDOF, eID
+      integer       :: initial_iteration
+      real(kind=RP) :: initial_time
+      !----------------------------------------------
+      
+      fileName = controlVariables % stringValueForKey("get discretization error of",LINE_LENGTH)
+      
+!     Construct an auxiliar mesh to read the solution
+!     -----------------------------------------------
+
+      refMesh % nodeType = mesh % nodeType
+      refMesh % no_of_elements = mesh % no_of_elements
+      allocate ( refMesh % elements (mesh % no_of_elements) )
+      
+      NDOF = 0
+      do eID = 1, mesh % no_of_elements
+         associate ( e_aux => refMesh % elements(eID), &
+                     e     =>    mesh % elements(eID) )
+         e_aux % globID = e % globID
+         e_aux % Nxyz = e % Nxyz
+         NDOF = NDOF + product(e % Nxyz + 1)
+         end associate
+      end do
+      
+      call refMesh % PrepareForIO
+      call refMesh % AllocateStorage (NDOF, controlVariables,.FALSE.,.FALSE.)
+      
+!     Read the solution in the auxiliar mesh and interpolate to current mesh
+!     ----------------------------------------------------------------------
+      
+      call refMesh % LoadSolution ( fileName, initial_iteration, initial_time )
+      
+      refMesh % storage % Q = mesh % storage % Q - refMesh % storage % Q
+      
+      print*, '|disc_error|∞ = ', maxval(abs(refMesh % storage % Q))
+      print*, '|disc_error|² = ', norm2(refMesh % storage % Q)
+      
+      call refMesh % SaveSolution(0, 0._RP, 'RESULTS/DiscError.hsol', .FALSE.)
+      
+!           Clean up
+!           --------
+      
+      do eID = 1, refMesh % no_of_elements
+         call refMesh % elements(eID) % storage % destruct
+      end do
+      call refMesh % storage % destruct
+      deallocate (refMesh % elements)
+      
+   end subroutine GetDiscretizationError
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -2743,17 +2893,24 @@ slavecoord:                DO l = 1, 4
 !
 !///////////////////////////////////////////////////////////////////////
 !
-   subroutine HexMesh_AllocateStorage(self,NDOF,controlVariables,computeGradients)
-      use FTValueDictionaryClass
+   subroutine HexMesh_AllocateStorage(self,NDOF,controlVariables,computeGradients,Face_pointers)
       implicit none
       !-----------------------------------------------------------
       class(HexMesh), target                 :: self
       integer                 , intent(in)   :: NDOF
       class(FTValueDictionary), intent(in)   :: controlVariables
       logical                 , intent(in)   :: computeGradients
+      logical, optional       , intent(in)   :: Face_pointers
       !-----------------------------------------------------------
       integer :: bdf_order, eID, firstIdx
+      logical :: Face_pt
       !-----------------------------------------------------------
+      
+      if ( present(Face_pointers) ) then
+         Face_pt = Face_pointers
+      else
+         Face_pt = .TRUE.
+      end if
       
       if (controlVariables % containsKey("bdf order")) then
          bdf_order = controlVariables % integerValueForKey("bdf order")
@@ -2781,21 +2938,23 @@ slavecoord:                DO l = 1, 4
 !        Point face Jacobians
 !        --------------------
 #if defined(NAVIERSTOKES)
-         e % Storage % dfdq_fr(1:,1:,0:,0:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFStar_dqEl(:,:,:,:,e %faceSide(EFRONT ))
-         e % Storage % dfdq_ba(1:,1:,0:,0:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFStar_dqEl(:,:,:,:,e %faceSide(EBACK  ))
-         e % Storage % dfdq_bo(1:,1:,0:,0:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFStar_dqEl(:,:,:,:,e %faceSide(EBOTTOM))
-         e % Storage % dfdq_to(1:,1:,0:,0:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFStar_dqEl(:,:,:,:,e %faceSide(ETOP   ))
-         e % Storage % dfdq_ri(1:,1:,0:,0:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFStar_dqEl(:,:,:,:,e %faceSide(ERIGHT ))
-         e % Storage % dfdq_le(1:,1:,0:,0:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFStar_dqEl(:,:,:,:,e %faceSide(ELEFT  ))
+         if (Face_pt) then
+            e % Storage % dfdq_fr(1:,1:,0:,0:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFStar_dqEl(:,:,:,:,e %faceSide(EFRONT ))
+            e % Storage % dfdq_ba(1:,1:,0:,0:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFStar_dqEl(:,:,:,:,e %faceSide(EBACK  ))
+            e % Storage % dfdq_bo(1:,1:,0:,0:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFStar_dqEl(:,:,:,:,e %faceSide(EBOTTOM))
+            e % Storage % dfdq_to(1:,1:,0:,0:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFStar_dqEl(:,:,:,:,e %faceSide(ETOP   ))
+            e % Storage % dfdq_ri(1:,1:,0:,0:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFStar_dqEl(:,:,:,:,e %faceSide(ERIGHT ))
+            e % Storage % dfdq_le(1:,1:,0:,0:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFStar_dqEl(:,:,:,:,e %faceSide(ELEFT  ))
+            
+            e % Storage % dfdGradQ_fr(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFv_dGradQEl
+            e % Storage % dfdGradQ_ba(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFv_dGradQEl
+            e % Storage % dfdGradQ_bo(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFv_dGradQEl
+            e % Storage % dfdGradQ_to(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFv_dGradQEl
+            e % Storage % dfdGradQ_ri(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFv_dGradQEl
+            e % Storage % dfdGradQ_le(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFv_dGradQEl
+         end if
          
-         e % Storage % dfdGradQ_fr(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFv_dGradQEl
-         e % Storage % dfdGradQ_ba(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFv_dGradQEl
-         e % Storage % dfdGradQ_bo(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFv_dGradQEl
-         e % Storage % dfdGradQ_to(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFv_dGradQEl
-         e % Storage % dfdGradQ_ri(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFv_dGradQEl
-         e % Storage % dfdGradQ_le(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFv_dGradQEl
 #endif
-         
          end associate
       END DO
 

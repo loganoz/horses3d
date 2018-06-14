@@ -29,6 +29,8 @@
       use MPI_Process_Info
       use SpatialDiscretization
       use NodalStorageClass
+      use FileReaders               , only: ReadControlFile
+      use FileReadingUtilities      , only: getFileName
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -67,11 +69,6 @@ interface
       SUBROUTINE UserDefinedTermination
          IMPLICIT NONE  
       END SUBROUTINE UserDefinedTermination
-      character(len=LINE_LENGTH) function getFileName(inputLine)
-         use SMConstants
-         implicit none
-         character(len=*)    :: inputLine
-      end function getFileName
 end interface
 
       TYPE( FTValueDictionary)   :: controlVariables
@@ -116,7 +113,7 @@ end interface
       CALL UserDefinedStartup
       CALL ConstructSharedBCModule
       
-      CALL ReadInputFile( controlVariables )
+      CALL ReadControlFile( controlVariables )
       CALL CheckInputIntegrity(controlVariables, success)
       IF(.NOT. success)   ERROR STOP "Control file reading error"
       

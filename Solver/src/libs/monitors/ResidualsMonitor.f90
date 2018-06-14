@@ -66,12 +66,12 @@ module ResidualsMonitorClass
 !        ----------------------------------
          if (FirstCall) then
             open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" ) 
-            write ( fID , ' ( A                                      ) ' ) "Residuals file"
+            write ( fID , ' ( A                                      ) ' ) "#Residuals file"
 #if defined(NAVIERSTOKES)
-            write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "Iteration" , "Time" , &
+            write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
                         "Elapsed Time (s)" , "continuity" , "x-momentum" , "y-momentum" , "z-momentum", "energy" , "Max-Residual"
 #elif defined(CAHNHILLIARD)
-            write ( fID , ' ( A10,2X,A24,2X,A24) ' ) "Iteration" , "Time" , "concentration"
+            write ( fID , ' ( A10,2X,A24,2X,A24) ' ) "#Iteration" , "Time" , "concentration"
 
 #endif
 !

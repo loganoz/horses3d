@@ -59,6 +59,7 @@
 !
      USE SMConstants
      use FluidData_NS
+     use FileReadingUtilities, only: getArrayFromString
      
      IMPLICIT NONE
 
@@ -215,14 +216,6 @@
       type(RefValues_t)                :: refValues_
       type(Dimensionless_t)            :: dimensionless_
       real(kind=RP), allocatable       :: array(:)
-      interface
-         function getArrayFromString( line ) result ( array )
-            use SMConstants
-            implicit none
-            character(len=*),    intent(in)  :: line
-            real(kind=RP), allocatable       :: array(:)
-         end function getArrayFromString
-      end interface
 
 !
 !     --------------------

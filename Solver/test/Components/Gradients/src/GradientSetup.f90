@@ -20,7 +20,8 @@
       USE PhysicsStorage
       USE SharedBCModule
       use NodalStorageClass
-      use Utilities, only: UnusedUnit
+      use FileReaders      , only: ReadControlFile
+      use Utilities        , only: UnusedUnit
       
       IMPLICIT NONE
       INTEGER           :: fUnit
@@ -34,7 +35,7 @@
 !
       CALL constructSharedBCModule
       CALL controlVariables % initWithSize(16)
-      CALL ReadInputFile( controlVariables )
+      CALL ReadControlFile( controlVariables )
       machVal = controlVariables % quadValueForKey(machNumberKey)
       reVal   = controlVariables % quadValueForKey(reynoldsNumberKey)
       

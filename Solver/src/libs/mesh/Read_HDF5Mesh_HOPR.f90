@@ -411,7 +411,7 @@ contains
 !
       if ( .not. MPI_Process % doMPIAction ) then
          call self % PrepareForIO
-         call self % Export( trim(fileName) )
+         if (.not. self % child) call self % Export( trim(fileName) )
       end if
 
 #else

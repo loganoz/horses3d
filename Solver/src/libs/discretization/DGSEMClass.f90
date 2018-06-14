@@ -19,6 +19,7 @@ Module DGSEMClass
    USE HexMeshClass
    USE PhysicsStorage
    use FluidData
+   use FileReadingUtilities      , only: getFileName
 #if defined(NAVIERSTOKES)
    USE ManufacturedSolutions
 #endif
@@ -453,7 +454,7 @@ Module DGSEMClass
 !        Local variables
 !        ---------------
 !
-         character(len=LINE_LENGTH)             :: fileName, solutionName
+         character(len=LINE_LENGTH)             :: solutionName
          logical                                :: saveGradients
          interface
             SUBROUTINE UserDefinedInitialCondition(mesh &
@@ -481,17 +482,10 @@ Module DGSEMClass
                type(Multiphase_t),     intent(in)  :: multiphase_
 #endif
             END SUBROUTINE UserDefinedInitialCondition
-
-            character(len=LINE_LENGTH) function getFileName( inputLine )
-               use SMConstants
-               implicit none
-               character(len=*)     :: inputLine
-            end function getFileName
          end interface
 
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
-            fileName = controlVariables % stringValueForKey(restartFileNameKey,requestedLength = LINE_LENGTH)
-            CALL self % mesh % LoadSolution(fileName, initial_iteration, initial_time)
+            CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time)
          ELSE
    
             call UserDefinedInitialCondition(self % mesh                               &

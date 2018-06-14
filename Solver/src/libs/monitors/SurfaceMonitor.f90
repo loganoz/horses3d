@@ -6,6 +6,7 @@ module SurfaceMonitorClass
    use PhysicsStorage
    use MPI_Process_Info
    use FluidData
+   use FileReadingUtilities, only: getArrayFromString
 #include "Includes.h"
    
    private
@@ -79,15 +80,6 @@ module SurfaceMonitorClass
          integer                          :: fID
          integer                          :: zoneID
          real(kind=RP)                    :: directionValue(NDIM)
-         interface
-            function getArrayFromString( line ) result ( array )
-               use SMConstants
-               implicit none
-               character(len=*),    intent(in)  :: line
-               real(kind=RP), allocatable       :: array(:)
-            end function getArrayFromString
-         end interface
-
 !
 !        Get monitor ID
 !        --------------

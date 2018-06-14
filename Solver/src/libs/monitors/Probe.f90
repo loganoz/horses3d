@@ -4,9 +4,10 @@ module ProbeClass
    use HexMeshClass
    use MonitorDefinitions
    use PhysicsStorage
-   use VariableConversion, only: Pressure
+   use VariableConversion  , only: Pressure
    use MPI_Process_Info
    use FluidData
+   use FileReadingUtilities, only: getArrayFromString
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -63,15 +64,6 @@ module ProbeClass
          character(len=STR_LEN_MONITORS)  :: paramFile
          character(len=STR_LEN_MONITORS)  :: coordinates
          real(kind=RP)                    :: x(NDIM)
-         interface
-            function getArrayFromString( line ) result ( array )
-               use SMConstants
-               implicit none
-               character(len=*),    intent(in)  :: line
-               real(kind=RP), allocatable       :: array(:)
-            end function getArrayFromString
-         end interface
-         
 !
 !        Allocate memory
 !        ---------------

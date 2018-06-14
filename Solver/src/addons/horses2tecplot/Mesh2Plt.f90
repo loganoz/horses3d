@@ -1,6 +1,7 @@
 module Mesh2PltModule
    use SMConstants
    use Storage
+   use FileReadingUtilities      , only: getFileName
    implicit none
 
    private
@@ -10,13 +11,6 @@ module Mesh2PltModule
       subroutine Mesh2Plt(meshFile)
          implicit none
          character(len=*), intent(in)     :: meshFile
-         interface
-            character(len=LINE_LENGTH) function getFileName( inputLine )
-               use SMConstants
-               implicit none
-               character(len=*)     :: inputLine
-            end function getFileName
-         end interface
 !  
 !        ---------------
 !        Local variables   

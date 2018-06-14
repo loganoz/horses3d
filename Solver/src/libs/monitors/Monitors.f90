@@ -26,6 +26,7 @@ module MonitorsClass
    use MonitorDefinitions
    use ResidualsMonitorClass
    use VolumeMonitorClass
+   use FileReadingUtilities      , only: getFileName
 #if defined(NAVIERSTOKES)
    use StatisticsMonitor
    use ProbeClass
@@ -91,12 +92,6 @@ module MonitorsClass
          character(len=STR_LEN_MONITORS) :: line
          character(len=STR_LEN_MONITORS) :: solution_file                                            
          logical, save                   :: FirstCall = .TRUE.
-         interface
-            character(len=LINE_LENGTH) function getFileName(inputLine)
-               use SMConstants
-               character(len=*)   :: inputLine
-            end function getFileName
-         end interface
 !
 !        Setup the buffer
 !        ----------------

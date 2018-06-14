@@ -29,6 +29,7 @@
       use MonitorsClass
       use ParticlesClass
       use Utilities, only: ToLower
+      use FileReadingUtilities      , only: getFileName
       IMPLICIT NONE 
       
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -295,11 +296,6 @@ interface
             REAL(KIND=RP) :: time
             type(Monitor_t), intent(in)  :: monitors
          end subroutine UserDefinedPeriodicOperation
-         character(len=LINE_LENGTH) function getFileName(inputLine)
-            use SMConstants
-            implicit none
-            character(len=*)     :: inputLine
-         end function getFileName
 end interface
       
       real(kind=RP)                 :: Tol                                 ! Tolerance used for STEADY_STATE computations

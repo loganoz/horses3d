@@ -26,6 +26,7 @@ module FASMultigridClass
    use TimeIntegratorDefinitions
    use LinearSolverClass
    use BDFTimeIntegrator
+   use FileReadingUtilities      , only: getFileName
 #if defined(NAVIERSTOKES)
    use ManufacturedSolutions
 #endif
@@ -89,13 +90,6 @@ module FASMultigridClass
    real(kind=RP)  :: dcfl           ! Diffusive cfl number
    real(kind=RP)  :: own_dt             ! dt
    
-   interface
-      character(len=LINE_LENGTH) function getFileName( inputLine )
-         use SMConstants
-         implicit none
-         character(len=*)     :: inputLine
-      end function getFileName
-   end interface
 !========
  contains
 !========
@@ -610,7 +604,7 @@ module FASMultigridClass
                exit
             end if
          elseif (PostSmooth .or. PostFCycle) then
-            if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
+            !if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
             if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < PrevRes) exit
          else
             exit

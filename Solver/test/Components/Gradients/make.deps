@@ -26,7 +26,7 @@ navierstokes/Physics_NS: navierstokes/VariableConversion_NS navierstokes/FluidDa
 common/FluidData: navierstokes/FluidData_NS
 common/VariableConversion: navierstokes/VariableConversion_NS
 HexElementConnectivityDefinitions: SMConstants 
-HexMesh: Physics TransfiniteMaps3D FaceClass MeshTypes SharedBCModule NodeClass HexElementClass Headers HexElementConnectivityDefinitions ZoneClass SolutionFile partitioned_mesh MPI_Face WallDistance
+HexMesh: Physics TransfiniteMaps3D FaceClass MeshTypes SharedBCModule NodeClass HexElementClass Headers HexElementConnectivityDefinitions ZoneClass SolutionFile partitioned_mesh MPI_Face WallDistance FileReading Setup ReadInputFile
 ZoneClass: SMConstants SharedBCModule RealDataLinkedList
 NodeClass: SMConstants MeshTypes 
 Monitors: MonitorDefinitions ParamfileRegions ResidualsMonitor Setup SurfaceIntegrals VolumeIntegrals SurfaceMonitor VolumeMonitor StatisticsMonitor Probe

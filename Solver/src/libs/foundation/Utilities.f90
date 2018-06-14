@@ -32,12 +32,50 @@ module Utilities
    implicit none
 
    private
-   public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem
+   public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor
    public   toLower, Qsort
    public   logarithmicMean
 
 
    contains
+   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -------------------------------------------------------------------
+!     Function to compute the GreatestCommonDivisor. Modified from:
+!     -> https://pages.mtu.edu/~shene/COURSES/cs201/NOTES/chap04/gcd.html
+!     -------------------------------------------------------------------
+      pure function GreatestCommonDivisor(a,b) result(c)
+         implicit none
+         !-arguments-------------------------------------
+         integer, value   :: a, b
+         integer          :: c
+         !-local-variables-------------------------------
+         integer          :: a1, b1, c1
+         !-----------------------------------------------
+         
+         if (a < b) then
+            c1 = a
+            a1 = b
+            b1 = a
+         else
+            a1 = a
+            b1 = b
+         end if
+
+         do                    ! now we have a <= b
+            c1 = MOD(a1, b1)   !    compute c, the reminder
+            IF (c1 == 0) exit  !    if c is zero, we are done.  GCD = b
+            a1 = b1            !    otherwise, b becomes a
+            b1 = c1            !    and c becomes b
+         END DO                !    go back
+         
+         c = b1
+      end function GreatestCommonDivisor
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       LOGICAL FUNCTION AlmostEqual( a, b ) 
       USE SMConstants
       IMPLICIT NONE

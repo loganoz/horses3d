@@ -17,6 +17,7 @@ module TruncationErrorClass
    use FluidData_NS              , only: Thermodynamics, RefValues, Dimensionless
 #endif
    use NodalStorageClass         , only: NodalStorage
+   use FileReadingUtilities      , only: RemovePath
 #if defined(CAHNHILLIARD)
    use BoundaryConditionFunctions, only: C_BC, MU_BC
 #endif
@@ -78,13 +79,6 @@ module TruncationErrorClass
       end subroutine UserDefinedSourceTermNS
    end interface
 #endif
-   interface
-      character(len=LINE_LENGTH) function RemovePath( inputLine )
-         use SMConstants
-         implicit none
-         character(len=*)     :: inputLine
-      end function RemovePath
-   end interface
 !
 !  ----------------
 !  Module variables
