@@ -52,7 +52,7 @@
       allocate(EllipticDiscretization_t :: EllipticDiscretization)
 
 !$omp parallel shared(sem)
-      call sem % mesh % ProlongSolutionToFaces()
+      call sem % mesh % ProlongSolutionToFaces(NCONS)
 !$omp end parallel
       
       call TimeDerivative_ComputeQDot( sem % mesh , sem % particles, 0.0_RP , &
@@ -149,7 +149,7 @@
       nElement =  SIZE(sem % mesh % elements)
 
 !$omp parallel shared(sem)
-      call sem % mesh % ProlongSolutionToFaces()
+      call sem % mesh % ProlongSolutionToFaces(NCONS)
 !$omp end parallel
 
       IF ( flowIsNavierStokes )     THEN
@@ -274,7 +274,7 @@
                DO j = 0, N(2)
                   DO i = 0, N(1) 
                      CALL initialStateSubroutine( sem % mesh % elements(eID) % geom % x(:,i,j,k), 0.0_RP, &
-                                                  sem % mesh % elements(eID) % storage % Q(1:N_EQN,i,j,k) )
+                                                  sem % mesh % elements(eID) % storage % Q(1:NCONS,i,j,k) )
                   END DO
                END DO
             END DO 
@@ -305,7 +305,7 @@
          INTEGER           :: i, j
          INTEGER           :: fce
          INTEGER           :: N(3)
-         REAL(KIND=RP)     :: x(3), Qexpected(N_EQN), Qactual(N_EQN), emax
+         REAL(KIND=RP)     :: x(3), Qexpected(NCONS), Qactual(NCONS), emax
          CHARACTER(LEN=92) :: msg
 !
 !        ---------------------------------------------------------------------
@@ -314,7 +314,7 @@
 !        ---------------------------------------------------------------------
 !
 !$omp parallel shared(sem)
-         call sem % mesh % ProlongSolutionToFaces()
+         call sem % mesh % ProlongSolutionToFaces(NCONS)
 !$omp end parallel
 
          DO eID = 1, SIZE(sem % mesh % elements)

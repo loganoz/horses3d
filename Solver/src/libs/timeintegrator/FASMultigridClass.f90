@@ -498,12 +498,12 @@ module FASMultigridClass
       integer                       :: iEl,iEQ              !Element/equation counter
       type(FASMultigrid_t), pointer :: Child_p              !Pointer to child
       integer                       :: N1(3), N2(3)
-      real(kind=RP)                 :: maxResidual(N_EQN)
+      real(kind=RP)                 :: maxResidual(NTOTALVARS)
       integer                       :: NumOfSweeps
       real(kind=RP)                 :: PrevRes
       integer                       :: sweepcount           ! Number of sweeps done in a point in time
       !----------------------------------------------------------------------------
-      
+#if defined(NAVIERSTOKES)      
 !
 !     -----------------------
 !     Pre-smoothing procedure
@@ -625,6 +625,7 @@ module FASMultigridClass
 !$omp end parallel do
       end if
       
+#endif 
    end subroutine FASVCycle
 
 !
@@ -644,10 +645,11 @@ module FASMultigridClass
       !----------------------------------------------------------------------------
       integer        :: iEl, iEQ             ! Element and equation counters
       integer        :: N1(3), N2(3)
-      real(kind=RP)  :: maxResidual(N_EQN)   ! Maximum residual in each equation
+      real(kind=RP)  :: maxResidual(NTOTALVARS)   ! Maximum residual in each equation
       integer        :: counter              ! Iteration counter
       character(len=LINE_LENGTH) :: FMGFile
       !----------------------------------------------------------------------------
+#if defined(NAVIERSTOKES)
 !
 !     ------------------------------------------
 !     At the beginning, go to the coarsest level
@@ -717,6 +719,7 @@ module FASMultigridClass
          end DO
 !$omp end parallel do
       end if
+#endif
    end subroutine FASFMGCycle
 
 !
@@ -738,7 +741,8 @@ module FASMultigridClass
       integer  :: iEQ
       integer  :: N1(3), N2(3)
       !-------------------------------------------------------------
-      
+#if defined(NAVIERSTOKES)      
+
       Child_p => this % Child
 
 !$omp parallel
@@ -776,7 +780,7 @@ module FASMultigridClass
 !$omp do schedule(runtime)
       DO iEl = 1, nelem
          Child_p % MGStorage(iEl) % Q = Child_p % p_sem % mesh % elements(iEl) % storage % Q
-         Child_p % p_sem % mesh % elements(iEl) % storage % S = 0._RP
+         Child_p % p_sem % mesh % elements(iEl) % storage % S_NS = 0._RP
       end DO
 !$omp end do
 !$omp end parallel
@@ -789,12 +793,12 @@ module FASMultigridClass
       
 !$omp parallel do schedule(runtime)
       DO iEl = 1, nelem
-         Child_p % p_sem % mesh % elements(iEl) % storage % S = Child_p % MGStorage(iEl) % S - &
+         Child_p % p_sem % mesh % elements(iEl) % storage % S_NS = Child_p % MGStorage(iEl) % S - &
                                                                 Child_p % p_sem % mesh % elements(iEl) % storage % Qdot
       end DO
 !$omp end parallel do
       
-      
+#endif      
    end subroutine MGRestrictToChild
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -822,7 +826,7 @@ module FASMultigridClass
       integer                              :: lvl
       !-----------------------------------------------------------
       
-      ! First go to finest level
+      ! First go to coarsest level
       if (lvl > 1) call RecursiveDestructor(Solver % Child,lvl-1)
       
       !Destruct Multigrid storage
@@ -881,7 +885,7 @@ module FASMultigridClass
             call ComputeRHS(this % p_sem, t, dt, this % linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
             
 !~            this % computeA = .TRUE.
-            call this % linsolver % solve(maxiter=SmoothSweeps, time= t, dt = dt, &
+            call this % linsolver % solve(NTOTALVARS, NTOTALGRADS, maxiter=SmoothSweeps, time= t, dt = dt, &
                                              ComputeTimeDerivative = ComputeTimeDerivative, computeA = this % computeA) ! 
             call UpdateNewtonSol(this % p_sem, this % linsolver)
       end select
@@ -923,7 +927,7 @@ module FASMultigridClass
          
 !           Restrict solution
 !           -----------------
-            call Interp3DArrays(NCONS, N1, this % p_sem % mesh % elements(eID) % storage % Q, &
+            call Interp3DArrays(NTOTALVARS, N1, this % p_sem % mesh % elements(eID) % storage % Q, &
                                        N2, this % Child % p_sem % mesh % elements(eID) % storage % Q )
          end do
 !$omp end parallel do

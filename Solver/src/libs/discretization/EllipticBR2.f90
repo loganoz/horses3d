@@ -4,9 +4,9 @@
 !   @File:    EllipticBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Tue Apr 10 17:29:02 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
+!   @Last revision date: Tue May 29 17:43:57 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 3c1e755ecd17ea60f252dec3daa7823c04603dcd
 !
 !//////////////////////////////////////////////////////
 !
@@ -19,10 +19,11 @@ module EllipticBR2
    use HexMeshClass
    use PhysicsStorage
    use Physics
-   use VariableConversion, only: gradientValuesForQ
    use MPI_Process_Info
    use MPI_Face_Class
    use EllipticDiscretizationClass
+   use VariableConversion
+   use FluidData
    use DGSEMClass, only: BCState_FCN
    implicit none
 !
@@ -33,7 +34,7 @@ module EllipticBR2
    type, extends(EllipticDiscretization_t)   :: BassiRebay2_t
       real(kind=RP)        :: eta = 1.0_RP
       contains
-         procedure      :: Initialize         => BR2_Initialize
+         procedure      :: Construct         => BR2_Construct
          procedure      :: ComputeGradient    => BR2_ComputeGradient
          procedure      :: ComputeInnerFluxes => BR2_ComputeInnerFluxes
          procedure      :: RiemannSolver      => BR2_RiemannSolver
@@ -48,15 +49,34 @@ module EllipticBR2
    contains
 !  ========
 !
-      subroutine BR2_Initialize(self, controlVariables)
+      subroutine BR2_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D, GetViscosity, eqname)
          use FTValueDictionaryClass
          use mainKeywordsModule
          use MPI_Process_Info
          use PhysicsStorage
          implicit none
-         class(BassiRebay2_t)                :: self
-         class(FTValueDictionary),  intent(in) :: controlVariables
+         class(BassiRebay2_t)                  :: self
+         class(FTValueDictionary), intent(in)  :: controlVariables
+         procedure(EllipticFlux0D_f)           :: EllipticFlux0D
+         procedure(EllipticFlux2D_f)           :: EllipticFlux2D
+         procedure(EllipticFlux3D_f)           :: EllipticFlux3D
+         procedure(GetViscosity_f)             :: GetViscosity
+         character(len=*), intent(in)          :: eqname
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
          character(len=LINE_LENGTH)            :: BR2variant
+!
+!        ----------------------------------------------------------
+!        Set the particular procedures to compute the elliptic flux
+!        ----------------------------------------------------------
+!
+         self % EllipticFlux0D => EllipticFlux0D
+         self % EllipticFlux2D => EllipticFlux2D
+         self % EllipticFlux3D => EllipticFlux3D
+         self % GetViscosity   => GetViscosity
 !
 !        Request the penalty parameter
 !        -----------------------------
@@ -71,7 +91,7 @@ module EllipticBR2
 
          end if
             
-      end subroutine BR2_Initialize
+      end subroutine BR2_Construct
    
       subroutine BR2_Describe(self)
          implicit none
@@ -90,16 +110,20 @@ module EllipticBR2
 
       end subroutine BR2_Describe
 
-      subroutine BR2_ComputeGradient( self , mesh , time , externalStateProcedure)
+      subroutine BR2_ComputeGradient( self , nEqn, nGradEqn, mesh , time , externalStateProcedure, GetGradients0D, GetGradients3D)
          use HexMeshClass
          use PhysicsStorage
          use Physics
          use MPI_Process_Info
          implicit none
          class(BassiRebay2_t), intent(in) :: self
+         integer,              intent(in) :: nEqn
+         integer,              intent(in) :: nGradEqn
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
          procedure(BCState_FCN)           :: externalStateProcedure
+         procedure(GetGradientValues0D_f) :: GetGradients0D
+         procedure(GetGradientValues3D_f) :: GetGradients3D
 !
 !        ---------------
 !        Local variables
@@ -116,12 +140,12 @@ module EllipticBR2
 !$omp do schedule(runtime)
          do eID = 1, size(mesh % elements)
             associate( e => mesh % elements(eID) )
-            call e % ComputeLocalGradient
+            call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients3D)
 !
 !           Prolong to faces
 !           ----------------
             fIDs = e % faceIDs
-            call e % ProlongGradientsToFaces(mesh % faces(fIDs(1)),&
+            call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
                                              mesh % faces(fIDs(2)),&
                                              mesh % faces(fIDs(3)),&
                                              mesh % faces(fIDs(4)),&
@@ -141,10 +165,10 @@ module EllipticBR2
             associate(f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_INTERIOR) 
-               call BR2_GradientInterfaceSolution(f) 
+               call BR2_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients0D) 
             
             case (HMESH_BOUNDARY) 
-               call BR2_GradientInterfaceSolutionBoundary(f, time, externalStateProcedure) 
+               call BR2_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients0D, externalStateProcedure) 
  
             end select 
             end associate 
@@ -159,7 +183,7 @@ module EllipticBR2
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID))
             if ( e % hasSharedFaces ) cycle
-            call BR2_ComputeGradientFaceIntegrals(self, e, mesh)
+            call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, e, mesh)
             end associate 
          end do
 !$omp end do
@@ -170,7 +194,7 @@ module EllipticBR2
 !
 !$omp single
          if ( MPI_Process % doMPIAction ) then 
-            call mesh % GatherMPIFacesSolution
+            call mesh % GatherMPIFacesSolution(nEqn)
          end if
 !$omp end single
 !
@@ -183,7 +207,7 @@ module EllipticBR2
             associate(f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_MPI) 
-               call BR2_GradientInterfaceSolutionMPI(f) 
+               call BR2_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn, GetGradients0D) 
             end select 
             end associate 
          end do            
@@ -197,7 +221,7 @@ module EllipticBR2
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID))
             if ( .not. e % hasSharedFaces ) cycle
-            call BR2_ComputeGradientFaceIntegrals(self, e, mesh)
+            call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, e, mesh)
             end associate
          end do
 !$omp end do
@@ -206,7 +230,7 @@ module EllipticBR2
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR2_ComputeGradientFaceIntegrals( self, e, mesh)
+      subroutine BR2_ComputeGradientFaceIntegrals( self, nGradEqn, e, mesh)
 !
 !        *******************************************************
 !              The surface integrals in the BR2 method considers
@@ -226,6 +250,7 @@ module EllipticBR2
          use DGIntegrals
          implicit none
          class(BassiRebay2_t),   intent(in) :: self
+         integer,                intent(in) :: nGradEqn
          class(Element)                     :: e
          class(HexMesh)                     :: mesh
 !
@@ -235,14 +260,14 @@ module EllipticBR2
 !
          integer       :: i, j, k
          real(kind=RP) :: invjac(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP) :: faceInt_x(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP) :: faceInt_y(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
-         real(kind=RP) :: faceInt_z(N_GRAD_EQN, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP) :: faceInt_x(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP) :: faceInt_y(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
+         real(kind=RP) :: faceInt_z(nGradEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3) )
          real(kind=RP) :: bv_x(0:e % Nxyz(1),2)
          real(kind=RP) :: bv_y(0:e % Nxyz(2),2)
          real(kind=RP) :: bv_z(0:e % Nxyz(3),2)
 
-         call VectorWeakIntegrals % StdFace(e, &
+         call VectorWeakIntegrals % StdFace(e, nGradEqn, &
                mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % unStar, &
                mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % unStar, &
                mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % unStar, &
@@ -357,7 +382,7 @@ module EllipticBR2
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR2_GradientInterfaceSolution(f)
+      subroutine BR2_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients)
 !
 !        ************************************************
 !           The BR2 is written in strong form, since it
@@ -381,21 +406,23 @@ module EllipticBR2
 !        Arguments
 !        ---------
 !
-         type(Face)    :: f
+         type(Face)                       :: f
+         integer, intent(in)              :: nEqn, nGradEqn
+         procedure(GetGradientValues0D_f) :: GetGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         real(kind=RP) :: Uhat(N_GRAD_EQN)
-         real(kind=RP) :: Hflux(N_GRAD_EQN,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
+         real(kind=RP) :: Uhat(nGradEqn)
+         real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
 
          integer       :: i,j
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call GradientValuesForQ(Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GradientValuesForQ(Q = f % storage(2) % Q(:,i,j), U = UR)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
    
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
@@ -403,11 +430,11 @@ module EllipticBR2
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
-         call f % ProjectGradientFluxToElements(HFlux,(/1,2/),1)
+         call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1)
          
       end subroutine BR2_GradientInterfaceSolution   
 
-      subroutine BR2_GradientInterfaceSolutionMPI(f)
+      subroutine BR2_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn, GetGradients)
          use Physics  
          use ElementClass
          use FaceClass
@@ -417,20 +444,22 @@ module EllipticBR2
 !        Arguments
 !        ---------
 !
-         type(Face)    :: f
+         type(Face)                       :: f
+         integer, intent(in)              :: nEqn, nGradEqn
+         procedure(GetGradientValues0D_f) :: GetGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         real(kind=RP) :: Uhat(N_GRAD_EQN)
-         real(kind=RP) :: Hflux(N_GRAD_EQN,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
+         real(kind=RP) :: Uhat(nGradEqn)
+         real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
          integer       :: i,j, thisSide
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call GradientValuesForQ(Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GradientValuesForQ(Q = f % storage(2) % Q(:,i,j), U = UR)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
    
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
@@ -439,26 +468,34 @@ module EllipticBR2
          end do               ; end do
 
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectGradientFluxToElements(HFlux,(/thisSide, HMESH_NONE/),1)
+         call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/thisSide, HMESH_NONE/),1)
          
       end subroutine BR2_GradientInterfaceSolutionMPI   
 
-      subroutine BR2_GradientInterfaceSolutionBoundary(f, time, externalState)
+      subroutine BR2_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients, externalState)
          use Physics
          use FaceClass
          implicit none
-         type(Face)    :: f
-         real(kind=RP) :: time
-         external      :: externalState
+         type(Face)                       :: f
+         integer,    intent(in)           :: nEqn
+         integer,    intent(in)           :: nGradEqn
+         real(kind=RP)                    :: time
+         procedure(GetGradientValues0D_f) :: GetGradients
+         procedure(BCState_FCN)           :: externalState
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
          integer       :: i, j
-         real(kind=RP) :: Uhat(N_GRAD_EQN), UL(N_GRAD_EQN), UR(N_GRAD_EQN)
-         real(kind=RP) :: bvExt(N_EQN)
+         real(kind=RP) :: Uhat(nGradEqn), UL(nGradEqn), UR(nGradEqn)
+         real(kind=RP) :: bvExt(nEqn)
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 
             bvExt =  f % storage(1) % Q(:,i,j)
    
-            call externalState( f % geom % x(:,i,j), &
+            call externalState( nEqn, f % geom % x(:,i,j), &
                                 time               , &
                                 f % geom % normal(:,i,j)      , &
                                 bvExt              , &
@@ -468,8 +505,8 @@ module EllipticBR2
 !           u, v, w, T averages
 !           -------------------
 !   
-            call GradientValuesForQ( f % storage(1) % Q(:,i,j), UL )
-            call GradientValuesForQ( bvExt, UR )
+            call GetGradients( nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
+            call GetGradients( nEqn, nGradEqn, bvExt, UR )
    
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             
@@ -483,22 +520,22 @@ module EllipticBR2
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR2_ComputeInnerFluxes( self , e , EllipticFlux, contravariantFlux )
+      subroutine BR2_ComputeInnerFluxes(self, nEqn, nGradEqn, e, contravariantFlux )
          use ElementClass
          use PhysicsStorage
          use Physics
          implicit none
          class(BassiRebay2_t) ,     intent (in) :: self
+         integer,                   intent(in)  :: nEqn, nGradEqn
          type(Element)                          :: e
-         procedure(EllipticFlux3D_f)            :: EllipticFlux
-         real(kind=RP)           , intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP)           , intent (out) :: contravariantFlux(1:nEqn, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          real(kind=RP)       :: delta
-         real(kind=RP)       :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP)       :: cartesianFlux(1:nEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
          real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
@@ -513,7 +550,7 @@ module EllipticBR2
 
 #endif
 
-         call EllipticFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
+         call self % EllipticFlux3D(nEqn, nGradEqn, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -568,7 +605,7 @@ module EllipticBR2
                                                            e % storage % U_z, &
                                                                 tauSGS, qSGS    )
 
-         call ViscousFlux( e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, tauSGS, qSGS, cartesianFlux )
+         call ViscousFlux(NCONS, NGRAD, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, tauSGS, qSGS, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -589,35 +626,37 @@ module EllipticBR2
 
       end subroutine BR2_ComputeInnerFluxesWithSGS
 #endif
-      subroutine BR2_RiemannSolver ( self , f, EllipticFlux, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
-                                            nHat , dWall, flux )
+      subroutine BR2_RiemannSolver ( self , nEqn, nGradEqn, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
+                                            mu, nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
          use Physics
          use FaceClass
          implicit none
-         class(BassiRebay2_t)                 :: self
-         class(Face),   intent(in)            :: f
-         procedure(EllipticFlux0D_f)          :: EllipticFlux
-         real(kind=RP), dimension(N_EQN)      :: QLeft
-         real(kind=RP), dimension(N_EQN)      :: QRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
-         real(kind=RP), dimension(NDIM)       :: nHat
-         real(kind=RP)                        :: dWall
-         real(kind=RP), dimension(N_EQN)      :: flux
+         class(BassiRebay2_t)            :: self
+         integer,       intent(in)       :: nEqn
+         integer,       intent(in)       :: nGradEqn
+         class(Face),   intent(in)       :: f
+         real(kind=RP), intent(in)       :: QLeft(nEqn)
+         real(kind=RP), intent(in)       :: QRight(nEqn)
+         real(kind=RP), intent(in)       :: U_xLeft(nGradEqn)
+         real(kind=RP), intent(in)       :: U_yLeft(nGradEqn)
+         real(kind=RP), intent(in)       :: U_zLeft(nGradEqn)
+         real(kind=RP), intent(in)       :: U_xRight(nGradEqn)
+         real(kind=RP), intent(in)       :: U_yRight(nGradEqn)
+         real(kind=RP), intent(in)       :: U_zRight(nGradEqn)
+         real(kind=RP), intent(in)       :: mu
+         real(kind=RP), intent(in)       :: nHat(NDIM)
+         real(kind=RP), intent(in)       :: dWall
+         real(kind=RP), intent(out)      :: flux(nEqn)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
-         real(kind=RP)     :: flux_vec(NCONS,NDIM)
-         real(kind=RP)     :: mu, kappa, delta
+         real(kind=RP)     :: Q(nEqn) , U_x(nGradEqn) , U_y(nGradEqn) , U_z(nGradEqn)
+         real(kind=RP)     :: flux_vec(nEqn,NDIM)
+         real(kind=RP)     :: kappa
 
 !
 !>       Old implementation: 1st average, then compute
@@ -628,15 +667,13 @@ module EllipticBR2
          U_z = 0.5_RP * ( U_zLeft + U_zRight)
 
 #if defined(NAVIERSTOKES)
-         mu    = dimensionless % mu
-         kappa = dimensionless % kappa
-
-#elif defined(CAHNHILLIARD)
-         mu = 1.0_RP
+         kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
+                            POW2( dimensionless % Mach) * dimensionless % Pr ) * mu
+#else
          kappa = 0.0_RP
-
 #endif
-         call EllipticFlux(Q,U_x,U_y,U_z, mu, kappa, flux_vec)
+
+         call self % EllipticFlux0D(nEqn, nGradEqn, Q,U_x,U_y,U_z, mu, kappa, flux_vec)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 
@@ -652,23 +689,23 @@ module EllipticBR2
          implicit none
          class(BassiRebay2_t)                 :: self
          class(Face),   intent(in)            :: f
-         real(kind=RP), dimension(N_EQN)      :: QLeft
-         real(kind=RP), dimension(N_EQN)      :: QRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zLeft
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_xRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_yRight
-         real(kind=RP), dimension(N_GRAD_EQN) :: U_zRight
+         real(kind=RP), dimension(NCONS)      :: QLeft
+         real(kind=RP), dimension(NCONS)      :: QRight
+         real(kind=RP), dimension(NGRAD) :: U_xLeft
+         real(kind=RP), dimension(NGRAD) :: U_yLeft
+         real(kind=RP), dimension(NGRAD) :: U_zLeft
+         real(kind=RP), dimension(NGRAD) :: U_xRight
+         real(kind=RP), dimension(NGRAD) :: U_yRight
+         real(kind=RP), dimension(NGRAD) :: U_zRight
          real(kind=RP), dimension(NDIM)       :: nHat
          real(kind=RP)                        :: dWall
-         real(kind=RP), dimension(N_EQN)      :: flux
+         real(kind=RP), dimension(NCONS)      :: flux
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: Q(NCONS) , U_x(N_GRAD_EQN) , U_y(N_GRAD_EQN) , U_z(N_GRAD_EQN)
+         real(kind=RP)     :: Q(NCONS) , U_x(NGRAD) , U_y(NGRAD) , U_z(NGRAD)
          real(kind=RP)     :: flux_vec(NCONS,NDIM)
          real(kind=RP)     :: mu, kappa, tauSGS(NDIM, NDIM), qSGS(NDIM), delta
 
@@ -688,7 +725,7 @@ module EllipticBR2
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
 
-         call ViscousFlux(Q,U_x,U_y,U_z, mu, kappa, tauSGS, qSGS, flux_vec)
+         call ViscousFlux(NCONS, NGRAD, Q,U_x,U_y,U_z, mu, kappa, tauSGS, qSGS, flux_vec)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
 

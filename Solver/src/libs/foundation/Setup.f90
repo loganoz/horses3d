@@ -12,7 +12,6 @@
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: discretizationNodesKey     = "discretization nodes"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: inviscidDiscretizationKey  = "inviscid discretization"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: viscousDiscretizationKey   = "viscous discretization"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: splitFormKey               = "split form"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: meshFileNameKey            = "mesh file name"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: restartKey                 = "restart"
@@ -23,9 +22,8 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: outputIntervalKey          = "output interval"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: convergenceToleranceKey    = "convergence tolerance"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfBoundariesKey      = "number of boundaries"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(12) :: mainKeywords =  [ meshFileNameKey,           &
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(11) :: mainKeywords =  [ meshFileNameKey,           &
                                                                           inviscidDiscretizationKey,  &
-                                                                          viscousDiscretizationKey,   &
                                                                           splitFormkey,               &
                                                                           discretizationNodesKey,     &
                                                                           saveGradientsToSolutionKey, &

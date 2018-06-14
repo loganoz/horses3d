@@ -33,11 +33,11 @@
       USE NodalStorageClass
       use PhysicsStorage
       use Physics
-      use VariableConversion, only: gradientValuesForQ
+      use VariableConversion
       IMPLICIT NONE
 
       private
-      public   Element, axisMap, allocateElementStorage 
+      public   Element, axisMap 
       public   DestructElement, PrintElement, SetElementBoundaryNames
       
       TYPE Element
@@ -68,7 +68,9 @@
             procedure   :: ProlongSolutionToFaces  => HexElement_ProlongSolutionToFaces
             procedure   :: ProlongGradientsToFaces => HexElement_ProlongGradientsToFaces
             procedure   :: ComputeLocalGradient    => HexElement_ComputeLocalGradient
+#if defined(NAVIERSTOKES)
             procedure   :: ComputeRhoGradient      => HexElement_ComputeRhoGradient
+#endif
             procedure   :: InterpolateSolution     => HexElement_InterpolateSolution
       END TYPE Element 
       
@@ -136,19 +138,6 @@
          CALL self % geom % Construct( self % spAxi, self % spAeta, self % spAzeta, hexMap )
          
       end subroutine HexElement_ConstructGeometry
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-      SUBROUTINE allocateElementStorage(self, nEqn, nGradEqn, computeGradients, Nx, Ny, Nz)  
-         IMPLICIT NONE
-         TYPE(Element)       :: self
-         INTEGER, intent(in) :: nEqn, nGradEqn
-         LOGICAL, intent(in) :: computeGradients
-         INTEGER, intent(in) :: Nx, Ny, Nz
-
-         call self % Storage % Construct(Nx, Ny, Nz, nEqn, nGradEqn, computeGradients)
-
-      END SUBROUTINE allocateElementStorage
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -224,10 +213,11 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexElement_ProlongSolutionToFaces(self, fFR, fBK, fBOT, fR, fT, fL)
+      subroutine HexElement_ProlongSolutionToFaces(self, nEqn, fFR, fBK, fBOT, fR, fT, fL)
          use FaceClass
          implicit none
          class(Element),   intent(in)  :: self
+         integer,          intent(in)  :: nEqn
          class(Face),      intent(inout) :: fFR, fBK, fBOT, fR, fT, fL
 !
 !        ---------------
@@ -235,9 +225,9 @@
 !        ---------------
 !
          integer  :: i, j, k, l, N(3)
-         real(kind=RP), dimension(1:NCONS, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: QFR, QBK
-         real(kind=RP), dimension(1:NCONS, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: QBOT, QT
-         real(kind=RP), dimension(1:NCONS, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: QL, QR
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: QFR, QBK
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: QBOT, QT
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: QL, QR
 
          N = self % Nxyz
 !
@@ -259,19 +249,20 @@
          end do                   ; end do                   ; end do
 
          
-         call fL   % AdaptSolutionToFace(N(2), N(3), QL   , self % faceSide(ELEFT  ))
-         call fR   % AdaptSolutionToFace(N(2), N(3), QR   , self % faceSide(ERIGHT ))
-         call fFR  % AdaptSolutionToFace(N(1), N(3), QFR  , self % faceSide(EFRONT ))
-         call fBK  % AdaptSolutionToFace(N(1), N(3), QBK  , self % faceSide(EBACK  ))
-         call fBOT % AdaptSolutionToFace(N(1), N(2), QBOT , self % faceSide(EBOTTOM))
-         call fT   % AdaptSolutionToFace(N(1), N(2), QT   , self % faceSide(ETOP   ))
+         call fL   % AdaptSolutionToFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ))
+         call fR   % AdaptSolutionToFace(nEqn, N(2), N(3), QR   , self % faceSide(ERIGHT ))
+         call fFR  % AdaptSolutionToFace(nEqn, N(1), N(3), QFR  , self % faceSide(EFRONT ))
+         call fBK  % AdaptSolutionToFace(nEqn, N(1), N(3), QBK  , self % faceSide(EBACK  ))
+         call fBOT % AdaptSolutionToFace(nEqn, N(1), N(2), QBOT , self % faceSide(EBOTTOM))
+         call fT   % AdaptSolutionToFace(nEqn, N(1), N(2), QT   , self % faceSide(ETOP   ))
 
       end subroutine HexElement_ProlongSolutionToFaces
 
-      subroutine HexElement_ProlongGradientsToFaces(self, fFR, fBK, fBOT, fR, fT, fL)
+      subroutine HexElement_ProlongGradientsToFaces(self, nGradEqn, fFR, fBK, fBOT, fR, fT, fL)
          use FaceClass
          implicit none
          class(Element),   intent(in)  :: self
+         integer,          intent(in)  :: nGradEqn
          class(Face),      intent(inout) :: fFR, fBK, fBOT, fR, fT, fL
 !
 !        ---------------
@@ -279,12 +270,12 @@
 !        ---------------
 !
          integer  :: i, j, k, l, N(3)
-         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: UxFR, UyFR, UzFR
-         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: UxBK, UyBK, UzBK
-         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: UxBT, UyBT, UzBT
-         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: UxT, UyT, UzT
-         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: UxL, UyL, UzL
-         real(kind=RP), dimension(N_GRAD_EQN, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: UxR, UyR, UzR
+         real(kind=RP), dimension(nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: UxFR, UyFR, UzFR
+         real(kind=RP), dimension(nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: UxBK, UyBK, UzBK
+         real(kind=RP), dimension(nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: UxBT, UyBT, UzBT
+         real(kind=RP), dimension(nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: UxT, UyT, UzT
+         real(kind=RP), dimension(nGradEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: UxL, UyL, UzL
+         real(kind=RP), dimension(nGradEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: UxR, UyR, UzR
 
          N = self % Nxyz
 !
@@ -323,18 +314,18 @@
 
          end do                   ; end do                   ; end do
          
-         call fL   % AdaptGradientsToFace(N(2), N(3), UxL , UyL , UzL , self % faceSide(ELEFT  ))
-         call fR   % AdaptGradientsToFace(N(2), N(3), UxR , UyR , UzR , self % faceSide(ERIGHT ))
-         call fFR  % AdaptGradientsToFace(N(1), N(3), UxFR, UyFR, UzFR, self % faceSide(EFRONT ))
-         call fBK  % AdaptGradientsToFace(N(1), N(3), UxBK, UyBK, UzBK, self % faceSide(EBACK  ))
-         call fBOT % AdaptGradientsToFace(N(1), N(2), UxBT, UyBT, UzBT, self % faceSide(EBOTTOM))
-         call fT   % AdaptGradientsToFace(N(1), N(2), UxT , UyT , UzT , self % faceSide(ETOP   ))
+         call fL   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxL , UyL , UzL , self % faceSide(ELEFT  ))
+         call fR   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxR , UyR , UzR , self % faceSide(ERIGHT ))
+         call fFR  % AdaptGradientsToFace(nGradEqn, N(1), N(3), UxFR, UyFR, UzFR, self % faceSide(EFRONT ))
+         call fBK  % AdaptGradientsToFace(nGradEqn, N(1), N(3), UxBK, UyBK, UzBK, self % faceSide(EBACK  ))
+         call fBOT % AdaptGradientsToFace(nGradEqn, N(1), N(2), UxBT, UyBT, UzBT, self % faceSide(EBOTTOM))
+         call fT   % AdaptGradientsToFace(nGradEqn, N(1), N(2), UxT , UyT , UzT , self % faceSide(ETOP   ))
 
       end subroutine HexElement_ProlongGradientsToFaces
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexElement_ComputeLocalGradient(self)
+      subroutine HexElement_ComputeLocalGradient(self, nEqn, nGradEqn, GetGradientValues3D)
 !
 !        ****************************************************************
 !           This subroutine computes local gradients as:
@@ -345,16 +336,19 @@
 !  
          implicit none
          class(Element),   intent(inout)  :: self
+         integer,          intent(in)     :: nEqn
+         integer,          intent(in)     :: nGradEqn
+         procedure(GetGradientValues3D_f) :: GetGradientValues3D
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer  :: i, j, k, l
-         real(kind=RP)  :: U(1:N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
-         real(kind=RP)  :: U_xi(1:N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
-         real(kind=RP)  :: U_eta(1:N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
-         real(kind=RP)  :: U_zeta(1:N_GRAD_EQN, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: U(1:nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: U_xi(1:nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: U_eta(1:nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
+         real(kind=RP)  :: U_zeta(1:nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
 
          associate( N => self % Nxyz )
 !
@@ -362,7 +356,7 @@
 !        Get gradient variables
 !        **********************
 !
-         call GradientValuesForQ(N(1), N(2), N(3), self % storage % Q, U )
+         call GetGradientValues3D(nEqn, nGradEqn, N(1), N(2), N(3), self % storage % Q, U )
 !
 !        ************
 !        Compute U_xi
@@ -417,6 +411,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+#if defined(NAVIERSTOKES)  
       subroutine HexElement_ComputeRhoGradient(self)
 !
 !        ****************************************************************
@@ -497,6 +492,7 @@
          end associate
 
       end subroutine HexElement_ComputeRhoGradient
+#endif
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -603,11 +599,12 @@
 
       end function HexElement_FindPointWithCoords
 
-      function HexElement_EvaluateSolutionAtPoint(self, xi)
+      function HexElement_EvaluateSolutionAtPoint(self, nEqn, xi)
          implicit none
          class(Element),   intent(in)    :: self
+         integer,          intent(in)    :: nEqn
          real(kind=RP),    intent(in)    :: xi(NDIM)
-         real(kind=RP)                   :: HexElement_EvaluateSolutionAtPoint(NCONS)
+         real(kind=RP)                   :: HexElement_EvaluateSolutionAtPoint(nEqn)
 !
 !        ---------------
 !        Local variables
@@ -617,7 +614,7 @@
          real(kind=RP)  :: lxi(0:self % Nxyz(1))
          real(kind=RP)  :: leta(0:self % Nxyz(2))
          real(kind=RP)  :: lzeta(0:self % Nxyz(3))
-         real(kind=RP)  :: Q(NCONS)
+         real(kind=RP)  :: Q(nEqn)
 !
 !        Compute Lagrange basis
 !        ----------------------
@@ -686,26 +683,26 @@
             ! Interpolate solution to new solution storage
             !---------------------------------------------
             
-            call Interp3DArrays  (Nvars      = NCONS              , &
+            call Interp3DArrays  (Nvars      = NTOTALVARS         , &
                                   Nin        = this % Nxyz        , &
                                   inArray    = this % storage % Q , &
                                   Nout       = e % Nxyz           , &
                                   outArray   = e % storage % Q          )
             
             if (gradients) then
-               call Interp3DArrays  (Nvars      = NGRAD              , &
+               call Interp3DArrays  (Nvars      = NTOTALGRADS     , &
                                   Nin        = this % Nxyz        , &
                                   inArray    = this % storage % U_x , &
                                   Nout       = e % Nxyz           , &
                                   outArray   = e % storage % U_x          )
                
-               call Interp3DArrays  (Nvars      = NGRAD              , &
+               call Interp3DArrays  (Nvars      = NTOTALGRADS              , &
                                   Nin        = this % Nxyz        , &
                                   inArray    = this % storage % U_y , &
                                   Nout       = e % Nxyz           , &
                                   outArray   = e % storage % U_y        )
                                   
-               call Interp3DArrays  (Nvars      = NGRAD              , &
+               call Interp3DArrays  (Nvars      = NTOTALGRADS              , &
                                   Nin        = this % Nxyz        , &
                                   inArray    = this % storage % U_z , &
                                   Nout       = e % Nxyz           , &

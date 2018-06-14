@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (a.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Tue Apr 10 17:29:23 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
+!   @Last revision date: Wed May 23 12:57:27 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
 !
 !//////////////////////////////////////////////////////
 !
@@ -53,10 +53,11 @@ contains
 !  -------------------------------------------------------
 !  Subroutine for computing the analytical Jacobian matrix
 !  -------------------------------------------------------
-   subroutine AnalyticalJacobian_Compute(sem,time,Matrix,BlockDiagonalized)
+   subroutine AnalyticalJacobian_Compute(sem,nEqn, time,Matrix,BlockDiagonalized)
       implicit none
       !--------------------------------------------
       type(DGSem)              , intent(inout) :: sem
+      integer,                   intent(in)    :: nEqn
       real(kind=RP)            , intent(in)    :: time
       class(Matrix_t)          , intent(inout) :: Matrix
       logical        , optional, intent(in)    :: BlockDiagonalized  !<? Construct only the block diagonal?
@@ -78,7 +79,6 @@ contains
 !
 !     Initializations
 !     ---------------
-      
       if ( present(BlockDiagonalized) ) then
          BlockDiagonal = BlockDiagonalized
       else
@@ -86,17 +86,15 @@ contains
       end if
       
       nelem = size(sem % mesh % elements)
-      
 !
 !     Get block sizes and position in matrix. This can be moved elsewhere since it's needed by both the numerical and analytical Jacobians
 !     ---------------------------------------
-      
       safedeallocate(ndofelm)  ; allocate (ndofelm(nelem))
       safedeallocate(firstIdx) ; allocate (firstIdx(nelem+1))
       
       firstIdx = 1
       DO eID=1, nelem
-         ndofelm(eID)  = NCONS * (sem % Nx(eID)+1) * (sem % Ny(eID)+1) * (sem % Nz(eID)+1)
+         ndofelm(eID)  = nEqn * (sem % Nx(eID)+1) * (sem % Ny(eID)+1) * (sem % Nz(eID)+1)
          if (eID>1) firstIdx(eID) = firstIdx(eID-1) + ndofelm(eID-1)
       END DO
       firstIdx(nelem+1) = firstIdx(nelem) + ndofelm(nelem)
@@ -126,13 +124,13 @@ contains
 !     Compute the Jacobian of the Numerical Flux (FStar)
 !     **************************************************
 !
-      call ComputeNumericalFluxJacobian(sem % mesh,time,sem % BCFunctions(1) % externalState)
+      call ComputeNumericalFluxJacobian(sem % mesh,nEqn,time,sem % BCFunctions(1) % externalState)
 !
 !     ***************
 !     Diagonal blocks
 !     ***************
 !
-      call AnalyticalJacobian_DiagonalBlocks(sem % mesh, time, Matrix)
+      call AnalyticalJacobian_DiagonalBlocks(sem % mesh, nEqn,time, Matrix)
 !
 !     *******************
 !     Off-Diagonal blocks
@@ -163,25 +161,25 @@ contains
 !  -------------------------------------------------------------------------------------------
 !  Subroutine for adding the faces' contribution to the diagonal blocks of the Jacobian matrix
 !  -------------------------------------------------------------------------------------------
-   subroutine AnalyticalJacobian_DiagonalBlocks(mesh,time,Matrix)
+   subroutine AnalyticalJacobian_DiagonalBlocks(mesh,nEqn,time,Matrix)
       use FaceClass
       implicit none
       !--------------------------------------------
       type(HexMesh), target    , intent(inout) :: mesh
+      integer,                   intent(in)    :: nEqn
       real(kind=RP)            , intent(in)    :: time
       class(Matrix_t)          , intent(inout) :: Matrix
       !--------------------------------------------
       integer :: eID, fID
       !--------------------------------------------
-
 !
 !     Project flux Jacobian to corresponding element
 !     ----------------------------------------------
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
          associate (f => mesh % faces(fID)) 
-         call f % ProjectFluxJacobianToElements(LEFT ,LEFT )   ! dF/dQL to the left element 
-         if (.not. (f % faceType == HMESH_BOUNDARY)) call f % ProjectFluxJacobianToElements(RIGHT,RIGHT)   ! dF/dQR to the right element
+         call f % ProjectFluxJacobianToElements(nEqn,LEFT ,LEFT )   ! dF/dQL to the left element 
+         if (.not. (f % faceType == HMESH_BOUNDARY)) call f % ProjectFluxJacobianToElements(nEqn,RIGHT,RIGHT)   ! dF/dQR to the right element
          end associate
       end do
 !$omp end do
@@ -238,8 +236,8 @@ contains
 !
 !           Project flux Jacobian to opposed elements
 !           -----------------------------------------
-            call f % ProjectFluxJacobianToElements(LEFT ,RIGHT)   ! dF/dQR to the left element
-            call f % ProjectFluxJacobianToElements(RIGHT,LEFT )   ! dF/dQL to the right element 
+            call f % ProjectFluxJacobianToElements(NCONS, LEFT ,RIGHT)   ! dF/dQR to the left element
+            call f % ProjectFluxJacobianToElements(NCONS, RIGHT,LEFT )   ! dF/dQL to the right element 
 !
 !           Compute the two associated off-diagonal blocks
 !           ----------------------------------------------
@@ -267,20 +265,21 @@ contains
 !  -----------------------------------------------------------------------------------------------
 !  
 !  -----------------------------------------------------------------------------------------------
-   subroutine ComputeNumericalFluxJacobian(mesh,time,externalStateProcedure)
-      use RiemannSolvers
+   subroutine ComputeNumericalFluxJacobian(mesh,nEqn,time,externalStateProcedure)
+      use RiemannSolvers_NS
       use FaceClass
       implicit none
       !--------------------------------------------
       type(HexMesh), intent(inout)    :: mesh
+      integer,       intent(in)       :: nEqn
       real(kind=RP), intent(in)       :: time
       procedure(BCState_FCN)          :: externalStateProcedure
       !--------------------------------------------
       integer :: fID
       !--------------------------------------------
       
-      call mesh % ProlongSolutionToFaces
-      if (flowIsNavierStokes) call mesh % ProlongGradientsToFaces( Prolong_gradRho = .TRUE. )
+      call mesh % ProlongSolutionToFaces(NCONS)
+      if (flowIsNavierStokes) call mesh % ProlongGradientsToFaces(NGRAD, Prolong_gradRho = .TRUE. )
       
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
@@ -308,7 +307,7 @@ contains
 !                                                                    -: external state
 !  -----------------------------------------------------------------------------------------------
    subroutine ComputeBoundaryFluxJacobian(f,time,externalStateProcedure)
-      use RiemannSolvers
+      use RiemannSolvers_NS
       use FaceClass
       implicit none
       !--------------------------------------------
@@ -333,7 +332,8 @@ contains
 !        ------------------
          
          f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
-         CALL externalStateProcedure( f % geom % x(:,i,j), &
+         CALL externalStateProcedure( NCONS, &
+                                      f % geom % x(:,i,j), &
                                       time, &
                                       f % geom % normal(:,i,j), &
                                       f % storage(2) % Q(:,i,j),&
@@ -364,7 +364,7 @@ contains
 !     Viscous contribution
 !     ********************
 !
-      if (flowIsNavierStokes) call EllipticDiscretization % RiemannSolver_Jacobians(f)  ! TODO: Check if external gradient has to be taken into account
+      if (flowIsNavierStokes) call ViscousDiscretization % RiemannSolver_Jacobians(f)  ! TODO: Check if external gradient has to be taken into account
 !
 !     **************************************************************
 !     Correct dFstar/dQL with the Jacobian of the boundary condition
@@ -397,7 +397,7 @@ contains
 !                          dQ⁺                                  dQ⁻         
 !  -----------------------------------------------------------------------------------------------
    subroutine ComputeInterfaceFluxJacobian(f)
-      use RiemannSolvers
+      use RiemannSolvers_NS
       use FaceClass
       implicit none
       !--------------------------------------------
@@ -429,7 +429,7 @@ contains
          
       end do             ; end do
       
-      if (flowIsNavierStokes) call EllipticDiscretization % RiemannSolver_Jacobians(f)
+      if (flowIsNavierStokes) call ViscousDiscretization % RiemannSolver_Jacobians(f)
       
    end subroutine ComputeInterfaceFluxJacobian
 !
@@ -464,7 +464,7 @@ contains
          buffer = q(i)
          q(i) = q(i) + eps
          newQext = q
-         CALL externalStateProcedure( x, time, nHat, newQext, boundaryType, boundaryName )
+         CALL externalStateProcedure( NCONS, x, time, nHat, newQext, boundaryType, boundaryName )
          
          BCjac(:,i) = (newQext-Qex)/eps
          
@@ -526,7 +526,7 @@ contains
 !     *********************
 !
       call HyperbolicDiscretization % ComputeInnerFluxJacobian( e, dFdQ) 
-      if (flowIsNavierStokes) call EllipticDiscretization % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
+      if (flowIsNavierStokes) call ViscousDiscretization % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
       
       LocalMat = 0._RP
       do k2 = 0, e % Nxyz(3) ; do j2 = 0, e % Nxyz(2) ; do i2 = 0, e % Nxyz(1) ; do eq2 = 1, NCONS 
@@ -756,7 +756,6 @@ contains
 !~            Deltas = 0
 !~!           Kronecker deltas
 !~!           -----------------
-
 !~            if (i1 == i2) then
 !~               di = 1._RP
 !~               Deltas = Deltas + 1

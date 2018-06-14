@@ -1,3 +1,15 @@
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:    DenseBlockDiagonalMatrixClass.f90
+!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Created: Sat May 12 20:53:58 2018
+!   @Last revision date:
+!   @Last revision author:
+!   @Last revision commit:
+!
+!//////////////////////////////////////////////////////
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      DenseBlockDiagonalMatrixClass.f90

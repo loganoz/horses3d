@@ -13,11 +13,11 @@ module AnisFASMultigridClass
    use SMConstants
    use ExplicitMethods
    use PhysicsStorage
-   use Physics
-   use TruncationErrorClass
-   use InterpolationMatrices
+   use TruncationErrorClass   , only: TruncationError_t, EstimateTruncationError, InitializeForTauEstimation, NON_ISOLATED_TE, ISOLATED_TE
+   use InterpolationMatrices  , only: Interp3DArraysOneDir
    use MultigridTypes
-   use DGSEMClass
+   use DGSEMClass             , only: DGSem, ComputeQDot_FCN, MaxTimeStep
+   use FTValueDictionaryClass , only: FTValueDictionary
 #if defined(NAVIERSTOKES)
    use ManufacturedSolutions
 #endif
@@ -90,7 +90,6 @@ module AnisFASMultigridClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine construct(this,controlVariables,sem,estimator,NMINestim)
-      use FTValueDictionaryClass
       use StopwatchClass
       implicit none
       !-----------------------------------------------------------
@@ -312,8 +311,7 @@ module AnisFASMultigridClass
 !  DGSem classes for every subsolver in one of the three directions
 !  ----------------------------------------------------------------------
    recursive subroutine ConstructFASInOneDirection(Solver, lvl, controlVariables,Dir)
-      use FTValueDictionaryClass
-      use BoundaryConditionFunctions
+!~       use BoundaryConditionFunctions ! TODO: needed=??
       implicit none
       type(AnisFASMultigrid_t), TARGET  :: Solver           !<> Current solver
       integer                       :: lvl              !<  Current multigrid level
@@ -325,17 +323,21 @@ module AnisFASMultigridClass
       integer, dimension(nelem,3)    :: N2                     !   Order of approximation for every element in child solver
       integer                        :: i,j,k, iEl             !   Counter
       logical                        :: success                ! Did the creation of sem succeed?
-      type(DGSem)          , pointer :: p_sem             ! Pointer to Parent's sem
-      type(AnisFASMultigrid_t) , pointer :: Child_p           ! Pointer to Child
       !----------------------------------------------
       !
       integer :: Nxyz(3), fd, l
+      integer  :: nEqn
+
+#if defined(NAVIERSTOKES)
+      nEqn = NCONS
+#endif
       !--------------------------
       ! Allocate variable storage
       !--------------------------
 
       allocate (Solver % MGStorage(Dir) % Var(nelem))
-      p_sem => Solver % MGStorage(Dir) % p_sem
+      
+      associate ( p_sem => Solver % MGStorage(Dir) % p_sem )
       
       ! Define N1x, N1y and N1z according to refinement direction
       N1x => p_sem % Nx
@@ -344,10 +346,10 @@ module AnisFASMultigridClass
    
 !$omp parallel do
       do k = 1, nelem
-         allocate(Solver % MGStorage(Dir) % Var(k) % Q    (N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
-         allocate(Solver % MGStorage(Dir) % Var(k) % E    (N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
-         allocate(Solver % MGStorage(Dir) % Var(k) % S    (N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
-         allocate(Solver % MGStorage(Dir) % Var(k) % Scase(N_EQN,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % Q    (nEqn,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % E    (nEqn,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % S    (nEqn,0:N1x(k),0:N1y(k),0:N1z(k)))
+         allocate(Solver % MGStorage(Dir) % Var(k) % Scase(nEqn,0:N1x(k),0:N1y(k),0:N1z(k)))
          
          Solver % MGStorage(Dir) % Var(k) % Scase = 0._RP
       end do   
@@ -381,7 +383,7 @@ module AnisFASMultigridClass
 #endif
       
       if (lvl > 1) then
-         Child_p => Solver % Child
+         associate (Child_p => Solver % Child)
 !
 !        -----------------------------------------------
 !        Allocate restriction and prolongation operators
@@ -418,7 +420,7 @@ module AnisFASMultigridClass
          
          call Child_p % MGStorage(Dir) % p_sem % construct &
                                           (controlVariables  = controlVariables,                                         &
-                                           BCFunctions       = Solver % MGStorage(Dir) % p_sem % BCFunctions , &
+                                           BCFunctions       = p_sem % BCFunctions , &
                                            Nx_ = N2(:,1),    Ny_ = N2(:,2),    Nz_ = N2(:,3),                            &
                                            success = success,                                                            &
                                            ChildSem = .TRUE. )
@@ -427,8 +429,10 @@ module AnisFASMultigridClass
          
          call ConstructFASInOneDirection(Solver % Child, lvl - 1, controlVariables,Dir)
          
+         end associate
       end if
       
+      end associate
    end subroutine ConstructFASInOneDirection
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -499,24 +503,24 @@ module AnisFASMultigridClass
       procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
       !----------------------------------------------------------------------------
       integer                       :: iEl        !Element counter
-      type(AnisFASMultigrid_t), pointer :: Child_p        !Pointer to child
       integer                       :: N1(3)          !Polynomial orders in origin solver       (Attention: the origin can be parent or child)
       integer                       :: N2(3)          !Polynomial orders in destination solver  (Attention: the origin can be parent or child)
       real(kind=RP)                 :: PrevRes
       integer                       :: sweepcount
-      type(DGSem)         , pointer :: p_sem          !Pointer to the current sem class
-      type(MGSolStorage_t), pointer :: Var(:)         !Pointer to the variable storage class
-      type(DGSem)         , pointer :: Childp_sem          !Pointer to the current child's sem class
-      type(MGSolStorage_t), pointer :: ChildVar(:)         !Pointer to the child's variable storage class
       integer                       :: NumOfSweeps
+      integer                       :: nEqn
       !----------------------------------------------------------------------------
+
+#if defined(NAVIERSTOKES)
+      nEqn = NCONS
+#endif
 !
 !     -----------
 !     Definitions
 !     -----------
 !
-      p_sem => this % MGStorage(Dir) % p_sem
-      Var   => this % MGStorage(Dir) % Var
+      associate (p_sem => this % MGStorage(Dir) % p_sem, &
+                 Var   => this % MGStorage(Dir) % Var )
 !
 !     -----------------------
 !     Pre-smoothing procedure
@@ -554,8 +558,9 @@ module AnisFASMultigridClass
 !~       if (MGOutput) call PlotResiduals( lvl , p_sem )
       
       if (lvl > 1) then
-         Childp_sem => this % Child % MGStorage(Dir) % p_sem
-         ChildVar   => this % Child % MGStorage(Dir) % Var
+         
+         associate (Childp_sem => this % Child % MGStorage(Dir) % p_sem, &
+                    ChildVar   => this % Child % MGStorage(Dir) % Var )
          
          if (.not. SmoothFine) call MGRestrictToChild(this,Dir,lvl,t,TE, ComputeTimeDerivative)
 !
@@ -575,7 +580,7 @@ module AnisFASMultigridClass
             N1 = Childp_sem % mesh % elements(iEl) % Nxyz
             N2 =      p_sem % mesh % elements(iEl) % Nxyz
             
-            call Interp3DArraysOneDir(N_EQN, &
+            call Interp3DArraysOneDir(nEqn, &
                                       N1, ChildVar(iEl) % E, &
                                       N2, Var     (iEl) % E, &
                                       Dir)
@@ -593,7 +598,7 @@ module AnisFASMultigridClass
          end do
 !$omp end do
 !$omp end parallel
-      
+         end associate
       end if
 !
 !     ------------------------
@@ -638,6 +643,7 @@ module AnisFASMultigridClass
 !$omp end parallel do
       end if
       
+      end associate
    end subroutine FASVCycle
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -655,19 +661,16 @@ module AnisFASMultigridClass
       type(TruncationError_t), intent(inout) :: TE(:)   !>  Variable containing the truncation error estimation 
       procedure(ComputeQDot_FCN)             :: ComputeTimeDerivative
       !-------------------------------------------------------------
-      type(DGSem)          , pointer      :: p_sem          !Pointer to the current sem class
-      type(MGSolStorage_t) , pointer      :: Var(:)         !Pointer to the variable storage class
-      type(DGSem)          , pointer      :: Childp_sem          !Pointer to the current child's sem class
-      type(MGSolStorage_t) , pointer      :: ChildVar(:)         !Pointer to the child's variable storage class
       integer  :: iEl
       integer  :: N1(3)
       integer  :: N2(3)
       !-------------------------------------------------------------
-      
-      p_sem      => this % MGStorage(Dir) % p_sem
-      Var        => this % MGStorage(Dir) % Var
-      Childp_sem => this % Child % MGStorage(Dir) % p_sem
-      ChildVar   => this % Child % MGStorage(Dir) % Var
+#if defined(NAVIERSTOKES)      
+
+      associate(  p_sem      => this % MGStorage(Dir) % p_sem        , &
+                  Var        => this % MGStorage(Dir) % Var          , &
+                  Childp_sem => this % Child % MGStorage(Dir) % p_sem, &
+                  ChildVar   => this % Child % MGStorage(Dir) % Var    )
       
 !$omp parallel
 !$omp do private(N1,N2) schedule(runtime)
@@ -679,7 +682,7 @@ module AnisFASMultigridClass
 !        Restrict solution
 !        -----------------
          
-         call Interp3DArraysOneDir(N_EQN, &
+         call Interp3DArraysOneDir(NCONS, &
                                    N1, p_sem      % mesh % elements(iEl) % storage % Q, &
                                    N2, Childp_sem % mesh % elements(iEl) % storage % Q, &
                                    Dir)
@@ -687,7 +690,7 @@ module AnisFASMultigridClass
 !        Restrict residual
 !        -----------------
             
-         call Interp3DArraysOneDir(N_EQN, &
+         call Interp3DArraysOneDir(NCONS, &
                                    N1, p_sem % mesh % elements(iEl) % storage % Qdot, &
                                    N2, ChildVar(iEl) % S, &
                                    Dir)
@@ -711,7 +714,7 @@ module AnisFASMultigridClass
 !$omp do schedule(runtime)
       do iEl = 1, nelem
          ChildVar(iEl) % Q = Childp_sem % mesh % elements(iEl) % storage % Q
-         Childp_sem   % mesh % elements(iEl) % storage % S = 0._RP
+         Childp_sem   % mesh % elements(iEl) % storage % S_NS = 0._RP
       end do
 !$omp end do
 !$omp end parallel
@@ -733,11 +736,12 @@ module AnisFASMultigridClass
       
 !$omp parallel do schedule(runtime)
       do iEl = 1, nelem
-         Childp_sem % mesh % elements(iEl) % storage % S = ChildVar(iEl) % S - Childp_sem % mesh % elements(iEl) % storage % Qdot
+         Childp_sem % mesh % elements(iEl) % storage % S_NS = ChildVar(iEl) % S - Childp_sem % mesh % elements(iEl) % storage % Qdot
       end do
 !$omp end parallel do
       
-      
+      end associate
+#endif      
    end subroutine MGRestrictToChild
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -809,105 +813,5 @@ module AnisFASMultigridClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!
-!
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!  ---
-!  Qdot inside an element ignoring the neighbors
-!  ---
-!~   subroutine IsolatedQdot( self, time, k  )
-!~         use DGTimeDerivativeMethods
-!~         use ElementClass
-!~         implicit none 
-!~         !---------------------------------
-!~         type(DGSem)   :: self
-!~         real(kind=RP) :: time   !<  Time where we compute time derivative
-!~         integer       :: k      !<  Element number
-!~         !---------------------------------
-!~         integer :: Nx, Ny, Nz, NB(2)
-!~         integer :: i,j,iFace
-!~         real(kind=RP) :: bvExt(N_EQN), flux(N_EQN)
-!~         !---------------------------------
-!~!
-!~!        -----------------------------------------
-!~!        Element orders of analyzed element
-!~!        -----------------------------------------
-!~!
-!~         Nx = self%mesh%elements(k)%Nxyz(1)
-!~         Ny = self%mesh%elements(k)%Nxyz(2)
-!~         Nz = self%mesh%elements(k)%Nxyz(3)
-!~!
-!~!        -----------------------------------------
-!~!        Prolongation of the solution to the faces
-!~!        -----------------------------------------
-!~!
-!~         call ProlongToFaces( self % mesh % elements(k), self % spA(Nx,Ny,Nz) )
-!~!
-!~!        -------------------------------------------------------
-!~!        "Inviscid Riemann fluxes from the solutions on the faces"
-!~!        -------------------------------------------------------
-!~!
-!~         do iFace = 1, 6 
-!~            NB = self % mesh % elements(k) % Nxyz (axisMap(:,iFace))
-!~            do j = 0, NB(2)
-!~               do i = 0, NB(1)
-                  
-!~                  bvExt = self % mesh % elements(k) % Qb(:,i,j,iFace)
-                  
-!~                  call RiemannSolver(QLeft  = self % mesh % elements(k) % Qb(:,i,j,iFace), &
-!~                                     QRight = bvExt, &
-!~                                     nHat   = self % mesh % elements(k) % geom % normal(:,i,j,iFace), &
-!~                                     flux   = flux)
-!~                  self % mesh % elements(k) % FStarb(:,i,j,iFace) = flux * self % mesh % elements(k) % geom % scal(i,j,iFace)
-!~               end do
-!~            end do
-!~         end do
-         
-!~         if ( flowIsNavierStokes )     then
-!~!
-!~!           --------------------------------------
-!~!           Set up the face Values on each element
-!~!           --------------------------------------
-!~!
-!~            do iFace = 1, 6 
-!~               NB = self % mesh % elements(k) % Nxyz (axisMap(:,iFace))
-!~               do j = 0, NB(2)
-!~                  do i = 0, NB(1)
-!~                     call GradientValuesForQ (Q  = self % mesh % elements(k) % Qb(:,i,j,iFace), &
-!~                                              U  = self % mesh % elements(k) % Ub(:,i,j,iFace) )
-!~                  end do
-!~               end do
-!~            end do
-!~!
-!~!           -----------------------------------
-!~!           Compute the gradients over the mesh
-!~!           -----------------------------------
-!~!
-!~            call ComputeDGGradient( self % mesh % elements(k), self % spA(Nx,Ny,Nz), time )
-!~!
-!~!           ----------------------------------
-!~!           Prolong the gradients to the faces
-!~!           ----------------------------------
-!~!
-!~            call ProlongGradientToFaces( self % mesh % elements(k), self % spA(Nx,Ny,Nz) )
-!~!
-!~!           -------------------------
-!~!           Compute gradient averages
-!~!           -------------------------
-!~!
-!~!           This is automatically done by last step
-
-!~         end if
-
-!~!
-!~!        ------------------------
-!~!        Compute time derivatives
-!~!        ------------------------
-!~!
-!~         call LocalTimeDerivative( self % mesh % elements(k), self % spA(Nx,Ny,Nz), time )
-
-!~   end subroutine IsolatedQdot
    
 end module AnisFASMultigridClass

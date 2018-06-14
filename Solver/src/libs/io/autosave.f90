@@ -2,6 +2,7 @@
 module AutosaveClass
    use SMConstants
    use FTValueDictionaryClass
+   use Utilities, only: almostEqual, toLower
 
    private
    public   Autosave_t
@@ -33,7 +34,6 @@ module AutosaveClass
 !////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine Autosave_Configure(self, controlVariables, t0)
-      use Utilities, only: almostEqual
       implicit none
       class(Autosave_t)          :: self
       class(FTValueDictionary)   :: controlVariables
@@ -59,6 +59,7 @@ module AutosaveClass
 !        Present: associate the appropriate mode
 !        ---------------------------------------
          autosaveMode = controlVariables % stringValueForKey(trim(autosaveModeKey), requestedLength = LINE_LENGTH)
+         call ToLower(autosaveMode)
 
          if ( trim(autosaveMode) .eq. trim(autosaveByIteration) ) then
             self % mode = AUTOSAVE_BY_ITERATION

@@ -16,15 +16,15 @@
 !
 module pAdaptationClass
    use SMConstants
-   use InterpolationMatrices, only: Tset, Interp3DArrays, ConstructInterpolationMatrices
-   use PhysicsStorage       , only: NCONS, N_GRAD_EQN
-   use FaceClass            , only: Face
+   use InterpolationMatrices  , only: Tset, Interp3DArrays, ConstructInterpolationMatrices
+   use PhysicsStorage         , only: NTOTALVARS
+   use FaceClass              , only: Face
    use ElementClass
-   use DGSEMClass
+   use DGSEMClass             , only: DGSem, BCFunctions_t, BCState_FCN, BCGradients_FCN, ComputeQdot_FCN, no_of_BCsets
    use TruncationErrorClass
-   use FTValueDictionaryClass
+   use FTValueDictionaryClass , only: FTValueDictionary
    use StorageClass
-   use SharedBCModule
+   use SharedBCModule         , only: conformingBoundariesDic
    use FileReadingUtilities , only: RemovePath, getFileName, getArrayFromString
    use FileReaders          , only: ReadOrderFile
    use ParamfileRegions     , only: readValueInRegion, getSquashedLine
@@ -93,8 +93,8 @@ module pAdaptationClass
    logical    :: reorganize_z
    
 #if defined(NAVIERSTOKES)
-   procedure(BCState_FCN)   :: externalStateForBoundaryName
-   procedure(BCGradients_FCN)   :: ExternalGradientForBoundaryName
+   procedure(BCState_FCN)       :: externalStateForBoundaryName_NS
+   procedure(BCGradients_FCN)   :: ExternalGradientForBoundaryName_NS
 #elif defined(CAHNHILLIARD)
    procedure(BCState_FCN)   :: externalStateForBoundaryName
    procedure(BCGradients_FCN)   :: ExternalChemicalPotentialGradientForBoundaryName
@@ -546,6 +546,8 @@ readloop:do
       integer                    :: Warning(nelem)    !   Stores (with ==1) elements where the specified truncation error was not achieved
       integer                    :: NOld(3,nelem)     !   Old polynomial orders of mesh
       type(ElementStorage_t), allocatable :: TempStorage(:) ! Temporary variable to store the solution before the adaptation procedure 
+      type(Storage_t)                     :: Temp1DStor
+      integer                             :: firstIdx
       logical                    :: success
       integer, save              :: Stage = 0         !   Stage of p-adaptation for the increasing method
       CHARACTER(LEN=LINE_LENGTH) :: newInput          !   Variable used to change the input in controlVariables after p-adaptation 
@@ -569,6 +571,7 @@ readloop:do
          end function getFileName
       end interface
       !--------------------------------------
+#if defined(NAVIERSTOKES)
       
       write(STD_OUT,*)
       write(STD_OUT,*)
@@ -794,8 +797,8 @@ readloop:do
       call Stopwatch % Start("Preprocessing")
       
 #if defined(NAVIERSTOKES)
-      BCFunctions(1) % externalState => externalStateForBoundaryName
-      BCFunctions(1) % externalGradients => externalGradientForBoundaryName
+      BCFunctions(1) % externalState => externalStateForBoundaryName_NS
+      BCFunctions(1) % externalGradients => externalGradientForBoundaryName_NS
 #elif defined(CAHNHILLIARD)
       BCFunctions(C_BC) % externalState      => externalStateForBoundaryName
       BCFunctions(C_BC) % externalGradients  => externalConcentrationGradientForBoundaryName
@@ -808,11 +811,14 @@ readloop:do
 !     Store the previous solution
 !     ---------------------------
 !
+      call Temp1DStor % Construct(sem % mesh % storage % NDOF, 1)
+      firstIdx = 1
       allocate (TempStorage(nelem))
       do iEl = 1, nelem
          NOld (:,iEl) = sem % mesh % elements(iEl) % Nxyz
-         call TempStorage(iEl) % Construct(NOld (1,iEl), NOld (2,iEl), NOld (3,iEl), NCONS, N_GRAD_EQN, .FALSE.)
+         call TempStorage(iEl) % Construct(NOld (1,iEl), NOld (2,iEl), NOld (3,iEl), .FALSE., Temp1DStor, firstIdx)
          TempStorage(iEl) % Q = sem % mesh % elements(iEl) % storage % Q
+         firstIdx = firstIdx + product(NOld(:,iEl)+1)
       end do
 !
 !     -----------------
@@ -852,7 +858,7 @@ readloop:do
             ! Interpolate solution to new solution storage
             !---------------------------------------------
             
-            call Interp3DArrays  (Nvars      = NCONS                                       , &
+            call Interp3DArrays  (Nvars      = NTOTALVARS                                  , & ! TODO: check if this holds for CHNS
                                   Nin        = NOld(:,iEl)                                 , &
                                   inArray    = TempStorage(iEl) % Q , &
                                   Nout       = NNew(:,iEl)                                 , &
@@ -871,6 +877,7 @@ readloop:do
          call TempStorage(iEl) % destruct
       end do
       deallocate (TempStorage)
+      call Temp1DStor % Destruct
 !
 !     ---------------------------------------------------
 !     Write post-adaptation mesh, solution and order file
@@ -904,6 +911,8 @@ readloop:do
       call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
       
       write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
+
+#endif
    end subroutine pAdaptTE
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

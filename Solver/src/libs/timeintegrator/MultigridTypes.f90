@@ -1,9 +1,9 @@
 module MultigridTypes
    use SMConstants
-   use HexMeshClass
-   use InterpolationMatrices
+   use HexMeshClass              , only: HexMesh
+   use InterpolationMatrices     , only: ConstructInterpolationMatrices
    use TimeIntegratorDefinitions
-   use DGSEMClass
+   use DGSEMClass                , only: ComputeMaxResiduals
    implicit none
    
    public 
@@ -124,7 +124,7 @@ module MultigridTypes
       type(HexMesh), intent(in)           :: mesh
       logical    , intent(in), optional :: white
       !--------------------------------------------------------
-      real(kind=RP)             :: maxResiduals(N_EQN)
+      real(kind=RP)             :: maxResiduals(NTOTALVARS)
       character(len=5)          :: color1
       character(len=5)          :: color2
       integer                   :: eqn
@@ -142,7 +142,7 @@ module MultigridTypes
 
          write(STD_OUT,'(A,A,I3,X,A,X,A,I8)',advance="no") color1,'FAS lvl', lvl ,"|","it",sweeps
 
-         do eqn = 1, N_EQN
+         do eqn = 1, NTOTALVARS
             write(STD_OUT ,'(X,A,X,ES10.3)',advance="no") "|", maxResiduals(eqn)
          end do
    

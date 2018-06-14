@@ -8,6 +8,10 @@
 !      Class for solving linear systems using the Krylov Subspace Methods of PETSc library
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#ifdef HAS_PETSC
+!#include <petsc.h>
+#include "petsc/finclude/petsc.h"
+#endif
 MODULE PetscSolverClass
    USE GenericLinSolverClass
    use MatrixClass
@@ -16,10 +20,10 @@ MODULE PetscSolverClass
    use DGSEMClass
    use TimeIntegratorDefinitions
    use NumericalJacobian
-   IMPLICIT NONE
 #ifdef HAS_PETSC
-#include <petsc.h>
+   use petsc
 #endif
+   IMPLICIT NONE
    TYPE, EXTENDS(GenericLinSolver_t) :: PetscKspLinearSolver_t
       type(PETSCMatrix_t), allocatable              :: A
       TYPE(DGSem), POINTER                          :: p_sem   
@@ -149,10 +153,11 @@ MODULE PetscSolverClass
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SolveLinPrb(this, ComputeTimeDerivative, tol, maxiter, time,dt, ComputeA)
+   SUBROUTINE SolveLinPrb(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter, time,dt, ComputeA)
       IMPLICIT NONE
       !-------------------------------------------------------------
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT) :: this
+      integer,       intent(in)                    :: nEqn, nGradEqn
       procedure(ComputeQDot_FCN)                   :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                      :: time
       REAL(KIND=RP), OPTIONAL                      :: dt
@@ -166,12 +171,12 @@ MODULE PetscSolverClass
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
             call this % A % shift( MatrixShift(dt) )
             ComputeA = .FALSE.
          end if
       else 
-         call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
          call this % A % shift( MatrixShift(dt) )
       end if
       
@@ -346,7 +351,7 @@ MODULE PetscSolverClass
       PetscScalar,                     INTENT(OUT)        :: x_i
       PetscErrorCode                                      :: ierr
       
-      CALL VecGetValues(this%x,1 ,irow,x_i, ierr)
+      !CALL VecGetValues(this%x,1 ,irow,x_i, ierr)
       CALL CheckPetscErr(ierr, 'error in VecGetValue')
 #else
       INTEGER,           INTENT(IN)        :: irow
@@ -391,7 +396,7 @@ MODULE PetscSolverClass
       PetscErrorCode                                     :: ierr
       
       
-      CALL MatView(this % A % A,PETSC_VIEWER_DRAW_SELF)
+      !CALL MatView(this % A % A,PETSC_VIEWER_DRAW_SELF)
       read(*,*)
 !~       IF (.NOT. PRESENT(filename)) filename = &
 !~                             '/home/andresrueda/Dropbox/PhD/03_Initial_Codes/3D/Implicit/nslite3d/Tests/Euler/NumJac/MatMatlab.dat'

@@ -19,13 +19,6 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!        Monitors.f90
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////
-!
 module MonitorsClass
    use SMConstants
    use NodalStorageClass
@@ -102,11 +95,11 @@ module MonitorsClass
 !
 !        Setup the buffer
 !        ----------------
-         if (controlVariables % containsKey("monitors flush interval") ) then
-            BUFFER_SIZE = controlVariables % integerValueForKey("monitors flush interval")
-         else
-            BUFFER_SIZE = BUFFER_SIZE_DEFAULT
-         end if
+!         if (controlVariables % containsKey("monitors flush interval") ) then
+!            BUFFER_SIZE = controlVariables % integerValueForKey("monitors flush interval")
+!         else
+!            BUFFER_SIZE = BUFFER_SIZE_DEFAULT
+!         end if
          allocate ( Monitors % SimuTime(BUFFER_SIZE), Monitors % t(BUFFER_SIZE), Monitors % iter(BUFFER_SIZE) )
 !
 !        Get the solution file name
@@ -234,7 +227,7 @@ module MonitorsClass
 !
 !        Print dashes for residuals
 !        --------------------------
-         do i = 1 , NCONS
+         do i = 1 , NTOTALVARS
             write(STD_OUT , '(3X,A10)' , advance = "no" ) trim(dashes)
          end do
 !
@@ -346,7 +339,7 @@ module MonitorsClass
          class(HexMesh)      :: mesh
          real(kind=RP)       :: t
          integer             :: iter
-         real(kind=RP)       :: maxResiduals(NCONS)
+         real(kind=RP)       :: maxResiduals(NTOTALVARS)
 !
 !        ---------------
 !        Local variables

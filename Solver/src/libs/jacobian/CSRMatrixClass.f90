@@ -24,6 +24,8 @@ MODULE CSRMatrixClass
       ! Variables for matrices with blocks
       INTEGER,        POINTER, CONTIGUOUS :: BlockIdx(:) =>NULL()  ! Index of first element of block (this is used by the routine CSR_GetBlock).. Note that in the DGSEM, the Jacobian matrices have a block diagonal with the Jacobian information of each element      
       INTEGER,        POINTER, CONTIGUOUS :: BlockSize(:)=>NULL()  ! Size of each block
+      integer                             :: n_max_elements
+      integer,        allocatable         :: firstIdx(:,:)         ! For each row, specifies the position of the beginning of each element column
    CONTAINS
    
       procedure                           :: construct   => CSR_CreateMat
@@ -38,6 +40,8 @@ MODULE CSRMatrixClass
       PROCEDURE                           :: GetDense => CSR2Dense
       PROCEDURE                           :: GetBlock => CSR_GetBlock
       procedure                           :: Assembly
+!      procedure                           :: SetFirstIdx => CSR_SetFirstIdx
+      procedure                           :: PreAllocateWithStructure => CSR_PreAllocateWithStructure
    END TYPE
    !-----------------------------------------------------------------------------   
    
@@ -117,6 +121,27 @@ MODULE CSRMatrixClass
       end if
       
    end subroutine CSR_PreAllocate
+
+   subroutine CSR_PreAllocateWithStructure(self, nnz, rows, cols, diag)
+      class(CSRMat_t),  intent(inout)  :: self
+      integer,          intent(in)     :: nnz
+      integer,          intent(in)     :: rows(self % NumRows+1)
+      integer,          intent(in)     :: cols(nnz)
+      integer,          intent(in)     :: diag(self % NumRows)
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      allocate(self % Cols(nnz)) 
+      allocate(self % Values(nnz))
+
+      self % Rows = rows
+      self % Cols = cols
+      self % Values = 0.0_RP
+      self % diag = diag
+
+   end subroutine CSR_PreAllocateWithStructure
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -418,7 +443,7 @@ MODULE CSRMatrixClass
       INTEGER                   :: k, l     ! Variables containing positions in sparse matrix arrays
       !------------------------------------------------------------------------------
       
-      RC0 = A % BlockIdx(Num) + 1  ! Using "+ 1" since the index is zero based because of Implicit_NJ (TODO: change?)
+      RC0 = A % BlockIdx(Num) 
       RCf  = RC0 + N - 1
       
       i=0
@@ -463,6 +488,7 @@ MODULE CSRMatrixClass
       this % BlockIdx = BlockIdx
       this % BlockSize = BlockSize
    end subroutine Assembly
+
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

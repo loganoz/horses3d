@@ -3,6 +3,7 @@ module Solution2PltModule
    use SolutionFile
    use InterpolationMatrices
    use FileReadingUtilities      , only: getFileName
+   use getTask
    implicit none
 
    private
@@ -118,6 +119,8 @@ module Solution2PltModule
 !
 !        Add the variables
 !        -----------------
+         call getOutputVariables(OUTPUT_VARIABLES_FLAG)
+
          write(fid,'(A,A)') 'VARIABLES = "x","y","z"', trim(getOutputVariablesLabel())
 !
 !        Write each element zone
@@ -254,6 +257,7 @@ module Solution2PltModule
 !
 !        Add the variables
 !        -----------------
+         call getOutputVariables(OUTPUT_VARIABLES_FLAG)
          write(fid,'(A,A)') 'VARIABLES = "x","y","z"', trim(getOutputVariablesLabel())
 !
 !        Write elements
@@ -310,16 +314,16 @@ module Solution2PltModule
             end if
    
          else
-            allocate( e % Qout(1:5,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-            call prolongSolutionToGaussPoints(5, e % Nsol, e % Q, e % Nout, e % Qout, Tx, Ty, Tz)
+            allocate( e % Qout(1:NVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+            call prolongSolutionToGaussPoints(NVARS, e % Nsol, e % Q, e % Nout, e % Qout, Tx, Ty, Tz)
    
             if ( hasGradients ) then
-               allocate( e % U_xout(1:4,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-               allocate( e % U_yout(1:4,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-               allocate( e % U_zout(1:4,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-               call prolongSolutionToGaussPoints(4, e % Nsol, e % U_x, e % Nout, e % U_xout, Tx, Ty, Tz)
-               call prolongSolutionToGaussPoints(4, e % Nsol, e % U_y, e % Nout, e % U_yout, Tx, Ty, Tz)
-               call prolongSolutionToGaussPoints(4, e % Nsol, e % U_z, e % Nout, e % U_zout, Tx, Ty, Tz)
+               allocate( e % U_xout(1:NGRADVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+               allocate( e % U_yout(1:NGRADVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+               allocate( e % U_zout(1:NGRADVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+               call prolongSolutionToGaussPoints(NGRADVARS, e % Nsol, e % U_x, e % Nout, e % U_xout, Tx, Ty, Tz)
+               call prolongSolutionToGaussPoints(NGRADVARS, e % Nsol, e % U_y, e % Nout, e % U_yout, Tx, Ty, Tz)
+               call prolongSolutionToGaussPoints(NGRADVARS, e % Nsol, e % U_z, e % Nout, e % U_zout, Tx, Ty, Tz)
             end if
 
          end if
@@ -420,6 +424,7 @@ module Solution2PltModule
 !
 !        Add the variables
 !        -----------------
+         call getOutputVariables(OUTPUT_VARIABLES_FLAG)
          write(fid,'(A,A)') 'VARIABLES = "x","y","z"', trim(getOutputVariablesLabel())
 !
 !        Write elements
@@ -471,7 +476,7 @@ module Solution2PltModule
 !
 !        Project the solution
 !        --------------------
-         allocate( e % Qout(1:5,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         allocate( e % Qout(1:NVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
          e % Qout = 0.0_RP
 
          do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
@@ -481,7 +486,7 @@ module Solution2PltModule
          end do            ; end do            ; end do
 
          if ( hasGradients ) then
-            allocate( e % U_xout(1:4,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)))
+            allocate( e % U_xout(1:NGRADVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)))
             e % U_xout = 0.0_RP
    
             do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
@@ -490,7 +495,7 @@ module Solution2PltModule
                end do            ; end do            ; end do
             end do            ; end do            ; end do
 
-          allocate( e % U_yout(1:4, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+          allocate( e % U_yout(1:NGRADVARS, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
             e % U_yout = 0.0_RP
    
             do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
@@ -499,7 +504,7 @@ module Solution2PltModule
                end do            ; end do            ; end do
             end do            ; end do            ; end do
 
-          allocate( e % U_zout(1:4, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+          allocate( e % U_zout(1:NGRADVARS, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
             e % U_zout = 0.0_RP
    
             do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)

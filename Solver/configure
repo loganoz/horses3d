@@ -30,7 +30,8 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./NavierStokes/TaylorGreenKEP_BR2 \
 	    ./NavierStokes/ManufacturedSolutions \
 	    ./CahnHilliard/SpinodalDecomposition \
-	    ./CahnHilliard/Bubble"
+	    ./CahnHilliard/Bubble \
+	    ./CahnHilliard/Pipe"
 
 COMPONENTS_TEST_CASES="FacePatches \
  		       HexMesh \

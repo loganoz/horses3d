@@ -1,7 +1,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      EcplicitMethods.f90
+!      ExplicitMethods.f90
 !      Created: 2007-10-23 09:25:32 -0400 
 !      By: David Kopriva  
 !
@@ -68,8 +68,15 @@ MODULE ExplicitMethods
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
-             mesh % elements(id) % storage % G = a(k)* mesh % elements(id) % storage % G  +              mesh % elements(id) % storage % QDot
-             mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G
+#if defined(NAVIERSTOKES)
+             mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
+             mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
+#endif
+
+#if defined(CAHNHILLIARD)
+            mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+            mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*deltaT* mesh % elements(id) % storage % G_CH
+#endif
          END DO
 !$omp end parallel do
          
@@ -112,8 +119,15 @@ MODULE ExplicitMethods
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
-            mesh % elements(id) % storage % G = a(k)*mesh % elements(id) % storage % G  +             mesh % elements(id) % storage % QDot
-            mesh % elements(id) % storage % Q =      mesh % elements(id) % storage % Q  + c(k)*deltaT*mesh % elements(id) % storage % G
+#if defined(NAVIERSTOKES)
+             mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
+             mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
+#endif
+
+#if defined(CAHNHILLIARD)
+            mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+            mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*deltaT* mesh % elements(id) % storage % G_CH
+#endif
          END DO
 !$omp end parallel do
          
@@ -149,7 +163,13 @@ MODULE ExplicitMethods
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
+#if defined(NAVIERSTOKES)
             mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q  + deltaT*mesh % elements(id) % storage % QDot
+#endif
+
+#if defined(CAHNHILLIARD)
+            mesh % elements(id) % storage % c = mesh % elements(id) % storage % c  + deltaT*mesh % elements(id) % storage % cDot
+#endif
          END DO
 !$omp end parallel do
          

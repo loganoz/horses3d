@@ -7,6 +7,10 @@
 !      Class for solving a system with simple smoothers
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#ifdef HAS_PETSC
+!#include <petsc.h>
+#include "petsc/finclude/petsc.h"
+#endif
 MODULE IterativeSolverClass
    use MatrixClass
    USE GenericLinSolverClass
@@ -18,10 +22,10 @@ MODULE IterativeSolverClass
    use NumericalJacobian
    use AnalyticalJacobian
    use PhysicsStorage
-   IMPLICIT NONE
 #ifdef HAS_PETSC
-#include <petsc.h>
+   use petsc
 #endif
+   IMPLICIT NONE
    PRIVATE
    PUBLIC IterativeSolver_t, GenericLinSolver_t
    
@@ -97,7 +101,7 @@ CONTAINS
       INTEGER :: Nx,Ny,Nz   ! Polynomial orders for element
       INTEGER :: ndofelm    ! Number of degrees of freedom of element
       INTEGER :: k          ! Counter  
-      INTEGER :: N_EQN                                       
+      INTEGER :: NCONS                                       
       !-----------------------------------------------------------
 #ifdef HAS_PETSC
       PetscErrorCode :: ierr
@@ -126,7 +130,7 @@ CONTAINS
       SELECT CASE (this % Smoother)
          CASE('BlockJacobi')
             nelem = SIZE(sem % mesh % elements)
-            N_EQN = SIZE(sem % mesh % elements(1) % storage % Q,4)
+            NCONS = SIZE(sem % mesh % elements(1) % storage % Q,4)
             ALLOCATE (this % BlockPreco(nelem))
             DO k = 1, nelem
                Nx = sem % mesh % elements(k) % Nxyz(1)
@@ -150,8 +154,13 @@ CONTAINS
       integer, target, allocatable, dimension(:) :: Nx, Ny, Nz, ndofelm
       integer, target, allocatable :: firstIdx(:)
       integer :: nelem
+      integer  :: nEqn
       !-----------------------------------------------------------
       nelem= size(this % p_sem % mesh % elements)
+      
+#if defined(NAVIERSTOKES)
+      nEqn = NCONS
+#endif
       
       allocate ( Nx(nelem), Ny(nelem), Nz(nelem), ndofelm(nelem) )
       allocate ( firstIdx(nelem+1) )
@@ -168,7 +177,7 @@ CONTAINS
 !              TODO: change to store the permutation indexes in the element
 !           --------------------------------------
 ! 
-            ndofelm(i)  = N_EQN * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)
+            ndofelm(i)  = nEqn * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)
             IF (i>1) firstIdx(i) = firstIdx(i-1) + ndofelm(i-1)
       end do
       firstIdx(nelem+1) = firstIdx(nelem) + ndofelm(nelem)
@@ -215,10 +224,11 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
+   SUBROUTINE solve(this, nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
    use DenseMatUtilities
       IMPLICIT NONE
       CLASS(IterativeSolver_t), INTENT(INOUT) :: this
+      integer,       intent(in)               :: nEqn, nGradEqn
       procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
@@ -243,7 +253,7 @@ CONTAINS
       if ( present(ComputeA)) then
          if (ComputeA) then
 !~            call AnalyticalJacobian_Compute(this % p_sem,time,this % PETScA,.TRUE.)
-            call NumericalJacobian_Compute(this % p_sem, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
+            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
             call this % PETScA % shift( MatrixShift(dt) )
             call this % PETScA % GetCSRMatrix(this % A)
             if (this % Smoother == 'BlockJacobi') call this % FillAInfo
@@ -252,7 +262,7 @@ CONTAINS
             ComputeA = .FALSE.
          end if
       else 
-         call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
+         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
          call this % PETScA % shift( MatrixShift(dt) )
          call this % PETScA % GetCSRMatrix(this % A)
          if (this % Smoother == 'BlockJacobi') call this % FillAInfo
@@ -268,8 +278,8 @@ CONTAINS
       dtsolve  = dt
       
 !~      IF (isfirst) THEN
-         CALL this % p_sem % GetQdot(this % F_Ur)
-         CALL this % p_sem % GetQ   (this % Ur)
+         CALL this % p_sem % GetQdot(nEqn,this % F_Ur)
+         CALL this % p_sem % GetQ   (this % Ur, nEqn)
 !~         isfirst = .FALSE.
 !~      END IF
       
@@ -286,7 +296,7 @@ CONTAINS
             CALL BlockJacobiSmoother(this, maxiter, tol, this % niter, ComputeTimeDerivative)
       END SELECT
       
-      CALL this % p_sem % SetQ   (this % Ur)
+      CALL this % p_sem % SetQ   (this % Ur, NTOTALVARS)
       
 !~      IF (this % niter < maxiter) THEN
          this % CONVERGED = .TRUE.
@@ -457,9 +467,9 @@ CONTAINS
       procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
       REAL(KIND = RP)                         :: F(size(u))
       
-      CALL this % p_sem % SetQ(u)
+      CALL this % p_sem % SetQ(u, NTOTALVARS)
       CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, this % p_sem % BCFunctions)
-      CALL this % p_sem % GetQdot(F)
+      CALL this % p_sem % GetQdot(NTOTALVARS,F)
       
    END FUNCTION p_F
    

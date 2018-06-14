@@ -63,9 +63,16 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedFinalSetup(mesh , thermodynamics_, &
-                                                 dimensionless_, &
-                                                     refValues_ )
+         SUBROUTINE UserDefinedFinalSetup(mesh &
+#if defined(NAVIERSTOKES)
+                                        , thermodynamics_ &
+                                        , dimensionless_  &
+                                        , refValues_ & 
+#endif
+#if defined(CAHNHILLIARD)
+                                        , multiphase_ &
+#endif
+                                        )
 !
 !           ----------------------------------------------------------------------
 !           Called after the mesh is read in to allow mesh related initializations
@@ -74,19 +81,31 @@
 !
             use SMConstants
             USE HexMeshClass
-            use PhysicsStorage
+            use FluidData
             IMPLICIT NONE
-            CLASS(HexMesh)             :: mesh
+            CLASS(HexMesh)                      :: mesh
+#if defined(NAVIERSTOKES)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
+#endif
+#if defined(CAHNHILLIARD)
+            type(Multiphase_t),     intent(in)  :: multiphase_
+#endif
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedInitialCondition(mesh, thermodynamics_, &
-                                                      dimensionless_, &
-                                                          refValues_  )
+         subroutine UserDefinedInitialCondition(mesh &
+#if defined(NAVIERSTOKES)
+                                        , thermodynamics_ &
+                                        , dimensionless_  &
+                                        , refValues_ & 
+#endif
+#if defined(CAHNHILLIARD)
+                                        , multiphase_ &
+#endif
+                                        )
 !
 !           ------------------------------------------------
 !           Called to set the initial condition for the flow
@@ -94,14 +113,20 @@
 !                 condition.
 !           ------------------------------------------------
 !
-            USE SMConstants
-            use PhysicsStorage
-            use HexMeshClass
+            use smconstants
+            use physicsstorage
+            use hexmeshclass
+            use FluidData
             implicit none
             class(HexMesh)                        :: mesh
+#if defined(NAVIERSTOKES)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
+#endif
+#if defined(CAHNHILLIARD)
+            type(Multiphase_t),     intent(in)  :: multiphase_
+#endif
 !
 !           ---------------
 !           Local variables
@@ -109,7 +134,9 @@
 !
             integer        :: eID, i, j, k
             real(kind=RP)  :: qq, u, v, w, p
-            real(kind=RP)  :: Q(N_EQN), phi, theta
+#if defined(NAVIERSTOKES)
+            real(kind=RP)  :: Q(NCONS), phi, theta
+#endif
 
 #if defined(NAVIERSTOKES)
             associate ( gammaM2 => dimensionless_ % gammaM2, &
@@ -141,9 +168,28 @@
 
             end associate
 #endif
-            
-         END SUBROUTINE UserDefinedInitialCondition
+!
+!           ---------------------------------------
+!           Cahn-Hilliard default initial condition
+!           ---------------------------------------
+!
+#if defined(CAHNHILLIARD)
+            call random_seed()
+         
+            do eid = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eid) % Nxyz(1), &
+                          Ny => mesh % elements(eid) % Nxyz(2), &
+                          Nz => mesh % elements(eid) % Nxyz(3) )
+               associate(e => mesh % elements(eID) % storage)
+               call random_number(e % c) 
+               e % c = 2.0_RP * (e % c - 0.5_RP)
+               end associate
+               end associate
+            end do
+#endif
 
+         end subroutine UserDefinedInitialCondition
+#if defined(NAVIERSTOKES)
          subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
 !
 !           -------------------------------------------------
@@ -152,11 +198,12 @@
 !
             use SMConstants
             use PhysicsStorage
+            use FluidData
             implicit none
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: Q(N_EQN)
+            real(kind=RP), intent(inout)  :: Q(NCONS)
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
@@ -174,15 +221,41 @@
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: U_x(N_GRAD_EQN)
-            real(kind=RP), intent(inout)  :: U_y(N_GRAD_EQN)
-            real(kind=RP), intent(inout)  :: U_z(N_GRAD_EQN)
+            real(kind=RP), intent(inout)  :: U_x(NGRAD)
+            real(kind=RP), intent(inout)  :: U_y(NGRAD)
+            real(kind=RP), intent(inout)  :: U_z(NGRAD)
          end subroutine UserDefinedNeumann
-
+#endif
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         subroutine UserDefinedSourceTerm(x, time, S, thermodynamics_, dimensionless_, refValues_)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, Monitors)
+!
+!           ----------------------------------------------------------
+!           Called at the output interval to allow periodic operations
+!           to be performed
+!           ----------------------------------------------------------
+!
+            use SMConstants
+            USE HexMeshClass
+#if defined(NAVIERSTOKES)
+            use MonitorsClass
+#endif
+            IMPLICIT NONE
+            CLASS(HexMesh)               :: mesh
+            REAL(KIND=RP)                :: time
+#if defined(NAVIERSTOKES)
+            type(Monitor_t), intent(in) :: monitors
+#else
+            logical, intent(in) :: monitors
+#endif
+            
+         END SUBROUTINE UserDefinedPeriodicOperation
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+#if defined(NAVIERSTOKES)
+         subroutine UserDefinedSourceTermNS(x, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -191,6 +264,7 @@
             use SMConstants
             USE HexMeshClass
             use PhysicsStorage
+            use FluidData
             IMPLICIT NONE
             real(kind=RP),             intent(in)  :: x(NDIM)
             real(kind=RP),             intent(in)  :: time
@@ -203,36 +277,23 @@
 !           -------------
 !           S(:) = x(1) + x(2) + x(3) + time
    
-         end subroutine UserDefinedSourceTerm
+         end subroutine UserDefinedSourceTermNS
+#endif
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, monitors)
-!
-!           ----------------------------------------------------------
-!           Called at the output interval to allow periodic operations
-!           to be performed
-!           ----------------------------------------------------------
-!
-            use SMConstants
-            USE HexMeshClass
-            use MonitorsClass
-            IMPLICIT NONE
-            CLASS(HexMesh)  :: mesh
-            REAL(KIND=RP) :: time
-            type(Monitor_t),  intent(in)  :: monitors
-            
-         END SUBROUTINE UserDefinedPeriodicOperation
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
-                                                    dimensionless_, &
-                                                        refValues_, &
-                                                          monitors, &
-                                                         elapsedTime, &
-                                                             CPUTime   )
+         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual &
+#if defined(NAVIERSTOKES)
+                                                    , thermodynamics_ &
+                                                    , dimensionless_  &
+                                                    , refValues_ & 
+#endif   
+#if defined(CAHNHILLIARD)
+                                                    , multiphase_ &
+#endif
+                                                    , monitors, &
+                                                      elapsedTime, &
+                                                      CPUTime   )
 !
 !           --------------------------------------------------------
 !           Called after the solution computed to allow, for example
@@ -244,18 +305,24 @@
             use FTAssertions
             USE HexMeshClass
             use PhysicsStorage
+            use FluidData
             use MonitorsClass
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
             integer                               :: iter
             real(kind=RP)                         :: maxResidual
-            type(Thermodynamics_t),    intent(in) :: thermodynamics_
-            type(Dimensionless_t),     intent(in) :: dimensionless_
-            type(RefValues_t),         intent(in) :: refValues_
-            type(Monitor_t),           intent(in) :: monitors
-            real(kind=RP),          intent(in) :: elapsedTime
-            real(kind=RP),          intent(in) :: CPUTime
+#if defined(NAVIERSTOKES)
+            type(Thermodynamics_t), intent(in)    :: thermodynamics_
+            type(Dimensionless_t),  intent(in)    :: dimensionless_
+            type(RefValues_t),      intent(in)    :: refValues_
+#endif
+#if defined(CAHNHILLIARD)
+            type(Multiphase_t),     intent(in)    :: multiphase_
+#endif
+            type(Monitor_t),        intent(in)    :: monitors
+            real(kind=RP),             intent(in) :: elapsedTime
+            real(kind=RP),             intent(in) :: CPUTime
 !
 !           ---------------
 !           Local variables

@@ -16,6 +16,7 @@ module NumericalJacobian
    use ElementClass
    use Jacobian
    use PhysicsStorage
+   use Utilities, only: Qsort
    implicit none
    
    real(kind=RP), parameter :: jaceps=1e-8_RP ! Minimum value of a Jacobian entry (smaller values are considered as 0._RP)
@@ -25,14 +26,16 @@ module NumericalJacobian
    type(Colors)                :: ecolors
    
 contains
-   subroutine NumericalJacobian_Compute(sem, t, Matrix, ComputeTimeDerivative, PINFO )
+   subroutine NumericalJacobian_Compute(sem, nEqn, nGradEqn, t, Matrix, ComputeTimeDerivative, PINFO, eps_in )
       use StopwatchClass
       !-------------------------------------------------------------------
       type(DGSem),                intent(inout), target  :: sem
+      integer,                    intent(in)             :: nEqn, nGradEqn
       real(kind=RP),              intent(IN)             :: t
       class(Matrix_t)          ,  intent(inout)          :: Matrix
       procedure(ComputeQDot_FCN)                         :: ComputeTimeDerivative      !   
       logical,                    OPTIONAL               :: PINFO                      !<? Print information?
+      real(kind=RP),              optional               :: eps_in
       !-------------------------------------------------------------------
       integer                                            :: nelm
       integer                                            :: thiscolor, thiselmidx, thiselm         ! specific counters
@@ -40,12 +43,15 @@ contains
       integer, allocatable, dimension(:), save           :: used                                   ! array containing index of elements whose contributions to Jacobian has already been considered
       integer                                            :: usedctr                                ! counter to fill positions of used
       integer                                            :: ielm, felm, ndof                      
-      integer, save                                      :: nnz
+      integer, save                                      :: nnz, totalnnz
       integer                           , save           :: maxndofel
       integer, allocatable, dimension(:), save           :: ndofelm, firstIdx                      ! Number of degrees of freedom and relative position in Jacobian for each element 
       integer, allocatable, dimension(:), save           :: Nx, Ny, Nz                             ! Polynomial orders
-      type(Element), allocatable        , save           :: dgs_clean(:)                           ! Clean elements array used for computations
       integer, allocatable, dimension(:), save           :: ndofcol                                ! Maximum number of degrees of freedom in each color        
+      integer, allocatable                               :: cols(:)
+      integer, allocatable                               :: rows(:)
+      integer, allocatable                               :: diag(:)
+      real(kind=RP), allocatable, save                   :: Q0(:), QDot0(:)
       
       integer :: i, j ! General counters
       integer                                            :: icol
@@ -55,6 +61,9 @@ contains
       real(kind=RP), save                                :: eps                                    ! Perturbation magnitude
       
       logical, save                                      :: isfirst = .TRUE.
+#if (!defined(NAVIERSTOKES))
+      logical                                            :: computeGradients = .true.
+#endif
       !-------------------------------------------------------------------
       
 !
@@ -63,6 +72,7 @@ contains
 !     --------------------------------------------------------------------
 !
       
+print*, "Starting to construct num jac"
       IF (isfirst) call Stopwatch % CreateNewEvent("Numerical Jacobian construction")
       call Stopwatch % Start("Numerical Jacobian construction")
       
@@ -74,38 +84,26 @@ contains
 !        ----------------------------------
          allocate(nbr(nelm))
          CALL Look_for_neighbour(nbr, sem % mesh)
-#if defined(NAVIERSTOKES)
+#if (!defined(CAHNHILLIARD))
          CALL ecolors%construct(nbr,flowIsNavierStokes)
-#elif defined(CAHNHILLIARD)
+#else
          CALL ecolors%construct(nbr, .true. )
 #endif
          
          allocate(ndofelm(nelm), firstIdx(nelm+1))
          allocate(Nx(nelm), Ny(nelm), Nz(nelm))
-         allocate(dgs_clean(nelm))
-         firstIdx = 1
-         DO i=1, nelm
-            Nx(i) = sem%mesh%elements(i)%Nxyz(1)
-            Ny(i) = sem%mesh%elements(i)%Nxyz(2)
-            Nz(i) = sem%mesh%elements(i)%Nxyz(3)
-!
-!           --------------------------------------
-!           Get block sizes and position in matrix
-!           --------------------------------------
-! 
-            ndofelm(i)  = N_EQN * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)              ! TODO: if there's p-adaptation, this value has to be recomputed
-            IF (i>1) firstIdx(i) = firstIdx(i-1) + ndofelm(i-1)
-!
-!           -------------------------------------------------------
-!           Allocate the element storage of the clean element array
-!           -------------------------------------------------------
-!
-            CALL allocateElementStorage( dgs_clean(i), N_EQN, N_GRAD_EQN, computeGradients, Nx(i), Ny(i), Nz(i) )
-         END DO
-         firstIdx(nelm+1) = firstIdx(nelm) + ndofelm(nelm)
+         firstIdx(1) = 1
          
+         do i = 1, nelm
+            Nx(i) = sem % mesh % elements(i) % Nxyz(1)
+            Ny(i) = sem % mesh % elements(i) % Nxyz(2)
+            Nz(i) = sem % mesh % elements(i) % Nxyz(3)
+
+            ndofelm(i) = nEqn * (Nx(i)+1)*(Ny(i)+1)*(Nz(i)+1)
+            firstIdx(i+1) = firstIdx(i) + ndofelm(i)
+         end do         
+
          maxndofel = MAXVAL(ndofelm)                                             ! TODO: if there's p-adaptation, this value has to be recomputed
-         
 !
 !        -------------------
 !        Row position arrays
@@ -115,7 +113,6 @@ contains
          allocate(irow_0(maxndofel))
          
          irow_0(1:maxndofel) = (/ (i, i=0,maxndofel-1) /)
-         
 !
 !        ---------------------------------------------------------------
 !        Allocate the used array that will contain the information about
@@ -123,16 +120,15 @@ contains
 !        computation of the Jacobian matrix entries
 !        ---------------------------------------------------------------
 !
-#if defined(NAVIERSTOKES)
+#if (!defined(CAHNHILLIARD))
          IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
             allocate(used(26))   ! 25 neighbors (including itself) and a last entry that will be 0 always (boundary index)
          ELSE
             allocate(used(8))    ! 7 neighbors (including itself) and a last entry that will be 0 always (boundary index)
          END IF
-#elif defined(CAHNHILLIARD)
+#else
          allocate(used(26))
 #endif
-         
 !
 !        -------------------------------------------------------------------------
 !        Set max number of nonzero values expected in a row of the Jacobian matrix    TODO: if there's p-adaptation, this has to be recomputed
@@ -143,13 +139,13 @@ contains
 !              IMPORTANT: These numbers assume conforming meshes!
 !        -------------------------------------------------------------------------
 !
-#if defined(NAVIERSTOKES)
+#if (!defined(CAHNHILLIARD))
          IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
             nnz = maxndofel * 25
          ELSE
             nnz = maxndofel * 7
          END IF
-#elif defined(CAHNHILLIARD)
+#else
          nnz = maxndofel * 25
 #endif
 !
@@ -171,8 +167,6 @@ contains
          ! All initializarions done!
          isfirst = .FALSE.
       END IF
-      
-
 !
 !     ---------------------------------------------
 !     Set value of eps (currently using Mettot et al. approach with L2 norm because it seems to work)
@@ -181,9 +175,13 @@ contains
 !           > Knoll, Dana A., and David E. Keyes. "Jacobian-free Newton–Krylov methods: a survey of approaches and applications." Journal of Computational Physics 193.2 (2004): 357-397.
 !     --------------------------------------------
 !
-      associate (Q => sem % mesh % storage % Q)
-      eps = SQRT(EPSILON(eps))*(NORM2(Q)+1._RP)
-      end associate
+      if (present(eps_in)) then
+         eps = eps_in
+      else
+         associate (Q => sem % mesh % storage % Q)
+         eps = SQRT(EPSILON(eps))*(NORM2(Q)+1._RP)
+         end associate
+      end if
 !
 !     ---------------------------
 !     Preallocate Jacobian matrix
@@ -192,21 +190,30 @@ contains
       select type(Matrix_p => Matrix)
          type is(DenseBlockDiagMatrix_t)
             call Matrix_p % Preallocate(nnzs=ndofelm) ! Constructing with block size
+            CALL Matrix % Reset
+         type is(CSRMat_t)
+            call GetRowsAndColsVector(sem, nEqn, Matrix_p % numRows, totalnnz, firstIdx, rows, cols, diag)
+            call Matrix_p % PreAllocateWithStructure(totalnnz, rows, cols, diag) 
+
          class default ! Construct with nonzeros in each row
             call Matrix % Preallocate(nnz)
+            CALL Matrix % Reset
       end select
-      CALL Matrix % Reset
+print*, "Starting to compute the numerical Jacobian!"
       
       CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions )
 !
-!     Save base state in dgs_clean
-!     ----------------------------
-!$omp parallel do schedule(runtime)
-      do i=1, nelm
-         dgs_clean(i) % storage % Q    = sem%mesh%elements(i) % storage % Q
-         dgs_clean(i) % storage % Qdot = sem%mesh%elements(i) % storage % Qdot
-      end do
-!$omp end parallel do
+!     Save base state in Q0 and QDot0
+!     -------------------------------
+      allocate(Q0(size(sem % mesh % storage % Q)))
+      allocate(QDot0(size(sem % mesh % storage % QDot)))
+
+#if defined(CAHNHILLIARD)
+      call sem % mesh % SetStorageToEqn(2)
+#endif
+
+      Q0    = sem % mesh % storage % Q
+      QDot0 = sem % mesh % storage % QDot
 !
 !     ------------------------------------------
 !     Compute numerical Jacobian using colorings
@@ -221,13 +228,15 @@ contains
                thiselm = ecolors%elmnts(thiselmidx)
                IF (ndofelm(thiselm)<thisdof) CYCLE    ! Do nothing if the DOF exceeds the NDOF of thiselm
                
-               ijkl = local2ijk(thisdof,N_EQN,Nx(thiselm),Ny(thiselm),Nz(thiselm))
+               ijkl = local2ijk(thisdof,nEqn,Nx(thiselm),Ny(thiselm),Nz(thiselm))
                
                sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
                                                    sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
             ENDDO
             
             CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions )  
+
+            sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
             
             DO thiselmidx = ielm, felm-1
                thiselm = ecolors%elmnts(thiselmidx)
@@ -241,8 +250,6 @@ contains
                
                   IF (.NOT. ANY(used == elmnbr)) THEN
                      ndof   = ndofelm(elmnbr)
-                     
-                     sem%mesh%elements(elmnbr)% storage % QDot = (sem%mesh%elements(elmnbr)% storage % QDot - dgs_clean(elmnbr)% storage % QDot) / eps                      
                      pbuffer(1:ndof) => sem%mesh%elements(elmnbr)% storage % QDot                     !maps Qdot array into a 1D pointer
                      irow = irow_0 + firstIdx(elmnbr)                                                 !generates the row indices vector
                      WHERE (ABS(pbuffer(1:ndof)) .LT. jaceps) irow = -1                               !MatSetvalues will ignore entries with irow=-1
@@ -254,9 +261,9 @@ contains
                   ENDIF
                   
                   ! If we are using BR1, we also have to get the contributions of the neighbors of neighbors
-#if defined(NAVIERSTOKES)
+#if (!defined(CAHNHILLIARD))
                   IF(flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
-#elif defined(CAHNHILLIARD)
+#else
                   if ( .true. ) then
 #endif
                      IF (elmnbr .NE. 0) THEN
@@ -266,13 +273,11 @@ contains
                            IF (.NOT. ANY(used == nbrnbr)) THEN
                               ndof   = ndofelm(nbrnbr)
                                              
-                              sem%mesh%elements(nbrnbr)% storage % QDot = (sem%mesh%elements(nbrnbr)% storage % QDot - dgs_clean(nbrnbr)% storage % QDot) / eps                      
                               pbuffer(1:ndof) => sem%mesh%elements(nbrnbr)% storage % QDot       !maps Qdot array into a 1D pointer
                               irow = irow_0 + firstIdx(nbrnbr)                                   !generates the row indices vector
                               WHERE (ABS(pbuffer(1:ndof)) .LT. jaceps) irow = -1                 !SetColumn will ignore entries with irow=-1
                               icol = firstIdx(thiselm) + thisdof - 1 
                               CALL Matrix % SetColumn(ndof, irow(1:ndof), icol, pbuffer(1:ndof) )
-                              
                               used(usedctr) = nbrnbr
                               usedctr = usedctr + 1                        
                            ENDIF
@@ -282,10 +287,10 @@ contains
                   
                ENDDO
             END DO           
-            DO thiselmidx = ielm, felm-1                              !Cleans modified Qs
-               thiselm = ecolors%elmnts(thiselmidx)
-               sem%mesh%elements(thiselm)% storage % Q = dgs_clean(thiselm)% storage % Q           
-            END DO                                                
+!
+!           Restore original values for Q
+!           -----------------------------
+            sem % mesh % storage % Q = Q0
          ENDDO
       ENDDO
       
@@ -298,4 +303,132 @@ contains
       call Stopwatch % Reset("Numerical Jacobian construction")
                 
    END subroutine NumericalJacobian_Compute
+
+   subroutine GetRowsAndColsVector(sem, nEqn, nRows, nnz, firstIdx, rows, cols, diag)
+      implicit none
+      class(DGSEM)         :: sem
+      integer, intent(in)  :: nEqn, nRows
+      integer, intent(in)  :: firstIdx(1:sem % mesh % no_of_elements)
+      integer, intent(out)  :: nnz
+      integer, allocatable, intent(out) :: rows(:)
+      integer, allocatable, intent(out) :: cols(:)
+      integer, allocatable, intent(out) :: diag(:)
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer                 :: eID, i, j, k, counter, csr_pos, ieq, nID
+      integer                 :: ii, jj, kk, iieq
+      integer                 :: pos_i, pos_j
+      integer                 :: lb, ub
+      integer, dimension(26)  :: neighbours
+  
+!
+!     *********************
+!     First loop to get nnz: TODO could I already set rows here?
+!     *********************
+!
+!!$omp parallel private(counter, neighbours, i, j)
+!!$omp do reduction(+:nnz)
+      nnz = 0
+      do eID = 1, sem % mesh % no_of_elements
+         associate(e => sem % mesh % elements(eID))
+!
+!     1/ For each element, get its neighbours
+!        ------------------------------------
+         counter = 0
+         neighbours = -1
+
+         do i = 1, size(nbr(eID) % elmnt)
+            if ( nbr(eID) % elmnt(i) .le. 0 ) cycle
+            do j = 1, size(nbr(nbr(eID) % elmnt(i)) % elmnt)
+               if (nbr(nbr(eID) % elmnt(i)) % elmnt(j) .le. 0) cycle
+
+               if ( .not. any(neighbours .eq. nbr(nbr(eID) % elmnt(i)) % elmnt(j)) ) then
+                  counter = counter + 1 
+                  neighbours(counter) = nbr(nbr(eID) % elmnt(i)) % elmnt(j)
+               end if
+            end do
+         end do
+
+         do i = 1, counter
+            associate(eL => sem % mesh % elements(neighbours(i)))
+            nnz = nnz + nEqn*(eL % Nxyz(1)+1)*(eL % Nxyz(2)+1)*(eL % Nxyz(3)+1)*nEqn*(e % Nxyz(1)+1)*(e % Nxyz(2)+1)*(e % Nxyz(3)+1)
+            end associate
+         end do
+         end associate
+      end do
+!!$omp end do
+!!$omp end parallel
+
+      allocate(rows(1:nRows+1))
+      allocate(cols(1:nnz))
+      allocate(diag(1:nRows))
+!
+!     ****************************
+!     We need to set rows and cols
+!     ****************************
+!
+      csr_pos = 1
+      do eID = 1, sem % mesh % no_of_elements
+         associate(e => sem % mesh % elements(eID))
+!
+!     1/ For each element, get its neighbours
+!        ------------------------------------
+         counter = 0
+         neighbours = -1
+
+         do i = 1, size(nbr(eID) % elmnt)
+            if ( nbr(eID) % elmnt(i) .le. 0 ) cycle
+            do j = 1, size(nbr(nbr(eID) % elmnt(i)) % elmnt)
+               if (nbr(nbr(eID) % elmnt(i)) % elmnt(j) .le. 0) cycle
+
+               if ( .not. any(neighbours .eq. nbr(nbr(eID) % elmnt(i)) % elmnt(j)) ) then
+                  counter = counter + 1 
+                  neighbours(counter) = nbr(nbr(eID) % elmnt(i)) % elmnt(j)
+               end if
+            end do
+         end do
+         call Qsort(neighbours(1:counter))
+
+         pos_i = firstIdx(eID)
+
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) ; do ieq = 1, nEqn
+            rows(pos_i) = csr_pos
+            pos_i = pos_i + 1 
+            do nID = 1, counter
+               associate(neigh => sem % mesh % elements(neighbours(nID)))
+
+               pos_j = firstIdx(neighbours(nID))
+
+               do kk = 0, neigh % Nxyz(3) ; do jj = 0, neigh % Nxyz(2) ; do ii = 0, neigh % Nxyz(1) ; do iieq = 1, nEqn
+                    
+                  cols(csr_pos) = pos_j
+
+                  pos_j = pos_j + 1
+                  csr_pos = csr_pos + 1 
+               end do                  ; end do                ; end do                 ; end do
+               end associate
+            end do   
+         end do                ; end do                ; end do                ; end do
+
+         end associate
+      end do
+
+      rows(nRows+1) = nnz+1
+!
+!     **************************
+!     Get the diagonal positions
+!     **************************
+!
+      do i = 1, nRows
+         lb = rows(i)
+         ub = rows(i+1)-1
+
+         pos_i = minloc(abs(cols(lb:ub)-i),dim=1)
+         diag(i) = lb + pos_i - 1
+      end do
+
+   end subroutine GetRowsAndColsVector
 end module NumericalJacobian

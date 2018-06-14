@@ -17,29 +17,26 @@ module VolumeIntegrals
 #if defined(NAVIERSTOKES)
    public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY, VELOCITY
    public ENTROPY, ENTROPY_RATE
+#endif
 
-#elif defined(CAHNHILLIARD)
+#if defined(CAHNHILLIARD)
    public FREE_ENERGY
-
 #endif
 
    public   ScalarVolumeIntegral, VectorVolumeIntegral
 
 
-   integer, parameter      :: VOLUME              = 1
 
+   enum, bind(C)
+      enumerator :: VOLUME  
 #if defined(NAVIERSTOKES)
-   integer, parameter      :: KINETIC_ENERGY      = 2
-   integer, parameter      :: KINETIC_ENERGY_RATE = 3
-   integer, parameter      :: ENSTROPHY           = 4
-   integer, parameter      :: VELOCITY            = 5
-   integer, parameter      :: ENTROPY             = 6
-   integer, parameter      :: ENTROPY_RATE        = 7
-
-#elif defined(CAHNHILLIARD)   
-   integer, parameter      :: FREE_ENERGY         = 2
-
+      enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE
+      enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE
 #endif
+#if defined(CAHNHILLIARD)
+      enumerator :: FREE_ENERGY
+#endif
+   end enum
 !
 !  ========
    contains
@@ -239,15 +236,15 @@ module VolumeIntegrals
                s   =  dtP/p - thermodynamics % gamma * e % storage % QDot(IRHO,i,j,k) / e % storage % Q(IRHO,i,j,k) 
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * s
             end do            ; end do           ; end do
-            
-#elif defined(CAHNHILLIARD)
+#endif
+#if defined(CAHNHILLIARD)            
          case (FREE_ENERGY)
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               call QuarticDWP(e % storage % c(i,j,k), thermodynamics % c_alpha, thermodynamics % c_beta, fchem)
-               free_en = fchem + 0.5_RP * POW2(dimensionless % eps) *(   POW2(e % storage % gradC(1,i,j,k)) &
-                                                                       + POW2(e % storage % gradC(2,i,j,k)) &
-                                                                       + POW2(e % storage % gradC(3,i,j,k)) )
+               call QuarticDWP(e % storage % c(1,i,j,k), fchem)
+               free_en = fchem + 0.5_RP * POW2(multiphase % eps) *(   POW2(e % storage % c_x(1,i,j,k)) &
+                                                                       + POW2(e % storage % c_y(1,i,j,k)) &
+                                                                       + POW2(e % storage % c_z(1,i,j,k)) )
                val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * free_en
             end do            ; end do           ; end do
            

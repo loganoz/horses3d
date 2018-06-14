@@ -4,9 +4,9 @@
 !   @File:    GeometryClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Fri Nov 10 15:48:11 2017
-!   @Last revision date: Tue Feb 13 20:29:39 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 9cdffcbe5af1cc3ea1e17c83c91d73cc17fecde1
+!   @Last revision date: Thu May 10 16:18:42 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: c2afece84e4d760f10f227761dc63b7b1b966697
 !
 !//////////////////////////////////////////////////////
 !
@@ -279,7 +279,7 @@ module GeometryClass
 !
 !           Get the solution in this point
 !           ------------------------------
-            Q = mesh % elements(elems(i,j,k)) % EvaluateSolutionAtPoint(xi(:,i,j,k)) 
+            Q = mesh % elements(elems(i,j,k)) % EvaluateSolutionAtPoint(NCONS,xi(:,i,j,k)) 
             U(1:3,i,j,k) = Q(IRHOU:IRHOW) / Q(IRHO)
          end do            ; end do             ; end do
 !$omp end do

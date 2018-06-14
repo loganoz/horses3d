@@ -21,12 +21,14 @@
       use PhysicsStorage
       USE Physics
       USE ExplicitMethods
+      USE IMEXMethods    
       use AutosaveClass
       use StopwatchClass
       use MPI_Process_Info
       use TimeIntegratorDefinitions
       use MonitorsClass
       use ParticlesClass
+      use Utilities, only: ToLower
       use FileReadingUtilities      , only: getFileName
       IMPLICIT NONE 
       
@@ -60,6 +62,14 @@
             real(kind=RP)   :: t, deltaT
          end subroutine RKStepFcn
       end interface
+
+      character(len=*), parameter   :: TIME_INTEGRATION_KEY  = 'time integration'
+      character(len=*), parameter   :: EXPLICIT_SOLVER   = 'explicit'
+      character(len=*), parameter   :: IMEX_SOLVER       = 'imex'
+      character(len=*), parameter   :: IMPLICIT_SOLVER   = 'implicit'
+      character(len=*), parameter   :: FAS_SOLVER        = 'fas'
+      character(len=*), parameter   :: ANISFAS_SOLVER    = 'anisfas'
+      character(len=*), parameter   :: ROSENBROCK_SOLVER = 'rosenbrock'
 !
 !     ========      
       CONTAINS 
@@ -152,8 +162,8 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE Integrate( self, sem, controlVariables, monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
-      
+      SUBROUTINE Integrate( self, sem, controlVariables, monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, &
+                            ComputeTimeDerivative_onlyLinear, ComputeTimeDerivative_onlyNonLinear) 
       use pAdaptationClass
       USE FASMultigridClass
       IMPLICIT NONE
@@ -162,13 +172,15 @@
 !     Arguments
 !     ---------
 !
-      CLASS(TimeIntegrator_t)       :: self
-      TYPE(DGSem)                   :: sem
-      TYPE(FTValueDictionary)       :: controlVariables
-      class(Monitor_t)              :: monitors
-      type(pAdaptation_t)           :: pAdaptator
-      procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
-      procedure(ComputeQDot_FCN)    :: ComputeTimeDerivativeIsolated
+      CLASS(TimeIntegrator_t)              :: self
+      TYPE(DGSem)                          :: sem
+      TYPE(FTValueDictionary)              :: controlVariables
+      class(Monitor_t)                     :: monitors
+      type(pAdaptation_t)                  :: pAdaptator
+      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivativeIsolated
+      procedure(ComputeQDot_FCN), optional :: ComputeTimeDerivative_onlyLinear
+      procedure(ComputeQDot_FCN), optional :: ComputeTimeDerivative_onlyNonLinear
 
 !
 !     ---------
@@ -177,7 +189,7 @@
 !
       integer              :: PA_Stage  ! P-adaptation stage
       real(kind=RP)        :: FMGres    ! Target residual for FMG solver
-      REAL(KIND=RP)        :: maxResidual(N_EQN)
+      REAL(KIND=RP)        :: maxResidual(NTOTALVARS)
       type(FASMultigrid_t) :: FMGSolver ! FAS multigrid solver for Full-Multigrid (FMG) initialization
       
 !     Initializations
@@ -227,8 +239,11 @@
       
 !     Finish time integration
 !     -----------------------
-
-      call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative)
+      if ( present(ComputeTimeDerivative_onlyLinear) ) then
+         call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, CTD_linear = ComputeTimeDerivative_onlyLinear, CTD_nonlinear = ComputeTimeDerivative_onlyNonLinear)
+      else
+         call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative)
+      end if
 
 !     Measure solver time
 !     -------------------
@@ -244,7 +259,7 @@
 !  -> If "tolerance" is provided, the value in controlVariables is ignored. 
 !     This is only relevant for STEADY_STATE computations.
 !  ------------------------------------------------------------------------
-   subroutine IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, tolerance)
+   subroutine IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, tolerance, CTD_linear, CTD_nonlinear)
       
       USE BDFTimeIntegrator
       use FASMultigridClass
@@ -257,14 +272,14 @@
 !     Arguments
 !     ---------
 !
-      CLASS(TimeIntegrator_t)             :: self
-      TYPE(DGSem)                         :: sem
-      TYPE(FTValueDictionary), intent(in) :: controlVariables
-      class(Monitor_t)                    :: monitors
-      procedure(ComputeQDot_FCN)          :: ComputeTimeDerivative
-      real(kind=RP), optional, intent(in) :: tolerance   !< ? tolerance to integrate down to
-   
-
+      CLASS(TimeIntegrator_t)              :: self
+      TYPE(DGSem)                          :: sem
+      TYPE(FTValueDictionary), intent(in)  :: controlVariables
+      class(Monitor_t)                     :: monitors
+      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+      real(kind=RP), optional, intent(in)  :: tolerance   !< ? tolerance to integrate down to
+      procedure(ComputeQDot_FCN), optional :: CTD_linear
+      procedure(ComputeQDot_FCN), optional :: CTD_nonlinear
 !
 !     ------------------
 !     Internal variables
@@ -285,12 +300,11 @@ end interface
       
       real(kind=RP)                 :: Tol                                 ! Tolerance used for STEADY_STATE computations
       REAL(KIND=RP)                 :: t
-      REAL(KIND=RP)                 :: maxResidual(N_EQN)
+      REAL(KIND=RP)                 :: maxResidual(NTOTALVARS)
       REAL(KIND=RP)                 :: dt
       INTEGER                       :: k, mNumber
       CHARACTER(LEN=13)             :: fName = "Movie_XX.tec"
       CHARACTER(LEN=2)              :: numChar
-      EXTERNAL                      :: ExternalState, ExternalGradients
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName
       ! Time-step solvers:
       type(FASMultigrid_t)          :: FASSolver
@@ -305,11 +319,12 @@ end interface
 !     Read Control variables
 !     ----------------------
 !
-      IF (controlVariables % containsKey("time integration")) THEN
-         TimeIntegration  = controlVariables % StringValueForKey("time integration",LINE_LENGTH)
+      IF (controlVariables % containsKey(TIME_INTEGRATION_KEY)) THEN
+         TimeIntegration  = controlVariables % StringValueForKey(TIME_INTEGRATION_KEY,LINE_LENGTH)
       ELSE ! Default value
-         TimeIntegration = 'explicit'
+         TimeIntegration = EXPLICIT_SOLVER
       END IF
+      call toLower(TimeIntegration)
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       
 !
@@ -341,7 +356,9 @@ end interface
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
+
       call monitors % WriteToFile(sem % mesh)
+
       IF (self % integratorType == STEADY_STATE) THEN
          IF (maxval(maxResidual) <= Tol )  THEN
             write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",sem % numberOfTimeSteps," with Residual = ", maxval(maxResidual)
@@ -354,10 +371,20 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      if (TimeIntegration == 'FAS')        call FASSolver % construct(controlVariables,sem)
-      if (TimeIntegration == 'AnisFAS')    call AnisFASSolver % construct(controlVariables,sem)
-      if (TimeIntegration == 'implicit')   call BDFSolver % construct(controlVariables,sem)
-      if (TimeIntegration == 'rosenbrock') call RosenbrockSolver % construct(controlVariables,sem)
+      select case (TimeIntegration)
+      case(FAS_SOLVER)
+         call FASSolver % construct(controlVariables,sem)
+
+      case(ANISFAS_SOLVER)
+         call AnisFASSolver % construct(controlVariables,sem)
+
+      case(IMPLICIT_SOLVER)
+         call BDFSolver % construct(controlVariables,sem)
+
+      case(ROSENBROCK_SOLVER)
+         call RosenbrockSolver % construct(controlVariables,sem)
+
+      end select
       
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 !
@@ -380,16 +407,18 @@ end interface
 !        Perform time step
 !        -----------------         
          SELECT CASE (TimeIntegration)
-            CASE ('implicit')
-               call BDFSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
-            CASE ('rosenbrock')
-               call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
-            CASE ('explicit')
-               CALL self % RKStep ( sem % mesh, sem % particles, t, sem % BCFunctions, dt, ComputeTimeDerivative)
-            case ('FAS')
-               call FASSolver % solve(k, t, dt, ComputeTimeDerivative)
-            case ('AnisFAS')
-               call AnisFASSolver % solve(k,t, ComputeTimeDerivative)
+         CASE (IMPLICIT_SOLVER)
+            call BDFSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
+         CASE (ROSENBROCK_SOLVER)
+            call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
+         CASE (EXPLICIT_SOLVER)
+            CALL self % RKStep ( sem % mesh, sem % particles, t, sem % BCFunctions, dt, ComputeTimeDerivative)
+         case (FAS_SOLVER)
+            call FASSolver % solve(k, t, dt, ComputeTimeDerivative)
+         case (ANISFAS_SOLVER)
+            call AnisFASSolver % solve(k,t, ComputeTimeDerivative)
+         case (IMEX_SOLVER)
+            call TakeIMEXEulerStep(sem, t, dt, controlVariables, computeTimeDerivative, CTD_linear, CTD_nonlinear)
          END SELECT
 !
 !        Compute the new time
@@ -467,10 +496,21 @@ end interface
 !     Finish up
 !     ---------
 !
-      if (TimeIntegration == 'FAS')        CALL FASSolver % destruct
-      if (TimeIntegration == 'AnisFAS')    CALL AnisFASSolver % destruct
-      if (TimeIntegration == 'implicit')   call BDFSolver % destruct
-      if (TimeIntegration == 'rosenbrock') call RosenbrockSolver % destruct
+      select case(TimeIntegration)
+      case(FAS_SOLVER)
+         CALL FASSolver % destruct
+      
+      case(ANISFAS_SOLVER)
+         CALL AnisFASSolver % destruct
+      
+      case(IMPLICIT_SOLVER)
+         call BDFSolver % destruct
+
+      case(ROSENBROCK_SOLVER)
+         call RosenbrockSolver % destruct
+
+      end select
+
    end subroutine IntegrateInTime
       
 !

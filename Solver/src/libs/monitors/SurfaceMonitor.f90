@@ -5,6 +5,7 @@ module SurfaceMonitorClass
    use MonitorDefinitions
    use PhysicsStorage
    use MPI_Process_Info
+   use FluidData
    use FileReadingUtilities, only: getArrayFromString
 #include "Includes.h"
    
@@ -312,28 +313,28 @@ module SurfaceMonitorClass
 
          case ("pressure-force")
             F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE)
-            F = refValues % rho * POW2(refValues % V) * POW2(refValues % L) * F
+            F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("viscous-force")
             F = VectorSurfaceIntegral(mesh, self % marker, VISCOUS_FORCE)
-            F = refValues % rho * POW2(refValues % V) * POW2(refValues % L) * F
+            F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("force")
             F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE)
-            F = refValues % rho * POW2(refValues % V) * POW2(refValues % L) * F
+            F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("lift")
             F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE)
-            F = 2.0_RP * POW2(refValues % L) * F / self % referenceSurface
+            F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("drag")
 
             F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE)
-            F = 2.0_RP * POW2(refValues % L) * F / self % referenceSurface
+            F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("pressure-average")

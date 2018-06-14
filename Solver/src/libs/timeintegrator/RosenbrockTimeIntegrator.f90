@@ -1,4 +1,16 @@
 !
+!//////////////////////////////////////////////////////
+!
+!   @File:    RosenbrockTimeIntegrator.f90
+!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Created: Sat May 12 20:54:08 2018
+!   @Last revision date: Sun May 13 11:22:09 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
+!
+!//////////////////////////////////////////////////////
+!
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      RosenbrockTimeIntegrator.f90
@@ -13,6 +25,7 @@ module RosenbrockTimeIntegrator
    use DGSEMClass
    use SMConstants
    use LinearSolverClass
+   use PhysicsStorage
    implicit none
    
    private
@@ -68,11 +81,11 @@ contains
 !     -----------------------------
       call this % SetupCoefficients ( trim(controlVariables % StringValueForKey("rosenbrock scheme",LINE_LENGTH)) )
       
-      allocate ( this % Y (sem % NDOF,this % NumStages) )
+      allocate ( this % Y (sem % NDOF * NTOTALVARS,this % NumStages) )
 !
 !     Setup linear solver
 !     -------------------
-      DimPrb = sem % NDOF
+      DimPrb = sem % NDOF * NTOTALVARS
       
       select case ( trim(controlVariables % StringValueForKey("linear solver",LINE_LENGTH)) )
          case('petsc')
@@ -139,7 +152,7 @@ contains
          
          call this % ComputeRHS(sem, t, dt, this % linsolver, ComputeTimeDerivative, stage)
          
-         CALL this % linsolver % solve ( tol = 1e-6_RP, maxiter=500, time= t, dt=dt, &
+         CALL this % linsolver % solve ( nEqn=NTOTALVARS, nGradEqn=NTOTALGRADS, tol = 1e-6_RP, maxiter=500, time= t, dt=dt, &
                                           ComputeTimeDerivative = ComputeTimeDerivative, computeA = computeA)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          
          this % Y (:,stage) = this % linsolver % GetX()
@@ -170,8 +183,8 @@ contains
       procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
       integer,        intent(in)    :: stage                   !<  Current stage
       !--------------------------------------------------------
-      real(kind=RP) :: Qn (sem % NDOF) ! Buffer to store the previous solution
-      real(kind=RP) :: RHS(sem % NDOF) ! Right-hand side for this stage
+      real(kind=RP) :: Qn (sem % NDOF * NTOTALVARS) ! Buffer to store the previous solution
+      real(kind=RP) :: RHS(sem % NDOF * NTOTALVARS) ! Right-hand side for this stage
       integer       :: j               ! Counter
       !--------------------------------------------------------
       
@@ -202,7 +215,7 @@ contains
       
 !     Load RHS into solver
 !     --------------------
-      do j = 1, sem % NDOF                                 ! TODO: Use SetRHS!!
+      do j = 1, sem % NDOF  * NTOTALVARS                                ! TODO: Use SetRHS!!
          CALL linsolver % SetRHSValue(j-1, RHS(j))
       end do
       
