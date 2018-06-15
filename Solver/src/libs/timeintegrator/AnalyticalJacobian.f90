@@ -99,9 +99,11 @@ contains
 !
       select type(Matrix_p => Matrix)
 !
-!        If block-diagonal matrix, construct with number of blocks
-!        ----------------------------------------------------------
+!        If block-diagonal matrix, construct with size of blocks
+!        -------------------------------------------------------
          type is(DenseBlockDiagMatrix_t)
+            call Matrix_p % Preallocate(nnzs=ndofelm)
+         type is(SparseBlockDiagMatrix_t)
             call Matrix_p % Preallocate(nnzs=ndofelm)
 !
 !        Otherwise, construct with nonzeros in each row

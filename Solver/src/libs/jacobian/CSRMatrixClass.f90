@@ -15,31 +15,33 @@ MODULE CSRMatrixClass
    
    !-----------------------------------------------------------------------------
    TYPE, extends(Matrix_t) :: csrMat_t
-      REAL(KIND=RP),  allocatable :: Values(:)  ! Values of nonzero entries of matrix
-      INTEGER      ,  allocatable :: Cols(:)    ! Column indices that correspond to each value
-      INTEGER      ,  allocatable :: Rows(:)    ! Row indices (index of first value of each row)
-      INTEGER      ,  allocatable :: Diag(:)    ! Array containing position of the diagonal entry (handy for some calculations)
+      real(kind=RP),  allocatable :: Values(:)  ! Values of nonzero entries of matrix
+      integer      ,  allocatable :: Cols(:)    ! Column indices that correspond to each value
+      integer      ,  allocatable :: Rows(:)    ! Row indices (index of first value of each row)
+      integer      ,  allocatable :: Diag(:)    ! Array containing position of the diagonal entry (handy for some calculations)
       
-      INTEGER                     :: NumCols               ! Number of colunms of matrix
+      integer                     :: NumCols               ! Number of colunms of matrix
       
       ! Variables for matrices with blocks
-      INTEGER      ,  allocatable :: BlockIdx(:)  ! Index of first element of block (this is used by the routine CSR_GetBlock).. Note that in the DGSEM, the Jacobian matrices have a block diagonal with the Jacobian information of each element      
-      INTEGER      ,  allocatable :: BlockSize(:) ! Size of each block
+      integer      ,  allocatable :: BlockIdx(:)  ! Index of first element of block (this is used by the routine CSR_GetBlock).. Note that in the DGSEM, the Jacobian matrices have a block diagonal with the Jacobian information of each element      
+      integer      ,  allocatable :: BlockSize(:) ! Size of each block
       integer                     :: n_max_elements
       integer,        allocatable :: firstIdx(:,:)         ! For each row, specifies the position of the beginning of each element column
       type(LinkedListMatrix_t)    :: ListMatrix
       logical                     :: usingListMat
    CONTAINS
    
-      procedure :: construct   => CSR_CreateMat
-      procedure :: PreAllocate => CSR_PreAllocate
-      procedure :: Reset       => CSR_Reset
-      procedure :: assigndiag  => CSR_AssignDiag
-      procedure :: Visualize   => CSR2Visualize
+      procedure :: construct           => CSR_CreateMat
+      procedure :: constructWithArrays => CSR_constructWithArrays
+      procedure :: PreAllocate         => CSR_PreAllocate
+      procedure :: Reset               => CSR_Reset
+      procedure :: assigndiag          => CSR_AssignDiag
+      procedure :: Visualize           => CSR2Visualize
       procedure :: destruct
       procedure :: Shift       => SetMatShift
       procedure :: SetColumn
       procedure :: SetEntry
+      procedure :: AddToEntry
       procedure :: GetDense => CSR2Dense
       procedure :: GetBlock => CSR_GetBlock
       procedure :: Assembly
@@ -55,30 +57,73 @@ MODULE CSRMatrixClass
  CONTAINS
 !========
 !
-   !------------------------------------------------------------------------------
-   SUBROUTINE CSR_CreateMat(this,DimPrb,WithMPI)
-   !  Creates a matrix in the CSR format using the same number of nonzero entries
-   !  for all rows (nnz)
-   !------------------------------------------------------------------------------
-      CLASS(csrMat_t)     :: this             !<> Matrix to be Created
-      INTEGER, INTENT(IN) :: DimPrb          !<  Num of rows in the matrix
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------
+!  Common constructor for CSR matrices
+!  -----------------------------------
+   subroutine CSR_CreateMat(this,DimPrb,WithMPI)
+      !-arguments-----------------------------------
+      class(csrMat_t)               :: this             !<> Matrix to be Created
+      integer          , intent(in) :: DimPrb          !<  Num of rows in the matrix
       logical, optional, intent(in) :: WithMPI
-      !------------------------------------------------------------------------------
-      INTEGER             :: istat
-      !------------------------------------------------------------------------------
+      !-local-variables-----------------------------
+      integer             :: istat
+      !---------------------------------------------
       
-      ALLOCATE( this % Rows(DimPrb+1),STAT=istat )
-      IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
+      allocate( this % Rows(DimPrb+1),stat=istat )
+      if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
       
-      ALLOCATE( this % Diag(DimPrb),STAT=istat )
-      IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
+      allocate( this % Diag(DimPrb), stat=istat )
+      if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
       
       this % NumRows = DimPrb
       this % NumCols = DimPrb !The matrix can be a rectangular matrix
       
-   !------------------------------------------------------------------------------
-   END SUBROUTINE CSR_CreateMat
-   !------------------------------------------------------------------------------
+   end subroutine CSR_CreateMat
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------------------
+!  Constructor that is fed with the arrays directly
+!  ------------------------------------------------
+   subroutine CSR_constructWithArrays(this,Rows,Cols,Values)
+      !-arguments-----------------------------------
+      class(csrMat_t)           :: this       !<> Matrix to be Created
+      integer      , intent(in) :: Rows(:)    ! Row indices (index of first value of each row)
+      integer      , intent(in) :: Cols(:)    ! Column indices that correspond to each value
+      real(kind=RP), intent(in) :: Values(:)  ! Values of nonzero entries of matrix
+      !-local-variables-----------------------------
+      integer             :: istat
+      !---------------------------------------------
+      
+      this % NumRows = size(Rows) - 1
+      
+!     Memory allocation
+!     -----------------
+      
+      allocate( this % Rows  ( size(Rows)   ), stat=istat )
+      if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
+      
+      allocate( this % Diag  (this % NumRows), stat=istat )
+      if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
+      
+      allocate( this % Cols  ( size(Cols)   ), stat=istat )
+      if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
+      
+      allocate( this % Values( size(Values) ), stat=istat )
+      if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
+      
+      this % NumCols = this % NumRows !The matrix can be a rectangular matrix
+      
+      this % Rows   = Rows
+      this % Cols   = Cols
+      this % Values = Values
+      
+      call this % assigndiag()
+      
+   end subroutine CSR_constructWithArrays
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -86,8 +131,8 @@ MODULE CSRMatrixClass
       implicit none
       !-----------------------------------
       CLASS(csrMat_t), INTENT(INOUT):: this             !<> Matrix to be preallocated
-      INTEGER, optional, intent(in) :: nnz        !< Num of nonzero entries all rows
-      INTEGER, optional, intent(in) :: nnzs(:)     !< Num of nonzero entries in every row 
+      integer, optional, intent(in) :: nnz        !< Num of nonzero entries all rows
+      integer, optional, intent(in) :: nnzs(:)     !< Num of nonzero entries in every row 
       !-----------------------------------
       integer :: i,k,istat
       integer :: total_nnz
@@ -169,9 +214,13 @@ MODULE CSRMatrixClass
       CLASS(csrMat_t), INTENT(INOUT) :: this           !<> Matrix
       !-----------------------------------
       
-      this % Cols = 0
-      this % Diag = 0
-      this % Values = 0._RP
+      if (this % usingListMat) then
+         call this % ListMatrix % Reset()
+      else
+         this % Cols = 0
+         this % Diag = 0
+         this % Values = 0._RP
+      end if
    end subroutine CSR_Reset
       
 !
@@ -183,7 +232,7 @@ MODULE CSRMatrixClass
       !-----------------------------------
       CLASS(csrMat_t) :: A           !<> Matrix
       !-----------------------------------
-      INTEGER         :: i, j       !   Counters
+      integer         :: i, j       !   Counters
       !-----------------------------------
       do i=1, A % NumRows
          
@@ -209,12 +258,12 @@ MODULE CSRMatrixClass
       IMPLICIT NONE
       !------------------------------------------------------------------------------ 
       CLASS(csrMat_t), INTENT(INOUT) :: this              !<> Global matrix
-      INTEGER        , INTENT(IN)    :: nvalues
-      INTEGER        , INTENT(IN)    :: irow(1:)    !< Different positions of Column
-      INTEGER        , INTENT(IN)    :: icol            !< Number of Row/Column
+      integer        , INTENT(IN)    :: nvalues
+      integer        , INTENT(IN)    :: irow(1:)    !< Different positions of Column
+      integer        , INTENT(IN)    :: icol            !< Number of Row/Column
       REAL(KIND=RP)  , INTENT(IN)    :: values(:)         !< Values to be added to global matrivx¿x
       !------------------------------------------------------------------------------ 
-      INTEGER :: i !,k,l,c,
+      integer :: i !,k,l,c,
       !------------------------------------------------------------------------------
       
       IF (nvalues .NE. SIZE(Values)) THEN
@@ -253,7 +302,7 @@ MODULE CSRMatrixClass
       real(kind=RP)  , intent(in)    :: value
       !-local-variables-----------------------------
       integer                         :: k
-      !------------------------------------------------------------------------------
+      !---------------------------------------------
       
       IF(row .GT. this % NumRows .OR. col .GT. this % NumCols ) THEN
          WRITE (*,*) 'CSR_SetEntry: Dimension error'
@@ -266,11 +315,41 @@ MODULE CSRMatrixClass
          k = CSR_Search(this,row,col)
          this % Values(k) = value
       end if
-   !------------------------------------------------------------------------------
+      
    end subroutine SetEntry
-   !------------------------------------------------------------------------------
-   
-   !------------------------------------------------------------------------------
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------
+!  Add a given value to an element of a CSR matrix
+!  ---------------------------------------------
+   subroutine AddToEntry(this, row, col, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(csrMat_t), intent(inout) :: this
+      integer        , intent(in)    :: row
+      integer        , intent(in)    :: col
+      real(kind=RP)  , intent(in)    :: value
+      !-local-variables-----------------------------
+      integer                         :: k
+      !---------------------------------------------
+      
+      IF(row .GT. this % NumRows .OR. col .GT. this % NumCols ) THEN
+         WRITE (*,*) 'CSR_SetEntry: Dimension error'
+         STOP
+      END IF
+      
+      if (this % usingListMat) then
+         call this % ListMatrix % AddToEntry(row,col,value)
+      else
+         k = CSR_Search(this,row,col)
+         this % Values(k) = this % Values(k) + value
+      end if
+      
+   end subroutine AddToEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    FUNCTION CSR_Search (A,i,j) RESULT(k)
    !    Obtains the position k for the information of A(i,j) --> A % Values (k)
    !    If the position is not contained in the sparse matrix A, k = 0 is returned
@@ -279,8 +358,8 @@ MODULE CSRMatrixClass
       IMPLICIT NONE
       !------------------------------------------------------------------------------ 
       TYPE(csrMat_t), INTENT(IN) :: A         !< Matrix to be searched
-      INTEGER       , INTENT(IN) :: i, j      !< Position to bi searched
-      INTEGER                    :: k         !> Position in A%Values of A(i,j)
+      integer       , INTENT(IN) :: i, j      !< Position to bi searched
+      integer                    :: k         !> Position in A%Values of A(i,j)
       !------------------------------------------------------------
     
       IF(i .GT. A % NumRows .OR. j .GT. A % NumCols ) THEN
@@ -310,7 +389,7 @@ MODULE CSRMatrixClass
       CHARACTER(len=*)            :: FileName
       LOGICAL, OPTIONAL           :: FirstRow   !< Write First row?
       !------------------------------------------
-      INTEGER                     :: n, nnz, i, fd
+      integer                     :: n, nnz, i, fd
       LOGICAL                     :: First
       !------------------------------------------
       
@@ -348,10 +427,10 @@ MODULE CSRMatrixClass
       CLASS(csrMat_t), INTENT(INOUT) :: this
       !------------------------------------------
       
-      deallocate(this % Rows)
-      deallocate(this % Cols)
-      deallocate(this % Values)
-      deallocate(this % Diag)
+      safedeallocate(this % Rows)
+      safedeallocate(this % Cols)
+      safedeallocate(this % Values)
+      safedeallocate(this % Diag)
    !----------------------------------------------------------------------------------
    END SUBROUTINE destruct
    !----------------------------------------------------------------------------------
@@ -364,7 +443,7 @@ MODULE CSRMatrixClass
       CLASS(csrMat_t), INTENT(INOUT)     :: this
       real(kind=RP)  , INTENT(IN)        :: shiftval
       !------------------------------------------
-      INTEGER                        :: i
+      integer                        :: i
       !------------------------------------------
       
       if ( this % usingListMat ) then
@@ -387,7 +466,7 @@ MODULE CSRMatrixClass
       TYPE(csrMat_t)               , INTENT(IN)  :: A  !< Structure holding matrix
       REAL(KIND=RP), DIMENSION(A % NumRows)      :: v  !> Result vector 
       !------------------------------------------------------------------------------
-      INTEGER       :: i,j
+      integer       :: i,j
       REAL(KIND=RP) :: rsum
       !------------------------------------------------------------------------------
 #ifdef HAS_MKL
@@ -397,9 +476,9 @@ MODULE CSRMatrixClass
             USE SMConstants
             
             CHARACTER      :: transa
-            INTEGER        :: m
+            integer        :: m
             REAL(KIND=RP)  :: a(*)
-            INTEGER        :: ia(*), ja(*)
+            integer        :: ia(*), ja(*)
             REAL(KIND=RP)  :: x(*), y(*)
          END SUBROUTINE mkl_dcsrgemv
       END INTERFACE
@@ -434,7 +513,7 @@ MODULE CSRMatrixClass
       CLASS(csrMat_t)           , INTENT(IN)  :: A          !< CSR matric
       REAL(KIND=RP), ALLOCATABLE, INTENT(OUT) :: Mat(:,:)   !> Dense matrix
       !------------------------------------------------
-      INTEGER                                 :: i, k       !  Counters
+      integer                                 :: i, k       !  Counters
       !------------------------------------------------
       
       IF (ALLOCATED(Mat)) DEALLOCATE(Mat)
@@ -458,15 +537,15 @@ MODULE CSRMatrixClass
       IMPLICIT NONE
       !------------------------------------------------------------------------------ 
       CLASS(csrMat_t)           :: A          !< Matrix to be read
-      INTEGER, INTENT(IN)       :: Num        !< Number of diagonal element
-      INTEGER, INTENT(IN)       :: N          !< Size of block
+      integer, INTENT(IN)       :: Num        !< Number of diagonal element
+      integer, INTENT(IN)       :: N          !< Size of block
       REAL(KIND=RP)             :: Mat(N,N)   !> Value of the matrix element
       !------------------------------------------------------------------------------ 
-      INTEGER                   :: RC0      ! Index of first row/column of block in global sparse matrix
-      INTEGER                   :: RCf      ! Index of last row/column of block in global sparse matrix
-      INTEGER                   :: i, j     ! Row/Column index of output matrix
-      INTEGER                   :: ii, jj   ! Row/Column index in global sparse matrix
-      INTEGER                   :: k, l     ! Variables containing positions in sparse matrix arrays
+      integer                   :: RC0      ! Index of first row/column of block in global sparse matrix
+      integer                   :: RCf      ! Index of last row/column of block in global sparse matrix
+      integer                   :: i, j     ! Row/Column index of output matrix
+      integer                   :: ii, jj   ! Row/Column index in global sparse matrix
+      integer                   :: k, l     ! Variables containing positions in sparse matrix arrays
       !------------------------------------------------------------------------------
       
       RC0 = A % BlockIdx(Num) 
@@ -499,20 +578,23 @@ MODULE CSRMatrixClass
        
    !------------------------------------------------------------------------------
    END FUNCTION CSR_GetBlock
-   !------------------------------------------------------------------------------
-   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    subroutine Assembly(this,BlockIdx,BlockSize)
       implicit none
       !---------------------------------------------
-      class(csrMat_t),     intent(inout)   :: this
-      integer, target, optional    ,     intent(in)      :: BlockIdx(:)
-      integer, target, optional, intent(in)    :: BlockSize(:)
+      class(csrMat_t),     intent(inout)    :: this
+      integer, target, optional, intent(in) :: BlockIdx(:)
+      integer, target, optional, intent(in) :: BlockSize(:)
       !---------------------------------------------
       
-      safedeallocate(this % BlockIdx)  ; allocate (this % BlockIdx (size(BlockIdx)) )
-      safedeallocate(this % BlockSize) ; allocate (this % BlockSize(size(BlockSize)) )
-      this % BlockIdx = BlockIdx
-      this % BlockSize = BlockSize
+      if ( present(BlockIdx) .and. present(BlockSize) ) then
+         safedeallocate(this % BlockIdx)  ; allocate (this % BlockIdx (size(BlockIdx)) )
+         safedeallocate(this % BlockSize) ; allocate (this % BlockSize(size(BlockSize)) )
+         this % BlockIdx = BlockIdx
+         this % BlockSize = BlockSize
+      end if
       
       if ( this % usingListMat ) then
          call this % ListMatrix % getCSRarrays(this % Values, this % Cols, this % Rows)
@@ -521,7 +603,6 @@ MODULE CSRMatrixClass
          this % usingListMat = .FALSE.
       end if
    end subroutine Assembly
-
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

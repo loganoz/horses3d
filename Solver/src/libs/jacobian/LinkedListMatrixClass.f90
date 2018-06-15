@@ -43,6 +43,8 @@ module LinkedListMatrixClass
       contains
       procedure :: construct
       procedure :: setEntry
+      procedure :: Reset
+      procedure :: AddToEntry
       procedure :: setColumn
       procedure :: destruct
       procedure :: PointToEntry
@@ -78,6 +80,30 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+   subroutine Reset(this)
+      implicit none
+      !---------------------------------------------
+      class(LinkedListMatrix_t),     intent(inout)     :: this
+      !-local-variables------------------------------------------------
+      type(Entry_t), pointer :: CEntry, Prev
+      integer                :: i
+      !----------------------------------------------------------------
+      
+      do i=1, this % NumRows
+         
+         CEntry => this % rows(i) % head
+         
+         do while( associated(CEntry) )
+            CEntry % value = 0._RP
+            CEntry => CEntry % next
+         end do
+         
+      end do
+      
+   end subroutine Reset
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 !  -------------------------------
 !  Set entry of linked-list matrix
 !  ------------------------------- 
@@ -101,6 +127,32 @@ contains
       Entry % value = value
       
    end subroutine SetEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------
+!  Add a value to an entry of linked-list matrix
+!  --------------------------------------------- 
+   subroutine AddToEntry(this, row, col, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(LinkedListMatrix_t), intent(inout) :: this
+      integer        , intent(in)    :: row
+      integer        , intent(in)    :: col
+      real(kind=RP)  , intent(in)    :: value
+      !-local-variables------------------------------
+      type(Entry_t), pointer :: Entry
+      !----------------------------------------------
+      
+      if (abs(value) < JACEPS) return
+      
+      if (row<1) return
+      if (col<1) return
+      
+      Entry => this % PointToEntry(row,col)
+      Entry % value = Entry % value + value
+      
+   end subroutine AddToEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

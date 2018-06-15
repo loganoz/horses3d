@@ -15,6 +15,7 @@ module GenericMatrixClass
          procedure :: AddToColumn
          procedure :: SetDiagonalBlock
          procedure :: SetEntry
+         procedure :: AddToEntry
          procedure :: SetBlockEntry
          procedure :: AddToBlockEntry
          procedure :: ResetBlock
@@ -114,6 +115,19 @@ contains
    end subroutine SetEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+! 
+   subroutine AddToEntry(this, row, col, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(Matrix_t), intent(inout) :: this
+      integer        , intent(in)    :: row
+      integer        , intent(in)    :: col
+      real(kind=RP)  , intent(in)    :: value
+      !---------------------------------------------
+      ERROR stop ' :: AddToEntry not implemented for current matrix type'
+   end subroutine AddToEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ------------------------------------------------------------
 !  Subroutine to set the entries of a block with relative index
@@ -204,6 +218,7 @@ contains
       integer, target, optional    ,     intent(in)      :: BlockIdx(:)
       integer, target, optional, intent(in)    :: BlockSize(:)
       !---------------------------------------------
+      ERROR stop ' :: Assembly not implemented for current matrix type'
    end subroutine Assembly
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

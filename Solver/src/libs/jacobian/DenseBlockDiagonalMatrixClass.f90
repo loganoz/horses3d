@@ -48,6 +48,7 @@ module DenseBlockDiagonalMatrixClass
          procedure :: SetBlockEntry
          procedure :: AddToBlockEntry
          procedure :: ResetBlock
+         procedure :: Assembly
          procedure :: shift
          procedure :: destruct
          procedure :: FactorizeBlocks_LU
@@ -243,6 +244,20 @@ contains
       this % Blocks(iBlock) % Matrix = 0._RP
       
    end subroutine ResetBlock
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Assembly(this,BlockIdx,BlockSize)
+      implicit none
+      !---------------------------------------------
+      class(DenseBlockDiagMatrix_t), intent(inout) :: this
+      integer, target, optional    , intent(in)    :: BlockIdx(:)
+      integer, target, optional    , intent(in)    :: BlockSize(:)
+      !---------------------------------------------
+      
+      ! Do nothing
+      
+   end subroutine Assembly
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
