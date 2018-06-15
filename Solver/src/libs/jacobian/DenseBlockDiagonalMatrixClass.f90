@@ -45,6 +45,9 @@ module DenseBlockDiagonalMatrixClass
          procedure :: Reset
          procedure :: SetColumn
          procedure :: SetDiagonalBlock
+         procedure :: SetBlockEntry
+         procedure :: AddToBlockEntry
+         procedure :: ResetBlock
          procedure :: shift
          procedure :: destruct
          procedure :: FactorizeBlocks_LU
@@ -182,6 +185,64 @@ contains
       this % Blocks(BlockNum) % Matrix = values
       
    end subroutine SetDiagonalBlock
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --------------------------------------------------------------
+!  Subroutine to set the entries of a block with relative index
+!  --------------------------------------------------------------
+   subroutine SetBlockEntry(this, iBlock, jBlock, i, j, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(DenseBlockDiagMatrix_t), intent(inout) :: this
+      integer                      , intent(in)    :: iBlock, jBlock
+      integer                      , intent(in)    :: i, j
+      real(kind=RP)                , intent(in)    :: value
+      !---------------------------------------------
+      
+      if (iBlock /= jBlock) return ! Only diagonal blocks here!
+      
+      this % Blocks(iBlock) % Matrix(i,j) = value
+      
+   end subroutine SetBlockEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
+!  Subroutine to add a value to the entries of a block with relative index
+!  -----------------------------------------------------------------------
+   subroutine AddToBlockEntry(this, iBlock, jBlock, i, j, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(DenseBlockDiagMatrix_t), intent(inout) :: this
+      integer                      , intent(in)    :: iBlock, jBlock
+      integer                      , intent(in)    :: i, j
+      real(kind=RP)                , intent(in)    :: value
+      !---------------------------------------------
+      
+      if (iBlock /= jBlock) return ! Only diagonal blocks here!
+      
+      this % Blocks(iBlock) % Matrix(i,j) = this % Blocks(iBlock) % Matrix(i,j) + value
+      
+   end subroutine AddToBlockEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -------------------------------------------------------
+!  Subroutine to reset (=0._RP) all the entries of a block
+!  -------------------------------------------------------
+   subroutine ResetBlock(this, iBlock, jBlock )
+      implicit none
+      !-arguments-----------------------------------
+      class(DenseBlockDiagMatrix_t), intent(inout) :: this
+      integer                      , intent(in)    :: iBlock, jBlock
+      !---------------------------------------------
+      
+      if (iBlock /= jBlock) return ! Only diagonal blocks here!
+      
+      this % Blocks(iBlock) % Matrix = 0._RP
+      
+   end subroutine ResetBlock
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

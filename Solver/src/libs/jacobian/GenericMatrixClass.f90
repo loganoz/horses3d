@@ -15,6 +15,9 @@ module GenericMatrixClass
          procedure :: AddToColumn
          procedure :: SetDiagonalBlock
          procedure :: SetEntry
+         procedure :: SetBlockEntry
+         procedure :: AddToBlockEntry
+         procedure :: ResetBlock
          procedure :: Shift
          procedure :: ReShift
          procedure :: PreAssembly
@@ -109,6 +112,52 @@ contains
       !---------------------------------------------
       ERROR stop ' :: SetEntry not implemented for current matrix type'
    end subroutine SetEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------------------------------
+!  Subroutine to set the entries of a block with relative index
+!  ------------------------------------------------------------
+   subroutine SetBlockEntry(this, iBlock, jBlock, i, j, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(Matrix_t), intent(inout) :: this
+      integer        , intent(in)    :: iBlock, jBlock
+      integer        , intent(in)    :: i, j
+      real(kind=RP)  , intent(in)    :: value
+      !---------------------------------------------
+      ERROR stop ' :: SetBlockEntry not implemented for current matrix type'
+   end subroutine SetBlockEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
+!  Subroutine to add a value to the entries of a block with relative index
+!  -----------------------------------------------------------------------
+   subroutine AddToBlockEntry(this, iBlock, jBlock, i, j, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(Matrix_t), intent(inout) :: this
+      integer        , intent(in)    :: iBlock, jBlock
+      integer        , intent(in)    :: i, j
+      real(kind=RP)  , intent(in)    :: value
+      !---------------------------------------------
+      ERROR stop ' :: AddToBlockEntry not implemented for current matrix type'
+   end subroutine AddToBlockEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -------------------------------------------------------
+!  Subroutine to reset (=0._RP) all the entries of a block
+!  -------------------------------------------------------
+   subroutine ResetBlock(this, iBlock, jBlock )
+      implicit none
+      !-arguments-----------------------------------
+      class(Matrix_t), intent(inout) :: this
+      integer        , intent(in)    :: iBlock, jBlock
+      !---------------------------------------------
+      ERROR stop ' :: ResetBlock not implemented for current matrix type'
+   end subroutine ResetBlock
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
