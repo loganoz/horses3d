@@ -4,9 +4,9 @@
 !   @File:    VariableConversion.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Tue May 29 17:43:59 2018
+!   @Last revision date: Wed Jun 20 18:14:40 2018
 !   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 3c1e755ecd17ea60f252dec3daa7823c04603dcd
+!   @Last revision commit: 9c8ed8b6306ad0912cb55b510aa73d1610bb1cb5
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,6 +14,8 @@
 module VariableConversion
 #if defined(NAVIERSTOKES)
    use VariableConversion_NS
+#elif defined(INCNS)
+   use VariableConversion_iNS
 #endif
 #if defined(CAHNHILLIARD)
    use VariableConversion_CH

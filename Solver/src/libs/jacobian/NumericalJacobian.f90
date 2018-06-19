@@ -84,7 +84,9 @@ print*, "Starting to construct num jac"
 !        ----------------------------------
          allocate(nbr(nelm))
          CALL Look_for_neighbour(nbr, sem % mesh)
-#if (!defined(CAHNHILLIARD))
+#if defined(CAHNHILLIARD)
+         CALL ecolors%construct(nbr, .true. )
+#elif defined(NAVIERSTOKES)
          CALL ecolors%construct(nbr,flowIsNavierStokes)
 #else
          CALL ecolors%construct(nbr, .true. )
@@ -120,7 +122,9 @@ print*, "Starting to construct num jac"
 !        computation of the Jacobian matrix entries
 !        ---------------------------------------------------------------
 !
-#if (!defined(CAHNHILLIARD))
+#if defined(CAHNHILLIARD)
+         allocate(used(26))
+#elif defined(NAVIERSTOKES)
          IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
             allocate(used(26))   ! 25 neighbors (including itself) and a last entry that will be 0 always (boundary index)
          ELSE
@@ -139,7 +143,9 @@ print*, "Starting to construct num jac"
 !              IMPORTANT: These numbers assume conforming meshes!
 !        -------------------------------------------------------------------------
 !
-#if (!defined(CAHNHILLIARD))
+#if defined(CAHNHILLIARD)
+         nnz = maxndofel * 25
+#elif defined(NAVIERSTOKES)
          IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
             nnz = maxndofel * 25
          ELSE
@@ -261,11 +267,14 @@ print*, "Starting to compute the numerical Jacobian!"
                   ENDIF
                   
                   ! If we are using BR1, we also have to get the contributions of the neighbors of neighbors
-#if (!defined(CAHNHILLIARD))
+#if defined(CAHNHILLIARD)
+                  if ( .true. ) then
+#elif defined(NAVIERSTOKES)
                   IF(flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
 #else
                   if ( .true. ) then
 #endif
+
                      IF (elmnbr .NE. 0) THEN
                         DO j=1, SIZE(nbr(elmnbr)%elmnt)
                            nbrnbr = nbr(elmnbr)%elmnt(j)                          

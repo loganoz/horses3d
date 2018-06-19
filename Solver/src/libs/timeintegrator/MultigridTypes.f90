@@ -25,12 +25,12 @@ module MultigridTypes
          use SMConstants, only: RP
          use HexMeshClass, only: HexMesh
          use DGSEMClass, only: ComputeQDot_FCN, BCFunctions_t, no_of_BCsets
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          use ParticlesClass, only: Particles_t
 #endif
          IMPLICIT NONE
          type(HexMesh)      :: mesh
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          type(Particles_t)  :: particles
 #else
          logical            :: particles

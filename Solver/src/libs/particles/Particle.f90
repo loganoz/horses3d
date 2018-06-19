@@ -2,24 +2,15 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    Particle.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Author:  Gonzalo (g.rubio@upm.es)
 !   @Created: Tue Apr 10 17:31:21 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed Jun 20 18:14:37 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 9c8ed8b6306ad0912cb55b510aa73d1610bb1cb5
 !
 !//////////////////////////////////////////////////////
 !
-#if defined(NAVIERSTOKES)
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      particles.f90
-!      Created: 2018-01-11 
-!      By: Gonzalo Rubio
-!
-!////////////////////////////////////////////////////////////////////////
-!
+#if defined(NAVIERSTOKES) || defined(INCNS)
 module ParticleClass
 use SMConstants
 ! use NodalStorageClass
@@ -166,7 +157,7 @@ subroutine particle_setGlobalPos ( self, mesh )
     implicit none
     class(Particle_t)       , intent(inout)  :: self    
     class(HexMesh)          , intent(in)     :: mesh    
-
+#if defined(NAVIERSTOKES)
 !
 !        ---------------
 !        Local variables
@@ -226,7 +217,7 @@ subroutine particle_setGlobalPos ( self, mesh )
             self % x = self % x + e % geom % x(:,i,j,k) * self % lxi(i) * self % leta(j) * self % lzeta(k)
         end do                  ; end do                ; end do      
     end associate   
-                      
+#endif                      
 end subroutine 
 !
 !///////////////////////////////////////////////////////////////////////////////////////
@@ -238,6 +229,7 @@ subroutine particle_getFluidVelandTemp ( self, mesh )
     implicit none
     class(Particle_t), intent(inout)  :: self   
     class(HexMesh)                    :: mesh
+#if defined(NAVIERSTOKES)
 !
 !        ---------------
 !        Local variables
@@ -304,13 +296,16 @@ subroutine particle_getFluidVelandTemp ( self, mesh )
 !        end if
 ! #endif
 !     end if                    
+#endif
 end subroutine 
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
 subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity ) 
+#if defined(NAVIERSTOKES)
     use Physics,   only : sutherlandsLaw
     use FluidData, only : dimensionless, thermodynamics
+#endif
     implicit none
     class(Particle_t)               , intent(inout)  :: self   
     real(KIND=RP)                   , intent(in)     :: dt 
@@ -320,6 +315,7 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity )
     real(KIND=RP), intent(in) :: cvpdivcv   ! Particle non dimensional number 
     real(KIND=RP), intent(in) :: I0         ! Particle non dimensional number (radiation intensity)
     real(KIND=RP), intent(in) :: gravity(3) ! Particle non dimensional vector (gravity)
+#if defined(NAVIERSTOKES)
 !
 !        ---------------
 !        Local variables
@@ -360,6 +356,7 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity )
     self % temp = self % updateTempRK3 ( dt, gamma, cvpdivcv, St, Pr, I0, Nu ) 
 
     print*,  self % pos, "//", self % vel, "//", self % temp 
+#endif
 end subroutine 
 !
 !///////////////////////////////////////////////////////////////////////////////////////
@@ -374,6 +371,7 @@ function particle_updateVelRK3 (self, dt, mu, St, invFroudeSquare, gravity) resu
     real(KIND=RP),     intent(in)     :: invFroudeSquare
     real(KIND=RP),     intent(in)     :: gravity(3)
     REAL(KIND=RP)                     :: Q(3)
+#if defined(NAVIERSTOKES)
 !
 !   ---------------
 !   Local variables
@@ -392,7 +390,7 @@ function particle_updateVelRK3 (self, dt, mu, St, invFroudeSquare, gravity) resu
         G = a(k) * G  + Qdot
         Q = Q         + c(k) * dt * G
     END DO
-
+#endif
 end function 
 !
 !///////////////////////////////////////////////////////////////////////////////////////
@@ -409,7 +407,7 @@ function particle_updateTempRK3 (self, dt, gamma, cvpdivcv, St, Pr, I0, Nu ) res
         real(KIND=RP),     intent(in)     :: I0
         real(KIND=RP),     intent(in)     :: Nu
         real(KIND=RP)                     :: Q
-    
+#if defined(NAVIERSTOKES)    
     !
     !   ---------------
     !   Local variables
@@ -430,7 +428,7 @@ function particle_updateTempRK3 (self, dt, gamma, cvpdivcv, St, Pr, I0, Nu ) res
             G = a(k) * G  + Qdot
             Q = Q         + c(k) * dt * G
         END DO
-    
+#endif    
     end function 
 !
 !///////////////////////////////////////////////////////////////////////////////////////
@@ -440,6 +438,7 @@ subroutine particle_source ( self, e, source )
     class(Particle_t)       , intent(in)    :: self    
     class(element)          , intent(in)    :: e    
     real(kind=RP)           , intent(inout) :: source(:,0:,0:,0:)    
+#if defined(NAVIERSTOKES)
 !
 !        ---------------
 !        Local variables
@@ -462,7 +461,7 @@ subroutine particle_source ( self, e, source )
         source(4,i,j,k) = source(4,i,j,k) - ( self % fluidVel(3) - self % Vel(3) ) * delta
         source(5,i,j,k) = source(5,i,j,k) - ( self % fluidTemp   - self % temp   ) * delta 
     enddo ; enddo ; enddo     
-     
+#endif     
 end subroutine 
 !
 !///////////////////////////////////////////////////////////////////////////////////////

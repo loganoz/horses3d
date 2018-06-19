@@ -2,38 +2,22 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    Particles.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Author:  Gonzalo (g.rubio@upm.es)
 !   @Created: Tue Apr 10 17:31:22 2018
-!   @Last revision date: Wed Apr 18 20:19:08 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
+!   @Last revision date: Wed Jun 20 18:14:37 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 9c8ed8b6306ad0912cb55b510aa73d1610bb1cb5
 !
 !//////////////////////////////////////////////////////
 !
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      particles.f90
-!      Created: 2018-01-11 
-!      By: Gonzalo Rubio
-!
-!////////////////////////////////////////////////////////////////////////
-!
 module ParticlesClass
-#if defined(NAVIERSTOKES)
-use SMConstants
-use ParticleClass
-use FluidData
-use PhysicsStorage
-! use NodalStorageClass
- use HexMeshClass
-! use MonitorDefinitions
-! use ResidualsMonitorClass
-! use StatisticsMonitor
-! use ProbeClass
-! use SurfaceMonitorClass
-! use VolumeMonitorClass
-implicit none
+#if defined(NAVIERSTOKES) || defined(INCNS)
+   use SMConstants
+   use ParticleClass
+   use FluidData
+   use PhysicsStorage
+   use HexMeshClass
+   implicit none
 !
 #include "Includes.h"
 
@@ -44,14 +28,14 @@ public  Particles_t
 !  Main particles class definition
 !  *******************************
 !  
-type dimensionlessParticles_t
+type DimensionlessParticles_t
     real(kind=RP) :: St
     real(kind=RP) :: Nu
     real(kind=RP) :: phim
     real(kind=RP) :: cvpdivcv
     real(kind=RP) :: I0
     real(kind=RP) :: g(3)
-endtype    
+end type DimensionlessParticles_t
 
 type Particles_t
     integer                             :: no_of_particles
@@ -65,11 +49,9 @@ type Particles_t
         procedure   :: AddSource      => AddSourceParticles
         procedure   :: ComputeSourceTerm => ComputeSourceTermParticles
 end type Particles_t
-
-     
 !
 !  ========
-contains
+   contains
 !  ========
 !
 !///////////////////////////////////////////////////////////////////////////////////////
@@ -82,6 +64,7 @@ subroutine ConstructParticles( self, mesh, controlVariables )
     class(Particles_t)      , intent(inout) :: self
     class(HexMesh)          , intent(in)    :: mesh
     class(FTValueDictionary), intent(in)    :: controlVariables        
+#if defined(NAVIERSTOKES)
     !TDG: understand difference between class and type    
     ! http://www.pgroup.com/lit/articles/insider/v3n1a3.htm
 !
@@ -181,7 +164,7 @@ subroutine ConstructParticles( self, mesh, controlVariables )
     ! call self % particle(1) % set_pos ( pos )
     ! call self % particle(1) % set_vel ( vel )
     ! call self % particle(1) % set_temp( temp )        
-
+#endif
 end subroutine ConstructParticles
 !
 !///////////////////////////////////////////////////////////////////////////////////
@@ -191,7 +174,7 @@ subroutine IntegrateParticles( self, mesh, dt )
     class(HexMesh)          , intent(in)     :: mesh     
     class(Particles_t)      , intent(inout)  :: self
     real(KIND=RP)           , intent(in)     :: dt
-
+#if defined(NAVIERSTOKES)
     !Debugging variables
     logical :: debug  = .FALSE.
     logical :: debug2 = .FALSE. 
@@ -274,14 +257,17 @@ if (debug2) then
     print*, "get vel", gt2 / (gt1+gt2+gt3) * 100, "%"
     print*, "integra", gt3 / (gt1+gt2+gt3) * 100, "%"
 endif 
+#endif
 end subroutine IntegrateParticles
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
 subroutine AddSourceParticles( self, e, time, thermodynamics_, dimensionless_, refValues_ )
     USE ElementClass
+#if defined(NAVIERSTOKES)
     use Physics,            only : sutherlandsLaw
     use VariableConversion, only : temperature 
+#endif
     IMPLICIT NONE
     class(Particles_t)      , intent(in)    :: self
     CLASS(element)          , intent(inout) :: e
@@ -289,7 +275,7 @@ subroutine AddSourceParticles( self, e, time, thermodynamics_, dimensionless_, r
     type(Thermodynamics_t)  , intent(in)    :: thermodynamics_
     type(Dimensionless_t)   , intent(in)    :: dimensionless_
     type(RefValues_t)       , intent(in)    :: refValues_
-    
+#if defined(NAVIERSTOKES)    
 !
 !        ---------------
 !        Local variables
@@ -330,6 +316,7 @@ subroutine AddSourceParticles( self, e, time, thermodynamics_, dimensionless_, r
 !    call cpu_time(t2)
 
 !    print*, "Compute and add source", t2-t1, "seconds"
+#endif
 end subroutine AddSourceParticles    
 !
 !///////////////////////////////////////////////////////////////////////////////////////
@@ -340,7 +327,7 @@ subroutine ComputeSourceTermParticles(self, e, Source)
     class(Particles_t)      , intent(in)    :: self
     class(element)          , intent(in)    :: e     
     real(KIND=RP)           , intent(out)   :: Source(:,0:,0:,0:)
-
+#if defined(NAVIERSTOKES)
 !
 !        ---------------
 !        Local variables
@@ -358,7 +345,7 @@ subroutine ComputeSourceTermParticles(self, e, Source)
         endif 
         !Source = Source + self % particle(iP) % Source()
     enddo 
-
+#endif
 end subroutine 
 !
 !///////////////////////////////////////////////////////////////////////////////////////
@@ -366,6 +353,7 @@ end subroutine
 subroutine ExportToVTKParticles( self )
     implicit none
     class(Particles_t)      , intent(in)  :: self
+#if defined(NAVIERSTOKES)
 !
 !        ---------------
 !        Local variables
@@ -384,9 +372,10 @@ subroutine ExportToVTKParticles( self )
     enddo 
 
     close(10)
+#endif
 end subroutine ExportToVTKParticles
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
 #endif
-end module
+end module ParticlesClass

@@ -92,9 +92,10 @@
 !        ----------------------------------------------------------------------------------
 !
          IF (controlVariables % containsKey("cfl")) THEN
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
             self % Compute_dt = .TRUE.
             self % cfl        = controlVariables % doublePrecisionValueForKey("cfl")
+#if defined(NAVIERSTOKES)
             if (flowIsNavierStokes) then
                if (controlVariables % containsKey("dcfl")) then
                   self % dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
@@ -102,6 +103,7 @@
                   ERROR STOP '"cfl" and "dcfl", or "dt" keyword must be specified for the time integrator'
                end if
             end if
+#endif
 #elif defined(CAHNHILLIARD)
             print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
             errorMessage(STD_OUT)

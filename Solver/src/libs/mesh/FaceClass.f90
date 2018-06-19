@@ -196,7 +196,7 @@
       integer,                 intent(in)    :: NelLeft(2)  ! Left element face polynomial order
       integer,                 intent(in)    :: NelRight(2) ! Right element face polynomial order
       integer,                 intent(in)    :: nodeType    ! Either Gauss or Gauss-Lobatto
-#if (!defined(NAVIERSTOKES))
+#if (!defined(NAVIERSTOKES)) && (!defined(INCNS))
       logical  :: computeGradients = .true.
 #endif
 !

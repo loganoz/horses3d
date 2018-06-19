@@ -42,7 +42,7 @@ MODULE ExplicitMethods
 !     -----------------
 !
       type(HexMesh)      :: mesh
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       type(Particles_t)  :: particles
 #else
       logical            :: particles
@@ -68,7 +68,7 @@ MODULE ExplicitMethods
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
              mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
              mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
 #endif
@@ -81,6 +81,11 @@ MODULE ExplicitMethods
 !$omp end parallel do
          
       END DO
+
+
+         if ( any(isnan(mesh % storage % Q))) then
+            print*, "Numerical divergence obtained in solver."
+         endif
       
    END SUBROUTINE TakeRK3Step
 
@@ -93,7 +98,7 @@ MODULE ExplicitMethods
 !
       implicit none
       type(HexMesh)                   :: mesh
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       type(Particles_t)  :: particles
 #else
       logical            :: particles
@@ -144,7 +149,7 @@ MODULE ExplicitMethods
 !
       implicit none
       type(HexMesh)                   :: mesh
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       type(Particles_t)  :: particles
 #else
       logical            :: particles

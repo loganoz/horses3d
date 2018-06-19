@@ -1,8 +1,20 @@
 #include "Includes.h"
 #if defined(NAVIERSTOKES)
+#define NNS NCONS
+#define NGRADNS NGRAD
+#elif defined(INCNS)
+#define NNS NINC
+#define NGRADNS NINC
+#endif
+
+#if defined(NAVIERSTOKES) || defined(INCNS)
 module HyperbolicSplitForm
    use SMConstants
+#if defined(NAVIERSTOKES)
    use RiemannSolvers_NS
+#elif defined(INCNS)
+   use RiemannSolvers_iNS
+#endif
    use HyperbolicDiscretizationClass
    use FluidData
    implicit none
@@ -44,6 +56,7 @@ module HyperbolicSplitForm
          call toLower(splitForm)
 
          select case ( trim(splitForm) )
+#if defined(NAVIERSTOKES)
          case ( "standard" )
 !
 !           Skew-symmetric version of the standard DG. Useful for testing
@@ -89,7 +102,7 @@ module HyperbolicSplitForm
             errorMessage(STD_OUT)
             stop 
             end if
-
+#endif
          end select
 
          call SetRiemannSolver( whichRiemannSolver, splitType )
@@ -103,7 +116,7 @@ module HyperbolicSplitForm
          if (.not. MPI_Process % isRoot ) return
 
          write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","Split-Form"
-
+#if defined(NAVIERSTOKES)
          select case ( splitType )
          case (STANDARD_SPLIT)
             write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Standard"
@@ -157,6 +170,7 @@ module HyperbolicSplitForm
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Viscous NS"
          
          end select
+#endif
 
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
          
@@ -174,10 +188,10 @@ module HyperbolicSplitForm
          implicit none
          class(SplitDG_t), intent(in)  :: self
          type(Element),    intent(in)  :: e
-         real(kind=RP),    intent(in)  :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
-         real(kind=RP),    intent(out) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
-         real(kind=RP),    intent(out) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
-         real(kind=RP),    intent(out) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),    intent(in)  :: contravariantFlux(1:NNS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP),    intent(out) :: fSharp(1:NNS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),    intent(out) :: gSharp(1:NNS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),    intent(out) :: hSharp(1:NNS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
 !
 !        ---------------
 !        Local variables
@@ -228,6 +242,7 @@ module HyperbolicSplitForm
 !        -----------------------------
 !///////////////////////////////////////////////////////////////////////
 !
+#if defined(NAVIERSTOKES)
       subroutine StandardDG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp) 
          use SMConstants
          use PhysicsStorage
@@ -787,6 +802,6 @@ module HyperbolicSplitForm
          end associate
 
       end subroutine EntropyAndEnergyConserving_VolumetricSharpFlux
-
+#endif
 end module HyperbolicSplitForm
 #endif

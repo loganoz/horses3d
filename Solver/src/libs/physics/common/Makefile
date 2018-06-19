@@ -14,6 +14,12 @@ LIBOBJS_NS = 	./build_ns/FluidData.o \
 		./build_ns/Physics.o \
 		./build_ns/BoundaryConditions.o 
 
+LIBOBJS_iNS = 	./build_ins/FluidData.o \
+		./build_ins/PhysicsStorage.o \
+		./build_ins/VariableConversion.o \
+		./build_ins/Physics.o \
+		./build_ins/BoundaryConditions.o 
+
 LIBOBJS_CH = 	./build_ch/FluidData.o \
 		./build_ch/PhysicsStorage.o \
 		./build_ch/VariableConversion.o \
@@ -33,12 +39,17 @@ LIB = physics
 ############################################
 .DEFAULT_GOAL := lib$(LIB).a
 
-all: lib$(LIB)_ns.a lib$(LIB)_ch.a lib$(LIB)_nsch.a
+all: lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_nsch.a
 
 ./build_ns/%.o: %.f90
 	@echo
 	@echo $<
 	$(FC) $(FFLAGS) -DNAVIERSTOKES -I./include_ns $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ns -c $< -o $@ $(MOD_FLAG) ./include_ns
+
+./build_ins/%.o: %.f90
+	@echo
+	@echo $<
+	$(FC) $(FFLAGS) -DINCNS -I./include_ins $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ins -c $< -o $@ $(MOD_FLAG) ./include_ins
 
 ./build_ch/%.o: %.f90
 	@echo
@@ -57,6 +68,15 @@ lib$(LIB)_ns.a: header mkdirs $(LIBOBJS_NS)
 	@echo "---------------------------------"
 	@$(RM) $@
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS_NS) 
+	@$(RANLIB) $@
+
+lib$(LIB)_ins.a: header mkdirs $(LIBOBJS_iNS) 
+	@echo
+	@echo "---------------------------------"
+	@echo "| Linking library" $@ "|"
+	@echo "---------------------------------"
+	@$(RM) $@
+	$(AR) $(ARFLAGS) $@ $(LIBOBJS_iNS) 
 	@$(RANLIB) $@
 
 lib$(LIB)_ch.a: header mkdirs $(LIBOBJS_CH)
@@ -79,9 +99,11 @@ lib$(LIB)_nsch.a: header mkdirs $(LIBOBJS_NSCH)
 
 install: all
 	cp -p lib$(LIB)_ns.a $(INSTALL_DIR)/lib/
+	cp -p lib$(LIB)_ins.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_nsch.a $(INSTALL_DIR)/lib/
 	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
+	cp -p ./include_ins/*.mod $(INSTALL_DIR)/include_ins/
 	cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
 	cp -p ./include_nsch/*.mod $(INSTALL_DIR)/include_nsch/
 	@echo
@@ -96,12 +118,13 @@ header: FORCE
 	@echo
 
 mkdirs: FORCE
-	@mkdir -p ./include_ns ./include_ch ./include_nsch
-	@mkdir -p ./build_ns ./build_ch ./build_nsch
+	@mkdir -p ./include_ns ./include_ins ./include_ch ./include_nsch
+	@mkdir -p ./build_ns ./build_ins ./build_ch ./build_nsch
 
 clean: FORCE
-	$(RM) lib$(LIB)_ns.a  lib$(LIB)_ch.a
+	$(RM) lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_nsch.a
 	$(RM) ./build_ns/*.o ./include_ns/*.mod
+	$(RM) ./build_ins/*.o ./include_ins/*.mod
 	$(RM) ./build_ch/*.o ./include_ch/*.mod
 	$(RM) ./build_nsch/*.o ./include_nsch/*.mod
 
