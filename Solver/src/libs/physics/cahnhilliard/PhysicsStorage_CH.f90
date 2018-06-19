@@ -116,6 +116,9 @@
       multiphase_ % Ca  = controlVariables % DoublePrecisionValueForKey(CAPILAR_NUMBER_KEY)
       multiphase_ % densityRatio = controlVariables % DoublePrecisionValueForKey(DENSITY_RATIO_KEY)
       multiphase_ % viscRatio = controlVariables % DoublePrecisionValueForKey(VISCOSITY_RATIO_KEY)
+
+      multiphase_ % tildeRho = 0.5_RP * (multiphase_ % densityRatio - 1.0_RP)
+      multiphase_ % barRho   = 0.5_RP * (multiphase_ % densityRatio + 1.0_RP)
 !
 !     **************************************
 !     Read the wall contact angle if present

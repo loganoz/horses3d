@@ -1,16 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    ProblemFile.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Thu May 10 12:24:50 2018
-!   @Last revision date: Mon Jun  4 18:05:55 2018
-!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 2355abaef579817f771ad9146d80ed4a4e10e404
-!
-!//////////////////////////////////////////////////////
-!
-!
 !////////////////////////////////////////////////////////////////////////
 !
 !      ProblemFile.f90
@@ -113,19 +101,8 @@
 !           local variables
 !           ---------------
 !
-           interface 
-              FUNCTION RandomNormal(mean,sigma)
-                      USE SMConstants
-                      IMPLICIT NONE
-                      REAL(KIND=RP) :: RandomNormal
-                      REAL(KIND=RP) :: mean
-                      REAL(KIND=RP) :: sigma
-              end function randomnormal
-           end interface
-
             integer        :: eid, i, j, k
-            real(kind=RP)  :: qq, u, v, w, p
-            real(kind=RP)  :: r2, x(NDIM)
+            real(kind=RP)  :: qq, u, v, w, p, x, z, rho
 #if defined(NAVIERSTOKES)
             real(kind=RP)  :: Q(NCONS), phi, theta
 #endif
@@ -135,19 +112,23 @@
 !           ---------------------------------------
 !
 #if defined(CAHNHILLIARD)
-            call random_seed()
-         
             do eid = 1, mesh % no_of_elements
-               associate( Nx => mesh % elements(eid) % Nxyz(1), &
-                          Ny => mesh % elements(eid) % Nxyz(2), &
-                          Nz => mesh % elements(eid) % Nxyz(3) )
-               associate(e => mesh % elements(eID) % storage)
-               call random_number(e % c) 
-               e % c = 2.0_RP * (e % c - 0.5_RP)
-               end associate
+               associate(e => mesh % elements(eID))
+               do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
+                  x = e % geom % x(1,i,j,k)
+                  z = e % geom % x(2,i,j,k)
+
+                  e % storage % c(1,i,j,k) = 0.5_RP + 0.01_RP*(cos(0.105_RP*x)*cos(0.11_RP*z) + &
+                                 (cos(0.13_RP*x)*cos(0.087_RP*z))**2 + cos(0.025_RP*x-0.15_RP*z) * &
+                                 cos(0.07_RP*x - 0.02_RP*z))
+               end do               ; end do                ; end do
+               e % storage % c = (e % storage % c - 0.5_RP) * 5.0_RP
+               e % storage % Q(1,:,:,:) = multiphase_ % tildeRho * e % storage % c(1,:,:,:) + multiphase_ % barRho
                end associate
             end do
 #endif
+
+
 !
 !           ---------------------------------------
 !           Navier-Stokes default initial condition
@@ -164,24 +145,13 @@
                           ny => mesh % elemeNts(eID) % nxyz(2), &
                           Nz => mesh % elements(eID) % Nxyz(3) )
                do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
-                  x = mesh % elements(eID) % geom % x(:,i,j,k)
-                  r2 = x(1) * x(1) + x(2) * x(2)
-            
-                  qq = 1.0_RP
-                  u  = qq*cos(theta)*cos(phi)
-                  v  = qq*sin(theta)*cos(phi)
-                  w  = 2.0_RP * qq*sin(phi) * ( 1.0_RP - r2)
-
-                  u = u + RandomNormal(0.0_RP, 0.1_RP)
-                  v = v + RandomNormal(0.0_RP, 0.1_RP)
-                  w = w + RandomNormal(0.0_RP, 0.1_RP)
+                  rho = mesh % elements(eID) % storage % Q(IRHO,i,j,k)
+                  u  = 0.0_RP
+                  v  = 0.0_RP
+                  w  = 0.0_RP
       
-#if defined(CAHNHILLIARD)
-                  q(1) = multiphase_ % tildeRho * mesh % elements(eid) % storage % c(1,i,j,k) + multiphase_ % barRho
-#else
-                  q(1) = 1.0_RP
-#endif
-                  p    = q(1)/(gammaM2)
+                  q(1) = rho
+                  p    = rho/(gammaM2)
                   q(2) = q(1)*u
                   q(3) = q(1)*v
                   q(4) = q(1)*w
@@ -263,7 +233,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 #if defined(NAVIERSTOKES)
-         subroutine UserDefinedSourceTermNS(x, time, S, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -275,6 +245,7 @@
             use FluidData
             IMPLICIT NONE
             real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: Q(NCONS)
             real(kind=RP),             intent(in)  :: time
             real(kind=RP),             intent(out) :: S(NCONS)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
@@ -349,59 +320,4 @@
 !
          IMPLICIT NONE  
       END SUBROUTINE UserDefinedTermination
-
-         FUNCTION RandomNormal(mean,sigma)
-            ! RandomNormal function taken from a StackOverflow post
-
-            ! mean  : mean of distribution
-            ! sigma : number of standard deviations
-
-            USE SMConstants
-
-            IMPLICIT NONE
-
-            REAL(KIND=RP) :: RandomNormal
-            REAL(KIND=RP) :: mean
-            REAL(KIND=RP) :: sigma
-
-            REAL          :: rand_num
-            REAL(KIND=RP) :: tmp
-            REAL(KIND=RP) :: fac
-            REAL(KIND=RP) :: gsave
-            REAL(KIND=RP) :: rsq
-            REAL(KIND=RP) :: r1
-            REAL(KIND=RP) :: r2
-            INTEGER       :: flag
-
-            SAVE :: flag
-            SAVE :: gsave
-            DATA flag /0/
-
-
-            IF (flag .EQ. 0) THEN
-                  rsq = 2.0_RP
-
-                  DO WHILE(rsq .GE. 1.0_RP .OR. rsq .EQ. 0.0_RP)
-                        CALL RANDOM_NUMBER(rand_num)
-                        r1  = 2.0_RP * rand_num - 1.0_RP
-                        CALL RANDOM_NUMBER(rand_num)
-                        r2  = 2.0_RP * rand_num - 1.0_RP
-                        rsq = r1 * r1 + r2 * r2
-                  ENDDO
-
-                  fac   = SQRT( -2.0_RP * LOG( rsq ) / rsq )
-                  gsave = r1 * fac
-                  tmp   = r2 * fac
-                  flag  = 1
-            ELSE
-                  tmp   = gsave
-                  flag  = 0
-            ENDIF
-
-            RandomNormal = tmp * sigma + mean
-
-            RETURN
-
-            END FUNCTION RandomNormal
-
       

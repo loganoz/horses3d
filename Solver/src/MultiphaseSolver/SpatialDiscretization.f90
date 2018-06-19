@@ -91,8 +91,6 @@ module SpatialDiscretization
       procedure(computeMPIFaceFluxF),          pointer :: computeMPIFaceFlux          => computeMPIFaceFlux_NS
       procedure(computeBoundaryFluxF),         pointer :: computeBoundaryFlux         => computeBoundaryFlux_NS
 
-      logical :: enable_speed = .true.
-
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
       character(len=LINE_LENGTH), parameter  :: CHDiscretizationKey      = "cahn-hilliard discretization"
 
@@ -195,7 +193,6 @@ module SpatialDiscretization
                call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D, GetNSCHViscosity, "NS")
                
             end if
-
 !
 !           Initialize models
 !           -----------------
@@ -242,8 +239,7 @@ module SpatialDiscretization
 !        Compute wall distances
 !        ----------------------
         ! call mesh % ComputeWallDistances
-
-         call SetIMEXComputeQDotProcedures(ComputeTimeDerivative_onlyLinear, ComputeTimeDerivative_onlyNonLinear)
+         call SetIMEXComputeQDotProcedures(ComputeTimeDerivative_onlyLinear, ComputeTimeDerivative_onlyNonLinear, ComputeTimeDerivative_onlyNS)
          
       end subroutine Initialize_SpaceAndTimeMethods
 !
@@ -254,6 +250,11 @@ module SpatialDiscretization
          IF ( ALLOCATED(HyperbolicDiscretization) ) DEALLOCATE( HyperbolicDiscretization )
          IF ( ALLOCATED(LESModel) )       DEALLOCATE( LESModel )
       end subroutine Finalize_SpaceAndTimeMethods
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!           Full compute time derivative
+!           ----------------------------
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -281,6 +282,18 @@ module SpatialDiscretization
 !        -----------------------------------------
 !
 !$omp parallel shared(mesh, time) private(k, eID, fID, i, j)
+!
+!
+!        ***************************************************
+!        Update the concentration with the new density value
+!        ***************************************************
+!
+!$omp do schedule(runtime) private(e)
+         do eID = 1, mesh % no_of_elements
+            e => mesh % elements(eID)
+            e % storage % c(1,:,:,:) = (e % storage % QNS(IRHO,:,:,:)-multiphase % barRho) / multiphase % tildeRho
+         end do
+!$omp end do
 !
 !        **********************************
 !        Project the concentration to faces (it is used to estimate the viscosity)
@@ -330,9 +343,9 @@ stop
 !$omp end single
 #endif
 !
-!        -----------------------
-!        Compute time derivative
-!        -----------------------
+!        -------------------------------------
+!        Compute Navier-Stokes time derivative
+!        -------------------------------------
 !
          call TimeDerivative_ComputeQDot(mesh              = mesh , &
                                          particles         = particles, &
@@ -340,9 +353,9 @@ stop
                                          externalState     = BCFunctions(NS_BC) % externalState, &
                                          externalGradients = BCFunctions(NS_BC) % externalGradients )
 !
-!        *****************************************
-!        Compute the Cahn-Hilliard time derivative
-!        *****************************************
+!        *************************************
+!        Add the Cahn-Hilliard time derivative
+!        *************************************
 !
 !        ------------------------------
 !        Change memory to concentration
@@ -455,41 +468,6 @@ stop
          end do
 !$omp end do
 !
-!        *****************************
-!        Return the concentration to Q
-!        *****************************
-!
-!$omp single
-         call mesh % SetStorageToEqn(2)
-!$omp end single
-!
-!        ***********************************
-!        Compute the concentration advection
-!        ***********************************
-!
-         if ( enable_speed ) then
-!
-!        Perform the stabilization
-!        -------------------------
-         call StabilizeGradients(mesh, time, BCFunctions(C_BC) % externalState)
-!
-!        Add the velocity field
-!        ----------------------
-!$omp do schedule(runtime) private(e)
-         do eID = 1, mesh % no_of_elements
-            e => mesh % elements(eID)
-         
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)   ; do i = 0, e % Nxyz(1)
-               e % storage % cDot(1,i,j,k) = e % storage % cDot(1,i,j,k) - (&
-                                   e % storage % QNS(IRHOU,i,j,k) * e % storage % c_x(1,i,j,k) &
-                                 + e % storage % QNS(IRHOV,i,j,k) * e % storage % c_y(1,i,j,k) &
-                                 + e % storage % QNS(IRHOW,i,j,k) * e % storage % c_z(1,i,j,k) &
-                                 ) / e % storage % QNS(IRHO,i,j,k) 
-            end do                ; end do                  ; end do
-         end do
-!$omp end do
-         end if
-!
 !        ****************************
 !        Return NS as default storage
 !        ****************************
@@ -497,6 +475,18 @@ stop
 !$omp single
          call mesh % SetStorageToEqn(1)
 !$omp end single
+!
+!        **********************************************************
+!        Add the chemical potential flux to the continuity equation
+!        **********************************************************
+!
+!$omp do schedule(runtime) private(e)
+         do eID = 1, mesh % no_of_elements
+            e => mesh % elements(eID)
+            e % storage % QDot(IRHO,:,:,:) =   e % storage % QDot(IRHO,:,:,:) &
+                                             + e % storage % cDot(1,:,:,:) * multiphase % tildeRho
+            e % storage % cDot(1,:,:,:) = e % storage % QDot(IRHO,:,:,:) / multiphase % tildeRho
+         end do
 !
 !        ****************************
 !        Compute the Capilar pressure
@@ -518,6 +508,108 @@ stop
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative
+
+      SUBROUTINE ComputeTimeDerivative_OnlyNS( mesh, particles, time, BCFunctions)
+!
+!        *********************************************************
+!           This subroutine supposes that the concentration and
+!           chemical potential have been already interpolated
+!           to the faces (to compute viscosity)
+!        *********************************************************
+!        
+         IMPLICIT NONE 
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         TYPE(HexMesh), target           :: mesh
+         type(Particles_t)               :: particles
+         REAL(KIND=RP)                   :: time
+         type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         class(Element), pointer    :: e
+         INTEGER :: k, eID, fID, i, j
+!
+!        -----------------------------------------
+!        Prolongation of the solution to the faces
+!        -----------------------------------------
+!
+!$omp parallel shared(mesh, time) private(k, eID, fID, i, j)
+!
+!        *****************************
+!        Obtain the NS time derivative
+!        *****************************
+!
+!$omp single
+         call mesh % SetStorageToEqn(1)
+!$omp end single
+
+         call mesh % ProlongSolutionToFaces(NCONS)
+!        ----------------
+!        Update MPI Faces
+!        ----------------
+!
+#ifdef _HAS_MPI_
+!$omp single
+errorMessage(STD_OUT)
+stop
+         !call mesh % UpdateMPIFacesSolution
+!$omp end single
+#endif
+!
+!        -----------------
+!        Compute gradients
+!        -----------------
+!
+         if ( computeGradients ) then
+            call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time , BCFunctions(NS_BC) % externalState, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D)
+         end if
+
+#ifdef _HAS_MPI_
+!$omp single
+         if ( flowIsNavierStokes ) then
+errorMessage(STD_OUT)
+stop
+            !call mesh % UpdateMPIFacesGradients
+         end if
+!$omp end single
+#endif
+!
+!        -----------------------
+!        Compute time derivative
+!        -----------------------
+!
+         call TimeDerivative_ComputeQDot(mesh              = mesh , &
+                                         particles         = particles, &
+                                         t                 = time, &
+                                         externalState     = BCFunctions(NS_BC) % externalState, &
+                                         externalGradients = BCFunctions(NS_BC) % externalGradients )
+!
+!        ****************************
+!        Compute the Capilar pressure
+!        ****************************
+!
+!$omp do schedule(runtime) private(e)
+         do eID = 1, mesh % no_of_elements
+            e => mesh % elements(eID) 
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)   ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(IRHOU,i,j,k) =   e % storage % QDot(IRHOU,i,j,k) &
+                                                      + (1.0_RP / (dimensionless % Re * multiphase % Ca)) * e % storage % mu(1,i,j,k) * e % storage % c_x(1,i,j,k)
+               e % storage % QDot(IRHOV,i,j,k) =   e % storage % QDot(IRHOV,i,j,k) &
+                                                      + (1.0_RP / (dimensionless % Re * multiphase % Ca)) * e % storage % mu(1,i,j,k) * e % storage % c_y(1,i,j,k)
+               e % storage % QDot(IRHOW,i,j,k) =   e % storage % QDot(IRHOW,i,j,k) &
+                                                      + (1.0_RP / (dimensionless % Re * multiphase % Ca)) * e % storage % mu(1,i,j,k) * e % storage % c_z(1,i,j,k)
+
+            end do                ; end do                  ; end do
+         end do
+!$omp end parallel
+
+      END SUBROUTINE ComputeTimeDerivative_OnlyNS
 
       subroutine ComputeTimeDerivative_OnlyLinear( mesh, particles, time, BCFunctions)
          IMPLICIT NONE 
@@ -823,33 +915,6 @@ stop
 !$omp single
          call mesh % SetStorageToEqn(2)
 !$omp end single
-!
-!        ***********************************
-!        Compute the concentration advection
-!        ***********************************
-!
-         if ( enable_speed ) then
-!
-!        Perform the stabilization
-!        -------------------------
-         call StabilizeGradients(mesh, time, BCFunctions(C_BC) % externalState)
-!
-!        Add the velocity field
-!        ----------------------
-!$omp do schedule(runtime)
-         do eID = 1, mesh % no_of_elements
-            e => mesh % elements(eID)
-         
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)   ; do i = 0, e % Nxyz(1)
-               e % storage % cDot(1,i,j,k) = e % storage % cDot(1,i,j,k) - (&
-                                   e % storage % QNS(IRHOU,i,j,k) * e % storage % c_x(1,i,j,k) &
-                                 + e % storage % QNS(IRHOV,i,j,k) * e % storage % c_y(1,i,j,k) &
-                                 + e % storage % QNS(IRHOW,i,j,k) * e % storage % c_z(1,i,j,k) &
-                                 ) / e % storage % QNS(IRHO,i,j,k) 
-            end do                ; end do                  ; end do
-         end do
-!$omp end do
-         end if
 !$omp end parallel
 
       end subroutine ComputeTimeDerivative_OnlyNonLinear
@@ -998,10 +1063,7 @@ stop
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  cIn01 = 0.5_RP * (e % storage % c(1,i,j,k) + 1.0_RP)
-                  p = POW3(cIn01) * (6.0_RP * POW2(cIn01) - 15.0_RP * cIn01 + 10.0_RP)
-                  fm =   dimensionless % invFroudeSquare * dimensionless % gravity_dir &
-                       * ((1.0_RP - p) + p * multiphase % densityRatio)
+                  fm =   dimensionless % invFroudeSquare * dimensionless % gravity_dir * e % storage % Q(IRHO,i,j,k)
                   e % storage % QDot(IRHOU:IRHOW,i,j,k) = e % storage % QDot(IRHOU:IRHOW,i,j,k) + fm
                   e % storage % QDot(IRHOE,i,j,k) = e % storage % QDot(IRHOE,i,j,k) &
                     + product(fm * e % storage % Q(IRHOU:IRHOW,i,j,k)) / e % storage % Q(IRHO,i,j,k)
