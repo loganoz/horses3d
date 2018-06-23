@@ -2,11 +2,11 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    main.f90
-!   @Author:  Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jun 20 18:14:45 2018
-!   @Last revision date: Thu Jun 21 11:31:31 2018
-!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 6f0b184bdf6ee850286a3ca324619b2efed40467
+!   @Last revision date: Sat Jun 23 10:20:20 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
 !
 !//////////////////////////////////////////////////////
 !

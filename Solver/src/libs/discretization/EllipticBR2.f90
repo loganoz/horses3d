@@ -4,9 +4,9 @@
 !   @File:    EllipticBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Tue May 29 17:43:57 2018
-!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 3c1e755ecd17ea60f252dec3daa7823c04603dcd
+!   @Last revision date: Sat Jun 23 10:20:22 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
 !
 !//////////////////////////////////////////////////////
 !

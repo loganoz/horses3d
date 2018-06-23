@@ -2,11 +2,11 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    RiemannSolvers_iNS.f90
-!   @Author:  Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:26 2018
-!   @Last revision date: Fri Jun 22 12:58:37 2018
-!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 5fcd2e67947be854342011924f2897ed668cf53a
+!   @Last revision date: Sat Jun 23 10:20:36 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
 !
 !//////////////////////////////////////////////////////
 !
