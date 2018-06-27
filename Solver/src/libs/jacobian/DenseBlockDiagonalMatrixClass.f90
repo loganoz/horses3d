@@ -1,15 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    DenseBlockDiagonalMatrixClass.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
-!   @Created: Sat May 12 20:53:58 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
 !////////////////////////////////////////////////////////////////////////
 !
 !      DenseBlockDiagonalMatrixClass.f90
@@ -27,7 +16,7 @@ module DenseBlockDiagonalMatrixClass
    implicit none
    
    private
-   public DenseBlockDiagMatrix_t, Matrix_t, Block_t
+   public DenseBlockDiagMatrix_t, Matrix_t
    
    type Block_t
       real(kind=RP), allocatable :: Matrix(:,:)

@@ -67,7 +67,7 @@
       type Face
          logical                         :: flat
          integer                         :: ID                       ! face ID
-         integer                         :: FaceType                 ! Type of face: 0 = HMESH_BOUNDARY, 1 = HMESH_INTERIOR
+         integer                         :: FaceType                 ! Type of face: 1 = HMESH_INTERIOR, 2 = HMESH_BOUNDARY, 3 = 2 = HMESH_MPI
          integer                         :: zone                     ! In the case of HMESH_BOUNDARY, which zone it belongs to
          integer                         :: rotation                 ! Relative orientation between faces
          integer                         :: NelLeft(2)               ! Left element face polynomial order

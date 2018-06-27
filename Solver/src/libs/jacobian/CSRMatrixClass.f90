@@ -1,11 +1,15 @@
-!////////////////////////////////////////////////////////////////////////
 !
-!      CSRMatrixClass.f90
-!      Created: 2017-03-21 17:07:00 +0100 
-!      By: Andrés Rueda
+!//////////////////////////////////////////////////////
 !
-!      Class for sparse Compressed Sparse Row (CSR) matrices
-!////////////////////////////////////////////////////////////////////////
+!   @File:    CSRMatrixClass.f90
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
+!   @Created: 
+!   @Last revision date: Wed Jun 27 19:47:26 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 3c862164f7abc59dc50f4554496246f7cc54b803
+!
+!//////////////////////////////////////////////////////
+!
 MODULE CSRMatrixClass
    USE SMConstants          , only: RP    
    use GenericMatrixClass              
@@ -103,16 +107,16 @@ MODULE CSRMatrixClass
 !     Memory allocation
 !     -----------------
       
-      allocate( this % Rows  ( size(Rows)   ), stat=istat )
+      safedeallocate(this % Rows) ; allocate( this % Rows  ( size(Rows)   ), stat=istat )
       if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
       
-      allocate( this % Diag  (this % NumRows), stat=istat )
+      safedeallocate(this % Diag) ; allocate( this % Diag  (this % NumRows), stat=istat )
       if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
       
-      allocate( this % Cols  ( size(Cols)   ), stat=istat )
+      safedeallocate(this % Cols) ; allocate( this % Cols  ( size(Cols)   ), stat=istat )
       if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
       
-      allocate( this % Values( size(Values) ), stat=istat )
+      safedeallocate(this % Values) ; allocate( this % Values( size(Values) ), stat=istat )
       if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
       
       this % NumCols = this % NumRows !The matrix can be a rectangular matrix
@@ -431,6 +435,9 @@ MODULE CSRMatrixClass
       safedeallocate(this % Cols)
       safedeallocate(this % Values)
       safedeallocate(this % Diag)
+      safedeallocate(this % BlockIdx)
+      safedeallocate(this % BlockIdx)
+      safedeallocate(this % BlockSize)
    !----------------------------------------------------------------------------------
    END SUBROUTINE destruct
    !----------------------------------------------------------------------------------

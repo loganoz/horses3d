@@ -17,15 +17,15 @@ module SparseBlockDiagonalMatrixClass
    implicit none
    
    private
-   public SparseBlockDiagMatrix_t, Matrix_t, Block_t
+   public SparseBlockDiagMatrix_t, Matrix_t
    
    type Block_t
       type(csrMat_t)             :: Matrix
       
       ! Pardiso variables
       integer                        :: mtype                              ! Matrix type. See construct
-      integer              , pointer :: Pardiso_iparm(:) => NULL()         ! Parameters for mkl version of pardiso
-      integer(kind=AddrInt), pointer :: Pardiso_pt(:)    => NULL()  
+      integer                        :: Pardiso_iparm(64)          ! Parameters for mkl version of pardiso
+      integer(kind=AddrInt)          :: Pardiso_pt(64)      
       integer      , allocatable     :: Indexes(:)
    end type Block_t
    
@@ -93,8 +93,6 @@ contains
 #ifdef HAS_MKL
       do iBL = 1, dimPrb
          this % Blocks(iBL) % mtype = 11 !Set matrix type to real unsymmetric (change?)
-         allocate(this % Blocks(iBL) % Pardiso_pt   (64))
-         allocate(this % Blocks(iBL) % Pardiso_iparm(64))
       
          call pardisoinit(this % Blocks(iBL) % Pardiso_pt, this % Blocks(iBL) % mtype, this % Blocks(iBL) % Pardiso_iparm)
       end do
@@ -270,12 +268,6 @@ contains
       deallocate (this % BlockSizes)
       deallocate (this % BlockIdx)
       
-#ifdef HAS_MKL
-      do i = 1, this % NumOfBlocks
-         deallocate(this % Blocks(i) % Pardiso_pt)
-         deallocate(this % Blocks(i) % Pardiso_iparm)
-      end do
-#endif
    end subroutine destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -299,7 +291,7 @@ contains
       
 #ifdef HAS_MKL
       
-!$omp parallel do private(x_loc,b_loc) schedule(runtime)
+!$omp parallel do private(x_loc,b_loc,error) schedule(runtime)
       do iBL=1, this % NumOfBlocks
          associate (A      => this       % Blocks(iBL) % Matrix, &
                     CBlock => Factorized % Blocks(iBL)   )
@@ -330,7 +322,7 @@ contains
                         ierror  = error                     )
          
          if (error .NE. 0) then
-            write(*,*) 'MKL Pardiso ERROR:', error
+            write(*,*) 'MKL Pardiso ERROR:', error, 'in factorization of block', iBL
             stop
          end if
          
@@ -363,7 +355,7 @@ contains
       !-------------------------------------------------------------
       
 #ifdef HAS_MKL
-!$omp parallel do private(x_loc) schedule(runtime)
+!$omp parallel do private(x_loc,error) schedule(runtime)
       do iBL = 1, this % NumOfBlocks
          associate (CBlock => this % Blocks(iBL) )
          allocate( x_loc(this % BlockSizes(iBL)) )
@@ -386,7 +378,7 @@ contains
                         ierror  = error                     )
          
          if (error .NE. 0) then
-            write(*,*) 'MKL Pardiso ERROR:', error
+            write(*,*) 'MKL Pardiso ERROR:', error, 'in inversion of block', iBL
             stop
          end if
          
