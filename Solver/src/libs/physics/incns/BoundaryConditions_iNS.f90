@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions_iNS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:25 2018
-!   @Last revision date: Sat Jun 23 10:20:33 2018
+!   @Last revision date: Wed Jun 27 11:11:36 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: eddf722bf052733b407a48854fb8055ce0becbe4
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,22 +21,26 @@ MODULE BoundaryConditionFunctions_iNS
 
    public implementediNSBCNames
    public NoSlipWallState, NoSlipWallNeumann, UserDefinedNeumann, UserDefinedState
+   public FreeSlipWallState, FreeSlipWallNeumann
 
-   CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(3) :: implementediNSBCNames = &
+   CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(5) :: implementediNSBCNames = &
          ["periodic-           ", &
           "periodic+           ", &
-          "noslipwall          "]
+          "user-defined        ", &
+          "noslipwall          ", &
+          "freeslipwall        "]
 
    enum, bind(C)
       enumerator :: PERIODIC_PLUS_INDEX=1, PERIODIC_MINUS_INDEX
-      enumerator :: NOSLIPWALL_INDEX
+      enumerator :: USERDEFINED_INDEX, NOSLIPWALL_INDEX
+      enumerator :: FREESLIPWALL_INDEX
    end enum
 !
 !  ========         
    contains
 !  ========
 ! 
-      SUBROUTINE NoSlipWallState( x, t, Q )
+      SUBROUTINE NoSlipWallState( x, t, nHat, Q )
          IMPLICIT NONE
 !
 !        ---------
@@ -44,6 +48,7 @@ MODULE BoundaryConditionFunctions_iNS
 !        ---------
 !
          REAL(KIND=RP), INTENT(IN)    :: x(3), t
+         real(kind=RP), intent(in)    :: nHat(3)
          REAL(KIND=RP), INTENT(INOUT) :: Q(NINC)
 !
 !        -----------------------------------------------
@@ -58,6 +63,38 @@ MODULE BoundaryConditionFunctions_iNS
          Q(5) =  Q(5)
 
       END SUBROUTINE NoSlipWallState
+
+      SUBROUTINE FreeSlipWallState( x, t, nHat, Q )
+         IMPLICIT NONE
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         REAL(KIND=RP), INTENT(IN)    :: x(3), t
+         real(kind=RP), intent(in)    :: nHat(3)
+         REAL(KIND=RP), INTENT(INOUT) :: Q(NINC)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)  :: vn
+!
+!        -----------------------------------------------
+!        Generate the external flow along the face, that
+!        represents a solid wall.
+!        -----------------------------------------------
+!
+         vn = sum(Q(INSU:INSW)*nHat)
+
+         Q(1) = Q(1)
+         Q(2) = Q(2) - 2.0_RP * vn * nHat(1)
+         Q(3) = Q(3) - 2.0_RP * vn * nHat(2)
+         Q(4) = Q(4) - 2.0_RP * vn * nHat(3)
+         Q(5) = Q(5)
+
+      END SUBROUTINE FreeSlipWallState
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -200,6 +237,8 @@ MODULE BoundaryConditionFunctions_iNS
       select case (trim(boundarytype))
       case("noslipwall")
          call NoSlipWallState(x, t, nHat, Q)
+      case("freeslipwall")
+         call FreeSlipWallState(x, t, nHat, Q)
       case("user-defined")
          call UserDefinedState(x, t, nHat, Q)
       end select
@@ -242,6 +281,8 @@ MODULE BoundaryConditionFunctions_iNS
 
       select case (trim(boundarytype))
       case("noslipwall")
+         call NoSlipWallNeumann(x, t, nHat, U_x, U_y, U_z)
+      case("freeslipwall")
          call NoSlipWallNeumann(x, t, nHat, U_x, U_y, U_z)
       case("user-defined")
          call UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)

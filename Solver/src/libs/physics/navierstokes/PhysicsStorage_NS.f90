@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date: Wed May 30 10:40:42 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 4f8965e46980c4f95aa4ff4c00996b34c42b4b94
+!   @Last revision date: Wed Jun 27 11:11:37 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: eddf722bf052733b407a48854fb8055ce0becbe4
 !
 !//////////////////////////////////////////////////////
 !
@@ -145,13 +145,12 @@
 !    Available averaging functions
 !    -----------------------------
 !
-     integer, parameter :: STANDARD_SPLIT             = 1
-     integer, parameter :: MORINISHI_SPLIT            = 2
-     integer, parameter :: DUCROS_SPLIT               = 3
-     integer, parameter :: KENNEDYGRUBER_SPLIT        = 4
-     integer, parameter :: PIROZZOLI_SPLIT            = 5
-     integer, parameter :: ENTROPYCONS_SPLIT          = 6
-     integer, parameter :: ENTROPYANDENERGYCONS_SPLIT = 7
+     enum, bind(C)
+        enumerator :: STANDARD_SPLIT = 1, MORINISHI_SPLIT
+        enumerator :: DUCROS_SPLIT, KENNEDYGRUBER_SPLIT
+        enumerator :: PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
+        enumerator :: ENTROPYANDENERGYCONS_SPLIT
+     end enum
      integer            :: whichAverage               = -1
 !
 !    -------------------------------------

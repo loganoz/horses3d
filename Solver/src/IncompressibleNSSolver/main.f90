@@ -4,9 +4,9 @@
 !   @File:    main.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jun 20 18:14:45 2018
-!   @Last revision date: Sat Jun 23 10:20:20 2018
+!   @Last revision date: Wed Jun 27 11:11:34 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: eddf722bf052733b407a48854fb8055ce0becbe4
 !
 !//////////////////////////////////////////////////////
 !
@@ -379,7 +379,7 @@ end interface
 
          obj => controlVariables % objectForKey(splitFormKey)
          if ( .not. associated(obj) ) then
-            call controlVariables % addValueForKey("Ducros",splitFormKey)
+            call controlVariables % addValueForKey("Skew-symmetric",splitFormKey)
          end if
 !
 !        Check for inconsistencies in the input variables

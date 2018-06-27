@@ -4,9 +4,9 @@
 !   @File:    RiemannSolvers_iNS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:26 2018
-!   @Last revision date: Sat Jun 23 10:20:36 2018
+!   @Last revision date: Wed Jun 27 11:11:37 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: eddf722bf052733b407a48854fb8055ce0becbe4
 !
 !//////////////////////////////////////////////////////
 !
@@ -95,6 +95,11 @@ module RiemannSolvers_iNS
          case (STANDARD_SPLIT)
             AveragedStates => StandardAverage
             whichAverage = STANDARD_SPLIT
+
+         case (SKEWSYMMETRIC_SPLIT)
+            AveragedStates => StandardAverage
+            whichAverage = STANDARD_SPLIT
+
 
          case default
             print*, "Split form not recognized"

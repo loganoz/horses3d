@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jun 20 18:14:45 2018
-!   @Last revision date: Sat Jun 23 10:20:20 2018
+!   @Last revision date: Wed Jun 27 11:11:34 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: eddf722bf052733b407a48854fb8055ce0becbe4
 !
 !//////////////////////////////////////////////////////
 !
@@ -193,7 +193,12 @@ module SpatialDiscretization
 !        ---------------
 !
          INTEGER :: k
-
+!
+!        Apply a limiter to the density
+!        ------------------------------
+         do k = 1, mesh % no_of_elements
+            call DensityLimiter(mesh % elements(k) % Nxyz, mesh % elements(k) % storage % Q)
+         end do
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -418,6 +423,23 @@ module SpatialDiscretization
 !$omp end do
             endif 
          end if
+!
+!        ***********
+!        Add gravity
+!        ***********
+!
+!$omp do schedule(runtime) private(i,j,k)
+            do eID = 1, size(mesh % elements)
+               associate(e => mesh % elements(eID))
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  e % storage % QDot(INSU:INSW,i,j,k) = e % storage % QDot(INSU:INSW,i,j,k) + &
+                                                        e % storage % Q(INSRHO,i,j,k) * &
+                                    dimensionless % invFroudeSquare * dimensionless % gravity_dir
+
+               end do                ; end do                ; end do
+               end associate
+            end do
+!$omp end do
 !
 !        ******************************************************
 !        Apply the chain rule to get velocities time derivative
@@ -903,6 +925,39 @@ module SpatialDiscretization
          call ViscousDiscretization % ComputeGradient( NINC, NINC, mesh , time , externalStateProcedure, iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D)
 
       end subroutine DGSpatial_ComputeGradient
+
+      subroutine DensityLimiter(N,Q)
+         implicit none
+         integer,       intent(in)    :: N(3)
+         real(kind=RP), intent(inout) :: Q(1:NINC,0:N(1),0:N(2),0:N(3))
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: i, j, k 
+         real(kind=RP) :: rhomin = 1.0_RP, rhomax = 3.0_RP, rhoIn01, p
+
+         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            rhoIn01 = (Q(INSRHO,i,j,k)-rhomin)/(rhomax-rhomin)
+
+            if ( rhoIn01 .ge. 1.0_RP ) then
+               Q(INSRHO,i,j,k) = rhomax
+
+            elseif ( rhoIn01 .le. 0.0_RP ) then
+               Q(INSRHO,i,j,k) = rhomin
+
+            else
+               !p = POW3(rhoIn01)*(6.0_RP*POW2(rhoIn01)-15.0_RP*rhoIn01+10.0_RP)
+               p = rhoIn01
+
+               Q(INSRHO,i,j,k) = (rhomax-rhomin)*p + rhomin
+         
+            end if
+
+         end do         ; end do         ; end do
+
+      end subroutine DensityLimiter
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !

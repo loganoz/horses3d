@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_iNS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:26 2018
-!   @Last revision date: Sat Jun 23 10:20:35 2018
+!   @Last revision date: Wed Jun 27 11:11:36 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: eddf722bf052733b407a48854fb8055ce0becbe4
 !
 !//////////////////////////////////////////////////////
 !
@@ -58,7 +58,7 @@
      public    INSRHO, INSU, INSV, INSW, INSP
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_CENTRAL, RIEMANN_LXF, RIEMANN_EXACT
-     public    STANDARD_SPLIT
+     public    STANDARD_SPLIT, SKEWSYMMETRIC_SPLIT
       
      public    ConstructPhysicsStorage_iNS, DestructPhysicsStorage_iNS, DescribePhysicsStorage_iNS
      public    CheckPhysics_iNSInputIntegrity
@@ -97,8 +97,8 @@
 !    -----------------------------
 !
      enum, bind(C)
-        enumerator :: STANDARD_SPLIT = 1
-     end enum 
+        enumerator :: STANDARD_SPLIT = 1, SKEWSYMMETRIC_SPLIT
+     end enum
      integer            :: whichAverage               = -1
 !
 !    -------------------------------------

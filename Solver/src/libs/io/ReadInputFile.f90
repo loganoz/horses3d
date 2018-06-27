@@ -301,7 +301,7 @@
 
 
          write(fid,'(/,A)') "!-------------------- Boundary conditions:-"
-         write(fid,'(A40,A,A)') "Number of boundary conditions", " = ", "8"
+         write(fid,'(A40,A,A)') "Number of boundaries", " = ", "8"
          write(fid,'(A,1X,A,1X,A)') "bname1", "0.0", "freeslipwall"
          write(fid,'(A,1X,A,1X,A)') "bname2", "0.0", "noslipadiabaticwall"
          write(fid,'(A,1X,A,1X,A)') "bname3", "0.0", "noslipisothermalwall"
