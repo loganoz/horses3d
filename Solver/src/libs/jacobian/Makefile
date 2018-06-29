@@ -33,16 +33,16 @@ LIBOBJS_CH = 	./build_ch/ColorsClass.o \
 			    ./build_ch/MatrixClass.o \
 				./build_ch/NumericalJacobian.o
 
-LIBOBJS_NSCH = 	./build_mu/ColorsClass.o \
-				./build_mu/Jacobian.o \
-					./build_mu/GenericMatrixClass.o \
-			    ./build_mu/LinkedListMatrixClass.o \
-			    ./build_mu/CSRMatrixClass.o \
-			    ./build_mu/PETScMatrixClass.o \
-			    ./build_mu/DenseBlockDiagonalMatrixClass.o \
-			    ./build_mu/SparseBlockDiagonalMatrixClass.o \
-			    ./build_mu/MatrixClass.o \
-				./build_mu/NumericalJacobian.o
+LIBOBJS_NSCH = 	./build_nsch/ColorsClass.o \
+				./build_nsch/Jacobian.o \
+					./build_nsch/GenericMatrixClass.o \
+			    ./build_nsch/LinkedListMatrixClass.o \
+			    ./build_nsch/CSRMatrixClass.o \
+			    ./build_nsch/PETScMatrixClass.o \
+			    ./build_nsch/DenseBlockDiagonalMatrixClass.o \
+			    ./build_nsch/SparseBlockDiagonalMatrixClass.o \
+			    ./build_nsch/MatrixClass.o \
+				./build_nsch/NumericalJacobian.o
 
 
 LIB = jacobian
