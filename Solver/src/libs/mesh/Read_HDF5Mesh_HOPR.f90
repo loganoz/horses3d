@@ -2,11 +2,13 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    ReadHDF5Mesh.f90
-!   @Author:  Andrés Rueda (a.rueda@upm.es)
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Tue Jan 23 16:27:53 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d97cdbe19b7a3be3cd0c8a1f01343de8c1714260
+!   @Last revision date: Fri Jun 29 12:25:04 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: f5ac1c3af6cb286f8def57452c066d57412a133b
+!
+!//////////////////////////////////////////////////////
 !
 !  Module or reading HDF5 meshes as written by HOPR
 !  -> Only for hexahedral conforming meshes
@@ -383,7 +385,6 @@ contains
 !     -------------------------------
 !
       if ( dir2D .ne. 0 ) then
-         self % meshIs2D = .TRUE.
          call SetMappingsToCrossProduct
          call self % CorrectOrderFor2DMesh(dir2D)
       end if

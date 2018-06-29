@@ -14,13 +14,10 @@ module NumericalJacobian
    use HexMeshClass
    use DGSEMClass
    use ElementClass
-   use Jacobian
+   use Jacobian,  only: JACEPS, local2ijk, Look_for_neighbour
    use PhysicsStorage
    use Utilities, only: Qsort
    implicit none
-   
-   real(kind=RP), parameter :: jaceps=1e-8_RP ! Minimum value of a Jacobian entry (smaller values are considered as 0._RP)
-   
    
    type(Neighbour),allocatable :: nbr(:)  ! Neighbors information
    type(Colors)                :: ecolors
@@ -71,8 +68,6 @@ contains
 !     Initialize variables that will be used throughout all the simulation
 !     --------------------------------------------------------------------
 !
-      
-print*, "Starting to construct num jac"
       IF (isfirst) call Stopwatch % CreateNewEvent("Numerical Jacobian construction")
       call Stopwatch % Start("Numerical Jacobian construction")
       
@@ -164,7 +159,10 @@ print*, "Starting to construct num jac"
             END DO
          END DO
          
-         ! All initializarions done!
+         allocate(Q0(size(sem % mesh % storage % Q)))
+         allocate(QDot0(size(sem % mesh % storage % QDot)))
+         
+         ! All initializations done!
          isfirst = .FALSE.
       END IF
 !
@@ -192,21 +190,18 @@ print*, "Starting to construct num jac"
             call Matrix_p % Preallocate(nnzs=ndofelm) ! Constructing with block size
             CALL Matrix % Reset
          type is(CSRMat_t)
-            call GetRowsAndColsVector(sem, nEqn, Matrix_p % numRows, totalnnz, firstIdx, rows, cols, diag)
-            call Matrix_p % PreAllocateWithStructure(totalnnz, rows, cols, diag) 
-
+!~             call GetRowsAndColsVector(sem, nEqn, Matrix_p % numRows, totalnnz, firstIdx, rows, cols, diag)
+!~             call Matrix_p % PreAllocateWithStructure(totalnnz, rows, cols, diag) 
+            call Matrix_p % Preallocate
          class default ! Construct with nonzeros in each row
             call Matrix % Preallocate(nnz)
             CALL Matrix % Reset
       end select
-print*, "Starting to compute the numerical Jacobian!"
       
       CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions )
 !
 !     Save base state in Q0 and QDot0
 !     -------------------------------
-      allocate(Q0(size(sem % mesh % storage % Q)))
-      allocate(QDot0(size(sem % mesh % storage % QDot)))
 
 #if defined(CAHNHILLIARD)
       call sem % mesh % SetStorageToEqn(2)

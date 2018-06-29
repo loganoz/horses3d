@@ -49,8 +49,8 @@ module Utilities
       pure function GreatestCommonDivisor(a,b) result(c)
          implicit none
          !-arguments-------------------------------------
-         integer, value   :: a, b
-         integer          :: c
+         integer, intent(in) :: a, b
+         integer             :: c
          !-local-variables-------------------------------
          integer          :: a1, b1, c1
          !-----------------------------------------------

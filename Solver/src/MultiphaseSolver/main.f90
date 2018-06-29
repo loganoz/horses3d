@@ -4,9 +4,9 @@
 !   @File:    HORSES3DMain.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Mon Jun  4 18:05:51 2018
-!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 2355abaef579817f771ad9146d80ed4a4e10e404
+!   @Last revision date: Fri Jun 29 15:54:12 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 5a58027d1f8c132d3c17f35fb4b996d18a394da6
 !
 !//////////////////////////////////////////////////////
 !
@@ -42,6 +42,8 @@
       use NodalStorageClass
       use ManufacturedSolutions
       use FluidData
+      use FileReadingUtilities, only: getFileName
+      use FileReaders         , only: ReadControlFile
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -90,11 +92,6 @@ interface
       SUBROUTINE UserDefinedTermination
          IMPLICIT NONE  
       END SUBROUTINE UserDefinedTermination
-      character(len=LINE_LENGTH) function getFileName(inputLine)
-         use SMConstants
-         implicit none
-         character(len=*)    :: inputLine
-      end function getFileName
 end interface
 
       TYPE( FTValueDictionary)   :: controlVariables
@@ -143,7 +140,7 @@ end interface
       CALL UserDefinedStartup
       CALL ConstructSharedBCModule
       
-      CALL ReadInputFile( controlVariables )
+      CALL ReadControlFile( controlVariables )
       CALL CheckInputIntegrity(controlVariables, success)
       IF(.NOT. success)   ERROR STOP "Control file reading error"
       

@@ -1,9 +1,14 @@
 !
-!////////////////////////////////////////////////////////////////////////
+!//////////////////////////////////////////////////////
 !
-!      pAdaptationClass.f90
-!      Created: December 10, 2017 at 12:56 PM 
-!      By: Andrés Rueda
+!   @File:    pAdaptationClass.f90
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
+!   @Created: Sun Dec 10 12:57:00 2017
+!   @Last revision date: Thu Jun 28 12:32:09 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 7c1c79ae7a2fb27cc91007b85ab7d5e325e4684c
+!
+!//////////////////////////////////////////////////////
 !
 !      Class cotaining routines for adapting polynomial orders.
 !        -> Currently, the adaptation procedure is only performed with  
@@ -16,19 +21,20 @@
 !
 module pAdaptationClass
    use SMConstants
-   use InterpolationMatrices  , only: Tset, Interp3DArrays, ConstructInterpolationMatrices
-   use PhysicsStorage         , only: NTOTALVARS
-   use FaceClass              , only: Face
+   use InterpolationMatrices           , only: Interp3DArrays, ConstructInterpolationMatrices
+   use PhysicsStorage                  , only: NTOTALVARS
+   use FaceClass                       , only: Face
    use ElementClass
-   use DGSEMClass             , only: DGSem, BCFunctions_t, BCState_FCN, BCGradients_FCN, ComputeQdot_FCN, no_of_BCsets
+   use DGSEMClass                      , only: DGSem, BCFunctions_t, BCState_FCN, BCGradients_FCN, ComputeQdot_FCN, no_of_BCsets
    use TruncationErrorClass
-   use FTValueDictionaryClass , only: FTValueDictionary
+   use FTValueDictionaryClass          , only: FTValueDictionary
    use StorageClass
-   use SharedBCModule         , only: conformingBoundariesDic
-   use FileReadingUtilities , only: RemovePath, getFileName, getArrayFromString
-   use FileReaders          , only: ReadOrderFile
-   use ParamfileRegions     , only: readValueInRegion, getSquashedLine
-   use HexMeshClass         , only: HexMesh
+   use SharedBCModule                  , only: conformingBoundariesDic
+   use FileReadingUtilities            , only: RemovePath, getFileName, getArrayFromString
+   use FileReaders                     , only: ReadOrderFile
+   use ParamfileRegions                , only: readValueInRegion, getSquashedLine
+   use HexMeshClass                    , only: HexMesh
+   use ElementConnectivityDefinitions  , only: neighborFaces
 #if defined(CAHNHILLIARD)
    use BoundaryConditionFunctions, only: C_BC, MU_BC
 #endif
@@ -73,30 +79,41 @@ module pAdaptationClass
       type(overenriching_t)  , allocatable :: overenriching(:)
       
       contains
-         procedure :: construct => ConstructPAdaptator
-         procedure :: destruct  => DestructPAdaptator
+         procedure :: construct => pAdaptation_Construct
+         procedure :: destruct  => pAdaptation_Destruct
 !~         procedure :: plot      => AdaptationPlotting
          procedure :: pAdaptTE
    end type pAdaptation_t
+!
+!  ----------
+!  Interfaces
+!  ----------
+!   
+   abstract interface
+      pure integer function OrderAcrossFace_f(a)
+         integer, intent(in) :: a
+      end function
+   end interface
 !
 !  ----------------
 !  Module variables
 !  ----------------
 !
-   integer    :: NMIN = 1
+   integer    :: NMIN    = 1
+   integer    :: NMINest = 1     ! Minimum polynomil order used for estimation 
    integer    :: NInc_0 = 4
 !!    integer               :: dN_Inc = 3 
    integer    :: fN_Inc = 2
    integer    :: NInc
    integer    :: nelem           ! number of elements in mesh
-   
    logical    :: reorganize_z
    
+   procedure(OrderAcrossFace_f), pointer :: GetOrderAcrossFace
 #if defined(NAVIERSTOKES)
    procedure(BCState_FCN)       :: externalStateForBoundaryName_NS
    procedure(BCGradients_FCN)   :: ExternalGradientForBoundaryName_NS
 #elif defined(CAHNHILLIARD)
-   procedure(BCState_FCN)   :: externalStateForBoundaryName
+   procedure(BCState_FCN)       :: externalStateForBoundaryName
    procedure(BCGradients_FCN)   :: ExternalChemicalPotentialGradientForBoundaryName
    procedure(BCGradients_FCN)   :: ExternalConcentrationGradientForBoundaryName
 #endif
@@ -368,7 +385,7 @@ readloop:do
 !  Routine for constructing the p-adaptator.
 !   -> If increasing (multi-stage) adaptation is selected, the final step is to rewrite the polynomial orders for the sem contruction
 !  ----------------------------------------
-   subroutine ConstructPAdaptator(this,Nx,Ny,Nz,controlVariables)
+   subroutine pAdaptation_Construct(this,Nx,Ny,Nz,controlVariables)
       implicit none
       !--------------------------------------
       class(pAdaptation_t)                :: this             !>  P-Adaptator
@@ -452,8 +469,9 @@ readloop:do
       allocate (this % TE(nelem))
       
 !
-!     If this is a p-anisotropic 3D case, the minimum polynomial order is 2
-!     ---------------------------------------------------------------------
+!     Read the minimum polynomial order after adaptation
+!     -> If this is a p-nonconforming 3D case, it should be 2
+!     -------------------------------------------------------
       
       if ( controlVariables % containsKey("adaptation nmin") ) then
          NMIN = controlVariables % integerValueForKey("adaptation nmin")
@@ -462,7 +480,7 @@ readloop:do
       end if
       
       do i = 1, nelem
-         call this % TE(i) % construct(NMIN,this % NxyzMax)
+         call this % TE(i) % construct(NMINest,this % NxyzMax)
       end do
       
       
@@ -478,6 +496,15 @@ readloop:do
             call this % overenriching(i) % initialize (i)
          end do
       end if
+      
+!     Select the function for limiting the order across faces
+!     *******************************************************
+      select case ( trim ( controlVariables % stringValueForKey("order across faces", requestedLength = LINE_LENGTH) ) )
+         case ("N*2/3")
+            GetOrderAcrossFace => NumberN23
+         case default
+            GetOrderAcrossFace => NumberN_1
+      end select
 !
 !     ---------------------------------------------
 !     If increasing adaptation is selected, rewrite
@@ -494,14 +521,14 @@ readloop:do
 !$omp end parallel do
       end if
       
-   end subroutine ConstructPAdaptator
+   end subroutine pAdaptation_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ----------------------------------------
 !  Routine for destructing the p-adaptator
 !  ----------------------------------------
-   subroutine DestructPAdaptator(this)
+   subroutine pAdaptation_Destruct(this)
       implicit none
       !--------------------------------------
       class(pAdaptation_t) :: this
@@ -515,7 +542,7 @@ readloop:do
       end do
       
       deallocate (this % TE)
-   end subroutine DestructPAdaptator
+   end subroutine pAdaptation_Destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -613,7 +640,7 @@ readloop:do
 !     Estimate the truncation error using the anisotropic multigrid
 !     -------------------------------------------------------------
 !
-      CALL AnisFASpAdaptSolver % construct(controlVariables,sem,estimator=.TRUE.,NMINestim = NMIN)
+      CALL AnisFASpAdaptSolver % construct(controlVariables,sem,estimator=.TRUE.,NMINestim = NMINest)
       CALL AnisFASpAdaptSolver % solve(itera,t,computeTimeDerivative,ComputeTimeDerivativeIsolated,pAdapt % TE, pAdapt % TruncErrorType)
       CALL AnisFASpAdaptSolver % destruct
 !
@@ -921,13 +948,12 @@ readloop:do
 !  Subroutine to make the p-representation on certain boundaries conforming
 !  -----------------------------------------------------------------------
    subroutine makeBoundariesPConforming(mesh,NNew,last)
-      use ElementConnectivityDefinitions
       implicit none
-      !------------------------------------------------------------
+      !-arguments--------------------------------------------------
       type(HexMesh), intent(in)    :: mesh
       integer      , intent(inout) :: NNew (:,:)
       logical :: last
-      !------------------------------------------------------------
+      !-local-variables--------------------------------------------
       integer :: zoneID    ! Zone counters
       integer :: fID       ! Index of face on boundary (in partition)
       integer :: fIdx      ! Index of face on boundary (in zone)
@@ -938,7 +964,17 @@ readloop:do
       logical :: finalsweep
       character(len=LINE_LENGTH), allocatable :: boundaryNames(:)
       !------------------------------------------------------------
-      
+      ! New definition of neighborFaces in order to consider the face
+      ! that is not in contact with the boundary. In order to disable, 
+      ! just comment the following
+      integer, parameter :: neighborFaces(5,6) = reshape (  (/ 2, 3, 4, 5, 6, &
+                                                               3, 4, 5, 6, 1, &
+                                                               1, 2, 4, 5, 6, &
+                                                               1, 2, 3, 5, 6, &
+                                                               1, 2, 3, 4, 6, &
+                                                               1, 2, 3, 4, 5 /) , (/5,6/) )
+      !------------------------------------------------------------
+
       allocate ( boundaryNames( conformingBoundariesDic % COUNT() )  ) 
       boundaryNames = conformingBoundariesDic % allKeys()
       
@@ -970,7 +1006,7 @@ readloop:do
                eSide = mesh % faces(fID) % elementSide(1)
                
                ! loop over the faces that are shares between boundary elements
-               do f_conf = 1, 4
+               do f_conf = 1, size(neighborFaces,1)
                   
                   associate (f => mesh % faces ( mesh % elements(eID) % faceIDs (neighborFaces(f_conf,eSide) ) ) )
                   
@@ -1037,7 +1073,9 @@ readloop:do
       end do
       
    end subroutine ReorganizePolOrders
-   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    subroutine AdjustPAcrossFace(f,NNew,OrderAcrossFace,same,z_dir)
       implicit none
       !-arguments--------------------------------------------
@@ -1046,11 +1084,7 @@ readloop:do
       logical                   :: same   !<> Returns false if the function changes a polynomial order
       logical   , optional      :: z_dir
       !------------------------------------------------------
-      interface
-         integer function OrderAcrossFace(a)
-            integer :: a
-         end function
-      end interface
+      procedure(OrderAcrossFace_f) :: OrderAcrossFace
       !-local-variables--------------------------------------
       integer :: eIDL            ! Element ID on the left
       integer :: eIDR            ! Element ID on the right
@@ -1116,7 +1150,7 @@ readloop:do
          NL = NNew(indZL,eIDL) 
          NR = NNew(indZR,eIDR) 
                 
-         if (MIN(NL,NR) < GetOrderAcrossFace(MAX(NL,NR))) then 
+         if (MIN(NL,NR) < OrderAcrossFace(MAX(NL,NR))) then 
             same = .FALSE. 
             if (NL<NR) then 
                NNew(indZL,eIDL) = OrderAcrossFace(NR) 
@@ -1129,17 +1163,38 @@ readloop:do
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  -------------------------------------------------------------------------------------
-!  Subroutine to specify the minimum polynomial order of an element, when the element
-!  accross the face is of order a. I.e., we specify the allowed jump of polynomial order
-!  across a face.
-!  -------------------------------------------------------------------------------------
-   integer function GetOrderAcrossFace(a)
-      integer :: a
+!  Subroutines to specify the maximum polynomial order jump across a face
+!  The element accross the face is of order a
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   pure integer function NumberN_1(a)
+      implicit none
+      integer, intent(in) :: a
       
-      !GetOrderAcrossFace = (a*2)/3
-      GetOrderAcrossFace = a-1
-   end function GetOrderAcrossFace
+      NumberN_1 = a-1
+   end function NumberN_1
+! 
+!/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+! 
+   pure integer function NumberN23(a)
+      implicit none
+      integer, intent(in) :: a
+      
+      NumberN23 = (a*2)/3
+   end function NumberN23
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -------------------------------------------------------------------------------------
+   pure integer function SameNumber(a)
+      implicit none
+      integer, intent(in) :: a
+      
+      SameNumber = a
+   end function SameNumber
+   
+   
 ! 
 !/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
 ! 
@@ -1155,16 +1210,6 @@ readloop:do
       end if 
        
    end function 
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!  -------------------------------------------------------------------------------------
-   integer function SameNumber(a)
-      implicit none
-      integer :: a
-      
-      SameNumber = a
-   end function SameNumber
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1186,8 +1231,8 @@ readloop:do
       integer                    :: iEl
       !---------------------------------------
       
-      real(kind=RP)              :: x   (P_1-NMIN+1)
-      real(kind=RP)              :: y   (P_1-NMIN+1)
+      real(kind=RP)              :: x   (P_1-NMINest+1)
+      real(kind=RP)              :: y   (P_1-NMINest+1)
       integer                    :: N
       integer                    :: i
       real(kind=RP)              :: C,eta,r             ! Regression variables
@@ -1200,15 +1245,15 @@ readloop:do
       notenough = .FALSE.
       
       ! Check if there are enough points for regression
-      if (P_1 < NMIN + 1) then
+      if (P_1 < NMINest + 1) then
          notenough = .TRUE.
          return
       end if
       
       ! Perform regression analysis   
-      N = P_1 - NMIN + 1
-      y = LOG10(Adaptator % TE(iEl) % Dir(Dir) % maxTE (NMIN:P_1))
-      x = (/ (real(i,RP), i=NMIN,P_1) /)
+      N = P_1 - NMINest + 1
+      y = LOG10(Adaptator % TE(iEl) % Dir(Dir) % maxTE (NMINest:P_1))
+      x = (/ (real(i,RP), i=NMINest,P_1) /)
       call C_and_eta_estimation(N,x,y,C,eta,r)
       
       ! Extrapolate the TE

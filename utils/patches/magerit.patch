@@ -1,32 +1,3 @@
-diff --git a/Solver/src/NavierStokesSolver/SpatialDiscretization.f90 b/Solver/src/NavierStokesSolver/SpatialDiscretization.f90
-index 72fb172..2ad9568 100644
---- a/Solver/src/NavierStokesSolver/SpatialDiscretization.f90
-+++ b/Solver/src/NavierStokesSolver/SpatialDiscretization.f90
-@@ -72,9 +72,9 @@ module SpatialDiscretization
-          end subroutine UserDefinedSourceTerm
-       end interface
- 
--      procedure(computeElementInterfaceFluxF), pointer :: computeElementInterfaceFlux => computeElementInterfaceFlux_NS
--      procedure(computeMPIFaceFluxF),          pointer :: computeMPIFaceFlux          => computeMPIFaceFlux_NS
--      procedure(computeBoundaryFluxF),         pointer :: computeBoundaryFlux         => computeBoundaryFlux_NS
-+      procedure(computeElementInterfaceFluxF), pointer :: computeElementInterfaceFlux
-+      procedure(computeMPIFaceFluxF),          pointer :: computeMPIFaceFlux
-+      procedure(computeBoundaryFluxF),         pointer :: computeBoundaryFlux
- 
- !
- !     ========      
-@@ -184,7 +184,10 @@ module SpatialDiscretization
-                computeElementInterfaceFlux => computeElementInterfaceFlux_SVV
-                computeMPIFaceFlux          => computeMPIFaceFlux_SVV
-                computeBoundaryFlux         => computeBoundaryFlux_SVV
--
-+            else
-+               computeElementInterfaceFlux => computeElementInterfaceFlux_NS
-+               computeMPIFaceFlux          => computeMPIFaceFlux_NS
-+               computeBoundaryFlux         => computeBoundaryFlux_NS
-             end if
-          end if
-          
 diff --git a/Solver/src/libs/ftobject/TestSuiteManagerClass.f90 b/Solver/src/libs/ftobject/TestSuiteManagerClass.f90
 index a26ea4e..54c8162 100644
 --- a/Solver/src/libs/ftobject/TestSuiteManagerClass.f90
@@ -47,16 +18,3 @@ index a26ea4e..54c8162 100644
 -      END Module TestSuiteManagerClass    
 \ No newline at end of file
 +      END Module TestSuiteManagerClass    
-diff --git a/Solver/src/libs/mesh/WallDistance.f90 b/Solver/src/libs/mesh/WallDistance.f90
-index 5bb992d..b72b1b1 100644
---- a/Solver/src/libs/mesh/WallDistance.f90
-+++ b/Solver/src/libs/mesh/WallDistance.f90
-@@ -83,7 +83,7 @@ module WallDistance
- !
- !  Choose the Davidon-Fletcher-Powell formula
- !  ------------------------------------------
--   procedure(HE_F), pointer :: HessianEstimation => HessianEstimation_DFP   
-+!   procedure(HE_F), pointer :: HessianEstimation => HessianEstimation_DFP   
- 
-    contains
-       subroutine ComputeWallDistance(xP, Nf, xf, spAf, xSeed, d, xi_Wall, RC) 

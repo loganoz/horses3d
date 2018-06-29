@@ -23,7 +23,7 @@ module AnalyticalJacobian
    use NodalStorageClass
    use PhysicsStorage
    use Physics
-   use Jacobian
+   use Jacobian, only: JACEPS
    use MatrixClass
    use DGSEMClass
    use StopWatchClass
@@ -33,13 +33,6 @@ module AnalyticalJacobian
    
    private
    public AnalyticalJacobian_Compute
-   
-!
-!  ----------
-!  Parameters
-!  ----------
-!
-   real(kind=RP), parameter :: jaceps = 1.e-8_RP ! Minimum value of a Jacobian entry (smaller values are considered as 0._RP)
    
    ! Variables to be moved to Jacobian Storage
    integer, allocatable :: ndofelm(:)
@@ -106,9 +99,11 @@ contains
 !
       select type(Matrix_p => Matrix)
 !
-!        If block-diagonal matrix, construct with number of blocks
-!        ----------------------------------------------------------
+!        If block-diagonal matrix, construct with size of blocks
+!        -------------------------------------------------------
          type is(DenseBlockDiagMatrix_t)
+            call Matrix_p % Preallocate(nnzs=ndofelm)
+         type is(SparseBlockDiagMatrix_t)
             call Matrix_p % Preallocate(nnzs=ndofelm)
 !
 !        Otherwise, construct with nonzeros in each row
@@ -203,7 +198,7 @@ contains
 !$omp do schedule(runtime)
       do eID = 1, size(mesh % elements)
          associate (e=> mesh % elements(eID))
-         call computeBlock(e,mesh,Matrix)
+         call Local_SetDiagonalBlock( e, Matrix )
          end associate
       end do
 !$omp end do
@@ -473,37 +468,19 @@ contains
       
    end subroutine ExternalStateJacobian
 !
-!//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   subroutine ComputeBlock(e,mesh,Matrix)
-      implicit none
-      !-------------------------------------
-      type(Element)  , intent(inout) :: e
-      type(HexMesh)  , intent(in)    :: mesh
-      class(Matrix_t), intent(inout) :: Matrix
-      !-------------------------------------
-      real(kind=RP) :: LocalMat(ndofelm(e % eID),ndofelm(e % eID))
-      !-------------------------------------
-      
-      call Local_GetDiagonalBlock(e, LocalMat )
-      
-      ! Dump to mat
-      call Matrix % SetDiagonalBlock(e % eID,LocalMat)
-      
-   end subroutine ComputeBlock
-!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  -----------------------------------------------------------------------------------------------
-!  
-!  -----------------------------------------------------------------------------------------------
-   subroutine Local_GetDiagonalBlock(e,LocalMat)
+!  --------------------------------------------------
+!  Subroutine to set a diagonal block in the Jacobian
+!  --------------------------------------------------
+   subroutine Local_SetDiagonalBlock(e,Matrix)
       use HyperbolicDiscretizations
       implicit none
       !-------------------------------------------
-      type(Element), intent(inout) :: e
-      real(kind=RP), intent(inout) :: LocalMat(ndofelm(e % eID),ndofelm(e % eID))
+      type(Element)  , intent(inout) :: e
+      class(Matrix_t), intent(inout) :: Matrix
       !-------------------------------------------
+      real(kind=RP) :: MatrixEntry
       real(kind=RP) :: dFdQ      (NCONS,NCONS,     0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3),NDIM)
       real(kind=RP) :: dF_dgradQ (NCONS,NCONS,NDIM,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3),NDIM)
       integer :: i, j             ! Matrix indices
@@ -528,7 +505,7 @@ contains
       call HyperbolicDiscretization % ComputeInnerFluxJacobian( e, dFdQ) 
       if (flowIsNavierStokes) call ViscousDiscretization % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
       
-      LocalMat = 0._RP
+      call Matrix % ResetBlock(e % GlobID,e % GlobID)
       do k2 = 0, e % Nxyz(3) ; do j2 = 0, e % Nxyz(2) ; do i2 = 0, e % Nxyz(1) ; do eq2 = 1, NCONS 
          do k1 = 0, e % Nxyz(3) ; do j1 = 0, e % Nxyz(2) ; do i1 = 0, e % Nxyz(1) ; do eq1 = 1, NCONS 
             Deltas = 0
@@ -559,7 +536,8 @@ contains
             i = eq1 + i1*NCONS + j1*EtaSpa + k1*ZetaSpa ! row index (1-based)
             j = eq2 + i2*NCONS + j2*EtaSpa + k2*ZetaSpa ! column index (1-based)
             
-            LocalMat(i,j) = &
+            
+            MatrixEntry = &
             
 !           Volumetric contribution (inner fluxes)
 !           **************************************
@@ -575,6 +553,8 @@ contains
                             -   e % storage % dfdq_ri(eq1,eq2,j1,k1) * e % spAXi  % b(i1,RIGHT ) * e % spAXi  % v(i2,RIGHT ) * dj * dk   & ! 4 Right
                             -   e % storage % dfdq_le(eq1,eq2,j1,k1) * e % spAXi  % b(i1,LEFT  ) * e % spAXi  % v(i2,LEFT  ) * dj * dk ) & ! 6 Left
                                                                                        * e % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
+            
+            call Matrix % SetBlockEntry (e % GlobID, e % GlobID, i, j, MatrixEntry)
             
          end do                ; end do                ; end do                ; end do
       end do                ; end do                ; end do                ; end do
@@ -615,7 +595,7 @@ contains
                i = eq1 + i1*NCONS + j1*EtaSpa + k1*ZetaSpa ! row index (1-based)
                j = eq2 + i2*NCONS + j2*EtaSpa + k2*ZetaSpa ! column index (1-based)
                
-               LocalMat(i,j) = LocalMat(i,j) &
+               MatrixEntry = &
 !
 !              Volumetric contribution (inner fluxes)
 !              **************************************
@@ -702,10 +682,12 @@ contains
                    +   e % storage % dfdGradQ_le(eq1,eq2,3,2,j1,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,LEFT  ) * dj   & ! Zeta
                                                                                 ) * e % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
                
+               call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatrixEntry)
+               
             end do                ; end do                ; end do                ; end do
          end do                ; end do                ; end do                ; end do
       end if
-   end subroutine Local_GetDiagonalBlock
+   end subroutine Local_SetDiagonalBlock
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
