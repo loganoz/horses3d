@@ -56,5 +56,6 @@
          INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
 
          CHARACTER(len=*), parameter   :: VERSION = "v0.8.8: Added routines for computing the analytical Jacobian of NS."
+         character(len=LINE_LENGTH)    :: solver
          
       END MODULE SMConstants

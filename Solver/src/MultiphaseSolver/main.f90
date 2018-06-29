@@ -1,4 +1,16 @@
 !
+!//////////////////////////////////////////////////////
+!
+!   @File:    HORSES3DMain.f90
+!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Created: Tue Apr 24 17:10:06 2018
+!   @Last revision date: Mon Jun  4 18:05:51 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 2355abaef579817f771ad9146d80ed4a4e10e404
+!
+!//////////////////////////////////////////////////////
+!
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      HORSES3DMain.f90
@@ -26,12 +38,10 @@
       use StopwatchClass
       use MPI_Process_Info
       use SpatialDiscretization
-      use pAdaptationClass          , only: GetMeshPolynomialOrders
+      use pAdaptationClass
       use NodalStorageClass
       use ManufacturedSolutions
       use FluidData
-      use FileReaders               , only: ReadControlFile 
-      use FileReadingUtilities      , only: getFileName
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -80,27 +90,35 @@ interface
       SUBROUTINE UserDefinedTermination
          IMPLICIT NONE  
       END SUBROUTINE UserDefinedTermination
+      character(len=LINE_LENGTH) function getFileName(inputLine)
+         use SMConstants
+         implicit none
+         character(len=*)    :: inputLine
+      end function getFileName
 end interface
 
-      TYPE( FTValueDictionary)            :: controlVariables
-      TYPE( DGSem )                       :: sem
-      TYPE( TimeIntegrator_t )            :: timeIntegrator
+      TYPE( FTValueDictionary)   :: controlVariables
+      TYPE( DGSem )              :: sem
+      TYPE( TimeIntegrator_t )   :: timeIntegrator
       
-      LOGICAL                             :: success, saveGradients
-      integer                             :: initial_iteration
-      INTEGER                             :: ierr
-      real(kind=RP)                       :: initial_time
-      type(BCFunctions_t)                 :: BCFunctions(1)
-      procedure(BCState_FCN)              :: externalStateForBoundaryName_NS
-      procedure(BCGradients_FCN)          :: ExternalGradientForBoundaryName_NS
-      character(len=LINE_LENGTH)          :: solutionFileName
+      LOGICAL                    :: success, saveGradients
+      integer                    :: initial_iteration
+      INTEGER                    :: ierr
+      real(kind=RP)              :: initial_time
+      type(BCFunctions_t)        :: BCFunctions(3)
+      procedure(BCState_FCN)     :: externalStateForBoundaryName_NS
+      procedure(BCGradients_FCN) :: ExternalGradientForBoundaryName_NS
+      procedure(BCState_FCN)     :: externalCHStateForBoundaryName
+      procedure(BCGradients_FCN) :: ExternalConcentrationGradientForBoundaryName
+      procedure(BCGradients_FCN) :: ExternalChemicalPotentialGradientForBoundaryName
+      character(len=LINE_LENGTH) :: solutionFileName
       
       ! For pAdaptation
-      integer, allocatable                :: Nx(:), Ny(:), Nz(:)
-      integer                             :: Nmax
-      type(pAdaptation_t)                 :: pAdaptator
+      integer, allocatable       :: Nx(:), Ny(:), Nz(:)
+      integer                    :: Nmax
+      type(pAdaptation_t)        :: pAdaptator
 
-      solver = "navier-stokes"
+      solver = "multiphase"
 !
 !     ---------------
 !     Initializations
@@ -114,10 +132,10 @@ end interface
 !     ----------------------------------------------------------------------------------
 !
       if ( MPI_Process % doMPIAction ) then
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Multiphase Solver",__DATE__,__TIME__)
 
       else
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Multiphase Solver",__DATE__,__TIME__)
 
       end if
 
@@ -125,7 +143,7 @@ end interface
       CALL UserDefinedStartup
       CALL ConstructSharedBCModule
       
-      CALL ReadControlFile( controlVariables )
+      CALL ReadInputFile( controlVariables )
       CALL CheckInputIntegrity(controlVariables, success)
       IF(.NOT. success)   ERROR STOP "Control file reading error"
       
@@ -148,8 +166,14 @@ end interface
       call InitializeNodalStorage(Nmax)
       call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
       
-      BCFunctions(1) % externalState => externalStateForBoundaryName_NS
-      BCFunctions(1) % externalGradients => externalGradientForBoundaryName_NS
+      BCFunctions(NS_BC) % externalState     => externalStateForBoundaryName_NS
+      BCFunctions(NS_BC) % externalGradients => externalGradientForBoundaryName_NS
+
+      BCFunctions(C_BC) % externalState      => externalCHStateForBoundaryName
+      BCFunctions(C_BC) % externalGradients  => externalConcentrationGradientForBoundaryName
+
+      BCFunctions(MU_BC) % externalState     => externalCHStateForBoundaryName
+      BCFunctions(MU_BC) % externalGradients => externalChemicalPotentialGradientForBoundaryName
 
       call sem % construct (  controlVariables  = controlVariables,                                         &
                               BCFunctions = BCFunctions, &
@@ -329,7 +353,7 @@ end interface
          USE mainKeywordsModule
          use FTValueClass
          use MPI_Process_Info
-         use SpatialDiscretization, only: viscousDiscretizationKey
+         use SpatialDiscretization, only: viscousDiscretizationKey, CHDiscretizationKey
          IMPLICIT NONE
 !
 !        ---------
@@ -369,6 +393,11 @@ end interface
          obj => controlVariables % objectForKey(viscousDiscretizationKey)
          if ( .not. associated(obj) ) then
             call controlVariables % addValueForKey("BR1",viscousDiscretizationKey)
+         end if
+
+         obj => controlVariables % objectForKey(CHDiscretizationKey)
+         if ( .not. associated(obj) ) then
+            call controlVariables % addValueForKey("IP",CHDiscretizationKey)
          end if
 
          obj => controlVariables % objectForKey(splitFormKey)

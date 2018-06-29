@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Tue May 29 17:43:55 2018
+!   @Last revision date: Mon Jun  4 18:05:49 2018
 !   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 3c1e755ecd17ea60f252dec3daa7823c04603dcd
+!   @Last revision commit: 2355abaef579817f771ad9146d80ed4a4e10e404
 !
 !//////////////////////////////////////////////////////
 !
@@ -31,6 +31,7 @@ module SpatialDiscretization
       use GradientsStabilization
       use FluidData
       use VariableConversion
+      use IMEXMethods, only: SetIMEXComputeQDotProcedures
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -126,6 +127,8 @@ module SpatialDiscretization
          do fID = 1, size(sem % mesh % faces)   
             call GetPoiseuilleFlow(sem % mesh % faces(fID))
          end do
+
+         call SetIMEXComputeQDotProcedures(ComputeTimeDerivative_onlyLinear, ComputeTimeDerivative_onlyNonLinear)
       
       end subroutine Initialize_SpaceAndTimeMethods
 !

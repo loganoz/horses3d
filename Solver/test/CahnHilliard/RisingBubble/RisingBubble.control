@@ -4,8 +4,8 @@
 !       *******************
 !
 !-------------------------- Configuration:-
-                          Mesh file name = ./MESH/RisingBubble.mesh
-                      Solution file name = ./RESULTS/RisingBubble.hsol
+                          Mesh file name = ./MESH/RisingBubble12x16.mesh
+                      Solution file name = ./RESULTS/RisingBubble12x16.hsol
               Save gradients to solution = .true.
                 2D mesh offset direction = y
                                  Restart = .false.
@@ -23,15 +23,15 @@
                        Compute gradients = .true.
 
 !                        ** Cahn-Hilliard
-                           Peclet number = 1.0
-                          Capilar number = 0.001
-         Interface width (dimensionless) = 0.035
+                           Peclet number = 10.0
+                          Capilar number = 0.01
+         Interface width (dimensionless) = 0.1 !0.035
                Density ratio (rho2/rho1) = 100.0
                Viscosity ratio (mu2/mu1) = 1.0
                       Wall contact angle = 0.0
 
 !------------------------- Discretization:-
-                        Polynomial order = 6
+                        Polynomial order = 5
                     Discretization nodes = Gauss-Lobatto
                           Riemann solver = Roe  
                     Lambda stabilization = 1.0
@@ -47,11 +47,11 @@
                                       dt = 1.0d-4
                     Number of time steps = 500000
                    Convergence tolerance = 1.0d-10
-                         Output interval = 10
+                         Output interval = 1
                          Simulation type = time-accurate
                               Final time = 100.0
-                           Autosave mode = Time
-                       Autosave interval = 0.2
+                           Autosave mode = Iteration
+                       Autosave interval = 1
 
 !-------------------- Boundary conditions:-
 Number of boundaries  = 6

@@ -38,6 +38,8 @@ module FluidData_CH
       real(kind=RP)  :: Ca       ! Capilar number (for NS)
       real(kind=RP)  :: densityRatio ! Density ratio: rho(c=1)/rho(c=-1)
       real(kind=RP)  :: viscRatio ! Viscosity ratio: mu(c=1)/mu(c=-1)
+      real(kind=RP)  :: tildeRho  !
+      real(kind=RP)  :: barRho    
    end type Multiphase_t
 
    type(Multiphase_t), protected    :: multiphase
@@ -60,7 +62,8 @@ module FluidData_CH
          multiphase % Ca      = multiphase_ % Ca
          multiphase % densityRatio = multiphase_ % densityRatio
          multiphase % viscRatio = multiphase_ % viscRatio
+         multiphase % tildeRho  = multiphase_ % tildeRho
+         multiphase % barRho    = multiphase_ % barRho
 
       end subroutine SetMultiphase
-
 end module FluidData_CH

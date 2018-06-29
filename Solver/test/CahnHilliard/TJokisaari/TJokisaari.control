@@ -1,0 +1,37 @@
+mesh file name        = "./MESH/t-jokisaari.mesh"
+discretization nodes  = Gauss
+restart file name     = "./RESULTS/TJokisaari.hsol"
+solution file name    = "./RESULTS/TJokisaariCH.hsol"
+restart               = .false.
+Polynomial order      = 4
+Number of time steps  = 10000000
+mach number = 0.1
+flow equations = "NS"
+reynolds number = 1000.0
+Output Interval       = 100
+Convergence tolerance = 1.d-10
+viscous discretization = IP
+cahn-hilliard discretization = IP
+penalty parameter = 1.0
+2D mesh offset direction = z
+interior penalty variant = SIPG
+riemann solver = Roe
+time integration = imex
+!-------- multiphase
+reference length                 = 1.0d0
+interface width (dimensionless)  = 3.1623d0
+viscosity ratio (mu2/mu1) = 1.0d0
+density ratio (rho2/rho1) = 0.3d0
+capilar number = 1.0d0
+peclet number = 0.1d0
+dt                    = 1.0d-3
+simulation type       = time-accurate
+final time            = 20.0d3
+autosave mode         = iteration
+autosave interval     = 100
+Number of boundaries  = 3
+periodic- 0.0 periodic-
+periodic+ 0.0 periodic+
+boundary 0.0 freeSlipWall
+/
+

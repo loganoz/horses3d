@@ -22,7 +22,7 @@ COMM?=PARALLEL
 MAKE=make
 AR=ar
 RANLIB=ranlib
-PROG=./bin/horses3d.mu
+PROG=./bin/horses3d.nsch
 
 OBJS_HORSES=	SpatialDiscretization \
 		main        
@@ -46,12 +46,12 @@ OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 ./build/%.o: ./%.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_mu $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_nsch $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include
 
 ./build/%.o: ./**/%.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_mu $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_nsch $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include
 
 $(PROG): header mkdirs $(OBJS_HORSES_BUILD)
 	@echo
@@ -59,12 +59,11 @@ $(PROG): header mkdirs $(OBJS_HORSES_BUILD)
 	@echo "---------------------------------"
 	@echo "| Linking " $@ "|"
 	@echo "---------------------------------"
-	$(FC) $(FFLAGS) $(INCLUDE) $(INCLUDE)_mu -o $(PROG) $(OBJS_HORSES_BUILD) $(HORSES_LIBS_EXEC) $(LIBS)
+	$(FC) $(FFLAGS) $(INCLUDE) $(INCLUDE)_nsch -o $(PROG) $(OBJS_HORSES_BUILD) $(HORSES_LIBS_EXEC) $(LIBS)
 
 
 install: $(PROG)
 	cp -p $(PROG) $(INSTALL_DIR)/bin
-	cp -p ./include/*.mod $(INSTALL_DIR)/include_mu
 	@echo
 	@echo
 

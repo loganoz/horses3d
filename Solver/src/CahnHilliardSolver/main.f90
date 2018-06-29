@@ -89,6 +89,8 @@ end interface
       integer, allocatable                   :: Nx(:), Ny(:), Nz(:)
       integer                                :: Nmax
       type(pAdaptation_t)                    :: pAdaptator
+
+      solver = "cahn-hilliard"
 !
 !     ---------------
 !     Initializations
@@ -171,7 +173,7 @@ end interface
 !     Integrate in time
 !     -----------------
 !
-      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, ComputeTimeDerivative_onlyLinear, ComputeTimeDerivative_onlyNonLinear)
+      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !     --------------------------
 !     Show simulation statistics
