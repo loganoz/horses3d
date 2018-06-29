@@ -9,8 +9,7 @@
 !
 !     MODULE SMConstants
 !
-!!        Defines constants for use by the spectral demonstaration
-!!        routines, including precision definitions. 
+!!        Defines constants for use by the spectral solver, including precision definitions. 
 !
 !!    @author David A. Kopriva
 !
@@ -45,7 +44,7 @@
          
          COMPLEX(KIND=CP), parameter      :: ImgI = ( 0.0_RP, 1.0_RP) ! = SQRT(-1.0_RP)
 
-         integer, parameter               :: NDIM = 3, IX = 1, IY = 2, IZ = 3
+         integer, parameter               :: NDIM = 3, IX = 1, IY = 2, IZ = 3, IXY = 4, IXZ = 5, IYZ = 6 , IXYZ = 7
          
          integer, parameter               :: DT_FIXED = 0
          integer, parameter               :: DT_DIFF  = 1

@@ -297,7 +297,6 @@ MODULE Read_SpecMesh
 !        -------------------------------
 !
          if ( dir2D .ne. 0 ) then
-            self % meshIs2D = .TRUE.
             call SetMappingsToCrossProduct
             call self % CorrectOrderFor2DMesh(dir2D)
          end if
