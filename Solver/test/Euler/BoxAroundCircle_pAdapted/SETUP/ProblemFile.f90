@@ -328,7 +328,7 @@
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Euler Cylinder with adaptation"
+            CHARACTER(LEN=29)                  :: testName           = "Euler p-adapted Cylinder"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
@@ -356,15 +356,15 @@
 !           ------------------------------------------------
 !
 #if defined(NAVIERSTOKES)
-            real(kind=RP), parameter :: final_time = 8.580348832208898E-002_RP
-            real(kind=RP), parameter :: res(NCONS) = [ 1.619308923235573E-003_RP, &
-                                                       9.415894186239835E-003_RP, &
-                                                       1.556641686612168E-012_RP, &
-                                                       1.043688929948468E-002_RP, &
-                                                       3.478393155627713E-002_RP ]
-            real(kind=RP), parameter :: wake_u = -9.705371297122352E-003_RP
-            real(kind=RP), parameter :: cd = 33.0529136777356_RP
-            real(kind=RP), parameter :: p_aver = 7.39401907416045_RP
+            real(kind=RP), parameter :: final_time = 8.9356168296414684E-002_RP
+            real(kind=RP), parameter :: res(NCONS) = [ 2.5997831708748022E-003_RP, &
+                                                       8.9158610485304424E-003_RP, &
+                                                       8.2577456104454747E-013_RP, &
+                                                       1.2519007949496471E-002_RP, &
+                                                       6.3787312202691696E-002_RP ]
+            real(kind=RP), parameter :: wake_u = -9.7717376605189407E-003_RP
+            real(kind=RP), parameter :: cd = -0.39353871331841295_RP
+            real(kind=RP), parameter :: p_aver = 7.3937753502864973_RP
 
             
             call ReadOrderFile('MESH/PolOrdersAfterAdaptation.omesh', Nx, Ny, Nz)
@@ -415,7 +415,7 @@
                                msg           = "energy residual")
 
             CALL FTAssertEqual(expectedValue = wake_u + 1.0_RP, &
-                               actualValue   = monitors % probes(1) % values(1) + 1.0_RP, &
+                               actualValue   = monitors % probes(1) % values(1) + 1.0_RP, & 
                                tol           = 1.d-11, &
                                msg           = "Wake final x-velocity at the point [0,2.0,4.0]")
 
@@ -438,7 +438,7 @@
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
+               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 27 iterations."
             ELSE
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."

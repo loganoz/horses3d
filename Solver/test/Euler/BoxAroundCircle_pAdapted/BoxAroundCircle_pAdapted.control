@@ -1,11 +1,11 @@
 /* Test case of p-Adaptation for the Euler equations */
 Flow equations        = "Euler"
 mesh file name        = "../../TestMeshes/BoxAroundCircle3D_extended_pol3.mesh"
-solution file name    = "RESULTS/BoxAroundCircle_pAdapted_temp.hsol"
+solution file name    = "RESULTS/BoxAroundCircle_pAdapted.hsol"
 restart file name     = "plop"
 restart               = .FALSE.
 Polynomial order      = 4
-Number of time steps  = 26
+Number of time steps  = 27
 Output Interval       = 1
 Convergence tolerance = 1.d-5
 cfl                   = 0.4

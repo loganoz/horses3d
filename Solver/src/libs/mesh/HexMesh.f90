@@ -1,12 +1,14 @@
 !
-!////////////////////////////////////////////////////////////////////////
+!//////////////////////////////////////////////////////
 !
-!      HexMesh.f95
-!      Created: 2007-03-22 17:05:00 -0400 
-!      By: David Kopriva  
+!   @File:
+!   @Author:  David Kopriva
+!   @Created: Tue Mar 22 17:05:00 2007
+!   @Last revision date: Fri Jun 29 12:25:02 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: f5ac1c3af6cb286f8def57452c066d57412a133b
 !
-!
-!////////////////////////////////////////////////////////////////////////
+!//////////////////////////////////////////////////////
 !
 #include "Includes.h"
 MODULE HexMeshClass
@@ -1150,6 +1152,7 @@ slavecoord:                DO l = 1, 4
 
       write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bdryfaces
       write(STD_OUT,'(30X,A,A28,I10)') "->" , "Order of curved faces: " , bFaceOrder
+      write(STD_OUT,'(30X,A,A28,L10)') "->" , "2D extruded mesh: " , self % meshIs2D
       
 !     Describe the zones
 !     ------------------
@@ -1313,6 +1316,7 @@ slavecoord:                DO l = 1, 4
          integer  :: face1Nodes(NODES_PER_FACE)
          integer  :: face2Nodes(NODES_PER_FACE)
          integer  :: no_of_orientedElems(NDIM)
+         logical  :: meshExtrudedIn(NDIM)
          real(kind=RP)  :: xNodesF1(NDIM,NODES_PER_FACE)
          real(kind=RP)  :: xNodesF2(NDIM,NODES_PER_FACE)
          real(kind=RP)  :: dx(NDIM,NODES_PER_FACE)
@@ -1359,11 +1363,12 @@ slavecoord:                DO l = 1, 4
                
                if ( no_of_orientedNodes .eq. 4 ) then
 !
-!                 This is the 2D direction
-!                 ------------------------
+!                 This is (at least one of) the 2D direction(s)
+!                 ---------------------------------------------
                   e % dir2D = IX
                   no_of_orientedElems(dir) = no_of_orientedElems(dir) + 1
-                  cycle elem_loop
+                  e % globDir(dir) = IX
+                  
                end if
             end do
             
@@ -1400,11 +1405,16 @@ slavecoord:                DO l = 1, 4
                
                if ( no_of_orientedNodes .eq. 4 ) then
 !
-!                 This is the 2D direction
-!                 ------------------------
-                  e % dir2D = IY
+!                 This is (at least one of) the 2D direction(s)
+!                 ---------------------------------------------
+                  if (e % dir2D == IX) then
+                     e % dir2D = IXY
+                  else
+                     e % dir2D = IY
+                  end if
                   no_of_orientedElems(dir) = no_of_orientedElems(dir) + 1
-                  cycle elem_loop
+                  e % globDir(dir) = IY
+                  
                end if
                
             end do
@@ -1441,23 +1451,48 @@ slavecoord:                DO l = 1, 4
                
                if ( no_of_orientedNodes .eq. 4 ) then
 !
-!                 This is the 2D direction
-!                 ------------------------
-                  e % dir2D = IZ
+!                 This is (at least one of) the 2D direction(s)
+!                 ---------------------------------------------
+                  select case (e % dir2D)
+                     case (IX)
+                        e % dir2D = IXZ
+                     case (IY)
+                        e % dir2D = IYZ
+                     case (IXY)
+                        e % dir2D = IXYZ
+                     case default
+                        e % dir2D = IZ
+                  end select
+                  
                   no_of_orientedElems(dir) = no_of_orientedElems(dir) + 1
-                  cycle elem_loop
+                  e % globDir(dir) = IZ
+                  
                end if
             end do
             
             end associate
          end do elem_loop
          
-         do dir = 1, NDIM
-            if (no_of_orientedElems(dir) == self % no_of_elements) then
-               self % meshIs2D = .TRUE.
-               self % dir2D = dir
+         meshExtrudedIn = ( no_of_orientedElems == self % no_of_elements )
+         if ( any(meshExtrudedIn) ) then
+            self % meshIs2D = .TRUE.
+            
+            if ( all(meshExtrudedIn) ) then
+               self % dir2D = IXYZ
+            elseif ( meshExtrudedIn(IX) .and. meshExtrudedIn(IY) ) then
+               self % dir2D = IXY
+            elseif ( meshExtrudedIn(IX) .and. meshExtrudedIn(IZ) ) then
+               self % dir2D = IXZ
+            elseif ( meshExtrudedIn(IY) .and. meshExtrudedIn(IZ) ) then
+               self % dir2D = IYZ
+            elseif ( meshExtrudedIn(IX) ) then
+               self % dir2D = IX
+            elseif ( meshExtrudedIn(IY) ) then
+               self % dir2D = IY
+            elseif ( meshExtrudedIn(IZ) ) then
+               self % dir2D = IZ
             end if
-         end do
+         end if
          
       end subroutine HexMesh_CheckIfMeshIs2D
 !
@@ -1481,15 +1516,25 @@ slavecoord:                DO l = 1, 4
          integer  :: eID, nID, no_of_orientedNodes
          integer  :: face1Nodes(NODES_PER_FACE)
          integer  :: face2Nodes(NODES_PER_FACE)
+         logical  :: rightDir
          real(kind=RP)  :: d2D(NDIM)
          real(kind=RP)  :: xNodesF1(NDIM,NODES_PER_FACE)
          real(kind=RP)  :: xNodesF2(NDIM,NODES_PER_FACE)
          real(kind=RP)  :: dx(NDIM,NODES_PER_FACE)
 
          if (self % meshIs2D) then
-            if (self % dir2D /= dir2D) then
-               print*, "The mesh seems to be 2D for the direction", self % dir2D
+            select case (dir2D)
+               case (IX)
+                  rightDir = any (self % dir2D == [IX, IXY, IXZ, IXYZ] )
+               case (IY)
+                  rightDir = any (self % dir2D == [IY, IXY, IYZ, IXYZ] )
+               case (IZ)
+                  rightDir = any (self % dir2D == [IZ, IXZ, IYZ, IXYZ] )
+            end select
+            if (.not. rightDir) then
+               print*, "The mesh does not seem to be 2D for the selected direction"
                errorMessage(STD_OUT)
+               return
             end if
          else
             print*, "The mesh does not seem to be 2D"
@@ -1499,7 +1544,7 @@ slavecoord:                DO l = 1, 4
          do eID = 1, self % no_of_elements
             associate(e => self % elements(eID))
             
-            select case (e % dir2D)
+            select case (e % globDir(dir2D))
                case (IX)
                   e % Nxyz(1) = 0
                   e % spAxi   => NodalStorage(0)
@@ -1741,6 +1786,7 @@ slavecoord:                DO l = 1, 4
             bfOrder = huge(bfOrder) ! Initialize to a big number
             
             do zoneID=1, size(self % zones)
+               if (self % zones(zoneID) % no_of_faces == 0 ) cycle
                
                do zonefID = 1, self % zones(zoneID) % no_of_faces
                   fID = self % zones(zoneID) % faces(zonefID)
@@ -1751,7 +1797,7 @@ slavecoord:                DO l = 1, 4
                end do
                
                if ( self % ConformingOnZone(zoneID) .or. self % ignoreBCnonConformities) then
-                  bfOrder(zoneID) = bfOrder(zoneID)
+                  !bfOrder(zoneID) = bfOrder(zoneID)
                else
                   bfOrder(zoneID) = bfOrder(zoneID)/2
                   if ( bfOrder(zoneID) < 1 ) then

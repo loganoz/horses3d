@@ -14,7 +14,7 @@ module MatrixFreeGMRESClass
    use SMConstants           , only: RP, STD_OUT, LINE_LENGTH
    use DGSEMClass            , only: DGSem, ComputeQDot_FCN
    use FTValueDictionaryClass, only: FTValueDictionary
-   use MatrixClass           , only: DenseBlockDiagMatrix_t
+   use MatrixClass           , only: DenseBlockDiagMatrix_t, SparseBlockDiagMatrix_t
    use PhysicsStorage        , only: NTOTALVARS, NTOTALGRADS
    use AnalyticalJacobian    , only: AnalyticalJacobian_Compute
    implicit none

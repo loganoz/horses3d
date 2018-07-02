@@ -1,8 +1,15 @@
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!      FASMultigridClass.f90
-!      Created: 2017-04-XX 10:006:00 +0100 
-!      By: Andrés Rueda
+!//////////////////////////////////////////////////////
+!
+!   @File:    FASMultigridClass.f90
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
+!   @Created: Sun Apr 27 12:57:00 2017
+!   @Last revision date: Thu Jun 28 12:32:05 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 7c1c79ae7a2fb27cc91007b85ab7d5e325e4684c
+!
+!//////////////////////////////////////////////////////
+!
 !
 !      FAS Multigrid Class
 !        Provides the routines for solving a time step with nonlinear multigrid procedures.
@@ -241,20 +248,26 @@ module FASMultigridClass
 !     Get the minimum multigrid polynomial order
 !     ------------------------------------------
 !
-      if (sem % mesh % meshIs2D) then
-         NMIN = 1
-      else
-         conformingBoundaries = .TRUE.
-         do zoneID = 1, size(sem % mesh % zones)
-            conformingBoundaries = (conformingBoundaries .and. sem % mesh % ConformingOnZone(zoneID))
-         end do
+      
+      NMIN = 1
+      
+      ! If the uniform coarsening is used instead of the high-order coarsening (MultigridTypes.f90),
+      ! Following code should be uncommented
+      
+!~       if (sem % mesh % meshIs2D) then
+!~          NMIN = 1
+!~       else
+!~          conformingBoundaries = .TRUE.
+!~          do zoneID = 1, size(sem % mesh % zones)
+!~             conformingBoundaries = (conformingBoundaries .and. sem % mesh % ConformingOnZone(zoneID))
+!~          end do
          
-         if (conformingBoundaries) then
-            NMIN = 1
-         else
-            NMIN = 2
-         end if
-      end if
+!~          if (conformingBoundaries) then
+!~             NMIN = 1
+!~          else
+!~             NMIN = 2
+!~          end if
+!~       end if
       
 !
 !     -----------------------

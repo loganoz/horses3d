@@ -81,9 +81,9 @@ module SpatialDiscretization
          end subroutine UserDefinedSourceTermNS
       end interface
 
-      procedure(computeElementInterfaceFluxF), pointer :: computeElementInterfaceFlux => computeElementInterfaceFlux_NS
-      procedure(computeMPIFaceFluxF),          pointer :: computeMPIFaceFlux          => computeMPIFaceFlux_NS
-      procedure(computeBoundaryFluxF),         pointer :: computeBoundaryFlux         => computeBoundaryFlux_NS
+      procedure(computeElementInterfaceFluxF), pointer :: computeElementInterfaceFlux
+      procedure(computeMPIFaceFluxF),          pointer :: computeMPIFaceFlux
+      procedure(computeBoundaryFluxF),         pointer :: computeBoundaryFlux
    
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
 !
@@ -201,7 +201,10 @@ module SpatialDiscretization
                computeElementInterfaceFlux => computeElementInterfaceFlux_SVV
                computeMPIFaceFlux          => computeMPIFaceFlux_SVV
                computeBoundaryFlux         => computeBoundaryFlux_SVV
-
+            else
+               computeElementInterfaceFlux => computeElementInterfaceFlux_NS
+               computeMPIFaceFlux          => computeMPIFaceFlux_NS
+               computeBoundaryFlux         => computeBoundaryFlux_NS
             end if
          end if
          

@@ -1,9 +1,14 @@
 !
-!////////////////////////////////////////////////////////////////////////
+!//////////////////////////////////////////////////////
 !
-!      ElementClass.f95
-!      Created: 2008-06-04 15:34:44 -0400 
-!      By: David Kopriva
+!   @File:
+!   @Author:  David Kopriva
+!   @Created: Tue Jun 04 15:34:44 2008
+!   @Last revision date: Fri Jun 29 12:24:59 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: f5ac1c3af6cb286f8def57452c066d57412a133b
+!
+!//////////////////////////////////////////////////////
 !
 !      Implements Algorithms:
 !         Algorithm: 124: ElementClass (QuadElementClass)
@@ -43,6 +48,7 @@
       TYPE Element
          logical                         :: hasSharedFaces
          integer                         :: dir2D
+         integer                         :: globDir(3)        ! If the global coordinate (GLOBAL) is aligned with the local coordinate (REFERENCE): globDir(GLOBAL) = REFERENCE 
          integer                         :: eID               ! ID of this element
          integer                         :: globID            ! globalID of the element
          integer                         :: offsetIO          ! Offset from the first element for IO
@@ -103,6 +109,7 @@
          
          self % eID                 = eID
          self % dir2D               = 0
+         self % globDir             = 0
          self % globID              = globID
          self % nodeIDs             = nodeIDs
          self % Nxyz(1)             = Nx
@@ -559,9 +566,9 @@
 !           Stopping criteria: there are several
 !           ------------------------------------
             if ( maxval(abs(F)) .lt. TOL ) exit
-            if ( abs(xi(1)) .ge. 1.25_RP ) exit
-            if ( abs(xi(2)) .ge. 1.25_RP ) exit
-            if ( abs(xi(3)) .ge. 1.25_RP ) exit
+            if ( abs(xi(1)) .ge. 2.5_RP ) exit
+            if ( abs(xi(2)) .ge. 2.5_RP ) exit
+            if ( abs(xi(3)) .ge. 2.5_RP ) exit
 !
 !           Perform a step
 !           --------------

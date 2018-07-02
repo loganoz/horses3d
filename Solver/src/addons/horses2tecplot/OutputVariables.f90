@@ -4,9 +4,9 @@
 !   @File:    OutputVariables.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Oct 14 20:44:38 2017
-!   @Last revision date: Sat May 12 20:53:25 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: ece79010cbff566c377be7e7026f86a2889a191e
+!   @Last revision date: Wed Jun 27 19:47:23 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 3c862164f7abc59dc50f4554496246f7cc54b803
 !
 !//////////////////////////////////////////////////////
 !
@@ -221,7 +221,7 @@ module OutputVariables
             no_of_outputVariables = no_of_outputVariables + outputVariablesForVariable(preliminarVariables(i))
          end do
 
-         allocate( outputVariableNames(no_of_outputVariables) )
+         safedeallocate( outputVariableNames) ; allocate( outputVariableNames(no_of_outputVariables) )
 
          pos = 1
          do i = 1, preliminarNoOfVariables

@@ -37,7 +37,7 @@ MODULE Read_SpecMesh
 !
 !!    Constructs mesh from mesh file
 !!    Only valid for conforming meshes
-      SUBROUTINE ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+      SUBROUTINE ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success, export )
          USE Physics
          use PartitionedMeshClass
          use MPI_Process_Info
@@ -54,6 +54,7 @@ MODULE Read_SpecMesh
          integer             :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
          integer, intent(in) :: dir2D
          LOGICAL             :: success
+         logical, optional   :: export 
 !
 !        ---------------
 !        Local variables
@@ -73,6 +74,7 @@ MODULE Read_SpecMesh
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
          TYPE(FacePatch), DIMENSION(6)   :: facePatches
          real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
+         logical                         :: export_mesh
 !
 !        ------------------
 !        For curved patches
@@ -297,7 +299,6 @@ MODULE Read_SpecMesh
 !        -------------------------------
 !
          if ( dir2D .ne. 0 ) then
-            self % meshIs2D = .TRUE.
             call SetMappingsToCrossProduct
             call self % CorrectOrderFor2DMesh(dir2D)
          end if
@@ -326,9 +327,16 @@ MODULE Read_SpecMesh
 !        Prepare mesh for I/O only if the code is running sequentially
 !        -------------------------------------------------------------
 !
+         if (present(export)) then
+            export_mesh = export
+         else
+            export_mesh = .true.
+         end if
          if ( .not. MPI_Process % doMPIAction ) then
             call self % PrepareForIO
-            if (.not. self % child) call self % Export( trim(fileName) )
+            if ((.not. self % child) .and. export_mesh) then
+               call self % Export( trim(fileName) )
+            end if
          end if
          
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
