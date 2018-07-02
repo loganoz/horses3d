@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jun 20 18:14:45 2018
-!   @Last revision date: Wed Jun 27 11:11:34 2018
+!   @Last revision date: Mon Jul  2 14:51:38 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: eddf722bf052733b407a48854fb8055ce0becbe4
+!   @Last revision commit: b00a27f2b6b8957cade6f14d1422cf177d9605ab
 !
 !//////////////////////////////////////////////////////
 !
@@ -29,7 +29,8 @@ module SpatialDiscretization
       use DGSEMClass
       use ParticlesClass
       use FluidData
-      use VariableConversion, only: iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D, GetiNSViscosity
+      use VariableConversion, only: iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D, GetiNSOneFluidViscosity, GetiNSTwoFluidsViscosity
+      use PhysicsStorage,     only: enableDensityLimiter
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -153,7 +154,13 @@ module SpatialDiscretization
 
                end select
 
-               call ViscousDiscretization % Construct(controlVariables, iViscousFlux0D, iViscousFlux2D, iViscousFlux3D, GetiNSViscosity, "NS")
+               select case (thermodynamics % number_of_fluids)
+               case(1)
+                  call ViscousDiscretization % Construct(controlVariables, iViscousFlux0D, iViscousFlux2D, iViscousFlux3D, GetiNSOneFluidViscosity, "NS")
+               case(2)
+                  call ViscousDiscretization % Construct(controlVariables, iViscousFlux0D, iViscousFlux2D, iViscousFlux3D, GetiNSTwoFluidsViscosity, "NS")
+               end select
+
                call ViscousDiscretization % Describe
 !
 !        Compute wall distances
@@ -196,9 +203,11 @@ module SpatialDiscretization
 !
 !        Apply a limiter to the density
 !        ------------------------------
-         do k = 1, mesh % no_of_elements
-            call DensityLimiter(mesh % elements(k) % Nxyz, mesh % elements(k) % storage % Q)
-         end do
+         if ( enableDensityLimiter ) then
+            do k = 1, mesh % no_of_elements
+               call DensityLimiter(mesh % elements(k) % Nxyz, mesh % elements(k) % storage % Q)
+            end do
+         end if
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -227,9 +236,7 @@ module SpatialDiscretization
 
 #ifdef _HAS_MPI_
 !$omp single
-         if ( flowIsNavierStokes ) then
-            call mesh % UpdateMPIFacesGradients(NINC)
-         end if
+         call mesh % UpdateMPIFacesGradients(NINC)
 !$omp end single
 #endif
 !
@@ -367,11 +374,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
          if ( MPI_Process % doMPIAction ) then
 !$omp single
-            if ( flowIsNavierStokes ) then 
-               call mesh % GatherMPIFacesGradients(NINC)
-            else  
-               call mesh % GatherMPIFacesSolution(NINC)
-            end if          
+            call mesh % GatherMPIFacesGradients(NINC)
 !$omp end single
 !
 !           **************************************
@@ -434,7 +437,7 @@ module SpatialDiscretization
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   e % storage % QDot(INSU:INSW,i,j,k) = e % storage % QDot(INSU:INSW,i,j,k) + &
                                                         e % storage % Q(INSRHO,i,j,k) * &
-                                    dimensionless % invFroudeSquare * dimensionless % gravity_dir
+                                    dimensionless % invFr2 * dimensionless % gravity_dir
 
                end do                ; end do                ; end do
                end associate
@@ -669,12 +672,14 @@ module SpatialDiscretization
          real(kind=RP) :: inv_flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: mu
+         real(kind=RP) :: muL, muR, mu
 
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
 
-               call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+               call ViscousDiscretization % GetViscosity(f % storage(1) % Q(INSRHO,i,j), muL)
+               call ViscousDiscretization % GetViscosity(f % storage(2) % Q(INSRHO,i,j), muR)
+               mu = 0.5_RP * (muL + muR)
 !      
 !              --------------
 !              Viscous fluxes
@@ -752,7 +757,7 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+               call ViscousDiscretization % GetViscosity(f % storage(1) % Q(INSRHO,i,j), mu)
 
                CALL ViscousDiscretization % RiemannSolver(nEqn = NINC, nGradEqn = NINC, &
                                                   f = f, &
@@ -864,7 +869,7 @@ module SpatialDiscretization
 !           Viscous fluxes
 !           --------------
 !   
-            call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+            call ViscousDiscretization % GetViscosity(f % storage(1) % Q(INSRHO,i,j), mu)
 
             CALL ViscousDiscretization % RiemannSolver(nEqn = NINC, nGradEqn = NINC, &
                                                f = f, &
@@ -936,7 +941,10 @@ module SpatialDiscretization
 !        ---------------
 !
          integer  :: i, j, k 
-         real(kind=RP) :: rhomin = 1.0_RP, rhomax = 3.0_RP, rhoIn01, p
+         real(kind=RP) :: rhoIn01, p, rhomin, rhomax
+
+         rhomin = thermodynamics % rho_min / refValues % rho
+         rhomax = thermodynamics % rho_max / refValues % rho
 
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
             rhoIn01 = (Q(INSRHO,i,j,k)-rhomin)/(rhomax-rhomin)

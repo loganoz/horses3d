@@ -4,9 +4,9 @@
 !   @File:    FluidData_iNS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:25 2018
-!   @Last revision date: Sat Jun 23 10:20:34 2018
+!   @Last revision date: Mon Jul  2 14:17:28 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
 !
 !//////////////////////////////////////////////////////
 !
@@ -27,27 +27,31 @@ module FluidData_iNS
 !  ----------------
 !
    type Thermodynamics_t
-      character(len=STR_LEN_FLUIDDATA) :: fluidName   ! Fluid name
-      real(kind=RP)                    :: rho0c02     ! Artificial compressibility const
+      integer                    :: number_of_fluids
+      real(kind=RP)              :: rho0c02   ! Artificial compressibility constant
+      real(kind=RP), allocatable :: rho(:)
+      real(kind=RP), allocatable :: mu(:)
+      real(kind=RP)              :: rho_max
+      real(kind=RP)              :: rho_min
    end type Thermodynamics_t
-
 
    type RefValues_t
       real(kind=RP)        :: V
       real(kind=RP)        :: p
       real(kind=RP)        :: rho
       real(kind=RP)        :: mu
+      real(kind=RP)        :: g0
       real(kind=RP)        :: AoATheta
       real(kind=RP)        :: AoAPhi
    end type RefValues_t
 
    type Dimensionless_t
-      real(kind=RP)        :: Re
-      real(kind=RP)        :: Fr
-      real(kind=RP)        :: mu
-      real(kind=RP)        :: gammaM2
-      real(kind=RP)        :: invFroudeSquare
-      real(kind=RP)        :: gravity_dir(NDIM)
+      real(kind=RP), allocatable :: rho(:)
+      real(kind=RP), allocatable :: mu(:)
+      real(kind=RP)              :: Re
+      real(kind=RP)              :: Fr
+      real(kind=RP)              :: invFr2
+      real(kind=RP)              :: gravity_dir(NDIM)
    end type Dimensionless_t
 !
 !  ---------
@@ -73,8 +77,19 @@ module FluidData_iNS
          implicit none
          type(Thermodynamics_t), intent(in)  :: thermodynamics_
 
-         thermodynamics % fluidName           = trim(thermodynamics_ % fluidName)
-         thermodynamics % rho0c02             = thermodynamics_ % rho0c02
+         thermodynamics % number_of_fluids = thermodynamics_ % number_of_fluids  
+         thermodynamics % rho0c02          = thermodynamics_ % rho0c02              
+
+         if(allocated(thermodynamics % rho)) deallocate(thermodynamics % rho)
+         allocate(thermodynamics % rho(thermodynamics % number_of_fluids))
+         thermodynamics % rho              = thermodynamics_ % rho              
+
+         if(allocated(thermodynamics % mu )) deallocate(thermodynamics % mu )
+         allocate(thermodynamics % mu (thermodynamics % number_of_fluids))
+         thermodynamics % mu               = thermodynamics_ % mu               
+
+         thermodynamics % rho_max          = thermodynamics_ % rho_max          
+         thermodynamics % rho_min          = thermodynamics_ % rho_min          
 
       end subroutine SetThermodynamics
 
@@ -95,10 +110,17 @@ module FluidData_iNS
          implicit none
          type(Dimensionless_t),  intent(in)     :: dimensionless_
 
+         if(allocated(dimensionless % rho)) deallocate(dimensionless % rho)
+         allocate(dimensionless % rho(size(dimensionless % rho)))
+         dimensionless % rho              = dimensionless_ % rho              
+
+         if(allocated(dimensionless % mu )) deallocate(dimensionless % mu )
+         allocate(dimensionless % mu (size(dimensionless % mu)))
+         dimensionless % mu               = dimensionless_ % mu               
+
          dimensionless % Re              = dimensionless_ % Re
          dimensionless % Fr              = dimensionless_ % Fr
-         dimensionless % mu              = dimensionless_ % mu
-         dimensionless % invFroudeSquare = dimensionless_ % invFroudeSquare
+         dimensionless % invFr2 = dimensionless_ % invFr2
          dimensionless % gravity_dir     = dimensionless_ % gravity_dir
 
       end subroutine SetDimensionless

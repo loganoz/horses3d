@@ -4,9 +4,9 @@
 !   @File:    Particle.f90
 !   @Author:  Gonzalo (g.rubio@upm.es)
 !   @Created: Tue Apr 10 17:31:21 2018
-!   @Last revision date: Sat Jun 23 10:20:27 2018
+!   @Last revision date: Mon Jul  2 14:17:27 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
 !
 !//////////////////////////////////////////////////////
 !
@@ -322,7 +322,7 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity )
 !        ---------------
 !
     real(KIND=RP) :: mu
-    real(KIND=RP) :: invFroudeSquare
+    real(KIND=RP) :: invFr2
     real(KIND=RP) :: gamma
     real(KIND=RP) :: Pr
 
@@ -330,7 +330,7 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity )
     if ( .not. self % active ) return 
 
     mu              = SutherlandsLaw(self % fluidTemp)    ! Non dimensional viscosity mu(T)
-    invFroudeSquare = dimensionless  % invFroudeSquare    ! Fluid non dimensional number
+    invFr2 = dimensionless  % invFr2    ! Fluid non dimensional number
     gamma           = thermodynamics % gamma              ! Fluid non dimensional number
     Pr              = dimensionless  % Pr                 ! Fluid non dimensional number
 
@@ -349,7 +349,7 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity )
 !   Al hacerlo de esta forma, el código es más eficiente. Habría que cuantificar el error cometido.
 
     ! VELOCITY
-    self % vel = self % updateVelRK3 ( dt, mu, St, invFroudeSquare, gravity  ) 
+    self % vel = self % updateVelRK3 ( dt, mu, St, invFr2, gravity  ) 
     ! POSITION
     self % pos = self % pos + dt * self % vel
     ! TEMPERATURE
@@ -361,14 +361,14 @@ end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-function particle_updateVelRK3 (self, dt, mu, St, invFroudeSquare, gravity) result(Q)
+function particle_updateVelRK3 (self, dt, mu, St, invFr2, gravity) result(Q)
     implicit none 
 
     class(Particle_t), intent(in)     :: self 
     real(KIND=RP),     intent(in)     :: dt
     real(KIND=RP),     intent(in)     :: mu
     real(KIND=RP),     intent(in)     :: St
-    real(KIND=RP),     intent(in)     :: invFroudeSquare
+    real(KIND=RP),     intent(in)     :: invFr2
     real(KIND=RP),     intent(in)     :: gravity(3)
     REAL(KIND=RP)                     :: Q(3)
 #if defined(NAVIERSTOKES)
@@ -386,7 +386,7 @@ function particle_updateVelRK3 (self, dt, mu, St, invFroudeSquare, gravity) resu
     G = 0.0_RP
     Q = self % vel
     DO k = 1,3
-        Qdot = mu / St * ( self % fluidVel - self % vel) - invFroudeSquare * gravity
+        Qdot = mu / St * ( self % fluidVel - self % vel) - invFr2 * gravity
         G = a(k) * G  + Qdot
         Q = Q         + c(k) * dt * G
     END DO

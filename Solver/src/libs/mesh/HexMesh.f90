@@ -1612,7 +1612,7 @@ slavecoord:                DO l = 1, 4
 #if defined(NAVIERSTOKES)
             call ConstructMPIFacesStorage(NCONS, NGRAD, MPI_NDOFS)
 #elif defined(INCNS)
-            call ConstructMPIFacesStorage(NINC, NGRAD, MPI_NDOFS)
+            call ConstructMPIFacesStorage(NINC, NINC, MPI_NDOFS)
 #elif defined(CAHNHILLIARD)
             call ConstructMPIFacesStorage(NCOMP, NCOMP, MPI_NDOFS)
 #endif

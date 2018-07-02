@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_iNS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:26 2018
-!   @Last revision date: Wed Jun 27 11:11:36 2018
+!   @Last revision date: Mon Jul  2 14:17:28 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: eddf722bf052733b407a48854fb8055ce0becbe4
+!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,17 +14,35 @@
       Module Physics_iNSKeywordsModule
          IMPLICIT NONE 
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: REYNOLDS_NUMBER_KEY       = "reynolds number"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FROUDE_NUMBER_KEY         = "froude number"  
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_DIRECTION_KEY     = "gravity direction"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: REFERENCE_VELOCITY_KEY         = "reference velocity (m/s)"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: NUMBER_OF_FLUIDS_KEY           = "number of fluids (1/2)"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MAXIMUM_DENSITY_KEY            = "maximum density (kg/m^3)"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MINIMUM_DENSITY_KEY            = "minimum density (kg/m^3)"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ARTIFICIAL_COMPRESSIBILITY_KEY = "artificial compressibility factor"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_ACCELERATION_KEY       = "gravity acceleration (m/s^2)"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_DIRECTION_KEY          = "gravity direction"
+!
+!        *****************
+!        Mode with 1 fluid
+!        *****************
+!
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: DENSITY_KEY    =  "density (kg/m^3)"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: VISCOSITY_KEY  =  "viscosity (pa.s)"
+!
+!        *****************
+!        Mode with 2 fluid
+!        *****************
+!
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLUID1_DENSITY_KEY    =  "fluid 1 density (kg/m^3)"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLUID2_DENSITY_KEY    =  "fluid 2 density (kg/m^3)"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLUID1_VISCOSITY_KEY  =  "fluid 1 viscosity (pa.s)"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLUID2_VISCOSITY_KEY  =  "fluid 2 viscosity (pa.s)"
+
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY             = "aoa theta"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY               = "aoa phi"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY   = "riemann solver"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAMBDA_STABILIZATION_KEY  = "lambda stabilization"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: COMPUTE_GRADIENTS_KEY     = "compute gradients"
-         
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(1) :: physics_iNSKeywords = [REYNOLDS_NUMBER_KEY]
-
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME       = "central"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME = "lax-friedrichs"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: EXACT_SOLVER_NAME       = "exact"
@@ -59,6 +77,7 @@
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_CENTRAL, RIEMANN_LXF, RIEMANN_EXACT
      public    STANDARD_SPLIT, SKEWSYMMETRIC_SPLIT
+     public    enableGravity, enableDensityLimiter
       
      public    ConstructPhysicsStorage_iNS, DestructPhysicsStorage_iNS, DescribePhysicsStorage_iNS
      public    CheckPhysics_iNSInputIntegrity
@@ -105,19 +124,19 @@
 !    Lambda stabilization - 1.0 by default
 !    -------------------------------------
 !
-     real(kind=RP), protected :: lambdaStab = 1.0_RP     
-
-     type(Thermodynamics_t), target, private    :: ThermodynamicsAir = Thermodynamics_t("Air",1000.0_RP)
+     real(kind=RP), protected :: lambdaStab            = 1.0_RP     
+     logical, protected       :: enableGravity         = .false.
+     logical, protected       :: enableDensityLimiter = .false.
 !
 !    ========
-     CONTAINS
+     contains
 !    ========
 !
 !     ///////////////////////////////////////////////////////
 !
 !     --------------------------------------------------
-!!    Constructor: Define default values for the physics
-!!    variables.
+!     Constructor: Define default values for the physics
+!     variables.
 !     --------------------------------------------------
 !
       SUBROUTINE ConstructPhysicsStorage_iNS( controlVariables, Lref, timeref, success )
@@ -137,12 +156,12 @@
 !     Local variables
 !     ---------------
 !
-      CHARACTER(LEN=KEYWORD_LENGTH) :: keyword
-      type(Thermodynamics_t), pointer  :: thermodynamics_
-      type(RefValues_t)                :: refValues_
-      type(Dimensionless_t)            :: dimensionless_
-      real(kind=RP), allocatable       :: array(:)
-
+      CHARACTER(LEN=KEYWORD_LENGTH)   :: keyword
+      type(Thermodynamics_t)          :: thermodynamics_
+ 
+      type(RefValues_t)               :: refValues_
+      type(Dimensionless_t)           :: dimensionless_
+      real(kind=RP)                   :: array(3)
 !
 !     --------------------
 !     Collect input values
@@ -152,102 +171,86 @@
       CALL CheckPhysics_iNSInputIntegrity(controlVariables,success)
       IF(.NOT. success) RETURN 
 !
-!
-!     ---------------------
-!     Set the gas to be air
-!     ---------------------
-!
-      thermodynamics_ => thermodynamicsAir
-!
-!     ------------------------
-!     Dimensionless quantities
-!     ------------------------
-!
-!     *********************
-!     Select flow equations
-!     *********************
-!
-      dimensionless_ % Re = controlVariables % doublePrecisionValueForKey(REYNOLDS_NUMBER_KEY) 
-!
-!     ------------------------------------------------
-!     Set molecular viscosity and thermal conductivity
-!     ------------------------------------------------
-!
-      if ( .not. almostEqual(dimensionless_ % Re, 0.0_RP) ) then
-         dimensionless_ % mu   = 1.0_RP / dimensionless_ % Re
-
-      else
-         dimensionless_ % mu = 0.0_RP
-
-      end if
-!
 !     **************************************
 !     Check if state gradients are requested
 !     **************************************
 !
       computeGradients = .true.
 !
-!     ********************
-!     Set reference values: TODO read from parameter file
-!                           Ok, but be sure to change the mesh reading accordingly (x = x / refValues % L)
-!     ********************
+!     ******************
+!     Set thermodynamics
+!     ******************
 !
-      Lref = 1.0_RP
-      refValues_ % rho = 1.0_RP
-      refValues_ % V = 1.0_RP
-      refValues_ % p = refValues_ % rho * POW2( refValues_ % V )
-      refValues_ % mu = refValues_ % rho * refValues_ % V * Lref * dimensionless_ % mu
-      timeref = Lref / refValues_ % V
-!
-!     ****************************************************
-!     GRAVITY: Set the Froude number and gravity direction
-!     ****************************************************
-!
-      if ( controlVariables % ContainsKey(FROUDE_NUMBER_KEY) ) then
-         dimensionless_ % Fr = controlVariables % DoublePrecisionValueForKey(FROUDE_NUMBER_KEY)
+      thermodynamics_ % number_of_fluids = controlVariables % IntegerValueForKey(NUMBER_OF_FLUIDS_KEY)
+      
+      allocate(thermodynamics_ % rho(thermodynamics_ % number_of_fluids))
+      allocate(thermodynamics_ % mu (thermodynamics_ % number_of_fluids))
 
+      select case(thermodynamics_ % number_of_fluids)
+      case(1)
+         thermodynamics_ % rho(1) = controlVariables % DoublePrecisionValueForKey(DENSITY_KEY)
+         thermodynamics_ % mu (1) = controlVariables % DoublePrecisionValueForKey(VISCOSITY_KEY)
+         
+      case(2)
+         thermodynamics_ % rho(1) = controlVariables % DoublePrecisionValueForKey(FLUID1_DENSITY_KEY)
+         thermodynamics_ % rho(2) = controlVariables % DoublePrecisionValueForKey(FLUID2_DENSITY_KEY)
+
+         thermodynamics_ % mu (1) = controlVariables % DoublePrecisionValueForKey(FLUID1_VISCOSITY_KEY)
+         thermodynamics_ % mu (2) = controlVariables % DoublePrecisionValueForKey(FLUID2_VISCOSITY_KEY)
+
+      end select
+
+
+      if ( controlVariables % ContainsKey(MAXIMUM_DENSITY_KEY) ) then
+         thermodynamics_ % rho_max = controlVariables % DoublePrecisionValueForKey(MAXIMUM_DENSITY_KEY)
+         enableDensityLimiter = .true.
       else
-!
-!        Default Froude number: earth's gravity
-!        --------------------------------------
-         dimensionless_ % Fr = refValues_ % V / sqrt(9.81_RP * Lref)
+         thermodynamics_ % rho_max = huge(1.0_RP)
 
       end if
 
-      if ( controlVariables % ContainsKey(GRAVITY_DIRECTION_KEY) ) then
-         array = GetArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
-                                                                             KEYWORD_LENGTH))
-         dimensionless_ % gravity_dir = array(1:3)
-
-         if ( norm2(dimensionless_ % gravity_dir) < epsilon(1.0_RP)*10.0_RP ) then
-!
-!           Disable gravity
-!           ---------------
-            dimensionless_ % gravity_dir = 0.0_RP
-            dimensionless_ % invFroudeSquare = 0.0_RP
-            dimensionless_ % Fr = huge(1.0_RP)
-         else
-            dimensionless_ % gravity_dir = dimensionless_ % gravity_dir / norm2(dimensionless_ % gravity_dir)
-            dimensionless_ % invFroudeSquare = 1.0_RP / POW2(dimensionless_ % Fr)
-
-         end if
+      if ( controlVariables % ContainsKey(MINIMUM_DENSITY_KEY) ) then
+         thermodynamics_ % rho_min = controlVariables % DoublePrecisionValueForKey(MINIMUM_DENSITY_KEY)
+         enableDensityLimiter = .true.
       else
-         if ( controlVariables % ContainsKey(FROUDE_NUMBER_KEY) ) then
-            print*, "When specifying a Froude number, the gravity direction must be specified"
-            print*, "Gravity direction = [x,y,z]"
-            errorMessage(STD_OUT)
-            stop
+         thermodynamics_ % rho_min = 0.0_RP
 
-         else
-!
-!           Gravity is disabled
-!           -------------------
-            dimensionless_ % gravity_dir = 0.0_RP
-            dimensionless_ % Fr = huge(1.0_RP)
-            dimensionless_ % invFroudeSquare = 0.0_RP
-
-         end if
       end if
+!
+!     ********************
+!     Set reference values
+!     ********************
+!
+      refValues_ % rho = thermodynamics_ % rho(1)
+      refValues_ % V   = controlVariables % DoublePrecisionValueForKey(REFERENCE_VELOCITY_KEY)
+      refValues_ % p   = refValues_ % rho * POW2( refValues_ % V )
+      refValues_ % mu  = thermodynamics_ % mu(1)
+      timeref          = Lref / refValues_ % V
+!
+!     ****************************
+!     Set dimensionless quantities
+!     ****************************
+!
+      allocate(dimensionless_ % rho(thermodynamics_ % number_of_fluids))
+      allocate(dimensionless_ % mu (thermodynamics_ % number_of_fluids))
+
+      dimensionless_ % rho = thermodynamics_ % rho / refValues_ % rho
+      dimensionless_ % mu(1) = thermodynamics_ % mu(1) / (thermodynamics_ % rho(1) * refValues_ % V * Lref)
+      if ( .not. almostEqual(thermodynamics_ % mu(1), 0.0_RP)) then
+         dimensionless_ % mu(2) = dimensionless_ % mu(1) * thermodynamics_ % mu(2) / thermodynamics_ % mu(1)
+         dimensionless_ % Re = 1.0_RP / dimensionless_ % mu(1)
+      else
+         dimensionless_ % mu(2) = 0.0_RP
+         dimensionless_ % Re    = 0.0_RP
+
+      end if
+!
+!     **************************
+!     Artificial compressibility
+!     **************************
+!
+      thermodynamics_ % rho0c02 = maxval(dimensionless_ % rho) * controlVariables % DoublePrecisionValueForKey(ARTIFICIAL_COMPRESSIBILITY_KEY)
+      
 !
 !     *********************************************
 !     Choose the Riemann solver (by default is ERS)
@@ -337,13 +340,37 @@
 
       END IF 
 !
+!     *************
+!     Gravity force
+!     *************
+!
+      if ( controlVariables % ContainsKey(GRAVITY_DIRECTION_KEY) ) then
+         array = GetArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
+                                                                             KEYWORD_LENGTH))
+         dimensionless_ % gravity_dir = array(1:3) / norm2(array(1:3))
+      end if
+
+      refValues_ % g0 = controlVariables % DoublePrecisionValueForKey(GRAVITY_ACCELERATION_KEY)
+
+      if ( almostEqual(abs(refValues_ % g0), 0.0_RP) ) then
+         enableGravity = .false.
+         dimensionless_ % Fr = 0.0_RP
+         dimensionless_ % invFr2 = 0.0_RP
+
+      else
+         enableGravity = .true.
+         dimensionless_ % invFr2 = refValues_ % g0 * Lref / POW2(refValues_ % V)
+         dimensionless_ % Fr     = 1.0_RP / sqrt(dimensionless_ % invFr2)
+
+      end if
+!
 !     **********************************************************************
 !     Set the global (proteted) thermodynamics, dimensionless, and refValues
 !     **********************************************************************
 !
-      call setThermodynamics( thermodynamics_ )
-      call setDimensionless( dimensionless_ )
-      call setRefValues( refValues_ )
+      call setThermodynamics(thermodynamics_)
+      call setDimensionless (dimensionless_ )
+      call setRefValues     (refValues_     )
 !
 !     ********
 !     Describe
@@ -405,6 +432,12 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
       SUBROUTINE CheckPhysics_iNSInputIntegrity( controlVariables, success )  
+!
+!        *******************************************************************
+!           In this solver there are not compulsory keywords, but they
+!           are given default values
+!        *******************************************************************
+!
          USE FTValueDictionaryClass
          USE Physics_iNSKeywordsModule
          IMPLICIT NONE
@@ -421,16 +454,108 @@
 !        ---------------
 !
          CLASS(FTObject), POINTER :: obj
-         INTEGER                  :: i
+         INTEGER                  :: i, nF
+         real(kind=RP)            :: array(3)
          success = .TRUE.
          
-         DO i = 1, SIZE(physics_iNSKeywords)
-            obj => controlVariables % objectForKey(physics_iNSKeywords(i))
-            IF ( .NOT. ASSOCIATED(obj) )     THEN
-               PRINT *, "Input file is missing entry for keyword: ",physics_iNSKeywords(i)
-               success = .FALSE. 
-            END IF  
-         END DO  
+!         DO i = 1, SIZE(physics_iNSKeywords)
+!            obj => controlVariables % objectForKey(physics_iNSKeywords(i))
+!            IF ( .NOT. ASSOCIATED(obj) )     THEN
+!               PRINT *, "Input file is missing entry for keyword: ",physics_iNSKeywords(i)
+!               success = .FALSE. 
+!            END IF  
+!         END DO  
+
+         if ( .not. controlVariables % ContainsKey(REFERENCE_VELOCITY_KEY) ) then
+            call controlVariables % AddValueForKey("1.0", REFERENCE_VELOCITY_KEY)
+         end if
+
+         if ( .not. controlVariables % ContainsKey(NUMBER_OF_FLUIDS_KEY) ) then
+            call controlVariables % AddValueForKey("1", NUMBER_OF_FLUIDS_KEY)
+         end if
+         
+         if ( .not. controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) ) then
+            call controlVariables % AddValueForKey("1000.0", ARTIFICIAL_COMPRESSIBILITY_KEY)
+         end if
+
+         if ( .not. controlVariables % ContainsKey(RIEMANN_SOLVER_NAME_KEY) ) then
+            call controlVariables % AddValueForKey(EXACT_SOLVER_NAME, RIEMANN_SOLVER_NAME_KEY)
+         end if
+            
+         nF = controlVariables % IntegerValueForKey(NUMBER_OF_FLUIDS_KEY)
+
+         select case (nF)
+         case (1)
+            if ( .not. controlVariables % ContainsKey(DENSITY_KEY)) then
+               call controlVariables % AddValueForKey("1.0", DENSITY_KEY)
+            end if
+      
+            if ( .not. controlVariables % ContainsKey(VISCOSITY_KEY)) then
+               call controlVariables % AddValueForKey("0.0", VISCOSITY_KEY)
+            end if
+         case (2)
+            if ( .not. controlVariables % ContainsKey(FLUID1_DENSITY_KEY)) then
+               print*, "Specify density for fluid #1 using:"
+               print*, "   ",trim(FLUID1_DENSITY_KEY), " = #value"
+               errorMessage(STD_OUT)
+               stop 
+            end if
+      
+            if ( .not. controlVariables % ContainsKey(FLUID2_DENSITY_KEY)) then
+               print*, "Specify density for fluid #2 using:"
+               print*, "   ",trim(FLUID2_DENSITY_KEY), " = #value"
+               errorMessage(STD_OUT)
+               stop 
+            end if
+
+            if ( .not. controlVariables % ContainsKey(FLUID1_VISCOSITY_KEY)) then
+               call controlVariables % AddValueForKey("0.0", FLUID1_VISCOSITY_KEY)
+            end if
+print*, controlVariables % AllKeys()
+      
+            if ( .not. controlVariables % ContainsKey(FLUID2_VISCOSITY_KEY)) then
+               call controlVariables % AddValueForKey("0.0", FLUID2_VISCOSITY_KEY)
+            end if
+
+         end select
+!
+!        *************
+!        Gravity force
+!        *************
+!
+         if ( controlVariables % ContainsKey(GRAVITY_DIRECTION_KEY) ) then
+            array = GetArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
+                                                                                KEYWORD_LENGTH))
+            if ( norm2(array) < epsilon(1.0_RP)*10.0_RP ) then
+!   
+!              Error
+!              -----
+               print*, "Incorrect gravity direction vector"
+               errorMessage(STD_OUT)
+               stop
+
+            end if
+
+            if ( .not. controlVariables % ContainsKey(GRAVITY_ACCELERATION_KEY) ) then
+               call controlVariables % AddValueForKey("9.81d0", GRAVITY_ACCELERATION_KEY)
+
+            end if
+
+         else
+            if ( controlVariables % ContainsKey(GRAVITY_ACCELERATION_KEY) ) then
+               print*, "Gravity acceleration requires gravity direction."
+               print*, "Specify gravity direction with:"
+               print*, "     ", GRAVITY_DIRECTION_KEY, " = [x,y,z]"
+               errorMessage(STD_OUT)   
+               stop
+
+            else
+               call controlVariables % AddValueForKey("0.0d0", GRAVITY_ACCELERATION_KEY)
+
+            end if
+               
+         end if
+
          
       END SUBROUTINE CheckPhysics_iNSInputIntegrity
 !

@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Sat Jun 23 10:20:22 2018
+!   @Last revision date: Mon Jul  2 14:17:25 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
 !
 !//////////////////////////////////////////////////////
 !
@@ -1000,7 +1000,7 @@ stop
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   cIn01 = 0.5_RP * (e % storage % c(1,i,j,k) + 1.0_RP)
                   p = POW3(cIn01) * (6.0_RP * POW2(cIn01) - 15.0_RP * cIn01 + 10.0_RP)
-                  fm =   dimensionless % invFroudeSquare * dimensionless % gravity_dir &
+                  fm =   dimensionless % invFr2 * dimensionless % gravity_dir &
                        * ((1.0_RP - p) + p * multiphase % densityRatio)
                   e % storage % QDot(IRHOU:IRHOW,i,j,k) = e % storage % QDot(IRHOU:IRHOW,i,j,k) + fm
                   e % storage % QDot(IRHOE,i,j,k) = e % storage % QDot(IRHOE,i,j,k) &

@@ -4,9 +4,9 @@
 !   @File:    VariableConversion_iNS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:27 2018
-!   @Last revision date: Sat Jun 23 10:20:37 2018
+!   @Last revision date: Mon Jul  2 14:17:29 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
 !
 !//////////////////////////////////////////////////////
 !
@@ -26,7 +26,7 @@ module VariableConversion_iNS
    private
    public   iNSGradientValuesForQ
    public   iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D
-   public   GetiNSViscosity
+   public   GetiNSTwoFluidsViscosity, GetiNSOneFluidViscosity
 
    interface iNSGradientValuesForQ
        module procedure iNSGradientValuesForQ_0D , iNSGradientValuesForQ_3D
@@ -65,14 +65,55 @@ module VariableConversion_iNS
 
       end subroutine iNSGradientValuesForQ_3D
 
-      pure subroutine GetiNSViscosity(phi, mu)
+      pure subroutine GetiNSOneFluidViscosity(phi, mu)
+!
+!        ***********************************
+!           Here phi is the density, such
+!           that varies linearly from the
+!           density of fluid 1 to that of
+!           fluid 2
+!        ***********************************
+!
          implicit none
          real(kind=RP), intent(in)   :: phi
          real(kind=RP), intent(out)  :: mu
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         mu = dimensionless % mu(1)
 
-         mu = dimensionless % mu
+      end subroutine GetiNSOneFluidViscosity
 
-      end subroutine GetiNSViscosity
+      pure subroutine GetiNSTwoFluidsViscosity(phi, mu)
+!
+!        ***********************************
+!           Here phi is the density, such
+!           that varies linearly from the
+!           density of fluid 1 to that of
+!           fluid 2
+!        ***********************************
+!
+         implicit none
+         real(kind=RP), intent(in)   :: phi
+         real(kind=RP), intent(out)  :: mu
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)              :: mu2, mu1, rho1, rho2
+
+         mu1 = dimensionless % mu(1)
+         mu2 = dimensionless % mu(2)
+
+         rho1 = dimensionless % rho(1)
+         rho2 = dimensionless % rho(2)
+
+         mu = mu1 * (phi - rho2)/(rho1-rho2) + mu2 * (phi-rho1)/(rho2-rho1)
+
+      end subroutine GetiNSTwoFluidsViscosity
 !
 ! /////////////////////////////////////////////////////////////////////
 !

@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date: Wed Jun 27 11:11:37 2018
+!   @Last revision date: Mon Jul  2 14:17:30 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: eddf722bf052733b407a48854fb8055ce0becbe4
+!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
 !
 !//////////////////////////////////////////////////////
 !
@@ -370,11 +370,11 @@
 !           Disable gravity
 !           ---------------
             dimensionless_ % gravity_dir = 0.0_RP
-            dimensionless_ % invFroudeSquare = 0.0_RP
+            dimensionless_ % invFr2 = 0.0_RP
             dimensionless_ % Fr = huge(1.0_RP)
          else
             dimensionless_ % gravity_dir = dimensionless_ % gravity_dir / norm2(dimensionless_ % gravity_dir)
-            dimensionless_ % invFroudeSquare = 1.0_RP / POW2(dimensionless_ % Fr)
+            dimensionless_ % invFr2 = 1.0_RP / POW2(dimensionless_ % Fr)
 
          end if
       else
@@ -390,7 +390,7 @@
 !           -------------------
             dimensionless_ % gravity_dir = 0.0_RP
             dimensionless_ % Fr = huge(1.0_RP)
-            dimensionless_ % invFroudeSquare = 0.0_RP
+            dimensionless_ % invFr2 = 0.0_RP
 
          end if
       end if

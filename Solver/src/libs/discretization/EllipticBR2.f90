@@ -4,9 +4,9 @@
 !   @File:    EllipticBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Sat Jun 23 10:20:22 2018
+!   @Last revision date: Mon Jul  2 14:17:26 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
 !
 !//////////////////////////////////////////////////////
 !
@@ -540,14 +540,24 @@ module EllipticBR2
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
 
+#if defined(CAHNHILLIARD)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            call self % GetViscosity(e % storage % c(1,i,j,k), mu(i,j,k))
+         end do                ; end do                ; end do
+#elif defined(INCNS)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            call self % GetViscosity(e % storage % Q(INSRHO,i,j,k), mu(i,j,k))
+         end do                ; end do                ; end do
+#else
+         mu = dimensionless % mu
+
+#endif
+
 #if defined(NAVIERSTOKES)
-         mu    = dimensionless % mu
-         kappa = dimensionless % kappa
-
-#elif defined(CAHNHILLIARD)
-         mu    = 1.0_RP
+         kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
+                               POW2( dimensionless % Mach) * dimensionless % Pr ) * mu
+#else
          kappa = 0.0_RP
-
 #endif
 
          call self % EllipticFlux3D(nEqn, nGradEqn, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )

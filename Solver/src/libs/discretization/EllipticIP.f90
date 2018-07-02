@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Sat Jun 23 10:20:24 2018
+!   @Last revision date: Mon Jul  2 14:17:26 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
 !
 !//////////////////////////////////////////////////////
 !
@@ -509,6 +509,10 @@ module EllipticIP
 #if defined(CAHNHILLIARD)
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             call self % GetViscosity(e % storage % c(1,i,j,k), mu(i,j,k))      
+         end do                ; end do                ; end do
+#elif defined(INCNS)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            call self % GetViscosity(e % storage % Q(INSRHO,i,j,k), mu(i,j,k))
          end do                ; end do                ; end do
 #else
          mu = dimensionless % mu
