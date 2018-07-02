@@ -21,6 +21,13 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+#if defined(NAVIERSTOKES)
+#define NNS NCONS
+#define NGRADNS NGRAD
+#elif defined(INCNS)
+#define NNS NINC
+#define NGRADNS NINC
+#endif
          SUBROUTINE UserDefinedStartup
 !
 !        --------------------------------
@@ -104,7 +111,7 @@
             integer        :: eid, i, j, k
             real(kind=RP)  :: qq, u, v, w, p
 #if defined(NAVIERSTOKES)
-            real(kind=RP)  :: Q(NCONS), phi, theta
+            real(kind=RP)  :: Q(NNS), phi, theta
 #endif
 
 !
@@ -143,6 +150,23 @@
             end associate
 #endif
 !
+!           ------------------------------------------------------
+!           Incompressible Navier-Stokes default initial condition
+!           ------------------------------------------------------
+!
+#if defined(INCNS)
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          ny => mesh % elemeNts(eID) % nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  mesh % elements(eID) % storage % q(:,i,j,k) = [1.0_RP, 1.0_RP,0.0_RP,0.0_RP,0.0_RP] 
+               end do;        end do;        end do
+               end associate
+            end do
+#endif
+
+!
 !           ---------------------------------------
 !           Cahn-Hilliard default initial condition
 !           ---------------------------------------
@@ -163,7 +187,7 @@
 #endif
 
          end subroutine UserDefinedInitialCondition
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
 !
 !           -------------------------------------------------
@@ -177,13 +201,13 @@
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: Q(NCONS)
+            real(kind=RP), intent(inout)  :: Q(NNS)
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
          end subroutine UserDefinedState1
 
-         subroutine UserDefinedNeumann(x, t, nHat, U_x, U_y, U_z)
+         subroutine UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
 !
 !           --------------------------------------------------------
 !           Used to define a Neumann user defined boundary condition
@@ -196,10 +220,10 @@
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: U_x(NGRAD)
-            real(kind=RP), intent(inout)  :: U_y(NGRAD)
-            real(kind=RP), intent(inout)  :: U_z(NGRAD)
-         end subroutine UserDefinedNeumann
+            real(kind=RP), intent(inout)  :: U_x(NGRADNS)
+            real(kind=RP), intent(inout)  :: U_y(NGRADNS)
+            real(kind=RP), intent(inout)  :: U_z(NGRADNS)
+         end subroutine UserDefinedNeumann1
 #endif
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -242,9 +266,9 @@
             use FluidData
             IMPLICIT NONE
             real(kind=RP),             intent(in)  :: x(NDIM)
-            real(kind=RP),             intent(in)  :: Q(NCONS)
+            real(kind=RP),             intent(in)  :: Q(NNS)
             real(kind=RP),             intent(in)  :: time
-            real(kind=RP),             intent(out) :: S(NCONS)
+            real(kind=RP),             intent(out) :: S(NNS)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_

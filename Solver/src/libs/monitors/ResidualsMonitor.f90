@@ -70,6 +70,9 @@ module ResidualsMonitorClass
 #if defined(NAVIERSTOKES)
             write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
                         "Elapsed Time (s)" , "continuity" , "x-momentum" , "y-momentum" , "z-momentum", "energy" , "Max-Residual"
+#elif defined(INCNS)
+            write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
+                        "Elapsed Time (s)" , "dens-transp" , "x-momentum" , "y-momentum" , "z-momentum", "div-v" , "Max-Residual"
 #elif defined(CAHNHILLIARD)
             write ( fID , ' ( A10,2X,A24,2X,A24) ' ) "#Iteration" , "Time" , "concentration"
 
@@ -115,6 +118,12 @@ module ResidualsMonitorClass
          write(STD_OUT , '(3X,A10)' , advance = "no") "y-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "z-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "energy"
+#elif defined(INCNS)
+         write(STD_OUT , '(3X,A10)' , advance = "no") "dens-transp"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "x-momentum"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "y-momentum"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "z-momentum"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "div-v"
 #endif
 
 #if defined(CAHNHILLIARD)
@@ -181,12 +190,12 @@ module ResidualsMonitorClass
 
 #if (defined(NAVIERSTOKES) && !defined(CAHNHILLIARD))
 111 format(6(2X,ES24.16))
+#elif defined(INCNS)
+111 format(6(2X,ES24.16))
 #elif (!defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
 111 format(2(2X,ES24.16))
 #elif (defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
 111 format(7(2X,ES24.16))
 #endif
-      
       end subroutine Residuals_WriteToFile
-
 end module ResidualsMonitorClass

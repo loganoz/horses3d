@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Mon May 14 19:03:29 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Mon Jul  2 14:17:30 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
 !
 !//////////////////////////////////////////////////////
 !
@@ -238,9 +238,9 @@ Module Physics_NSKeywordsModule
       dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
 
 !      if ( dimensionless_ % Fr == huge(1.d0) ) then  
-!            dimensionless_ % invFroudeSquare = 0.0_RP 
+!            dimensionless_ % invFr2 = 0.0_RP 
 !      else  
-!            dimensionless_ % invFroudeSquare = 1.0_RP / POW2( dimensionless_ % Fr ) 
+!            dimensionless_ % invFr2 = 1.0_RP / POW2( dimensionless_ % Fr ) 
 !      endif  
 !
 !     ----------------

@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date: Wed May 30 10:40:42 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 4f8965e46980c4f95aa4ff4c00996b34c42b4b94
+!   @Last revision date: Mon Jul  2 14:17:30 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
 !
 !//////////////////////////////////////////////////////
 !
@@ -145,13 +145,12 @@
 !    Available averaging functions
 !    -----------------------------
 !
-     integer, parameter :: STANDARD_SPLIT             = 1
-     integer, parameter :: MORINISHI_SPLIT            = 2
-     integer, parameter :: DUCROS_SPLIT               = 3
-     integer, parameter :: KENNEDYGRUBER_SPLIT        = 4
-     integer, parameter :: PIROZZOLI_SPLIT            = 5
-     integer, parameter :: ENTROPYCONS_SPLIT          = 6
-     integer, parameter :: ENTROPYANDENERGYCONS_SPLIT = 7
+     enum, bind(C)
+        enumerator :: STANDARD_SPLIT = 1, MORINISHI_SPLIT
+        enumerator :: DUCROS_SPLIT, KENNEDYGRUBER_SPLIT
+        enumerator :: PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
+        enumerator :: ENTROPYANDENERGYCONS_SPLIT
+     end enum
      integer            :: whichAverage               = -1
 !
 !    -------------------------------------
@@ -371,11 +370,11 @@
 !           Disable gravity
 !           ---------------
             dimensionless_ % gravity_dir = 0.0_RP
-            dimensionless_ % invFroudeSquare = 0.0_RP
+            dimensionless_ % invFr2 = 0.0_RP
             dimensionless_ % Fr = huge(1.0_RP)
          else
             dimensionless_ % gravity_dir = dimensionless_ % gravity_dir / norm2(dimensionless_ % gravity_dir)
-            dimensionless_ % invFroudeSquare = 1.0_RP / POW2(dimensionless_ % Fr)
+            dimensionless_ % invFr2 = 1.0_RP / POW2(dimensionless_ % Fr)
 
          end if
       else
@@ -391,7 +390,7 @@
 !           -------------------
             dimensionless_ % gravity_dir = 0.0_RP
             dimensionless_ % Fr = huge(1.0_RP)
-            dimensionless_ % invFroudeSquare = 0.0_RP
+            dimensionless_ % invFr2 = 0.0_RP
 
          end if
       end if

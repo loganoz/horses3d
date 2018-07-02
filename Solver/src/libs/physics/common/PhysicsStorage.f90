@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Wed Apr 25 19:40:19 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 4749ed1216d5512d7b79f2485e9471f3161753ca
+!   @Last revision date: Sat Jun 23 10:20:32 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,6 +14,8 @@ module PhysicsStorage
    use SMConstants, only: RP
 #if defined(NAVIERSTOKES)
    use PhysicsStorage_NS
+#elif defined(INCNS)
+   use PhysicsStorage_iNS
 #endif
 #if defined(CAHNHILLIARD)
    use PhysicsStorage_CH
@@ -29,6 +31,9 @@ module PhysicsStorage
 #elif (defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
    integer, parameter   :: NTOTALVARS = NCONS + NCOMP
    integer, parameter   :: NTOTALGRADS = NGRAD + NCOMP
+#elif (defined(INCNS))
+   integer, parameter   :: NTOTALVARS = NINC
+   integer, parameter   :: NTOTALGRADS = NINC
 #endif
 
    real(kind=RP)     :: Lref
@@ -49,6 +54,8 @@ module PhysicsStorage
 !        ---------------------
 #if defined(NAVIERSTOKES)
          call ConstructPhysicsStorage_NS( controlVariables, Lref, timeref, success )
+#elif defined(INCNS)
+         call ConstructPhysicsStorage_iNS( controlVariables, Lref, timeref, success )
 #endif
 !
 !        Construct CHE physics

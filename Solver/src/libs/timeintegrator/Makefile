@@ -29,6 +29,28 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/FASMultigridClass.o \
 		./build_ns/TimeIntegrator.o 
 
+LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
+		./build_ins/AnalyticalJacobian.o \
+		./build_ins/GenericLinSolverClass.o \
+		./build_ins/PetscSolverClass.o \
+		./build_ins/MultigridSolverClass.o \
+		./build_ins/MKLPardisoSolverClass.o \
+		./build_ins/IterativeSolverClass.o \
+		./build_ins/MatrixFreeSmootherClass.o \
+		./build_ins/MatrixFreeGMRESClass.o \
+		./build_ins/LinearSolverClass.o \
+		./build_ins/IMEXMethods.o \
+		./build_ins/BDFTimeIntegrator.o \
+		./build_ins/RosenbrockTimeIntegrator.o \
+		./build_ins/MultigridTypes.o \
+		./build_ins/TruncationErrorClass.o \
+		./build_ins/ExplicitMethods.o \
+		./build_ins/AnisFASMultigridClass.o \
+		./build_ins/pAdaptationClass.o \
+		./build_ins/FASMultigridClass.o \
+		./build_ins/TimeIntegrator.o 
+
+
 LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/AnalyticalJacobian.o \
 		./build_ch/GenericLinSolverClass.o \
@@ -78,7 +100,7 @@ LIB = timeintegrator
 ############################################
 .DEFAULT_GOAL:=all
 
-all: lib$(LIB)_ns.a lib$(LIB)_ch.a lib$(LIB)_nsch.a
+all: lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_nsch.a
 
 ./build_ns/%.o: %.f90
 	@echo
@@ -89,6 +111,16 @@ all: lib$(LIB)_ns.a lib$(LIB)_ch.a lib$(LIB)_nsch.a
 	@echo
 	@echo $<
 	$(FC) $(FFLAGS) -DNAVIERSTOKES -I./include_ns $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ns -c $< -o $@ $(MOD_FLAG) ./include_ns
+
+./build_ins/%.o: %.f90
+	@echo
+	@echo $<
+	$(FC) $(FFLAGS) -DINCNS -I./include_ins $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ins -c $< -o $@ $(MOD_FLAG) ./include_ins
+
+./build_ins/%.o: **/%.f90
+	@echo
+	@echo $<
+	$(FC) $(FFLAGS) -DINCNS -I./include_ins $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ins -c $< -o $@ $(MOD_FLAG) ./include_ins
 
 ./build_ch/%.o: %.f90
 	@echo
@@ -119,6 +151,15 @@ lib$(LIB)_ns.a: header mkdirs $(LIBOBJS_NS)
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS_NS) 
 	@$(RANLIB) $@
 
+lib$(LIB)_ins.a: header mkdirs $(LIBOBJS_iNS) 
+	@echo
+	@echo "---------------------------------"
+	@echo "| Linking library" $@ "|"
+	@echo "---------------------------------"
+	@$(RM) $@
+	$(AR) $(ARFLAGS) $@ $(LIBOBJS_iNS) 
+	@$(RANLIB) $@
+
 lib$(LIB)_ch.a: header mkdirs $(LIBOBJS_CH)
 	@echo
 	@echo "---------------------------------"
@@ -139,9 +180,11 @@ lib$(LIB)_nsch.a: header mkdirs $(LIBOBJS_NSCH)
 
 install: all
 	cp -p lib$(LIB)_ns.a $(INSTALL_DIR)/lib/
+	cp -p lib$(LIB)_ins.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_nsch.a $(INSTALL_DIR)/lib/
 	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
+	cp -p ./include_ins/*.mod $(INSTALL_DIR)/include_ins/
 	cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
 	cp -p ./include_nsch/*.mod $(INSTALL_DIR)/include_nsch/
 	@echo
@@ -156,12 +199,13 @@ header: FORCE
 	@echo
 
 mkdirs: FORCE
-	@mkdir -p ./include_ns ./include_ch ./include_nsch
-	@mkdir -p ./build_ns ./build_ch ./build_nsch
+	@mkdir -p ./include_ns ./include_ins ./include_ch ./include_nsch
+	@mkdir -p ./build_ns ./build_ins ./build_ch ./build_nsch
 
 clean: FORCE
-	$(RM) lib$(LIB)_ns.a  lib$(LIB)_ch.a lib$(LIB)_nsch.a
+	$(RM) lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_nsch.a
 	$(RM) ./build_ns/*.o ./include_ns/*.mod
+	$(RM) ./build_ins/*.o ./include_ins/*.mod
 	$(RM) ./build_ch/*.o ./include_ch/*.mod
 	$(RM) ./build_nsch/*.o ./include_nsch/*.mod
 

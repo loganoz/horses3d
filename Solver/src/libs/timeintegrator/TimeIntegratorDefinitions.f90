@@ -4,9 +4,9 @@
 !   @File:    TimeIntegratorDefinitions.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Feb 13 14:26:34 2018
-!   @Last revision date: Tue Apr 10 17:29:28 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 354405a2601df9bc6ed4885b661cc83e9e92439b
+!   @Last revision date: Sat Jun 23 10:20:39 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
 !
 !//////////////////////////////////////////////////////
 !
@@ -22,12 +22,12 @@ module TimeIntegratorDefinitions
          use SMConstants
          use HexMeshClass
          use DGSEMClass
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          use ParticlesClass, only: Particles_t
 #endif
          IMPLICIT NONE
          type(HexMesh)              :: mesh
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          type(Particles_t)          :: particles
 #else
          logical                    :: particles

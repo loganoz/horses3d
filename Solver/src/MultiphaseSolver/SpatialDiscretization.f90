@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Mon Jun  4 18:05:51 2018
-!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 2355abaef579817f771ad9146d80ed4a4e10e404
+!   @Last revision date: Mon Jul  2 14:17:24 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
 !
 !//////////////////////////////////////////////////////
 !
@@ -1063,7 +1063,7 @@ stop
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  fm =   dimensionless % invFroudeSquare * dimensionless % gravity_dir * e % storage % Q(IRHO,i,j,k)
+                  fm =   dimensionless % invFr2 * dimensionless % gravity_dir * e % storage % Q(IRHO,i,j,k)
                   e % storage % QDot(IRHOU:IRHOW,i,j,k) = e % storage % QDot(IRHOU:IRHOW,i,j,k) + fm
                   e % storage % QDot(IRHOE,i,j,k) = e % storage % QDot(IRHOE,i,j,k) &
                     + product(fm * e % storage % Q(IRHOU:IRHOW,i,j,k)) / e % storage % Q(IRHO,i,j,k)

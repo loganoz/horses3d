@@ -1,8 +1,20 @@
 #include "Includes.h"
 #if defined(NAVIERSTOKES)
+#define NNS NCONS
+#define NGRADNS NGRAD
+#elif defined(INCNS)
+#define NNS NINC
+#define NGRADNS NINC
+#endif
+
+#if defined(NAVIERSTOKES) || defined(INCNS)
 module HyperbolicSplitForm
    use SMConstants
+#if defined(NAVIERSTOKES)
    use RiemannSolvers_NS
+#elif defined(INCNS)
+   use RiemannSolvers_iNS
+#endif
    use HyperbolicDiscretizationClass
    use FluidData
    implicit none
@@ -44,6 +56,7 @@ module HyperbolicSplitForm
          call toLower(splitForm)
 
          select case ( trim(splitForm) )
+#if defined(NAVIERSTOKES)
          case ( "standard" )
 !
 !           Skew-symmetric version of the standard DG. Useful for testing
@@ -89,7 +102,30 @@ module HyperbolicSplitForm
             errorMessage(STD_OUT)
             stop 
             end if
+#elif defined(INCNS)
+         case("standard")
+!
+!           Skew-symmetric version of the standard DG. Useful for testing
+!           -------------------------------------------------------------
+print*, "STANDARD!!"
+            self % ComputeVolumetricSharpFlux => StandardDG_VolumetricSharpFlux
+            splitType = STANDARD_SPLIT
 
+         case("skew-symmetric")
+print*, "SKEW!!"
+            self % ComputeVolumetricSharpFlux => SkewSymmetricDG_VolumetricSharpFlux
+            splitType = SKEWSYMMETRIC_SPLIT
+         case default
+            if ( MPI_Process % isRoot ) then   
+            write(STD_OUT,'(A,A,A)') 'Requested split form "',trim(splitForm),'" is not implemented.'
+            write(STD_OUT,'(A)') "Implemented split forms are:"
+            write(STD_OUT,'(A)') "  * Standard"
+            write(STD_OUT,'(A)') "  * Skew-symmetric"
+            errorMessage(STD_OUT)
+            stop 
+            end if
+
+#endif
          end select
 
          call SetRiemannSolver( whichRiemannSolver, splitType )
@@ -103,7 +139,7 @@ module HyperbolicSplitForm
          if (.not. MPI_Process % isRoot ) return
 
          write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","Split-Form"
-
+#if defined(NAVIERSTOKES)
          select case ( splitType )
          case (STANDARD_SPLIT)
             write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Standard"
@@ -157,6 +193,7 @@ module HyperbolicSplitForm
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Viscous NS"
          
          end select
+#endif
 
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
          
@@ -174,10 +211,10 @@ module HyperbolicSplitForm
          implicit none
          class(SplitDG_t), intent(in)  :: self
          type(Element),    intent(in)  :: e
-         real(kind=RP),    intent(in)  :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
-         real(kind=RP),    intent(out) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
-         real(kind=RP),    intent(out) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
-         real(kind=RP),    intent(out) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),    intent(in)  :: contravariantFlux(1:NNS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP),    intent(out) :: fSharp(1:NNS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),    intent(out) :: gSharp(1:NNS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),    intent(out) :: hSharp(1:NNS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
 !
 !        ---------------
 !        Local variables
@@ -228,6 +265,7 @@ module HyperbolicSplitForm
 !        -----------------------------
 !///////////////////////////////////////////////////////////////////////
 !
+#if defined(NAVIERSTOKES)
       subroutine StandardDG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp) 
          use SMConstants
          use PhysicsStorage
@@ -787,6 +825,124 @@ module HyperbolicSplitForm
          end associate
 
       end subroutine EntropyAndEnergyConserving_VolumetricSharpFlux
+#elif defined(INCNS)
+      subroutine StandardDG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp) 
+         use SMConstants
+         use PhysicsStorage
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NINC)
+         real(kind=RP), intent(in)       :: QR(1:NINC)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NINC)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: rhoL, uL, vL, wL, pL
+         real(kind=RP)     :: rhoR, uR, vR, wR, pR
+         real(kind=RP)     :: Ja(1:NDIM)
+         real(kind=RP)     :: f(NINC), g(NINC), h(NINC)
 
+         rhoL = QL(INSRHO)    ; rhoR = QR(INSRHO)
+         uL   = QL(INSU)      ; uR   = QR(INSU)
+         vL   = QL(INSV)      ; vR   = QR(INSV)
+         wL   = QL(INSW)      ; wR   = QR(INSW)
+         pL   = QL(INSP)      ; pR   = QR(INSP)  
+   
+!
+!        Average metrics: (Note: Here all average (1/2)s are accounted later)
+!        ---------------
+         Ja = (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         f(INSRHO) = rhoL*uL         + rhoR*uR
+         f(INSU)   = rhoL*uL*uL + pL + rhoR*uR*uR + pR
+         f(INSV)   = rhoL*uL*vL      + rhoR*uR*vR
+         f(INSW)   = rhoL*uL*wL      + rhoR*uR*wR
+         f(INSP)   = thermodynamics % rho0c02 * (uL + uR)
+
+         g(INSRHO) = rhoL*vL         + rhoR*vR
+         g(INSU)   = rhoL*vL*uL      + rhoR*vR*uR
+         g(INSV)   = rhoL*vL*vL + pL + rhoR*vR*vR + pR
+         g(INSW)   = rhoL*vL*wL      + rhoR*vR*wR
+         g(INSP)   = thermodynamics % rho0c02 * (vL + vR)
+
+         h(INSRHO) = rhoL*wL         + rhoR*wR
+         h(INSU)   = rhoL*wL*uL      + rhoR*wR*uR
+         h(INSV)   = rhoL*wL*vL      + rhoR*wR*vR
+         h(INSW)   = rhoL*wL*wL + pL + rhoR*wR*wR + pR
+         h(INSP)   = thermodynamics % rho0c02 * (wL + wR)
+!
+!        Compute the sharp flux: (And account for the (1/2)^2)
+!        ----------------------         
+         fSharp = 0.25_RP * ( f*Ja(IX) + g*Ja(IY) + h*Ja(IZ) )
+
+      end subroutine StandardDG_VolumetricSharpFlux
+
+      subroutine SkewSymmetricDG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp) 
+         use SMConstants
+         use PhysicsStorage
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NINC)
+         real(kind=RP), intent(in)       :: QR(1:NINC)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NINC)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: rhoL, uL, vL, wL, pL
+         real(kind=RP) :: rhoR, uR, vR, wR, pR
+         real(kind=RP) :: rho, u, v, w, p
+         real(kind=RP) :: Ja(1:NDIM)
+         real(kind=RP) :: f(NINC), g(NINC), h(NINC)
+
+         rhoL = QL(INSRHO)    ; rhoR = QR(INSRHO)
+         uL   = QL(INSU)      ; uR   = QR(INSU)
+         vL   = QL(INSV)      ; vR   = QR(INSV)
+         wL   = QL(INSW)      ; wR   = QR(INSW)
+         pL   = QL(INSP)      ; pR   = QR(INSP)  
+
+         rho = 0.5_RP * (rhoL + rhoR)
+         u   = 0.5_RP * (uL + uR)
+         v   = 0.5_RP * (vL + vR)
+         w   = 0.5_RP * (wL + wR)
+         p   = 0.5_RP * (pL + pR)
+!
+!        Average metrics: (Note: Here all average (1/2)s are accounted later)
+!        ---------------
+         Ja = 0.5_RP * (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         f(INSRHO) = rho*u
+         f(INSU)   = rho*u*u + p
+         f(INSV)   = rho*u*v
+         f(INSW)   = rho*u*w
+         f(INSP)   = thermodynamics % rho0c02 * u
+
+         g(INSRHO) = rho*v
+         g(INSU)   = rho*u*v
+         g(INSV)   = rho*v*v + p
+         g(INSW)   = rho*u*w
+         g(INSP)   = thermodynamics % rho0c02 * v
+
+         h(INSRHO) = rho*w
+         h(INSU)   = rho*u*w
+         h(INSV)   = rho*v*w
+         h(INSW)   = rho*w*w + p
+         h(INSP)   = thermodynamics % rho0c02 * w
+!
+!        Compute the sharp flux: (And account for the (1/2)^2)
+!        ----------------------         
+         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ) 
+
+      end subroutine SkewSymmetricDG_VolumetricSharpFlux
+#endif
 end module HyperbolicSplitForm
 #endif

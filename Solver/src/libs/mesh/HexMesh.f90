@@ -1656,6 +1656,8 @@ slavecoord:                DO l = 1, 4
 
 #if defined(NAVIERSTOKES)
             call ConstructMPIFacesStorage(NCONS, NGRAD, MPI_NDOFS)
+#elif defined(INCNS)
+            call ConstructMPIFacesStorage(NINC, NINC, MPI_NDOFS)
 #elif defined(CAHNHILLIARD)
             call ConstructMPIFacesStorage(NCOMP, NCOMP, MPI_NDOFS)
 #endif
@@ -2274,6 +2276,13 @@ slavecoord:                DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = refValues      % T
          refs(MACH_REF)  = dimensionless  % Mach
+#elif defined(INCNS)
+         refs(GAMMA_REF) = 0.0_RP
+         refs(RGAS_REF)  = 0.0_RP
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = 0.0_RP
+         refs(MACH_REF)  = 0.0_RP
 #else
          refs = 0.0_RP
 #endif
@@ -2300,6 +2309,8 @@ slavecoord:                DO l = 1, 4
 
 #if defined(NAVIERSTOKES)
             Q(1:NCONS,:,:,:) = e % storage % Q
+#elif defined(INCNS)
+            Q(1:NINC,:,:,:)  = e % storage % Q
 #endif
 #if defined(CAHNHILLIARD)
             Q(NTOTALVARS,:,:,:) = e % storage % c(1,:,:,:)
@@ -2315,6 +2326,8 @@ slavecoord:                DO l = 1, 4
 
 #if defined(NAVIERSTOKES)
                Q(1:NGRAD,:,:,:) = e % storage % U_x
+#elif defined(INCNS)
+               Q(1:NINC,:,:,:) = e % storage % U_x
 #endif
 #if defined(CAHNHILLIARD)
                Q(NTOTALGRADS,:,:,:) = e % storage % c_x(1,:,:,:)
@@ -2323,6 +2336,8 @@ slavecoord:                DO l = 1, 4
 
 #if defined(NAVIERSTOKES)
                Q(1:NGRAD,:,:,:) = e % storage % U_y
+#elif defined(INCNS)
+               Q(1:NINC,:,:,:) = e % storage % U_y
 #endif
 #if defined(CAHNHILLIARD)
                Q(NTOTALGRADS,:,:,:) = e % storage % c_y(1,:,:,:)
@@ -2331,6 +2346,8 @@ slavecoord:                DO l = 1, 4
 
 #if defined(NAVIERSTOKES)
                Q(1:NGRAD,:,:,:) = e % storage % U_z
+#elif defined(INCNS)
+               Q(1:NINC,:,:,:) = e % storage % U_z
 #endif
 #if defined(CAHNHILLIARD)
                Q(NTOTALGRADS,:,:,:) = e % storage % c_z(1,:,:,:)
@@ -2432,7 +2449,7 @@ slavecoord:                DO l = 1, 4
          type(HexMesh)                        :: auxMesh
          integer                              :: NDOF, eID
          logical                              :: with_gradients
-#if (!defined(NAVIERSTOKES))
+#if (!defined(NAVIERSTOKES)) || (!defined(INCNS))
          logical                          :: computeGradients = .true.
 #endif
          !---------------------------------------------------------
@@ -2639,6 +2656,14 @@ slavecoord:                DO l = 1, 4
                read(fID) e % storage % U_y
                read(fID) e % storage % U_z
             end if
+#elif defined(INCNS)
+            e % storage % Q = Q(1:NINC,:,:,:)
+            if (gradients) then
+               read(fID) e % storage % U_x
+               read(fID) e % storage % U_y
+               read(fID) e % storage % U_z
+            end if
+
 #endif
 #if defined(CAHNHILLIARD)
             e % storage % c(1,:,:,:) = Q(NTOTALVARS,:,:,:)
@@ -3021,7 +3046,7 @@ slavecoord:                DO l = 1, 4
       call GetStorageEquations(off, ns, c, mu)
 
       if ( which .eq. ns ) then
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          self % storage % Q => self % storage % QNS 
          self % storage % QDot => self % storage % QDotNS 
          self % storage % PrevQ(1:,1:) => self % storage % PrevQNS(1:,1:)
