@@ -1,4 +1,22 @@
 !
+!//////////////////////////////////////////////////////
+!
+!   @File:    main.f90
+!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
+!   @Created: Mon Jul  2 17:50:24 2018
+!   @Last revision date: Tue Jul  3 17:26:27 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
+!
+!//////////////////////////////////////////////////////
+!
+!
+!//////////////////////////////////////////////////////
+!
+!
+!//////////////////////////////////////////////////////
+!
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      HORSES3DMain.f90
@@ -26,9 +44,8 @@
       use StopwatchClass
       use MPI_Process_Info
       use SpatialDiscretization
-      use pAdaptationClass          , only: GetMeshPolynomialOrders
+      use pAdaptationClass
       use NodalStorageClass
-      use ManufacturedSolutions
       use FluidData
       use FileReaders               , only: ReadControlFile 
       use FileReadingUtilities      , only: getFileName
@@ -38,11 +55,6 @@
 #endif
       
       IMPLICIT NONE
-
-      procedure(UserDefinedStartup_f)     :: UserDefinedStartup
-      procedure(UserDefinedFinalSetup_f)  :: UserDefinedFinalSetup
-      procedure(UserDefinedFinalize_f)    :: UserDefinedFinalize
-      procedure(UserDefinedTermination_f) :: UserDefinedTermination
       TYPE( FTValueDictionary)            :: controlVariables
       TYPE( DGSem )                       :: sem
       TYPE( TimeIntegrator_t )            :: timeIntegrator
@@ -50,15 +62,22 @@
       integer                             :: initial_iteration
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
-      type(BCFunctions_t)                 :: BCFunctions(1)
-      procedure(BCState_FCN)              :: externalStateForBoundaryName_NS
-      procedure(BCGradients_FCN)          :: ExternalGradientForBoundaryName_NS
+      type(BCFunctions_t)                 :: BCFunctions(3)
+      procedure(BCState_FCN)              :: externalStateForBoundaryName_iNS
+      procedure(BCGradients_FCN)          :: ExternalGradientForBoundaryName_iNS
+      procedure(BCState_FCN)              :: externalCHStateForBoundaryName
+      procedure(BCGradients_FCN)          :: ExternalConcentrationGradientForBoundaryName
+      procedure(BCGradients_FCN)          :: ExternalChemicalPotentialGradientForBoundaryName
       character(len=LINE_LENGTH)          :: solutionFileName
+      procedure(UserDefinedStartup_f)     :: UserDefinedStartup
+      procedure(UserDefinedFinalSetup_f)  :: UserDefinedFinalSetup
+      procedure(UserDefinedFinalize_f)    :: UserDefinedFinalize
+      procedure(UserDefinedTermination_f) :: UserDefinedTermination
       integer, allocatable                :: Nx(:), Ny(:), Nz(:)
       integer                             :: Nmax
       type(pAdaptation_t)                 :: pAdaptator
 
-      solver = "navier-stokes"
+      solver = "nsch"
 !
 !     ---------------
 !     Initializations
@@ -72,10 +91,10 @@
 !     ----------------------------------------------------------------------------------
 !
       if ( MPI_Process % doMPIAction ) then
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Navier-Stokes Cahn-Hilliard Solver",__DATE__,__TIME__)
 
       else
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Navier-Stokes Cahn-Hilliard Solver",__DATE__,__TIME__)
 
       end if
 
@@ -95,19 +114,18 @@
       CALL ConstructPhysicsStorage( controlVariables, success )
       IF(.NOT. success)   ERROR STOP "Physics parameters input error"
       
-      ! Initialize manufactured solutions if necessary
-      sem % ManufacturedSol = controlVariables % containsKey("manufactured solution")
-      
-      IF (sem % ManufacturedSol) THEN
-         CALL InitializeManufacturedSol(controlVariables % StringValueForKey("manufactured solution",LINE_LENGTH))
-      END IF
-      
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
       call InitializeNodalStorage(Nmax)
       call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
       
-      BCFunctions(1) % externalState => externalStateForBoundaryName_NS
-      BCFunctions(1) % externalGradients => externalGradientForBoundaryName_NS
+      BCFunctions(NS_BC) % externalState     => externalStateForBoundaryName_iNS
+      BCFunctions(NS_BC) % externalGradients => externalGradientForBoundaryName_iNS
+
+      BCFunctions(C_BC) % externalState      => externalCHStateForBoundaryName
+      BCFunctions(C_BC) % externalGradients  => externalConcentrationGradientForBoundaryName
+
+      BCFunctions(MU_BC) % externalState     => externalCHStateForBoundaryName
+      BCFunctions(MU_BC) % externalGradients => externalChemicalPotentialGradientForBoundaryName
 
       call sem % construct (  controlVariables  = controlVariables,                                         &
                               BCFunctions = BCFunctions, &
@@ -119,7 +137,7 @@
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
       CALL checkBCIntegrity(sem % mesh, success)
       IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
-      CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues)
+      CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues, multiphase)
 !
 !     -------------------------
 !     Set the initial condition
@@ -157,6 +175,7 @@
 !
       CALL UserDefinedFinalize(sem % mesh, timeIntegrator % time, sem % numberOfTimeSteps, &
                               sem % maxResidual, thermodynamics, dimensionless, refValues, &
+                              multiphase, &
                               sem % monitors, Stopwatch % ElapsedTime("Solver"), &
                               Stopwatch % CPUTime("Solver"))
 #ifdef _HAS_MPI_
@@ -201,7 +220,7 @@
          USE HexMeshClass
          use FTValueDictionaryClass
          USE SharedBCModule
-         USE BoundaryConditionFunctions_NS, ONLY:implementedNSBCNames
+         USE BoundaryConditionFunctions_iNS, ONLY:implementediNSBCNames
          IMPLICIT NONE
 !
 !        ---------
@@ -257,8 +276,8 @@
             obj => bcObjects % objectAtIndex(j)
             CALL castToValue(obj,v)
             bcType = v % stringValue(requestedLength = BC_STRING_LENGTH)
-            DO i = 1, SIZE(implementedNSBCNames)
-               IF ( bcType == implementedNSBCNames(i) )     THEN
+            DO i = 1, SIZE(implementediNSBCNames)
+               IF ( bcType == implementediNSBCNames(i) )     THEN
                   success = .TRUE. 
                   EXIT 
                ELSE 
@@ -287,7 +306,7 @@
          USE mainKeywordsModule
          use FTValueClass
          use MPI_Process_Info
-         use SpatialDiscretization, only: viscousDiscretizationKey
+         use SpatialDiscretization, only: viscousDiscretizationKey, CHDiscretizationKey
          IMPLICIT NONE
 !
 !        ---------
@@ -327,6 +346,11 @@
          obj => controlVariables % objectForKey(viscousDiscretizationKey)
          if ( .not. associated(obj) ) then
             call controlVariables % addValueForKey("BR1",viscousDiscretizationKey)
+         end if
+
+         obj => controlVariables % objectForKey(CHDiscretizationKey)
+         if ( .not. associated(obj) ) then
+            call controlVariables % addValueForKey("IP",CHDiscretizationKey)
          end if
 
          obj => controlVariables % objectForKey(splitFormKey)

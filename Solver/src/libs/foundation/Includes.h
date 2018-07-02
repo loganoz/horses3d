@@ -8,3 +8,11 @@
 #define safedeallocate(x) if (allocated(x)) deallocate(x)
 
 #define sign2(x) ((x) / ( abs((x)) + epsilon((x)) ) )
+
+#if (defined(NAVIERSTOKES) || defined(INCNS)) && (!defined(CAHNHILLIARD))
+#define FLUID_DATA_VARS thermodynamics, dimensionless, refValues
+#elif (defined(NAVIERSTOKES) || defined(INCNS)) && (defined(CAHNHILLIARD))
+#define FLUID_DATA_VARS thermodynamics, dimensionless, refValues, multiphase
+#else 
+#define FLUID_DATA_VARS multiphase
+#endif

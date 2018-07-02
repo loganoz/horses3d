@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Fri Jun 29 12:25:02 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f5ac1c3af6cb286f8def57452c066d57412a133b
+!   @Last revision date: Tue Jul  3 13:57:47 2018
+!   @Last revision author: Juan (juan.manzanero@upm.es)
+!   @Last revision commit: a58cd217935c45def88066502aef3f61cbddb117
 !
 !//////////////////////////////////////////////////////
 !
@@ -101,6 +101,10 @@ MODULE HexMeshClass
             procedure :: ComputeWallDistances          => HexMesh_ComputeWallDistances
             procedure :: ConformingOnZone              => HexMesh_ConformingOnZone
             procedure :: SetStorageToEqn          => HexMesh_SetStorageToEqn
+#if defined(INCNS) && defined(CAHNHILLIARD)
+            procedure :: ConvertDensityToPhaseFIeld    => HexMesh_ConvertDensityToPhaseField
+            procedure :: ConvertPhaseFieldToDensity    => HexMesh_ConvertPhaseFieldToDensity
+#endif
       end type HexMesh
 
       TYPE Neighbour         ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
@@ -3139,5 +3143,62 @@ slavecoord:                DO l = 1, 4
       end do
       
    end function
+#if defined(INCNS) && defined(CAHNHILLIARD)
+   subroutine HexMesh_ConvertDensityToPhaseField(self)
+!
+!     *************************************************************
+!     Convert density to phase field only in element interior nodes
+!     *************************************************************
+!
+      implicit none
+      class(HexMesh),   intent(inout)  :: self
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer  :: eID, fID
+   
+      associate(rhomax => thermodynamics % rho_max, &
+                rhomin => thermodynamics % rho_min)
+      do eID = 1, self % no_of_elements
+         associate(c => self % elements(eID) % storage % c, &
+                   Q => self % elements(eID) % storage % QNS)
+         c(1,:,:,:) = (rhomax + rhomin + 2.0_RP * refValues % rho * Q(INSRHO,:,:,:))/(rhomax-rhomin)
+         end associate
+      end do
+
+      end associate
+   end subroutine HexMesh_ConvertDensityToPhaseField
+
+   subroutine HexMesh_ConvertPhaseFieldToDensity(self)
+!
+!     *************************************************************
+!     Convert density to phase field only in element interior nodes
+!     *************************************************************
+!
+      implicit none
+      class(HexMesh),   intent(inout)  :: self
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer  :: eID, fID
+   
+      associate(rhomax => thermodynamics % rho_max, &
+                rhomin => thermodynamics % rho_min)
+      do eID = 1, self % no_of_elements
+         associate(c => self % elements(eID) % storage % c, &
+                   Q => self % elements(eID) % storage % QNS)
+         Q(INSRHO,:,:,:) = 0.5_RP*(rhomax*(1.0_RP-c(1,:,:,:)) + rhomin*(1.0_RP + c(1,:,:,:)))
+         end associate
+      end do
+
+      end associate
+
+   end subroutine HexMesh_ConvertPhaseFieldToDensity
+#endif
+
 END MODULE HexMeshClass
       

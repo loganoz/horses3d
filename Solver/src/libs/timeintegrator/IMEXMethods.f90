@@ -4,9 +4,9 @@
 !   @File:    IMEXMethods.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date: Sat Jun 23 10:20:38 2018
+!   @Last revision date: Tue Jul  3 17:26:39 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
 !
 !//////////////////////////////////////////////////////
 !
@@ -23,7 +23,7 @@ MODULE IMEXMethods
    USE FTValueDictionaryClass
    use TimeIntegratorDefinitions
    use MatrixClass
-   use DGSEMClass, only: ComputeQDot_FCN
+   use DGSEMClass, only: ComputeTimeDerivative_f
    implicit none
    
    PRIVATE                          
@@ -32,9 +32,9 @@ MODULE IMEXMethods
    real(kind=RP) :: time               ! Time at the beginning of each inner(!) time step
    logical       :: computeA = .TRUE.  ! Compute Jacobian? (only valid if it is meant to be computed according to the convergence)
 
-   procedure(ComputeQDot_FCN), protected, pointer    :: CTD_onlyRK3       => NULL()
-   procedure(ComputeQDot_FCN), protected, pointer    :: CTD_onlyLinear    => NULL()
-   procedure(ComputeQDot_FCN), protected, pointer    :: CTD_onlyNonLinear => NULL()
+   procedure(ComputeTimeDerivative_f), protected, pointer    :: CTD_onlyRK3       => NULL()
+   procedure(ComputeTimeDerivative_f), protected, pointer    :: CTD_onlyLinear    => NULL()
+   procedure(ComputeTimeDerivative_f), protected, pointer    :: CTD_onlyNonLinear => NULL()
    
 CONTAINS
 !
@@ -42,8 +42,8 @@ CONTAINS
 !   
    subroutine SetIMEXComputeQDotProcedures(CTD_onlyLinear_, CTD_onlyNonLinear_, CTD_onlyRK3_)
       implicit none
-      procedure(ComputeQDot_FCN)           :: CTD_onlyLinear_, CTD_onlyNonLinear_
-      procedure(ComputeQDot_FCN), optional :: CTD_onlyRK3_
+      procedure(ComputeTimeDerivative_f)           :: CTD_onlyLinear_, CTD_onlyNonLinear_
+      procedure(ComputeTimeDerivative_f), optional :: CTD_onlyRK3_
 
       CTD_onlyLinear    => CTD_onlyLinear_
       CTD_onlyNonLinear => CTD_onlyNonLinear_
@@ -60,7 +60,7 @@ CONTAINS
       REAL(KIND=RP),                INTENT(IN)              :: t                    !< Time at the beginning of time step
       REAL(KIND=RP),                INTENT(IN)              :: dt                   !< Initial (outer) time step (can internally, the subroutine can use a smaller one depending on convergence)
       TYPE(FTValueDictionary),      INTENT(IN)              :: controlVariables     !< Input file variables
-      procedure(ComputeQDot_FCN)                            :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)                            :: ComputeTimeDerivative
 
       select case(trim(solver))
       case("cahn-hilliard", "nsch")
@@ -83,7 +83,7 @@ CONTAINS
       REAL(KIND=RP),                INTENT(IN)              :: t                    !< Time at the beginning of time step
       REAL(KIND=RP),                INTENT(IN)              :: dt                   !< Initial (outer) time step (can internally, the subroutine can use a smaller one depending on convergence)
       TYPE(FTValueDictionary),      INTENT(IN)              :: controlVariables     !< Input file variables
-      procedure(ComputeQDot_FCN)                            :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)                            :: ComputeTimeDerivative
 !
 !     ---------------
 !     Local variables
@@ -186,7 +186,7 @@ CONTAINS
       REAL(KIND=RP),                INTENT(IN)              :: t                    !< Time at the beginning of time step
       REAL(KIND=RP),                INTENT(IN)              :: dt                   !< Initial (outer) time step (can internally, the subroutine can use a smaller one depending on convergence)
       TYPE(FTValueDictionary),      INTENT(IN)              :: controlVariables     !< Input file variables
-      procedure(ComputeQDot_FCN)                            :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)                            :: ComputeTimeDerivative
 !
 !     ---------------
 !     Local variables

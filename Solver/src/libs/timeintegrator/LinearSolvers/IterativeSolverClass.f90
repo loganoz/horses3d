@@ -229,7 +229,7 @@ CONTAINS
       IMPLICIT NONE
       CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       integer,       intent(in)               :: nEqn, nGradEqn
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
       REAL(KIND=RP), OPTIONAL                 :: time
@@ -464,7 +464,7 @@ CONTAINS
       IMPLICIT NONE
       CLASS(IterativeSolver_t), INTENT(INOUT) :: this
       REAL(KIND = RP), INTENT(IN)             :: u(:)
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND = RP)                         :: F(size(u))
       
       CALL this % p_sem % SetQ(u, NTOTALVARS)
@@ -490,7 +490,7 @@ CONTAINS
       REAL(KIND=RP)                                   :: Diag(:)         !   Matrix diagonal
       REAL(KIND=RP), OPTIONAL                         :: tol             !   Relative AND absolute tolerance of the method
       INTEGER                         , INTENT(OUT)   :: niter           !>  Number of iterations needed
-      procedure(ComputeQDot_FCN)                      :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)                      :: ComputeTimeDerivative
       !--------------------------------------------
       INTEGER                                 :: n                ! System size
       REAL(KIND=RP)                           :: r(this % DimPrb) ! Residual
@@ -555,7 +555,7 @@ CONTAINS
       INTEGER                                         :: SmoothIters     !<  Number of smoothing operations
       REAL(KIND=RP), OPTIONAL                         :: tol             !   Relative AND absolute tolerance of the method
       INTEGER                         , INTENT(OUT)   :: niter           !>  Number of iterations needed
-      procedure(ComputeQDot_FCN)                      :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)                      :: ComputeTimeDerivative
       !--------------------------------------------
        INTEGER                                 :: n                ! System size
       REAL(KIND=RP)                           :: r(this % DimPrb) ! Residual

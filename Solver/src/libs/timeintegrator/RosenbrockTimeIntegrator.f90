@@ -4,9 +4,9 @@
 !   @File:    RosenbrockTimeIntegrator.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:08 2018
-!   @Last revision date: Sun May 13 11:22:09 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
+!   @Last revision date: Tue Jul  3 17:26:48 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
 !
 !//////////////////////////////////////////////////////
 !
@@ -137,7 +137,7 @@ contains
       type(DGSem),    intent(inout) :: sem                  !<>DGSem class with solution storage 
       real(kind=RP),  intent(in)    :: t                    !< Time at the beginning of time step
       real(kind=RP),  intent(in)    :: dt                   !< Initial (outer) time step (the subroutine can use a smaller one depending on convergence)
-      procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
       !--------------------------------------------------------
       integer :: stage     ! Current stage
       logical :: computeA  ! Must the linear solver compute the Jacobian?
@@ -180,7 +180,7 @@ contains
       real(kind=RP),  intent(in)    :: t                       !<  Time
       real(kind=RP),  intent(in)    :: dt                      !<  Time-step
       class(GenericLinSolver_t)     :: linsolver               !<> Linear solver to load solution to
-      procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
       integer,        intent(in)    :: stage                   !<  Current stage
       !--------------------------------------------------------
       real(kind=RP) :: Qn (sem % NDOF * NTOTALVARS) ! Buffer to store the previous solution

@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jun 20 18:14:45 2018
-!   @Last revision date: Mon Jul  2 14:51:38 2018
+!   @Last revision date: Tue Jul  3 17:26:16 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: b00a27f2b6b8957cade6f14d1422cf177d9605ab
+!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
 !
 !//////////////////////////////////////////////////////
 !
@@ -15,9 +15,6 @@ module SpatialDiscretization
       use SMConstants
       use HyperbolicDiscretizations
       use EllipticDiscretizations
-#if defined(NAVIERSTOKES)
-      use LESModels
-#endif
       use DGIntegrals
       use MeshTypes
       use HexMeshClass
@@ -31,6 +28,7 @@ module SpatialDiscretization
       use FluidData
       use VariableConversion, only: iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D, GetiNSOneFluidViscosity, GetiNSTwoFluidsViscosity
       use PhysicsStorage,     only: enableDensityLimiter
+      use ProblemFileFunctions
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -244,7 +242,7 @@ module SpatialDiscretization
 !        Compute time derivative
 !        -----------------------
 !
-         call TimeDerivative_ComputeQDot(mesh = mesh , &
+         call ComputeNSTimeDerivative(mesh = mesh , &
                                          particles = particles, &
                                          t    = time, &
                                          externalState     = BCFunctions(1) % externalState, &
@@ -306,8 +304,15 @@ module SpatialDiscretization
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivativeIsolated
-
-      subroutine TimeDerivative_ComputeQDot( mesh , particles, t, externalState, externalGradients )
+!
+!////////////////////////////////////////////////////////////////////////////////////
+!
+!           Navier--Stokes procedures
+!           -------------------------
+!
+!////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine ComputeNSTimeDerivative( mesh , particles, t, externalState, externalGradients )
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -460,7 +465,7 @@ module SpatialDiscretization
          end do
 !$omp end do
 
-      end subroutine TimeDerivative_ComputeQDot
+      end subroutine ComputeNSTimeDerivative
 !
 !////////////////////////////////////////////////////////////////////////
 !
