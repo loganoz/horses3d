@@ -389,7 +389,7 @@ MODULE MKLPardisoSolverClass
       implicit none
       class(MKLPardisoSolver_t), intent(inout) :: self
       integer,                   intent(in)    :: nEqn, nGradEqn
-      procedure(ComputeTimeDerivative_f)               :: F_J
+      procedure(ComputeTimeDerivative_f)       :: F_J
       real(kind=RP), intent(in)                :: dt
       real(kind=RP), intent(in)                :: eps
 !

@@ -4,9 +4,9 @@
 !   @File:    IMEXMethods.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date: Tue Jul  3 17:26:39 2018
+!   @Last revision date: Tue Jul  3 19:19:07 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
+!   @Last revision commit: 3db74c1b54d0c4fcf30b72bedefd8dbd2ef9b8ce
 !
 !//////////////////////////////////////////////////////
 !
@@ -127,7 +127,7 @@ CONTAINS
 
          CALL linsolver%construct(DimPrb,controlVariables,sem, IMEXEuler_MatrixShift) 
 
-         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, CTD_onlyLinear, dt, 1.0_RP)
+         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, dt, 1.0_RP)
          
       ENDIF
       
@@ -139,7 +139,7 @@ CONTAINS
 !     Compute the non linear time derivative
 !     -------------------------------------- 
 #if defined(CAHNHILLIARD)
-      call CTD_onlyNonLinear(sem % mesh, sem % particles, time, sem % BCFunctions)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, time, sem % BCFunctions, CTD_ONLY_CH_NONLIN)
 !
 !     Compute the RHS
 !     ---------------
@@ -158,15 +158,23 @@ CONTAINS
 !
 !     Compute the standard time derivative to get residuals
 !     -----------------------------------------------------
-      call ComputeTimeDerivative(sem % mesh, sem % particles, time, sem % BCFunctions)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, time, sem % BCFunctions, CTD_IGNORE_MODE)
 
 #else
 !
+!     *****************************
 !     Perform a RK3 time step in NS
-!     -----------------------------
+!     *****************************
+!
+!     Compute the new chemical potential
+!     ----------------------------------
+#if defined(CAHNHILLIARD)
+      CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, sem % BCFunctions, CTD_ONLY_CH)
+#endif
+
       DO k = 1,3
          tk = t + b(k)*dt
-         CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, sem % BCFunctions)
+         CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, sem % BCFunctions, CTD_ONLY_NS)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( sem % mesh % elements )
@@ -222,19 +230,19 @@ CONTAINS
          
          CALL linsolver%construct(DimPrb,controlVariables,sem, IMEXEuler_MatrixShift) 
 
-         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, CTD_onlyLinear, dt, 1.0_RP)
+         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, dt, 1.0_RP)
          
       ENDIF
       
       time = t
    
-      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
 !
 !     Perform a RK3 time step in NS
 !     -----------------------------
       DO k = 1,3
          tk = t + b(k)*dt
-         CALL CTD_onlyRK3( sem % mesh, sem % particles, tk, sem % BCFunctions)
+         CALL CTD_onlyRK3( sem % mesh, sem % particles, tk, sem % BCFunctions, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( sem % mesh % elements )
@@ -246,7 +254,7 @@ CONTAINS
 !
 !     Compute the non linear time derivative
 !     -------------------------------------- 
-      call CTD_onlyNonLinear(sem % mesh, sem % particles, time, sem % BCFunctions)
+      call CTD_onlyNonLinear(sem % mesh, sem % particles, time, sem % BCFunctions, CTD_IGNORE_MODE)
 !
 !     Change the concentration to its updated value from the density
 !     --------------------------------------------------------------

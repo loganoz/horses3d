@@ -256,7 +256,7 @@ ADDONSFLAGS= FC='$(FC)' \
 
 .DEFAULT_GOAL := all
 
-all: header mkdirs horseslibs horses3d.ns horses3d.ins horses3d.ch horses3d.nsch horses3d.insch horses3d.mp addons
+all: header mkdirs horseslibs horses3d.ns horses3d.ins horses3d.ch horses3d.nsch horses3d.insch addons
 
 horses3d.ns: 
 	(cd $(HOME_DIR)/src/NavierStokesSolver/ && $(MAKE) $(HORSES_NS_FLAGS) install) || exit 1; 

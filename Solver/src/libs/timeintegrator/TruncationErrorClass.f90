@@ -12,7 +12,7 @@ module TruncationErrorClass
    use MultigridTypes            , only: MGSolStorage_t
    use DGSEMClass                , only: DGSem, BCFunctions_t, ComputeTimeDerivative_f, BCState_FCN, BCGradients_FCN, no_of_BCsets
    use FTValueDictionaryClass    , only: FTValueDictionary
-   use PhysicsStorage            , only: NTOTALVARS
+   use PhysicsStorage            , only: NTOTALVARS, CTD_IGNORE_MODE
 #if defined(NAVIERSTOKES)  
    use FluidData_NS              , only: Thermodynamics, RefValues, Dimensionless
 #endif
@@ -204,7 +204,7 @@ module TruncationErrorClass
       real(kind=RP)            :: S(NTOTALVARS)      !   Source term
       !--------------------------------------------------------
       
-      call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
+      call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
       
       S = 0._RP ! Initialize source term
       
@@ -405,7 +405,7 @@ module TruncationErrorClass
             end associate
          end do
          
-         call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
+         call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
          
          maxTE = 0._RP ! Initialization
          

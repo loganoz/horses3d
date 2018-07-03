@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Mon Jul  2 17:50:23 2018
-!   @Last revision date: Tue Jul  3 13:57:45 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: a58cd217935c45def88066502aef3f61cbddb117
+!   @Last revision date: Tue Jul  3 19:19:03 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 3db74c1b54d0c4fcf30b72bedefd8dbd2ef9b8ce
 !
 !//////////////////////////////////////////////////////
 !
@@ -225,7 +225,7 @@ logical :: enable_speed = .false.
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, BCFunctions)
+      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, BCFunctions, mode)
          IMPLICIT NONE 
 !
 !        ---------
@@ -236,6 +236,7 @@ logical :: enable_speed = .false.
          type(Particles_t)               :: particles
          REAL(KIND=RP)                   :: time
          type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
+         integer,             intent(in) :: mode
 !
 !        ---------------
 !        Local variables
@@ -487,17 +488,18 @@ stop
 !
       END SUBROUTINE ComputeTimeDerivative
 
-      subroutine ComputeTimeDerivative_OnlyLinear( mesh, particles, time, BCFunctions)
+      subroutine ComputeTimeDerivative_OnlyLinear( mesh, particles, time, BCFunctions, mode)
          IMPLICIT NONE 
 !
 !        ---------
 !        Arguments
 !        ---------
 !
-         TYPE(HexMesh), target      :: mesh
+         TYPE(HexMesh), target           :: mesh
          type(Particles_t)               :: particles
-         REAL(KIND=RP)              :: time
-         type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
+         REAL(KIND=RP)                   :: time
+         type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
+         integer,             intent(in) :: mode
 !
 !        ---------------
 !        Local variables
@@ -640,17 +642,18 @@ stop
 
       end subroutine ComputeTimeDerivative_OnlyLinear
 
-      subroutine ComputeTimeDerivative_OnlyNonLinear( mesh, particles, time, BCFunctions)
+      subroutine ComputeTimeDerivative_OnlyNonLinear( mesh, particles, time, BCFunctions, mode)
          IMPLICIT NONE 
 !
 !        ---------
 !        Arguments
 !        ---------
 !
-         TYPE(HexMesh), target      :: mesh
+         TYPE(HexMesh), target           :: mesh
          type(Particles_t)               :: particles
-         REAL(KIND=RP)              :: time
-         type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
+         REAL(KIND=RP)                   :: time
+         type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
+         integer,             intent(in) :: mode
 !
 !        ---------------
 !        Local variables
@@ -827,7 +830,7 @@ stop
 !     This routine computes the time derivative element by element, without considering the Riemann Solvers
 !     This is useful for estimating the isolated truncation error
 !
-      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, BCFunctions)
+      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, BCFunctions, mode)
          use EllipticDiscretizationClass
          IMPLICIT NONE 
 !
@@ -835,10 +838,11 @@ stop
 !        Arguments
 !        ---------
 !
-         TYPE(HexMesh), target      :: mesh
-         type(Particles_t)          :: particles
-         REAL(KIND=RP)              :: time
-         type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
+         TYPE(HexMesh), target           :: mesh
+         type(Particles_t)               :: particles
+         REAL(KIND=RP)                   :: time
+         type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
+         integer,             intent(in) :: mode
       END SUBROUTINE ComputeTimeDerivativeIsolated
 
       subroutine ComputeNSTimeDerivative( mesh , particles, t, externalState, externalGradients )

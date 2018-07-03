@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Tue Jul  3 17:26:28 2018
+!   @Last revision date: Tue Jul  3 19:19:05 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
+!   @Last revision commit: 3db74c1b54d0c4fcf30b72bedefd8dbd2ef9b8ce
 !
 !//////////////////////////////////////////////////////
 !
@@ -42,6 +42,7 @@ module PhysicsStorage
 !  *****************************************************************************
 !
    enum, bind(C)
+      enumerator :: CTD_IGNORE_MODE
 #if defined(NAVIERSTOKES) || defined(INCNS)
       enumerator :: CTD_ONLY_NS
 #if defined(CAHNHILLIARD)

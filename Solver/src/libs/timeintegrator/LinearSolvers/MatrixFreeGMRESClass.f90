@@ -17,6 +17,7 @@ module MatrixFreeGMRESClass
    use MatrixClass           , only: DenseBlockDiagMatrix_t, SparseBlockDiagMatrix_t
    use PhysicsStorage        , only: NTOTALVARS, NTOTALGRADS
    use AnalyticalJacobian    , only: AnalyticalJacobian_Compute
+   use PhysicsStorage        , only: CTD_IGNORE_MODE
    implicit none
    
    private
@@ -714,7 +715,7 @@ contains
          
          ! Obtain derivative with new Q
          this % p_sem % mesh % storage % Q = u
-         CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, this % timesolve + this % dtsolve, this % p_sem % BCFunctions)
+         CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, this % timesolve + this % dtsolve, this % p_sem % BCFunctions, CTD_IGNORE_MODE)
          F = this % p_sem % mesh % storage % Qdot
 
          ! Restore original Q

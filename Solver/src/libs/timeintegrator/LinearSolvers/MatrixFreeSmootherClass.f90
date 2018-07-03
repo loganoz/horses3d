@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeSmootherClass.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:07 2018
-!   @Last revision date: Tue Jul  3 17:26:42 2018
+!   @Last revision date: Tue Jul  3 19:19:08 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
+!   @Last revision commit: 3db74c1b54d0c4fcf30b72bedefd8dbd2ef9b8ce
 !
 !//////////////////////////////////////////////////////
 !
@@ -454,7 +454,7 @@ CONTAINS
       REAL(KIND = RP)                         :: F(size(u))
       
       CALL this % p_sem % SetQ(u,NTOTALVARS)
-      CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, this % p_sem % BCFunctions)
+      CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, this % p_sem % BCFunctions, CTD_IGNORE_MODE)
       CALL this % p_sem % GetQdot(NTOTALVARS,F)
       
    END FUNCTION p_F
