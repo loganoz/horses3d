@@ -16,7 +16,7 @@ module AnisFASMultigridClass
    use TruncationErrorClass   , only: TruncationError_t, EstimateTruncationError, InitializeForTauEstimation, NON_ISOLATED_TE, ISOLATED_TE
    use InterpolationMatrices  , only: Interp3DArraysOneDir
    use MultigridTypes
-   use DGSEMClass             , only: DGSem, ComputeQDot_FCN, MaxTimeStep
+   use DGSEMClass             , only: DGSem, ComputeTimeDerivative_f, MaxTimeStep
    use FTValueDictionaryClass , only: FTValueDictionary
 #if defined(NAVIERSTOKES)
    use ManufacturedSolutions
@@ -445,8 +445,8 @@ module AnisFASMultigridClass
       class(AnisFASMultigrid_t)        , intent(inout) :: this       !<> The AnisFAS
       integer                          , intent(in)    :: timestep   !<  Current time step
       real(kind=RP)                    , intent(in)    :: t          !<  Current simulation time
-      procedure(ComputeQDot_FCN)                       :: ComputeTimeDerivative
-      procedure(ComputeQDot_FCN), optional             :: ComputeTimeDerivativeIsolated
+      procedure(ComputeTimeDerivative_f)                       :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f), optional             :: ComputeTimeDerivativeIsolated
       type(TruncationError_t), optional, intent(inout) :: TE(:)      !<> Truncation error for all elements. If present, the multigrid solver also estimates the TE
       integer                , optional, intent(in)    :: TEType     !<  Truncation error type (either NON_ISOLATED_TE or ISOLATED_TE)
       !-------------------------------------------------
@@ -500,7 +500,7 @@ module AnisFASMultigridClass
       integer                              :: lvl     !<  Current multigrid level
       integer                              :: Dir     !<  Direction in which multigrid will be performed (x:1, y:2, z:3)
       type(TruncationError_t)              :: TE(:)   !>  Variable containing the truncation error estimation
-      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
       !----------------------------------------------------------------------------
       integer                       :: iEl        !Element counter
       integer                       :: N1(3)          !Polynomial orders in origin solver       (Attention: the origin can be parent or child)
@@ -659,7 +659,7 @@ module AnisFASMultigridClass
       integer                , intent(in)    :: lvl
       real(kind=RP)          , intent(in)    :: t
       type(TruncationError_t), intent(inout) :: TE(:)   !>  Variable containing the truncation error estimation 
-      procedure(ComputeQDot_FCN)             :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)             :: ComputeTimeDerivative
       !-------------------------------------------------------------
       integer  :: iEl
       integer  :: N1(3)

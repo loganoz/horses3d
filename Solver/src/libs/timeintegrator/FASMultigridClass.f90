@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Thu Jun 28 12:32:05 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 7c1c79ae7a2fb27cc91007b85ab7d5e325e4684c
+!   @Last revision date: Tue Jul  3 17:26:37 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
 !
 !//////////////////////////////////////////////////////
 !
@@ -433,7 +433,7 @@ module FASMultigridClass
       integer                              :: timestep
       real(kind=RP)        , intent(in)    :: t
       real(kind=RP)        , intent(in)    :: dt
-      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
       logical           , OPTIONAL         :: FullMG
       real(kind=RP)     , OPTIONAL         :: tol        !<  Tolerance for full multigrid
       !-------------------------------------------------
@@ -506,7 +506,7 @@ module FASMultigridClass
       real(kind=RP)        , intent(in)    :: dt       !<  Time-step
       integer              , intent(in)    :: lvl      !<  Current multigrid level
       integer              , intent(in)    :: MGlevels !<  Number of finest multigrid level
-      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
       !----------------------------------------------------------------------------
       integer                       :: iEl,iEQ              !Element/equation counter
       type(FASMultigrid_t), pointer :: Child_p              !Pointer to child
@@ -654,7 +654,7 @@ module FASMultigridClass
       real(kind=RP)        , intent(in)    :: t       !<  Simulation time
       real(kind=RP)        , intent(in)    :: tol     !<  Convergence tolerance
       integer              , intent(in)    :: lvl     !<  Current multigrid level
-      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
       !----------------------------------------------------------------------------
       integer        :: iEl, iEQ             ! Element and equation counters
       integer        :: N1(3), N2(3)
@@ -747,7 +747,7 @@ module FASMultigridClass
       class(FASMultigrid_t), intent(inout) :: this     !<  Current level solver
       integer              , intent(IN)    :: lvl
       real(kind=RP)        , intent(IN)    :: t
-      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
       !-------------------------------------------------------------
       class(FASMultigrid_t), pointer       :: Child_p  ! The child
       integer  :: iEl
@@ -874,7 +874,7 @@ module FASMultigridClass
       integer                , intent(in)            :: SmoothSweeps
       real(kind=RP)          , intent(in)            :: t
       real(kind=RP)          , intent(in)            :: dt
-      procedure(ComputeQDot_FCN)                     :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)                     :: ComputeTimeDerivative
       !-------------------------------------------------------------
       real(kind=RP) :: own_dt
       integer :: sweep

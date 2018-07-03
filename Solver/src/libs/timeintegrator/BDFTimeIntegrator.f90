@@ -173,7 +173,7 @@ contains
       TYPE(DGSem),                  INTENT(INOUT)           :: sem                  !<>DGSem class with solution storage 
       REAL(KIND=RP),                INTENT(IN)              :: t                    !< Time at the beginning of time step
       REAL(KIND=RP),                INTENT(IN)              :: dt                   !< Initial (outer) time step (the subroutine can use a smaller one depending on convergence)
-      procedure(ComputeQDot_FCN)                            :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)                            :: ComputeTimeDerivative
       !----------------------------------------------------------------------
       
       real(kind=RP) :: time               ! Time at the beginning of each inner(!) time step
@@ -326,7 +326,7 @@ contains
       REAL(KIND=RP),                INTENT(OUT)             :: ConvRate
       INTEGER,                      INTENT(OUT)             :: niter
       LOGICAL,                      INTENT(OUT)             :: CONVERGED   
-      procedure(ComputeQDot_FCN)                            :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)                            :: ComputeTimeDerivative
       !----------------------------------------------------------------------
       INTEGER(8)                                               :: cli, clf, clrate           
       INTEGER                                               :: newtonit
@@ -416,7 +416,7 @@ contains
       REAL(KIND=RP),              INTENT(IN)       :: t
       REAL(KIND=RP),              INTENT(IN)       :: dt
       CLASS(GenericLinSolver_t),  INTENT (INOUT)   :: linsolver
-      procedure(ComputeQDot_FCN)                   :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)                   :: ComputeTimeDerivative
       !----------------------------------------------------------------
       INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, elmnt, counter   
       REAL(KIND=RP)                                :: value

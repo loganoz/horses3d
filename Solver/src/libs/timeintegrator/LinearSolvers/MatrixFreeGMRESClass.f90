@@ -12,7 +12,7 @@
 module MatrixFreeGMRESClass
    use GenericLinSolverClass , only: GenericLinSolver_t, MatrixShift_FCN, MatrixShift
    use SMConstants           , only: RP, STD_OUT, LINE_LENGTH
-   use DGSEMClass            , only: DGSem, ComputeQDot_FCN
+   use DGSEMClass            , only: DGSem, ComputeTimeDerivative_f
    use FTValueDictionaryClass, only: FTValueDictionary
    use MatrixClass           , only: DenseBlockDiagMatrix_t, SparseBlockDiagMatrix_t
    use PhysicsStorage        , only: NTOTALVARS, NTOTALGRADS
@@ -97,10 +97,10 @@ module MatrixFreeGMRESClass
    abstract interface
       subroutine matmultsub(v,x, ComputeTimeDerivative)
          use SMConstants, only: RP
-         use DGSEMClass,  only: ComputeQDot_FCN
+         use DGSEMClass,  only: ComputeTimeDerivative_f
          real(kind = RP), intent(in)         :: v(:)
          real(kind = RP), intent(out)        :: x(:)
-         procedure(ComputeQDot_FCN)          :: ComputeTimeDerivative
+         procedure(ComputeTimeDerivative_f)          :: ComputeTimeDerivative
       end subroutine
    end interface
 
@@ -442,7 +442,7 @@ contains
       recursive subroutine innerGMRES(this, ComputeTimeDerivative)
          implicit none
          class(MatFreeGMRES_t), intent(inout)      :: this
-         procedure(ComputeQDot_FCN)             :: ComputeTimeDerivative
+         procedure(ComputeTimeDerivative_f)             :: ComputeTimeDerivative
          integer                                :: i,j,k, l, ii,kk, m
          real(kind = RP)                        :: tmp1, tmp2
          
@@ -541,7 +541,7 @@ contains
          class(MatFreeGMRES_t), intent(inout)      :: this
          integer,       intent(in)                :: nEqn
          integer,       intent(in)                :: nGradEqn
-         procedure(ComputeQDot_FCN)                :: ComputeTimeDerivative
+         procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivative
          real(kind=RP), optional                   :: tol
          integer      , optional                   :: maxiter
          real(kind=RP), optional                   :: time
@@ -638,7 +638,7 @@ contains
          class(MatFreeGMRES_t), intent(inout) :: this
          real(kind=RP)        , intent(in)    :: v(:)
          real(kind=RP)        , intent(out)   :: Pv(:)
-         procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+         procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
          !---------------------------------------------------------
           
          CALL this % PCSolver % SetRHS(v)
@@ -680,7 +680,7 @@ contains
          class(MatFreeGMRES_t), intent(inout) :: this
          real(kind=RP), intent(in)            :: x (this % DimPrb)
          real(kind=RP), intent(out)           :: Ax(this % DimPrb)
-         procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+         procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
          !---------------------------------------------------------
          real(kind=RP) :: eps, shift
          !---------------------------------------------------------
@@ -703,7 +703,7 @@ contains
          !---------------------------------------------------------
          CLASS(MatFreeGMRES_t), INTENT(INOUT) :: this
          REAL(KIND=RP)        , INTENT(IN)    :: u(this % DimPrb)
-         procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+         procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
          REAL(KIND=RP)                        :: F(this % DimPrb)
          !---------------------------------------------------------
          REAL(KIND=RP)                        :: u_p(this % DimPrb)

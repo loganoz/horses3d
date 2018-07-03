@@ -10,7 +10,7 @@
 module TruncationErrorClass
    use SMConstants
    use MultigridTypes            , only: MGSolStorage_t
-   use DGSEMClass                , only: DGSem, BCFunctions_t, ComputeQDot_FCN, BCState_FCN, BCGradients_FCN, no_of_BCsets
+   use DGSEMClass                , only: DGSem, BCFunctions_t, ComputeTimeDerivative_f, BCState_FCN, BCGradients_FCN, no_of_BCsets
    use FTValueDictionaryClass    , only: FTValueDictionary
    use PhysicsStorage            , only: NTOTALVARS
 #if defined(NAVIERSTOKES)  
@@ -84,7 +84,7 @@ module TruncationErrorClass
 !  Module variables
 !  ----------------
 !
-   procedure(ComputeQDot_FCN), pointer :: TimeDerivative
+   procedure(ComputeTimeDerivative_f), pointer :: TimeDerivative
    
    !! Parameters
    integer, parameter :: ISOLATED_TE = 0
@@ -158,8 +158,8 @@ module TruncationErrorClass
       type(TruncationError_t) :: TE(:)
       type(DGSem), intent(in) :: sem
       integer    , intent(in) :: TruncErrorType !<  Either NON_ISOLATED_TE or ISOLATED_TE
-      procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
-      procedure(ComputeQDot_FCN) :: ComputeTimeDerivativeIsolated
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
       !------------------------------------------
       integer                 :: eID
       !------------------------------------------
@@ -274,7 +274,7 @@ module TruncationErrorClass
 !  -----------------------------------------------------------------------
    subroutine AssignTimeDerivative(ComputeTimeDerivative)
       implicit none
-      procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
       
       TimeDerivative => ComputeTimeDerivative
    end subroutine AssignTimeDerivative
@@ -291,8 +291,8 @@ module TruncationErrorClass
       integer, intent(in)        :: NMIN
       integer, intent(in)        :: NMAX(NDIM)
       real(kind=RP)              :: t
-      procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
-      procedure(ComputeQDot_FCN) :: ComputeTimeDerivativeIsolated
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
       type(FTValueDictionary)    :: controlVariables
       integer, intent(in)        :: iEl
       integer, intent(in)        :: TruncErrorType

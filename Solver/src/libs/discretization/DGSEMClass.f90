@@ -17,6 +17,7 @@
 #define NNS NINC
 #define NGRADNS NINC
 #endif
+
 #include "Includes.h"
 Module DGSEMClass
    use SMConstants
@@ -33,6 +34,7 @@ Module DGSEMClass
    use MonitorsClass
    use ParticlesClass
    use Physics
+   use ProblemFileFunctions, only: UserDefinedInitialCondition_f
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -40,7 +42,7 @@ Module DGSEMClass
    IMPLICIT NONE
 
    private
-   public   ComputeQDot_FCN, DGSem, ConstructDGSem
+   public   ComputeTimeDerivative_f, DGSem, ConstructDGSem
    public   BCFunctions_t, BCState_FCN, BCGradients_FCN, no_of_BCsets
 
    public   DestructDGSEM, MaxTimeStep, ComputeMaxResiduals
@@ -106,7 +108,7 @@ Module DGSEMClass
          CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
       END SUBROUTINE BCGradients_FCN
 
-      SUBROUTINE ComputeQDot_FCN( mesh, particles, time, BCFunctions )
+      SUBROUTINE ComputeTimeDerivative_f( mesh, particles, time, BCFunctions )
          use SMConstants
          use HexMeshClass
          use ParticlesClass
@@ -123,7 +125,7 @@ Module DGSEMClass
 #endif
          REAL(KIND=RP)                   :: time
          type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
-      end subroutine ComputeQDot_FCN
+      end subroutine ComputeTimeDerivative_f
    END INTERFACE
 
    CONTAINS 
@@ -463,48 +465,22 @@ Module DGSEMClass
 !
          character(len=LINE_LENGTH)             :: solutionName
          logical                                :: saveGradients
-         interface
-            SUBROUTINE UserDefinedInitialCondition(mesh &
-#if defined(NAVIERSTOKES)
-                                                   ,thermodynamics_, &
-                                                   dimensionless_,&
-                                                   refValues_&
-#endif
-#if defined(CAHNHILLIARD)
-                                                   ,multiphase_ &
-#endif
-                                                  )
-               USE SMConstants
-               use PhysicsStorage
-               use HexMeshClass
-               use FluidData
-               implicit none
-               class(HexMesh)                  :: mesh
-#if defined(NAVIERSTOKES)
-               type(Thermodynamics_t), intent(in)  :: thermodynamics_
-               type(Dimensionless_t),  intent(in)  :: dimensionless_
-               type(RefValues_t),      intent(in)  :: refValues_
-#endif
-#if defined(CAHNHILLIARD)
-               type(Multiphase_t),     intent(in)  :: multiphase_
-#endif
-            END SUBROUTINE UserDefinedInitialCondition
-         end interface
+         procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
 
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
             CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time)
          ELSE
    
-            call UserDefinedInitialCondition(self % mesh                               &
-#if defined(NAVIERSTOKES) 
-                                            ,thermodynamics, dimensionless, refValues  &
-#endif
-#if defined(CAHNHILLIARD)
-                                            ,multiphase                                &    
-#endif
-                                            )
+            call UserDefinedInitialCondition(self % mesh, FLUID_DATA_VARS)
+
             initial_time = 0.0_RP
             initial_iteration = 0
+!
+!           If solving incompressible NS + CahnHilliard, compatibilize density and phase field
+!           ----------------------------------------------------------------------------------
+#if defined(INCNS) && defined(CAHNHILLIARD)
+            call self % mesh % ConvertPhaseFieldToDensity
+#endif
 !
 !           Save the initial condition
 !           --------------------------

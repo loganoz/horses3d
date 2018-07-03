@@ -30,7 +30,7 @@ contains
       integer,                    intent(in)             :: nEqn, nGradEqn
       real(kind=RP),              intent(IN)             :: t
       class(Matrix_t)          ,  intent(inout)          :: Matrix
-      procedure(ComputeQDot_FCN)                         :: ComputeTimeDerivative      !   
+      procedure(ComputeTimeDerivative_f)                         :: ComputeTimeDerivative      !   
       logical,                    OPTIONAL               :: PINFO                      !<? Print information?
       real(kind=RP),              optional               :: eps_in
       !-------------------------------------------------------------------

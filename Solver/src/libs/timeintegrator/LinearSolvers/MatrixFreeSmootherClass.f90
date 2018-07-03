@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeSmootherClass.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:07 2018
-!   @Last revision date: Sun May 13 11:22:08 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
+!   @Last revision date: Tue Jul  3 17:26:42 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
 !
 !//////////////////////////////////////////////////////
 !
@@ -180,7 +180,7 @@ CONTAINS
       IMPLICIT NONE
       CLASS(MatFreeSmooth_t), INTENT(INOUT) :: this
       integer, intent(in)                     :: nEqn, nGradEqn
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
       REAL(KIND=RP), OPTIONAL                 :: time
@@ -399,7 +399,7 @@ CONTAINS
       IMPLICIT NONE
       CLASS(MatFreeSmooth_t), INTENT(INOUT) :: this
       REAL(KIND=RP)                           :: x (:)
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND=RP)                           :: Ax(size(x))
       !--------------------------------------------------
       real(kind=RP)                           :: shift
@@ -450,7 +450,7 @@ CONTAINS
       IMPLICIT NONE
       CLASS(MatFreeSmooth_t), INTENT(INOUT) :: this
       REAL(KIND = RP), INTENT(IN)             :: u(:)
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND = RP)                         :: F(size(u))
       
       CALL this % p_sem % SetQ(u,NTOTALVARS)
@@ -477,7 +477,7 @@ CONTAINS
       CLASS(MatFreeSmooth_t), TARGET, intent(INOUT) :: this            !<  Iterative solver class
       INTEGER                                       :: SmoothIters     !<  Number of smoothing operations
       INTEGER                       , intent(OUT)   :: niter           !>  Number of iterations needed
-      procedure(ComputeQDot_FCN)                    :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)                    :: ComputeTimeDerivative
       logical                       , intent(in)    :: TolPresent      !   
       REAL(KIND=RP), OPTIONAL                       :: tol             !   Relative AND absolute tolerance of the method
       !--------------------------------------------

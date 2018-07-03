@@ -4,9 +4,9 @@
 !   @File:    HORSES3DMain.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Fri Jun 29 15:54:12 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 5a58027d1f8c132d3c17f35fb4b996d18a394da6
+!   @Last revision date: Tue Jul  3 17:26:17 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
 !
 !//////////////////////////////////////////////////////
 !
@@ -44,76 +44,33 @@
       use FluidData
       use FileReadingUtilities, only: getFileName
       use FileReaders         , only: ReadControlFile
+      use ProblemFileFunctions
 #ifdef _HAS_MPI_
       use mpi
 #endif
       
       IMPLICIT NONE
-interface
-         SUBROUTINE UserDefinedStartup
-            IMPLICIT NONE  
-         END SUBROUTINE UserDefinedStartup
-         SUBROUTINE UserDefinedFinalSetup(mesh , thermodynamics_, &
-                                                 dimensionless_, &
-                                                     refValues_ )
-            use SMConstants
-            use PhysicsStorage
-            use HexMeshClass
-            use FluidData
-            IMPLICIT NONE
-            CLASS(HexMesh)             :: mesh
-            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-            type(Dimensionless_t),     intent(in)  :: dimensionless_
-            type(RefValues_t),         intent(in)  :: refValues_
-         END SUBROUTINE UserDefinedFinalSetup
-         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
-                                                    dimensionless_, &
-                                                        refValues_, &
-                                                          monitors, &
-                                                       elapsedTime, &
-                                                           CPUTime   )
-            use SMConstants
-            use PhysicsStorage
-            use HexMeshClass
-            use MonitorsClass
-            use FluidData
-            IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
-            REAL(KIND=RP)                         :: time
-            integer                               :: iter
-            real(kind=RP)                         :: maxResidual
-            type(Thermodynamics_t),    intent(in) :: thermodynamics_
-            type(Dimensionless_t),     intent(in) :: dimensionless_
-            type(RefValues_t),         intent(in) :: refValues_
-            type(Monitor_t),          intent(in) :: monitors
-            real(kind=RP),             intent(in) :: elapsedTime
-            real(kind=RP),             intent(in) :: CPUTime
-         END SUBROUTINE UserDefinedFinalize
-      SUBROUTINE UserDefinedTermination
-         IMPLICIT NONE  
-      END SUBROUTINE UserDefinedTermination
-end interface
-
-      TYPE( FTValueDictionary)   :: controlVariables
-      TYPE( DGSem )              :: sem
-      TYPE( TimeIntegrator_t )   :: timeIntegrator
-      
-      LOGICAL                    :: success, saveGradients
-      integer                    :: initial_iteration
-      INTEGER                    :: ierr
-      real(kind=RP)              :: initial_time
-      type(BCFunctions_t)        :: BCFunctions(3)
-      procedure(BCState_FCN)     :: externalStateForBoundaryName_NS
-      procedure(BCGradients_FCN) :: ExternalGradientForBoundaryName_NS
-      procedure(BCState_FCN)     :: externalCHStateForBoundaryName
-      procedure(BCGradients_FCN) :: ExternalConcentrationGradientForBoundaryName
-      procedure(BCGradients_FCN) :: ExternalChemicalPotentialGradientForBoundaryName
-      character(len=LINE_LENGTH) :: solutionFileName
-      
-      ! For pAdaptation
-      integer, allocatable       :: Nx(:), Ny(:), Nz(:)
-      integer                    :: Nmax
-      type(pAdaptation_t)        :: pAdaptator
+      TYPE( FTValueDictionary)            :: controlVariables
+      TYPE( DGSem )                       :: sem
+      TYPE( TimeIntegrator_t )            :: timeIntegrator
+      LOGICAL                             :: success, saveGradients
+      integer                             :: initial_iteration
+      INTEGER                             :: ierr
+      real(kind=RP)                       :: initial_time
+      type(BCFunctions_t)                 :: BCFunctions(3)
+      procedure(BCState_FCN)              :: externalStateForBoundaryName_NS
+      procedure(BCGradients_FCN)          :: ExternalGradientForBoundaryName_NS
+      procedure(BCState_FCN)              :: externalCHStateForBoundaryName
+      procedure(BCGradients_FCN)          :: ExternalConcentrationGradientForBoundaryName
+      procedure(BCGradients_FCN)          :: ExternalChemicalPotentialGradientForBoundaryName
+      character(len=LINE_LENGTH)          :: solutionFileName
+      procedure(UserDefinedStartup_f)     :: UserDefinedStartup
+      procedure(UserDefinedFinalSetup_f)  :: UserDefinedFinalSetup
+      procedure(UserDefinedFinalize_f)    :: UserDefinedFinalize
+      procedure(UserDefinedTermination_f) :: UserDefinedTermination
+      integer, allocatable                :: Nx(:), Ny(:), Nz(:)
+      integer                             :: Nmax
+      type(pAdaptation_t)                 :: pAdaptator
 
       solver = "multiphase"
 !
@@ -182,7 +139,7 @@ end interface
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
       CALL checkBCIntegrity(sem % mesh, success)
       IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
-      CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues)
+      CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues, multiphase)
 !
 !     -------------------------
 !     Set the initial condition
@@ -220,6 +177,7 @@ end interface
 !
       CALL UserDefinedFinalize(sem % mesh, timeIntegrator % time, sem % numberOfTimeSteps, &
                               sem % maxResidual, thermodynamics, dimensionless, refValues, &
+                              multiphase, &
                               sem % monitors, Stopwatch % ElapsedTime("Solver"), &
                               Stopwatch % CPUTime("Solver"))
 #ifdef _HAS_MPI_

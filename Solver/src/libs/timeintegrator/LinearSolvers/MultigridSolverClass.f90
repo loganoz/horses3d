@@ -267,7 +267,7 @@ CONTAINS
       IMPLICIT NONE
       CLASS(MultigridSolver_t), INTENT(INOUT) :: this
       integer,       intent(in)               :: nEqn, nGradEqn
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
       REAL(KIND=RP), OPTIONAL                 :: time
@@ -471,7 +471,7 @@ CONTAINS
       CLASS(MultigridSolver_t), INTENT(INOUT) :: this
       integer, intent(in)                     :: nEqn
       REAL(KIND=RP)                           :: x (:)
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND=RP)                           :: Ax(size(x))
       !--------------------------------------------------
 !~      REAL(KIND=RP)                           :: eps

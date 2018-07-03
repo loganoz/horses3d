@@ -29,6 +29,7 @@ module SpatialDiscretization
       use ParticlesClass
       use FluidData
       use VariableConversion, only: NSGradientValuesForQ_0D, NSGradientValuesForQ_3D, GetNSViscosity
+      use ProblemFileFunctions
 #ifdef _HAS_MPI_
       use mpi
 #endif

@@ -14,7 +14,7 @@ MODULE ExplicitMethods
    USE SMConstants
    use HexMeshClass
    use TimeIntegratorDefinitions
-   use DGSEMClass, only: ComputeQDot_FCN, BCFunctions_t, no_of_BCsets
+   use DGSEMClass, only: ComputeTimeDerivative_f, BCFunctions_t, no_of_BCsets
    use ParticlesClass
    IMPLICIT NONE
 
@@ -49,7 +49,7 @@ MODULE ExplicitMethods
 #endif
       REAL(KIND=RP)   :: t, deltaT, tk
       type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
-      procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
 !
 !     ---------------
 !     Local variables
@@ -105,7 +105,7 @@ MODULE ExplicitMethods
 #endif
       REAL(KIND=RP)                   :: t, deltaT, tk
       type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
-      procedure(ComputeQDot_FCN)      :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
 !
 !     ---------------
 !     Local variables
@@ -156,7 +156,7 @@ MODULE ExplicitMethods
 #endif
       REAL(KIND=RP)                   :: t, deltaT, tk
       type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
-      procedure(ComputeQDot_FCN)      :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
       !
 !     ---------------
 !     Local variables

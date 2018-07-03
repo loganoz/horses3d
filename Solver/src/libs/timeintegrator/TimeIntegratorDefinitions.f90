@@ -4,9 +4,9 @@
 !   @File:    TimeIntegratorDefinitions.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Feb 13 14:26:34 2018
-!   @Last revision date: Sat Jun 23 10:20:39 2018
+!   @Last revision date: Tue Jul  3 17:26:49 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
 !
 !//////////////////////////////////////////////////////
 !
@@ -34,7 +34,7 @@ module TimeIntegratorDefinitions
 #endif
          REAL(KIND=RP)              :: t, deltaT
          type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
-         procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
+         procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
       end subroutine TimeStep_FCN
    end interface
 

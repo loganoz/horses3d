@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Sat Jun 23 10:20:32 2018
+!   @Last revision date: Tue Jul  3 17:26:28 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
 !
 !//////////////////////////////////////////////////////
 !
@@ -35,6 +35,23 @@ module PhysicsStorage
    integer, parameter   :: NTOTALVARS = NINC
    integer, parameter   :: NTOTALGRADS = NINC
 #endif
+!
+!  *****************************************************************************
+!  These are the different modes supported by the ComputeTimeDerivative function
+!        Defining this avoids to create specific procedures for each
+!  *****************************************************************************
+!
+   enum, bind(C)
+#if defined(NAVIERSTOKES) || defined(INCNS)
+      enumerator :: CTD_ONLY_NS
+#if defined(CAHNHILLIARD)
+      enumerator :: CTD_NS_AND_CH
+#endif
+#endif
+#if defined(CAHNHILLIARD)
+      enumerator :: CTD_ONLY_CH, CTD_ONLY_CH_LIN, CTD_ONLY_CH_NONLIN
+#endif
+   end enum
 
    real(kind=RP)     :: Lref
    real(kind=RP)     :: timeref

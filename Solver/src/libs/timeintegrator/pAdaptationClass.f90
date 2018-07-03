@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Thu Jun 28 12:32:09 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 7c1c79ae7a2fb27cc91007b85ab7d5e325e4684c
+!   @Last revision date: Tue Jul  3 17:26:51 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,7 +25,7 @@ module pAdaptationClass
    use PhysicsStorage                  , only: NTOTALVARS
    use FaceClass                       , only: Face
    use ElementClass
-   use DGSEMClass                      , only: DGSem, BCFunctions_t, BCState_FCN, BCGradients_FCN, ComputeQdot_FCN, no_of_BCsets
+   use DGSEMClass                      , only: DGSem, BCFunctions_t, BCState_FCN, BCGradients_FCN, ComputeTimeDerivative_f, no_of_BCsets
    use TruncationErrorClass
    use FTValueDictionaryClass          , only: FTValueDictionary
    use StorageClass
@@ -559,8 +559,8 @@ readloop:do
       type(DGSem)                :: sem               !<> sem
       integer                    :: itera             !<  iteration
       real(kind=RP)              :: t                 !< time!!
-      procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
-      procedure(ComputeQDot_FCN) :: ComputeTimeDerivativeIsolated
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
       type(FTValueDictionary)    :: controlVariables  !<> Input vaiables (that can be modified depending on the user input)
       !--------------------------------------
       integer                    :: iEl               !   Element counter
