@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_iNS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:26 2018
-!   @Last revision date: Mon Jul  2 14:17:28 2018
+!   @Last revision date: Thu Jul  5 12:35:01 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
+!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
 !
 !//////////////////////////////////////////////////////
 !
@@ -371,12 +371,6 @@
       call setThermodynamics(thermodynamics_)
       call setDimensionless (dimensionless_ )
       call setRefValues     (refValues_     )
-!
-!     ********
-!     Describe
-!     ********
-!
-      CALL DescribePhysicsStorage_iNS()
 
       END SUBROUTINE ConstructPhysicsStorage_iNS
 !
@@ -409,8 +403,21 @@
 
          write(STD_OUT,'(/)')
          call SubSection_Header("Fluid data")
-         write(STD_OUT,'(30X,A,A22,A10)') "->" , "Fluid: " , "Air"
+         write(STD_OUT,'(30X,A,A22,I0)') "->" , "Number of fluids: " , thermodynamics % number_of_fluids
+         select case(thermodynamics % number_of_fluids)
+         case(1)
+            write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid density: " , thermodynamics % rho(1), " kg/m^3"
+            write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid viscosity: " , thermodynamics % mu(1), " Pa.s"
+            
+         case(2)
+            write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 1 density: " , thermodynamics % rho(1), " kg/m^3"
+            write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 2 density: " , thermodynamics % rho(2), " kg/m^3"
+            write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 1 viscosity: " , thermodynamics % mu(1), " Pa.s"
+            write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 2 viscosity: " , thermodynamics % mu(2), " Pa.s"
+         end select
 
+         write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Artificial compressibility " , thermodynamics % rho0c02, "-"
+      
          write(STD_OUT,'(/)')
          call SubSection_Header("Reference quantities")
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference pressure: " , refValues % p, " Pa."

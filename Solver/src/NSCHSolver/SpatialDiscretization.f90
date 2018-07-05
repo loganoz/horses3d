@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Tue Jul  3 19:19:02 2018
+!   @Last revision date: Thu Jul  5 12:34:50 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 3db74c1b54d0c4fcf30b72bedefd8dbd2ef9b8ce
+!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
 !
 !//////////////////////////////////////////////////////
 !
@@ -32,14 +32,14 @@ module SpatialDiscretization
       use VariableConversion
       use BoundaryConditionFunctions
       use GradientsStabilization
+      use ProblemFileFunctions
 #ifdef _HAS_MPI_
       use mpi
 #endif
 
       private
-      public  ComputeLaplacian, DGSpatial_ComputeGradient
+      public  ComputeLaplacian
       public  Initialize_SpaceAndTimeMethods, ComputeTimeDerivative, ComputeTimeDerivativeIsolated
-      public  ComputeTimeDerivative_onlyLinear, ComputetimeDerivative_onlyNonLinear
       public  Finalize_SpaceAndTimeMethods
       public  viscousDiscretizationKey, CHDiscretizationKey
 
@@ -67,23 +67,6 @@ module SpatialDiscretization
             PROCEDURE(BCState_FCN)       :: externalStateProcedure
             PROCEDURE(BCGradients_FCN)   :: externalGradientsProcedure
          end subroutine computeBoundaryFluxF
-      end interface
-
-      interface
-         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
-            use SMConstants
-            USE HexMeshClass
-            use PhysicsStorage
-            use FluidData
-            IMPLICIT NONE
-            real(kind=RP),             intent(in) :: x(NDIM)
-            real(kind=RP),             intent(in) :: Q(NCONS)
-            REAL(KIND=RP),             intent(in) :: time
-            real(kind=RP),             intent(in) :: S(NCONS)
-            type(Thermodynamics_t),    intent(in) :: thermodynamics_
-            type(Dimensionless_t),     intent(in) :: dimensionless_
-            type(RefValues_t),         intent(in) :: refValues_
-         end subroutine UserDefinedSourceTermNS
       end interface
 
       procedure(computeElementInterfaceFluxF), pointer :: computeElementInterfaceFlux => computeElementInterfaceFlux_NS
@@ -587,343 +570,6 @@ stop
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative
-
-      subroutine ComputeTimeDerivative_OnlyLinear( mesh, particles, time, BCFunctions, mode)
-         IMPLICIT NONE 
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         TYPE(HexMesh), target           :: mesh
-         type(Particles_t)               :: particles
-         REAL(KIND=RP)                   :: time
-         type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
-         integer,             intent(in) :: mode
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         INTEGER :: i, j, k, eID, fID
-         class(Element), pointer  :: e
-         class(Face),    pointer  :: f
-!
-!        **************************************
-!        Compute chemical potential: Q stores c
-!        **************************************
-!
-!$omp parallel shared(mesh, time) private(e, i, j, k, eID, fID)
-!
-!        ------------------------------
-!        Change memory to concentration
-!        ------------------------------
-!
-!$omp single
-         call mesh % SetStorageToEqn(2)
-!$omp end single
-!
-!        -----------------------------------------
-!        Prolongation of the solution to the faces
-!        -----------------------------------------
-!
-         call mesh % ProlongSolutionToFaces(NCOMP)
-!
-!        ----------------
-!        Update MPI Faces
-!        ----------------
-!
-#ifdef _HAS_MPI_
-!$omp single
-errorMessage(STD_OUT)
-stop
-         !call mesh % UpdateMPIFacesSolution
-!$omp end single
-#endif
-!
-!        -----------------
-!        Compute gradients
-!        -----------------
-!
-         call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
-
-#ifdef _HAS_MPI_
-!$omp single
-errorMessage(STD_OUT)
-stop
-         !call mesh % UpdateMPIFacesGradients
-!$omp end single
-#endif
-!
-!        ------------------------------
-!        Compute the chemical potential
-!        ------------------------------
-!
-!        Linear part
-!        -----------
-         call ComputeLaplacian(mesh = mesh , &
-                               t    = time, &
-                  externalState     = BCFunctions(C_BC) % externalState, &
-                  externalGradients = BCFunctions(C_BC) % externalGradients )
-
-!$omp do schedule(runtime)
-         do eID = 1, mesh % no_of_elements
-            e => mesh % elements(eID)
-            e % storage % mu = - POW2(multiphase % eps) * e % storage % QDot
-         end do
-!$omp end do
-
-!$omp single
-         call mesh % SetStorageToEqn(3)
-!$omp end single
-!
-!        *************************
-!        Compute cDot: Q stores mu
-!        *************************
-!
-!        -----------------------------------------
-!        Prolongation of the solution to the faces
-!        -----------------------------------------
-!
-         call mesh % ProlongSolutionToFaces(NCOMP)
-!
-!        ----------------
-!        Update MPI Faces
-!        ----------------
-!
-#ifdef _HAS_MPI_
-!$omp single
-!         call mesh % UpdateMPIFacesSolution
-errorMessage(STD_OUT)
-stop
-!$omp end single
-#endif
-!
-!        -----------------
-!        Compute gradients
-!        -----------------
-!
-         call CHDiscretization % ComputeGradient(NCOMP, NCOMP, mesh , time , BCFunctions(MU_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
-
-#ifdef _HAS_MPI_
-!$omp single
-errorMessage(STD_OUT)
-stop
-         !call mesh % UpdateMPIFacesGradients
-!$omp end single
-#endif
-!
-!        ------------------------------
-!        Compute the chemical potential
-!        ------------------------------
-!
- call ComputeLaplacian(mesh = mesh , &
-                               t    = time, &
-                  externalState     = BCFunctions(MU_BC) % externalState, &
-                  externalGradients = BCFunctions(MU_BC) % externalGradients )
-!
-!        Scale QDot with the Peclet number
-!        ---------------------------------
-!$omp do schedule(runtime)
-         do eID = 1, mesh % no_of_elements
-            e => mesh % elements(eID)
-            e % storage % QDot = (1.0_RP / multiphase % Pe) * e % storage % QDot
-         end do
-!$omp end do
-!
-!        *****************************
-!        Return the concentration to Q
-!        *****************************
-!
-!$omp single
-         call mesh % SetStorageToEqn(2)
-!$omp end single
-!$omp end parallel
-
-      end subroutine ComputeTimeDerivative_OnlyLinear
-
-      subroutine ComputeTimeDerivative_OnlyNonLinear( mesh, particles, time, BCFunctions, mode)
-         IMPLICIT NONE 
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         TYPE(HexMesh), target           :: mesh
-         type(Particles_t)               :: particles
-         REAL(KIND=RP)                   :: time
-         type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
-         integer,             intent(in) :: mode
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         INTEGER :: i, j, k, eID, fID
-         class(Element), pointer  :: e
-         class(Face),    pointer  :: f
-
-!
-!        **************************************
-!        Compute chemical potential: Q stores c
-!        **************************************
-!
-!$omp parallel shared(mesh, time) private(e, i, j, k, eID, fID)
-!
-!        ------------------------------
-!        Change memory to concentration
-!        ------------------------------
-!
-!$omp single
-         call mesh % SetStorageToEqn(2)
-!$omp end single
-!
-!        -----------------------------------------
-!        Prolongation of the solution to the faces
-!        -----------------------------------------
-!
-         call mesh % ProlongSolutionToFaces(NCOMP)
-!
-!        ----------------
-!        Update MPI Faces
-!        ----------------
-!
-#ifdef _HAS_MPI_
-!$omp single
-errorMessage(STD_OUT)
-stop
-         !call mesh % UpdateMPIFacesSolution
-!$omp end single
-#endif
-!
-!        -----------------
-!        Compute gradients
-!        -----------------
-!
-         call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(C_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
-
-#ifdef _HAS_MPI_
-!$omp single
-errorMessage(STD_OUT)
-stop
-         !call mesh % UpdateMPIFacesGradients
-!$omp end single
-#endif
-!
-!        ------------------------------
-!        Compute the chemical potential
-!        ------------------------------
-!
-!        Linear part: only Neumann boundary conditions contribution
-!        -----------
-         call ComputeLaplacianNeumannBCs(mesh = mesh , &
-                               t    = time, &
-                  externalState     = BCFunctions(C_BC) % externalState, &
-                  externalGradients = BCFunctions(C_BC) % externalGradients )
-
-!$omp do schedule(runtime) private(e)
-         do eID = 1, mesh % no_of_elements
-            e => mesh % elements(eID)
-            e % storage % mu = - POW2(multiphase % eps) * e % storage % QDot
-            call AddQuarticDWPDerivative(e % storage % c, e % storage % mu)
-         end do
-!$omp end do
-
-!$omp single
-         call mesh % SetStorageToEqn(3)
-!$omp end single
-!
-!        *************************
-!        Compute cDot: Q stores mu
-!        *************************
-!
-!        -----------------------------------------
-!        Prolongation of the solution to the faces
-!        -----------------------------------------
-!
-         call mesh % ProlongSolutionToFaces(NCOMP)
-!
-!        ----------------
-!        Update MPI Faces
-!        ----------------
-!
-#ifdef _HAS_MPI_
-!$omp single
-errorMessage(STD_OUT)
-stop
-         !call mesh % UpdateMPIFacesSolution
-!$omp end single
-#endif
-!
-!        -----------------
-!        Compute gradients
-!        -----------------
-!
-         call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , BCFunctions(MU_BC) % externalState, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
-
-#ifdef _HAS_MPI_
-!$omp single
-!         call mesh % UpdateMPIFacesGradients
-errorMessage(STD_OUT)
-stop
-!$omp end single
-#endif
-!
-!        ------------------------------
-!        Compute the chemical potential
-!        ------------------------------
-!
-         call ComputeLaplacian(mesh = mesh , &
-                               t    = time, &
-                  externalState     = BCFunctions(MU_BC) % externalState, &
-                  externalGradients = BCFunctions(MU_BC) % externalGradients )
-!
-!        Scale QDot with the Peclet number
-!        ---------------------------------
-!$omp do schedule(runtime) private(e)
-         do eID = 1, mesh % no_of_elements
-            e => mesh % elements(eID)
-            e % storage % QDot = (1.0_RP / multiphase % Pe) * e % storage % QDot
-         end do
-!$omp end do
-!
-!        *****************************
-!        Return the concentration to Q
-!        *****************************
-!
-!$omp single
-         call mesh % SetStorageToEqn(2)
-!$omp end single
-!
-!        ***********************************
-!        Compute the concentration advection
-!        ***********************************
-!
-         if ( enable_speed ) then
-!
-!        Perform the stabilization
-!        -------------------------
-         call StabilizeGradients(mesh, time, BCFunctions(C_BC) % externalState)
-!
-!        Add the velocity field
-!        ----------------------
-!$omp do schedule(runtime)
-         do eID = 1, mesh % no_of_elements
-            e => mesh % elements(eID)
-         
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)   ; do i = 0, e % Nxyz(1)
-               e % storage % cDot(1,i,j,k) = e % storage % cDot(1,i,j,k) - (&
-                                   e % storage % QNS(IRHOU,i,j,k) * e % storage % c_x(1,i,j,k) &
-                                 + e % storage % QNS(IRHOV,i,j,k) * e % storage % c_y(1,i,j,k) &
-                                 + e % storage % QNS(IRHOW,i,j,k) * e % storage % c_z(1,i,j,k) &
-                                 ) / e % storage % QNS(IRHO,i,j,k) 
-            end do                ; end do                  ; end do
-         end do
-!$omp end do
-         end if
-!$omp end parallel
-
-      end subroutine ComputeTimeDerivative_OnlyNonLinear
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -959,6 +605,7 @@ stop
 !
          integer     :: eID , i, j, k, ierr, fID
          real(kind=RP) :: p, cIn01, fm(NDIM)
+         procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 !
 !        ****************
 !        Volume integrals

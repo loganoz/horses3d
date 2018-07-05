@@ -190,8 +190,10 @@ module ResidualsMonitorClass
 
 #if (defined(NAVIERSTOKES) && !defined(CAHNHILLIARD))
 111 format(6(2X,ES24.16))
-#elif defined(INCNS)
+#elif (defined(INCNS) && !defined(CAHNHILLIARD))
 111 format(6(2X,ES24.16))
+#elif (defined(INCNS) && defined(CAHNHILLIARD))
+111 format(7(2X,ES24.16))
 #elif (!defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
 111 format(2(2X,ES24.16))
 #elif (defined(NAVIERSTOKES) && defined(CAHNHILLIARD))

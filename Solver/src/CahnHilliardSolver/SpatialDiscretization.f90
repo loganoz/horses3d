@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Tue Jul  3 19:19:01 2018
+!   @Last revision date: Thu Jul  5 12:34:48 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 3db74c1b54d0c4fcf30b72bedefd8dbd2ef9b8ce
+!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
 !
 !//////////////////////////////////////////////////////
 !
@@ -151,7 +151,7 @@ module SpatialDiscretization
          INTEGER :: i, j, k, eID, fID
          class(Element), pointer  :: e
          class(Face),    pointer  :: f
-         integer                  :: enable_linear, enable_nonlinear
+         logical                  :: enable_linear, enable_nonlinear
 
          select case (mode)
          case (CTD_ONLY_CH)

@@ -21,6 +21,7 @@ module TruncationErrorClass
 #if defined(CAHNHILLIARD)
    use BoundaryConditionFunctions, only: C_BC, MU_BC
 #endif
+   use ProblemFileFunctions
    implicit none
    
    private
@@ -60,24 +61,6 @@ module TruncationErrorClass
    procedure(BCState_FCN)   :: externalCHStateForBoundaryName
    procedure(BCGradients_FCN)   :: ExternalChemicalPotentialGradientForBoundaryName
    procedure(BCGradients_FCN)   :: ExternalConcentrationGradientForBoundaryName
-#endif
-   
-#if defined(NAVIERSTOKES)
-   interface
-      subroutine UserDefinedSourceTermNS(x, time, S, thermodynamics_, dimensionless_, refValues_)
-         use SMConstants
-         USE HexMeshClass
-         use PhysicsStorage
-         use FluidData
-         IMPLICIT NONE
-         real(kind=RP),             intent(in)  :: x(NDIM)
-         real(kind=RP),             intent(in)  :: time
-         real(kind=RP),             intent(out)  :: S(NCONS)
-         type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-         type(Dimensionless_t),     intent(in)  :: dimensionless_
-         type(RefValues_t),         intent(in)  :: refValues_
-      end subroutine UserDefinedSourceTermNS
-   end interface
 #endif
 !
 !  ----------------
@@ -202,6 +185,9 @@ module TruncationErrorClass
       real(kind=RP)            :: Jac
       real(kind=RP)            :: maxTE
       real(kind=RP)            :: S(NTOTALVARS)      !   Source term
+#if defined(NAVIERSTOKES)            
+      procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
+#endif
       !--------------------------------------------------------
       
       call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
@@ -219,7 +205,7 @@ module TruncationErrorClass
          ! loop over all the degrees of freedom of the element
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
 #if defined(NAVIERSTOKES)            
-            call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), t, S, thermodynamics, dimensionless, refValues)
+            call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, S, thermodynamics, dimensionless, refValues)
 #endif
             
             do iEQ = 1, NTOTALVARS
@@ -349,7 +335,7 @@ module TruncationErrorClass
                
                if(.NOT. success)   ERROR STOP ":: problem creating sem"
                
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && !defined(CAHNHILLIARD)
                CALL UserDefinedFinalSetup(sem % mesh , thermodynamics, dimensionless, refValues)
 #endif
                

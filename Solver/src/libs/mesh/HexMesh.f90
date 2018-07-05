@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Tue Jul  3 13:57:47 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: a58cd217935c45def88066502aef3f61cbddb117
+!   @Last revision date: Thu Jul  5 12:34:53 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
 !
 !//////////////////////////////////////////////////////
 !
@@ -3159,12 +3159,12 @@ slavecoord:                DO l = 1, 4
 !
       integer  :: eID, fID
    
-      associate(rhomax => thermodynamics % rho_max, &
-                rhomin => thermodynamics % rho_min)
+      associate(rho1 => dimensionless % rho(1), &
+                rho2 => dimensionless % rho(2))
       do eID = 1, self % no_of_elements
          associate(c => self % elements(eID) % storage % c, &
                    Q => self % elements(eID) % storage % QNS)
-         c(1,:,:,:) = (rhomax + rhomin + 2.0_RP * refValues % rho * Q(INSRHO,:,:,:))/(rhomax-rhomin)
+         c(1,:,:,:) = (rho1 + rho2 + 2.0_RP * Q(INSRHO,:,:,:))/(rho2-rho1)
          end associate
       end do
 
@@ -3186,12 +3186,12 @@ slavecoord:                DO l = 1, 4
 !
       integer  :: eID, fID
    
-      associate(rhomax => thermodynamics % rho_max, &
-                rhomin => thermodynamics % rho_min)
+      associate(rho1 => dimensionless % rho(1), &
+                rho2 => dimensionless % rho(2))
       do eID = 1, self % no_of_elements
          associate(c => self % elements(eID) % storage % c, &
                    Q => self % elements(eID) % storage % QNS)
-         Q(INSRHO,:,:,:) = 0.5_RP*(rhomax*(1.0_RP-c(1,:,:,:)) + rhomin*(1.0_RP + c(1,:,:,:)))
+         Q(INSRHO,:,:,:) = 0.5_RP*(rho1*(1.0_RP-c(1,:,:,:)) + rho2*(1.0_RP + c(1,:,:,:)))
          end associate
       end do
 

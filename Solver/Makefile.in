@@ -273,12 +273,9 @@ horses3d.nsch:
 horses3d.insch: 
 	(cd $(HOME_DIR)/src/iNSCHSolver/ && $(MAKE) $(HORSES_iNSCH_FLAGS) install) || exit 1; 
 
-horses3d.mp: 
-	(cd $(HOME_DIR)/src/MultiphaseSolver/ && $(MAKE) $(HORSES_NSCH_FLAGS) install) || exit 1; 
-
 horseslibs:
 	@for subdir in $(HORSES_LIBS) ; do \
-		if [$$subdir -eq problemfile] ; \
+		if [ "$$subdir" = "problemfile" ] ; \
 		then  \
 			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install) || exit 1 ; \
 	    	else \
@@ -340,7 +337,6 @@ horsesclean: FORCE
 	(cd $(HOME_DIR)/src/CahnHilliardSolver && $(MAKE) $(HORSES_CH_FLAGS) clean) || exit 1;
 	(cd $(HOME_DIR)/src/NSCHSolver && $(MAKE) $(HORSES_NSCH_FLAGS) clean) || exit 1;
 	(cd $(HOME_DIR)/src/iNSCHSolver && $(MAKE) $(HORSES_iNSCH_FLAGS) clean) || exit 1;
-	(cd $(HOME_DIR)/src/MultiphaseSolver && $(MAKE) $(HORSES_NSCH_FLAGS) clean) || exit 1;
 
 addonsclean: FORCE
 	@for subdir in $(ADDONS); do \

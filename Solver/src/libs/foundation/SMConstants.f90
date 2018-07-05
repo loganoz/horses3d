@@ -56,6 +56,30 @@
          INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
 
          CHARACTER(len=*), parameter   :: VERSION = "v0.8.8: Added routines for computing the analytical Jacobian of NS."
-         character(len=LINE_LENGTH)    :: solver
+         integer, protected            :: solver
+   
+
+         enum, bind(C)
+            enumerator :: NAVIERSTOKES_SOLVER, INCNS_SOLVER, CAHNHILLIARD_SOLVER
+            enumerator :: NSCH_SOLVER, INSCH_SOLVER
+            enumerator :: NO_OF_SOLVERS
+            enumerator :: UNKNOWN_SOLVER = -1
+         end enum
+
+         contains
+            subroutine SetSolver(which)
+               implicit none
+               integer, intent(in)  :: which
+
+               if ((solver < 0) .or. (solver >= NO_OF_SOLVERS)) then
+                  print*, "Solver not recognized"
+                  solver = UNKNOWN_SOLVER
+               else
+                  solver = which
+               end if
+   
+            
+
+            end subroutine SetSolver
          
       END MODULE SMConstants

@@ -4,9 +4,9 @@
 !   @File:    HORSES3DMain.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Tue Jul  3 17:26:18 2018
+!   @Last revision date: Thu Jul  5 12:34:50 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
+!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
 !
 !//////////////////////////////////////////////////////
 !
@@ -72,7 +72,7 @@
       procedure(UserDefinedFinalize_f)    :: UserDefinedFinalize
       procedure(UserDefinedTermination_f) :: UserDefinedTermination
 
-      solver = "nsch"
+      call SetSolver(NSCH_SOLVER)
 !
 !     ---------------
 !     Initializations
