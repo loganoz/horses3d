@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Thu Jul  5 12:34:51 2018
+!   @Last revision date: Fri Jul  6 12:12:21 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
+!   @Last revision commit: 065992b884b4d849167cab46ea3d1157bb7738e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -802,8 +802,8 @@ stop
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
 
-               call ViscousDiscretization % GetViscosity(f % storage(1) % Q(INSRHO,i,j), muL)
-               call ViscousDiscretization % GetViscosity(f % storage(2) % Q(INSRHO,i,j), muR)
+               call ViscousDiscretization % GetViscosity(f % storage(1) % c(1,i,j), muL)
+               call ViscousDiscretization % GetViscosity(f % storage(2) % c(1,i,j), muR)
                mu = 0.5_RP * (muL + muR)
 !      
 !              --------------
@@ -882,7 +882,7 @@ stop
 !              Viscous fluxes
 !              --------------
 !      
-               call ViscousDiscretization % GetViscosity(f % storage(1) % Q(INSRHO,i,j), mu)
+               call ViscousDiscretization % GetViscosity(f % storage(1) % c(1,i,j), mu)
 
                CALL ViscousDiscretization % RiemannSolver(nEqn = NINC, nGradEqn = NINC, &
                                                   f = f, &
@@ -994,7 +994,7 @@ stop
 !           Viscous fluxes
 !           --------------
 !   
-            call ViscousDiscretization % GetViscosity(f % storage(1) % Q(INSRHO,i,j), mu)
+            call ViscousDiscretization % GetViscosity(f % storage(1) % c(1,i,j), mu)
 
             CALL ViscousDiscretization % RiemannSolver(nEqn = NINC, nGradEqn = NINC, &
                                                f = f, &

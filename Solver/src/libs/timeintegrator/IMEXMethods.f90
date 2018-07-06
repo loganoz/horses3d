@@ -4,9 +4,9 @@
 !   @File:    IMEXMethods.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date: Thu Jul  5 12:35:03 2018
+!   @Last revision date: Fri Jul  6 12:12:23 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
+!   @Last revision commit: 065992b884b4d849167cab46ea3d1157bb7738e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -167,7 +167,7 @@ MODULE IMEXMethods
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( sem % mesh % elements )
              sem % mesh % elements(id) % storage % G_NS = a(k)* sem % mesh % elements(id) % storage % G_NS +          sem % mesh % elements(id) % storage % QDot
-             sem % mesh % elements(id) % storage % Q    =       sem % mesh % elements(id) % storage % Q    + c(k)*dt* sem % mesh % elements(id) % storage % G_NS
+!             sem % mesh % elements(id) % storage % Q    =       sem % mesh % elements(id) % storage % Q    + c(k)*dt* sem % mesh % elements(id) % storage % G_NS
          END DO
 !$omp end parallel do
       END DO
@@ -241,7 +241,7 @@ MODULE IMEXMethods
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( sem % mesh % elements )
              sem % mesh % elements(id) % storage % G_NS = a(k)* sem % mesh % elements(id) % storage % G_NS +          sem % mesh % elements(id) % storage % QDot
-             sem % mesh % elements(id) % storage % Q    =       sem % mesh % elements(id) % storage % Q    + c(k)*dt* sem % mesh % elements(id) % storage % G_NS
+             sem % mesh % elements(id) % storage % QNS  =       sem % mesh % elements(id) % storage % QNS + c(k)*dt* sem % mesh % elements(id) % storage % G_NS
          END DO
 !$omp end parallel do
       END DO

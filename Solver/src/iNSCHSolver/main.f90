@@ -4,9 +4,9 @@
 !   @File:    main.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Mon Jul  2 17:50:24 2018
-!   @Last revision date: Thu Jul  5 12:34:52 2018
+!   @Last revision date: Fri Jul  6 12:12:22 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
+!   @Last revision commit: 065992b884b4d849167cab46ea3d1157bb7738e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -221,6 +221,7 @@
          use FTValueDictionaryClass
          USE SharedBCModule
          USE BoundaryConditionFunctions_iNS, ONLY:implementediNSBCNames
+         USE BoundaryConditionFunctions_CH, ONLY:implementedCHBCNames
          IMPLICIT NONE
 !
 !        ---------
@@ -294,6 +295,36 @@
          END DO
          
          CALL release(bcObjects)
+!
+!        --------------------------------------------------------------------------
+!        Check that the boundary conditions to be applied are implemented
+!        in the code. Keep those updated in the boundary condition functions module
+!        --------------------------------------------------------------------------
+!
+         bcObjects => bcTypeDictionary % allObjects()
+         DO j = 1, bcObjects % COUNT()
+            obj => bcObjects % objectAtIndex(j)
+            CALL castToValue(obj,v)
+            bcType = v % stringValue(requestedLength = BC_STRING_LENGTH)
+            DO i = 1, SIZE(implementedCHBCNames)
+               IF ( bcType == implementedCHBCNames(i) )     THEN
+                  success = .TRUE. 
+                  EXIT 
+               ELSE 
+                  success = .FALSE. 
+               END IF 
+            END DO
+            
+            IF ( .NOT. success )     THEN
+               PRINT *, "Boundary condition ", TRIM(bcType)," not implemented in this code"
+               CALL release(bcObjects)
+               RETURN 
+            END IF  
+            
+         END DO
+         
+         CALL release(bcObjects)
+
          
       END SUBROUTINE checkBCIntegrity
 !

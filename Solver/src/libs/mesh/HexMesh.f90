@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Thu Jul  5 12:34:53 2018
+!   @Last revision date: Fri Jul  6 12:12:22 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
+!   @Last revision commit: 065992b884b4d849167cab46ea3d1157bb7738e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -3164,7 +3164,7 @@ slavecoord:                DO l = 1, 4
       do eID = 1, self % no_of_elements
          associate(c => self % elements(eID) % storage % c, &
                    Q => self % elements(eID) % storage % QNS)
-         c(1,:,:,:) = (rho1 + rho2 + 2.0_RP * Q(INSRHO,:,:,:))/(rho2-rho1)
+         c(1,:,:,:) = (-rho1 - rho2 + 2.0_RP * Q(INSRHO,:,:,:))/(rho2-rho1)
          end associate
       end do
 
