@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Tue Jul  3 17:26:51 2018
+!   @Last revision date: Tue Jul  3 19:19:11 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
+!   @Last revision commit: 3db74c1b54d0c4fcf30b72bedefd8dbd2ef9b8ce
 !
 !//////////////////////////////////////////////////////
 !
@@ -22,7 +22,7 @@
 module pAdaptationClass
    use SMConstants
    use InterpolationMatrices           , only: Interp3DArrays, ConstructInterpolationMatrices
-   use PhysicsStorage                  , only: NTOTALVARS
+   use PhysicsStorage                  , only: NTOTALVARS, CTD_IGNORE_MODE
    use FaceClass                       , only: Face
    use ElementClass
    use DGSEMClass                      , only: DGSem, BCFunctions_t, BCState_FCN, BCGradients_FCN, ComputeTimeDerivative_f, no_of_BCsets
@@ -935,7 +935,7 @@ readloop:do
 !     Update residuals
 !     ----------------
 !
-      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
       
       write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
 

@@ -16,6 +16,7 @@ MODULE ExplicitMethods
    use TimeIntegratorDefinitions
    use DGSEMClass, only: ComputeTimeDerivative_f, BCFunctions_t, no_of_BCsets
    use ParticlesClass
+   use PhysicsStorage, only: CTD_IGNORE_MODE
    IMPLICIT NONE
 
    private
@@ -64,7 +65,7 @@ MODULE ExplicitMethods
       DO k = 1,3
          
          tk = t + b(k)*deltaT
-         CALL ComputeTimeDerivative( mesh, particles, tk, BCFunctions)
+         CALL ComputeTimeDerivative( mesh, particles, tk, BCFunctions, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -120,7 +121,7 @@ MODULE ExplicitMethods
       DO k = 1, N_STAGES
          
          tk = t + b(k)*deltaT
-         CALL ComputeTimeDerivative( mesh, particles, tk, BCFunctions)
+         CALL ComputeTimeDerivative( mesh, particles, tk, BCFunctions, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -164,7 +165,7 @@ MODULE ExplicitMethods
 !
       integer                    :: id, k
 
-      CALL ComputeTimeDerivative( mesh, particles, t, BCFunctions)
+      CALL ComputeTimeDerivative( mesh, particles, t, BCFunctions, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )

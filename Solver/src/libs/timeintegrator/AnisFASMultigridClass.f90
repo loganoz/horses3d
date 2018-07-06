@@ -544,7 +544,7 @@ module AnisFASMultigridClass
          if (SmoothFine .AND. lvl > 1) then
             call MGRestrictToChild(this,Dir,lvl,t,TE, ComputeTimeDerivative)
             associate(Childp_sem => this % Child % MGStorage(Dir) % p_sem)
-            call ComputeTimeDerivative(Childp_sem % mesh, Childp_sem % particles, t, Childp_sem % BCFunctions)
+            call ComputeTimeDerivative(Childp_sem % mesh, Childp_sem % particles, t, Childp_sem % BCFunctions, CTD_IGNORE_MODE)
             end associate
             
             if (MAXVAL(ComputeMaxResiduals(p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals &
@@ -728,10 +728,10 @@ module AnisFASMultigridClass
             call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
          elseif ( TE(1) % TruncErrorType == ISOLATED_TE) then
             call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
-            call ComputeTimeDerivative(Childp_sem % mesh,Childp_sem % particles, t,Childp_sem % BCFunctions)
+            call ComputeTimeDerivative(Childp_sem % mesh,Childp_sem % particles, t,Childp_sem % BCFunctions, CTD_IGNORE_MODE)
          end if
       else
-         call ComputeTimeDerivative(Childp_sem % mesh, Childp_sem % particles, t,Childp_sem % BCFunctions)
+         call ComputeTimeDerivative(Childp_sem % mesh, Childp_sem % particles, t,Childp_sem % BCFunctions, CTD_IGNORE_MODE)
       end if
       
 !$omp parallel do schedule(runtime)

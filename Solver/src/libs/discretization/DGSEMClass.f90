@@ -108,7 +108,7 @@ Module DGSEMClass
          CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
       END SUBROUTINE BCGradients_FCN
 
-      SUBROUTINE ComputeTimeDerivative_f( mesh, particles, time, BCFunctions )
+      SUBROUTINE ComputeTimeDerivative_f( mesh, particles, time, BCFunctions, mode )
          use SMConstants
          use HexMeshClass
          use ParticlesClass
@@ -125,6 +125,7 @@ Module DGSEMClass
 #endif
          REAL(KIND=RP)                   :: time
          type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
+         integer,             intent(in) :: mode
       end subroutine ComputeTimeDerivative_f
    END INTERFACE
 

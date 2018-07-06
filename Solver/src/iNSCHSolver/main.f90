@@ -4,9 +4,9 @@
 !   @File:    main.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Mon Jul  2 17:50:24 2018
-!   @Last revision date: Tue Jul  3 17:26:27 2018
+!   @Last revision date: Fri Jul  6 12:12:22 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
+!   @Last revision commit: 065992b884b4d849167cab46ea3d1157bb7738e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -77,7 +77,7 @@
       integer                             :: Nmax
       type(pAdaptation_t)                 :: pAdaptator
 
-      solver = "nsch"
+      call SetSolver(INSCH_SOLVER)
 !
 !     ---------------
 !     Initializations
@@ -91,10 +91,10 @@
 !     ----------------------------------------------------------------------------------
 !
       if ( MPI_Process % doMPIAction ) then
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Navier-Stokes Cahn-Hilliard Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Multiphase Solver",__DATE__,__TIME__)
 
       else
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Navier-Stokes Cahn-Hilliard Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Multiphase Solver",__DATE__,__TIME__)
 
       end if
 
@@ -221,6 +221,7 @@
          use FTValueDictionaryClass
          USE SharedBCModule
          USE BoundaryConditionFunctions_iNS, ONLY:implementediNSBCNames
+         USE BoundaryConditionFunctions_CH, ONLY:implementedCHBCNames
          IMPLICIT NONE
 !
 !        ---------
@@ -294,6 +295,36 @@
          END DO
          
          CALL release(bcObjects)
+!
+!        --------------------------------------------------------------------------
+!        Check that the boundary conditions to be applied are implemented
+!        in the code. Keep those updated in the boundary condition functions module
+!        --------------------------------------------------------------------------
+!
+         bcObjects => bcTypeDictionary % allObjects()
+         DO j = 1, bcObjects % COUNT()
+            obj => bcObjects % objectAtIndex(j)
+            CALL castToValue(obj,v)
+            bcType = v % stringValue(requestedLength = BC_STRING_LENGTH)
+            DO i = 1, SIZE(implementedCHBCNames)
+               IF ( bcType == implementedCHBCNames(i) )     THEN
+                  success = .TRUE. 
+                  EXIT 
+               ELSE 
+                  success = .FALSE. 
+               END IF 
+            END DO
+            
+            IF ( .NOT. success )     THEN
+               PRINT *, "Boundary condition ", TRIM(bcType)," not implemented in this code"
+               CALL release(bcObjects)
+               RETURN 
+            END IF  
+            
+         END DO
+         
+         CALL release(bcObjects)
+
          
       END SUBROUTINE checkBCIntegrity
 !

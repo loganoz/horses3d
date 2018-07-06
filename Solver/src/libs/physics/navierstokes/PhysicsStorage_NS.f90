@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date: Mon Jul  2 14:17:30 2018
+!   @Last revision date: Thu Jul  5 12:35:02 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
+!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
 !
 !//////////////////////////////////////////////////////
 !
@@ -536,12 +536,6 @@
       call setThermodynamics( thermodynamics_ )
       call setDimensionless( dimensionless_ )
       call setRefValues( refValues_ )
-!
-!     ********
-!     Describe
-!     ********
-!
-      CALL DescribePhysicsStorage_NS()
 
       END SUBROUTINE ConstructPhysicsStorage_NS
 !

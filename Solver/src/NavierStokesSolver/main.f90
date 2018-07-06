@@ -58,7 +58,7 @@
       integer                             :: Nmax
       type(pAdaptation_t)                 :: pAdaptator
 
-      solver = "navier-stokes"
+      call SetSolver(NAVIERSTOKES_SOLVER)
 !
 !     ---------------
 !     Initializations

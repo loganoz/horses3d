@@ -57,7 +57,7 @@
       integer                             :: Nmax
       type(pAdaptation_t)                 :: pAdaptator
 
-      solver = "cahn-hilliard"
+      call SetSolver(CAHNHILLIARD_SOLVER)
 !
 !     ---------------
 !     Initializations

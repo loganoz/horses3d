@@ -4,9 +4,9 @@
 !   @File:    IMEXMethods.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date: Tue Jul  3 17:26:39 2018
+!   @Last revision date: Fri Jul  6 12:12:23 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
+!   @Last revision commit: 065992b884b4d849167cab46ea3d1157bb7738e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -27,33 +27,17 @@ MODULE IMEXMethods
    implicit none
    
    PRIVATE                          
-   PUBLIC TakeIMEXStep, SetIMEXComputeQDotProcedures
+   PUBLIC TakeIMEXStep
    
    real(kind=RP) :: time               ! Time at the beginning of each inner(!) time step
    logical       :: computeA = .TRUE.  ! Compute Jacobian? (only valid if it is meant to be computed according to the convergence)
-
-   procedure(ComputeTimeDerivative_f), protected, pointer    :: CTD_onlyRK3       => NULL()
-   procedure(ComputeTimeDerivative_f), protected, pointer    :: CTD_onlyLinear    => NULL()
-   procedure(ComputeTimeDerivative_f), protected, pointer    :: CTD_onlyNonLinear => NULL()
-   
-CONTAINS
+!
+!  ========
+   contains
+!  ========
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !   
-   subroutine SetIMEXComputeQDotProcedures(CTD_onlyLinear_, CTD_onlyNonLinear_, CTD_onlyRK3_)
-      implicit none
-      procedure(ComputeTimeDerivative_f)           :: CTD_onlyLinear_, CTD_onlyNonLinear_
-      procedure(ComputeTimeDerivative_f), optional :: CTD_onlyRK3_
-
-      CTD_onlyLinear    => CTD_onlyLinear_
-      CTD_onlyNonLinear => CTD_onlyNonLinear_
-
-      if ( present(CTD_onlyRK3_) ) then
-         CTD_onlyRK3       => CTD_onlyRK3_
-      end if
-
-   end subroutine SetIMEXComputeQDotProcedures
-
    subroutine TakeIMEXStep(sem, t, dt, controlVariables, ComputeTimeDerivative)
       implicit none
       TYPE(DGSem),                  INTENT(INOUT)           :: sem                  !<>DGSem class with solution storage 
@@ -62,16 +46,20 @@ CONTAINS
       TYPE(FTValueDictionary),      INTENT(IN)              :: controlVariables     !< Input file variables
       procedure(ComputeTimeDerivative_f)                            :: ComputeTimeDerivative
 
-      select case(trim(solver))
-      case("cahn-hilliard", "nsch")
+      select case(solver)
+      case(NAVIERSTOKES_SOLVER, INCNS_SOLVER)
+         print*, "IMEX solver not implemented for monophase Navier-Stokes equations"
+         stop
+
+      case(CAHNHILLIARD_SOLVER, NSCH_SOLVER)
          call TakeIMEXEulerStep_NSCH (sem, t , dt , controlVariables, ComputeTimeDerivative)
 
-      case("multiphase")
+      case(INSCH_SOLVER)
          call TakeIMEXEulerStep_MU (sem, t , dt , controlVariables, ComputeTimeDerivative)
 
-      case("navier-stokes")
-         print*, "IMEX solver not implemented for Navier-Stokes"
-
+      case default
+         print*, "Solver not recognized"
+         stop
       end select
 
    end subroutine TakeIMEXStep
@@ -127,7 +115,7 @@ CONTAINS
 
          CALL linsolver%construct(DimPrb,controlVariables,sem, IMEXEuler_MatrixShift) 
 
-         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, CTD_onlyLinear, dt, 1.0_RP)
+         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, dt, 1.0_RP)
          
       ENDIF
       
@@ -139,7 +127,7 @@ CONTAINS
 !     Compute the non linear time derivative
 !     -------------------------------------- 
 #if defined(CAHNHILLIARD)
-      call CTD_onlyNonLinear(sem % mesh, sem % particles, time, sem % BCFunctions)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, time, sem % BCFunctions, CTD_ONLY_CH_NONLIN)
 !
 !     Compute the RHS
 !     ---------------
@@ -158,20 +146,28 @@ CONTAINS
 !
 !     Compute the standard time derivative to get residuals
 !     -----------------------------------------------------
-      call ComputeTimeDerivative(sem % mesh, sem % particles, time, sem % BCFunctions)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, time, sem % BCFunctions, CTD_IGNORE_MODE)
 
 #else
 !
+!     *****************************
 !     Perform a RK3 time step in NS
-!     -----------------------------
+!     *****************************
+!
+!     Compute the new chemical potential
+!     ----------------------------------
+#if defined(CAHNHILLIARD)
+      CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, sem % BCFunctions, CTD_ONLY_CH)
+#endif
+
       DO k = 1,3
          tk = t + b(k)*dt
-         CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, sem % BCFunctions)
+         CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, sem % BCFunctions, CTD_ONLY_NS)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( sem % mesh % elements )
              sem % mesh % elements(id) % storage % G_NS = a(k)* sem % mesh % elements(id) % storage % G_NS +          sem % mesh % elements(id) % storage % QDot
-             sem % mesh % elements(id) % storage % Q    =       sem % mesh % elements(id) % storage % Q    + c(k)*dt* sem % mesh % elements(id) % storage % G_NS
+!             sem % mesh % elements(id) % storage % Q    =       sem % mesh % elements(id) % storage % Q    + c(k)*dt* sem % mesh % elements(id) % storage % G_NS
          END DO
 !$omp end parallel do
       END DO
@@ -204,7 +200,7 @@ CONTAINS
       INTEGER                                  :: k, id
       SAVE DimPrb, nelm, TimeAccurate
 
-#if (defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
+#if (defined(INCNS) && defined(CAHNHILLIARD))
 
       nEqnJac = NCOMP
       nGradJac = NCOMP
@@ -222,46 +218,55 @@ CONTAINS
          
          CALL linsolver%construct(DimPrb,controlVariables,sem, IMEXEuler_MatrixShift) 
 
-         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, CTD_onlyLinear, dt, 1.0_RP)
+         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, dt, 1.0_RP)
          
       ENDIF
       
       time = t
-   
-      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
 !
-!     Perform a RK3 time step in NS
-!     -----------------------------
+!     *************************************************
+!     1) Compute cDot (full) to obtain \nabla c, and mu
+!     *************************************************
+!
+      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_ONLY_CH)
+!
+!     ********************************
+!     2) Perform a RK3 time step in NS
+!     ********************************
+!
       DO k = 1,3
          tk = t + b(k)*dt
-         CALL CTD_onlyRK3( sem % mesh, sem % particles, tk, sem % BCFunctions)
+         CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, sem % BCFunctions, CTD_ONLY_NS)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( sem % mesh % elements )
              sem % mesh % elements(id) % storage % G_NS = a(k)* sem % mesh % elements(id) % storage % G_NS +          sem % mesh % elements(id) % storage % QDot
-             sem % mesh % elements(id) % storage % Q    =       sem % mesh % elements(id) % storage % Q    + c(k)*dt* sem % mesh % elements(id) % storage % G_NS
+             sem % mesh % elements(id) % storage % QNS  =       sem % mesh % elements(id) % storage % QNS + c(k)*dt* sem % mesh % elements(id) % storage % G_NS
          END DO
 !$omp end parallel do
       END DO
 !
-!     Compute the non linear time derivative
-!     -------------------------------------- 
-      call CTD_onlyNonLinear(sem % mesh, sem % particles, time, sem % BCFunctions)
+!     ******************************************************************
+!     3) Compatibilize the concentration with the new (advected) density
+!     ******************************************************************
 !
-!     Change the concentration to its updated value from the density
-!     --------------------------------------------------------------
-!$omp parallel do schedule(runtime)
-      do id = 1, size(sem % mesh % elements)
-         sem % mesh % elements(id) % storage % c(1,:,:,:) = (sem % mesh % elements(id) % storage % QNS(IRHO,:,:,:) - multiphase % barRho)/multiphase % tildeRho
-      end do
-!$omp end parallel do
+      call sem % mesh % ConvertDensityToPhaseField
+!
+!     *****************************************
+!     4) Compute Cahn-Hilliard non-linear terms
+!     *****************************************
+!
+      call sem % mesh % SetStorageToEqn(2)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, time, sem % BCFunctions, CTD_ONLY_CH_NONLIN)
 !
 !     Compute the RHS
 !     ---------------
       call ComputeRHS(sem, dt, nelm, linsolver)
 !
-!     Solve the linear system
-!     -----------------------
+!     ************************************
+!     5) Solve Cahn-Hilliard linear system
+!     ************************************
+!
       call linsolver % SolveLUDirect
 !
 !     Return the computed state vector to storage
@@ -272,13 +277,11 @@ CONTAINS
 !     -------------------------
       call sem % mesh % SetStorageToEqn(1)
 !
-!     Update the density with the new concentration value
-!     ---------------------------------------------------
-!$omp parallel do schedule(runtime)
-      do id = 1, size(sem % mesh % elements)
-         sem % mesh % elements(id) % storage % Q(IRHO,:,:,:) = multiphase % tildeRho * sem % mesh % elements(id) % storage % c(1,:,:,:) + multiphase % barRho
-      end do
-!$omp end parallel do
+!     ******************************************************
+!     6) Update the density with the new concentration value
+!     ******************************************************
+!
+      call sem % mesh % ConvertPhaseFieldToDensity
 
 #else
       print*, "Multiphase IMEX solver only works with both Navier-Stokes and Cahn-Hilliard equations."

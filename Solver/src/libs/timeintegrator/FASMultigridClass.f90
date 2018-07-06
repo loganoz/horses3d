@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Tue Jul  3 17:26:37 2018
+!   @Last revision date: Tue Jul  3 19:19:06 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
+!   @Last revision commit: 3db74c1b54d0c4fcf30b72bedefd8dbd2ef9b8ce
 !
 !//////////////////////////////////////////////////////
 !
@@ -538,7 +538,7 @@ module FASMultigridClass
          if (SmoothFine .AND. lvl > 1) then ! .AND. .not. FMG
             if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
             call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
-            call ComputeTimeDerivative(this % Child % p_sem % mesh,this % Child % p_sem % particles, t, this % Child % p_sem % BCFunctions)
+            call ComputeTimeDerivative(this % Child % p_sem % mesh,this % Child % p_sem % particles, t, this % Child % p_sem % BCFunctions, CTD_IGNORE_MODE)
             
             if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals(this % Child % p_sem % mesh))) exit
          else
@@ -802,7 +802,7 @@ module FASMultigridClass
 !     If not on finest level, correct source term
 !     -------------------------------------------
 !      
-      call ComputeTimeDerivative(Child_p % p_sem % mesh,Child_p % p_sem % particles, t, Child_p % p_sem % BCFunctions) 
+      call ComputeTimeDerivative(Child_p % p_sem % mesh,Child_p % p_sem % particles, t, Child_p % p_sem % BCFunctions, CTD_IGNORE_MODE) 
       
 !$omp parallel do schedule(runtime)
       DO iEl = 1, nelem

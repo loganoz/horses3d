@@ -468,7 +468,7 @@ CONTAINS
       REAL(KIND = RP)                         :: F(size(u))
       
       CALL this % p_sem % SetQ(u, NTOTALVARS)
-      CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, this % p_sem % BCFunctions)
+      CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, this % p_sem % BCFunctions, CTD_IGNORE_MODE)
       CALL this % p_sem % GetQdot(NTOTALVARS,F)
       
    END FUNCTION p_F

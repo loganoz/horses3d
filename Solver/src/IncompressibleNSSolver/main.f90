@@ -4,9 +4,9 @@
 !   @File:    main.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jun 20 18:14:45 2018
-!   @Last revision date: Tue Jul  3 17:26:17 2018
+!   @Last revision date: Thu Jul  5 12:34:49 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
+!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
 !
 !//////////////////////////////////////////////////////
 !
@@ -68,7 +68,7 @@
       procedure(UserDefinedFinalize_f)    :: UserDefinedFinalize
       procedure(UserDefinedTermination_f) :: UserDefinedTermination
 
-      solver = "incompressible navier-stokes"
+      call SetSolver(INCNS_SOLVER)
 !
 !     ---------------
 !     Initializations
