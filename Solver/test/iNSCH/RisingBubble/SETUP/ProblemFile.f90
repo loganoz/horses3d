@@ -1,4 +1,16 @@
 !
+!//////////////////////////////////////////////////////
+!
+!   @File:    ProblemFile.f90
+!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
+!   @Created: Wed Jul 11 17:13:56 2018
+!   @Last revision date:
+!   @Last revision author:
+!   @Last revision commit:
+!
+!//////////////////////////////////////////////////////
+!
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      ProblemFile.f90
@@ -21,6 +33,13 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+#if defined(NAVIERSTOKES)
+#define NNS NCONS
+#define NGRADNS NGRAD
+#elif defined(INCNS)
+#define NNS NINC
+#define NGRADNS NINC
+#endif
          SUBROUTINE UserDefinedStartup
 !
 !        --------------------------------
@@ -102,32 +121,10 @@
 !           ---------------
 !
             integer        :: eid, i, j, k
-            real(kind=RP)  :: qq, u, v, w, p, x, z, rho
+            real(kind=RP)  :: qq, u, v, w, p, x, z, r, rho
 #if defined(NAVIERSTOKES)
-            real(kind=RP)  :: Q(NCONS), phi, theta
+            real(kind=RP)  :: Q(NNS), phi, theta
 #endif
-!
-!           ---------------------------------------
-!           Cahn-Hilliard default initial condition
-!           ---------------------------------------
-!
-#if defined(CAHNHILLIARD)
-            do eid = 1, mesh % no_of_elements
-               associate(e => mesh % elements(eID))
-               do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
-                  x = e % geom % x(1,i,j,k)
-                  z = e % geom % x(2,i,j,k)
-
-                  e % storage % c(1,i,j,k) = 0.5_RP + 0.01_RP*(cos(0.105_RP*x)*cos(0.11_RP*z) + &
-                                 (cos(0.13_RP*x)*cos(0.087_RP*z))**2 + cos(0.025_RP*x-0.15_RP*z) * &
-                                 cos(0.07_RP*x - 0.02_RP*z))
-               end do               ; end do                ; end do
-               e % storage % c = (e % storage % c - 0.5_RP) * 5.0_RP
-               e % storage % Q(1,:,:,:) = multiphase_ % tildeRho * e % storage % c(1,:,:,:) + multiphase_ % barRho
-               end associate
-            end do
-#endif
-
 
 !
 !           ---------------------------------------
@@ -145,13 +142,13 @@
                           ny => mesh % elemeNts(eID) % nxyz(2), &
                           Nz => mesh % elements(eID) % Nxyz(3) )
                do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
-                  rho = mesh % elements(eID) % storage % Q(IRHO,i,j,k)
-                  u  = 0.0_RP
-                  v  = 0.0_RP
-                  w  = 0.0_RP
+                  qq = 1.0_RP
+                  u  = qq*cos(theta)*cos(phi)
+                  v  = qq*sin(theta)*cos(phi)
+                  w  = qq*sin(phi)
       
-                  q(1) = rho
-                  p    = rho/(gammaM2)
+                  q(1) = 1.0_RP
+                  p    = 1.0_RP/(gammaM2)
                   q(2) = q(1)*u
                   q(3) = q(1)*v
                   q(4) = q(1)*w
@@ -164,9 +161,51 @@
 
             end associate
 #endif
+!
+!           ---------------------------------------
+!           Cahn-Hilliard default initial condition
+!           ---------------------------------------
+!
+#if defined(CAHNHILLIARD)
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          ny => mesh % elemeNts(eID) % nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  x = mesh % elements(eID) % geom % x(IX,i,j,k) - 0.5_RP
+                  z = mesh % elements(eID) % geom % x(IZ,i,j,k) - 0.5_RP
+                  r = sqrt(x*x + z*z)
+                  mesh % elements(eID) % storage % c(1,i,j,k) = tanh(-(r-0.25_RP)/0.025_RP) 
+               end do;        end do;        end do
+               end associate
+            end do
+#endif
+!
+!           ------------------------------------------------------
+!           Incompressible Navier-Stokes default initial condition
+!           ------------------------------------------------------
+!
+#if defined(INCNS)
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          ny => mesh % elemeNts(eID) % nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+#if defined(CAHNHILLIARD)
+                  p = -00._RP * (1.0_RP - mesh % elements(eID) % storage % c(1,i,j,k)) * 0.5_RP / ( 1000.0_RP * 0.7_RP * 0.7_RP )
+#else
+                  p = 0.0_RP
+#endif
+                  mesh % elements(eID) % storage % q(:,i,j,k) = [1.0_RP, 0.0_RP,0.0_RP,0.0_RP,p] 
+               end do;        end do;        end do
+               end associate
+            end do
+#endif
+
+
 
          end subroutine UserDefinedInitialCondition
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
 !
 !           -------------------------------------------------
@@ -180,13 +219,13 @@
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: Q(NCONS)
+            real(kind=RP), intent(inout)  :: Q(NNS)
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
          end subroutine UserDefinedState1
 
-         subroutine UserDefinedNeumann(x, t, nHat, U_x, U_y, U_z)
+         subroutine UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
 !
 !           --------------------------------------------------------
 !           Used to define a Neumann user defined boundary condition
@@ -199,10 +238,10 @@
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: U_x(NGRAD)
-            real(kind=RP), intent(inout)  :: U_y(NGRAD)
-            real(kind=RP), intent(inout)  :: U_z(NGRAD)
-         end subroutine UserDefinedNeumann
+            real(kind=RP), intent(inout)  :: U_x(NGRADNS)
+            real(kind=RP), intent(inout)  :: U_y(NGRADNS)
+            real(kind=RP), intent(inout)  :: U_z(NGRADNS)
+         end subroutine UserDefinedNeumann1
 #endif
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -232,7 +271,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
@@ -245,9 +284,9 @@
             use FluidData
             IMPLICIT NONE
             real(kind=RP),             intent(in)  :: x(NDIM)
-            real(kind=RP),             intent(in)  :: Q(NCONS)
+            real(kind=RP),             intent(in)  :: Q(NNS)
             real(kind=RP),             intent(in)  :: time
-            real(kind=RP),             intent(out) :: S(NCONS)
+            real(kind=RP),             intent(out) :: S(NNS)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -268,7 +307,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual &
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
                                                     , thermodynamics_ &
                                                     , dimensionless_  &
                                                     , refValues_ & 
@@ -296,7 +335,7 @@
             REAL(KIND=RP)                         :: time
             integer                               :: iter
             real(kind=RP)                         :: maxResidual
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
             type(Thermodynamics_t), intent(in)    :: thermodynamics_
             type(Dimensionless_t),  intent(in)    :: dimensionless_
             type(RefValues_t),      intent(in)    :: refValues_
@@ -309,21 +348,51 @@
             real(kind=RP),             intent(in) :: CPUTime
 !
 !           ---------------
-!           Local variables
+!           Local variables         
 !           ---------------
 !
-#if defined(CAHNHILLIARD)
-            CHARACTER(LEN=119)                  :: testName           = "T-Jokisaari benchmark"
+            real(kind=RP), parameter   :: res(6) = [6.294638013313662E-002_RP, &
+                                                    38.6745981121840_RP, &
+                                                    2.504723889417763E-014_RP, &
+                                                    36.6913649831412_RP, &
+                                                    4217.74006243591_RP, &
+                                                    137.478188779109_RP]
+
+            CHARACTER(LEN=119)                 :: testName           = "T-Jokisaari benchmark"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
-            real(kind=RP) :: cRes = 1.31687278503542_RP
 
              CALL initializeSharedAssertionsManager
              sharedManager => sharedAssertionsManager()
  
              CALL FTAssertEqual(expectedValue = monitors % residuals % values(1,1) + 1.0_RP, &
-                                actualValue   = cRes + 1.0_RP, &
-                                tol           = 1.0e-10_RP, &
+                                actualValue   = res(1) + 1.0_RP, &
+                                tol           = maxResidual*1.0e-10_RP, &
+                                msg           = "density transport residual")
+
+             CALL FTAssertEqual(expectedValue = monitors % residuals % values(2,1) + 1.0_RP, &
+                                actualValue   = res(2) + 1.0_RP, &
+                                tol           = maxResidual*1.0e-10_RP, &
+                                msg           = "x-momentum residual")
+
+             CALL FTAssertEqual(expectedValue = monitors % residuals % values(3,1) + 1.0_RP, &
+                                actualValue   = res(3) + 1.0_RP, &
+                                tol           = maxResidual*1.0e-10_RP, &
+                                msg           = "y-momentum residual")
+
+             CALL FTAssertEqual(expectedValue = monitors % residuals % values(4,1) + 1.0_RP, &
+                                actualValue   = res(4) + 1.0_RP, &
+                                tol           = maxResidual*1.0e-10_RP, &
+                                msg           = "z-momentum residual")
+
+             CALL FTAssertEqual(expectedValue = monitors % residuals % values(5,1) + 1.0_RP, &
+                                actualValue   = res(5) + 1.0_RP, &
+                                tol           = maxResidual*1.0e-10_RP, &
+                                msg           = "div-V residual")
+
+             CALL FTAssertEqual(expectedValue = monitors % residuals % values(6,1) + 1.0_RP, &
+                                actualValue   = res(6) + 1.0_RP, &
+                                tol           = maxResidual*1.0e-10_RP, &
                                 msg           = "concentration residual")
  
              CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
@@ -342,7 +411,6 @@
              CALL finalizeSharedAssertionsManager
              CALL detachSharedAssertionsManager
 
-#endif
 
 
          END SUBROUTINE UserDefinedFinalize

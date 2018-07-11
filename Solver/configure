@@ -29,9 +29,13 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./NavierStokes/TaylorGreenKEPEC_IP \
 	    ./NavierStokes/TaylorGreenKEP_BR2 \
 	    ./NavierStokes/ManufacturedSolutions \
+            ./IncompressibleNS/Poiseuille \
 	    ./CahnHilliard/SpinodalDecomposition \
+	    ./CahnHilliard/TJokisaari \
 	    ./CahnHilliard/Bubble \
-	    ./CahnHilliard/Pipe"
+	    ./CahnHilliard/Pipe \
+            ./iNSCH/RisingBubble \
+            ./iNSCH/TJokisaari"
 
 COMPONENTS_TEST_CASES="FacePatches \
  		       HexMesh \

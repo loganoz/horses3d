@@ -1,4 +1,16 @@
 !
+!//////////////////////////////////////////////////////
+!
+!   @File:    ProblemFile.f90
+!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
+!   @Created: Wed Jul 11 17:13:56 2018
+!   @Last revision date:
+!   @Last revision author:
+!   @Last revision commit:
+!
+!//////////////////////////////////////////////////////
+!
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      ProblemFile.f90
@@ -21,6 +33,14 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+#if defined(NAVIERSTOKES)
+#define NNS NCONS
+#define NGRADNS NGRAD
+#elif defined(INCNS)
+#define NNS NINC
+#define NGRADNS NINC
+#endif
+
          SUBROUTINE UserDefinedStartup
 !
 !        --------------------------------
@@ -165,6 +185,19 @@
             end associate
 #endif
 
+#if defined(INCNS)
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          ny => mesh % elemeNts(eID) % nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  mesh % elements(eID) % storage % q(:,i,j,k) = [1.0_RP, 0.0_RP, 0.0_RP, 0.0_RP, 0.0_RP]
+               end do;        end do;        end do
+               end associate
+            end do
+#endif
+
+
          end subroutine UserDefinedInitialCondition
 #if defined(NAVIERSTOKES)
          subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
@@ -232,7 +265,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
@@ -245,9 +278,9 @@
             use FluidData
             IMPLICIT NONE
             real(kind=RP),             intent(in)  :: x(NDIM)
-            real(kind=RP),             intent(in)  :: Q(NCONS)
+            real(kind=RP),             intent(in)  :: Q(NNS)
             real(kind=RP),             intent(in)  :: time
-            real(kind=RP),             intent(out) :: S(NCONS)
+            real(kind=RP),             intent(out) :: S(NNS)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -268,7 +301,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual &
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
                                                     , thermodynamics_ &
                                                     , dimensionless_  &
                                                     , refValues_ & 
@@ -286,8 +319,8 @@
 !           --------------------------------------------------------
 !
             use SMConstants
-            use FTAssertions
             USE HexMeshClass
+            use FTAssertions
             use PhysicsStorage
             use FluidData
             use MonitorsClass
@@ -296,7 +329,7 @@
             REAL(KIND=RP)                         :: time
             integer                               :: iter
             real(kind=RP)                         :: maxResidual
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
             type(Thermodynamics_t), intent(in)    :: thermodynamics_
             type(Dimensionless_t),  intent(in)    :: dimensionless_
             type(RefValues_t),      intent(in)    :: refValues_
@@ -309,21 +342,51 @@
             real(kind=RP),             intent(in) :: CPUTime
 !
 !           ---------------
-!           Local variables
+!           Local variables         
 !           ---------------
 !
-#if defined(CAHNHILLIARD)
-            CHARACTER(LEN=119)                  :: testName           = "T-Jokisaari benchmark"
+            real(kind=RP), parameter   :: res(6) = [1.08237768446853_RP, &
+                                                    5.65573043072787_RP, &
+                                                    11.5782408944369_RP, &     
+                                                    2.075335555722792E-013_RP, &
+                                                    231.975017779505_RP, &
+                                                    116.603754028733_RP    ]
+
+            CHARACTER(LEN=119)                 :: testName           = "T-Jokisaari benchmark"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
-            real(kind=RP) :: cRes = 1.31687278503542_RP
 
              CALL initializeSharedAssertionsManager
              sharedManager => sharedAssertionsManager()
  
              CALL FTAssertEqual(expectedValue = monitors % residuals % values(1,1) + 1.0_RP, &
-                                actualValue   = cRes + 1.0_RP, &
-                                tol           = 1.0e-10_RP, &
+                                actualValue   = res(1) + 1.0_RP, &
+                                tol           = maxResidual*1.0e-10_RP, &
+                                msg           = "density transport residual")
+
+             CALL FTAssertEqual(expectedValue = monitors % residuals % values(2,1) + 1.0_RP, &
+                                actualValue   = res(2) + 1.0_RP, &
+                                tol           = maxResidual*1.0e-10_RP, &
+                                msg           = "x-momentum residual")
+
+             CALL FTAssertEqual(expectedValue = monitors % residuals % values(3,1) + 1.0_RP, &
+                                actualValue   = res(3) + 1.0_RP, &
+                                tol           = maxResidual*1.0e-10_RP, &
+                                msg           = "y-momentum residual")
+
+             CALL FTAssertEqual(expectedValue = monitors % residuals % values(4,1) + 1.0_RP, &
+                                actualValue   = res(4) + 1.0_RP, &
+                                tol           = maxResidual*1.0e-10_RP, &
+                                msg           = "z-momentum residual")
+
+             CALL FTAssertEqual(expectedValue = monitors % residuals % values(5,1) + 1.0_RP, &
+                                actualValue   = res(5) + 1.0_RP, &
+                                tol           = maxResidual*1.0e-10_RP, &
+                                msg           = "div-V residual")
+
+             CALL FTAssertEqual(expectedValue = monitors % residuals % values(6,1) + 1.0_RP, &
+                                actualValue   = res(6) + 1.0_RP, &
+                                tol           = maxResidual*1.0e-10_RP, &
                                 msg           = "concentration residual")
  
              CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
@@ -341,9 +404,6 @@
  
              CALL finalizeSharedAssertionsManager
              CALL detachSharedAssertionsManager
-
-#endif
-
 
          END SUBROUTINE UserDefinedFinalize
 !
