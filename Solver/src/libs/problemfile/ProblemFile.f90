@@ -132,7 +132,7 @@ module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       subroutine UserDefinedSourceTermNS_f(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          USE HexMeshClass
@@ -411,7 +411,7 @@ end module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------

@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Fri Jul  6 12:12:21 2018
+!   @Last revision date: Fri Jul  6 16:54:55 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 065992b884b4d849167cab46ea3d1157bb7738e2
+!   @Last revision commit: 47d5e6d5ccc54aadd72582e788f17b485a1d6ddc
 !
 !//////////////////////////////////////////////////////
 !
@@ -680,6 +680,30 @@ stop
             end associate 
          end do
 !$omp end do
+!
+!           ***************
+!           Add source term
+!           ***************
+!$omp do schedule(runtime) private(i,j,k)
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
+               end do                  ; end do                ; end do
+               end associate
+            end do
+!$omp end do
+
+!$omp do schedule(runtime) private(i,j,k)
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
+               end do                  ; end do                ; end do
+               end associate
+            end do
+!$omp end do
+
 
       end subroutine ComputeNSTimeDerivative
 

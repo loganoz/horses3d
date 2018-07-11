@@ -19,22 +19,22 @@ def GatherNewResidualsValues(fileName,skip_data):
 	z_momentum = []
 	energy = []
 
-	for i in xrange(RESIDUALS_HEADER_SIZE):
-		residuals_fid.next()
+	for i in range(RESIDUALS_HEADER_SIZE):
+		next(residuals_fid)
 
 	if ( skip_data > 0 ):
-		for i in xrange(int(skip_data)-1):
-			residuals_fid.next()
+		for i in range(int(skip_data)-1):
+			next(residuals_fid)
 
 	for line in residuals_fid:
 		numbers = line.split()
 		iter.append(float(numbers[0]))
 		time.append(float(numbers[1]))
-		continuity.append(float(numbers[2]))
-		x_momentum.append(float(numbers[3]))
-		y_momentum.append(float(numbers[4]))
-		z_momentum.append(float(numbers[5]))
-		energy.append(float(numbers[6]))
+		continuity.append(float(numbers[3]))
+		x_momentum.append(float(numbers[4]))
+		y_momentum.append(float(numbers[5]))
+		z_momentum.append(float(numbers[6]))
+		energy.append(float(numbers[7]))
 		counter = counter + 1
 
 	if ( counter == -1 ):

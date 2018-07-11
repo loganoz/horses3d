@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:29 2018
-!   @Last revision date: Fri Jul  6 12:12:23 2018
+!   @Last revision date: Wed Jul 11 16:11:10 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 065992b884b4d849167cab46ea3d1157bb7738e2
+!   @Last revision commit: cc4925b66a2ce2f419d9e8b41a42d00afc0b62d2
 !
 !//////////////////////////////////////////////////////
 !
@@ -175,7 +175,7 @@
          CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
       ELSEIF ( boundaryType == "noslipadiabaticwall" ) then
          call WallAngleBC(x, t, nHat, U_x, U_y, U_z)
-      ELSEIF ( boundaryType == "noslipawall" ) then
+      ELSEIF ( boundaryType == "noslipwall" ) then
          call WallAngleBC(x, t, nHat, U_x, U_y, U_z)
       ELSEIF ( boundaryType == "freeslipwall" ) then
          call WallAngleBC(x, t, nHat, U_x, U_y, U_z)
@@ -183,6 +183,9 @@
          CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
       elseif ( boundaryType == "outflowspecifyp") then
          CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
+      else
+         print*, "Unrecognized boundary condition"
+         print*, "Error"
       END IF
 
       GradU(1,:) = U_x(:)
