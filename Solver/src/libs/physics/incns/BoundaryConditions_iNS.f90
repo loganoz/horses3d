@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions_iNS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:25 2018
-!   @Last revision date: Wed Jul 11 16:11:11 2018
+!   @Last revision date: Fri Jul 13 18:06:49 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: cc4925b66a2ce2f419d9e8b41a42d00afc0b62d2
+!   @Last revision commit: 8fbca6c7b2c273b1a35a88e285d5d0c6e38f269a
 !
 !//////////////////////////////////////////////////////
 !
@@ -88,6 +88,7 @@ MODULE BoundaryConditionFunctions_iNS
          v = sin(theta) * cos(phi)
          w = sin(phi)
 
+         Q(INSRHO) = 1.0_RP
          Q(INSU) = u
          Q(INSV) = v
          Q(INSW) = w
