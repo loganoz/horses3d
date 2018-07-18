@@ -840,16 +840,17 @@ print*, "SKEW!!"
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: rhoL, uL, vL, wL, pL
-         real(kind=RP)     :: rhoR, uR, vR, wR, pR
+         real(kind=RP)     :: rhoL, uL, vL, wL, pL, invRhoL
+         real(kind=RP)     :: rhoR, uR, vR, wR, pR, invRhoR
          real(kind=RP)     :: Ja(1:NDIM)
          real(kind=RP)     :: f(NINC), g(NINC), h(NINC)
 
-         rhoL = QL(INSRHO)    ; rhoR = QR(INSRHO)
-         uL   = QL(INSU)      ; uR   = QR(INSU)
-         vL   = QL(INSV)      ; vR   = QR(INSV)
-         wL   = QL(INSW)      ; wR   = QR(INSW)
-         pL   = QL(INSP)      ; pR   = QR(INSP)  
+         rhoL    = QL(INSRHO)            ; rhoR    = QR(INSRHO)
+         invRhoL = 1.0_RP / rhoL         ; invRhoR = 1.0_RP / rhoR
+         uL      = QL(INSRHOU) * invRhoL ; uR      = QR(INSRHOU) * invRhoR
+         vL      = QL(INSRHOV) * invRhoL ; vR      = QR(INSRHOV) * invRhoR
+         wL      = QL(INSRHOW) * invRhoL ; wR      = QR(INSRHOW) * invRhoR
+         pL      = QL(INSP)              ; pR      = QR(INSP)
    
 !
 !        Average metrics: (Note: Here all average (1/2)s are accounted later)
@@ -858,23 +859,23 @@ print*, "SKEW!!"
 !
 !        Compute the flux
 !        ----------------
-         f(INSRHO) = rhoL*uL         + rhoR*uR
-         f(INSU)   = rhoL*uL*uL + pL + rhoR*uR*uR + pR
-         f(INSV)   = rhoL*uL*vL      + rhoR*uR*vR
-         f(INSW)   = rhoL*uL*wL      + rhoR*uR*wR
-         f(INSP)   = thermodynamics % rho0c02 * (uL + uR)
+         f(INSRHO)  = rhoL*uL         + rhoR*uR
+         f(INSRHOU) = rhoL*uL*uL + pL + rhoR*uR*uR + pR
+         f(INSRHOV) = rhoL*uL*vL      + rhoR*uR*vR
+         f(INSRHOW) = rhoL*uL*wL      + rhoR*uR*wR
+         f(INSP)    = thermodynamics % rho0c02 * (uL + uR)
 
-         g(INSRHO) = rhoL*vL         + rhoR*vR
-         g(INSU)   = rhoL*vL*uL      + rhoR*vR*uR
-         g(INSV)   = rhoL*vL*vL + pL + rhoR*vR*vR + pR
-         g(INSW)   = rhoL*vL*wL      + rhoR*vR*wR
-         g(INSP)   = thermodynamics % rho0c02 * (vL + vR)
+         g(INSRHO)  = rhoL*vL         + rhoR*vR
+         g(INSRHOU) = rhoL*vL*uL      + rhoR*vR*uR
+         g(INSRHOV) = rhoL*vL*vL + pL + rhoR*vR*vR + pR
+         g(INSRHOW) = rhoL*vL*wL      + rhoR*vR*wR
+         g(INSP)    = thermodynamics % rho0c02 * (vL + vR)
 
-         h(INSRHO) = rhoL*wL         + rhoR*wR
-         h(INSU)   = rhoL*wL*uL      + rhoR*wR*uR
-         h(INSV)   = rhoL*wL*vL      + rhoR*wR*vR
-         h(INSW)   = rhoL*wL*wL + pL + rhoR*wR*wR + pR
-         h(INSP)   = thermodynamics % rho0c02 * (wL + wR)
+         h(INSRHO)  = rhoL*wL         + rhoR*wR
+         h(INSRHOU) = rhoL*wL*uL      + rhoR*wR*uR
+         h(INSRHOV) = rhoL*wL*vL      + rhoR*wR*vR
+         h(INSRHOW) = rhoL*wL*wL + pL + rhoR*wR*wR + pR
+         h(INSP)    = thermodynamics % rho0c02 * (wL + wR)
 !
 !        Compute the sharp flux: (And account for the (1/2)^2)
 !        ----------------------         
@@ -896,17 +897,18 @@ print*, "SKEW!!"
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: rhoL, uL, vL, wL, pL
-         real(kind=RP) :: rhoR, uR, vR, wR, pR
+         real(kind=RP) :: rhoL, uL, vL, wL, pL, invRhoL
+         real(kind=RP) :: rhoR, uR, vR, wR, pR, invRhoR
          real(kind=RP) :: rho, u, v, w, p
          real(kind=RP) :: Ja(1:NDIM)
          real(kind=RP) :: f(NINC), g(NINC), h(NINC)
 
-         rhoL = QL(INSRHO)    ; rhoR = QR(INSRHO)
-         uL   = QL(INSU)      ; uR   = QR(INSU)
-         vL   = QL(INSV)      ; vR   = QR(INSV)
-         wL   = QL(INSW)      ; wR   = QR(INSW)
-         pL   = QL(INSP)      ; pR   = QR(INSP)  
+         rhoL    = QL(INSRHO)            ; rhoR    = QR(INSRHO)
+         invRhoL = 1.0_RP / rhoL         ; invRhoR = 1.0_RP / rhoR
+         uL      = QL(INSRHOU) * invRhoL ; uR      = QR(INSRHOU) * invRhoR
+         vL      = QL(INSRHOV) * invRhoL ; vR      = QR(INSRHOV) * invRhoR
+         wL      = QL(INSRHOW) * invRhoL ; wR      = QR(INSRHOW) * invRhoR
+         pL      = QL(INSP)              ; pR      = QR(INSP)
 
          rho = 0.5_RP * (rhoL + rhoR)
          u   = 0.5_RP * (uL + uR)
@@ -920,23 +922,23 @@ print*, "SKEW!!"
 !
 !        Compute the flux
 !        ----------------
-         f(INSRHO) = rho*u
-         f(INSU)   = rho*u*u + p
-         f(INSV)   = rho*u*v
-         f(INSW)   = rho*u*w
-         f(INSP)   = thermodynamics % rho0c02 * u
+         f(INSRHO)  = rho*u
+         f(INSRHOU) = rho*u*u + p
+         f(INSRHOV) = rho*u*v
+         f(INSRHOW) = rho*u*w
+         f(INSP)    = thermodynamics % rho0c02 * u
 
-         g(INSRHO) = rho*v
-         g(INSU)   = rho*u*v
-         g(INSV)   = rho*v*v + p
-         g(INSW)   = rho*u*w
-         g(INSP)   = thermodynamics % rho0c02 * v
+         g(INSRHO)  = rho*v
+         g(INSRHOU) = rho*v*u
+         g(INSRHOV) = rho*v*v + p
+         g(INSRHOW) = rho*v*w
+         g(INSP)    = thermodynamics % rho0c02 * v
 
-         h(INSRHO) = rho*w
-         h(INSU)   = rho*u*w
-         h(INSV)   = rho*v*w
-         h(INSW)   = rho*w*w + p
-         h(INSP)   = thermodynamics % rho0c02 * w
+         h(INSRHO)  = rho*w
+         h(INSRHOU) = rho*w*u
+         h(INSRHOV) = rho*w*v
+         h(INSRHOW) = rho*w*w + p
+         h(INSP)    = thermodynamics % rho0c02 * w
 !
 !        Compute the sharp flux: (And account for the (1/2)^2)
 !        ----------------------         

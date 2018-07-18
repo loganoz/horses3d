@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Fri Jul  6 16:54:55 2018
+!   @Last revision date: Wed Jul 18 10:33:17 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 47d5e6d5ccc54aadd72582e788f17b485a1d6ddc
+!   @Last revision commit: 4977ebc1252872ccf3ec1e535ebb8619da12e2c8
 !
 !//////////////////////////////////////////////////////
 !
@@ -493,12 +493,12 @@ stop
             do eID = 1, mesh % no_of_elements
                e => mesh % elements(eID) 
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)   ; do i = 0, e % Nxyz(1)
-                  e % storage % QDot(INSU,i,j,k) =   e % storage % QDot(INSU,i,j,k) &
-                                                         + (1.0_RP / (multiphase % eps * dimensionless % Re * multiphase % Ca)) * e % storage % mu(1,i,j,k) * e % storage % c_x(1,i,j,k) / e % storage % Q(INSRHO,i,j,k)
-                  e % storage % QDot(INSV,i,j,k) =   e % storage % QDot(INSV,i,j,k) &
-                                                         + (1.0_RP / (multiphase % eps * dimensionless % Re * multiphase % Ca)) * e % storage % mu(1,i,j,k) * e % storage % c_y(1,i,j,k) / e % storage % Q(INSRHO,i,j,k)  
-                  e % storage % QDot(INSW,i,j,k) =   e % storage % QDot(INSW,i,j,k) &
-                                                         + (1.0_RP / (multiphase % eps * dimensionless % Re * multiphase % Ca)) * e % storage % mu(1,i,j,k) * e % storage % c_z(1,i,j,k) / e % storage % Q(INSRHO,i,j,k) 
+                  e % storage % QDot(INSRHOU,i,j,k) =   e % storage % QDot(INSRHOU,i,j,k) &
+                                                         + (1.0_RP / (multiphase % eps * dimensionless % Re * multiphase % Ca)) * e % storage % mu(1,i,j,k) * e % storage % c_x(1,i,j,k) 
+                  e % storage % QDot(INSRHOV,i,j,k) =   e % storage % QDot(INSRHOV,i,j,k) &
+                                                         + (1.0_RP / (multiphase % eps * dimensionless % Re * multiphase % Ca)) * e % storage % mu(1,i,j,k) * e % storage % c_y(1,i,j,k)  
+                  e % storage % QDot(INSRHOW,i,j,k) =   e % storage % QDot(INSRHOW,i,j,k) &
+                                                         + (1.0_RP / (multiphase % eps * dimensionless % Re * multiphase % Ca)) * e % storage % mu(1,i,j,k) * e % storage % c_z(1,i,j,k)
    
                end do                ; end do                  ; end do
             end do
@@ -656,29 +656,13 @@ stop
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  e % storage % QDot(INSU:INSW,i,j,k) = e % storage % QDot(INSU:INSW,i,j,k) + &
+                  e % storage % QDot(INSRHOU:INSRHOW,i,j,k) = e % storage % QDot(INSRHOU:INSRHOW,i,j,k) + &
                                                         e % storage % Q(INSRHO,i,j,k) * &
                                     dimensionless % invFr2 * dimensionless % gravity_dir
 
                end do                ; end do                ; end do
                end associate
             end do
-!$omp end do
-!
-!        ******************************************************
-!        Apply the chain rule to get velocities time derivative
-!        ******************************************************
-!
-!$omp do schedule(runtime) private(i,j,k)
-         do eID = 1, size(mesh % elements) 
-            associate(e => mesh % elements(eID)) 
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
-               e % storage % QDot(INSU,i,j,k) = (e % storage % QDot(INSU,i,j,k) - e % storage % Q(INSU,i,j,k)*e % storage % QDot(INSRHO,i,j,k)) / e % storage % Q(INSRHO,i,j,k)
-               e % storage % QDot(INSV,i,j,k) = (e % storage % QDot(INSV,i,j,k) - e % storage % Q(INSV,i,j,k)*e % storage % QDot(INSRHO,i,j,k)) / e % storage % Q(INSRHO,i,j,k)
-               e % storage % QDot(INSW,i,j,k) = (e % storage % QDot(INSW,i,j,k) - e % storage % Q(INSW,i,j,k)*e % storage % QDot(INSRHO,i,j,k)) / e % storage % Q(INSRHO,i,j,k)
-            end do         ; end do          ; end do 
-            end associate 
-         end do
 !$omp end do
 !
 !           ***************
