@@ -21,7 +21,7 @@
 !     -------------------
 !     Control file reader
 !     -------------------
-      SUBROUTINE ReadControlFile (controlVariables)
+      SUBROUTINE ReadControlFile (controlVariables, ControlFile)
          USE SMConstants
          USE FTValueDictionaryClass
          USE SharedBCModule
@@ -34,7 +34,8 @@
 !        Arguments
 !        ---------
 !
-         TYPE(FTValueDictionary) :: controlVariables
+         TYPE(FTValueDictionary)          :: controlVariables
+         CHARACTER(LEN=*),OPTIONAL        :: ControlFile
 !
 !        ---------------
 !        Local variables
@@ -70,26 +71,33 @@
 !
 !        we use dictionaries to store the input file 
 !        parameters.
+!        We use then first command argument if a 
+!        Control File is not present
 !        -----------------------------------------------
 !
 
-         if ( command_argument_count() .eq. 0 ) then
-            if ( MPI_Process % isRoot ) then
-               write(STD_OUT,'(/,/,A)') "*** ERROR: Missing input file"
-               write(STD_OUT,'(A)') "*** ERROR: Syntax is: "
-               write(STD_OUT,'(A)') "*** ERROR:             >> HORSES3D ControlFile.control"
-               write(STD_OUT,'(A)') "*** ERROR: Default control file written to ./Sample.control"
-               call WriteDefaultControlFile
-               write(STD_OUT,'(A,/,/)') "*** ERROR: Stopping."
+         if (present(ControlFile)) then
+            arg = trim(ControlFile)
+         else
+            if ( command_argument_count() .eq. 0 ) then
+               if ( MPI_Process % isRoot ) then
+                  write(STD_OUT,'(/,/,A)') "*** ERROR: Missing input file"
+                  write(STD_OUT,'(A)') "*** ERROR: Syntax is: "
+                  write(STD_OUT,'(A)') "*** ERROR:             >> HORSES3D ControlFile.control"
+                  write(STD_OUT,'(A)') "*** ERROR: Default control file written to ./Sample.control"
+                  call WriteDefaultControlFile
+                  write(STD_OUT,'(A,/,/)') "*** ERROR: Stopping."
+               end if
+               stop
             end if
-            stop
+            CALL get_command_argument(1, arg)
          end if
+
 !
 !        -----------------
 !        Open control file
 !        -----------------
 !
-         CALL get_command_argument(1, arg)
          OPEN(newunit=fid,file=trim(arg),status="old",action="read", iostat=io)
 
          if ( io .gt. 0 ) then

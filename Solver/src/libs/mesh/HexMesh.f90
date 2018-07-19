@@ -2652,29 +2652,52 @@ slavecoord:                DO l = 1, 4
 
             allocate(Q(NTOTALVARS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
             read(fID) Q
-
 #if defined(NAVIERSTOKES)
             e % storage % Q = Q(1:NCONS,:,:,:)
-            if (gradients) then
-               read(fID) e % storage % U_x
-               read(fID) e % storage % U_y
-               read(fID) e % storage % U_z
-            end if
 #elif defined(INCNS)
             e % storage % Q = Q(1:NINC,:,:,:)
-            if (gradients) then
-               read(fID) e % storage % U_x
-               read(fID) e % storage % U_y
-               read(fID) e % storage % U_z
-            end if
-
 #endif
 #if defined(CAHNHILLIARD)
             e % storage % c(1,:,:,:) = Q(NTOTALVARS,:,:,:)
 #endif
 
             deallocate(Q)
-            end associate
+ 
+            if (gradients) then
+               allocate(Q(NTOTALGRADS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               read(fID) Q  
+#if defined(NAVIERSTOKES)               
+               e % storage % U_x = Q(1:NTOTALGRADS,:,:,:)
+#elif defined(INCNS)
+               e % storage % U_x = Q(1:NINC,:,:,:)
+#endif
+#if defined(CAHNHILLIARD)
+               e % storage % c_x(1,:,:,:) = Q(NTOTALGRADS,:,:,:)
+#endif
+               
+               read(fID) Q  
+#if defined(NAVIERSTOKES)               
+               e % storage % U_y = Q(1:NTOTALGRADS,:,:,:)
+#elif defined(INCNS)
+               e % storage % U_y = Q(1:NINC,:,:,:)
+#endif
+#if defined(CAHNHILLIARD)
+               e % storage % c_y(1,:,:,:) = Q(NTOTALGRADS,:,:,:)
+#endif
+               read(fID) Q  
+#if defined(NAVIERSTOKES)               
+               e % storage % U_z = Q(1:NTOTALGRADS,:,:,:)
+#elif defined(INCNS)
+               e % storage % U_z = Q(1:NINC,:,:,:)
+#endif
+#if defined(CAHNHILLIARD)
+               e % storage % c_z(1,:,:,:) = Q(NTOTALGRADS,:,:,:)
+#endif
+
+               deallocate(Q)
+            end if
+            
+           end associate
          end do
 !
 !        Close the file

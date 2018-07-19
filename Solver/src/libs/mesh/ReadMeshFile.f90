@@ -13,14 +13,14 @@ contains
    subroutine constructMeshFromFile( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success, export )
       implicit none
       !---------------------------------------------------------------
-      class(HexMesh)      :: self
-      CHARACTER(LEN=*)    :: fileName
-      integer             :: nodes
-      INTEGER             :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
-      logical             :: MeshInnerCurves         !<  Describe inner curved surfaces? (only for hdf5)
-      integer, intent(in) :: dir2D
-      LOGICAL             :: success
-      logical, optional   :: export 
+      type(HexMesh)     , intent(out)     :: self
+      CHARACTER(LEN=*)  , intent(in)      :: fileName
+      integer           , intent(in)      :: nodes
+      INTEGER           , intent(in)      :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+      logical           , intent(in)      :: MeshInnerCurves         !<  Describe inner curved surfaces? (only for hdf5)
+      integer           , intent(in)      :: dir2D
+      LOGICAL           , intent(out)     :: success
+      logical, optional , intent(in)      :: export 
       !---------------------------------------------------------------
       character(len=LINE_LENGTH) :: ext
       logical                    :: export_mesh
