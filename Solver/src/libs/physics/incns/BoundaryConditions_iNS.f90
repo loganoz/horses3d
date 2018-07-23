@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions_iNS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:25 2018
-!   @Last revision date: Wed Jul 11 16:11:11 2018
+!   @Last revision date: Mon Jul 23 10:59:35 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: cc4925b66a2ce2f419d9e8b41a42d00afc0b62d2
+!   @Last revision commit: b0edd55b642212b62cae102b966c37b726378791
 !
 !//////////////////////////////////////////////////////
 !
@@ -88,9 +88,10 @@ MODULE BoundaryConditionFunctions_iNS
          v = sin(theta) * cos(phi)
          w = sin(phi)
 
-         Q(INSU) = u
-         Q(INSV) = v
-         Q(INSW) = w
+         Q(INSRHO) = 1.0_RP
+         Q(INSRHOU) = Q(INSRHO)*u
+         Q(INSRHOV) = Q(INSRHO)*v
+         Q(INSRHOW) = Q(INSRHO)*w
 
       end subroutine InflowState
 
@@ -99,8 +100,33 @@ MODULE BoundaryConditionFunctions_iNS
          REAL(KIND=RP), INTENT(IN)    :: x(3), t
          real(kind=RP), intent(in)    :: nHat(3)
          REAL(KIND=RP), INTENT(INOUT) :: Q(NINC)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: u, v, w, theta, phi, un
 
-         Q(INSP) = 0.0_RP
+         un = Q(INSRHOU)*nHat(IX) + Q(INSRHOV)*nHat(IY) + Q(INSRHOW)*nHat(IZ)
+         
+         if ( un .ge. -1.0e-4_RP ) then
+         
+            Q(INSP) = 0.0_RP
+
+         else
+
+            theta = refValues % AoATheta * PI / 180.0_RP
+            phi   = refValues % AoAPhi   * PI / 180.0_RP
+   
+            u = cos(theta) * cos(phi)
+            v = sin(theta) * cos(phi)
+            w = sin(phi)
+
+            Q(INSRHOU) = Q(INSRHO)*u
+            Q(INSRHOV) = Q(INSRHO)*v
+            Q(INSRHOW) = Q(INSRHO)*w
+
+         end if
 
       end subroutine OutflowState
 
@@ -126,13 +152,13 @@ MODULE BoundaryConditionFunctions_iNS
 !        represents a solid wall.
 !        -----------------------------------------------
 !
-         vn = sum(Q(INSU:INSW)*nHat)
+         vn = sum(Q(INSRHOU:INSRHOW)*nHat)
 
-         Q(1) = Q(1)
-         Q(2) = Q(2) - 2.0_RP * vn * nHat(1)
-         Q(3) = Q(3) - 2.0_RP * vn * nHat(2)
-         Q(4) = Q(4) - 2.0_RP * vn * nHat(3)
-         Q(5) = Q(5)
+         Q(INSRHO)  = Q(INSRHO)
+         Q(INSRHOU) = Q(INSRHOU) - 2.0_RP * vn * nHat(IX)
+         Q(INSRHOV) = Q(INSRHOV) - 2.0_RP * vn * nHat(IY)
+         Q(INSRHOW) = Q(INSRHOW) - 2.0_RP * vn * nHat(IZ)
+         Q(INSP)    = Q(INSP)
 
       END SUBROUTINE FreeSlipWallState
 !
@@ -233,20 +259,20 @@ MODULE BoundaryConditionFunctions_iNS
          U_y(INSRHO) = U_y(INSRHO) - 2.0_RP * drhodn * nHat(IY) 
          U_z(INSRHO) = U_z(INSRHO) - 2.0_RP * drhodn * nHat(IZ) 
 
-         dudn = (U_x(INSU)*nHat(IX) + U_y(INSU)*nHat(IY) + U_z(INSU)*nHat(IZ))
-         U_x(INSU) = U_x(INSU) - 2.0_RP * dudn * nHat(IX)
-         U_y(INSU) = U_y(INSU) - 2.0_RP * dudn * nHat(IY) 
-         U_z(INSU) = U_z(INSU) - 2.0_RP * dudn * nHat(IZ) 
+         dudn = (U_x(INSRHOU)*nHat(IX) + U_y(INSRHOU)*nHat(IY) + U_z(INSRHOU)*nHat(IZ))
+         U_x(INSRHOU) = U_x(INSRHOU) - 2.0_RP * dudn * nHat(IX)
+         U_y(INSRHOU) = U_y(INSRHOU) - 2.0_RP * dudn * nHat(IY) 
+         U_z(INSRHOU) = U_z(INSRHOU) - 2.0_RP * dudn * nHat(IZ) 
 
-         dvdn = (U_x(INSV)*nHat(IX) + U_y(INSV)*nHat(IY) + U_z(INSV)*nHat(IZ))
-         U_x(INSV) = U_x(INSV) - 2.0_RP * dvdn * nHat(IX)
-         U_y(INSV) = U_y(INSV) - 2.0_RP * dvdn * nHat(IY) 
-         U_z(INSV) = U_z(INSV) - 2.0_RP * dvdn * nHat(IZ) 
+         dvdn = (U_x(INSRHOV)*nHat(IX) + U_y(INSRHOV)*nHat(IY) + U_z(INSRHOV)*nHat(IZ))
+         U_x(INSRHOV) = U_x(INSRHOV) - 2.0_RP * dvdn * nHat(IX)
+         U_y(INSRHOV) = U_y(INSRHOV) - 2.0_RP * dvdn * nHat(IY) 
+         U_z(INSRHOV) = U_z(INSRHOV) - 2.0_RP * dvdn * nHat(IZ) 
 
-         dwdn = (U_x(INSW)*nHat(IX) + U_y(INSW)*nHat(IY) + U_z(INSW)*nHat(IZ))
-         U_x(INSW) = U_x(INSW) - 2.0_RP * dwdn * nHat(IX)
-         U_y(INSW) = U_y(INSW) - 2.0_RP * dwdn * nHat(IY) 
-         U_z(INSW) = U_z(INSW) - 2.0_RP * dwdn * nHat(IZ) 
+         dwdn = (U_x(INSRHOW)*nHat(IX) + U_y(INSRHOW)*nHat(IY) + U_z(INSRHOW)*nHat(IZ))
+         U_x(INSRHOW) = U_x(INSRHOW) - 2.0_RP * dwdn * nHat(IX)
+         U_y(INSRHOW) = U_y(INSRHOW) - 2.0_RP * dwdn * nHat(IY) 
+         U_z(INSRHOW) = U_z(INSRHOW) - 2.0_RP * dwdn * nHat(IZ) 
 
       end subroutine OutflowNeumann
 

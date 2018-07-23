@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 11 17:13:55 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Mon Jul 23 12:19:40 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 11455b9be0c703d1ed79ecda5ca7fe2620bfb444
 !
 !//////////////////////////////////////////////////////
 !
@@ -382,9 +382,9 @@ end module ProblemFileFunctions
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
 #if defined(INCNS)
-            Q(INSU) = 1.5_RP * x(IZ)*(2.0_RP - x(IZ))
-            Q(INSV) = 0.0_RP
-            Q(INSW) = 0.0_RP
+            Q(INSRHOU) = 1.5_RP * x(IZ)*(2.0_RP - x(IZ))
+            Q(INSRHOV) = 0.0_RP
+            Q(INSRHOW) = 0.0_RP
 #endif
 
          end subroutine UserDefinedState1

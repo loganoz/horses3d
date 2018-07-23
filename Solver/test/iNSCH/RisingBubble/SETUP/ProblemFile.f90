@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 11 17:13:56 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Mon Jul 23 12:19:42 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 11455b9be0c703d1ed79ecda5ca7fe2620bfb444
 !
 !//////////////////////////////////////////////////////
 !
@@ -351,14 +351,14 @@
 !           Local variables         
 !           ---------------
 !
-            real(kind=RP), parameter   :: res(6) = [6.294638013313662E-002_RP, &
-                                                    38.6745981121840_RP, &
-                                                    2.504723889417763E-014_RP, &
-                                                    36.6913649831412_RP, &
-                                                    4217.74006243591_RP, &
-                                                    137.478188779109_RP]
+            real(kind=RP), parameter   :: res(6) = [7.178210888540358E-002_RP, &
+                                                    8.12644868767327_RP, &
+                                                    3.959309425250643E-015_RP, &
+                                                    6.12680657613008_RP, &
+                                                    4328.79956234491_RP, &
+                                                    137.477644091931_RP           ]
 
-            CHARACTER(LEN=119)                 :: testName           = "T-Jokisaari benchmark"
+            CHARACTER(LEN=119)                 :: testName           = "Rising Bubble benchmark"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
 

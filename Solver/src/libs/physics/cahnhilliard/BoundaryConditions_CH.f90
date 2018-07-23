@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:29 2018
-!   @Last revision date: Wed Jul 11 16:11:10 2018
+!   @Last revision date: Mon Jul 23 10:59:34 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: cc4925b66a2ce2f419d9e8b41a42d00afc0b62d2
+!   @Last revision commit: b0edd55b642212b62cae102b966c37b726378791
 !
 !//////////////////////////////////////////////////////
 !
@@ -24,7 +24,7 @@
          public NoFluxState, NoFluxNeumann, WallAngleBC
          public UserDefinedState, UserDefinedNeumann
 
-         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(9) :: implementedCHBCNames = &
+         CHARACTER(LEN=BC_STRING_LENGTH), DIMENSION(10) :: implementedCHBCNames = &
                ["no-flux             ", &
                 "periodic+           ", &
                 "periodic-           ", &
@@ -33,12 +33,13 @@
                 "freeslipwall        ", &
                 "inflow              ", &
                 "outflowspecifyp     ", &
+                "outflow             ", &
                 "user-defined        "   ]
 
          enum, bind(C)
             enumerator :: NO_FLUX_INDEX=1, PERIODIC_PLUS_INDEX, PERIODIC_MINUS_INDEX
             enumerator :: NOSLIPADIABATICWALL_INDEX, NOSLIPWALL_INDEX, FREESLIPWALL_INDEX
-            enumerator :: INFLOW_INDEX, OUTFLOWSPECIFYP_INDEX
+            enumerator :: INFLOW_INDEX, OUTFLOWSPECIFYP_INDEX, OUTFLOW_INDEX
             enumerator :: USER_DEFINED_INDEX
          end enum
 !
@@ -180,9 +181,23 @@
       ELSEIF ( boundaryType == "freeslipwall" ) then
          call WallAngleBC(x, t, nHat, U_x, U_y, U_z)
       elseif ( boundaryType == "inflow" ) then
-         CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
+!
+!        Let the advective part to perform the boundary condition
+         !CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
       elseif ( boundaryType == "outflowspecifyp") then
-         CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
+!
+!        Let the advective part to perform the boundary condition
+         !CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
+      elseif ( boundaryType == "outflow") then
+!
+!        Let the advective part to perform the boundary condition
+         !CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
+
+      elseif ( boundaryType == "user-defined" ) then
+!
+!        Let the advective part to perform the boundary condition
+         !CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
+
       else
          print*, "Unrecognized boundary condition"
          print*, "Error"

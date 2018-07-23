@@ -9,7 +9,7 @@
               Save gradients to solution = .false.
                 2D mesh offset direction = y
                                  Restart = .true.
-                       Restart file name = ./RESULTS/RTI_128x16.hsol
+                       Restart file name = ./RESULTS/RTI_128x16_0000005000.hsol
 
 !-------------------- Physical parameters:-
                          Reynolds number = 1000.0
@@ -23,7 +23,8 @@
                     Discretization nodes = Gauss  ! Gauss-Lobatto
                           Riemann solver = Exact
                     Lambda stabilization = 1.0
-                 Inviscid discretization = Standard  ! Split-form
+                 Inviscid discretization = Split-form
+                     Artificial compressibility factor = 5000.0
                   Viscous discretization = BR1   ! IP/BR2
 
 !----------------------- Time integration:-
@@ -35,7 +36,7 @@
                          Simulation type = steady-state   ! time-accurate
                               Final time = 1.0
                            Autosave mode = Iteration  ! Time
-                       Autosave interval = 100   ! 1.0
+                       Autosave interval = 1000   ! 1.0
 
 !-------------------- Boundary conditions:-
                     Number of boundaries = 6
