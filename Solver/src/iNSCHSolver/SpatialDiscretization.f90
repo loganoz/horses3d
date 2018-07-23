@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Wed Jul 18 10:33:17 2018
+!   @Last revision date: Mon Jul 23 10:59:33 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 4977ebc1252872ccf3ec1e535ebb8619da12e2c8
+!   @Last revision commit: b0edd55b642212b62cae102b966c37b726378791
 !
 !//////////////////////////////////////////////////////
 !
@@ -489,7 +489,7 @@ stop
 !           Compute the Capilar pressure
 !           ****************************
 !
-!$omp do schedule(runtime) private(e)
+!$omp do schedule(runtime) private(e,i,j,k)
             do eID = 1, mesh % no_of_elements
                e => mesh % elements(eID) 
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)   ; do i = 0, e % Nxyz(1)
@@ -502,6 +502,7 @@ stop
    
                end do                ; end do                  ; end do
             end do
+!$omp end do
 
          end if ! NS_enable
 !$omp end parallel

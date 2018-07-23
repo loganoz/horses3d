@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions_iNS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:25 2018
-!   @Last revision date: Wed Jul 18 10:33:18 2018
+!   @Last revision date: Mon Jul 23 10:59:35 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 4977ebc1252872ccf3ec1e535ebb8619da12e2c8
+!   @Last revision commit: b0edd55b642212b62cae102b966c37b726378791
 !
 !//////////////////////////////////////////////////////
 !
@@ -100,8 +100,33 @@ MODULE BoundaryConditionFunctions_iNS
          REAL(KIND=RP), INTENT(IN)    :: x(3), t
          real(kind=RP), intent(in)    :: nHat(3)
          REAL(KIND=RP), INTENT(INOUT) :: Q(NINC)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: u, v, w, theta, phi, un
 
-         Q(INSP) = 0.0_RP
+         un = Q(INSRHOU)*nHat(IX) + Q(INSRHOV)*nHat(IY) + Q(INSRHOW)*nHat(IZ)
+         
+         if ( un .ge. -1.0e-4_RP ) then
+         
+            Q(INSP) = 0.0_RP
+
+         else
+
+            theta = refValues % AoATheta * PI / 180.0_RP
+            phi   = refValues % AoAPhi   * PI / 180.0_RP
+   
+            u = cos(theta) * cos(phi)
+            v = sin(theta) * cos(phi)
+            w = sin(phi)
+
+            Q(INSRHOU) = Q(INSRHO)*u
+            Q(INSRHOV) = Q(INSRHO)*v
+            Q(INSRHOW) = Q(INSRHO)*w
+
+         end if
 
       end subroutine OutflowState
 
