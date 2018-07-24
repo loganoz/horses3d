@@ -48,11 +48,11 @@ MODULE Read_SpecMesh
 !        Input variables
 !        ---------------
 !
-         type(HexMesh)     , intent(out)  :: self
-         integer           , intent(in)   :: nodes
-         CHARACTER(LEN=*)  , intent(in)   :: fileName
-         integer           , intent(in)   :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
-         integer           , intent(in)   :: dir2D
+         type(HexMesh)                    :: self
+         integer                          :: nodes
+         CHARACTER(LEN=*)                 :: fileName
+         integer                          :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+         integer                          :: dir2D
          LOGICAL           , intent(out)  :: success
          logical, optional , intent(in)   :: export 
 !

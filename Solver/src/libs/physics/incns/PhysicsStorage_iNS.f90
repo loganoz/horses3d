@@ -412,8 +412,8 @@
          case(2)
             write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 1 density: " , thermodynamics % rho(1), " kg/m^3"
             write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 2 density: " , thermodynamics % rho(2), " kg/m^3"
-            write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 1 viscosity: " , thermodynamics % mu(1), " Pa.s"
-            write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 2 viscosity: " , thermodynamics % mu(2), " Pa.s"
+            write(STD_OUT,'(30X,A,A22,1pG10.3,A)') "->" , "Fluid 1 viscosity: " , thermodynamics % mu(1), " Pa.s"
+            write(STD_OUT,'(30X,A,A22,1pG10.3,A)') "->" , "Fluid 2 viscosity: " , thermodynamics % mu(2), " Pa.s"
          end select
 
          write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Artificial compressibility " , thermodynamics % rho0c02, "-"
@@ -423,7 +423,7 @@
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference pressure: " , refValues % p, " Pa."
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference density: " , refValues % rho , " kg/m^3."
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference velocity: " , refValues % V , " m/s."
-         write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference viscosity: ",refValues % mu , " Pa·s."
+         write(STD_OUT,'(30X,A,A30,1pG10.3,A)') "->" , "Reference viscosity: ",refValues % mu , " Pa·s."
 
          write(STD_OUT,'(/)')
          call SubSection_Header("Dimensionless quantities")
@@ -518,7 +518,6 @@
             if ( .not. controlVariables % ContainsKey(FLUID1_VISCOSITY_KEY)) then
                call controlVariables % AddValueForKey("0.0", FLUID1_VISCOSITY_KEY)
             end if
-print*, controlVariables % AllKeys()
       
             if ( .not. controlVariables % ContainsKey(FLUID2_VISCOSITY_KEY)) then
                call controlVariables % AddValueForKey("0.0", FLUID2_VISCOSITY_KEY)
