@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 11 17:13:56 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Mon Jul 23 12:19:43 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 11455b9be0c703d1ed79ecda5ca7fe2620bfb444
 !
 !//////////////////////////////////////////////////////
 !
@@ -345,12 +345,12 @@
 !           Local variables         
 !           ---------------
 !
-            real(kind=RP), parameter   :: res(6) = [1.08237768446853_RP, &
-                                                    5.65573043072787_RP, &
-                                                    11.5782408944369_RP, &     
-                                                    2.075335555722792E-013_RP, &
-                                                    231.975017779505_RP, &
-                                                    116.603754028733_RP    ]
+            real(kind=RP), parameter   :: res(6) = [1.10289225288006_RP, &
+                                                    4.18337424690376_RP, &
+                                                    5.81187846520980_RP, &     
+                                                    9.128455041076324E-014_RP, &
+                                                    243.746573081999_RP, &
+                                                    120.193275531547_RP]
 
             CHARACTER(LEN=119)                 :: testName           = "T-Jokisaari benchmark"
             TYPE(FTAssertionsManager), POINTER :: sharedManager

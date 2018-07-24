@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:29 2018
-!   @Last revision date: Fri Jul 13 18:06:48 2018
+!   @Last revision date: Mon Jul 23 10:59:34 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 8fbca6c7b2c273b1a35a88e285d5d0c6e38f269a
+!   @Last revision commit: b0edd55b642212b62cae102b966c37b726378791
 !
 !//////////////////////////////////////////////////////
 !
@@ -186,12 +186,18 @@
          !CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
       elseif ( boundaryType == "outflowspecifyp") then
 !
-!        Let the advectirve part to perform the boundary condition
+!        Let the advective part to perform the boundary condition
          !CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
       elseif ( boundaryType == "outflow") then
 !
-!        Let the advectirve part to perform the boundary condition
+!        Let the advective part to perform the boundary condition
          !CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
+
+      elseif ( boundaryType == "user-defined" ) then
+!
+!        Let the advective part to perform the boundary condition
+         !CALL NoFluxNeumann( x, t, nHat, U_x, U_y, U_z )
+
       else
          print*, "Unrecognized boundary condition"
          print*, "Error"
