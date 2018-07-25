@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
+!   @Last revision date: Wed Jul 25 13:04:19 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 016b18c36f8290a48e4a476ea71b212f35254071
 !
 !//////////////////////////////////////////////////////
 !
@@ -261,7 +261,7 @@ MODULE MKLPardisoSolverClass
       REAL(KIND=RP), intent(in)                :: time
       integer,       intent(in)                :: nEqn
       integer,       intent(in)                :: nGradEqn
-      procedure(ComputeQDot_FCN)               :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)       :: ComputeTimeDerivative
       !-----------------------------------------------------------
       
       if (this % AIsPetsc) then
