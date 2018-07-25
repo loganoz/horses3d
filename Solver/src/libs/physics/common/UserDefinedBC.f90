@@ -1,0 +1,410 @@
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:    UserDefinedBC.f90
+!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
+!   @Created: Wed Jul 25 15:26:44 2018
+!   @Last revision date:
+!   @Last revision author:
+!   @Last revision commit:
+!
+!//////////////////////////////////////////////////////
+!
+#include "Includes.h"
+module UserDefinedBCClass
+   use SMConstants
+   use PhysicsStorage
+   use FileReaders,            only: controlFileName
+   use FileReadingUtilities,   only: GetKeyword, GetValueAsString
+   use FTValueDictionaryClass, only: FTValueDictionary
+   use GenericBoundaryConditionClass
+   use FluidData
+   implicit none
+!
+!  *****************************
+!  Default everything to private
+!  *****************************
+!
+   private
+!
+!  ****************
+!  Public variables
+!  ****************
+!
+!
+!  ******************
+!  Public definitions
+!  ******************
+!
+   public UserDefinedBC_t
+!
+!  ****************************
+!  Static variables definitions
+!  ****************************
+!
+!
+!  ****************
+!  Class definition
+!  ****************
+!
+   type, extends(GenericBC_t) ::  UserDefinedBC_t
+      integer     :: udf_no
+      contains
+         procedure         :: Destruct          => UserDefinedBC_Destruct
+#if defined(NAVIERSTOKES) || defined(INCNS)
+         procedure         :: FlowState         => UserDefinedBC_FlowState
+         procedure         :: FlowNeumann       => UserDefinedBC_FlowNeumann
+#endif
+#if defined(CAHNHILLIARD)
+         procedure         :: PhaseFieldState   => UserDefinedBC_PhaseFieldState
+         procedure         :: PhaseFieldNeumann => UserDefinedBC_PhaseFieldNeumann
+         procedure         :: ChemPotState      => UserDefinedBC_ChemPotState
+         procedure         :: ChemPotNeumann    => UserDefinedBC_ChemPotNeumann
+#endif
+   end type UserDefinedBC_t
+!
+!  *******************************************************************
+!  Traditionally, constructors are exported with the name of the class
+!  *******************************************************************
+!
+   interface UserDefinedBC_t
+      module procedure ConstructUserDefinedBC
+   end interface UserDefinedBC_t
+!
+!  *******************
+!  Function prototypes
+!  *******************
+!
+   abstract interface
+   end interface
+!
+!  ========
+   contains
+!  ========
+!
+!/////////////////////////////////////////////////////////
+!
+!        Class constructor
+!        -----------------
+!
+!/////////////////////////////////////////////////////////
+!
+      function ConstructUserDefinedBC(bname)
+!
+!        ********************************************************************
+!        · Definition of the user-defined boundary condition in the control file:
+!              #define boundary bname
+!                 type             = user-defined
+!                 velocity         = #value        (only in incompressible NS)
+!                 Mach number      = #value        (only in compressible NS)
+!                 AoAPhi           = #value
+!                 AoATheta         = #value
+!                 density          = #value        (only in monophase)
+!                 pressure         = #value        (only in compressible NS)
+!                 multiphase type  = mixed/layered
+!                 phase 1 layer x  > #value
+!                 phase 1 layer y  > #value
+!                 phase 1 layer z  > #value
+!                 phase 1 velocity = #value
+!                 phase 2 velocity = #value
+!              #end
+!        ********************************************************************
+!
+         implicit none
+         type(UserDefinedBC_t)             :: ConstructUserDefinedBC
+         character(len=*), intent(in) :: bname
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer        :: fid, io
+         character(len=LINE_LENGTH) :: boundaryHeader
+         character(len=LINE_LENGTH) :: currentLine
+         character(len=LINE_LENGTH) :: keyword, keyval
+         logical                    :: inside
+         type(FTValueDIctionary)    :: bcdict
+         interface
+            subroutine PreprocessInputLine(line)
+               implicit none
+               character(len=*), intent(inout) :: line
+            end subroutine PreprocessInputLine
+         end interface
+
+         open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
+
+         ConstructUserDefinedBC % BCType = "user-defined"
+         ConstructUserDefinedBC % bname  = bname
+
+         write(boundaryHeader,'(A,A)') "#define boundary ",trim(bname)
+         call toLower(boundaryHeader)
+!
+!        Navigate until the "#define boundary bname" sentinel is found
+!        -------------------------------------------------------------
+         inside = .false.
+         do 
+            write(fid, '(A)', iostat=io) currentLine
+
+            IF(io .ne. 0 ) EXIT
+
+            call PreprocessInputLine(currentLine)
+
+            if ( trim(currentLine) .eq. trim(boundaryHeader) ) then
+               inside = .true.
+            end if
+!
+!           Get all keywords inside the zone
+!           --------------------------------
+            if ( inside ) then
+               if ( trim(currentLine) .eq. "#end" ) exit
+
+               call bcdict % InitWithSize(16)
+
+               keyword  = ADJUSTL(GetKeyword(currentLine))
+               keyval   = ADJUSTL(GetValueAsString(currentLine))
+               call ToLower(keyword)
+      
+               call bcdict % AddValueForKey(keyval, trim(keyword))
+
+            end if
+
+         end do
+!
+!        Analyze the gathered data
+!        -------------------------
+         if ( bcdict % ContainsKey("udf number") ) then
+            ConstructUserDefinedBC % udf_no = bcdict % IntegerValueForKey("udf number")
+         else
+            ConstructUserDefinedBC % udf_no = 1
+         end if
+
+         close(fid)
+         call bcdict % Destruct
+   
+      end function ConstructUserDefinedBC
+!
+!/////////////////////////////////////////////////////////
+!
+!        Class destructors
+!        -----------------
+!
+!/////////////////////////////////////////////////////////
+!
+      subroutine UserDefinedBC_Destruct(self)
+         implicit none
+         class(UserDefinedBC_t)    :: self
+
+      end subroutine UserDefinedBC_Destruct
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Subroutines for compressible Navier--Stokes equations
+!        -----------------------------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#if defined(NAVIERSTOKES)
+      subroutine UserDefinedBC_FlowState(self, x, t, nHat, Q)
+         implicit none
+         class(UserDefinedBC_t),   intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         interface
+            subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
+               use SMConstants
+               use PhysicsStorage_NS
+               use FluidData_NS
+               implicit none
+               real(kind=RP)  :: x(NDIM)
+               real(kind=RP)  :: t
+               real(kind=RP)  :: nHat(NDIM)
+               real(kind=RP)  :: Q(NCONS)
+               type(Thermodynamics_t), intent(in)  :: thermodynamics_
+               type(Dimensionless_t),  intent(in)  :: dimensionless_
+               type(RefValues_t),      intent(in)  :: refValues_
+            end subroutine UserDefinedState1
+         end interface
+
+         select case(self % udf_no)
+         case(1)
+            call UserDefinedState1(x, t, nHat, Q, thermodynamics, dimensionless, refValues)
+         case default
+            print*, "Unrecognized UDF number for boundary", self % bname
+         end select
+   
+      end subroutine UserDefinedBC_FlowState
+
+      subroutine UserDefinedBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+         implicit none
+         class(UserDefinedBC_t),   intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+         real(kind=RP),       intent(inout) :: U_x(NGRAD)
+         real(kind=RP),       intent(inout) :: U_y(NGRAD)
+         real(kind=RP),       intent(inout) :: U_z(NGRAD)
+         interface
+            subroutine UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
+            use SMConstants
+            use PhysicsStorage
+            use FluidData
+            implicit none
+            real(kind=RP), intent(in)     :: x(NDIM)
+            real(kind=RP), intent(in)     :: t
+            real(kind=RP), intent(in)     :: nHat(NDIM)
+            real(kind=RP), intent(inout)  :: U_x(NGRAD)
+            real(kind=RP), intent(inout)  :: U_y(NGRAD)
+            real(kind=RP), intent(inout)  :: U_z(NGRAD)
+            end subroutine UserDefinedNeumann1
+         end interface
+
+         select case(self % udf_no)
+         case(1)
+            call UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
+         case default
+            print*, "Unrecognized UDF number for boundary", self % bname
+         end select
+
+      end subroutine UserDefinedBC_FlowNeumann
+#endif
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Subroutines for incompressible Navier--Stokes equations
+!        -------------------------------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#if defined(INCNS)
+      subroutine UserDefinedBC_FlowState(self, x, t, nHat, Q)
+         implicit none
+         class(UserDefinedBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NINC)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         interface
+            subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
+               use SMConstants
+               use PhysicsStorage_iNS
+               use FluidData_iNS
+               implicit none
+               real(kind=RP)  :: x(NDIM)
+               real(kind=RP)  :: t
+               real(kind=RP)  :: nHat(NDIM)
+               real(kind=RP)  :: Q(NINC)
+               type(Thermodynamics_t), intent(in)  :: thermodynamics_
+               type(Dimensionless_t),  intent(in)  :: dimensionless_
+               type(RefValues_t),      intent(in)  :: refValues_
+            end subroutine UserDefinedState1
+         end interface
+
+         select case(self % udf_no)
+         case(1)
+            call UserDefinedState1(x, t, nHat, Q, thermodynamics, dimensionless, refValues)
+         case default
+            print*, "Unrecognized UDF number for boundary", self % bname
+         end select
+
+      end subroutine UserDefinedBC_FlowState
+
+      subroutine UserDefinedBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+         implicit none
+         class(UserDefinedBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NINC)
+         real(kind=RP),       intent(inout) :: U_x(NINC)
+         real(kind=RP),       intent(inout) :: U_y(NINC)
+         real(kind=RP),       intent(inout) :: U_z(NINC)
+         interface
+            subroutine UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
+            use SMConstants
+            use PhysicsStorage
+            use FluidData
+            implicit none
+            real(kind=RP), intent(in)     :: x(NDIM)
+            real(kind=RP), intent(in)     :: t
+            real(kind=RP), intent(in)     :: nHat(NDIM)
+            real(kind=RP), intent(inout)  :: U_x(NINC)
+            real(kind=RP), intent(inout)  :: U_y(NINC)
+            real(kind=RP), intent(inout)  :: U_z(NINC)
+            end subroutine UserDefinedNeumann1
+         end interface
+
+         select case(self % udf_no)
+         case(1)
+            call UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
+         case default
+            print*, "Unrecognized UDF number for boundary", self % bname
+         end select
+
+
+      end subroutine UserDefinedBC_FlowNeumann
+#endif
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Subroutines for Cahn--Hilliard: all do--nothing in UserDefineds
+!        ----------------------------------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#if defined(CAHNHILLIARD)
+      subroutine UserDefinedBC_PhaseFieldState(self, x, t, nHat, Q)
+         implicit none
+         class(UserDefinedBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCOMP)
+      end subroutine UserDefinedBC_PhaseFieldState
+
+      subroutine UserDefinedBC_PhaseFieldNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+         implicit none
+         class(UserDefinedBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCOMP)
+         real(kind=RP),       intent(inout) :: U_x(NCOMP)
+         real(kind=RP),       intent(inout) :: U_y(NCOMP)
+         real(kind=RP),       intent(inout) :: U_z(NCOMP)
+      end subroutine UserDefinedBC_PhaseFieldNeumann
+
+      subroutine UserDefinedBC_ChemPotState(self, x, t, nHat, Q)
+         implicit none
+         class(UserDefinedBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCOMP)
+      end subroutine UserDefinedBC_ChemPotState
+
+      subroutine UserDefinedBC_ChemPotNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+         implicit none
+         class(UserDefinedBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCOMP)
+         real(kind=RP),       intent(inout) :: U_x(NCOMP)
+         real(kind=RP),       intent(inout) :: U_y(NCOMP)
+         real(kind=RP),       intent(inout) :: U_z(NCOMP)
+      end subroutine UserDefinedBC_ChemPotNeumann
+#endif
+end module UserDefinedBCClass

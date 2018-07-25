@@ -8,11 +8,16 @@
 !////////////////////////////////////////////////////////////////////////
 !
    module FileReaders
+      use SMConstants
       use FileReadingUtilities, only: GetKeyword, GetValueAsString
       implicit none
       
       private
+      public controlFileName
+
       public ReadControlFile, ReadOrderFile
+
+      character(len=LINE_LENGTH), protected    :: controlFileName
       
    contains
 !
@@ -97,6 +102,8 @@
             write(STD_OUT,'(A)')         '*** ERROR: Stopping.'
             stop
          end if
+
+         controlFileName = arg
 
          isInsideHagstagZone = .false.
 
