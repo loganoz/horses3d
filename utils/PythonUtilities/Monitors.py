@@ -39,7 +39,8 @@ def plotMonitors(fileNames):
 
 	while True:
 		for i in range(0,no_of_plots):
-			ax = plt.subplot(no_of_plots,1,i+1, axisbg=(0.05,0.05,0.05))
+			ax = plt.subplot(no_of_plots,1,i+1)
+			ax.set_facecolor((0.05,0.05,0.05))
 			plt.grid(b=True, which='both', color='0.2',linestyle='-')
 
 			if ( plotType[i] == RESIDUALS_FILE ):

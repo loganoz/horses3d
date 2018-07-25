@@ -158,7 +158,7 @@ MODULE PetscSolverClass
       !-------------------------------------------------------------
       CLASS(PetscKspLinearSolver_t), INTENT(INOUT) :: this
       integer,       intent(in)                    :: nEqn, nGradEqn
-      procedure(ComputeQDot_FCN)                   :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)                   :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                      :: time
       REAL(KIND=RP), OPTIONAL                      :: dt
       logical      , optional      , intent(inout) :: ComputeA

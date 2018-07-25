@@ -267,7 +267,7 @@ CONTAINS
       IMPLICIT NONE
       CLASS(MultigridSolver_t), INTENT(INOUT) :: this
       integer,       intent(in)               :: nEqn, nGradEqn
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol
       INTEGER      , OPTIONAL                 :: maxiter
       REAL(KIND=RP), OPTIONAL                 :: time
@@ -471,7 +471,7 @@ CONTAINS
       CLASS(MultigridSolver_t), INTENT(INOUT) :: this
       integer, intent(in)                     :: nEqn
       REAL(KIND=RP)                           :: x (:)
-      procedure(ComputeQDot_FCN)              :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND=RP)                           :: Ax(size(x))
       !--------------------------------------------------
 !~      REAL(KIND=RP)                           :: eps
@@ -487,7 +487,7 @@ CONTAINS
       
 !~      CALL this % p_sem % GetQ(buffer)
       CALL this % p_sem % SetQ(this % Ur + x*eps, NTOTALVARS)
-      CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, this % p_sem % BCFunctions)
+      CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, this % p_sem % BCFunctions, CTD_IGNORE_MODE)
       CALL this % p_sem % GetQdot(nEqn,F)
 !~      CALL this % p_sem % SetQ(buffer)
       Ax = ( F - this % F_Ur) / eps + shift * x                          !First order

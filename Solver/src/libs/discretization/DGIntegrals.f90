@@ -1,3 +1,11 @@
+#if defined(NAVIERSTOKES)
+#define NNS NCONS
+#define NGRADNS NGRAD
+#elif defined(INCNS)
+#define NNS NINC
+#define NGRADNS NINC
+#endif
+#include "Includes.h"
 module DGIntegrals
    use SMConstants
    use ElementClass
@@ -5,17 +13,17 @@ module DGIntegrals
    use MeshTypes
    implicit none
 
-
    private
 
    public ScalarWeakIntegrals_t, VectorWeakIntegrals_t, ScalarStrongIntegrals_t
    public ScalarWeakIntegrals  , VectorWeakIntegrals  , ScalarStrongIntegrals
+
    
    type  ScalarWeakIntegrals_t
       contains
          procedure, nopass    :: StdVolumeGreen  => ScalarWeakIntegrals_StdVolumeGreen
          procedure, nopass    :: StdFace => ScalarWeakIntegrals_StdFace
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          procedure, nopass    :: SplitVolumeDivergence => ScalarWeakIntegrals_SplitVolumeDivergence
 #endif
    end type ScalarWeakIntegrals_t
@@ -104,15 +112,15 @@ module DGIntegrals
 
       end function ScalarStrongIntegrals_StdVolumeGreen
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       function ScalarWeakIntegrals_SplitVolumeDivergence( e, fSharp, gSharp, hSharp, Fv ) result ( volInt )
          implicit none
          class(Element),      intent(in)  :: e
-         real(kind=RP),       intent(in)  :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP),       intent(in)  :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP),       intent(in)  :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP),       intent(in)  :: Fv(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
-         real(kind=RP)                    :: volInt(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),       intent(in)  :: fSharp(1:NNS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),       intent(in)  :: gSharp(1:NNS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),       intent(in)  :: hSharp(1:NNS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),       intent(in)  :: Fv(1:NNS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP)                    :: volInt(1:NNS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
 !
 !        ---------------
 !        Local variables

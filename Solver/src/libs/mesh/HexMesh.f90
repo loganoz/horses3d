@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Fri Jun 29 12:25:02 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f5ac1c3af6cb286f8def57452c066d57412a133b
+!   @Last revision date: Fri Jul  6 12:12:22 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 065992b884b4d849167cab46ea3d1157bb7738e2
 !
 !//////////////////////////////////////////////////////
 !
@@ -101,6 +101,10 @@ MODULE HexMeshClass
             procedure :: ComputeWallDistances          => HexMesh_ComputeWallDistances
             procedure :: ConformingOnZone              => HexMesh_ConformingOnZone
             procedure :: SetStorageToEqn          => HexMesh_SetStorageToEqn
+#if defined(INCNS) && defined(CAHNHILLIARD)
+            procedure :: ConvertDensityToPhaseFIeld    => HexMesh_ConvertDensityToPhaseField
+            procedure :: ConvertPhaseFieldToDensity    => HexMesh_ConvertPhaseFieldToDensity
+#endif
       end type HexMesh
 
       TYPE Neighbour         ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
@@ -1656,6 +1660,8 @@ slavecoord:                DO l = 1, 4
 
 #if defined(NAVIERSTOKES)
             call ConstructMPIFacesStorage(NCONS, NGRAD, MPI_NDOFS)
+#elif defined(INCNS)
+            call ConstructMPIFacesStorage(NINC, NINC, MPI_NDOFS)
 #elif defined(CAHNHILLIARD)
             call ConstructMPIFacesStorage(NCOMP, NCOMP, MPI_NDOFS)
 #endif
@@ -2274,6 +2280,13 @@ slavecoord:                DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = refValues      % T
          refs(MACH_REF)  = dimensionless  % Mach
+#elif defined(INCNS)
+         refs(GAMMA_REF) = 0.0_RP
+         refs(RGAS_REF)  = 0.0_RP
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = 0.0_RP
+         refs(MACH_REF)  = 0.0_RP
 #else
          refs = 0.0_RP
 #endif
@@ -2300,6 +2313,8 @@ slavecoord:                DO l = 1, 4
 
 #if defined(NAVIERSTOKES)
             Q(1:NCONS,:,:,:) = e % storage % Q
+#elif defined(INCNS)
+            Q(1:NINC,:,:,:)  = e % storage % Q
 #endif
 #if defined(CAHNHILLIARD)
             Q(NTOTALVARS,:,:,:) = e % storage % c(1,:,:,:)
@@ -2315,6 +2330,8 @@ slavecoord:                DO l = 1, 4
 
 #if defined(NAVIERSTOKES)
                Q(1:NGRAD,:,:,:) = e % storage % U_x
+#elif defined(INCNS)
+               Q(1:NINC,:,:,:) = e % storage % U_x
 #endif
 #if defined(CAHNHILLIARD)
                Q(NTOTALGRADS,:,:,:) = e % storage % c_x(1,:,:,:)
@@ -2323,6 +2340,8 @@ slavecoord:                DO l = 1, 4
 
 #if defined(NAVIERSTOKES)
                Q(1:NGRAD,:,:,:) = e % storage % U_y
+#elif defined(INCNS)
+               Q(1:NINC,:,:,:) = e % storage % U_y
 #endif
 #if defined(CAHNHILLIARD)
                Q(NTOTALGRADS,:,:,:) = e % storage % c_y(1,:,:,:)
@@ -2331,6 +2350,8 @@ slavecoord:                DO l = 1, 4
 
 #if defined(NAVIERSTOKES)
                Q(1:NGRAD,:,:,:) = e % storage % U_z
+#elif defined(INCNS)
+               Q(1:NINC,:,:,:) = e % storage % U_z
 #endif
 #if defined(CAHNHILLIARD)
                Q(NTOTALGRADS,:,:,:) = e % storage % c_z(1,:,:,:)
@@ -2432,7 +2453,7 @@ slavecoord:                DO l = 1, 4
          type(HexMesh)                        :: auxMesh
          integer                              :: NDOF, eID
          logical                              :: with_gradients
-#if (!defined(NAVIERSTOKES))
+#if (!defined(NAVIERSTOKES)) || (!defined(INCNS))
          logical                          :: computeGradients = .true.
 #endif
          !---------------------------------------------------------
@@ -2631,21 +2652,52 @@ slavecoord:                DO l = 1, 4
 
             allocate(Q(NTOTALVARS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
             read(fID) Q
-
 #if defined(NAVIERSTOKES)
             e % storage % Q = Q(1:NCONS,:,:,:)
-            if (gradients) then
-               read(fID) e % storage % U_x
-               read(fID) e % storage % U_y
-               read(fID) e % storage % U_z
-            end if
+#elif defined(INCNS)
+            e % storage % Q = Q(1:NINC,:,:,:)
 #endif
 #if defined(CAHNHILLIARD)
             e % storage % c(1,:,:,:) = Q(NTOTALVARS,:,:,:)
 #endif
 
             deallocate(Q)
-            end associate
+ 
+            if (gradients) then
+               allocate(Q(NTOTALGRADS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               read(fID) Q  
+#if defined(NAVIERSTOKES)               
+               e % storage % U_x = Q(1:NTOTALGRADS,:,:,:)
+#elif defined(INCNS)
+               e % storage % U_x = Q(1:NINC,:,:,:)
+#endif
+#if defined(CAHNHILLIARD)
+               e % storage % c_x(1,:,:,:) = Q(NTOTALGRADS,:,:,:)
+#endif
+               
+               read(fID) Q  
+#if defined(NAVIERSTOKES)               
+               e % storage % U_y = Q(1:NTOTALGRADS,:,:,:)
+#elif defined(INCNS)
+               e % storage % U_y = Q(1:NINC,:,:,:)
+#endif
+#if defined(CAHNHILLIARD)
+               e % storage % c_y(1,:,:,:) = Q(NTOTALGRADS,:,:,:)
+#endif
+               read(fID) Q  
+#if defined(NAVIERSTOKES)               
+               e % storage % U_z = Q(1:NTOTALGRADS,:,:,:)
+#elif defined(INCNS)
+               e % storage % U_z = Q(1:NINC,:,:,:)
+#endif
+#if defined(CAHNHILLIARD)
+               e % storage % c_z(1,:,:,:) = Q(NTOTALGRADS,:,:,:)
+#endif
+
+               deallocate(Q)
+            end if
+            
+           end associate
          end do
 !
 !        Close the file
@@ -3021,7 +3073,7 @@ slavecoord:                DO l = 1, 4
       call GetStorageEquations(off, ns, c, mu)
 
       if ( which .eq. ns ) then
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          self % storage % Q => self % storage % QNS 
          self % storage % QDot => self % storage % QDotNS 
          self % storage % PrevQ(1:,1:) => self % storage % PrevQNS(1:,1:)
@@ -3114,5 +3166,62 @@ slavecoord:                DO l = 1, 4
       end do
       
    end function
+#if defined(INCNS) && defined(CAHNHILLIARD)
+   subroutine HexMesh_ConvertDensityToPhaseField(self)
+!
+!     *************************************************************
+!     Convert density to phase field only in element interior nodes
+!     *************************************************************
+!
+      implicit none
+      class(HexMesh),   intent(inout)  :: self
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer  :: eID, fID
+   
+      associate(rho1 => dimensionless % rho(1), &
+                rho2 => dimensionless % rho(2))
+      do eID = 1, self % no_of_elements
+         associate(c => self % elements(eID) % storage % c, &
+                   Q => self % elements(eID) % storage % QNS)
+         c(1,:,:,:) = (-rho1 - rho2 + 2.0_RP * Q(INSRHO,:,:,:))/(rho2-rho1)
+         end associate
+      end do
+
+      end associate
+   end subroutine HexMesh_ConvertDensityToPhaseField
+
+   subroutine HexMesh_ConvertPhaseFieldToDensity(self)
+!
+!     *************************************************************
+!     Convert density to phase field only in element interior nodes
+!     *************************************************************
+!
+      implicit none
+      class(HexMesh),   intent(inout)  :: self
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer  :: eID, fID
+   
+      associate(rho1 => dimensionless % rho(1), &
+                rho2 => dimensionless % rho(2))
+      do eID = 1, self % no_of_elements
+         associate(c => self % elements(eID) % storage % c, &
+                   Q => self % elements(eID) % storage % QNS)
+         Q(INSRHO,:,:,:) = 0.5_RP*(rho1*(1.0_RP-c(1,:,:,:)) + rho2*(1.0_RP + c(1,:,:,:)))
+         end associate
+      end do
+
+      end associate
+
+   end subroutine HexMesh_ConvertPhaseFieldToDensity
+#endif
+
 END MODULE HexMeshClass
       

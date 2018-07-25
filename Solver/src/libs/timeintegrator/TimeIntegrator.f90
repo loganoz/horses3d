@@ -30,6 +30,7 @@
       use ParticlesClass
       use Utilities, only: ToLower
       use FileReadingUtilities      , only: getFileName
+      use ProblemFileFunctions, only: UserDefinedPeriodicOperation_f
       IMPLICIT NONE 
       
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -92,9 +93,10 @@
 !        ----------------------------------------------------------------------------------
 !
          IF (controlVariables % containsKey("cfl")) THEN
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
             self % Compute_dt = .TRUE.
             self % cfl        = controlVariables % doublePrecisionValueForKey("cfl")
+#if defined(NAVIERSTOKES)
             if (flowIsNavierStokes) then
                if (controlVariables % containsKey("dcfl")) then
                   self % dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
@@ -102,6 +104,7 @@
                   ERROR STOP '"cfl" and "dcfl", or "dt" keyword must be specified for the time integrator'
                end if
             end if
+#endif
 #elif defined(CAHNHILLIARD)
             print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
             errorMessage(STD_OUT)
@@ -176,8 +179,8 @@
       TYPE(FTValueDictionary)              :: controlVariables
       class(Monitor_t)                     :: monitors
       type(pAdaptation_t)                  :: pAdaptator
-      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
-      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivativeIsolated
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivativeIsolated
 
 !
 !     ---------
@@ -268,28 +271,15 @@
       TYPE(DGSem)                          :: sem
       TYPE(FTValueDictionary), intent(in)  :: controlVariables
       class(Monitor_t)                     :: monitors
-      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
       real(kind=RP), optional, intent(in)  :: tolerance   !< ? tolerance to integrate down to
-      procedure(ComputeQDot_FCN), optional :: CTD_linear
-      procedure(ComputeQDot_FCN), optional :: CTD_nonlinear
+      procedure(ComputeTimeDerivative_f), optional :: CTD_linear
+      procedure(ComputeTimeDerivative_f), optional :: CTD_nonlinear
 !
-!     ------------------
-!     Internal variables
-!     ------------------
+!     ---------------
+!     Local variables
+!     ---------------
 !
-interface
-         subroutine UserDefinedPeriodicOperation(mesh, time, monitors)
-            use SMConstants
-            use HexMeshClass
-            use MonitorsClass
-            use PhysicsStorage
-            IMPLICIT NONE
-            CLASS(HexMesh)  :: mesh
-            REAL(KIND=RP) :: time
-            type(Monitor_t), intent(in)  :: monitors
-         end subroutine UserDefinedPeriodicOperation
-end interface
-      
       real(kind=RP)                 :: Tol                                 ! Tolerance used for STEADY_STATE computations
       REAL(KIND=RP)                 :: t
       REAL(KIND=RP)                 :: maxResidual(NTOTALVARS)
@@ -306,6 +296,7 @@ end interface
       
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
       logical                       :: saveGradients
+      procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
 !     ----------------------
 !     Read Control variables
@@ -343,7 +334,7 @@ end interface
 !     Check initial residuals
 !     -----------------------
 !
-      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
       maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )

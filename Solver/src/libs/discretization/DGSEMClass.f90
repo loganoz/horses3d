@@ -10,6 +10,14 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+#if defined(NAVIERSTOKES)
+#define NNS NCONS
+#define NGRADNS NGRAD
+#elif defined(INCNS)
+#define NNS NINC
+#define NGRADNS NINC
+#endif
+
 #include "Includes.h"
 Module DGSEMClass
    use SMConstants
@@ -26,6 +34,7 @@ Module DGSEMClass
    use MonitorsClass
    use ParticlesClass
    use Physics
+   use ProblemFileFunctions, only: UserDefinedInitialCondition_f
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -33,13 +42,13 @@ Module DGSEMClass
    IMPLICIT NONE
 
    private
-   public   ComputeQDot_FCN, DGSem, ConstructDGSem
+   public   ComputeTimeDerivative_f, DGSem, ConstructDGSem
    public   BCFunctions_t, BCState_FCN, BCGradients_FCN, no_of_BCsets
 
    public   DestructDGSEM, MaxTimeStep, ComputeMaxResiduals
 
    enum, bind(C)
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       enumerator :: BC_ns
 #endif
 #if defined(CAHNHILLIARD)
@@ -63,7 +72,7 @@ Module DGSEMClass
       class(BCFunctions_t), allocatable                       :: BCFunctions(:)
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       type(Particles_t)                                       :: particles
 #else
       logical                                                 :: particles
@@ -99,7 +108,7 @@ Module DGSEMClass
          CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
       END SUBROUTINE BCGradients_FCN
 
-      SUBROUTINE ComputeQDot_FCN( mesh, particles, time, BCFunctions )
+      SUBROUTINE ComputeTimeDerivative_f( mesh, particles, time, BCFunctions, mode )
          use SMConstants
          use HexMeshClass
          use ParticlesClass
@@ -109,14 +118,15 @@ Module DGSEMClass
          import no_of_BCsets
          IMPLICIT NONE 
          type(HexMesh), target           :: mesh
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          type(Particles_t)               :: particles
 #else
          logical                         :: particles
 #endif
          REAL(KIND=RP)                   :: time
          type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
-      end subroutine ComputeQDot_FCN
+         integer,             intent(in) :: mode
+      end subroutine ComputeTimeDerivative_f
    END INTERFACE
 
    CONTAINS 
@@ -456,48 +466,22 @@ Module DGSEMClass
 !
          character(len=LINE_LENGTH)             :: solutionName
          logical                                :: saveGradients
-         interface
-            SUBROUTINE UserDefinedInitialCondition(mesh &
-#if defined(NAVIERSTOKES)
-                                                   ,thermodynamics_, &
-                                                   dimensionless_,&
-                                                   refValues_&
-#endif
-#if defined(CAHNHILLIARD)
-                                                   ,multiphase_ &
-#endif
-                                                  )
-               USE SMConstants
-               use PhysicsStorage
-               use HexMeshClass
-               use FluidData
-               implicit none
-               class(HexMesh)                  :: mesh
-#if defined(NAVIERSTOKES)
-               type(Thermodynamics_t), intent(in)  :: thermodynamics_
-               type(Dimensionless_t),  intent(in)  :: dimensionless_
-               type(RefValues_t),      intent(in)  :: refValues_
-#endif
-#if defined(CAHNHILLIARD)
-               type(Multiphase_t),     intent(in)  :: multiphase_
-#endif
-            END SUBROUTINE UserDefinedInitialCondition
-         end interface
+         procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
 
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
             CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time)
          ELSE
    
-            call UserDefinedInitialCondition(self % mesh                               &
-#if defined(NAVIERSTOKES) 
-                                            ,thermodynamics, dimensionless, refValues  &
-#endif
-#if defined(CAHNHILLIARD)
-                                            ,multiphase                                &    
-#endif
-                                            )
+            call UserDefinedInitialCondition(self % mesh, FLUID_DATA_VARS)
+
             initial_time = 0.0_RP
             initial_iteration = 0
+!
+!           If solving incompressible NS + CahnHilliard, compatibilize density and phase field
+!           ----------------------------------------------------------------------------------
+#if defined(INCNS) && defined(CAHNHILLIARD)
+            call self % mesh % ConvertPhaseFieldToDensity
+#endif
 !
 !           Save the initial condition
 !           --------------------------
@@ -668,37 +652,37 @@ Module DGSEMClass
 !
       INTEGER       :: id , eq, ierr
       REAL(KIND=RP) :: localMaxResidual(NTOTALVARS)
-      real(kind=RP) :: localRho, localRhou, localRhov, localRhow, localRhoe, localc
-      real(kind=RP) :: Rho, Rhou, Rhov, Rhow, Rhoe, c
+      real(kind=RP) :: localR1, localR2, localR3, localR4, localR5, localc
+      real(kind=RP) :: R1, R2, R3, R4, R5, c
       
       maxResidual = 0.0_RP
-      Rho = 0.0_RP
-      Rhou = 0.0_RP
-      Rhov = 0.0_RP
-      Rhow = 0.0_RP
-      Rhoe = 0.0_RP
+      R1 = 0.0_RP
+      R2 = 0.0_RP
+      R3 = 0.0_RP
+      R4 = 0.0_RP
+      R5 = 0.0_RP
       c    = 0.0_RP
 
-!$omp parallel shared(maxResidual, Rho, Rhou, Rhov, Rhow, Rhoe, c, mesh) default(private)
-!$omp do reduction(max:Rho,Rhou,Rhov,Rhow,Rhoe,c)
+!$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, c, mesh) default(private)
+!$omp do reduction(max:R1,R2,R3,R4,R5,c)
       DO id = 1, SIZE( mesh % elements )
-#if defined(NAVIERSTOKES)
-         localRho = maxval(abs(mesh % elements(id) % storage % QDot(IRHO,:,:,:)))
-         localRhou = maxval(abs(mesh % elements(id) % storage % QDot(IRHOU,:,:,:)))
-         localRhov = maxval(abs(mesh % elements(id) % storage % QDot(IRHOV,:,:,:)))
-         localRhow = maxval(abs(mesh % elements(id) % storage % QDot(IRHOW,:,:,:)))
-         localRhoe = maxval(abs(mesh % elements(id) % storage % QDot(IRHOE,:,:,:)))
+#if defined(NAVIERSTOKES) || defined(INCNS)
+         localR1 = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
+         localR2 = maxval(abs(mesh % elements(id) % storage % QDot(2,:,:,:)))
+         localR3 = maxval(abs(mesh % elements(id) % storage % QDot(3,:,:,:)))
+         localR4 = maxval(abs(mesh % elements(id) % storage % QDot(4,:,:,:)))
+         localR5 = maxval(abs(mesh % elements(id) % storage % QDot(5,:,:,:)))
 #endif
 #if defined(CAHNHILLIARD)
          localc    = maxval(abs(mesh % elements(id) % storage % cDot(:,:,:,:)))
 #endif
       
-#if defined(NAVIERSTOKES)
-         Rho = max(Rho,localRho)
-         Rhou = max(Rhou,localRhou)
-         Rhov = max(Rhov,localRhov)
-         Rhow = max(Rhow,localRhow)
-         Rhoe = max(Rhoe,localRhoe)
+#if defined(NAVIERSTOKES) || defined(INCNS)
+         R1 = max(R1,localR1)
+         R2 = max(R2,localR2)
+         R3 = max(R3,localR3)
+         R4 = max(R4,localR4)
+         R5 = max(R5,localR5)
 #endif
 #if defined(CAHNHILLIARD)
          c    = max(c, localc)
@@ -707,8 +691,8 @@ Module DGSEMClass
 !$omp end do
 !$omp end parallel
 
-#if defined(NAVIERSTOKES)
-      maxResidual(1:NCONS) = (/Rho, Rhou, Rhov, Rhow, Rhoe/)
+#if defined(NAVIERSTOKES) || defined(INCNS)
+      maxResidual(1:NNS) = [R1, R2, R3, R4, R5]
 #endif
       
 #if defined(CAHNHILLIARD)
@@ -745,7 +729,7 @@ Module DGSEMClass
       type(DGSem)                :: self
       real(kind=RP), intent(in)  :: cfl      !<  Advective cfl number
       real(kind=RP), optional, intent(in)  :: dcfl     !<  Diffusive cfl number
-#if defined(NAVIERSTOKES)      
+#if defined(NAVIERSTOKES)
       !------------------------------------------------
       integer                       :: i, j, k, eID                     ! Coordinate and element counters
       integer                       :: N(3)                             ! Polynomial order in the three reference directions

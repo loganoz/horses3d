@@ -1,0 +1,48 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = ./MESH/RTI_128x16.mesh
+                      Solution file name = ./RESULTS/RTI_128x16.hsol
+              Save gradients to solution = .false.
+                2D mesh offset direction = y
+                                 Restart = .true.
+                       Restart file name = ./RESULTS/RTI_128x16_0000005000.hsol
+
+!-------------------- Physical parameters:-
+                         Reynolds number = 1000.0
+                               AoA Theta = 0.0
+                                 AoA Phi = 0.0
+                       Gravity direction = [-1,0,0]
+                       Compute gradients = .true.
+
+!------------------------- Discretization:-
+                        Polynomial order = 3
+                    Discretization nodes = Gauss  ! Gauss-Lobatto
+                          Riemann solver = Exact
+                    Lambda stabilization = 1.0
+                 Inviscid discretization = Split-form
+                     Artificial compressibility factor = 5000.0
+                  Viscous discretization = BR1   ! IP/BR2
+
+!----------------------- Time integration:-
+                        Time integration = Explicit   ! IMEX/Implicit
+                                      dt = 0.00005
+                    Number of time steps = 10000
+                         Output interval = 100
+                   Convergence tolerance = 1.0e-10
+                         Simulation type = steady-state   ! time-accurate
+                              Final time = 1.0
+                           Autosave mode = Iteration  ! Time
+                       Autosave interval = 1000   ! 1.0
+
+!-------------------- Boundary conditions:-
+                    Number of boundaries = 6
+front 0.0 FreeSlipWall
+back 0.0 FreeSlipWall
+left 0.0 FreeSlipWall
+right 0.0 FreeSlipWall
+top 0.0 FreeSlipWall
+bottom 0.0 FreeSlipWall 

@@ -1,0 +1,46 @@
+!
+!       ****************
+!       LDC control file
+!       ****************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = ./MESH/LidDriven20x20.mesh
+                      Solution file name = ./RESULTS/LidDriven20x20P4Re100.hsol
+              Save gradients to solution = .false.
+                2D mesh offset direction = y
+                                 Restart = .false.
+                       Restart file name = ./RESULTS/LidDriven20x20P4Re100.hsol
+
+!-------------------- Physical parameters:-
+!                        ** Navier-Stokes
+                         Reynolds number = 100.0
+                       Compute gradients = .true.
+
+!------------------------- Discretization:-
+                        Polynomial order = 4
+                    Discretization nodes = Gauss  ! Gauss-Lobatto
+                          Riemann solver = Exact
+                    Lambda stabilization = 1.0
+                 Inviscid discretization = Standard  ! Split-form
+                  Viscous discretization = BR1   ! IP/BR2
+
+!----------------------- Time integration:-
+                        Time integration = Explicit   ! IMEX/Implicit
+                                      dt = 20.0e-5
+                    Number of time steps = 10000000
+                         Output interval = 100
+                   Convergence tolerance = 1.0e-10
+                         Simulation type = steady-state   ! time-accurate
+                              Final time = 1.0e5
+                           Autosave mode = Iteration  ! Time
+                       Autosave interval = 2000   ! 1.0
+
+!-------------------- Boundary conditions:-
+Number of boundaries = 6
+Left 0.0 NoSlipWall
+Right 0.0 NoSlipWall
+front 0.0 NoSlipWall
+Back 0.0 User-defined
+bottom 0.0 NoSlipWall
+top 0.0 NoSlipWall
+\

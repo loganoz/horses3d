@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Thu Jun 28 12:32:05 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 7c1c79ae7a2fb27cc91007b85ab7d5e325e4684c
+!   @Last revision date: Tue Jul  3 19:19:06 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 3db74c1b54d0c4fcf30b72bedefd8dbd2ef9b8ce
 !
 !//////////////////////////////////////////////////////
 !
@@ -433,7 +433,7 @@ module FASMultigridClass
       integer                              :: timestep
       real(kind=RP)        , intent(in)    :: t
       real(kind=RP)        , intent(in)    :: dt
-      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
       logical           , OPTIONAL         :: FullMG
       real(kind=RP)     , OPTIONAL         :: tol        !<  Tolerance for full multigrid
       !-------------------------------------------------
@@ -506,7 +506,7 @@ module FASMultigridClass
       real(kind=RP)        , intent(in)    :: dt       !<  Time-step
       integer              , intent(in)    :: lvl      !<  Current multigrid level
       integer              , intent(in)    :: MGlevels !<  Number of finest multigrid level
-      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
       !----------------------------------------------------------------------------
       integer                       :: iEl,iEQ              !Element/equation counter
       type(FASMultigrid_t), pointer :: Child_p              !Pointer to child
@@ -538,7 +538,7 @@ module FASMultigridClass
          if (SmoothFine .AND. lvl > 1) then ! .AND. .not. FMG
             if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
             call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
-            call ComputeTimeDerivative(this % Child % p_sem % mesh,this % Child % p_sem % particles, t, this % Child % p_sem % BCFunctions)
+            call ComputeTimeDerivative(this % Child % p_sem % mesh,this % Child % p_sem % particles, t, this % Child % p_sem % BCFunctions, CTD_IGNORE_MODE)
             
             if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals(this % Child % p_sem % mesh))) exit
          else
@@ -654,7 +654,7 @@ module FASMultigridClass
       real(kind=RP)        , intent(in)    :: t       !<  Simulation time
       real(kind=RP)        , intent(in)    :: tol     !<  Convergence tolerance
       integer              , intent(in)    :: lvl     !<  Current multigrid level
-      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
       !----------------------------------------------------------------------------
       integer        :: iEl, iEQ             ! Element and equation counters
       integer        :: N1(3), N2(3)
@@ -747,7 +747,7 @@ module FASMultigridClass
       class(FASMultigrid_t), intent(inout) :: this     !<  Current level solver
       integer              , intent(IN)    :: lvl
       real(kind=RP)        , intent(IN)    :: t
-      procedure(ComputeQDot_FCN)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
       !-------------------------------------------------------------
       class(FASMultigrid_t), pointer       :: Child_p  ! The child
       integer  :: iEl
@@ -802,7 +802,7 @@ module FASMultigridClass
 !     If not on finest level, correct source term
 !     -------------------------------------------
 !      
-      call ComputeTimeDerivative(Child_p % p_sem % mesh,Child_p % p_sem % particles, t, Child_p % p_sem % BCFunctions) 
+      call ComputeTimeDerivative(Child_p % p_sem % mesh,Child_p % p_sem % particles, t, Child_p % p_sem % BCFunctions, CTD_IGNORE_MODE) 
       
 !$omp parallel do schedule(runtime)
       DO iEl = 1, nelem
@@ -874,7 +874,7 @@ module FASMultigridClass
       integer                , intent(in)            :: SmoothSweeps
       real(kind=RP)          , intent(in)            :: t
       real(kind=RP)          , intent(in)            :: dt
-      procedure(ComputeQDot_FCN)                     :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)                     :: ComputeTimeDerivative
       !-------------------------------------------------------------
       real(kind=RP) :: own_dt
       integer :: sweep

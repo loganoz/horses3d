@@ -30,7 +30,7 @@ contains
       integer,                    intent(in)             :: nEqn, nGradEqn
       real(kind=RP),              intent(IN)             :: t
       class(Matrix_t)          ,  intent(inout)          :: Matrix
-      procedure(ComputeQDot_FCN)                         :: ComputeTimeDerivative      !   
+      procedure(ComputeTimeDerivative_f)                         :: ComputeTimeDerivative      !   
       logical,                    OPTIONAL               :: PINFO                      !<? Print information?
       real(kind=RP),              optional               :: eps_in
       !-------------------------------------------------------------------
@@ -79,7 +79,9 @@ contains
 !        ----------------------------------
          allocate(nbr(nelm))
          CALL Look_for_neighbour(nbr, sem % mesh)
-#if (!defined(CAHNHILLIARD))
+#if defined(CAHNHILLIARD)
+         CALL ecolors%construct(nbr, .true. )
+#elif defined(NAVIERSTOKES)
          CALL ecolors%construct(nbr,flowIsNavierStokes)
 #else
          CALL ecolors%construct(nbr, .true. )
@@ -115,7 +117,9 @@ contains
 !        computation of the Jacobian matrix entries
 !        ---------------------------------------------------------------
 !
-#if (!defined(CAHNHILLIARD))
+#if defined(CAHNHILLIARD)
+         allocate(used(26))
+#elif defined(NAVIERSTOKES)
          IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
             allocate(used(26))   ! 25 neighbors (including itself) and a last entry that will be 0 always (boundary index)
          ELSE
@@ -134,7 +138,9 @@ contains
 !              IMPORTANT: These numbers assume conforming meshes!
 !        -------------------------------------------------------------------------
 !
-#if (!defined(CAHNHILLIARD))
+#if defined(CAHNHILLIARD)
+         nnz = maxndofel * 25
+#elif defined(NAVIERSTOKES)
          IF (flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
             nnz = maxndofel * 25
          ELSE
@@ -198,7 +204,11 @@ contains
             CALL Matrix % Reset
       end select
       
-      CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions )
+#if defined(CAHNHILLIARD)
+      CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions, CTD_ONLY_CH_LIN )
+#else
+      CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE )
+#endif
 !
 !     Save base state in Q0 and QDot0
 !     -------------------------------
@@ -229,7 +239,11 @@ contains
                                                    sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
             ENDDO
             
-            CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions )  
+#if defined(CAHNHILLIARD)
+            CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions, CTD_ONLY_CH_LIN )
+#else
+            CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE )
+#endif
 
             sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
             
@@ -256,11 +270,14 @@ contains
                   ENDIF
                   
                   ! If we are using BR1, we also have to get the contributions of the neighbors of neighbors
-#if (!defined(CAHNHILLIARD))
+#if defined(CAHNHILLIARD)
+                  if ( .true. ) then
+#elif defined(NAVIERSTOKES)
                   IF(flowIsNavierStokes) THEN ! .AND. BR1 (only implementation to date)
 #else
                   if ( .true. ) then
 #endif
+
                      IF (elmnbr .NE. 0) THEN
                         DO j=1, SIZE(nbr(elmnbr)%elmnt)
                            nbrnbr = nbr(elmnbr)%elmnt(j)                          

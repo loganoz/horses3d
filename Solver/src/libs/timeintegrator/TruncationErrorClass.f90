@@ -10,9 +10,9 @@
 module TruncationErrorClass
    use SMConstants
    use MultigridTypes            , only: MGSolStorage_t
-   use DGSEMClass                , only: DGSem, BCFunctions_t, ComputeQDot_FCN, BCState_FCN, BCGradients_FCN, no_of_BCsets
+   use DGSEMClass                , only: DGSem, BCFunctions_t, ComputeTimeDerivative_f, BCState_FCN, BCGradients_FCN, no_of_BCsets
    use FTValueDictionaryClass    , only: FTValueDictionary
-   use PhysicsStorage            , only: NTOTALVARS
+   use PhysicsStorage            , only: NTOTALVARS, CTD_IGNORE_MODE
 #if defined(NAVIERSTOKES)  
    use FluidData_NS              , only: Thermodynamics, RefValues, Dimensionless
 #endif
@@ -21,6 +21,7 @@ module TruncationErrorClass
 #if defined(CAHNHILLIARD)
    use BoundaryConditionFunctions, only: C_BC, MU_BC
 #endif
+   use ProblemFileFunctions
    implicit none
    
    private
@@ -61,30 +62,12 @@ module TruncationErrorClass
    procedure(BCGradients_FCN)   :: ExternalChemicalPotentialGradientForBoundaryName
    procedure(BCGradients_FCN)   :: ExternalConcentrationGradientForBoundaryName
 #endif
-   
-#if defined(NAVIERSTOKES)
-   interface
-      subroutine UserDefinedSourceTermNS(x, time, S, thermodynamics_, dimensionless_, refValues_)
-         use SMConstants
-         USE HexMeshClass
-         use PhysicsStorage
-         use FluidData
-         IMPLICIT NONE
-         real(kind=RP),             intent(in)  :: x(NDIM)
-         real(kind=RP),             intent(in)  :: time
-         real(kind=RP),             intent(out)  :: S(NCONS)
-         type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-         type(Dimensionless_t),     intent(in)  :: dimensionless_
-         type(RefValues_t),         intent(in)  :: refValues_
-      end subroutine UserDefinedSourceTermNS
-   end interface
-#endif
 !
 !  ----------------
 !  Module variables
 !  ----------------
 !
-   procedure(ComputeQDot_FCN), pointer :: TimeDerivative
+   procedure(ComputeTimeDerivative_f), pointer :: TimeDerivative
    
    !! Parameters
    integer, parameter :: ISOLATED_TE = 0
@@ -158,8 +141,8 @@ module TruncationErrorClass
       type(TruncationError_t) :: TE(:)
       type(DGSem), intent(in) :: sem
       integer    , intent(in) :: TruncErrorType !<  Either NON_ISOLATED_TE or ISOLATED_TE
-      procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
-      procedure(ComputeQDot_FCN) :: ComputeTimeDerivativeIsolated
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
       !------------------------------------------
       integer                 :: eID
       !------------------------------------------
@@ -202,9 +185,12 @@ module TruncationErrorClass
       real(kind=RP)            :: Jac
       real(kind=RP)            :: maxTE
       real(kind=RP)            :: S(NTOTALVARS)      !   Source term
+#if defined(NAVIERSTOKES)            
+      procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
+#endif
       !--------------------------------------------------------
       
-      call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
+      call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
       
       S = 0._RP ! Initialize source term
       
@@ -219,7 +205,7 @@ module TruncationErrorClass
          ! loop over all the degrees of freedom of the element
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
 #if defined(NAVIERSTOKES)            
-            call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), t, S, thermodynamics, dimensionless, refValues)
+            call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, S, thermodynamics, dimensionless, refValues)
 #endif
             
             do iEQ = 1, NTOTALVARS
@@ -274,7 +260,7 @@ module TruncationErrorClass
 !  -----------------------------------------------------------------------
    subroutine AssignTimeDerivative(ComputeTimeDerivative)
       implicit none
-      procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
       
       TimeDerivative => ComputeTimeDerivative
    end subroutine AssignTimeDerivative
@@ -291,8 +277,8 @@ module TruncationErrorClass
       integer, intent(in)        :: NMIN
       integer, intent(in)        :: NMAX(NDIM)
       real(kind=RP)              :: t
-      procedure(ComputeQDot_FCN) :: ComputeTimeDerivative
-      procedure(ComputeQDot_FCN) :: ComputeTimeDerivativeIsolated
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
       type(FTValueDictionary)    :: controlVariables
       integer, intent(in)        :: iEl
       integer, intent(in)        :: TruncErrorType
@@ -349,7 +335,7 @@ module TruncationErrorClass
                
                if(.NOT. success)   ERROR STOP ":: problem creating sem"
                
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && !defined(CAHNHILLIARD)
                CALL UserDefinedFinalSetup(sem % mesh , thermodynamics, dimensionless, refValues)
 #endif
                
@@ -405,7 +391,7 @@ module TruncationErrorClass
             end associate
          end do
          
-         call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions)
+         call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
          
          maxTE = 0._RP ! Initialization
          

@@ -1,12 +1,12 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    HORSES3DMain.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
-!   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Fri Jun 29 15:54:12 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 5a58027d1f8c132d3c17f35fb4b996d18a394da6
+!   @File:    main.f90
+!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
+!   @Created: Wed Jun 20 18:14:45 2018
+!   @Last revision date: Thu Jul  5 12:34:49 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
 !
 !//////////////////////////////////////////////////////
 !
@@ -22,7 +22,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      PROGRAM HORSES3DMainNS
+      PROGRAM HORSES3DMainiNS
       
       USE SMConstants
       use FTValueDictionaryClass
@@ -38,84 +38,37 @@
       use StopwatchClass
       use MPI_Process_Info
       use SpatialDiscretization
-      use pAdaptationClass
+      use pAdaptationClass          , only: GetMeshPolynomialOrders
       use NodalStorageClass
-      use ManufacturedSolutions
       use FluidData
-      use FileReadingUtilities, only: getFileName
-      use FileReaders         , only: ReadControlFile
+      use FileReaders               , only: ReadControlFile 
+      use FileReadingUtilities      , only: getFileName
+      use ProblemFileFunctions
 #ifdef _HAS_MPI_
       use mpi
 #endif
       
       IMPLICIT NONE
-interface
-         SUBROUTINE UserDefinedStartup
-            IMPLICIT NONE  
-         END SUBROUTINE UserDefinedStartup
-         SUBROUTINE UserDefinedFinalSetup(mesh , thermodynamics_, &
-                                                 dimensionless_, &
-                                                     refValues_ )
-            use SMConstants
-            use PhysicsStorage
-            use HexMeshClass
-            use FluidData
-            IMPLICIT NONE
-            CLASS(HexMesh)             :: mesh
-            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-            type(Dimensionless_t),     intent(in)  :: dimensionless_
-            type(RefValues_t),         intent(in)  :: refValues_
-         END SUBROUTINE UserDefinedFinalSetup
-         SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual, thermodynamics_, &
-                                                    dimensionless_, &
-                                                        refValues_, &
-                                                          monitors, &
-                                                       elapsedTime, &
-                                                           CPUTime   )
-            use SMConstants
-            use PhysicsStorage
-            use HexMeshClass
-            use MonitorsClass
-            use FluidData
-            IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
-            REAL(KIND=RP)                         :: time
-            integer                               :: iter
-            real(kind=RP)                         :: maxResidual
-            type(Thermodynamics_t),    intent(in) :: thermodynamics_
-            type(Dimensionless_t),     intent(in) :: dimensionless_
-            type(RefValues_t),         intent(in) :: refValues_
-            type(Monitor_t),          intent(in) :: monitors
-            real(kind=RP),             intent(in) :: elapsedTime
-            real(kind=RP),             intent(in) :: CPUTime
-         END SUBROUTINE UserDefinedFinalize
-      SUBROUTINE UserDefinedTermination
-         IMPLICIT NONE  
-      END SUBROUTINE UserDefinedTermination
-end interface
+      TYPE( FTValueDictionary)            :: controlVariables
+      TYPE( DGSem )                       :: sem
+      TYPE( TimeIntegrator_t )            :: timeIntegrator
+      LOGICAL                             :: success, saveGradients
+      integer                             :: initial_iteration
+      INTEGER                             :: ierr
+      real(kind=RP)                       :: initial_time
+      type(BCFunctions_t)                 :: BCFunctions(1)
+      procedure(BCState_FCN)              :: externalStateForBoundaryName_iNS
+      procedure(BCGradients_FCN)          :: ExternalGradientForBoundaryName_iNS
+      character(len=LINE_LENGTH)          :: solutionFileName
+      integer, allocatable                :: Nx(:), Ny(:), Nz(:)
+      integer                             :: Nmax
+      type(pAdaptation_t)                 :: pAdaptator
+      procedure(UserDefinedStartup_f)     :: UserDefinedStartup
+      procedure(UserDefinedFinalSetup_f)  :: UserDefinedFinalSetup
+      procedure(UserDefinedFinalize_f)    :: UserDefinedFinalize
+      procedure(UserDefinedTermination_f) :: UserDefinedTermination
 
-      TYPE( FTValueDictionary)   :: controlVariables
-      TYPE( DGSem )              :: sem
-      TYPE( TimeIntegrator_t )   :: timeIntegrator
-      
-      LOGICAL                    :: success, saveGradients
-      integer                    :: initial_iteration
-      INTEGER                    :: ierr
-      real(kind=RP)              :: initial_time
-      type(BCFunctions_t)        :: BCFunctions(3)
-      procedure(BCState_FCN)     :: externalStateForBoundaryName_NS
-      procedure(BCGradients_FCN) :: ExternalGradientForBoundaryName_NS
-      procedure(BCState_FCN)     :: externalCHStateForBoundaryName
-      procedure(BCGradients_FCN) :: ExternalConcentrationGradientForBoundaryName
-      procedure(BCGradients_FCN) :: ExternalChemicalPotentialGradientForBoundaryName
-      character(len=LINE_LENGTH) :: solutionFileName
-      
-      ! For pAdaptation
-      integer, allocatable       :: Nx(:), Ny(:), Nz(:)
-      integer                    :: Nmax
-      type(pAdaptation_t)        :: pAdaptator
-
-      solver = "multiphase"
+      call SetSolver(INCNS_SOLVER)
 !
 !     ---------------
 !     Initializations
@@ -129,10 +82,10 @@ end interface
 !     ----------------------------------------------------------------------------------
 !
       if ( MPI_Process % doMPIAction ) then
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Multiphase Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Incompressible Navier-Stokes Solver",__DATE__,__TIME__)
 
       else
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Multiphase Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Incompressible Navier-Stokes Solver",__DATE__,__TIME__)
 
       end if
 
@@ -153,24 +106,13 @@ end interface
       IF(.NOT. success)   ERROR STOP "Physics parameters input error"
       
       ! Initialize manufactured solutions if necessary
-      sem % ManufacturedSol = controlVariables % containsKey("manufactured solution")
-      
-      IF (sem % ManufacturedSol) THEN
-         CALL InitializeManufacturedSol(controlVariables % StringValueForKey("manufactured solution",LINE_LENGTH))
-      END IF
       
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
       call InitializeNodalStorage(Nmax)
       call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
       
-      BCFunctions(NS_BC) % externalState     => externalStateForBoundaryName_NS
-      BCFunctions(NS_BC) % externalGradients => externalGradientForBoundaryName_NS
-
-      BCFunctions(C_BC) % externalState      => externalCHStateForBoundaryName
-      BCFunctions(C_BC) % externalGradients  => externalConcentrationGradientForBoundaryName
-
-      BCFunctions(MU_BC) % externalState     => externalCHStateForBoundaryName
-      BCFunctions(MU_BC) % externalGradients => externalChemicalPotentialGradientForBoundaryName
+      BCFunctions(1) % externalState => externalStateForBoundaryName_iNS
+      BCFunctions(1) % externalGradients => externalGradientForBoundaryName_iNS
 
       call sem % construct (  controlVariables  = controlVariables,                                         &
                               BCFunctions = BCFunctions, &
@@ -253,7 +195,7 @@ end interface
 
       call MPI_Process % Close
       
-      END PROGRAM HORSES3DMainNS
+      END PROGRAM HORSES3DMainiNS
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
 ! 
@@ -264,7 +206,7 @@ end interface
          USE HexMeshClass
          use FTValueDictionaryClass
          USE SharedBCModule
-         USE BoundaryConditionFunctions_NS, ONLY:implementedNSBCNames
+         USE BoundaryConditionFunctions_iNS, ONLY:implementediNSBCNames
          IMPLICIT NONE
 !
 !        ---------
@@ -320,8 +262,8 @@ end interface
             obj => bcObjects % objectAtIndex(j)
             CALL castToValue(obj,v)
             bcType = v % stringValue(requestedLength = BC_STRING_LENGTH)
-            DO i = 1, SIZE(implementedNSBCNames)
-               IF ( bcType == implementedNSBCNames(i) )     THEN
+            DO i = 1, SIZE(implementediNSBCNames)
+               IF ( bcType == implementediNSBCNames(i) )     THEN
                   success = .TRUE. 
                   EXIT 
                ELSE 
@@ -350,7 +292,7 @@ end interface
          USE mainKeywordsModule
          use FTValueClass
          use MPI_Process_Info
-         use SpatialDiscretization, only: viscousDiscretizationKey, CHDiscretizationKey
+         use SpatialDiscretization, only: viscousDiscretizationKey
          IMPLICIT NONE
 !
 !        ---------
@@ -392,14 +334,9 @@ end interface
             call controlVariables % addValueForKey("BR1",viscousDiscretizationKey)
          end if
 
-         obj => controlVariables % objectForKey(CHDiscretizationKey)
-         if ( .not. associated(obj) ) then
-            call controlVariables % addValueForKey("IP",CHDiscretizationKey)
-         end if
-
          obj => controlVariables % objectForKey(splitFormKey)
          if ( .not. associated(obj) ) then
-            call controlVariables % addValueForKey("Ducros",splitFormKey)
+            call controlVariables % addValueForKey("Skew-symmetric",splitFormKey)
          end if
 !
 !        Check for inconsistencies in the input variables

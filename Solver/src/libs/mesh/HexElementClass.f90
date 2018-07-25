@@ -566,9 +566,9 @@
 !           Stopping criteria: there are several
 !           ------------------------------------
             if ( maxval(abs(F)) .lt. TOL ) exit
-            if ( abs(xi(1)) .ge. 1.25_RP ) exit
-            if ( abs(xi(2)) .ge. 1.25_RP ) exit
-            if ( abs(xi(3)) .ge. 1.25_RP ) exit
+            if ( abs(xi(1)) .ge. 2.5_RP ) exit
+            if ( abs(xi(2)) .ge. 2.5_RP ) exit
+            if ( abs(xi(3)) .ge. 2.5_RP ) exit
 !
 !           Perform a step
 !           --------------

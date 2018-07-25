@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Fri Jun  8 16:10:47 2018
-!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 689bd2caf36aed1f14a7753ecd58cd5a5ce33533
+!   @Last revision date: Sat Jun 23 10:20:26 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
 !
 !//////////////////////////////////////////////////////
 !
@@ -39,7 +39,7 @@ module StorageClass
       real(kind=RP),                 pointer     :: Q(:)
       real(kind=RP),                 pointer     :: QDot(:)
       real(kind=RP),                 pointer     :: PrevQ(:,:)
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       real(kind=RP), dimension(:)  , allocatable :: QdotNS
       real(kind=RP), dimension(:)  , allocatable :: QNS
       real(kind=RP), dimension(:,:), allocatable :: PrevQNS ! Previous solution(s) in the whole domain
@@ -57,7 +57,7 @@ module StorageClass
 !  Class for pointing to previous solutions in an element
 !  ******************************************************
    type ElementPrevSol_t
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       real(kind=RP), dimension(:,:,:,:),  pointer     :: QNS
 #endif
 #if defined(CAHNHILLIARD)
@@ -78,7 +78,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_y         !
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_z         !
       type(ElementPrevSol_t),  allocatable :: PrevQ(:)           ! Previous solution
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       real(kind=RP),           pointer    , contiguous :: QNS(:,:,:,:)         ! NSE State vector
       real(kind=RP), private,  pointer    , contiguous :: QDotNS(:,:,:,:)      ! NSE State vector time derivative
       real(kind=RP), private,  allocatable :: U_xNS(:,:,:,:)       ! NSE x-gradients
@@ -124,7 +124,7 @@ module StorageClass
          generic     :: assignment(=)     => Assign
          procedure   :: Construct         => ElementStorage_Construct
          procedure   :: Destruct          => ElementStorage_Destruct
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          procedure   :: SetStorageToNS    => ElementStorage_SetStorageToNS
 #endif
 #if defined(CAHNHILLIARD)
@@ -143,7 +143,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     pointer     :: FStar
       real(kind=RP), dimension(:,:,:,:),   pointer     :: unStar
       real(kind=RP), dimension(:),         allocatable :: genericInterfaceFluxMemory ! unStar and fStar point to this memory simultaneously. This seems safe.
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       real(kind=RP), dimension(:,:,:),     allocatable :: QNS
       real(kind=RP), dimension(:,:,:),     allocatable :: U_xNS, U_yNS, U_zNS
       real(kind=RP), dimension(:,:,:),     allocatable :: gradRho          ! Gradient of density
@@ -168,7 +168,7 @@ module StorageClass
       contains
          procedure   :: Construct => FaceStorage_Construct
          procedure   :: Destruct  => FaceStorage_Destruct
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          procedure   :: SetStorageToNS => FaceStorage_SetStorageToNS
 #endif
 #if defined(CAHNHILLIARD)
@@ -210,6 +210,18 @@ module StorageClass
          self % Q => self % QNS
          self % QDot => self % QDotNS
          self % PrevQ => self % PrevQNS
+
+#elif defined(INCNS)
+         allocate ( self % QNS   (NINC*NDOF) )
+         allocate ( self % QdotNS(NINC*NDOF) )
+         
+         if (bdf_order /= 0) then
+            allocate ( self % PrevQNS (NINC*NDOF,bdf_order) )
+         end if
+
+         self % Q => self % QNS
+         self % QDot => self % QDotNS
+         self % PrevQ => self % PrevQNS
 #endif
 #if defined(CAHNHILLIARD)
          allocate ( self % c(NCOMP*NDOF) )
@@ -227,7 +239,7 @@ module StorageClass
          implicit none
          class(Storage_t)    :: self
 
-#if defined(NAVIERSTOKES)         
+#if defined(NAVIERSTOKES) || defined(INCNS)
          safedeallocate(self % QNS)
          safedeallocate(self % QdotNS)
          safedeallocate(self % PrevQNS)
@@ -257,6 +269,7 @@ module StorageClass
          !------------------------------------------------------------
          integer :: k, num_prevSol
          integer :: bounds(2)
+         integer :: NNS, NGRADNS
          !------------------------------------------------------------
 !
 !        --------------------------------
@@ -270,25 +283,35 @@ module StorageClass
 !        ----------------
 !
 #if defined(NAVIERSTOKES)
-         bounds(1) = (firstIdx-1)*NCONS + 1
-         bounds(2) = bounds(1) + NCONS * self % NDOF - 1
-         self % QNS   (1:NCONS,0:Nx,0:Ny,0:Nz) => globalStorage % QNS   (bounds(1) : bounds(2))
-         self % QdotNS(1:NCONS,0:Nx,0:Ny,0:Nz) => globalStorage % QdotNS(bounds(1) : bounds(2))
+         NNS = NCONS
+         NGRADNS = NGRAD
+
+#elif defined(INCNS)
+         NNS = NINC
+         NGRADNS = NINC
+
+#endif 
+
+#if defined(NAVIERSTOKES) || defined(INCNS)
+         bounds(1) = (firstIdx-1)*NNS + 1
+         bounds(2) = bounds(1) + NNS * self % NDOF - 1
+         self % QNS   (1:NNS,0:Nx,0:Ny,0:Nz) => globalStorage % QNS   (bounds(1) : bounds(2))
+         self % QdotNS(1:NNS,0:Nx,0:Ny,0:Nz) => globalStorage % QdotNS(bounds(1) : bounds(2))
          ! Previous solution
          if ( allocated(globalStorage % PrevQNS)) then
             num_prevSol = size(globalStorage % PrevQ,2)
             allocate ( self % PrevQ(num_prevSol) )
             do k=1, num_prevSol
-               self % PrevQ(k) % QNS(1:NCONS,0:Nx,0:Ny,0:Nz) => globalStorage % PrevQNS(bounds(1):bounds(2),k)
+               self % PrevQ(k) % QNS(1:NNS,0:Nx,0:Ny,0:Nz) => globalStorage % PrevQNS(bounds(1):bounds(2),k)
             end do
          end if
 
-         ALLOCATE( self % G_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % S_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % G_NS   (NNS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % S_NS   (NNS,0:Nx,0:Ny,0:Nz) )
          
-         ALLOCATE( self % U_xNS (NGRAD,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % U_yNS (NGRAD,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % U_zNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % U_xNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % U_yNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % U_zNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
          allocate( self % gradRho(NDIM,0:Nx,0:Ny,0:Nz) )
 !
 !        Point to NS by default
@@ -328,7 +351,7 @@ module StorageClass
 !        Initialize memory
 !        -----------------
 !
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          self % G_NS   = 0.0_RP
          self % S_NS   = 0.0_RP
          self % QNS    = 0.0_RP
@@ -366,7 +389,7 @@ module StorageClass
 !
 !        Copy the storage
 !        ----------------
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          to % QNS    = from % QNS
          to % U_xNS  = from % U_xNS
          to % U_yNS  = from % U_yNS
@@ -396,7 +419,7 @@ module StorageClass
             to % U_z  => NULL()
             to % QDot => NULL()
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          case (NS)
             call to % SetStorageToNS   
 #endif
@@ -428,7 +451,7 @@ module StorageClass
          self % U_y => NULL()
          self % U_z => NULL()
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          self % QNS => NULL()
          self % QDotNS => NULL()
 
@@ -480,7 +503,7 @@ module StorageClass
          safedeallocate(self % PrevQ)
 
       end subroutine ElementStorage_Destruct
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       subroutine ElementStorage_SetStorageToNS(self)
 !
 !        *****************************************
@@ -565,6 +588,7 @@ module StorageClass
 !        ---------------
 !
          integer     :: interfaceFluxMemorySize
+         integer     :: NNS, NGRADNS
 
          self % Nf  = Nf
          self % Nel = Nel
@@ -572,22 +596,30 @@ module StorageClass
          interfaceFluxMemorySize = 0
 
 #if defined(NAVIERSTOKES)
+         NNS = NCONS
+         NGRADNS = NGRAD
+#elif defined(INCNS)
+         NNS = NINC
+         NGRADNS = NINC
+#endif
+   
 
-         ALLOCATE( self % QNS   (NCONS,0:Nf(1),0:Nf(2)) )
-         ALLOCATE( self % U_xNS(NGRAD,0:Nf(1),0:Nf(2)) )
-         ALLOCATE( self % U_yNS(NGRAD,0:Nf(1),0:Nf(2)) )
-         ALLOCATE( self % U_zNS(NGRAD,0:Nf(1),0:Nf(2)) )
+#if defined(NAVIERSTOKES) || defined(INCNS)
+         ALLOCATE( self % QNS   (NNS,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % U_xNS(NGRADNS,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % U_yNS(NGRADNS,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % U_zNS(NGRADNS,0:Nf(1),0:Nf(2)) )
 !
 !        Biggest Interface flux memory size is u\vec{n}
 !        ----------------------------------------------
-         interfaceFluxMemorySize = NGRAD * nDIM * product(Nf + 1)
+         interfaceFluxMemorySize = NGRADNS * nDIM * product(Nf + 1)
 !
 !        TODO: JMT, if (implicit..?)
-         allocate( self % dFStar_dqF (NCONS,NCONS, 0: Nf(1), 0: Nf(2)) )
-         allocate( self % dFStar_dqEl(NCONS,NCONS, 0:Nel(1), 0:Nel(2),2) )
+         allocate( self % dFStar_dqF (NNS,NNS, 0: Nf(1), 0: Nf(2)) )
+         allocate( self % dFStar_dqEl(NNS,NNS, 0:Nel(1), 0:Nel(2),2) )
          
-         allocate( self % dFv_dGradQF (NCONS,NCONS,NDIM,2,0: Nf(1),0: Nf(2)) )
-         allocate( self % dFv_dGradQEl(NCONS,NCONS,NDIM,2,0:Nel(1),0:Nel(2)) )
+         allocate( self % dFv_dGradQF (NNS,NNS,NDIM,2,0: Nf(1),0: Nf(2)) )
+         allocate( self % dFv_dGradQEl(NNS,NNS,NDIM,2,0:Nel(1),0:Nel(2)) )
          
          allocate( self % gradRho   (NDIM,0:Nf(1),0:Nf(2)) )
 #endif
@@ -611,7 +643,7 @@ module StorageClass
 !        ---------------------------------------
          allocate(self % genericInterfaceFluxMemory(interfaceFluxMemorySize))
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
 !
 !        Point to NS by default
 !        ----------------------
@@ -622,7 +654,7 @@ module StorageClass
 !        Initialize memory
 !        -----------------
 !
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          self % QNS    = 0.0_RP
          
          self % U_xNS = 0.0_RP
@@ -653,7 +685,7 @@ module StorageClass
    
          self % currentlyLoaded = OFF
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
          safedeallocate(self % QNS)
          safedeallocate(self % U_xNS)
          safedeallocate(self % U_yNS)
@@ -683,17 +715,28 @@ module StorageClass
          self % fStar  => NULL()
 
       end subroutine FaceStorage_Destruct
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       subroutine FaceStorage_SetStorageToNS(self)
          implicit none
          class(FaceStorage_t), target    :: self
+         integer                         :: NNS, NGRADNS
 
          self % currentlyLoaded = NS
+
+#if defined(NAVIERSTOKES)
+         NNS = NCONS
+         NGRADNS = NGRAD
+
+#elif defined(INCNS)
+         NNS = NINC
+         NGRADNS = NINC        
+
+#endif
 !
 !        Get sizes
 !        ---------
          self % Q   (1:,0:,0:)            => self % QNS
-         self % fStar(1:NCONS, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
+         self % fStar(1:NNS, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
 
          self % genericInterfaceFluxMemory = 0.0_RP
 
@@ -701,7 +744,7 @@ module StorageClass
             self % U_x (1:,0:,0:) => self % U_xNS
             self % U_y (1:,0:,0:) => self % U_yNS
             self % U_z (1:,0:,0:) => self % U_zNS
-            self % unStar(1:NGRAD, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
+            self % unStar(1:NGRADNS, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
          end if
 
       end subroutine FaceStorage_SetStorageToNS

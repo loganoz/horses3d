@@ -406,6 +406,10 @@ module EllipticBR1
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             call self % GetViscosity(e % storage % c(1,i,j,k), mu(i,j,k))      
          end do                ; end do                ; end do
+#elif defined(INCNS)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            call self % GetViscosity(e % storage % Q(INSRHO,i,j,k), mu(i,j,k))      
+         end do                ; end do                ; end do
 #else
          mu = dimensionless % mu
 

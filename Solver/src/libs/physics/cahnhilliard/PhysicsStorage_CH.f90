@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:30 2018
-!   @Last revision date: Wed May 30 10:40:41 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 4f8965e46980c4f95aa4ff4c00996b34c42b4b94
+!   @Last revision date: Thu Jul  5 12:34:55 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,18 +25,12 @@
 !        Required arguments
 !        ******************
 !
-!         character(len=KEYWORD_LENGTH), parameter    :: MOBILITY_KEY         = "mobility"
-         character(len=KEYWORD_LENGTH), parameter    :: PECLET_NUMBER_KEY    = "peclet number"
-         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_WIDTH_KEY  = "interface width (dimensionless)"
-         character(len=KEYWORD_LENGTH), parameter    :: CAPILAR_NUMBER_KEY   = "capilar number"
-         character(len=KEYWORD_LENGTH), parameter    :: DENSITY_RATIO_KEY    = "density ratio (rho2/rho1)"
-         character(len=KEYWORD_LENGTH), parameter    :: VISCOSITY_RATIO_KEY  = "viscosity ratio (mu2/mu1)"
-!         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_ENERGY_KEY = "interface energy (multiphase)"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(5) :: physics_CHKeywords = [INTERFACE_WIDTH_KEY, &
-                                                                              CAPILAR_NUMBER_KEY,  &
+         character(len=KEYWORD_LENGTH), parameter    :: PECLET_NUMBER_KEY     = "peclet number"
+         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_WIDTH_KEY   = "interface width (dimensionless)"
+         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_TENSION_KEY = "interface tension"
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(3) :: physics_CHKeywords = [INTERFACE_WIDTH_KEY, &
                                                                               PECLET_NUMBER_KEY,   &
-                                                                              DENSITY_RATIO_KEY,   &
-                                                                              VISCOSITY_RATIO_KEY ]
+                                                                              INTERFACE_TENSION_KEY ]
 !
 !        ******************
 !        Optional arguments
@@ -96,7 +90,9 @@
 !     ---------------
 !
       CHARACTER(LEN=KEYWORD_LENGTH) :: keyword
-      type(Multiphase_t)            :: multiphase_
+      type(Multiphase_t)            :: multiphase_ 
+
+      multiphase_ = Multiphase_t()
 !
 !     --------------------
 !     Collect input values
@@ -110,15 +106,10 @@
 !     Read multiphase properties
 !     *****************************
 !
-      multiphase_ % w   = controlVariables % DoublePrecisionValueForKey(INTERFACE_WIDTH_KEY)
-      multiphase_ % eps = multiphase_ % w
-      multiphase_ % Pe  = controlVariables % DoublePrecisionValueForKey(PECLET_NUMBER_KEY)
-      multiphase_ % Ca  = controlVariables % DoublePrecisionValueForKey(CAPILAR_NUMBER_KEY)
-      multiphase_ % densityRatio = controlVariables % DoublePrecisionValueForKey(DENSITY_RATIO_KEY)
-      multiphase_ % viscRatio = controlVariables % DoublePrecisionValueForKey(VISCOSITY_RATIO_KEY)
-
-      multiphase_ % tildeRho = 0.5_RP * (multiphase_ % densityRatio - 1.0_RP)
-      multiphase_ % barRho   = 0.5_RP * (multiphase_ % densityRatio + 1.0_RP)
+      multiphase_ % w     = controlVariables % DoublePrecisionValueForKey(INTERFACE_WIDTH_KEY)
+      multiphase_ % eps   = multiphase_ % w
+      multiphase_ % Pe    = controlVariables % DoublePrecisionValueForKey(PECLET_NUMBER_KEY)
+      multiphase_ % sigma = controlVariables % DoublePrecisionValueForKey(INTERFACE_TENSION_KEY)
 !
 !     **************************************
 !     Read the wall contact angle if present
@@ -141,16 +132,12 @@
       multiphase_ % kappa   = POW2(multiphase_ % eps*Lref) * multiphase_ % rhoS
       multiphase_ % c_alpha = -1.0_RP
       multiphase_ % c_beta  = 1.0_RP
-
-      multiphase_ % sigma   = sqrt(2.0_RP * multiphase_ % kappa * multiphase_ % rhoS)/3.0_RP
 !
 !     ************************************
 !     Set the global (proteted) multiphase
 !     ************************************
 !
       call setMultiphase( multiphase_ )
-
-      CALL DescribePhysicsStorage_CH()
 
       END SUBROUTINE ConstructPhysicsStorage_CH
 !
@@ -189,6 +176,7 @@
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Beta  equilibrium concentration: " , multiphase % c_beta
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Wall contact angle: " , multiphase % thetaw
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Capilar number: " , multiphase % Ca
+         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Density ratio: " , multiphase % densityRatio
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Viscosity ratio: " , multiphase % viscRatio
 
       

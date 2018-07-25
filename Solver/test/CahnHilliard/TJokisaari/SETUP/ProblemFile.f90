@@ -286,6 +286,7 @@
 !           --------------------------------------------------------
 !
             use SMConstants
+            use FTAssertions
             USE HexMeshClass
             use PhysicsStorage
             use FluidData
@@ -306,6 +307,43 @@
             type(Monitor_t),        intent(in)    :: monitors
             real(kind=RP),             intent(in) :: elapsedTime
             real(kind=RP),             intent(in) :: CPUTime
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+#if defined(CAHNHILLIARD)
+            CHARACTER(LEN=119)                  :: testName           = "T-Jokisaari benchmark"
+            TYPE(FTAssertionsManager), POINTER :: sharedManager
+            LOGICAL                            :: success
+            real(kind=RP) :: cRes = 1.31687278503542_RP
+
+             CALL initializeSharedAssertionsManager
+             sharedManager => sharedAssertionsManager()
+ 
+             CALL FTAssertEqual(expectedValue = monitors % residuals % values(1,1) + 1.0_RP, &
+                                actualValue   = cRes + 1.0_RP, &
+                                tol           = 1.0e-10_RP, &
+                                msg           = "concentration residual")
+ 
+             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
+    
+             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
+                WRITE(6,*) testName, " ... Passed"
+                WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
+             ELSE
+                WRITE(6,*) testName, " ... Failed"
+                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
+                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
+                 STOP 99
+             END IF
+             WRITE(6,*)
+ 
+             CALL finalizeSharedAssertionsManager
+             CALL detachSharedAssertionsManager
+
+#endif
+
 
          END SUBROUTINE UserDefinedFinalize
 !

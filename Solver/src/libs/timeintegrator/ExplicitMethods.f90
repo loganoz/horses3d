@@ -14,8 +14,9 @@ MODULE ExplicitMethods
    USE SMConstants
    use HexMeshClass
    use TimeIntegratorDefinitions
-   use DGSEMClass, only: ComputeQDot_FCN, BCFunctions_t, no_of_BCsets
+   use DGSEMClass, only: ComputeTimeDerivative_f, BCFunctions_t, no_of_BCsets
    use ParticlesClass
+   use PhysicsStorage, only: CTD_IGNORE_MODE
    IMPLICIT NONE
 
    private
@@ -42,14 +43,14 @@ MODULE ExplicitMethods
 !     -----------------
 !
       type(HexMesh)      :: mesh
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       type(Particles_t)  :: particles
 #else
       logical            :: particles
 #endif
       REAL(KIND=RP)   :: t, deltaT, tk
       type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
-      procedure(ComputeQDot_FCN)    :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
 !
 !     ---------------
 !     Local variables
@@ -64,11 +65,11 @@ MODULE ExplicitMethods
       DO k = 1,3
          
          tk = t + b(k)*deltaT
-         CALL ComputeTimeDerivative( mesh, particles, tk, BCFunctions)
+         CALL ComputeTimeDerivative( mesh, particles, tk, BCFunctions, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
              mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
              mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
 #endif
@@ -81,6 +82,12 @@ MODULE ExplicitMethods
 !$omp end parallel do
          
       END DO
+
+
+         if ( any(isnan(mesh % storage % Q))) then
+            print*, "Numerical divergence obtained in solver."
+            stop
+         endif
       
    END SUBROUTINE TakeRK3Step
 
@@ -93,14 +100,14 @@ MODULE ExplicitMethods
 !
       implicit none
       type(HexMesh)                   :: mesh
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       type(Particles_t)  :: particles
 #else
       logical            :: particles
 #endif
       REAL(KIND=RP)                   :: t, deltaT, tk
       type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
-      procedure(ComputeQDot_FCN)      :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
 !
 !     ---------------
 !     Local variables
@@ -115,7 +122,7 @@ MODULE ExplicitMethods
       DO k = 1, N_STAGES
          
          tk = t + b(k)*deltaT
-         CALL ComputeTimeDerivative( mesh, particles, tk, BCFunctions)
+         CALL ComputeTimeDerivative( mesh, particles, tk, BCFunctions, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -144,14 +151,14 @@ MODULE ExplicitMethods
 !
       implicit none
       type(HexMesh)                   :: mesh
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       type(Particles_t)  :: particles
 #else
       logical            :: particles
 #endif
       REAL(KIND=RP)                   :: t, deltaT, tk
       type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
-      procedure(ComputeQDot_FCN)      :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
       !
 !     ---------------
 !     Local variables
@@ -159,7 +166,7 @@ MODULE ExplicitMethods
 !
       integer                    :: id, k
 
-      CALL ComputeTimeDerivative( mesh, particles, t, BCFunctions)
+      CALL ComputeTimeDerivative( mesh, particles, t, BCFunctions, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )

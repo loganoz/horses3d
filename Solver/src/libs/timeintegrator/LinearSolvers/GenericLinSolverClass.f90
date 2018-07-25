@@ -125,7 +125,7 @@ CONTAINS
       CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
       integer,       intent(in)                :: nEqn
       integer,       intent(in)                :: nGradEqn
-      procedure(ComputeQDot_FCN)               :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)               :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                  :: tol
       INTEGER      , OPTIONAL                  :: maxiter
       REAL(KIND=RP), OPTIONAL                  :: time

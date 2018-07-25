@@ -4,9 +4,9 @@
 !   @File:    FluidData_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:30 2018
-!   @Last revision date: Wed May 30 10:40:41 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 4f8965e46980c4f95aa4ff4c00996b34c42b4b94
+!   @Last revision date: Thu Jul  5 12:34:54 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
 !
 !//////////////////////////////////////////////////////
 !
@@ -32,19 +32,49 @@ module FluidData_CH
       real(kind=RP)  :: c_beta   ! Beta equilibrium concentration
       real(kind=RP)  :: thetaw   ! Wall angle
       real(kind=RP)  :: eps      ! Coefficient in the dimensionless CH equation
-      real(kind=RP)  :: w        ! Dimensionless interface width: 7.071 sqrt(kappa/rhoS)/Lref
-      real(kind=RP)  :: sigma    ! Interface energy: 0.01508 sqrt(kappa*rhoS)/Lref
+      real(kind=RP)  :: w        ! Dimensionless interface width
+      real(kind=RP)  :: sigma    ! Interface energy
       real(kind=RP)  :: Pe       ! Peclet number (for CH)
       real(kind=RP)  :: Ca       ! Capilar number (for NS)
-      real(kind=RP)  :: densityRatio ! Density ratio: rho(c=1)/rho(c=-1)
-      real(kind=RP)  :: viscRatio ! Viscosity ratio: mu(c=1)/mu(c=-1)
-      real(kind=RP)  :: tildeRho  !
-      real(kind=RP)  :: barRho    
+      real(kind=RP)  :: densityRatio 
+      real(kind=RP)  :: viscRatio
+      real(kind=RP)  :: barRho
+      real(kind=RP)  :: tildeRho
+      contains
+         procedure :: SetDensityRatio   => Multiphase_SetDensityRatio
+         procedure :: SetViscosityRatio => Multiphase_SetViscosityRatio
+         procedure :: SetCapilarNumber  => Multiphase_SetCapilarNumber
    end type Multiphase_t
 
    type(Multiphase_t), protected    :: multiphase
 
+   interface Multiphase_t
+      module procedure ConstructMultiphase
+   end interface Multiphase_t
+
    contains
+      function ConstructMultiphase()
+         implicit none
+         type(Multiphase_t) :: ConstructMultiphase
+
+         ConstructMultiphase % M            = 0.0_RP
+         ConstructMultiphase % rhoS         = 0.0_RP
+         ConstructMultiphase % kappa        = 0.0_RP
+         ConstructMultiphase % c_alpha      = 0.0_RP
+         ConstructMultiphase % c_beta       = 0.0_RP
+         ConstructMultiphase % thetaw       = 0.0_RP
+         ConstructMultiphase % eps          = 0.0_RP
+         ConstructMultiphase % w            = 0.0_RP
+         ConstructMultiphase % sigma        = 0.0_RP
+         ConstructMultiphase % Pe           = 0.0_RP
+         ConstructMultiphase % Ca           = 0.0_RP
+         ConstructMultiphase % densityRatio = 0.0_RP
+         ConstructMultiphase % viscRatio    = 0.0_RP
+         ConstructMultiphase % barRho       = 0.0_RP
+         ConstructMultiphase % tildeRho     = 0.0_RP
+
+      end function ConstructMultiphase
+   
       subroutine SetMultiphase( multiphase_ )
          implicit none
          type(Multiphase_t), intent(in)  :: multiphase_
@@ -60,10 +90,39 @@ module FluidData_CH
          multiphase % sigma   = multiphase_ % sigma
          multiphase % Pe      = multiphase_ % Pe
          multiphase % Ca      = multiphase_ % Ca
-         multiphase % densityRatio = multiphase_ % densityRatio
-         multiphase % viscRatio = multiphase_ % viscRatio
          multiphase % tildeRho  = multiphase_ % tildeRho
          multiphase % barRho    = multiphase_ % barRho
 
       end subroutine SetMultiphase
+
+      subroutine Multiphase_SetDensityRatio(self, densityRatio)
+         implicit none
+         class(Multiphase_t)  :: self
+         real(kind=RP), intent(in) :: densityRatio
+   
+         self % densityRatio = densityRatio
+
+         self % tildeRho = 0.5_RP * (self % densityRatio - 1.0_RP)
+         self % barRho   = 0.5_RP * (self % densityRatio + 1.0_RP)
+
+      end subroutine Multiphase_SetDensityRatio
+
+      subroutine Multiphase_SetViscosityRatio(self, viscRatio)
+         implicit none
+         class(Multiphase_t)  :: self
+         real(kind=RP), intent(in) :: viscRatio
+
+         self % viscRatio = viscRatio
+
+      end subroutine Multiphase_SetViscosityRatio
+   
+      subroutine Multiphase_SetCapilarNumber(self, Ca)
+         implicit none
+         class(Multiphase_t)  :: self
+         real(kind=RP), intent(in) :: Ca
+
+         self % Ca = Ca
+
+      end subroutine Multiphase_SetCapilarNumber
+   
 end module FluidData_CH

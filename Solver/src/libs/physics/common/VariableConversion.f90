@@ -4,9 +4,9 @@
 !   @File:    VariableConversion.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Tue May 29 17:43:59 2018
-!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 3c1e755ecd17ea60f252dec3daa7823c04603dcd
+!   @Last revision date: Thu Jul  5 12:35:00 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,6 +14,8 @@
 module VariableConversion
 #if defined(NAVIERSTOKES)
    use VariableConversion_NS
+#elif defined(INCNS)
+   use VariableConversion_iNS
 #endif
 #if defined(CAHNHILLIARD)
    use VariableConversion_CH
@@ -39,6 +41,8 @@ module VariableConversion
    end interface
 
    contains
+
+#if (defined(CAHNHILLIARD) && defined(NAVIERSTOKES))
       pure subroutine GetNSCHViscosity(phi, mu)
          use SMConstants, only: RP
          use FluidData
@@ -55,12 +59,31 @@ module VariableConversion
          cIn01 = 0.5_RP * (phi + 1.0_RP)
          p = POW3(cIn01) * (6.0_RP * POW2(cIn01) - 15.0_RP * cIn01 + 10.0_RP)
 
-#if (defined(CAHNHILLIARD) && defined(NAVIERSTOKES))
          mu = dimensionless % mu * ( (1.0_RP - p) + (p)*multiphase % viscRatio)
-#else
-         mu = 0.0_RP
-#endif
 
       end subroutine GetNSCHViscosity
+#endif
+
+#if (defined(INCNS) && defined(CAHNHILLIARD))
+      pure subroutine GetiNSCHViscosity(phi, mu)
+         use SMConstants, only: RP
+         use FluidData
+         implicit none
+         real(kind=RP), intent(in)     :: phi
+         real(kind=RP), intent(out)    :: mu
+!
+!        ---------------
+!        Local variables         
+!        ---------------
+!
+         real(kind=RP)  :: cIn01, p
+
+         cIn01 = 0.5_RP * (phi + 1.0_RP)
+         p = POW3(cIn01) * (6.0_RP * POW2(cIn01) - 15.0_RP * cIn01 + 10.0_RP)
+
+         mu = dimensionless % mu(1) * (1.0_RP - p) + (p)*dimensionless % mu(2)
+      
+      end subroutine GetiNSCHViscosity
+#endif
 
 end module VariableConversion
