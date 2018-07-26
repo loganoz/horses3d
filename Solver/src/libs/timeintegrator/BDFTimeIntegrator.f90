@@ -423,7 +423,7 @@ contains
       real(kind=RP)  :: RHS(NTOTALVARS*sem % NDOF), maxQ, maxPrevQ, maxQdot, maxRHS
       !----------------------------------------------------------------
       
-      call ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
+      call ComputeTimeDerivative( sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
       
       RHS = BDF_GetRHS(Q     = sem % mesh % storage % Q, &
                        PrevQ = sem % mesh % storage % PrevQ, &

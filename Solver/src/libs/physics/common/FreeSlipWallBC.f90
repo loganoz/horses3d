@@ -4,9 +4,9 @@
 !   @File:    FreeSlipWallBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:41 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed Jul 25 17:15:35 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
 !
 !//////////////////////////////////////////////////////
 !
@@ -20,6 +20,7 @@ module FreeSlipWallBCClass
    use GenericBoundaryConditionClass
    use FluidData
    use FileReadingUtilities, only: getArrayFromString
+   use Utilities, only: toLower, almostEqual
    implicit none
 !
 !  *****************************
@@ -152,11 +153,12 @@ module FreeSlipWallBCClass
 !        -------------------------------------------------------------
          inside = .false.
          do 
-            write(fid, '(A)', iostat=io) currentLine
+            read(fid, '(A)', iostat=io) currentLine
 
             IF(io .ne. 0 ) EXIT
 
             call PreprocessInputLine(currentLine)
+            call toLower(currentLine)
 
             if ( trim(currentLine) .eq. trim(boundaryHeader) ) then
                inside = .true.

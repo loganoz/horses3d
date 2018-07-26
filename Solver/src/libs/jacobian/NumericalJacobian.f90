@@ -205,9 +205,9 @@ contains
       end select
       
 #if defined(CAHNHILLIARD)
-      CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions, CTD_ONLY_CH_LIN )
+      CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, CTD_ONLY_CH_LIN )
 #else
-      CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE )
+      CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, CTD_IGNORE_MODE )
 #endif
 !
 !     Save base state in Q0 and QDot0
@@ -240,9 +240,9 @@ contains
             ENDDO
             
 #if defined(CAHNHILLIARD)
-            CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions, CTD_ONLY_CH_LIN )
+            CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, CTD_ONLY_CH_LIN )
 #else
-            CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE )
+            CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, CTD_IGNORE_MODE )
 #endif
 
             sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps

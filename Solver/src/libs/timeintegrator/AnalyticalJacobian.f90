@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (a.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Wed May 23 12:57:27 2018
+!   @Last revision date: Wed Jul 25 17:15:39 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
+!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
 !
 !//////////////////////////////////////////////////////
 !
@@ -29,6 +29,7 @@ module AnalyticalJacobian
    use StopWatchClass
    use MeshTypes
    use EllipticDiscretizations
+   use BoundaryConditions, only: BCs
    implicit none
    
    private
@@ -119,7 +120,7 @@ contains
 !     Compute the Jacobian of the Numerical Flux (FStar)
 !     **************************************************
 !
-      call ComputeNumericalFluxJacobian(sem % mesh,nEqn,time,sem % BCFunctions(1) % externalState)
+      call ComputeNumericalFluxJacobian(sem % mesh,nEqn,time)
 !
 !     ***************
 !     Diagonal blocks
@@ -260,7 +261,7 @@ contains
 !  -----------------------------------------------------------------------------------------------
 !  
 !  -----------------------------------------------------------------------------------------------
-   subroutine ComputeNumericalFluxJacobian(mesh,nEqn,time,externalStateProcedure)
+   subroutine ComputeNumericalFluxJacobian(mesh,nEqn,time)
       use RiemannSolvers_NS
       use FaceClass
       implicit none
@@ -268,7 +269,6 @@ contains
       type(HexMesh), intent(inout)    :: mesh
       integer,       intent(in)       :: nEqn
       real(kind=RP), intent(in)       :: time
-      procedure(BCState_FCN)          :: externalStateProcedure
       !--------------------------------------------
       integer :: fID
       !--------------------------------------------
@@ -283,7 +283,7 @@ contains
             case (HMESH_INTERIOR)
                call ComputeInterfaceFluxJacobian(f)
             case (HMESH_BOUNDARY)
-               call ComputeBoundaryFluxJacobian(f,time,externalStateProcedure)
+               call ComputeBoundaryFluxJacobian(f,time)
          end select
          end associate
       end do
@@ -301,14 +301,13 @@ contains
 !  where the last term is the Jacobian of the boundary condition.... +: internal state
 !                                                                    -: external state
 !  -----------------------------------------------------------------------------------------------
-   subroutine ComputeBoundaryFluxJacobian(f,time,externalStateProcedure)
+   subroutine ComputeBoundaryFluxJacobian(f,time)
       use RiemannSolvers_NS
       use FaceClass
       implicit none
       !--------------------------------------------
       type(Face), intent(inout) :: f
       real(kind=RP), intent(in) :: time
-      procedure(BCState_FCN)    :: externalStateProcedure
       !--------------------------------------------
       integer :: i,j
       real(kind=RP) :: BCjac(NCONS,NCONS)
@@ -327,12 +326,11 @@ contains
 !        ------------------
          
          f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
-         CALL externalStateProcedure( NCONS, &
+         CALL BCs(f % zone) % bc % StateForEqn( NCONS, &
                                       f % geom % x(:,i,j), &
                                       time, &
                                       f % geom % normal(:,i,j), &
-                                      f % storage(2) % Q(:,i,j),&
-                                      f % boundaryType, f % boundaryName )
+                                      f % storage(2) % Q(:,i,j))
 !
 !        Get numerical flux jacobian on the face point (i,j)
 !        ---------------------------------------------------
@@ -372,9 +370,7 @@ contains
                                      f % geom % normal(:,i,j), &
                                      f % storage(1) % Q(:,i,j),&
                                      f % storage(2) % Q(:,i,j),&
-                                     f % boundaryType, &
-                                     f % boundaryName, &
-                                     externalStateProcedure, &
+                                     f % zone, &
                                      BCjac )
          
          f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT  ) % dFStar_dqF (:,:,i,j) &
@@ -434,7 +430,7 @@ contains
 !  This routine obtains the Jacobian of the boundary condition numerically.
 !  This can be optimized introducing the analytical Jacobian of every single implemented BC...
 !  -----------------------------------------------------------------------------------------------
-   subroutine ExternalStateJacobian(x,time,nHat,Qin,Qex,boundaryType,boundaryName,externalStateProcedure,BCjac)
+   subroutine ExternalStateJacobian(x,time,nHat,Qin,Qex,zone,BCjac)
       implicit none
       !--------------------------------------------
       real(kind=RP), intent(in)       :: x(3)
@@ -442,9 +438,7 @@ contains
       real(kind=RP), intent(in)       :: nHat(3)
       real(kind=RP), intent(in)       :: Qin(NCONS)
       real(kind=RP), intent(in)       :: Qex(NCONS)
-      CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
-      CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
-      procedure(BCState_FCN)          :: externalStateProcedure
+      integer,       intent(in)       :: zone
       real(kind=RP), intent(out)      :: BCjac(NCONS,NCONS)
       !--------------------------------------------
       real(kind=RP) :: newQext (NCONS)
@@ -459,7 +453,7 @@ contains
          buffer = q(i)
          q(i) = q(i) + eps
          newQext = q
-         CALL externalStateProcedure( NCONS, x, time, nHat, newQext, boundaryType, boundaryName )
+         CALL BCs(zone) % bc % StateForEqn( NCONS, x, time, nHat, newQext)
          
          BCjac(:,i) = (newQext-Qex)/eps
          

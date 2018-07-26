@@ -4,9 +4,9 @@
 !   @File:    EllipticBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Mon Jul  2 14:17:26 2018
+!   @Last revision date: Wed Jul 25 17:15:30 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
+!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
 !
 !//////////////////////////////////////////////////////
 !
@@ -24,7 +24,7 @@ module EllipticBR2
    use EllipticDiscretizationClass
    use VariableConversion
    use FluidData
-   use DGSEMClass, only: BCState_FCN
+   use BoundaryConditions, only: BCs
    implicit none
 !
 !
@@ -110,7 +110,7 @@ module EllipticBR2
 
       end subroutine BR2_Describe
 
-      subroutine BR2_ComputeGradient( self , nEqn, nGradEqn, mesh , time , externalStateProcedure, GetGradients0D, GetGradients3D)
+      subroutine BR2_ComputeGradient( self , nEqn, nGradEqn, mesh , time , GetGradients0D, GetGradients3D)
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -121,7 +121,6 @@ module EllipticBR2
          integer,              intent(in) :: nGradEqn
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
-         procedure(BCState_FCN)           :: externalStateProcedure
          procedure(GetGradientValues0D_f) :: GetGradients0D
          procedure(GetGradientValues3D_f) :: GetGradients3D
 !
@@ -168,7 +167,7 @@ module EllipticBR2
                call BR2_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients0D) 
             
             case (HMESH_BOUNDARY) 
-               call BR2_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients0D, externalStateProcedure) 
+               call BR2_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients0D) 
  
             end select 
             end associate 
@@ -472,7 +471,7 @@ module EllipticBR2
          
       end subroutine BR2_GradientInterfaceSolutionMPI   
 
-      subroutine BR2_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients, externalState)
+      subroutine BR2_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients)
          use Physics
          use FaceClass
          implicit none
@@ -481,7 +480,6 @@ module EllipticBR2
          integer,    intent(in)           :: nGradEqn
          real(kind=RP)                    :: time
          procedure(GetGradientValues0D_f) :: GetGradients
-         procedure(BCState_FCN)           :: externalState
 !
 !        ---------------
 !        Local variables
@@ -495,11 +493,10 @@ module EllipticBR2
 
             bvExt =  f % storage(1) % Q(:,i,j)
    
-            call externalState( nEqn, f % geom % x(:,i,j), &
+            call BCs(f % zone) % bc % StateForEqn( nEqn, f % geom % x(:,i,j), &
                                 time               , &
                                 f % geom % normal(:,i,j)      , &
-                                bvExt              , &
-                                f % boundaryType, f % boundaryName )  
+                                bvExt              )
 !   
 !           -------------------
 !           u, v, w, T averages

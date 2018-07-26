@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Fri Jun 29 12:24:59 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f5ac1c3af6cb286f8def57452c066d57412a133b
+!   @Last revision date: Wed Jul 25 17:15:33 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
 !
 !//////////////////////////////////////////////////////
 !
@@ -58,7 +58,6 @@
          INTEGER, DIMENSION(3)           :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
          TYPE(MappedGeometry)            :: geom
          CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName(6)
-         CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType(6)
          INTEGER                         :: NumberOfConnections(6)
          TYPE(Connectivity)              :: Connection(6)
          type(ElementStorage_t)          :: storage
@@ -116,7 +115,6 @@
          self % Nxyz(2)             = Ny
          self % Nxyz(3)             = Nz
          self % boundaryName        = emptyBCName
-         self % boundaryType        = emptyBCName
          self % hasSharedFaces      = .false.
          self % NumberOfConnections = 0
          self % spAxi   => NodalStorage(Nx)

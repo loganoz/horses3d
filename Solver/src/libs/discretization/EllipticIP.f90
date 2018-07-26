@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Mon Jul  2 14:17:26 2018
+!   @Last revision date: Wed Jul 25 17:15:31 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
+!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,6 +25,7 @@ module EllipticIP
    use EllipticDiscretizationClass
    use DGSEMClass
    use FluidData
+   use BoundaryConditions, only: BCs
    implicit none
 !
 !
@@ -198,7 +199,7 @@ module EllipticIP
             
       end subroutine IP_Describe
 
-      subroutine IP_ComputeGradient(self, nEqn, nGradEqn, mesh, time, externalStateProcedure, GetGradients0D, GetGradients3D)
+      subroutine IP_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients0D, GetGradients3D)
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -208,7 +209,6 @@ module EllipticIP
          integer,                  intent(in) :: nEqn, nGradEqn
          class(HexMesh)                       :: mesh
          real(kind=RP),        intent(in)     :: time
-         procedure(BCState_FCN)               :: externalStateProcedure
          procedure(GetGradientValues0D_f)     :: GetGradients0D
          procedure(GetGradientValues3D_f)     :: GetGradients3D
 !
@@ -255,7 +255,7 @@ module EllipticIP
                call IP_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients0D) 
             
             case (HMESH_BOUNDARY) 
-               call IP_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients0D, externalStateProcedure) 
+               call IP_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients0D) 
  
             end select 
             end associate 
@@ -438,7 +438,7 @@ module EllipticIP
          
       end subroutine IP_GradientInterfaceSolutionMPI   
 
-      subroutine IP_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients, externalState)
+      subroutine IP_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients)
          use Physics
          use FaceClass
          implicit none
@@ -447,7 +447,6 @@ module EllipticIP
          integer,    intent(in)           :: nGradEqn
          real(kind=RP)                    :: time
          procedure(GetGradientValues0D_f) :: GetGradients
-         procedure(BCState_FCN)           :: externalState
 !
 !        ---------------
 !        Local variables
@@ -461,11 +460,10 @@ module EllipticIP
 
             bvExt =  f % storage(1) % Q(:,i,j)
    
-            call externalState( nEqn, f % geom % x(:,i,j), &
+            call BCs(f % zone) % bc % StateForEqn( nEqn, f % geom % x(:,i,j), &
                                 time               , &
                                 f % geom % normal(:,i,j)      , &
-                                bvExt              , &
-                                f % boundaryType, f % boundaryName )  
+                                bvExt              )
 !   
 !           -------------------
 !           u, v, w, T averages

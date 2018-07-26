@@ -6,6 +6,7 @@ module ZoneClass
    use FTValueDictionaryClass
    use FTLinkedListClass
    use MeshTypes
+   use BoundaryConditions, only: ConstructBoundaryConditions
    
    
    private
@@ -70,6 +71,11 @@ module ZoneClass
 !        Assign the faces
 !        ----------------         
          call Zone_AssignFaces(faces,zones,no_of_markers,zoneNames)
+!
+!        Construct Boundary conditions
+!        ----------------------------- 
+         call ConstructBoundaryConditions(no_of_markers, zoneNames)
+         
          
       end subroutine ConstructZones
 !

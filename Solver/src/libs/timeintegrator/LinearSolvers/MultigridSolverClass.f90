@@ -210,7 +210,6 @@ CONTAINS
          ! Create DGSEM class for child
          ALLOCATE (Child_p % p_sem)
          CALL Child_p % p_sem % construct (controlVariables = controlVariables,              &
-                                           BCFunctions      = Solver % p_sem % BCFunctions,  &
                                            Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,            &
                                            success = success )
          IF (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
@@ -487,7 +486,7 @@ CONTAINS
       
 !~      CALL this % p_sem % GetQ(buffer)
       CALL this % p_sem % SetQ(this % Ur + x*eps, NTOTALVARS)
-      CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, this % p_sem % BCFunctions, CTD_IGNORE_MODE)
+      CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, CTD_IGNORE_MODE)
       CALL this % p_sem % GetQdot(nEqn,F)
 !~      CALL this % p_sem % SetQ(buffer)
       Ax = ( F - this % F_Ur) / eps + shift * x                          !First order

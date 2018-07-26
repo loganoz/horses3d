@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:28 2018
-!   @Last revision date: Wed Jul 25 15:26:41 2018
+!   @Last revision date: Wed Jul 25 17:15:35 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 81826983b0aeb2c3cda447784639f95f331c0896
+!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
 !
 !//////////////////////////////////////////////////////
 !
@@ -23,10 +23,12 @@ module BoundaryConditions
    use FreeSlipWallBCClass,           only: FreeSlipWallBC_t
    use PeriodicBCClass,               only: PeriodicBC_t
    use UserDefinedBCClass,            only: UserDefinedBC_t
+   use Utilities, only: toLower, almostEqual
    implicit none
 
    private
    public   BCs, ConstructBoundaryConditions, DestructBoundaryConditions, SetBoundaryConditionsEqn
+   public   NS_BC, C_BC, MU_BC
 
    enum, bind(C)
       enumerator :: INFLOW_BC = 1 , OUTFLOW_BC
@@ -180,22 +182,22 @@ module BoundaryConditions
 !        -------------------------------------------------------------
          inside = .false.
          do 
-            write(fid, '(A)', iostat=io) currentLine
+            read(fid, '(A)', iostat=io) currentLine
 
             IF(io .ne. 0 ) EXIT
 
             call PreprocessInputLine(currentLine)
+            call toLower(currentLine)
 
             if ( trim(currentLine) .eq. trim(boundaryHeader) ) then
                inside = .true.
+               call bcdict % InitWithSize(16)
             end if
 !
 !           Get all keywords inside the zone
 !           --------------------------------
             if ( inside ) then
                if ( trim(currentLine) .eq. "#end" ) exit
-
-               call bcdict % InitWithSize(16)
 
                keyword  = ADJUSTL(GetKeyword(currentLine))
                keyval   = ADJUSTL(GetValueAsString(currentLine))
@@ -208,7 +210,7 @@ module BoundaryConditions
          end do
 
          if ( .not. bcdict % ContainsKey("type") ) then
-            print*, "Missing boundary condition type for boundary", trim(bname)
+            print*, "Missing boundary condition type for boundary ", trim(bname)
             errorMessage(STD_OUT)
             stop
          end if

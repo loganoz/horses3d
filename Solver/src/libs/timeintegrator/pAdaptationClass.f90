@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Tue Jul  3 19:19:11 2018
+!   @Last revision date: Wed Jul 25 17:15:51 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 3db74c1b54d0c4fcf30b72bedefd8dbd2ef9b8ce
+!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,7 +25,7 @@ module pAdaptationClass
    use PhysicsStorage                  , only: NTOTALVARS, CTD_IGNORE_MODE
    use FaceClass                       , only: Face
    use ElementClass
-   use DGSEMClass                      , only: DGSem, BCFunctions_t, BCState_FCN, BCGradients_FCN, ComputeTimeDerivative_f, no_of_BCsets
+   use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f
    use TruncationErrorClass
    use FTValueDictionaryClass          , only: FTValueDictionary
    use StorageClass
@@ -35,10 +35,6 @@ module pAdaptationClass
    use ParamfileRegions                , only: readValueInRegion, getSquashedLine
    use HexMeshClass                    , only: HexMesh
    use ElementConnectivityDefinitions  , only: neighborFaces
-#if defined(CAHNHILLIARD)
-   use BoundaryConditionFunctions, only: C_BC, MU_BC
-#endif
-   
    implicit none
    
 #include "Includes.h"
@@ -109,14 +105,6 @@ module pAdaptationClass
    logical    :: reorganize_z
    
    procedure(OrderAcrossFace_f), pointer :: GetOrderAcrossFace
-#if defined(NAVIERSTOKES)
-   procedure(BCState_FCN)       :: externalStateForBoundaryName_NS
-   procedure(BCGradients_FCN)   :: ExternalGradientForBoundaryName_NS
-#elif defined(CAHNHILLIARD)
-   procedure(BCState_FCN)       :: externalStateForBoundaryName
-   procedure(BCGradients_FCN)   :: ExternalChemicalPotentialGradientForBoundaryName
-   procedure(BCGradients_FCN)   :: ExternalConcentrationGradientForBoundaryName
-#endif
    
    ! Here we define the input variables that can be changed after p-adaptation
    character(len=18), parameter :: ReplacedInputVars(4) = (/'mg sweeps         ', &
@@ -588,7 +576,6 @@ readloop:do
       logical                    :: notenough(3)
       TYPE(AnisFASMultigrid_t)   :: AnisFASpAdaptSolver
       character(len=LINE_LENGTH) :: AdaptedMeshFile
-      type(BCFunctions_t)        :: BCFunctions(no_of_BCsets)
       logical                    :: last
       interface
          character(len=LINE_LENGTH) function getFileName( inputLine )
@@ -822,17 +809,6 @@ readloop:do
 !
       call Stopwatch % Pause("Solver")
       call Stopwatch % Start("Preprocessing")
-      
-#if defined(NAVIERSTOKES)
-      BCFunctions(1) % externalState => externalStateForBoundaryName_NS
-      BCFunctions(1) % externalGradients => externalGradientForBoundaryName_NS
-#elif defined(CAHNHILLIARD)
-      BCFunctions(C_BC) % externalState      => externalStateForBoundaryName
-      BCFunctions(C_BC) % externalGradients  => externalConcentrationGradientForBoundaryName
-
-      BCFunctions(MU_BC) % externalState     => externalStateForBoundaryName
-      BCFunctions(MU_BC) % externalGradients => externalChemicalPotentialGradientForBoundaryName
-#endif
 !
 !     ---------------------------
 !     Store the previous solution
@@ -854,7 +830,6 @@ readloop:do
 !
       call sem % destruct
       call sem % construct (  controlVariables  = controlVariables                       ,   &
-                              BCFunctions       = BCFunctions, &
                               Nx_ = NNew(1,:) ,     Ny_ = NNew(2,:),     Nz_ = NNew(3,:),    &
                               success           = success)
       IF(.NOT. success)   ERROR STOP "Error constructing adapted DGSEM"
@@ -935,7 +910,7 @@ readloop:do
 !     Update residuals
 !     ----------------
 !
-      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
       
       write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
 

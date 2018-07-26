@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Fri Jul  6 12:12:22 2018
+!   @Last revision date: Wed Jul 25 17:15:34 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 065992b884b4d849167cab46ea3d1157bb7738e2
+!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
 !
 !//////////////////////////////////////////////////////
 !
@@ -32,6 +32,7 @@ MODULE HexMeshClass
       use FileReadingUtilities            , only: RemovePath, getFileName
       use FTValueDictionaryClass          , only: FTValueDictionary
       use SolutionFile
+      use BoundaryConditions,               only: DestructBoundaryConditions
 #if defined(NAVIERSTOKES)
       use WallDistance
 #endif
@@ -171,6 +172,8 @@ MODULE HexMeshClass
 !        -----
 !
          if (allocated(self % zones)) DEALLOCATE( self % zones )
+
+         call DestructBoundaryConditions
 !
 !        --------------
 !        Global storage

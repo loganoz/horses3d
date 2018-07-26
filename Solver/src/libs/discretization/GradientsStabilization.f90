@@ -4,9 +4,9 @@
 !   @File:    GradientsStabilization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Thu Apr 12 11:32:49 2018
-!   @Last revision date: Fri May 11 13:06:55 2018
+!   @Last revision date: Wed Jul 25 17:15:32 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 8e164298629e7c619d07ae268e3284e9ecc3158c
+!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
 !
 !//////////////////////////////////////////////////////
 !
@@ -18,7 +18,7 @@ module GradientsStabilization
    use HexMeshClass
    use PhysicsStorage
    use VariableConversion
-   use DGSEMClass, only: BCState_FCN
+   use BoundaryConditions, only: BCs
    implicit none
 
    private
@@ -41,11 +41,10 @@ module GradientsStabilization
    contains
 !  ========
 !
-      subroutine StabilizeGradients(mesh, time, externalStateProcedure)
+      subroutine StabilizeGradients(mesh, time)
          implicit none
          class(HexMesh)                :: mesh
          real(kind=RP),    intent(in)  :: time
-         procedure(BCState_FCN)        :: externalStateProcedure
 !
 !        ---------------
 !        Local variables
@@ -65,7 +64,7 @@ module GradientsStabilization
                call GradientsStabilization_InteriorFace(f) 
             
             case (HMESH_BOUNDARY) 
-               call GradientsStabilization_BoundaryFace(f, time, externalStateProcedure) 
+               call GradientsStabilization_BoundaryFace(f, time) 
  
             end select 
             end associate 
@@ -236,13 +235,12 @@ module GradientsStabilization
          
       end subroutine GradientsStabilization_MPIFace   
 
-      subroutine GradientsStabilization_BoundaryFace(f, time, externalState)
+      subroutine GradientsStabilization_BoundaryFace(f, time)
          use Physics
          use FaceClass
          implicit none
          type(Face)             :: f
          real(kind=RP)          :: time
-         procedure(BCState_FCN) :: externalState
          integer                :: i, j
          real(kind=RP)          :: Uhat(NCOMP), cL(NCOMP), cR(NCOMP)
          real(kind=RP)          :: bvExt(NCOMP)
@@ -251,12 +249,10 @@ module GradientsStabilization
 
             bvExt =  f % storage(1) % c(:,i,j)
    
-            call externalState( NCOMP, f % geom % x(:,i,j), &     ! TODO: Check if this is only for CH... NCOMP?
+            call BCs(f % zone) % bc % PhaseFieldState( f % geom % x(:,i,j), & 
                                 time               , &
                                 f % geom % normal(:,i,j)      , &
-                                bvExt              , &
-                                f % boundaryType , &
-                                f % boundaryName)  
+                                bvExt              )
 !   
 !           -------------------
 !           u, v, w, T averages

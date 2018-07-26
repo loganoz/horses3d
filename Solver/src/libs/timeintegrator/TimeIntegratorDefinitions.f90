@@ -4,9 +4,9 @@
 !   @File:    TimeIntegratorDefinitions.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Feb 13 14:26:34 2018
-!   @Last revision date: Tue Jul  3 17:26:49 2018
+!   @Last revision date: Wed Jul 25 17:15:49 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 96905b05f7c99a4dc1a38da8202804d6dfef8cb3
+!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
 !
 !//////////////////////////////////////////////////////
 !
@@ -18,7 +18,7 @@ module TimeIntegratorDefinitions
    public   TimeStep_FCN
 
    abstract interface
-      subroutine TimeStep_FCN( mesh, particles, t, BCFunctions, deltaT, ComputeTimeDerivative )
+      subroutine TimeStep_FCN( mesh, particles, t, deltaT, ComputeTimeDerivative )
          use SMConstants
          use HexMeshClass
          use DGSEMClass
@@ -33,7 +33,6 @@ module TimeIntegratorDefinitions
          logical                    :: particles
 #endif
          REAL(KIND=RP)              :: t, deltaT
-         type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
          procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
       end subroutine TimeStep_FCN
    end interface
