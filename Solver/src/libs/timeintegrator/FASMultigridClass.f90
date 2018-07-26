@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Wed Jul 25 17:15:41 2018
+!   @Last revision date: Thu Jul 26 15:53:58 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
+!   @Last revision commit: d2d8fae7ff00a479ca1a250f4de9713ae74a8c62
 !
 !//////////////////////////////////////////////////////
 !
@@ -302,7 +302,7 @@ module FASMultigridClass
 !
    recursive subroutine RecursiveConstructor(Solver, N1x, N1y, N1z, lvl, controlVariables)
 #if defined(NAVIERSTOKES)
-      use BoundaryConditionFunctions_NS
+      use ManufacturedSolutions
 #endif
       use FTValueDictionaryClass
       implicit none

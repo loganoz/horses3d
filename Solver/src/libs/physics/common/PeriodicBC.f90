@@ -4,9 +4,9 @@
 !   @File:    PeriodicBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:43 2018
-!   @Last revision date: Wed Jul 25 17:15:37 2018
+!   @Last revision date: Thu Jul 26 15:53:58 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
+!   @Last revision commit: d2d8fae7ff00a479ca1a250f4de9713ae74a8c62
 !
 !//////////////////////////////////////////////////////
 !
@@ -52,6 +52,7 @@ module PeriodicBCClass
       character(len=LINE_LENGTH) :: associatedbname   
       contains
          procedure         :: Destruct          => PeriodicBC_Destruct
+         procedure         :: GetPeriodicPair   => PeriodicBC_GetPeriodicPair
    end type PeriodicBC_t
 !
 !  *******************************************************************
@@ -86,18 +87,7 @@ module PeriodicBCClass
 !        · Definition of the periodic boundary condition in the control file:
 !              #define boundary bname
 !                 type             = periodic
-!                 velocity         = #value        (only in incompressible NS)
-!                 Mach number      = #value        (only in compressible NS)
-!                 AoAPhi           = #value
-!                 AoATheta         = #value
-!                 density          = #value        (only in monophase)
-!                 pressure         = #value        (only in compressible NS)
-!                 multiphase type  = mixed/layered
-!                 phase 1 layer x  > #value
-!                 phase 1 layer y  > #value
-!                 phase 1 layer z  > #value
-!                 phase 1 velocity = #value
-!                 phase 2 velocity = #value
+!                 coupled boundary = bname
 !              #end
 !        ********************************************************************
 !
@@ -164,16 +154,24 @@ module PeriodicBCClass
 !
 !        Analyze the gathered data
 !        -------------------------
-         if ( .not. bcdict % ContainsKey("boundary name to pair") ) then
-            print*, 'Select a "boundary name to pair" for boundary',trim(bname)
+         if ( .not. bcdict % ContainsKey("coupled boundary") ) then
+            print*, 'Select a "coupled boundary" for boundary',trim(bname)
             errorMessage(STD_OUT)
          else
-            ConstructPeriodicBC % associatedbname = bcdict % StringValueForKey("boundary name to pair", LINE_LENGTH)
+            ConstructPeriodicBC % associatedbname = bcdict % StringValueForKey("coupled boundary", LINE_LENGTH)
          end if
          close(fid)
          call bcdict % Destruct
    
       end function ConstructPeriodicBC
+
+      subroutine PeriodicBC_GetPeriodicPair(self, bname)
+         implicit none
+         class(PeriodicBC_t), intent(in)  :: self
+         character(len=*), intent(out) :: bname
+
+         bname = self % associatedbname
+      end subroutine PeriodicBC_GetPeriodicPair
 !
 !/////////////////////////////////////////////////////////
 !

@@ -20,6 +20,7 @@ module ZoneClass
    
    type Zone_t
       integer                     :: marker
+      logical                     :: toBeDeleted = .false.
       character(len=STR_LEN_ZONE) :: Name
       integer                     :: no_of_faces
       integer, allocatable        :: faces(:)

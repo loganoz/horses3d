@@ -47,11 +47,9 @@
 !
          CHARACTER(LEN=LINE_LENGTH) :: inputLine
          CHARACTER(LEN=LINE_LENGTH) :: keyword, keywordValue
-         CHARACTER(LEN=LINE_LENGTH) :: boundaryName
-         CHARACTER(LEN=LINE_LENGTH) :: boundaryType
-         CHARACTER(LEN=LINE_LENGTH) :: boundaryValue
          CHARACTER(LEN=LINE_LENGTH) :: arg
          character(len=LINE_LENGTH) :: boundaryNameControlVariable
+         CHARACTER(LEN=LINE_LENGTH) :: boundaryName
          INTEGER                    :: numberOfBCs, k
          INTEGER                    :: ist
          logical                                 :: isInsideHagstagZone
@@ -129,27 +127,6 @@
             keywordValue = ADJUSTL(GetValueAsString(inputLine))
             CALL toLower(keyword)
             CALL controlVariables % addValueForKey(keywordValue,TRIM(keyword))
-            
-            IF(keyword == numberOfBoundariesKey) THEN 
-!
-!              ---------------------------------------------------------------------------
-!              We will store the type and values of the boundaries in dictionaries so that
-!              we can associate a name of a boundary curve found in the mesh file with a
-!              particular value and type of boundary conditions.
-!              ---------------------------------------------------------------------------
-!
-               numberOfBCs = controlVariables%integerValueForKey(numberOfBoundariesKey)
-               
-               DO k = 1, numberOfBCs 
-                  READ(fid,*) boundaryName, boundaryValue, boundaryType
-                  CALL toLower(boundaryName)
-                  CALL toLower(boundaryType)
-                  CALL bcTypeDictionary % addValueForKey(boundaryType, boundaryName)
-                  CALL bcValueDictionary % addValueForKey(boundaryValue, boundaryName)
-                  write(boundaryNameControlVariable,'(A,I0)') "BoundaryName",k
-                  call controlVariables % addValueForKey(boundaryName,trim(boundaryNameControlVariable))
-               END DO
-            END IF
             
             IF(keyword == "adaptation conforming boundaries") THEN
 !

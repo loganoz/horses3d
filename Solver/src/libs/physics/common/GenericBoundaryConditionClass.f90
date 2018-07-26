@@ -4,9 +4,9 @@
 !   @File:    GenericBoundaryConditionClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:42 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Thu Jul 26 15:53:57 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: d2d8fae7ff00a479ca1a250f4de9713ae74a8c62
 !
 !//////////////////////////////////////////////////////
 !
@@ -57,6 +57,7 @@ module GenericBoundaryConditionClass
       contains
          procedure         :: Destruct          => GenericBC_Destruct
          procedure         :: Describe          => GenericBC_Describe
+         procedure         :: GetPeriodicPair   => GenericBC_GetPeriodicPair
 #if defined(NAVIERSTOKES) || defined(INCNS)
          procedure         :: FlowState         => GenericBC_FlowState
          procedure         :: FlowNeumann       => GenericBC_FlowNeumann
@@ -313,6 +314,18 @@ module GenericBoundaryConditionClass
          implicit none
          class(GenericBC_t),  intent(in)  :: self
       end subroutine GenericBC_Describe
+
+      subroutine GenericBC_GetPeriodicPair(self, bname)
+!
+!        *****************************************
+!        Only for periodic BCs, empty for the rest
+!        *****************************************
+!
+         implicit none
+         class(GenericBC_t),  intent(in)  :: self
+         character(len=*), intent(out) :: bname
+      end subroutine GenericBC_GetPeriodicPair
+         
 !
 !////////////////////////////////////////////////////////////////////////////
 !
