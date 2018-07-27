@@ -4,9 +4,9 @@
 !   @File:    OutflowBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:43 2018
-!   @Last revision date: Thu Jul 26 22:00:45 2018
+!   @Last revision date: Fri Jul 27 18:59:33 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fb773e7c8706f4b4ef1f5bf9693a2b44f6c12dd2
+!   @Last revision commit: 52dc2d6e64f5c93de205ce8bb5d283128f3c5e11
 !
 !//////////////////////////////////////////////////////
 !
@@ -186,6 +186,12 @@ module OutflowBCClass
             ConstructOutflowBC % pExt = refValues % p / dimensionless % gammaM2 - bcdict % DoublePrecisionValueForKey("dp")
 #elif defined(INCNS)
             ConstructOutflowBC % pExt = 0.0_RP - bcdict % DoublePrecisionValueForKey("dp")
+#endif
+         else
+#if defined(NAVIERSTOKES)
+            ConstructOutflowBC % pExt = refValues % p / dimensionless % gammaM2 
+#elif defined(INCNS)
+            ConstructOutflowBC % pExt = 0.0_RP
 #endif
          end if
 

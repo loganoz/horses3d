@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:28 2018
-!   @Last revision date: Thu Jul 26 22:00:43 2018
+!   @Last revision date: Fri Jul 27 18:59:32 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fb773e7c8706f4b4ef1f5bf9693a2b44f6c12dd2
+!   @Last revision commit: 52dc2d6e64f5c93de205ce8bb5d283128f3c5e11
 !
 !//////////////////////////////////////////////////////
 !
@@ -84,26 +84,44 @@ module BoundaryConditions
             select case(zType)
             case(INFLOW_BC)
                allocate(InflowBC_t       :: BCs(zID) % bc)
-               BCs(zID) % bc = InflowBC_t(trim(zoneNames(zID)))
+               select type(bc => BCs(zID) % bc)
+               type is (InflowBC_t)
+                  bc = InflowBC_t(trim(zoneNames(zID)))
+               end select
             case(OUTFLOW_BC)
                allocate(OutflowBC_t      :: BCs(zID) % bc)
-               BCs(zID) % bc = OutflowBC_t(trim(zoneNames(zID)))
+               select type(bc => BCs(zID) % bc)
+               type is (OutflowBC_t)
+                  bc = OutflowBC_t(trim(zoneNames(zID)))
+               end select
             case(NOSLIPWALL_BC)
                allocate(NoSlipWallBC_t   :: BCs(zID) % bc)
-               BCs(zID) % bc = NoSlipWallBC_t(trim(zoneNames(zID)))
+               select type(bc => BCs(zID) % bc)
+               type is (NoSlipWallBC_t)
+                  bc = NoSlipWallBC_t(trim(zoneNames(zID)))
+               end select
             case(FREESLIPWALL_BC)
                allocate(FreeSlipWallBC_t :: BCs(zID) % bc)
-               BCs(zID) % bc = FreeSlipWallBC_t(trim(zoneNames(zID)))
+               select type(bc => BCs(zID) % bc)
+               type is (FreeSlipWallBC_t)
+                  bc = FreeSlipWallBC_t(trim(zoneNames(zID)))
+               end select
             case(PERIODIC_BC)
                allocate(PeriodicBC_t     :: BCs(zID) % bc)
-               BCs(zID) % bc = PeriodicBC_t(trim(zoneNames(zID)))
+               select type(bc => BCs(zID) % bc)
+               type is (PeriodicBC_t)
+                  bc = PeriodicBC_t(trim(zoneNames(zID)))
+               end select
             case(USERDEFINED_BC)
                allocate(UserDefinedBC_t  :: BCs(zID) % bc)
-               BCs(zID) % bc = UserDefinedBC_t(trim(zoneNames(zID)))
+               select type(bc => BCs(zID) % bc)
+               type is (UserDefinedBC_t)
+                  bc = UserDefinedBC_t(trim(zoneNames(zID)))
+               end select
             case default
                print*, "Unrecognized BC option"
                errorMessage(STD_OUT)
-               stop
+               stop 99
             end select
              
          end do
