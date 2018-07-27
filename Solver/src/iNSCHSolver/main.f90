@@ -4,9 +4,9 @@
 !   @File:    main.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Mon Jul  2 17:50:24 2018
-!   @Last revision date: Fri Jul  6 12:12:22 2018
+!   @Last revision date: Thu Jul 26 18:56:01 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 065992b884b4d849167cab46ea3d1157bb7738e2
+!   @Last revision commit: f38edcf71102c599db99be79ab383d8db766ce5c
 !
 !//////////////////////////////////////////////////////
 !
@@ -36,7 +36,6 @@
       USE SharedBCModule
       USE zoneClass
       USE DGSEMClass
-      USE BoundaryConditionFunctions
       USE TimeIntegratorClass
       USE mainKeywordsModule
       USE Headers
@@ -62,12 +61,6 @@
       integer                             :: initial_iteration
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
-      type(BCFunctions_t)                 :: BCFunctions(3)
-      procedure(BCState_FCN)              :: externalStateForBoundaryName_iNS
-      procedure(BCGradients_FCN)          :: ExternalGradientForBoundaryName_iNS
-      procedure(BCState_FCN)              :: externalCHStateForBoundaryName
-      procedure(BCGradients_FCN)          :: ExternalConcentrationGradientForBoundaryName
-      procedure(BCGradients_FCN)          :: ExternalChemicalPotentialGradientForBoundaryName
       character(len=LINE_LENGTH)          :: solutionFileName
       procedure(UserDefinedStartup_f)     :: UserDefinedStartup
       procedure(UserDefinedFinalSetup_f)  :: UserDefinedFinalSetup
@@ -118,24 +111,13 @@
       call InitializeNodalStorage(Nmax)
       call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
       
-      BCFunctions(NS_BC) % externalState     => externalStateForBoundaryName_iNS
-      BCFunctions(NS_BC) % externalGradients => externalGradientForBoundaryName_iNS
-
-      BCFunctions(C_BC) % externalState      => externalCHStateForBoundaryName
-      BCFunctions(C_BC) % externalGradients  => externalConcentrationGradientForBoundaryName
-
-      BCFunctions(MU_BC) % externalState     => externalCHStateForBoundaryName
-      BCFunctions(MU_BC) % externalGradients => externalChemicalPotentialGradientForBoundaryName
-
       call sem % construct (  controlVariables  = controlVariables,                                         &
-                              BCFunctions = BCFunctions, &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
                                  success           = success)
 
       call Initialize_SpaceAndTimeMethods(controlVariables, sem % mesh)
                            
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
-      CALL checkBCIntegrity(sem % mesh, success)
       IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
       CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues, multiphase)
 !
@@ -210,123 +192,6 @@
       call MPI_Process % Close
       
       END PROGRAM HORSES3DMainNS
-!
-!/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
-! 
-      SUBROUTINE CheckBCIntegrity(mesh, success)
-!
-         use SMConstants
-         use MeshTypes
-         USE HexMeshClass
-         use FTValueDictionaryClass
-         USE SharedBCModule
-         USE BoundaryConditionFunctions_iNS, ONLY:implementediNSBCNames
-         USE BoundaryConditionFunctions_CH, ONLY:implementedCHBCNames
-         IMPLICIT NONE
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         TYPE(HexMesh) :: mesh
-         LOGICAL       :: success
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         INTEGER                              :: i, j
-         INTEGER                              :: faceID, eId
-         CHARACTER(LEN=BC_STRING_LENGTH)      :: bcName, namedBC
-         CHARACTER(LEN=BC_STRING_LENGTH)      :: bcType
-         real(kind=RP)                        :: bcValue
-         TYPE(FTMutableObjectArray), POINTER :: bcObjects
-         CLASS(FTValue)             , POINTER :: v
-         CLASS(FTObject), POINTER             :: obj
-         
-         success = .TRUE.
-!
-!        ----------------------------------------------------------
-!        Check to make sure that the boundaries defined in the mesh
-!        have an associated name in the control file.
-!        ----------------------------------------------------------
-         
-         DO eID = 1, SIZE( mesh % elements )
-            DO faceID = 1, 6
-               namedBC = mesh % elements(eId) % boundaryName(faceID)
-               IF( namedBC == emptyBCName ) CYCLE
-               
-               bcName = bcTypeDictionary % stringValueForKey(key             = namedBC,         &
-                                                             requestedLength = BC_STRING_LENGTH)
-               IF ( LEN_TRIM(bcName) == 0 )     THEN
-                  PRINT *, "Control file does not define a boundary condition for boundary name = ", &
-                            mesh % elements(eId) % boundaryName(faceID)
-                  success = .FALSE.
-                  return 
-               END IF 
-            END DO   
-         END DO
-!
-!        --------------------------------------------------------------------------
-!        Check that the boundary conditions to be applied are implemented
-!        in the code. Keep those updated in the boundary condition functions module
-!        --------------------------------------------------------------------------
-!
-         bcObjects => bcTypeDictionary % allObjects()
-         DO j = 1, bcObjects % COUNT()
-            obj => bcObjects % objectAtIndex(j)
-            CALL castToValue(obj,v)
-            bcType = v % stringValue(requestedLength = BC_STRING_LENGTH)
-            DO i = 1, SIZE(implementediNSBCNames)
-               IF ( bcType == implementediNSBCNames(i) )     THEN
-                  success = .TRUE. 
-                  EXIT 
-               ELSE 
-                  success = .FALSE. 
-               END IF 
-            END DO
-            
-            IF ( .NOT. success )     THEN
-               PRINT *, "Boundary condition ", TRIM(bcType)," not implemented in this code"
-               CALL release(bcObjects)
-               RETURN 
-            END IF  
-            
-         END DO
-         
-         CALL release(bcObjects)
-!
-!        --------------------------------------------------------------------------
-!        Check that the boundary conditions to be applied are implemented
-!        in the code. Keep those updated in the boundary condition functions module
-!        --------------------------------------------------------------------------
-!
-         bcObjects => bcTypeDictionary % allObjects()
-         DO j = 1, bcObjects % COUNT()
-            obj => bcObjects % objectAtIndex(j)
-            CALL castToValue(obj,v)
-            bcType = v % stringValue(requestedLength = BC_STRING_LENGTH)
-            DO i = 1, SIZE(implementedCHBCNames)
-               IF ( bcType == implementedCHBCNames(i) )     THEN
-                  success = .TRUE. 
-                  EXIT 
-               ELSE 
-                  success = .FALSE. 
-               END IF 
-            END DO
-            
-            IF ( .NOT. success )     THEN
-               PRINT *, "Boundary condition ", TRIM(bcType)," not implemented in this code"
-               CALL release(bcObjects)
-               RETURN 
-            END IF  
-            
-         END DO
-         
-         CALL release(bcObjects)
-
-         
-      END SUBROUTINE checkBCIntegrity
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

@@ -244,7 +244,7 @@ ADDONSFLAGS= FC='$(FC)' \
              INCLUDE='$(INCLUDE)' \
              INSTALL_DIR='$(INSTALL_DIR)' \
 	     MOD_FLAG='$(MOD_FLAG)'\
-	     HORSES_LIBS_EXEC='$(HORSES_LIBS_NS)' \
+	     HORSES_LIBS_EXEC='$(HORSES_LIBS_NS) $(PROBLEM_LIB_NS)' \
 	     EXTLIB_INC='$(EXTLIB_INC)' \
 	     MACROS='$(MACROS)' \
 	     LIBS='$(LIBS)'
