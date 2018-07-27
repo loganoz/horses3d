@@ -23,23 +23,11 @@ riemann solver        = roe
   type = NoSlipWall
 #end
 
-#define boundary front
-  type = Inflow
-#end
-
-#define boundary bottom
+#define boundary bottom__top
   type = FreeSlipWall
 #end
 
-#define boundary top
-  type = FreeSlipWall
-#end
-
-#define boundary back
-  type = Inflow
-#end
-
-#define boundary left
+#define boundary back__left__front
   type = Inflow
 #end
 

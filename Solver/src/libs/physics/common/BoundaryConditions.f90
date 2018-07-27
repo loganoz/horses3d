@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:28 2018
-!   @Last revision date: Wed Jul 25 17:15:35 2018
+!   @Last revision date: Thu Jul 26 22:00:43 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
+!   @Last revision commit: fb773e7c8706f4b4ef1f5bf9693a2b44f6c12dd2
 !
 !//////////////////////////////////////////////////////
 !
@@ -16,7 +16,7 @@ module BoundaryConditions
    use FTValueDictionaryClass,        only: FTValueDictionary
    use FileReaders,                   only: controlFileName
    use FileReadingUtilities,          only: GetKeyword, GetValueAsString
-   use GenericBoundaryConditionClass, only: GenericBC_t, NS_BC, C_BC, MU_BC
+   use GenericBoundaryConditionClass, only: GenericBC_t, NS_BC, C_BC, MU_BC, CheckIfBoundaryNameIsContained
    use InflowBCClass,                 only: InflowBC_t
    use OutflowBCClass,                only: OutflowBC_t
    use NoSlipWallBCClass,             only: NoSlipWallBC_t
@@ -64,6 +64,11 @@ module BoundaryConditions
 !        ---------------
 !
          integer  :: zID, zType
+
+         if ( allocated(BCs) ) then
+            print*, "*** WARNING!: Boundary conditions were previously allocated"
+            return
+         end if
 
          allocate(BCs(no_of_zones))
          no_of_BCs = no_of_zones
@@ -161,8 +166,7 @@ module BoundaryConditions
 !        ---------------
 !
          integer        :: fid, io, bctype
-         character(len=LINE_LENGTH) :: boundaryHeader
-         character(len=LINE_LENGTH) :: currentLine
+         character(len=LINE_LENGTH) :: currentLine, loweredBname
          character(len=LINE_LENGTH) :: keyword, keyval
          logical                    :: inside
          type(FTValueDIctionary)    :: bcdict
@@ -173,10 +177,11 @@ module BoundaryConditions
             end subroutine PreprocessInputLine
          end interface
 
-         open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
+         loweredbName = bname
+         call toLower(loweredbName)
+         call bcdict % initWithSize(16)
 
-         write(boundaryHeader,'(A,A)') "#define boundary ",trim(bname)
-         call toLower(boundaryHeader)
+         open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
 !
 !        Navigate until the "#define boundary bname" sentinel is found
 !        -------------------------------------------------------------
@@ -189,10 +194,11 @@ module BoundaryConditions
             call PreprocessInputLine(currentLine)
             call toLower(currentLine)
 
-            if ( trim(currentLine) .eq. trim(boundaryHeader) ) then
-               inside = .true.
-               call bcdict % InitWithSize(16)
+            if ( index(trim(currentLine),"#define boundary") .ne. 0 ) then
+               inside = CheckIfBoundaryNameIsContained(trim(currentLine), trim(loweredbname)) 
             end if
+         
+         
 !
 !           Get all keywords inside the zone
 !           --------------------------------

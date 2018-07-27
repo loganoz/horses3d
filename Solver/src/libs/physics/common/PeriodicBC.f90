@@ -4,9 +4,9 @@
 !   @File:    PeriodicBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:43 2018
-!   @Last revision date: Thu Jul 26 15:53:58 2018
+!   @Last revision date: Thu Jul 26 22:00:46 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d2d8fae7ff00a479ca1a250f4de9713ae74a8c62
+!   @Last revision commit: fb773e7c8706f4b4ef1f5bf9693a2b44f6c12dd2
 !
 !//////////////////////////////////////////////////////
 !
@@ -114,8 +114,11 @@ module PeriodicBCClass
 
          open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
 
+         call bcdict % InitWithSize(16)
+
          ConstructPeriodicBC % BCType = "periodic"
          ConstructPeriodicBC % bname  = bname
+         call ToLower(ConstructPeriodicBC % bname)
 
          write(boundaryHeader,'(A,A)') "#define boundary ",trim(bname)
          call toLower(boundaryHeader)
@@ -131,8 +134,8 @@ module PeriodicBCClass
             call PreprocessInputLine(currentLine)
             call toLower(currentLine)
 
-            if ( trim(currentLine) .eq. trim(boundaryHeader) ) then
-               inside = .true.
+            if ( index(trim(currentLine),"#define boundary") .ne. 0 ) then
+               inside = CheckIfBoundaryNameIsContained(trim(currentLine), trim(ConstructPeriodicBC % bname)) 
             end if
 !
 !           Get all keywords inside the zone
@@ -140,7 +143,6 @@ module PeriodicBCClass
             if ( inside ) then
                if ( trim(currentLine) .eq. "#end" ) exit
 
-               call bcdict % InitWithSize(16)
 
                keyword  = ADJUSTL(GetKeyword(currentLine))
                keyval   = ADJUSTL(GetValueAsString(currentLine))

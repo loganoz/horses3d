@@ -4,9 +4,9 @@
 !   @File:    NoSlipWallBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:42 2018
-!   @Last revision date: Wed Jul 25 17:15:36 2018
+!   @Last revision date: Thu Jul 26 22:00:45 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
+!   @Last revision commit: fb773e7c8706f4b4ef1f5bf9693a2b44f6c12dd2
 !
 !//////////////////////////////////////////////////////
 !
@@ -146,8 +146,11 @@ module NoSlipWallBCClass
 
          open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
 
+         call bcdict % InitWithSize(16)
+
          ConstructNoSlipWallBC % BCType = "noslipwall"
          ConstructNoSlipWallBC % bname  = bname
+         call toLower(ConstructNoSlipWallBC % bname)
 
          write(boundaryHeader,'(A,A)') "#define boundary ",trim(bname)
          call toLower(boundaryHeader)
@@ -163,16 +166,14 @@ module NoSlipWallBCClass
             call PreprocessInputLine(currentLine)
             call toLower(currentLine)
 
-            if ( trim(currentLine) .eq. trim(boundaryHeader) ) then
-               inside = .true.
+            if ( index(trim(currentLine),"#define boundary") .ne. 0 ) then
+               inside = CheckIfBoundaryNameIsContained(trim(currentLine), trim(ConstructNoSlipWallBC % bname)) 
             end if
 !
 !           Get all keywords inside the zone
 !           --------------------------------
             if ( inside ) then
                if ( trim(currentLine) .eq. "#end" ) exit
-
-               call bcdict % InitWithSize(16)
 
                keyword  = ADJUSTL(GetKeyword(currentLine))
                keyval   = ADJUSTL(GetValueAsString(currentLine))

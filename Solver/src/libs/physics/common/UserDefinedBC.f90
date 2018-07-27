@@ -4,9 +4,9 @@
 !   @File:    UserDefinedBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:44 2018
-!   @Last revision date: Wed Jul 25 17:15:38 2018
+!   @Last revision date: Thu Jul 26 22:00:46 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
+!   @Last revision commit: fb773e7c8706f4b4ef1f5bf9693a2b44f6c12dd2
 !
 !//////////////////////////////////////////////////////
 !
@@ -134,8 +134,11 @@ module UserDefinedBCClass
 
          open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
 
+         call bcdict % InitWithSize(16)
+
          ConstructUserDefinedBC % BCType = "user-defined"
          ConstructUserDefinedBC % bname  = bname
+         call toLower(ConstructUserDefinedBC % bname)
 
          write(boundaryHeader,'(A,A)') "#define boundary ",trim(bname)
          call toLower(boundaryHeader)
@@ -151,8 +154,8 @@ module UserDefinedBCClass
             call PreprocessInputLine(currentLine)
             call toLower(currentLine)
 
-            if ( trim(currentLine) .eq. trim(boundaryHeader) ) then
-               inside = .true.
+            if ( index(trim(currentLine),"#define boundary") .ne. 0 ) then
+               inside = CheckIfBoundaryNameIsContained(trim(currentLine), trim(ConstructUserDefinedBC % bname)) 
             end if
 !
 !           Get all keywords inside the zone

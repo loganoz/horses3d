@@ -10,7 +10,7 @@ module ZoneClass
    
    
    private
-   public Zone_t , ConstructZones, ReassignZones, constructZoneModule
+   public Zone_t , ConstructZones, ReassignZones, constructZoneModule, AllZoneNames
 
    integer, parameter      :: STR_LEN_ZONE = 128
    
@@ -191,4 +191,21 @@ module ZoneClass
          
       end subroutine Zone_AssignFaces
 
+      function AllZoneNames(no_of_zones, zones)
+         implicit none
+         integer,       intent(in)  :: no_of_zones
+         class(Zone_t), intent(in)  :: zones(no_of_zones)
+         character(len=LINE_LENGTH) :: AllZoneNames(no_of_zones)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer :: zID
+
+         do zID = 1, no_of_zones
+            AllZoneNames(zID) = trim(zones(zID) % Name)
+         end do
+
+      end function AllZoneNames
 end module ZoneClass

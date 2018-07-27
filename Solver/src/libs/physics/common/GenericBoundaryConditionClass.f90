@@ -4,9 +4,9 @@
 !   @File:    GenericBoundaryConditionClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:42 2018
-!   @Last revision date: Thu Jul 26 17:26:21 2018
+!   @Last revision date: Thu Jul 26 22:00:44 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ba557cd23630b1bd1f528599b9b33812f58d1f7b
+!   @Last revision commit: fb773e7c8706f4b4ef1f5bf9693a2b44f6c12dd2
 !
 !//////////////////////////////////////////////////////
 !
@@ -33,7 +33,7 @@ module GenericBoundaryConditionClass
 !  Public definitions
 !  ******************
 !
-   public GenericBC_t, GetValueWithDefault
+   public GenericBC_t, GetValueWithDefault, CheckIfBoundaryNameIsContained
 !
 !  ****************************
 !  Static variables definitions
@@ -350,5 +350,73 @@ module GenericBoundaryConditionClass
          end if
    
       end subroutine GetValueWithDefault
+
+      logical function CheckIfBoundaryNameIsContained(line, bname)
+!
+!        **********************************************************************
+!        We will allow several boundary names defined within a single region.
+!           They should be separated by two underscores (e.g. bname1__bname2)
+!        **********************************************************************
+!
+         implicit none
+         character(len=*), intent(in)  :: line
+         character(len=*), intent(in)  :: bname
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: pos1, pos2
+         character(len=LINE_LENGTH) :: str, curName
+         logical     :: found
+         
+
+         str = "#define boundary"
+!
+!        Exit if not a #define boundary sentinel
+!        ---------------------------------------
+         if ( line(1:len_trim(str)) .ne. trim(str) ) then
+            CheckIfBoundaryNameIsContained = .false.
+            return
+         end if
+!
+!        Get only the boundary names
+!        ---------------------------
+         str = adjustl(line(len_trim(str)+1:len_trim(line)))
+!
+!        Exit if empty
+!        -------------
+         if (len_trim(str) .eq. 0) then
+            CheckIfBoundaryNameIsContained = .false.
+            return
+         end if
+!
+!        Check the entries
+!        -----------------
+         pos1 = 1
+         pos2 = len_trim(str)
+         found = .false.
+         do while(pos2 .ne. 0)
+            pos2 = index(str(pos1:len_trim(str)),"__") + pos1 - 1
+            if ( pos2 .eq. pos1-1 ) then
+!
+!              Last iteration
+!              --------------
+               curName = str(pos1:len_trim(str))
+               pos2 = 0
+            else
+               curName = str(pos1:pos2-1)
+            end if
+
+            if ( trim(curName) .eq. trim(bname) ) then
+               found = .true.
+               CheckIfBoundaryNameIsContained = .true.
+               return      
+            else
+               pos1 = pos2+2
+            end if
+         end do
+
+      end function CheckIfBoundaryNameIsContained
 
 end module GenericBoundaryConditionClass

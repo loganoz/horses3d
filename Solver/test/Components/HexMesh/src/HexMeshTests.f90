@@ -114,10 +114,12 @@
 !
          ! First, we have to generate the bcTypeDictionary as it would be read from the control file
          call constructSharedBCModule()
+         allocate(BCs(6))
          do id = 1, 6
             allocate(FreeSlipWallBC_t    :: BCs(id) % bc) 
             select type(bc => BCs(id) % bc)
             type is (FreeSlipWallBC_t)
+            bc % BCType = "freeslipwall"
             bc % isAdiabatic = .true.
             bc % kWallType = 0.0_RP
             end select

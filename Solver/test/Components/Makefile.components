@@ -38,7 +38,7 @@ OBJS_HORSES_CASE_EXEC=$(foreach obj,$(OBJS_HORSES_CASE),./build/$(obj).o)
 allComponents: ./bin/$(PROG_TEST)
 
 ./bin/$(PROG_TEST): mkdirs mkdirsComponents horseslibs $(OBJS_HORSES_CASE) $(OBJS_CASE) ProblemFile1
-	$(FC) $(FFLAGS) -o ./bin/$(PROG_TEST) $(OBJS_HORSES_CASE_EXEC) $(OBJS_CASE_EXEC) $(HORSES_LIBS_NS) ./build/ProblemFile.o
+	$(FC) $(FFLAGS) -o ./bin/$(PROG_TEST) $(OBJS_HORSES_CASE_EXEC) $(OBJS_CASE_EXEC) $(HORSES_LIBS_NS) $(PROBLEM_LIB_NS) ./build/ProblemFile.o
 
 ##################################################
 ##################################################
