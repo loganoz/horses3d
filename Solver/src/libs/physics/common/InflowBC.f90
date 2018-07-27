@@ -4,9 +4,9 @@
 !   @File:    InflowBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:42 2018
-!   @Last revision date: Thu Jul 26 22:00:45 2018
+!   @Last revision date: Fri Jul 27 20:21:58 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fb773e7c8706f4b4ef1f5bf9693a2b44f6c12dd2
+!   @Last revision commit: 54fc6197be909fe77072218aee3b60701b51e971
 !
 !//////////////////////////////////////////////////////
 !
@@ -60,7 +60,6 @@ module InflowBCClass
       real(kind=RP)              :: AoAPhi
       real(kind=RP)              :: AoATheta
       real(kind=RP)              :: v
-      real(kind=RP)              :: p
 #if defined(CAHNHILLIARD)
       logical                    :: isLayered  = .false.
       logical                    :: isXLimited = .false.
@@ -75,6 +74,7 @@ module InflowBCClass
 #endif
       contains
          procedure         :: Destruct          => InflowBC_Destruct
+         procedure         :: Describe          => InflowBC_Describe
 #if defined(NAVIERSTOKES) || defined(INCNS)
          procedure         :: FlowState         => InflowBC_FlowState
          procedure         :: FlowNeumann       => InflowBC_FlowNeumann
@@ -280,6 +280,47 @@ module InflowBCClass
          close(fid)
    
       end function ConstructInflowBC
+
+      subroutine InflowBC_Describe(self)
+!
+!        ***************************************************
+!              Describe the inflow boundary condition
+         implicit none
+         class(InflowBC_t),  intent(in)  :: self
+         write(STD_OUT,'(30X,A,A28,A)') "->", " Boundary condition type: ", "Inflow"
+#if defined(NAVIERSTOKES)
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Velocity: ', self % v * refValues % v
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Mach number: ', self % v / sqrt(thermodynamics % gamma * self % p / self % rho)
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Pressure: ', self % p * refValues % p
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Density: ', self % rho * refValues % rho
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' AoaPhi: ', self % AoAPhi * 180.0_RP / PI
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' AoaTheta: ', self % AoATheta * 180.0_RP / PI
+#elif defined(INCNS)
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Velocity: ', self % v * refValues % v
+#if (!defined(CAHNHILLIARD))
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Density: ', self % rho * refValues % rho
+#endif
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' AoaPhi: ', self % AoAPhi * 180.0_RP / PI
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' AoaTheta: ', self % AoATheta * 180.0_RP / PI
+#if defined(CAHNHILLIARD)
+         if ( self % isLayered ) then
+            write(STD_OUT,'(30X,A,A28,A)') "->", ' Multiphase type: '," Layered"
+         else
+            write(STD_OUT,'(30X,A,A28,A)') "->", ' Multiphase type: '," Mixed"
+         end if
+         
+         if ( self % isLayered ) then
+            if ( self % isXLimited ) write(STD_OUT,'(30X,A,A28,F10.2)') "->", " Interface limits x>x0: ", self % xLim
+            if ( self % isYLimited ) write(STD_OUT,'(30X,A,A28,F10.2)') "->", " Interface limits y>y0: ", self % yLim
+            if ( self % isZLimited ) write(STD_OUT,'(30X,A,A28,F10.2)') "->", " Interface limits z>z0: ", self % zLim
+            
+            write(STD_OUT,'(30X,A,A28,F10.2)') "->", " Phase 1 velocity: ", self % phase1Vel * refValues % v
+            write(STD_OUT,'(30X,A,A28,F10.2)') "->", " Phase 2 velocity: ", self % phase2Vel * refValues % v
+         end if
+#endif
+#endif
+         
+      end subroutine InflowBC_Describe
 !
 !/////////////////////////////////////////////////////////
 !

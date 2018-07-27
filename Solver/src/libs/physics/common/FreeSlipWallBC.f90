@@ -4,9 +4,9 @@
 !   @File:    FreeSlipWallBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:41 2018
-!   @Last revision date: Thu Jul 26 22:00:44 2018
+!   @Last revision date: Fri Jul 27 18:46:28 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fb773e7c8706f4b4ef1f5bf9693a2b44f6c12dd2
+!   @Last revision commit: 1c367455ee242257ddf135c0c34890a763de82d0
 !
 !//////////////////////////////////////////////////////
 !
@@ -61,6 +61,7 @@ module FreeSlipWallBCClass
 #endif
       contains
          procedure         :: Destruct          => FreeSlipWallBC_Destruct
+         procedure         :: Describe          => FreeSlipWallBC_Describe
 #if defined(NAVIERSTOKES) || defined(INCNS)
          procedure         :: FlowState         => FreeSlipWallBC_FlowState
          procedure         :: FlowNeumann       => FreeSlipWallBC_FlowNeumann
@@ -195,6 +196,8 @@ module FreeSlipWallBCClass
          if ( trim(keyval) .eq. "adiabatic" ) then
             ConstructFreeSlipWallBC % isAdiabatic = .true.
             ConstructFreeSlipWallBC % kWallType      = 0.0_RP   ! This is to avoid an "if" when setting the wall temp 
+            ConstructFreeSlipWallBC % ewall = 0.0_RP
+            ConstructFreeSlipWallBC % Twall = 0.0_RP
          else
             ConstructFreeSlipWallBC % isAdiabatic = .false.
             call GetValueWithDefault(bcdict, "wall temperature" , refValues % T, ConstructFreeSlipWallBC % Twall     )
@@ -210,6 +213,30 @@ module FreeSlipWallBCClass
          call bcdict % Destruct
    
       end function ConstructFreeSlipWallBC
+
+      subroutine FreeSlipWallBC_Describe(self)
+!
+!        ***************************************************
+!              Describe the inflow boundary condition
+         implicit none
+         class(FreeSlipWallBC_t),  intent(in)  :: self
+         write(STD_OUT,'(30X,A,A28,A)') "->", " Boundary condition type: ", "FreeSlipWall"
+#if defined(NAVIERSTOKES) 
+         if ( self % isAdiabatic ) then
+            write(STD_OUT,'(30X,A,A28,A)') "->", ' Thermal type: ', "Adiabatic"
+
+
+         else
+            write(STD_OUT,'(30X,A,A28,A)') "->", ' Thermal type: ', "Isothermal"
+            write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Wall temperature: ', self % Twall * refValues % T
+         end if
+#endif
+#if defined(CAHNHILLIARD)
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Wall contact angle coef: ', self % thetaw
+#endif
+         
+      end subroutine FreeSlipWallBC_Describe
+
 !
 !/////////////////////////////////////////////////////////
 !

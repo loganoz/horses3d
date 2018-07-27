@@ -4,9 +4,9 @@
 !   @File:    PeriodicBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:43 2018
-!   @Last revision date: Thu Jul 26 22:00:46 2018
+!   @Last revision date: Fri Jul 27 20:22:00 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fb773e7c8706f4b4ef1f5bf9693a2b44f6c12dd2
+!   @Last revision commit: 54fc6197be909fe77072218aee3b60701b51e971
 !
 !//////////////////////////////////////////////////////
 !
@@ -52,6 +52,7 @@ module PeriodicBCClass
       character(len=LINE_LENGTH) :: associatedbname   
       contains
          procedure         :: Destruct          => PeriodicBC_Destruct
+         procedure         :: Describe          => PeriodicBC_Describe
          procedure         :: GetPeriodicPair   => PeriodicBC_GetPeriodicPair
    end type PeriodicBC_t
 !
@@ -166,6 +167,19 @@ module PeriodicBCClass
          call bcdict % Destruct
    
       end function ConstructPeriodicBC
+
+      subroutine PeriodicBC_Describe(self)
+!
+!        ***************************************************
+!              Describe the inflow boundary condition
+         implicit none
+         class(PeriodicBC_t),  intent(in)  :: self
+         write(STD_OUT,'(30X,A,A28,A)') "->", " Boundary condition type: ", "Periodic"
+         write(STD_OUT,'(30X,A,A28,A)') "->", " Coupled boundary: ", trim(self % associatedBName)
+         
+      end subroutine PeriodicBC_Describe
+
+
 
       subroutine PeriodicBC_GetPeriodicPair(self, bname)
          implicit none

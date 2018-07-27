@@ -85,7 +85,7 @@ MODULE ExplicitMethods
 
          if ( any(isnan(mesh % storage % Q))) then
             print*, "Numerical divergence obtained in solver."
-            stop
+            call exit(99)
          endif
       
    END SUBROUTINE TakeRK3Step

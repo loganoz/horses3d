@@ -4,9 +4,9 @@
 !   @File:    OutflowBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:43 2018
-!   @Last revision date: Fri Jul 27 18:59:33 2018
+!   @Last revision date: Fri Jul 27 20:21:59 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 52dc2d6e64f5c93de205ce8bb5d283128f3c5e11
+!   @Last revision commit: 54fc6197be909fe77072218aee3b60701b51e971
 !
 !//////////////////////////////////////////////////////
 !
@@ -54,6 +54,7 @@ module OutflowBCClass
 #endif
       contains
          procedure         :: Destruct          => OutflowBC_Destruct
+         procedure         :: Describe          => OutflowBC_Describe
 #if defined(NAVIERSTOKES) || defined(INCNS)
          procedure         :: FlowState         => OutflowBC_FlowState
          procedure         :: FlowNeumann       => OutflowBC_FlowNeumann
@@ -202,6 +203,21 @@ module OutflowBCClass
          call bcdict % Destruct
    
       end function ConstructOutflowBC
+
+      subroutine OutflowBC_Describe(self)
+!
+!        ***************************************************
+!              Describe the outflow boundary condition
+!        ***************************************************
+         implicit none
+         class(OutflowBC_t),  intent(in)  :: self
+#if defined(NAVIERSTOKES) || defined(INCNS)
+         write(STD_OUT,'(30X,A,A28,A)') "->", " Boundary condition type: ", "Outflow"
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", " Outflow pressure: ", self % pExt * refValues % p
+#endif
+         
+      end subroutine OutflowBC_Describe
+
 !
 !/////////////////////////////////////////////////////////
 !

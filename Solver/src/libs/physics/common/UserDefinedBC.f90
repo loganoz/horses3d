@@ -4,9 +4,9 @@
 !   @File:    UserDefinedBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:44 2018
-!   @Last revision date: Thu Jul 26 22:00:46 2018
+!   @Last revision date: Fri Jul 27 20:22:00 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fb773e7c8706f4b4ef1f5bf9693a2b44f6c12dd2
+!   @Last revision commit: 54fc6197be909fe77072218aee3b60701b51e971
 !
 !//////////////////////////////////////////////////////
 !
@@ -187,6 +187,20 @@ module UserDefinedBCClass
          call bcdict % Destruct
    
       end function ConstructUserDefinedBC
+
+      subroutine UserDefinedBC_Describe(self)
+!
+!        ***************************************************
+!              Describe the inflow boundary condition
+         implicit none
+         class(UserDefinedBC_t),  intent(in)  :: self
+         write(STD_OUT,'(30X,A,A28,A)') "->", " Boundary condition type: ", "UserDefined"
+         write(STD_OUT,'(30X,A,A28,I0)') "->", " UD Function number: ", self % udf_no
+         
+      end subroutine UserDefinedBC_Describe
+
+
+
 !
 !/////////////////////////////////////////////////////////
 !

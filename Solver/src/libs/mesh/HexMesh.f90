@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Thu Jul 26 15:53:56 2018
+!   @Last revision date: Sat Jul 28 02:06:31 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d2d8fae7ff00a479ca1a250f4de9713ae74a8c62
+!   @Last revision commit: dab661d47e4ab253fd8b07a9a0e2823da05151d8
 !
 !//////////////////////////////////////////////////////
 !
@@ -722,13 +722,13 @@ slavecoord:             DO l = 1, 4
       character(len=LINE_LENGTH)    :: bName
       integer                 :: newFaceID(self % numberOfFaces)
 !
-!     This first loop marks which faces will not be deleted      
+!     This first loop marks which faces will not be deleted
 !     -----------------------------------------------------
       newFaceID = -1
       iFace = 0
       ALLOCATE( dummy_faces(self % numberOfFaces) )
       DO i = 1, self%numberOfFaces 
-         if ( self % faces(i) % zone .eq. 0 ) then
+         if ( self % faces(i) % faceType .ne. HMESH_UNDEFINED ) then
             iFace = iFace + 1
             dummy_faces(iFace) = self%faces(i)
             dummy_faces(iFace) % ID = iFace
@@ -1153,6 +1153,7 @@ slavecoord:             DO l = 1, 4
 !
       INTEGER           :: fID, zoneID
       INTEGER           :: no_of_bdryfaces
+      character(len=LINE_LENGTH) :: str
       
       no_of_bdryfaces = 0
       
@@ -1183,8 +1184,11 @@ slavecoord:             DO l = 1, 4
       write(STD_OUT,'(/)')
       
       do zoneID = 1, size(self % zones)
-         WRITE(STD_OUT,'(30X,A,A7,I0,A15,A)') "->", "  Zone ",zoneID, " for boundary: ",trim(self % zones(zoneID) % Name)
-         write(STD_OUT,'(32X,A28,I0)') 'Number of faces: ', self % zones(zoneID) % no_of_faces
+         write(str,'(A,I0,A,A)') "Zone ", zoneID, " for boundary: ",trim(self % zones(zoneID) % Name)
+         call SubSection_Header(trim(str))
+         write(STD_OUT,'(30X,A,A28,I0)') "->", ' Number of faces: ', self % zones(zoneID) % no_of_faces
+         call BCs(zoneID) % bc % Describe
+         write(STD_OUT,'(/)')
       end do
       
       END SUBROUTINE DescribeMesh     

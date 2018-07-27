@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:28 2018
-!   @Last revision date: Fri Jul 27 18:59:32 2018
+!   @Last revision date: Sun Jul 29 03:04:10 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 52dc2d6e64f5c93de205ce8bb5d283128f3c5e11
+!   @Last revision commit: c640d4711a29cd8440551ea4d6f1ee7aa3cafad6
 !
 !//////////////////////////////////////////////////////
 !
@@ -52,6 +52,7 @@ module BoundaryConditions
 
    type(BCSet_t), allocatable    :: BCs(:)
    integer                       :: no_of_BCs
+   integer, protected            :: no_of_constructions = 0
 
    contains
       subroutine ConstructBoundaryConditions(no_of_zones, zoneNames)
@@ -65,6 +66,7 @@ module BoundaryConditions
 !
          integer  :: zID, zType
 
+         no_of_constructions = no_of_constructions + 1
          if ( allocated(BCs) ) then
             print*, "*** WARNING!: Boundary conditions were previously allocated"
             return
@@ -160,11 +162,16 @@ module BoundaryConditions
 !
          integer  :: bcID
 
-         do bcID = 1, no_of_BCs
-            call BCs(bcID) % bc % Destruct
-         end do
-   
-         deallocate(BCs)
+         if ( no_of_constructions .gt. 1 ) then
+            no_of_constructions = no_of_constructions - 1 
+         else
+            no_of_constructions = 0
+            do bcID = 1, no_of_BCs
+               call BCs(bcID) % bc % Destruct
+            end do
+      
+            deallocate(BCs)
+         end if
 
       end subroutine DestructBoundaryConditions
 !
@@ -236,7 +243,7 @@ module BoundaryConditions
          if ( .not. bcdict % ContainsKey("type") ) then
             print*, "Missing boundary condition type for boundary ", trim(bname)
             errorMessage(STD_OUT)
-            stop
+            call exit(99)
          end if
 
          keyval = bcdict % StringValueForKey("type", LINE_LENGTH)
