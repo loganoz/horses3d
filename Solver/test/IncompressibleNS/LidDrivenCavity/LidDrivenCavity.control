@@ -36,11 +36,26 @@
                        Autosave interval = 2000   ! 1.0
 
 !-------------------- Boundary conditions:-
-Number of boundaries = 6
-Left 0.0 NoSlipWall
-Right 0.0 NoSlipWall
-front 0.0 NoSlipWall
-Back 0.0 User-defined
-bottom 0.0 NoSlipWall
-top 0.0 NoSlipWall
-\
+#define boundary left
+   type = NoSlipWall
+#endif
+
+#define boundary right
+   type = NoSlipWall
+#end
+
+#define boundary front
+   type = NoSlipWall
+#end
+
+#define boundary back
+   type = user-defined
+#end
+
+#define boundary bottom
+   type = NoSlipWall
+#end
+
+#define boundary top
+   type = NoSlipWall
+#end

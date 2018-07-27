@@ -4,9 +4,9 @@
 !   @File:    OutflowBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:43 2018
-!   @Last revision date: Wed Jul 25 17:15:37 2018
+!   @Last revision date: Thu Jul 26 17:26:22 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
+!   @Last revision commit: ba557cd23630b1bd1f528599b9b33812f58d1f7b
 !
 !//////////////////////////////////////////////////////
 !
@@ -183,7 +183,7 @@ module OutflowBCClass
 #if defined(NAVIERSTOKES)
             ConstructOutflowBC % pExt = refValues % p / dimensionless % gammaM2 - bcdict % DoublePrecisionValueForKey("dp")
 #elif defined(INCNS)
-            ConstructOutflowBC % pExt = refValues % p - bcdict % DoublePrecisionValueForKey("dp")
+            ConstructOutflowBC % pExt = 0.0_RP - bcdict % DoublePrecisionValueForKey("dp")
 #endif
          end if
 
@@ -347,8 +347,6 @@ module OutflowBCClass
 
          end if
 
-
-
       end subroutine OutflowBC_FlowState
 
       subroutine OutflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
@@ -363,34 +361,30 @@ module OutflowBCClass
          real(kind=RP),       intent(inout) :: U_z(NINC)
 !
 !        ---------------
-!        Local Variables
+!        Local variables
 !        ---------------
 !
-!
-         REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
-!
-!
-!        Remove the normal component of the density gradient
-!        ---------------------------------------------------
-         gradUNorm =  nHat(1)*U_x(INSRHO) + nHat(2)*U_y(INSRHO)+ nHat(3)*U_z(INSRHO)
-         UTanx = U_x(INSRHO) - gradUNorm*nHat(1)
-         UTany = U_y(INSRHO) - gradUNorm*nHat(2)
-         UTanz = U_z(INSRHO) - gradUNorm*nHat(3)
-   
-         U_x(INSRHO) = UTanx - gradUNorm*nHat(1)
-         U_y(INSRHO) = UTany - gradUNorm*nHat(2)
-         U_z(INSRHO) = UTanz - gradUNorm*nHat(3)
-!
-!        Remove the normal component of the pressure gradient
-!        ----------------------------------------------------
-         gradUNorm =  nHat(1)*U_x(INSP) + nHat(2)*U_y(INSP)+ nHat(3)*U_z(INSP)
-         UTanx = U_x(INSP) - gradUNorm*nHat(1)
-         UTany = U_y(INSP) - gradUNorm*nHat(2)
-         UTanz = U_z(INSP) - gradUNorm*nHat(3)
-   
-         U_x(INSP) = UTanx - gradUNorm*nHat(1)
-         U_y(INSP) = UTany - gradUNorm*nHat(2)
-         U_z(INSP) = UTanz - gradUNorm*nHat(3)
+         real(kind=RP) :: drhodn, dudn, dvdn, dwdn
+
+         drhodn = (U_x(INSRHO)*nHat(IX) + U_y(INSRHO)*nHat(IY) + U_z(INSRHO)*nHat(IZ))
+         U_x(INSRHO) = U_x(INSRHO) - 2.0_RP * drhodn * nHat(IX)
+         U_y(INSRHO) = U_y(INSRHO) - 2.0_RP * drhodn * nHat(IY) 
+         U_z(INSRHO) = U_z(INSRHO) - 2.0_RP * drhodn * nHat(IZ) 
+
+         dudn = (U_x(INSRHOU)*nHat(IX) + U_y(INSRHOU)*nHat(IY) + U_z(INSRHOU)*nHat(IZ))
+         U_x(INSRHOU) = U_x(INSRHOU) - 2.0_RP * dudn * nHat(IX)
+         U_y(INSRHOU) = U_y(INSRHOU) - 2.0_RP * dudn * nHat(IY) 
+         U_z(INSRHOU) = U_z(INSRHOU) - 2.0_RP * dudn * nHat(IZ) 
+
+         dvdn = (U_x(INSRHOV)*nHat(IX) + U_y(INSRHOV)*nHat(IY) + U_z(INSRHOV)*nHat(IZ))
+         U_x(INSRHOV) = U_x(INSRHOV) - 2.0_RP * dvdn * nHat(IX)
+         U_y(INSRHOV) = U_y(INSRHOV) - 2.0_RP * dvdn * nHat(IY) 
+         U_z(INSRHOV) = U_z(INSRHOV) - 2.0_RP * dvdn * nHat(IZ) 
+
+         dwdn = (U_x(INSRHOW)*nHat(IX) + U_y(INSRHOW)*nHat(IY) + U_z(INSRHOW)*nHat(IZ))
+         U_x(INSRHOW) = U_x(INSRHOW) - 2.0_RP * dwdn * nHat(IX)
+         U_y(INSRHOW) = U_y(INSRHOW) - 2.0_RP * dwdn * nHat(IY) 
+         U_z(INSRHOW) = U_z(INSRHOW) - 2.0_RP * dwdn * nHat(IZ)
 
       end subroutine OutflowBC_FlowNeumann
 #endif

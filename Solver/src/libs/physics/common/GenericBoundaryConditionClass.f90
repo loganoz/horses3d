@@ -4,9 +4,9 @@
 !   @File:    GenericBoundaryConditionClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:42 2018
-!   @Last revision date: Thu Jul 26 15:53:57 2018
+!   @Last revision date: Thu Jul 26 17:26:21 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d2d8fae7ff00a479ca1a250f4de9713ae74a8c62
+!   @Last revision commit: ba557cd23630b1bd1f528599b9b33812f58d1f7b
 !
 !//////////////////////////////////////////////////////
 !
@@ -53,7 +53,7 @@ module GenericBoundaryConditionClass
       logical                    :: constructed = .false.
       character(len=LINE_LENGTH) :: bname
       character(len=LINE_LENGTH) :: BCType
-      integer                    :: currentEqn
+      integer                    :: currentEqn = 1
       contains
          procedure         :: Destruct          => GenericBC_Destruct
          procedure         :: Describe          => GenericBC_Describe
@@ -164,10 +164,9 @@ module GenericBoundaryConditionClass
 
       end subroutine StateForEqn
 
-      subroutine NeumannForEqn(self, which, nEqn, nGradEqn, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine NeumannForEqn(self, nEqn, nGradEqn, x, t, nHat, Q, U_x, U_y, U_z)
          implicit none
          class(GenericBC_t),  intent(in)    :: self
-         integer,             intent(in)    :: which
          integer,             intent(in)    :: nEqn
          integer,             intent(in)    :: nGradEqn
          real(kind=RP),       intent(in)    :: x(NDIM)
@@ -177,7 +176,6 @@ module GenericBoundaryConditionClass
          real(kind=RP),       intent(inout) :: U_x(nGradEqn)
          real(kind=RP),       intent(inout) :: U_y(nGradEqn)
          real(kind=RP),       intent(inout) :: U_z(nGradEqn)
-
 
 #if (!defined(CAHNHILLIARD))
          call self % FlowNeumann(x, t, nHat, Q, U_x, U_y, U_z)
