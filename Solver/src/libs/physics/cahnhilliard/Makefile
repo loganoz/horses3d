@@ -14,8 +14,7 @@ MOD_FLAG?=-J
 LIBOBJS = 	./build/FluidData_CH.o \
 		./build/PhysicsStorage_CH.o \
 		./build/VariableConversion_CH.o \
-		./build/Physics_CH.o \
-		./build/BoundaryConditions_CH.o 
+		./build/Physics_CH.o 
 
 
 LIB = physicsch

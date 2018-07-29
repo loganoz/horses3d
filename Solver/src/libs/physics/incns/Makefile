@@ -15,8 +15,7 @@ LIBOBJS = 	./build/FluidData_iNS.o \
 		./build/PhysicsStorage_iNS.o \
 		./build/VariableConversion_iNS.o \
 		./build/Physics_iNS.o \
-		./build/RiemannSolvers_iNS.o \
-		./build/BoundaryConditions_iNS.o 
+		./build/RiemannSolvers_iNS.o 
 
 
 LIB = physicsins

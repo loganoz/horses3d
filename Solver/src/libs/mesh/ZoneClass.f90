@@ -6,10 +6,11 @@ module ZoneClass
    use FTValueDictionaryClass
    use FTLinkedListClass
    use MeshTypes
+   use BoundaryConditions, only: ConstructBoundaryConditions
    
    
    private
-   public Zone_t , ConstructZones, ReassignZones, constructZoneModule
+   public Zone_t , ConstructZones, ReassignZones, constructZoneModule, AllZoneNames
 
    integer, parameter      :: STR_LEN_ZONE = 128
    
@@ -19,6 +20,7 @@ module ZoneClass
    
    type Zone_t
       integer                     :: marker
+      logical                     :: toBeDeleted = .false.
       character(len=STR_LEN_ZONE) :: Name
       integer                     :: no_of_faces
       integer, allocatable        :: faces(:)
@@ -70,6 +72,11 @@ module ZoneClass
 !        Assign the faces
 !        ----------------         
          call Zone_AssignFaces(faces,zones,no_of_markers,zoneNames)
+!
+!        Construct Boundary conditions
+!        ----------------------------- 
+         call ConstructBoundaryConditions(no_of_markers, zoneNames)
+         
          
       end subroutine ConstructZones
 !
@@ -184,4 +191,21 @@ module ZoneClass
          
       end subroutine Zone_AssignFaces
 
+      function AllZoneNames(no_of_zones, zones)
+         implicit none
+         integer,       intent(in)  :: no_of_zones
+         class(Zone_t), intent(in)  :: zones(no_of_zones)
+         character(len=LINE_LENGTH) :: AllZoneNames(no_of_zones)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer :: zID
+
+         do zID = 1, no_of_zones
+            AllZoneNames(zID) = trim(zones(zID) % Name)
+         end do
+
+      end function AllZoneNames
 end module ZoneClass

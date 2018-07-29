@@ -16,14 +16,6 @@ solution file name    = "RESULTS/Cylinder.hsol"
 save gradients with solution = .true.
 restart               = .false.
 restart file name     = "RESULTS/Cylinder.hsol"
-Number of boundaries  = 7
-InnerCylinder 0.0 NoSlipAdiabaticWall
-Front 0.0 Inflow
-bottom 0.0 FreeSlipWall
-top 0.0 FreeSlipWall
-Back 0.0 Inflow
-Left 0.0 Inflow
-Right 0.0 OutflowSpecifyP
 riemann solver         = "lax-friedrichs"
 viscous discretization = "IP"
 
@@ -42,6 +34,21 @@ gmres inner iterations  = 120
 print newton info       = .TRUE.
 newton tolerance        = 1.e-6
 !-------------------------------------------------------------
+#define boundary InnerCylinder
+  type = NoSlipWall
+#end
+
+#define boundary bottom__top
+  type = FreeSlipWall
+#end
+
+#define boundary back__left__front
+  type = Inflow
+#end
+
+#define boundary right
+  type = Outflow
+#end
 
 
 #define surface monitor 1

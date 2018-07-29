@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Tue Jul  3 19:19:06 2018
+!   @Last revision date: Thu Jul 26 15:53:58 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 3db74c1b54d0c4fcf30b72bedefd8dbd2ef9b8ce
+!   @Last revision commit: d2d8fae7ff00a479ca1a250f4de9713ae74a8c62
 !
 !//////////////////////////////////////////////////////
 !
@@ -301,7 +301,9 @@ module FASMultigridClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    recursive subroutine RecursiveConstructor(Solver, N1x, N1y, N1z, lvl, controlVariables)
-      use BoundaryConditionFunctions
+#if defined(NAVIERSTOKES)
+      use ManufacturedSolutions
+#endif
       use FTValueDictionaryClass
       implicit none
       type(FASMultigrid_t), target  :: Solver
@@ -410,7 +412,6 @@ module FASMultigridClass
          ALLOCATE (Child_p % p_sem)
          
          call Child_p % p_sem % construct (controlVariables = controlVariables,                                          &
-                                           BCFunctions      = Solver % p_sem % BCFunctions,                              &
                                            Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,                                        &
                                            success = success,                                                            &
                                            ChildSem = .TRUE. )
@@ -538,7 +539,7 @@ module FASMultigridClass
          if (SmoothFine .AND. lvl > 1) then ! .AND. .not. FMG
             if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
             call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
-            call ComputeTimeDerivative(this % Child % p_sem % mesh,this % Child % p_sem % particles, t, this % Child % p_sem % BCFunctions, CTD_IGNORE_MODE)
+            call ComputeTimeDerivative(this % Child % p_sem % mesh,this % Child % p_sem % particles, t, CTD_IGNORE_MODE)
             
             if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals(this % Child % p_sem % mesh))) exit
          else
@@ -802,7 +803,7 @@ module FASMultigridClass
 !     If not on finest level, correct source term
 !     -------------------------------------------
 !      
-      call ComputeTimeDerivative(Child_p % p_sem % mesh,Child_p % p_sem % particles, t, Child_p % p_sem % BCFunctions, CTD_IGNORE_MODE) 
+      call ComputeTimeDerivative(Child_p % p_sem % mesh,Child_p % p_sem % particles, t, CTD_IGNORE_MODE) 
       
 !$omp parallel do schedule(runtime)
       DO iEl = 1, nelem
@@ -888,7 +889,7 @@ module FASMultigridClass
          case (RK3_SMOOTHER)
             do sweep = 1, SmoothSweeps
                if (Compute_dt) own_dt = MaxTimeStep(this % p_sem, cfl, dcfl )
-               call TakeRK3Step (this % p_sem % mesh, this % p_sem % particles, t, this % p_sem % BCFunctions, &
+               call TakeRK3Step (this % p_sem % mesh, this % p_sem % particles, t, &
                              own_dt, ComputeTimeDerivative )
             end do
 !

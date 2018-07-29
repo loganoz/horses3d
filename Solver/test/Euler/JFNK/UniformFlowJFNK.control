@@ -14,13 +14,10 @@ mach number           = 0.5
 Reynolds number       = 0.0
 AOA theta             = 0.0
 AOA phi               = 0.0
-Number of boundaries  = 6
-front 0.0 Inflow
-back 0.0 Inflow
-bottom 0.0 Inflow
-top 0.0 Inflow
-left 0.0 Outflow
-right 0.0 Outflow
+
+#define boundary front__back__bottom__top__left__right
+   type = Inflow
+#end
 !-------------------------------------------------------------
 !-----Information about time integration solver---------------
 simulation type       = steady-state

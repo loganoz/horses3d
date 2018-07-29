@@ -19,15 +19,36 @@ final time            = 10.0d0
 Mach number = 0.6
 autosave mode         = time
 autosave interval     = 10.0d0
-Number of boundaries  = 6
-front 0.0 periodic+
-bottom 0.0 periodic+
-top 0.0 periodic-
-back 0.0 periodic-
-left 0.0 periodic+
-right 0.0 periodic-
-/
 
+#define boundary front
+   type = periodic
+   coupled boundary = bottom
+#end
+
+#define boundary bottom
+   type = periodic
+   coupled boundary = top
+#end
+
+#define boundary top
+   type = periodic
+   coupled boundary = bottom
+#end
+
+#define boundary back
+   type = periodic
+   coupled boundary = front
+#end
+
+#define boundary left
+   type = periodic
+   coupled boundary = right
+#end
+
+#define boundary right
+   type = periodic
+   coupled boundary = left
+#end
 
 #define volume monitor 1
    Name = Entropy

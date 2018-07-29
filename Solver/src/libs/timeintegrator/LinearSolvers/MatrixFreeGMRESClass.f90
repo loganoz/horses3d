@@ -715,7 +715,7 @@ contains
          
          ! Obtain derivative with new Q
          this % p_sem % mesh % storage % Q = u
-         CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, this % timesolve + this % dtsolve, this % p_sem % BCFunctions, CTD_IGNORE_MODE)
+         CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, this % timesolve + this % dtsolve, CTD_IGNORE_MODE)
          F = this % p_sem % mesh % storage % Qdot
 
          ! Restore original Q

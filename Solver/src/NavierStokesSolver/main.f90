@@ -18,7 +18,6 @@
       USE SharedBCModule
       USE zoneClass
       USE DGSEMClass
-      USE BoundaryConditionFunctions
       USE TimeIntegratorClass
       USE mainKeywordsModule
       USE Headers
@@ -50,9 +49,6 @@
       integer                             :: initial_iteration
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
-      type(BCFunctions_t)                 :: BCFunctions(1)
-      procedure(BCState_FCN)              :: externalStateForBoundaryName_NS
-      procedure(BCGradients_FCN)          :: ExternalGradientForBoundaryName_NS
       character(len=LINE_LENGTH)          :: solutionFileName
       integer, allocatable                :: Nx(:), Ny(:), Nz(:)
       integer                             :: Nmax
@@ -106,18 +102,13 @@
       call InitializeNodalStorage(Nmax)
       call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
       
-      BCFunctions(1) % externalState => externalStateForBoundaryName_NS
-      BCFunctions(1) % externalGradients => externalGradientForBoundaryName_NS
-
       call sem % construct (  controlVariables  = controlVariables,                                         &
-                              BCFunctions = BCFunctions, &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
                                  success           = success)
 
       call Initialize_SpaceAndTimeMethods(controlVariables, sem % mesh)
                            
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
-      CALL checkBCIntegrity(sem % mesh, success)
       IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
       CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues)
 !
@@ -191,92 +182,6 @@
       call MPI_Process % Close
       
       END PROGRAM HORSES3DMainNS
-!
-!/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
-! 
-      SUBROUTINE CheckBCIntegrity(mesh, success)
-!
-         use SMConstants
-         use MeshTypes
-         USE HexMeshClass
-         use FTValueDictionaryClass
-         USE SharedBCModule
-         USE BoundaryConditionFunctions_NS, ONLY:implementedNSBCNames
-         IMPLICIT NONE
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         TYPE(HexMesh) :: mesh
-         LOGICAL       :: success
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         INTEGER                              :: i, j
-         INTEGER                              :: faceID, eId
-         CHARACTER(LEN=BC_STRING_LENGTH)      :: bcName, namedBC
-         CHARACTER(LEN=BC_STRING_LENGTH)      :: bcType
-         real(kind=RP)                        :: bcValue
-         TYPE(FTMutableObjectArray), POINTER :: bcObjects
-         CLASS(FTValue)             , POINTER :: v
-         CLASS(FTObject), POINTER             :: obj
-         
-         success = .TRUE.
-!
-!        ----------------------------------------------------------
-!        Check to make sure that the boundaries defined in the mesh
-!        have an associated name in the control file.
-!        ----------------------------------------------------------
-         
-         DO eID = 1, SIZE( mesh % elements )
-            DO faceID = 1, 6
-               namedBC = mesh % elements(eId) % boundaryName(faceID)
-               IF( namedBC == emptyBCName ) CYCLE
-               
-               bcName = bcTypeDictionary % stringValueForKey(key             = namedBC,         &
-                                                             requestedLength = BC_STRING_LENGTH)
-               IF ( LEN_TRIM(bcName) == 0 )     THEN
-                  PRINT *, "Control file does not define a boundary condition for boundary name = ", &
-                            mesh % elements(eId) % boundaryName(faceID)
-                  success = .FALSE.
-                  return 
-               END IF 
-            END DO   
-         END DO
-!
-!        --------------------------------------------------------------------------
-!        Check that the boundary conditions to be applied are implemented
-!        in the code. Keep those updated in the boundary condition functions module
-!        --------------------------------------------------------------------------
-!
-         bcObjects => bcTypeDictionary % allObjects()
-         DO j = 1, bcObjects % COUNT()
-            obj => bcObjects % objectAtIndex(j)
-            CALL castToValue(obj,v)
-            bcType = v % stringValue(requestedLength = BC_STRING_LENGTH)
-            DO i = 1, SIZE(implementedNSBCNames)
-               IF ( bcType == implementedNSBCNames(i) )     THEN
-                  success = .TRUE. 
-                  EXIT 
-               ELSE 
-                  success = .FALSE. 
-               END IF 
-            END DO
-            
-            IF ( .NOT. success )     THEN
-               PRINT *, "Boundary condition ", TRIM(bcType)," not implemented in this code"
-               CALL release(bcObjects)
-               RETURN 
-            END IF  
-            
-         END DO
-         
-         CALL release(bcObjects)
-         
-      END SUBROUTINE checkBCIntegrity
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

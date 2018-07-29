@@ -43,25 +43,9 @@ Module DGSEMClass
 
    private
    public   ComputeTimeDerivative_f, DGSem, ConstructDGSem
-   public   BCFunctions_t, BCState_FCN, BCGradients_FCN, no_of_BCsets
 
    public   DestructDGSEM, MaxTimeStep, ComputeMaxResiduals
 
-   enum, bind(C)
-#if defined(NAVIERSTOKES) || defined(INCNS)
-      enumerator :: BC_ns
-#endif
-#if defined(CAHNHILLIARD)
-      enumerator :: BC_ch_c, BC_ch_mu
-#endif
-      enumerator :: no_of_BCsets
-   end enum
-
-   type BCFunctions_t
-      PROCEDURE(BCState_FCN)    , NOPASS, POINTER :: externalState     => NULL()
-      PROCEDURE(BCGradients_FCN), NOPASS, POINTER :: externalGradients => NULL()
-   end type BCFunctions_t
-   
    TYPE DGSem
       REAL(KIND=RP)                                           :: maxResidual
       integer                                                 :: nodes                 ! Either GAUSS or GAUSLOBATTO
@@ -69,7 +53,6 @@ Module DGSEMClass
       INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
       INTEGER           , ALLOCATABLE                         :: Nx(:), Ny(:), Nz(:)
       TYPE(HexMesh)                                           :: mesh
-      class(BCFunctions_t), allocatable                       :: BCFunctions(:)
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
 #if defined(NAVIERSTOKES) || defined(INCNS)
@@ -88,34 +71,10 @@ Module DGSEMClass
    END TYPE DGSem
 
    abstract interface
-      SUBROUTINE BCState_FCN(nEqn, x,t,nHat,Q,boundaryType,boundaryName)
-         USE SMConstants
-         use PhysicsStorage
-         integer,          intent(in)    :: nEqn
-         REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-         REAL(KIND=RP)   , INTENT(INOUT) :: Q(nEqn)
-         CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
-         CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
-      END SUBROUTINE BCState_FCN      
-
-      SUBROUTINE BCGradients_FCN(nGradEqn,x,t,nHat,gradU,boundaryType,boundaryName)
-         USE SMConstants
-         use PhysicsStorage
-         integer,          intent(in)    :: nGradEqn
-         REAL(KIND=RP)   , INTENT(IN)    :: x(3), t, nHat(3)
-         REAL(KIND=RP)   , INTENT(INOUT) :: gradU(NDIM,nGradEqn)
-         CHARACTER(LEN=*), INTENT(IN)    :: boundaryType
-         CHARACTER(LEN=*), INTENT(IN)    :: boundaryName
-      END SUBROUTINE BCGradients_FCN
-
-      SUBROUTINE ComputeTimeDerivative_f( mesh, particles, time, BCFunctions, mode )
+      SUBROUTINE ComputeTimeDerivative_f( mesh, particles, time, mode )
          use SMConstants
          use HexMeshClass
          use ParticlesClass
-         import BCState_FCN
-         import BCGradients_FCN
-         import BCFunctions_t
-         import no_of_BCsets
          IMPLICIT NONE 
          type(HexMesh), target           :: mesh
 #if defined(NAVIERSTOKES) || defined(INCNS)
@@ -124,7 +83,6 @@ Module DGSEMClass
          logical                         :: particles
 #endif
          REAL(KIND=RP)                   :: time
-         type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
          integer,             intent(in) :: mode
       end subroutine ComputeTimeDerivative_f
    END INTERFACE
@@ -134,7 +92,7 @@ Module DGSEMClass
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE ConstructDGSem( self, meshFileName_, controlVariables, &
-                                 BCFunctions, polynomialOrder, Nx_, Ny_, Nz_, success, ChildSem )
+                                 polynomialOrder, Nx_, Ny_, Nz_, success, ChildSem )
       use ReadMeshFile
       use FTValueDictionaryClass
       use mainKeywordsModule
@@ -151,7 +109,6 @@ Module DGSEMClass
       CLASS(DGSem)                       :: self                               !<> Class to be constructed
       character(len=*),         optional :: meshFileName_
       class(FTValueDictionary)           :: controlVariables                   !<  Name of mesh file
-      type(BCFunctions_t), intent(in)    :: BCFunctions(no_of_BCsets)
       INTEGER, OPTIONAL                  :: polynomialOrder(3)                 !<  Uniform polynomial order
       INTEGER, OPTIONAL, TARGET          :: Nx_(:), Ny_(:), Nz_(:)             !<  Non-uniform polynomial order
       LOGICAL, OPTIONAL                  :: success                            !>  Construction finalized correctly?
@@ -385,18 +342,6 @@ Module DGSEMClass
       END IF
 #endif
 !
-!     -----------------------
-!     Set boundary conditions
-!     -----------------------
-!
-      allocate(self % BCFunctions(no_of_BCsets))
-      do bcset = 1, no_of_BCsets
-         self % BCFunctions(bcset) % externalState     => BCFunctions(bcset) % externalState
-         self % BCFunctions(bcset) % externalGradients => BCFunctions(bcset) % externalGradients
-      end do
-      
-      call assignBoundaryConditions(self)
-!
 !     ------------------
 !     Build the monitors
 !     ------------------
@@ -433,7 +378,6 @@ Module DGSEMClass
       INTEGER      :: k      !Counter
       
       CALL self % mesh % destruct
-      deallocate(self % BCFunctions)
       END SUBROUTINE DestructDGSem
 !
 !////////////////////////////////////////////////////////////////////////
@@ -591,48 +535,6 @@ Module DGSEMClass
       END DO
       
    END SUBROUTINE GetQdot
-!
-!//////////////////////////////////////////////////////////////////////// 
-! 
-      SUBROUTINE assignBoundaryConditions(self)
-!
-!        ------------------------------------------------------------
-!        Assign the boundary condition type to the boundaries through
-!        their boundary names
-!        ------------------------------------------------------------
-!
-         USE SharedBCModule
-         IMPLICIT NONE  
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         CLASS(DGSem)     :: self
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         INTEGER                         :: eID, k
-         CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType, boundaryName
-         
-         DO eID = 1, SIZE( self % mesh % elements)
-            DO k = 1,6
-               boundaryName = self % mesh % elements(eID) % boundaryName(k)
-               IF ( boundaryName /= emptyBCName )     THEN
-                  boundaryType = bcTypeDictionary % stringValueForKey(key             = boundaryName, &
-                                                                      requestedLength = BC_STRING_LENGTH)
-                  IF( LEN_TRIM(boundaryType) > 0) then
-                     self % mesh % elements(eID) % boundaryType(k) = boundaryType ! TODO bType and bName in elements are needed?
-                     self % mesh % faces(self % mesh % elements(eID) % faceIDs(k)) % boundaryType = boundaryType
-                  end if
-               END IF 
-                                                                   
-            END DO  
-         END DO
-
-      END SUBROUTINE assignBoundaryConditions
 !
 !////////////////////////////////////////////////////////////////////////
 !

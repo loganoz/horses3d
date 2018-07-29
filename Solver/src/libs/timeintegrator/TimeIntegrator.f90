@@ -334,7 +334,7 @@
 !     Check initial residuals
 !     -----------------------
 !
-      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
       maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
@@ -395,7 +395,7 @@
          CASE (ROSENBROCK_SOLVER)
             call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (EXPLICIT_SOLVER)
-            CALL self % RKStep ( sem % mesh, sem % particles, t, sem % BCFunctions, dt, ComputeTimeDerivative)
+            CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
          case (FAS_SOLVER)
             call FASSolver % solve(k, t, dt, ComputeTimeDerivative)
          case (ANISFAS_SOLVER)

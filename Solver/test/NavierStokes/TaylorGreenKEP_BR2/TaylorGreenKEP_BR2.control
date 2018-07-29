@@ -18,14 +18,36 @@ split form = Kennedy-Gruber
 viscous discretization = BR2
 AOA theta             = 0.0
 AOA phi               = 0.0
-Number of boundaries  = 6
-front 0.0 periodic+
-bottom 0.0 periodic+
-top 0.0 periodic-
-back 0.0 periodic-
-left 0.0 periodic+
-right 0.0 periodic-
-/
+
+#define boundary front
+  type = periodic
+  coupled boundary = back
+#end
+
+#define boundary bottom
+   type = periodic
+   coupled boundary = top
+#end
+
+#define boundary top
+   type = periodic
+   coupled boundary = bottom
+#end
+
+#define boundary back
+   type = periodic
+   coupled boundary = front
+#end
+
+#define boundary left
+   type = periodic
+   coupled boundary = right
+#end
+
+#define boundary right
+   type = periodic
+   coupled boundary = left
+#end
 
 #define volume monitor 1
    Name = KinEn

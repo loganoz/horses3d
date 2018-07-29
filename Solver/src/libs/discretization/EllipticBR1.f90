@@ -9,8 +9,8 @@ module EllipticBR1
    use MPI_Process_Info
    use MPI_Face_Class
    use EllipticDiscretizationClass
-   use DGSEMClass, only: BCState_FCN
    use FluidData
+   use BoundaryConditions, only: BCs
    implicit none
 !
 !
@@ -48,7 +48,7 @@ module EllipticBR1
 
       end subroutine BR1_Describe
 
-      subroutine BR1_ComputeGradient(self, nEqn, nGradEqn, mesh, time, externalStateProcedure, GetGradients0D, GetGradients3D )
+      subroutine BR1_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients0D, GetGradients3D )
          use HexMeshClass
          use PhysicsStorage
          use Physics
@@ -57,7 +57,6 @@ module EllipticBR1
          integer,              intent(in) :: nEqn, nGradEqn
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
-         procedure(BCState_FCN)           :: externalStateProcedure
          procedure(GetGradientValues0D_f) :: GetGradients0D
          procedure(GetGradientValues3D_f) :: GetGradients3D
          integer                          :: Nx, Ny, Nz
@@ -91,7 +90,7 @@ module EllipticBR1
                call BR1_ComputeElementInterfaceAverage(f, nEqn, nGradEqn, GetGradients0D) 
             
             case (HMESH_BOUNDARY) 
-               call BR1_ComputeBoundaryFlux(f, nEqn, nGradEqn, time, GetGradients0D, externalStateProcedure) 
+               call BR1_ComputeBoundaryFlux(f, nEqn, nGradEqn, time, GetGradients0D) 
  
             end select 
             end associate 
@@ -333,7 +332,7 @@ module EllipticBR1
          
       end subroutine BR1_ComputeMPIFaceAverage   
 
-      subroutine BR1_ComputeBoundaryFlux(f, nEqn, nGradEqn, time, GetGradients, externalState)
+      subroutine BR1_ComputeBoundaryFlux(f, nEqn, nGradEqn, time, GetGradients)
          use Physics
          use FaceClass
          implicit none
@@ -341,26 +340,25 @@ module EllipticBR1
          integer, intent(in)              :: nEqn, nGradEqn
          real(kind=RP), intent(in)        :: time
          procedure(GetGradientValues0D_f) :: GetGradients
-         procedure(BCState_FCN)           :: externalState
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer       :: i, j
+         integer       :: i, j, bcID
          real(kind=RP) :: Uhat(nGradEqn), UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: bvExt(nEqn)
+
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 
             bvExt =  f % storage(1) % Q(:,i,j)
    
-            call externalState( nEqn, &
+            call BCs(f % zone) % bc % StateForEqn( nEqn, &
                                 f % geom % x(:,i,j), &
                                 time               , &
                                 f % geom % normal(:,i,j)      , &
-                                bvExt              , &
-                                f % boundaryType, f % boundaryName )  
+                                bvExt              )
 !   
 !           -------------------
 !           u, v, w, T averages

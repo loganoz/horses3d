@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:30 2018
-!   @Last revision date: Thu Jul  5 12:34:55 2018
+!   @Last revision date: Thu Jul 26 17:26:21 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
+!   @Last revision commit: ba557cd23630b1bd1f528599b9b33812f58d1f7b
 !
 !//////////////////////////////////////////////////////
 !
@@ -36,7 +36,6 @@
 !        Optional arguments
 !        ******************
 !
-         character(len=KEYWORD_LENGTH), parameter  :: WALL_CONTACT_ANGLE_KEY  = "wall contact angle"
 !         character(len=KEYWORD_LENGTH), parameter  :: ALPHA_CONCENTRATION_KEY = "alpha concentration"
 !         character(len=KEYWORD_LENGTH), parameter  :: BETA_CONCENTRATION_KEY  = "beta concentration"
       END MODULE Physics_CHKeywordsModule
@@ -111,18 +110,6 @@
       multiphase_ % Pe    = controlVariables % DoublePrecisionValueForKey(PECLET_NUMBER_KEY)
       multiphase_ % sigma = controlVariables % DoublePrecisionValueForKey(INTERFACE_TENSION_KEY)
 !
-!     **************************************
-!     Read the wall contact angle if present
-!     **************************************
-!
-      if ( controlVariables % containsKey(WALL_CONTACT_ANGLE_KEY) ) then
-         multiphase_ % thetaw = controlVariables % DoublePrecisionValueForKey(WALL_CONTACT_ANGLE_KEY)
-
-      else
-         multiphase_ % thetaw = 0.0_RP
-
-      end if
-!
 !     **********************************
 !     Compute the rest of the quantities
 !     **********************************
@@ -174,7 +161,6 @@
          write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Gradient energy coefficient: " , multiphase % kappa
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Alpha equilibrium concentration: " , multiphase % c_alpha 
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Beta  equilibrium concentration: " , multiphase % c_beta
-         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Wall contact angle: " , multiphase % thetaw
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Capilar number: " , multiphase % Ca
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Density ratio: " , multiphase % densityRatio
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Viscosity ratio: " , multiphase % viscRatio

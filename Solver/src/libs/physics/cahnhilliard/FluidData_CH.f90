@@ -4,9 +4,9 @@
 !   @File:    FluidData_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:30 2018
-!   @Last revision date: Thu Jul  5 12:34:54 2018
+!   @Last revision date: Thu Jul 26 17:26:20 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
+!   @Last revision commit: ba557cd23630b1bd1f528599b9b33812f58d1f7b
 !
 !//////////////////////////////////////////////////////
 !
@@ -30,7 +30,6 @@ module FluidData_CH
       real(kind=RP)  :: kappa    ! Gradient energy coefficient
       real(kind=RP)  :: c_alpha  ! Alpha equilibrium concentration
       real(kind=RP)  :: c_beta   ! Beta equilibrium concentration
-      real(kind=RP)  :: thetaw   ! Wall angle
       real(kind=RP)  :: eps      ! Coefficient in the dimensionless CH equation
       real(kind=RP)  :: w        ! Dimensionless interface width
       real(kind=RP)  :: sigma    ! Interface energy
@@ -62,7 +61,6 @@ module FluidData_CH
          ConstructMultiphase % kappa        = 0.0_RP
          ConstructMultiphase % c_alpha      = 0.0_RP
          ConstructMultiphase % c_beta       = 0.0_RP
-         ConstructMultiphase % thetaw       = 0.0_RP
          ConstructMultiphase % eps          = 0.0_RP
          ConstructMultiphase % w            = 0.0_RP
          ConstructMultiphase % sigma        = 0.0_RP
@@ -84,7 +82,6 @@ module FluidData_CH
          multiphase % kappa   = multiphase_ % kappa
          multiphase % c_alpha = multiphase_ % c_alpha
          multiphase % c_beta  = multiphase_ % c_beta
-         multiphase % thetaw  = multiphase_ % thetaw
          multiphase % eps     = multiphase_ % eps
          multiphase % w       = multiphase_ % w
          multiphase % sigma   = multiphase_ % sigma
