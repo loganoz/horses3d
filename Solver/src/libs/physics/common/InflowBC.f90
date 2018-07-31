@@ -4,9 +4,9 @@
 !   @File:    InflowBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:42 2018
-!   @Last revision date: Fri Jul 27 20:21:58 2018
+!   @Last revision date: Tue Jul 31 10:35:32 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 54fc6197be909fe77072218aee3b60701b51e971
+!   @Last revision commit: fad0b73929240cde5deb396d24d1a8e991da1853
 !
 !//////////////////////////////////////////////////////
 !
@@ -464,6 +464,10 @@ module InflowBCClass
             rho = 0.5_RP * (dimensionless % rho(1) + dimensionless % rho(2))
             vel = self % v
          end if
+
+         u = vel * cos(self % AoAtheta) * cos(self % AoAphi)
+         v = vel * sin(self % AoAtheta) * cos(self % AoAphi)
+         w = vel * sin(self % AoAphi)
 
          Q(INSRHO)  = rho
          Q(INSRHOU) = Q(INSRHO)*u
