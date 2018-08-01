@@ -32,7 +32,7 @@ module EllipticDiscretizationClass
    end type EllipticDiscretization_t
 
    abstract interface
-      pure subroutine EllipticFlux0D_f(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine EllipticFlux0D_f(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -42,11 +42,12 @@ module EllipticDiscretizationClass
          real(kind=RP), intent(in)  :: U_y (1:nGradEqn)
          real(kind=RP), intent(in)  :: U_z (1:nGradEqn)
          real(kind=RP), intent(in)  :: mu
+         real(kind=RP), intent(in)  :: beta
          real(kind=RP), intent(in)  :: kappa
          real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
       end subroutine EllipticFlux0D_f
 
-      pure subroutine EllipticFlux2D_f( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine EllipticFlux2D_f( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -57,11 +58,12 @@ module EllipticDiscretizationClass
          real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
+         real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
          real(kind=RP),    intent(out) :: F   (1:nEqn, 1:NDIM, 0:N(1), 0:N(2))
       end subroutine EllipticFlux2D_f
 
-      pure subroutine EllipticFlux3D_f( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine EllipticFlux3D_f( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -72,6 +74,7 @@ module EllipticDiscretizationClass
          real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(out) :: F   (1:nEqn, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
       end subroutine EllipticFlux3D_f
@@ -320,7 +323,7 @@ module EllipticDiscretizationClass
       end subroutine BaseClass_ComputeInnerFluxesWithSGS
 #endif
       subroutine BaseClass_RiemannSolver ( self, nEqn, nGradEqn, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
-                                           mu, nHat, dWall, flux )
+                                           mu, beta, kappa, nHat, dWall, flux )
          use SMConstants
          use PhysicsStorage
          use FaceClass
@@ -337,7 +340,7 @@ module EllipticDiscretizationClass
          real(kind=RP), intent(in)       :: U_xRight(nGradEqn)
          real(kind=RP), intent(in)       :: U_yRight(nGradEqn)
          real(kind=RP), intent(in)       :: U_zRight(nGradEqn)
-         real(kind=RP), intent(in)       :: mu
+         real(kind=RP), intent(in)       :: mu, beta, kappa
          real(kind=RP), intent(in)       :: nHat(NDIM)
          real(kind=RP), intent(in)       :: dWall
          real(kind=RP), intent(out)      :: flux(nEqn)

@@ -4,9 +4,9 @@
 !   @File:    Physics_iNS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:26 2018
-!   @Last revision date: Wed Jul 18 10:33:19 2018
+!   @Last revision date: Wed Aug  1 15:48:18 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 4977ebc1252872ccf3ec1e535ebb8619da12e2c8
+!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
 !
 !//////////////////////////////////////////////////////
 !
@@ -158,7 +158,7 @@
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine iViscousFlux0D(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine iViscousFlux0D(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -167,6 +167,7 @@
          real(kind=RP), intent(in)  :: U_y (1:nGradEqn)
          real(kind=RP), intent(in)  :: U_z (1:nGradEqn)
          real(kind=RP), intent(in)  :: mu
+         real(kind=RP), intent(in)  :: beta
          real(kind=RP), intent(in)  :: kappa
          real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
 !
@@ -205,7 +206,7 @@
 
       end subroutine iViscousFlux0D
 
-      pure subroutine iViscousFlux2D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine iViscousFlux2D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -215,6 +216,7 @@
          real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
+         real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
          real(kind=RP),    intent(out) :: F   (1:nEqn, 1:NDIM, 0:N(1), 0:N(2))
 !
@@ -257,7 +259,7 @@
 
       end subroutine iViscousFlux2D
 
-      pure subroutine iViscousFlux3D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine iViscousFlux3D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -267,6 +269,7 @@
          real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(out) :: F   (1:nEqn, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
 !

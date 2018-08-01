@@ -760,13 +760,15 @@ module SpatialDiscretization
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: mu
+         real(kind=RP) :: mu, beta, kappa
 
          if ( .not. LESModel % active ) then
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
 
-               call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+               mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+               beta  = f % storage(1) % mu_art(2,i,j)
+               kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
 !      
 !              --------------
 !              Viscous fluxes
@@ -782,7 +784,7 @@ module SpatialDiscretization
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu   = mu, &
+                                                  mu   = mu, beta = beta, kappa = kappa, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -857,13 +859,15 @@ module SpatialDiscretization
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: mu
+         real(kind=RP) :: mu, kappa, beta
 
          if ( .not. LESModel % active ) then
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
 
-               call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+               mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+               beta  = f % storage(1) % mu_art(2,i,j)
+               kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
 !      
 !              --------------
 !              Viscous fluxes
@@ -880,6 +884,8 @@ module SpatialDiscretization
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
                                                   mu   = mu, &
+                                                  beta = beta, &
+                                                  kappa= kappa, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -967,7 +973,7 @@ module SpatialDiscretization
       REAL(KIND=RP)                   :: inv_flux(NCONS)
       real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
-      real(kind=RP)                   :: mu
+      real(kind=RP)                   :: mu, beta, kappa
 !
 !     -------------------
 !     Get external states
@@ -1000,7 +1006,9 @@ module SpatialDiscretization
                                               f % storage(2) % U_y(:,i,j), &
                                               f % storage(2) % U_z(:,i,j))
 
-               call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+               mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+               beta  = f % storage(1) % mu_art(2,i,j)
+               kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
 !      
 !              --------------
 !              Viscous fluxes
@@ -1016,7 +1024,7 @@ module SpatialDiscretization
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu   = mu, &
+                                                  mu   = mu, beta = beta, kappa = kappa, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -1096,7 +1104,7 @@ module SpatialDiscretization
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: SVV_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: mu
+         real(kind=RP) :: mu, beta, kappa
 !
 !        ----------
 !        SVV fluxes
@@ -1127,7 +1135,10 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+               mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+               beta  = f % storage(1) % mu_art(2,i,j)
+               kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
+
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
@@ -1138,7 +1149,7 @@ module SpatialDiscretization
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu = mu, &
+                                                  mu = mu, beta = beta, kappa = kappa, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -1183,7 +1194,7 @@ module SpatialDiscretization
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: SVV_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: mu
+         real(kind=RP) :: mu, beta, kappa
 !
 !        ----------
 !        SVV fluxes
@@ -1213,7 +1224,10 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+               mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+               beta  = f % storage(1) % mu_art(2,i,j)
+               kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
+
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
@@ -1224,7 +1238,7 @@ module SpatialDiscretization
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu = mu, &
+                                                  mu = mu, beta = beta, kappa = kappa, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -1277,7 +1291,7 @@ module SpatialDiscretization
       real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: SVV_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
-      real(kind=RP)                   :: mu 
+      real(kind=RP)                   :: mu, beta, kappa
 !
 !     -------------------
 !     Get external states
@@ -1313,7 +1327,10 @@ module SpatialDiscretization
 !           Viscous fluxes
 !           --------------
 !   
-            call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+            mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+            beta  = f % storage(1) % mu_art(2,i,j)
+            kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
+
             CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                f = f, &
                                                QLeft = f % storage(1) % Q(:,i,j), &
@@ -1324,7 +1341,7 @@ module SpatialDiscretization
                                                U_xRight = f % storage(2) % U_x(:,i,j), &
                                                U_yRight = f % storage(2) % U_y(:,i,j), &
                                                U_zRight = f % storage(2) % U_z(:,i,j), &
-                                               mu = mu, &
+                                               mu = mu, beta = beta, kappa = kappa, &
                                                nHat = f % geom % normal(:,i,j) , &
                                                dWall = f % geom % dWall(i,j), &
                                                flux  = visc_flux(:,i,j) )

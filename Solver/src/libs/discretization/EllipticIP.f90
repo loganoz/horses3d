@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Wed Jul 25 17:15:31 2018
+!   @Last revision date: Wed Aug  1 15:48:16 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
+!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
 !
 !//////////////////////////////////////////////////////
 !
@@ -501,32 +501,47 @@ module EllipticIP
          real(kind=RP)       :: delta
          real(kind=RP)       :: cartesianFlux(1:nEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
          real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: beta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
 
-#if defined(CAHNHILLIARD)
+#if (!defined(CAHNHILLIARD))
+
+#if defined(NAVIERSTOKES)
+         mu = dimensionless % mu + e % storage % mu_art(1,:,:,:)
+         kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
+                               POW2( dimensionless % Mach) * dimensionless % Pr ) * dimensionless % mu + e % storage % mu_art(3,:,:,:)
+         beta  = e % storage % mu_art(2,:,:,:)
+#elif defined(INCNS)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            call self % GetViscosity(e % storage % Q(INSRHO,i,j,k), mu(i,j,k))      
+         end do                ; end do                ; end do
+
+         kappa = 0.0_RP
+         beta  = 0.0_RP
+#endif
+
+#else /* !(defined(CAHNHILLIARD) */ 
+
+#if defined(NAVIERSTOKES)
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             call self % GetViscosity(e % storage % c(1,i,j,k), mu(i,j,k))      
          end do                ; end do                ; end do
-#elif defined(INCNS)
-         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            call self % GetViscosity(e % storage % Q(INSRHO,i,j,k), mu(i,j,k))
-         end do                ; end do                ; end do
-#else
-         mu = dimensionless % mu
-
-#endif
-
-#if defined(NAVIERSTOKES)
          kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
                                POW2( dimensionless % Mach) * dimensionless % Pr ) * mu
-#else
+
+         beta  = 0.0_RP
+#elif defined(INCNS)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            call self % GetViscosity(e % storage % c(1,i,j,k), mu(i,j,k))      
+         end do                ; end do                ; end do
+
          kappa = 0.0_RP
+         beta  = 0.0_RP
+#endif
 #endif
 
-
-
-         call self % EllipticFlux3D( nEqn, nGradEqn, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, cartesianFlux )
+         call self % EllipticFlux3D( nEqn, nGradEqn, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, beta, kappa, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -635,7 +650,7 @@ module EllipticIP
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine IP_RiemannSolver ( self , nEqn, nGradEqn, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
-                                           mu, nHat , dWall, flux )
+                                           mu, beta, kappa, nHat , dWall, flux )
          use SMConstants
          use PhysicsStorage
          use Physics
@@ -653,7 +668,7 @@ module EllipticIP
          real(kind=RP), intent(in)       :: U_xRight(nGradEqn)
          real(kind=RP), intent(in)       :: U_yRight(nGradEqn)
          real(kind=RP), intent(in)       :: U_zRight(nGradEqn)
-         real(kind=RP), intent(in)       :: mu
+         real(kind=RP), intent(in)       :: mu, beta, kappa
          real(kind=RP), intent(in)       :: nHat(NDIM)
          real(kind=RP), intent(in)       :: dWall
          real(kind=RP), intent(out)      :: flux(nEqn)
@@ -666,19 +681,12 @@ module EllipticIP
          real(kind=RP)     :: flux_vec(nEqn,NDIM)
          real(kind=RP)     :: flux_vecL(nEqn,NDIM)
          real(kind=RP)     :: flux_vecR(nEqn,NDIM)
-         real(kind=RP)     :: kappa, delta, sigma
+         real(kind=RP)     :: delta, sigma
          
          sigma = self % PenaltyParameter(f)
 
-#if defined(NAVIERSTOKES)
-         kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
-                            POW2( dimensionless % Mach) * dimensionless % Pr ) * mu
-#else
-         kappa = 0.0_RP
-#endif
-
-         call self % EllipticFlux0D(nEqn, nGradEqn, QLeft , U_xLeft , U_yLeft , U_zLeft, mu, kappa, flux_vecL )
-         call self % EllipticFlux0D(nEqn, nGradEqn, QRight , U_xRight , U_yRight , U_zRight, mu, kappa, flux_vecR )
+         call self % EllipticFlux0D(nEqn, nGradEqn, QLeft , U_xLeft , U_yLeft , U_zLeft, mu, beta, kappa, flux_vecL )
+         call self % EllipticFlux0D(nEqn, nGradEqn, QRight , U_xRight , U_yRight , U_zRight, mu, beta, kappa, flux_vecR )
 
          flux_vec = 0.5_RP * (flux_vecL + flux_vecR)
 

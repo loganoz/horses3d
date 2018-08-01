@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Thu Jul 26 18:56:00 2018
+!   @Last revision date: Wed Aug  1 15:48:14 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f38edcf71102c599db99be79ab383d8db766ce5c
+!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
 !
 !//////////////////////////////////////////////////////
 !
@@ -822,7 +822,7 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu   = mu, &
+                                                  mu   = mu, beta = 0.0_RP, kappa = 0.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -896,7 +896,7 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu   = mu, &
+                                                  mu   = mu, beta = 0.0_RP, kappa = 0.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -996,7 +996,7 @@ stop
                                                U_xRight = f % storage(2) % U_x(:,i,j), &
                                                U_yRight = f % storage(2) % U_y(:,i,j), &
                                                U_zRight = f % storage(2) % U_z(:,i,j), &
-                                               mu = mu, &
+                                               mu   = mu, beta = 0.0_RP, kappa = 0.0_RP, &
                                                nHat = f % geom % normal(:,i,j) , &
                                                dWall = f % geom % dWall(i,j), &
                                                flux  = visc_flux(:,i,j) )
@@ -1350,7 +1350,7 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu = 1.0_RP, &
+                                                  mu   = 1.0_RP, beta = 0.0_RP, kappa = 0.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = flux(:,i,j) )
@@ -1395,7 +1395,7 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu = 1.0_RP, &
+                                                  mu   = 1.0_RP, beta = 0.0_RP, kappa = 0.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = flux(:,i,j) )
@@ -1482,7 +1482,7 @@ stop
                                             U_xRight = f % storage(2) % U_x(:,i,j), &
                                             U_yRight = f % storage(2) % U_y(:,i,j), &
                                             U_zRight = f % storage(2) % U_z(:,i,j), &
-                                            mu = 1.0_RP, &
+                                            mu = 1.0_RP, beta = 0.0_RP, kappa = 0.0_RP, &
                                             nHat = f % geom % normal(:,i,j) , &
                                             dWall = f % geom % dWall(i,j), &
                                             flux  = flux(:,i,j) )
