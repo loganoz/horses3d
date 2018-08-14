@@ -4,9 +4,9 @@
 !   @File:    TruncationErrorClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Feb 28 14:00:00 2018
-!   @Last revision date: Tue Aug 14 17:35:37 2018
+!   @Last revision date: Tue Aug 14 18:38:56 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6417fdc00a774c34d83616ffc5bb68a971cbc368
+!   @Last revision commit: 0b6834f1140171ea5002fd66fbc21b011623a801
 !
 !//////////////////////////////////////////////////////
 !
@@ -424,7 +424,7 @@ module TruncationErrorClass
 !     Non-isolated truncation error
 !     -----------------------------
       
-      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
       do eID = 1, sem % mesh % no_of_elements
          associate (e => sem % mesh % elements(eID))
          
@@ -447,7 +447,7 @@ module TruncationErrorClass
 !     Isolated truncation error
 !     -------------------------
       
-      call ComputeTimeDerivativeIsolated(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
+      call ComputeTimeDerivativeIsolated(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
       do eID = 1, sem % mesh % no_of_elements
          associate (e => sem % mesh % elements(eID) )
          
