@@ -13,7 +13,7 @@
 module TruncationErrorClass
    use SMConstants
    use MultigridTypes            , only: MGSolStorage_t
-   use DGSEMClass                , only: DGSem, BCFunctions_t, ComputeTimeDerivative_f, BCState_FCN, BCGradients_FCN, no_of_BCsets
+   use DGSEMClass                , only: DGSem, ComputeTimeDerivative_f
    use FTValueDictionaryClass    , only: FTValueDictionary
    use PhysicsStorage            , only: NTOTALVARS, CTD_IGNORE_MODE
    use HexMeshClass              , only: HexMesh
@@ -22,9 +22,6 @@ module TruncationErrorClass
 #endif
    use NodalStorageClass         , only: NodalStorage
    use FileReadingUtilities      , only: RemovePath
-#if defined(CAHNHILLIARD)
-   use BoundaryConditionFunctions, only: C_BC, MU_BC
-#endif
    use ProblemFileFunctions
    implicit none
    
@@ -52,20 +49,6 @@ module TruncationErrorClass
          procedure :: construct => ConstructTruncationError
          procedure :: destruct  => DestructTruncationError
    end type TruncationError_t
-
-!
-!  -------------------
-!  External procedures
-!  -------------------
-!
-#if defined(NAVIERSTOKES)
-   procedure(BCState_FCN)   :: externalStateForBoundaryName_NS
-   procedure(BCGradients_FCN)   :: ExternalGradientForBoundaryName_NS
-#elif defined(CAHNHILLIARD)
-   procedure(BCState_FCN)   :: externalCHStateForBoundaryName
-   procedure(BCGradients_FCN)   :: ExternalChemicalPotentialGradientForBoundaryName
-   procedure(BCGradients_FCN)   :: ExternalConcentrationGradientForBoundaryName
-#endif
 !
 !  ----------------
 !  Module variables
@@ -194,7 +177,7 @@ module TruncationErrorClass
 #endif
       !--------------------------------------------------------
       
-      call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
+      call TimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
       
       S = 0._RP ! Initialize source term
       
@@ -290,7 +273,6 @@ module TruncationErrorClass
       real(kind=RP)              :: TEmap (NMIN:NMAX(1),NMIN:NMAX(2),NMIN:NMAX(3))
       integer                    :: i,j,k
       integer                    :: nelem      ! Number of elements
-      type(BCFunctions_t)        :: BCFunctions(no_of_BCsets)
       logical                              :: success   
       integer, dimension(size(sem % mesh % elements) ) :: Nx, Ny, Nz
       !-------------------------------------------------------------------------
@@ -303,17 +285,6 @@ module TruncationErrorClass
       else
          TimeDerivative => ComputeTimeDerivative
       end if
-      
-#if defined(NAVIERSTOKES)
-      BCFunctions(1) % externalState => externalStateForBoundaryName_NS
-      BCFunctions(1) % externalGradients => externalGradientForBoundaryName_NS
-#elif defined(CAHNHILLIARD)
-      BCFunctions(C_BC) % externalState      => externalCHStateForBoundaryName
-      BCFunctions(C_BC) % externalGradients  => externalConcentrationGradientForBoundaryName
-
-      BCFunctions(MU_BC) % externalState     => externalCHStateForBoundaryName
-      BCFunctions(MU_BC) % externalGradients => externalChemicalPotentialGradientForBoundaryName
-#endif
       
       do k = NMIN, NMAX(3)
          do j = NMIN, NMAX(2)
@@ -331,7 +302,6 @@ module TruncationErrorClass
                sem % ManufacturedSol = controlVariables % containsKey("manufactured solution")
                
                call sem % construct (  controlVariables  = controlVariables                              ,  &
-                           BCFunctions       = BCFunctions, &
                            Nx_ = Nx ,     Ny_ = Ny,     Nz_ = Nz,                   &
                            success           = success)
                
@@ -404,7 +374,7 @@ module TruncationErrorClass
             end associate
          end do
          
-         call TimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_IGNORE_MODE)
+         call TimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
          
          maxTE = 0._RP ! Initialization
          

@@ -4,7 +4,6 @@ module EllipticDiscretizationClass
    use Physics
    use PhysicsStorage
    use MPI_Face_Class
-   use DGSEMClass, only: BCState_FCN
    use VariableConversion
    implicit none
 !
@@ -121,7 +120,7 @@ module EllipticDiscretizationClass
 
       end subroutine BaseClass_Describe
 
-      subroutine BaseClass_ComputeGradient(self, nEqn, nGradEqn, mesh, time, externalStateProcedure, GetGradients0D, GetGradients3D)
+      subroutine BaseClass_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients0D, GetGradients3D)
 !
 !        *****************************************************
 !           BaseClass computes Local Gradients by default
@@ -136,7 +135,6 @@ module EllipticDiscretizationClass
          integer,             intent(in)  :: nEqn, nGradEqn
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
-         procedure(BCState_FCN)           :: externalStateProcedure
          procedure(GetGradientValues0D_f) :: GetGradients0D
          procedure(GetGradientValues3D_f) :: GetGradients3D
 !

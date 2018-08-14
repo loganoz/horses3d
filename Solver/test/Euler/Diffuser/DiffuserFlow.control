@@ -14,10 +14,11 @@ AOA theta             = 0.0
 AOA phi               = 0.0
 Reynolds number       = 0.0
 riemann solver        = rusanov
-Number of boundaries  = 6
-wall1 0.0 freeslipwall
-wall2 0.0 freeslipwall
-wall5 0.0 freeslipwall
-outflow4 0.0 User-defined
-inflow6 0.0 User-defined
-wall3 0.0 freeslipwall
+
+#define boundary wall1__wall2__wall5__wall3
+   type = freeslipwall
+#end
+
+#define boundary outflow4__inflow6
+   type = user-defined
+#end

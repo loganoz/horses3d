@@ -80,7 +80,6 @@
          integer                         :: elementSide(2)
          integer                         :: projectionType(2)
          CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName
-         CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
          type(MappedGeometryFace)        :: geom
          type(FaceStorage_t)             :: storage(2) 
          class(NodalStorage_t), pointer    :: spAxi
@@ -161,7 +160,6 @@
          self % elementSide = -1
          self % projectionType = -1
          self % boundaryName = ""
-         self % boundaryType = ""
          
          call self % geom % Destruct
          call self % storage(1) % Destruct

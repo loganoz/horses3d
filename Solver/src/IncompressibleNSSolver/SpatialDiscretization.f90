@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jun 20 18:14:45 2018
-!   @Last revision date: Wed Jul 18 10:33:16 2018
+!   @Last revision date: Thu Jul 26 17:26:19 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 4977ebc1252872ccf3ec1e535ebb8619da12e2c8
+!   @Last revision commit: ba557cd23630b1bd1f528599b9b33812f58d1f7b
 !
 !//////////////////////////////////////////////////////
 !
@@ -28,6 +28,7 @@ module SpatialDiscretization
       use FluidData
       use VariableConversion, only: iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D, GetiNSOneFluidViscosity, GetiNSTwoFluidsViscosity
       use ProblemFileFunctions
+      use BoundaryConditions, only: BCs
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -49,15 +50,12 @@ module SpatialDiscretization
             TYPE(Face)   , INTENT(inout) :: f   
          end subroutine computeMPIFaceFluxF
 
-         SUBROUTINE computeBoundaryFluxF(f, time, externalStateProcedure , externalGradientsProcedure)
+         SUBROUTINE computeBoundaryFluxF(f, time)
             use SMConstants
             use FaceClass,  only: Face
-            use DGSEMClass, only: BCState_FCN, BCGradients_FCN
             IMPLICIT NONE
             type(Face),    intent(inout) :: f
             REAL(KIND=RP)                :: time
-            PROCEDURE(BCState_FCN)       :: externalStateProcedure
-            PROCEDURE(BCGradients_FCN)   :: externalGradientsProcedure
          end subroutine computeBoundaryFluxF
       end interface
       
@@ -177,7 +175,7 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, BCFunctions, mode)
+      SUBROUTINE ComputeTimeDerivative( mesh, particles, time, mode)
          IMPLICIT NONE 
 !
 !        ---------
@@ -187,7 +185,6 @@ module SpatialDiscretization
          TYPE(HexMesh), target           :: mesh
          type(Particles_t)               :: particles
          REAL(KIND=RP)                   :: time
-         type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
          integer,             intent(in) :: mode
 !
 !        ---------------
@@ -226,7 +223,7 @@ module SpatialDiscretization
 !        -----------------
 !
          if ( computeGradients ) then
-            CALL DGSpatial_ComputeGradient(mesh , time , BCFunctions(1) % externalState)
+            CALL DGSpatial_ComputeGradient(mesh , time)
          end if
 
 #ifdef _HAS_MPI_
@@ -241,9 +238,7 @@ module SpatialDiscretization
 !
          call ComputeNSTimeDerivative(mesh = mesh , &
                                          particles = particles, &
-                                         t    = time, &
-                                         externalState     = BCFunctions(1) % externalState, &
-                                         externalGradients = BCFunctions(1) % externalGradients )
+                                         t    = time)
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative
@@ -253,7 +248,7 @@ module SpatialDiscretization
 !     This routine computes the time derivative element by element, without considering the Riemann Solvers
 !     This is useful for estimating the isolated truncation error
 !
-      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, BCFunctions, mode)
+      SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, mode)
          use EllipticDiscretizationClass
          IMPLICIT NONE 
 !
@@ -264,7 +259,6 @@ module SpatialDiscretization
          TYPE(HexMesh), target           :: mesh
          type(Particles_t)               :: particles
          REAL(KIND=RP)                   :: time
-         type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
          integer,             intent(in) :: mode
 !
 !        ---------------
@@ -285,7 +279,7 @@ module SpatialDiscretization
 !        -----------------------------------------------------
 !
          if ( computeGradients ) then
-            CALL BaseClass_ComputeGradient( ViscousDiscretization, NINC, NINC, mesh , time , BCFunctions(1) % externalState, iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D )
+            CALL BaseClass_ComputeGradient( ViscousDiscretization, NINC, NINC, mesh , time, iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D )
 !
 !           The prolongation is usually done in the viscous methods, but not in the BaseClass
 !           ---------------------------------------------------------------------------------
@@ -310,13 +304,11 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine ComputeNSTimeDerivative( mesh , particles, t, externalState, externalGradients )
+      subroutine ComputeNSTimeDerivative( mesh , particles, t )
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
          real(kind=RP)              :: t
-         procedure(BCState_FCN)     :: externalState
-         procedure(BCGradients_FCN) :: externalGradients
 !
 !        ---------------
 !        Local variables
@@ -346,7 +338,7 @@ module SpatialDiscretization
                CALL computeElementInterfaceFlux_iNS( f ) 
  
             case (HMESH_BOUNDARY) 
-               CALL computeBoundaryFlux_iNS(f, t, externalState, externalGradients) 
+               CALL computeBoundaryFlux_iNS(f, t) 
  
             end select 
             end associate 
@@ -809,11 +801,10 @@ module SpatialDiscretization
 
       end subroutine ComputeMPIFaceFlux_iNS
 
-      SUBROUTINE computeBoundaryFlux_iNS(f, time, externalStateProcedure , externalGradientsProcedure)
+      SUBROUTINE computeBoundaryFlux_iNS(f, time)
       USE ElementClass
       use FaceClass
       USE RiemannSolvers_iNS
-      USE BoundaryConditionFunctions
       IMPLICIT NONE
 !
 !     ---------
@@ -822,8 +813,6 @@ module SpatialDiscretization
 !
       type(Face),    intent(inout) :: f
       REAL(KIND=RP)                :: time
-      procedure(BCState_FCN)       :: externalStateProcedure
-      procedure(BCGradients_FCN)   :: externalGradientsProcedure
 !
 !     ---------------
 !     Local variables
@@ -832,16 +821,9 @@ module SpatialDiscretization
       INTEGER                         :: i, j
       INTEGER, DIMENSION(2)           :: N
       REAL(KIND=RP)                   :: inv_flux(NINC)
-      REAL(KIND=RP)                   :: UGradExt(NDIM , NINC) 
       real(kind=RP)                   :: visc_flux(NINC, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: fStar(NINC, 0:f % Nf(1), 0: f % Nf(2))
       real(kind=RP)                   :: mu
-      
-      CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
-      CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName
-            
-      boundaryType = f % boundaryType
-      boundaryName = f % boundaryName
 !
 !     -------------------
 !     Get external states
@@ -849,32 +831,28 @@ module SpatialDiscretization
 !
       do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
          f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
-         CALL externalStateProcedure( NINC, &
+         CALL BCs(f % zone) % bc % FlowState( &
                                       f % geom % x(:,i,j), &
                                       time, &
                                       f % geom % normal(:,i,j), &
-                                      f % storage(2) % Q(:,i,j),&
-                                      boundaryType, boundaryName )
+                                      f % storage(2) % Q(:,i,j))
 
       end do               ; end do
 
       if ( .true. ) then
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            UGradExt(IX,:) = f % storage(1) % U_x(:,i,j)
-            UGradExt(IY,:) = f % storage(1) % U_y(:,i,j)
-            UGradExt(IZ,:) = f % storage(1) % U_z(:,i,j)
+            f % storage(2) % U_x(:,i,j) = f % storage(1) % U_x(:,i,j)
+            f % storage(2) % U_y(:,i,j) = f % storage(1) % U_y(:,i,j)
+            f % storage(2) % U_z(:,i,j) = f % storage(1) % U_z(:,i,j)
 
-            CALL externalGradientsProcedure(  NINC, &
+            CALL BCs(f % zone) % bc % FlowNeumann(&
                                               f % geom % x(:,i,j), &
                                               time, &
                                               f % geom % normal(:,i,j), &
-                                              UGradExt,&
-                                              boundaryType, boundaryName)
-
-            f % storage(2) % U_x(:,i,j) = UGradExt(IX,:)
-            f % storage(2) % U_y(:,i,j) = UGradExt(IY,:)
-            f % storage(2) % U_z(:,i,j) = UGradExt(IZ,:)
-
+                                              f % storage(2) % Q(:,i,j), &
+                                              f % storage(2) % U_x(:,i,j), &
+                                              f % storage(2) % U_y(:,i,j), &
+                                              f % storage(2) % U_z(:,i,j))
 !   
 !           --------------
 !           Viscous fluxes
@@ -930,15 +908,14 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine DGSpatial_ComputeGradient( mesh , time , externalStateProcedure)
+      subroutine DGSpatial_ComputeGradient( mesh , time)
          use HexMeshClass
          use PhysicsStorage, only: NINC
          implicit none
          type(HexMesh)                  :: mesh
          real(kind=RP),      intent(in) :: time
-         procedure(BCState_FCN)         :: externalStateProcedure
 
-         call ViscousDiscretization % ComputeGradient( NINC, NINC, mesh , time , externalStateProcedure, iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D)
+         call ViscousDiscretization % ComputeGradient( NINC, NINC, mesh , time , iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D)
 
       end subroutine DGSpatial_ComputeGradient
 

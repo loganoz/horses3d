@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Thu Jul  5 12:34:48 2018
+!   @Last revision date: Thu Jul 26 17:26:18 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
+!   @Last revision commit: ba557cd23630b1bd1f528599b9b33812f58d1f7b
 !
 !//////////////////////////////////////////////////////
 !
@@ -27,10 +27,10 @@ module SpatialDiscretization
       use MPI_Face_Class
       use MPI_Process_Info
       use DGSEMClass
-      use BoundaryConditionFunctions, only: C_BC, MU_BC
       use GradientsStabilization
       use FluidData
       use VariableConversion
+      use BoundaryConditions, only: BCs, SetBoundaryConditionsEqn, C_BC, MU_BC
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -131,7 +131,7 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine ComputeTimeDerivative( mesh, particles, time, BCFunctions, mode)
+      subroutine ComputeTimeDerivative( mesh, particles, time, mode)
          IMPLICIT NONE 
 !
 !        ---------
@@ -141,7 +141,6 @@ module SpatialDiscretization
          TYPE(HexMesh), target           :: mesh
          logical                         :: particles
          REAL(KIND=RP)                   :: time
-         type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
          integer,             intent(in) :: mode
 !
 !        ---------------
@@ -186,6 +185,7 @@ module SpatialDiscretization
             call mesh % faces(fID) % storage(1) % SetStorageToCH_c
             call mesh % faces(fID) % storage(2) % SetStorageToCH_c
          end do
+         call SetBoundaryConditionsEqn(C_BC)
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -209,7 +209,7 @@ stop
 !        Compute gradients
 !        -----------------
 !
-         CALL DGSpatial_ComputeGradient( mesh , time , BCFunctions(C_BC) % externalState)
+         CALL DGSpatial_ComputeGradient( mesh , time)
 
 #ifdef _HAS_MPI_
 !$omp single
@@ -227,14 +227,10 @@ stop
 !        -----------
          if ( enable_linear ) then
             call ComputeLaplacian(mesh = mesh , &
-                                  t    = time, &
-                     externalState     = BCFunctions(C_BC) % externalState, &
-                     externalGradients = BCFunctions(C_BC) % externalGradients )
+                                  t    = time)
          else
             call ComputeLaplacianNeumannBCs(mesh = mesh , &
-                                  t    = time, &
-                     externalState     = BCFunctions(C_BC) % externalState, &
-                     externalGradients = BCFunctions(C_BC) % externalGradients )
+                                  t    = time)
          end if
 
          if ( enable_nonlinear) then
@@ -266,6 +262,8 @@ stop
             call mesh % faces(fID) % storage(2) % SetStorageToCH_mu
          end do
 !$omp end do
+
+         call SetBoundaryConditionsEqn(MU_BC)
 !
 !        *************************
 !        Compute cDot: Q stores mu
@@ -293,7 +291,7 @@ stop
 !        Compute gradients
 !        -----------------
 !
-         CALL DGSpatial_ComputeGradient( mesh , time , BCFunctions(MU_BC) % externalState)
+         CALL DGSpatial_ComputeGradient( mesh , time)
 
 #ifdef _HAS_MPI_
 !$omp single
@@ -308,9 +306,7 @@ stop
 !        ------------------------------
 !
          call ComputeLaplacian(mesh = mesh , &
-                               t    = time, &
-                  externalState     = BCFunctions(MU_BC) % externalState, &
-                  externalGradients = BCFunctions(MU_BC) % externalGradients )
+                               t    = time)
 !
 !        Scale QDot with the Peclet number
 !        ---------------------------------
@@ -338,6 +334,8 @@ stop
          end do
 !$omp end do
 
+         call SetBoundaryConditionsEqn(C_BC) 
+
 !
 !        ***********************************
 !        Compute the concentration advection
@@ -347,7 +345,7 @@ stop
 !
 !        Perform the stabilization
 !        -------------------------
-         call StabilizeGradients(mesh, time, BCFunctions(C_BC) % externalState)
+         call StabilizeGradients(mesh, time)
 !
 !        Add the velocity field
 !        ----------------------
@@ -369,7 +367,7 @@ stop
 
       end subroutine ComputeTimeDerivative
 
-      subroutine ComputeTimeDerivativeIsolated( mesh, particles, time, BCFunctions, mode)
+      subroutine ComputeTimeDerivativeIsolated( mesh, particles, time, mode)
          IMPLICIT NONE 
 !
 !        ---------
@@ -379,7 +377,6 @@ stop
          TYPE(HexMesh), target           :: mesh
          logical                         :: particles
          REAL(KIND=RP)                   :: time
-         type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
          integer,             intent(in) :: mode
          
          ERROR stop 'ComputeTimeDerivativeIsolated not implemented for Cahn-Hilliard'
@@ -392,12 +389,10 @@ stop
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine ComputeLaplacian( mesh , t, externalState, externalGradients )
+      subroutine ComputeLaplacian( mesh , t)
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
-         procedure(BCState_FCN)     :: externalState
-         procedure(BCGradients_FCN) :: externalGradients
 !
 !        ---------------
 !        Local variables
@@ -427,7 +422,7 @@ stop
                CALL computeElementInterfaceFlux( f ) 
  
             case (HMESH_BOUNDARY) 
-               CALL computeBoundaryFlux(f, t, externalState, externalGradients) 
+               CALL computeBoundaryFlux(f, t) 
             
             case (HMESH_MPI)
 
@@ -512,12 +507,10 @@ stop
 
       end subroutine ComputeLaplacian
 
-      subroutine ComputeLaplacianNeumannBCs( mesh , t, externalState, externalGradients )
+      subroutine ComputeLaplacianNeumannBCs( mesh , t)
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
-         procedure(BCState_FCN)     :: externalState
-         procedure(BCGradients_FCN) :: externalGradients
 !
 !        ---------------
 !        Local variables
@@ -547,7 +540,7 @@ stop
             associate( f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_BOUNDARY) 
-               CALL computeBoundaryFlux(f, t, externalState, externalGradients) 
+               CALL computeBoundaryFlux(f, t) 
             end select 
             end associate 
          end do 
@@ -779,13 +772,12 @@ stop
 
       end subroutine ComputeMPIFaceFlux
 
-      subroutine computeBoundaryFlux(f, time, externalStateProcedure , externalGradientsProcedure)
+      subroutine computeBoundaryFlux(f, time)
       USE ElementClass
       use FaceClass
       USE EllipticDiscretizations
       USE Physics
       use PhysicsStorage
-      USE BoundaryConditionFunctions
       IMPLICIT NONE
 !
 !     ---------
@@ -794,8 +786,6 @@ stop
 !
       type(Face),    intent(inout) :: f
       REAL(KIND=RP)                :: time
-      procedure(BCState_FCN)     :: externalStateProcedure
-      procedure(BCGradients_FCN) :: externalGradientsProcedure
 !
 !     ---------------
 !     Local variables
@@ -803,13 +793,8 @@ stop
 !
       INTEGER                         :: i, j
       INTEGER, DIMENSION(2)           :: N
-      REAL(KIND=RP)                   :: UGradExt(NDIM , NCOMP) 
       real(kind=RP)                   :: flux(NCOMP, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: mu
-      
-      CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryType
-            
-      boundaryType = f % boundaryType
 !
 !     -------------------
 !     Get external states
@@ -817,35 +802,30 @@ stop
 !
       do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
          f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
-         CALL externalStateProcedure( NCOMP, f % geom % x(:,i,j), &
+         CALL BCs(f % zone) % bc % StateForEqn(NCOMP, f % geom % x(:,i,j), &
                                       time, &
                                       f % geom % normal(:,i,j), &
-                                      f % storage(2) % Q(:,i,j),&
-                                      boundaryType, &
-                                      f % boundaryName )
+                                      f % storage(2) % Q(:,i,j))
 
       end do               ; end do
 
       do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-         UGradExt(IX,:) = f % storage(1) % U_x(:,i,j)
-         UGradExt(IY,:) = f % storage(1) % U_y(:,i,j)
-         UGradExt(IZ,:) = f % storage(1) % U_z(:,i,j)
+         f % storage(2) % U_x(:,i,j) = f % storage(1) % U_x(:,i,j)
+         f % storage(2) % U_y(:,i,j) = f % storage(1) % U_y(:,i,j)
+         f % storage(2) % U_z(:,i,j) = f % storage(1) % U_z(:,i,j)
 
-         CALL externalGradientsProcedure(  NCOMP, f % geom % x(:,i,j), &
+         CALL BCs(f % zone) % bc % NeumannForEqn(NCOMP, NCOMP, &
+                                           f % geom % x(:,i,j), &
                                            time, &
                                            f % geom % normal(:,i,j), &
-                                           UGradExt,&
-                                           boundaryType, &
-                                           f % boundaryName )
+                                           f % storage(2) % Q(:,i,j), &
+                                           f % storage(2) % U_x(:,i,j), &
+                                           f % storage(2) % U_y(:,i,j), &
+                                           f % storage(2) % U_z(:,i,j))
 
-         f % storage(1) % U_x(:,i,j) = UGradExt(IX,:)
-         f % storage(1) % U_y(:,i,j) = UGradExt(IY,:)
-         f % storage(1) % U_z(:,i,j) = UGradExt(IZ,:)
-
-         f % storage(2) % U_x(:,i,j) = UGradExt(IX,:)
-         f % storage(2) % U_y(:,i,j) = UGradExt(IY,:)
-         f % storage(2) % U_z(:,i,j) = UGradExt(IZ,:)
-
+         f % storage(1) % U_x(:,i,j) = f % storage(2) % U_x(:,i,j)
+         f % storage(1) % U_y(:,i,j) = f % storage(2) % U_y(:,i,j)
+         f % storage(1) % U_z(:,i,j) = f % storage(2) % U_z(:,i,j)
 !   
 !           --------------
 !           Viscous fluxes
@@ -882,13 +862,12 @@ stop
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine DGSpatial_ComputeGradient( mesh , time , externalStateProcedure)
+      subroutine DGSpatial_ComputeGradient( mesh , time)
          implicit none
          type(HexMesh)                  :: mesh
          real(kind=RP),      intent(in) :: time
-         procedure(BCState_FCN)         :: externalStateProcedure
 
-         call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , externalStateProcedure, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+         call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
 
       end subroutine DGSpatial_ComputeGradient
 !

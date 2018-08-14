@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 11 17:13:55 2018
-!   @Last revision date: Mon Jul 23 12:19:40 2018
+!   @Last revision date: Thu Jul 26 17:26:24 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 11455b9be0c703d1ed79ecda5ca7fe2620bfb444
+!   @Last revision commit: ba557cd23630b1bd1f528599b9b33812f58d1f7b
 !
 !//////////////////////////////////////////////////////
 !
@@ -381,6 +381,7 @@ end module ProblemFileFunctions
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
+
 #if defined(INCNS)
             Q(INSRHOU) = 1.5_RP * x(IZ)*(2.0_RP - x(IZ))
             Q(INSRHOV) = 0.0_RP

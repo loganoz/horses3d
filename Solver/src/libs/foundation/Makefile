@@ -16,7 +16,7 @@ LIBOBJS = 	./build/SMConstants.o \
 		./build/Utilities.o \
 		./build/IntegerDataLinkedList.o \
 		./build/DenseMatUtilities.o \
-		./build/SharedBCModule.o \
+		./build/SharedDictionaries.o \
 		./build/Setup.o \
 		./build/RealDataLinkedList.o 
 

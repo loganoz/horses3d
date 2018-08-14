@@ -12,33 +12,66 @@ LIBOBJS_NS = 	./build_ns/FluidData.o \
 		./build_ns/PhysicsStorage.o \
 		./build_ns/VariableConversion.o \
 		./build_ns/Physics.o \
+		./build_ns/GenericBoundaryConditionClass.o \
+		./build_ns/InflowBC.o \
+		./build_ns/OutflowBC.o \
+		./build_ns/NoSlipWallBC.o \
+		./build_ns/FreeSlipWallBC.o \
+		./build_ns/PeriodicBC.o \
+		./build_ns/UserDefinedBC.o \
 		./build_ns/BoundaryConditions.o 
 
 LIBOBJS_iNS = 	./build_ins/FluidData.o \
 		./build_ins/PhysicsStorage.o \
 		./build_ins/VariableConversion.o \
 		./build_ins/Physics.o \
+		./build_ins/GenericBoundaryConditionClass.o \
+		./build_ins/InflowBC.o \
+		./build_ins/OutflowBC.o \
+		./build_ins/NoSlipWallBC.o \
+		./build_ins/FreeSlipWallBC.o \
+		./build_ins/PeriodicBC.o \
+		./build_ins/UserDefinedBC.o \
 		./build_ins/BoundaryConditions.o 
 
 LIBOBJS_CH = 	./build_ch/FluidData.o \
 		./build_ch/PhysicsStorage.o \
 		./build_ch/VariableConversion.o \
 		./build_ch/Physics.o \
+		./build_ch/GenericBoundaryConditionClass.o \
+		./build_ch/InflowBC.o \
+		./build_ch/OutflowBC.o \
+		./build_ch/NoSlipWallBC.o \
+		./build_ch/FreeSlipWallBC.o \
+		./build_ch/PeriodicBC.o \
+		./build_ch/UserDefinedBC.o \
 		./build_ch/BoundaryConditions.o 
 
 LIBOBJS_NSCH = 	./build_nsch/FluidData.o \
 		./build_nsch/PhysicsStorage.o \
 		./build_nsch/VariableConversion.o \
 		./build_nsch/Physics.o \
+		./build_nsch/GenericBoundaryConditionClass.o \
+		./build_nsch/InflowBC.o \
+		./build_nsch/OutflowBC.o \
+		./build_nsch/NoSlipWallBC.o \
+		./build_nsch/FreeSlipWallBC.o \
+		./build_nsch/PeriodicBC.o \
+		./build_nsch/UserDefinedBC.o \
 		./build_nsch/BoundaryConditions.o 
 
 LIBOBJS_iNSCH =	./build_insch/FluidData.o \
 		./build_insch/PhysicsStorage.o \
 		./build_insch/VariableConversion.o \
 		./build_insch/Physics.o \
+		./build_insch/GenericBoundaryConditionClass.o \
+		./build_insch/InflowBC.o \
+		./build_insch/OutflowBC.o \
+		./build_insch/NoSlipWallBC.o \
+		./build_insch/FreeSlipWallBC.o \
+		./build_insch/PeriodicBC.o \
+		./build_insch/UserDefinedBC.o \
 		./build_insch/BoundaryConditions.o 
-
-
 
 LIB = physics
 

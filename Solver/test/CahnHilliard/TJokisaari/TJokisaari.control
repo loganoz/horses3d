@@ -23,9 +23,18 @@ simulation type       = time-accurate
 final time            = 20.0d3
 autosave mode         = iteration
 autosave interval     = 100
-Number of boundaries  = 3
-periodic- 0.0 periodic-
-periodic+ 0.0 periodic+
-boundary 0.0 freeSlipWall
-/
+
+#define boundary periodic-
+   type = periodic
+   coupled boundary = periodic+
+#end
+
+#define boundary periodic+
+   type = periodic
+   coupled boundary = periodic-
+#end
+
+#define boundary boundary
+   type = FreeSlipWall
+#end
 

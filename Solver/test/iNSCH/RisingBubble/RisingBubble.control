@@ -54,13 +54,29 @@
                        Autosave interval = 1000   ! 1.0
 
 !-------------------- Boundary conditions:-
-                    Number of boundaries = 6
-right 0.0 NoSlipWall
-left 0.0 NoSlipWall
-bottom 0.0 FreeSlipWall
-top 0.0 FreeSlipWall
-front 0.0 FreeSlipWall
-back 0.0 FreeSlipWall
+#define boundary right
+   type = NoSlipWall
+#end
+
+#define boundary left
+   type = NoSlipWall
+#end
+
+#define boundary bottom
+   type = FreeSlipWall
+#end
+
+#define boundary top
+   type = FreeSlipWall
+#end
+
+#define boundary front
+   type = FreeSlipWall
+#end
+
+#define boundary back
+   type = FreeSlipWall
+#end
 
 !#define probe 1
 !                Name = Probe example

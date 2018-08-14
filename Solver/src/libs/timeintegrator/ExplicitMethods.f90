@@ -14,7 +14,7 @@ MODULE ExplicitMethods
    USE SMConstants
    use HexMeshClass
    use TimeIntegratorDefinitions
-   use DGSEMClass, only: ComputeTimeDerivative_f, BCFunctions_t, no_of_BCsets
+   use DGSEMClass, only: ComputeTimeDerivative_f
    use ParticlesClass
    use PhysicsStorage, only: CTD_IGNORE_MODE
    IMPLICIT NONE
@@ -30,7 +30,7 @@ MODULE ExplicitMethods
 !  ------------------------------
 !  Routine for taking a RK3 step.
 !  ------------------------------
-   SUBROUTINE TakeRK3Step( mesh, particles, t, BCFunctions, deltaT, ComputeTimeDerivative )
+   SUBROUTINE TakeRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative )
 !
 !     ----------------------------------
 !     Williamson's 3rd order Runge-Kutta
@@ -49,7 +49,6 @@ MODULE ExplicitMethods
       logical            :: particles
 #endif
       REAL(KIND=RP)   :: t, deltaT, tk
-      type(BCFunctions_t), intent(in)  :: BCFunctions(no_of_BCsets)
       procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
 !
 !     ---------------
@@ -65,7 +64,7 @@ MODULE ExplicitMethods
       DO k = 1,3
          
          tk = t + b(k)*deltaT
-         CALL ComputeTimeDerivative( mesh, particles, tk, BCFunctions, CTD_IGNORE_MODE)
+         CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -86,12 +85,12 @@ MODULE ExplicitMethods
 
          if ( any(isnan(mesh % storage % Q))) then
             print*, "Numerical divergence obtained in solver."
-            stop
+            call exit(99)
          endif
       
    END SUBROUTINE TakeRK3Step
 
-   SUBROUTINE TakeRK5Step( mesh, particles, t, BCFunctions, deltaT, ComputeTimeDerivative )
+   SUBROUTINE TakeRK5Step( mesh, particles, t, deltaT, ComputeTimeDerivative )
 !  
 !        *****************************************************************************************
 !           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
@@ -106,7 +105,6 @@ MODULE ExplicitMethods
       logical            :: particles
 #endif
       REAL(KIND=RP)                   :: t, deltaT, tk
-      type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
       procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
 !
 !     ---------------
@@ -122,7 +120,7 @@ MODULE ExplicitMethods
       DO k = 1, N_STAGES
          
          tk = t + b(k)*deltaT
-         CALL ComputeTimeDerivative( mesh, particles, tk, BCFunctions, CTD_IGNORE_MODE)
+         CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -142,7 +140,7 @@ MODULE ExplicitMethods
 
    end subroutine TakeRK5Step
 
-   SUBROUTINE TakeExplicitEulerStep( mesh, particles, t, BCFunctions, deltaT, ComputeTimeDerivative )
+   SUBROUTINE TakeExplicitEulerStep( mesh, particles, t, deltaT, ComputeTimeDerivative )
 !  
 !        *****************************************************************************************
 !           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
@@ -157,7 +155,6 @@ MODULE ExplicitMethods
       logical            :: particles
 #endif
       REAL(KIND=RP)                   :: t, deltaT, tk
-      type(BCFunctions_t), intent(in) :: BCFunctions(no_of_BCsets)
       procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
       !
 !     ---------------
@@ -166,7 +163,7 @@ MODULE ExplicitMethods
 !
       integer                    :: id, k
 
-      CALL ComputeTimeDerivative( mesh, particles, t, BCFunctions, CTD_IGNORE_MODE)
+      CALL ComputeTimeDerivative( mesh, particles, t, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )

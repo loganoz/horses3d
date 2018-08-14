@@ -4,9 +4,9 @@
 !   @File:    IMEXMethods.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date: Fri Jul  6 12:12:23 2018
+!   @Last revision date: Wed Jul 25 17:15:42 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 065992b884b4d849167cab46ea3d1157bb7738e2
+!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
 !
 !//////////////////////////////////////////////////////
 !
@@ -127,7 +127,7 @@ MODULE IMEXMethods
 !     Compute the non linear time derivative
 !     -------------------------------------- 
 #if defined(CAHNHILLIARD)
-      call ComputeTimeDerivative(sem % mesh, sem % particles, time, sem % BCFunctions, CTD_ONLY_CH_NONLIN)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_ONLY_CH_NONLIN)
 !
 !     Compute the RHS
 !     ---------------
@@ -146,7 +146,7 @@ MODULE IMEXMethods
 !
 !     Compute the standard time derivative to get residuals
 !     -----------------------------------------------------
-      call ComputeTimeDerivative(sem % mesh, sem % particles, time, sem % BCFunctions, CTD_IGNORE_MODE)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IGNORE_MODE)
 
 #else
 !
@@ -157,12 +157,12 @@ MODULE IMEXMethods
 !     Compute the new chemical potential
 !     ----------------------------------
 #if defined(CAHNHILLIARD)
-      CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, sem % BCFunctions, CTD_ONLY_CH)
+      CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, CTD_ONLY_CH)
 #endif
 
       DO k = 1,3
          tk = t + b(k)*dt
-         CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, sem % BCFunctions, CTD_ONLY_NS)
+         CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, CTD_ONLY_NS)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( sem % mesh % elements )
@@ -228,7 +228,7 @@ MODULE IMEXMethods
 !     1) Compute cDot (full) to obtain \nabla c, and mu
 !     *************************************************
 !
-      call ComputeTimeDerivative(sem % mesh, sem % particles, t, sem % BCFunctions, CTD_ONLY_CH)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_ONLY_CH)
 !
 !     ********************************
 !     2) Perform a RK3 time step in NS
@@ -236,7 +236,7 @@ MODULE IMEXMethods
 !
       DO k = 1,3
          tk = t + b(k)*dt
-         CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, sem % BCFunctions, CTD_ONLY_NS)
+         CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, CTD_ONLY_NS)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( sem % mesh % elements )
@@ -257,7 +257,7 @@ MODULE IMEXMethods
 !     *****************************************
 !
       call sem % mesh % SetStorageToEqn(2)
-      call ComputeTimeDerivative(sem % mesh, sem % particles, time, sem % BCFunctions, CTD_ONLY_CH_NONLIN)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_ONLY_CH_NONLIN)
 !
 !     Compute the RHS
 !     ---------------
