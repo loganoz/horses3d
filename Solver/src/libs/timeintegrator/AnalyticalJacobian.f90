@@ -2,11 +2,11 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    AnalyticalJacobian.f90
-!   @Author:  Andrés Rueda (a.rueda@upm.es)
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Wed May 23 12:57:27 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
+!   @Last revision date: Tue Aug 14 17:35:23 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 6417fdc00a774c34d83616ffc5bb68a971cbc368
 !
 !//////////////////////////////////////////////////////
 !
