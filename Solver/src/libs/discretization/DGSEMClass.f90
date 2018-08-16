@@ -378,6 +378,12 @@ Module DGSEMClass
       INTEGER      :: k      !Counter
       
       CALL self % mesh % destruct
+      safedeallocate (self % Nx)
+      safedeallocate (self % Ny)
+      safedeallocate (self % Nz)
+      
+      call self % monitors % destruct
+      
       END SUBROUTINE DestructDGSem
 !
 !////////////////////////////////////////////////////////////////////////

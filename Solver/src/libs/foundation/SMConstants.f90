@@ -53,7 +53,7 @@
          INTEGER, PARAMETER :: LEFT   = 1, RIGHT  = 2, TOP  = 2, BOTTOM  = 1
          INTEGER, PARAMETER :: FRONT  = 1, BACK   = 2
 
-         INTEGER, PARAMETER :: BC_STRING_LENGTH = 32
+         INTEGER, PARAMETER :: BC_STRING_LENGTH = 64
 
          CHARACTER(len=*), parameter   :: VERSION = "v0.8.8: Added routines for computing the analytical Jacobian of NS."
          integer, protected            :: solver

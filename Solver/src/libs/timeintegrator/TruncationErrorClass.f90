@@ -4,9 +4,9 @@
 !   @File:    TruncationErrorClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Feb 28 14:00:00 2018
-!   @Last revision date: Tue Aug 14 18:38:56 2018
+!   @Last revision date: Thu Aug 16 16:15:52 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0b6834f1140171ea5002fd66fbc21b011623a801
+!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
 !
 !//////////////////////////////////////////////////////
 !
@@ -201,7 +201,7 @@ module TruncationErrorClass
                wz  = NodalStorage(e % Nxyz(3)) % w (k)
                Jac = e % geom % jacobian(i,j,k)
                
-               maxTE =  MAX(maxTE , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,i,j,k) + S(iEQ) + Var(iEl) % Scase(iEQ,i,j,k) )  )  ! - Var(iEl) % S(iEQ,i,j,k): one option to do  time-accurate
+               maxTE =  MAX(maxTE , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,i,j,k) + S(iEQ) + Var(iEl) % Scase(iEQ,i,j,k) - Var(iEl) % S(iEQ,i,j,k) )  )  ! The last term is included to do time-accurate p-adaptation...For steady-state it can be neglected (original formulation)
             end do
          end do         ; end do         ; end do
          
@@ -216,13 +216,13 @@ module TruncationErrorClass
 !  -----------------------------------------------------------------------
 !  Subroutine for printing the TE map(s) of one element
 !  -----------------------------------------------------------------------
-   subroutine PrintTEmap(TEmap,iEl,NMIN,FileName)
+   subroutine PrintTEmap(NMIN,TEmap,iEl,FileName)
       implicit none
       !-------------------------------------------
-      real(kind=RP)    :: TEmap(NMIN:,NMIN:,NMIN:)
-      integer          :: iEl
-      integer          :: NMIN
-      character(len=*) :: FileName
+      integer         , intent(in) :: NMIN(3)
+      real(kind=RP)   , intent(in) :: TEmap(NMIN(1):,NMIN(2):,NMIN(3):)
+      integer         , intent(in) :: iEl
+      character(len=*), intent(in) :: FileName
       !-------------------------------------------
       integer                :: k, i, l
       integer                :: fd
@@ -261,7 +261,7 @@ module TruncationErrorClass
       implicit none
       !-------------------------------------------------------------------------
       type(DGSem)                :: sem
-      integer, intent(in)        :: NMIN
+      integer, intent(in)        :: NMIN(NDIM)
       integer, intent(in)        :: NMAX(NDIM)
       real(kind=RP)              :: t
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
@@ -270,7 +270,7 @@ module TruncationErrorClass
       integer, intent(in)        :: iEl
       integer, intent(in)        :: TruncErrorType
       !-------------------------------------------------------------------------
-      real(kind=RP)              :: TEmap (NMIN:NMAX(1),NMIN:NMAX(2),NMIN:NMAX(3))
+      real(kind=RP)              :: TEmap (NMIN(1):NMAX(1),NMIN(2):NMAX(2),NMIN(3):NMAX(3))
       integer                    :: i,j,k
       integer                    :: nelem      ! Number of elements
       logical                              :: success   
@@ -286,9 +286,9 @@ module TruncationErrorClass
          TimeDerivative => ComputeTimeDerivative
       end if
       
-      do k = NMIN, NMAX(3)
-         do j = NMIN, NMAX(2)
-            do i = NMIN, NMAX(1)
+      do k = NMIN(3), NMAX(3)
+         do j = NMIN(2), NMAX(2)
+            do i = NMIN(1), NMAX(1)
                
                Nx = i
                Ny = j
@@ -321,7 +321,7 @@ module TruncationErrorClass
          end do
       end do
       
-      CALL PrintTEmap(TEmap,iEl,NMIN,"Exact")
+      CALL PrintTEmap(NMIN,TEmap,iEl,"Exact")
       stop
       
    end subroutine GenerateExactTEmap

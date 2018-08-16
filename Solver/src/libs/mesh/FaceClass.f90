@@ -143,9 +143,9 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE DestructFace( self )
+      elemental SUBROUTINE DestructFace( self )
          IMPLICIT NONE 
-         class(Face) :: self
+         class(Face), intent(inout) :: self
          
          self % ID = -1
          self % FaceType = HMESH_NONE
@@ -162,9 +162,8 @@
          self % boundaryName = ""
          
          call self % geom % Destruct
-         call self % storage(1) % Destruct
-         call self % storage(2) % Destruct
-      
+         call self % storage % Destruct
+               
          self % spAxi => NULL()
          self % spAeta => NULL()
 

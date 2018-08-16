@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Wed Jul 25 17:15:33 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
+!   @Last revision date: Thu Aug 16 16:15:32 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
 !
 !//////////////////////////////////////////////////////
 !
@@ -43,7 +43,7 @@
 
       private
       public   Element, axisMap 
-      public   DestructElement, PrintElement, SetElementBoundaryNames
+      public   PrintElement, SetElementBoundaryNames
       
       TYPE Element
          logical                         :: hasSharedFaces
@@ -67,6 +67,7 @@
          type(TransfiniteHexMap)         :: hexMap            ! High-order mapper
          contains
             procedure   :: Construct               => HexElement_Construct
+            procedure   :: Destruct                => HexElement_Destruct
             procedure   :: ConstructGeometry       => HexElement_ConstructGeometry
             procedure   :: FindPointWithCoords     => HexElement_FindPointWithCoords
             procedure   :: EvaluateSolutionAtPoint => HexElement_EvaluateSolutionAtPoint
@@ -161,18 +162,19 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE DestructElement( self )
+      elemental SUBROUTINE HexElement_Destruct( self )
          IMPLICIT NONE
-         TYPE(Element) :: self
+         class(Element), intent(inout) :: self
          
          CALL self % geom % Destruct
          call self % Storage % Destruct   
+         call self % Connection % destruct
          
          nullify( self % spAxi   )
          nullify( self % spAeta  )
          nullify( self % spAzeta )     
 
-      END SUBROUTINE DestructElement
+      END SUBROUTINE HexElement_Destruct
 !
 !////////////////////////////////////////////////////////////////////////
 !

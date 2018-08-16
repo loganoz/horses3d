@@ -67,6 +67,7 @@ module MonitorsClass
          procedure   :: WriteValues     => Monitor_WriteValues
          procedure   :: UpdateValues    => Monitor_UpdateValues
          procedure   :: WriteToFile     => Monitor_WriteToFile
+         procedure   :: destruct        => Monitor_Destruct
    end type Monitor_t
 !
 !  ========
@@ -481,6 +482,30 @@ module MonitorsClass
          end if
 
       end subroutine Monitor_WriteToFile
+      
+      subroutine Monitor_Destruct (self)
+         implicit none
+         class(Monitor_t)        :: self
+         
+         deallocate (self % iter)
+         deallocate (self % t)
+         deallocate (self % SimuTime)
+         
+         call self % residuals % destruct
+         
+         call self % volumeMonitors % destruct
+         deallocate(self % volumeMonitors)
+         
+#if defined(NAVIERSTOKES)
+         call self % probes % destruct
+         deallocate (self % probes)
+         
+         call self % surfaceMonitors % destruct
+         deallocate (self % surfaceMonitors)
+         
+         !call self % stats % destruct
+#endif         
+      end subroutine
 !
 !//////////////////////////////////////////////////////////////////////////////
 !

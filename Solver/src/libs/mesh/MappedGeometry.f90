@@ -154,9 +154,9 @@ Module MappedGeometryClass
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE DestructMappedGeometry(self)
+      pure SUBROUTINE DestructMappedGeometry(self)
          IMPLICIT NONE 
-         CLASS(MappedGeometry) :: self
+         CLASS(MappedGeometry), intent(inout) :: self
          DEALLOCATE( self % jGradXi, self % jGradEta, self % jGradZeta, self % jacobian, self % invJacobian )
          DEALLOCATE( self % x)
          safedeallocate(self % dWall)
@@ -747,7 +747,7 @@ Module MappedGeometryClass
 !
 !//////////////////////////////////////////////////////////////////////// 
 !
-      subroutine DestructMappedGeometryFace(self)
+      pure subroutine DestructMappedGeometryFace(self)
          implicit none
          !-------------------------------------------------------------------
          class(MappedGeometryFace), intent(inout) :: self

@@ -34,6 +34,7 @@ module VolumeMonitorClass
          procedure   :: WriteLabel     => VolumeMonitor_WriteLabel
          procedure   :: WriteValues    => VolumeMonitor_WriteValue
          procedure   :: WriteToFile    => VolumeMonitor_WriteToFile
+         procedure   :: destruct       => VolumeMonitor_Destruct
    end type VolumeMonitor_t
 !
 !  ========
@@ -269,4 +270,11 @@ module VolumeMonitorClass
          if ( no_of_lines .ne. 0 ) self % values(1) = self % values(no_of_lines)
       
       end subroutine VolumeMonitor_WriteToFile
+      
+      elemental subroutine VolumeMonitor_Destruct (self)
+         implicit none
+         class(VolumeMonitor_t), intent(inout) :: self
+         
+         deallocate (self % values)
+      end subroutine VolumeMonitor_Destruct
 end module VolumeMonitorClass

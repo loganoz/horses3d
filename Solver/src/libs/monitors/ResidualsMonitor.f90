@@ -22,6 +22,7 @@ module ResidualsMonitorClass
          procedure   :: WriteLabel     => Residuals_WriteLabel
          procedure   :: WriteValues    => Residuals_WriteValue
          procedure   :: WriteToFile    => Residuals_WriteToFile
+         procedure   :: destruct       => Residuals_Destruct
    end type Residuals_t
 !
 !  ========
@@ -200,4 +201,13 @@ module ResidualsMonitorClass
 111 format(7(2X,ES24.16))
 #endif
       end subroutine Residuals_WriteToFile
+      
+      pure subroutine Residuals_Destruct (self)
+         implicit none
+         class(Residuals_t), intent(inout) :: self
+         
+         deallocate (self % values)
+         deallocate (self % CPUtime)
+         
+      end subroutine Residuals_Destruct
 end module ResidualsMonitorClass

@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Sat Jun 23 10:20:26 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision date: Thu Aug 16 16:15:41 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
 !
 !//////////////////////////////////////////////////////
 !
@@ -235,9 +235,9 @@ module StorageClass
 !
 !/////////////////////////////////////////////////
 !
-      subroutine Storage_Destruct(self)
+      pure subroutine Storage_Destruct(self)
          implicit none
-         class(Storage_t)    :: self
+         class(Storage_t), intent(inout) :: self
 
 #if defined(NAVIERSTOKES) || defined(INCNS)
          safedeallocate(self % QNS)
@@ -436,9 +436,9 @@ module StorageClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine ElementStorage_Destruct(self)
+      elemental subroutine ElementStorage_Destruct(self)
          implicit none
-         class(ElementStorage_t) :: self
+         class(ElementStorage_t), intent(inout) :: self
          integer                 :: num_prevSol, k
 
          self % currentlyLoaded = OFF
@@ -679,9 +679,9 @@ module StorageClass
 
       end subroutine FaceStorage_Construct
 
-      subroutine FaceStorage_Destruct(self)
+      elemental subroutine FaceStorage_Destruct(self)
          implicit none
-         class(FaceStorage_t)     :: self
+         class(FaceStorage_t), intent(inout) :: self
    
          self % currentlyLoaded = OFF
 

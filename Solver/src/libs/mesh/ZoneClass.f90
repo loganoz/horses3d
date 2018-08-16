@@ -1,3 +1,15 @@
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:    ZoneClass.f90
+!   @Author:  Juan Manzanero (juan.manzanero@upm.es), Andrés Rueda (am.rueda@upm.es)
+!   @Created: 
+!   @Last revision date: Thu Aug 16 16:15:45 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
+!
+!//////////////////////////////////////////////////////
+!
 #include "Includes.h"
 module ZoneClass
    use SMConstants
@@ -12,7 +24,7 @@ module ZoneClass
    private
    public Zone_t , ConstructZones, ReassignZones, constructZoneModule, AllZoneNames
 
-   integer, parameter      :: STR_LEN_ZONE = 128
+   integer, parameter      :: STR_LEN_ZONE = BC_STRING_LENGTH
    
    TYPE FTLinkedListPtr
       type(FTLinkedList), POINTER :: list
@@ -49,7 +61,7 @@ module ZoneClass
 !
          integer                                  :: zoneID
          integer                                  :: no_of_markers
-         character(len=STR_LEN_ZONE), allocatable :: zoneNames(:)
+         character(len=STR_LEN_ZONE), pointer     :: zoneNames(:)
 !
 !        Get the number of markers from the Boundary Conditions dictionary
 !        -----------------------------------------------------------------         
@@ -58,8 +70,7 @@ module ZoneClass
 !
 !        Gather the zone names
 !        ---------------------
-         allocate ( zoneNames( 1:no_of_markers ) ) 
-         zoneNames = zoneNameDictionary % allKeys()
+         zoneNames => zoneNameDictionary % allKeys()
 !
 !        Construct zones
 !        ---------------
@@ -77,7 +88,7 @@ module ZoneClass
 !        ----------------------------- 
          call ConstructBoundaryConditions(no_of_markers, zoneNames)
          
-         
+         deallocate (zoneNames)
       end subroutine ConstructZones
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -97,7 +108,7 @@ module ZoneClass
 !
          integer                                  :: zoneID, fID
          integer                                  :: no_of_markers
-         character(len=STR_LEN_ZONE), allocatable :: zoneNames(:)
+         character(len=STR_LEN_ZONE), pointer     :: zoneNames(:)
 !
 !        Get the number of markers from the Boundary Conditions dictionary
 !        -----------------------------------------------------------------         
@@ -106,8 +117,7 @@ module ZoneClass
 !
 !        Gather the zone names
 !        ---------------------
-         allocate ( zoneNames( 1:no_of_markers ) ) 
-         zoneNames = zoneNameDictionary % allKeys()
+         zoneNames => zoneNameDictionary % allKeys()
 !
 !        Reset faces
 !        -----------
@@ -119,6 +129,7 @@ module ZoneClass
 !        ----------------         
          call Zone_AssignFaces(faces,zones,no_of_markers,zoneNames)
          
+         deallocate (zoneNames)
       end subroutine ReassignZones
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -186,8 +197,11 @@ module ZoneClass
             zones(zoneID) % no_of_faces = size(realArray)
             deallocate(realArray)
          end do
-!
-!        TODO: Destruct linked list
+         
+!        Finish up
+!        ---------
+         call zoneList % destruct
+         deallocate (zoneList)
          
       end subroutine Zone_AssignFaces
 

@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Wed Jul 25 17:15:51 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
+!   @Last revision date: Thu Aug 16 16:15:53 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
 !
 !//////////////////////////////////////////////////////
 !
@@ -70,6 +70,7 @@ module pAdaptationClass
       logical                           :: Constructed      ! 
       integer                           :: NxyzMax(3)       ! Maximum polynomial order in all the directions
       integer                           :: TruncErrorType   ! Truncation error type (either ISOLATED_TE or NON_ISOLATED_TE)
+      character(len=BC_STRING_LENGTH), pointer :: conformingBoundaries(:) ! Stores the conforming boundaries (the length depends on FTDictionaryClass)
       type(TruncationError_t), allocatable :: TE(:)         ! Truncation error for every element(:)
       
       type(overenriching_t)  , allocatable :: overenriching(:)
@@ -77,6 +78,7 @@ module pAdaptationClass
       contains
          procedure :: construct => pAdaptation_Construct
          procedure :: destruct  => pAdaptation_Destruct
+         procedure :: makeBoundariesPConforming
 !~         procedure :: plot      => AdaptationPlotting
          procedure :: pAdaptTE
    end type pAdaptation_t
@@ -95,9 +97,9 @@ module pAdaptationClass
 !  Module variables
 !  ----------------
 !
-   integer    :: NMIN    = 1
-   integer    :: NMINest = 1     ! Minimum polynomil order used for estimation 
-   integer    :: NInc_0 = 4
+   integer    :: NMIN(NDIM) = 1
+   integer    :: NMINest    = 1     ! Minimum polynomil order used for estimation 
+   integer    :: NInc_0     = 4
 !!    integer               :: dN_Inc = 3 
    integer    :: fN_Inc = 2
    integer    :: NInc
@@ -173,6 +175,7 @@ module pAdaptationClass
                              Nx_r, Ny_r, Nz_r )
          
          Nmax = max(Nmax,maxval(Nx_r),maxval(Ny_r),maxval(Nz_r))
+         deallocate (Nx_r , Ny_r , Nz_r )
       end if
       
       Nmax = max(Nmax,maxval(Nx),maxval(Ny),maxval(Nz))
@@ -224,6 +227,8 @@ module pAdaptationClass
          this % x_span = getArrayFromString(x_span)
          this % y_span = getArrayFromString(y_span)
          this % z_span = getArrayFromString(z_span)
+         
+         deallocate(order)
          
       end subroutine OverEnriching_Initialize
 !
@@ -464,7 +469,12 @@ readloop:do
       if ( controlVariables % containsKey("adaptation nmin") ) then
          NMIN = controlVariables % integerValueForKey("adaptation nmin")
       else
-         NMIN = 1
+         if ( controlVariables % containsKey("adaptation nmin i") ) &
+            NMIN(1) = controlVariables % integerValueForKey("adaptation nmin i")
+         if ( controlVariables % containsKey("adaptation nmin j") ) &
+            NMIN(2) = controlVariables % integerValueForKey("adaptation nmin j")
+         if ( controlVariables % containsKey("adaptation nmin k") ) &
+            NMIN(3) = controlVariables % integerValueForKey("adaptation nmin k")
       end if
       
       do i = 1, nelem
@@ -530,6 +540,9 @@ readloop:do
       end do
       
       deallocate (this % TE)
+      
+      deallocate  (this % conformingBoundaries)
+      safedeallocate  (this % overenriching)
    end subroutine pAdaptation_Destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -570,6 +583,8 @@ readloop:do
       ! For new adaptation algorithm
       integer                    :: Pxyz(3)           !   Polynomial order the estimation was performed with
       real(kind=RP), allocatable :: TEmap(:,:,:)      !   Map of truncation error
+      real(kind=RP)              :: TE_L
+      integer                    :: L(3)
       integer                    :: P_1(3)            !   Pxyz-1
       integer                    :: i,j,k             !   Counters
       integer                    :: DOFs, NewDOFs
@@ -577,13 +592,6 @@ readloop:do
       TYPE(AnisFASMultigrid_t)   :: AnisFASpAdaptSolver
       character(len=LINE_LENGTH) :: AdaptedMeshFile
       logical                    :: last
-      interface
-         character(len=LINE_LENGTH) function getFileName( inputLine )
-            use SMConstants
-            implicit none
-            character(len=*)     :: inputLine
-         end function getFileName
-      end interface
       !--------------------------------------
 #if defined(NAVIERSTOKES)
       
@@ -636,7 +644,7 @@ readloop:do
 !     -------------------------------------------------------------
 !
       ! Allocate the TEmap with the maximum number of N compinations and initialize it
-      allocate(TEmap(NMIN:pAdapt % NxyzMax(1),NMIN:pAdapt % NxyzMax(2),NMIN:pAdapt % NxyzMax(3)))
+      allocate(TEmap(NMIN(1):pAdapt % NxyzMax(1),NMIN(2):pAdapt % NxyzMax(2),NMIN(3):pAdapt % NxyzMax(3)))
       
       ! Loop over all elements
 !!!!$OMP PARALLEL do PRIVATE(Pxyz,P_1,TEmap,NewDOFs,i,j,k)  ! TODO: Modify private and uncomment
@@ -645,7 +653,9 @@ readloop:do
          Pxyz = sem % mesh % elements(iEl) % Nxyz
          P_1  = Pxyz - 1
          
-         where(P_1 < NMIN) P_1 = NMIN ! minimum order
+         do dir=1, NDIM
+            if ( (P_1(dir) < NMIN(dir)) .and. (P_1(dir) < NMINest+1) ) P_1(dir) = NMIN(dir)
+         end do
          
          TEmap = 0._RP
          
@@ -663,9 +673,9 @@ readloop:do
 !
          NewDOFs = (P_1(1) + 1) * (P_1(2) + 1) * (P_1(3) + 1) ! Initialized with maximum number of DOFs (for N<P)
          
-         do k = NMIN, P_1(3)
-            do j = NMIN, P_1(2)
-               do i = NMIN, P_1(1) 
+         do k = NMIN(3), P_1(3)
+            do j = NMIN(2), P_1(2)
+               do i = NMIN(1), P_1(1) 
                   ! 1. Generate a TEmap entry
                   TEmap(i,j,k) = pAdapt % TE(iEl) % Dir(1) % maxTE(i) + &  !xi   contribution
                                  pAdapt % TE(iEl) % Dir(2) % maxTE(j) + &  !eta  contribution
@@ -684,6 +694,29 @@ readloop:do
                end do
             end do
          end do
+!
+!        -----------------------------------------------------------------------
+!        Extra check:
+!           When NMIN > P_1, it is not always necessary to extrapolate.
+!           If Tau(P_1) < threshold, then NMIN should fulfill it too
+!        -----------------------------------------------------------------------
+!
+         if ( any(NMIN > P_1) .and. all( P_1 >= NMINest ) ) then
+            do dir=1, NDIM
+               if (P_1(dir) <= NMIN(dir)) then
+                  L(dir) = P_1(dir)
+               else
+                  L(dir) = NMIN(dir)
+               end if
+            end do
+            
+            TE_L= pAdapt % TE(iEl) % Dir(1) % maxTE(L(1)) + &  !xi   contribution
+                  pAdapt % TE(iEl) % Dir(2) % maxTE(L(2)) + &  !eta  contribution
+                  pAdapt % TE(iEl) % Dir(3) % maxTE(L(3))      !zeta contribution
+            
+            if (TE_L < pAdapt % reqTE) NNew(:,iEl) = NMIN
+         end if
+               
 !
 !        -----------------------------------------------------------------------
 !        If the desired TE could NOT be achieved using the inner map (N_i<P_i),
@@ -715,9 +748,9 @@ readloop:do
                ! 2-3. Obtain extended TE map and search
                
                NewDOFs = (pAdapt % NxyzMax(1) + 1) * (pAdapt % NxyzMax(2) + 1) * (pAdapt % NxyzMax(3) + 1) ! Initialized as maximum DOFs possible
-               do k = NMIN, pAdapt % NxyzMax(3)
-                  do j = NMIN, pAdapt % NxyzMax(2)
-                     do i = NMIN, pAdapt % NxyzMax(1)
+               do k = NMIN(3), pAdapt % NxyzMax(3)
+                  do j = NMIN(2), pAdapt % NxyzMax(2)
+                     do i = NMIN(1), pAdapt % NxyzMax(1)
                         ! cycle if it is not necessary/possible to compute the TEmap
                         if (k <= P_1(3) .AND. j <= P_1(2) .AND. i <= P_1(1)) cycle ! This is the inner map (already checked)
                         if (notenough(1) .AND. i > Pxyz(1)) cycle ! The regression was not possible in xi   (too few points), hence only checking with known values
@@ -749,7 +782,7 @@ readloop:do
             end if
          end if
          
-!~         if (iEl==1) call PrintTEmap(TEmap,1,NMIN,pAdapt % solutionFileName)
+!~         if (iEl==1) call PrintTEmap(NMIN,TEmap,1,pAdapt % solutionFileName)
 !
 !        ---------------------------------------------------------------------------
 !        If the maximum polynomial order was not found, select the maximum available
@@ -793,7 +826,7 @@ readloop:do
       last = .FALSE.
       do while (.not. last)
          last = .TRUE.
-         call makeBoundariesPConforming(sem % mesh,NNew,last)
+         call pAdapt % makeBoundariesPConforming(sem % mesh,NNew,last)
          call ReorganizePolOrders(sem % mesh % faces,NNew,last)
       end do
 !
@@ -875,10 +908,9 @@ readloop:do
 !     Destruct the temporary storage
 !     ------------------------------
 !
-      do iEl = 1, nelem
-         call TempStorage(iEl) % destruct
-      end do
+      call TempStorage % destruct
       deallocate (TempStorage)
+      
       call Temp1DStor % Destruct
 !
 !     ---------------------------------------------------
@@ -922,12 +954,13 @@ readloop:do
 !  -----------------------------------------------------------------------
 !  Subroutine to make the p-representation on certain boundaries conforming
 !  -----------------------------------------------------------------------
-   subroutine makeBoundariesPConforming(mesh,NNew,last)
+   subroutine makeBoundariesPConforming(this,mesh,NNew,last)
       implicit none
       !-arguments--------------------------------------------------
-      type(HexMesh), intent(in)    :: mesh
-      integer      , intent(inout) :: NNew (:,:)
-      logical :: last
+      class(pAdaptation_t), intent(inout) :: this            !<> Adaptation class
+      type(HexMesh)       , intent(in)    :: mesh
+      integer             , intent(inout) :: NNew (:,:)
+      logical             , intent(inout) :: last
       !-local-variables--------------------------------------------
       integer :: zoneID    ! Zone counters
       integer :: fID       ! Index of face on boundary (in partition)
@@ -937,7 +970,7 @@ readloop:do
       integer :: f_conf
       integer :: sweep     ! Sweep counter
       logical :: finalsweep
-      character(len=LINE_LENGTH), allocatable :: boundaryNames(:)
+      logical, save :: isfirst = .TRUE.
       !------------------------------------------------------------
       ! New definition of neighborFaces in order to consider the face
       ! that is not in contact with the boundary. In order to disable, 
@@ -949,11 +982,12 @@ readloop:do
                                                                1, 2, 3, 4, 6, &
                                                                1, 2, 3, 4, 5 /) , (/5,6/) )
       !------------------------------------------------------------
-
-      allocate ( boundaryNames( conformingBoundariesDic % COUNT() )  ) 
-      boundaryNames = conformingBoundariesDic % allKeys()
       
-      if ( size(boundaryNames) < 1 ) return
+      if (isfirst) then
+         this % conformingBoundaries => conformingBoundariesDic % allKeys()
+         isfirst =.FALSE.
+      end if
+      if ( size(this % conformingBoundaries) < 1 ) return
       
       write(STD_OUT,*) '## Forcing p-conforming boundaries ##'
       
@@ -962,7 +996,7 @@ readloop:do
 !     ************************
       do zoneID = 1, size(mesh % zones)
          
-         if ( all ( boundaryNames /= trim(mesh % zones(zoneID) % Name) ) ) cycle
+         if ( all ( this % conformingBoundaries /= trim(mesh % zones(zoneID) % Name) ) ) cycle
          
          write(STD_OUT,*) '## Boundary:', mesh % zones(zoneID) % Name
          write(STD_OUT,*) '   Sweep   |   Last'

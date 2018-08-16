@@ -4,9 +4,9 @@
 !   @File:    ReadHDF5Mesh.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Fri Jun 29 12:25:04 2018
+!   @Last revision date: Thu Aug 16 16:15:36 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f5ac1c3af6cb286f8def57452c066d57412a133b
+!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
 !
 !//////////////////////////////////////////////////////
 !
@@ -106,6 +106,7 @@ contains
       INTEGER  :: numberOfFaces
       INTEGER                          :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
       CHARACTER(LEN=BC_STRING_LENGTH)  :: names(FACES_PER_ELEMENT)
+      CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
       TYPE(FacePatch), DIMENSION(6)    :: facePatches
       REAL(KIND=RP)                    :: corners(NDIM,NODES_PER_ELEMENT) ! Corners of element
       type(SurfInfo_t), allocatable                :: SurfInfo(:)
@@ -323,9 +324,11 @@ contains
          DO k = 1, 6
             IF(TRIM(names(k)) /= emptyBCName) then
                numberOfBoundaryFaces = numberOfBoundaryFaces + 1
-               if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+               zoneNames => zoneNameDictionary % allKeys()
+               if ( all(trim(names(k)) .ne. zoneNames) ) then
                   call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                end if
+               deallocate (zoneNames)
             end if
          END DO  
          

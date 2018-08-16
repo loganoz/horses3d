@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Sat Jul 28 02:06:31 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: dab661d47e4ab253fd8b07a9a0e2823da05151d8
+!   @Last revision date: Thu Aug 16 16:15:33 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
 !
 !//////////////////////////////////////////////////////
 !
@@ -70,7 +70,7 @@ MODULE HexMeshClass
          logical                                   :: anisotropic = .FALSE.         ! Is the mesh composed by elements with anisotropic polynomial orders? default false
          logical                                   :: ignoreBCnonConformities = .FALSE.
          contains
-            procedure :: destruct                      => DestructMesh
+            procedure :: destruct                      => HexMesh_Destruct
             procedure :: Describe                      => DescribeMesh
             procedure :: DescribePartition             => DescribeMeshPartition
             procedure :: AllocateStorage               => HexMesh_AllocateStorage
@@ -135,7 +135,7 @@ MODULE HexMeshClass
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE DestructMesh( self )
+      SUBROUTINE HexMesh_Destruct( self )
          IMPLICIT NONE 
          CLASS(HexMesh) :: self
          INTEGER        :: j
@@ -144,27 +144,21 @@ MODULE HexMeshClass
 !        Nodes
 !        -----
 !
-         DO j = 1, SIZE( self % nodes )
-            CALL DestructNode( self % nodes(j)) 
-         END DO  
+         call self % nodes % destruct
          DEALLOCATE( self % nodes )
 !
 !        --------
 !        Elements
 !        --------
 !
-         DO j = 1, SIZE(self % elements) 
-            CALL DestructElement( self % elements(j) )
-         END DO
+         call self % elements % destruct
          DEALLOCATE( self % elements )
 !
 !        -----
 !        Faces
 !        -----
 !
-         DO j = 1, SIZE(self % faces) 
-            call self % faces(j) % Destruct
-         END DO
+         call self % faces % Destruct
          DEALLOCATE( self % faces )
 !
 !        -----
@@ -181,7 +175,7 @@ MODULE HexMeshClass
 !
          call self % storage % destruct
          
-      END SUBROUTINE DestructMesh
+      END SUBROUTINE HexMesh_Destruct
 !
 !     -------------
 !     Print methods

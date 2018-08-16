@@ -39,6 +39,7 @@ module ProbeClass
          procedure   :: WriteValues    => Probe_WriteValue
          procedure   :: WriteToFile    => Probe_WriteToFile
          procedure   :: LookInOtherPartitions => Probe_LookInOtherPartitions
+         procedure   :: destruct       => Probe_Destruct
    end type Probe_t
 
    contains
@@ -394,6 +395,16 @@ module ProbeClass
          end if
 
       end subroutine Probe_LookInOtherPartitions
-
+      
+      elemental subroutine Probe_Destruct (self)
+         implicit none
+         class(Probe_t), intent(inout) :: self
+         
+         deallocate (self % values)
+         deallocate (self % lxi)
+         deallocate (self % leta)
+         deallocate (self % lzeta)
+      end subroutine Probe_Destruct
+      
 end module ProbeClass
 #endif

@@ -72,6 +72,7 @@ MODULE Read_SpecMesh
          real(kind=RP)                   :: x(NDIM)
          integer                         :: faceFlags(FACES_PER_ELEMENT)
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
+         CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
          TYPE(FacePatch), DIMENSION(6)   :: facePatches
          real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
          logical                         :: export_mesh
@@ -241,9 +242,11 @@ MODULE Read_SpecMesh
             DO k = 1, 6
                IF(TRIM(names(k)) /= emptyBCName) then
                   numberOfBoundaryFaces = numberOfBoundaryFaces + 1
-                  if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                  zoneNames => zoneNameDictionary % allKeys()
+                  if ( all(trim(names(k)) .ne. zoneNames) ) then
                      call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                   end if
+                  deallocate (zoneNames)
                end if
             END DO  
          END DO      ! l = 1, numberOfElements
@@ -377,6 +380,7 @@ MODULE Read_SpecMesh
          real(kind=RP)                   :: x(NDIM)
          integer                         :: faceFlags(FACES_PER_ELEMENT)
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
+         CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
          TYPE(FacePatch), DIMENSION(6)   :: facePatches
          real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
 !
@@ -505,9 +509,11 @@ MODULE Read_SpecMesh
                READ( fUnit, * ) names
                DO k = 1, 6
                   IF(TRIM(names(k)) /= emptyBCName) then
-                     if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                     zoneNames => zoneNameDictionary % allKeys()
+                     if ( all(trim(names(k)) .ne. zoneNames) ) then
                         call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                      end if
+                     deallocate (zoneNames)
                   end if
                END DO  
 
@@ -535,9 +541,11 @@ MODULE Read_SpecMesh
                READ( fUnit, * ) names
                DO k = 1, 6
                   IF(TRIM(names(k)) /= emptyBCName) then
-                     if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                     zoneNames => zoneNameDictionary % allKeys()
+                     if ( all(trim(names(k)) .ne. zoneNames) ) then
                         call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                      end if
+                     deallocate (zoneNames)
                   end if
                END DO  
 
@@ -619,9 +627,11 @@ MODULE Read_SpecMesh
 !           -------------------------------------------------            
             DO k = 1, 6
                IF(TRIM(names(k)) /= emptyBCName) then
-                  if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                  zoneNames => zoneNameDictionary % allKeys()
+                  if ( all(trim(names(k)) .ne. zoneNames) ) then
                      call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                   end if
+                  deallocate (zoneNames)
                end if
             END DO  
 !

@@ -252,11 +252,19 @@ MODULE NodalStorageClass
       
       DEALLOCATE( this % x )
       DEALLOCATE( this % w  )
+      DEALLOCATE( this % wb  )
       DEALLOCATE( this % D  )
       DEALLOCATE( this % DT )
       DEALLOCATE( this % hatD)
+      DEALLOCATE( this % hatG)
+      DEALLOCATE( this % xCGL )
+      DEALLOCATE( this % wbCGL )
+      DEALLOCATE( this % DCGL )
+      DEALLOCATE( this % TCheb2Gauss )
       DEALLOCATE( this % v )
       DEALLOCATE( this % b )
+      DEALLOCATE( this % vd )
+      DEALLOCATE( this % bd )
       safedeallocate( this % sharpD )    !  This matrices are just generated for Gauss-Lobatto discretizations.
 
       END SUBROUTINE DestructNodalStorage

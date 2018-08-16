@@ -36,6 +36,7 @@ module SurfaceMonitorClass
          procedure   :: WriteLabel     => SurfaceMonitor_WriteLabel
          procedure   :: WriteValues    => SurfaceMonitor_WriteValue
          procedure   :: WriteToFile    => SurfaceMonitor_WriteToFile
+         procedure   :: destruct       => SurfaceMonitor_Destruct
    end type SurfaceMonitor_t
 
    contains
@@ -410,5 +411,11 @@ module SurfaceMonitorClass
       
       end subroutine SurfaceMonitor_WriteToFile
 !
+      elemental subroutine SurfaceMonitor_Destruct (self)
+         implicit none
+         class(SurfaceMonitor_t), intent(inout) :: self
+         
+         deallocate (self % values)
+      end subroutine SurfaceMonitor_Destruct
 end module SurfaceMonitorClass
 #endif
