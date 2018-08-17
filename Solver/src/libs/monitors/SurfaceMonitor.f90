@@ -6,7 +6,7 @@ module SurfaceMonitorClass
    use PhysicsStorage
    use MPI_Process_Info
    use FluidData
-   use FileReadingUtilities, only: getArrayFromString
+   use FileReadingUtilities, only: getRealArrayFromString
 #include "Includes.h"
    
    private
@@ -91,11 +91,11 @@ module SurfaceMonitorClass
          write(in_label , '(A,I0)') "#define surface monitor " , self % ID
          
          call get_command_argument(1, paramFile)
-         call readValueInRegion ( trim ( paramFile )  , "Name"              , self % monitorName      , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "Marker"            , markerName              , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "Variable"          , self % variable         , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "Reference surface" , self % referenceSurface , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "Direction"         , directionName        , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "name"              , self % monitorName      , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "marker"            , markerName              , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "variable"          , self % variable         , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "reference surface" , self % referenceSurface , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "direction"         , directionName        , in_label , "# end" ) 
 !
 !        Enable the monitor
 !        ------------------
@@ -138,7 +138,7 @@ module SurfaceMonitorClass
                   stop "Stopped"
 
                else
-                  directionValue = getArrayFromString(directionName)
+                  directionValue = getRealArrayFromString(directionName)
                   if ( size(directionValue) .ne. 3 ) then
                      print*, "Incorrect direction for monitor ", self % ID, "."
    
@@ -155,7 +155,7 @@ module SurfaceMonitorClass
                   stop "Stopped"
 
                else
-                  directionValue = getArrayFromString(directionName)
+                  directionValue = getRealArrayFromString(directionName)
                   if ( size(directionValue) .ne. 3 ) then
                      print*, "Incorrect direction for monitor ", self % ID, "."
    
@@ -173,7 +173,7 @@ module SurfaceMonitorClass
                   stop "Stopped"
 
                else
-                  directionValue = getArrayFromString(directionName)
+                  directionValue = getRealArrayFromString(directionName)
                   if ( size(directionValue) .ne. 3 ) then
                      print*, "Incorrect direction for monitor ", self % ID, "."
    
@@ -198,7 +198,7 @@ module SurfaceMonitorClass
                   self % direction = [0._RP,1._RP,0._RP]
 
                else
-                  directionValue = getArrayFromString(directionName)
+                  directionValue = getRealArrayFromString(directionName)
                   if ( size(directionValue) .ne. 3 ) then
                      print*, "Incorrect direction for monitor ", self % ID, "."
    
@@ -224,7 +224,7 @@ module SurfaceMonitorClass
                   self % direction = [1._RP,0._RP,0._RP]
 
                else
-                  directionValue = getArrayFromString(directionName)
+                  directionValue = getRealArrayFromString(directionName)
                   if ( size(directionValue) .ne. 3 ) then
                      print*, "Incorrect direction for monitor ", self % ID, "."
    

@@ -7,7 +7,7 @@ module ProbeClass
    use VariableConversion  , only: Pressure
    use MPI_Process_Info
    use FluidData
-   use FileReadingUtilities, only: getArrayFromString
+   use FileReadingUtilities, only: getRealArrayFromString
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -79,13 +79,13 @@ module ProbeClass
          write(in_label , '(A,I0)') "#define probe " , self % ID
          
          call get_command_argument(1, paramFile)
-         call readValueInRegion(trim(paramFile), "Name"    , self % monitorName, in_label, "# end" )
-         call readValueInRegion(trim(paramFile), "Variable", self % variable   , in_label, "# end" )
-         call readValueInRegion(trim(paramFile), "Position", coordinates       , in_label, "# end" )
+         call readValueInRegion(trim(paramFile), "name"    , self % monitorName, in_label, "# end" )
+         call readValueInRegion(trim(paramFile), "variable", self % variable   , in_label, "# end" )
+         call readValueInRegion(trim(paramFile), "position", coordinates       , in_label, "# end" )
 !
 !        Get the coordinates
 !        -------------------
-         x = getArrayFromString(coordinates)
+         x = getRealArrayFromString(coordinates)
 !
 !        Check the variable
 !        ------------------

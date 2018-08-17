@@ -257,7 +257,7 @@ contains
 
       end function getFileExtension
 
-      function getArrayFromString( line ) result ( array )
+      function getRealArrayFromString( line ) result ( array )
 !
 !           ****************************************************
 !                    Gets an array from a string of the 
@@ -322,7 +322,92 @@ contains
          end do
 
          call Data % load(array)
+         call Data % destruct
 
-      end function getArrayFromString
+      end function getRealArrayFromString
+      
+      function getCharArrayFromString( line , linelength) result ( array )
+!
+!           ****************************************************
+!                    Gets a character array from a string of the 
+!              form: 
+!                       line = "[a,b,c,...]"
+!           ****************************************************
+!
+         implicit none
+         character(len=*)       ,    intent(in)  :: line
+         integer                                 :: linelength
+         character(len=linelength), allocatable  :: array(:)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                    :: pos1 , pos2 , pos
+         character(len=LINE_LENGTH) :: auxline
+         integer                    :: io
+         integer                    :: numOfElems, elem
+         
+         numOfElems = 1
+         
+         pos1 = index(line,"[")
+         pos2 = index(line,"]") 
 
+         if ( (pos1 .eq. 0) .or. (pos2 .eq. 0) ) then
+!
+!           There are no brackets in the string
+!           -----------------------------------
+            return
+         end if
+         
+!
+!        Get number of elements
+!        ----------------------
+         auxline = line(pos1+1:pos2-1)
+         do
+            pos = index(auxline , "," ) 
+
+            if ( pos .gt. 0 ) then
+
+               numOfElems = numOfElems + 1
+               auxline = auxline(pos+1:)
+            else
+               exit
+            end if
+
+         end do
+         
+         allocate ( array(numOfElems) )
+
+!
+!        Get the elements
+!        ----------------
+         auxline = line(pos1+1:pos2-1)
+         elem = 1
+         do
+            pos = index(auxline , "," ) 
+
+            if ( pos .gt. 0 ) then
+
+               read(auxline(1:pos-1),*,iostat=io) array(elem) 
+               if ( io .lt. 0 ) then
+                  return
+               end if
+   
+               auxline = auxline(pos+1:)
+               elem    = elem + 1
+
+            else
+               read(auxline ,*,iostat=io) array(elem)  
+               if ( io .lt. 0 ) then
+                  return
+               end if
+
+               exit
+
+            end if
+
+         end do
+
+      end function getCharArrayFromString
 end module FileReadingUtilities

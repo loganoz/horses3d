@@ -318,7 +318,7 @@
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       
       if ( present(pAdaptator) .and. self % integratorType == TIME_ACCURATE) then
-         pAdaptInterval = controlVariables % integerValueForKey ("padaptation interval")
+         pAdaptInterval = pAdaptator % interval
       else
          pAdaptInterval = huge(pAdaptInterval)
       end if

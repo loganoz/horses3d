@@ -85,8 +85,8 @@ module VolumeMonitorClass
          write(in_label , '(A,I0)') "#define volume monitor " , self % ID
          
          call get_command_argument(1, paramFile)
-         call readValueInRegion ( trim ( paramFile )  , "Name"              , self % monitorName      , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "Variable"          , self % variable         , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "name"              , self % monitorName      , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "variable"          , self % variable         , in_label , "# end" ) 
 !
 !        Enable the monitor
 !        ------------------

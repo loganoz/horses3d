@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date: Thu Jul  5 12:35:02 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
+!   @Last revision date: Fri Aug 17 10:25:41 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 0760ac964cfb71dec1e13da0780b72ca9d38e064
 !
 !//////////////////////////////////////////////////////
 !
@@ -59,7 +59,7 @@
 !
      USE SMConstants
      use FluidData_NS
-     use FileReadingUtilities, only: getArrayFromString
+     use FileReadingUtilities, only: getRealArrayFromString
      
      IMPLICIT NONE
 
@@ -361,7 +361,7 @@
       end if
 
       if ( controlVariables % ContainsKey(GRAVITY_DIRECTION_KEY) ) then
-         array = GetArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
+         array = getRealArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
                                                                              KEYWORD_LENGTH))
          dimensionless_ % gravity_dir = array(1:3)
 

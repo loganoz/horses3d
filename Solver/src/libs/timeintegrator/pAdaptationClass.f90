@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Thu Aug 16 16:15:53 2018
+!   @Last revision date: Fri Aug 17 10:25:43 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
+!   @Last revision commit: 0760ac964cfb71dec1e13da0780b72ca9d38e064
 !
 !//////////////////////////////////////////////////////
 !
@@ -29,12 +29,12 @@ module pAdaptationClass
    use TruncationErrorClass
    use FTValueDictionaryClass          , only: FTValueDictionary
    use StorageClass
-   use SharedBCModule                  , only: conformingBoundariesDic
-   use FileReadingUtilities            , only: RemovePath, getFileName, getArrayFromString
+   use FileReadingUtilities            , only: RemovePath, getFileName, getRealArrayFromString, getCharArrayFromString
    use FileReaders                     , only: ReadOrderFile
    use ParamfileRegions                , only: readValueInRegion, getSquashedLine
    use HexMeshClass                    , only: HexMesh
    use ElementConnectivityDefinitions  , only: neighborFaces
+   use Utilities                       , only: toLower
    implicit none
    
 #include "Includes.h"
@@ -62,15 +62,15 @@ module pAdaptationClass
    type :: pAdaptation_t
       character(len=LINE_LENGTH)        :: solutionFileName ! Name of file for plotting adaptation information
       real(kind=RP)                     :: reqTE            ! Requested truncation error
-      logical                           :: RegressionFiles  ! Write regression files?
+      logical                           :: RegressionFiles = .FALSE.  ! Write regression files?
       logical                           :: saveGradients    ! Save gradients in pre-adapt and p-adapted solution files?
-      logical                           :: PlotInfo
       logical                           :: Adapt            ! Is the adaptator going to be used??
-      logical                           :: increasing       ! Performing an increasing adaptation procedure?
+      logical                           :: increasing      = .FALSE.      ! Performing an increasing adaptation procedure?
       logical                           :: Constructed      ! 
       integer                           :: NxyzMax(3)       ! Maximum polynomial order in all the directions
       integer                           :: TruncErrorType   ! Truncation error type (either ISOLATED_TE or NON_ISOLATED_TE)
-      character(len=BC_STRING_LENGTH), pointer :: conformingBoundaries(:) ! Stores the conforming boundaries (the length depends on FTDictionaryClass)
+      integer                           :: interval
+      character(len=BC_STRING_LENGTH), allocatable :: conformingBoundaries(:) ! Stores the conforming boundaries (the length depends on FTDictionaryClass)
       type(TruncationError_t), allocatable :: TE(:)         ! Truncation error for every element(:)
       
       type(overenriching_t)  , allocatable :: overenriching(:)
@@ -79,8 +79,7 @@ module pAdaptationClass
          procedure :: construct => pAdaptation_Construct
          procedure :: destruct  => pAdaptation_Destruct
          procedure :: makeBoundariesPConforming
-!~         procedure :: plot      => AdaptationPlotting
-         procedure :: pAdaptTE
+         procedure :: pAdaptTE  => pAdaptation_pAdaptTE
    end type pAdaptation_t
 !
 !  ----------
@@ -104,20 +103,25 @@ module pAdaptationClass
    integer    :: fN_Inc = 2
    integer    :: NInc
    integer    :: nelem           ! number of elements in mesh
-   logical    :: reorganize_z
+   logical    :: reorganize_Nz = .FALSE.
    
    procedure(OrderAcrossFace_f), pointer :: GetOrderAcrossFace
    
    ! Here we define the input variables that can be changed after p-adaptation
-   character(len=18), parameter :: ReplacedInputVars(4) = (/'mg sweeps         ', &
-                                                            'mg sweeps pre     ', &
-                                                            'mg sweeps post    ', &
-                                                            'mg sweeps coarsest'/)
+   character(len=18), parameter :: ReplaceableVars(4) = (/'mg sweeps         ', &
+                                                          'mg sweeps pre     ', &
+                                                          'mg sweeps post    ', &
+                                                          'mg sweeps coarsest'/)
+   type(FTValueDictionary) :: ReplacedVariables
 !========
  contains
 !========
 !
-!/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     GENERAL ROUTINES
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
       use ReadMeshFile
@@ -184,7 +188,7 @@ module pAdaptationClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!     ROUTINES FOR ADAPTATION
+!     ROUTINES FOR OVERENRICHING AREAS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -224,9 +228,9 @@ module pAdaptationClass
             this % order = 1
          end if
          
-         this % x_span = getArrayFromString(x_span)
-         this % y_span = getArrayFromString(y_span)
-         this % z_span = getArrayFromString(z_span)
+         this % x_span = getRealArrayFromString(x_span)
+         this % y_span = getRealArrayFromString(y_span)
+         this % z_span = getRealArrayFromString(z_span)
          
          deallocate(order)
          
@@ -260,8 +264,8 @@ module pAdaptationClass
       open ( newunit = fID , file = case_name , status = "old" , action = "read" )
 
 !
-!     Read the whole file to find monitors
-!     ------------------------------------
+!     Read the whole file to find overenriching regions
+!     -------------------------------------------------
 readloop:do 
          read ( fID , '(A)' , iostat = io ) line
 
@@ -385,16 +389,20 @@ readloop:do
       integer, DIMENSION(:)               :: Nx,Ny,Nz         !<> Input: polynomial orders as read from input files - Output: Polynomial orders to start simulation with (increasing adaptation?)
       type(FTValueDictionary), intent(in) :: controlVariables !<  Input values
       !--------------------------------------
-      integer              :: i      ! Element counter
-      integer              :: no_of_overen_boxes
+      ! For block reading
+      character(LINE_LENGTH)         :: paramFile
+      character(LINE_LENGTH)         :: in_label
+      character(20*BC_STRING_LENGTH) :: confBoundaries
+      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_OrderAcrossFaces, replacedValue
+      logical      , allocatable     :: increasing, regressionFiles, reorganize_z
+      real(kind=RP), allocatable     :: TruncError
+      integer      , allocatable     :: R_interval
+      ! Extra vars
+      integer                        :: i      ! Element counter
+      integer                        :: no_of_overen_boxes
       !--------------------------------------
       
-!
-!     ------------------------------
-!     Read variables from input file
-!     ------------------------------
-!
-      this % Adapt        = controlVariables % LogicalValueForKey("padaptation") ! Default false if not present
+      this % Adapt  = pAdaptationIsDefined()
       
       if (this % Adapt) then
          this % Constructed = .TRUE.
@@ -402,50 +410,83 @@ readloop:do
          this % Constructed = .FALSE.
          return
       end if
-      
-      this % increasing   = controlVariables % LogicalValueForKey("increasing adaptation")
-      
-      ! The truncation error threshold is required (only adaptation strategy implemented)
-      if (.NOT. controlVariables % containsKey("truncation error")) ERROR STOP 'A truncation error must be specified for p-adapt'
-      this % reqTE        = controlVariables % doubleprecisionValueForKey   ("truncation error")
-      
-      this % PlotInfo        = controlVariables % LogicalValueForKey("plot p-adaptation") ! Default false if not present
-      this % RegressionFiles = controlVariables % LogicalValueForKey("write regression files") ! Default false if not present
-      
-      this % solutionFileName = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
-      this % saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
-      
-      reorganize_z = controlVariables % logicalValueForKey("adaptation adjust nz")
-      
 !
-!     ------------------------------
-!     Save maximum polynomial orders
-!     ------------------------------
+!     **************************************************
+!     * p-adaptation is defined - Proceed to construct *     
+!     **************************************************
 !
+
+!     Read block
+!     **********
+      write(in_label , '(A)') "#define p-adaptation"
       
-      if (controlVariables % containsKey("adaptation nmax i")) then
-         this % NxyzMax(1) = controlVariables % integerValueForKey("adaptation nmax i")
-      else
-         this % NxyzMax(1) = MAXVAL(Nx)
-      end if
-      if (controlVariables % containsKey("adaptation nmax j")) then
-         this % NxyzMax(2) = controlVariables % integerValueForKey("adaptation nmax j")
-      else
-         this % NxyzMax(2) = MAXVAL(Ny)
-      end if
-      if (controlVariables % containsKey("adaptation nmax k")) then
-         this % NxyzMax(3) = controlVariables % integerValueForKey("adaptation nmax k")
-      else
-         this % NxyzMax(3) = MAXVAL(Nz)
+      call get_command_argument(1, paramFile) !
+      
+      call readValueInRegion ( trim ( paramFile )  , "conforming boundaries"  , confBoundaries    , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "increasing"             , increasing        , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "truncation error"       , TruncError        , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "regression files"       , regressionFiles   , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "adjust nz"              , reorganize_z      , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "nmax"                   , R_Nmax            , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "nmin"                   , R_Nmin            , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "truncation error type"  , R_TruncErrorType  , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "order across faces"     , R_OrderAcrossFaces, in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "interval"               , R_interval        , in_label , "# end" ) 
+      
+!     Conforming boundaries?
+!     ----------------------
+      if ( confBoundaries /= "" ) then
+         this % conformingBoundaries = getCharArrayFromString (confBoundaries,BC_STRING_LENGTH)
+         do i=1, size(this % conformingBoundaries)
+            call toLower(this % conformingBoundaries(i))
+         end do
       end if
       
-!
-!     ----------------------------------------
-!     Allocate truncation error array
-!     ----------------------------------------
-!
-      if ( controlVariables % containsKey("truncation error type") ) then
-         select case ( trim(controlVariables % stringValueForKey("truncation error type", requestedLength = LINE_LENGTH)) )
+!     Increasing adaptation?
+!     ----------------------
+      if ( allocated(increasing) ) then
+         this % increasing = increasing
+      end if
+      
+!     Truncation error threshold
+!     --------------------------
+      if ( allocated(TruncError) ) then
+         this % reqTE = TruncError
+      else
+         ERROR STOP 'A truncation error must be specified for p-adapt'
+      end if
+      
+!     Regression files?
+!     -----------------
+      if ( allocated(regressionFiles) ) then
+         this % RegressionFiles = regressionFiles
+      end if
+      
+!     Adjust Nz?
+!     ----------
+      if ( allocated(reorganize_z) ) then
+         reorganize_Nz = reorganize_z
+      end if
+      
+!     Nmax
+!     ----
+      if ( R_Nmax /= "" ) then
+         this % NxyzMax = getRealArrayFromString(R_Nmax)
+      else
+         this % NxyzMax = [maxval(Nx), maxval(Ny), maxval(Nz)] 
+      end if
+      
+!     Nmin -> If this is a p-nonconforming 3D case, it should be 2
+!     ----
+      if ( R_Nmin /= "" ) then
+         NMIN = getRealArrayFromString(R_Nmin)
+      end if
+      
+!     Truncation error type
+!     ---------------------
+      if ( R_TruncErrorType /= "" ) then
+         call toLower (R_TruncErrorType)
+         select case ( trim(R_TruncErrorType) )
             case ('isolated')
                this % TruncErrorType = ISOLATED_TE
             case ('non-isolated')
@@ -458,25 +499,49 @@ readloop:do
          this % TruncErrorType = ISOLATED_TE
       end if
       
-      nelem = size(Nx)
-      allocate (this % TE(nelem))
-      
-!
-!     Read the minimum polynomial order after adaptation
-!     -> If this is a p-nonconforming 3D case, it should be 2
-!     -------------------------------------------------------
-      
-      if ( controlVariables % containsKey("adaptation nmin") ) then
-         NMIN = controlVariables % integerValueForKey("adaptation nmin")
+!     Polynomial order jump
+!     ---------------------
+      if ( R_OrderAcrossFaces /= "" ) then
+         select case ( trim (R_OrderAcrossFaces) )
+            case ("n*2/3")
+               GetOrderAcrossFace => NumberN23
+            case default
+               GetOrderAcrossFace => NumberN_1
+         end select
       else
-         if ( controlVariables % containsKey("adaptation nmin i") ) &
-            NMIN(1) = controlVariables % integerValueForKey("adaptation nmin i")
-         if ( controlVariables % containsKey("adaptation nmin j") ) &
-            NMIN(2) = controlVariables % integerValueForKey("adaptation nmin j")
-         if ( controlVariables % containsKey("adaptation nmin k") ) &
-            NMIN(3) = controlVariables % integerValueForKey("adaptation nmin k")
+         GetOrderAcrossFace => NumberN_1
       end if
       
+!     Interval
+!     --------
+      if ( allocated(R_interval) ) then
+         this % interval = R_interval
+      else
+         this % interval = huge(this % interval)
+      end if
+      
+!     Check replaceable control variables
+!     -----------------------------------
+      call ReplacedVariables % initWithSize(16)
+      
+      do i=1, size(ReplaceableVars)
+         call readValueInRegion ( trim ( paramFile )  , "padapted " // trim(ReplaceableVars(i)), replacedValue, in_label , "# end" )
+         if (replacedValue == "") cycle
+         call ReplacedVariables % addValueForKey(trim(replacedValue),TRIM(ReplaceableVars(i)))
+      end do
+      
+!
+!     Some things are read from the control file
+!     ******************************************
+!      
+      this % solutionFileName = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
+      this % saveGradients    = controlVariables % logicalValueForKey("save gradients with solution")
+      
+!     Construct the truncation error
+!     ******************************    
+      
+      nelem = size(Nx)
+      allocate (this % TE(nelem))
       do i = 1, nelem
          call this % TE(i) % construct(NMINest,this % NxyzMax)
       end do
@@ -494,15 +559,6 @@ readloop:do
             call this % overenriching(i) % initialize (i)
          end do
       end if
-      
-!     Select the function for limiting the order across faces
-!     *******************************************************
-      select case ( trim ( controlVariables % stringValueForKey("order across faces", requestedLength = LINE_LENGTH) ) )
-         case ("N*2/3")
-            GetOrderAcrossFace => NumberN23
-         case default
-            GetOrderAcrossFace => NumberN_1
-      end select
 !
 !     ---------------------------------------------
 !     If increasing adaptation is selected, rewrite
@@ -520,6 +576,74 @@ readloop:do
       end if
       
    end subroutine pAdaptation_Construct
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   logical function pAdaptationIsDefined()
+      implicit none
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      character(len=LINE_LENGTH) :: case_name, line
+      integer                    :: fID
+      integer                    :: io
+!
+!     Initialize
+!     ----------
+      pAdaptationIsDefined = .FALSE.
+!
+!     Get case file name
+!     ------------------
+      call get_command_argument(1, case_name)
+
+!
+!     Open case file
+!     --------------
+      open ( newunit = fID , file = case_name , status = "old" , action = "read" )
+
+!
+!     Read the whole file to find overenriching regions
+!     -------------------------------------------------
+readloop:do 
+         read ( fID , '(A)' , iostat = io ) line
+
+         if ( io .lt. 0 ) then
+!
+!           End of file
+!           -----------
+            line = ""
+            exit readloop
+
+         elseif ( io .gt. 0 ) then
+!
+!           Error
+!           -----
+            errorMessage(STD_OUT)
+            stop "Stopped."
+
+         else
+!
+!           Succeeded
+!           ---------
+            line = getSquashedLine( line )
+
+            if ( index ( line , '#definep-adaptation' ) .gt. 0 ) then
+               pAdaptationIsDefined = .TRUE.
+               close(fID)  
+               return
+            end if
+            
+         end if
+         
+      end do readloop
+!
+!     Close case file
+!     ---------------
+      close(fID)                             
+
+   end function pAdaptationIsDefined
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -551,7 +675,7 @@ readloop:do
 !  Main routine for adapting the polynomial order in all elements based on 
 !  the truncation error estimation
 !  ------------------------------------------------------------------------
-   subroutine pAdaptTE(pAdapt,sem,itera,t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+   subroutine pAdaptation_pAdaptTE(pAdapt,sem,itera,t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
       use AnisFASMultigridClass
       use StopwatchClass
       implicit none
@@ -928,11 +1052,11 @@ readloop:do
 !     Rewrite controlVariables according to user input
 !     ------------------------------------------------
 !
-      do i = 1, size(ReplacedInputVars)
-         if ( controlVariables % containsKey( "padapted " // trim(ReplacedInputVars(i)) ) ) then
-            newInput = controlVariables % stringValueForKey("padapted " // trim(ReplacedInputVars(i)), requestedLength = LINE_LENGTH)
-            call controlVariables % removeObjectForKey( trim(ReplacedInputVars(i)) )
-            call controlVariables % addValueForKey( TRIM(newInput) , trim(ReplacedInputVars(i)) )
+      do i = 1, size(ReplaceableVars)
+         if ( ReplacedVariables % containsKey( trim(ReplaceableVars(i)) ) ) then
+            newInput = ReplacedVariables % stringValueForKey(trim(ReplaceableVars(i)), requestedLength = LINE_LENGTH)
+            call controlVariables % removeObjectForKey( trim(ReplaceableVars(i)) )
+            call controlVariables % addValueForKey( TRIM(newInput) , trim(ReplaceableVars(i)) )
          end if
       end do
 !
@@ -947,7 +1071,7 @@ readloop:do
       write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
 
 #endif
-   end subroutine pAdaptTE
+   end subroutine pAdaptation_pAdaptTE
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -970,7 +1094,6 @@ readloop:do
       integer :: f_conf
       integer :: sweep     ! Sweep counter
       logical :: finalsweep
-      logical, save :: isfirst = .TRUE.
       !------------------------------------------------------------
       ! New definition of neighborFaces in order to consider the face
       ! that is not in contact with the boundary. In order to disable, 
@@ -983,11 +1106,7 @@ readloop:do
                                                                1, 2, 3, 4, 5 /) , (/5,6/) )
       !------------------------------------------------------------
       
-      if (isfirst) then
-         this % conformingBoundaries => conformingBoundariesDic % allKeys()
-         isfirst =.FALSE.
-      end if
-      if ( size(this % conformingBoundaries) < 1 ) return
+      if ( .not. allocated(this % conformingBoundaries) ) return
       
       write(STD_OUT,*) '## Forcing p-conforming boundaries ##'
       
@@ -1070,7 +1189,7 @@ readloop:do
             !Cycle if this is a boundary face!!
             if (faces(fID) % elementIDs(2) == 0) cycle
             
-            call AdjustPAcrossFace(faces(fID),NNew,GetOrderAcrossFace,finalsweep,reorganize_z)
+            call AdjustPAcrossFace(faces(fID),NNew,GetOrderAcrossFace,finalsweep,reorganize_Nz)
             
          end do
          
