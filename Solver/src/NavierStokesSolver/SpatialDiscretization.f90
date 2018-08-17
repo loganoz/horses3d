@@ -271,7 +271,7 @@ module SpatialDiscretization
          end if
 !$omp end single
 #endif
-         !call ComputeArtificialViscosity(mesh)
+!         call ComputeArtificialViscosity(mesh)
 !
 !        -----------------------
 !        Compute time derivative
@@ -1430,7 +1430,9 @@ module SpatialDiscretization
                call ComputeShockSensor(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), &
                                        e % storage % U_y(:,i,j,k) , e % storage % U_z(:,i,j,k), h, sBeta)
 
-               e % storage % mu_art(2,i,j,k) = e % storage % Q(IRHO,i,j,k) * h * kBeta * sBeta
+               e % storage % mu_art(1,i,j,k) = e % storage % Q(IRHO,i,j,k) * h * kBeta * sBeta
+               e % storage % mu_art(2,i,j,k) = e % storage % Q(IRHO,i,j,k) * h * kBeta * sBeta * 0.1_RP
+               e % storage % mu_art(3,i,j,k) = e % storage % mu_art(1,i,j,k) / ( dimensionless % Mach**2 * thermodynamics % gammaMinus1 * 2.0_RP ) 
             end do                ; end do                ; end do
 !
 !           Compute the average in each cell
@@ -1440,6 +1442,8 @@ module SpatialDiscretization
                muAver(:) = muAver(:) + e % storage % mu_art(:,i,j,k) * e % geom % Jacobian(i,j,k)
             end do                ; end do                ; end do
             muAver = muAver / e % geom % volume
+
+            muAver = min(0.1_RP, muAver)
 
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                e % storage % mu_art(:,i,j,k) = muAver
@@ -1461,9 +1465,10 @@ module SpatialDiscretization
 !
 !        Average each face values
 !        ------------------------
-!$omp do private(muAver)
+!$omp do private(muAver,i,j)
          do fID = 1, size(mesh % faces)
-            muAver = 0.5_RP * (mesh % faces(fID) % storage(1) % mu_art(:,0,0) + mesh % faces(fID) % storage(2) % mu_art(:,0,0))
+            if ( .not. (mesh % faces(fID) % faceType .eq. HMESH_INTERIOR) ) cycle
+            muAver = max(mesh % faces(fID) % storage(1) % mu_art(:,0,0), mesh % faces(fID) % storage(2) % mu_art(:,0,0))
             do j = 0, mesh % faces(fID) % Nf(2) 
                do i = 0, mesh % faces(fID) % Nf(1) 
                   mesh % faces(fID) % storage(1) % mu_art(:,i,j) = muAver
@@ -1472,29 +1477,75 @@ module SpatialDiscretization
             end do
          end do
 !$omp end do
+
+!!$omp do private(h,i,j,k,fID,muAver,sBeta)
+!         do fID = 1, size(mesh % faces)
+!            associate(f => mesh % faces(fID))
+!            h = (f % geom % surface/product(f % Nf+1))**(1.0_RP/2.0_RP) 
+!!
+!!           Compute Pointwise viscosity
+!!           ---------------------------
+!            do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+!               call ComputeShockSensor(f % storage(1) % Q(:,i,j), f % storage(1) % U_x(:,i,j), &
+!                                       f % storage(1) % U_y(:,i,j) , f % storage(1) % U_z(:,i,j), h, sBeta)
+!
+!               f % storage(1) % mu_art(1,i,j) = f % storage(1) % Q(IRHO,i,j) * h * kBeta * sBeta
+!               f % storage(1) % mu_art(3,i,j) = f % storage(1) % mu_art(1,i,j) / ( dimensionless % Mach**2 * thermodynamics % gammaMinus1 * 0.75_RP )
+!            end do                ; end do
+!
+!            if (f % faceType .eq. HMESH_INTERIOR) then
+!               do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+!                  call ComputeShockSensor(f % storage(2) % Q(:,i,j), f % storage(2) % U_x(:,i,j), &
+!                                          f % storage(2) % U_y(:,i,j) , f % storage(2) % U_z(:,i,j), h, sBeta)
+!
+!                  f % storage(2) % mu_art(1,i,j) = f % storage(2) % Q(IRHO,i,j) * h * kBeta * sBeta
+!                  f % storage(2) % mu_art(3,i,j) = f % storage(2) % mu_art(1,i,j) / ( dimensionless % Mach**2 * thermodynamics % gammaMinus1 * 0.75_RP )
+!               end do                ; end do
+!            else
+!               f % storage(2) % mu_art = f % storage(1) % mu_art
+!            end if
+!
+!!           Compute the average in each cell
+!!           --------------------------------
+!            muAver = 0.0_RP
+!            do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+!               muAver(:) = muAver(:) + f % storage(1) % mu_art(:,i,j) * f % geom % jacobian(i,j)
+!               muAver(:) = muAver(:) + f % storage(2) % mu_art(:,i,j) * f % geom % jacobian(i,j)
+!            end do                ; end do
+!            muAver = muAver / (2.0_RP * f % geom % surface)
+!
+!            do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+!               f % storage(1) % mu_art(:,i,j) = muAver
+!               f % storage(2) % mu_art(:,i,j) = muAver
+!            end do                ; end do
+!            end associate
+!         end do
+!!$omp end do
+
+
 !
 !        Gather the face values onto the closest nodal value
 !        ---------------------------------------------------
-!$omp do
-         do eID = 1, mesh % no_of_elements
-            associate(e => mesh % elements(eID))
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)
-               e % storage % mu_art(:,0,j,k) = mesh % faces(e % faceIDs(6)) % storage(e % faceSide(6)) % mu_art(:,0,0)
-               e % storage % mu_art(:,e % Nxyz(1),j,k) = mesh % faces(e % faceIDs(4)) % storage(e % faceSide(4)) % mu_art(:,0,0)
-            end do                ; end do
-
-            do k = 0, e % Nxyz(3) ; do i = 0, e % Nxyz(1)
-               e % storage % mu_art(:,i,0,k) = mesh % faces(e % faceIDs(1)) % storage(e % faceSide(1)) % mu_art(:,0,0)
-               e % storage % mu_art(:,i,e % Nxyz(2),k) = mesh % faces(e % faceIDs(2)) % storage(e % faceSide(2)) % mu_art(:,0,0)
-            end do                ; end do
-
-            do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               e % storage % mu_art(:,i,j,0) = mesh % faces(e % faceIDs(3)) % storage(e % faceSide(3)) % mu_art(:,0,0)
-               e % storage % mu_art(:,i,j,e % Nxyz(3)) = mesh % faces(e % faceIDs(5)) % storage(e % faceSide(5)) % mu_art(:,0,0)
-            end do                ; end do
-            end associate
-         end do
-!$omp end do
+!!$omp do private(i,j,k)
+!         do eID = 1, mesh % no_of_elements
+!            associate(e => mesh % elements(eID))
+!            do k = 1, e % Nxyz(3)-1 ; do j = 1, e % Nxyz(2)-1
+!               e % storage % mu_art(:,0,j,k) = mesh % faces(e % faceIDs(6)) % storage(e % faceSide(6)) % mu_art(:,0,0)
+!               e % storage % mu_art(:,e % Nxyz(1),j,k) = mesh % faces(e % faceIDs(4)) % storage(e % faceSide(4)) % mu_art(:,0,0)
+!            end do                ; end do
+!
+!            do k = 1, e % Nxyz(3)-1 ; do i = 1, e % Nxyz(1)-1
+!               e % storage % mu_art(:,i,0,k) = mesh % faces(e % faceIDs(1)) % storage(e % faceSide(1)) % mu_art(:,0,0)
+!               e % storage % mu_art(:,i,e % Nxyz(2),k) = mesh % faces(e % faceIDs(2)) % storage(e % faceSide(2)) % mu_art(:,0,0)
+!            end do                ; end do
+!
+!            do j = 1, e % Nxyz(2)-1 ; do i = 1, e % Nxyz(1)-1
+!               e % storage % mu_art(:,i,j,0) = mesh % faces(e % faceIDs(3)) % storage(e % faceSide(3)) % mu_art(:,0,0)
+!               e % storage % mu_art(:,i,j,e % Nxyz(3)) = mesh % faces(e % faceIDs(5)) % storage(e % faceSide(5)) % mu_art(:,0,0)
+!            end do                ; end do
+!            end associate
+!         end do
+!!$omp end do
 
       end subroutine ComputeArtificialViscosity
 !
