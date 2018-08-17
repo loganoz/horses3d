@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Fri Aug 17 10:25:43 2018
+!   @Last revision date: Fri Aug 17 15:47:06 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0760ac964cfb71dec1e13da0780b72ca9d38e064
+!   @Last revision commit: 8e55abc811af03c4dae4084d357d6cde3bf6faa7
 !
 !//////////////////////////////////////////////////////
 !
@@ -67,6 +67,8 @@ module pAdaptationClass
       logical                           :: Adapt            ! Is the adaptator going to be used??
       logical                           :: increasing      = .FALSE.      ! Performing an increasing adaptation procedure?
       logical                           :: Constructed      ! 
+      logical                           :: restartFiles    = .FALSE.
+      logical                           :: UnSteady
       integer                           :: NxyzMax(3)       ! Maximum polynomial order in all the directions
       integer                           :: TruncErrorType   ! Truncation error type (either ISOLATED_TE or NON_ISOLATED_TE)
       integer                           :: interval
@@ -133,6 +135,9 @@ module pAdaptationClass
       !-------------------------------------------------
       integer              :: nelem
       integer, allocatable :: Nx_r(:), Ny_r(:), Nz_r(:)  
+      character(LINE_LENGTH)         :: paramFile
+      character(LINE_LENGTH)         :: in_label
+      character(LINE_LENGTH)         :: R_Nmax
       !-------------------------------------------------
       
       if (controlVariables % containsKey("polynomial order file")) then
@@ -166,12 +171,19 @@ module pAdaptationClass
 !
       Nmax = 0
       
-      ! Adaptation
-      if (controlVariables % containsKey("adaptation nmax i")) Nmax = max(Nmax,controlVariables % integerValueForKey("adaptation nmax i"))
-      if (controlVariables % containsKey("adaptation nmax j")) Nmax = max(Nmax,controlVariables % integerValueForKey("adaptation nmax j"))
-      if (controlVariables % containsKey("adaptation nmax k")) Nmax = max(Nmax,controlVariables % integerValueForKey("adaptation nmax k"))
+!     If it is specified by the p-adaptation, read block
+!     --------------------------------------------------
       
-      ! Restart polynomial order
+      write(in_label , '(A)') "#define p-adaptation"
+      call get_command_argument(1, paramFile) !
+      call readValueInRegion ( trim ( paramFile )  , "nmax"  , R_Nmax    , in_label , "# end" )
+      if ( R_Nmax /= "" ) then
+         Nmax = maxval (getRealArrayFromString(R_Nmax))
+      end if
+      
+!     Restart polynomial order
+!     -------------------------
+      
       if (controlVariables % containsKey("restart polorder" )) Nmax = max(Nmax,controlVariables % integerValueForKey("restart polorder" ))
       
       if (controlVariables % containsKey("restart polorder file" )) then
@@ -394,7 +406,7 @@ readloop:do
       character(LINE_LENGTH)         :: in_label
       character(20*BC_STRING_LENGTH) :: confBoundaries
       character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_OrderAcrossFaces, replacedValue
-      logical      , allocatable     :: increasing, regressionFiles, reorganize_z
+      logical      , allocatable     :: increasing, regressionFiles, reorganize_z, R_restart
       real(kind=RP), allocatable     :: TruncError
       integer      , allocatable     :: R_interval
       ! Extra vars
@@ -432,6 +444,7 @@ readloop:do
       call readValueInRegion ( trim ( paramFile )  , "truncation error type"  , R_TruncErrorType  , in_label , "# end" ) 
       call readValueInRegion ( trim ( paramFile )  , "order across faces"     , R_OrderAcrossFaces, in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "interval"               , R_interval        , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "restart files"          , R_restart         , in_label , "# end" ) 
       
 !     Conforming boundaries?
 !     ----------------------
@@ -515,9 +528,16 @@ readloop:do
 !     Interval
 !     --------
       if ( allocated(R_interval) ) then
+         
          this % interval = R_interval
       else
          this % interval = huge(this % interval)
+      end if
+      
+!     Restart files
+!     -------------
+      if ( allocated(R_restart) ) then
+         this % restartFiles = R_restart
       end if
       
 !     Check replaceable control variables
@@ -536,6 +556,8 @@ readloop:do
 !      
       this % solutionFileName = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
       this % saveGradients    = controlVariables % logicalValueForKey("save gradients with solution")
+      if ( trim( controlVariables % StringValueForKey("simulation type",LINE_LENGTH) ) == 'time-accurate' ) this % UnSteady = .TRUE.
+      
       
 !     Construct the truncation error
 !     ******************************    
@@ -665,7 +687,7 @@ readloop:do
       
       deallocate (this % TE)
       
-      deallocate  (this % conformingBoundaries)
+      safedeallocate  (this % conformingBoundaries)
       safedeallocate  (this % overenriching)
    end subroutine pAdaptation_Destruct
 !
@@ -750,10 +772,11 @@ readloop:do
 !     Write pre-adaptation mesh and solution
 !     --------------------------------------
 !
-      write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( pAdapt % solutionFileName ), '_pre-Adapt_Stage_', Stage, '.hsol'
-      call sem % mesh % Export(AdaptedMeshFile)
-      
-      call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),pAdapt % saveGradients)
+      if (pAdapt % restartFiles) then
+         write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( pAdapt % solutionFileName ), '_pre-Adapt_Stage_', Stage, '.hsol'
+         call sem % mesh % Export(AdaptedMeshFile)         
+         call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),pAdapt % saveGradients)
+      end if
 !
 !     -------------------------------------------------------------
 !     Estimate the truncation error using the anisotropic multigrid
@@ -1041,11 +1064,16 @@ readloop:do
 !     Write post-adaptation mesh, solution and order file
 !     ---------------------------------------------------
 !
-      write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( pAdapt % solutionFileName ), '_p-Adapted_Stage_', Stage, '.hsol'
+      if ( pAdapt % UnSteady) then
+         write(AdaptedMeshFile,'(A,A,I10.10,A)')  trim( pAdapt % solutionFileName ), '_', itera+1, '.hsol'
+      else
+         write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( pAdapt % solutionFileName ), '_p-Adapted_Stage_', Stage, '.hsol'
+      end if
+      
       call sem % mesh % Export(AdaptedMeshFile)
       call sem % mesh % ExportOrders(AdaptedMeshFile)
       
-      call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),pAdapt % saveGradients)
+      if (pAdapt % restartFiles) call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),pAdapt % saveGradients)
       
 !
 !     ------------------------------------------------
@@ -1059,8 +1087,6 @@ readloop:do
             call controlVariables % addValueForKey( TRIM(newInput) , trim(ReplaceableVars(i)) )
          end if
       end do
-!
-!
 !
 !     ----------------
 !     Update residuals

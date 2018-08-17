@@ -117,11 +117,6 @@ module AnisFASMultigridClass
          AnisFASestimator = .FALSE.
       end if
       
-      if (.NOT. controlVariables % containsKey("multigrid levels")) then
-         print*, 'Fatal error: "multigrid levels" keyword is needed by the AnisFASMultigrid solver'
-         STOP
-      end if
-      
       UserMGlvls = controlVariables % IntegerValueForKey("multigrid levels")
       
       if (AnisFASestimator) then

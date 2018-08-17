@@ -4,9 +4,9 @@
 !   @File:    ReadHDF5Mesh.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Thu Aug 16 16:15:36 2018
+!   @Last revision date: Fri Aug 17 15:47:03 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
+!   @Last revision commit: 8e55abc811af03c4dae4084d357d6cde3bf6faa7
 !
 !//////////////////////////////////////////////////////
 !
@@ -415,7 +415,6 @@ contains
 !
       if ( .not. MPI_Process % doMPIAction ) then
          call self % PrepareForIO
-         if (.not. self % child) call self % Export( trim(fileName) )
       end if
 
 #else

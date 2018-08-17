@@ -442,6 +442,9 @@ Module DGSEMClass
             call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
 
          END IF
+         
+         write(solutionName,'(A,A,I10.10)') trim(solutionName), "_", initial_iteration
+         call self % mesh % Export( trim(solutionName) )
    
       end subroutine DGSEM_SetInitialCondition
 !
