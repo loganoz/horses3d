@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Fri Aug 17 15:47:06 2018
+!   @Last revision date: Mon Aug 20 17:10:23 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8e55abc811af03c4dae4084d357d6cde3bf6faa7
+!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
 !
 !//////////////////////////////////////////////////////
 !
@@ -719,9 +719,7 @@ readloop:do
       integer                    :: Error(3,nelem)    !   Stores (with ==1) elements where the truncation error has a strange behavior of the truncation error (in every direction)
       integer                    :: Warning(nelem)    !   Stores (with ==1) elements where the specified truncation error was not achieved
       integer                    :: NOld(3,nelem)     !   Old polynomial orders of mesh
-      type(ElementStorage_t), allocatable :: TempStorage(:) ! Temporary variable to store the solution before the adaptation procedure 
-      type(Storage_t)                     :: Temp1DStor
-      integer                             :: firstIdx
+      type(ElementStorage_t), allocatable :: TempStorage(:) ! Temporary variable to store the solution before the adaptation procedure
       logical                    :: success
       integer, save              :: Stage = 0         !   Stage of p-adaptation for the increasing method
       CHARACTER(LEN=LINE_LENGTH) :: newInput          !   Variable used to change the input in controlVariables after p-adaptation 
@@ -994,14 +992,11 @@ readloop:do
 !     Store the previous solution
 !     ---------------------------
 !
-      call Temp1DStor % Construct(sem % mesh % storage % NDOF, 1)
-      firstIdx = 1
       allocate (TempStorage(nelem))
       do iEl = 1, nelem
          NOld (:,iEl) = sem % mesh % elements(iEl) % Nxyz
-         call TempStorage(iEl) % Construct(NOld (1,iEl), NOld (2,iEl), NOld (3,iEl), .FALSE., Temp1DStor, firstIdx)
+         call TempStorage(iEl) % Construct(NOld (1,iEl), NOld (2,iEl), NOld (3,iEl), .FALSE., 0)
          TempStorage(iEl) % Q = sem % mesh % elements(iEl) % storage % Q
-         firstIdx = firstIdx + product(NOld(:,iEl)+1)
       end do
 !
 !     -----------------
@@ -1057,8 +1052,6 @@ readloop:do
 !
       call TempStorage % destruct
       deallocate (TempStorage)
-      
-      call Temp1DStor % Destruct
 !
 !     ---------------------------------------------------
 !     Write post-adaptation mesh, solution and order file

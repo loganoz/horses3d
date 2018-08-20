@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Thu Aug 16 16:15:32 2018
+!   @Last revision date: Mon Aug 20 17:09:53 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
+!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
 !
 !//////////////////////////////////////////////////////
 !
@@ -60,10 +60,10 @@
          CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName(6)
          INTEGER                         :: NumberOfConnections(6)
          TYPE(Connectivity)              :: Connection(6)
-         type(ElementStorage_t)          :: storage
-         type(NodalStorage_t), pointer   :: spAxi
-         type(NodalStorage_t), pointer   :: spAeta
-         type(NodalStorage_t), pointer   :: spAzeta
+         type(ElementStorage_t), pointer :: storage
+         type(NodalStorage_t)  , pointer :: spAxi
+         type(NodalStorage_t)  , pointer :: spAeta
+         type(NodalStorage_t)  , pointer :: spAzeta
          type(TransfiniteHexMap)         :: hexMap            ! High-order mapper
          contains
             procedure   :: Construct               => HexElement_Construct

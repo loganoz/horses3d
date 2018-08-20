@@ -4,9 +4,9 @@
 !   @File:    RosenbrockTimeIntegrator.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:08 2018
-!   @Last revision date: Wed Jul 25 17:15:48 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
+!   @Last revision date: Mon Aug 20 17:10:17 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
 !
 !//////////////////////////////////////////////////////
 !
@@ -204,6 +204,7 @@ contains
          RHS = RHS - Ros_c(j,stage) * this % Y(:,j)
       end do
       
+      call sem % mesh % storage % global2LocalQ
       call ComputeTimeDerivative( sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
       
       RHS = RHS/dt - Qdot

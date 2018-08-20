@@ -4,9 +4,9 @@
 !   @File:    TruncationErrorClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Feb 28 14:00:00 2018
-!   @Last revision date: Thu Aug 16 16:15:52 2018
+!   @Last revision date: Mon Aug 20 17:10:22 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
+!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
 !
 !//////////////////////////////////////////////////////
 !
@@ -136,9 +136,9 @@ module TruncationErrorClass
       
       do eID=1, size(sem % mesh % elements)
          TE(eID) % TruncErrorType = TruncErrorType
-         TE(eID) % Dir(1) % P = sem % Nx(eID)
-         TE(eID) % Dir(2) % P = sem % Ny(eID)
-         TE(eID) % Dir(3) % P = sem % Nz(eID)
+         TE(eID) % Dir(1) % P = sem % mesh % Nx(eID)
+         TE(eID) % Dir(2) % P = sem % mesh % Ny(eID)
+         TE(eID) % Dir(3) % P = sem % mesh % Nz(eID)
       end do
       
       if (TruncErrorType == ISOLATED_TE) then

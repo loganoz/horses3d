@@ -1,3 +1,16 @@
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:    ReadMeshFile.f90
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
+!   @Created: Sun Apr 27 12:57:00 2017
+!   @Last revision date: Mon Aug 20 17:09:58 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
+!
+!//////////////////////////////////////////////////////
+!
+#include "Includes.h"
 module ReadMeshFile
    use SMConstants
    use Read_HDF5Mesh_HOPR
@@ -22,7 +35,17 @@ contains
       LOGICAL           , intent(out)     :: success
       !---------------------------------------------------------------
       character(len=LINE_LENGTH) :: ext
+      integer                    :: nelem
       !---------------------------------------------------------------
+      
+      nelem = size(Nx)
+      safedeallocate (self % Nx)
+      safedeallocate (self % Ny)
+      safedeallocate (self % Nz)
+      allocate ( self % Nx(nelem) , self % Ny(nelem) , self % Nz(nelem) )
+      self % Nx = Nx
+      self % Ny = Ny
+      self % Nz = Nz
       
       ext = getFileExtension(trim(filename))
       

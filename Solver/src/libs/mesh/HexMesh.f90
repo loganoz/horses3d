@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Thu Aug 16 16:15:33 2018
+!   @Last revision date: Mon Aug 20 17:09:56 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
+!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
 !
 !//////////////////////////////////////////////////////
 !
@@ -58,8 +58,9 @@ MODULE HexMeshClass
          integer                                   :: no_of_elements
          integer                                   :: no_of_allElements
          integer                                   :: dt_restriction       ! Time step restriction of last step (DT_FIXED, DT_DIFF or DT_CONV)
+         integer      , dimension(:), allocatable  :: Nx, Ny, Nz
          character(len=LINE_LENGTH)                :: meshFileName
-         type(Storage_t)                           :: storage              ! Here the solution and its derivative are stored
+         type(SolutionStorage_t)                   :: storage              ! Here the solution and its derivative are stored
          type(Node)   , dimension(:), allocatable  :: nodes
          type(Face)   , dimension(:), allocatable  :: faces
          type(Element), dimension(:), allocatable  :: elements
@@ -139,6 +140,10 @@ MODULE HexMeshClass
          IMPLICIT NONE 
          CLASS(HexMesh) :: self
          INTEGER        :: j
+         
+         safedeallocate (self % Nx)
+         safedeallocate (self % Ny)
+         safedeallocate (self % Nz)
 !
 !        -----
 !        Nodes
@@ -169,9 +174,9 @@ MODULE HexMeshClass
 
          call DestructBoundaryConditions
 !
-!        --------------
-!        Global storage
-!        --------------
+!        ----------------
+!        Solution storage
+!        ----------------
 !
          call self % storage % destruct
          
@@ -1567,18 +1572,21 @@ slavecoord:             DO l = 1, 4
             select case (e % globDir(dir2D))
                case (IX)
                   e % Nxyz(1) = 0
+                  self % Nx(eID) = 0
                   e % spAxi   => NodalStorage(0)
                case (IY)
                   e % Nxyz(2) = 0
+                  self % Ny(eID) = 0
                   e % spAEta  => NodalStorage(0)
                case (IZ)
                   e % Nxyz(3) = 0
+                  self % Nz(eID) = 0
                   e % spAZeta => NodalStorage(0)
             end select
 
             end associate
          end do
-
+         
       end subroutine HexMesh_CorrectOrderFor2DMesh
 !
 !////////////////////////////////////////////////////////////////////////
@@ -2326,7 +2334,6 @@ slavecoord:             DO l = 1, 4
             associate( e => self % elements(eID) )
 
             allocate(Q(NTOTALVARS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-
 #if defined(NAVIERSTOKES)
             Q(1:NCONS,:,:,:) = e % storage % Q
 #elif defined(INCNS)
@@ -3011,7 +3018,7 @@ slavecoord:             DO l = 1, 4
       logical                 , intent(in)   :: computeGradients
       logical, optional       , intent(in)   :: Face_pointers
       !-----------------------------------------------------------
-      integer :: bdf_order, eID, firstIdx
+      integer :: bdf_order, eID
       logical :: Face_pt
       !-----------------------------------------------------------
       
@@ -3024,25 +3031,16 @@ slavecoord:             DO l = 1, 4
       if (controlVariables % containsKey("bdf order")) then
          bdf_order = controlVariables % integerValueForKey("bdf order")
       else
-         bdf_order = 1
+         bdf_order = 0
       end if
       
-!     Construct global storage
-!     ------------------------
-      call self % storage % construct(NDOF, bdf_order)
+      call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, bdf_order )
       
 !     Construct element storage
 !     -------------------------
-      firstIdx = 1
       DO eID = 1, SIZE(self % elements)
          associate (e => self % elements(eID))
-         call self % elements(eID) % Storage % Construct(Nx = e % Nxyz(1), &
-                                                         Ny = e % Nxyz(2), &
-                                                         Nz = e % Nxyz(3), &
-                                           computeGradients = computeGradients, &
-                                              globalStorage = self % storage, &
-                                                   firstIdx = firstIdx)
-         firstIdx = firstIdx + e % Storage % NDOF
+         e % storage => self % storage % elements(eID)
 !
 !        Point face Jacobians
 !        --------------------

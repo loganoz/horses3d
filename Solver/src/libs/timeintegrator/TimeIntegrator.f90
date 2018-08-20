@@ -303,6 +303,7 @@
       
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
       logical                       :: saveGradients
+      logical                       :: pAdaptation
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
 !     ----------------------
@@ -318,8 +319,10 @@
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       
       if ( present(pAdaptator) .and. self % integratorType == TIME_ACCURATE) then
+         pAdaptation    = pAdaptator % Adapt
          pAdaptInterval = pAdaptator % interval
       else
+         pAdaptation    = .FALSE.
          pAdaptInterval = huge(pAdaptInterval)
       end if
       
@@ -465,7 +468,7 @@
 !
 !        p- Adapt
 !        --------------         
-         IF( MOD( k+1, pAdaptInterval) == 0) then
+         IF( pAdaptation .and. (MOD( k+1, pAdaptInterval) == 0 .or. k==0) ) then
             call pAdaptator % pAdaptTE(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
          end if
 !

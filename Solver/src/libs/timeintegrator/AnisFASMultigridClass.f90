@@ -217,9 +217,9 @@ module AnisFASMultigridClass
 !     Update module variables
 !     -----------------------
 !
-      MaxN(1) = MAXVAL(sem%Nx)
-      MaxN(2) = MAXVAL(sem%Ny)
-      MaxN(3) = MAXVAL(sem%Nz)
+      MaxN(1) = MAXVAL(sem % mesh % Nx)
+      MaxN(2) = MAXVAL(sem % mesh % Ny)
+      MaxN(3) = MAXVAL(sem % mesh % Nz)
       
 !
 !     If 3D meshes are not conforming on boundaries, we must have N >= 2
@@ -335,9 +335,9 @@ module AnisFASMultigridClass
       associate ( p_sem => Solver % MGStorage(Dir) % p_sem )
       
       ! Define N1x, N1y and N1z according to refinement direction
-      N1x => p_sem % Nx
-      N1y => p_sem % Ny
-      N1z => p_sem % Nz
+      N1x => p_sem % mesh % Nx
+      N1y => p_sem % mesh % Ny
+      N1z => p_sem % mesh % Nz
    
 !$omp parallel do
       do k = 1, nelem

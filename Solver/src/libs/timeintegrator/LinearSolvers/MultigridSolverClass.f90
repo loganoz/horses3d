@@ -303,8 +303,8 @@ CONTAINS
       dtsolve  = dt
       
 !~      IF (isfirst) THEN
-         CALL this % p_sem % GetQdot(nEqn, this % F_Ur)
-         CALL this % p_sem % GetQ   (this % Ur, nEqn)
+         this % F_Ur = this % p_sem % mesh % storage % Qdot
+         this % Ur   = this % p_sem % mesh % storage % Q
 !~         isfirst = .FALSE.
 !~      END IF
       
@@ -317,7 +317,7 @@ CONTAINS
       
       CALL this % WeightedJacobiSmoother( this%A%Values(this%A%Diag), maxiter, tol, this % niter)
       
-      CALL this % p_sem % SetQ   (this % Ur, NTOTALVARS)
+      this % p_sem % mesh % storage % Q = this % Ur
       
 !~      IF (this % niter < maxiter) THEN
          this % CONVERGED = .TRUE.
@@ -484,11 +484,14 @@ CONTAINS
 !~      eps = SQRT(EPSILON(eps)) * (1._RP + MAXVAL(ABS(this % Ur)))  !slightly worse: ~1e-5 9e-6
 !~      eps = SQRT(EPSILON(eps))                                     !worse:        : ~1e-4
       
-!~      CALL this % p_sem % GetQ(buffer)
-      CALL this % p_sem % SetQ(this % Ur + x*eps, NTOTALVARS)
+!~      buffer = this % p_sem % mesh % storage % Q
+      this % p_sem % mesh % storage % Q = this % Ur + x*eps
+      call this % p_sem % mesh % storage % global2LocalQ
       CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, CTD_IGNORE_MODE)
-      CALL this % p_sem % GetQdot(nEqn,F)
-!~      CALL this % p_sem % SetQ(buffer)
+      call this % p_sem % mesh % storage % local2GlobalQdot (this % p_sem % NDOF)
+      
+      F = this % p_sem % mesh % storage % Qdot
+!~      this % p_sem % mesh % storage % Q = buffer
       Ax = ( F - this % F_Ur) / eps + shift * x                          !First order
       
    END FUNCTION AxMult

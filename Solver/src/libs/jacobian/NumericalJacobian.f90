@@ -48,7 +48,7 @@ contains
       integer, allocatable                               :: cols(:)
       integer, allocatable                               :: rows(:)
       integer, allocatable                               :: diag(:)
-      real(kind=RP), allocatable, save                   :: Q0(:), QDot0(:)
+      real(kind=RP), allocatable, save                   :: QDot0(:)
       
       integer :: i, j ! General counters
       integer                                            :: icol
@@ -165,7 +165,6 @@ contains
             END DO
          END DO
          
-         allocate(Q0(size(sem % mesh % storage % Q)))
          allocate(QDot0(size(sem % mesh % storage % QDot)))
          
          ! All initializations done!
@@ -216,8 +215,8 @@ contains
 #if defined(CAHNHILLIARD)
       call sem % mesh % SetStorageToEqn(2)
 #endif
-
-      Q0    = sem % mesh % storage % Q
+      
+      call sem % mesh % storage % local2GlobalQdot (sem % NDOF)
       QDot0 = sem % mesh % storage % QDot
 !
 !     ------------------------------------------
@@ -244,7 +243,7 @@ contains
 #else
             CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, CTD_IGNORE_MODE )
 #endif
-
+            call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
             sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
             
             DO thiselmidx = ielm, felm-1
@@ -302,7 +301,15 @@ contains
 !
 !           Restore original values for Q
 !           -----------------------------
-            sem % mesh % storage % Q = Q0
+            DO thiselmidx = ielm, felm-1              ! Perturbs a dof in all elements within current color
+               thiselm = ecolors%elmnts(thiselmidx)
+               IF (ndofelm(thiselm)<thisdof) CYCLE    ! Do nothing if the DOF exceeds the NDOF of thiselm
+               
+               ijkl = local2ijk(thisdof,nEqn,Nx(thiselm),Ny(thiselm),Nz(thiselm))
+               
+               sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
+                                                   sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) - eps 
+            ENDDO
          ENDDO
       ENDDO
       

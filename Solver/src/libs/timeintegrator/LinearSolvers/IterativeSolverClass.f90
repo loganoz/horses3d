@@ -278,8 +278,8 @@ CONTAINS
       dtsolve  = dt
       
 !~      IF (isfirst) THEN
-         CALL this % p_sem % GetQdot(nEqn,this % F_Ur)
-         CALL this % p_sem % GetQ   (this % Ur, nEqn)
+         this % F_Ur = this % p_sem % mesh % storage % Qdot
+         this % Ur   = this % p_sem % mesh % storage % Q
 !~         isfirst = .FALSE.
 !~      END IF
       
@@ -296,7 +296,7 @@ CONTAINS
             CALL BlockJacobiSmoother(this, maxiter, tol, this % niter, ComputeTimeDerivative)
       END SELECT
       
-      CALL this % p_sem % SetQ   (this % Ur, NTOTALVARS)
+      this % p_sem % mesh % storage % Q = this % Ur
       
 !~      IF (this % niter < maxiter) THEN
          this % CONVERGED = .TRUE.
@@ -467,9 +467,12 @@ CONTAINS
       procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND = RP)                         :: F(size(u))
       
-      CALL this % p_sem % SetQ(u, NTOTALVARS)
+      this % p_sem % mesh % storage % Q = u
+      call this % p_sem % mesh % storage % global2LocalQ
       CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, CTD_IGNORE_MODE)
-      CALL this % p_sem % GetQdot(NTOTALVARS,F)
+      
+      call this % p_sem % mesh % storage % local2GlobalQdot(this % p_sem % NDOF)
+      F = this % p_sem % mesh % storage % Qdot
       
    END FUNCTION p_F
    
