@@ -127,7 +127,7 @@
          self % numTimeSteps   =  controlVariables % integerValueForKey ("number of time steps")
          self % outputInterval =  controlVariables % integerValueForKey("output interval")
          self % tolerance      =  controlVariables % doublePrecisionValueForKey("convergence tolerance")
-         self % RKStep         => TakeRK5Step
+         self % RKStep         => TakeRK3Step
 !
 !        ------------------------------------
 !        Integrator-dependent initializarions
