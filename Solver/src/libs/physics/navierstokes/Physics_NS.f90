@@ -303,7 +303,7 @@
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine ViscousFlux0D(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine ViscousFlux0D(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -312,6 +312,7 @@
          real(kind=RP), intent(in)  :: U_y (1:nGradEqn)
          real(kind=RP), intent(in)  :: U_z (1:nGradEqn)
          real(kind=RP), intent(in)  :: mu
+         real(kind=RP), intent(in)  :: beta
          real(kind=RP), intent(in)  :: kappa
          real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
 !
@@ -333,27 +334,27 @@
          divV = U_x(IGU) + U_y(IGV) + U_z(IGW)
 
          F(IRHO,IX)  = 0.0_RP
-         F(IRHOU,IX) = mu * sutherLaw * (2.0_RP * U_x(IGU) - 2.0_RP/3.0_RP * divV ) 
+         F(IRHOU,IX) = mu * sutherLaw * (2.0_RP * U_x(IGU) - 2.0_RP/3.0_RP * divV ) + beta * divV
          F(IRHOV,IX) = mu * sutherLaw * ( U_x(IGV) + U_y(IGU) ) 
          F(IRHOW,IX) = mu * sutherLaw * ( U_x(IGW) + U_z(IGU) ) 
          F(IRHOE,IX) = F(IRHOU,IX) * u + F(IRHOV,IX) * v + F(IRHOW,IX) * w + kappa * sutherLaw * U_x(IGT) 
 
          F(IRHO,IY) = 0.0_RP
          F(IRHOU,IY) = F(IRHOV,IX) 
-         F(IRHOV,IY) = mu * sutherLaw * (2.0_RP * U_y(IGV) - 2.0_RP / 3.0_RP * divV ) 
+         F(IRHOV,IY) = mu * sutherLaw * (2.0_RP * U_y(IGV) - 2.0_RP / 3.0_RP * divV ) + beta * divV
          F(IRHOW,IY) = mu * sutherLaw * ( U_y(IGW) + U_z(IGV) ) 
          F(IRHOE,IY) = F(IRHOU,IY) * u + F(IRHOV,IY) * v + F(IRHOW,IY) * w + kappa * sutherLaw * U_y(IGT) 
 
          F(IRHO,IZ) = 0.0_RP
          F(IRHOU,IZ) = F(IRHOW,IX) 
          F(IRHOV,IZ) = F(IRHOW,IY) 
-         F(IRHOW,IZ) = mu * sutherLaw * ( 2.0_RP * U_z(IGW) - 2.0_RP / 3.0_RP * divV ) 
+         F(IRHOW,IZ) = mu * sutherLaw * ( 2.0_RP * U_z(IGW) - 2.0_RP / 3.0_RP * divV ) + beta * divV
          F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa * sutherLaw *U_z(IGT)
 
          ! with Pr = constant, dmudx = dkappadx
       end subroutine ViscousFlux0D
 
-      pure subroutine ViscousFlux2D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine ViscousFlux2D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -363,6 +364,7 @@
          real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
+         real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
          real(kind=RP),    intent(out) :: F   (1:nEqn, 1:NDIM, 0:N(1), 0:N(2))
 !
@@ -393,7 +395,7 @@
             divV(i,j) = U_x(IGU,i,j) + U_y(IGV,i,j) + U_z(IGW,i,j)
    
             F(IRHO ,IX,i,j) = 0.0_RP
-            F(IRHOU,IX,i,j) = mu(i,j) * sutherLaw(i,j) * (2.0_RP * U_x(IGU,i,j) - 2.0_RP/3.0_RP * divV(i,j) ) 
+            F(IRHOU,IX,i,j) = mu(i,j) * sutherLaw(i,j) * (2.0_RP * U_x(IGU,i,j) - 2.0_RP/3.0_RP * divV(i,j) ) + beta(i,j) * divV(i,j)
             F(IRHOV,IX,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGV,i,j) + U_y(IGU,i,j) ) 
             F(IRHOW,IX,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGW,i,j) + U_z(IGU,i,j) ) 
             F(IRHOE,IX,i,j) = F(IRHOU,IX,i,j) * u(i,j) + F(IRHOV,IX,i,j) * v(i,j) + F(IRHOW,IX,i,j) * w(i,j) &
@@ -401,7 +403,7 @@
    
             F(IRHO, IY,i,j) = 0.0_RP
             F(IRHOU,IY,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGV,i,j) + U_y(IGU,i,j) )  
-            F(IRHOV,IY,i,j) = mu(i,j) * sutherLaw(i,j) * (2.0_RP * U_y(IGV,i,j) - 2.0_RP / 3.0_RP * divV(i,j) ) 
+            F(IRHOV,IY,i,j) = mu(i,j) * sutherLaw(i,j) * (2.0_RP * U_y(IGV,i,j) - 2.0_RP / 3.0_RP * divV(i,j) ) + beta(i,j) * divV(i,j) 
             F(IRHOW,IY,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_y(IGW,i,j) + U_z(IGV,i,j) ) 
             F(IRHOE,IY,i,j) = F(IRHOU,IY,i,j) * u(i,j) + F(IRHOV,IY,i,j) * v(i,j) + F(IRHOW,IY,i,j) * w(i,j) &
                   + sutherLaw(i,j) * kappa(i,j) * U_y(IGT,i,j) 
@@ -409,7 +411,7 @@
             F(IRHO, IZ,i,j ) = 0.0_RP
             F(IRHOU,IZ,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGW,i,j) + U_z(IGU,i,j) ) 
             F(IRHOV,IZ,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_y(IGW,i,j) + U_z(IGV,i,j) ) 
-            F(IRHOW,IZ,i,j) = mu(i,j) * sutherLaw(i,j) * ( 2.0_RP * U_z(IGW,i,j) - 2.0_RP / 3.0_RP * divV(i,j) ) 
+            F(IRHOW,IZ,i,j) = mu(i,j) * sutherLaw(i,j) * ( 2.0_RP * U_z(IGW,i,j) - 2.0_RP / 3.0_RP * divV(i,j) ) + beta(i,j) * divV(i,j)   
             F(IRHOE,IZ,i,j) = F(IRHOU,IZ,i,j) * u(i,j) + F(IRHOV,IZ,i,j) * v(i,j) + F(IRHOW,IZ,i,j) * w(i,j) &
                   + sutherLaw(i,j) * kappa(i,j) * U_z(IGT,i,j) 
    
@@ -419,7 +421,7 @@
 
       end subroutine ViscousFlux2D
 
-      pure subroutine ViscousFlux3D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine ViscousFlux3D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -429,6 +431,7 @@
          real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(out) :: F   (1:nEqn, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
 !
@@ -459,7 +462,7 @@
             divV(i,j,k) = U_x(IGU,i,j,k) + U_y(IGV,i,j,k) + U_z(IGW,i,j,k)
    
             F(IRHO,i,j,k ,IX) = 0.0_RP
-            F(IRHOU,i,j,k,IX) = mu(i,j,k) * sutherLaw(i,j,k) * (2.0_RP * U_x(IGU,i,j,k) - 2.0_RP/3.0_RP * divV(i,j,k) ) 
+            F(IRHOU,i,j,k,IX) = mu(i,j,k) * sutherLaw(i,j,k) * (2.0_RP * U_x(IGU,i,j,k) - 2.0_RP/3.0_RP * divV(i,j,k) ) + beta(i,j,k) * divV(i,j,k)
             F(IRHOV,i,j,k,IX) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_x(IGV,i,j,k) + U_y(IGU,i,j,k) ) 
             F(IRHOW,i,j,k,IX) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_x(IGW,i,j,k) + U_z(IGU,i,j,k) ) 
             F(IRHOE,i,j,k,IX) = F(IRHOU,i,j,k,IX) * u(i,j,k) + F(IRHOV,i,j,k,IX) * v(i,j,k) + F(IRHOW,i,j,k,IX) * w(i,j,k) &
@@ -469,7 +472,7 @@
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
             F(IRHO,i,j,k ,IY) = 0.0_RP
             F(IRHOU,i,j,k,IY) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_x(IGV,i,j,k) + U_y(IGU,i,j,k) )  
-            F(IRHOV,i,j,k,IY) = mu(i,j,k) * sutherLaw(i,j,k) * (2.0_RP * U_y(IGV,i,j,k) - 2.0_RP / 3.0_RP * divV(i,j,k) ) 
+            F(IRHOV,i,j,k,IY) = mu(i,j,k) * sutherLaw(i,j,k) * (2.0_RP * U_y(IGV,i,j,k) - 2.0_RP / 3.0_RP * divV(i,j,k) ) + beta(i,j,k) * divV(i,j,k) 
             F(IRHOW,i,j,k,IY) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_y(IGW,i,j,k) + U_z(IGV,i,j,k) ) 
             F(IRHOE,i,j,k,IY) = F(IRHOU,i,j,k,IY) * u(i,j,k) + F(IRHOV,i,j,k,IY) * v(i,j,k) + F(IRHOW,i,j,k,IY) * w(i,j,k) &
                   + sutherLaw(i,j,k) * kappa(i,j,k) * U_y(IGT,i,j,k) 
@@ -479,7 +482,7 @@
             F(IRHO,i,j,k,IZ ) = 0.0_RP
             F(IRHOU,i,j,k,IZ) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_x(IGW,i,j,k) + U_z(IGU,i,j,k) ) 
             F(IRHOV,i,j,k,IZ) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_y(IGW,i,j,k) + U_z(IGV,i,j,k) ) 
-            F(IRHOW,i,j,k,IZ) = mu(i,j,k) * sutherLaw(i,j,k) * ( 2.0_RP * U_z(IGW,i,j,k) - 2.0_RP / 3.0_RP * divV(i,j,k) ) 
+            F(IRHOW,i,j,k,IZ) = mu(i,j,k) * sutherLaw(i,j,k) * ( 2.0_RP * U_z(IGW,i,j,k) - 2.0_RP / 3.0_RP * divV(i,j,k) ) + beta(i,j,k) * divV(i,j,k) 
             F(IRHOE,i,j,k,IZ) = F(IRHOU,i,j,k,IZ) * u(i,j,k) + F(IRHOV,i,j,k,IZ) * v(i,j,k) + F(IRHOW,i,j,k,IZ) * w(i,j,k) &
                   + sutherLaw(i,j,k) * kappa(i,j,k) * U_z(IGT,i,j,k) 
          end do      ; end do    ; end do
