@@ -1,5 +1,8 @@
+/* Control file for the uniform flow test case */
 Flow equations        = "Euler"
 mesh file name        = "../../TestMeshes/Box27.mesh"
+/*mesh file name        = "../../TestMeshes/Box27.h5"*/
+/*partitioning          = SFC*/
 restart file name     = "RESULTS/Box27.rst"
 solution file name    = "RESULTS/Box27_saved.rst"
 restart               = .false.

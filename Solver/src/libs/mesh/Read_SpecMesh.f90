@@ -442,7 +442,7 @@ MODULE Read_SpecMesh
 !
          allocate( self % elements(mpi_partition % no_of_elements) )
          allocate( self % nodes(mpi_partition % no_of_nodes) )
-         allocate( SurfInfo(mpi_partition % no_of_nodes) )
+         allocate( SurfInfo(mpi_partition % no_of_elements) )
          allocate( globalToLocalNodeID(numberOfAllNodes) )
          allocate( globalToLocalElementID(numberOfAllElements) )
          self % no_of_elements = mpi_partition % no_of_elements

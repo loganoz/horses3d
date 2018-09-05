@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Fri Aug 17 11:01:21 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: cd40b080395005f7e5531e2b0cbdeabe3bfedfab
+!   @Last revision date: Wed Sep  5 13:18:40 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 5c9d074b2a59ed214841916a5c6ebf30e850eefc
 !
 !//////////////////////////////////////////////////////
 !
@@ -58,6 +58,7 @@ MODULE HexMeshClass
          integer                                   :: no_of_elements
          integer                                   :: no_of_allElements
          integer                                   :: dt_restriction       ! Time step restriction of last step (DT_FIXED, DT_DIFF or DT_CONV)
+         integer, allocatable                      :: HOPRnodeIDs(:)
          character(len=LINE_LENGTH)                :: meshFileName
          type(Storage_t)                           :: storage              ! Here the solution and its derivative are stored
          type(Node)   , dimension(:), allocatable  :: nodes
@@ -148,6 +149,7 @@ MODULE HexMeshClass
             CALL DestructNode( self % nodes(j)) 
          END DO  
          DEALLOCATE( self % nodes )
+         safedeallocate (self % HOPRnodeIDs)
 !
 !        --------
 !        Elements
@@ -1195,6 +1197,7 @@ slavecoord:             DO l = 1, 4
 
       SUBROUTINE DescribeMeshPartition( self , fileName )
       USE Headers
+      use PartitionedMeshClass
       IMPLICIT NONE
 !
 !--------------------------------------------------------------------
@@ -1249,6 +1252,16 @@ slavecoord:             DO l = 1, 4
       write(STD_OUT,'(/)')
       call Section_Header("Mesh partitions")
       write(STD_OUT,'(/)')
+      
+      write(STD_OUT,'(10X,A21)', advance='no') "Partitioning method: "
+      
+      select case (MPI_Partitioning)
+         case (METIS_PARTITIONING)
+            write(STD_OUT,'(A)') 'METIS'
+         case (SFC_PARTITIONING)
+            write(STD_OUT,'(A)') 'Space-filling curve'
+      end select
+      write(STD_OUT,*)
       
       do rank = 1, MPI_Process % nProcs 
 
