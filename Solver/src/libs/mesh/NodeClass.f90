@@ -25,7 +25,7 @@
 !     ---------------
 !
       TYPE Node
-         integer       :: globID
+         integer       :: globID = -1
          REAL(KIND=RP) :: x(3)
       END TYPE Node
 !
@@ -59,6 +59,8 @@
       SUBROUTINE DestructNode( this )
          IMPLICIT NONE 
          TYPE(Node) :: this
+         
+         this % GlobID = -1
       END SUBROUTINE DestructNode
       
       END Module NodeClass

@@ -3,11 +3,12 @@ module ReadMeshFile
    use Read_HDF5Mesh_HOPR
    use Read_SpecMesh
    use HexMeshClass
+   use MeshTypes           , only: SPECMESH, HOPRMESH
    use FileReadingUtilities, only: getFileExtension
    implicit none
 
    private
-   public constructMeshFromFile, NumOfElemsFromMeshFile
+   public constructMeshFromFile, NumOfElemsFromMeshFile, MeshFileType
 
 contains
    subroutine constructMeshFromFile( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success, export )
@@ -65,5 +66,26 @@ contains
          ERROR STOP 'Mesh file extension not recognized.'
       end if
       
-   end function NumOfElemsFromMeshFile   
+   end function NumOfElemsFromMeshFile  
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   integer function MeshFileType(fileName)
+      implicit none
+      !-arguments----------------------------------------------------
+      CHARACTER(LEN=*)   :: fileName
+      !-local-variables----------------------------------------------
+      character(len=LINE_LENGTH) :: ext
+      !--------------------------------------------------------------
+      ext = getFileExtension(trim(filename))
+      
+      if (trim(ext)=='h5') then
+         MeshFileType = HOPRMESH
+      elseif (trim(ext)=='mesh') then
+         MeshFileType = SPECMESH
+      else
+         ERROR STOP 'Mesh file extension not recognized.'
+      end if
+      
+   end function MeshFileType
 end module ReadMeshFile

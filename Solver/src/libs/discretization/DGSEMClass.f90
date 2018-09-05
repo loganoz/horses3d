@@ -22,7 +22,7 @@
 Module DGSEMClass
    use SMConstants
    USE NodalStorageClass
-   use MeshTypes
+   use MeshTypes                 , only: HOPRMESH
    use ElementClass
    USE HexMeshClass
    USE PhysicsStorage
@@ -255,12 +255,12 @@ Module DGSEMClass
 !
 !     Initialization
 !     --------------
-      call Initialize_MPI_Partitions
+      call Initialize_MPI_Partitions ( trim(controlVariables % stringValueForKey('partitioning', requestedLength = LINE_LENGTH)) )
 !
 !     Prepare the processes to receive the partitions
 !     -----------------------------------------------
       if ( MPI_Process % doMPIAction ) then
-         call RecvPartitionMPI()
+         call RecvPartitionMPI( MeshFileType(self % mesh % meshFileName) == HOPRMESH )
       end if
 !
 !     Read the mesh by the root rank to perform the partitioning
@@ -273,11 +273,11 @@ Module DGSEMClass
 !
 !        Perform the partitioning
 !        ------------------------
-         call PerformMeshPartitioning(self % mesh, MPI_Process % nProcs, mpi_allPartitions)
+         call PerformMeshPartitioning  (self % mesh, MPI_Process % nProcs, mpi_allPartitions)
 !
 !        Send the partitions
 !        -------------------
-         call SendPartitionsMPI()
+         call SendPartitionsMPI( MeshFileType(self % mesh % meshFileName) == HOPRMESH )
 !
 !        Destruct the full mesh
 !        ----------------------

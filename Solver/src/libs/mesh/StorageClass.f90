@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Wed Aug  1 15:48:17 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
+!   @Last revision date: Wed Sep  5 13:18:45 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 5c9d074b2a59ed214841916a5c6ebf30e850eefc
 !
 !//////////////////////////////////////////////////////
 !
@@ -458,11 +458,13 @@ module StorageClass
 #if defined(NAVIERSTOKES) || defined(INCNS)
          self % QNS => NULL()
          self % QDotNS => NULL()
-
-         num_prevSol = size(self % PrevQ)
-         do k=1, num_prevSol
-            nullify( self % PrevQ(k) % QNS )
-         end do
+         
+         if (allocated(self % PrevQ)) then
+            num_prevSol = size(self % PrevQ)
+            do k=1, num_prevSol
+               nullify( self % PrevQ(k) % QNS )
+            end do
+         end if
 
          safedeallocate(self % G_NS)
          safedeallocate(self % S_NS)

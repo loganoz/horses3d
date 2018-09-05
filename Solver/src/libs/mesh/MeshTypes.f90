@@ -19,6 +19,7 @@
       public   HMESH_NONE, HMESH_UNDEFINED, HMESH_INTERIOR
       public   HMESH_BOUNDARY, HMESH_MPI, emptyBCName
       public   EFRONT, EBACK, EBOTTOM, ERIGHT, ETOP, ELEFT
+      public   SPECMESH, HOPRMESH
    
       public iijjIndexes, coordRotation
 
@@ -33,7 +34,10 @@
       integer, parameter :: HMESH_MPI       = 3       ! MPI face
       
       CHARACTER(LEN=3), parameter   :: emptyBCName = "---"
-
+      
+      integer, parameter :: SPECMESH = 1
+      integer, parameter :: HOPRMESH = 2
+      
       contains
 !
 !////////////////////////////////////////////////////////////////////////
