@@ -7,6 +7,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+#include "Includes.h"
       Module ConnectivityClass
       IMPLICIT NONE
 !
@@ -41,11 +42,11 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE DestructConnectivity( this )
+      elemental subroutine DestructConnectivity( this )
          IMPLICIT NONE
-         CLASS(Connectivity) :: this
+         CLASS(Connectivity), intent(inout) :: this
          
-         DEALLOCATE(this%ElementIDs)
+         safedeallocate(this%ElementIDs)
          
       END SUBROUTINE DestructConnectivity
 

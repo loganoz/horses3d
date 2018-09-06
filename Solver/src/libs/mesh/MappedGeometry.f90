@@ -157,9 +157,13 @@ Module MappedGeometryClass
       SUBROUTINE DestructMappedGeometry(self)
          IMPLICIT NONE 
          CLASS(MappedGeometry) :: self
-         DEALLOCATE( self % jGradXi, self % jGradEta, self % jGradZeta, self % jacobian, self % invJacobian )
-         DEALLOCATE( self % x)
-         safedeallocate(self % dWall)
+         safedeallocate( self % jGradXi     )
+         safedeallocate( self % jGradEta    )
+         safedeallocate( self % jGradZeta   )
+         safedeallocate( self % jacobian    )
+         safedeallocate( self % invJacobian )
+         safedeallocate( self % x           )
+         safedeallocate( self % dWall       )
       END SUBROUTINE DestructMappedGeometry
 !
 !////////////////////////////////////////////////////////////////////////
@@ -753,11 +757,11 @@ Module MappedGeometryClass
          class(MappedGeometryFace), intent(inout) :: self
          !-------------------------------------------------------------------
          
-         deallocate(self % x        ) 
-         deallocate(self % jacobian ) 
-         deallocate(self % normal   ) 
-         deallocate(self % t1       ) 
-         deallocate(self % t2       ) 
+         safedeallocate(self % x        ) 
+         safedeallocate(self % jacobian ) 
+         safedeallocate(self % normal   ) 
+         safedeallocate(self % t1       ) 
+         safedeallocate(self % t2       ) 
          safedeallocate(self % dWall    ) 
          
       end subroutine DestructMappedGeometryFace

@@ -4,18 +4,18 @@
 !   @File:    ReadHDF5Mesh.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Wed Sep  5 13:18:44 2018
+!   @Last revision date: Thu Sep  6 15:27:59 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 5c9d074b2a59ed214841916a5c6ebf30e850eefc
+!   @Last revision commit: bbb1eccef1b477a3cf37da8b42ada5792b1c1bf3
 !
 !//////////////////////////////////////////////////////
 !
-!  Module or reading HDF5 meshes as written by HOPR
+!  Module for reading HDF5 meshes as written by HOPR
 !  -> Only for hexahedral conforming meshes
 !
 !//////////////////////////////////////////////////////
 !
-
+#include "Includes.h"
 module Read_HDF5Mesh_HOPR
    use SMConstants
    use HexMeshClass
@@ -100,15 +100,15 @@ contains
 !  -----------------------------------------------------------------------------------------------------------------------
    subroutine ConstructMesh_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves, dir2D, success )
       implicit none
-      !---------------------------------------------------------------
-      class(HexMesh)     :: self
-      CHARACTER(LEN=*)   :: fileName
-      integer            :: nodes
-      INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
-      logical            :: MeshInnerCurves
-      integer, intent(in) :: dir2D
-      LOGICAL            :: success
-      !---------------------------------------------------------------
+      !-arguments--------------------------------------------------------------
+      class(HexMesh)  , intent(inout) :: self
+      character(LEN=*), intent(in)    :: fileName
+      integer         , intent(in)    :: nodes
+      integer         , intent(in)    :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+      logical         , intent(in)    :: MeshInnerCurves
+      integer         , intent(in)    :: dir2D
+      logical         , intent(out)   :: success
+      !-local-variables---------------------------------------------------------
 #ifdef HAS_HDF5
       ! Variables as called by Kopriva
       integer  :: numberOfElements  ! ...
@@ -141,7 +141,6 @@ contains
       integer                          :: nBCs
       integer                          :: nDims
       CHARACTER(LEN=255), ALLOCATABLE  :: BCNames(:)
-      
       
       ! Auxiliar variables
       integer :: i,j,k,l  ! Counters
@@ -201,7 +200,7 @@ contains
       
       allocate( NodeCoords(1:3,first:last),TempArray(1:3,first:last) )
       CALL ReadArrayFromHDF5(File_ID,'NodeCoords',2,(/3,nNodes/),offset,RealArray=TempArray)
-      NodeCoords = REAL(TempArray,RP)
+      NodeCoords = TempArray
       deallocate (TempArray)
       
       offset=ElemInfo(ELEM_FirstSideInd,1) ! hdf5 array starts at 0-> -1  
@@ -244,8 +243,9 @@ contains
       call HOPR2HORSESNodeSideMap(bFaceOrder,HNodeSideMap)
       
       ALLOCATE( self % elements(numberOfelements) )
-      allocate( SurfInfo(numberOfelements) )
-      
+      if ( .not. MPI_Process % doMPIRootAction ) then ! Only read surface information if this is not an MPI simulation
+         allocate( SurfInfo(numberOfelements) )
+      end if
       call InitNodeMap (TempNodes , HOPRNodeMap, nUniqueNodes)
       
 !      
@@ -272,63 +272,64 @@ contains
             end if
          end do
          
-         if (MeshInnerCurves) then
-            CurveCondition = (bFaceOrder == 1)
-         else
-            CurveCondition = all(names == emptyBCName)
-         end if
-         
-         if (CurveCondition) then
-!
-!           HOPR does not specify the order of curvature of individual faces. Therefore, we 
-!           will suppose that self is a straight-sided hex when bFaceOrder == 1, and
-!           for inner elements when MeshInnerCurves == .false. (control file variable 'mesh inner curves'). 
-!           In these cases, set the corners of the hex8Map and use that in determining the element geometry.
-!           -----------------------------------------------------------------------------
-            SurfInfo(l) % IsHex8 = .TRUE.
-            SurfInfo(l) % corners = corners
+         if ( .not. MPI_Process % doMPIRootAction ) then ! Only read surface information if this is not an MPI simulation
+            if (MeshInnerCurves) then
+               CurveCondition = (bFaceOrder == 1)
+            else
+               CurveCondition = all(names == emptyBCName)
+            end if
             
-         else
-!
-!           Otherwise, we have to look at each of the faces of the element 
-!           --------------------------------------------------------------
-            
-            DO k = 1, FACES_PER_ELEMENT 
-               IF ( names(k) == emptyBCName .and. (.not. MeshInnerCurves) )     THEN   ! This doesn't work when the boundary surface of the element is not only curved in the normal direction, but also in some tangent direction. 
-!
-!                 ----------
-!                 Flat faces
-!                 ----------
-!
-                  nodeMap           = localFaceNode(:,k)
-                  valuesFlat(:,1,1) = corners(:,nodeMap(1))
-                  valuesFlat(:,2,1) = corners(:,nodeMap(2))
-                  valuesFlat(:,2,2) = corners(:,nodeMap(3))
-                  valuesFlat(:,1,2) = corners(:,nodeMap(4))
-                  
-                  call SurfInfo(l) % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
-                  
-               ELSE
-!
-!                 -------------
-!                 Curved faces 
-!                 -------------
-!
-                  DO j = 1, numBFacePoints
-                     DO i = 1, numBFacePoints
-                        HOPRNodeID = ElemInfo(ELEM_FirstNodeInd,l) + HNodeSideMap(i,j,k)
-                        values(:,i,j) = NodeCoords(:,HOPRNodeID)
-                     END DO  
-                  END DO
-                  
-                  call SurfInfo(l) % facePatches(k) % construct(uNodes, vNodes, values)
-
-               END IF
+            if (CurveCondition) then
+   !
+   !           HOPR does not specify the order of curvature of individual faces. Therefore, we 
+   !           will suppose that self is a straight-sided hex when bFaceOrder == 1, and
+   !           for inner elements when MeshInnerCurves == .false. (control file variable 'mesh inner curves'). 
+   !           In these cases, set the corners of the hex8Map and use that in determining the element geometry.
+   !           -----------------------------------------------------------------------------
+               SurfInfo(l) % IsHex8 = .TRUE.
+               SurfInfo(l) % corners = corners
                
-            END DO
-            
-         end if
-         
+            else
+   !
+   !           Otherwise, we have to look at each of the faces of the element 
+   !           --------------------------------------------------------------
+               
+               DO k = 1, FACES_PER_ELEMENT 
+                  IF ( names(k) == emptyBCName .and. (.not. MeshInnerCurves) )     THEN   ! This doesn't work when the boundary surface of the element is not only curved in the normal direction, but also in some tangent direction. 
+   !
+   !                 ----------
+   !                 Flat faces
+   !                 ----------
+   !
+                     nodeMap           = localFaceNode(:,k)
+                     valuesFlat(:,1,1) = corners(:,nodeMap(1))
+                     valuesFlat(:,2,1) = corners(:,nodeMap(2))
+                     valuesFlat(:,2,2) = corners(:,nodeMap(3))
+                     valuesFlat(:,1,2) = corners(:,nodeMap(4))
+                     
+                     call SurfInfo(l) % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+                     
+                  ELSE
+   !
+   !                 -------------
+   !                 Curved faces 
+   !                 -------------
+   !
+                     DO j = 1, numBFacePoints
+                        DO i = 1, numBFacePoints
+                           HOPRNodeID = ElemInfo(ELEM_FirstNodeInd,l) + HNodeSideMap(i,j,k)
+                           values(:,i,j) = NodeCoords(:,HOPRNodeID)
+                        END DO  
+                     END DO
+                     
+                     call SurfInfo(l) % facePatches(k) % construct(uNodes, vNodes, values)
+
+                  END IF
+                  
+               END DO
+               
+            end if
+         end if ! (.not. MPI_Process % doMPIRootAction ) 
 !
 !        Now construct the element
 !        -------------------------
@@ -416,14 +417,22 @@ contains
 !     Construct elements' and faces' geometry
 !     ---------------------------------------
 !
-      call self % ConstructGeometry(SurfInfo)
+      if ( .not. MPI_Process % doMPIRootAction ) then
+         call self % ConstructGeometry(SurfInfo)
+      end if
 !
 !     Finish up
 !     ---------
 !      
       deallocate (ElemInfo)
+      deallocate (SideInfo)
+      deallocate (BCNames)
+      deallocate (HNodeSideMap)
       deallocate (NodeCoords)
       deallocate (GlobalNodeIDs)
+      deallocate (uNodes, vNodes, values)
+      
+      safedeallocate ( SurfInfo)
       if (.not. self % child) CALL self % Describe( trim(fileName) , bFaceOrder)
 !
 !     -------------------------------------------------------------
@@ -447,31 +456,31 @@ contains
 !  -----------------------------------------------------------------------------------------------------------------------
    subroutine ConstructMeshPartition_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves, dir2D, success )
       implicit none
-      !---------------------------------------------------------------
-      class(HexMesh)     :: self
-      CHARACTER(LEN=*)   :: fileName
-      integer            :: nodes
-      INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
-      logical            :: MeshInnerCurves
-      integer, intent(in) :: dir2D
-      LOGICAL            :: success
-      !---------------------------------------------------------------
+      !-arguments--------------------------------------------------------------
+      class(HexMesh)  , intent(inout) :: self
+      character(LEN=*), intent(in)    :: fileName
+      integer         , intent(in)    :: nodes
+      integer         , intent(in)    :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+      logical         , intent(in)    :: MeshInnerCurves
+      integer         , intent(in)    :: dir2D
+      logical         , intent(out)   :: success
+      !-local-variables---------------------------------------------------------
 #ifdef HAS_HDF5
       ! Variables as called by Kopriva
       integer  :: numberOfAllElements
       integer  :: bFaceOrder        ! Polynomial order for aproximating curved faces
       integer  :: numBFacePoints    ! Number of points for describing a curved mesh
-      INTEGER  :: numberOfFaces
-      INTEGER                          :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
-      CHARACTER(LEN=BC_STRING_LENGTH)  :: names(FACES_PER_ELEMENT)
-      REAL(KIND=RP)                    :: corners(NDIM,NODES_PER_ELEMENT) ! Corners of element
+      integer  :: numberOfFaces
+      integer                          :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
+      character(LEN=BC_STRING_LENGTH)  :: names(FACES_PER_ELEMENT)
+      real(KIND=RP)                    :: corners(NDIM,NODES_PER_ELEMENT) ! Corners of element
       type(SurfInfo_t), allocatable                :: SurfInfo(:)
       real(kind=RP), dimension(:)    , allocatable :: uNodes, vNodes
       real(kind=RP), dimension(:,:,:), allocatable :: values
       real(kind=RP)                    :: x(NDIM)
-      REAL(KIND=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
-      REAL(KIND=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
-      REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
+      real(KIND=RP)  , dimension(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
+      real(KIND=RP)  , dimension(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
+      real(KIND=RP)  , dimension(3,2,2) :: valuesFlat
       
       ! Variables as called in HOPR: For a description, see HOPR documentation
       integer                          :: nSides, nNodes 
@@ -534,7 +543,7 @@ contains
       
       allocate( NodeCoords(1:3,first:last),TempArray(1:3,first:last) )
       CALL ReadArrayFromHDF5(File_ID,'NodeCoords',2,(/3,nNodes/),offset,RealArray=TempArray)
-      NodeCoords = REAL(TempArray,RP)
+      NodeCoords = TempArray
       deallocate (TempArray)
       
       offset=ElemInfo(ELEM_FirstSideInd,1) ! hdf5 array starts at 0-> -1  
@@ -822,10 +831,14 @@ contains
 !     Finish up
 !     ---------
       deallocate (ElemInfo)
+      deallocate (SideInfo)
+      deallocate (BCNames)
+      deallocate (HNodeSideMap)
       deallocate (NodeCoords)
       deallocate (GlobalNodeIDs)
       deallocate (gHOPR2pHORSESNodeMap)
       deallocate (globalToLocalElementID)
+      deallocate (uNodes, vNodes, values)
       if (.not. self % child) CALL self % DescribePartition( trim(fileName) )
 !
 !     --------------------
@@ -1299,4 +1312,3 @@ contains
 
 #endif
 end module Read_HDF5Mesh_HOPR
-

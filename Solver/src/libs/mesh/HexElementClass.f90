@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Wed Jul 25 17:15:33 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
+!   @Last revision date: Thu Sep  6 15:27:53 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: bbb1eccef1b477a3cf37da8b42ada5792b1c1bf3
 !
 !//////////////////////////////////////////////////////
 !
@@ -167,6 +167,8 @@
          
          CALL self % geom % Destruct
          call self % Storage % Destruct   
+         call self % Connection % destruct
+         call self % hexMap % destruct
          
          nullify( self % spAxi   )
          nullify( self % spAeta  )
