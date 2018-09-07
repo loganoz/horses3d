@@ -4,9 +4,9 @@
 !   @File:    partitioned_mesh.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 10:26:09 2017
-!   @Last revision date: Wed Sep  5 13:18:46 2018
+!   @Last revision date: Thu Sep  6 15:28:01 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 5c9d074b2a59ed214841916a5c6ebf30e850eefc
+!   @Last revision commit: bbb1eccef1b477a3cf37da8b42ada5792b1c1bf3
 !
 !//////////////////////////////////////////////////////
 !
@@ -321,12 +321,14 @@ module PartitionedMeshClass
          self % no_of_mpifaces = 0
 
          safedeallocate(self % nodeIDs             )
+         safedeallocate(self % HOPRnodeIDs         )
          safedeallocate(self % elementIDs          )
          safedeallocate(self % mpiface_elements    )
          safedeallocate(self % element_mpifaceSide )
          safedeallocate(self % mpiface_rotation    )
          safedeallocate(self % mpiface_elementSide )
          safedeallocate(self % mpiface_sharedDomain)
+         
 
       end subroutine PartitionedMesh_Destruct
    
