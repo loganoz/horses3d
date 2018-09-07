@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Mon Aug 20 17:09:53 2018
+!   @Last revision date: Fri Sep  7 19:07:12 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
+!   @Last revision commit: 95cf879e21e49900ff67f23490a18c87162fe91d
 !
 !//////////////////////////////////////////////////////
 !
@@ -39,12 +39,31 @@
       use PhysicsStorage
       use Physics
       use VariableConversion
+      use FacePatchClass                  , only: FacePatch
       IMPLICIT NONE
 
       private
       public   Element, axisMap 
-      public   PrintElement, SetElementBoundaryNames
+      public   PrintElement, SetElementBoundaryNames, SurfInfo_t
       
+!
+!     -----------------------------------------------------------------------------------------
+!     Type containing the information of the surfaces of an element, as read from the mesh file
+!     -> This is used only for constructung the mesh by the readers
+!     -----------------------------------------------------------------------------------------
+      type SurfInfo_t
+         ! Variables to specify that the element is a hex8
+         logical         :: IsHex8 = .FALSE.
+         real(kind=RP)   :: corners(NDIM,NODES_PER_ELEMENT)
+         ! Variables for general elements
+         type(FacePatch) :: facePatches(6)
+         contains
+         procedure :: destruct  => SurfInfo_Destruct
+      end type SurfInfo_t
+!
+!     ---------------------
+!     Main hex-element type
+!     ---------------------
       TYPE Element
          logical                         :: hasSharedFaces
          integer                         :: dir2D
@@ -64,6 +83,7 @@
          type(NodalStorage_t)  , pointer :: spAxi
          type(NodalStorage_t)  , pointer :: spAeta
          type(NodalStorage_t)  , pointer :: spAzeta
+         type(SurfInfo_t)                :: SurfInfo          ! Information about the geometry of the neighboring faces, as in the mesh file
          type(TransfiniteHexMap)         :: hexMap            ! High-order mapper
          contains
             procedure   :: Construct               => HexElement_Construct
@@ -74,10 +94,10 @@
             procedure   :: ProlongSolutionToFaces  => HexElement_ProlongSolutionToFaces
             procedure   :: ProlongGradientsToFaces => HexElement_ProlongGradientsToFaces
             procedure   :: ComputeLocalGradient    => HexElement_ComputeLocalGradient
+            procedure   :: pAdapt                  => HexElement_pAdapt
 #if defined(NAVIERSTOKES)
             procedure   :: ComputeRhoGradient      => HexElement_ComputeRhoGradient
 #endif
-            procedure   :: InterpolateSolution     => HexElement_InterpolateSolution
       END TYPE Element 
       
 !
@@ -173,6 +193,8 @@
          nullify( self % spAxi   )
          nullify( self % spAeta  )
          nullify( self % spAzeta )     
+         
+         call self % SurfInfo % destruct
 
       END SUBROUTINE HexElement_Destruct
 !
@@ -643,80 +665,62 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!     ----------------------------------------------
-!     Interpolate solution to another element
-!            this % storage % Q  ->  e % storage % Q
-!     ----------------------------------------------
-      impure elemental subroutine HexElement_InterpolateSolution(this,e,nodes,with_gradients)
-         use InterpolationMatrices, only: ConstructInterpolationMatrices, Interp3DArrays
+!  --------------------------------------------------------
+!  Adapts an element to new polynomial orders NNew
+!  -> TODO: Previous solutions are not implemented
+!  --------------------------------------------------------
+      subroutine HexElement_pAdapt (self, NNew, nodes, saveGradients, prevSol_num)
          implicit none
-         !-arguments----------------------------------------------
-         class(Element), intent(in)    :: this
-         type(Element) , intent(inout) :: e
+         !-arguments--------------------------------------------
+         class(Element), intent(inout) :: self
+         integer       , intent(in)    :: NNew(NDIM)
          integer       , intent(in)    :: nodes
-         logical, optional, intent(in) :: with_gradients
-         !-local-variables----------------------------------------
-         logical                       :: gradients
-         !--------------------------------------------------------
+         logical       , intent(in)    :: saveGradients
+         integer       , intent(in)    :: prevSol_num
+         !-arguments--------------------------------------------
          
-         if ( present(with_gradients) ) then
-            gradients = with_gradients
-         else
-            gradients = .FALSE.
+         type(ElementStorage_t)        :: tempStorage
+#if (!defined(NAVIERSTOKES))
+         logical, parameter            :: computeGradients = .true.
+#endif
+         !-----------------------------------------------------
+         
+!
+!        Reconstruct storage
+!        -------------------
+         
+         call tempStorage % construct (self % Nxyz(1), self % Nxyz(2), self % Nxyz(3), computeGradients, prevSol_num)
+         tempStorage = self % storage
+         
+         self % Nxyz = NNew
+         
+         call self % storage % destruct()
+         call self % storage % construct ( NNew(1), NNew(2), NNew(3), computeGradients, prevSol_num)
+         
+         call tempStorage % InterpolateSolution (self % storage, nodes, saveGradients)
+         
+         if (prevSol_num > 0) then
+            ! TODO : call InterpolatePrevSol
          end if
          
-         ! Copy the solution if the polynomial orders are the same, if not, interpolate
+         call tempStorage % destruct()
          
+!
+!        Point nodal storage
+!        -------------------
          
-         if (all(this % Nxyz == e % Nxyz)) then
-            e % storage % Q = this % storage % Q
-         else
-            
-            call NodalStorage(this % Nxyz(1)) % construct(nodes,this % Nxyz(1))
-            call NodalStorage(this % Nxyz(2)) % construct(nodes,this % Nxyz(2))
-            call NodalStorage(this % Nxyz(3)) % construct(nodes,this % Nxyz(3))
-            call NodalStorage(e % Nxyz(1)) % construct(nodes,e % Nxyz(1))
-            call NodalStorage(e % Nxyz(2)) % construct(nodes,e % Nxyz(2))
-            call NodalStorage(e % Nxyz(3)) % construct(nodes,e % Nxyz(3))
-            
-            !------------------------------------------------------------------
-            ! Construct the interpolation matrices in every direction if needed
-            !------------------------------------------------------------------
-            call ConstructInterpolationMatrices( this % Nxyz(1), e % Nxyz(1) )  ! Xi
-            call ConstructInterpolationMatrices( this % Nxyz(2), e % Nxyz(2) )  ! Eta
-            call ConstructInterpolationMatrices( this % Nxyz(3), e % Nxyz(3) )  ! Zeta
-            
-            !---------------------------------------------
-            ! Interpolate solution to new solution storage
-            !---------------------------------------------
-            
-            call Interp3DArrays  (Nvars      = NTOTALVARS         , &
-                                  Nin        = this % Nxyz        , &
-                                  inArray    = this % storage % Q , &
-                                  Nout       = e % Nxyz           , &
-                                  outArray   = e % storage % Q          )
-            
-            if (gradients) then
-               call Interp3DArrays  (Nvars      = NTOTALGRADS     , &
-                                  Nin        = this % Nxyz        , &
-                                  inArray    = this % storage % U_x , &
-                                  Nout       = e % Nxyz           , &
-                                  outArray   = e % storage % U_x          )
-               
-               call Interp3DArrays  (Nvars      = NTOTALGRADS              , &
-                                  Nin        = this % Nxyz        , &
-                                  inArray    = this % storage % U_y , &
-                                  Nout       = e % Nxyz           , &
-                                  outArray   = e % storage % U_y        )
-                                  
-               call Interp3DArrays  (Nvars      = NTOTALGRADS              , &
-                                  Nin        = this % Nxyz        , &
-                                  inArray    = this % storage % U_z , &
-                                  Nout       = e % Nxyz           , &
-                                  outArray   = e % storage % U_z        )
-            end if
-            
-         end if
-      end subroutine HexElement_InterpolateSolution
+         self % SpaXi   => NodalStorage (NNew(1))
+         self % SpaEta  => NodalStorage (NNew(2))
+         self % SpaZeta => NodalStorage (NNew(3))
+         
+      end subroutine HexElement_pAdapt
+      
+      
+      pure subroutine SurfInfo_Destruct (self)
+         implicit none
+         class(SurfInfo_t), intent(inout) :: self
+         
+         call self % facePatches % destruct
+      end subroutine SurfInfo_Destruct
       
       END Module ElementClass

@@ -4,9 +4,9 @@
 !   @File:    ReadHDF5Mesh.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Fri Aug 17 15:47:03 2018
+!   @Last revision date: Fri Sep  7 19:07:21 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8e55abc811af03c4dae4084d357d6cde3bf6faa7
+!   @Last revision commit: 95cf879e21e49900ff67f23490a18c87162fe91d
 !
 !//////////////////////////////////////////////////////
 !
@@ -109,7 +109,6 @@ contains
       CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
       TYPE(FacePatch), DIMENSION(6)    :: facePatches
       REAL(KIND=RP)                    :: corners(NDIM,NODES_PER_ELEMENT) ! Corners of element
-      type(SurfInfo_t), allocatable                :: SurfInfo(:)
       real(kind=RP), dimension(:)    , allocatable :: uNodes, vNodes
       real(kind=RP), dimension(:,:,:), allocatable :: values
       
@@ -228,7 +227,6 @@ contains
       call HOPR2HORSESNodeSideMap(bFaceOrder,HNodeSideMap)
       
       ALLOCATE( self % elements(numberOfelements) )
-      allocate( SurfInfo(numberOfelements) )
       
       call InitNodeMap (TempNodes , HOPRNodeMap, nUniqueNodes)
       
@@ -269,8 +267,8 @@ contains
 !           for inner elements when MeshInnerCurves == .false. (control file variable 'mesh inner curves'). 
 !           In these cases, set the corners of the hex8Map and use that in determining the element geometry.
 !           -----------------------------------------------------------------------------
-            SurfInfo(l) % IsHex8 = .TRUE.
-            SurfInfo(l) % corners = corners
+            self % elements(l) % SurfInfo % IsHex8 = .TRUE.
+            self % elements(l) % SurfInfo % corners = corners
             
          else
 !
@@ -290,7 +288,7 @@ contains
                   valuesFlat(:,2,2) = corners(:,nodeMap(3))
                   valuesFlat(:,1,2) = corners(:,nodeMap(4))
                   
-                  call SurfInfo(l) % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+                  call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
                   
                ELSE
 !
@@ -305,7 +303,7 @@ contains
                      END DO  
                   END DO
                   
-                  call SurfInfo(l) % facePatches(k) % construct(uNodes, vNodes, values)
+                  call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
 
                END IF
                
@@ -402,7 +400,7 @@ contains
 !     Construct elements' and faces' geometry
 !     ---------------------------------------
 !
-      call self % ConstructGeometry(SurfInfo)
+      call self % ConstructGeometry()
 !
 !     Finish up
 !     ---------

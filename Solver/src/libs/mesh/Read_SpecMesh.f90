@@ -14,7 +14,6 @@ MODULE Read_SpecMesh
       use MeshTypes
       use ElementConnectivityDefinitions
       USE TransfiniteMapClass
-      use FacePatchClass
       use MappedGeometryClass
       use NodeClass
       use ElementClass
@@ -72,14 +71,12 @@ MODULE Read_SpecMesh
          integer                         :: faceFlags(FACES_PER_ELEMENT)
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
          CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
-         TYPE(FacePatch), DIMENSION(6)   :: facePatches
          real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
 !
 !        ------------------
 !        For curved patches
 !        ------------------
 !
-         type(SurfInfo_t), allocatable                  :: SurfInfo(:)
          real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
          real(kind=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
 !
@@ -136,9 +133,6 @@ MODULE Read_SpecMesh
             vNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
          END DO
          
-         DO k = 1, 6 ! Most patches will be flat, so set up for self
-            CALL facePatches(k) % construct(uNodesFlat,vNodesFlat) 
-         END DO  
 !
 !        ---------------
 !        Allocate memory
@@ -146,7 +140,6 @@ MODULE Read_SpecMesh
 !
          allocate( self % elements(numberOfelements) )
          allocate( self % nodes(numberOfNodes) )
-         allocate( SurfInfo(numberOfelements) )
 
 !
 !        ----------------------------------
@@ -185,8 +178,8 @@ MODULE Read_SpecMesh
                DO k = 1, NODES_PER_ELEMENT
                   corners(:,k) = self % nodes(nodeIDs(k)) % x
                END DO
-               SurfInfo(l) % IsHex8 = .TRUE.
-               SurfInfo(l) % corners = corners
+               self % elements(l) % SurfInfo % IsHex8 = .TRUE.
+               self % elements(l) % SurfInfo % corners = corners
                
             ELSE
 !
@@ -207,7 +200,7 @@ MODULE Read_SpecMesh
                      valuesFlat(:,2,2) = self % nodes(nodeIDs(nodeMap(3))) % x
                      valuesFlat(:,1,2) = self % nodes(nodeIDs(nodeMap(4))) % x
                      
-                     call SurfInfo(l) % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+                     call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
                      
                   ELSE
 !
@@ -221,7 +214,7 @@ MODULE Read_SpecMesh
                         END DO  
                      END DO
                      
-                     call SurfInfo(l) % facePatches(k) % construct(uNodes, vNodes, values)
+                     call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
                      
                   END IF
                END DO
@@ -314,7 +307,7 @@ MODULE Read_SpecMesh
 !        Construct elements' and faces' geometry
 !        ---------------------------------------
 !
-         call self % ConstructGeometry(SurfInfo)
+         call self % ConstructGeometry()
             
          CLOSE( fUnit )
 !
@@ -371,14 +364,12 @@ MODULE Read_SpecMesh
          integer                         :: faceFlags(FACES_PER_ELEMENT)
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
          CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
-         TYPE(FacePatch), DIMENSION(6)   :: facePatches
          real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
 !
 !        ------------------
 !        For curved patches
 !        ------------------
 !
-         type(SurfInfo_t), allocatable                  :: SurfInfo(:)
          real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
          real(kind=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
 !
@@ -425,10 +416,6 @@ MODULE Read_SpecMesh
             uNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
             vNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
          END DO
-         
-         DO k = 1, 6 ! Most patches will be flat, so set up for self
-            CALL facePatches(k) % construct(uNodesFlat,vNodesFlat) 
-         END DO  
 !
 !        ---------------
 !        Allocate memory
@@ -436,7 +423,6 @@ MODULE Read_SpecMesh
 !
          allocate( self % elements(mpi_partition % no_of_elements) )
          allocate( self % nodes(mpi_partition % no_of_nodes) )
-         allocate( SurfInfo(mpi_partition % no_of_nodes) )
          allocate( globalToLocalNodeID(numberOfAllNodes) )
          allocate( globalToLocalElementID(numberOfAllElements) )
          self % no_of_elements = mpi_partition % no_of_elements
@@ -561,8 +547,8 @@ MODULE Read_SpecMesh
                DO k = 1, NODES_PER_ELEMENT
                   corners(:,k) = self % nodes(nodeIDs(k)) % x
                END DO
-               SurfInfo(pElement) % IsHex8 = .TRUE.
-               SurfInfo(pElement) % corners = corners
+               self % elements(pElement) % SurfInfo % IsHex8 = .TRUE.
+               self % elements(pElement) % SurfInfo % corners = corners
                
             ELSE
 !
@@ -583,7 +569,7 @@ MODULE Read_SpecMesh
                      valuesFlat(:,2,2) = self % nodes(nodeIDs(nodeMap(3))) % x
                      valuesFlat(:,1,2) = self % nodes(nodeIDs(nodeMap(4))) % x
                      
-                     call SurfInfo(pElement) % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+                     call self % elements(pElement) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
                      
                   ELSE
 !
@@ -597,7 +583,7 @@ MODULE Read_SpecMesh
                         END DO  
                      END DO
                      
-                     call SurfInfo(pElement) % facePatches(k) % construct(uNodes, vNodes, values)
+                     call self % elements(pElement) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
                      
                   END IF
                END DO
@@ -711,7 +697,7 @@ MODULE Read_SpecMesh
 !        Construct elements' and faces' geometry
 !        ---------------------------------------
 !
-         call self % ConstructGeometry(SurfInfo)
+         call self % ConstructGeometry()
 
          CLOSE( fUnit )
 !

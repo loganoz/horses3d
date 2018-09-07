@@ -568,8 +568,7 @@ module AnisFASMultigridClass
 !        Interpolate coarse-grid error to this level
 !        -------------------------------------------
 !
-!$omp parallel
-!$omp do private(N1,N2) schedule(runtime)
+!$omp parallel do private(N1,N2) schedule(runtime)
          do iEl = 1, nelem
             N1 = Childp_sem % mesh % elements(iEl) % Nxyz
             N2 =      p_sem % mesh % elements(iEl) % Nxyz
@@ -578,20 +577,14 @@ module AnisFASMultigridClass
                                       N1, ChildVar(iEl) % E, &
                                       N2, Var     (iEl) % E, &
                                       Dir)
-         end do
-!$omp end do
-!$omp barrier
 !
-!        -----------------------------------------------
-!        Correct solution with coarse-grid approximation
-!        -----------------------------------------------
+!           -----------------------------------------------
+!           Correct solution with coarse-grid approximation
+!           -----------------------------------------------
 !
-!$omp do schedule(runtime)
-         do iEl = 1, nelem
             p_sem % mesh % elements(iEl) % storage % Q = p_sem % mesh % elements(iEl) % storage % Q + Var(iEl) % E
          end do
-!$omp end do
-!$omp end parallel
+!$omp end parallel do
          end associate
       end if
 !
@@ -666,8 +659,7 @@ module AnisFASMultigridClass
                   Childp_sem => this % Child % MGStorage(Dir) % p_sem, &
                   ChildVar   => this % Child % MGStorage(Dir) % Var    )
       
-!$omp parallel
-!$omp do private(N1,N2) schedule(runtime)
+!$omp parallel do private(N1,N2) schedule(runtime)
       do iEl = 1, nelem
          N1 = p_sem      % mesh % elements(iEl) % Nxyz
          N2 = Childp_sem % mesh % elements(iEl) % Nxyz
@@ -688,30 +680,23 @@ module AnisFASMultigridClass
                                    N1, p_sem % mesh % elements(iEl) % storage % Qdot, &
                                    N2, ChildVar(iEl) % S, &
                                    Dir)
-      end do
-!$omp end do
-
 !
-!     **********************************************************************
-!     **********************************************************************
+!              **********************************************************************
+!              **********************************************************************
 !              Now arrange all the storage in the child solver (and estimate TE if necessary...)
-!     **********************************************************************
-!     **********************************************************************
+!              **********************************************************************
+!              **********************************************************************
 
 !
-!     ------------------------------------
-!     Copy fine grid solution to MGStorage
-!        ... and clear source term
-!     ------------------------------------
+!        ------------------------------------
+!        Copy fine grid solution to MGStorage
+!           ... and clear source term
+!        ------------------------------------
 !
-!$omp barrier
-!$omp do schedule(runtime)
-      do iEl = 1, nelem
          ChildVar(iEl) % Q = Childp_sem % mesh % elements(iEl) % storage % Q
          Childp_sem   % mesh % elements(iEl) % storage % S_NS = 0._RP
       end do
-!$omp end do
-!$omp end parallel
+!$omp end parallel do
 !
 !     -------------------------------------------
 !     If not on finest level, correct source term

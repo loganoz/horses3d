@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Mon Aug 20 17:10:23 2018
+!   @Last revision date: Fri Sep  7 19:07:29 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
+!   @Last revision commit: 95cf879e21e49900ff67f23490a18c87162fe91d
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,7 +21,6 @@
 !
 module pAdaptationClass
    use SMConstants
-   use InterpolationMatrices           , only: Interp3DArrays, ConstructInterpolationMatrices
    use PhysicsStorage                  , only: NTOTALVARS, CTD_IGNORE_MODE
    use FaceClass                       , only: Face
    use ElementClass
@@ -718,8 +717,6 @@ readloop:do
       integer                    :: NNew(3,nelem)     !   New polynomial orders of mesh (after adaptation!)
       integer                    :: Error(3,nelem)    !   Stores (with ==1) elements where the truncation error has a strange behavior of the truncation error (in every direction)
       integer                    :: Warning(nelem)    !   Stores (with ==1) elements where the specified truncation error was not achieved
-      integer                    :: NOld(3,nelem)     !   Old polynomial orders of mesh
-      type(ElementStorage_t), allocatable :: TempStorage(:) ! Temporary variable to store the solution before the adaptation procedure
       logical                    :: success
       integer, save              :: Stage = 0         !   Stage of p-adaptation for the increasing method
       CHARACTER(LEN=LINE_LENGTH) :: newInput          !   Variable used to change the input in controlVariables after p-adaptation 
@@ -987,71 +984,12 @@ readloop:do
 !
       call Stopwatch % Pause("Solver")
       call Stopwatch % Start("Preprocessing")
-!
-!     ---------------------------
-!     Store the previous solution
-!     ---------------------------
-!
-      allocate (TempStorage(nelem))
-      do iEl = 1, nelem
-         NOld (:,iEl) = sem % mesh % elements(iEl) % Nxyz
-         call TempStorage(iEl) % Construct(NOld (1,iEl), NOld (2,iEl), NOld (3,iEl), .FALSE., 0)
-         TempStorage(iEl) % Q = sem % mesh % elements(iEl) % storage % Q
-      end do
-!
-!     -----------------
-!     Construct new sem
-!     -----------------
-!
-      call sem % destruct
-      call sem % construct (  controlVariables  = controlVariables                       ,   &
-                              Nx_ = NNew(1,:) ,     Ny_ = NNew(2,:),     Nz_ = NNew(3,:),    &
-                              success           = success)
-      IF(.NOT. success)   ERROR STOP "Error constructing adapted DGSEM"
+      
+      call sem % mesh % pAdapt (NNew, controlVariables)
+      
       call Stopwatch % Pause("Preprocessing")
       call Stopwatch % Start("Solver")
       
-!
-!     ------------------------------------
-!     Save the solution in the adapted sem 
-!     ------------------------------------
-!
-      ! Loop over all elements
-      do iEl = 1, size(sem % mesh % elements)
-         
-         ! Copy the solution if the polynomial orders are the same, if not, interpolate
-         if (ALL(NOld(:,iEl) == NNew(:,iEl))) then
-            sem % mesh % elements(iEl) % storage % Q = TempStorage(iEl) % Q
-         else
-            
-            !------------------------------------------------------------------
-            ! Construct the interpolation matrices in every direction if needed
-            !------------------------------------------------------------------
-            call ConstructInterpolationMatrices( NOld(1,iEl),NNew(1,iEl) )  ! Xi
-            call ConstructInterpolationMatrices( NOld(2,iEl),NNew(2,iEl) )  ! Eta
-            call ConstructInterpolationMatrices( NOld(3,iEl),NNew(3,iEl) )  ! Zeta
-            
-            !---------------------------------------------
-            ! Interpolate solution to new solution storage
-            !---------------------------------------------
-            
-            call Interp3DArrays  (Nvars      = NTOTALVARS                                  , & ! TODO: check if this holds for CHNS
-                                  Nin        = NOld(:,iEl)                                 , &
-                                  inArray    = TempStorage(iEl) % Q , &
-                                  Nout       = NNew(:,iEl)                                 , &
-                                  outArray   = sem % mesh % elements(iEl) % storage % Q)
-            
-         end if
-         
-      end do
-
-!
-!     ------------------------------
-!     Destruct the temporary storage
-!     ------------------------------
-!
-      call TempStorage % destruct
-      deallocate (TempStorage)
 !
 !     ---------------------------------------------------
 !     Write post-adaptation mesh, solution and order file

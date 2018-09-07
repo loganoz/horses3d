@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Mon Aug 20 17:09:59 2018
+!   @Last revision date: Fri Sep  7 19:07:24 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
+!   @Last revision commit: 95cf879e21e49900ff67f23490a18c87162fe91d
 !
 !//////////////////////////////////////////////////////
 !
@@ -15,6 +15,8 @@ module StorageClass
    use, intrinsic :: iso_c_binding
    use SMConstants
    use PhysicsStorage
+   use InterpolationMatrices, only: ConstructInterpolationMatrices, Interp3DArrays
+   use NodalStorageClass    , only: NodalStorage
    implicit none
 
    private
@@ -99,10 +101,11 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),   allocatable :: G_CH  ! CHE auxiliar storage   
 #endif
       contains
-         procedure   :: Assign            => ElementStorage_Assign
-         generic     :: assignment(=)     => Assign
-         procedure   :: Construct         => ElementStorage_Construct
-         procedure   :: Destruct          => ElementStorage_Destruct
+         procedure   :: Assign              => ElementStorage_Assign
+         generic     :: assignment(=)       => Assign
+         procedure   :: Construct           => ElementStorage_Construct
+         procedure   :: Destruct            => ElementStorage_Destruct
+         procedure   :: InterpolateSolution => ElementStorage_InterpolateSolution
 #if defined(NAVIERSTOKES) || defined(INCNS)
          procedure   :: SetStorageToNS    => ElementStorage_SetStorageToNS
 #endif
@@ -430,8 +433,8 @@ module StorageClass
 !        Load solutions
 !        **************
          
-         oldest_index = self % prevSol_index (ubound (self % prevSol_index,1) )
-         do k=2, self % prevSol_num
+         oldest_index = self % prevSol_index ( self % prevSol_num )
+         do k=self % prevSol_num, 2, -1
             self % prevSol_index(k) = self % prevSol_index(k-1)
          end do
          self % prevSol_index(1) = oldest_index
@@ -685,8 +688,8 @@ module StorageClass
 !        ***********************************
 !
          implicit none
-         class(ElementStorage_t), intent(out) :: to
-         type(ElementStorage_t),  intent(in)  :: from
+         class(ElementStorage_t), intent(inout) :: to
+         type(ElementStorage_t),  intent(in)    :: from
 !
 !        Copy the storage
 !        ----------------
@@ -871,6 +874,81 @@ module StorageClass
    
       end subroutine ElementStorage_SetStorageToCH_mu
 #endif
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -----------------------------------------------
+!     Interpolate solution to another element storage
+!            this % Q  ->  other % Q
+!     -----------------------------------------------
+      impure elemental subroutine ElementStorage_InterpolateSolution(this,other,nodes,with_gradients)
+         implicit none
+         !-arguments----------------------------------------------
+         class(ElementStorage_t), intent(in)    :: this
+         type(ElementStorage_t) , intent(inout) :: other
+         integer                , intent(in)    :: nodes
+         logical, optional      , intent(in)    :: with_gradients
+         !-local-variables----------------------------------------
+         logical                       :: gradients
+         !--------------------------------------------------------
+#if defined(NAVIERSTOKES)
+         if ( present(with_gradients) ) then
+            gradients = with_gradients
+         else
+            gradients = .FALSE.
+         end if
+         
+         ! Copy the solution if the polynomial orders are the same, if not, interpolate
+         if (all(this % Nxyz == other % Nxyz)) then
+            other % Q = this % Q
+         else
+!$omp critical
+            call NodalStorage(this  % Nxyz(1)) % construct(nodes,this  % Nxyz(1))
+            call NodalStorage(this  % Nxyz(2)) % construct(nodes,this  % Nxyz(2))
+            call NodalStorage(this  % Nxyz(3)) % construct(nodes,this  % Nxyz(3))
+            call NodalStorage(other % Nxyz(1)) % construct(nodes,other % Nxyz(1))
+            call NodalStorage(other % Nxyz(2)) % construct(nodes,other % Nxyz(2))
+            call NodalStorage(other % Nxyz(3)) % construct(nodes,other % Nxyz(3))
+            !------------------------------------------------------------------
+            ! Construct the interpolation matrices in every direction if needed
+            !------------------------------------------------------------------
+            call ConstructInterpolationMatrices( this % Nxyz(1), other % Nxyz(1) )  ! Xi
+            call ConstructInterpolationMatrices( this % Nxyz(2), other % Nxyz(2) )  ! Eta
+            call ConstructInterpolationMatrices( this % Nxyz(3), other % Nxyz(3) )  ! Zeta
+!$omp end critical
+            
+            !---------------------------------------------
+            ! Interpolate solution to new solution storage
+            !---------------------------------------------
+            call Interp3DArrays  (Nvars      = NTOTALVARS   , &
+                                  Nin        = this  % Nxyz , &
+                                  inArray    = this  % Q    , &
+                                  Nout       = other % Nxyz , &
+                                  outArray   = other % Q    )
+            
+            if (gradients) then
+               call Interp3DArrays  (Nvars      = NTOTALGRADS  , &
+                                     Nin        = this % Nxyz  , &
+                                     inArray    = this % U_x   , &
+                                     Nout       = other % Nxyz , &
+                                     outArray   = other % U_x  )
+               
+               call Interp3DArrays  (Nvars      = NTOTALGRADS  , &
+                                     Nin        = this  % Nxyz , &
+                                     inArray    = this  % U_y  , &
+                                     Nout       = other % Nxyz , &
+                                     outArray   = other % U_y  )
+                                  
+               call Interp3DArrays  (Nvars      = NTOTALGRADS  , &
+                                     Nin        = this  % Nxyz , &
+                                     inArray    = this  % U_z  , &
+                                     Nout       = other % Nxyz , &
+                                     outArray   = other % U_z  )
+            end if
+            
+         end if
+#endif
+      end subroutine ElementStorage_InterpolateSolution
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !

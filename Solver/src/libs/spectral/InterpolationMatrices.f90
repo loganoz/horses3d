@@ -124,14 +124,14 @@ subroutine ConstructInterpolationMatrices(Norigin, Ndest)
    subroutine Interp3DArrays(Nvars, Nin, inArray, Nout, outArray, interpXi, interpEta, interpZeta )
       implicit none
       !-------------------------------------------------------
-      integer                                                         :: Nvars
-      integer      , dimension(3)                                     :: Nin
-      integer      , dimension(3)                                     :: Nout
-      real(kind=RP), dimension(Nvars,0:Nin (1), 0:Nin (2), 0:Nin (3)) :: inArray
-      real(kind=RP), dimension(Nvars,0:Nout(1), 0:Nout(2), 0:Nout(3)) :: outArray
-      real(kind=RP), dimension(0:Nout(1), 0:Nin(1)), optional, target :: interpXi
-      real(kind=RP), dimension(0:Nout(2), 0:Nin(2)), optional, target :: interpEta
-      real(kind=RP), dimension(0:Nout(3), 0:Nin(3)), optional, target :: interpZeta
+      integer                                                        , intent(in)  :: Nvars
+      integer      , dimension(3)                                    , intent(in)  :: Nin
+      integer      , dimension(3)                                    , intent(in)  :: Nout
+      real(kind=RP), dimension(Nvars,0:Nin (1), 0:Nin (2), 0:Nin (3)), intent(in)  :: inArray
+      real(kind=RP), dimension(Nvars,0:Nout(1), 0:Nout(2), 0:Nout(3)), intent(out) :: outArray
+      real(kind=RP), dimension(0:Nout(1), 0:Nin(1)), optional, target, intent(in)  :: interpXi
+      real(kind=RP), dimension(0:Nout(2), 0:Nin(2)), optional, target, intent(in)  :: interpEta
+      real(kind=RP), dimension(0:Nout(3), 0:Nin(3)), optional, target, intent(in)  :: interpZeta
       !-------------------------------------------------------
       real(kind=RP), dimension(:,:), pointer :: Txi
       real(kind=RP), dimension(:,:), pointer :: Teta

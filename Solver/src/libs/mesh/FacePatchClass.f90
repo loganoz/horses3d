@@ -137,13 +137,13 @@
 !!    Deletes allocated memory
 !     -----------------------------------------------------------------
 !
-      SUBROUTINE DestructFacePatch(self)
+      elemental SUBROUTINE DestructFacePatch(self)
 !
 !     ---------
 !     Arguments
 !     ---------
 !
-      CLASS(FacePatch) :: self
+      CLASS(FacePatch), intent(inout) :: self
       
       IF ( ALLOCATED( self % points ) )   DEALLOCATE( self % points )
       IF ( ALLOCATED( self % uKnots ) )   DEALLOCATE( self % uKnots )
