@@ -6,13 +6,16 @@ module Storage
    implicit none
    
    private
-   public Mesh_t, Element_t, NVARS, NGRADVARS
+   public Mesh_t, Element_t
+   public NVARS, NGRADVARS, hasMPIranks
 
    integer     :: NVARS, NGRADVARS
+   logical     :: hasMPIranks
 
    type Element_t
 !                                /* Mesh quantities */
       integer                    :: Nmesh(NDIM)
+      integer                    :: mpi_rank = 0
       real(kind=RP), pointer     :: x(:,:,:,:)
 !                                /* Solution quantities */
       integer                    :: Nsol(NDIM)
@@ -127,11 +130,12 @@ module Storage
 !
          integer       :: no_of_elements
          integer       :: arrayDimensions(4)
-         integer       :: fid, eID
+         integer       :: fid, eID, pos
          integer       :: i,j,k
          integer       :: iter
          real(kind=RP) :: time
          character(len=1024)  :: msg
+         character(len=LINE_LENGTH)    :: flag   
 
          self % solutionName = trim(solutionName)
 !
@@ -244,6 +248,23 @@ module Storage
 !        Close file
 !        ----------
          close(fid)
+         
+!        Read mpi ranks (if present)
+!        ---------------------------
+         do i = 1, command_argument_count()
+            call get_command_argument(i, flag)
+            
+            pos = index(trim(flag),"--partition-file")
+            if ( pos .ne. 0 ) then
+               hasMPIranks = .TRUE.
+               
+               call readPartitionFile(self,flag)
+               
+            end if
+         end do
+         
+         
+         
 !
 !        Describe the solution
 !        ---------------------
@@ -270,5 +291,36 @@ module Storage
          write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference Mach number: ", self % refs(MACH_REF)
 
       end subroutine Mesh_ReadSolution
-
+      
+      
+      subroutine readPartitionFile(self,flag)
+         implicit none
+         !-arguments-----------------------------------------------
+         class(Mesh_t)   , intent(inout)  :: self
+         character(len=*), intent(in)     :: flag
+         !-local-variables-----------------------------------------
+         integer                    :: pos, nelem, eID, fID
+         character(len=LINE_LENGTH) :: partitionFileName
+         !---------------------------------------------------------
+         
+         pos = index(trim(flag),"=")
+               
+         if ( pos .eq. 0 ) then
+            print*, 'Missing "=" operator in --partition-file flag'
+            errorMessage(STD_OUT)
+            stop
+         end if
+         
+         partitionFileName = flag(pos+1:len_trim(flag))
+         
+         open(newunit = fID, file=trim(partitionFileName),action='read')
+         
+            read(fID,*) nelem
+            
+            do eID = 1, nelem
+               read(fID,*) self % elements(eID) % mpi_rank
+            end do
+            
+         close(fID)
+      end subroutine readPartitionFile
 end module Storage
