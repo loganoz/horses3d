@@ -4,9 +4,9 @@
 !   @File:    MeshPartitioning.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 10:26:08 2017
-!   @Last revision date: Wed Sep  5 13:18:41 2018
+!   @Last revision date: Wed Sep 12 13:12:42 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 5c9d074b2a59ed214841916a5c6ebf30e850eefc
+!   @Last revision commit: 06ee9cb1c578e7283cc508c9aacf873836377025
 !
 !//////////////////////////////////////////////////////
 !
@@ -16,6 +16,7 @@ module MeshPartitioning
    use MeshTypes
    use HexMeshClass
    use PartitionedMeshClass
+   use FileReadingUtilities            , only: RemovePath, getFileName
 
    private
    public   PerformMeshPartitioning
@@ -48,6 +49,10 @@ module MeshPartitioning
 !        --------------------------------
          call GetPartitionBoundaryFaces(mesh, no_of_domains, elementsDomain, partitions)
 
+!
+!        Export partitions file
+!        ----------------------
+         call WritePartitionsFile(mesh, elementsDomain)
       end subroutine PerformMeshPartitioning
 
       subroutine GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions)
@@ -371,4 +376,28 @@ module MeshPartitioning
          end do
          
       end subroutine GetSFCElementsPartition
+      
+      subroutine WritePartitionsFile(mesh,elementsDomain)
+         implicit none
+         !-arguments--------------------------------------------------
+         type(HexMesh), intent(in)  :: mesh
+         integer      , intent(in)  :: elementsDomain(mesh % no_of_elements)
+         !-local-variables--------------------------------------------
+         character(LINE_LENGTH)     :: pmeshName
+         integer                    :: fID, eID
+         !------------------------------------------------------------
+         
+         pmeshName = "./MESH/" // trim(removePath(getFileName(mesh % meshFileName))) // ".pmesh"
+         
+         open(newunit = fID, file=trim(pmeshName),action='write')
+         
+         write(fID,*) mesh % no_of_elements
+         do eID = 1, mesh % no_of_elements
+            write(fID,*) elementsDomain(eID)
+         end do
+            
+         close(fID)
+         
+      end subroutine WritePartitionsFile
+         
 end module MeshPartitioning

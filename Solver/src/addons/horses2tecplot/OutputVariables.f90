@@ -4,9 +4,9 @@
 !   @File:    OutputVariables.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Oct 14 20:44:38 2017
-!   @Last revision date: Wed Jun 27 19:47:23 2018
+!   @Last revision date: Wed Sep 12 13:12:39 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3c862164f7abc59dc50f4554496246f7cc54b803
+!   @Last revision commit: 06ee9cb1c578e7283cc508c9aacf873836377025
 !
 !//////////////////////////////////////////////////////
 !
@@ -19,7 +19,6 @@ module OutputVariables
 !     tecplot file. The user may add extra variables, this can be done by
 !     following the steps:
 !
-!           * Increase NO_OF_VARIABLES in 1.
 !           * Adding a new ID for the variable NEWVAR_V (following the given order).
 !           * Adding a new key for the variable, NEWVARKey.
 !           * Adding the new key to the keys array.
@@ -31,7 +30,7 @@ module OutputVariables
    use SMConstants
    use PhysicsStorage
    use Headers
-   use Storage, only: NVARS
+   use Storage, only: NVARS, hasMPIranks
 
    private
    public   no_of_outputVariables
@@ -49,7 +48,7 @@ module OutputVariables
       enumerator :: Vvec_V, Ht_V, RHOU_V, RHOV_V
       enumerator :: RHOW_V, RHOE_V, C_V, Nxi_V, Neta_V
       enumerator :: Nzeta_V, Nav_V, N_V
-      enumerator :: Xi_V, Eta_V, Zeta_V, ThreeAxes_V, Axes_V
+      enumerator :: Xi_V, Eta_V, Zeta_V, ThreeAxes_V, Axes_V, MPIRANK_V
       enumerator :: GRADV_V, UX_V, VX_V, WX_V
       enumerator :: UY_V, VY_V, WY_V, UZ_V, VZ_V, WZ_V
       enumerator :: CX_V, CY_V, CZ_V
@@ -59,7 +58,7 @@ module OutputVariables
    end enum
 
    integer, parameter   :: NO_OF_VARIABLES = LASTVARIABLE-1
-   integer, parameter   :: NO_OF_INVISCID_VARIABLES = Axes_V
+   integer, parameter   :: NO_OF_INVISCID_VARIABLES = MPIRANK_V
 
    character(len=STR_VAR_LEN), parameter  :: QKey          = "Q"
    character(len=STR_VAR_LEN), parameter  :: RHOKey        = "rho"
@@ -88,6 +87,7 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: ZetaKey = "Ax_Zeta"
    character(len=STR_VAR_LEN), parameter  :: ThreeAxesKey = "ThreeAxes"
    character(len=STR_VAR_LEN), parameter  :: AxesKey = "Axes"   
+   character(len=STR_VAR_LEN), parameter  :: mpiRankKey    = "mpi_rank"
    character(len=STR_VAR_LEN), parameter  :: gradVKey      = "gradV"
    character(len=STR_VAR_LEN), parameter  :: uxKey         = "u_x"
    character(len=STR_VAR_LEN), parameter  :: vxKey         = "v_x"
@@ -112,7 +112,7 @@ module OutputVariables
                                                                             PKey, TKey, MachKey, SKey, VabsKey, &
                                                                             VvecKey, HtKey, RHOUKey, RHOVKey, RHOWKey, &
                                                                             RHOEKey, cKey, NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
-                                                                            XiKey, EtaKey, ZetaKey, ThreeAxesKey, AxesKey, &
+                                                                            XiKey, EtaKey, ZetaKey, ThreeAxesKey, AxesKey, mpiRankKey, &
                                                                             gradVKey, uxKey, vxKey, wxKey, &
                                                                             uyKey, vyKey, wyKey, uzKey, vzKey, wzKey, &
                                                                             cxKey, cyKey, czKey, &
@@ -159,6 +159,7 @@ module OutputVariables
             if ( pos .ne. 0 ) then
                outScale = .false.
             end if
+            
          end do
 !
 !        ***********************************************************
@@ -220,7 +221,9 @@ module OutputVariables
          do i = 1, preliminarNoOfVariables
             no_of_outputVariables = no_of_outputVariables + outputVariablesForVariable(preliminarVariables(i))
          end do
-
+         
+         if (hasMPIranks)  no_of_outputVariables = no_of_outputVariables + 1
+         
          safedeallocate( outputVariableNames) ; allocate( outputVariableNames(no_of_outputVariables) )
 
          pos = 1
@@ -231,6 +234,8 @@ module OutputVariables
             pos = pos + outputVariablesForVariable(preliminarVariables(i))
 
          end do
+         
+         if (hasMPIranks) outputVariableNames(pos) = MPIRANK_V
 !
 !        *****************************
 !        Describe the output variables
@@ -406,6 +411,8 @@ module OutputVariables
                   output(var,0,:,0) = 1.5
                   output(var,0,0,:) = 1.5
                   
+               case(MPIRANK_V)
+                  output(var,:,:,:) = e % mpi_rank
 !
 !
 !              ******************
@@ -663,5 +670,4 @@ module OutputVariables
          end do
 
       end function getNoOfCommas
-
 end module OutputVariables
