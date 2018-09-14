@@ -131,7 +131,7 @@
          
          ALLOCATE (Nvector(nelem))
          Nvector = N(1)
-         call InitializeNodalStorage(N(1))
+         call InitializeNodalStorage(GAUSS, N(1))
          
          call NodalStorage(N(1)) % Construct(GAUSS, N(1))
          call NodalStorage(N(2)) % Construct(GAUSS, N(2))
@@ -311,7 +311,7 @@
          
          ALLOCATE (Nvector(nelem))
          Nvector = N(1)
-         call InitializeNodalStorage(N(1))
+         call InitializeNodalStorage(GAUSS, N(1))
          
          call NodalStorage(N(1)) % Construct(GAUSS, N(1))
          call NodalStorage(N(2)) % Construct(GAUSS, N(2))
