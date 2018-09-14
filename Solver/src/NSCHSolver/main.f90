@@ -4,9 +4,9 @@
 !   @File:    HORSES3DMain.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Thu Jul 26 18:56:00 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f38edcf71102c599db99be79ab383d8db766ce5c
+!   @Last revision date: Fri Sep 14 16:39:55 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: cdbdfe6f5efd847979bb894c45aed80636cee950
 !
 !//////////////////////////////////////////////////////
 !
@@ -43,6 +43,7 @@
       use FluidData
       use FileReaders               , only: ReadControlFile 
       use FileReadingUtilities      , only: getFileName
+      use InterpolationMatrices     , only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
       use ProblemFileFunctions
 #ifdef _HAS_MPI_
       use mpi
@@ -110,7 +111,8 @@
       END IF
       
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
-      call InitializeNodalStorage(Nmax)
+      call InitializeNodalStorage(controlVariables, Nmax)
+      call Initialize_InterpolationMatrices(Nmax)
       call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
 
       call sem % construct (  controlVariables  = controlVariables,                                         &
@@ -187,6 +189,7 @@
       CALL sem % destruct()
       call Finalize_SpaceAndTimeMethods
       call DestructGlobalNodalStorage()
+      call Finalize_InterpolationMatrices
       CALL destructSharedBCModule
       
       CALL UserDefinedTermination

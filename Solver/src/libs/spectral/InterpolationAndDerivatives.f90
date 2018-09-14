@@ -405,7 +405,7 @@
 !!    to the new set.
 !     ------------------------------------------------------------------
 !
-      SUBROUTINE PolynomialInterpolationMatrix( N, M, oldNodes, weights, newNodes, T)
+      pure SUBROUTINE PolynomialInterpolationMatrix( N, M, oldNodes, weights, newNodes, T)
 !
 !     ---------
 !     Arguments

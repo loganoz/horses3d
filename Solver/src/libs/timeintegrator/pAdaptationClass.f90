@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Wed Jul 25 17:15:51 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
+!   @Last revision date: Fri Sep 14 16:40:06 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: cdbdfe6f5efd847979bb894c45aed80636cee950
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,7 +21,7 @@
 !
 module pAdaptationClass
    use SMConstants
-   use InterpolationMatrices           , only: Interp3DArrays, ConstructInterpolationMatrices
+   use InterpolationMatrices           , only: Interp3DArrays, Tset
    use PhysicsStorage                  , only: NTOTALVARS, CTD_IGNORE_MODE
    use FaceClass                       , only: Face
    use ElementClass
@@ -852,9 +852,9 @@ readloop:do
             !------------------------------------------------------------------
             ! Construct the interpolation matrices in every direction if needed
             !------------------------------------------------------------------
-            call ConstructInterpolationMatrices( NOld(1,iEl),NNew(1,iEl) )  ! Xi
-            call ConstructInterpolationMatrices( NOld(2,iEl),NNew(2,iEl) )  ! Eta
-            call ConstructInterpolationMatrices( NOld(3,iEl),NNew(3,iEl) )  ! Zeta
+            call Tset( NOld(1,iEl),NNew(1,iEl) ) % construct( NOld(1,iEl),NNew(1,iEl) )  ! Xi
+            call Tset( NOld(2,iEl),NNew(2,iEl) ) % construct( NOld(2,iEl),NNew(2,iEl) )  ! Eta
+            call Tset( NOld(3,iEl),NNew(3,iEl) ) % construct( NOld(3,iEl),NNew(3,iEl) )  ! Zeta
             
             !---------------------------------------------
             ! Interpolate solution to new solution storage

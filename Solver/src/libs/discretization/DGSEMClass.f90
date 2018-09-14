@@ -21,7 +21,7 @@
 #include "Includes.h"
 Module DGSEMClass
    use SMConstants
-   USE NodalStorageClass
+   USE NodalStorageClass         , only: CurrentNodes, NodalStorage, NodalStorage_t
    use MeshTypes                 , only: HOPRMESH
    use ElementClass
    USE HexMeshClass
@@ -120,7 +120,7 @@ Module DGSEMClass
 !
       INTEGER                     :: i,j,k,el,bcset                     ! Counters
       INTEGER, POINTER            :: Nx(:), Ny(:), Nz(:)                ! Orders of every element in mesh (used as pointer to use less space)
-      integer                     :: nodes, NelL(2), NelR(2)
+      integer                     :: NelL(2), NelR(2)
       INTEGER                     :: nTotalElem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       integer                     :: dir2D
@@ -158,20 +158,7 @@ Module DGSEMClass
 !     Discretization nodes selection
 !     ------------------------------
 !
-      select case ( trim(controlVariables % stringValueForKey(trim(discretizationNodesKey), requestedLength = LINE_LENGTH)) )
-      case("Gauss")
-         nodes = GAUSS
-      case("Gauss-Lobatto")
-         nodes = GAUSSLOBATTO
-      case default
-         print*, "Unknown discretization nodes."
-         print*, "Options available are:"
-         print*, "   * Gauss"
-         print*, "   * Gauss-Lobatto"
-         errorMessage(STD_OUT)
-         stop
-      end select
-      self % nodes = nodes
+      self % nodes = CurrentNodes
 !
 !     ---------------------------------------
 !     Get polynomial orders for every element
@@ -209,13 +196,13 @@ Module DGSEMClass
 !     Construct the polynomial storage for the elements in the mesh
 !     -------------------------------------------------------------
 !
-      call NodalStorage(0) % Construct(nodes, 0)   ! Always construct orders 0 
-      call NodalStorage(1) % Construct(nodes, 1)   ! and 1
+      call NodalStorage(0) % Construct(CurrentNodes, 0)   ! Always construct orders 0 
+      call NodalStorage(1) % Construct(CurrentNodes, 1)   ! and 1
 
       DO k=1, nTotalElem
-         call NodalStorage(Nx(k)) % construct( nodes, Nx(k) )
-         call NodalStorage(Ny(k)) % construct( nodes, Ny(k) )
-         call NodalStorage(Nz(k)) % construct( nodes, Nz(k) )
+         call NodalStorage(Nx(k)) % construct( CurrentNodes, Nx(k) )
+         call NodalStorage(Ny(k)) % construct( CurrentNodes, Ny(k) )
+         call NodalStorage(Nz(k)) % construct( CurrentNodes, Nz(k) )
       END DO
 !
 !     ------------------
@@ -269,7 +256,7 @@ Module DGSEMClass
 !
 !        Construct the full mesh
 !        -----------------------
-         call constructMeshFromFile( self % mesh, self % mesh % meshFileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+         call constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
 !
 !        Perform the partitioning
 !        ------------------------
@@ -289,7 +276,7 @@ Module DGSEMClass
 !     *              MESH CONSTRUCTION                         *
 !     **********************************************************
 !
-      CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+      CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
 !
 !     Compute wall distances
 !     ----------------------

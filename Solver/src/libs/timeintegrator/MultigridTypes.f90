@@ -1,7 +1,7 @@
 module MultigridTypes
    use SMConstants
    use HexMeshClass              , only: HexMesh
-   use InterpolationMatrices     , only: ConstructInterpolationMatrices
+   use InterpolationMatrices     , only: Tset
    use TimeIntegratorDefinitions
    use DGSEMClass                , only: ComputeMaxResiduals
    implicit none
@@ -102,8 +102,8 @@ module MultigridTypes
       
       call NodalStorage(N2) % construct( nodes, N2)
       
-      call ConstructInterpolationMatrices(N1, N2)
-      
+      call Tset(N1, N2) % construct(N1, N2)
+      call Tset(N2, N1) % construct(N2, N1)
    end subroutine CreateInterpolationOperators
 
 !
