@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Fri Sep  7 19:07:19 2018
+!   @Last revision date: Mon Sep 24 19:27:03 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 95cf879e21e49900ff67f23490a18c87162fe91d
+!   @Last revision commit: 7ac2937102050656fd4a699d4a0b4a592b3431bf
 !
 !//////////////////////////////////////////////////////
 !
@@ -32,7 +32,7 @@ MODULE HexMeshClass
       use FileReadingUtilities            , only: RemovePath, getFileName
       use FTValueDictionaryClass          , only: FTValueDictionary
       use SolutionFile
-      use BoundaryConditions,               only: DestructBoundaryConditions, BCs
+      use BoundaryConditions,               only: BCs
       use IntegerDataLinkedList           , only: IntegerDataLinkedList_t
 #if defined(NAVIERSTOKES)
       use WallDistance
@@ -109,6 +109,8 @@ MODULE HexMeshClass
             procedure :: ConvertDensityToPhaseFIeld    => HexMesh_ConvertDensityToPhaseField
             procedure :: ConvertPhaseFieldToDensity    => HexMesh_ConvertPhaseFieldToDensity
 #endif
+            procedure :: copy                          => HexMesh_Assign
+            generic   :: assignment(=)                 => copy
       end type HexMesh
 
       TYPE Neighbour         ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
@@ -160,8 +162,6 @@ MODULE HexMeshClass
 !        -----
 !
          if (allocated(self % zones)) DEALLOCATE( self % zones )
-
-         call DestructBoundaryConditions
 !
 !        ----------------
 !        Solution storage
@@ -3333,20 +3333,30 @@ slavecoord:             DO l = 1, 4
       integer         , allocatable :: zoneArray(:)
       integer         , allocatable :: facesArray(:)     
       integer         , allocatable :: elementArray(:)   
-      type(Zone_t) , pointer :: zone
+      type(Zone_t)    , pointer :: zone
+      type(Element)   , pointer :: e
       !---------------------------------------------------
+
+!
+!     Check if resulting mesh is anisotropic
+!     **************************************
+      if ( maxval(NNew) /= minval(NNew) ) self % anisotropic = .TRUE.
       
+!
+!     Some initializations
+!     ********************
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
       
       facesList      = IntegerDataLinkedList_t(.FALSE.)
       elementList    = IntegerDataLinkedList_t(.FALSE.)
       zoneList = IntegerDataLinkedList_t(.FALSE.)
+      
 !      
 !     Adapt individual elements (geometry excluded)
 !     *********************************************
-!$omp parallel do schedule(runtime) private(fID)
+!$omp parallel do schedule(runtime) private(fID, e)
       do eID=1, self % no_of_elements
-         associate (e => self % elements(eID) ) 
+         e => self % elements(eID) 
          if ( all( e % Nxyz == NNew(:,eID)) ) then
             cycle
          else
@@ -3362,7 +3372,7 @@ slavecoord:             DO l = 1, 4
 !$omp end critical
             
          end if
-         end associate
+!~         end associate
       end do
 !$omp end parallel do
       
@@ -3441,9 +3451,73 @@ slavecoord:             DO l = 1, 4
       call elementList  % destruct
       call zoneList     % destruct
       nullify (zone)
+      nullify (e)
       deallocate (facesArray  )
       deallocate (elementArray)
       
    end subroutine HexMesh_pAdapt
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+! 
+   impure elemental subroutine HexMesh_Assign (to, from)
+      implicit none
+      !-arguments----------------------------------------
+      class(HexMesh), intent(inout), target :: to
+      type (HexMesh), intent(in)    :: from
+      !-local-variables----------------------------------
+      integer :: eID
+      !--------------------------------------------------
+      to % numberOfFaces      = from % numberOfFaces
+      to % nodeType           = from % nodeType
+      to % no_of_elements     = from % no_of_elements
+      to % no_of_allElements  = from % no_of_allElements
+      to % dt_restriction     = from % dt_restriction
+      
+      to % meshFileName       = from % meshFileName
+      to % meshIs2D           = from % meshIs2D
+      to % dir2D              = from % dir2D
+      
+      to % anisotropic        = from % anisotropic
+      to % child              = from % child
+      to % ignoreBCnonConformities = from % child
+      
+      safedeallocate (to % Nx)
+      allocate ( to % Nx ( size(from % Nx) ) )
+      to % Nx = from % Nx
+      
+      safedeallocate (to % Ny)
+      allocate ( to % Ny ( size(from % Ny) ) )
+      to % Ny = from % Ny
+      
+      safedeallocate (to % Nz)
+      allocate ( to % Nz ( size(from % Nz) ) )
+      to % Nz = from % Nz
+      
+      to % storage = from % storage
+      
+      safedeallocate (to % nodes)
+      allocate ( to % nodes ( size(from % nodes) ) )
+      to % nodes = from % nodes
+      
+      safedeallocate (to % faces)
+      allocate ( to % faces ( size(from % faces) ) )
+      to % faces = from % faces
+      
+      safedeallocate (to % elements)
+      allocate ( to % elements ( size(from % elements) ) )
+      to % elements = from % elements
+      
+      safedeallocate (to % zones)
+      allocate ( to % zones ( size(from % zones) ) )
+      to % zones = from % zones
+      
+!
+!     Point elements' storage
+!     -----------------------
+      
+      do eID = 1, to % no_of_elements
+         to % elements(eID) % storage => to % storage % elements(eID)
+      end do
+   end subroutine HexMesh_Assign
 END MODULE HexMeshClass
       

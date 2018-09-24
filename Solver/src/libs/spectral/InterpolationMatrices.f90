@@ -172,13 +172,13 @@ subroutine ConstructInterpolationMatrices(Norigin, Ndest)
    subroutine Interp3DArraysOneDir(Nvars, Nin, inArray, Nout, outArray, Dir, interpMat )
       implicit none
       !-------------------------------------------------------
-      integer                                                             :: Nvars
-      integer      , dimension(3)                                         :: Nin
-      integer      , dimension(3)                                         :: Nout
-      integer                                                             :: Dir
-      real(kind=RP), dimension(Nvars,0:Nin (1), 0:Nin (2), 0:Nin (3))     :: inArray
-      real(kind=RP), dimension(Nvars,0:Nout(1), 0:Nout(2), 0:Nout(3))     :: outArray
-      real(kind=RP), dimension(0:Nout(Dir), 0:Nin(Dir)), optional, target :: interpMat
+      integer                                                            , intent(in)  :: Nvars
+      integer      , dimension(3)                                        , intent(in)  :: Nin
+      integer      , dimension(3)                                        , intent(in)  :: Nout
+      integer                                                            , intent(in)  :: Dir
+      real(kind=RP), dimension(Nvars,0:Nin (1), 0:Nin (2), 0:Nin (3))    , intent(in)  :: inArray
+      real(kind=RP), dimension(Nvars,0:Nout(1), 0:Nout(2), 0:Nout(3))    , intent(out) :: outArray
+      real(kind=RP), dimension(0:Nout(Dir), 0:Nin(Dir)), optional, target, intent(in)  :: interpMat
       !-------------------------------------------------------
       real(kind=RP), dimension(:,:), pointer :: T     ! Interpolation matrix
       integer :: i,j,k,l

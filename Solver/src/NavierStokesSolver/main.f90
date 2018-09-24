@@ -32,6 +32,7 @@
       use FileReaders               , only: ReadControlFile 
       use FileReadingUtilities      , only: getFileName
       use ProblemFileFunctions
+      use BoundaryConditions        , only: DestructBoundaryConditions
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -173,6 +174,7 @@
       if (pAdaptator % Constructed) call pAdaptator % destruct()
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
+      call DestructBoundaryConditions
       call Finalize_SpaceAndTimeMethods
       call DestructGlobalNodalStorage()
       CALL destructSharedBCModule

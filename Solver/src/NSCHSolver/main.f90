@@ -4,9 +4,9 @@
 !   @File:    HORSES3DMain.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Thu Jul 26 18:56:00 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f38edcf71102c599db99be79ab383d8db766ce5c
+!   @Last revision date: Mon Sep 24 19:26:57 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 7ac2937102050656fd4a699d4a0b4a592b3431bf
 !
 !//////////////////////////////////////////////////////
 !
@@ -44,6 +44,7 @@
       use FileReaders               , only: ReadControlFile 
       use FileReadingUtilities      , only: getFileName
       use ProblemFileFunctions
+      use BoundaryConditions        , only: DestructBoundaryConditions
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -185,6 +186,7 @@
       if (pAdaptator % Constructed) call pAdaptator % destruct()
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
+      call DestructBoundaryConditions
       call Finalize_SpaceAndTimeMethods
       call DestructGlobalNodalStorage()
       CALL destructSharedBCModule

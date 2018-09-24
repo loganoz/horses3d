@@ -1,4 +1,4 @@
-#if defined(NAVIERSTOKES)
+#include "Includes.h"
 module SurfaceMonitorClass
    use SMConstants
    use HexMeshClass
@@ -7,8 +7,10 @@ module SurfaceMonitorClass
    use MPI_Process_Info
    use FluidData
    use FileReadingUtilities, only: getRealArrayFromString
-#include "Includes.h"
-   
+   implicit none
+
+
+#if defined(NAVIERSTOKES)   
    private
    public   SurfaceMonitor_t
 
@@ -37,6 +39,8 @@ module SurfaceMonitorClass
          procedure   :: WriteValues    => SurfaceMonitor_WriteValue
          procedure   :: WriteToFile    => SurfaceMonitor_WriteToFile
          procedure   :: destruct       => SurfaceMonitor_Destruct
+         procedure   :: copy           => SurfaceMonitor_Assign
+         generic     :: assignment(=)  => copy
    end type SurfaceMonitor_t
 
    contains
@@ -415,7 +419,41 @@ module SurfaceMonitorClass
          implicit none
          class(SurfaceMonitor_t), intent(inout) :: self
          
-         deallocate (self % values)
+         safedeallocate (self % values)
+         safedeallocate (self % referenceSurface)
       end subroutine SurfaceMonitor_Destruct
+!
+!//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      elemental subroutine SurfaceMonitor_Assign(to, from)
+         implicit none
+         class(SurfaceMonitor_t), intent(inout) :: to
+         type(SurfaceMonitor_t),  intent(in)    :: from
+         
+         if ( from % active) then
+            to % active          = from % active
+            to % isDimensionless = from % isDimensionless
+            to % ID              = from % ID
+            to % direction       = from % direction
+            to % marker          = from % marker
+            
+            safedeallocate(to % referenceSurface)
+            allocate (to % referenceSurface)
+            to % referenceSurface = from % referenceSurface
+            
+            safedeallocate(to % values)
+            allocate ( to % values( size(from % values) ) )
+            to % values          = from % values
+            
+            to % dynamicPressure = from % dynamicPressure
+            to % monitorName     = from % monitorName
+            to % fileName        = from % fileName
+            to % variable        = from % variable
+         else
+            to % active = .FALSE.
+         end if
+         
+      end subroutine SurfaceMonitor_Assign
+#endif      
 end module SurfaceMonitorClass
-#endif
+

@@ -4,9 +4,9 @@
 !   @File:    ZoneClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es), Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Thu Aug 16 16:15:45 2018
+!   @Last revision date: Mon Sep 24 19:27:04 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
+!   @Last revision commit: 7ac2937102050656fd4a699d4a0b4a592b3431bf
 !
 !//////////////////////////////////////////////////////
 !
@@ -37,7 +37,9 @@ module ZoneClass
       integer                     :: no_of_faces
       integer, allocatable        :: faces(:)
       contains
-         procedure   :: Initialize => Zone_Initialize
+         procedure   :: Initialize     => Zone_Initialize
+         procedure   :: copy           => Zone_Assign
+         generic     :: assignment(=)  => copy
    end type Zone_t
    
    contains
@@ -222,4 +224,19 @@ module ZoneClass
          end do
 
       end function AllZoneNames
+      
+      elemental subroutine Zone_Assign (to, from)
+         implicit none
+         class(Zone_t), intent(inout)  :: to
+         type(Zone_t) , intent(in)     :: from
+         
+         to % marker = from % marker
+         to % toBeDeleted = from % toBeDeleted
+         to % Name = from % Name
+         to % no_of_faces = from % no_of_faces
+         
+         safedeallocate ( to % faces )
+         allocate ( to % faces ( size(from % faces) ) )
+         to % faces = from % faces
+      end subroutine Zone_Assign
 end module ZoneClass

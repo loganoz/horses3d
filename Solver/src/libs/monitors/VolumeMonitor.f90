@@ -1,18 +1,19 @@
+#include "Includes.h"
 module VolumeMonitorClass
    use SMConstants
    use HexMeshClass
    use MonitorDefinitions
    use PhysicsStorage
    use MPI_Process_Info
-#include "Includes.h"
-
+   implicit none
+   
    private 
-   public VOLUME
+!~   public VOLUME
 #if defined(NAVIERSTOKES)
-   public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY
-   public ENTROPY, ENTROPY_RATE
+!~   public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY
+!~   public ENTROPY, ENTROPY_RATE
 #elif defined(CAHNHILLIARD)
-   public FREE_ENERGY
+!~   public FREE_ENERGY
 #endif
    public VolumeMonitor_t
 
@@ -35,6 +36,8 @@ module VolumeMonitorClass
          procedure   :: WriteValues    => VolumeMonitor_WriteValue
          procedure   :: WriteToFile    => VolumeMonitor_WriteToFile
          procedure   :: destruct       => VolumeMonitor_Destruct
+         procedure   :: copy           => VolumeMonitor_Assign
+         generic     :: assignment(=)  => copy
    end type VolumeMonitor_t
 !
 !  ========
@@ -277,4 +280,21 @@ module VolumeMonitorClass
          
          deallocate (self % values)
       end subroutine VolumeMonitor_Destruct
+      
+      elemental subroutine VolumeMonitor_Assign (to, from)
+         implicit none
+         class(VolumeMonitor_t), intent(inout)  :: to
+         type(VolumeMonitor_t) , intent(in)     :: from
+         
+         to % active       = from % active
+         to % ID           = from % ID
+         
+         safedeallocate (to % values)
+         allocate ( to % values( size(from % values) ) ) 
+         to % values       = from % values
+      
+         to % monitorName  = from % monitorName
+         to % fileName     = from % fileName
+         to % variable     = from % variable
+      end subroutine VolumeMonitor_Assign
 end module VolumeMonitorClass

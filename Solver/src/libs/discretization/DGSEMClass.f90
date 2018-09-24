@@ -64,6 +64,8 @@ Module DGSEMClass
          procedure :: destruct  => DestructDGSem
          procedure :: SaveSolutionForRestart
          procedure :: SetInitialCondition => DGSEM_SetInitialCondition
+         procedure :: copy                => DGSEM_Assign
+         generic   :: assignment(=)       => copy
    END TYPE DGSem
 
    abstract interface
@@ -333,7 +335,7 @@ Module DGSEMClass
 !     Build the monitors
 !     ------------------
 !
-      self % monitors = ConstructMonitors(self % mesh, controlVariables)
+      call self % monitors % construct (self % mesh, controlVariables)
 
 #if defined(NAVIERSTOKES)
 !
@@ -431,6 +433,31 @@ Module DGSEMClass
          call self % mesh % Export( trim(solutionName) )
    
       end subroutine DGSEM_SetInitialCondition
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -----------------------------------------------------------------------------------
+!     Specifies how to copy a DGSem object:
+!     -> Trivial but must be defined since self % monitors have a user-defined assignment
+!     -> Must be impure because of some pointers of the derived types
+!     -----------------------------------------------------------------------------------
+      impure elemental subroutine DGSEM_Assign (to, from)
+         implicit none
+         class(DGSem), intent(inout) :: to
+         type (DGSem), intent(in)    :: from
+         
+         to % maxResidual        = from % maxResidual
+         to % nodes              = from % nodes
+         to % numberOfTimeSteps  = from % numberOfTimeSteps
+         to % NDOF               = from % NDOF
+         
+         to % mesh               = from % mesh
+         to % ManufacturedSol    = from % ManufacturedSol
+         
+         to % monitors  = from % monitors
+         to % particles = from % particles
+         
+      end subroutine DGSEM_Assign
 !
 !////////////////////////////////////////////////////////////////////////
 !

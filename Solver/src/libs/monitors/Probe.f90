@@ -1,4 +1,5 @@
 #if defined(NAVIERSTOKES)
+#include "Includes.h"
 module ProbeClass
    use SMConstants
    use HexMeshClass
@@ -11,7 +12,7 @@ module ProbeClass
 #ifdef _HAS_MPI_
    use mpi
 #endif
-#include "Includes.h"
+   implicit none
    
    private
    public   Probe_t
@@ -40,6 +41,8 @@ module ProbeClass
          procedure   :: WriteToFile    => Probe_WriteToFile
          procedure   :: LookInOtherPartitions => Probe_LookInOtherPartitions
          procedure   :: destruct       => Probe_Destruct
+         procedure   :: copy           => Probe_Assign
+         generic     :: assignment(=)  => copy
    end type Probe_t
 
    contains
@@ -400,11 +403,45 @@ module ProbeClass
          implicit none
          class(Probe_t), intent(inout) :: self
          
-         deallocate (self % values)
-         deallocate (self % lxi)
-         deallocate (self % leta)
-         deallocate (self % lzeta)
+         safedeallocate (self % values)
+         safedeallocate (self % lxi)
+         safedeallocate (self % leta)
+         safedeallocate (self % lzeta)
       end subroutine Probe_Destruct
+      
+      elemental subroutine Probe_Assign (to, from)
+         implicit none
+         class(Probe_t), intent(inout) :: to
+         type(Probe_t) , intent(in) :: from
+         
+         to % active = from % active
+         to % rank = from % rank
+         to % ID = from %  ID
+         to % eID = from % eID 
+         to % x = from % x
+         to % xi = from % xi
+         
+         safedeallocate ( to % values )
+         allocate ( to % values ( size(from % values) ) )
+         to % values = from % values
+         
+         safedeallocate ( to % lxi )
+         allocate ( to % lxi ( size(from % lxi) ) )
+         to % values = from % lxi
+         
+         safedeallocate ( to % leta )
+         allocate ( to % leta ( size(from % leta) ) )
+         to % values = from % leta
+         
+         safedeallocate ( to % lzeta )
+         allocate ( to % lzeta ( size(from % lzeta) ) )
+         to % values = from % lzeta
+         
+         to % fileName = from % fileName
+         to % monitorName = from % monitorName
+         to % variable = from % variable
+         
+      end subroutine Probe_Assign
       
 end module ProbeClass
 #endif

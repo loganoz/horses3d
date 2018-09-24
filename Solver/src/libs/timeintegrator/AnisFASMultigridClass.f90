@@ -306,7 +306,6 @@ module AnisFASMultigridClass
 !  DGSem classes for every subsolver in one of the three directions
 !  ----------------------------------------------------------------------
    recursive subroutine ConstructFASInOneDirection(Solver, lvl, controlVariables,Dir)
-!~       use BoundaryConditionFunctions ! TODO: needed=??
       implicit none
       type(AnisFASMultigrid_t), TARGET  :: Solver           !<> Current solver
       integer                       :: lvl              !<  Current multigrid level
@@ -316,13 +315,14 @@ module AnisFASMultigridClass
       integer, dimension(:), pointer :: N1x,N1y,N1z            !   Order of approximation for every element in current solver
       integer, dimension(:), pointer :: N1
       integer, dimension(nelem,3)    :: N2                     !   Order of approximation for every element in child solver
+      integer, dimension(3,nelem)    :: N2trans
       integer                        :: i,j,k, iEl             !   Counter
       logical                        :: success                ! Did the creation of sem succeed?
       !----------------------------------------------
       !
       integer :: Nxyz(3), fd, l
       integer  :: nEqn
-
+      
 #if defined(NAVIERSTOKES)
       nEqn = NCONS
 #endif
@@ -411,14 +411,31 @@ module AnisFASMultigridClass
 !
          allocate (Child_p % MGStorage(Dir) % p_sem)
          
-         if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .TRUE.
+!<New
+         ! Copy the sem
+         Child_p % MGStorage(Dir) % p_sem = Solver % MGStorage(Dir) % p_sem
          
-         call Child_p % MGStorage(Dir) % p_sem % construct &
-                                          (controlVariables  = controlVariables,                                         &
-                                           Nx_ = N2(:,1),    Ny_ = N2(:,2),    Nz_ = N2(:,3),                            &
-                                           success = success,                                                            &
-                                           ChildSem = .TRUE. )
-         if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
+         ! Mark the mesh as a child mesh
+         Child_p % MGStorage(Dir) % p_sem % mesh % child = .TRUE. 
+         
+         ! Adapt the mesh to the new polynomial orders
+         if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .TRUE.
+         N2trans = transpose(N2)
+         call Child_p % MGStorage(Dir) % p_sem % mesh % pAdapt (N2trans, controlVariables)
+         call Child_p % MGStorage(Dir) % p_sem % mesh % storage % PointStorage
+!New>
+
+!<old
+!~         if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .TRUE.
+!~         call Child_p % MGStorage(Dir) % p_sem % construct &
+!~                                          (controlVariables  = controlVariables,                                         &
+!~                                           Nx_ = N2(:,1),    Ny_ = N2(:,2),    Nz_ = N2(:,3),                            &
+!~                                           success = success,                                                            &
+!~                                           ChildSem = .TRUE. )
+         
+!~         if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
+!old>
+         
          if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .FALSE.
          
          call ConstructFASInOneDirection(Solver % Child, lvl - 1, controlVariables,Dir)
@@ -667,7 +684,6 @@ module AnisFASMultigridClass
 !
 !        Restrict solution
 !        -----------------
-         
          call Interp3DArraysOneDir(NCONS, &
                                    N1, p_sem      % mesh % elements(iEl) % storage % Q, &
                                    N2, Childp_sem % mesh % elements(iEl) % storage % Q, &
@@ -703,10 +719,9 @@ module AnisFASMultigridClass
 !     -------------------------------------------
 !
       if (EstimateTE) then
-         if ( TE(1) % TruncErrorType == NON_ISOLATED_TE) then ! This assumes that the truncation error type is the same in all elements
-            call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
-         elseif ( TE(1) % TruncErrorType == ISOLATED_TE) then
-            call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
+         call EstimateTruncationError(TE,Childp_sem,t,ChildVar,Dir)
+         
+         if ( TE(1) % TruncErrorType == ISOLATED_TE) then
             call ComputeTimeDerivative(Childp_sem % mesh,Childp_sem % particles, t, CTD_IGNORE_MODE)
          end if
       else

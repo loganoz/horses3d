@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Fri Sep  7 19:07:24 2018
+!   @Last revision date: Mon Sep 24 19:27:04 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 95cf879e21e49900ff67f23490a18c87162fe91d
+!   @Last revision commit: 7ac2937102050656fd4a699d4a0b4a592b3431bf
 !
 !//////////////////////////////////////////////////////
 !
@@ -106,6 +106,7 @@ module StorageClass
          procedure   :: Construct           => ElementStorage_Construct
          procedure   :: Destruct            => ElementStorage_Destruct
          procedure   :: InterpolateSolution => ElementStorage_InterpolateSolution
+         procedure   :: PointStorage        => ElementStorage_PointStorage
 #if defined(NAVIERSTOKES) || defined(INCNS)
          procedure   :: SetStorageToNS    => ElementStorage_SetStorageToNS
 #endif
@@ -149,6 +150,7 @@ module StorageClass
          procedure :: global2LocalQdot => SolutionStorage_global2LocalQdot
          procedure :: Destruct         => SolutionStorage_Destruct
          procedure :: SignalAdaptation => SolutionStorage_SignalAdaptation
+         procedure :: PointStorage     => SolutionStorage_PointStorage
    end type SolutionStorage_t
 !  
 !  Class for storing variables in the faces
@@ -536,6 +538,16 @@ module StorageClass
 !
 !/////////////////////////////////////////////////
 !
+      pure subroutine SolutionStorage_PointStorage(self)
+         implicit none
+         class(SolutionStorage_t), intent(inout) :: self
+         
+         call self % elements % PointStorage()
+         
+      end subroutine SolutionStorage_PointStorage
+!
+!/////////////////////////////////////////////////
+!
       pure subroutine SolutionStorage_Destruct(self)
          implicit none
          class(SolutionStorage_t), intent(inout) :: self
@@ -714,29 +726,37 @@ module StorageClass
          to % cDot = from % cDot
          to % G_CH = from % G_CH
 #endif
-
-         select case ( to % currentlyLoaded ) 
-         case (OFF)
-            to % Q    => NULL()
-            to % U_x  => NULL()
-            to % U_y  => NULL()
-            to % U_z  => NULL()
-            to % QDot => NULL()
-
+         
+         call to % PointStorage()
+         
+      end subroutine ElementStorage_Assign
+!
+!///////////////////////////////////////////////////////////////////////////////////////////
+!
+      elemental subroutine ElementStorage_PointStorage (self)
+         implicit none
+         class(ElementStorage_t), intent(inout) :: self
+         
+         select case ( self % currentlyLoaded ) 
+            case (OFF)
+               self % Q    => NULL()
+               self % U_x  => NULL()
+               self % U_y  => NULL()
+               self % U_z  => NULL()
+               self % QDot => NULL()
 #if defined(NAVIERSTOKES) || defined(INCNS)
-         case (NS)
-            call to % SetStorageToNS   
+            case (NS)
+               call self % SetStorageToNS   
 #endif
 #if defined(CAHNHILLIARD)
-         case (C)
-            call to % SetStorageToCH_c
+            case (C)
+               call self % SetStorageToCH_c
 
-         case (MU)
-            call to % SetStorageToCH_mu
+            case (MU)
+               call self % SetStorageToCH_mu
 #endif
          end select
-
-      end subroutine ElementStorage_Assign
+      end subroutine ElementStorage_PointStorage
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !

@@ -19,6 +19,7 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+#include "Includes.h"
 module MonitorsClass
    use SMConstants
    use NodalStorageClass
@@ -34,10 +35,9 @@ module MonitorsClass
 #endif
    implicit none
 !
-#include "Includes.h"
 
    private
-   public      Monitor_t , ConstructMonitors
+   public      Monitor_t
 !
 !  *****************************
 !  Main monitor class definition
@@ -62,12 +62,15 @@ module MonitorsClass
       type(StatisticsMonitor_t)            :: stats
 #endif
       contains
+         procedure   :: Construct       => Monitors_Construct
          procedure   :: WriteLabel      => Monitor_WriteLabel
          procedure   :: WriteUnderlines => Monitor_WriteUnderlines
          procedure   :: WriteValues     => Monitor_WriteValues
          procedure   :: UpdateValues    => Monitor_UpdateValues
          procedure   :: WriteToFile     => Monitor_WriteToFile
          procedure   :: destruct        => Monitor_Destruct
+         procedure   :: copy            => Monitor_Assign
+         generic     :: assignment(=)   => copy
    end type Monitor_t
 !
 !  ========
@@ -76,13 +79,14 @@ module MonitorsClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-      function ConstructMonitors( mesh, controlVariables ) result(Monitors)
+      subroutine Monitors_Construct( Monitors, mesh, controlVariables ) 
          use FTValueDictionaryClass
          use mainKeywordsModule
          implicit none
+         class(Monitor_t)                     :: Monitors
          class(HexMesh), intent(in)           :: mesh
          class(FTValueDictionary), intent(in) :: controlVariables
-         type(Monitor_t)                      :: Monitors
+         
 !
 !        ---------------
 !        Local variables
@@ -144,7 +148,7 @@ module MonitorsClass
          Monitors % bufferLine = 0
          
          FirstCall = .FALSE.
-      end function ConstructMonitors
+      end subroutine Monitors_Construct
 
       subroutine Monitor_WriteLabel ( self )
 !
@@ -494,18 +498,69 @@ module MonitorsClass
          call self % residuals % destruct
          
          call self % volumeMonitors % destruct
-         deallocate(self % volumeMonitors)
+         safedeallocate(self % volumeMonitors)
          
 #if defined(NAVIERSTOKES)
          call self % probes % destruct
-         deallocate (self % probes)
+         safedeallocate (self % probes)
          
          call self % surfaceMonitors % destruct
-         deallocate (self % surfaceMonitors)
+         safedeallocate (self % surfaceMonitors)
          
          !call self % stats % destruct
 #endif         
       end subroutine
+      
+      elemental subroutine Monitor_Assign ( to, from )
+         implicit none
+         !-arguments--------------------------------------
+         class(Monitor_t), intent(inout)  :: to
+         type(Monitor_t) , intent(in)     :: from
+         !-local-variables--------------------------------
+         !------------------------------------------------
+         
+         to % solution_file         = from % solution_file
+         to % no_of_probes          = from % no_of_probes
+         to % no_of_surfaceMonitors = from % no_of_surfaceMonitors
+         to % no_of_volumeMonitors  = from % no_of_volumeMonitors
+         to % bufferLine            = from % bufferLine
+         
+         safedeallocate ( to % iter )
+         allocate ( to % iter ( size(from % iter) ) )
+         to % iter = from % iter
+         
+         to % dt_restriction        = from % dt_restriction
+         to % write_dt_restriction  = from % write_dt_restriction
+         
+         safedeallocate (to % t)
+         allocate (to % t (size (from % t) ) ) 
+         to % t = from % t
+         
+         safedeallocate ( to % SimuTime )
+         allocate ( to % SimuTime ( size(from % SimuTime) ) )
+         to % SimuTime = from % SimuTime
+         
+         to % residuals = from % residuals
+         
+         safedeallocate ( to % volumeMonitors )
+         allocate ( to % volumeMonitors ( size(from % volumeMonitors) ) )
+         to % volumeMonitors = from % volumeMonitors
+      
+#if defined(NAVIERSTOKES)
+         
+         safedeallocate ( to % probes )
+         allocate ( to % probes ( size(from % probes) ) )
+         to % probes = from % probes
+         
+         safedeallocate ( to % surfaceMonitors )
+         allocate ( to % surfaceMonitors ( size(from % surfaceMonitors) ) )
+         to % surfaceMonitors = from % surfaceMonitors
+         
+         to % stats = from % stats
+#endif
+         
+      end subroutine Monitor_Assign
+      
 !
 !//////////////////////////////////////////////////////////////////////////////
 !

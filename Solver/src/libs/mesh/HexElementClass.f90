@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Fri Sep  7 19:07:12 2018
+!   @Last revision date: Mon Sep 24 19:27:02 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 95cf879e21e49900ff67f23490a18c87162fe91d
+!   @Last revision commit: 7ac2937102050656fd4a699d4a0b4a592b3431bf
 !
 !//////////////////////////////////////////////////////
 !
@@ -35,7 +35,7 @@
       USE ElementConnectivityDefinitions
       USE ConnectivityClass
       use StorageClass
-      USE NodalStorageClass
+      USE NodalStorageClass               , only: NodalStorage, NodalStorage_t
       use PhysicsStorage
       use Physics
       use VariableConversion

@@ -11,6 +11,7 @@ module SurfaceIntegrals
 #ifdef _HAS_MPI_
    use mpi
 #endif
+   implicit none
    
    private
    public   SURFACE, TOTAL_FORCE, PRESSURE_FORCE, VISCOUS_FORCE, MASS_FLOW, FLOW
