@@ -4,9 +4,9 @@
 !   @File:    ConstructMeshAndSpectralBasis.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Nov  1 19:56:53 2017
-!   @Last revision date: Sun May 13 11:22:01 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
+!   @Last revision date: Fri Sep 14 16:39:56 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: cdbdfe6f5efd847979bb894c45aed80636cee950
 !
 !//////////////////////////////////////////////////////
 !
@@ -86,7 +86,7 @@ module ConstructMeshAndSpectralBasis_MOD
 !        Allocate nodal storage      
 !        ----------------------
 !
-         call InitializeNodalStorage( max(maxval(Nx), maxval(Ny), maxval(Nz)) )
+         call InitializeNodalStorage( nodeType, max(maxval(Nx), maxval(Ny), maxval(Nz)) )
          
          do eID = 1, no_of_elements
             if( .not. NodalStorage(Nx(eID)) % Constructed) then   

@@ -4,9 +4,9 @@
 !   @File:    Physics_CH.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Apr 19 17:24:31 2018
-!   @Last revision date: Wed May 23 12:57:26 2018
+!   @Last revision date: Wed Aug  1 15:48:18 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
+!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
 !
 !//////////////////////////////////////////////////////
 !
@@ -43,7 +43,7 @@ module Physics_CH
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine CHDivergenceFlux0D(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine CHDivergenceFlux0D(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn, nGradEqn
          real(kind=RP), intent(in)  :: Q   (nEqn)
@@ -51,6 +51,7 @@ module Physics_CH
          real(kind=RP), intent(in)  :: U_y (nGradEqn)
          real(kind=RP), intent(in)  :: U_z (nGradEqn)
          real(kind=RP), intent(in)  :: mu
+         real(kind=RP), intent(in)  :: beta
          real(kind=RP), intent(in)  :: kappa
          real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
 
@@ -60,7 +61,7 @@ module Physics_CH
 
       end subroutine CHDivergenceFlux0D
 
-      pure subroutine CHDivergenceFlux2D(nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine CHDivergenceFlux2D(nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          implicit none
          integer,          intent(in)  :: nEqn, nGradEqn
          integer         , intent(in)  :: N(2)
@@ -69,6 +70,7 @@ module Physics_CH
          real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
+         real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
          real(kind=RP),    intent(out) :: F   (1:nEqn, 1:NDIM, 0:N(1), 0:N(2))
 
@@ -78,7 +80,7 @@ module Physics_CH
 
       end subroutine CHDivergenceFlux2D
 
-      pure subroutine CHDivergenceFlux3D(nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, F)
+      pure subroutine CHDivergenceFlux3D(nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          implicit none
          integer,          intent(in)  :: nEqn, nGradEqn
          integer         , intent(in)  :: N(3)
@@ -87,6 +89,7 @@ module Physics_CH
          real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(out) :: F   (1:nEqn, 0:N(1), 0:N(2), 0:N(3),1:NDIM)
 

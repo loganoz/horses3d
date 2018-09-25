@@ -76,7 +76,7 @@ module Utilities
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      LOGICAL FUNCTION AlmostEqual( a, b ) 
+      LOGICAL pure FUNCTION AlmostEqual( a, b ) 
       USE SMConstants
       IMPLICIT NONE
 !
@@ -84,7 +84,7 @@ module Utilities
 !     Arguments
 !     ---------
 !
-      REAL(KIND=RP) :: a, b
+      REAL(KIND=RP), intent(in) :: a, b
 !
       IF ( a == 0.0_RP .OR. b == 0.0_RP )     THEN
          IF ( ABS(a-b) <= 2*EPSILON(b) )     THEN

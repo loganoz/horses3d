@@ -4,17 +4,19 @@
 !   @File:    MeshPartitioning.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 10:26:08 2017
-!   @Last revision date: Mon Feb 12 19:00:34 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 04004b13db40efe389672a6abc8cfae5187c2c0e
+!   @Last revision date: Wed Sep 12 13:12:42 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 06ee9cb1c578e7283cc508c9aacf873836377025
 !
 !//////////////////////////////////////////////////////
 !
+#include "Includes.h"
 module MeshPartitioning
    use SMConstants
    use MeshTypes
    use HexMeshClass
    use PartitionedMeshClass
+   use FileReadingUtilities            , only: RemovePath, getFileName
 
    private
    public   PerformMeshPartitioning
@@ -47,6 +49,10 @@ module MeshPartitioning
 !        --------------------------------
          call GetPartitionBoundaryFaces(mesh, no_of_domains, elementsDomain, partitions)
 
+!
+!        Export partitions file
+!        ----------------------
+         call WritePartitionsFile(mesh, elementsDomain)
       end subroutine PerformMeshPartitioning
 
       subroutine GetElementsDomain(mesh, no_of_domains, elementsDomain, partitions)
@@ -67,19 +73,28 @@ module MeshPartitioning
 
          allocate(nodesDomain(size(mesh % nodes)))
 !
-!        ****************************************************
-!        Set which elements belong to each domain using METIS
-!        ****************************************************
+!        **********************************************
+!        Set which elements belong to each domain using
+!        **********************************************
 !
-#ifdef _HAS_MPI_
-         call GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain)
-#endif
+         select case (MPI_Partitioning)
+!     
+!           Space-filling curve partitioning
+!           --------------------------------
+            case (SFC_PARTITIONING)
+               call GetSFCElementsPartition(no_of_domains, mesh % no_of_elements, elementsDomain)
+!     
+!           METIS partitioning
+!           ------------------
+            case (METIS_PARTITIONING)
+               call GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain)
+         end select
 !
 !        ****************************************
 !        Get which nodes belong to each partition
 !        ****************************************
 !
-         call GetNodesPartition(mesh, no_of_domains, elementsDomain, nodesDomain, partitions)   
+         call GetNodesPartition(mesh, no_of_domains, elementsDomain, partitions)   
 
          deallocate(nodesDomain)   
          
@@ -88,13 +103,12 @@ module MeshPartitioning
 !
 !////////////////////////////////////////////////////////////////////////
 !
-     subroutine GetNodesPartition(mesh, no_of_domains, elementsDomain, nodesDomain, partitions)
+     subroutine GetNodesPartition(mesh, no_of_domains, elementsDomain, partitions)
         use Utilities, only: Qsort
         implicit none
         type(HexMesh), intent(in)              :: mesh
         integer,       intent(in)              :: no_of_domains
         integer,       intent(in)              :: elementsDomain(mesh % no_of_elements)
-        integer,       intent(in)              :: nodesDomain(size(mesh % nodes))
         type(PartitionedMesh_t), intent(inout) :: partitions(no_of_domains)   
 !
 !       ---------------
@@ -111,10 +125,14 @@ module MeshPartitioning
         integer              :: npoints
         integer              :: ielem
         logical              :: isnewpoint
+        logical              :: meshIsHOPR
         integer, allocatable :: points(:)
+        integer, allocatable :: HOPRpoints(:)
 
         nvertex = 8
-
+        
+        meshIsHOPR = allocated (mesh % HOPRnodeIDs)
+        
         do idomain=1,no_of_domains
 !
 !       Get the number of elements for the partition
@@ -126,6 +144,10 @@ module MeshPartitioning
 !       ---------------------------------------------------------------------
         allocate(points(nvertex*partitions(idomain)%no_of_elements))
         points = 0
+        if (meshIsHOPR) then
+            allocate(HOPRpoints(nvertex*partitions(idomain)%no_of_elements))
+            HOPRpoints = 0
+        end if
 !
 !       ****************************************
 !       Gather each partition nodes and elements      
@@ -165,6 +187,7 @@ module MeshPartitioning
                  if (isnewpoint) then
                     npoints = npoints + 1
                     points(npoints) = jpoint
+                    if (meshIsHOPR) HOPRpoints(npoints) = mesh % HOPRnodeIDs(jpoint)
                  end if                  
               end do
             end if      
@@ -174,10 +197,15 @@ module MeshPartitioning
 !        ---------------------------------------------      
          allocate(partitions(idomain)%nodeIDs(npoints))
          partitions(idomain)%nodeIDs(:) = points(1:npoints)
+         
+         if (meshIsHOPR) then
+            allocate(partitions(idomain)%HOPRnodeIDs(npoints))
+            partitions(idomain)%HOPRnodeIDs(:) = HOPRpoints(1:npoints)
+         end if
 !
-!        Sort the nodeIDs to read the mesh file accordingly
+!        Sort the nodeIDs to read the mesh file accordingly (only needed for SpecMesh)
 !        --------------------------------------------------
-         call Qsort(partitions(idomain)%nodeIDs)
+         if (.not. meshIsHOPR) call Qsort(partitions(idomain)%nodeIDs)
 
          partitions(idomain)%no_of_nodes = npoints
 !
@@ -186,6 +214,7 @@ module MeshPartitioning
 !        ****
 !
          deallocate(points)
+         safedeallocate(HOPRpoints)
       end do
 
      end subroutine GetNodesPartition
@@ -316,5 +345,59 @@ module MeshPartitioning
          end do
 
       end subroutine GetPartitionBoundaryFaces
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     --------------------------------
+!     Space-filling curve partitioning
+!     --------------------------------
+      subroutine GetSFCElementsPartition(no_of_domains, nelem, elementsDomain)
+         implicit none
+         !-arguments--------------------------------------------------
+         integer, intent(in)    :: no_of_domains
+         integer, intent(in)    :: nelem
+         integer, intent(inout) :: elementsDomain(nelem)
+         !-local-variables--------------------------------------------
+         integer :: elems_per_domain(no_of_domains)
+         integer :: biggerdomains
+         integer :: first, last, domain
+         !------------------------------------------------------------
+         
+         elems_per_domain = nelem / no_of_domains
+         
+         biggerdomains = mod(nelem,no_of_domains)
+         elems_per_domain(1:biggerdomains) = elems_per_domain(1:biggerdomains) + 1
+         
+         first = 1
+         do domain = 1, no_of_domains
+            last = first + elems_per_domain(domain) - 1
+            elementsDomain(first:last) = domain
+            first = last + 1
+         end do
+         
+      end subroutine GetSFCElementsPartition
+      
+      subroutine WritePartitionsFile(mesh,elementsDomain)
+         implicit none
+         !-arguments--------------------------------------------------
+         type(HexMesh), intent(in)  :: mesh
+         integer      , intent(in)  :: elementsDomain(mesh % no_of_elements)
+         !-local-variables--------------------------------------------
+         character(LINE_LENGTH)     :: pmeshName
+         integer                    :: fID, eID
+         !------------------------------------------------------------
+         
+         pmeshName = "./MESH/" // trim(removePath(getFileName(mesh % meshFileName))) // ".pmesh"
+         
+         open(newunit = fID, file=trim(pmeshName),action='write')
+         
+         write(fID,*) mesh % no_of_elements
+         do eID = 1, mesh % no_of_elements
+            write(fID,*) elementsDomain(eID)
+         end do
+            
+         close(fID)
+         
+      end subroutine WritePartitionsFile
+         
 end module MeshPartitioning

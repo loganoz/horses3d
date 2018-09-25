@@ -60,6 +60,7 @@ MODULE HexMeshClass
          integer                                   :: no_of_allElements
          integer                                   :: dt_restriction       ! Time step restriction of last step (DT_FIXED, DT_DIFF or DT_CONV)
          integer      , dimension(:), allocatable  :: Nx, Ny, Nz
+         integer, allocatable                      :: HOPRnodeIDs(:)
          character(len=LINE_LENGTH)                :: meshFileName
          type(SolutionStorage_t)                   :: storage              ! Here the solution and its derivative are stored
          type(Node)   , dimension(:), allocatable  :: nodes
@@ -142,6 +143,7 @@ MODULE HexMeshClass
 !
          call self % nodes % destruct
          DEALLOCATE( self % nodes )
+         safedeallocate (self % HOPRnodeIDs)
 !
 !        --------
 !        Elements
@@ -1183,6 +1185,7 @@ slavecoord:             DO l = 1, 4
 
       SUBROUTINE DescribeMeshPartition( self , fileName )
       USE Headers
+      use PartitionedMeshClass
       IMPLICIT NONE
 !
 !--------------------------------------------------------------------
@@ -1237,6 +1240,16 @@ slavecoord:             DO l = 1, 4
       write(STD_OUT,'(/)')
       call Section_Header("Mesh partitions")
       write(STD_OUT,'(/)')
+      
+      write(STD_OUT,'(10X,A21)', advance='no') "Partitioning method: "
+      
+      select case (MPI_Partitioning)
+         case (METIS_PARTITIONING)
+            write(STD_OUT,'(A)') 'METIS'
+         case (SFC_PARTITIONING)
+            write(STD_OUT,'(A)') 'Space-filling curve'
+      end select
+      write(STD_OUT,*)
       
       do rank = 1, MPI_Process % nProcs 
 
@@ -2394,6 +2407,7 @@ slavecoord:             DO l = 1, 4
             allocate(Q(NTOTALVARS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
 #if defined(NAVIERSTOKES)
             Q(1:NCONS,:,:,:) = e % storage % Q
+            Q(IRHOV,:,:,:) = e % storage % mu_art(1,:,:,:)
 #elif defined(INCNS)
             Q(1:NINC,:,:,:)  = e % storage % Q
 #endif

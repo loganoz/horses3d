@@ -189,6 +189,7 @@
          CALL self % geom % Destruct
          call self % Storage % Destruct   
          call self % Connection % destruct
+         call self % hexMap % destruct
          
          nullify( self % spAxi   )
          nullify( self % spAeta  )

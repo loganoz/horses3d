@@ -4,9 +4,9 @@
 !   @File:    sharedSpectralBasis.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Oct 15 13:07:03 2017
-!   @Last revision date: Wed May 23 12:57:22 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7fde177b098184b58177a3a163cefdfebe7af55f
+!   @Last revision date: Tue Sep 25 10:03:15 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: f80714f4c78c40aeae2f260a53c2dd6437a97038
 !
 !//////////////////////////////////////////////////////
 !
@@ -18,7 +18,7 @@ module SharedSpectralBasis
 
    private
    public   spA
-   public   ConstructSpectralBasis, addNewSpectralBasis, addNewInterpolationMatrix
+   public   ConstructSpectralBasis, addNewSpectralBasis, addNewInterpolationMatrix, DestructSpectralBasis
 
 
    integer,   parameter    :: NMAX = 40
@@ -33,8 +33,20 @@ module SharedSpectralBasis
 !        Allocate nodal storage
 !        ----------------------
          allocate( spA(0:NMAX) )
+         call Initialize_InterpolationMatrices(NMAX)
 
       end subroutine ConstructSpectralBasis
+      
+      subroutine DestructSpectralBasis()
+         implicit none
+!
+!        Allocate nodal storage
+!        ----------------------
+         call spA % destruct
+         deallocate( spA )
+         call Finalize_InterpolationMatrices
+
+      end subroutine DestructSpectralBasis
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !

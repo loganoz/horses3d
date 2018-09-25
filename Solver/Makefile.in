@@ -109,11 +109,9 @@ ifeq ($(COMM),PARALLEL)
     ifeq ($(FC),gfortran)
         FC=mpif90
 	MACROS+= -D_HAS_MPI_
-	LIBS += $(METIS_LIB)
     else ifeq ($(FC),ifort)
         FC=mpiifort
 	MACROS+= -D_HAS_MPI_
-	LIBS += $(METIS_LIB)
     endif
 endif
 
@@ -126,9 +124,8 @@ endif
 ################
 ifeq ($(COMM),PARALLEL)
    ifdef METIS_HOME
+      MACROS+= -D_HAS_METIS_
       LIBS+=-L$(METIS_HOME)/lib -lmetis
-   else
-      $(error Metis not linked properly. Set the METIS_HOME variable)
    endif
 endif
 

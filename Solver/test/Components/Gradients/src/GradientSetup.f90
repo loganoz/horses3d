@@ -85,7 +85,7 @@
 !        ----------------
 !
          N = controlVariables % integerValueForKey(polynomialOrderKey)
-         call InitializeNodalStorage(maxval(N))
+         call InitializeNodalStorage(controlVariables, maxval(N))
          
          BCFunctions(1) % externalState     => externalBoundaryState
          BCFunctions(1) % externalGradients => externalGradientState

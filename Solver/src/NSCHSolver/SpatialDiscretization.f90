@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Thu Jul 26 18:55:59 2018
+!   @Last revision date: Wed Aug  1 15:48:13 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f38edcf71102c599db99be79ab383d8db766ce5c
+!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
 !
 !//////////////////////////////////////////////////////
 !
@@ -880,7 +880,7 @@ stop
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: mu, muL, muR
+         real(kind=RP) :: mu, muL, muR, beta, kappa
 
          if ( .not. LESModel % active ) then
          DO j = 0, f % Nf(2)
@@ -894,6 +894,8 @@ stop
                call ViscousDiscretization % GetViscosity(f % storage(1) % c(1,i,j), muL)
                call ViscousDiscretization % GetViscosity(f % storage(2) % c(1,i,j), muR)
                mu = max(muL, muR)
+               beta = 0.0_RP
+               kappa = (mu / dimensionless % mu) * dimensionless % kappa
 
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
@@ -905,7 +907,7 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu = mu, &
+                                                  mu = mu, beta = beta, kappa = kappa, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -980,7 +982,7 @@ stop
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: mu, muL, muR
+         real(kind=RP) :: mu, muL, muR, beta, kappa
 !
 !        --------------
 !        Invscid fluxes
@@ -996,6 +998,8 @@ stop
                call ViscousDiscretization % GetViscosity(f % storage(1) % c(1,i,j), muL)
                call ViscousDiscretization % GetViscosity(f % storage(2) % c(1,i,j), muR)
                mu = max(muL, muR)
+               beta = 0.0_RP
+               kappa = (mu / dimensionless % mu) * dimensionless % kappa
 
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
@@ -1007,7 +1011,7 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu = mu, &
+                                                  mu = mu, beta = beta, kappa = kappa, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -1059,7 +1063,7 @@ stop
       REAL(KIND=RP)                   :: inv_flux(NCONS)
       real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
-      real(kind=RP)                   :: mu, muL, muR
+      real(kind=RP) :: mu, muL, muR, beta, kappa
 !
 !     -------------------
 !     Get external states
@@ -1097,6 +1101,8 @@ stop
             call ViscousDiscretization % GetViscosity(f % storage(1) % c(1,i,j), muL)
             call ViscousDiscretization % GetViscosity(f % storage(2) % c(1,i,j), muR)
             mu = max(muL, muR)
+            beta = 0.0_RP
+            kappa = (mu / dimensionless % mu) * dimensionless % kappa
 
             CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                f = f, &
@@ -1108,7 +1114,7 @@ stop
                                                U_xRight = f % storage(2) % U_x(:,i,j), &
                                                U_yRight = f % storage(2) % U_y(:,i,j), &
                                                U_zRight = f % storage(2) % U_z(:,i,j), &
-                                               mu = mu, &
+                                               mu = mu, beta = beta, kappa = kappa, &
                                                nHat = f % geom % normal(:,i,j) , &
                                                dWall = f % geom % dWall(i,j), &
                                                flux  = visc_flux(:,i,j) )
@@ -1462,7 +1468,7 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu = 1.0_RP, &
+                                                  mu = 1.0_RP, beta = 0.0_RP, kappa = 0.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = flux(:,i,j) )
@@ -1507,7 +1513,7 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu = 1.0_RP, &
+                                                  mu = 1.0_RP, beta = 0.0_RP, kappa = 0.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = flux(:,i,j) )
@@ -1593,7 +1599,7 @@ stop
                                             U_xRight = f % storage(2) % U_x(:,i,j), &
                                             U_yRight = f % storage(2) % U_y(:,i,j), &
                                             U_zRight = f % storage(2) % U_z(:,i,j), &
-                                            mu = 1.0_RP, &
+                                            mu = 1.0_RP, beta = 0.0_RP, kappa = 0.0_RP, &
                                             nHat = f % geom % normal(:,i,j) , &
                                             dWall = f % geom % dWall(i,j), &
                                             flux  = flux(:,i,j) )

@@ -14,6 +14,7 @@ MOD_FLAG?=-J
 LIBOBJS = 	./build/FluidData_NS.o \
 		./build/PhysicsStorage_NS.o \
 		./build/VariableConversion_NS.o \
+		./build/ArtificialViscosity.o \
 		./build/LESModels.o \
 		./build/Physics_NS.o \
 		./build/RiemannSolvers_NS.o \

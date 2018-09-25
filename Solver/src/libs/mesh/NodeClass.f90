@@ -25,7 +25,7 @@
 !     ---------------
 !
       TYPE Node
-         integer       :: globID
+         integer       :: globID = -1
          REAL(KIND=RP) :: x(3)
          contains
             procedure :: construct => ConstructNode
@@ -62,6 +62,8 @@
       elemental SUBROUTINE Node_Destruct( this )
          IMPLICIT NONE 
          class(Node), intent(inout) :: this
+         
+         this % GlobID = -1
       END SUBROUTINE Node_Destruct
       
       END Module NodeClass

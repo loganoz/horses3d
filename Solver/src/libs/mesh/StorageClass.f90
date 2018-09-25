@@ -68,6 +68,7 @@ module StorageClass
       real(kind=RP),           allocatable :: gradRho(:,:,:,:)
       real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliar storage
       real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
+      real(kind=RP),           allocatable :: mu_art(:,:,:,:)      ! (mu, beta, kappa) artificial
       type(Statistics_t)                   :: stats                ! NSE statistics
 !
 !     Pointers to face Jacobians
@@ -167,6 +168,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     allocatable :: QNS
       real(kind=RP), dimension(:,:,:),     allocatable :: U_xNS, U_yNS, U_zNS
       real(kind=RP), dimension(:,:,:),     allocatable :: gradRho          ! Gradient of density
+      real(kind=RP), dimension(:,:,:),     allocatable :: mu_art
       ! Inviscid Jacobians
       real(kind=RP), dimension(:,:,:,:)  , allocatable :: dFStar_dqF   ! In storage(1), it stores dFStar/dqL, and in storage(2), it stores dFStar/dqR on the mortar points
       real(kind=RP), dimension(:,:,:,:,:), allocatable :: dFStar_dqEl  ! Stores both dFStar/dqL and dFStar/dqR on the face-element points of the corresponding side
@@ -632,6 +634,7 @@ module StorageClass
          ALLOCATE( self % U_yNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % U_zNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
          allocate( self % gradRho(NDIM,0:Nx,0:Ny,0:Nz) )
+         allocate( self % mu_art(3,0:Nx,0:Ny,0:Nz) )
 !
 !        Point to NS by default
 !        ----------------------
@@ -672,6 +675,7 @@ module StorageClass
          self % S_NS   = 0.0_RP
          self % QNS    = 0.0_RP
          self % QDotNS = 0.0_RP
+         self % mu_art = 0.0_RP
          
          self % U_xNS = 0.0_RP
          self % U_yNS = 0.0_RP
@@ -791,6 +795,7 @@ module StorageClass
          safedeallocate(self % U_yNS)
          safedeallocate(self % U_zNS)
          safedeallocate(self % gradRho)
+         safedeallocate(self % mu_art)
          
          nullify ( self % dfdq_fr )
          nullify ( self % dfdq_ba )
@@ -1024,6 +1029,7 @@ module StorageClass
          allocate( self % dFv_dGradQEl(NNS,NNS,NDIM,2,0:Nel(1),0:Nel(2)) )
          
          allocate( self % gradRho   (NDIM,0:Nf(1),0:Nf(2)) )
+         allocate( self % mu_art    (3,0:Nf(1),0:Nf(2)) )
 #endif
 #if defined(CAHNHILLIARD)
          allocate(self % c   (NCOMP , 0:Nf(1), 0:Nf(2)))
@@ -1065,6 +1071,8 @@ module StorageClass
 
          self % dFStar_dqF  = 0.0_RP
          self % dFStar_dqEl = 0.0_RP
+
+         self % mu_art = 0.0_RP
 #endif
 
 #if defined(CAHNHILLIARD)
@@ -1097,6 +1105,7 @@ module StorageClass
          safedeallocate(self % dFv_dGradQF)
          safedeallocate(self % dFv_dGradQEl)
          safedeallocate(self % gradRho)
+         safedeallocate(self % mu_art)
 #endif
 #if defined(CAHNHILLIARD)
          safedeallocate(self % c)

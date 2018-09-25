@@ -10,12 +10,12 @@
 !
 !//////////////////////////////////////////////////////
 !
-!  Module or reading HDF5 meshes as written by HOPR
+!  Module for reading HDF5 meshes as written by HOPR
 !  -> Only for hexahedral conforming meshes
 !
 !//////////////////////////////////////////////////////
 !
-
+#include "Includes.h"
 module Read_HDF5Mesh_HOPR
    use SMConstants
    use HexMeshClass
@@ -28,6 +28,9 @@ module Read_HDF5Mesh_HOPR
    use FacePatchClass
    use MappedGeometryClass
    use MPI_Process_Info
+   use PartitionedMeshClass            , only: mpi_partition
+   use NodeClass                       , only: Node, ConstructNode
+   use MPI_Face_Class                  , only: ConstructMPIFaces
 #ifdef HAS_HDF5
    use HDF5
 #endif
@@ -35,13 +38,23 @@ module Read_HDF5Mesh_HOPR
    
    private
    public ConstructMesh_FromHDF5File_, NumOfElems_HDF5
+!   
+!  ----------------
+!  Module variables
+!  ----------------
+!
 #ifdef HAS_HDF5
    integer(HID_T) :: file_id       ! File identifier
 #endif
    integer        :: iError        ! Error flag
    integer        :: idx = 0       ! Index of node to add to the list
-   
-   ! Parameters defined in HOPR io
+   integer        :: numberOfAllNodes
+ 
+!   
+!  -----------------------------
+!  Parameters defined in HOPR io
+!  -----------------------------
+!   
    INTEGER,PARAMETER              :: ELEM_FirstSideInd=3
    INTEGER,PARAMETER              :: ELEM_LastSideInd=4
    INTEGER,PARAMETER              :: ELEM_FirstNodeInd=5
@@ -87,27 +100,25 @@ contains
 !  -----------------------------------------------------------------------------------------------------------------------
    subroutine ConstructMesh_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves, dir2D, success )
       implicit none
-      !---------------------------------------------------------------
-      class(HexMesh)     :: self
-      CHARACTER(LEN=*)   :: fileName
-      integer            :: nodes
-      INTEGER            :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
-      logical            :: MeshInnerCurves
-      integer, intent(in) :: dir2D
-      LOGICAL            :: success
-      !---------------------------------------------------------------
+      !-arguments--------------------------------------------------------------
+      class(HexMesh)  , intent(inout) :: self
+      character(LEN=*), intent(in)    :: fileName
+      integer         , intent(in)    :: nodes
+      integer         , intent(in)    :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+      logical         , intent(in)    :: MeshInnerCurves
+      integer         , intent(in)    :: dir2D
+      logical         , intent(out)   :: success
+      !-local-variables---------------------------------------------------------
 #ifdef HAS_HDF5
       ! Variables as called by Kopriva
       integer  :: numberOfElements  ! ...
       integer  :: bFaceOrder        ! Polynomial order for aproximating curved faces
-      integer  :: numberOfNodes     ! Number of corner nodes in the geometry
       integer  :: numBFacePoints    ! Number of points for describing a curved mesh
       integer  :: numberOfBoundaryFaces
       INTEGER  :: numberOfFaces
       INTEGER                          :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
       CHARACTER(LEN=BC_STRING_LENGTH)  :: names(FACES_PER_ELEMENT)
       CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
-      TYPE(FacePatch), DIMENSION(6)    :: facePatches
       REAL(KIND=RP)                    :: corners(NDIM,NODES_PER_ELEMENT) ! Corners of element
       real(kind=RP), dimension(:)    , allocatable :: uNodes, vNodes
       real(kind=RP), dimension(:,:,:), allocatable :: values
@@ -118,7 +129,7 @@ contains
       
       ! Variables as called in HOPR: For a description, see HOPR documentation
       integer                          :: nUniqueNodes
-      integer                          :: nUniqueSides, nSides, nNodes
+      integer                          :: nSides, nNodes
       integer         , allocatable    :: GlobalNodeIDs(:)
       double precision, allocatable    :: TempArray(:,:) !(kind=RP)
       real(kind=RP)   , allocatable    :: NodeCoords(:,:)
@@ -131,7 +142,6 @@ contains
       integer                          :: nDims
       CHARACTER(LEN=255), ALLOCATABLE  :: BCNames(:)
       
-      
       ! Auxiliar variables
       integer :: i,j,k,l  ! Counters
       integer                    :: HOPRNodeID           ! Node ID in HOPR
@@ -141,9 +151,18 @@ contains
       integer, allocatable       :: HOPRNodeMap(:)       ! Map from the global node index of HORSES3D to the global node index of HOPR
       real(kind=RP), allocatable :: TempNodes(:,:)       ! Nodes read from file to be exported to self % nodes
       logical                    :: CurveCondition
-      
-      TYPE(FacePatch), DIMENSION(6)    :: facePatchesHOPR
       !---------------------------------------------------------------
+      
+!
+!    ********************************
+!    Check if a mesh partition exists
+!    ********************************
+!
+      if ( mpi_partition % Constructed ) then
+         call ConstructMeshPartition_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves, dir2D, success ) 
+         return
+      end if
+      
 !
 !     Initializations
 !     ------------------------------------
@@ -166,7 +185,6 @@ contains
       CALL GetHDF5Attribute(File_ID,'nElems',1,IntegerScalar=numberOfElements)
       CALL GetHDF5Attribute(File_ID,'Ngeo',1,IntegerScalar=bFaceOrder)
       CALL GetHDF5Attribute(File_ID,'nSides',1,IntegerScalar=nSides)
-      CALL GetHDF5Attribute(File_ID,'nUniqueSides',1,IntegerScalar=nUniqueSides)
       CALL GetHDF5Attribute(File_ID,'nNodes',1,IntegerScalar=nNodes)
       CALL GetHDF5Attribute(File_ID,'nUniqueNodes',1,IntegerScalar=nUniqueNodes)
       
@@ -177,11 +195,13 @@ contains
       first=offset+1
       last =offset+nNodes
       
-      ALLOCATE(GlobalNodeIDs(first:last),NodeCoords(1:3,first:last),TempArray(1:3,first:last))
+      ALLOCATE( GlobalNodeIDs(first:last) )
       CALL ReadArrayFromHDF5(File_ID,'GlobalNodeIDs',1,(/nNodes/),offset,IntegerArray=GlobalNodeIDs)
       
+      allocate( NodeCoords(1:3,first:last),TempArray(1:3,first:last) )
       CALL ReadArrayFromHDF5(File_ID,'NodeCoords',2,(/3,nNodes/),offset,RealArray=TempArray)
-      NodeCoords = REAL(TempArray,RP)
+      NodeCoords = TempArray
+      deallocate (TempArray)
       
       offset=ElemInfo(ELEM_FirstSideInd,1) ! hdf5 array starts at 0-> -1  
       first=offset+1
@@ -209,11 +229,7 @@ contains
       do i = 1, numBFacePoints
          uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
          vNodes(i) = uNodes(i)
-      end do      
-      
-      DO k = 1, 6 ! All the patches read from the hdf5 file will have order bFaceOrder
-         CALL facePatchesHOPR(k) % construct(uNodes, vNodes) 
-      END DO  
+      end do
       
 !      
 !     Some other initializations
@@ -227,7 +243,9 @@ contains
       call HOPR2HORSESNodeSideMap(bFaceOrder,HNodeSideMap)
       
       ALLOCATE( self % elements(numberOfelements) )
-      
+      if ( .not. MPI_Process % doMPIRootAction ) then ! Only read surface information if this is not an MPI simulation
+         allocate( SurfInfo(numberOfelements) )
+      end if
       call InitNodeMap (TempNodes , HOPRNodeMap, nUniqueNodes)
       
 !      
@@ -254,87 +272,86 @@ contains
             end if
          end do
          
-         if (MeshInnerCurves) then
-            CurveCondition = (bFaceOrder == 1)
-         else
-            CurveCondition = all(names == emptyBCName)
-         end if
-         
-         if (CurveCondition) then
-!
-!           HOPR does not specify the order of curvature of individual faces. Therefore, we 
-!           will suppose that self is a straight-sided hex when bFaceOrder == 1, and
-!           for inner elements when MeshInnerCurves == .false. (control file variable 'mesh inner curves'). 
-!           In these cases, set the corners of the hex8Map and use that in determining the element geometry.
-!           -----------------------------------------------------------------------------
-            self % elements(l) % SurfInfo % IsHex8 = .TRUE.
-            self % elements(l) % SurfInfo % corners = corners
+         if ( .not. MPI_Process % doMPIRootAction ) then ! Only read surface information if this is not an MPI simulation
+            if (MeshInnerCurves) then
+               CurveCondition = (bFaceOrder == 1)
+            else
+               CurveCondition = all(names == emptyBCName)
+            end if
             
-         else
-!
-!           Otherwise, we have to look at each of the faces of the element 
-!           --------------------------------------------------------------
-            
-            DO k = 1, FACES_PER_ELEMENT 
-               IF ( names(k) == emptyBCName .and. (.not. MeshInnerCurves) )     THEN   ! This doesn't work when the boundary surface of the element is not only curved in the normal direction, but also in some tangent direction. 
-!
-!                 ----------
-!                 Flat faces
-!                 ----------
-!
-                  nodeMap           = localFaceNode(:,k)
-                  valuesFlat(:,1,1) = corners(:,nodeMap(1))
-                  valuesFlat(:,2,1) = corners(:,nodeMap(2))
-                  valuesFlat(:,2,2) = corners(:,nodeMap(3))
-                  valuesFlat(:,1,2) = corners(:,nodeMap(4))
-                  
-                  call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
-                  
-               ELSE
-!
-!                 -------------
-!                 Curved faces 
-!                 -------------
-!
-                  DO j = 1, numBFacePoints
-                     DO i = 1, numBFacePoints
-                        HOPRNodeID = ElemInfo(ELEM_FirstNodeInd,l) + HNodeSideMap(i,j,k)
-                        values(:,i,j) = NodeCoords(:,HOPRNodeID)
-                     END DO  
-                  END DO
-                  
-                  call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
-
-               END IF
+            if (CurveCondition) then
+   !
+   !           HOPR does not specify the order of curvature of individual faces. Therefore, we 
+   !           will suppose that self is a straight-sided hex when bFaceOrder == 1, and
+   !           for inner elements when MeshInnerCurves == .false. (control file variable 'mesh inner curves'). 
+   !           In these cases, set the corners of the hex8Map and use that in determining the element geometry.
+   !           -----------------------------------------------------------------------------
+               SurfInfo(l) % IsHex8 = .TRUE.
+               SurfInfo(l) % corners = corners
                
-            END DO
-            
-         end if
-         
+            else
+   !
+   !           Otherwise, we have to look at each of the faces of the element 
+   !           --------------------------------------------------------------
+               
+               DO k = 1, FACES_PER_ELEMENT 
+                  IF ( names(k) == emptyBCName .and. (.not. MeshInnerCurves) )     THEN   ! This doesn't work when the boundary surface of the element is not only curved in the normal direction, but also in some tangent direction. 
+   !
+   !                 ----------
+   !                 Flat faces
+   !                 ----------
+   !
+                     nodeMap           = localFaceNode(:,k)
+                     valuesFlat(:,1,1) = corners(:,nodeMap(1))
+                     valuesFlat(:,2,1) = corners(:,nodeMap(2))
+                     valuesFlat(:,2,2) = corners(:,nodeMap(3))
+                     valuesFlat(:,1,2) = corners(:,nodeMap(4))
+                     
+                     call SurfInfo(l) % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+                     
+                  ELSE
+   !
+   !                 -------------
+   !                 Curved faces 
+   !                 -------------
+   !
+                     DO j = 1, numBFacePoints
+                        DO i = 1, numBFacePoints
+                           HOPRNodeID = ElemInfo(ELEM_FirstNodeInd,l) + HNodeSideMap(i,j,k)
+                           values(:,i,j) = NodeCoords(:,HOPRNodeID)
+                        END DO  
+                     END DO
+                     
+                     call SurfInfo(l) % facePatches(k) % construct(uNodes, vNodes, values)
+
+                  END IF
+                  
+               END DO
+               
+            end if
+         end if ! (.not. MPI_Process % doMPIRootAction ) 
 !
 !        Now construct the element
 !        -------------------------
 !
-         call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l) ! TODO: Change for MPI
+         call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l) 
          
          CALL SetElementBoundaryNames( self % elements(l), names )
             
          DO k = 1, 6
             IF(TRIM(names(k)) /= emptyBCName) then
                numberOfBoundaryFaces = numberOfBoundaryFaces + 1
-               zoneNames => zoneNameDictionary % allKeys()
-               if ( all(trim(names(k)) .ne. zoneNames) ) then
+               if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
                   call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                end if
-               deallocate (zoneNames)
             end if
          END DO  
          
       end do      ! l = 1, numberOfElements
       
-      call FinishNodeMap (TempNodes , HOPRNodeMap, self % nodes)
+      call FinishNodeMap (TempNodes , HOPRNodeMap, self % nodes, self % HOPRnodeIDs)
       
-      numberOfNodes = size(self % nodes)
+      numberOfAllNodes = size(self % nodes)
       
 !     Construct the element faces
 !     ---------------------------
@@ -400,11 +417,22 @@ contains
 !     Construct elements' and faces' geometry
 !     ---------------------------------------
 !
-      call self % ConstructGeometry()
+      if ( .not. MPI_Process % doMPIRootAction ) then
+         call self % ConstructGeometry(SurfInfo)
+      end if
 !
 !     Finish up
 !     ---------
 !      
+      deallocate (ElemInfo)
+      deallocate (SideInfo)
+      deallocate (BCNames)
+      deallocate (HNodeSideMap)
+      deallocate (NodeCoords)
+      deallocate (GlobalNodeIDs)
+      deallocate (uNodes, vNodes, values)
+      
+      safedeallocate ( SurfInfo)
       if (.not. self % child) CALL self % Describe( trim(fileName) , bFaceOrder)
 !
 !     -------------------------------------------------------------
@@ -413,13 +441,418 @@ contains
 !
       if ( .not. MPI_Process % doMPIAction ) then
          call self % PrepareForIO
+         if (.not. self % child) call self % Export( trim(fileName) )
       end if
 
 #else
       STOP ':: HDF5 is not linked correctly'
 #endif
    end subroutine ConstructMesh_FromHDF5File_
-   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------------------------------------------------------
+!  Subroutine to construct individual mesh partitions from an HDF5 mesh file
+!  -----------------------------------------------------------------------------------------------------------------------
+   subroutine ConstructMeshPartition_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves, dir2D, success )
+      implicit none
+      !-arguments--------------------------------------------------------------
+      class(HexMesh)  , intent(inout) :: self
+      character(LEN=*), intent(in)    :: fileName
+      integer         , intent(in)    :: nodes
+      integer         , intent(in)    :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+      logical         , intent(in)    :: MeshInnerCurves
+      integer         , intent(in)    :: dir2D
+      logical         , intent(out)   :: success
+      !-local-variables---------------------------------------------------------
+#ifdef HAS_HDF5
+      ! Variables as called by Kopriva
+      integer  :: numberOfAllElements
+      integer  :: bFaceOrder        ! Polynomial order for aproximating curved faces
+      integer  :: numBFacePoints    ! Number of points for describing a curved mesh
+      integer  :: numberOfFaces
+      integer                          :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
+      character(LEN=BC_STRING_LENGTH)  :: names(FACES_PER_ELEMENT)
+      real(KIND=RP)                    :: corners(NDIM,NODES_PER_ELEMENT) ! Corners of element
+      type(SurfInfo_t), allocatable                :: SurfInfo(:)
+      real(kind=RP), dimension(:)    , allocatable :: uNodes, vNodes
+      real(kind=RP), dimension(:,:,:), allocatable :: values
+      real(kind=RP)                    :: x(NDIM)
+      real(KIND=RP)  , dimension(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
+      real(KIND=RP)  , dimension(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
+      real(KIND=RP)  , dimension(3,2,2) :: valuesFlat
+      
+      ! Variables as called in HOPR: For a description, see HOPR documentation
+      integer                          :: nSides, nNodes 
+      integer         , allocatable    :: GlobalNodeIDs(:)
+      double precision, allocatable    :: TempArray(:,:) !(kind=RP)
+      real(kind=RP)   , allocatable    :: NodeCoords(:,:)
+      integer         , allocatable    :: ElemInfo(:,:)
+      integer         , allocatable    :: SideInfo(:,:)
+      integer                          :: offset
+      integer                          :: first, last
+      INTEGER(HSIZE_T),POINTER         :: HSize(:)
+      integer                          :: nBCs
+      integer                          :: nDims
+      CHARACTER(LEN=255), ALLOCATABLE  :: BCNames(:)
+      
+      ! Auxiliar variables
+      integer, allocatable            :: gHOPR2pHORSESNodeMap(:)   ! Map from the global HOPR node index to the local partition index in HORSES3D
+      integer, allocatable            :: globalToLocalElementID(:)
+      integer :: i,j,k,l, eID, GlobeID  ! Counters
+      integer                    :: HOPRNodeID           ! Node ID in HOPR
+      integer                    :: HCornerMap(8)        ! Map from the corner node index of an element to the local high-order node index used in HOPR
+      integer                    :: HSideMap(6)          ! Map from the side index of an element in HORSES3D to the side index used in HOPR
+      integer, allocatable       :: HNodeSideMap(:,:,:)  ! Map from the face-node-index of an element to the global node index of HOPR (for surface curvature)
+      logical                    :: CurveCondition
+      !---------------------------------------------------------------
+      
+!
+!     Initializations
+!     ------------------------------------
+      success               = .TRUE. !change?
+      self % nodeType = nodes
+      
+!
+!     Prepare to read file
+!     ------------------------------------
+      
+      ! Initialize FORTRAN predefined datatypes
+      call h5open_f(iError)
+      
+      ! Open the specified mesh file.
+      call h5fopen_f (trim(filename), H5F_ACC_RDONLY_F, file_id, iError) ! instead of H5F_ACC_RDONLY_F one can also use  H5F_ACC_RDWR_F
+        
+!
+!     Read important mesh attributes
+!     ------------------------------
+      CALL GetHDF5Attribute(File_ID,'nElems',1,IntegerScalar=numberOfAllElements)
+      CALL GetHDF5Attribute(File_ID,'Ngeo',1,IntegerScalar=bFaceOrder)
+      CALL GetHDF5Attribute(File_ID,'nSides',1,IntegerScalar=nSides)
+      CALL GetHDF5Attribute(File_ID,'nNodes',1,IntegerScalar=nNodes)
+      
+      allocate(ElemInfo(6,1:numberOfAllElements))
+      call ReadArrayFromHDF5(File_ID,'ElemInfo',2,(/6,numberOfAllElements/),0,IntegerArray=ElemInfo)
+      
+      offset=ElemInfo(ELEM_FirstNodeInd,1) ! hdf5 array starts at 0-> -1
+      first=offset+1
+      last =offset+nNodes
+      
+      ALLOCATE( GlobalNodeIDs(first:last) )
+      CALL ReadArrayFromHDF5(File_ID,'GlobalNodeIDs',1,(/nNodes/),offset,IntegerArray=GlobalNodeIDs)
+      
+      allocate( NodeCoords(1:3,first:last),TempArray(1:3,first:last) )
+      CALL ReadArrayFromHDF5(File_ID,'NodeCoords',2,(/3,nNodes/),offset,RealArray=TempArray)
+      NodeCoords = TempArray
+      deallocate (TempArray)
+      
+      offset=ElemInfo(ELEM_FirstSideInd,1) ! hdf5 array starts at 0-> -1  
+      first=offset+1
+      last =offset+nSides
+      ALLOCATE(SideInfo(5,first:last))
+      CALL ReadArrayFromHDF5(File_ID,'SideInfo',2,(/5,nSides/),offset,IntegerArray=SideInfo) ! There's a mistake in the documentation of HOPR regarding the SideInfo size!!
+      
+      ! Read boundary names from HDF5 file
+      CALL GetHDF5DataSize(File_ID,'BCNames',nDims,HSize)
+      nBCs=INT(HSize(1),4)
+      DEALLOCATE(HSize)
+      ALLOCATE(BCNames(nBCs)) !, BCMapping(nBCs))
+      CALL ReadArrayFromHDF5(File_ID,'BCNames',1,(/nBCs/),Offset,StrArray=BCNames)  ! Type is a dummy type only
+      
+!      
+!     Set up for face patches
+!     Face patches are defined at equidistant points in HOPR (not Chebyshev-Lobatto as in .mesh format)
+!     ---------------------------------------
+      
+      numBFacePoints = bFaceOrder + 1
+      allocate(uNodes(numBFacePoints))
+      allocate(vNodes(numBFacePoints))
+      allocate(values(3,numBFacePoints,numBFacePoints))
+      
+      do i = 1, numBFacePoints
+         uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
+         vNodes(i) = uNodes(i)
+      end do
+      
+!      
+!     Some other initializations
+!     ---------------------------------------
+      
+      HSideMap = HOPR2HORSESSideMap()
+      HCornerMap = HOPR2HORSESCornerMap(bFaceOrder)
+      call HOPR2HORSESNodeSideMap(bFaceOrder,HNodeSideMap)
+      
+!
+!     ---------------
+!     Allocate memory
+!     ---------------
+!
+      allocate( self % elements   (mpi_partition % no_of_elements) )
+      allocate( SurfInfo          (mpi_partition % no_of_elements) )
+      allocate( self % nodes      (mpi_partition % no_of_nodes)    )
+      allocate( self % HOPRnodeIDs(mpi_partition % no_of_nodes)    )
+      allocate( globalToLocalElementID(numberOfAllElements) )
+      self % no_of_elements = mpi_partition % no_of_elements
+      globalToLocalElementID = -1
+      self % HOPRnodeIDs = mpi_partition % HOPRnodeIDs
+!
+!     --------------------
+!     Create HOPR node map
+!     --------------------
+!
+      allocate ( gHOPR2pHORSESNodeMap (maxval(mpi_partition % HOPRnodeIDs) ) )
+      gHOPR2pHORSESNodeMap = -1
+      do j = 1, mpi_partition % no_of_nodes
+         gHOPR2pHORSESNodeMap (mpi_partition % HOPRnodeIDs(j)) = j
+      end do
+      
+!
+!     ------------------------------------------------------------------------
+!     Construct the zoneNameDictionary: 
+!        It must be in the order of appearance of the boundaries in the global
+!        element numbering
+!     ------------------------------------------------------------------------
+!
+      do l = 1, NumberOfAllElements
+         
+         do k = 1, FACES_PER_ELEMENT
+            j = SideInfo(5,ElemInfo(3,l) + HSideMap(k))
+            if (j == 0) then
+               names(k) = emptyBCName
+            else
+               names(k) = trim(BCNames(j))
+            end if
+         end do
+         
+         do k = 1, 6
+            IF(TRIM(names(k)) /= emptyBCName) then
+               if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                  call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
+               end if
+            end if
+         end do
+      end do
+      
+!      
+!     Now we construct the elements (only read the elements of the current partition)
+!     ---------------------------------------
+
+      do eID = 1, self % no_of_elements
+         
+         GlobeID = mpi_partition % elementIDs(eID)
+         
+         ! Read nodeIDs and add them to the self%nodes array
+         DO k = 1, NODES_PER_ELEMENT
+            HOPRNodeID = ElemInfo(ELEM_FirstNodeInd,GlobeID) + HCornerMap(k)
+            nodeIDs(k) = gHOPR2pHORSESNodeMap ( GlobalNodeIDs(HOPRNodeID) )
+            
+            if (self % nodes(nodeIDs(k)) % GlobID < 0) then
+               x = NodeCoords(:,HOPRNodeID)
+               CALL ConstructNode( self % nodes(nodeIDs(k)), x, mpi_partition % nodeIDs(nodeIDs(k)) )
+            end if
+         END DO
+         
+         do k = 1, FACES_PER_ELEMENT
+            j = SideInfo(5,ElemInfo(3,GlobeID) + HSideMap(k))
+            if (j == 0) then
+               names(k) = emptyBCName
+            else
+               names(k) = trim(BCNames(j))
+            end if
+         end do
+         
+         if (MeshInnerCurves) then
+            CurveCondition = (bFaceOrder == 1)
+         else
+            CurveCondition = all(names == emptyBCName)
+         end if
+         
+         if (CurveCondition) then
+!
+!           HOPR does not specify the order of curvature of individual faces. Therefore, we 
+!           will suppose that self is a straight-sided hex when bFaceOrder == 1, and
+!           for inner elements when MeshInnerCurves == .false. (control file variable 'mesh inner curves'). 
+!           In these cases, set the corners of the hex8Map and use that in determining the element geometry.
+!           -----------------------------------------------------------------------------
+            self % elements(l) % SurfInfo % IsHex8 = .TRUE.
+            self % elements(l) % SurfInfo % corners = corners
+            
+         else
+!
+!           Otherwise, we have to look at each of the faces of the element 
+!           --------------------------------------------------------------
+            
+            DO k = 1, FACES_PER_ELEMENT 
+               IF ( names(k) == emptyBCName .and. (.not. MeshInnerCurves) )     THEN   ! This doesn't work when the boundary surface of the element is not only curved in the normal direction, but also in some tangent direction. 
+!
+!                 ----------
+!                 Flat faces
+!                 ----------
+!
+                  DO j = 1, NODES_PER_ELEMENT
+                     corners(:,j) = self % nodes(nodeIDs(j)) % x
+                  END DO
+                  nodeMap           = localFaceNode(:,k)
+                  valuesFlat(:,1,1) = corners(:,nodeMap(1))
+                  valuesFlat(:,2,1) = corners(:,nodeMap(2))
+                  valuesFlat(:,2,2) = corners(:,nodeMap(3))
+                  valuesFlat(:,1,2) = corners(:,nodeMap(4))
+                  
+                  call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+                  
+               ELSE
+!
+!                 -------------
+!                 Curved faces 
+!                 -------------
+!
+                  DO j = 1, numBFacePoints
+                     DO i = 1, numBFacePoints
+                        HOPRNodeID = ElemInfo(ELEM_FirstNodeInd,GlobeID) + HNodeSideMap(i,j,k)
+                        values(:,i,j) = NodeCoords(:,HOPRNodeID)
+                     END DO  
+                  END DO
+                  
+                  call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
+
+               END IF
+               
+            END DO
+            
+         end if
+         
+!
+!        Now construct the element
+!        -------------------------
+!
+         call self % elements(eID) % Construct (Nx(GlobeID), Ny(GlobeID), Nz(GlobeID), nodeIDs , eID, GlobeID) 
+         
+         CALL SetElementBoundaryNames( self % elements(eID), names )
+            
+         DO k = 1, 6
+            IF(TRIM(names(k)) /= emptyBCName) then
+               numberOfBoundaryFaces = numberOfBoundaryFaces + 1
+               zoneNames => zoneNameDictionary % allKeys()
+               if ( all(trim(names(k)) .ne. zoneNames) ) then
+                  call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
+               end if
+               deallocate (zoneNames)
+            end if
+         END DO  
+         
+!
+!        Assign global to local ID
+!        -------------------------
+         globalToLocalElementID(GlobeID) = eID
+      end do      ! eID = 1, self % no_of_elements
+      
+!     Construct the element faces
+!     ---------------------------
+!
+      numberOfFaces        = GetOriginalNumberOfFaces(self)
+      self % numberOfFaces = numberOfFaces
+      
+      ALLOCATE( self % faces(self % numberOfFaces) )
+      CALL ConstructFaces( self, success )
+!
+!     --------------------------------
+!     Get actual mesh element face IDs
+!     --------------------------------
+!
+      CALL getElementsFaceIDs(self)
+!
+!     --------------
+!     Cast MPI faces
+!     --------------
+!
+      call ConstructMPIFaces
+      call self % UpdateFacesWithPartition(mpi_partition, &
+                                           numberOfAllElements, &
+                                           globalToLocalElementID)
+!
+!
+!     -------------------------
+!     Build the different zones
+!     -------------------------
+!
+      call self % ConstructZones()
+!
+!     ---------------------------
+!     Construct periodic faces
+!     ---------------------------
+!
+      CALL ConstructPeriodicFaces( self )
+!
+!     ---------------------------
+!     Delete periodic- faces
+!     ---------------------------
+!
+      CALL DeletePeriodicMinusFaces( self )
+!
+!     ---------------------------
+!     Assign faces ID to elements
+!     ---------------------------
+!
+      CALL getElementsFaceIDs(self)
+!
+!     --------------------- 
+!     Define boundary faces 
+!     --------------------- 
+! 
+      call self % DefineAsBoundaryFaces() 
+!
+!     -----------------------------------
+!     Check if this is a 2D extruded mesh
+!     -----------------------------------
+!
+      call self % CheckIfMeshIs2D()
+!
+!     -------------------------------
+!     Set the mesh as 2D if requested
+!     -------------------------------
+!
+      if ( dir2D .ne. 0 ) then
+         call SetMappingsToCrossProduct
+         call self % CorrectOrderFor2DMesh(dir2D)
+      end if
+! 
+!
+!     ------------------------------
+!     Set the element connectivities
+!     ------------------------------
+      call self % SetConnectivitiesAndLinkFaces(nodes)
+!
+!     ---------------------------------------
+!     Construct elements' and faces' geometry
+!     ---------------------------------------
+!
+      call self % ConstructGeometry()
+!
+!     Finish up
+!     ---------
+      deallocate (ElemInfo)
+      deallocate (SideInfo)
+      deallocate (BCNames)
+      deallocate (HNodeSideMap)
+      deallocate (NodeCoords)
+      deallocate (GlobalNodeIDs)
+      deallocate (gHOPR2pHORSESNodeMap)
+      deallocate (globalToLocalElementID)
+      deallocate (uNodes, vNodes, values)
+      if (.not. self % child) CALL self % DescribePartition( trim(fileName) )
+!
+!     --------------------
+!     Prepare mesh for I/O
+!     --------------------
+!
+      call self % PrepareForIO
+      if (.not. self % child) call self % Export( trim(fileName) )
+
+#else
+      STOP ':: HDF5 is not linked correctly'
+#endif
+      
+   end subroutine ConstructMeshPartition_FromHDF5File_
 #ifdef HAS_HDF5
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -842,13 +1275,13 @@ contains
 !  ----------------------------------------------------------------
 !  Construct nodes of mesh and deallocate temporal arrays
 !  ----------------------------------------------------------------
-   subroutine FinishNodeMap (TempNodes , HOPRNodeMap, nodes)
-      use NodeClass
+   subroutine FinishNodeMap (TempNodes , HOPRNodeMap, nodes, HOPRnodeIDs)
       implicit none
       !--------------------------------------------
       real(kind=RP), allocatable, intent(inout) :: TempNodes(:,:)
       integer      , allocatable, intent(inout) :: HOPRNodeMap(:)
       type(Node)   , allocatable, intent(inout) :: nodes(:)
+      integer      , allocatable, intent(inout) :: HOPRnodeIDs(:) ! The final node map that is stored in the mesh type
       !--------------------------------------------
       integer       :: i,j       ! Counters
       integer       :: nUniqueNodes
@@ -864,6 +1297,9 @@ contains
       if (i > nUniqueNodes) i = nUniqueNodes
       
       allocate (nodes(i))
+      allocate (HOPRnodeIDs(i))
+      
+      HOPRnodeIDs = HOPRNodeMap (1:i)
       
       DO j = 1, i 
          CALL ConstructNode( nodes(j), TempNodes(:,j), j ) ! TODO: Change for MPI
@@ -876,4 +1312,3 @@ contains
 
 #endif
 end module Read_HDF5Mesh_HOPR
-

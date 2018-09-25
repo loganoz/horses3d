@@ -15,13 +15,19 @@ MODULE NodalStorageClass
    USE SMConstants
    USE PolynomialInterpAndDerivsModule
    USE GaussQuadrature
+   use FTValueDictionaryClass          , only: FTValueDictionary
+   use mainKeywordsModule              , only: discretizationNodesKey
    IMPLICIT NONE 
 
    private
-   public GAUSS, GAUSSLOBATTO, NodalStorage_t, NodalStorage, InitializeNodalStorage, DestructGlobalNodalStorage
-
+   public GAUSS, GAUSSLOBATTO                                              ! parameters
+   public NodalStorage_t                                                   ! type
+   public NodalStorage, NodalStorage_Gauss, NodalStorage_GaussLobatto      ! Nodal storage variables
+   public InitializeNodalStorage, DestructGlobalNodalStorage, CurrentNodes ! Main nodal storage used in the simulation
+   
    integer, parameter      :: GAUSS = 1
    integer, parameter      :: GAUSSLOBATTO = 2
+   
 !
 !  -------------------
 !  Nodal storage class
@@ -57,7 +63,16 @@ MODULE NodalStorageClass
 !  NodalStorage contains the nodal storage information  
 !  for every possible polynomial order of the mesh
 !  ------------------------------------------------
-   type(NodalStorage_t), target, allocatable :: NodalStorage(:)
+   type(NodalStorage_t), target, allocatable :: NodalStorage_Gauss(:)
+   type(NodalStorage_t), target, allocatable :: NodalStorage_GaussLobatto(:)
+   
+   
+   type(NodalStorage_t), pointer :: NodalStorage(:)   ! Default nodal storage
+   integer  :: CurrentNodes
+   
+   interface InitializeNodalStorage
+      module procedure InitializeNodalStorage_controlVars, InitializeNodalStorage_nodeType
+   end interface InitializeNodalStorage
    
 !      
 !     ========
@@ -66,19 +81,70 @@ MODULE NodalStorageClass
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!  ------------------------------
-!  This routine allocates the spA
-!  ------------------------------
-   subroutine InitializeNodalStorage(Nmax)
+   subroutine InitializeNodalStorage_controlVars(controlVariables, Nmax)
       implicit none
       !---------------------------------------
-      integer  :: Nmax
+      type(FTValueDictionary), intent(in) :: controlVariables
+      integer                , intent(in) :: Nmax
       !---------------------------------------
       
-      if (allocated(NodalStorage)) deallocate(NodalStorage)
-      allocate ( NodalStorage(0:Nmax) )
+      select case ( trim(controlVariables % stringValueForKey(trim(discretizationNodesKey), requestedLength = LINE_LENGTH)) )
+         case("Gauss")
+            safedeallocate(NodalStorage_Gauss)
+            allocate ( NodalStorage_Gauss (0:Nmax) )
+            
+            NodalStorage => NodalStorage_Gauss
+            CurrentNodes = GAUSS
+            
+         case("Gauss-Lobatto")
+            safedeallocate(NodalStorage_GaussLobatto)
+            allocate ( NodalStorage_GaussLobatto (0:Nmax) )
+            
+            NodalStorage => NodalStorage_GaussLobatto
+            CurrentNodes = GAUSSLOBATTO
+         case default
+            print*, "Unknown discretization nodes."
+            print*, "Options available are:"
+            print*, "   * Gauss"
+            print*, "   * Gauss-Lobatto"
+            errorMessage(STD_OUT)
+            stop
+      end select
       
-   end subroutine InitializeNodalStorage
+   end subroutine InitializeNodalStorage_controlVars
+   
+   subroutine InitializeNodalStorage_nodeType(nodeType, Nmax)
+      implicit none
+      !---------------------------------------
+      integer, intent(in) :: nodeType
+      integer, intent(in) :: Nmax
+      !---------------------------------------
+      
+      CurrentNodes = nodeType
+      
+      select case ( nodeType )
+         case(GAUSS)
+            safedeallocate(NodalStorage_Gauss)
+            allocate ( NodalStorage_Gauss (0:Nmax) )
+            
+            NodalStorage => NodalStorage_Gauss
+            
+            
+         case(GAUSSLOBATTO)
+            safedeallocate(NodalStorage_GaussLobatto)
+            allocate ( NodalStorage_GaussLobatto (0:Nmax) )
+            
+            NodalStorage => NodalStorage_GaussLobatto
+         case default
+            print*, "Unknown discretization nodes."
+            print*, "Options available are:"
+            print*, "   * Gauss"
+            print*, "   * Gauss-Lobatto"
+            errorMessage(STD_OUT)
+            stop
+      end select
+      
+   end subroutine InitializeNodalStorage_nodeType
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -88,10 +154,23 @@ MODULE NodalStorageClass
       integer :: k
       !---------------------
       
-      do k=0, UBOUND(NodalStorage,1)
-         IF (.NOT. NodalStorage(k) % Constructed) cycle
-         call NodalStorage(k) % destruct()
-      end do
+      if ( allocated(NodalStorage_Gauss) ) then
+         do k=lbound(NodalStorage_Gauss,1), ubound(NodalStorage_Gauss,1)
+            IF (.NOT. NodalStorage_Gauss(k) % Constructed) cycle
+            call NodalStorage_Gauss(k) % destruct()
+         end do
+         deallocate (NodalStorage_Gauss)
+      end if
+      
+      if ( allocated(NodalStorage_GaussLobatto) ) then
+         do k=lbound(NodalStorage_GaussLobatto,1), ubound(NodalStorage_GaussLobatto,1)
+            IF (.NOT. NodalStorage_GaussLobatto(k) % Constructed) cycle
+            call NodalStorage_GaussLobatto(k) % destruct()
+         end do
+         deallocate (NodalStorage_GaussLobatto)
+      end if
+      
+      nullify (NodalStorage)
    end subroutine DestructGlobalNodalStorage
 !
 !////////////////////////////////////////////////////////////////////////
@@ -238,9 +317,9 @@ MODULE NodalStorageClass
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE DestructNodalStorage( this )
+   elemental subroutine DestructNodalStorage( this )
       IMPLICIT NONE
-      CLASS(NodalStorage_t) :: this
+      class(NodalStorage_t), intent(inout) :: this
 !
 !     Attempting to destruct a non-constructed nodal storage
 !     ------------------------------------------------------
@@ -267,7 +346,7 @@ MODULE NodalStorageClass
       DEALLOCATE( this % bd )
       safedeallocate( this % sharpD )    !  This matrices are just generated for Gauss-Lobatto discretizations.
 
-      END SUBROUTINE DestructNodalStorage
+      end subroutine DestructNodalStorage
 !
 !////////////////////////////////////////////////////////////////////////
 !

@@ -271,6 +271,7 @@ module SpatialDiscretization
          end if
 !$omp end single
 #endif
+!         call ComputeArtificialViscosity(mesh)
 !
 !        -----------------------
 !        Compute time derivative
@@ -760,14 +761,16 @@ module SpatialDiscretization
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: mu
+         real(kind=RP) :: mu, beta, kappa
          integer       :: Sidearray(2)
 
          if ( .not. LESModel % active ) then
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
 
-               call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+               mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+               beta  = f % storage(1) % mu_art(2,i,j)
+               kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
 !      
 !              --------------
 !              Viscous fluxes
@@ -783,7 +786,7 @@ module SpatialDiscretization
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu   = mu, &
+                                                  mu   = mu, beta = beta, kappa = kappa, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -859,22 +862,21 @@ module SpatialDiscretization
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: mu
+         real(kind=RP) :: mu, kappa, beta
          integer       :: Sidearray(2)
-!
-!        --------------
-!        Invscid fluxes
-!        --------------
-!
+
+         if ( .not. LESModel % active ) then
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
+
+               mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+               beta  = f % storage(1) % mu_art(2,i,j)
+               kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
 !      
 !              --------------
 !              Viscous fluxes
 !              --------------
 !      
-               call ViscousDiscretization % GetViscosity(0.0_RP, mu)
-
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
@@ -886,17 +888,56 @@ module SpatialDiscretization
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
                                                   mu   = mu, &
+                                                  beta = beta, &
+                                                  kappa= kappa, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
 
-!
+            end do
+         end do
+
+         else
+         DO j = 0, f % Nf(2)
+            DO i = 0, f % Nf(1)
+
+!      
+!              --------------
+!              Viscous fluxes
+!              --------------
+!      
+               CALL ViscousDiscretization % RiemannSolverWithSGS(f = f, &
+                                                  QLeft = f % storage(1) % Q(:,i,j), &
+                                                  QRight = f % storage(2) % Q(:,i,j), &
+                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
+                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
+                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  nHat = f % geom % normal(:,i,j) , &
+                                                  dWall = f % geom % dWall(i,j), &
+                                                  flux  = visc_flux(:,i,j) )
+
+            end do
+         end do
+         end if
+
+         DO j = 0, f % Nf(2)
+            DO i = 0, f % Nf(1)
+!      
+!              --------------
+!              Invscid fluxes
+!              --------------
+!      
                CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
                                   QRight = f % storage(2) % Q(:,i,j), &
                                   nHat   = f % geom % normal(:,i,j), &
                                   t1     = f % geom % t1(:,i,j), &
                                   t2     = f % geom % t2(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
+
+               
 !
 !              Multiply by the Jacobian
 !              ------------------------
@@ -938,7 +979,7 @@ module SpatialDiscretization
       REAL(KIND=RP)                   :: inv_flux(NCONS)
       real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
-      real(kind=RP)                   :: mu
+      real(kind=RP)                   :: mu, beta, kappa
       integer       :: Sidearray(2)
 !
 !     -------------------
@@ -954,8 +995,11 @@ module SpatialDiscretization
 
       end do               ; end do
 
+
       if ( flowIsNavierStokes ) then
-         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+         if ( .not. LESModel % active ) then
+         DO j = 0, f % Nf(2)
+            DO i = 0, f % Nf(1)
             f % storage(2) % U_x(:,i,j) = f % storage(1) % U_x(:,i,j)
             f % storage(2) % U_y(:,i,j) = f % storage(1) % U_y(:,i,j)
             f % storage(2) % U_z(:,i,j) = f % storage(1) % U_z(:,i,j)
@@ -968,29 +1012,70 @@ module SpatialDiscretization
                                               f % storage(2) % U_x(:,i,j), &
                                               f % storage(2) % U_y(:,i,j), &
                                               f % storage(2) % U_z(:,i,j))
-!   
-!           --------------
-!           Viscous fluxes
-!           --------------
-!   
-            call ViscousDiscretization % GetViscosity(0.0_RP, mu)
 
-            CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                               f = f, &
-                                               QLeft = f % storage(1) % Q(:,i,j), &
-                                               QRight = f % storage(2) % Q(:,i,j), &
-                                               U_xLeft = f % storage(1) % U_x(:,i,j), &
-                                               U_yLeft = f % storage(1) % U_y(:,i,j), &
-                                               U_zLeft = f % storage(1) % U_z(:,i,j), &
-                                               U_xRight = f % storage(2) % U_x(:,i,j), &
-                                               U_yRight = f % storage(2) % U_y(:,i,j), &
-                                               U_zRight = f % storage(2) % U_z(:,i,j), &
-                                               mu = mu, &
-                                               nHat = f % geom % normal(:,i,j) , &
-                                               dWall = f % geom % dWall(i,j), &
-                                               flux  = visc_flux(:,i,j) )
+               mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+               beta  = f % storage(1) % mu_art(2,i,j)
+               kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
+!      
+!              --------------
+!              Viscous fluxes
+!              --------------
+!      
+               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+                                                  f = f, &
+                                                  QLeft = f % storage(1) % Q(:,i,j), &
+                                                  QRight = f % storage(2) % Q(:,i,j), &
+                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
+                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
+                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  mu   = mu, beta = beta, kappa = kappa, &
+                                                  nHat = f % geom % normal(:,i,j) , &
+                                                  dWall = f % geom % dWall(i,j), &
+                                                  flux  = visc_flux(:,i,j) )
 
-         end do               ; end do
+            end do
+         end do
+
+         else
+         DO j = 0, f % Nf(2)
+            DO i = 0, f % Nf(1)
+               f % storage(2) % U_x(:,i,j) = f % storage(1) % U_x(:,i,j)
+               f % storage(2) % U_y(:,i,j) = f % storage(1) % U_y(:,i,j)
+               f % storage(2) % U_z(:,i,j) = f % storage(1) % U_z(:,i,j)
+   
+               CALL BCs(f % zone) % bc % FlowNeumann(&
+                                                 f % geom % x(:,i,j), &
+                                                 time, &
+                                                 f % geom % normal(:,i,j), &
+                                                 f % storage(2) % Q(:,i,j), &
+                                                 f % storage(2) % U_x(:,i,j), &
+                                                 f % storage(2) % U_y(:,i,j), &
+                                                 f % storage(2) % U_z(:,i,j))
+
+!      
+!              --------------
+!              Viscous fluxes
+!              --------------
+!      
+               CALL ViscousDiscretization % RiemannSolverWithSGS(f = f, &
+                                                  QLeft = f % storage(1) % Q(:,i,j), &
+                                                  QRight = f % storage(2) % Q(:,i,j), &
+                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
+                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
+                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  nHat = f % geom % normal(:,i,j) , &
+                                                  dWall = f % geom % dWall(i,j), &
+                                                  flux  = visc_flux(:,i,j) )
+
+            end do
+         end do
+         end if
       else
          visc_flux = 0.0_RP
 
@@ -1027,7 +1112,7 @@ module SpatialDiscretization
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: SVV_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: mu
+         real(kind=RP) :: mu, beta, kappa
          integer       :: Sidearray(2)
 !
 !        ----------
@@ -1059,7 +1144,10 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+               mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+               beta  = f % storage(1) % mu_art(2,i,j)
+               kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
+
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
@@ -1070,7 +1158,7 @@ module SpatialDiscretization
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu = mu, &
+                                                  mu = mu, beta = beta, kappa = kappa, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -1116,7 +1204,7 @@ module SpatialDiscretization
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: SVV_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: mu
+         real(kind=RP) :: mu, beta, kappa
          integer       :: Sidearray(2)
 !
 !        ----------
@@ -1147,7 +1235,10 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+               mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+               beta  = f % storage(1) % mu_art(2,i,j)
+               kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
+
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
@@ -1158,7 +1249,7 @@ module SpatialDiscretization
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu = mu, &
+                                                  mu = mu, beta = beta, kappa = kappa, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -1213,7 +1304,7 @@ module SpatialDiscretization
       real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: SVV_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
-      real(kind=RP)                   :: mu 
+      real(kind=RP)                   :: mu, beta, kappa
       integer       :: Sidearray(2)
 !
 !     -------------------
@@ -1250,7 +1341,10 @@ module SpatialDiscretization
 !           Viscous fluxes
 !           --------------
 !   
-            call ViscousDiscretization % GetViscosity(0.0_RP, mu)
+            mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+            beta  = f % storage(1) % mu_art(2,i,j)
+            kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
+
             CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                f = f, &
                                                QLeft = f % storage(1) % Q(:,i,j), &
@@ -1261,7 +1355,7 @@ module SpatialDiscretization
                                                U_xRight = f % storage(2) % U_x(:,i,j), &
                                                U_yRight = f % storage(2) % U_y(:,i,j), &
                                                U_zRight = f % storage(2) % U_z(:,i,j), &
-                                               mu = mu, &
+                                               mu = mu, beta = beta, kappa = kappa, &
                                                nHat = f % geom % normal(:,i,j) , &
                                                dWall = f % geom % dWall(i,j), &
                                                flux  = visc_flux(:,i,j) )
@@ -1325,6 +1419,149 @@ module SpatialDiscretization
          call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D)
 
       end subroutine DGSpatial_ComputeGradient
+
+      subroutine ComputeArtificialViscosity(mesh)
+         use ArtificialViscosity
+         implicit none
+         class(HexMesh)    :: mesh
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: eID, i, j, k, fID
+         real(kind=RP) :: h, sBeta, muAver(3)
+         real(kind=RP), parameter   :: kBeta = 1.5_RP
+
+!$omp do private(h,i,j,k,fID,muAver,sBeta)
+         do eID = 1, mesh % no_of_elements
+            associate(e => mesh % elements(eID))
+            h = (e % geom % volume/product(e % Nxyz+1))**(1.0_RP/3.0_RP) 
+!
+!           Compute Pointwise viscosity
+!           ---------------------------
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               call ComputeShockSensor(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), &
+                                       e % storage % U_y(:,i,j,k) , e % storage % U_z(:,i,j,k), h, sBeta)
+
+               e % storage % mu_art(1,i,j,k) = e % storage % Q(IRHO,i,j,k) * h * kBeta * sBeta
+               e % storage % mu_art(2,i,j,k) = e % storage % Q(IRHO,i,j,k) * h * kBeta * sBeta * 0.1_RP
+               e % storage % mu_art(3,i,j,k) = e % storage % mu_art(1,i,j,k) / ( dimensionless % Mach**2 * thermodynamics % gammaMinus1 * 2.0_RP ) 
+            end do                ; end do                ; end do
+!
+!           Compute the average in each cell
+!           --------------------------------
+            muAver = 0.0_RP
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               muAver(:) = muAver(:) + e % storage % mu_art(:,i,j,k) * e % geom % Jacobian(i,j,k)
+            end do                ; end do                ; end do
+            muAver = muAver / e % geom % volume
+
+            muAver = min(0.1_RP, muAver)
+
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               e % storage % mu_art(:,i,j,k) = muAver
+            end do                ; end do                ; end do
+!
+!           Assign to each of the neighbouring faces
+!           ----------------------------------------
+            do fID = 1, 6
+               do j = 0, mesh % faces(e % faceIDs(fID)) % Nf(2) 
+                  do i = 0, mesh % faces(e % faceIDs(fID)) % Nf(1) 
+                     mesh % faces(e % faceIDs(fID)) % storage(e % faceSide(fID)) % mu_art(:,i,j) = muAver
+                  end do
+               end do
+            end do
+
+            end associate
+         end do
+!$omp end do
+!
+!        Average each face values
+!        ------------------------
+!$omp do private(muAver,i,j)
+         do fID = 1, size(mesh % faces)
+            if ( .not. (mesh % faces(fID) % faceType .eq. HMESH_INTERIOR) ) cycle
+            muAver = max(mesh % faces(fID) % storage(1) % mu_art(:,0,0), mesh % faces(fID) % storage(2) % mu_art(:,0,0))
+            do j = 0, mesh % faces(fID) % Nf(2) 
+               do i = 0, mesh % faces(fID) % Nf(1) 
+                  mesh % faces(fID) % storage(1) % mu_art(:,i,j) = muAver
+                  mesh % faces(fID) % storage(2) % mu_art(:,i,j) = muAver
+               end do
+            end do
+         end do
+!$omp end do
+
+!!$omp do private(h,i,j,k,fID,muAver,sBeta)
+!         do fID = 1, size(mesh % faces)
+!            associate(f => mesh % faces(fID))
+!            h = (f % geom % surface/product(f % Nf+1))**(1.0_RP/2.0_RP) 
+!!
+!!           Compute Pointwise viscosity
+!!           ---------------------------
+!            do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+!               call ComputeShockSensor(f % storage(1) % Q(:,i,j), f % storage(1) % U_x(:,i,j), &
+!                                       f % storage(1) % U_y(:,i,j) , f % storage(1) % U_z(:,i,j), h, sBeta)
+!
+!               f % storage(1) % mu_art(1,i,j) = f % storage(1) % Q(IRHO,i,j) * h * kBeta * sBeta
+!               f % storage(1) % mu_art(3,i,j) = f % storage(1) % mu_art(1,i,j) / ( dimensionless % Mach**2 * thermodynamics % gammaMinus1 * 0.75_RP )
+!            end do                ; end do
+!
+!            if (f % faceType .eq. HMESH_INTERIOR) then
+!               do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+!                  call ComputeShockSensor(f % storage(2) % Q(:,i,j), f % storage(2) % U_x(:,i,j), &
+!                                          f % storage(2) % U_y(:,i,j) , f % storage(2) % U_z(:,i,j), h, sBeta)
+!
+!                  f % storage(2) % mu_art(1,i,j) = f % storage(2) % Q(IRHO,i,j) * h * kBeta * sBeta
+!                  f % storage(2) % mu_art(3,i,j) = f % storage(2) % mu_art(1,i,j) / ( dimensionless % Mach**2 * thermodynamics % gammaMinus1 * 0.75_RP )
+!               end do                ; end do
+!            else
+!               f % storage(2) % mu_art = f % storage(1) % mu_art
+!            end if
+!
+!!           Compute the average in each cell
+!!           --------------------------------
+!            muAver = 0.0_RP
+!            do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+!               muAver(:) = muAver(:) + f % storage(1) % mu_art(:,i,j) * f % geom % jacobian(i,j)
+!               muAver(:) = muAver(:) + f % storage(2) % mu_art(:,i,j) * f % geom % jacobian(i,j)
+!            end do                ; end do
+!            muAver = muAver / (2.0_RP * f % geom % surface)
+!
+!            do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+!               f % storage(1) % mu_art(:,i,j) = muAver
+!               f % storage(2) % mu_art(:,i,j) = muAver
+!            end do                ; end do
+!            end associate
+!         end do
+!!$omp end do
+
+
+!
+!        Gather the face values onto the closest nodal value
+!        ---------------------------------------------------
+!!$omp do private(i,j,k)
+!         do eID = 1, mesh % no_of_elements
+!            associate(e => mesh % elements(eID))
+!            do k = 1, e % Nxyz(3)-1 ; do j = 1, e % Nxyz(2)-1
+!               e % storage % mu_art(:,0,j,k) = mesh % faces(e % faceIDs(6)) % storage(e % faceSide(6)) % mu_art(:,0,0)
+!               e % storage % mu_art(:,e % Nxyz(1),j,k) = mesh % faces(e % faceIDs(4)) % storage(e % faceSide(4)) % mu_art(:,0,0)
+!            end do                ; end do
+!
+!            do k = 1, e % Nxyz(3)-1 ; do i = 1, e % Nxyz(1)-1
+!               e % storage % mu_art(:,i,0,k) = mesh % faces(e % faceIDs(1)) % storage(e % faceSide(1)) % mu_art(:,0,0)
+!               e % storage % mu_art(:,i,e % Nxyz(2),k) = mesh % faces(e % faceIDs(2)) % storage(e % faceSide(2)) % mu_art(:,0,0)
+!            end do                ; end do
+!
+!            do j = 1, e % Nxyz(2)-1 ; do i = 1, e % Nxyz(1)-1
+!               e % storage % mu_art(:,i,j,0) = mesh % faces(e % faceIDs(3)) % storage(e % faceSide(3)) % mu_art(:,0,0)
+!               e % storage % mu_art(:,i,j,e % Nxyz(3)) = mesh % faces(e % faceIDs(5)) % storage(e % faceSide(5)) % mu_art(:,0,0)
+!            end do                ; end do
+!            end associate
+!         end do
+!!$omp end do
+
+      end subroutine ComputeArtificialViscosity
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !

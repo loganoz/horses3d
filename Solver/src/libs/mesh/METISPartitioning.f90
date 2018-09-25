@@ -4,9 +4,9 @@
 !   @File:    METISPartitioning.f90
 !   @Author:  Mariola Gomez and Marta Cordero (marta.cordero@upm.es / mariola.gomez@upm.es)
 !   @Created: Wed Dec 20 19:57:13 2017
-!   @Last revision date: Wed Dec 27 12:55:58 2017
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 14c9de8d349cfb26d83c71f1fd1a362b7d0d74a7
+!   @Last revision date: Wed Sep  5 13:18:40 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 5c9d074b2a59ed214841916a5c6ebf30e850eefc
 !
 !//////////////////////////////////////////////////////
 !
@@ -44,7 +44,7 @@
       integer                :: objval                ! objective calculated value
       integer, parameter     :: MIN_EDGE_CUT = -1     ! option to minimize edge-cut
       integer, parameter     :: MIN_COMM_VOL = 1      ! option to minimize the communication volume
-#ifdef _HAS_MPI_
+#ifdef _HAS_METIS_
 !
 !     **************
 !     Initialization    

@@ -30,6 +30,7 @@
       use NodalStorageClass
       use FileReaders               , only: ReadControlFile
       use FileReadingUtilities      , only: getFileName
+      use InterpolationMatrices     , only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
       use ProblemFileFunctions
       use BoundaryConditions        , only: DestructBoundaryConditions
 #ifdef _HAS_MPI_
@@ -91,7 +92,8 @@
       IF(.NOT. success)   ERROR STOP "Physics parameters input error"
       
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
-      call InitializeNodalStorage(Nmax)
+      call InitializeNodalStorage (controlVariables,Nmax)
+      call Initialize_InterpolationMatrices(Nmax)
       call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
 !
 !     --------------------------
@@ -167,6 +169,7 @@
       if (pAdaptator % Constructed) call pAdaptator % destruct()
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
+      call Finalize_InterpolationMatrices
       call DestructBoundaryConditions
       call DestructGlobalNodalStorage()
       CALL destructSharedBCModule
