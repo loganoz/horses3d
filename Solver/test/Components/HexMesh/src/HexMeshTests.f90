@@ -20,6 +20,7 @@
          use ElementClass 
          use BoundaryConditions
          use FreeSlipWallBCClass
+         use InterpolationMatrices, only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
          IMPLICIT NONE
          
          TYPE(HexMesh)                   :: mesh
@@ -132,6 +133,7 @@
          ALLOCATE (Nvector(nelem))
          Nvector = N(1)
          call InitializeNodalStorage(GAUSS, N(1))
+         call Initialize_InterpolationMatrices(N(1))
          
          call NodalStorage(N(1)) % Construct(GAUSS, N(1))
          call NodalStorage(N(2)) % Construct(GAUSS, N(2))
@@ -264,6 +266,9 @@
          OPEN(UNIT=11, FILE = meshfileName)
          CLOSE(11, STATUS = "DELETE")
          
+         call DestructGlobalNodalStorage()
+         call Finalize_InterpolationMatrices
+         
       END SUBROUTINE testTwoBoxesMeshConstruction
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -275,6 +280,7 @@
          use ReadMeshFile
          use FaceClass
          use NodalStorageClass
+         use InterpolationMatrices, only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
          use ElementClass
          use MeshTypes
          IMPLICIT NONE
@@ -312,6 +318,7 @@
          ALLOCATE (Nvector(nelem))
          Nvector = N(1)
          call InitializeNodalStorage(GAUSS, N(1))
+         call Initialize_InterpolationMatrices(N(1))
          
          call NodalStorage(N(1)) % Construct(GAUSS, N(1))
          call NodalStorage(N(2)) % Construct(GAUSS, N(2))
@@ -382,6 +389,8 @@
          CALL FTAssertEqual(expectedValue = 5, actualValue = testFace % elementSide(1),msg = "Face element master side")
          CALL FTAssertEqual(expectedValue = 3, actualValue = testFace % elementSide(2),msg = "Face element slave side")
          
+         call DestructGlobalNodalStorage()
+         call Finalize_InterpolationMatrices
       END SUBROUTINE testTwoElementCylindersMesh
 !
 !//////////////////////////////////////////////////////////////////////// 

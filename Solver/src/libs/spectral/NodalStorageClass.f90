@@ -317,9 +317,9 @@ MODULE NodalStorageClass
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE DestructNodalStorage( this )
+   elemental subroutine DestructNodalStorage( this )
       IMPLICIT NONE
-      CLASS(NodalStorage_t) :: this
+      class(NodalStorage_t), intent(inout) :: this
 !
 !     Attempting to destruct a non-constructed nodal storage
 !     ------------------------------------------------------
@@ -338,7 +338,7 @@ MODULE NodalStorageClass
       DEALLOCATE( this % b )
       safedeallocate( this % sharpD )    !  This matrices are just generated for Gauss-Lobatto discretizations.
 
-      END SUBROUTINE DestructNodalStorage
+      end subroutine DestructNodalStorage
 !
 !////////////////////////////////////////////////////////////////////////
 !

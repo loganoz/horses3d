@@ -65,7 +65,11 @@ program horses2plt
       call exit(UNKNOWN_JOB)
 
    end select
-
+!
+!  Destruct Spectral basis
+!  -----------------------
+   call DestructSpectralBasis
+   
    call MPI_Process % Close
 
 end program horses2plt

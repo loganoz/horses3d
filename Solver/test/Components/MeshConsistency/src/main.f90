@@ -4,9 +4,9 @@
 !   @File:    main.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Dec 24 15:18:48 2017
-!   @Last revision date: Thu Jul 26 22:00:47 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fb773e7c8706f4b4ef1f5bf9693a2b44f6c12dd2
+!   @Last revision date: Tue Sep 25 10:03:25 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: f80714f4c78c40aeae2f260a53c2dd6437a97038
 !
 !//////////////////////////////////////////////////////
 !
@@ -18,8 +18,9 @@ program main
    use NodalStorageClass
    use SharedBCModule
    use MPI_Process_Info
-   use BoundaryConditions, only: BCs
+   use BoundaryConditions,    only: BCs
    use FreeSlipWallBCClass,   only: FreeSlipWallBC_t
+   use InterpolationMatrices, only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
    implicit none
    TYPE(TestSuiteManager) :: testSuite
    INTEGER                :: numberOfFailures
@@ -30,7 +31,8 @@ program main
    
    CALL testSuite % init()
    
-   call InitializeNodalStorage(Nmax)
+   call InitializeNodalStorage(GAUSS,Nmax)
+   call Initialize_InterpolationMatrices(Nmax)
    CALL ConstructSharedBCModule
    allocate(BCs(12))
    do i = 1, 12
@@ -58,6 +60,9 @@ program main
 
    CALL testSuite % performTests(numberOfFailures)
    CALL testSuite % finalize()
+   
+   call DestructGlobalNodalStorage()
+   call Finalize_InterpolationMatrices
    
    IF(numberOfFailures > 0)   STOP 99
 
