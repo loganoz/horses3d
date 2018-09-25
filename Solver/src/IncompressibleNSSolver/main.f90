@@ -4,9 +4,9 @@
 !   @File:    main.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jun 20 18:14:45 2018
-!   @Last revision date: Thu Jul 26 17:26:20 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ba557cd23630b1bd1f528599b9b33812f58d1f7b
+!   @Last revision date: Fri Sep 14 16:39:54 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: cdbdfe6f5efd847979bb894c45aed80636cee950
 !
 !//////////////////////////////////////////////////////
 !
@@ -42,6 +42,7 @@
       use FluidData
       use FileReaders               , only: ReadControlFile 
       use FileReadingUtilities      , only: getFileName
+      use InterpolationMatrices     , only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
       use ProblemFileFunctions
 #ifdef _HAS_MPI_
       use mpi
@@ -104,7 +105,8 @@
       ! Initialize manufactured solutions if necessary
       
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
-      call InitializeNodalStorage(Nmax)
+      call InitializeNodalStorage(controlVariables, Nmax)
+      call Initialize_InterpolationMatrices(Nmax)
       call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
       
       call sem % construct (  controlVariables  = controlVariables,                                         &
@@ -180,6 +182,7 @@
       CALL sem % destruct()
       call Finalize_SpaceAndTimeMethods
       call DestructGlobalNodalStorage()
+      call Finalize_InterpolationMatrices
       CALL destructSharedBCModule
       
       CALL UserDefinedTermination

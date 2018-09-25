@@ -22,6 +22,7 @@
          USE NodalStorageClass
          use ElementClass
          use ReadMeshFile
+         use InterpolationMatrices, only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
          IMPLICIT NONE  
          
          TYPE(HexMesh)                      :: mesh
@@ -41,7 +42,8 @@
          
          ALLOCATE (Nvector(nelem))
          Nvector = N(1)             ! No anisotropy
-         call InitializeNodalStorage(N(1))
+         call InitializeNodalStorage(GAUSS,N(1))
+         call Initialize_InterpolationMatrices(N(1))
          
          call NodalStorage(N(1)) % Construct(GAUSS, N(1))
          call NodalStorage(N(2)) % Construct(GAUSS, N(2))
@@ -80,4 +82,6 @@
             end associate
          END DO
          
+         call DestructGlobalNodalStorage()
+         call Finalize_InterpolationMatrices
       END SUBROUTINE readMeshFilewithName

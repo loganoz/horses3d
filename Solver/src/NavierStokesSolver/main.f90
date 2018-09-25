@@ -31,6 +31,7 @@
       use FluidData
       use FileReaders               , only: ReadControlFile 
       use FileReadingUtilities      , only: getFileName
+      use InterpolationMatrices     , only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
       use ProblemFileFunctions
 #ifdef _HAS_MPI_
       use mpi
@@ -99,7 +100,8 @@
       END IF
       
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
-      call InitializeNodalStorage(Nmax)
+      call InitializeNodalStorage (controlVariables ,Nmax)
+      call Initialize_InterpolationMatrices(Nmax)
       call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
       
       call sem % construct (  controlVariables  = controlVariables,                                         &
@@ -174,6 +176,7 @@
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       call Finalize_SpaceAndTimeMethods
+      call Finalize_InterpolationMatrices
       call DestructGlobalNodalStorage()
       CALL destructSharedBCModule
       

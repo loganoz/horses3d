@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Thu Sep  6 15:27:53 2018
+!   @Last revision date: Fri Sep 14 16:40:01 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: bbb1eccef1b477a3cf37da8b42ada5792b1c1bf3
+!   @Last revision commit: cdbdfe6f5efd847979bb894c45aed80636cee950
 !
 !//////////////////////////////////////////////////////
 !
@@ -648,7 +648,7 @@
 !            this % storage % Q  ->  e % storage % Q
 !     ----------------------------------------------
       impure elemental subroutine HexElement_InterpolateSolution(this,e,nodes,with_gradients)
-         use InterpolationMatrices, only: ConstructInterpolationMatrices, Interp3DArrays
+         use InterpolationMatrices, only: Tset, Interp3DArrays
          implicit none
          !-arguments----------------------------------------------
          class(Element), intent(in)    :: this
@@ -682,9 +682,9 @@
             !------------------------------------------------------------------
             ! Construct the interpolation matrices in every direction if needed
             !------------------------------------------------------------------
-            call ConstructInterpolationMatrices( this % Nxyz(1), e % Nxyz(1) )  ! Xi
-            call ConstructInterpolationMatrices( this % Nxyz(2), e % Nxyz(2) )  ! Eta
-            call ConstructInterpolationMatrices( this % Nxyz(3), e % Nxyz(3) )  ! Zeta
+            call Tset( this % Nxyz(1), e % Nxyz(1) ) % construct( this % Nxyz(1), e % Nxyz(1) )  ! Xi
+            call Tset( this % Nxyz(2), e % Nxyz(2) ) % construct( this % Nxyz(2), e % Nxyz(2) )  ! Eta
+            call Tset( this % Nxyz(3), e % Nxyz(3) ) % construct( this % Nxyz(3), e % Nxyz(3) )  ! Zeta
             
             !---------------------------------------------
             ! Interpolate solution to new solution storage

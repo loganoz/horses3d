@@ -22,7 +22,7 @@
       use StorageClass
       use PhysicsStorage
       use NodalStorageClass
-      use InterpolationMatrices
+      use InterpolationMatrices           , only: Tset
       IMPLICIT NONE 
 
       private
@@ -248,11 +248,17 @@
 !     Construction of the projection matrices (simple Lagrange interpolation)
 !     -----------------------------------------------------------------------
 !
-      call ConstructInterpolationMatrices(self % NfLeft(1), self % Nf(1))
-      call ConstructInterpolationMatrices(self % NfLeft(2), self % Nf(2))
-
-      call ConstructInterpolationMatrices(self % NfRight(1), self % Nf(1))
-      call ConstructInterpolationMatrices(self % NfRight(2), self % Nf(2))
+      call Tset(self % NfLeft(1), self % Nf(1)) % construct(self % NfLeft(1), self % Nf(1))
+      call Tset(self % Nf(1), self % NfLeft(1)) % construct(self % Nf(1), self % NfLeft(1))
+      
+      call Tset(self % NfLeft(2), self % Nf(2)) % construct(self % NfLeft(2), self % Nf(2))
+      call Tset(self % Nf(2), self % NfLeft(2)) % construct(self % Nf(2), self % NfLeft(2))
+      
+      call Tset(self % NfRight(1), self % Nf(1)) % construct(self % NfRight(1), self % Nf(1))
+      call Tset(self % Nf(1), self % NfRight(1)) % construct(self % Nf(1), self % NfRight(1))
+      
+      call Tset(self % NfRight(2), self % Nf(2)) % construct(self % NfRight(2), self % Nf(2))
+      call Tset(self % Nf(2), self % NfRight(2)) % construct(self % Nf(2), self % NfRight(2))
 !
 !     -----------------------  0- no projection
 !     Set the projection type: 1- x needs projection
