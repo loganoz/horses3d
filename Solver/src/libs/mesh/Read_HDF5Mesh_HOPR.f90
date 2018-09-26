@@ -4,9 +4,9 @@
 !   @File:    ReadHDF5Mesh.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Fri Sep  7 19:07:21 2018
+!   @Last revision date: Wed Sep 26 11:18:35 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 95cf879e21e49900ff67f23490a18c87162fe91d
+!   @Last revision commit: f71947bb2f361cb5228920fbafb53a163e878530
 !
 !//////////////////////////////////////////////////////
 !
@@ -243,9 +243,7 @@ contains
       call HOPR2HORSESNodeSideMap(bFaceOrder,HNodeSideMap)
       
       ALLOCATE( self % elements(numberOfelements) )
-      if ( .not. MPI_Process % doMPIRootAction ) then ! Only read surface information if this is not an MPI simulation
-         allocate( SurfInfo(numberOfelements) )
-      end if
+     
       call InitNodeMap (TempNodes , HOPRNodeMap, nUniqueNodes)
       
 !      
@@ -286,8 +284,8 @@ contains
    !           for inner elements when MeshInnerCurves == .false. (control file variable 'mesh inner curves'). 
    !           In these cases, set the corners of the hex8Map and use that in determining the element geometry.
    !           -----------------------------------------------------------------------------
-               SurfInfo(l) % IsHex8 = .TRUE.
-               SurfInfo(l) % corners = corners
+               self % elements(l) % SurfInfo % IsHex8 = .TRUE.
+               self % elements(l) % SurfInfo % corners = corners
                
             else
    !
@@ -307,7 +305,7 @@ contains
                      valuesFlat(:,2,2) = corners(:,nodeMap(3))
                      valuesFlat(:,1,2) = corners(:,nodeMap(4))
                      
-                     call SurfInfo(l) % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+                     call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
                      
                   ELSE
    !
@@ -322,7 +320,7 @@ contains
                         END DO  
                      END DO
                      
-                     call SurfInfo(l) % facePatches(k) % construct(uNodes, vNodes, values)
+                     call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
 
                   END IF
                   
@@ -341,7 +339,8 @@ contains
          DO k = 1, 6
             IF(TRIM(names(k)) /= emptyBCName) then
                numberOfBoundaryFaces = numberOfBoundaryFaces + 1
-               if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+               zoneNames => zoneNameDictionary % allKeys()
+               if ( all(trim(names(k)) .ne. zoneNames) ) then
                   call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                end if
             end if
@@ -418,7 +417,7 @@ contains
 !     ---------------------------------------
 !
       if ( .not. MPI_Process % doMPIRootAction ) then
-         call self % ConstructGeometry(SurfInfo)
+         call self % ConstructGeometry()
       end if
 !
 !     Finish up
@@ -432,7 +431,6 @@ contains
       deallocate (GlobalNodeIDs)
       deallocate (uNodes, vNodes, values)
       
-      safedeallocate ( SurfInfo)
       if (.not. self % child) CALL self % Describe( trim(fileName) , bFaceOrder)
 !
 !     -------------------------------------------------------------
@@ -473,8 +471,8 @@ contains
       integer  :: numberOfFaces
       integer                          :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
       character(LEN=BC_STRING_LENGTH)  :: names(FACES_PER_ELEMENT)
+      CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
       real(KIND=RP)                    :: corners(NDIM,NODES_PER_ELEMENT) ! Corners of element
-      type(SurfInfo_t), allocatable                :: SurfInfo(:)
       real(kind=RP), dimension(:)    , allocatable :: uNodes, vNodes
       real(kind=RP), dimension(:,:,:), allocatable :: values
       real(kind=RP)                    :: x(NDIM)
@@ -588,7 +586,6 @@ contains
 !     ---------------
 !
       allocate( self % elements   (mpi_partition % no_of_elements) )
-      allocate( SurfInfo          (mpi_partition % no_of_elements) )
       allocate( self % nodes      (mpi_partition % no_of_nodes)    )
       allocate( self % HOPRnodeIDs(mpi_partition % no_of_nodes)    )
       allocate( globalToLocalElementID(numberOfAllElements) )
@@ -674,8 +671,11 @@ contains
 !           for inner elements when MeshInnerCurves == .false. (control file variable 'mesh inner curves'). 
 !           In these cases, set the corners of the hex8Map and use that in determining the element geometry.
 !           -----------------------------------------------------------------------------
-            self % elements(l) % SurfInfo % IsHex8 = .TRUE.
-            self % elements(l) % SurfInfo % corners = corners
+            DO k = 1, NODES_PER_ELEMENT
+               corners(:,k) = self % nodes(nodeIDs(k)) % x
+            END DO
+            self % elements(eID) % SurfInfo % IsHex8 = .TRUE.
+            self % elements(eID) % SurfInfo % corners = corners
             
          else
 !
@@ -698,7 +698,7 @@ contains
                   valuesFlat(:,2,2) = corners(:,nodeMap(3))
                   valuesFlat(:,1,2) = corners(:,nodeMap(4))
                   
-                  call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+                  call self % elements(eID) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
                   
                ELSE
 !
@@ -713,7 +713,7 @@ contains
                      END DO  
                   END DO
                   
-                  call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
+                  call self % elements(eID) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
 
                END IF
                
@@ -731,12 +731,10 @@ contains
             
          DO k = 1, 6
             IF(TRIM(names(k)) /= emptyBCName) then
-               numberOfBoundaryFaces = numberOfBoundaryFaces + 1
                zoneNames => zoneNameDictionary % allKeys()
                if ( all(trim(names(k)) .ne. zoneNames) ) then
                   call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                end if
-               deallocate (zoneNames)
             end if
          END DO  
          

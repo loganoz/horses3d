@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Mon Sep 24 19:27:02 2018
+!   @Last revision date: Wed Sep 26 11:18:29 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 7ac2937102050656fd4a699d4a0b4a592b3431bf
+!   @Last revision commit: f71947bb2f361cb5228920fbafb53a163e878530
 !
 !//////////////////////////////////////////////////////
 !
@@ -187,7 +187,6 @@
          class(Element), intent(inout) :: self
          
          CALL self % geom % Destruct
-         call self % Storage % Destruct   
          call self % Connection % destruct
          call self % hexMap % destruct
          

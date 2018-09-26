@@ -766,14 +766,14 @@ Module MappedGeometryClass
          class(MappedGeometryFace), intent(inout) :: self
          !-------------------------------------------------------------------
          
-         deallocate(self % x        ) 
-         deallocate(self % jacobian ) 
-         deallocate(self % GradXi   )
-         deallocate(self % GradEta  )
-         deallocate(self % GradZeta )
-         deallocate(self % normal   ) 
-         deallocate(self % t1       ) 
-         deallocate(self % t2       ) 
+         safedeallocate(self % x        ) 
+         safedeallocate(self % jacobian ) 
+         safedeallocate(self % GradXi   )
+         safedeallocate(self % GradEta  )
+         safedeallocate(self % GradZeta )
+         safedeallocate(self % normal   ) 
+         safedeallocate(self % t1       ) 
+         safedeallocate(self % t2       ) 
          safedeallocate(self % dWall    ) 
          
       end subroutine DestructMappedGeometryFace

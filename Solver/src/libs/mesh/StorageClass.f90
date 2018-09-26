@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Mon Sep 24 19:27:04 2018
+!   @Last revision date: Wed Sep 26 11:18:36 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 7ac2937102050656fd4a699d4a0b4a592b3431bf
+!   @Last revision commit: f71947bb2f361cb5228920fbafb53a163e878530
 !
 !//////////////////////////////////////////////////////
 !
@@ -15,7 +15,7 @@ module StorageClass
    use, intrinsic :: iso_c_binding
    use SMConstants
    use PhysicsStorage
-   use InterpolationMatrices, only: ConstructInterpolationMatrices, Interp3DArrays
+   use InterpolationMatrices, only: Interp3DArrays, Tset
    use NodalStorageClass    , only: NodalStorage
    implicit none
 
@@ -571,9 +571,12 @@ module StorageClass
          safedeallocate(self % cDot)
          safedeallocate(self % PrevC)
 #endif
-
-         call self % elements % destruct
-         deallocate (self % elements)
+         
+         if ( allocated(self % elements) ) then
+            call self % elements % destruct
+            deallocate (self % elements)
+         end if
+         
       end subroutine SolutionStorage_Destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
@@ -937,9 +940,9 @@ module StorageClass
             !------------------------------------------------------------------
             ! Construct the interpolation matrices in every direction if needed
             !------------------------------------------------------------------
-            call ConstructInterpolationMatrices( this % Nxyz(1), other % Nxyz(1) )  ! Xi
-            call ConstructInterpolationMatrices( this % Nxyz(2), other % Nxyz(2) )  ! Eta
-            call ConstructInterpolationMatrices( this % Nxyz(3), other % Nxyz(3) )  ! Zeta
+            call Tset ( this % Nxyz(1), other % Nxyz(1) ) % construct ( this % Nxyz(1), other % Nxyz(1) )  ! Xi
+            call Tset ( this % Nxyz(2), other % Nxyz(2) ) % construct ( this % Nxyz(2), other % Nxyz(2) )  ! Eta
+            call Tset ( this % Nxyz(3), other % Nxyz(3) ) % construct ( this % Nxyz(3), other % Nxyz(3) )  ! Zeta
 !$omp end critical
             
             !---------------------------------------------

@@ -186,9 +186,9 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE destructTransfiniteHexMap(self)
+      pure SUBROUTINE destructTransfiniteHexMap(self)
          IMPLICIT NONE  
-          CLASS(TransFiniteHexMap) :: self
+          CLASS(TransFiniteHexMap), intent(inout) :: self
           IF(ALLOCATED(self % faces))   DEALLOCATE(self % faces)
      END SUBROUTINE destructTransfiniteHexMap
 !
