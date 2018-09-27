@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Wed Sep  5 13:18:40 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 5c9d074b2a59ed214841916a5c6ebf30e850eefc
+!   @Last revision date: Thu Sep 27 16:42:14 2018
+!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
+!   @Last revision commit: 5ab4fc5764dead65069a92d809d881f964ea4900
 !
 !//////////////////////////////////////////////////////
 !
@@ -2348,7 +2348,6 @@ slavecoord:             DO l = 1, 4
 
 #if defined(NAVIERSTOKES)
             Q(1:NCONS,:,:,:) = e % storage % Q
-            Q(IRHOV,:,:,:) = e % storage % mu_art(1,:,:,:)
 #elif defined(INCNS)
             Q(1:NINC,:,:,:)  = e % storage % Q
 #endif

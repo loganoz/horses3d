@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Wed Aug  1 15:48:14 2018
+!   @Last revision date: Thu Sep 27 16:42:12 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
+!   @Last revision commit: 5ab4fc5764dead65069a92d809d881f964ea4900
 !
 !//////////////////////////////////////////////////////
 !
@@ -52,7 +52,7 @@ module SpatialDiscretization
             real(kind=RP),             intent(in) :: x(NDIM)
             real(kind=RP),             intent(in) :: Q(NINC)
             REAL(KIND=RP),             intent(in) :: time
-            real(kind=RP),             intent(in) :: S(NINC)
+            real(kind=RP),             intent(out) :: S(NINC)
             type(Thermodynamics_t),    intent(in) :: thermodynamics_
             type(Dimensionless_t),     intent(in) :: dimensionless_
             type(RefValues_t),         intent(in) :: refValues_

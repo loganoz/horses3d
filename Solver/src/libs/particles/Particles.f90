@@ -4,9 +4,9 @@
 !   @File:    Particles.f90
 !   @Author:  Gonzalo (g.rubio@upm.es)
 !   @Created: Tue Apr 10 17:31:22 2018
-!   @Last revision date: Sat Jun 23 10:20:27 2018
+!   @Last revision date: Thu Sep 27 16:42:15 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: 5ab4fc5764dead65069a92d809d881f964ea4900
 !
 !//////////////////////////////////////////////////////
 !
@@ -58,7 +58,9 @@ end type Particles_t
 !
 subroutine ConstructParticles( self, mesh, controlVariables )
     use FTValueDictionaryClass
+#if defined(NAVIERSTOKES)
     use Physics_NSKeywordsModule
+#endif
     use headers
     implicit none
     class(Particles_t)      , intent(inout) :: self
