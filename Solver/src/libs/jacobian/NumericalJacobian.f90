@@ -48,6 +48,7 @@ contains
       integer, allocatable                               :: cols(:)
       integer, allocatable                               :: rows(:)
       integer, allocatable                               :: diag(:)
+      real(kind=RP), allocatable, save                   :: Q0(:)
       real(kind=RP), allocatable, save                   :: QDot0(:)
       
       integer :: i, j ! General counters
@@ -166,6 +167,7 @@ contains
          END DO
          
          allocate(QDot0(size(sem % mesh % storage % QDot)))
+         allocate(Q0   (size(sem % mesh % storage % QDot)))
          
          ! All initializations done!
          isfirst = .FALSE.
@@ -181,6 +183,7 @@ contains
       if (present(eps_in)) then
          eps = eps_in
       else
+         call sem % mesh % storage % local2GlobalQ (sem % NDOF)
          associate (Q => sem % mesh % storage % Q)
          eps = SQRT(EPSILON(eps))*(NORM2(Q)+1._RP)
          end associate
@@ -217,7 +220,9 @@ contains
 #endif
       
       call sem % mesh % storage % local2GlobalQdot (sem % NDOF)
+      call sem % mesh % storage % local2GlobalQ    (sem % NDOF)
       QDot0 = sem % mesh % storage % QDot
+      Q0    = sem % mesh % storage % Q
 !
 !     ------------------------------------------
 !     Compute numerical Jacobian using colorings
@@ -245,6 +250,7 @@ contains
 #endif
             call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
             sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
+            call sem % mesh % storage % global2LocalQdot
             
             DO thiselmidx = ielm, felm-1
                thiselm = ecolors%elmnts(thiselmidx)
@@ -299,17 +305,10 @@ contains
                ENDDO
             END DO           
 !
-!           Restore original values for Q
-!           -----------------------------
-            DO thiselmidx = ielm, felm-1              ! Perturbs a dof in all elements within current color
-               thiselm = ecolors%elmnts(thiselmidx)
-               IF (ndofelm(thiselm)<thisdof) CYCLE    ! Do nothing if the DOF exceeds the NDOF of thiselm
-               
-               ijkl = local2ijk(thisdof,nEqn,Nx(thiselm),Ny(thiselm),Nz(thiselm))
-               
-               sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
-                                                   sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) - eps 
-            ENDDO
+!           Restore original values for Q (TODO: this can be improved)
+!           ----------------------------------------------------------
+            sem % mesh % storage % Q = Q0
+            call sem % mesh % storage % global2LocalQ
          ENDDO
       ENDDO
       

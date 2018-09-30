@@ -25,12 +25,12 @@
          use InterpolationMatrices, only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
          IMPLICIT NONE  
          
-         TYPE(HexMesh)                      :: mesh
+         TYPE(HexMesh), target              :: mesh
          INTEGER                            :: N(3)
          INTEGER, ALLOCATABLE               :: Nvector(:)
          INTEGER                            :: nelem
          INTEGER                            :: fUnit
-         INTEGER                            :: eID, l, NDOF, firstIdx
+         INTEGER                            :: eID, l, NDOF
          CHARACTER(LEN=*)                   :: meshFileName
          LOGICAL                            :: success
          
@@ -62,24 +62,10 @@
             NDOF = NDOF + (e % Nxyz(1) + 1)*(e % Nxyz(2) + 1)*(e % Nxyz(3) + 1) 
             end associate
          end do
-      
-!        Construct global storage
-!        ------------------------
-         call mesh % storage % construct(NDOF, 0)
-      
-!        Construct element storage
-!        -------------------------
-         firstIdx = 1
-         DO eID = 1, SIZE(mesh % elements)
-            associate (e => mesh % elements(eID))
-            call mesh % elements(eID) % Storage % Construct(Nx = e % Nxyz(1), &
-                                                            Ny = e % Nxyz(2), &
-                                                            Nz = e % Nxyz(3), &
-                                              computeGradients = .true., &
-                                                 globalStorage = mesh % storage, &
-                                                      firstIdx = firstIdx)
-            firstIdx = firstIdx + e % Storage % NDOF
-            end associate
+         
+         call mesh % storage % construct (NDOF, Nvector, Nvector, Nvector, .TRUE., -1 )
+         DO eID = 1, nelem
+            mesh % elements(eID) % storage => mesh % storage % elements(eID)
          END DO
          
          call DestructGlobalNodalStorage()

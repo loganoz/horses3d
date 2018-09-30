@@ -24,6 +24,7 @@ simulation type       = steady-state
 time integration      = implicit
 linear solver         = "matrix-free gmres"
 preconditioner        = "GMRES"
+bdf order             = 1
 /*print newton info     = .TRUE.*/
 !-------------------------------------------------------------
 riemann solver       = rusanov

@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Wed Aug  1 15:48:14 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
+!   @Last revision date: Sun Sep 30 21:41:41 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 6ccda27143afdf4445c53d1d8364e5cff10baabc
 !
 !//////////////////////////////////////////////////////
 !
@@ -40,24 +40,6 @@ module SpatialDiscretization
       public  ComputeTimeDerivative_onlyLinear, ComputetimeDerivative_onlyNonLinear
       public  Finalize_SpaceAndTimeMethods
       public  viscousDiscretizationKey, CHDiscretizationKey
-
-
-      interface
-         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
-            use SMConstants
-            USE HexMeshClass
-            use PhysicsStorage
-            use FluidData
-            IMPLICIT NONE
-            real(kind=RP),             intent(in) :: x(NDIM)
-            real(kind=RP),             intent(in) :: Q(NINC)
-            REAL(KIND=RP),             intent(in) :: time
-            real(kind=RP),             intent(in) :: S(NINC)
-            type(Thermodynamics_t),    intent(in) :: thermodynamics_
-            type(Dimensionless_t),     intent(in) :: dimensionless_
-            type(RefValues_t),         intent(in) :: refValues_
-         end subroutine UserDefinedSourceTermNS
-      end interface
 
       logical :: enable_speed = .true.
 
@@ -328,7 +310,7 @@ stop
 !        ------------------------------
 !        Change memory to concentration
 !        ------------------------------
-!
+
          if ( CH_enable ) then
 !$omp single
             call mesh % SetStorageToEqn(C_BC)
@@ -375,6 +357,7 @@ stop
                call ComputeLaplacian(mesh = mesh , &
                                      t    = time)
             else
+       
                call ComputeLaplacianNeumannBCs(mesh = mesh , &
                                      t    = time)
             end if
@@ -552,7 +535,7 @@ stop
 !
 !$omp do schedule(runtime) 
          do fID = 1, size(mesh % faces) 
-            associate( f => mesh % faces(fID)) 
+            associate( f => mesh % faces(fID))
             select case (f % faceType) 
             case (HMESH_INTERIOR) 
                CALL computeElementInterfaceFlux_iNS( f ) 
@@ -573,7 +556,7 @@ stop
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID)) 
             if ( e % hasSharedFaces ) cycle
-            call TimeDerivative_FacesContribution(e, t, mesh) 
+            call TimeDerivative_FacesContribution(e, t, mesh,NINC) 
  
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
                e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
@@ -615,7 +598,7 @@ stop
             do eID = 1, size(mesh % elements) 
                associate(e => mesh % elements(eID)) 
                if ( .not. e % hasSharedFaces ) cycle
-               call TimeDerivative_FacesContribution(e, t, mesh) 
+               call TimeDerivative_FacesContribution(e, t, mesh, NINC) 
    
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
                   e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
@@ -766,14 +749,15 @@ stop
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine TimeDerivative_FacesContribution( e , t , mesh)
+      subroutine TimeDerivative_FacesContribution( e , t , mesh, nEqn)
          use HexMeshClass
          implicit none
          type(Element)           :: e
          real(kind=RP)           :: t
          type(HexMesh)           :: mesh
+         integer :: nEqn
 
-         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e, NINC, &
+         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e, nEqn, &
                       mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % fStar, &
                       mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % fStar, &
                       mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % fStar, &
@@ -1170,7 +1154,7 @@ stop
          do eID = 1, mesh % no_of_elements
             mesh % elements(eID) % storage % QDot = 0.0_RP
          end do
-   
+
          do fID = 1, size(mesh % faces)
             mesh % faces(fID) % storage(1) % genericInterfaceFluxMemory = 0.0_RP
             mesh % faces(fID) % storage(2) % genericInterfaceFluxMemory = 0.0_RP
@@ -1180,6 +1164,7 @@ stop
 !        Compute Riemann solver of non-shared faces
 !        ******************************************
 !
+
 !$omp do schedule(runtime) 
          do fID = 1, size(mesh % faces) 
             associate( f => mesh % faces(fID)) 
@@ -1194,12 +1179,12 @@ stop
 !        ***************************************************************
 !        Surface integrals and scaling of elements with non-shared faces
 !        ***************************************************************
-! 
+!
 !$omp do schedule(runtime) private(i, j, k)
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID)) 
             if ( e % hasSharedFaces ) cycle
-            call TimeDerivative_FacesContribution(e, t, mesh) 
+            call TimeDerivative_FacesContribution(e, t, mesh, NCOMP) 
  
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
                e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
@@ -1243,7 +1228,7 @@ stop
             do eID = 1, size(mesh % elements) 
                associate(e => mesh % elements(eID)) 
                if ( .not. e % hasSharedFaces ) cycle
-               call TimeDerivative_FacesContribution(e, t, mesh) 
+               call TimeDerivative_FacesContribution(e, t, mesh,NCOMP) 
  
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
                   e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 

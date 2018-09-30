@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Wed Sep 26 11:18:36 2018
+!   @Last revision date: Sun Sep 30 21:41:48 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f71947bb2f361cb5228920fbafb53a163e878530
+!   @Last revision commit: 6ccda27143afdf4445c53d1d8364e5cff10baabc
 !
 !//////////////////////////////////////////////////////
 !
@@ -47,7 +47,6 @@ module StorageClass
    end type ElementPrevSol_t
 !  
 !  Class for storing variables element-wise
-!     (Q and Qdot are not owned by ElementStorage_t) 
 !  ****************************************
    type ElementStorage_t
       integer                                         :: currentlyLoaded
@@ -233,6 +232,36 @@ module StorageClass
                self % prevSol_num = prevSol_num
                allocate ( self % prevSol_index(prevSol_num) )
                self % prevSol_index = (/ (k, k=1, prevSol_num) /)
+#if defined(NAVIERSTOKES)
+               allocate ( self % PrevQNS(NCONS*NDOF, prevSol_num) )
+               self % PrevQ    => self % PrevQNS
+#elif defined(INCNS)
+               allocate ( self % PrevQNS(NINC*NDOF, prevSol_num) )
+               self % PrevQ    => self % PrevQNS
+#endif
+#if defined(CAHNHILLIARD)
+               allocate ( self % Prevc  (NCOMP*NDOF, prevSol_num) )
+               self % PrevQ    => self % Prevc
+#endif
+            end if
+            if ( prevSol_num >= 0 ) then
+#if defined(NAVIERSTOKES)
+               allocate ( self % QNS   (NCONS*NDOF) )
+               allocate ( self % QdotNS(NCONS*NDOF) )
+               self % Q    => self % QNS
+               self % Qdot => self % QdotNS
+#elif defined(INCNS)
+               allocate ( self % QNS   (NINC*NDOF) )
+               allocate ( self % QdotNS(NINC*NDOF) )
+               self % Q    => self % QNS
+               self % Qdot => self % QdotNS
+#endif
+#if defined(CAHNHILLIARD)
+               allocate ( self % c     (NCOMP*NDOF) )
+               allocate ( self % cDot  (NCOMP*NDOF) )
+               self % Q    => self % c
+               self % Qdot => self % cDot
+#endif
             end if
          end if
          
@@ -263,7 +292,6 @@ module StorageClass
             safedeallocate (self % QNS   )
             allocate ( self % QNS   (NCONS*NDOF) )
             
-            self % Q    => self % QNS
             self % AdaptedQ = .FALSE.
          end if
 #elif defined(INCNS)
@@ -272,7 +300,6 @@ module StorageClass
             safedeallocate (self % QNS   )
             allocate ( self % QNS   (NINC*NDOF) )
             
-            self % Q => self % QNS
             self % AdaptedQ = .FALSE.
          end if
 #endif
@@ -282,7 +309,6 @@ module StorageClass
             safedeallocate (self % c)
             allocate ( self % c(NCOMP*NDOF) )
             
-            self % Q => self % c
             self % AdaptedQ = .FALSE.
          end if
 #endif
@@ -336,20 +362,17 @@ module StorageClass
          if (self % AdaptedQdot .or. (.not. allocated(self % QdotNS) ) ) then
             safedeallocate (self % QdotNS)
             allocate ( self % QdotNS(NCONS*NDOF) )
-            self % QDot => self % QDotNS
          end if
 #elif defined(INCNS)
          if (self % AdaptedQdot .or. (.not. allocated(self % QdotNS) ) ) then
             safedeallocate (self % QdotNS)
             allocate ( self % QdotNS(NINC*NDOF) )
-            self % QDot => self % QDotNS
          end if
 #endif
 #if defined(CAHNHILLIARD)
          if (self % AdaptedQdot .or. (.not. allocated(self % cDot) ) ) then
             safedeallocate ( self % cDot )
             allocate ( self % cDot(NCOMP*NDOF) )
-            self % QDot => self % cDot
          end if
 #endif
          self % AdaptedQdot = .FALSE.
@@ -406,7 +429,6 @@ module StorageClass
             safedeallocate (self % PrevQNS)
             allocate ( self % PrevQNS (NCONS * self % NDOF, self % prevSol_num) )
             
-            self % PrevQ => self % PrevQNS
             self % AdaptedPrevQ = .FALSE.
             
             ! TODO: Adapt previous solutions...
@@ -416,7 +438,6 @@ module StorageClass
             safedeallocate (self % PrevQNS)
             allocate ( self % PrevQNS (NINC * self % NDOF, self % prevSol_num) )
             
-            self % PrevQ => self % PrevQNS
             self % AdaptedPrevQ = .FALSE.
             
             ! TODO: Adapt previous solutions...
@@ -455,36 +476,32 @@ module StorageClass
          class(SolutionStorage_t), target, intent(inout)    :: self
          !----------------------------------------------
          integer :: firstIdx, lastIdx, eID
+         integer :: nEqn
          !----------------------------------------------      
+         
+         ! Temporary only checking first element!
+         select case (self % elements(1) % currentlyLoaded)
+            case (NS)
 #if defined(NAVIERSTOKES)
-         firstIdx = 1
-         do eID=1, size(self % elements)
-            associate ( N => self % elements(eID) % Nxyz )
-            lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
-            self % elements(eID) % QNS(1:NCONS,0:N(1),0:N(2),0:N(3)) = reshape ( self % QNS (firstIdx:lastIdx-1) , (/ NCONS, N(1)+1, N(2)+1, N(3)+1/) )
-            firstIdx = lastIdx
-            end associate
-         end do
+               nEqn = NCONS
 #elif defined(INCNS)
-         firstIdx = 1
-         do eID=1, size(self % elements)
-            associate ( N => self % elements(eID) % Nxyz )
-            lastIdx = firstIdx + self % elements(eID) % NDOF * NINC
-            self % elements(eID) % QNS(1:NINC,0:N(1),0:N(2),0:N(3)) = reshape ( self % QNS (firstIdx : lastIdx - 1) , (/ NINC, N(1)+1, N(2)+1, N(3)+1/) )
-            firstIdx = lastIdx
-            end associate
-         end do
+               nEqn = NINC
 #endif
+            case (C,MU)
 #if defined(CAHNHILLIARD)
+               nEqn = NCOMP
+#endif
+         end select
+         
          firstIdx = 1
          do eID=1, size(self % elements)
             associate ( N => self % elements(eID) % Nxyz )
-            lastIdx = firstIdx + self % elements(eID) % NDOF * NCOMP
-            self % elements(eID) % c(1:NCOMP,0:N(1),0:N(2),0:N(3)) = reshape ( self % c (firstIdx : lastIdx - 1) , (/ NCOMP, N(1)+1, N(2)+1, N(3)+1/) )
+            lastIdx = firstIdx + self % elements(eID) % NDOF * nEqn
+            self % elements(eID) % Q(1:nEqn,0:N(1),0:N(2),0:N(3)) = reshape ( self % Q (firstIdx:lastIdx-1) , (/ nEqn, N(1)+1, N(2)+1, N(3)+1/) )
             firstIdx = lastIdx
             end associate
          end do
-#endif
+         
       end subroutine SolutionStorage_global2LocalQ
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -495,36 +512,32 @@ module StorageClass
          class(SolutionStorage_t), target, intent(inout) :: self
          !----------------------------------------------
          integer :: firstIdx, lastIdx, eID
+         integer :: nEqn
          !----------------------------------------------      
+         
+         ! Temporary only checking first element!
+         select case (self % elements(1) % currentlyLoaded)
+            case (NS)
 #if defined(NAVIERSTOKES)
-         firstIdx = 1
-         do eID=1, size(self % elements)
-            associate ( N => self % elements(eID) % Nxyz )
-            lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
-            self % elements(eID) % QdotNS(1:NCONS,0:N(1),0:N(2),0:N(3)) = reshape ( self % QdotNS (firstIdx:lastIdx-1) , (/ NCONS, N(1)+1, N(2)+1, N(3)+1/) )
-            firstIdx = lastIdx
-            end associate
-         end do
+               nEqn = NCONS
 #elif defined(INCNS)
-         firstIdx = 1
-         do eID=1, size(self % elements)
-            associate ( N => self % elements(eID) % Nxyz )
-            lastIdx = firstIdx + self % elements(eID) % NDOF * NINC
-            self % elements(eID) % QdotNS(1:NINC,0:N(1),0:N(2),0:N(3)) = reshape ( self % QdotNS (firstIdx : lastIdx - 1) , (/ NINC, N(1)+1, N(2)+1, N(3)+1/) )
-            firstIdx = lastIdx
-            end associate
-         end do
+               nEqn = NINC
 #endif
+            case (C,MU)
 #if defined(CAHNHILLIARD)
+               nEqn = NCOMP
+#endif
+         end select
+         
          firstIdx = 1
          do eID=1, size(self % elements)
             associate ( N => self % elements(eID) % Nxyz )
-            lastIdx = firstIdx + self % elements(eID) % NDOF * NCOMP
-            self % elements(eID) % cDot(1:NCOMP,0:N(1),0:N(2),0:N(3)) = reshape ( self % cDot (firstIdx : lastIdx - 1) , (/ NCOMP, N(1)+1, N(2)+1, N(3)+1/) )
+            lastIdx = firstIdx + self % elements(eID) % NDOF * nEqn
+            self % elements(eID) % Qdot(1:nEqn,0:N(1),0:N(2),0:N(3)) = reshape ( self % Qdot (firstIdx:lastIdx-1) , (/ nEqn, N(1)+1, N(2)+1, N(3)+1/) )
             firstIdx = lastIdx
             end associate
          end do
-#endif
+         
       end subroutine SolutionStorage_global2LocalQdot
 !
 !/////////////////////////////////////////////////

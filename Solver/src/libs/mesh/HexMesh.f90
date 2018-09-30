@@ -4,15 +4,15 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Wed Sep 26 11:18:32 2018
+!   @Last revision date: Sun Sep 30 21:41:47 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f71947bb2f361cb5228920fbafb53a163e878530
+!   @Last revision commit: 6ccda27143afdf4445c53d1d8364e5cff10baabc
 !
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
 MODULE HexMeshClass
-      use Utilities                       , only: almostEqual
+      use Utilities                       , only: toLower, almostEqual
       use SMConstants
       USE MeshTypes
       USE NodeClass
@@ -2406,7 +2406,6 @@ slavecoord:             DO l = 1, 4
             allocate(Q(NTOTALVARS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
 #if defined(NAVIERSTOKES)
             Q(1:NCONS,:,:,:) = e % storage % Q
-            Q(IRHOV,:,:,:) = e % storage % mu_art(1,:,:,:)
 #elif defined(INCNS)
             Q(1:NINC,:,:,:)  = e % storage % Q
 #endif
@@ -3114,6 +3113,7 @@ slavecoord:             DO l = 1, 4
       !-----------------------------------------------------------
       integer :: bdf_order, eID
       logical :: Face_pt
+      character(len=LINE_LENGTH) :: time_int
       !-----------------------------------------------------------
       
       if ( present(Face_pointers) ) then
@@ -3122,10 +3122,17 @@ slavecoord:             DO l = 1, 4
          Face_pt = .TRUE.
       end if
       
-      if (controlVariables % containsKey("bdf order")) then
+      time_int = controlVariables % stringValueForKey("time integration",LINE_LENGTH)
+      call toLower (time_int)
+      
+      if     ( controlVariables % containsKey("bdf order")) then
          bdf_order = controlVariables % integerValueForKey("bdf order")
-      else
+      elseif ( trim(time_int) == "imex" ) then
+         bdf_order = 1
+      elseif ( trim(time_int) == "rosenbrock" ) then 
          bdf_order = 0
+      else
+         bdf_order = -1
       end if
       
       call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, bdf_order )
