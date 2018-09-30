@@ -4,9 +4,9 @@
 !   @File:    HyperbolicStandard.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:16:32 2017
-!   @Last revision date: Sat Jun 23 10:20:25 2018
+!   @Last revision date: Thu Sep 27 16:42:14 2018
 !   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision commit: 5ab4fc5764dead65069a92d809d881f964ea4900
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,7 +14,6 @@
 #if defined(NAVIERSTOKES) || defined(INCNS)
 module HyperbolicStandard
    use SMConstants
-   use RiemannSolvers_NS
    use HyperbolicDiscretizationClass
    implicit none
 
