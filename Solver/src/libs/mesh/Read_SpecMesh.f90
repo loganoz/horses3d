@@ -21,6 +21,7 @@ MODULE Read_SpecMesh
       use sharedBCModule
       use PhysicsStorage
       use FileReadingUtilities      , only: getFileName
+      use Utilities, only: UnusedUnit, toLower
       implicit none
       
       private
@@ -40,7 +41,6 @@ MODULE Read_SpecMesh
          USE Physics
          use PartitionedMeshClass
          use MPI_Process_Info
-         use Utilities, only: UnusedUnit
          IMPLICIT NONE
 !
 !        ---------------
@@ -140,6 +140,11 @@ MODULE Read_SpecMesh
 !
          allocate( self % elements(numberOfelements) )
          allocate( self % nodes(numberOfNodes) )
+         
+         allocate ( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
+         self % Nx = Nx
+         self % Ny = Ny
+         self % Nz = Nz
 
 !
 !        ----------------------------------
@@ -332,7 +337,6 @@ MODULE Read_SpecMesh
          use PartitionedMeshClass
          use MPI_Process_Info
          use MPI_Face_Class
-         use Utilities, only: UnusedUnit
          IMPLICIT NONE
 !
 !        ---------------
@@ -428,6 +432,9 @@ MODULE Read_SpecMesh
          self % no_of_elements = mpi_partition % no_of_elements
          globalToLocalNodeID = -1
          globalToLocalElementID = -1
+         
+         allocate ( self % Nx(self % no_of_elements) , self % Ny(self % no_of_elements) , self % Nz(self % no_of_elements) )
+         
 !
 !        ----------------------------------
 !        Read nodes: Nodes have the format:
@@ -485,6 +492,7 @@ MODULE Read_SpecMesh
                READ( fUnit, * ) names
                DO k = 1, 6
                   IF(TRIM(names(k)) /= emptyBCName) then
+                     call toLower( names(k) )
                      zoneNames => zoneNameDictionary % allKeys()
                      if ( all(trim(names(k)) .ne. zoneNames) ) then
                         call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
@@ -517,6 +525,7 @@ MODULE Read_SpecMesh
                READ( fUnit, * ) names
                DO k = 1, 6
                   IF(TRIM(names(k)) /= emptyBCName) then
+                     call toLower( names(k) )
                      zoneNames => zoneNameDictionary % allKeys()
                      if ( all(trim(names(k)) .ne. zoneNames) ) then
                         call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
@@ -595,6 +604,10 @@ MODULE Read_SpecMesh
 !           -------------------------
 !
             call self % elements(pElement) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , pElement, l)
+            
+            self % Nx(pElement) = Nx(l)
+            self % Ny(pElement) = Ny(l)
+            self % Nz(pElement) = Nz(l)
             
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(pElement), names )

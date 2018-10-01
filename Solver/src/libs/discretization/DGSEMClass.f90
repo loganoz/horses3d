@@ -390,7 +390,10 @@ Module DGSEMClass
          character(len=LINE_LENGTH)             :: solutionName
          logical                                :: saveGradients
          procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
-
+         
+         solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
+         solutionName = trim(getFileName(solutionName))
+         
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
             CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time)
          ELSE
@@ -409,8 +412,6 @@ Module DGSEMClass
 !           Save the initial condition
 !           --------------------------
             saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
-            solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
-            solutionName = trim(getFileName(solutionName))
             write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
             call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
 

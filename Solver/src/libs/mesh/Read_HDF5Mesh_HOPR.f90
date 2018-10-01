@@ -4,9 +4,9 @@
 !   @File:    ReadHDF5Mesh.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Wed Sep 26 11:18:35 2018
+!   @Last revision date: Mon Oct  1 12:09:49 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f71947bb2f361cb5228920fbafb53a163e878530
+!   @Last revision commit: c0e33a87fc7298912026e6bcb96893161b87913a
 !
 !//////////////////////////////////////////////////////
 !
@@ -31,6 +31,7 @@ module Read_HDF5Mesh_HOPR
    use PartitionedMeshClass            , only: mpi_partition
    use NodeClass                       , only: Node, ConstructNode
    use MPI_Face_Class                  , only: ConstructMPIFaces
+   use Utilities                       , only: toLower
 #ifdef HAS_HDF5
    use HDF5
 #endif
@@ -243,6 +244,11 @@ contains
       call HOPR2HORSESNodeSideMap(bFaceOrder,HNodeSideMap)
       
       ALLOCATE( self % elements(numberOfelements) )
+      
+      allocate ( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
+      self % Nx = Nx
+      self % Ny = Ny
+      self % Nz = Nz
      
       call InitNodeMap (TempNodes , HOPRNodeMap, nUniqueNodes)
       
@@ -343,6 +349,7 @@ contains
                if ( all(trim(names(k)) .ne. zoneNames) ) then
                   call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                end if
+               deallocate (zoneNames)
             end if
          END DO  
          
@@ -592,6 +599,9 @@ contains
       self % no_of_elements = mpi_partition % no_of_elements
       globalToLocalElementID = -1
       self % HOPRnodeIDs = mpi_partition % HOPRnodeIDs
+      
+      allocate ( self % Nx(self % no_of_elements) , self % Ny(self % no_of_elements) , self % Nz(self % no_of_elements) )
+      
 !
 !     --------------------
 !     Create HOPR node map
@@ -623,9 +633,12 @@ contains
          
          do k = 1, 6
             IF(TRIM(names(k)) /= emptyBCName) then
-               if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+               call toLower( names(k) )
+               zoneNames => zoneNameDictionary % allKeys()
+               if ( all(trim(names(k)) .ne. zoneNames) ) then
                   call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                end if
+               deallocate (zoneNames)
             end if
          end do
       end do
@@ -726,17 +739,11 @@ contains
 !        -------------------------
 !
          call self % elements(eID) % Construct (Nx(GlobeID), Ny(GlobeID), Nz(GlobeID), nodeIDs , eID, GlobeID) 
+         self % Nx(eID) = Nx(GlobeID)
+         self % Ny(eID) = Ny(GlobeID)
+         self % Nz(eID) = Nz(GlobeID)
          
          CALL SetElementBoundaryNames( self % elements(eID), names )
-            
-         DO k = 1, 6
-            IF(TRIM(names(k)) /= emptyBCName) then
-               zoneNames => zoneNameDictionary % allKeys()
-               if ( all(trim(names(k)) .ne. zoneNames) ) then
-                  call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
-               end if
-            end if
-         END DO  
          
 !
 !        Assign global to local ID
