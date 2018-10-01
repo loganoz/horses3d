@@ -29,6 +29,7 @@
 !
 module ParamfileRegions
    use SMConstants
+   use Utilities, only: toLower
    implicit none
 !
 !  ******************
@@ -76,7 +77,7 @@ module ParamfileRegions
 
          do 
             read( fID , '(A)' , iostat = io ) auxstr
-      
+            call toLower(auxstr)
             if (io .lt. 0) then
                var = ""
                exit

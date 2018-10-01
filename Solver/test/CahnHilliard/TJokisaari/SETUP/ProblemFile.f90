@@ -122,8 +122,9 @@
                                  (cos(0.13_RP*x)*cos(0.087_RP*z))**2 + cos(0.025_RP*x-0.15_RP*z) * &
                                  cos(0.07_RP*x - 0.02_RP*z))
                end do               ; end do                ; end do
+               
                e % storage % c = (e % storage % c - 0.5_RP) * 5.0_RP
-               e % storage % Q(1,:,:,:) = multiphase_ % tildeRho * e % storage % c(1,:,:,:) + multiphase_ % barRho
+               e % storage % mu(1,:,:,:) = multiphase_ % tildeRho * e % storage % c(1,:,:,:) + multiphase_ % barRho
                end associate
             end do
 #endif

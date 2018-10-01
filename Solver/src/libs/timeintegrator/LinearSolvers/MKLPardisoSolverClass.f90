@@ -1,8 +1,14 @@
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!      MKLPardisoSolverClass.f90
-!      Created: 2017-04-10 10:006:00 +0100 
-!      By: Andrés Rueda
+!//////////////////////////////////////////////////////
+!
+!   @File:    MKLPardisoSolverClass.f90
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
+!   @Created: 2017-04-10 10:006:00 +0100
+!   @Last revision date: Wed Jul 25 13:04:19 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 016b18c36f8290a48e4a476ea71b212f35254071
+!
+!//////////////////////////////////////////////////////
 !
 !      Class for solving linear systems using MKL version of Pardiso
 !
@@ -54,6 +60,7 @@ MODULE MKLPardisoSolverClass
       PROCEDURE :: destroy
       PROCEDURE :: SetOperatorDt
       PROCEDURE :: ReSetOperatorDt
+      procedure :: ComputeJacobian
       !Functions:
       PROCEDURE :: Getxnorm    !Get solution norm
       PROCEDURE :: Getrnorm    !Get residual norm
@@ -202,16 +209,11 @@ MODULE MKLPardisoSolverClass
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
-            call this % PETScA % shift( MatrixShift(dt) )
-            call this % PETScA % GetCSRMatrix(this % A)
-            this % AIsPetsc = .FALSE.
+            call this % ComputeJacobian(dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
             ComputeA = .FALSE.
          end if
-      else 
-         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % PETScA % shift( MatrixShift(dt) )
-         call this % PETScA % GetCSRMatrix(this % A)
+      else
+         call this % ComputeJacobian(dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
       end if
       
 !~    	call mkl_set_num_threads( 4 )
@@ -235,9 +237,6 @@ MODULE MKLPardisoSolverClass
                      b       = this % b             ,     &
                      x       = this % x             ,     &
                      ierror  = error              )
-                
-!~    msglvl    = 0 ! Do not write out any info
-!~    nrhs      = 1 ! Use only one RHS
 
       IF (error .NE. 0) THEN
          WRITE(*,*) 'MKL Pardiso ERROR:', error
@@ -251,6 +250,30 @@ MODULE MKLPardisoSolverClass
 #endif
       
    END SUBROUTINE solve
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine ComputeJacobian(this,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+      implicit none
+      !-----------------------------------------------------------
+      CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
+      REAL(KIND=RP), intent(in)                :: dt
+      REAL(KIND=RP), intent(in)                :: time
+      integer,       intent(in)                :: nEqn
+      integer,       intent(in)                :: nGradEqn
+      procedure(ComputeTimeDerivative_f)       :: ComputeTimeDerivative
+      !-----------------------------------------------------------
+      
+      if (this % AIsPetsc) then
+         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
+         call this % PETScA % shift( MatrixShift(dt) )
+         call this % PETScA % GetCSRMatrix(this % A)
+         this % AIsPetsc = .FALSE.
+      else
+         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
+         call this % A % shift( MatrixShift(dt) )
+      end if
+   end subroutine ComputeJacobian
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

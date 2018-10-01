@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeSmootherClass.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:07 2018
-!   @Last revision date: Wed Jul 25 17:15:46 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
+!   @Last revision date: Mon Aug 20 17:10:15 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
 !
 !//////////////////////////////////////////////////////
 !
@@ -215,8 +215,8 @@ CONTAINS
       dtsolve  = dt
       
 !~      IF (isfirst) THEN
-         CALL this % p_sem % GetQdot(nEqn, this % F_Ur)
-         CALL this % p_sem % GetQ   (this % Ur, nEqn)
+         this % F_Ur = this % p_sem % mesh % storage % Qdot
+         this % Ur   = this % p_sem % mesh % storage % Q
 !~         isfirst = .FALSE.
 !~      END IF
       
@@ -228,7 +228,7 @@ CONTAINS
             CALL BlockJacobiSmoother(this, maxiter, this % niter, ComputeTimeDerivative, TolPresent, tol)
       END SELECT
       
-      CALL this % p_sem % SetQ (this % Ur, nEqn)
+      this % p_sem % mesh % storage % Q = this % Ur
       
       IF (this % niter <= maxiter) THEN
          this % CONVERGED = .TRUE.
@@ -432,14 +432,14 @@ CONTAINS
       
        eps = SQRT(EPSILON(eps)) * (NORM2(this % Ur)*DOT_PRODUCT(this % Ur,x)) / NORM2(x) ! My recipe.. goes lower but slower
       
-!~      CALL this % p_sem % GetQ(buffer)
+!~      buffer = this % p_sem % mesh % storage % Q
 
 !~       xxx = x / NORM2(x)
 
-!~       CALL this % p_sem % SetQ(this % Ur + x*eps)
+!~       this % p_sem % mesh % storage % Q = this % Ur + x*eps
 !~       CALL ComputeTimeDerivative(this % p_sem,timesolve)
-!~       CALL this % p_sem % GetQdot(F)
-!~      CALL this % p_sem % SetQ(buffer)
+!~       F =this % p_sem % mesh % storage % Qdot
+!~      this % p_sem % mesh % storage % Q = buffer
       Ax = ( this % p_F(this % Ur + x * eps, computeTimeDerivative) - this % F_Ur) / eps + shift * x
 !~       Ax = ( this % p_F(this % Ur + x * eps) - this % p_F(this % Ur - x * eps))  /(2._RP * eps)  - x / dtsolve   !Second order
       
@@ -453,9 +453,11 @@ CONTAINS
       procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND = RP)                         :: F(size(u))
       
-      CALL this % p_sem % SetQ(u,NTOTALVARS)
+      this % p_sem % mesh % storage % Q = u
+      call this % p_sem % mesh % storage % global2LocalQ
       CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, CTD_IGNORE_MODE)
-      CALL this % p_sem % GetQdot(NTOTALVARS,F)
+      call this % p_sem % mesh % storage % local2GlobalQdot(this % p_sem % NDOF)
+      F = this % p_sem % mesh % storage % Qdot
       
    END FUNCTION p_F
    

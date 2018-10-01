@@ -32,6 +32,7 @@
       use FileReadingUtilities      , only: getFileName
       use InterpolationMatrices     , only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
       use ProblemFileFunctions
+      use BoundaryConditions        , only: DestructBoundaryConditions
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -169,6 +170,7 @@
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       call Finalize_InterpolationMatrices
+      call DestructBoundaryConditions
       call DestructGlobalNodalStorage()
       CALL destructSharedBCModule
       

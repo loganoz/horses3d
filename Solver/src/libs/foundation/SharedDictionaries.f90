@@ -12,10 +12,10 @@
          IMPLICIT NONE
 
          private
-         public zoneNameDictionary, conformingBoundariesDic
+         public zoneNameDictionary
          public constructSharedBCModule, destructSharedBCModule
 
-         type(FTValueDictionary) :: zoneNameDictionary, conformingBoundariesDic
+         type(FTValueDictionary) :: zoneNameDictionary
          
          CONTAINS
 !
@@ -24,7 +24,6 @@
          SUBROUTINE constructSharedBCModule  
             IMPLICIT NONE
             CALL zoneNameDictionary % initWithSize(8)
-            call conformingBoundariesDic % initWithSize(8)
          END SUBROUTINE constructSharedBCModule
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -32,7 +31,6 @@
          SUBROUTINE destructSharedBCModule  
             IMPLICIT NONE
             call zoneNameDictionary % destruct()
-            call conformingBoundariesDic % destruct()
          END SUBROUTINE destructSharedBCModule
          
       END Module SharedBCModule

@@ -30,18 +30,41 @@ module RealDataLinkedList
       class(RealData_t), pointer    :: head => NULL()
       integer                       :: no_of_entries = 0
       contains
-         procedure   :: Append => RealDataLinkedList_Append
-         procedure   :: Load   => RealDataLinkedList_Load
+         procedure   :: Append   => RealDataLinkedList_Append
+         procedure   :: Load     => RealDataLinkedList_Load
+         procedure   :: Destruct => RealDataLinkedList_Destruct
     end type RealDataLinkedList_t
    
-    type RealData_t
+   type RealData_t
       real(kind=RP)  :: value
       class(RealData_t), pointer    :: next => NULL()
+      contains
+         procedure :: destructKids => RealData_DestructKids
     end type RealData_t
 !
 !   ========
     contains 
 !   ========
+!
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     Procedures for RealData_t
+!
+      pure recursive subroutine RealData_DestructKids( self )
+         implicit none
+         class(RealData_t), intent(inout) :: self
+         
+         if ( associated (self % next) ) then
+            call self % next % destructKids
+            deallocate (self % next)
+         end if
+         
+      end subroutine RealData_DestructKids
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     Procedures for RealDataLinkedList_t
 !
       subroutine RealDataLinkedList_Append( self , value ) 
          implicit none
@@ -87,5 +110,22 @@ module RealDataLinkedList
          end do
 
       end subroutine RealDataLinkedList_Load
+      
+      elemental subroutine RealDataLinkedList_Destruct( self )
+         implicit none
+         !-arguments------------------------------------------------
+         class(RealDataLinkedList_t), intent(inout) :: self
+         !----------------------------------------------------------
+         
+         if ( self % no_of_entries .eq. 0 ) then
+            return
+         else
+            call self % head % destructKids
+            deallocate (self % head)
+            
+            self % no_of_entries = 0
+         end if
+         
+      end subroutine RealDataLinkedList_Destruct
 
 end module RealDataLinkedList

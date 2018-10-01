@@ -51,7 +51,6 @@ Module DGSEMClass
       integer                                                 :: nodes                 ! Either GAUSS or GAUSLOBATTO
       INTEGER                                                 :: numberOfTimeSteps
       INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
-      INTEGER           , ALLOCATABLE                         :: Nx(:), Ny(:), Nz(:)
       TYPE(HexMesh)                                           :: mesh
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
@@ -62,12 +61,11 @@ Module DGSEMClass
 #endif
       contains
          procedure :: construct => ConstructDGSem
-         procedure :: destruct  => DestructDGSem   
-         procedure :: GetQ
-         procedure :: SetQ
-         procedure :: GetQdot
+         procedure :: destruct  => DestructDGSem
          procedure :: SaveSolutionForRestart
          procedure :: SetInitialCondition => DGSEM_SetInitialCondition
+         procedure :: copy                => DGSEM_Assign
+         generic   :: assignment(=)       => copy
    END TYPE DGSem
 
    abstract interface
@@ -179,15 +177,6 @@ Module DGSEMClass
       ELSE
          ERROR STOP 'ConstructDGSEM: Polynomial order not specified'
       END IF
-      
-      ! Now store everything in sem
-      IF (ALLOCATED(self % Nx)) DEALLOCATE (self % Nx)
-      IF (ALLOCATED(self % Ny)) DEALLOCATE (self % Ny)
-      IF (ALLOCATED(self % Nz)) DEALLOCATE (self % Nz)
-      ALLOCATE (self % Nx(nTotalElem),self % Ny(nTotalElem),self % Nz(nTotalElem))
-      self % Nx = Nx
-      self % Ny = Ny
-      self % Nz = Nz
       
       if ( max(maxval(Nx),maxval(Ny),maxval(Nz)) /= min(minval(Nx),minval(Ny),minval(Nz)) ) self % mesh % anisotropic = .TRUE.
       
@@ -333,7 +322,7 @@ Module DGSEMClass
 !     Build the monitors
 !     ------------------
 !
-      self % monitors = ConstructMonitors(self % mesh, controlVariables)
+      call self % monitors % construct (self % mesh, controlVariables)
 
 #if defined(NAVIERSTOKES)
 !
@@ -365,6 +354,9 @@ Module DGSEMClass
       INTEGER      :: k      !Counter
       
       CALL self % mesh % destruct
+      
+      call self % monitors % destruct
+      
       END SUBROUTINE DestructDGSem
 !
 !////////////////////////////////////////////////////////////////////////
@@ -398,7 +390,10 @@ Module DGSEMClass
          character(len=LINE_LENGTH)             :: solutionName
          logical                                :: saveGradients
          procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
-
+         
+         solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
+         solutionName = trim(getFileName(solutionName))
+         
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
             CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time)
          ELSE
@@ -417,111 +412,40 @@ Module DGSEMClass
 !           Save the initial condition
 !           --------------------------
             saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
-            solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
-            solutionName = trim(getFileName(solutionName))
             write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
             call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
 
          END IF
+         
+         write(solutionName,'(A,A,I10.10)') trim(solutionName), "_", initial_iteration
+         call self % mesh % Export( trim(solutionName) )
    
       end subroutine DGSEM_SetInitialCondition
 !
-!//////////////////////////////////////////////////////////////////////// 
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  Routine to set the solution in each element with a global solution vector
-!
-   SUBROUTINE SetQ(self,Q, nEqn)
-      IMPLICIT NONE
-      CLASS(DGSem)   ,     INTENT(INOUT)           :: self 
-      integer,             intent(in)              :: nEqn
-      REAL(KIND = RP),     INTENT(IN)              :: Q(:)   
-      
-      INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, counter, elm
-      
-      IF (SIZE(Q) /= self % NDOF*nEqn) ERROR STOP 'Size mismatch in DGSEM:SetQ'
-      
-      counter = 1
-      DO elm = 1, size(self%mesh%elements)
-         Nx = self%mesh%elements(elm)%Nxyz(1)
-         Ny = self%mesh%elements(elm)%Nxyz(2)
-         Nz = self%mesh%elements(elm)%Nxyz(3)
-         DO k = 0, Nz
-            DO j = 0, Ny
-               DO i = 0, Nx
-                  DO l = 1, nEqn
-                     self%mesh%elements(elm)%storage%Q(l,i,j,k) = Q(counter) ! This creates a temporary array: storage must be modified to avoid that
-                     counter =  counter + 1
-                  END DO
-               END DO
-            END DO
-         END DO
-      END DO 
+!     -----------------------------------------------------------------------------------
+!     Specifies how to copy a DGSem object:
+!     -> Trivial but must be defined since self % monitors have a user-defined assignment
+!     -> Must be impure because of some pointers of the derived types
+!     -----------------------------------------------------------------------------------
+      impure elemental subroutine DGSEM_Assign (to, from)
+         implicit none
+         class(DGSem), intent(inout) :: to
+         type (DGSem), intent(in)    :: from
          
-   END SUBROUTINE SetQ
-!
-!////////////////////////////////////////////////////////////////////////////////////////       
-!
-!  Routine to get the solution in each element as a global solution vector
-!
-   SUBROUTINE GetQ(self,Q, nEqn)
-      IMPLICIT NONE
-      CLASS(DGSem),        INTENT(INOUT)            :: self
-      integer,             intent(in)               :: nEqn
-      REAL(KIND = RP),     INTENT(OUT)              :: Q(:)
-      
-      INTEGER                                       :: Nx, Ny, Nz, l, i, j, k, counter, elm
-      
-      IF (SIZE(Q) /= self % NDOF*nEqn) ERROR STOP 'Size mismatch in DGSEM:GetQ'
-      counter = 1
-      DO elm = 1, size(self%mesh%elements)
-         Nx = self%mesh%elements(elm)%Nxyz(1)
-         Ny = self%mesh%elements(elm)%Nxyz(2)
-         Nz = self%mesh%elements(elm)%Nxyz(3)
-         DO k = 0, Nz
-            DO j = 0, Ny
-                DO i = 0, Nx
-                  DO l = 1,nEqn
-                     Q(counter)  = self%mesh%elements(elm)%storage%Q(l,i, j, k) ! This creates a temporary array: storage must be modified to avoid that
-                     counter =  counter + 1
-                  END DO
-                END DO
-            END DO
-         END DO
-      END DO
-      
-   END SUBROUTINE GetQ
-!
-!////////////////////////////////////////////////////////////////////////////////////////      
-!
-!  Routine to get the solution's time derivative in each element as a global solution vector
-!
-   SUBROUTINE GetQdot(self,nEqn,Qdot)
-      IMPLICIT NONE
-      CLASS(DGSem),        INTENT(INOUT)            :: self
-      integer,             intent(in)               :: nEqn
-      REAL(KIND = RP),     INTENT(OUT)              :: Qdot(:)
-      
-      INTEGER                                       :: Nx, Ny, Nz, l, i, j, k, counter, elm
-      
-      IF (SIZE(Qdot) /= self % NDOF*nEqn) ERROR STOP 'Size mismatch in DGSEM:GetQdot'
-      counter = 1
-      DO elm = 1, size(self%mesh%elements)
-         Nx = self%mesh%elements(elm)%Nxyz(1)
-         Ny = self%mesh%elements(elm)%Nxyz(2)
-         Nz = self%mesh%elements(elm)%Nxyz(3)
-         DO k = 0, Nz
-            DO j = 0, Ny
-               DO i = 0, Nx
-                  DO l = 1,size(self % mesh % elements(elm) % storage % Q,1)
-                     Qdot(counter)  = self%mesh%elements(elm)%storage%Qdot(l,i, j, k) ! This creates a temporary array: storage must be modified to avoid that
-                     counter =  counter + 1
-                  END DO
-               END DO
-            END DO
-         END DO
-      END DO
-      
-   END SUBROUTINE GetQdot
+         to % maxResidual        = from % maxResidual
+         to % nodes              = from % nodes
+         to % numberOfTimeSteps  = from % numberOfTimeSteps
+         to % NDOF               = from % NDOF
+         
+         to % mesh               = from % mesh
+         to % ManufacturedSol    = from % ManufacturedSol
+         
+         to % monitors  = from % monitors
+         to % particles = from % particles
+         
+      end subroutine DGSEM_Assign
 !
 !////////////////////////////////////////////////////////////////////////
 !

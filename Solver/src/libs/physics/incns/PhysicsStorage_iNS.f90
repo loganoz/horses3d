@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_iNS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:26 2018
-!   @Last revision date: Thu Jul 26 17:26:23 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ba557cd23630b1bd1f528599b9b33812f58d1f7b
+!   @Last revision date: Fri Aug 17 10:25:40 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 0760ac964cfb71dec1e13da0780b72ca9d38e064
 !
 !//////////////////////////////////////////////////////
 !
@@ -67,7 +67,7 @@
 !
      USE SMConstants
      use FluidData_iNS
-     use FileReadingUtilities, only: getArrayFromString
+     use FileReadingUtilities, only: getRealArrayFromString
      
      IMPLICIT NONE
 
@@ -348,7 +348,7 @@
 !     *************
 !
       if ( controlVariables % ContainsKey(GRAVITY_DIRECTION_KEY) ) then
-         array = GetArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
+         array = getRealArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
                                                                              KEYWORD_LENGTH))
          dimensionless_ % gravity_dir = array(1:3) / norm2(array(1:3))
       end if
@@ -533,7 +533,7 @@
 !        *************
 !
          if ( controlVariables % ContainsKey(GRAVITY_DIRECTION_KEY) ) then
-            array = GetArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
+            array = getRealArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
                                                                                 KEYWORD_LENGTH))
             if ( norm2(array) < epsilon(1.0_RP)*10.0_RP ) then
 !   

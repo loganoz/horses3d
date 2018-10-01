@@ -23,7 +23,7 @@
          use InterpolationMatrices, only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
          IMPLICIT NONE
          
-         TYPE(HexMesh)                   :: mesh
+         TYPE(HexMesh), target           :: mesh
          TYPE(TransfiniteHexMap)         :: hexTransform
          TYPE(Face)                      :: testFace
          REAL(KIND=RP)                   :: nodes(3,12)
@@ -157,21 +157,9 @@
 !      
 !        Construct global storage
 !        ------------------------
-         call mesh % storage % construct(NDOF, 0)
-      
-!        Construct element storage
-!        -------------------------
-         firstIdx = 1
-         DO eID = 1, SIZE(mesh % elements)
-            associate (e => mesh % elements(eID))
-            call mesh % elements(eID) % Storage % Construct(Nx = e % Nxyz(1), &
-                                                            Ny = e % Nxyz(2), &
-                                                            Nz = e % Nxyz(3), &
-                                              computeGradients = .true., &
-                                                 globalStorage = mesh % storage, &
-                                                      firstIdx = firstIdx)
-            firstIdx = firstIdx + e % Storage % NDOF
-            end associate
+         call mesh % storage % construct (NDOF, Nvector, Nvector, Nvector, .TRUE., -1 )
+         DO eID = 1, nelem
+            mesh % elements(eID) % storage => mesh % storage % elements(eID)
          END DO
 
          call mesh % SetStorageToEqn(1)
@@ -286,7 +274,7 @@
          IMPLICIT NONE
          
          EXTERNAL                :: cylindricalGeometry
-         TYPE(HexMesh)           :: mesh
+         TYPE(HexMesh), target   :: mesh
          TYPE(Face)              :: testFace
          INTEGER                 :: j, N(3), id
          INTEGER                 :: iFaceID
@@ -338,24 +326,10 @@
             NDOF = NDOF + (e % Nxyz(1) + 1)*(e % Nxyz(2) + 1)*(e % Nxyz(3) + 1) 
             end associate
          end do
-      
-!        Construct global storage
-!        ------------------------
-         call mesh % storage % construct(NDOF, 0)
-      
-!        Construct element storage
-!        -------------------------
-         firstIdx = 1
-         DO eID = 1, SIZE(mesh % elements)
-            associate (e => mesh % elements(eID))
-            call mesh % elements(eID) % Storage % Construct(Nx = e % Nxyz(1), &
-                                                            Ny = e % Nxyz(2), &
-                                                            Nz = e % Nxyz(3), &
-                                              computeGradients = .true., &
-                                                 globalStorage = mesh % storage, &
-                                                      firstIdx = firstIdx)
-            firstIdx = firstIdx + e % Storage % NDOF
-            end associate
+         
+         call mesh % storage % construct (NDOF, Nvector, Nvector, Nvector, .TRUE., -1 )
+         DO eID = 1, nelem
+            mesh % elements(eID) % storage => mesh % storage % elements(eID)
          END DO
 
          CALL FTAssertEqual(expectedValue = 2     ,actualValue = SIZE(mesh % elements),msg = "Number of elements in mesh.")

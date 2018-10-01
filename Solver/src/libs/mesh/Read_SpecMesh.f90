@@ -14,7 +14,6 @@ MODULE Read_SpecMesh
       use MeshTypes
       use ElementConnectivityDefinitions
       USE TransfiniteMapClass
-      use FacePatchClass
       use MappedGeometryClass
       use NodeClass
       use ElementClass
@@ -22,6 +21,7 @@ MODULE Read_SpecMesh
       use sharedBCModule
       use PhysicsStorage
       use FileReadingUtilities      , only: getFileName
+      use Utilities, only: UnusedUnit, toLower
       implicit none
       
       private
@@ -37,11 +37,10 @@ MODULE Read_SpecMesh
 !
 !!    Constructs mesh from mesh file
 !!    Only valid for conforming meshes
-      SUBROUTINE ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success, export )
+      SUBROUTINE ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
          USE Physics
          use PartitionedMeshClass
          use MPI_Process_Info
-         use Utilities, only: UnusedUnit
          IMPLICIT NONE
 !
 !        ---------------
@@ -54,7 +53,6 @@ MODULE Read_SpecMesh
          integer                          :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
          integer                          :: dir2D
          LOGICAL           , intent(out)  :: success
-         logical, optional , intent(in)   :: export 
 !
 !        ---------------
 !        Local variables
@@ -72,15 +70,13 @@ MODULE Read_SpecMesh
          real(kind=RP)                   :: x(NDIM)
          integer                         :: faceFlags(FACES_PER_ELEMENT)
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
-         TYPE(FacePatch), DIMENSION(6)   :: facePatches
+         CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
          real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
-         logical                         :: export_mesh
 !
 !        ------------------
 !        For curved patches
 !        ------------------
 !
-         type(SurfInfo_t), allocatable                  :: SurfInfo(:)
          real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
          real(kind=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
 !
@@ -137,9 +133,6 @@ MODULE Read_SpecMesh
             vNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
          END DO
          
-         DO k = 1, 6 ! Most patches will be flat, so set up for self
-            CALL facePatches(k) % construct(uNodesFlat,vNodesFlat) 
-         END DO  
 !
 !        ---------------
 !        Allocate memory
@@ -147,7 +140,11 @@ MODULE Read_SpecMesh
 !
          allocate( self % elements(numberOfelements) )
          allocate( self % nodes(numberOfNodes) )
-         allocate( SurfInfo(numberOfelements) )
+         
+         allocate ( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
+         self % Nx = Nx
+         self % Ny = Ny
+         self % Nz = Nz
 
 !
 !        ----------------------------------
@@ -186,8 +183,8 @@ MODULE Read_SpecMesh
                DO k = 1, NODES_PER_ELEMENT
                   corners(:,k) = self % nodes(nodeIDs(k)) % x
                END DO
-               SurfInfo(l) % IsHex8 = .TRUE.
-               SurfInfo(l) % corners = corners
+               self % elements(l) % SurfInfo % IsHex8 = .TRUE.
+               self % elements(l) % SurfInfo % corners = corners
                
             ELSE
 !
@@ -208,7 +205,7 @@ MODULE Read_SpecMesh
                      valuesFlat(:,2,2) = self % nodes(nodeIDs(nodeMap(3))) % x
                      valuesFlat(:,1,2) = self % nodes(nodeIDs(nodeMap(4))) % x
                      
-                     call SurfInfo(l) % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+                     call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
                      
                   ELSE
 !
@@ -222,7 +219,7 @@ MODULE Read_SpecMesh
                         END DO  
                      END DO
                      
-                     call SurfInfo(l) % facePatches(k) % construct(uNodes, vNodes, values)
+                     call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
                      
                   END IF
                END DO
@@ -241,9 +238,11 @@ MODULE Read_SpecMesh
             DO k = 1, 6
                IF(TRIM(names(k)) /= emptyBCName) then
                   numberOfBoundaryFaces = numberOfBoundaryFaces + 1
-                  if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                  zoneNames => zoneNameDictionary % allKeys()
+                  if ( all(trim(names(k)) .ne. zoneNames) ) then
                      call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                   end if
+                  deallocate (zoneNames)
                end if
             END DO  
          END DO      ! l = 1, numberOfElements
@@ -313,7 +312,7 @@ MODULE Read_SpecMesh
 !        Construct elements' and faces' geometry
 !        ---------------------------------------
 !
-         call self % ConstructGeometry(SurfInfo)
+         call self % ConstructGeometry()
             
          CLOSE( fUnit )
 !
@@ -327,16 +326,8 @@ MODULE Read_SpecMesh
 !        Prepare mesh for I/O only if the code is running sequentially
 !        -------------------------------------------------------------
 !
-         if (present(export)) then
-            export_mesh = export
-         else
-            export_mesh = .true.
-         end if
          if ( .not. MPI_Process % doMPIAction ) then
             call self % PrepareForIO
-            if ((.not. self % child) .and. export_mesh) then
-               call self % Export( trim(fileName) )
-            end if
          end if
          
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
@@ -346,7 +337,6 @@ MODULE Read_SpecMesh
          use PartitionedMeshClass
          use MPI_Process_Info
          use MPI_Face_Class
-         use Utilities, only: UnusedUnit
          IMPLICIT NONE
 !
 !        ---------------
@@ -377,14 +367,13 @@ MODULE Read_SpecMesh
          real(kind=RP)                   :: x(NDIM)
          integer                         :: faceFlags(FACES_PER_ELEMENT)
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
-         TYPE(FacePatch), DIMENSION(6)   :: facePatches
+         CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
          real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
 !
 !        ------------------
 !        For curved patches
 !        ------------------
 !
-         type(SurfInfo_t), allocatable                  :: SurfInfo(:)
          real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
          real(kind=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
 !
@@ -431,10 +420,6 @@ MODULE Read_SpecMesh
             uNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
             vNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
          END DO
-         
-         DO k = 1, 6 ! Most patches will be flat, so set up for self
-            CALL facePatches(k) % construct(uNodesFlat,vNodesFlat) 
-         END DO  
 !
 !        ---------------
 !        Allocate memory
@@ -442,12 +427,14 @@ MODULE Read_SpecMesh
 !
          allocate( self % elements(mpi_partition % no_of_elements) )
          allocate( self % nodes(mpi_partition % no_of_nodes) )
-         allocate( SurfInfo(mpi_partition % no_of_elements) )
          allocate( globalToLocalNodeID(numberOfAllNodes) )
          allocate( globalToLocalElementID(numberOfAllElements) )
          self % no_of_elements = mpi_partition % no_of_elements
          globalToLocalNodeID = -1
          globalToLocalElementID = -1
+         
+         allocate ( self % Nx(self % no_of_elements) , self % Ny(self % no_of_elements) , self % Nz(self % no_of_elements) )
+         
 !
 !        ----------------------------------
 !        Read nodes: Nodes have the format:
@@ -505,9 +492,12 @@ MODULE Read_SpecMesh
                READ( fUnit, * ) names
                DO k = 1, 6
                   IF(TRIM(names(k)) /= emptyBCName) then
-                     if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                     call toLower( names(k) )
+                     zoneNames => zoneNameDictionary % allKeys()
+                     if ( all(trim(names(k)) .ne. zoneNames) ) then
                         call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                      end if
+                     deallocate (zoneNames)
                   end if
                END DO  
 
@@ -535,9 +525,12 @@ MODULE Read_SpecMesh
                READ( fUnit, * ) names
                DO k = 1, 6
                   IF(TRIM(names(k)) /= emptyBCName) then
-                     if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                     call toLower( names(k) )
+                     zoneNames => zoneNameDictionary % allKeys()
+                     if ( all(trim(names(k)) .ne. zoneNames) ) then
                         call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                      end if
+                     deallocate (zoneNames)
                   end if
                END DO  
 
@@ -563,8 +556,8 @@ MODULE Read_SpecMesh
                DO k = 1, NODES_PER_ELEMENT
                   corners(:,k) = self % nodes(nodeIDs(k)) % x
                END DO
-               SurfInfo(pElement) % IsHex8 = .TRUE.
-               SurfInfo(pElement) % corners = corners
+               self % elements(pElement) % SurfInfo % IsHex8 = .TRUE.
+               self % elements(pElement) % SurfInfo % corners = corners
                
             ELSE
 !
@@ -585,7 +578,7 @@ MODULE Read_SpecMesh
                      valuesFlat(:,2,2) = self % nodes(nodeIDs(nodeMap(3))) % x
                      valuesFlat(:,1,2) = self % nodes(nodeIDs(nodeMap(4))) % x
                      
-                     call SurfInfo(pElement) % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+                     call self % elements(pElement) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
                      
                   ELSE
 !
@@ -599,7 +592,7 @@ MODULE Read_SpecMesh
                         END DO  
                      END DO
                      
-                     call SurfInfo(pElement) % facePatches(k) % construct(uNodes, vNodes, values)
+                     call self % elements(pElement) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
                      
                   END IF
                END DO
@@ -612,6 +605,10 @@ MODULE Read_SpecMesh
 !
             call self % elements(pElement) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , pElement, l)
             
+            self % Nx(pElement) = Nx(l)
+            self % Ny(pElement) = Ny(l)
+            self % Nz(pElement) = Nz(l)
+            
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(pElement), names )
 !
@@ -619,9 +616,11 @@ MODULE Read_SpecMesh
 !           -------------------------------------------------            
             DO k = 1, 6
                IF(TRIM(names(k)) /= emptyBCName) then
-                  if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+                  zoneNames => zoneNameDictionary % allKeys()
+                  if ( all(trim(names(k)) .ne. zoneNames) ) then
                      call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                   end if
+                  deallocate (zoneNames)
                end if
             END DO  
 !
@@ -711,7 +710,7 @@ MODULE Read_SpecMesh
 !        Construct elements' and faces' geometry
 !        ---------------------------------------
 !
-         call self % ConstructGeometry(SurfInfo)
+         call self % ConstructGeometry()
 
          CLOSE( fUnit )
 !
@@ -726,7 +725,6 @@ MODULE Read_SpecMesh
 !        --------------------
 !
          call self % PrepareForIO
-         if (.not. self % child) call self % Export( trim(fileName) )
 
          deallocate(globalToLocalNodeID)
          deallocate(globalToLocalElementID)

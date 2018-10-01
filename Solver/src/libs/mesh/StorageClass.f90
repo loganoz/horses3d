@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Wed Sep  5 13:18:45 2018
+!   @Last revision date: Sun Sep 30 21:41:48 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 5c9d074b2a59ed214841916a5c6ebf30e850eefc
+!   @Last revision commit: 6ccda27143afdf4445c53d1d8364e5cff10baabc
 !
 !//////////////////////////////////////////////////////
 !
@@ -15,10 +15,12 @@ module StorageClass
    use, intrinsic :: iso_c_binding
    use SMConstants
    use PhysicsStorage
+   use InterpolationMatrices, only: Interp3DArrays, Tset
+   use NodalStorageClass    , only: NodalStorage
    implicit none
 
    private
-   public   ElementStorage_t, FaceStorage_t, Storage_t
+   public   ElementStorage_t, FaceStorage_t, SolutionStorage_t
    public   GetStorageEquations
   
    enum, bind(C)
@@ -31,47 +33,25 @@ module StorageClass
          procedure   :: Construct => Statistics_Construct
          procedure   :: Destruct  => Statistics_Destruct
    end type Statistics_t
-!  
-!  Class for storing variables in the whole domain
-!  ***********************************************
-   type Storage_t
-      integer                                    :: NDOF
-      real(kind=RP),                 pointer     :: Q(:)
-      real(kind=RP),                 pointer     :: QDot(:)
-      real(kind=RP),                 pointer     :: PrevQ(:,:)
-#if defined(NAVIERSTOKES) || defined(INCNS)
-      real(kind=RP), dimension(:)  , allocatable :: QdotNS
-      real(kind=RP), dimension(:)  , allocatable :: QNS
-      real(kind=RP), dimension(:,:), allocatable :: PrevQNS ! Previous solution(s) in the whole domain
-#endif
-#if defined(CAHNHILLIARD)
-      real(kind=RP), dimension(:)  , allocatable :: cDot
-      real(kind=RP), dimension(:)  , allocatable :: c
-      real(kind=RP), dimension(:,:), allocatable :: Prevc(:,:)
-#endif      
-      contains
-         procedure :: Construct => Storage_Construct
-         procedure :: Destruct  => Storage_Destruct
-   end type Storage_t
+   
 !  
 !  Class for pointing to previous solutions in an element
 !  ******************************************************
    type ElementPrevSol_t
 #if defined(NAVIERSTOKES) || defined(INCNS)
-      real(kind=RP), dimension(:,:,:,:),  pointer     :: QNS
+      real(kind=RP), dimension(:,:,:,:),  allocatable     :: QNS
 #endif
 #if defined(CAHNHILLIARD)
-      real(kind=RP), dimension(:,:,:,:),  pointer     :: c
+      real(kind=RP), dimension(:,:,:,:),  allocatable     :: c
 #endif
    end type ElementPrevSol_t
 !  
 !  Class for storing variables element-wise
-!     (Q and Qdot are not owned by ElementStorage_t) 
 !  ****************************************
    type ElementStorage_t
       integer                                         :: currentlyLoaded
       integer                                         :: NDOF              ! Number of degrees of freedom of element
-      integer                                         :: firstIdx          ! Position in the global solution array
+      integer                                         :: Nxyz(NDIM)
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q           ! Pointers to the appropriate storage (NS or CH)
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: QDot        !
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_x         !
@@ -79,8 +59,8 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_z         !
       type(ElementPrevSol_t),  allocatable :: PrevQ(:)           ! Previous solution
 #if defined(NAVIERSTOKES) || defined(INCNS)
-      real(kind=RP),           pointer    , contiguous :: QNS(:,:,:,:)         ! NSE State vector
-      real(kind=RP), private,  pointer    , contiguous :: QDotNS(:,:,:,:)      ! NSE State vector time derivative
+      real(kind=RP),           allocatable :: QNS(:,:,:,:)         ! NSE State vector
+      real(kind=RP), private,  allocatable :: QDotNS(:,:,:,:)      ! NSE State vector time derivative
       real(kind=RP), private,  allocatable :: U_xNS(:,:,:,:)       ! NSE x-gradients
       real(kind=RP), private,  allocatable :: U_yNS(:,:,:,:)       ! NSE y-gradients
       real(kind=RP), private,  allocatable :: U_zNS(:,:,:,:)       ! NSE z-gradients
@@ -108,8 +88,8 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_le  ! LEFT
 #endif
 #if defined(CAHNHILLIARD)
-      real(kind=RP), dimension(:,:,:,:),   pointer    , contiguous :: c     ! CHE concentration
-      real(kind=RP), dimension(:,:,:,:),   pointer    , contiguous :: cDot  ! CHE concentration time derivative
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: c     ! CHE concentration
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: cDot  ! CHE concentration time derivative
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c_x   ! CHE concentration x-gradient
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c_y   ! CHE concentration y-gradient
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c_z   ! CHE concentration z-gradient
@@ -121,10 +101,12 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),   allocatable :: G_CH  ! CHE auxiliar storage   
 #endif
       contains
-         procedure   :: Assign            => ElementStorage_Assign
-         generic     :: assignment(=)     => Assign
-         procedure   :: Construct         => ElementStorage_Construct
-         procedure   :: Destruct          => ElementStorage_Destruct
+         procedure   :: Assign              => ElementStorage_Assign
+         generic     :: assignment(=)       => Assign
+         procedure   :: Construct           => ElementStorage_Construct
+         procedure   :: Destruct            => ElementStorage_Destruct
+         procedure   :: InterpolateSolution => ElementStorage_InterpolateSolution
+         procedure   :: PointStorage        => ElementStorage_PointStorage
 #if defined(NAVIERSTOKES) || defined(INCNS)
          procedure   :: SetStorageToNS    => ElementStorage_SetStorageToNS
 #endif
@@ -133,6 +115,43 @@ module StorageClass
          procedure   :: SetStorageToCH_mu => ElementStorage_SetStorageToCH_mu
 #endif
    end type ElementStorage_t
+   
+!  
+!  Class for storing variables in the whole domain
+!  ***********************************************
+   type SolutionStorage_t
+      integer                                    :: NDOF
+      logical                                    :: AdaptedQ     = .FALSE.
+      logical                                    :: AdaptedQdot  = .FALSE.
+      logical                                    :: AdaptedPrevQ = .FALSE.
+      integer                                    :: prevSol_num    = 0
+      integer                      , allocatable :: prevSol_index(:)           ! Indexes for the previous solutions
+      
+      type(ElementStorage_t)       , allocatable :: elements(:)
+      real(kind=RP),                 pointer     :: Q(:)
+      real(kind=RP),                 pointer     :: QDot(:)
+      real(kind=RP),                 pointer     :: PrevQ(:,:)
+#if defined(NAVIERSTOKES) || defined(INCNS)
+      real(kind=RP), dimension(:)  , allocatable :: QdotNS
+      real(kind=RP), dimension(:)  , allocatable :: QNS
+      real(kind=RP), dimension(:,:), allocatable :: PrevQNS ! Previous solution(s) in the whole domain
+#endif
+#if defined(CAHNHILLIARD)
+      real(kind=RP), dimension(:)  , allocatable :: cDot
+      real(kind=RP), dimension(:)  , allocatable :: c
+      real(kind=RP), dimension(:,:), allocatable :: Prevc(:,:)
+#endif      
+      contains
+         procedure :: construct        => SolutionStorage_Construct
+         procedure :: local2GlobalQ    => SolutionStorage_local2GlobalQ
+         procedure :: local2GlobalQdot => SolutionStorage_local2GlobalQdot
+         procedure :: SetGlobalPrevQ   => SolutionStorage_SetGlobalPrevQ
+         procedure :: global2LocalQ    => SolutionStorage_global2LocalQ
+         procedure :: global2LocalQdot => SolutionStorage_global2LocalQdot
+         procedure :: Destruct         => SolutionStorage_Destruct
+         procedure :: SignalAdaptation => SolutionStorage_SignalAdaptation
+         procedure :: PointStorage     => SolutionStorage_PointStorage
+   end type SolutionStorage_t
 !  
 !  Class for storing variables in the faces
 !  ****************************************
@@ -184,63 +203,377 @@ module StorageClass
 !  ========
 !
 !
-!///////////////////////////////////////////////////////////////////////////////////////////
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !           Global Storage procedures
 !           --------------------------
 !
-!///////////////////////////////////////////////////////////////////////////////////////////
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Storage_Construct(self, NDOF, bdf_order)
+!     -------------------------------------------------------
+!     The global solution arrays are only allocated if needed
+!     -------------------------------------------------------
+      pure subroutine SolutionStorage_Construct(self, NDOF, Nx, Ny, Nz, computeGradients, prevSol_num)
+         implicit none
+         !-arguments---------------------------------------------
+         class(SolutionStorage_t), target, intent(inout) :: self
+         integer                 , intent(in)    :: NDOF
+         integer, dimension(:)   , intent(in)    :: Nx, Ny, Nz
+         logical                 , intent(in)    :: computeGradients                   !<  Compute gradients?
+         integer, optional       , intent(in)    :: prevSol_num
+         !-local-variables---------------------------------------
+         integer :: k
+         !-------------------------------------------------------
+         
+         self % NDOF = NDOF
+         
+         if ( present(prevSol_num) ) then 
+            if ( prevSol_num > 0 ) then
+               self % prevSol_num = prevSol_num
+               allocate ( self % prevSol_index(prevSol_num) )
+               self % prevSol_index = (/ (k, k=1, prevSol_num) /)
+#if defined(NAVIERSTOKES)
+               allocate ( self % PrevQNS(NCONS*NDOF, prevSol_num) )
+               self % PrevQ    => self % PrevQNS
+#elif defined(INCNS)
+               allocate ( self % PrevQNS(NINC*NDOF, prevSol_num) )
+               self % PrevQ    => self % PrevQNS
+#endif
+#if defined(CAHNHILLIARD)
+               allocate ( self % Prevc  (NCOMP*NDOF, prevSol_num) )
+               self % PrevQ    => self % Prevc
+#endif
+            end if
+            if ( prevSol_num >= 0 ) then
+#if defined(NAVIERSTOKES)
+               allocate ( self % QNS   (NCONS*NDOF) )
+               allocate ( self % QdotNS(NCONS*NDOF) )
+               self % Q    => self % QNS
+               self % Qdot => self % QdotNS
+#elif defined(INCNS)
+               allocate ( self % QNS   (NINC*NDOF) )
+               allocate ( self % QdotNS(NINC*NDOF) )
+               self % Q    => self % QNS
+               self % Qdot => self % QdotNS
+#endif
+#if defined(CAHNHILLIARD)
+               allocate ( self % c     (NCOMP*NDOF) )
+               allocate ( self % cDot  (NCOMP*NDOF) )
+               self % Q    => self % c
+               self % Qdot => self % cDot
+#endif
+            end if
+         end if
+         
+         allocate (self % elements(size(Nx)) )
+         call self % elements % construct( Nx, Ny, Nz, computeGradients, prevSol_num)
+         
+      end subroutine SolutionStorage_Construct
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     --------------------------------------------
+!     Load the local solutions into a global array
+!     --------------------------------------------
+      pure subroutine SolutionStorage_local2GlobalQ(self, NDOF)
          implicit none
          !----------------------------------------------
-         class(Storage_t), target    :: self
-         integer, intent(in) :: NDOF
-         integer, intent(in) :: bdf_order
+         class(SolutionStorage_t), target, intent(inout) :: self
+         integer                 , intent(in)    :: NDOF
          !----------------------------------------------
-      
+         integer :: firstIdx, lastIdx, eID
+         !----------------------------------------------
+         
+!        Allocate storage
+!        ****************
+#if defined(NAVIERSTOKES)
+         if (self % AdaptedQ .or. (.not. allocated(self % QNS) ) ) then
+            self % NDOF = NDOF
+            safedeallocate (self % QNS   )
+            allocate ( self % QNS   (NCONS*NDOF) )
+            
+            self % AdaptedQ = .FALSE.
+         end if
+#elif defined(INCNS)
+         if (self % AdaptedQ .or. (.not. allocated(self % QNS) ) ) then
+            self % NDOF = NDOF
+            safedeallocate (self % QNS   )
+            allocate ( self % QNS   (NINC*NDOF) )
+            
+            self % AdaptedQ = .FALSE.
+         end if
+#endif
+#if defined(CAHNHILLIARD)
+         if (self % AdaptedQ .or. (.not. allocated(self % c) ) ) then
+            self % NDOF = NDOF
+            safedeallocate (self % c)
+            allocate ( self % c(NCOMP*NDOF) )
+            
+            self % AdaptedQ = .FALSE.
+         end if
+#endif
+!
+!        Load solution
+!        *************
+         
+#if defined(NAVIERSTOKES)
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
+            self % QNS (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % QNS , (/ self % elements(eID) % NDOF *NCONS /) )
+            firstIdx = lastIdx
+         end do
+#elif defined(INCNS)
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * NINC
+            self % QNS (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % QNS , (/ self % elements(eID) % NDOF *NINC /) )
+            firstIdx = lastIdx
+         end do
+#endif
+#if defined(CAHNHILLIARD)
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * NCOMP
+            self % c (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % c , (/ self % elements(eID) % NDOF *NCOMP /) )
+            firstIdx = lastIdx
+         end do
+#endif
+         
+      end subroutine SolutionStorage_local2GlobalQ
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ---------------------------------------
+!     Load the local Qdot into a global array
+!     ---------------------------------------
+      pure subroutine SolutionStorage_local2GlobalQdot(self, NDOF)
+         implicit none
+         !----------------------------------------------
+         class(SolutionStorage_t), target, intent(inout) :: self
+         integer                 , intent(in)    :: NDOF
+         !----------------------------------------------
+         integer :: firstIdx, lastIdx, eID
+         !----------------------------------------------
+         
          self % NDOF = NDOF
          
 #if defined(NAVIERSTOKES)
-         allocate ( self % QNS   (NCONS*NDOF) )
-         allocate ( self % QdotNS(NCONS*NDOF) )
-         
-         if (bdf_order /= 0) then
-            allocate ( self % PrevQNS (NCONS*NDOF,bdf_order) )
+         if (self % AdaptedQdot .or. (.not. allocated(self % QdotNS) ) ) then
+            safedeallocate (self % QdotNS)
+            allocate ( self % QdotNS(NCONS*NDOF) )
          end if
-
-         self % Q => self % QNS
-         self % QDot => self % QDotNS
-         self % PrevQ => self % PrevQNS
-
 #elif defined(INCNS)
-         allocate ( self % QNS   (NINC*NDOF) )
-         allocate ( self % QdotNS(NINC*NDOF) )
-         
-         if (bdf_order /= 0) then
-            allocate ( self % PrevQNS (NINC*NDOF,bdf_order) )
+         if (self % AdaptedQdot .or. (.not. allocated(self % QdotNS) ) ) then
+            safedeallocate (self % QdotNS)
+            allocate ( self % QdotNS(NINC*NDOF) )
          end if
-
-         self % Q => self % QNS
-         self % QDot => self % QDotNS
-         self % PrevQ => self % PrevQNS
 #endif
 #if defined(CAHNHILLIARD)
-         allocate ( self % c(NCOMP*NDOF) )
-         allocate ( self % cDot(NCOMP*NDOF) )
-         
-         if (bdf_order /= 0) then
-            allocate ( self % PrevC (NCOMP*NDOF,bdf_order) )
+         if (self % AdaptedQdot .or. (.not. allocated(self % cDot) ) ) then
+            safedeallocate ( self % cDot )
+            allocate ( self % cDot(NCOMP*NDOF) )
          end if
 #endif
-      end subroutine Storage_Construct
+         self % AdaptedQdot = .FALSE.
+         
+!
+!        Load solution
+!        *************
+         
+#if defined(NAVIERSTOKES)
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
+            self % QdotNS (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % QdotNS , (/ self % elements(eID) % NDOF * NCONS/) )
+            firstIdx = lastIdx
+         end do
+#elif defined(INCNS)
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * NINC
+            self % QdotNS (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % QdotNS , (/ self % elements(eID) % NDOF * NINC /) )
+            firstIdx = lastIdx
+         end do
+#endif
+#if defined(CAHNHILLIARD)
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            lastIdx = firstIdx + self % elements(eID) % NDOF * NCOMP
+            self % cDot (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % cDot , (/ self % elements(eID) % NDOF * NCOMP /) )
+            firstIdx = lastIdx
+         end do
+#endif
+      end subroutine SolutionStorage_local2GlobalQdot
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     --------------------------------------------
+!     Load the local solutions into a global array
+!     --------------------------------------------
+      pure subroutine SolutionStorage_SetGlobalPrevQ(self, Q)
+         implicit none
+         !-arguments---------------------------------------------
+         class(SolutionStorage_t), target, intent(inout) :: self
+         real(kind=RP)                   , intent(in)    :: Q(:)
+         !-local-variables---------------------------------------
+         integer :: k, oldest_index
+         !-------------------------------------------------------
+         
+         if (self % prevSol_num < 1) return
+         
+!        Allocate global storage
+!        ***********************
+#if defined(NAVIERSTOKES)
+         if (self % AdaptedPrevQ .or. (.not. allocated(self % PrevQNS) ) ) then
+            safedeallocate (self % PrevQNS)
+            allocate ( self % PrevQNS (NCONS * self % NDOF, self % prevSol_num) )
+            
+            self % AdaptedPrevQ = .FALSE.
+            
+            ! TODO: Adapt previous solutions...
+         end if
+#elif defined(INCNS)
+         if (self % AdaptedPrevQ .or. (.not. allocated(self % PrevQNS) ) ) then
+            safedeallocate (self % PrevQNS)
+            allocate ( self % PrevQNS (NINC * self % NDOF, self % prevSol_num) )
+            
+            self % AdaptedPrevQ = .FALSE.
+            
+            ! TODO: Adapt previous solutions...
+         end if
+#endif
+#if defined(CAHNHILLIARD)
+         if (self % AdaptedPrevQ .or. (.not. allocated(self % PrevC) ) ) then
+            safedeallocate (self % PrevC)
+            allocate ( self % PrevC(NCOMP * self % NDOF, self % prevSol_num) )
+            
+            self % AdaptedPrevQ = .FALSE.
+            
+            ! TODO: Adapt previous solutions...
+         end if
+#endif
+         
+!
+!        Load solutions
+!        **************
+         
+         oldest_index = self % prevSol_index ( self % prevSol_num )
+         do k=self % prevSol_num, 2, -1
+            self % prevSol_index(k) = self % prevSol_index(k-1)
+         end do
+         self % prevSol_index(1) = oldest_index
+         
+         self % PrevQ (:,self % prevSol_index(1)) = Q
+         
+      end subroutine SolutionStorage_SetGlobalPrevQ
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      pure subroutine SolutionStorage_global2LocalQ(self)
+         implicit none
+         !----------------------------------------------
+         class(SolutionStorage_t), target, intent(inout)    :: self
+         !----------------------------------------------
+         integer :: firstIdx, lastIdx, eID
+         integer :: nEqn
+         !----------------------------------------------      
+         
+         ! Temporary only checking first element!
+         select case (self % elements(1) % currentlyLoaded)
+            case (NS)
+#if defined(NAVIERSTOKES)
+               nEqn = NCONS
+#elif defined(INCNS)
+               nEqn = NINC
+#endif
+            case (C,MU)
+#if defined(CAHNHILLIARD)
+               nEqn = NCOMP
+#endif
+         end select
+         
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            associate ( N => self % elements(eID) % Nxyz )
+            lastIdx = firstIdx + self % elements(eID) % NDOF * nEqn
+            self % elements(eID) % Q(1:nEqn,0:N(1),0:N(2),0:N(3)) = reshape ( self % Q (firstIdx:lastIdx-1) , (/ nEqn, N(1)+1, N(2)+1, N(3)+1/) )
+            firstIdx = lastIdx
+            end associate
+         end do
+         
+      end subroutine SolutionStorage_global2LocalQ
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      pure subroutine SolutionStorage_global2LocalQdot(self)
+         implicit none
+         !----------------------------------------------
+         class(SolutionStorage_t), target, intent(inout) :: self
+         !----------------------------------------------
+         integer :: firstIdx, lastIdx, eID
+         integer :: nEqn
+         !----------------------------------------------      
+         
+         ! Temporary only checking first element!
+         select case (self % elements(1) % currentlyLoaded)
+            case (NS)
+#if defined(NAVIERSTOKES)
+               nEqn = NCONS
+#elif defined(INCNS)
+               nEqn = NINC
+#endif
+            case (C,MU)
+#if defined(CAHNHILLIARD)
+               nEqn = NCOMP
+#endif
+         end select
+         
+         firstIdx = 1
+         do eID=1, size(self % elements)
+            associate ( N => self % elements(eID) % Nxyz )
+            lastIdx = firstIdx + self % elements(eID) % NDOF * nEqn
+            self % elements(eID) % Qdot(1:nEqn,0:N(1),0:N(2),0:N(3)) = reshape ( self % Qdot (firstIdx:lastIdx-1) , (/ nEqn, N(1)+1, N(2)+1, N(3)+1/) )
+            firstIdx = lastIdx
+            end associate
+         end do
+         
+      end subroutine SolutionStorage_global2LocalQdot
 !
 !/////////////////////////////////////////////////
 !
-      subroutine Storage_Destruct(self)
+      pure subroutine SolutionStorage_SignalAdaptation(self)
          implicit none
-         class(Storage_t)    :: self
-
+         class(SolutionStorage_t), intent(inout) :: self
+         
+         self % AdaptedQ     = .TRUE.
+         self % AdaptedQdot  = .TRUE.
+         self % AdaptedPrevQ = .TRUE.
+      end subroutine SolutionStorage_SignalAdaptation
+!
+!/////////////////////////////////////////////////
+!
+      pure subroutine SolutionStorage_PointStorage(self)
+         implicit none
+         class(SolutionStorage_t), intent(inout) :: self
+         
+         call self % elements % PointStorage()
+         
+      end subroutine SolutionStorage_PointStorage
+!
+!/////////////////////////////////////////////////
+!
+      pure subroutine SolutionStorage_Destruct(self)
+         implicit none
+         class(SolutionStorage_t), intent(inout) :: self
+         
+         self % prevSol_num = 0
+         self % AdaptedQ     = .FALSE.
+         self % AdaptedQdot  = .FALSE.
+         self % AdaptedPrevQ = .FALSE.
+         
+         safedeallocate(self % prevSol_index)
+         
 #if defined(NAVIERSTOKES) || defined(INCNS)
          safedeallocate(self % QNS)
          safedeallocate(self % QdotNS)
@@ -251,7 +584,13 @@ module StorageClass
          safedeallocate(self % cDot)
          safedeallocate(self % PrevC)
 #endif
-      end subroutine Storage_Destruct
+         
+         if ( allocated(self % elements) ) then
+            call self % elements % destruct
+            deallocate (self % elements)
+         end if
+         
+      end subroutine SolutionStorage_Destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -260,17 +599,15 @@ module StorageClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine ElementStorage_Construct(self, Nx, Ny, Nz, computeGradients,globalStorage,firstIdx)
+      elemental subroutine ElementStorage_Construct(self, Nx, Ny, Nz, computeGradients, prevSol_num)
          implicit none
          !------------------------------------------------------------
-         class(ElementStorage_t)     :: self                               !<> Storage to be constructed
-         integer        , intent(in) :: Nx, Ny, Nz                         !<  Polynomial orders in every direction
-         logical        , intent(in) :: computeGradients                   !<  Compute gradients?
-         type(Storage_t), intent(inout), target :: globalStorage    !<? Global storage to point to
-         integer        , intent(in)         :: firstIdx         !<? Position of the solution of the element in the global array
+         class(ElementStorage_t), intent(inout) :: self                               !<> Storage to be constructed
+         integer                , intent(in)    :: Nx, Ny, Nz                         !<  Polynomial orders in every direction
+         logical                , intent(in)    :: computeGradients                   !<  Compute gradients?
+         integer                , intent(in)    :: prevSol_num
          !------------------------------------------------------------
-         integer :: k, num_prevSol
-         integer :: bounds(2)
+         integer :: k
          integer :: NNS, NGRADNS
          !------------------------------------------------------------
 !
@@ -279,6 +616,7 @@ module StorageClass
 !        --------------------------------
 !
          self % NDOF = (Nx + 1) * (Ny + 1) * (Nz + 1)
+         self % Nxyz = [Nx, Ny, Nz]
 !
 !        ----------------
 !        Volume variables
@@ -295,16 +633,13 @@ module StorageClass
 #endif 
 
 #if defined(NAVIERSTOKES) || defined(INCNS)
-         bounds(1) = (firstIdx-1)*NNS + 1
-         bounds(2) = bounds(1) + NNS * self % NDOF - 1
-         self % QNS   (1:NNS,0:Nx,0:Ny,0:Nz) => globalStorage % QNS   (bounds(1) : bounds(2))
-         self % QdotNS(1:NNS,0:Nx,0:Ny,0:Nz) => globalStorage % QdotNS(bounds(1) : bounds(2))
+         allocate ( self % QNS   (1:NNS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % QdotNS(1:NNS,0:Nx,0:Ny,0:Nz) )
          ! Previous solution
-         if ( allocated(globalStorage % PrevQNS)) then
-            num_prevSol = size(globalStorage % PrevQ,2)
-            allocate ( self % PrevQ(num_prevSol) )
-            do k=1, num_prevSol
-               self % PrevQ(k) % QNS(1:NNS,0:Nx,0:Ny,0:Nz) => globalStorage % PrevQNS(bounds(1):bounds(2),k)
+         if ( prevSol_num /= 0 ) then
+            allocate ( self % PrevQ(prevSol_num) )
+            do k=1, prevSol_num
+               allocate ( self % PrevQ(k) % QNS(1:NNS,0:Nx,0:Ny,0:Nz) )
             end do
          end if
 
@@ -323,20 +658,17 @@ module StorageClass
 #endif
 
 #if defined(CAHNHILLIARD)
-         bounds(1) = (firstIdx-1)*NCOMP + 1
-         bounds(2) = bounds(1) + NCOMP * self % NDOF - 1
-         self % c   (1:NCOMP,0:Nx,0:Ny,0:Nz) => globalStorage % c   (bounds(1) : bounds(2))
-         self % cDot(1:NCOMP,0:Nx,0:Ny,0:Nz) => globalStorage % cDot(bounds(1) : bounds(2))
+         allocate ( self % c   (1:NCOMP,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % cDot(1:NCOMP,0:Nx,0:Ny,0:Nz) )
          ! Previous solution
-         if ( allocated(globalStorage % PrevC) ) then
-            num_prevSol = size(globalStorage % PrevC,2)
+         if ( prevSol_num /= 0 ) then
             if ( .not. allocated(self % PrevQ)) then
-               allocate ( self % PrevQ(num_prevSol) )
+               allocate ( self % PrevQ(prevSol_num) )
             end if
          end if
 
-         do k=1, num_prevSol
-            self % PrevQ(k) % c(1:NCOMP,0:Nx,0:Ny,0:Nz) => globalStorage % PrevC(bounds(1):bounds(2),k)
+         do k=1, prevSol_num
+            allocate ( self % PrevQ(k) % c(1:NCOMP,0:Nx,0:Ny,0:Nz) ) 
          end do
 
          allocate(self % c_x (NCOMP, 0:Nx, 0:Ny, 0:Nz))
@@ -388,8 +720,8 @@ module StorageClass
 !        ***********************************
 !
          implicit none
-         class(ElementStorage_t), intent(out) :: to
-         type(ElementStorage_t),  intent(in)  :: from
+         class(ElementStorage_t), intent(inout) :: to
+         type(ElementStorage_t),  intent(in)    :: from
 !
 !        Copy the storage
 !        ----------------
@@ -414,40 +746,47 @@ module StorageClass
          to % cDot = from % cDot
          to % G_CH = from % G_CH
 #endif
-
-         select case ( to % currentlyLoaded ) 
-         case (OFF)
-            to % Q    => NULL()
-            to % U_x  => NULL()
-            to % U_y  => NULL()
-            to % U_z  => NULL()
-            to % QDot => NULL()
-
-#if defined(NAVIERSTOKES) || defined(INCNS)
-         case (NS)
-            call to % SetStorageToNS   
-#endif
-#if defined(CAHNHILLIARD)
-         case (C)
-            call to % SetStorageToCH_c
-
-         case (MU)
-            call to % SetStorageToCH_mu
-#endif
-         end select
-
+         
+         call to % PointStorage()
+         
       end subroutine ElementStorage_Assign
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine ElementStorage_Destruct(self)
+      elemental subroutine ElementStorage_PointStorage (self)
          implicit none
-         class(ElementStorage_t) :: self
+         class(ElementStorage_t), intent(inout) :: self
+         
+         select case ( self % currentlyLoaded ) 
+            case (OFF)
+               self % Q    => NULL()
+               self % U_x  => NULL()
+               self % U_y  => NULL()
+               self % U_z  => NULL()
+               self % QDot => NULL()
+#if defined(NAVIERSTOKES) || defined(INCNS)
+            case (NS)
+               call self % SetStorageToNS   
+#endif
+#if defined(CAHNHILLIARD)
+            case (C)
+               call self % SetStorageToCH_c
+
+            case (MU)
+               call self % SetStorageToCH_mu
+#endif
+         end select
+      end subroutine ElementStorage_PointStorage
+!
+!///////////////////////////////////////////////////////////////////////////////////////////
+!
+      elemental subroutine ElementStorage_Destruct(self)
+         implicit none
+         class(ElementStorage_t), intent(inout) :: self
          integer                 :: num_prevSol, k
 
          self % currentlyLoaded = OFF
          self % NDOF = 0
-         self % firstIdx = -1
          
          self % Q => NULL()
          self % QDot => NULL()
@@ -456,16 +795,16 @@ module StorageClass
          self % U_z => NULL()
 
 #if defined(NAVIERSTOKES) || defined(INCNS)
-         self % QNS => NULL()
-         self % QDotNS => NULL()
+         safedeallocate(self % QNS)
+         safedeallocate(self % QDotNS)
          
-         if (allocated(self % PrevQ)) then
+         if ( allocated(self % PrevQ) ) then
             num_prevSol = size(self % PrevQ)
             do k=1, num_prevSol
-               nullify( self % PrevQ(k) % QNS )
+               safedeallocate( self % PrevQ(k) % QNS )
             end do
          end if
-
+         
          safedeallocate(self % G_NS)
          safedeallocate(self % S_NS)
          safedeallocate(self % U_xNS)
@@ -489,14 +828,16 @@ module StorageClass
          nullify ( self % dfdGradQ_le )
 #endif
 #if defined(CAHNHILLIARD)
-         self % c => NULL()
-         self % cDot => NULL()
-
-         num_prevSol = size(self % PrevQ)
-         do k=1, num_prevSol
-            nullify( self % PrevQ(k) % c )
-         end do
-
+         safedeallocate(self % c)
+         safedeallocate(self % cDot)
+         
+         if ( allocated(self % PrevQ) ) then
+            num_prevSol = size(self % PrevQ)
+            do k=1, num_prevSol
+               safedeallocate( self % PrevQ(k) % c )
+            end do
+         end if
+         
          safedeallocate(self % c_x)
          safedeallocate(self % c_y)
          safedeallocate(self % c_z)
@@ -511,7 +852,7 @@ module StorageClass
 
       end subroutine ElementStorage_Destruct
 #if defined(NAVIERSTOKES) || defined(INCNS)
-      subroutine ElementStorage_SetStorageToNS(self)
+      pure subroutine ElementStorage_SetStorageToNS(self)
 !
 !        *****************************************
 !        This subroutine selects the Navier-Stokes
@@ -519,7 +860,7 @@ module StorageClass
 !        *****************************************
 !
          implicit none
-         class(ElementStorage_t), target   :: self
+         class(ElementStorage_t), target, intent(inout) :: self
 
          self % currentlyLoaded = NS
          self % Q   (1:,0:,0:,0:) => self % QNS
@@ -531,7 +872,7 @@ module StorageClass
       end subroutine ElementStorage_SetStorageToNS
 #endif
 #if defined(CAHNHILLIARD)
-      subroutine ElementStorage_SetStorageToCH_c(self)
+      pure subroutine ElementStorage_SetStorageToCH_c(self)
 !
 !        *********************************************
 !        This subroutine selects the concentration as
@@ -539,7 +880,7 @@ module StorageClass
 !        *********************************************
 !
          implicit none
-         class(ElementStorage_t), target   :: self
+         class(ElementStorage_t), target, intent(inout) :: self
       
          self % currentlyLoaded = C
 !
@@ -553,7 +894,7 @@ module StorageClass
    
       end subroutine ElementStorage_SetStorageToCH_c
 
-      subroutine ElementStorage_SetStorageToCH_mu(self)
+      pure subroutine ElementStorage_SetStorageToCH_mu(self)
 !
 !        *************************************************
 !        This subroutine selects the chemical potential as
@@ -562,7 +903,7 @@ module StorageClass
 !        *************************************************
 !
          implicit none
-         class(ElementStorage_t), target   :: self
+         class(ElementStorage_t), target, intent(inout) :: self
 
          self % currentlyLoaded = MU
 
@@ -574,6 +915,81 @@ module StorageClass
    
       end subroutine ElementStorage_SetStorageToCH_mu
 #endif
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -----------------------------------------------
+!     Interpolate solution to another element storage
+!            this % Q  ->  other % Q
+!     -----------------------------------------------
+      impure elemental subroutine ElementStorage_InterpolateSolution(this,other,nodes,with_gradients)
+         implicit none
+         !-arguments----------------------------------------------
+         class(ElementStorage_t), intent(in)    :: this
+         type(ElementStorage_t) , intent(inout) :: other
+         integer                , intent(in)    :: nodes
+         logical, optional      , intent(in)    :: with_gradients
+         !-local-variables----------------------------------------
+         logical                       :: gradients
+         !--------------------------------------------------------
+#if defined(NAVIERSTOKES)
+         if ( present(with_gradients) ) then
+            gradients = with_gradients
+         else
+            gradients = .FALSE.
+         end if
+         
+         ! Copy the solution if the polynomial orders are the same, if not, interpolate
+         if (all(this % Nxyz == other % Nxyz)) then
+            other % Q = this % Q
+         else
+!$omp critical
+            call NodalStorage(this  % Nxyz(1)) % construct(nodes,this  % Nxyz(1))
+            call NodalStorage(this  % Nxyz(2)) % construct(nodes,this  % Nxyz(2))
+            call NodalStorage(this  % Nxyz(3)) % construct(nodes,this  % Nxyz(3))
+            call NodalStorage(other % Nxyz(1)) % construct(nodes,other % Nxyz(1))
+            call NodalStorage(other % Nxyz(2)) % construct(nodes,other % Nxyz(2))
+            call NodalStorage(other % Nxyz(3)) % construct(nodes,other % Nxyz(3))
+            !------------------------------------------------------------------
+            ! Construct the interpolation matrices in every direction if needed
+            !------------------------------------------------------------------
+            call Tset ( this % Nxyz(1), other % Nxyz(1) ) % construct ( this % Nxyz(1), other % Nxyz(1) )  ! Xi
+            call Tset ( this % Nxyz(2), other % Nxyz(2) ) % construct ( this % Nxyz(2), other % Nxyz(2) )  ! Eta
+            call Tset ( this % Nxyz(3), other % Nxyz(3) ) % construct ( this % Nxyz(3), other % Nxyz(3) )  ! Zeta
+!$omp end critical
+            
+            !---------------------------------------------
+            ! Interpolate solution to new solution storage
+            !---------------------------------------------
+            call Interp3DArrays  (Nvars      = NTOTALVARS   , &
+                                  Nin        = this  % Nxyz , &
+                                  inArray    = this  % Q    , &
+                                  Nout       = other % Nxyz , &
+                                  outArray   = other % Q    )
+            
+            if (gradients) then
+               call Interp3DArrays  (Nvars      = NTOTALGRADS  , &
+                                     Nin        = this % Nxyz  , &
+                                     inArray    = this % U_x   , &
+                                     Nout       = other % Nxyz , &
+                                     outArray   = other % U_x  )
+               
+               call Interp3DArrays  (Nvars      = NTOTALGRADS  , &
+                                     Nin        = this  % Nxyz , &
+                                     inArray    = this  % U_y  , &
+                                     Nout       = other % Nxyz , &
+                                     outArray   = other % U_y  )
+                                  
+               call Interp3DArrays  (Nvars      = NTOTALGRADS  , &
+                                     Nin        = this  % Nxyz , &
+                                     inArray    = this  % U_z  , &
+                                     Nout       = other % Nxyz , &
+                                     outArray   = other % U_z  )
+            end if
+            
+         end if
+#endif
+      end subroutine ElementStorage_InterpolateSolution
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -689,9 +1105,9 @@ module StorageClass
 
       end subroutine FaceStorage_Construct
 
-      subroutine FaceStorage_Destruct(self)
+      elemental subroutine FaceStorage_Destruct(self)
          implicit none
-         class(FaceStorage_t)     :: self
+         class(FaceStorage_t), intent(inout) :: self
    
          self % currentlyLoaded = OFF
 

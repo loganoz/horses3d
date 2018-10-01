@@ -94,7 +94,7 @@ Module MappedGeometryClass
       INTEGER       :: Nx, Ny, Nz, Nmax
       INTEGER       :: i, j, k
       REAL(KIND=RP) :: nrm
-      REAL(KIND=RP) :: grad_x(3,3), jGrad(3)
+      REAL(KIND=RP) :: grad_x(3,3), jGrad(3), x(3)
 !
 !     -----------
 !     Allocations
@@ -122,7 +122,8 @@ Module MappedGeometryClass
       DO k = 0, Nz
          DO j= 0, Ny       
             DO i = 0,Nx 
-               self % x(:,i,j,k) = mapper %  transfiniteMapAt([spAxi % x(i), spAeta % x(j), spAzeta % x(k)])
+               x = [spAxi % x(i), spAeta % x(j), spAzeta % x(k)]
+               self % x(:,i,j,k) = mapper %  transfiniteMapAt(x)
             END DO
          END DO
       END DO
@@ -154,16 +155,17 @@ Module MappedGeometryClass
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE DestructMappedGeometry(self)
+      pure SUBROUTINE DestructMappedGeometry(self)
          IMPLICIT NONE 
-         CLASS(MappedGeometry) :: self
-         safedeallocate( self % jGradXi     )
-         safedeallocate( self % jGradEta    )
-         safedeallocate( self % jGradZeta   )
-         safedeallocate( self % jacobian    )
-         safedeallocate( self % invJacobian )
-         safedeallocate( self % x           )
-         safedeallocate( self % dWall       )
+         CLASS(MappedGeometry), intent(inout) :: self
+         
+         safedeallocate( self % jGradXi     ) 
+         safedeallocate( self % jGradEta    ) 
+         safedeallocate( self % jGradZeta   ) 
+         safedeallocate( self % jacobian    ) 
+         safedeallocate( self % invJacobian ) 
+         safedeallocate( self % x           ) 
+         safedeallocate( self % dWall       ) 
       END SUBROUTINE DestructMappedGeometry
 !
 !////////////////////////////////////////////////////////////////////////
@@ -197,14 +199,14 @@ Module MappedGeometryClass
          real(kind=RP)  :: Ja2CGL(NDIM,0:self % Nx, 0:self % Ny, 0:self % Nz)
          real(kind=RP)  :: Ja3CGL(NDIM,0:self % Nx, 0:self % Ny, 0:self % Nz)
          real(kind=RP)  :: JacobianCGL(0:self % Nx, 0:self % Ny, 0:self % Nz)
+         real(kind=RP)  :: x(3)
 !
 !        Compute the mapping gradient in Chebyshev-Gauss-Lobatto points
 !        --------------------------------------------------------------
          do k = 0, self % Nz ; do j = 0, self % Ny  ; do i = 0, self % Nx
-            xCGL(:,i,j,k) = mapper % transfiniteMapAt([spAxi % xCGL(i), spAeta % xCGL(j), &
-                                                       spAzeta % xCGL(k)])
-            grad_x(:,:,i,j,k) = mapper % metricDerivativesAt([spAxi % xCGL(i), spAeta % xCGL(j), &
-                                                              spAzeta % xCGL(k)])
+            x = [spAxi % xCGL(i), spAeta % xCGL(j), spAzeta % xCGL(k)]
+            xCGL(:,i,j,k) = mapper % transfiniteMapAt(x)
+            grad_x(:,:,i,j,k) = mapper % metricDerivativesAt(x)
          end do         ; end do          ; end do
 !
 !        *****************************************
@@ -508,6 +510,7 @@ Module MappedGeometryClass
       real(kind=RP)  :: GradXiRot  (NDIM,0:Nelf(1),0:Nelf(2))
       real(kind=RP)  :: GradEtaRot (NDIM,0:Nelf(1),0:Nelf(2))
       real(kind=RP)  :: GradZetaRot(NDIM,0:Nelf(1),0:Nelf(2))
+      real(kind=RP)  :: x(3)
 
       allocate( self % jacobian(0:Nf(1), 0:Nf(2)))
       allocate( self % x       (NDIM, 0:Nf(1), 0:Nf(2)))
@@ -530,7 +533,8 @@ Module MappedGeometryClass
 !           --------------------
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([-1.0_RP, xi, eta])
+               x = [-1.0_RP, xi, eta]
+               self % x(:,i,j) = hexMap % transfiniteMapAt(x)
             end do ; end do
 !
 !           Get surface Jacobian and normal vector
@@ -552,7 +556,8 @@ Module MappedGeometryClass
 !           --------------------
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([ 1.0_RP, xi, eta ])
+               x = [ 1.0_RP, xi, eta ]
+               self % x(:,i,j) = hexMap % transfiniteMapAt(x)
             end do ; end do
 !
 !           Get surface Jacobian and normal vector
@@ -567,7 +572,8 @@ Module MappedGeometryClass
          case(EBOTTOM)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([xi, eta,-1.0_RP])
+               x = [xi, eta,-1.0_RP]
+               self % x(:,i,j) = hexMap % transfiniteMapAt(x)
             end do ; end do
 !
 !           Get surface Jacobian and normal vector
@@ -586,7 +592,8 @@ Module MappedGeometryClass
          case(ETOP)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([xi, eta, 1.0_RP])
+               x = [xi, eta, 1.0_RP]
+               self % x(:,i,j) = hexMap % transfiniteMapAt(x)
             end do ; end do
 !
 !           Get surface Jacobian and normal vector
@@ -601,7 +608,8 @@ Module MappedGeometryClass
          case(EFRONT)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([xi, -1.0_RP, eta])
+               x = [xi, -1.0_RP, eta]
+               self % x(:,i,j) = hexMap % transfiniteMapAt(x)
             end do ; end do
 !
 !           Get surface Jacobian and normal vector
@@ -620,7 +628,8 @@ Module MappedGeometryClass
          case(EBACK)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
-               self % x(:,i,j) = hexMap % transfiniteMapAt([xi, 1.0_RP, eta])
+               x = [xi, 1.0_RP, eta]
+               self % x(:,i,j) = hexMap % transfiniteMapAt(x)
             end do ; end do
 !
 !           Get surface Jacobian and normal vector
@@ -751,7 +760,7 @@ Module MappedGeometryClass
 !
 !//////////////////////////////////////////////////////////////////////// 
 !
-      subroutine DestructMappedGeometryFace(self)
+      pure subroutine DestructMappedGeometryFace(self)
          implicit none
          !-------------------------------------------------------------------
          class(MappedGeometryFace), intent(inout) :: self
@@ -759,6 +768,9 @@ Module MappedGeometryClass
          
          safedeallocate(self % x        ) 
          safedeallocate(self % jacobian ) 
+         safedeallocate(self % GradXi   )
+         safedeallocate(self % GradEta  )
+         safedeallocate(self % GradZeta )
          safedeallocate(self % normal   ) 
          safedeallocate(self % t1       ) 
          safedeallocate(self % t2       ) 

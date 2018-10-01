@@ -4,9 +4,9 @@
 !   @File:    IMEXMethods.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date: Wed Jul 25 17:15:42 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
+!   @Last revision date: Mon Aug 20 17:10:12 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
 !
 !//////////////////////////////////////////////////////
 !
@@ -139,7 +139,9 @@ MODULE IMEXMethods
 !
 !     Return the computed state vector to storage
 !     -------------------------------------------
-      call sem % SetQ(linsolver % x, NCOMP)
+      call sem % mesh % storage % local2GlobalQ (sem % NDOF)
+      sem % mesh % storage % Q = linsolver % x
+      call sem % mesh % storage % global2LocalQ
 #endif
 
 #if (!defined(NAVIERSTOKES))
@@ -271,7 +273,8 @@ MODULE IMEXMethods
 !
 !     Return the computed state vector to storage
 !     -------------------------------------------
-      call sem % SetQ(linsolver % x, NCOMP)
+      sem % mesh % storage % Q = linsolver % x
+      call sem % mesh % storage % global2LocalQ
 !
 !     Return NS as main storage
 !     -------------------------

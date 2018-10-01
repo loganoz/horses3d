@@ -1,4 +1,16 @@
 !
+!//////////////////////////////////////////////////////
+!
+!   @File:    ConnectivityClass.f90
+!   @Author:  Gonzalo Rubio Calzado (g.rubio@upm.es)
+!   @Created: Thu Oct  25 13:27:17 2012
+!   @Last revision date: Thu Aug 16 16:15:29 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
+!
+!//////////////////////////////////////////////////////
+!
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      ConnectivityClass.f90
@@ -42,7 +54,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      elemental subroutine DestructConnectivity( this )
+      elemental SUBROUTINE DestructConnectivity( this )
          IMPLICIT NONE
          CLASS(Connectivity), intent(inout) :: this
          

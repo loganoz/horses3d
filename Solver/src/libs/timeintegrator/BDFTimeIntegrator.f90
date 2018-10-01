@@ -18,6 +18,7 @@ MODULE BDFTimeIntegrator
    use TimeIntegratorDefinitions
    use MatrixClass
    use DGSEMClass
+   use StorageClass              , only: SolutionStorage_t
    implicit none
    
    PRIVATE                          
@@ -201,16 +202,17 @@ contains
       ! 
       !**************************
       
+      call sem % mesh % storage % local2GlobalQ(sem % NDOF)
 !
 !     ********************
 !     Sub-time-step solver
 !     ********************
       do
          
-!        Set previous solution for inner timne-step
-!        ------------------------------------------
+!        Set previous solution for inner time-step
+!        -----------------------------------------
          
-         call BDF_SetPreviousSolution(sem % mesh % storage % PrevQ, sem % mesh % storage % Q)
+         call BDF_SetPreviousSolution(sem % mesh % storage)
          
 !        Perform Newton interative procedure
 !        -----------------------------------
@@ -275,7 +277,7 @@ contains
                inner_dt = inner_dt / 2._RP
                IF (this % JacByConv)  CALL this % linsolver % ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
                
-               sem % mesh % storage % Q = sem % mesh % storage % PrevQ(:,1)  ! restores Q in sem to begin a new newton iteration
+               sem % mesh % storage % Q = sem % mesh % storage % PrevQ(:, sem % mesh % storage % prevSol_index(1))  ! restores Q in sem to begin a new newton iteration
                  
                IF (PRINT_NEWTON_INFO) WRITE(*,*) "Newton loop did not converge, trying a smaller dt = ", inner_dt
                
@@ -304,6 +306,9 @@ contains
       !**************************
       
 !~       IF (MAXVAL(maxResidual) > sem % maxResidual) computeA = .TRUE.
+      
+      call sem % mesh % storage % global2LocalQ
+      call sem % mesh % storage % global2LocalQdot
       
    END SUBROUTINE TakeBDFStep
 !
@@ -350,7 +355,7 @@ contains
       ConvRate = 1.0_RP
    
       IF (PRINT_NEWTON_INFO) THEN
-         PRINT*, "Newton it     Newton abs_err   Newton rel_err   LinSolverErr   # ksp iter   Iter wall time (s)"
+         WRITE(*, "(A9,1X,A18,1X,A18,1X,A15,1X,A12,1X,A18)") "Newton it", "Newton abs_err", "Newton rel_err", "LinSolverErr", "# ksp iter", "Iter wall time (s)"
       END IF
       
       CALL SYSTEM_CLOCK(COUNT_RATE=clrate)
@@ -388,7 +393,7 @@ contains
             rel_tol = norm1 * NEWTON_TOLERANCE
          ENDIF
          IF (PRINT_NEWTON_INFO) THEN
-            WRITE(*, "(I8,1p,E18.3,E18.3,E15.3,I10,F18.5)")newtonit, norm, norm/norm1, linsolver%Getrnorm(),&
+            WRITE(*, "(I9,1X,E18.3,1X,E18.3,1X,E15.3,1X,I12,1X,F18.5)")newtonit, norm, norm/norm1, linsolver%Getrnorm(),&
                                                       linsolver%niter,0.1_RP*(clf-cli)/real(clrate,RP)  !!!! I have NO IDEA why I have to multiply by 0.1!!!
          ENDIF
          
@@ -405,14 +410,14 @@ contains
          
       ENDDO
    
-   END SUBROUTINE
+   END SUBROUTINE NewtonSolve
 !  
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )
       implicit none
       !----------------------------------------------------------------
-      TYPE(DGSem),                INTENT(IN)       :: sem
+      TYPE(DGSem),                INTENT(inout)    :: sem
       REAL(KIND=RP),              INTENT(IN)       :: t
       REAL(KIND=RP),              INTENT(IN)       :: dt
       CLASS(GenericLinSolver_t),  INTENT (INOUT)   :: linsolver
@@ -420,14 +425,14 @@ contains
       !----------------------------------------------------------------
       INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, elmnt, counter   
       REAL(KIND=RP)                                :: value
-      real(kind=RP)  :: RHS(NTOTALVARS*sem % NDOF), maxQ, maxPrevQ, maxQdot, maxRHS
+      real(kind=RP)  :: RHS(NTOTALVARS*sem % NDOF)
       !----------------------------------------------------------------
       
+      call sem % mesh % storage % global2LocalQ
       call ComputeTimeDerivative( sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
+      call sem % mesh % storage % local2GlobalQdot(sem % NDOF)
       
-      RHS = BDF_GetRHS(Q     = sem % mesh % storage % Q, &
-                       PrevQ = sem % mesh % storage % PrevQ, &
-                       Qdot  = sem % mesh % storage % Qdot, dt = dt)
+      RHS = BDF_GetRHS(sem % mesh % storage, dt)
       
       do i=1, sem % NDOF * NTOTALVARS                                ! TODO: Use SetRHS!!
          CALL linsolver % SetRHSValue(i-1, RHS(i))
@@ -437,32 +442,14 @@ contains
    END SUBROUTINE ComputeRHS
 !  
 !/////////////////////////////////////////////////////////////////////////////////////////////////
-!  TODO: use GetX
+!  
    SUBROUTINE UpdateNewtonSol(sem, linsolver)
 
       TYPE(DGSem),                     INTENT(INOUT)    :: sem
       CLASS(GenericLinSolver_t),       INTENT(INOUT)    :: linsolver
-
-      REAL(KIND=RP)                                     :: value
-      INTEGER                                           :: Nx, Ny, Nz, l, i, j, k, counter, elm
       
-      counter = 0
-      DO elm = 1, size(sem % mesh % elements)
-         Nx = sem%mesh%elements(elm)%Nxyz(1)
-         Ny = sem%mesh%elements(elm)%Nxyz(2)
-         Nz = sem%mesh%elements(elm)%Nxyz(3)
-         DO k = 0, Nz
-            DO j = 0, Ny
-               DO i = 0, Nx
-                  DO l = 1, NTOTALVARS
-                     CALL linsolver%GetXValue(counter,value)
-                     sem%mesh%elements(elm)% storage % Q(l,i,j,k) = sem%mesh%elements(elm)% storage % Q(l,i,j,k) + value
-                     counter =  counter + 1
-                  END DO    
-               END DO
-            END DO
-         END DO
-      END DO
+      sem % mesh % storage % Q = sem % mesh % storage % Q  + linsolver % GetX()
+      
    END SUBROUTINE UpdateNewtonSol
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
@@ -517,11 +504,10 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine BDF_SetPreviousSolution(PrevQ,Q,NotANewStep)
+   subroutine BDF_SetPreviousSolution(storage,NotANewStep)
       implicit none
       !------------------------------------------------------
-      real(kind=RP)     :: PrevQ(:,:)
-      real(kind=RP)     :: Q(:)
+      type(SolutionStorage_t), intent(inout) :: storage
       logical, optional :: NotANewStep
       !------------------------------------------------------
       integer :: i      ! Counter
@@ -535,12 +521,7 @@ contains
       
       order = min(StepsTaken, bdf_order)
       
-      do i=Order, 2, -1                   ! TODO: Don't shift the array.. Just store the last solution on top of the oldest... And store indexes!
-         PrevQ(:,i) = PrevQ(:,i-1)
-      end do
-      
-      PrevQ(:,1) = Q
-      
+      call storage % SetGlobalPrevQ(storage % Q)
    end subroutine BDF_SetPreviousSolution
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -558,14 +539,12 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   function BDF_GetRHS(Q,PrevQ,Qdot,dt) result(RHS)
+   function BDF_GetRHS(storage,dt) result(RHS)
       implicit none
       !------------------------------------------------------
-      real(kind=RP), intent(in)  :: Q(:)
-      real(kind=RP), intent(in)  :: PrevQ(:,:)
-      real(kind=RP), intent(in)  :: Qdot(:)
-      real(kind=RP), intent(in)  :: dt
-      real(kind=RP)              :: RHS(size(Q))
+      type(SolutionStorage_t), intent(in) :: storage
+      real(kind=RP)          , intent(in) :: dt
+      real(kind=RP)                       :: RHS(size(storage % Q))
       !------------------------------------------------------
       integer :: k
       real(kind=RP) :: invdt
@@ -573,10 +552,10 @@ contains
       
       invdt = 1._RP/dt
       
-      RHS = Q * BDFCoeff(1,order)*invdt - Qdot
+      RHS = storage % Q * BDFCoeff(1,order)*invdt - storage % Qdot
       
       do k=1, order
-         RHS = RHS + BDFCoeff(k+1,order) * PrevQ(:,k) * invdt
+         RHS = RHS + BDFCoeff(k+1,order) * storage % PrevQ(:,storage % prevSol_index(k)) * invdt
       end do
       
    end function BDF_GetRHS

@@ -1,4 +1,4 @@
-#if defined(NAVIERSTOKES)
+#include "Includes.h"
 module SurfaceMonitorClass
    use SMConstants
    use HexMeshClass
@@ -6,9 +6,11 @@ module SurfaceMonitorClass
    use PhysicsStorage
    use MPI_Process_Info
    use FluidData
-   use FileReadingUtilities, only: getArrayFromString
-#include "Includes.h"
-   
+   use FileReadingUtilities, only: getRealArrayFromString
+   implicit none
+
+
+#if defined(NAVIERSTOKES)   
    private
    public   SurfaceMonitor_t
 
@@ -36,6 +38,9 @@ module SurfaceMonitorClass
          procedure   :: WriteLabel     => SurfaceMonitor_WriteLabel
          procedure   :: WriteValues    => SurfaceMonitor_WriteValue
          procedure   :: WriteToFile    => SurfaceMonitor_WriteToFile
+         procedure   :: destruct       => SurfaceMonitor_Destruct
+         procedure   :: copy           => SurfaceMonitor_Assign
+         generic     :: assignment(=)  => copy
    end type SurfaceMonitor_t
 
    contains
@@ -90,11 +95,11 @@ module SurfaceMonitorClass
          write(in_label , '(A,I0)') "#define surface monitor " , self % ID
          
          call get_command_argument(1, paramFile)
-         call readValueInRegion ( trim ( paramFile )  , "Name"              , self % monitorName      , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "Marker"            , markerName              , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "Variable"          , self % variable         , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "Reference surface" , self % referenceSurface , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "Direction"         , directionName        , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "name"              , self % monitorName      , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "marker"            , markerName              , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "variable"          , self % variable         , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "reference surface" , self % referenceSurface , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "direction"         , directionName        , in_label , "# end" ) 
 !
 !        Enable the monitor
 !        ------------------
@@ -137,7 +142,7 @@ module SurfaceMonitorClass
                   stop "Stopped"
 
                else
-                  directionValue = getArrayFromString(directionName)
+                  directionValue = getRealArrayFromString(directionName)
                   if ( size(directionValue) .ne. 3 ) then
                      print*, "Incorrect direction for monitor ", self % ID, "."
    
@@ -154,7 +159,7 @@ module SurfaceMonitorClass
                   stop "Stopped"
 
                else
-                  directionValue = getArrayFromString(directionName)
+                  directionValue = getRealArrayFromString(directionName)
                   if ( size(directionValue) .ne. 3 ) then
                      print*, "Incorrect direction for monitor ", self % ID, "."
    
@@ -172,7 +177,7 @@ module SurfaceMonitorClass
                   stop "Stopped"
 
                else
-                  directionValue = getArrayFromString(directionName)
+                  directionValue = getRealArrayFromString(directionName)
                   if ( size(directionValue) .ne. 3 ) then
                      print*, "Incorrect direction for monitor ", self % ID, "."
    
@@ -197,7 +202,7 @@ module SurfaceMonitorClass
                   self % direction = [0._RP,1._RP,0._RP]
 
                else
-                  directionValue = getArrayFromString(directionName)
+                  directionValue = getRealArrayFromString(directionName)
                   if ( size(directionValue) .ne. 3 ) then
                      print*, "Incorrect direction for monitor ", self % ID, "."
    
@@ -223,7 +228,7 @@ module SurfaceMonitorClass
                   self % direction = [1._RP,0._RP,0._RP]
 
                else
-                  directionValue = getArrayFromString(directionName)
+                  directionValue = getRealArrayFromString(directionName)
                   if ( size(directionValue) .ne. 3 ) then
                      print*, "Incorrect direction for monitor ", self % ID, "."
    
@@ -410,5 +415,45 @@ module SurfaceMonitorClass
       
       end subroutine SurfaceMonitor_WriteToFile
 !
+      elemental subroutine SurfaceMonitor_Destruct (self)
+         implicit none
+         class(SurfaceMonitor_t), intent(inout) :: self
+         
+         safedeallocate (self % values)
+         safedeallocate (self % referenceSurface)
+      end subroutine SurfaceMonitor_Destruct
+!
+!//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      elemental subroutine SurfaceMonitor_Assign(to, from)
+         implicit none
+         class(SurfaceMonitor_t), intent(inout) :: to
+         type(SurfaceMonitor_t),  intent(in)    :: from
+         
+         if ( from % active) then
+            to % active          = from % active
+            to % isDimensionless = from % isDimensionless
+            to % ID              = from % ID
+            to % direction       = from % direction
+            to % marker          = from % marker
+            
+            safedeallocate(to % referenceSurface)
+            allocate (to % referenceSurface)
+            to % referenceSurface = from % referenceSurface
+            
+            safedeallocate(to % values)
+            allocate ( to % values( size(from % values) ) )
+            to % values          = from % values
+            
+            to % dynamicPressure = from % dynamicPressure
+            to % monitorName     = from % monitorName
+            to % fileName        = from % fileName
+            to % variable        = from % variable
+         else
+            to % active = .FALSE.
+         end if
+         
+      end subroutine SurfaceMonitor_Assign
+#endif      
 end module SurfaceMonitorClass
-#endif
+

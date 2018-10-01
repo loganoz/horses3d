@@ -4,9 +4,9 @@
 !   @File:    FreeSlipWallBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:41 2018
-!   @Last revision date: Fri Jul 27 18:46:28 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 1c367455ee242257ddf135c0c34890a763de82d0
+!   @Last revision date: Fri Aug 17 10:25:38 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 0760ac964cfb71dec1e13da0780b72ca9d38e064
 !
 !//////////////////////////////////////////////////////
 !
@@ -19,7 +19,7 @@ module FreeSlipWallBCClass
    use FTValueDictionaryClass, only: FTValueDictionary
    use GenericBoundaryConditionClass
    use FluidData
-   use FileReadingUtilities, only: getArrayFromString
+   use FileReadingUtilities, only: getRealArrayFromString
    use Utilities, only: toLower, almostEqual
    implicit none
 !

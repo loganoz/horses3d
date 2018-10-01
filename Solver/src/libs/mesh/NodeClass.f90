@@ -18,7 +18,7 @@
       IMPLICIT NONE 
 
       private
-      public Node, ConstructNode, DestructNode, PrintNode
+      public Node, ConstructNode, PrintNode
 !
 !     ---------------
 !     Node definition
@@ -27,6 +27,9 @@
       TYPE Node
          integer       :: globID = -1
          REAL(KIND=RP) :: x(3)
+         contains
+            procedure :: construct => ConstructNode
+            procedure :: destruct  => Node_Destruct
       END TYPE Node
 !
 !     ========
@@ -38,7 +41,7 @@
 !
       SUBROUTINE ConstructNode( this, x, globID )
          IMPLICIT NONE 
-         TYPE(Node)    :: this
+         class(Node)   :: this
          REAL(KIND=RP) :: x(3)
          integer       :: globID
          this % x  = x
@@ -56,11 +59,11 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE DestructNode( this )
+      elemental SUBROUTINE Node_Destruct( this )
          IMPLICIT NONE 
-         TYPE(Node) :: this
+         class(Node), intent(inout) :: this
          
          this % GlobID = -1
-      END SUBROUTINE DestructNode
+      END SUBROUTINE Node_Destruct
       
       END Module NodeClass

@@ -15,9 +15,8 @@ module MatrixFreeGMRESClass
    use DGSEMClass            , only: DGSem, ComputeTimeDerivative_f
    use FTValueDictionaryClass, only: FTValueDictionary
    use MatrixClass           , only: DenseBlockDiagMatrix_t, SparseBlockDiagMatrix_t
-   use PhysicsStorage        , only: NTOTALVARS, NTOTALGRADS
+   use PhysicsStorage        , only: NTOTALVARS, NTOTALGRADS, CTD_IGNORE_MODE
    use AnalyticalJacobian    , only: AnalyticalJacobian_Compute
-   use PhysicsStorage        , only: CTD_IGNORE_MODE
    implicit none
    
    private
@@ -341,8 +340,12 @@ contains
          implicit none
          class(MatFreeGMRES_t), intent(inout)          :: this
          
-         deallocate(this%RHS)
-         deallocate(this%x0)
+         
+         deallocate(this % RHS )
+         deallocate(this % x0  )
+         deallocate(this % F_Ur)
+         deallocate(this % Ur  )
+         
          deallocate(this%V)
          deallocate(this%H)
          deallocate(this%W)
@@ -442,8 +445,8 @@ contains
 !
       recursive subroutine innerGMRES(this, ComputeTimeDerivative)
          implicit none
-         class(MatFreeGMRES_t), intent(inout)      :: this
-         procedure(ComputeTimeDerivative_f)             :: ComputeTimeDerivative
+         class(MatFreeGMRES_t), intent(inout)   :: this
+         procedure(ComputeTimeDerivative_f)     :: ComputeTimeDerivative
          integer                                :: i,j,k, l, ii,kk, m
          real(kind = RP)                        :: tmp1, tmp2
          
@@ -681,7 +684,7 @@ contains
          class(MatFreeGMRES_t), intent(inout) :: this
          real(kind=RP), intent(in)            :: x (this % DimPrb)
          real(kind=RP), intent(out)           :: Ax(this % DimPrb)
-         procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
+         procedure(ComputeTimeDerivative_f)   :: ComputeTimeDerivative
          !---------------------------------------------------------
          real(kind=RP) :: eps, shift
          !---------------------------------------------------------
@@ -715,10 +718,14 @@ contains
          
          ! Obtain derivative with new Q
          this % p_sem % mesh % storage % Q = u
+         call this % p_sem % mesh % storage % global2LocalQ
          CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, this % timesolve + this % dtsolve, CTD_IGNORE_MODE)
+         call this % p_sem % mesh % storage % local2GlobalQdot(this % p_sem % NDOF)
+         
          F = this % p_sem % mesh % storage % Qdot
 
          ! Restore original Q
          this % p_sem % mesh % storage % Q = u_p   ! TODO: this step can be avoided if Ur is not read in the "child" GMRES (the preconditioner)
+         call this % p_sem % mesh % storage % global2LocalQ
       END FUNCTION p_F
 end module MatrixFreeGMRESClass

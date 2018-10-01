@@ -1,18 +1,19 @@
+#include "Includes.h"
 module VolumeMonitorClass
    use SMConstants
    use HexMeshClass
    use MonitorDefinitions
    use PhysicsStorage
    use MPI_Process_Info
-#include "Includes.h"
-
+   implicit none
+   
    private 
-   public VOLUME
+!~   public VOLUME
 #if defined(NAVIERSTOKES)
-   public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY
-   public ENTROPY, ENTROPY_RATE
+!~   public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY
+!~   public ENTROPY, ENTROPY_RATE
 #elif defined(CAHNHILLIARD)
-   public FREE_ENERGY
+!~   public FREE_ENERGY
 #endif
    public VolumeMonitor_t
 
@@ -34,6 +35,9 @@ module VolumeMonitorClass
          procedure   :: WriteLabel     => VolumeMonitor_WriteLabel
          procedure   :: WriteValues    => VolumeMonitor_WriteValue
          procedure   :: WriteToFile    => VolumeMonitor_WriteToFile
+         procedure   :: destruct       => VolumeMonitor_Destruct
+         procedure   :: copy           => VolumeMonitor_Assign
+         generic     :: assignment(=)  => copy
    end type VolumeMonitor_t
 !
 !  ========
@@ -84,8 +88,8 @@ module VolumeMonitorClass
          write(in_label , '(A,I0)') "#define volume monitor " , self % ID
          
          call get_command_argument(1, paramFile)
-         call readValueInRegion ( trim ( paramFile )  , "Name"              , self % monitorName      , in_label , "# end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "Variable"          , self % variable         , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "name"              , self % monitorName      , in_label , "# end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "variable"          , self % variable         , in_label , "# end" ) 
 !
 !        Enable the monitor
 !        ------------------
@@ -269,4 +273,28 @@ module VolumeMonitorClass
          if ( no_of_lines .ne. 0 ) self % values(1) = self % values(no_of_lines)
       
       end subroutine VolumeMonitor_WriteToFile
+      
+      elemental subroutine VolumeMonitor_Destruct (self)
+         implicit none
+         class(VolumeMonitor_t), intent(inout) :: self
+         
+         deallocate (self % values)
+      end subroutine VolumeMonitor_Destruct
+      
+      elemental subroutine VolumeMonitor_Assign (to, from)
+         implicit none
+         class(VolumeMonitor_t), intent(inout)  :: to
+         type(VolumeMonitor_t) , intent(in)     :: from
+         
+         to % active       = from % active
+         to % ID           = from % ID
+         
+         safedeallocate (to % values)
+         allocate ( to % values( size(from % values) ) ) 
+         to % values       = from % values
+      
+         to % monitorName  = from % monitorName
+         to % fileName     = from % fileName
+         to % variable     = from % variable
+      end subroutine VolumeMonitor_Assign
 end module VolumeMonitorClass

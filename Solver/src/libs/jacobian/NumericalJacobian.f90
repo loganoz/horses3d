@@ -48,7 +48,8 @@ contains
       integer, allocatable                               :: cols(:)
       integer, allocatable                               :: rows(:)
       integer, allocatable                               :: diag(:)
-      real(kind=RP), allocatable, save                   :: Q0(:), QDot0(:)
+      real(kind=RP), allocatable, save                   :: Q0(:)
+      real(kind=RP), allocatable, save                   :: QDot0(:)
       
       integer :: i, j ! General counters
       integer                                            :: icol
@@ -165,8 +166,8 @@ contains
             END DO
          END DO
          
-         allocate(Q0(size(sem % mesh % storage % Q)))
          allocate(QDot0(size(sem % mesh % storage % QDot)))
+         allocate(Q0   (size(sem % mesh % storage % QDot)))
          
          ! All initializations done!
          isfirst = .FALSE.
@@ -182,6 +183,7 @@ contains
       if (present(eps_in)) then
          eps = eps_in
       else
+         call sem % mesh % storage % local2GlobalQ (sem % NDOF)
          associate (Q => sem % mesh % storage % Q)
          eps = SQRT(EPSILON(eps))*(NORM2(Q)+1._RP)
          end associate
@@ -216,9 +218,11 @@ contains
 #if defined(CAHNHILLIARD)
       call sem % mesh % SetStorageToEqn(2)
 #endif
-
-      Q0    = sem % mesh % storage % Q
+      
+      call sem % mesh % storage % local2GlobalQdot (sem % NDOF)
+      call sem % mesh % storage % local2GlobalQ    (sem % NDOF)
       QDot0 = sem % mesh % storage % QDot
+      Q0    = sem % mesh % storage % Q
 !
 !     ------------------------------------------
 !     Compute numerical Jacobian using colorings
@@ -244,8 +248,9 @@ contains
 #else
             CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, CTD_IGNORE_MODE )
 #endif
-
+            call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
             sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
+            call sem % mesh % storage % global2LocalQdot
             
             DO thiselmidx = ielm, felm-1
                thiselm = ecolors%elmnts(thiselmidx)
@@ -300,9 +305,10 @@ contains
                ENDDO
             END DO           
 !
-!           Restore original values for Q
-!           -----------------------------
+!           Restore original values for Q (TODO: this can be improved)
+!           ----------------------------------------------------------
             sem % mesh % storage % Q = Q0
+            call sem % mesh % storage % global2LocalQ
          ENDDO
       ENDDO
       

@@ -82,11 +82,14 @@ MODULE ExplicitMethods
          
       END DO
 
-
-         if ( any(isnan(mesh % storage % Q))) then
+!$omp parallel do schedule(runtime)
+      do k=1, mesh % no_of_elements
+         if ( any(isnan(mesh % elements(k) % storage % Q))) then
             print*, "Numerical divergence obtained in solver."
             call exit(99)
          endif
+      end do
+!$omp end parallel do
       
    END SUBROUTINE TakeRK3Step
 
@@ -137,7 +140,16 @@ MODULE ExplicitMethods
 !$omp end parallel do
          
       END DO
-
+      
+!$omp parallel do schedule(runtime)
+      do k=1, mesh % no_of_elements
+         if ( any(isnan(mesh % elements(k) % storage % Q))) then
+            print*, "Numerical divergence obtained in solver."
+            call exit(99)
+         endif
+      end do
+!$omp end parallel do
+      
    end subroutine TakeRK5Step
 
    SUBROUTINE TakeExplicitEulerStep( mesh, particles, t, deltaT, ComputeTimeDerivative )

@@ -1,9 +1,11 @@
+#include "Includes.h"
 module ResidualsMonitorClass
    use SMConstants
    use PhysicsStorage
    use HexMeshClass
    use MonitorDefinitions
-
+   implicit none
+   
    private
    public   Residuals_t
 !
@@ -22,6 +24,9 @@ module ResidualsMonitorClass
          procedure   :: WriteLabel     => Residuals_WriteLabel
          procedure   :: WriteValues    => Residuals_WriteValue
          procedure   :: WriteToFile    => Residuals_WriteToFile
+         procedure   :: destruct       => Residuals_Destruct
+         procedure   :: copy           => Residuals_Assign
+         generic     :: assignment(=)  => copy
    end type Residuals_t
 !
 !  ========
@@ -200,4 +205,34 @@ module ResidualsMonitorClass
 111 format(7(2X,ES24.16))
 #endif
       end subroutine Residuals_WriteToFile
+      
+      pure subroutine Residuals_Destruct (self)
+         implicit none
+         class(Residuals_t), intent(inout) :: self
+         
+         safedeallocate (self % values)
+         safedeallocate (self % CPUtime)
+         self % fileName = ""
+         self % active   = .FALSE.
+         
+      end subroutine Residuals_Destruct
+      
+      elemental subroutine Residuals_Assign(to, from)
+         implicit none
+         class(Residuals_t), intent(inout)   :: to
+         type(Residuals_t) , intent(in)      :: from
+         
+         to % active = from % active
+         
+         safedeallocate (to % values)
+         allocate ( to % values( size(from % values,1) , size(from % values,2) ) )
+         to % values = from % values
+         
+         safedeallocate (to % CPUtime)
+         allocate ( to % CPUtime( size(from % CPUtime) ) )
+         to % CPUtime = from % CPUtime
+         
+         to % fileName = from % fileName
+         
+      end subroutine Residuals_Assign
 end module ResidualsMonitorClass

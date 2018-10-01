@@ -4,9 +4,9 @@
 !   @File:    ReadHDF5Mesh.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Thu Sep  6 15:27:59 2018
+!   @Last revision date: Mon Oct  1 12:09:49 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: bbb1eccef1b477a3cf37da8b42ada5792b1c1bf3
+!   @Last revision commit: c0e33a87fc7298912026e6bcb96893161b87913a
 !
 !//////////////////////////////////////////////////////
 !
@@ -31,6 +31,7 @@ module Read_HDF5Mesh_HOPR
    use PartitionedMeshClass            , only: mpi_partition
    use NodeClass                       , only: Node, ConstructNode
    use MPI_Face_Class                  , only: ConstructMPIFaces
+   use Utilities                       , only: toLower
 #ifdef HAS_HDF5
    use HDF5
 #endif
@@ -118,8 +119,8 @@ contains
       INTEGER  :: numberOfFaces
       INTEGER                          :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
       CHARACTER(LEN=BC_STRING_LENGTH)  :: names(FACES_PER_ELEMENT)
+      CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
       REAL(KIND=RP)                    :: corners(NDIM,NODES_PER_ELEMENT) ! Corners of element
-      type(SurfInfo_t), allocatable                :: SurfInfo(:)
       real(kind=RP), dimension(:)    , allocatable :: uNodes, vNodes
       real(kind=RP), dimension(:,:,:), allocatable :: values
       
@@ -243,9 +244,12 @@ contains
       call HOPR2HORSESNodeSideMap(bFaceOrder,HNodeSideMap)
       
       ALLOCATE( self % elements(numberOfelements) )
-      if ( .not. MPI_Process % doMPIRootAction ) then ! Only read surface information if this is not an MPI simulation
-         allocate( SurfInfo(numberOfelements) )
-      end if
+      
+      allocate ( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
+      self % Nx = Nx
+      self % Ny = Ny
+      self % Nz = Nz
+     
       call InitNodeMap (TempNodes , HOPRNodeMap, nUniqueNodes)
       
 !      
@@ -286,8 +290,8 @@ contains
    !           for inner elements when MeshInnerCurves == .false. (control file variable 'mesh inner curves'). 
    !           In these cases, set the corners of the hex8Map and use that in determining the element geometry.
    !           -----------------------------------------------------------------------------
-               SurfInfo(l) % IsHex8 = .TRUE.
-               SurfInfo(l) % corners = corners
+               self % elements(l) % SurfInfo % IsHex8 = .TRUE.
+               self % elements(l) % SurfInfo % corners = corners
                
             else
    !
@@ -307,7 +311,7 @@ contains
                      valuesFlat(:,2,2) = corners(:,nodeMap(3))
                      valuesFlat(:,1,2) = corners(:,nodeMap(4))
                      
-                     call SurfInfo(l) % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+                     call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
                      
                   ELSE
    !
@@ -322,7 +326,7 @@ contains
                         END DO  
                      END DO
                      
-                     call SurfInfo(l) % facePatches(k) % construct(uNodes, vNodes, values)
+                     call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
 
                   END IF
                   
@@ -341,9 +345,11 @@ contains
          DO k = 1, 6
             IF(TRIM(names(k)) /= emptyBCName) then
                numberOfBoundaryFaces = numberOfBoundaryFaces + 1
-               if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+               zoneNames => zoneNameDictionary % allKeys()
+               if ( all(trim(names(k)) .ne. zoneNames) ) then
                   call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                end if
+               deallocate (zoneNames)
             end if
          END DO  
          
@@ -418,7 +424,7 @@ contains
 !     ---------------------------------------
 !
       if ( .not. MPI_Process % doMPIRootAction ) then
-         call self % ConstructGeometry(SurfInfo)
+         call self % ConstructGeometry()
       end if
 !
 !     Finish up
@@ -432,7 +438,6 @@ contains
       deallocate (GlobalNodeIDs)
       deallocate (uNodes, vNodes, values)
       
-      safedeallocate ( SurfInfo)
       if (.not. self % child) CALL self % Describe( trim(fileName) , bFaceOrder)
 !
 !     -------------------------------------------------------------
@@ -473,8 +478,8 @@ contains
       integer  :: numberOfFaces
       integer                          :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
       character(LEN=BC_STRING_LENGTH)  :: names(FACES_PER_ELEMENT)
+      CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
       real(KIND=RP)                    :: corners(NDIM,NODES_PER_ELEMENT) ! Corners of element
-      type(SurfInfo_t), allocatable                :: SurfInfo(:)
       real(kind=RP), dimension(:)    , allocatable :: uNodes, vNodes
       real(kind=RP), dimension(:,:,:), allocatable :: values
       real(kind=RP)                    :: x(NDIM)
@@ -588,13 +593,15 @@ contains
 !     ---------------
 !
       allocate( self % elements   (mpi_partition % no_of_elements) )
-      allocate( SurfInfo          (mpi_partition % no_of_elements) )
       allocate( self % nodes      (mpi_partition % no_of_nodes)    )
       allocate( self % HOPRnodeIDs(mpi_partition % no_of_nodes)    )
       allocate( globalToLocalElementID(numberOfAllElements) )
       self % no_of_elements = mpi_partition % no_of_elements
       globalToLocalElementID = -1
       self % HOPRnodeIDs = mpi_partition % HOPRnodeIDs
+      
+      allocate ( self % Nx(self % no_of_elements) , self % Ny(self % no_of_elements) , self % Nz(self % no_of_elements) )
+      
 !
 !     --------------------
 !     Create HOPR node map
@@ -626,9 +633,12 @@ contains
          
          do k = 1, 6
             IF(TRIM(names(k)) /= emptyBCName) then
-               if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
+               call toLower( names(k) )
+               zoneNames => zoneNameDictionary % allKeys()
+               if ( all(trim(names(k)) .ne. zoneNames) ) then
                   call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
                end if
+               deallocate (zoneNames)
             end if
          end do
       end do
@@ -677,8 +687,8 @@ contains
             DO k = 1, NODES_PER_ELEMENT
                corners(:,k) = self % nodes(nodeIDs(k)) % x
             END DO
-            SurfInfo(eID) % IsHex8 = .TRUE.
-            SurfInfo(eID) % corners = corners
+            self % elements(eID) % SurfInfo % IsHex8 = .TRUE.
+            self % elements(eID) % SurfInfo % corners = corners
             
          else
 !
@@ -701,7 +711,7 @@ contains
                   valuesFlat(:,2,2) = corners(:,nodeMap(3))
                   valuesFlat(:,1,2) = corners(:,nodeMap(4))
                   
-                  call SurfInfo(eID) % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
+                  call self % elements(eID) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
                   
                ELSE
 !
@@ -716,7 +726,7 @@ contains
                      END DO  
                   END DO
                   
-                  call SurfInfo(eID) % facePatches(k) % construct(uNodes, vNodes, values)
+                  call self % elements(eID) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
 
                END IF
                
@@ -729,16 +739,11 @@ contains
 !        -------------------------
 !
          call self % elements(eID) % Construct (Nx(GlobeID), Ny(GlobeID), Nz(GlobeID), nodeIDs , eID, GlobeID) 
+         self % Nx(eID) = Nx(GlobeID)
+         self % Ny(eID) = Ny(GlobeID)
+         self % Nz(eID) = Nz(GlobeID)
          
          CALL SetElementBoundaryNames( self % elements(eID), names )
-            
-         DO k = 1, 6
-            IF(TRIM(names(k)) /= emptyBCName) then
-               if ( all(trim(names(k)) .ne. zoneNameDictionary % allKeys()) ) then
-                  call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
-               end if
-            end if
-         END DO  
          
 !
 !        Assign global to local ID
@@ -826,7 +831,7 @@ contains
 !     Construct elements' and faces' geometry
 !     ---------------------------------------
 !
-      call self % ConstructGeometry(SurfInfo)
+      call self % ConstructGeometry()
 !
 !     Finish up
 !     ---------

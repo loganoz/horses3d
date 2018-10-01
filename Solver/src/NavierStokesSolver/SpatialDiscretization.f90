@@ -762,6 +762,7 @@ module SpatialDiscretization
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu, beta, kappa
+         integer       :: Sidearray(2)
 
          if ( .not. LESModel % active ) then
          DO j = 0, f % Nf(2)
@@ -846,7 +847,8 @@ module SpatialDiscretization
 !        Return the flux to elements
 !        ---------------------------
 !
-         call f % ProjectFluxToElements(NCONS, flux, (/1,2/))
+         Sidearray = (/1,2/)
+         call f % ProjectFluxToElements(NCONS, flux, Sidearray)
 
       END SUBROUTINE computeElementInterfaceFlux_NS
 
@@ -861,6 +863,7 @@ module SpatialDiscretization
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu, kappa, beta
+         integer       :: Sidearray(2)
 
          if ( .not. LESModel % active ) then
          DO j = 0, f % Nf(2)
@@ -948,7 +951,9 @@ module SpatialDiscretization
 !        ---------------------------
 !
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectFluxToElements(NCONS, flux, (/thisSide, HMESH_NONE/))
+         
+         Sidearray = (/thisSide, HMESH_NONE/)
+         call f % ProjectFluxToElements(NCONS, flux, Sidearray )
 
       end subroutine ComputeMPIFaceFlux_NS
 
@@ -975,6 +980,7 @@ module SpatialDiscretization
       real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
       real(kind=RP)                   :: mu, beta, kappa
+      integer       :: Sidearray(2)
 !
 !     -------------------
 !     Get external states
@@ -1091,7 +1097,8 @@ module SpatialDiscretization
          END DO   
       END DO   
 
-      call f % ProjectFluxToElements(NCONS, fStar, (/1, HMESH_NONE/))
+      Sidearray = (/1, HMESH_NONE/)
+      call f % ProjectFluxToElements(NCONS, fStar, Sidearray)
 
       END SUBROUTINE computeBoundaryFlux_NS
 
@@ -1106,6 +1113,7 @@ module SpatialDiscretization
          real(kind=RP) :: SVV_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu, beta, kappa
+         integer       :: Sidearray(2)
 !
 !        ----------
 !        SVV fluxes
@@ -1180,7 +1188,8 @@ module SpatialDiscretization
 !        Return the flux to elements
 !        ---------------------------
 !
-         call f % ProjectFluxToElements(NCONS, flux, (/1,2/))
+         Sidearray = (/1,2/)
+         call f % ProjectFluxToElements(NCONS, flux, Sidearray )
 
       END SUBROUTINE computeElementInterfaceFlux_SVV
 
@@ -1196,6 +1205,7 @@ module SpatialDiscretization
          real(kind=RP) :: SVV_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu, beta, kappa
+         integer       :: Sidearray(2)
 !
 !        ----------
 !        SVV fluxes
@@ -1264,7 +1274,9 @@ module SpatialDiscretization
 !        ---------------------------
 !
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectFluxToElements(NCONS, flux, (/thisSide, HMESH_NONE/))
+         
+         Sidearray = (/thisSide, HMESH_NONE/)
+         call f % ProjectFluxToElements(NCONS, flux, Sidearray)
 
 
       end subroutine ComputeMPIFaceFlux_SVV
@@ -1293,6 +1305,7 @@ module SpatialDiscretization
       real(kind=RP)                   :: SVV_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
       real(kind=RP)                   :: mu, beta, kappa
+      integer       :: Sidearray(2)
 !
 !     -------------------
 !     Get external states
@@ -1385,7 +1398,8 @@ module SpatialDiscretization
          END DO   
       END DO   
 
-      call f % ProjectFluxToElements(NCONS, fStar, (/1, HMESH_NONE/))
+      Sidearray = (/1, HMESH_NONE/)
+      call f % ProjectFluxToElements(NCONS, fStar, Sidearray)
 
       END SUBROUTINE computeBoundaryFlux_SVV
 !

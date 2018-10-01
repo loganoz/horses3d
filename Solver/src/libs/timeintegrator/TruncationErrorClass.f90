@@ -1,11 +1,14 @@
 !
-!////////////////////////////////////////////////////////////////////////
+!//////////////////////////////////////////////////////
 !
-!      TruncationErrorClass.f90
-!      Created: February, 2018 at 12:56 PM 
-!      By: Andrés Rueda
+!   @File:    TruncationErrorClass.f90
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
+!   @Created: Tue Feb 28 14:00:00 2018
+!   @Last revision date: Mon Aug 20 17:10:22 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
 !
-!////////////////////////////////////////////////////////////////////////
+!//////////////////////////////////////////////////////
 !
 module TruncationErrorClass
    use SMConstants
@@ -13,6 +16,7 @@ module TruncationErrorClass
    use DGSEMClass                , only: DGSem, ComputeTimeDerivative_f
    use FTValueDictionaryClass    , only: FTValueDictionary
    use PhysicsStorage            , only: NTOTALVARS, CTD_IGNORE_MODE
+   use HexMeshClass              , only: HexMesh
 #if defined(NAVIERSTOKES)  
    use FluidData_NS              , only: Thermodynamics, RefValues, Dimensionless
 #endif
@@ -22,7 +26,7 @@ module TruncationErrorClass
    implicit none
    
    private
-   public TruncationError_t, EstimateTruncationError, InitializeForTauEstimation, PrintTEmap, AssignTimeDerivative, EstimateTauOfElem, GenerateExactTEmap
+   public TruncationError_t, EstimateTruncationError, InitializeForTauEstimation, PrintTEmap, AssignTimeDerivative, GenerateExactTEmap, EstimateAndPlotTruncationError
    public NON_ISOLATED_TE, ISOLATED_TE
    
    !---------------------------------------------------------------------------------------------------------
@@ -132,9 +136,9 @@ module TruncationErrorClass
       
       do eID=1, size(sem % mesh % elements)
          TE(eID) % TruncErrorType = TruncErrorType
-         TE(eID) % Dir(1) % P = sem % Nx(eID)
-         TE(eID) % Dir(2) % P = sem % Ny(eID)
-         TE(eID) % Dir(3) % P = sem % Nz(eID)
+         TE(eID) % Dir(1) % P = sem % mesh % Nx(eID)
+         TE(eID) % Dir(2) % P = sem % mesh % Ny(eID)
+         TE(eID) % Dir(3) % P = sem % mesh % Nz(eID)
       end do
       
       if (TruncErrorType == ISOLATED_TE) then
@@ -197,7 +201,7 @@ module TruncationErrorClass
                wz  = NodalStorage(e % Nxyz(3)) % w (k)
                Jac = e % geom % jacobian(i,j,k)
                
-               maxTE =  MAX(maxTE , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,i,j,k) + S(iEQ) + Var(iEl) % Scase(iEQ,i,j,k) )  )
+               maxTE =  MAX(maxTE , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,i,j,k) + S(iEQ) + Var(iEl) % Scase(iEQ,i,j,k) - Var(iEl) % S(iEQ,i,j,k) )  )  ! The last term is included to do time-accurate p-adaptation...For steady-state it can be neglected (original formulation)
             end do
          end do         ; end do         ; end do
          
@@ -212,13 +216,13 @@ module TruncationErrorClass
 !  -----------------------------------------------------------------------
 !  Subroutine for printing the TE map(s) of one element
 !  -----------------------------------------------------------------------
-   subroutine PrintTEmap(TEmap,iEl,NMIN,FileName)
+   subroutine PrintTEmap(NMIN,TEmap,iEl,FileName)
       implicit none
       !-------------------------------------------
-      real(kind=RP)    :: TEmap(NMIN:,NMIN:,NMIN:)
-      integer          :: iEl
-      integer          :: NMIN
-      character(len=*) :: FileName
+      integer         , intent(in) :: NMIN(3)
+      real(kind=RP)   , intent(in) :: TEmap(NMIN(1):,NMIN(2):,NMIN(3):)
+      integer         , intent(in) :: iEl
+      character(len=*), intent(in) :: FileName
       !-------------------------------------------
       integer                :: k, i, l
       integer                :: fd
@@ -257,7 +261,7 @@ module TruncationErrorClass
       implicit none
       !-------------------------------------------------------------------------
       type(DGSem)                :: sem
-      integer, intent(in)        :: NMIN
+      integer, intent(in)        :: NMIN(NDIM)
       integer, intent(in)        :: NMAX(NDIM)
       real(kind=RP)              :: t
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
@@ -266,7 +270,7 @@ module TruncationErrorClass
       integer, intent(in)        :: iEl
       integer, intent(in)        :: TruncErrorType
       !-------------------------------------------------------------------------
-      real(kind=RP)              :: TEmap (NMIN:NMAX(1),NMIN:NMAX(2),NMIN:NMAX(3))
+      real(kind=RP)              :: TEmap (NMIN(1):NMAX(1),NMIN(2):NMAX(2),NMIN(3):NMAX(3))
       integer                    :: i,j,k
       integer                    :: nelem      ! Number of elements
       logical                              :: success   
@@ -282,9 +286,9 @@ module TruncationErrorClass
          TimeDerivative => ComputeTimeDerivative
       end if
       
-      do k = NMIN, NMAX(3)
-         do j = NMIN, NMAX(2)
-            do i = NMIN, NMAX(1)
+      do k = NMIN(3), NMAX(3)
+         do j = NMIN(2), NMAX(2)
+            do i = NMIN(1), NMAX(1)
                
                Nx = i
                Ny = j
@@ -310,14 +314,14 @@ module TruncationErrorClass
 #endif
                
                
-               TEmap(i,j,k) = EstimateTauOfElem(sem,t,controlVariables,iEl)
+               TEmap(i,j,k) = EstimateTauOfElem(sem,t,iEl)
                
                print*, 'Done for N=',i,j,k
             end do
          end do
       end do
       
-      CALL PrintTEmap(TEmap,iEl,NMIN,"Exact")
+      CALL PrintTEmap(NMIN,TEmap,iEl,"Exact")
       stop
       
    end subroutine GenerateExactTEmap
@@ -327,14 +331,14 @@ module TruncationErrorClass
 !     -----
 !     Estimates the infinity norm of the truncation error for a given mesh given a restart solution or a manufactured solution
 !     ---
-      function EstimateTauOfElem(sem,t,controlVariables,iEl) result(maxTE)
+      function EstimateTauOfElem(sem,t,iEl, UseLoadedSol) result(maxTE)
          implicit none
          !-------------------------------------------------------
          type(DGSem), target    , intent(inout) :: sem              !<> sem class (inout cause' we compute Qdot)
          real(kind=RP)          , intent(in)    :: t                !>  Time
-         type(FTValueDictionary), intent(in)    :: controlVariables !<
          integer                , intent(in)    :: iEl              !<  Present if the result is wanted for a certain element
          real(kind=RP)                          :: maxTE            !>  |\tau|_{\infty}
+         logical      , optional, intent(in)    :: UseLoadedSol
          !-------------------------------------------------------
          integer          :: nelem
          integer          :: eID             ! element counter
@@ -342,9 +346,15 @@ module TruncationErrorClass
          integer          :: ii,jj,kk        ! doF counters
          real(kind=RP)    :: wx, wy, wz      ! Quadrature weights
          real(kind=RP)    :: Jac             ! Jacobian (mapping)
+         logical          :: UserDefinedSol
          !-------------------------------------------------------
          
          nelem = SIZE(sem % mesh % elements)
+         
+         UserDefinedSol = .TRUE.
+         if ( present(UseLoadedSol) ) then
+            if (UseLoadedSol) UserDefinedSol = .FALSE.
+         end if
          
          !-------------------------------------------
          !Get exact solution (from ProblemFile.f90)
@@ -352,10 +362,13 @@ module TruncationErrorClass
          
          do eID = 1, nelem
             associate (e => sem % mesh % elements(eID))
-#if defined(NAVIERSTOKES)            
-            do kk = 0, e % Nxyz(3) ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
-               call UserDefinedState1(e % geom % x(:,ii,jj,kk), t, [0._RP, 0._RP, 0._RP], e % storage % Q(:,ii,jj,kk), thermodynamics, dimensionless, refValues)
-            end do                 ; end do                 ; end do
+            
+#if defined(NAVIERSTOKES)      
+            if (UserDefinedSol) then
+               do kk = 0, e % Nxyz(3) ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+                  call UserDefinedState1(e % geom % x(:,ii,jj,kk), t, [0._RP, 0._RP, 0._RP], e % storage % Q(:,ii,jj,kk), thermodynamics, dimensionless, refValues)
+               end do                 ; end do                 ; end do
+            end if
 #endif
             
             end associate
@@ -382,4 +395,161 @@ module TruncationErrorClass
           
          end associate
       end function EstimateTauOfElem
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
+!  This subroutine estimates and plot the truncation error of a representation
+!  -----------------------------------------------------------------------    
+   subroutine EstimateAndPlotTruncationError(sem, t, controlVariables, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+      implicit none
+      !-arguments------------------------------------------------
+      type(DGSem), target    , intent(inout) :: sem              !<> 
+      real(kind=RP)          , intent(in)    :: t
+      type(FTValueDictionary), intent(in)    :: controlVariables
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
+      !-local-variables------------------------------------------
+      integer       :: eID, ii, jj, kk, iEQ
+      real(kind=RP) :: Tau    (sem % mesh % no_of_elements)
+      real(kind=RP) :: IsolTau(sem % mesh % no_of_elements), wx, wy, wz, Jac
+      type(HexMesh) :: auxMesh
+      integer       :: NDOF
+      !----------------------------------------------------------
+      print*, 'Estimating truncerror'
+      
+      Tau = 0._RP
+      IsolTau = 0._RP
+!
+!     Non-isolated truncation error
+!     -----------------------------
+      
+      call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
+      do eID = 1, sem % mesh % no_of_elements
+         associate (e => sem % mesh % elements(eID))
+         
+         do kk = 0, e % Nxyz(3) ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+            
+            wx  = NodalStorage(e % Nxyz(1)) % w (ii)
+            wy  = NodalStorage(e % Nxyz(2)) % w (jj)
+            wz  = NodalStorage(e % Nxyz(3)) % w (kk)
+            Jac = e % geom % jacobian(ii,jj,kk)
+            
+            do iEQ = 1, NTOTALVARS
+               Tau(eID) =  MAX(Tau(eID) , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,ii,jj,kk) ) )
+            end do
+         end do          ; end do          ; end do
+          
+         end associate
+      end do
+      
+!
+!     Isolated truncation error
+!     -------------------------
+      
+      call ComputeTimeDerivativeIsolated(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
+      do eID = 1, sem % mesh % no_of_elements
+         associate (e => sem % mesh % elements(eID) )
+         
+         do kk = 0, e % Nxyz(3) ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+            
+            wx  = NodalStorage(e % Nxyz(1)) % w (ii)
+            wy  = NodalStorage(e % Nxyz(2)) % w (jj)
+            wz  = NodalStorage(e % Nxyz(3)) % w (kk)
+            Jac = e % geom % jacobian(ii,jj,kk)
+            
+            do iEQ = 1, NTOTALVARS
+               IsolTau(eID) =  MAX(IsolTau(eID) , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,ii,jj,kk) ) )
+            end do
+         end do          ; end do          ; end do
+          
+         end associate
+      end do
+      
+!     Create auxMesh, save the truncation errors there as Q(1) and Q(2), and export it
+!     ---------------------------------------------------------------------------------
+      
+      ! 1. Prepare mesh
+      auxMesh % nodeType = sem % mesh % nodeType
+      auxMesh % no_of_elements = sem % mesh % no_of_elements
+      allocate ( auxMesh % elements (sem % mesh % no_of_elements) )
+      
+      NDOF = 0
+      do eID = 1, sem % mesh % no_of_elements
+         associate ( e_aux => auxMesh % elements(eID), &
+                     e     =>    sem % mesh % elements(eID) )
+         e_aux % globID = e % globID
+         e_aux % Nxyz = e % Nxyz
+         NDOF = NDOF + product(e % Nxyz + 1)
+         end associate
+      end do
+      
+      call auxMesh % PrepareForIO
+      call auxMesh % AllocateStorage (NDOF, controlVariables,.FALSE.,.FALSE.)
+      
+      ! 2. Save the error there
+      do eID = 1, sem % mesh % no_of_elements
+         associate (e => auxMesh % elements(eID) )
+         e % Storage % Q(1,:,:,:) = Tau(eID)
+         e % Storage % Q(2,:,:,:) = IsolTau(eID)
+         end associate
+      end do
+      
+!~      print*, 'Plotting truncerror'
+!~      call PlotTruncationError(sem % mesh, Tau, IsolTau)
+      
+      call auxMesh % SaveSolution(sem % numberOfTimeSteps,t,'RESULTS/TruncError.hsol',.FALSE.)
+      
+   end subroutine EstimateAndPlotTruncationError
+      
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
+!  Subroutine for plotting the adaptation information:
+!  Plots the truncation error contained in array Tau
+!  -----------------------------------------------------------------------
+   subroutine PlotTruncationError(mesh,Tau,IsolTau)
+      use HexMeshClass, only: HexMesh
+      implicit none
+      !--------------------------------------
+      TYPE(HexMesh)          , intent(in) :: mesh       !<  mesh...
+      real(kind=RP)          , intent(in) :: Tau(:)     !<  Type containing the element-wise truncation error estimation
+      real(kind=RP)          , intent(in) :: IsolTau(:) !<  Type containing the element-wise truncation error estimation
+      !--------------------------------------
+      integer                            :: fd
+      integer                            :: eID
+      integer                            :: i,j,k
+      CHARACTER(len=LINE_LENGTH)         :: plotFileName
+      !--------------------------------------
+      
+      write(plotFileName,'(A)') 'RESULTS/TruncationError.tec'
+      
+      open(newunit = fd, file=plotFileName, action='WRITE')
+         
+         write(fd,*) 'TITLE = "Truncation error information (HORSES3D)"'
+         write(fd,*) 'VARIABLES = "X","Y","Z","Tau","IsolTau"'
+         
+         do eID = 1, size(mesh % elements)
+            associate (N => mesh % elements(eID) % Nxyz)
+            write(fd,*) 'ZONE I=', N(1)+1, ",J=",N(2)+1, ",K=",N(3)+1,", F=POINT"
+            
+            !-------
+            ! Plot!
+            !-------
+            do k = 0, N(3) ; do j= 0, N(2) ; do i = 0, N(1)
+                     write(fd,'(5E13.5)') &
+                                mesh % elements(eID) % geom % x(1,i,j,k), &
+                                mesh % elements(eID) % geom % x(2,i,j,k), &
+                                mesh % elements(eID) % geom % x(3,i,j,k), &
+                                Tau(eID), IsolTau(eID)
+            end do ; end do ; end do
+            
+            end associate
+            
+         end do
+      
+      close(fd)
+      
+   end subroutine PlotTruncationError
 end module TruncationErrorClass

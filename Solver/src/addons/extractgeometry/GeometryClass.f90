@@ -4,9 +4,9 @@
 !   @File:    GeometryClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Fri Nov 10 15:48:11 2017
-!   @Last revision date: Thu May 10 16:18:42 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: c2afece84e4d760f10f227761dc63b7b1b966697
+!   @Last revision date: Fri Aug 17 10:25:30 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 0760ac964cfb71dec1e13da0780b72ca9d38e064
 !
 !//////////////////////////////////////////////////////
 !
@@ -17,7 +17,7 @@ module GeometryClass
    use HexMeshClass
    use FTValueDictionaryClass
    use getInputData_MOD
-   use FileReadingUtilities      , only: getFileName, getArrayFromString
+   use FileReadingUtilities      , only: getFileName, getRealArrayFromString
 
    private
    public   Geometry_t, Construct
@@ -194,7 +194,7 @@ module GeometryClass
 !     Get the cube center
 !     -------------------
       if ( controlVariables % ContainsKey(CubeCenterKey) ) then
-         xc = getArrayFromString( controlVariables % StringValueForKey(CubeCenterKey, LINE_LENGTH)) 
+         xc = getRealArrayFromString( controlVariables % StringValueForKey(CubeCenterKey, LINE_LENGTH)) 
          self % xc = xc
 
       else

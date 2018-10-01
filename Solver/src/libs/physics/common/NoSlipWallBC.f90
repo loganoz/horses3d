@@ -4,9 +4,9 @@
 !   @File:    NoSlipWallBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:42 2018
-!   @Last revision date: Fri Jul 27 18:00:52 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 35b070b793f4faed3b2e7cfccadd924f8bfad2a6
+!   @Last revision date: Fri Aug 17 10:25:39 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 0760ac964cfb71dec1e13da0780b72ca9d38e064
 !
 !//////////////////////////////////////////////////////
 !
@@ -19,7 +19,7 @@ module NoSlipWallBCClass
    use FTValueDictionaryClass, only: FTValueDictionary
    use GenericBoundaryConditionClass
    use FluidData
-   use FileReadingUtilities, only: getArrayFromString
+   use FileReadingUtilities, only: getRealArrayFromString
    use Utilities, only: toLower, almostEqual
    implicit none
 !
@@ -210,7 +210,7 @@ module NoSlipWallBCClass
 #endif
 #if defined(NAVIERSTOKES) || defined(INCNS)
          if ( bcdict % ContainsKey("wall velocity") ) then
-            ConstructNoSlipWallBC % vWall = GetArrayFromString( bcdict % StringValueForKey("wall velocity",&
+            ConstructNoSlipWallBC % vWall = getRealArrayFromString( bcdict % StringValueForKey("wall velocity",&
                                                                                            LINE_LENGTH))    
             
          else

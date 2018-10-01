@@ -154,11 +154,15 @@ endif
 ##########################
 ## 	Link HDF5 	##
 ##########################
-ifeq '$(WITH_HDF5)''y'
-		MACROS+= -DHAS_HDF5
-  	LIBS += $(HDF5_LIB) $(ZLIB_LIB)
-  	EXTLIB_INC += $(HDF5_INC) $(ZLIB_INC)
-  	FC = $(HDF5_EXE)
+ifdef HDF5_ROOT
+	MACROS+= -DHAS_HDF5
+	ifneq ("$(wildcard $(HDF5_ROOT)/lib/libhdf5_fortran-shared.so)","")
+		LIBS += -L$(HDF5_ROOT)/lib -lhdf5_fortran-shared
+	else
+		LIBS += -L$(HDF5_ROOT)/lib -lhdf5_fortran
+	endif
+	EXTLIB_INC += -I$(HDF5_ROOT)/include/shared -I$(HDF5_ROOT)/include
+##  	FC = $(HDF5_EXE)
 endif
 
 ##########################################

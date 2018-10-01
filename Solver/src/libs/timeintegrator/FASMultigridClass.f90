@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Thu Jul 26 15:53:58 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d2d8fae7ff00a479ca1a250f4de9713ae74a8c62
+!   @Last revision date: Mon Aug 20 17:10:06 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
 !
 !//////////////////////////////////////////////////////
 !
@@ -277,7 +277,7 @@ module FASMultigridClass
       MGOutput       = controlVariables % logicalValueForKey("multigrid output")
       plotInterval   = controlVariables % integerValueForKey("output interval")
       ManSol         = sem % ManufacturedSol
-      MaxN           = MAX(MAXVAL(sem%Nx),MAXVAL(sem%Ny),MAXVAL(sem%Nz))
+      MaxN           = MAX(MAXVAL(sem % mesh % Nx),MAXVAL(sem % mesh % Ny),MAXVAL(sem % mesh % Nz))
       MGlevels       = MIN (MGlevels,MaxN - NMIN + 1)
       
       write(STD_OUT,*) 'Constructing FAS Multigrid'
@@ -291,7 +291,7 @@ module FASMultigridClass
 !     Create linked solvers list
 !     --------------------------
 !
-      call RecursiveConstructor(this, sem % Nx, sem % Ny, sem % Nz, MGlevels, controlVariables)
+      call RecursiveConstructor(this, sem % mesh % Nx, sem % mesh % Ny, sem % mesh % Nz, MGlevels, controlVariables)
       
       call Stopwatch % Pause("Preprocessing")
       call Stopwatch % Start("Solver")
@@ -351,9 +351,9 @@ module FASMultigridClass
       if (ManSol) then
          DO iEl = 1, nelem
             
-            DO k=0, Solver % p_sem % Nz(iEl)
-               DO j=0, Solver % p_sem % Ny(iEl)
-                  DO i=0, Solver % p_sem % Nx(iEl)
+            DO k=0, Solver % p_sem % mesh % Nz(iEl)
+               DO j=0, Solver % p_sem % mesh % Ny(iEl)
+                  DO i=0, Solver % p_sem % mesh % Nx(iEl)
                      if (flowIsNavierStokes) then
                         call ManufacturedSolutionSourceNS(Solver % p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
                                                           0._RP, &
@@ -922,12 +922,9 @@ module FASMultigridClass
 !     ---------------------------------------
       
       if (lvl == MGlevels) then
-         call BDF_SetPreviousSolution(PrevQ = this % p_sem % mesh % storage % PrevQ, &
-                                   Q     = this % p_sem % mesh % storage % Q)
+         call BDF_SetPreviousSolution(this % p_sem % mesh % storage)
       else
-         call BDF_SetPreviousSolution(PrevQ = this % p_sem % mesh % storage % PrevQ, &
-                                      Q     = this % p_sem % mesh % storage % Q, &
-                                      NotANewStep = .TRUE. )
+         call BDF_SetPreviousSolution(this % p_sem % mesh % storage, NotANewStep = .TRUE. )
       end if
 !
 !     Send the solution to the next (coarser) level

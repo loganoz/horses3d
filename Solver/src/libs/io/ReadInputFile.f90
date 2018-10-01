@@ -50,8 +50,6 @@
          CHARACTER(LEN=LINE_LENGTH) :: keyword, keywordValue
          CHARACTER(LEN=LINE_LENGTH) :: arg
          character(len=LINE_LENGTH) :: boundaryNameControlVariable
-         CHARACTER(LEN=LINE_LENGTH) :: boundaryName
-         INTEGER                    :: numberOfBCs, k
          INTEGER                    :: ist
          logical                                 :: isInsideHagstagZone
 !
@@ -135,26 +133,6 @@
             keywordValue = ADJUSTL(GetValueAsString(inputLine))
             CALL toLower(keyword)
             CALL controlVariables % addValueForKey(keywordValue,TRIM(keyword))
-            
-            IF(keyword == "adaptation conforming boundaries") THEN
-!
-!              ---------------------------------------------------------------------------
-!              If there's p-adaptation the user may want to keep a conforming representation 
-!              on certain boundaries.
-!              TODO: Move this elsewhere after implementing the adaptator definition
-!                    as a block
-!              ---------------------------------------------------------------------------   
-!
-               numberOfBCs = controlVariables%integerValueForKey("adaptation conforming boundaries")
-               
-               DO k = 1, numberOfBCs 
-                  READ(fid,*) boundaryName
-                  
-                  CALL toLower(boundaryName)
-                  CALL conformingBoundariesDic % addValueForKey(boundaryName, boundaryName)
-                  
-               END DO
-            END IF
             
          END DO
 

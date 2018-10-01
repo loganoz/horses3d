@@ -279,6 +279,7 @@ module EllipticBR1
          real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
 
          integer       :: i,j
+         integer       :: Sidearray(2)
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
@@ -289,8 +290,9 @@ module EllipticBR1
             Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
-
-         call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),-1)
+         
+         Sidearray = (/1,2/)
+         call f % ProjectGradientFluxToElements(nGradEqn, HFlux,Sidearray,-1)
          
       end subroutine BR1_ComputeElementInterfaceAverage   
 
@@ -315,7 +317,8 @@ module EllipticBR1
          real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: Uhat(nGradEqn)
          real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
-         integer       :: i,j, thisSide
+         integer       :: i,j
+         integer       :: Sidearray(2)
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
@@ -327,8 +330,8 @@ module EllipticBR1
             Hflux(:,IZ,i,j) = Uhat * f % geom % normal(IZ,i,j)
          end do               ; end do
 
-         thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/thisSide, HMESH_NONE/),-1)
+         Sidearray = (/maxloc(f % elementIDs, dim = 1), HMESH_NONE/)
+         call f % ProjectGradientFluxToElements(nGradEqn, HFlux,Sidearray,-1)
          
       end subroutine BR1_ComputeMPIFaceAverage   
 

@@ -1,4 +1,5 @@
 #if defined(NAVIERSTOKES)
+#include "Includes.h"
 module ProbeClass
    use SMConstants
    use HexMeshClass
@@ -7,11 +8,11 @@ module ProbeClass
    use VariableConversion  , only: Pressure
    use MPI_Process_Info
    use FluidData
-   use FileReadingUtilities, only: getArrayFromString
+   use FileReadingUtilities, only: getRealArrayFromString
 #ifdef _HAS_MPI_
    use mpi
 #endif
-#include "Includes.h"
+   implicit none
    
    private
    public   Probe_t
@@ -39,6 +40,9 @@ module ProbeClass
          procedure   :: WriteValues    => Probe_WriteValue
          procedure   :: WriteToFile    => Probe_WriteToFile
          procedure   :: LookInOtherPartitions => Probe_LookInOtherPartitions
+         procedure   :: destruct       => Probe_Destruct
+         procedure   :: copy           => Probe_Assign
+         generic     :: assignment(=)  => copy
    end type Probe_t
 
    contains
@@ -78,13 +82,13 @@ module ProbeClass
          write(in_label , '(A,I0)') "#define probe " , self % ID
          
          call get_command_argument(1, paramFile)
-         call readValueInRegion(trim(paramFile), "Name"    , self % monitorName, in_label, "# end" )
-         call readValueInRegion(trim(paramFile), "Variable", self % variable   , in_label, "# end" )
-         call readValueInRegion(trim(paramFile), "Position", coordinates       , in_label, "# end" )
+         call readValueInRegion(trim(paramFile), "name"    , self % monitorName, in_label, "# end" )
+         call readValueInRegion(trim(paramFile), "variable", self % variable   , in_label, "# end" )
+         call readValueInRegion(trim(paramFile), "position", coordinates       , in_label, "# end" )
 !
 !        Get the coordinates
 !        -------------------
-         x = getArrayFromString(coordinates)
+         x = getRealArrayFromString(coordinates)
 !
 !        Check the variable
 !        ------------------
@@ -394,6 +398,50 @@ module ProbeClass
          end if
 
       end subroutine Probe_LookInOtherPartitions
-
+      
+      elemental subroutine Probe_Destruct (self)
+         implicit none
+         class(Probe_t), intent(inout) :: self
+         
+         safedeallocate (self % values)
+         safedeallocate (self % lxi)
+         safedeallocate (self % leta)
+         safedeallocate (self % lzeta)
+      end subroutine Probe_Destruct
+      
+      elemental subroutine Probe_Assign (to, from)
+         implicit none
+         class(Probe_t), intent(inout) :: to
+         type(Probe_t) , intent(in) :: from
+         
+         to % active = from % active
+         to % rank = from % rank
+         to % ID = from %  ID
+         to % eID = from % eID 
+         to % x = from % x
+         to % xi = from % xi
+         
+         safedeallocate ( to % values )
+         allocate ( to % values ( size(from % values) ) )
+         to % values = from % values
+         
+         safedeallocate ( to % lxi )
+         allocate ( to % lxi ( size(from % lxi) ) )
+         to % values = from % lxi
+         
+         safedeallocate ( to % leta )
+         allocate ( to % leta ( size(from % leta) ) )
+         to % values = from % leta
+         
+         safedeallocate ( to % lzeta )
+         allocate ( to % lzeta ( size(from % lzeta) ) )
+         to % values = from % lzeta
+         
+         to % fileName = from % fileName
+         to % monitorName = from % monitorName
+         to % variable = from % variable
+         
+      end subroutine Probe_Assign
+      
 end module ProbeClass
 #endif

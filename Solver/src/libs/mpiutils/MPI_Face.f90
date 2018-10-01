@@ -91,6 +91,11 @@ module MPI_Face_Class
             mpi_faces(domain) % sizeU_xyz = NDIM * NGRAD * NDOFS(domain)
 
             if ( NDOFS(domain) .gt. 0 ) then
+               safedeallocate(mpi_faces(domain) % Qsend)
+               safedeallocate(mpi_faces(domain) % U_xyzsend)
+               safedeallocate(mpi_faces(domain) % Qrecv)
+               safedeallocate(mpi_faces(domain) % U_xyzrecv)
+               
                allocate( mpi_faces(domain) % Qsend(NCONS * NDOFS(domain)) )
                allocate( mpi_faces(domain) % U_xyzsend(NDIM * NGRAD * NDOFS(domain)) )
                allocate( mpi_faces(domain) % Qrecv(NCONS * NDOFS(domain)) )

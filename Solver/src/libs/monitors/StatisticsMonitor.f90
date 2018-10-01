@@ -87,9 +87,9 @@ module StatisticsMonitor
 
          end if
 
-         call readValueInRegion ( trim ( paramFile ) , "Sampling interval"  , Nsample , "#define statistics" , "#end" )
-         call readValueInRegion ( trim ( paramFile ) , "Starting iteration" , i0      , "#define statistics" , "#end" )
-         call readValueInRegion ( trim ( paramFile ) , "Starting time"      , t0      , "#define statistics" , "#end" )
+         call readValueInRegion ( trim ( paramFile ) , "sampling interval"  , Nsample , "#define statistics" , "#end" )
+         call readValueInRegion ( trim ( paramFile ) , "starting iteration" , i0      , "#define statistics" , "#end" )
+         call readValueInRegion ( trim ( paramFile ) , "starting time"      , t0      , "#define statistics" , "#end" )
 !
 !        Check the input data
 !        --------------------
