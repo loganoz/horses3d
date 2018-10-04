@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Wed Aug  1 15:48:13 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
+!   @Last revision date: Thu Oct  4 11:18:42 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: fa892f0910fc593caa0146da1175ffafcbe5f8db
 !
 !//////////////////////////////////////////////////////
 !
@@ -66,9 +66,9 @@ module SpatialDiscretization
          end subroutine computeBoundaryFluxF
       end interface
 
-      procedure(computeElementInterfaceFluxF), pointer :: computeElementInterfaceFlux => computeElementInterfaceFlux_NS
-      procedure(computeMPIFaceFluxF),          pointer :: computeMPIFaceFlux          => computeMPIFaceFlux_NS
-      procedure(computeBoundaryFluxF),         pointer :: computeBoundaryFlux         => computeBoundaryFlux_NS
+      procedure(computeElementInterfaceFluxF), pointer :: computeElementInterfaceFlux
+      procedure(computeMPIFaceFluxF),          pointer :: computeMPIFaceFlux
+      procedure(computeBoundaryFluxF),         pointer :: computeBoundaryFlux
 
       logical :: enable_speed = .true.
 
@@ -101,7 +101,11 @@ module SpatialDiscretization
          character(len=LINE_LENGTH)       :: CHDiscretizationName
          
          if (.not. mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
-         
+            
+            computeElementInterfaceFlux => computeElementInterfaceFlux_NS
+            computeMPIFaceFlux          => computeMPIFaceFlux_NS
+            computeBoundaryFlux         => computeBoundaryFlux_NS
+            
             if ( MPI_Process % isRoot ) then
                write(STD_OUT,'(/)')
                call Section_Header("Spatial discretization scheme")

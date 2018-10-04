@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Sun Sep 30 21:41:47 2018
+!   @Last revision date: Thu Oct  4 11:18:44 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6ccda27143afdf4445c53d1d8364e5cff10baabc
+!   @Last revision commit: fa892f0910fc593caa0146da1175ffafcbe5f8db
 !
 !//////////////////////////////////////////////////////
 !
@@ -1339,10 +1339,12 @@ slavecoord:             DO l = 1, 4
          !-local-variables---------------------------------
          integer  :: eID, nID, no_of_orientedNodes
          integer  :: dir
+         integer  :: ierr                             ! Error for MPI calls
          integer  :: face1Nodes(NODES_PER_FACE)
          integer  :: face2Nodes(NODES_PER_FACE)
          integer  :: no_of_orientedElems(NDIM)
          logical  :: meshExtrudedIn(NDIM)
+         logical  :: meshExtrudedInLocal(NDIM)
          real(kind=RP)  :: xNodesF1(NDIM,NODES_PER_FACE)
          real(kind=RP)  :: xNodesF2(NDIM,NODES_PER_FACE)
          real(kind=RP)  :: dx(NDIM,NODES_PER_FACE)
@@ -1500,6 +1502,16 @@ slavecoord:             DO l = 1, 4
          end do elem_loop
          
          meshExtrudedIn = ( no_of_orientedElems == self % no_of_elements )
+         
+!        MPI communication
+!        -----------------
+#if _HAS_MPI_
+         if ( MPI_Process % doMPIAction ) then
+            meshExtrudedInLocal = meshExtrudedIn
+            call mpi_allreduce ( meshExtrudedInLocal, meshExtrudedIn, NDIM, MPI_LOGICAL, MPI_LAND, MPI_COMM_WORLD, ierr )   
+         end if
+#endif
+         
          if ( any(meshExtrudedIn) ) then
             self % meshIs2D = .TRUE.
             
@@ -1525,7 +1537,7 @@ slavecoord:             DO l = 1, 4
 !//////////////////////////////////////////////////////////////////////////////
 !
 !     If the mesh is a 2D extruded mesh, this subroutine sets the polynomial order
-!     to zero in the corresponding direction
+!     to zero in the corresponding direction (HexMesh_CheckIfMeshIs2D must have been called beforehand)
 !     --------------------------------------------------------------------
 !
 !//////////////////////////////////////////////////////////////////////////////
@@ -1793,6 +1805,7 @@ slavecoord:             DO l = 1, 4
 !     -----------------------------------------------------------------------------
 !     Construct geometry of faces and elements
 !     -> This routine guarantees that the mapping is subparametric or isoparametric
+!     -> TODO: Additional considerations are needed for p-nonconforming representations with inner curved faces
 !     -----------------------------------------------------------------------------
       subroutine HexMesh_ConstructGeometry(self, facesList, elementList)
          implicit none
@@ -1816,8 +1829,10 @@ slavecoord:             DO l = 1, 4
          type(TransfiniteHexMap), pointer :: hexMap, hex8Map, genHexMap
          !--------------------------------
          logical                    :: isConforming   ! Is the representation conforming on a boundary?
-         integer                    :: zoneID, zonefID
-         integer, allocatable :: bfOrder(:)
+         integer                    :: zoneID, zonefID, nZones
+         integer, allocatable       :: bfOrder_local(:)  ! Polynomial order on a zone (partition wise)
+         integer, allocatable       :: bfOrder(:)        ! Polynomial order on a zone (global)
+         integer                    :: ierr              ! Error for MPI calls
          !--------------------------------
          
          corners = 0._RP
@@ -1857,12 +1872,15 @@ slavecoord:             DO l = 1, 4
 !        *************************************************************1**********
 !
          if (self % anisotropic .and. (.not. self % meshIs2D) ) then
-            allocate ( bfOrder(size(self % zones)) )
+            nZones = size(self % zones)
+            allocate ( bfOrder (nZones) )
             bfOrder = huge(bfOrder) ! Initialize to a big number
             
-            do zoneID=1, size(self % zones)
+            do zoneID=1, nZones
                if (self % zones(zoneID) % no_of_faces == 0 ) cycle
                
+!              Get the minimum polynomial order in this zone
+!              ---------------------------------------------
                do zonefID = 1, self % zones(zoneID) % no_of_faces
                   fID = self % zones(zoneID) % faces(zonefID)
                   
@@ -1870,6 +1888,24 @@ slavecoord:             DO l = 1, 4
                   bfOrder(zoneID) = min(bfOrder(zoneID),f % NfLeft(1),f % NfLeft(2))
                   end associate
                end do
+               
+!           MPI communication
+!           -----------------
+#if _HAS_MPI_
+            end do
+            
+            if ( MPI_Process % doMPIAction ) then
+               allocate ( bfOrder_local(nZones) )
+               bfOrder_local = bfOrder
+               call mpi_allreduce ( bfOrder_local, bfOrder, nZones, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, ierr )   
+               deallocate ( bfOrder_local )
+            end if
+            
+            do zoneID=1, nZones
+#endif
+               
+!              Select the BC poynomial order
+!              -----------------------------
                
                if ( self % ConformingOnZone(zoneID) .or. self % ignoreBCnonConformities) then
                   !bfOrder(zoneID) = bfOrder(zoneID)
@@ -2024,6 +2060,7 @@ slavecoord:             DO l = 1, 4
             end select 
             end associate
          end do
+         safedeallocate (bfOrder)
          
 !
 !        ----------------------------
@@ -3376,7 +3413,7 @@ slavecoord:             DO l = 1, 4
 !     *********************************************
 !$omp parallel do schedule(runtime) private(fID, e)
       do eID=1, self % no_of_elements
-         e => self % elements(eID) 
+         e => self % elements(eID)   ! Associate fails(!) here
          if ( all( e % Nxyz == NNew(:,eID)) ) then
             cycle
          else
