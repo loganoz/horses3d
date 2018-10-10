@@ -4,9 +4,9 @@
 !   @File:    InflowBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:42 2018
-!   @Last revision date: Tue Aug 21 18:19:11 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f09a57fa71226958a52c9f81e1bbaeb68e07bd37
+!   @Last revision date: Wed Oct 10 11:33:04 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 179e2194c847ba66cf1181b38afa8efbefa25e5d
 !
 !//////////////////////////////////////////////////////
 !
@@ -548,6 +548,11 @@ module InflowBCClass
          real(kind=RP),       intent(inout) :: U_x(NCOMP)
          real(kind=RP),       intent(inout) :: U_y(NCOMP)
          real(kind=RP),       intent(inout) :: U_z(NCOMP)
+
+         U_x = 0.0_RP
+         U_y = 0.0_RP
+         U_z = 0.0_RP
+
       end subroutine InflowBC_PhaseFieldNeumann
 
       subroutine InflowBC_ChemPotState(self, x, t, nHat, Q)

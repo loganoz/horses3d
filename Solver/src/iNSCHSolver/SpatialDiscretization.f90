@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Sun Sep 30 21:41:41 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6ccda27143afdf4445c53d1d8364e5cff10baabc
+!   @Last revision date: Fri Oct 12 16:38:05 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 48fac2e70623f479131600829f20339f3b97b1cc
 !
 !//////////////////////////////////////////////////////
 !
@@ -1184,7 +1184,7 @@ stop
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID)) 
             if ( e % hasSharedFaces ) cycle
-            call TimeDerivative_FacesContribution(e, t, mesh, NCOMP) 
+            call Laplacian_FacesContribution(e, t, mesh) 
  
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
                e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
