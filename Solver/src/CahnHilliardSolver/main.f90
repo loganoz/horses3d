@@ -23,7 +23,7 @@
       USE TimeIntegratorClass
       USE mainKeywordsModule
       USE Headers
-      USE pAdaptationClass
+      USE pAdaptationClass          , only: GetMeshPolynomialOrders
       use StopwatchClass
       use MPI_Process_Info
       use SpatialDiscretization
@@ -52,7 +52,6 @@
       procedure(UserDefinedTermination_f) :: UserDefinedTermination
       integer, allocatable                :: Nx(:), Ny(:), Nz(:)
       integer                             :: Nmax
-      type(pAdaptation_t)                 :: pAdaptator
 
       call SetSolver(CAHNHILLIARD_SOLVER)
 !
@@ -94,7 +93,6 @@
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
       call InitializeNodalStorage (controlVariables,Nmax)
       call Initialize_InterpolationMatrices(Nmax)
-      call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
 !
 !     --------------------------
 !     Set up boundary conditions
@@ -130,7 +128,7 @@
 !     Integrate in time
 !     -----------------
 !
-      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !     --------------------------
 !     Show simulation statistics
@@ -166,7 +164,6 @@
 !     Finish up
 !     ---------
 !
-      if (pAdaptator % Constructed) call pAdaptator % destruct()
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       call Finalize_InterpolationMatrices

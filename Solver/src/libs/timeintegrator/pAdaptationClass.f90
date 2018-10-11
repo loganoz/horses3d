@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Fri Sep  7 19:07:29 2018
+!   @Last revision date: Thu Oct 11 13:02:29 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 95cf879e21e49900ff67f23490a18c87162fe91d
+!   @Last revision commit: 751e6a4da536b5ae874a7acce90699d6c5154a1f
 !
 !//////////////////////////////////////////////////////
 !
@@ -28,18 +28,19 @@ module pAdaptationClass
    use TruncationErrorClass
    use FTValueDictionaryClass          , only: FTValueDictionary
    use StorageClass
-   use FileReadingUtilities            , only: RemovePath, getFileName, getRealArrayFromString, getCharArrayFromString
+   use FileReadingUtilities            , only: RemovePath, getFileName, getRealArrayFromString, getCharArrayFromString, GetRealValue, GetIntValue
    use FileReaders                     , only: ReadOrderFile
    use ParamfileRegions                , only: readValueInRegion, getSquashedLine
    use HexMeshClass                    , only: HexMesh
    use ElementConnectivityDefinitions  , only: neighborFaces
    use Utilities                       , only: toLower
+   use ReadMeshFile                    , only: NumOfElemsFromMeshFile
    implicit none
    
 #include "Includes.h"
    private
    public GetMeshPolynomialOrders, ReadOrderFile
-   public pAdaptation_t
+   public pAdaptation_t, ADAPT_UNSTEADY_TIME
    
    !--------------------------------------------------
    ! Main type for performing a p-adaptation procedure
@@ -70,17 +71,22 @@ module pAdaptationClass
       logical                           :: UnSteady
       integer                           :: NxyzMax(3)       ! Maximum polynomial order in all the directions
       integer                           :: TruncErrorType   ! Truncation error type (either ISOLATED_TE or NON_ISOLATED_TE)
-      integer                           :: interval
+      integer                           :: adaptation_mode  ! Adaptation mode 
+      real(kind=RP)                     :: time_interval
+      integer                           :: iter_interval
+      logical                           :: performPAdaptationT
+      real(kind=RP)                     :: nextAdaptationTime = huge(1._RP)
       character(len=BC_STRING_LENGTH), allocatable :: conformingBoundaries(:) ! Stores the conforming boundaries (the length depends on FTDictionaryClass)
       type(TruncationError_t), allocatable :: TE(:)         ! Truncation error for every element(:)
       
       type(overenriching_t)  , allocatable :: overenriching(:)
       
       contains
-         procedure :: construct => pAdaptation_Construct
-         procedure :: destruct  => pAdaptation_Destruct
+         procedure :: construct  => pAdaptation_Construct
+         procedure :: destruct   => pAdaptation_Destruct
          procedure :: makeBoundariesPConforming
-         procedure :: pAdaptTE  => pAdaptation_pAdaptTE
+         procedure :: pAdaptTE   => pAdaptation_pAdaptTE
+         procedure :: hasToAdapt => pAdaptation_hasToAdapt
    end type pAdaptation_t
 !
 !  ----------
@@ -108,6 +114,11 @@ module pAdaptationClass
    
    procedure(OrderAcrossFace_f), pointer :: GetOrderAcrossFace
    
+   
+   integer, parameter :: ADAPT_STEADY = 0
+   integer, parameter :: ADAPT_UNSTEADY_ITER = 1
+   integer, parameter :: ADAPT_UNSTEADY_TIME = 2
+   
    ! Here we define the input variables that can be changed after p-adaptation
    character(len=18), parameter :: ReplaceableVars(4) = (/'mg sweeps         ', &
                                                           'mg sweeps pre     ', &
@@ -125,20 +136,25 @@ module pAdaptationClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
-      use ReadMeshFile
       implicit none
       !-------------------------------------------------
       type(FTValueDictionary), intent(in)    :: controlVariables
       integer, allocatable   , intent(inout) :: Nx(:), Ny(:), Nz(:)  
       integer                , intent(out)   :: Nmax
       !-------------------------------------------------
-      integer              :: nelem
+      integer              :: nelem, i
       integer, allocatable :: Nx_r(:), Ny_r(:), Nz_r(:)  
       character(LINE_LENGTH)         :: paramFile
       character(LINE_LENGTH)         :: in_label
       character(LINE_LENGTH)         :: R_Nmax
+      logical, allocatable           :: R_increasing
       !-------------------------------------------------
       
+!
+!     *************************************
+!     Read the simulation polynomial orders
+!     *************************************
+!
       if (controlVariables % containsKey("polynomial order file")) then
          call ReadOrderFile( controlVariables % stringValueForKey("polynomial order file", requestedLength = LINE_LENGTH), &
                              Nx, Ny, Nz )
@@ -175,13 +191,14 @@ module pAdaptationClass
       
       write(in_label , '(A)') "#define p-adaptation"
       call get_command_argument(1, paramFile) !
-      call readValueInRegion ( trim ( paramFile )  , "nmax"  , R_Nmax    , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "nmax"       , R_Nmax      , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "increasing" , R_increasing, in_label , "# end" ) 
       if ( R_Nmax /= "" ) then
          Nmax = maxval (getRealArrayFromString(R_Nmax))
       end if
       
 !     Restart polynomial order
-!     -------------------------
+!     ------------------------
       
       if (controlVariables % containsKey("restart polorder" )) Nmax = max(Nmax,controlVariables % integerValueForKey("restart polorder" ))
       
@@ -195,7 +212,25 @@ module pAdaptationClass
       
       Nmax = max(Nmax,maxval(Nx),maxval(Ny),maxval(Nz))
       
-      end subroutine GetMeshPolynomialOrders
+!
+!     *****************************************************************************
+!     Correct the simulation polynomial orders if increasing adaptation is selected
+!     *****************************************************************************
+!
+      if ( allocated(R_increasing) ) then
+         if (R_increasing) then
+            NInc = NInc_0
+!$omp parallel do schedule(runtime)
+            do i = 1, size(Nx)
+               if (Nx(i) > NInc) Nx(i) = NInc
+               if (Ny(i) > NInc) Ny(i) = NInc
+               if (Nz(i) > NInc) Nz(i) = NInc
+            end do
+!$omp end parallel do
+         end if
+      end if
+      
+   end subroutine GetMeshPolynomialOrders
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -393,21 +428,20 @@ readloop:do
 !  Routine for constructing the p-adaptator.
 !   -> If increasing (multi-stage) adaptation is selected, the final step is to rewrite the polynomial orders for the sem contruction
 !  ----------------------------------------
-   subroutine pAdaptation_Construct(this,Nx,Ny,Nz,controlVariables)
+   subroutine pAdaptation_Construct(this,controlVariables,t0)
       implicit none
       !--------------------------------------
-      class(pAdaptation_t)                :: this             !>  P-Adaptator
-      integer, DIMENSION(:)               :: Nx,Ny,Nz         !<> Input: polynomial orders as read from input files - Output: Polynomial orders to start simulation with (increasing adaptation?)
-      type(FTValueDictionary), intent(in) :: controlVariables !<  Input values
+      class(pAdaptation_t)   , intent(inout) :: this             !>  P-Adaptator
+      type(FTValueDictionary), intent(in)    :: controlVariables !<  Input values
+      real(kind=RP)          , intent(in)    :: t0
       !--------------------------------------
       ! For block reading
       character(LINE_LENGTH)         :: paramFile
       character(LINE_LENGTH)         :: in_label
       character(20*BC_STRING_LENGTH) :: confBoundaries
-      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_OrderAcrossFaces, replacedValue
-      logical      , allocatable     :: increasing, regressionFiles, reorganize_z, R_restart
+      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_OrderAcrossFaces, replacedValue, R_mode, R_interval
+      logical      , allocatable     :: R_increasing, regressionFiles, reorganize_z, R_restart
       real(kind=RP), allocatable     :: TruncError
-      integer      , allocatable     :: R_interval
       ! Extra vars
       integer                        :: i      ! Element counter
       integer                        :: no_of_overen_boxes
@@ -434,7 +468,7 @@ readloop:do
       call get_command_argument(1, paramFile) !
       
       call readValueInRegion ( trim ( paramFile )  , "conforming boundaries"  , confBoundaries    , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "increasing"             , increasing        , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "increasing"             , R_increasing      , in_label , "# end" ) 
       call readValueInRegion ( trim ( paramFile )  , "truncation error"       , TruncError        , in_label , "# end" ) 
       call readValueInRegion ( trim ( paramFile )  , "regression files"       , regressionFiles   , in_label , "# end" ) 
       call readValueInRegion ( trim ( paramFile )  , "adjust nz"              , reorganize_z      , in_label , "# end" ) 
@@ -442,6 +476,7 @@ readloop:do
       call readValueInRegion ( trim ( paramFile )  , "nmin"                   , R_Nmin            , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "truncation error type"  , R_TruncErrorType  , in_label , "# end" ) 
       call readValueInRegion ( trim ( paramFile )  , "order across faces"     , R_OrderAcrossFaces, in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "mode"                   , R_mode            , in_label , "# end" ) 
       call readValueInRegion ( trim ( paramFile )  , "interval"               , R_interval        , in_label , "# end" ) 
       call readValueInRegion ( trim ( paramFile )  , "restart files"          , R_restart         , in_label , "# end" ) 
       
@@ -456,8 +491,8 @@ readloop:do
       
 !     Increasing adaptation?
 !     ----------------------
-      if ( allocated(increasing) ) then
-         this % increasing = increasing
+      if ( allocated(R_increasing) ) then
+         this % increasing = R_increasing
       end if
       
 !     Truncation error threshold
@@ -485,7 +520,7 @@ readloop:do
       if ( R_Nmax /= "" ) then
          this % NxyzMax = getRealArrayFromString(R_Nmax)
       else
-         this % NxyzMax = [maxval(Nx), maxval(Ny), maxval(Nz)] 
+         ERROR STOP 'Keyword Nmax is mandatory for p-adaptation'
       end if
       
 !     Nmin -> If this is a p-nonconforming 3D case, it should be 2
@@ -524,14 +559,30 @@ readloop:do
          GetOrderAcrossFace => NumberN_1
       end if
       
-!     Interval
-!     --------
-      if ( allocated(R_interval) ) then
-         
-         this % interval = R_interval
-      else
-         this % interval = huge(this % interval)
-      end if
+!     Adaptation mode: Steady(default) or unsteady
+!     --------------------------------------------
+      
+      if ( R_mode == "" ) R_mode = "steady"
+      select case ( trim(R_mode) )
+         case ("time")
+            this % adaptation_mode = ADAPT_UNSTEADY_TIME
+            this % time_interval   = GetRealValue(R_interval)
+            this % iter_interval   = huge(this % iter_interval)
+            this % nextAdaptationTime = t0 + this % time_interval
+         case ("iteration")
+            this % adaptation_mode = ADAPT_UNSTEADY_ITER
+            this % time_interval   = huge(this % time_interval)
+            this % iter_interval   = GetIntValue(R_interval)
+         case ("steady")
+            this % adaptation_mode = ADAPT_STEADY
+            this % time_interval   = huge(this % time_interval)
+            this % iter_interval   = huge(this % iter_interval)
+         case default
+            WRITE(STD_OUT,*) 'Not recognized adaptation mode. Options are:'
+            WRITE(STD_OUT,*) '   * time'
+            WRITE(STD_OUT,*) '   * iteration'
+            WRITE(STD_OUT,*) '   * steady'
+      end select
       
 !     Restart files
 !     -------------
@@ -561,7 +612,7 @@ readloop:do
 !     Construct the truncation error
 !     ******************************    
       
-      nelem = size(Nx)
+      nelem = NumOfElemsFromMeshFile( controlVariables % stringValueForKey("mesh file name", requestedLength = LINE_LENGTH) )
       allocate (this % TE(nelem))
       do i = 1, nelem
          call this % TE(i) % construct(NMINest,this % NxyzMax)
@@ -580,23 +631,34 @@ readloop:do
             call this % overenriching(i) % initialize (i)
          end do
       end if
-!
-!     ---------------------------------------------
-!     If increasing adaptation is selected, rewrite
-!     ---------------------------------------------
-!
-      if (this % increasing) then
-         NInc = NInc_0
-!$omp parallel do schedule(runtime)
-         do i = 1, nelem
-            if (Nx(i) > NInc) Nx(i) = NInc
-            if (Ny(i) > NInc) Ny(i) = NInc
-            if (Nz(i) > NInc) Nz(i) = NInc
-         end do
-!$omp end parallel do
-      end if
       
    end subroutine pAdaptation_Construct
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   pure function pAdaptation_hasToAdapt(this,iter) result(hasToAdapt)
+      implicit none
+      class(pAdaptation_t), intent(in) :: this
+      integer             , intent(in) :: iter
+      logical                          :: hasToAdapt
+      
+      select case (this % adaptation_mode)
+         
+         case (ADAPT_STEADY)
+            hasToAdapt = .FALSE.
+            
+         case (ADAPT_UNSTEADY_ITER)
+            if ( (mod(iter, this % iter_interval) == 0) .or. (iter == 1) ) then
+               hasToAdapt = .TRUE.
+            else
+               hasToAdapt = .FALSE.
+            end if
+            
+         case (ADAPT_UNSTEADY_TIME)
+            hasToAdapt = this % performPAdaptationT
+      end select
+      
+   end function pAdaptation_hasToAdapt
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

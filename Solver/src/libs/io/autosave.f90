@@ -5,7 +5,7 @@ module AutosaveClass
    use Utilities, only: almostEqual, toLower
 
    private
-   public   Autosave_t
+   public   Autosave_t, AUTOSAVE_BY_TIME
 
    integer, parameter :: AUTOSAVE_UNDEFINED    = 0
    integer, parameter :: AUTOSAVE_BY_TIME      = 1
@@ -16,11 +16,10 @@ module AutosaveClass
       logical        :: enable
       integer        :: iter_interval
       real(kind=RP)  :: time_interval
-      real(kind=RP)  :: lastAutosaveTime
+      real(kind=RP)  :: nextAutosaveTime
       integer        :: mode
       contains
          procedure   :: Configure => Autosave_Configure
-         procedure   :: CorrectDt => Autosave_CorrectDt
          procedure   :: Autosave  => Autosave_Autosave
    end type Autosave_t
 
@@ -136,39 +135,10 @@ module AutosaveClass
 !
 !     Reset the last autosave time
 !     ----------------------------
-      self % lastAutosaveTime = t0
+      self % nextAutosaveTime = t0 + self % time_interval
       self % performAutosave = .false.
          
    end subroutine Autosave_Configure
-
-   real(kind=RP) function Autosave_CorrectDt(self,t,dt)
-      implicit none
-      class(Autosave_t)                   :: self
-      real(kind=RP),          intent(in)  :: t
-      real(kind=RP),          intent(in)  :: dt
-
-      if ( .not. self % enable ) then
-         Autosave_CorrectDt = dt
-         return
-      end if
-
-      select case ( self % mode )
-      case (AUTOSAVE_BY_ITERATION)
-         Autosave_CorrectDt = dt
-
-      case (AUTOSAVE_BY_TIME)
-         if ( (t+dt - self % lastAutosaveTime) .ge. self % time_interval ) then
-            Autosave_CorrectDt = (self % time_interval + self % lastAutosaveTime - t)
-            self % lastAutosaveTime = self % lastAutosaveTime + self % time_interval
-            self % performAutosave = .true.
-         else
-            Autosave_CorrectDt = dt
-            self % performAutosave = .false.
-         end if
-
-      end select 
-
-   end function Autosave_CorrectDt
 
    logical function Autosave_Autosave(self,iter)
       class(Autosave_t),   intent(in)     :: self
