@@ -69,18 +69,19 @@ contains
 !!     after an = sign in an inputLine
 !     ----------------------------------------------------------------
 !
-      INTEGER FUNCTION GetRealValue( inputLine )
-         IMPLICIT NONE
-!
-         CHARACTER ( LEN = * ) :: inputLine
-         REAL(KIND=RP)         :: value
+      function GetRealValue( inputLine ) result(real_value)
+         implicit none
+         !-arguments-------------------------------------------
+         CHARACTER ( LEN = * ), intent(in) :: inputLine
+         real(kind=RP)                     :: real_value
+         !-local-variables-------------------------------------
          INTEGER               :: strLen, leq
-!
+         !-----------------------------------------------------
+         
          leq    = INDEX( inputLine, '=' )
          strLen = LEN_TRIM( inputLine )
-         READ( inputLine( leq+1:strLen ), * ) value
-         GetRealValue = VALUE
-!
+         READ( inputLine( leq+1:strLen ), * ) real_value
+         
       END FUNCTION GetRealValue
 !
 !////////////////////////////////////////////////////////////////////////

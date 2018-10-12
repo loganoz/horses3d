@@ -291,7 +291,9 @@ MODULE Read_SpecMesh
 !        Check if this is a 2D extruded mesh
 !        -----------------------------------
 !
-         call self % CheckIfMeshIs2D()
+         if ( .not. MPI_Process % doMPIRootAction ) then
+            call self % CheckIfMeshIs2D()
+         end if
 !
 !        -------------------------------
 !        Set the mesh as 2D if requested
@@ -312,8 +314,9 @@ MODULE Read_SpecMesh
 !        Construct elements' and faces' geometry
 !        ---------------------------------------
 !
-         call self % ConstructGeometry()
-            
+         if ( .not. MPI_Process % doMPIRootAction ) then
+            call self % ConstructGeometry()
+         end if
          CLOSE( fUnit )
 !
 !        ---------

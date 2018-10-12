@@ -4,9 +4,9 @@
 !   @File:    main.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Mon Jul  2 17:50:24 2018
-!   @Last revision date: Mon Sep 24 19:27:00 2018
+!   @Last revision date: Thu Oct 11 13:02:26 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 7ac2937102050656fd4a699d4a0b4a592b3431bf
+!   @Last revision commit: 751e6a4da536b5ae874a7acce90699d6c5154a1f
 !
 !//////////////////////////////////////////////////////
 !
@@ -39,11 +39,10 @@
       USE TimeIntegratorClass
       USE mainKeywordsModule
       USE Headers
-      USE pAdaptationClass
       use StopwatchClass
       use MPI_Process_Info
       use SpatialDiscretization
-      use pAdaptationClass
+      use pAdaptationClass          , only: GetMeshPolynomialOrders
       use NodalStorageClass
       use FluidData
       use FileReaders               , only: ReadControlFile 
@@ -70,7 +69,6 @@
       procedure(UserDefinedTermination_f) :: UserDefinedTermination
       integer, allocatable                :: Nx(:), Ny(:), Nz(:)
       integer                             :: Nmax
-      type(pAdaptation_t)                 :: pAdaptator
 
       call SetSolver(INSCH_SOLVER)
 !
@@ -112,7 +110,6 @@
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
       call InitializeNodalStorage(controlVariables, Nmax)
       call Initialize_InterpolationMatrices(Nmax)
-      call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
       
       call sem % construct (  controlVariables  = controlVariables,                                         &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
@@ -140,7 +137,7 @@
 !     Integrate in time
 !     -----------------
 !
-      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !     ----------------------------------
 !     Export particles to VTK (temporal)
@@ -183,7 +180,6 @@
 !     Finish up
 !     ---------
 !
-      if (pAdaptator % Constructed) call pAdaptator % destruct()
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       call DestructBoundaryConditions

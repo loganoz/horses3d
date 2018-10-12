@@ -4,9 +4,9 @@
 !   @File:    ReadHDF5Mesh.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Mon Oct  1 12:09:49 2018
+!   @Last revision date: Thu Oct  4 11:18:44 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: c0e33a87fc7298912026e6bcb96893161b87913a
+!   @Last revision commit: fa892f0910fc593caa0146da1175ffafcbe5f8db
 !
 !//////////////////////////////////////////////////////
 !
@@ -402,7 +402,9 @@ contains
 !     Check if this is a 2D extruded mesh
 !     -----------------------------------
 !
-      call self % CheckIfMeshIs2D()
+      if ( .not. MPI_Process % doMPIRootAction ) then
+         call self % CheckIfMeshIs2D()
+      end if
 !
 !     -------------------------------
 !     Set the mesh as 2D if requested

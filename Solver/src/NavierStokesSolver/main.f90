@@ -21,7 +21,6 @@
       USE TimeIntegratorClass
       USE mainKeywordsModule
       USE Headers
-      USE pAdaptationClass
       use StopwatchClass
       use MPI_Process_Info
       use SpatialDiscretization
@@ -54,7 +53,6 @@
       character(len=LINE_LENGTH)          :: solutionFileName
       integer, allocatable                :: Nx(:), Ny(:), Nz(:)
       integer                             :: Nmax
-      type(pAdaptation_t)                 :: pAdaptator
 
       call SetSolver(NAVIERSTOKES_SOLVER)
 !
@@ -103,7 +101,6 @@
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
       call InitializeNodalStorage (controlVariables ,Nmax)
       call Initialize_InterpolationMatrices(Nmax)
-      call pAdaptator % construct (Nx,Ny,Nz,controlVariables)      ! If not requested, the constructor returns doing nothing
       
       call sem % construct (  controlVariables  = controlVariables,                                         &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
@@ -131,7 +128,7 @@
 !     Integrate in time
 !     -----------------
 !
-      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+      CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !     ----------------------------------
 !     Export particles to VTK (temporal)
@@ -173,7 +170,6 @@
 !     Finish up
 !     ---------
 !
-      if (pAdaptator % Constructed) call pAdaptator % destruct()
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       call DestructBoundaryConditions
@@ -294,7 +290,7 @@
          integer                    :: NDOF, localNDOF, ierr
          real(kind=RP)              :: Naverage, localNaverage
          real(kind=RP)              :: t_elaps, t_cpu
-   
+         
          if ( MPI_Process % isRoot ) write(STD_OUT,'(/)')
          call Section_Header("Simulation statistics")
          if ( MPI_Process % isRoot ) write(STD_OUT,'(/)')

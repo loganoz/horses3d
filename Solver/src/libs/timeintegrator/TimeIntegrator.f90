@@ -22,16 +22,16 @@
       USE Physics
       USE ExplicitMethods
       USE IMEXMethods    
-      use AutosaveClass                   , only: Autosave_t
+      use AutosaveClass                   , only: Autosave_t, AUTOSAVE_BY_TIME
       use StopwatchClass
       use MPI_Process_Info
       use TimeIntegratorDefinitions
       use MonitorsClass
       use ParticlesClass
-      use Utilities, only: ToLower
+      use Utilities                       , only: ToLower, AlmostEqual
       use FileReadingUtilities            , only: getFileName
       use ProblemFileFunctions            , only: UserDefinedPeriodicOperation_f
-      use pAdaptationClass                , only: pAdaptation_t
+      use pAdaptationClass                , only: pAdaptation_t, ADAPT_UNSTEADY_TIME
       use TruncationErrorClass            , only: EstimateAndPlotTruncationError
       IMPLICIT NONE 
       
@@ -44,16 +44,18 @@
          REAL(KIND=RP)                          :: dt, tolerance, cfl, dcfl
          LOGICAL                                :: Compute_dt                    ! Is st computed from an inputted CFL number?
          type(Autosave_t)                       :: autosave
+         type(pAdaptation_t)                    :: pAdaptator
          PROCEDURE(TimeStep_FCN), NOPASS , POINTER :: RKStep
 !
 !        ========         
          CONTAINS
 !        ========         
 !
-         PROCEDURE :: construct => constructTimeIntegrator
-         PROCEDURE :: destruct => destructTimeIntegrator
+         PROCEDURE :: construct  => constructTimeIntegrator
+         PROCEDURE :: destruct   => destructTimeIntegrator
          PROCEDURE :: integrate
-         procedure :: Display => TimeIntegrator_Display
+         procedure :: Display    => TimeIntegrator_Display
+         procedure :: CorrectDt  => TimeIntegrator_CorrectDt
       END TYPE TimeIntegrator_t
 
       abstract interface
@@ -140,7 +142,8 @@
                IF (controlVariables % containsKey("final time")) THEN
                   self % tFinal         = controlVariables % doublePrecisionValueForKey("final time")
                ELSE
-                  ERROR STOP '"final time" keyword must be specified for time-accurate integrators'
+                  self % tFinal         = huge(self % tFinal)
+!~                  ERROR STOP '"final time" keyword must be specified for time-accurate integrators'
                ENDIF
                self % integratorType = TIME_ACCURATE
             CASE DEFAULT ! Using 'steady-state' even if not specified in input file
@@ -151,7 +154,8 @@
 !        Set the autosave
 !        ----------------
 !
-         call self % autosave % Configure(controlVariables, initial_time)
+         call self % autosave   % Configure (controlVariables, initial_time)
+         call self % pAdaptator % construct (controlVariables, initial_time)      ! If not requested, the constructor returns doing nothing
          
       END SUBROUTINE constructTimeIntegrator
 !
@@ -163,11 +167,12 @@
          self % numTimeSteps = 0
          self % dt           = 0.0_RP
          
+         if (self % pAdaptator % Constructed) call self % pAdaptator % destruct()
       END SUBROUTINE destructTimeIntegrator
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE Integrate( self, sem, controlVariables, monitors, pAdaptator, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+      SUBROUTINE Integrate( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       USE FASMultigridClass
       IMPLICIT NONE
 !
@@ -179,7 +184,6 @@
       TYPE(DGSem)                          :: sem
       TYPE(FTValueDictionary)              :: controlVariables
       class(Monitor_t)                     :: monitors
-      type(pAdaptation_t)                  :: pAdaptator
       procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivativeIsolated
 
@@ -228,14 +232,14 @@
       
 !     Perform p-adaptation stage(s) if requested
 !     ------------------------------------------
-      if (self % integratorType == STEADY_STATE .and. pAdaptator % Adapt) then
+      if (self % integratorType == STEADY_STATE .and. self % pAdaptator % Adapt) then
          
          PA_Stage = 0
-         do while (pAdaptator % Adapt)
+         do while (self % pAdaptator % Adapt)
             PA_Stage = PA_Stage + 1
             
-            call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, pAdaptator % reqTE*0.1_RP)  ! The residual is hard-coded to 0.1 * truncation error threshold (see Kompenhans, Moritz, et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.)
-            call pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,0._RP, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)  ! Time is hardcoded to 0._RP (not important since it's only for STEADY_STATE)
+            call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, self % pAdaptator % reqTE*0.1_RP)  ! The residual is hard-coded to 0.1 * truncation error threshold (see Kompenhans, Moritz, et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.)
+            call self % pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,0._RP, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)  ! Time is hardcoded to 0._RP (not important since it's only for STEADY_STATE)
             
             sem % numberOfTimeSteps = sem % numberOfTimeSteps + 1
             
@@ -244,7 +248,7 @@
       
 !     Finish time integration
 !     -----------------------
-      call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, pAdaptator = pAdaptator)
+      call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated )
       
 !     Measure solver time
 !     -------------------
@@ -259,7 +263,7 @@
 !  -> If "tolerance" is provided, the value in controlVariables is ignored. 
 !     This is only relevant for STEADY_STATE computations.
 !  ------------------------------------------------------------------------
-   subroutine IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, tolerance, CTD_linear, CTD_nonlinear, pAdaptator)
+   subroutine IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, tolerance, CTD_linear, CTD_nonlinear)
    
       USE BDFTimeIntegrator
       use FASMultigridClass
@@ -281,7 +285,6 @@
       real(kind=RP), optional, intent(in)          :: tolerance   !< ? tolerance to integrate down to
       procedure(ComputeTimeDerivative_f), optional :: CTD_linear
       procedure(ComputeTimeDerivative_f), optional :: CTD_nonlinear
-      type(pAdaptation_t)               , optional :: pAdaptator
 !
 !     ---------------
 !     Local variables
@@ -292,7 +295,6 @@
       REAL(KIND=RP)                 :: maxResidual(NTOTALVARS)
       REAL(KIND=RP)                 :: dt
       integer                       :: k
-      integer                       :: pAdaptInterval
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName
       ! Time-step solvers:
       type(FASMultigrid_t)          :: FASSolver
@@ -302,7 +304,6 @@
       
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
       logical                       :: saveGradients
-      logical                       :: pAdaptation
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
 !     ----------------------
@@ -316,14 +317,6 @@
       END IF
       call toLower(TimeIntegration)
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
-      
-      if ( present(pAdaptator) .and. self % integratorType == TIME_ACCURATE) then
-         pAdaptation    = pAdaptator % Adapt
-         pAdaptInterval = pAdaptator % interval
-      else
-         pAdaptation    = .FALSE.
-         pAdaptInterval = huge(pAdaptInterval)
-      end if
       
 !
 !     ---------------
@@ -389,17 +382,10 @@
 !        ---------------------      
          IF ( self % Compute_dt ) self % dt = MaxTimeStep( sem, self % cfl, self % dcfl )
 !
-!        Autosave bounded time step
-!        --------------------------
-         dt = self % autosave % CorrectDt(t,self % dt)
-!
-!        Autosave bounded by time-accurate simulations
-!        ---------------------------------------------
-         if ( self % integratorType .eq. TIME_ACCURATE ) then
-            if ( ( t + dt) .gt. self % tFinal ) then
-               dt = self % tFinal - t
-            end if
-         end if
+!        Correct time step
+!        -----------------
+         dt = self % CorrectDt(t,self % dt)
+         
 !
 !        Perform time step
 !        -----------------         
@@ -466,9 +452,9 @@
          IF( (MOD( k+1, self % outputInterval) == 0) .or. (k .eq. self % initial_iter) ) call self % Display(sem % mesh, monitors, k+1)
 !
 !        p- Adapt
-!        --------------         
-         IF( pAdaptation .and. (MOD( k+1, pAdaptInterval) == 0 .or. k==0) ) then
-            call pAdaptator % pAdaptTE(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+!        --------------
+         IF( self % pAdaptator % hasToAdapt(k+1) ) then
+            call self % pAdaptator % pAdaptTE(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
          end if
 !
 !        Autosave
@@ -586,6 +572,100 @@
       call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients)
    
    END SUBROUTINE SaveRestart
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!  
+!  -------------------------------------------------
+!  This routine corrects the time-step size, so that 
+!  time-periodic operations can be performed
+!  -------------------------------------------------
+   recursive function TimeIntegrator_CorrectDt (self, t, dt_in) result(dt_out)
+      implicit none
+      !-arguments------------------------------------------------
+      class(TimeIntegrator_t) , intent(inout)   :: self
+      real(kind=RP)           , intent(in)      :: t
+      real(kind=RP)           , intent(in)      :: dt_in
+      real(kind=RP)                             :: dt_out
+      !-local-variables------------------------------------------
+      real(kind=RP) :: dt_temp
+      
+      integer, parameter :: DO_NOTHING  = 0
+      integer, parameter :: AUTOSAVE    = 1
+      integer, parameter :: ADAPT       = 2
+      integer, parameter :: DONT_KNOW   = 3
+      integer, save :: next_time_will = DONT_KNOW
+      !----------------------------------------------------------
+
+!
+!     Initializations
+!     -------------------------------      
+      self % pAdaptator % performPAdaptationT = .FALSE.
+      self % autosave   % performAutosave = .FALSE.
+      dt_out = dt_in
+      
+!
+!     time-step bounded by final time
+!     -------------------------------
+      if ( self % integratorType .eq. TIME_ACCURATE ) then
+         if ( ( t + dt_out) .gt. self % tFinal ) then
+            dt_out = self % tFinal - t
+         end if
+      end if
+      
+!
+!     time-step bounded by periodic operations
+!     ----------------------------------------
+      
+      select case (next_time_will)
+         case (DO_NOTHING)
+            return
+            
+         case (AUTOSAVE)
+            
+            if ( self % autosave % nextAutosaveTime < (t + dt_out) ) then
+               dt_out = self % autosave % nextAutosaveTime - t
+               self % autosave % performAutosave = .TRUE.
+               
+               if ( AlmostEqual(self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime) ) then
+                  self % pAdaptator % performPAdaptationT = .TRUE.
+                  self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
+               end if
+               
+               self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
+            end if
+            
+         case (ADAPT)
+            
+            if ( self % pAdaptator % nextAdaptationTime < (t + dt_out) ) then
+               dt_out = self % pAdaptator % nextAdaptationTime - t
+               self % pAdaptator % performPAdaptationT = .TRUE.
+               
+               if ( AlmostEqual(self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime) ) then
+                  self % autosave % performAutosave = .TRUE.
+                  self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
+               end if
+               
+               self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
+            end if
+            
+         case (DONT_KNOW)
+            
+            if (  self % pAdaptator % adaptation_mode == ADAPT_UNSTEADY_TIME .or. &
+                  self % autosave % mode       == AUTOSAVE_BY_TIME) then
+               
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
+               
+               dt_temp = self % CorrectDt (t, dt_out)
+               dt_out  = dt_temp
+            else
+               next_time_will = DO_NOTHING
+            end if
+            
+      end select
+      
+   end function TimeIntegrator_CorrectDt
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !         

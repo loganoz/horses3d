@@ -231,6 +231,8 @@ The p-adaptation methods are used when the p-adaptation region is specified in t
    increasing            = .FALSE.
    regression files      = .FALSE.
    adjust nz             = .FALSE.
+   mode                  = time
+   interval              = 1.d0   
    padapted mg sweeps pre      = 10
    padapted mg sweeps post     = 12
    padapted mg sweeps coarsest = 20
@@ -252,10 +254,11 @@ truncation error type & \textit{CHARACTER}: Can be either "isolated" or "non-iso
 
 truncation error & \textit{REAL}: Target truncation error for the p-adaptation algorithm. & \textbf{Mandatory keyword} \\ \hline
 
-Nmax          & \textit{INTEGER}(3): Maximum polynomial order in each direction for the p-adaptation algorithm. & N \\ \hline
+Nmax          & \textit{INTEGER}(3): Maximum polynomial order in each direction for the p-adaptation algorithm. & 
+					\textbf{Mandatory keyword} \\ \hline
 
 Nmin          & \textit{INTEGER}(3): Minimum polynomial order in each direction for the p-adaptation algorithm. & 
-					N \\ \hline
+					[1,1,1] \\ \hline
 
 conforming boundaries & \textit{CHARACTER}(*): Specifies the boundaries of the geometry that must be forced to be conforming after the p-adaptation process.  	  & 
 					-- \\ \hline
@@ -275,13 +278,17 @@ adjust nz &
 			\textit{LOGICAL}: If .TRUE., the order accross faces is adjusted i    n the directions xi, eta, and zeta of the face (being zeta the normal direction). If .FALSE., the     order is only adjusted in the xi and eta directions. The adjustment currently consists (hard-cod    ed) in allowing jumps in the polynomial order of at most 1. & 
 					.FALSE. \\ \hline
 
+mode & 
+			\textit{CHARACTER}: p-Adaptation mode. Can be \textit{steady}, \textit{time} or \textit{iteration}. Steady p-adaptation is performed once at the beginning of a simulation. Unsteady adaptation can be by \textit{time} or by \textit{iteration}. &
+					\textit{steady} \\ \hline
+
+interval & 
+			\textit{INTEGER/REAL}: In unsteady p-adaptation cases, this keyword specifies the iteration (integer) or time (real) interval for p-adaptation. &
+					\textit{huge number} \\ \hline
+
 padapted $\ll \textit{keyword} \gg$ &
 			\textit{MULTIPLE}: Specifies control file keywords that should be replaced after the adaptation procedure. Currently, only 'mg sweeps         ', 'mg sweeps pre', 'mg sweeps post', and 'mg sweeps coarsest' are supported. &
 					-- \\ \hline
-
-interval & 
-			\textit{INTEGER}: In unsteady p-adaptation cases, this keyword specifies the iteration interval for p-adaptation. &
-					\textit{huge} \\ \hline
 
 \end{longtable}
 
