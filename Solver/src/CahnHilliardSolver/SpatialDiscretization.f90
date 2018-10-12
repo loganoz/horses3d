@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Wed Aug  1 15:48:12 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
+!   @Last revision date: Wed Oct 10 12:20:48 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 830f1a1a15b4c762332e01bc26f28cf6505cb014
 !
 !//////////////////////////////////////////////////////
 !
@@ -40,6 +40,8 @@ module SpatialDiscretization
       public  Initialize_SpaceAndTimeMethods, ComputeTimeDerivative, ComputeTimeDerivativeIsolated
       public  ComputeTimeDerivative_onlyLinear, ComputetimeDerivative_onlyNonLinear
       public  CHDiscretizationKey
+
+      real(kind=RP), protected :: K0 = 1.0_RP, S0 = 0.0_RP
 
       interface GetPoiseuilleFlow
          module procedure GetPoiseuilleFlow_Element, GetPoiseuilleFlow_Face
@@ -177,15 +179,22 @@ module SpatialDiscretization
 !        Change memory to concentration
 !        ------------------------------
 !
+!$omp do schedule(runtime)
          do eID = 1, mesh % no_of_elements
             call mesh % elements(eID) % storage % SetStorageToCH_c
          end do
+!$omp end do
 
+!$omp do schedule(runtime)
          do fID = 1, size(mesh % faces)
             call mesh % faces(fID) % storage(1) % SetStorageToCH_c
             call mesh % faces(fID) % storage(2) % SetStorageToCH_c
          end do
+!$omp end do
+
+!$omp single
          call SetBoundaryConditionsEqn(C_BC)
+!$omp end single
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -223,38 +232,44 @@ stop
 !        Compute the chemical potential
 !        ------------------------------
 !
-!        Linear part
-!        -----------
-         if ( enable_linear ) then
+!           Linear part
+!           -----------
             call ComputeLaplacian(mesh = mesh , &
                                   t    = time)
-         else
-            call ComputeLaplacianNeumannBCs(mesh = mesh , &
-                                  t    = time)
-         end if
-
-         if ( enable_nonlinear) then
+!
+!           Reset chemical potential
+!           ------------------------
 !$omp do schedule(runtime)
             do eID = 1, mesh % no_of_elements
                e => mesh % elements(eID)
-               e % storage % mu = - POW2(multiphase % eps) * e % storage % QDot
-               call AddQuarticDWPDerivative(e % storage % c, e % storage % mu)
-!
-!              Move storage to chemical potential
-!              ----------------------------------
-               call e % storage % SetStorageToCH_mu
+               e % storage % mu = 0.0_RP
             end do
 !$omp end do
-         else
-            do eID = 1, mesh % no_of_elements
-               e => mesh % elements(eID)
-               e % storage % mu = - POW2(multiphase % eps) * e % storage % QDot
-!
-!              Move storage to chemical potential
-!              ----------------------------------
-               call e % storage % SetStorageToCH_mu
-            end do
-         end if
+
+            if ( enable_nonlinear) then
+!$omp do schedule(runtime)
+               do eID = 1, mesh % no_of_elements
+                  e => mesh % elements(eID)
+                  e % storage % mu = -S0 * e % storage % c - POW2(multiphase % eps) * (1.0_RP - K0) * e % storage % QDot
+                  call AddQuarticDWPDerivative(e % storage % c, e % storage % mu)
+               end do
+!$omp end do
+            end if
+
+            if ( enable_linear ) then
+!$omp do schedule(runtime) 
+               do eID = 1, mesh % no_of_elements
+                  e => mesh % elements(eID)
+                  e % storage % mu = e % storage % mu - POW2(multiphase % eps) * K0 * e % storage % QDot + S0 * e % storage % c
+               end do
+!$omp end do
+            end if
+
+!$omp do schedule(runtime)
+         do eID = 1, mesh % no_of_elements
+            call mesh % elements(eID) % storage % SetStorageToCH_mu
+         end do
+!$omp end do
 
 !$omp do schedule(runtime)
          do fID = 1, size(mesh % faces)
@@ -263,7 +278,11 @@ stop
          end do
 !$omp end do
 
-         call SetBoundaryConditionsEqn(MU_BC)
+
+!$omp single
+            call SetBoundaryConditionsEqn(MU_BC)
+!$omp end single
+
 !
 !        *************************
 !        Compute cDot: Q stores mu
@@ -333,8 +352,9 @@ stop
             call mesh % faces(fID) % storage(2) % SetStorageToCH_c
          end do
 !$omp end do
-
+!$omp single
          call SetBoundaryConditionsEqn(C_BC) 
+!$omp end single
 
 !
 !        ***********************************
