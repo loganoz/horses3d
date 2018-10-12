@@ -4,9 +4,9 @@
 !   @File:    OutflowBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:43 2018
-!   @Last revision date: Fri Jul 27 20:21:59 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 54fc6197be909fe77072218aee3b60701b51e971
+!   @Last revision date: Wed Oct 10 11:33:04 2018
+!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
+!   @Last revision commit: 179e2194c847ba66cf1181b38afa8efbefa25e5d
 !
 !//////////////////////////////////////////////////////
 !
@@ -440,6 +440,11 @@ module OutflowBCClass
          real(kind=RP),       intent(inout) :: U_x(NCOMP)
          real(kind=RP),       intent(inout) :: U_y(NCOMP)
          real(kind=RP),       intent(inout) :: U_z(NCOMP)
+
+         U_x = 0.0_RP
+         U_y = 0.0_RP
+         U_z = 0.0_RP
+
       end subroutine OutflowBC_PhaseFieldNeumann
 
       subroutine OutflowBC_ChemPotState(self, x, t, nHat, Q)
@@ -461,6 +466,11 @@ module OutflowBCClass
          real(kind=RP),       intent(inout) :: U_x(NCOMP)
          real(kind=RP),       intent(inout) :: U_y(NCOMP)
          real(kind=RP),       intent(inout) :: U_z(NCOMP)
+
+         U_x = 0.0_RP
+         U_y = 0.0_RP
+         U_z = 0.0_RP
+
       end subroutine OutflowBC_ChemPotNeumann
 #endif
 end module OutflowBCClass
