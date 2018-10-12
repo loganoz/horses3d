@@ -306,7 +306,6 @@ module SurfaceMonitorClass
          class   (  HexMesh       )      :: mesh
          integer                         :: bufferPosition
          real(kind=RP)                   :: F(NDIM)
-         real(kind=RP)                   :: direction(NDIM)
 
          select case ( trim ( self % variable ) )
 

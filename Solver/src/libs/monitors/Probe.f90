@@ -67,101 +67,102 @@ module ProbeClass
          character(len=STR_LEN_MONITORS)  :: fileName
          character(len=STR_LEN_MONITORS)  :: paramFile
          character(len=STR_LEN_MONITORS)  :: coordinates
-         real(kind=RP)                    :: x(NDIM)
-!
-!        Allocate memory
-!        ---------------
-         allocate ( self % values(BUFFER_SIZE) )
-!
-!        Get monitor ID
-!        --------------
-         self % ID = ID
-!
-!        Search for the parameters in the case file
-!        ------------------------------------------
-         write(in_label , '(A,I0)') "#define probe " , self % ID
          
-         call get_command_argument(1, paramFile)
-         call readValueInRegion(trim(paramFile), "name"    , self % monitorName, in_label, "# end" )
-         call readValueInRegion(trim(paramFile), "variable", self % variable   , in_label, "# end" )
-         call readValueInRegion(trim(paramFile), "position", coordinates       , in_label, "# end" )
+         if (FirstCall) then
 !
-!        Get the coordinates
-!        -------------------
-         x = getRealArrayFromString(coordinates)
+!           Allocate memory
+!           ---------------
+            allocate ( self % values(BUFFER_SIZE) )
 !
-!        Check the variable
-!        ------------------
-         call tolower(self % variable)
+!           Get monitor ID
+!           --------------
+            self % ID = ID
+!
+!           Search for the parameters in the case file
+!           ------------------------------------------
+            write(in_label , '(A,I0)') "#define probe " , self % ID
+         
+            call get_command_argument(1, paramFile)
+            call readValueInRegion(trim(paramFile), "name"    , self % monitorName, in_label, "# end" )
+            call readValueInRegion(trim(paramFile), "variable", self % variable   , in_label, "# end" )
+            call readValueInRegion(trim(paramFile), "position", coordinates       , in_label, "# end" )
+!
+!           Get the coordinates
+!           -------------------
+            self % x = getRealArrayFromString(coordinates)
+!
+!           Check the variable
+!           ------------------
+            call tolower(self % variable)
 
-         select case ( trim(self % variable) )
-         case ("pressure")
-         case ("velocity")
-         case ("u")
-         case ("v")
-         case ("w")
-         case ("mach")
-         case ("k")
-         case default
-            print*, 'Probe variable "',trim(self % variable),'" not implemented.'
-            print*, "Options available are:"
-            print*, "   * pressure"
-            print*, "   * velocity"
-            print*, "   * u"
-            print*, "   * v"
-            print*, "   * w"
-            print*, "   * Mach"
-            print*, "   * K"
-         end select
+            select case ( trim(self % variable) )
+            case ("pressure")
+            case ("velocity")
+            case ("u")
+            case ("v")
+            case ("w")
+            case ("mach")
+            case ("k")
+            case default
+               print*, 'Probe variable "',trim(self % variable),'" not implemented.'
+               print*, "Options available are:"
+               print*, "   * pressure"
+               print*, "   * velocity"
+               print*, "   * u"
+               print*, "   * v"
+               print*, "   * w"
+               print*, "   * Mach"
+               print*, "   * K"
+            end select
+         
 !
-!        Find the requested point in the mesh
-!        ------------------------------------
-         self % active = mesh % FindPointWithCoords(x, self % eID, self % xi)
+!           Find the requested point in the mesh
+!           ------------------------------------
+            self % active = mesh % FindPointWithCoords(self % x, self % eID, self % xi)
 !
-!        Check whether the probe is located in other partition
-!        -----------------------------------------------------
-         call self % LookInOtherPartitions
+!           Check whether the probe is located in other partition
+!           -----------------------------------------------------
+            call self % LookInOtherPartitions
 !
-!        Disable the probe if the point is not found
-!        -------------------------------------------
-         if ( .not. self % active ) then
-            if ( MPI_Process % isRoot ) then
-               write(STD_OUT,'(A,I0,A)') "Probe ", ID, " was not successfully initialized."
-               print*, "Probe is set to inactive."
+!           Disable the probe if the point is not found
+!           -------------------------------------------
+            if ( .not. self % active ) then
+               if ( MPI_Process % isRoot ) then
+                  write(STD_OUT,'(A,I0,A)') "Probe ", ID, " was not successfully initialized."
+                  print*, "Probe is set to inactive."
+               end if
+
+               return
             end if
-
-            return
+!
+!           Set the fileName
+!           ----------------
+            write( self % fileName , '(A,A,A,A)') trim(solution_file) , "." , &
+                                               trim(self % monitorName) , ".probe"  
          end if
 !
-!        Set the fileName
-!        ----------------
-         write( self % fileName , '(A,A,A,A)') trim(solution_file) , "." , &
-                                               trim(self % monitorName) , ".probe"  
 !
-!
-!        Return if the process does not contain the partition
-!        ----------------------------------------------------
+!           Return if the process does not contain the partition
+!           ----------------------------------------------------
          if ( self % rank .ne. MPI_Process % rank ) then
             self % eID = 1
             return
          end if
+         
+!
+!        If this is not the first call, just reload the reference frame coordinates
+!        --------------------------------------------------------------------------
+         if (.not. firstCall) self % active = mesh % elements(self % eID) % FindPointWithCoords(self % x,self % xi)
 !
 !        Get the Lagrange interpolants
 !        -----------------------------
          associate(e => mesh % elements(self % eID))
-         allocate( self % lxi(0 : e % Nxyz(1)) )
-         allocate( self % leta(0 : e % Nxyz(2)) )
-         allocate( self % lzeta(0 : e % Nxyz(3)) )
+         safedeallocate(self % lxi  ) ; allocate( self % lxi(0 : e % Nxyz(1)) )
+         safedeallocate(self % leta ) ; allocate( self % leta(0 : e % Nxyz(2)) )
+         safedeallocate(self % lzeta) ; allocate( self % lzeta(0 : e % Nxyz(3)) )
          self % lxi = e % spAxi % lj(self % xi(1))
          self % leta = e % spAeta % lj(self % xi(2))
          self % lzeta = e % spAzeta % lj(self % xi(3))
-!
-!        Recover the coordinates from direct projection. These will be the real coordinates
-!        ----------------------------------------------
-         self % x = 0.0_RP
-         do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            self % x = self % x + e % geom % x(:,i,j,k) * self % lxi(i) * self % leta(j) * self % lzeta(k)
-         end do                  ; end do                ; end do 
 !
 !        ****************
 !        Prepare the file

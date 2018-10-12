@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Thu Oct 11 13:02:29 2018
+!   @Last revision date: Fri Oct 12 20:05:43 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 751e6a4da536b5ae874a7acce90699d6c5154a1f
+!   @Last revision commit: a4bc94fbef8f9df9b207ea12b17ee36bad81b67f
 !
 !//////////////////////////////////////////////////////
 !
@@ -1048,6 +1048,11 @@ readloop:do
       call Stopwatch % Start("Preprocessing")
       
       call sem % mesh % pAdapt (NNew, controlVariables)
+      
+      ! Reconstruct probes
+      do i=1, sem % monitors % no_of_probes
+         call sem % monitors % probes(i) % Initialization (sem % mesh, i, trim(sem % monitors % solution_file), .FALSE.)
+      end do
       
       call Stopwatch % Pause("Preprocessing")
       call Stopwatch % Start("Solver")

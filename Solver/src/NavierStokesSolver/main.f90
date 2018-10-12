@@ -275,7 +275,6 @@
          use StopwatchClass
          use Headers
          use MPI_Process_Info
-         use omp_lib
 #ifdef _HAS_MPI_
          use mpi
 #endif
@@ -288,9 +287,9 @@
 !        ---------------
 !
          integer                    :: eID
-         integer                    :: NDOF, localNDOF, ierr, fd
+         integer                    :: NDOF, localNDOF, ierr
          real(kind=RP)              :: Naverage, localNaverage
-         real(kind=RP)              :: t_elaps, t_cpu, t_elaps_pre
+         real(kind=RP)              :: t_elaps, t_cpu
          
          if ( MPI_Process % isRoot ) write(STD_OUT,'(/)')
          call Section_Header("Simulation statistics")
@@ -333,7 +332,7 @@
 !        -----------------------
          t_elaps = Stopwatch % Elapsedtime("Preprocessing")
          t_cpu   = Stopwatch % CPUTime("Preprocessing")
-         t_elaps_pre = t_elaps
+
          call Subsection_Header("Preprocessing")
 
          write(STD_OUT,'(30X,A,I0,A,F5.2,A,I0,A)')      "->   ", mesh % no_of_elements, &
@@ -354,13 +353,6 @@
          write(STD_OUT,'(30X,A,A30,ES10.3,A,ES10.3,A)') "->", "Simulation CPU time: ",t_cpu," seconds (ratio is ",t_cpu/t_elaps ,")."
          write(STD_OUT,'(30X,A,A30,ES10.3,A)') "->", "Solver efficiency: " , t_elaps/(NDOF * iter)*1.0e6_RP, " seconds/(1 Million DOF·iter)."
 
-!$omp parallel
-!$omp single
-!~         open (newunit=fd, file="Summary.log", action = "write" , access = "append" , status = "old")
-!~         write(fd,'(2I15,2ES15.7)') MPI_Process % nProcs, OMP_GET_NUM_THREADS(), t_elaps, t_elaps_pre
-!~         close (fd)
-!$omp end single
-!$omp end parallel
       end subroutine DisplaySimulationStatistics
 
       subroutine CheckIfTheVersionIsRequested

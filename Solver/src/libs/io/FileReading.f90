@@ -81,7 +81,6 @@ contains
          leq    = INDEX( inputLine, '=' )
          strLen = LEN_TRIM( inputLine )
          READ( inputLine( leq+1:strLen ), * ) real_value
-         print*, 'value', real_value
          
       END FUNCTION GetRealValue
 !
