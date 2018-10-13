@@ -1,8 +1,14 @@
-!////////////////////////////////////////////////////////////////////////
 !
-!      NumericalJacobian.f90
-!      Created: 2017-03-21 17:07:00 +0100 
-!      By: Andrés Rueda (based on Carlos Redondo's implementation for 2D code)
+!//////////////////////////////////////////////////////
+!
+!   @File: NumericalJacobian.f90
+!   @Author: Andrés Rueda (am.rueda@upm.es) 
+!   @Created: Tue Mar 31 17:05:00 2017
+!   @Last revision date: Sat Oct 13 21:14:12 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: e5b253a108cfb11371774c409a869acee046f770
+!
+!//////////////////////////////////////////////////////
 !
 !      Routines for computing the Jacobian matrix numerically using the colorings technique
 !  ! TODO: Implement as a class with a destructor to prevent memory leaking
@@ -10,7 +16,7 @@
 module NumericalJacobian
    use SMConstants
    use MatrixClass
-   use ColorsClass
+   use ColorsClass, only: Colors_t
    use HexMeshClass
    use DGSEMClass
    use ElementClass
@@ -20,7 +26,7 @@ module NumericalJacobian
    implicit none
    
    type(Neighbour),allocatable :: nbr(:)  ! Neighbors information
-   type(Colors)                :: ecolors
+   type(Colors_t)              :: ecolors
    
 contains
    subroutine NumericalJacobian_Compute(sem, nEqn, nGradEqn, t, Matrix, ComputeTimeDerivative, PINFO, eps_in )
@@ -30,7 +36,7 @@ contains
       integer,                    intent(in)             :: nEqn, nGradEqn
       real(kind=RP),              intent(IN)             :: t
       class(Matrix_t)          ,  intent(inout)          :: Matrix
-      procedure(ComputeTimeDerivative_f)                         :: ComputeTimeDerivative      !   
+      procedure(ComputeTimeDerivative_f)                 :: ComputeTimeDerivative      !   
       logical,                    OPTIONAL               :: PINFO                      !<? Print information?
       real(kind=RP),              optional               :: eps_in
       !-------------------------------------------------------------------
@@ -81,11 +87,15 @@ contains
          allocate(nbr(nelm))
          CALL Look_for_neighbour(nbr, sem % mesh)
 #if defined(CAHNHILLIARD)
-         CALL ecolors%construct(nbr, .true. )
+         call ecolors % construct(nbr, 2)
 #elif defined(NAVIERSTOKES)
-         CALL ecolors%construct(nbr,flowIsNavierStokes)
+         if (flowIsNavierStokes) then
+            call ecolors % construct(nbr, 2) ! TODO: Select this according to the discretization...
+         else
+            call ecolors % construct(nbr, 1)
+         end if
 #else
-         CALL ecolors%construct(nbr, .true. )
+         call ecolors % construct(nbr, 2)
 #endif
          
          allocate(ndofelm(nelm), firstIdx(nelm+1))
@@ -155,9 +165,9 @@ contains
 !        Compute the maximum number of degrees of freedom in each color               TODO: if there's p-adaptation, this has to be recomputed
 !        --------------------------------------------------------------
 !
-         allocate(ndofcol(ecolors % ncolors))
+         allocate(ndofcol(ecolors % num_of_colors))
          ndofcol = 0
-         DO thiscolor = 1 , ecolors%ncolors
+         DO thiscolor = 1 , ecolors % num_of_colors
             ielm = ecolors%bounds(thiscolor)             
             felm = ecolors%bounds(thiscolor+1)
             DO thiselmidx = ielm, felm-1              !perturbs a dof in all elements within current color
@@ -228,10 +238,17 @@ contains
 !     Compute numerical Jacobian using colorings
 !     ------------------------------------------
 !
-      DO thiscolor = 1 , ecolors%ncolors
-         ielm = ecolors%bounds(thiscolor)             
-         felm = ecolors%bounds(thiscolor+1)
-         DO thisdof = 1, ndofcol(thiscolor)           ! Computes one column for each dof within an elment (iterates to the maximum DOF of all elements in thiscolor) 
+
+!
+!     Go through every color to obtain its elements' contribution to the Jacobian
+!     ***************************************************************************
+      do thiscolor = 1 , ecolors % num_of_colors
+         ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
+         felm = ecolors%bounds(thiscolor+1)           ! Final element of the color
+!         
+!
+!        *******         
+         do thisdof = 1, ndofcol(thiscolor)           ! Computes one column for each dof within an elment (iterates to the maximum DOF of all elements in thiscolor) 
             
             DO thiselmidx = ielm, felm-1              ! Perturbs a dof in all elements within current color
                thiselm = ecolors%elmnts(thiselmidx)
@@ -320,7 +337,27 @@ contains
       ENDIF
       call Stopwatch % Reset("Numerical Jacobian construction")
                 
-   END subroutine NumericalJacobian_Compute
+   end subroutine NumericalJacobian_Compute
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --
+!  Assign columns to Jacobian
+!~   recursive subroutine AssignColsToJacobian(Matrix,depth) 
+!~      implicit none
+!~      !-arguments---------------------------------------
+!~      type(Matrix_t) , intent(inout) :: Matrix
+!~      integer        , intent(in)    :: depth  ! Amount of neighbors to visit
+!~      !-local-variables---------------------------------
+      
+      
+!~      !-------------------------------------------------
+      
+      
+!~   end subroutine AssignColsToJacobian
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!   
 
    subroutine GetRowsAndColsVector(sem, nEqn, nRows, nnz, firstIdx, rows, cols, diag)
       implicit none

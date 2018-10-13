@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Thu Oct  4 11:18:44 2018
+!   @Last revision date: Sat Oct 13 21:14:21 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: fa892f0910fc593caa0146da1175ffafcbe5f8db
+!   @Last revision commit: e5b253a108cfb11371774c409a869acee046f770
 !
 !//////////////////////////////////////////////////////
 !
@@ -115,7 +115,7 @@ MODULE HexMeshClass
       end type HexMesh
 
       TYPE Neighbour         ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
-         INTEGER :: elmnt(7) ! "7" hardcoded for 3D hexahedrals in conforming meshes... This definition must change if the code is expected to be more general
+         INTEGER :: elmnt(7) ! "7" hardcoded for 3D hexahedrals in conforming meshes (the last one is itself)... This definition must change if the code is expected to be more general
       END TYPE Neighbour
 !
 !     ========
