@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Mon Oct 15 14:43:15 2018
+!   @Last revision date: Mon Oct 15 14:53:41 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 63424dca21c42f958a3d51fbed93eaae84663507
+!   @Last revision commit: 99f4e73efc8c89ea66ae091e47c34d33fe1eaf76
 !
 !//////////////////////////////////////////////////////
 !
@@ -28,6 +28,9 @@ module NumericalJacobian
    use IntegerDataLinkedList  , only: IntegerDataLinkedList_t
    implicit none
    
+   private
+   public NumericalJacobian_Compute
+   
 !
 !  Module variables
 !  -> TODO: They will have to be moved to the class definition or to other types in the future
@@ -42,8 +45,6 @@ module NumericalJacobian
    integer        , allocatable :: irow_0(:), irow(:)       ! Variables to store the row indexes to fill the Jacobian
    integer                      :: num_of_neighbor_levels   ! Number of neighboring levels that affect one element's column of the Jacobian
    integer                      :: max_num_of_neighbors     ! Maximum number of neighboring elements that affect one element's column of the Jacobian
-!~   private
-!~   public NumericalJacobian_Compute
    
 contains
    subroutine NumericalJacobian_Compute(sem, nEqn, nGradEqn, t, Matrix, ComputeTimeDerivative, PINFO, eps_in )
@@ -147,7 +148,7 @@ contains
 !        that are needed for the Jacobian computation (mesh dependent)
 !        ---------------------------------------------------------------------------------
 !
-         max_num_of_neighbors = 1 ! Initialize to minimum possible value (1D)
+         max_num_of_neighbors = 0 ! Initialize to minimum possible value
          do i=1, nelm
             max_num_of_neighbors = max (getNumOfNeighbors (i, num_of_neighbor_levels), max_num_of_neighbors)
          end do
@@ -371,7 +372,7 @@ contains
 !  -----------------------------------------------------------------------------------------------------
 !  Returns the number of neighbors [(depth-1) * "of neighbors"] for a specific element (counting itself)
 !  -----------------------------------------------------------------------------------------------------
-   recursive function getNumOfNeighbors (eID, depth) result(num)
+   function getNumOfNeighbors (eID, depth) result(num)
       implicit none
       !-arguments---------------------------------------
       integer                      , intent(in)              :: eID     !<  Element ID 
