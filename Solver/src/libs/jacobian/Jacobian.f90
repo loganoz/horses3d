@@ -42,7 +42,7 @@ IMPLICIT NONE
 !     Input parameters
 !     ----------------
 !
-      TYPE(Neighbour)                   :: this(:)
+      TYPE(Neighbor_t)                  :: this(:)
       TYPE(HexMesh)                     :: mesh
 !
 !     ---------------

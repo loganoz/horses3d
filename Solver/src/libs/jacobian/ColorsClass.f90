@@ -4,9 +4,9 @@
 !   @File: ColorsClass.f90
 !   @Author:  Carlos Redondo (module for 2D) and Andrés Rueda  (am.rueda@upm.es - 3D implementation and changes) 
 !   @Created: Tue Mar 17 17:05:00 2017
-!   @Last revision date: Mon Oct 15 12:24:53 2018
+!   @Last revision date: Mon Oct 15 14:43:11 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ae58911f3b5e1510290ec687ca27a4c7ae0aaeb6
+!   @Last revision commit: 63424dca21c42f958a3d51fbed93eaae84663507
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,7 +14,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 MODULE ColorsClass
-   use HexMeshClass
+   use HexMeshClass, only: HexMesh, Neighbor_t, NUM_OF_NEIGHBORS
    implicit none
    
    private
@@ -32,14 +32,12 @@ MODULE ColorsClass
          procedure :: export2Tec => ExportColors2Tec
    end type Colors_t
    
-   integer, parameter :: NUM_OF_NEIGHBORS = 6 ! Hardcoded: Hexahedral conforming meshes
-   
    contains
       subroutine Colors_Contruct(this, nbr,depth)
          implicit none
          !-arguments------------------------------------------------------
          class(Colors_t), intent(out)        :: this
-         type(neighbour), intent(in)         :: nbr(:)
+         type(Neighbor_t), intent(in)         :: nbr(:)
          integer        , intent(in)         :: depth
          !-local-variables------------------------------------------------
          integer                             :: ncolored = 0
@@ -52,7 +50,7 @@ MODULE ColorsClass
          
          ntotal = SIZE(nbr)
          this%ntotal = ntotal
-         ALLOCATE(used(0:ntotal)) !0 correspond to boundary "neighbour"
+         ALLOCATE(used(0:ntotal)) !0 correspond to boundary "neighbor"
          ALLOCATE(colored(ntotal))
          ALLOCATE(colors(ntotal))
          colored(:) = .FALSE.
@@ -201,7 +199,7 @@ MODULE ColorsClass
       implicit none
       !-arguments-------------------------------------------------
       logical        , intent(in) :: used(0:)
-      type(Neighbour), intent(in) :: nbr(:)
+      type(Neighbor_t), intent(in) :: nbr(:)
       integer        , intent(in) :: eID
       integer        , intent(in) :: depth
       logical                     :: were_used
@@ -235,7 +233,7 @@ MODULE ColorsClass
       implicit none
       !-arguments-------------------------------------------------
       logical        , intent(inout) :: used(0:)
-      type(Neighbour), intent(in)    :: nbr(:)
+      type(Neighbor_t), intent(in)    :: nbr(:)
       integer        , intent(in)    :: eID
       integer        , intent(in)    :: depth
       !-local-variables-------------------------------------------
