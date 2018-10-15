@@ -19,6 +19,7 @@ MODULE MultigridSolverClass
    USE GaussQuadrature
    use DGSEMClass
    use TimeIntegratorDefinitions
+   use MatrixClass
    use NumericalJacobian
    IMPLICIT NONE
    

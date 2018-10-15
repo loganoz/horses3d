@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Thu Oct  4 11:18:44 2018
+!   @Last revision date: Mon Oct 15 14:43:15 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: fa892f0910fc593caa0146da1175ffafcbe5f8db
+!   @Last revision commit: 63424dca21c42f958a3d51fbed93eaae84663507
 !
 !//////////////////////////////////////////////////////
 !
@@ -43,7 +43,8 @@ MODULE HexMeshClass
       IMPLICIT NONE
 
       private
-      public      HexMesh, Neighbour
+      public      HexMesh
+      public      Neighbor_t, NUM_OF_NEIGHBORS
 
       public      GetOriginalNumberOfFaces
       public      ConstructFaces, ConstructPeriodicFaces
@@ -113,10 +114,12 @@ MODULE HexMeshClass
             procedure :: copy                          => HexMesh_Assign
             generic   :: assignment(=)                 => copy
       end type HexMesh
-
-      TYPE Neighbour         ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
-         INTEGER :: elmnt(7) ! "7" hardcoded for 3D hexahedrals in conforming meshes... This definition must change if the code is expected to be more general
-      END TYPE Neighbour
+      
+      integer, parameter :: NUM_OF_NEIGHBORS = 6 ! Hardcoded: Hexahedral conforming meshes
+      
+      TYPE Neighbor_t         ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
+         INTEGER :: elmnt(NUM_OF_NEIGHBORS+1) ! "7" hardcoded for 3D hexahedrals in conforming meshes (the last one is itself)... This definition must change if the code is expected to be more general
+      END TYPE Neighbor_t
 !
 !     ========
       CONTAINS

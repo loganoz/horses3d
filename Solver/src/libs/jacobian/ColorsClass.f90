@@ -1,117 +1,101 @@
 !
-!////////////////////////////////////////////////////////////////////////
+!//////////////////////////////////////////////////////
 !
-!      ColorsClass.f90
-!      Created: 2017-03-17 15:21:00 +0100 
-!      By:  Carlos Redondo (module for 2D) 
-!           Andrés Rueda   (3D implementation and changes) 
-!      Module for computing colorings
-!           In the moment it is optimized for computing colorings of Legendre-Gauss 
-!           discretizations for the Euler or Navier-Stokes equations.
-!           Implement Legendre-Gauss-Lobatto colorings!  
+!   @File: ColorsClass.f90
+!   @Author:  Carlos Redondo (module for 2D) and Andrés Rueda  (am.rueda@upm.es - 3D implementation and changes) 
+!   @Created: Tue Mar 17 17:05:00 2017
+!   @Last revision date: Mon Oct 15 14:43:11 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 63424dca21c42f958a3d51fbed93eaae84663507
+!
+!//////////////////////////////////////////////////////
+!
+!      Module for computing element colorings in order to generate the numerical Jacobian
 !
 !////////////////////////////////////////////////////////////////////////
 MODULE ColorsClass
+   use HexMeshClass, only: HexMesh, Neighbor_t, NUM_OF_NEIGHBORS
+   implicit none
    
-   USE HexMeshClass
-
-   IMPLICIT NONE
-
-   TYPE Colors
-         INTEGER                             :: ncolors ! number of colors
-         INTEGER,DIMENSION(:), ALLOCATABLE   :: elmnts  ! color ordered elements
-         INTEGER,DIMENSION(:), ALLOCATABLE   :: bounds  ! idx of the first element on a color
-         INTEGER                             :: ntotal  ! total  numer of elements
-      CONTAINS
-         PROCEDURE                           :: construct   => constructcolors !construct(nbr)
-         PROCEDURE                           :: info        => getcolorsinfo   ! prints coloring info  
-         PROCEDURE                           :: export2Tec  => ExportColors2Tec
-   END TYPE Colors
+   private
+   public Colors_t
    
-   PRIVATE
-   PUBLIC Colors
-   PUBLIC constructcolors, getcolorsinfo  
-
-   CONTAINS
-      SUBROUTINE constructcolors(this, nbr,flowIsNavierStokes)
-         CLASS(Colors), INTENT(OUT)          :: this
-         TYPE(neighbour),DIMENSION(:)        :: nbr
-         LOGICAL                             :: flowIsNavierStokes
-         
-         INTEGER                             :: ncolored = 0
-         LOGICAL, DIMENSION(:), ALLOCATABLE  :: colored, used
+   type Colors_t
+         integer              :: num_of_colors  ! number of colors
+         integer, allocatable :: elmnts(:)      ! color ordered elements
+         integer, allocatable :: bounds(:)      ! idx of the first element on a color
+         integer              :: ntotal         ! total  numer of elements
+      contains
+         procedure :: construct  => Colors_Contruct !construct(nbr)
+         procedure :: destruct   => Colors_Destruct
+         procedure :: info       => getcolorsinfo   ! prints coloring info  
+         procedure :: export2Tec => ExportColors2Tec
+   end type Colors_t
+   
+   contains
+      subroutine Colors_Contruct(this, nbr,depth)
+         implicit none
+         !-arguments------------------------------------------------------
+         class(Colors_t), intent(out)        :: this
+         type(Neighbor_t), intent(in)         :: nbr(:)
+         integer        , intent(in)         :: depth
+         !-local-variables------------------------------------------------
+         integer                             :: ncolored = 0
+         LOGICAL, DIMENSION(:), allocatable  :: colored, used
          LOGICAL                             :: allcolored = .FALSE.
-         INTEGER                             :: i, j, counter, idx
-         INTEGER                             :: ntotal, ncolors, maxcolor
-         INTEGER, DIMENSION(:), ALLOCATABLE  :: colors
+         integer                             :: i, j, counter, idx
+         integer                             :: ntotal, maxcolor
+         integer, DIMENSION(:), allocatable  :: colors
+         !----------------------------------------------------------------
          
          ntotal = SIZE(nbr)
          this%ntotal = ntotal
-         ALLOCATE(used(0:ntotal)) !0 correspond to boundary "neighbour"
+         ALLOCATE(used(0:ntotal)) !0 correspond to boundary "neighbor"
          ALLOCATE(colored(ntotal))
          ALLOCATE(colors(ntotal))
          colored(:) = .FALSE.
          maxcolor = 0
          
-         IF (flowIsNavierStokes) THEN
-            ! Color elements using 2 neighbours (works for BR1 using LG)
-            DO WHILE (.NOT. allcolored)
-               used(:) = .FALSE.
-               maxcolor = maxcolor + 1
-               elemloop: DO i = 1, ntotal
-                  IF (.NOT. colored(i)) THEN
-                     used(0) = .FALSE. !boundary neigbour is empty
-                     
-                     DO j=1, 7   !arueda: hardcoded 7 for conforming hexahedral meshes
-                        IF (nbr(i)%elmnt(j) /= 0) THEN
-                           IF (ANY(used(nbr(nbr(i)%elmnt(j))%elmnt))) CYCLE elemloop
-                        END IF
-                     END DO
-                     
-                     !used(nbr(i)%elmnt)= .TRUE.
-                     
-                     DO j=1, 7   !arueda: hardcoded 7 for conforming hexahedral meshes
-                        IF (nbr(i)%elmnt(j) /= 0) used(nbr(nbr(i)%elmnt(j))%elmnt) = .TRUE.
-                     END DO
-                     
-                     colored(i) = .TRUE.
-                     colors(i) = maxcolor
-                     ncolored = ncolored + 1
-                     IF (ncolored == ntotal) allcolored = .TRUE.
-                     
-                  ENDIF
-               ENDDO elemloop
-            ENDDO
+!        Create colors and assign elements
+!        *********************************
          
-         ELSE
+         do while (.NOT. allcolored)
+            used = .FALSE.
+            maxcolor = maxcolor + 1
+            do i = 1, ntotal
+               
+!              Check if current element is colored
+!              -----------------------------------
+               if ( colored(i) ) cycle
+               
+!              Check if its neighbors(...depth times) were used in this color
+!              --------------------------------------------------------------  
+               used(0) = .FALSE. !boundary neigbour is empty
+               if (neighbors_were_used(used,nbr,i,depth)) cycle
+               
+!              Mark neighbors as used
+!              ----------------------
+               call mark_neighbors_as_used(used,nbr,i,depth)
+               
+!              Color this element
+!              ------------------
+               colored(i) = .TRUE.
+               colors(i) = maxcolor
+               ncolored = ncolored + 1
+               if (ncolored == ntotal) allcolored = .TRUE.
+               
+            end do
+         end do
          
-            !Color elements using  1 neighbour (works for Euler and NS -IP using LG)
-            DO WHILE (.NOT. allcolored)
-               used(:) = .FALSE.
-               maxcolor = maxcolor + 1
-               DO i = 1, ntotal
-                  IF (.NOT. colored(i)) THEN
-                     used(0) = .FALSE. !boundary neigbour is empty
-                     IF (.NOT. ANY(used(nbr(i)%elmnt))) THEN
-                        used(nbr(i)%elmnt)= .TRUE.
-                        colored(i) = .TRUE.
-                        colors(i) = maxcolor
-                        ncolored = ncolored + 1
-                        IF (ncolored == ntotal) allcolored = .TRUE.
-                     ENDIF
-                  ENDIF
-               ENDDO
-            ENDDO
          
-         END IF
-         
-         this%ncolors = maxcolor
+         this % num_of_colors = maxcolor
          ALLOCATE(this%elmnts(ntotal))
-         ALLOCATE(this%bounds(this%ncolors + 1))
+         ALLOCATE(this%bounds(this % num_of_colors + 1))
          
-         ! order elements acording to colors
+!        Order elements acording to colors
+!        *********************************
          idx = 1
-         DO i = 1, this%ncolors
+         DO i = 1, this % num_of_colors
             this%bounds(i)= idx
             counter = 0
             DO j = 1, ntotal
@@ -119,35 +103,52 @@ MODULE ColorsClass
                   this%elmnts(idx) = j
                   counter = counter + 1
                   idx = idx + 1
-               ENDIF      
-            ENDDO
-         ENDDO
+               end if      
+            end do
+         end do
          this%bounds(i)= idx
-      END SUBROUTINE constructcolors
-      
+         
+      end subroutine Colors_Contruct
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine Colors_Destruct(this)
+         implicit none
+         class(Colors_t), intent(out)        :: this
+         
+         this % num_of_colors = 0
+         this % ntotal        = 0
+         
+         deallocate (this % elmnts)
+         deallocate (this % bounds)
+         
+      end subroutine Colors_Destruct
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       SUBROUTINE getcolorsinfo(this)
-         CLASS(Colors)        :: this
-         INTEGER              :: i
+         CLASS(Colors_t)        :: this
+         integer              :: i
        
-         WRITE(*,'(A13,I2)') "# of colors: ", this%ncolors
+         WRITE(*,'(A13,I2)') "# of colors: ", this % num_of_colors
          WRITE(*,*) "Element list:"         
          WRITE(*,'(*(I5,1X))') (this%elmnts(i), i = 1,this%ntotal)
          WRITE(*,*) "New color indexes"
-         WRITE(*,'(*(I5,1X))') (this%bounds(i), i= 1,this%ncolors + 1)
-      END SUBROUTINE getcolorsinfo
+         WRITE(*,'(*(I5,1X))') (this%bounds(i), i= 1,this % num_of_colors + 1)
+      END subroutine getcolorsinfo
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE ExportColors2Tec(this,mesh,filename)
       IMPLICIT NONE
       !-------------------------------------------------------
-      CLASS(Colors)                       :: this
+      CLASS(Colors_t)                     :: this
       TYPE(HexMesh)                       :: mesh
       character(len=*), intent(in)        :: filename
       
       !-------------------------------------------------------
-      INTEGER                             :: fd, Nelem, id, N(3), i, j, k
-      INTEGER, DIMENSION(:), ALLOCATABLE  :: colors
+      integer                             :: fd, Nelem, id, N(3), i, j, k
+      integer, DIMENSION(:), allocatable  :: colors
       !-------------------------------------------------------
       open(newunit = fd, file=trim(filename), action='WRITE')
       
@@ -156,11 +157,11 @@ MODULE ColorsClass
       !! Create colors array
       ALLOCATE(colors(Nelem))
       
-      DO i=1, this % ncolors
+      DO i=1, this % num_of_colors
          DO j=this % bounds(i), this % bounds(i+1)-1
             colors(this % elmnts(j)) = i
-         END DO
-      END DO
+         end do
+      end do
       
       write(fd,*) 'TITLE = "Colors of mesh NSLITE3D"'
       write(fd,*) 'VARIABLES = "X","Y","Z","Color" '
@@ -176,10 +177,10 @@ MODULE ColorsClass
                                             mesh % elements(id) % geom % x(2,i,j,k), &
                                             mesh % elements(id) % geom % x(3,i,j,k), &
                                             colors(id)
-               END DO
-            END DO
-         enddo
-      END DO
+               end do
+            end do
+         end do
+      end do
       
       close(fd)
       
@@ -187,6 +188,67 @@ MODULE ColorsClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  SOME EXTRA UTILITIES
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -------------------------------------------------------------------
+!  Check if any of the neighbors [(depth-1) * "of neighbors"] was used 
+!  -------------------------------------------------------------------
+   recursive function neighbors_were_used(used,nbr,eID,depth) result (were_used)
+      implicit none
+      !-arguments-------------------------------------------------
+      logical        , intent(in) :: used(0:)
+      type(Neighbor_t), intent(in) :: nbr(:)
+      integer        , intent(in) :: eID
+      integer        , intent(in) :: depth
+      logical                     :: were_used
+      !-local-variables-------------------------------------------
+      integer :: n_eID
+      !-----------------------------------------------------------
       
-  
+      if (eID == 0) then
+         were_used = .FALSE.
+         return
+      end if
+      
+      were_used = any ( used(nbr(eID) % elmnt) )
+      if (were_used) return
+      
+      if (depth > 1) then
+         do n_eID = 1, NUM_OF_NEIGHBORS
+            were_used = neighbors_were_used(used, nbr, nbr(eID) % elmnt(n_eID), depth-1)
+            if (were_used) return
+         end do
+      end if
+      
+   end function neighbors_were_used
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------
+!  Mark all the neighbors [(depth-1) * "of neighbors"] as used 
+!  -----------------------------------------------------------
+   recursive subroutine mark_neighbors_as_used(used,nbr,eID,depth)
+      implicit none
+      !-arguments-------------------------------------------------
+      logical        , intent(inout) :: used(0:)
+      type(Neighbor_t), intent(in)    :: nbr(:)
+      integer        , intent(in)    :: eID
+      integer        , intent(in)    :: depth
+      !-local-variables-------------------------------------------
+      integer :: n_eID
+      !-----------------------------------------------------------
+      
+      if (eID == 0) return
+      used (nbr(eID)%elmnt) = .TRUE.
+      
+      if (depth > 1) then
+         do n_eID = 1, NUM_OF_NEIGHBORS
+            call mark_neighbors_as_used (used, nbr, nbr(eID)%elmnt(n_eID), depth-1)
+         end do
+      end if
+      
+   end subroutine mark_neighbors_as_used
+   
 END MODULE ColorsClass
