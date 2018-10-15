@@ -4,9 +4,9 @@
 !   @File: ColorsClass.f90
 !   @Author:  Carlos Redondo (module for 2D) and Andrés Rueda  (am.rueda@upm.es - 3D implementation and changes) 
 !   @Created: Tue Mar 17 17:05:00 2017
-!   @Last revision date: Sat Oct 13 21:14:10 2018
+!   @Last revision date: Mon Oct 15 12:24:53 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: e5b253a108cfb11371774c409a869acee046f770
+!   @Last revision commit: ae58911f3b5e1510290ec687ca27a4c7ae0aaeb6
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,16 +21,16 @@ MODULE ColorsClass
    public Colors_t
    
    type Colors_t
-         INTEGER                             :: num_of_colors ! number of colors
-         INTEGER,DIMENSION(:), ALLOCATABLE   :: elmnts  ! color ordered elements
-         INTEGER,DIMENSION(:), ALLOCATABLE   :: bounds  ! idx of the first element on a color
-         INTEGER                             :: ntotal  ! total  numer of elements
-      CONTAINS
+         integer              :: num_of_colors  ! number of colors
+         integer, allocatable :: elmnts(:)      ! color ordered elements
+         integer, allocatable :: bounds(:)      ! idx of the first element on a color
+         integer              :: ntotal         ! total  numer of elements
+      contains
          procedure :: construct  => Colors_Contruct !construct(nbr)
          procedure :: destruct   => Colors_Destruct
          procedure :: info       => getcolorsinfo   ! prints coloring info  
          procedure :: export2Tec => ExportColors2Tec
-   END TYPE Colors_t
+   end type Colors_t
    
    integer, parameter :: NUM_OF_NEIGHBORS = 6 ! Hardcoded: Hexahedral conforming meshes
    
@@ -42,12 +42,12 @@ MODULE ColorsClass
          type(neighbour), intent(in)         :: nbr(:)
          integer        , intent(in)         :: depth
          !-local-variables------------------------------------------------
-         INTEGER                             :: ncolored = 0
-         LOGICAL, DIMENSION(:), ALLOCATABLE  :: colored, used
+         integer                             :: ncolored = 0
+         LOGICAL, DIMENSION(:), allocatable  :: colored, used
          LOGICAL                             :: allcolored = .FALSE.
-         INTEGER                             :: i, j, counter, idx
-         INTEGER                             :: ntotal, maxcolor
-         INTEGER, DIMENSION(:), ALLOCATABLE  :: colors
+         integer                             :: i, j, counter, idx
+         integer                             :: ntotal, maxcolor
+         integer, DIMENSION(:), allocatable  :: colors
          !----------------------------------------------------------------
          
          ntotal = SIZE(nbr)
@@ -130,7 +130,7 @@ MODULE ColorsClass
 !
       SUBROUTINE getcolorsinfo(this)
          CLASS(Colors_t)        :: this
-         INTEGER              :: i
+         integer              :: i
        
          WRITE(*,'(A13,I2)') "# of colors: ", this % num_of_colors
          WRITE(*,*) "Element list:"         
@@ -149,8 +149,8 @@ MODULE ColorsClass
       character(len=*), intent(in)        :: filename
       
       !-------------------------------------------------------
-      INTEGER                             :: fd, Nelem, id, N(3), i, j, k
-      INTEGER, DIMENSION(:), ALLOCATABLE  :: colors
+      integer                             :: fd, Nelem, id, N(3), i, j, k
+      integer, DIMENSION(:), allocatable  :: colors
       !-------------------------------------------------------
       open(newunit = fd, file=trim(filename), action='WRITE')
       
@@ -228,9 +228,9 @@ MODULE ColorsClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  ----------------------------------------------------------
-!  Mark all the nighbors [(depth-1) * "of neighbors"] as used 
-!  ----------------------------------------------------------
+!  -----------------------------------------------------------
+!  Mark all the neighbors [(depth-1) * "of neighbors"] as used 
+!  -----------------------------------------------------------
    recursive subroutine mark_neighbors_as_used(used,nbr,eID,depth)
       implicit none
       !-arguments-------------------------------------------------
