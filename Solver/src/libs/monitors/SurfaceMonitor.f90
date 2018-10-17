@@ -437,8 +437,10 @@ module SurfaceMonitorClass
             to % marker          = from % marker
             
             safedeallocate(to % referenceSurface)
-            allocate (to % referenceSurface)
-            to % referenceSurface = from % referenceSurface
+            if ( allocated(from % referenceSurface) ) then
+               allocate (to % referenceSurface)
+               to % referenceSurface = from % referenceSurface
+            end if
             
             safedeallocate(to % values)
             allocate ( to % values( size(from % values) ) )

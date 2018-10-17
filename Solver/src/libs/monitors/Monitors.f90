@@ -105,6 +105,7 @@ module MonitorsClass
 !         else
 !            BUFFER_SIZE = BUFFER_SIZE_DEFAULT
 !         end if
+         
          allocate ( Monitors % SimuTime(BUFFER_SIZE), Monitors % t(BUFFER_SIZE), Monitors % iter(BUFFER_SIZE) )
 !
 !        Get the solution file name
@@ -118,7 +119,13 @@ module MonitorsClass
 !
 !        Search in case file for probes, surface monitors, and volume monitors
 !        ---------------------------------------------------------------------
-         call getNoOfMonitors( Monitors % no_of_probes, Monitors % no_of_surfaceMonitors, Monitors % no_of_volumeMonitors )
+         if (mesh % child) then ! Return doing nothing if this is a child mesh
+            Monitors % no_of_probes = 0
+            Monitors % no_of_surfaceMonitors = 0
+            Monitors % no_of_volumeMonitors = 0
+         else
+            call getNoOfMonitors( Monitors % no_of_probes, Monitors % no_of_surfaceMonitors, Monitors % no_of_volumeMonitors )
+         end if
 !
 !        Initialize
 !        ----------
