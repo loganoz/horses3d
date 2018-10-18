@@ -4,9 +4,9 @@
 !   @File:    NoSlipWallBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:42 2018
-!   @Last revision date: Fri Aug 17 10:25:39 2018
+!   @Last revision date: Thu Oct 18 16:09:47 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0760ac964cfb71dec1e13da0780b72ca9d38e064
+!   @Last revision commit: f0ca5b23053e717fbb5fcc06b6de56d366b37b53
 !
 !//////////////////////////////////////////////////////
 !
@@ -15,7 +15,7 @@ module NoSlipWallBCClass
    use SMConstants
    use PhysicsStorage
    use FileReaders,            only: controlFileName
-   use FileReadingUtilities,   only: GetKeyword, GetValueAsString
+   use FileReadingUtilities,   only: GetKeyword, GetValueAsString ,PreprocessInputLine
    use FTValueDictionaryClass, only: FTValueDictionary
    use GenericBoundaryConditionClass
    use FluidData
@@ -138,12 +138,6 @@ module NoSlipWallBCClass
          character(len=LINE_LENGTH) :: keyword, keyval
          logical                    :: inside
          type(FTValueDIctionary)    :: bcdict
-         interface
-            subroutine PreprocessInputLine(line)
-               implicit none
-               character(len=*), intent(inout) :: line
-            end subroutine PreprocessInputLine
-         end interface
 
          open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
 
