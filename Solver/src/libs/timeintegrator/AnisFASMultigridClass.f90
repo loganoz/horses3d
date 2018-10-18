@@ -1,11 +1,17 @@
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!      FASMultigridClass.f90
-!      Created: 2017-04-XX 10:006:00 +0100 
-!      By: Andrés Rueda
+!//////////////////////////////////////////////////////
+!
+!   @File:    AnisFASMultigridClass.f90
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
+!   @Created: Tue Apr  4 09:17:17 2017
+!   @Last revision date: Thu Oct 18 13:37:35 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: a896f49c21150c90de7d90ff8d2ec7c0e40fe13e
+!
+!//////////////////////////////////////////////////////
 !
 !      Anisotropic version of the FAS Multigrid Class
-!        As is, it is only valid for steady-state cases
+!        Only valid for steady-state cases
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Includes.h"
@@ -318,6 +324,8 @@ module AnisFASMultigridClass
       integer, dimension(3,nelem)    :: N2trans
       integer                        :: i,j,k, iEl             !   Counter
       logical                        :: success                ! Did the creation of sem succeed?
+      type(DGSem)             , pointer :: p_sem
+      type(AnisFASMultigrid_t), pointer :: Child_p
       !----------------------------------------------
       !
       integer :: Nxyz(3), fd, l
@@ -332,7 +340,7 @@ module AnisFASMultigridClass
 
       allocate (Solver % MGStorage(Dir) % Var(nelem))
       
-      associate ( p_sem => Solver % MGStorage(Dir) % p_sem )
+      p_sem => Solver % MGStorage(Dir) % p_sem
       
       ! Define N1x, N1y and N1z according to refinement direction
       N1x => p_sem % mesh % Nx
@@ -378,7 +386,7 @@ module AnisFASMultigridClass
 #endif
       
       if (lvl > 1) then
-         associate (Child_p => Solver % Child)
+         Child_p => Solver % Child
 !
 !        -----------------------------------------------
 !        Allocate restriction and prolongation operators
@@ -440,10 +448,7 @@ module AnisFASMultigridClass
          
          call ConstructFASInOneDirection(Solver % Child, lvl - 1, controlVariables,Dir)
          
-         end associate
       end if
-      
-      end associate
    end subroutine ConstructFASInOneDirection
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -520,6 +525,8 @@ module AnisFASMultigridClass
       integer                       :: sweepcount
       integer                       :: NumOfSweeps
       integer                       :: nEqn
+      type(DGSem), pointer :: p_sem, Childp_sem
+      type(MGSolStorage_t), pointer :: Var(:), ChildVar(:)
       !----------------------------------------------------------------------------
 
 #if defined(NAVIERSTOKES)
@@ -530,8 +537,8 @@ module AnisFASMultigridClass
 !     Definitions
 !     -----------
 !
-      associate (p_sem => this % MGStorage(Dir) % p_sem, &
-                 Var   => this % MGStorage(Dir) % Var )
+      p_sem => this % MGStorage(Dir) % p_sem
+      Var   => this % MGStorage(Dir) % Var
 !
 !     -----------------------
 !     Pre-smoothing procedure
@@ -554,9 +561,8 @@ module AnisFASMultigridClass
          
          if (SmoothFine .AND. lvl > 1) then
             call MGRestrictToChild(this,Dir,lvl,t,TE, ComputeTimeDerivative)
-            associate(Childp_sem => this % Child % MGStorage(Dir) % p_sem)
+            Childp_sem => this % Child % MGStorage(Dir) % p_sem
             call ComputeTimeDerivative(Childp_sem % mesh, Childp_sem % particles, t, CTD_IGNORE_MODE)
-            end associate
             
             if (MAXVAL(ComputeMaxResiduals(p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals &
                                                             (this % Child % MGStorage(Dir) % p_sem % mesh))) exit
@@ -570,8 +576,8 @@ module AnisFASMultigridClass
       
       if (lvl > 1) then
          
-         associate (Childp_sem => this % Child % MGStorage(Dir) % p_sem, &
-                    ChildVar   => this % Child % MGStorage(Dir) % Var )
+         Childp_sem => this % Child % MGStorage(Dir) % p_sem
+         ChildVar   => this % Child % MGStorage(Dir) % Var 
          
          if (.not. SmoothFine) call MGRestrictToChild(this,Dir,lvl,t,TE, ComputeTimeDerivative)
 !
@@ -602,7 +608,6 @@ module AnisFASMultigridClass
             p_sem % mesh % elements(iEl) % storage % Q = p_sem % mesh % elements(iEl) % storage % Q + Var(iEl) % E
          end do
 !$omp end parallel do
-         end associate
       end if
 !
 !     ------------------------
@@ -647,7 +652,6 @@ module AnisFASMultigridClass
 !$omp end parallel do
       end if
       
-      end associate
    end subroutine FASVCycle
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -658,7 +662,7 @@ module AnisFASMultigridClass
    subroutine MGRestrictToChild(this,Dir,lvl,t,TE, ComputeTimeDerivative)
       implicit none
       !-------------------------------------------------------------
-      class(AnisFASMultigrid_t), TARGET, intent(inout) :: this     !<  Current level solver
+      class(AnisFASMultigrid_t), target, intent(inout) :: this     !<  Current level solver
       integer                , intent(in)    :: Dir
       integer                , intent(in)    :: lvl
       real(kind=RP)          , intent(in)    :: t
@@ -668,13 +672,15 @@ module AnisFASMultigridClass
       integer  :: iEl
       integer  :: N1(3)
       integer  :: N2(3)
+      type(DGSem), pointer :: p_sem, Childp_sem
+      type(MGSolStorage_t), pointer :: Var(:), ChildVar(:)
       !-------------------------------------------------------------
 #if defined(NAVIERSTOKES)      
-
-      associate(  p_sem      => this % MGStorage(Dir) % p_sem        , &
-                  Var        => this % MGStorage(Dir) % Var          , &
-                  Childp_sem => this % Child % MGStorage(Dir) % p_sem, &
-                  ChildVar   => this % Child % MGStorage(Dir) % Var    )
+      
+      p_sem      => this % MGStorage(Dir) % p_sem        
+      Var        => this % MGStorage(Dir) % Var          
+      Childp_sem => this % Child % MGStorage(Dir) % p_sem
+      ChildVar   => this % Child % MGStorage(Dir) % Var  
       
 !$omp parallel do private(N1,N2) schedule(runtime)
       do iEl = 1, nelem
@@ -702,7 +708,6 @@ module AnisFASMultigridClass
 !              Now arrange all the storage in the child solver (and estimate TE if necessary...)
 !              **********************************************************************
 !              **********************************************************************
-
 !
 !        ------------------------------------
 !        Copy fine grid solution to MGStorage
@@ -734,7 +739,6 @@ module AnisFASMultigridClass
       end do
 !$omp end parallel do
       
-      end associate
 #endif      
    end subroutine MGRestrictToChild
 !
