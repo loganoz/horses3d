@@ -4,9 +4,9 @@
 !   @File:    BoundaryConditions.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:28 2018
-!   @Last revision date: Sun Jul 29 03:04:10 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: c640d4711a29cd8440551ea4d6f1ee7aa3cafad6
+!   @Last revision date: Thu Oct 18 16:09:43 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: f0ca5b23053e717fbb5fcc06b6de56d366b37b53
 !
 !//////////////////////////////////////////////////////
 !
@@ -15,7 +15,7 @@ module BoundaryConditions
    use SMConstants
    use FTValueDictionaryClass,        only: FTValueDictionary
    use FileReaders,                   only: controlFileName
-   use FileReadingUtilities,          only: GetKeyword, GetValueAsString
+   use FileReadingUtilities,          only: GetKeyword, GetValueAsString, PreprocessInputLine
    use GenericBoundaryConditionClass, only: GenericBC_t, NS_BC, C_BC, MU_BC, CheckIfBoundaryNameIsContained
    use InflowBCClass,                 only: InflowBC_t
    use OutflowBCClass,                only: OutflowBC_t
@@ -195,12 +195,6 @@ module BoundaryConditions
          character(len=LINE_LENGTH) :: keyword, keyval
          logical                    :: inside
          type(FTValueDIctionary)    :: bcdict
-         interface
-            subroutine PreprocessInputLine(line)
-               implicit none
-               character(len=*), intent(inout) :: line
-            end subroutine PreprocessInputLine
-         end interface
 
          loweredbName = bname
          call toLower(loweredbName)

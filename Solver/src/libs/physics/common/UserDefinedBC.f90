@@ -4,9 +4,9 @@
 !   @File:    UserDefinedBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:44 2018
-!   @Last revision date: Fri Jul 27 20:22:00 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 54fc6197be909fe77072218aee3b60701b51e971
+!   @Last revision date: Thu Oct 18 16:09:50 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: f0ca5b23053e717fbb5fcc06b6de56d366b37b53
 !
 !//////////////////////////////////////////////////////
 !
@@ -15,7 +15,7 @@ module UserDefinedBCClass
    use SMConstants
    use PhysicsStorage
    use FileReaders,            only: controlFileName
-   use FileReadingUtilities,   only: GetKeyword, GetValueAsString
+   use FileReadingUtilities,   only: GetKeyword, GetValueAsString, PreprocessInputLine
    use FTValueDictionaryClass, only: FTValueDictionary
    use Utilities, only: toLower, almostEqual
    use GenericBoundaryConditionClass
@@ -125,12 +125,6 @@ module UserDefinedBCClass
          character(len=LINE_LENGTH) :: keyword, keyval
          logical                    :: inside
          type(FTValueDIctionary)    :: bcdict
-         interface
-            subroutine PreprocessInputLine(line)
-               implicit none
-               character(len=*), intent(inout) :: line
-            end subroutine PreprocessInputLine
-         end interface
 
          open(newunit = fid, file = trim(controlFileName), status = "old", action = "read")
 

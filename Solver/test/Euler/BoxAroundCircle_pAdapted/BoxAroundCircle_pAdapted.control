@@ -38,6 +38,7 @@ write dt restriction  = .TRUE.
    increasing            = .FALSE.
    regression files      = .FALSE.
    adjust nz             = .FALSE.
+   restart files         = .TRUE.
    order across faces    = N*2/3   
    padapted mg sweeps pre      = 10
    padapted mg sweeps post     = 12

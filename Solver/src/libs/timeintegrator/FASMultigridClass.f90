@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Mon Aug 20 17:10:06 2018
+!   @Last revision date: Wed Oct 17 17:36:20 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
+!   @Last revision commit: 19a83eade9cd57a659850205eb1a09e6a2df9113
 !
 !//////////////////////////////////////////////////////
 !
@@ -472,9 +472,8 @@ module FASMultigridClass
             end select
             if (rnorm > 1e-2_RP) call computeA_AllLevels(this,MGlevels)
          end do
+         if (i > 4) call computeA_AllLevels(this,MGlevels) ! Hard-coded: 4
       end if
-      if (i > 4) call computeA_AllLevels(this,MGlevels)
-      
       
    end subroutine solve  
 !

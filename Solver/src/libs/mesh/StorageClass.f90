@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Sun Sep 30 21:41:48 2018
+!   @Last revision date: Wed Oct 17 17:36:15 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6ccda27143afdf4445c53d1d8364e5cff10baabc
+!   @Last revision commit: 19a83eade9cd57a659850205eb1a09e6a2df9113
 !
 !//////////////////////////////////////////////////////
 !
@@ -151,6 +151,8 @@ module StorageClass
          procedure :: Destruct         => SolutionStorage_Destruct
          procedure :: SignalAdaptation => SolutionStorage_SignalAdaptation
          procedure :: PointStorage     => SolutionStorage_PointStorage
+         procedure :: copy             => SolutionStorage_Assign
+         generic   :: assignment(=)    => copy
    end type SolutionStorage_t
 !  
 !  Class for storing variables in the faces
@@ -555,8 +557,33 @@ module StorageClass
 !
       pure subroutine SolutionStorage_PointStorage(self)
          implicit none
-         class(SolutionStorage_t), intent(inout) :: self
+         class(SolutionStorage_t), intent(inout), target :: self
+!
+!        Point SolutionStorage
+!        ---------------------
+
+         select case ( self % elements(1) % currentlyLoaded ) ! Using element 1 (to be deprecated)
+            case (OFF)
+               self % Q     => NULL()
+               self % Qdot  => NULL()
+               self % PrevQ => NULL()
+#if defined(NAVIERSTOKES) || defined(INCNS)
+            case (NS)
+               self % Q     => self % QNS
+               self % Qdot  => self % QdotNS
+               self % PrevQ => self % PrevQNS
+#endif
+#if defined(CAHNHILLIARD)
+            case (C,MU)
+               self % Q     => self % c
+               self % Qdot  => self % cDot
+               self % PrevQ => self % Prevc
+#endif
+         end select
          
+!
+!        Point elements' Storage
+!        -----------------------
          call self % elements % PointStorage()
          
       end subroutine SolutionStorage_PointStorage
@@ -591,6 +618,83 @@ module StorageClass
          end if
          
       end subroutine SolutionStorage_Destruct
+!
+!/////////////////////////////////////////////////
+! 
+      elemental subroutine SolutionStorage_Assign(to, from)
+!
+!        ***********************************
+!        We need an special assign procedure
+!        ***********************************
+!
+         implicit none
+         class(SolutionStorage_t), intent(inout) :: to
+         type(SolutionStorage_t),  intent(in)    :: from
+!
+!        Copy the storage
+!        ----------------
+         to % NDOF         =  from % NDOF
+         to % AdaptedQ     =  from % AdaptedQ
+         to % AdaptedQdot  =  from % AdaptedQdot
+         to % AdaptedPrevQ =  from % AdaptedPrevQ
+         to % prevSol_num  =  from % prevSol_num
+         
+         safedeallocate (to % prevSol_index)
+         if ( allocated(from % prevSol_index) ) then
+            allocate ( to % prevSol_index ( size(from % prevSol_index) ) )
+            to % prevSol_index=  from % prevSol_index
+         end if
+         
+         safedeallocate (to % elements)
+         if ( allocated(from % elements) ) then
+            allocate ( to % elements ( size(from % elements) ) )
+            to % elements = from % elements
+         end if
+         
+#if defined(NAVIERSTOKES) || defined(INCNS)
+         safedeallocate (to % QdotNS)
+         if ( allocated(from % QdotNS) ) then
+            allocate ( to % QdotNS ( size(from % QdotNS) ) )
+            to % QdotNS       =  from % QdotNS
+         end if
+         
+         safedeallocate (to % QNS)
+         if ( allocated(from % QNS) ) then
+            allocate ( to % QNS ( size(from % QNS) ) )
+            to % QNS          =  from % QNS
+         end if
+         
+         safedeallocate (to % PrevQNS)
+         if ( allocated(from % PrevQNS) ) then
+            allocate ( to % PrevQNS ( size(from % PrevQNS,1),size(from % PrevQNS,2) ) )
+            to % PrevQNS      =  from % PrevQNS
+         end if
+#endif
+#if defined(CAHNHILLIARD)
+         safedeallocate (to % cDot)
+         if ( allocated(from % cDot) ) then
+            allocate ( to % cDot ( size(from % cDot) ) )
+            to % cDot         =  from % cDot
+         end if
+         
+         safedeallocate (to % c)
+         if ( allocated(from % c) ) then
+            allocate ( to % c ( size(from % c) ) )
+            to % c            =  from % c
+         end if
+         
+         safedeallocate (to % Prevc)
+         if ( allocated(from % Prevc) ) then
+            allocate ( to % Prevc ( size(from % Prevc,1),size(from % Prevc,2) ) )
+            to % Prevc        =  from % Prevc
+         end if
+#endif   
+!
+!        Point the storage
+!        -----------------            
+         call to % PointStorage()
+         
+      end subroutine SolutionStorage_Assign
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -713,7 +817,7 @@ module StorageClass
       
       end subroutine ElementStorage_Construct
 
-      subroutine ElementStorage_Assign(to, from)
+      elemental subroutine ElementStorage_Assign(to, from)
 !
 !        ***********************************
 !        We need an special assign procedure

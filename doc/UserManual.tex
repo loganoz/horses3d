@@ -233,6 +233,7 @@ The p-adaptation methods are used when the p-adaptation region is specified in t
    adjust nz             = .FALSE.
    mode                  = time
    interval              = 1.d0   
+   restart files         = .TRUE.
    padapted mg sweeps pre      = 10
    padapted mg sweeps post     = 12
    padapted mg sweeps coarsest = 20
@@ -285,6 +286,10 @@ mode &
 interval & 
 			\textit{INTEGER/REAL}: In unsteady p-adaptation cases, this keyword specifies the iteration (integer) or time (real) interval for p-adaptation. &
 					\textit{huge number} \\ \hline
+
+restart files & 
+			\textit{LOGICAL}: If .TRUE., the program writes restart files before and after the p-adaptation. &
+					.FALSE. \\ \hline
 
 padapted $\ll \textit{keyword} \gg$ &
 			\textit{MULTIPLE}: Specifies control file keywords that should be replaced after the adaptation procedure. Currently, only 'mg sweeps         ', 'mg sweeps pre', 'mg sweeps post', and 'mg sweeps coarsest' are supported. &

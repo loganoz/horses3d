@@ -9,7 +9,7 @@
 !
    module FileReaders
       use SMConstants
-      use FileReadingUtilities, only: GetKeyword, GetValueAsString
+      use FileReadingUtilities, only: GetKeyword, GetValueAsString, PreprocessInputLine
       implicit none
       
       private
@@ -58,14 +58,6 @@
 !        ---------------------------------------
 !
          integer                                 :: fid, io
-         interface
-            subroutine PreprocessInputLine(line)
-               implicit none
-               character(len=*), intent(inout) :: line
-            end subroutine PreprocessInputLine
-            subroutine WriteDefaultControlFile
-            end subroutine WriteDefaultControlfile
-         end interface
 !
 !        -----------------------------------------------
 !        Read the input file.
@@ -167,36 +159,8 @@
          close(UNIT=fd)
          
       end subroutine ReadOrderFile
-   end module FileReaders
-      
-      subroutine PreprocessInputLine(line)
-!
-!        ******************************************************************
-!        This function eliminates all text at the RHS of a comment (! or /)
-!        ******************************************************************
-!
-         implicit none
-         character(len=*), intent(inout)  :: line
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         character, parameter :: comments(1) = (/"!"/)
-         integer              :: pos, com
-
-         do com = 1, size(comments)
-            pos = index(line, comments(com))
-
-            if ( pos .gt. 0 ) then
-               line = line(1:pos-1)
-            end if
-         end do
-
-         IF ( line(1:1) == '/') line = ""
-
-      end subroutine PreprocessInputLine
-
+   
+end module FileReaders
       subroutine WriteDefaultControlFile
          implicit none
 !
