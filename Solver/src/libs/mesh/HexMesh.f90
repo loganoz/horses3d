@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Mon Oct 15 14:43:15 2018
+!   @Last revision date: Fri Oct 19 10:02:29 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 63424dca21c42f958a3d51fbed93eaae84663507
+!   @Last revision commit: 5fc7edb8505e1e834acccb6dc2d1621827e446ce
 !
 !//////////////////////////////////////////////////////
 !
@@ -2583,7 +2583,7 @@ slavecoord:             DO l = 1, 4
          character(len=LINE_LENGTH)           :: fileName
          character(len=LINE_LENGTH)           :: orderFileName
          integer, allocatable                 :: Nx(:), Ny(:), Nz(:)
-         type(HexMesh)                        :: auxMesh
+         type(HexMesh), target                :: auxMesh
          integer                              :: NDOF, eID
          logical                              :: with_gradients
 #if (!defined(NAVIERSTOKES)) || (!defined(INCNS))
@@ -2621,11 +2621,17 @@ slavecoord:             DO l = 1, 4
             auxMesh % nodeType = self % nodeType
             auxMesh % no_of_elements = self % no_of_elements
             allocate ( auxMesh % elements (self % no_of_elements) )
+            allocate ( auxMesh % Nx (self % no_of_elements) )
+            allocate ( auxMesh % Ny (self % no_of_elements) )
+            allocate ( auxMesh % Nz (self % no_of_elements) )
             
             NDOF = 0
             do eID = 1, self % no_of_elements
                associate ( e_aux => auxMesh % elements(eID), &
                            e     =>    self % elements(eID) )
+               auxMesh % Nx(eID) = Nx (e % globID)
+               auxMesh % Ny(eID) = Ny (e % globID)
+               auxMesh % Nz(eID) = Nz (e % globID)
                e_aux % globID = e % globID
                e_aux % Nxyz = [Nx(e % globID) , Ny(e % globID) , Nz(e % globID)]
                NDOF = NDOF + (Nx(e % globID) + 1) * (Ny(e % globID) + 1) * (Nz(e % globID) + 1)               ! TODO: change for new NDOF 
@@ -2634,6 +2640,10 @@ slavecoord:             DO l = 1, 4
             
             call auxMesh % PrepareForIO
             call auxMesh % AllocateStorage (NDOF, controlVariables,computeGradients,.FALSE.)
+            call auxMesh % storage % pointStorage
+            do eID = 1, auxMesh % no_of_elements
+               auxMesh % elements(eID) % storage => auxMesh % storage % elements(eID)
+            end do
             
 !           Read the solution in the auxiliar mesh and interpolate to current mesh
 !           ----------------------------------------------------------------------
@@ -2786,9 +2796,9 @@ slavecoord:             DO l = 1, 4
             allocate(Q(NTOTALVARS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
             read(fID) Q
 #if defined(NAVIERSTOKES)
-            e % storage % Q = Q(1:NCONS,:,:,:)
+            e % storage % QNS = Q(1:NCONS,:,:,:)
 #elif defined(INCNS)
-            e % storage % Q = Q(1:NINC,:,:,:)
+            e % storage % QNS = Q(1:NINC,:,:,:)
 #endif
 #if defined(CAHNHILLIARD)
             e % storage % c(1,:,:,:) = Q(NTOTALVARS,:,:,:)
@@ -2938,6 +2948,11 @@ slavecoord:             DO l = 1, 4
                end associate
             end do
          end if      
+         
+         ! TODO: Search in linear (not curved) mesh (using corners)
+         ! If found, use FindPointWithCoords in that element and, if necessary in neighbors...
+         ! If not found, search using FindPointWithCoords only in boundary elements
+         
          
          do eID = 1, self % no_of_elements
             associate(e => self % elements(eID))
