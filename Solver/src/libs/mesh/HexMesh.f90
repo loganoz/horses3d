@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Fri Oct 19 10:02:29 2018
+!   @Last revision date: Fri Oct 19 15:37:08 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 5fc7edb8505e1e834acccb6dc2d1621827e446ce
+!   @Last revision commit: 478449473c3e9c87670a7a880ee09588f31f4e80
 !
 !//////////////////////////////////////////////////////
 !
@@ -104,6 +104,7 @@ MODULE HexMeshClass
             procedure :: GatherMPIFacesSolution        => HexMesh_GatherMPIFacesSolution
             procedure :: GatherMPIFacesGradients       => HexMesh_GatherMPIFacesGradients
             procedure :: FindPointWithCoords           => HexMesh_FindPointWithCoords
+            procedure :: FindPointWithCoordsInNeighbors=> HexMesh_FindPointWithCoordsInNeighbors
             procedure :: ComputeWallDistances          => HexMesh_ComputeWallDistances
             procedure :: ConformingOnZone              => HexMesh_ConformingOnZone
             procedure :: SetStorageToEqn          => HexMesh_SetStorageToEqn
@@ -2931,10 +2932,13 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !
          integer     :: op_eID
+         integer     :: zoneID, fID
          logical     :: success
 
          HexMesh_FindPointWithCoords = .false.
-
+!
+!        Search in optionalElements (if present)
+!        ---------------------------------------
          if ( present(optionalElements) ) then
             do op_eID = 1, size(optionalElements)
                if ( optionalElements(op_eID) .eq. -1 ) cycle
@@ -2948,24 +2952,78 @@ slavecoord:             DO l = 1, 4
                end associate
             end do
          end if      
-         
-         ! TODO: Search in linear (not curved) mesh (using corners)
-         ! If found, use FindPointWithCoords in that element and, if necessary in neighbors...
-         ! If not found, search using FindPointWithCoords only in boundary elements
-         
-         
+!
+!        Search in linear (not curved) mesh (faster and safer)
+!        -----------------------------------------------------
          do eID = 1, self % no_of_elements
-            associate(e => self % elements(eID))
-            success = e % FindPointWithCoords(x, xi)
+            success = self % elements(eID) % FindPointInLinElement(x, self % nodes)
+            if ( success ) exit
+         end do
+!
+!        If found in linear mesh, use FindPointWithCoords in that element and, if necessary, in neighbors...
+!        ---------------------------------------------------------------------------------------------------
+         if (eID <= self % no_of_elements) then
+            success = self % FindPointWithCoordsInNeighbors(x, xi, eID, 2)
             if ( success ) then
                HexMesh_FindPointWithCoords = .true.
                return
             end if
-            end associate
+         end if
+! 
+!        As a last resource, search using FindPointWithCoords only in boundary elements
+!        ------------------------------------------------------------------------------
+         do zoneID=1, size(self % zones)
+            do fID=1, self % zones(zoneID) % no_of_faces
+               
+               op_eID = self % faces ( self % zones(zoneID) % faces(fID) ) % elementIDs(1)
+               success = self % elements (op_eID) % FindPointWithCoords(x, xi)
+               if ( success ) then
+                  HexMesh_FindPointWithCoords = .true.
+                  return
+               end if
+            end do
          end do
 
       end function HexMesh_FindPointWithCoords
-
+! 
+!////////////////////////////////////////////////////////////////////////
+!
+      logical recursive function HexMesh_FindPointWithCoordsInNeighbors(self, x, xi, eID, depth)
+         implicit none
+         !-arguments--------------------------------------------------
+         class(HexMesh), intent(in)     :: self
+         real(kind=RP) , intent(in)     :: x(NDIM)
+         real(kind=RP) , intent(out)    :: xi(NDIM)
+         integer       , intent(inout)  :: eID
+         integer       , intent(in)     :: depth
+         !-local-variables--------------------------------------------
+         logical :: success
+         integer :: fID, nID, new_eID
+         !------------------------------------------------------------
+         
+         success = self % elements(eID) % FindPointWithCoords(x, xi)
+         if ( success ) then
+            HexMesh_FindPointWithCoordsInNeighbors = .TRUE.
+            return
+         end if
+         
+         if (depth > 1) then
+            do fID=1, FACES_PER_ELEMENT ; do nID=1, self % elements(eID) % NumberOfConnections(fID)
+               
+               new_eID = self % elements(eID) % Connection(fID) % ElementIDs(nID)
+               success = self % FindPointWithCoordsInNeighbors(x, xi, new_eID, depth-1)
+               if ( success ) then
+                  HexMesh_FindPointWithCoordsInNeighbors = .TRUE.
+                  return
+               end if
+               
+            end do                      ; end do
+         end if
+         
+      end function HexMesh_FindPointWithCoordsInNeighbors 
+! 
+!////////////////////////////////////////////////////////////////////////
+!
       subroutine HexMesh_ComputeWallDistances(self,facesList,elementList)
          implicit none
          class(HexMesh)     :: self
