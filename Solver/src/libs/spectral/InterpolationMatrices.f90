@@ -215,12 +215,12 @@ module InterpolationMatrices
    subroutine Interp3DArraysOneDir(Nvars, Nin, inArray, Nout, outArray, Dir )
       implicit none
       !-------------------------------------------------------
-      integer                                                             :: Nvars
-      integer      , dimension(3)                                         :: Nin
-      integer      , dimension(3)                                         :: Nout
-      integer                                                             :: Dir
-      real(kind=RP), dimension(Nvars,0:Nin (1), 0:Nin (2), 0:Nin (3))     :: inArray
-      real(kind=RP), dimension(Nvars,0:Nout(1), 0:Nout(2), 0:Nout(3))     :: outArray
+      integer                                                        , intent(in)   :: Nvars
+      integer      , dimension(3)                                    , intent(in)   :: Nin
+      integer      , dimension(3)                                    , intent(in)   :: Nout
+      integer                                                        , intent(in)   :: Dir
+      real(kind=RP), dimension(Nvars,0:Nin (1), 0:Nin (2), 0:Nin (3)), intent(in)   :: inArray
+      real(kind=RP), dimension(Nvars,0:Nout(1), 0:Nout(2), 0:Nout(3)), intent(out)  :: outArray
       !-------------------------------------------------------
       integer :: i,j,k,l
       !-------------------------------------------------------

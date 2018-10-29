@@ -4,12 +4,14 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Wed Oct 17 17:36:15 2018
+!   @Last revision date: Mon Oct 22 15:29:38 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 19a83eade9cd57a659850205eb1a09e6a2df9113
+!   @Last revision commit: 5d280d87893646e1e202ceced074c8fbdf239bd7
 !
 !//////////////////////////////////////////////////////
 !
+!     TODO1: Store FaceStorage in SolutionStorage
+!     TODO2: Remove physics-related pointers... Allocate one storage for each physics 
 #include "Includes.h"
 module StorageClass
    use, intrinsic :: iso_c_binding
@@ -819,9 +821,9 @@ module StorageClass
 
       elemental subroutine ElementStorage_Assign(to, from)
 !
-!        ***********************************
-!        We need an special assign procedure
-!        ***********************************
+!        **********************************
+!        We need a special assign procedure TODO: Consider face pointers
+!        **********************************
 !
          implicit none
          class(ElementStorage_t), intent(inout) :: to
@@ -829,6 +831,9 @@ module StorageClass
 !
 !        Copy the storage
 !        ----------------
+         to % currentlyLoaded = from % currentlyLoaded
+         to % NDOF            = from % NDOF
+         to % Nxyz            = from % Nxyz
 #if defined(NAVIERSTOKES) || defined(INCNS)
          to % QNS    = from % QNS
          to % U_xNS  = from % U_xNS
@@ -836,6 +841,11 @@ module StorageClass
          to % U_zNS  = from % U_zNS
          to % QDotNS = from % QDotNS
          to % G_NS   = from % G_NS
+         to % S_NS   = from % S_NS
+         
+         to % gradRho   = from % gradRho
+         to % mu_art    = from % mu_art
+         to % stats     = from % stats
 #endif
 #if defined(CAHNHILLIARD)
          to % c    = from % c

@@ -53,8 +53,15 @@
       character(len=LINE_LENGTH)          :: solutionFileName
       integer, allocatable                :: Nx(:), Ny(:), Nz(:)
       integer                             :: Nmax
-
+      
       call SetSolver(NAVIERSTOKES_SOLVER)
+!
+!     -----------------------------------------
+!     Start measuring the total simulation time
+!     -----------------------------------------
+!
+      call Stopwatch % CreateNewEvent("TotalTime")
+      call Stopwatch % Start("TotalTime")
 !
 !     ---------------
 !     Initializations
@@ -135,6 +142,12 @@
 !     ----------------------------------
 !TODO
 !      call sem % particles % ExportToVTK()
+!
+!     ------------------------------------------
+!     Finish measuring the total simulation time
+!     ------------------------------------------
+!
+      call Stopwatch % Pause("TotalTime")
 !
 !     --------------------------
 !     Show simulation statistics

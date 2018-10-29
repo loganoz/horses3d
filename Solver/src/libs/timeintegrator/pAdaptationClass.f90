@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Fri Oct 12 20:05:43 2018
+!   @Last revision date: Mon Oct 29 13:54:37 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: a4bc94fbef8f9df9b207ea12b17ee36bad81b67f
+!   @Last revision commit: c14fafcd82dba8b47adf67371d60c14952030bca
 !
 !//////////////////////////////////////////////////////
 !
@@ -425,8 +425,7 @@ readloop:do
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ----------------------------------------
-!  Routine for constructing the p-adaptator.
-!   -> If increasing (multi-stage) adaptation is selected, the final step is to rewrite the polynomial orders for the sem contruction
+!  Routine for constructing the p-adaptator
 !  ----------------------------------------
    subroutine pAdaptation_Construct(this,controlVariables,t0)
       implicit none
@@ -483,7 +482,7 @@ readloop:do
 !     Conforming boundaries?
 !     ----------------------
       if ( confBoundaries /= "" ) then
-         this % conformingBoundaries = getCharArrayFromString (confBoundaries,BC_STRING_LENGTH)
+         call getCharArrayFromString (confBoundaries,BC_STRING_LENGTH,this % conformingBoundaries)
          do i=1, size(this % conformingBoundaries)
             call toLower(this % conformingBoundaries(i))
          end do
@@ -568,7 +567,7 @@ readloop:do
             this % adaptation_mode = ADAPT_UNSTEADY_TIME
             this % time_interval   = GetRealValue(R_interval)
             this % iter_interval   = huge(this % iter_interval)
-            this % nextAdaptationTime = t0 + this % time_interval
+            this % nextAdaptationTime = t0   ! + this % time_interval
          case ("iteration")
             this % adaptation_mode = ADAPT_UNSTEADY_ITER
             this % time_interval   = huge(this % time_interval)

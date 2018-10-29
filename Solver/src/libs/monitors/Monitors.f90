@@ -53,7 +53,8 @@ module MonitorsClass
       integer                              :: dt_restriction
       logical                              :: write_dt_restriction
       real(kind=RP)          , allocatable :: t(:)
-      real(kind=RP)          , allocatable :: SimuTime(:)
+      real(kind=RP)          , allocatable :: SolverSimuTime(:)
+      real(kind=RP)          , allocatable :: TotalSimuTime(:)
       type(Residuals_t)                    :: residuals
       class(VolumeMonitor_t),  allocatable :: volumeMonitors(:)
 #if defined(NAVIERSTOKES)
@@ -106,7 +107,10 @@ module MonitorsClass
 !            BUFFER_SIZE = BUFFER_SIZE_DEFAULT
 !         end if
          
-         allocate ( Monitors % SimuTime(BUFFER_SIZE), Monitors % t(BUFFER_SIZE), Monitors % iter(BUFFER_SIZE) )
+         allocate ( Monitors % TotalSimuTime(BUFFER_SIZE), &
+                    Monitors % SolverSimuTime(BUFFER_SIZE), &
+                    Monitors % t(BUFFER_SIZE), &
+                    Monitors % iter(BUFFER_SIZE) )
 !
 !        Get the solution file name
 !        --------------------------
@@ -367,7 +371,8 @@ module MonitorsClass
 !        -----------------------
          self % t       ( self % bufferLine )  = t
          self % iter    ( self % bufferLine )  = iter
-         self % SimuTime ( self % bufferLine )  = Stopwatch % ElapsedTime("Solver")
+         self % SolverSimuTime ( self % bufferLine )  = Stopwatch % ElapsedTime("Solver")
+         self % TotalSimuTime ( self % bufferLine )  = Stopwatch % ElapsedTime("TotalTime")
 !
 !        Compute current residuals
 !        -------------------------
@@ -434,7 +439,7 @@ module MonitorsClass
 !
 !           In this case the monitors are exported to their files and the buffer is reseted
 !           -------------------------------------------------------------------------------
-            call self % residuals % WriteToFile ( self % iter , self % t, self % SimuTime , self % bufferLine )
+            call self % residuals % WriteToFile ( self % iter , self % t, self % TotalSimuTime, self % SolverSimuTime , self % bufferLine )
    
             do i = 1 , self % no_of_volumeMonitors
                call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
@@ -469,7 +474,7 @@ module MonitorsClass
 !           ----------------------------------------------------
             if ( self % bufferLine .eq. BUFFER_SIZE ) then
 
-               call self % residuals % WriteToFile ( self % iter , self % t, self % SimuTime , BUFFER_SIZE )
+               call self % residuals % WriteToFile ( self % iter , self % t, self % TotalSimuTime, self % SolverSimuTime, BUFFER_SIZE )
 
                do i = 1 , self % no_of_volumeMonitors
                   call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
@@ -500,7 +505,8 @@ module MonitorsClass
          
          deallocate (self % iter)
          deallocate (self % t)
-         deallocate (self % SimuTime)
+         deallocate (self % TotalSimuTime)
+         deallocate (self % SolverSimuTime)
          
          call self % residuals % destruct
          
@@ -543,9 +549,13 @@ module MonitorsClass
          allocate (to % t (size (from % t) ) ) 
          to % t = from % t
          
-         safedeallocate ( to % SimuTime )
-         allocate ( to % SimuTime ( size(from % SimuTime) ) )
-         to % SimuTime = from % SimuTime
+         safedeallocate ( to % TotalSimuTime )
+         allocate ( to % TotalSimuTime ( size(from % TotalSimuTime) ) )
+         to % TotalSimuTime = from % TotalSimuTime
+         
+         safedeallocate ( to % SolverSimuTime )
+         allocate ( to % SolverSimuTime ( size(from % SolverSimuTime) ) )
+         to % SolverSimuTime = from % SolverSimuTime
          
          to % residuals = from % residuals
          

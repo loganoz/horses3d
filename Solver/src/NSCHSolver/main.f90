@@ -4,9 +4,9 @@
 !   @File:    HORSES3DMain.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Thu Oct 11 13:02:24 2018
+!   @Last revision date: Mon Oct 29 13:54:31 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 751e6a4da536b5ae874a7acce90699d6c5154a1f
+!   @Last revision commit: c14fafcd82dba8b47adf67371d60c14952030bca
 !
 !//////////////////////////////////////////////////////
 !
@@ -66,6 +66,13 @@
       procedure(UserDefinedTermination_f) :: UserDefinedTermination
 
       call SetSolver(NSCH_SOLVER)
+!
+!     -----------------------------------------
+!     Start measuring the total simulation time
+!     -----------------------------------------
+!
+      call Stopwatch % CreateNewEvent("TotalTime")
+      call Stopwatch % Start("TotalTime")
 !
 !     ---------------
 !     Initializations
@@ -146,6 +153,12 @@
 !     ----------------------------------
 !TODO
 !      call sem % particles % ExportToVTK()
+!
+!     ------------------------------------------
+!     Finish measuring the total simulation time
+!     ------------------------------------------
+!
+      call Stopwatch % Pause("TotalTime")
 !
 !     --------------------------
 !     Show simulation statistics

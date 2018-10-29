@@ -55,6 +55,13 @@
 
       call SetSolver(CAHNHILLIARD_SOLVER)
 !
+!     -----------------------------------------
+!     Start measuring the total simulation time
+!     -----------------------------------------
+!
+      call Stopwatch % CreateNewEvent("TotalTime")
+      call Stopwatch % Start("TotalTime")
+!
 !     ---------------
 !     Initializations
 !     ---------------
@@ -129,6 +136,12 @@
 !     -----------------
 !
       CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+!
+!     ------------------------------------------
+!     Finish measuring the total simulation time
+!     ------------------------------------------
+!
+      call Stopwatch % Pause("TotalTime")
 !
 !     --------------------------
 !     Show simulation statistics
