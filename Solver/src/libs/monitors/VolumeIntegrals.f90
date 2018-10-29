@@ -16,7 +16,7 @@ module VolumeIntegrals
 
 #if defined(NAVIERSTOKES)
    public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY, VELOCITY
-   public ENTROPY, ENTROPY_RATE
+   public ENTROPY, ENTROPY_RATE, MOMENTUM
 #endif
 
 #if defined(CAHNHILLIARD)
@@ -31,7 +31,7 @@ module VolumeIntegrals
       enumerator :: VOLUME  
 #if defined(NAVIERSTOKES)
       enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE
-      enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE
+      enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, MOMENTUM
 #endif
 #if defined(CAHNHILLIARD)
       enumerator :: FREE_ENERGY
@@ -53,24 +53,31 @@ module VolumeIntegrals
 !        -----------------------------------------------------------
 !           This function computes scalar integrals, that is, those
 !           in the form:
-!                 val = \int \vec{v}·\vec{n}dS
+!                 val = \int v dx
 !           Implemented integrals are:
-!              * Volume: computes the zone surface.
-!              * Mass flow: computes the mass flow across the zone.
-!              * Flow: computes the volumetric flow across the zone.
+!              * VOLUME
+!              * KINETIC_ENERGY
+!              * KINETIC_ENERGY_RATE
+!              * ENSTROPHY
+!              * VELOCITY
+!              * ENTROPY
+!              * ENTROPY_RATE
+!              * FREE_ENERGY
 !        -----------------------------------------------------------
 !
 
          implicit none
          class(HexMesh),      intent(in)  :: mesh
          integer,             intent(in)  :: integralType
-         real(kind=RP)                    :: val, localVal
+         real(kind=RP)                    :: val
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: eID, ierr
+         real(kind=RP) :: localVal
+         integer       :: eID, ierr
+         
 !
 !        Initialization
 !        --------------            
@@ -254,5 +261,108 @@ module VolumeIntegrals
          end associate
 
       end function ScalarVolumeIntegral_Local
+!
+!////////////////////////////////////////////////////////////////////////////////////////
+!
+!           VECTOR INTEGRALS PROCEDURES
+!
+!////////////////////////////////////////////////////////////////////////////////////////
+!
+      function VectorVolumeIntegral(mesh, integralType) result(val)
+!
+!        -----------------------------------------------------------
+!           This function computes vector integrals, that is, those
+!           in the form:
+!                 val = \int \vec{v} dx
+!           Implemented integrals are:
+!              * VELOCITY
+!              * MOMENTUM
+!        -----------------------------------------------------------
+!
+         implicit none
+         class(HexMesh),      intent(in)  :: mesh
+         integer,             intent(in)  :: integralType
+         real(kind=RP)                    :: val(NDIM)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: localVal(NDIM)
+         integer       :: eID, ierr
+         
+!
+!        Initialization
+!        --------------            
+         val = 0.0_RP
+!
+!        Loop the mesh
+!        -------------
+!$omp parallel do reduction(+:val) private(eID) schedule(guided)
+         do eID = 1, mesh % no_of_elements
+!
+!           Compute the integral
+!           --------------------
+            val = val + VectorVolumeIntegral_Local(mesh % elements(eID), &
+                                                           integralType    )
 
+         end do
+!$omp end parallel do
+
+#ifdef _HAS_MPI_
+         localVal = val
+         call mpi_allreduce(localVal, val, NDIM, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+
+      end function VectorVolumeIntegral
+!
+!////////////////////////////////////////////////////////////////////////////////////////
+!
+      function VectorVolumeIntegral_Local(e, integralType) result(val)
+         implicit none
+         !-arguments---------------------------------------------------
+         class(Element),      target, intent(in)     :: e
+         integer,                     intent(in)     :: integralType
+         real(kind=RP)                               :: val(NDIM)
+         !-local-variables---------------------------------------------
+         integer     :: Nel(3)    ! Element polynomial order
+         integer     :: i, j, k
+         !-------------------------------------------------------------
+         
+         Nel = e % Nxyz
+
+         associate ( wx => e % spAxi % w, &
+                     wy => e % spAeta % w, &
+                     wz => e % spAzeta % w    )
+!
+!        Initialization
+!        --------------
+         val = 0.0_RP
+!
+!        Perform the numerical integration
+!        ---------------------------------
+         select case ( integralType )
+
+#if defined(NAVIERSTOKES)
+            case ( VELOCITY )
+               
+               do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                  val = val +   wx(i) * wy(j) * wz(k) * e % storage % Q(IRHOU:IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k) * e % geom % jacobian(i,j,k)
+               end do            ; end do           ; end do
+               
+            case ( MOMENTUM )
+               
+               do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                  val = val +   wx(i) * wy(j) * wz(k) * e % storage % Q(IRHOU:IRHOW,i,j,k) * e % geom % jacobian(i,j,k)
+               end do            ; end do           ; end do
+#endif
+            case default
+               
+               write(STD_OUT,'(A,A)') 'VectorVolumeIntegral :: ERROR: Not defined integral type'
+               stop 99
+               
+         end select
+         
+         end associate
+      end function VectorVolumeIntegral_Local
 end module VolumeIntegrals
