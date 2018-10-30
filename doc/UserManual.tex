@@ -44,6 +44,25 @@
 
 \tableofcontents
 
+\chapter{Input and Output Files}
+
+\section{Input Files}
+\begin{itemize}
+\item Control file (*.control)
+\item Mesh file (*.mesh / *.h5)
+\item Polynomial order file (*.omesh)
+\item Problem File (ProblemFile.f90)
+\end{itemize}
+
+\section{Output Files}
+\begin{itemize}
+\item Solution file
+\item Horses mesh file
+\item Partition file
+\item Polynomial order file
+\item Monitor files
+\end{itemize}
+
 \chapter{Running a Simulation}
 List of all the mandatory keywords for running a simulation and some basic optional keywords. The specific keywords are listed in the other chapters.
 
@@ -297,13 +316,107 @@ padapted $\ll \textit{keyword} \gg$ &
 
 \end{longtable}
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\chapter{Input files}
+
+\chapter{Monitors}
+
+
+
+\section{Statistics Monitor}
+
+\section{Probes}
+
+\begin{lstlisting}
+#define probe 1
+   name     = SomeName
+   variable = SomeVariable
+   position = [0.d0, 0.d0, 0.d0]
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for probes.} \label{tab:ProbesKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+name 	& 
+			\textit{CHARACTER}: Name of the monitor. & 
+							\textbf{Mandatory Keyword} \\ \hline
+
+variable 	& 
+			\textit{CHARACTER}: Variable to be monitored. Implemented options are:\
 \begin{itemize}
-\item Control file
-\item Mesh file
-\item Polynomial order file
-\end{itemize}
+\item pressure
+\item velocity
+\item u
+\item v
+\item w
+\item mach
+\item k
+\end{itemize}			
+			
+			 & 
+							\textbf{Mandatory Keyword} \\ \hline
+
+position 	& 
+			\textit{REAL(3)}: Coordinates of the point to be monitored. & 
+							\textbf{Mandatory Keyword} \\ \hline
+\end{longtable}
+
+
+\section{Surface Monitors}
+
+\section{Volume Monitors}
+Volume monitors compute the average of a quantity in the whole domain. They can be scalars(s) or vectors(v). 
+
+\begin{lstlisting}
+#define volume monitor 1
+   name     = SomeName
+   variable = SomeVariable
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for volume monitors.} \label{tab:VolMonitorsKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+name 	& 
+			\textit{CHARACTER}: Name of the monitor. & 
+							\textbf{Mandatory Keyword} \\ \hline
+
+variable 	& 
+			\textit{CHARACTER}: Variable to be monitored. Implemented options are:\
+\begin{itemize}
+\item[\textbf{(s)}] kinetic energy
+\item[\textbf{(s)}] kinetic energy rate
+\item[\textbf{(s)}] enstrophy
+\item[\textbf{(s)}] entropy
+\item[\textbf{(s)}] entropy rate
+\item[\textbf{(s)}] mean velocity
+\item[\textbf{(v)}] velocity
+\item[\textbf{(v)}] momentum
+\end{itemize}			
+			
+			 & 
+							\textbf{Mandatory Keyword} \\ \hline
+
+
+\end{longtable}
+
 
 \bibliography{../LaTeX/9_backmatter/library}
 

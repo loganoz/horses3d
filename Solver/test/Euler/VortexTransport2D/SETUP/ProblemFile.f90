@@ -413,12 +413,12 @@
                                tol           = 1.0e-7_RP, &
                                msg           = "energy error")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(3) % values(1), &
+            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(3) % values(1,1), &
                                actualValue   = kinEn, &
                                tol           = 1.0e-11_RP, &
                                msg           = "Kinetic Energy")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(1) % values(1), &
+            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(1) % values(1,1), &
                                actualValue   = entropy, &
                                tol           = 1.0e-11_RP, &
                                msg           = "Entropy")

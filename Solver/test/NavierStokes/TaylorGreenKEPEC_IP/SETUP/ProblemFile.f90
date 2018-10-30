@@ -335,17 +335,17 @@
                                tol           = 1.0e-7_RP, &
                                msg           = "energy residual")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(1) % values(1), &
+            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(1) % values(1,1), &
                                actualValue   = kinEn, &
                                tol           = 1.0e-11_RP, &
                                msg           = "Kinetic Energy")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(2) % values(1) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(2) % values(1,1) + 1.0_RP, &
                                actualValue   = kinEnRate + 1.0_RP, &
                                tol           = 1.0e-11_RP, &
                                msg           = "Kinetic Energy Rate")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(3) % values(1), &
+            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(3) % values(1,1), &
                                actualValue   = enstrophy, &
                                tol           = 1.0e-11_RP, &
                                msg           = "Enstrophy")

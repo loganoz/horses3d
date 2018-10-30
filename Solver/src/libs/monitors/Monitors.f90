@@ -231,7 +231,7 @@ module MonitorsClass
 !        Local variables
 !        ---------------
 !
-         integer                                  :: i
+         integer                                  :: i, j
          character(len=MONITOR_LENGTH), parameter :: dashes = "----------"
 
          if ( .not. MPI_Process % isRoot ) return
@@ -249,9 +249,9 @@ module MonitorsClass
 !
 !        Print dashes for volume monitors
 !        --------------------------------
-         do i = 1 , self % no_of_volumeMonitors
+         do i = 1 , self % no_of_volumeMonitors  ; do j=1, size ( self % volumeMonitors(i) % values, 1 )
             write(STD_OUT , '(3X,A10)' , advance = "no" ) dashes(1 : min(10 , len_trim( self % volumeMonitors(i) % monitorName ) + 2 ) )
-         end do
+         end do                                  ; end do
 #if defined(NAVIERSTOKES)
 !
 !        Print dashes for probes
