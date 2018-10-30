@@ -48,7 +48,7 @@ module ProblemFileFunctions
          USE HexMeshClass
          use FluidData
          IMPLICIT NONE
-         CLASS(HexMesh)                      :: mesh
+         class(HexMesh)                      :: mesh
 #if defined(NAVIERSTOKES) || defined(INCNS)
          type(Thermodynamics_t), intent(in)  :: thermodynamics_
          type(Dimensionless_t),  intent(in)  :: dimensionless_
@@ -125,7 +125,7 @@ module ProblemFileFunctions
          USE HexMeshClass
          use MonitorsClass
          IMPLICIT NONE
-         CLASS(HexMesh)               :: mesh
+         class(HexMesh)               :: mesh
          REAL(KIND=RP)                :: time
          type(Monitor_t), intent(in) :: monitors
       END SUBROUTINE UserDefinedPeriodicOperation_f
@@ -168,7 +168,7 @@ module ProblemFileFunctions
          use FluidData
          use MonitorsClass
          IMPLICIT NONE
-         CLASS(HexMesh)                        :: mesh
+         class(HexMesh)                        :: mesh
          REAL(KIND=RP)                         :: time
          integer                               :: iter
          real(kind=RP)                         :: maxResidual
@@ -223,7 +223,7 @@ end module ProblemFileFunctions
             use PhysicsStorage
             use FluidData
             IMPLICIT NONE
-            CLASS(HexMesh)                      :: mesh
+            class(HexMesh)                      :: mesh
 #if defined(NAVIERSTOKES) || defined(INCNS)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
@@ -392,7 +392,7 @@ end module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, Monitors)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -403,7 +403,7 @@ end module ProblemFileFunctions
             USE HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
-            CLASS(HexMesh)               :: mesh
+            class(HexMesh)               :: mesh
             REAL(KIND=RP)                :: time
             type(Monitor_t), intent(in) :: monitors
             
@@ -472,7 +472,7 @@ end module ProblemFileFunctions
             use PhysicsStorage
             use MPI_Process_Info
             IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
+            class(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
             integer                               :: iter
             real(kind=RP)                         :: maxResidual

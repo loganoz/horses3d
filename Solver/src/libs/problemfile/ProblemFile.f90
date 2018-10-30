@@ -120,13 +120,14 @@ module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE UserDefinedPeriodicOperation_f(mesh, time, Monitors)
+      SUBROUTINE UserDefinedPeriodicOperation_f(mesh, time, dt, Monitors)
          use SMConstants
          USE HexMeshClass
          use MonitorsClass
          IMPLICIT NONE
          CLASS(HexMesh)               :: mesh
          REAL(KIND=RP)                :: time
+         REAL(KIND=RP)                :: dt
          type(Monitor_t), intent(in) :: monitors
       END SUBROUTINE UserDefinedPeriodicOperation_f
 !
@@ -392,7 +393,7 @@ end module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, Monitors)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -405,6 +406,7 @@ end module ProblemFileFunctions
             IMPLICIT NONE
             CLASS(HexMesh)               :: mesh
             REAL(KIND=RP)                :: time
+            REAL(KIND=RP)                :: dt
             type(Monitor_t), intent(in) :: monitors
             
          END SUBROUTINE UserDefinedPeriodicOperation

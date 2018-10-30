@@ -45,7 +45,7 @@
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
-            CLASS(HexMesh)             :: mesh
+            class(HexMesh)             :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -177,7 +177,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, monitors)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, monitors)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -188,7 +188,7 @@
             use SMConstants
             use MonitorsClass
             IMPLICIT NONE
-            CLASS(HexMesh)  :: mesh
+            class(HexMesh)  :: mesh
             REAL(KIND=RP) :: time
             type(Monitor_t),  intent(in)  :: monitors
             
@@ -214,7 +214,7 @@
             use PhysicsStorage
             use MonitorsClass
             IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
+            class(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
             integer                               :: iter
             real(kind=RP)                         :: maxResidual

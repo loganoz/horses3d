@@ -52,7 +52,7 @@
             use PhysicsStorage
             use FluidData
             IMPLICIT NONE
-            CLASS(HexMesh)                      :: mesh
+            class(HexMesh)                      :: mesh
 #if defined(NAVIERSTOKES)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
@@ -191,7 +191,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, Monitors)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -204,8 +204,9 @@
             use MonitorsClass
 #endif
             IMPLICIT NONE
-            CLASS(HexMesh)               :: mesh
-            REAL(KIND=RP)                :: time
+            class(HexMesh)               :: mesh
+            real(kind=RP)                :: time
+            real(kind=RP)                :: dt
 #if defined(NAVIERSTOKES)
             type(Monitor_t), intent(in) :: monitors
 #else
@@ -270,7 +271,7 @@
             use FluidData
             use MonitorsClass
             IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
+            class(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
             integer                               :: iter
             real(kind=RP)                         :: maxResidual

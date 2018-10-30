@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Wed May 30 10:42:47 2018
-!   @Last revision date: Sat Jun 23 10:20:40 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision date: Tue Oct 30 19:29:59 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 1f699f3fd06952217bc7b37e109b4002f6816803
 !
 !//////////////////////////////////////////////////////
 !
@@ -65,7 +65,7 @@
             use PhysicsStorage
             use FluidData
             IMPLICIT NONE
-            CLASS(HexMesh)                      :: mesh
+            class(HexMesh)                      :: mesh
 #if defined(NAVIERSTOKES)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
@@ -228,7 +228,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, Monitors)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -241,8 +241,9 @@
             use MonitorsClass
 #endif
             IMPLICIT NONE
-            CLASS(HexMesh)               :: mesh
-            REAL(KIND=RP)                :: time
+            class(HexMesh)               :: mesh
+            real(kind=RP)                :: time
+            real(kind=RP)                :: dt
 #if defined(NAVIERSTOKES)
             type(Monitor_t), intent(in) :: monitors
 #else
@@ -312,7 +313,7 @@
             use FluidData
             use MonitorsClass
             IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
+            class(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
             integer                               :: iter
             real(kind=RP)                         :: maxResidual

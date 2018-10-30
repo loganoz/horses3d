@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 11 17:13:55 2018
-!   @Last revision date: Thu Jul 26 17:26:24 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ba557cd23630b1bd1f528599b9b33812f58d1f7b
+!   @Last revision date: Tue Oct 30 19:30:05 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 1f699f3fd06952217bc7b37e109b4002f6816803
 !
 !//////////////////////////////////////////////////////
 !
@@ -60,7 +60,7 @@ module ProblemFileFunctions
          USE HexMeshClass
          use FluidData
          IMPLICIT NONE
-         CLASS(HexMesh)                      :: mesh
+         class(HexMesh)                      :: mesh
 #if defined(NAVIERSTOKES) || defined(INCNS)
          type(Thermodynamics_t), intent(in)  :: thermodynamics_
          type(Dimensionless_t),  intent(in)  :: dimensionless_
@@ -137,7 +137,7 @@ module ProblemFileFunctions
          USE HexMeshClass
          use MonitorsClass
          IMPLICIT NONE
-         CLASS(HexMesh)               :: mesh
+         class(HexMesh)               :: mesh
          REAL(KIND=RP)                :: time
          type(Monitor_t), intent(in) :: monitors
       END SUBROUTINE UserDefinedPeriodicOperation_f
@@ -180,7 +180,7 @@ module ProblemFileFunctions
          use FluidData
          use MonitorsClass
          IMPLICIT NONE
-         CLASS(HexMesh)                        :: mesh
+         class(HexMesh)                        :: mesh
          REAL(KIND=RP)                         :: time
          integer                               :: iter
          real(kind=RP)                         :: maxResidual
@@ -235,7 +235,7 @@ end module ProblemFileFunctions
             use PhysicsStorage
             use FluidData
             IMPLICIT NONE
-            CLASS(HexMesh)                      :: mesh
+            class(HexMesh)                      :: mesh
 #if defined(NAVIERSTOKES) || defined(INCNS)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
@@ -428,7 +428,7 @@ end module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, Monitors)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -439,7 +439,7 @@ end module ProblemFileFunctions
             USE HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
-            CLASS(HexMesh)               :: mesh
+            class(HexMesh)               :: mesh
             REAL(KIND=RP)                :: time
             type(Monitor_t), intent(in) :: monitors
             
@@ -507,7 +507,7 @@ end module ProblemFileFunctions
             use FluidData
             use MonitorsClass
             IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
+            class(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
             integer                               :: iter
             real(kind=RP)                         :: maxResidual

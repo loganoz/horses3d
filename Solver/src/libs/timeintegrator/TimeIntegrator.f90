@@ -391,7 +391,10 @@
 !        Correct time step
 !        -----------------
          dt = self % CorrectDt(t,self % dt)
-         
+!
+!        User defined periodic operation
+!        -------------------------------
+         CALL UserDefinedPeriodicOperation(sem % mesh, t, dt, monitors)
 !
 !        Perform time step
 !        -----------------         
@@ -448,10 +451,6 @@
             call sem % particles % Integrate(sem % mesh, dt)
          endif 
 #endif
-!
-!        User defined periodic operation
-!        -------------------------------
-         CALL UserDefinedPeriodicOperation(sem % mesh, t, monitors)
 !
 !        Print monitors
 !        --------------

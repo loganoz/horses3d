@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Fri Jan 19 12:22:20 2018
-!   @Last revision date: Sat May 12 20:53:47 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: ece79010cbff566c377be7e7026f86a2889a191e
+!   @Last revision date: Tue Oct 30 19:30:00 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 1f699f3fd06952217bc7b37e109b4002f6816803
 !
 !//////////////////////////////////////////////////////
 !
@@ -57,7 +57,7 @@
             USE HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
-            CLASS(HexMesh)                      :: mesh
+            class(HexMesh)                      :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -199,7 +199,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, Monitors)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -212,8 +212,9 @@
             use MonitorsClass
 #endif
             IMPLICIT NONE
-            CLASS(HexMesh)               :: mesh
-            REAL(KIND=RP)                :: time
+            class(HexMesh)               :: mesh
+            real(kind=RP)                :: time
+            real(kind=RP)                :: dt
 #if defined(NAVIERSTOKES)
             type(Monitor_t), intent(in) :: monitors
 #else
@@ -268,7 +269,7 @@
             use MonitorsClass
 #endif
             IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
+            class(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
             integer                               :: iter
             real(kind=RP)                         :: maxResidual
