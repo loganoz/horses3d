@@ -255,7 +255,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 #if defined(NAVIERSTOKES)
-         subroutine UserDefinedSourceTermNS(x, time, S, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -267,6 +267,7 @@
             use FluidData
             IMPLICIT NONE
             real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: Q(NCONS)
             real(kind=RP),             intent(in)  :: time
             real(kind=RP),             intent(out) :: S(NCONS)
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_

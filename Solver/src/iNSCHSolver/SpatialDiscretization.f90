@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Fri Oct 12 16:38:05 2018
-!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 48fac2e70623f479131600829f20339f3b97b1cc
+!   @Last revision date: Tue Oct 30 18:24:02 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: e995d28c5dd9fe9c7286ec6c7e53405ab11a7c14
 !
 !//////////////////////////////////////////////////////
 !
@@ -30,6 +30,7 @@ module SpatialDiscretization
       use VariableConversion
       use GradientsStabilization
       use BoundaryConditions, only: BCs, SetBoundaryConditionsEqn, NS_BC, C_BC, MU_BC
+      use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -512,6 +513,7 @@ stop
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
          real(kind=RP)              :: t
+         procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 !
 !        ---------------
 !        Local variables

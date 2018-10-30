@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu May 10 12:24:50 2018
-!   @Last revision date: Sat Jun 23 10:20:39 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision date: Tue Oct 30 18:24:05 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: e995d28c5dd9fe9c7286ec6c7e53405ab11a7c14
 !
 !//////////////////////////////////////////////////////
 !
@@ -263,7 +263,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 #if defined(NAVIERSTOKES)
-         subroutine UserDefinedSourceTermNS(x, time, S, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -275,6 +275,7 @@
             use FluidData
             IMPLICIT NONE
             real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: Q(NCONS)
             real(kind=RP),             intent(in)  :: time
             real(kind=RP),             intent(out) :: S(NCONS)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
