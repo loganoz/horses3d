@@ -426,7 +426,7 @@ Module DGSEMClass
 !
 !     -----------------------------------------------------------------------------------
 !     Specifies how to copy a DGSem object:
-!     -> Trivial but must be defined since self % monitors have a user-defined assignment
+!     -> Trivial but must be defined since self % monitors has a user-defined assignment
 !     -> Must be impure because of some pointers of the derived types
 !     -----------------------------------------------------------------------------------
       impure elemental subroutine DGSEM_Assign (to, from)

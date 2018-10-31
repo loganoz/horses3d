@@ -239,9 +239,6 @@
 
       self % spAxi => NodalStorage(self % Nf(1))
       self % spAeta => NodalStorage(self % Nf(2))
-
-      call self % storage(1) % Construct(NDIM, self % Nf, self % NelLeft, computeGradients)
-      call self % storage(2) % Construct(NDIM, self % Nf, self % NelRight, computeGradients)
 !
 !     -----------------------------------------------------------------------
 !     Construction of the projection matrices (simple Lagrange interpolation)

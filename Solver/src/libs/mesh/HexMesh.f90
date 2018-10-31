@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Fri Oct 19 15:37:08 2018
+!   @Last revision date: Wed Oct 31 18:01:23 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 478449473c3e9c87670a7a880ee09588f31f4e80
+!   @Last revision commit: 4cb44266e1f1a3b075b9d1413a55399ec0b38b20
 !
 !//////////////////////////////////////////////////////
 !
@@ -75,7 +75,7 @@ MODULE HexMeshClass
          logical                                   :: ignoreBCnonConformities = .FALSE.
          contains
             procedure :: destruct                      => HexMesh_Destruct
-            procedure :: Describe                      => DescribeMesh
+            procedure :: Describe                      => HexMesh_Describe
             procedure :: DescribePartition             => DescribeMeshPartition
             procedure :: AllocateStorage               => HexMesh_AllocateStorage
             procedure :: ConstructZones                => HexMesh_ConstructZones
@@ -1060,18 +1060,6 @@ slavecoord:             DO l = 1, 4
          integer, allocatable :: allElementSizes(:)
          integer, allocatable :: allElementsOffset(:)
 !
-!        Get the total number of elements
-!        --------------------------------
-         if ( (MPI_Process % doMPIAction)) then
-#ifdef _HAS_MPI_
-            call mpi_allreduce(self % no_of_elements, self % no_of_allelements, &
-                               1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
-#endif
-         else
-            self % no_of_allElements = self % no_of_elements
-         
-         end if
-!
 !        Get each element size
 !        ---------------------
          allocate(elementSizes(self % no_of_allElements))
@@ -1122,33 +1110,54 @@ slavecoord:             DO l = 1, 4
       end subroutine HexMesh_PrepareForIO
 ! 
 !//////////////////////////////////////////////////////////////////////// 
-! 
-      SUBROUTINE DescribeMesh( self , fileName, bFaceOrder )
+!
+!     --------------------------------------------------------------------
+!     This subroutine describes the loaded mesh
+!     -------------------------------------------------------------------- 
+      SUBROUTINE HexMesh_Describe( self , fileName, bFaceOrder )
       USE Headers
       IMPLICIT NONE
-!
-!--------------------------------------------------------------------
-!  This subroutine describes the loaded mesh
-!--------------------------------------------------------------------
-!
-!
-!     ------------------
-!     External variables
-!     ------------------
-!
+      !-arguments------------------------------------------
       CLASS(HexMesh)      :: self
       CHARACTER(LEN=*)    :: fileName
       integer, intent(in) :: bFaceOrder
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      INTEGER           :: fID, zoneID
-      INTEGER           :: no_of_bdryfaces
+      !-local-variables------------------------------------
+      integer           :: ierr
+      integer           :: fID, zoneID
+      integer           :: no_of_bdry_faces
+      integer           :: no_of_faces
+      integer, allocatable :: facesPerZone(:)
       character(len=LINE_LENGTH) :: str
+      !----------------------------------------------------
       
-      no_of_bdryfaces = 0
+      allocate ( facesPerZone(size(self % zones)) )
+      
+!     Gather information
+!     ------------------
+     
+      if (  MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_ 
+         do zoneID = 1, size(self % zones)
+            call mpi_reduce ( self % zones(zoneID) % no_of_faces, facesPerZone(zoneID) , 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr )
+         end do
+         
+         no_of_bdry_faces = sum(facesPerZone)
+         no_of_faces      = (6*self % no_of_allElements + no_of_bdry_faces)/2
+#endif
+      else
+         do zoneID = 1, size(self % zones)
+            facesPerZone(zoneID) = self % zones(zoneID) % no_of_faces
+         end do
+         
+         no_of_bdry_faces = sum(facesPerZone)
+         no_of_faces = size ( self % faces )
+      end if
+      
+      
+!     Describe the mesh
+!     -----------------
+      
+      if ( .not. MPI_Process % isRoot ) return
       
       write(STD_OUT,'(/)')
       call Section_Header("Reading mesh")
@@ -1156,17 +1165,10 @@ slavecoord:             DO l = 1, 4
       
       call SubSection_Header('Mesh file "' // trim(fileName) // '".')
 
-      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of nodes: " , size ( self % nodes )
-      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of elements: " , size ( self % elements )
-      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of faces: " , size ( self % faces )
+      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of elements: " , self % no_of_allElements
+      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of faces: " , no_of_faces
       
-      do fID = 1 , size ( self % faces )
-         if ( self % faces(fID) % faceType .ne. HMESH_INTERIOR) then
-            no_of_bdryfaces = no_of_bdryfaces + 1
-         end if
-      end do
-
-      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bdryfaces
+      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bdry_faces
       write(STD_OUT,'(30X,A,A28,I10)') "->" , "Order of curved faces: " , bFaceOrder
       write(STD_OUT,'(30X,A,A28,L10)') "->" , "2D extruded mesh: " , self % meshIs2D
       
@@ -1179,14 +1181,20 @@ slavecoord:             DO l = 1, 4
       do zoneID = 1, size(self % zones)
          write(str,'(A,I0,A,A)') "Zone ", zoneID, " for boundary: ",trim(self % zones(zoneID) % Name)
          call SubSection_Header(trim(str))
-         write(STD_OUT,'(30X,A,A28,I0)') "->", ' Number of faces: ', self % zones(zoneID) % no_of_faces
+         write(STD_OUT,'(30X,A,A28,I0)') "->", ' Number of faces: ', facesPerZone(zoneID)
          call BCs(zoneID) % bc % Describe
          write(STD_OUT,'(/)')
       end do
       
-      END SUBROUTINE DescribeMesh     
-
-      SUBROUTINE DescribeMeshPartition( self , fileName )
+!     Finish up
+!     ---------
+      deallocate ( facesPerZone )
+      
+      END SUBROUTINE HexMesh_Describe     
+! 
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE DescribeMeshPartition( self )
       USE Headers
       use PartitionedMeshClass
       IMPLICIT NONE
@@ -1201,7 +1209,6 @@ slavecoord:             DO l = 1, 4
 !     ------------------
 !
       CLASS(HexMesh)    :: self
-      CHARACTER(LEN=*)  :: fileName
 #ifdef _HAS_MPI_
 !
 !     ---------------
@@ -1210,7 +1217,6 @@ slavecoord:             DO l = 1, 4
 !
       INTEGER           :: fID, zoneID, rank, ierr
       INTEGER           :: no_of_bdryfaces, no_of_mpifaces
-      integer           :: no_of_nodesP(MPI_Process % nProcs)
       integer           :: no_of_elementsP(MPI_Process % nProcs)
       integer           :: no_of_facesP(MPI_Process % nProcs)
       integer           :: no_of_bfacesP(MPI_Process % nProcs)
@@ -1233,7 +1239,6 @@ slavecoord:             DO l = 1, 4
 !     Share all quantities to the root process
 !     ----------------------------------------
       call mpi_gather(size(self % elements) , 1 , MPI_INT , no_of_elementsP , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
-      call mpi_gather(size(self % nodes)    , 1 , MPI_INT , no_of_nodesP    , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
       call mpi_gather(size(self % faces)    , 1 , MPI_INT , no_of_facesP    , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
       call mpi_gather(no_of_bdryfaces       , 1 , MPI_INT , no_of_bfacesP   , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
       call mpi_gather(no_of_mpifaces        , 1 , MPI_INT , no_of_mpifacesP , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
@@ -1259,7 +1264,6 @@ slavecoord:             DO l = 1, 4
          write(partitionID,'(A,I0)') "Partition ", rank
          call SubSection_Header(trim(partitionID))
 
-         write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of nodes: " , no_of_nodesP(rank)
          write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of elements: " , no_of_elementsP(rank)
          write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of faces: " , no_of_facesP(rank)
          write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bfacesP(rank)
@@ -3224,7 +3228,7 @@ slavecoord:             DO l = 1, 4
       logical                 , intent(in)   :: computeGradients
       logical, optional       , intent(in)   :: Face_pointers
       !-----------------------------------------------------------
-      integer :: bdf_order, eID
+      integer :: bdf_order, eID, fID
       logical :: Face_pt
       character(len=LINE_LENGTH) :: time_int
       !-----------------------------------------------------------
@@ -3248,10 +3252,21 @@ slavecoord:             DO l = 1, 4
          bdf_order = -1
       end if
       
+!     Construct global and elements' storage
+!     --------------------------------------
       call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, bdf_order )
+
+!     Construct faces' storage
+!     ------------------------
+      do fID = 1, size(self % faces)
+         associate ( f => self % faces(fID) )
+         call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients)
+         call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients)
+         end associate
+      end do
       
-!     Construct element storage
-!     -------------------------
+!     Point element storage
+!     ---------------------
       DO eID = 1, SIZE(self % elements)
          associate (e => self % elements(eID))
          e % storage => self % storage % elements(eID)
@@ -3468,14 +3483,17 @@ slavecoord:             DO l = 1, 4
       integer         , allocatable :: elementArray(:)   
       type(Zone_t)    , pointer :: zone
       type(Element)   , pointer :: e
+#if (!defined(NAVIERSTOKES))
+      logical, parameter            :: computeGradients = .true.
+#endif
       !---------------------------------------------------
 
-!
+!     **************************************
 !     Check if resulting mesh is anisotropic
 !     **************************************
       if ( maxval(NNew) /= minval(NNew) ) self % anisotropic = .TRUE.
       
-!
+!     ********************
 !     Some initializations
 !     ********************
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
@@ -3484,9 +3502,10 @@ slavecoord:             DO l = 1, 4
       elementList    = IntegerDataLinkedList_t(.FALSE.)
       zoneList = IntegerDataLinkedList_t(.FALSE.)
       
-!      
+!     *********************************************
 !     Adapt individual elements (geometry excluded)
 !     *********************************************
+
 !$omp parallel do schedule(runtime) private(fID, e)
       do eID=1, self % no_of_elements
          e => self % elements(eID)   ! Associate fails(!) here
@@ -3510,23 +3529,38 @@ slavecoord:             DO l = 1, 4
 !$omp end parallel do
       
       call facesList % ExportToArray(facesArray, .TRUE.)
-!
+
+!     *************************
 !     Adapt corresponding faces
 !     *************************
       
-      ! Destruct faces storage
+!     Destruct faces storage
+!     ----------------------
 !$omp parallel do 
       do fID=1, size(facesArray)
          call self % faces( facesArray(fID) ) % storage % destruct
       end do
 !$omp end parallel do 
       
-      ! Set connectivities (face storage is allocated inside)
+!     Set connectivities
+!     ------------------
       call self % SetConnectivitiesAndLinkFaces (self % nodeType, facesArray)
       
-!
+!     Construct faces storage
+!     -----------------------
+!$omp parallel do 
+      do fID=1, size(facesArray)
+         associate ( f => self % faces(fID) )
+         call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients)
+         call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients)
+         end associate
+      end do
+!$omp end parallel do 
+
+!     ********************
 !     Reconstruct geometry
 !     ********************
+
       !* 1. Adapted elements
       !* 2. Surrounding faces of adapted elements
       ! 3. Neighbor elements of adapted elements whose intermediate face's geometry was adapted
@@ -3535,7 +3569,8 @@ slavecoord:             DO l = 1, 4
       
       if (self % anisotropic .and. (.not. self % meshIs2D) ) then
          
-         ! Check if any of the faces belong to a boundary
+!        Check if any of the faces belong to a boundary
+!        ----------------------------------------------
          do fID=1, size(facesArray)
             associate (f => self % faces( facesArray(fID) ) )
             if ( f % FaceType == HMESH_BOUNDARY ) then
@@ -3544,7 +3579,8 @@ slavecoord:             DO l = 1, 4
             end associate
          end do
          
-         ! Add the corresponding faces and elements
+!        Add the corresponding faces and elements
+!        ----------------------------------------
          call zoneList % ExportToArray (zoneArray)
          
          do zoneID=1, size(zoneArray)
@@ -3562,7 +3598,8 @@ slavecoord:             DO l = 1, 4
       call facesList   % ExportToArray(facesArray  , .TRUE.)
       call elementList % ExportToArray(elementArray, .TRUE.)
       
-      ! Destruct old
+!     Destruct old
+!     ------------
       do eID=1, size (elementArray)
          call self % elements (elementArray(eID)) % geom % destruct
       end do
@@ -3575,9 +3612,10 @@ slavecoord:             DO l = 1, 4
 #if defined(NAVIERSTOKES)
       call self % ComputeWallDistances(facesArray, elementArray)
 #endif
-      
+
+!     *********      
 !     Finish up
-!     ---------
+!     *********
       call self % PrepareForIO
       
       call facesList    % destruct
