@@ -290,25 +290,33 @@ module VolumeIntegrals
 !
          real(kind=RP) :: localVal(NDIM)
          integer       :: eID, ierr
+         real(kind=RP) :: valAux(NDIM)
+         real(kind=RP) :: val1, val2, val3
          
 !
 !        Initialization
 !        --------------            
-         val = 0.0_RP
+         val1 = 0.0_RP
+         val2 = 0.0_RP
+         val3 = 0.0_RP
 !
 !        Loop the mesh
 !        -------------
-!$omp parallel do reduction(+:val) private(eID) schedule(guided)
+!$omp parallel do reduction(+:val1,val2,val3) private(valAux) schedule(guided)
          do eID = 1, mesh % no_of_elements
 !
 !           Compute the integral
 !           --------------------
-            val = val + VectorVolumeIntegral_Local(mesh % elements(eID), &
-                                                           integralType    )
-
+            valAux = VectorVolumeIntegral_Local(mesh % elements(eID), integralType    )
+            
+            val1 = val1 + valAux(1)
+            val2 = val2 + valAux(2)
+            val3 = val3 + valAux(3)
          end do
 !$omp end parallel do
-
+         
+         val = [val1, val2, val3]
+         
 #ifdef _HAS_MPI_
          localVal = val
          call mpi_allreduce(localVal, val, NDIM, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
