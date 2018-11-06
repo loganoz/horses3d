@@ -671,7 +671,7 @@ Module MappedGeometryClass
 !     ------------------
       select case(projType)
       case (0)
-         self % normal = dS
+         self % normal = dSRot
          self % GradXi   = GradXiRot
          self % GradEta  = GradEtaRot
          self % GradZeta = GradZetaRot
@@ -681,7 +681,7 @@ Module MappedGeometryClass
          self % GradEta  = 0.0_RP
          self % GradZeta = 0.0_RP
          do j = 0, Nf(2)  ; do l = 0, Nelf(1)   ; do i = 0, Nf(1)
-            self % normal(:,i,j) = self % normal(:,i,j) + Tset(Nelf(1), Nf(1)) % T(i,l) * dS(:,l,j)
+            self % normal(:,i,j) = self % normal(:,i,j) + Tset(Nelf(1), Nf(1)) % T(i,l) * dSRot(:,l,j)
             self % GradXi  (:,i,j) = self % GradXi  (:,i,j) + Tset(Nelf(1), Nf(1)) % T(i,l) * GradXiRot  (:,l,j)
             self % GradEta (:,i,j) = self % GradEta (:,i,j) + Tset(Nelf(1), Nf(1)) % T(i,l) * GradEtaRot (:,l,j)
             self % GradZeta(:,i,j) = self % GradZeta(:,i,j) + Tset(Nelf(1), Nf(1)) % T(i,l) * GradZetaRot(:,l,j)
@@ -693,7 +693,7 @@ Module MappedGeometryClass
          self % GradEta  = 0.0_RP
          self % GradZeta = 0.0_RP
          do l = 0, Nelf(2)  ; do j = 0, Nf(2)   ; do i = 0, Nf(1)
-            self % normal(:,i,j) = self % normal(:,i,j) + Tset(Nelf(2), Nf(2)) % T(j,l) * dS(:,i,l)
+            self % normal(:,i,j) = self % normal(:,i,j) + Tset(Nelf(2), Nf(2)) % T(j,l) * dSRot(:,i,l)
             self % GradXi  (:,i,j) = self % GradXi  (:,i,j) + Tset(Nelf(2), Nf(2)) % T(j,l) * GradXiRot  (:,i,l)
             self % GradEta (:,i,j) = self % GradEta (:,i,j) + Tset(Nelf(2), Nf(2)) % T(j,l) * GradEtaRot (:,i,l)
             self % GradZeta(:,i,j) = self % GradZeta(:,i,j) + Tset(Nelf(2), Nf(2)) % T(j,l) * GradZetaRot(:,i,l)
@@ -708,7 +708,7 @@ Module MappedGeometryClass
             do m = 0, Nelf(1) ; do i = 0, Nf(1)
                self % normal(:,i,j) = self % normal(:,i,j) +   Tset(Nelf(1), Nf(1)) % T(i,m) &
                                          * Tset(Nelf(2), Nf(2)) % T(j,l) &
-                                         * dS(:,m,l)
+                                         * dSRot(:,m,l)
                self % GradXi  (:,i,j) = self % GradXi  (:,i,j) +   Tset(Nelf(1), Nf(1)) % T(i,m) &
                                          * Tset(Nelf(2), Nf(2)) % T(j,l) &
                                          * GradXiRot  (:,m,l)

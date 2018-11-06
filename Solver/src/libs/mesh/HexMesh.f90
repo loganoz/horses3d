@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Wed Oct 31 18:01:23 2018
+!   @Last revision date: Tue Nov  6 17:16:19 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 4cb44266e1f1a3b075b9d1413a55399ec0b38b20
+!   @Last revision commit: a871872914b3537dc1df7acf4c227057d3f5d5d0
 !
 !//////////////////////////////////////////////////////
 !
@@ -59,7 +59,7 @@ MODULE HexMeshClass
          integer                                   :: nodeType
          integer                                   :: no_of_elements
          integer                                   :: no_of_allElements
-         integer                                   :: dt_restriction       ! Time step restriction of last step (DT_FIXED, DT_DIFF or DT_CONV)
+         integer                                   :: dt_restriction = DT_FIXED     ! Time step restriction of last step (DT_FIXED -initial value-, DT_DIFF or DT_CONV)
          integer      , dimension(:), allocatable  :: Nx, Ny, Nz
          integer, allocatable                      :: HOPRnodeIDs(:)
          character(len=LINE_LENGTH)                :: meshFileName
@@ -1687,7 +1687,7 @@ slavecoord:             DO l = 1, 4
             case (HMESH_MPI)
 !
 !              ****************************************************
-!              TODO account for different orders accross both sides
+!              TODO anisMPI account for different orders accross both sides
 !              ****************************************************
 !
                associate(e => self % elements(maxval(f % elementIDs)))
@@ -1757,6 +1757,14 @@ slavecoord:             DO l = 1, 4
          integer  :: k, eID, bFace, side, eSide, fID, domain
          integer  :: no_of_mpifaces(MPI_Process % nProcs)
          integer, parameter  :: otherSide(2) = (/2,1/)
+         integer, parameter  :: invRot(1:4,0:7) = reshape( (/ 1, 2, 3, 4, &
+                                                              4, 1, 2, 3, &
+                                                              3, 4, 1, 2, &
+                                                              2, 3, 4, 1, &
+                                                              1, 4, 3, 2, &
+                                                              2, 1, 4, 3, &
+                                                              3, 2, 1, 4, &
+                                                              4, 3, 2, 1 /), (/4,8/) )
 !
 !        First get how many faces are shared with each other partition
 !        -------------------------------------------------------------
@@ -1775,7 +1783,11 @@ slavecoord:             DO l = 1, 4
                call mpi_faces(domain) % Construct(no_of_mpifaces(domain))
             end if
          end do
-
+!
+!        -------------
+!        Assign values
+!        -------------
+!
          no_of_mpifaces = 0
          do bFace = 1, partition % no_of_mpifaces
 !
@@ -1795,7 +1807,12 @@ slavecoord:             DO l = 1, 4
             f % elementIDs(otherSide(eSide)) = HMESH_NONE
             f % elementSide(eSide) = side
             f % elementSide(otherSide(eSide)) = HMESH_NONE
+            
+            if (eSide == RIGHT) f % nodeIDs = f % nodeIDs (invRot (:,f % rotation) )
             end associate
+            
+            self % elements(eID) % faceSide(side) = eSide
+            
 !
 !           Create MPI Face
 !           ---------------
@@ -1951,19 +1968,19 @@ slavecoord:             DO l = 1, 4
             case (HMESH_INTERIOR)
                eIDLeft  = f % elementIDs(1)
                SideIDL  = f % elementSide(1)
-               NSurfL   = self % elements(eIDLeft) % SurfInfo  % facePatches(SideIDL) % noOfKnots - 1
+               NSurfL   = SurfInfo(eIDLeft) % facePatches(SideIDL) % noOfKnots - 1
             
                eIDRight = f % elementIDs(2)
                SideIDR  = f % elementSide(2)
-               NSurfR   = self % elements(eIDRight) % SurfInfo % facePatches(SideIDR) % noOfKnots - 1
+               NSurfR   = SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
             
 !              If both surfaces are of order 1.. There's no need to continue analyzing face
 !              ----------------------------------------------------------------------------
-               if     ((self % elements(eIDLeft) % SurfInfo  % IsHex8) .and. (self % elements(eIDRight) % SurfInfo % IsHex8)) then
+               if     ((SurfInfo(eIDLeft)  % IsHex8) .and. (SurfInfo(eIDRight) % IsHex8)) then
                   cycle
-               elseif ((self % elements(eIDLeft) % SurfInfo  % IsHex8) .and. all(NSurfR == 1) ) then
+               elseif ((SurfInfo(eIDLeft)  % IsHex8) .and. all(NSurfR == 1) ) then
                   cycle
-               elseif ((self % elements(eIDRight) % SurfInfo % IsHex8) .and. all(NSurfL == 1) ) then
+               elseif ((SurfInfo(eIDRight) % IsHex8) .and. all(NSurfL == 1) ) then
                   cycle
                elseif (all(NSurfL == 1) .and. all(NSurfR == 1) ) then
                   cycle
@@ -1971,8 +1988,8 @@ slavecoord:             DO l = 1, 4
                   write(STD_OUT,*) 'WARNING: Curved face definitions in mesh are not consistent.'
                   write(STD_OUT,*) '   Face:    ', fID
                   write(STD_OUT,*) '   Elements:', f % elementIDs
-                  write(STD_OUT,*) '   N Left:  ', self % elements(eIDLeft) % SurfInfo % facePatches(SideIDL) % noOfKnots - 1
-                  write(STD_OUT,*) '   N Right: ', self % elements(eIDRight) % SurfInfo % facePatches(SideIDR) % noOfKnots - 1
+                  write(STD_OUT,*) '   N Left:  ', SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
+                  write(STD_OUT,*) '   N Right: ', SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
                end if
                
                CLN(1) = min(f % NfLeft(1),f % NfRight(1))
@@ -1982,7 +1999,7 @@ slavecoord:             DO l = 1, 4
 !              ---------------------------------------------------
                if ( any(CLN < NSurfL) ) then
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-                  call ProjectFaceToNewPoints(self % elements(eIDLeft) % SurfInfo % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
+                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
                                                                                         CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
                   call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
                   call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(CLN(1)) % xCGL, &  
@@ -1991,7 +2008,7 @@ slavecoord:             DO l = 1, 4
                end if
 
                select case ( f % rotation )
-               case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular  ! TODO this is correct?
+               case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular
                   if (CLN(1) /= CLN(2)) then
                      buffer = CLN(1)
                      CLN(1) = CLN(2)
@@ -2001,7 +2018,7 @@ slavecoord:             DO l = 1, 4
                
                if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-                  call ProjectFaceToNewPoints(self % elements(eIDRight) % SurfInfo % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
+                  call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
                                                                                          CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
                   call SurfInfo(eIDRight) % facePatches(SideIDR) % Destruct()
                   call SurfInfo(eIDRight) % facePatches(SideIDR) % Construct(NodalStorage(CLN(1)) % xCGL,&
@@ -2012,9 +2029,9 @@ slavecoord:             DO l = 1, 4
             case (HMESH_BOUNDARY)
                eIDLeft  = f % elementIDs(1)
                SideIDL  = f % elementSide(1)
-               NSurfL   = self % elements(eIDLeft) % SurfInfo  % facePatches(SideIDL) % noOfKnots - 1
+               NSurfL   = SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
 
-               if     (self % elements(eIDLeft) % SurfInfo  % IsHex8 .or. all(NSurfL == 1)) cycle
+               if     (SurfInfo(eIDLeft) % IsHex8 .or. all(NSurfL == 1)) cycle
                
                if (self % anisotropic  .and. (.not. self % meshIs2D) ) then
                   CLN = bfOrder(f % zone)
@@ -2027,7 +2044,7 @@ slavecoord:             DO l = 1, 4
 !              ---------------------------------------------------
                if ( any(CLN < NSurfL) ) then
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-                  call ProjectFaceToNewPoints(self % elements(eIDLeft) % SurfInfo % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
+                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
                                                                                         CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
                   call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
                   call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(CLN(1)) % xCGL, &  
@@ -2039,11 +2056,16 @@ slavecoord:             DO l = 1, 4
                eID = maxval(f % elementIDs)
                side = maxval(f % elementSide)
                NSurf = SurfInfo(eID) % facePatches(side) % noOfKnots - 1
-            
+               
                if ( SurfInfo(eID) % IsHex8 .or. all(NSurf == 1) ) cycle
 
-               CLN(1) = f % NfLeft(1)  ! TODO in MPI faces, p-adaption has
-               CLN(2) = f % NfLeft(2)  ! not been accounted yet.
+               if (self % elements(eID) % faceSide(side) == LEFT) then
+                  CLN(1) = f % NfLeft(1)  ! TODO in MPI faces, p-adaption has
+                  CLN(2) = f % NfLeft(2)  ! not been accounted yet.
+               else
+                  CLN(1) = f % NfRight(1)  ! TODO in MPI faces, p-adaption has
+                  CLN(2) = f % NfRight(2)  ! not been accounted yet.
+               end if
 
                if ( side .eq. 2 ) then    ! Right faces need to be rotated
                   select case ( f % rotation )
@@ -2129,12 +2151,12 @@ slavecoord:             DO l = 1, 4
                   Nel = f % NelLeft
                   Nelf = f % NfLeft
                   rot = 0
-
+                  
                case(2)
                   Nel = f % NelRight
                   Nelf = f % NfRight
                   rot = f % rotation
-   
+                  
                end select
             
                associate(e => self % elements(f % elementIDs(side)))
@@ -2142,8 +2164,9 @@ slavecoord:             DO l = 1, 4
                                          NodalStorage(f % Nf), NodalStorage(e % Nxyz), &
                                          e % geom, e % hexMap, f % elementSide(side), &
                                          f % projectionType(side), side, rot)
-
+               
                end associate
+               
             end select
             end associate
             

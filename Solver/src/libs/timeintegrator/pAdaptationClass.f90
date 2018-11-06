@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Mon Oct 29 13:54:37 2018
+!   @Last revision date: Tue Nov  6 17:16:23 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: c14fafcd82dba8b47adf67371d60c14952030bca
+!   @Last revision commit: a871872914b3537dc1df7acf4c227057d3f5d5d0
 !
 !//////////////////////////////////////////////////////
 !
@@ -655,6 +655,9 @@ readloop:do
             
          case (ADAPT_UNSTEADY_TIME)
             hasToAdapt = this % performPAdaptationT
+            
+         case default
+            hasToAdapt = .FALSE.
       end select
       
    end function pAdaptation_hasToAdapt
