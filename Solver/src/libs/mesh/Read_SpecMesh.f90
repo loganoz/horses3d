@@ -333,6 +333,8 @@ MODULE Read_SpecMesh
          if (.not. self % child) CALL self % Describe( trim(fileName), bFaceOrder )
          call self % PrepareForIO
          
+         call self % ExportBoundaryMesh (trim(fileName))
+         
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -533,6 +535,8 @@ MODULE Read_SpecMesh
          call self % SetConnectivitiesAndLinkFaces(nodes)
 
          CLOSE( fUnit )
+         
+         call self % ExportBoundaryMesh (trim(fileName))
          
       END SUBROUTINE ConstructSimplestMesh_FromSpecMeshFile_
 !
