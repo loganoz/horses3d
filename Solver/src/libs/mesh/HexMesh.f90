@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Mon Oct 15 14:43:15 2018
+!   @Last revision date: Tue Nov  6 17:16:19 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 63424dca21c42f958a3d51fbed93eaae84663507
+!   @Last revision commit: a871872914b3537dc1df7acf4c227057d3f5d5d0
 !
 !//////////////////////////////////////////////////////
 !
@@ -59,7 +59,7 @@ MODULE HexMeshClass
          integer                                   :: nodeType
          integer                                   :: no_of_elements
          integer                                   :: no_of_allElements
-         integer                                   :: dt_restriction       ! Time step restriction of last step (DT_FIXED, DT_DIFF or DT_CONV)
+         integer                                   :: dt_restriction = DT_FIXED     ! Time step restriction of last step (DT_FIXED -initial value-, DT_DIFF or DT_CONV)
          integer      , dimension(:), allocatable  :: Nx, Ny, Nz
          integer, allocatable                      :: HOPRnodeIDs(:)
          character(len=LINE_LENGTH)                :: meshFileName
@@ -75,7 +75,7 @@ MODULE HexMeshClass
          logical                                   :: ignoreBCnonConformities = .FALSE.
          contains
             procedure :: destruct                      => HexMesh_Destruct
-            procedure :: Describe                      => DescribeMesh
+            procedure :: Describe                      => HexMesh_Describe
             procedure :: DescribePartition             => DescribeMeshPartition
             procedure :: AllocateStorage               => HexMesh_AllocateStorage
             procedure :: ConstructZones                => HexMesh_ConstructZones
@@ -104,6 +104,7 @@ MODULE HexMeshClass
             procedure :: GatherMPIFacesSolution        => HexMesh_GatherMPIFacesSolution
             procedure :: GatherMPIFacesGradients       => HexMesh_GatherMPIFacesGradients
             procedure :: FindPointWithCoords           => HexMesh_FindPointWithCoords
+            procedure :: FindPointWithCoordsInNeighbors=> HexMesh_FindPointWithCoordsInNeighbors
             procedure :: ComputeWallDistances          => HexMesh_ComputeWallDistances
             procedure :: ConformingOnZone              => HexMesh_ConformingOnZone
             procedure :: SetStorageToEqn          => HexMesh_SetStorageToEqn
@@ -1059,18 +1060,6 @@ slavecoord:             DO l = 1, 4
          integer, allocatable :: allElementSizes(:)
          integer, allocatable :: allElementsOffset(:)
 !
-!        Get the total number of elements
-!        --------------------------------
-         if ( (MPI_Process % doMPIAction)) then
-#ifdef _HAS_MPI_
-            call mpi_allreduce(self % no_of_elements, self % no_of_allelements, &
-                               1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
-#endif
-         else
-            self % no_of_allElements = self % no_of_elements
-         
-         end if
-!
 !        Get each element size
 !        ---------------------
          allocate(elementSizes(self % no_of_allElements))
@@ -1121,33 +1110,54 @@ slavecoord:             DO l = 1, 4
       end subroutine HexMesh_PrepareForIO
 ! 
 !//////////////////////////////////////////////////////////////////////// 
-! 
-      SUBROUTINE DescribeMesh( self , fileName, bFaceOrder )
+!
+!     --------------------------------------------------------------------
+!     This subroutine describes the loaded mesh
+!     -------------------------------------------------------------------- 
+      SUBROUTINE HexMesh_Describe( self , fileName, bFaceOrder )
       USE Headers
       IMPLICIT NONE
-!
-!--------------------------------------------------------------------
-!  This subroutine describes the loaded mesh
-!--------------------------------------------------------------------
-!
-!
-!     ------------------
-!     External variables
-!     ------------------
-!
+      !-arguments------------------------------------------
       CLASS(HexMesh)      :: self
       CHARACTER(LEN=*)    :: fileName
       integer, intent(in) :: bFaceOrder
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      INTEGER           :: fID, zoneID
-      INTEGER           :: no_of_bdryfaces
+      !-local-variables------------------------------------
+      integer           :: ierr
+      integer           :: fID, zoneID
+      integer           :: no_of_bdry_faces
+      integer           :: no_of_faces
+      integer, allocatable :: facesPerZone(:)
       character(len=LINE_LENGTH) :: str
+      !----------------------------------------------------
       
-      no_of_bdryfaces = 0
+      allocate ( facesPerZone(size(self % zones)) )
+      
+!     Gather information
+!     ------------------
+     
+      if (  MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_ 
+         do zoneID = 1, size(self % zones)
+            call mpi_reduce ( self % zones(zoneID) % no_of_faces, facesPerZone(zoneID) , 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr )
+         end do
+         
+         no_of_bdry_faces = sum(facesPerZone)
+         no_of_faces      = (6*self % no_of_allElements + no_of_bdry_faces)/2
+#endif
+      else
+         do zoneID = 1, size(self % zones)
+            facesPerZone(zoneID) = self % zones(zoneID) % no_of_faces
+         end do
+         
+         no_of_bdry_faces = sum(facesPerZone)
+         no_of_faces = size ( self % faces )
+      end if
+      
+      
+!     Describe the mesh
+!     -----------------
+      
+      if ( .not. MPI_Process % isRoot ) return
       
       write(STD_OUT,'(/)')
       call Section_Header("Reading mesh")
@@ -1155,17 +1165,10 @@ slavecoord:             DO l = 1, 4
       
       call SubSection_Header('Mesh file "' // trim(fileName) // '".')
 
-      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of nodes: " , size ( self % nodes )
-      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of elements: " , size ( self % elements )
-      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of faces: " , size ( self % faces )
+      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of elements: " , self % no_of_allElements
+      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of faces: " , no_of_faces
       
-      do fID = 1 , size ( self % faces )
-         if ( self % faces(fID) % faceType .ne. HMESH_INTERIOR) then
-            no_of_bdryfaces = no_of_bdryfaces + 1
-         end if
-      end do
-
-      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bdryfaces
+      write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bdry_faces
       write(STD_OUT,'(30X,A,A28,I10)') "->" , "Order of curved faces: " , bFaceOrder
       write(STD_OUT,'(30X,A,A28,L10)') "->" , "2D extruded mesh: " , self % meshIs2D
       
@@ -1178,14 +1181,20 @@ slavecoord:             DO l = 1, 4
       do zoneID = 1, size(self % zones)
          write(str,'(A,I0,A,A)') "Zone ", zoneID, " for boundary: ",trim(self % zones(zoneID) % Name)
          call SubSection_Header(trim(str))
-         write(STD_OUT,'(30X,A,A28,I0)') "->", ' Number of faces: ', self % zones(zoneID) % no_of_faces
+         write(STD_OUT,'(30X,A,A28,I0)') "->", ' Number of faces: ', facesPerZone(zoneID)
          call BCs(zoneID) % bc % Describe
          write(STD_OUT,'(/)')
       end do
       
-      END SUBROUTINE DescribeMesh     
-
-      SUBROUTINE DescribeMeshPartition( self , fileName )
+!     Finish up
+!     ---------
+      deallocate ( facesPerZone )
+      
+      END SUBROUTINE HexMesh_Describe     
+! 
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      SUBROUTINE DescribeMeshPartition( self )
       USE Headers
       use PartitionedMeshClass
       IMPLICIT NONE
@@ -1200,7 +1209,6 @@ slavecoord:             DO l = 1, 4
 !     ------------------
 !
       CLASS(HexMesh)    :: self
-      CHARACTER(LEN=*)  :: fileName
 #ifdef _HAS_MPI_
 !
 !     ---------------
@@ -1209,7 +1217,6 @@ slavecoord:             DO l = 1, 4
 !
       INTEGER           :: fID, zoneID, rank, ierr
       INTEGER           :: no_of_bdryfaces, no_of_mpifaces
-      integer           :: no_of_nodesP(MPI_Process % nProcs)
       integer           :: no_of_elementsP(MPI_Process % nProcs)
       integer           :: no_of_facesP(MPI_Process % nProcs)
       integer           :: no_of_bfacesP(MPI_Process % nProcs)
@@ -1232,7 +1239,6 @@ slavecoord:             DO l = 1, 4
 !     Share all quantities to the root process
 !     ----------------------------------------
       call mpi_gather(size(self % elements) , 1 , MPI_INT , no_of_elementsP , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
-      call mpi_gather(size(self % nodes)    , 1 , MPI_INT , no_of_nodesP    , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
       call mpi_gather(size(self % faces)    , 1 , MPI_INT , no_of_facesP    , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
       call mpi_gather(no_of_bdryfaces       , 1 , MPI_INT , no_of_bfacesP   , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
       call mpi_gather(no_of_mpifaces        , 1 , MPI_INT , no_of_mpifacesP , 1 , MPI_INT , 0 , MPI_COMM_WORLD , ierr)
@@ -1258,7 +1264,6 @@ slavecoord:             DO l = 1, 4
          write(partitionID,'(A,I0)') "Partition ", rank
          call SubSection_Header(trim(partitionID))
 
-         write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of nodes: " , no_of_nodesP(rank)
          write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of elements: " , no_of_elementsP(rank)
          write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of faces: " , no_of_facesP(rank)
          write(STD_OUT,'(30X,A,A28,I10)') "->" , "Number of boundary faces: " , no_of_bfacesP(rank)
@@ -1682,7 +1687,7 @@ slavecoord:             DO l = 1, 4
             case (HMESH_MPI)
 !
 !              ****************************************************
-!              TODO account for different orders accross both sides
+!              TODO anisMPI account for different orders accross both sides
 !              ****************************************************
 !
                associate(e => self % elements(maxval(f % elementIDs)))
@@ -1752,6 +1757,14 @@ slavecoord:             DO l = 1, 4
          integer  :: k, eID, bFace, side, eSide, fID, domain
          integer  :: no_of_mpifaces(MPI_Process % nProcs)
          integer, parameter  :: otherSide(2) = (/2,1/)
+         integer, parameter  :: invRot(1:4,0:7) = reshape( (/ 1, 2, 3, 4, &
+                                                              4, 1, 2, 3, &
+                                                              3, 4, 1, 2, &
+                                                              2, 3, 4, 1, &
+                                                              1, 4, 3, 2, &
+                                                              2, 1, 4, 3, &
+                                                              3, 2, 1, 4, &
+                                                              4, 3, 2, 1 /), (/4,8/) )
 !
 !        First get how many faces are shared with each other partition
 !        -------------------------------------------------------------
@@ -1770,7 +1783,11 @@ slavecoord:             DO l = 1, 4
                call mpi_faces(domain) % Construct(no_of_mpifaces(domain))
             end if
          end do
-
+!
+!        -------------
+!        Assign values
+!        -------------
+!
          no_of_mpifaces = 0
          do bFace = 1, partition % no_of_mpifaces
 !
@@ -1790,7 +1807,12 @@ slavecoord:             DO l = 1, 4
             f % elementIDs(otherSide(eSide)) = HMESH_NONE
             f % elementSide(eSide) = side
             f % elementSide(otherSide(eSide)) = HMESH_NONE
+            
+            if (eSide == RIGHT) f % nodeIDs = f % nodeIDs (invRot (:,f % rotation) )
             end associate
+            
+            self % elements(eID) % faceSide(side) = eSide
+            
 !
 !           Create MPI Face
 !           ---------------
@@ -1946,19 +1968,19 @@ slavecoord:             DO l = 1, 4
             case (HMESH_INTERIOR)
                eIDLeft  = f % elementIDs(1)
                SideIDL  = f % elementSide(1)
-               NSurfL   = self % elements(eIDLeft) % SurfInfo  % facePatches(SideIDL) % noOfKnots - 1
+               NSurfL   = SurfInfo(eIDLeft) % facePatches(SideIDL) % noOfKnots - 1
             
                eIDRight = f % elementIDs(2)
                SideIDR  = f % elementSide(2)
-               NSurfR   = self % elements(eIDRight) % SurfInfo % facePatches(SideIDR) % noOfKnots - 1
+               NSurfR   = SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
             
 !              If both surfaces are of order 1.. There's no need to continue analyzing face
 !              ----------------------------------------------------------------------------
-               if     ((self % elements(eIDLeft) % SurfInfo  % IsHex8) .and. (self % elements(eIDRight) % SurfInfo % IsHex8)) then
+               if     ((SurfInfo(eIDLeft)  % IsHex8) .and. (SurfInfo(eIDRight) % IsHex8)) then
                   cycle
-               elseif ((self % elements(eIDLeft) % SurfInfo  % IsHex8) .and. all(NSurfR == 1) ) then
+               elseif ((SurfInfo(eIDLeft)  % IsHex8) .and. all(NSurfR == 1) ) then
                   cycle
-               elseif ((self % elements(eIDRight) % SurfInfo % IsHex8) .and. all(NSurfL == 1) ) then
+               elseif ((SurfInfo(eIDRight) % IsHex8) .and. all(NSurfL == 1) ) then
                   cycle
                elseif (all(NSurfL == 1) .and. all(NSurfR == 1) ) then
                   cycle
@@ -1966,8 +1988,8 @@ slavecoord:             DO l = 1, 4
                   write(STD_OUT,*) 'WARNING: Curved face definitions in mesh are not consistent.'
                   write(STD_OUT,*) '   Face:    ', fID
                   write(STD_OUT,*) '   Elements:', f % elementIDs
-                  write(STD_OUT,*) '   N Left:  ', self % elements(eIDLeft) % SurfInfo % facePatches(SideIDL) % noOfKnots - 1
-                  write(STD_OUT,*) '   N Right: ', self % elements(eIDRight) % SurfInfo % facePatches(SideIDR) % noOfKnots - 1
+                  write(STD_OUT,*) '   N Left:  ', SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
+                  write(STD_OUT,*) '   N Right: ', SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
                end if
                
                CLN(1) = min(f % NfLeft(1),f % NfRight(1))
@@ -1977,7 +1999,7 @@ slavecoord:             DO l = 1, 4
 !              ---------------------------------------------------
                if ( any(CLN < NSurfL) ) then
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-                  call ProjectFaceToNewPoints(self % elements(eIDLeft) % SurfInfo % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
+                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
                                                                                         CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
                   call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
                   call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(CLN(1)) % xCGL, &  
@@ -1986,7 +2008,7 @@ slavecoord:             DO l = 1, 4
                end if
 
                select case ( f % rotation )
-               case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular  ! TODO this is correct?
+               case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular
                   if (CLN(1) /= CLN(2)) then
                      buffer = CLN(1)
                      CLN(1) = CLN(2)
@@ -1996,7 +2018,7 @@ slavecoord:             DO l = 1, 4
                
                if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-                  call ProjectFaceToNewPoints(self % elements(eIDRight) % SurfInfo % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
+                  call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
                                                                                          CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
                   call SurfInfo(eIDRight) % facePatches(SideIDR) % Destruct()
                   call SurfInfo(eIDRight) % facePatches(SideIDR) % Construct(NodalStorage(CLN(1)) % xCGL,&
@@ -2007,9 +2029,9 @@ slavecoord:             DO l = 1, 4
             case (HMESH_BOUNDARY)
                eIDLeft  = f % elementIDs(1)
                SideIDL  = f % elementSide(1)
-               NSurfL   = self % elements(eIDLeft) % SurfInfo  % facePatches(SideIDL) % noOfKnots - 1
+               NSurfL   = SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
 
-               if     (self % elements(eIDLeft) % SurfInfo  % IsHex8 .or. all(NSurfL == 1)) cycle
+               if     (SurfInfo(eIDLeft) % IsHex8 .or. all(NSurfL == 1)) cycle
                
                if (self % anisotropic  .and. (.not. self % meshIs2D) ) then
                   CLN = bfOrder(f % zone)
@@ -2022,7 +2044,7 @@ slavecoord:             DO l = 1, 4
 !              ---------------------------------------------------
                if ( any(CLN < NSurfL) ) then
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-                  call ProjectFaceToNewPoints(self % elements(eIDLeft) % SurfInfo % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
+                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
                                                                                         CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
                   call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
                   call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(CLN(1)) % xCGL, &  
@@ -2034,11 +2056,16 @@ slavecoord:             DO l = 1, 4
                eID = maxval(f % elementIDs)
                side = maxval(f % elementSide)
                NSurf = SurfInfo(eID) % facePatches(side) % noOfKnots - 1
-            
+               
                if ( SurfInfo(eID) % IsHex8 .or. all(NSurf == 1) ) cycle
 
-               CLN(1) = f % NfLeft(1)  ! TODO in MPI faces, p-adaption has
-               CLN(2) = f % NfLeft(2)  ! not been accounted yet.
+               if (self % elements(eID) % faceSide(side) == LEFT) then
+                  CLN(1) = f % NfLeft(1)  ! TODO in MPI faces, p-adaption has
+                  CLN(2) = f % NfLeft(2)  ! not been accounted yet.
+               else
+                  CLN(1) = f % NfRight(1)  ! TODO in MPI faces, p-adaption has
+                  CLN(2) = f % NfRight(2)  ! not been accounted yet.
+               end if
 
                if ( side .eq. 2 ) then    ! Right faces need to be rotated
                   select case ( f % rotation )
@@ -2124,12 +2151,12 @@ slavecoord:             DO l = 1, 4
                   Nel = f % NelLeft
                   Nelf = f % NfLeft
                   rot = 0
-
+                  
                case(2)
                   Nel = f % NelRight
                   Nelf = f % NfRight
                   rot = f % rotation
-   
+                  
                end select
             
                associate(e => self % elements(f % elementIDs(side)))
@@ -2137,8 +2164,9 @@ slavecoord:             DO l = 1, 4
                                          NodalStorage(f % Nf), NodalStorage(e % Nxyz), &
                                          e % geom, e % hexMap, f % elementSide(side), &
                                          f % projectionType(side), side, rot)
-
+               
                end associate
+               
             end select
             end associate
             
@@ -2583,7 +2611,7 @@ slavecoord:             DO l = 1, 4
          character(len=LINE_LENGTH)           :: fileName
          character(len=LINE_LENGTH)           :: orderFileName
          integer, allocatable                 :: Nx(:), Ny(:), Nz(:)
-         type(HexMesh)                        :: auxMesh
+         type(HexMesh), target                :: auxMesh
          integer                              :: NDOF, eID
          logical                              :: with_gradients
 #if (!defined(NAVIERSTOKES)) || (!defined(INCNS))
@@ -2621,11 +2649,17 @@ slavecoord:             DO l = 1, 4
             auxMesh % nodeType = self % nodeType
             auxMesh % no_of_elements = self % no_of_elements
             allocate ( auxMesh % elements (self % no_of_elements) )
+            allocate ( auxMesh % Nx (self % no_of_elements) )
+            allocate ( auxMesh % Ny (self % no_of_elements) )
+            allocate ( auxMesh % Nz (self % no_of_elements) )
             
             NDOF = 0
             do eID = 1, self % no_of_elements
                associate ( e_aux => auxMesh % elements(eID), &
                            e     =>    self % elements(eID) )
+               auxMesh % Nx(eID) = Nx (e % globID)
+               auxMesh % Ny(eID) = Ny (e % globID)
+               auxMesh % Nz(eID) = Nz (e % globID)
                e_aux % globID = e % globID
                e_aux % Nxyz = [Nx(e % globID) , Ny(e % globID) , Nz(e % globID)]
                NDOF = NDOF + (Nx(e % globID) + 1) * (Ny(e % globID) + 1) * (Nz(e % globID) + 1)               ! TODO: change for new NDOF 
@@ -2634,6 +2668,10 @@ slavecoord:             DO l = 1, 4
             
             call auxMesh % PrepareForIO
             call auxMesh % AllocateStorage (NDOF, controlVariables,computeGradients,.FALSE.)
+            call auxMesh % storage % pointStorage
+            do eID = 1, auxMesh % no_of_elements
+               auxMesh % elements(eID) % storage => auxMesh % storage % elements(eID)
+            end do
             
 !           Read the solution in the auxiliar mesh and interpolate to current mesh
 !           ----------------------------------------------------------------------
@@ -2786,9 +2824,9 @@ slavecoord:             DO l = 1, 4
             allocate(Q(NTOTALVARS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
             read(fID) Q
 #if defined(NAVIERSTOKES)
-            e % storage % Q = Q(1:NCONS,:,:,:)
+            e % storage % QNS = Q(1:NCONS,:,:,:)
 #elif defined(INCNS)
-            e % storage % Q = Q(1:NINC,:,:,:)
+            e % storage % QNS = Q(1:NINC,:,:,:)
 #endif
 #if defined(CAHNHILLIARD)
             e % storage % c(1,:,:,:) = Q(NTOTALVARS,:,:,:)
@@ -2921,10 +2959,13 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !
          integer     :: op_eID
+         integer     :: zoneID, fID
          logical     :: success
 
          HexMesh_FindPointWithCoords = .false.
-
+!
+!        Search in optionalElements (if present)
+!        ---------------------------------------
          if ( present(optionalElements) ) then
             do op_eID = 1, size(optionalElements)
                if ( optionalElements(op_eID) .eq. -1 ) cycle
@@ -2938,19 +2979,78 @@ slavecoord:             DO l = 1, 4
                end associate
             end do
          end if      
-         
+!
+!        Search in linear (not curved) mesh (faster and safer)
+!        -----------------------------------------------------
          do eID = 1, self % no_of_elements
-            associate(e => self % elements(eID))
-            success = e % FindPointWithCoords(x, xi)
+            success = self % elements(eID) % FindPointInLinElement(x, self % nodes)
+            if ( success ) exit
+         end do
+!
+!        If found in linear mesh, use FindPointWithCoords in that element and, if necessary, in neighbors...
+!        ---------------------------------------------------------------------------------------------------
+         if (eID <= self % no_of_elements) then
+            success = self % FindPointWithCoordsInNeighbors(x, xi, eID, 2)
             if ( success ) then
                HexMesh_FindPointWithCoords = .true.
                return
             end if
-            end associate
+         end if
+! 
+!        As a last resource, search using FindPointWithCoords only in boundary elements
+!        ------------------------------------------------------------------------------
+         do zoneID=1, size(self % zones)
+            do fID=1, self % zones(zoneID) % no_of_faces
+               
+               op_eID = self % faces ( self % zones(zoneID) % faces(fID) ) % elementIDs(1)
+               success = self % elements (op_eID) % FindPointWithCoords(x, xi)
+               if ( success ) then
+                  HexMesh_FindPointWithCoords = .true.
+                  return
+               end if
+            end do
          end do
 
       end function HexMesh_FindPointWithCoords
-
+! 
+!////////////////////////////////////////////////////////////////////////
+!
+      logical recursive function HexMesh_FindPointWithCoordsInNeighbors(self, x, xi, eID, depth)
+         implicit none
+         !-arguments--------------------------------------------------
+         class(HexMesh), intent(in)     :: self
+         real(kind=RP) , intent(in)     :: x(NDIM)
+         real(kind=RP) , intent(out)    :: xi(NDIM)
+         integer       , intent(inout)  :: eID
+         integer       , intent(in)     :: depth
+         !-local-variables--------------------------------------------
+         logical :: success
+         integer :: fID, nID, new_eID
+         !------------------------------------------------------------
+         
+         success = self % elements(eID) % FindPointWithCoords(x, xi)
+         if ( success ) then
+            HexMesh_FindPointWithCoordsInNeighbors = .TRUE.
+            return
+         end if
+         
+         if (depth > 1) then
+            do fID=1, FACES_PER_ELEMENT ; do nID=1, self % elements(eID) % NumberOfConnections(fID)
+               
+               new_eID = self % elements(eID) % Connection(fID) % ElementIDs(nID)
+               success = self % FindPointWithCoordsInNeighbors(x, xi, new_eID, depth-1)
+               if ( success ) then
+                  HexMesh_FindPointWithCoordsInNeighbors = .TRUE.
+                  return
+               end if
+               
+            end do                      ; end do
+         end if
+         
+      end function HexMesh_FindPointWithCoordsInNeighbors 
+! 
+!////////////////////////////////////////////////////////////////////////
+!
       subroutine HexMesh_ComputeWallDistances(self,facesList,elementList)
          implicit none
          class(HexMesh)     :: self
@@ -3151,7 +3251,7 @@ slavecoord:             DO l = 1, 4
       logical                 , intent(in)   :: computeGradients
       logical, optional       , intent(in)   :: Face_pointers
       !-----------------------------------------------------------
-      integer :: bdf_order, eID
+      integer :: bdf_order, eID, fID
       logical :: Face_pt
       character(len=LINE_LENGTH) :: time_int
       !-----------------------------------------------------------
@@ -3175,10 +3275,21 @@ slavecoord:             DO l = 1, 4
          bdf_order = -1
       end if
       
+!     Construct global and elements' storage
+!     --------------------------------------
       call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, bdf_order )
+
+!     Construct faces' storage
+!     ------------------------
+      do fID = 1, size(self % faces)
+         associate ( f => self % faces(fID) )
+         call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients)
+         call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients)
+         end associate
+      end do
       
-!     Construct element storage
-!     -------------------------
+!     Point element storage
+!     ---------------------
       DO eID = 1, SIZE(self % elements)
          associate (e => self % elements(eID))
          e % storage => self % storage % elements(eID)
@@ -3395,14 +3506,17 @@ slavecoord:             DO l = 1, 4
       integer         , allocatable :: elementArray(:)   
       type(Zone_t)    , pointer :: zone
       type(Element)   , pointer :: e
+#if (!defined(NAVIERSTOKES))
+      logical, parameter            :: computeGradients = .true.
+#endif
       !---------------------------------------------------
 
-!
+!     **************************************
 !     Check if resulting mesh is anisotropic
 !     **************************************
       if ( maxval(NNew) /= minval(NNew) ) self % anisotropic = .TRUE.
       
-!
+!     ********************
 !     Some initializations
 !     ********************
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
@@ -3411,9 +3525,10 @@ slavecoord:             DO l = 1, 4
       elementList    = IntegerDataLinkedList_t(.FALSE.)
       zoneList = IntegerDataLinkedList_t(.FALSE.)
       
-!      
+!     *********************************************
 !     Adapt individual elements (geometry excluded)
 !     *********************************************
+
 !$omp parallel do schedule(runtime) private(fID, e)
       do eID=1, self % no_of_elements
          e => self % elements(eID)   ! Associate fails(!) here
@@ -3437,23 +3552,38 @@ slavecoord:             DO l = 1, 4
 !$omp end parallel do
       
       call facesList % ExportToArray(facesArray, .TRUE.)
-!
+
+!     *************************
 !     Adapt corresponding faces
 !     *************************
       
-      ! Destruct faces storage
+!     Destruct faces storage
+!     ----------------------
 !$omp parallel do 
       do fID=1, size(facesArray)
          call self % faces( facesArray(fID) ) % storage % destruct
       end do
 !$omp end parallel do 
       
-      ! Set connectivities (face storage is allocated inside)
+!     Set connectivities
+!     ------------------
       call self % SetConnectivitiesAndLinkFaces (self % nodeType, facesArray)
       
-!
+!     Construct faces storage
+!     -----------------------
+!$omp parallel do 
+      do fID=1, size(facesArray)
+         associate ( f => self % faces(fID) )
+         call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients)
+         call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients)
+         end associate
+      end do
+!$omp end parallel do 
+
+!     ********************
 !     Reconstruct geometry
 !     ********************
+
       !* 1. Adapted elements
       !* 2. Surrounding faces of adapted elements
       ! 3. Neighbor elements of adapted elements whose intermediate face's geometry was adapted
@@ -3462,7 +3592,8 @@ slavecoord:             DO l = 1, 4
       
       if (self % anisotropic .and. (.not. self % meshIs2D) ) then
          
-         ! Check if any of the faces belong to a boundary
+!        Check if any of the faces belong to a boundary
+!        ----------------------------------------------
          do fID=1, size(facesArray)
             associate (f => self % faces( facesArray(fID) ) )
             if ( f % FaceType == HMESH_BOUNDARY ) then
@@ -3471,7 +3602,8 @@ slavecoord:             DO l = 1, 4
             end associate
          end do
          
-         ! Add the corresponding faces and elements
+!        Add the corresponding faces and elements
+!        ----------------------------------------
          call zoneList % ExportToArray (zoneArray)
          
          do zoneID=1, size(zoneArray)
@@ -3489,7 +3621,8 @@ slavecoord:             DO l = 1, 4
       call facesList   % ExportToArray(facesArray  , .TRUE.)
       call elementList % ExportToArray(elementArray, .TRUE.)
       
-      ! Destruct old
+!     Destruct old
+!     ------------
       do eID=1, size (elementArray)
          call self % elements (elementArray(eID)) % geom % destruct
       end do
@@ -3502,9 +3635,10 @@ slavecoord:             DO l = 1, 4
 #if defined(NAVIERSTOKES)
       call self % ComputeWallDistances(facesArray, elementArray)
 #endif
-      
+
+!     *********      
 !     Finish up
-!     ---------
+!     *********
       call self % PrepareForIO
       
       call facesList    % destruct

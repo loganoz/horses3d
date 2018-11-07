@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Oct 28 12:16:18 2017
-!   @Last revision date: Sat May 12 20:53:48 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: ece79010cbff566c377be7e7026f86a2889a191e
+!   @Last revision date: Tue Oct 30 19:30:01 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 1f699f3fd06952217bc7b37e109b4002f6816803
 !
 !//////////////////////////////////////////////////////
 !
@@ -73,7 +73,7 @@ end module UserDefinedDataStorage
             use PhysicsStorage
             use UserDefinedDataStorage
             IMPLICIT NONE
-            CLASS(HexMesh)                      :: mesh
+            class(HexMesh)                      :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -182,7 +182,7 @@ end module UserDefinedDataStorage
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, Monitors)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -193,7 +193,7 @@ end module UserDefinedDataStorage
             USE HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
-            CLASS(HexMesh)               :: mesh
+            class(HexMesh)               :: mesh
             REAL(KIND=RP)                :: time
             type(Monitor_t), intent(in) :: monitors
             
@@ -262,7 +262,7 @@ end module UserDefinedDataStorage
             use PhysicsStorage
             use MonitorsClass
             IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
+            class(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
             integer                               :: iter
             real(kind=RP)                         :: maxResidual

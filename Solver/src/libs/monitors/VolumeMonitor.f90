@@ -16,7 +16,7 @@ module VolumeMonitorClass
 !~   public FREE_ENERGY
 #endif
    public VolumeMonitor_t
-
+   
 !
 !  *******************************
 !  Volume monitor class definition
@@ -25,7 +25,8 @@ module VolumeMonitorClass
    type VolumeMonitor_t
       logical                         :: active
       integer                         :: ID
-      real(kind=RP), allocatable      :: values(:)
+      integer                         :: bufferLine
+      real(kind=RP), allocatable      :: values(:,:)
       character(len=STR_LEN_MONITORS) :: monitorName
       character(len=STR_LEN_MONITORS) :: fileName
       character(len=STR_LEN_MONITORS) :: variable
@@ -35,6 +36,7 @@ module VolumeMonitorClass
          procedure   :: WriteLabel     => VolumeMonitor_WriteLabel
          procedure   :: WriteValues    => VolumeMonitor_WriteValue
          procedure   :: WriteToFile    => VolumeMonitor_WriteToFile
+         procedure   :: getLast        => VolumeMonitor_GetLast
          procedure   :: destruct       => VolumeMonitor_Destruct
          procedure   :: copy           => VolumeMonitor_Assign
          generic     :: assignment(=)  => copy
@@ -78,6 +80,7 @@ module VolumeMonitorClass
          character(len=STR_LEN_MONITORS)  :: paramFile
          integer                          :: fID
          integer                          :: pos
+         integer                          :: numVars
 !
 !        Get monitor ID
 !        --------------
@@ -94,10 +97,11 @@ module VolumeMonitorClass
 !        Enable the monitor
 !        ------------------
          self % active = .true.
-         allocate ( self % values(BUFFER_SIZE) )
+         self % bufferLine = 1
 !
 !        Select the variable from the available list, and compute auxiliary variables if needed
 !        --------------------------------------------------------------------------------------
+         numVars = 1
          call toLower(self % variable)
 
 #if defined(NAVIERSTOKES)
@@ -108,6 +112,8 @@ module VolumeMonitorClass
          case ("entropy")
          case ("entropy rate")
          case ("mean velocity")
+         case ("velocity") ; numVars = 3
+         case ("momentum") ; numVars = 3
          case default
 
             if ( len_trim (self % variable) .eq. 0 ) then
@@ -121,6 +127,8 @@ module VolumeMonitorClass
                print*, "   * Entropy"
                print*, "   * Entropy rate"
                print*, "   * Mean velocity"
+               print*, "   * Velocity"
+               print*, "   * Momentum"
                stop "Stopped."
 
             end if
@@ -141,6 +149,10 @@ module VolumeMonitorClass
             end if
          end select
 #endif
+
+         
+         allocate ( self % values(numVars,BUFFER_SIZE) )
+         
 !
 !        Prepare the file in which the monitor is exported
 !        -------------------------------------------------
@@ -153,12 +165,18 @@ module VolumeMonitorClass
 !
 !        Write the file headers
 !        ----------------------
-            write( fID , '(A20,A  )') "Monitor name:      ", trim(self % monitorName)
-            write( fID , '(A20,A  )') "Selected variable: " , trim(self % variable)
+            write( fID , '(A20,A  )') "#Monitor name:      ", trim(self % monitorName)
+            write( fID , '(A20,A  )') "#Selected variable: " , trim(self % variable)
 
             write( fID , * )
-            write( fID , '(A10,2X,A24,2X,A24)' ) "Iteration" , "Time" , trim(self % variable)
-
+            select case ( trim(self % variable) )
+               case("velocity")
+                  write( fID , '(A10,2X,A24,3(2X,A24))') "#Iteration" , "Time" , 'mean-u', 'mean-v', 'mean-w'
+               case("momentum")
+                  write( fID , '(A10,2X,A24,3(2X,A24))') "#Iteration" , "Time" , 'mean-rhou', 'mean-rhov', 'mean-rhow'
+               case default
+                  write( fID , '(A10,2X,A24,2X,A24)'   ) "#Iteration" , "Time" , trim(self % variable)
+            end select
             close ( fID )
          end if
 
@@ -177,32 +195,40 @@ module VolumeMonitorClass
          class   (  VolumeMonitor_t ) :: self
          class   (  HexMesh       )   :: mesh
          integer                      :: bufferPosition
+         
+         self % bufferLine = bufferPosition
 !
 !        Compute the volume integral
 !        ---------------------------
          select case ( trim(self % variable) )
 #if defined(NAVIERSTOKES)
          case ("kinetic energy")
-            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)
 
          case ("kinetic energy rate")
-            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY_RATE) / ScalarVolumeIntegral(mesh, VOLUME)
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY_RATE) / ScalarVolumeIntegral(mesh, VOLUME)
    
          case ("enstrophy")
-            self % values(bufferPosition) = 0.5_RP * ScalarVolumeIntegral(mesh, ENSTROPHY) / ScalarVolumeIntegral(mesh, VOLUME)
+            self % values(1,bufferPosition) = 0.5_RP * ScalarVolumeIntegral(mesh, ENSTROPHY) / ScalarVolumeIntegral(mesh, VOLUME)
 
          case ("entropy")
-            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY) / ScalarVolumeIntegral(mesh, VOLUME)
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY) / ScalarVolumeIntegral(mesh, VOLUME)
 
          case ("entropy rate")
-            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_RATE) / ScalarVolumeIntegral(mesh, VOLUME)
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_RATE) / ScalarVolumeIntegral(mesh, VOLUME)
 
          case ("mean velocity")
-            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, VELOCITY) / ScalarVolumeIntegral(mesh, VOLUME)
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, VELOCITY) / ScalarVolumeIntegral(mesh, VOLUME)
+            
+         case ("velocity")
+            self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, VELOCITY) / ScalarVolumeIntegral(mesh, VOLUME)
+            
+         case ("momentum")
+            self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, MOMENTUM) / ScalarVolumeIntegral(mesh, VOLUME)
 
 #elif defined(CAHNHILLIARD)
          case ("free energy")
-            self % values(bufferPosition) = ScalarVolumeIntegral(mesh, FREE_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, FREE_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)
             
 #endif
          end select
@@ -220,9 +246,15 @@ module VolumeMonitorClass
 !
          implicit none
          class(VolumeMonitor_t)             :: self
-
-         write(STD_OUT , '(3X,A10)' , advance = "no") trim(self % monitorName(1 : MONITOR_LENGTH))
-
+         
+         select case ( trim(self % variable) )
+            case("velocity")
+               write(STD_OUT , '(3(3X,A10))' , advance = "no") 'mean-u', 'mean-v', 'mean-w'
+            case("momentum")
+               write(STD_OUT , '(3(3X,A10))' , advance = "no") 'mean-rhou', 'mean-rhov', 'mean-rhow'
+            case default
+               write(STD_OUT , '(3X,A10)' , advance = "no") trim(self % monitorName(1 : MONITOR_LENGTH))
+         end select
       end subroutine VolumeMonitor_WriteLabel
    
       subroutine VolumeMonitor_WriteValue ( self , bufferLine ) 
@@ -233,10 +265,15 @@ module VolumeMonitorClass
 !        *************************************************************
 !
          implicit none
-         class(VolumeMonitor_t) :: self
-         integer                 :: bufferLine
-
-         write(STD_OUT , '(1X,A,1X,ES10.3)' , advance = "no") "|" , self % values ( bufferLine ) 
+         class(VolumeMonitor_t)     :: self
+         integer                    :: bufferLine
+         
+         write(STD_OUT , '(1X,A,1X,ES10.3)' , advance = "no") "|" , self % values (1, bufferLine ) 
+         
+         select case ( trim(self % variable) )
+            case("velocity","momentum")
+               write(STD_OUT , '(2(1X,A,1X,ES10.3))'  , advance = "no") "|" , self % values (2, bufferLine ) , "|" , self % values (3, bufferLine ) 
+         end select
 
       end subroutine VolumeMonitor_WriteValue 
 
@@ -258,22 +295,37 @@ module VolumeMonitorClass
 !
          integer                    :: i
          integer                    :: fID
-
+         character(len=LINE_LENGTH) :: fmt
+         
          if ( MPI_Process % isRoot ) then
             open( newunit = fID , file = trim ( self % fileName ) , action = "write" , access = "append" , status = "old" )
-         
+            
+            write(fmt,'(A,I0,A)') '(I10,2X,ES24.16,', size(self % values,1), '(2X,ES24.16))'
             do i = 1 , no_of_lines
-               write( fID , '(I10,2X,ES24.16,2X,ES24.16)' ) iter(i) , t(i) , self % values(i)
+               write( fID , fmt ) iter(i) , t(i) , self % values(:,i)
 
             end do
         
             close ( fID )
          end if
 
-         if ( no_of_lines .ne. 0 ) self % values(1) = self % values(no_of_lines)
+         if ( no_of_lines .ne. 0 ) self % values(:,1) = self % values(:,no_of_lines)
       
       end subroutine VolumeMonitor_WriteToFile
-      
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!
+      function VolumeMonitor_GetLast(self) result(lastValues)
+         implicit none
+         class(VolumeMonitor_t), intent(in) :: self
+         real(kind=RP)                      :: lastValues ( size(self % values,1) )
+         
+         lastValues(:) = self % values (:,self % bufferLine)
+         
+      end function VolumeMonitor_GetLast
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!      
       elemental subroutine VolumeMonitor_Destruct (self)
          implicit none
          class(VolumeMonitor_t), intent(inout) :: self
@@ -290,7 +342,7 @@ module VolumeMonitorClass
          to % ID           = from % ID
          
          safedeallocate (to % values)
-         allocate ( to % values( size(from % values) ) ) 
+         allocate ( to % values( size(from % values,1) , size(from % values,2) ) ) 
          to % values       = from % values
       
          to % monitorName  = from % monitorName

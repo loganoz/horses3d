@@ -4,9 +4,9 @@
 !   @File:    ProblemFile.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:09 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Tue Oct 30 19:30:04 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 1f699f3fd06952217bc7b37e109b4002f6816803
 !
 !//////////////////////////////////////////////////////
 !
@@ -57,7 +57,7 @@
             use HexMeshClass
             use PhysicsStorage
             IMPLICIT NONE
-            CLASS(HexMesh)             :: mesh
+            class(HexMesh)             :: mesh
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -197,7 +197,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, monitors)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, monitors)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -208,7 +208,7 @@
             USE HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
-            CLASS(HexMesh)  :: mesh
+            class(HexMesh)  :: mesh
             REAL(KIND=RP) :: time
             type(Monitor_t),  intent(in)  :: monitors
             
@@ -234,7 +234,7 @@
             use HexMeshClass
             use MonitorsClass
             IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
+            class(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
             integer,                   intent(in) :: iter
             real(kind=RP),             intent(in) :: maxResidual

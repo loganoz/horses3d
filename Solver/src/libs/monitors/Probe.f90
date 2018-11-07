@@ -428,15 +428,15 @@ module ProbeClass
          
          safedeallocate ( to % lxi )
          allocate ( to % lxi ( size(from % lxi) ) )
-         to % values = from % lxi
+         to % lxi = from % lxi
          
          safedeallocate ( to % leta )
          allocate ( to % leta ( size(from % leta) ) )
-         to % values = from % leta
+         to % leta = from % leta
          
          safedeallocate ( to % lzeta )
          allocate ( to % lzeta ( size(from % lzeta) ) )
-         to % values = from % lzeta
+         to % lzeta = from % lzeta
          
          to % fileName = from % fileName
          to % monitorName = from % monitorName

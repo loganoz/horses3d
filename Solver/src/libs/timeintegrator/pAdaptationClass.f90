@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Fri Oct 12 20:05:43 2018
+!   @Last revision date: Wed Nov  7 10:29:14 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: a4bc94fbef8f9df9b207ea12b17ee36bad81b67f
+!   @Last revision commit: 999ae115b64550fffa36313c96ef07063a6a4de8
 !
 !//////////////////////////////////////////////////////
 !
@@ -42,6 +42,13 @@ module pAdaptationClass
    public GetMeshPolynomialOrders, ReadOrderFile
    public pAdaptation_t, ADAPT_UNSTEADY_TIME
    
+   
+   integer, parameter :: ADAPT_STEADY = 0
+   integer, parameter :: ADAPT_UNSTEADY_ITER = 1
+   integer, parameter :: ADAPT_UNSTEADY_TIME = 2
+   integer, parameter :: NO_ADAPTATION = 3
+   
+   
    !--------------------------------------------------
    ! Main type for performing a p-adaptation procedure
    !--------------------------------------------------
@@ -71,7 +78,7 @@ module pAdaptationClass
       logical                           :: UnSteady
       integer                           :: NxyzMax(3)       ! Maximum polynomial order in all the directions
       integer                           :: TruncErrorType   ! Truncation error type (either ISOLATED_TE or NON_ISOLATED_TE)
-      integer                           :: adaptation_mode  ! Adaptation mode 
+      integer                           :: adaptation_mode = NO_ADAPTATION ! Adaptation mode 
       real(kind=RP)                     :: time_interval
       integer                           :: iter_interval
       logical                           :: performPAdaptationT
@@ -113,11 +120,6 @@ module pAdaptationClass
    logical    :: reorganize_Nz = .FALSE.
    
    procedure(OrderAcrossFace_f), pointer :: GetOrderAcrossFace
-   
-   
-   integer, parameter :: ADAPT_STEADY = 0
-   integer, parameter :: ADAPT_UNSTEADY_ITER = 1
-   integer, parameter :: ADAPT_UNSTEADY_TIME = 2
    
    ! Here we define the input variables that can be changed after p-adaptation
    character(len=18), parameter :: ReplaceableVars(4) = (/'mg sweeps         ', &
@@ -425,8 +427,7 @@ readloop:do
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ----------------------------------------
-!  Routine for constructing the p-adaptator.
-!   -> If increasing (multi-stage) adaptation is selected, the final step is to rewrite the polynomial orders for the sem contruction
+!  Routine for constructing the p-adaptator
 !  ----------------------------------------
    subroutine pAdaptation_Construct(this,controlVariables,t0)
       implicit none
@@ -483,7 +484,7 @@ readloop:do
 !     Conforming boundaries?
 !     ----------------------
       if ( confBoundaries /= "" ) then
-         this % conformingBoundaries = getCharArrayFromString (confBoundaries,BC_STRING_LENGTH)
+         call getCharArrayFromString (confBoundaries,BC_STRING_LENGTH,this % conformingBoundaries)
          do i=1, size(this % conformingBoundaries)
             call toLower(this % conformingBoundaries(i))
          end do
@@ -568,7 +569,7 @@ readloop:do
             this % adaptation_mode = ADAPT_UNSTEADY_TIME
             this % time_interval   = GetRealValue(R_interval)
             this % iter_interval   = huge(this % iter_interval)
-            this % nextAdaptationTime = t0 + this % time_interval
+            this % nextAdaptationTime = t0   ! + this % time_interval
          case ("iteration")
             this % adaptation_mode = ADAPT_UNSTEADY_ITER
             this % time_interval   = huge(this % time_interval)
@@ -656,6 +657,9 @@ readloop:do
             
          case (ADAPT_UNSTEADY_TIME)
             hasToAdapt = this % performPAdaptationT
+            
+         case default
+            hasToAdapt = .FALSE.
       end select
       
    end function pAdaptation_hasToAdapt

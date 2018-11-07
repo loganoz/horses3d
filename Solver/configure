@@ -43,6 +43,7 @@ COMPONENTS_TEST_CASES="FacePatches \
  		       MeshConsistency \
 		       NodalStorage"
 		       
+sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ../utils/modulefile/horses/dev
 
 cp -vf ../utils/ProblemFile/Makefile ./test/Makefile.template
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Makefile.template
@@ -57,7 +58,6 @@ for subdir in $TEST_CASES; do
 	mkdir -p ./test/$subdir/SETUP
 	mkdir -p ./test/$subdir/RESULTS
 	cp -v ./test/Makefile.template ./test/$subdir/SETUP/Makefile
-	cp -v ./src/libs/problemfile/ProblemFile.f90 ./test/$subdir/SETUP/ProblemFileTemplate.f90
 	ln -fsv $PWD/bin/horses3d.ns ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.ch ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.ins ./test/$subdir

@@ -346,7 +346,13 @@
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
-
+      
+      if (self % pAdaptator % adaptation_mode    == ADAPT_UNSTEADY_TIME .and. &
+          self % pAdaptator % nextAdaptationTime == self % time) then
+         call self % pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+         self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
+      end if 
+      
       call monitors % WriteToFile(sem % mesh)
 
       IF (self % integratorType == STEADY_STATE) THEN
@@ -385,7 +391,10 @@
 !        Correct time step
 !        -----------------
          dt = self % CorrectDt(t,self % dt)
-         
+!
+!        User defined periodic operation
+!        -------------------------------
+         CALL UserDefinedPeriodicOperation(sem % mesh, t, dt, monitors)
 !
 !        Perform time step
 !        -----------------         
@@ -442,10 +451,6 @@
             call sem % particles % Integrate(sem % mesh, dt)
          endif 
 #endif
-!
-!        User defined periodic operation
-!        -------------------------------
-         CALL UserDefinedPeriodicOperation(sem % mesh, t, monitors)
 !
 !        Print monitors
 !        --------------

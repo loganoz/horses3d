@@ -4,9 +4,9 @@
 !   @File:    TruncationErrorClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Feb 28 14:00:00 2018
-!   @Last revision date: Mon Aug 20 17:10:22 2018
+!   @Last revision date: Tue Oct 30 18:24:03 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
+!   @Last revision commit: e995d28c5dd9fe9c7286ec6c7e53405ab11a7c14
 !
 !//////////////////////////////////////////////////////
 !
@@ -17,12 +17,12 @@ module TruncationErrorClass
    use FTValueDictionaryClass    , only: FTValueDictionary
    use PhysicsStorage            , only: NTOTALVARS, CTD_IGNORE_MODE
    use HexMeshClass              , only: HexMesh
-#if defined(NAVIERSTOKES)  
+#if defined(NAVIERSTOKES)   || defined(INCNS)
    use FluidData_NS              , only: Thermodynamics, RefValues, Dimensionless
+   use ProblemFileFunctions      , only: UserDefinedState_f, UserDefinedFinalSetup_f, UserDefinedSourceTermNS_f
 #endif
    use NodalStorageClass         , only: NodalStorage
    use FileReadingUtilities      , only: RemovePath
-   use ProblemFileFunctions
    implicit none
    
    private
@@ -259,7 +259,7 @@ module TruncationErrorClass
 !
    subroutine GenerateExactTEmap(sem, NMIN, NMAX, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, iEl, TruncErrorType)
       implicit none
-      !-------------------------------------------------------------------------
+      !-arguments---------------------------------------------------------------
       type(DGSem)                :: sem
       integer, intent(in)        :: NMIN(NDIM)
       integer, intent(in)        :: NMAX(NDIM)
@@ -269,7 +269,11 @@ module TruncationErrorClass
       type(FTValueDictionary)    :: controlVariables
       integer, intent(in)        :: iEl
       integer, intent(in)        :: TruncErrorType
-      !-------------------------------------------------------------------------
+      !-external-routines------------------------------------------------------
+#if defined(NAVIERSTOKES) && !defined(CAHNHILLIARD)
+      procedure(UserDefinedFinalSetup_f) :: UserDefinedFinalSetup
+#endif
+      !-local variables---------------------------------------------------------
       real(kind=RP)              :: TEmap (NMIN(1):NMAX(1),NMIN(2):NMAX(2),NMIN(3):NMAX(3))
       integer                    :: i,j,k
       integer                    :: nelem      ! Number of elements
@@ -333,13 +337,17 @@ module TruncationErrorClass
 !     ---
       function EstimateTauOfElem(sem,t,iEl, UseLoadedSol) result(maxTE)
          implicit none
-         !-------------------------------------------------------
+         !-arguments---------------------------------------------
          type(DGSem), target    , intent(inout) :: sem              !<> sem class (inout cause' we compute Qdot)
          real(kind=RP)          , intent(in)    :: t                !>  Time
          integer                , intent(in)    :: iEl              !<  Present if the result is wanted for a certain element
          real(kind=RP)                          :: maxTE            !>  |\tau|_{\infty}
          logical      , optional, intent(in)    :: UseLoadedSol
-         !-------------------------------------------------------
+         !-external-routines------------------------------------
+#if defined(NAVIERSTOKES)  
+         procedure(UserDefinedState_f) :: UserDefinedState1
+#endif
+         !-local-variables--------------------------------------
          integer          :: nelem
          integer          :: eID             ! element counter
          integer          :: iEQ             ! Equation counter

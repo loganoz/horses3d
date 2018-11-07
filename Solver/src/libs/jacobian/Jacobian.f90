@@ -28,7 +28,7 @@ IMPLICIT NONE
 !
 !////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Look_for_neighbour(this, mesh)  !arueda: ready for 3D
+   SUBROUTINE Look_for_neighbour(this, mesh)
       IMPLICIT NONE 
 !
 !     -----------------------------------------------------------------------------

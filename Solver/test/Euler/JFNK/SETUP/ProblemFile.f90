@@ -52,7 +52,7 @@
             use PhysicsStorage
             use FluidData
             IMPLICIT NONE
-            CLASS(HexMesh)                      :: mesh
+            class(HexMesh)                      :: mesh
 #if defined(NAVIERSTOKES)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
@@ -188,7 +188,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, Monitors)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -201,8 +201,9 @@
             use MonitorsClass
 #endif
             IMPLICIT NONE
-            CLASS(HexMesh)               :: mesh
-            REAL(KIND=RP)                :: time
+            class(HexMesh)               :: mesh
+            real(kind=RP)                :: time
+            real(kind=RP)                :: dt
 #if defined(NAVIERSTOKES)
             type(Monitor_t), intent(in) :: monitors
 #else
@@ -214,7 +215,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 #if defined(NAVIERSTOKES)
-         subroutine UserDefinedSourceTermNS(x, time, S, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -226,6 +227,7 @@
             use FluidData
             IMPLICIT NONE
             real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: Q(NCONS)
             real(kind=RP),             intent(in)  :: time
             real(kind=RP),             intent(out) :: S(NCONS)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
@@ -302,7 +304,7 @@
             use MonitorsClass
             use FTAssertions
             IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
+            class(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
             integer                               :: iter
             real(kind=RP)                         :: maxResidual

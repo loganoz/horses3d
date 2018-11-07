@@ -73,8 +73,8 @@ module ResidualsMonitorClass
             open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" ) 
             write ( fID , ' ( A                                      ) ' ) "#Residuals file"
 #if defined(NAVIERSTOKES)
-            write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
-                        "Elapsed Time (s)" , "continuity" , "x-momentum" , "y-momentum" , "z-momentum", "energy" , "Max-Residual"
+            write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
+                        "Total elapsed Time (s)", "Solver elapsed Time (s)" , "continuity" , "x-momentum" , "y-momentum" , "z-momentum", "energy" , "Max-Residual"
 #elif defined(INCNS)
             write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
                         "Elapsed Time (s)" , "dens-transp" , "x-momentum" , "y-momentum" , "z-momentum", "div-v" , "Max-Residual"
@@ -157,7 +157,7 @@ module ResidualsMonitorClass
 
       end subroutine Residuals_WriteValue 
 
-      subroutine Residuals_WriteToFile ( self , iter , t, SimuTime , no_of_lines)
+      subroutine Residuals_WriteToFile ( self , iter , t, TotalSimuTime, SolverSimuTime , no_of_lines)
 !
 !        *********************************************************************
 !              This subroutine exports the results to the monitor file.
@@ -168,7 +168,8 @@ module ResidualsMonitorClass
          class(Residuals_t)             :: self
          integer                    :: iter(:)
          real(kind=RP)              :: t(:)
-         real(kind=RP)              :: SimuTime(:)
+         real(kind=RP)              :: TotalSimuTime(:)
+         real(kind=RP)              :: SolverSimuTime(:)
          integer                    :: no_of_lines
 !        -------------------------------------------
          integer                    :: i
@@ -181,7 +182,7 @@ module ResidualsMonitorClass
 !        Write values
 !        ------------      
          do i = 1 , no_of_lines
-            write(fID, '(I10,2(2X,ES24.16))', advance="no") iter(i), t(i), SimuTime(i)
+            write(fID, '(I10,3(2X,ES24.16))', advance="no") iter(i), t(i), TotalSimuTime(i), SolverSimuTime(i)
             write(fID, 111) self % values(1:NTOTALVARS,i), maxval(self % values(1:NTOTALVARS,i))
          end do
 !

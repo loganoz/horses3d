@@ -29,7 +29,7 @@ module SpatialDiscretization
       use ParticlesClass
       use FluidData
       use VariableConversion, only: NSGradientValuesForQ_0D, NSGradientValuesForQ_3D, GetNSViscosity
-      use ProblemFileFunctions
+      use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use BoundaryConditions
 #ifdef _HAS_MPI_
       use mpi
@@ -62,24 +62,6 @@ module SpatialDiscretization
          end subroutine computeBoundaryFluxF
       end interface
       
-      
-      interface
-         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
-            use SMConstants
-            USE HexMeshClass
-            use PhysicsStorage
-            use FluidData
-            IMPLICIT NONE
-            real(kind=RP),             intent(in)  :: x(NDIM)
-            real(kind=RP),             intent(in) :: Q(NCONS)
-            real(kind=RP),             intent(in)  :: time
-            real(kind=RP),             intent(out)  :: S(NCONS)
-            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-            type(Dimensionless_t),     intent(in)  :: dimensionless_
-            type(RefValues_t),         intent(in)  :: refValues_
-         end subroutine UserDefinedSourceTermNS
-      end interface
-
       procedure(computeElementInterfaceFluxF), pointer :: computeElementInterfaceFlux
       procedure(computeMPIFaceFluxF),          pointer :: computeMPIFaceFlux
       procedure(computeBoundaryFluxF),         pointer :: computeBoundaryFlux
@@ -343,6 +325,7 @@ module SpatialDiscretization
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
          real(kind=RP)              :: t
+         procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 !
 !        ---------------
 !        Local variables
@@ -501,6 +484,7 @@ module SpatialDiscretization
 !        ---------------
 !
          integer     :: eID , i, j, k, fID
+         procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 !
 !        ****************
 !        Volume integrals

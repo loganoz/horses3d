@@ -4,9 +4,9 @@
 !   @File:    main.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Mon Jul  2 17:50:24 2018
-!   @Last revision date: Thu Oct 11 13:02:26 2018
+!   @Last revision date: Mon Oct 29 13:54:33 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 751e6a4da536b5ae874a7acce90699d6c5154a1f
+!   @Last revision commit: c14fafcd82dba8b47adf67371d60c14952030bca
 !
 !//////////////////////////////////////////////////////
 !
@@ -71,6 +71,13 @@
       integer                             :: Nmax
 
       call SetSolver(INSCH_SOLVER)
+!
+!     -----------------------------------------
+!     Start measuring the total simulation time
+!     -----------------------------------------
+!
+      call Stopwatch % CreateNewEvent("TotalTime")
+      call Stopwatch % Start("TotalTime")
 !
 !     ---------------
 !     Initializations
@@ -144,6 +151,12 @@
 !     ----------------------------------
 !TODO
 !      call sem % particles % ExportToVTK()
+!
+!     ------------------------------------------
+!     Finish measuring the total simulation time
+!     ------------------------------------------
+!
+      call Stopwatch % Pause("TotalTime")
 !
 !     --------------------------
 !     Show simulation statistics

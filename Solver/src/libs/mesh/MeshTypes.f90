@@ -85,7 +85,11 @@
       end SELECT
       
    end SUBROUTINE iijjIndexes
-
+!
+!  --------------------------------------------------------------------------
+!  coordRotation: Takes the coordinates on the master face (left) and returns
+!                 the corresponding coordinates on the slave face (right)
+!  --------------------------------------------------------------------------
    SUBROUTINE coordRotation(xi,eta,rotation,xiRot, etaRot)
       IMPLICIT NONE
       real(kind=RP), intent(in)   :: xi, eta       ! Master coords 
@@ -97,26 +101,26 @@
          xiRot  = xi
          etaRot = eta
       CASE (1)
-         xiRot  = 1.0_RP - eta
-         etaRot = xi
-      CASE (2)
-         xiRot  = 1.0_RP - xi
-         etaRot = 1.0_RP - eta
-      CASE (3)
          xiRot  = eta
-         etaRot = 1.0_RP - xi
+         etaRot = -xi
+      CASE (2)
+         xiRot  = - xi
+         etaRot = - eta
+      CASE (3)
+         xiRot  = -eta
+         etaRot =  xi
       CASE (4)
          xiRot  = eta
          etaRot = xi
       CASE (5)
-         xiRot  = 1.0_RP - xi
-         etaRot = eta
+         xiRot  = - xi
+         etaRot =  eta
       CASE (6)
-         xiRot  = 1.0_RP - eta
-         etaRot = 1.0_RP - xi
+         xiRot  = - eta
+         etaRot = - xi
       CASE (7)
-         xiRot  = xi
-         etaRot = 1.0_RP - eta
+         xiRot  = - eta
+         etaRot =  xi
       CASE DEFAULT 
          PRINT *, "ERROR: Unknown rotation in element faces"
       end SELECT

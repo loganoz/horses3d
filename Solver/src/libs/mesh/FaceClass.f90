@@ -239,9 +239,6 @@
 
       self % spAxi => NodalStorage(self % Nf(1))
       self % spAeta => NodalStorage(self % Nf(2))
-
-      call self % storage(1) % Construct(NDIM, self % Nf, self % NelLeft, computeGradients)
-      call self % storage(2) % Construct(NDIM, self % Nf, self % NelRight, computeGradients)
 !
 !     -----------------------------------------------------------------------
 !     Construction of the projection matrices (simple Lagrange interpolation)
@@ -605,7 +602,7 @@
 
       do side = 1, 2
          select case ( whichElements(side) )
-         case (1)    ! Prolong from left element
+         case (1)    ! Prolong to left element
             associate(fStar => self % storage(1) % Fstar)
             select case ( self % projectionType(1) )
             case (0)
@@ -634,7 +631,7 @@
             end select
             end associate
 
-         case (2)    ! Prolong from right element
+         case (2)    ! Prolong to right element
 !      
 !           *********
 !           1st stage: Projection

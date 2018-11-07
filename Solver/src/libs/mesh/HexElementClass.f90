@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Wed Sep 26 11:18:29 2018
+!   @Last revision date: Fri Oct 19 15:37:07 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f71947bb2f361cb5228920fbafb53a163e878530
+!   @Last revision commit: 478449473c3e9c87670a7a880ee09588f31f4e80
 !
 !//////////////////////////////////////////////////////
 !
@@ -89,6 +89,7 @@
             procedure   :: Construct               => HexElement_Construct
             procedure   :: Destruct                => HexElement_Destruct
             procedure   :: ConstructGeometry       => HexElement_ConstructGeometry
+            procedure   :: FindPointInLinElement   => HexElement_FindPointInLinearizedElement
             procedure   :: FindPointWithCoords     => HexElement_FindPointWithCoords
             procedure   :: EvaluateSolutionAtPoint => HexElement_EvaluateSolutionAtPoint
             procedure   :: ProlongSolutionToFaces  => HexElement_ProlongSolutionToFaces
@@ -522,6 +523,87 @@
 
       end subroutine HexElement_ComputeRhoGradient
 #endif
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!     ----------------------------------------------------------------------------
+!     Checks if a point is inside a linearized version of the element (flat faces)
+!     ----------------------------------------------------------------------------
+      logical function HexElement_FindPointInLinearizedElement(self, x, nodes)
+         use NodeClass, only: Node
+         use Utilities, only: SolveThreeEquationLinearSystem
+         implicit none
+         !-arguments-------------------------------------------------
+         class(Element), intent(in) :: self
+         real(kind=RP) , intent(in) :: x(NDIM)
+         type(Node)    , intent(in) :: nodes(:)
+         !-local-variables-------------------------------------------
+         real(kind=RP)  :: F(NDIM)
+         real(kind=RP)  :: xi(NDIM)
+         real(kind=RP)  :: dx(NDIM)
+         real(kind=RP)  :: Jac(NDIM,NDIM)
+         real(kind=RP)  :: corners(NDIM,NODES_PER_ELEMENT)
+         integer        :: i
+!        Newton iterative solver parameters
+!        ----------------------------------
+         integer,       parameter   :: N_MAX_ITER = 50
+         real(kind=RP), parameter   :: TOL = 1.0e-12_RP
+         integer,       parameter   :: STEP = 1.0_RP
+         real(kind=RP), parameter   :: INSIDE_TOL = 1.0e-08_RP
+         !-arguments-------------------------------------------------
+         
+         
+         do i = 1, NODES_PER_ELEMENT
+            corners(:,i) = nodes(self % nodeIDs(i)) % x
+         end do
+         
+!
+!        Initial seed
+!        ------------      
+         xi = 0.0_RP    
+         
+         do i = 1 , N_MAX_ITER
+            
+            call Hex8TransfiniteMap ( xi, F, corners )
+            
+            F = F - x
+!
+!           Stopping criteria: there are several
+!           ------------------------------------
+            if ( maxval(abs(F)) .lt. TOL ) exit
+            if ( abs(xi(1)) .ge. 2.5_RP ) exit
+            if ( abs(xi(2)) .ge. 2.5_RP ) exit
+            if ( abs(xi(3)) .ge. 2.5_RP ) exit
+!
+!           Perform a step
+!           --------------
+            
+            call GradHex8TransfiniteMap (xi, Jac, corners)
+            
+            dx = solveThreeEquationLinearSystem( Jac , -F )
+            xi = xi + STEP * dx
+   
+         end do
+
+         if ( (abs(xi(1)) .lt. 1.0_RP + INSIDE_TOL) .and. &
+              (abs(xi(2)) .lt. 1.0_RP + INSIDE_TOL) .and. &
+              (abs(xi(3)) .lt. 1.0_RP + INSIDE_TOL)          ) then
+!
+!           Solution is valid
+!           -----------------
+            HexElement_FindPointInLinearizedElement = .true.
+   
+         else
+!
+!           Solution is not valid
+!           ---------------------
+            HexElement_FindPointInLinearizedElement = .false.
+         
+         end if
+         
+         
+      end function HexElement_FindPointInLinearizedElement
+      
 !
 !////////////////////////////////////////////////////////////////////////
 !

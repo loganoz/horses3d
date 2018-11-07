@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jun 20 18:14:45 2018
-!   @Last revision date: Wed Aug  1 15:48:13 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
+!   @Last revision date: Tue Oct 30 18:23:58 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: e995d28c5dd9fe9c7286ec6c7e53405ab11a7c14
 !
 !//////////////////////////////////////////////////////
 !
@@ -29,6 +29,7 @@ module SpatialDiscretization
       use VariableConversion, only: iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D, GetiNSOneFluidViscosity, GetiNSTwoFluidsViscosity
       use ProblemFileFunctions
       use BoundaryConditions, only: BCs
+      use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -309,6 +310,7 @@ module SpatialDiscretization
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
          real(kind=RP)              :: t
+         procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 !
 !        ---------------
 !        Local variables

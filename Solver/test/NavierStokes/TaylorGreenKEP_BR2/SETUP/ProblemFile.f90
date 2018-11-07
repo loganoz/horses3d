@@ -52,7 +52,7 @@
             use PhysicsStorage
             use FluidData
             IMPLICIT NONE
-            CLASS(HexMesh)                      :: mesh
+            class(HexMesh)                      :: mesh
 #if defined(NAVIERSTOKES)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
@@ -190,7 +190,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, Monitors)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
 !
 !           ----------------------------------------------------------
 !           Called at the output interval to allow periodic operations
@@ -203,8 +203,9 @@
             use MonitorsClass
 #endif
             IMPLICIT NONE
-            CLASS(HexMesh)               :: mesh
-            REAL(KIND=RP)                :: time
+            class(HexMesh)               :: mesh
+            real(kind=RP)                :: time
+            real(kind=RP)                :: dt
 #if defined(NAVIERSTOKES)
             type(Monitor_t), intent(in) :: monitors
 #else
@@ -216,7 +217,7 @@
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 #if defined(NAVIERSTOKES)
-         subroutine UserDefinedSourceTermNS(x, time, S, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -228,6 +229,7 @@
             use FluidData
             IMPLICIT NONE
             real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: Q(NCONS)
             real(kind=RP),             intent(in)  :: time
             real(kind=RP),             intent(out) :: S(NCONS)
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
@@ -268,7 +270,7 @@
             use FluidData
             use MonitorsClass
             IMPLICIT NONE
-            CLASS(HexMesh)                        :: mesh
+            class(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
             integer                               :: iter
             real(kind=RP)                         :: maxResidual
@@ -334,17 +336,17 @@
                                tol           = 1.0e-7_RP, &
                                msg           = "energy residual")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(1) % values(1), &
+            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(1) % values(1,1), &
                                actualValue   = kinEn, &
                                tol           = 1.0e-11_RP, &
                                msg           = "Kinetic Energy")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(2) % values(1) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(2) % values(1,1) + 1.0_RP, &
                                actualValue   = kinEnRate + 1.0_RP, &
                                tol           = 1.0e-11_RP, &
                                msg           = "Kinetic Energy Rate")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(3) % values(1), &
+            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(3) % values(1,1), &
                                actualValue   = enstrophy, &
                                tol           = 1.0e-11_RP, &
                                msg           = "Enstrophy")

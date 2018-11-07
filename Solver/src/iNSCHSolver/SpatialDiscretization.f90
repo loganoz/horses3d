@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Fri Oct 12 16:38:05 2018
-!   @Last revision author: Juan Manzanero (j.manzanero1992@gmail.com)
-!   @Last revision commit: 48fac2e70623f479131600829f20339f3b97b1cc
+!   @Last revision date: Wed Nov  7 10:29:11 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 999ae115b64550fffa36313c96ef07063a6a4de8
 !
 !//////////////////////////////////////////////////////
 !
@@ -30,6 +30,7 @@ module SpatialDiscretization
       use VariableConversion
       use GradientsStabilization
       use BoundaryConditions, only: BCs, SetBoundaryConditionsEqn, NS_BC, C_BC, MU_BC
+      use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -286,11 +287,11 @@ stop
 
 #ifdef _HAS_MPI_
 !$omp single
-            if ( flowIsNavierStokes ) then
+!~            if ( flowIsNavierStokes ) then
                errorMessage(STD_OUT)
                stop
                !call mesh % UpdateMPIFacesGradients
-            end if
+!~            end if
 !$omp end single
 #endif
 !
@@ -512,6 +513,7 @@ stop
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
          real(kind=RP)              :: t
+         procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 !
 !        ---------------
 !        Local variables
@@ -1214,7 +1216,7 @@ stop
                associate( f => mesh % faces(fID)) 
                select case (f % faceType) 
                case (HMESH_MPI) 
-                  CALL computeMPIFaceFlux( f ) 
+!~                  CALL computeMPIFaceFlux( f ) 
                end select 
                end associate 
             end do 

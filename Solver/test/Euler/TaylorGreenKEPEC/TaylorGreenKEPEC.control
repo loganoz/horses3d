@@ -1,3 +1,4 @@
+/* */
 Flow equations        = "Euler"
 mesh file name        = "../../TestMeshes/TaylorGreen32.mesh"
 restart file name     = "RESULTS/TGV.rst"
@@ -65,4 +66,9 @@ AOA phi               = 0.0
 #define volume monitor 4
    Name = EntropRate
    Variable = Entropy rate
+#end
+
+#define volume monitor 5
+   Name = meanMom
+   Variable = momentum
 #end

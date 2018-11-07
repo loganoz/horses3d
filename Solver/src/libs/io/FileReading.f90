@@ -354,7 +354,7 @@ contains
 
       end function getRealArrayFromString
       
-      function getCharArrayFromString( line , linelength) result ( array )
+      subroutine getCharArrayFromString( line , linelength , array )
 !
 !           ****************************************************
 !                    Gets a character array from a string of the 
@@ -437,5 +437,5 @@ contains
 
          end do
 
-      end function getCharArrayFromString
+      end subroutine getCharArrayFromString
 end module FileReadingUtilities

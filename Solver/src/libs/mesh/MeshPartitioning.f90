@@ -4,9 +4,9 @@
 !   @File:    MeshPartitioning.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 10:26:08 2017
-!   @Last revision date: Wed Sep 12 13:12:42 2018
+!   @Last revision date: Wed Oct 31 18:01:25 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 06ee9cb1c578e7283cc508c9aacf873836377025
+!   @Last revision commit: 4cb44266e1f1a3b075b9d1413a55399ec0b38b20
 !
 !//////////////////////////////////////////////////////
 !
@@ -376,7 +376,12 @@ module MeshPartitioning
          end do
          
       end subroutine GetSFCElementsPartition
-      
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ---------------------------------
+!     Write the partitions' information
+!     ---------------------------------
       subroutine WritePartitionsFile(mesh,elementsDomain)
          implicit none
          !-arguments--------------------------------------------------

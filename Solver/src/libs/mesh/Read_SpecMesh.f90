@@ -33,10 +33,16 @@ MODULE Read_SpecMesh
 !     ========
 !
 !
-!////////////////////////////////////////////////////////////////////////
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!!    Constructs mesh from mesh file
-!!    Only valid for conforming meshes
+!     ----------------------------------------------------------------------------------------------
+!     Subroutine that constructs mesh from SpecMesh file
+!     -> Only valid for conforming meshes
+!     -> If the simulation is MPI, it checks if the partitions were already made:
+!        * If they were, it constructs the mesh of each partition
+!        * If not, it constructs the simplest mesh only with the information needed for partitioning
+!     -> If the simulation is sequential, it constructs the full sequential mesh
+!     ----------------------------------------------------------------------------------------------
       SUBROUTINE ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
          USE Physics
          use PartitionedMeshClass
@@ -92,8 +98,12 @@ MODULE Read_SpecMesh
 !        Check if a mesh partition exists
 !        ********************************
 !
-         if ( mpi_partition % Constructed ) then
-            call ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
+         if ( MPI_Process % doMPIAction ) then
+            if ( mpi_partition % Constructed ) then
+               call ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
+            else         
+               call ConstructSimplestMesh_FromSpecMeshFile_ ( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
+            end if
             return
          end if
           
@@ -116,6 +126,7 @@ MODULE Read_SpecMesh
 
          self % nodeType = nodes
          self % no_of_elements = numberOfElements
+         self % no_of_allElements = numberOfElements
 !
 !        ----------------------------
 !        Set up for face patches
@@ -291,9 +302,7 @@ MODULE Read_SpecMesh
 !        Check if this is a 2D extruded mesh
 !        -----------------------------------
 !
-         if ( .not. MPI_Process % doMPIRootAction ) then
-            call self % CheckIfMeshIs2D()
-         end if
+         call self % CheckIfMeshIs2D()
 !
 !        -------------------------------
 !        Set the mesh as 2D if requested
@@ -314,27 +323,224 @@ MODULE Read_SpecMesh
 !        Construct elements' and faces' geometry
 !        ---------------------------------------
 !
-         if ( .not. MPI_Process % doMPIRootAction ) then
-            call self % ConstructGeometry()
-         end if
+         call self % ConstructGeometry()
          CLOSE( fUnit )
 !
-!        ---------
-!        Finish up
-!        ---------
+!        ---------------------------------
+!        Describe mesh and prepare for I/O
+!        ---------------------------------
 !
          if (.not. self % child) CALL self % Describe( trim(fileName), bFaceOrder )
-!
-!        -------------------------------------------------------------
-!        Prepare mesh for I/O only if the code is running sequentially
-!        -------------------------------------------------------------
-!
-         if ( .not. MPI_Process % doMPIAction ) then
-            call self % PrepareForIO
-         end if
+         call self % PrepareForIO
          
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ------------------------------------------------------
+!     Constructs the simplest mesh with only the information 
+!     that is needed to create the MPI partitions
+!     ------------------------------------------------------
+      SUBROUTINE ConstructSimplestMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+         USE Physics
+         use PartitionedMeshClass
+         use MPI_Process_Info
+         IMPLICIT NONE
+         !-arguments------------------------------------------------------------------------------
+         type(HexMesh)                    :: self
+         integer                          :: nodes
+         CHARACTER(LEN=*)                 :: fileName
+         integer                          :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+         integer                          :: dir2D
+         LOGICAL           , intent(out)  :: success
+         !-local-variables------------------------------------------------------------------------
+         integer                         :: numberOfElements
+         integer                         :: numberOfNodes
+         integer                         :: numberOfBoundaryFaces
+         integer                         :: numberOfFaces
+         
+         integer                         :: bFaceOrder, numBFacePoints
+         integer                         :: i, j, k, l
+         integer                         :: fUnit, fileStat
+         integer                         :: nodeIDs(NODES_PER_ELEMENT)
+         real(kind=RP)                   :: x(NDIM)
+         integer                         :: faceFlags(FACES_PER_ELEMENT)
+         CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
+         CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
+         real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
+         !----------------------------------------------------------------------------------------
+!
+!        ***************
+!        Initializations
+!        ***************
+!
+         numberOfBoundaryFaces = 0
+         success               = .TRUE.
+!
+!        -----------------------
+!        Read header information
+!        -----------------------
+!
+         fUnit = UnusedUnit()
+         OPEN( UNIT = fUnit, FILE = fileName, iostat = fileStat )
+         IF ( fileStat /= 0 )     THEN
+            PRINT *, "Error opening file: ", fileName
+            success = .FALSE.
+            RETURN 
+         END IF
+         
+         READ(fUnit,*) numberOfNodes, numberOfElements, bFaceOrder
 
+         self % nodeType = nodes
+         self % no_of_elements = numberOfElements
+         
+!
+!        ----------------------------
+!        Set up for face patches
+!        Face patches are defined 
+!        at chebyshev- lobatto points
+!        ----------------------------
+!
+         numBFacePoints = bFaceOrder + 1
+         
+!
+!        ---------------
+!        Allocate memory
+!        ---------------
+!
+         allocate( self % elements(numberOfelements) )
+         allocate( self % nodes   (numberOfNodes) )
+         
+         allocate ( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
+         self % Nx = Nx
+         self % Ny = Ny
+         self % Nz = Nz
+
+!
+!        ----------------------------------
+!        Read nodes: Nodes have the format:
+!        x y z
+!        ----------------------------------
+!
+         DO j = 1, numberOfNodes 
+            READ( fUnit, * ) x
+            CALL ConstructNode( self % nodes(j), x, j )
+         END DO
+!
+!        -----------------------------------------
+!        Read elements: Elements have the format:
+!        node1ID node2ID node3ID node4ID ... node8ID
+!        b1 b2 b3 b4 b5 b6
+!           (=0 for straight side, 1 for curved)
+!        If curved boundaries, then for each:
+!           for j = 0 to bFaceOrder
+!              x_j  y_j  z_j
+!           next j
+!        bname1 bname2 bname3 bname4 bname5 bname6
+!        -----------------------------------------
+!
+         DO l = 1, numberOfElements 
+            READ( fUnit, * ) nodeIDs
+            READ( fUnit, * ) faceFlags
+!
+!           -----------------------------------------------------------------------------
+!           If the faceFlags are all zero, then self is a straight-sided
+!           hex. In that case, set the corners of the hex8Map and use that in determining
+!           the element geometry.
+!           -----------------------------------------------------------------------------
+!
+            
+            do k = 1, FACES_PER_ELEMENT 
+               if ( faceFlags(k) /= 0 ) then
+                  
+!                 Skip points of curved faces 
+!                 ---------------------------
+!
+                  do j = 1, numBFacePoints
+                     do i = 1, numBFacePoints
+                        read( fUnit, * ) 
+                     end do  
+                  end do
+                     
+               end if
+            end do   
+!
+!           -------------------------
+!           Now construct the element
+!           -------------------------
+!
+            call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l)
+            
+            READ( fUnit, * ) names
+            CALL SetElementBoundaryNames( self % elements(l), names )
+            
+            DO k = 1, 6
+               IF(TRIM(names(k)) /= emptyBCName) then
+                  numberOfBoundaryFaces = numberOfBoundaryFaces + 1
+                  zoneNames => zoneNameDictionary % allKeys()
+                  if ( all(trim(names(k)) .ne. zoneNames) ) then
+                     call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
+                  end if
+                  deallocate (zoneNames)
+               end if
+            END DO  
+         END DO      ! l = 1, numberOfElements
+        
+!
+!        ---------------------------
+!        Construct the element faces
+!        ---------------------------
+!
+         numberOfFaces        = (6*numberOfElements + numberOfBoundaryFaces)/2
+         self % numberOfFaces = numberOfFaces
+         allocate( self % faces(self % numberOfFaces) )
+         CALL ConstructFaces( self, success )
+!
+!        -------------------------
+!        Build the different zones
+!        -------------------------
+!
+         call self % ConstructZones()
+!
+!        ---------------------------
+!        Construct periodic faces
+!        ---------------------------
+!
+         CALL ConstructPeriodicFaces( self )
+!
+!        ---------------------------
+!        Delete periodic- faces
+!        ---------------------------
+!
+         CALL DeletePeriodicMinusFaces( self )
+!
+!        ---------------------------
+!        Assign faces ID to elements
+!        ---------------------------
+!
+         CALL getElementsFaceIDs(self)
+!
+!        ---------------------
+!        Define boundary faces
+!        ---------------------
+!
+         call self % DefineAsBoundaryFaces()
+!
+!        ------------------------------
+!        Set the element connectivities
+!        ------------------------------
+!
+         call self % SetConnectivitiesAndLinkFaces(nodes)
+
+         CLOSE( fUnit )
+         
+      END SUBROUTINE ConstructSimplestMesh_FromSpecMeshFile_
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ------------------------------
+!     Constructor of mesh partitions
+!     ------------------------------
       SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
          USE Physics
          use PartitionedMeshClass
@@ -433,6 +639,8 @@ MODULE Read_SpecMesh
          allocate( globalToLocalNodeID(numberOfAllNodes) )
          allocate( globalToLocalElementID(numberOfAllElements) )
          self % no_of_elements = mpi_partition % no_of_elements
+         self % no_of_allElements = numberOfAllElements
+         
          globalToLocalNodeID = -1
          globalToLocalElementID = -1
          
@@ -721,7 +929,10 @@ MODULE Read_SpecMesh
 !        Finish up
 !        ---------
 !
-         if (.not. self % child) CALL self % DescribePartition( trim(fileName) )
+         if (.not. self % child) then
+            CALL self % Describe         ( trim(fileName), bFaceOrder )
+            CALL self % DescribePartition( )
+         end if
 !
 !        --------------------
 !        Prepare mesh for I/O
