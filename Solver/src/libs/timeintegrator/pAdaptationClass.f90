@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Tue Nov  6 17:16:23 2018
+!   @Last revision date: Wed Nov  7 10:29:14 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: a871872914b3537dc1df7acf4c227057d3f5d5d0
+!   @Last revision commit: 999ae115b64550fffa36313c96ef07063a6a4de8
 !
 !//////////////////////////////////////////////////////
 !
@@ -42,6 +42,13 @@ module pAdaptationClass
    public GetMeshPolynomialOrders, ReadOrderFile
    public pAdaptation_t, ADAPT_UNSTEADY_TIME
    
+   
+   integer, parameter :: ADAPT_STEADY = 0
+   integer, parameter :: ADAPT_UNSTEADY_ITER = 1
+   integer, parameter :: ADAPT_UNSTEADY_TIME = 2
+   integer, parameter :: NO_ADAPTATION = 3
+   
+   
    !--------------------------------------------------
    ! Main type for performing a p-adaptation procedure
    !--------------------------------------------------
@@ -71,7 +78,7 @@ module pAdaptationClass
       logical                           :: UnSteady
       integer                           :: NxyzMax(3)       ! Maximum polynomial order in all the directions
       integer                           :: TruncErrorType   ! Truncation error type (either ISOLATED_TE or NON_ISOLATED_TE)
-      integer                           :: adaptation_mode  ! Adaptation mode 
+      integer                           :: adaptation_mode = NO_ADAPTATION ! Adaptation mode 
       real(kind=RP)                     :: time_interval
       integer                           :: iter_interval
       logical                           :: performPAdaptationT
@@ -113,11 +120,6 @@ module pAdaptationClass
    logical    :: reorganize_Nz = .FALSE.
    
    procedure(OrderAcrossFace_f), pointer :: GetOrderAcrossFace
-   
-   
-   integer, parameter :: ADAPT_STEADY = 0
-   integer, parameter :: ADAPT_UNSTEADY_ITER = 1
-   integer, parameter :: ADAPT_UNSTEADY_TIME = 2
    
    ! Here we define the input variables that can be changed after p-adaptation
    character(len=18), parameter :: ReplaceableVars(4) = (/'mg sweeps         ', &

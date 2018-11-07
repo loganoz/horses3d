@@ -43,6 +43,7 @@ COMPONENTS_TEST_CASES="FacePatches \
  		       MeshConsistency \
 		       NodalStorage"
 		       
+sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ../utils/modulefile/horses/dev
 
 cp -vf ../utils/ProblemFile/Makefile ./test/Makefile.template
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Makefile.template

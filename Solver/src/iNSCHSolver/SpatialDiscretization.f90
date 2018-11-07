@@ -4,9 +4,9 @@
 !   @File:    SpatialDiscretization.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Tue Oct 30 18:24:02 2018
+!   @Last revision date: Wed Nov  7 10:29:11 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: e995d28c5dd9fe9c7286ec6c7e53405ab11a7c14
+!   @Last revision commit: 999ae115b64550fffa36313c96ef07063a6a4de8
 !
 !//////////////////////////////////////////////////////
 !
@@ -287,11 +287,11 @@ stop
 
 #ifdef _HAS_MPI_
 !$omp single
-            if ( flowIsNavierStokes ) then
+!~            if ( flowIsNavierStokes ) then
                errorMessage(STD_OUT)
                stop
                !call mesh % UpdateMPIFacesGradients
-            end if
+!~            end if
 !$omp end single
 #endif
 !
@@ -1216,7 +1216,7 @@ stop
                associate( f => mesh % faces(fID)) 
                select case (f % faceType) 
                case (HMESH_MPI) 
-                  CALL computeMPIFaceFlux( f ) 
+!~                  CALL computeMPIFaceFlux( f ) 
                end select 
                end associate 
             end do 
