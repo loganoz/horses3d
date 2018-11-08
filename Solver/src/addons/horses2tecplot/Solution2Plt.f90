@@ -614,7 +614,7 @@ module Solution2PltModule
                case(1)
                   
                   write(fd,'(A,I0,A,I0,A,I0,A,A,I0,A)') "ZONE I=",e % Nout(1)+1,", J=",e % Nout(3)+1, &
-                                                  ", K=",1,', F=POINT, T="', trim(boundary % Name), fID, '"'
+                                                  ", K=",1,', F=POINT, T="boundary_', trim(boundary % Name), fID, '"'
                   
                   do k = 0, e % Nout(3)    ; do i = 0, e % Nout(1)
                      write(fd,trim(formatout)) e % xOut(:,i,0,k), e % outputVars(:,i,0,k)
@@ -623,7 +623,7 @@ module Solution2PltModule
                case(2)
                   
                   write(fd,'(A,I0,A,I0,A,I0,A,A,I0,A)') "ZONE I=",e % Nout(1)+1,", J=",e % Nout(3)+1, &
-                                                  ", K=",1,', F=POINT, T="', trim(boundary % Name), fID, '"'
+                                                  ", K=",1,', F=POINT, T="boundary_', trim(boundary % Name), fID, '"'
                   
                   do k = 0, e % Nout(3)    ; do i = 0, e % Nout(1)
                      write(fd,trim(formatout)) e % xOut(:,i,e % Nout(2),k), e % outputVars(:,i,e % Nout(2),k)
@@ -632,7 +632,7 @@ module Solution2PltModule
                case(3)
                   
                   write(fd,'(A,I0,A,I0,A,I0,A,A,I0,A)') "ZONE I=",e % Nout(1)+1,", J=",e % Nout(2)+1, &
-                                                  ", K=",1,', F=POINT, T="', trim(boundary % Name), fID, '"'
+                                                  ", K=",1,', F=POINT, T="boundary_', trim(boundary % Name), fID, '"'
                   
                   do j = 0, e % Nout(2)    ; do i = 0, e % Nout(1)
                      write(fd,trim(formatout)) e % xOut(:,i,j,0), e % outputVars(:,i,j,0)
@@ -641,7 +641,7 @@ module Solution2PltModule
                case(4)
                   
                   write(fd,'(A,I0,A,I0,A,I0,A,A,I0,A)') "ZONE I=",e % Nout(2)+1,", J=",e % Nout(3)+1, &
-                                                  ", K=",1,', F=POINT, T="', trim(boundary % Name), fID, '"'
+                                                  ", K=",1,', F=POINT, T="boundary_', trim(boundary % Name), fID, '"'
                   
                   do k = 0, e % Nout(3)    ; do j = 0, e % Nout(2)
                      write(fd,trim(formatout)) e % xOut(:,e % Nout(1),j,k), e % outputVars(:,e % Nout(1),j,k)
@@ -650,7 +650,7 @@ module Solution2PltModule
                case(5)
                   
                   write(fd,'(A,I0,A,I0,A,I0,A,A,I0,A)') "ZONE I=",e % Nout(1)+1,", J=",e % Nout(2)+1, &
-                                                  ", K=",1,', F=POINT, T="', trim(boundary % Name), fID, '"'
+                                                  ", K=",1,', F=POINT, T="boundary_', trim(boundary % Name), fID, '"'
                   
                   do j = 0, e % Nout(2)    ; do i = 0, e % Nout(1)
                      write(fd,trim(formatout)) e % xOut(:,i,j,e % Nout(3)), e % outputVars(:,i,j,e % Nout(3))
@@ -659,7 +659,7 @@ module Solution2PltModule
                case(6)
                   
                   write(fd,'(A,I0,A,I0,A,I0,A,A,I0,A)') "ZONE I=",e % Nout(2)+1,", J=",e % Nout(3)+1, &
-                                                  ", K=",1,', F=POINT, T="', trim(boundary % Name), fID, '"'
+                                                  ", K=",1,', F=POINT, T="boundary_', trim(boundary % Name), fID, '"'
                   
                   do k = 0, e % Nout(3)    ; do j = 0, e % Nout(2)
                      write(fd,trim(formatout)) e % xOut(:,0,j,k), e % outputVars(:,0,j,k)

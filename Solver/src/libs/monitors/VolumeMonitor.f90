@@ -26,6 +26,7 @@ module VolumeMonitorClass
       logical                         :: active
       integer                         :: ID
       integer                         :: bufferLine
+      integer                         :: num_of_vars
       real(kind=RP), allocatable      :: values(:,:)
       character(len=STR_LEN_MONITORS) :: monitorName
       character(len=STR_LEN_MONITORS) :: fileName
@@ -80,7 +81,6 @@ module VolumeMonitorClass
          character(len=STR_LEN_MONITORS)  :: paramFile
          integer                          :: fID
          integer                          :: pos
-         integer                          :: numVars
 !
 !        Get monitor ID
 !        --------------
@@ -101,7 +101,7 @@ module VolumeMonitorClass
 !
 !        Select the variable from the available list, and compute auxiliary variables if needed
 !        --------------------------------------------------------------------------------------
-         numVars = 1
+         self % num_of_vars = 1
          call toLower(self % variable)
 
 #if defined(NAVIERSTOKES)
@@ -112,8 +112,9 @@ module VolumeMonitorClass
          case ("entropy")
          case ("entropy rate")
          case ("mean velocity")
-         case ("velocity") ; numVars = 3
-         case ("momentum") ; numVars = 3
+         case ("velocity") ; self % num_of_vars = 3
+         case ("momentum") ; self % num_of_vars = 3
+         case ("source")   ; self % num_of_vars = NTOTALVARS
          case default
 
             if ( len_trim (self % variable) .eq. 0 ) then
@@ -129,6 +130,7 @@ module VolumeMonitorClass
                print*, "   * Mean velocity"
                print*, "   * Velocity"
                print*, "   * Momentum"
+               print*, "   * source"
                stop "Stopped."
 
             end if
@@ -151,7 +153,7 @@ module VolumeMonitorClass
 #endif
 
          
-         allocate ( self % values(numVars,BUFFER_SIZE) )
+         allocate ( self % values(self % num_of_vars,BUFFER_SIZE) )
          
 !
 !        Prepare the file in which the monitor is exported
@@ -174,6 +176,8 @@ module VolumeMonitorClass
                   write( fID , '(A10,2X,A24,3(2X,A24))') "#Iteration" , "Time" , 'mean-u', 'mean-v', 'mean-w'
                case("momentum")
                   write( fID , '(A10,2X,A24,3(2X,A24))') "#Iteration" , "Time" , 'mean-rhou', 'mean-rhov', 'mean-rhow'
+               case("source")
+                  write( fID , '(A10,2X,A24,5(2X,A24))') "#Iteration" , "Time" , 'S1', 'S2', 'S3', 'S4', 'S5'
                case default
                   write( fID , '(A10,2X,A24,2X,A24)'   ) "#Iteration" , "Time" , trim(self % variable)
             end select
@@ -221,10 +225,13 @@ module VolumeMonitorClass
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, VELOCITY) / ScalarVolumeIntegral(mesh, VOLUME)
             
          case ("velocity")
-            self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, VELOCITY) / ScalarVolumeIntegral(mesh, VOLUME)
+            self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, VELOCITY, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
             
          case ("momentum")
-            self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, MOMENTUM) / ScalarVolumeIntegral(mesh, VOLUME)
+            self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, MOMENTUM, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
+            
+         case ("source")
+            self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, SOURCE, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
 
 #elif defined(CAHNHILLIARD)
          case ("free energy")
@@ -252,29 +259,30 @@ module VolumeMonitorClass
                write(STD_OUT , '(3(3X,A10))' , advance = "no") 'mean-u', 'mean-v', 'mean-w'
             case("momentum")
                write(STD_OUT , '(3(3X,A10))' , advance = "no") 'mean-rhou', 'mean-rhov', 'mean-rhow'
+            case("source")
+               write(STD_OUT , '(5(3X,A10))' , advance = "no") 'S1', 'S2', 'S3', 'S4', 'S5'
             case default
                write(STD_OUT , '(3X,A10)' , advance = "no") trim(self % monitorName(1 : MONITOR_LENGTH))
          end select
       end subroutine VolumeMonitor_WriteLabel
-   
-      subroutine VolumeMonitor_WriteValue ( self , bufferLine ) 
 !
 !        *************************************************************
-!              This subroutine writes the monitor value for the time
+!        WriteValue: This subroutine writes the monitor value for the time
 !           integrator Display procedure.
 !        *************************************************************
-!
+      subroutine VolumeMonitor_WriteValue ( self , bufferLine ) 
          implicit none
+         !-arguments-----------------------------------------------
          class(VolumeMonitor_t)     :: self
          integer                    :: bufferLine
+         !-local-variables-----------------------------------------
+         integer :: i
+         !---------------------------------------------------------
          
-         write(STD_OUT , '(1X,A,1X,ES10.3)' , advance = "no") "|" , self % values (1, bufferLine ) 
+         do i=1, self % num_of_vars
+            write(STD_OUT , '(1X,A,1X,ES10.3)' , advance = "no") "|" , self % values (i, bufferLine ) 
+         end do
          
-         select case ( trim(self % variable) )
-            case("velocity","momentum")
-               write(STD_OUT , '(2(1X,A,1X,ES10.3))'  , advance = "no") "|" , self % values (2, bufferLine ) , "|" , self % values (3, bufferLine ) 
-         end select
-
       end subroutine VolumeMonitor_WriteValue 
 
       subroutine VolumeMonitor_WriteToFile ( self , iter , t , no_of_lines)

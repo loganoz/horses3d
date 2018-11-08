@@ -16,7 +16,7 @@ module VolumeIntegrals
 
 #if defined(NAVIERSTOKES)
    public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY, VELOCITY
-   public ENTROPY, ENTROPY_RATE, MOMENTUM
+   public ENTROPY, ENTROPY_RATE, MOMENTUM, SOURCE
 #endif
 
 #if defined(CAHNHILLIARD)
@@ -31,7 +31,7 @@ module VolumeIntegrals
       enumerator :: VOLUME  
 #if defined(NAVIERSTOKES)
       enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE
-      enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, MOMENTUM
+      enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, MOMENTUM, SOURCE
 #endif
 #if defined(CAHNHILLIARD)
       enumerator :: FREE_ENERGY
@@ -268,7 +268,7 @@ module VolumeIntegrals
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      function VectorVolumeIntegral(mesh, integralType) result(val)
+      function VectorVolumeIntegral(mesh, integralType, num_of_vars) result(val)
 !
 !        -----------------------------------------------------------
 !           This function computes vector integrals, that is, those
@@ -282,16 +282,24 @@ module VolumeIntegrals
          implicit none
          class(HexMesh),      intent(in)  :: mesh
          integer,             intent(in)  :: integralType
-         real(kind=RP)                    :: val(NDIM)
+         integer,             intent(in)  :: num_of_vars
+         real(kind=RP)                    :: val(num_of_vars)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: localVal(NDIM)
+         logical       :: fiveVars
          integer       :: eID, ierr
-         real(kind=RP) :: valAux(NDIM)
-         real(kind=RP) :: val1, val2, val3
+         real(kind=RP) :: localVal(num_of_vars)
+         real(kind=RP) :: valAux(num_of_vars)
+         real(kind=RP) :: val1, val2, val3, val4, val5
+         
+         if (num_of_vars == 5) then    ! Ugly hack.. But only way to make it work with ifort....
+            fiveVars = .TRUE.
+         else
+            fiveVars = .FALSE.
+         end if
          
 !
 !        Initialization
@@ -299,39 +307,49 @@ module VolumeIntegrals
          val1 = 0.0_RP
          val2 = 0.0_RP
          val3 = 0.0_RP
+         val4 = 0.0_RP
+         val5 = 0.0_RP
 !
 !        Loop the mesh
 !        -------------
-!$omp parallel do reduction(+:val1,val2,val3) private(valAux) schedule(guided)
+!$omp parallel do reduction(+:val1,val2,val3,val4,val5) private(valAux) schedule(guided)
          do eID = 1, mesh % no_of_elements
 !
 !           Compute the integral
 !           --------------------
-            valAux = VectorVolumeIntegral_Local(mesh % elements(eID), integralType    )
+            valAux = VectorVolumeIntegral_Local(mesh % elements(eID), integralType  , num_of_vars  )
             
             val1 = val1 + valAux(1)
             val2 = val2 + valAux(2)
             val3 = val3 + valAux(3)
+            
+            if (fiveVars) then
+               val4 = val4 + valAux(4)
+               val5 = val5 + valAux(5)
+            end if
          end do
 !$omp end parallel do
+
+         val(1:3) = [val1, val2, val3]
          
-         val = [val1, val2, val3]
+         if (fiveVars) val(4:5) = [val4, val5] 
          
 #ifdef _HAS_MPI_
          localVal = val
-         call mpi_allreduce(localVal, val, NDIM, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+         call mpi_allreduce(localVal, val, num_of_vars, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
 
       end function VectorVolumeIntegral
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      function VectorVolumeIntegral_Local(e, integralType) result(val)
+      function VectorVolumeIntegral_Local(e, integralType, num_of_vars) result(val)
          implicit none
          !-arguments---------------------------------------------------
          class(Element),      target, intent(in)     :: e
          integer,                     intent(in)     :: integralType
-         real(kind=RP)                               :: val(NDIM)
+         integer                    , intent(in)     :: num_of_vars
+         real(kind=RP)                               :: val(num_of_vars)
          !-local-variables---------------------------------------------
          integer     :: Nel(3)    ! Element polynomial order
          integer     :: i, j, k
@@ -362,6 +380,12 @@ module VolumeIntegrals
                
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                   val = val +   wx(i) * wy(j) * wz(k) * e % storage % Q(IRHOU:IRHOW,i,j,k) * e % geom % jacobian(i,j,k)
+               end do            ; end do           ; end do
+               
+            case ( SOURCE )
+               
+               do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                  val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NS(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
                end do            ; end do           ; end do
 #endif
             case default
