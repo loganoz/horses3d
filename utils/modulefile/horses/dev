@@ -7,10 +7,10 @@ proc ModulesHelp { } {
 
 module-whatis " HORSES - A High-Order spectral element solver"
 
-set     topdir @HORSES_HOME_DIR
+set     topdir /home/andresrueda/ownCloud/PhD/03_Initial_Codes/3D/HORSES/development/Solver
 
 setenv HORSES_DIR $topdir
 
 prepend-path 	PATH 		$topdir/bin
-set-alias horses-get-makefile "cp $topdir/test/Makefile.template ./Makefile.Template"
-set-alias horses-get-problemfile "cp $topdir/src/libs/problemfile/ProblemFile.f90 ./ProblemFileTemplate.f90"
+set-alias horses-get-makefile "cp $topdir/test/Makefile.template ./Makefile"
+set-alias horses-get-problemfile "cp $topdir/src/libs/problemfile/ProblemFile.f90 ./ProblemFile.f90"

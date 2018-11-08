@@ -33,7 +33,7 @@
 \definecolor{mylilas}{RGB}{170,55,241}
 
 
-\title{\textbf{HORSES3D \\ User Manual}}
+\title{\textbf{HORSES3D} \\ A \textbf{H}igh-\textbf{Or}der (DG) \textbf{S}pectral \textbf{E}lement \textbf{S}olver \\ \textbf{User Manual}}
 \author{Andrés Rueda \\ Many others (future?)}
 
 \begin{document}
@@ -43,6 +43,45 @@
 \maketitle
 
 \tableofcontents
+
+\chapter{Compiling the code}
+
+\begin{itemize}
+\item Clone the git repository or copy the source code into a desired folder.
+
+\item Go to the folder Solver.
+
+\item Run configure script.
+\begin{lstlisting}[language=bash]
+	$ ./configure
+\end{lstlisting}
+\item Install using the Makefile:
+\begin{lstlisting}[language=bash]
+	$ make all <<Options>>
+\end{lstlisting}
+with the desired options (bold are default):
+
+\begin{itemize}
+\item MODE=DEBUG/\textbf{RELEASE}
+\item COMPILER=ifort/\textbf{gfortran}
+\item COMM=PARALLEL/\textbf{SEQUENTIAL}
+\item PLATFORM=MACOSX/\textbf{LINUX}
+\item ENABLE\_THREADS=NO/\textbf{YES}
+\end{itemize}
+
+For example:
+\begin{lstlisting}[language=bash]
+	$ make all COMPILER=ifort COMM=PARALLEL
+\end{lstlisting}
+
+\item If you use \textit{environment modules}, it is advised to use the HORSES3D module file:\\
+\begin{lstlisting}[language=bash]
+	$ export MODULEPATH=$HORSES_DIR/utils/modulefile:$MODULEPATH
+\end{lstlisting}
+where \$HORSES\_DIR is the installation directory.
+\end{itemize}
+
+
 
 \chapter{Input and Output Files}
 
@@ -56,15 +95,18 @@
 
 \section{Output Files}
 \begin{itemize}
-\item Solution file
-\item Horses mesh file
-\item Partition file
-\item Polynomial order file
-\item Monitor files
+\item Solution file (*.hsol)
+\item Horses mesh file (*.hmesh)
+\item Boundary information (*.bmesh)
+\item Partition file (*.pmesh)
+\item Polynomial order file (*.omesh)
+\item Monitor files (*.volume / *.surface / *.residuals)
 \end{itemize}
 
 \chapter{Running a Simulation}
-List of all the mandatory keywords for running a simulation and some basic optional keywords. The specific keywords are listed in the other chapters.
+
+\section{Control File (*.control) - Overview}
+The control file is the main file for running a simulation. A list of all the mandatory keywords for running a simulation and some basic optional keywords is presented in Table \ref{tab:runningkey}. The specific keywords are listed in the other chapters.
 
 \begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
 \caption{General keywords for running a case.} \label{tab:runningkey} \\
@@ -93,7 +135,7 @@ polynomial order k & \textit{INTEGER}: Polynomial order in the i, j, or k compon
 
 polynomial order file  & \textit{CHARACTER}: Path to a file containing the polynomial order of each element in the domain. & --* \\ \hline
 
-restart 			& \textit{LOGICAL}: If .TRUE., initial conditions of simulation will be read from restart file specified using the keyword \textit{restart file name}. \textbf{THIS SHOULD NOT BE MANDATORY... DEFAULT FALSE WOULD BE EASIER}. & \textbf{Mandatory keyword} \\ \hline
+restart 			& \textit{LOGICAL}: If .TRUE., initial conditions of simulation will be read from restart file specified using the keyword \textit{restart file name}. & \textbf{Mandatory keyword} \\ \hline
 
 cfl & \textit{REAL}: A constant related with the \textbf{convective} Courant-Friedrichs-Lewy (CFL) condition that the program will use to compute the time step size. & --** \\ \hline
 
@@ -111,7 +153,7 @@ number of time steps & \textit{INTEGER}: \textit{Maximum} number of time steps t
 
 output interval   & \textit{INTEGER}: In steady-state, this keyword indicates the interval of time steps to display the residuals on screen. In time-accurate simulations, this keyword indicates how often a 3D output file must be stored.  & \textbf{Mandatory\ keyword} \\ \hline
 
-convergence tolerance & \textit{real}: \textbf{WHY MANDATORY?.. ONLY USED FOR STEADY-STATE}  & \textbf{Mandatory\ keyword} \\ \hline
+convergence tolerance & \textit{REAL}: Residual convergence tolerance for steady-state cases & \textbf{Mandatory\ keyword} \\ \hline
 
 manufactured solution & \textit{CHARACTER}: Must have the value '2D' or '3D'. When this keyword is used, the program will add source terms for the conservative variables taken into account an exact analytic solution for each primitive variable j ($\rho$, $u$, $v$, $w$, $p$) of the form:\
  
@@ -131,11 +173,15 @@ Number of boundaries & \textit{INTEGER}: Specifies the number of boundaries of t
 \end{center}
 & \textbf{Mandatory keyword} \\ \hline
 
-\multicolumn{3}{p{16.4cm}}{*  At least one of these two keywords must be specified} \\
+\multicolumn{3}{p{16.4cm}}{*  One of these keywords must be specified} \\
 
 \multicolumn{3}{p{16.4cm}}{** For Euler simulations, the user must specify either the CFL number or the time-step size. For Navier-Stokes simulations, the user must specify the CFL and DCFL numbers \textbf{or} the time-step size.}
 
 \end{longtable}
+
+\section{Boundary conditions}
+Under construction.
+
 
 \chapter{Restarting a Case}
 
@@ -148,8 +194,6 @@ Number of boundaries & \textit{INTEGER}: Specifies the number of boundaries of t
 restart 			& \textit{LOGICAL}: If .TRUE., initial conditions of simulation will be read from restart file specified using the keyword \textit{restart file name}. & \textbf{Mandatory keyword} \\ \hline
 
 restart file name   & \textit{CHARACTER}: Name of the restart file to be written and, if keyword \textit{restart} = .TRUE., also name of the restart file to be read for starting the simulation. & \textbf{Mandatory\ keyword} \\ \hline
-
-restart interval    & \textit{INTEGER}: Indicates how often restart files have to be written. & Huge number \\ \hline
 
 restart polorder & \textit{INTEGER}: Uniform polynomial order of the solution to restart from. This keyword is only needed when the restart solution is of a different order than the current case. & same as case's \\ \hline
 
@@ -324,6 +368,25 @@ padapted $\ll \textit{keyword} \gg$ &
 
 
 \section{Statistics Monitor}
+\begin{lstlisting}
+#define statistics
+   sample interval = 10
+#end
+\end{lstlisting}
+
+A keyword preceded by @ is used in real-time to signalize the solver what it must do with the statistics computation:
+
+\begin{multicols}{3}
+\begin{itemize}
+\item @start
+\item @pause
+\item @stop
+\item @reset
+\item @dump
+\end{itemize}
+\end{multicols}
+
+After reading the keyword, the solver performs the desired action and marks it with a star, e.g. @start*.
 
 \section{Probes}
 
@@ -352,6 +415,7 @@ name 	&
 
 variable 	& 
 			\textit{CHARACTER}: Variable to be monitored. Implemented options are:\
+\begin{multicols}{3}
 \begin{itemize}
 \item pressure
 \item velocity
@@ -361,7 +425,7 @@ variable 	&
 \item mach
 \item k
 \end{itemize}			
-			
+\end{multicols}	
 			 & 
 							\textbf{Mandatory Keyword} \\ \hline
 
@@ -399,7 +463,8 @@ name 	&
 							\textbf{Mandatory Keyword} \\ \hline
 
 variable 	& 
-			\textit{CHARACTER}: Variable to be monitored. Implemented options are:\
+			\textit{CHARACTER}: Variable to be monitored. The variable can be scalar (s) or vectorial (v). Implemented options are:\
+\begin{multicols}{2}
 \begin{itemize}
 \item[\textbf{(s)}] kinetic energy
 \item[\textbf{(s)}] kinetic energy rate
@@ -409,7 +474,9 @@ variable 	&
 \item[\textbf{(s)}] mean velocity
 \item[\textbf{(v)}] velocity
 \item[\textbf{(v)}] momentum
-\end{itemize}			
+\item[\textbf{(v)}] source
+\end{itemize}		
+\end{multicols}	
 			
 			 & 
 							\textbf{Mandatory Keyword} \\ \hline
@@ -417,6 +484,184 @@ variable 	&
 
 \end{longtable}
 
+\chapter{Advanced User Setup}
+
+Advanced users can have additional control over a simulation without having to modify the source code and recompile the code. To do that, the user can provide a set of routines that are called in different stages of the simulation via the Problem file (\textit{ProblemFile.f90}). A description of the routines of the Problem File can be found in section \ref{sec:ProblemFile}.
+
+\section{Routines of the Problem File: \textit{ProblemFile.f90}} \label{sec:ProblemFile}
+
+\begin{itemize}
+\item UserDefinedStartup: Called before any other routines
+
+\item UserDefinedFinalSetup: Called after the mesh is read in to allow mesh related initializations or memory allocations.
+
+\item UserDefinedInitialCondition: called to set the initial condition for the flow. By default it sets an uniform initial condition, but the user can change it.
+
+\item UserDefinedState1, UserDefinedNeumann: Used to define an user-defined boundary condition.
+
+\item UserDefinedPeriodicOperation: Called before every time-step to allow periodic operations to be performed.
+
+\item UserDefinedSourceTermNS: Called to apply source terms to the equation.
+
+\item UserDefinedFinalize: Called after the solution computed to allow, for example error tests to be performed.
+
+\item UserDefinedTermination: Called at the the end of the main driver after everything else is done.
+\end{itemize}
+
+\section{Compiling the Problem File}
+
+The Problem Fie file must be compiled using a specific Makefile that links it with the libraries of the code. If you are using the \textit{horses/dev} environment module, you can get templates of the \textit{Problemfile.f90} and \textit{Makefile} with the following commands:
+
+\begin{lstlisting}[language=bash]
+	$ horses-get-makefile
+	$ horses-get-problemfile
+\end{lstlisting}
+
+Otherwise, search the test cases for examples.\\
+
+To run a simulation using user-defined operations, create a folder called SETUP on the path were the simulation is going to be run. Then, store the modified \textit{ProblemFile.f90} and the \textit{Makefile} in SETUP, and compile using:
+
+\begin{lstlisting}[language=bash]
+	$ make <<Options>>
+\end{lstlisting}
+where again the options are:
+\begin{itemize}
+\item MODE=DEBUG/\textbf{RELEASE}
+\item COMPILER=ifort/\textbf{gfortran}
+\item COMM=PARALLEL/\textbf{SEQUENTIAL}
+\item PLATFORM=MACOSX/\textbf{LINUX}
+\item ENABLE\_THREADS=NO/\textbf{YES}
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Postprocessing}
+
+For postprocessing the Simulation Results
+
+\section{Visualization with Tecplot Format: \textit{horses2plt}}
+
+HORSES3D provides a script for converting the native binary solution files (*.hsol) into tecplot ASCII format (*.tec), which can be visualized in Pareview or Tecplot. Usage:
+
+\begin{lstlisting}[language=bash]
+	$ horses2plt <<SolutionFile.hsol>> <<MeshFile.hsol>> <<Options>>
+\end{lstlisting}
+
+The options comprise following flags:
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for volume monitors.} \label{tab:VolMonitorsKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Additional flags for postprocessing with \textit{horses2plt}} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Flag}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+--output-order= 	& 
+			\textit{INTEGER}: Output order for equispaced nodes. The solution is interpolated in the desired number of points. & 
+							Not Present \\ \hline
+
+--dimensionless 	& 
+			Specifies that the output quantities must be dimensionless & 
+							Not Present  \\ \hline
+							
+--partition-file= 	& 
+			\textit{CHARACTER}: Specifies the path to the partition file (*.pmesh) to export the MPI ranks of the simulation. & 
+							Not Present  \\ \hline
+							
+--boundary-mesh= 	& 
+			\textit{CHARACTER}: Specifies the path to the boundary mesh file (*.bmesh) to export the surfaces as additional zones of the Tecplot file. & 
+							Not Present  \\ \hline
+
+
+\end{longtable}
+
+Additionally, depending on the type of solution file, the user can specify additional options.
+
+\subsection{Solution Files (*.hsol)}
+
+For standard solution files, the user can specify which variables they want to be exported to the Tecplot file with the flag:
+
+\begin{lstlisting}[language=bash]
+	--output-variables=
+\end{lstlisting}
+
+The options are:
+
+\begin{multicols}{5}
+\begin{itemize}
+\item $Q$ (default)
+\item $rho$
+\item $u$
+\item $v$
+\item $w$
+\item $p$
+\item $T$
+\item $Mach$
+\item $s$
+\item $Vabs$
+\item $V$
+\item $Ht$
+\item $rhou$
+\item $rhov$
+\item $rhow$
+\item $rhoe$
+\item $c$
+\item $Nxi$
+\item $Neta$
+\item $Nzeta$
+\item $Nav$
+\item $N$
+\item $Ax\_Xi$
+\item $Ax\_Eta$
+\item $Ax\_Zeta$
+\item $ThreeAxes$
+\item $Axes$
+\item $mpi\_rank$
+\item $gradV$
+\item $u\_x$
+\item $v\_x$
+\item $w\_x$
+\item $u\_y$
+\item $v\_y$
+\item $w\_y$
+\item $u\_z$
+\item $v\_z$
+\item $w\_z$
+\item $c\_x$
+\item $c\_y$
+\item $c\_z$
+\item $omega$
+\item $omega\_x$
+\item $omega\_y$
+\item $omega\_z$
+\item $omega\_abs$
+\item $Qcrit$
+\end{itemize}
+\end{multicols}
+
+\subsection{Statistics Files (*.stats.hsol)}
+Statistics files generate following variables by default:
+
+\begin{multicols}{3}
+\begin{itemize}
+\item Umean
+\item Vmean
+\item Wmean
+\item Sxx
+\item Syy
+\item Szz
+\item Sxy
+\item Sxz
+\item Syz
+\end{itemize}
+\end{multicols}
+
+\section{Extract geometry}
+Under construction.
 
 \bibliography{../LaTeX/9_backmatter/library}
 

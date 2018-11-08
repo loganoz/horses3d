@@ -7,7 +7,7 @@ module Solution2PltModule
    implicit none
 
    private
-   public   Solution2Plt
+   public   Solution2Plt, WriteBoundaryToTecplot
 
 #define PRECISION_FORMAT "(E13.5)"
 
@@ -77,7 +77,7 @@ module Solution2PltModule
          character(len=LINE_LENGTH)      :: solutionFile
          character(len=1024)             :: title
          integer                         :: no_of_elements, eID
-         integer                         :: fid
+         integer                         :: fid, bID
          integer                         :: Nmesh(4), Nsol(4)
 !
 !        Read the mesh and solution data
@@ -133,6 +133,14 @@ module Solution2PltModule
             call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients) 
             end associate
          end do
+!
+!        Write boundaries
+!        ----------------
+         if (hasBoundaries) then
+            do bID=1, size (mesh % boundaries)
+               call WriteBoundaryToTecplot(fid, mesh % boundaries(bID), mesh % elements)
+            end do
+         end if
 !
 !        Close the file
 !        --------------
@@ -197,7 +205,7 @@ module Solution2PltModule
          character(len=LINE_LENGTH)                 :: solutionFile
          character(len=1024)                        :: title
          integer                                    :: no_of_elements, eID
-         integer                                    :: fid
+         integer                                    :: fid, bID
 !
 !        Read the mesh and solution data
 !        -------------------------------
@@ -268,7 +276,14 @@ module Solution2PltModule
             call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients)
             end associate
          end do
-
+!
+!        Write boundaries
+!        ----------------
+         if (hasBoundaries) then
+            do bID=1, size (mesh % boundaries)
+               call WriteBoundaryToTecplot(fid, mesh % boundaries(bID), mesh % elements)
+            end do
+         end if
 !
 !        Close the file
 !        --------------
@@ -356,7 +371,7 @@ module Solution2PltModule
          character(len=LINE_LENGTH)                 :: solutionFile
          character(len=1024)                        :: title
          integer                                    :: no_of_elements, eID
-         integer                                    :: fid
+         integer                                    :: fid, bID
          real(kind=RP)                              :: xi(0:Nout(1)), eta(0:Nout(2)), zeta(0:Nout(3))
          integer                                    :: i
 !
@@ -435,6 +450,14 @@ module Solution2PltModule
             call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients)
             end associate
          end do
+!
+!        Write boundaries
+!        ----------------
+         if (hasBoundaries) then
+            do bID=1, size (mesh % boundaries)
+               call WriteBoundaryToTecplot(fid, mesh % boundaries(bID), mesh % elements)
+            end do
+         end if
 
 !
 !        Close the file
@@ -531,22 +554,23 @@ module Solution2PltModule
          use OutputVariables
          use SolutionFile
          implicit none
-         integer,            intent(in) :: fid
-         type(Element_t),    intent(in) :: e 
-         real(kind=RP),      intent(in) :: refs(NO_OF_SAVED_REFS)
-         logical,            intent(in) :: hasGradients
+         integer,            intent(in)    :: fid
+         type(Element_t),    intent(inout) :: e 
+         real(kind=RP),      intent(in)    :: refs(NO_OF_SAVED_REFS)
+         logical,            intent(in)    :: hasGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer                    :: i,j,k,var
-         real(kind=RP)              :: outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3))
          character(len=LINE_LENGTH) :: formatout
 !
 !        Get output variables
 !        --------------------
-         call ComputeOutputVariables(e % Nout, e, outputVars, refs, hasGradients)
+         
+         allocate (e % outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         call ComputeOutputVariables(e % Nout, e, e % outputVars, refs, hasGradients)
 !
 !        Write variables
 !        ---------------        
@@ -556,10 +580,98 @@ module Solution2PltModule
          formatout = getFormat()
 
          do k = 0, e % Nout(3)   ; do j = 0, e % Nout(2)    ; do i = 0, e % Nout(1)
-            write(fid,trim(formatout)) e % xOut(:,i,j,k), outputVars(:,i,j,k)
+            write(fid,trim(formatout)) e % xOut(:,i,j,k), e % outputVars(:,i,j,k)
          end do               ; end do                ; end do
 
       end subroutine WriteElementToTecplot
+      
+      subroutine WriteBoundaryToTecplot(fd,boundary, elements)
+         use Storage
+         use NodalStorageClass
+         use prolongMeshAndSolution
+         use OutputVariables
+         use SolutionFile
+         implicit none
+         !-arguments-------------------------------------------
+         integer         , intent(in) :: fd
+         type(Boundary_t), intent(in) :: boundary
+         type(Element_t) , intent(in) :: elements(:)
+         !-local-variables-------------------------------------
+         integer :: fID, side
+         integer :: i,j,k
+         character(len=LINE_LENGTH) :: formatout
+         !-----------------------------------------------------
+         
+         formatout = getFormat()
+         
+         do fID=1, boundary % no_of_faces
+            
+            associate (e => elements( boundary % elements(fID) ))
+            side = boundary % elementSides(fID)
+            
+            select case (side)
+            
+               case(1)
+                  
+                  write(fd,'(A,I0,A,I0,A,I0,A,A,I0,A)') "ZONE I=",e % Nout(1)+1,", J=",e % Nout(3)+1, &
+                                                  ", K=",1,', F=POINT, T="boundary_', trim(boundary % Name), fID, '"'
+                  
+                  do k = 0, e % Nout(3)    ; do i = 0, e % Nout(1)
+                     write(fd,trim(formatout)) e % xOut(:,i,0,k), e % outputVars(:,i,0,k)
+                  end do                ; end do
+                  
+               case(2)
+                  
+                  write(fd,'(A,I0,A,I0,A,I0,A,A,I0,A)') "ZONE I=",e % Nout(1)+1,", J=",e % Nout(3)+1, &
+                                                  ", K=",1,', F=POINT, T="boundary_', trim(boundary % Name), fID, '"'
+                  
+                  do k = 0, e % Nout(3)    ; do i = 0, e % Nout(1)
+                     write(fd,trim(formatout)) e % xOut(:,i,e % Nout(2),k), e % outputVars(:,i,e % Nout(2),k)
+                  end do                ; end do
+               
+               case(3)
+                  
+                  write(fd,'(A,I0,A,I0,A,I0,A,A,I0,A)') "ZONE I=",e % Nout(1)+1,", J=",e % Nout(2)+1, &
+                                                  ", K=",1,', F=POINT, T="boundary_', trim(boundary % Name), fID, '"'
+                  
+                  do j = 0, e % Nout(2)    ; do i = 0, e % Nout(1)
+                     write(fd,trim(formatout)) e % xOut(:,i,j,0), e % outputVars(:,i,j,0)
+                  end do                ; end do
+                  
+               case(4)
+                  
+                  write(fd,'(A,I0,A,I0,A,I0,A,A,I0,A)') "ZONE I=",e % Nout(2)+1,", J=",e % Nout(3)+1, &
+                                                  ", K=",1,', F=POINT, T="boundary_', trim(boundary % Name), fID, '"'
+                  
+                  do k = 0, e % Nout(3)    ; do j = 0, e % Nout(2)
+                     write(fd,trim(formatout)) e % xOut(:,e % Nout(1),j,k), e % outputVars(:,e % Nout(1),j,k)
+                  end do                ; end do
+                  
+               case(5)
+                  
+                  write(fd,'(A,I0,A,I0,A,I0,A,A,I0,A)') "ZONE I=",e % Nout(1)+1,", J=",e % Nout(2)+1, &
+                                                  ", K=",1,', F=POINT, T="boundary_', trim(boundary % Name), fID, '"'
+                  
+                  do j = 0, e % Nout(2)    ; do i = 0, e % Nout(1)
+                     write(fd,trim(formatout)) e % xOut(:,i,j,e % Nout(3)), e % outputVars(:,i,j,e % Nout(3))
+                  end do                ; end do
+                  
+               case(6)
+                  
+                  write(fd,'(A,I0,A,I0,A,I0,A,A,I0,A)') "ZONE I=",e % Nout(2)+1,", J=",e % Nout(3)+1, &
+                                                  ", K=",1,', F=POINT, T="boundary_', trim(boundary % Name), fID, '"'
+                  
+                  do k = 0, e % Nout(3)    ; do j = 0, e % Nout(2)
+                     write(fd,trim(formatout)) e % xOut(:,0,j,k), e % outputVars(:,0,j,k)
+                  end do                ; end do
+                  
+            end select
+            
+            end associate
+         end do
+         
+      end subroutine WriteBoundaryToTecplot
+      
 
       character(len=LINE_LENGTH) function getFormat()
          use OutputVariables

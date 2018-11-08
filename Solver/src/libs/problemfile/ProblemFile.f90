@@ -396,7 +396,7 @@ end module ProblemFileFunctions
          SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
 !
 !           ----------------------------------------------------------
-!           Called at the output interval to allow periodic operations
+!           Called before every time-step to allow periodic operations
 !           to be performed
 !           ----------------------------------------------------------
 !

@@ -4,9 +4,9 @@
 !   @File:    Stats2Plt.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct 19 18:27:04 2017
-!   @Last revision date: Fri Oct 27 18:33:52 2017
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7b65ab7eaea2e626401e530fda3bfb97c6c064b7
+!   @Last revision date: Wed Nov  7 13:19:10 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 6f065eb346a958a99034c17a2ae5d4e3c333c4b1
 !
 !//////////////////////////////////////////////////////
 !
@@ -17,6 +17,7 @@ module Stats2PltModule
    use Headers
    use InterpolationMatrices 
    use FileReadingUtilities      , only: getFileName
+   use Solution2PltModule        , only: WriteBoundaryToTecplot
    implicit none
 
    private
@@ -89,7 +90,7 @@ module Stats2PltModule
          character(len=LINE_LENGTH)      :: solutionFile
          character(len=1024)             :: title
          integer                         :: no_of_elements, eID
-         integer                         :: fid
+         integer                         :: fid, bID
          integer                         :: Nmesh(4), Nsol(4)
 !
 !        Read the mesh and solution data
@@ -143,6 +144,14 @@ module Stats2PltModule
             call WriteElementToTecplot(fid, e, mesh % refs) 
             end associate
          end do
+!
+!        Write boundaries
+!        ----------------
+         if (hasBoundaries) then
+            do bID=1, size (mesh % boundaries)
+               call WriteBoundaryToTecplot(fid, mesh % boundaries(bID), mesh % elements)
+            end do
+         end if
 !
 !        Close the file
 !        --------------
@@ -200,7 +209,7 @@ module Stats2PltModule
          character(len=LINE_LENGTH)                 :: solutionFile
          character(len=1024)                        :: title
          integer                                    :: no_of_elements, eID
-         integer                                    :: fid
+         integer                                    :: fid, bID
 !
 !        Read the mesh and solution data
 !        -------------------------------
@@ -269,6 +278,14 @@ module Stats2PltModule
             call WriteElementToTecplot(fid, e, mesh % refs)
             end associate
          end do
+!
+!        Write boundaries
+!        ----------------
+         if (hasBoundaries) then
+            do bID=1, size (mesh % boundaries)
+               call WriteBoundaryToTecplot(fid, mesh % boundaries(bID), mesh % elements)
+            end do
+         end if
 
 !
 !        Close the file
@@ -341,7 +358,7 @@ module Stats2PltModule
          character(len=LINE_LENGTH)                 :: solutionFile
          character(len=1024)                        :: title
          integer                                    :: no_of_elements, eID
-         integer                                    :: fid
+         integer                                    :: fid, bID
          real(kind=RP)                              :: xi(0:Nout(1)), eta(0:Nout(2)), zeta(0:Nout(3))
          integer                                    :: i
 !
@@ -418,7 +435,14 @@ module Stats2PltModule
             call WriteElementToTecplot(fid, e, mesh % refs)
             end associate
          end do
-
+!
+!        Write boundaries
+!        ----------------
+         if (hasBoundaries) then
+            do bID=1, size (mesh % boundaries)
+               call WriteBoundaryToTecplot(fid, mesh % boundaries(bID), mesh % elements)
+            end do
+         end if
 !
 !        Close the file
 !        --------------
@@ -483,30 +507,30 @@ module Stats2PltModule
          use SolutionFile
          use StatisticsMonitor
          implicit none
-         integer,            intent(in) :: fid
-         type(Element_t),    intent(in) :: e 
-         real(kind=RP),      intent(in) :: refs(NO_OF_SAVED_REFS)
+         integer,            intent(in)    :: fid
+         type(Element_t),    intent(inout) :: e 
+         real(kind=RP),      intent(in)    :: refs(NO_OF_SAVED_REFS)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer                    :: i,j,k,var
-         real(kind=RP)              :: outputVars(1:9,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3))
          character(len=LINE_LENGTH) :: formatout
 !
 !        Get output variables
 !        --------------------
+         allocate (e % outputVars(1:9,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) ) 
          do k = 0, e % Nout(3)   ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
-            outputVars(1,i,j,k) = e % statsout(U,i,j,k)
-            outputVars(2,i,j,k) = e % statsout(V,i,j,k)
-            outputVars(3,i,j,k) = e % statsout(W,i,j,k)
-            outputVars(4,i,j,k) = e % statsout(UU,i,j,k) - POW2(e % statsout(U,i,j,k))
-            outputVars(5,i,j,k) = e % statsout(VV,i,j,k) - POW2(e % statsout(V,i,j,k))
-            outputVars(6,i,j,k) = e % statsout(WW,i,j,k) - POW2(e % statsout(W,i,j,k))
-            outputVars(7,i,j,k) = e % statsout(UV,i,j,k) - e % statsout(U,i,j,k) * e % statsout(V,i,j,k)
-            outputVars(8,i,j,k) = e % statsout(UW,i,j,k) - e % statsout(U,i,j,k) * e % statsout(W,i,j,k)
-            outputVars(9,i,j,k) = e % statsout(VW,i,j,k) - e % statsout(V,i,j,k) * e % statsout(W,i,j,k)
+            e % outputVars(1,i,j,k) = e % statsout(U,i,j,k)
+            e % outputVars(2,i,j,k) = e % statsout(V,i,j,k)
+            e % outputVars(3,i,j,k) = e % statsout(W,i,j,k)
+            e % outputVars(4,i,j,k) = e % statsout(UU,i,j,k) - POW2(e % statsout(U,i,j,k))
+            e % outputVars(5,i,j,k) = e % statsout(VV,i,j,k) - POW2(e % statsout(V,i,j,k))
+            e % outputVars(6,i,j,k) = e % statsout(WW,i,j,k) - POW2(e % statsout(W,i,j,k))
+            e % outputVars(7,i,j,k) = e % statsout(UV,i,j,k) - e % statsout(U,i,j,k) * e % statsout(V,i,j,k)
+            e % outputVars(8,i,j,k) = e % statsout(UW,i,j,k) - e % statsout(U,i,j,k) * e % statsout(W,i,j,k)
+            e % outputVars(9,i,j,k) = e % statsout(VW,i,j,k) - e % statsout(V,i,j,k) * e % statsout(W,i,j,k)
          end do                  ; end do                ; end do
 !
 !        Write variables
@@ -517,7 +541,7 @@ module Stats2PltModule
          formatout = getFormat()
 
          do k = 0, e % Nout(3)   ; do j = 0, e % Nout(2)    ; do i = 0, e % Nout(1)
-            write(fid,trim(formatout)) e % xOut(:,i,j,k), outputVars(:,i,j,k)
+            write(fid,trim(formatout)) e % xOut(:,i,j,k), e % outputVars(:,i,j,k)
          end do               ; end do                ; end do
 
       end subroutine WriteElementToTecplot

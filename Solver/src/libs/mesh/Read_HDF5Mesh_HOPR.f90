@@ -4,9 +4,9 @@
 !   @File:    ReadHDF5Mesh.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Wed Oct 31 18:01:29 2018
+!   @Last revision date: Wed Nov  7 13:19:15 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 4cb44266e1f1a3b075b9d1413a55399ec0b38b20
+!   @Last revision commit: 6f065eb346a958a99034c17a2ae5d4e3c333c4b1
 !
 !//////////////////////////////////////////////////////
 !
@@ -454,6 +454,8 @@ contains
          
          call self % PrepareForIO
       end if
+      
+      call self % ExportBoundaryMesh (trim(fileName))
 
 #else
       STOP ':: HDF5 is not linked correctly'

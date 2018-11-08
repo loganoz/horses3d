@@ -1,3 +1,10 @@
+!
+!//////////////////////////////////////////////////////
+!
+! TODO: Create destructors
+!
+!//////////////////////////////////////////////////////
+!
 #include "Includes.h"
 module Storage
    use SMConstants
@@ -6,11 +13,11 @@ module Storage
    implicit none
    
    private
-   public Mesh_t, Element_t
-   public NVARS, NGRADVARS, hasMPIranks
+   public Mesh_t, Element_t, Boundary_t
+   public NVARS, NGRADVARS, hasMPIranks, hasBoundaries
 
    integer     :: NVARS, NGRADVARS
-   logical     :: hasMPIranks
+   logical     :: hasMPIranks, hasBoundaries
 
    type Element_t
 !                                /* Mesh quantities */
@@ -32,12 +39,22 @@ module Storage
       real(kind=RP), pointer     :: U_yout(:,:,:,:)
       real(kind=RP), pointer     :: U_zout(:,:,:,:)
       real(kind=RP), pointer     :: statsout(:,:,:,:)
+      
+      real(kind=RP), allocatable :: outputVars(:,:,:,:)
    end type Element_t
-
+   
+   type Boundary_t
+      character(len=LINE_LENGTH) :: Name
+      integer                    :: no_of_faces
+      integer, allocatable       :: elements(:)
+      integer, allocatable       :: elementSides(:)
+   end type Boundary_t
+   
    type Mesh_t
       integer  :: no_of_elements
       integer  :: nodeType
       type(Element_t),   allocatable    :: elements(:)
+      type(Boundary_t),  allocatable    :: boundaries(:)
       character(len=LINE_LENGTH) :: meshName
       character(len=LINE_LENGTH) :: solutionName
       real(kind=RP)              :: refs(NO_OF_SAVED_REFS)
@@ -60,9 +77,9 @@ module Storage
 !        ---------------
 !
          integer                          :: arrayDimensions(4)
-         integer                          :: fid, eID
-         integer  :: i,j,k
+         integer                          :: fid, eID, i, pos
          character(len=1024)              :: msg
+         character(len=LINE_LENGTH)       :: flag
 
          self % meshName = trim(meshName)
 !
@@ -101,6 +118,21 @@ module Storage
 !        Close file
 !        ----------
          close(fid)
+         
+!        Read boundary file (if present)
+!        -------------------------------
+         do i = 1, command_argument_count()
+            call get_command_argument(i, flag)
+            
+            pos = index(trim(flag),"--boundary-file")
+            if ( pos .ne. 0 ) then
+               hasBoundaries = .TRUE.
+               
+               call readBoundaryFile(self % boundaries, flag)
+               
+            end if
+         end do
+         
 !
 !        Describe the mesh
 !        -----------------
@@ -135,7 +167,7 @@ module Storage
          integer       :: iter
          real(kind=RP) :: time
          character(len=1024)  :: msg
-         character(len=LINE_LENGTH)    :: flag   
+         character(len=LINE_LENGTH)    :: flag
 
          self % solutionName = trim(solutionName)
 !
@@ -263,8 +295,6 @@ module Storage
             end if
          end do
          
-         
-         
 !
 !        Describe the solution
 !        ---------------------
@@ -323,4 +353,45 @@ module Storage
             
          close(fID)
       end subroutine readPartitionFile
+      
+      subroutine readBoundaryFile(boundaries, flag)
+         implicit none
+         !-arguments-----------------------------------------------
+         type(Boundary_t), allocatable, intent(inout)  :: boundaries(:)
+         character(len=*)             , intent(in)     :: flag
+         !-local-variables-----------------------------------------
+         integer                    :: pos, fd, no_of_boundaries,bID
+         character(len=LINE_LENGTH) :: boundaryFileName
+         !---------------------------------------------------------
+         
+         pos = index(trim(flag),"=")
+               
+         if ( pos .eq. 0 ) then
+            print*, 'Missing "=" operator in --boundary-file flag'
+            errorMessage(STD_OUT)
+            stop
+         end if
+         
+         boundaryFileName = flag(pos+1:len_trim(flag))
+         
+         open(newunit = fd, file=trim(boundaryFileName),action='read')
+         
+            read(fd,*) no_of_boundaries
+            allocate ( boundaries(no_of_boundaries) )
+            
+            do bID = 1, no_of_boundaries
+               
+               read(fd,*) boundaries(bID) % Name
+               read(fd,*) boundaries(bID) % no_of_faces
+               
+               allocate ( boundaries(bID) % elements    (boundaries(bID) % no_of_faces) )
+               allocate ( boundaries(bID) % elementSides(boundaries(bID) % no_of_faces) )
+               
+               read(fd,*) boundaries(bID) % elements
+               read(fd,*) boundaries(bID) % elementSides
+            end do
+            
+         close(fd)
+         
+      end subroutine readBoundaryFile
 end module Storage

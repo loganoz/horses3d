@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Tue Nov  6 17:16:19 2018
+!   @Last revision date: Wed Nov  7 13:19:13 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: a871872914b3537dc1df7acf4c227057d3f5d5d0
+!   @Last revision commit: 6f065eb346a958a99034c17a2ae5d4e3c333c4b1
 !
 !//////////////////////////////////////////////////////
 !
@@ -90,6 +90,7 @@ MODULE HexMeshClass
             procedure :: PrepareForIO                  => HexMesh_PrepareForIO
             procedure :: Export                        => HexMesh_Export
             procedure :: ExportOrders                  => HexMesh_ExportOrders
+            procedure :: ExportBoundaryMesh            => HexMesh_ExportBoundaryMesh
             procedure :: SaveSolution                  => HexMesh_SaveSolution
             procedure :: pAdapt                        => HexMesh_pAdapt
 #if defined(NAVIERSTOKES)
@@ -2369,6 +2370,55 @@ slavecoord:             DO l = 1, 4
          call SealSolutionFile(trim(meshName))
          
       end subroutine HexMesh_Export
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine HexMesh_ExportBoundaryMesh(self,fileName)
+         implicit none
+         !-arguments--------------------------------
+         class(HexMesh),   intent(in)     :: self
+         character(len=*), intent(in)     :: fileName          !<  Name of file containing polynomial orders to initialize
+         !-local-variables--------------------------
+         integer                          :: fd       ! File unit
+         integer                          :: zoneID, zfID, fID
+         character(len=LINE_LENGTH)       :: bMeshName
+         !------------------------------------------
+         
+         
+!
+!        Create file: it will be contained in ./MESH
+!        -------------------------------------------
+         bMeshName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".bmesh"
+         
+         open( newunit = fd , file = trim(bMeshName), action = 'write')
+         
+!
+!        Write file
+!        ----------
+         write(fd,*) size (self % zones)
+         
+         do zoneID = 1, size (self % zones)
+            
+            write (fd,*) self % zones(zoneID) % Name
+            write (fd,*) self % zones(zoneID) % no_of_faces
+            
+            do zfID=1, self % zones(zoneID) % no_of_faces
+               fID = self % zones(zoneID) % faces(zFID)
+               write(fd,'(I8)',advance='no') self % faces(fID) % elementIDs(1)
+            end do
+            write(fd,*)
+            
+            do zfID=1, self % zones(zoneID) % no_of_faces
+               fID = self % zones(zoneID) % faces(zFID)
+               write(fd,'(I8)',advance='no') self % faces(fID) % elementSide(1)
+            end do
+            write(fd,*)
+            
+         end do
+         
+         close (fd)
+      end subroutine HexMesh_ExportBoundaryMesh
+      
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
