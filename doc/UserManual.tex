@@ -370,9 +370,29 @@ padapted $\ll \textit{keyword} \gg$ &
 \section{Statistics Monitor}
 \begin{lstlisting}
 #define statistics
-   sample interval = 10
+   initial time      = 1.d0
+   initial iteration = 10
+   sampling interval = 10
+   dump interval     = 20
+   @start
 #end
 \end{lstlisting}
+
+By default, the statistic monitor will average following variables:
+
+\begin{multicols}{3}
+\begin{itemize}
+\item u
+\item v
+\item w
+\item uu 
+\item vv 
+\item ww 
+\item uv 
+\item uw 
+\item vw 
+\end{itemize}
+\end{multicols}
 
 A keyword preceded by @ is used in real-time to signalize the solver what it must do with the statistics computation:
 
@@ -387,6 +407,10 @@ A keyword preceded by @ is used in real-time to signalize the solver what it mus
 \end{multicols}
 
 After reading the keyword, the solver performs the desired action and marks it with a star, e.g. @start*.
+
+\textbf{ATTENTION:} Real-time keywords may not work in parallel MPI computations. I depends on how the 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Probes}
 
@@ -434,8 +458,66 @@ position 	&
 							\textbf{Mandatory Keyword} \\ \hline
 \end{longtable}
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Surface Monitors}
+
+
+\begin{lstlisting}
+#define surface monitor 1
+   name              = SomeName
+   marker            = NameOfBoundary
+   variable          = SomeVariable
+   reference surface = 1.d0
+   direction         = [1.d0, 0.d0, 0.d0]
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for probes.} \label{tab:SurfaceMonitorKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the p-adaptation algorithms - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+name 	& 
+			\textit{CHARACTER}: Name of the monitor. & 
+							\textbf{Mandatory Keyword} \\ \hline
+							
+marker & 
+			\textit{CHARACTER}: Name of the boundary where a variable will be monitored. & 
+							\textbf{Mandatory Keyword} \\ \hline
+
+variable 	& 
+			\textit{CHARACTER}: Variable to be monitored. Implemented options are:\
+\begin{multicols}{2}
+\begin{itemize}
+\item mass-flow
+\item flow
+\item pressure-force
+\item viscous-force
+\item force
+\item lift
+\item drag
+\item pressure-average
+\end{itemize}			
+\end{multicols}	
+			 & 
+							\textbf{Mandatory Keyword} \\ \hline
+
+reference surface 	& 
+			\textit{REAL}: Reference surface [area] for the monitor. Needed for "lift" and "drag" computations. & 
+							-- \\ \hline
+
+direction 	& 
+			\textit{REAL(3)}: Direction in which the force is going to be measured. Needed for "pressure-force", "viscous-force" and "force". Can be specified for "lift" (default [0.d0,1.d0,0.d0]) and "drag" (default [1.d0,0.d0,0.d0])   & 
+							-- \\ \hline
+\end{longtable}
+
 
 \section{Volume Monitors}
 Volume monitors compute the average of a quantity in the whole domain. They can be scalars(s) or vectors(v). 
@@ -524,7 +606,7 @@ To run a simulation using user-defined operations, create a folder called SETUP 
 \begin{lstlisting}[language=bash]
 	$ make <<Options>>
 \end{lstlisting}
-where again the options are:
+where again the options are (bold are default):
 \begin{itemize}
 \item MODE=DEBUG/\textbf{RELEASE}
 \item COMPILER=ifort/\textbf{gfortran}
@@ -550,7 +632,7 @@ HORSES3D provides a script for converting the native binary solution files (*.hs
 The options comprise following flags:
 
 \begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
-\caption{Keywords for volume monitors.} \label{tab:VolMonitorsKey} \\
+\caption{Keywords for volume monitors.} \label{tab:Postprocessing} \\
 \hline
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endfirsthead

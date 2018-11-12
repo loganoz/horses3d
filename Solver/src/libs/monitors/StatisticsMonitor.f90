@@ -43,6 +43,7 @@ module StatisticsMonitor
    type StatisticsMonitor_t
       integer        :: state
       integer        :: sampling_interval
+      integer        :: dump_interval
       integer        :: starting_iteration
       real(kind=RP)  :: starting_time
       integer        :: no_of_samples
@@ -67,7 +68,7 @@ module StatisticsMonitor
          implicit none
          class(StatisticsMonitor_t)    :: self
          class(HexMesh)                :: mesh
-         integer, allocatable          :: Nsample, i0
+         integer, allocatable          :: Nsample, i0, Ndump
          real(kind=RP), allocatable    :: t0
          integer                       :: eID
          character(len=LINE_LENGTH)    :: paramFile
@@ -90,6 +91,7 @@ module StatisticsMonitor
          call readValueInRegion ( trim ( paramFile ) , "sampling interval"  , Nsample , "#define statistics" , "#end" )
          call readValueInRegion ( trim ( paramFile ) , "starting iteration" , i0      , "#define statistics" , "#end" )
          call readValueInRegion ( trim ( paramFile ) , "starting time"      , t0      , "#define statistics" , "#end" )
+         call readValueInRegion ( trim ( paramFile ) , "dump interval"      , Ndump   , "#define statistics" , "#end" )
 !
 !        Check the input data
 !        --------------------
@@ -108,6 +110,12 @@ module StatisticsMonitor
             self % sampling_interval = Nsample     !  Set 1 by default
          else                                      !
             self % sampling_interval = 1           ! 
+         end if     
+         
+         if ( allocated(Ndump) ) then              !
+            self % dump_interval = Ndump           !  Set huge by default
+         else                                      !
+            self % dump_interval = huge(1)         ! 
          end if                                    !
 !
 !        Initial state: waiting
@@ -155,6 +163,7 @@ module StatisticsMonitor
          character(len=LINE_LENGTH)    :: fileName
    
          if ( self % state .eq. OFF ) return
+         if ( mod(iter, self % sampling_interval) .ne. 0) return
 !
 !        Read the parameter file to check the state
 !        ------------------------------------------
@@ -162,7 +171,7 @@ module StatisticsMonitor
 !
 !        Dump the contents if requested
 !        ------------------------------
-         if ( dump ) then
+         if ( dump .or. ( (mod(iter, self % dump_interval) == 0) .and. (iter > self % starting_iteration) ) ) then
             write(fileName,'(A,A,I10.10,A)') trim(solution_file),'.stats.',iter,'.hsol'
             call mesh % SaveStatistics(iter, t, trim(fileName))
             write(STD_OUT,'(A,A,A)') '   *** Saving statistics file as "',trim(fileName),'".'
