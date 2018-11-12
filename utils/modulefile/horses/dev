@@ -7,7 +7,7 @@ proc ModulesHelp { } {
 
 module-whatis " HORSES - A High-Order spectral element solver"
 
-set     topdir /home/andresrueda/ownCloud/PhD/03_Initial_Codes/3D/HORSES/development/Solver
+set     topdir @HORSES_HOME_DIR
 
 setenv HORSES_DIR $topdir
 
