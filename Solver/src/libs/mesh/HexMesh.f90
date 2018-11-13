@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Wed Nov  7 13:19:13 2018
+!   @Last revision date: Tue Nov 13 15:46:56 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6f065eb346a958a99034c17a2ae5d4e3c333c4b1
+!   @Last revision commit: 73860f573081eb718da3087b76cc89075b26bad4
 !
 !//////////////////////////////////////////////////////
 !
@@ -2698,6 +2698,7 @@ slavecoord:             DO l = 1, 4
 
             auxMesh % nodeType = self % nodeType
             auxMesh % no_of_elements = self % no_of_elements
+            auxMesh % no_of_allElements = self % no_of_allElements
             allocate ( auxMesh % elements (self % no_of_elements) )
             allocate ( auxMesh % Nx (self % no_of_elements) )
             allocate ( auxMesh % Ny (self % no_of_elements) )
@@ -2717,7 +2718,7 @@ slavecoord:             DO l = 1, 4
             end do
             
             call auxMesh % PrepareForIO
-            call auxMesh % AllocateStorage (NDOF, controlVariables,computeGradients,.FALSE.)
+            call auxMesh % AllocateStorage (NDOF, controlVariables,computeGradients,.FALSE.,.FALSE.)
             call auxMesh % storage % pointStorage
             do eID = 1, auxMesh % no_of_elements
                auxMesh % elements(eID) % storage => auxMesh % storage % elements(eID)
@@ -3292,7 +3293,7 @@ slavecoord:             DO l = 1, 4
 !
 !///////////////////////////////////////////////////////////////////////
 !
-   subroutine HexMesh_AllocateStorage(self,NDOF,controlVariables,computeGradients,Face_pointers)
+   subroutine HexMesh_AllocateStorage(self,NDOF,controlVariables,computeGradients,Face_pointers,Face_Storage)
       implicit none
       !-----------------------------------------------------------
       class(HexMesh), target                 :: self
@@ -3300,9 +3301,10 @@ slavecoord:             DO l = 1, 4
       class(FTValueDictionary), intent(in)   :: controlVariables
       logical                 , intent(in)   :: computeGradients
       logical, optional       , intent(in)   :: Face_pointers
+      logical, optional       , intent(in)   :: Face_Storage
       !-----------------------------------------------------------
       integer :: bdf_order, eID, fID
-      logical :: Face_pt
+      logical :: Face_pt, Face_St
       character(len=LINE_LENGTH) :: time_int
       !-----------------------------------------------------------
       
@@ -3310,6 +3312,11 @@ slavecoord:             DO l = 1, 4
          Face_pt = Face_pointers
       else
          Face_pt = .TRUE.
+      end if
+      if ( present(Face_Storage) ) then
+         Face_St = Face_Storage
+      else
+         Face_St = .TRUE.
       end if
       
       time_int = controlVariables % stringValueForKey("time integration",LINE_LENGTH)
@@ -3331,12 +3338,14 @@ slavecoord:             DO l = 1, 4
 
 !     Construct faces' storage
 !     ------------------------
-      do fID = 1, size(self % faces)
-         associate ( f => self % faces(fID) )
-         call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients)
-         call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients)
-         end associate
-      end do
+      if (Face_St) then
+         do fID = 1, size(self % faces)
+            associate ( f => self % faces(fID) )
+            call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients)
+            call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients)
+            end associate
+         end do
+      end if
       
 !     Point element storage
 !     ---------------------
