@@ -160,35 +160,35 @@ HORSES_LIBS_iNSCH=-ltimeintegrator_insch -ljacobian_insch -ldiscretization_insch
 all: $(TARGET_NS) $(TARGET_iNS) $(TARGET_CH) $(TARGET_NSCH) $(TARGET_iNSCH)
 
 $(TARGET_NS): FORCE ./ProblemFile_NS.o
-	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_NS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns ./ProblemFile_NS.o -L$(HOME_DIR)/lib $(HORSES_LIBS_NS)
+	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_NS) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns ./ProblemFile_NS.o -L$(HOME_DIR)/lib $(HORSES_LIBS_NS)
 
 $(TARGET_iNS): FORCE ./ProblemFile_iNS.o
-	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_iNS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ins ./ProblemFile_iNS.o -L$(HOME_DIR)/lib $(HORSES_LIBS_iNS)
+	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_iNS) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ins ./ProblemFile_iNS.o -L$(HOME_DIR)/lib $(HORSES_LIBS_iNS)
 
 $(TARGET_CH): FORCE ./ProblemFile_CH.o
-	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_CH) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ch ./ProblemFile_CH.o -L$(HOME_DIR)/lib $(HORSES_LIBS_CH)
+	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_CH) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ch ./ProblemFile_CH.o -L$(HOME_DIR)/lib $(HORSES_LIBS_CH)
 	
 $(TARGET_NSCH): FORCE ./ProblemFile_NSCH.o
-	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_NSCH) $(FFLAGS) $(INCLUDE) $(INCLUDE)_nsch ./ProblemFile_NSCH.o -L$(HOME_DIR)/lib $(HORSES_LIBS_NSCH)
+	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_NSCH) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_nsch ./ProblemFile_NSCH.o -L$(HOME_DIR)/lib $(HORSES_LIBS_NSCH)
 	
 $(TARGET_iNSCH): FORCE ./ProblemFile_iNSCH.o
-	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_iNSCH) $(FFLAGS) $(INCLUDE) $(INCLUDE)_insch ./ProblemFile_iNSCH.o -L$(HOME_DIR)/lib $(HORSES_LIBS_iNSCH)
+	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_iNSCH) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_insch ./ProblemFile_iNSCH.o -L$(HOME_DIR)/lib $(HORSES_LIBS_iNSCH)
 	
 # ---------- Executable macro -------------------
 ./ProblemFile_NS.o: FORCE ./ProblemFile.f90
-	$(FC) -fPIC -shared -DNAVIERSTOKES $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns -c ./ProblemFile.f90 -o $@
+	$(FC) -fPIC -shared -DNAVIERSTOKES $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns -c ./ProblemFile.f90 -o $@
 
 ./ProblemFile_iNS.o: FORCE ./ProblemFile.f90
-	$(FC) -fPIC -shared -DINCNS $(FFLAGS) $(INCLUDE) $(INCLUDE)_ins -c ./ProblemFile.f90 -o $@
+	$(FC) -fPIC -shared -DINCNS $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ins -c ./ProblemFile.f90 -o $@
 
 ./ProblemFile_CH.o: FORCE ./ProblemFile.f90
-	$(FC) -fPIC -shared -DCAHNHILLIARD $(FFLAGS) $(INCLUDE) $(INCLUDE)_ch -c ./ProblemFile.f90 -o $@
+	$(FC) -fPIC -shared -DCAHNHILLIARD $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ch -c ./ProblemFile.f90 -o $@
 
 ./ProblemFile_NSCH.o: FORCE ./ProblemFile.f90
-	$(FC) -fPIC -shared -DNAVIERSTOKES -DCAHNHILLIARD $(FFLAGS) $(INCLUDE) $(INCLUDE)_nsch -c ./ProblemFile.f90 -o $@
+	$(FC) -fPIC -shared -DNAVIERSTOKES -DCAHNHILLIARD $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_nsch -c ./ProblemFile.f90 -o $@
 
 ./ProblemFile_iNSCH.o: FORCE ./ProblemFile.f90
-	$(FC) -fPIC -shared -DINCNS -DCAHNHILLIARD $(FFLAGS) $(INCLUDE) $(INCLUDE)_insch -c ./ProblemFile.f90 -o $@
+	$(FC) -fPIC -shared -DINCNS -DCAHNHILLIARD $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_insch -c ./ProblemFile.f90 -o $@
 
 clean: FORCE
 	rm -f ./ProblemFile_NS.o ./ProblemFile_iNS.o ./ProblemFile_CH.o ./ProblemFile_NSCH.o ./ProblemFile_iNSCH.o ./*.mod
