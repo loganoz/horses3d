@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Tue Nov 13 15:46:56 2018
+!   @Last revision date: Fri Nov 16 12:45:50 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 73860f573081eb718da3087b76cc89075b26bad4
+!   @Last revision commit: 1b6e10d231991734c896bdc50054b7810885989b
 !
 !//////////////////////////////////////////////////////
 !
@@ -608,8 +608,8 @@ slavecoord:             DO l = 1, 4
 !           If the code arrives here, the periodic+ face was not able to find a partner
 !           ---------------------------------------------------------------------------
             print*, "When constructing periodic boundary conditions,"
-            write(STD_OUT,'(A,I0,A,I0,A)') "Face ",i," in zone ",zIDPlus, &
-                  " was not able to find a partner."
+            write(STD_OUT,'(A,I0,A,I0,A,I0)') "Face ",i," in zone ",zIDPlus, &
+                  " was not able to find a partner. Element: ", self % faces(i) % elementIDs(1)
             errorMessage(STD_OUT)
             stop
 
@@ -1381,11 +1381,18 @@ slavecoord:             DO l = 1, 4
             do nID = 1, NODES_PER_FACE
                xNodesF1(:,nID) = self % nodes(face1Nodes(nID)) % x
                xNodesF2(:,nID) = self % nodes(face2Nodes(nID)) % x
+               
             end do
 !
 !           Compute the delta x vectors
 !           ---------------------------
             dx = xNodesF2 - xNodesF1
+!
+!           Normalize!
+!           ----------
+            do nID = 1, NODES_PER_FACE
+               dx(:,nID) = dx(:,nID) / norm2( dx(:,nID) )
+            end do
 !
 !           Check how many delta x vectors are parallel to the the x, y or z axis
 !           ---------------------------------------------------------------
@@ -1429,6 +1436,12 @@ slavecoord:             DO l = 1, 4
 !           Compute the delta x vectors
 !           ---------------------------
             dx = xNodesF2 - xNodesF1
+!
+!           Normalize!
+!           ----------
+            do nID = 1, NODES_PER_FACE
+               dx(:,nID) = dx(:,nID) / norm2( dx(:,nID) )
+            end do
 !
 !           Check how many delta x vectors are parallel to the 2D direction
 !           ---------------------------------------------------------------
@@ -1475,6 +1488,12 @@ slavecoord:             DO l = 1, 4
 !           Compute the delta x vectors
 !           ---------------------------
             dx = xNodesF2 - xNodesF1
+!
+!           Normalize!
+!           ----------
+            do nID = 1, NODES_PER_FACE
+               dx(:,nID) = dx(:,nID) / norm2( dx(:,nID) )
+            end do
 !
 !           Check how many delta x vectors are parallel to the 2D direction
 !           ---------------------------------------------------------------
