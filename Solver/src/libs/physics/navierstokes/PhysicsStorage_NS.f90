@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date: Fri Aug 17 10:25:41 2018
+!   @Last revision date: Fri Nov 16 12:45:52 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0760ac964cfb71dec1e13da0780b72ca9d38e064
+!   @Last revision commit: 1b6e10d231991734c896bdc50054b7810885989b
 !
 !//////////////////////////////////////////////////////
 !
@@ -594,7 +594,7 @@
          call SubSection_Header("Dimensionless quantities")
          write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Mach number: " , dimensionless % Mach
          if ( flowIsNavierStokes ) then
-            write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Reynolds number: " , dimensionless % Re
+            write(STD_OUT,'(30X,A,A20,ES10.3)') "->" , "Reynolds number: " , dimensionless % Re
             write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Prandtl number: " , dimensionless % Pr
          end if
 
