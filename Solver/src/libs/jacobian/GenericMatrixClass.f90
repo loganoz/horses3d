@@ -24,6 +24,8 @@ module GenericMatrixClass
          procedure :: PreAssembly
          procedure :: Assembly
          procedure :: destruct
+         procedure :: SolveBlocks_LU
+         procedure :: FactorizeBlocks_LU
    end type Matrix_t
 contains
 !
@@ -230,5 +232,35 @@ contains
       !---------------------------------------------
       ERROR stop ' :: destruct not implemented for current matrix type'
    end subroutine destruct
-   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------------
+!  Only for block-diaginal matrices: Factorizes the blocks of the matrix as A=LU
+!  -----------------------------------------------------------------------------
+   subroutine FactorizeBlocks_LU(this,Factorized)
+      implicit none
+      !-------------------------------------------------------------
+      class(Matrix_t), intent(in)    :: this            !<  This matrix
+      class(Matrix_t), intent(inout) :: Factorized      !<  Facorized matrix
+      !-------------------------------------------------------------
+      integer :: k      ! Counter
+      !-------------------------------------------------------------
+      ERROR stop ' :: FactorizeBlocks_LU not implemented for current matrix type'
+   end subroutine FactorizeBlocks_LU
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------------------------------------------------------------------
+!  Only for block-diaginal matrices: Solves linear systems with the factorized blocks
+!  ----------------------------------------------------------------------------------
+   subroutine SolveBlocks_LU(this,x,b)
+      implicit none
+      !-------------------------------------------------------------
+      class(Matrix_t), intent(in)    :: this                 !<  FACTORIZED matrix for solving the problem
+      real(kind=RP)  , intent(in)    :: b(this % NumRows)    !<  RHS
+      real(kind=RP)  , intent(inout) :: x(this % NumRows)    !<  Solution
+      !-------------------------------------------------------------
+      ERROR stop ' :: SolveBlocks_LU not implemented for current matrix type'
+   end subroutine SolveBlocks_LU
 end module GenericMatrixClass

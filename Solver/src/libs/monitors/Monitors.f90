@@ -101,11 +101,9 @@ module MonitorsClass
 !
 !        Setup the buffer
 !        ----------------
-!         if (controlVariables % containsKey("monitors flush interval") ) then
-!            BUFFER_SIZE = controlVariables % integerValueForKey("monitors flush interval")
-!         else
-!            BUFFER_SIZE = BUFFER_SIZE_DEFAULT
-!         end if
+         if (controlVariables % containsKey("monitors flush interval") ) then
+            BUFFER_SIZE = controlVariables % integerValueForKey("monitors flush interval")
+         end if
          
          allocate ( Monitors % TotalSimuTime(BUFFER_SIZE), &
                     Monitors % SolverSimuTime(BUFFER_SIZE), &

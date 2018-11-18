@@ -302,19 +302,24 @@ contains
       implicit none
       !-------------------------------------------------------------
       class(DenseBlockDiagMatrix_t), intent(in)    :: this            !<  This matrix
-      class(DenseBlockDiagMatrix_t), intent(inout) :: Factorized      !<  Facorized matrix
+      class(Matrix_t), intent(inout) :: Factorized      !<  Facorized matrix
       !-------------------------------------------------------------
       integer :: k      ! Counter
       !-------------------------------------------------------------
       
+      select type (Factorized)
+         class is(DenseBlockDiagMatrix_t)
 !$omp parallel do schedule(runtime)
-      do k=1, this % NumOfBlocks
-         call ComputeLU (A        = this       % Blocks(k) % Matrix, &
-                         ALU      = Factorized % Blocks(k) % Matrix, &
-                         LUpivots = Factorized % Blocks(k) % Indexes)
-      end do
+            do k=1, this % NumOfBlocks
+               call ComputeLU (A        = this       % Blocks(k) % Matrix, &
+                               ALU      = Factorized % Blocks(k) % Matrix, &
+                               LUpivots = Factorized % Blocks(k) % Indexes)
+            end do
 !$omp end parallel do
-      
+         class default
+            write(STD_OUT,*) 'DenseBlockDiagonalMatrixClass :: Wrong type For factorized matrix in FactorizeBlocks_LU'
+            stop
+      end select
    end subroutine FactorizeBlocks_LU
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
