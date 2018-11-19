@@ -226,6 +226,7 @@ contains
          
          allocate(this % RHS (DimPrb))
          allocate(this % x0  (DimPrb))
+         allocate(this % x   (DimPrb))
          allocate(this % F_Ur(DimPrb))
          allocate(this % Ur  (DimPrb))
          this%x0 = 0.0_RP

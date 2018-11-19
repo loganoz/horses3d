@@ -171,7 +171,7 @@ contains
       implicit none
       !----------------------------------------------------------------------
       class(BDFIntegrator_t), intent(inout) :: this
-      TYPE(DGSem),                  INTENT(INOUT)           :: sem                  !<>DGSem class with solution storage 
+      TYPE(DGSem),                  INTENT(inout)           :: sem                  !<>DGSem class with solution storage 
       REAL(KIND=RP),                INTENT(IN)              :: t                    !< Time at the beginning of time step
       REAL(KIND=RP),                INTENT(IN)              :: dt                   !< Initial (outer) time step (the subroutine can use a smaller one depending on convergence)
       procedure(ComputeTimeDerivative_f)                            :: ComputeTimeDerivative
@@ -319,34 +319,34 @@ contains
 !  -> This can be taken out of the BDFTimeIntegrator if needed
 !        (but careful with Adaptive_dt and the Newton vars)
 !  -------------------------------------------------------------
-   SUBROUTINE NewtonSolve(sem, t, dt, linsolver, NEWTON_TOLERANCE, JacByConv,ConvRate, niter,CONVERGED, ComputeTimeDerivative)
+   subroutine NewtonSolve(sem, t, dt, linsolver, NEWTON_TOLERANCE, JacByConv,ConvRate, niter,CONVERGED, ComputeTimeDerivative)
       implicit none
       !----------------------------------------------------------------------
-      TYPE(DGSem),                  INTENT(INOUT)           :: sem
-      REAL(KIND=RP),                INTENT(IN)              :: t
-      REAL(KIND=RP),                INTENT(IN)              :: dt              !< Inner dt
-      CLASS(GenericLinSolver_t),    INTENT(INOUT)           :: linsolver       !Linear operator is calculate outside this subroutine
-      REAL(KIND=RP),                INTENT(IN)              :: NEWTON_TOLERANCE
-      LOGICAL,                      INTENT(IN)              :: JacByConv         !< Must the Jacobian be computed for bad convergence? if .false., the Jacobian is computed at the beginning of every newton it
-      REAL(KIND=RP),                INTENT(OUT)             :: ConvRate
-      INTEGER,                      INTENT(OUT)             :: niter
-      LOGICAL,                      INTENT(OUT)             :: CONVERGED   
-      procedure(ComputeTimeDerivative_f)                            :: ComputeTimeDerivative
+      type(DGSem),                  intent(inout)           :: sem
+      real(kind=RP),                intent(in)              :: t
+      real(kind=RP),                intent(in)              :: dt              !< Inner dt
+      class(GenericLinSolver_t),    intent(inout)           :: linsolver       !Linear operator is calculate outside this subroutine
+      real(kind=RP),                intent(in)              :: NEWTON_TOLERANCE
+      logical,                      intent(in)              :: JacByConv         !< Must the Jacobian be computed for bad convergence? if .false., the Jacobian is computed at the beginning of every newton it
+      real(kind=RP),                intent(out)             :: ConvRate
+      integer,                      intent(out)             :: niter
+      logical,                      intent(out)             :: CONVERGED   
+      procedure(ComputeTimeDerivative_f)                    :: ComputeTimeDerivative
       !----------------------------------------------------------------------
-      INTEGER(8)                                               :: cli, clf, clrate           
-      INTEGER                                               :: newtonit
-      REAL(KIND=RP)                                         :: norm, norm_old, rel_tol, norm1
-      LOGICAL, SAVE :: isfirst = .TRUE.
-      real(kind=RP) :: linsolver_tol
+      integer(8)           :: cli, clf, clrate           
+      integer              :: newtonit
+      real(kind=RP)        :: norm, norm_old, rel_tol
+      real(kind=RP)        :: linsolver_tol
+      logical      , save  :: isfirst = .TRUE.
+      real(kind=RP), save  :: norm1
       !----------------------------------------------------------------------
-      SAVE norm1
       
 !
 !     Initializations
 !     ---------------
       
       IF (isfirst) THEN
-         norm = 1.0_RP
+         norm = 2.e-1_RP   ! A value to define the initial linsolver_tol
          isfirst = .FALSE.
       ELSE
          norm = norm1
@@ -359,15 +359,13 @@ contains
       END IF
       
       CALL SYSTEM_CLOCK(COUNT_RATE=clrate)
-      
-      DO newtonit = 1, MAX_NEWTON_ITER                                 !NEWTON LOOP
+!
+!     Newton loop
+!     -----------
+      DO newtonit = 1, MAX_NEWTON_ITER
          if (.not. JacByConv) computeA = .TRUE.
          
-         if (newtonit == 1) then
-            linsolver_tol = norm*1.e-3_RP    ! Maybe not the best approach in the first iteration...
-         else
-            linsolver_tol = norm*1.e-3_RP
-         end if
+         linsolver_tol = norm / ( 2._RP**(newtonit) )                      ! Nastase approach ("High-order discontinuous Galerkin methods using an hp-multigrid approach")
          
          CALL ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
          
@@ -393,8 +391,8 @@ contains
             rel_tol = norm1 * NEWTON_TOLERANCE
          ENDIF
          IF (PRINT_NEWTON_INFO) THEN
-            WRITE(*, "(I9,1X,E18.3,1X,E18.3,1X,E15.3,1X,I12,1X,F18.5)")newtonit, norm, norm/norm1, linsolver%Getrnorm(),&
-                                                      linsolver%niter,0.1_RP*(clf-cli)/real(clrate,RP)  !!!! I have NO IDEA why I have to multiply by 0.1!!!
+            WRITE(*, "(I9,1X,ES18.3,1X,ES18.3,1X,ES15.3,1X,I12,1X,F18.5)")newtonit, norm, norm/norm1, linsolver%Getrnorm(),&
+                                                      linsolver%niter, (clf-cli)/real(clrate,RP)
          ENDIF
          
          IF (ConvRate < NEWTON_MIN_CONVRATE .OR. newtonit == MAX_NEWTON_ITER .OR. ISNAN(norm)) THEN
@@ -417,10 +415,10 @@ contains
    SUBROUTINE ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )
       implicit none
       !----------------------------------------------------------------
-      TYPE(DGSem),                INTENT(inout)    :: sem
-      REAL(KIND=RP),              INTENT(IN)       :: t
-      REAL(KIND=RP),              INTENT(IN)       :: dt
-      CLASS(GenericLinSolver_t),  INTENT (INOUT)   :: linsolver
+      TYPE(DGSem),                intent(inout)    :: sem
+      REAL(KIND=RP),              intent(IN)       :: t
+      REAL(KIND=RP),              intent(IN)       :: dt
+      CLASS(GenericLinSolver_t),  intent (inout)   :: linsolver
       procedure(ComputeTimeDerivative_f)                   :: ComputeTimeDerivative
       !----------------------------------------------------------------
       INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, elmnt, counter   
@@ -445,8 +443,8 @@ contains
 !  
    SUBROUTINE UpdateNewtonSol(sem, linsolver)
 
-      TYPE(DGSem),                     INTENT(INOUT)    :: sem
-      CLASS(GenericLinSolver_t),       INTENT(INOUT)    :: linsolver
+      TYPE(DGSem),                     intent(inout)    :: sem
+      CLASS(GenericLinSolver_t),       intent(inout)    :: linsolver
       
       sem % mesh % storage % Q = sem % mesh % storage % Q  + linsolver % GetX()
       
