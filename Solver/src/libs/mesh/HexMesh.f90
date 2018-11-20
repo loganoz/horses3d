@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Fri Nov 16 12:45:50 2018
+!   @Last revision date: Tue Nov 20 14:39:25 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 1b6e10d231991734c896bdc50054b7810885989b
+!   @Last revision commit: f616e8b8c0ed8066788e7578a5d1b6b3cb325651
 !
 !//////////////////////////////////////////////////////
 !
@@ -3376,19 +3376,19 @@ slavecoord:             DO l = 1, 4
 !        --------------------
 #if defined(NAVIERSTOKES)
          if (Face_pt) then
-            e % Storage % dfdq_fr(1:,1:,0:,0:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFStar_dqEl(:,:,:,:,e %faceSide(EFRONT ))
-            e % Storage % dfdq_ba(1:,1:,0:,0:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFStar_dqEl(:,:,:,:,e %faceSide(EBACK  ))
-            e % Storage % dfdq_bo(1:,1:,0:,0:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFStar_dqEl(:,:,:,:,e %faceSide(EBOTTOM))
-            e % Storage % dfdq_to(1:,1:,0:,0:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFStar_dqEl(:,:,:,:,e %faceSide(ETOP   ))
-            e % Storage % dfdq_ri(1:,1:,0:,0:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFStar_dqEl(:,:,:,:,e %faceSide(ERIGHT ))
-            e % Storage % dfdq_le(1:,1:,0:,0:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFStar_dqEl(:,:,:,:,e %faceSide(ELEFT  ))
+            e % Storage % dfdq_fr(1:,1:,0:,0:,1:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFStar_dqEl
+            e % Storage % dfdq_ba(1:,1:,0:,0:,1:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFStar_dqEl
+            e % Storage % dfdq_bo(1:,1:,0:,0:,1:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFStar_dqEl
+            e % Storage % dfdq_to(1:,1:,0:,0:,1:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFStar_dqEl
+            e % Storage % dfdq_ri(1:,1:,0:,0:,1:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFStar_dqEl
+            e % Storage % dfdq_le(1:,1:,0:,0:,1:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFStar_dqEl
             
-            e % Storage % dfdGradQ_fr(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFv_dGradQEl
-            e % Storage % dfdGradQ_ba(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFv_dGradQEl
-            e % Storage % dfdGradQ_bo(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFv_dGradQEl
-            e % Storage % dfdGradQ_to(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFv_dGradQEl
-            e % Storage % dfdGradQ_ri(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFv_dGradQEl
-            e % Storage % dfdGradQ_le(1:,1:,1:,1:,0:,0:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFv_dGradQEl
+            e % Storage % dfdGradQ_fr(1:,1:,1:,1:,0:,0:,1:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFv_dGradQEl
+            e % Storage % dfdGradQ_ba(1:,1:,1:,1:,0:,0:,1:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFv_dGradQEl
+            e % Storage % dfdGradQ_bo(1:,1:,1:,1:,0:,0:,1:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFv_dGradQEl
+            e % Storage % dfdGradQ_to(1:,1:,1:,1:,0:,0:,1:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFv_dGradQEl
+            e % Storage % dfdGradQ_ri(1:,1:,1:,1:,0:,0:,1:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFv_dGradQEl
+            e % Storage % dfdGradQ_le(1:,1:,1:,1:,0:,0:,1:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFv_dGradQEl
          end if
          
 #endif

@@ -10,10 +10,3 @@ WITH_MKL =n
 LIB_LAPACK = /opt/intel/mkl/lib/intel64/libmkl_lapack95_lp64.a
 LIB_BLAS = /opt/intel/mkl/lib/intel64/libmkl_blas95_lp64.a  -L/opt/intel/mkl/lib/intel64 -Wl,--no-as-needed -lmkl_gf_lp64 -lmkl_intel_thread -lmkl_core  -lpthread -lm -ldl -L/opt/intel/lib/intel64_lin/ -liomp5
 
-#HDF5 options (HDF5_EXE is necessary when HDF5 was compiled with mpi)
-WITH_HDF5=y
-HDF5_LIB = -L/home/andresrueda/Programs/hopr/share/GNU-MPI/HDF5/build/lib -lhdf5 -lhdf5_hl -lhdf5hl_fortran -lhdf5_fortran 
-HDF5_INC = -I/home/andresrueda/Programs/hopr/share/GNU-MPI/HDF5/build/include
-HDF5_EXE = mpif90
-ZLIB_LIB = -L/home/andresrueda/Programs/zlib-1.2.11 -lz
-ZLIB_INC = -I/home/andresrueda/Programs/zlib-1.2.11
