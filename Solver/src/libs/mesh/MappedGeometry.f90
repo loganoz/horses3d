@@ -657,7 +657,7 @@ Module MappedGeometryClass
    
       else
          do j = 0, Nelf(2) ; do i = 0, Nelf(1)
-            call iijjIndexes(i,j,Nelf(1), Nelf(2), rot, ii, jj)
+            call leftIndexes2Right(i,j,Nelf(1), Nelf(2), rot, ii, jj)
             dSRot(:,i,j) = dS(:,ii,jj)
             GradXiRot  (:,i,j) = GradXi  (:,ii,jj)
             GradEtaRot (:,i,j) = GradEta (:,ii,jj)

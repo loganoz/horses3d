@@ -21,7 +21,7 @@
       public   EFRONT, EBACK, EBOTTOM, ERIGHT, ETOP, ELEFT
       public   SPECMESH, HOPRMESH
    
-      public iijjIndexes, coordRotation
+      public indexesOnOtherFace, leftIndexes2Right, coordRotation
 
       integer, parameter :: EFRONT = 1, EBACK = 2, EBOTTOM = 3
       integer, parameter :: ERIGHT = 4, ETOP = 5, ELEFT = 6
@@ -40,51 +40,130 @@
       
       contains
 !
-!////////////////////////////////////////////////////////////////////////
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  ROUTINE useD TO COMPUTE FACE ROTATION INDEXES
-!     This routine takes indexes on the master Face of a mortar and
-!     output the corresponding indexes on the slave Face 
-!////////////////////////////////////////////////////////////////////////
+!  -------------------------------------------------------------------------
+!  indexesOnOtherFace: 
+!     This routine takes indexes on the a Face of a mortar and
+!     outputs the corresponding indexes on the other Face 
+!  -------------------------------------------------------------------------
+   subroutine indexesOnOtherFace(i,j,Nx,Ny,rotation,side,ii,jj)
+      implicit none
+      !-arguments---------------------------------------------
+      integer, intent(in)  :: i,j       !<  Input indexes
+      integer, intent(in)  :: Nx, Ny    !<  Polynomial orders
+      integer, intent(in)  :: rotation  !<  Face rotation
+      integer, intent(in)  :: side  !<  Face rotation
+      integer, intent(out) :: ii,jj     !>  Output indexes
+      !-------------------------------------------------------
+      
+      select case (side)
+         case (LEFT)
+            call leftIndexes2Right(i,j,Nx,Ny,rotation,ii,jj)
+         case (RIGHT)
+            call rightIndexes2Left(i,j,Nx,Ny,rotation,ii,jj)
+         case default 
+            print *, "indexesOnOtherFace ERROR: Unknown side of face"
+      end select
+      
+   end subroutine indexesOnOtherFace
 !
-   SUBROUTINE iijjIndexes(i,j,Nx,Ny,rotation,ii,jj)
-      IMPLICIT NONE
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -------------------------------------------------------------------------
+!  leftIndexes2Right: 
+!     This routine takes indexes on the left Face of a mortar and
+!     outputs the corresponding indexes on the right Face 
+!  -------------------------------------------------------------------------
+   subroutine leftIndexes2Right(i,j,Nx,Ny,rotation,ii,jj)
+      implicit none
+      !-arguments---------------------------------------------
+      integer, intent(in)  :: i,j       !<  Input indexes
+      integer, intent(in)  :: Nx, Ny    !<  Polynomial orders
+      integer, intent(in)  :: rotation  !<  Face rotation
+      integer, intent(out) :: ii,jj     !>  Output indexes
+      !-------------------------------------------------------
       
-      integer :: i,j       !<  Input indexes
-      integer :: Nx, Ny    !<  Polynomial orders
-      integer :: rotation  !<  Face rotation
-      integer :: ii,jj     !>  Output indexes
-      
-      SELECT CASE (rotation)
-         CASE (0)
+      select case (rotation)
+         case (0)
             ii = i
             jj = j
-         CASE (1)
+         case (1)
             ii = Ny - j
             jj = i
-         CASE (2)
+         case (2)
             ii = Nx - i
             jj = Ny - j
-         CASE (3)
+         case (3)
             ii = j
             jj = Nx - i
-         CASE (4)
+         case (4)
             ii = j
             jj = i
-         CASE (5)
+         case (5)
             ii = Nx - i
             jj = j
-         CASE (6)
+         case (6)
             ii = Ny - j
             jj = Nx - i
-         CASE (7)
+         case (7)
             ii = i
             jj = Ny - j
-         CASE DEFAULT 
-            PRINT *, "ERROR: Unknown rotation in element faces"
-      end SELECT
+         case default 
+            print *, "ERROR: Unknown rotation in element faces"
+      end select
       
-   end SUBROUTINE iijjIndexes
+   end subroutine leftIndexes2Right
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -------------------------------------------------------------------------
+!  rightIndexes2Left: 
+!     This routine takes indexes on the tight Face of a mortar and
+!     outputs the corresponding indexes on the left Face 
+!  -------------------------------------------------------------------------
+   subroutine rightIndexes2Left(i,j,Nx,Ny,rotation,ii,jj)
+      implicit none
+      !-arguments---------------------------------------------
+      integer, intent(in)  :: i,j       !<  Input indexes
+      integer, intent(in)  :: Nx, Ny    !<  Polynomial orders
+      integer, intent(in)  :: rotation  !<  Face rotation
+      integer, intent(out) :: ii,jj     !>  Output indexes
+      !-------------------------------------------------------
+      
+      select case (rotation)
+         case (0)
+            ii = i
+            jj = j
+         case (1)
+            jj = Nx - i
+            ii = j
+         case (2)
+            ii = Nx - i
+            jj = Ny - j
+         case (3)
+            jj = i
+            ii = Ny - j
+         case (4)
+            jj = i
+            ii = j
+         case (5)
+            ii = Nx - i
+            jj = j
+         case (6)
+            jj = Nx - i
+            ii = Ny - j
+         case (7)
+            ii = i
+            jj = Ny - j
+         case default 
+            print *, "ERROR: Unknown rotation in element faces"
+      end select
+      
+   end subroutine rightIndexes2Left
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 !
 !  --------------------------------------------------------------------------
 !  coordRotation: Takes the coordinates on the master face (left) and returns

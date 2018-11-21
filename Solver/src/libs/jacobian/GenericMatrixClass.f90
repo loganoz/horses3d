@@ -23,6 +23,7 @@ module GenericMatrixClass
          procedure :: ReShift
          procedure :: PreAssembly
          procedure :: Assembly
+         procedure :: SpecifyBlockInfo
          procedure :: destruct
          procedure :: SolveBlocks_LU
          procedure :: FactorizeBlocks_LU
@@ -213,15 +214,25 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Assembly(this,BlockIdx,BlockSize)
+   subroutine Assembly(this)
       implicit none
       !---------------------------------------------
-      class(Matrix_t),     intent(inout)   :: this
-      integer, target, optional    ,     intent(in)      :: BlockIdx(:)
-      integer, target, optional, intent(in)    :: BlockSize(:)
+      class(Matrix_t), intent(inout) :: this
       !---------------------------------------------
       ERROR stop ' :: Assembly not implemented for current matrix type'
    end subroutine Assembly
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SpecifyBlockInfo(this,BlockIdx,BlockSize)
+      implicit none
+      !-arguments-----------------------------------
+      class(Matrix_t), intent(inout) :: this
+      integer        , intent(in)    :: BlockIdx(:)
+      integer        , intent(in)    :: BlockSize(:)
+      !---------------------------------------------
+      ERROR stop ' :: SpecifyBlockInfo not implemented for current matrix type'
+   end subroutine SpecifyBlockInfo
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

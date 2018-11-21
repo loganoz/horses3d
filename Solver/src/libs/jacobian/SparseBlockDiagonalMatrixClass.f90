@@ -44,6 +44,7 @@ module SparseBlockDiagonalMatrixClass
          procedure :: AddToBlockEntry
          procedure :: shift
          procedure :: Assembly
+         procedure :: SpecifyBlockInfo
          procedure :: destruct
          procedure :: FactorizeBlocks_LU
          procedure :: SolveBlocks_LU
@@ -231,23 +232,34 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Assembly(this,BlockIdx,BlockSize)
+   subroutine Assembly(this)
       implicit none
       !---------------------------------------------
       class(SparseBlockDiagMatrix_t), intent(inout) :: this
-      integer, target, optional     , intent(in)    :: BlockIdx(:)
-      integer, target, optional     , intent(in)    :: BlockSize(:)
       !-local-variables-----------------------------
       integer :: iBL
       !---------------------------------------------
       
-      !$omp parallel do schedule(runtime)
+!$omp parallel do schedule(runtime)
       do iBL=1, this % NumOfBlocks
          call this % Blocks(iBL) % Matrix % Assembly
       end do
 !$omp end parallel do
       
    end subroutine Assembly
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SpecifyBlockInfo(this,BlockIdx,BlockSize)
+      implicit none
+      !-arguments-----------------------------------
+      class(SparseBlockDiagMatrix_t), intent(inout) :: this
+      integer                       , intent(in)    :: BlockIdx(:)
+      integer                       , intent(in)    :: BlockSize(:)
+      !---------------------------------------------
+      ! Do nothing
+      ! Currently not needed since this info is provided at construction time
+   end subroutine SpecifyBlockInfo
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

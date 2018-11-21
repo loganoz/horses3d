@@ -44,6 +44,7 @@ module LinkedListMatrixClass
       procedure :: construct
       procedure :: setEntry
       procedure :: Reset
+      procedure :: ResetEntry
       procedure :: AddToEntry
       procedure :: setColumn
       procedure :: destruct
@@ -101,6 +102,26 @@ contains
       end do
       
    end subroutine Reset
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine ResetEntry(this,iRow,iCol)
+      implicit none
+      !---------------------------------------------
+      class(LinkedListMatrix_t),     intent(inout)     :: this
+      integer, intent(in) :: iCol, iRow
+      !-local-variables------------------------------------------------
+      type(Entry_t), pointer :: CEntry, Prev
+      integer                :: i
+      !----------------------------------------------------------------
+      
+      CEntry => this % rows(iRow) % head
+      
+      do while( associated(CEntry) )
+         if (CEntry % col == iCol) CEntry % value = 0._RP
+         CEntry => CEntry % next
+      end do
+      
+   end subroutine ResetEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

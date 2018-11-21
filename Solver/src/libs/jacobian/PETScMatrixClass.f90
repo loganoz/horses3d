@@ -251,12 +251,10 @@ module PETScMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Assembly(this,BlockIdx,BlockSize)
+   SUBROUTINE Assembly(this)
       IMPLICIT NONE
       !---------------------------------------------
-      CLASS(PETSCMatrix_t),     INTENT(INOUT)   :: this
-      INTEGER, TARGET, OPTIONAL    ,     INTENT(IN)      :: BlockIdx(:)
-      INTEGER, TARGET, OPTIONAL, INTENT(IN)    :: BlockSize(:)
+      class(PETSCMatrix_t), intent(inout)   :: this
       !---------------------------------------------
 #ifdef HAS_PETSC
  

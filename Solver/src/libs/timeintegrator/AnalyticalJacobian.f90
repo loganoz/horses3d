@@ -4,15 +4,17 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Tue Nov 20 14:39:29 2018
+!   @Last revision date: Wed Nov 21 19:34:14 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f616e8b8c0ed8066788e7578a5d1b6b3cb325651
+!   @Last revision commit: 1c6c630e4fbb918c0c9a98d0bfd4d0b73101e65d
 !
 !//////////////////////////////////////////////////////
 !
 !  This module provides the routines for computing the analytical Jacobian matrix
 !  -> TODO: MPI implementation is missing
+!  -> TODO: Implement as class to prevent memory leaking and additional computations
 !  -> The Jacobian of the BCs is temporarily computed numerically
+!  -> Off-diagonal terms only for p-conforming representations and Euler equations
 !
 !//////////////////////////////////////////////////////
 #include "Includes.h"
@@ -23,17 +25,20 @@ module AnalyticalJacobian
    use NodalStorageClass
    use PhysicsStorage
    use Physics
-   use Jacobian, only: JACEPS
+   use Jacobian                        , only: JACEPS
    use MatrixClass
    use DGSEMClass
    use StopWatchClass
    use MeshTypes
    use EllipticDiscretizations
-   use BoundaryConditions, only: BCs
+   use ElementConnectivityDefinitions  , only: axisMap, normalAxis
+   use BoundaryConditions              , only: BCs
    implicit none
    
    private
    public AnalyticalJacobian_Compute
+   
+   integer, parameter :: other(2) = [2, 1]
    
    ! Variables to be moved to Jacobian Storage
    integer, allocatable :: ndofelm(:)
@@ -111,15 +116,18 @@ contains
 !        If matrix is CSR, standard preallocate with LinkedListMatrix
 !        ------------------------------------------------------------
          type is(csrMat_t)
-            call Matrix_p % Preallocate
+            call Matrix_p % Preallocate()
 !
 !        Otherwise, construct with nonzeros in each row
 !        ----------------------------------------------
          class default 
             nnz = MAXVAL(ndofelm) ! currently only for block diagonal
-            call Matrix % Preallocate(nnz)
+            call Matrix_p % Preallocate(nnz)
       end select
       call Matrix % Reset
+      
+      call Matrix % SpecifyBlockInfo(firstIdx,ndofelm)
+      
 !$omp parallel
 !
 !     **************************************************
@@ -145,7 +153,7 @@ contains
 !     Finish assembling matrix
 !     ------------------------
       
-      call Matrix % Assembly(firstIdx,ndofelm)
+      call Matrix % Assembly()
       
       call Stopwatch % Pause("Analytical Jacobian construction")
       
@@ -187,7 +195,6 @@ contains
 !$omp end do
 !
 !     Project flux Jacobian with respect to gradients to corresponding elements
-!     -> Here LEFT to LEFT and RIGHT to RIGHT are hardcoded
 !     -------------------------------------------------------------------------
       if (flowIsNavierStokes) then
 !$omp do schedule(runtime)
@@ -226,41 +233,65 @@ contains
       type(HexMesh), target    , intent(inout) :: mesh
       class(Matrix_t)          , intent(inout) :: Matrix
       !--------------------------------------------
-      integer :: eID, fID
+      integer :: eID, fID, elSide, side
+      type(Element), pointer :: e_plus
+      type(Element), pointer :: e_minus
+      type(Face)   , pointer :: f
       !--------------------------------------------
       
-      ERROR stop ':: Analytical Jacobian not implemented for off-diagonal blocks'
-      
-      
+!
+!     Project flux Jacobian to opposed elements (RIGHT to LEFT and LEFT to RIGHT)
+!     ---------------------------------------------------------------------------
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
          associate (f => mesh % faces(fID)) 
          if (f % faceType == HMESH_INTERIOR) then
-!
-!           Project flux Jacobian to opposed elements
-!           -----------------------------------------
             call f % ProjectFluxJacobianToElements(NCONS, LEFT ,RIGHT)   ! dF/dQR to the left element
             call f % ProjectFluxJacobianToElements(NCONS, RIGHT,LEFT )   ! dF/dQL to the right element 
-!
-!           Compute the two associated off-diagonal blocks
-!           ----------------------------------------------
-            
-            ! For the element on the left
-!~            f % storage(LEFT) % dFStar_dq(1:NCONS,1:NCONS,i,j,RIGHT)
-!~            eL % spAXXX % b(j1,XXX )
-!~            eR % spAYYY % v(j2,YYY ) * 
-            
-      !!!      dfdq(eq1,eq2,i1,k1) * e % spAeta % b(j1,FRONT ) * e % spAeta % v(j2,FRONT ) * di * dk   &
-            
-            
-            ! For the element on the right
-!~            f % storage(RIGHT) % dFStar_dq(1:NCONS,1:NCONS,i,j,LEFT)
-            
-            
          end if
          end associate
       end do
 !$omp end do
+
+!
+!     Project flux Jacobian with respect to gradients to opposed elements (RIGHT to LEFT and LEFT to RIGHT)
+!     -----------------------------------------------------------------------------------------------------
+      if (flowIsNavierStokes) then
+!$omp do schedule(runtime)
+         do fID = 1, size(mesh % faces)
+            associate (f => mesh % faces(fID)) 
+            if (f % faceType == HMESH_INTERIOR) then
+               call f % ProjectGradJacobianToElements(LEFT ,RIGHT)   ! dF/dGradQR to the left element
+               call f % ProjectGradJacobianToElements(RIGHT,LEFT )   ! dF/dGradQL to the right element 
+            end if
+            end associate
+         end do
+!$omp end do
+      end if
+      
+!
+!     Compute the off-diagonal blocks for each element's equations
+!     ------------------------------------------------------------
+!$omp do schedule(runtime) private(e_plus,elSide,fID,side,f,e_minus)
+      do eID = 1, mesh % no_of_elements
+         e_plus => mesh % elements(eID)
+!
+!        One block for every neighbor element
+!        ------------------------------------
+         do elSide = 1, 6
+            if (e_plus % NumberOfConnections(elSide) == 0) cycle
+            
+            fID  = e_plus % faceIDs(elSide)
+            side = e_plus % faceSide(elSide)
+            
+            f => mesh % faces(fID)
+            e_minus => mesh % elements(f % elementIDs( other(side) ))
+            
+            call Local_GetOffDiagonalBlock(f,e_plus,e_minus,side,Matrix)
+         end do
+      end do
+!$omp end do
+      nullify (f, e_plus, e_minus)
    end subroutine AnalyticalJacobian_OffDiagonalBlocks
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -471,9 +502,10 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  --------------------------------------------------
-!  Subroutine to set a diagonal block in the Jacobian
-!  --------------------------------------------------
+!  -----------------------------------------------------
+!  Local_SetDiagonalBlock:
+!     Subroutine to set a diagonal block in the Jacobian
+!  -----------------------------------------------------
    subroutine Local_SetDiagonalBlock(e,Matrix)
       use HyperbolicDiscretizations
       implicit none
@@ -490,7 +522,7 @@ contains
       integer :: nXi, nEta        ! Number of nodes in every direction
       integer :: EtaSpa, ZetaSpa  ! Spacing for these two coordinate directions
       real(kind=RP) :: di, dj, dk ! Kronecker deltas
-      integer :: Deltas           ! A variable to know if two deltas are zero, in which case this is a zero entry of the matrix..
+      integer :: Deltas           ! A variable to know if enough deltas are zero, in which case this is a zero entry of the matrix..
       real(kind=RP), dimension(:,:,:,:)    , pointer :: dfdq_fr, dfdq_ba, dfdq_bo, dfdq_to, dfdq_le, dfdq_ri
       real(kind=RP), dimension(:,:,:,:,:,:), pointer :: dfdGradQ_fr, dfdGradQ_ba, dfdGradQ_bo, dfdGradQ_to, dfdGradQ_ri, dfdGradQ_le
       !-------------------------------------------
@@ -718,80 +750,144 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -----------------------------------------------------------------------------------------------
-!  This will be only for conforming representations... Initially
+!  Local_GetOffDiagonalBlock:
+!     Routine to compute the off-diagonal block that results of connecting e_plus with e_minus for 
+!     the equations that correspond to e_plus and inserting it in the Matrix
+!
+!     -> Currently only for Euler... TODO: Add viscous terms
+!     -> Currently, this routine only works for p-conforming representations
+!           TODO: Add routine for p-nonconforming representations (block computation is more expensive and delta cycling is ruled out)
 !  -----------------------------------------------------------------------------------------------
-   subroutine Local_GetOffDiagonalBlock(f,e,side,LocalMat)
+   subroutine Local_GetOffDiagonalBlock(f,e_plus,e_minus,side,Matrix)
       use FaceClass
       implicit none
-      !-------------------------------------------
-      type(Face)                       , intent(in)    :: f
-      type(Element)                    , intent(in)    :: e(2)   !<  Elements on the left(1) and right(2) of the face
-      integer                          , intent(in)    :: side   !<  Contribution to equations of left element (1) or right element(2)?
-      real(kind=RP), allocatable       , intent(inout) :: LocalMat(:,:)
-      !-------------------------------------------
-      integer :: i, j             ! Matrix indices
-      integer :: i1, j1, k1, eq1  ! variable counters
-      integer :: i2, j2, k2, eq2  ! variable counters
-      integer :: nXi1, nEta1       ! Number of nodes in every direction
-      integer :: EtaSpa1, ZetaSpa1 ! Spacing for these two coordinate directions
-      integer :: nXi2, nEta2       ! Number of nodes in every direction
-      integer :: EtaSpa2, ZetaSpa2 ! Spacing for these two coordinate directions
-      real(kind=RP) :: di, dj, dk ! Kronecker deltas
-      integer :: Deltas           ! A variable to know if two deltas are zero, in which case this is a zero entry of the matrix..
+      !-arguments----------------------------------------------------------------------
+      type(Face), target, intent(in)    :: f       !<  Face connecting elements
+      type(Element)     , intent(in)    :: e_plus  !<  The off-diagonal block is the contribution to this element's equations
+      type(Element)     , intent(in)    :: e_minus !<  Element that connects with e_plus through "f"
+      integer           , intent(in)    :: side    !<  side of face where element (1) is
+      class(Matrix_t)   , intent(inout) :: Matrix  !<> Jacobian matrix
+      !-local-variables----------------------------------------------------------------
+      integer :: i, j                     ! Matrix indexes
+      integer :: i1, j1, k1, eq1          ! variable counters
+      integer :: i2, j2, k2, eq2          ! variable counters
+      integer :: nXi1, nEta1              ! Number of nodes in every direction
+      integer :: EtaSpa1, ZetaSpa1        ! Spacing for these two coordinate directions
+      integer :: nXi2, nEta2              ! Number of nodes in every direction
+      integer :: EtaSpa2, ZetaSpa2        ! Spacing for these two coordinate directions
+      integer :: elSide_plus              ! Element side where f is on e⁻
+      integer :: elSide_minus             ! Element side where f is on e⁺
+      integer :: elInd_plus(3)            ! Element indexes on e⁺
+      integer :: elInd_minus(3)           ! Element indexes on e⁻
+      integer :: normAx_plus              ! Normal axis to f on e⁺
+      integer :: normAx_minus             ! Normal axis to f on e⁻
+      integer :: normAxSide_plus          ! Side of the normal axis that is in contact with f on e⁺
+      integer :: normAxSide_minus         ! Side of the normal axis that is in contact with f on e⁻
+      integer :: faceInd_plus (2)         ! Face indexes on e⁺
+      integer :: faceInd_minus(2)         ! Face indexes on e⁻
+      integer :: NxyFace_plus(2)          ! Polynomial orders of face on element e⁺
+      integer :: faceInd_plus2minus(2)    ! Face indexes on e⁺ passed to the reference frame of e⁻
+      real(kind=RP) :: MatrixEntry        ! Value of the matrix entry
+      type(NodalStorage_t), target  :: spA_plus (3)      ! Nodal storage in the different directions for e_plus
+      type(NodalStorage_t), target  :: spA_minus(3)      ! Nodal storage in the different directions for e_minus
+      type(NodalStorage_t), pointer :: spAnormal_plus    ! Nodal storage in the direction that is normal to the face for e⁺
+      type(NodalStorage_t), pointer :: spAnormal_minus   ! Nodal storage in the direction that is normal to the face for e⁻
+      real(kind=RP)       , pointer :: dfdq(:,:,:,:)     ! 
+      !--------------------------------------------------------------------------------
       
-      integer, parameter :: other(2) = (/ 2, 1 /)
-      !-------------------------------------------
+!
+!     ***********
+!     Definitions
+!     ***********
+!
+      ! Entry spacing for element e⁺
+      nXi1     = e_plus % Nxyz(1) + 1
+      nEta1    = e_plus % Nxyz(2) + 1
+      EtaSpa1  = NCONS*nXi1
+      ZetaSpa1 = NCONS*nXi1*nEta1
       
-!     Allocate block
-!     --------------
-!~      allocate ( LocalMat ( ndofelm(e(side) % eID) , ndofelm(e(other(side)) % eID) ) )
+      ! Entry spacing for element e⁻
+      nXi2     = e_minus % Nxyz(1) + 1
+      nEta2    = e_minus % Nxyz(2) + 1
+      EtaSpa2  = NCONS*nXi2
+      ZetaSpa2 = NCONS*nXi2*nEta2
       
+      ! Element sides
+      elSide_plus  = f % elementSide(side)
+      elSide_minus = f % elementSide(other(side))
       
+      ! Normal axes
+      normAx_plus  = normalAxis (elSide_plus)
+      normAx_minus = normalAxis (elSide_minus)
       
-!~      nXi1     = e(1) % Nxyz(1) + 1
-!~      nEta1    = e(1) % Nxyz(2) + 1
-!~      EtaSpa1  = NCONS*nXi1
-!~      ZetaSpa1 = NCONS*nXi1*nEta1
+      ! Nodal storage
+      spA_plus  = NodalStorage(e_plus  % Nxyz)
+      spA_minus = NodalStorage(e_minus % Nxyz)
+      spAnormal_plus  => spA_plus(abs(normAx_plus ))
+      spAnormal_minus => spA_plus(abs(normAx_minus))
       
-!~      nXi2     = e(2) % Nxyz(1) + 1
-!~      nEta2    = e(2) % Nxyz(2) + 1
-!~      EtaSpa2  = NCONS*nXi2
-!~      ZetaSpa2 = NCONS*nXi2*nEta2
+      ! Side of axis where f is
+      if (normAx_plus < 0) then
+         normAxSide_plus = LEFT
+      else
+         normAxSide_plus = RIGHT
+      end if
+      if (normAx_minus < 0) then
+         normAxSide_minus = LEFT
+      else
+         normAxSide_minus = RIGHT
+      end if
       
-!~      LocalMat = 0._RP
-!~      do k2 = 0, e(other(side)) % Nxyz(3) ; do j2 = 0, e(other(side)) % Nxyz(2) ; do i2 = 0, e(other(side)) % Nxyz(1) ; do eq2 = 1, NCONS 
-!~         do k1 = 0, e(side) % Nxyz(3) ; do j1 = 0, e(side) % Nxyz(2) ; do i1 = 0, e(side) % Nxyz(1) ; do eq1 = 1, NCONS 
-!~            Deltas = 0
-!~!           Kronecker deltas
-!~!           -----------------
-!~            if (i1 == i2) then
-!~               di = 1._RP
-!~               Deltas = Deltas + 1
-!~            else
-!~               di = 0._RP
-!~            end if
-!~            if (j1 == j2) then
-!~               dj = 1._RP
-!~               Deltas = Deltas + 1
-!~            else
-!~               dj = 0._RP
-!~            end if
-!~            if (k1 == k2) then
-!~               dk = 1._RP
-!~               Deltas = Deltas + 1
-!~            else
-!~               dk = 0._RP
-!~            end if
+      select case (side)
+         case (LEFT)
+            NxyFace_plus = f % NelLeft
+         case (RIGHT)
+            NxyFace_plus = f % NelRight
+      end select
+      
+!
+!     *********************
+!     Inviscid contribution
+!     *********************
+!
+      
+!
+!     Pointers to the flux Jacobians with respect to q on the faces
+!     -------------------------------------------------------------
+      dfdq(1:,1:,0:,0:) => f % storage(side) % dFStar_dqEl(1:,1:,0:,0:,other(side))
+      
+      call Matrix % ResetBlock(e_plus % GlobID,e_minus % GlobID) 
+      
+      do k2 = 0, e_minus % Nxyz(3) ; do j2 = 0, e_minus % Nxyz(2) ; do i2 = 0, e_minus % Nxyz(1) ; do eq2 = 1, NCONS 
+         do k1 = 0, e_plus % Nxyz(3) ; do j1 = 0, e_plus % Nxyz(2) ; do i1 = 0, e_plus % Nxyz(1) ; do eq1 = 1, NCONS 
             
-!~            if (Deltas < 2) cycle
+            elInd_plus  = [i1, j1, k1]
+            elInd_minus = [i2, j2, k2]
+            
+            faceInd_plus  = elInd_plus ( axisMap(:,f % elementSide( side ) ))
+            faceInd_minus = elInd_minus( axisMap(:,f % elementSide( other(side) ) ))
+            
+            call indexesOnOtherFace(faceInd_plus(1),faceInd_plus(2), NxyFace_plus(1),NxyFace_plus(2), f % rotation, side, faceInd_plus2minus(1),faceInd_plus2minus(2))
+            
+            if ( any(faceInd_plus2minus /= faceInd_minus) ) cycle
 
-!~            i = eq1 + i1*NCONS + j1*EtaSpa1 + k1*ZetaSpa1 ! row index (1-based)
-!~            j = eq2 + i2*NCONS + j2*EtaSpa2 + k2*ZetaSpa2 ! column index (1-based)
+            i = eq1 + i1*NCONS + j1*EtaSpa1 + k1*ZetaSpa1 ! row index (1-based)
+            j = eq2 + i2*NCONS + j2*EtaSpa2 + k2*ZetaSpa2 ! column index (1-based)
             
-!~!            LocalMat(i,j) = 1
+            MatrixEntry = -   dfdq(eq1,eq2,faceInd_plus(1),faceInd_plus(2)) &
+                            * spAnormal_plus  % b(elInd_plus (abs(normAx_plus )), normAxSide_plus ) &
+                            * spAnormal_minus % v(elInd_minus(abs(normAx_minus)), normAxSide_minus )  & 
+                            * e_plus % geom % invJacobian(i1,j1,k1)
             
-!~         end do                ; end do                ; end do                ; end do
-!~      end do                ; end do                ; end do                ; end do
+            call Matrix % SetBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatrixEntry)
+         end do                ; end do                ; end do                ; end do
+      end do                ; end do                ; end do                ; end do
+!
+!     *********
+!     Finish up
+!     *********
+!
+      nullify(dfdq, spAnormal_plus, spAnormal_minus)
       
    end subroutine Local_GetOffDiagonalBlock
 #endif

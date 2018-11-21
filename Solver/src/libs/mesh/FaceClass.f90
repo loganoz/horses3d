@@ -332,7 +332,7 @@
       case(2)
          associate( Qf => self % storage(2) % Q )
          do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-            call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+            call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
             Qe_rot(:,i,j) = Qe(:,ii,jj) 
          end do                        ; end do
 
@@ -419,7 +419,7 @@
       case(2)
          associate( Qf => self % storage(2) % gradRho )
          do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-            call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+            call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
             Qe_rot(:,i,j) = Qe(:,ii,jj) 
          end do                        ; end do
 
@@ -530,7 +530,7 @@
                    Uyf => self % storage(2) % U_y, &
                    Uzf => self % storage(2) % U_z   )
          do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-            call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+            call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
             Uxe_rot(:,i,j) = Uxe(:,ii,jj) 
             Uye_rot(:,i,j) = Uye(:,ii,jj) 
             Uze_rot(:,i,j) = Uze(:,ii,jj) 
@@ -669,7 +669,7 @@
 !      
             associate(fStar => self % storage(2) % Fstar)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-               call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+               call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
                fStar(1:nEqn,ii,jj) = fStarAux(1:nEqn,i,j) 
             end do                        ; end do
 !
@@ -779,7 +779,7 @@
 !      
             associate(dFStar_dq => self % storage(2) % dFStar_dqEl)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-               call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+               call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
                dFStar_dq(1:nEqn,1:nEqn,ii,jj,whichderiv) = fStarAux(1:nEqn,1:nEqn,i,j) 
             end do                        ; end do
 !
@@ -883,7 +883,7 @@
 !      
             associate(unStar => self % storage(2) % unStar)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-               call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+               call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
                unStar(:,:,ii,jj) = HstarAux(:,:,i,j) 
             end do                        ; end do
 !
@@ -993,7 +993,7 @@
             associate(dFv_dGradQEl => self % storage(2) % dFv_dGradQEl)
             
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-               call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+               call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
                dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,ii,jj,whichderiv) = fStarAux(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) 
             end do                        ; end do
 !

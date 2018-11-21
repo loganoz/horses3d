@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Fri Oct 19 15:37:07 2018
+!   @Last revision date: Wed Nov 21 19:34:11 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 478449473c3e9c87670a7a880ee09588f31f4e80
+!   @Last revision commit: 1c6c630e4fbb918c0c9a98d0bfd4d0b73101e65d
 !
 !//////////////////////////////////////////////////////
 !
@@ -43,7 +43,7 @@
       IMPLICIT NONE
 
       private
-      public   Element, axisMap 
+      public   Element 
       public   PrintElement, SetElementBoundaryNames, SurfInfo_t
       
 !
@@ -100,22 +100,6 @@
             procedure   :: ComputeRhoGradient      => HexElement_ComputeRhoGradient
 #endif
       END TYPE Element 
-      
-!
-!     -------------------------------------------------------------------------
-!!    axisMap gives the element local coordinate number for the two directions
-!!    on each face. The coordinate numbers are given by (xi,eta,zeta) = (1,2,3).
-!!    For instance, the two coordinate directions on Face 1 are (xi,zeta).
-!     -------------------------------------------------------------------------
-!
-      INTEGER, DIMENSION(2,6) :: axisMap =                        &
-                                 RESHAPE( (/1, 3,                 & ! Face 1 (x,z)
-                                            1, 3,                 & ! Face 2 (x,z)
-                                            1, 2,                 & ! Face 3 (x,y)
-                                            2, 3,                 & ! Face 4 (y,z)
-                                            1, 2,                 & ! Face 5 (x,y)
-                                            2, 3/)                & ! Face 6 (y,z)
-                                 ,(/2,6/))
             
       CONTAINS 
 !

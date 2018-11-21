@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Mon Oct 15 14:53:41 2018
+!   @Last revision date: Wed Nov 21 19:34:08 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 99f4e73efc8c89ea66ae091e47c34d33fe1eaf76
+!   @Last revision commit: 1c6c630e4fbb918c0c9a98d0bfd4d0b73101e65d
 !
 !//////////////////////////////////////////////////////
 !
@@ -308,7 +308,8 @@ contains
          ENDDO
       ENDDO
       
-      CALL Matrix % Assembly(firstIdx,ndofelm)                             ! Matrix A needs to be assembled before being used
+      CALL Matrix % Assembly()                             ! Matrix A needs to be assembled before being used
+      call Matrix % SpecifyBlockInfo(firstIdx,ndofelm)
       
       call Stopwatch % Pause("Numerical Jacobian construction")
       IF (PRESENT(PINFO)) THEN

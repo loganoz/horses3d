@@ -38,6 +38,7 @@ module DenseBlockDiagonalMatrixClass
          procedure :: AddToBlockEntry
          procedure :: ResetBlock
          procedure :: Assembly
+         procedure :: SpecifyBlockInfo
          procedure :: shift
          procedure :: destruct
          procedure :: FactorizeBlocks_LU
@@ -236,17 +237,28 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Assembly(this,BlockIdx,BlockSize)
+   subroutine Assembly(this)
       implicit none
       !---------------------------------------------
       class(DenseBlockDiagMatrix_t), intent(inout) :: this
-      integer, target, optional    , intent(in)    :: BlockIdx(:)
-      integer, target, optional    , intent(in)    :: BlockSize(:)
       !---------------------------------------------
       
       ! Do nothing
       
    end subroutine Assembly
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SpecifyBlockInfo(this,BlockIdx,BlockSize)
+      implicit none
+      !-arguments-----------------------------------
+      class(DenseBlockDiagMatrix_t) , intent(inout) :: this
+      integer                       , intent(in)    :: BlockIdx(:)
+      integer                       , intent(in)    :: BlockSize(:)
+      !---------------------------------------------
+      ! Do nothing
+      ! Currently not needed since this info is provided at construction time
+   end subroutine SpecifyBlockInfo
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

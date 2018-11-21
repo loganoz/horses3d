@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Tue Nov 20 14:39:28 2018
+!   @Last revision date: Wed Nov 21 19:34:13 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f616e8b8c0ed8066788e7578a5d1b6b3cb325651
+!   @Last revision commit: 1c6c630e4fbb918c0c9a98d0bfd4d0b73101e65d
 !
 !//////////////////////////////////////////////////////
 !
@@ -175,7 +175,7 @@ module StorageClass
 !     Inviscid Jacobians
 !     ------------------
 !     * On the face (mortar points):
-      real(kind=RP), allocatable :: dFStar_dqF(:,:,:,:)   ! In storage(1), it stores dFStar/dqL, and in storage(2), it stores dFStar/dqR on the mortar points
+      real(kind=RP), allocatable :: dFStar_dqF(:,:,:,:)
 !                   storage(side) % dFStar_dqF(:,:,i,j)
 !                           |                  |_| |_|
 !                           |                   |   | 
@@ -184,7 +184,7 @@ module StorageClass
 !                           |__________________________1 for dFStar/dqL and 2 for dFStar/dqR
 !
 !     * On the coordinates that match the element's (face-element points):     
-      real(kind=RP), allocatable :: dFStar_dqEl(:,:,:,:,:)  ! Stores both dFStar/dqL and dFStar/dqR on the face-element points of the corresponding side:  Last index is 1 for df/dqL and 2 for df/dqR (For off-diagonal blocks)
+      real(kind=RP), allocatable :: dFStar_dqEl(:,:,:,:,:)
 !                   storage(side) % dFStar_dqeL(:,:,i,j,:)
 !                           |                   |_| |_| |
 !                           |                    |   |  |_1 for dFStar/dqL and 2 for dFStar/dqR
@@ -206,7 +206,7 @@ module StorageClass
 !                           |_______________________________1 for dFv*/d∇qL and 2 for dFv*/d∇qR
 !
 !     * On the coordinates that match the element's (face-element points):      
-      real(kind=RP), allocatable :: dFv_dGradQEl(:,:,:,:,:,:,:) ! In storage(1), it stores dFv*/d∇qL, and in storage(2), it stores dFv*/d∇qR on the face-element points ... NOTE: this is enough for the diagonal blocks of the Jacobian, for off-diagonal blocks the crossed quantities must be computed and stored
+      real(kind=RP), allocatable :: dFv_dGradQEl(:,:,:,:,:,:,:)
 !                   storage(side) % dFv_dGradQEl(:,:,:,:,i,j,:)
 !                           |                    |_| | | |_| |
 !                           |                     |  | |  |  |_1 for dFv*/d∇qL and 2 for dFv*/d∇qR
