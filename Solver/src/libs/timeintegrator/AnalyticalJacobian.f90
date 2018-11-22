@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Thu Nov 22 10:56:09 2018
+!   @Last revision date: Thu Nov 22 16:31:14 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: c390692d8a921fc96d2f94b139246a51dc290115
+!   @Last revision commit: 851b0e5a065c5d565550051e09f97834f7092732
 !
 !//////////////////////////////////////////////////////
 !
@@ -672,8 +672,8 @@ contains
 !
 !              Faces contribution (surface integrals from the inner equation)
 !              ***********************************************|**************
-!                 Front face                               ___|
-!                 ----------                               |
+!                 Front face                 _________________|
+!                 ----------                 |
                    -   dfdGradQ_fr(eq1,eq2,1,1,i2,k2) * e % spAEta  % b(j1,FRONT ) * e % spAXi   % hatD(i1,i2) * e % spAEta  % v(j2,FRONT ) * dk   & ! Xi
                    -   dfdGradQ_fr(eq1,eq2,2,1,i2,k2) * e % spAEta  % v(j2,FRONT ) * e % spAEta  % bd(j1,FRONT ) * di * dk                         & ! Eta
                    -   dfdGradQ_fr(eq1,eq2,3,1,i2,k2) * e % spAEta  % b(j1,FRONT ) * e % spAZeta % hatD(k1,k2) * e % spAEta  % v(j2,FRONT ) * di   & ! Zeta
@@ -703,10 +703,10 @@ contains
                    -   dfdGradQ_le(eq1,eq2,2,1,j2,k2) * e % spAXi   % b(i1,LEFT  ) * e % spAEta  % hatD(j1,j2) * e % spAXi   % v(i2,LEFT  ) * dk   & ! Eta
                    -   dfdGradQ_le(eq1,eq2,3,1,j2,k2) * e % spAXi   % b(i1,LEFT  ) * e % spAZeta % hatD(k1,k2) * e % spAXi   % v(i2,LEFT  ) * dj   & ! Zeta
 !
-!              Faces contribution (surface integrals from the outer equation) 
+!              Faces contribution (surface integrals from the outer equation) - PENALTY TERM IS BEING CONSIDERED IN THE INVISCID PART - TODO: Reorganize storage to put it explicitely in another place (needed for purely viscous equations)
 !              ***********************************************|**************
-!                 Front face                               ___|
-!                 ----------                               |
+!                 Front face                 _________________|
+!                 ----------                 |
                    +   dfdGradQ_fr(eq1,eq2,1,2,i1,k1) * e % spAEta  % b(j1,FRONT ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,FRONT ) * dk   & ! Xi
                    +   dfdGradQ_fr(eq1,eq2,2,2,i1,k1) * e % spAEta  % b(j1,FRONT ) * e % spAEta  % vd(j2,FRONT ) * di * dk                      & ! Eta
                    +   dfdGradQ_fr(eq1,eq2,3,2,i1,k1) * e % spAEta  % b(j1,FRONT ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,FRONT ) * di   & ! Zeta
@@ -780,18 +780,30 @@ contains
       integer :: elInd_minus(3)           ! Element indexes on e⁻
       integer :: normAx_plus              ! Normal axis to f on e⁺
       integer :: normAx_minus             ! Normal axis to f on e⁻
+      integer :: tanAx_plus (2)           ! Tangent axes to f on e⁺
+      integer :: tanAx_minus(2)           ! Tangent axes to f on e⁻
       integer :: normAxSide_plus          ! Side of the normal axis that is in contact with f on e⁺
       integer :: normAxSide_minus         ! Side of the normal axis that is in contact with f on e⁻
       integer :: faceInd_plus (2)         ! Face indexes on e⁺
       integer :: faceInd_minus(2)         ! Face indexes on e⁻
-      integer :: NxyFace_plus(2)          ! Polynomial orders of face on element e⁺
+      integer :: NxyFace_plus (2)         ! Polynomial orders of face on element e⁺
+      integer :: NxyFace_minus(2)         ! Polynomial orders of face on element e⁻ (only needed for viscous fluxes)
       integer :: faceInd_plus2minus(2)    ! Face indexes on e⁺ passed to the reference frame of e⁻
+      integer :: faceInd_minus2plus(2)    ! Face indexes on e⁻ passed to the reference frame of e⁺ (only needed for viscous fluxes)
+      integer :: dtan1, dtan2             ! Kronecker deltas in the tangent directions
+      integer :: dtan1_minus, dtan2_minus ! Kronecker deltas in the tangent directions in the reference frame of e⁻ (only needed for viscous fluxes)
+      integer :: Deltas                   ! Number of Kronecker deltas /= 0
       real(kind=RP) :: MatrixEntry        ! Value of the matrix entry
-      type(NodalStorage_t), target  :: spA_plus (3)      ! Nodal storage in the different directions for e_plus
-      type(NodalStorage_t), target  :: spA_minus(3)      ! Nodal storage in the different directions for e_minus
-      type(NodalStorage_t), pointer :: spAnormal_plus    ! Nodal storage in the direction that is normal to the face for e⁺
-      type(NodalStorage_t), pointer :: spAnormal_minus   ! Nodal storage in the direction that is normal to the face for e⁻
+      type(NodalStorage_t), target  :: spA_plus (3)      ! Nodal storage in the different directions for e_plus  - local copy
+      type(NodalStorage_t), target  :: spA_minus(3)      ! Nodal storage in the different directions for e_minus - local copy
+      type(NodalStorage_t), pointer :: spAnorm_plus      ! Nodal storage in the direction that is normal to the face for e⁺
+      type(NodalStorage_t), pointer :: spAtan1_plus      ! Nodal storage in the tangent direction "1" to the face for e⁺ (only needed for viscous fluxes)
+      type(NodalStorage_t), pointer :: spAtan2_plus      ! Nodal storage in the tangent direction "2" to the face for e⁺ (only needed for viscous fluxes)
+      type(NodalStorage_t), pointer :: spAnorm_minus     ! Nodal storage in the direction that is normal to the face for e⁻
+      type(NodalStorage_t), pointer :: spAtan1_minus     ! Nodal storage in the tangent direction "1" to the face for e⁻ (only needed for viscous fluxes)
+      type(NodalStorage_t), pointer :: spAtan2_minus     ! Nodal storage in the tangent direction "2" to the face for e⁻ (only needed for viscous fluxes)
       real(kind=RP)       , pointer :: dfdq(:,:,:,:)     ! 
+      real(kind=RP)       , pointer :: dfdGradQ(:,:,:,:,:,:)
       !--------------------------------------------------------------------------------
       
 !
@@ -815,15 +827,22 @@ contains
       elSide_plus  = f % elementSide(side)
       elSide_minus = f % elementSide(other(side))
       
-      ! Normal axes
+      ! Normal and tangent axes
       normAx_plus  = normalAxis (elSide_plus)
       normAx_minus = normalAxis (elSide_minus)
+      tanAx_plus   = axisMap(:,f % elementSide(    side     ) )
+      tanAx_minus  = axisMap(:,f % elementSide( other(side) ) )
       
       ! Nodal storage
       spA_plus  = NodalStorage(e_plus  % Nxyz)
       spA_minus = NodalStorage(e_minus % Nxyz)
-      spAnormal_plus  => spA_plus(abs(normAx_plus ))
-      spAnormal_minus => spA_plus(abs(normAx_minus))
+      spAnorm_plus  => spA_plus(abs(normAx_plus ))
+      spAtan1_plus  => spA_plus( tanAx_plus(1) )
+      spAtan2_plus  => spA_plus( tanAx_plus(2) )
+      
+      spAnorm_minus => spA_minus(abs(normAx_minus))
+      spAtan1_minus => spA_minus( tanAx_minus(1) )
+      spAtan2_minus => spA_minus( tanAx_minus(2) )
       
       ! Side of axis where f is
       if (normAx_plus < 0) then
@@ -837,12 +856,8 @@ contains
          normAxSide_minus = RIGHT
       end if
       
-      select case (side)
-         case (LEFT)
-            NxyFace_plus = f % NelLeft
-         case (RIGHT)
-            NxyFace_plus = f % NelRight
-      end select
+      NxyFace_plus  = e_plus  % Nxyz ( tanAx_plus  )
+      NxyFace_minus = e_minus % Nxyz ( tanAx_minus )
       
 !
 !     *********************
@@ -861,19 +876,20 @@ contains
             elInd_plus  = [i1, j1, k1]
             elInd_minus = [i2, j2, k2]
             
-            faceInd_plus  = elInd_plus ( axisMap(:,f % elementSide( side ) ))
-            faceInd_minus = elInd_minus( axisMap(:,f % elementSide( other(side) ) ))
+            faceInd_plus  = elInd_plus ( tanAx_plus  )
+            faceInd_minus = elInd_minus( tanAx_minus )
             
             call indexesOnOtherFace(faceInd_plus(1),faceInd_plus(2), NxyFace_plus(1),NxyFace_plus(2), f % rotation, side, faceInd_plus2minus(1),faceInd_plus2minus(2))
             
+            ! "delta" cycling
             if ( any(faceInd_plus2minus /= faceInd_minus) ) cycle
 
             i = eq1 + i1*NCONS + j1*EtaSpa1 + k1*ZetaSpa1 ! row index (1-based)
             j = eq2 + i2*NCONS + j2*EtaSpa2 + k2*ZetaSpa2 ! column index (1-based)
             
             MatrixEntry = -   dfdq(eq1,eq2,faceInd_plus(1),faceInd_plus(2)) &
-                            * spAnormal_plus  % b(elInd_plus (abs(normAx_plus )), normAxSide_plus ) &
-                            * spAnormal_minus % v(elInd_minus(abs(normAx_minus)), normAxSide_minus )  & 
+                            * spAnorm_plus  % b(elInd_plus (abs(normAx_plus )), normAxSide_plus ) &
+                            * spAnorm_minus % v(elInd_minus(abs(normAx_minus)), normAxSide_minus )  & 
                             * e_plus % geom % invJacobian(i1,j1,k1)
             
             call Matrix % SetBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatrixEntry)
@@ -886,14 +902,112 @@ contains
 !     ********************
 !
       if (flowIsNavierStokes) then
+!
+!        Pointers to the flux Jacobians with respect to grad(q) on the faces
+!        -------------------------------------------
+         dfdGradQ(1:,1:,1:,1:,0:,0:) => f % Storage(side) % dFv_dGradQEl (1:,1:,1:,1:,0:,0:, other(side) )
          
+         do k2 = 0, e_minus % Nxyz(3) ; do j2 = 0, e_minus % Nxyz(2) ; do i2 = 0, e_minus % Nxyz(1) ; do eq2 = 1, NCONS 
+            do k1 = 0, e_plus % Nxyz(3) ; do j1 = 0, e_plus % Nxyz(2) ; do i1 = 0, e_plus % Nxyz(1) ; do eq1 = 1, NCONS 
+               
+               elInd_plus  = [i1, j1, k1]
+               elInd_minus = [i2, j2, k2]
+               
+               faceInd_plus  = elInd_plus ( tanAx_plus  )
+               faceInd_minus = elInd_minus( tanAx_minus )
+               
+               call indexesOnOtherFace(faceInd_plus (1),faceInd_plus (2), NxyFace_plus (1),NxyFace_plus (2), f % rotation, side       , faceInd_plus2minus(1),faceInd_plus2minus(2))
+               call indexesOnOtherFace(faceInd_minus(1),faceInd_minus(2), NxyFace_minus(1),NxyFace_minus(2), f % rotation, other(side), faceInd_minus2plus(1),faceInd_minus2plus(2))
+               
+!              Delta computation on "plus" side (used for delta cycling)
+!              ---------------------------------------------------------
+               Deltas = 0
+               if ( faceInd_plus(1) == faceInd_minus2plus(1) ) then
+                  dtan1 = 1._RP
+                  Deltas = Deltas + 1
+               else
+                  dtan1 = 0._RP
+               end if
+               if ( faceInd_plus(2) == faceInd_minus2plus(2) ) then
+                  dtan2 = 1._RP
+                  Deltas = Deltas + 1
+               else
+                  dtan2 = 0._RP
+               end if
+               
+               ! delta cycling
+               if (Deltas < 1) cycle
+               
+!              Delta computation on "minus" side
+!              ---------------------------------
+               if ( faceInd_minus(1) == faceInd_plus2minus(1) ) then
+                  dtan1_minus = 1._RP
+               else
+                  dtan1_minus = 0._RP
+               end if
+               if ( faceInd_minus(2) == faceInd_plus2minus(2) ) then
+                  dtan2_minus = 1._RP
+               else
+                  dtan2_minus = 0._RP
+               end if
+               
+!              Computation of the matrix entry
+!              -------------------------------
+               
+               i = eq1 + i1*NCONS + j1*EtaSpa1 + k1*ZetaSpa1 ! row index (1-based)
+               j = eq2 + i2*NCONS + j2*EtaSpa2 + k2*ZetaSpa2 ! column index (1-based)
+               
+               MatrixEntry = &
+!
+!              Faces contribution (surface integrals from the inner equation)
+!              ***********************************************|**************
+!                                                        _____|
+!                                                        |
+                 +(-   dfdGradQ(eq1,eq2,tanAx_plus(1)   ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
+                     * spAnorm_plus  % b   (elInd_plus (abs(normAx_plus )), normAxSide_plus  )  &
+                     * spAtan1_plus  % hatD(faceInd_plus(1),faceInd_minus2plus(1))              &
+                     * spAnorm_minus % v   (elInd_minus(abs(normAx_minus)), normAxSide_minus ) * dtan2         & ! Tangent direction 1
+                     
+                   -   dfdGradQ(eq1,eq2,abs(normAx_plus),1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
+                     * spAnorm_minus % v   (elInd_minus(abs(normAx_minus)), normAxSide_minus )  &
+                     * spAnorm_plus  % bd  (elInd_plus (abs(normAx_plus )), normAxSide_plus  ) * dtan1 * dtan2 & ! Normal direction
+                   
+                   -   dfdGradQ(eq1,eq2,tanAx_plus(2)   ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
+                     * spAnorm_plus  % b   (elInd_plus (abs(normAx_plus )), normAxSide_plus  )  &
+                     * spAtan2_plus  % hatD(faceInd_plus(2),faceInd_minus2plus(2))              &
+                     * spAnorm_minus % v   (elInd_minus(abs(normAx_minus)), normAxSide_minus ) * dtan1         & ! Tangent direction 2
+!
+!              Faces contribution (surface integrals from the outer equation) - PENALTY TERM IS BEING CONSIDERED IN THE INVISCID PART - TODO: Reorganize storage to put it explicitely in another place (needed for purely viscous equations)
+!                 The tangent directions here are taken in the reference frame of e⁻
+!              ***********************************************|*********************
+!                                                         ____|
+!                                                         |
+                   +   dfdGradQ(eq1,eq2,tanAx_minus(1)   ,2,faceInd_plus(1),faceInd_plus(2)) &
+                     * spAnorm_plus  % b   (elInd_plus (abs(normAx_plus )), normAxSide_plus  ) &
+                     * spAtan1_minus % D   (faceInd_plus2minus(1),faceInd_minus(1)) &
+                     * spAnorm_minus % v   (elInd_minus(abs(normAx_minus)), normAxSide_minus ) * dtan2_minus                  &  ! Tangent direction 1
+                     
+                   +   dfdGradQ(eq1,eq2,abs(normAx_minus),2,faceInd_plus(1),faceInd_plus(2)) &
+                     * spAnorm_plus  % b   (elInd_plus (abs(normAx_plus )), normAxSide_plus  ) &
+                     * spAnorm_minus % vd  (elInd_minus(abs(normAx_minus)), normAxSide_minus ) * dtan1_minus * dtan2_minus    & ! Normal direction
+                     
+                   +   dfdGradQ(eq1,eq2,tanAx_minus(2)   ,2,faceInd_plus(1),faceInd_plus(2)) &
+                     * spAnorm_plus  % b   (elInd_plus (abs(normAx_plus )), normAxSide_plus  ) &
+                     * spAtan2_minus % D   (faceInd_plus2minus(2),faceInd_minus(2)) &
+                     * spAnorm_minus % v   (elInd_minus(abs(normAx_minus)), normAxSide_minus ) * dtan1_minus                  & ! Tangent direction 2
+                                                                                    ) * e_plus % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
+                   
+               call Matrix % AddToBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatrixEntry)
+            end do                ; end do                ; end do                ; end do
+         end do                ; end do                ; end do                ; end do
+         nullify(dfdGradQ)
       end if
 !
 !     *********
 !     Finish up
 !     *********
 !
-      nullify(spAnormal_plus, spAnormal_minus)
+      nullify(spAnorm_plus, spAtan1_plus, spAtan2_plus, spAnorm_minus)
       
    end subroutine Local_GetOffDiagonalBlock
 #endif
