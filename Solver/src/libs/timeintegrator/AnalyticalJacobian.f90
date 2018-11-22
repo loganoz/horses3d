@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Wed Nov 21 19:34:14 2018
+!   @Last revision date: Thu Nov 22 10:56:09 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 1c6c630e4fbb918c0c9a98d0bfd4d0b73101e65d
+!   @Last revision commit: c390692d8a921fc96d2f94b139246a51dc290115
 !
 !//////////////////////////////////////////////////////
 !
@@ -550,7 +550,6 @@ contains
       dfdq_ri(1:,1:,0:,0:) => e % Storage % dfdq_ri(1:,1:,0:,0:,e %faceSide(ERIGHT ))
       dfdq_le(1:,1:,0:,0:) => e % Storage % dfdq_le(1:,1:,0:,0:,e %faceSide(ELEFT  ))
       
-      call Matrix % ResetBlock(e % GlobID,e % GlobID)
       do k2 = 0, e % Nxyz(3) ; do j2 = 0, e % Nxyz(2) ; do i2 = 0, e % Nxyz(1) ; do eq2 = 1, NCONS 
          do k1 = 0, e % Nxyz(3) ; do j1 = 0, e % Nxyz(2) ; do i1 = 0, e % Nxyz(1) ; do eq1 = 1, NCONS 
             Deltas = 0
@@ -856,8 +855,6 @@ contains
 !     -------------------------------------------------------------
       dfdq(1:,1:,0:,0:) => f % storage(side) % dFStar_dqEl(1:,1:,0:,0:,other(side))
       
-      call Matrix % ResetBlock(e_plus % GlobID,e_minus % GlobID) 
-      
       do k2 = 0, e_minus % Nxyz(3) ; do j2 = 0, e_minus % Nxyz(2) ; do i2 = 0, e_minus % Nxyz(1) ; do eq2 = 1, NCONS 
          do k1 = 0, e_plus % Nxyz(3) ; do j1 = 0, e_plus % Nxyz(2) ; do i1 = 0, e_plus % Nxyz(1) ; do eq1 = 1, NCONS 
             
@@ -882,12 +879,21 @@ contains
             call Matrix % SetBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatrixEntry)
          end do                ; end do                ; end do                ; end do
       end do                ; end do                ; end do                ; end do
+      nullify(dfdq)
+!
+!     ********************
+!     Viscous contribution
+!     ********************
+!
+      if (flowIsNavierStokes) then
+         
+      end if
 !
 !     *********
 !     Finish up
 !     *********
 !
-      nullify(dfdq, spAnormal_plus, spAnormal_minus)
+      nullify(spAnormal_plus, spAnormal_minus)
       
    end subroutine Local_GetOffDiagonalBlock
 #endif

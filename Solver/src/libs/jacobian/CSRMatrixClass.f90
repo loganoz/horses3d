@@ -4,9 +4,9 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Wed Nov 21 19:34:05 2018
+!   @Last revision date: Thu Nov 22 10:56:05 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 1c6c630e4fbb918c0c9a98d0bfd4d0b73101e65d
+!   @Last revision commit: c390692d8a921fc96d2f94b139246a51dc290115
 !
 !//////////////////////////////////////////////////////
 !
@@ -553,7 +553,7 @@ MODULE CSRMatrixClass
 #ifdef HAS_MKL
       CALL mkl_dcsrgemv('N', A % NumRows, A % Values, A % Rows, A % Cols, u, v)
 #else
-      !$omp parallel do private(j,rsum)
+!$omp parallel do private(j,rsum)
       DO i=1,A % NumRows
          rsum = 0.0d0
          DO j=A % Rows(i),A % Rows(i+1)-1
@@ -561,7 +561,7 @@ MODULE CSRMatrixClass
          END DO
          v(i) = rsum
       END DO
-      !$omp end parallel do
+!$omp end parallel do
 #endif
    !------------------------------------------------------------------------------
    END FUNCTION

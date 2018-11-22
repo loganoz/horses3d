@@ -143,8 +143,9 @@ contains
       
       if (row<1) return
       if (col<1) return
-      
+!$omp critical
       Entry => this % PointToEntry(row,col)
+!$omp end critical
       Entry % value = value
       
    end subroutine SetEntry
@@ -170,9 +171,10 @@ contains
       if (row<1) return
       if (col<1) return
       
+!$omp critical
       Entry => this % PointToEntry(row,col)
       Entry % value = Entry % value + value
-      
+!$omp end critical
    end subroutine AddToEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
