@@ -46,6 +46,7 @@ module LinkedListMatrixClass
       procedure :: Reset
       procedure :: ResetEntry
       procedure :: AddToEntry
+      procedure :: ForceAddToEntry
       procedure :: setColumn
       procedure :: destruct
       procedure :: PointToEntry
@@ -176,6 +177,31 @@ contains
       Entry % value = Entry % value + value
 !$omp end critical
    end subroutine AddToEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------
+!  Same as AddToEntry, but without checking JACEPS
+!  --------------------------------------------- 
+   subroutine ForceAddToEntry(this, row, col, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(LinkedListMatrix_t), intent(inout) :: this
+      integer        , intent(in)    :: row
+      integer        , intent(in)    :: col
+      real(kind=RP)  , intent(in)    :: value
+      !-local-variables------------------------------
+      type(Entry_t), pointer :: Entry
+      !----------------------------------------------
+      
+      if (row<1) return
+      if (col<1) return
+      
+!$omp critical
+      Entry => this % PointToEntry(row,col)
+      Entry % value = Entry % value + value
+!$omp end critical
+   end subroutine ForceAddToEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

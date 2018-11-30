@@ -34,6 +34,7 @@ module PETScMatrixClass
          procedure :: destruct
          procedure :: Preallocate
          procedure :: Reset
+         procedure :: SetEntry
          procedure :: SetColumn
          procedure :: AddToColumn
          procedure :: Shift
@@ -61,8 +62,8 @@ module PETScMatrixClass
       !---------------------------------------------
       class(PETSCMatrix_t)  :: this
 #ifdef HAS_PETSC
-      PetscInt, INTENT(IN)  :: DimPrb
-      PetscBool, optional, INTENT(IN) :: withMPI
+      PetscInt, intent(in)  :: DimPrb
+      PetscBool, optional, intent(in) :: withMPI
       !---------------------------------------------
       
       this % NumRows = dimPrb
@@ -89,24 +90,33 @@ module PETScMatrixClass
          CALL CheckPetscErr(ierr,'error in MatSetOption')
        ENDIF
 #else
-      integer, INTENT(IN)              :: dimPrb
-      logical, optional, INTENT(IN)    :: WithMPI
+      integer, intent(in)              :: dimPrb
+      logical, optional, intent(in)    :: WithMPI
       STOP ':: PETSc is not linked correctly'
 #endif
    end subroutine construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Preallocate(this, nnz, nnzs)
-      IMPLICIT NONE
+   subroutine Preallocate(this, nnz, nnzs, ForceDiagonal)
+      implicit none
       !---------------------------------------------
-      CLASS(PETSCMatrix_t), INTENT(INOUT)       :: this
+      CLASS(PETSCMatrix_t), intent(inout)       :: this
+      integer, optional, intent(in)  :: nnzs(:)
+      logical, optional, intent(in)  :: ForceDiagonal
 #ifdef HAS_PETSC
       PetscInt, optional, intent(in)            :: nnz
-      INTEGER, optional, intent(in)  :: nnzs(:)
+      !---------------------------------------------
+      logical :: mustForceDiagonal
       !---------------------------------------------
       
       if (.not. present(nnz)) ERROR stop ':: PETSc matrix needs nnz'
+      
+      if ( present(ForceDiagonal) ) then
+         mustForceDiagonal = ForceDiagonal
+      else
+         mustForceDiagonal = .FALSE.
+      end if
       
       IF(this%withMPI) THEN
          CALL MatMPIAIJSetPreallocation(this%A, nnz/25, PETSC_NULL_INTEGER,24 * nnz/25, PETSC_NULL_INTEGER,ierr)
@@ -115,19 +125,24 @@ module PETScMatrixClass
          CALL MatSeqAIJSetPreallocation(this%A, nnz, PETSC_NULL_INTEGER,ierr)
          CALL CheckPetscErr(ierr, 'error in MatSeqAIJSetPreallocation')
       ENDIF
+      
+      if (mustForceDiagonal) then
+         do i = 1, this % NumRows
+            call this % SetEntry(i,i,0._RP)
+         end do
+      end if
 #else
       INTEGER, optional, intent(in)  :: nnz
-      INTEGER, optional, intent(in)  :: nnzs(:)
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE Preallocate
+   end subroutine Preallocate
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Reset(this)
-      IMPLICIT NONE
+   subroutine Reset(this)
+      implicit none
       !---------------------------------------------
-      CLASS(PETSCMatrix_t),     INTENT(INOUT)     :: this
+      CLASS(PETSCMatrix_t),     intent(inout)     :: this
 #ifdef HAS_PETSC
       !---------------------------------------------
       integer :: i
@@ -142,62 +157,84 @@ module PETScMatrixClass
 #else
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE Reset
+   end subroutine Reset
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SetColumn(this,nvalues, irow, icol, values )
-      IMPLICIT NONE
+   subroutine SetEntry(this, row, col, value )
+      implicit none
       !---------------------------------------------
-      CLASS(PETSCMatrix_t), INTENT(INOUT)         :: this
+      class(PETSCMatrix_t), intent(inout) :: this
 #ifdef HAS_PETSC
-      PetscInt, INTENT(IN)                               :: nvalues
-      PetscInt, DIMENSION(:), INTENT(IN)                 :: irow
-      PetscInt, INTENT(IN)                               :: icol
-      PetscScalar, DIMENSION(:), INTENT(IN)              :: values
+      PetscInt            , intent(in)    :: row
+      PetscInt            , intent(in)    :: col
+      PetscScalar         , intent(in)    :: value
+      !---------------------------------------------
+   
+      CALL MatSetValues(this%A, 1 ,row-1,1,col-1,value,INSERT_VALUES,ierr)
+      CALL CheckPetscErr(ierr, 'error in MatSetValues')
+#else
+      INTEGER        , intent(in) :: row
+      INTEGER        , intent(in) :: col
+      real(kind=RP)  , intent(in) :: value
+      STOP ':: PETSc is not linked correctly'
+#endif
+   end subroutine SetEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SetColumn(this,nvalues, irow, icol, values )
+      implicit none
+      !---------------------------------------------
+      CLASS(PETSCMatrix_t), intent(inout)         :: this
+#ifdef HAS_PETSC
+      PetscInt, intent(in)                               :: nvalues
+      PetscInt, DIMENSION(:), intent(in)                 :: irow
+      PetscInt, intent(in)                               :: icol
+      PetscScalar, DIMENSION(:), intent(in)              :: values
       !---------------------------------------------
    
       CALL MatSetValues(this%A,nvalues,irow-1,1,icol-1,values,INSERT_VALUES,ierr)
       CALL CheckPetscErr(ierr, 'error in MatSetValues')
 #else
-      INTEGER, INTENT(IN)                               :: nvalues
-      INTEGER, DIMENSION(:), INTENT(IN)                 :: irow
-      INTEGER, INTENT(IN)                               :: icol
-      REAL*8 , DIMENSION(:), INTENT(IN)                 :: values
+      INTEGER, intent(in)                               :: nvalues
+      INTEGER, DIMENSION(:), intent(in)                 :: irow
+      INTEGER, intent(in)                               :: icol
+      REAL*8 , DIMENSION(:), intent(in)                 :: values
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE SetColumn
+   end subroutine SetColumn
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ! 
-   SUBROUTINE AddToColumn(this,nvalues, irow, icol, values )
-      IMPLICIT NONE
-      CLASS(PETSCMatrix_t), INTENT(INOUT)         :: this
+   subroutine AddToColumn(this,nvalues, irow, icol, values )
+      implicit none
+      CLASS(PETSCMatrix_t), intent(inout)         :: this
 #ifdef HAS_PETSC
-      PetscInt, INTENT(IN)                               :: nvalues
-      PetscInt, DIMENSION(:), INTENT(IN)                 :: irow
-      PetscInt, INTENT(IN)                               :: icol
-      PetscScalar, DIMENSION(:), INTENT(IN)              :: values
+      PetscInt, intent(in)                               :: nvalues
+      PetscInt, DIMENSION(:), intent(in)                 :: irow
+      PetscInt, intent(in)                               :: icol
+      PetscScalar, DIMENSION(:), intent(in)              :: values
    
       CALL MatSetValues(this%A,nvalues,irow-1,1,icol-1,values,ADD_VALUES,ierr)
       CALL CheckPetscErr(ierr, 'error in MatSetValues')
 #else
-      INTEGER, INTENT(IN)                               :: nvalues
-      INTEGER, DIMENSION(:), INTENT(IN)                 :: irow
-      INTEGER, INTENT(IN)                               :: icol
-      REAL*8 , DIMENSION(:), INTENT(IN)                 :: values
+      INTEGER, intent(in)                               :: nvalues
+      INTEGER, DIMENSION(:), intent(in)                 :: irow
+      INTEGER, intent(in)                               :: icol
+      REAL*8 , DIMENSION(:), intent(in)                 :: values
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE AddToColumn
+   end subroutine AddToColumn
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Shift(this, shiftval)
-      IMPLICIT NONE
+   subroutine Shift(this, shiftval)
+      implicit none
       !---------------------------------------------
-      CLASS(PETSCMatrix_t), INTENT(INOUT)     :: this
+      CLASS(PETSCMatrix_t), intent(inout)     :: this
 #ifdef HAS_PETSC
-      PetscScalar,                   INTENT(IN)        :: shiftval
+      PetscScalar,                   intent(in)        :: shiftval
       !---------------------------------------------
       
       CALL MatShift(this%A,shiftval, ierr)                  ! A = A + shift * I
@@ -205,10 +242,10 @@ module PETScMatrixClass
       this % Ashift = shiftval
       
 #else
-      REAL*8,                     INTENT(IN)        :: shiftval
+      REAL*8,                     intent(in)        :: shiftval
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE Shift
+   end subroutine Shift
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -216,29 +253,29 @@ module PETScMatrixClass
 !  Removes previous shift in order to insert new one 
 !              (important when Jacobian is reused)
 !  --------------------------------------------------
-   SUBROUTINE ReShift(this, shiftval)
-      IMPLICIT NONE
+   subroutine ReShift(this, shiftval)
+      implicit none
       !---------------------------------------------
-      CLASS(PETSCMatrix_t), INTENT(INOUT)     :: this
+      CLASS(PETSCMatrix_t), intent(inout)     :: this
 #ifdef HAS_PETSC
-      PetscScalar,                   INTENT(IN)        :: shiftval
+      PetscScalar,                   intent(in)        :: shiftval
       !---------------------------------------------
       
       CALL MatShift(this%A,shiftval - this % Ashift, ierr)                  ! A = A + shift * I
       CALL CheckPetscErr(ierr)
       this % Ashift = shiftval
 #else
-      REAL*8,                     INTENT(IN)        :: shiftval
+      REAL*8,                     intent(in)        :: shiftval
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE ReShift
+   end subroutine ReShift
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE PreAssembly(this)
-      IMPLICIT NONE
+   subroutine PreAssembly(this)
+      implicit none
       !---------------------------------------------
-      CLASS(PETSCMatrix_t),     INTENT(INOUT)   :: this
+      CLASS(PETSCMatrix_t),     intent(inout)   :: this
 #ifdef HAS_PETSC
       !---------------------------------------------
       
@@ -247,12 +284,12 @@ module PETScMatrixClass
 #else
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE PreAssembly
+   end subroutine PreAssembly
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE Assembly(this)
-      IMPLICIT NONE
+   subroutine Assembly(this)
+      implicit none
       !---------------------------------------------
       class(PETSCMatrix_t), intent(inout)   :: this
       !---------------------------------------------
@@ -263,18 +300,18 @@ module PETScMatrixClass
 #else
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE Assembly
+   end subroutine Assembly
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////     
 !
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////// 
 !
-   SUBROUTINE GetCSRMatrix(this,Acsr)
-      IMPLICIT NONE
+   subroutine GetCSRMatrix(this,Acsr)
+      implicit none
       !---------------------------------------------------------------------------------
-      CLASS(PETSCMatrix_t), INTENT(IN)  :: this        !<    PETSc matrix
-      TYPE(csrMat_t)      , INTENT(OUT) :: Acsr        !>    CSR matrix
+      CLASS(PETSCMatrix_t), intent(in)  :: this        !<    PETSc matrix
+      TYPE(csrMat_t)      , intent(OUT) :: Acsr        !>    CSR matrix
       !---------------------------------------------------------------------------------
 #ifdef HAS_PETSC
       INTEGER                                  :: i, ncols
@@ -320,30 +357,30 @@ module PETScMatrixClass
 #else
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE GetCSRMatrix
+   end subroutine GetCSRMatrix
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE destruct(this)
-      IMPLICIT NONE
+   subroutine destruct(this)
+      implicit none
       !---------------------------------------------
-      CLASS(PETSCMatrix_t),     INTENT(INOUT)     :: this
+      CLASS(PETSCMatrix_t),     intent(inout)     :: this
 #ifdef HAS_PETSC
       CALL MatDestroy(this%A,ierr)
       CALL CheckPetscErr(ierr," A destruction")  
 #endif
-   END SUBROUTINE destruct
+   end subroutine destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE CheckPetscErr(ierr,msg)
-      IMPLICIT NONE
+   subroutine CheckPetscErr(ierr,msg)
+      implicit none
       CHARACTER(LEN=*), OPTIONAL                   :: msg
 #ifdef HAS_PETSC
-      PetscErrorCode, INTENT(IN)                   :: ierr
+      PetscErrorCode, intent(in)                   :: ierr
       
       IF(ierr .EQ. 0) THEN
          RETURN
@@ -356,6 +393,6 @@ module PETScMatrixClass
       INTEGER                                      :: ierr
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE CheckPetscErr
+   end subroutine CheckPetscErr
    
 end module PETScMatrixClass

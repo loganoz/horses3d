@@ -102,18 +102,26 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Preallocate(this, nnz, nnzs)
+   subroutine Preallocate(this, nnz, nnzs, ForceDiagonal)
       IMPLICIT NONE
       !---------------------------------------------
       class(SparseBlockDiagMatrix_t), intent(inout) :: this    !<> This matrix
       integer, optional            , intent(in)    :: nnz     !<  Not needed here
       integer, optional            , intent(in)    :: nnzs(:) !<  nnzs contains the block sizes!
+      logical, optional, intent(in)  :: ForceDiagonal
       !---------------------------------------------
       integer :: i, k ! counters
+      logical :: mustForceDiagonal
       !---------------------------------------------
       
       if (.not. present(nnzs) ) ERROR stop ':: SparseBlockDiagMatrix needs the block sizes'
       if ( size(nnzs) /= this % NumOfBlocks) ERROR stop ':: SparseBlockDiagMatrix: wrong dimension for the block sizes'
+      
+      if ( present(ForceDiagonal) ) then
+         mustForceDiagonal = ForceDiagonal
+      else
+         mustForceDiagonal = .FALSE.
+      end if
       
       this % BlockSizes = nnzs
       this % NumRows = sum(nnzs)
@@ -126,7 +134,7 @@ contains
 !$omp parallel do private(k) schedule(runtime)
       do i=1, this % NumOfBlocks
          
-         call this % Blocks(i) % Matrix % construct ( nnzs(i) )
+         call this % Blocks(i) % Matrix % construct ( nnzs(i) , mustForceDiagonal)
          call this % Blocks(i) % Matrix % PreAllocate()
          
          safedeallocate (this % Blocks(i) % Indexes) ; allocate ( this % Blocks(i) % Indexes(nnzs(i)) )

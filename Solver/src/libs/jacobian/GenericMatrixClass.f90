@@ -44,12 +44,13 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Preallocate(this, nnz, nnzs)
+   subroutine Preallocate(this, nnz, nnzs, ForceDiagonal)
       implicit none
       !---------------------------------------------
       class(Matrix_t), intent(inout) :: this
       integer, optional, intent(in)  :: nnz
       integer, optional, intent(in)  :: nnzs(:)
+      logical, optional, intent(in)  :: ForceDiagonal
       !---------------------------------------------
       ERROR stop ' :: Preallocate not implemented for current matrix type'
    end subroutine Preallocate

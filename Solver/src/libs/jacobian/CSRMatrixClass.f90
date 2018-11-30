@@ -4,9 +4,9 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Thu Nov 22 10:56:05 2018
+!   @Last revision date: Fri Nov 30 12:52:58 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: c390692d8a921fc96d2f94b139246a51dc290115
+!   @Last revision commit: 8c8fe673f51fec8338e38e16c38021bdca6914b2
 !
 !//////////////////////////////////////////////////////
 !
@@ -135,16 +135,24 @@ MODULE CSRMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine CSR_PreAllocate(this,nnz,nnzs)
+   subroutine CSR_PreAllocate(this,nnz,nnzs, ForceDiagonal)
       implicit none
       !-----------------------------------
-      CLASS(csrMat_t), INTENT(INOUT):: this             !<> Matrix to be preallocated
-      integer, optional, intent(in) :: nnz        !< Num of nonzero entries all rows
-      integer, optional, intent(in) :: nnzs(:)     !< Num of nonzero entries in every row 
+      CLASS(csrMat_t), INTENT(INOUT) :: this             !<> Matrix to be preallocated
+      integer, optional, intent(in)  :: nnz        !< Num of nonzero entries all rows
+      integer, optional, intent(in)  :: nnzs(:)     !< Num of nonzero entries in every row 
+      logical, optional, intent(in)  :: ForceDiagonal
       !-----------------------------------
       integer :: i,k,istat
       integer :: total_nnz
+      logical :: mustForceDiagonal
       !-----------------------------------
+      
+      if ( present(ForceDiagonal) ) then
+         mustForceDiagonal = ForceDiagonal
+      else
+         mustForceDiagonal = .FALSE.
+      end if
       
       if (present(nnz)) then
 !
@@ -167,6 +175,12 @@ MODULE CSRMatrixClass
          
          this % usingListMat = .TRUE.
          call this % ListMatrix % construct(this % NumRows)
+         
+         if (mustForceDiagonal) then
+            do i = 1, this % NumRows
+               call this % ListMatrix % ForceAddToEntry(i,i,0._RP)
+            end do
+         end if
          return
       end if
       

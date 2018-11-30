@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Thu Nov 22 16:31:14 2018
+!   @Last revision date: Fri Nov 30 12:53:04 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 851b0e5a065c5d565550051e09f97834f7092732
+!   @Last revision commit: 8c8fe673f51fec8338e38e16c38021bdca6914b2
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,7 +14,7 @@
 !  -> TODO: MPI implementation is missing
 !  -> TODO: Implement as class to prevent memory leaking and additional computations
 !  -> The Jacobian of the BCs is temporarily computed numerically
-!  -> Off-diagonal terms only for p-conforming representations and Euler equations
+!  -> Off-diagonal terms only for p-conforming representations
 !
 !//////////////////////////////////////////////////////
 #include "Includes.h"
@@ -108,21 +108,21 @@ contains
 !        If block-diagonal matrix, construct with size of blocks
 !        -------------------------------------------------------
          type is(DenseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=ndofelm)
+            call Matrix_p % Preallocate(nnzs=ndofelm, ForceDiagonal = .TRUE.)
          type is(SparseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=ndofelm)
+            call Matrix_p % Preallocate(nnzs=ndofelm, ForceDiagonal = .TRUE.)
             
 !
 !        If matrix is CSR, standard preallocate with LinkedListMatrix
 !        ------------------------------------------------------------
          type is(csrMat_t)
-            call Matrix_p % Preallocate()
+            call Matrix_p % Preallocate(ForceDiagonal = .TRUE.)
 !
 !        Otherwise, construct with nonzeros in each row
 !        ----------------------------------------------
          class default 
             nnz = MAXVAL(ndofelm) ! currently only for block diagonal
-            call Matrix_p % Preallocate(nnz)
+            call Matrix_p % Preallocate(nnz, ForceDiagonal = .TRUE.)
       end select
       call Matrix % Reset
       
@@ -741,9 +741,9 @@ contains
                
             end do                ; end do                ; end do                ; end do
          end do                ; end do                ; end do                ; end do
-         
          nullify (dfdGradQ_fr, dfdGradQ_ba, dfdGradQ_bo, dfdGradQ_to, dfdGradQ_ri, dfdGradQ_le )
       end if
+      
    end subroutine Local_SetDiagonalBlock
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -753,7 +753,6 @@ contains
 !     Routine to compute the off-diagonal block that results of connecting e_plus with e_minus for 
 !     the equations that correspond to e_plus and inserting it in the Matrix
 !
-!     -> Currently only for Euler... TODO: Add viscous terms
 !     -> Currently, this routine only works for p-conforming representations
 !           TODO: Add routine for p-nonconforming representations (block computation is more expensive and delta cycling is ruled out)
 !  -----------------------------------------------------------------------------------------------
@@ -833,29 +832,32 @@ contains
       tanAx_plus   = axisMap(:,f % elementSide(    side     ) )
       tanAx_minus  = axisMap(:,f % elementSide( other(side) ) )
       
-      ! Nodal storage
-      spA_plus  = NodalStorage(e_plus  % Nxyz)
-      spA_minus = NodalStorage(e_minus % Nxyz)
-      spAnorm_plus  => spA_plus(abs(normAx_plus ))
-      spAtan1_plus  => spA_plus( tanAx_plus(1) )
-      spAtan2_plus  => spA_plus( tanAx_plus(2) )
-      
-      spAnorm_minus => spA_minus(abs(normAx_minus))
-      spAtan1_minus => spA_minus( tanAx_minus(1) )
-      spAtan2_minus => spA_minus( tanAx_minus(2) )
-      
       ! Side of axis where f is
       if (normAx_plus < 0) then
          normAxSide_plus = LEFT
       else
          normAxSide_plus = RIGHT
       end if
+      normAx_plus = abs(normAx_plus)
       if (normAx_minus < 0) then
          normAxSide_minus = LEFT
       else
          normAxSide_minus = RIGHT
       end if
+      normAx_minus = abs(normAx_minus)
       
+      ! Nodal storage
+      spA_plus  = NodalStorage(e_plus  % Nxyz)
+      spA_minus = NodalStorage(e_minus % Nxyz)
+      spAnorm_plus  => spA_plus( normAx_plus   )
+      spAtan1_plus  => spA_plus( tanAx_plus(1) )
+      spAtan2_plus  => spA_plus( tanAx_plus(2) )
+      
+      spAnorm_minus => spA_minus( normAx_minus   )
+      spAtan1_minus => spA_minus( tanAx_minus(1) )
+      spAtan2_minus => spA_minus( tanAx_minus(2) )
+      
+      ! Polynomial orders
       NxyFace_plus  = e_plus  % Nxyz ( tanAx_plus  )
       NxyFace_minus = e_minus % Nxyz ( tanAx_minus )
       
@@ -888,8 +890,8 @@ contains
             j = eq2 + i2*NCONS + j2*EtaSpa2 + k2*ZetaSpa2 ! column index (1-based)
             
             MatrixEntry = -   dfdq(eq1,eq2,faceInd_plus(1),faceInd_plus(2)) &
-                            * spAnorm_plus  % b(elInd_plus (abs(normAx_plus )), normAxSide_plus ) &
-                            * spAnorm_minus % v(elInd_minus(abs(normAx_minus)), normAxSide_minus )  & 
+                            * spAnorm_plus  % b(elInd_plus ( normAx_plus  ), normAxSide_plus ) &
+                            * spAnorm_minus % v(elInd_minus( normAx_minus ), normAxSide_minus )  & 
                             * e_plus % geom % invJacobian(i1,j1,k1)
             
             call Matrix % SetBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatrixEntry)
@@ -961,40 +963,40 @@ contains
 !
 !              Faces contribution (surface integrals from the inner equation)
 !              ***********************************************|**************
-!                                                        _____|
-!                                                        |
-                 +(-   dfdGradQ(eq1,eq2,tanAx_plus(1)   ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
-                     * spAnorm_plus  % b   (elInd_plus (abs(normAx_plus )), normAxSide_plus  )  &
+!                                                      _______|
+!                                                      |
+                 +(-   dfdGradQ(eq1,eq2,tanAx_plus(1) ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
+                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  )  &
                      * spAtan1_plus  % hatD(faceInd_plus(1),faceInd_minus2plus(1))              &
-                     * spAnorm_minus % v   (elInd_minus(abs(normAx_minus)), normAxSide_minus ) * dtan2         & ! Tangent direction 1
+                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan2         & ! Tangent direction 1
                      
-                   -   dfdGradQ(eq1,eq2,abs(normAx_plus),1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
-                     * spAnorm_minus % v   (elInd_minus(abs(normAx_minus)), normAxSide_minus )  &
-                     * spAnorm_plus  % bd  (elInd_plus (abs(normAx_plus )), normAxSide_plus  ) * dtan1 * dtan2 & ! Normal direction
+                   -   dfdGradQ(eq1,eq2, normAx_plus  ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
+                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus )  &
+                     * spAnorm_plus  % bd  (elInd_plus ( normAx_plus  ), normAxSide_plus  ) * dtan1 * dtan2 & ! Normal direction
                    
-                   -   dfdGradQ(eq1,eq2,tanAx_plus(2)   ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
-                     * spAnorm_plus  % b   (elInd_plus (abs(normAx_plus )), normAxSide_plus  )  &
+                   -   dfdGradQ(eq1,eq2,tanAx_plus(2) ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
+                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  )  &
                      * spAtan2_plus  % hatD(faceInd_plus(2),faceInd_minus2plus(2))              &
-                     * spAnorm_minus % v   (elInd_minus(abs(normAx_minus)), normAxSide_minus ) * dtan1         & ! Tangent direction 2
+                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan1         & ! Tangent direction 2
 !
 !              Faces contribution (surface integrals from the outer equation) - PENALTY TERM IS BEING CONSIDERED IN THE INVISCID PART - TODO: Reorganize storage to put it explicitely in another place (needed for purely viscous equations)
-!                 The tangent directions here are taken in the reference frame of e⁻
+!                 The tangent directions here are taken in the|reference frame of e⁻
 !              ***********************************************|*********************
-!                                                         ____|
-!                                                         |
-                   +   dfdGradQ(eq1,eq2,tanAx_minus(1)   ,2,faceInd_plus(1),faceInd_plus(2)) &
-                     * spAnorm_plus  % b   (elInd_plus (abs(normAx_plus )), normAxSide_plus  ) &
+!                                                      _______|
+!                                                      |
+                   +   dfdGradQ(eq1,eq2,tanAx_minus(1),2,faceInd_plus(1),faceInd_plus(2)) &
+                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  ) &
                      * spAtan1_minus % D   (faceInd_plus2minus(1),faceInd_minus(1)) &
-                     * spAnorm_minus % v   (elInd_minus(abs(normAx_minus)), normAxSide_minus ) * dtan2_minus                  &  ! Tangent direction 1
+                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan2_minus                  &  ! Tangent direction 1
                      
-                   +   dfdGradQ(eq1,eq2,abs(normAx_minus),2,faceInd_plus(1),faceInd_plus(2)) &
-                     * spAnorm_plus  % b   (elInd_plus (abs(normAx_plus )), normAxSide_plus  ) &
-                     * spAnorm_minus % vd  (elInd_minus(abs(normAx_minus)), normAxSide_minus ) * dtan1_minus * dtan2_minus    & ! Normal direction
+                   +   dfdGradQ(eq1,eq2, normAx_minus ,2,faceInd_plus(1),faceInd_plus(2)) &
+                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  ) &
+                     * spAnorm_minus % vd  (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan1_minus * dtan2_minus    & ! Normal direction
                      
-                   +   dfdGradQ(eq1,eq2,tanAx_minus(2)   ,2,faceInd_plus(1),faceInd_plus(2)) &
-                     * spAnorm_plus  % b   (elInd_plus (abs(normAx_plus )), normAxSide_plus  ) &
+                   +   dfdGradQ(eq1,eq2,tanAx_minus(2),2,faceInd_plus(1),faceInd_plus(2)) &
+                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  ) &
                      * spAtan2_minus % D   (faceInd_plus2minus(2),faceInd_minus(2)) &
-                     * spAnorm_minus % v   (elInd_minus(abs(normAx_minus)), normAxSide_minus ) * dtan1_minus                  & ! Tangent direction 2
+                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan1_minus                  & ! Tangent direction 2
                                                                                     ) * e_plus % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
                    
                call Matrix % AddToBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatrixEntry)
@@ -1007,7 +1009,7 @@ contains
 !     Finish up
 !     *********
 !
-      nullify(spAnorm_plus, spAtan1_plus, spAtan2_plus, spAnorm_minus)
+      nullify(spAnorm_plus, spAtan1_plus, spAtan2_plus, spAnorm_minus, spAtan1_minus, spAtan2_minus)
       
    end subroutine Local_GetOffDiagonalBlock
 #endif
