@@ -10,6 +10,7 @@
 module FileReadingUtilities
    USE SMConstants
    use RealDataLinkedList
+   use IntegerDataLinkedList
    implicit none
    
    public
@@ -284,6 +285,75 @@ contains
          end if
 
       end function getFileExtension
+      
+      function getIntArrayFromString( line ) result ( array )
+!
+!           ****************************************************
+!                    Gets an array from a string of the 
+!              form: 
+!                       line = "[a,b,c,...]"
+!           ****************************************************
+!
+         implicit none
+         character(len=*),    intent(in)  :: line
+         integer, allocatable       :: array(:)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: pos1 , pos2 , pos
+         character(len=LINE_LENGTH)    :: auxline
+         type(IntegerDataLinkedList_t) :: Data
+         integer                       :: value
+         integer  :: io
+        
+         pos1 = index(line,"[")
+         pos2 = index(line,"]") 
+
+         if ( (pos1 .eq. 0) .or. (pos2 .eq. 0) ) then
+!
+!           There are no brackets in the string
+!           -----------------------------------
+            return
+         end if
+         
+         auxline = line(pos1+1:pos2-1)
+!
+!        Get the elements
+!        ----------------
+         do
+            pos = index(auxline , "," ) 
+
+            if ( pos .gt. 0 ) then
+
+               read(auxline(1:pos-1),*,iostat=io) value 
+               if ( io .lt. 0 ) then
+                  return
+               end if
+
+               call Data % Add(value)
+   
+               auxline = auxline(pos+1:)
+
+            else
+               read(auxline ,*,iostat=io) value 
+               if ( io .lt. 0 ) then
+                  return
+               end if
+
+               call Data % Add(value)
+
+               exit
+
+            end if
+
+         end do
+
+         call Data % ExportToArray(array)
+         call Data % destruct
+
+      end function getIntArrayFromString
 
       function getRealArrayFromString( line ) result ( array )
 !

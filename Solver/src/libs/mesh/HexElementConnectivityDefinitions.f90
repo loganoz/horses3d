@@ -31,13 +31,35 @@
 
       private
       public   NODES_PER_FACE, NODES_PER_ELEMENT, FACES_PER_ELEMENT, EDGES_PER_ELEMENT
-      public   localFaceNode, localEdgeNode, sideMap, neighborFaces
+      public   localFaceNode, localEdgeNode, sideMap, neighborFaces, axisMap, normalAxis
 
       INTEGER, PARAMETER :: NODES_PER_FACE    = 4
       INTEGER, PARAMETER :: NODES_PER_ELEMENT = 8
       INTEGER, PARAMETER :: FACES_PER_ELEMENT = 6
       INTEGER, PARAMETER :: EDGES_PER_ELEMENT = 12
-      
+ 
+!
+!     -------------------------------------------------------------------------
+!!    axisMap gives the element local coordinate number for the two directions
+!!    on each face. The coordinate numbers are given by (xi,eta,zeta) = (1,2,3).
+!!    For instance, the two coordinate directions on Face 1 are (xi,zeta).
+!     -------------------------------------------------------------------------
+!
+      integer, dimension(2,6) :: axisMap =                        &
+                                 RESHAPE( (/1, 3,                 & ! Face 1 (x,z)
+                                            1, 3,                 & ! Face 2 (x,z)
+                                            1, 2,                 & ! Face 3 (x,y)
+                                            2, 3,                 & ! Face 4 (y,z)
+                                            1, 2,                 & ! Face 5 (x,y)
+                                            2, 3/)                & ! Face 6 (y,z)
+                                 ,(/2,6/))
+!
+!     -------------------------------------------------------------
+!     Definition of the normal axis to a face
+!        Positive for axis going out and negative for axis going in
+!     -------------------------------------------------------------
+!
+      integer, parameter :: normalAxis(6) = [ -2,  2, -3,  1,  3, -1]
 !
 !-------------------------------------------------------------------------
 !  Definition of the neighbor faces to a given face

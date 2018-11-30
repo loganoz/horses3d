@@ -44,6 +44,7 @@ module SparseBlockDiagonalMatrixClass
          procedure :: AddToBlockEntry
          procedure :: shift
          procedure :: Assembly
+         procedure :: SpecifyBlockInfo
          procedure :: destruct
          procedure :: FactorizeBlocks_LU
          procedure :: SolveBlocks_LU
@@ -101,18 +102,26 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Preallocate(this, nnz, nnzs)
+   subroutine Preallocate(this, nnz, nnzs, ForceDiagonal)
       IMPLICIT NONE
       !---------------------------------------------
       class(SparseBlockDiagMatrix_t), intent(inout) :: this    !<> This matrix
       integer, optional            , intent(in)    :: nnz     !<  Not needed here
       integer, optional            , intent(in)    :: nnzs(:) !<  nnzs contains the block sizes!
+      logical, optional, intent(in)  :: ForceDiagonal
       !---------------------------------------------
       integer :: i, k ! counters
+      logical :: mustForceDiagonal
       !---------------------------------------------
       
       if (.not. present(nnzs) ) ERROR stop ':: SparseBlockDiagMatrix needs the block sizes'
       if ( size(nnzs) /= this % NumOfBlocks) ERROR stop ':: SparseBlockDiagMatrix: wrong dimension for the block sizes'
+      
+      if ( present(ForceDiagonal) ) then
+         mustForceDiagonal = ForceDiagonal
+      else
+         mustForceDiagonal = .FALSE.
+      end if
       
       this % BlockSizes = nnzs
       this % NumRows = sum(nnzs)
@@ -125,7 +134,7 @@ contains
 !$omp parallel do private(k) schedule(runtime)
       do i=1, this % NumOfBlocks
          
-         call this % Blocks(i) % Matrix % construct ( nnzs(i) )
+         call this % Blocks(i) % Matrix % construct ( nnzs(i) , mustForceDiagonal)
          call this % Blocks(i) % Matrix % PreAllocate()
          
          safedeallocate (this % Blocks(i) % Indexes) ; allocate ( this % Blocks(i) % Indexes(nnzs(i)) )
@@ -231,23 +240,34 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Assembly(this,BlockIdx,BlockSize)
+   subroutine Assembly(this)
       implicit none
       !---------------------------------------------
       class(SparseBlockDiagMatrix_t), intent(inout) :: this
-      integer, target, optional     , intent(in)    :: BlockIdx(:)
-      integer, target, optional     , intent(in)    :: BlockSize(:)
       !-local-variables-----------------------------
       integer :: iBL
       !---------------------------------------------
       
-      !$omp parallel do schedule(runtime)
+!$omp parallel do schedule(runtime)
       do iBL=1, this % NumOfBlocks
          call this % Blocks(iBL) % Matrix % Assembly
       end do
 !$omp end parallel do
       
    end subroutine Assembly
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SpecifyBlockInfo(this,BlockIdx,BlockSize)
+      implicit none
+      !-arguments-----------------------------------
+      class(SparseBlockDiagMatrix_t), intent(inout) :: this
+      integer                       , intent(in)    :: BlockIdx(:)
+      integer                       , intent(in)    :: BlockSize(:)
+      !---------------------------------------------
+      ! Do nothing
+      ! Currently not needed since this info is provided at construction time
+   end subroutine SpecifyBlockInfo
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -282,7 +302,7 @@ contains
       implicit none
       !-------------------------------------------------------------
       class(SparseBlockDiagMatrix_t), intent(in)    :: this            !<  This matrix
-      class(SparseBlockDiagMatrix_t), intent(inout) :: Factorized      !<  Facorized matrix
+      class(Matrix_t)               , intent(inout) :: Factorized      !<  Facorized matrix
       !-------------------------------------------------------------
       integer                    :: iBL, error      ! Counter
       real(kind=RP), allocatable :: x_loc(:)
@@ -290,46 +310,51 @@ contains
       !-------------------------------------------------------------
       
 #ifdef HAS_MKL
-      
+      select type (Factorized)
+         class is(SparseBlockDiagMatrix_t)
 !$omp parallel do private(x_loc,b_loc,error) schedule(runtime)
-      do iBL=1, this % NumOfBlocks
-         associate (A      => this       % Blocks(iBL) % Matrix, &
-                    CBlock => Factorized % Blocks(iBL)   )
-         
-         call CBlock % Matrix % destruct
-         call CBlock % Matrix % constructWithArrays(A % Rows, &
-                                                    A % Cols, &
-                                                    A % Values)
-         
-         allocate( x_loc(CBlock % Matrix % NumRows) )
-         allocate( b_loc(CBlock % Matrix % NumRows) )
-         
-         CALL pardiso(  pt      = CBlock % Pardiso_pt      ,     &
-                        maxfct  = 1                        ,     &     ! Set up space for 1 matrix at most
-                        mnum    = 1                        ,     &     ! Matrix to use in the solution phase (1st and only one)
-                        mtype   = CBlock % mtype           ,     &
-                        phase   = 12                       ,     &     !  12 for factorization
-                        n       = CBlock % Matrix % NumRows,     &     ! Number of equations
-                        values  = CBlock % Matrix % Values ,     & 
-                        rows    = CBlock % Matrix % Rows   ,     &
-                        cols    = CBlock % Matrix % Cols   ,     &
-                        perm    = CBlock % Indexes         ,     &     ! ...
-                        nrhs    = 1                        ,     &     ! Only one right hand side 
-                        iparm   = CBlock % Pardiso_iparm   ,     &
-                        msglvl  = 0                        ,     &     ! 1: verbose... Too much printing
-                        b       = b_loc                    ,     &
-                        x       = x_loc                    ,     &
-                        ierror  = error                     )
-         
-         if (error .NE. 0) then
-            write(*,*) 'MKL Pardiso ERROR:', error, 'in factorization of block', iBL
-            stop
-         end if
-         
-         deallocate (x_loc, b_loc)
-         end associate
-      end do
+            do iBL=1, this % NumOfBlocks
+               associate (A      => this       % Blocks(iBL) % Matrix, &
+                          CBlock => Factorized % Blocks(iBL)   )
+               
+               call CBlock % Matrix % destruct
+               call CBlock % Matrix % constructWithArrays(A % Rows, &
+                                                          A % Cols, &
+                                                          A % Values)
+               
+               allocate( x_loc(CBlock % Matrix % NumRows) )
+               allocate( b_loc(CBlock % Matrix % NumRows) )
+               
+               CALL pardiso(  pt      = CBlock % Pardiso_pt      ,     &
+                              maxfct  = 1                        ,     &     ! Set up space for 1 matrix at most
+                              mnum    = 1                        ,     &     ! Matrix to use in the solution phase (1st and only one)
+                              mtype   = CBlock % mtype           ,     &
+                              phase   = 12                       ,     &     !  12 for factorization
+                              n       = CBlock % Matrix % NumRows,     &     ! Number of equations
+                              values  = CBlock % Matrix % Values ,     & 
+                              rows    = CBlock % Matrix % Rows   ,     &
+                              cols    = CBlock % Matrix % Cols   ,     &
+                              perm    = CBlock % Indexes         ,     &     ! ...
+                              nrhs    = 1                        ,     &     ! Only one right hand side 
+                              iparm   = CBlock % Pardiso_iparm   ,     &
+                              msglvl  = 0                        ,     &     ! 1: verbose... Too much printing
+                              b       = b_loc                    ,     &
+                              x       = x_loc                    ,     &
+                              ierror  = error                     )
+               
+               if (error .NE. 0) then
+                  write(*,*) 'MKL Pardiso ERROR:', error, 'in factorization of block', iBL
+                  stop
+               end if
+               
+               deallocate (x_loc, b_loc)
+               end associate
+            end do
 !$omp end parallel do
+         class default
+            write(STD_OUT,*) 'SparseBlockDiagonalMatrixClass :: Wrong type For factorized matrix in FactorizeBlocks_LU'
+            stop
+      end select
 #else
       stop 'SparseBlockDiagMat :: MKL is not linked correctly'
 #endif

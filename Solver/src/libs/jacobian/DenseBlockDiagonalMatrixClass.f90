@@ -38,6 +38,7 @@ module DenseBlockDiagonalMatrixClass
          procedure :: AddToBlockEntry
          procedure :: ResetBlock
          procedure :: Assembly
+         procedure :: SpecifyBlockInfo
          procedure :: shift
          procedure :: destruct
          procedure :: FactorizeBlocks_LU
@@ -64,12 +65,13 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Preallocate(this, nnz, nnzs)
+   subroutine Preallocate(this, nnz, nnzs, ForceDiagonal)
       IMPLICIT NONE
       !---------------------------------------------
       class(DenseBlockDiagMatrix_t), intent(inout) :: this    !<> This matrix
       integer, optional            , intent(in)    :: nnz     !<  Not needed here
       integer, optional            , intent(in)    :: nnzs(:) !<  nnzs contains the block sizes!
+      logical, optional, intent(in)  :: ForceDiagonal
       !---------------------------------------------
       integer :: i, k ! counters
       !---------------------------------------------
@@ -236,17 +238,28 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Assembly(this,BlockIdx,BlockSize)
+   subroutine Assembly(this)
       implicit none
       !---------------------------------------------
       class(DenseBlockDiagMatrix_t), intent(inout) :: this
-      integer, target, optional    , intent(in)    :: BlockIdx(:)
-      integer, target, optional    , intent(in)    :: BlockSize(:)
       !---------------------------------------------
       
       ! Do nothing
       
    end subroutine Assembly
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SpecifyBlockInfo(this,BlockIdx,BlockSize)
+      implicit none
+      !-arguments-----------------------------------
+      class(DenseBlockDiagMatrix_t) , intent(inout) :: this
+      integer                       , intent(in)    :: BlockIdx(:)
+      integer                       , intent(in)    :: BlockSize(:)
+      !---------------------------------------------
+      ! Do nothing
+      ! Currently not needed since this info is provided at construction time
+   end subroutine SpecifyBlockInfo
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -302,19 +315,24 @@ contains
       implicit none
       !-------------------------------------------------------------
       class(DenseBlockDiagMatrix_t), intent(in)    :: this            !<  This matrix
-      class(DenseBlockDiagMatrix_t), intent(inout) :: Factorized      !<  Facorized matrix
+      class(Matrix_t), intent(inout) :: Factorized      !<  Facorized matrix
       !-------------------------------------------------------------
       integer :: k      ! Counter
       !-------------------------------------------------------------
       
+      select type (Factorized)
+         class is(DenseBlockDiagMatrix_t)
 !$omp parallel do schedule(runtime)
-      do k=1, this % NumOfBlocks
-         call ComputeLU (A        = this       % Blocks(k) % Matrix, &
-                         ALU      = Factorized % Blocks(k) % Matrix, &
-                         LUpivots = Factorized % Blocks(k) % Indexes)
-      end do
+            do k=1, this % NumOfBlocks
+               call ComputeLU (A        = this       % Blocks(k) % Matrix, &
+                               ALU      = Factorized % Blocks(k) % Matrix, &
+                               LUpivots = Factorized % Blocks(k) % Indexes)
+            end do
 !$omp end parallel do
-      
+         class default
+            write(STD_OUT,*) 'DenseBlockDiagonalMatrixClass :: Wrong type For factorized matrix in FactorizeBlocks_LU'
+            stop
+      end select
    end subroutine FactorizeBlocks_LU
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

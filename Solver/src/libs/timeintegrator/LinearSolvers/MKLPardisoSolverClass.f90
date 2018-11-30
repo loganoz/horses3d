@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Wed Jul 25 13:04:19 2018
+!   @Last revision date: Wed Nov 21 19:34:15 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 016b18c36f8290a48e4a476ea71b212f35254071
+!   @Last revision commit: 1c6c630e4fbb918c0c9a98d0bfd4d0b73101e65d
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,6 +25,7 @@ MODULE MKLPardisoSolverClass
    use DGSEMClass
    use TimeIntegratorDefinitions
    use NumericalJacobian
+   use AnalyticalJacobian, only: AnalyticalJacobian_Compute
 #ifdef HAS_PETSC
    use petsc
 #endif
@@ -40,6 +41,7 @@ MODULE MKLPardisoSolverClass
       REAL(KIND=RP)                              :: Ashift
       LOGICAL                                    :: AIsPrealloc   
       TYPE(DGSem), POINTER                       :: p_sem
+      integer                                    :: JacobianComputation
       
       !Variables for creating Jacobian in PETSc context:
       LOGICAL                                    :: AIsPetsc = .false.
@@ -66,19 +68,43 @@ MODULE MKLPardisoSolverClass
       PROCEDURE :: Getrnorm    !Get residual norm
    END TYPE MKLPardisoSolver_t
    
-   PRIVATE
-   PUBLIC MKLPardisoSolver_t, GenericLinSolver_t
+   integer, parameter :: NUMERICAL_JACOBIAN  = 1
+   integer, parameter :: ANALYTICAL_JACOBIAN = 2
    
+   private
+   public MKLPardisoSolver_t, GenericLinSolver_t
+   
+!
+!  Useful interfaces
+!  -----------------
+   interface
+      subroutine pardisoinit(pt, mtype, iparm)
+         use SMConstants
+         implicit none
+         integer(kind=AddrInt) :: pt(*)
+         integer               :: mtype
+         integer               :: iparm(*)
+      end subroutine pardisoinit
+      
+      subroutine pardiso(pt, maxfct, mnum, mtype, phase, n, &
+                        values, rows, cols, perm, nrhs, iparm, msglvl, b, x, ierror)
+         use SMConstants
+         real(kind=RP)           :: values(*), b(*), x(*)
+         integer(kind=AddrInt)   :: pt(*)
+         integer                 :: perm(*), nrhs, iparm(*), msglvl, ierror
+         integer                 :: maxfct, mnum, mtype, phase, n, rows(*), cols(*)
+      end subroutine pardiso
+   end interface
    
 !========
  CONTAINS
 !========
    
-   SUBROUTINE ConstructMKLContext(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
-      IMPLICIT NONE
+   subroutine ConstructMKLContext(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
+      implicit none
       !-----------------------------------------------------------
       CLASS(MKLPardisoSolver_t), INTENT(INOUT), TARGET :: this
-      INTEGER                  , INTENT(IN)            :: DimPrb
+      integer                  , INTENT(IN)            :: DimPrb
       TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
       procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
@@ -86,16 +112,13 @@ MODULE MKLPardisoSolverClass
 #ifdef HAS_PETSC
       PetscErrorCode :: ierr
 #endif
-      INTERFACE
-         SUBROUTINE pardisoinit(pt, mtype, iparm)
-            USE SMConstants
-            IMPLICIT NONE
-            INTEGER(KIND=AddrInt) :: pt(*)
-            INTEGER :: mtype
-            INTEGER :: iparm(*)
-         END SUBROUTINE pardisoinit
-      END INTERFACE
       !-----------------------------------------------------------
+      
+      if ( controlVariables % containsKey("jacobian flag") ) then
+         this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
+      else
+         this % JacobianComputation = NUMERICAL_JACOBIAN
+      end if
       
       MatrixShift => MatrixShiftFunc
       
@@ -189,18 +212,6 @@ MODULE MKLPardisoSolverClass
 #ifdef HAS_MKL
       INTEGER                                  :: error
       !-----------------------------------------------------------
-      INTERFACE
-         SUBROUTINE pardiso(pt, maxfct, mnum, mtype, phase, n, &
-                           values, rows, cols, perm, nrhs, iparm, msglvl, b, x, ierror)
-            USE SMConstants
-            IMPLICIT NONE
-            REAL(KIND=RP) :: values(*), b(*), x(*)
-            INTEGER(KIND=AddrInt) :: pt(*)
-            INTEGER :: perm(*), nrhs, iparm(*), msglvl, ierror
-            INTEGER :: maxfct, mnum, mtype, phase, n, rows(*), cols(*)
-         END SUBROUTINE pardiso
-      END INTERFACE
-      !-----------------------------------------------------------
       
 !
 !     Compute Jacobian matrix if needed
@@ -265,12 +276,24 @@ MODULE MKLPardisoSolverClass
       !-----------------------------------------------------------
       
       if (this % AIsPetsc) then
-         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
+         select case (this % JacobianComputation)
+         case(NUMERICAL_JACOBIAN)
+            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
+         case(ANALYTICAL_JACOBIAN)
+            call AnalyticalJacobian_Compute(this % p_sem, nEqn, time, this % PETScA,.TRUE.)
+         end select
+         
          call this % PETScA % shift( MatrixShift(dt) )
          call this % PETScA % GetCSRMatrix(this % A)
          this % AIsPetsc = .FALSE.
       else
-         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
+         select case (this % JacobianComputation)
+         case(NUMERICAL_JACOBIAN)
+            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
+         case(ANALYTICAL_JACOBIAN)
+            call AnalyticalJacobian_Compute(this % p_sem, nEqn, time, this % A)
+         end select
+         
          call this % A % shift( MatrixShift(dt) )
       end if
    end subroutine ComputeJacobian

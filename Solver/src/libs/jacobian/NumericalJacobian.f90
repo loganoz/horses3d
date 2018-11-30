@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Mon Oct 15 14:53:41 2018
+!   @Last revision date: Fri Nov 30 12:53:02 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 99f4e73efc8c89ea66ae091e47c34d33fe1eaf76
+!   @Last revision commit: 8c8fe673f51fec8338e38e16c38021bdca6914b2
 !
 !//////////////////////////////////////////////////////
 !
@@ -218,14 +218,17 @@ contains
 !
       select type(Matrix_p => Matrix)
          type is(DenseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=ndofelm) ! Constructing with block size
+            call Matrix_p % Preallocate(nnzs=ndofelm, ForceDiagonal = .TRUE.) ! Constructing with block size
+            CALL Matrix % Reset
+         type is(SparseBlockDiagMatrix_t)
+            call Matrix_p % Preallocate(nnzs=ndofelm, ForceDiagonal = .TRUE.) ! Constructing with block size
             CALL Matrix % Reset
          type is(CSRMat_t)
 !~             call GetRowsAndColsVector(sem, nEqn, Matrix_p % numRows, totalnnz, firstIdx, rows, cols, diag)
 !~             call Matrix_p % PreAllocateWithStructure(totalnnz, rows, cols, diag) 
-            call Matrix_p % Preallocate
+            call Matrix_p % Preallocate(ForceDiagonal = .TRUE.)
          class default ! Construct with nonzeros in each row
-            call Matrix % Preallocate(nnz)
+            call Matrix % Preallocate(nnz, ForceDiagonal = .TRUE.)
             CALL Matrix % Reset
       end select
       
@@ -308,7 +311,8 @@ contains
          ENDDO
       ENDDO
       
-      CALL Matrix % Assembly(firstIdx,ndofelm)                             ! Matrix A needs to be assembled before being used
+      CALL Matrix % Assembly()                             ! Matrix A needs to be assembled before being used
+      call Matrix % SpecifyBlockInfo(firstIdx,ndofelm)
       
       call Stopwatch % Pause("Numerical Jacobian construction")
       IF (PRESENT(PINFO)) THEN

@@ -23,7 +23,10 @@ module GenericMatrixClass
          procedure :: ReShift
          procedure :: PreAssembly
          procedure :: Assembly
+         procedure :: SpecifyBlockInfo
          procedure :: destruct
+         procedure :: SolveBlocks_LU
+         procedure :: FactorizeBlocks_LU
    end type Matrix_t
 contains
 !
@@ -41,12 +44,13 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Preallocate(this, nnz, nnzs)
+   subroutine Preallocate(this, nnz, nnzs, ForceDiagonal)
       implicit none
       !---------------------------------------------
       class(Matrix_t), intent(inout) :: this
       integer, optional, intent(in)  :: nnz
       integer, optional, intent(in)  :: nnzs(:)
+      logical, optional, intent(in)  :: ForceDiagonal
       !---------------------------------------------
       ERROR stop ' :: Preallocate not implemented for current matrix type'
    end subroutine Preallocate
@@ -211,15 +215,25 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Assembly(this,BlockIdx,BlockSize)
+   subroutine Assembly(this)
       implicit none
       !---------------------------------------------
-      class(Matrix_t),     intent(inout)   :: this
-      integer, target, optional    ,     intent(in)      :: BlockIdx(:)
-      integer, target, optional, intent(in)    :: BlockSize(:)
+      class(Matrix_t), intent(inout) :: this
       !---------------------------------------------
       ERROR stop ' :: Assembly not implemented for current matrix type'
    end subroutine Assembly
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SpecifyBlockInfo(this,BlockIdx,BlockSize)
+      implicit none
+      !-arguments-----------------------------------
+      class(Matrix_t), intent(inout) :: this
+      integer        , intent(in)    :: BlockIdx(:)
+      integer        , intent(in)    :: BlockSize(:)
+      !---------------------------------------------
+      ERROR stop ' :: SpecifyBlockInfo not implemented for current matrix type'
+   end subroutine SpecifyBlockInfo
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -230,5 +244,35 @@ contains
       !---------------------------------------------
       ERROR stop ' :: destruct not implemented for current matrix type'
    end subroutine destruct
-   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------------
+!  Only for block-diaginal matrices: Factorizes the blocks of the matrix as A=LU
+!  -----------------------------------------------------------------------------
+   subroutine FactorizeBlocks_LU(this,Factorized)
+      implicit none
+      !-------------------------------------------------------------
+      class(Matrix_t), intent(in)    :: this            !<  This matrix
+      class(Matrix_t), intent(inout) :: Factorized      !<  Facorized matrix
+      !-------------------------------------------------------------
+      integer :: k      ! Counter
+      !-------------------------------------------------------------
+      ERROR stop ' :: FactorizeBlocks_LU not implemented for current matrix type'
+   end subroutine FactorizeBlocks_LU
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------------------------------------------------------------------
+!  Only for block-diaginal matrices: Solves linear systems with the factorized blocks
+!  ----------------------------------------------------------------------------------
+   subroutine SolveBlocks_LU(this,x,b)
+      implicit none
+      !-------------------------------------------------------------
+      class(Matrix_t), intent(in)    :: this                 !<  FACTORIZED matrix for solving the problem
+      real(kind=RP)  , intent(in)    :: b(this % NumRows)    !<  RHS
+      real(kind=RP)  , intent(inout) :: x(this % NumRows)    !<  Solution
+      !-------------------------------------------------------------
+      ERROR stop ' :: SolveBlocks_LU not implemented for current matrix type'
+   end subroutine SolveBlocks_LU
 end module GenericMatrixClass

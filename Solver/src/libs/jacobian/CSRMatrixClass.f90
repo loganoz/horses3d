@@ -4,14 +4,14 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Wed Jun 27 19:47:26 2018
+!   @Last revision date: Fri Nov 30 12:52:58 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3c862164f7abc59dc50f4554496246f7cc54b803
+!   @Last revision commit: 8c8fe673f51fec8338e38e16c38021bdca6914b2
 !
 !//////////////////////////////////////////////////////
 !
 MODULE CSRMatrixClass
-   USE SMConstants          , only: RP    
+   USE SMConstants          , only: RP, STD_OUT   
    use GenericMatrixClass              
    use LinkedListMatrixClass, only: LinkedListMatrix_t
 #include "Includes.h"
@@ -33,22 +33,26 @@ MODULE CSRMatrixClass
       integer,        allocatable :: firstIdx(:,:)         ! For each row, specifies the position of the beginning of each element column
       type(LinkedListMatrix_t)    :: ListMatrix
       logical                     :: usingListMat
-   CONTAINS
+   contains
    
       procedure :: construct           => CSR_CreateMat
       procedure :: constructWithArrays => CSR_constructWithArrays
       procedure :: PreAllocate         => CSR_PreAllocate
       procedure :: Reset               => CSR_Reset
+      procedure :: ResetBlock          => CSR_ResetBlock
       procedure :: assigndiag          => CSR_AssignDiag
       procedure :: Visualize           => CSR2Visualize
       procedure :: destruct
-      procedure :: Shift       => SetMatShift
+      procedure :: Shift               => SetMatShift
       procedure :: SetColumn
-      procedure :: SetEntry
-      procedure :: AddToEntry
-      procedure :: GetDense => CSR2Dense
-      procedure :: GetBlock => CSR_GetBlock
-      procedure :: Assembly
+      procedure :: SetEntry            => CSR_SetEntry
+      procedure :: AddToEntry          => CSR_AddToEntry
+      procedure :: GetDense            => CSR2Dense
+      procedure :: GetBlock            => CSR_GetBlock
+      procedure :: Assembly            => CSR_Assembly
+      procedure :: SpecifyBlockInfo    => CSR_SpecifyBlockInfo
+      procedure :: AddToBlockEntry     => CSR_AddToBlockEntry
+      procedure :: SetBlockEntry       => CSR_SetBlockEntry
 !      procedure                           :: SetFirstIdx => CSR_SetFirstIdx
       procedure :: PreAllocateWithStructure => CSR_PreAllocateWithStructure
    END TYPE
@@ -131,16 +135,24 @@ MODULE CSRMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine CSR_PreAllocate(this,nnz,nnzs)
+   subroutine CSR_PreAllocate(this,nnz,nnzs, ForceDiagonal)
       implicit none
       !-----------------------------------
-      CLASS(csrMat_t), INTENT(INOUT):: this             !<> Matrix to be preallocated
-      integer, optional, intent(in) :: nnz        !< Num of nonzero entries all rows
-      integer, optional, intent(in) :: nnzs(:)     !< Num of nonzero entries in every row 
+      CLASS(csrMat_t), INTENT(INOUT) :: this             !<> Matrix to be preallocated
+      integer, optional, intent(in)  :: nnz        !< Num of nonzero entries all rows
+      integer, optional, intent(in)  :: nnzs(:)     !< Num of nonzero entries in every row 
+      logical, optional, intent(in)  :: ForceDiagonal
       !-----------------------------------
       integer :: i,k,istat
       integer :: total_nnz
+      logical :: mustForceDiagonal
       !-----------------------------------
+      
+      if ( present(ForceDiagonal) ) then
+         mustForceDiagonal = ForceDiagonal
+      else
+         mustForceDiagonal = .FALSE.
+      end if
       
       if (present(nnz)) then
 !
@@ -163,6 +175,12 @@ MODULE CSRMatrixClass
          
          this % usingListMat = .TRUE.
          call this % ListMatrix % construct(this % NumRows)
+         
+         if (mustForceDiagonal) then
+            do i = 1, this % NumRows
+               call this % ListMatrix % ForceAddToEntry(i,i,0._RP)
+            end do
+         end if
          return
       end if
       
@@ -226,7 +244,57 @@ MODULE CSRMatrixClass
          this % Values = 0._RP
       end if
    end subroutine CSR_Reset
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -------------------------------------------------------
+!  Subroutine to reset (=0._RP) all the entries of a block
+!  -------------------------------------------------------
+   subroutine CSR_ResetBlock(this, iBlock, jBlock )
+      implicit none
+      !-arguments-----------------------------------
+      class(csrMat_t), intent(inout) :: this
+      integer        , intent(in)    :: iBlock, jBlock
+      !---------------------------------------------
+      integer :: row, col, pos
+      !---------------------------------------------
       
+      if ( (.not. allocated(this % BlockIdx)) .or. (.not. allocated(this % BlockSize)) ) then
+         write(STD_OUT,*) 'CSRMatrixClass :: Error '
+         write(STD_OUT,*) '               :: CSR_SetBlockEntry only available after CSR_SpecifyBlockInfo has been called'
+         stop 99
+      end if
+      
+      if (this % usingListMat) then
+         do row = this % BlockIdx(iBlock), this % BlockIdx(iBlock) + this % BlockSize(iBlock) - 1
+            do col = this % BlockIdx(jBlock), this % BlockIdx(jBlock) + this % BlockSize(jBlock) - 1
+               call this % ListMatrix % ResetEntry(row,col)
+            end do
+         end do
+      else
+         ! TODO: This can be improved...
+         do row = this % BlockIdx(iBlock), this % BlockIdx(iBlock) + this % BlockSize(iBlock) - 1
+            do col = this % BlockIdx(jBlock), this % BlockIdx(jBlock) + this % BlockSize(jBlock) - 1
+               
+               pos = CSR_Search (this,row,col)
+               if (pos == 0) cycle
+               
+               this % Values(pos) = 0._RP
+               
+            end do
+         end do
+      end if
+      
+      ! TODO: Do thisssss!!!
+!~      if (this % usingListMat) then
+!~         call this % ListMatrix % Reset()
+!~      else
+!~         this % Cols = 0
+!~         this % Diag = 0
+!~         this % Values = 0._RP
+!~      end if
+      
+   end subroutine CSR_ResetBlock 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -297,7 +365,7 @@ MODULE CSRMatrixClass
 !  ---------------------------------------------
 !  Set given value to an element of a CSR matrix
 !  ---------------------------------------------
-   subroutine SetEntry(this, row, col, value )
+   subroutine CSR_SetEntry(this, row, col, value )
       implicit none
       !-arguments-----------------------------------
       class(csrMat_t), intent(inout) :: this
@@ -320,14 +388,14 @@ MODULE CSRMatrixClass
          this % Values(k) = value
       end if
       
-   end subroutine SetEntry
+   end subroutine CSR_SetEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ---------------------------------------------
 !  Add a given value to an element of a CSR matrix
 !  ---------------------------------------------
-   subroutine AddToEntry(this, row, col, value )
+   subroutine CSR_AddToEntry(this, row, col, value )
       implicit none
       !-arguments-----------------------------------
       class(csrMat_t), intent(inout) :: this
@@ -350,7 +418,7 @@ MODULE CSRMatrixClass
          this % Values(k) = this % Values(k) + value
       end if
       
-   end subroutine AddToEntry
+   end subroutine CSR_AddToEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -499,7 +567,7 @@ MODULE CSRMatrixClass
 #ifdef HAS_MKL
       CALL mkl_dcsrgemv('N', A % NumRows, A % Values, A % Rows, A % Cols, u, v)
 #else
-      !$omp parallel do private(j,rsum)
+!$omp parallel do private(j,rsum)
       DO i=1,A % NumRows
          rsum = 0.0d0
          DO j=A % Rows(i),A % Rows(i+1)-1
@@ -507,7 +575,7 @@ MODULE CSRMatrixClass
          END DO
          v(i) = rsum
       END DO
-      !$omp end parallel do
+!$omp end parallel do
 #endif
    !------------------------------------------------------------------------------
    END FUNCTION
@@ -588,20 +656,11 @@ MODULE CSRMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Assembly(this,BlockIdx,BlockSize)
+   subroutine CSR_Assembly(this)
       implicit none
+      !-arguments-----------------------------------
+      class(csrMat_t), intent(inout)    :: this
       !---------------------------------------------
-      class(csrMat_t),     intent(inout)    :: this
-      integer, target, optional, intent(in) :: BlockIdx(:)
-      integer, target, optional, intent(in) :: BlockSize(:)
-      !---------------------------------------------
-      
-      if ( present(BlockIdx) .and. present(BlockSize) ) then
-         safedeallocate(this % BlockIdx)  ; allocate (this % BlockIdx (size(BlockIdx)) )
-         safedeallocate(this % BlockSize) ; allocate (this % BlockSize(size(BlockSize)) )
-         this % BlockIdx = BlockIdx
-         this % BlockSize = BlockSize
-      end if
       
       if ( this % usingListMat ) then
          call this % ListMatrix % getCSRarrays(this % Values, this % Cols, this % Rows)
@@ -609,9 +668,82 @@ MODULE CSRMatrixClass
          call this % ListMatrix % destruct()
          this % usingListMat = .FALSE.
       end if
-   end subroutine Assembly
+   end subroutine CSR_Assembly
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   
+   subroutine CSR_SpecifyBlockInfo(this,BlockIdx,BlockSize)
+      implicit none
+      !-arguments-----------------------------------
+      class(csrMat_t), intent(inout) :: this
+      integer        , intent(in)    :: BlockIdx(:)
+      integer        , intent(in)    :: BlockSize(:)
+      !---------------------------------------------
+      
+      safedeallocate(this % BlockIdx)  ; allocate (this % BlockIdx (size(BlockIdx )) )
+      safedeallocate(this % BlockSize) ; allocate (this % BlockSize(size(BlockSize)) )
+      this % BlockIdx  = BlockIdx
+      this % BlockSize = BlockSize
+   end subroutine CSR_SpecifyBlockInfo
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --------------------------------------------------------------
+!  Subroutine to set the entries of a block with relative index
+!  --------------------------------------------------------------
+   subroutine CSR_SetBlockEntry(this, iBlock, jBlock, i, j, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(csrMat_t), intent(inout) :: this
+      integer        , intent(in)    :: iBlock, jBlock
+      integer        , intent(in)    :: i, j
+      real(kind=RP)  , intent(in)    :: value
+      !-local-variables-----------------------------
+      integer :: row, col
+      !---------------------------------------------
+      
+      if (.not. allocated(this % BlockIdx)) then
+         write(STD_OUT,*) 'CSRMatrixClass :: Error '
+         write(STD_OUT,*) '               :: CSR_SetBlockEntry only available after CSR_SpecifyBlockInfo has been called'
+         stop 99
+      end if
+      
+      row = this % BlockIdx(iBlock) + i - 1
+      col = this % BlockIdx(jBlock) + j - 1
+      
+      call this % SetEntry(row, col, value)
+      
+   end subroutine CSR_SetBlockEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
+!  Subroutine to add a value to the entries of a block with relative index
+!  -----------------------------------------------------------------------
+   subroutine CSR_AddToBlockEntry(this, iBlock, jBlock, i, j, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(csrMat_t), intent(inout) :: this
+      integer        , intent(in)    :: iBlock, jBlock
+      integer        , intent(in)    :: i, j
+      real(kind=RP)  , intent(in)    :: value
+      !-local-variables-----------------------------
+      integer :: row, col
+      !---------------------------------------------
+      
+      if (.not. allocated(this % BlockIdx)) then
+         write(STD_OUT,*) 'CSRMatrixClass :: Error '
+         write(STD_OUT,*) '               :: CSR_AddToBlockEntry only available after CSR_SpecifyBlockInfo has been called'
+         stop 99
+      end if
+      
+      row = this % BlockIdx(iBlock) + i - 1
+      col = this % BlockIdx(jBlock) + j - 1
+      
+      call this % AddToEntry(row, col, value)
+      
+   end subroutine CSR_AddToBlockEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 END MODULE CSRMatrixClass

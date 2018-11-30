@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Mon Oct 22 15:29:38 2018
+!   @Last revision date: Wed Nov 21 19:34:13 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 5d280d87893646e1e202ceced074c8fbdf239bd7
+!   @Last revision commit: 1c6c630e4fbb918c0c9a98d0bfd4d0b73101e65d
 !
 !//////////////////////////////////////////////////////
 !
@@ -73,21 +73,20 @@ module StorageClass
       type(Statistics_t)                   :: stats                ! NSE statistics
 !
 !     Pointers to face Jacobians
-!     -> Currently only for df/dq⁺, For off-diagonal blocks, add df/dq⁻
-!     ----------------------------------------------------------------
-      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_fr  ! FRONT
-      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_ba  ! BACK
-      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_bo  ! BOTTOM
-      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_to  ! TOP
-      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_ri  ! RIGHT
-      real(kind=RP), dimension(:,:,:,:), pointer      :: dfdq_le  ! LEFT
+!     --------------------------
+      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdq_fr  ! FRONT
+      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdq_ba  ! BACK
+      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdq_bo  ! BOTTOM
+      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdq_to  ! TOP
+      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdq_ri  ! RIGHT
+      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdq_le  ! LEFT
       
-      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_fr  ! FRONT
-      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_ba  ! BACK
-      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_bo  ! BOTTOM
-      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_to  ! TOP
-      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_ri  ! RIGHT
-      real(kind=RP), dimension(:,:,:,:,:,:), pointer    :: dfdGradQ_le  ! LEFT
+      real(kind=RP), dimension(:,:,:,:,:,:,:), pointer    :: dfdGradQ_fr  ! FRONT
+      real(kind=RP), dimension(:,:,:,:,:,:,:), pointer    :: dfdGradQ_ba  ! BACK
+      real(kind=RP), dimension(:,:,:,:,:,:,:), pointer    :: dfdGradQ_bo  ! BOTTOM
+      real(kind=RP), dimension(:,:,:,:,:,:,:), pointer    :: dfdGradQ_to  ! TOP
+      real(kind=RP), dimension(:,:,:,:,:,:,:), pointer    :: dfdGradQ_ri  ! RIGHT
+      real(kind=RP), dimension(:,:,:,:,:,:,:), pointer    :: dfdGradQ_le  ! LEFT
 #endif
 #if defined(CAHNHILLIARD)
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c     ! CHE concentration
@@ -172,12 +171,51 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     allocatable :: U_xNS, U_yNS, U_zNS
       real(kind=RP), dimension(:,:,:),     allocatable :: gradRho          ! Gradient of density
       real(kind=RP), dimension(:,:,:),     allocatable :: mu_art
-      ! Inviscid Jacobians
-      real(kind=RP), dimension(:,:,:,:)  , allocatable :: dFStar_dqF   ! In storage(1), it stores dFStar/dqL, and in storage(2), it stores dFStar/dqR on the mortar points
-      real(kind=RP), dimension(:,:,:,:,:), allocatable :: dFStar_dqEl  ! Stores both dFStar/dqL and dFStar/dqR on the face-element points of the corresponding side
-      ! Viscous Jacobians
-      real(kind=RP), dimension(:,:,:,:,:,:), allocatable :: dFv_dGradQF  ! In storage(1), it stores dFv*/d∇qL, and in storage(2), it stores dFv*/d∇qR on the mortar points
-      real(kind=RP), dimension(:,:,:,:,:,:), allocatable :: dFv_dGradQEl ! In storage(1), it stores dFv*/d∇qL, and in storage(2), it stores dFv*/d∇qR on the face-element points ... NOTE: this is enough for the diagonal blocks of the Jacobian, for off-diagonal blocks the crossed quantities must be computed and stored
+!
+!     Inviscid Jacobians
+!     ------------------
+!     * On the face (mortar points):
+      real(kind=RP), allocatable :: dFStar_dqF(:,:,:,:)
+!                   storage(side) % dFStar_dqF(:,:,i,j)
+!                           |                  |_| |_|
+!                           |                   |   | 
+!                           |                   |   |__Coordinate indexes in face 
+!                           |                   |______Jacobian for this component
+!                           |__________________________1 for dFStar/dqL and 2 for dFStar/dqR
+!
+!     * On the coordinates that match the element's (face-element points):     
+      real(kind=RP), allocatable :: dFStar_dqEl(:,:,:,:,:)
+!                   storage(side) % dFStar_dqeL(:,:,i,j,:)
+!                           |                   |_| |_| |
+!                           |                    |   |  |_1 for dFStar/dqL and 2 for dFStar/dqR
+!                           |                    |   |____Coordinate indexes in face 
+!                           |                    |________Jacobian for this component
+!                           |_____________________________1 for element on the left, 2 for element on the right
+!
+!     Viscous Jacobians
+!     -----------------
+!     * On the face (mortar points):
+      real(kind=RP), allocatable :: dFv_dGradQF(:,:,:,:,:,:)
+!                   storage(side) % dFv_dGradQF(:,:,:,:,i,j)
+!                           |                   |_| | | |_|
+!                           |                    |  | |  | 
+!                           |                    |  | |  |__Coordinate indexes in face 
+!                           |                    |  | |_____1 for inner term, 2 for outer term
+!                           |                    |  |_______∇q component: 1, 2, 3
+!                           |                    |__________Jacobian for this component
+!                           |_______________________________1 for dFv*/d∇qL and 2 for dFv*/d∇qR
+!
+!     * On the coordinates that match the element's (face-element points):      
+      real(kind=RP), allocatable :: dFv_dGradQEl(:,:,:,:,:,:,:)
+!                   storage(side) % dFv_dGradQEl(:,:,:,:,i,j,:)
+!                           |                    |_| | | |_| |
+!                           |                     |  | |  |  |_1 for dFv*/d∇qL and 2 for dFv*/d∇qR
+!                           |                     |  | |  |____Coordinate indexes in face 
+!                           |                     |  | |_______1 for inner term, 2 for outer term
+!                           |                     |  |_________∇q component: 1, 2, 3
+!                           |                     |____________Jacobian for this component
+!                           |__________________________________1 for element on the left, 2 for element on the right
+!
 #endif
 #if defined(CAHNHILLIARD)
       real(kind=RP), dimension(:,:,:),   allocatable :: c
@@ -1156,7 +1194,7 @@ module StorageClass
          allocate( self % dFStar_dqEl(NNS,NNS, 0:Nel(1), 0:Nel(2),2) )
          
          allocate( self % dFv_dGradQF (NNS,NNS,NDIM,2,0: Nf(1),0: Nf(2)) )
-         allocate( self % dFv_dGradQEl(NNS,NNS,NDIM,2,0:Nel(1),0:Nel(2)) )
+         allocate( self % dFv_dGradQEl(NNS,NNS,NDIM,2,0:Nel(1),0:Nel(2),2) )
          
          allocate( self % gradRho   (NDIM,0:Nf(1),0:Nf(2)) )
          allocate( self % mu_art    (3,0:Nf(1),0:Nf(2)) )

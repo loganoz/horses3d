@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Wed Nov  7 10:29:14 2018
+!   @Last revision date: Wed Nov 21 19:34:18 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 999ae115b64550fffa36313c96ef07063a6a4de8
+!   @Last revision commit: 1c6c630e4fbb918c0c9a98d0bfd4d0b73101e65d
 !
 !//////////////////////////////////////////////////////
 !
@@ -24,11 +24,12 @@ module pAdaptationClass
    use PhysicsStorage                  , only: NTOTALVARS, CTD_IGNORE_MODE
    use FaceClass                       , only: Face
    use ElementClass
+   use ElementConnectivityDefinitions  , only: axisMap
    use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f
    use TruncationErrorClass
    use FTValueDictionaryClass          , only: FTValueDictionary
    use StorageClass
-   use FileReadingUtilities            , only: RemovePath, getFileName, getRealArrayFromString, getCharArrayFromString, GetRealValue, GetIntValue
+   use FileReadingUtilities            , only: RemovePath, getFileName, getIntArrayFromString, getRealArrayFromString, getCharArrayFromString, GetRealValue, GetIntValue
    use FileReaders                     , only: ReadOrderFile
    use ParamfileRegions                , only: readValueInRegion, getSquashedLine
    use HexMeshClass                    , only: HexMesh
@@ -196,7 +197,7 @@ module pAdaptationClass
       call readValueInRegion ( trim ( paramFile )  , "nmax"       , R_Nmax      , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "increasing" , R_increasing, in_label , "# end" ) 
       if ( R_Nmax /= "" ) then
-         Nmax = maxval (getRealArrayFromString(R_Nmax))
+         Nmax = maxval (getIntArrayFromString(R_Nmax))
       end if
       
 !     Restart polynomial order
@@ -519,7 +520,7 @@ readloop:do
 !     Nmax
 !     ----
       if ( R_Nmax /= "" ) then
-         this % NxyzMax = getRealArrayFromString(R_Nmax)
+         this % NxyzMax = getIntArrayFromString(R_Nmax)
       else
          ERROR STOP 'Keyword Nmax is mandatory for p-adaptation'
       end if
@@ -527,7 +528,7 @@ readloop:do
 !     Nmin -> If this is a p-nonconforming 3D case, it should be 2
 !     ----
       if ( R_Nmin /= "" ) then
-         NMIN = getRealArrayFromString(R_Nmin)
+         NMIN = getIntArrayFromString(R_Nmin)
       end if
       
 !     Truncation error type

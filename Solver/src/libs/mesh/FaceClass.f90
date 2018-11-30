@@ -332,7 +332,7 @@
       case(2)
          associate( Qf => self % storage(2) % Q )
          do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-            call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+            call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
             Qe_rot(:,i,j) = Qe(:,ii,jj) 
          end do                        ; end do
 
@@ -419,7 +419,7 @@
       case(2)
          associate( Qf => self % storage(2) % gradRho )
          do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-            call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+            call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
             Qe_rot(:,i,j) = Qe(:,ii,jj) 
          end do                        ; end do
 
@@ -530,7 +530,7 @@
                    Uyf => self % storage(2) % U_y, &
                    Uzf => self % storage(2) % U_z   )
          do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-            call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+            call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
             Uxe_rot(:,i,j) = Uxe(:,ii,jj) 
             Uye_rot(:,i,j) = Uye(:,ii,jj) 
             Uze_rot(:,i,j) = Uze(:,ii,jj) 
@@ -669,7 +669,7 @@
 !      
             associate(fStar => self % storage(2) % Fstar)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-               call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+               call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
                fStar(1:nEqn,ii,jj) = fStarAux(1:nEqn,i,j) 
             end do                        ; end do
 !
@@ -779,7 +779,7 @@
 !      
             associate(dFStar_dq => self % storage(2) % dFStar_dqEl)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-               call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+               call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
                dFStar_dq(1:nEqn,1:nEqn,ii,jj,whichderiv) = fStarAux(1:nEqn,1:nEqn,i,j) 
             end do                        ; end do
 !
@@ -883,7 +883,7 @@
 !      
             associate(unStar => self % storage(2) % unStar)
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-               call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+               call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
                unStar(:,:,ii,jj) = HstarAux(:,:,i,j) 
             end do                        ; end do
 !
@@ -902,21 +902,20 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 #if defined(NAVIERSTOKES)
-   subroutine Face_ProjectGradJacobianToElements(self, whichElement)
+   subroutine Face_ProjectGradJacobianToElements(self, whichElement, whichderiv)
       use MappedGeometryClass
       use PhysicsStorage
       implicit none
       !---------------------------------------------------------
       class(Face), target        :: self
       integer,       intent(in)  :: whichElement
+      integer,       intent(in)  :: whichderiv
       !---------------------------------------------------------
       integer                :: i, j, ii, jj, l, m, side
       real(kind=RP), pointer :: fluxDeriv(:,:,:,:,:,:)
       real(kind=RP)          :: fStarAux(NCONS,NCONS,1:NDIM,2, 0:self % NfRight(1), 0:self % NfRight(2))
-      integer                :: whichderiv
-      !---------------------------------------------------------
       
-      whichderiv = whichElement  ! Hardcoded: df/d∇q⁺ goes to left element and df/d∇q⁻ goes to right element
+      !---------------------------------------------------------
       
       fluxDeriv(1:,1:,1:,1:,0:,0:) => self % storage(whichderiv) % dFv_dGradQF
       
@@ -926,26 +925,26 @@
             
             select case ( self % projectionType(1) )
             case (0)
-               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,:,:) = fluxDeriv
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,:,:,whichderiv) = fluxDeriv
             case (1)
-               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,:,:) = 0._RP
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,:,:,whichderiv) = 0._RP
                do j = 0, self % NelLeft(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NelLeft(1)
-                  dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) &
-                                                               + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * fluxDeriv(:,:,:,:,l,j)
+                  dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j,whichderiv) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j,whichderiv) &
+                                                                          + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * fluxDeriv(:,:,:,:,l,j)
                end do                  ; end do                   ; end do
                
             case (2)
-               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,:,:) = 0._RP
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,:,:,whichderiv) = 0._RP
                do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
-                  dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) &
-                                                               + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * fluxDeriv(:,:,:,:,i,l)
+                  dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j,whichderiv) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j,whichderiv) &
+                                                                          + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * fluxDeriv(:,:,:,:,i,l)
                end do                  ; end do                   ; end do
       
             case (3)
-               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,:,:) = 0._RP
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,:,:,whichderiv) = 0._RP
                do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
                   do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
-                     dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) &
+                     dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j,whichderiv) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,i,j,whichderiv) &
                                                                                    +  Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
                                                                                     * Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) &
                                                                                     * fluxDeriv(:,:,:,:,m,l)
@@ -994,8 +993,8 @@
             associate(dFv_dGradQEl => self % storage(2) % dFv_dGradQEl)
             
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
-               call iijjIndexes(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
-               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,ii,jj) = fStarAux(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) 
+               call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+               dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,1:2,ii,jj,whichderiv) = fStarAux(1:NCONS,1:NCONS,1:NDIM,1:2,i,j) 
             end do                        ; end do
 !
 !           *********

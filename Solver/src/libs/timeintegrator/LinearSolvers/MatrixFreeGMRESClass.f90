@@ -14,7 +14,7 @@ module MatrixFreeGMRESClass
    use SMConstants           , only: RP, STD_OUT, LINE_LENGTH
    use DGSEMClass            , only: DGSem, ComputeTimeDerivative_f
    use FTValueDictionaryClass, only: FTValueDictionary
-   use MatrixClass           , only: DenseBlockDiagMatrix_t, SparseBlockDiagMatrix_t
+   use MatrixClass           , only: Matrix_t, DenseBlockDiagMatrix_t, SparseBlockDiagMatrix_t
    use PhysicsStorage        , only: NTOTALVARS, NTOTALGRADS, CTD_IGNORE_MODE
    use AnalyticalJacobian    , only: AnalyticalJacobian_Compute
    implicit none
@@ -48,8 +48,8 @@ module MatrixFreeGMRESClass
 !     -----------------------------
       integer                                :: Preconditioner    ! Which preconditioner is being used (PC_NONE, PC_GMRES, PC_BlockJacobi)
       ! Block-Jacobi:
-      type(DenseBlockDiagMatrix_t)           :: BlockA            ! Block-diagonal Jacobian matrix for BlockJacobi preconditioner
-      type(DenseBlockDiagMatrix_t)           :: BlockPreco        ! LU factorized Block-diagonal Jacobian matrix for BlockJacobi preconditioner (in each block Matrix = L+U, Indexes = LU-pivots)
+      class(Matrix_t), allocatable           :: BlockA            ! Block-diagonal Jacobian matrix for BlockJacobi preconditioner
+      class(Matrix_t), allocatable           :: BlockPreco        ! LU factorized Block-diagonal Jacobian matrix for BlockJacobi preconditioner (in each block Matrix = L+U, Indexes = LU-pivots)
       ! GMRES:
       type(MatFreeGMRES_t), pointer, private :: PCsolver          ! Inner GMRES solver for preconditioning
       
@@ -173,6 +173,26 @@ contains
                case('BlockJacobi')
                   allocate(this%Z(this%DimPrb,this%m+1))
                   
+                  if ( controlVariables % containsKey("matrix type") ) then
+                     
+                     select case ( trim( controlVariables % StringValueForKey("matrix type",LINE_LENGTH) ) )
+                        case ('dense block-diagonal')
+                           allocate(DenseBlockDiagMatrix_t :: this % BlockA)
+                           allocate(DenseBlockDiagMatrix_t :: this % BlockPreco)
+                        case ('sparse block-diagonal')
+                           allocate(DenseBlockDiagMatrix_t :: this % BlockA)
+                           allocate(DenseBlockDiagMatrix_t :: this % BlockPreco)
+                        case default
+                           write(STD_OUT,'(3A)') 'Not recognized matrix type "', trim( controlVariables % StringValueForKey("matrix type",LINE_LENGTH) ), '"'
+                           write(STD_OUT,'(A)' ) '-> Defaulting to "dense block-diagonal"'
+                           allocate(SparseBlockDiagMatrix_t :: this % BlockA)
+                           allocate(SparseBlockDiagMatrix_t :: this % BlockPreco)
+                     end select
+                  else
+                     allocate(DenseBlockDiagMatrix_t :: this % BlockA)
+                     allocate(DenseBlockDiagMatrix_t :: this % BlockPreco)
+                  end if
+                  
                   nelem = sem % mesh % no_of_elements
                   call this % BlockA % construct(nelem)
                   call this % BlockPreco % construct(nelem)
@@ -206,6 +226,7 @@ contains
          
          allocate(this % RHS (DimPrb))
          allocate(this % x0  (DimPrb))
+         allocate(this % x   (DimPrb))
          allocate(this % F_Ur(DimPrb))
          allocate(this % Ur  (DimPrb))
          this%x0 = 0.0_RP

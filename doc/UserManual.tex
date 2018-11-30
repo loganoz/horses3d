@@ -233,7 +233,7 @@ The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
 jacobian flag           & \textit{INTEGER}: Specifies the type of Jacobian matrix to be computed. Options are:\
 				\begin{enumerate}
 					\item Numerical Jacobian: Uses coloring algorithm for computing Jacobian.
-					\item Analytical Jacobian: Being implemented. To date only available for the compressible Euler equations and 'matrix-free smooth' linear solver to compute the blocks of the Jacobian.
+					\item Analytical Jacobian: Being implemented. To date the complete analytical Jacobian is available for the compressible Euler equations, whereas for the Navier-Stokes equations it is only available for diagonal blocks of the matrix.
 					\end{enumerate}
 										& 1 \\ \hline
 
