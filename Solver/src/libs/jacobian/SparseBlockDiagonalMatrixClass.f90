@@ -76,15 +76,25 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,dimPrb,withMPI)
+   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_rows_reduced,withMPI)
       implicit none
       !-arguments-----------------------------------
       class(SparseBlockDiagMatrix_t) :: this     !<> This matrix
-      integer          , intent(in) :: dimPrb   !<  Number of blocks of the matrix!
-      logical, optional, intent(in) :: WithMPI
+      integer, optional, intent(in)  :: num_of_Rows
+      integer, optional, intent(in)  :: num_of_Cols
+      integer, optional, intent(in)  :: num_of_Blocks
+      integer, optional, intent(in)  :: num_of_rows_reduced
+      logical, optional, intent(in)  :: WithMPI
       !-local-variables-----------------------------
       integer :: iBL
+      integer :: dimPrb
       !---------------------------------------------
+      
+      if ( present(num_of_Blocks) ) then
+         ERROR stop 'SparseBlockDiagMatrix_t needs num_of_Blocks'
+      else
+         dimPrb = num_of_Blocks
+      end if
       
       allocate ( this % Blocks(dimPrb) )
       this % NumOfBlocks = dimPrb
@@ -124,7 +134,7 @@ contains
       end if
       
       this % BlockSizes = nnzs
-      this % NumRows = sum(nnzs)
+      this % num_of_Rows = sum(nnzs)
       
       this % BlockIdx(1) = 1
       do i=2, this % NumOfBlocks + 1
@@ -134,8 +144,8 @@ contains
 !$omp parallel do private(k) schedule(runtime)
       do i=1, this % NumOfBlocks
          
-         call this % Blocks(i) % Matrix % construct ( nnzs(i) , mustForceDiagonal)
-         call this % Blocks(i) % Matrix % PreAllocate()
+         call this % Blocks(i) % Matrix % construct ( num_of_Rows = nnzs(i) )
+         call this % Blocks(i) % Matrix % PreAllocate(ForceDiagonal = mustForceDiagonal)
          
          safedeallocate (this % Blocks(i) % Indexes) ; allocate ( this % Blocks(i) % Indexes(nnzs(i)) )
          
@@ -322,15 +332,15 @@ contains
                                                           A % Cols, &
                                                           A % Values)
                
-               allocate( x_loc(CBlock % Matrix % NumRows) )
-               allocate( b_loc(CBlock % Matrix % NumRows) )
+               allocate( x_loc(CBlock % Matrix % num_of_Rows) )
+               allocate( b_loc(CBlock % Matrix % num_of_Rows) )
                
                CALL pardiso(  pt      = CBlock % Pardiso_pt      ,     &
                               maxfct  = 1                        ,     &     ! Set up space for 1 matrix at most
                               mnum    = 1                        ,     &     ! Matrix to use in the solution phase (1st and only one)
                               mtype   = CBlock % mtype           ,     &
                               phase   = 12                       ,     &     !  12 for factorization
-                              n       = CBlock % Matrix % NumRows,     &     ! Number of equations
+                              n       = CBlock % Matrix % num_of_Rows,     &     ! Number of equations
                               values  = CBlock % Matrix % Values ,     & 
                               rows    = CBlock % Matrix % Rows   ,     &
                               cols    = CBlock % Matrix % Cols   ,     &
@@ -372,8 +382,8 @@ contains
       implicit none
       !-------------------------------------------------------------
       class(SparseBlockDiagMatrix_t), intent(in)    :: this                 !<  FACTORIZED matrix for solving the problem
-      real(kind=RP)                , intent(in)    :: b(this % NumRows)    !<  RHS
-      real(kind=RP)                , intent(inout) :: x(this % NumRows)    !<  Solution
+      real(kind=RP)                , intent(in)    :: b(this % num_of_Rows)    !<  RHS
+      real(kind=RP)                , intent(inout) :: x(this % num_of_Rows)    !<  Solution
       !-------------------------------------------------------------
       integer                    :: iBL, error ! Counter
       real(kind=RP), allocatable :: x_loc(:) ! Local x
@@ -390,7 +400,7 @@ contains
                         mnum    = 1                        ,     &     ! Matrix to use in the solution phase (1st and only one)
                         mtype   = CBlock % mtype           ,     &
                         phase   = 33                       ,     &     !  12 for factorization
-                        n       = CBlock % Matrix % NumRows,     &     ! Number of equations
+                        n       = CBlock % Matrix % num_of_Rows,     &     ! Number of equations
                         values  = CBlock % Matrix % Values ,     & 
                         rows    = CBlock % Matrix % Rows   ,     &
                         cols    = CBlock % Matrix % Cols   ,     &

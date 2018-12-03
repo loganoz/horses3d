@@ -49,7 +49,6 @@ MODULE IterativeSolverClass
       TYPE(PetscKspLinearSolver_t)               :: PetscSolver                        ! PETSc solver (created only for allocating the matrix -to be deprecated?)
       LOGICAL                                    :: AIsPetsc = .TRUE.
       
-      TYPE(DGSem), POINTER                       :: p_sem                          ! Pointer to DGSem class variable of current system
       CHARACTER(LEN=LINE_LENGTH)                 :: Smoother
       TYPE(BlockPreco_t), ALLOCATABLE            :: BlockPreco(:)
    CONTAINS
@@ -119,7 +118,7 @@ CONTAINS
       ALLOCATE(this % F_Ur(DimPrb))
       ALLOCATE(this % Ur  (DimPrb))
 
-      IF(this % AIsPetsc) CALL this % PETScA % construct (DimPrb,.FALSE.)
+      IF(this % AIsPetsc) CALL this % PETScA % construct (num_of_Rows = DimPrb, withMPI = .FALSE.)
       
       this % p_sem => sem
 !

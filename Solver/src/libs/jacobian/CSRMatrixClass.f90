@@ -4,9 +4,9 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Fri Nov 30 12:52:58 2018
+!   @Last revision date: Mon Dec  3 23:41:25 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8c8fe673f51fec8338e38e16c38021bdca6914b2
+!   @Last revision commit: 07255a7ba9d86b695d60b1d35f130279964e6419
 !
 !//////////////////////////////////////////////////////
 !
@@ -24,7 +24,7 @@ MODULE CSRMatrixClass
       integer      ,  allocatable :: Rows(:)    ! Row indices (index of first value of each row)
       integer      ,  allocatable :: Diag(:)    ! Array containing position of the diagonal entry (handy for some calculations)
       
-      integer                     :: NumCols               ! Number of colunms of matrix
+      integer                     :: num_of_Cols               ! Number of colunms of matrix
       
       ! Variables for matrices with blocks
       integer      ,  allocatable :: BlockIdx(:)  ! Index of first element of block (this is used by the routine CSR_GetBlock).. Note that in the DGSEM, the Jacobian matrices have a block diagonal with the Jacobian information of each element      
@@ -35,7 +35,7 @@ MODULE CSRMatrixClass
       logical                     :: usingListMat
    contains
    
-      procedure :: construct           => CSR_CreateMat
+      procedure :: construct           => CSR_Construct
       procedure :: constructWithArrays => CSR_constructWithArrays
       procedure :: PreAllocate         => CSR_PreAllocate
       procedure :: Reset               => CSR_Reset
@@ -60,6 +60,18 @@ MODULE CSRMatrixClass
    
    PRIVATE
    PUBLIC                                 :: csrMat_t, CSR_MatVecMul, Matrix_t
+   
+   interface
+      subroutine mkl_dcsrgemv(transa, m, a, ia, ja, x, y)
+         use SMConstants
+         character      :: transa
+         integer        :: m
+         real(kind=RP)  :: a(*)
+         integer        :: ia(*), ja(*)
+         real(kind=RP)  :: x(*), y(*)
+      end subroutine mkl_dcsrgemv
+   end interface
+   
 !
 !========
  CONTAINS
@@ -71,25 +83,38 @@ MODULE CSRMatrixClass
 !  -----------------------------------
 !  Common constructor for CSR matrices
 !  -----------------------------------
-   subroutine CSR_CreateMat(this,DimPrb,WithMPI)
+   subroutine CSR_Construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_rows_reduced,WithMPI)
       !-arguments-----------------------------------
       class(csrMat_t)               :: this             !<> Matrix to be Created
-      integer          , intent(in) :: DimPrb          !<  Num of rows in the matrix
+      integer, optional, intent(in) :: num_of_Rows
+      integer, optional, intent(in) :: num_of_Cols
+      integer, optional, intent(in) :: num_of_Blocks
+      integer, optional, intent(in) :: num_of_rows_reduced
       logical, optional, intent(in) :: WithMPI
       !-local-variables-----------------------------
       integer             :: istat
+      integer             :: NumCols
       !---------------------------------------------
       
-      allocate( this % Rows(DimPrb+1),stat=istat )
+      if ( .not. present(num_of_Rows) ) then
+         ERROR stop 'csrMat_t needs num_of_Rows'
+      end if
+      if ( present(num_of_Cols) ) then
+         NumCols = num_of_Cols
+      else
+         NumCols = num_of_Rows
+      end if
+      
+      allocate( this % Rows(num_of_Rows+1),stat=istat )
       if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
       
-      allocate( this % Diag(DimPrb), stat=istat )
+      allocate( this % Diag(num_of_Rows), stat=istat )
       if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
       
-      this % NumRows = DimPrb
-      this % NumCols = DimPrb !The matrix can be a rectangular matrix
+      this % num_of_Rows = num_of_Rows
+      this % num_of_Cols = NumCols     !The matrix can be a rectangular matrix
       
-   end subroutine CSR_CreateMat
+   end subroutine CSR_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -106,7 +131,11 @@ MODULE CSRMatrixClass
       integer             :: istat
       !---------------------------------------------
       
-      this % NumRows = size(Rows) - 1
+      this % num_of_Rows = size(Rows) - 1
+      this % num_of_Cols = this % num_of_Rows
+      if ( maxval(Cols) > this % num_of_Rows) then
+         this % num_of_Rows = maxval(Cols)
+      end if
       
 !     Memory allocation
 !     -----------------
@@ -114,7 +143,7 @@ MODULE CSRMatrixClass
       safedeallocate(this % Rows) ; allocate( this % Rows  ( size(Rows)   ), stat=istat )
       if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
       
-      safedeallocate(this % Diag) ; allocate( this % Diag  (this % NumRows), stat=istat )
+      safedeallocate(this % Diag) ; allocate( this % Diag  (this % num_of_Rows), stat=istat )
       if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
       
       safedeallocate(this % Cols) ; allocate( this % Cols  ( size(Cols)   ), stat=istat )
@@ -123,7 +152,7 @@ MODULE CSRMatrixClass
       safedeallocate(this % Values) ; allocate( this % Values( size(Values) ), stat=istat )
       if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
       
-      this % NumCols = this % NumRows !The matrix can be a rectangular matrix
+      this % num_of_Cols = this % num_of_Rows !The matrix can be a rectangular matrix
       
       this % Rows   = Rows
       this % Cols   = Cols
@@ -159,13 +188,13 @@ MODULE CSRMatrixClass
 !        Constant number of non-zeros per row
 !        ------------------------------------
          
-         total_nnz = this % NumRows * nnz
+         total_nnz = this % num_of_Rows * nnz
       elseif (present(nnzs)) then
 !
 !        Number of non-zeros different in every row
 !        ------------------------------------------
          
-         if (size(nnzs) /= this % NumRows) ERROR stop ':: CSRMatrix: Not consistent nnzs'
+         if (size(nnzs) /= this % num_of_Rows) ERROR stop ':: CSRMatrix: Not consistent nnzs'
          total_nnz = sum(nnzs)
       else
 !
@@ -174,10 +203,10 @@ MODULE CSRMatrixClass
 !        --------------------------------------
          
          this % usingListMat = .TRUE.
-         call this % ListMatrix % construct(this % NumRows)
+         call this % ListMatrix % construct(num_of_Rows = this % num_of_Rows)
          
          if (mustForceDiagonal) then
-            do i = 1, this % NumRows
+            do i = 1, this % num_of_Rows
                call this % ListMatrix % ForceAddToEntry(i,i,0._RP)
             end do
          end if
@@ -186,7 +215,7 @@ MODULE CSRMatrixClass
       
       IF(total_nnz < 1) STOP ':: Invalid nnz' 
       
-      k = this % NumRows * total_nnz
+      k = this % num_of_Rows * total_nnz
        
       safedeallocate(this % Cols)   ; ALLOCATE( this % Cols(total_nnz),STAT=istat )
       IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
@@ -196,11 +225,11 @@ MODULE CSRMatrixClass
       
       this % Rows(1) = 1
       if (present(nnz)) then
-         DO i=2, this % NumRows + 1
+         DO i=2, this % num_of_Rows + 1
             this % Rows(i) = this % Rows(i-1) + nnz
          END DO
       else
-         DO i=2, this % NumRows + 1
+         DO i=2, this % num_of_Rows + 1
             this % Rows(i) = this % Rows(i-1) + nnzs(i-1)
          END DO
       end if
@@ -210,9 +239,9 @@ MODULE CSRMatrixClass
    subroutine CSR_PreAllocateWithStructure(self, nnz, rows, cols, diag)
       class(CSRMat_t),  intent(inout)  :: self
       integer,          intent(in)     :: nnz
-      integer,          intent(in)     :: rows(self % NumRows+1)
+      integer,          intent(in)     :: rows(self % num_of_Rows+1)
       integer,          intent(in)     :: cols(nnz)
-      integer,          intent(in)     :: diag(self % NumRows)
+      integer,          intent(in)     :: diag(self % num_of_Rows)
 !
 !     ---------------
 !     Local variables
@@ -306,7 +335,7 @@ MODULE CSRMatrixClass
       !-----------------------------------
       integer         :: i, j       !   Counters
       !-----------------------------------
-      do i=1, A % NumRows
+      do i=1, A % num_of_Rows
          
          do j=A % Rows (i), A % Rows (i+1) -1
             if (A % Cols(j) == i) then
@@ -376,7 +405,7 @@ MODULE CSRMatrixClass
       integer                         :: k
       !---------------------------------------------
       
-      IF(row .GT. this % NumRows .OR. col .GT. this % NumCols ) THEN
+      IF(row .GT. this % num_of_Rows .OR. col .GT. this % num_of_Cols ) THEN
          WRITE (*,*) 'CSR_SetEntry: Dimension error'
          STOP
       END IF
@@ -406,7 +435,7 @@ MODULE CSRMatrixClass
       integer                         :: k
       !---------------------------------------------
       
-      IF(row .GT. this % NumRows .OR. col .GT. this % NumCols ) THEN
+      IF(row .GT. this % num_of_Rows .OR. col .GT. this % num_of_Cols ) THEN
          WRITE (*,*) 'CSR_SetEntry: Dimension error'
          STOP
       END IF
@@ -434,7 +463,7 @@ MODULE CSRMatrixClass
       integer                    :: k         !> Position in A%Values of A(i,j)
       !------------------------------------------------------------
     
-      IF(i .GT. A % NumRows .OR. j .GT. A % NumCols ) THEN
+      IF(i .GT. A % num_of_Rows .OR. j .GT. A % num_of_Cols ) THEN
          WRITE (*,*) 'CSR_Search: Dimension error'
          STOP
       END IF
@@ -467,7 +496,7 @@ MODULE CSRMatrixClass
       
       IF (.NOT. PRESENT(FirstRow)) First = .TRUE.
       
-      n = this % NumRows
+      n = this % num_of_Rows
       nnz = SIZE(this % Values)
       
       OPEN(newunit=fd,file=FileName)
@@ -524,7 +553,7 @@ MODULE CSRMatrixClass
       if ( this % usingListMat ) then
          call this % ListMatrix % shift(shiftval)
       else
-         DO i=1, this % NumRows
+         DO i=1, this % num_of_Rows
             this % Values(this % Diag(i)) = this % Values(this % Diag(i)) + shiftval
          END DO 
       end if
@@ -539,36 +568,21 @@ MODULE CSRMatrixClass
    !------------------------------------------------------------------------------
       REAL(KIND=RP), DIMENSION(:)  , INTENT(IN)  :: u  !< Vector to be multiplied
       TYPE(csrMat_t)               , INTENT(IN)  :: A  !< Structure holding matrix
-      REAL(KIND=RP), DIMENSION(A % NumRows)      :: v  !> Result vector 
+      REAL(KIND=RP), DIMENSION(A % num_of_Rows)      :: v  !> Result vector 
       !------------------------------------------------------------------------------
       integer       :: i,j
       REAL(KIND=RP) :: rsum
       !------------------------------------------------------------------------------
-#ifdef HAS_MKL
-      !The interface is not really necessary, but it's better to have it
-      INTERFACE
-         SUBROUTINE mkl_dcsrgemv(transa, m, a, ia, ja, x, y)
-            USE SMConstants
-            
-            CHARACTER      :: transa
-            integer        :: m
-            REAL(KIND=RP)  :: a(*)
-            integer        :: ia(*), ja(*)
-            REAL(KIND=RP)  :: x(*), y(*)
-         END SUBROUTINE mkl_dcsrgemv
-      END INTERFACE
-#endif
-      !------------------------------------------------------------------------------
     
-      IF (A % NumCols .NE. SIZE(U) .OR. A % NumRows .NE. SIZE(v)) THEN
+      IF (A % num_of_Cols .NE. SIZE(U) .OR. A % num_of_Rows .NE. SIZE(v)) THEN
          STOP 'CSR_MatVecMul: Error - u dimensions mismatch'
       END IF
     
 #ifdef HAS_MKL
-      CALL mkl_dcsrgemv('N', A % NumRows, A % Values, A % Rows, A % Cols, u, v)
+      CALL mkl_dcsrgemv('N', A % num_of_Rows, A % Values, A % Rows, A % Cols, u, v)
 #else
 !$omp parallel do private(j,rsum)
-      DO i=1,A % NumRows
+      DO i=1,A % num_of_Rows
          rsum = 0.0d0
          DO j=A % Rows(i),A % Rows(i+1)-1
             rsum = rsum + u(A % Cols(j)) * A % Values(j)
@@ -592,10 +606,10 @@ MODULE CSRMatrixClass
       !------------------------------------------------
       
       IF (ALLOCATED(Mat)) DEALLOCATE(Mat)
-      ALLOCATE(Mat(A%NumRows,A%NumCols))
+      ALLOCATE(Mat(A%num_of_Rows,A%num_of_Cols))
       
       Mat = 0.d0
-      DO i=1, A % NumRows
+      DO i=1, A % num_of_Rows
          DO k=A % Rows(i), A % Rows(i+1)-1
             Mat(i,A%Cols(k)) = A % Values (k)
          END DO

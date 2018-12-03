@@ -20,7 +20,6 @@ MODULE MultigridSolverClass
    use DGSEMClass
    use TimeIntegratorDefinitions
    use MatrixClass
-   use NumericalJacobian
    IMPLICIT NONE
    
    PRIVATE
@@ -28,7 +27,6 @@ MODULE MultigridSolverClass
    
    TYPE, EXTENDS(GenericLinSolver_t) :: MultigridSolver_t
       TYPE(csrMat_t)                             :: A                                  ! Jacobian matrix
-      type(PETSCMatrix_t)                        :: PETScA
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: x                                  ! Solution vector
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: b                                  ! Right hand side
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: F_Ur                               ! Qdot at the beginning of solving procedure
@@ -36,11 +34,6 @@ MODULE MultigridSolverClass
       REAL(KIND=RP)                              :: rnorm                              ! L2 norm of residual
       REAL(KIND=RP)                              :: Ashift                             ! Shift that the Jacobian matrix currently(!) has
       LOGICAL                                    :: AIsPrealloc                        ! Has A already been preallocated? (to be deprecated)
-      
-      !Variables for creating Jacobian in PETSc context:
-      LOGICAL                                    :: AIsPetsc = .TRUE.
-      
-      TYPE(DGSem)            , POINTER           :: p_sem                              ! Pointer to DGSem class variable of current system
       
       ! Variables that are specially needed for Multigrid
       TYPE(MultigridSolver_t), POINTER           :: Child                 ! Next coarser multigrid solver
@@ -123,6 +116,10 @@ CONTAINS
       ELSE
          deltaN = 1
       END IF
+      
+      if ( controlVariables % containsKey("jacobian flag") ) then
+         this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
+      end if
 !
 !
       this % p_sem => sem
@@ -142,7 +139,7 @@ CONTAINS
 !
       CALL RecursiveConstructor(this, Nx, Ny, Nz, MGlevels, controlVariables)
       
-      IF(this % AIsPetsc) CALL this % PETScA % construct (DimPrb,.FALSE.)
+      CALL this % A % construct (num_of_Rows = DimPrb)
       
       DEALLOCATE (Nx,Ny,Nz)
       
@@ -283,21 +280,15 @@ CONTAINS
       
 !
 !     Compute Jacobian matrix if needed
-!        (done in petsc format and then transformed to CSR since the CSR cannot be filled by the Jacobian calculators)
 !     -----------------------------------------------------
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
-            call this % PETScA % shift( MatrixShift(dt) )
-            call this % PETScA % GetCSRMatrix(this % A)
-            this % AIsPetsc = .FALSE.
+            call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
             ComputeA = .FALSE.
          end if
       else 
-         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % PETScA % shift( MatrixShift(dt) )
-         call this % PETScA % GetCSRMatrix(this % A)
+         call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
       end if
       
       timesolve= time
@@ -355,8 +346,6 @@ CONTAINS
       DEALLOCATE(this % b)
       DEALLOCATE(this % x)
       
-      CALL this % PETScA % destruct
-      this % AIsPetsc    = .TRUE.
       this % AIsPrealloc = .FALSE.
       
     END SUBROUTINE destroy
@@ -376,11 +365,7 @@ CONTAINS
       !-----------------------------------------------------------
       
       this % Ashift = MatrixShift(dt)
-      IF (this % AIsPetsc) THEN
-         CALL this % PETScA % shift(this % Ashift)
-      ELSE
-         CALL this % A % Shift(this % Ashift)
-      END IF
+      call this % A % Shift(this % Ashift)
       
     END SUBROUTINE SetOperatorDt
 !
@@ -396,12 +381,10 @@ CONTAINS
       !-----------------------------------------------------------
       
       shift = MatrixShift(dt)
-      IF (this % AIsPetsc) THEN
-         CALL this % PETScA % ReShift(shift)
-      ELSE
-         CALL this % A % Shift(-this % Ashift)
-         CALL this % A % Shift(shift)
-      END IF
+      
+      call this % A % Shift(-this % Ashift)
+      call this % A % Shift(shift)
+      
       this % Ashift = shift
       
     END SUBROUTINE ReSetOperatorDt

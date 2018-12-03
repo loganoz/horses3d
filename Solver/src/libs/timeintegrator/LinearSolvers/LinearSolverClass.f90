@@ -7,12 +7,13 @@
 !      Module to load all linear solvers
 !
 !////////////////////////////////////////////////////////////////////////
-MODULE LinearSolverClass
-   USE PetscSolverClass
-   USE MKLPardisoSolverClass
-   USE IterativeSolverClass
-   USE MultigridSolverClass
+module LinearSolverClass
+   use PetscSolverClass
+   use MKLPardisoSolverClass
+   use StaticCondensationSolverClass
+   use IterativeSolverClass
+   use MultigridSolverClass
    use MatrixFreeSmootherClass
    use MatrixFreeGMRESClass
-   IMPLICIT NONE
-END MODULE LinearSolverClass
+   implicit none
+end module LinearSolverClass

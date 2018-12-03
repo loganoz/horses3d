@@ -48,18 +48,25 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,dimPrb,withMPI)
+   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_rows_reduced,withMPI)
       implicit none
       !---------------------------------------------
       class(DenseBlockDiagMatrix_t) :: this     !<> This matrix
-      integer          , intent(in) :: dimPrb   !<  Number of blocks of the matrix!
+      integer, optional, intent(in) :: num_of_Rows
+      integer, optional, intent(in) :: num_of_Cols
+      integer, optional, intent(in) :: num_of_Blocks
+      integer, optional, intent(in) :: num_of_rows_reduced
       logical, optional, intent(in) :: WithMPI
       !---------------------------------------------
       
-      allocate ( this % Blocks(dimPrb) )
-      this % NumOfBlocks = dimPrb
-      allocate ( this % BlockSizes(dimPrb) )
-      allocate ( this % BlockIdx(dimPrb+1) )
+      if ( .not. present(num_of_Blocks) ) then
+         ERROR stop 'DenseBlockDiagMatrix_t needs num_of_Blocks'
+      end if
+      
+      allocate ( this % Blocks(num_of_Blocks) )
+      this % NumOfBlocks = num_of_Blocks
+      allocate ( this % BlockSizes(num_of_Blocks) )
+      allocate ( this % BlockIdx(num_of_Blocks+1) )
       
    end subroutine construct
 !
@@ -80,7 +87,7 @@ contains
       if ( size(nnzs) /= this % NumOfBlocks) ERROR stop ':: DenseBlockDiagMatrix: wrong dimension for the block sizes'
       
       this % BlockSizes = nnzs
-      this % NumRows = sum(nnzs)
+      this % num_of_Rows = sum(nnzs)
       
       this % BlockIdx(1) = 1
       do i=2, this % NumOfBlocks + 1
@@ -130,7 +137,7 @@ contains
 !~      integer, pointer :: indexes(:)
       !---------------------------------------------
       
-      if ( (icol > this % NumRows) .or. (icol < 1) ) ERROR stop ':: DenseBlockDiagMatrix: icol value is out of bounds'
+      if ( (icol > this % num_of_Rows) .or. (icol < 1) ) ERROR stop ':: DenseBlockDiagMatrix: icol value is out of bounds'
       
       ! Search the corresponding block (they are ordered)
       do thisblock=1, this % NumOfBlocks
@@ -347,8 +354,8 @@ contains
       implicit none
       !-------------------------------------------------------------
       class(DenseBlockDiagMatrix_t), intent(in)    :: this                 !<  FACTORIZED matrix for solving the problem
-      real(kind=RP)                , intent(in)    :: b(this % NumRows)    !<  RHS
-      real(kind=RP)                , intent(inout) :: x(this % NumRows)    !<  Solution
+      real(kind=RP)                , intent(in)    :: b(this % num_of_Rows)    !<  RHS
+      real(kind=RP)                , intent(inout) :: x(this % num_of_Rows)    !<  Solution
       !-------------------------------------------------------------
       integer                    :: k        ! Counter
       real(kind=RP), allocatable :: x_loc(:) ! Local x

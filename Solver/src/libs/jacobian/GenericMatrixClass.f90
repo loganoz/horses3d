@@ -6,7 +6,7 @@ module GenericMatrixClass
    public Matrix_t
    
    type Matrix_t
-      integer :: NumRows
+      integer :: num_of_Rows
       contains
          procedure :: construct
          procedure :: Preallocate
@@ -32,11 +32,14 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,dimPrb,withMPI)
+   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_rows_reduced,withMPI)
       implicit none
       !---------------------------------------------
       class(Matrix_t) :: this
-      integer, intent(in)           :: dimPrb
+      integer, optional, intent(in) :: num_of_Rows
+      integer, optional, intent(in) :: num_of_Cols
+      integer, optional, intent(in) :: num_of_Blocks
+      integer, optional, intent(in) :: num_of_rows_reduced
       logical, optional, intent(in) :: WithMPI
       !---------------------------------------------
       ERROR stop ' :: construct not implemented for current matrix type'
@@ -270,8 +273,8 @@ contains
       implicit none
       !-------------------------------------------------------------
       class(Matrix_t), intent(in)    :: this                 !<  FACTORIZED matrix for solving the problem
-      real(kind=RP)  , intent(in)    :: b(this % NumRows)    !<  RHS
-      real(kind=RP)  , intent(inout) :: x(this % NumRows)    !<  Solution
+      real(kind=RP)  , intent(in)    :: b(this % num_of_Rows)    !<  RHS
+      real(kind=RP)  , intent(inout) :: x(this % num_of_Rows)    !<  Solution
       !-------------------------------------------------------------
       ERROR stop ' :: SolveBlocks_LU not implemented for current matrix type'
    end subroutine SolveBlocks_LU

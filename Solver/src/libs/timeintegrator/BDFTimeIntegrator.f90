@@ -131,6 +131,8 @@ contains
             allocate (IterativeSolver_t      :: this % linsolver)
          case('multigrid')
             allocate (MultigridSolver_t      :: this % linsolver)
+         case('static-condensation')
+            allocate (StaticCondSolver_t     :: this % linsolver)
          case default
             print*, "Keyword 'linear solver' missing... Using PETSc as default"
             allocate (PetscKspLinearSolver_t :: this % linsolver)

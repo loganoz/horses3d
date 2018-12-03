@@ -4,13 +4,14 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Wed Nov 21 19:34:15 2018
+!   @Last revision date: Mon Dec  3 23:41:40 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 1c6c630e4fbb918c0c9a98d0bfd4d0b73101e65d
+!   @Last revision commit: 07255a7ba9d86b695d60b1d35f130279964e6419
 !
 !//////////////////////////////////////////////////////
 !
-!      Class for solving linear systems using MKL version of Pardiso
+!     Class for solving linear systems using MKL version of Pardiso
+!     -> It is possible to construct the matrix using PETSc. Thhis option is currently deactivated... deprecate??
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Includes.h"
@@ -24,8 +25,6 @@ MODULE MKLPardisoSolverClass
    USE SMConstants
    use DGSEMClass
    use TimeIntegratorDefinitions
-   use NumericalJacobian
-   use AnalyticalJacobian, only: AnalyticalJacobian_Compute
 #ifdef HAS_PETSC
    use petsc
 #endif
@@ -39,9 +38,7 @@ MODULE MKLPardisoSolverClass
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: x                                  ! Solution vector
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: b                                  ! Right hand side
       REAL(KIND=RP)                              :: Ashift
-      LOGICAL                                    :: AIsPrealloc   
-      TYPE(DGSem), POINTER                       :: p_sem
-      integer                                    :: JacobianComputation
+      LOGICAL                                    :: AIsPrealloc
       
       !Variables for creating Jacobian in PETSc context:
       LOGICAL                                    :: AIsPetsc = .false.
@@ -62,14 +59,11 @@ MODULE MKLPardisoSolverClass
       PROCEDURE :: destroy
       PROCEDURE :: SetOperatorDt
       PROCEDURE :: ReSetOperatorDt
-      procedure :: ComputeJacobian
+      procedure :: ComputeJacobianMKL
       !Functions:
       PROCEDURE :: Getxnorm    !Get solution norm
       PROCEDURE :: Getrnorm    !Get residual norm
    END TYPE MKLPardisoSolver_t
-   
-   integer, parameter :: NUMERICAL_JACOBIAN  = 1
-   integer, parameter :: ANALYTICAL_JACOBIAN = 2
    
    private
    public MKLPardisoSolver_t, GenericLinSolver_t
@@ -116,8 +110,6 @@ MODULE MKLPardisoSolverClass
       
       if ( controlVariables % containsKey("jacobian flag") ) then
          this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
-      else
-         this % JacobianComputation = NUMERICAL_JACOBIAN
       end if
       
       MatrixShift => MatrixShiftFunc
@@ -126,8 +118,8 @@ MODULE MKLPardisoSolverClass
       
       this % DimPrb = DimPrb
       
-      ALLOCATE(this % x(DimPrb))
-      ALLOCATE(this % b(DimPrb))
+      allocate(this % x(DimPrb))
+      allocate(this % b(DimPrb))
       
       this % mtype = 11 !Set matrix type to real unsymmetric (change?)
     
@@ -143,9 +135,9 @@ MODULE MKLPardisoSolverClass
 #else
          ERROR stop "MKL-Pardiso needs PETSc for constructung the Jacobian Matrix"
 #endif
-         CALL this % PETScA % construct (DimPrb,.FALSE.)
+         CALL this % PETScA % construct (num_of_Rows = DimPrb, withMPI = .FALSE.)
       else
-         call this % A % construct(DimPrb, .false.)
+         call this % A % construct(num_of_Rows = DimPrb, withMPI = .false.)
          
       end if
 
@@ -220,11 +212,11 @@ MODULE MKLPardisoSolverClass
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call this % ComputeJacobian(dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % ComputeJacobianMKL(dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
             ComputeA = .FALSE.
          end if
       else
-         call this % ComputeJacobian(dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % ComputeJacobianMKL(dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
       end if
       
 !~    	call mkl_set_num_threads( 4 )
@@ -264,7 +256,7 @@ MODULE MKLPardisoSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine ComputeJacobian(this,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+   subroutine ComputeJacobianMKL(this,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
       implicit none
       !-----------------------------------------------------------
       CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
@@ -276,27 +268,15 @@ MODULE MKLPardisoSolverClass
       !-----------------------------------------------------------
       
       if (this % AIsPetsc) then
-         select case (this % JacobianComputation)
-         case(NUMERICAL_JACOBIAN)
-            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
-         case(ANALYTICAL_JACOBIAN)
-            call AnalyticalJacobian_Compute(this % p_sem, nEqn, time, this % PETScA,.TRUE.)
-         end select
+         call this % ComputeJacobian(this % PETScA,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
          
-         call this % PETScA % shift( MatrixShift(dt) )
          call this % PETScA % GetCSRMatrix(this % A)
          this % AIsPetsc = .FALSE.
       else
-         select case (this % JacobianComputation)
-         case(NUMERICAL_JACOBIAN)
-            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
-         case(ANALYTICAL_JACOBIAN)
-            call AnalyticalJacobian_Compute(this % p_sem, nEqn, time, this % A)
-         end select
-         
-         call this % A % shift( MatrixShift(dt) )
+         call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
       end if
-   end subroutine ComputeJacobian
+      
+   end subroutine ComputeJacobianMKL
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -449,11 +429,7 @@ MODULE MKLPardisoSolverClass
 !     Compute numerical Jacobian in the PETSc matrix
 !     ----------------------------------------------
       if ( self % AIsPetsc) then
-         call NumericalJacobian_Compute(self % p_sem, nEqn, nGradEqn, 0.0_RP, self % PETScA, F_J, .true., eps)
-!
-!        Shift the Jacobian
-!        ------------------
-         call self % PETScA % shift(-1.0_RP/dt)
+         call self % ComputeJacobian(self  % PETScA,dt,0._RP,nEqn,nGradEqn,F_J)
 !
 !        Transform the Jacobian to CSRMatrix
 !        -----------------------------------
@@ -464,18 +440,15 @@ MODULE MKLPardisoSolverClass
          self % A % values = -dt * self % A % values
       
       else
-         call NumericalJacobian_Compute(self % p_sem, nEqn, nGradEqn, 0.0_RP, self % A, F_J, .true., eps)
-!
-!        Shift the Jacobian
-!        ------------------
-         self % A % values(self % A % diag) = self % A % values(self % A % diag) - 1.0_RP / dt
+         call self % ComputeJacobian(self % A,dt,0._RP,nEqn,nGradEqn,F_J)
+         
          self % A % values = -dt * self % A % values
       end if
 !
 !     Perform the factorization
 !     -------------------------
 #ifdef HAS_MKL
-      call pardiso(self % Pardiso_pt, 1, 1, self % mtype, 12, self % A % NumRows, self % A % values, &
+      call pardiso(self % Pardiso_pt, 1, 1, self % mtype, 12, self % A % num_of_Rows, self % A % values, &
                    self % A % rows, self % A % cols, self % perm, 1, self % Pardiso_iparm, 0, &
                    self % b, self % x, error)
 #else
@@ -495,7 +468,7 @@ MODULE MKLPardisoSolverClass
       integer     :: error
 
 #ifdef HAS_MKL
-      call pardiso(self % Pardiso_pt, 1, 1, self % mtype, 33, self % A % NumRows, self % A % values, &
+      call pardiso(self % Pardiso_pt, 1, 1, self % mtype, 33, self % A % num_of_Rows, self % A % values, &
                    self % A % rows, self % A % cols, self % perm, 1, self % Pardiso_iparm, 0, &
                    self % b, self % x, error)
 #else
