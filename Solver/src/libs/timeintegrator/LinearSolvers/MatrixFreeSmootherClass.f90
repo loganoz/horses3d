@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeSmootherClass.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:07 2018
-!   @Last revision date: Tue Dec  4 16:25:59 2018
+!   @Last revision date: Tue Dec  4 21:53:48 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3e0b998bb7ed936ee88015baafc142a29bb17b38
+!   @Last revision commit: 9b3844379fde2350e64816efcdf3bf724c8b3041
 !
 !//////////////////////////////////////////////////////
 !
@@ -178,7 +178,7 @@ CONTAINS
       implicit none
       !-arguments-----------------------------------------------------------
       class(MatFreeSmooth_t), intent(inout) :: this
-      real(kind=RP)            , intent(in)    :: RHS(:)
+      real(kind=RP)         , intent(in)    :: RHS(this % DimPrb)
       !---------------------------------------------------------------------
       
       this % b = RHS
@@ -283,7 +283,7 @@ CONTAINS
       REAL(KIND=RP)            , INTENT(OUT)   :: x_i
       !-----------------------------------------------------------
       
-      x_i = this % x(irow+1)
+      x_i = this % x(irow)
       
    END SUBROUTINE GetXValue
 !

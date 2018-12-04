@@ -289,7 +289,7 @@ contains
                if (this % TimeAccurate) then
                   ERROR stop 'Newton loop did not converge. Consider using a smaller dt or "implicit adaptive dt = .TRUE."'
                else
-                  print*, 'WARNING: Newton loop did not converge. Consider using a smaller dt or "implicit adaptive dt = .TRUE."'
+                  print*, 'WARNING: Newton loop did not converge.'
                   exit
                end if
             end if

@@ -318,7 +318,7 @@ MODULE PetscSolverClass
       !-arguments-----------------------------------------------------------
       class(PetscKspLinearSolver_t), intent(inout) :: this
 #ifdef HAS_PETSC
-      PetscScalar                  , intent(in)    :: RHS(:)
+      PetscScalar                  , intent(in)    :: RHS(this % DimPrb)
       !---------------------------------------------------------------------
       integer :: i
       !---------------------------------------------------------------------
@@ -327,7 +327,7 @@ MODULE PetscSolverClass
       call CheckPetscErr(ierr, 'error in VecSetValues')
       
 #else
-      real(kind=RP)                , intent(in)    :: RHS(:)
+      real(kind=RP)                , intent(in)    :: RHS(this % DimPrb)
       STOP ':: PETSc is not linked correctly'
 #endif
    end subroutine PETSc_SetRHS
@@ -356,7 +356,7 @@ MODULE PetscSolverClass
       PetscScalar, DIMENSION(:),       INTENT(OUT)        :: values
       PetscErrorCode                                      :: ierr
       
-      CALL VecGetValues(this%x,nvalues,irow,values, ierr)
+      CALL VecGetValues(this%x,nvalues,irow-1,values, ierr)
       CALL CheckPetscErr(ierr, 'error in VecGetValues')
 #else
       INTEGER,                        INTENT(IN)        :: nvalues
@@ -374,7 +374,7 @@ MODULE PetscSolverClass
       PetscScalar,                     INTENT(OUT)        :: x_i
       PetscErrorCode                                      :: ierr
       
-      !CALL VecGetValues(this%x,1 ,irow,x_i, ierr)
+      !CALL VecGetValues(this%x,1 ,irow-1,x_i, ierr)  ! TODO: Fix problem here?
       CALL CheckPetscErr(ierr, 'error in VecGetValue')
 #else
       INTEGER,           INTENT(IN)        :: irow

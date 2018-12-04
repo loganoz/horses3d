@@ -263,7 +263,7 @@ CONTAINS
       implicit none
       !-arguments-----------------------------------------------------------
       class(MultigridSolver_t), intent(inout) :: this
-      real(kind=RP)            , intent(in)    :: RHS(:)
+      real(kind=RP)            , intent(in)    :: RHS(this % DimPrb)
       !---------------------------------------------------------------------
       
       this % b = RHS
@@ -341,7 +341,7 @@ CONTAINS
       REAL(KIND=RP)            , INTENT(OUT)   :: x_i
       !-----------------------------------------------------------
       
-      x_i = this % x(irow+1)
+      x_i = this % x(irow)
       
    END SUBROUTINE GetXValue
 !

@@ -283,8 +283,8 @@ contains
    subroutine GMRES_SetRHS(this, RHS)
       implicit none
       !-arguments-----------------------------------------------------------
-      class(MatFreeGMRES_t), intent(inout) :: this
-      real(kind=RP)            , intent(in)    :: RHS(:)
+      class(MatFreeGMRES_t), intent(inout)  :: this
+      real(kind=RP)            , intent(in) :: RHS(this % DimPrb)
       !---------------------------------------------------------------------
       
       this % RHS = RHS
@@ -301,7 +301,7 @@ contains
          REAL(KIND=RP)        , INTENT(OUT)   :: x_i
          !-----------------------------------------------------------
          
-         x_i = this % x(irow+1)
+         x_i = this % x(irow)
          
       END SUBROUTINE GetXValue
 !

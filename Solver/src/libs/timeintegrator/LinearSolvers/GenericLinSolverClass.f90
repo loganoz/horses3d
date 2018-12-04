@@ -102,7 +102,7 @@ contains
    subroutine SetRHS(this, RHS)
       implicit none
       class(GenericLinSolver_t), intent(inout) :: this
-      real(kind=RP)            , intent(in)    :: RHS(:)
+      real(kind=RP)            , intent(in)    :: RHS(this % DimPrb)
       
       ERROR stop ':: SetRHS not implemented for desired linear solver'
    end subroutine SetRHS
@@ -234,7 +234,7 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine ComputeJacobian(this,Matrix,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+   subroutine ComputeJacobian(this,Matrix,dt,time,nEqn,nGradEqn,ComputeTimeDerivative,eps)
       implicit none
       !-----------------------------------------------------------
       class(GenericLinSolver_t), intent(inout) :: this
@@ -243,17 +243,30 @@ contains
       real(kind=RP), intent(in)                :: time
       integer,       intent(in)                :: nEqn
       integer,       intent(in)                :: nGradEqn
+      real(kind=RP), intent(in), optional      :: eps
       procedure(ComputeTimeDerivative_f)       :: ComputeTimeDerivative
       !-----------------------------------------------------------
       
-      select case (this % JacobianComputation)
-         case(NUMERICAL_JACOBIAN)
-            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, Matrix, ComputeTimeDerivative, .TRUE. )
-         case(ANALYTICAL_JACOBIAN)
-            call AnalyticalJacobian_Compute(this % p_sem, nEqn, time, Matrix)
-      end select
-         
-      call Matrix % shift( MatrixShift(dt) )
+      if ( .not. present(eps) ) then
+         select case (this % JacobianComputation)
+            case(NUMERICAL_JACOBIAN)
+               call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, Matrix, ComputeTimeDerivative, .TRUE. )
+            case(ANALYTICAL_JACOBIAN)
+               call AnalyticalJacobian_Compute(this % p_sem, nEqn, time, Matrix)
+         end select
+            
+         call Matrix % shift( MatrixShift(dt) )
+      else
+         select case (this % JacobianComputation)
+            case(NUMERICAL_JACOBIAN)
+               call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, Matrix, ComputeTimeDerivative, .TRUE. ,eps)
+            case(ANALYTICAL_JACOBIAN)
+               print*, 'WARNING!!: eps not needed for analytical Jacobian'
+               call AnalyticalJacobian_Compute(this % p_sem, nEqn, time, Matrix)
+         end select
+            
+         call Matrix % shift( MatrixShift(dt) )
+      end if
       
    end subroutine ComputeJacobian
 end module GenericLinSolverClass

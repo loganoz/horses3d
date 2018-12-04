@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Tue Dec  4 16:25:58 2018
+!   @Last revision date: Tue Dec  4 21:53:46 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3e0b998bb7ed936ee88015baafc142a29bb17b38
+!   @Last revision commit: 9b3844379fde2350e64816efcdf3bf724c8b3041
 !
 !//////////////////////////////////////////////////////
 !
@@ -186,7 +186,7 @@ MODULE MKLPardisoSolverClass
       implicit none
       !-arguments-----------------------------------------------------------
       class(MKLPardisoSolver_t), intent(inout) :: this
-      real(kind=RP)            , intent(in)    :: RHS(:)
+      real(kind=RP)            , intent(in)    :: RHS(this % DimPrb)
       !---------------------------------------------------------------------
       
       this % b = RHS
@@ -300,9 +300,22 @@ MODULE MKLPardisoSolverClass
       real(kind=RP)            , INTENT(OUT)   :: x_i
       !-----------------------------------------------------------
       
-      x_i = this % x(irow+1)
+      x_i = this % x(irow)
       
    end subroutine GetXValue
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   function GetX(this) result(x)
+      IMPLICIT NONE
+      !-----------------------------------------------------------
+      CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
+      REAL(KIND=RP)                            :: x(this % DimPrb)
+      !-----------------------------------------------------------
+      
+      x = this % x
+      
+   end function GetX
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -441,7 +454,7 @@ MODULE MKLPardisoSolverClass
 !     Compute numerical Jacobian in the PETSc matrix
 !     ----------------------------------------------
       if ( self % AIsPetsc) then
-         call self % ComputeJacobian(self  % PETScA,dt,0._RP,nEqn,nGradEqn,F_J)
+         call self % ComputeJacobian(self  % PETScA,dt,0._RP,nEqn,nGradEqn,F_J,eps)
 !
 !        Transform the Jacobian to CSRMatrix
 !        -----------------------------------
@@ -452,7 +465,7 @@ MODULE MKLPardisoSolverClass
          self % A % values = -dt * self % A % values
       
       else
-         call self % ComputeJacobian(self % A,dt,0._RP,nEqn,nGradEqn,F_J)
+         call self % ComputeJacobian(self % A,dt,0._RP,nEqn,nGradEqn,F_J,eps)
          
          self % A % values = -dt * self % A % values
       end if

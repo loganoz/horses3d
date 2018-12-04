@@ -342,8 +342,8 @@
 !           -----------------------------------------------------------------------
 !
 #if defined(NAVIERSTOKES)
-            INTEGER                            :: expectedIterations = 4
-            REAL(KIND=RP)                      :: expectedResidual   = 3.9790393202565636E-013_RP
+            INTEGER                            :: expectedIterations = 5
+            REAL(KIND=RP)                      :: expectedResidual   = 1.9298340703244324E-011_RP
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

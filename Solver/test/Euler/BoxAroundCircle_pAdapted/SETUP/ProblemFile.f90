@@ -365,7 +365,7 @@
                                                        1.2519007949496471E-002_RP, &
                                                        6.3787312202691696E-002_RP ]
             real(kind=RP), parameter :: wake_u = -9.7717376605189407E-003_RP
-            real(kind=RP), parameter :: cd = -0.39353871331841295_RP
+            real(kind=RP), parameter :: cd = -0.39353871342046692_RP
             real(kind=RP), parameter :: p_aver = 7.3937753502864973_RP
 
             
