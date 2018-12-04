@@ -48,6 +48,7 @@ MODULE MultigridSolverClass
       PROCEDURE                                  :: construct
       PROCEDURE                                  :: SetRHSValue
       PROCEDURE                                  :: SetRHSValues
+      procedure                                  :: SetRHS           => MG_SetRHS
       PROCEDURE                                  :: solve
       PROCEDURE                                  :: GetXValue
       PROCEDURE                                  :: destroy
@@ -234,13 +235,12 @@ CONTAINS
       REAL(KIND=RP)            , INTENT(IN)    :: value
       !-----------------------------------------------------------
       
-      this % b (irow+1) = value
+      this % b (irow) = value
       
    END SUBROUTINE SetRHSValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    SUBROUTINE SetRHSValues(this, nvalues, irow, values)
       IMPLICIT NONE
       CLASS(MultigridSolver_t)   , INTENT(INOUT)     :: this
@@ -252,11 +252,23 @@ CONTAINS
       
       DO i=1, nvalues
          IF (irow(i)<0) CYCLE
-         this % b(irow(i)+1) = values(i)
+         this % b(irow(i)) = values(i)
       END DO
       
    END SUBROUTINE SetRHSValues
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine MG_SetRHS(this, RHS)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(MultigridSolver_t), intent(inout) :: this
+      real(kind=RP)            , intent(in)    :: RHS(:)
+      !---------------------------------------------------------------------
+      
+      this % b = RHS
+      
+   end subroutine MG_SetRHS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

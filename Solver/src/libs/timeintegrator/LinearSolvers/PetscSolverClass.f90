@@ -284,7 +284,7 @@ MODULE PetscSolverClass
       PetscScalar, DIMENSION(:),       INTENT(IN)        :: values
       PetscErrorCode                                     :: ierr
        
-      CALL VecSetValues(this%b,nvalues, irow,values,INSERT_VALUES, ierr)
+      CALL VecSetValues(this%b,nvalues, irow-1,values,INSERT_VALUES, ierr)
       CALL CheckPetscErr(ierr, 'error in VecSetValues')
 #else
       INTEGER,                        INTENT(IN)        :: nvalues
@@ -302,14 +302,35 @@ MODULE PetscSolverClass
       PetscScalar,                     INTENT(IN)        :: value
       PetscErrorCode                                     :: ierr
         
-      CALL VecSetValue(this%b, irow,value,INSERT_VALUES, ierr)
-      CALL CheckPetscErr(ierr, 'error in VecSetValues')
+      call VecSetValue(this%b, irow-1,value,INSERT_VALUES, ierr)
+      call CheckPetscErr(ierr, 'error in VecSetValues')
 #else
       INTEGER,           INTENT(IN)        :: irow
       REAL*8    ,        INTENT(IN)        :: value
       STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE SetRHSValue
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine PETSc_SetRHS(this, RHS)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(PetscKspLinearSolver_t), intent(inout) :: this
+#ifdef HAS_PETSC
+      PetscScalar                  , intent(in)    :: RHS(:)
+      !---------------------------------------------------------------------
+      integer :: i
+      !---------------------------------------------------------------------
+      
+      call VecSetValue  (this%b, [(i, i=0, this % DimPrb-1)] ,RHS,INSERT_VALUES, ierr)
+      call CheckPetscErr(ierr, 'error in VecSetValues')
+      
+#else
+      real(kind=RP)                , intent(in)    :: RHS(:)
+      STOP ':: PETSc is not linked correctly'
+#endif
+   end subroutine PETSc_SetRHS
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////     
 !

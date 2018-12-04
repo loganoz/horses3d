@@ -196,11 +196,11 @@ contains
       
       !**************************
       ! If the Jacobian must only be computed sometimes
-       IF (this % JacByConv) THEN
-         IF (.not. computeA) THEN
+      if (this % JacByConv) then
+         if (.not. computeA) then
             CALL this % linsolver % ReSetOperatorDt(inner_dt)
-         END IF
-       ENDIF
+         end if
+      end if
       ! 
       !**************************
       
@@ -423,7 +423,6 @@ contains
       CLASS(GenericLinSolver_t),  intent (inout)   :: linsolver
       procedure(ComputeTimeDerivative_f)                   :: ComputeTimeDerivative
       !----------------------------------------------------------------
-      INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, elmnt, counter   
       REAL(KIND=RP)                                :: value
       real(kind=RP)  :: RHS(NTOTALVARS*sem % NDOF)
       !----------------------------------------------------------------
@@ -434,9 +433,7 @@ contains
       
       RHS = BDF_GetRHS(sem % mesh % storage, dt)
       
-      do i=1, sem % NDOF * NTOTALVARS                                ! TODO: Use SetRHS!!
-         CALL linsolver % SetRHSValue(i-1, RHS(i))
-      end do
+      call linsolver % SetRHS(RHS)
       
       CALL linsolver % AssemblyRHS     ! b must be assembled before using
    END SUBROUTINE ComputeRHS

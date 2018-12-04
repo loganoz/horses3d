@@ -53,25 +53,26 @@ MODULE IterativeSolverClass
       TYPE(BlockPreco_t), ALLOCATABLE            :: BlockPreco(:)
    CONTAINS
       !Subroutines:
-      PROCEDURE                                  :: construct
-      PROCEDURE                                  :: SetRHSValue
-      PROCEDURE                                  :: SetRHSValues
-      PROCEDURE                                  :: solve
-      PROCEDURE                                  :: GetCSRMatrix
-      PROCEDURE                                  :: GetXValue
-      PROCEDURE                                  :: destroy
-      PROCEDURE                                  :: SetOperatorDt
-      PROCEDURE                                  :: ReSetOperatorDt
+      procedure                                  :: construct
+      procedure                                  :: SetRHSValue
+      procedure                                  :: SetRHSValues
+      procedure                                  :: SetRHS => Iter_SetRHS
+      procedure                                  :: solve
+      procedure                                  :: GetCSRMatrix
+      procedure                                  :: GetXValue
+      procedure                                  :: destroy
+      procedure                                  :: SetOperatorDt
+      procedure                                  :: ReSetOperatorDt
       procedure                                  :: FillAInfo
       !Functions:
-      PROCEDURE                                  :: Getxnorm    !Get solution norm
-      PROCEDURE                                  :: Getrnorm    !Get residual norm
+      procedure                                  :: Getxnorm    !Get solution norm
+      procedure                                  :: Getrnorm    !Get residual norm
       
       !! Internal procedures
-      PROCEDURE                                  :: WeightedJacobiSmoother
-      PROCEDURE                                  :: ComputeBlockPreco
+      procedure                                  :: WeightedJacobiSmoother
+      procedure                                  :: ComputeBlockPreco
       
-      PROCEDURE                                  :: p_F
+      procedure                                  :: p_F
    END TYPE IterativeSolver_t
    
 !
@@ -197,13 +198,12 @@ CONTAINS
       REAL(KIND=RP)            , INTENT(IN)    :: value
       !-----------------------------------------------------------
       
-      this % b (irow+1) = value
+      this % b (irow) = value
       
    END SUBROUTINE SetRHSValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    SUBROUTINE SetRHSValues(this, nvalues, irow, values)
       IMPLICIT NONE
       CLASS(IterativeSolver_t)   , INTENT(INOUT)     :: this
@@ -215,11 +215,23 @@ CONTAINS
       
       DO i=1, nvalues
          IF (irow(i)<0) CYCLE
-         this % b(irow(i)+1) = values(i)
+         this % b(irow(i)) = values(i)
       END DO
       
    END SUBROUTINE SetRHSValues
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Iter_SetRHS(this, RHS)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(IterativeSolver_t), intent(inout) :: this
+      real(kind=RP)            , intent(in)    :: RHS(:)
+      !---------------------------------------------------------------------
+      
+      this % b = RHS
+      
+   end subroutine Iter_SetRHS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

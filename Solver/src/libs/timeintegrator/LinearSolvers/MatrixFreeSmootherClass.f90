@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeSmootherClass.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:07 2018
-!   @Last revision date: Mon Dec  3 23:41:42 2018
+!   @Last revision date: Tue Dec  4 16:25:59 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 07255a7ba9d86b695d60b1d35f130279964e6419
+!   @Last revision commit: 3e0b998bb7ed936ee88015baafc142a29bb17b38
 !
 !//////////////////////////////////////////////////////
 !
@@ -56,6 +56,7 @@ MODULE MatrixFreeSmootherClass
       PROCEDURE                                  :: construct
       PROCEDURE                                  :: SetRHSValue
       PROCEDURE                                  :: SetRHSValues
+      procedure                                  :: SetRHS => Smooth_SetRHS
       PROCEDURE                                  :: solve
       PROCEDURE                                  :: GetXValue
       PROCEDURE                                  :: destroy
@@ -149,13 +150,12 @@ CONTAINS
       REAL(KIND=RP)            , INTENT(IN)    :: value
       !-----------------------------------------------------------
       
-      this % b (irow+1) = value
+      this % b (irow) = value
       
    END SUBROUTINE SetRHSValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    SUBROUTINE SetRHSValues(this, nvalues, irow, values)
       IMPLICIT NONE
       CLASS(MatFreeSmooth_t)   , INTENT(INOUT)     :: this
@@ -167,11 +167,23 @@ CONTAINS
       
       DO i=1, nvalues
          IF (irow(i)<0) CYCLE
-         this % b(irow(i)+1) = values(i)
+         this % b(irow(i)) = values(i)
       END DO
       
    END SUBROUTINE SetRHSValues
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Smooth_SetRHS(this, RHS)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(MatFreeSmooth_t), intent(inout) :: this
+      real(kind=RP)            , intent(in)    :: RHS(:)
+      !---------------------------------------------------------------------
+      
+      this % b = RHS
+      
+   end subroutine Smooth_SetRHS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

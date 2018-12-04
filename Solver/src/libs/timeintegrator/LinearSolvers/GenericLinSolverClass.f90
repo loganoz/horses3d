@@ -136,7 +136,7 @@ contains
       class(GenericLinSolver_t), intent(inout) :: this
       integer,       intent(in)                :: nEqn
       integer,       intent(in)                :: nGradEqn
-      procedure(ComputeTimeDerivative_f)               :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)       :: ComputeTimeDerivative
       real(kind=RP), optional                  :: tol
       integer      , optional                  :: maxiter
       real(kind=RP), optional                  :: time

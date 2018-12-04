@@ -73,7 +73,7 @@ module MatrixFreeGMRESClass
          procedure                           :: ReSetOperatorDt
          procedure                           :: GetXValue
          procedure                           :: GetX
-         procedure                           :: SetRHS
+         procedure                           :: SetRHS   => GMRES_SetRHS
          procedure                           :: Getxnorm    !Get solution norm
          procedure                           :: Getrnorm    !Get residual norm
          procedure                           :: Solve     => SolveGMRES
@@ -255,7 +255,7 @@ contains
          REAL(KIND=RP)        , INTENT(IN)    :: value
          !-----------------------------------------------------------
          
-         this % RHS (irow+1) = value
+         this % RHS (irow) = value
          
       END SUBROUTINE SetRHSValue
 !
@@ -273,10 +273,23 @@ contains
          
          DO i=1, nvalues
             IF (irow(i)<0) CYCLE
-            this % RHS(irow(i)+1) = values(i)
+            this % RHS(irow(i)) = values(i)
          END DO
          
       END SUBROUTINE SetRHSValues
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine GMRES_SetRHS(this, RHS)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(MatFreeGMRES_t), intent(inout) :: this
+      real(kind=RP)            , intent(in)    :: RHS(:)
+      !---------------------------------------------------------------------
+      
+      this % RHS = RHS
+      
+   end subroutine GMRES_SetRHS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -445,16 +458,6 @@ contains
          
          this%maxiter = maxiter
       end subroutine SetMaxIter
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-! 
-      subroutine SetRHS(this,RHS)
-         implicit none
-         class(MatFreeGMRES_t), intent(inout)   :: this
-         real(kind = RP)      , intent(in)      :: RHS(:)
-         
-         this%RHS = RHS
-      end subroutine  SetRHS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

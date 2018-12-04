@@ -81,6 +81,7 @@ contains
       this % num_of_Rows = num_of_Rows
       
       allocate ( this % rows(num_of_Rows) )
+      this % num_of_entries = 0
       do i=1, num_of_Rows
          this % rows(i) % num_of_entries = 0
       end do

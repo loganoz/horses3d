@@ -4,9 +4,9 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Mon Dec  3 23:41:25 2018
+!   @Last revision date: Tue Dec  4 16:25:53 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 07255a7ba9d86b695d60b1d35f130279964e6419
+!   @Last revision commit: 3e0b998bb7ed936ee88015baafc142a29bb17b38
 !
 !//////////////////////////////////////////////////////
 !
@@ -29,7 +29,7 @@ MODULE CSRMatrixClass
       ! Variables for matrices with blocks
       integer      ,  allocatable :: BlockIdx(:)  ! Index of first element of block (this is used by the routine CSR_GetBlock).. Note that in the DGSEM, the Jacobian matrices have a block diagonal with the Jacobian information of each element      
       integer      ,  allocatable :: BlockSize(:) ! Size of each block
-      integer                     :: n_max_elements
+      
       integer,        allocatable :: firstIdx(:,:)         ! For each row, specifies the position of the beginning of each element column
       type(LinkedListMatrix_t)    :: ListMatrix
       logical                     :: usingListMat
@@ -121,18 +121,25 @@ MODULE CSRMatrixClass
 !  ------------------------------------------------
 !  Constructor that is fed with the arrays directly
 !  ------------------------------------------------
-   subroutine CSR_constructWithArrays(this,Rows,Cols,Values)
+   subroutine CSR_constructWithArrays(this,Rows,Cols,Values,num_of_Cols)
       !-arguments-----------------------------------
-      class(csrMat_t)           :: this       !<> Matrix to be Created
-      integer      , intent(in) :: Rows(:)    ! Row indices (index of first value of each row)
-      integer      , intent(in) :: Cols(:)    ! Column indices that correspond to each value
-      real(kind=RP), intent(in) :: Values(:)  ! Values of nonzero entries of matrix
+      class(csrMat_t)               :: this       !<> Matrix to be Created
+      integer          , intent(in) :: Rows(:)    ! Row indices (index of first value of each row)
+      integer          , intent(in) :: Cols(:)    ! Column indices that correspond to each value
+      real(kind=RP)    , intent(in) :: Values(:)  ! Values of nonzero entries of matrix
+      integer, optional, intent(in) :: num_of_Cols
       !-local-variables-----------------------------
       integer             :: istat
       !---------------------------------------------
       
       this % num_of_Rows = size(Rows) - 1
-      this % num_of_Cols = this % num_of_Rows
+      
+      if ( present(num_of_Cols) ) then
+         this % num_of_Cols = num_of_Cols
+      else
+         this % num_of_Cols = this % num_of_Rows
+      end if
+      
       if ( maxval(Cols) > this % num_of_Rows) then
          this % num_of_Rows = maxval(Cols)
       end if
@@ -405,10 +412,10 @@ MODULE CSRMatrixClass
       integer                         :: k
       !---------------------------------------------
       
-      IF(row .GT. this % num_of_Rows .OR. col .GT. this % num_of_Cols ) THEN
-         WRITE (*,*) 'CSR_SetEntry: Dimension error'
-         STOP
-      END IF
+      if ( (row > this % num_of_Rows) .or. (col > this % num_of_Cols) ) then
+         write (*,*) 'CSR_SetEntry: Dimension error. [row,col]=', row, col
+         stop
+      end if
       
       if (this % usingListMat) then
          call this % ListMatrix % SetEntry(row,col,value)
@@ -435,10 +442,10 @@ MODULE CSRMatrixClass
       integer                         :: k
       !---------------------------------------------
       
-      IF(row .GT. this % num_of_Rows .OR. col .GT. this % num_of_Cols ) THEN
-         WRITE (*,*) 'CSR_SetEntry: Dimension error'
-         STOP
-      END IF
+      if ( (row > this % num_of_Rows) .or. (col > this % num_of_Cols) ) then
+         write (*,*) 'CSR_SetEntry: Dimension error'
+         stop
+      end if
       
       if (this % usingListMat) then
          call this % ListMatrix % AddToEntry(row,col,value)

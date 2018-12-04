@@ -62,7 +62,7 @@ contains
 !
    subroutine Reset(this)
       implicit none
-      !---------------------------------------------
+      !-arguments-----------------------------------
       class(Matrix_t),     intent(inout)     :: this
       !---------------------------------------------
       ERROR stop ' :: Reset not implemented for current matrix type'

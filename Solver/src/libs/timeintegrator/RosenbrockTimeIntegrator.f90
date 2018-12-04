@@ -4,9 +4,9 @@
 !   @File:    RosenbrockTimeIntegrator.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:08 2018
-!   @Last revision date: Mon Aug 20 17:10:17 2018
+!   @Last revision date: Tue Dec  4 16:26:00 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
+!   @Last revision commit: 3e0b998bb7ed936ee88015baafc142a29bb17b38
 !
 !//////////////////////////////////////////////////////
 !
@@ -216,9 +216,7 @@ contains
       
 !     Load RHS into solver
 !     --------------------
-      do j = 1, sem % NDOF  * NTOTALVARS                                ! TODO: Use SetRHS!!
-         CALL linsolver % SetRHSValue(j-1, RHS(j))
-      end do
+      CALL linsolver % SetRHS(RHS)
       
    end subroutine ComputeRHS
 !
