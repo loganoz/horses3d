@@ -19,6 +19,7 @@ LIBOBJS_NS = 	./build_ns/ColorsClass.o \
 			    ./build_ns/PETScMatrixClass.o \
 			    ./build_ns/DenseBlockDiagonalMatrixClass.o \
 			    ./build_ns/SparseBlockDiagonalMatrixClass.o \
+			    ./build_ns/StaticCondensedMatrixClass.o \
 			    ./build_ns/MatrixClass.o \
 				./build_ns/NumericalJacobian.o
 
@@ -30,6 +31,7 @@ LIBOBJS_iNS = 	./build_ins/ColorsClass.o \
 			    ./build_ins/PETScMatrixClass.o \
 			    ./build_ins/DenseBlockDiagonalMatrixClass.o \
 			    ./build_ins/SparseBlockDiagonalMatrixClass.o \
+			    ./build_ins/StaticCondensedMatrixClass.o \
 			    ./build_ins/MatrixClass.o \
 				./build_ins/NumericalJacobian.o
 
@@ -43,6 +45,7 @@ LIBOBJS_CH = 	./build_ch/ColorsClass.o \
 			    ./build_ch/PETScMatrixClass.o \
 			    ./build_ch/DenseBlockDiagonalMatrixClass.o \
 			    ./build_ch/SparseBlockDiagonalMatrixClass.o \
+			    ./build_ch/StaticCondensedMatrixClass.o \
 			    ./build_ch/MatrixClass.o \
 				./build_ch/NumericalJacobian.o
 
@@ -54,6 +57,7 @@ LIBOBJS_NSCH = 	./build_nsch/ColorsClass.o \
 			    ./build_nsch/PETScMatrixClass.o \
 			    ./build_nsch/DenseBlockDiagonalMatrixClass.o \
 			    ./build_nsch/SparseBlockDiagonalMatrixClass.o \
+			    ./build_nsch/StaticCondensedMatrixClass.o \
 			    ./build_nsch/MatrixClass.o \
 				./build_nsch/NumericalJacobian.o
 
@@ -65,6 +69,7 @@ LIBOBJS_iNSCH =	./build_insch/ColorsClass.o \
 			    ./build_insch/PETScMatrixClass.o \
 			    ./build_insch/DenseBlockDiagonalMatrixClass.o \
 			    ./build_insch/SparseBlockDiagonalMatrixClass.o \
+			    ./build_insch/StaticCondensedMatrixClass.o \
 			    ./build_insch/MatrixClass.o \
 				./build_insch/NumericalJacobian.o
 

@@ -357,7 +357,9 @@
 
       IF (self % integratorType == STEADY_STATE) THEN
          IF (maxval(maxResidual) <= Tol )  THEN
-            write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",sem % numberOfTimeSteps," with Residual = ", maxval(maxResidual)
+            if (MPI_Process % isRoot) then
+               write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",sem % numberOfTimeSteps," with Residual = ", maxval(maxResidual)
+            end if
             call monitors % WriteToFile(sem % mesh, force = .TRUE.)
             return
          END IF
@@ -432,7 +434,9 @@
          IF (self % integratorType == STEADY_STATE) THEN
             IF (maxval(maxResidual) <= Tol )  THEN
                call self % Display(sem % mesh, monitors, k+1)
-               write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",k+1," with Residual = ", maxval(maxResidual)
+               if (MPI_Process % isRoot) then
+                  write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",k+1," with Residual = ", maxval(maxResidual)
+               end if
                sem % numberOfTimeSteps = k + 1
                exit
             END IF

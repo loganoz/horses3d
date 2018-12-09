@@ -261,7 +261,7 @@ module MeshTests
          end select
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call iijjIndexes(i,j,f % Nf(1), f % Nf(2), f % rotation, ii, jj)
+            call leftIndexes2Right(i,j,f % Nf(1), f % Nf(2), f % rotation, ii, jj)
             XfR(:,i,j) = XelR(:,ii,jj)
          end do               ; end do
 !
@@ -459,7 +459,7 @@ module MeshTests
 !        --------------------
 !
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call iijjIndexes(i,j,f % Nf(1), f % Nf(2), f % rotation, ii, jj)
+            call leftIndexes2Right(i,j,f % Nf(1), f % Nf(2), f % rotation, ii, jj)
             SfR(:,i,j) = SelR(:,ii,jj)
          end do               ; end do
 
@@ -650,7 +650,7 @@ module MeshTests
 !        --------------------
 !
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call iijjIndexes(i,j,f % Nf(1), f % Nf(2), f % rotation, ii, jj)
+            call leftIndexes2Right(i,j,f % Nf(1), f % Nf(2), f % rotation, ii, jj)
             SfR(:,i,j) = SelR(:,ii,jj)
          end do               ; end do
 

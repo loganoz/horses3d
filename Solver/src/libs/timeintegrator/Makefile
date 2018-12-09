@@ -14,6 +14,7 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/PetscSolverClass.o \
 		./build_ns/MultigridSolverClass.o \
 		./build_ns/MKLPardisoSolverClass.o \
+		./build_ns/StaticCondensationSolverClass.o \
 		./build_ns/IterativeSolverClass.o \
 		./build_ns/MatrixFreeSmootherClass.o \
 		./build_ns/MatrixFreeGMRESClass.o \
@@ -35,6 +36,7 @@ LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
 		./build_ins/PetscSolverClass.o \
 		./build_ins/MultigridSolverClass.o \
 		./build_ins/MKLPardisoSolverClass.o \
+		./build_ins/StaticCondensationSolverClass.o \
 		./build_ins/IterativeSolverClass.o \
 		./build_ins/MatrixFreeSmootherClass.o \
 		./build_ins/MatrixFreeGMRESClass.o \
@@ -57,6 +59,7 @@ LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/PetscSolverClass.o \
 		./build_ch/MultigridSolverClass.o \
 		./build_ch/MKLPardisoSolverClass.o \
+		./build_ch/StaticCondensationSolverClass.o \
 		./build_ch/IterativeSolverClass.o \
 		./build_ch/MatrixFreeSmootherClass.o \
 		./build_ch/MatrixFreeGMRESClass.o \
@@ -78,6 +81,7 @@ LIBOBJS_NSCH =  ./build_nsch/TimeIntegratorDefinitions.o \
 		./build_nsch/PetscSolverClass.o \
 		./build_nsch/MultigridSolverClass.o \
 		./build_nsch/MKLPardisoSolverClass.o \
+		./build_nsch/StaticCondensationSolverClass.o \
 		./build_nsch/IterativeSolverClass.o \
 		./build_nsch/MatrixFreeSmootherClass.o \
 		./build_nsch/MatrixFreeGMRESClass.o \
@@ -99,6 +103,7 @@ LIBOBJS_iNSCH = ./build_insch/TimeIntegratorDefinitions.o \
 		./build_insch/PetscSolverClass.o \
 		./build_insch/MultigridSolverClass.o \
 		./build_insch/MKLPardisoSolverClass.o \
+		./build_insch/StaticCondensationSolverClass.o \
 		./build_insch/IterativeSolverClass.o \
 		./build_insch/MatrixFreeSmootherClass.o \
 		./build_insch/MatrixFreeGMRESClass.o \

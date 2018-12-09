@@ -7,38 +7,52 @@
 !      Class for defining common variables and type-bound procedures of linear solvers
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-MODULE GenericLinSolverClass
-   USE SMConstants
-   USE DGSEMClass
-   USE FTValueDictionaryClass
+module GenericLinSolverClass
+   use SMConstants
+   use DGSEMClass
+   use FTValueDictionaryClass
    use TimeIntegratorDefinitions
-   IMPLICIT NONE
+   use MatrixClass         , only: Matrix_t
+   use AnalyticalJacobian  , only: AnalyticalJacobian_Compute
+   use NumericalJacobian   , only: NumericalJacobian_Compute
+   implicit none
    
-   PRIVATE
-   PUBLIC GenericLinSolver_t, FTValueDictionary, MatrixShift_FCN, Default_MatrixShift, MatrixShift
+   private
+   public GenericLinSolver_t
+   public MatrixShift_FCN
+   public Default_MatrixShift, MatrixShift
+   public NUMERICAL_JACOBIAN, ANALYTICAL_JACOBIAN
    
-   TYPE :: GenericLinSolver_t
-      LOGICAL                                     :: converged = .FALSE.   ! The solution converged?
-      INTEGER                                     :: DimPrb                ! Dimension of the problem
-      INTEGER                                     :: niter = 0             ! Number of iterations to reach solution (for iterative solvers)
-   CONTAINS
+   public FTValueDictionary
+   
+   integer, parameter :: NUMERICAL_JACOBIAN  = 1
+   integer, parameter :: ANALYTICAL_JACOBIAN = 2
+   
+   type :: GenericLinSolver_t
+      logical              :: converged = .FALSE.   ! The solution converged?
+      integer              :: DimPrb                ! Dimension of the problem
+      integer              :: niter = 0             ! Number of iterations to reach solution (for iterative solvers)
+      integer              :: JacobianComputation = NUMERICAL_JACOBIAN
+      type(DGSem), pointer :: p_sem   
+   contains
       !Subroutines:
-      PROCEDURE :: construct
-      PROCEDURE :: SetRHSValue
-      PROCEDURE :: SetRHSValues
-      PROCEDURE :: SetRHS
-      PROCEDURE :: solve
-      PROCEDURE :: GetXValue
-      PROCEDURE :: GetX
-      PROCEDURE :: destroy
-      PROCEDURE :: SetOperatorDt
-      PROCEDURE :: ReSetOperatorDt
-      PROCEDURE :: AssemblyRHS
+      procedure :: construct
+      procedure :: SetRHSValue
+      procedure :: SetRHSValues
+      procedure :: SetRHS
+      procedure :: solve
+      procedure :: GetXValue
+      procedure :: GetX
+      procedure :: destroy
+      procedure :: SetOperatorDt
+      procedure :: ReSetOperatorDt
+      procedure :: AssemblyRHS
+      procedure :: ComputeJacobian
       !Functions:
-      PROCEDURE :: Getxnorm    !Get solution norm
-      PROCEDURE :: Getrnorm    !Get residual norm
-      PROCEDURE :: ComputeANextStep
-   END TYPE
+      procedure :: Getxnorm    !Get solution norm
+      procedure :: Getrnorm    !Get residual norm
+      procedure :: ComputeANextStep
+   end type
    
    abstract interface
       function MatrixShift_FCN(dt) result(Ashift)
@@ -51,10 +65,12 @@ MODULE GenericLinSolverClass
       end function MatrixShift_FCN
    end interface
    
-   procedure(MatrixShift_FCN), pointer :: MatrixShift
+   procedure(MatrixShift_FCN), pointer :: MatrixShift   ! TODO?: move to GenericLinSolver_t to allow different MatrixShifts for different solvers?
 
-CONTAINS
-   
+contains
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    function Default_MatrixShift(dt) result(Ashift)
       use SMConstants
       implicit none
@@ -66,178 +82,191 @@ CONTAINS
       ! Do nothing
       Ashift = 0._RP
    end function Default_MatrixShift
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   SUBROUTINE Construct(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT), TARGET :: this
-      INTEGER                  , INTENT(IN)            :: DimPrb
-      TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
-      TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Construct(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(GenericLinSolver_t), intent(inout), target :: this
+      integer                  , intent(in)            :: DimPrb
+      type(FTValueDictionary)  , intent(in), optional  :: controlVariables
+      type(DGSem), target                  , optional  :: sem
       procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
-      
+      !---------------------------------------------------------------------
       ERROR stop ':: Linear solver does not have a constructor yet'
-   END SUBROUTINE Construct
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   SUBROUTINE SetRHS(this, RHS)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
-      REAL(KIND=RP)            , INTENT(IN)    :: RHS(:)
+   end subroutine Construct
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SetRHS(this, RHS)
+      implicit none
+      class(GenericLinSolver_t), intent(inout) :: this
+      real(kind=RP)            , intent(in)    :: RHS(this % DimPrb)
       
       ERROR stop ':: SetRHS not implemented for desired linear solver'
-   END SUBROUTINE SetRHS
-
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   SUBROUTINE SetRHSValue(this, irow, value)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
-      INTEGER                  , INTENT(IN)  :: irow
-      REAL(KIND=RP)            , INTENT(IN)  :: value
+   end subroutine SetRHS
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SetRHSValue(this, irow, value)
+      implicit none
+      class(GenericLinSolver_t), intent(inout) :: this
+      integer                  , intent(in)  :: irow
+      real(kind=RP)            , intent(in)  :: value
       
       ERROR stop ':: SetRHSValue not implemented for desired linear solver'
-   END SUBROUTINE SetRHSValue
-
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   SUBROUTINE SetRHSValues(this, nvalues, irow, values)
-      CLASS(GenericLinSolver_t)  , INTENT(INOUT)     :: this
-      INTEGER                    , INTENT(IN)        :: nvalues
-      INTEGER      , DIMENSION(:), INTENT(IN)        :: irow
-      REAL(KIND=RP), DIMENSION(:), INTENT(IN)        :: values
+   end subroutine SetRHSValue
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SetRHSValues(this, nvalues, irow, values)
+      class(GenericLinSolver_t)  , intent(inout)     :: this
+      integer                    , intent(in)        :: nvalues
+      integer      , DIMENSION(:), intent(in)        :: irow
+      real(kind=RP), DIMENSION(:), intent(in)        :: values
       
       ERROR stop ':: SetRHSValues not implemented for desired linear solver'
-   END SUBROUTINE SetRHSValues
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   SUBROUTINE solve(this,nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt,computeA)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+   end subroutine SetRHSValues
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine solve(this,nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt,computeA)
+      implicit none
+      class(GenericLinSolver_t), intent(inout) :: this
       integer,       intent(in)                :: nEqn
       integer,       intent(in)                :: nGradEqn
-      procedure(ComputeTimeDerivative_f)               :: ComputeTimeDerivative
-      REAL(KIND=RP), OPTIONAL                  :: tol
-      INTEGER      , OPTIONAL                  :: maxiter
-      REAL(KIND=RP), OPTIONAL                  :: time
-      REAL(KIND=RP), OPTIONAL                  :: dt
+      procedure(ComputeTimeDerivative_f)       :: ComputeTimeDerivative
+      real(kind=RP), optional                  :: tol
+      integer      , optional                  :: maxiter
+      real(kind=RP), optional                  :: time
+      real(kind=RP), optional                  :: dt
       logical      , optional  , intent(inout) :: computeA
       
       ERROR stop ':: solve not implemented for desired linear solver!!!'
-   END SUBROUTINE solve
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   SUBROUTINE GetXValue(this,irow,x_i)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
-      INTEGER                  , INTENT(IN)    :: irow
-      REAL(KIND=RP)            , INTENT(OUT)   :: x_i
+   end subroutine solve
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine GetXValue(this,irow,x_i)
+      implicit none
+      class(GenericLinSolver_t), intent(inout) :: this
+      integer                  , intent(in)    :: irow
+      real(kind=RP)            , intent(OUT)   :: x_i
       
       ERROR stop ':: GetXValue not implemented for desired linear solver'
-   END SUBROUTINE GetXValue
-
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
+   end subroutine GetXValue
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    function GetX(this) result(x)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
-      REAL(KIND=RP)                            :: x(this % DimPrb)
+      implicit none
+      class(GenericLinSolver_t), intent(inout) :: this
+      real(kind=RP)                            :: x(this % DimPrb)
       
       ERROR stop ':: GetX not implemented for desired linear solver'
    end function GetX
-
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   SUBROUTINE destroy(this)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine destroy(this)
+      implicit none
+      class(GenericLinSolver_t), intent(inout) :: this
       
       write(STD_OUT,*) 'WARNING :: destroy not implemented for desired linear solver'
-   END SUBROUTINE destroy
-
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   SUBROUTINE SetOperatorDt(this, dt)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
-      REAL(KIND=RP)            , INTENT(IN)    :: dt
+   end subroutine destroy
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SetOperatorDt(this, dt)
+      implicit none
+      class(GenericLinSolver_t), intent(inout) :: this
+      real(kind=RP)            , intent(in)    :: dt
       
       write(STD_OUT,*) 'WARNING :: SetOperatorDt not implemented for desired linear solver'
-   END SUBROUTINE SetOperatorDt
-
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   SUBROUTINE ReSetOperatorDt(this, dt)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
-      REAL(KIND=RP)            , INTENT(IN)    :: dt
+   end subroutine SetOperatorDt
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine ReSetOperatorDt(this, dt)
+      implicit none
+      class(GenericLinSolver_t), intent(inout) :: this
+      real(kind=RP)            , intent(in)    :: dt
       
       write(STD_OUT,*) 'WARNING :: ReSetOperatorDt not implemented for desired linear solver'
-   END SUBROUTINE ReSetOperatorDt
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   SUBROUTINE AssemblyRHS(this)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
-   END SUBROUTINE AssemblyRHS
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+   end subroutine ReSetOperatorDt
+!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   FUNCTION Getxnorm(this,TypeOfNorm) RESULT(xnorm)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
-      CHARACTER(len=*)                         :: TypeOfNorm
-      REAL(KIND=RP)                            :: xnorm
+!
+   subroutine AssemblyRHS(this)
+      implicit none
+      class(GenericLinSolver_t), intent(inout) :: this
+   end subroutine AssemblyRHS
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   function Getxnorm(this,TypeOfNorm) RESULT(xnorm)
+      implicit none
+      class(GenericLinSolver_t), intent(inout) :: this
+      character(len=*)                         :: TypeOfNorm
+      real(kind=RP)                            :: xnorm
       
       ERROR stop ':: Getxnorm not implemented for desired linear solver'
-   END FUNCTION Getxnorm
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   FUNCTION Getrnorm(this) RESULT(rnorm)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(INOUT) :: this
-      REAL(KIND=RP)                            :: rnorm
+   end function Getxnorm
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   function Getrnorm(this) RESULT(rnorm)
+      implicit none
+      class(GenericLinSolver_t), intent(inout) :: this
+      real(kind=RP)                            :: rnorm
       
       ERROR stop ':: Getrnorm not implemented for desired linear solver'
-   END FUNCTION Getrnorm
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   
-   FUNCTION ComputeANextStep(this) RESULT(ComputeA)
-      IMPLICIT NONE
-      CLASS(GenericLinSolver_t), INTENT(IN) :: this
-      LOGICAL                               :: ComputeA
-   END FUNCTION ComputeANextStep
-   
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-END MODULE GenericLinSolverClass
+   end function Getrnorm
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   function ComputeANextStep(this) RESULT(ComputeA)
+      implicit none
+      class(GenericLinSolver_t), intent(in) :: this
+      logical                               :: ComputeA
+   end function ComputeANextStep
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine ComputeJacobian(this,Matrix,dt,time,nEqn,nGradEqn,ComputeTimeDerivative,eps)
+      implicit none
+      !-----------------------------------------------------------
+      class(GenericLinSolver_t), intent(inout) :: this
+      class(Matrix_t)                          :: Matrix
+      real(kind=RP), intent(in)                :: dt
+      real(kind=RP), intent(in)                :: time
+      integer,       intent(in)                :: nEqn
+      integer,       intent(in)                :: nGradEqn
+      real(kind=RP), intent(in), optional      :: eps
+      procedure(ComputeTimeDerivative_f)       :: ComputeTimeDerivative
+      !-----------------------------------------------------------
+      
+      if ( .not. present(eps) ) then
+         select case (this % JacobianComputation)
+            case(NUMERICAL_JACOBIAN)
+               call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, Matrix, ComputeTimeDerivative, .TRUE. )
+            case(ANALYTICAL_JACOBIAN)
+               call AnalyticalJacobian_Compute(this % p_sem, nEqn, time, Matrix)
+         end select
+            
+         call Matrix % shift( MatrixShift(dt) )
+      else
+         select case (this % JacobianComputation)
+            case(NUMERICAL_JACOBIAN)
+               call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, Matrix, ComputeTimeDerivative, .TRUE. ,eps)
+            case(ANALYTICAL_JACOBIAN)
+               print*, 'WARNING!!: eps not needed for analytical Jacobian'
+               call AnalyticalJacobian_Compute(this % p_sem, nEqn, time, Matrix)
+         end select
+            
+         call Matrix % shift( MatrixShift(dt) )
+      end if
+      
+   end subroutine ComputeJacobian
+end module GenericLinSolverClass

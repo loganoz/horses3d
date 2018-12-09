@@ -16,7 +16,6 @@ module MatrixFreeGMRESClass
    use FTValueDictionaryClass, only: FTValueDictionary
    use MatrixClass           , only: Matrix_t, DenseBlockDiagMatrix_t, SparseBlockDiagMatrix_t
    use PhysicsStorage        , only: NTOTALVARS, NTOTALGRADS, CTD_IGNORE_MODE
-   use AnalyticalJacobian    , only: AnalyticalJacobian_Compute
    implicit none
    
    private
@@ -37,7 +36,6 @@ module MatrixFreeGMRESClass
       real(kind=RP), allocatable           :: x0(:)
       real(kind=RP)                        :: rnorm
       
-      type(DGSem), pointer                 :: p_sem            ! Associated sem
       real(kind=RP), allocatable           :: F_Ur(:)          ! Qdot at the beginning of solving procedure
       real(kind=RP), allocatable           :: Ur(:)            ! Q at the beginning of solving procedure
       
@@ -75,7 +73,7 @@ module MatrixFreeGMRESClass
          procedure                           :: ReSetOperatorDt
          procedure                           :: GetXValue
          procedure                           :: GetX
-         procedure                           :: SetRHS
+         procedure                           :: SetRHS   => GMRES_SetRHS
          procedure                           :: Getxnorm    !Get solution norm
          procedure                           :: Getrnorm    !Get residual norm
          procedure                           :: Solve     => SolveGMRES
@@ -149,6 +147,12 @@ contains
                this % m = controlVariables % integerValueForKey("gmres inner iterations")
             end if
             
+!           Jacobian computation to be used
+!           *******************************
+            if ( controlVariables % containsKey("jacobian flag") ) then
+               this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
+            end if
+            
 !           Preconditioner
 !           **************
             pc = controlVariables % StringValueForKey("preconditioner",LINE_LENGTH)
@@ -194,8 +198,8 @@ contains
                   end if
                   
                   nelem = sem % mesh % no_of_elements
-                  call this % BlockA % construct(nelem)
-                  call this % BlockPreco % construct(nelem)
+                  call this % BlockA     % construct (num_of_Blocks = nelem)
+                  call this % BlockPreco % construct (num_of_Blocks = nelem)
                   
                   allocate ( ndofelm(nelem) )
                   do k = 1, nelem
@@ -251,7 +255,7 @@ contains
          REAL(KIND=RP)        , INTENT(IN)    :: value
          !-----------------------------------------------------------
          
-         this % RHS (irow+1) = value
+         this % RHS (irow) = value
          
       END SUBROUTINE SetRHSValue
 !
@@ -269,10 +273,23 @@ contains
          
          DO i=1, nvalues
             IF (irow(i)<0) CYCLE
-            this % RHS(irow(i)+1) = values(i)
+            this % RHS(irow(i)) = values(i)
          END DO
          
       END SUBROUTINE SetRHSValues
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine GMRES_SetRHS(this, RHS)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(MatFreeGMRES_t), intent(inout)  :: this
+      real(kind=RP)            , intent(in) :: RHS(this % DimPrb)
+      !---------------------------------------------------------------------
+      
+      this % RHS = RHS
+      
+   end subroutine GMRES_SetRHS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -284,7 +301,7 @@ contains
          REAL(KIND=RP)        , INTENT(OUT)   :: x_i
          !-----------------------------------------------------------
          
-         x_i = this % x(irow+1)
+         x_i = this % x(irow)
          
       END SUBROUTINE GetXValue
 !
@@ -443,16 +460,6 @@ contains
       end subroutine SetMaxIter
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-! 
-      subroutine SetRHS(this,RHS)
-         implicit none
-         class(MatFreeGMRES_t), intent(inout)   :: this
-         real(kind = RP)      , intent(in)      :: RHS(:)
-         
-         this%RHS = RHS
-      end subroutine  SetRHS
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine SetInitialGuess(this,x0)
          implicit none
@@ -602,18 +609,14 @@ contains
             case (PC_BlockJacobi)
                if ( present(ComputeA)) then
                   if (ComputeA) then
-                     call AnalyticalJacobian_Compute(this % p_sem, nEqn, this % timesolve, this % BlockA,.TRUE.)
-!~                     call NumericalJacobian_Compute(this % p_sem, this % timesolve, this % BlockA, ComputeTimeDerivative, .TRUE. )
+                     call this % ComputeJacobian(this % BlockA,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
                      
-                     call this % BlockA % shift( MatrixShift(dt) )
                      call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
                      ComputeA = .FALSE.
                   end if
                else
-                  call AnalyticalJacobian_Compute(this % p_sem, nEqn, this % timesolve, this % BlockA,.TRUE.)
-!~                  call NumericalJacobian_Compute(this % p_sem, this % timesolve, this % BlockA, ComputeTimeDerivative, .TRUE. )
+                  call this % ComputeJacobian(this % BlockA,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
                   
-                  call this % BlockA % shift( MatrixShift(dt) )
                   call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
                end if
          end select

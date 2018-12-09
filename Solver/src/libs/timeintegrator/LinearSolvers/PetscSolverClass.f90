@@ -19,14 +19,13 @@ MODULE PetscSolverClass
    USE SMConstants
    use DGSEMClass
    use TimeIntegratorDefinitions
-   use NumericalJacobian
 #ifdef HAS_PETSC
    use petsc
 #endif
-   IMPLICIT NONE
-   TYPE, EXTENDS(GenericLinSolver_t) :: PetscKspLinearSolver_t
+   implicit none
+   
+   type, extends(GenericLinSolver_t) :: PetscKspLinearSolver_t
       type(PETSCMatrix_t), allocatable              :: A
-      TYPE(DGSem), POINTER                          :: p_sem   
 #ifdef HAS_PETSC
       Vec                                           :: x                                  ! Solution vector
       Vec                                           :: b                                  ! Right hand side
@@ -104,15 +103,20 @@ MODULE PetscSolverClass
       PetscErrorCode                                       :: ierr
       
       MatrixShift => MatrixShiftFunc
-      
       this % p_sem => sem
+      
+      if ( present(controlVariables) ) then
+         if ( controlVariables % containsKey("jacobian flag") ) then
+            this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
+         end if
+      end if
       
       !Initialisation of the PETSc variables
       CALL PetscInitialize(PETSC_NULL_CHARACTER,ierr)
 
 !     PETSc matrix A 
       allocate (PETSCMatrix_t :: this % A)
-      call this % A % construct(DimPrb,this % WithMPI)
+      call this % A % construct(num_of_Rows = DimPrb, withMPI = this % WithMPI)
 
 !     Petsc vectors x and b (of A x = b)
       CALL VecCreate(PETSC_COMM_WORLD,this%x,ierr)          ; CALL CheckPetscErr(ierr,'error creating Petsc vector')
@@ -136,7 +140,7 @@ MODULE PetscSolverClass
       INTEGER, INTENT(IN)                       :: DimPrb
       STOP ':: PETSc is not linked correctly'
 #endif
-   END SUBROUTINE
+   END SUBROUTINE ConstructPetscContext
 !/////////////////////////////////////////////////////////////////////////////////////////////////
    SUBROUTINE SetPetscPreco(this)
       IMPLICIT NONE
@@ -171,13 +175,11 @@ MODULE PetscSolverClass
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
-            call this % A % shift( MatrixShift(dt) )
+            call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
             ComputeA = .FALSE.
          end if
       else 
-         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % A % shift( MatrixShift(dt) )
+         call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
       end if
       
       ! Set , if given, solver tolerance and max number of iterations
@@ -282,7 +284,7 @@ MODULE PetscSolverClass
       PetscScalar, DIMENSION(:),       INTENT(IN)        :: values
       PetscErrorCode                                     :: ierr
        
-      CALL VecSetValues(this%b,nvalues, irow,values,INSERT_VALUES, ierr)
+      CALL VecSetValues(this%b,nvalues, irow-1,values,INSERT_VALUES, ierr)
       CALL CheckPetscErr(ierr, 'error in VecSetValues')
 #else
       INTEGER,                        INTENT(IN)        :: nvalues
@@ -300,14 +302,35 @@ MODULE PetscSolverClass
       PetscScalar,                     INTENT(IN)        :: value
       PetscErrorCode                                     :: ierr
         
-      CALL VecSetValue(this%b, irow,value,INSERT_VALUES, ierr)
-      CALL CheckPetscErr(ierr, 'error in VecSetValues')
+      call VecSetValue(this%b, irow-1,value,INSERT_VALUES, ierr)
+      call CheckPetscErr(ierr, 'error in VecSetValues')
 #else
       INTEGER,           INTENT(IN)        :: irow
       REAL*8    ,        INTENT(IN)        :: value
       STOP ':: PETSc is not linked correctly'
 #endif
    END SUBROUTINE SetRHSValue
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine PETSc_SetRHS(this, RHS)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(PetscKspLinearSolver_t), intent(inout) :: this
+#ifdef HAS_PETSC
+      PetscScalar                  , intent(in)    :: RHS(this % DimPrb)
+      !---------------------------------------------------------------------
+      integer :: i
+      !---------------------------------------------------------------------
+      
+      call VecSetValue  (this%b, [(i, i=0, this % DimPrb-1)] ,RHS,INSERT_VALUES, ierr)
+      call CheckPetscErr(ierr, 'error in VecSetValues')
+      
+#else
+      real(kind=RP)                , intent(in)    :: RHS(this % DimPrb)
+      STOP ':: PETSc is not linked correctly'
+#endif
+   end subroutine PETSc_SetRHS
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////     
 !
@@ -333,7 +356,7 @@ MODULE PetscSolverClass
       PetscScalar, DIMENSION(:),       INTENT(OUT)        :: values
       PetscErrorCode                                      :: ierr
       
-      CALL VecGetValues(this%x,nvalues,irow,values, ierr)
+      CALL VecGetValues(this%x,nvalues,irow-1,values, ierr)
       CALL CheckPetscErr(ierr, 'error in VecGetValues')
 #else
       INTEGER,                        INTENT(IN)        :: nvalues
@@ -351,7 +374,7 @@ MODULE PetscSolverClass
       PetscScalar,                     INTENT(OUT)        :: x_i
       PetscErrorCode                                      :: ierr
       
-      !CALL VecGetValues(this%x,1 ,irow,x_i, ierr)
+      !CALL VecGetValues(this%x,1 ,irow-1,x_i, ierr)  ! TODO: Fix problem here?
       CALL CheckPetscErr(ierr, 'error in VecGetValue')
 #else
       INTEGER,           INTENT(IN)        :: irow

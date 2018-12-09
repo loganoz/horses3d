@@ -57,30 +57,37 @@ module PETScMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,dimPrb,withMPI)
+   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_rows_reduced,withMPI)
       implicit none
       !---------------------------------------------
       class(PETSCMatrix_t)  :: this
+      integer, optional, intent(in) :: num_of_Cols
+      integer, optional, intent(in) :: num_of_Blocks
+      integer, optional, intent(in) :: num_of_rows_reduced
 #ifdef HAS_PETSC
-      PetscInt, intent(in)  :: DimPrb
+      PetscInt, optional, intent(in) :: num_of_Rows
       PetscBool, optional, intent(in) :: withMPI
       !---------------------------------------------
       
-      this % NumRows = dimPrb
+      if ( .not. present(num_of_Rows) ) then
+         ERROR stop 'PETSCMatrix_t needs num_of_Rows'
+      end if
+      
+      this % num_of_Rows = num_of_Rows
       this % withMPI = withMPI
       
       !     PETSc matrix A 
       CALL MatCreate(PETSC_COMM_WORLD,this%A,ierr)                           ; CALL CheckPetscErr(ierr,'error creating A matrix')
       
       IF (withMPI) THEN
-         CALL MatSetSizes(this%A,PETSC_DECIDE,PETSC_DECIDE,dimPrb,dimPrb,ierr)
+         CALL MatSetSizes(this%A,PETSC_DECIDE,PETSC_DECIDE,num_of_Rows,num_of_Rows,ierr)
          CALL CheckPetscErr(ierr,'error setting mat size')
          CALL MatSetType(this%A,MATMPIAIJ, ierr)                              
          CALL CheckPetscErr(ierr,'error in MatSetType')
          CALL MatSetFromOptions(this%A,ierr)                                  
          CALL CheckPetscErr(ierr,'error in MatSetFromOptions')
       ELSE
-         CALL MatSetSizes(this%A,PETSC_DECIDE,PETSC_DECIDE,dimPrb,dimPrb,ierr)
+         CALL MatSetSizes(this%A,PETSC_DECIDE,PETSC_DECIDE,num_of_Rows,num_of_Rows,ierr)
          CALL CheckPetscErr(ierr,'error setting mat size')
          CALL CheckPetscErr(ierr,'error in MatSetType')
          CALL MatSetFromOptions(this%A,ierr)                                  
@@ -90,7 +97,7 @@ module PETScMatrixClass
          CALL CheckPetscErr(ierr,'error in MatSetOption')
        ENDIF
 #else
-      integer, intent(in)              :: dimPrb
+      integer, optional, intent(in) :: num_of_Rows
       logical, optional, intent(in)    :: WithMPI
       STOP ':: PETSc is not linked correctly'
 #endif
@@ -127,7 +134,7 @@ module PETScMatrixClass
       ENDIF
       
       if (mustForceDiagonal) then
-         do i = 1, this % NumRows
+         do i = 1, this % num_of_Rows
             call this % SetEntry(i,i,0._RP)
          end do
       end if
@@ -151,7 +158,7 @@ module PETScMatrixClass
       CALL CheckPetscErr(ierr,'error in MatZeroEntries')
       
       ! secure diagonal entries
-      do i=0, this % NumRows-1
+      do i=0, this % num_of_Rows-1
          CALL MatSetValues(this%A,1,i,1,i,0._RP ,INSERT_VALUES,ierr)
       end do
 #else
@@ -315,14 +322,14 @@ module PETScMatrixClass
       !---------------------------------------------------------------------------------
 #ifdef HAS_PETSC
       INTEGER                                  :: i, ncols
-      INTEGER                                  :: nnz_row(this % NumRows)
+      INTEGER                                  :: nnz_row(this % num_of_Rows)
       INTEGER      , ALLOCATABLE, DIMENSION(:) :: ACols 
       REAL(KIND=RP), ALLOCATABLE, DIMENSION(:) :: AVals
       PetscErrorCode                           :: ierr
       !---------------------------------------------------------------------------------
       
       !We first get the number of nonzero entries in each row
-      DO i = 1, this % NumRows
+      DO i = 1, this % num_of_Rows
          CALL MatGetRow(this % A,i-1,ncols,PETSC_NULL_INTEGER,PETSC_NULL_SCALAR,ierr)
          CALL CheckPetscErr(ierr,'error in Petsc MatGetRow')
          
@@ -332,11 +339,11 @@ module PETScMatrixClass
          CALL CheckPetscErr(ierr,'error in Petsc MatRestoreRow')
       END DO
       
-      CALL Acsr % construct(this % NumRows)
+      CALL Acsr % construct(num_of_Rows = this % num_of_Rows)
       call Acsr % Preallocate(nnzs= nnz_row)
       call Acsr % Reset
       
-      DO i = 1, this % NumRows
+      DO i = 1, this % num_of_Rows
          
          ALLOCATE(AVals(nnz_row(i)))
          ALLOCATE(ACols(nnz_row(i)))

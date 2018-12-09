@@ -61,20 +61,28 @@ contains
 !  -------------------------------------
 !  Constructor
 !  -------------------------------------
-   subroutine construct(this,dimPrb,withMPI)
+   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_rows_reduced,withMPI)
       implicit none
       !-arguments-----------------------------------
       class(LinkedListMatrix_t)     :: this     !<> This matrix
-      integer          , intent(in) :: dimPrb   !<  Number of blocks of the matrix!
+      integer, optional, intent(in) :: num_of_Rows
+      integer, optional, intent(in) :: num_of_Cols
+      integer, optional, intent(in) :: num_of_Blocks
+      integer, optional, intent(in) :: num_of_rows_reduced
       logical, optional, intent(in) :: WithMPI
       !-local-variables-----------------------------
       integer :: i
       !---------------------------------------------
       
-      this % NumRows = dimPrb
+      if ( .not. present(num_of_Rows) ) then
+         ERROR stop 'LinkedListMatrix_t needs num_of_Rows'
+      end if
       
-      allocate ( this % rows(dimPrb) )
-      do i=1, dimPrb
+      this % num_of_Rows = num_of_Rows
+      
+      allocate ( this % rows(num_of_Rows) )
+      this % num_of_entries = 0
+      do i=1, num_of_Rows
          this % rows(i) % num_of_entries = 0
       end do
       
@@ -91,7 +99,7 @@ contains
       integer                :: i
       !----------------------------------------------------------------
       
-      do i=1, this % NumRows
+      do i=1, this % num_of_Rows
          
          CEntry => this % rows(i) % head
          
@@ -247,7 +255,7 @@ contains
       integer       :: i
       !----------------------------------------------
       
-      do i=1, this % NumRows
+      do i=1, this % num_of_Rows
          CEntry => this % rows(i) % head
          
          do while ( associated(CEntry) )
@@ -328,7 +336,7 @@ contains
       type(Entry_t), pointer :: CEntry
       !----------------------------------------------------------------
       
-      safedeallocate(Rows)   ; allocate ( Rows  (this % NumRows + 1) )
+      safedeallocate(Rows)   ; allocate ( Rows  (this % num_of_Rows + 1) )
       safedeallocate(Cols)   ; allocate ( Cols  (this % num_of_entries) )
       safedeallocate(Values) ; allocate ( Values(this % num_of_entries) )
       
@@ -347,7 +355,7 @@ contains
 !     Set the rest
 !     ------------
       
-      do i=2, this % NumRows
+      do i=2, this % num_of_Rows
          Rows(i) = Rows(i-1) + this % rows(i-1) % num_of_entries
          
          CEntry => this % rows(i) % head
@@ -359,7 +367,7 @@ contains
          end do
       end do
       
-      Rows(this % NumRows + 1) = Rows(this % NumRows) + this % rows(this % NumRows) % num_of_entries
+      Rows(this % num_of_Rows + 1) = Rows(this % num_of_Rows) + this % rows(this % num_of_Rows) % num_of_entries
       
    end subroutine getCSRarrays
 !
@@ -377,7 +385,7 @@ contains
       
       if (shiftval < JACEPS) return
       
-      do i=1, this % NumRows
+      do i=1, this % num_of_Rows
          Entry => this % PointToEntry(i,i)
          Entry % value = Entry % value + shiftval
       end do

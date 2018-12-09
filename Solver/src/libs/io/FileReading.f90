@@ -318,6 +318,7 @@ contains
             return
          end if
          
+         Data = IntegerDataLinkedList_t(.TRUE.)
          auxline = line(pos1+1:pos2-1)
 !
 !        Get the elements

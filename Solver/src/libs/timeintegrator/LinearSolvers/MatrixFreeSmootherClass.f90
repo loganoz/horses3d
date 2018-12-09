@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeSmootherClass.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:07 2018
-!   @Last revision date: Mon Aug 20 17:10:15 2018
+!   @Last revision date: Tue Dec  4 21:53:48 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 9fb80d209ec1b9ae1b044040a2af4e790b2ecd64
+!   @Last revision commit: 9b3844379fde2350e64816efcdf3bf724c8b3041
 !
 !//////////////////////////////////////////////////////
 !
@@ -27,8 +27,6 @@ MODULE MatrixFreeSmootherClass
    USE PetscSolverClass   ! For allocating Jacobian matrix
    use DGSEMClass
    use TimeIntegratorDefinitions
-   use NumericalJacobian
-   use AnalyticalJacobian
    use PhysicsStorage
    IMPLICIT NONE
 #ifdef HAS_PETSC
@@ -51,7 +49,6 @@ MODULE MatrixFreeSmootherClass
       REAL(KIND=RP)                              :: rnorm                              ! L2 norm of residual
       REAL(KIND=RP)                              :: Ashift                             ! Shift that the Jacobian matrix currently(!) has
       
-      TYPE(DGSem), POINTER                       :: p_sem                              ! Pointer to DGSem class variable of current system
       CHARACTER(LEN=LINE_LENGTH)                 :: Smoother
       TYPE(BlockPreco_t), ALLOCATABLE            :: BlockPreco(:)
    CONTAINS
@@ -59,6 +56,7 @@ MODULE MatrixFreeSmootherClass
       PROCEDURE                                  :: construct
       PROCEDURE                                  :: SetRHSValue
       PROCEDURE                                  :: SetRHSValues
+      procedure                                  :: SetRHS => Smooth_SetRHS
       PROCEDURE                                  :: solve
       PROCEDURE                                  :: GetXValue
       PROCEDURE                                  :: destroy
@@ -110,6 +108,9 @@ CONTAINS
       
       this % DimPrb = DimPrb
       this % Smoother = controlVariables % StringValueForKey("smoother",LINE_LENGTH)
+      if ( controlVariables % containsKey("jacobian flag") ) then
+         this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
+      end if
       
       ALLOCATE(this % x   (DimPrb))
       ALLOCATE(this % b   (DimPrb))
@@ -119,7 +120,7 @@ CONTAINS
       this % p_sem => sem
       nelem = SIZE(sem % mesh % elements)
       
-      call this % A % construct(nelem)
+      call this % A % construct(num_of_Blocks = nelem)
 !
 !     ------------------------------------------------
 !     Allocate important variables for preconditioners
@@ -149,13 +150,12 @@ CONTAINS
       REAL(KIND=RP)            , INTENT(IN)    :: value
       !-----------------------------------------------------------
       
-      this % b (irow+1) = value
+      this % b (irow) = value
       
    END SUBROUTINE SetRHSValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    SUBROUTINE SetRHSValues(this, nvalues, irow, values)
       IMPLICIT NONE
       CLASS(MatFreeSmooth_t)   , INTENT(INOUT)     :: this
@@ -167,11 +167,23 @@ CONTAINS
       
       DO i=1, nvalues
          IF (irow(i)<0) CYCLE
-         this % b(irow(i)+1) = values(i)
+         this % b(irow(i)) = values(i)
       END DO
       
    END SUBROUTINE SetRHSValues
-   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Smooth_SetRHS(this, RHS)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(MatFreeSmooth_t), intent(inout) :: this
+      real(kind=RP)         , intent(in)    :: RHS(this % DimPrb)
+      !---------------------------------------------------------------------
+      
+      this % b = RHS
+      
+   end subroutine Smooth_SetRHS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -199,15 +211,13 @@ CONTAINS
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call AnalyticalJacobian_Compute(this % p_sem,nEqn,time,this % A,.TRUE.)
-!~            call NumericalJacobian_Compute(this % p_sem, time, this % A, ComputeTimeDerivative, .TRUE. )
-            call this % A % shift( MatrixShift(dt) )
+            call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            
             IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
             ComputeA = .FALSE.
          end if
       else 
-         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % A % shift( MatrixShift(dt) )
+         call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
          IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
       end if
       
@@ -273,7 +283,7 @@ CONTAINS
       REAL(KIND=RP)            , INTENT(OUT)   :: x_i
       !-----------------------------------------------------------
       
-      x_i = this % x(irow+1)
+      x_i = this % x(irow)
       
    END SUBROUTINE GetXValue
 !
