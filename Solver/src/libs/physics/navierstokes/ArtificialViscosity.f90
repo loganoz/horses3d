@@ -4,9 +4,9 @@
 !   @File:    ArtificialViscosity.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Aug 21 18:27:46 2018
-!   @Last revision date: Wed Dec 12 12:42:19 2018
+!   @Last revision date: Wed Dec 12 23:20:39 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: e0850eb5c449ea43bf1495a36c6ec27dc6ecd2c5
+!   @Last revision commit: d12e538a7a8a4f27f93d45559b3cfa021c15b1a2
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,7 +14,7 @@
 module ArtificialViscosity
    use SMConstants
    use PhysicsStorage_NS
-   use VariableConversion_NS, only: Pressure
+   use VariableConversion_NS, only: Pressure, getVelocityGradients
    use FluidData_NS, only: thermodynamics
 
 
@@ -39,16 +39,9 @@ module ArtificialViscosity
 !        ---------------
 !
          real(kind=RP) :: sBetaMax, sTheta, sOmega, c, p, divV, rotV(3)
-         real(kind=RP) :: U_x(NDIM), U_y(NDIM), U_z(NDIM), invRho, invRho2, uDivRho(NDIM)
-
-         invRho  = 1._RP / Q(IRHO)
-         invRho2 = invRho * invRho
+         real(kind=RP) :: U_x(NDIM), U_y(NDIM), U_z(NDIM)
          
-         uDivRho = [Q(IRHOU) , Q(IRHOV) , Q(IRHOW) ] * invRho2
-         
-         u_x = invRho * Q_x(IRHOU:IRHOW) - uDivRho * Q_x(IRHO)
-         u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
-         u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
+         call getVelocityGradients(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
          
          sBetaMax = 2.0_RP / sqrt(POW2(thermodynamics % gamma) - 1.0_RP)
 

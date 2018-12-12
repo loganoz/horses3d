@@ -4,9 +4,9 @@
 !   @File:    VariableConversion_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:34 2018
-!   @Last revision date: Wed Dec 12 12:42:23 2018
+!   @Last revision date: Wed Dec 12 23:20:42 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: e0850eb5c449ea43bf1495a36c6ec27dc6ecd2c5
+!   @Last revision commit: d12e538a7a8a4f27f93d45559b3cfa021c15b1a2
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,12 +21,16 @@ module VariableConversion_NS
    public   Pressure, Temperature, NSGradientValuesForQ
    public   NSGradientValuesForQ_0D, NSGradientValuesForQ_3D
    public   getPrimitiveVariables, getEntropyVariables
-   public   getRoeVariables, GetNSViscosity
+   public   getRoeVariables, GetNSViscosity, getVelocityGradients
 
    interface NSGradientValuesForQ
        module procedure NSGradientValuesForQ_0D , NSGradientValuesForQ_3D
    end interface NSGradientValuesForQ
-
+   
+   interface getVelocityGradients
+      module procedure getVelocityGradients_0D, getVelocityGradients_3D
+   end interface
+   
    contains
 !
 ! /////////////////////////////////////////////////////////////////////
@@ -231,5 +235,46 @@ module VariableConversion_NS
          end associate
 
       end subroutine getRoeVariables
+      
+      pure subroutine getVelocityGradients_0D(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
+         real(kind=RP), intent(out) :: U_x(NDIM), U_y(NDIM), U_z(NDIM)
+         !-local-variables---------------------------------------------
+         real(kind=RP) :: invRho, invRho2, uDivRho(NDIM)
+         !-------------------------------------------------------------
+
+         invRho  = 1._RP / Q(IRHO)
+         invRho2 = invRho * invRho
+         
+         uDivRho = [Q(IRHOU) , Q(IRHOV) , Q(IRHOW) ] * invRho2
+         
+         u_x = invRho * Q_x(IRHOU:IRHOW) - uDivRho * Q_x(IRHO)
+         u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
+         u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
+      end subroutine getVelocityGradients_0D
+      
+      pure subroutine getVelocityGradients_3D(N,Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         integer      , intent(in)  :: N(NDIM)
+         real(kind=RP), intent(in)  :: Q  ( NCONS,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(in)  :: Q_x( NGRAD ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(in)  :: Q_y( NGRAD ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(in)  :: Q_z( NGRAD ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(out) :: U_x( NDIM ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(out) :: U_y( NDIM ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(out) :: U_z( NDIM ,0:N(1), 0:N(2), 0:N(3) )
+         !-local-variables---------------------------------------------
+         integer :: i,j,k
+         !-------------------------------------------------------------
+         
+         do k=0, N(3) ; do j=0, N(2) ; do i=0, N(1)
+            call getVelocityGradients_0D(Q(:,i,j,k),Q_x(:,i,j,k),Q_y(:,i,j,k),Q_z(:,i,j,k),U_x(:,i,j,k),U_y(:,i,j,k),U_z(:,i,j,k))
+         end do       ; end do       ; end do
+         
+      end subroutine getVelocityGradients_3D
 
 end module VariableConversion_NS

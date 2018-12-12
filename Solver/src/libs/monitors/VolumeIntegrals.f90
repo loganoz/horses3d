@@ -116,6 +116,9 @@ module VolumeIntegrals
          integer     :: Nel(3)    ! Element polynomial order
          integer     :: i, j, k
          real(kind=RP)           :: KinEn(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)           :: U_x(NDIM,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)           :: U_y(NDIM,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)           :: U_z(NDIM,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: uvw(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: p, s, dtP
          real(kind=RP), pointer  :: Qb(:)
@@ -193,9 +196,11 @@ module VolumeIntegrals
 !           Computes the flow enstrophy
 !           ***************************
 !
-            KinEn =   POW2( e % storage % U_y(IGW,:,:,:) - e % storage % U_z(IGV,:,:,:) ) &
-                    + POW2( e % storage % U_z(IGU,:,:,:) - e % storage % U_x(IGW,:,:,:) ) &
-                    + POW2( e % storage % U_x(IGV,:,:,:) - e % storage % U_y(IGU,:,:,:) )
+            call getVelocityGradients(e % Nxyz, e % storage % Q,e % storage % U_x,e % storage % U_y,e % storage % U_z, U_x, U_y, U_z)
+            
+            KinEn =   POW2( e % storage % U_y(IZ,:,:,:) - e % storage % U_z(IY,:,:,:) ) &
+                    + POW2( e % storage % U_z(IX,:,:,:) - e % storage % U_x(IZ,:,:,:) ) &
+                    + POW2( e % storage % U_x(IY,:,:,:) - e % storage % U_y(IX,:,:,:) )
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)

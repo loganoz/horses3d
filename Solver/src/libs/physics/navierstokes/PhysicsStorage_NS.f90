@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date: Wed Dec 12 12:42:21 2018
+!   @Last revision date: Wed Dec 12 23:20:41 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: e0850eb5c449ea43bf1495a36c6ec27dc6ecd2c5
+!   @Last revision commit: d12e538a7a8a4f27f93d45559b3cfa021c15b1a2
 !
 !//////////////////////////////////////////////////////
 !
@@ -66,7 +66,6 @@
      private
      public    flowIsNavierStokes, NCONS, NGRAD
      public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE
-     public    IGU, IGV, IGW, IGT
      public    NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2
      public    TScale, TRatio
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
@@ -105,12 +104,6 @@
 !
      INTEGER, PARAMETER       :: NPRIM = 7
      INTEGER, PARAMETER       :: IPIRHO = 1, IPU = 2, IPV = 3, IPW = 4, IPP = 5, IPT = 6, IPA2 = 7
-!
-!    ---------------------------------------
-!!   The positions of the gradient variables
-!    ---------------------------------------
-!
-     INTEGER, PARAMETER  :: IGU = 1 , IGV = 2 , IGW = 3 , IGT = 4
 !
 !    --------------------------------------------
 !    The temperature scale in the Sutherland law:
