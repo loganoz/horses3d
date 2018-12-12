@@ -303,14 +303,14 @@
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine ViscousFlux0D(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
+      pure subroutine ViscousFlux0D(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
          real(kind=RP), intent(in)  :: Q   (1:nEqn     )
-         real(kind=RP), intent(in)  :: U_x (1:nGradEqn)
-         real(kind=RP), intent(in)  :: U_y (1:nGradEqn)
-         real(kind=RP), intent(in)  :: U_z (1:nGradEqn)
+         real(kind=RP), intent(in)  :: Q_x (1:nGradEqn)
+         real(kind=RP), intent(in)  :: Q_y (1:nGradEqn)
+         real(kind=RP), intent(in)  :: Q_z (1:nGradEqn)
          real(kind=RP), intent(in)  :: mu
          real(kind=RP), intent(in)  :: beta
          real(kind=RP), intent(in)  :: kappa
@@ -323,46 +323,59 @@
          real(kind=RP)                    :: T , sutherLaw
          real(kind=RP)                    :: divV
          real(kind=RP)                    :: u , v , w
+         real(kind=RP)                    :: invRho, uDivRho(NDIM), u_x(NDIM), u_y(NDIM), u_z(NDIM), nablaT(NDIM)
 
-         u = Q(IRHOU) / Q(IRHO)
-         v = Q(IRHOV) / Q(IRHO)
-         w = Q(IRHOW) / Q(IRHO)
+         invRho  = 1.0_RP / Q(IRHO)
 
+         u = Q(IRHOU) * invRho
+         v = Q(IRHOV) * invRho
+         w = Q(IRHOW) * invRho
+         
+         uDivRho = [u * invRho, v * invRho, w * invRho]
+         
+         u_x = invRho * Q_x(IRHOU:IRHOW) - uDivRho * Q_x(IRHO)
+         u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
+         u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
+         
+         nablaT(IX) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_x(IRHOE) - Q(IRHOE)*invRho*invRho*Q_x(IRHO) - u*u_x(IX)-v*u_x(IY)-w*u_x(IZ))
+         nablaT(IY) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_y(IRHOE) - Q(IRHOE)*invRho*invRho*Q_y(IRHO) - u*u_y(IX)-v*u_y(IY)-w*u_y(IZ))
+         nablaT(IZ) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_z(IRHOE) - Q(IRHOE)*invRho*invRho*Q_z(IRHO) - u*u_z(IX)-v*u_z(IY)-w*u_z(IZ))
+         
          T     = Temperature(Q)
          sutherLaw = SutherlandsLaw(T)
 
-         divV = U_x(IGU) + U_y(IGV) + U_z(IGW)
+         divV = U_x(IX) + U_y(IY) + U_z(IZ)
 
          F(IRHO,IX)  = 0.0_RP
-         F(IRHOU,IX) = mu * sutherLaw * (2.0_RP * U_x(IGU) - 2.0_RP/3.0_RP * divV ) + beta * divV
-         F(IRHOV,IX) = mu * sutherLaw * ( U_x(IGV) + U_y(IGU) ) 
-         F(IRHOW,IX) = mu * sutherLaw * ( U_x(IGW) + U_z(IGU) ) 
-         F(IRHOE,IX) = F(IRHOU,IX) * u + F(IRHOV,IX) * v + F(IRHOW,IX) * w + kappa * sutherLaw * U_x(IGT) 
+         F(IRHOU,IX) = mu * sutherLaw * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) + beta * divV
+         F(IRHOV,IX) = mu * sutherLaw * ( U_x(IY) + U_y(IX) ) 
+         F(IRHOW,IX) = mu * sutherLaw * ( U_x(IZ) + U_z(IX) ) 
+         F(IRHOE,IX) = F(IRHOU,IX) * u + F(IRHOV,IX) * v + F(IRHOW,IX) * w + kappa * sutherLaw * nablaT(IX) 
 
          F(IRHO,IY) = 0.0_RP
          F(IRHOU,IY) = F(IRHOV,IX) 
-         F(IRHOV,IY) = mu * sutherLaw * (2.0_RP * U_y(IGV) - 2.0_RP / 3.0_RP * divV ) + beta * divV
-         F(IRHOW,IY) = mu * sutherLaw * ( U_y(IGW) + U_z(IGV) ) 
-         F(IRHOE,IY) = F(IRHOU,IY) * u + F(IRHOV,IY) * v + F(IRHOW,IY) * w + kappa * sutherLaw * U_y(IGT) 
+         F(IRHOV,IY) = mu * sutherLaw * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) + beta * divV
+         F(IRHOW,IY) = mu * sutherLaw * ( U_y(IZ) + U_z(IY) ) 
+         F(IRHOE,IY) = F(IRHOU,IY) * u + F(IRHOV,IY) * v + F(IRHOW,IY) * w + kappa * sutherLaw * nablaT(IY)
 
          F(IRHO,IZ) = 0.0_RP
          F(IRHOU,IZ) = F(IRHOW,IX) 
          F(IRHOV,IZ) = F(IRHOW,IY) 
-         F(IRHOW,IZ) = mu * sutherLaw * ( 2.0_RP * U_z(IGW) - 2.0_RP / 3.0_RP * divV ) + beta * divV
-         F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa * sutherLaw *U_z(IGT)
+         F(IRHOW,IZ) = mu * sutherLaw * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) + beta * divV
+         F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa * sutherLaw * nablaT(IZ)
 
          ! with Pr = constant, dmudx = dkappadx
       end subroutine ViscousFlux0D
 
-      pure subroutine ViscousFlux2D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
+      pure subroutine ViscousFlux2D( nEqn, nGradEqn, N, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
          integer         , intent(in)  :: N(2)
          real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: Q_x(1:nGradEqn, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: Q_y(1:nGradEqn, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: Q_z(1:nGradEqn, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
@@ -372,48 +385,56 @@
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: T(0:N(1),0:N(2)) , sutherLaw(0:N(1),0:N(2))
-         real(kind=RP) :: divV(0:N(1),0:N(2))
-         real(kind=RP) :: u(0:N(1),0:N(2)) , v(0:N(1),0:N(2)) , w(0:N(1),0:N(2))
+         real(kind=RP) :: invRho, uDivRho(NDIM), u_x(NDIM), u_y(NDIM), u_z(NDIM), nablaT(NDIM)
+         real(kind=RP) :: T , sutherLaw
+         real(kind=RP) :: divV
+         real(kind=RP) :: u(NDIM)
          integer       :: i , j , k
 
          associate( gammaM2 => dimensionless % gammaM2, &
                     gammaMinus1 => thermodynamics % gammaMinus1 ) 
 
          do j = 0, N(2) ; do i = 0, N(1)
-            u(i,j) = Q(IRHOU,i,j) / Q(IRHO,i,j)
-            v(i,j) = Q(IRHOV,i,j) / Q(IRHO,i,j)
-            w(i,j) = Q(IRHOW,i,j) / Q(IRHO,i,j)
+!
+!           Compute the density inverse and velocities
+!           ------------------------------------------
+            invRho  = 1.0_RP / Q(IRHO,i,j)
+            u       = Q(IRHOU:IRHOW,i,j) * invRho
+            uDivRho = u * invRho
    
+            T = gammaM2 * gammaMinus1 * ( invRho * Q(IRHOE,i,j) - 0.5_RP * ( u(IX) * u(IX) + u(IY) * u(IY) + u(IZ) * u(IZ) ) )
+            sutherLaw = SutherlandsLaw(T)
+            
+            u_x = invRho * Q_x(IRHOU:IRHOW,i,j) - uDivRho * Q_x(IRHO,i,j)
+            u_y = invRho * Q_y(IRHOU:IRHOW,i,j) - uDivRho * Q_y(IRHO,i,j)
+            u_z = invRho * Q_z(IRHOU:IRHOW,i,j) - uDivRho * Q_z(IRHO,i,j)
    
-            T(i,j) = gammaM2 * gammaMinus1 * (Q(IRHOE,i,j)  & 
-                   - 0.5_RP * ( Q(IRHOU,i,j) * u(i,j) + Q(IRHOV,i,j) * v(i,j) + Q(IRHOW,i,j) * w(i,j) ) ) / Q(IRHO,i,j)
-   
-
-            sutherLaw(i,j) = SutherlandsLaw(T(i,j))
-
-            divV(i,j) = U_x(IGU,i,j) + U_y(IGV,i,j) + U_z(IGW,i,j)
+            nablaT(IX) =  gammaMinus1* gammaM2*(invRho*Q_x(IRHOE,i,j) - Q(IRHOE,i,j)*invRho*invRho*Q_x(IRHO,i,j) - u(IX)*u_x(IX)-u(IY)*u_x(IY)-u(IZ)*u_x(IZ))
+            nablaT(IY) =  gammaMinus1* gammaM2*(invRho*Q_y(IRHOE,i,j) - Q(IRHOE,i,j)*invRho*invRho*Q_y(IRHO,i,j) - u(IX)*u_y(IX)-u(IY)*u_y(IY)-u(IZ)*u_y(IZ))
+            nablaT(IZ) =  gammaMinus1* gammaM2*(invRho*Q_z(IRHOE,i,j) - Q(IRHOE,i,j)*invRho*invRho*Q_z(IRHO,i,j) - u(IX)*u_z(IX)-u(IY)*u_z(IY)-u(IZ)*u_z(IZ))
+            
+            divV = U_x(IX) + U_y(IY) + U_z(IZ)
    
             F(IRHO ,IX,i,j) = 0.0_RP
-            F(IRHOU,IX,i,j) = mu(i,j) * sutherLaw(i,j) * (2.0_RP * U_x(IGU,i,j) - 2.0_RP/3.0_RP * divV(i,j) ) + beta(i,j) * divV(i,j)
-            F(IRHOV,IX,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGV,i,j) + U_y(IGU,i,j) ) 
-            F(IRHOW,IX,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGW,i,j) + U_z(IGU,i,j) ) 
-            F(IRHOE,IX,i,j) = F(IRHOU,IX,i,j) * u(i,j) + F(IRHOV,IX,i,j) * v(i,j) + F(IRHOW,IX,i,j) * w(i,j) &
-                  + sutherLaw(i,j) * kappa(i,j) * U_x(IGT,i,j) 
+            F(IRHOU,IX,i,j) = mu(i,j) * sutherLaw * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) + beta(i,j) * divV
+            F(IRHOV,IX,i,j) = mu(i,j) * sutherLaw * ( U_x(IY) + U_y(IX) ) 
+            F(IRHOW,IX,i,j) = mu(i,j) * sutherLaw * ( U_x(IZ) + U_z(IX) ) 
+            F(IRHOE,IX,i,j) = F(IRHOU,IX,i,j) * u(IX) + F(IRHOV,IX,i,j) * u(IY) + F(IRHOW,IX,i,j) * u(IZ) &
+                  + sutherLaw * kappa(i,j) * nablaT(IX)
    
             F(IRHO, IY,i,j) = 0.0_RP
-            F(IRHOU,IY,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGV,i,j) + U_y(IGU,i,j) )  
-            F(IRHOV,IY,i,j) = mu(i,j) * sutherLaw(i,j) * (2.0_RP * U_y(IGV,i,j) - 2.0_RP / 3.0_RP * divV(i,j) ) + beta(i,j) * divV(i,j) 
-            F(IRHOW,IY,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_y(IGW,i,j) + U_z(IGV,i,j) ) 
-            F(IRHOE,IY,i,j) = F(IRHOU,IY,i,j) * u(i,j) + F(IRHOV,IY,i,j) * v(i,j) + F(IRHOW,IY,i,j) * w(i,j) &
-                  + sutherLaw(i,j) * kappa(i,j) * U_y(IGT,i,j) 
+            F(IRHOU,IY,i,j) = mu(i,j) * sutherLaw * ( U_x(IY) + U_y(IX) )  
+            F(IRHOV,IY,i,j) = mu(i,j) * sutherLaw * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) + beta(i,j) * divV 
+            F(IRHOW,IY,i,j) = mu(i,j) * sutherLaw * ( U_y(IZ) + U_z(IY) ) 
+            F(IRHOE,IY,i,j) = F(IRHOU,IY,i,j) * u(IX) + F(IRHOV,IY,i,j) * u(IY) + F(IRHOW,IY,i,j) * u(IZ) &
+                  + sutherLaw * kappa(i,j) * nablaT(IY)
    
             F(IRHO, IZ,i,j ) = 0.0_RP
-            F(IRHOU,IZ,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGW,i,j) + U_z(IGU,i,j) ) 
-            F(IRHOV,IZ,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_y(IGW,i,j) + U_z(IGV,i,j) ) 
-            F(IRHOW,IZ,i,j) = mu(i,j) * sutherLaw(i,j) * ( 2.0_RP * U_z(IGW,i,j) - 2.0_RP / 3.0_RP * divV(i,j) ) + beta(i,j) * divV(i,j)   
-            F(IRHOE,IZ,i,j) = F(IRHOU,IZ,i,j) * u(i,j) + F(IRHOV,IZ,i,j) * v(i,j) + F(IRHOW,IZ,i,j) * w(i,j) &
-                  + sutherLaw(i,j) * kappa(i,j) * U_z(IGT,i,j) 
+            F(IRHOU,IZ,i,j) = mu(i,j) * sutherLaw * ( U_x(IZ) + U_z(IX) ) 
+            F(IRHOV,IZ,i,j) = mu(i,j) * sutherLaw * ( U_y(IZ) + U_z(IY) ) 
+            F(IRHOW,IZ,i,j) = mu(i,j) * sutherLaw * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) + beta(i,j) * divV   
+            F(IRHOE,IZ,i,j) = F(IRHOU,IZ,i,j) * u(IX) + F(IRHOV,IZ,i,j) * u(IY) + F(IRHOW,IZ,i,j) * u(IZ) &
+                  + sutherLaw * kappa(i,j) * nablaT(IZ)
    
          end do    ; end do
 
@@ -421,15 +442,15 @@
 
       end subroutine ViscousFlux2D
 
-      pure subroutine ViscousFlux3D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
+      pure subroutine ViscousFlux3D( nEqn, nGradEqn, N, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
          integer         , intent(in)  :: N(3)
          real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: Q_x(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: Q_y(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: Q_z(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
@@ -439,52 +460,59 @@
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: T(0:N(1),0:N(2),0:N(3)) , sutherLaw(0:N(1),0:N(2),0:N(3))
-         real(kind=RP) :: divV(0:N(1),0:N(2),0:N(3))
-         real(kind=RP) :: u(0:N(1),0:N(2),0:N(3)) , v(0:N(1),0:N(2),0:N(3)) , w(0:N(1),0:N(2),0:N(3))
+         real(kind=RP) :: invRho, uDivRho(NDIM), u_x(NDIM), u_y(NDIM), u_z(NDIM), nablaT(NDIM)
+         real(kind=RP) :: T, sutherLaw
+         real(kind=RP) :: divV
+         real(kind=RP) :: u(NDIM)
          integer       :: i , j , k
 
          associate( gammaM2 => dimensionless % gammaM2, &
                     gammaMinus1 => thermodynamics % gammaMinus1 ) 
 
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            u(i,j,k) = Q(IRHOU,i,j,k) / Q(IRHO,i,j,k)
-            v(i,j,k) = Q(IRHOV,i,j,k) / Q(IRHO,i,j,k)
-            w(i,j,k) = Q(IRHOW,i,j,k) / Q(IRHO,i,j,k)
+!
+!           Compute the density inverse and velocities
+!           ------------------------------------------
+            invRho  = 1.0_RP / Q(IRHO,i,j,k)
+            u       = Q(IRHOU:IRHOW,i,j,k) * invRho
+            uDivRho = u * invRho
    
+            T = gammaM2 * gammaMinus1 * ( invRho * Q(IRHOE,i,j,k) - 0.5_RP * ( u(IX) * u(IX) + u(IY) * u(IY) + u(IZ) * u(IZ) ) )
+            sutherLaw = SutherlandsLaw(T)
+            
+            u_x = invRho * Q_x(IRHOU:IRHOW,i,j,k) - uDivRho * Q_x(IRHO,i,j,k)
+            u_y = invRho * Q_y(IRHOU:IRHOW,i,j,k) - uDivRho * Q_y(IRHO,i,j,k)
+            u_z = invRho * Q_z(IRHOU:IRHOW,i,j,k) - uDivRho * Q_z(IRHO,i,j,k)
    
-            T(i,j,k) = gammaM2 * gammaMinus1 * (Q(IRHOE,i,j,k)  & 
-                   - 0.5_RP * ( Q(IRHOU,i,j,k) * u(i,j,k) + Q(IRHOV,i,j,k) * v(i,j,k) + Q(IRHOW,i,j,k) * w(i,j,k) ) ) / Q(IRHO,i,j,k)
-   
-
-            sutherLaw(i,j,k) = SutherlandsLaw(T(i,j,k))
-
-            divV(i,j,k) = U_x(IGU,i,j,k) + U_y(IGV,i,j,k) + U_z(IGW,i,j,k)
+            nablaT(IX) =  gammaMinus1* gammaM2*(invRho*Q_x(IRHOE,i,j,k) - Q(IRHOE,i,j,k)*invRho*invRho*Q_x(IRHO,i,j,k) - u(IX)*u_x(IX)-u(IY)*u_x(IY)-u(IZ)*u_x(IZ))
+            nablaT(IY) =  gammaMinus1* gammaM2*(invRho*Q_y(IRHOE,i,j,k) - Q(IRHOE,i,j,k)*invRho*invRho*Q_y(IRHO,i,j,k) - u(IX)*u_y(IX)-u(IY)*u_y(IY)-u(IZ)*u_y(IZ))
+            nablaT(IZ) =  gammaMinus1* gammaM2*(invRho*Q_z(IRHOE,i,j,k) - Q(IRHOE,i,j,k)*invRho*invRho*Q_z(IRHO,i,j,k) - u(IX)*u_z(IX)-u(IY)*u_z(IY)-u(IZ)*u_z(IZ))
+            
+            divV = U_x(IX) + U_y(IY) + U_z(IZ)
+!
+!           Compute the fluxes
+!           ------------------
    
             F(IRHO,i,j,k ,IX) = 0.0_RP
-            F(IRHOU,i,j,k,IX) = mu(i,j,k) * sutherLaw(i,j,k) * (2.0_RP * U_x(IGU,i,j,k) - 2.0_RP/3.0_RP * divV(i,j,k) ) + beta(i,j,k) * divV(i,j,k)
-            F(IRHOV,i,j,k,IX) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_x(IGV,i,j,k) + U_y(IGU,i,j,k) ) 
-            F(IRHOW,i,j,k,IX) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_x(IGW,i,j,k) + U_z(IGU,i,j,k) ) 
-            F(IRHOE,i,j,k,IX) = F(IRHOU,i,j,k,IX) * u(i,j,k) + F(IRHOV,i,j,k,IX) * v(i,j,k) + F(IRHOW,i,j,k,IX) * w(i,j,k) &
-                  + sutherLaw(i,j,k) * kappa(i,j,k) * U_x(IGT,i,j,k) 
-         end do      ; end do    ; end do
-
-         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            F(IRHOU,i,j,k,IX) = mu(i,j,k) * sutherLaw * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) + beta(i,j,k) * divV
+            F(IRHOV,i,j,k,IX) = mu(i,j,k) * sutherLaw * ( U_x(IY) + U_y(IX) ) 
+            F(IRHOW,i,j,k,IX) = mu(i,j,k) * sutherLaw * ( U_x(IZ) + U_z(IX) ) 
+            F(IRHOE,i,j,k,IX) = F(IRHOU,i,j,k,IX) * u(IX) + F(IRHOV,i,j,k,IX) * u(IY) + F(IRHOW,i,j,k,IX) * u(IZ) &
+                  + sutherLaw * kappa(i,j,k) * nablaT(IX) 
+                  
             F(IRHO,i,j,k ,IY) = 0.0_RP
-            F(IRHOU,i,j,k,IY) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_x(IGV,i,j,k) + U_y(IGU,i,j,k) )  
-            F(IRHOV,i,j,k,IY) = mu(i,j,k) * sutherLaw(i,j,k) * (2.0_RP * U_y(IGV,i,j,k) - 2.0_RP / 3.0_RP * divV(i,j,k) ) + beta(i,j,k) * divV(i,j,k) 
-            F(IRHOW,i,j,k,IY) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_y(IGW,i,j,k) + U_z(IGV,i,j,k) ) 
-            F(IRHOE,i,j,k,IY) = F(IRHOU,i,j,k,IY) * u(i,j,k) + F(IRHOV,i,j,k,IY) * v(i,j,k) + F(IRHOW,i,j,k,IY) * w(i,j,k) &
-                  + sutherLaw(i,j,k) * kappa(i,j,k) * U_y(IGT,i,j,k) 
-         end do      ; end do    ; end do
-
-         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            F(IRHOU,i,j,k,IY) = mu(i,j,k) * sutherLaw * ( U_x(IY) + U_y(IX) )  
+            F(IRHOV,i,j,k,IY) = mu(i,j,k) * sutherLaw * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) + beta(i,j,k) * divV 
+            F(IRHOW,i,j,k,IY) = mu(i,j,k) * sutherLaw * ( U_y(IZ) + U_z(IY) ) 
+            F(IRHOE,i,j,k,IY) = F(IRHOU,i,j,k,IY) * u(IX) + F(IRHOV,i,j,k,IY) * u(IY) + F(IRHOW,i,j,k,IY) * u(IZ) &
+                  + sutherLaw * kappa(i,j,k) * nablaT(IY) 
+                  
             F(IRHO,i,j,k,IZ ) = 0.0_RP
-            F(IRHOU,i,j,k,IZ) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_x(IGW,i,j,k) + U_z(IGU,i,j,k) ) 
-            F(IRHOV,i,j,k,IZ) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_y(IGW,i,j,k) + U_z(IGV,i,j,k) ) 
-            F(IRHOW,i,j,k,IZ) = mu(i,j,k) * sutherLaw(i,j,k) * ( 2.0_RP * U_z(IGW,i,j,k) - 2.0_RP / 3.0_RP * divV(i,j,k) ) + beta(i,j,k) * divV(i,j,k) 
-            F(IRHOE,i,j,k,IZ) = F(IRHOU,i,j,k,IZ) * u(i,j,k) + F(IRHOV,i,j,k,IZ) * v(i,j,k) + F(IRHOW,i,j,k,IZ) * w(i,j,k) &
-                  + sutherLaw(i,j,k) * kappa(i,j,k) * U_z(IGT,i,j,k) 
+            F(IRHOU,i,j,k,IZ) = mu(i,j,k) * sutherLaw * ( U_x(IZ) + U_z(IX) ) 
+            F(IRHOV,i,j,k,IZ) = mu(i,j,k) * sutherLaw * ( U_y(IZ) + U_z(IY) ) 
+            F(IRHOW,i,j,k,IZ) = mu(i,j,k) * sutherLaw * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) + beta(i,j,k) * divV 
+            F(IRHOE,i,j,k,IZ) = F(IRHOU,i,j,k,IZ) * u(IX) + F(IRHOV,i,j,k,IZ) * u(IY) + F(IRHOW,i,j,k,IZ) * u(IZ) &
+                  + sutherLaw * kappa(i,j,k) * nablaT(IZ) 
          end do      ; end do    ; end do
 
          end associate
@@ -524,14 +552,13 @@
 !
 !     ***** This routine is necessary for computing the analytical Jacobian. *****
 !     ------------------------------------------------------------------------------------------
-      pure subroutine ViscousJacobian(q, U_x, U_y, U_z, gradRho, df_dgradq, df_dq)
+      pure subroutine ViscousJacobian(q, Q_x, Q_y, Q_z, df_dgradq, df_dq)
          implicit none
          !-------------------------------------------------
          real(kind=RP), intent(in)  :: q(NCONS)                      !< Conserved variables state
-         real(kind=RP), intent(in)  :: U_x (1:NGRAD)
-         real(kind=RP), intent(in)  :: U_y (1:NGRAD)
-         real(kind=RP), intent(in)  :: U_z (1:NGRAD) ! , intent(in)
-         real(kind=RP), intent(in)  :: gradRho (3)
+         real(kind=RP), intent(in)  :: Q_x (1:NGRAD)
+         real(kind=RP), intent(in)  :: Q_y (1:NGRAD)
+         real(kind=RP), intent(in)  :: Q_z (1:NGRAD) ! , intent(in)
          real(kind=RP), intent(out) :: df_dgradq(NCONS,NCONS,NDIM,NDIM)
          real(kind=RP), intent(out) :: df_dq    (NCONS,NCONS,NDIM)
          !-------------------------------------------------
@@ -541,15 +568,26 @@
          real(kind=RP)            :: V_gradU, V_gradV, V_gradW, gradE(3)
          real(kind=RP)            :: gamma_Pr
          real(kind=RP)            :: rho_DivV, V_gradRho
+         real(kind=RP)            :: invRho, invRho2, uDivRho(NDIM), U_x(NDIM), U_y(NDIM), U_z(NDIM)
          real(kind=RP), parameter :: lambda = 1._RP/3._RP
          real(kind=RP), parameter :: f4_3 = 4._RP/3._RP
          real(kind=RP), parameter :: f2_3 = 2._RP/3._RP
          !-------------------------------------------------
          
-         u  = Q(IRHOU) / Q(IRHO)
-         v  = Q(IRHOV) / Q(IRHO)
-         w  = Q(IRHOW) / Q(IRHO)
-         E  = Q(IRHOE) / Q(IRHO)
+         invRho  = 1._RP / Q(IRHO)
+         invRho2 = invRho * invRho
+         
+         uDivRho = [Q(IRHOU) , Q(IRHOV) , Q(IRHOW) ] * invRho2
+         
+         u_x = invRho * Q_x(IRHOU:IRHOW) - uDivRho * Q_x(IRHO)
+         u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
+         u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
+         
+         u  = Q(IRHOU) * invRho
+         v  = Q(IRHOV) * invRho
+         w  = Q(IRHOW) * invRho
+         
+         E  = Q(IRHOE) * invRho
          u2 = u*u
          v2 = v*v
          w2 = w*w
@@ -661,61 +699,61 @@
 !        Auxiliar variables
 !        ------------------
          
-         rho_DivV      = Q(IRHO) * ( U_x(IGU) + U_y(IGV) + U_z(IGW) )       ! rho ∇ · v
-         V_gradRho     = u * gradRho(1) + v * gradRho(2) + w * gradRho(3)   ! v · ∇rho
-         V_gradU       = u * U_x(IGU) + v * U_y(IGU) + w * U_z(IGU)
-         V_gradV       = u * U_x(IGV) + v * U_y(IGV) + w * U_z(IGV)
-         V_gradW       = u * U_x(IGW) + v * U_y(IGW) + w * U_z(IGW)
+         rho_DivV      = Q(IRHO) * ( U_x(IX) + U_y(IY) + U_z(IZ) )       ! rho ∇ · v
+         V_gradRho     = u * Q_x(IRHO) + v * Q_y(IRHO) + w * Q_z(IRHO)   ! v · ∇rho
+         V_gradU       = u * U_x(IX) + v * U_y(IX) + w * U_z(IX)
+         V_gradV       = u * U_x(IY) + v * U_y(IY) + w * U_z(IY)
+         V_gradW       = u * U_x(IZ) + v * U_y(IZ) + w * U_z(IZ)
          
-         vv_x = 2._RP * Q(IRHO) * ( u * U_x(IGU) + v * U_x(IGV) + w * U_x(IGW) )
-         vv_y = 2._RP * Q(IRHO) * ( u * U_y(IGU) + v * U_y(IGV) + w * U_y(IGW) )
-         vv_z = 2._RP * Q(IRHO) * ( u * U_z(IGU) + v * U_z(IGV) + w * U_z(IGW) )
+         vv_x = 2._RP * Q(IRHO) * ( u * U_x(IX) + v * U_x(IY) + w * U_x(IZ) )
+         vv_y = 2._RP * Q(IRHO) * ( u * U_y(IX) + v * U_y(IY) + w * U_y(IZ) )
+         vv_z = 2._RP * Q(IRHO) * ( u * U_z(IX) + v * U_z(IY) + w * U_z(IZ) )
          
-         gradE(1) = U_x(IGT) / (gammaM2 * gammaMinus1) + vv_x / Q(IRHO)
-         gradE(2) = U_y(IGT) / (gammaM2 * gammaMinus1) + vv_y / Q(IRHO)
-         gradE(3) = U_z(IGT) / (gammaM2 * gammaMinus1) + vv_z / Q(IRHO)
+         gradE(1) = Q_x(IRHOE) * invRho
+         gradE(2) = Q_y(IRHOE) * invRho
+         gradE(3) = Q_z(IRHOE) * invRho
          
 !        Jacobian entries
 !        ----------------
          
          ! A_1
          df_dq(:,1,1) = (/ 0._RP , & 
-                           2._RP * lambda * (rho_DivV - V_gradRho) + 2._RP * ( u * gradRho(1) - Q(IRHO) * U_x(IGU) ), &
-                           u * gradRho(2) + v * gradRho(1) - Q(IRHO) * ( U_y(IGU) + U_x(IGV)) , &
-                           u * gradRho(3) + w * gradRho(1) - Q(IRHO) * ( U_z(IGU) + U_x(IGW)) , &
-                           (1._RP - gamma_Pr) * ( Vel2*gradRho(1) - vv_x ) + lambda * u * (4._RP*rho_DivV + V_gradRho) &
-                                - 2 * Q(IRHO) * V_gradU + gamma_Pr * ( E * gradRho(1) + Q(IRHO) * gradE(1) ) /)
+                           2._RP * lambda * (rho_DivV - V_gradRho) + 2._RP * ( u * Q_x(IRHO) - Q(IRHO) * U_x(IX) ), &
+                           u * Q_y(IRHO) + v * Q_x(IRHO) - Q(IRHO) * ( U_y(IX) + U_x(IY)) , &
+                           u * Q_z(IRHO) + w * Q_x(IRHO) - Q(IRHO) * ( U_z(IX) + U_x(IZ)) , &
+                           (1._RP - gamma_Pr) * ( Vel2*Q_x(IRHO) - vv_x ) + lambda * u * (4._RP*rho_DivV + V_gradRho) &
+                                - 2 * Q(IRHO) * V_gradU + gamma_Pr * ( E * Q_x(IRHO) + Q(IRHO) * gradE(1) ) /)
          
-         df_dq(:,2,1) = (/ 0._RP , -4._RP*lambda*gradRho(1) , -gradRho(2) , -gradRho(3) , -u * (lambda - gamma_Pr) * gradRho(1) + Q(IRHO) * ( 2._RP - gamma_Pr) * U_x(IGU) - V_gradRho - 2._RP * lambda * rho_DivV /)
-         df_dq(:,3,1) = (/ 0._RP ,  2._RP*lambda*gradRho(2) , -gradRho(1) , 0._RP       , (1._RP - gamma_Pr) * (Q(IRHO) * U_x(IGV) - v * gradRho(1)) + Q(IRHO) * U_y(IGU) + 2._RP * lambda * u * gradRho(2) /)
-         df_dq(:,4,1) = (/ 0._RP ,  2._RP*lambda*gradRho(3) , 0._RP       , -gradRho(1) , (1._RP - gamma_Pr) * (Q(IRHO) * U_x(IGW) - w * gradRho(1)) + Q(IRHO) * U_z(IGU) + 2._RP * lambda * u * gradRho(3) /)
-         df_dq(:,5,1) = (/ 0._RP , 0._RP                    , 0._RP       , 0._RP       , -gamma_Pr * gradRho(1) /)
+         df_dq(:,2,1) = (/ 0._RP , -4._RP*lambda*Q_x(IRHO) , -Q_y(IRHO) , -Q_z(IRHO) , -u * (lambda - gamma_Pr) * Q_x(IRHO) + Q(IRHO) * ( 2._RP - gamma_Pr) * U_x(IX) - V_gradRho - 2._RP * lambda * rho_DivV /)
+         df_dq(:,3,1) = (/ 0._RP ,  2._RP*lambda*Q_y(IRHO) , -Q_x(IRHO) , 0._RP       , (1._RP - gamma_Pr) * (Q(IRHO) * U_x(IY) - v * Q_x(IRHO)) + Q(IRHO) * U_y(IX) + 2._RP * lambda * u * Q_y(IRHO) /)
+         df_dq(:,4,1) = (/ 0._RP ,  2._RP*lambda*Q_z(IRHO) , 0._RP       , -Q_x(IRHO) , (1._RP - gamma_Pr) * (Q(IRHO) * U_x(IZ) - w * Q_x(IRHO)) + Q(IRHO) * U_z(IX) + 2._RP * lambda * u * Q_z(IRHO) /)
+         df_dq(:,5,1) = (/ 0._RP , 0._RP                    , 0._RP       , 0._RP       , -gamma_Pr * Q_x(IRHO) /)
          
          ! A_2
          df_dq(:,1,2) = (/ 0._RP , & 
-                           v * gradRho(1) + u * gradRho(2) - Q(IRHO) * ( U_x(IGV) + U_y(IGU)) , &
-                           2._RP * lambda * (rho_DivV - V_gradRho) + 2._RP * ( v * gradRho(2) - Q(IRHO) * U_y(IGV) ), &
-                           v * gradRho(3) + w * gradRho(2) - Q(IRHO) * ( U_z(IGV) + U_y(IGW)) , &
-                           (1._RP - gamma_Pr) * ( Vel2*gradRho(2) - vv_y ) + lambda * v * (4._RP*rho_DivV + V_gradRho) &
-                                - 2 * Q(IRHO) * V_gradV + gamma_Pr * ( E * gradRho(2) + Q(IRHO) * gradE(2) ) /)
+                           v * Q_x(IRHO) + u * Q_y(IRHO) - Q(IRHO) * ( U_x(IY) + U_y(IX)) , &
+                           2._RP * lambda * (rho_DivV - V_gradRho) + 2._RP * ( v * Q_y(IRHO) - Q(IRHO) * U_y(IY) ), &
+                           v * Q_z(IRHO) + w * Q_y(IRHO) - Q(IRHO) * ( U_z(IY) + U_y(IZ)) , &
+                           (1._RP - gamma_Pr) * ( Vel2*Q_y(IRHO) - vv_y ) + lambda * v * (4._RP*rho_DivV + V_gradRho) &
+                                - 2 * Q(IRHO) * V_gradV + gamma_Pr * ( E * Q_y(IRHO) + Q(IRHO) * gradE(2) ) /)
          
-         df_dq(:,2,2) = (/ 0._RP , -gradRho(2) ,  2._RP*lambda*gradRho(1) , 0._RP       , (1._RP - gamma_Pr) * (Q(IRHO) * U_y(IGU) - u * gradRho(2)) + Q(IRHO) * U_x(IGV) + 2._RP * lambda * v * gradRho(1) /)
-         df_dq(:,3,2) = (/ 0._RP , -gradRho(1) , -4._RP*lambda*gradRho(2) , -gradRho(3) , -v * (lambda - gamma_Pr) * gradRho(2) + Q(IRHO) * ( 2._RP - gamma_Pr) * U_y(IGV) - V_gradRho - 2._RP * lambda * rho_DivV /)
-         df_dq(:,4,2) = (/ 0._RP , 0._RP       ,  2._RP*lambda*gradRho(3) , -gradRho(2) , (1._RP - gamma_Pr) * (Q(IRHO) * U_y(IGW) - w * gradRho(2)) + Q(IRHO) * U_z(IGV) + 2._RP * lambda * v * gradRho(3) /)
-         df_dq(:,5,2) = (/ 0._RP , 0._RP       , 0._RP                    , 0._RP       , -gamma_Pr * gradRho(2) /)
+         df_dq(:,2,2) = (/ 0._RP , -Q_y(IRHO) ,  2._RP*lambda*Q_x(IRHO) , 0._RP       , (1._RP - gamma_Pr) * (Q(IRHO) * U_y(IX) - u * Q_y(IRHO)) + Q(IRHO) * U_x(IY) + 2._RP * lambda * v * Q_x(IRHO) /)
+         df_dq(:,3,2) = (/ 0._RP , -Q_x(IRHO) , -4._RP*lambda*Q_y(IRHO) , -Q_z(IRHO) , -v * (lambda - gamma_Pr) * Q_y(IRHO) + Q(IRHO) * ( 2._RP - gamma_Pr) * U_y(IY) - V_gradRho - 2._RP * lambda * rho_DivV /)
+         df_dq(:,4,2) = (/ 0._RP , 0._RP       ,  2._RP*lambda*Q_z(IRHO) , -Q_y(IRHO) , (1._RP - gamma_Pr) * (Q(IRHO) * U_y(IZ) - w * Q_y(IRHO)) + Q(IRHO) * U_z(IY) + 2._RP * lambda * v * Q_z(IRHO) /)
+         df_dq(:,5,2) = (/ 0._RP , 0._RP       , 0._RP                    , 0._RP       , -gamma_Pr * Q_y(IRHO) /)
          
          ! A_3
          df_dq(:,1,3) = (/ 0._RP , & 
-                           w * gradRho(1) + u * gradRho(3) - Q(IRHO) * ( U_x(IGW) + U_z(IGU)) , &
-                           w * gradRho(2) + v * gradRho(3) - Q(IRHO) * ( U_y(IGW) + U_z(IGV)) , &
-                           2._RP * lambda * (rho_DivV - V_gradRho) + 2._RP * ( w * gradRho(3) - Q(IRHO) * U_z(IGW) ), &
-                           (1._RP - gamma_Pr) * ( Vel2*gradRho(3) - vv_z ) + lambda * w * (4._RP*rho_DivV + V_gradRho) &
-                                - 2 * Q(IRHO) * V_gradW + gamma_Pr * ( E * gradRho(3) + Q(IRHO) * gradE(3) ) /)
+                           w * Q_x(IRHO) + u * Q_z(IRHO) - Q(IRHO) * ( U_x(IZ) + U_z(IX)) , &
+                           w * Q_y(IRHO) + v * Q_z(IRHO) - Q(IRHO) * ( U_y(IZ) + U_z(IY)) , &
+                           2._RP * lambda * (rho_DivV - V_gradRho) + 2._RP * ( w * Q_z(IRHO) - Q(IRHO) * U_z(IZ) ), &
+                           (1._RP - gamma_Pr) * ( Vel2*Q_z(IRHO) - vv_z ) + lambda * w * (4._RP*rho_DivV + V_gradRho) &
+                                - 2 * Q(IRHO) * V_gradW + gamma_Pr * ( E * Q_z(IRHO) + Q(IRHO) * gradE(3) ) /)
          
-         df_dq(:,2,3) = (/ 0._RP , -gradRho(3) , 0._RP       ,  2._RP*lambda*gradRho(1) , (1._RP - gamma_Pr) * (Q(IRHO) * U_z(IGU) - u * gradRho(3)) + Q(IRHO) * U_x(IGW) + 2._RP * lambda * w * gradRho(1) /)
-         df_dq(:,3,3) = (/ 0._RP , 0._RP       , -gradRho(3) ,  2._RP*lambda*gradRho(2) , (1._RP - gamma_Pr) * (Q(IRHO) * U_z(IGV) - v * gradRho(3)) + Q(IRHO) * U_y(IGW) + 2._RP * lambda * w * gradRho(2) /)
-         df_dq(:,4,3) = (/ 0._RP , -gradRho(1) , -gradRho(2) , -4._RP*lambda*gradRho(3) , -w * (lambda - gamma_Pr) * gradRho(3) + Q(IRHO) * ( 2._RP - gamma_Pr) * U_z(IGW) - V_gradRho - 2._RP * lambda * rho_DivV /)
-         df_dq(:,5,3) = (/ 0._RP , 0._RP       , 0._RP       , 0._RP                    , -gamma_Pr * gradRho(3) /)
+         df_dq(:,2,3) = (/ 0._RP , -Q_z(IRHO) , 0._RP       ,  2._RP*lambda*Q_x(IRHO) , (1._RP - gamma_Pr) * (Q(IRHO) * U_z(IX) - u * Q_z(IRHO)) + Q(IRHO) * U_x(IZ) + 2._RP * lambda * w * Q_x(IRHO) /)
+         df_dq(:,3,3) = (/ 0._RP , 0._RP       , -Q_z(IRHO) ,  2._RP*lambda*Q_y(IRHO) , (1._RP - gamma_Pr) * (Q(IRHO) * U_z(IY) - v * Q_z(IRHO)) + Q(IRHO) * U_y(IZ) + 2._RP * lambda * w * Q_y(IRHO) /)
+         df_dq(:,4,3) = (/ 0._RP , -Q_x(IRHO) , -Q_y(IRHO) , -4._RP*lambda*Q_z(IRHO) , -w * (lambda - gamma_Pr) * Q_z(IRHO) + Q(IRHO) * ( 2._RP - gamma_Pr) * U_z(IZ) - V_gradRho - 2._RP * lambda * rho_DivV /)
+         df_dq(:,5,3) = (/ 0._RP , 0._RP       , 0._RP       , 0._RP                    , -gamma_Pr * Q_z(IRHO) /)
          
 !
 !        Scale with mu/(rho² Re) .or. kappa/(rho² Re)
@@ -728,14 +766,14 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine ViscousFlux0D_withSGS(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
+      pure subroutine ViscousFlux0D_withSGS(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, kappa, tauSGS, qSGS, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
          real(kind=RP), intent(in)  :: Q   (1:nEqn     )
-         real(kind=RP), intent(in)  :: U_x (1:nGradEqn)
-         real(kind=RP), intent(in)  :: U_y (1:nGradEqn)
-         real(kind=RP), intent(in)  :: U_z (1:nGradEqn)
+         real(kind=RP), intent(in)  :: Q_x (1:nGradEqn)
+         real(kind=RP), intent(in)  :: Q_y (1:nGradEqn)
+         real(kind=RP), intent(in)  :: Q_z (1:nGradEqn)
          real(kind=RP), intent(in)  :: mu
          real(kind=RP), intent(in)  :: kappa
          real(kind=RP), intent(in)  :: tauSGS(NDIM, NDIM)
@@ -749,45 +787,58 @@
          real(kind=RP)                    :: T , sutherLaw
          real(kind=RP)                    :: divV
          real(kind=RP)                    :: u , v , w
+         real(kind=RP)                    :: invRho, uDivRho(NDIM), u_x(NDIM), u_y(NDIM), u_z(NDIM), nablaT(NDIM)
 
-         u = Q(IRHOU) / Q(IRHO)
-         v = Q(IRHOV) / Q(IRHO)
-         w = Q(IRHOW) / Q(IRHO)
+         invRho  = 1.0_RP / Q(IRHO)
 
+         u = Q(IRHOU) * invRho
+         v = Q(IRHOV) * invRho
+         w = Q(IRHOW) * invRho
+         
+         uDivRho = [u * invRho, v * invRho, w * invRho]
+         
+         u_x = invRho * Q_x(IRHOU:IRHOW) - uDivRho * Q_x(IRHO)
+         u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
+         u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
+         
+         nablaT(IX) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_x(IRHOE) - Q(IRHOE)*invRho*invRho*Q_x(IRHO) - u*u_x(IX)-v*u_x(IY)-w*u_x(IZ))
+         nablaT(IY) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_y(IRHOE) - Q(IRHOE)*invRho*invRho*Q_y(IRHO) - u*u_y(IX)-v*u_y(IY)-w*u_y(IZ))
+         nablaT(IZ) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_z(IRHOE) - Q(IRHOE)*invRho*invRho*Q_z(IRHO) - u*u_z(IX)-v*u_z(IY)-w*u_z(IZ))
+         
          T     = Temperature(Q)
          sutherLaw = SutherlandsLaw(T)
 
-         divV = U_x(IGU) + U_y(IGV) + U_z(IGW)
+         divV = U_x(IX) + U_y(IY) + U_z(IZ)
 
          F(IRHO,IX)  = 0.0_RP
-         F(IRHOU,IX) = mu * sutherLaw * (2.0_RP * U_x(IGU) - 2.0_RP/3.0_RP * divV ) - tauSGS(1,1)
-         F(IRHOV,IX) = mu * sutherLaw * ( U_x(IGV) + U_y(IGU) ) - tauSGS(2,1)
-         F(IRHOW,IX) = mu * sutherLaw * ( U_x(IGW) + U_z(IGU) ) - tauSGS(3,1)
-         F(IRHOE,IX) = F(IRHOU,IX) * u + F(IRHOV,IX) * v + F(IRHOW,IX) * w + kappa * sutherLaw * U_x(IGT) - qSGS(1)
+         F(IRHOU,IX) = mu * sutherLaw * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) - tauSGS(1,1)
+         F(IRHOV,IX) = mu * sutherLaw * ( U_x(IY) + U_y(IX) ) - tauSGS(2,1)
+         F(IRHOW,IX) = mu * sutherLaw * ( U_x(IZ) + U_z(IX) ) - tauSGS(3,1)
+         F(IRHOE,IX) = F(IRHOU,IX) * u + F(IRHOV,IX) * v + F(IRHOW,IX) * w + kappa * sutherLaw * nablaT(IX) - qSGS(1)
 
          F(IRHO,IY) = 0.0_RP
          F(IRHOU,IY) = F(IRHOV,IX) 
-         F(IRHOV,IY) = mu * sutherLaw * (2.0_RP * U_y(IGV) - 2.0_RP / 3.0_RP * divV ) - tauSGS(2,2)
-         F(IRHOW,IY) = mu * sutherLaw * ( U_y(IGW) + U_z(IGV) ) - tauSGS(3,2)
-         F(IRHOE,IY) = F(IRHOU,IY) * u + F(IRHOV,IY) * v + F(IRHOW,IY) * w + kappa * sutherLaw * U_y(IGT) - qSGS(2)
+         F(IRHOV,IY) = mu * sutherLaw * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) - tauSGS(2,2)
+         F(IRHOW,IY) = mu * sutherLaw * ( U_y(IZ) + U_z(IY) ) - tauSGS(3,2)
+         F(IRHOE,IY) = F(IRHOU,IY) * u + F(IRHOV,IY) * v + F(IRHOW,IY) * w + kappa * sutherLaw * nablaT(IY) - qSGS(2)
 
          F(IRHO,IZ) = 0.0_RP
          F(IRHOU,IZ) = F(IRHOW,IX) 
          F(IRHOV,IZ) = F(IRHOW,IY) 
-         F(IRHOW,IZ) = mu * sutherLaw * ( 2.0_RP * U_z(IGW) - 2.0_RP / 3.0_RP * divV ) - tauSGS(3,3)
-         F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa * sutherLaw *U_z(IGT) - qSGS(3)
+         F(IRHOW,IZ) = mu * sutherLaw * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) - tauSGS(3,3)
+         F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa * sutherLaw * nablaT(IZ) - qSGS(3)
 
       end subroutine ViscousFlux0D_withSGS
 
-      pure subroutine ViscousFlux2D_withSGS( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
+      pure subroutine ViscousFlux2D_withSGS( nEqn, nGradEqn, N, Q, Q_x, Q_y, Q_z, mu, kappa, tauSGS, qSGS, F)
          implicit none
          integer,          intent(in)  :: nEqn
          integer,          intent(in)  :: nGradEqn
          integer         , intent(in)  :: N(2)
          real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: Q_x(1:nGradEqn, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: Q_y(1:nGradEqn, 0:N(1), 0:N(2) )
+         real(kind=RP),    intent(in)  :: Q_z(1:nGradEqn, 0:N(1), 0:N(2) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
          real(kind=RP),    intent(in)  :: tauSGS(1:NDIM, 1:NDIM, 0:N(1), 0:N(2))
@@ -798,48 +849,56 @@
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: T(0:N(1),0:N(2)) , sutherLaw(0:N(1),0:N(2))
-         real(kind=RP) :: divV(0:N(1),0:N(2))
-         real(kind=RP) :: u(0:N(1),0:N(2)) , v(0:N(1),0:N(2)) , w(0:N(1),0:N(2))
+         real(kind=RP) :: T, sutherLaw
+         real(kind=RP) :: divV
+         real(kind=RP) :: u(NDIM)
          integer       :: i , j , k
-
+         real(kind=RP) :: invRho, uDivRho(NDIM), u_x(NDIM), u_y(NDIM), u_z(NDIM), nablaT(NDIM)
+         
          associate( gammaM2 => dimensionless % gammaM2, &
                     gammaMinus1 => thermodynamics % gammaMinus1 ) 
 
          do j = 0, N(2) ; do i = 0, N(1)
-            u(i,j) = Q(IRHOU,i,j) / Q(IRHO,i,j)
-            v(i,j) = Q(IRHOV,i,j) / Q(IRHO,i,j)
-            w(i,j) = Q(IRHOW,i,j) / Q(IRHO,i,j)
+!
+!           Compute the density inverse and velocities
+!           ------------------------------------------
+            invRho  = 1.0_RP / Q(IRHO,i,j)
+            u       = Q(IRHOU:IRHOW,i,j) * invRho
+            uDivRho = u * invRho
    
+            T = gammaM2 * gammaMinus1 * ( invRho * Q(IRHOE,i,j) - 0.5_RP * ( u(IX) * u(IX) + u(IY) * u(IY) + u(IZ) * u(IZ) ) )
+            sutherLaw = SutherlandsLaw(T)
+            
+            u_x = invRho * Q_x(IRHOU:IRHOW,i,j) - uDivRho * Q_x(IRHO,i,j)
+            u_y = invRho * Q_y(IRHOU:IRHOW,i,j) - uDivRho * Q_y(IRHO,i,j)
+            u_z = invRho * Q_z(IRHOU:IRHOW,i,j) - uDivRho * Q_z(IRHO,i,j)
    
-            T(i,j) = gammaM2 * gammaMinus1 * (Q(IRHOE,i,j)  & 
-                   - 0.5_RP * ( Q(IRHOU,i,j) * u(i,j) + Q(IRHOV,i,j) * v(i,j) + Q(IRHOW,i,j) * w(i,j) ) ) / Q(IRHO,i,j)
-   
+            nablaT(IX) =  gammaMinus1* gammaM2*(invRho*Q_x(IRHOE,i,j) - Q(IRHOE,i,j)*invRho*invRho*Q_x(IRHO,i,j) - u(IX)*u_x(IX)-u(IY)*u_x(IY)-u(IZ)*u_x(IZ))
+            nablaT(IY) =  gammaMinus1* gammaM2*(invRho*Q_y(IRHOE,i,j) - Q(IRHOE,i,j)*invRho*invRho*Q_y(IRHO,i,j) - u(IX)*u_y(IX)-u(IY)*u_y(IY)-u(IZ)*u_y(IZ))
+            nablaT(IZ) =  gammaMinus1* gammaM2*(invRho*Q_z(IRHOE,i,j) - Q(IRHOE,i,j)*invRho*invRho*Q_z(IRHO,i,j) - u(IX)*u_z(IX)-u(IY)*u_z(IY)-u(IZ)*u_z(IZ))
 
-            sutherLaw(i,j) = SutherlandsLaw(T(i,j))
-
-            divV(i,j) = U_x(IGU,i,j) + U_y(IGV,i,j) + U_z(IGW,i,j)
+            divV = U_x(IX) + U_y(IY) + U_z(IZ)
    
             F(IRHO ,IX,i,j) = 0.0_RP
-            F(IRHOU,IX,i,j) = mu(i,j) * sutherLaw(i,j) * (2.0_RP * U_x(IGU,i,j) - 2.0_RP/3.0_RP * divV(i,j) ) - tauSGS(1,1,i,j)
-            F(IRHOV,IX,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGV,i,j) + U_y(IGU,i,j) ) - tauSGS(2,1,i,j)
-            F(IRHOW,IX,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGW,i,j) + U_z(IGU,i,j) ) - tauSGS(3,1,i,j)
-            F(IRHOE,IX,i,j) = F(IRHOU,IX,i,j) * u(i,j) + F(IRHOV,IX,i,j) * v(i,j) + F(IRHOW,IX,i,j) * w(i,j) &
-                  + sutherLaw(i,j) * kappa(i,j) * U_x(IGT,i,j) - qSGS(1,i,j)
+            F(IRHOU,IX,i,j) = mu(i,j) * sutherLaw * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) - tauSGS(1,1,i,j)
+            F(IRHOV,IX,i,j) = mu(i,j) * sutherLaw * ( U_x(IY) + U_y(IX) ) - tauSGS(2,1,i,j)
+            F(IRHOW,IX,i,j) = mu(i,j) * sutherLaw * ( U_x(IZ) + U_z(IX) ) - tauSGS(3,1,i,j)
+            F(IRHOE,IX,i,j) = F(IRHOU,IX,i,j) * u(IX) + F(IRHOV,IX,i,j) * u(IY) + F(IRHOW,IX,i,j) * u(IZ) &
+                  + sutherLaw * kappa(i,j) * nablaT(IX) - qSGS(1,i,j)
    
             F(IRHO, IY,i,j) = 0.0_RP
-            F(IRHOU,IY,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGV,i,j) + U_y(IGU,i,j) )  - tauSGS(1,2,i,j)
-            F(IRHOV,IY,i,j) = mu(i,j) * sutherLaw(i,j) * (2.0_RP * U_y(IGV,i,j) - 2.0_RP / 3.0_RP * divV(i,j) ) - tauSGS(2,2,i,j)
-            F(IRHOW,IY,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_y(IGW,i,j) + U_z(IGV,i,j) ) - tauSGS(3,2,i,j)
-            F(IRHOE,IY,i,j) = F(IRHOU,IY,i,j) * u(i,j) + F(IRHOV,IY,i,j) * v(i,j) + F(IRHOW,IY,i,j) * w(i,j) &
-                  + sutherLaw(i,j) * kappa(i,j) * U_y(IGT,i,j) - qSGS(2,i,j)
+            F(IRHOU,IY,i,j) = mu(i,j) * sutherLaw * ( U_x(IY) + U_y(IX) )  - tauSGS(1,2,i,j)
+            F(IRHOV,IY,i,j) = mu(i,j) * sutherLaw * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) - tauSGS(2,2,i,j)
+            F(IRHOW,IY,i,j) = mu(i,j) * sutherLaw * ( U_y(IZ) + U_z(IY) ) - tauSGS(3,2,i,j)
+            F(IRHOE,IY,i,j) = F(IRHOU,IY,i,j) * u(IX) + F(IRHOV,IY,i,j) * u(IY) + F(IRHOW,IY,i,j) * u(IZ) &
+                  + sutherLaw * kappa(i,j) * nablaT(IY) - qSGS(2,i,j)
    
             F(IRHO, IZ,i,j ) = 0.0_RP
-            F(IRHOU,IZ,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_x(IGW,i,j) + U_z(IGU,i,j) ) - tauSGS(1,3,i,j)
-            F(IRHOV,IZ,i,j) = mu(i,j) * sutherLaw(i,j) * ( U_y(IGW,i,j) + U_z(IGV,i,j) ) - tauSGS(2,3,i,j)
-            F(IRHOW,IZ,i,j) = mu(i,j) * sutherLaw(i,j) * ( 2.0_RP * U_z(IGW,i,j) - 2.0_RP / 3.0_RP * divV(i,j) ) - tauSGS(3,3,i,j)
-            F(IRHOE,IZ,i,j) = F(IRHOU,IZ,i,j) * u(i,j) + F(IRHOV,IZ,i,j) * v(i,j) + F(IRHOW,IZ,i,j) * w(i,j) &
-                  + sutherLaw(i,j) * kappa(i,j) * U_z(IGT,i,j) - qSGS(3,i,j)
+            F(IRHOU,IZ,i,j) = mu(i,j) * sutherLaw * ( U_x(IZ) + U_z(IX) ) - tauSGS(1,3,i,j)
+            F(IRHOV,IZ,i,j) = mu(i,j) * sutherLaw * ( U_y(IZ) + U_z(IY) ) - tauSGS(2,3,i,j)
+            F(IRHOW,IZ,i,j) = mu(i,j) * sutherLaw * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) - tauSGS(3,3,i,j)
+            F(IRHOE,IZ,i,j) = F(IRHOU,IZ,i,j) * u(IX) + F(IRHOV,IZ,i,j) * u(IY) + F(IRHOW,IZ,i,j) * u(IZ) &
+                  + sutherLaw * kappa(i,j) * nablaT(IZ) - qSGS(3,i,j)
    
          end do    ; end do
 
@@ -847,15 +906,15 @@
 
       end subroutine ViscousFlux2D_withSGS
 
-      pure subroutine ViscousFlux3D_withSGS(nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, kappa, tauSGS, qSGS, F)
+      pure subroutine ViscousFlux3D_withSGS(nEqn, nGradEqn, N, Q, Q_x, Q_y, Q_z, mu, kappa, tauSGS, qSGS, F)
          implicit none
          integer,          intent(in)  :: nEqn
          integer,          intent(in)  :: nGradEqn
          integer         , intent(in)  :: N(3)
          real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: Q_x(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: Q_y(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP),    intent(in)  :: Q_z(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
          real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(in)  :: tauSGS(1:NDIM, 1:NDIM, 0:N(1), 0:N(2), 0:N(3))
@@ -866,54 +925,59 @@
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: T(0:N(1),0:N(2),0:N(3)) , sutherLaw(0:N(1),0:N(2),0:N(3))
-         real(kind=RP) :: divV(0:N(1),0:N(2),0:N(3))
-         real(kind=RP) :: u(0:N(1),0:N(2),0:N(3)) , v(0:N(1),0:N(2),0:N(3)) , w(0:N(1),0:N(2),0:N(3))
+         real(kind=RP) :: invRho, uDivRho(NDIM), u_x(NDIM), u_y(NDIM), u_z(NDIM), nablaT(NDIM)
+         real(kind=RP) :: T, sutherLaw
+         real(kind=RP) :: divV
+         real(kind=RP) :: u(NDIM)
          integer       :: i , j , k
 
          associate( gammaM2 => dimensionless % gammaM2, &
                     gammaMinus1 => thermodynamics % gammaMinus1 ) 
 
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            u(i,j,k) = Q(IRHOU,i,j,k) / Q(IRHO,i,j,k)
-            v(i,j,k) = Q(IRHOV,i,j,k) / Q(IRHO,i,j,k)
-            w(i,j,k) = Q(IRHOW,i,j,k) / Q(IRHO,i,j,k)
+!
+!           Compute the density inverse and velocities
+!           ------------------------------------------
+            invRho  = 1.0_RP / Q(IRHO,i,j,k)
+            u       = Q(IRHOU:IRHOW,i,j,k) * invRho
+            uDivRho = u * invRho
    
+            T = gammaM2 * gammaMinus1 * ( invRho * Q(IRHOE,i,j,k) - 0.5_RP * ( u(IX) * u(IX) + u(IY) * u(IY) + u(IZ) * u(IZ) ) )
+            sutherLaw = SutherlandsLaw(T)
+            
+            u_x = invRho * Q_x(IRHOU:IRHOW,i,j,k) - uDivRho * Q_x(IRHO,i,j,k)
+            u_y = invRho * Q_y(IRHOU:IRHOW,i,j,k) - uDivRho * Q_y(IRHO,i,j,k)
+            u_z = invRho * Q_z(IRHOU:IRHOW,i,j,k) - uDivRho * Q_z(IRHO,i,j,k)
    
-            T(i,j,k) = gammaM2 * gammaMinus1 * (Q(IRHOE,i,j,k)  & 
-                   - 0.5_RP * ( Q(IRHOU,i,j,k) * u(i,j,k) + Q(IRHOV,i,j,k) * v(i,j,k) + Q(IRHOW,i,j,k) * w(i,j,k) ) ) / Q(IRHO,i,j,k)
-   
-
-            sutherLaw(i,j,k) = SutherlandsLaw(T(i,j,k))
-
-            divV(i,j,k) = U_x(IGU,i,j,k) + U_y(IGV,i,j,k) + U_z(IGW,i,j,k)
+            nablaT(IX) =  gammaMinus1* gammaM2*(invRho*Q_x(IRHOE,i,j,k) - Q(IRHOE,i,j,k)*invRho*invRho*Q_x(IRHO,i,j,k) - u(IX)*u_x(IX)-u(IY)*u_x(IY)-u(IZ)*u_x(IZ))
+            nablaT(IY) =  gammaMinus1* gammaM2*(invRho*Q_y(IRHOE,i,j,k) - Q(IRHOE,i,j,k)*invRho*invRho*Q_y(IRHO,i,j,k) - u(IX)*u_y(IX)-u(IY)*u_y(IY)-u(IZ)*u_y(IZ))
+            nablaT(IZ) =  gammaMinus1* gammaM2*(invRho*Q_z(IRHOE,i,j,k) - Q(IRHOE,i,j,k)*invRho*invRho*Q_z(IRHO,i,j,k) - u(IX)*u_z(IX)-u(IY)*u_z(IY)-u(IZ)*u_z(IZ))
+            
+            divV = U_x(IX) + U_y(IY) + U_z(IZ)
+!
+!           Compute the fluxes
+!           ------------------
    
             F(IRHO,i,j,k ,IX) = 0.0_RP
-            F(IRHOU,i,j,k,IX) = mu(i,j,k) * sutherLaw(i,j,k) * (2.0_RP * U_x(IGU,i,j,k) - 2.0_RP/3.0_RP * divV(i,j,k) ) - tauSGS(1,1,i,j,k)
-            F(IRHOV,i,j,k,IX) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_x(IGV,i,j,k) + U_y(IGU,i,j,k) ) - tauSGS(2,1,i,j,k)
-            F(IRHOW,i,j,k,IX) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_x(IGW,i,j,k) + U_z(IGU,i,j,k) ) - tauSGS(3,1,i,j,k)
-            F(IRHOE,i,j,k,IX) = F(IRHOU,i,j,k,IX) * u(i,j,k) + F(IRHOV,i,j,k,IX) * v(i,j,k) + F(IRHOW,i,j,k,IX) * w(i,j,k) &
-                  + sutherLaw(i,j,k) * kappa(i,j,k) * U_x(IGT,i,j,k) - qSGS(1,i,j,k)
-   
-         end do      ; end do    ; end do
-
-         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            F(IRHOU,i,j,k,IX) = mu(i,j,k) * sutherLaw * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) - tauSGS(1,1,i,j,k)
+            F(IRHOV,i,j,k,IX) = mu(i,j,k) * sutherLaw * ( U_x(IY) + U_y(IX) ) - tauSGS(2,1,i,j,k)
+            F(IRHOW,i,j,k,IX) = mu(i,j,k) * sutherLaw * ( U_x(IZ) + U_z(IX) ) - tauSGS(3,1,i,j,k)
+            F(IRHOE,i,j,k,IX) = F(IRHOU,i,j,k,IX) * u(IX) + F(IRHOV,i,j,k,IX) * u(IY) + F(IRHOW,i,j,k,IX) * u(IZ) &
+                  + sutherLaw * kappa(i,j,k) * nablaT(IX) - qSGS(1,i,j,k)
+                  
             F(IRHO,i,j,k ,IY) = 0.0_RP
-            F(IRHOU,i,j,k,IY) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_x(IGV,i,j,k) + U_y(IGU,i,j,k) )  - tauSGS(1,2,i,j,k)
-            F(IRHOV,i,j,k,IY) = mu(i,j,k) * sutherLaw(i,j,k) * (2.0_RP * U_y(IGV,i,j,k) - 2.0_RP / 3.0_RP * divV(i,j,k) ) - tauSGS(2,2,i,j,k)
-            F(IRHOW,i,j,k,IY) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_y(IGW,i,j,k) + U_z(IGV,i,j,k) ) - tauSGS(3,2,i,j,k)
-            F(IRHOE,i,j,k,IY) = F(IRHOU,i,j,k,IY) * u(i,j,k) + F(IRHOV,i,j,k,IY) * v(i,j,k) + F(IRHOW,i,j,k,IY) * w(i,j,k) &
-                  + sutherLaw(i,j,k) * kappa(i,j,k) * U_y(IGT,i,j,k) - qSGS(2,i,j,k)
-   
-         end do      ; end do    ; end do
-
-         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            F(IRHOU,i,j,k,IY) = mu(i,j,k) * sutherLaw * ( U_x(IY) + U_y(IX) )  - tauSGS(1,2,i,j,k)
+            F(IRHOV,i,j,k,IY) = mu(i,j,k) * sutherLaw * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) - tauSGS(2,2,i,j,k)
+            F(IRHOW,i,j,k,IY) = mu(i,j,k) * sutherLaw * ( U_y(IZ) + U_z(IY) ) - tauSGS(3,2,i,j,k)
+            F(IRHOE,i,j,k,IY) = F(IRHOU,i,j,k,IY) * u(IX) + F(IRHOV,i,j,k,IY) * u(IY) + F(IRHOW,i,j,k,IY) * u(IZ) &
+                  + sutherLaw * kappa(i,j,k) * nablaT(IY) - qSGS(2,i,j,k)
+                  
             F(IRHO,i,j,k,IZ ) = 0.0_RP
-            F(IRHOU,i,j,k,IZ) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_x(IGW,i,j,k) + U_z(IGU,i,j,k) ) - tauSGS(1,3,i,j,k)
-            F(IRHOV,i,j,k,IZ) = mu(i,j,k) * sutherLaw(i,j,k) * ( U_y(IGW,i,j,k) + U_z(IGV,i,j,k) ) - tauSGS(2,3,i,j,k)
-            F(IRHOW,i,j,k,IZ) = mu(i,j,k) * sutherLaw(i,j,k) * ( 2.0_RP * U_z(IGW,i,j,k) - 2.0_RP / 3.0_RP * divV(i,j,k) ) - tauSGS(3,3,i,j,k)
-            F(IRHOE,i,j,k,IZ) = F(IRHOU,i,j,k,IZ) * u(i,j,k) + F(IRHOV,i,j,k,IZ) * v(i,j,k) + F(IRHOW,i,j,k,IZ) * w(i,j,k) &
-                  + sutherLaw(i,j,k) * kappa(i,j,k) * U_z(IGT,i,j,k) - qSGS(3,i,j,k)
+            F(IRHOU,i,j,k,IZ) = mu(i,j,k) * sutherLaw * ( U_x(IZ) + U_z(IX) ) - tauSGS(1,3,i,j,k)
+            F(IRHOV,i,j,k,IZ) = mu(i,j,k) * sutherLaw * ( U_y(IZ) + U_z(IY) ) - tauSGS(2,3,i,j,k)
+            F(IRHOW,i,j,k,IZ) = mu(i,j,k) * sutherLaw * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) - tauSGS(3,3,i,j,k)
+            F(IRHOE,i,j,k,IZ) = F(IRHOU,i,j,k,IZ) * u(IX) + F(IRHOV,i,j,k,IZ) * u(IY) + F(IRHOW,i,j,k,IZ) * u(IZ) &
+                  + sutherLaw * kappa(i,j,k) * nablaT(IZ) - qSGS(3,i,j,k)
    
          end do      ; end do    ; end do
 
@@ -945,12 +1009,12 @@
 
       END FUNCTION SutherlandsLaw
 
-      pure subroutine getStressTensor(Q,U_x,U_y,U_z,tau)
+      pure subroutine getStressTensor(Q,Q_x,Q_y,Q_z,tau)
          implicit none
          real(kind=RP), intent(in)      :: Q   (1:NCONS         )
-         real(kind=RP), intent(in)      :: U_x (1:NGRAD    )
-         real(kind=RP), intent(in)      :: U_y (1:NGRAD    )
-         real(kind=RP), intent(in)      :: U_z (1:NGRAD    )
+         real(kind=RP), intent(in)      :: Q_x (1:NGRAD    )
+         real(kind=RP), intent(in)      :: Q_y (1:NGRAD    )
+         real(kind=RP), intent(in)      :: Q_z (1:NGRAD    )
          real(kind=RP), intent(out)     :: tau (1:NDIM, 1:NDIM   )
 !
 !        ---------------
@@ -959,23 +1023,33 @@
 !
          real(kind=RP) :: T , muOfT
          real(kind=RP) :: divV
+         real(kind=RP) :: U_x(NDIM), U_y(NDIM), U_z(NDIM), invRho, invRho2, uDivRho(NDIM)
 
          associate ( mu0 => dimensionless % mu )
-
+         
+         invRho  = 1._RP / Q(IRHO)
+         invRho2 = invRho * invRho
+         
+         uDivRho = [Q(IRHOU) , Q(IRHOV) , Q(IRHOW) ] * invRho2
+         
+         u_x = invRho * Q_x(IRHOU:IRHOW) - uDivRho * Q_x(IRHO)
+         u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
+         u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
+         
          T     = Temperature(Q)
          muOfT = SutherlandsLaw(T)
 
-         divV = U_x(IGU) + U_y(IGV) + U_z(IGW)
+         divV = U_x(IX) + U_y(IY) + U_z(IZ)
 
-         tau(IX,IX) = mu0 * muOfT * (2.0_RP * U_x(IGU) - 2.0_RP/3.0_RP * divV )
-         tau(IY,IX) = mu0 * muOfT * ( U_x(IGV) + U_y(IGU) ) 
-         tau(IZ,IX) = mu0 * muOfT * ( U_x(IGW) + U_z(IGU) ) 
+         tau(IX,IX) = mu0 * muOfT * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
+         tau(IY,IX) = mu0 * muOfT * ( U_x(IY) + U_y(IX) ) 
+         tau(IZ,IX) = mu0 * muOfT * ( U_x(IZ) + U_z(IX) ) 
          tau(IX,IY) = tau(IY,IX)
-         tau(IY,IY) = mu0 * muOfT * (2.0_RP * U_y(IGV) - 2.0_RP/3.0_RP * divV )
-         tau(IZ,IY) = mu0 * muOfT * ( U_y(IGW) + U_z(IGV) ) 
+         tau(IY,IY) = mu0 * muOfT * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
+         tau(IZ,IY) = mu0 * muOfT * ( U_y(IZ) + U_z(IY) ) 
          tau(IX,IZ) = tau(IZ,IX)
          tau(IY,IZ) = tau(IZ,IY)
-         tau(IZ,IZ) = mu0 * muOfT * (2.0_RP * U_z(IGW) - 2.0_RP/3.0_RP * divV )
+         tau(IZ,IZ) = mu0 * muOfT * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
 
          end associate
 

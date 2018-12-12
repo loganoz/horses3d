@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date: Fri Nov 16 12:45:52 2018
+!   @Last revision date: Wed Dec 12 12:42:21 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 1b6e10d231991734c896bdc50054b7810885989b
+!   @Last revision commit: e0850eb5c449ea43bf1495a36c6ec27dc6ecd2c5
 !
 !//////////////////////////////////////////////////////
 !
@@ -91,7 +91,7 @@
 !!   The sizes of the NS system
 !    --------------------------
 !
-     INTEGER, PARAMETER :: NCONS = 5, NGRAD = 4
+     INTEGER, PARAMETER :: NCONS = 5, NGRAD = 5
 !
 !    -------------------------------------------
 !!   The positions of the conservative variables

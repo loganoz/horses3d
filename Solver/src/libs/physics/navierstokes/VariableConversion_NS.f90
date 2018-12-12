@@ -4,9 +4,9 @@
 !   @File:    VariableConversion_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:34 2018
-!   @Last revision date: Thu May 24 12:03:21 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
+!   @Last revision date: Wed Dec 12 12:42:23 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: e0850eb5c449ea43bf1495a36c6ec27dc6ecd2c5
 !
 !//////////////////////////////////////////////////////
 !
@@ -104,10 +104,7 @@ module VariableConversion_NS
 !        Local Variables
 !        ---------------
 !     
-         U(1) = Q(2)/Q(1)
-         U(2) = Q(3)/Q(1)
-         U(3) = Q(4)/Q(1)
-         U(4) = Temperature(Q)
+         U = Q
 
       end subroutine NSGradientValuesForQ_0D
 
@@ -126,15 +123,7 @@ module VariableConversion_NS
          associate ( gammaM2 => dimensionless % gammaM2, &
                      gammaMinus1 => thermodynamics % gammaMinus1 ) 
       
-         do k = 0, Nz   ; do j = 0, Ny ; do i = 0, Nx
-            U(IGU,i,j,k) = Q(IRHOU,i,j,k) / Q(IRHO,i,j,k) 
-            U(IGV,i,j,k) = Q(IRHOV,i,j,k) / Q(IRHO,i,j,k) 
-            U(IGW,i,j,k) = Q(IRHOW,i,j,k) / Q(IRHO,i,j,k) 
-            U(IGT,i,j,k) = gammaM2 * gammaMinus1 * ( Q(IRHOE,i,j,k) / Q(IRHO,i,j,k) &
-                        - 0.5_RP * ( U(IGU,i,j,k) * U(IGU,i,j,k) &
-                                   + U(IGV,i,j,k) * U(IGV,i,j,k) &
-                                   + U(IGW,i,j,k) * U(IGW,i,j,k) ) )
-         end do         ; end do       ; end do
+         U = Q
    
          end associate
 

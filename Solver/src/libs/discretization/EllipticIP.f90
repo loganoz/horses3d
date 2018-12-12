@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Fri Nov 30 12:52:49 2018
+!   @Last revision date: Wed Dec 12 12:42:17 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8c8fe673f51fec8338e38e16c38021bdca6914b2
+!   @Last revision commit: e0850eb5c449ea43bf1495a36c6ec27dc6ecd2c5
 !
 !//////////////////////////////////////////////////////
 !
@@ -752,7 +752,7 @@ module EllipticIP
                           dF_dGradQ_in  => f % storage(side) % dFv_dGradQF(:,:,:,1,i,j), & 
                           dF_dGradQ_out => f % storage(side) % dFv_dGradQF(:,:,:,2,i,j) )
                
-               call ViscousJacobian(Q, U_x, U_y, U_z, (/0._RP, 0._RP, 0._RP/), df_dgradq, dfdq_)
+               call ViscousJacobian(Q, U_x, U_y, U_z, df_dgradq, dfdq_)
 !
 !            For the inner surface integral
 !            ******************************
