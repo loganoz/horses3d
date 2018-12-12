@@ -4,9 +4,9 @@
 !   @File:    NoSlipWallBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:42 2018
-!   @Last revision date: Thu Oct 18 16:09:47 2018
+!   @Last revision date: Wed Dec 12 15:08:54 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f0ca5b23053e717fbb5fcc06b6de56d366b37b53
+!   @Last revision commit: 12716678fe8fc16a93ed6c03c0de16440e134aba
 !
 !//////////////////////////////////////////////////////
 !
@@ -314,12 +314,43 @@ module NoSlipWallBCClass
 !        Local variables
 !        ---------------
 !
+         real(kind=RP) :: invRho, invRho2, nablaT(NDIM), uDivRho(NDIM), vel_x(NDIM), vel_y(NDIM), vel_z(NDIM), u, v, w
+         real(kind=RP) :: constA, constB, constC, constD
          REAL(KIND=RP) :: dTdn
-
-         dTdn = (U_x(IGT)*nHat(IX) + U_y(IGT)*nHat(IY) + U_z(IGT)*nHat(IZ))
-         U_x(IGT) = U_x(IGT) - (1.0_RP - self % kWallType) * 2.0_RP * dTdn * nHat(IX)
-         U_y(IGT) = U_y(IGT) - (1.0_RP - self % kWallType) * 2.0_RP * dTdn * nHat(IY) 
-         U_z(IGT) = U_z(IGT) - (1.0_RP - self % kWallType) * 2.0_RP * dTdn * nHat(IZ) 
+         
+         if (self % isAdiabatic) then
+            
+            invRho = 1._RP / Q(IRHO)
+            invRho2 = invRho * invRho
+            u = Q(IRHOU) * invRho
+            v = Q(IRHOV) * invRho
+            w = Q(IRHOW) * invRho
+            
+            uDivRho = [Q(IRHOU) , Q(IRHOV) , Q(IRHOW) ] * invRho2
+            
+            vel_x = invRho * U_x(IRHOU:IRHOW) - uDivRho * U_x(IRHO)
+            vel_y = invRho * U_y(IRHOU:IRHOW) - uDivRho * U_y(IRHO)
+            vel_z = invRho * U_z(IRHOU:IRHOW) - uDivRho * U_z(IRHO)
+            
+            constA = thermodynamics % gammaMinus1 * dimensionless % gammaM2
+            constB = Q(IRHOE)*invRho2*U_x(IRHO) + u*vel_x(IX) + v*vel_x(IY) + w*vel_x(IZ)
+            constC = Q(IRHOE)*invRho2*U_y(IRHO) + u*vel_y(IX) + v*vel_y(IY) + w*vel_y(IZ)
+            constD = Q(IRHOE)*invRho2*U_z(IRHO) + u*vel_z(IX) + v*vel_z(IY) + w*vel_z(IZ)
+            
+            nablaT(IX) = constA * (invRho*U_x(IRHOE) - constB ) ! Inner dT/dx
+            nablaT(IY) = constA * (invRho*U_y(IRHOE) - constC ) ! Inner dT/dy
+            nablaT(IZ) = constA * (invRho*U_z(IRHOE) - constD ) ! Inner dT/dz
+            
+            dTdn = ( nablaT(IX)*nHat(IX) + nablaT(IY)*nHat(IY) + nablaT(IZ)*nHat(IZ) )
+            
+            nablaT(IX) = nablaT(IX) - 2.0_RP * dTdn * nHat(IX) ! Adiabatic reflection
+            nablaT(IY) = nablaT(IY) - 2.0_RP * dTdn * nHat(IY) ! Adiabatic reflection
+            nablaT(IZ) = nablaT(IZ) - 2.0_RP * dTdn * nHat(IZ) ! Adiabatic reflection
+            
+            U_x(IRHOE) = Q(IRHO) * ( nablaT(IX)/constA + constB )
+            U_y(IRHOE) = Q(IRHO) * ( nablaT(IY)/constA + constC )
+            U_z(IRHOE) = Q(IRHO) * ( nablaT(IZ)/constA + constD )
+         end if
 
       end subroutine NoSlipWallBC_FlowNeumann
 #endif

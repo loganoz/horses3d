@@ -229,7 +229,7 @@ module Storage
                call getSolutionFileArrayDimensions(fid,arrayDimensions)
 
                NVARS = arrayDimensions(1)
-               NGRADVARS = max(1, NVARS-1)
+               NGRADVARS = max(1, NVARS)     ! TODO: Read NCONS and NGRAD from physics!
 !   
 !              Allocate memory for the coordinates
 !              -----------------------------------            
