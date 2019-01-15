@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Wed Nov 21 19:34:18 2018
+!   @Last revision date: Tue Jan 15 12:09:00 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 1c6c630e4fbb918c0c9a98d0bfd4d0b73101e65d
+!   @Last revision commit: e0850eb5c449ea43bf1495a36c6ec27dc6ecd2c5
 !
 !//////////////////////////////////////////////////////
 !
@@ -68,18 +68,19 @@ module pAdaptationClass
    ! Main type for performing a p-adaptation procedure
    !--------------------------------------------------
    type :: pAdaptation_t
-      character(len=LINE_LENGTH)        :: solutionFileName ! Name of file for plotting adaptation information
-      real(kind=RP)                     :: reqTE            ! Requested truncation error
-      logical                           :: RegressionFiles = .FALSE.  ! Write regression files?
-      logical                           :: saveGradients    ! Save gradients in pre-adapt and p-adapted solution files?
-      logical                           :: Adapt            ! Is the adaptator going to be used??
-      logical                           :: increasing      = .FALSE.      ! Performing an increasing adaptation procedure?
+      character(len=LINE_LENGTH)        :: solutionFileName                ! Name of file for plotting adaptation information
+      real(kind=RP)                     :: reqTE                           ! Requested truncation error
+      logical                           :: RegressionFiles = .FALSE.       ! Write regression files?
+      logical                           :: saveGradients                   ! Save gradients in pre-adapt and p-adapted solution files?
+      logical                           :: Adapt                           ! Is the adaptator going to be used??
+      logical                           :: increasing      = .FALSE.       ! Performing an increasing adaptation procedure?
       logical                           :: Constructed      ! 
       logical                           :: restartFiles    = .FALSE.
       logical                           :: UnSteady
-      integer                           :: NxyzMax(3)       ! Maximum polynomial order in all the directions
-      integer                           :: TruncErrorType   ! Truncation error type (either ISOLATED_TE or NON_ISOLATED_TE)
+      integer                           :: NxyzMax(3)                      ! Maximum polynomial order in all the directions
+      integer                           :: TruncErrorType                  ! Truncation error type (either ISOLATED_TE or NON_ISOLATED_TE)
       integer                           :: adaptation_mode = NO_ADAPTATION ! Adaptation mode 
+      integer, allocatable              :: maxNdecrease
       real(kind=RP)                     :: time_interval
       integer                           :: iter_interval
       logical                           :: performPAdaptationT
@@ -469,18 +470,19 @@ readloop:do
       
       call get_command_argument(1, paramFile) !
       
-      call readValueInRegion ( trim ( paramFile )  , "conforming boundaries"  , confBoundaries    , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "increasing"             , R_increasing      , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "truncation error"       , TruncError        , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "regression files"       , regressionFiles   , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "adjust nz"              , reorganize_z      , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "nmax"                   , R_Nmax            , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "nmin"                   , R_Nmin            , in_label , "# end" )
-      call readValueInRegion ( trim ( paramFile )  , "truncation error type"  , R_TruncErrorType  , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "order across faces"     , R_OrderAcrossFaces, in_label , "# end" )
-      call readValueInRegion ( trim ( paramFile )  , "mode"                   , R_mode            , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "interval"               , R_interval        , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "restart files"          , R_restart         , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "conforming boundaries"  , confBoundaries     , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "increasing"             , R_increasing       , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "truncation error"       , TruncError         , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "regression files"       , regressionFiles    , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "adjust nz"              , reorganize_z       , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "nmax"                   , R_Nmax             , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "nmin"                   , R_Nmin             , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "truncation error type"  , R_TruncErrorType   , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "order across faces"     , R_OrderAcrossFaces , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "max n decrease"         , this % maxNdecrease, in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "mode"                   , R_mode             , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "interval"               , R_interval         , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "restart files"          , R_restart          , in_label , "# end" ) 
       
 !     Conforming boundaries?
 !     ----------------------
@@ -1030,8 +1032,33 @@ readloop:do
          pAdapt % Adapt = .FALSE.
       end if
       
+!
+!     ----------------------------
+!     Overenrich specified regions
+!     ----------------------------
+!
       call OverEnrichRegions(pAdapt % overenriching,sem % mesh,NNew, pAdapt % NxyzMax)
-      
+!
+!     ---------------------------------------------------
+!     Restrict polynomial order decrease in every element
+!     ---------------------------------------------------
+!
+      if ( allocated(pAdapt % maxNdecrease) ) then
+         do iEl=1, nelem
+            associate (e => sem % mesh % elements(iEl) )
+            do dir=1, NDIM
+               
+               if ( NNew(dir,iEl) < (e % Nxyz(dir) - pAdapt % maxNdecrease) ) NNew(dir,iEl) = e % Nxyz(dir) - pAdapt % maxNdecrease
+               
+            end do
+            end associate
+         end do
+      end if
+!
+!     ------------------------------
+!     Restrict polynomial order jump
+!     ------------------------------
+!
       last = .FALSE.
       do while (.not. last)
          last = .TRUE.
