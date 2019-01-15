@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Tue Nov 20 14:39:25 2018
+!   @Last revision date: Tue Jan 15 15:37:20 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f616e8b8c0ed8066788e7578a5d1b6b3cb325651
+!   @Last revision commit: 11bfdfdc92513868bc225235f3719c13dd06e4ae
 !
 !//////////////////////////////////////////////////////
 !
@@ -3620,7 +3620,10 @@ slavecoord:             DO l = 1, 4
             self % Nz(eID) = NNew(3,eID)
             call elementList % add (eID)
             do fID=1, 6
-               call facesList % add (e % faceIDs(fID))
+               call facesList   % add (e % faceIDs(fID))
+               if (self % faces(e % faceIDs(fID)) % FaceType  /= HMESH_BOUNDARY) then
+                  call elementList % add (e % Connection(fID) % ElementIDs(1))
+               end if
             end do
 !$omp end critical
             
@@ -3651,7 +3654,7 @@ slavecoord:             DO l = 1, 4
 !     -----------------------
 !$omp parallel do 
       do fID=1, size(facesArray)
-         associate ( f => self % faces(fID) )
+         associate ( f => self % faces( facesArray(fID) ) )
          call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients)
          call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients)
          end associate
@@ -3664,14 +3667,14 @@ slavecoord:             DO l = 1, 4
 
       !* 1. Adapted elements
       !* 2. Surrounding faces of adapted elements
-      ! 3. Neighbor elements of adapted elements whose intermediate face's geometry was adapted
+      !* 3. Neighbor elements of adapted elements whose intermediate face's geometry was adapted
       !* 4. Faces and elements that share a boundary with a reconstructed face (3D non-conforming representations)
       
       
       if (self % anisotropic .and. (.not. self % meshIs2D) ) then
          
-!        Check if any of the faces belong to a boundary
-!        ----------------------------------------------
+!        Check if any of the faces belongs to a boundary
+!        -----------------------------------------------
          do fID=1, size(facesArray)
             associate (f => self % faces( facesArray(fID) ) )
             if ( f % FaceType == HMESH_BOUNDARY ) then
