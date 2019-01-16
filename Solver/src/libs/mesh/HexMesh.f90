@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Tue Jan 15 15:37:20 2019
+!   @Last revision date: Wed Jan 16 12:17:49 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 11bfdfdc92513868bc225235f3719c13dd06e4ae
+!   @Last revision commit: ca117934d652a4ac1161763db4e845f43dac4923
 !
 !//////////////////////////////////////////////////////
 !
@@ -3584,6 +3584,7 @@ slavecoord:             DO l = 1, 4
       integer         , allocatable :: elementArray(:)   
       type(Zone_t)    , pointer :: zone
       type(Element)   , pointer :: e
+      type(Face)      , pointer :: f
 #if (!defined(NAVIERSTOKES))
       logical, parameter            :: computeGradients = .true.
 #endif
@@ -3652,12 +3653,11 @@ slavecoord:             DO l = 1, 4
       
 !     Construct faces storage
 !     -----------------------
-!$omp parallel do 
+!$omp parallel do private(f)
       do fID=1, size(facesArray)
-         associate ( f => self % faces( facesArray(fID) ) )
+         f => self % faces( facesArray(fID) )  ! associate fails here in intel compilers 
          call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients)
          call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients)
-         end associate
       end do
 !$omp end parallel do 
 
@@ -3727,6 +3727,7 @@ slavecoord:             DO l = 1, 4
       call zoneList     % destruct
       nullify (zone)
       nullify (e)
+      nullify (f)
       deallocate (facesArray  )
       deallocate (elementArray)
       
