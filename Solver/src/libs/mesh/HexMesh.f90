@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Tue Nov 20 14:39:25 2018
+!   @Last revision date: Wed Jan 16 12:17:49 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f616e8b8c0ed8066788e7578a5d1b6b3cb325651
+!   @Last revision commit: ca117934d652a4ac1161763db4e845f43dac4923
 !
 !//////////////////////////////////////////////////////
 !
@@ -3584,6 +3584,7 @@ slavecoord:             DO l = 1, 4
       integer         , allocatable :: elementArray(:)   
       type(Zone_t)    , pointer :: zone
       type(Element)   , pointer :: e
+      type(Face)      , pointer :: f
 #if (!defined(NAVIERSTOKES))
       logical, parameter            :: computeGradients = .true.
 #endif
@@ -3620,7 +3621,10 @@ slavecoord:             DO l = 1, 4
             self % Nz(eID) = NNew(3,eID)
             call elementList % add (eID)
             do fID=1, 6
-               call facesList % add (e % faceIDs(fID))
+               call facesList   % add (e % faceIDs(fID))
+               if (self % faces(e % faceIDs(fID)) % FaceType  /= HMESH_BOUNDARY) then
+                  call elementList % add (e % Connection(fID) % ElementIDs(1))
+               end if
             end do
 !$omp end critical
             
@@ -3649,12 +3653,11 @@ slavecoord:             DO l = 1, 4
       
 !     Construct faces storage
 !     -----------------------
-!$omp parallel do 
+!$omp parallel do private(f)
       do fID=1, size(facesArray)
-         associate ( f => self % faces(fID) )
+         f => self % faces( facesArray(fID) )  ! associate fails here in intel compilers 
          call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients)
          call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients)
-         end associate
       end do
 !$omp end parallel do 
 
@@ -3664,14 +3667,14 @@ slavecoord:             DO l = 1, 4
 
       !* 1. Adapted elements
       !* 2. Surrounding faces of adapted elements
-      ! 3. Neighbor elements of adapted elements whose intermediate face's geometry was adapted
+      !* 3. Neighbor elements of adapted elements whose intermediate face's geometry was adapted
       !* 4. Faces and elements that share a boundary with a reconstructed face (3D non-conforming representations)
       
       
       if (self % anisotropic .and. (.not. self % meshIs2D) ) then
          
-!        Check if any of the faces belong to a boundary
-!        ----------------------------------------------
+!        Check if any of the faces belongs to a boundary
+!        -----------------------------------------------
          do fID=1, size(facesArray)
             associate (f => self % faces( facesArray(fID) ) )
             if ( f % FaceType == HMESH_BOUNDARY ) then
@@ -3724,6 +3727,7 @@ slavecoord:             DO l = 1, 4
       call zoneList     % destruct
       nullify (zone)
       nullify (e)
+      nullify (f)
       deallocate (facesArray  )
       deallocate (elementArray)
       
