@@ -4,9 +4,9 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Tue Dec  4 16:25:53 2018
+!   @Last revision date: Sun Jan 20 18:35:57 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3e0b998bb7ed936ee88015baafc142a29bb17b38
+!   @Last revision commit: f185e23f4068d64e2a8dbea357bd375bf1febba3
 !
 !//////////////////////////////////////////////////////
 !
@@ -59,7 +59,7 @@ MODULE CSRMatrixClass
    !-----------------------------------------------------------------------------   
    
    PRIVATE
-   PUBLIC                                 :: csrMat_t, CSR_MatVecMul, Matrix_t
+   public :: csrMat_t, CSR_MatVecMul, CSR_MatMatMul, CSR_MatAdd, Matrix_t
    
    interface
       subroutine mkl_dcsrgemv(transa, m, a, ia, ja, x, y)
@@ -140,8 +140,9 @@ MODULE CSRMatrixClass
          this % num_of_Cols = this % num_of_Rows
       end if
       
-      if ( maxval(Cols) > this % num_of_Rows) then
-         this % num_of_Rows = maxval(Cols)
+      if ( maxval(Cols) > this % num_of_Cols) then
+         print*, 'CSR_constructWithArrays :: WARNING: Increasing num_of_Cols'
+         this % num_of_Cols = maxval(Cols)
       end if
       
 !     Memory allocation
@@ -158,8 +159,6 @@ MODULE CSRMatrixClass
       
       safedeallocate(this % Values) ; allocate( this % Values( size(Values) ), stat=istat )
       if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
-      
-      this % num_of_Cols = this % num_of_Rows !The matrix can be a rectangular matrix
       
       this % Rows   = Rows
       this % Cols   = Cols
@@ -566,16 +565,111 @@ MODULE CSRMatrixClass
       end if
    !----------------------------------------------------------------------------------
    END SUBROUTINE SetMatShift
-   !----------------------------------------------------------------------------------
-   
-   !------------------------------------------------------------------------------
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------
+!  CSR Matrix addition:
+!     Cmat = A + Factor*B
+!  ----------------------
+   function CSR_MatAdd(A,B,Factor) result(Cmat)
+      implicit none
+      !-arguments--------------------------------------------------------------------
+      type(csrMat_t), intent(in)  :: A    !< Structure holding matrix
+      type(csrMat_t), intent(in)  :: B    !< Structure holding matrix
+      real(kind=RP) , intent(in)  :: Factor  !< 
+      type(csrMat_t)              :: Cmat !< Structure holding matrix
+      !-local-variables--------------------------------------------------------------
+      real(kind=RP), allocatable :: c(:)
+      integer,       allocatable :: ic(:), jc(:)
+      integer                    :: info
+      !------------------------------------------------------------------------------
+#ifdef HAS_MKL
+      
+      allocate( ic(A % num_of_Rows+1), jc(A % num_of_Rows+1), c(A % num_of_Rows+1) ) ! For some reason, mkl_dcsradd needs jc and c to be allocated, even with request 1 - 2
+      
+      call mkl_dcsradd  ('n', 1, 4, A % num_of_Rows, A % num_of_Cols, &
+                         A % Values, A % Cols, A % Rows, Factor, &
+                         B % Values, B % Cols, B % Rows, c, jc, ic, 0, info)
+      
+      deallocate(jc,c)
+      allocate( c(ic(A % num_of_Rows+1) - 1), jc(ic(A % num_of_Rows+1) - 1) )
+      
+      call mkl_dcsradd  ('n', 2, 4, A % num_of_Rows, A % num_of_Cols, &
+                         A % Values, A % Cols, A % Rows, Factor, &
+                         B % Values, B % Cols, B % Rows, c, jc, ic, 0, info)
+      
+      if (info /= 0) then
+         print*, 'ERROR :: CSR_MatAdd stopped at line', info
+         stop
+      end if
+                              
+      call Cmat % constructWithArrays (ic,jc,c, A % num_of_Cols)
+#else
+      stop ':: CSR_MatAdd needs MKL'
+#endif
+   end function CSR_MatAdd
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------
+!  Matrix-matrix multiplication for CSR matrices
+!     Cmat = A * B
+!  ---------------------------------------------
+   function CSR_MatMatMul(A,B) result(Cmat)
+      implicit none
+      !-arguments--------------------------------------------------------------------
+      type(csrMat_t), intent(in)  :: A    !< Structure holding matrix
+      type(csrMat_t), intent(in)  :: B    !< Structure holding matrix
+      type(csrMat_t)              :: Cmat !< Structure holding matrix
+      !-local-variables--------------------------------------------------------------
+      real(kind=RP), allocatable :: c(:)
+      integer,       allocatable :: ic(:), jc(:)
+      integer                    :: info
+      !------------------------------------------------------------------------------
+      
+      if (A % num_of_Cols /= B % num_Of_Rows) then
+         write(STD_OUT,'(A,I0,A,I0,A,I0,A,I0,A)') 'CSR_MatMatMul :: ERROR: Matrix dimensions mismatch: A(', A % num_of_Rows,',', A % num_Of_Cols, ') ; B(', B % num_Of_Rows, ',', B % num_Of_Cols,')'
+         stop
+      end if
+      
+#ifdef HAS_MKL
+      
+      allocate( ic(A % num_of_Rows+1), jc(A % num_of_Rows+1), c(A % num_of_Rows+1) ) ! For some reason, mkl_dcsrmultcsr needs jc and c to be allocated, even with request 1 - 2
+      
+      call mkl_dcsrmultcsr  ('n', 1, 8, A % num_of_Rows, A % num_of_Cols, B % num_of_Cols, &
+                              A % Values, A % Cols, A % Rows, &
+                              B % Values, B % Cols, B % Rows, &
+                              c, jc, ic, 0, info)
+      
+      deallocate(jc,c)
+      allocate( c(ic(A % num_of_Rows+1) - 1), jc(ic(A % num_of_Rows+1) - 1) )
+      
+      call mkl_dcsrmultcsr  ('n', 2, 8, A % num_of_Rows, A % num_of_Cols, B % num_of_Cols, &
+                              A % Values, A % Cols, A % Rows, &
+                              B % Values, B % Cols, B % Rows, &
+                              c, jc, ic, 0, info)
+      
+      if (info /= 0) then
+         print*, 'ERROR :: mkl_dcsrmultcsr stopped at line', info
+         stop
+      end if
+      
+      call Cmat % constructWithArrays (ic,jc,c, B % num_of_Cols)
+#else
+      stop ':: CSR_MatMatMul needs MKL'
+#endif
+   end function CSR_MatMatMul
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    FUNCTION CSR_MatVecMul( A,u) RESULT(v)
    ! Matrix vector product (v = Au) for a CSR matrix .... v needs to be allocated beforehand
    !   Assuming there's MKL
    !------------------------------------------------------------------------------
-      REAL(KIND=RP), DIMENSION(:)  , INTENT(IN)  :: u  !< Vector to be multiplied
-      TYPE(csrMat_t)               , INTENT(IN)  :: A  !< Structure holding matrix
-      REAL(KIND=RP), DIMENSION(A % num_of_Rows)      :: v  !> Result vector 
+      type(csrMat_t), intent(in)  :: A  !< Structure holding matrix
+      real(kind=RP) , intent(in)  :: u(A % num_of_Cols)  !< Vector to be multiplied
+      real(kind=RP)               :: v(A % num_of_Rows)  !> Result vector 
       !------------------------------------------------------------------------------
       integer       :: i,j
       REAL(KIND=RP) :: rsum

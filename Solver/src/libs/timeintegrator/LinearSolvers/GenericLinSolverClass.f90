@@ -92,7 +92,7 @@ contains
       integer                  , intent(in)            :: DimPrb
       type(FTValueDictionary)  , intent(in), optional  :: controlVariables
       type(DGSem), target                  , optional  :: sem
-      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
+      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc     ! TODO: Make this optional
       !---------------------------------------------------------------------
       ERROR stop ':: Linear solver does not have a constructor yet'
    end subroutine Construct

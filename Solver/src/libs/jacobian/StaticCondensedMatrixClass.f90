@@ -4,9 +4,9 @@
 !   @File:    StaticCondensedMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Tue Dec  4 21:53:43 2018
+!   @Last revision date: Sun Jan 20 18:36:00 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 9b3844379fde2350e64816efcdf3bf724c8b3041
+!   @Last revision commit: f185e23f4068d64e2a8dbea357bd375bf1febba3
 !
 !//////////////////////////////////////////////////////
 !
@@ -31,7 +31,7 @@ module StaticCondensedMatrixClass
    implicit none
    
    private
-   public StaticCondensedMatrix_t
+   public StaticCondensedMatrix_t, INNER_DOF, BOUNDARY_DOF
    
    type ElemInfo_t
       integer, allocatable :: dof_association(:)   ! Whether it is an INNER_DOF or a BOUNDARY_DOF
@@ -47,6 +47,7 @@ module StaticCondensedMatrixClass
       
       type(ElemInfo_t), allocatable :: ElemInfo(:)
       integer, allocatable          :: inner_blockSizes(:)
+      integer, allocatable          :: BlockSizes(:)
       
       integer                       :: size_b      ! Size of condensed system (size of Mbb)
       integer                       :: size_i      ! Size of inner system (size of Mii)
@@ -126,6 +127,7 @@ contains
       
       deallocate (this % ElemInfo)
       deallocate (this % inner_blockSizes)
+      deallocate (this % BlockSizes)
       
       this % size_b        = 0
       this % size_i        = 0
@@ -383,13 +385,16 @@ contains
       
       safedeallocate(this % ElemInfo)
       safedeallocate(this % inner_blockSizes)
+      safedeallocate(this % BlockSizes)
       
       allocate ( this % ElemInfo(nelem) )
       allocate ( this % inner_blockSizes(nelem) )
+      allocate ( this % BlockSizes(nelem) )
       
       do eID = 1, nelem
          NDOF = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
          this % inner_blockSizes(eID) = nEqn * (Nx(eID) - 1) * (Ny(eID) - 1) * (Nz(eID) - 1)
+         this %       BlockSizes(eID) = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
          
          allocate ( this % ElemInfo(eID) % perm_Indexes   (NDOF) )
          allocate ( this % ElemInfo(eID) % perm_Indexes_i (NDOF) )

@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Tue Dec  4 21:53:46 2018
+!   @Last revision date: Sun Jan 20 18:36:02 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 9b3844379fde2350e64816efcdf3bf724c8b3041
+!   @Last revision commit: f185e23f4068d64e2a8dbea357bd375bf1febba3
 !
 !//////////////////////////////////////////////////////
 !
@@ -56,13 +56,14 @@ MODULE MKLPardisoSolverClass
       procedure :: SolveLUDirect                => MKL_SolveLUDirect
       procedure :: SetRHSValue                  => MKL_SetRHSValue
       procedure :: SetRHS                       => MKL_SetRHS
-      PROCEDURE :: GetXValue
+      PROCEDURE :: GetXValue                    => MKL_GetXValue
+      PROCEDURE :: GetX                         => MKL_GetX
       PROCEDURE :: destroy
       PROCEDURE :: SetOperatorDt
       PROCEDURE :: ReSetOperatorDt
       procedure :: ComputeJacobianMKL
       !Functions:
-      PROCEDURE :: Getxnorm    !Get solution norm
+      PROCEDURE :: Getxnorm                     => MKL_GetXnorm    !Get solution norm
       PROCEDURE :: Getrnorm    !Get residual norm
    END TYPE MKLPardisoSolver_t
    
@@ -109,13 +110,17 @@ MODULE MKLPardisoSolverClass
 #endif
       !-----------------------------------------------------------
       
-      if ( controlVariables % containsKey("jacobian flag") ) then
-         this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
+      if ( present(controlVariables) ) then
+         if ( controlVariables % containsKey("jacobian flag") ) then
+            this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
+         end if
+      end if
+      
+      if ( present(sem) ) then
+         this % p_sem => sem
       end if
       
       MatrixShift => MatrixShiftFunc
-      
-      this % p_sem => sem
       
       this % DimPrb = DimPrb
       
@@ -292,7 +297,7 @@ MODULE MKLPardisoSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine GetXValue(this,irow,x_i)       
+   subroutine MKL_GetXValue(this,irow,x_i)       
       implicit none
       !-----------------------------------------------------------
       class(MKLPardisoSolver_t), intent(inout) :: this
@@ -302,11 +307,11 @@ MODULE MKLPardisoSolverClass
       
       x_i = this % x(irow)
       
-   end subroutine GetXValue
+   end subroutine MKL_GetXValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   function GetX(this) result(x)
+   function MKL_GetX(this) result(x)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(MKLPardisoSolver_t), INTENT(INOUT) :: this
@@ -315,7 +320,7 @@ MODULE MKLPardisoSolverClass
       
       x = this % x
       
-   end function GetX
+   end function MKL_GetX
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -381,7 +386,7 @@ MODULE MKLPardisoSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   function Getxnorm(this,TypeOfNorm) result(xnorm)
+   function MKL_GetXnorm(this,TypeOfNorm) result(xnorm)
       implicit none
       !-----------------------------------------------------------
       class(MKLPardisoSolver_t), intent(inout) :: this
@@ -397,7 +402,7 @@ MODULE MKLPardisoSolverClass
          CASE DEFAULT
             stop 'MKLPardisoSolverClass ERROR: Norm not implemented yet'
       end select
-   end function Getxnorm
+   end function MKL_GetXnorm
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

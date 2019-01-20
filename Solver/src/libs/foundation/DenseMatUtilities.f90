@@ -20,6 +20,9 @@ MODULE DenseMatUtilities
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  ------------------------------------------------
+!  Computes the LU factorization for a dense matrix
+!  ------------------------------------------------
    subroutine ComputeLU(A,ALU,LUpivots)
       implicit none
       !------------------------------------------------------------
@@ -51,6 +54,9 @@ MODULE DenseMatUtilities
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  --------------------------------------------------------------------------
+!  Solves a dense linear system with the previously computed LU factorization
+!  --------------------------------------------------------------------------
    subroutine SolveLU(ALU,LUpivots,x,b)
       implicit none
       !------------------------------------------------------------
@@ -80,10 +86,41 @@ MODULE DenseMatUtilities
    end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!   
+!  --------------------------------------------------------------------------
+!  Solves a dense linear system with the previously computed LU factorization
+!  --------------------------------------------------------------------------
+   function InvertLU(ALU, LUpivots) result(Ainv)
+      implicit none
+      !-arguments-------------------------------------------------
+      real(kind=RP), intent(in)  :: ALU(:,:)                         !<  Factorized LU matrix
+      integer      , intent(in)  :: LUpivots(size(ALU,1))            !<  LU pivots for factorization
+      real(kind=RP)              :: Ainv (size(ALU,1),size(ALU,2))   !<  Inverted matrix
+      !-local-variables-------------------------------------------
+      integer :: n      ! Matrix size
+      integer :: info   ! Lapack error code
+      real(KIND=RP), dimension(size(ALU,1)) :: work  ! work array for LAPACK
+      !-----------------------------------------------------------
+      
+      n    = size(ALU,1)
+      Ainv = ALU
+      
+#ifdef HAS_LAPACK
+      call dgetri(n, Ainv, n, LUpivots, work, n, info)
+      
+      if (info /= 0) then
+         stop 'Lapack matrix inversion failed!'
+      end if
+#else
+      stop ':: Matrix inversion routine needs LAPACK.'
+#endif
+   end function InvertLU
+   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    !------------------------------------------------------------------------------
-   ! Returns the inverse of a matrix calculated by LU decomposition.  Depends on LAPACK.
-   !   Modified from: http://fortranwiki.org/fortran/show/Matrix+inversion
+   ! Returns the inverse of a matrix calculated by LU decomposition. 
    function inverse(A) result(Ainv)
    !------------------------------------------------------------------------------
       IMPLICIT NONE

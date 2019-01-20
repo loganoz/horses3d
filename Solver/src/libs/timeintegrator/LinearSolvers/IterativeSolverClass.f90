@@ -638,26 +638,6 @@ CONTAINS
       niter=i
       
    END SUBROUTINE BlockJacobiSmoother
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!~   SUBROUTINE ComputeBlockPreco(this)
-!~      USE DenseMatUtilities
-!~      IMPLICIT NONE
-!~      !-------------------------------------------------------------
-!~      CLASS(IterativeSolver_t), TARGET, INTENT(INOUT) :: this            !<  Iterative solver class
-!~      !-------------------------------------------------------------
-!~      INTEGER :: nelem
-!~      INTEGER :: k, N      ! Counter / size of block
-!~      !-------------------------------------------------------------
-      
-!~      nelem = SIZE (this % A % BlockSize)
-!~      DO k=1, nelem
-!~         N = this % A % BlockSize(k)
-!~         this % BlockPreco(k) % Pinv = inverse(this % A % GetBlock(k,N))
-!~      END DO
-      
-!~   END SUBROUTINE ComputeBlockPreco
    
    SUBROUTINE ComputeBlockPreco(this)
       USE DenseMatUtilities

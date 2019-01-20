@@ -12,6 +12,7 @@
 module DenseBlockDiagonalMatrixClass
    use SMConstants
    use GenericMatrixClass
+   use CSRMatrixClass, only: csrMat_t
 #include "Includes.h"
    implicit none
    
@@ -43,6 +44,8 @@ module DenseBlockDiagonalMatrixClass
          procedure :: destruct
          procedure :: FactorizeBlocks_LU
          procedure :: SolveBlocks_LU
+         procedure :: InvertBlocks_LU
+         procedure :: getCSR
    end type DenseBlockDiagMatrix_t
 contains
 !
@@ -379,4 +382,74 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  --------------------------------------------------------
+!  Inverts the blocks of a matrix using LU factorization
+!  --------------------------------------------------------
+   subroutine InvertBlocks_LU(this,Inverted)
+      use DenseMatUtilities
+      implicit none
+      !-arguments---------------------------------------------------
+      class(DenseBlockDiagMatrix_t), intent(in)    :: this            !<  This matrix
+      class(Matrix_t)              , intent(inout) :: Inverted      !<  Facorized matrix
+      !-local-variables---------------------------------------------
+      integer :: k      ! Counter
+      !-------------------------------------------------------------
+      
+      select type (Inverted)
+         class is(DenseBlockDiagMatrix_t)
+!$omp parallel do schedule(runtime)
+            do k=1, this % NumOfBlocks
+               Inverted % Blocks(k) % Matrix = inverse (this % Blocks(k) % Matrix)
+            end do
+!$omp end parallel do
+         class default
+            write(STD_OUT,*) 'DenseBlockDiagonalMatrixClass :: Wrong type For factorized matrix in FactorizeBlocks_LU'
+            stop
+      end select
+   end subroutine InvertBlocks_LU
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --------------------------------------
+!  Convert the DBD matrix to a CSR matrix
+!  --------------------------------------
+   subroutine getCSR(this,Acsr)
+      implicit none
+      !-arguments---------------------------------------------------
+      class(DenseBlockDiagMatrix_t), intent(in)    :: this          !<  This matrix
+      class(csrMat_t)              , intent(inout) :: Acsr      !<  Facorized matrix
+      !-local-variables---------------------------------------------
+      integer :: ii, jj
+      integer :: bID
+      !-------------------------------------------------------------
+      
+      if (this % num_of_Rows /= Acsr % num_of_Rows) then
+         print*, 'DBD_getCSR :: ERROR: Matrix dimensions mismatch:', this % num_of_Rows, Acsr % num_of_Rows
+         stop
+      end if
+      
+      call Acsr % PreAllocate()
+      call Acsr % Reset
+      
+      call Acsr % SpecifyBlockInfo(this % BlockIdx, this % BlockSizes)
+      
+      
+!     Fill the Matrix
+!     ---------------
+      
+!$omp parallel do private(ii,jj)
+      do bID=1, this % NumOfBlocks
+               
+         do jj=1, this % BlockSizes(bID)
+            do ii=1, this % BlockSizes(bID)
+                  call Acsr % SetBlockEntry(bID,bID,ii,jj, this % Blocks (bID) % Matrix(ii,jj))
+            end do
+         end do
+         
+      end do
+!$omp end parallel do
+      
+      call Acsr % assembly()
+      
+   end subroutine getCSR   
 end module DenseBlockDiagonalMatrixClass

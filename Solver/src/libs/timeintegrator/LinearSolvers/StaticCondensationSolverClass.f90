@@ -4,9 +4,9 @@
 !   @File:    StaticCondensationSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Tue Dec  4 21:53:50 2018
+!   @Last revision date: Sun Jan 20 18:36:03 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 9b3844379fde2350e64816efcdf3bf724c8b3041
+!   @Last revision commit: f185e23f4068d64e2a8dbea357bd375bf1febba3
 !
 !//////////////////////////////////////////////////////
 !
@@ -22,26 +22,40 @@
 !
 module StaticCondensationSolverClass
    use SMConstants
-   use DGSEMClass                , only: DGSem, ComputeTimeDerivative_f
+   use DGSEMClass                   , only: DGSem, ComputeTimeDerivative_f
    use GenericLinSolverClass
-   use StaticCondensedMatrixClass, only: StaticCondensedMatrix_t
+   use MKLPardisoSolverClass        , only: MKLPardisoSolver_t
+   use StaticCondensedMatrixClass   , only: StaticCondensedMatrix_t, INNER_DOF, BOUNDARY_DOF
+   use DenseBlockDiagonalMatrixClass, only: DenseBlockDiagMatrix_t
+   use CSRMatrixClass               , only: csrMat_t, CSR_MatMatMul, CSR_MatAdd, CSR_MatVecMul
    implicit none
    
    private
    public StaticCondSolver_t
    
-   type, extends(GenericLinSolver_t) :: StaticCondSolver_t
-      type(StaticCondensedMatrix_t) :: A
-      real(kind=RP)                 :: Ashift = 0._RP ! Current shift of the Jacobian matrix
-      real(kind=RP), allocatable    :: x(:)           ! Solution vector
-      real(kind=RP), allocatable    :: b(:)           ! Right hand side
+   type, extends(GenericLinSolver_t)   :: StaticCondSolver_t
+      type(StaticCondensedMatrix_t)    :: A              ! System matrix
+      type(csrMat_t)                   :: Mii_inv        ! Inverse of the inner blocks in CSR (only needed for direct solve)
+      type(MKLPardisoSolver_t)         :: linsolver      ! Solver for the condensed system
+      real(kind=RP)                    :: Ashift = 0._RP ! Current shift of the Jacobian matrix
+      real(kind=RP), allocatable       :: x(:)           ! Solution vector
+      real(kind=RP), allocatable       :: bi(:)          ! Right hand side (inner DOFs)
+      real(kind=RP), allocatable       :: bb(:)          ! Right hand side ("boundary" DOFs)
    contains
-      procedure :: construct        => SCS_construct
-      procedure :: destroy          => SCS_destruct
-      procedure :: SetOperatorDt    => SCS_SetOperatorDt
-      procedure :: ReSetOperatorDt  => SCS_ReSetOperatorDt
-      procedure :: solve            => SCS_solve
-      procedure :: SetRHS           => SCS_SetRHS
+      procedure :: construct           => SCS_construct
+      procedure :: destroy             => SCS_destruct
+      procedure :: SetOperatorDt       => SCS_SetOperatorDt
+      procedure :: ReSetOperatorDt     => SCS_ReSetOperatorDt
+      procedure :: solve               => SCS_solve
+      procedure :: SetRHS              => SCS_SetRHS
+      procedure :: getCondensedSystem  => SCS_getCondensedSystem
+      procedure :: getCondensedRHS     => SCS_getCondensedRHS
+      procedure :: getGlobalArray      => SCS_getGlobalArray
+      procedure :: getLocalArrays      => SCS_getLocalArrays
+      procedure :: getSolution         => SCS_getSolution
+      procedure :: getX                => SCS_GetX
+      procedure :: GetXnorm            => SCS_GetXnorm
+      procedure :: GetRnorm            => SCS_GetRnorm
    end type StaticCondSolver_t
    
    integer, parameter :: nEqn = 5 ! hard-coded
@@ -66,7 +80,6 @@ contains
       integer :: N ! Polynomial order
       integer :: nelem
       !---------------------------------------------------------------------
-      
 !
 !     ----------------------
 !     Check needed arguments
@@ -93,7 +106,6 @@ contains
 !     -----------
 !
       allocate(this % x(DimPrb))
-      allocate(this % b(DimPrb))
       
       
       N = sem % mesh % elements(1) % Nxyz(1) ! hard-coded: Uniform order as elem 1-x
@@ -103,12 +115,26 @@ contains
       call this % A % construct  (num_of_Rows = DimPrb, &
                                   num_of_Blocks = nelem, &
                                   num_of_Rows_reduced = size_i )
+      
 !
 !     -------------------------
 !     Construct the permutation
 !     -------------------------
 !
       call this % A % constructPermutationArrays(sem % mesh % Nx, sem % mesh % Ny, sem % mesh % Nz, nEqn)
+      
+!     Construct Mii_inv
+!     -----------------
+      call this % Mii_inv % construct (num_of_Rows = size_i)
+      
+!
+!     Condensed system constructs
+!     ---------------------------
+      
+      call this % linsolver % construct (DimPrb = DimPrb - size_i, MatrixShiftFunc = MatrixShiftFunc)
+      
+      allocate ( this % bi(size_i) ) 
+      allocate ( this % bb(DimPrb - size_i) ) 
       
    end subroutine SCS_construct
 !
@@ -126,7 +152,12 @@ contains
       call this % A % destruct
       
       deallocate (this % x)
-      deallocate (this % b)
+      deallocate (this % bi)
+      deallocate (this % bb)
+      
+      call this % linsolver % destroy
+      call this % Mii_inv   % destruct
+      
    end subroutine SCS_destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -171,11 +202,151 @@ contains
       !-arguments-----------------------------------------------------------
       class(StaticCondSolver_t), intent(inout) :: this
       real(kind=RP)            , intent(in)    :: RHS(this % DimPrb)
+      !-local-variables-----------------------------------------------------
+      integer :: i
       !---------------------------------------------------------------------
       
-      this % b = RHS
+      call this % getLocalArrays(RHS, this % bi, this % bb)
       
    end subroutine SCS_SetRHS
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   function SCS_GetX(this) result(x)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(StaticCondSolver_t), intent(inout) :: this
+      real(kind=RP)                            :: x(this % DimPrb)
+      !---------------------------------------------------------------------
+      
+      x = this % x
+      
+   end function SCS_GetX
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   function SCS_GetXnorm(this,TypeOfNorm) result(xnorm)
+      implicit none
+      !-----------------------------------------------------------
+      class(StaticCondSolver_t), intent(inout) :: this
+      character(len=*)                         :: TypeOfNorm
+      real(kind=RP)                            :: xnorm
+      !-----------------------------------------------------------
+      
+      select case (TypeOfNorm)
+         case ('infinity')
+            xnorm = maxval(abs(this % x))
+         case ('l2')
+            xnorm = norm2(this % x)
+         case default
+            stop 'StaticCondensationSolverClass ERROR: Norm not implemented yet'
+      end select 
+   end function SCS_GetXnorm
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   function SCS_GetRnorm(this) result(rnorm)
+      implicit none
+!
+!     ----------------------------------------
+!     Currently implemented with infinity norm
+!     ----------------------------------------
+!
+      !-----------------------------------------------------------
+      class(StaticCondSolver_t), intent(inout) :: this
+      real(kind=RP)                            :: rnorm
+      !-----------------------------------------------------------
+      real(kind=RP)                            :: residual(this % DimPrb)
+      !-----------------------------------------------------------
+      
+!~      residual = this % b - CSR_MatVecMul(this % A, this % x)
+!~      rnorm = MAXVAL(ABS(residual))
+      !!! TODO: OImplement this!!!
+      rnorm = 0._RP
+   end function SCS_GetRnorm
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --------------------------------------------------
+!  SCS_getGlobalArray:
+!  Get global array from boundary and interior arrays
+!  --------------------------------------------------
+   subroutine SCS_getGlobalArray(this,x,xi,xb)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(StaticCondSolver_t), intent(inout)  :: this
+      real(kind=RP)            , intent(out)    :: x(this % DimPrb)
+      real(kind=RP)            , intent(in)     :: xi(this % A % size_i)
+      real(kind=RP)            , intent(in)     :: xb(this % A % size_b)
+      !-local-variables-----------------------------------------------------
+      integer :: eID    ! Element (block) index
+      integer :: i_ind  ! xi index
+      integer :: b_ind  ! xb index
+      integer :: x_ind  ! x  index
+      integer :: i      ! Element DOF index (eq included)
+      !---------------------------------------------------------------------
+      
+      i_ind = 1
+      b_ind = 1
+      x_ind = 1
+      
+      do eID = 1, this % A % num_of_Blocks
+         do i = 1, this % A % BlockSizes(eID)
+            select case (this % A % ElemInfo(eID) % dof_association(i))
+               case (INNER_DOF)
+                  x(x_ind) = xi(i_ind)
+                  i_ind = i_ind + 1
+               case (BOUNDARY_DOF)
+                  x(x_ind) = xb(b_ind)
+                  b_ind = b_ind + 1
+            end select
+            x_ind = x_ind + 1
+         end do  
+      end do
+      
+   end subroutine SCS_getGlobalArray
+   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --------------------------------------------------
+!  SCS_getGlobalArray:
+!  Get boundary and interior arrays from global array 
+!  --------------------------------------------------
+   subroutine SCS_getLocalArrays(this,x,xi,xb)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(StaticCondSolver_t), intent(inout) :: this
+      real(kind=RP)            , intent(in)    :: x(this % DimPrb)
+      real(kind=RP)            , intent(out)   :: xi(this % A % size_i)
+      real(kind=RP)            , intent(out)   :: xb(this % A % size_b)
+      !-local-variables-----------------------------------------------------
+      integer :: eID    ! Element (block) index
+      integer :: i_ind  ! xi index
+      integer :: b_ind  ! xb index
+      integer :: x_ind  ! x  index
+      integer :: i      ! Element DOF index (eq included)
+      !---------------------------------------------------------------------
+      
+      i_ind = 1
+      b_ind = 1
+      x_ind = 1
+      
+      do eID = 1, this % A % num_of_Blocks
+         do i = 1, this % A % BlockSizes(eID)
+            select case (this % A % ElemInfo(eID) % dof_association(i))
+               case (INNER_DOF)
+                  xi(i_ind) = x(x_ind)
+                  i_ind = i_ind + 1
+               case (BOUNDARY_DOF)
+                  xb(b_ind) = x(x_ind)
+                  b_ind = b_ind + 1
+            end select
+            x_ind = x_ind + 1
+         end do  
+      end do
+      
+   end subroutine SCS_getLocalArrays
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -193,30 +364,128 @@ contains
       real(kind=RP), optional                  :: dt
       logical      , optional  , intent(inout) :: computeA
       !-local-variables-----------------------------------------------------
-      type(csrMat_t) :: A ! debug
+      logical        :: subCompA
+      logical        :: mustComputeRHS
+      real(kind=RP)  :: xb(this % A % size_b)
       !---------------------------------------------------------------------
       
+      mustComputeRHS = .TRUE.
+      
 !     Compute Jacobian matrix if needed
-!     ---------------------------------      
+!     ---------------------------------    
+      
       if ( present(ComputeA)) then
          if (ComputeA) then
             call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
-            
             ComputeA = .FALSE.
+            call this % getCondensedSystem
+            mustComputeRHS = .FALSE.
          end if
       else
          call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
-         
+         call this % getCondensedSystem
+         mustComputeRHS = .FALSE.
       end if
       
-      call this % A % GetCSR (A)  ! debug
-      call A % Visualize('AnJac_Condensed.dat') ! debug
+      if (mustComputeRHS) then 
+         call this % getCondensedRHS
+      end if
       
-      stop ! debug
+      subCompA = .FALSE.
+      call this % linsolver % solve( nEqn=nEqn, nGradEqn=nGradEqn, tol = 1.e-6_RP, maxiter=500, time= time, dt=dt, &
+                              ComputeTimeDerivative = ComputeTimeDerivative, computeA = subCompA)
       
-      ! TODO: solve the matrix using SCS
+      xb = this % linsolver % getX()
+      call this % getSolution(xb)
+      
    end subroutine SCS_solve
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  -------------------------------------------------
+!  SCS_getCondensedSystem:
+!  Get condensed system matrix (explicitely: inverting the Mii blocks) and RHS
+!  -------------------------------------------------
+   subroutine SCS_getCondensedSystem(this)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(StaticCondSolver_t), intent(inout) :: this
+      !-local-variables-----------------------------------------------------
+      type(DenseBlockDiagMatrix_t) :: Mii_inv
+      type(csrMat_t) :: Mii_inv_Mbi 
+      real(kind=RP)  :: Minv_bi(this % A % size_i)
+      !---------------------------------------------------------------------
+      
+      ! Construct auxiliar CSR matrices
+      call Mii_inv % construct (num_of_Blocks = this % A % num_of_Blocks)
+      call Mii_inv % PreAllocate(nnzs = this % A % inner_blockSizes)
+      
+      call Mii_inv_Mbi % construct (num_of_Rows = this % A % size_i, num_of_Cols = this % A % size_b)
+      
+      ! Invert blocks and get CSR
+      call this % A % Mii % InvertBlocks_LU (Mii_inv)
+      call Mii_inv % getCSR (this % Mii_inv)
+      
+      ! Get condensed RHS
+      Minv_bi = CSR_MatVecMul (this % Mii_inv, this % bi)
+      this % linsolver % b = CSR_MatVecMul (this % A % Mib, Minv_bi)
+      this % linsolver % b = this % bb - this % linsolver % b
+      
+      ! Get contensed matrix
+      Mii_inv_Mbi = CSR_MatMatMul (this % Mii_inv  , this % A % Mbi)
+      this % linsolver % A = CSR_MatMatMul (this % A % Mib, Mii_inv_Mbi )
+      this % linsolver % A = CSR_MatAdd (this % A % Mbb, this % linsolver % A, -1._RP)
+      
+      
+      call Mii_inv % destruct
+      call Mii_inv_Mbi % destruct
+   end subroutine SCS_getCondensedSystem
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --------------------------------------------------------
+!  SCS_getCondensedRHS:
+!  Get condensed RHS (Mii blocks don't have to be inverted)
+!  --------------------------------------------------------
+   subroutine SCS_getCondensedRHS(this)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(StaticCondSolver_t), intent(inout) :: this
+      !-local-variables-----------------------------------------------------
+      type(csrMat_t) :: Mii_inv_Mbi 
+      real(kind=RP)  :: Minv_bi(this % A % size_i)
+      !---------------------------------------------------------------------
+      
+      call Mii_inv_Mbi % construct (num_of_Rows = this % A % size_i, num_of_Cols = this % A % size_b)
+      
+      ! Get condensed RHS
+      Minv_bi = CSR_MatVecMul (this % Mii_inv, this % bi)
+      this % linsolver % b = CSR_MatVecMul (this % A % Mib, Minv_bi)
+      this % linsolver % b = this % bb - this % linsolver % b
+      
+      call Mii_inv_Mbi % destruct
+      
+   end subroutine SCS_getCondensedRHS
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------
+!  SCS_getSolution:
+!  Get global solution out of the boundary solution (xb)
+!  -----------------------------------------------------
+   subroutine SCS_getSolution(this, xb)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(StaticCondSolver_t), intent(inout) :: this
+      real(kind=RP)            , intent(in)    :: xb(this % A % size_b)
+      !-local-variables-----------------------------------------------------
+      real(kind=RP) :: xi(this % A % size_i)
+      !---------------------------------------------------------------------
+      
+      xi = CSR_MatVecMul(this % A % Mbi, xb)
+      xi = CSR_MatVecMul(this % Mii_inv, this % bi - xi)
+      
+      call this % getGlobalArray(this % x, xi, xb)
+      
+   end subroutine SCS_getSolution
 end module StaticCondensationSolverClass
