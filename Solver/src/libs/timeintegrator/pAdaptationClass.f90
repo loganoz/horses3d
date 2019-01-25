@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Mon Jan 21 01:04:17 2019
+!   @Last revision date: Fri Jan 25 10:49:03 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 713d5b12bf01d53752c5c65264e93945cf78090e
+!   @Last revision commit: b33ea40370650cafae713e3449326f7245515e5e
 !
 !//////////////////////////////////////////////////////
 !
@@ -56,7 +56,8 @@ module pAdaptationClass
    integer, parameter :: NO_ADAPTATION = 3
    integer, parameter :: MAX_STEPS_SMOOTHING = 1000
    
-   
+   integer, parameter :: SMOOTH_RK3 = 0
+   integer, parameter :: SMOOTH_FAS = 1
    !-----------------------------------------
    ! Type for storing the overenriching areas
    !-----------------------------------------
@@ -102,7 +103,8 @@ module pAdaptationClass
       real(kind=RP)                     :: nextAdaptationTime = huge(1._RP)
       ! Variables for post-smoothing
       logical                           :: postSmoothing   = .FALSE.       ! Signals if a smoothing operation must be performed post p-adaptation
-      logical                           :: Compute_dt  = .FALSE.
+      logical                           :: Compute_dt      = .FALSE.
+      integer                           :: postSmoothMethod
       real(kind=RP)                     :: postSmoothRes                   ! Post smoothing residual
       real(kind=RP)                     :: cfl, dcfl
       real(kind=RP)                     :: dt
@@ -467,7 +469,7 @@ readloop:do
       character(LINE_LENGTH)         :: paramFile
       character(LINE_LENGTH)         :: in_label
       character(20*BC_STRING_LENGTH) :: confBoundaries
-      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_OrderAcrossFaces, replacedValue, R_mode, R_interval
+      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, R_pSmoothingMethod
       logical      , allocatable     :: R_increasing, regressionFiles, reorganize_z, R_restart
       real(kind=RP), allocatable     :: TruncError, R_pSmoothing
       ! Extra vars
@@ -511,6 +513,7 @@ readloop:do
       call readValueInRegion ( trim ( paramFile )  , "interval"               , R_interval         , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "restart files"          , R_restart          , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "post smoothing residual", R_pSmoothing       , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "post smoothing method"  , R_pSmoothingMethod , in_label , "# end" )
       
 !     Conforming boundaries?
 !     ----------------------
@@ -627,6 +630,13 @@ readloop:do
       if ( allocated(R_pSmoothing) ) then
          this % postSmoothing = .TRUE.
          this % postSmoothRes = R_pSmoothing
+         
+         select case (R_pSmoothingMethod)
+            case('RK3')  ; this % postSmoothMethod = SMOOTH_RK3
+            case('FAS')  ; this % postSmoothMethod = SMOOTH_FAS
+            case default ; this % postSmoothMethod = SMOOTH_RK3
+         end select
+         
          allocate ( this % Source(nelem) )
       
          if (controlVariables % containsKey("cfl")) then
@@ -1143,8 +1153,8 @@ readloop:do
 !     Adapt sem to new polynomial orders
 !     ----------------------------------
 !
-      call Stopwatch % Pause("Solver")
-      call Stopwatch % Start("Preprocessing")
+!~      call Stopwatch % Pause("Solver")
+!~      call Stopwatch % Start("Preprocessing")
       
       call sem % mesh % pAdapt (NNew, controlVariables)
       
@@ -1153,8 +1163,8 @@ readloop:do
          call sem % monitors % probes(i) % Initialization (sem % mesh, i, trim(sem % monitors % solution_file), .FALSE.)
       end do
       
-      call Stopwatch % Pause("Preprocessing")
-      call Stopwatch % Start("Solver")
+!~      call Stopwatch % Pause("Preprocessing")
+!~      call Stopwatch % Start("Solver")
       
 !
 !     ------------------------------------------------------
@@ -1162,7 +1172,7 @@ readloop:do
 !     ------------------------------------------------------
 !
       if ( pAdapt % postSmoothing ) then
-         call pAdapt % postSmooth(sem, t, ComputeTimeDerivative)
+         call pAdapt % postSmooth(sem, t, ComputeTimeDerivative, controlVariables)
       end if
 !
 !     ---------------------------------------------------
@@ -1242,17 +1252,20 @@ readloop:do
 !  ---------------------------------------------------------
 !  Subroutine to post-smooth the solution after p-adaptation
 !  ---------------------------------------------------------
-   subroutine pAdaptation_postSmooth(this, sem, t, ComputeTimeDerivative)
+   subroutine pAdaptation_postSmooth(this, sem, t, ComputeTimeDerivative, controlVariables)
+      use FASMultigridClass, only: FASMultigrid_t
       implicit none
       !-arguments--------------------------------------------------
       class(pAdaptation_t), intent(inout) :: this            !<> Adaptation class
       type(DGSem)         , intent(inout) :: sem
       real(kind=RP)       , intent(in)    :: t
       procedure(ComputeTimeDerivative_f)  :: ComputeTimeDerivative
+      type(FTValueDictionary), intent(in) :: controlVariables
       !-local-variables--------------------------------------------
       integer       :: k
       integer       :: nEqn
       real(kind=RP),allocatable :: maxResidual(:)
+      type(FASMultigrid_t) :: FASSolver
       !------------------------------------------------------------
       
       nEqn = size(sem % mesh % storage % elements(1) % Qdot,1)
@@ -1271,12 +1284,19 @@ readloop:do
       end do
 #endif
       
+      if (this % postSmoothMethod == SMOOTH_FAS) call FASSolver % construct(controlVariables,sem)
+      
 !     Smooth solution
 !     ---------------
       do k=1, MAX_STEPS_SMOOTHING
          if ( this % Compute_dt ) this % dt = MaxTimeStep( sem, this % cfl, this % dcfl )
-         
-         call TakeRK3Step( sem % mesh, sem % particles, t, this % dt, ComputeTimeDerivative )
+            
+         select case (this % postSmoothMethod)
+            case(SMOOTH_RK3)
+               call TakeRK3Step( sem % mesh, sem % particles, t, this % dt, ComputeTimeDerivative )
+            case(SMOOTH_FAS)
+               call FASSolver % solve(0, t, this % dt, ComputeTimeDerivative)
+         end select
          
          maxResidual = ComputeMaxResiduals(sem % mesh)
          if (maxval(maxResidual) <= this % postSmoothRes )  then
@@ -1293,6 +1313,8 @@ readloop:do
          deallocate ( this % Source(k) % S )
       end do
 #endif
+      
+      if (this % postSmoothMethod == SMOOTH_FAS) call FASSolver % destruct
    end subroutine pAdaptation_postSmooth   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1568,6 +1590,7 @@ readloop:do
 !  of the truncation error.
 !  -----------------------------------------------------------------------
    subroutine RegressionIn1Dir(Adaptator,P_1,NMax,Dir,notenough,error,Stage,iEl)
+      use Utilities, only: AlmostEqual
       implicit none
       !---------------------------------------
       type(pAdaptation_t)        :: Adaptator
@@ -1598,6 +1621,11 @@ readloop:do
       if (P_1 < NMINest + 1) then
          notenough = .TRUE.
          return
+      end if
+      
+      ! Check if last point is NMIN=2
+      if ( AlmostEqual(Adaptator % TE(iEl) % Dir(Dir) % maxTE (P_1),0._RP) ) then
+         return ! nothing to do here
       end if
       
       ! Perform regression analysis   
