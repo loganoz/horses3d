@@ -296,11 +296,13 @@ CONTAINS
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % SetOperatorDt(dt) 
             ComputeA = .FALSE.
          end if
       else 
-         call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % SetOperatorDt(dt) 
       end if
       
       timesolve= time

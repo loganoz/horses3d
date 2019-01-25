@@ -4,9 +4,9 @@
 !   @File:    StaticCondensationSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Sun Jan 20 18:36:03 2019
+!   @Last revision date: Fri Jan 25 17:23:15 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f185e23f4068d64e2a8dbea357bd375bf1febba3
+!   @Last revision commit: 508b6d7bfca8c842ac2d4bdb38ff238e427d2f5c
 !
 !//////////////////////////////////////////////////////
 !
@@ -28,6 +28,7 @@ module StaticCondensationSolverClass
    use StaticCondensedMatrixClass   , only: StaticCondensedMatrix_t, INNER_DOF, BOUNDARY_DOF
    use DenseBlockDiagonalMatrixClass, only: DenseBlockDiagMatrix_t
    use CSRMatrixClass               , only: csrMat_t, CSR_MatMatMul, CSR_MatAdd, CSR_MatVecMul
+   use Utilities                    , only: AlmostEqual
    implicit none
    
    private
@@ -131,7 +132,7 @@ contains
 !     Condensed system constructs
 !     ---------------------------
       
-      call this % linsolver % construct (DimPrb = DimPrb - size_i, MatrixShiftFunc = MatrixShiftFunc)
+      call this % linsolver % construct (DimPrb = DimPrb - size_i, MatrixShiftFunc = MatrixShiftFunc, controlVariables = controlVariables)
       
       allocate ( this % bi(size_i) ) 
       allocate ( this % bb(DimPrb - size_i) ) 
@@ -189,9 +190,14 @@ contains
       !-----------------------------------------------------------
       
       shift = MatrixShift(dt)
+      
+      if ( AlmostEqual(shift,this % Ashift) ) return
+      
       call this % A % Shift(-this % Ashift)
       call this % A % Shift(shift)
       this % Ashift = shift
+      
+      call this % getCondensedSystem
       
    end subroutine SCS_ReSetOperatorDt
 !
@@ -376,13 +382,17 @@ contains
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % SetOperatorDt(dt)
+            
             ComputeA = .FALSE.
             call this % getCondensedSystem
             mustComputeRHS = .FALSE.
          end if
       else
-         call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % SetOperatorDt(dt)
+         
          call this % getCondensedSystem
          mustComputeRHS = .FALSE.
       end if
@@ -436,6 +446,7 @@ contains
       this % linsolver % A = CSR_MatMatMul (this % A % Mib, Mii_inv_Mbi )
       this % linsolver % A = CSR_MatAdd (this % A % Mbb, this % linsolver % A, -1._RP)
       
+      call this % linsolver % FactorizeJacobian
       
       call Mii_inv % destruct
       call Mii_inv_Mbi % destruct
@@ -445,7 +456,7 @@ contains
 !
 !  --------------------------------------------------------
 !  SCS_getCondensedRHS:
-!  Get condensed RHS (Mii blocks don't have to be inverted)
+!  Get condensed RHS (Mii blocks are already inverted)
 !  --------------------------------------------------------
    subroutine SCS_getCondensedRHS(this)
       implicit none

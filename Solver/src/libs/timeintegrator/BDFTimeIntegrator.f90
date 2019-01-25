@@ -134,7 +134,7 @@ contains
          case('static-condensation')
             allocate (StaticCondSolver_t     :: this % linsolver)
          case default
-            print*, "Keyword 'linear solver' missing... Using PETSc as default"
+            write(STD_OUT,*) "Keyword 'linear solver' missing... Using PETSc as default"
             allocate (PetscKspLinearSolver_t :: this % linsolver)
       end select
       
@@ -289,7 +289,7 @@ contains
                if (this % TimeAccurate) then
                   ERROR stop 'Newton loop did not converge. Consider using a smaller dt or "implicit adaptive dt = .TRUE."'
                else
-                  print*, 'WARNING: Newton loop did not converge.'
+                  write(STD_OUT,*) 'WARNING: Newton loop did not converge.'
                   exit
                end if
             end if
@@ -398,7 +398,7 @@ contains
          ENDIF
          
          IF (ConvRate < NEWTON_MIN_CONVRATE .OR. newtonit == MAX_NEWTON_ITER .OR. ISNAN(norm)) THEN
-            IF (PRINT_NEWTON_INFO) print*, 'ConvRate: ', ConvRate
+            IF (PRINT_NEWTON_INFO) write(STD_OUT,*) 'ConvRate: ', ConvRate
             converged = .FALSE.
             RETURN
          ENDIF

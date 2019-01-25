@@ -609,15 +609,15 @@ contains
             case (PC_BlockJacobi)
                if ( present(ComputeA)) then
                   if (ComputeA) then
-                     call this % ComputeJacobian(this % BlockA,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+                     call this % ComputeJacobian(this % BlockA,time,nEqn,nGradEqn,ComputeTimeDerivative)
+                     call this % SetOperatorDt(dt) ! the matrix is factorized inside
                      
-                     call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
                      ComputeA = .FALSE.
                   end if
                else
-                  call this % ComputeJacobian(this % BlockA,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+                  call this % ComputeJacobian(this % BlockA,time,nEqn,nGradEqn,ComputeTimeDerivative)
+                  call this % SetOperatorDt(dt) ! the matrix is factorized inside
                   
-                  call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
                end if
          end select
          

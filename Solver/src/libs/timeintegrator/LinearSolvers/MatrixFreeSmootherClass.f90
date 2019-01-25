@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeSmootherClass.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:07 2018
-!   @Last revision date: Tue Dec  4 21:53:48 2018
+!   @Last revision date: Fri Jan 25 17:23:13 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 9b3844379fde2350e64816efcdf3bf724c8b3041
+!   @Last revision commit: 508b6d7bfca8c842ac2d4bdb38ff238e427d2f5c
 !
 !//////////////////////////////////////////////////////
 !
@@ -211,14 +211,14 @@ CONTAINS
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % SetOperatorDt(dt) ! the matrix is factorized inside
             
-            IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
             ComputeA = .FALSE.
          end if
       else 
-         call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
-         IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
+         call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % SetOperatorDt(dt) ! the matrix is factorized inside
       end if
       
       timesolve= time

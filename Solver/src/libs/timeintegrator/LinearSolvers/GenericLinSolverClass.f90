@@ -65,7 +65,7 @@ module GenericLinSolverClass
       end function MatrixShift_FCN
    end interface
    
-   procedure(MatrixShift_FCN), pointer :: MatrixShift   ! TODO?: move to GenericLinSolver_t to allow different MatrixShifts for different solvers?
+   procedure(MatrixShift_FCN), pointer :: MatrixShift =>  Default_MatrixShift  ! TODO?: move to GenericLinSolver_t to allow different MatrixShifts for different solvers?
 
 contains
 !
@@ -78,7 +78,7 @@ contains
       real(kind=RP), intent(in) :: dt
       real(kind=RP)             :: Ashift
       !------------------------------------------------------
-      print*, 'using default'
+      
       ! Do nothing
       Ashift = 0._RP
    end function Default_MatrixShift
@@ -234,12 +234,11 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine ComputeJacobian(this,Matrix,dt,time,nEqn,nGradEqn,ComputeTimeDerivative,eps)
+   subroutine ComputeJacobian(this,Matrix,time,nEqn,nGradEqn,ComputeTimeDerivative,eps)
       implicit none
       !-----------------------------------------------------------
       class(GenericLinSolver_t), intent(inout) :: this
       class(Matrix_t)                          :: Matrix
-      real(kind=RP), intent(in)                :: dt
       real(kind=RP), intent(in)                :: time
       integer,       intent(in)                :: nEqn
       integer,       intent(in)                :: nGradEqn
@@ -254,8 +253,6 @@ contains
             case(ANALYTICAL_JACOBIAN)
                call AnalyticalJacobian_Compute(this % p_sem, nEqn, time, Matrix)
          end select
-            
-         call Matrix % shift( MatrixShift(dt) )
       else
          select case (this % JacobianComputation)
             case(NUMERICAL_JACOBIAN)
@@ -264,8 +261,6 @@ contains
                print*, 'WARNING!!: eps not needed for analytical Jacobian'
                call AnalyticalJacobian_Compute(this % p_sem, nEqn, time, Matrix)
          end select
-            
-         call Matrix % shift( MatrixShift(dt) )
       end if
       
    end subroutine ComputeJacobian
