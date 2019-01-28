@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Fri Nov 30 12:53:02 2018
+!   @Last revision date: Mon Jan 28 12:16:36 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8c8fe673f51fec8338e38e16c38021bdca6914b2
+!   @Last revision commit: b9918cac4908927d56ed9cc3534d32bab72b264a
 !
 !//////////////////////////////////////////////////////
 !
@@ -316,9 +316,8 @@ contains
       
       call Stopwatch % Pause("Numerical Jacobian construction")
       IF (PRESENT(PINFO)) THEN
-         IF (PINFO) PRINT*, "Numerical Jacobian construction: ", Stopwatch % ElapsedTime("Numerical Jacobian construction"), "seconds"
+         IF (PINFO) PRINT*, "Numerical Jacobian construction: ", Stopwatch % lastElapsedTime("Numerical Jacobian construction"), "seconds"
       ENDIF
-      call Stopwatch % Reset("Numerical Jacobian construction")
                 
    end subroutine NumericalJacobian_Compute
 !

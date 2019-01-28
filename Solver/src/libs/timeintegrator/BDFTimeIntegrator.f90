@@ -19,6 +19,7 @@ MODULE BDFTimeIntegrator
    use MatrixClass
    use DGSEMClass
    use StorageClass              , only: SolutionStorage_t
+   use StopwatchClass            , only: Stopwatch
    implicit none
    
    PRIVATE                          
@@ -151,6 +152,10 @@ contains
             ERROR stop ':: "bdf order">1 is only valid with fixed time-step sizes'
          end if
       end if
+      
+!     Create Stopwatch for solving
+!     ----------------------------
+      call Stopwatch % CreateNewEvent("BDF Newton-Solve")
       
    end subroutine ConstructBDFIntegrator
 !
@@ -334,8 +339,7 @@ contains
       integer,                      intent(out)             :: niter
       logical,                      intent(out)             :: CONVERGED   
       procedure(ComputeTimeDerivative_f)                    :: ComputeTimeDerivative
-      !----------------------------------------------------------------------
-      integer(8)           :: cli, clf, clrate           
+      !----------------------------------------------------------------------           
       integer              :: newtonit
       real(kind=RP)        :: norm, norm_old, rel_tol
       real(kind=RP)        :: linsolver_tol
@@ -359,8 +363,6 @@ contains
       IF (PRINT_NEWTON_INFO) THEN
          WRITE(*, "(A9,1X,A18,1X,A18,1X,A15,1X,A12,1X,A18)") "Newton it", "Newton abs_err", "Newton rel_err", "LinSolverErr", "# ksp iter", "Iter wall time (s)"
       END IF
-      
-      CALL SYSTEM_CLOCK(COUNT_RATE=clrate)
 !
 !     Newton loop
 !     -----------
@@ -371,10 +373,11 @@ contains
          
          CALL ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
          
-         CALL SYSTEM_CLOCK(COUNT=cli)
-         CALL linsolver%solve( nEqn=NTOTALVARS, nGradEqn=NTOTALGRADS, tol = linsolver_tol, maxiter=500, time= t, dt=dt, &
+         call Stopwatch % Start("BDF Newton-Solve")
+         call linsolver%solve( nEqn=NTOTALVARS, nGradEqn=NTOTALGRADS, tol = linsolver_tol, maxiter=500, time= t, dt=dt, &
                               ComputeTimeDerivative = ComputeTimeDerivative, computeA = computeA)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
-         CALL SYSTEM_CLOCK(COUNT=clf)
+         call Stopwatch % Pause("BDF Newton-Solve")
+         
          IF (.NOT. linsolver%converged .and. Adaptive_dt) THEN                           ! If linsolver did not converge, return converged=false
             converged = .FALSE.
             RETURN
@@ -394,7 +397,7 @@ contains
          ENDIF
          IF (PRINT_NEWTON_INFO) THEN
             WRITE(*, "(I9,1X,ES18.3,1X,ES18.3,1X,ES15.3,1X,I12,1X,F18.5)")newtonit, norm, norm/norm1, linsolver%Getrnorm(),&
-                                                      linsolver%niter, (clf-cli)/real(clrate,RP)
+                                                      linsolver%niter, Stopwatch % lastElapsedTime("BDF Newton-Solve")
          ENDIF
          
          IF (ConvRate < NEWTON_MIN_CONVRATE .OR. newtonit == MAX_NEWTON_ITER .OR. ISNAN(norm)) THEN

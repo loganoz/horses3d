@@ -4,9 +4,9 @@
 !   @File:    StaticCondensationSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Fri Jan 25 17:23:15 2019
+!   @Last revision date: Mon Jan 28 12:16:38 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 508b6d7bfca8c842ac2d4bdb38ff238e427d2f5c
+!   @Last revision commit: b9918cac4908927d56ed9cc3534d32bab72b264a
 !
 !//////////////////////////////////////////////////////
 !
@@ -29,6 +29,7 @@ module StaticCondensationSolverClass
    use DenseBlockDiagonalMatrixClass, only: DenseBlockDiagMatrix_t
    use CSRMatrixClass               , only: csrMat_t, CSR_MatMatMul, CSR_MatAdd, CSR_MatVecMul
    use Utilities                    , only: AlmostEqual
+   use StopwatchClass               , only: Stopwatch
    implicit none
    
    private
@@ -136,6 +137,9 @@ contains
       
       allocate ( this % bi(size_i) ) 
       allocate ( this % bb(DimPrb - size_i) ) 
+      
+      
+      call Stopwatch % CreateNewEvent ("System condensation")
       
    end subroutine SCS_construct
 !
@@ -426,6 +430,8 @@ contains
       real(kind=RP)  :: Minv_bi(this % A % size_i)
       !---------------------------------------------------------------------
       
+      call Stopwatch % Start("System condensation")
+      
       ! Construct auxiliar CSR matrices
       call Mii_inv % construct (num_of_Blocks = this % A % num_of_Blocks)
       call Mii_inv % PreAllocate(nnzs = this % A % inner_blockSizes)
@@ -450,6 +456,8 @@ contains
       
       call Mii_inv % destruct
       call Mii_inv_Mbi % destruct
+      
+      call Stopwatch % Pause("System condensation")
    end subroutine SCS_getCondensedSystem
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -463,19 +471,17 @@ contains
       !-arguments-----------------------------------------------------------
       class(StaticCondSolver_t), intent(inout) :: this
       !-local-variables-----------------------------------------------------
-      type(csrMat_t) :: Mii_inv_Mbi 
       real(kind=RP)  :: Minv_bi(this % A % size_i)
       !---------------------------------------------------------------------
       
-      call Mii_inv_Mbi % construct (num_of_Rows = this % A % size_i, num_of_Cols = this % A % size_b)
+      call Stopwatch % Start("System condensation")
       
       ! Get condensed RHS
       Minv_bi = CSR_MatVecMul (this % Mii_inv, this % bi)
       this % linsolver % b = CSR_MatVecMul (this % A % Mib, Minv_bi)
       this % linsolver % b = this % bb - this % linsolver % b
       
-      call Mii_inv_Mbi % destruct
-      
+      call Stopwatch % Pause("System condensation")
    end subroutine SCS_getCondensedRHS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

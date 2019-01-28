@@ -178,11 +178,14 @@
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients)
       END IF
+      call Stopwatch % WriteSummaryFile(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH)))
+      
 !
 !     ---------
 !     Finish up
 !     ---------
 !
+      call Stopwatch % destruct
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       call DestructBoundaryConditions

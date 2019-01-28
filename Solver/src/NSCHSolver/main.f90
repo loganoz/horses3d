@@ -4,9 +4,9 @@
 !   @File:    HORSES3DMain.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Mon Oct 29 13:54:31 2018
+!   @Last revision date: Mon Jan 28 12:16:28 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: c14fafcd82dba8b47adf67371d60c14952030bca
+!   @Last revision commit: b9918cac4908927d56ed9cc3534d32bab72b264a
 !
 !//////////////////////////////////////////////////////
 !
@@ -190,11 +190,13 @@
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients)
       END IF
+      call Stopwatch % WriteSummaryFile(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH)))
 !
 !     ---------
 !     Finish up
 !     ---------
 !
+      call Stopwatch % destruct
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       call DestructBoundaryConditions
