@@ -4,9 +4,9 @@
 !   @File:    StaticCondensationSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Mon Jan 28 16:45:21 2019
+!   @Last revision date: Mon Jan 28 18:24:37 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d7287eb57ed10f49c4457713557b614ea83bee6f
+!   @Last revision commit: dee8ab8d5e78ed3d128a4350162a11d8455b300d
 !
 !//////////////////////////////////////////////////////
 !
@@ -30,6 +30,7 @@ module StaticCondensationSolverClass
    use CSRMatrixClass               , only: csrMat_t, CSR_MatMatMul, CSR_MatAdd, CSR_MatVecMul
    use Utilities                    , only: AlmostEqual
    use StopwatchClass               , only: Stopwatch
+   use NodalStorageClass            , only: GAUSSLOBATTO
    implicit none
    
    private
@@ -78,9 +79,8 @@ contains
       type(DGSem), target                  , optional  :: sem
       procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
       !-local-variables-----------------------------------------------------
-      integer :: size_i
-      integer :: N ! Polynomial order
       integer :: nelem
+      integer :: eID
       !---------------------------------------------------------------------
 !
 !     ----------------------
@@ -91,7 +91,13 @@ contains
       if (.not. present(sem)) ERROR stop 'StaticCondSolver_t needs DGSem'
       
       ! TODO: Add conformity check!
-      ! TODO: Add GL check
+!
+!     Gauss-Lobatto check
+!     -------------------
+      
+      if (sem % mesh % nodeType /= GAUSSLOBATTO) then
+         ERROR stop 'Static Condensation only valid for Gauss-Lobatto discretizations'
+      end if
       
       this % DimPrb = DimPrb
       this % p_sem => sem
@@ -109,34 +115,30 @@ contains
 !
       allocate(this % x(DimPrb))
       
-      
-      N = sem % mesh % elements(1) % Nxyz(1) ! hard-coded: Uniform order as elem 1-x
       nelem  = sem % mesh % no_of_elements
-      size_i = nelem * (N-1)**3 * nEqn
       
       call this % A % construct  (num_of_Rows = DimPrb, &
-                                  num_of_Blocks = nelem, &
-                                  num_of_Rows_reduced = size_i )
+                                  num_of_Blocks = nelem )
       
 !
 !     -------------------------
 !     Construct the permutation
 !     -------------------------
 !
-      call this % A % constructPermutationArrays(sem % mesh % Nx, sem % mesh % Ny, sem % mesh % Nz, nEqn)
+      call this % A % constructPermutationArrays(sem % mesh, nEqn)
       
 !     Construct Mii_inv
 !     -----------------
-      call this % Mii_inv % construct (num_of_Rows = size_i)
+      call this % Mii_inv % construct (num_of_Rows = this % A % size_i)
       
 !
 !     Condensed system constructs
 !     ---------------------------
       
-      call this % linsolver % construct (DimPrb = DimPrb - size_i, MatrixShiftFunc = MatrixShiftFunc, controlVariables = controlVariables)
+      call this % linsolver % construct (DimPrb = DimPrb - this % A % size_i, MatrixShiftFunc = MatrixShiftFunc, controlVariables = controlVariables)
       
-      allocate ( this % bi(size_i) ) 
-      allocate ( this % bb(DimPrb - size_i) ) 
+      allocate ( this % bi(this % A % size_i) ) 
+      allocate ( this % bb(DimPrb - this % A % size_i) ) 
       
       
       call Stopwatch % CreateNewEvent ("System condensation")

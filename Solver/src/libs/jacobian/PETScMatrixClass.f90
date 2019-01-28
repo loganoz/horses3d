@@ -57,13 +57,12 @@ module PETScMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_rows_reduced,withMPI)
+   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,withMPI)
       implicit none
       !---------------------------------------------
       class(PETSCMatrix_t)  :: this
       integer, optional, intent(in) :: num_of_Cols
       integer, optional, intent(in) :: num_of_Blocks
-      integer, optional, intent(in) :: num_of_rows_reduced
 #ifdef HAS_PETSC
       PetscInt, optional, intent(in) :: num_of_Rows
       PetscBool, optional, intent(in) :: withMPI

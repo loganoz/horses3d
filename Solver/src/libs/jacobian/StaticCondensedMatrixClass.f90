@@ -4,9 +4,9 @@
 !   @File:    StaticCondensedMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Sun Jan 20 18:36:00 2019
+!   @Last revision date: Mon Jan 28 18:24:36 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f185e23f4068d64e2a8dbea357bd375bf1febba3
+!   @Last revision commit: dee8ab8d5e78ed3d128a4350162a11d8455b300d
 !
 !//////////////////////////////////////////////////////
 !
@@ -28,6 +28,10 @@ module StaticCondensedMatrixClass
    use GenericMatrixClass
    use CSRMatrixClass               , only: csrMat_t
    use DenseBlockDiagonalMatrixClass, only: DenseBlockDiagMatrix_t
+   use HexMeshClass                 , only: HexMesh
+   use ElementClass                 , only: Element
+   use MeshTypes                    , only: EFRONT, EBACK, EBOTTOM, ERIGHT, ETOP, ELEFT
+   
    implicit none
    
    private
@@ -76,14 +80,13 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Static_construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_rows_reduced,withMPI)
+   subroutine Static_construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,withMPI)
       implicit none
       !-arguments-----------------------------------
       class(StaticCondensedMatrix_t) :: this     !<> This matrix
       integer, optional, intent(in)  :: num_of_Rows
       integer, optional, intent(in)  :: num_of_Cols
       integer, optional, intent(in)  :: num_of_Blocks
-      integer, optional, intent(in)  :: num_of_rows_reduced
       logical, optional, intent(in)  :: WithMPI
       !---------------------------------------------
       
@@ -93,22 +96,10 @@ contains
       if ( .not. present(num_of_Blocks) ) then
          ERROR stop 'StaticCondensedMatrix_t needs num_of_Blocks'
       end if
-      if ( .not. present(num_of_rows_reduced) ) then
-         ERROR stop 'StaticCondensedMatrix_t needs num_of_rows_reduced'
-      end if
       
       this % num_of_Rows   = num_of_Rows
       this % num_of_Cols   = num_of_Rows     ! Only for square matrices
       this % num_of_Blocks = num_of_Blocks
-      this % size_i        = num_of_rows_reduced
-      this % size_b        = num_of_Rows - num_of_rows_reduced
-      
-      ! TODO: Move these constructions to constructPermutationArrays
-      
-      call this % Mii % construct (num_of_Blocks = this % num_of_Blocks)
-      call this % Mbb % construct (num_of_Rows   = this % size_b)
-      call this % Mib % construct (num_of_Rows   = this % size_b , num_of_Cols = this % size_i)
-      call this % Mbi % construct (num_of_Rows   = this % size_i , num_of_Cols = this % size_b)
       
    end subroutine Static_construct
 !
@@ -359,13 +350,11 @@ contains
 !  constructPermutationArrays:
 !     Routine to construct the "ElemInfo"
 !  --------------------------------------
-   subroutine Static_constructPermutationArrays(this,Nx,Ny,Nz,nEqn)
+   subroutine Static_constructPermutationArrays(this,mesh,nEqn)
       implicit none
       !-arguments-----------------------------------
       class(StaticCondensedMatrix_t), intent(inout) :: this    !<> This matrix
-      integer                       , intent(in)    :: Nx(:)
-      integer                       , intent(in)    :: Ny(:)
-      integer                       , intent(in)    :: Nz(:)
+      type(HexMesh), target         , intent(in)    :: mesh
       integer                       , intent(in)    :: nEqn
       !-local-variables-----------------------------
       integer :: eID
@@ -376,12 +365,19 @@ contains
       integer :: count_ii  ! counter for the inner    (elemental) DOFs, relative to the corresponding block of the Mii matrix
       integer :: nelem
       integer :: NDOF
+      integer        , pointer :: Nx(:)
+      integer        , pointer :: Ny(:)
+      integer        , pointer :: Nz(:)
+      type(Element)  , pointer :: e
       !---------------------------------------------
       
       count_i = 0
       count_b = 0
       
-      nelem = size(Nx)
+      nelem = mesh % no_of_elements
+      Nx => mesh % Nx
+      Ny => mesh % Ny
+      Nz => mesh % Nz
       
       safedeallocate(this % ElemInfo)
       safedeallocate(this % inner_blockSizes)
@@ -392,8 +388,9 @@ contains
       allocate ( this % BlockSizes(nelem) )
       
       do eID = 1, nelem
+         e => mesh % elements(eID)
          NDOF = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
-         this % inner_blockSizes(eID) = nEqn * (Nx(eID) - 1) * (Ny(eID) - 1) * (Nz(eID) - 1)
+         this % inner_blockSizes(eID) = 0 !nEqn * (Nx(eID) - 1) * (Ny(eID) - 1) * (Nz(eID) - 1)
          this %       BlockSizes(eID) = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
          
          allocate ( this % ElemInfo(eID) % perm_Indexes   (NDOF) )
@@ -406,7 +403,12 @@ contains
          do k=0, Nz(eID) ; do j=0, Ny(eID) ; do i=0, Nx(eID) ; do eq=1, nEqn
             count_el = count_el + 1
             
-            if ( k==0 .or. k==Nz(eID) .or. j==0 .or. j==Ny(eID) .or. i==0 .or. i==Nx(eID) ) then
+            if (     (j==0       .and. e % NumberOfConnections(EFRONT ) > 0 ) &
+                .or. (j==Ny(eID) .and. e % NumberOfConnections(EBACK  ) > 0 ) &
+                .or. (k==0       .and. e % NumberOfConnections(EBOTTOM) > 0 ) &
+                .or. (i==Nx(eID) .and. e % NumberOfConnections(ERIGHT ) > 0 ) &
+                .or. (k==Nz(eID) .and. e % NumberOfConnections(ETOP   ) > 0 ) &
+                .or. (i==0       .and. e % NumberOfConnections(ELEFT  ) > 0 )    ) then
                this % ElemInfo(eID) % dof_association(count_el) = BOUNDARY_DOF
                count_b = count_b + 1
                this % ElemInfo(eID) % perm_Indexes(count_el) = count_b
@@ -416,6 +418,7 @@ contains
                this % ElemInfo(eID) % perm_Indexes(count_el) = count_i
                count_ii = count_ii + 1
                this % ElemInfo(eID) % perm_Indexes_i(count_el) = count_ii
+               this % inner_blockSizes(eID) = this % inner_blockSizes(eID) + 1
             end if
             
          end do          ; end do          ; end do          ; end do
@@ -425,6 +428,14 @@ contains
       if ( (count_i+count_b) /= this % num_of_Rows ) then
          ERROR stop 'StaticCondensedMatrixClass :: Ivalid arguments in constructPermutationArrays'
       end if
+      
+      this % size_i        = count_i
+      this % size_b        = count_b
+      
+      call this % Mii % construct (num_of_Blocks = this % num_of_Blocks)
+      call this % Mbb % construct (num_of_Rows   = this % size_b)
+      call this % Mib % construct (num_of_Rows   = this % size_b , num_of_Cols = this % size_i)
+      call this % Mbi % construct (num_of_Rows   = this % size_i , num_of_Cols = this % size_b)
       
    end subroutine Static_constructPermutationArrays
 !

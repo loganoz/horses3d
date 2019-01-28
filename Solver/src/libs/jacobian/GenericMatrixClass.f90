@@ -32,14 +32,13 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_rows_reduced,withMPI)
+   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,withMPI)
       implicit none
       !---------------------------------------------
       class(Matrix_t) :: this
       integer, optional, intent(in) :: num_of_Rows
       integer, optional, intent(in) :: num_of_Cols
       integer, optional, intent(in) :: num_of_Blocks
-      integer, optional, intent(in) :: num_of_rows_reduced
       logical, optional, intent(in) :: WithMPI
       !---------------------------------------------
       ERROR stop ' :: construct not implemented for current matrix type'
