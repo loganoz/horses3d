@@ -4,9 +4,9 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Sun Jan 20 18:35:57 2019
+!   @Last revision date: Mon Jan 28 16:45:16 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f185e23f4068d64e2a8dbea357bd375bf1febba3
+!   @Last revision commit: d7287eb57ed10f49c4457713557b614ea83bee6f
 !
 !//////////////////////////////////////////////////////
 !
@@ -616,16 +616,18 @@ MODULE CSRMatrixClass
 !  Matrix-matrix multiplication for CSR matrices
 !     Cmat = A * B
 !  ---------------------------------------------
-   function CSR_MatMatMul(A,B) result(Cmat)
+   function CSR_MatMatMul(A,B,trans) result(Cmat)
       implicit none
       !-arguments--------------------------------------------------------------------
-      type(csrMat_t), intent(in)  :: A    !< Structure holding matrix
-      type(csrMat_t), intent(in)  :: B    !< Structure holding matrix
-      type(csrMat_t)              :: Cmat !< Structure holding matrix
+      type(csrMat_t)   , intent(in) :: A       !< Structure holding matrix
+      type(csrMat_t)   , intent(in) :: B       !< Structure holding matrix
+      logical, optional, intent(in) :: trans   !< A matrix is transposed?
+      type(csrMat_t)                :: Cmat    !< Structure holding matrix
       !-local-variables--------------------------------------------------------------
       real(kind=RP), allocatable :: c(:)
       integer,       allocatable :: ic(:), jc(:)
       integer                    :: info
+      character(len=1)           :: transInfo
       !------------------------------------------------------------------------------
       
       if (A % num_of_Cols /= B % num_Of_Rows) then
@@ -633,11 +635,21 @@ MODULE CSRMatrixClass
          stop
       end if
       
+      if ( present(trans) ) then
+         if (trans) then
+            transInfo = 't'
+         else
+            transInfo = 'n'
+         end if
+      else
+         transInfo = 'n'
+      end if
+      
 #ifdef HAS_MKL
       
       allocate( ic(A % num_of_Rows+1), jc(A % num_of_Rows+1), c(A % num_of_Rows+1) ) ! For some reason, mkl_dcsrmultcsr needs jc and c to be allocated, even with request 1 - 2
       
-      call mkl_dcsrmultcsr  ('n', 1, 8, A % num_of_Rows, A % num_of_Cols, B % num_of_Cols, &
+      call mkl_dcsrmultcsr  (transInfo, 1, 8, A % num_of_Rows, A % num_of_Cols, B % num_of_Cols, &
                               A % Values, A % Cols, A % Rows, &
                               B % Values, B % Cols, B % Rows, &
                               c, jc, ic, 0, info)
@@ -645,7 +657,7 @@ MODULE CSRMatrixClass
       deallocate(jc,c)
       allocate( c(ic(A % num_of_Rows+1) - 1), jc(ic(A % num_of_Rows+1) - 1) )
       
-      call mkl_dcsrmultcsr  ('n', 2, 8, A % num_of_Rows, A % num_of_Cols, B % num_of_Cols, &
+      call mkl_dcsrmultcsr  (transInfo, 2, 8, A % num_of_Rows, A % num_of_Cols, B % num_of_Cols, &
                               A % Values, A % Cols, A % Rows, &
                               B % Values, B % Cols, B % Rows, &
                               c, jc, ic, 0, info)
@@ -663,25 +675,37 @@ MODULE CSRMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   FUNCTION CSR_MatVecMul( A,u) RESULT(v)
+   FUNCTION CSR_MatVecMul( A,u, trans) RESULT(v)
    ! Matrix vector product (v = Au) for a CSR matrix .... v needs to be allocated beforehand
-   !   Assuming there's MKL
    !------------------------------------------------------------------------------
-      type(csrMat_t), intent(in)  :: A  !< Structure holding matrix
-      real(kind=RP) , intent(in)  :: u(A % num_of_Cols)  !< Vector to be multiplied
+      type(csrMat_t)   , intent(in)  :: A  !< Structure holding matrix
+      real(kind=RP)    , intent(in)  :: u(A % num_of_Cols)  !< Vector to be multiplied
+      logical, optional, intent(in) :: trans   !< A matrix is transposed?
       real(kind=RP)               :: v(A % num_of_Rows)  !> Result vector 
       !------------------------------------------------------------------------------
-      integer       :: i,j
-      REAL(KIND=RP) :: rsum
+      integer           :: i,j
+      REAL(KIND=RP)     :: rsum
+      character(len=1)  :: transInfo
       !------------------------------------------------------------------------------
     
       IF (A % num_of_Cols .NE. SIZE(U) .OR. A % num_of_Rows .NE. SIZE(v)) THEN
          STOP 'CSR_MatVecMul: Error - u dimensions mismatch'
       END IF
+      
+      if ( present(trans) ) then
+         if (trans) then
+            transInfo = 't'
+         else
+            transInfo = 'n'
+         end if
+      else
+         transInfo = 'n'
+      end if
     
 #ifdef HAS_MKL
-      CALL mkl_dcsrgemv('N', A % num_of_Rows, A % Values, A % Rows, A % Cols, u, v)
+      CALL mkl_dcsrgemv(transInfo, A % num_of_Rows, A % Values, A % Rows, A % Cols, u, v)
 #else
+      if (transInfo = 't') ERROR stop "CSR_MatVecMul with 't' only with MKL"
 !$omp parallel do private(j,rsum)
       DO i=1,A % num_of_Rows
          rsum = 0.0d0

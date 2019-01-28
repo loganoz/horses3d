@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Fri Jan 25 17:23:11 2019
+!   @Last revision date: Mon Jan 28 16:45:20 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 508b6d7bfca8c842ac2d4bdb38ff238e427d2f5c
+!   @Last revision commit: d7287eb57ed10f49c4457713557b614ea83bee6f
 !
 !//////////////////////////////////////////////////////
 !
@@ -26,6 +26,7 @@ MODULE MKLPardisoSolverClass
    use DGSEMClass
    use TimeIntegratorDefinitions
    use Utilities                 , only: AlmostEqual
+   use StopwatchClass            , only: Stopwatch
 #ifdef HAS_PETSC
    use petsc
 #endif
@@ -184,6 +185,7 @@ MODULE MKLPardisoSolverClass
          allocate (this % ALU)
       end if
       
+      call Stopwatch % CreateNewEvent("Sparse LU-Factorization")
       
    end subroutine ConstructMKLContext
 !
@@ -515,6 +517,8 @@ MODULE MKLPardisoSolverClass
       integer     :: error
       !-------------------------------------------------------------
       
+      call Stopwatch % Start("Sparse LU-Factorization")
+      
       if (self % Variable_dt) then
          call self % ALU % destruct
          call self % ALU % constructWithArrays  (self % A % Rows, &
@@ -533,6 +537,7 @@ MODULE MKLPardisoSolverClass
       stop 'MKL not linked correctly'
 #endif
       
+      call Stopwatch % Pause("Sparse LU-Factorization")
    end subroutine MKL_FactorizeJacobian
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

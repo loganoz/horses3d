@@ -13,6 +13,7 @@ module DenseBlockDiagonalMatrixClass
    use SMConstants
    use GenericMatrixClass
    use CSRMatrixClass, only: csrMat_t
+   use Jacobian      , only: JACEPS
 #include "Includes.h"
    implicit none
    
@@ -46,6 +47,7 @@ module DenseBlockDiagonalMatrixClass
          procedure :: SolveBlocks_LU
          procedure :: InvertBlocks_LU
          procedure :: getCSR
+         procedure :: getTransCSR
    end type DenseBlockDiagMatrix_t
 contains
 !
@@ -451,5 +453,64 @@ contains
       
       call Acsr % assembly()
       
-   end subroutine getCSR   
+   end subroutine getCSR
+   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --------------------------------------
+!  Convert the DBD matrix to a CSR matrix
+!  --------------------------------------
+   subroutine getTransCSR(this,Acsr)
+      implicit none
+      !-arguments---------------------------------------------------
+      class(DenseBlockDiagMatrix_t), intent(in)    :: this          !<  This matrix
+      class(csrMat_t)              , intent(inout) :: Acsr      !<  Facorized matrix
+      !-local-variables---------------------------------------------
+      integer :: k, ii, jj, j_offset, i
+      integer :: bID, rowsize, nnz_0, nnz
+      real(kind=RP), allocatable :: Vals(:)
+      integer      , allocatable :: Cols(:), Rows(:)
+      !-------------------------------------------------------------
+      
+      if (this % num_of_Rows /= Acsr % num_of_Rows) then
+         print*, 'DBD_getCSR :: ERROR: Matrix dimensions mismatch:', this % num_of_Rows, Acsr % num_of_Rows
+         stop
+      end if
+      
+      nnz_0 = sum(this % BlockSizes**2)
+      
+      allocate ( Rows(this % num_of_Rows+1) )
+      allocate ( Cols(nnz_0), Vals(nnz_0) )
+      
+      
+      
+      Rows(1) = 1
+      
+      i=1
+      k=1
+      j_offset = 0
+      nnz = 0
+      do bID = 1, this % numOfBlocks
+         do jj = 1, this % BlockSizes(bID)
+            rowsize = 0
+            do ii = 1, this % BlockSizes(bID) 
+               if (abs(this % Blocks(bID) % Matrix(ii,jj)) < JACEPS) cycle
+               
+               Vals(k) = this % Blocks(bID) % Matrix(ii,jj)
+               Cols(k) = ii + j_offset
+               k = k + 1
+               rowsize = rowsize + 1
+               nnz = nnz + 1
+            end do
+            Rows(i+1) = Rows(i) + rowsize
+            i = i + 1
+         end do
+         
+         j_offset = j_offset + this % BlockSizes(bID)
+      end do
+      
+      call Acsr % constructWithArrays( Rows, Cols(1:nnz), Vals(1:nnz), this % num_of_Rows )
+      
+   end subroutine getTransCSR
 end module DenseBlockDiagonalMatrixClass

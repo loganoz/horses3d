@@ -4,9 +4,9 @@
 !   @File:    StaticCondensationSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Mon Jan 28 12:16:38 2019
+!   @Last revision date: Mon Jan 28 16:45:21 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: b9918cac4908927d56ed9cc3534d32bab72b264a
+!   @Last revision commit: d7287eb57ed10f49c4457713557b614ea83bee6f
 !
 !//////////////////////////////////////////////////////
 !
@@ -140,7 +140,7 @@ contains
       
       
       call Stopwatch % CreateNewEvent ("System condensation")
-      
+      call Stopwatch % CreateNewEvent("Block inversion")
    end subroutine SCS_construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -440,24 +440,26 @@ contains
       
       ! Invert blocks and get CSR
       call this % A % Mii % InvertBlocks_LU (Mii_inv)
-      call Mii_inv % getCSR (this % Mii_inv)
+      call Mii_inv % getTransCSR (this % Mii_inv)
       
       ! Get condensed RHS
-      Minv_bi = CSR_MatVecMul (this % Mii_inv, this % bi)
+      Minv_bi = CSR_MatVecMul (this % Mii_inv, this % bi, .TRUE.)
       this % linsolver % b = CSR_MatVecMul (this % A % Mib, Minv_bi)
       this % linsolver % b = this % bb - this % linsolver % b
       
       ! Get contensed matrix
-      Mii_inv_Mbi = CSR_MatMatMul (this % Mii_inv  , this % A % Mbi)
+      Mii_inv_Mbi = CSR_MatMatMul (this % Mii_inv  , this % A % Mbi, .TRUE.)
       this % linsolver % A = CSR_MatMatMul (this % A % Mib, Mii_inv_Mbi )
       this % linsolver % A = CSR_MatAdd (this % A % Mbb, this % linsolver % A, -1._RP)
+      
+      call Stopwatch % Pause("System condensation")
       
       call this % linsolver % FactorizeJacobian
       
       call Mii_inv % destruct
       call Mii_inv_Mbi % destruct
       
-      call Stopwatch % Pause("System condensation")
+      
    end subroutine SCS_getCondensedSystem
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -477,7 +479,7 @@ contains
       call Stopwatch % Start("System condensation")
       
       ! Get condensed RHS
-      Minv_bi = CSR_MatVecMul (this % Mii_inv, this % bi)
+      Minv_bi = CSR_MatVecMul (this % Mii_inv, this % bi, .TRUE.)
       this % linsolver % b = CSR_MatVecMul (this % A % Mib, Minv_bi)
       this % linsolver % b = this % bb - this % linsolver % b
       
@@ -500,7 +502,7 @@ contains
       !---------------------------------------------------------------------
       
       xi = CSR_MatVecMul(this % A % Mbi, xb)
-      xi = CSR_MatVecMul(this % Mii_inv, this % bi - xi)
+      xi = CSR_MatVecMul(this % Mii_inv, this % bi - xi, .TRUE.)
       
       call this % getGlobalArray(this % x, xi, xb)
       
