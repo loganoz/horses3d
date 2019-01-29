@@ -274,7 +274,7 @@ CONTAINS
 !
    SUBROUTINE solve(this, nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
       IMPLICIT NONE
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      CLASS(MultigridSolver_t), target, INTENT(INOUT) :: this
       integer,       intent(in)               :: nEqn, nGradEqn
       procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol

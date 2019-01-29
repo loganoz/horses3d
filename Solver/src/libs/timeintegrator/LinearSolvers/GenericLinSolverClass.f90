@@ -33,7 +33,7 @@ module GenericLinSolverClass
       integer              :: DimPrb                ! Dimension of the problem
       integer              :: niter = 0             ! Number of iterations to reach solution (for iterative solvers)
       integer              :: JacobianComputation = NUMERICAL_JACOBIAN
-      type(DGSem), pointer :: p_sem   
+      type(DGSem), pointer :: p_sem => null()
    contains
       !Subroutines:
       procedure :: construct
@@ -133,7 +133,7 @@ contains
 !
    subroutine solve(this,nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt,computeA)
       implicit none
-      class(GenericLinSolver_t), intent(inout) :: this
+      class(GenericLinSolver_t), target, intent(inout) :: this
       integer,       intent(in)                :: nEqn
       integer,       intent(in)                :: nGradEqn
       procedure(ComputeTimeDerivative_f)       :: ComputeTimeDerivative

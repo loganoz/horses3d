@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeSmootherClass.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:07 2018
-!   @Last revision date: Fri Jan 25 17:23:13 2019
+!   @Last revision date: Tue Jan 29 18:48:25 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 508b6d7bfca8c842ac2d4bdb38ff238e427d2f5c
+!   @Last revision commit: 0f32bff29d29f9d71830bf5971f5e3b189a1d8b8
 !
 !//////////////////////////////////////////////////////
 !
@@ -190,7 +190,7 @@ CONTAINS
    SUBROUTINE solve(this, nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
       use DenseMatUtilities
       IMPLICIT NONE
-      CLASS(MatFreeSmooth_t), INTENT(INOUT) :: this
+      CLASS(MatFreeSmooth_t), target, INTENT(INOUT) :: this
       integer, intent(in)                     :: nEqn, nGradEqn
       procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol

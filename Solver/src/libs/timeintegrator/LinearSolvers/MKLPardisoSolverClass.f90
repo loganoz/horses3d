@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Mon Jan 28 16:45:20 2019
+!   @Last revision date: Tue Jan 29 18:48:24 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d7287eb57ed10f49c4457713557b614ea83bee6f
+!   @Last revision commit: 0f32bff29d29f9d71830bf5971f5e3b189a1d8b8
 !
 !//////////////////////////////////////////////////////
 !
@@ -243,7 +243,7 @@ MODULE MKLPardisoSolverClass
 !     ----------------------------------------------------
 !
       !-----------------------------------------------------------
-      class(MKLPardisoSolver_t), intent(inout) :: this
+      class(MKLPardisoSolver_t), target, intent(inout) :: this
       integer,       intent(in)                :: nEqn
       integer,       intent(in)                :: nGradEqn
       procedure(ComputeTimeDerivative_f)               :: ComputeTimeDerivative

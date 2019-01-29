@@ -238,7 +238,7 @@ CONTAINS
    SUBROUTINE solve(this, nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
    use DenseMatUtilities
       IMPLICIT NONE
-      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
+      CLASS(IterativeSolver_t), target, INTENT(INOUT) :: this
       integer,       intent(in)               :: nEqn, nGradEqn
       procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol

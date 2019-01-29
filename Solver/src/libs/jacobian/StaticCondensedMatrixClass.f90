@@ -4,9 +4,9 @@
 !   @File:    StaticCondensedMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Mon Jan 28 18:24:36 2019
+!   @Last revision date: Tue Jan 29 18:48:22 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: dee8ab8d5e78ed3d128a4350162a11d8455b300d
+!   @Last revision commit: 0f32bff29d29f9d71830bf5971f5e3b189a1d8b8
 !
 !//////////////////////////////////////////////////////
 !
@@ -57,6 +57,8 @@ module StaticCondensedMatrixClass
       integer                       :: size_i      ! Size of inner system (size of Mii)
       integer                       :: num_of_Blocks
       integer                       :: num_of_Cols
+      
+      logical                       :: ignore_boundaries = .FALSE. ! When .TRUE., Mii, does not contain the DOFs on the physical boundaries
       
       contains
          procedure :: construct                    => Static_construct
@@ -350,12 +352,13 @@ contains
 !  constructPermutationArrays:
 !     Routine to construct the "ElemInfo"
 !  --------------------------------------
-   subroutine Static_constructPermutationArrays(this,mesh,nEqn)
+   subroutine Static_constructPermutationArrays(this,mesh,nEqn,ignore_boundaries)
       implicit none
       !-arguments-----------------------------------
       class(StaticCondensedMatrix_t), intent(inout) :: this    !<> This matrix
       type(HexMesh), target         , intent(in)    :: mesh
       integer                       , intent(in)    :: nEqn
+      logical      , optional       , intent(in)    :: ignore_boundaries
       !-local-variables-----------------------------
       integer :: eID
       integer :: i,j,k,eq
@@ -370,6 +373,10 @@ contains
       integer        , pointer :: Nz(:)
       type(Element)  , pointer :: e
       !---------------------------------------------
+      
+      if ( present(ignore_boundaries) ) then
+         this % ignore_boundaries = ignore_boundaries
+      end if
       
       count_i = 0
       count_b = 0
@@ -387,43 +394,83 @@ contains
       allocate ( this % inner_blockSizes(nelem) )
       allocate ( this % BlockSizes(nelem) )
       
-      do eID = 1, nelem
-         e => mesh % elements(eID)
-         NDOF = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
-         this % inner_blockSizes(eID) = 0 !nEqn * (Nx(eID) - 1) * (Ny(eID) - 1) * (Nz(eID) - 1)
-         this %       BlockSizes(eID) = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
-         
-         allocate ( this % ElemInfo(eID) % perm_Indexes   (NDOF) )
-         allocate ( this % ElemInfo(eID) % perm_Indexes_i (NDOF) )
-         allocate ( this % ElemInfo(eID) % dof_association(NDOF) )
-         this % ElemInfo(eID) % perm_Indexes_i = -1
-         
-         count_ii = 0
-         count_el = 0
-         do k=0, Nz(eID) ; do j=0, Ny(eID) ; do i=0, Nx(eID) ; do eq=1, nEqn
-            count_el = count_el + 1
+      if (this % ignore_boundaries) then
+!
+!        Do not assign (physical) boundary DOFs to Mii
+!        ---------------------------------------------
+         do eID = 1, nelem
+            e => mesh % elements(eID)
+            NDOF = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
+            this % inner_blockSizes(eID) = nEqn * (Nx(eID) - 1) * (Ny(eID) - 1) * (Nz(eID) - 1)
+            this %       BlockSizes(eID) = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
             
-            if (     (j==0       .and. e % NumberOfConnections(EFRONT ) > 0 ) &
-                .or. (j==Ny(eID) .and. e % NumberOfConnections(EBACK  ) > 0 ) &
-                .or. (k==0       .and. e % NumberOfConnections(EBOTTOM) > 0 ) &
-                .or. (i==Nx(eID) .and. e % NumberOfConnections(ERIGHT ) > 0 ) &
-                .or. (k==Nz(eID) .and. e % NumberOfConnections(ETOP   ) > 0 ) &
-                .or. (i==0       .and. e % NumberOfConnections(ELEFT  ) > 0 )    ) then
-               this % ElemInfo(eID) % dof_association(count_el) = BOUNDARY_DOF
-               count_b = count_b + 1
-               this % ElemInfo(eID) % perm_Indexes(count_el) = count_b
-            else
-               this % ElemInfo(eID) % dof_association(count_el) = INNER_DOF
-               count_i = count_i + 1
-               this % ElemInfo(eID) % perm_Indexes(count_el) = count_i
-               count_ii = count_ii + 1
-               this % ElemInfo(eID) % perm_Indexes_i(count_el) = count_ii
-               this % inner_blockSizes(eID) = this % inner_blockSizes(eID) + 1
-            end if
+            allocate ( this % ElemInfo(eID) % perm_Indexes   (NDOF) )
+            allocate ( this % ElemInfo(eID) % perm_Indexes_i (NDOF) )
+            allocate ( this % ElemInfo(eID) % dof_association(NDOF) )
+            this % ElemInfo(eID) % perm_Indexes_i = -1
             
-         end do          ; end do          ; end do          ; end do
-         
-      end do
+            count_ii = 0
+            count_el = 0
+            do k=0, Nz(eID) ; do j=0, Ny(eID) ; do i=0, Nx(eID) ; do eq=1, nEqn
+               count_el = count_el + 1
+               
+               if ( (i==0) .or. (i==Nx(eID)) .or. (j==0) .or. (j==Ny(eID)) .or. (k==0) .or. (k==Nz(eID)) ) then
+                  this % ElemInfo(eID) % dof_association(count_el) = BOUNDARY_DOF
+                  count_b = count_b + 1
+                  this % ElemInfo(eID) % perm_Indexes(count_el) = count_b
+               else
+                  this % ElemInfo(eID) % dof_association(count_el) = INNER_DOF
+                  count_i = count_i + 1
+                  this % ElemInfo(eID) % perm_Indexes(count_el) = count_i
+                  count_ii = count_ii + 1
+                  this % ElemInfo(eID) % perm_Indexes_i(count_el) = count_ii
+               end if
+               
+            end do          ; end do          ; end do          ; end do
+            
+         end do
+      else
+!
+!        Assign (physical) boundary DOFs to Mii (DEFAULT)
+!        ------------------------------------------------
+         do eID = 1, nelem
+            e => mesh % elements(eID)
+            NDOF = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
+            this % inner_blockSizes(eID) = 0
+            this %       BlockSizes(eID) = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
+            
+            allocate ( this % ElemInfo(eID) % perm_Indexes   (NDOF) )
+            allocate ( this % ElemInfo(eID) % perm_Indexes_i (NDOF) )
+            allocate ( this % ElemInfo(eID) % dof_association(NDOF) )
+            this % ElemInfo(eID) % perm_Indexes_i = -1
+            
+            count_ii = 0
+            count_el = 0
+            do k=0, Nz(eID) ; do j=0, Ny(eID) ; do i=0, Nx(eID) ; do eq=1, nEqn
+               count_el = count_el + 1
+               
+               if (     (j==0       .and. e % NumberOfConnections(EFRONT ) > 0 ) &
+                   .or. (j==Ny(eID) .and. e % NumberOfConnections(EBACK  ) > 0 ) &
+                   .or. (k==0       .and. e % NumberOfConnections(EBOTTOM) > 0 ) &
+                   .or. (i==Nx(eID) .and. e % NumberOfConnections(ERIGHT ) > 0 ) &
+                   .or. (k==Nz(eID) .and. e % NumberOfConnections(ETOP   ) > 0 ) &
+                   .or. (i==0       .and. e % NumberOfConnections(ELEFT  ) > 0 )    ) then
+                  this % ElemInfo(eID) % dof_association(count_el) = BOUNDARY_DOF
+                  count_b = count_b + 1
+                  this % ElemInfo(eID) % perm_Indexes(count_el) = count_b
+               else
+                  this % ElemInfo(eID) % dof_association(count_el) = INNER_DOF
+                  count_i = count_i + 1
+                  this % ElemInfo(eID) % perm_Indexes(count_el) = count_i
+                  count_ii = count_ii + 1
+                  this % ElemInfo(eID) % perm_Indexes_i(count_el) = count_ii
+                  this % inner_blockSizes(eID) = this % inner_blockSizes(eID) + 1
+               end if
+               
+            end do          ; end do          ; end do          ; end do
+            
+         end do
+      end if
       
       if ( (count_i+count_b) /= this % num_of_Rows ) then
          ERROR stop 'StaticCondensedMatrixClass :: Ivalid arguments in constructPermutationArrays'

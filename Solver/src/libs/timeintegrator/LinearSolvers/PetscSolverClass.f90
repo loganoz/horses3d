@@ -160,7 +160,7 @@ MODULE PetscSolverClass
    SUBROUTINE SolveLinPrb(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter, time,dt, ComputeA)
       IMPLICIT NONE
       !-------------------------------------------------------------
-      CLASS(PetscKspLinearSolver_t), INTENT(INOUT) :: this
+      CLASS(PetscKspLinearSolver_t), target, INTENT(INOUT) :: this
       integer,       intent(in)                    :: nEqn, nGradEqn
       procedure(ComputeTimeDerivative_f)                   :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                      :: time
