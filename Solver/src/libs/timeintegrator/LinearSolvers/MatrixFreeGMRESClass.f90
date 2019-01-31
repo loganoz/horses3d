@@ -1,10 +1,14 @@
 !
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!//////////////////////////////////////////////////////
 !
-!      MatrixFreeGMRESClass.f90
-!      Created: 2017-04-10 10:006:00 +0100 
-!      By: Carlos Redondo
-!          Andrés Rueda (adapted to HORSES3D)
+!   @File:    MatrixFreeGMRESClass.f90
+!   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
+!   @Created: Tue Apr 10 16:26:02 2017
+!   @Last revision date: Thu Jan 31 10:44:55 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: ebc7d57fabf133f06c19be869c1134ef5a5b86d0
+!
+!//////////////////////////////////////////////////////
 !
 !      Class for solving linear systems using a matrix free GMRES
 !
