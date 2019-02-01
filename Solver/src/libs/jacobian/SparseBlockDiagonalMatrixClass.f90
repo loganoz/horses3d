@@ -111,26 +111,18 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Preallocate(this, nnz, nnzs, ForceDiagonal)
+   subroutine Preallocate(this, nnz, nnzs)
       IMPLICIT NONE
       !---------------------------------------------
       class(SparseBlockDiagMatrix_t), intent(inout) :: this    !<> This matrix
       integer, optional            , intent(in)    :: nnz     !<  Not needed here
       integer, optional            , intent(in)    :: nnzs(:) !<  nnzs contains the block sizes!
-      logical, optional, intent(in)  :: ForceDiagonal
       !---------------------------------------------
       integer :: i, k ! counters
-      logical :: mustForceDiagonal
       !---------------------------------------------
       
       if (.not. present(nnzs) ) ERROR stop ':: SparseBlockDiagMatrix needs the block sizes'
       if ( size(nnzs) /= this % NumOfBlocks) ERROR stop ':: SparseBlockDiagMatrix: wrong dimension for the block sizes'
-      
-      if ( present(ForceDiagonal) ) then
-         mustForceDiagonal = ForceDiagonal
-      else
-         mustForceDiagonal = .FALSE.
-      end if
       
       this % BlockSizes = nnzs
       this % num_of_Rows = sum(nnzs)
@@ -144,7 +136,7 @@ contains
       do i=1, this % NumOfBlocks
          
          call this % Blocks(i) % Matrix % construct ( num_of_Rows = nnzs(i) )
-         call this % Blocks(i) % Matrix % PreAllocate(ForceDiagonal = mustForceDiagonal)
+         call this % Blocks(i) % Matrix % PreAllocate()
          
          safedeallocate (this % Blocks(i) % Indexes) ; allocate ( this % Blocks(i) % Indexes(nnzs(i)) )
          
@@ -156,16 +148,25 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Reset(this)
+   subroutine Reset(this, ForceDiagonal)
       IMPLICIT NONE
       !---------------------------------------------
       class(SparseBlockDiagMatrix_t), intent(inout) :: this     !<> This matrix
+      logical, optional, intent(in)  :: ForceDiagonal
       !---------------------------------------------
       integer :: i
+      logical :: mustForceDiagonal
       !---------------------------------------------
       
+      
+      if ( present(ForceDiagonal) ) then
+         mustForceDiagonal = ForceDiagonal
+      else
+         mustForceDiagonal = .FALSE.
+      end if
+      
       do i=1, this % NumOfBlocks
-         call this % Blocks(i) % Matrix % Reset
+         call this % Blocks(i) % Matrix % Reset(ForceDiagonal = mustForceDiagonal)
       end do
       
    end subroutine Reset

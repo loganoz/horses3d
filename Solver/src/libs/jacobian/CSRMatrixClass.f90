@@ -4,9 +4,9 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Mon Jan 28 18:24:29 2019
+!   @Last revision date: Fri Feb  1 17:24:56 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: dee8ab8d5e78ed3d128a4350162a11d8455b300d
+!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,6 +14,7 @@ MODULE CSRMatrixClass
    USE SMConstants          , only: RP, STD_OUT   
    use GenericMatrixClass              
    use LinkedListMatrixClass, only: LinkedListMatrix_t
+   use Jacobian             , only: JACEPS
 #include "Includes.h"
    IMPLICIT NONE
    
@@ -32,7 +33,7 @@ MODULE CSRMatrixClass
       
       integer,        allocatable :: firstIdx(:,:)         ! For each row, specifies the position of the beginning of each element column
       type(LinkedListMatrix_t)    :: ListMatrix
-      logical                     :: usingListMat
+      logical                     :: usingListMat =.FALSE.
    contains
    
       procedure :: construct           => CSR_Construct
@@ -45,6 +46,7 @@ MODULE CSRMatrixClass
       procedure :: destruct
       procedure :: Shift               => SetMatShift
       procedure :: SetColumn
+      procedure :: AddToColumn         => CSR_AddToColumn
       procedure :: SetEntry            => CSR_SetEntry
       procedure :: AddToEntry          => CSR_AddToEntry
       procedure :: GetDense            => CSR2Dense
@@ -169,24 +171,16 @@ MODULE CSRMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine CSR_PreAllocate(this,nnz,nnzs, ForceDiagonal)
+   subroutine CSR_PreAllocate(this,nnz,nnzs)
       implicit none
       !-----------------------------------
       CLASS(csrMat_t), INTENT(INOUT) :: this             !<> Matrix to be preallocated
       integer, optional, intent(in)  :: nnz        !< Num of nonzero entries all rows
       integer, optional, intent(in)  :: nnzs(:)     !< Num of nonzero entries in every row 
-      logical, optional, intent(in)  :: ForceDiagonal
       !-----------------------------------
       integer :: i,k,istat
       integer :: total_nnz
-      logical :: mustForceDiagonal
       !-----------------------------------
-      
-      if ( present(ForceDiagonal) ) then
-         mustForceDiagonal = ForceDiagonal
-      else
-         mustForceDiagonal = .FALSE.
-      end if
       
       if (present(nnz)) then
 !
@@ -210,17 +204,10 @@ MODULE CSRMatrixClass
          this % usingListMat = .TRUE.
          call this % ListMatrix % construct(num_of_Rows = this % num_of_Rows)
          
-         if (mustForceDiagonal) then
-            do i = 1, this % num_of_Rows
-               call this % ListMatrix % ForceAddToEntry(i,i,0._RP)
-            end do
-         end if
          return
       end if
       
       IF(total_nnz < 1) STOP ':: Invalid nnz' 
-      
-      k = this % num_of_Rows * total_nnz
        
       safedeallocate(this % Cols)   ; ALLOCATE( this % Cols(total_nnz),STAT=istat )
       IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
@@ -264,18 +251,26 @@ MODULE CSRMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine CSR_Reset(this)
+   subroutine CSR_Reset(this, ForceDiagonal)
       implicit none
       !-----------------------------------
       CLASS(csrMat_t), INTENT(INOUT) :: this           !<> Matrix
+      logical, optional, intent(in)  :: ForceDiagonal
+      !-----------------------------------
+      logical                :: mustForceDiagonal
       !-----------------------------------
       
-      if (this % usingListMat) then
-         call this % ListMatrix % Reset()
+      if ( present(ForceDiagonal) ) then
+         mustForceDiagonal = ForceDiagonal
       else
-         this % Cols = 0
-         this % Diag = 0
+         mustForceDiagonal = .FALSE.
+      end if
+      
+      if (this % usingListMat) then
+         call this % ListMatrix % Reset(ForceDiagonal = mustForceDiagonal)
+      else
          this % Values = 0._RP
+         if (mustForceDiagonal) call this % AssignDiag
       end if
    end subroutine CSR_Reset
 !
@@ -349,6 +344,7 @@ MODULE CSRMatrixClass
             end if
             if (j == A % Rows (i+1)) then
                write(*,*) 'CSR_AssignDiag: ERROR? - No diagonal entry found in matrix'
+               stop
             end if
          end do
       end do
@@ -396,6 +392,45 @@ MODULE CSRMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  -------------------------------------------------
+!  Adds values to (part of) a column of a csr matrix
+!  -------------------------------------------------
+   SUBROUTINE CSR_AddToColumn(this, nvalues, irow, icol, values )
+      IMPLICIT NONE
+      !------------------------------------------------------------------------------ 
+      CLASS(csrMat_t), INTENT(INOUT) :: this              !<> Global matrix
+      integer        , INTENT(IN)    :: nvalues
+      integer        , INTENT(IN)    :: irow(1:)    !< Different positions of Column
+      integer        , INTENT(IN)    :: icol            !< Number of Row/Column
+      REAL(KIND=RP)  , INTENT(IN)    :: values(:)         !< Values to be added to global matrivx¿x
+      !------------------------------------------------------------------------------ 
+      integer :: i !,k,l,c,
+      !------------------------------------------------------------------------------
+      
+      IF (nvalues .NE. SIZE(Values)) THEN
+         WRITE (*,*) 'CSR_AddToCol: Dimension error (Values-RowIndexes)'
+         STOP
+      END IF
+      
+      IF ( icol <= 0 ) THEN
+         WRITE (*,*) 'CSR_AddToCol: icol error'
+         STOP
+      END IF
+      
+      if (this % usingListMat) then
+         call this % ListMatrix % AddToColumn ( nvalues, irow, icol, values )
+      else
+         DO i=1,nvalues
+            IF ( irow(i) <= 0 ) CYCLE
+            
+            CALL this % SetEntry(irow(i),icol,values(i))
+         END DO
+      end if
+      
+   END SUBROUTINE CSR_AddToColumn
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 !  ---------------------------------------------
 !  Set given value to an element of a CSR matrix
 !  ---------------------------------------------
@@ -414,6 +449,8 @@ MODULE CSRMatrixClass
          write (*,*) 'CSR_SetEntry: Dimension error. [row,col]=', row, col
          stop
       end if
+      
+      if (abs(value) < JACEPS) return
       
       if (this % usingListMat) then
          call this % ListMatrix % SetEntry(row,col,value)
@@ -444,6 +481,8 @@ MODULE CSRMatrixClass
          write (*,*) 'CSR_SetEntry: Dimension error'
          stop
       end if
+      
+      if (abs(value) < JACEPS) return
       
       if (this % usingListMat) then
          call this % ListMatrix % AddToEntry(row,col,value)
@@ -532,7 +571,6 @@ MODULE CSRMatrixClass
       !------------------------------------------
       CLASS(csrMat_t), INTENT(INOUT) :: this
       !------------------------------------------
-      
       safedeallocate(this % Rows)
       safedeallocate(this % Cols)
       safedeallocate(this % Values)

@@ -1,27 +1,33 @@
-!////////////////////////////////////////////////////////////////////////
 !
-!      PETScMatrixClass.f90
-!      Created: 2018-02-18 17:07:00 +0100 
-!      By: Andrés Rueda
+!//////////////////////////////////////////////////////
+!
+!   @File:    PETScMatrixClass.f90
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
+!   @Created: Sun Feb 18 14:00:00 2018
+!   @Last revision date: Fri Feb  1 17:25:00 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
+!
+!//////////////////////////////////////////////////////
 !
 !      Class for sparse csr matrices in PETSc context
 !
 !////////////////////////////////////////////////////////////////////////
+#include "Includes.h"
+#ifdef HAS_PETSC
+#include "petsc/finclude/petsc.h"
+#endif
 module PETScMatrixClass
    use SMConstants
    use GenericMatrixClass
    use CSRMatrixClass
+   use Jacobian            , only: JACEPS
 #ifdef HAS_PETSC
    use petsc
 #endif
    implicit none
    private
    public PETSCMatrix_t, Matrix_t
-
-#ifdef HAS_PETSC
-!#include <petsc.h>
-#include "petsc/finclude/petsc.h"
-#endif
    
    type, extends(Matrix_t) :: PETSCMatrix_t
 #ifdef HAS_PETSC
@@ -29,12 +35,17 @@ module PETScMatrixClass
       PetscScalar :: Ashift   ! Stores the current shift to the matrix
       PetscBool   :: withMPI
 #endif
+      ! Variables for matrices with blocks
+      integer      ,  allocatable :: BlockIdx(:)  ! Index of first element of block
+      integer      ,  allocatable :: BlockSize(:) ! Size of each block
+      
       contains
          procedure :: construct
          procedure :: destruct
          procedure :: Preallocate
          procedure :: Reset
          procedure :: SetEntry
+         procedure :: AddToEntry       => PETScMat_AddToEntry
          procedure :: SetColumn
          procedure :: AddToColumn
          procedure :: Shift
@@ -42,6 +53,9 @@ module PETScMatrixClass
          procedure :: PreAssembly
          procedure :: Assembly
          procedure :: GetCSRMatrix
+         procedure :: SpecifyBlockInfo => PETSCMat_SpecifyBlockInfo
+         procedure :: AddToBlockEntry  => PETScMat_AddToBlockEntry
+         procedure :: SetBlockEntry    => PETScMat_SetBlockEntry
    end type PETSCMatrix_t
    
 !
@@ -104,25 +118,16 @@ module PETScMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Preallocate(this, nnz, nnzs, ForceDiagonal)
+   subroutine Preallocate(this, nnz, nnzs)
       implicit none
       !---------------------------------------------
-      CLASS(PETSCMatrix_t), intent(inout)       :: this
-      integer, optional, intent(in)  :: nnzs(:)
-      logical, optional, intent(in)  :: ForceDiagonal
+      class(PETSCMatrix_t) , intent(inout) :: this
+      integer, optional    , intent(in)    :: nnzs(:)
 #ifdef HAS_PETSC
       PetscInt, optional, intent(in)            :: nnz
       !---------------------------------------------
-      logical :: mustForceDiagonal
-      !---------------------------------------------
       
       if (.not. present(nnz)) ERROR stop ':: PETSc matrix needs nnz'
-      
-      if ( present(ForceDiagonal) ) then
-         mustForceDiagonal = ForceDiagonal
-      else
-         mustForceDiagonal = .FALSE.
-      end if
       
       IF(this%withMPI) THEN
          CALL MatMPIAIJSetPreallocation(this%A, nnz/25, PETSC_NULL_INTEGER,24 * nnz/25, PETSC_NULL_INTEGER,ierr)
@@ -132,11 +137,6 @@ module PETScMatrixClass
          CALL CheckPetscErr(ierr, 'error in MatSeqAIJSetPreallocation')
       ENDIF
       
-      if (mustForceDiagonal) then
-         do i = 1, this % num_of_Rows
-            call this % SetEntry(i,i,0._RP)
-         end do
-      end if
 #else
       INTEGER, optional, intent(in)  :: nnz
       STOP ':: PETSc is not linked correctly'
@@ -145,21 +145,34 @@ module PETScMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Reset(this)
+   subroutine Reset(this, ForceDiagonal)
       implicit none
       !---------------------------------------------
-      CLASS(PETSCMatrix_t),     intent(inout)     :: this
+      class(PETSCMatrix_t), intent(inout) :: this
+      logical, optional   , intent(in)    :: ForceDiagonal
 #ifdef HAS_PETSC
       !---------------------------------------------
       integer :: i
+      logical :: mustForceDiagonal
+      !---------------------------------------------
       
-      CALL MatZeroEntries(this%A, ierr)
-      CALL CheckPetscErr(ierr,'error in MatZeroEntries')
+      if ( present(ForceDiagonal) ) then
+         mustForceDiagonal = ForceDiagonal
+      else
+         mustForceDiagonal = .FALSE.
+      end if
       
-      ! secure diagonal entries
-      do i=0, this % num_of_Rows-1
-         CALL MatSetValues(this%A,1,i,1,i,0._RP ,INSERT_VALUES,ierr)
-      end do
+      call MatZeroEntries(this%A, ierr)
+      call CheckPetscErr(ierr,'error in MatZeroEntries')
+      
+      if (mustForceDiagonal) then
+!$omp critical
+         do i = 1, this % num_of_Rows
+            CALL MatSetValues(this%A, 1 ,i-1,1,i-1,0._RP,ADD_VALUES,ierr)
+         end do
+!$omp end critical
+      end if
+      
 #else
       STOP ':: PETSc is not linked correctly'
 #endif
@@ -176,9 +189,13 @@ module PETScMatrixClass
       PetscInt            , intent(in)    :: col
       PetscScalar         , intent(in)    :: value
       !---------------------------------------------
-   
+      
+      if (abs(value) < JACEPS) return
+      
+!$omp critical
       CALL MatSetValues(this%A, 1 ,row-1,1,col-1,value,INSERT_VALUES,ierr)
       CALL CheckPetscErr(ierr, 'error in MatSetValues')
+!$omp end critical
 #else
       INTEGER        , intent(in) :: row
       INTEGER        , intent(in) :: col
@@ -186,6 +203,32 @@ module PETScMatrixClass
       STOP ':: PETSc is not linked correctly'
 #endif
    end subroutine SetEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine PETScMat_AddToEntry(this, row, col, value )
+      implicit none
+      !---------------------------------------------
+      class(PETSCMatrix_t), intent(inout) :: this
+#ifdef HAS_PETSC
+      PetscInt            , intent(in)    :: row
+      PetscInt            , intent(in)    :: col
+      PetscScalar         , intent(in)    :: value
+      !---------------------------------------------
+      
+      if (abs(value) < JACEPS) return
+      
+!$omp critical
+      CALL MatSetValues(this%A, 1 ,row-1,1,col-1,value,ADD_VALUES,ierr)
+      CALL CheckPetscErr(ierr, 'error in MatSetValues')
+!$omp end critical
+#else
+      INTEGER        , intent(in) :: row
+      INTEGER        , intent(in) :: col
+      real(kind=RP)  , intent(in) :: value
+      STOP ':: PETSc is not linked correctly'
+#endif
+   end subroutine PETScMat_AddToEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -199,9 +242,10 @@ module PETScMatrixClass
       PetscInt, intent(in)                               :: icol
       PetscScalar, DIMENSION(:), intent(in)              :: values
       !---------------------------------------------
-   
+!$omp critical
       CALL MatSetValues(this%A,nvalues,irow-1,1,icol-1,values,INSERT_VALUES,ierr)
       CALL CheckPetscErr(ierr, 'error in MatSetValues')
+!$omp end critical
 #else
       INTEGER, intent(in)                               :: nvalues
       INTEGER, DIMENSION(:), intent(in)                 :: irow
@@ -221,9 +265,11 @@ module PETScMatrixClass
       PetscInt, DIMENSION(:), intent(in)                 :: irow
       PetscInt, intent(in)                               :: icol
       PetscScalar, DIMENSION(:), intent(in)              :: values
-   
+      
+!$omp critical
       CALL MatSetValues(this%A,nvalues,irow-1,1,icol-1,values,ADD_VALUES,ierr)
       CALL CheckPetscErr(ierr, 'error in MatSetValues')
+!$omp end critical
 #else
       INTEGER, intent(in)                               :: nvalues
       INTEGER, DIMENSION(:), intent(in)                 :: irow
@@ -364,6 +410,81 @@ module PETScMatrixClass
       STOP ':: PETSc is not linked correctly'
 #endif
    end subroutine GetCSRMatrix
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine PETScMat_SpecifyBlockInfo(this,BlockIdx,BlockSize)
+      implicit none
+      !-arguments-----------------------------------
+      CLASS(PETSCMatrix_t), intent(inout) :: this        !<    PETSc matrix
+      integer             , intent(in)    :: BlockIdx(:)
+      integer             , intent(in)    :: BlockSize(:)
+      !---------------------------------------------
+      
+      safedeallocate(this % BlockIdx)  ; allocate (this % BlockIdx (size(BlockIdx )) )
+      safedeallocate(this % BlockSize) ; allocate (this % BlockSize(size(BlockSize)) )
+      this % BlockIdx  = BlockIdx
+      this % BlockSize = BlockSize
+      
+   end subroutine PETScMat_SpecifyBlockInfo
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --------------------------------------------------------------
+!  Subroutine to set the entries of a block with relative index
+!  --------------------------------------------------------------
+   subroutine PETScMat_SetBlockEntry(this, iBlock, jBlock, i, j, value )
+      implicit none
+      !-arguments-----------------------------------
+      CLASS(PETSCMatrix_t), intent(inout) :: this        !<    PETSc matrix
+      integer             , intent(in)    :: iBlock, jBlock
+      integer             , intent(in)    :: i, j
+      real(kind=RP)       , intent(in)    :: value
+      !-local-variables-----------------------------
+      integer :: row, col
+      !---------------------------------------------
+      
+      if (.not. allocated(this % BlockIdx)) then
+         write(STD_OUT,*) 'PETSCMatrix :: Error '
+         write(STD_OUT,*) '            :: PETScMat_SetBlockEntry only available after CSR_SpecifyBlockInfo has been called'
+         stop 99
+      end if
+      
+      row = this % BlockIdx(iBlock) + i - 1
+      col = this % BlockIdx(jBlock) + j - 1
+      
+      call this % SetEntry(row, col, value)
+      
+   end subroutine PETScMat_SetBlockEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
+!  Subroutine to add a value to the entries of a block with relative index
+!  -----------------------------------------------------------------------
+   subroutine PETScMat_AddToBlockEntry(this, iBlock, jBlock, i, j, value )
+      implicit none
+      !-arguments-----------------------------------
+      CLASS(PETSCMatrix_t), intent(inout) :: this        !<    PETSc matrix
+      integer             , intent(in)    :: iBlock, jBlock
+      integer             , intent(in)    :: i, j
+      real(kind=RP)       , intent(in)    :: value
+      !-local-variables-----------------------------
+      integer :: row, col
+      !---------------------------------------------
+      
+      if (.not. allocated(this % BlockIdx)) then
+         write(STD_OUT,*) 'PETSCMatrix :: Error '
+         write(STD_OUT,*) '            :: PETScMat_AddToBlockEntry only available after CSR_SpecifyBlockInfo has been called'
+         stop 99
+      end if
+      
+      row = this % BlockIdx(iBlock) + i - 1
+      col = this % BlockIdx(jBlock) + j - 1
+      
+      call this % AddToEntry(row, col, value)
+      
+   end subroutine PETScMat_AddToBlockEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

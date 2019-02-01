@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Mon Jan 28 12:16:36 2019
+!   @Last revision date: Fri Feb  1 17:25:03 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: b9918cac4908927d56ed9cc3534d32bab72b264a
+!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
 !
 !//////////////////////////////////////////////////////
 !
@@ -108,24 +108,28 @@ contains
 !        If block-diagonal matrix, construct with size of blocks
 !        -------------------------------------------------------
          type is(DenseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=ndofelm, ForceDiagonal = .TRUE.)
+            call Matrix_p % Preallocate(nnzs=ndofelm)
          type is(SparseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=ndofelm, ForceDiagonal = .TRUE.)
+            call Matrix_p % Preallocate(nnzs=ndofelm)
             
 !
 !        If matrix is CSR, standard preallocate with LinkedListMatrix
 !        ------------------------------------------------------------
          type is(csrMat_t)
-            call Matrix_p % Preallocate(ForceDiagonal = .TRUE.)
+            call Matrix_p % Preallocate()
 !
 !        Otherwise, construct with nonzeros in each row
 !        ----------------------------------------------
          class default 
-            nnz = MAXVAL(ndofelm) ! currently only for block diagonal
-            call Matrix_p % Preallocate(nnz, ForceDiagonal = .TRUE.)
+            if (BlockDiagonal) then
+               nnz = maxval(ndofelm)
+            else
+               nnz = 7*maxval(ndofelm) ! 20180201: hard-coded to 7, since the analytical Jacobian can only compute off-diagonal blocks for compact schemes (neighbors' effect)
+            end if
+            call Matrix_p % Preallocate(nnz)
       end select
-      call Matrix % Reset
       
+      call Matrix % Reset (ForceDiagonal = .TRUE.)
       call Matrix % SpecifyBlockInfo(firstIdx,ndofelm)
       
 !$omp parallel
@@ -597,7 +601,7 @@ contains
                             -   dfdq_le(eq1,eq2,j1,k1) * e % spAXi  % b(i1,LEFT  ) * e % spAXi  % v(i2,LEFT  ) * dj * dk ) & ! 6 Left
                                                                                        * e % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
             
-            call Matrix % SetBlockEntry (e % GlobID, e % GlobID, i, j, MatrixEntry)
+            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatrixEntry)
             
          end do                ; end do                ; end do                ; end do
       end do                ; end do                ; end do                ; end do
@@ -893,7 +897,7 @@ contains
                             * spAnorm_minus % v(elInd_minus( normAx_minus ), normAxSide_minus )  & 
                             * e_plus % geom % invJacobian(i1,j1,k1)
             
-            call Matrix % SetBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatrixEntry)
+            call Matrix % AddToBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatrixEntry)
          end do                ; end do                ; end do                ; end do
       end do                ; end do                ; end do                ; end do
       nullify(dfdq)

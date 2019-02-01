@@ -138,7 +138,7 @@ mkdirs: FORCE
 
 clean: FORCE
 	$(RM) $(LIBNAME)
-	$(RM) ./build_ns/*.o ./build_ins/*.o ./build_ch/*.o ./build_nsch/*.o ./build_insch/*.o ./include/*.mod
+	$(RM) ./build_ns/*.o ./build_ins/*.o ./build_ch/*.o ./build_nsch/*.o ./build_insch/*.o ./include_ns/*.mod ./include_ins/*.mod ./include_ch/*.mod ./include_nsch/*.mod ./include_insch/*.mod ./*.so
 
 #############################################
 #	Dummy procedure to force a rule     #

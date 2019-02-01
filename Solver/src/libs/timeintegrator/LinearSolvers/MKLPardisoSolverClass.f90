@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Tue Jan 29 18:48:24 2019
+!   @Last revision date: Fri Feb  1 17:25:06 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0f32bff29d29f9d71830bf5971f5e3b189a1d8b8
+!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
 !
 !//////////////////////////////////////////////////////
 !
@@ -31,9 +31,7 @@ MODULE MKLPardisoSolverClass
    use petsc
 #endif
    implicit none
-#ifdef HAS_PETSC
-#include <petsc.h>
-#endif
+   
    TYPE, EXTENDS(GenericLinSolver_t) :: MKLPardisoSolver_t
       type(csrMat_t)                             :: A                                  ! Jacobian matrix
       type(csrMat_t), pointer                    :: ALU                                ! LU-Factorized Jacobian matrix
@@ -271,7 +269,6 @@ MODULE MKLPardisoSolverClass
          call this % ComputeJacobianMKL(dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
       end if
       
-      
       call this % SolveLUDirect(error)
 
       if (error .NE. 0) THEN
@@ -306,6 +303,7 @@ MODULE MKLPardisoSolverClass
          call this % PETScA % GetCSRMatrix(this % A)
          call this % SetOperatorDt(dt)
          this % AIsPetsc = .FALSE.
+         call this % PETScA % destruct
       else
          call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
          call this % SetOperatorDt(dt)
@@ -365,8 +363,6 @@ MODULE MKLPardisoSolverClass
          nullify (this % ALU)
       end if
       
-      call this % PETScA % destruct
-      this % AIsPetsc    = .TRUE.
       this % AIsPrealloc = .FALSE.
       
     end subroutine MKL_destroy

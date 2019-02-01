@@ -4,9 +4,9 @@
 !   @File:    StaticCondensedMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Tue Jan 29 18:48:22 2019
+!   @Last revision date: Fri Feb  1 17:25:03 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0f32bff29d29f9d71830bf5971f5e3b189a1d8b8
+!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
 !
 !//////////////////////////////////////////////////////
 !
@@ -131,12 +131,27 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Static_Preallocate(this, nnz, nnzs, ForceDiagonal)
+   subroutine Static_Preallocate(this, nnz, nnzs)
       implicit none
       !-arguments-----------------------------------
       class(StaticCondensedMatrix_t), intent(inout) :: this    !<> This matrix
       integer, optional             , intent(in)    :: nnz     !<  Not needed here
       integer, optional             , intent(in)    :: nnzs(:) !<  nnzs contains the block sizes!
+      !---------------------------------------------
+      
+      call this % Mbb % Preallocate()
+      call this % Mib % Preallocate()
+      call this % Mbi % Preallocate()
+      call this % Mii % Preallocate(nnzs = this % inner_blockSizes)
+      
+   end subroutine Static_Preallocate
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Static_Reset(this, ForceDiagonal)
+      implicit none
+      !-arguments-----------------------------------
+      class(StaticCondensedMatrix_t), intent(inout) :: this
       logical, optional             , intent(in)    :: ForceDiagonal
       !-local-variables-----------------------------
       logical :: mustForceDiagonal
@@ -148,23 +163,8 @@ contains
          mustForceDiagonal = .FALSE.
       end if
       
-      call this % Mbb % Preallocate(ForceDiagonal = mustForceDiagonal)
-      call this % Mib % Preallocate()
-      call this % Mbi % Preallocate()
-      call this % Mii % Preallocate(nnzs = this % inner_blockSizes, ForceDiagonal = mustForceDiagonal)
-      
-   end subroutine Static_Preallocate
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   subroutine Static_Reset(this)
-      implicit none
-      !-arguments-----------------------------------
-      class(StaticCondensedMatrix_t), intent(inout) :: this
-      !---------------------------------------------
-      
-      call this % Mii % reset
-      call this % Mbb % reset
+      call this % Mii % reset(ForceDiagonal = mustForceDiagonal)
+      call this % Mbb % reset(ForceDiagonal = mustForceDiagonal)
       call this % Mbi % reset
       call this % Mib % reset
       

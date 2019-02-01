@@ -8,7 +8,6 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef HAS_PETSC
-!#include <petsc.h>
 #include "petsc/finclude/petsc.h"
 #endif
 MODULE IterativeSolverClass
@@ -26,6 +25,7 @@ MODULE IterativeSolverClass
    use petsc
 #endif
    IMPLICIT NONE
+   
    PRIVATE
    PUBLIC IterativeSolver_t, GenericLinSolver_t
    

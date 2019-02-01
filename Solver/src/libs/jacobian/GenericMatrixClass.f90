@@ -46,23 +46,23 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Preallocate(this, nnz, nnzs, ForceDiagonal)
+   subroutine Preallocate(this, nnz, nnzs)
       implicit none
       !---------------------------------------------
       class(Matrix_t), intent(inout) :: this
       integer, optional, intent(in)  :: nnz
       integer, optional, intent(in)  :: nnzs(:)
-      logical, optional, intent(in)  :: ForceDiagonal
       !---------------------------------------------
       ERROR stop ' :: Preallocate not implemented for current matrix type'
    end subroutine Preallocate
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Reset(this)
+   subroutine Reset(this, ForceDiagonal)
       implicit none
       !-arguments-----------------------------------
-      class(Matrix_t),     intent(inout)     :: this
+      class(Matrix_t),     intent(inout)  :: this
+      logical, optional, intent(in)       :: ForceDiagonal
       !---------------------------------------------
       ERROR stop ' :: Reset not implemented for current matrix type'
    end subroutine Reset

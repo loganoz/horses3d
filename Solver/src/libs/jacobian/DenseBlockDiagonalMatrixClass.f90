@@ -76,13 +76,12 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Preallocate(this, nnz, nnzs, ForceDiagonal)
+   subroutine Preallocate(this, nnz, nnzs)
       IMPLICIT NONE
       !---------------------------------------------
       class(DenseBlockDiagMatrix_t), intent(inout) :: this    !<> This matrix
       integer, optional            , intent(in)    :: nnz     !<  Not needed here
       integer, optional            , intent(in)    :: nnzs(:) !<  nnzs contains the block sizes!
-      logical, optional, intent(in)  :: ForceDiagonal
       !---------------------------------------------
       integer :: i, k ! counters
       !---------------------------------------------
@@ -111,10 +110,11 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Reset(this)
+   subroutine Reset(this, ForceDiagonal)
       IMPLICIT NONE
       !---------------------------------------------
       class(DenseBlockDiagMatrix_t), intent(inout) :: this     !<> This matrix
+      logical, optional, intent(in)  :: ForceDiagonal
       !---------------------------------------------
       integer :: i
       !---------------------------------------------
