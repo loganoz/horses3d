@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeSmootherClass.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:07 2018
-!   @Last revision date: Fri Feb  1 17:25:07 2019
+!   @Last revision date: Mon Feb  4 16:17:44 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
+!   @Last revision commit: eeaa4baf8b950247d4df92783ba30d8050b7f3bd
 !
 !//////////////////////////////////////////////////////
 !
@@ -60,6 +60,7 @@ MODULE MatrixFreeSmootherClass
       PROCEDURE                                  :: SetOperatorDt
       PROCEDURE                                  :: ReSetOperatorDt
       !Functions:
+      procedure                                  :: GetX
       PROCEDURE                                  :: Getxnorm    !Get solution norm
       PROCEDURE                                  :: Getrnorm    !Get residual norm
       
@@ -124,7 +125,7 @@ CONTAINS
 !     ------------------------------------------------
 !
       SELECT CASE (this % Smoother)
-         CASE('BlockJacobi')
+         CASE('Block-Jacobi')
             ALLOCATE (this % BlockPreco(nelem))
             DO k = 1, nelem
                Nx = sem % mesh % elements(k) % Nxyz(1)
@@ -231,7 +232,7 @@ CONTAINS
       call this % SetInitialGuess
       
       SELECT CASE (this % Smoother)
-         CASE('BlockJacobi')
+         CASE('Block-Jacobi')
             CALL BlockJacobiSmoother(this, maxiter, this % niter, ComputeTimeDerivative, TolPresent, tol)
       END SELECT
       
@@ -257,7 +258,7 @@ CONTAINS
       !-----------------------------------------------------------
       
 !$omp parallel do private(i,x_p,b_p,Mat_p,firstIdx,lastIdx) schedule(runtime)
-      do k=1, this % A % NumOfBlocks
+      do k=1, this % A % num_of_Blocks
          firstIdx = this % A % BlockIdx(k)
          lastIdx  = this % A % BlockIdx(k+1) - 1
          Mat_p => this % A % Blocks(k) % Matrix
@@ -283,6 +284,19 @@ CONTAINS
       x_i = this % x(irow)
       
    END SUBROUTINE GetXValue
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   function GetX(this) result(x)
+      implicit none
+      !-----------------------------------------------------------
+      class(MatFreeSmooth_t), intent(inout)  :: this
+      real(kind=RP)                          :: x(this % DimPrb)
+      !-----------------------------------------------------------
+      
+      x = this % x
+      
+   end function GetX
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -316,7 +330,7 @@ CONTAINS
       this % Ashift = MatrixShift(dt)
       CALL this % A % Shift( this % Ashift )
       
-      IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
+      IF(this % Smoother == 'Block-Jacobi') CALL this % ComputeBlockPreco
       
     END SUBROUTINE SetOperatorDt
 !
@@ -338,7 +352,7 @@ CONTAINS
       
       this % Ashift = shift
       
-      IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
+      IF(this % Smoother == 'Block-Jacobi') CALL this % ComputeBlockPreco
       
     END SUBROUTINE ReSetOperatorDt
 !
@@ -520,7 +534,7 @@ CONTAINS
          r = this % AxMult(x, computeTimeDerivative)        ! Matrix free mult
          
 !$omp parallel do private(idx1,idx2) schedule(runtime)
-         DO j=1, this % A % NumOfBlocks
+         DO j=1, this % A % num_of_Blocks
             idx1 = this % A % BlockIdx(j)
             idx2 = this % A % BlockIdx(j+1)-1
 
@@ -570,7 +584,7 @@ CONTAINS
       INTEGER :: k      ! Counter
       !-------------------------------------------------------------
 !$omp parallel do schedule(runtime)
-      DO k=1, this % A % NumOfBlocks
+      DO k=1, this % A % num_of_Blocks
          call ComputeLU (A        = this % A % Blocks(k) % Matrix, &
                          ALU      = this % BlockPreco(k) % PLU, &
                          LUpivots = this % BlockPreco(k) % LUpivots)

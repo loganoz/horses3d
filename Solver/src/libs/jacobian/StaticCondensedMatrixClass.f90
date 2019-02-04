@@ -4,9 +4,9 @@
 !   @File:    StaticCondensedMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Fri Feb  1 17:25:03 2019
+!   @Last revision date: Mon Feb  4 16:17:41 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
+!   @Last revision commit: eeaa4baf8b950247d4df92783ba30d8050b7f3bd
 !
 !//////////////////////////////////////////////////////
 !
@@ -51,11 +51,9 @@ module StaticCondensedMatrixClass
       
       type(ElemInfo_t), allocatable :: ElemInfo(:)
       integer, allocatable          :: inner_blockSizes(:)
-      integer, allocatable          :: BlockSizes(:)
       
       integer                       :: size_b      ! Size of condensed system (size of Mbb)
       integer                       :: size_i      ! Size of inner system (size of Mii)
-      integer                       :: num_of_Blocks
       integer                       :: num_of_Cols
       
       logical                       :: ignore_boundaries = .FALSE. ! When .TRUE., Mii, does not contain the DOFs on the physical boundaries
@@ -97,6 +95,11 @@ contains
       end if
       if ( .not. present(num_of_Blocks) ) then
          ERROR stop 'StaticCondensedMatrix_t needs num_of_Blocks'
+      end if
+      if ( present(num_of_Cols) ) then
+         if (num_of_Cols /= num_of_Rows) then
+            ERROR stop 'StaticCondensedMatrix_t must be a square matrix'
+         end if
       end if
       
       this % num_of_Rows   = num_of_Rows
@@ -557,7 +560,7 @@ contains
          
 !        Mii contribution
 !        ----------------
-         do bID=lastbID, this % Mii % NumOfBlocks   ! Search the block where this row is contained
+         do bID=lastbID, this % Mii % num_of_Blocks   ! Search the block where this row is contained
             if (this % Mii % BlockIdx(bID+1) > ii) then
                
                do bi=1, this % Mii % BlockSizes(bID)  ! Search the block row that corresponds to this row

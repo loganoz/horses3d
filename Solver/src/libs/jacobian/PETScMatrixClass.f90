@@ -4,9 +4,9 @@
 !   @File:    PETScMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Feb 18 14:00:00 2018
-!   @Last revision date: Fri Feb  1 17:25:00 2019
+!   @Last revision date: Mon Feb  4 16:17:39 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
+!   @Last revision commit: eeaa4baf8b950247d4df92783ba30d8050b7f3bd
 !
 !//////////////////////////////////////////////////////
 !
@@ -35,9 +35,6 @@ module PETScMatrixClass
       PetscScalar :: Ashift   ! Stores the current shift to the matrix
       PetscBool   :: withMPI
 #endif
-      ! Variables for matrices with blocks
-      integer      ,  allocatable :: BlockIdx(:)  ! Index of first element of block
-      integer      ,  allocatable :: BlockSize(:) ! Size of each block
       
       contains
          procedure :: construct
@@ -81,34 +78,43 @@ module PETScMatrixClass
       PetscInt, optional, intent(in) :: num_of_Rows
       PetscBool, optional, intent(in) :: withMPI
       !---------------------------------------------
+      PetscBool :: hasMPI
+      !---------------------------------------------
       
       if ( .not. present(num_of_Rows) ) then
          ERROR stop 'PETSCMatrix_t needs num_of_Rows'
       end if
       
+      if ( present(withMPI) ) then
+         hasMPI = withMPI
+      else
+         hasMPI = PETSC_FALSE
+      end if
+      
       this % num_of_Rows = num_of_Rows
-      this % withMPI = withMPI
+      this % withMPI = hasMPI
       
       !     PETSc matrix A 
       CALL MatCreate(PETSC_COMM_WORLD,this%A,ierr)                           ; CALL CheckPetscErr(ierr,'error creating A matrix')
       
-      IF (withMPI) THEN
+      if (hasMPI) then
          CALL MatSetSizes(this%A,PETSC_DECIDE,PETSC_DECIDE,num_of_Rows,num_of_Rows,ierr)
          CALL CheckPetscErr(ierr,'error setting mat size')
-         CALL MatSetType(this%A,MATMPIAIJ, ierr)                              
+         CALL MatSetType(this%A,MATMPIAIJ, ierr)                       
          CALL CheckPetscErr(ierr,'error in MatSetType')
          CALL MatSetFromOptions(this%A,ierr)                                  
          CALL CheckPetscErr(ierr,'error in MatSetFromOptions')
-      ELSE
-         CALL MatSetSizes(this%A,PETSC_DECIDE,PETSC_DECIDE,num_of_Rows,num_of_Rows,ierr)
+      else
+         CALL MatSetSizes(this%A,num_of_Rows,num_of_Rows,num_of_Rows,num_of_Rows,ierr)
          CALL CheckPetscErr(ierr,'error setting mat size')
+         CALL MatSetType(this%A,MATSEQAIJ, ierr)
          CALL CheckPetscErr(ierr,'error in MatSetType')
-         CALL MatSetFromOptions(this%A,ierr)                                  
-         CALL CheckPetscErr(ierr,'error in MatSetFromOptions')
-!         CALL MatSetOption(this%A,MAT_ROW_ORIENTED,PETSC_FALSE,ierr)  
-         CALL MatSetOption(this%A,MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE,ierr)                 
-         CALL CheckPetscErr(ierr,'error in MatSetOption')
-       ENDIF
+!~         CALL MatSetFromOptions(this%A,ierr)                                  
+!~         CALL CheckPetscErr(ierr,'error in MatSetFromOptions')
+!~         CALL MatSetOption(this%A,MAT_ROW_ORIENTED,PETSC_FALSE,ierr)  
+!~         CALL MatSetOption(this%A,MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE,ierr)                 
+!~         CALL CheckPetscErr(ierr,'error in MatSetOption')
+      end if
 #else
       integer, optional, intent(in) :: num_of_Rows
       logical, optional, intent(in)    :: WithMPI
@@ -422,9 +428,9 @@ module PETScMatrixClass
       !---------------------------------------------
       
       safedeallocate(this % BlockIdx)  ; allocate (this % BlockIdx (size(BlockIdx )) )
-      safedeallocate(this % BlockSize) ; allocate (this % BlockSize(size(BlockSize)) )
+      safedeallocate(this % BlockSizes) ; allocate (this % BlockSizes(size(BlockSize)) )
       this % BlockIdx  = BlockIdx
-      this % BlockSize = BlockSize
+      this % BlockSizes = BlockSize
       
    end subroutine PETScMat_SpecifyBlockInfo
 !
@@ -492,6 +498,10 @@ module PETScMatrixClass
       implicit none
       !---------------------------------------------
       CLASS(PETSCMatrix_t),     intent(inout)     :: this
+      !---------------------------------------------
+      
+      safedeallocate(this % BlockIdx)
+      safedeallocate(this % BlockSizes)
 #ifdef HAS_PETSC
       CALL MatDestroy(this%A,ierr)
       CALL CheckPetscErr(ierr," A destruction")  

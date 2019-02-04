@@ -20,6 +20,7 @@ MODULE BDFTimeIntegrator
    use DGSEMClass
    use StorageClass              , only: SolutionStorage_t
    use StopwatchClass            , only: Stopwatch
+   use Utilities                 , only: AlmostEqual
    implicit none
    
    PRIVATE                          
@@ -38,6 +39,7 @@ MODULE BDFTimeIntegrator
       logical                                :: TimeAccurate  !· .TRUE. if this is a time-accurate simulation
       logical                                :: UserNewtonTol !· .TRUE. if the newton tolerance is specified by the user
       real(kind=RP)                          :: NewtonTol     !  Specified Newton tolerance
+      real(kind=RP)                          :: inner_dt   
       
       contains
          procedure :: construct => ConstructBDFIntegrator
@@ -188,7 +190,6 @@ contains
       integer                                               :: k, newtonit
       
       real(kind=RP)                                         :: ConvRate
-      real(kind=RP)                                         :: inner_dt
       logical                                               :: CONVERGED
       !----------------------------------------------------------------------
       
@@ -196,18 +197,18 @@ contains
          this % NewtonTol = sem % MaxResidual* 1e-3_RP
       end if
       
-      inner_dt = dt            ! first inner_dt is the outer step dt 
-      time = t
-      
       !**************************
       ! If the Jacobian must only be computed sometimes
       if (this % JacByConv) then
-         if (.not. computeA) then
-            call this % linsolver % ReSetOperatorDt(inner_dt)
+         if ( (.not. computeA) .and. (.not. AlmostEqual (this % inner_dt,dt) ) ) then
+            call this % linsolver % ReSetOperatorDt(this % inner_dt)
          end if
       end if
       ! 
       !**************************
+      
+      this % inner_dt = dt            ! first inner_dt is the outer step dt 
+      time = t
       
       call sem % mesh % storage % local2GlobalQ(sem % NDOF)
 !
@@ -233,13 +234,13 @@ contains
                this % StepsSinceJac = 0
             end if
          end if
-         call NewtonSolve(sem, time+inner_dt, inner_dt, this % linsolver, this % NewtonTol, &
+         call NewtonSolve(sem, time+this % inner_dt, this % inner_dt, this % linsolver, this % NewtonTol, &
                           this % JacByConv,ConvRate, newtonit,CONVERGED, ComputeTimeDerivative)
          
 !        Actions if Newton converged
 !        ***************************
          if (CONVERGED) then
-            time = time + inner_dt
+            time = time + this % inner_dt
             
 !           Check convergence to know if the Jacobian must be computed
 !           ----------------------------------------------------------
@@ -259,19 +260,19 @@ contains
 !           Increase dt if good convergence in previous step
 !           ------------------------------------------------
             if (Adaptive_dt .and. ConvRate > NEWTON_MAX_CONVRATE) then
-               inner_dt = inner_dt * 2.0_RP
-               if (this % JacByConv)  call this % linsolver % ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
+               this % inner_dt = this % inner_dt * 2.0_RP
+               if (this % JacByConv)  call this % linsolver % ReSetOperatorDt(this % inner_dt)    ! Resets the operator with the new dt
                
-               if (PRINT_NEWTON_INFO) write(*,*) "Increasing  dt  = ", inner_dt
+               if (PRINT_NEWTON_INFO) write(*,*) "Increasing  dt  = ", this % inner_dt
             end if
             
 !           Adjust dt to prevent sub time-stepping to be be greater than outer Dt 
 !           ---------------------------------------------------------------------
-            if ( time+inner_dt > t + dt) then  ! Adjusts inner dt to achieve exact outer Dt in the last substep
-               inner_dt = t + dt - time
-               if (this % JacByConv)  call this % linsolver % ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
+            if ( time+this % inner_dt > t + dt) then  ! Adjusts inner dt to achieve exact outer Dt in the last substep
+               this % inner_dt = t + dt - time
+               if (this % JacByConv)  call this % linsolver % ReSetOperatorDt(this % inner_dt)    ! Resets the operator with the new dt
                
-               if (PRINT_NEWTON_INFO) write(*,*) "Adjusting dt = ", inner_dt
+               if (PRINT_NEWTON_INFO) write(*,*) "Adjusting dt = ", this % inner_dt
             end if
          
 !        Actions if Newton did not converge
@@ -281,12 +282,12 @@ contains
 !           Reduce dt is allowed
 !           --------------------
             if (Adaptive_dt) then
-               inner_dt = inner_dt / 2._RP
-               if (this % JacByConv)  call this % linsolver % ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
+               this % inner_dt = this % inner_dt / 2._RP
+               if (this % JacByConv)  call this % linsolver % ReSetOperatorDt(this % inner_dt)    ! Resets the operator with the new dt
                
                sem % mesh % storage % Q = sem % mesh % storage % PrevQ(:, sem % mesh % storage % prevSol_index(1))  ! restores Q in sem to begin a new newton iteration
                  
-               if (PRINT_NEWTON_INFO) write(*,*) "Newton loop did not converge, trying a smaller dt = ", inner_dt
+               if (PRINT_NEWTON_INFO) write(*,*) "Newton loop did not converge, trying a smaller dt = ", this % inner_dt
                
 !           Warn if dt cannot be changed
 !           ----------------------------

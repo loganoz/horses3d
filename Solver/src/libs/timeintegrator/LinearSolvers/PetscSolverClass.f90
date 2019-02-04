@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Fri Feb  1 17:25:08 2019
+!   @Last revision date: Mon Feb  4 16:17:45 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
+!   @Last revision commit: eeaa4baf8b950247d4df92783ba30d8050b7f3bd
 !
 !//////////////////////////////////////////////////////
 !
@@ -28,6 +28,7 @@ module PetscSolverClass
    
    type, extends(GenericLinSolver_t) :: PetscKspLinearSolver_t
       type(PETSCMatrix_t)                           :: A
+      character(len=LINE_LENGTH)                    :: preconditioner
 #ifdef HAS_PETSC
       Vec                                           :: x                                  ! Solution vector
       Vec                                           :: b                                  ! Right hand side
@@ -43,19 +44,20 @@ module PetscSolverClass
 #endif
       CONTAINS
          !Subroutines
-         procedure :: construct        => PETSc_construct
-         procedure :: SetRHSValues     => PETSc_SetRHSValues
-         procedure :: SetRHSValue      => PETSc_SetRHSValue
-         procedure :: GetXValues       => PETSc_GetXValues
-         procedure :: GetXValue        => PETSc_GetXValue
-         procedure :: GetX             => PETSc_GetX
-         procedure :: SetOperatorDt    => PETSc_SetOperatorDt
-         procedure :: ReSetOperatorDt  => PETSc_ReSetOperatorDt
-         procedure :: AssemblyRHS      => PETSc_AssemblyRHS
+         procedure :: construct           => PETSc_construct
+         procedure :: SetRHSValues        => PETSc_SetRHSValues
+         procedure :: SetRHSValue         => PETSc_SetRHSValue
+         procedure :: GetXValues          => PETSc_GetXValues
+         procedure :: GetXValue           => PETSc_GetXValue
+         procedure :: GetX                => PETSc_GetX
+         procedure :: SetOperatorDt       => PETSc_SetOperatorDt
+         procedure :: ReSetOperatorDt     => PETSc_ReSetOperatorDt
+         procedure :: AssemblyRHS         => PETSc_AssemblyRHS
          procedure :: SaveMat
-         procedure :: solve            => PETSc_solve
-         procedure :: destroy          => PETSc_Destroy
-         procedure :: SetRHS           => PETSc_SetRHS
+         procedure :: solve               => PETSc_solve
+         procedure :: destroy             => PETSc_Destroy
+         procedure :: SetRHS              => PETSc_SetRHS
+         procedure :: SetPreconditioner   => PETSc_SetPreconditioner
          !Functions
          procedure :: GetXnorm         => PETSc_GetXnorm
          procedure :: GetRnorm         => PETSc_GetRnorm
@@ -107,7 +109,6 @@ module PetscSolverClass
       PetscInt, intent(in)                                 :: DimPrb
       !-local-variables-----------------------------------------------------
       PetscErrorCode                                       :: ierr
-      PetscInt              :: bsize
       !---------------------------------------------------------------------
       
       MatrixShift => MatrixShiftFunc
@@ -136,14 +137,11 @@ module PetscSolverClass
       
 !     Petsc preconditioner 
       call KSPGetPC(this%ksp,this%pc,ierr)                              ; call CheckPetscErr(ierr,'error in KSPGetPC')
-      if (this%setpreco) then    ! if setpreco = true sets the default preconditioner PCJACOBI. If PC already set, setpreco = false
-         call PCSetType(this%pc,PCJACOBI,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType')
-         this%setpreco = PETSC_FALSE
-         !Summary (arueda):
-         !  - PCILU: Bad results
-         !  - PCJACOBI: Slow convergence
-         !  - PCPBJACOBI: (point Jacobi) Almost same convergence as PCJACOBI
-         !  - PCBJACOBI: (block Jacobi) Bad results 
+      
+      if ( controlVariables % containsKey("preconditioner") ) then
+         this % preconditioner = controlVariables % stringValueForKey("preconditioner",LINE_LENGTH)
+      else
+         this % preconditioner = 'Block-Jacobi'
       end if
 
 !     Finish up
@@ -160,7 +158,7 @@ module PetscSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine SetPetscPreco(this)
+   subroutine PETSc_SetPreconditioner(this)
       implicit none
       !-arguments-----------------------------------------------------------
       class(PetscKspLinearSolver_t), intent(inout)      :: this
@@ -169,12 +167,30 @@ module PetscSolverClass
       PetscErrorCode                                  :: ierr
       !---------------------------------------------------------------------
       
-      call PCSetType(this%pc,PCILU,ierr)       ;call CheckPetscErr(ierr, 'error in PCSetType')
-      this%setpreco = PETSC_FALSE
+      if (.not. this % setpreco) return
+      
+      select case ( trim(this % preconditioner) )
+         case ('Block-Jacobi')
+      
+            call MatSetVariableBlockSizes (this % A % A, this % p_sem % mesh % no_of_elements, this % A % BlockSizes(1), ierr)  ; call CheckPetscErr(ierr, 'error in MatSetVariableBlockSizes')     ! PCVPBJACOBI
+            call PCSetType(this%pc,PCVPBJACOBI,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType')
+            
+         case ('Jacobi')
+            
+            call PCSetType(this%pc,PCJACOBI,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType')
+            
+         case default
+         
+            ERROR stop 'PETSc_SetPreconditioner: Not recognized preconditioner'
+      end select
+         
+      this % setpreco = PETSC_FALSE
+      
+!~      call PCSetType(this%pc,PCILU,ierr)       ;call CheckPetscErr(ierr, 'error in PCSetType')
 #else
       stop ':: PETSc is not linked correctly'
 #endif
-   end subroutine SetPetscPreco 
+   end subroutine PETSc_SetPreconditioner 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -200,12 +216,14 @@ module PetscSolverClass
             call this % SetOperatorDt(dt)
             ComputeA = .FALSE.
             
+            call this % SetPreconditioner
             call KSPSetOperators(this%ksp, this%A%A, this%A%A, ierr)     ; call CheckPetscErr(ierr, 'error in KSPSetOperators')
          end if
       else 
          call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
          call this % SetOperatorDt(dt)
          
+         call this % SetPreconditioner
          call KSPSetOperators(this%ksp, this%A%A, this%A%A, ierr)     ; call CheckPetscErr(ierr, 'error in KSPSetOperators')
       end if
       

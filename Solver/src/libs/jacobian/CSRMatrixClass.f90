@@ -4,9 +4,9 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Fri Feb  1 17:24:56 2019
+!   @Last revision date: Mon Feb  4 16:17:30 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
+!   @Last revision commit: eeaa4baf8b950247d4df92783ba30d8050b7f3bd
 !
 !//////////////////////////////////////////////////////
 !
@@ -26,10 +26,6 @@ MODULE CSRMatrixClass
       integer      ,  allocatable :: Diag(:)    ! Array containing position of the diagonal entry (handy for some calculations)
       
       integer                     :: num_of_Cols               ! Number of colunms of matrix
-      
-      ! Variables for matrices with blocks
-      integer      ,  allocatable :: BlockIdx(:)  ! Index of first element of block (this is used by the routine CSR_GetBlock).. Note that in the DGSEM, the Jacobian matrices have a block diagonal with the Jacobian information of each element      
-      integer      ,  allocatable :: BlockSize(:) ! Size of each block
       
       integer,        allocatable :: firstIdx(:,:)         ! For each row, specifies the position of the beginning of each element column
       type(LinkedListMatrix_t)    :: ListMatrix
@@ -288,22 +284,22 @@ MODULE CSRMatrixClass
       integer :: row, col, pos
       !---------------------------------------------
       
-      if ( (.not. allocated(this % BlockIdx)) .or. (.not. allocated(this % BlockSize)) ) then
+      if ( (.not. allocated(this % BlockIdx)) .or. (.not. allocated(this % BlockSizes)) ) then
          write(STD_OUT,*) 'CSRMatrixClass :: Error '
          write(STD_OUT,*) '               :: CSR_SetBlockEntry only available after CSR_SpecifyBlockInfo has been called'
          stop 99
       end if
       
       if (this % usingListMat) then
-         do row = this % BlockIdx(iBlock), this % BlockIdx(iBlock) + this % BlockSize(iBlock) - 1
-            do col = this % BlockIdx(jBlock), this % BlockIdx(jBlock) + this % BlockSize(jBlock) - 1
+         do row = this % BlockIdx(iBlock), this % BlockIdx(iBlock) + this % BlockSizes(iBlock) - 1
+            do col = this % BlockIdx(jBlock), this % BlockIdx(jBlock) + this % BlockSizes(jBlock) - 1
                call this % ListMatrix % ResetEntry(row,col)
             end do
          end do
       else
          ! TODO: This can be improved...
-         do row = this % BlockIdx(iBlock), this % BlockIdx(iBlock) + this % BlockSize(iBlock) - 1
-            do col = this % BlockIdx(jBlock), this % BlockIdx(jBlock) + this % BlockSize(jBlock) - 1
+         do row = this % BlockIdx(iBlock), this % BlockIdx(iBlock) + this % BlockSizes(iBlock) - 1
+            do col = this % BlockIdx(jBlock), this % BlockIdx(jBlock) + this % BlockSizes(jBlock) - 1
                
                pos = CSR_Search (this,row,col)
                if (pos == 0) cycle
@@ -577,7 +573,7 @@ MODULE CSRMatrixClass
       safedeallocate(this % Diag)
       safedeallocate(this % BlockIdx)
       safedeallocate(this % BlockIdx)
-      safedeallocate(this % BlockSize)
+      safedeallocate(this % BlockSizes)
    !----------------------------------------------------------------------------------
    END SUBROUTINE destruct
    !----------------------------------------------------------------------------------
@@ -857,9 +853,9 @@ MODULE CSRMatrixClass
       !---------------------------------------------
       
       safedeallocate(this % BlockIdx)  ; allocate (this % BlockIdx (size(BlockIdx )) )
-      safedeallocate(this % BlockSize) ; allocate (this % BlockSize(size(BlockSize)) )
+      safedeallocate(this % BlockSizes) ; allocate (this % BlockSizes(size(BlockSize)) )
       this % BlockIdx  = BlockIdx
-      this % BlockSize = BlockSize
+      this % BlockSizes = BlockSize
    end subroutine CSR_SpecifyBlockInfo
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

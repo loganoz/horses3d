@@ -27,9 +27,6 @@ module DenseBlockDiagonalMatrixClass
    
    type, extends(Matrix_t) :: DenseBlockDiagMatrix_t
       type(Block_t), allocatable :: Blocks(:)   ! Array containing each block in a dense matrix
-      integer                    :: NumOfBlocks ! Number of blocks in matrix
-      integer      , allocatable :: BlockSizes(:)
-      integer      , allocatable :: BlockIdx(:)
       contains
          procedure :: construct
          procedure :: Preallocate
@@ -68,7 +65,7 @@ contains
       end if
       
       allocate ( this % Blocks(num_of_Blocks) )
-      this % NumOfBlocks = num_of_Blocks
+      this % num_of_Blocks = num_of_Blocks
       allocate ( this % BlockSizes(num_of_Blocks) )
       allocate ( this % BlockIdx(num_of_Blocks+1) )
       
@@ -87,18 +84,18 @@ contains
       !---------------------------------------------
       
       if (.not. present(nnzs) ) ERROR stop ':: DenseBlockDiagMatrix needs the block sizes'
-      if ( size(nnzs) /= this % NumOfBlocks) ERROR stop ':: DenseBlockDiagMatrix: wrong dimension for the block sizes'
+      if ( size(nnzs) /= this % num_of_Blocks) ERROR stop ':: DenseBlockDiagMatrix: wrong dimension for the block sizes'
       
       this % BlockSizes = nnzs
       this % num_of_Rows = sum(nnzs)
       
       this % BlockIdx(1) = 1
-      do i=2, this % NumOfBlocks + 1
+      do i=2, this % num_of_Blocks + 1
          this % BlockIdx(i) = this % BlockIdx(i-1) + nnzs(i-1)
       end do
       
 !$omp parallel do private(k) schedule(runtime)
-      do i=1, this % NumOfBlocks
+      do i=1, this % num_of_Blocks
          safedeallocate (this % Blocks(i) % Matrix ) ; allocate ( this % Blocks(i) % Matrix(nnzs(i),nnzs(i)) )
          safedeallocate (this % Blocks(i) % Indexes) ; allocate ( this % Blocks(i) % Indexes(nnzs(i)) )
          
@@ -119,7 +116,7 @@ contains
       integer :: i
       !---------------------------------------------
       
-      do i=1, this % NumOfBlocks
+      do i=1, this % num_of_Blocks
          this % Blocks(i) % Matrix = 0._RP
       end do
       
@@ -144,7 +141,7 @@ contains
       if ( (icol > this % num_of_Rows) .or. (icol < 1) ) ERROR stop ':: DenseBlockDiagMatrix: icol value is out of bounds'
       
       ! Search the corresponding block (they are ordered)
-      do thisblock=1, this % NumOfBlocks
+      do thisblock=1, this % num_of_Blocks
          if (icol <= this % BlockIdx(thisblock+1) -1) exit
       end do
       
@@ -284,7 +281,7 @@ contains
       !------------------------------------------
       
 !$omp parallel do private(i) schedule(runtime)
-      do iBL=1, this % NumOfBlocks
+      do iBL=1, this % num_of_Blocks
          do i=1, size(this % Blocks(iBL) % Matrix,1)
             this % Blocks(iBL) % Matrix(i,i) = this % Blocks(iBL) % Matrix(i,i) + shiftval
          end do
@@ -303,7 +300,7 @@ contains
       integer :: i
       !---------------------------------------------
       
-      do i = 1, this % NumOfBlocks
+      do i = 1, this % num_of_Blocks
          deallocate (this % Blocks(i) % Matrix )
          deallocate (this % Blocks(i) % Indexes)
       end do
@@ -334,7 +331,7 @@ contains
       select type (Factorized)
          class is(DenseBlockDiagMatrix_t)
 !$omp parallel do schedule(runtime)
-            do k=1, this % NumOfBlocks
+            do k=1, this % num_of_Blocks
                call ComputeLU (A        = this       % Blocks(k) % Matrix, &
                                ALU      = Factorized % Blocks(k) % Matrix, &
                                LUpivots = Factorized % Blocks(k) % Indexes)
@@ -366,7 +363,7 @@ contains
       !-------------------------------------------------------------
       
 !$omp parallel do private(x_loc) schedule(runtime)
-      do k = 1, this % NumOfBlocks
+      do k = 1, this % num_of_Blocks
          allocate( x_loc(this % BlockSizes(k)) )
          call SolveLU(ALU      = this % Blocks(k) % Matrix, &
                       LUpivots = this % Blocks(k) % Indexes, &
@@ -399,7 +396,7 @@ contains
       select type (Inverted)
          class is(DenseBlockDiagMatrix_t)
 !$omp parallel do schedule(runtime)
-            do k=1, this % NumOfBlocks
+            do k=1, this % num_of_Blocks
                Inverted % Blocks(k) % Matrix = inverse (this % Blocks(k) % Matrix)
             end do
 !$omp end parallel do
@@ -439,7 +436,7 @@ contains
 !     ---------------
       
 !$omp parallel do private(ii,jj)
-      do bID=1, this % NumOfBlocks
+      do bID=1, this % num_of_Blocks
                
          do jj=1, this % BlockSizes(bID)
             do ii=1, this % BlockSizes(bID)
@@ -490,7 +487,7 @@ contains
       k=1
       j_offset = 0
       nnz = 0
-      do bID = 1, this % numOfBlocks
+      do bID = 1, this % num_of_Blocks
          do jj = 1, this % BlockSizes(bID)
             rowsize = 0
             do ii = 1, this % BlockSizes(bID) 

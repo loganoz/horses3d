@@ -7,6 +7,10 @@ module GenericMatrixClass
    
    type Matrix_t
       integer :: num_of_Rows
+      integer :: num_of_Blocks
+      integer, allocatable :: BlockSizes(:)
+      integer, allocatable :: BlockIdx(:)
+      
       contains
          procedure :: construct
          procedure :: Preallocate
