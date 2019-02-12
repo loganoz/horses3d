@@ -1,7 +1,17 @@
-!      Physics_NS.f90
-!      Created: 2011-07-20 09:17:26 -0400 
-!      By: David Kopriva
-!      From DSEM Code
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:    Physics_NS.f90
+!   @Author:  David Kopriva
+!   @Created: Tue Jul 20 18:27:46 2011
+!   @Last revision date: Tue Feb 12 17:30:21 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: f40482abccd2e182470ba7250ab71115914426a4
+!
+!//////////////////////////////////////////////////////
+!
+!      Compressible Navier-Stokes physics.
+!      Modified from DSEM Code
 !
 !!     The variable mappings for the Navier-Stokes Equations are
 !!
@@ -10,11 +20,6 @@
 !!              Q(3) = rhov
 !!              Q(4) = rhow
 !!              Q(5) = rhoe
-!!     Whereas the gradients are:
-!!              grad(1) = grad(u)
-!!              grad(2) = grad(v)
-!!              grad(3) = grad(w)
-!!              grad(4) = grad(T)
 !
 !////////////////////////////////////////////////////////////////////////
 !    
