@@ -4,9 +4,9 @@
 !   @File:    StaticCondensedMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Tue Dec  4 21:53:43 2018
+!   @Last revision date: Mon Feb  4 16:17:41 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 9b3844379fde2350e64816efcdf3bf724c8b3041
+!   @Last revision commit: eeaa4baf8b950247d4df92783ba30d8050b7f3bd
 !
 !//////////////////////////////////////////////////////
 !
@@ -28,10 +28,14 @@ module StaticCondensedMatrixClass
    use GenericMatrixClass
    use CSRMatrixClass               , only: csrMat_t
    use DenseBlockDiagonalMatrixClass, only: DenseBlockDiagMatrix_t
+   use HexMeshClass                 , only: HexMesh
+   use ElementClass                 , only: Element
+   use MeshTypes                    , only: EFRONT, EBACK, EBOTTOM, ERIGHT, ETOP, ELEFT
+   
    implicit none
    
    private
-   public StaticCondensedMatrix_t
+   public StaticCondensedMatrix_t, INNER_DOF, BOUNDARY_DOF
    
    type ElemInfo_t
       integer, allocatable :: dof_association(:)   ! Whether it is an INNER_DOF or a BOUNDARY_DOF
@@ -50,8 +54,9 @@ module StaticCondensedMatrixClass
       
       integer                       :: size_b      ! Size of condensed system (size of Mbb)
       integer                       :: size_i      ! Size of inner system (size of Mii)
-      integer                       :: num_of_Blocks
       integer                       :: num_of_Cols
+      
+      logical                       :: ignore_boundaries = .FALSE. ! When .TRUE., Mii, does not contain the DOFs on the physical boundaries
       
       contains
          procedure :: construct                    => Static_construct
@@ -75,14 +80,13 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Static_construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_rows_reduced,withMPI)
+   subroutine Static_construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,withMPI)
       implicit none
       !-arguments-----------------------------------
       class(StaticCondensedMatrix_t) :: this     !<> This matrix
       integer, optional, intent(in)  :: num_of_Rows
       integer, optional, intent(in)  :: num_of_Cols
       integer, optional, intent(in)  :: num_of_Blocks
-      integer, optional, intent(in)  :: num_of_rows_reduced
       logical, optional, intent(in)  :: WithMPI
       !---------------------------------------------
       
@@ -92,22 +96,15 @@ contains
       if ( .not. present(num_of_Blocks) ) then
          ERROR stop 'StaticCondensedMatrix_t needs num_of_Blocks'
       end if
-      if ( .not. present(num_of_rows_reduced) ) then
-         ERROR stop 'StaticCondensedMatrix_t needs num_of_rows_reduced'
+      if ( present(num_of_Cols) ) then
+         if (num_of_Cols /= num_of_Rows) then
+            ERROR stop 'StaticCondensedMatrix_t must be a square matrix'
+         end if
       end if
       
       this % num_of_Rows   = num_of_Rows
       this % num_of_Cols   = num_of_Rows     ! Only for square matrices
       this % num_of_Blocks = num_of_Blocks
-      this % size_i        = num_of_rows_reduced
-      this % size_b        = num_of_Rows - num_of_rows_reduced
-      
-      ! TODO: Move these constructions to constructPermutationArrays
-      
-      call this % Mii % construct (num_of_Blocks = this % num_of_Blocks)
-      call this % Mbb % construct (num_of_Rows   = this % size_b)
-      call this % Mib % construct (num_of_Rows   = this % size_b , num_of_Cols = this % size_i)
-      call this % Mbi % construct (num_of_Rows   = this % size_i , num_of_Cols = this % size_b)
       
    end subroutine Static_construct
 !
@@ -126,6 +123,7 @@ contains
       
       deallocate (this % ElemInfo)
       deallocate (this % inner_blockSizes)
+      deallocate (this % BlockSizes)
       
       this % size_b        = 0
       this % size_i        = 0
@@ -136,12 +134,27 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Static_Preallocate(this, nnz, nnzs, ForceDiagonal)
+   subroutine Static_Preallocate(this, nnz, nnzs)
       implicit none
       !-arguments-----------------------------------
       class(StaticCondensedMatrix_t), intent(inout) :: this    !<> This matrix
       integer, optional             , intent(in)    :: nnz     !<  Not needed here
       integer, optional             , intent(in)    :: nnzs(:) !<  nnzs contains the block sizes!
+      !---------------------------------------------
+      
+      call this % Mbb % Preallocate()
+      call this % Mib % Preallocate()
+      call this % Mbi % Preallocate()
+      call this % Mii % Preallocate(nnzs = this % inner_blockSizes)
+      
+   end subroutine Static_Preallocate
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Static_Reset(this, ForceDiagonal)
+      implicit none
+      !-arguments-----------------------------------
+      class(StaticCondensedMatrix_t), intent(inout) :: this
       logical, optional             , intent(in)    :: ForceDiagonal
       !-local-variables-----------------------------
       logical :: mustForceDiagonal
@@ -153,23 +166,8 @@ contains
          mustForceDiagonal = .FALSE.
       end if
       
-      call this % Mbb % Preallocate(ForceDiagonal = mustForceDiagonal)
-      call this % Mib % Preallocate()
-      call this % Mbi % Preallocate()
-      call this % Mii % Preallocate(nnzs = this % inner_blockSizes, ForceDiagonal = mustForceDiagonal)
-      
-   end subroutine Static_Preallocate
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   subroutine Static_Reset(this)
-      implicit none
-      !-arguments-----------------------------------
-      class(StaticCondensedMatrix_t), intent(inout) :: this
-      !---------------------------------------------
-      
-      call this % Mii % reset
-      call this % Mbb % reset
+      call this % Mii % reset(ForceDiagonal = mustForceDiagonal)
+      call this % Mbb % reset(ForceDiagonal = mustForceDiagonal)
       call this % Mbi % reset
       call this % Mib % reset
       
@@ -357,14 +355,13 @@ contains
 !  constructPermutationArrays:
 !     Routine to construct the "ElemInfo"
 !  --------------------------------------
-   subroutine Static_constructPermutationArrays(this,Nx,Ny,Nz,nEqn)
+   subroutine Static_constructPermutationArrays(this,mesh,nEqn,ignore_boundaries)
       implicit none
       !-arguments-----------------------------------
       class(StaticCondensedMatrix_t), intent(inout) :: this    !<> This matrix
-      integer                       , intent(in)    :: Nx(:)
-      integer                       , intent(in)    :: Ny(:)
-      integer                       , intent(in)    :: Nz(:)
+      type(HexMesh), target         , intent(in)    :: mesh
       integer                       , intent(in)    :: nEqn
+      logical      , optional       , intent(in)    :: ignore_boundaries
       !-local-variables-----------------------------
       integer :: eID
       integer :: i,j,k,eq
@@ -374,52 +371,121 @@ contains
       integer :: count_ii  ! counter for the inner    (elemental) DOFs, relative to the corresponding block of the Mii matrix
       integer :: nelem
       integer :: NDOF
+      integer        , pointer :: Nx(:)
+      integer        , pointer :: Ny(:)
+      integer        , pointer :: Nz(:)
+      type(Element)  , pointer :: e
       !---------------------------------------------
+      
+      if ( present(ignore_boundaries) ) then
+         this % ignore_boundaries = ignore_boundaries
+      end if
       
       count_i = 0
       count_b = 0
       
-      nelem = size(Nx)
+      nelem = mesh % no_of_elements
+      Nx => mesh % Nx
+      Ny => mesh % Ny
+      Nz => mesh % Nz
       
       safedeallocate(this % ElemInfo)
       safedeallocate(this % inner_blockSizes)
+      safedeallocate(this % BlockSizes)
       
       allocate ( this % ElemInfo(nelem) )
       allocate ( this % inner_blockSizes(nelem) )
+      allocate ( this % BlockSizes(nelem) )
       
-      do eID = 1, nelem
-         NDOF = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
-         this % inner_blockSizes(eID) = nEqn * (Nx(eID) - 1) * (Ny(eID) - 1) * (Nz(eID) - 1)
-         
-         allocate ( this % ElemInfo(eID) % perm_Indexes   (NDOF) )
-         allocate ( this % ElemInfo(eID) % perm_Indexes_i (NDOF) )
-         allocate ( this % ElemInfo(eID) % dof_association(NDOF) )
-         this % ElemInfo(eID) % perm_Indexes_i = -1
-         
-         count_ii = 0
-         count_el = 0
-         do k=0, Nz(eID) ; do j=0, Ny(eID) ; do i=0, Nx(eID) ; do eq=1, nEqn
-            count_el = count_el + 1
+      if (this % ignore_boundaries) then
+!
+!        Do not assign (physical) boundary DOFs to Mii
+!        ---------------------------------------------
+         do eID = 1, nelem
+            e => mesh % elements(eID)
+            NDOF = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
+            this % inner_blockSizes(eID) = nEqn * (Nx(eID) - 1) * (Ny(eID) - 1) * (Nz(eID) - 1)
+            this %       BlockSizes(eID) = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
             
-            if ( k==0 .or. k==Nz(eID) .or. j==0 .or. j==Ny(eID) .or. i==0 .or. i==Nx(eID) ) then
-               this % ElemInfo(eID) % dof_association(count_el) = BOUNDARY_DOF
-               count_b = count_b + 1
-               this % ElemInfo(eID) % perm_Indexes(count_el) = count_b
-            else
-               this % ElemInfo(eID) % dof_association(count_el) = INNER_DOF
-               count_i = count_i + 1
-               this % ElemInfo(eID) % perm_Indexes(count_el) = count_i
-               count_ii = count_ii + 1
-               this % ElemInfo(eID) % perm_Indexes_i(count_el) = count_ii
-            end if
+            allocate ( this % ElemInfo(eID) % perm_Indexes   (NDOF) )
+            allocate ( this % ElemInfo(eID) % perm_Indexes_i (NDOF) )
+            allocate ( this % ElemInfo(eID) % dof_association(NDOF) )
+            this % ElemInfo(eID) % perm_Indexes_i = -1
             
-         end do          ; end do          ; end do          ; end do
-         
-      end do
+            count_ii = 0
+            count_el = 0
+            do k=0, Nz(eID) ; do j=0, Ny(eID) ; do i=0, Nx(eID) ; do eq=1, nEqn
+               count_el = count_el + 1
+               
+               if ( (i==0) .or. (i==Nx(eID)) .or. (j==0) .or. (j==Ny(eID)) .or. (k==0) .or. (k==Nz(eID)) ) then
+                  this % ElemInfo(eID) % dof_association(count_el) = BOUNDARY_DOF
+                  count_b = count_b + 1
+                  this % ElemInfo(eID) % perm_Indexes(count_el) = count_b
+               else
+                  this % ElemInfo(eID) % dof_association(count_el) = INNER_DOF
+                  count_i = count_i + 1
+                  this % ElemInfo(eID) % perm_Indexes(count_el) = count_i
+                  count_ii = count_ii + 1
+                  this % ElemInfo(eID) % perm_Indexes_i(count_el) = count_ii
+               end if
+               
+            end do          ; end do          ; end do          ; end do
+            
+         end do
+      else
+!
+!        Assign (physical) boundary DOFs to Mii (DEFAULT)
+!        ------------------------------------------------
+         do eID = 1, nelem
+            e => mesh % elements(eID)
+            NDOF = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
+            this % inner_blockSizes(eID) = 0
+            this %       BlockSizes(eID) = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
+            
+            allocate ( this % ElemInfo(eID) % perm_Indexes   (NDOF) )
+            allocate ( this % ElemInfo(eID) % perm_Indexes_i (NDOF) )
+            allocate ( this % ElemInfo(eID) % dof_association(NDOF) )
+            this % ElemInfo(eID) % perm_Indexes_i = -1
+            
+            count_ii = 0
+            count_el = 0
+            do k=0, Nz(eID) ; do j=0, Ny(eID) ; do i=0, Nx(eID) ; do eq=1, nEqn
+               count_el = count_el + 1
+               
+               if (     (j==0       .and. e % NumberOfConnections(EFRONT ) > 0 ) &
+                   .or. (j==Ny(eID) .and. e % NumberOfConnections(EBACK  ) > 0 ) &
+                   .or. (k==0       .and. e % NumberOfConnections(EBOTTOM) > 0 ) &
+                   .or. (i==Nx(eID) .and. e % NumberOfConnections(ERIGHT ) > 0 ) &
+                   .or. (k==Nz(eID) .and. e % NumberOfConnections(ETOP   ) > 0 ) &
+                   .or. (i==0       .and. e % NumberOfConnections(ELEFT  ) > 0 )    ) then
+                  this % ElemInfo(eID) % dof_association(count_el) = BOUNDARY_DOF
+                  count_b = count_b + 1
+                  this % ElemInfo(eID) % perm_Indexes(count_el) = count_b
+               else
+                  this % ElemInfo(eID) % dof_association(count_el) = INNER_DOF
+                  count_i = count_i + 1
+                  this % ElemInfo(eID) % perm_Indexes(count_el) = count_i
+                  count_ii = count_ii + 1
+                  this % ElemInfo(eID) % perm_Indexes_i(count_el) = count_ii
+                  this % inner_blockSizes(eID) = this % inner_blockSizes(eID) + 1
+               end if
+               
+            end do          ; end do          ; end do          ; end do
+            
+         end do
+      end if
       
       if ( (count_i+count_b) /= this % num_of_Rows ) then
          ERROR stop 'StaticCondensedMatrixClass :: Ivalid arguments in constructPermutationArrays'
       end if
+      
+      this % size_i        = count_i
+      this % size_b        = count_b
+      
+      call this % Mii % construct (num_of_Blocks = this % num_of_Blocks)
+      call this % Mbb % construct (num_of_Rows   = this % size_b)
+      call this % Mib % construct (num_of_Rows   = this % size_b , num_of_Cols = this % size_i)
+      call this % Mbi % construct (num_of_Rows   = this % size_i , num_of_Cols = this % size_b)
       
    end subroutine Static_constructPermutationArrays
 !
@@ -494,7 +560,7 @@ contains
          
 !        Mii contribution
 !        ----------------
-         do bID=lastbID, this % Mii % NumOfBlocks   ! Search the block where this row is contained
+         do bID=lastbID, this % Mii % num_of_Blocks   ! Search the block where this row is contained
             if (this % Mii % BlockIdx(bID+1) > ii) then
                
                do bi=1, this % Mii % BlockSizes(bID)  ! Search the block row that corresponds to this row

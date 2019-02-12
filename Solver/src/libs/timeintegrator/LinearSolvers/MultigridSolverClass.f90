@@ -274,7 +274,7 @@ CONTAINS
 !
    SUBROUTINE solve(this, nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
       IMPLICIT NONE
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
+      CLASS(MultigridSolver_t), target, INTENT(INOUT) :: this
       integer,       intent(in)               :: nEqn, nGradEqn
       procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol
@@ -296,11 +296,13 @@ CONTAINS
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % SetOperatorDt(dt) 
             ComputeA = .FALSE.
          end if
       else 
-         call this % ComputeJacobian(this % A,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % SetOperatorDt(dt) 
       end if
       
       timesolve= time

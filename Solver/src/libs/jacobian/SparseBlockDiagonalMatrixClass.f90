@@ -31,9 +31,6 @@ module SparseBlockDiagonalMatrixClass
    
    type, extends(Matrix_t) :: SparseBlockDiagMatrix_t
       type(Block_t), allocatable :: Blocks(:)   ! Array containing each block in a dense matrix
-      integer                    :: NumOfBlocks ! Number of blocks in matrix
-      integer      , allocatable :: BlockSizes(:)
-      integer      , allocatable :: BlockIdx(:)
       
       contains
          procedure :: construct
@@ -76,14 +73,13 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_rows_reduced,withMPI)
+   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,withMPI)
       implicit none
       !-arguments-----------------------------------
       class(SparseBlockDiagMatrix_t) :: this     !<> This matrix
       integer, optional, intent(in)  :: num_of_Rows
       integer, optional, intent(in)  :: num_of_Cols
       integer, optional, intent(in)  :: num_of_Blocks
-      integer, optional, intent(in)  :: num_of_rows_reduced
       logical, optional, intent(in)  :: WithMPI
       !-local-variables-----------------------------
       integer :: iBL
@@ -97,7 +93,7 @@ contains
       end if
       
       allocate ( this % Blocks(dimPrb) )
-      this % NumOfBlocks = dimPrb
+      this % num_of_Blocks = dimPrb
       allocate ( this % BlockSizes(dimPrb) )
       allocate ( this % BlockIdx(dimPrb+1) )
       
@@ -112,40 +108,32 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Preallocate(this, nnz, nnzs, ForceDiagonal)
+   subroutine Preallocate(this, nnz, nnzs)
       IMPLICIT NONE
       !---------------------------------------------
       class(SparseBlockDiagMatrix_t), intent(inout) :: this    !<> This matrix
       integer, optional            , intent(in)    :: nnz     !<  Not needed here
       integer, optional            , intent(in)    :: nnzs(:) !<  nnzs contains the block sizes!
-      logical, optional, intent(in)  :: ForceDiagonal
       !---------------------------------------------
       integer :: i, k ! counters
-      logical :: mustForceDiagonal
       !---------------------------------------------
       
       if (.not. present(nnzs) ) ERROR stop ':: SparseBlockDiagMatrix needs the block sizes'
-      if ( size(nnzs) /= this % NumOfBlocks) ERROR stop ':: SparseBlockDiagMatrix: wrong dimension for the block sizes'
-      
-      if ( present(ForceDiagonal) ) then
-         mustForceDiagonal = ForceDiagonal
-      else
-         mustForceDiagonal = .FALSE.
-      end if
+      if ( size(nnzs) /= this % num_of_Blocks) ERROR stop ':: SparseBlockDiagMatrix: wrong dimension for the block sizes'
       
       this % BlockSizes = nnzs
       this % num_of_Rows = sum(nnzs)
       
       this % BlockIdx(1) = 1
-      do i=2, this % NumOfBlocks + 1
+      do i=2, this % num_of_Blocks + 1
          this % BlockIdx(i) = this % BlockIdx(i-1) + nnzs(i-1)
       end do
       
 !$omp parallel do private(k) schedule(runtime)
-      do i=1, this % NumOfBlocks
+      do i=1, this % num_of_Blocks
          
          call this % Blocks(i) % Matrix % construct ( num_of_Rows = nnzs(i) )
-         call this % Blocks(i) % Matrix % PreAllocate(ForceDiagonal = mustForceDiagonal)
+         call this % Blocks(i) % Matrix % PreAllocate()
          
          safedeallocate (this % Blocks(i) % Indexes) ; allocate ( this % Blocks(i) % Indexes(nnzs(i)) )
          
@@ -157,16 +145,25 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Reset(this)
+   subroutine Reset(this, ForceDiagonal)
       IMPLICIT NONE
       !---------------------------------------------
       class(SparseBlockDiagMatrix_t), intent(inout) :: this     !<> This matrix
+      logical, optional, intent(in)  :: ForceDiagonal
       !---------------------------------------------
       integer :: i
+      logical :: mustForceDiagonal
       !---------------------------------------------
       
-      do i=1, this % NumOfBlocks
-         call this % Blocks(i) % Matrix % Reset
+      
+      if ( present(ForceDiagonal) ) then
+         mustForceDiagonal = ForceDiagonal
+      else
+         mustForceDiagonal = .FALSE.
+      end if
+      
+      do i=1, this % num_of_Blocks
+         call this % Blocks(i) % Matrix % Reset(ForceDiagonal = mustForceDiagonal)
       end do
       
    end subroutine Reset
@@ -241,7 +238,7 @@ contains
       !------------------------------------------
       
 !$omp parallel do schedule(runtime)
-      do iBL=1, this % NumOfBlocks
+      do iBL=1, this % num_of_Blocks
          call this % Blocks(iBL) % Matrix % shift (shiftval)
       end do
 !$omp end parallel do
@@ -259,7 +256,7 @@ contains
       !---------------------------------------------
       
 !$omp parallel do schedule(runtime)
-      do iBL=1, this % NumOfBlocks
+      do iBL=1, this % num_of_Blocks
          call this % Blocks(iBL) % Matrix % Assembly
       end do
 !$omp end parallel do
@@ -289,7 +286,7 @@ contains
       integer :: i
       !---------------------------------------------
       
-      do i = 1, this % NumOfBlocks
+      do i = 1, this % num_of_Blocks
          call this % Blocks(i) % Matrix % destruct
          deallocate (this % Blocks(i) % Indexes)
       end do
@@ -323,7 +320,7 @@ contains
       select type (Factorized)
          class is(SparseBlockDiagMatrix_t)
 !$omp parallel do private(x_loc,b_loc,error) schedule(runtime)
-            do iBL=1, this % NumOfBlocks
+            do iBL=1, this % num_of_Blocks
                associate (A      => this       % Blocks(iBL) % Matrix, &
                           CBlock => Factorized % Blocks(iBL)   )
                
@@ -391,7 +388,7 @@ contains
       
 #ifdef HAS_MKL
 !$omp parallel do private(x_loc,error) schedule(runtime)
-      do iBL = 1, this % NumOfBlocks
+      do iBL = 1, this % num_of_Blocks
          associate (CBlock => this % Blocks(iBL) )
          allocate( x_loc(this % BlockSizes(iBL)) )
          

@@ -353,6 +353,10 @@ interval &
 restart files & 
 			\textit{LOGICAL}: If .TRUE., the program writes restart files before and after the p-adaptation. &
 					.FALSE. \\ \hline
+					
+max N decrease & 
+			\textit{INTEGER}: Maximum decrease in the polynomial order in every p-adaptation procedure. &
+					$N-N_{\textit{min}}$ \\ \hline
 
 padapted $\ll \textit{keyword} \gg$ &
 			\textit{MULTIPLE}: Specifies control file keywords that should be replaced after the adaptation procedure. Currently, only 'mg sweeps         ', 'mg sweeps pre', 'mg sweeps post', and 'mg sweeps coarsest' are supported. &

@@ -33,7 +33,7 @@ module GenericLinSolverClass
       integer              :: DimPrb                ! Dimension of the problem
       integer              :: niter = 0             ! Number of iterations to reach solution (for iterative solvers)
       integer              :: JacobianComputation = NUMERICAL_JACOBIAN
-      type(DGSem), pointer :: p_sem   
+      type(DGSem), pointer :: p_sem => null()
    contains
       !Subroutines:
       procedure :: construct
@@ -65,7 +65,7 @@ module GenericLinSolverClass
       end function MatrixShift_FCN
    end interface
    
-   procedure(MatrixShift_FCN), pointer :: MatrixShift   ! TODO?: move to GenericLinSolver_t to allow different MatrixShifts for different solvers?
+   procedure(MatrixShift_FCN), pointer :: MatrixShift =>  Default_MatrixShift  ! TODO?: move to GenericLinSolver_t to allow different MatrixShifts for different solvers?
 
 contains
 !
@@ -78,7 +78,7 @@ contains
       real(kind=RP), intent(in) :: dt
       real(kind=RP)             :: Ashift
       !------------------------------------------------------
-      print*, 'using default'
+      
       ! Do nothing
       Ashift = 0._RP
    end function Default_MatrixShift
@@ -92,7 +92,7 @@ contains
       integer                  , intent(in)            :: DimPrb
       type(FTValueDictionary)  , intent(in), optional  :: controlVariables
       type(DGSem), target                  , optional  :: sem
-      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
+      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc     ! TODO: Make this optional
       !---------------------------------------------------------------------
       ERROR stop ':: Linear solver does not have a constructor yet'
    end subroutine Construct
@@ -133,7 +133,7 @@ contains
 !
    subroutine solve(this,nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt,computeA)
       implicit none
-      class(GenericLinSolver_t), intent(inout) :: this
+      class(GenericLinSolver_t), target, intent(inout) :: this
       integer,       intent(in)                :: nEqn
       integer,       intent(in)                :: nGradEqn
       procedure(ComputeTimeDerivative_f)       :: ComputeTimeDerivative
@@ -234,12 +234,11 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine ComputeJacobian(this,Matrix,dt,time,nEqn,nGradEqn,ComputeTimeDerivative,eps)
+   subroutine ComputeJacobian(this,Matrix,time,nEqn,nGradEqn,ComputeTimeDerivative,eps)
       implicit none
       !-----------------------------------------------------------
       class(GenericLinSolver_t), intent(inout) :: this
       class(Matrix_t)                          :: Matrix
-      real(kind=RP), intent(in)                :: dt
       real(kind=RP), intent(in)                :: time
       integer,       intent(in)                :: nEqn
       integer,       intent(in)                :: nGradEqn
@@ -254,8 +253,6 @@ contains
             case(ANALYTICAL_JACOBIAN)
                call AnalyticalJacobian_Compute(this % p_sem, nEqn, time, Matrix)
          end select
-            
-         call Matrix % shift( MatrixShift(dt) )
       else
          select case (this % JacobianComputation)
             case(NUMERICAL_JACOBIAN)
@@ -264,8 +261,6 @@ contains
                print*, 'WARNING!!: eps not needed for analytical Jacobian'
                call AnalyticalJacobian_Compute(this % p_sem, nEqn, time, Matrix)
          end select
-            
-         call Matrix % shift( MatrixShift(dt) )
       end if
       
    end subroutine ComputeJacobian

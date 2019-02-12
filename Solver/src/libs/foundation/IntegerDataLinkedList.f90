@@ -4,9 +4,9 @@
 !   @File:    IntegerDataLinkedList.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 13:29:58 2017
-!   @Last revision date: Fri Dec 15 19:06:20 2017
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 6ff4e62306809f27aca94408301b7dfab13e3a6b
+!   @Last revision date: Tue Feb 12 16:38:59 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 60d7d3f1bfd48fae2244902fb041a5b5c4cfef9c
 !
 !//////////////////////////////////////////////////////
 !
@@ -113,9 +113,9 @@ module IntegerDataLinkedList
 
       end subroutine IntegerDataLinkedList_ExportToArray
 
-      subroutine IntegerDataLinkedList_Destruct(self)
+      elemental subroutine IntegerDataLinkedList_Destruct(self)
          implicit none
-         class(IntegerDataLinkedList_t)   :: self
+         class(IntegerDataLinkedList_t), intent(inout)   :: self
          class(IntegerData_t), pointer    :: data, nextdata
          integer     :: i
 

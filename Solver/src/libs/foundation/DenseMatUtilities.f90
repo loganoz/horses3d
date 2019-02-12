@@ -1,8 +1,14 @@
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!      DenseMatUtilities.f90
-!      Created: 2017-05-23 10:06:00 +0100 
-!      By: Andrés Rueda
+!//////////////////////////////////////////////////////
+!
+!   @File:    DenseMatUtilities.f90
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
+!   @Created: Tue May  5 16:26:02 2018
+!   @Last revision date: Thu Jan 31 10:44:53 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: ebc7d57fabf133f06c19be869c1134ef5a5b86d0
+!
+!//////////////////////////////////////////////////////
 !
 !      Module containing useful routines for dense matrices
 !
@@ -12,7 +18,7 @@ MODULE DenseMatUtilities
    IMPLICIT NONE
 
    private
-   public inverse, Mat2File, ComputeLU, SolveLU
+   public inverse, Mat2File, ComputeLU, SolveLU, EstimateConditionNumber
 !========
  CONTAINS
 !========
@@ -20,6 +26,9 @@ MODULE DenseMatUtilities
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  ------------------------------------------------
+!  Computes the LU factorization for a dense matrix
+!  ------------------------------------------------
    subroutine ComputeLU(A,ALU,LUpivots)
       implicit none
       !------------------------------------------------------------
@@ -47,10 +56,13 @@ MODULE DenseMatUtilities
          stop
       end if
 
-   end subroutine
+   end subroutine ComputeLU
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  --------------------------------------------------------------------------
+!  Solves a dense linear system with the previously computed LU factorization
+!  --------------------------------------------------------------------------
    subroutine SolveLU(ALU,LUpivots,x,b)
       implicit none
       !------------------------------------------------------------
@@ -77,13 +89,113 @@ MODULE DenseMatUtilities
          stop
       end if
 
-   end subroutine
+   end subroutine SolveLU
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!   
+!  --------------------------------------------------------------------------
+!  Solves a dense linear system with the previously computed LU factorization
+!  --------------------------------------------------------------------------
+   function EstimateConditionNumber(A,ALU_in) result(rcond)
+      implicit none
+      !-arguments--------------------------------------------------
+      real(kind=RP)                  , intent(in)  :: A(:,:)                       !<  Matrix to factorize
+      real(kind=RP), optional, target, intent(in)  :: ALU_in (size(A,1),size(A,1)) !>  Factorized LU matrix
+      real(kind=RP)                                :: rcond                         !>  Estimated condition number
+      !-local-variables--------------------------------------------
+      integer :: n      ! Matrix size
+      integer :: info   ! Lapack error code
+      integer :: i, j
+      real(kind=RP), pointer :: ALU(:,:)
+      real(kind=RP)          :: work   (4*size(A,1))
+      real(kind=RP)          :: anorm, sum
+      integer                :: LUpivots (size(A,1))
+      integer                :: iwork    (size(A,1))
+      !------------------------------------------------------------
+#ifdef HAS_LAPACK
+      
+      n = size(A,1)
+      
+!     Get LU factorization
+!     --------------------
+      if ( present(ALU_in) ) then
+         ALU => ALU_in
+      else
+         allocate ( ALU(n,n) )
+         call ComputeLU(A,ALU,LUpivots)
+      end if
+      
+!     Compute norm
+!     ------------
+      
+      anorm = 0._RP
+      do j = 1, n
+         sum = 0._RP
+         do i = 1, n
+            sum = sum + abs( A( i, j ) )
+         end do
+         if( anorm < sum .or. isnan( sum ) ) anorm = sum
+      end do
+      
+!     Estimate condition number
+!     -------------------------
+      
+      call dgecon( '1', n, ALU, n, anorm, rcond, work, iwork, info )
+      
+      if (info /= 0) then
+         print*,  'Condition number could not be estimated. ERROR:', info
+         stop
+      end if
+      
+!     Finish up
+!     ---------
+      if ( present(ALU_in) ) then
+         nullify (ALU)
+      else
+         deallocate ( ALU )
+      end if
+#else
+      ERROR stop ':: EstimateConditionNumber needs LAPACK.'
+#endif
+      
+   end function
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!   
+!  --------------------------------------------------------------------------
+!  Solves a dense linear system with the previously computed LU factorization
+!  --------------------------------------------------------------------------
+   function InvertLU(ALU, LUpivots) result(Ainv)
+      implicit none
+      !-arguments-------------------------------------------------
+      real(kind=RP), intent(in)  :: ALU(:,:)                         !<  Factorized LU matrix
+      integer      , intent(in)  :: LUpivots(size(ALU,1))            !<  LU pivots for factorization
+      real(kind=RP)              :: Ainv (size(ALU,1),size(ALU,2))   !<  Inverted matrix
+      !-local-variables-------------------------------------------
+      integer :: n      ! Matrix size
+      integer :: info   ! Lapack error code
+      real(KIND=RP), dimension(size(ALU,1)) :: work  ! work array for LAPACK
+      !-----------------------------------------------------------
+      
+      n    = size(ALU,1)
+      Ainv = ALU
+      
+#ifdef HAS_LAPACK
+      call dgetri(n, Ainv, n, LUpivots, work, n, info)
+      
+      if (info /= 0) then
+         stop 'Lapack matrix inversion failed!'
+      end if
+#else
+      stop ':: Matrix inversion routine needs LAPACK.'
+#endif
+   end function InvertLU
+   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    !------------------------------------------------------------------------------
-   ! Returns the inverse of a matrix calculated by LU decomposition.  Depends on LAPACK.
-   !   Modified from: http://fortranwiki.org/fortran/show/Matrix+inversion
+   ! Returns the inverse of a matrix calculated by LU decomposition. 
    function inverse(A) result(Ainv)
    !------------------------------------------------------------------------------
       IMPLICIT NONE

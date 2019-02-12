@@ -1,8 +1,14 @@
-!////////////////////////////////////////////////////////////////////////
 !
-!      LinkedListMatrixClass.f90
-!      Created: 2018-02-19 17:07:00 +0100 
-!      By: Andrés Rueda
+!//////////////////////////////////////////////////////
+!
+!   @File:    LinkedListMatrixClass.f90
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
+!   @Created: Mon Feb 19 14:00:00 2018
+!   @Last revision date: Fri Feb  1 17:24:59 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
+!
+!//////////////////////////////////////////////////////
 !
 !      Linked list matrix
 !
@@ -48,6 +54,7 @@ module LinkedListMatrixClass
       procedure :: AddToEntry
       procedure :: ForceAddToEntry
       procedure :: setColumn
+      procedure :: AddToColumn
       procedure :: destruct
       procedure :: PointToEntry
       procedure :: getCSRarrays
@@ -61,14 +68,13 @@ contains
 !  -------------------------------------
 !  Constructor
 !  -------------------------------------
-   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_rows_reduced,withMPI)
+   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,withMPI)
       implicit none
       !-arguments-----------------------------------
       class(LinkedListMatrix_t)     :: this     !<> This matrix
       integer, optional, intent(in) :: num_of_Rows
       integer, optional, intent(in) :: num_of_Cols
       integer, optional, intent(in) :: num_of_Blocks
-      integer, optional, intent(in) :: num_of_rows_reduced
       logical, optional, intent(in) :: WithMPI
       !-local-variables-----------------------------
       integer :: i
@@ -90,25 +96,38 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Reset(this)
+   subroutine Reset(this, ForceDiagonal)
       implicit none
       !---------------------------------------------
       class(LinkedListMatrix_t),     intent(inout)     :: this
+      logical, optional            , intent(in)        :: ForceDiagonal
       !-local-variables------------------------------------------------
       type(Entry_t), pointer :: CEntry, Prev
       integer                :: i
-      !----------------------------------------------------------------
+      logical                :: mustForceDiagonal
+      !---------------------------------------------
       
       do i=1, this % num_of_Rows
          
          CEntry => this % rows(i) % head
-         
          do while( associated(CEntry) )
             CEntry % value = 0._RP
             CEntry => CEntry % next
          end do
          
       end do
+      
+      if ( present(ForceDiagonal) ) then
+         mustForceDiagonal = ForceDiagonal
+      else
+         mustForceDiagonal = .FALSE.
+      end if
+      
+      if (mustForceDiagonal) then
+         do i = 1, this % num_of_Rows
+            call this % ForceAddToEntry(i,i,0._RP)
+         end do
+      end if
       
    end subroutine Reset
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -240,6 +259,36 @@ contains
       end do
       
    end subroutine SetColumn
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine AddToColumn(this,nvalues, irow, icol, values )
+      implicit none
+      !-arguments-----------------------------------
+      class(LinkedListMatrix_t)  , intent(inout) :: this
+      integer                    , intent(in)    :: nvalues
+      integer, dimension(:)      , intent(in)    :: irow
+      integer                    , intent(in)    :: icol
+      real(kind=RP), dimension(:), intent(in)    :: values
+      !-local-variables------------------------------
+      integer :: i
+      !----------------------------------------------
+      
+      if (nvalues .NE. size(Values)) then
+         write (*,*) 'CSR_AddToCol: Dimension error (Values-RowIndexes)'
+         stop
+      end if
+      
+      if ( icol <= 0 ) then
+         write (*,*) 'CSR_AddToCol: icol error'
+         stop
+      end if
+      
+      do i=1, nvalues
+         call this % AddToEntry(irow(i),icol,values(i))
+      end do
+      
+   end subroutine AddToColumn
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -383,7 +432,7 @@ contains
       integer :: i
       !---------------------------------------------
       
-      if (shiftval < JACEPS) return
+      if (abs(shiftval) < JACEPS) return
       
       do i=1, this % num_of_Rows
          Entry => this % PointToEntry(i,i)

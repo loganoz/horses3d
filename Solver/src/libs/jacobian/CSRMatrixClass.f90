@@ -4,9 +4,9 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Tue Dec  4 16:25:53 2018
+!   @Last revision date: Tue Feb 12 16:38:59 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3e0b998bb7ed936ee88015baafc142a29bb17b38
+!   @Last revision commit: 60d7d3f1bfd48fae2244902fb041a5b5c4cfef9c
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,6 +14,7 @@ MODULE CSRMatrixClass
    USE SMConstants          , only: RP, STD_OUT   
    use GenericMatrixClass              
    use LinkedListMatrixClass, only: LinkedListMatrix_t
+   use Jacobian             , only: JACEPS
 #include "Includes.h"
    IMPLICIT NONE
    
@@ -26,13 +27,9 @@ MODULE CSRMatrixClass
       
       integer                     :: num_of_Cols               ! Number of colunms of matrix
       
-      ! Variables for matrices with blocks
-      integer      ,  allocatable :: BlockIdx(:)  ! Index of first element of block (this is used by the routine CSR_GetBlock).. Note that in the DGSEM, the Jacobian matrices have a block diagonal with the Jacobian information of each element      
-      integer      ,  allocatable :: BlockSize(:) ! Size of each block
-      
       integer,        allocatable :: firstIdx(:,:)         ! For each row, specifies the position of the beginning of each element column
       type(LinkedListMatrix_t)    :: ListMatrix
-      logical                     :: usingListMat
+      logical                     :: usingListMat =.FALSE.
    contains
    
       procedure :: construct           => CSR_Construct
@@ -45,6 +42,7 @@ MODULE CSRMatrixClass
       procedure :: destruct
       procedure :: Shift               => SetMatShift
       procedure :: SetColumn
+      procedure :: AddToColumn         => CSR_AddToColumn
       procedure :: SetEntry            => CSR_SetEntry
       procedure :: AddToEntry          => CSR_AddToEntry
       procedure :: GetDense            => CSR2Dense
@@ -59,7 +57,7 @@ MODULE CSRMatrixClass
    !-----------------------------------------------------------------------------   
    
    PRIVATE
-   PUBLIC                                 :: csrMat_t, CSR_MatVecMul, Matrix_t
+   public :: csrMat_t, CSR_MatVecMul, CSR_MatMatMul, CSR_MatAdd, Matrix_t
    
    interface
       subroutine mkl_dcsrgemv(transa, m, a, ia, ja, x, y)
@@ -83,13 +81,12 @@ MODULE CSRMatrixClass
 !  -----------------------------------
 !  Common constructor for CSR matrices
 !  -----------------------------------
-   subroutine CSR_Construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_rows_reduced,WithMPI)
+   subroutine CSR_Construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,WithMPI)
       !-arguments-----------------------------------
       class(csrMat_t)               :: this             !<> Matrix to be Created
       integer, optional, intent(in) :: num_of_Rows
       integer, optional, intent(in) :: num_of_Cols
       integer, optional, intent(in) :: num_of_Blocks
-      integer, optional, intent(in) :: num_of_rows_reduced
       logical, optional, intent(in) :: WithMPI
       !-local-variables-----------------------------
       integer             :: istat
@@ -140,8 +137,9 @@ MODULE CSRMatrixClass
          this % num_of_Cols = this % num_of_Rows
       end if
       
-      if ( maxval(Cols) > this % num_of_Rows) then
-         this % num_of_Rows = maxval(Cols)
+      if ( maxval(Cols) > this % num_of_Cols) then
+         print*, 'CSR_constructWithArrays :: WARNING: Increasing num_of_Cols'
+         this % num_of_Cols = maxval(Cols)
       end if
       
 !     Memory allocation
@@ -159,8 +157,6 @@ MODULE CSRMatrixClass
       safedeallocate(this % Values) ; allocate( this % Values( size(Values) ), stat=istat )
       if ( istat .NE. 0 ) write(*,*) 'CSR_construct: Memory allocation error'
       
-      this % num_of_Cols = this % num_of_Rows !The matrix can be a rectangular matrix
-      
       this % Rows   = Rows
       this % Cols   = Cols
       this % Values = Values
@@ -171,24 +167,16 @@ MODULE CSRMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine CSR_PreAllocate(this,nnz,nnzs, ForceDiagonal)
+   subroutine CSR_PreAllocate(this,nnz,nnzs)
       implicit none
       !-----------------------------------
       CLASS(csrMat_t), INTENT(INOUT) :: this             !<> Matrix to be preallocated
       integer, optional, intent(in)  :: nnz        !< Num of nonzero entries all rows
       integer, optional, intent(in)  :: nnzs(:)     !< Num of nonzero entries in every row 
-      logical, optional, intent(in)  :: ForceDiagonal
       !-----------------------------------
       integer :: i,k,istat
       integer :: total_nnz
-      logical :: mustForceDiagonal
       !-----------------------------------
-      
-      if ( present(ForceDiagonal) ) then
-         mustForceDiagonal = ForceDiagonal
-      else
-         mustForceDiagonal = .FALSE.
-      end if
       
       if (present(nnz)) then
 !
@@ -212,17 +200,10 @@ MODULE CSRMatrixClass
          this % usingListMat = .TRUE.
          call this % ListMatrix % construct(num_of_Rows = this % num_of_Rows)
          
-         if (mustForceDiagonal) then
-            do i = 1, this % num_of_Rows
-               call this % ListMatrix % ForceAddToEntry(i,i,0._RP)
-            end do
-         end if
          return
       end if
       
       IF(total_nnz < 1) STOP ':: Invalid nnz' 
-      
-      k = this % num_of_Rows * total_nnz
        
       safedeallocate(this % Cols)   ; ALLOCATE( this % Cols(total_nnz),STAT=istat )
       IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
@@ -266,18 +247,26 @@ MODULE CSRMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine CSR_Reset(this)
+   subroutine CSR_Reset(this, ForceDiagonal)
       implicit none
       !-----------------------------------
       CLASS(csrMat_t), INTENT(INOUT) :: this           !<> Matrix
+      logical, optional, intent(in)  :: ForceDiagonal
+      !-----------------------------------
+      logical                :: mustForceDiagonal
       !-----------------------------------
       
-      if (this % usingListMat) then
-         call this % ListMatrix % Reset()
+      if ( present(ForceDiagonal) ) then
+         mustForceDiagonal = ForceDiagonal
       else
-         this % Cols = 0
-         this % Diag = 0
+         mustForceDiagonal = .FALSE.
+      end if
+      
+      if (this % usingListMat) then
+         call this % ListMatrix % Reset(ForceDiagonal = mustForceDiagonal)
+      else
          this % Values = 0._RP
+         if (mustForceDiagonal) call this % AssignDiag
       end if
    end subroutine CSR_Reset
 !
@@ -295,22 +284,22 @@ MODULE CSRMatrixClass
       integer :: row, col, pos
       !---------------------------------------------
       
-      if ( (.not. allocated(this % BlockIdx)) .or. (.not. allocated(this % BlockSize)) ) then
+      if ( (.not. allocated(this % BlockIdx)) .or. (.not. allocated(this % BlockSizes)) ) then
          write(STD_OUT,*) 'CSRMatrixClass :: Error '
          write(STD_OUT,*) '               :: CSR_SetBlockEntry only available after CSR_SpecifyBlockInfo has been called'
          stop 99
       end if
       
       if (this % usingListMat) then
-         do row = this % BlockIdx(iBlock), this % BlockIdx(iBlock) + this % BlockSize(iBlock) - 1
-            do col = this % BlockIdx(jBlock), this % BlockIdx(jBlock) + this % BlockSize(jBlock) - 1
+         do row = this % BlockIdx(iBlock), this % BlockIdx(iBlock) + this % BlockSizes(iBlock) - 1
+            do col = this % BlockIdx(jBlock), this % BlockIdx(jBlock) + this % BlockSizes(jBlock) - 1
                call this % ListMatrix % ResetEntry(row,col)
             end do
          end do
       else
          ! TODO: This can be improved...
-         do row = this % BlockIdx(iBlock), this % BlockIdx(iBlock) + this % BlockSize(iBlock) - 1
-            do col = this % BlockIdx(jBlock), this % BlockIdx(jBlock) + this % BlockSize(jBlock) - 1
+         do row = this % BlockIdx(iBlock), this % BlockIdx(iBlock) + this % BlockSizes(iBlock) - 1
+            do col = this % BlockIdx(jBlock), this % BlockIdx(jBlock) + this % BlockSizes(jBlock) - 1
                
                pos = CSR_Search (this,row,col)
                if (pos == 0) cycle
@@ -351,6 +340,7 @@ MODULE CSRMatrixClass
             end if
             if (j == A % Rows (i+1)) then
                write(*,*) 'CSR_AssignDiag: ERROR? - No diagonal entry found in matrix'
+               stop
             end if
          end do
       end do
@@ -398,6 +388,45 @@ MODULE CSRMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  -------------------------------------------------
+!  Adds values to (part of) a column of a csr matrix
+!  -------------------------------------------------
+   SUBROUTINE CSR_AddToColumn(this, nvalues, irow, icol, values )
+      IMPLICIT NONE
+      !------------------------------------------------------------------------------ 
+      CLASS(csrMat_t), INTENT(INOUT) :: this              !<> Global matrix
+      integer        , INTENT(IN)    :: nvalues
+      integer        , INTENT(IN)    :: irow(1:)    !< Different positions of Column
+      integer        , INTENT(IN)    :: icol            !< Number of Row/Column
+      REAL(KIND=RP)  , INTENT(IN)    :: values(:)         !< Values to be added to global matrivx¿x
+      !------------------------------------------------------------------------------ 
+      integer :: i !,k,l,c,
+      !------------------------------------------------------------------------------
+      
+      IF (nvalues .NE. SIZE(Values)) THEN
+         WRITE (*,*) 'CSR_AddToCol: Dimension error (Values-RowIndexes)'
+         STOP
+      END IF
+      
+      IF ( icol <= 0 ) THEN
+         WRITE (*,*) 'CSR_AddToCol: icol error'
+         STOP
+      END IF
+      
+      if (this % usingListMat) then
+         call this % ListMatrix % AddToColumn ( nvalues, irow, icol, values )
+      else
+         DO i=1,nvalues
+            IF ( irow(i) <= 0 ) CYCLE
+            
+            CALL this % SetEntry(irow(i),icol,values(i))
+         END DO
+      end if
+      
+   END SUBROUTINE CSR_AddToColumn
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 !  ---------------------------------------------
 !  Set given value to an element of a CSR matrix
 !  ---------------------------------------------
@@ -416,6 +445,8 @@ MODULE CSRMatrixClass
          write (*,*) 'CSR_SetEntry: Dimension error. [row,col]=', row, col
          stop
       end if
+      
+      if (abs(value) < JACEPS) return
       
       if (this % usingListMat) then
          call this % ListMatrix % SetEntry(row,col,value)
@@ -446,6 +477,8 @@ MODULE CSRMatrixClass
          write (*,*) 'CSR_SetEntry: Dimension error'
          stop
       end if
+      
+      if (abs(value) < JACEPS) return
       
       if (this % usingListMat) then
          call this % ListMatrix % AddToEntry(row,col,value)
@@ -534,14 +567,13 @@ MODULE CSRMatrixClass
       !------------------------------------------
       CLASS(csrMat_t), INTENT(INOUT) :: this
       !------------------------------------------
-      
       safedeallocate(this % Rows)
       safedeallocate(this % Cols)
       safedeallocate(this % Values)
       safedeallocate(this % Diag)
       safedeallocate(this % BlockIdx)
       safedeallocate(this % BlockIdx)
-      safedeallocate(this % BlockSize)
+      safedeallocate(this % BlockSizes)
    !----------------------------------------------------------------------------------
    END SUBROUTINE destruct
    !----------------------------------------------------------------------------------
@@ -566,28 +598,147 @@ MODULE CSRMatrixClass
       end if
    !----------------------------------------------------------------------------------
    END SUBROUTINE SetMatShift
-   !----------------------------------------------------------------------------------
-   
-   !------------------------------------------------------------------------------
-   FUNCTION CSR_MatVecMul( A,u) RESULT(v)
-   ! Matrix vector product (v = Au) for a CSR matrix .... v needs to be allocated beforehand
-   !   Assuming there's MKL
-   !------------------------------------------------------------------------------
-      REAL(KIND=RP), DIMENSION(:)  , INTENT(IN)  :: u  !< Vector to be multiplied
-      TYPE(csrMat_t)               , INTENT(IN)  :: A  !< Structure holding matrix
-      REAL(KIND=RP), DIMENSION(A % num_of_Rows)      :: v  !> Result vector 
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------
+!  CSR Matrix addition:
+!     Cmat = A + Factor*B
+!  ----------------------
+   function CSR_MatAdd(A,B,Factor) result(Cmat)
+      implicit none
+      !-arguments--------------------------------------------------------------------
+      type(csrMat_t), intent(in)  :: A    !< Structure holding matrix
+      type(csrMat_t), intent(in)  :: B    !< Structure holding matrix
+      real(kind=RP) , intent(in)  :: Factor  !< 
+      type(csrMat_t)              :: Cmat !< Structure holding matrix
+      !-local-variables--------------------------------------------------------------
+      real(kind=RP), allocatable :: c(:)
+      integer,       allocatable :: ic(:), jc(:)
+      integer                    :: info
       !------------------------------------------------------------------------------
-      integer       :: i,j
-      REAL(KIND=RP) :: rsum
+#ifdef HAS_MKL
+      
+      allocate( ic(A % num_of_Rows+1), jc(A % num_of_Rows+1), c(A % num_of_Rows+1) ) ! For some reason, mkl_dcsradd needs jc and c to be allocated, even with request 1 - 2
+      
+      call mkl_dcsradd  ('n', 1, 4, A % num_of_Rows, A % num_of_Cols, &
+                         A % Values, A % Cols, A % Rows, Factor, &
+                         B % Values, B % Cols, B % Rows, c, jc, ic, 0, info)
+      
+      deallocate(jc,c)
+      allocate( c(ic(A % num_of_Rows+1) - 1), jc(ic(A % num_of_Rows+1) - 1) )
+      
+      call mkl_dcsradd  ('n', 2, 4, A % num_of_Rows, A % num_of_Cols, &
+                         A % Values, A % Cols, A % Rows, Factor, &
+                         B % Values, B % Cols, B % Rows, c, jc, ic, 0, info)
+      
+      if (info /= 0) then
+         print*, 'ERROR :: CSR_MatAdd stopped at line', info
+         stop
+      end if
+                              
+      call Cmat % constructWithArrays (ic,jc,c, A % num_of_Cols)
+#else
+      stop ':: CSR_MatAdd needs MKL'
+#endif
+   end function CSR_MatAdd
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------
+!  Matrix-matrix multiplication for CSR matrices
+!     Cmat = A * B
+!  ---------------------------------------------
+   function CSR_MatMatMul(A,B,trans) result(Cmat)
+      implicit none
+      !-arguments--------------------------------------------------------------------
+      type(csrMat_t)   , intent(in) :: A       !< Structure holding matrix
+      type(csrMat_t)   , intent(in) :: B       !< Structure holding matrix
+      logical, optional, intent(in) :: trans   !< A matrix is transposed?
+      type(csrMat_t)                :: Cmat    !< Structure holding matrix
+      !-local-variables--------------------------------------------------------------
+      real(kind=RP), allocatable :: c(:)
+      integer,       allocatable :: ic(:), jc(:)
+      integer                    :: info
+      character(len=1)           :: transInfo
+      !------------------------------------------------------------------------------
+      
+      if (A % num_of_Cols /= B % num_Of_Rows) then
+         write(STD_OUT,'(A,I0,A,I0,A,I0,A,I0,A)') 'CSR_MatMatMul :: ERROR: Matrix dimensions mismatch: A(', A % num_of_Rows,',', A % num_Of_Cols, ') ; B(', B % num_Of_Rows, ',', B % num_Of_Cols,')'
+         stop
+      end if
+      
+      if ( present(trans) ) then
+         if (trans) then
+            transInfo = 't'
+         else
+            transInfo = 'n'
+         end if
+      else
+         transInfo = 'n'
+      end if
+      
+#ifdef HAS_MKL
+      
+      allocate( ic(A % num_of_Rows+1), jc(A % num_of_Rows+1), c(A % num_of_Rows+1) ) ! For some reason, mkl_dcsrmultcsr needs jc and c to be allocated, even with request 1 - 2
+      
+      call mkl_dcsrmultcsr  (transInfo, 1, 8, A % num_of_Rows, A % num_of_Cols, B % num_of_Cols, &
+                              A % Values, A % Cols, A % Rows, &
+                              B % Values, B % Cols, B % Rows, &
+                              c, jc, ic, 0, info)
+      
+      deallocate(jc,c)
+      allocate( c(ic(A % num_of_Rows+1) - 1), jc(ic(A % num_of_Rows+1) - 1) )
+      
+      call mkl_dcsrmultcsr  (transInfo, 2, 8, A % num_of_Rows, A % num_of_Cols, B % num_of_Cols, &
+                              A % Values, A % Cols, A % Rows, &
+                              B % Values, B % Cols, B % Rows, &
+                              c, jc, ic, 0, info)
+      
+      if (info /= 0) then
+         print*, 'ERROR :: mkl_dcsrmultcsr stopped at line', info
+         stop
+      end if
+      
+      call Cmat % constructWithArrays (ic,jc,c, B % num_of_Cols)
+#else
+      stop ':: CSR_MatMatMul needs MKL'
+#endif
+   end function CSR_MatMatMul
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   FUNCTION CSR_MatVecMul( A,u, trans) RESULT(v)
+   ! Matrix vector product (v = Au) for a CSR matrix .... v needs to be allocated beforehand
+   !------------------------------------------------------------------------------
+      type(csrMat_t)   , intent(in)  :: A  !< Structure holding matrix
+      real(kind=RP)    , intent(in)  :: u(A % num_of_Cols)  !< Vector to be multiplied
+      logical, optional, intent(in) :: trans   !< A matrix is transposed?
+      real(kind=RP)               :: v(A % num_of_Rows)  !> Result vector 
+      !------------------------------------------------------------------------------
+      integer           :: i,j
+      REAL(KIND=RP)     :: rsum
+      character(len=1)  :: transInfo
       !------------------------------------------------------------------------------
     
       IF (A % num_of_Cols .NE. SIZE(U) .OR. A % num_of_Rows .NE. SIZE(v)) THEN
          STOP 'CSR_MatVecMul: Error - u dimensions mismatch'
       END IF
+      
+      if ( present(trans) ) then
+         if (trans) then
+            transInfo = 't'
+         else
+            transInfo = 'n'
+         end if
+      else
+         transInfo = 'n'
+      end if
     
 #ifdef HAS_MKL
-      CALL mkl_dcsrgemv('N', A % num_of_Rows, A % Values, A % Rows, A % Cols, u, v)
+      CALL mkl_dcsrgemv(transInfo, A % num_of_Rows, A % Values, A % Rows, A % Cols, u, v)
 #else
+      if (transInfo == 't') ERROR stop "CSR_MatVecMul with 't' only with MKL"
 !$omp parallel do private(j,rsum)
       DO i=1,A % num_of_Rows
          rsum = 0.0d0
@@ -702,9 +853,9 @@ MODULE CSRMatrixClass
       !---------------------------------------------
       
       safedeallocate(this % BlockIdx)  ; allocate (this % BlockIdx (size(BlockIdx )) )
-      safedeallocate(this % BlockSize) ; allocate (this % BlockSize(size(BlockSize)) )
+      safedeallocate(this % BlockSizes) ; allocate (this % BlockSizes(size(BlockSize)) )
       this % BlockIdx  = BlockIdx
-      this % BlockSize = BlockSize
+      this % BlockSizes = BlockSize
    end subroutine CSR_SpecifyBlockInfo
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

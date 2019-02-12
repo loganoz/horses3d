@@ -4,9 +4,9 @@
 !   @File:    Stopwatch.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Oct 25 13:36:18 2017
-!   @Last revision date: Sun Oct 29 17:43:38 2017
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 923d934f3c0893856fbedc5cb9f9abe65851c070
+!   @Last revision date: Mon Jan 28 12:16:34 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: b9918cac4908927d56ed9cc3534d32bab72b264a
 !
 !//////////////////////////////////////////////////////
 !
@@ -66,28 +66,32 @@ module StopwatchClass
       real(kind=RP)                       :: tstart
       real(kind=RP)                       :: tstartCPU
       real(kind=RP)                       :: elapsedTime
+      real(kind=RP)                       :: lastElapsedTime
       real(kind=RP)                       :: CPUTime
       class(Event_t), pointer, private    :: next  => NULL()
       contains
-         procedure      :: Start          => Event_Start
-         procedure      :: Pause          => Event_Pause
-         procedure      :: Reset          => Event_Reset
-         procedure      :: GetElapsedTime => Event_GetElapsedTime
-         procedure      :: GetCPUTime => Event_GetCPUTime
-         procedure      :: Destruct       => Event_Destruct
+         procedure      :: Start                => Event_Start
+         procedure      :: Pause                => Event_Pause
+         procedure      :: Reset                => Event_Reset
+         procedure      :: GetElapsedTime       => Event_GetElapsedTime
+         procedure      :: GetLastElapsedTime   => Event_GetLastElapsedTime
+         procedure      :: GetCPUTime           => Event_GetCPUTime
+         procedure      :: Destruct             => Event_Destruct
    end type Event_t
 
    type Stopwatch_t
       class(Event_t),   pointer, private  :: head => NULL()
       integer, private                    :: no_of_events = 0
       contains
-         procedure   :: CreateNewEvent => Stopwatch_CreateNewEvent
-         procedure   :: Start          => Stopwatch_Start
-         procedure   :: Pause          => Stopwatch_Pause
-         procedure   :: Reset          => Stopwatch_Reset
-         procedure   :: ElapsedTime    => Stopwatch_ElapsedTime
-         procedure   :: CPUTime    => Stopwatch_CPUTime
-         procedure   :: Destruct       => Stopwatch_Destruct
+         procedure   :: CreateNewEvent    => Stopwatch_CreateNewEvent
+         procedure   :: Start             => Stopwatch_Start
+         procedure   :: Pause             => Stopwatch_Pause
+         procedure   :: Reset             => Stopwatch_Reset
+         procedure   :: ElapsedTime       => Stopwatch_ElapsedTime
+         procedure   :: lastElapsedTime   => Stopwatch_lastElapsedTime
+         procedure   :: CPUTime           => Stopwatch_CPUTime
+         procedure   :: Destruct          => Stopwatch_Destruct
+         procedure   :: WriteSummaryFile  => Stopwatch_WriteSummaryFile
    end type Stopwatch_t
 
    type(Stopwatch_t)    :: Stopwatch 
@@ -255,7 +259,54 @@ module StopwatchClass
       elapsedTime = -1.0_RP
 
    end function Stopwatch_ElapsedTime
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------------------------------------
+!  Stopwatch_lastElapsedTime:
+!  Gets last elapsed time (time between last start and pause -or now)
+!  ------------------------------------------------------------------
+   function Stopwatch_lastElapsedTime(self,Name,units) result(lastElapsedTime)
+      implicit none
+      !-arguments---------------------------------------------
+      class(Stopwatch_t)                     :: self
+      character(len=*)                       :: Name
+      character(len=*), intent(in), optional :: units
+      real(kind=RP)                          :: lastElapsedTime
+      !-local-variables---------------------------------------
+      class(Event_t), pointer    :: event => NULL()
+      integer                    :: i 
+      real(kind=RP)              :: tEnd
+      character(len=STR_LEN_STOPWATCH)       :: chosenUnits
+      !-------------------------------------------------------
+      
+      if ( present(units) ) then
+         chosenUnits = units
 
+      else
+         chosenUnits = "sec"
+
+      end if
+
+      event => self % head
+      do i = 1 , self % no_of_events 
+
+         if ( trim(event % Name) .eq. trim(Name) ) then
+            lastElapsedTime = event % GetLastElapsedTime(chosenUnits)
+            return
+         else
+            event => event % next
+         end if
+      end do
+
+      print*, "Warning: Stopwatch event ",trim(Name)," was not found."
+
+      lastElapsedTime = -1.0_RP
+
+   end function Stopwatch_lastElapsedTime
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    function Stopwatch_CPUTime(self,Name,units) result(CPUTime)
       implicit none
       class(Stopwatch_t)                     :: self
@@ -350,6 +401,48 @@ module StopwatchClass
 
    end subroutine Stopwatch_Destruct
 !
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------------------------------------
+!  Stopwatch_lastElapsedTime:
+!  Gets last elapsed time (time between last start and pause -or now)
+!  ------------------------------------------------------------------
+   subroutine Stopwatch_WriteSummaryFile (this, fileRoot,units)
+      implicit none
+      !-arguments---------------------------------------------
+      class(Stopwatch_t)         , intent(inout) :: this
+      character(len=*)           , intent(in)    :: fileRoot
+      character(len=*), optional , intent(in)    :: units
+      !-local-variables---------------------------------------
+      class(Event_t), pointer          :: event
+      character(len=LINE_LENGTH)       :: fileName
+      character(len=STR_LEN_STOPWATCH) :: chosenUnits
+      integer                          :: fd, i
+      !-------------------------------------------------------
+      
+      if ( present(units) ) then
+         chosenUnits = units
+      else
+         chosenUnits = "sec"
+      end if
+      
+      fileName = trim(fileRoot) // ".Stopwatch.info"
+      
+      open (newunit=fd, file = fileName)
+      
+      write(fd,'(A)') '#Stopwatch information file'
+      write(fd,'(A7,43x,2(x,A15))') '# Event', 'Elapsed time(s)', 'CPU-Time (s)'
+      
+      event => this % head
+      do i = 1 , this % no_of_events 
+         write(fd,'(A50,2(x,ES15.5))') event % name, event % GetElapsedTime(chosenUnits), event % GetCPUTime(chosenUnits)
+         event => event % next
+      end do
+      
+      close(fd)
+      
+   end subroutine Stopwatch_WriteSummaryFile
+!
 !/////////////////////////////////////////////////////////////////////
 !
 !           EVENT PROCEDURES
@@ -392,8 +485,9 @@ module StopwatchClass
       tEnd = GetCurrentSeconds()
       call CPU_TIME(tCPUEnd)
 
-      self % elapsedTime = tEnd - self % tStart + self % elapsedTime
-      self % cpuTime     = tCPUEnd - self % tStartCPU + self % CPUTime
+      self % elapsedTime     = tEnd - self % tStart + self % elapsedTime
+      self % lastElapsedTime = tEnd - self % tStart
+      self % cpuTime         = tCPUEnd - self % tStartCPU + self % CPUTime
 
       self % tStart = 0.0_RP
       self % tStartCPU = 0.0_RP
@@ -434,7 +528,47 @@ module StopwatchClass
       end if
 
    end function Event_GetElapsedTime
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------------------------------------
+!  Event_GetLastElapsedTime:
+!  Gets last elapsed time (time between last start and pause -or now)
+!  ------------------------------------------------------------------
+   function Event_GetLastElapsedTime(self,units) result (time)
+      implicit none
+      !-arguments---------------------------------------------
+      class(Event_t)               :: self
+      character(len=*), intent(in) :: units
+      real(kind=RP)                :: time
+      !-local-variables---------------------------------------
+      real(kind=RP)     :: tActual
+      !-------------------------------------------------------
 
+      if ( self % running ) then
+         tActual = GetCurrentSeconds()
+         time = tActual - self % tStart
+
+      else
+         time = self % lastElapsedTime
+
+      end if
+
+      if ( (trim(units) .eq. "minutes") .or. (trim(units) .eq. "Minutes") .or. (trim(units) .eq. "min") ) then
+         time = time / 60.0_RP
+   
+      else if ( (trim(units) .eq. "hours") .or. (trim(units) .eq. "Hours") .or. (trim(units) .eq. "h") ) then
+         time = time / 3600.0_RP
+
+      else if ( (trim(units) .eq. "days") .or. (trim(units) .eq. "Days") .or. (trim(units) .eq. "d") ) then
+         time = time / (24.0_RP * 3600.0_RP)
+         
+      end if
+
+   end function Event_GetLastElapsedTime
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    function Event_GetCPUTime(self,units) result (time)
       implicit none
       class(Event_t)               :: self

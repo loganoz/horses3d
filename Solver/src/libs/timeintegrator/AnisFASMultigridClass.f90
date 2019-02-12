@@ -4,9 +4,9 @@
 !   @File:    AnisFASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Apr  4 09:17:17 2017
-!   @Last revision date: Thu Oct 18 13:37:35 2018
+!   @Last revision date: Fri Jan 25 10:49:02 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: a896f49c21150c90de7d90ff8d2ec7c0e40fe13e
+!   @Last revision commit: b33ea40370650cafae713e3449326f7245515e5e
 !
 !//////////////////////////////////////////////////////
 !
@@ -110,8 +110,8 @@ module AnisFASMultigridClass
       character(len=LINE_LENGTH) :: PostSmoothOptions
       !-----------------------------------------------------------
       
-      call Stopwatch % Pause("Solver")
-      call Stopwatch % Start("Preprocessing")
+!~      call Stopwatch % Pause("Solver")
+!~      call Stopwatch % Start("Preprocessing")
 !
 !     ----------------------------------
 !     Read important variables from file
@@ -276,8 +276,8 @@ module AnisFASMultigridClass
          call ConstructFASInOneDirection(this, MGlevels(Dir), controlVariables, Dir)   ! TODO: change argument to meshFileName
       end do
       
-      call Stopwatch % Pause("Preprocessing")
-      call Stopwatch % Start("Solver")
+!~      call Stopwatch % Pause("Preprocessing")
+!~      call Stopwatch % Start("Solver")
    end subroutine construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

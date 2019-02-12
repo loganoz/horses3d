@@ -12,6 +12,8 @@
 module DenseBlockDiagonalMatrixClass
    use SMConstants
    use GenericMatrixClass
+   use CSRMatrixClass, only: csrMat_t
+   use Jacobian      , only: JACEPS
 #include "Includes.h"
    implicit none
    
@@ -25,9 +27,6 @@ module DenseBlockDiagonalMatrixClass
    
    type, extends(Matrix_t) :: DenseBlockDiagMatrix_t
       type(Block_t), allocatable :: Blocks(:)   ! Array containing each block in a dense matrix
-      integer                    :: NumOfBlocks ! Number of blocks in matrix
-      integer      , allocatable :: BlockSizes(:)
-      integer      , allocatable :: BlockIdx(:)
       contains
          procedure :: construct
          procedure :: Preallocate
@@ -43,19 +42,21 @@ module DenseBlockDiagonalMatrixClass
          procedure :: destruct
          procedure :: FactorizeBlocks_LU
          procedure :: SolveBlocks_LU
+         procedure :: InvertBlocks_LU
+         procedure :: getCSR
+         procedure :: getTransCSR
    end type DenseBlockDiagMatrix_t
 contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_rows_reduced,withMPI)
+   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,withMPI)
       implicit none
       !---------------------------------------------
       class(DenseBlockDiagMatrix_t) :: this     !<> This matrix
       integer, optional, intent(in) :: num_of_Rows
       integer, optional, intent(in) :: num_of_Cols
       integer, optional, intent(in) :: num_of_Blocks
-      integer, optional, intent(in) :: num_of_rows_reduced
       logical, optional, intent(in) :: WithMPI
       !---------------------------------------------
       
@@ -64,7 +65,7 @@ contains
       end if
       
       allocate ( this % Blocks(num_of_Blocks) )
-      this % NumOfBlocks = num_of_Blocks
+      this % num_of_Blocks = num_of_Blocks
       allocate ( this % BlockSizes(num_of_Blocks) )
       allocate ( this % BlockIdx(num_of_Blocks+1) )
       
@@ -72,30 +73,29 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Preallocate(this, nnz, nnzs, ForceDiagonal)
+   subroutine Preallocate(this, nnz, nnzs)
       IMPLICIT NONE
       !---------------------------------------------
       class(DenseBlockDiagMatrix_t), intent(inout) :: this    !<> This matrix
       integer, optional            , intent(in)    :: nnz     !<  Not needed here
       integer, optional            , intent(in)    :: nnzs(:) !<  nnzs contains the block sizes!
-      logical, optional, intent(in)  :: ForceDiagonal
       !---------------------------------------------
       integer :: i, k ! counters
       !---------------------------------------------
       
       if (.not. present(nnzs) ) ERROR stop ':: DenseBlockDiagMatrix needs the block sizes'
-      if ( size(nnzs) /= this % NumOfBlocks) ERROR stop ':: DenseBlockDiagMatrix: wrong dimension for the block sizes'
+      if ( size(nnzs) /= this % num_of_Blocks) ERROR stop ':: DenseBlockDiagMatrix: wrong dimension for the block sizes'
       
       this % BlockSizes = nnzs
       this % num_of_Rows = sum(nnzs)
       
       this % BlockIdx(1) = 1
-      do i=2, this % NumOfBlocks + 1
+      do i=2, this % num_of_Blocks + 1
          this % BlockIdx(i) = this % BlockIdx(i-1) + nnzs(i-1)
       end do
       
 !$omp parallel do private(k) schedule(runtime)
-      do i=1, this % NumOfBlocks
+      do i=1, this % num_of_Blocks
          safedeallocate (this % Blocks(i) % Matrix ) ; allocate ( this % Blocks(i) % Matrix(nnzs(i),nnzs(i)) )
          safedeallocate (this % Blocks(i) % Indexes) ; allocate ( this % Blocks(i) % Indexes(nnzs(i)) )
          
@@ -107,15 +107,16 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Reset(this)
+   subroutine Reset(this, ForceDiagonal)
       IMPLICIT NONE
       !---------------------------------------------
       class(DenseBlockDiagMatrix_t), intent(inout) :: this     !<> This matrix
+      logical, optional, intent(in)  :: ForceDiagonal
       !---------------------------------------------
       integer :: i
       !---------------------------------------------
       
-      do i=1, this % NumOfBlocks
+      do i=1, this % num_of_Blocks
          this % Blocks(i) % Matrix = 0._RP
       end do
       
@@ -140,7 +141,7 @@ contains
       if ( (icol > this % num_of_Rows) .or. (icol < 1) ) ERROR stop ':: DenseBlockDiagMatrix: icol value is out of bounds'
       
       ! Search the corresponding block (they are ordered)
-      do thisblock=1, this % NumOfBlocks
+      do thisblock=1, this % num_of_Blocks
          if (icol <= this % BlockIdx(thisblock+1) -1) exit
       end do
       
@@ -280,7 +281,7 @@ contains
       !------------------------------------------
       
 !$omp parallel do private(i) schedule(runtime)
-      do iBL=1, this % NumOfBlocks
+      do iBL=1, this % num_of_Blocks
          do i=1, size(this % Blocks(iBL) % Matrix,1)
             this % Blocks(iBL) % Matrix(i,i) = this % Blocks(iBL) % Matrix(i,i) + shiftval
          end do
@@ -299,7 +300,7 @@ contains
       integer :: i
       !---------------------------------------------
       
-      do i = 1, this % NumOfBlocks
+      do i = 1, this % num_of_Blocks
          deallocate (this % Blocks(i) % Matrix )
          deallocate (this % Blocks(i) % Indexes)
       end do
@@ -330,7 +331,7 @@ contains
       select type (Factorized)
          class is(DenseBlockDiagMatrix_t)
 !$omp parallel do schedule(runtime)
-            do k=1, this % NumOfBlocks
+            do k=1, this % num_of_Blocks
                call ComputeLU (A        = this       % Blocks(k) % Matrix, &
                                ALU      = Factorized % Blocks(k) % Matrix, &
                                LUpivots = Factorized % Blocks(k) % Indexes)
@@ -362,7 +363,7 @@ contains
       !-------------------------------------------------------------
       
 !$omp parallel do private(x_loc) schedule(runtime)
-      do k = 1, this % NumOfBlocks
+      do k = 1, this % num_of_Blocks
          allocate( x_loc(this % BlockSizes(k)) )
          call SolveLU(ALU      = this % Blocks(k) % Matrix, &
                       LUpivots = this % Blocks(k) % Indexes, &
@@ -379,4 +380,133 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  --------------------------------------------------------
+!  Inverts the blocks of a matrix using LU factorization
+!  --------------------------------------------------------
+   subroutine InvertBlocks_LU(this,Inverted)
+      use DenseMatUtilities
+      implicit none
+      !-arguments---------------------------------------------------
+      class(DenseBlockDiagMatrix_t), intent(in)    :: this            !<  This matrix
+      class(Matrix_t)              , intent(inout) :: Inverted      !<  Facorized matrix
+      !-local-variables---------------------------------------------
+      integer :: k      ! Counter
+      !-------------------------------------------------------------
+      
+      select type (Inverted)
+         class is(DenseBlockDiagMatrix_t)
+!$omp parallel do schedule(runtime)
+            do k=1, this % num_of_Blocks
+               Inverted % Blocks(k) % Matrix = inverse (this % Blocks(k) % Matrix)
+            end do
+!$omp end parallel do
+         class default
+            write(STD_OUT,*) 'DenseBlockDiagonalMatrixClass :: Wrong type For factorized matrix in FactorizeBlocks_LU'
+            stop
+      end select
+   end subroutine InvertBlocks_LU
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --------------------------------------
+!  Convert the DBD matrix to a CSR matrix
+!  --------------------------------------
+   subroutine getCSR(this,Acsr)
+      implicit none
+      !-arguments---------------------------------------------------
+      class(DenseBlockDiagMatrix_t), intent(in)    :: this          !<  This matrix
+      class(csrMat_t)              , intent(inout) :: Acsr      !<  Facorized matrix
+      !-local-variables---------------------------------------------
+      integer :: ii, jj
+      integer :: bID
+      !-------------------------------------------------------------
+      
+      if (this % num_of_Rows /= Acsr % num_of_Rows) then
+         print*, 'DBD_getCSR :: ERROR: Matrix dimensions mismatch:', this % num_of_Rows, Acsr % num_of_Rows
+         stop
+      end if
+      
+      call Acsr % PreAllocate()
+      call Acsr % Reset
+      
+      call Acsr % SpecifyBlockInfo(this % BlockIdx, this % BlockSizes)
+      
+      
+!     Fill the Matrix
+!     ---------------
+      
+!$omp parallel do private(ii,jj)
+      do bID=1, this % num_of_Blocks
+               
+         do jj=1, this % BlockSizes(bID)
+            do ii=1, this % BlockSizes(bID)
+                  call Acsr % SetBlockEntry(bID,bID,ii,jj, this % Blocks (bID) % Matrix(ii,jj))
+            end do
+         end do
+         
+      end do
+!$omp end parallel do
+      
+      call Acsr % assembly()
+      
+   end subroutine getCSR
+   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --------------------------------------
+!  Convert the DBD matrix to a CSR matrix
+!  --------------------------------------
+   subroutine getTransCSR(this,Acsr)
+      implicit none
+      !-arguments---------------------------------------------------
+      class(DenseBlockDiagMatrix_t), intent(in)    :: this          !<  This matrix
+      class(csrMat_t)              , intent(inout) :: Acsr      !<  Facorized matrix
+      !-local-variables---------------------------------------------
+      integer :: k, ii, jj, j_offset, i
+      integer :: bID, rowsize, nnz_0, nnz
+      real(kind=RP), allocatable :: Vals(:)
+      integer      , allocatable :: Cols(:), Rows(:)
+      !-------------------------------------------------------------
+      
+      if (this % num_of_Rows /= Acsr % num_of_Rows) then
+         print*, 'DBD_getCSR :: ERROR: Matrix dimensions mismatch:', this % num_of_Rows, Acsr % num_of_Rows
+         stop
+      end if
+      
+      nnz_0 = sum(this % BlockSizes**2)
+      
+      allocate ( Rows(this % num_of_Rows+1) )
+      allocate ( Cols(nnz_0), Vals(nnz_0) )
+      
+      
+      
+      Rows(1) = 1
+      
+      i=1
+      k=1
+      j_offset = 0
+      nnz = 0
+      do bID = 1, this % num_of_Blocks
+         do jj = 1, this % BlockSizes(bID)
+            rowsize = 0
+            do ii = 1, this % BlockSizes(bID) 
+               if (abs(this % Blocks(bID) % Matrix(ii,jj)) < JACEPS) cycle
+               
+               Vals(k) = this % Blocks(bID) % Matrix(ii,jj)
+               Cols(k) = ii + j_offset
+               k = k + 1
+               rowsize = rowsize + 1
+               nnz = nnz + 1
+            end do
+            Rows(i+1) = Rows(i) + rowsize
+            i = i + 1
+         end do
+         
+         j_offset = j_offset + this % BlockSizes(bID)
+      end do
+      
+      call Acsr % constructWithArrays( Rows, Cols(1:nnz), Vals(1:nnz), this % num_of_Rows )
+      
+   end subroutine getTransCSR
 end module DenseBlockDiagonalMatrixClass

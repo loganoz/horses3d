@@ -1,10 +1,14 @@
 !
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!//////////////////////////////////////////////////////
 !
-!      MatrixFreeGMRESClass.f90
-!      Created: 2017-04-10 10:006:00 +0100 
-!      By: Carlos Redondo
-!          Andrés Rueda (adapted to HORSES3D)
+!   @File:    MatrixFreeGMRESClass.f90
+!   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
+!   @Created: Tue Apr 10 16:26:02 2017
+!   @Last revision date: Thu Jan 31 10:44:55 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: ebc7d57fabf133f06c19be869c1134ef5a5b86d0
+!
+!//////////////////////////////////////////////////////
 !
 !      Class for solving linear systems using a matrix free GMRES
 !
@@ -19,7 +23,15 @@ module MatrixFreeGMRESClass
    implicit none
    
    private
-   public   :: MatFreeGMRES_t 
+   public   :: MatFreeGMRES_t
+   
+   abstract interface
+      function MatrixAction_t(x)
+         use SMConstants
+         real(kind=RP), intent(in) :: x(:)
+         real(kind=RP)             :: MatrixAction_t(size(x))
+      end function
+   end interface
    
 !  ***********************
 !  Matrix-Free GMRES class
@@ -36,11 +48,18 @@ module MatrixFreeGMRESClass
       real(kind=RP), allocatable           :: x0(:)
       real(kind=RP)                        :: rnorm
       
+      real(kind=RP)                        :: timesolve        ! Time at the solution
+      real(kind=RP)                        :: dtsolve          ! dt for the solution
+      
+!     Variables for matrix-free matrix action
+!     ---------------------------------------
       real(kind=RP), allocatable           :: F_Ur(:)          ! Qdot at the beginning of solving procedure
       real(kind=RP), allocatable           :: Ur(:)            ! Q at the beginning of solving procedure
       
-      real(kind=RP)                        :: timesolve        ! Time at the solution
-      real(kind=RP)                        :: dtsolve          ! dt for the solution
+!     Variables for user-defined matrix action
+!     ----------------------------------------
+      logical                                    :: UserDef_Ax = .FALSE.
+      procedure(MatrixAction_t), nopass, pointer :: User_MatrixAction => null()
       
 !     Variables for preconditioners
 !     -----------------------------
@@ -65,42 +84,33 @@ module MatrixFreeGMRESClass
       
       contains
          ! Overriden procedures:
-         procedure                           :: Construct => ConstructSolver
-         procedure                           :: Destroy   => DestructSolver
+         procedure                           :: Construct         => GMRES_Construct
+         procedure                           :: Destroy           => GMRES_Destruct
          procedure                           :: SetRHSValue
          procedure                           :: SetRHSValues
          procedure                           :: SetOperatorDt
          procedure                           :: ReSetOperatorDt
          procedure                           :: GetXValue
          procedure                           :: GetX
-         procedure                           :: SetRHS   => GMRES_SetRHS
-         procedure                           :: Getxnorm    !Get solution norm
-         procedure                           :: Getrnorm    !Get residual norm
-         procedure                           :: Solve     => SolveGMRES
+         procedure                           :: SetRHS            => GMRES_SetRHS
+         procedure                           :: Getxnorm
+         procedure                           :: Getrnorm
+         procedure                           :: Solve             => GMRES_Solve
          ! Own procedures
          procedure                           :: SetTol
          procedure                           :: SetMaxIter
          procedure                           :: SetMaxInnerIter
          procedure                           :: SetInitialGuess
+         procedure                           :: SetMatrixAction   => GMRES_SetMatrixAction
          
          ! Internal procedures:
-         procedure :: p_F         ! Get the time derivative for a specific global Q
-         procedure :: MatFreeAx   ! Matrix action
+         procedure :: p_F                                   ! Get the time derivative for a specific global Q
+         procedure :: MatrixAction  => GMRES_MatrixAction   ! Matrix action
          
          ! Preconditioner action procedures
          procedure :: PC_GMRES_Ax         ! P⁻¹x for GMRES recursive preconditioning
          procedure :: PC_BlockJacobi_Ax   ! P⁻¹x for Block-Jacobi preconditioning
    end type MatFreeGMRES_t
-
-   abstract interface
-      subroutine matmultsub(v,x, ComputeTimeDerivative)
-         use SMConstants, only: RP
-         use DGSEMClass,  only: ComputeTimeDerivative_f
-         real(kind = RP), intent(in)         :: v(:)
-         real(kind = RP), intent(out)        :: x(:)
-         procedure(ComputeTimeDerivative_f)          :: ComputeTimeDerivative
-      end subroutine
-   end interface
 
 !
 !  Module variables
@@ -115,7 +125,7 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      recursive subroutine ConstructSolver(this,DimPrb,controlVariables, sem,MatrixShiftFunc)
+      recursive subroutine GMRES_Construct(this,DimPrb,controlVariables, sem,MatrixShiftFunc)
          implicit none
          !------------------------------------------------
          class(MatFreeGMRES_t)  , intent(inout), target :: this
@@ -130,7 +140,7 @@ contains
          integer, allocatable                       :: ndofelm(:)
          !------------------------------------------------
          
-         if (.not. present(sem)) ERROR stop ':: Matrix free GMRES needs sem'
+         if ( present(sem) ) this % p_sem => sem
          
          MatrixShift => MatrixShiftFunc
          
@@ -161,6 +171,8 @@ contains
 !              GMRES preconditioner
 !              --------------------
                case('GMRES')
+                  if (.not. associated(this % p_sem) ) ERROR stop 'MatFreeGMRES needs sem for "GMRES" preconditioner'
+               
                   ! Allocate extra storage
                   allocate(this%Z(this%DimPrb,this%m+1))
                   ! Construct inner GMRES solver
@@ -175,6 +187,8 @@ contains
 !              Block-Jacobi preconditioner
 !              ---------------------------
                case('BlockJacobi')
+                  if (.not. associated(this % p_sem) ) ERROR stop 'MatFreeGMRES needs sem for "BlockJacobi" preconditioner'
+                  
                   allocate(this%Z(this%DimPrb,this%m+1))
                   
                   if ( controlVariables % containsKey("matrix type") ) then
@@ -242,8 +256,7 @@ contains
          allocate(this%ss(this%m+1))
          allocate(this%g (this%m+1))
          
-         this % p_sem => sem
-      end subroutine ConstructSolver
+      end subroutine GMRES_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -374,10 +387,11 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      recursive subroutine DestructSolver(this)
+      recursive subroutine GMRES_Destruct(this)
          implicit none
+         !-arguments--------------------------------------
          class(MatFreeGMRES_t), intent(inout)          :: this
-         
+         !------------------------------------------------
          
          deallocate(this % RHS )
          deallocate(this % x0  )
@@ -401,13 +415,17 @@ contains
                call this % BlockA % destruct
                call this % BlockPreco % destruct
          end select
-      end subroutine DestructSolver
+         
+         this % UserDef_Ax        = .FALSE.
+         this % User_MatrixAction => null()
+         
+      end subroutine GMRES_Destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE SetOperatorDt(this, dt)  ! Modify for matrix peconditioners...
          IMPLICIT NONE
-         !------------------------------------------------
+         !-arguments--------------------------------------
          CLASS(MatFreeGMRES_t), INTENT(INOUT) :: this
          REAL(KIND=RP)        , INTENT(IN)    :: dt
          !------------------------------------------------
@@ -479,7 +497,7 @@ contains
          real(kind = RP)                        :: tmp1, tmp2
          
          !Compute first krylov vector
-         call this % MatFreeAx(this%x0,this%V(:,1), ComputeTimeDerivative)
+         call this % MatrixAction(this%x0,this%V(:,1), ComputeTimeDerivative)
          
          this%V(:,1) = this%RHS - this%V(:,1)   
          this%g(1) = NORM2(this%V(:,1))
@@ -492,12 +510,12 @@ contains
             select case (this % Preconditioner)
                case (PC_GMRES)
                   call this % PC_GMRES_Ax(this%V(:,j),this%Z(:,j), ComputeTimeDerivative)
-                  call this % MatFreeAx(this%Z(:,j),this%W, ComputeTimeDerivative)
+                  call this % MatrixAction(this%Z(:,j),this%W, ComputeTimeDerivative)
                case (PC_BlockJacobi)
                   call this % PC_BlockJacobi_Ax(this%V(:,j),this%Z(:,j))
-                  call this % MatFreeAx(this%Z(:,j),this%W, ComputeTimeDerivative)
+                  call this % MatrixAction(this%Z(:,j),this%W, ComputeTimeDerivative)
                case default ! PC_NONE
-                  call this % MatFreeAx(this%V(:,j),this%W, ComputeTimeDerivative)
+                  call this % MatrixAction(this%V(:,j),this%W, ComputeTimeDerivative)
             end select
             
             do i = 1,j
@@ -567,10 +585,10 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ! 
-      recursive subroutine SolveGMRES(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter,time,dt,computeA)
+      recursive subroutine GMRES_Solve(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter,time,dt,computeA)
          implicit none
          !----------------------------------------------------
-         class(MatFreeGMRES_t), intent(inout)      :: this
+         class(MatFreeGMRES_t), target, intent(inout)      :: this
          integer,       intent(in)                :: nEqn
          integer,       intent(in)                :: nGradEqn
          procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivative
@@ -586,7 +604,7 @@ contains
 !        Set the optional values
 !        -----------------------
          
-         if (present(tol)) this % tol = max(tol, epsilon(1._RP))
+         if (present(tol)    ) this % tol = max(tol, epsilon(1._RP))
          if (present(maxiter)) this % maxiter = maxiter
          
          if ( present(time) ) then
@@ -600,24 +618,27 @@ contains
             ERROR stop ':: MatFreeGMRES needs the dt'
          end if
          
-         this % Ur   = this % p_sem % mesh % storage % Q
-         this % F_Ur = this % p_F (this % Ur, ComputeTimeDerivative)    ! need to compute the time derivative?
-          
+         if (.not. this % UserDef_Ax) then
+            if (.not. associated(this % p_sem) ) ERROR stop 'MatFreeGMRES needs sem or MatrixAction'
+            this % Ur   = this % p_sem % mesh % storage % Q
+            this % F_Ur = this % p_F (this % Ur, ComputeTimeDerivative)    ! need to compute the time derivative?
+         end if
+         
 !        Preconditioner initializations
 !        ------------------------------
          select case (this % Preconditioner)
             case (PC_BlockJacobi)
                if ( present(ComputeA)) then
                   if (ComputeA) then
-                     call this % ComputeJacobian(this % BlockA,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+                     call this % ComputeJacobian(this % BlockA,time,nEqn,nGradEqn,ComputeTimeDerivative)
+                     call this % SetOperatorDt(dt) ! the matrix is factorized inside
                      
-                     call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
                      ComputeA = .FALSE.
                   end if
                else
-                  call this % ComputeJacobian(this % BlockA,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+                  call this % ComputeJacobian(this % BlockA,time,nEqn,nGradEqn,ComputeTimeDerivative)
+                  call this % SetOperatorDt(dt) ! the matrix is factorized inside
                   
-                  call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
                end if
          end select
          
@@ -640,7 +661,7 @@ contains
                STOP
             end if
             if(this%CONVERGED .OR. (this%niter .GE. this%maxiter)) then
-               call this % MatFreeAx(this % x, this % x0, ComputeTimeDerivative) ! using x0 as a temporary storing variable
+               call this % MatrixAction(this % x, this % x0, ComputeTimeDerivative) ! using x0 as a temporary storing variable
                this % rnorm = norm2(this % RHS - this % x0)
                RETURN
             else
@@ -653,7 +674,7 @@ contains
 !        ----------------------
 
          
-      end subroutine SolveGMRES
+      end subroutine GMRES_Solve
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -702,24 +723,28 @@ contains
 !     ---------------------------------------------------
 !     Returns the (matrix-free) matrix vector product 
 !     ---------------------------------------------------
-      subroutine MatFreeAx(this,x, Ax, ComputeTimeDerivative)
+      subroutine GMRES_MatrixAction(this,x, Ax, ComputeTimeDerivative)
          implicit none
-         !---------------------------------------------------------
+         !-arguments-----------------------------------------------
          class(MatFreeGMRES_t), intent(inout) :: this
          real(kind=RP), intent(in)            :: x (this % DimPrb)
          real(kind=RP), intent(out)           :: Ax(this % DimPrb)
          procedure(ComputeTimeDerivative_f)   :: ComputeTimeDerivative
-         !---------------------------------------------------------
+         !-local-variables-----------------------------------------
          real(kind=RP) :: eps, shift
          !---------------------------------------------------------
-          
-         eps = 1e-8_RP * (1._RP + norm2(x) )
-         shift = MatrixShift(this % dtsolve)
          
-         Ax = ( this % p_F(this % Ur + x * eps, ComputeTimeDerivative) - this % F_Ur)/ eps  + shift * x     !First order 
-         !Ax = ( this % p_F(this % Ur + x * eps, ComputeTimeDerivative) - this % p_F(Ur - x * eps, ComputeTimeDerivative))  /(2._RP * eps)  - x / Comp_Dt   !Second order
-      
-      end subroutine MatFreeAx
+         if (this % UserDef_Ax) then
+            Ax = this % User_MatrixAction(x)
+         else
+            eps = 1e-8_RP * (1._RP + norm2(x) )
+            shift = MatrixShift(this % dtsolve)
+            
+            Ax = ( this % p_F(this % Ur + x * eps, ComputeTimeDerivative) - this % F_Ur)/ eps  + shift * x     !First order 
+            !Ax = ( this % p_F(this % Ur + x * eps, ComputeTimeDerivative) - this % p_F(Ur - x * eps, ComputeTimeDerivative))  /(2._RP * eps)  - x / Comp_Dt   !Second order
+         end if
+         
+      end subroutine GMRES_MatrixAction
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -728,12 +753,12 @@ contains
 !     ---------------------------------------------------
       FUNCTION p_F(this,u, computeTimeDerivative) RESULT(F)
          IMPLICIT NONE
-         !---------------------------------------------------------
-         CLASS(MatFreeGMRES_t), INTENT(INOUT) :: this
+         !-arguments-----------------------------------------------
+         class(MatFreeGMRES_t), INTENT(INOUT) :: this
          REAL(KIND=RP)        , INTENT(IN)    :: u(this % DimPrb)
          procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
          REAL(KIND=RP)                        :: F(this % DimPrb)
-         !---------------------------------------------------------
+         !-local-variables-----------------------------------------
          REAL(KIND=RP)                        :: u_p(this % DimPrb)
          !---------------------------------------------------------
          
@@ -752,4 +777,23 @@ contains
          this % p_sem % mesh % storage % Q = u_p   ! TODO: this step can be avoided if Ur is not read in the "child" GMRES (the preconditioner)
          call this % p_sem % mesh % storage % global2LocalQ
       END FUNCTION p_F
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ------------------------------------------------
+!     GMRES_SetMatrixAction:
+!     Routine to set a user-defined Matrix-Action (Ax)
+!     ------------------------------------------------
+      subroutine GMRES_SetMatrixAction(this,MatrixAx)
+         implicit none
+         !-arguments-----------------------------------------------
+         class(MatFreeGMRES_t), intent(inout) :: this
+         procedure(MatrixAction_t)            :: MatrixAx
+         !---------------------------------------------------------
+         
+         this % UserDef_Ax        = .TRUE.
+         this % User_MatrixAction => MatrixAx
+         
+      end subroutine GMRES_SetMatrixAction
+         
 end module MatrixFreeGMRESClass

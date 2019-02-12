@@ -19,7 +19,7 @@
       use PolynomialInterpAndDerivsModule
       use GaussQuadrature
       use MappedGeometryClass
-      use StorageClass
+      use StorageClass                    , only: FaceStorage_t
       use PhysicsStorage
       use NodalStorageClass
       use InterpolationMatrices           , only: Tset

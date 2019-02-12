@@ -108,24 +108,28 @@ contains
 !        If block-diagonal matrix, construct with size of blocks
 !        -------------------------------------------------------
          type is(DenseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=ndofelm, ForceDiagonal = .TRUE.)
+            call Matrix_p % Preallocate(nnzs=ndofelm)
          type is(SparseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=ndofelm, ForceDiagonal = .TRUE.)
+            call Matrix_p % Preallocate(nnzs=ndofelm)
             
 !
 !        If matrix is CSR, standard preallocate with LinkedListMatrix
 !        ------------------------------------------------------------
          type is(csrMat_t)
-            call Matrix_p % Preallocate(ForceDiagonal = .TRUE.)
+            call Matrix_p % Preallocate()
 !
 !        Otherwise, construct with nonzeros in each row
 !        ----------------------------------------------
          class default 
-            nnz = MAXVAL(ndofelm) ! currently only for block diagonal
-            call Matrix_p % Preallocate(nnz, ForceDiagonal = .TRUE.)
+            if (BlockDiagonal) then
+               nnz = maxval(ndofelm)
+            else
+               nnz = 7*maxval(ndofelm) ! 20180201: hard-coded to 7, since the analytical Jacobian can only compute off-diagonal blocks for compact schemes (neighbors' effect)
+            end if
+            call Matrix_p % Preallocate(nnz)
       end select
-      call Matrix % Reset
       
+      call Matrix % Reset (ForceDiagonal = .TRUE.)
       call Matrix % SpecifyBlockInfo(firstIdx,ndofelm)
       
 !$omp parallel
@@ -157,9 +161,8 @@ contains
       
       call Stopwatch % Pause("Analytical Jacobian construction")
       
-      write(STD_OUT,'(A,ES10.3,A)') "Analytical Jacobian construction: ", Stopwatch % Elapsedtime("Analytical Jacobian construction"), ' seconds'
+      write(STD_OUT,'(A,ES10.3,A)') "Analytical Jacobian construction: ", Stopwatch % lastElapsedtime("Analytical Jacobian construction"), ' seconds'
       
-      call Stopwatch % Reset("Analytical Jacobian construction")
 #else
       ERROR stop ':: Analytical Jacobian only for NS'
 #endif
@@ -598,7 +601,7 @@ contains
                             -   dfdq_le(eq1,eq2,j1,k1) * e % spAXi  % b(i1,LEFT  ) * e % spAXi  % v(i2,LEFT  ) * dj * dk ) & ! 6 Left
                                                                                        * e % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
             
-            call Matrix % SetBlockEntry (e % GlobID, e % GlobID, i, j, MatrixEntry)
+            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatrixEntry)
             
          end do                ; end do                ; end do                ; end do
       end do                ; end do                ; end do                ; end do
@@ -894,7 +897,7 @@ contains
                             * spAnorm_minus % v(elInd_minus( normAx_minus ), normAxSide_minus )  & 
                             * e_plus % geom % invJacobian(i1,j1,k1)
             
-            call Matrix % SetBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatrixEntry)
+            call Matrix % AddToBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatrixEntry)
          end do                ; end do                ; end do                ; end do
       end do                ; end do                ; end do                ; end do
       nullify(dfdq)

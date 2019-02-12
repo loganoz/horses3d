@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Fri Nov 30 12:53:02 2018
+!   @Last revision date: Fri Feb  1 17:24:59 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8c8fe673f51fec8338e38e16c38021bdca6914b2
+!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
 !
 !//////////////////////////////////////////////////////
 !
@@ -218,19 +218,18 @@ contains
 !
       select type(Matrix_p => Matrix)
          type is(DenseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=ndofelm, ForceDiagonal = .TRUE.) ! Constructing with block size
-            CALL Matrix % Reset
+            call Matrix_p % Preallocate(nnzs=ndofelm) ! Constructing with block size
          type is(SparseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=ndofelm, ForceDiagonal = .TRUE.) ! Constructing with block size
-            CALL Matrix % Reset
+            call Matrix_p % Preallocate(nnzs=ndofelm) ! Constructing with block size
          type is(CSRMat_t)
 !~             call GetRowsAndColsVector(sem, nEqn, Matrix_p % numRows, totalnnz, firstIdx, rows, cols, diag)
 !~             call Matrix_p % PreAllocateWithStructure(totalnnz, rows, cols, diag) 
-            call Matrix_p % Preallocate(ForceDiagonal = .TRUE.)
+            call Matrix_p % Preallocate()
          class default ! Construct with nonzeros in each row
-            call Matrix % Preallocate(nnz, ForceDiagonal = .TRUE.)
-            CALL Matrix % Reset
+            call Matrix_p % Preallocate(nnz)
       end select
+      
+      call Matrix % Reset(ForceDiagonal = .TRUE.)
       
 #if defined(CAHNHILLIARD)
       CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, CTD_ONLY_CH_LIN )
@@ -316,9 +315,8 @@ contains
       
       call Stopwatch % Pause("Numerical Jacobian construction")
       IF (PRESENT(PINFO)) THEN
-         IF (PINFO) PRINT*, "Numerical Jacobian construction: ", Stopwatch % ElapsedTime("Numerical Jacobian construction"), "seconds"
+         IF (PINFO) PRINT*, "Numerical Jacobian construction: ", Stopwatch % lastElapsedTime("Numerical Jacobian construction"), "seconds"
       ENDIF
-      call Stopwatch % Reset("Numerical Jacobian construction")
                 
    end subroutine NumericalJacobian_Compute
 !
@@ -359,7 +357,7 @@ contains
             irow = irow_0 + firstIdx(elmnbr)                      !generates the row indices vector
             where ( abs(pbuffer(1:ndof)) .LT. JACEPS) irow = -1   !MatSetvalues will ignore entries with irow=-1
             icol = firstIdx(eID) + thisdof - 1  
-            call Matrix % SetColumn(ndof, irow(1:ndof), icol, pbuffer(1:ndof) )
+            call Matrix % AddToColumn(ndof, irow(1:ndof), icol, pbuffer(1:ndof) )
             
             used(usedctr) = elmnbr
             usedctr = usedctr + 1

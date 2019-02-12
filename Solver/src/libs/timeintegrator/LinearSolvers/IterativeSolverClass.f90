@@ -7,25 +7,18 @@
 !      Class for solving a system with simple smoothers
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#ifdef HAS_PETSC
-!#include <petsc.h>
-#include "petsc/finclude/petsc.h"
-#endif
 MODULE IterativeSolverClass
    use MatrixClass
    USE GenericLinSolverClass
    USE CSRMatrixClass
    USE SMConstants
-   USE PetscSolverClass   ! For allocating Jacobian matrix
    use DGSEMClass
    use TimeIntegratorDefinitions
    use NumericalJacobian
    use AnalyticalJacobian
    use PhysicsStorage
-#ifdef HAS_PETSC
-   use petsc
-#endif
    IMPLICIT NONE
+   
    PRIVATE
    PUBLIC IterativeSolver_t, GenericLinSolver_t
    
@@ -36,18 +29,11 @@ MODULE IterativeSolverClass
    
    TYPE, EXTENDS(GenericLinSolver_t) :: IterativeSolver_t
       TYPE(csrMat_t)                             :: A                                  ! Jacobian matrix
-      type(PETSCMatrix_t)                        :: PETScA
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: x                                  ! Solution vector
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: b                                  ! Right hand side
-      REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: F_Ur                               ! Qdot at the beginning of solving procedure
-      REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: Ur                                 ! Q at the beginning of solving procedure
+      
       REAL(KIND=RP)                              :: rnorm                              ! L2 norm of residual
       REAL(KIND=RP)                              :: Ashift                             ! Shift that the Jacobian matrix currently(!) has
-      LOGICAL                                    :: AIsPrealloc                        ! Has A already been preallocated? (to be deprecated)
-      
-      !Variables for creating Jacobian in PETSc context:
-      TYPE(PetscKspLinearSolver_t)               :: PetscSolver                        ! PETSc solver (created only for allocating the matrix -to be deprecated?)
-      LOGICAL                                    :: AIsPetsc = .TRUE.
       
       CHARACTER(LEN=LINE_LENGTH)                 :: Smoother
       TYPE(BlockPreco_t), ALLOCATABLE            :: BlockPreco(:)
@@ -63,16 +49,14 @@ MODULE IterativeSolverClass
       procedure                                  :: destroy
       procedure                                  :: SetOperatorDt
       procedure                                  :: ReSetOperatorDt
-      procedure                                  :: FillAInfo
       !Functions:
+      procedure                                  :: GetX
       procedure                                  :: Getxnorm    !Get solution norm
       procedure                                  :: Getrnorm    !Get residual norm
       
       !! Internal procedures
       procedure                                  :: WeightedJacobiSmoother
       procedure                                  :: ComputeBlockPreco
-      
-      procedure                                  :: p_F
    END TYPE IterativeSolver_t
    
 !
@@ -103,11 +87,14 @@ CONTAINS
       INTEGER :: k          ! Counter  
       INTEGER :: NCONS                                       
       !-----------------------------------------------------------
-#ifdef HAS_PETSC
-      PetscErrorCode :: ierr
-      CALL PetscInitialize(PETSC_NULL_CHARACTER,ierr)
-#endif
+      
       IF (.NOT. PRESENT(sem)) stop 'Fatal error: IterativeSolver needs sem.'
+      
+!     Jacobian computation to be used
+!     *******************************
+      if ( controlVariables % containsKey("jacobian flag") ) then
+         this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
+      end if
       
       MatrixShift => MatrixShiftFunc
       
@@ -116,10 +103,8 @@ CONTAINS
       
       ALLOCATE(this % x   (DimPrb))
       ALLOCATE(this % b   (DimPrb))
-      ALLOCATE(this % F_Ur(DimPrb))
-      ALLOCATE(this % Ur  (DimPrb))
-
-      IF(this % AIsPetsc) CALL this % PETScA % construct (num_of_Rows = DimPrb, withMPI = .FALSE.)
+      
+      CALL this % A % construct (num_of_Rows = DimPrb, withMPI = .FALSE.)
       
       this % p_sem => sem
 !
@@ -128,7 +113,7 @@ CONTAINS
 !     ------------------------------------------------
 !
       SELECT CASE (this % Smoother)
-         CASE('BlockJacobi')
+         CASE('Block-Jacobi')
             nelem = SIZE(sem % mesh % elements)
             NCONS = SIZE(sem % mesh % elements(1) % storage % Q,4)
             ALLOCATE (this % BlockPreco(nelem))
@@ -142,51 +127,6 @@ CONTAINS
             END DO
       END SELECT
    END SUBROUTINE construct
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   subroutine FillAInfo(this)
-      implicit none
-      !-----------------------------------------------------------
-      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
-      !-----------------------------------------------------------
-      integer :: i
-      integer, target, allocatable, dimension(:) :: Nx, Ny, Nz, ndofelm
-      integer, target, allocatable :: firstIdx(:)
-      integer :: nelem
-      integer  :: nEqn
-      !-----------------------------------------------------------
-      nelem= size(this % p_sem % mesh % elements)
-      
-#if defined(NAVIERSTOKES)
-      nEqn = NCONS
-#endif
-      
-      allocate ( Nx(nelem), Ny(nelem), Nz(nelem), ndofelm(nelem) )
-      allocate ( firstIdx(nelem+1) )
-      
-      firstIdx(1) = 1
-      
-      nelem = size(this % p_sem % mesh % elements)
-      do i=1, nelem
-            Nx(i) = this % p_sem % mesh % elements(i) % Nxyz(1)
-            Ny(i) = this % p_sem % mesh % elements(i) % Nxyz(2)
-            Nz(i) = this % p_sem % mesh % elements(i) % Nxyz(3)
-            
-!           Get block sizes and position in matrix
-!              TODO: change to store the permutation indexes in the element
-!           --------------------------------------
-! 
-            ndofelm(i)  = nEqn * (Nx(i)+1) * (Ny(i)+1) * (Nz(i)+1)
-            IF (i>1) firstIdx(i) = firstIdx(i-1) + ndofelm(i-1)
-      end do
-      firstIdx(nelem+1) = firstIdx(nelem) + ndofelm(nelem)
-      
-      allocate (this % A % BlockIdx(nelem+1))
-      allocate (this % A % BlockSize(nelem))
-      this % A % BlockIdx  = firstIdx
-      this % A % BlockSize = ndofelm
-   end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -236,9 +176,8 @@ CONTAINS
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE solve(this, nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
-   use DenseMatUtilities
       IMPLICIT NONE
-      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
+      CLASS(IterativeSolver_t), target, INTENT(INOUT) :: this
       integer,       intent(in)               :: nEqn, nGradEqn
       procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       REAL(KIND=RP), OPTIONAL                 :: tol
@@ -248,51 +187,23 @@ CONTAINS
       logical      , optional      , intent(inout) :: ComputeA
       !-------------------------------------------------
       INTEGER                                 :: i
-!~      LOGICAL, SAVE :: isfirst = .TRUE.
       !-------------------------------------------------
-      !<temp
-!~      real(kind=RP), allocatable :: A(:,:)
-!~      integer :: blockn
-      !temp>
-      IF (.NOT. PRESENT(time) .OR. .NOT. PRESENT(dt)) STOP 'time and dt needed for iterative solver'
       
-!
-!     Compute Jacobian matrix if needed
-!        (done in petsc format and then transformed to CSR since the CSR cannot be filled by the Jacobian calculators)
-!     -----------------------------------------------------
+      IF (.NOT. PRESENT(time) .OR. .NOT. PRESENT(dt)) STOP 'time and dt needed for iterative solver'
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-!~            call AnalyticalJacobian_Compute(this % p_sem,time,this % PETScA,.TRUE.)
-            call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % PETScA, ComputeTimeDerivative, .TRUE. )
-            call this % PETScA % shift( MatrixShift(dt) )
-            call this % PETScA % GetCSRMatrix(this % A)
-            if (this % Smoother == 'BlockJacobi') call this % FillAInfo
-            IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
-            this % AIsPetsc = .FALSE.
+            call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % SetOperatorDt(dt) ! Block preco computed inside
             ComputeA = .FALSE.
          end if
       else 
-         call NumericalJacobian_Compute(this % p_sem, nEqn, nGradEqn, time, this % A, ComputeTimeDerivative, .TRUE. )
-         call this % PETScA % shift( MatrixShift(dt) )
-         call this % PETScA % GetCSRMatrix(this % A)
-         if (this % Smoother == 'BlockJacobi') call this % FillAInfo
+         call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % SetOperatorDt(dt) ! Block preco computed inside
       end if
-      
-!~      blockn = 1
-!~      allocate ( A(this % A % BlockSize(blockn),this % A % BlockSize(blockn)) )
-!~      A = this % A % GetBlock(blockn,this % A % BlockSize(blockn))
-!~      call Mat2File(A,'NewNum.dat')
-!~      stop
       
       timesolve= time
       dtsolve  = dt
-      
-!~      IF (isfirst) THEN
-         this % F_Ur = this % p_sem % mesh % storage % Qdot
-         this % Ur   = this % p_sem % mesh % storage % Q
-!~         isfirst = .FALSE.
-!~      END IF
       
       ! Initialize x
       DO i=1, this % DimPrb
@@ -303,17 +214,16 @@ CONTAINS
       SELECT CASE (this % Smoother)
          CASE('WeightedJacobi')
             CALL this % WeightedJacobiSmoother( this%A%Values(this%A%Diag), maxiter, tol, this % niter, ComputeTimeDerivative)
-         CASE('BlockJacobi')
+         CASE('Block-Jacobi')
             CALL BlockJacobiSmoother(this, maxiter, tol, this % niter, ComputeTimeDerivative)
       END SELECT
       
-      this % p_sem % mesh % storage % Q = this % Ur
       
-!~      IF (this % niter < maxiter) THEN
+      IF (this % niter < maxiter) THEN
          this % CONVERGED = .TRUE.
-!~      ELSE
-!~         this % CONVERGED = .FALSE.
-!~      END IF
+      ELSE
+         this % CONVERGED = .FALSE.
+      END IF
       
    END SUBROUTINE solve
 !
@@ -345,6 +255,19 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+   function GetX(this) result(x)
+      implicit none
+      !-----------------------------------------------------------
+      class(IterativeSolver_t), intent(inout)   :: this
+      real(kind=RP)                             :: x(this % DimPrb)
+      !-----------------------------------------------------------
+      
+      x = this % x
+      
+   end function GetX
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    SUBROUTINE destroy(this)       
       IMPLICIT NONE
       !-----------------------------------------------------------
@@ -356,10 +279,7 @@ CONTAINS
       DEALLOCATE(this % b)
       DEALLOCATE(this % x)
       
-      IF (this % AIsPetsc) CALL this % PetscSolver % destroy()
-      this % AIsPetsc    = .TRUE.
-      this % AIsPrealloc = .FALSE.
-      
+      IF(this % Smoother == 'Block-Jacobi') deallocate (this % BlockPreco)
     END SUBROUTINE destroy
     
     
@@ -377,13 +297,9 @@ CONTAINS
       !-----------------------------------------------------------
       
       this % Ashift = MatrixShift(dt)
-      IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % SetOperatorDt(dt)
-      ELSE
-         CALL this % A % Shift(this % Ashift)
-      END IF
+      CALL this % A % Shift(this % Ashift)
       
-      IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
+      IF(this % Smoother == 'Block-Jacobi') CALL this % ComputeBlockPreco
       
     END SUBROUTINE SetOperatorDt
 !
@@ -399,15 +315,12 @@ CONTAINS
       !-----------------------------------------------------------
       
       shift = MatrixShift(dt)
-      IF (this % AIsPetsc) THEN
-         CALL this % PetscSolver % ReSetOperatorDt(dt)
-      ELSE
-         CALL this % A % Shift(-this % Ashift)
-         CALL this % A % Shift(shift)
-      END IF
+      CALL this % A % Shift(-this % Ashift)
+      CALL this % A % Shift(shift)
+      
       this % Ashift = shift
       
-      IF(this % Smoother == 'BlockJacobi') CALL this % ComputeBlockPreco
+      IF(this % Smoother == 'Block-Jacobi') CALL this % ComputeBlockPreco
       
     END SUBROUTINE ReSetOperatorDt
 !
@@ -461,31 +374,6 @@ CONTAINS
       
       ComputeA = .FALSE.
    END FUNCTION ComputeANextStep
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!
-!  Internal procedures
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-   
-   FUNCTION p_F(this,u, computeTimeDerivative) RESULT(F)
-      IMPLICIT NONE
-      CLASS(IterativeSolver_t), INTENT(INOUT) :: this
-      REAL(KIND = RP), INTENT(IN)             :: u(:)
-      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
-      REAL(KIND = RP)                         :: F(size(u))
-      
-      this % p_sem % mesh % storage % Q = u
-      call this % p_sem % mesh % storage % global2LocalQ
-      CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, CTD_IGNORE_MODE)
-      
-      call this % p_sem % mesh % storage % local2GlobalQdot(this % p_sem % NDOF)
-      F = this % p_sem % mesh % storage % Qdot
-      
-   END FUNCTION p_F
    
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////!
@@ -597,9 +485,9 @@ CONTAINS
       
       oldrnorm = -1._RP
       ConvRate = 1._RP
-      DO i=1,SmoothIters
-            print*, 'MatMult'
-          r = CSR_MatVecMul(this%A,x) ! CSR matrix product
+      do i=1,SmoothIters
+         
+         r = CSR_MatVecMul(this%A,x) ! CSR matrix product
 !$omp parallel do private(idx1,idx2)
          DO j=1,size (this % p_sem % mesh % elements)
             idx1 = this % A % BlockIdx(j)
@@ -641,24 +529,6 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!~   SUBROUTINE ComputeBlockPreco(this)
-!~      USE DenseMatUtilities
-!~      IMPLICIT NONE
-!~      !-------------------------------------------------------------
-!~      CLASS(IterativeSolver_t), TARGET, INTENT(INOUT) :: this            !<  Iterative solver class
-!~      !-------------------------------------------------------------
-!~      INTEGER :: nelem
-!~      INTEGER :: k, N      ! Counter / size of block
-!~      !-------------------------------------------------------------
-      
-!~      nelem = SIZE (this % A % BlockSize)
-!~      DO k=1, nelem
-!~         N = this % A % BlockSize(k)
-!~         this % BlockPreco(k) % Pinv = inverse(this % A % GetBlock(k,N))
-!~      END DO
-      
-!~   END SUBROUTINE ComputeBlockPreco
-   
    SUBROUTINE ComputeBlockPreco(this)
       USE DenseMatUtilities
       IMPLICIT NONE
@@ -670,7 +540,7 @@ CONTAINS
       
 !$omp parallel do schedule(runtime)
       DO k=1, size (this % p_sem % mesh % elements)
-         N = this % A % BlockSize(k)
+         N = this % A % BlockSizes(k)
          call ComputeLU (A        = this % A % GetBlock(k,N), &
                          ALU      = this % BlockPreco(k) % PLU, &
                          LUpivots = this % BlockPreco(k) % LUpivots)
@@ -678,4 +548,7 @@ CONTAINS
 !$omp end parallel do
       
    END SUBROUTINE ComputeBlockPreco
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 END MODULE IterativeSolverClass

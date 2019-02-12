@@ -19,6 +19,8 @@ MODULE BDFTimeIntegrator
    use MatrixClass
    use DGSEMClass
    use StorageClass              , only: SolutionStorage_t
+   use StopwatchClass            , only: Stopwatch
+   use Utilities                 , only: AlmostEqual
    implicit none
    
    PRIVATE                          
@@ -37,6 +39,7 @@ MODULE BDFTimeIntegrator
       logical                                :: TimeAccurate  !· .TRUE. if this is a time-accurate simulation
       logical                                :: UserNewtonTol !· .TRUE. if the newton tolerance is specified by the user
       real(kind=RP)                          :: NewtonTol     !  Specified Newton tolerance
+      real(kind=RP)                          :: inner_dt   
       
       contains
          procedure :: construct => ConstructBDFIntegrator
@@ -104,7 +107,7 @@ contains
       end if
       
       PRINT_NEWTON_INFO = controlVariables % logicalValueForKey("print newton info")
-      if (controlVariables % containsKey("newton tolerance")) THEN
+      if (controlVariables % containsKey("newton tolerance")) then
          this % UserNewtonTol = .TRUE.
          this % NewtonTol = controlVariables % doublePrecisionValueForKey("newton tolerance")
       else
@@ -134,7 +137,7 @@ contains
          case('static-condensation')
             allocate (StaticCondSolver_t     :: this % linsolver)
          case default
-            print*, "Keyword 'linear solver' missing... Using PETSc as default"
+            write(STD_OUT,*) "Keyword 'linear solver' missing... Using PETSc as default"
             allocate (PetscKspLinearSolver_t :: this % linsolver)
       end select
       
@@ -151,6 +154,10 @@ contains
             ERROR stop ':: "bdf order">1 is only valid with fixed time-step sizes'
          end if
       end if
+      
+!     Create Stopwatch for solving
+!     ----------------------------
+      call Stopwatch % CreateNewEvent("BDF Newton-Solve")
       
    end subroutine ConstructBDFIntegrator
 !
@@ -169,40 +176,39 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !   
-   SUBROUTINE TakeBDFStep (this, sem, t , dt, ComputeTimeDerivative)
+   subroutine TakeBDFStep (this, sem, t , dt, ComputeTimeDerivative)
       implicit none
       !----------------------------------------------------------------------
       class(BDFIntegrator_t), intent(inout) :: this
-      TYPE(DGSem),                  INTENT(inout)           :: sem                  !<>DGSem class with solution storage 
-      REAL(KIND=RP),                INTENT(IN)              :: t                    !< Time at the beginning of time step
-      REAL(KIND=RP),                INTENT(IN)              :: dt                   !< Initial (outer) time step (the subroutine can use a smaller one depending on convergence)
+      type(DGSem),                  INTENT(inout)           :: sem                  !<>DGSem class with solution storage 
+      real(kind=RP),                INTENT(in)              :: t                    !< Time at the beginning of time step
+      real(kind=RP),                INTENT(in)              :: dt                   !< Initial (outer) time step (the subroutine can use a smaller one depending on convergence)
       procedure(ComputeTimeDerivative_f)                            :: ComputeTimeDerivative
       !----------------------------------------------------------------------
       
       real(kind=RP) :: time               ! Time at the beginning of each inner(!) time step
-      INTEGER                                               :: k, newtonit
+      integer                                               :: k, newtonit
       
-      REAL(KIND=RP)                                         :: ConvRate
-      REAL(KIND=RP)                                         :: inner_dt
-      LOGICAL                                               :: CONVERGED
+      real(kind=RP)                                         :: ConvRate
+      logical                                               :: CONVERGED
       !----------------------------------------------------------------------
       
-      IF ((.not. this % TimeAccurate) .and. (.not. this % UserNewtonTol)) THEN
+      if ((.not. this % TimeAccurate) .and. (.not. this % UserNewtonTol)) then
          this % NewtonTol = sem % MaxResidual* 1e-3_RP
-      END IF
-      
-      inner_dt = dt            ! first inner_dt is the outer step dt 
-      time = t
+      end if
       
       !**************************
       ! If the Jacobian must only be computed sometimes
       if (this % JacByConv) then
-         if (.not. computeA) then
-            CALL this % linsolver % ReSetOperatorDt(inner_dt)
+         if ( (.not. computeA) .and. (.not. AlmostEqual (this % inner_dt,dt) ) ) then
+            call this % linsolver % ReSetOperatorDt(this % inner_dt)
          end if
       end if
       ! 
       !**************************
+      
+      this % inner_dt = dt            ! first inner_dt is the outer step dt 
+      time = t
       
       call sem % mesh % storage % local2GlobalQ(sem % NDOF)
 !
@@ -228,13 +234,13 @@ contains
                this % StepsSinceJac = 0
             end if
          end if
-         CALL NewtonSolve(sem, time+inner_dt, inner_dt, this % linsolver, this % NewtonTol, &
+         call NewtonSolve(sem, time+this % inner_dt, this % inner_dt, this % linsolver, this % NewtonTol, &
                           this % JacByConv,ConvRate, newtonit,CONVERGED, ComputeTimeDerivative)
          
 !        Actions if Newton converged
 !        ***************************
-         IF (CONVERGED) THEN
-            time = time + inner_dt
+         if (CONVERGED) then
+            time = time + this % inner_dt
             
 !           Check convergence to know if the Jacobian must be computed
 !           ----------------------------------------------------------
@@ -247,41 +253,41 @@ contains
             
 !           Check if the sub time-stepping is done
 !           --------------------------------------
-            IF (ABS((time)-(t+dt)) < 10 * EPSILON(1._RP)) THEN       ! If outer t+dt is reached, the time integration is done
-               EXIT                                            
-            ENDIF
+            if (ABS((time)-(t+dt)) < 10 * EPSILON(1._RP)) then       ! If outer t+dt is reached, the time integration is done
+               exit                                            
+            end if
             
 !           Increase dt if good convergence in previous step
 !           ------------------------------------------------
-            IF (Adaptive_dt .and. ConvRate > NEWTON_MAX_CONVRATE) THEN
-               inner_dt = inner_dt * 2.0_RP
-               IF (this % JacByConv)  CALL this % linsolver % ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
+            if (Adaptive_dt .and. ConvRate > NEWTON_MAX_CONVRATE) then
+               this % inner_dt = this % inner_dt * 2.0_RP
+               if (this % JacByConv)  call this % linsolver % ReSetOperatorDt(this % inner_dt)    ! Resets the operator with the new dt
                
-               IF (PRINT_NEWTON_INFO) WRITE(*,*) "Increasing  dt  = ", inner_dt
-            ENDIF
+               if (PRINT_NEWTON_INFO) write(*,*) "Increasing  dt  = ", this % inner_dt
+            end if
             
 !           Adjust dt to prevent sub time-stepping to be be greater than outer Dt 
 !           ---------------------------------------------------------------------
-            IF ( time+inner_dt > t + dt) THEN  ! Adjusts inner dt to achieve exact outer Dt in the last substep
-               inner_dt = t + dt - time
-               IF (this % JacByConv)  CALL this % linsolver % ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
+            if ( time+this % inner_dt > t + dt) then  ! Adjusts inner dt to achieve exact outer Dt in the last substep
+               this % inner_dt = t + dt - time
+               if (this % JacByConv)  call this % linsolver % ReSetOperatorDt(this % inner_dt)    ! Resets the operator with the new dt
                
-               IF (PRINT_NEWTON_INFO) WRITE(*,*) "Adjusting dt = ", inner_dt
-            ENDIF
+               if (PRINT_NEWTON_INFO) write(*,*) "Adjusting dt = ", this % inner_dt
+            end if
          
 !        Actions if Newton did not converge
 !        **********************************
-         ELSE
+         else
             
 !           Reduce dt is allowed
 !           --------------------
             if (Adaptive_dt) then
-               inner_dt = inner_dt / 2._RP
-               IF (this % JacByConv)  CALL this % linsolver % ReSetOperatorDt(inner_dt)    ! Resets the operator with the new dt
+               this % inner_dt = this % inner_dt / 2._RP
+               if (this % JacByConv)  call this % linsolver % ReSetOperatorDt(this % inner_dt)    ! Resets the operator with the new dt
                
                sem % mesh % storage % Q = sem % mesh % storage % PrevQ(:, sem % mesh % storage % prevSol_index(1))  ! restores Q in sem to begin a new newton iteration
                  
-               IF (PRINT_NEWTON_INFO) WRITE(*,*) "Newton loop did not converge, trying a smaller dt = ", inner_dt
+               if (PRINT_NEWTON_INFO) write(*,*) "Newton loop did not converge, trying a smaller dt = ", this % inner_dt
                
 !           Warn if dt cannot be changed
 !           ----------------------------
@@ -289,30 +295,30 @@ contains
                if (this % TimeAccurate) then
                   ERROR stop 'Newton loop did not converge. Consider using a smaller dt or "implicit adaptive dt = .TRUE."'
                else
-                  print*, 'WARNING: Newton loop did not converge.'
+                  write(STD_OUT,*) 'WARNING: Newton loop did not converge.'
                   exit
                end if
             end if
-         END IF
+         end if
       
-      END DO
+      end do
  
-      IF (PRINT_NEWTON_INFO) WRITE(*,'(A10,f5.2)') "ConvRate: ", ConvRate
+      if (PRINT_NEWTON_INFO) write(*,'(A10,f5.2)') "ConvRate: ", ConvRate
       
       !**************************
       ! for computing sometimes
-      IF (this % JacByConv .AND. ConvRate <0.65_RP ) THEN
+      if (this % JacByConv .AND. ConvRate <0.65_RP ) then
          computeA = .TRUE.
-      END IF
+      end if
       ! for computing sometimes
       !**************************
       
-!~       IF (MAXVAL(maxResidual) > sem % maxResidual) computeA = .TRUE.
+!~       if (MAXVAL(maxResidual) > sem % maxResidual) computeA = .TRUE.
       
       call sem % mesh % storage % global2LocalQ
       call sem % mesh % storage % global2LocalQdot
       
-   END SUBROUTINE TakeBDFStep
+   end subroutine TakeBDFStep
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -334,8 +340,7 @@ contains
       integer,                      intent(out)             :: niter
       logical,                      intent(out)             :: CONVERGED   
       procedure(ComputeTimeDerivative_f)                    :: ComputeTimeDerivative
-      !----------------------------------------------------------------------
-      integer(8)           :: cli, clf, clrate           
+      !----------------------------------------------------------------------           
       integer              :: newtonit
       real(kind=RP)        :: norm, norm_old, rel_tol
       real(kind=RP)        :: linsolver_tol
@@ -347,83 +352,82 @@ contains
 !     Initializations
 !     ---------------
       
-      IF (isfirst) THEN
+      if (isfirst) then
          norm = 2.e-1_RP   ! A value to define the initial linsolver_tol
          isfirst = .FALSE.
-      ELSE
+      else
          norm = norm1
-      END IF
+      end if
       norm_old = -1.0_RP  !Must be initialized to -1 to avoid bad things in the first newton iter
       ConvRate = 1.0_RP
    
-      IF (PRINT_NEWTON_INFO) THEN
-         WRITE(*, "(A9,1X,A18,1X,A18,1X,A15,1X,A12,1X,A18)") "Newton it", "Newton abs_err", "Newton rel_err", "LinSolverErr", "# ksp iter", "Iter wall time (s)"
-      END IF
-      
-      CALL SYSTEM_CLOCK(COUNT_RATE=clrate)
+      if (PRINT_NEWTON_INFO) then
+         write(*, "(A9,1X,A18,1X,A18,1X,A15,1X,A12,1X,A18)") "Newton it", "Newton abs_err", "Newton rel_err", "LinSolverErr", "# ksp iter", "Iter wall time (s)"
+      end if
 !
 !     Newton loop
 !     -----------
       DO newtonit = 1, MAX_NEWTON_ITER
          if (.not. JacByConv) computeA = .TRUE.
          
-         linsolver_tol = norm / ( 2._RP**(newtonit) )                      ! Nastase approach ("High-order discontinuous Galerkin methods using an hp-multigrid approach")
+         linsolver_tol = norm / ( 2._RP**(newtonit) )   ! Use another expression? 4?                   ! Nastase approach ("High-order discontinuous Galerkin methods using an hp-multigrid approach")
          
-         CALL ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
+         call ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
          
-         CALL SYSTEM_CLOCK(COUNT=cli)
-         CALL linsolver%solve( nEqn=NTOTALVARS, nGradEqn=NTOTALGRADS, tol = linsolver_tol, maxiter=500, time= t, dt=dt, &
+         call Stopwatch % Start("BDF Newton-Solve")
+         call linsolver%solve( nEqn=NTOTALVARS, nGradEqn=NTOTALGRADS, tol = linsolver_tol, maxiter=500, time= t, dt=dt, &
                               ComputeTimeDerivative = ComputeTimeDerivative, computeA = computeA)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
-         CALL SYSTEM_CLOCK(COUNT=clf)
-         IF (.NOT. linsolver%converged .and. Adaptive_dt) THEN                           ! If linsolver did not converge, return converged=false
+         call Stopwatch % Pause("BDF Newton-Solve")
+         
+         if (.NOT. linsolver%converged .and. Adaptive_dt) then                           ! If linsolver did not converge, return converged=false
             converged = .FALSE.
-            RETURN
-         ENDIF
-         CALL UpdateNewtonSol(sem, linsolver)                    ! Q_r+1 = Q_r + x
+            return
+         end if
+         call UpdateNewtonSol(sem, linsolver)                    ! Q_r+1 = Q_r + x
          
          norm = linsolver%Getxnorm('infinity')
-
-         IF (norm_old > 0._RP) THEN
+         
+         if (norm_old > 0._RP) then
             ConvRate = ConvRate + (LOG10(norm_old/norm)-ConvRate)/newtonit 
-         ENDIF
+         end if
          norm_old = norm
          niter = newtonit
-         IF (newtonit == 1) THEN
+         if (newtonit == 1) then
             norm1 = norm
             rel_tol = norm1 * NEWTON_TOLERANCE
-         ENDIF
-         IF (PRINT_NEWTON_INFO) THEN
-            WRITE(*, "(I9,1X,ES18.3,1X,ES18.3,1X,ES15.3,1X,I12,1X,F18.5)")newtonit, norm, norm/norm1, linsolver%Getrnorm(),&
-                                                      linsolver%niter, (clf-cli)/real(clrate,RP)
-         ENDIF
+         end if
+         if (PRINT_NEWTON_INFO) then
+            write(*, "(I9,1X,ES18.3,1X,ES18.3,1X,ES15.3,1X,I12,1X,F18.5)")newtonit, norm, norm/norm1, linsolver%Getrnorm(),&
+                                                      linsolver%niter, Stopwatch % lastElapsedTime("BDF Newton-Solve")
+         end if
          
-         IF (ConvRate < NEWTON_MIN_CONVRATE .OR. newtonit == MAX_NEWTON_ITER .OR. ISNAN(norm)) THEN
-            IF (PRINT_NEWTON_INFO) print*, 'ConvRate: ', ConvRate
+         if (ConvRate < NEWTON_MIN_CONVRATE .OR. newtonit == MAX_NEWTON_ITER .OR. ISNAN(norm)) then
+            if (PRINT_NEWTON_INFO) write(STD_OUT,*) 'ConvRate: ', ConvRate
             converged = .FALSE.
-            RETURN
-         ENDIF
+            return
+         end if
         
-         IF (norm < max(rel_tol,NEWTON_TOLERANCE)) THEN ! Careful: this may not be appropriate for unsteady simulations
+         if (norm < max(rel_tol,NEWTON_TOLERANCE)) then ! Careful: this may not be appropriate for unsteady simulations
             converged = .TRUE. 
-            RETURN
-         ENDIF
+            return
+         end if
          
-      ENDDO
+      end do
    
-   END SUBROUTINE NewtonSolve
+   end subroutine NewtonSolve
 !  
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )
+   subroutine ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )
       implicit none
       !----------------------------------------------------------------
-      TYPE(DGSem),                intent(inout)    :: sem
-      REAL(KIND=RP),              intent(IN)       :: t
-      REAL(KIND=RP),              intent(IN)       :: dt
-      CLASS(GenericLinSolver_t),  intent (inout)   :: linsolver
+      type(DGSem),                intent(inout)    :: sem
+      real(kind=RP),              intent(in)       :: t
+      real(kind=RP),              intent(in)       :: dt
+      class(GenericLinSolver_t),  intent (inout)   :: linsolver
       procedure(ComputeTimeDerivative_f)                   :: ComputeTimeDerivative
       !----------------------------------------------------------------
-      REAL(KIND=RP)                                :: value
+      real(kind=RP)                                :: value
       real(kind=RP)  :: RHS(NTOTALVARS*sem % NDOF)
       !----------------------------------------------------------------
       
@@ -435,23 +439,23 @@ contains
       
       call linsolver % SetRHS(RHS)
       
-      CALL linsolver % AssemblyRHS     ! b must be assembled before using
-   END SUBROUTINE ComputeRHS
+      call linsolver % AssemblyRHS     ! b must be assembled before using
+   end subroutine ComputeRHS
 !  
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !  
-   SUBROUTINE UpdateNewtonSol(sem, linsolver)
+   subroutine UpdateNewtonSol(sem, linsolver)
 
-      TYPE(DGSem),                     intent(inout)    :: sem
-      CLASS(GenericLinSolver_t),       intent(inout)    :: linsolver
+      type(DGSem),                     intent(inout)    :: sem
+      class(GenericLinSolver_t),       intent(inout)    :: linsolver
       
       sem % mesh % storage % Q = sem % mesh % storage % Q  + linsolver % GetX()
       
-   END SUBROUTINE UpdateNewtonSol
+   end subroutine UpdateNewtonSol
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !  TODO: Move from here....
-   SUBROUTINE WriteEigenFiles(Mat,sem,FileName)
+   subroutine WriteEigenFiles(Mat,sem,FileName)
       IMPLICIT NONE
 !
 !     -----------------------------------------------------------
@@ -459,28 +463,28 @@ contains
 !        This only works for isotropic order meshes.........................TODO: Change that
 !     -----------------------------------------------------------
 !
-      TYPE(csrMat_t)    :: Mat      !< Jacobian matrix
-      TYPE(DGSem)       :: sem      !< DGSem class containing mesh
-      CHARACTER(len=*)  :: FileName !< ...
+      type(csrMat_t)    :: Mat      !< Jacobian matrix
+      type(DGSem)       :: sem      !< DGSem class containing mesh
+      character(len=*)  :: FileName !< ...
 !     -----------------------------------------------------------
-      INTEGER           :: fd
+      integer           :: fd
 !     -----------------------------------------------------------
       
       ! .frm file
-      OPEN(newunit=fd, file=TRIM(FileName)//'.frm', action='WRITE')
-         WRITE(fd,*)
-         WRITE(fd,*) SIZE(Mat % Values), SIZE(Mat % Rows)-1, 1, NTOTALVARS, 1
-         WRITE(fd,*) sem % mesh % elements(1) % Nxyz(1), SIZE(sem % mesh % elements)
+      OPEN(newunit=fd, file=TRIM(FileName)//'.frm', action='write')
+         write(fd,*)
+         write(fd,*) SIZE(Mat % Values), SIZE(Mat % Rows)-1, 1, NTOTALVARS, 1
+         write(fd,*) sem % mesh % elements(1) % Nxyz(1), SIZE(sem % mesh % elements)
       CLOSE (fd)
       
       ! .amg file
-      CALL Mat % Visualize(TRIM(FileName)//'.amg',FirstRow=.FALSE.)
+      call Mat % Visualize(TRIM(FileName)//'.amg',FirstRow=.FALSE.)
       
       ! .coo file
-      CALL sem % mesh % WriteCoordFile(NTOTALVARS, TRIM(FileName)//'.coo')
+      call sem % mesh % WriteCoordFile(NTOTALVARS, TRIM(FileName)//'.coo')
       
       
-   END SUBROUTINE WriteEigenFiles
+   end subroutine WriteEigenFiles
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

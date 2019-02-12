@@ -14,10 +14,10 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/PetscSolverClass.o \
 		./build_ns/MultigridSolverClass.o \
 		./build_ns/MKLPardisoSolverClass.o \
-		./build_ns/StaticCondensationSolverClass.o \
 		./build_ns/IterativeSolverClass.o \
 		./build_ns/MatrixFreeSmootherClass.o \
 		./build_ns/MatrixFreeGMRESClass.o \
+		./build_ns/StaticCondensationSolverClass.o \
 		./build_ns/LinearSolverClass.o \
 		./build_ns/IMEXMethods.o \
 		./build_ns/BDFTimeIntegrator.o \
@@ -26,8 +26,8 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/TruncationErrorClass.o \
 		./build_ns/ExplicitMethods.o \
 		./build_ns/AnisFASMultigridClass.o \
-		./build_ns/pAdaptationClass.o \
 		./build_ns/FASMultigridClass.o \
+		./build_ns/pAdaptationClass.o \
 		./build_ns/TimeIntegrator.o 
 
 LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
@@ -36,10 +36,10 @@ LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
 		./build_ins/PetscSolverClass.o \
 		./build_ins/MultigridSolverClass.o \
 		./build_ins/MKLPardisoSolverClass.o \
-		./build_ins/StaticCondensationSolverClass.o \
 		./build_ins/IterativeSolverClass.o \
 		./build_ins/MatrixFreeSmootherClass.o \
 		./build_ins/MatrixFreeGMRESClass.o \
+		./build_ins/StaticCondensationSolverClass.o \
 		./build_ins/LinearSolverClass.o \
 		./build_ins/IMEXMethods.o \
 		./build_ins/BDFTimeIntegrator.o \
@@ -48,8 +48,8 @@ LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
 		./build_ins/TruncationErrorClass.o \
 		./build_ins/ExplicitMethods.o \
 		./build_ins/AnisFASMultigridClass.o \
-		./build_ins/pAdaptationClass.o \
 		./build_ins/FASMultigridClass.o \
+		./build_ins/pAdaptationClass.o \
 		./build_ins/TimeIntegrator.o 
 
 
@@ -59,10 +59,10 @@ LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/PetscSolverClass.o \
 		./build_ch/MultigridSolverClass.o \
 		./build_ch/MKLPardisoSolverClass.o \
-		./build_ch/StaticCondensationSolverClass.o \
 		./build_ch/IterativeSolverClass.o \
 		./build_ch/MatrixFreeSmootherClass.o \
 		./build_ch/MatrixFreeGMRESClass.o \
+		./build_ch/StaticCondensationSolverClass.o \
 		./build_ch/LinearSolverClass.o \
 		./build_ch/IMEXMethods.o \
 		./build_ch/BDFTimeIntegrator.o \
@@ -71,8 +71,8 @@ LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/TruncationErrorClass.o \
 		./build_ch/ExplicitMethods.o \
 		./build_ch/AnisFASMultigridClass.o \
-		./build_ch/pAdaptationClass.o \
 		./build_ch/FASMultigridClass.o \
+		./build_ch/pAdaptationClass.o \
 		./build_ch/TimeIntegrator.o 
 
 LIBOBJS_NSCH =  ./build_nsch/TimeIntegratorDefinitions.o \
@@ -81,10 +81,10 @@ LIBOBJS_NSCH =  ./build_nsch/TimeIntegratorDefinitions.o \
 		./build_nsch/PetscSolverClass.o \
 		./build_nsch/MultigridSolverClass.o \
 		./build_nsch/MKLPardisoSolverClass.o \
-		./build_nsch/StaticCondensationSolverClass.o \
 		./build_nsch/IterativeSolverClass.o \
 		./build_nsch/MatrixFreeSmootherClass.o \
 		./build_nsch/MatrixFreeGMRESClass.o \
+		./build_nsch/StaticCondensationSolverClass.o \
 		./build_nsch/LinearSolverClass.o \
 		./build_nsch/IMEXMethods.o \
 		./build_nsch/BDFTimeIntegrator.o \
@@ -93,8 +93,8 @@ LIBOBJS_NSCH =  ./build_nsch/TimeIntegratorDefinitions.o \
 		./build_nsch/TruncationErrorClass.o \
 		./build_nsch/ExplicitMethods.o \
 		./build_nsch/AnisFASMultigridClass.o \
-		./build_nsch/pAdaptationClass.o \
 		./build_nsch/FASMultigridClass.o \
+		./build_nsch/pAdaptationClass.o \
 		./build_nsch/TimeIntegrator.o 
 
 LIBOBJS_iNSCH = ./build_insch/TimeIntegratorDefinitions.o \
@@ -103,10 +103,10 @@ LIBOBJS_iNSCH = ./build_insch/TimeIntegratorDefinitions.o \
 		./build_insch/PetscSolverClass.o \
 		./build_insch/MultigridSolverClass.o \
 		./build_insch/MKLPardisoSolverClass.o \
-		./build_insch/StaticCondensationSolverClass.o \
 		./build_insch/IterativeSolverClass.o \
 		./build_insch/MatrixFreeSmootherClass.o \
 		./build_insch/MatrixFreeGMRESClass.o \
+		./build_insch/StaticCondensationSolverClass.o \
 		./build_insch/LinearSolverClass.o \
 		./build_insch/IMEXMethods.o \
 		./build_insch/BDFTimeIntegrator.o \
@@ -115,8 +115,8 @@ LIBOBJS_iNSCH = ./build_insch/TimeIntegratorDefinitions.o \
 		./build_insch/TruncationErrorClass.o \
 		./build_insch/ExplicitMethods.o \
 		./build_insch/AnisFASMultigridClass.o \
-		./build_insch/pAdaptationClass.o \
 		./build_insch/FASMultigridClass.o \
+		./build_insch/pAdaptationClass.o \
 		./build_insch/TimeIntegrator.o 
 
 

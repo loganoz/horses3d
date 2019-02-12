@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Tue Jan 15 12:09:00 2019
+!   @Last revision date: Fri Jan 25 10:49:03 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: e0850eb5c449ea43bf1495a36c6ec27dc6ecd2c5
+!   @Last revision commit: b33ea40370650cafae713e3449326f7245515e5e
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,11 +21,15 @@
 !
 module pAdaptationClass
    use SMConstants
+#ifdef NAVIERSTOKES
+   use PhysicsStorage                  , only: NTOTALVARS, CTD_IGNORE_MODE, flowIsNavierStokes
+#else
    use PhysicsStorage                  , only: NTOTALVARS, CTD_IGNORE_MODE
+#endif
    use FaceClass                       , only: Face
    use ElementClass
    use ElementConnectivityDefinitions  , only: axisMap
-   use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f
+   use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f, MaxTimeStep, ComputeMaxResiduals
    use TruncationErrorClass
    use FTValueDictionaryClass          , only: FTValueDictionary
    use StorageClass
@@ -36,6 +40,8 @@ module pAdaptationClass
    use ElementConnectivityDefinitions  , only: neighborFaces
    use Utilities                       , only: toLower
    use ReadMeshFile                    , only: NumOfElemsFromMeshFile
+   use ExplicitMethods                 , only: TakeRK3Step
+   use InterpolationMatrices           , only: Interp3DArrays
    implicit none
    
 #include "Includes.h"
@@ -48,11 +54,13 @@ module pAdaptationClass
    integer, parameter :: ADAPT_UNSTEADY_ITER = 1
    integer, parameter :: ADAPT_UNSTEADY_TIME = 2
    integer, parameter :: NO_ADAPTATION = 3
+   integer, parameter :: MAX_STEPS_SMOOTHING = 1000
    
-   
-   !--------------------------------------------------
-   ! Main type for performing a p-adaptation procedure
-   !--------------------------------------------------
+   integer, parameter :: SMOOTH_RK3 = 0
+   integer, parameter :: SMOOTH_FAS = 1
+   !-----------------------------------------
+   ! Type for storing the overenriching areas
+   !-----------------------------------------
    type :: overenriching_t
       integer           :: ID
       integer           :: order
@@ -63,6 +71,14 @@ module pAdaptationClass
       contains
          procedure      :: initialize => OverEnriching_Initialize
    end type overenriching_t
+   
+   !---------------------------------
+   ! Type for storing the source term
+   !---------------------------------
+   type :: SourceStorage_t
+      integer                    :: Nold(NDIM)
+      real(kind=RP), allocatable :: S(:,:,:,:)
+   end type SourceStorage_t
    
    !--------------------------------------------------
    ! Main type for performing a p-adaptation procedure
@@ -85,6 +101,15 @@ module pAdaptationClass
       integer                           :: iter_interval
       logical                           :: performPAdaptationT
       real(kind=RP)                     :: nextAdaptationTime = huge(1._RP)
+      ! Variables for post-smoothing
+      logical                           :: postSmoothing   = .FALSE.       ! Signals if a smoothing operation must be performed post p-adaptation
+      logical                           :: Compute_dt      = .FALSE.
+      integer                           :: postSmoothMethod
+      real(kind=RP)                     :: postSmoothRes                   ! Post smoothing residual
+      real(kind=RP)                     :: cfl, dcfl
+      real(kind=RP)                     :: dt
+      type(SourceStorage_t),allocatable :: Source(:)
+      !
       character(len=BC_STRING_LENGTH), allocatable :: conformingBoundaries(:) ! Stores the conforming boundaries (the length depends on FTDictionaryClass)
       type(TruncationError_t), allocatable :: TE(:)         ! Truncation error for every element(:)
       
@@ -96,6 +121,8 @@ module pAdaptationClass
          procedure :: makeBoundariesPConforming
          procedure :: pAdaptTE   => pAdaptation_pAdaptTE
          procedure :: hasToAdapt => pAdaptation_hasToAdapt
+         procedure :: StoreQdot  => pAdaptation_StoreQdot
+         procedure :: postSmooth => pAdaptation_postSmooth
    end type pAdaptation_t
 !
 !  ----------
@@ -442,9 +469,9 @@ readloop:do
       character(LINE_LENGTH)         :: paramFile
       character(LINE_LENGTH)         :: in_label
       character(20*BC_STRING_LENGTH) :: confBoundaries
-      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_OrderAcrossFaces, replacedValue, R_mode, R_interval
+      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, R_pSmoothingMethod
       logical      , allocatable     :: R_increasing, regressionFiles, reorganize_z, R_restart
-      real(kind=RP), allocatable     :: TruncError
+      real(kind=RP), allocatable     :: TruncError, R_pSmoothing
       ! Extra vars
       integer                        :: i      ! Element counter
       integer                        :: no_of_overen_boxes
@@ -458,6 +485,8 @@ readloop:do
          this % Constructed = .FALSE.
          return
       end if
+      
+      nelem = NumOfElemsFromMeshFile( controlVariables % stringValueForKey("mesh file name", requestedLength = LINE_LENGTH) )
 !
 !     **************************************************
 !     * p-adaptation is defined - Proceed to construct *     
@@ -470,19 +499,21 @@ readloop:do
       
       call get_command_argument(1, paramFile) !
       
-      call readValueInRegion ( trim ( paramFile )  , "conforming boundaries"  , confBoundaries     , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "increasing"             , R_increasing       , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "truncation error"       , TruncError         , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "regression files"       , regressionFiles    , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "adjust nz"              , reorganize_z       , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "nmax"                   , R_Nmax             , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "conforming boundaries"  , confBoundaries     , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "increasing"             , R_increasing       , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "truncation error"       , TruncError         , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "regression files"       , regressionFiles    , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "adjust nz"              , reorganize_z       , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "nmax"                   , R_Nmax             , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "nmin"                   , R_Nmin             , in_label , "# end" )
-      call readValueInRegion ( trim ( paramFile )  , "truncation error type"  , R_TruncErrorType   , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "truncation error type"  , R_TruncErrorType   , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "order across faces"     , R_OrderAcrossFaces , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "max n decrease"         , this % maxNdecrease, in_label , "# end" )
-      call readValueInRegion ( trim ( paramFile )  , "mode"                   , R_mode             , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "interval"               , R_interval         , in_label , "# end" ) 
-      call readValueInRegion ( trim ( paramFile )  , "restart files"          , R_restart          , in_label , "# end" ) 
+      call readValueInRegion ( trim ( paramFile )  , "mode"                   , R_mode             , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "interval"               , R_interval         , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "restart files"          , R_restart          , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "post smoothing residual", R_pSmoothing       , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "post smoothing method"  , R_pSmoothingMethod , in_label , "# end" )
       
 !     Conforming boundaries?
 !     ----------------------
@@ -594,6 +625,46 @@ readloop:do
          this % restartFiles = R_restart
       end if
       
+!     Post smoothing residual and related variables
+!     ---------------------------------------------
+      if ( allocated(R_pSmoothing) ) then
+         this % postSmoothing = .TRUE.
+         this % postSmoothRes = R_pSmoothing
+         
+         select case (R_pSmoothingMethod)
+            case('RK3')  ; this % postSmoothMethod = SMOOTH_RK3
+            case('FAS')  ; this % postSmoothMethod = SMOOTH_FAS
+            case default ; this % postSmoothMethod = SMOOTH_RK3
+         end select
+         
+         allocate ( this % Source(nelem) )
+      
+         if (controlVariables % containsKey("cfl")) then
+#if defined(NAVIERSTOKES) || defined(INCNS)
+            this % Compute_dt = .TRUE.
+            this % cfl        = controlVariables % doublePrecisionValueForKey("cfl")
+#if defined(NAVIERSTOKES)
+            if (flowIsNavierStokes) then
+               if (controlVariables % containsKey("dcfl")) then
+                  this % dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
+               else
+                  ERROR STOP '"cfl" and "dcfl", or "dt" keyword must be specified for the time integrator'
+               end if
+            end if
+#endif
+#elif defined(CAHNHILLIARD)
+            print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
+            errorMessage(STD_OUT)
+            stop
+#endif
+         elseif (controlVariables % containsKey("dt")) then
+            this % Compute_dt = .FALSE.
+            this % dt         = controlVariables % doublePrecisionValueForKey("dt")
+         else
+            ERROR stop '"cfl" or "dt" keyword must be specified for the time integrator'
+         end if
+      end if
+      
 !     Check replaceable control variables
 !     -----------------------------------
       call ReplacedVariables % initWithSize(16)
@@ -603,7 +674,6 @@ readloop:do
          if (replacedValue == "") cycle
          call ReplacedVariables % addValueForKey(trim(replacedValue),TRIM(ReplaceableVars(i)))
       end do
-      
 !
 !     Some things are read from the control file
 !     ******************************************
@@ -616,7 +686,6 @@ readloop:do
 !     Construct the truncation error
 !     ******************************    
       
-      nelem = NumOfElemsFromMeshFile( controlVariables % stringValueForKey("mesh file name", requestedLength = LINE_LENGTH) )
       allocate (this % TE(nelem))
       do i = 1, nelem
          call this % TE(i) % construct(NMINest,this % NxyzMax)
@@ -850,6 +919,14 @@ readloop:do
       CALL AnisFASpAdaptSolver % solve(itera,t,computeTimeDerivative,ComputeTimeDerivativeIsolated,pAdapt % TE, pAdapt % TruncErrorType)
       CALL AnisFASpAdaptSolver % destruct
 !
+!     ------------------------
+!     Post-smoothing procedure
+!     ------------------------
+!
+      if ( pAdapt % postSmoothing) then
+         call pAdapt % StoreQdot(sem, t, ComputeTimeDerivative)
+      end if
+!
 !     -------------------------------------------------------------
 !     Find the polynomial order that fulfills the error requirement
 !     -------------------------------------------------------------
@@ -1076,8 +1153,8 @@ readloop:do
 !     Adapt sem to new polynomial orders
 !     ----------------------------------
 !
-      call Stopwatch % Pause("Solver")
-      call Stopwatch % Start("Preprocessing")
+!~      call Stopwatch % Pause("Solver")
+!~      call Stopwatch % Start("Preprocessing")
       
       call sem % mesh % pAdapt (NNew, controlVariables)
       
@@ -1086,9 +1163,17 @@ readloop:do
          call sem % monitors % probes(i) % Initialization (sem % mesh, i, trim(sem % monitors % solution_file), .FALSE.)
       end do
       
-      call Stopwatch % Pause("Preprocessing")
-      call Stopwatch % Start("Solver")
+!~      call Stopwatch % Pause("Preprocessing")
+!~      call Stopwatch % Start("Solver")
       
+!
+!     ------------------------------------------------------
+!     Perform the post p-adaptation smoothing (if requested)
+!     ------------------------------------------------------
+!
+      if ( pAdapt % postSmoothing ) then
+         call pAdapt % postSmooth(sem, t, ComputeTimeDerivative, controlVariables)
+      end if
 !
 !     ---------------------------------------------------
 !     Write post-adaptation mesh, solution and order file
@@ -1128,6 +1213,109 @@ readloop:do
 
 #endif
    end subroutine pAdaptation_pAdaptTE
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------------------
+!  Subroutine to post-smooth the solution after p-adaptation
+!  ---------------------------------------------------------
+   subroutine pAdaptation_storeQdot(this, sem, t, ComputeTimeDerivative)
+      implicit none
+      !-arguments--------------------------------------------------
+      class(pAdaptation_t), intent(inout) :: this            !<> Adaptation class
+      type(DGSem)         , intent(inout) :: sem
+      real(kind=RP)       , intent(in)    :: t
+      procedure(ComputeTimeDerivative_f)  :: ComputeTimeDerivative
+      !-local-variables--------------------------------------------
+      integer :: eID
+      integer :: N(NDIM)
+      integer :: nEqn
+      !------------------------------------------------------------
+      
+      nEqn = size(sem % mesh % storage % elements(1) % Qdot,1)
+      
+      call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
+      
+      do eID = 1, sem % mesh % no_of_elements
+         N = sem % mesh % elements(eID) % Nxyz
+         
+         this % Source(eID) % Nold = N
+         allocate (this % Source(eID) % S ( nEqn, N(1), N(2), N(3) ) )
+         
+         this % Source(eID) % S = - sem % mesh % storage % elements(eID) % Qdot
+      end do
+      
+   end subroutine pAdaptation_storeQdot
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------------------
+!  Subroutine to post-smooth the solution after p-adaptation
+!  ---------------------------------------------------------
+   subroutine pAdaptation_postSmooth(this, sem, t, ComputeTimeDerivative, controlVariables)
+      use FASMultigridClass, only: FASMultigrid_t
+      implicit none
+      !-arguments--------------------------------------------------
+      class(pAdaptation_t), intent(inout) :: this            !<> Adaptation class
+      type(DGSem)         , intent(inout) :: sem
+      real(kind=RP)       , intent(in)    :: t
+      procedure(ComputeTimeDerivative_f)  :: ComputeTimeDerivative
+      type(FTValueDictionary), intent(in) :: controlVariables
+      !-local-variables--------------------------------------------
+      integer       :: k
+      integer       :: nEqn
+      real(kind=RP),allocatable :: maxResidual(:)
+      type(FASMultigrid_t) :: FASSolver
+      !------------------------------------------------------------
+      
+      nEqn = size(sem % mesh % storage % elements(1) % Qdot,1)
+      
+      allocate ( maxResidual(nEqn) )
+      
+!     Assign source term
+!     ------------------
+#if defined(NAVIERSTOKES) || defined(INCNS)
+      do k=1, sem % mesh % no_of_elements
+         
+         call Interp3DArrays  (  nEqn, &
+                                 this % Source(k) % Nold        , this % Source(k) % S, &
+                                 sem % mesh % elements(k) % Nxyz, sem % mesh % storage % elements(k) % S_NS )
+         
+      end do
+#endif
+      
+      if (this % postSmoothMethod == SMOOTH_FAS) call FASSolver % construct(controlVariables,sem)
+      
+!     Smooth solution
+!     ---------------
+      do k=1, MAX_STEPS_SMOOTHING
+         if ( this % Compute_dt ) this % dt = MaxTimeStep( sem, this % cfl, this % dcfl )
+            
+         select case (this % postSmoothMethod)
+            case(SMOOTH_RK3)
+               call TakeRK3Step( sem % mesh, sem % particles, t, this % dt, ComputeTimeDerivative )
+            case(SMOOTH_FAS)
+               call FASSolver % solve(0, t, this % dt, ComputeTimeDerivative)
+         end select
+         
+         maxResidual = ComputeMaxResiduals(sem % mesh)
+         if (maxval(maxResidual) <= this % postSmoothRes )  then
+            print*, 'post-smoothed in', k, 'iterations'
+            exit
+         end if
+      end do
+      
+!     Remove source term
+!     ------------------
+#if defined(NAVIERSTOKES) || defined(INCNS)
+      do k=1, sem % mesh % no_of_elements
+         sem % mesh % storage % elements(k) % S_NS = 0._RP
+         deallocate ( this % Source(k) % S )
+      end do
+#endif
+      
+      if (this % postSmoothMethod == SMOOTH_FAS) call FASSolver % destruct
+   end subroutine pAdaptation_postSmooth   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1402,6 +1590,7 @@ readloop:do
 !  of the truncation error.
 !  -----------------------------------------------------------------------
    subroutine RegressionIn1Dir(Adaptator,P_1,NMax,Dir,notenough,error,Stage,iEl)
+      use Utilities, only: AlmostEqual
       implicit none
       !---------------------------------------
       type(pAdaptation_t)        :: Adaptator
@@ -1432,6 +1621,11 @@ readloop:do
       if (P_1 < NMINest + 1) then
          notenough = .TRUE.
          return
+      end if
+      
+      ! Check if last point is NMIN=2
+      if ( AlmostEqual(Adaptator % TE(iEl) % Dir(Dir) % maxTE (P_1),0._RP) ) then
+         return ! nothing to do here
       end if
       
       ! Perform regression analysis   

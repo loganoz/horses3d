@@ -4,9 +4,9 @@
 !   @File:    main.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Mon Jul  2 17:50:24 2018
-!   @Last revision date: Mon Oct 29 13:54:33 2018
+!   @Last revision date: Tue Feb 12 16:38:58 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: c14fafcd82dba8b47adf67371d60c14952030bca
+!   @Last revision commit: 60d7d3f1bfd48fae2244902fb041a5b5c4cfef9c
 !
 !//////////////////////////////////////////////////////
 !
@@ -34,7 +34,6 @@
       use FTValueDictionaryClass
       USE PhysicsStorage
       USE SharedBCModule
-      USE zoneClass
       USE DGSEMClass
       USE TimeIntegratorClass
       USE mainKeywordsModule
@@ -188,11 +187,13 @@
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients)
       END IF
+      call Stopwatch % WriteSummaryFile(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH)))
 !
 !     ---------
 !     Finish up
 !     ---------
 !
+      call Stopwatch % destruct
       CALL timeIntegrator % destruct()
       CALL sem % destruct()
       call DestructBoundaryConditions
