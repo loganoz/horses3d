@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Wed Jan 16 12:17:49 2019
+!   @Last revision date: Tue Feb 12 17:06:51 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ca117934d652a4ac1161763db4e845f43dac4923
+!   @Last revision commit: cfd6acc1abd01d482788e60c94d0bd440c1066b6
 !
 !//////////////////////////////////////////////////////
 !
@@ -22,7 +22,7 @@ MODULE HexMeshClass
       USE TransfiniteMapClass
       use SharedBCModule
       use ElementConnectivityDefinitions
-      use ZoneClass
+      use ZoneClass                       , only: Zone_t, ConstructZones, ReassignZones
       use PhysicsStorage
       use NodalStorageClass
       use MPI_Process_Info

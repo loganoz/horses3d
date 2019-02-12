@@ -4,31 +4,26 @@
 !   @File:    ZoneClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es), Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Mon Sep 24 19:27:04 2018
+!   @Last revision date: Tue Feb 12 17:06:51 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 7ac2937102050656fd4a699d4a0b4a592b3431bf
+!   @Last revision commit: cfd6acc1abd01d482788e60c94d0bd440c1066b6
 !
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
 module ZoneClass
    use SMConstants
-   use FaceClass
-   use SharedBCModule
-   use FTValueDictionaryClass
-   use FTLinkedListClass
-   use MeshTypes
-   use BoundaryConditions, only: ConstructBoundaryConditions
-   
+   use FaceClass              , only: Face
+   use SharedBCModule         , only: zoneNameDictionary
+   use MeshTypes              , only: HMESH_INTERIOR
+   use BoundaryConditions     , only: ConstructBoundaryConditions
+   use IntegerDataLinkedList  , only: IntegerDataLinkedList_t
+   use Utilities              , only: toLower
    
    private
    public Zone_t , ConstructZones, ReassignZones, constructZoneModule, AllZoneNames
 
    integer, parameter      :: STR_LEN_ZONE = BC_STRING_LENGTH
-   
-   TYPE FTLinkedListPtr
-      type(FTLinkedList), POINTER :: list
-   END TYPE FTLinkedListPtr
    
    type Zone_t
       integer                     :: marker
@@ -51,8 +46,6 @@ module ZoneClass
 !     according to values in the input file 
 !     ------------------------------------------
       subroutine ConstructZones( faces , zones )
-         use Headers
-         use Utilities, only: toLower
          implicit none
          class(Face), target                  :: faces(:)
          class(Zone_t), allocatable           :: zones(:)
@@ -99,7 +92,6 @@ module ZoneClass
 !     Subroutine for reassigning the zone faces (needed when periodic boundaries are prescribed)
 !     ------------------------------------------------------------------------------------------
       subroutine ReassignZones( faces , zones )
-         use Headers
          implicit none
          class(Face), target                  :: faces(:)
          class(Zone_t)                        :: zones(:)
@@ -158,21 +150,23 @@ module ZoneClass
 !     ----------------------
 !
       subroutine Zone_AssignFaces(faces,zones,no_of_markers,zoneNames)
-         use RealDataLinkedList
          implicit none
 !        ------------------------------------------------
-         integer                          :: no_of_markers
-         type(Face)                       :: faces(:)
-         type(Zone_t)                     :: zones(no_of_markers)
-         character(len=STR_LEN_ZONE)      :: zoneNames(no_of_markers)
+         integer                    , intent(in)    :: no_of_markers
+         type(Face)                 , intent(inout) :: faces(:)
+         type(Zone_t)               , intent(inout) :: zones(no_of_markers)
+         character(len=STR_LEN_ZONE), intent(in)    :: zoneNames(no_of_markers)
 !        ------------------------------------------------
-         integer                              :: fID, zoneID
-         real(kind=RP), allocatable           :: realArray(:)
-         type(RealDataLinkedList_t)   ,allocatable :: zoneList(:)
+         integer                          :: fID, zoneID
+         real(kind=RP), allocatable       :: realArray(:)
+         integer, allocatable             :: intArray(:)
+         type(IntegerDataLinkedList_t)    :: zoneList(no_of_markers)
 !
 !        Initialize linked lists
 !        -----------------------
-         allocate(zoneList(no_of_markers))
+         do zoneID=1, no_of_markers
+            zoneList(zoneID) = IntegerDataLinkedList_t(.FALSE.)
+         end do
 !
 !        Iterate over all faces and add the face ID to the zone linked list it belongs
 !        -----------------------------------------------------------------------------
@@ -185,25 +179,28 @@ module ZoneClass
 
             if (zoneID > no_of_markers) cycle
             
-            call zoneList(zoneID) % Append( 1.0_RP * fID + 0.1_RP )
+            call zoneList(zoneID) % Add(fID)
             faces (fID) % zone = zoneID
          end do
 !
 !        Dump the linked list contents onto fixed-size arrays 
 !        ----------------------------------------------------
          do zoneID = 1 , no_of_markers
-            call zoneList(zoneID) % Load(realArray)
+
             safedeallocate(zones(zoneID) % faces)
-            allocate(zones(zoneID) % faces( size(realArray) ))
-            zones(zoneID) % faces = floor(realArray)
-            zones(zoneID) % no_of_faces = size(realArray)
-            deallocate(realArray)
+            safedeallocate (intArray)
+            call zoneList(zoneID) % ExportToArray( intArray  )
+            
+            zones(zoneID) % no_of_faces = size(intArray)
+            
+            allocate ( zones(zoneID) % faces(zones(zoneID) % no_of_faces) )
+            zones(zoneID) % faces = intArray
+            deallocate(intArray)
          end do
          
 !        Finish up
 !        ---------
          call zoneList % destruct
-         deallocate (zoneList)
          
       end subroutine Zone_AssignFaces
 

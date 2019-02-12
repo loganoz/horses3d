@@ -4,9 +4,9 @@
 !   @File:    StaticCondensationSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Tue Jan 29 18:48:27 2019
+!   @Last revision date: Tue Feb 12 17:06:52 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0f32bff29d29f9d71830bf5971f5e3b189a1d8b8
+!   @Last revision commit: cfd6acc1abd01d482788e60c94d0bd440c1066b6
 !
 !//////////////////////////////////////////////////////
 !
@@ -575,7 +575,7 @@ contains
       !-local-variables-----------------------------------------------------
       real(kind=RP) :: xi (this % A % size_i)
       !---------------------------------------------------------------------
-      call Stopwatch % Pause("Start condensation")
+      call Stopwatch % Start("System condensation")
       
       xi = CSR_MatVecMul(this % A % Mbi, xb)
       
