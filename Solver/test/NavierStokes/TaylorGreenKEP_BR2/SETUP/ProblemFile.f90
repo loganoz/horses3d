@@ -302,52 +302,52 @@
             real(kind=RP), parameter           :: kinEn = 0.12499744094576655_RP
             real(kind=RP), parameter           :: kinEnRate = -4.2793777235400484E-004_RP
             real(kind=RP), parameter           :: enstrophy = 0.37499382750806631_RP 
-            real(kind=RP), parameter           :: res(5) = [7.8971092040190316E-005_RP, &
+            real(kind=RP), parameter           :: res(5) = [7.896661595880896E-005_RP, &
                                                             0.12840017295540926_RP, &
                                                             0.12840017309057389_RP, &
                                                             0.24998272936400881_RP, &
-                                                            0.61595752146535865_RP ]
+                                                            0.615957301867907_RP ]
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
 
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(1,1) + 1.0_RP, &
-                               actualValue   = res(1) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = res(1) + 1.0_RP, &
+                               actualValue   = monitors % residuals % values(1,1) + 1.0_RP, &
                                tol           = 1.0e-7_RP, &
                                msg           = "continuity residual")
 
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(2,1) + 1.0_RP, &
-                               actualValue   = res(2) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = res(2) + 1.0_RP, &
+                               actualValue   = monitors % residuals % values(2,1) + 1.0_RP, &
                                tol           = 1.0e-7_RP, &
                                msg           = "x-momentum residual")
 
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(3,1) + 1.0_RP, &
-                               actualValue   = res(3) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = res(3) + 1.0_RP, &
+                               actualValue   = monitors % residuals % values(3,1) + 1.0_RP, &
                                tol           = 1.0e-7_RP, &
                                msg           = "y-momentum residual")
 
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(4,1) + 1.0_RP, &
-                               actualValue   = res(4) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = res(4) + 1.0_RP, &
+                               actualValue   = monitors % residuals % values(4,1) + 1.0_RP, &
                                tol           = 1.0e-7_RP, &
                                msg           = "z-momentum residual")
 
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(5,1) + 1.0_RP, &
-                               actualValue   = res(5) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = res(5) + 1.0_RP, &
+                               actualValue   = monitors % residuals % values(5,1) + 1.0_RP, &
                                tol           = 1.0e-7_RP, &
                                msg           = "energy residual")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(1) % values(1,1), &
-                               actualValue   = kinEn, &
+            CALL FTAssertEqual(expectedValue = kinEn, &
+                               actualValue   = monitors % volumeMonitors(1) % values(1,1), &
                                tol           = 1.0e-11_RP, &
                                msg           = "Kinetic Energy")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(2) % values(1,1) + 1.0_RP, &
-                               actualValue   = kinEnRate + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = kinEnRate + 1.0_RP, &
+                               actualValue   = monitors % volumeMonitors(2) % values(1,1) + 1.0_RP, &
                                tol           = 1.0e-11_RP, &
                                msg           = "Kinetic Energy Rate")
 
-            CALL FTAssertEqual(expectedValue = monitors % volumeMonitors(3) % values(1,1), &
-                               actualValue   = enstrophy, &
+            CALL FTAssertEqual(expectedValue = enstrophy, &
+                               actualValue   = monitors % volumeMonitors(3) % values(1,1), &
                                tol           = 1.0e-11_RP, &
                                msg           = "Enstrophy")
 

@@ -793,11 +793,10 @@ slavecoord:             DO l = 1, 4
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      subroutine HexMesh_ProlongGradientsToFaces(self, nGradEqn, prolong_gradRho)
+      subroutine HexMesh_ProlongGradientsToFaces(self, nGradEqn)
          implicit none
          class(HexMesh),   intent(inout)  :: self
          integer,          intent(in)     :: nGradEqn
-         logical, optional                :: Prolong_gradRho
 !
 !        ---------------
 !        Local variables
@@ -818,13 +817,6 @@ slavecoord:             DO l = 1, 4
                                                                 self % faces(fIDs(6)) )
          end do
 !$omp end do
-         
-         ! TODO: prolong gradRho to faces!!
-!~         if (present(Prolong_gradRho)) then
-!~            if (Prolong_gradRho) then
-            
-!~            end if
-!~         end if
          
       end subroutine HexMesh_ProlongGradientsToFaces
 ! 

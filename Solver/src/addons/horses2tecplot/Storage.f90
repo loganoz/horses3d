@@ -10,6 +10,7 @@ module Storage
    use SMConstants
    use PhysicsStorage
    use SolutionFile
+   use VariableConversion
    implicit none
    
    private
@@ -30,6 +31,9 @@ module Storage
       real(kind=RP), pointer     :: U_x(:,:,:,:)
       real(kind=RP), pointer     :: U_y(:,:,:,:)
       real(kind=RP), pointer     :: U_z(:,:,:,:)
+      real(kind=RP), pointer     :: Q_x(:,:,:,:)
+      real(kind=RP), pointer     :: Q_y(:,:,:,:)
+      real(kind=RP), pointer     :: Q_z(:,:,:,:)
       real(kind=RP), pointer     :: stats(:,:,:,:)
 !                                /* Output quantities */
       integer                    :: Nout(NDIM)
@@ -229,7 +233,12 @@ module Storage
                call getSolutionFileArrayDimensions(fid,arrayDimensions)
 
                NVARS = arrayDimensions(1)
-               NGRADVARS = max(1, NVARS-1)
+               NGRADVARS = NVARS     ! TODO: Read NCONS and NGRAD from physics!
+               select case(NVARS)
+               case(1)      ; NGRADVARS = 1
+               case(6)      ; NGRADVARS = 4
+               case default ; NGRADVARS = 3
+               end select
 !   
 !              Allocate memory for the coordinates
 !              -----------------------------------            
@@ -244,16 +253,35 @@ module Storage
 !   
 !                 Allocate memory for the gradients
 !                 ---------------------------------
+                  allocate( e % Q_x(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) ) ! TODO: Allocate depending on physics
+                  allocate( e % Q_y(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                  allocate( e % Q_z(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                  
                   allocate( e % U_x(1:NGRADVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
                   allocate( e % U_y(1:NGRADVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
                   allocate( e % U_z(1:NGRADVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
 !   
 !                 Read data
 !                 ---------
-                  read(fid) e % U_x
-                  read(fid) e % U_y
-                  read(fid) e % U_z
-   
+                  read(fid) e % Q_x
+                  read(fid) e % Q_y
+                  read(fid) e % Q_z
+                  
+                  ! Following block works for NS, CH, NSCH and iNS .... but not iNSCH: change 5 by 6 to use iNSCH (NS won't work) 
+                  if (NVARS .ge. 5) then 
+                     call getVelocityGradients  ( e % Nsol, e % Q, e % Q_x(1:5,:,:,:), e % Q_y(1:5,:,:,:), e % Q_z(1:5,:,:,:), &
+                                                                   e % U_x(1:3,:,:,:), e % U_y(1:3,:,:,:), e % U_z(1:3,:,:,:) )
+                     if (NVARS == 6) then
+                        e % U_x(6,:,:,:) = e % Q_x(6,:,:,:)
+                        e % U_y(6,:,:,:) = e % Q_y(6,:,:,:)
+                        e % U_z(6,:,:,:) = e % Q_z(6,:,:,:)
+                     end if
+                  else
+                     e % U_x = e % Q_x(1:NGRADVARS,:,:,:)
+                     e % U_y = e % Q_y(1:NGRADVARS,:,:,:)
+                     e % U_z = e % Q_z(1:NGRADVARS,:,:,:)
+                  end if
+                  
                end if
    
                end associate

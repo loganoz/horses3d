@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date: Fri Nov 16 12:45:52 2018
+!   @Last revision date: Wed Dec 12 23:20:41 2018
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 1b6e10d231991734c896bdc50054b7810885989b
+!   @Last revision commit: d12e538a7a8a4f27f93d45559b3cfa021c15b1a2
 !
 !//////////////////////////////////////////////////////
 !
@@ -66,7 +66,6 @@
      private
      public    flowIsNavierStokes, NCONS, NGRAD
      public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE
-     public    IGU, IGV, IGW, IGT
      public    NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2
      public    TScale, TRatio
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
@@ -91,7 +90,7 @@
 !!   The sizes of the NS system
 !    --------------------------
 !
-     INTEGER, PARAMETER :: NCONS = 5, NGRAD = 4
+     INTEGER, PARAMETER :: NCONS = 5, NGRAD = 5
 !
 !    -------------------------------------------
 !!   The positions of the conservative variables
@@ -105,12 +104,6 @@
 !
      INTEGER, PARAMETER       :: NPRIM = 7
      INTEGER, PARAMETER       :: IPIRHO = 1, IPU = 2, IPV = 3, IPW = 4, IPP = 5, IPT = 6, IPA2 = 7
-!
-!    ---------------------------------------
-!!   The positions of the gradient variables
-!    ---------------------------------------
-!
-     INTEGER, PARAMETER  :: IGU = 1 , IGV = 2 , IGW = 3 , IGT = 4
 !
 !    --------------------------------------------
 !    The temperature scale in the Sutherland law:

@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Wed Nov 21 19:34:13 2018
+!   @Last revision date: Tue Feb 12 10:22:12 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 1c6c630e4fbb918c0c9a98d0bfd4d0b73101e65d
+!   @Last revision commit: ef1a68982e9b4d6cf051357cba284f67316d9dcc
 !
 !//////////////////////////////////////////////////////
 !
@@ -66,7 +66,6 @@ module StorageClass
       real(kind=RP), private,  allocatable :: U_xNS(:,:,:,:)       ! NSE x-gradients
       real(kind=RP), private,  allocatable :: U_yNS(:,:,:,:)       ! NSE y-gradients
       real(kind=RP), private,  allocatable :: U_zNS(:,:,:,:)       ! NSE z-gradients
-      real(kind=RP),           allocatable :: gradRho(:,:,:,:)
       real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliar storage
       real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
       real(kind=RP),           allocatable :: mu_art(:,:,:,:)      ! (mu, beta, kappa) artificial
@@ -169,7 +168,6 @@ module StorageClass
 #if defined(NAVIERSTOKES) || defined(INCNS)
       real(kind=RP), dimension(:,:,:),     allocatable :: QNS
       real(kind=RP), dimension(:,:,:),     allocatable :: U_xNS, U_yNS, U_zNS
-      real(kind=RP), dimension(:,:,:),     allocatable :: gradRho          ! Gradient of density
       real(kind=RP), dimension(:,:,:),     allocatable :: mu_art
 !
 !     Inviscid Jacobians
@@ -793,7 +791,6 @@ module StorageClass
          ALLOCATE( self % U_xNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % U_yNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % U_zNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
-         allocate( self % gradRho(NDIM,0:Nx,0:Ny,0:Nz) )
          allocate( self % mu_art(3,0:Nx,0:Ny,0:Nz) )
 !
 !        Point to NS by default
@@ -881,7 +878,6 @@ module StorageClass
          to % G_NS   = from % G_NS
          to % S_NS   = from % S_NS
          
-         to % gradRho   = from % gradRho
          to % mu_art    = from % mu_art
          to % stats     = from % stats
 #endif
@@ -962,7 +958,6 @@ module StorageClass
          safedeallocate(self % U_xNS)
          safedeallocate(self % U_yNS)
          safedeallocate(self % U_zNS)
-         safedeallocate(self % gradRho)
          safedeallocate(self % mu_art)
          
          nullify ( self % dfdq_fr )
@@ -1196,7 +1191,6 @@ module StorageClass
          allocate( self % dFv_dGradQF (NNS,NNS,NDIM,2,0: Nf(1),0: Nf(2)) )
          allocate( self % dFv_dGradQEl(NNS,NNS,NDIM,2,0:Nel(1),0:Nel(2),2) )
          
-         allocate( self % gradRho   (NDIM,0:Nf(1),0:Nf(2)) )
          allocate( self % mu_art    (3,0:Nf(1),0:Nf(2)) )
 #endif
 #if defined(CAHNHILLIARD)
@@ -1272,7 +1266,6 @@ module StorageClass
          safedeallocate(self % dFStar_dqEl)
          safedeallocate(self % dFv_dGradQF)
          safedeallocate(self % dFv_dGradQEl)
-         safedeallocate(self % gradRho)
          safedeallocate(self % mu_art)
 #endif
 #if defined(CAHNHILLIARD)

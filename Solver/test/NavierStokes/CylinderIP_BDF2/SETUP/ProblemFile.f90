@@ -341,20 +341,13 @@
 !           ------------------------------------------------
 !
             INTEGER                            :: iterations(3:7) = [2, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [28.487318898312711_RP, 0E-011_RP, &
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [28.516589037979472_RP, 0E-011_RP, &
                                                                0E-011_RP, 0E-011_RP, &
                                                                0E-011_RP]
-            real(kind=RP), parameter           :: wake_u = -4.5275497109035364E-006_RP
-            real(kind=RP), parameter           :: cd =  4.8745508106619013_RP
-            real(kind=RP), parameter           :: cl = -5.8525228270100982E-005_RP
-            ! Previous values for gfortran... Following for ifort (without mkl): Why different?? (TODO: CHECK!!!)
-!~            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [28.4873157689957_RP, 0E-011_RP, &
-!~                                                               0E-011_RP, 0E-011_RP, &
-!~                                                               0E-011_RP]
-!~            real(kind=RP), parameter           :: wake_u = -4.528345379389396E-006_RP
-!~            real(kind=RP), parameter           :: cd =  4.87455080871249_RP
-!~            real(kind=RP), parameter           :: cl = -5.851623300312525E-005_RP
-!
+            real(kind=RP), parameter           :: wake_u = -4.5325043375491613E-006_RP
+            real(kind=RP), parameter           :: cd =  4.8760727382468350_RP
+            real(kind=RP), parameter           :: cl = -5.8463406561459763E-005_RP
+            
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 
             CALL initializeSharedAssertionsManager
@@ -365,12 +358,12 @@
                                msg           = "Number of time steps")
 
             CALL FTAssertEqual(expectedValue = residuals(N) * 0.01_RP, &
-                               actualValue   = maxResidual * 0.01_RP, &!
+                               actualValue   = maxResidual * 0.01_RP, &
                                tol           = 1.d-11, &
                                msg           = "Final maximum residual")
 
             CALL FTAssertEqual(expectedValue = wake_u + 1.0_RP, &
-                               actualValue   = monitors % probes(1) % values(1) + 1.0_RP, &!
+                               actualValue   = monitors % probes(1) % values(1) + 1.0_RP, &
                                tol           = 1.d-11, &
                                msg           = "Wake final x-velocity at the point [0,2.0,4.0]")
 
@@ -380,7 +373,7 @@
                                msg           = "Drag coefficient")
 
             CALL FTAssertEqual(expectedValue = cl + 1.0_RP , &
-                               actualValue   = monitors % surfaceMonitors(2) % values(1) + 1.0_RP, &!
+                               actualValue   = monitors % surfaceMonitors(2) % values(1) + 1.0_RP, &
                                tol           = 1.d-11, &
                                msg           = "Lift coefficient")
 

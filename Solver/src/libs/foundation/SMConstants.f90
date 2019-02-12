@@ -55,7 +55,7 @@
 
          INTEGER, PARAMETER :: BC_STRING_LENGTH = 64
 
-         CHARACTER(len=*), parameter   :: VERSION = "v0.8.8: Added routines for computing the analytical Jacobian of NS."
+         CHARACTER(len=*), parameter   :: VERSION = "v0.8.9: Compressible Navier-Stokes physics now using conservative gradients."
          integer, protected            :: solver
    
 

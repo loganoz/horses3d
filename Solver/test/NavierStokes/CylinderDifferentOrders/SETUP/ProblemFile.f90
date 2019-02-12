@@ -331,10 +331,10 @@
 !
 #if defined(NAVIERSTOKES)
             INTEGER      , parameter           :: iterations = 100
-            REAL(KIND=RP), parameter           :: residuals = 264.64042894976001_RP
-            real(kind=RP), parameter           :: wake_u =  1.5491664861657462E-011_RP
-            real(kind=RP), parameter           :: cd =  11.703380310448217_RP
-            real(kind=RP), parameter           :: cl =  2.3007600054025801E-005_RP
+            REAL(KIND=RP), parameter           :: residuals = 264.480970781821_RP
+            real(kind=RP), parameter           :: wake_u =  1.000221973893403E-011_RP
+            real(kind=RP), parameter           :: cd =  11.7016966097077_RP
+            real(kind=RP), parameter           :: cl =  1.529474232775385E-005_RP
 !
 
             CALL initializeSharedAssertionsManager

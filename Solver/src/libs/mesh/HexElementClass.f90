@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Wed Nov 21 19:34:11 2018
+!   @Last revision date: Tue Feb 12 10:22:06 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 1c6c630e4fbb918c0c9a98d0bfd4d0b73101e65d
+!   @Last revision commit: ef1a68982e9b4d6cf051357cba284f67316d9dcc
 !
 !//////////////////////////////////////////////////////
 !
@@ -96,9 +96,6 @@
             procedure   :: ProlongGradientsToFaces => HexElement_ProlongGradientsToFaces
             procedure   :: ComputeLocalGradient    => HexElement_ComputeLocalGradient
             procedure   :: pAdapt                  => HexElement_pAdapt
-#if defined(NAVIERSTOKES)
-            procedure   :: ComputeRhoGradient      => HexElement_ComputeRhoGradient
-#endif
       END TYPE Element 
             
       CONTAINS 
@@ -422,91 +419,6 @@
          end associate
 
       end subroutine HexElement_ComputeLocalGradient
-!
-!////////////////////////////////////////////////////////////////////////
-!
-#if defined(NAVIERSTOKES)  
-      subroutine HexElement_ComputeRhoGradient(self)
-!
-!        ****************************************************************
-!           This subroutine computes local gradients as:
-!  
-!              nabla U = (1/J) \sum_i Ja^i \cdot \partial(u)/ \partial \xi^i
-!
-!        ****************************************************************
-!  
-         implicit none
-         class(Element),   intent(inout)  :: self
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer  :: i, j, k, l
-         real(kind=RP)  :: rho      (0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
-         real(kind=RP)  :: rho_xi   (0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
-         real(kind=RP)  :: rho_eta  (0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
-         real(kind=RP)  :: rho_zeta (0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
-
-         associate( N => self % Nxyz )
-!
-!        **********************
-!        Get density
-!        **********************
-!
-         rho = self % storage % Q (1,:,:,:)
-!
-!        **************
-!        Compute rho_xi
-!        **************
-!
-         rho_xi = 0.0_RP
-         do k = 0, N(3)   ; do j = 0, N(2) ; do l = 0, N(1) ; do i = 0, N(1)
-            rho_xi(i,j,k) = rho_xi(i,j,k) + rho(l,j,k) * self % spAxi % D(i,l)
-         end do           ; end do         ; end do         ; end do
-!
-!        ***************
-!        Compute rho_eta
-!        ***************
-!
-         rho_eta = 0.0_RP
-         do k = 0, N(3)   ; do l = 0, N(2) ; do j = 0, N(2) ; do i = 0, N(1)
-            rho_eta(i,j,k) = rho_eta(i,j,k) + rho(i,l,k) * self % spAeta % D(j,l)
-         end do           ; end do         ; end do         ; end do
-
-!        ****************
-!        Compute rho_zeta
-!        ****************
-!
-         rho_zeta = 0.0_RP
-         do l = 0, N(3)   ; do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            rho_zeta(i,j,k) = rho_zeta(i,j,k) + rho(i,j,l) * self % spAzeta % D(k,l)
-         end do           ; end do         ; end do         ; end do
-!
-!        ******************************
-!        Project to the cartesian basis
-!        ******************************
-!
-         do k = 0, N(3) ; do j = 0, N(2)  ; do i = 0, N(1)
-            self % storage % gradRho(1,i,j,k) = (  rho_xi(i,j,k) * self % geom % jGradXi(1,i,j,k) &
-                                                 + rho_eta(i,j,k) * self % geom % jGradEta(1,i,j,k) & 
-                                                 + rho_zeta(i,j,k) * self % geom % jGradZeta(1,i,j,k))&
-                                                * self % geom % InvJacobian(i,j,k)
-
-            self % storage % gradRho(2,i,j,k) = (  rho_xi(i,j,k) * self % geom % jGradXi(2,i,j,k) &
-                                                 + rho_eta(i,j,k) * self % geom % jGradEta(2,i,j,k) & 
-                                                 + rho_zeta(i,j,k) * self % geom % jGradZeta(2,i,j,k))& 
-                                                * self % geom % InvJacobian(i,j,k)
-   
-            self % storage % gradRho(3,i,j,k) = (  rho_xi(i,j,k) * self % geom % jGradXi(3,i,j,k) &
-                                                 + rho_eta(i,j,k) * self % geom % jGradEta(3,i,j,k) & 
-                                                 + rho_zeta(i,j,k) * self % geom % jGradZeta(3,i,j,k))& 
-                                               * self % geom % InvJacobian(i,j,k)
-         end do         ; end do          ; end do
-         end associate
-
-      end subroutine HexElement_ComputeRhoGradient
-#endif
 !
 !////////////////////////////////////////////////////////////////////////
 !
