@@ -4,9 +4,9 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Mon Feb  4 16:17:30 2019
+!   @Last revision date: Tue Feb 12 16:38:59 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: eeaa4baf8b950247d4df92783ba30d8050b7f3bd
+!   @Last revision commit: 60d7d3f1bfd48fae2244902fb041a5b5c4cfef9c
 !
 !//////////////////////////////////////////////////////
 !
@@ -738,7 +738,7 @@ MODULE CSRMatrixClass
 #ifdef HAS_MKL
       CALL mkl_dcsrgemv(transInfo, A % num_of_Rows, A % Values, A % Rows, A % Cols, u, v)
 #else
-      if (transInfo = 't') ERROR stop "CSR_MatVecMul with 't' only with MKL"
+      if (transInfo == 't') ERROR stop "CSR_MatVecMul with 't' only with MKL"
 !$omp parallel do private(j,rsum)
       DO i=1,A % num_of_Rows
          rsum = 0.0d0

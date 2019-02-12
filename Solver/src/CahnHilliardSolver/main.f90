@@ -17,7 +17,6 @@
       use FTValueDictionaryClass
       USE PhysicsStorage
       USE SharedBCModule
-      USE zoneClass
       USE DGSEMClass
       use FluidData
       USE TimeIntegratorClass

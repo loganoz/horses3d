@@ -4,9 +4,9 @@
 !   @File:    main.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Mon Jul  2 17:50:24 2018
-!   @Last revision date: Mon Jan 28 12:16:32 2019
+!   @Last revision date: Tue Feb 12 16:38:58 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: b9918cac4908927d56ed9cc3534d32bab72b264a
+!   @Last revision commit: 60d7d3f1bfd48fae2244902fb041a5b5c4cfef9c
 !
 !//////////////////////////////////////////////////////
 !
@@ -34,7 +34,6 @@
       use FTValueDictionaryClass
       USE PhysicsStorage
       USE SharedBCModule
-      USE zoneClass
       USE DGSEMClass
       USE TimeIntegratorClass
       USE mainKeywordsModule
