@@ -4,9 +4,9 @@
 !   @File:    LESModels.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:10 2018
-!   @Last revision date: Wed Apr 18 20:19:09 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
+!   @Last revision date: Tue Feb 12 16:16:25 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 822273ecdeed19a671a81d0d29771b49c8e6ee70
 !
 !//////////////////////////////////////////////////////
 !
@@ -24,8 +24,9 @@ module LESModels
    use Physics_NSKeywordsModule
    use MPI_Process_Info
    use Headers
-   use Utilities, only: toLower
+   use Utilities                 , only: toLower
    use FluidData_NS
+   use VariableConversion_NS     , only: getVelocityGradients, getTemperatureGradient
    implicit none
 
    private
@@ -118,53 +119,56 @@ module LESModels
 
       end subroutine LESModel_Initialize
 
-      subroutine LESModel_ComputeSGSTensor3D(self, delta, N, dWall, U_x, U_y, U_z, tau, q)
+      subroutine LESModel_ComputeSGSTensor3D(self, delta, N, dWall, Q, Q_x, Q_y, Q_z, tau, qSGS)
          implicit none
          class(LESModel_t), intent(in) :: self
          real(kind=RP), intent(in)     :: delta
          integer,       intent(in)     :: N(3)
          real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: U_x(NGRAD, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: U_y(NGRAD, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: U_z(NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: Q  (NCONS, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: Q_x(NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: Q_y(NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: Q_z(NGRAD, 0:N(1), 0:N(2), 0:N(3))
          real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(out)    :: q(NDIM, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(out)    :: qSGS(NDIM, 0:N(1), 0:N(2), 0:N(3))
            
          tau = 0.0_RP
-         q   = 0.0_RP
+         qSGS= 0.0_RP
 
       end subroutine LESModel_ComputeSGSTensor3D
 
-      subroutine LESModel_ComputeSGSTensor2D(self, delta, N, dWall, U_x, U_y, U_z, tau, q)
+      subroutine LESModel_ComputeSGSTensor2D(self, delta, N, dWall, Q, Q_x, Q_y, Q_z, tau, qSGS)
          implicit none
          class(LESModel_t), intent(in) :: self
          real(kind=RP), intent(in)     :: delta
          integer,       intent(in)     :: N(2)
          real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: U_x(NGRAD, 0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: U_y(NGRAD, 0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: U_z(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: Q(NCONS, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: Q_x(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: Q_y(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: Q_z(NGRAD, 0:N(1), 0:N(2))
          real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2))
-         real(kind=RP), intent(out)    :: q(NDIM, 0:N(1), 0:N(2))
+         real(kind=RP), intent(out)    :: qSGS(NDIM, 0:N(1), 0:N(2))
            
          tau = 0.0_RP
-         q   = 0.0_RP
+         qSGS= 0.0_RP
 
       end subroutine LESModel_ComputeSGSTensor2D
 
-      subroutine LESModel_ComputeSGSTensor0D(self, delta, dWall, U_x, U_y, U_z, tau, q)
+      subroutine LESModel_ComputeSGSTensor0D(self, delta, dWall, Q, Q_x, Q_y, Q_z, tau, qSGS)
          implicit none
          class(LESModel_t), intent(in) :: self
          real(kind=RP), intent(in)     :: delta
          real(kind=RP), intent(in)     :: dWall
-         real(kind=RP), intent(in)     :: U_x(NGRAD)
-         real(kind=RP), intent(in)     :: U_y(NGRAD)
-         real(kind=RP), intent(in)     :: U_z(NGRAD)
+         real(kind=RP), intent(in)     :: Q(NCONS)
+         real(kind=RP), intent(in)     :: Q_x(NGRAD)
+         real(kind=RP), intent(in)     :: Q_y(NGRAD)
+         real(kind=RP), intent(in)     :: Q_z(NGRAD)
          real(kind=RP), intent(out)    :: tau(NDIM, NDIM)
-         real(kind=RP), intent(out)    :: q(NDIM)
+         real(kind=RP), intent(out)    :: qSGS(NDIM)
 
          tau = 0.0_RP
-         q   = 0.0_RP
+         qSGS= 0.0_RP
 
       end subroutine LESModel_ComputeSGSTensor0D
 
@@ -204,17 +208,18 @@ module LESModels
 
       end subroutine Smagorinsky_Initialize
 
-      subroutine Smagorinsky_ComputeSGSTensor3D(self, delta, N, dWall, U_x, U_y, U_z, tau, q)
+      subroutine Smagorinsky_ComputeSGSTensor3D(self, delta, N, dWall, Q, Q_x, Q_y, Q_z, tau, qSGS)
          implicit none
          class(Smagorinsky_t), intent(in) :: self
          real(kind=RP), intent(in)     :: delta
          integer,       intent(in)     :: N(3)
          real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: U_x(NGRAD, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: U_y(NGRAD, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: U_z(NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: Q  (NCONS, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: Q_x(NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: Q_y(NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: Q_z(NGRAD, 0:N(1), 0:N(2), 0:N(3))
          real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(out)    :: q(NDIM, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(out)    :: qSGS(NDIM, 0:N(1), 0:N(2), 0:N(3))
 !
 !        ---------------
 !        Local variables
@@ -223,6 +228,13 @@ module LESModels
          integer     :: i, j, k
          real(kind=RP)  :: S(NDIM, NDIM)
          real(kind=RP)  :: normS, divV, mu, kappa, LS
+         real(kind=RP) :: U_x(NDIM, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP) :: U_y(NDIM, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP) :: U_z(NDIM, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP) :: nablaT(NDIM, 0:N(1), 0:N(2), 0:N(3))
+         
+         call getVelocityGradients  (N,Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         call getTemperatureGradient(N,Q,Q_x,Q_y,Q_z,U_x,U_y,U_z,nablaT)
 
          do k = 0, N(3) ; do j = 0, N(2)  ; do i = 0, N(1)
 !
@@ -260,25 +272,26 @@ module LESModels
 !           ------------------------------------
             tau(:,:,i,j,k) = -2.0_RP * mu * S
 
-            q(1,i,j,k) = -kappa * U_x(4,i,j,k)
-            q(2,i,j,k) = -kappa * U_y(4,i,j,k)
-            q(3,i,j,k) = -kappa * U_z(4,i,j,k)
+            qSGS(1,i,j,k) = -kappa * nablaT(IX,i,j,k)
+            qSGS(2,i,j,k) = -kappa * nablaT(IY,i,j,k)
+            qSGS(3,i,j,k) = -kappa * nablaT(IZ,i,j,k)
 
          end do         ; end do          ; end do
          
       end subroutine Smagorinsky_ComputeSGSTensor3D
 
-      subroutine Smagorinsky_ComputeSGSTensor2D(self, delta, N, dWall, U_x, U_y, U_z, tau, q)
+      subroutine Smagorinsky_ComputeSGSTensor2D(self, delta, N, dWall, Q, Q_x, Q_y, Q_z, tau, qSGS)
          implicit none
          class(Smagorinsky_t), intent(in) :: self
          real(kind=RP), intent(in)     :: delta
          integer,       intent(in)     :: N(2)
          real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: U_x(NGRAD, 0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: U_y(NGRAD, 0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: U_z(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: Q(NCONS, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: Q_x(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: Q_y(NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: Q_z(NGRAD, 0:N(1), 0:N(2))
          real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2))
-         real(kind=RP), intent(out)    :: q(NDIM, 0:N(1), 0:N(2))
+         real(kind=RP), intent(out)    :: qSGS(NDIM, 0:N(1), 0:N(2))
 !
 !        ---------------
 !        Local variables
@@ -287,7 +300,14 @@ module LESModels
          integer       :: i, j
          real(kind=RP) :: S(NDIM, NDIM)
          real(kind=RP) :: normS, divV, mu, kappa, LS
-
+         real(kind=RP) :: U_x(NDIM, 0:N(1), 0:N(2))
+         real(kind=RP) :: U_y(NDIM, 0:N(1), 0:N(2))
+         real(kind=RP) :: U_z(NDIM, 0:N(1), 0:N(2))
+         real(kind=RP) :: nablaT(NDIM, 0:N(1), 0:N(2))
+         
+         call getVelocityGradients  (N,Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         call getTemperatureGradient(N,Q,Q_x,Q_y,Q_z,U_x,U_y,U_z,nablaT)
+         
          do j = 0, N(2)  ; do i = 0, N(1)
 !
 !           Compute symmetric part of the deformation tensor
@@ -324,24 +344,25 @@ module LESModels
 !           ------------------------------------
             tau(:,:,i,j) = -2.0_RP * mu * S
 
-            q(1,i,j) = -kappa * U_x(4,i,j)
-            q(2,i,j) = -kappa * U_y(4,i,j)
-            q(3,i,j) = -kappa * U_z(4,i,j)
+            qSGS(1,i,j) = -kappa * nablaT(IX,i,j)
+            qSGS(2,i,j) = -kappa * nablaT(IY,i,j)
+            qSGS(3,i,j) = -kappa * nablaT(IZ,i,j)
 
          end do          ; end do
          
       end subroutine Smagorinsky_ComputeSGSTensor2D
 
-      subroutine Smagorinsky_ComputeSGSTensor0D(self, delta, dWall, U_x, U_y, U_z, tau, q)
+      subroutine Smagorinsky_ComputeSGSTensor0D(self, delta, dWall, Q, Q_x, Q_y, Q_z, tau, qSGS)
          implicit none
          class(Smagorinsky_t), intent(in) :: self
          real(kind=RP), intent(in)     :: delta
          real(kind=RP), intent(in)     :: dWall
-         real(kind=RP), intent(in)     :: U_x(NGRAD)
-         real(kind=RP), intent(in)     :: U_y(NGRAD)
-         real(kind=RP), intent(in)     :: U_z(NGRAD)
+         real(kind=RP), intent(in)     :: Q(NCONS)
+         real(kind=RP), intent(in)     :: Q_x(NGRAD)
+         real(kind=RP), intent(in)     :: Q_y(NGRAD)
+         real(kind=RP), intent(in)     :: Q_z(NGRAD)
          real(kind=RP), intent(out)    :: tau(NDIM, NDIM)
-         real(kind=RP), intent(out)    :: q(NDIM)
+         real(kind=RP), intent(out)    :: qSGS(NDIM)
 !
 !        ---------------
 !        Local variables
@@ -349,6 +370,13 @@ module LESModels
 !
          real(kind=RP)  :: S(NDIM, NDIM)
          real(kind=RP)  :: normS, divV, mu, kappa, LS
+         real(kind=RP) :: U_x(NDIM)
+         real(kind=RP) :: U_y(NDIM)
+         real(kind=RP) :: U_z(NDIM)
+         real(kind=RP) :: nablaT(NDIM)
+         
+         call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         call getTemperatureGradient(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z,nablaT)
 !
 !        Compute symmetric part of the deformation tensor
 !        ------------------------------------------------
@@ -384,9 +412,9 @@ module LESModels
 !        ----------------------
          tau = -2.0_RP * mu * S
 
-         q(1) = -kappa * U_x(4)
-         q(2) = -kappa * U_y(4)
-         q(3) = -kappa * U_z(4)
+         qSGS(1) = -kappa * nablaT(IX)
+         qSGS(2) = -kappa * nablaT(IY)
+         qSGS(3) = -kappa * nablaT(IZ)
 
       end subroutine Smagorinsky_ComputeSGSTensor0D
 

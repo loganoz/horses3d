@@ -198,9 +198,9 @@ module VolumeIntegrals
 !
             call getVelocityGradients(e % Nxyz, e % storage % Q,e % storage % U_x,e % storage % U_y,e % storage % U_z, U_x, U_y, U_z)
             
-            KinEn =   POW2( e % storage % U_y(IZ,:,:,:) - e % storage % U_z(IY,:,:,:) ) &
-                    + POW2( e % storage % U_z(IX,:,:,:) - e % storage % U_x(IZ,:,:,:) ) &
-                    + POW2( e % storage % U_x(IY,:,:,:) - e % storage % U_y(IX,:,:,:) )
+            KinEn =   POW2( U_y(IZ,:,:,:) - U_z(IY,:,:,:) ) &
+                    + POW2( U_z(IX,:,:,:) - U_x(IZ,:,:,:) ) &
+                    + POW2( U_x(IY,:,:,:) - U_y(IX,:,:,:) )
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)

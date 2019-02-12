@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Wed Dec 12 12:42:17 2018
+!   @Last revision date: Tue Feb 12 16:16:24 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: e0850eb5c449ea43bf1495a36c6ec27dc6ecd2c5
+!   @Last revision commit: 822273ecdeed19a671a81d0d29771b49c8e6ee70
 !
 !//////////////////////////////////////////////////////
 !
@@ -591,6 +591,7 @@ module EllipticIP
 !        --------------------------------------
          delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
          call LESModel % ComputeSGSTensor(delta, e % Nxyz, e % geom % dWall, &
+                                                           e % storage % Q, &
                                                            e % storage % U_x, &
                                                            e % storage % U_y, &
                                                            e % storage % U_z, &
@@ -848,8 +849,8 @@ module EllipticIP
 !        --------------------------------------
          delta = sqrt(f % geom % surface / product(f % Nf + 1))
          
-         call LESModel % ComputeSGSTensor(delta, dWall, U_xLeft , U_yLeft , U_zLeft , tauSGS_L, qSGS_L)
-         call LESModel % ComputeSGSTensor(delta, dWall, U_xRight, U_yRight, U_zRight, tauSGS_R, qSGS_R) 
+         call LESModel % ComputeSGSTensor(delta, dWall, QLeft , U_xLeft , U_yLeft , U_zLeft , tauSGS_L, qSGS_L)
+         call LESModel % ComputeSGSTensor(delta, dWall, QRight, U_xRight, U_yRight, U_zRight, tauSGS_R, qSGS_R) 
 
          mu    = dimensionless % mu
          kappa = dimensionless % kappa

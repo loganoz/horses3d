@@ -332,12 +332,12 @@
 !
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [243.28293654409086_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [244.828044335958_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
                                                                0E-011_RP, 0E-011_RP, &
                                                                0E-011_RP]
-            real(kind=RP), parameter           :: wake_u = 8.4337812803489194E-009_RP
-            real(kind=RP), parameter           :: cd =  34.279725447881745_RP
-            real(kind=RP), parameter           :: cl = -6.0271352579004400E-003_RP
+            real(kind=RP), parameter           :: wake_u = 8.138282691985545E-009_RP
+            real(kind=RP), parameter           :: cd =  34.3760618315965_RP
+            real(kind=RP), parameter           :: cl = -5.754861880468809E-003_RP
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 
@@ -364,7 +364,7 @@
                                msg           = "Drag coefficient")
 
             CALL FTAssertEqual(expectedValue = cl + 1.0_RP, &
-                               actualValue   = monitors % surfaceMonitors(2) % values(1)+1, &
+                               actualValue   = monitors % surfaceMonitors(2) % values(1) + 1._RP, &
                                tol           = 1.d-11, &
                                msg           = "Lift coefficient")
 
