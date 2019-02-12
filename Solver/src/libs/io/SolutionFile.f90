@@ -161,7 +161,7 @@ module SolutionFile
             write(fID, POS=POS_REFS) refs
 !   
 !           Introduce the terminator indicator
-!           ----------------------------------
+!           ----------------------------------                    ! TODO: Write which physics are being used
             write(fID, POS=POS_TERMINATOR) BEGINNING_DATA
 !   
 !           Close the file

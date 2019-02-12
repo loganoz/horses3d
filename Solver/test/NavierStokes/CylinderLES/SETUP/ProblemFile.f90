@@ -338,40 +338,40 @@
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: cd = 34.917483643503139_RP
-            real(kind=RP), parameter           :: cl =  -2.2061258436933961E-004_RP
-            real(kind=RP), parameter           :: wake_u = 9.7886653196591037E-009_RP
-            real(kind=RP), parameter           :: res(5) = [7.6239168947547791_RP, &
-                                                            15.644699595794473_RP, &
-                                                            7.1507132015419264E-002_RP, &
-                                                            20.428146710534985_RP, &
-                                                            208.93433106182741_RP]
+            real(kind=RP), parameter           :: cd = 34.984526227889660_RP
+            real(kind=RP), parameter           :: cl =  -2.6113877337596847E-004_RP
+            real(kind=RP), parameter           :: wake_u = 9.7883807596652162E-009_RP
+            real(kind=RP), parameter           :: res(5) = [7.6723789264909747_RP, &
+                                                            15.901500924890046_RP, &
+                                                            7.0715455983034900E-002_RP, &
+                                                            20.481952451977943_RP, &
+                                                            209.95113004028036_RP]
 #if defined(NAVIERSTOKES)
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(1,1) + 1.0_RP, &
-                               actualValue   = res(1) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = res(1) + 1.0_RP, &
+                               actualValue   = monitors % residuals % values(1,1) + 1.0_RP, &
                                tol           = 1.0e-7_RP, &
                                msg           = "continuity residual")
 
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(2,1) + 1.0_RP, &
-                               actualValue   = res(2) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = res(2) + 1.0_RP, &
+                               actualValue   = monitors % residuals % values(2,1) + 1.0_RP, &
                                tol           = 1.0e-7_RP, &
                                msg           = "x-momentum residual")
 
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(3,1) + 1.0_RP, &
-                               actualValue   = res(3) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = res(3) + 1.0_RP, &
+                               actualValue   = monitors % residuals % values(3,1) + 1.0_RP, &
                                tol           = 1.0e-7_RP, &
                                msg           = "y-momentum residual")
 
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(4,1) + 1.0_RP, &
-                               actualValue   = res(4) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = res(4) + 1.0_RP, &
+                               actualValue   = monitors % residuals % values(4,1) + 1.0_RP, &
                                tol           = 1.0e-7_RP, &
                                msg           = "z-momentum residual")
 
-            CALL FTAssertEqual(expectedValue = monitors % residuals % values(5,1) + 1.0_RP, &
-                               actualValue   = res(5) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = res(5) + 1.0_RP, &
+                               actualValue   = monitors % residuals % values(5,1) + 1.0_RP, &
                                tol           = 1.0e-7_RP, &
                                msg           = "energy residual")
 

@@ -212,15 +212,13 @@ module EllipticDiscretizationClass
          integer :: i1, i2    ! Index of G_xx
          !--------------------------------------------
          call e % ComputeLocalGradient(NCONS, NGRAD, NSGradientValuesForQ_3D)
-         call e % ComputeRhoGradient
             
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             
             call ViscousJacobian ( Q   = e % storage % Q  (:,i,j,k), &
-                                   U_x = e % storage % U_x(:,i,j,k), &
-                                   U_y = e % storage % U_y(:,i,j,k), &
-                                   U_z = e % storage % U_z(:,i,j,k), &
-                                   gradRho   = e % storage % gradRho(:,i,j,k), &
+                                   Q_x = e % storage % U_x(:,i,j,k), &
+                                   Q_y = e % storage % U_y(:,i,j,k), &
+                                   Q_z = e % storage % U_z(:,i,j,k), &
                                    df_dgradq = df_dgradq_cart, &
                                    df_dq     = dfdq_)
             

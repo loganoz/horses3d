@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Fri Nov 30 12:53:04 2018
+!   @Last revision date: Tue Feb 12 10:22:14 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8c8fe673f51fec8338e38e16c38021bdca6914b2
+!   @Last revision commit: ef1a68982e9b4d6cf051357cba284f67316d9dcc
 !
 !//////////////////////////////////////////////////////
 !
@@ -312,7 +312,7 @@ contains
       !--------------------------------------------
       
       call mesh % ProlongSolutionToFaces(NCONS)
-      if (flowIsNavierStokes) call mesh % ProlongGradientsToFaces(NGRAD, Prolong_gradRho = .TRUE. )
+      if (flowIsNavierStokes) call mesh % ProlongGradientsToFaces(NGRAD)
       
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)

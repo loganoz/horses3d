@@ -490,6 +490,7 @@ module EllipticBR1
 !        --------------------------------------
          delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
          call LESModel % ComputeSGSTensor(delta, e % Nxyz, e % geom % dWall, &
+                                                           e % storage % Q, &
                                                            e % storage % U_x, &
                                                            e % storage % U_y, &
                                                            e % storage % U_z, &
@@ -601,7 +602,7 @@ module EllipticBR1
 !        Compute subgrid-scale modelling tensor   
 !        --------------------------------------
          delta = sqrt(f % geom % surface / product(f % Nf + 1))
-         call LESModel % ComputeSGSTensor(delta, dWall, U_x, U_y, U_z, tauSGS, qSGS) 
+         call LESModel % ComputeSGSTensor(delta, dWall, Q, U_x, U_y, U_z, tauSGS, qSGS) 
 
          mu    = dimensionless % mu
          kappa = dimensionless % kappa

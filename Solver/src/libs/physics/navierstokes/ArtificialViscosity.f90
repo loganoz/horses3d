@@ -4,9 +4,9 @@
 !   @File:    ArtificialViscosity.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Aug 21 18:27:46 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed Dec 12 23:20:39 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: d12e538a7a8a4f27f93d45559b3cfa021c15b1a2
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,7 +14,7 @@
 module ArtificialViscosity
    use SMConstants
    use PhysicsStorage_NS
-   use VariableConversion_NS, only: Pressure
+   use VariableConversion_NS, only: Pressure, getVelocityGradients
    use FluidData_NS, only: thermodynamics
 
 
@@ -25,12 +25,12 @@ module ArtificialViscosity
    real(kind=RP), parameter :: eps_omega = 1.0e-10_RP
 
    contains
-      subroutine ComputeShockSensor(Q, U_x, U_y, U_z, h, sBeta)
+      subroutine ComputeShockSensor(Q, Q_x, Q_y, Q_z, h, sBeta)
          implicit none
          real(kind=RP), intent(in)  :: Q(NCONS)
-         real(kind=RP), intent(in)  :: U_x(NGRAD)
-         real(kind=RP), intent(in)  :: U_y(NGRAD)
-         real(kind=RP), intent(in)  :: U_z(NGRAD)
+         real(kind=RP), intent(in)  :: Q_x(NGRAD)
+         real(kind=RP), intent(in)  :: Q_y(NGRAD)
+         real(kind=RP), intent(in)  :: Q_z(NGRAD)
          real(kind=RP), intent(in)  :: h 
          real(kind=RP), intent(out) :: sBeta
 !
@@ -39,17 +39,20 @@ module ArtificialViscosity
 !        ---------------
 !
          real(kind=RP) :: sBetaMax, sTheta, sOmega, c, p, divV, rotV(3)
-
+         real(kind=RP) :: U_x(NDIM), U_y(NDIM), U_z(NDIM)
+         
+         call getVelocityGradients(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         
          sBetaMax = 2.0_RP / sqrt(POW2(thermodynamics % gamma) - 1.0_RP)
 
          p = Pressure(Q)
          c = sqrt(thermodynamics % gamma * p / Q(IRHO))
 
-         divV = U_x(IGU) + U_y(IGV) + U_z(IGW)
+         divV = U_x(IX) + U_y(IY) + U_z(IZ)
 
-         rotV(1) = U_y(IGW) - U_z(IGV)
-         rotV(2) = U_z(IGU) - U_x(IGW)
-         rotV(3) = U_x(IGV) - U_y(IGU)
+         rotV(1) = U_y(IZ) - U_z(IY)
+         rotV(2) = U_z(IX) - U_x(IZ)
+         rotV(3) = U_x(IY) - U_y(IX)
 
          sTheta = -h * divV / c
          sOmega = (divV*divV)/(divV*divV + sum(rotV*rotV) + eps_omega)

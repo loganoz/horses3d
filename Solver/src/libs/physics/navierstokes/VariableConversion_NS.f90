@@ -4,9 +4,9 @@
 !   @File:    VariableConversion_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:34 2018
-!   @Last revision date: Thu May 24 12:03:21 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
+!   @Last revision date: Tue Feb 12 16:16:25 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 822273ecdeed19a671a81d0d29771b49c8e6ee70
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,12 +21,20 @@ module VariableConversion_NS
    public   Pressure, Temperature, NSGradientValuesForQ
    public   NSGradientValuesForQ_0D, NSGradientValuesForQ_3D
    public   getPrimitiveVariables, getEntropyVariables
-   public   getRoeVariables, GetNSViscosity
+   public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient
 
    interface NSGradientValuesForQ
        module procedure NSGradientValuesForQ_0D , NSGradientValuesForQ_3D
    end interface NSGradientValuesForQ
-
+   
+   interface getVelocityGradients
+      module procedure getVelocityGradients_0D, getVelocityGradients_2D, getVelocityGradients_3D
+   end interface
+   
+   interface getTemperatureGradient
+      module procedure getTemperatureGradient_0D, getTemperatureGradient_2D, getTemperatureGradient_3D
+   end interface
+   
    contains
 !
 ! /////////////////////////////////////////////////////////////////////
@@ -104,10 +112,7 @@ module VariableConversion_NS
 !        Local Variables
 !        ---------------
 !     
-         U(1) = Q(2)/Q(1)
-         U(2) = Q(3)/Q(1)
-         U(3) = Q(4)/Q(1)
-         U(4) = Temperature(Q)
+         U = Q
 
       end subroutine NSGradientValuesForQ_0D
 
@@ -126,15 +131,7 @@ module VariableConversion_NS
          associate ( gammaM2 => dimensionless % gammaM2, &
                      gammaMinus1 => thermodynamics % gammaMinus1 ) 
       
-         do k = 0, Nz   ; do j = 0, Ny ; do i = 0, Nx
-            U(IGU,i,j,k) = Q(IRHOU,i,j,k) / Q(IRHO,i,j,k) 
-            U(IGV,i,j,k) = Q(IRHOV,i,j,k) / Q(IRHO,i,j,k) 
-            U(IGW,i,j,k) = Q(IRHOW,i,j,k) / Q(IRHO,i,j,k) 
-            U(IGT,i,j,k) = gammaM2 * gammaMinus1 * ( Q(IRHOE,i,j,k) / Q(IRHO,i,j,k) &
-                        - 0.5_RP * ( U(IGU,i,j,k) * U(IGU,i,j,k) &
-                                   + U(IGV,i,j,k) * U(IGV,i,j,k) &
-                                   + U(IGW,i,j,k) * U(IGW,i,j,k) ) )
-         end do         ; end do       ; end do
+         U = Q
    
          end associate
 
@@ -242,5 +239,171 @@ module VariableConversion_NS
          end associate
 
       end subroutine getRoeVariables
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     --------------------------------------
+!     Routines to get the velocity gradients
+!     --------------------------------------
+!
+!     ---
+!     0D:
+!     ---
+      pure subroutine getVelocityGradients_0D(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
+         real(kind=RP), intent(out) :: U_x(NDIM), U_y(NDIM), U_z(NDIM)
+         !-local-variables---------------------------------------------
+         real(kind=RP) :: invRho, invRho2, uDivRho(NDIM)
+         !-------------------------------------------------------------
 
+         invRho  = 1._RP / Q(IRHO)
+         invRho2 = invRho * invRho
+         
+         uDivRho = [Q(IRHOU) , Q(IRHOV) , Q(IRHOW) ] * invRho2
+         
+         u_x = invRho * Q_x(IRHOU:IRHOW) - uDivRho * Q_x(IRHO)
+         u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
+         u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
+      end subroutine getVelocityGradients_0D
+!
+!/////////////////////////////////////////////////////////////////////////////
+!
+!     ---
+!     2D:
+!     ---
+      pure subroutine getVelocityGradients_2D(N,Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         integer      , intent(in)  :: N(2)
+         real(kind=RP), intent(in)  :: Q  ( NCONS,0:N(1), 0:N(2) )
+         real(kind=RP), intent(in)  :: Q_x( NGRAD ,0:N(1), 0:N(2) )
+         real(kind=RP), intent(in)  :: Q_y( NGRAD ,0:N(1), 0:N(2) )
+         real(kind=RP), intent(in)  :: Q_z( NGRAD ,0:N(1), 0:N(2) )
+         real(kind=RP), intent(out) :: U_x( NDIM ,0:N(1), 0:N(2) )
+         real(kind=RP), intent(out) :: U_y( NDIM ,0:N(1), 0:N(2) )
+         real(kind=RP), intent(out) :: U_z( NDIM ,0:N(1), 0:N(2) )
+         !-local-variables---------------------------------------------
+         integer :: i,j
+         !-------------------------------------------------------------
+         
+         do j=0, N(2) ; do i=0, N(1)
+            call getVelocityGradients_0D(Q(:,i,j),Q_x(:,i,j),Q_y(:,i,j),Q_z(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j))
+         end do       ; end do
+         
+      end subroutine getVelocityGradients_2D
+!
+!/////////////////////////////////////////////////////////////////////////////
+!
+!     ---
+!     3D:
+!     ---
+      pure subroutine getVelocityGradients_3D(N,Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         integer      , intent(in)  :: N(NDIM)
+         real(kind=RP), intent(in)  :: Q  ( NCONS,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(in)  :: Q_x( NGRAD ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(in)  :: Q_y( NGRAD ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(in)  :: Q_z( NGRAD ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(out) :: U_x( NDIM ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(out) :: U_y( NDIM ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(out) :: U_z( NDIM ,0:N(1), 0:N(2), 0:N(3) )
+         !-local-variables---------------------------------------------
+         integer :: i,j,k
+         !-------------------------------------------------------------
+         
+         do k=0, N(3) ; do j=0, N(2) ; do i=0, N(1)
+            call getVelocityGradients_0D(Q(:,i,j,k),Q_x(:,i,j,k),Q_y(:,i,j,k),Q_z(:,i,j,k),U_x(:,i,j,k),U_y(:,i,j,k),U_z(:,i,j,k))
+         end do       ; end do       ; end do
+         
+      end subroutine getVelocityGradients_3D
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ----------------------------------------------------------
+!     Routines to get the temperature gradient
+!     -> Currently using the conservative and velocity gradients
+!     ----------------------------------------------------------
+!
+!     ---
+!     0D:
+!     ---
+      pure subroutine getTemperatureGradient_0D(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z,nablaT)
+         implicit none
+         !-arguments---------------------------------------------------
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
+         real(kind=RP), intent(in)  :: U_x(NDIM), U_y(NDIM), U_z(NDIM)
+         real(kind=RP), intent(out) :: nablaT(NDIM)
+         !-local-variables---------------------------------------------
+         real(kind=RP) :: u, v, w, invRho
+         !-------------------------------------------------------------
+         
+         invRho  = 1._RP / Q(IRHO)
+         u = Q(IRHOU) / Q(IRHO)
+         v = Q(IRHOV) / Q(IRHO)
+         w = Q(IRHOW) / Q(IRHO)
+         
+         nablaT(IX) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_x(IRHOE) - Q(IRHOE)*invRho*invRho*Q_x(IRHO) - u*u_x(IX)-v*u_x(IY)-w*u_x(IZ))
+         nablaT(IY) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_y(IRHOE) - Q(IRHOE)*invRho*invRho*Q_y(IRHO) - u*u_y(IX)-v*u_y(IY)-w*u_y(IZ))
+         nablaT(IZ) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_z(IRHOE) - Q(IRHOE)*invRho*invRho*Q_z(IRHO) - u*u_z(IX)-v*u_z(IY)-w*u_z(IZ))
+      
+      end subroutine getTemperatureGradient_0D
+!
+!/////////////////////////////////////////////////////////////////////////////
+!
+!     ---
+!     2D:
+!     ---
+      pure subroutine getTemperatureGradient_2D(N,Q,Q_x,Q_y,Q_z,U_x,U_y,U_z,nablaT)
+         implicit none
+         !-arguments---------------------------------------------------
+         integer      , intent(in)  :: N(2)
+         real(kind=RP), intent(in)  :: Q  ( NCONS,0:N(1), 0:N(2) )
+         real(kind=RP), intent(in)  :: Q_x( NGRAD ,0:N(1), 0:N(2) )
+         real(kind=RP), intent(in)  :: Q_y( NGRAD ,0:N(1), 0:N(2) )
+         real(kind=RP), intent(in)  :: Q_z( NGRAD ,0:N(1), 0:N(2) )
+         real(kind=RP), intent(in)  :: U_x( NDIM ,0:N(1), 0:N(2) )
+         real(kind=RP), intent(in)  :: U_y( NDIM ,0:N(1), 0:N(2) )
+         real(kind=RP), intent(in)  :: U_z( NDIM ,0:N(1), 0:N(2) )
+         real(kind=RP), intent(out) :: nablaT( NDIM ,0:N(1), 0:N(2) )
+         !-local-variables---------------------------------------------
+         integer :: i,j
+         !-------------------------------------------------------------
+         
+         do j=0, N(2) ; do i=0, N(1)
+            call getTemperatureGradient_0D(Q(:,i,j),Q_x(:,i,j),Q_y(:,i,j),Q_z(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j),nablaT(:,i,j))
+         end do       ; end do
+         
+      end subroutine getTemperatureGradient_2D
+!
+!/////////////////////////////////////////////////////////////////////////////
+!
+!     ---
+!     3D:
+!     ---
+      pure subroutine getTemperatureGradient_3D(N,Q,Q_x,Q_y,Q_z,U_x,U_y,U_z,nablaT)
+         implicit none
+         !-arguments---------------------------------------------------
+         integer      , intent(in)  :: N(NDIM)
+         real(kind=RP), intent(in)  :: Q  ( NCONS ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(in)  :: Q_x( NGRAD ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(in)  :: Q_y( NGRAD ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(in)  :: Q_z( NGRAD ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(out) :: U_x( NDIM  ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(out) :: U_y( NDIM  ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(out) :: U_z( NDIM  ,0:N(1), 0:N(2), 0:N(3) )
+         real(kind=RP), intent(out) :: nablaT(NDIM,0:N(1), 0:N(2), 0:N(3) )
+         !-local-variables---------------------------------------------
+         integer :: i,j,k
+         !-------------------------------------------------------------
+         
+         do k=0, N(3) ; do j=0, N(2) ; do i=0, N(1)
+            call getTemperatureGradient_0D(Q(:,i,j,k),Q_x(:,i,j,k),Q_y(:,i,j,k),Q_z(:,i,j,k),U_x(:,i,j,k),U_y(:,i,j,k),U_z(:,i,j,k),nablaT(:,i,j,k))
+         end do       ; end do       ; end do
+         
+      end subroutine getTemperatureGradient_3D
 end module VariableConversion_NS

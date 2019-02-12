@@ -332,12 +332,12 @@
 !           ------------------------------------------------
 !
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [240.20158010359580_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [240.188670968464_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
                                                                0E-011_RP, 0E-011_RP, &
                                                                0E-011_RP]
-            real(kind=RP), parameter           :: wake_u = 7.7660979244117109E-009_RP
-            real(kind=RP), parameter           :: cd =  34.014790464914981_RP
-            real(kind=RP), parameter           :: cl = -8.6872366321522065E-004_RP
+            real(kind=RP), parameter           :: wake_u = 7.684066381315687E-009_RP
+            real(kind=RP), parameter           :: cd =  34.0644252455578_RP
+            real(kind=RP), parameter           :: cl = -8.935869658852624E-004_RP
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 

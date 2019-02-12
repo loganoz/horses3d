@@ -4,9 +4,9 @@
 !   @File:    EllipticBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Wed Aug  1 15:48:15 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
+!   @Last revision date: Tue Feb 12 16:16:23 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 822273ecdeed19a671a81d0d29771b49c8e6ee70
 !
 !//////////////////////////////////////////////////////
 !
@@ -624,6 +624,7 @@ module EllipticBR2
 !        --------------------------------------
          delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
          call LESModel % ComputeSGSTensor(delta, e % Nxyz, e % geom % dWall, &
+                                                           e % storage % Q, &
                                                            e % storage % U_x, &
                                                            e % storage % U_y, &
                                                            e % storage % U_z, &
@@ -736,7 +737,7 @@ module EllipticBR2
 !        Compute subgrid-scale modelling tensor   
 !        --------------------------------------
          delta = sqrt(f % geom % surface / product(f % Nf + 1))
-         call LESModel % ComputeSGSTensor(delta, dWall, U_x, U_y, U_z, tauSGS, qSGS) 
+         call LESModel % ComputeSGSTensor(delta, dWall, Q, U_x, U_y, U_z, tauSGS, qSGS) 
 
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
