@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Tue Nov 20 14:39:25 2018
+!   @Last revision date: Tue Feb 12 10:22:10 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f616e8b8c0ed8066788e7578a5d1b6b3cb325651
+!   @Last revision commit: ef1a68982e9b4d6cf051357cba284f67316d9dcc
 !
 !//////////////////////////////////////////////////////
 !
@@ -793,11 +793,10 @@ slavecoord:             DO l = 1, 4
 ! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      subroutine HexMesh_ProlongGradientsToFaces(self, nGradEqn, prolong_gradRho)
+      subroutine HexMesh_ProlongGradientsToFaces(self, nGradEqn)
          implicit none
          class(HexMesh),   intent(inout)  :: self
          integer,          intent(in)     :: nGradEqn
-         logical, optional                :: Prolong_gradRho
 !
 !        ---------------
 !        Local variables
@@ -818,13 +817,6 @@ slavecoord:             DO l = 1, 4
                                                                 self % faces(fIDs(6)) )
          end do
 !$omp end do
-         
-         ! TODO: prolong gradRho to faces!!
-!~         if (present(Prolong_gradRho)) then
-!~            if (Prolong_gradRho) then
-            
-!~            end if
-!~         end if
          
       end subroutine HexMesh_ProlongGradientsToFaces
 ! 

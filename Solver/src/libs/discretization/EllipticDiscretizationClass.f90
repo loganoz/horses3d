@@ -212,7 +212,6 @@ module EllipticDiscretizationClass
          integer :: i1, i2    ! Index of G_xx
          !--------------------------------------------
          call e % ComputeLocalGradient(NCONS, NGRAD, NSGradientValuesForQ_3D)
-         call e % ComputeRhoGradient
             
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             
