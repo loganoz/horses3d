@@ -207,7 +207,7 @@
 !     Second, get face polynomial orders (considering rotation)
 !     ---------------------------------------------------------
 !
-      self % NfLeft = self % NelLeft     ! Left elements is always oriented.
+      self % NfLeft = self % NelLeft     ! Left elements are always oriented.
       
       SELECT CASE ( self % rotation )
       CASE ( 0, 2, 5, 7 ) ! Local x and y axis are parallel or antiparallel

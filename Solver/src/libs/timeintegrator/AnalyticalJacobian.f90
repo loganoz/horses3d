@@ -4,17 +4,17 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Tue Feb 12 10:22:14 2019
+!   @Last revision date: Thu Feb 14 16:16:40 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ef1a68982e9b4d6cf051357cba284f67316d9dcc
+!   @Last revision commit: 17d60e4e57235a57aa406023ebe4c26157bc211a
 !
 !//////////////////////////////////////////////////////
 !
 !  This module provides the routines for computing the analytical Jacobian matrix
-!  -> TODO: MPI implementation is missing
+!  -> Only for p-conforming representations (TODO: make general)
 !  -> TODO: Implement as class to prevent memory leaking and additional computations
+!  -> TODO: MPI implementation is missing
 !  -> The Jacobian of the BCs is temporarily computed numerically
-!  -> Off-diagonal terms only for p-conforming representations
 !
 !//////////////////////////////////////////////////////
 #include "Includes.h"
@@ -33,6 +33,7 @@ module AnalyticalJacobian
    use EllipticDiscretizations
    use ElementConnectivityDefinitions  , only: axisMap, normalAxis
    use BoundaryConditions              , only: BCs
+   use FaceClass                       , only: Face
    implicit none
    
    private
@@ -72,6 +73,9 @@ contains
       if (IsFirst) then
          call Stopwatch % CreateNewEvent("Analytical Jacobian construction")
          IsFirst = .FALSE.
+         
+         ! TODO: Add conformity check!
+         
       end if
       
       call Stopwatch % Start("Analytical Jacobian construction")
@@ -175,7 +179,6 @@ contains
 !  Subroutine for adding the faces' contribution to the diagonal blocks of the Jacobian matrix
 !  -------------------------------------------------------------------------------------------
    subroutine AnalyticalJacobian_DiagonalBlocks(mesh,nEqn,time,Matrix)
-      use FaceClass
       implicit none
       !--------------------------------------------
       type(HexMesh), target    , intent(inout) :: mesh
@@ -215,7 +218,14 @@ contains
 !$omp do schedule(runtime)
       do eID = 1, size(mesh % elements)
          associate (e=> mesh % elements(eID))
-         call Local_SetDiagonalBlock( e, Matrix )
+         call Local_SetDiagonalBlock( e, &
+                                      mesh % faces( e % faceIDs(EFRONT ) ), &
+                                      mesh % faces( e % faceIDs(EBACK  ) ), &
+                                      mesh % faces( e % faceIDs(EBOTTOM) ), &
+                                      mesh % faces( e % faceIDs(ERIGHT ) ), &
+                                      mesh % faces( e % faceIDs(ETOP   ) ), &
+                                      mesh % faces( e % faceIDs(ELEFT  ) ), &
+                                      Matrix )
          end associate
       end do
 !$omp end do
@@ -230,7 +240,6 @@ contains
 !  -> only for p-conforming meshes
 !  -----------------------------------------------------------------------------------------------
    subroutine AnalyticalJacobian_OffDiagonalBlocks(mesh,Matrix)
-      use FaceClass
       implicit none
       !--------------------------------------------
       type(HexMesh), target    , intent(inout) :: mesh
@@ -304,7 +313,6 @@ contains
 !  -----------------------------------------------------------------------------------------------
    subroutine ComputeNumericalFluxJacobian(mesh,nEqn,time)
       use RiemannSolvers_NS
-      use FaceClass
       implicit none
       !--------------------------------------------
       type(HexMesh), intent(inout)    :: mesh
@@ -344,7 +352,6 @@ contains
 !  -----------------------------------------------------------------------------------------------
    subroutine ComputeBoundaryFluxJacobian(f,time)
       use RiemannSolvers_NS
-      use FaceClass
       implicit none
       !--------------------------------------------
       type(Face), intent(inout) :: f
@@ -430,7 +437,6 @@ contains
 !  -----------------------------------------------------------------------------------------------
    subroutine ComputeInterfaceFluxJacobian(f)
       use RiemannSolvers_NS
-      use FaceClass
       implicit none
       !--------------------------------------------
       type(Face), intent(inout) :: f
@@ -509,17 +515,19 @@ contains
 !  Local_SetDiagonalBlock:
 !     Subroutine to set a diagonal block in the Jacobian
 !  -----------------------------------------------------
-   subroutine Local_SetDiagonalBlock(e,Matrix)
+   subroutine Local_SetDiagonalBlock(e, fF, fB, fO, fR, fT, fL, Matrix)
       use HyperbolicDiscretizations
       implicit none
       !-------------------------------------------
       type(Element)  , intent(inout) :: e
+      type(Face)     , intent(in)    :: fF, fB, fO, fR, fT, fL !< The six faces of the element
       class(Matrix_t), intent(inout) :: Matrix
       !-------------------------------------------
-      real(kind=RP) :: MatrixEntry
+      real(kind=RP) :: MatEntry
       real(kind=RP) :: dFdQ      (NCONS,NCONS,     0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3),NDIM)
-      real(kind=RP) :: dF_dgradQ (NCONS,NCONS,NDIM,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3),NDIM)
+      real(kind=RP) :: dF_dgradQ (NCONS,NCONS,NDIM,NDIM,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))
       integer :: i, j             ! Matrix indices
+      integer :: r                ! Additional index for counting
       integer :: i1, j1, k1, eq1  ! variable counters
       integer :: i2, j2, k2, eq2  ! variable counters
       integer :: nXi, nEta        ! Number of nodes in every direction
@@ -528,12 +536,38 @@ contains
       integer :: Deltas           ! A variable to know if enough deltas are zero, in which case this is a zero entry of the matrix..
       real(kind=RP), dimension(:,:,:,:)    , pointer :: dfdq_fr, dfdq_ba, dfdq_bo, dfdq_to, dfdq_le, dfdq_ri
       real(kind=RP), dimension(:,:,:,:,:,:), pointer :: dfdGradQ_fr, dfdGradQ_ba, dfdGradQ_bo, dfdGradQ_to, dfdGradQ_ri, dfdGradQ_le
+      real(kind=RP) :: nF( NDIM, 0:e % Nxyz(1), 0:e % Nxyz(3) )   ! Normal vecs for FRONT  face
+      real(kind=RP) :: nB( NDIM, 0:e % Nxyz(1), 0:e % Nxyz(3) )   ! Normal vecs for BACK   face
+      real(kind=RP) :: nO( NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2) )   ! Normal vecs for BOTTOM face
+      real(kind=RP) :: nR( NDIM, 0:e % Nxyz(2), 0:e % Nxyz(3) )   ! Normal vecs for RIGHT  face
+      real(kind=RP) :: nT( NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2) )   ! Normal vecs for TOP    face
+      real(kind=RP) :: nL( NDIM, 0:e % Nxyz(2), 0:e % Nxyz(3) )   ! Normal vecs for LEFT   face
+      real(kind=RP) :: xiAux  (4), Gvec_xi  (3)
+      real(kind=RP) :: etaAux (4), Gvec_eta (3)
+      real(kind=RP) :: zetaAux(4), Gvec_zeta(3)
+      real(kind=RP) :: a_plus, a_minus, temp
       !-------------------------------------------
-      
+!
+!     *******************
+!     Initial definitions
+!     *******************
+!
       nXi   = e % Nxyz(1) + 1
       nEta  = e % Nxyz(2) + 1
       EtaSpa  = NCONS*nXi
       ZetaSpa = NCONS*nXi*nEta
+      
+      a_plus  = 0.5_RP  ! Temp... TODO: read from ViscousDiscretization
+      a_minus = 0.5_RP  ! Temp... TODO: read from ViscousDiscretization
+      
+!     Get normal vectors in element indexing
+!     --------------------------------------      
+      call AnJac_GetNormalVec(fF, e % faceSide(EFRONT ), nF)
+      call AnJac_GetNormalVec(fB, e % faceSide(EBACK  ), nB)
+      call AnJac_GetNormalVec(fO, e % faceSide(EBOTTOM), nO)
+      call AnJac_GetNormalVec(fR, e % faceSide(ERIGHT ), nR)
+      call AnJac_GetNormalVec(fT, e % faceSide(ETOP   ), nT)
+      call AnJac_GetNormalVec(fL, e % faceSide(ELEFT  ), nL)
       
 !
 !     *********************
@@ -584,7 +618,7 @@ contains
             j = eq2 + i2*NCONS + j2*EtaSpa + k2*ZetaSpa ! column index (1-based)
             
             
-            MatrixEntry = &
+            MatEntry = &
             
 !           Volumetric contribution (inner fluxes)
 !           **************************************
@@ -601,7 +635,7 @@ contains
                             -   dfdq_le(eq1,eq2,j1,k1) * e % spAXi  % b(i1,LEFT  ) * e % spAXi  % v(i2,LEFT  ) * dj * dk ) & ! 6 Left
                                                                                        * e % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
             
-            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatrixEntry)
+            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntry)
             
          end do                ; end do                ; end do                ; end do
       end do                ; end do                ; end do                ; end do
@@ -653,58 +687,131 @@ contains
                i = eq1 + i1*NCONS + j1*EtaSpa + k1*ZetaSpa ! row index (1-based)
                j = eq2 + i2*NCONS + j2*EtaSpa + k2*ZetaSpa ! column index (1-based)
                
-               MatrixEntry = &
+!              Get Xi auxiliar terms
+!              ---------------------
+               xiAux   = 0._RP
+               if (dj*dk > 0.5_RP) then
+                  do r=0, e % Nxyz(1)
+                     
+                     temp = e % spAxi   % hatD(i1,r) * e % geom % invJacobian(r,j1,k1)
+                     
+                     Gvec_xi   = [dF_dgradQ(eq1,eq2,1,1,r,j1,k1), dF_dgradQ(eq1,eq2,2,1,r,j1,k1), dF_dgradQ(eq1,eq2,3,1,r,j1,k1)]
+                     
+                     xiAux(4)   = xiAux(4)   + temp * ( e % spAXi   % b(r,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * dot_product( Gvec_xi  , nL(:,j2,k2) ) &
+                                                       +e % spAXi   % b(r,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * dot_product( Gvec_xi  , nR(:,j2,k2) ) )
+                     temp = temp * e % spAxi   % hatD(r,i2)
+                     
+                     xiAux  (1:3) = xiAux  (1:3) + temp * Gvec_xi
+                  end do
+                  xiAux(4) = xiAux(4) * a_plus
+               end if
+               
+!              Get Eta auxiliar terms
+!              ----------------------
+               etaAux   = 0._RP
+               if (di*dk > 0.5_RP) then
+                  do r=0, e % Nxyz(2)
+                     
+                     temp = e % spAEta  % hatD(j1,r) * e % geom % invJacobian(i1,r,k1)
+                     
+                     Gvec_eta  = [dF_dgradQ(eq1,eq2,1,2,i1,r,k1), dF_dgradQ(eq1,eq2,2,2,i1,r,k1), dF_dgradQ(eq1,eq2,3,2,i1,r,k1)]
+                     
+                     etaAux(4)  = etaAux(4)  + temp * ( e % spAEta  % b(r,FRONT ) * e % spAEta  % v(j2,FRONT ) * dot_product( Gvec_eta , nF(:,i2,k2) ) &
+                                                       +e % spAEta  % b(r,BACK  ) * e % spAEta  % v(j2,BACK  ) * dot_product( Gvec_eta , nB(:,i2,k2) ) )
+                     temp = temp * e % spAEta  % hatD(r,j2)
+                     
+                     etaAux (1:3) = etaAux (1:3) + temp * Gvec_eta
+                  end do
+                  etaAux(4) = etaAux(4) * a_plus
+               end if
+               
+!              Get Zeta auxiliar terms
+!              -----------------------
+               zetaAux   = 0._RP
+               if (di*dj > 0.5_RP) then
+                  do r=0, e % Nxyz(3)
+                     
+                     temp = e % spAZeta % hatD(k1,r) * e % geom % invJacobian(i1,j1,r)
+                     
+                     Gvec_zeta = [dF_dgradQ(eq1,eq2,1,3,i1,j1,r), dF_dgradQ(eq1,eq2,2,3,i1,j1,r), dF_dgradQ(eq1,eq2,3,3,i1,j1,r)]
+                     
+                     zetaAux(4) = zetaAux(4) + temp * ( e % spAZeta % b(r,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * dot_product( Gvec_zeta, nO(:,i2,j2) ) &
+                                                       +e % spAZeta % b(r,TOP   ) * e % spAZeta % v(k2,TOP   ) * dot_product( Gvec_zeta, nT(:,i2,j2) ) )
+                     temp = temp * e % spAZeta % hatD(r,k2)
+                     
+                     zetaAux(1:3) = zetaAux(1:3) + temp * Gvec_zeta
+                  end do
+                  zetaAux(4) = zetaAux(4) * a_plus
+               end if
+               
+               Gvec_xi   = [dF_dgradQ(eq1,eq2,1,1,i2,j1,k1), dF_dgradQ(eq1,eq2,2,1,i2,j1,k1), dF_dgradQ(eq1,eq2,3,1,i2,j1,k1)]
+               Gvec_eta  = [dF_dgradQ(eq1,eq2,1,2,i1,j2,k1), dF_dgradQ(eq1,eq2,2,2,i1,j2,k1), dF_dgradQ(eq1,eq2,3,2,i1,j2,k1)]
+               Gvec_zeta = [dF_dgradQ(eq1,eq2,1,3,i1,j1,k2), dF_dgradQ(eq1,eq2,2,3,i1,j1,k2), dF_dgradQ(eq1,eq2,3,3,i1,j1,k2)]
+               
+               MatEntry = 0._RP
 !
 !              Volumetric contribution (inner fluxes)
 !              **************************************
 !                 Xi-component of the flux
-!                 -----------------------
-                + (- dF_dgradQ(eq1,eq2,1,i2,j2,k2,1) * e % spAxi   % hatG(i1,i2) * dj * dk                          &
-                   - dF_dgradQ(eq1,eq2,2,i2,j2,k2,1) * e % spAxi   % hatD(i1,i2) * e % spAEta  % D(j1,j2) * dk      &
-                   - dF_dgradQ(eq1,eq2,3,i2,j2,k2,1) * e % spAxi   % hatD(i1,i2) * e % spAZeta % D(k1,k2) * dj      &
+!                 ------------------------
+!                   Xi:
+               MatEntry = MatEntry + dj * dk * ( dot_product(xiAux  (1:3), e % geom % jGradXi  (:,i2,j2,k2) ) - xiAux(4) )
+               
+               MatEntry = MatEntry + e % spAXi   % hatD(i1,i2) * e % geom % invJacobian(i2,j1,k1) *                                       &
+!                   Eta:
+                  (+ dk *  (  e % spAEta  % hatD(j1,j2) * dot_product( Gvec_xi  , e % geom % jGradEta (:,i2,j2,k2) )                      &
+                            - a_plus * (  e % spAEta  % b(j1,FRONT ) * e % spAEta  % v(j2,FRONT ) * dot_product( Gvec_xi  , nF(:,i2,k2) ) &
+                                        + e % spAEta  % b(j1,BACK  ) * e % spAEta  % v(j2,BACK  ) * dot_product( Gvec_xi  , nB(:,i2,k2) ) &
+                                       )                                                                                                  &
+                           )                                                                                                              &
+!                   Zeta:
+                   + dj *  (  e % spAZeta % hatD(k1,k2) * dot_product( Gvec_xi  , e % geom % jGradZeta(:,i2,j2,k2) )                      &
+                            - a_plus * (  e % spAZeta % b(k1,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * dot_product( Gvec_xi  , nO(:,i2,j2) ) &
+                                        + e % spAZeta % b(k1,TOP   ) * e % spAZeta % v(k2,TOP   ) * dot_product( Gvec_xi  , nT(:,i2,j2) ) &
+                                       )                                                                                                  &
+                           )                                                                                                              &
+                  )
 !                 Eta-component of the flux
 !                 -------------------------
-                   - dF_dgradQ(eq1,eq2,1,i2,j2,k2,2) * e % spAEta  % hatD(j1,j2) * e % spAXi   % D(i1,i2) * dk      &
-                   - dF_dgradQ(eq1,eq2,2,i2,j2,k2,2) * e % spAEta  % hatG(j1,j2) * di * dk                          &
-                   - dF_dgradQ(eq1,eq2,3,i2,j2,k2,2) * e % spAEta  % hatD(j1,j2) * e % spAZeta % D(k1,k2) * di      &
+!                   Eta:
+               MatEntry = MatEntry + di * dk * ( dot_product(etaAux (1:3), e % geom % jGradEta (:,i2,j2,k2) ) - etaAux(4) )
+               
+               MatEntry = MatEntry + e % spAEta  % hatD(j1,j2) * e % geom % invJacobian(i1,j2,k1) *                                       &
+!                   Xi:
+                  (+ dk *  (  e % spAXi   % hatD(i1,i2) * dot_product( Gvec_eta , e % geom % jGradXi  (:,i2,j2,k2) )                      &
+                            - a_plus * (  e % spAXi   % b(i1,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * dot_product( Gvec_eta , nL(:,j2,k2) ) &
+                                        + e % spAXi   % b(i1,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * dot_product( Gvec_eta , nR(:,j2,k2) ) &
+                                       )                                                                                                  &
+                           )                                                                                                              &
+!                   Zeta:
+                   + di *  (  e % spAZeta % hatD(k1,k2) * dot_product( Gvec_eta , e % geom % jGradZeta(:,i2,j2,k2) )                      &
+                            - a_plus * (  e % spAZeta % b(k1,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * dot_product( Gvec_eta , nO(:,i2,j2) ) &
+                                        + e % spAZeta % b(k1,TOP   ) * e % spAZeta % v(k2,TOP   ) * dot_product( Gvec_eta , nT(:,i2,j2) ) &
+                                       )                                                                                                  &
+                           )                                                                                                              &
+                  )
 !                 Zeta-component of the flux
-!                 --------------------------
-                   - dF_dgradQ(eq1,eq2,1,i2,j2,k2,3) * e % spAZeta % hatD(k1,k2) * e % spAXi   % D(i1,i2) * dj      &
-                   - dF_dgradQ(eq1,eq2,2,i2,j2,k2,3) * e % spAZeta % hatD(k1,k2) * e % spAEta  % D(j1,j2) * di      &
-                   - dF_dgradQ(eq1,eq2,3,i2,j2,k2,3) * e % spAZeta % hatG(k1,k2) * di * dj                          &
-!
-!              Faces contribution (surface integrals from the inner equation)
-!              ***********************************************|**************
-!                 Front face                 _________________|
-!                 ----------                 |
-                   -   dfdGradQ_fr(eq1,eq2,1,1,i2,k2) * e % spAEta  % b(j1,FRONT ) * e % spAXi   % hatD(i1,i2) * e % spAEta  % v(j2,FRONT ) * dk   & ! Xi
-                   -   dfdGradQ_fr(eq1,eq2,2,1,i2,k2) * e % spAEta  % v(j2,FRONT ) * e % spAEta  % bd(j1,FRONT ) * di * dk                         & ! Eta
-                   -   dfdGradQ_fr(eq1,eq2,3,1,i2,k2) * e % spAEta  % b(j1,FRONT ) * e % spAZeta % hatD(k1,k2) * e % spAEta  % v(j2,FRONT ) * di   & ! Zeta
-!                 Back face
-!                 ---------
-                   -   dfdGradQ_ba(eq1,eq2,1,1,i2,k2) * e % spAEta  % b(j1,BACK  ) * e % spAXi   % hatD(i1,i2) * e % spAEta  % v(j2,BACK  ) * dk   & ! Xi
-                   -   dfdGradQ_ba(eq1,eq2,2,1,i2,k2) * e % spAEta  % v(j2,BACK  ) * e % spAEta  % bd(j1,BACK  ) * di * dk                         & ! Eta
-                   -   dfdGradQ_ba(eq1,eq2,3,1,i2,k2) * e % spAEta  % b(j1,BACK  ) * e % spAZeta % hatD(k1,k2) * e % spAEta  % v(j2,BACK  ) * di   & ! Zeta
-!                 Bottom face
-!                 -----------
-                   -   dfdGradQ_bo(eq1,eq2,1,1,i2,j2) * e % spAZeta % b(k1,BOTTOM) * e % spAXi   % hatD(i1,i2) * e % spAZeta % v(k2,BOTTOM) * dj   & ! Xi
-                   -   dfdGradQ_bo(eq1,eq2,2,1,i2,j2) * e % spAZeta % b(k1,BOTTOM) * e % spAEta  % hatD(j1,j2) * e % spAZeta % v(k2,BOTTOM) * di   & ! Eta
-                   -   dfdGradQ_bo(eq1,eq2,3,1,i2,j2) * e % spAZeta % v(k2,BOTTOM) * e % spAZeta % bd(k1,BOTTOM) * di * dj                         & ! Zeta
-!                 Top face
-!                 ---------
-                   -   dfdGradQ_to(eq1,eq2,1,1,i2,j2) * e % spAZeta % b(k1,TOP   ) * e % spAXi   % hatD(i1,i2) * e % spAZeta % v(k2,TOP   ) * dj   & ! Xi
-                   -   dfdGradQ_to(eq1,eq2,2,1,i2,j2) * e % spAZeta % b(k1,TOP   ) * e % spAEta  % hatD(j1,j2) * e % spAZeta % v(k2,TOP   ) * di   & ! Eta
-                   -   dfdGradQ_to(eq1,eq2,3,1,i2,j2) * e % spAZeta % v(k2,TOP   ) * e % spAZeta % bd(k1,TOP   ) * di * dj                         & ! Zeta
-!                 Right face
-!                 ----------
-                   -   dfdGradQ_ri(eq1,eq2,1,1,j2,k2) * e % spAXi   % v(i2,RIGHT ) * e % spAXi   % bd(i1,RIGHT ) * dj * dk                         & ! Xi
-                   -   dfdGradQ_ri(eq1,eq2,2,1,j2,k2) * e % spAXi   % b(i1,RIGHT ) * e % spAEta  % hatD(j1,j2) * e % spAXi   % v(i2,RIGHT ) * dk   & ! Eta
-                   -   dfdGradQ_ri(eq1,eq2,3,1,j2,k2) * e % spAXi   % b(i1,RIGHT ) * e % spAZeta % hatD(k1,k2) * e % spAXi   % v(i2,RIGHT ) * dj   & ! Zeta
-!                 Left face
-!                 ---------
-                   -   dfdGradQ_le(eq1,eq2,1,1,j2,k2) * e % spAXi   % v(i2,LEFT  ) * e % spAXi   % bd(i1,LEFT  ) * dj * dk                         & ! Xi
-                   -   dfdGradQ_le(eq1,eq2,2,1,j2,k2) * e % spAXi   % b(i1,LEFT  ) * e % spAEta  % hatD(j1,j2) * e % spAXi   % v(i2,LEFT  ) * dk   & ! Eta
-                   -   dfdGradQ_le(eq1,eq2,3,1,j2,k2) * e % spAXi   % b(i1,LEFT  ) * e % spAZeta % hatD(k1,k2) * e % spAXi   % v(i2,LEFT  ) * dj   & ! Zeta
+!                 -------------------------
+!                   Zeta:
+               MatEntry = MatEntry + di * dj * ( dot_product(zetaAux(1:3), e % geom % jGradZeta(:,i2,j2,k2) ) - zetaAux(4))
+               
+               MatEntry = MatEntry + e % spAZeta % hatD(k1,k2) * e % geom % invJacobian(i1,j1,k2) *                                       &
+!                   Xi:
+                  (+ dj *  (  e % spAXi   % hatD(i1,i2) * dot_product( Gvec_zeta, e % geom % jGradXi  (:,i2,j2,k2) )                      &
+                            - a_plus * (  e % spAXi   % b(i1,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * dot_product( Gvec_zeta, nL(:,j2,k2) ) &
+                                        + e % spAXi   % b(i1,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * dot_product( Gvec_zeta, nR(:,j2,k2) ) &
+                                       )                                                                                                  &
+                           )                                                                                                              &
+!                   Eta:
+                   + di *  (  e % spAEta  % hatD(j1,j2) * dot_product( Gvec_zeta, e % geom % jGradEta (:,i2,j2,k2) )                      &
+                            - a_plus * (  e % spAEta  % b(j1,FRONT ) * e % spAEta  % v(j2,FRONT ) * dot_product( Gvec_zeta, nF(:,i2,k2) ) &
+                                        + e % spAEta  % b(j1,BACK  ) * e % spAEta  % v(j2,BACK  ) * dot_product( Gvec_zeta, nB(:,i2,k2) ) &
+                                       )                                                                                                  &
+                           )                                                                                                              &
+                  )
+               
+               
+               MatEntry = MatEntry + ( &
 !
 !              Faces contribution (surface integrals from the outer equation) - PENALTY TERM IS BEING CONSIDERED IN THE INVISCID PART - TODO: Reorganize storage to put it explicitely in another place (needed for purely viscous equations)
 !              ***********************************************|**************
@@ -738,9 +845,11 @@ contains
                    +   dfdGradQ_le(eq1,eq2,1,2,j1,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAXi   % vd(i2,LEFT  ) * dj * dk                      & ! Xi
                    +   dfdGradQ_le(eq1,eq2,2,2,j1,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,LEFT  ) * dk   & ! Eta
                    +   dfdGradQ_le(eq1,eq2,3,2,j1,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,LEFT  ) * dj   & ! Zeta
-                                                                                ) * e % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
+                  )
                
-               call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatrixEntry)
+               MatEntry = MatEntry * e % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
+               
+               call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntry)
                
             end do                ; end do                ; end do                ; end do
          end do                ; end do                ; end do                ; end do
@@ -760,7 +869,6 @@ contains
 !           TODO: Add routine for p-nonconforming representations (block computation is more expensive and delta cycling is ruled out)
 !  -----------------------------------------------------------------------------------------------
    subroutine Local_GetOffDiagonalBlock(f,e_plus,e_minus,side,Matrix)
-      use FaceClass
       implicit none
       !-arguments----------------------------------------------------------------------
       type(Face), target, intent(in)    :: f       !<  Face connecting elements
@@ -963,31 +1071,31 @@ contains
                j = eq2 + i2*NCONS + j2*EtaSpa2 + k2*ZetaSpa2 ! column index (1-based)
                
                MatrixEntry = &
-!
-!              Faces contribution (surface integrals from the inner equation)
-!              ***********************************************|**************
-!                                                      _______|
-!                                                      |
-                 +(-   dfdGradQ(eq1,eq2,tanAx_plus(1) ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
-                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  )  &
-                     * spAtan1_plus  % hatD(faceInd_plus(1),faceInd_minus2plus(1))              &
-                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan2         & ! Tangent direction 1
+!~!
+!~!              Faces contribution (surface integrals from the inner equation)
+!~!              ***********************************************|**************
+!~!                                                      _______|
+!~!                                                      |
+!~                 +(-   dfdGradQ(eq1,eq2,tanAx_plus(1) ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
+!~                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  )  &
+!~                     * spAtan1_plus  % hatD(faceInd_plus(1),faceInd_minus2plus(1))              &
+!~                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan2         & ! Tangent direction 1
                      
-                   -   dfdGradQ(eq1,eq2, normAx_plus  ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
-                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus )  &
-                     * spAnorm_plus  % bd  (elInd_plus ( normAx_plus  ), normAxSide_plus  ) * dtan1 * dtan2 & ! Normal direction
+!~                   -   dfdGradQ(eq1,eq2, normAx_plus  ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
+!~                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus )  &
+!~                     * spAnorm_plus  % bd  (elInd_plus ( normAx_plus  ), normAxSide_plus  ) * dtan1 * dtan2 & ! Normal direction
                    
-                   -   dfdGradQ(eq1,eq2,tanAx_plus(2) ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
-                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  )  &
-                     * spAtan2_plus  % hatD(faceInd_plus(2),faceInd_minus2plus(2))              &
-                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan1         & ! Tangent direction 2
+!~                   -   dfdGradQ(eq1,eq2,tanAx_plus(2) ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
+!~                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  )  &
+!~                     * spAtan2_plus  % hatD(faceInd_plus(2),faceInd_minus2plus(2))              &
+!~                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan1         & ! Tangent direction 2
 !
 !              Faces contribution (surface integrals from the outer equation) - PENALTY TERM IS BEING CONSIDERED IN THE INVISCID PART - TODO: Reorganize storage to put it explicitely in another place (needed for purely viscous equations)
 !                 The tangent directions here are taken in the|reference frame of e⁻
 !              ***********************************************|*********************
 !                                                      _______|
 !                                                      |
-                   +   dfdGradQ(eq1,eq2,tanAx_minus(1),2,faceInd_plus(1),faceInd_plus(2)) &
+                 +(+   dfdGradQ(eq1,eq2,tanAx_minus(1),2,faceInd_plus(1),faceInd_plus(2)) &
                      * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  ) &
                      * spAtan1_minus % D   (faceInd_plus2minus(1),faceInd_minus(1)) &
                      * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan2_minus                  &  ! Tangent direction 1
@@ -1015,5 +1123,39 @@ contains
       nullify(spAnorm_plus, spAtan1_plus, spAtan2_plus, spAnorm_minus, spAtan1_minus, spAtan2_minus)
       
    end subroutine Local_GetOffDiagonalBlock
+   
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------------------------------------------------------
+!  AnJac_GetNormalVec: 
+!  Get normal vector for element indexing and scale with surface Jacobian
+!     (Only for p-conforming meshes)
+!  ----------------------------------------------------------------------
+   subroutine AnJac_GetNormalVec(f, faceSide, nEl) 
+      implicit none
+      !-arguments-----------------------------------------------------
+      type(Face)     , intent(in)    :: f
+      integer        , intent(in)    :: faceSide
+      real(kind=RP)  , intent(inout) :: nEl (:,0:,0:)
+      !-local-variables-----------------------------------------------
+      integer :: i,j, ii, jj
+      !---------------------------------------------------------------
+      
+      select case (faceSide)
+         case (LEFT)
+            do j = 0, f % Nf(2)   ; do i = 0, f % Nf(1)
+               nEl(:,i,j) = f % geom % normal(:,i,j) * f % geom % jacobian(i,j)
+            end do                        ; end do
+         case (RIGHT)
+            do j = 0, f % Nf(2)   ; do i = 0, f % Nf(1)
+               call leftIndexes2Right(i,j,f % Nf(1), f % Nf(2), f % rotation, ii, jj)
+               
+               nEl(1:NDIM,ii,jj) = - f % geom % normal (1:NDIM,i,j) * f % geom % jacobian(i,j)
+            end do                        ; end do
+      end select
+      
+   end subroutine AnJac_GetNormalVec   
+   
 #endif
 end module AnalyticalJacobian
