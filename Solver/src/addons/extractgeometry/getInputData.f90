@@ -6,7 +6,7 @@ module getInputData_MOD
    private
    public getInputData
 
-   public MeshFileKey, SolutionFileKey, GeometryKey, CubeLengthKey, CubeCenterKey, NPointsKey
+   public MeshFileKey, SolutionFileKey, ControlFileKey, GeometryKey, CubeLengthKey, CubeCenterKey, NPointsKey
 
    character(len=*), parameter   :: GEOMETRY_FLAG='--geometry='
    character(len=*), parameter   :: CUBELENGTH_FLAG='--cube-length='
@@ -15,6 +15,7 @@ module getInputData_MOD
 
    character(len=*), parameter   :: MeshFileKey     = "Mesh file"
    character(len=*), parameter   :: SolutionFileKey = "Solution file"
+   character(len=*), parameter   :: ControlFileKey  = "Control file"
    character(len=*), parameter   :: GeometryKey     = "Geometry"
    character(len=*), parameter   :: CubeLengthKey   = "Cube length"
    character(len=*), parameter   :: CubeCenterKey   = "Cube center"
@@ -40,9 +41,9 @@ module getInputData_MOD
 !
 !        Exit if not enough command arguments are present
 !        ----------------------------------------
-         if ( narg .lt. 2 ) then 
-            print*, "No mesh and/or solution files indicated."
-            print*, "Syntax is: horses.geometry meshfile.mesh solutionfile.hsol"
+         if ( narg .lt. 3 ) then 
+            print*, "No mesh, solution and/or control files indicated."
+            print*, "Syntax is: horses.geometry meshfile.mesh solutionfile.hsol ControlFile.control"
             errorMessage(STD_OUT)
             stop
          end if
@@ -57,9 +58,14 @@ module getInputData_MOD
          call get_command_argument(2,line)
          call controlVariables % addValueForKey(trim(line),SolutionFileKey)
 !
+!        Third argument is always the control file
+!        -----------------------------------------
+         call get_command_argument(3,line)
+         call controlVariables % addValueForKey(trim(line),ControlFileKey)
+!
 !        Get geometry flags 
 !        ------------------
-         do i = 3, narg
+         do i = 4, narg
             call get_command_argument(i, line)
 !
 !           Geometry

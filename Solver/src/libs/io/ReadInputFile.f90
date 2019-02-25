@@ -15,7 +15,7 @@
       private
       public controlFileName
 
-      public ReadControlFile, ReadOrderFile
+      public ReadControlFile, ReadOrderFile, AssignControlFileName
 
       character(len=LINE_LENGTH), protected    :: controlFileName
       
@@ -159,6 +159,13 @@
          close(UNIT=fd)
          
       end subroutine ReadOrderFile
+      
+      subroutine AssignControlFileName(fileName)
+         implicit none
+         character(len=*), intent(in) :: fileName
+         
+         ControlFileName = fileName
+      end subroutine AssignControlFileName
    
 end module FileReaders
       subroutine WriteDefaultControlFile

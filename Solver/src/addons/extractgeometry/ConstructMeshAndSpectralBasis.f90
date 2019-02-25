@@ -4,9 +4,9 @@
 !   @File:    ConstructMeshAndSpectralBasis.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Nov  1 19:56:53 2017
-!   @Last revision date: Fri Sep 14 16:39:56 2018
+!   @Last revision date: Mon Feb 25 16:07:47 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: cdbdfe6f5efd847979bb894c45aed80636cee950
+!   @Last revision commit: 17d60e4e57235a57aa406023ebe4c26157bc211a
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,16 +21,19 @@ module ConstructMeshAndSpectralBasis_MOD
    use HexMeshClass
    use SharedBCModule
    use FTValueDictionaryClass
+   use FileReaders               , only: AssignControlFileName
+   use InterpolationMatrices     , only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
 
    private
    public   ConstructMeshAndSpectralBasis
 
    contains
-      subroutine ConstructMeshAndSpectralBasis(meshFile, solutionFile, mesh, controlVariables)
+      subroutine ConstructMeshAndSpectralBasis(meshFile, solutionFile, ControlFile, mesh, controlVariables)
          use ReadMeshFile
          implicit none
          character(len=*),                intent(in)  :: meshFile
          character(len=*),                intent(in)  :: solutionFile
+         character(len=*),                intent(in)  :: ControlFile
          type(HexMesh),                   intent(out) :: mesh
          type(FTValueDictionary)                      :: controlVariables
          integer                                      :: no_of_elements
@@ -41,6 +44,9 @@ module ConstructMeshAndSpectralBasis_MOD
          logical                                      :: success
          real(kind=RP)                                :: time
          integer                                      :: NDOF
+         
+         call AssignControlFileName(controlFile)
+         
 !
 !        Get number of elements, node types, and Euler/NS
 !        ------------------------------------------------
@@ -83,7 +89,7 @@ module ConstructMeshAndSpectralBasis_MOD
          close(fid)
 !      
 !        ----------------------
-!        Allocate nodal storage      
+!        Allocate nodal storage and interpolation matrices
 !        ----------------------
 !
          call InitializeNodalStorage( nodeType, max(maxval(Nx), maxval(Ny), maxval(Nz)) )
@@ -101,6 +107,8 @@ module ConstructMeshAndSpectralBasis_MOD
                call NodalStorage(Nz(eID)) % Construct(nodeType, Nz(eID))
             end if
          end do
+         
+         call Initialize_InterpolationMatrices( max(maxval(Nx), maxval(Ny), maxval(Nz)))
 !
 !        --------------------------
 !        Construct shared BC module
@@ -125,6 +133,8 @@ module ConstructMeshAndSpectralBasis_MOD
 !     -------------
 !
       call mesh % LoadSolution(trim(solutionFile), iter, time)
+      
+      call Finalize_InterpolationMatrices
 
       end subroutine ConstructMeshAndSpectralBasis
 
