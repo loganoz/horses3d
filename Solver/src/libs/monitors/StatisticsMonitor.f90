@@ -4,6 +4,7 @@ module StatisticsMonitor
    use SMConstants
    use HexMeshClass
    use StorageClass
+   use Utilities, only: GreatestCommonDivisor
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -44,6 +45,7 @@ module StatisticsMonitor
       integer        :: state
       integer        :: sampling_interval
       integer        :: dump_interval
+      integer        :: reset_interval
       integer        :: starting_iteration
       real(kind=RP)  :: starting_time
       integer        :: no_of_samples
@@ -68,7 +70,7 @@ module StatisticsMonitor
          implicit none
          class(StatisticsMonitor_t)    :: self
          class(HexMesh)                :: mesh
-         integer, allocatable          :: Nsample, i0, Ndump
+         integer, allocatable          :: Nsample, i0, Ndump, Nreset
          real(kind=RP), allocatable    :: t0
          integer                       :: eID
          character(len=LINE_LENGTH)    :: paramFile
@@ -92,6 +94,8 @@ module StatisticsMonitor
          call readValueInRegion ( trim ( paramFile ) , "starting iteration" , i0      , "#define statistics" , "#end" )
          call readValueInRegion ( trim ( paramFile ) , "starting time"      , t0      , "#define statistics" , "#end" )
          call readValueInRegion ( trim ( paramFile ) , "dump interval"      , Ndump   , "#define statistics" , "#end" )
+         call readValueInRegion ( trim ( paramFile ) , "reset interval"     , Nreset  , "#define statistics" , "#end" )
+         
 !
 !        Check the input data
 !        --------------------
@@ -117,6 +121,17 @@ module StatisticsMonitor
          else                                      !
             self % dump_interval = huge(1)         ! 
          end if                                    !
+         
+         if ( allocated(Nreset) ) then                                        !
+            if (allocated(Ndump) ) then                                        !
+               self % dump_interval  = GreatestCommonDivisor(Nreset,Ndump)    !  Set huge by default
+            else                                                              !
+               self % dump_interval  = Nreset                                 !
+            end if                                                            !
+            self % reset_interval = Nreset                                    !
+         else                                                                 !
+            self % dump_interval = huge(1)                                    ! 
+         end if                                                               !
 !
 !        Initial state: waiting
 !        ----------------------
@@ -179,7 +194,7 @@ module StatisticsMonitor
 !
 !        Reset the statistics if requested
 !        ---------------------------------
-         if ( reset ) then
+         if ( reset .or. ( (mod(iter, self % reset_interval) == 0) .and. (iter > self % starting_iteration) ) ) then
             call mesh % ResetStatistics
             self % no_of_samples = 0
          end if
