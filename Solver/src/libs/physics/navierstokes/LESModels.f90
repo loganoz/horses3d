@@ -4,9 +4,9 @@
 !   @File:    LESModels.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:10 2018
-!   @Last revision date: Tue Feb 12 16:16:25 2019
+!   @Last revision date: Tue Feb 26 18:17:38 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 822273ecdeed19a671a81d0d29771b49c8e6ee70
+!   @Last revision commit: 2bf19fe8b635bd13e65827bd1023dd656a765b42
 !
 !//////////////////////////////////////////////////////
 !
@@ -30,7 +30,7 @@ module LESModels
    implicit none
 
    private
-   public LESModel, InitializeLESModel
+   public LESModel, InitializeLESModel, Smagorinsky_t
 
    real(kind=RP), parameter      :: K_VONKARMAN = 0.4_RP
    character(len=*), parameter   :: LESIntensityKey = "les model intensity"
@@ -48,13 +48,14 @@ module LESModels
    end type LESModel_t
 
    type, extends(LESModel_t)  :: Smagorinsky_t
-      real(kind=RP), private  :: CS
+      real(kind=RP)  :: CS
       contains
          procedure          :: Initialize         => Smagorinsky_Initialize
          procedure, private :: ComputeSGSTensor3D => Smagorinsky_ComputeSGSTensor3D
          procedure, private :: ComputeSGSTensor2D => Smagorinsky_ComputeSGSTensor2D
          procedure, private :: ComputeSGSTensor0D => Smagorinsky_ComputeSGSTensor0D
          procedure          :: Describe           => Smagorinsky_Describe
+         procedure          :: ComputeViscosity   => Smagorinsky_ComputeViscosity
    end type Smagorinsky_t
 
    class(LESModel_t), allocatable   :: LESModel
@@ -417,7 +418,56 @@ module LESModels
          qSGS(3) = -kappa * nablaT(IZ)
 
       end subroutine Smagorinsky_ComputeSGSTensor0D
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine Smagorinsky_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, muSmag)
+         implicit none
+         !-arguments---------------------------------------------
+         class(Smagorinsky_t), intent(in)    :: this
+         real(kind=RP), intent(in)           :: delta
+         real(kind=RP), intent(in)           :: dWall
+         real(kind=RP), intent(in)           :: Q(NCONS)
+         real(kind=RP), intent(in)           :: Q_x(NGRAD)
+         real(kind=RP), intent(in)           :: Q_y(NGRAD)
+         real(kind=RP), intent(in)           :: Q_z(NGRAD)
+         real(kind=RP), intent(out)          :: muSmag
+         !-local-variables---------------------------------------
+         real(kind=RP)  :: S(NDIM, NDIM)
+         real(kind=RP)  :: normS, kappa, LS
+         real(kind=RP)  :: U_x(NDIM)
+         real(kind=RP)  :: U_y(NDIM)
+         real(kind=RP)  :: U_z(NDIM)
+         !-------------------------------------------------------
+         
+         call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         
+!
+!        Compute symmetric part of the deformation tensor
+!        ------------------------------------------------
+         S(:,1) = U_x(1:3)
+         S(:,2) = U_y(1:3)
+         S(:,3) = U_z(1:3)
+         
+         S(1,:) = S(1,:) + U_x(1:3)
+         S(2,:) = S(2,:) + U_y(1:3)
+         S(3,:) = S(3,:) + U_z(1:3)
+         
+         S = 0.5_RP * S
+!
+!        Compute the norm of S
+!        --------------------- 
+         normS = sqrt( 2.0_RP * sum(S*S) )
+!
+!        Compute viscosity and thermal conductivity
+!        ------------------------------------------
+         LS = min(this % CS * delta, dWall * K_VONKARMAN)
+         muSmag = POW2(LS) * normS
+         
+      end subroutine Smagorinsky_ComputeViscosity
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       subroutine Smagorinsky_Describe(self)
          implicit none
          class(Smagorinsky_t),   intent(in)  :: self

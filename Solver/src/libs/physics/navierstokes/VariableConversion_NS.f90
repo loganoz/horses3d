@@ -4,9 +4,9 @@
 !   @File:    VariableConversion_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:34 2018
-!   @Last revision date: Tue Feb 12 16:16:25 2019
+!   @Last revision date: Tue Feb 26 18:17:39 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 822273ecdeed19a671a81d0d29771b49c8e6ee70
+!   @Last revision commit: 2bf19fe8b635bd13e65827bd1023dd656a765b42
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,7 +21,7 @@ module VariableConversion_NS
    public   Pressure, Temperature, NSGradientValuesForQ
    public   NSGradientValuesForQ_0D, NSGradientValuesForQ_3D
    public   getPrimitiveVariables, getEntropyVariables
-   public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient
+   public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient, getConservativeGradients
 
    interface NSGradientValuesForQ
        module procedure NSGradientValuesForQ_0D , NSGradientValuesForQ_3D
@@ -33,6 +33,10 @@ module VariableConversion_NS
    
    interface getTemperatureGradient
       module procedure getTemperatureGradient_0D, getTemperatureGradient_2D, getTemperatureGradient_3D
+   end interface
+   
+   interface getConservativeGradients
+      module procedure getConservativeGradients_0D, getConservativeGradients_2D, getConservativeGradients_3D
    end interface
    
    contains
@@ -406,4 +410,87 @@ module VariableConversion_NS
          end do       ; end do       ; end do
          
       end subroutine getTemperatureGradient_3D
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -----------------------------------------------------------------------
+!     Routines to get the conservative gradients from the primitive gradients
+!        ( \nabla \rho must already be in Q_x(1), Q_y(1), Q_z(1) )
+!     -----------------------------------------------------------------------
+!
+!     ---
+!     0D:
+!     ---
+      pure subroutine getConservativeGradients_0D(Q,U_x,U_y,U_z,nablaT,Q_x,Q_y,Q_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         real(kind=RP), intent(in)     :: Q(NCONS)
+         real(kind=RP), intent(in)     :: U_x(NDIM), U_y(NDIM), U_z(NDIM)
+         real(kind=RP), intent(in)     :: nablaT(NDIM)
+         real(kind=RP), intent(inout)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
+         !-local-variables---------------------------------------------
+         real(kind=RP) :: u(NDIM), invRho, cons
+         !-------------------------------------------------------------
+         
+         u = Q(IRHOU:IRHOW) / Q(IRHO)
+         invRho  = 1._RP / Q(IRHO)
+         cons = Q(IRHO) / (thermodynamics % gammaMinus1*dimensionless % gammaM2)
+         
+         Q_x(IRHOU:IRHOW) = Q(IRHO) * U_x(1:NDIM) + u(1:NDIM) * Q_x(IRHO)
+         Q_y(IRHOU:IRHOW) = Q(IRHO) * U_y(1:NDIM) + u(1:NDIM) * Q_y(IRHO)
+         Q_z(IRHOU:IRHOW) = Q(IRHO) * U_z(1:NDIM) + u(1:NDIM) * Q_z(IRHO)
+         
+         Q_x(IRHOE) = cons * nablaT(IX) + Q(IRHOE) * invRho * Q_x(IRHO) + Q(IRHOU) * U_x(IX) + Q(IRHOV) * U_x(IY) + Q(IRHOV) * U_x(IZ)
+         Q_y(IRHOE) = cons * nablaT(IY) + Q(IRHOE) * invRho * Q_y(IRHO) + Q(IRHOU) * U_y(IX) + Q(IRHOV) * U_y(IY) + Q(IRHOV) * U_y(IZ)
+         Q_z(IRHOE) = cons * nablaT(IZ) + Q(IRHOE) * invRho * Q_z(IRHO) + Q(IRHOU) * U_z(IX) + Q(IRHOV) * U_z(IY) + Q(IRHOV) * U_z(IZ)
+         
+      end subroutine getConservativeGradients_0D
+!     ---
+!     2D:
+!     ---
+      pure subroutine getConservativeGradients_2D(N,Q,U_x,U_y,U_z,nablaT,Q_x,Q_y,Q_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         integer      , intent(in)     :: N     (2)
+         real(kind=RP), intent(in)     :: Q     (NCONS, 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_x   (NDIM , 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_y   (NDIM , 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: U_z   (NDIM , 0:N(1), 0:N(2))
+         real(kind=RP), intent(in)     :: nablaT(NDIM , 0:N(1), 0:N(2))
+         real(kind=RP), intent(inout)  :: Q_x   (NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(inout)  :: Q_y   (NGRAD, 0:N(1), 0:N(2))
+         real(kind=RP), intent(inout)  :: Q_z   (NGRAD, 0:N(1), 0:N(2))
+         !-local-variables---------------------------------------------
+         integer :: i,j
+         !-------------------------------------------------------------
+         
+         do j=0, N(2) ; do i=0, N(1)
+            call getConservativeGradients_0D(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j),nablaT(:,i,j),Q_x(:,i,j),Q_y(:,i,j),Q_z(:,i,j))
+         end do       ; end do
+         
+      end subroutine getConservativeGradients_2D
+!     ---
+!     3D:
+!     ---
+      pure subroutine getConservativeGradients_3D(N,Q,U_x,U_y,U_z,nablaT,Q_x,Q_y,Q_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         integer      , intent(in)     :: N     (3)
+         real(kind=RP), intent(in)     :: Q     (NCONS, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: U_x   (NDIM , 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: U_y   (NDIM , 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: U_z   (NDIM , 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(in)     :: nablaT(NDIM , 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(inout)  :: Q_x   (NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(inout)  :: Q_y   (NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP), intent(inout)  :: Q_z   (NGRAD, 0:N(1), 0:N(2), 0:N(3))
+         !-local-variables---------------------------------------------
+         integer :: i,j, k
+         !-------------------------------------------------------------
+         
+         do k=0, N(3) ; do j=0, N(2) ; do i=0, N(1)
+            call getConservativeGradients_0D(Q(:,i,j,k),U_x(:,i,j,k),U_y(:,i,j,k),U_z(:,i,j,k),nablaT(:,i,j,k),Q_x(:,i,j,k),Q_y(:,i,j,k),Q_z(:,i,j,k))
+         end do       ; end do       ; end do
+         
+      end subroutine getConservativeGradients_3D
 end module VariableConversion_NS

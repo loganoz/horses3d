@@ -4,9 +4,9 @@
 !   @File:    SVV.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Jan  6 11:47:48 2018
-!   @Last revision date: Wed Aug  1 15:48:17 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
+!   @Last revision date: Tue Feb 26 18:17:37 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 2bf19fe8b635bd13e65827bd1023dd656a765b42
 !
 !//////////////////////////////////////////////////////
 !
@@ -23,6 +23,10 @@ module SpectralVanishingViscosity
    use NodalStorageClass
    use GaussQuadrature
    use FluidData
+   use MPI_Process_Info             , only: MPI_Process
+   use Headers                      , only: Subsection_Header
+   use LESModels                    , only: Smagorinsky_t
+   use Utilities                    , only: toLower
    implicit none
 
    private
@@ -41,16 +45,20 @@ module SpectralVanishingViscosity
 
    type  SVV_t
       logical                :: enabled
+      logical                :: muIsSmagorinsky = .FALSE.
       real(kind=RP)          :: muSVV
-      real(kind=RP)          :: Ncut
+      real(kind=RP)          :: Psvv
       type(FilterMatrices_t) :: filters(0:Nmax)
       contains
          procedure      :: ConstructFilter    => SVV_ConstructFilter
          procedure      :: ComputeInnerFluxes => SVV_ComputeInnerFluxes
          procedure      :: RiemannSolver      => SVV_RiemannSolver
+         procedure      :: describe           => SVV_Describe
+         procedure      :: destruct           => SVV_destruct
    end type SVV_t
 
    type(SVV_t), protected    :: SVV
+   type(Smagorinsky_t)       :: Smagorinsky
 !
 !  ========
    contains
@@ -59,8 +67,6 @@ module SpectralVanishingViscosity
       subroutine InitializeSVV(self, controlVariables, mesh)
          use FTValueDictionaryClass
          use mainKeywordsModule
-         use Headers
-         use MPI_Process_Info
          use PhysicsStorage
          implicit none
          class(SVV_t)                          :: self
@@ -72,6 +78,7 @@ module SpectralVanishingViscosity
 !        ---------------
 !
          integer     :: eID
+         character(len=LINE_LENGTH) :: mu
 !
 !        -------------------------
 !        Check if SVV is requested
@@ -98,7 +105,17 @@ module SpectralVanishingViscosity
 !        ---------------------
 !
          if ( controlVariables % containsKey(SVV_MU_KEY) ) then
-            self % muSVV = controlVariables % doublePrecisionValueForKey(SVV_MU_KEY)
+            
+            mu = trim(controlVariables % StringValueForKey(SVV_MU_KEY,LINE_LENGTH) )
+            call ToLower(mu)
+            
+            select case ( mu )
+               case ('smagorinsky')
+                  self % muIsSmagorinsky = .TRUE.
+                  call Smagorinsky % Initialize (controlVariables)
+               case default
+                  self % muSVV = controlVariables % doublePrecisionValueForKey(SVV_MU_KEY)
+            end select
 
          else
             self % muSVV = 0.1_RP
@@ -110,20 +127,18 @@ module SpectralVanishingViscosity
 !        -------------------------
 !
          if ( controlVariables % containsKey(SVV_CUTOFF_KEY) ) then
-            self % Ncut = controlVariables % doublePrecisionValueForKey(SVV_CUTOFF_KEY)
+            
+            
+            self % Psvv = controlVariables % doublePrecisionValueForKey(SVV_CUTOFF_KEY)
 
          else
-            self % Ncut = 1.0_RP
+            self % Psvv = 1.0_RP
 
          end if
 !
 !        Display the configuration
 !        -------------------------
-         if (MPI_Process % isRoot) write(STD_OUT,'(/)')
-         call Subsection_Header("Spectral vanishing viscosity (SVV)")
-
-         write(STD_OUT,'(30X,A,A30,F10.3)') "->","viscosity: ", self % muSVV
-         write(STD_OUT,'(30X,A,A30,F10.3)') "->","filter cutoff: ", self % Ncut
+         call self % describe
 !
 !        Construct the filters
 !        ---------------------
@@ -136,6 +151,28 @@ module SpectralVanishingViscosity
          end do
 
       end subroutine InitializeSVV
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine SVV_Describe(this)
+         implicit none
+         !-arguments----------------------------------------
+         class(SVV_t), intent (in) :: this
+         !--------------------------------------------------
+         
+         if (.not. MPI_Process % isRoot) return
+         
+         write(STD_OUT,'(/)')
+         call Subsection_Header("Spectral vanishing viscosity (SVV)")
+         
+         if (this % muIsSmagorinsky) then
+            write(STD_OUT,'(30X,A,A30,A,F4.2,A)') "->","viscosity: ", "Smagorinsky (Cs = ", Smagorinsky % CS,  ")"
+         else
+            write(STD_OUT,'(30X,A,A30,F10.3)') "->","viscosity: ", this % muSVV
+         end if
+         write(STD_OUT,'(30X,A,A30,F10.3)') "->","filter cutoff: ", this % Psvv
+         
+      end subroutine SVV_Describe
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -162,11 +199,32 @@ module SpectralVanishingViscosity
          real(kind=RP)       :: beta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k, ii, jj, kk
-         real(kind=RP)       :: Q3D
+         real(kind=RP)       :: Q3D, delta
 !
+!        -------------------------
 !        Compute the SVV viscosity
 !        -------------------------
-         mu    = self % muSVV !/ maxval(e % Nxyz+1)
+!
+         if (self % muIsSmagorinsky) then
+!
+!           (1+Psvv) * muSmag
+!           -----------------
+            delta = (e % geom % Volume / product(e % Nxyz + 1) ) ** (1._RP / 3._RP)
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               call Smagorinsky % ComputeViscosity ( delta, e % geom % dWall(i,j,k), e % storage % Q  (:,i,j,k) &
+                                                                                   , e % storage % U_x(:,i,j,k) &
+                                                                                   , e % storage % U_y(:,i,j,k) &
+                                                                                   , e % storage % U_z(:,i,j,k) &
+                                                                                   , mu(i,j,k) )
+               mu(i,j,k) = mu(i,j,k) * (1._RP + self % Psvv)
+            end do                ; end do                ; end do
+         else
+!
+!           Fixed value
+!           -----------
+            mu    = self % muSVV !/ maxval(e % Nxyz+1)
+         end if
+
          beta  = 0.0_RP
          kappa = mu / ( thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Pr)
 !
@@ -247,10 +305,6 @@ module SpectralVanishingViscosity
          real(kind=RP)     :: mu(0:f % Nf(1), 0:f % Nf(2)), kappa(0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)     :: beta(0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)     :: delta, Q2D
-
-         mu    = self % muSVV !/ maxval(f % Nf+1)
-         beta  = 0.0_RP
-         kappa = mu / ( thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Pr)
 !
 !        Interface averages
 !        ------------------
@@ -258,6 +312,33 @@ module SpectralVanishingViscosity
          U_x = 0.5_RP * ( U_xLeft + U_xRight)
          U_y = 0.5_RP * ( U_yLeft + U_yRight)
          U_z = 0.5_RP * ( U_zLeft + U_zRight)
+!
+!        -------------------------
+!        Compute the SVV viscosity
+!        -------------------------
+!
+         if (self % muIsSmagorinsky) then
+!
+!           (1+Psvv) * muSmag
+!           -----------------
+            delta = sqrt(f % geom % surface / product(f % Nf + 1) )
+            do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+               call Smagorinsky % ComputeViscosity ( delta, f % geom % dWall(i,j), Q  (:,i,j) &
+                                                                                 , U_x(:,i,j) &
+                                                                                 , U_y(:,i,j) &
+                                                                                 , U_z(:,i,j) &
+                                                                                 , mu(i,j) )
+               mu(i,j) = mu(i,j) * (1._RP + self % Psvv)
+            end do                ; end do
+         else
+!
+!           Fixed value
+!           -----------
+            mu    = self % muSVV !/ maxval(f % Nf+1)
+         end if
+         
+         beta  = 0.0_RP
+         kappa = mu / ( thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Pr)
 !
 !        --------------------
 !        Filter the gradients
@@ -336,7 +417,7 @@ module SpectralVanishingViscosity
 !
 !        Get the filter coefficients
 !        ---------------------------
-         filterExp = self % Ncut !* sqrt( real(N, kind=RP) )
+         filterExp = self % Psvv !* sqrt( real(N, kind=RP) )
 
          do k = 0, N
             filterCoefficients(k) = (real(k, kind=RP) / N + 1.0e-12_RP) ** filterExp
@@ -353,9 +434,21 @@ module SpectralVanishingViscosity
          end do      ; end do       ; end do
 
          self % filters(N) % constructed = .true.
-print*, self % filters(N) % Q
-print*, filterCoefficients
 
       end subroutine SVV_constructFilter
+      
+      subroutine SVV_destruct(this)
+         implicit none
+         class(SVV_t) :: this
+         integer :: i
+         
+         do i = 0, Nmax
+            if ( this % filters(i) % constructed ) deallocate(this % filters(i) % Q)
+         end do
+         
+         !if (this % muIsSmagorinsky) call Smagorinsky % destruct
+         
+      end subroutine SVV_destruct
+      
 end module SpectralVanishingViscosity
 #endif
