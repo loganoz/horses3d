@@ -123,14 +123,14 @@ module StatisticsMonitor
          end if                                    !
          
          if ( allocated(Nreset) ) then                                        !
-            if (allocated(Ndump) ) then                                        !
+            if (allocated(Ndump) ) then                                       !
                self % dump_interval  = GreatestCommonDivisor(Nreset,Ndump)    !  Set huge by default
             else                                                              !
                self % dump_interval  = Nreset                                 !
             end if                                                            !
             self % reset_interval = Nreset                                    !
          else                                                                 !
-            self % dump_interval = huge(1)                                    ! 
+            self % reset_interval = huge(1)                                   ! 
          end if                                                               !
 !
 !        Initial state: waiting
