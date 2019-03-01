@@ -4,9 +4,9 @@
 !   @File:    LESModels.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:10 2018
-!   @Last revision date: Tue Feb 26 18:17:38 2019
+!   @Last revision date: Fri Mar  1 17:09:54 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 2bf19fe8b635bd13e65827bd1023dd656a765b42
+!   @Last revision commit: 4245128a42d06e792757abf99679a1878cda2a95
 !
 !//////////////////////////////////////////////////////
 !
@@ -261,7 +261,7 @@ module LESModels
 !           ------------------------------------------
             LS = min(self % CS * delta, dWall(i,j,k) * K_VONKARMAN)
             mu = POW2(LS) * normS
-            kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Pr)
+            kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
 !
 !           Remove the volumetric deformation tensor
 !           ----------------------------------------
@@ -333,7 +333,7 @@ module LESModels
 !           ------------------------------------------
             LS = min(self % CS * delta, dWall(i,j) * K_VONKARMAN)
             mu = POW2(LS) * normS
-            kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Pr)
+            kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
 !
 !           Remove the volumetric deformation tensor
 !           ----------------------------------------
@@ -401,7 +401,7 @@ module LESModels
 !        ------------------------------------------
          LS = min(self % CS * delta, dWall * K_VONKARMAN)
          mu = POW2(LS) * normS
-         kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Pr)
+         kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
 !
 !        Remove the volumetric deformation tensor
 !        ----------------------------------------

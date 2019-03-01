@@ -4,9 +4,9 @@
 !   @File:    FluidData_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:09 2018
-!   @Last revision date: Mon Jul  2 14:17:29 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
+!   @Last revision date: Fri Mar  1 17:09:53 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 4245128a42d06e792757abf99679a1878cda2a95
 !
 !//////////////////////////////////////////////////////
 !
@@ -64,7 +64,8 @@ module FluidData_NS
       real(kind=RP)        :: cp
       real(kind=RP)        :: cv
       real(kind=RP)        :: Re
-      real(kind=RP)        :: Pr
+      real(kind=RP)        :: Pr       ! Prandtl number
+      real(kind=RP)        :: Prt      ! Turbulent Prandtl number
       real(kind=RP)        :: Fr
       real(kind=RP)        :: mu
       real(kind=RP)        :: kappa
@@ -144,6 +145,7 @@ module FluidData_NS
          dimensionless % cv              = dimensionless_ % cv
          dimensionless % Re              = dimensionless_ % Re
          dimensionless % Pr              = dimensionless_ % Pr
+         dimensionless % Prt             = dimensionless_ % Prt
          dimensionless % Fr              = dimensionless_ % Fr
          dimensionless % mu              = dimensionless_ % mu
          dimensionless % kappa           = dimensionless_ % kappa

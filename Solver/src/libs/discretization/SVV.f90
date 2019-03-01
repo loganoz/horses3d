@@ -4,9 +4,9 @@
 !   @File:    SVV.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Jan  6 11:47:48 2018
-!   @Last revision date: Tue Feb 26 18:17:37 2019
+!   @Last revision date: Fri Mar  1 17:09:51 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 2bf19fe8b635bd13e65827bd1023dd656a765b42
+!   @Last revision commit: 4245128a42d06e792757abf99679a1878cda2a95
 !
 !//////////////////////////////////////////////////////
 !
@@ -226,7 +226,7 @@ module SpectralVanishingViscosity
          end if
 
          beta  = 0.0_RP
-         kappa = mu / ( thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Pr)
+         kappa = mu / ( thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
 !
 !        --------------------
 !        Filter the gradients
@@ -338,7 +338,7 @@ module SpectralVanishingViscosity
          end if
          
          beta  = 0.0_RP
-         kappa = mu / ( thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Pr)
+         kappa = mu / ( thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
 !
 !        --------------------
 !        Filter the gradients
