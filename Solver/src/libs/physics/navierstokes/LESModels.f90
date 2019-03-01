@@ -4,9 +4,9 @@
 !   @File:    LESModels.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:10 2018
-!   @Last revision date: Fri Mar  1 17:09:54 2019
+!   @Last revision date: Fri Mar  1 18:05:50 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 4245128a42d06e792757abf99679a1878cda2a95
+!   @Last revision commit: d13e4e998f78b047822d2d35ecb53921b9406402
 !
 !//////////////////////////////////////////////////////
 !
@@ -31,19 +31,32 @@ module LESModels
 
    private
    public LESModel, InitializeLESModel, Smagorinsky_t
-
-   real(kind=RP), parameter      :: K_VONKARMAN = 0.4_RP
+   
+!  Keywords
+!  --------
    character(len=*), parameter   :: LESIntensityKey = "les model intensity"
-
+   character(len=*), parameter   :: WallModelKey    = "wall model"
+   
+!  Model parameters
+!  ----------------
+   real(kind=RP)   , parameter   :: K_VONKARMAN     = 0.4_RP
+   
+!  Wall models
+!  -----------
+   integer         , parameter   :: NO_WALLMODEL       = 0
+   integer         , parameter   :: LINEAR_WALLMODEL   = 1
+   
    type LESModel_t
       logical  :: active
-      logical  :: requiresWallDistances
+      logical  :: requiresWallDistances = .FALSE.
+      integer  :: WallModel
       contains
          procedure            :: Initialize         => LESModel_Initialize
          generic              :: ComputeSGSTensor   => ComputeSGSTensor0D, ComputeSGSTensor2D, ComputeSGSTensor3D
          procedure, private   :: ComputeSGSTensor3D => LESModel_ComputeSGSTensor3D
          procedure, private   :: ComputeSGSTensor2D => LESModel_ComputeSGSTensor2D
          procedure, private   :: ComputeSGSTensor0D => LESModel_ComputeSGSTensor0D
+         procedure, private   :: ComputeWallEffect  => LESModel_ComputeWallEffect
          procedure            :: Describe           => LESModel_Describe
    end type LESModel_t
 
@@ -72,6 +85,9 @@ module LESModels
 !
          character(len=LINE_LENGTH)    :: modelName
 
+!
+!        Select LES model
+!        ----------------
          if ( controlVariables % containsKey(LESMODEL_KEY) ) then
             modelName = controlVariables % stringValueForKey(LESMODEL_KEY, LINE_LENGTH)
             call toLower(modelName)
@@ -99,7 +115,45 @@ module LESModels
          end if
 
          call model % Initialize(controlVariables)
+         
+!        Select wall model
+!        -----------------
+         if ( controlVariables % containsKey(WallModelKey) ) then
+            modelName = controlVariables % stringValueForKey(WallModelKey, LINE_LENGTH)
+            call toLower(modelName)
+
+            select case (trim(modelName))
+            case ("none")
+               model % WallModel = NO_WALLMODEL
+
+            case ("linear")
+               model % WallModel             = LINEAR_WALLMODEL
+               model % requiresWallDistances = .true.
+
+            case default
+               write(STD_OUT,'(A,A,A)') "Wall model ",trim(modelName), " is not implemented."
+               print*, "Available options are:"
+               print*, "   * Linear (default)"
+               print*, "   * None"
+               errorMessage(STD_OUT)
+               stop
+
+            end select
+            
+         else
+            model % WallModel = LINEAR_WALLMODEL
+         end if
+         
+!        Describe
+!        --------
          call model % Describe
+         
+         select case (model % WallModel)
+            case(LINEAR_WALLMODEL)
+               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "linear"
+            case(NO_WALLMODEL)
+               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "none"
+         end select
 
       end subroutine InitializeLESModel
 !
@@ -116,7 +170,6 @@ module LESModels
          class(FTValueDictionary),  intent(in) :: controlVariables
 
          self % active                = .false.
-         self % requiresWallDistances = .false.
 
       end subroutine LESModel_Initialize
 
@@ -172,7 +225,20 @@ module LESModels
          qSGS= 0.0_RP
 
       end subroutine LESModel_ComputeSGSTensor0D
-
+      
+      pure real(kind=RP) function LESModel_ComputeWallEffect (self,LS,dWall)
+         implicit none
+         class(LESModel_t), intent(in) :: self
+         real(kind=RP)    , intent(in) :: LS
+         real(kind=RP)    , intent(in) :: dWall
+         
+         select case (self % WallModel)
+            case (LINEAR_WALLMODEL)
+               LESModel_ComputeWallEffect = min(LS, dWall * K_VONKARMAN)
+         end select
+         
+      end function LESModel_ComputeWallEffect
+      
       subroutine LESModel_Describe(self)
          implicit none
          class(LESModel_t),   intent(in)  :: self
@@ -197,7 +263,6 @@ module LESModels
 !        ---------------
 !
          self % active                = .true.
-         self % requiresWallDistances = .true.
 
          if ( controlVariables % containsKey(LESIntensityKey) ) then
             self % CS = controlVariables % doublePrecisionValueForKey(LESIntensityKey)
@@ -259,7 +324,9 @@ module LESModels
 !
 !           Compute viscosity and thermal conductivity
 !           ------------------------------------------
-            LS = min(self % CS * delta, dWall(i,j,k) * K_VONKARMAN)
+            LS = self % CS * delta
+            LS = self % ComputeWallEffect(LS,dWall(i,j,k))
+            
             mu = POW2(LS) * normS
             kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
 !
@@ -332,6 +399,8 @@ module LESModels
 !           Compute viscosity and thermal conductivity
 !           ------------------------------------------
             LS = min(self % CS * delta, dWall(i,j) * K_VONKARMAN)
+            LS = self % ComputeWallEffect(LS,dWall(i,j))
+            
             mu = POW2(LS) * normS
             kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
 !
@@ -400,6 +469,8 @@ module LESModels
 !        Compute viscosity and thermal conductivity
 !        ------------------------------------------
          LS = min(self % CS * delta, dWall * K_VONKARMAN)
+         LS = self % ComputeWallEffect(LS,dWall)
+         
          mu = POW2(LS) * normS
          kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
 !
